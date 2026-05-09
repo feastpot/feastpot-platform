@@ -1,0 +1,65 @@
+You are an expert NestJS and Stripe engineer. Build the Payments and Payouts modules for Feastpot.
+
+MODULE 1: apps/api/src/modules/payments
+
+ENDPOINTS:
+GET  /v1/payments               — list payment events (finance/admin)
+POST /v1/payments/refunds       — initiate refund (support/finance)
+POST /v1/webhooks/stripe        — Stripe webhook receiver (public, no auth)
+
+CREATE FILES:
+
+1. payments.service.ts:
+capturePayment(orderId): call stripe.paymentIntents.capture(piId), create Payment row {type: capture, status: succeeded}
+createRefund(dto: CreateRefundDto, authorisedByUserId):
+- Amounts > £50 require role=finance or role=admin (check in controller)
+- Call stripe.refunds.create({ payment_intent: piId, amount: dto.amountPence })
+- Create Payment row {type: refund, amount: negative pence, stripeRefundId}
+- Calculate commission reversal: refundedCommission = Math.round(dto.amountPence * vendor.commissionRatePct / 100)
+- Record commission reversal for next payout batch
+- Enqueue notifications: customer (refund issued), vendor (refund deducted from payout)
+
+2. stripe-webhook.controller.ts:
+- Route: POST /v1/webhooks/stripe — decorated with @Public()
+- Validates Stripe-Signature header using stripe.webhooks.constructEvent(rawBody, signature, webhookSecret)
+- Uses @RawBody() or express rawBody middleware to get the raw request body
+- Idempotency: check processed_webhook_events table for stripe event ID before processing
+- Handle these events:
+  payment_intent.succeeded: update order status, capture funds
+  payment_intent.payment_failed: update order status to cancelled
+  transfer.created: update payout row stripeTransferId
+  refund.updated: update payment row status
+- Returns 200 immediately, processes async via BullMQ
+
+3. processed-webhook-events.model: simple table { id, stripeEventId (unique), processedAt }
+
+MODULE 2: apps/api/src/modules/payouts
+
+ENDPOINTS:
+GET   /v1/payouts              — list payouts (finance/vendor, scoped)
+GET   /v1/payouts/:id         — get payout detail
+POST  /v1/payouts/:id/approve — approve for transfer (finance only)
+PATCH /v1/payouts/:id/hold    — place hold (finance/admin)
+
+CRON JOB: payout-batch.processor.ts (BullMQ processor, runs Monday 02:00 UTC):
+1. Find all delivered orders in the prior Mon-Sun window not yet in a payout batch
+2. Group by vendorId
+3. For each vendor: sum grossPence, calculate commissionPence, sum refundDeductionsPence
+4. Create Payout row for each vendor with status=draft, netPence = gross - commission - refunds
+5. Flag any vendor with open dispute holds: set status=held, holdReason
+6. Send notification to finance admin: "Weekly payout batch ready for review"
+
+payouts.service.ts:
+approvePayout(payoutId, financeAdminId):
+- Verify status=draft
+- Call stripe.transfers.create({ amount: payout.netPence, currency: 'gbp', destination: vendor.stripeAccountId })
+- Update payout: status=transferred, stripeTransferId, transferredAt
+- Send vendor notification with payout statement
+holdPayout(payoutId, holdReason, userId):
+- Update status=held, holdReason
+- Notify vendor
+
+Register the payout-batch cron in a BullMQ scheduler:
+scheduler.add('payout-batch', { repeat: { cron: '0 2 * * 1' }, jobId: 'weekly-payout' })
+
+Output all file contents in full. Include full TypeScript types throughout.

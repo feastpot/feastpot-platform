@@ -5,6 +5,7 @@ import { ThrottlerModule } from '@nestjs/throttler';
 
 import { HealthController } from './health/health.controller';
 import { PrismaModule } from './prisma/prisma.module';
+import { QueuesModule } from './queues/queues.module';
 
 import { AuthModule } from './auth/auth.module';
 import { CatalogueModule } from './modules/catalogue/catalogue.module';
@@ -46,6 +47,7 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
       },
     }),
     PrismaModule,
+    QueuesModule,
     AuthModule,
     UsersModule,
     VendorsModule,

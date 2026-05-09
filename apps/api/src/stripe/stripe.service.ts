@@ -38,8 +38,24 @@ export class StripeService {
     return this.stripe.paymentIntents.cancel(paymentIntentId, reason ? { cancellation_reason: reason } : undefined);
   }
 
-  refund(paymentIntentId: string): Promise<Stripe.Refund> {
-    return this.stripe.refunds.create({ payment_intent: paymentIntentId });
+  refund(paymentIntentId: string, amountPence?: number): Promise<Stripe.Refund> {
+    return this.stripe.refunds.create({
+      payment_intent: paymentIntentId,
+      ...(amountPence !== undefined ? { amount: amountPence } : {}),
+    });
+  }
+
+  createTransfer(args: { amountPence: number; destinationAccountId: string; payoutId: string }): Promise<Stripe.Transfer> {
+    return this.stripe.transfers.create({
+      amount: args.amountPence,
+      currency: 'gbp',
+      destination: args.destinationAccountId,
+      metadata: { payoutId: args.payoutId },
+    });
+  }
+
+  constructEvent(payload: Buffer | string, signature: string, secret: string): Stripe.Event {
+    return this.stripe.webhooks.constructEvent(payload, signature, secret);
   }
 }
 

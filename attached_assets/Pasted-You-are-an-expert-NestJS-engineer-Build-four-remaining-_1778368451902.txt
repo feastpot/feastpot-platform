@@ -1,0 +1,86 @@
+You are an expert NestJS engineer. Build four remaining domain modules for the Feastpot API.
+
+MODULE 1: Disputes (apps/api/src/modules/disputes)
+
+ENDPOINTS:
+GET  /v1/disputes                         — list (customer sees own, support/admin sees all)
+POST /v1/disputes                         — raise dispute (customer)
+GET  /v1/disputes/:id                     — get with evidence
+PATCH /v1/disputes/:id                    — update (support/admin)
+POST /v1/disputes/:id/vendor-response     — vendor submits response
+POST /v1/disputes/:id/escalate            — escalate to admin (support)
+POST /v1/disputes/:id/close              — close with resolution (support/admin)
+GET  /v1/disputes/:id/evidence           — list evidence
+POST /v1/disputes/:id/evidence           — upload evidence file (multipart)
+
+disputes.service.ts:
+- createDispute: enforce one dispute per order (catch unique constraint), set assignedToUserId to next available support agent (round-robin or first support user), severity auto-set: not_delivered=high, missing_items=medium, quality=low
+- updateDisputeStatus: enforce status machine: open→vendor_contacted→resolved/escalated→closed
+- closeDispute: triggers refund workflow based on resolutionType (full_refund/partial_refund→call PaymentService.createRefund)
+- uploadEvidence: upload to Supabase Storage "feastpot-documents" bucket at disputes/{disputeId}/{filename}
+- Write to audit_logs on every status change
+
+MODULE 2: Compliance (apps/api/src/modules/compliance)
+
+ENDPOINTS:
+GET  /v1/vendors/:vendorId/documents            — list documents
+POST /v1/vendors/:vendorId/documents            — upload document (vendor)
+PATCH /v1/vendors/:vendorId/documents/:id/verify — verify/reject (compliance admin)
+
+THREE CRON JOBS (BullMQ scheduled):
+compliance-scan (daily 06:00 UTC):
+- Find vendor_documents where expiryDate < now() + 30 days AND status=verified
+- For each: enqueue email notification to vendor "document expiring in X days"
+- If expiryDate < now() and no renewal: notify compliance admin
+
+review-trigger (runs every 15 minutes):
+- Find orders where deliveredAt < now() - 2 hours AND no review exists for orderId
+- For each: enqueue review request notification to customer
+
+badge-recalc (nightly 01:00 UTC):
+- For all live vendors: recalculate avgRating from published reviews
+- Recalculate reorderRatePct (customers who ordered 2+ times / total unique customers)
+- Set communityFavourite = (avgRating >= 4.3 AND reorderRatePct >= 40)
+
+MODULE 3: Reviews (apps/api/src/modules/reviews)
+
+ENDPOINTS:
+POST /v1/reviews                        — submit review (customer, must have delivered order)
+PATCH /v1/reviews/:id/moderation       — moderate (admin only)
+GET  /v1/reviews/moderation-queue      — held reviews (admin only)
+
+reviews.service.ts:
+- createReview: verify order is delivered and belongs to customer, enforce unique orderId
+- autoModerate: check reviewText against UK bad-words list (use 'bad-words' npm package), set moderationStatus: auto_approved (passes) or held (fails)
+- If auto_approved: immediately call recalculateVendorRating(vendorId)
+- moderateReview: admin approves/rejects, if approved call recalculateVendorRating
+- recalculateVendorRating: AVG(vendorRating) from all published reviews, update vendors.avgRating and reviewCount
+
+MODULE 4: Notifications (apps/api/src/modules/notifications)
+
+BullMQ Queue: "notifications" with concurrency 10
+
+notification.processor.ts — handles 4 job types:
+
+SEND_EMAIL (via Resend):
+import { Resend } from 'resend'
+const resend = new Resend(process.env.RESEND_API_KEY)
+await resend.emails.send({ from: 'Feastpot <noreply@feastpot.co.uk>', to, subject, html })
+Retry: 3 attempts, exponential backoff starting 5s
+
+SEND_WHATSAPP (via Meta Cloud API):
+POST to https://graph.facebook.com/v18.0/{phoneNumberId}/messages
+Use pre-approved message templates for: order_confirmation, order_accepted, order_dispatched, delivery_confirmed, review_request, payout_statement
+Each template sends structured data in the template parameters
+
+SEND_SMS (via Twilio — for OTP only, Supabase handles this):
+Stub only — Supabase Auth handles OTP SMS
+
+SEND_PUSH (via Web Push API):
+Use 'web-push' npm package with VAPID keys
+Fetch subscription from push_subscriptions table by userId
+Send push notification with title, body, icon, url
+
+Create notification template files for each event type with HTML email templates.
+
+Output all files in full. Run typecheck after each module.

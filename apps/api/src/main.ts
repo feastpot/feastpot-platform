@@ -19,7 +19,9 @@ const ALLOWED_ORIGINS = [
 ];
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(AppModule, { bufferLogs: false });
+  // rawBody: true preserves the raw request body so the Stripe webhook controller
+  // can verify signatures with stripe.webhooks.constructEvent().
+  const app = await NestFactory.create(AppModule, { bufferLogs: false, rawBody: true });
   const config = app.get(ConfigService);
   const env = config.get<string>('NODE_ENV') ?? 'development';
   const port = Number(config.get<string>('PORT') ?? process.env.PORT ?? 3001);
