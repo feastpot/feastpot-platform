@@ -4,6 +4,8 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
 
 import { HealthController } from './health/health.controller';
+// NotificationsModule is @Global(), so feature modules can inject NotificationsService
+// without re-importing it everywhere.
 import { PrismaModule } from './prisma/prisma.module';
 import { QueuesModule } from './queues/queues.module';
 

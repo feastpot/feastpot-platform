@@ -4,11 +4,13 @@ import { Global, Module } from '@nestjs/common';
 export const NOTIFICATIONS_QUEUE = 'notifications';
 export const STRIPE_WEBHOOK_QUEUE = 'stripe-webhooks';
 export const PAYOUTS_QUEUE = 'payouts';
+export const COMPLIANCE_QUEUE = 'compliance';
 
 const queues = BullModule.registerQueue(
-  { name: NOTIFICATIONS_QUEUE },
+  { name: NOTIFICATIONS_QUEUE, defaultJobOptions: { attempts: 3, backoff: { type: 'exponential', delay: 5_000 }, removeOnComplete: 1000, removeOnFail: 500 } },
   { name: STRIPE_WEBHOOK_QUEUE },
   { name: PAYOUTS_QUEUE },
+  { name: COMPLIANCE_QUEUE },
 );
 
 /**

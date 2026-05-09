@@ -38,11 +38,19 @@ export class StripeService {
     return this.stripe.paymentIntents.cancel(paymentIntentId, reason ? { cancellation_reason: reason } : undefined);
   }
 
-  refund(paymentIntentId: string, amountPence?: number): Promise<Stripe.Refund> {
-    return this.stripe.refunds.create({
-      payment_intent: paymentIntentId,
-      ...(amountPence !== undefined ? { amount: amountPence } : {}),
-    });
+  /**
+   * Create a refund. Pass `idempotencyKey` whenever the refund is triggered by
+   * a deterministic business event (dispute close, webhook replay, retry) so
+   * that a network/retry storm cannot double-refund the customer.
+   */
+  refund(paymentIntentId: string, amountPence?: number, idempotencyKey?: string): Promise<Stripe.Refund> {
+    return this.stripe.refunds.create(
+      {
+        payment_intent: paymentIntentId,
+        ...(amountPence !== undefined ? { amount: amountPence } : {}),
+      },
+      idempotencyKey ? { idempotencyKey } : undefined,
+    );
   }
 
   createTransfer(args: { amountPence: number; destinationAccountId: string; payoutId: string }): Promise<Stripe.Transfer> {

@@ -117,7 +117,17 @@ export class PaymentsService {
 
   // -------------------- refund --------------------
 
-  async createRefund(dto: CreateRefundDto, authorisedBy: { id: string; role: UserRole }) {
+  async createRefund(
+    dto: CreateRefundDto,
+    authorisedBy: { id: string; role: UserRole },
+    /**
+     * Deterministic idempotency key. When supplied, Stripe returns the SAME
+     * refund object for repeated calls with the same key, so retries (network
+     * blip, BullMQ retry, dispute-close re-attempt after DB write failure)
+     * cannot double-refund the customer.
+     */
+    idempotencyKey?: string,
+  ) {
     if (dto.amountPence >= LARGE_REFUND_THRESHOLD_PENCE && authorisedBy.role !== UserRole.finance && authorisedBy.role !== UserRole.admin) {
       throw new ForbiddenException({
         code: 'LARGE_REFUND_REQUIRES_FINANCE',
@@ -166,7 +176,14 @@ export class PaymentsService {
     }
 
     // Pass `amount` so Stripe refunds the requested amount, not the full PI.
-    const stripeRefund = await this.stripe.refund(lastPi.stripePaymentIntentId, dto.amountPence);
+    // Idempotency key (when provided) makes the Stripe call safe to retry.
+    const stripeRefund = await this.stripe.refund(lastPi.stripePaymentIntentId, dto.amountPence, idempotencyKey);
+
+    // Stripe is now the source of truth. If the DB writes below fail and the
+    // caller retries with the same `idempotencyKey`, Stripe will return this
+    // same refund (no double-debit) and the DB writes will succeed on retry.
+    // If the caller retries WITHOUT a key — e.g. another endpoint — the
+    // cumulative-refund guard above stops a duplicate refund being created.
 
     const isPartial = dto.amountPence < order.totalPence;
     const reversal = computeCommissionReversal(dto.amountPence, order.vendor.commissionBps);

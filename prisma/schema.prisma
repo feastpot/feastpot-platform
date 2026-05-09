@@ -227,6 +227,7 @@ model User {
   referralsGot   Referral[]      @relation("ReferralReferee")
   auditLogs      AuditLog[]
   eventEnquiries EventEnquiry[]
+  pushSubscriptions PushSubscription[]
 
   @@index([role])
   @@index([status])
@@ -274,6 +275,21 @@ model Address {
   @@map("addresses")
 }
 
+model PushSubscription {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  endpoint  String   @unique @db.VarChar(500)
+  p256dh    String   @db.VarChar(255)
+  auth      String   @db.VarChar(255)
+  userAgent String?  @map("user_agent") @db.VarChar(255)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("push_subscriptions")
+}
+
 model Notification {
   id        String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId    String              @map("user_id") @db.Uuid
@@ -305,6 +321,8 @@ model Vendor {
   status          VendorStatus @default(pending)
   rating          Float        @default(0)
   ratingCount     Int          @default(0) @map("rating_count")
+  reorderRatePct  Float        @default(0) @map("reorder_rate_pct")
+  communityFavourite Boolean   @default(false) @map("community_favourite")
   commissionBps   Int          @default(1500) @map("commission_bps")
   stripeAccountId String?      @map("stripe_account_id") @db.VarChar(100)
   payoutsEnabled  Boolean      @default(false) @map("payouts_enabled")
@@ -326,6 +344,7 @@ model Vendor {
   @@index([status])
   @@index([slug])
   @@index([rating])
+  @@index([communityFavourite])
   @@map("vendors")
 }
 
@@ -556,6 +575,9 @@ model Dispute {
   severity       Severity        @default(low)
   description    String
   status         DisputeStatus   @default(open)
+  assignedToId   String?         @map("assigned_to_id") @db.Uuid
+  vendorResponse String?         @map("vendor_response")
+  vendorRespondedAt DateTime?    @map("vendor_responded_at") @db.Timestamptz
   resolution     ResolutionType?
   resolutionNote String?         @map("resolution_note")
   resolvedById   String?         @map("resolved_by_id") @db.Uuid
@@ -567,8 +589,10 @@ model Dispute {
   raisedBy User               @relation(fields: [raisedById], references: [id])
   evidence DisputeEvidence[]
 
+  @@unique([orderId])
   @@index([orderId])
   @@index([raisedById])
+  @@index([assignedToId])
   @@index([status])
   @@index([severity])
   @@index([createdAt])
@@ -668,23 +692,28 @@ model Review {
   orderId    String   @map("order_id") @db.Uuid
   vendorId   String   @map("vendor_id") @db.Uuid
   customerId String   @map("customer_id") @db.Uuid
-  rating     Int
-  title      String?  @db.VarChar(255)
-  body       String?
-  isVerified Boolean  @default(true) @map("is_verified")
-  isHidden   Boolean  @default(false) @map("is_hidden")
-  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  rating           Int
+  title            String?          @db.VarChar(255)
+  body             String?
+  isVerified       Boolean          @default(true) @map("is_verified")
+  isHidden         Boolean          @default(false) @map("is_hidden")
+  moderationStatus ModerationStatus @default(auto_approved) @map("moderation_status")
+  moderatedById    String?          @map("moderated_by_id") @db.Uuid
+  moderatedAt      DateTime?        @map("moderated_at") @db.Timestamptz
+  createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime         @updatedAt @map("updated_at") @db.Timestamptz
 
   order    Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
   vendor   Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
   customer User   @relation(fields: [customerId], references: [id])
 
+  @@unique([orderId])
   @@unique([orderId, customerId])
   @@index([vendorId])
   @@index([customerId])
   @@index([rating])
   @@index([createdAt])
+  @@index([moderationStatus])
   @@map("reviews")
 }
 
