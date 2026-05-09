@@ -1,0 +1,17 @@
+{
+  "extends": "@feastpot/config/tsconfig/nestjs",
+  "compilerOptions": {
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "baseUrl": "./",
+    "incremental": true,
+    "noUncheckedIndexedAccess": false,
+    "strictPropertyInitialization": false,
+    "paths": {
+      "@feastpot/types": ["../../packages/types/src/index.ts"],
+      "@feastpot/types/*": ["../../packages/types/src/*"]
+    }
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "test", "**/*.spec.ts"]
+}

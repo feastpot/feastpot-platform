@@ -1,0 +1,75 @@
+You are an expert NestJS 11 engineer. In this Replit workspace, scaffold the complete NestJS API at apps/api.
+
+STEP 1 — Install NestJS CLI and create the app:
+Run: cd apps/api && npm init -y
+Then install:
+@nestjs/core @nestjs/common @nestjs/platform-express @nestjs/config @nestjs/swagger
+@prisma/client prisma
+class-validator class-transformer
+@supabase/supabase-js
+stripe
+@nestjs/bull bull ioredis
+reflect-metadata rxjs
+helmet compression
+@nestjs/throttler
+
+Dev dependencies:
+@nestjs/cli @nestjs/testing
+@types/node @types/express @types/bull
+typescript ts-node tsconfig-paths
+jest @types/jest ts-jest supertest @types/supertest
+
+STEP 2 — Create apps/api/package.json:
+{
+  "name": "@feastpot/api",
+  "version": "0.1.0",
+  "scripts": {
+    "build": "nest build",
+    "start": "node dist/main.js",
+    "dev": "nest start --watch",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --ext .ts",
+    "test": "jest --passWithNoTests",
+    "clean": "rm -rf dist"
+  }
+}
+
+STEP 3 — Create apps/api/src/main.ts:
+- Bootstrap NestJS app on port 3001 (process.env.PORT || 3001)
+- Enable CORS for origins: https://feastpot.co.uk, https://vendor.feastpot.co.uk, https://admin.feastpot.co.uk, http://localhost:3000
+- Add helmet() for security headers
+- Add global ValidationPipe with: whitelist: true, forbidNonWhitelisted: true, transform: true, transformOptions: { enableImplicitConversion: true }
+- Add global HttpExceptionFilter
+- Configure Swagger with DocumentBuilder: title "Feastpot API", version "1.0.0", bearerAuth
+- Swagger available at /api/docs in development only
+- Log startup message with port and environment
+
+STEP 4 — Create apps/api/src/app.module.ts:
+- Import ConfigModule.forRoot({ isGlobal: true, envFilePath: ['.env.local', '.env'] })
+- Import ThrottlerModule with ttl: 60, limit: 120
+- Import PrismaModule (global)
+- Import BullModule.forRootAsync using ConfigModule for Redis URL
+- Import all domain modules (placeholders): AuthModule, UsersModule, VendorsModule, CatalogueModule, OrdersModule, PaymentsModule, DisputesModule, ComplianceModule, PayoutsModule, ReviewsModule, NotificationsModule, WebhooksModule
+
+STEP 5 — Create apps/api/src/prisma/prisma.service.ts:
+- Extends PrismaClient
+- Implements OnModuleInit (connect) and OnModuleDestroy (disconnect)
+- Logs connection status
+Create apps/api/src/prisma/prisma.module.ts as a Global module exporting PrismaService
+
+STEP 6 — Create apps/api/src/health/health.controller.ts:
+- GET /health returns: { status: "ok", version: process.env.npm_package_version, timestamp: new Date().toISOString(), environment: process.env.NODE_ENV }
+- No auth required — used by Replit health check
+
+STEP 7 — Create apps/api/src/common/filters/http-exception.filter.ts:
+- Catches all HttpExceptions
+- Returns: { code: exception.name, message: exception.message, statusCode, timestamp, path }
+
+STEP 8 — Create apps/api/tsconfig.json extending @feastpot/config/tsconfig/nestjs
+
+STEP 9 — Run: npm run build to confirm compilation succeeds
+
+STEP 10 — Run: node dist/main.js and confirm the health endpoint responds:
+curl http://localhost:3001/health
+
+Output all file contents in full. Fix any TypeScript errors. Confirm the API starts cleanly.
