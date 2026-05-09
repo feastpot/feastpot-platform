@@ -1,0 +1,14 @@
+{
+  "name": "@feastpot/web",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "echo \"[web] build placeholder — add Next.js build later\"",
+    "dev": "echo \"[web] dev placeholder — add Next.js dev later\"",
+    "start": "echo \"[web] start placeholder\"",
+    "typecheck": "echo \"[web] no sources yet\"",
+    "lint": "echo \"[web] no sources yet\"",
+    "test": "echo \"[web] no tests yet\"",
+    "clean": "rm -rf .next .turbo"
+  }
+}

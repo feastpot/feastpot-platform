@@ -1,0 +1,48 @@
+You are an expert NestJS and Next.js Turborepo engineer. I am building Feastpot, a UK diaspora bulk food marketplace at feastpot.co.uk.
+
+Create the complete monorepo scaffold in this Replit workspace. Use npm workspaces and Turborepo.
+
+FOLDER STRUCTURE to create:
+apps/
+  api/          NestJS 11 backend
+  web/          Next.js 15 customer PWA
+  vendor/       Next.js 15 vendor portal
+  admin/        Next.js 15 admin panel
+packages/
+  types/        Shared Prisma types + Zod schemas
+  config/       Shared tsconfig + eslint config
+  ui/           Shared shadcn/ui component library
+prisma/         schema.prisma + migrations + seed.ts
+
+TASKS:
+1. Run: mkdir -p apps/api apps/web apps/vendor apps/admin packages/types packages/config packages/ui prisma
+
+2. Create root turbo.json with these tasks: build, dev, start, typecheck, lint, test, test:e2e, db:generate, db:migrate, db:deploy, db:seed, db:validate, format, format:check, clean. Use "tasks" key (not "pipeline"). Set globalEnv for all Supabase, Stripe, Redis, Resend env vars. Set globalDependencies to tsconfig.json and turbo.json.
+
+3. Create root package.json with:
+   - name: "feastpot-platform"
+   - packageManager: "npm@10.8.2"
+   - engines: node >=22.0.0
+   - workspaces: ["apps/*", "packages/*"]
+   - scripts for dev, build, typecheck, lint, test, db:generate, db:migrate, db:deploy, db:seed, db:studio, db:validate, ci
+   - devDependencies: turbo@latest, typescript@^5.6, prisma@^5.22, @prisma/client@^5.22, eslint@^8, prettier@^3, husky@^9, lint-staged@^15, ts-node@^10, jest@^29, ts-jest@^29
+
+4. Create packages/config/tsconfig.base.json with strict mode, decorators enabled (for NestJS), path aliases for @feastpot/*
+
+5. Create packages/config/eslint-base.js with typescript-eslint rules
+
+6. Create root .prettierrc: singleQuote true, semi true, trailingComma all, printWidth 100
+
+7. Create .nvmrc with: 22
+
+8. Create .gitignore including: .env, .env.*, *.pem, *.key, node_modules, dist, .next, .turbo, coverage, prisma/.env
+
+9. Run: npm install
+
+10. Run: npx husky init && echo "npx lint-staged" > .husky/pre-commit
+
+11. Run: npx turbo --version to verify Turborepo is working
+
+12. Create a simple smoke test: run npx turbo run build --dry-run and confirm all packages are detected
+
+Output all file contents in full. Confirm the workspace is healthy at the end.

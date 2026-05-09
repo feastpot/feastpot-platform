@@ -1,0 +1,16 @@
+// Feastpot Prisma schema (initial scaffold)
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model HealthCheck {
+  id        String   @id @default(cuid())
+  status    String   @default("ok")
+  createdAt DateTime @default(now())
+}

@@ -1,0 +1,14 @@
+{
+  "name": "@feastpot/admin",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "echo \"[admin] build placeholder — add Next.js build later\"",
+    "dev": "echo \"[admin] dev placeholder\"",
+    "start": "echo \"[admin] start placeholder\"",
+    "typecheck": "echo \"[admin] no sources yet\"",
+    "lint": "echo \"[admin] no sources yet\"",
+    "test": "echo \"[admin] no tests yet\"",
+    "clean": "rm -rf .next .turbo"
+  }
+}

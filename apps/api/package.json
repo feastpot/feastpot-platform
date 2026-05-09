@@ -1,0 +1,14 @@
+{
+  "name": "@feastpot/api",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "echo \"[api] build placeholder — add NestJS build later\"",
+    "dev": "echo \"[api] dev placeholder — add NestJS dev later\"",
+    "start": "echo \"[api] start placeholder\"",
+    "typecheck": "echo \"[api] no sources yet\"",
+    "lint": "echo \"[api] no sources yet\"",
+    "test": "echo \"[api] no tests yet\"",
+    "clean": "rm -rf dist .turbo"
+  }
+}

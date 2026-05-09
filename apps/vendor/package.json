@@ -1,0 +1,14 @@
+{
+  "name": "@feastpot/vendor",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "echo \"[vendor] build placeholder — add Next.js build later\"",
+    "dev": "echo \"[vendor] dev placeholder\"",
+    "start": "echo \"[vendor] start placeholder\"",
+    "typecheck": "echo \"[vendor] no sources yet\"",
+    "lint": "echo \"[vendor] no sources yet\"",
+    "test": "echo \"[vendor] no tests yet\"",
+    "clean": "rm -rf .next .turbo"
+  }
+}
