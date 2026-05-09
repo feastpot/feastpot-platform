@@ -3,7 +3,7 @@ import 'reflect-metadata';
 import compression from 'compression';
 import helmet from 'helmet';
 
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, VersioningType } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
@@ -26,6 +26,8 @@ async function bootstrap(): Promise<void> {
 
   app.use(helmet());
   app.use(compression());
+
+  app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
 
   app.enableCors({
     origin: ALLOWED_ORIGINS,

@@ -1,0 +1,59 @@
+You are an expert NestJS engineer. In this Replit workspace, build the complete Vendors module for the Feastpot API at apps/api/src/modules/vendors.
+
+ENDPOINTS to implement:
+GET    /v1/vendors          — public search with filters
+POST   /v1/vendors          — register vendor (any authenticated user)
+GET    /v1/vendors/me       — get own vendor profile (vendor role)
+GET    /v1/vendors/:id      — get vendor by ID (public)
+PATCH  /v1/vendors/:id      — update vendor (vendor role, own vendor only)
+PATCH  /v1/vendors/:id/status — update status (admin/compliance role)
+GET    /v1/vendors/:id/reviews — paginated published reviews (public)
+
+CREATE the following files:
+
+1. vendors.controller.ts:
+- @ApiTags('Vendors') for Swagger
+- Apply @Public() to GET /vendors and GET /vendors/:id and GET /vendors/:id/reviews
+- Use @CurrentUser() for auth endpoints
+- All query params typed as DTOs with class-validator
+- Cursor-based pagination: limit (default 20, max 100) + cursor
+
+2. vendors.service.ts with these methods:
+- search(dto: SearchVendorsDto): filter by postcode radius (haversine formula using lat/lng from addresses table), cuisine, halal (is_halal on menu items), communityFavourite, status=live only for public search
+- findById(id: string): include address, delivery configs, active menus count
+- findMyVendor(userId: string): find vendor by user_id
+- create(userId: string, dto: CreateVendorDto): create vendor with status=pending
+- update(vendorId: string, userId: string, dto: UpdateVendorDto): verify ownership
+- updateStatus(vendorId: string, dto: UpdateVendorStatusDto, adminUserId: string): validate status transitions, write to audit_logs
+- getVendorReviews(vendorId: string, pagination): only moderationStatus=auto_approved OR approved
+
+3. vendors.repository.ts:
+- All Prisma queries isolated here
+- searchByPostcode: uses ST_DWithin equivalent via haversine in raw SQL
+- updateBadges: called by nightly cron — sets communityFavourite = true where avgRating >= 4.3 AND reorderRatePct >= 40
+
+4. DTOs (create separate dto files):
+SearchVendorsDto: postcode?, cuisine? (array), halal?, orderType?, communityFavourite?, sortBy (rating|distance|reorderRate), limit, cursor
+CreateVendorDto: businessName, cuisineTypes (array, min 1), description?, addressId
+UpdateVendorDto: Partial<CreateVendorDto>, logoUrl?, coverUrl?, minOrderPence?
+UpdateVendorStatusDto: status (VendorStatus), reasonCode?, notes?, orderCapWeekly?
+
+5. vendors.module.ts:
+- Imports PrismaModule
+- Provides VendorService, VendorRepository
+- Exports VendorService
+
+STATUS TRANSITION RULES (enforce in service):
+pending → approved (compliance only)
+approved → live (admin only, after menu review)
+live → suspended (admin/compliance)
+suspended → probation (admin, after reinstatement review)
+probation → live (admin, after 30-day probation)
+Any → removed (admin only)
+
+AUDIT LOG: Write to audit_logs table on every status change with:
+actorUserId, entityType: "vendors", entityId, action: "vendor.{new_status}", previousState: {status: old}, newState: {status: new, reasonCode}
+
+Write comprehensive unit tests for VendorService using Jest and mocked VendorRepository.
+
+Output all file contents in full. Run npm run typecheck in apps/api to confirm zero errors.
