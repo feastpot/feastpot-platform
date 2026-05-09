@@ -17,16 +17,22 @@ export class SupabaseService {
   private readonly tokenCache = new Map<string, CacheEntry>();
 
   constructor(private readonly config: ConfigService) {
-    const url = this.config.get<string>('SUPABASE_URL');
+    const rawUrl = this.config.get<string>('SUPABASE_URL');
     const serviceRoleKey = this.config.get<string>('SUPABASE_SERVICE_ROLE_KEY');
 
-    if (!url || !serviceRoleKey) {
+    if (!rawUrl || !serviceRoleKey) {
       this.logger.warn(
         'SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not configured — auth verification will fail at runtime',
       );
     }
 
-    this.client = createClient(url ?? 'http://placeholder.local', serviceRoleKey ?? 'placeholder', {
+    // Normalize: accept either the bare project URL or a full REST URL with
+    // /rest/v1/ appended — the JS client expects only the project root.
+    const url = rawUrl
+      ? rawUrl.replace(/\/rest\/v1\/?$/, '').replace(/\/+$/, '')
+      : 'http://placeholder.local';
+
+    this.client = createClient(url, serviceRoleKey ?? 'placeholder', {
       auth: { persistSession: false, autoRefreshToken: false },
     });
   }

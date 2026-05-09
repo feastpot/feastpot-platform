@@ -27,7 +27,12 @@
     "db:seed": "ts-node prisma/seed.ts",
     "db:studio": "prisma studio --schema=prisma/schema.prisma",
     "db:validate": "prisma validate --schema=prisma/schema.prisma",
+    "db:reset": "prisma migrate reset --schema=prisma/schema.prisma --force",
     "ci": "turbo run lint typecheck test build"
+  },
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts",
+    "schema": "prisma/schema.prisma"
   },
   "devDependencies": {
     "@prisma/client": "^5.22.0",
