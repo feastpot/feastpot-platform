@@ -1,10 +1,21 @@
 {
   "name": "@feastpot/config",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
-  "main": "index.js",
+  "exports": {
+    "./tsconfig/base": "./tsconfig.base.json",
+    "./tsconfig/nextjs": "./tsconfig.nextjs.json",
+    "./tsconfig/nestjs": "./tsconfig.nestjs.json",
+    "./eslint/base": "./eslint-base.js",
+    "./eslint/nextjs": "./eslint-nextjs.js",
+    "./eslint/nestjs": "./eslint-nestjs.js"
+  },
   "files": [
     "tsconfig.base.json",
-    "eslint-base.js"
+    "tsconfig.nextjs.json",
+    "tsconfig.nestjs.json",
+    "eslint-base.js",
+    "eslint-nextjs.js",
+    "eslint-nestjs.js"
   ]
 }

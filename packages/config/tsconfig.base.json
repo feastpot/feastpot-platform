@@ -7,16 +7,15 @@
     "moduleResolution": "NodeNext",
     "lib": ["ES2022"],
     "strict": true,
-    "noImplicitAny": true,
     "strictNullChecks": true,
     "strictFunctionTypes": true,
     "strictBindCallApply": true,
     "strictPropertyInitialization": true,
+    "noImplicitAny": true,
     "noImplicitThis": true,
-    "alwaysStrict": true,
-    "noUnusedLocals": false,
-    "noUnusedParameters": false,
+    "noUncheckedIndexedAccess": true,
     "noFallthroughCasesInSwitch": true,
+    "alwaysStrict": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "forceConsistentCasingInFileNames": true,
@@ -31,12 +30,10 @@
     "emitDecoratorMetadata": true,
     "baseUrl": ".",
     "paths": {
-      "@feastpot/types": ["../types/src"],
-      "@feastpot/types/*": ["../types/src/*"],
-      "@feastpot/ui": ["../ui/src"],
-      "@feastpot/ui/*": ["../ui/src/*"],
-      "@feastpot/config": ["../config"],
-      "@feastpot/config/*": ["../config/*"]
+      "@feastpot/types": ["../../packages/types/src/index.ts"],
+      "@feastpot/types/*": ["../../packages/types/src/*"],
+      "@feastpot/ui": ["../../packages/ui/src/index.ts"],
+      "@feastpot/ui/*": ["../../packages/ui/src/*"]
     }
   },
   "exclude": ["node_modules", "dist", ".next", ".turbo", "coverage"]
