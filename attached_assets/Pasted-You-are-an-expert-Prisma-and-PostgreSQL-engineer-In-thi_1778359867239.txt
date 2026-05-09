@@ -1,0 +1,104 @@
+You are an expert Prisma and PostgreSQL engineer. In this Replit workspace, run the first database migration for Feastpot and create comprehensive seed data.
+
+CONTEXT:
+- Database: Supabase PostgreSQL (eu-west-2 London)
+- ORM: Prisma 5.x
+- schema.prisma is at prisma/schema.prisma
+- All 21 models and 24 enum types are already defined in the schema
+
+STEP 1 — Verify environment variables are set in Replit Secrets:
+DATABASE_URL=postgresql://postgres.[project-ref]:[password]@aws-0-eu-west-2.pooler.supabase.com:6543/postgres?pgbouncer=true
+DIRECT_URL=postgresql://postgres.[project-ref]:[password]@aws-0-eu-west-2.pooler.supabase.com:5432/postgres
+
+Update prisma/schema.prisma datasource to use both:
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+  extensions = [uuidOssp(map: "uuid-ossp"), pgcrypto]
+}
+
+STEP 2 — Run: npx prisma migrate dev --name init --schema=./prisma/schema.prisma
+This creates all 21 tables. If it fails, show the exact error and fix it.
+
+STEP 3 — Run: npx prisma generate --schema=./prisma/schema.prisma
+
+STEP 4 — Create prisma/seed.ts with realistic Feastpot seed data:
+
+USERS to create (use Supabase auth.admin.createUser for auth users, then insert into public.users):
+1. soul@feastpot.co.uk — role: admin (platform admin)
+2. support@feastpot.co.uk — role: support
+3. finance@feastpot.co.uk — role: finance
+4. compliance@feastpot.co.uk — role: compliance
+5. maman@feastpot.co.uk — role: vendor (Maman's Kitchen)
+6. chef.kwame@feastpot.co.uk — role: vendor (Kwame's Jollof)
+7. grace@example.com — role: customer (Grace Okafor)
+8. david@example.com — role: customer (David Campbell)
+
+VENDORS to create (both linked to vendor users):
+Vendor 1: Maman's Kitchen
+- slug: mamans-kitchen-peckham
+- cuisineTypes: ["Nigerian", "Ghanaian"]
+- status: live
+- fsaRating: 5
+- commissionRatePct: 12.00
+- avgRating: 4.8
+- address: 45 Rye Lane, Peckham, SE15 4ST
+
+Vendor 2: Kwame's Jollof
+- slug: kwames-jollof-brixton
+- cuisineTypes: ["Ghanaian"]
+- status: live
+- fsaRating: 4
+- commissionRatePct: 12.00
+- avgRating: 4.5
+- address: 12 Atlantic Road, Brixton, SW9 8HX
+
+MENUS for Maman's Kitchen:
+- "Main Menu" (isActive: true)
+- "Frozen Packs" (isActive: true)
+
+MENU ITEMS for Maman's Kitchen (12 total covering Nigerian + Caribbean):
+1. Egusi Soup (Full Pot) — category: soup — £32.00 — serves 6-8 — halal: true — allergens: [tree_nuts, sesame]
+2. Jollof Rice (Full Tray) — category: tray — £28.00 — serves 10-12 — halal: true
+3. Pounded Yam (6 portions) — category: swallow — £18.00 — halal: true
+4. Pepper Soup (Full Pot) — category: soup — £35.00 — serves 8 — halal: true — spiceLevel: 2
+5. Suya Skewers (20 sticks) — category: protein — £22.00 — halal: true — spiceLevel: 2
+6. Fried Plantain (Large) — category: snack — £8.00 — vegan: true — halal: true
+7. Small Chops Party Pack (100pcs) — category: bundle — £55.00 — halal: true
+8. Egusi Soup Frozen Pack (2 portions) — category: frozen — £14.00 — halal: true
+9. Jerk Chicken (Full Tray) — category: tray — £38.00 — serves 10 — spiceLevel: 2
+10. Rice and Peas (Full Tray) — category: tray — £24.00 — serves 10 — vegan: true
+11. Oxtail Stew (Full Pot) — category: soup — £45.00 — serves 6-8
+12. Festival Bread (24 pieces) — category: snack — £16.00 — vegan: true
+
+DELIVERY CONFIG for Maman's Kitchen:
+- deliveryType: local
+- radiusMiles: 8
+- baseFeePence: 500
+- freeAbovePence: 7500
+- minOrderPence: 2500
+- leadTimeHours: 24
+- availableDays: [5, 6] (Friday and Saturday)
+- slotOpenTime: 11:00
+- slotCloseTime: 18:00
+
+ORDERS (5 total):
+1. Grace → Maman's Kitchen — status: delivered — Egusi Soup + Jollof Rice — total: £6500
+2. Grace → Maman's Kitchen — status: accepted — Jerk Chicken Tray — total: £4300
+3. David → Maman's Kitchen — status: pending — Small Chops Party Pack — total: £6000
+4. David → Kwame's Jollof — status: cancelled — Jollof Rice — total: £3300
+5. Grace → Maman's Kitchen — status: delivered — Frozen Pack x2 — total: £3400
+
+REVIEWS (3 for delivered orders):
+1. Grace on order 1 — vendorRating: 5 — text: "Absolutely incredible! The egusi tasted exactly like my mum makes it. Will be ordering every week!" — moderationStatus: auto_approved
+2. Grace on order 5 — vendorRating: 5 — text: "Frozen packs are a lifesaver during the week. Reheats perfectly." — moderationStatus: auto_approved
+3. David (pending moderation) — vendorRating: 3 — text: "Good food but delivery was late" — moderationStatus: held
+
+STEP 5 — Update package.json to add: "prisma": { "seed": "ts-node prisma/seed.ts" }
+
+STEP 6 — Run: npx prisma db seed
+
+STEP 7 — Verify in Supabase Table Editor that all tables have the correct data
+
+Output the complete seed.ts file in full. Show confirmation that the migration and seed succeeded.
