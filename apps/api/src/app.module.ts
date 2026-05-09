@@ -6,7 +6,7 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { HealthController } from './health/health.controller';
 import { PrismaModule } from './prisma/prisma.module';
 
-import { AuthModule } from './modules/auth/auth.module';
+import { AuthModule } from './auth/auth.module';
 import { CatalogueModule } from './modules/catalogue/catalogue.module';
 import { ComplianceModule } from './modules/compliance/compliance.module';
 import { DisputesModule } from './modules/disputes/disputes.module';

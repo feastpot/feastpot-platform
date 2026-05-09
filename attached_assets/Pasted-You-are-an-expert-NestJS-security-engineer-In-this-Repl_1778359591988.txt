@@ -1,0 +1,90 @@
+You are an expert NestJS security engineer. In this Replit workspace, build the complete Supabase Auth integration for the Feastpot API at apps/api.
+
+CONTEXT:
+- We use Supabase Auth (GoTrue) — NOT a custom JWT implementation
+- Supabase issues JWTs containing a custom "role" claim added via a Postgres hook
+- The NestJS API verifies these tokens using the Supabase client
+- There is NO sessions table, NO bcrypt, NO Passport.js strategies needed
+
+STEP 1 — Create apps/api/src/auth/auth.module.ts:
+- Imports ConfigModule
+- Provides SupabaseService, SupabaseAuthGuard, RolesGuard, OptionalAuthGuard
+- Exports all guards and SupabaseService (so other modules can use them)
+
+STEP 2 — Create apps/api/src/auth/supabase.service.ts:
+- Injects ConfigService
+- Creates a Supabase client using createClient(url, serviceRoleKey)
+- Provides method: verifyToken(token: string) that calls supabase.auth.getUser(token)
+- Returns the user object or throws UnauthorizedException
+- Caches valid tokens in a Map with 5-minute TTL to avoid calling Supabase on every request
+
+STEP 3 — Create apps/api/src/auth/guards/supabase-auth.guard.ts:
+- Implements CanActivate
+- Extracts Bearer token from Authorization header
+- Calls SupabaseService.verifyToken(token)
+- Extracts: id, email, role from user.user_metadata OR from JWT custom claims
+- Sets request.user = { id, email, role } (UserRole enum)
+- Throws UnauthorizedException with code UNAUTHORIZED if token missing or invalid
+- Apply as global guard using APP_GUARD provider
+
+STEP 4 — Create apps/api/src/auth/guards/roles.guard.ts:
+- Implements CanActivate
+- Uses Reflector to read @Roles() metadata from the route handler
+- If no roles defined, allows access (auth guard already ran)
+- Checks request.user.role against allowed roles
+- Throws ForbiddenException with code FORBIDDEN if role not in list
+
+STEP 5 — Create apps/api/src/auth/decorators/roles.decorator.ts:
+@Roles('admin', 'finance') — sets metadata on the route handler
+Create SetMetadata('roles', roles) decorator
+
+STEP 6 — Create apps/api/src/auth/decorators/current-user.decorator.ts:
+@CurrentUser() — extracts request.user from ExecutionContext
+Returns the full user object typed as { id: string; email: string; role: UserRole }
+
+STEP 7 — Create apps/api/src/auth/guards/optional-auth.guard.ts:
+- Same as SupabaseAuthGuard but DOES NOT throw if no token present
+- Sets request.user = null for unauthenticated requests
+- Used on guest checkout endpoint
+
+STEP 8 — Create apps/api/src/auth/decorators/public.decorator.ts:
+@Public() — marks a route as bypassing the global auth guard
+The global SupabaseAuthGuard checks for this decorator before verifying the token
+
+STEP 9 — Update AppModule to register SupabaseAuthGuard as a global APP_GUARD
+Add @Public() to the health endpoint
+
+STEP 10 — Create the Supabase custom JWT hook (Postgres function).
+Provide the exact SQL to run in the Supabase SQL editor:
+
+CREATE OR REPLACE FUNCTION public.custom_access_token_hook(event jsonb)
+RETURNS jsonb
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  claims jsonb;
+  user_role text;
+BEGIN
+  SELECT role::text INTO user_role
+  FROM public.users
+  WHERE id = (event->>'user_id')::uuid;
+
+  claims := event->'claims';
+
+  IF user_role IS NOT NULL THEN
+    claims := jsonb_set(claims, '{role}', to_jsonb(user_role));
+  ELSE
+    claims := jsonb_set(claims, '{role}', '"customer"');
+  END IF;
+
+  RETURN jsonb_set(event, '{claims}', claims);
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.custom_access_token_hook TO supabase_auth_admin;
+
+Explain where to register this hook in Supabase: Auth → Hooks → Custom Access Token Hook
+
+STEP 11 — Write unit tests for SupabaseAuthGuard and RolesGuard using Jest mocks
+
+Output all file contents in full. Run npm run typecheck in apps/api to confirm zero errors.
