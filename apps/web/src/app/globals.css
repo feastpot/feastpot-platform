@@ -1,0 +1,75 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Theme tokens are inlined here (NOT @import-ed from @feastpot/ui/theme.css)
+ * because @import in CSS is processed before Tailwind's @layer directives —
+ * cross-package @layer rules silently get dropped from the production build.
+ * The tokens below mirror packages/ui/src/theme.css verbatim; if you change
+ * one, change the other.
+ */
+@layer base {
+  :root {
+    /* Feastpot brand */
+    --brand-primary: #e8520a;
+    --brand-teal: #1d9e75;
+    --brand-dark: #1c1c1a;
+    --brand-gray: #5f5e5a;
+
+    /* shadcn/ui token set (HSL channels) */
+    --background: 40 33% 98%;
+    --foreground: 60 4% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 60 4% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 60 4% 11%;
+    --primary: 19 92% 47%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 161 70% 37%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 40 12% 94%;
+    --muted-foreground: 60 4% 37%;
+    --accent: 19 92% 95%;
+    --accent-foreground: 19 92% 25%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 40 10% 88%;
+    --input: 40 10% 88%;
+    --ring: 19 92% 47%;
+    --radius: 0.625rem;
+  }
+
+  .dark {
+    --background: 60 4% 11%;
+    --foreground: 40 33% 98%;
+    --card: 60 4% 14%;
+    --card-foreground: 40 33% 98%;
+    --popover: 60 4% 14%;
+    --popover-foreground: 40 33% 98%;
+    --primary: 19 92% 53%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 161 70% 42%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 60 4% 18%;
+    --muted-foreground: 40 12% 70%;
+    --accent: 60 4% 22%;
+    --accent-foreground: 40 33% 98%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 60 4% 22%;
+    --input: 60 4% 22%;
+    --ring: 19 92% 53%;
+  }
+
+  html,
+  body {
+    @apply bg-background text-foreground;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  button,
+  [role='button'] {
+    @apply touch-manipulation;
+  }
+}

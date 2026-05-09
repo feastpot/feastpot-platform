@@ -1,0 +1,75 @@
+You are an expert Next.js 15 and Tailwind engineer. Scaffold the Feastpot customer PWA at apps/web.
+
+STEP 1 — Create Next.js app:
+Run: cd apps/web && npx create-next-app@latest . --typescript --tailwind --app --src-dir --skip-git --import-alias "@/*"
+
+STEP 2 — Install dependencies:
+@supabase/ssr @supabase/supabase-js
+@tanstack/react-query @tanstack/react-query-devtools
+zustand
+stripe @stripe/stripe-js @stripe/react-stripe-js
+next-pwa
+@feastpot/types @feastpot/ui @feastpot/config
+react-hook-form @hookform/resolvers zod
+date-fns
+lucide-react
+@radix-ui/react-slot
+
+STEP 3 — Create apps/web/package.json:
+{
+  "name": "@feastpot/web",
+  "scripts": {
+    "dev": "next dev --port 3000",
+    "build": "next build",
+    "start": "next start --port 3000",
+    "typecheck": "tsc --noEmit",
+    "lint": "next lint"
+  }
+}
+
+STEP 4 — Configure Tailwind with Feastpot brand tokens in tailwind.config.ts:
+colors:
+  brand: { DEFAULT: '#E8520A', light: '#FEF0E9', dark: '#B33D07' }
+  teal: { DEFAULT: '#1D9E75', light: '#E1F5EE', dark: '#0F6E56' }
+  vendor: '#185FA5'  (blue for vendor-related UI)
+fontFamily: { sans: ['Inter var', ...defaultTheme.fontFamily.sans] }
+
+STEP 5 — Install and configure shadcn/ui:
+Run: npx shadcn-ui@latest init
+Select: New York style, Zinc base colour, CSS variables yes
+Then install: npx shadcn-ui@latest add button input select dialog sheet toast form badge card skeleton table tabs dropdown-menu
+
+STEP 6 — Create Supabase SSR clients:
+apps/web/src/lib/supabase/client.ts — createBrowserClient() for client components
+apps/web/src/lib/supabase/server.ts — createServerClient() with cookie handling for server components and route handlers
+apps/web/src/lib/supabase/middleware.ts — exports createServerClient for use in middleware
+
+STEP 7 — Create apps/web/src/middleware.ts:
+- Matches all routes except _next/static, _next/image, favicon.ico, public/
+- Calls supabase.auth.getUser() to refresh the session
+- Redirects /account/* to /sign-in if no session
+- Redirects /sign-in to / if session exists
+
+STEP 8 — Create TanStack Query provider at apps/web/src/providers/query-provider.tsx:
+- QueryClient with defaults: staleTime: 60_000, retry: 1
+- Wrap in QueryClientProvider and ReactQueryDevtools (dev only)
+
+STEP 9 — Create Zustand store at apps/web/src/store/basket.store.ts:
+State: { items: BasketItem[], vendorId: string | null }
+Actions: addItem, removeItem, updateQuantity, clearBasket, setVendorId
+BasketItem: { menuItemId, menuItemName, quantity, unitPricePence, lineTotalPence, customisationNotes? }
+Validation: if adding item from different vendor, throw error "Clear basket first to order from a different vendor"
+Persist to localStorage with zustand/middleware persist
+
+STEP 10 — Create base layout components:
+apps/web/src/components/layout/page-shell.tsx — max-w-lg mx-auto px-4 pb-20 (leaves space for bottom nav)
+apps/web/src/components/layout/bottom-nav.tsx — fixed bottom-0 with icons for: Home, Search, Orders, Account. Active state based on usePathname()
+apps/web/src/components/layout/top-nav.tsx — Feastpot logo left, basket icon right with item count badge
+
+STEP 11 — Create apps/web/src/app/layout.tsx:
+- Imports Inter font from next/font/google
+- Wraps children in QueryProvider
+- Includes TopNav and BottomNav
+- Includes Toaster from shadcn
+
+Output all file contents in full.

@@ -1,0 +1,163 @@
+'use client';
+
+import { create } from 'zustand';
+import { createJSONStorage, persist } from 'zustand/middleware';
+
+/**
+ * A single line in the basket. Pence-typed monetary fields mirror the API's
+ * Prisma schema (we never store currency as a float in the client either).
+ *
+ * `lineId` is the canonical identity for a line and is derived from
+ * (menuItemId, customisationNotes). Two orders of "Jollof rice" — one plain,
+ * one "extra spicy" — are TWO lines, so all mutating ops MUST key by lineId
+ * (not menuItemId) or they'd accidentally splat both lines.
+ */
+export interface BasketItem {
+  lineId: string;
+  menuItemId: string;
+  menuItemName: string;
+  quantity: number;
+  unitPricePence: number;
+  lineTotalPence: number;
+  customisationNotes?: string;
+}
+
+export interface BasketState {
+  items: BasketItem[];
+  vendorId: string | null;
+
+  /** Adds a new line OR increments quantity of an existing one (same lineId). */
+  addItem(item: Omit<BasketItem, 'lineTotalPence' | 'lineId'>, vendorId: string): void;
+  removeLine(lineId: string): void;
+  updateLineQuantity(lineId: string, quantity: number): void;
+  clearBasket(): void;
+  setVendorId(vendorId: string | null): void;
+
+  /** Convenience selectors — kept inside the store so consumers don't recompute. */
+  getItemCount(): number;
+  getSubtotalPence(): number;
+}
+
+/**
+ * Cross-vendor guard: a customer can only have one vendor's items in the
+ * basket at a time (each Order in our schema is single-vendor). Throwing here
+ * forces the UI layer to catch + surface a confirm dialog ("Clear basket to
+ * order from a different vendor?") rather than silently dropping items.
+ */
+export class CrossVendorBasketError extends Error {
+  constructor() {
+    super('Clear basket first to order from a different vendor');
+    this.name = 'CrossVendorBasketError';
+  }
+}
+
+const calcLineTotal = (unitPricePence: number, quantity: number) => unitPricePence * quantity;
+
+/** Stable, deterministic line identity. */
+const makeLineId = (menuItemId: string, customisationNotes?: string): string =>
+  `${menuItemId}::${customisationNotes ?? ''}`;
+
+/**
+ * SSR-safe storage: returning a no-op store on the server forces zustand to
+ * skip persistence during SSR. Otherwise `localStorage` access throws and
+ * Next.js logs hydration errors.
+ */
+const safeStorage = createJSONStorage(() => {
+  if (typeof window === 'undefined') {
+    return {
+      getItem: () => null,
+      setItem: () => undefined,
+      removeItem: () => undefined,
+    };
+  }
+  return window.localStorage;
+});
+
+export const useBasketStore = create<BasketState>()(
+  persist(
+    (set, get) => ({
+      items: [],
+      vendorId: null,
+
+      addItem(item, vendorId) {
+        const state = get();
+        if (state.vendorId && state.vendorId !== vendorId && state.items.length > 0) {
+          throw new CrossVendorBasketError();
+        }
+
+        const lineId = makeLineId(item.menuItemId, item.customisationNotes);
+        const existing = state.items.find((i) => i.lineId === lineId);
+
+        if (existing) {
+          const newQty = existing.quantity + item.quantity;
+          set({
+            vendorId,
+            items: state.items.map((i) =>
+              i.lineId === lineId
+                ? { ...i, quantity: newQty, lineTotalPence: calcLineTotal(i.unitPricePence, newQty) }
+                : i,
+            ),
+          });
+          return;
+        }
+
+        set({
+          vendorId,
+          items: [
+            ...state.items,
+            {
+              ...item,
+              lineId,
+              lineTotalPence: calcLineTotal(item.unitPricePence, item.quantity),
+            },
+          ],
+        });
+      },
+
+      removeLine(lineId) {
+        const remaining = get().items.filter((i) => i.lineId !== lineId);
+        set({
+          items: remaining,
+          // Clear vendor lock once the basket is empty so the customer can
+          // pick a different vendor without hitting CrossVendorBasketError.
+          vendorId: remaining.length === 0 ? null : get().vendorId,
+        });
+      },
+
+      updateLineQuantity(lineId, quantity) {
+        if (quantity <= 0) {
+          get().removeLine(lineId);
+          return;
+        }
+        set({
+          items: get().items.map((i) =>
+            i.lineId === lineId
+              ? { ...i, quantity, lineTotalPence: calcLineTotal(i.unitPricePence, quantity) }
+              : i,
+          ),
+        });
+      },
+
+      clearBasket() {
+        set({ items: [], vendorId: null });
+      },
+
+      setVendorId(vendorId) {
+        set({ vendorId });
+      },
+
+      getItemCount() {
+        return get().items.reduce((acc, i) => acc + i.quantity, 0);
+      },
+
+      getSubtotalPence() {
+        return get().items.reduce((acc, i) => acc + i.lineTotalPence, 0);
+      },
+    }),
+    {
+      name: 'feastpot.basket.v1',
+      storage: safeStorage,
+      partialize: (state) => ({ items: state.items, vendorId: state.vendorId }),
+    },
+  ),
+);
