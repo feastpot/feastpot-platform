@@ -1,0 +1,65 @@
+You are an expert NestJS and Stripe engineer. Build the Orders module for Feastpot at apps/api/src/modules/orders.
+
+ENDPOINTS:
+GET    /v1/orders                    — list orders (scoped by role)
+POST   /v1/orders                    — place order (customer role)
+GET    /v1/orders/:id               — get order with items (customer/vendor/admin)
+POST   /v1/orders/:id/confirm       — confirm after Stripe payment
+PATCH  /v1/orders/:id/status        — update status (vendor/admin)
+POST   /v1/orders/:id/amendment     — vendor requests substitution
+PATCH  /v1/orders/:id/amendment     — customer accepts/declines
+POST   /v1/orders/:id/reorder       — one-click reorder (customer)
+
+CREATE FILES:
+
+1. orders.service.ts with these key methods:
+
+createOrder(customerId, dto: CreateOrderDto):
+- Validate all menuItemIds exist and are isAvailable=true
+- Validate delivery slot: scheduledFor must be within vendor's slot_open_time/slot_close_time on an available day, at least leadTimeHours from now
+- Calculate: subtotalPence = sum(quantity * unitPricePence), deliveryFeePence from DeliveryConfig (free if above freeAbovePence threshold), discountPence (from discount code if provided), totalPence
+- Calculate: commissionPence = Math.round(totalPence * vendor.commissionRatePct / 100), netToVendorPence = totalPence - commissionPence
+- Call stripe.paymentIntents.create({ amount: totalPence, currency: 'gbp', capture_method: 'manual', metadata: { orderId } })
+- Save order with stripePaymentIntentId, status: pending
+- Return { order, clientSecret: paymentIntent.client_secret }
+
+confirmOrder(orderId, customerId):
+- Verify order belongs to customer and status=pending
+- Update status to pending (awaiting vendor)
+- Enqueue notification job: { type: 'notify_vendor', vendorId, orderId }
+- Enqueue BullMQ delayed job: { type: 'auto_cancel', orderId, delay: 15 * 60 * 1000 }
+
+updateStatus(orderId, status, userId):
+STATUS MACHINE — only these transitions are valid:
+vendor (own vendor's orders): pending → accepted, pending → rejected, accepted → preparing, preparing → dispatched, dispatched → delivered
+admin: any → cancelled, any → refunded
+
+On accepted: cancel the auto_cancel delayed job
+On delivered: call stripe.paymentIntents.capture(stripePaymentIntentId), update commissionPence and netToVendorPence, enqueue review_trigger job with 2-hour delay
+
+On rejected: call stripe.paymentIntents.cancel(), update cancellationReason
+
+reorder(originalOrderId, customerId, overrides?):
+- Fetch original order with items
+- Validate all items still exist and are available
+- Call createOrder with same items and vendor, new scheduledFor
+
+2. orders.repository.ts — all Prisma queries
+
+3. order-slots.service.ts:
+validateSlot(vendorId, scheduledFor: Date): 
+- Fetch vendor's DeliveryConfig
+- Check scheduledFor day of week is in availableDays
+- Check scheduledFor time is between slotOpenTime and slotCloseTime
+- Check scheduledFor is at least leadTimeHours from now
+- Returns true or throws BadRequestException with specific message
+
+4. DTOs:
+CreateOrderDto: vendorId, items (array of { menuItemId, quantity (min 1), customisationNotes? }), deliveryAddressId, scheduledFor (ISO string, must be future), notes?, discountCode?
+UpdateOrderStatusDto: status (OrderStatus), cancellationReason? (required when cancelled)
+
+5. orders.module.ts — imports PrismaModule, BullModule.registerQueue({name:'notifications'}), StripeModule
+
+6. Write unit tests for commission calculation, slot validation, and status machine transitions
+
+Output all file contents. Run typecheck to confirm zero errors.
