@@ -1,36 +1,79 @@
-import Link from 'next/link';
-
+import { searchVendors, type VendorListItem } from '@/lib/api/vendors';
+import { CuisineFilter } from '@/components/vendor/cuisine-filter';
+import { VendorCard } from '@/components/vendor/vendor-card';
 import { PageShell } from '@/components/layout/page-shell';
+import { PostcodeHero } from '@/components/home/postcode-hero';
 
 /**
- * Customer home (placeholder). Real implementation will surface "Near you",
- * "Community favourites", and saved vendors — wired up once the catalogue
- * query layer lands.
+ * Customer homepage (Server Component).
+ *
+ * Top-rated and "new" rails are fetched in parallel from the vendor search
+ * API. We deliberately swallow API errors here — an empty rail is far less
+ * jarring on first load than a full-page crash, and the search page is
+ * always one tap away. Errors still surface in server logs for ops.
  */
-export default function HomePage() {
+async function safeFetch(promise: Promise<{ data: VendorListItem[] }>): Promise<VendorListItem[]> {
+  try {
+    const r = await promise;
+    return r.data;
+  } catch {
+    return [];
+  }
+}
+
+export default async function HomePage() {
+  const [favourites, newest] = await Promise.all([
+    safeFetch(searchVendors({ communityFavourite: true, sortBy: 'rating', limit: 10 }, { next: { revalidate: 60 } })),
+    safeFetch(searchVendors({ sortBy: 'rating', limit: 10 }, { next: { revalidate: 60 } })),
+  ]);
+
   return (
     <PageShell>
-      <section className="space-y-6 py-6">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-bold tracking-tight">Welcome to Feastpot</h1>
-          <p className="text-muted-foreground">
-            Bulk meals from your community&rsquo;s best home cooks.
-          </p>
-        </div>
+      <div className="space-y-6 py-4">
+        <PostcodeHero />
 
-        <div className="rounded-xl border border-border bg-brand-light p-5">
-          <h2 className="text-base font-semibold text-brand-dark">Discover vendors near you</h2>
-          <p className="mt-1 text-sm text-brand-dark/80">
-            Search by cuisine, browse community favourites, or pre-order for the weekend.
-          </p>
-          <Link
-            href="/search"
-            className="mt-3 inline-flex items-center rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark"
-          >
-            Start exploring
-          </Link>
-        </div>
-      </section>
+        <section>
+          <h2 className="sr-only">Browse by cuisine</h2>
+          <CuisineFilter />
+        </section>
+
+        <CarouselRow title="Community Favourites" emptyText="No favourites in your area yet — check back soon.">
+          {favourites.map((v) => (
+            <VendorCard key={v.id} vendor={v} variant="carousel" />
+          ))}
+        </CarouselRow>
+
+        <CarouselRow title="New on Feastpot" emptyText="No new vendors yet.">
+          {newest.map((v) => (
+            <VendorCard key={v.id} vendor={v} variant="carousel" />
+          ))}
+        </CarouselRow>
+      </div>
     </PageShell>
+  );
+}
+
+function CarouselRow({
+  title,
+  children,
+  emptyText,
+}: {
+  title: string;
+  children: React.ReactNode;
+  emptyText: string;
+}) {
+  const arr = Array.isArray(children) ? children : [children];
+  const hasItems = arr.filter(Boolean).length > 0;
+  return (
+    <section className="space-y-2">
+      <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
+      {hasItems ? (
+        <div className="-mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {children}
+        </div>
+      ) : (
+        <p className="text-sm text-muted-foreground">{emptyText}</p>
+      )}
+    </section>
   );
 }

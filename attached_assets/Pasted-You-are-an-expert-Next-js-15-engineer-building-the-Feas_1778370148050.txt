@@ -1,0 +1,54 @@
+You are an expert Next.js 15 engineer building the Feastpot customer PWA. Create the auth flows and discovery pages.
+
+AUTH PAGES:
+
+1. apps/web/src/app/(auth)/sign-in/page.tsx:
+- Email + password form using react-hook-form + RegisterSchema from @feastpot/types
+- "Continue with Google" button calling supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: '/auth/callback' } })
+- "Sign in with phone" link to /sign-in/otp
+- Forgot password link to /forgot-password
+- On success: router.push('/') or to the URL in searchParams.get('redirect')
+
+2. apps/web/src/app/(auth)/sign-in/otp/page.tsx:
+- Step 1: phone input, calls supabase.auth.signInWithOtp({ phone })
+- Step 2: 6-digit OTP input (auto-submits when 6 digits entered), calls supabase.auth.verifyOtp({ phone, token, type: 'sms' })
+- Loading state while waiting for Supabase
+
+3. apps/web/src/app/(auth)/register/page.tsx:
+- Full name, email, password (min 8 chars), optional referral code
+- After registration: show "Check your email" confirmation screen
+- On Supabase session: create user record in public.users via API POST /v1/users/sync
+
+4. apps/web/src/app/auth/callback/route.ts (route handler):
+- Exchanges code for session: supabase.auth.exchangeCodeForSession(code)
+- Redirects to / on success
+
+HOMEPAGE (apps/web/src/app/page.tsx):
+- Hero section: "Authentic African & Caribbean food, delivered." with postcode input
+- Postcode input saves to localStorage and triggers vendor search
+- Cuisine filter pills: All, Nigerian, Ghanaian, Jamaican, Caribbean, Other (horizontal scroll)
+- "Community Favourites" section: horizontal scroll carousel of top-rated vendors
+- "New on Feastpot" section: recently added vendors
+
+VENDOR SEARCH PAGE (apps/web/src/app/vendors/page.tsx):
+- Uses URL search params for filters: ?postcode=SE15&cuisine=Nigerian&halal=true&sort=rating
+- Filter panel (Sheet on mobile): halal toggle, dietary flags checkboxes, order type select (tray/frozen/event), sort by (rating/distance/reorderRate)
+- Vendor card component: cover image, logo, name, cuisine tags, FSA badge (star icon), avg rating, min order, delivery time estimate, Community Favourite badge (orange star icon)
+- Infinite scroll / Load more using TanStack Query cursor pagination
+- Empty state when no vendors in postcode area
+
+VENDOR PROFILE PAGE (apps/web/src/app/vendors/[slug]/page.tsx):
+- Server component with generateMetadata for SEO
+- Cover image + logo overlay
+- Business name, description, cuisine tags, FSA rating badge, avg rating with review count
+- Sticky "Add to order" header on scroll (shows basket count)
+- Menu sections grouped by category (Trays, Soups, Proteins, Swallows, Snacks, Frozen Packs)
+- Menu item card: photo (lazy loaded), name, portion label, price, dietary flag icons, allergen disclosure toggle, spice level indicator (chilli icons), Add button
+- Quantity selector: +/- buttons supporting tray quantities (1 tray, 2 trays etc.)
+- Delivery info section: available days, slot times, radius, min order, lead time
+- Reviews section: paginated, star display, reviewer initials avatar
+
+Create a useVendors() hook using TanStack Query that calls the Feastpot API.
+Create a useVendor(slug) hook for the profile page.
+
+Output all page and component files in full.
