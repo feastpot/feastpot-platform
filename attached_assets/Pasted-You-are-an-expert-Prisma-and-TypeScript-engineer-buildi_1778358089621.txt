@@ -1,0 +1,85 @@
+You are an expert Prisma and TypeScript engineer building Feastpot, a UK diaspora food marketplace.
+
+In this Replit workspace, create the complete packages/types package. This is the shared type library that all apps import.
+
+STEP 1 — Create packages/types/package.json:
+{
+  "name": "@feastpot/types",
+  "version": "0.1.0",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "build": "tsc --build",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "prisma": "^5.22.0",
+    "typescript": "^5.6.3",
+    "@feastpot/config": "*"
+  }
+}
+
+STEP 2 — Create prisma/schema.prisma with ALL of the following:
+
+ENUMS (all 24):
+UserRole: customer, vendor, admin, support, finance, compliance
+UserStatus: active, suspended, deleted
+VendorStatus: pending, approved, live, suspended, probation, removed
+OrderType: standard, event, subscription
+OrderStatus: pending, accepted, preparing, dispatched, delivered, cancelled, refunded
+ItemCategory: tray, soup, protein, swallow, snack, frozen, bundle, event
+DeliveryType: local, collection, nationwide
+DocumentType: hygiene_cert, insurance, photo_id, bank_details, kitchen_reg
+DocumentStatus: pending, verified, rejected, expired
+PaymentType: capture, refund, partial_refund, credit
+PaymentStatus: pending, succeeded, failed, cancelled
+PayoutStatus: draft, held, approved, transferred, failed
+DisputeStatus: open, vendor_contacted, resolved, escalated, closed
+IssueType: missing_items, wrong_order, quality, not_delivered, other
+Severity: low, medium, high
+ResolutionType: full_refund, partial_refund, credit, rejected, escalated
+EnquiryStatus: open, quoted, confirmed, completed, cancelled
+QuoteStatus: submitted, accepted, rejected, expired
+ModerationStatus: auto_approved, held, approved, rejected
+LoyaltyTxType: earned, redeemed, expired, adjusted
+ReferralStatus: pending, completed, rewarded
+NotificationChannel: email, whatsapp, sms, push
+NotificationStatus: queued, sent, delivered, failed
+EvidenceType: photo, document, screenshot
+
+MODELS (all 21 with full fields, relations, and @@index blocks):
+User, Session, Address, Notification, Vendor, Menu, MenuItem, DeliveryConfig,
+VendorDocument, AuditLog, Order, OrderItem, EventEnquiry, EventQuote,
+Dispute, DisputeEvidence, Payment, Payout, Review, LoyaltyPoint, Referral
+
+Key field rules:
+- All PKs: @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+- All timestamps: @db.Timestamptz with @default(now()) and @updatedAt where applicable
+- All monetary values: Int (pence)
+- Arrays: String[] with @db.VarChar(n) where appropriate
+- Stripe IDs: @db.VarChar(100)
+- Use @map("snake_case") for all camelCase field names
+- Use @@map("table_name") for all model names
+- Include all @@index() blocks for query optimisation
+
+STEP 3 — Run: npx prisma generate --schema=./prisma/schema.prisma
+
+STEP 4 — Create packages/types/src/index.ts that exports:
+- All Prisma generated types: export * from '@prisma/client'
+- Zod schemas for every request body in the OpenAPI spec:
+  RegisterSchema, LoginSchema, CreateVendorSchema, UpdateVendorSchema,
+  CreateMenuSchema, CreateMenuItemSchema, UpdateMenuItemSchema,
+  CreateDeliveryConfigSchema, CreateOrderSchema, CreateRefundSchema,
+  CreateDisputeSchema, CreateReviewSchema, CreateEventEnquirySchema,
+  CreateEventQuoteSchema, CreateAddressSchema, UpdateUserSchema
+- Each Zod schema uses z.object() with appropriate field validation
+- Export inferred TypeScript types: type RegisterDto = z.infer<typeof RegisterSchema>
+
+STEP 5 — Create packages/types/tsconfig.json extending packages/config/tsconfig.base.json
+
+Output all file contents in full. Run prisma generate and confirm the typed client is produced.
