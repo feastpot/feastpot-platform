@@ -78,34 +78,70 @@ export class OrdersRepository {
     return this.prisma.order.update({ where: { id: orderId }, data, include: { items: true } });
   }
 
-  updatePaymentMeta(orderId: string, stripePaymentIntentId: string) {
-    // Order schema has no stripe_payment_intent_id column — write it onto a Payment row.
+  /**
+   * Order schema has no stripe_payment_intent_id column — Stripe identifiers live
+   * on the related Payment row. We create a pending Payment row at order creation
+   * time so the PI can be looked up later for capture/cancel/refund.
+   */
+  recordPaymentIntent(args: {
+    orderId: string;
+    userId: string;
+    amountPence: number;
+    stripePaymentIntentId: string;
+  }) {
     return this.prisma.payment.create({
       data: {
-        orderId,
-        provider: 'stripe',
-        providerRef: stripePaymentIntentId,
-        amountPence: 0,
-        status: 'pending',
-      } as unknown as Prisma.PaymentUncheckedCreateInput,
-    }).catch(() => null); // Payment model may differ; non-fatal.
+        orderId: args.orderId,
+        userId: args.userId,
+        amountPence: args.amountPence,
+        currency: 'GBP',
+        stripePaymentIntentId: args.stripePaymentIntentId,
+      },
+    });
   }
 
-  findStripePaymentIntent(orderId: string): Promise<string | null> {
-    return this.prisma.payment
-      .findFirst({
-        where: { orderId, provider: 'stripe' as never },
-        orderBy: { createdAt: 'desc' },
-        select: { providerRef: true },
-      } as never)
-      .then((p) => (p as { providerRef?: string } | null)?.providerRef ?? null)
-      .catch(() => null);
+  async findStripePaymentIntent(orderId: string): Promise<string | null> {
+    const p = await this.prisma.payment.findFirst({
+      where: { orderId, stripePaymentIntentId: { not: null } },
+      orderBy: { createdAt: 'desc' },
+      select: { stripePaymentIntentId: true },
+    });
+    return p?.stripePaymentIntentId ?? null;
+  }
+
+  markPaymentStatus(stripePaymentIntentId: string, status: 'succeeded' | 'cancelled' | 'failed') {
+    return this.prisma.payment.updateMany({
+      where: { stripePaymentIntentId },
+      data: { status, processedAt: new Date() },
+    });
   }
 
   countToday(): Promise<number> {
     const start = new Date();
     start.setUTCHours(0, 0, 0, 0);
     return this.prisma.order.count({ where: { createdAt: { gte: start } } });
+  }
+
+  /**
+   * Atomic status transition: only updates the row if its current status matches
+   * `expectedFrom`, returning the number of rows affected. Used as a CAS guard
+   * around the status machine to prevent concurrent transitions from both
+   * proceeding (and double-firing Stripe captures / queue jobs).
+   */
+  async transitionStatus(
+    orderId: string,
+    expectedFrom: OrderStatus,
+    data: Prisma.OrderUncheckedUpdateInput,
+  ): Promise<boolean> {
+    const res = await this.prisma.order.updateMany({
+      where: { id: orderId, status: expectedFrom },
+      data,
+    });
+    return res.count === 1;
+  }
+
+  addressOwnedBy(addressId: string, userId: string) {
+    return this.prisma.address.findFirst({ where: { id: addressId, userId }, select: { id: true } });
   }
 
   byCustomer(orderId: string, customerId: string) {

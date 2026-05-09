@@ -17,6 +17,10 @@ export class StripeService {
 
   constructor(@Inject(STRIPE_CLIENT) private readonly stripe: Stripe) {}
 
+  retrieve(paymentIntentId: string): Promise<Stripe.PaymentIntent> {
+    return this.stripe.paymentIntents.retrieve(paymentIntentId);
+  }
+
   async createPaymentIntent(params: CreatePaymentIntentParams): Promise<Stripe.PaymentIntent> {
     return this.stripe.paymentIntents.create({
       amount: params.amountPence,
