@@ -1,0 +1,42 @@
+You are an expert NestJS engineer. In this Replit workspace, build the Catalogue module for Feastpot covering menus and menu items at apps/api/src/modules/catalogue.
+
+ENDPOINTS:
+GET    /v1/vendors/:vendorId/menus               — list active menus (public)
+POST   /v1/vendors/:vendorId/menus               — create menu (vendor role)
+PATCH  /v1/vendors/:vendorId/menus/:menuId       — update menu (vendor role)
+DELETE /v1/vendors/:vendorId/menus/:menuId       — delete menu (vendor role)
+GET    /v1/vendors/:vendorId/menus/:menuId/items — list menu items (public)
+POST   /v1/vendors/:vendorId/menus/:menuId/items — create item (vendor role)
+GET    /v1/vendors/:vendorId/menus/:menuId/items/:itemId — get item (public)
+PATCH  /v1/vendors/:vendorId/menus/:menuId/items/:itemId — update item (vendor role)
+DELETE /v1/vendors/:vendorId/menus/:menuId/items/:itemId — delete item (vendor role)
+PATCH  /v1/vendors/:vendorId/menus/:menuId/items/:itemId/availability — toggle (vendor role)
+
+OWNERSHIP CHECK: All vendor-role endpoints must verify that the vendorId in the URL belongs to the authenticated user. Create a VendorOwnershipGuard for this.
+
+CREATE FILES:
+
+1. catalogue.controller.ts — routes as above, Swagger decorators, @Public() on GET routes
+
+2. menus.service.ts:
+- findByVendor(vendorId, includeInactive=false): returns menus with item count
+- create/update/delete with ownership verification
+- Cannot delete a menu that has items — throw ConflictException with message
+
+3. menu-items.service.ts:
+- findByMenu(menuId, filters): filter by category, dietary flags, isAvailable, isHalal
+- create(dto): validate allergens against FSA_14_ALLERGENS constant (the 14 major allergens: celery, gluten, crustaceans, eggs, fish, lupin, milk, molluscs, mustard, peanuts, sesame, soybeans, sulphites, tree_nuts). Throw BadRequestException if unknown allergen submitted.
+- toggle(itemId, isAvailable): real-time availability — update only isAvailable field
+- uploadImage(file: Express.Multer.File): upload to Supabase Storage bucket "feastpot-media" at path vendors/{vendorId}/menu/{itemId}/{filename}. Return CDN URL. Use @supabase/supabase-js storage API.
+
+4. DTOs:
+CreateMenuDto: name (min 2 chars), isActive (default true), displayOrder (default 0)
+CreateMenuItemDto: name, description?, category (ItemCategory enum), basePricePence (min 100), portionLabel?, dietaryFlags (array, valid values: halal, vegan, vegetarian, gluten_free, dairy_free), allergens (array, must be from FSA 14 list), spiceLevel (0-3 integer), isHalal (boolean), prepTimeMinutes (min 15), images? (array of URLs, max 5), displayOrder
+UpdateMenuItemDto: Partial<CreateMenuItemDto>
+
+5. Constants file: FSA_14_ALLERGENS, ITEM_CATEGORIES, DIETARY_FLAGS
+
+6. catalogue.module.ts: provides MenuService, MenuItemService, SupabaseStorageService, exports all
+
+Write unit tests for allergen validation and ownership guard.
+Output all file contents in full.
