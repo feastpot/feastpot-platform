@@ -54,9 +54,9 @@ async function bootstrap(): Promise<void> {
     SwaggerModule.setup('api/docs', app, document);
   }
 
-  await app.listen(port, 'localhost');
+  await app.listen(port, '0.0.0.0');
   // eslint-disable-next-line no-console
-  console.info(`[feastpot-api] listening on http://localhost:${port} (${env})`);
+  console.info(`[feastpot-api] listening on http://0.0.0.0:${port} (${env})`);
 }
 
 bootstrap().catch((err) => {

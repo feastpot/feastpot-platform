@@ -101,6 +101,11 @@ async function upsertPublicUser(id: string, u: SeedUser) {
 }
 
 async function main() {
+  if (process.env.NODE_ENV === 'production' && process.env.ALLOW_SEED_IN_PROD !== '1') {
+    throw new Error(
+      '[seed] refusing to run: NODE_ENV=production. This seed creates predictable admin/finance/compliance credentials and must never run against a live database. Set ALLOW_SEED_IN_PROD=1 to override (not recommended).',
+    );
+  }
   console.info('[seed] starting…');
 
   // 1. Auth users + public.users
