@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 
 import { ToastProvider, ToastViewport } from '@feastpot/ui';
 
+import { CookieBanner } from '@/components/cookie-banner';
 import { BottomNav } from '@/components/layout/bottom-nav';
 import { TopNav } from '@/components/layout/top-nav';
 import { PushPermissionPrompt } from '@/components/push-permission-prompt';
@@ -18,8 +19,13 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: { default: 'Feastpot', template: '%s · Feastpot' },
-  description: 'UK diaspora bulk food marketplace.',
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'https://feastpot.co.uk'),
+  title: {
+    default: 'Feastpot — African & Caribbean Food Delivered',
+    template: '%s | Feastpot',
+  },
+  description:
+    'Order authentic African and Caribbean food in bulk. Party trays, family portions, weekly meal prep. Delivered in London.',
   manifest: '/manifest.json',
   applicationName: 'Feastpot',
   appleWebApp: {
@@ -35,6 +41,17 @@ export const metadata: Metadata = {
     ],
     apple: '/icons/apple-touch-icon.png',
   },
+  openGraph: {
+    type: 'website',
+    siteName: 'Feastpot',
+    locale: 'en_GB',
+    images: [{ url: '/og-image.png', width: 1200, height: 630, alt: 'Feastpot' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    site: '@feastpot',
+  },
+  robots: { index: true, follow: true },
 };
 
 export const viewport: Viewport = {
@@ -55,6 +72,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             {children}
             <BottomNav />
             <PushPermissionPrompt />
+            <CookieBanner />
             <ToastViewport />
           </ToastProvider>
         </QueryProvider>
