@@ -22,6 +22,7 @@ import { CursorPaginationDto } from './dto/pagination.dto';
 import { SearchVendorsDto } from './dto/search-vendors.dto';
 import { UpdateVendorStatusDto } from './dto/update-vendor-status.dto';
 import { UpdateVendorDto } from './dto/update-vendor.dto';
+import { VendorStatsResponseDto } from './dto/vendor-stats.dto';
 import { VendorsService } from './vendors.service';
 
 function requireUser(user: AuthUser | null): AuthUser {
@@ -54,6 +55,16 @@ export class VendorsController {
   @ApiOperation({ summary: 'Get the authenticated vendor’s own profile' })
   findMine(@CurrentUser() user: AuthUser | null) {
     return this.vendors.findMyVendor(requireUser(user).id);
+  }
+
+  @Get('me/stats')
+  @ApiBearerAuth()
+  @Roles(UserRole.vendor, UserRole.admin)
+  @ApiOperation({
+    summary: 'Aggregated stats (today, this week, pending now) for the authed vendor',
+  })
+  myStats(@CurrentUser() user: AuthUser | null): Promise<VendorStatsResponseDto> {
+    return this.vendors.getMyStats(requireUser(user).id);
   }
 
   @Public()

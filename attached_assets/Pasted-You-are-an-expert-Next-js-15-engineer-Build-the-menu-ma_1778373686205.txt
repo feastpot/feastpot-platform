@@ -1,0 +1,70 @@
+You are an expert Next.js 15 engineer. Build the menu management, settings, and analytics sections of the Feastpot vendor portal.
+
+MENU MANAGEMENT (apps/vendor/src/app/menu/page.tsx):
+
+1. Menu list page:
+- Shows all vendor menus with item count and active status toggle
+- "Add menu" button → opens CreateMenuDialog
+- Each menu row has Edit name / Toggle active / Delete (if no items) actions
+
+2. Menu item list (apps/vendor/src/app/menu/[menuId]/page.tsx):
+- Grid of menu item cards with drag-to-reorder (use @dnd-kit/core)
+- Each card: item photo (or placeholder), name, price, category badge, available toggle (switch), edit button
+- "Add item" button → navigates to /menu/[menuId]/items/new
+
+3. Menu item editor (apps/vendor/src/app/menu/[menuId]/items/[itemId]/page.tsx):
+- This is the most important vendor page — make it comprehensive
+- FIELDS:
+  Item name (input, required)
+  Category (Select: Tray, Soup, Protein, Swallow, Snack, Frozen, Bundle, Event)
+  Description (Textarea, optional, max 500 chars)
+  Price (input with £ prefix, validates pence conversion)
+  Portion label (input, e.g. "Full tray / serves 20")
+  Preparation time (select: 30min, 1hr, 2hr, 4hr, 6hr, 24hr, 48hr)
+  Spice level (0-3 slider with labels: Mild, Medium, Hot, Extra Hot)
+  Dietary flags (checkbox group: Halal, Vegan, Vegetarian, Gluten-free, Dairy-free)
+  Halal certified (boolean toggle — separate from dietary flags)
+  Allergens (checkbox grid of all 14 FSA allergens with icons)
+  Photos (drag-and-drop upload area, up to 5, shows thumbnails, upload to Supabase Storage)
+  Available (toggle — when off, item hidden from customers immediately)
+
+DELIVERY CONFIG (apps/vendor/src/app/settings/delivery/page.tsx):
+- Delivery type selector (Local / Collection / Nationwide)
+- If local: radius in miles (1-15), shown on a simple postcode area map (leaflet.js)
+- Base delivery fee (£ input)
+- Free delivery above (£ input, optional)
+- Minimum order (£ input)
+- Lead time (select: same day, 24h, 48h, 72h)
+- Available days (7 checkboxes: Mon-Sun)
+- Slot open time (time picker)
+- Slot close time (time picker)
+- Maximum advance booking days (number input, default 14)
+- Save triggers PATCH /v1/vendors/:vendorId/delivery-configs/:configId
+
+ANALYTICS (apps/vendor/src/app/analytics/page.tsx):
+METRIC CARDS:
+- Revenue this week (vs last week % change)
+- Orders this week (vs last week)
+- Average order value
+- Customer return rate (reorderRatePct from vendor record)
+
+CHARTS (using recharts):
+- Weekly revenue bar chart: last 8 weeks, bars coloured with brand orange
+- Top dishes table: columns Name, Orders, Revenue, Sort by revenue
+- Hourly order distribution: line chart showing peak ordering times
+
+PAYOUT DASHBOARD (apps/vendor/src/app/payouts/page.tsx):
+- Current week pending amount with breakdown (gross, commission deducted, net)
+- Payout history table: week, gross, commission, refunds deducted, net, status badge (draft/held/approved/transferred), transferred date
+- Download statement button (PDF — future, show disabled for now)
+- Hold notice card (shown if any payout has status=held, shows holdReason)
+
+ONBOARDING FLOW (apps/vendor/src/app/onboarding/page.tsx):
+Multi-step form for new vendors (shown when status=pending):
+Step 1 — Business details: businessName, description, cuisineTypes (multi-select), address fields
+Step 2 — Documents: upload hygiene cert (PDF/JPG, max 5MB), insurance cert, photo ID. Each upload shows preview and expiry date input.
+Step 3 — Stripe Connect: "Set up payouts" button that calls POST /v1/vendors/stripe-connect-link which returns a Stripe Connect onboarding URL. Redirect to Stripe, they handle KYC.
+Step 4 — First menu: minimum 3 items required to go live. Simplified item creation form.
+Progress saved in localStorage between steps.
+
+Output all files in full.

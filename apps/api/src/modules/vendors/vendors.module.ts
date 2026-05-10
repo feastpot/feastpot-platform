@@ -10,6 +10,8 @@ import { VendorsService } from './vendors.service';
   imports: [PrismaModule],
   controllers: [VendorsController],
   providers: [VendorsService, VendorRepository],
+  // PrismaModule is @Global, so VendorsService can inject PrismaService for stats
+  // without re-importing it here.
   exports: [VendorsService],
 })
 export class VendorsModule {}

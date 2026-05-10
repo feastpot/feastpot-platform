@@ -10,7 +10,14 @@ export class OrdersRepository {
   findByIdWithItems(id: string) {
     return this.prisma.order.findUnique({
       where: { id },
-      include: { items: true, vendor: { select: { id: true, userId: true, businessName: true } } },
+      include: {
+        items: true,
+        vendor: { select: { id: true, userId: true, businessName: true } },
+        // Vendor portal renders customer first name on every order card. Selecting
+        // only firstName + email keeps the row size small and avoids leaking
+        // unrelated PII (passwordHash, phone, etc.) over the API.
+        customer: { select: { id: true, firstName: true, email: true } },
+      },
     });
   }
 
@@ -60,7 +67,12 @@ export class OrdersRepository {
       where: { AND: [where, cursorWhere] },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take,
-      include: { items: true },
+      include: {
+        items: true,
+        // Same rationale as findByIdWithItems — vendor dashboard needs first name
+        // per row to address customers by name.
+        customer: { select: { id: true, firstName: true, email: true } },
+      },
     });
   }
 

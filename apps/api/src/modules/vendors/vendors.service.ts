@@ -5,15 +5,17 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { UserRole, VendorStatus } from '@prisma/client';
+import { OrderStatus, UserRole, VendorStatus } from '@prisma/client';
 
 import type { AuthUser } from '../../auth/types';
+import { PrismaService } from '../../prisma/prisma.service';
 
 import { CreateVendorDto } from './dto/create-vendor.dto';
 import { CursorPaginationDto } from './dto/pagination.dto';
 import { SearchVendorsDto } from './dto/search-vendors.dto';
 import { UpdateVendorStatusDto } from './dto/update-vendor-status.dto';
 import { UpdateVendorDto } from './dto/update-vendor.dto';
+import { VendorStatsResponseDto } from './dto/vendor-stats.dto';
 import { VendorRepository, type DecodedCursor, type SearchedVendorRow } from './vendors.repository';
 
 function encodeCursor(row: SearchedVendorRow): string {
@@ -88,7 +90,77 @@ function slugify(input: string): string {
 
 @Injectable()
 export class VendorsService {
-  constructor(private readonly repo: VendorRepository) {}
+  constructor(
+    private readonly repo: VendorRepository,
+    private readonly prisma: PrismaService,
+  ) {}
+
+  /**
+   * Aggregated stats for the vendor's dashboard. Three Prisma queries run in
+   * parallel: today's bucket, this week's bucket, and a pending-now count.
+   *
+   * "Today" and "this week" are computed from server-local UTC midnight /
+   * Monday respectively — close enough for a vendor dashboard, and avoids
+   * needing the vendor's TZ. We intentionally exclude cancelled/refunded
+   * orders from revenue (a refunded order has zero net revenue for the
+   * vendor) by filtering on a positive-status whitelist.
+   */
+  async getMyStats(userId: string): Promise<VendorStatsResponseDto> {
+    const vendor = await this.repo.findByUserId(userId);
+    if (!vendor) {
+      throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'No vendor profile for this user' });
+    }
+    const vendorId = vendor.id;
+
+    const now = new Date();
+    const todayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    // ISO week starts Monday. getUTCDay(): Sun=0..Sat=6 → shift to Mon=0..Sun=6.
+    const dow = (now.getUTCDay() + 6) % 7;
+    const weekStart = new Date(todayStart.getTime() - dow * 24 * 60 * 60 * 1000);
+
+    const REVENUE_STATUSES = [
+      OrderStatus.accepted,
+      OrderStatus.preparing,
+      OrderStatus.dispatched,
+      OrderStatus.delivered,
+    ];
+
+    const [todayAgg, weekAgg, pendingNow] = await Promise.all([
+      this.prisma.order.aggregate({
+        where: {
+          vendorId,
+          createdAt: { gte: todayStart },
+          status: { in: REVENUE_STATUSES },
+        },
+        _count: { _all: true },
+        _sum: { totalPence: true },
+      }),
+      this.prisma.order.aggregate({
+        where: {
+          vendorId,
+          createdAt: { gte: weekStart },
+          status: { in: REVENUE_STATUSES },
+        },
+        _count: { _all: true },
+        _sum: { totalPence: true },
+      }),
+      this.prisma.order.count({
+        where: { vendorId, status: OrderStatus.pending },
+      }),
+    ]);
+
+    return {
+      today: {
+        orders: todayAgg._count._all,
+        revenuePence: todayAgg._sum.totalPence ?? 0,
+      },
+      week: {
+        orders: weekAgg._count._all,
+        revenuePence: weekAgg._sum.totalPence ?? 0,
+      },
+      pendingNow,
+    };
+  }
 
   async search(dto: SearchVendorsDto) {
     const limit = dto.limit ?? 20;
