@@ -6,6 +6,7 @@ import { ToastProvider, ToastViewport } from '@feastpot/ui';
 
 import { BottomNav } from '@/components/layout/bottom-nav';
 import { TopNav } from '@/components/layout/top-nav';
+import { PushPermissionPrompt } from '@/components/push-permission-prompt';
 import { QueryProvider } from '@/providers/query-provider';
 
 import './globals.css';
@@ -27,8 +28,12 @@ export const metadata: Metadata = {
     statusBarStyle: 'default',
   },
   icons: {
-    icon: '/icon.svg',
-    apple: '/icon.svg',
+    icon: [
+      { url: '/icon.svg', type: 'image/svg+xml' },
+      { url: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
+    ],
+    apple: '/icons/apple-touch-icon.png',
   },
 };
 
@@ -49,6 +54,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             <TopNav />
             {children}
             <BottomNav />
+            <PushPermissionPrompt />
             <ToastViewport />
           </ToastProvider>
         </QueryProvider>

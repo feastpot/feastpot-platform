@@ -17,6 +17,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { OrdersModule } from './modules/orders/orders.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { PayoutsModule } from './modules/payouts/payouts.module';
+import { PushModule } from './modules/push/push.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
 import { UsersModule } from './modules/users/users.module';
 import { VendorsModule } from './modules/vendors/vendors.module';
@@ -61,6 +62,7 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
     PayoutsModule,
     ReviewsModule,
     NotificationsModule,
+    PushModule,
     WebhooksModule,
   ],
   controllers: [HealthController],

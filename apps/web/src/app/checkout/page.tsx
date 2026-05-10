@@ -217,8 +217,15 @@ function CheckoutInner() {
       // 3. Tell the API we successfully confirmed.
       await confirmOrder.mutateAsync(order.id);
 
-      // 4. Clear basket + go to tracking.
+      // 4. Clear basket + go to tracking. Mark "has ordered" so the push
+      //    permission prompt can finally surface — we deliberately wait
+      //    until the user has real reason to want order notifications.
       sessionStorage.removeItem('feastpot.discount.v1');
+      try {
+        localStorage.setItem('feastpot.has-ordered.v1', '1');
+      } catch {
+        /* ignore */
+      }
       clearBasket();
       router.push(`/orders/${order.id}/tracking`);
     } catch (err) {
