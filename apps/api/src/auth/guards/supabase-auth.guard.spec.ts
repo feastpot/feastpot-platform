@@ -85,6 +85,31 @@ describe('mapUser', () => {
     expect(mapUser(user, token).role).toBe(UserRole.vendor);
   });
 
+  it('EDGE: empty-string JWT role falls through to app_metadata.role', () => {
+    const user = {
+      id: 'x', email: 'a@b.com',
+      app_metadata: { role: 'admin' }, user_metadata: {},
+    } as unknown as User;
+    expect(mapUser(user, makeJwt({ sub: 'x', role: '' })).role).toBe(UserRole.admin);
+  });
+
+  it('EDGE: non-string JWT role (number) falls through to app_metadata.role', () => {
+    const user = {
+      id: 'x', email: 'a@b.com',
+      app_metadata: { role: 'finance' }, user_metadata: {},
+    } as unknown as User;
+    expect(mapUser(user, makeJwt({ sub: 'x', role: 42 })).role).toBe(UserRole.finance);
+  });
+
+  it('EDGE: null app_metadata defaults to customer when no JWT role', () => {
+    const user = {
+      id: 'x', email: 'a@b.com',
+      app_metadata: null as unknown as Record<string, unknown>,
+      user_metadata: {},
+    } as unknown as User;
+    expect(mapUser(user, makeJwt({ sub: 'x' })).role).toBe(UserRole.customer);
+  });
+
   it('falls back to customer for unknown role string', () => {
     const user = {
       id: 'x',
