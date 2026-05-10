@@ -1,0 +1,104 @@
+You are an expert DevOps engineer. Create the GitHub Actions CI/CD workflows for the Feastpot monorepo.
+
+FILE 1: .github/workflows/ci.yml
+
+This runs on every pull_request to main and develop branches.
+
+Jobs in order:
+1. setup:
+   - runs-on: ubuntu-latest
+   - Node 22 with npm cache
+   - npm ci --workspace
+   - Cache turbo cache directory
+
+2. typecheck:
+   needs: [setup]
+   - run: npx turbo run typecheck
+   - Fail the PR if any TypeScript errors
+
+3. lint:
+   needs: [setup]
+   - run: npx turbo run lint
+   - run: npx turbo run format:check
+   - Fail the PR if ESLint or Prettier violations
+
+4. prisma-validate:
+   needs: [setup]
+   - run: npx prisma validate --schema=./prisma/schema.prisma
+   - run: npx prisma format --schema=./prisma/schema.prisma --check
+
+5. test:
+   needs: [setup]
+   - env: NODE_ENV=test, DATABASE_URL=from secrets (Neon test branch)
+   - run: npx turbo run test -- --coverage --ci
+   - Coverage threshold: 70% (fail below)
+   - Upload coverage to Codecov (optional)
+
+6. build:
+   needs: [typecheck, lint, prisma-validate, test]
+   - run: npx turbo run build
+   - Verify all apps compile without errors
+
+Add status checks that must pass before merge: typecheck, lint, prisma-validate, test, build
+
+FILE 2: .github/workflows/deploy.yml
+
+This runs on push to main only.
+
+Jobs:
+1. deploy-database:
+   - Apply pending migrations to production Supabase
+   - env: DATABASE_URL from GitHub Secrets (production)
+   - run: npx prisma migrate deploy --schema=./prisma/schema.prisma
+   - If this fails, stop the whole deploy immediately
+
+2. deploy-api (needs: deploy-database):
+   - Build NestJS API: npx turbo run build --filter=@feastpot/api
+   - Trigger Replit Autoscale Deployment via Replit Deploy API:
+     curl -X POST https://api.replit.com/v0/deployments        -H "Authorization: Bearer $REPLIT_TOKEN"        -H "Content-Type: application/json"        -d '{"deployment_key": "$REPLIT_DEPLOYMENT_KEY"}'
+   - Poll Replit API every 10 seconds until deployment status=succeeded or timeout 5 minutes
+   - Fail if deployment fails
+
+3. deploy-web (needs: deploy-api):
+   - Trigger Vercel deployment for apps/web:
+     curl -X POST "$VERCEL_DEPLOY_HOOK_WEB"
+   - No need to wait — Vercel deploys async
+
+4. deploy-vendor (needs: deploy-api):
+   - Trigger Vercel deployment for apps/vendor:
+     curl -X POST "$VERCEL_DEPLOY_HOOK_VENDOR"
+
+5. deploy-admin (needs: deploy-api):
+   - Trigger Vercel deployment for apps/admin:
+     curl -X POST "$VERCEL_DEPLOY_HOOK_ADMIN"
+
+6. smoke-test (needs: deploy-web, deploy-vendor, deploy-admin):
+   - Wait 60 seconds for Vercel deployments to complete
+   - Test API health: curl -f https://api.feastpot.co.uk/health
+   - Test web: curl -f https://feastpot.co.uk
+   - Test vendor: curl -f https://vendor.feastpot.co.uk
+   - Test admin: curl -f https://admin.feastpot.co.uk
+   - Fail if any returns non-200
+
+7. notify (needs: smoke-test):
+   - On success: POST to Slack webhook with:
+     "✅ Feastpot deployed successfully — commit: $GITHUB_SHA — by: $GITHUB_ACTOR"
+   - On failure: POST to Slack with failure details
+
+FILE 3: .github/workflows/neon-branch.yml
+
+On pull_request opened/reopened:
+- Create a Neon database branch named pr-$PR_NUMBER using Neon API
+- Run prisma migrate deploy against the branch
+- Comment on the PR with the branch connection string (masked)
+
+On pull_request closed:
+- Delete the Neon branch for this PR
+
+FILE 4: .github/dependabot.yml
+- Auto-update npm dependencies weekly
+- Auto-update GitHub Actions weekly
+- Limit to 5 open PRs at once
+
+Include all GitHub Secrets that need to be added (list them with descriptions).
+Output all workflow YAML files in full with comments explaining each step.

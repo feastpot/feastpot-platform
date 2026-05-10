@@ -86,7 +86,18 @@ export class DisputesService {
       where: { AND: [where, cursorWhere] },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: limit,
-      include: { order: { select: { orderNumber: true, totalPence: true, vendorId: true } } },
+      include: {
+        order: {
+          select: {
+            id: true,
+            orderNumber: true,
+            totalPence: true,
+            vendorId: true,
+            vendor: { select: { id: true, businessName: true } },
+            customer: { select: { id: true, firstName: true, lastName: true, email: true } },
+          },
+        },
+      },
     });
     const nextCursor = rows.length === limit ? this.encodeCursor(rows[rows.length - 1]!) : null;
     return { data: rows, nextCursor };
@@ -98,7 +109,12 @@ export class DisputesService {
     const dispute = await this.prisma.dispute.findUnique({
       where: { id },
       include: {
-        order: { include: { vendor: { select: { id: true, userId: true } } } },
+        order: {
+          include: {
+            vendor: { select: { id: true, userId: true, businessName: true } },
+            customer: { select: { id: true, firstName: true, lastName: true, email: true } },
+          },
+        },
         evidence: { orderBy: { createdAt: 'asc' } },
         raisedBy: { select: { id: true, firstName: true, lastName: true, email: true } },
       },

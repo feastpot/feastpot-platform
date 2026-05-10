@@ -1,0 +1,50 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Theme tokens are inlined here (NOT @import-ed from @feastpot/ui/theme.css)
+ * because cross-package @layer rules silently get dropped from the production
+ * build — same rationale as apps/web and apps/vendor globals.css.
+ */
+@layer base {
+  :root {
+    --brand-primary: #e8520a;
+    --brand-teal: #1d9e75;
+    --brand-vendor: #185fa5;
+    --brand-dark: #1c1c1a;
+    --brand-gray: #5f5e5a;
+
+    --background: 40 33% 98%;
+    --foreground: 60 4% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 60 4% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 60 4% 11%;
+    --primary: 211 74% 37%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 161 70% 37%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 40 8% 94%;
+    --muted-foreground: 60 4% 41%;
+    --accent: 211 74% 95%;
+    --accent-foreground: 211 74% 23%;
+    --destructive: 0 78% 50%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 40 8% 88%;
+    --input: 40 8% 88%;
+    --ring: 211 74% 37%;
+    --radius: 0.625rem;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter var', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  html,
+  body {
+    height: 100%;
+  }
+}

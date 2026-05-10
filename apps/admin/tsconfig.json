@@ -1,0 +1,17 @@
+{
+  "extends": "@feastpot/config/tsconfig/nextjs",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@feastpot/types": ["../../packages/types/src/index.ts"],
+      "@feastpot/types/*": ["../../packages/types/src/*"],
+      "@feastpot/ui": ["../../packages/ui/src/index.ts"],
+      "@feastpot/ui/*": ["../../packages/ui/src/*"]
+    },
+    "incremental": true,
+    "plugins": [{ "name": "next" }]
+  },
+  "include": ["next-env.d.ts", "src/**/*", ".next/types/**/*.ts"],
+  "exclude": ["node_modules", ".next", ".turbo"]
+}

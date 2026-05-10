@@ -98,6 +98,14 @@ export class StripeService {
    * KYC, tax, bank details collection. We always pass `account_onboarding` —
    * for a returning vendor whose link expired, the same call is safe.
    */
+  /**
+   * Retrieve a previously-created transfer so finance staff can reconcile it
+   * against our local Payout row (pence-level diff).
+   */
+  retrieveTransfer(transferId: string): Promise<Stripe.Transfer> {
+    return this.stripe.transfers.retrieve(transferId);
+  }
+
   createOnboardingLink(args: {
     accountId: string;
     refreshUrl: string;

@@ -11,6 +11,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { QueuesModule } from './queues/queues.module';
 
 import { AuthModule } from './auth/auth.module';
+import { AdminModule } from './modules/admin/admin.module';
 import { CatalogueModule } from './modules/catalogue/catalogue.module';
 import { ComplianceModule } from './modules/compliance/compliance.module';
 import { DisputesModule } from './modules/disputes/disputes.module';
@@ -65,6 +66,7 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
     NotificationsModule,
     PushModule,
     WebhooksModule,
+    AdminModule,
   ],
   controllers: [RootController, HealthController],
 })
