@@ -1,0 +1,160 @@
+You are an expert NestJS and Next.js engineer. Build the complete event catering enquiry and quote flow for Feastpot.
+
+CONTEXT:
+The EventEnquiry and EventQuote Prisma models already exist in the database.
+The event flow is triggered when: order type = event, OR customer explicitly selects "Event / party catering".
+Events require a vendor quote before payment — unlike standard orders which go straight to Stripe.
+
+═══════════════════════════════════════════════════════
+PART 1 — NestJS API: EventEnquiriesModule
+═══════════════════════════════════════════════════════
+
+Create apps/api/src/modules/event-enquiries/ with:
+
+1. event-enquiries.controller.ts — 5 endpoints:
+
+GET    /v1/event-enquiries
+  - Customers see own enquiries
+  - Vendors see enquiries where they submitted a quote (or were matched)
+  - Admin sees all
+  - Filter by status: open, quoted, confirmed, completed, cancelled
+
+POST   /v1/event-enquiries (customer role)
+  - Validates: eventDate must be at least 7 days from now (events need planning time)
+  - guestCount minimum 10
+  - Triggers vendor matching immediately (see Step 3)
+  - Returns created enquiry
+
+GET    /v1/event-enquiries/:id
+  - Returns enquiry with all submitted quotes (customer and matched vendors only)
+
+POST   /v1/event-enquiries/:id/select-vendor (customer role)
+  Body: { vendorId: string }
+  - Validates the vendor submitted a quote for this enquiry
+  - Updates enquiry: vendorId, status=confirmed
+  - Calculates deposit (30% of selectedQuote.perHeadPence * guestCount + deliveryFeePence)
+  - Creates Stripe PaymentIntent for deposit amount with capture_method: 'manual'
+  - Sets other quotes to status=expired
+  - Returns { enquiry, clientSecret } for deposit payment
+
+PATCH  /v1/event-enquiries/:id/confirm-numbers (customer role)
+  Body: { guestCount: number, menuAdjustments?: string }
+  - Updates final guest count
+  - Recalculates final total
+  - Creates balance PaymentIntent (70% of final total) — collected 48h before event
+  - Returns updated enquiry
+
+POST   /v1/event-enquiries/:id/quotes (vendor role)
+  Body: { proposedMenu, perHeadPence, deliveryFeePence, minDepositPct, terms, expiresAt }
+  - Validates vendor was matched to this enquiry
+  - Validates quote deadline not passed (24h from enquiry creation)
+  - Status=submitted
+  - Notifies customer: "New quote received for your event"
+
+2. event-enquiries.service.ts:
+
+   matchVendors(enquiry: EventEnquiry):
+   - Find vendors where status=live
+   - Filter by: vendor's delivery radius covers enquiry.deliveryPostcode
+     (use postcodes.io to get lat/lng for both, then haversine distance)
+   - Filter by: at least one of vendor.cuisineTypes matches enquiry.cuisinePreferences
+     (if cuisinePreferences is empty, match all vendors)
+   - Limit to 5 vendors maximum
+   - Send each matched vendor a notification: new event enquiry
+   - Store matched vendor IDs (add matched_vendor_ids varchar[] to EventEnquiry model)
+
+   scheduleBalanceCollection(enquiryId: string):
+   - Add BullMQ delayed job: fires 48h before eventDate
+   - Job creates Stripe PaymentIntent for balance and sends customer payment link
+
+3. Add to prisma/schema.prisma:
+   In EventEnquiry model, add: matchedVendorIds String[] @map("matched_vendor_ids") @db.Uuid
+   Then run: npx prisma migrate dev --name add_event_matched_vendors
+
+4. event-enquiries.module.ts
+
+═══════════════════════════════════════════════════════
+PART 2 — BullMQ cron jobs for events
+═══════════════════════════════════════════════════════
+
+5. In the compliance/scheduler module, add two new cron jobs:
+
+   event-reminder (runs every hour):
+   - Find EventEnquiry where status=confirmed AND eventDate = now() + 72 hours ± 1 hour
+   - For each: send customer reminder to confirm final guest numbers
+   - Send email and WhatsApp notification
+
+   event-balance (runs every hour):
+   - Find EventEnquiry where status=confirmed AND eventDate = now() + 48 hours ± 1 hour
+     AND balancePiId IS NULL
+   - For each: create Stripe PaymentIntent for balance amount
+   - Send customer payment link via email and WhatsApp
+
+═══════════════════════════════════════════════════════
+PART 3 — Customer PWA: event enquiry pages
+═══════════════════════════════════════════════════════
+
+6. Create apps/web/src/app/events/page.tsx — event enquiry list:
+   Shows customer's event enquiries with status badges.
+   "Plan a new event" button → /events/new
+
+7. Create apps/web/src/app/events/new/page.tsx — event enquiry form:
+   Fields:
+   - Event date (date picker, min date = 7 days from today)
+   - Estimated guest count (number input, min 10)
+   - Cuisine preferences (multi-select: Nigerian, Ghanaian, Jamaican, Caribbean, Other)
+   - Dietary requirements (multi-select: Halal, Vegan, Vegetarian, Other)
+   - Delivery postcode
+   - Approximate budget (optional, £ input)
+   - Additional notes (textarea)
+   
+   Submit: POST /v1/event-enquiries
+   On success: navigate to /events/{id} with toast "We're finding vendors for you!"
+
+8. Create apps/web/src/app/events/[id]/page.tsx — enquiry detail with quotes:
+   Shows: event details summary, matched vendor count, quotes received so far.
+   
+   Quote cards (one per received quote):
+   - Vendor name, logo, rating, FSA badge
+   - Proposed menu (text)
+   - Per-head price × guest count = subtotal
+   - Delivery fee
+   - Total estimate
+   - Deposit required (minDepositPct%)
+   - "Select this vendor" button
+   
+   On "Select this vendor":
+   - Calls POST /v1/event-enquiries/:id/select-vendor
+   - Receives clientSecret
+   - Shows Stripe Elements card input for deposit payment
+   - On payment: navigate to /events/:id/confirmed
+
+9. Create apps/web/src/app/events/[id]/confirmed/page.tsx:
+   - Shows booking confirmation: vendor, event date, deposit paid, balance due date
+   - "Confirm final numbers" button (opens modal)
+   - Modal: update guest count and any last menu notes → PATCH /v1/event-enquiries/:id/confirm-numbers
+
+═══════════════════════════════════════════════════════
+PART 4 — Vendor portal: event quote management
+═══════════════════════════════════════════════════════
+
+10. Add /events page to apps/vendor:
+    Create apps/vendor/src/app/events/page.tsx:
+    - Shows incoming event enquiries matched to this vendor
+    - Status: New (open, not quoted), Quoted (waiting), Won (confirmed), Closed
+    - Click enquiry → opens quote submission form
+    
+11. Quote submission form (apps/vendor/src/app/events/[id]/quote/page.tsx):
+    - Event summary at top: date, guest count, cuisine preferences, budget, delivery postcode
+    - Form fields:
+      Proposed menu (large textarea, e.g. "Per head: Jollof rice, Egusi soup, Pounded yam, Fried chicken, Small chops")
+      Price per head (£ input)
+      Delivery fee (£ input)
+      Minimum deposit (% selector: 25%, 30%, 50%)
+      Terms (textarea: cancellation policy, final number deadline)
+      Quote valid until (date/time picker, default 24h)
+    - Submit: POST /v1/event-enquiries/:id/quotes
+
+Run npm run typecheck after all changes.
+Run the smoke-test script with an event order to verify the flow.
+Output all file contents in full.

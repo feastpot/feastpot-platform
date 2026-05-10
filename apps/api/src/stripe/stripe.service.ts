@@ -30,6 +30,28 @@ export class StripeService {
     });
   }
 
+  /**
+   * Generic PaymentIntent factory used for non-order flows (event enquiry
+   * deposits, balance collection, etc). Lets callers pass arbitrary metadata
+   * without having to cram a fake orderId into the orders-shaped helper above.
+   */
+  async createPaymentIntentGeneric(args: {
+    amountPence: number;
+    metadata: Record<string, string>;
+    captureMethod?: 'manual' | 'automatic';
+    idempotencyKey?: string;
+  }): Promise<Stripe.PaymentIntent> {
+    return this.stripe.paymentIntents.create(
+      {
+        amount: args.amountPence,
+        currency: 'gbp',
+        capture_method: args.captureMethod ?? 'manual',
+        metadata: args.metadata,
+      },
+      args.idempotencyKey ? { idempotencyKey: args.idempotencyKey } : undefined,
+    );
+  }
+
   capture(paymentIntentId: string): Promise<Stripe.PaymentIntent> {
     return this.stripe.paymentIntents.capture(paymentIntentId);
   }

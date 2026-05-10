@@ -31,6 +31,36 @@ const money = (p: unknown): string =>
   typeof p === 'number' ? `£${(p / 100).toFixed(2)}` : '—';
 
 export const TEMPLATES: Record<string, NotificationTemplate> = {
+  // ---------- Events ----------
+  event_enquiry_matched: {
+    subject: (d) => `New event enquiry: ${d.eventType ?? 'event'} for ${d.guestCount ?? '?'}`,
+    render: (d) => wrapHtml('New event enquiry',
+      `<p>You've been matched to a new event: <strong>${d.eventType ?? 'event'}</strong> for ${d.guestCount ?? '?'} guests on ${d.eventDate ?? ''} (${d.postcode ?? ''}).</p>
+       <p>Submit your quote in the vendor portal within 24 hours.</p>`),
+    channels: ['email', 'push'],
+  },
+  event_quote_received: {
+    subject: () => 'New quote received for your event',
+    render: (d) => wrapHtml('A vendor responded',
+      `<p>A vendor has submitted a quote for ${money(d.totalPence)}. Review and choose in the app.</p>`),
+    channels: ['email', 'whatsapp', 'push'],
+    whatsappTemplate: 'event_quote_received',
+  },
+  event_reminder_72h: {
+    subject: () => 'Confirm your event guest count',
+    render: (d) => wrapHtml('Event in 72 hours',
+      `<p>Your event is on ${d.eventDate ?? ''}. Please confirm your final guest count (currently ${d.guestCount ?? '?'}).</p>`),
+    channels: ['email', 'whatsapp', 'push'],
+    whatsappTemplate: 'event_reminder_72h',
+  },
+  event_balance_link: {
+    subject: () => 'Event balance payment due',
+    render: (d) => wrapHtml('Balance payment',
+      `<p>Your event balance of ${money(d.balancePence)} is now due. Open the app to complete payment.</p>`),
+    channels: ['email', 'whatsapp', 'push'],
+    whatsappTemplate: 'event_balance_link',
+  },
+
   // ---------- Orders ----------
   order_confirmation: {
     subject: (d) => `Order ${d.orderNumber ?? ''} confirmed`,

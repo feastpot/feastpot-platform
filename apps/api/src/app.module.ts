@@ -2,6 +2,7 @@ import { BullModule } from '@nestjs/bull';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_FILTER } from '@nestjs/core';
+import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { SentryGlobalFilter, SentryModule } from '@sentry/nestjs/setup';
 
@@ -18,6 +19,7 @@ import { AdminModule } from './modules/admin/admin.module';
 import { CatalogueModule } from './modules/catalogue/catalogue.module';
 import { ComplianceModule } from './modules/compliance/compliance.module';
 import { DisputesModule } from './modules/disputes/disputes.module';
+import { EventEnquiriesModule } from './modules/event-enquiries/event-enquiries.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { PaymentsModule } from './modules/payments/payments.module';
@@ -38,6 +40,7 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
       envFilePath: ['.env.local', '.env'],
     }),
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 120 }]),
+    ScheduleModule.forRoot(),
     BullModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -67,6 +70,7 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
     OrdersModule,
     PaymentsModule,
     DisputesModule,
+    EventEnquiriesModule,
     ComplianceModule,
     PayoutsModule,
     ReviewsModule,

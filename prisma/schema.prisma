@@ -341,6 +341,7 @@ model Vendor {
   payouts        Payout[]
   reviews        Review[]
   eventQuotes    EventQuote[]
+  selectedForEnquiries EventEnquiry[] @relation("EventEnquirySelectedVendor")
 
   @@index([status])
   @@index([slug])
@@ -522,41 +523,57 @@ model OrderItem {
 }
 
 model EventEnquiry {
-  id           String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  customerId   String        @map("customer_id") @db.Uuid
-  eventType    String        @map("event_type") @db.VarChar(100)
-  guestCount   Int           @map("guest_count")
-  eventDate    DateTime      @map("event_date") @db.Timestamptz
-  postcode     String        @db.VarChar(16)
-  budgetPence  Int?          @map("budget_pence")
-  cuisines     String[]      @db.VarChar(64)
-  notes        String?
-  status       EnquiryStatus @default(open)
-  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt    DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+  id                String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  customerId        String        @map("customer_id") @db.Uuid
+  eventType         String        @map("event_type") @db.VarChar(100)
+  guestCount        Int           @map("guest_count")
+  finalGuestCount   Int?          @map("final_guest_count")
+  eventDate         DateTime      @map("event_date") @db.Timestamptz
+  postcode          String        @db.VarChar(16)
+  budgetPence       Int?          @map("budget_pence")
+  cuisines          String[]      @db.VarChar(64)
+  dietary           String[]      @db.VarChar(32)
+  notes             String?
+  menuAdjustments   String?       @map("menu_adjustments")
+  status            EnquiryStatus @default(open)
+  vendorId          String?       @map("vendor_id") @db.Uuid
+  matchedVendorIds  String[]      @map("matched_vendor_ids") @db.Uuid
+  quoteDeadline     DateTime?     @map("quote_deadline") @db.Timestamptz
+  depositPiId       String?       @map("deposit_pi_id") @db.VarChar(100)
+  balancePiId       String?       @map("balance_pi_id") @db.VarChar(100)
+  confirmedAt       DateTime?     @map("confirmed_at") @db.Timestamptz
+  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime      @updatedAt @map("updated_at") @db.Timestamptz
 
-  customer User         @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  quotes   EventQuote[]
+  customer       User         @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  selectedVendor Vendor?      @relation("EventEnquirySelectedVendor", fields: [vendorId], references: [id], onDelete: SetNull)
+  quotes         EventQuote[]
 
   @@index([customerId])
   @@index([status])
   @@index([eventDate])
   @@index([postcode])
+  @@index([vendorId])
   @@map("event_enquiries")
 }
 
 model EventQuote {
-  id          String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  enquiryId   String      @map("enquiry_id") @db.Uuid
-  vendorId    String      @map("vendor_id") @db.Uuid
-  pricePence  Int         @map("price_pence")
-  message     String?
-  menuOutline Json?       @map("menu_outline")
-  status      QuoteStatus @default(submitted)
-  expiresAt   DateTime?   @map("expires_at") @db.Timestamptz
-  acceptedAt  DateTime?   @map("accepted_at") @db.Timestamptz
-  createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt   DateTime    @updatedAt @map("updated_at") @db.Timestamptz
+  id               String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  enquiryId        String      @map("enquiry_id") @db.Uuid
+  vendorId         String      @map("vendor_id") @db.Uuid
+  pricePence       Int         @map("price_pence")
+  perHeadPence     Int         @default(0) @map("per_head_pence")
+  deliveryFeePence Int         @default(0) @map("delivery_fee_pence")
+  minDepositPct    Int         @default(30) @map("min_deposit_pct")
+  proposedMenu     String?     @map("proposed_menu")
+  terms            String?
+  message          String?
+  menuOutline      Json?       @map("menu_outline")
+  status           QuoteStatus @default(submitted)
+  expiresAt        DateTime?   @map("expires_at") @db.Timestamptz
+  acceptedAt       DateTime?   @map("accepted_at") @db.Timestamptz
+  createdAt        DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime    @updatedAt @map("updated_at") @db.Timestamptz
 
   enquiry EventEnquiry @relation(fields: [enquiryId], references: [id], onDelete: Cascade)
   vendor  Vendor       @relation(fields: [vendorId], references: [id], onDelete: Cascade)
