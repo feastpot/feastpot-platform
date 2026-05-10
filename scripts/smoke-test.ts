@@ -110,7 +110,7 @@ async function supabaseLogin(email: string, password: string): Promise<string> {
 interface Vendor { id: string; businessName: string }
 interface VendorListResp { data: Vendor[]; nextCursor: string | null }
 interface Menu { id: string; name: string; isActive?: boolean }
-interface MenuItem { id: string; name: string; basePricePence: number; isAvailable: boolean }
+interface MenuItem { id: string; name: string; pricePence: number; isAvailable: boolean }
 interface Address { id: string }
 interface OrderRecord {
   id: string;
@@ -130,8 +130,9 @@ async function main(): Promise<void> {
   console.log('  Customer      :', CUSTOMER_EMAIL);
   console.log('  Vendor        :', VENDOR_EMAIL, '\n');
 
-  // STEP 1 — Health
-  const health = await api('GET', '/health');
+  // STEP 1 — Health (use the version-neutral /healthz; /health lives under
+  // the URI versioning prefix as /v1/health).
+  const health = await api('GET', '/healthz');
   log(health.status === 200, 'API health check', health);
 
   // STEP 2 — Customer login (via Supabase, not /v1/auth/login)
@@ -159,7 +160,7 @@ async function main(): Promise<void> {
   log(itemsRes.status === 200 && Array.isArray(itemsRes.body), 'Fetch menu items', itemsRes);
   const item = itemsRes.body.find((i) => i.isAvailable);
   log(!!item, 'At least one available menu item exists', itemsRes.body);
-  console.log('   Item:', item!.name, '£' + (item!.basePricePence / 100).toFixed(2));
+  console.log('   Item:', item!.name, '£' + (item!.pricePence / 100).toFixed(2));
 
   // STEP 5 — Customer address (reuse first if present, else create)
   let addressId: string;
@@ -180,8 +181,14 @@ async function main(): Promise<void> {
     console.log('   Created address:', addressId);
   }
 
-  // STEP 6 — Create order (lead-time gate is configurable; +26h is safe)
-  const scheduledFor = new Date(Date.now() + 26 * 60 * 60 * 1000).toISOString();
+  // STEP 6 — Create order. Two server-side gates:
+  //  - per-item preparation_hours (default 24h) lead time
+  //  - slot must fall inside the 09:00–21:00 UTC delivery window
+  // Pick day-after-tomorrow at 12:00 UTC: comfortably >24h ahead AND mid-window.
+  const slot = new Date();
+  slot.setUTCDate(slot.getUTCDate() + 2);
+  slot.setUTCHours(12, 0, 0, 0);
+  const scheduledFor = slot.toISOString();
   const orderRes = await api<CreateOrderResponse>(
     'POST',
     '/v1/orders',
@@ -258,7 +265,7 @@ async function main(): Promise<void> {
     { status: capturedPi.status });
 
   // STEP 12 — Sanity: API still healthy after the lifecycle
-  const finalHealth = await api('GET', '/health');
+  const finalHealth = await api('GET', '/healthz');
   log(finalHealth.status === 200, 'API still healthy after full order lifecycle');
 
   console.log('\n✅ All smoke tests passed!\n');
