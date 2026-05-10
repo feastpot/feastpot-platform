@@ -103,4 +103,3 @@ build = ["bash", "-c", "npm ci && npm run db:generate && npm run build:api"]
 [userenv]
 
 [userenv.shared]
-STRIPE_SECRET_KEY = "sk_test_51TVCtQJO3z8lSJX7PxnT03BRtlUFdt3YeCUjU9LuVeAhe6EYWkcRJBm3ZQqQzg4z5pNpncsQuOyqZGmP0xx0Obrp00MV3C6jyE"

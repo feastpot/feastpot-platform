@@ -124,10 +124,12 @@ export const stripeClientFactory = {
   provide: STRIPE_CLIENT,
   inject: [ConfigService],
   useFactory: (cfg: ConfigService): Stripe => {
-    const key = cfg.get<string>('STRIPE_SECRET_KEY') ?? 'sk_test_placeholder';
-    if (!cfg.get<string>('STRIPE_SECRET_KEY')) {
-      new Logger('StripeService').warn(
-        'STRIPE_SECRET_KEY not set — Stripe calls will fail until configured.',
+    const key = cfg.get<string>('STRIPE_SECRET_KEY');
+    if (!key) {
+      // Fail loudly at boot rather than carrying a fake fallback secret in the
+      // source tree (which trips secret scanners and risks accidental use).
+      throw new Error(
+        'STRIPE_SECRET_KEY is not configured — set it in Replit Secrets before starting the API.',
       );
     }
     return new Stripe(key, { apiVersion: '2024-11-20.acacia' as Stripe.LatestApiVersion });
