@@ -6,7 +6,8 @@ import { VendorsClient } from './vendors-client';
 export const dynamic = 'force-dynamic';
 
 export default async function VendorsPage() {
-  const user = await requireStaff('/vendors', ['admin', 'compliance']);
+  // Mirror backend AdminController role matrix (admin/compliance/support).
+  const user = await requireStaff('/vendors', ['admin', 'compliance', 'support']);
   return (
     <StaffShell user={user}>
       <VendorsClient />

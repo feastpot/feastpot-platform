@@ -28,11 +28,11 @@ interface NavItem {
 
 const NAV: ReadonlyArray<NavItem> = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/vendors', label: 'Vendors', icon: Store, roles: ['admin', 'compliance'] },
+  { href: '/vendors', label: 'Vendors', icon: Store, roles: ['admin', 'compliance', 'support'] },
   { href: '/disputes', label: 'Disputes', icon: AlertTriangle, roles: ['admin', 'support'] },
   { href: '/payouts', label: 'Payouts', icon: Banknote, roles: ['admin', 'finance'] },
   { href: '/compliance', label: 'Compliance', icon: ShieldCheck, roles: ['admin', 'compliance'] },
-  { href: '/audit-log', label: 'Audit log', icon: Activity },
+  { href: '/audit-log', label: 'Audit log', icon: Activity, roles: ['admin', 'compliance'] },
   { href: '/settings', label: 'Settings', icon: Settings, roles: ['admin'] },
 ];
 

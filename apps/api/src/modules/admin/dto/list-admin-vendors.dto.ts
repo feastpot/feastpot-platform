@@ -4,7 +4,10 @@ import { Type } from 'class-transformer';
 import { IsEnum, IsInt, IsOptional, IsString, Matches, Max, MaxLength, Min } from 'class-validator';
 
 export class ListAdminVendorsDto {
-  @ApiPropertyOptional({ enum: VendorStatus, description: 'Defaults to pending' })
+  @ApiPropertyOptional({
+    enum: VendorStatus,
+    description: 'Omit to return vendors of every status (the admin "All" tab).',
+  })
   @IsOptional()
   @IsEnum(VendorStatus)
   status?: VendorStatus;

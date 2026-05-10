@@ -360,10 +360,13 @@ export class AdminService {
    */
   async listAdminVendors(dto: ListAdminVendorsDto) {
     const limit = dto.limit ?? 25;
-    const status = dto.status ?? VendorStatus.pending;
     const cursor = dto.cursor ? this.decodeVendorCursor(dto.cursor) : null;
 
-    const where: Prisma.VendorWhereInput = { status };
+    // No status filter ⇒ "All" tab in the admin UI returns vendors of every
+    // status. The client decides the default tab (currently "Pending"); the
+    // service must not silently override that with its own default.
+    const where: Prisma.VendorWhereInput = {};
+    if (dto.status) where.status = dto.status;
     if (dto.search) {
       where.businessName = { contains: dto.search, mode: 'insensitive' };
     }

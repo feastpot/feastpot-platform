@@ -7,7 +7,8 @@ export const dynamic = 'force-dynamic';
 
 export default async function VendorDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const user = await requireStaff(`/vendors/${id}`, ['admin', 'compliance']);
+  // Mirror backend AdminController role matrix (admin/compliance/support).
+  const user = await requireStaff(`/vendors/${id}`, ['admin', 'compliance', 'support']);
   return (
     <StaffShell user={user}>
       <VendorDetailClient vendorId={id} />
