@@ -1,7 +1,9 @@
 import { BullModule } from '@nestjs/bull';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { APP_FILTER } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { SentryGlobalFilter, SentryModule } from '@sentry/nestjs/setup';
 
 import { HealthController } from './health/health.controller';
 import { RootController } from './root.controller';
@@ -27,6 +29,9 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
 
 @Module({
   imports: [
+    // SentryModule.forRoot() must come first so other modules see the request
+    // hub when their providers are constructed.
+    SentryModule.forRoot(),
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: ['.env.local', '.env'],
@@ -69,5 +74,10 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
     AdminModule,
   ],
   controllers: [RootController, HealthController],
+  providers: [
+    // Captures unhandled exceptions in HTTP/RPC/WS contexts and forwards them
+    // to Sentry before delegating to Nest's default error handling.
+    { provide: APP_FILTER, useClass: SentryGlobalFilter },
+  ],
 })
 export class AppModule {}

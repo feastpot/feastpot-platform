@@ -1,0 +1,89 @@
+You are an expert Next.js SEO and legal compliance engineer. Complete the final pre-launch tasks for Feastpot.
+
+SEO SETUP (apps/web):
+
+STEP 1 — Install and configure next-sitemap:
+npm install next-sitemap
+Create next-sitemap.config.js:
+{
+  siteUrl: 'https://feastpot.co.uk',
+  generateRobotsTxt: true,
+  exclude: ['/account/*', '/checkout', '/orders/*'],
+  additionalPaths: async (config) => {
+    // Fetch all live vendor slugs from API and add to sitemap
+    const vendors = await fetch('https://api.feastpot.co.uk/v1/vendors?limit=1000&status=live').then(r => r.json())
+    return vendors.data.map(v => ({ loc: '/vendors/' + v.slug, lastmod: v.updatedAt }))
+  }
+}
+Add to apps/web/next.config.ts postbuild: "next-sitemap"
+
+STEP 2 — Create three SEO landing pages:
+
+apps/web/src/app/nigerian-food-delivery-london/page.tsx:
+- Title: "Nigerian Food Delivery London | Jollof Rice, Egusi, Suya"
+- H1: "Authentic Nigerian Food Delivered in London"
+- Content: introduction paragraph, cuisine highlights (Jollof Rice, Egusi Soup, Pepper Soup, Suya, Pounded Yam, Small Chops), how it works section, list of Nigerian vendors in London (fetched from API), customer reviews section, FAQ (What areas do you deliver to? How far in advance? etc.)
+- generateMetadata with OG tags
+
+apps/web/src/app/ghanaian-food-delivery-london/page.tsx:
+Similar structure for Ghanaian cuisine (Waakye, Banku, Fufu, Light Soup, Kelewele, Jollof)
+
+apps/web/src/app/caribbean-food-delivery-london/page.tsx:
+Similar structure for Caribbean cuisine (Jerk Chicken, Oxtail, Rice and Peas, Curry Goat, Festival Bread)
+
+STEP 3 — Global metadata in apps/web/src/app/layout.tsx:
+export const metadata: Metadata = {
+  metadataBase: new URL('https://feastpot.co.uk'),
+  title: { template: '%s | Feastpot', default: 'Feastpot — African & Caribbean Food Delivered' },
+  description: 'Order authentic African and Caribbean food in bulk. Party trays, family portions, weekly meal prep. Delivered in London.',
+  openGraph: { type: 'website', siteName: 'Feastpot', images: [{ url: '/og-image.png', width: 1200, height: 630 }] },
+  twitter: { card: 'summary_large_image', site: '@feastpot' }
+}
+
+STEP 4 — Cookie consent (apps/web/src/components/cookie-banner.tsx):
+- Fixed bottom bar on first visit
+- "We use cookies for essential platform functionality. No advertising cookies."
+- "Accept" button stores consent in localStorage
+- Links to Privacy Policy
+- UK GDPR compliant — only essential cookies, no opt-in required for those
+
+STEP 5 — Legal pages:
+
+apps/web/src/app/legal/terms/page.tsx:
+Create a complete, readable Terms of Service covering:
+- Platform operator (Feastpot, not a food business)
+- Vendor obligations (food hygiene, allergens, FSA compliance, timely fulfilment)
+- Customer rights and refund policy (disputes resolved within 24h, refunds within 5 business days)
+- Commission: 12% deducted from vendor payouts
+- Payout schedule: weekly, every Monday
+- Prohibited content and conduct
+- Governing law: England and Wales
+- Last updated: May 2026
+
+apps/web/src/app/legal/privacy/page.tsx:
+UK GDPR Privacy Policy covering:
+- Data controller: Feastpot (with ICO registration number placeholder)
+- Data categories: name, email, phone, addresses, order history, payment references (not card details)
+- Legal bases: contract performance, legitimate interests, legal obligation
+- Retention: orders 6 years, account data until deletion request, audit logs 6 years
+- Rights: access, rectification, erasure, portability, objection
+- International transfers: Stripe (US), Supabase (EU), covered by SCCs
+- Contact: privacy@feastpot.co.uk
+
+apps/web/src/app/legal/allergens/page.tsx:
+- List all 14 FSA major allergens with icons
+- "Every dish on Feastpot displays its allergens. If in doubt, contact the vendor directly."
+- Disclaimer: allergen info is vendor-provided, not independently verified
+- How to filter by allergen on the platform (with screenshots)
+- Emergency contact and allergy advice
+
+apps/web/src/app/help/page.tsx:
+FAQ sections: Ordering, Delivery, Refunds, Allergens, Vendor accounts
+Contact: support@feastpot.co.uk and WhatsApp number
+Link to raise a dispute
+
+STEP 6 — Pre-launch checklist (output as a markdown file LAUNCH_CHECKLIST.md):
+Create a comprehensive go-live checklist covering:
+Technical, Legal, Vendor readiness, Customer readiness, Monitoring
+
+Output all files in full. Ensure all pages have proper TypeScript types and Tailwind styling consistent with the Feastpot brand.

@@ -1,0 +1,100 @@
+You are an expert Replit and NestJS deployment engineer. Configure the Feastpot API for production deployment on Replit Autoscale.
+
+STEP 1 — Create .replit at the monorepo root:
+
+[run]
+run = "npm run start:api"
+
+[deployment]
+run = ["sh", "-c", "npm run db:deploy && npm run build:api && npm run start:api"]
+deploymentTarget = "autoscale"
+ignorePorts = false
+
+[[ports]]
+localPort = 3001
+externalPort = 80
+
+[[ports]]
+localPort = 3001
+externalPort = 443
+
+[nix]
+channel = "stable-24_05"
+
+[env]
+NODE_ENV = "production"
+PORT = "3001"
+
+[languages.javascript]
+pattern = "**/{*.js,*.jsx,*.ts,*.tsx}"
+[languages.javascript.languageServer]
+start = "typescript-language-server --stdio"
+
+STEP 2 — Create replit.nix:
+{ pkgs }: {
+  deps = [
+    pkgs.nodejs_22
+    pkgs.nodePackages.npm
+    pkgs.openssl
+    pkgs.libuuid
+  ];
+  env = {
+    NODE_ENV = "development";
+  };
+}
+
+STEP 3 — Update apps/api/src/main.ts for production:
+- Listen on 0.0.0.0 (not localhost) — required for Replit container networking
+- PORT from process.env.PORT || 3001
+- Trust proxy (for Replit's reverse proxy): app.set('trust proxy', 1)
+- Add startup health check log: console.log('Feastpot API running on port', port)
+
+STEP 4 — Configure Sentry in apps/api:
+Install: @sentry/nestjs @sentry/node @sentry/profiling-node
+
+Create apps/api/src/instrument.ts (must be imported first in main.ts):
+import * as Sentry from '@sentry/nestjs'
+Sentry.init({
+  dsn: process.env.SENTRY_DSN,
+  environment: process.env.NODE_ENV,
+  integrations: [Sentry.nestjsIntegration()],
+  tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 1.0,
+  profilesSampleRate: 0.1,
+})
+
+Configure SentryGlobalFilter in app.module.ts
+Configure source maps in nest-cli.json for readable stack traces in Sentry
+
+STEP 5 — Production environment secrets checklist.
+List every secret that must be added to Replit Secrets before the first deployment:
+DATABASE_URL, DIRECT_URL, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_JWT_SECRET,
+STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, REDIS_URL, RESEND_API_KEY,
+TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, WHATSAPP_API_TOKEN, FSA_API_KEY,
+VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, CLOUDFLARE_R2_ACCESS_KEY, CLOUDFLARE_R2_SECRET_KEY,
+CLOUDFLARE_R2_BUCKET_URL, SENTRY_DSN, JWT_SECRET (fallback)
+
+For each secret: description of where to find the value.
+
+STEP 6 — Deployment steps in Replit:
+1. Click Deploy button in Replit workspace
+2. Select Autoscale deployment type
+3. Machine: 1 vCPU, 2GB RAM, min instances: 1, max: 10
+4. Health check path: /health
+5. Click "Link a domain" → enter api.feastpot.co.uk
+6. Copy the A record and TXT record Replit provides
+7. Add both to Cloudflare DNS (DNS Only, no proxy)
+8. Wait for Replit to verify the domain (60-120 seconds)
+9. Click Deploy
+
+STEP 7 — Post-deployment verification:
+Run these from your local machine or Replit shell:
+curl https://api.feastpot.co.uk/health
+curl https://api.feastpot.co.uk/api/docs (should return HTML)
+curl -X POST https://api.feastpot.co.uk/v1/auth/login -d '{}' (should return 400 validation error, not 500)
+
+STEP 8 — Configure Stripe webhook in production:
+Endpoint URL: https://api.feastpot.co.uk/v1/webhooks/stripe
+Events: payment_intent.succeeded, payment_intent.payment_failed, transfer.created, refund.updated
+Copy signing secret to Replit Secrets as STRIPE_WEBHOOK_SECRET
+
+Output all configuration files in full with inline comments.

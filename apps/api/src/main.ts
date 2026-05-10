@@ -1,6 +1,10 @@
+// Sentry must be required before anything else so its OpenTelemetry
+// auto-instrumentation can hook into Node's module loader.
+import './instrument';
 import 'reflect-metadata';
 
 import compression from 'compression';
+import express from 'express';
 import helmet from 'helmet';
 
 import { ValidationPipe, VersioningType } from '@nestjs/common';
@@ -25,6 +29,12 @@ async function bootstrap(): Promise<void> {
   const config = app.get(ConfigService);
   const env = config.get<string>('NODE_ENV') ?? 'development';
   const port = Number(config.get<string>('PORT') ?? process.env.PORT ?? 3001);
+
+  // Replit Autoscale (and most cloud platforms) front the container with a
+  // reverse proxy. Trusting it lets Express read the real client IP from
+  // X-Forwarded-For for rate-limit + audit purposes.
+  const httpAdapter = app.getHttpAdapter().getInstance() as express.Express;
+  httpAdapter.set('trust proxy', 1);
 
   app.use(helmet());
   app.use(compression());
@@ -58,9 +68,13 @@ async function bootstrap(): Promise<void> {
     SwaggerModule.setup('api/docs', app, document);
   }
 
+  // Bind to 0.0.0.0 — required for Replit's container networking. Listening on
+  // localhost only would make the service invisible to the platform's proxy.
   await app.listen(port, '0.0.0.0');
   // eslint-disable-next-line no-console
   console.info(`[feastpot-api] listening on http://0.0.0.0:${port} (${env})`);
+  // eslint-disable-next-line no-console
+  console.log('Feastpot API running on port', port);
 }
 
 bootstrap().catch((err) => {
