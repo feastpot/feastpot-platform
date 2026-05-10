@@ -1,0 +1,147 @@
+You are an expert Next.js and Supabase engineer working on the Feastpot customer PWA.
+
+CONTEXT:
+The /orders/[id]/tracking page exists and shows order status.
+This prompt verifies the Supabase Realtime subscription is correctly implemented,
+adds resilience for network drops, and enables Realtime on the orders table.
+
+═══════════════════════════════════════════════════════
+STEP 1 — Enable Realtime on the orders table
+═══════════════════════════════════════════════════════
+
+This is a Supabase dashboard step — provide the exact SQL to run in the Supabase SQL editor:
+
+-- Enable realtime for the orders table
+ALTER TABLE public.orders REPLICA IDENTITY FULL;
+
+-- Add the table to the supabase_realtime publication
+ALTER PUBLICATION supabase_realtime ADD TABLE public.orders;
+
+Explain to the developer: run this SQL in Supabase dashboard → SQL Editor.
+Without REPLICA IDENTITY FULL, Realtime will not include the changed row's new values.
+Without the publication, Realtime will not receive any events for this table.
+
+═══════════════════════════════════════════════════════
+STEP 2 — Audit and fix the tracking page
+═══════════════════════════════════════════════════════
+
+Open apps/web/src/app/orders/[id]/tracking/page.tsx (or the tracking component).
+
+The Supabase Realtime subscription MUST follow this exact pattern:
+
+'use client'
+
+import { useEffect, useState, useCallback } from 'react'
+import { createBrowserClient } from '@supabase/ssr'
+
+export function useOrderTracking(orderId: string, initialStatus: string) {
+  const [status, setStatus] = useState(initialStatus)
+  const [connected, setConnected] = useState(false)
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
+
+  useEffect(() => {
+    const channel = supabase
+      .channel(`order-tracking-${orderId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'orders',
+          filter: `id=eq.${orderId}`,
+        },
+        (payload) => {
+          const newStatus = payload.new.status
+          setStatus(newStatus)
+          // Play a subtle sound on status change
+          if (typeof window !== 'undefined') {
+            new Audio('/sounds/status-update.mp3').play().catch(() => {})
+          }
+        }
+      )
+      .subscribe((status) => {
+        setConnected(status === 'SUBSCRIBED')
+      })
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [orderId])
+
+  return { status, connected }
+}
+
+Replace the current implementation with this hook if it differs.
+The key requirements are:
+- filter: 'id=eq.{orderId}' — must filter to this specific order only
+- Cleanup on unmount: supabase.removeChannel(channel)
+- Connection status tracking for the UI indicator
+
+═══════════════════════════════════════════════════════
+STEP 3 — Fallback polling
+═══════════════════════════════════════════════════════
+
+Add a polling fallback in case Realtime is unavailable (e.g. corporate firewalls block WebSockets):
+
+In the useOrderTracking hook, add:
+
+useEffect(() => {
+  if (connected) return // skip polling if Realtime is connected
+  
+  const interval = setInterval(async () => {
+    const response = await fetch(`/api/orders/${orderId}/status`)
+    const data = await response.json()
+    if (data.status !== status) setStatus(data.status)
+  }, 30_000) // poll every 30 seconds
+  
+  return () => clearInterval(interval)
+}, [connected, orderId, status])
+
+Create apps/web/src/app/api/orders/[id]/status/route.ts (Next.js route handler):
+A simple endpoint that returns { status, updatedAt } for a given order ID.
+Uses the Supabase server client to fetch from the database.
+
+═══════════════════════════════════════════════════════
+STEP 4 — Tracking page UI improvements
+═══════════════════════════════════════════════════════
+
+In the tracking page component:
+
+1. Add a connection status indicator (small dot in top-right corner):
+   - Green pulsing dot: Realtime connected — "Live updates active"
+   - Grey dot: Polling mode — "Updates every 30s"
+   
+2. Order status timeline must show all 6 stages:
+   Pending → Accepted → Preparing → Dispatched → Delivered
+   With a Cancelled branch from Pending.
+   
+   Each stage shows:
+   - Completed: green checkmark icon
+   - Current: brand orange with pulsing animation
+   - Future: grey with dashed outline
+   
+3. Time display:
+   - Show "Accepted at {time}" for completed stages
+   - Show "Expected by {scheduledFor}" for the delivery stage
+   - Show "Delivered at {deliveredAt}" when complete
+
+4. After status=delivered, show a review prompt card:
+   "How was your order from {vendorName}?"
+   with a 5-star rating selector that navigates to /orders/{id}/review
+
+5. Add a "Need help?" link that navigates to POST /v1/disputes with orderId pre-filled.
+
+═══════════════════════════════════════════════════════
+STEP 5 — Create a simple status update sound
+═══════════════════════════════════════════════════════
+
+Create apps/web/public/sounds/status-update.mp3:
+This cannot be created in code. Instead, provide instructions:
+"Download a short, pleasant notification sound (0.5–1 second) from freesound.org
+or zapsplat.com (free with attribution). Save it as apps/web/public/sounds/status-update.mp3.
+Suggested search: 'soft chime notification' or 'gentle ding'."
+
+Run npm run typecheck. Output all changed file contents in full.

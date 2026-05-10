@@ -7,16 +7,31 @@ export const metadata: Metadata = {
 };
 
 export default function PrivacyPage() {
+  // Read at render time on the server. Defaults to "Registration pending" so
+  // the page is always safe to ship — the ICO number is dropped in via env
+  // var (NEXT_PUBLIC_ICO_NUMBER) once the registration comes back from the
+  // ICO without needing a code change or redeploy.
+  const icoNumber = process.env.NEXT_PUBLIC_ICO_NUMBER ?? 'Registration pending';
+  const icoPending = !process.env.NEXT_PUBLIC_ICO_NUMBER;
+
   return (
     <article className="prose prose-slate mx-auto w-full max-w-3xl px-4 py-10 md:py-14">
       <h1>Privacy Policy</h1>
       <p className="text-sm text-muted-foreground">Last updated: May 2026</p>
 
+      {icoPending && (
+        <div className="not-prose mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+          ICO registration is in progress. This page will be updated within 5 business days of confirmation.
+        </div>
+      )}
+
       <h2>1. Who we are</h2>
       <p>
         Feastpot Ltd is the data controller for personal data processed through this platform. We are
-        registered with the UK Information Commissioner&rsquo;s Office (ICO registration:{' '}
-        <strong>ZA000000</strong> — placeholder, replace with your live number before launch).
+        registered with the UK Information Commissioner&rsquo;s Office.
+      </p>
+      <p>
+        ICO Registration Number: <strong>{icoNumber}</strong>
       </p>
       <p>
         Contact our data team: <a href="mailto:privacy@feastpot.co.uk">privacy@feastpot.co.uk</a>.

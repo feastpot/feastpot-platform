@@ -106,6 +106,13 @@ const SECTIONS: FaqSection[] = [
 ];
 
 export default function HelpPage() {
+  // Surfaced via env so support routing can change (rota handover, new number,
+  // a different inbox per market) without a code deploy.
+  const whatsapp = process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP ?? '+447000000000';
+  const supportEmail = process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? 'support@feastpot.co.uk';
+  // wa.me requires the digits-only form (no +, no spaces).
+  const whatsappDigits = whatsapp.replace(/\D/g, '');
+
   return (
     <article className="mx-auto w-full max-w-3xl px-4 py-10 md:py-14">
       <h1 className="text-3xl font-bold text-foreground">Help &amp; FAQ</h1>
@@ -116,15 +123,20 @@ export default function HelpPage() {
       <div className="mt-8 grid gap-3 rounded-lg border border-border bg-card p-4 md:grid-cols-2">
         <div>
           <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Email support</h2>
-          <a href="mailto:support@feastpot.co.uk" className="mt-1 block text-base font-medium text-brand">
-            support@feastpot.co.uk
+          <a href={`mailto:${supportEmail}`} className="mt-1 block text-base font-medium text-brand">
+            {supportEmail}
           </a>
           <p className="mt-1 text-xs text-muted-foreground">Reply within 24 hours, 7 days a week.</p>
         </div>
         <div>
           <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">WhatsApp</h2>
-          <a href="https://wa.me/447000000000" className="mt-1 block text-base font-medium text-brand">
-            +44 7000 000000
+          <a
+            href={`https://wa.me/${whatsappDigits}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-1 block text-base font-medium text-brand"
+          >
+            WhatsApp: {whatsapp}
           </a>
           <p className="mt-1 text-xs text-muted-foreground">Faster for live order issues, 9am–9pm.</p>
         </div>

@@ -45,7 +45,9 @@ export const metadata: Metadata = {
     type: 'website',
     siteName: 'Feastpot',
     locale: 'en_GB',
-    images: [{ url: '/og-image.png', width: 1200, height: 630, alt: 'Feastpot' }],
+    // OG image is generated dynamically by app/opengraph-image.tsx — Next 15
+    // auto-injects the correct <meta og:image> tag for every route. Per-vendor
+    // pages override it with their own app/vendors/[slug]/opengraph-image.tsx.
   },
   twitter: {
     card: 'summary_large_image',
