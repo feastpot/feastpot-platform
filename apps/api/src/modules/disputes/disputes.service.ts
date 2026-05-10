@@ -75,6 +75,11 @@ export class DisputesService {
       where.raisedById = user.id;
     } else if (user.role === UserRole.vendor) {
       where.order = { vendor: { userId: user.id } };
+    } else if (dto.assignedToId) {
+      // Only staff can filter by assignee — for customers/vendors the scope
+      // above already restricts results to "their" disputes, so an
+      // assignedToId filter would either be redundant or empty.
+      where.assignedToId = dto.assignedToId;
     }
 
     const cursor = dto.cursor ? this.decodeCursor(dto.cursor) : undefined;

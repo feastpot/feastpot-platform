@@ -1,0 +1,143 @@
+You are an expert NestJS security engineer working on the Feastpot API.
+
+CONTEXT:
+The admin module has 6 routes consolidated in admin.controller.ts.
+The current implementation may apply @Roles('admin', 'support', 'finance', 'compliance')
+broadly across all admin routes.
+This prompt enforces per-route role narrowing as defined in the specification.
+
+ROLE REFERENCE:
+- admin: full access to all admin routes
+- support: disputes, order lookups, customer/vendor contact
+- finance: payouts, refund authorisation, Stripe reconciliation
+- compliance: vendor documents, compliance expiry
+
+═══════════════════════════════════════════════════════
+STEP 1 — Audit admin.controller.ts
+═══════════════════════════════════════════════════════
+
+Open apps/api/src/modules/admin/admin.controller.ts.
+Review every route's @Roles() decorator.
+
+Apply EXACTLY these role sets per route:
+
+GET  /v1/admin/dashboard
+  → @Roles('admin', 'finance', 'support', 'compliance')
+  Reason: all admin roles can see the dashboard overview
+
+GET  /v1/admin/vendors
+  → @Roles('admin', 'compliance', 'support')
+  Reason: vendor list for review. Finance does not need vendor browsing.
+
+GET  /v1/admin/audit-log
+GET  /v1/admin/audit-log.csv
+  → @Roles('admin', 'compliance')
+  Reason: audit log is a compliance and admin tool. Support agents do not need raw audit history.
+
+GET  /v1/admin/compliance/expiring
+  → @Roles('admin', 'compliance')
+  Reason: document expiry is a compliance admin function only.
+
+POST /v1/admin/payouts/:id/reconcile-stripe
+  → @Roles('admin', 'finance')
+  Reason: Stripe reconciliation is a financial operation. Support agents and compliance admins must not trigger it.
+
+═══════════════════════════════════════════════════════
+STEP 2 — Audit payouts.controller.ts
+═══════════════════════════════════════════════════════
+
+POST /v1/payouts/:id/approve
+  → @Roles('finance', 'admin')
+  MUST NOT include 'support' or 'compliance'
+
+PATCH /v1/payouts/:id/hold
+  → @Roles('finance', 'admin')
+  MUST NOT include 'support' or 'compliance'
+
+GET /v1/payouts
+GET /v1/payouts/:id
+  → @Roles('finance', 'admin', 'vendor')
+  Vendors can view their own payouts (scoped in the service by vendorId check)
+
+═══════════════════════════════════════════════════════
+STEP 3 — Audit disputes.controller.ts
+═══════════════════════════════════════════════════════
+
+POST /v1/disputes/:id/escalate
+  → @Roles('support', 'admin')
+  Only support agents and admins can formally escalate a dispute.
+
+POST /v1/disputes/:id/close
+  → @Roles('support', 'admin')
+
+PATCH /v1/disputes/:id
+  → @Roles('support', 'admin')
+
+POST /v1/disputes/:id/vendor-response
+  → @Roles('vendor')
+  Only the vendor involved in the dispute can submit a response.
+  Add a service-layer check: the vendor must be the vendor on the order linked to this dispute.
+
+GET /v1/disputes
+GET /v1/disputes/:id
+  → @Roles('customer', 'vendor', 'support', 'admin')
+  Service layer scopes results: customers see own disputes, vendors see disputes for their orders.
+
+═══════════════════════════════════════════════════════
+STEP 4 — Audit compliance.controller.ts
+═══════════════════════════════════════════════════════
+
+PATCH /v1/vendors/:vendorId/documents/:documentId/verify
+  → @Roles('compliance', 'admin')
+  MUST NOT include 'support' or 'finance'
+
+GET /v1/vendors/:vendorId/documents
+  → @Roles('vendor', 'compliance', 'admin')
+  Vendors can view their own documents only (service-layer ownership check).
+
+═══════════════════════════════════════════════════════
+STEP 5 — Audit vendors/:id/status
+═══════════════════════════════════════════════════════
+
+PATCH /v1/vendors/:id/status
+  This has multiple valid status transitions each requiring different roles:
+  
+  Add logic in the service layer (not just the controller decorator):
+  
+  if (dto.status === VendorStatus.approved) {
+    // compliance or admin only
+    if (!['compliance', 'admin'].includes(actorRole)) throw new ForbiddenException();
+  }
+  if (dto.status === VendorStatus.live) {
+    // admin only (after menu review)
+    if (actorRole !== 'admin') throw new ForbiddenException();
+  }
+  if (dto.status === VendorStatus.suspended) {
+    // admin or compliance
+    if (!['admin', 'compliance'].includes(actorRole)) throw new ForbiddenException();
+  }
+  if ([VendorStatus.probation, VendorStatus.removed].includes(dto.status)) {
+    // admin only
+    if (actorRole !== 'admin') throw new ForbiddenException();
+  }
+
+═══════════════════════════════════════════════════════
+STEP 6 — Write role enforcement unit tests
+═══════════════════════════════════════════════════════
+
+Create apps/api/src/modules/admin/admin.controller.spec.ts with tests:
+
+describe('Admin role enforcement', () => {
+  it('should allow finance admin to POST reconcile-stripe')
+  it('should reject support agent from POST reconcile-stripe with 403')
+  it('should allow compliance admin to GET compliance/expiring')
+  it('should reject finance admin from GET compliance/expiring with 403')
+  it('should allow finance admin to POST payouts/:id/approve')
+  it('should reject support agent from POST payouts/:id/approve with 403')
+})
+
+Use NestJS testing module with mocked guards that inject specific roles.
+
+Run: npm run test --filter=@feastpot/api
+Run: npm run typecheck --filter=@feastpot/api
+Output all changed file sections in full.
