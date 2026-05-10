@@ -74,11 +74,18 @@ function decodeCursor(s: string | undefined): DecodedCursor | null {
 }
 
 /**
- * Allowed status transitions and which roles may perform each.
+ * Allowed status transitions and which roles may perform each, per the
+ * security spec (Step 5):
+ *   approved      → compliance or admin (compliance signs off the docs;
+ *                    admin can override).
+ *   live          → admin only (post-menu-review go-live decision).
+ *   suspended     → admin or compliance (either can pull a vendor offline).
+ *   probation     → admin only.
+ *   removed       → admin only.
  */
 const TRANSITIONS: Record<VendorStatus, Partial<Record<VendorStatus, UserRole[]>>> = {
   pending: {
-    approved: [UserRole.compliance],
+    approved: [UserRole.compliance, UserRole.admin],
     removed: [UserRole.admin],
   },
   approved: {

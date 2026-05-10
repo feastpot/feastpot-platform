@@ -142,8 +142,19 @@ export class PayoutsService {
    * Atomically approves a draft payout and triggers a Stripe transfer to the
    * vendor's connected account. The CAS guard prevents two finance admins from
    * double-transferring the same payout.
+   *
+   * Defence-in-depth: re-checks the actor role in the service so an internal
+   * caller (cron, webhook handler, etc.) can never approve a payout without an
+   * explicit finance/admin actor — `@Roles` on the controller alone isn't
+   * enough once code outside HTTP starts invoking this method.
    */
-  async approvePayout(payoutId: string, financeUserId: string) {
+  async approvePayout(payoutId: string, actor: AuthUser) {
+    if (actor.role !== UserRole.finance && actor.role !== UserRole.admin) {
+      throw new ForbiddenException({
+        code: 'PAYOUT_APPROVE_FORBIDDEN',
+        message: 'Only finance or admin may approve payouts',
+      });
+    }
     const payout = await this.prisma.payout.findUnique({
       where: { id: payoutId },
       include: { vendor: { select: { stripeAccountId: true, payoutsEnabled: true, userId: true } } },
@@ -167,7 +178,7 @@ export class PayoutsService {
 
     const cas = await this.prisma.payout.updateMany({
       where: { id: payoutId, status: PayoutStatus.draft },
-      data: { status: PayoutStatus.approved, approvedById: financeUserId, approvedAt: new Date() },
+      data: { status: PayoutStatus.approved, approvedById: actor.id, approvedAt: new Date() },
     });
     if (cas.count !== 1) {
       throw new BadRequestException({
@@ -207,7 +218,13 @@ export class PayoutsService {
     }
   }
 
-  async holdPayout(payoutId: string, holdReason: string, userId: string) {
+  async holdPayout(payoutId: string, holdReason: string, actor: AuthUser) {
+    if (actor.role !== UserRole.finance && actor.role !== UserRole.admin) {
+      throw new ForbiddenException({
+        code: 'PAYOUT_HOLD_FORBIDDEN',
+        message: 'Only finance or admin may hold payouts',
+      });
+    }
     const payout = await this.prisma.payout.findUnique({ where: { id: payoutId }, select: { status: true, vendorId: true, vendor: { select: { userId: true } } } });
     if (!payout) throw new NotFoundException({ code: 'PAYOUT_NOT_FOUND', message: 'Payout not found' });
     if (payout.status === PayoutStatus.transferred || payout.status === PayoutStatus.failed) {
@@ -228,7 +245,7 @@ export class PayoutsService {
       vendorUserId: payout.vendor.userId,
       payoutId,
       reason: holdReason,
-      heldByUserId: userId,
+      heldByUserId: actor.id,
     });
     return this.prisma.payout.findUnique({ where: { id: payoutId } });
   }

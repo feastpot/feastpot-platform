@@ -35,6 +35,10 @@ export class ComplianceController {
   constructor(private readonly compliance: ComplianceService) {}
 
   @Get()
+  // Customers must not be able to enumerate vendor documents. The service
+  // additionally enforces vendor-self ownership via assertCanManageVendor —
+  // a vendor user can only list their own vendor's docs.
+  @Roles(UserRole.vendor, UserRole.compliance, UserRole.admin)
   @ApiOperation({ summary: 'List vendor documents (vendor-owner / compliance / admin)' })
   list(@Param('vendorId', new ParseUUIDPipe()) vendorId: string, @CurrentUser() user: AuthUser | null) {
     return this.compliance.listDocuments(vendorId, requireUser(user));

@@ -39,6 +39,10 @@ export class DisputesController {
   constructor(private readonly disputes: DisputesService) {}
 
   @Get()
+  // Finance / compliance staff have their own dedicated tools — they don't
+  // need raw dispute access. The service still scopes results: customers see
+  // their own, vendors see disputes on their orders, support/admin see all.
+  @Roles(UserRole.customer, UserRole.vendor, UserRole.support, UserRole.admin)
   @ApiOperation({ summary: 'List disputes (customer: own; vendor: own orders; support/admin: all)' })
   list(@CurrentUser() user: AuthUser | null, @Query() dto: ListDisputesDto) {
     return this.disputes.list(requireUser(user), dto);
@@ -52,6 +56,7 @@ export class DisputesController {
   }
 
   @Get(':id')
+  @Roles(UserRole.customer, UserRole.vendor, UserRole.support, UserRole.admin)
   @ApiOperation({ summary: 'Get a dispute with evidence' })
   get(@Param('id', new ParseUUIDPipe()) id: string, @CurrentUser() user: AuthUser | null) {
     return this.disputes.get(id, requireUser(user));
@@ -80,8 +85,8 @@ export class DisputesController {
   }
 
   @Post(':id/escalate')
-  @Roles(UserRole.support)
-  @ApiOperation({ summary: 'Escalate to admin (support)' })
+  @Roles(UserRole.support, UserRole.admin)
+  @ApiOperation({ summary: 'Escalate a dispute (support/admin)' })
   escalate(@Param('id', new ParseUUIDPipe()) id: string, @CurrentUser() user: AuthUser | null) {
     return this.disputes.escalate(id, requireUser(user));
   }
@@ -98,12 +103,14 @@ export class DisputesController {
   }
 
   @Get(':id/evidence')
+  @Roles(UserRole.customer, UserRole.vendor, UserRole.support, UserRole.admin)
   @ApiOperation({ summary: 'List evidence on a dispute' })
   listEvidence(@Param('id', new ParseUUIDPipe()) id: string, @CurrentUser() user: AuthUser | null) {
     return this.disputes.listEvidence(id, requireUser(user));
   }
 
   @Post(':id/evidence')
+  @Roles(UserRole.customer, UserRole.vendor, UserRole.support, UserRole.admin)
   @ApiConsumes('multipart/form-data')
   @ApiBody({ schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' }, caption: { type: 'string' } } } })
   @ApiOperation({ summary: 'Upload an evidence file (multipart)' })

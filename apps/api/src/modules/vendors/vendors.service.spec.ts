@@ -179,11 +179,23 @@ describe('VendorsService', () => {
     });
 
     it('rejects when role cannot perform transition', async () => {
-      // pending → approved requires compliance
+      // pending → approved is open to compliance OR admin (per the security
+      // spec) but never to support agents — they have no business changing
+      // vendor status at any stage.
+      const support: AuthUser = { id: 'u-supp', email: 's@x.io', role: UserRole.support };
       repo.findById.mockResolvedValue({ ...baseVendor, status: VendorStatus.pending } as never);
       await expect(
-        service.updateStatus('v-1', { status: VendorStatus.approved }, admin),
+        service.updateStatus('v-1', { status: VendorStatus.approved }, support),
       ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('admin can also approve a pending vendor (per Step 5 of the security spec)', async () => {
+      repo.findById.mockResolvedValue({ ...baseVendor, status: VendorStatus.pending } as never);
+      repo.transitionStatus.mockResolvedValue({ ...baseVendor, status: VendorStatus.approved } as never);
+      await service.updateStatus('v-1', { status: VendorStatus.approved }, admin);
+      expect(repo.transitionStatus).toHaveBeenCalledWith(
+        expect.objectContaining({ actorUserId: admin.id, toStatus: VendorStatus.approved }),
+      );
     });
 
     it('compliance can approve a pending vendor', async () => {

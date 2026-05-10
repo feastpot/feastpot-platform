@@ -1,0 +1,145 @@
+You are a Next.js engineer working on the Feastpot customer PWA.
+
+This prompt handles three specific placeholder fixes and creates the missing OG image.
+These must all be done before any public-facing marketing activity.
+
+═══════════════════════════════════════════════════════
+STEP 1 — Find all placeholders in the codebase
+═══════════════════════════════════════════════════════
+
+Run this in the Replit shell to find every placeholder:
+grep -r "ZA000000|+44 7000 000000|og-image.png|placeholder|TODO|FIXME|ICO" apps/web/src --include="*.tsx" --include="*.ts" -l
+
+List every file found and what needs changing.
+
+═══════════════════════════════════════════════════════
+STEP 2 — ICO registration number
+═══════════════════════════════════════════════════════
+
+1. Add to apps/web/.env.local (and Vercel environment variables):
+   NEXT_PUBLIC_ICO_NUMBER=ZA000000
+   (Replace ZA000000 with the real number once ICO registration is confirmed)
+
+2. In apps/web/src/app/legal/privacy/page.tsx:
+   Replace the hardcoded "ZA000000" with:
+   const icoNumber = process.env.NEXT_PUBLIC_ICO_NUMBER ?? 'Registration pending'
+   
+   Render as: ICO Registration Number: {icoNumber}
+   
+   This way the page gracefully shows "Registration pending" until the real number
+   is added to the environment variable — no code change needed after ICO approval.
+
+3. Add a banner to the Privacy Policy page if the ICO number is not yet set:
+   {!process.env.NEXT_PUBLIC_ICO_NUMBER && (
+     <div className="rounded-lg bg-amber-50 border border-amber-200 p-4 mb-6 text-sm text-amber-800">
+       ICO registration is in progress. This page will be updated within 5 business days.
+     </div>
+   )}
+
+═══════════════════════════════════════════════════════
+STEP 3 — WhatsApp support number
+═══════════════════════════════════════════════════════
+
+4. Add to apps/web/.env.local:
+   NEXT_PUBLIC_SUPPORT_WHATSAPP=+447000000000
+   NEXT_PUBLIC_SUPPORT_EMAIL=support@feastpot.co.uk
+
+5. In apps/web/src/app/help/page.tsx:
+   Replace the hardcoded "+44 7000 000000" with:
+   const whatsapp = process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP
+   const email = process.env.NEXT_PUBLIC_SUPPORT_EMAIL
+   
+   Render the WhatsApp link as:
+   <a href={`https://wa.me/${whatsapp?.replace(/D/g,'')}`} target="_blank" rel="noopener noreferrer">
+     WhatsApp: {whatsapp}
+   </a>
+   
+   Using wa.me/ deep link means it opens WhatsApp directly on mobile.
+
+6. Apply the same env var approach anywhere else the support number appears
+   (search for "+44 7000" across the entire codebase).
+
+═══════════════════════════════════════════════════════
+STEP 4 — Create the OG image
+═══════════════════════════════════════════════════════
+
+7. Create apps/web/src/app/opengraph-image.tsx using Next.js built-in OG image generation:
+   
+   import { ImageResponse } from 'next/og'
+   
+   export const runtime = 'edge'
+   export const alt = 'Feastpot — African & Caribbean Food Delivered'
+   export const size = { width: 1200, height: 630 }
+   export const contentType = 'image/png'
+   
+   export default async function OgImage() {
+     return new ImageResponse(
+       (
+         <div
+           style={{
+             background: '#E8520A',
+             width: '100%',
+             height: '100%',
+             display: 'flex',
+             flexDirection: 'column',
+             alignItems: 'center',
+             justifyContent: 'center',
+             fontFamily: 'sans-serif',
+           }}
+         >
+           <div style={{ fontSize: 96, fontWeight: 800, color: 'white', letterSpacing: '-3px' }}>
+             feastpot
+           </div>
+           <div style={{ fontSize: 36, color: 'rgba(255,255,255,0.85)', marginTop: 16 }}>
+             Authentic African & Caribbean Food Delivered
+           </div>
+           <div style={{ fontSize: 24, color: 'rgba(255,255,255,0.6)', marginTop: 12 }}>
+             feastpot.co.uk
+           </div>
+         </div>
+       ),
+       { ...size }
+     )
+   }
+   
+   This generates the OG image dynamically at the edge — no static file needed.
+   Next.js serves it at /opengraph-image.png automatically.
+
+8. Update apps/web/src/app/layout.tsx metadata to use the dynamic route:
+   openGraph: {
+     images: [{ url: '/opengraph-image.png', width: 1200, height: 630, alt: 'Feastpot' }],
+   }
+   
+   Remove any reference to the static /og-image.png that does not exist.
+
+9. Create a per-vendor OG image at apps/web/src/app/vendors/[slug]/opengraph-image.tsx:
+   Fetches vendor data and renders vendor name, cuisine types, and rating on the brand background.
+   This means social shares of vendor pages show the vendor's details, not the generic image.
+
+═══════════════════════════════════════════════════════
+STEP 5 — Generate favicons
+═══════════════════════════════════════════════════════
+
+10. Create apps/web/src/app/icon.tsx for the favicon:
+    Same pattern as OG image — generates a 32×32 orange circle with "F" in white.
+    
+    export const runtime = 'edge'
+    export const size = { width: 32, height: 32 }
+    export const contentType = 'image/png'
+    
+    export default function Icon() {
+      return new ImageResponse(
+        <div style={{ background: '#E8520A', width: 32, height: 32, borderRadius: 6,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: 'white', fontSize: 20, fontWeight: 800 }}>
+          F
+        </div>,
+        { ...size }
+      )
+    }
+
+11. Create apps/web/src/app/apple-icon.tsx — same but 180×180 for iOS home screen.
+
+Run npm run typecheck after all changes.
+Run npm run build --filter=@feastpot/web and confirm it builds cleanly.
+Output all file contents in full.

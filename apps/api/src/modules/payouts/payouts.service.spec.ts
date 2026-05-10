@@ -1,11 +1,17 @@
 import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { PayoutStatus, UserRole } from '@prisma/client';
 
+import type { AuthUser } from '../../auth/types';
+
 import {
   aggregateVendorBatch,
   lastCompletedWeekUtc,
   PayoutsService,
 } from './payouts.service';
+
+const finance: AuthUser = { id: 'finance-1', email: 'f@x.io', role: UserRole.finance, token: 't' } as AuthUser;
+const support: AuthUser = { id: 'support-1', email: 's@x.io', role: UserRole.support, token: 't' } as AuthUser;
+const adminUser: AuthUser = { id: 'admin-1', email: 'a@x.io', role: UserRole.admin, token: 't' } as AuthUser;
 
 type Mock<T = unknown> = jest.Mock<T>;
 
@@ -99,10 +105,28 @@ describe('PayoutsService.approvePayout', () => {
     return { svc, prisma, stripe, queue };
   }
 
+  it('rejects non-finance/admin actors at the service layer (defence in depth)', async () => {
+    const { svc } = build();
+    await expect(svc.approvePayout('p1', support)).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('allows admin actor in addition to finance', async () => {
+    const { svc, prisma, stripe } = build();
+    prisma.payout.findUnique.mockResolvedValueOnce({
+      id: 'p1', vendorId: 'v1', amountPence: 1000, status: PayoutStatus.draft,
+      vendor: { stripeAccountId: 'acct', payoutsEnabled: true, userId: 'vu' },
+    });
+    prisma.payout.updateMany.mockResolvedValueOnce({ count: 1 });
+    stripe.createTransfer.mockResolvedValueOnce({ id: 'tr_1' });
+    prisma.payout.update.mockResolvedValueOnce({ id: 'p1', status: PayoutStatus.transferred });
+    await svc.approvePayout('p1', adminUser);
+    expect(prisma.payout.updateMany).toHaveBeenCalled();
+  });
+
   it('throws if payout missing', async () => {
     const { svc, prisma } = build();
     prisma.payout.findUnique.mockResolvedValueOnce(null);
-    await expect(svc.approvePayout('p1', 'u1')).rejects.toBeInstanceOf(NotFoundException);
+    await expect(svc.approvePayout('p1', finance)).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it('throws if not draft', async () => {
@@ -111,7 +135,7 @@ describe('PayoutsService.approvePayout', () => {
       status: PayoutStatus.held, vendor: { stripeAccountId: 'acct', payoutsEnabled: true, userId: 'vu' },
       amountPence: 1000,
     });
-    await expect(svc.approvePayout('p1', 'u1')).rejects.toBeInstanceOf(BadRequestException);
+    await expect(svc.approvePayout('p1', finance)).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('throws if vendor payouts disabled', async () => {
@@ -120,7 +144,7 @@ describe('PayoutsService.approvePayout', () => {
       status: PayoutStatus.draft, vendor: { stripeAccountId: null, payoutsEnabled: false, userId: 'vu' },
       amountPence: 1000,
     });
-    await expect(svc.approvePayout('p1', 'u1')).rejects.toBeInstanceOf(BadRequestException);
+    await expect(svc.approvePayout('p1', finance)).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('CAS guard: refuses when status changed concurrently', async () => {
@@ -130,7 +154,7 @@ describe('PayoutsService.approvePayout', () => {
       amountPence: 1000,
     });
     prisma.payout.updateMany.mockResolvedValueOnce({ count: 0 });
-    await expect(svc.approvePayout('p1', 'u1')).rejects.toThrow(/concurrently/i);
+    await expect(svc.approvePayout('p1', finance)).rejects.toThrow(/concurrently/i);
   });
 
   it('happy path: transfers, marks transferred, notifies vendor', async () => {
@@ -143,7 +167,7 @@ describe('PayoutsService.approvePayout', () => {
     stripe.createTransfer.mockResolvedValueOnce({ id: 'tr_1' });
     prisma.payout.update.mockResolvedValueOnce({ id: 'p1', status: PayoutStatus.transferred });
 
-    const out = await svc.approvePayout('p1', 'finance-1');
+    const out = await svc.approvePayout('p1', finance);
 
     expect(stripe.createTransfer).toHaveBeenCalledWith({ amountPence: 2450, destinationAccountId: 'acct_1', payoutId: 'p1' });
     expect(prisma.payout.update.mock.calls[0][0].data).toMatchObject({
@@ -163,7 +187,7 @@ describe('PayoutsService.approvePayout', () => {
     stripe.createTransfer.mockRejectedValueOnce(new Error('bank down'));
     prisma.payout.update.mockResolvedValueOnce({});
 
-    await expect(svc.approvePayout('p1', 'u1')).rejects.toBeInstanceOf(BadRequestException);
+    await expect(svc.approvePayout('p1', finance)).rejects.toBeInstanceOf(BadRequestException);
     expect(prisma.payout.update.mock.calls[0][0].data).toMatchObject({
       status: PayoutStatus.failed, failureReason: 'bank down',
     });
@@ -177,12 +201,17 @@ describe('PayoutsService.holdPayout', () => {
     return { svc, prisma };
   }
 
+  it('rejects non-finance/admin actors at the service layer (defence in depth)', async () => {
+    const { svc } = build();
+    await expect(svc.holdPayout('p1', 'reason', support)).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
   it('refuses to hold a transferred payout', async () => {
     const { svc, prisma } = build();
     prisma.payout.findUnique.mockResolvedValueOnce({
       status: PayoutStatus.transferred, vendorId: 'v1', vendor: { userId: 'u' },
     });
-    await expect(svc.holdPayout('p1', 'reason', 'u1')).rejects.toBeInstanceOf(BadRequestException);
+    await expect(svc.holdPayout('p1', 'reason', finance)).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('CAS guard rejects when status changed concurrently', async () => {
@@ -191,7 +220,7 @@ describe('PayoutsService.holdPayout', () => {
       status: PayoutStatus.draft, vendorId: 'v1', vendor: { userId: 'u' },
     });
     prisma.payout.updateMany.mockResolvedValueOnce({ count: 0 });
-    await expect(svc.holdPayout('p1', 'reason', 'u1')).rejects.toThrow(/concurrently/i);
+    await expect(svc.holdPayout('p1', 'reason', finance)).rejects.toThrow(/concurrently/i);
   });
 
   it('happy path holds + notifies', async () => {
@@ -200,7 +229,7 @@ describe('PayoutsService.holdPayout', () => {
       .mockResolvedValueOnce({ status: PayoutStatus.draft, vendorId: 'v1', vendor: { userId: 'vu' } })
       .mockResolvedValueOnce({ id: 'p1', status: PayoutStatus.held });
     prisma.payout.updateMany.mockResolvedValueOnce({ count: 1 });
-    const out = await svc.holdPayout('p1', 'too risky', 'finance-1');
+    const out = await svc.holdPayout('p1', 'too risky', finance);
     expect(out).toMatchObject({ status: PayoutStatus.held });
   });
 });

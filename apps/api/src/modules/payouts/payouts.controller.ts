@@ -35,10 +35,10 @@ export class PayoutsController {
   }
 
   @Post(':id/approve')
-  @Roles(UserRole.finance)
-  @ApiOperation({ summary: 'Approve a draft payout for transfer (finance only)' })
+  @Roles(UserRole.finance, UserRole.admin)
+  @ApiOperation({ summary: 'Approve a draft payout for transfer (finance/admin)' })
   approve(@Req() req: AuthedRequest, @Param('id', new ParseUUIDPipe()) id: string) {
-    return this.payouts.approvePayout(id, requireUser(req).id);
+    return this.payouts.approvePayout(id, requireUser(req));
   }
 
   @Patch(':id/hold')
@@ -49,6 +49,6 @@ export class PayoutsController {
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() dto: HoldPayoutDto,
   ) {
-    return this.payouts.holdPayout(id, dto.holdReason, requireUser(req).id);
+    return this.payouts.holdPayout(id, dto.holdReason, requireUser(req));
   }
 }
