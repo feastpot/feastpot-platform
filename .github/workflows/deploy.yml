@@ -1,0 +1,179 @@
+# Production deploy — triggered on push to `main`.
+#
+# The flow is intentionally serial for the migration + API steps and parallel
+# for the three Vercel front-ends, which all depend on the API being live.
+# Smoke tests then verify every public endpoint before posting to Slack.
+
+name: Deploy (production)
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  # Never run two prod deploys at once.
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  FORCE_COLOR: 1
+  TURBO_TELEMETRY_DISABLED: 1
+
+jobs:
+  # ----------------------------------------------------------------------------
+  # 1. Apply pending Prisma migrations to the production Supabase database.
+  #    This is the gating step — if migrations fail, nothing else runs.
+  # ----------------------------------------------------------------------------
+  deploy-database:
+    name: Migrate production DB
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+      DIRECT_URL: ${{ secrets.PROD_DIRECT_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Generate Prisma client
+        run: npm run db:generate
+      - name: Apply migrations
+        run: npx prisma migrate deploy --schema=./prisma/schema.prisma
+
+  # ----------------------------------------------------------------------------
+  # 2. Build the API and trigger a Replit Autoscale deployment. We poll the
+  #    Replit Deploy API until status === succeeded, with a 5-minute timeout.
+  # ----------------------------------------------------------------------------
+  deploy-api:
+    name: Deploy API (Replit Autoscale)
+    needs: [deploy-database]
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Generate Prisma client
+        run: npm run db:generate
+      - name: Build API
+        run: npx turbo run build --filter=@feastpot/api
+
+      - name: Trigger Replit deployment
+        id: trigger
+        env:
+          REPLIT_TOKEN: ${{ secrets.REPLIT_TOKEN }}
+          REPLIT_DEPLOYMENT_KEY: ${{ secrets.REPLIT_DEPLOYMENT_KEY }}
+        run: |
+          set -euo pipefail
+          response=$(curl -fsS -X POST https://api.replit.com/v0/deployments \
+            -H "Authorization: Bearer ${REPLIT_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "{\"deployment_key\": \"${REPLIT_DEPLOYMENT_KEY}\"}")
+          echo "Replit response: $response"
+          deployment_id=$(echo "$response" | jq -r '.id // .deployment_id // empty')
+          if [ -z "$deployment_id" ]; then
+            echo "::error::Could not extract deployment id from Replit response"
+            exit 1
+          fi
+          echo "deployment_id=$deployment_id" >> "$GITHUB_OUTPUT"
+
+      - name: Poll Replit until succeeded (5 min timeout)
+        env:
+          REPLIT_TOKEN: ${{ secrets.REPLIT_TOKEN }}
+          DEPLOYMENT_ID: ${{ steps.trigger.outputs.deployment_id }}
+        run: |
+          set -euo pipefail
+          deadline=$(( $(date +%s) + 300 ))
+          while [ $(date +%s) -lt $deadline ]; do
+            status=$(curl -fsS \
+              -H "Authorization: Bearer ${REPLIT_TOKEN}" \
+              "https://api.replit.com/v0/deployments/${DEPLOYMENT_ID}" \
+              | jq -r '.status')
+            echo "Status: $status"
+            case "$status" in
+              succeeded) echo "✅ Deployment succeeded"; exit 0 ;;
+              failed|cancelled|error) echo "::error::Deployment ended in $status"; exit 1 ;;
+            esac
+            sleep 10
+          done
+          echo "::error::Timed out waiting for Replit deployment after 5 minutes"
+          exit 1
+
+  # ----------------------------------------------------------------------------
+  # 3-5. Trigger Vercel deploy hooks for the three front-ends. These run in
+  #      parallel because they only depend on the API.
+  # ----------------------------------------------------------------------------
+  deploy-web:
+    name: Deploy web (Vercel)
+    needs: [deploy-api]
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Trigger Vercel deploy hook
+        run: curl -fsS -X POST "${{ secrets.VERCEL_DEPLOY_HOOK_WEB }}"
+
+  deploy-vendor:
+    name: Deploy vendor (Vercel)
+    needs: [deploy-api]
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Trigger Vercel deploy hook
+        run: curl -fsS -X POST "${{ secrets.VERCEL_DEPLOY_HOOK_VENDOR }}"
+
+  deploy-admin:
+    name: Deploy admin (Vercel)
+    needs: [deploy-api]
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Trigger Vercel deploy hook
+        run: curl -fsS -X POST "${{ secrets.VERCEL_DEPLOY_HOOK_ADMIN }}"
+
+  # ----------------------------------------------------------------------------
+  # 6. Smoke tests — wait for Vercel to settle, then ping every public surface.
+  # ----------------------------------------------------------------------------
+  smoke-test:
+    name: Smoke tests
+    needs: [deploy-web, deploy-vendor, deploy-admin]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for Vercel deployments
+        run: sleep 60
+      - name: API health
+        run: curl -fsS https://api.feastpot.co.uk/health
+      - name: Customer web
+        run: curl -fsS -o /dev/null https://feastpot.co.uk
+      - name: Vendor portal
+        run: curl -fsS -o /dev/null https://vendor.feastpot.co.uk
+      - name: Admin panel
+        run: curl -fsS -o /dev/null https://admin.feastpot.co.uk
+
+  # ----------------------------------------------------------------------------
+  # 7. Notify Slack on success or failure. Runs always so we get a red signal
+  #    on broken deploys.
+  # ----------------------------------------------------------------------------
+  notify:
+    name: Notify Slack
+    needs: [smoke-test]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Success notification
+        if: needs.smoke-test.result == 'success'
+        run: |
+          curl -fsS -X POST -H 'Content-type: application/json' \
+            --data "{\"text\":\":white_check_mark: Feastpot deployed successfully — commit: ${GITHUB_SHA} — by: ${GITHUB_ACTOR}\"}" \
+            "${{ secrets.SLACK_WEBHOOK_URL }}"
+      - name: Failure notification
+        if: needs.smoke-test.result != 'success'
+        run: |
+          curl -fsS -X POST -H 'Content-type: application/json' \
+            --data "{\"text\":\":x: Feastpot deploy FAILED — commit: ${GITHUB_SHA} — actor: ${GITHUB_ACTOR} — run: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\"}" \
+            "${{ secrets.SLACK_WEBHOOK_URL }}"

@@ -1,0 +1,136 @@
+# Per-PR ephemeral database branches via the Neon API.
+#
+# On opened/reopened: create branch `pr-<number>`, run migrations, comment the
+# (masked) connection string on the PR. On close: delete the branch so we don't
+# accumulate stale environments.
+
+name: Neon PR branch
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, closed]
+
+env:
+  NEON_API_BASE: https://console.neon.tech/api/v2
+
+jobs:
+  # ----------------------------------------------------------------------------
+  # Create or refresh a Neon branch when the PR is opened/reopened/updated.
+  # ----------------------------------------------------------------------------
+  create:
+    name: Create / refresh Neon branch
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Create Neon branch (idempotent)
+        id: neon
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ secrets.NEON_PROJECT_ID }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          BRANCH_NAME="pr-${PR_NUMBER}"
+
+          # Look for an existing branch first so re-runs don't error.
+          existing=$(curl -fsS \
+            -H "Authorization: Bearer ${NEON_API_KEY}" \
+            "${{ env.NEON_API_BASE }}/projects/${NEON_PROJECT_ID}/branches" \
+            | jq -r --arg name "$BRANCH_NAME" '.branches[] | select(.name == $name) | .id' | head -1)
+
+          if [ -z "$existing" ]; then
+            echo "Creating new branch ${BRANCH_NAME}…"
+            response=$(curl -fsS -X POST \
+              -H "Authorization: Bearer ${NEON_API_KEY}" \
+              -H "Content-Type: application/json" \
+              -d "{\"branch\": {\"name\": \"${BRANCH_NAME}\"}, \"endpoints\": [{\"type\": \"read_write\"}]}" \
+              "${{ env.NEON_API_BASE }}/projects/${NEON_PROJECT_ID}/branches")
+            connection_uri=$(echo "$response" | jq -r '.connection_uris[0].connection_uri')
+          else
+            echo "Branch ${BRANCH_NAME} already exists (${existing}), fetching connection URI…"
+            connection_uri=$(curl -fsS \
+              -H "Authorization: Bearer ${NEON_API_KEY}" \
+              "${{ env.NEON_API_BASE }}/projects/${NEON_PROJECT_ID}/branches/${existing}/connection_uri?role_name=neondb_owner&database_name=neondb" \
+              | jq -r '.uri')
+          fi
+
+          if [ -z "$connection_uri" ] || [ "$connection_uri" = "null" ]; then
+            echo "::error::Failed to obtain connection URI from Neon"
+            exit 1
+          fi
+
+          # Mask the URL in logs and expose to subsequent steps via env file.
+          echo "::add-mask::$connection_uri"
+          echo "DATABASE_URL=$connection_uri" >> "$GITHUB_ENV"
+          echo "BRANCH_NAME=$BRANCH_NAME" >> "$GITHUB_ENV"
+
+          # Build a masked variant for the PR comment (host + last 4 chars).
+          masked=$(echo "$connection_uri" | sed -E 's#(://[^:]+:)[^@]+(@)#\1********\2#')
+          echo "::add-mask::$masked"
+          echo "MASKED_URI=$masked" >> "$GITHUB_ENV"
+
+      - name: Run migrations against PR branch
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+          DIRECT_URL: ${{ env.DATABASE_URL }}
+        run: npx prisma migrate deploy --schema=./prisma/schema.prisma
+
+      - name: Comment on PR
+        uses: actions/github-script@v7
+        env:
+          MASKED_URI: ${{ env.MASKED_URI }}
+          BRANCH_NAME: ${{ env.BRANCH_NAME }}
+        with:
+          script: |
+            const body = [
+              '🪡 **Neon branch ready**',
+              '',
+              `Branch: \`${process.env.BRANCH_NAME}\``,
+              `Connection: \`${process.env.MASKED_URI}\``,
+              '',
+              '_The full URI is available to CI jobs as `DATABASE_URL`. It is masked here for safety._',
+            ].join('\n');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
+
+  # ----------------------------------------------------------------------------
+  # Delete the branch when the PR is closed (merged or not).
+  # ----------------------------------------------------------------------------
+  destroy:
+    name: Delete Neon branch
+    if: github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete branch via Neon API
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ secrets.NEON_PROJECT_ID }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          BRANCH_NAME="pr-${PR_NUMBER}"
+          branch_id=$(curl -fsS \
+            -H "Authorization: Bearer ${NEON_API_KEY}" \
+            "${{ env.NEON_API_BASE }}/projects/${NEON_PROJECT_ID}/branches" \
+            | jq -r --arg name "$BRANCH_NAME" '.branches[] | select(.name == $name) | .id' | head -1)
+          if [ -z "$branch_id" ]; then
+            echo "No branch named ${BRANCH_NAME} — nothing to delete."
+            exit 0
+          fi
+          curl -fsS -X DELETE \
+            -H "Authorization: Bearer ${NEON_API_KEY}" \
+            "${{ env.NEON_API_BASE }}/projects/${NEON_PROJECT_ID}/branches/${branch_id}"
+          echo "Deleted Neon branch ${BRANCH_NAME} (${branch_id})"
