@@ -114,12 +114,18 @@ interface MenuItem { id: string; name: string; pricePence: number; isAvailable: 
 interface Address { id: string }
 interface OrderRecord {
   id: string;
-  stripePaymentIntentId: string | null;
   commissionPence: number;
   vendorPayoutPence: number;
   totalPence: number;
 }
 interface CreateOrderResponse { order: OrderRecord; clientSecret: string }
+
+/** Stripe client_secret format: `pi_XXXXX_secret_YYYYY`. Strip the suffix. */
+function piIdFromClientSecret(secret: string): string {
+  const idx = secret.indexOf('_secret_');
+  if (idx === -1) throw new Error(`Unexpected clientSecret format: ${secret}`);
+  return secret.slice(0, idx);
+}
 
 // ─────────────────────────── Main flow ───────────────────────────
 
@@ -202,13 +208,15 @@ async function main(): Promise<void> {
   );
   log(orderRes.status === 201, 'Create order', orderRes);
   const { order, clientSecret } = orderRes.body;
-  log(!!order?.stripePaymentIntentId, 'Order has Stripe PaymentIntent', order);
   log(!!clientSecret, 'clientSecret returned in order response');
+  const stripePaymentIntentId = piIdFromClientSecret(clientSecret);
+  log(stripePaymentIntentId.startsWith('pi_'),
+    'PaymentIntent id parsed from clientSecret', { stripePaymentIntentId });
   console.log('   Order ID :', order.id);
-  console.log('   Stripe PI:', order.stripePaymentIntentId);
+  console.log('   Stripe PI:', stripePaymentIntentId);
 
   // STEP 7 — PI is in manual capture, not yet captured
-  const pi = await stripe.paymentIntents.retrieve(order.stripePaymentIntentId!);
+  const pi = await stripe.paymentIntents.retrieve(stripePaymentIntentId);
   log(pi.capture_method === 'manual', 'PaymentIntent capture_method = manual',
     { capture_method: pi.capture_method });
   log(
@@ -220,8 +228,13 @@ async function main(): Promise<void> {
   );
 
   // STEP 8 — Confirm payment via Stripe test PM, then call API confirm
-  const confirmedPi = await stripe.paymentIntents.confirm(order.stripePaymentIntentId!, {
+  // The API creates PIs with default `automatic_payment_methods` enabled,
+  // which includes redirect-based methods — Stripe requires a `return_url`
+  // even for non-redirecting test cards. The URL is never actually visited
+  // because pm_card_visa doesn't redirect.
+  const confirmedPi = await stripe.paymentIntents.confirm(stripePaymentIntentId, {
     payment_method: 'pm_card_visa',
+    return_url: 'https://feastpot.co.uk/checkout/return',
   });
   log(confirmedPi.status === 'requires_capture',
     'PaymentIntent → requires_capture after Stripe confirm', { status: confirmedPi.status });
@@ -260,7 +273,7 @@ async function main(): Promise<void> {
   // PATCH resolves, but give Stripe a small grace window for state propagation.
   await new Promise((r) => setTimeout(r, 2000));
 
-  const capturedPi = await stripe.paymentIntents.retrieve(order.stripePaymentIntentId!);
+  const capturedPi = await stripe.paymentIntents.retrieve(stripePaymentIntentId);
   log(capturedPi.status === 'succeeded', 'Stripe PaymentIntent captured on delivery',
     { status: capturedPi.status });
 
@@ -271,7 +284,7 @@ async function main(): Promise<void> {
   console.log('\n✅ All smoke tests passed!\n');
   console.log('Summary:');
   console.log('  Order ID       :', order.id);
-  console.log('  PaymentIntent  :', order.stripePaymentIntentId, '→ succeeded');
+  console.log('  PaymentIntent  :', stripePaymentIntentId, '→ succeeded');
   console.log('  Total          : £' + (order.totalPence / 100).toFixed(2));
   console.log('  Commission     : £' + ((order.commissionPence ?? 0) / 100).toFixed(2));
   console.log('  Net to vendor  : £' + ((order.vendorPayoutPence ?? 0) / 100).toFixed(2));

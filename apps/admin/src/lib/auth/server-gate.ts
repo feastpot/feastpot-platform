@@ -36,6 +36,17 @@ export async function requireStaff(
   allowedRoles?: ReadonlyArray<StaffRole>,
 ): Promise<StaffUser> {
   const supabase = await createServerSupabase();
+  // Validate the JWT against Supabase Auth (server-side) — getUser() re-checks
+  // the signature and revocation list, getSession() only reads the cookie.
+  const {
+    data: { user },
+    error: userErr,
+  } = await supabase.auth.getUser();
+  if (userErr || !user) redirect(`/sign-in?next=${encodeURIComponent(pathname)}`);
+
+  // After a successful getUser() (which the middleware also refreshes on every
+  // request) the cookie session is guaranteed fresh; pull the access_token to
+  // forward to the API.
   const {
     data: { session },
   } = await supabase.auth.getSession();

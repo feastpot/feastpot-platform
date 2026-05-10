@@ -231,45 +231,76 @@ export class AdminService {
   }
 
   /**
-   * Returns up to 5 000 rows as CSV; protects export endpoint from a runaway
-   * full-table scan. Exporters who need more should narrow filters.
+   * Streams up to 5 000 rows as CSV via the supplied writer callback. We
+   * paginate the DB read in batches of 500 and emit each row as soon as it's
+   * formatted so the response starts flowing without buffering the full set
+   * in memory. The 5 000 hard cap protects the endpoint from runaway scans;
+   * exporters who need more rows must narrow filters.
    */
-  async exportAuditLogCsv(dto: ListAuditLogDto): Promise<string> {
-    const rows = await this.prisma.auditLog.findMany({
-      where: this.buildAuditWhere(dto),
-      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-      take: 5000,
-      include: {
-        actor: { select: { firstName: true, lastName: true, email: true, role: true } },
-      },
-    });
-    const header = [
-      'timestamp',
-      'actor_email',
-      'actor_role',
-      'actor_name',
-      'action',
-      'entity_type',
-      'entity_id',
-      'ip_address',
-      'metadata',
-    ].join(',');
-    const lines = rows.map((r) => {
-      const name = r.actor ? `${r.actor.firstName ?? ''} ${r.actor.lastName ?? ''}`.trim() : '';
-      const fields = [
-        r.createdAt.toISOString(),
-        r.actor?.email ?? '',
-        r.actor?.role ?? '',
-        name,
-        r.action,
-        r.entityType,
-        r.entityId ?? '',
-        r.ipAddress ?? '',
-        r.metadata ? JSON.stringify(r.metadata) : '',
-      ];
-      return fields.map((f) => csvCell(f)).join(',');
-    });
-    return [header, ...lines].join('\n');
+  async exportAuditLogCsv(
+    dto: ListAuditLogDto,
+    write: (chunk: string) => void,
+  ): Promise<void> {
+    const HARD_CAP = 5000;
+    const PAGE = 500;
+    const where = this.buildAuditWhere(dto);
+
+    write(
+      [
+        'timestamp',
+        'actor_email',
+        'actor_role',
+        'actor_name',
+        'action',
+        'entity_type',
+        'entity_id',
+        'ip_address',
+        'metadata',
+      ].join(',') + '\n',
+    );
+
+    let cursor: { createdAt: Date; id: string } | null = null;
+    let emitted = 0;
+    while (emitted < HARD_CAP) {
+      const remaining = HARD_CAP - emitted;
+      const take = Math.min(PAGE, remaining);
+      const cursorWhere: Prisma.AuditLogWhereInput = cursor
+        ? {
+            OR: [
+              { createdAt: { lt: cursor.createdAt } },
+              { createdAt: cursor.createdAt, id: { lt: cursor.id } },
+            ],
+          }
+        : {};
+      const rows = await this.prisma.auditLog.findMany({
+        where: { AND: [where, cursorWhere] },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take,
+        include: {
+          actor: { select: { firstName: true, lastName: true, email: true, role: true } },
+        },
+      });
+      if (rows.length === 0) break;
+      for (const r of rows) {
+        const name = r.actor ? `${r.actor.firstName ?? ''} ${r.actor.lastName ?? ''}`.trim() : '';
+        const fields = [
+          r.createdAt.toISOString(),
+          r.actor?.email ?? '',
+          r.actor?.role ?? '',
+          name,
+          r.action,
+          r.entityType,
+          r.entityId ?? '',
+          r.ipAddress ?? '',
+          r.metadata ? JSON.stringify(r.metadata) : '',
+        ];
+        write(fields.map((f) => csvCell(f)).join(',') + '\n');
+      }
+      emitted += rows.length;
+      const last = rows[rows.length - 1]!;
+      cursor = { createdAt: last.createdAt, id: last.id };
+      if (rows.length < take) break;
+    }
   }
 
   private buildAuditWhere(dto: ListAuditLogDto): Prisma.AuditLogWhereInput {

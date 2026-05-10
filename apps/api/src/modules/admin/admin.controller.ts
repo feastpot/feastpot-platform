@@ -58,8 +58,13 @@ export class AdminController {
   @Header('Content-Disposition', 'attachment; filename="audit-log.csv"')
   @ApiOperation({ summary: 'CSV export of audit-log rows (capped at 5 000)' })
   async exportAuditLogCsv(@Query() dto: ListAuditLogDto, @Res() res: Response) {
-    const csv = await this.admin.exportAuditLogCsv(dto);
-    res.send(csv);
+    // Stream chunks straight to the wire so the client sees TTFB after the
+    // header line, not after all 5 000 rows are formatted in memory.
+    res.flushHeaders?.();
+    await this.admin.exportAuditLogCsv(dto, (chunk) => {
+      res.write(chunk);
+    });
+    res.end();
   }
 
   @Get('compliance/expiring')
