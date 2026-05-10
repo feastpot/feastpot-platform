@@ -9,6 +9,10 @@ import { createClient } from '@/lib/supabase/client';
 
 const NAV_ITEMS = [
   { href: '/orders', label: 'Orders' },
+  { href: '/menu', label: 'Menu' },
+  { href: '/analytics', label: 'Analytics' },
+  { href: '/payouts', label: 'Payouts' },
+  { href: '/settings/delivery', label: 'Settings' },
 ];
 
 export function TopNav({ businessName }: { businessName?: string }) {

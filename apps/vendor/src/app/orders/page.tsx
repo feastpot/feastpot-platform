@@ -6,6 +6,9 @@ import { createClient as createServerSupabase } from '@/lib/supabase/server';
 
 import { OrdersDashboard } from './orders-dashboard';
 
+// Reads cookies via Supabase server client → must be dynamic at runtime.
+export const dynamic = 'force-dynamic';
+
 interface VendorMe {
   id: string;
   businessName: string;

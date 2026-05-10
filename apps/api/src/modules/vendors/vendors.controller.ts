@@ -6,6 +6,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Query,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -22,6 +23,11 @@ import { CursorPaginationDto } from './dto/pagination.dto';
 import { SearchVendorsDto } from './dto/search-vendors.dto';
 import { UpdateVendorStatusDto } from './dto/update-vendor-status.dto';
 import { UpdateVendorDto } from './dto/update-vendor.dto';
+import { UpsertDeliveryConfigDto } from './dto/upsert-delivery-config.dto';
+import {
+  StripeConnectLinkResponseDto,
+  VendorAnalyticsResponseDto,
+} from './dto/vendor-analytics.dto';
 import { VendorStatsResponseDto } from './dto/vendor-stats.dto';
 import { VendorsService } from './vendors.service';
 
@@ -65,6 +71,49 @@ export class VendorsController {
   })
   myStats(@CurrentUser() user: AuthUser | null): Promise<VendorStatsResponseDto> {
     return this.vendors.getMyStats(requireUser(user).id);
+  }
+
+  @Get('me/analytics')
+  @ApiBearerAuth()
+  @Roles(UserRole.vendor, UserRole.admin)
+  @ApiOperation({
+    summary:
+      'Vendor analytics: 8-week revenue history, top dishes (90d), hourly order distribution',
+  })
+  myAnalytics(@CurrentUser() user: AuthUser | null): Promise<VendorAnalyticsResponseDto> {
+    return this.vendors.getMyAnalytics(requireUser(user).id);
+  }
+
+  @Get('me/delivery-config')
+  @ApiBearerAuth()
+  @Roles(UserRole.vendor, UserRole.admin)
+  @ApiOperation({ summary: 'Get the authed vendor’s delivery configuration (or null)' })
+  getMyDeliveryConfig(@CurrentUser() user: AuthUser | null) {
+    return this.vendors.getMyDeliveryConfig(requireUser(user).id);
+  }
+
+  @Put('me/delivery-config')
+  @ApiBearerAuth()
+  @Roles(UserRole.vendor, UserRole.admin)
+  @ApiOperation({ summary: 'Upsert the authed vendor’s delivery configuration' })
+  upsertMyDeliveryConfig(
+    @CurrentUser() user: AuthUser | null,
+    @Body() dto: UpsertDeliveryConfigDto,
+  ) {
+    return this.vendors.upsertMyDeliveryConfig(requireUser(user).id, dto);
+  }
+
+  @Post('me/stripe-connect-link')
+  @ApiBearerAuth()
+  @Roles(UserRole.vendor, UserRole.admin)
+  @ApiOperation({
+    summary:
+      'Create-or-reuse a Stripe Connect Express account for the authed vendor and return a one-shot onboarding URL',
+  })
+  createStripeConnectLink(
+    @CurrentUser() user: AuthUser | null,
+  ): Promise<StripeConnectLinkResponseDto> {
+    return this.vendors.createStripeConnectLink(requireUser(user).id);
   }
 
   @Public()

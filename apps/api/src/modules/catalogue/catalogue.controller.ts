@@ -26,10 +26,13 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
+import { Req } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
 
 import { Public } from '../../auth/decorators/public.decorator';
 import { Roles } from '../../auth/decorators/roles.decorator';
+import { OptionalAuthGuard } from '../../auth/guards/optional-auth.guard';
+import type { AuthedRequest } from '../../auth/types';
 
 import { CreateMenuItemDto } from './dto/create-menu-item.dto';
 import { CreateMenuDto } from './dto/create-menu.dto';
@@ -52,10 +55,23 @@ export class CatalogueController {
   // ---------- Menus ----------
 
   @Public()
+  @UseGuards(OptionalAuthGuard)
   @Get('menus')
-  @ApiOperation({ summary: 'List active menus for a vendor (public)' })
-  listMenus(@Param('vendorId', new ParseUUIDPipe()) vendorId: string) {
-    return this.menus.findByVendor(vendorId, false);
+  @ApiOperation({
+    summary:
+      'List menus for a vendor. Public callers always receive only active menus; passing ?includeInactive=true is honoured only for the vendor owner / admin. The OptionalAuthGuard populates `req.user` when a valid bearer token is present (Public marks the route exempt from the global SupabaseAuthGuard, so without OptionalAuthGuard there would be no user to gate on).',
+  })
+  listMenus(
+    @Param('vendorId', new ParseUUIDPipe()) vendorId: string,
+    @Query('includeInactive') includeInactive?: string,
+    @Req() req?: AuthedRequest,
+  ) {
+    // Treat `?includeInactive=1|true` as truthy, anything else as false. We do
+    // NOT trust this flag from anonymous callers — only an authed vendor-owner
+    // or admin/compliance role may see inactive menus. That gate lives in the
+    // service so this controller stays declarative.
+    const wants = includeInactive === 'true' || includeInactive === '1';
+    return this.menus.findByVendor(vendorId, wants, req?.user ?? null);
   }
 
   @Post('menus')

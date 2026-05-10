@@ -65,6 +65,51 @@ export class StripeService {
   constructEvent(payload: Buffer | string, signature: string, secret: string): Stripe.Event {
     return this.stripe.webhooks.constructEvent(payload, signature, secret);
   }
+
+  /**
+   * Create a Stripe Express connected account for a vendor. We pre-fill UK
+   * country + GBP and request the standard transfers + card_payments
+   * capabilities so this account can receive marketplace transfers.
+   */
+  createConnectAccount(args: { email: string; vendorId: string }): Promise<Stripe.Account> {
+    return this.stripe.accounts.create({
+      type: 'express',
+      country: 'GB',
+      email: args.email,
+      capabilities: {
+        card_payments: { requested: true },
+        transfers: { requested: true },
+      },
+      business_type: 'company',
+      metadata: { vendorId: args.vendorId },
+    });
+  }
+
+  /**
+   * Read the current state of a connected account. Used to sync
+   * `payoutsEnabled`/`charges_enabled` after the vendor finishes onboarding.
+   */
+  retrieveAccount(accountId: string): Promise<Stripe.Account> {
+    return this.stripe.accounts.retrieve(accountId);
+  }
+
+  /**
+   * Generate a one-shot onboarding URL for an Express account. Stripe handles
+   * KYC, tax, bank details collection. We always pass `account_onboarding` —
+   * for a returning vendor whose link expired, the same call is safe.
+   */
+  createOnboardingLink(args: {
+    accountId: string;
+    refreshUrl: string;
+    returnUrl: string;
+  }): Promise<Stripe.AccountLink> {
+    return this.stripe.accountLinks.create({
+      account: args.accountId,
+      refresh_url: args.refreshUrl,
+      return_url: args.returnUrl,
+      type: 'account_onboarding',
+    });
+  }
 }
 
 export const stripeClientFactory = {

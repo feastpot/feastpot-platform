@@ -24,7 +24,7 @@ export type QueryValue = string | number | boolean | string[] | undefined | null
 export type QueryParams = { [key: string]: QueryValue };
 
 export interface ApiRequestOptions {
-  method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
+  method?: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
   query?: QueryParams;
   body?: unknown;
   accessToken?: string;

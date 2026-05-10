@@ -4,7 +4,7 @@ import { TopNav } from '@/components/layout/top-nav';
 import { apiRequest, ApiError } from '@/lib/api/client';
 import { createClient as createServerSupabase } from '@/lib/supabase/server';
 
-import { OnboardingClient } from './onboarding-client';
+import { MenuListClient } from './menu-list-client';
 
 // Reads cookies via Supabase server client → must be dynamic at runtime.
 export const dynamic = 'force-dynamic';
@@ -13,24 +13,17 @@ interface VendorMe {
   id: string;
   businessName: string;
   status: string;
-  description: string | null;
-  cuisines: string[];
-  stripeAccountId: string | null;
-  payoutsEnabled: boolean;
 }
 
 /**
- * Onboarding is reachable in two situations:
- *   1. The vendor is `pending` and the orders gate sent them here.
- *   2. The vendor returns from a Stripe Connect redirect (?stripe=return).
- *
- * Either way we render the multi-step client and let it figure out the
- * appropriate step based on the current vendor profile.
+ * Server-side gate identical to /orders. Repeated rather than abstracted
+ * because Next 15's segment-level layouts can't read the session before
+ * rendering, and we want a single round-trip per page load.
  */
-export default async function OnboardingPage() {
+export default async function MenuListPage() {
   const supabase = await createServerSupabase();
   const { data: { session } } = await supabase.auth.getSession();
-  if (!session) redirect('/sign-in?next=/onboarding');
+  if (!session) redirect('/sign-in?next=/menu');
 
   let vendor: VendorMe;
   try {
@@ -39,19 +32,16 @@ export default async function OnboardingPage() {
       next: { revalidate: 0 },
     });
   } catch (err) {
-    if (err instanceof ApiError && err.status === 404) {
-      // Not a vendor yet — would need /vendors POST. Out of scope here.
-      redirect('/unauthorized');
-    }
-    if (err instanceof ApiError && err.status === 403) redirect('/unauthorized');
+    if (err instanceof ApiError && (err.status === 403 || err.status === 404)) redirect('/unauthorized');
     throw err;
   }
+  if (vendor.status !== 'live' && vendor.status !== 'probation') redirect('/onboarding');
 
   return (
     <>
       <TopNav businessName={vendor.businessName} />
       <main className="container py-6">
-        <OnboardingClient vendor={vendor} />
+        <MenuListClient vendorId={vendor.id} />
       </main>
     </>
   );

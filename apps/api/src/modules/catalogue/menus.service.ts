@@ -4,7 +4,9 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { UserRole } from '@prisma/client';
 
+import type { AuthUser } from '../../auth/types';
 import { PrismaService } from '../../prisma/prisma.service';
 
 import { CreateMenuDto } from './dto/create-menu.dto';
@@ -14,9 +16,27 @@ import { UpdateMenuDto } from './dto/update-menu.dto';
 export class MenusService {
   constructor(private readonly prisma: PrismaService) {}
 
-  findByVendor(vendorId: string, includeInactive = false) {
+  /**
+   * If `includeInactive=true` is requested but the caller is not the vendor
+   * owner / admin / compliance, we silently downgrade to `includeInactive=false`
+   * rather than erroring. That keeps the public endpoint forgiving while
+   * preventing customers from probing inactive menus.
+   */
+  async findByVendor(vendorId: string, includeInactive = false, caller: AuthUser | null = null) {
+    let allowInactive = false;
+    if (includeInactive && caller) {
+      if (caller.role === UserRole.admin || caller.role === UserRole.compliance) {
+        allowInactive = true;
+      } else if (caller.role === UserRole.vendor) {
+        const owner = await this.prisma.vendor.findUnique({
+          where: { id: vendorId },
+          select: { userId: true },
+        });
+        allowInactive = owner?.userId === caller.id;
+      }
+    }
     return this.prisma.menu.findMany({
-      where: { vendorId, ...(includeInactive ? {} : { isActive: true }) },
+      where: { vendorId, ...(allowInactive ? {} : { isActive: true }) },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
       include: { _count: { select: { items: true } } },
     });
