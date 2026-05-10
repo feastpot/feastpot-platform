@@ -18,6 +18,10 @@ author = "agent"
 task = "workflow.run"
 args = "API"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Web"
+
 [[workflows.workflow]]
 name = "API"
 author = "agent"
@@ -26,6 +30,22 @@ author = "agent"
 task = "shell.exec"
 args = "npm run dev --workspace=@feastpot/api"
 waitForPort = 3001
+
+[[workflows.workflow]]
+name = "Web"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run dev --workspace=@feastpot/web"
+waitForPort = 3000
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[ports]]
+localPort = 3000
+externalPort = 3000
 
 [[ports]]
 localPort = 3001
