@@ -1,0 +1,58 @@
+You are an expert Next.js 15 engineer. Build the Feastpot vendor portal at apps/vendor.
+
+STEP 1 — Scaffold apps/vendor:
+Run: cd apps/vendor && npx create-next-app@latest . --typescript --tailwind --app --src-dir --skip-git
+Install same dependencies as apps/web plus: react-countdown, use-sound
+
+apps/vendor/package.json name: "@feastpot/vendor"
+
+STEP 2 — Vendor auth middleware (apps/vendor/src/middleware.ts):
+- All routes except /sign-in require authentication
+- After auth check: verify user.role === 'vendor', redirect to /unauthorized if not
+- Verify vendor has status=live or status=probation, redirect to /onboarding if pending
+
+STEP 3 — ORDER DASHBOARD (apps/vendor/src/app/orders/page.tsx):
+LAYOUT: Two columns on desktop, single column on mobile
+Left column — Active orders (status: pending, accepted, preparing, dispatched)
+Right column — Order history (status: delivered, cancelled, refunded)
+
+ORDER CARD component (apps/vendor/src/components/orders/order-card.tsx):
+- Customer name (first name only for privacy)
+- Order items: quantity + item name per line
+- Delivery slot: "Saturday 14:00–15:00"
+- Total + commission display: "£65.00 (you receive £57.20)"
+- Status badge with colour coding
+- Action buttons:
+  If status=pending: Accept button (green) + Reject button (red) + countdown timer (15:00 counting down)
+  If status=accepted: "Mark as Preparing" button
+  If status=preparing: "Mark as Dispatched" button
+  If status=dispatched: "Mark as Delivered" button
+- Special notes section (shown if order.notes exists)
+
+COUNTDOWN TIMER: When status=pending, show countdown from 15:00. On expire: automatically call PATCH /v1/orders/:id/status {status: 'rejected', cancellationReason: 'auto_rejected_timeout'}
+
+REAL-TIME UPDATES via Supabase Realtime:
+supabase.channel('vendor-orders')
+  .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders', filter: 'vendor_id=eq.' + vendorId }, handleNewOrder)
+  .subscribe()
+On new order: play notification sound (use-sound with a short chime mp3), show toast, add to active orders list
+
+STEP 4 — Build the status update flow:
+Create useUpdateOrderStatus() hook calling PATCH /v1/orders/:id/status
+Show confirmation dialog before rejecting an order (ask for cancellation reason)
+Show success toast after each status update with the new status
+
+STEP 5 — Build order history table:
+Columns: Date, Customer, Items, Total, Status, Actions
+Filter by: date range, status
+Actions: View details (modal with full order), Download PDF receipt (future)
+Pagination: 20 per page
+
+STEP 6 — Dashboard stats bar (top of orders page):
+Today: orders count + revenue
+This week: orders count + revenue
+Pending right now: count with pulsing indicator
+
+Fetch from GET /v1/vendors/me/stats (create this endpoint in the API returning aggregated data)
+
+Output all files in full.
