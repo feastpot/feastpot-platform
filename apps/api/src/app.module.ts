@@ -4,6 +4,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
 
 import { HealthController } from './health/health.controller';
+import { RootController } from './root.controller';
 // NotificationsModule is @Global(), so feature modules can inject NotificationsService
 // without re-importing it everywhere.
 import { PrismaModule } from './prisma/prisma.module';
@@ -65,6 +66,6 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
     PushModule,
     WebhooksModule,
   ],
-  controllers: [HealthController],
+  controllers: [RootController, HealthController],
 })
 export class AppModule {}
