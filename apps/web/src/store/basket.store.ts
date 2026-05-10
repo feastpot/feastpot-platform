@@ -20,18 +20,27 @@ export interface BasketItem {
   unitPricePence: number;
   lineTotalPence: number;
   customisationNotes?: string;
+  imageUrl?: string;
+  portionLabel?: string;
+}
+
+/** Identity of the vendor whose items are currently in the basket. */
+export interface BasketVendor {
+  id: string;
+  name: string;
+  slug: string;
 }
 
 export interface BasketState {
   items: BasketItem[];
-  vendorId: string | null;
+  /** `null` means the basket is empty AND no vendor lock is held. */
+  vendor: BasketVendor | null;
 
   /** Adds a new line OR increments quantity of an existing one (same lineId). */
-  addItem(item: Omit<BasketItem, 'lineTotalPence' | 'lineId'>, vendorId: string): void;
+  addItem(item: Omit<BasketItem, 'lineTotalPence' | 'lineId'>, vendor: BasketVendor): void;
   removeLine(lineId: string): void;
   updateLineQuantity(lineId: string, quantity: number): void;
   clearBasket(): void;
-  setVendorId(vendorId: string | null): void;
 
   /** Convenience selectors — kept inside the store so consumers don't recompute. */
   getItemCount(): number;
@@ -57,18 +66,9 @@ const calcLineTotal = (unitPricePence: number, quantity: number) => unitPricePen
 const makeLineId = (menuItemId: string, customisationNotes?: string): string =>
   `${menuItemId}::${customisationNotes ?? ''}`;
 
-/**
- * SSR-safe storage: returning a no-op store on the server forces zustand to
- * skip persistence during SSR. Otherwise `localStorage` access throws and
- * Next.js logs hydration errors.
- */
 const safeStorage = createJSONStorage(() => {
   if (typeof window === 'undefined') {
-    return {
-      getItem: () => null,
-      setItem: () => undefined,
-      removeItem: () => undefined,
-    };
+    return { getItem: () => null, setItem: () => undefined, removeItem: () => undefined };
   }
   return window.localStorage;
 });
@@ -77,11 +77,11 @@ export const useBasketStore = create<BasketState>()(
   persist(
     (set, get) => ({
       items: [],
-      vendorId: null,
+      vendor: null,
 
-      addItem(item, vendorId) {
+      addItem(item, vendor) {
         const state = get();
-        if (state.vendorId && state.vendorId !== vendorId && state.items.length > 0) {
+        if (state.vendor && state.vendor.id !== vendor.id && state.items.length > 0) {
           throw new CrossVendorBasketError();
         }
 
@@ -91,7 +91,7 @@ export const useBasketStore = create<BasketState>()(
         if (existing) {
           const newQty = existing.quantity + item.quantity;
           set({
-            vendorId,
+            vendor,
             items: state.items.map((i) =>
               i.lineId === lineId
                 ? { ...i, quantity: newQty, lineTotalPence: calcLineTotal(i.unitPricePence, newQty) }
@@ -102,14 +102,10 @@ export const useBasketStore = create<BasketState>()(
         }
 
         set({
-          vendorId,
+          vendor,
           items: [
             ...state.items,
-            {
-              ...item,
-              lineId,
-              lineTotalPence: calcLineTotal(item.unitPricePence, item.quantity),
-            },
+            { ...item, lineId, lineTotalPence: calcLineTotal(item.unitPricePence, item.quantity) },
           ],
         });
       },
@@ -120,7 +116,7 @@ export const useBasketStore = create<BasketState>()(
           items: remaining,
           // Clear vendor lock once the basket is empty so the customer can
           // pick a different vendor without hitting CrossVendorBasketError.
-          vendorId: remaining.length === 0 ? null : get().vendorId,
+          vendor: remaining.length === 0 ? null : get().vendor,
         });
       },
 
@@ -139,11 +135,7 @@ export const useBasketStore = create<BasketState>()(
       },
 
       clearBasket() {
-        set({ items: [], vendorId: null });
-      },
-
-      setVendorId(vendorId) {
-        set({ vendorId });
+        set({ items: [], vendor: null });
       },
 
       getItemCount() {
@@ -157,7 +149,7 @@ export const useBasketStore = create<BasketState>()(
     {
       name: 'feastpot.basket.v1',
       storage: safeStorage,
-      partialize: (state) => ({ items: state.items, vendorId: state.vendorId }),
+      partialize: (state) => ({ items: state.items, vendor: state.vendor }),
     },
   ),
 );

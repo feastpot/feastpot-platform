@@ -1,0 +1,83 @@
+You are an expert PWA engineer. Configure the Feastpot customer PWA for full installability and push notifications.
+
+STEP 1 — Configure next-pwa in apps/web/next.config.ts:
+import withPWA from 'next-pwa'
+const config = withPWA({
+  dest: 'public',
+  register: true,
+  skipWaiting: true,
+  disable: process.env.NODE_ENV === 'development',
+  runtimeCaching: [
+    { urlPattern: /^https://api.feastpot.co.uk/v1/vendors/, handler: 'NetworkFirst', options: { cacheName: 'vendors-cache', expiration: { maxAgeSeconds: 300 } } },
+    { urlPattern: /^https://.*supabase.*/storage/, handler: 'CacheFirst', options: { cacheName: 'images-cache', expiration: { maxAgeSeconds: 86400 } } },
+    { urlPattern: //_next/static/, handler: 'CacheFirst', options: { cacheName: 'static-cache' } },
+  ]
+})
+
+STEP 2 — Create apps/web/public/manifest.json:
+{
+  "name": "Feastpot — African & Caribbean food",
+  "short_name": "Feastpot",
+  "description": "Authentic African and Caribbean bulk meals delivered to your door",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#E8520A",
+  "orientation": "portrait-primary",
+  "categories": ["food", "shopping"],
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable any" }
+  ],
+  "screenshots": [],
+  "related_applications": [],
+  "prefer_related_applications": false
+}
+
+Create placeholder icon files and explain what the icons should look like (orange circle, FP monogram in white).
+
+STEP 3 — Create apps/web/src/app/offline/page.tsx:
+- Offline shell page shown when user is offline and page is not cached
+- Shows Feastpot logo, "You're offline" message
+- "Try again" button that calls window.location.reload()
+- Shows cached orders if available (check localStorage)
+
+STEP 4 — VAPID push notification setup:
+In apps/api:
+Install: web-push @types/web-push
+Generate keys (run once, save to Replit Secrets):
+npx web-push generate-vapid-keys
+
+Create apps/api/src/modules/notifications/push.service.ts:
+- Loads VAPID keys from env
+- webpush.setVapidDetails('mailto:support@feastpot.co.uk', publicKey, privateKey)
+- sendPush(subscription: PushSubscription, payload: { title, body, icon, url }): webpush.sendNotification(subscription, JSON.stringify(payload))
+
+Create push_subscriptions table migration (add to Prisma schema):
+model PushSubscription { id String @id, userId String (FK users), endpoint String @unique, p256dh String, auth String, createdAt DateTime }
+
+Create in apps/api:
+POST /v1/push/subscribe — saves subscription (authenticated)
+DELETE /v1/push/unsubscribe — removes subscription
+
+In apps/web create apps/web/src/lib/push.ts:
+- registerPushSubscription(): requests permission, creates subscription, POSTs to /v1/push/subscribe
+- Use NEXT_PUBLIC_VAPID_PUBLIC_KEY env var
+
+Create apps/web/src/components/push-permission-prompt.tsx:
+- Shows after user places first order: "Get notified when your order is ready?"
+- Enable notifications button calls registerPushSubscription()
+- Dismiss stores preference in localStorage
+
+STEP 5 — Add to apps/web/src/app/layout.tsx:
+<link rel="manifest" href="/manifest.json" />
+<meta name="theme-color" content="#E8520A" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="Feastpot" />
+
+STEP 6 — Run Lighthouse PWA audit:
+Explain how to run in Chrome DevTools and what the target scores are:
+Performance: 85+, Accessibility: 90+, PWA: 100
+
+Output all configuration and component files in full.

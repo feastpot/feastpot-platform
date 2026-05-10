@@ -3,14 +3,17 @@
 import { Flame, Minus, Plus } from 'lucide-react';
 import { useState } from 'react';
 
-import { CrossVendorBasketError, useBasketStore } from '@/store/basket.store';
+import { CrossVendorBasketError, useBasketStore, type BasketVendor } from '@/store/basket.store';
 import type { VendorMenuItem } from '@/lib/api/vendors';
 
 const formatPounds = (p: number) => `£${(p / 100).toFixed(2)}`;
 
 interface Props {
   item: VendorMenuItem;
-  vendorId: string;
+  /** The vendor whose menu this item belongs to — passed straight to the
+   * basket store so the drawer can render vendor name + link without an
+   * extra API call. */
+  vendor: BasketVendor;
   /** "tray", "frozen", "snack" — affects the +/- step label. */
   category?: string;
   /** Optional spice level (0–3) parsed from item.tags by the parent. */
@@ -26,7 +29,7 @@ interface Props {
  * future polish (kept simple here to avoid pulling another component into
  * the scaffold).
  */
-export function MenuItemCard({ item, vendorId, category, spiceLevel = 0 }: Props) {
+export function MenuItemCard({ item, vendor, category, spiceLevel = 0 }: Props) {
   const addItem = useBasketStore((s) => s.addItem);
   const clearBasket = useBasketStore((s) => s.clearBasket);
 
@@ -45,8 +48,9 @@ export function MenuItemCard({ item, vendorId, category, spiceLevel = 0 }: Props
           menuItemName: item.name,
           quantity: qty,
           unitPricePence: item.pricePence,
+          imageUrl: item.imageUrls[0],
         },
-        vendorId,
+        vendor,
       );
       setQty(1);
     } catch (e) {
@@ -63,8 +67,9 @@ export function MenuItemCard({ item, vendorId, category, spiceLevel = 0 }: Props
               menuItemName: item.name,
               quantity: qty,
               unitPricePence: item.pricePence,
+              imageUrl: item.imageUrls[0],
             },
-            vendorId,
+            vendor,
           );
           setQty(1);
         }

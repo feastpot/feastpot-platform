@@ -1,0 +1,62 @@
+You are an expert Next.js 15 and Stripe engineer. Build the checkout and post-order flows for the Feastpot PWA.
+
+BASKET COMPONENT (apps/web/src/components/basket/basket-drawer.tsx):
+- Sheet (slide-up on mobile, slide-right on desktop) triggered by basket icon in TopNav
+- Shows all items with: image, name, portion label, quantity control (+/-), line total, remove button
+- Delivery fee calculation (fetched from vendor delivery config)
+- Subtotal, delivery fee, discount code input, total
+- "Proceed to checkout" button → /checkout
+- Empty basket state with "Browse vendors" link
+- Shows vendor name at top with link to vendor profile
+
+CHECKOUT PAGE (apps/web/src/app/checkout/page.tsx):
+- Protected route (redirect to sign-in if no session)
+- STEP 1 — Delivery address:
+  Select from saved addresses (radio list) or "Add new address" (inline form with postcode geocoding)
+- STEP 2 — Delivery slot:
+  Date picker (only shows vendor's available days)
+  Time slot picker (shows slots within vendor's open/close times, at least leadTimeHours from now)
+  Each slot shows as a pill: "Saturday 12:00–13:00"
+- STEP 3 — Order notes:
+  Optional textarea: "Any special requests, spice level adjustments, or allergen notes"
+- STEP 4 — Payment:
+  Stripe Elements: CardElement with Feastpot brand styling
+  Apple Pay / Google Pay via PaymentRequestButton (shows only if browser supports)
+  "Place order" button
+- On form submit:
+  1. POST /v1/orders → returns { order, clientSecret }
+  2. stripe.confirmCardPayment(clientSecret)
+  3. On success: POST /v1/orders/:id/confirm
+  4. Router push to /orders/:id/tracking
+
+ORDER TRACKING PAGE (apps/web/src/app/orders/[id]/tracking/page.tsx):
+- Order status timeline: shows all stages with tick icons for completed, spinner for current
+  Pending → Accepted → Preparing → Out for delivery → Delivered
+- Live updates via Supabase Realtime:
+  const channel = supabase.channel('order-' + orderId)
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders', filter: 'id=eq.' + orderId },
+      (payload) => setStatus(payload.new.status))
+    .subscribe()
+- Shows vendor info after acceptance (business name, phone)
+- Estimated delivery time (scheduledFor from order)
+- Cancel button (only shown when status=pending)
+- After status=delivered: show "Rate your order" prompt after 2 hours (check deliveredAt + 2h)
+
+ORDER HISTORY PAGE (apps/web/src/app/account/orders/page.tsx):
+- Paginated list of customer's orders, newest first
+- Each order card: vendor name + logo, date, items summary, total, status badge
+- "Reorder" button → calls POST /v1/orders/:id/reorder → takes to new checkout
+- "View" button → navigates to tracking page (even for past orders)
+- "Leave a review" button appears for delivered orders without a review
+
+REVIEW PAGE (apps/web/src/app/orders/[id]/review/page.tsx):
+- Overall vendor rating (1-5 stars, interactive star picker)
+- Food quality rating (1-5 stars, optional)
+- Text review (optional, max 500 chars with character counter)
+- Photo upload (optional, up to 3 photos, shows preview before submit)
+- Submit calls POST /v1/reviews
+- Confirmation screen: "Thanks for your review! It helps the community."
+
+Create hooks: useOrder(id), useOrders(), useCreateOrder(), useConfirmOrder()
+
+Output all files in full. Use Tailwind classes throughout — no inline styles.

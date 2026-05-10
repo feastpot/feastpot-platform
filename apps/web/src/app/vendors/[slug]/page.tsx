@@ -176,7 +176,7 @@ export default async function VendorProfilePage({ params }: PageProps) {
                   <li key={item.id}>
                     <MenuItemCard
                       item={item}
-                      vendorId={vendor.id}
+                      vendor={{ id: vendor.id, name: vendor.businessName, slug: vendor.slug }}
                       category={category}
                       spiceLevel={spiceLevelOf(item.tags)}
                     />

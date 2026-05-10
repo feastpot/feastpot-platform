@@ -19,7 +19,7 @@ const formatPounds = (p: number) => `£${(p / 100).toFixed(2)}`;
 export function StickyAddToOrder({ vendorId }: { vendorId: string }) {
   const itemCount = useBasketStore((s) => s.items.reduce((acc, i) => acc + i.quantity, 0));
   const subtotal = useBasketStore((s) => s.getSubtotalPence());
-  const basketVendorId = useBasketStore((s) => s.vendorId);
+  const basketVendorId = useBasketStore((s) => s.vendor?.id ?? null);
   const [showAfterScroll, setShowAfterScroll] = useState(false);
 
   useEffect(() => {
@@ -40,15 +40,17 @@ export function StickyAddToOrder({ vendorId }: { vendorId: string }) {
 
   return (
     <div className="fixed inset-x-0 bottom-16 z-30 mx-auto max-w-lg px-4">
+      {/* The basket itself is a drawer triggered from TopNav; "Checkout" is
+          the natural CTA once the customer has scrolled past the menu. */}
       <Link
-        href="/basket"
+        href="/checkout"
         className="flex items-center justify-between rounded-full bg-brand px-5 py-3 text-white shadow-lg hover:bg-brand-dark"
       >
         <span className="inline-flex items-center gap-2 text-sm font-medium">
           <ShoppingBasket className="h-4 w-4" aria-hidden />
           {itemCount} {itemCount === 1 ? 'item' : 'items'}
         </span>
-        <span className="text-sm font-semibold">{formatPounds(subtotal)} • View basket</span>
+        <span className="text-sm font-semibold">{formatPounds(subtotal)} • Checkout</span>
       </Link>
     </div>
   );
