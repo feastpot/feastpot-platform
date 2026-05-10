@@ -1,0 +1,144 @@
+You are an expert Supabase and NestJS engineer working on Feastpot.
+
+This is a verification prompt — audit the current state and fix what is wrong.
+Do not rebuild. Confirm each item works before moving on.
+
+═══════════════════════════════════════════════════════
+STEP 1 — Verify the Postgres hook function exists
+═══════════════════════════════════════════════════════
+
+Run this SQL in the Supabase SQL editor:
+
+SELECT routine_name, routine_type
+FROM information_schema.routines
+WHERE routine_schema = 'public'
+AND routine_name = 'custom_access_token_hook';
+
+If the result is empty, the function does not exist. Create it now:
+
+CREATE OR REPLACE FUNCTION public.custom_access_token_hook(event jsonb)
+RETURNS jsonb
+LANGUAGE plpgsql
+STABLE
+AS $$
+DECLARE
+  claims jsonb;
+  user_role text;
+BEGIN
+  -- Read role from public.users table
+  SELECT role::text INTO user_role
+  FROM public.users
+  WHERE id = (event->>'user_id')::uuid;
+
+  claims := event->'claims';
+
+  -- Set the role claim
+  IF user_role IS NOT NULL THEN
+    claims := jsonb_set(claims, '{role}', to_jsonb(user_role));
+  ELSE
+    -- Default to customer if no record found (e.g. during registration)
+    claims := jsonb_set(claims, '{role}', '"customer"');
+  END IF;
+
+  -- Return the modified event with updated claims
+  RETURN jsonb_set(event, '{claims}', claims);
+END;
+$$;
+
+-- Grant execute permission to Supabase Auth
+GRANT EXECUTE ON FUNCTION public.custom_access_token_hook TO supabase_auth_admin;
+REVOKE EXECUTE ON FUNCTION public.custom_access_token_hook FROM authenticated, anon, public;
+
+═══════════════════════════════════════════════════════
+STEP 2 — Register the hook in Supabase dashboard
+═══════════════════════════════════════════════════════
+
+Provide exact navigation instructions:
+1. Go to Supabase dashboard → your project → Authentication (left sidebar)
+2. Click "Hooks" tab
+3. Click "Add new hook"
+4. Hook type: "Custom Access Token"
+5. Function: select "custom_access_token_hook" from the dropdown
+6. Click "Save"
+
+If the Hooks tab does not exist in your plan:
+- Check your Supabase plan. Custom Auth Hooks require the Pro plan ($25/month) or higher.
+- If on free plan, show an alternative approach using the anon key and service role to
+  add the role as user metadata in the registration flow instead.
+
+═══════════════════════════════════════════════════════
+STEP 3 — Verify the hook is working
+═══════════════════════════════════════════════════════
+
+After registering the hook, test it:
+
+In the Replit shell, run a login request for each of the seeded user roles:
+
+# Test as vendor user
+curl -s -X POST 'https://[your-project].supabase.co/auth/v1/token?grant_type=password' \
+  -H "apikey: $NEXT_PUBLIC_SUPABASE_ANON_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"maman@feastpot.co.uk","password":"TestPassword123!"}' \
+  | python3 -c "import sys,json,base64; d=json.load(sys.stdin); t=d.get('access_token',''); p=t.split('.')[1] if t else ''; print(json.dumps(json.loads(base64.urlsafe_b64decode(p+'==').decode()),indent=2)) if p else print('No token')"
+
+This decodes the JWT payload and prints it.
+
+Expected output should contain:
+{
+  "sub": "...",
+  "email": "maman@feastpot.co.uk",
+  "role": "vendor",    ← THIS MUST BE PRESENT
+  "exp": ...,
+  "iat": ...
+}
+
+Repeat for:
+- soul@feastpot.co.uk → should show "role": "admin"
+- grace@example.com → should show "role": "customer"
+- finance@feastpot.co.uk → should show "role": "finance"
+
+═══════════════════════════════════════════════════════
+STEP 4 — Verify NestJS SupabaseAuthGuard extracts the role correctly
+═══════════════════════════════════════════════════════
+
+Open apps/api/src/auth/guards/supabase-auth.guard.ts
+
+Confirm the guard extracts the role from user_metadata OR from the JWT directly.
+Supabase returns the custom claims in user.user_metadata when calling getUser().
+
+The extraction should be:
+const role = user.user_metadata?.role || user.app_metadata?.role || 'customer'
+
+NOT:
+const role = user.role  // This is the Supabase auth role (authenticated/anon), not our custom role
+
+If the guard is reading from the wrong field, fix it now.
+
+═══════════════════════════════════════════════════════
+STEP 5 — End-to-end role test via the API
+═══════════════════════════════════════════════════════
+
+With the vendor JWT from Step 3:
+
+# Test a vendor-only endpoint with vendor token
+curl -s -X GET 'https://api.feastpot.co.uk/v1/vendors/me' \
+  -H "Authorization: Bearer {vendor_access_token}"
+# Expected: 200 with vendor profile
+
+# Test the same endpoint with customer token
+curl -s -X GET 'https://api.feastpot.co.uk/v1/vendors/me' \
+  -H "Authorization: Bearer {customer_access_token}"
+# Expected: 403 Forbidden
+
+# Test admin-only endpoint with vendor token
+curl -s -X GET 'https://api.feastpot.co.uk/v1/admin/audit-log' \
+  -H "Authorization: Bearer {vendor_access_token}"
+# Expected: 403 Forbidden
+
+# Test admin endpoint with admin token
+curl -s -X GET 'https://api.feastpot.co.uk/v1/admin/audit-log' \
+  -H "Authorization: Bearer {admin_access_token}"
+# Expected: 200 with audit log data
+
+Document the actual responses. Fix any discrepancies found.
+Output all changed file sections in full.

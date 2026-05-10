@@ -4,6 +4,7 @@ import { UserRole } from '@prisma/client';
 import type { User } from '@supabase/supabase-js';
 
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
+import type { PrismaService } from '../../prisma/prisma.service';
 import type { SupabaseService } from '../supabase.service';
 
 import { SupabaseAuthGuard, extractBearerToken, mapUser } from './supabase-auth.guard';
@@ -68,6 +69,22 @@ describe('mapUser', () => {
     expect(mapUser(user, token).role).toBe(UserRole.customer);
   });
 
+  it('REGRESSION: skips JWT top-level "authenticated" and uses app_metadata.role', () => {
+    // Without the custom_access_token_hook installed, Supabase sets
+    // top-level role="authenticated" by default. The guard must not treat
+    // that as our app role — it has to fall through to app_metadata.role,
+    // otherwise every authenticated user collapses to "customer" and
+    // privileged endpoints become unreachable.
+    const user = {
+      id: 'x',
+      email: 'a@b.com',
+      app_metadata: { role: 'vendor' },
+      user_metadata: {},
+    } as unknown as User;
+    const token = makeJwt({ sub: 'x', role: 'authenticated' });
+    expect(mapUser(user, token).role).toBe(UserRole.vendor);
+  });
+
   it('falls back to customer for unknown role string', () => {
     const user = {
       id: 'x',
@@ -89,8 +106,11 @@ describe('SupabaseAuthGuard', () => {
   const supabase = {
     verifyToken: jest.fn(),
   } as unknown as jest.Mocked<SupabaseService>;
+  const prisma = {
+    user: { findUnique: jest.fn().mockResolvedValue({ status: 'active' }) },
+  } as unknown as jest.Mocked<PrismaService>;
   const reflector = new Reflector();
-  const guard = new SupabaseAuthGuard(reflector, supabase);
+  const guard = new SupabaseAuthGuard(reflector, supabase, prisma);
 
   beforeEach(() => jest.clearAllMocks());
 
