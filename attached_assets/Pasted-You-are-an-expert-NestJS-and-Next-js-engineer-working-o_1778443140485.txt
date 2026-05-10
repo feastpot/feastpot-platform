@@ -1,0 +1,124 @@
+You are an expert NestJS and Next.js engineer working on the Feastpot monorepo.
+
+CONTEXT:
+The Prisma Address model already exists in prisma/schema.prisma with all fields.
+The addresses table is already in the Supabase database.
+The checkout page currently has no saved address support — customers must re-enter on every order.
+This prompt builds the full addresses module end-to-end.
+
+═══════════════════════════════════════════════════════
+PART 1 — NestJS API: apps/api/src/modules/addresses
+═══════════════════════════════════════════════════════
+
+Create the following files:
+
+1. addresses.module.ts
+   - Imports PrismaModule
+   - Provides AddressesService, AddressesRepository
+   - Exports AddressesService (OrdersModule will import it)
+
+2. addresses.controller.ts
+   Routes:
+   GET    /v1/addresses          — list all addresses for authenticated user
+   POST   /v1/addresses          — create new address
+   PATCH  /v1/addresses/:id      — update address (own only)
+   DELETE /v1/addresses/:id      — delete address (own only, cannot delete if active order uses it)
+
+   All routes require authentication (no @Public()).
+   Use @CurrentUser() to get the authenticated user.
+
+3. addresses.service.ts
+   findAll(userId: string): return all addresses for user, default address first
+   
+   create(userId: string, dto: CreateAddressDto):
+   - Validate UK postcode format using regex: /^[A-Z]{1,2}[0-9][0-9A-Z]?s?[0-9][A-Z]{2}$/i
+   - Geocode postcode to lat/lng using free postcodes.io API:
+     GET https://api.postcodes.io/postcodes/{postcode}
+     Extract latitude and longitude from response.result
+   - If isDefault is true, set all other addresses for this user to isDefault=false first
+   - Create and return the new address
+   
+   update(id: string, userId: string, dto: UpdateAddressDto):
+   - Verify address belongs to userId, throw NotFoundException if not
+   - If isDefault is true, set all others to false first
+   - Update and return
+   
+   delete(id: string, userId: string):
+   - Verify ownership
+   - Check no active orders (status IN [pending, accepted, preparing, dispatched]) use this deliveryAddressId
+   - If in use, throw ConflictException: "This address is used by an active order and cannot be deleted"
+   - Delete and return { deleted: true }
+   
+   setDefault(id: string, userId: string):
+   - Set all user addresses isDefault=false
+   - Set this address isDefault=true
+
+4. addresses.repository.ts — all Prisma queries isolated here
+
+5. DTOs:
+   CreateAddressDto:
+   - label?: string (max 60 chars)
+   - line1: string (required, min 3)
+   - line2?: string
+   - city: string (required)
+   - postcode: string (required, validated with UK regex)
+   - isDefault?: boolean (default false)
+   
+   UpdateAddressDto: Partial<CreateAddressDto>
+
+6. Register AddressesModule in app.module.ts imports array
+
+═══════════════════════════════════════════════════════
+PART 2 — Customer PWA: apps/web address pages
+═══════════════════════════════════════════════════════
+
+7. Create apps/web/src/app/account/addresses/page.tsx:
+   - List all saved addresses using GET /v1/addresses via TanStack Query hook useAddresses()
+   - Each address card shows: label (or "Address" if none), line1, city, postcode, "Default" badge if isDefault
+   - "Set as default" button on non-default addresses
+   - Edit button → navigates to /account/addresses/[id]/edit
+   - Delete button → confirmation dialog → DELETE /v1/addresses/:id
+   - "Add new address" button → /account/addresses/new
+   - Empty state: "No saved addresses. Add one to speed up checkout."
+
+8. Create apps/web/src/app/account/addresses/new/page.tsx:
+   - Form with fields: Label (optional), Line 1, Line 2 (optional), City, Postcode, Set as default (checkbox)
+   - Postcode field validates format client-side with the UK regex before submit
+   - Submit calls POST /v1/addresses via useMutation
+   - On success: navigate to /account/addresses with success toast
+   - Cancel → back to /account/addresses
+
+9. Create apps/web/src/app/account/addresses/[id]/edit/page.tsx:
+   - Pre-fills form from existing address data
+   - Same form and validation as new page
+   - Submit calls PATCH /v1/addresses/:id
+
+10. Create apps/web/src/components/address/address-selector.tsx:
+    A reusable component used in the checkout page:
+    - Fetches addresses via useAddresses()
+    - Renders radio list of saved addresses
+    - "Add new address" option expands an inline form (same fields as above) without leaving the checkout page
+    - Selected addressId passed up via onChange prop
+    - Default address pre-selected
+
+11. Update apps/web/src/app/checkout/page.tsx:
+    Replace any hardcoded address input with the AddressSelector component.
+    The selected addressId from AddressSelector feeds into the CreateOrderDto.
+
+12. Create apps/web/src/app/account/page.tsx (account hub if it doesn't exist):
+    - Links to: Order history (/account/orders), Saved addresses (/account/addresses), Profile (/account/profile)
+    - Shows customer name and email at top
+
+═══════════════════════════════════════════════════════
+PART 3 — TanStack Query hooks
+═══════════════════════════════════════════════════════
+
+13. Create apps/web/src/hooks/use-addresses.ts:
+    useAddresses() — GET /v1/addresses, staleTime: 300_000 (5 min)
+    useCreateAddress() — POST /v1/addresses, invalidates addresses query on success
+    useUpdateAddress() — PATCH /v1/addresses/:id
+    useDeleteAddress() — DELETE /v1/addresses/:id, invalidates on success
+    useSetDefaultAddress() — PATCH /v1/addresses/:id with { isDefault: true }
+
+Run npm run typecheck in both apps/api and apps/web after completing all changes.
+Output all file contents in full. Confirm zero TypeScript errors.

@@ -13,6 +13,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { QueuesModule } from './queues/queues.module';
 
 import { AuthModule } from './auth/auth.module';
+import { AddressesModule } from './modules/addresses/addresses.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { CatalogueModule } from './modules/catalogue/catalogue.module';
 import { ComplianceModule } from './modules/compliance/compliance.module';
@@ -60,6 +61,7 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
     QueuesModule,
     AuthModule,
     UsersModule,
+    AddressesModule,
     VendorsModule,
     CatalogueModule,
     OrdersModule,

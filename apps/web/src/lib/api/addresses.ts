@@ -1,14 +1,23 @@
-import { apiRequest, ApiError } from './client';
+import { apiRequest } from './client';
 
+/**
+ * Mirrors the GET /v1/addresses response from
+ * `apps/api/src/modules/addresses/addresses.service.ts`.
+ */
 export interface Address {
   id: string;
+  userId: string;
   label: string | null;
   line1: string;
   line2: string | null;
   city: string;
   postcode: string;
   country: string;
+  latitude: number | null;
+  longitude: number | null;
   isDefault: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface CreateAddressInput {
@@ -17,39 +26,27 @@ export interface CreateAddressInput {
   line2?: string;
   city: string;
   postcode: string;
-  country?: string;
+  isDefault?: boolean;
 }
 
-/**
- * BACKEND GAP: there is no AddressesController in apps/api today. These calls
- * target the conventional `/v1/users/me/addresses` path and fail-fast with
- * `ApiError` (status 404) when the endpoint is not yet implemented. The
- * checkout page treats a 404 as "no saved addresses" and lets the customer
- * proceed by entering one inline (the order-create endpoint already accepts
- * an optional `deliveryAddressId`, so omitting it is valid).
- */
-export async function listAddresses(accessToken: string): Promise<Address[]> {
-  try {
-    const r = await apiRequest<{ data: Address[] } | Address[]>('/users/me/addresses', { accessToken });
-    return Array.isArray(r) ? r : r.data;
-  } catch (e) {
-    if (e instanceof ApiError && e.status === 404) return [];
-    throw e;
-  }
+export type UpdateAddressInput = Partial<CreateAddressInput>;
+
+export function listAddresses(accessToken: string): Promise<Address[]> {
+  return apiRequest<Address[]>('/addresses', { accessToken });
 }
 
-export async function createAddress(
-  input: CreateAddressInput,
-  accessToken: string,
-): Promise<Address | null> {
-  try {
-    return await apiRequest<Address>('/users/me/addresses', {
-      method: 'POST',
-      body: input,
-      accessToken,
-    });
-  } catch (e) {
-    if (e instanceof ApiError && e.status === 404) return null;
-    throw e;
-  }
+export function createAddress(input: CreateAddressInput, accessToken: string): Promise<Address> {
+  return apiRequest<Address>('/addresses', { method: 'POST', body: input, accessToken });
+}
+
+export function updateAddress(id: string, input: UpdateAddressInput, accessToken: string): Promise<Address> {
+  return apiRequest<Address>(`/addresses/${id}`, { method: 'PATCH', body: input, accessToken });
+}
+
+export function deleteAddress(id: string, accessToken: string): Promise<{ deleted: boolean }> {
+  return apiRequest<{ deleted: boolean }>(`/addresses/${id}`, { method: 'DELETE', accessToken });
+}
+
+export function setDefaultAddress(id: string, accessToken: string): Promise<Address> {
+  return updateAddress(id, { isDefault: true }, accessToken);
 }

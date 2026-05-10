@@ -6,13 +6,12 @@ import { addDays, format, isAfter, set, startOfDay } from 'date-fns';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
+import { AddressSelector } from '@/components/address/address-selector';
 import { PageShell } from '@/components/layout/page-shell';
-import { useAddresses, useCreateAddress } from '@/hooks/use-addresses';
 import { useConfirmOrder, useCreateOrder } from '@/hooks/use-orders';
 import { useAccessToken } from '@/lib/auth/use-access-token';
 import { ApiError } from '@/lib/api/client';
 import { STRIPE_CONFIGURED, getStripe } from '@/lib/stripe';
-import type { Address } from '@/lib/api/addresses';
 import { useBasketStore } from '@/store/basket.store';
 
 const formatPounds = (p: number) => `£${(p / 100).toFixed(2)}`;
@@ -71,18 +70,16 @@ function CheckoutInner() {
     }
   }, [tokenLoading, token, items.length, vendor, router]);
 
-  const addresses = useAddresses();
-  const createAddr = useCreateAddress();
   const createOrder = useCreateOrder();
   const confirmOrder = useConfirmOrder();
 
   const stripe = useStripe();
   const elements = useElements();
 
-  // Form state
+  // AddressSelector owns the saved/new address UX. It returns either a
+  // saved-address id, or `null` while the user is mid-add (we then block
+  // the submit button so we never POST an order without a delivery address).
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
-  const [newAddress, setNewAddress] = useState({ line1: '', line2: '', city: '', postcode: '' });
-  const [useNew, setUseNew] = useState(false);
 
   const [scheduledDate, setScheduledDate] = useState<string>('');
   const [scheduledTime, setScheduledTime] = useState<string>('');
@@ -97,16 +94,6 @@ function CheckoutInner() {
   // failing the user is offered a direct link to their tracking page.
   const paidOrderIdRef = useRef<string | null>(null);
   const [paidButUnconfirmed, setPaidButUnconfirmed] = useState<string | null>(null);
-
-  // Default to first saved address if any.
-  useEffect(() => {
-    if (addresses.data && addresses.data.length > 0 && !selectedAddressId && !useNew) {
-      const def = addresses.data.find((a: Address) => a.isDefault) ?? addresses.data[0];
-      if (def) setSelectedAddressId(def.id);
-    } else if (addresses.data && addresses.data.length === 0) {
-      setUseNew(true);
-    }
-  }, [addresses.data, selectedAddressId, useNew]);
 
   if (tokenLoading || !token || items.length === 0 || !vendor) {
     return (
@@ -151,20 +138,15 @@ function CheckoutInner() {
         return;
       }
 
-      // Resolve address: either a selected saved one, or create one inline.
-      // BACKEND GAP: createAddress returns null if the API has no addresses
-      // endpoint — in that case we proceed without an addressId (CreateOrderDto
-      // accepts that).
-      let deliveryAddressId: string | undefined = selectedAddressId ?? undefined;
-      if (useNew) {
-        if (!newAddress.line1 || !newAddress.city || !newAddress.postcode) {
-          setServerError('Please complete the delivery address.');
-          setSubmitting(false);
-          return;
-        }
-        const created = await createAddr.mutateAsync(newAddress);
-        deliveryAddressId = created?.id;
+      // AddressSelector saves new addresses inline and surfaces the id via
+      // onChange, so by the time we get here `selectedAddressId` is either
+      // a real saved address or null (mid-edit) — we block in the latter case.
+      if (!selectedAddressId) {
+        setServerError('Please choose or save a delivery address before placing the order.');
+        setSubmitting(false);
+        return;
       }
+      const deliveryAddressId: string = selectedAddressId;
 
       // Discount code from basket drawer (sessionStorage).
       const discountCode =
@@ -267,85 +249,7 @@ function CheckoutInner() {
 
         {/* STEP 1 — Delivery address */}
         <Step n={1} title="Delivery address">
-          {addresses.isLoading ? (
-            <p className="text-sm text-muted-foreground">Loading addresses&hellip;</p>
-          ) : (
-            <div className="space-y-3">
-              {addresses.data && addresses.data.length > 0 && (
-                <ul className="space-y-2">
-                  {addresses.data.map((a) => (
-                    <li key={a.id}>
-                      <label className="flex cursor-pointer items-start gap-3 rounded-md border border-border p-3 hover:bg-muted/40">
-                        <input
-                          type="radio"
-                          name="address"
-                          checked={!useNew && selectedAddressId === a.id}
-                          onChange={() => {
-                            setSelectedAddressId(a.id);
-                            setUseNew(false);
-                          }}
-                          className="mt-1 h-4 w-4"
-                        />
-                        <span className="text-sm">
-                          {a.label && <strong className="block">{a.label}</strong>}
-                          {a.line1}
-                          {a.line2 ? `, ${a.line2}` : ''}, {a.city}, {a.postcode}
-                        </span>
-                      </label>
-                    </li>
-                  ))}
-                </ul>
-              )}
-
-              <label className="flex cursor-pointer items-center gap-3 rounded-md border border-dashed border-border p-3 text-sm">
-                <input
-                  type="radio"
-                  name="address"
-                  checked={useNew}
-                  onChange={() => setUseNew(true)}
-                  className="h-4 w-4"
-                />
-                Add a new address
-              </label>
-
-              {useNew && (
-                <div className="grid grid-cols-1 gap-2 rounded-md border border-border p-3 sm:grid-cols-2">
-                  <Field label="Address line 1" required>
-                    <input
-                      value={newAddress.line1}
-                      onChange={(e) => setNewAddress((s) => ({ ...s, line1: e.target.value }))}
-                      autoComplete="address-line1"
-                      className={inputCls}
-                    />
-                  </Field>
-                  <Field label="Address line 2">
-                    <input
-                      value={newAddress.line2}
-                      onChange={(e) => setNewAddress((s) => ({ ...s, line2: e.target.value }))}
-                      autoComplete="address-line2"
-                      className={inputCls}
-                    />
-                  </Field>
-                  <Field label="City" required>
-                    <input
-                      value={newAddress.city}
-                      onChange={(e) => setNewAddress((s) => ({ ...s, city: e.target.value }))}
-                      autoComplete="address-level2"
-                      className={inputCls}
-                    />
-                  </Field>
-                  <Field label="Postcode" required>
-                    <input
-                      value={newAddress.postcode}
-                      onChange={(e) => setNewAddress((s) => ({ ...s, postcode: e.target.value.toUpperCase() }))}
-                      autoComplete="postal-code"
-                      className={inputCls}
-                    />
-                  </Field>
-                </div>
-              )}
-            </div>
-          )}
+          <AddressSelector value={selectedAddressId} onChange={setSelectedAddressId} />
         </Step>
 
         {/* STEP 2 — Delivery slot */}
@@ -455,7 +359,7 @@ function CheckoutInner() {
 
         <button
           type="submit"
-          disabled={submitting || !stripe}
+          disabled={submitting || !stripe || !selectedAddressId}
           className="w-full rounded-md bg-brand py-3 text-sm font-semibold text-white hover:bg-brand-dark disabled:opacity-50"
         >
           {submitting
