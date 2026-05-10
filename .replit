@@ -22,6 +22,14 @@ args = "API"
 task = "workflow.run"
 args = "Web"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Vendor"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Admin"
+
 [[workflows.workflow]]
 name = "API"
 author = "agent"
@@ -43,6 +51,30 @@ waitForPort = 3000
 [workflows.workflow.metadata]
 outputType = "console"
 
+[[workflows.workflow]]
+name = "Vendor"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run dev --workspace=@feastpot/vendor"
+waitForPort = 3002
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow]]
+name = "Admin"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run dev --workspace=@feastpot/admin"
+waitForPort = 3003
+
+[workflows.workflow.metadata]
+outputType = "console"
+
 [[ports]]
 localPort = 3000
 externalPort = 3000
@@ -50,6 +82,14 @@ externalPort = 3000
 [[ports]]
 localPort = 3001
 externalPort = 3001
+
+[[ports]]
+localPort = 3002
+externalPort = 80
+
+[[ports]]
+localPort = 3003
+externalPort = 3003
 
 [deployment]
 deploymentTarget = "autoscale"
