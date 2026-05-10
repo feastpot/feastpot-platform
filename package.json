@@ -30,7 +30,8 @@
     "db:reset": "prisma migrate reset --schema=prisma/schema.prisma --force",
     "ci": "turbo run lint typecheck test build",
     "build:api": "turbo run build --filter=@feastpot/api",
-    "start:api": "node apps/api/dist/main.js"
+    "start:api": "node apps/api/dist/main.js",
+    "smoke-test": "ts-node --project tsconfig.json scripts/smoke-test.ts"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts",

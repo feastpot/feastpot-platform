@@ -3,5 +3,15 @@
   "compilerOptions": {
     "noEmit": true
   },
-  "exclude": ["node_modules", "dist", ".next", ".turbo", "coverage"]
+  "exclude": [
+    "node_modules",
+    "dist",
+    ".next",
+    ".turbo",
+    "coverage"
+  ],
+  "ts-node": {
+    "esm": false,
+    "transpileOnly": true
+  }
 }

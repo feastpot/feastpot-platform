@@ -1,0 +1,194 @@
+You are an expert NestJS and Stripe testing engineer working on Feastpot.
+
+Create a comprehensive smoke test script that validates the entire order lifecycle.
+This script runs against the staging environment using Stripe test mode.
+
+═══════════════════════════════════════════════════════
+CREATE: scripts/smoke-test.ts
+═══════════════════════════════════════════════════════
+
+Create this file at the monorepo root: scripts/smoke-test.ts
+
+The script should:
+1. Use Stripe test card 4242 4242 4242 4242
+2. Use the seeded vendor (Maman's Kitchen) and customer (Grace)
+3. Use the Stripe CLI to verify PaymentIntent status at each stage
+4. Log each step with ✅ PASS or ❌ FAIL
+5. Exit with code 1 if any step fails (for CI integration)
+
+Here is the full script:
+
+import Stripe from 'stripe'
+import * as https from 'https'
+
+const API = process.env.API_URL || 'https://api.feastpot.co.uk'
+const STRIPE_KEY = process.env.STRIPE_SECRET_KEY!
+const stripe = new Stripe(STRIPE_KEY, { apiVersion: '2024-06-20' })
+
+const log = (ok: boolean, msg: string, detail?: any) => {
+  console.log(`${ok ? '✅' : '❌'} ${msg}`)
+  if (!ok && detail) console.error('   Detail:', JSON.stringify(detail, null, 2))
+  if (!ok) process.exit(1)
+}
+
+async function api(method: string, path: string, body?: any, token?: string) {
+  return new Promise<any>((resolve, reject) => {
+    const data = body ? JSON.stringify(body) : undefined
+    const options = {
+      hostname: API.replace('https://','').replace('http://',''),
+      path,
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token && { Authorization: `Bearer ${token}` }),
+        ...(data && { 'Content-Length': Buffer.byteLength(data) }),
+      },
+    }
+    const req = https.request(options, res => {
+      let raw = ''
+      res.on('data', chunk => raw += chunk)
+      res.on('end', () => {
+        try { resolve({ status: res.statusCode, body: JSON.parse(raw) }) }
+        catch { resolve({ status: res.statusCode, body: raw }) }
+      })
+    })
+    req.on('error', reject)
+    if (data) req.write(data)
+    req.end()
+  })
+}
+
+async function main() {
+  console.log('\n🚀 Feastpot Order Lifecycle Smoke Test\n')
+  console.log('API:', API)
+  console.log('Stripe mode: test\n')
+
+  // ── STEP 1: Health check
+  const health = await api('GET', '/health')
+  log(health.status === 200, 'API health check', health.body)
+
+  // ── STEP 2: Customer login (seeded user)
+  const loginRes = await api('POST', '/v1/auth/login', {
+    email: 'grace@example.com',
+    password: 'TestPassword123!'
+  })
+  // Note: if auth is Supabase-only, call Supabase directly
+  const customerToken = loginRes.body.accessToken
+  log(!!customerToken, 'Customer login', loginRes.body)
+
+  // ── STEP 3: Fetch vendors
+  const vendorsRes = await api('GET', '/v1/vendors?limit=1', undefined, customerToken)
+  log(vendorsRes.status === 200 && vendorsRes.body.data?.length > 0, 'Fetch vendors list', vendorsRes.body)
+  const vendor = vendorsRes.body.data[0]
+  console.log('   Vendor:', vendor.businessName)
+
+  // ── STEP 4: Fetch a menu item to order
+  const menusRes = await api('GET', `/v1/vendors/${vendor.id}/menus`, undefined, customerToken)
+  log(menusRes.status === 200, 'Fetch vendor menus', menusRes.body)
+  const menu = menusRes.body[0]
+
+  const itemsRes = await api('GET', `/v1/vendors/${vendor.id}/menus/${menu.id}/items`, undefined, customerToken)
+  log(itemsRes.status === 200 && itemsRes.body.length > 0, 'Fetch menu items', itemsRes.body)
+  const item = itemsRes.body.find((i: any) => i.isAvailable)
+  console.log('   Item:', item.name, '£' + (item.basePricePence / 100).toFixed(2))
+
+  // ── STEP 5: Get customer address
+  const addressRes = await api('GET', '/v1/addresses', undefined, customerToken)
+  let addressId: string
+  if (addressRes.status === 200 && addressRes.body.length > 0) {
+    addressId = addressRes.body[0].id
+  } else {
+    // Create a test address
+    const newAddr = await api('POST', '/v1/addresses', {
+      line1: '45 Rye Lane', city: 'London', postcode: 'SE15 4ST', isDefault: true
+    }, customerToken)
+    log(newAddr.status === 201, 'Create test delivery address', newAddr.body)
+    addressId = newAddr.body.id
+  }
+
+  // ── STEP 6: Create order (should return requires_capture PaymentIntent)
+  const scheduledFor = new Date(Date.now() + 26 * 60 * 60 * 1000).toISOString() // 26h from now
+  const orderRes = await api('POST', '/v1/orders', {
+    vendorId: vendor.id,
+    items: [{ menuItemId: item.id, quantity: 1 }],
+    deliveryAddressId: addressId,
+    scheduledFor,
+  }, customerToken)
+  log(orderRes.status === 201, 'Create order', orderRes.body)
+  const { order, clientSecret } = orderRes.body
+  console.log('   Order ID:', order.id)
+  console.log('   Stripe PI:', order.stripePaymentIntentId)
+  log(!!clientSecret, 'clientSecret returned in order response')
+
+  // ── STEP 7: Verify PaymentIntent is in requires_capture state
+  const pi = await stripe.paymentIntents.retrieve(order.stripePaymentIntentId)
+  log(pi.capture_method === 'manual', 'PaymentIntent capture_method is manual', { capture_method: pi.capture_method })
+  log(pi.status === 'requires_payment_method' || pi.status === 'requires_confirmation',
+    'PaymentIntent not yet captured (pre-payment)', { status: pi.status })
+
+  // ── STEP 8: Confirm order (simulate post-payment)
+  // In real flow, Stripe.js confirms payment. In test, use Stripe API directly.
+  const confirmedPi = await stripe.paymentIntents.confirm(order.stripePaymentIntentId, {
+    payment_method: 'pm_card_visa', // Stripe test payment method
+  })
+  log(confirmedPi.status === 'requires_capture', 'PaymentIntent status is requires_capture after payment', { status: confirmedPi.status })
+
+  const confirmRes = await api('POST', `/v1/orders/${order.id}/confirm`, undefined, customerToken)
+  log(confirmRes.status === 200, 'Order confirmed via API', confirmRes.body)
+
+  // ── STEP 9: Vendor accepts order
+  const vendorLoginRes = await api('POST', '/v1/auth/login', {
+    email: 'maman@feastpot.co.uk', password: 'TestPassword123!'
+  })
+  const vendorToken = vendorLoginRes.body.accessToken
+  log(!!vendorToken, 'Vendor login')
+
+  const acceptRes = await api('PATCH', `/v1/orders/${order.id}/status`,
+    { status: 'accepted' }, vendorToken)
+  log(acceptRes.status === 200, 'Vendor accepted order', acceptRes.body)
+
+  // ── STEP 10: Progress through statuses
+  for (const status of ['preparing', 'dispatched']) {
+    const r = await api('PATCH', `/v1/orders/${order.id}/status`, { status }, vendorToken)
+    log(r.status === 200, `Order status → ${status}`)
+  }
+
+  // ── STEP 11: Mark delivered — this should trigger Stripe capture
+  const deliveredRes = await api('PATCH', `/v1/orders/${order.id}/status`,
+    { status: 'delivered' }, vendorToken)
+  log(deliveredRes.status === 200, 'Order marked delivered')
+
+  // Wait 2 seconds for capture to process
+  await new Promise(r => setTimeout(r, 2000))
+
+  const capturedPi = await stripe.paymentIntents.retrieve(order.stripePaymentIntentId)
+  log(capturedPi.status === 'succeeded', 'Stripe PaymentIntent captured on delivery', { status: capturedPi.status })
+
+  // ── STEP 12: Verify review trigger job was enqueued
+  // Check BullMQ queue health via a debug endpoint if available
+  const queueRes = await api('GET', '/health', undefined, customerToken)
+  log(queueRes.status === 200, 'API still healthy after full order lifecycle')
+
+  console.log('\n✅ All smoke tests passed!\n')
+  console.log('Summary:')
+  console.log('  Order ID:', order.id)
+  console.log('  PaymentIntent:', order.stripePaymentIntentId, '→ succeeded')
+  console.log('  Commission:', '£' + (order.commissionPence / 100).toFixed(2))
+  console.log('  Net to vendor:', '£' + (order.netToVendorPence / 100).toFixed(2))
+}
+
+main().catch(err => {
+  console.error('\n❌ Smoke test failed:', err.message)
+  process.exit(1)
+})
+
+Add to root package.json scripts:
+"smoke-test": "ts-node --project tsconfig.json scripts/smoke-test.ts"
+
+Add to root tsconfig.json (if not already):
+{ "ts-node": { "esm": false, "transpileOnly": true } }
+
+Run: npm run smoke-test
+
+Document every PASS and FAIL. Fix any failures before proceeding.
+Output the complete script and any fixes made in full.
