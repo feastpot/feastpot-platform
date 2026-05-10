@@ -210,6 +210,7 @@ model User {
   status        UserStatus @default(active)
   emailVerified Boolean    @default(false) @map("email_verified")
   phoneVerified Boolean    @default(false) @map("phone_verified")
+  avatarUrl     String?    @map("avatar_url") @db.VarChar(500)
   lastLoginAt   DateTime?  @map("last_login_at") @db.Timestamptz
   createdAt     DateTime   @default(now()) @map("created_at") @db.Timestamptz
   updatedAt     DateTime   @updatedAt @map("updated_at") @db.Timestamptz

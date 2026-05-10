@@ -3,15 +3,24 @@ import type { User } from '@supabase/supabase-js';
 import {
   CanActivate,
   ExecutionContext,
+  ForbiddenException,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { UserRole } from '@prisma/client';
+import { UserRole, UserStatus } from '@prisma/client';
 
+import { PrismaService } from '../../prisma/prisma.service';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import { SupabaseService } from '../supabase.service';
 import type { AuthUser } from '../types';
+
+interface StatusCacheEntry {
+  status: UserStatus;
+  expiresAt: number;
+}
+
+const STATUS_CACHE_TTL_MS = 60_000;
 
 const VALID_ROLES = new Set<UserRole>([
   UserRole.customer,
@@ -24,9 +33,17 @@ const VALID_ROLES = new Set<UserRole>([
 
 @Injectable()
 export class SupabaseAuthGuard implements CanActivate {
+  // Per-userId status cache so we don't hit Postgres on every request. Keeps
+  // the request hot path at one Supabase token-cache hit + (mostly) one
+  // in-process map lookup. TTL is short enough that a status flip from
+  // active -> suspended/deleted is enforced within a minute even when the
+  // user's JWT is still valid.
+  private readonly statusCache = new Map<string, StatusCacheEntry>();
+
   constructor(
     private readonly reflector: Reflector,
     private readonly supabase: SupabaseService,
+    private readonly prisma: PrismaService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -47,8 +64,49 @@ export class SupabaseAuthGuard implements CanActivate {
     }
 
     const user = await this.supabase.verifyToken(token);
-    request.user = mapUser(user, token);
+    const mapped = mapUser(user, token);
+
+    // Defence-in-depth: even with a valid JWT, refuse if the user has been
+    // soft-deleted or suspended in our own DB. Without this check, a
+    // 60-minute Supabase access token survives a Supabase deleteUser failure
+    // (or an admin's status flip) until it naturally expires.
+    const status = await this.getUserStatus(mapped.id);
+    if (status === UserStatus.deleted) {
+      throw new UnauthorizedException({ code: 'ACCOUNT_DELETED', message: 'Account has been deleted' });
+    }
+    if (status === UserStatus.suspended) {
+      throw new ForbiddenException({ code: 'ACCOUNT_SUSPENDED', message: 'Account is suspended' });
+    }
+
+    request.user = mapped;
     return true;
+  }
+
+  /**
+   * Look up `public.users.status` with a small in-memory cache. If the row
+   * doesn't exist (never-seen Supabase user), we treat them as `active` so
+   * onboarding flows that create the local row on first call continue to
+   * work — they'll be re-checked on the next request anyway.
+   */
+  private async getUserStatus(userId: string): Promise<UserStatus> {
+    const cached = this.statusCache.get(userId);
+    if (cached && cached.expiresAt > Date.now()) return cached.status;
+
+    const row = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { status: true },
+    });
+    const status = row?.status ?? UserStatus.active;
+    this.statusCache.set(userId, { status, expiresAt: Date.now() + STATUS_CACHE_TTL_MS });
+    if (this.statusCache.size > 1000) this.evictExpiredStatus();
+    return status;
+  }
+
+  private evictExpiredStatus(): void {
+    const now = Date.now();
+    for (const [id, entry] of this.statusCache) {
+      if (entry.expiresAt <= now) this.statusCache.delete(id);
+    }
   }
 }
 

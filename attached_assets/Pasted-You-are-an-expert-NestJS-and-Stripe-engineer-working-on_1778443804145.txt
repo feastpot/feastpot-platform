@@ -1,0 +1,149 @@
+You are an expert NestJS and Stripe engineer working on the Feastpot codebase.
+
+CONTEXT:
+The orders module is built. This prompt audits and fixes three critical Stripe behaviours.
+Do not rebuild anything — audit first, fix only what is wrong.
+
+═══════════════════════════════════════════════════════
+AUDIT 1 — Stripe PaymentIntent escrow (capture_method)
+═══════════════════════════════════════════════════════
+
+1. Open apps/api/src/modules/orders/orders.service.ts
+   Find the stripe.paymentIntents.create() call.
+   
+   It MUST include: capture_method: 'manual'
+   
+   If it does NOT have capture_method: 'manual':
+   Add it now. The full create call should be:
+   
+   const paymentIntent = await this.stripe.paymentIntents.create({
+     amount: totalPence,
+     currency: 'gbp',
+     capture_method: 'manual',
+     metadata: {
+       orderId: order.id,
+       vendorId: dto.vendorId,
+       customerId: customerId,
+     },
+     description: `Feastpot order from ${vendorName}`,
+   });
+   
+   Without capture_method: 'manual', customers are charged immediately on order placement
+   regardless of whether the vendor accepts. This is the Feastpot escrow mechanism.
+
+2. Find where the order is marked as delivered (updateStatus with status=delivered).
+   Confirm stripe.paymentIntents.capture(stripePaymentIntentId) is called at this point.
+   
+   If missing, add it:
+   if (newStatus === OrderStatus.delivered) {
+     await this.stripe.paymentIntents.capture(order.stripePaymentIntentId);
+     // Update commissionPence and netToVendorPence in the order record
+   }
+
+3. Find where the order is rejected or cancelled.
+   Confirm stripe.paymentIntents.cancel(stripePaymentIntentId) is called.
+   If missing, add it:
+   if (newStatus === OrderStatus.rejected || newStatus === OrderStatus.cancelled) {
+     await this.stripe.paymentIntents.cancel(order.stripePaymentIntentId);
+   }
+
+═══════════════════════════════════════════════════════
+AUDIT 2 — 15-minute auto-cancel BullMQ job
+═══════════════════════════════════════════════════════
+
+4. Find the confirmOrder() method in orders.service.ts.
+   
+   It MUST enqueue a delayed BullMQ job after the vendor is notified:
+   
+   await this.ordersQueue.add(
+     'auto_cancel',
+     { orderId: order.id },
+     {
+       delay: 15 * 60 * 1000, // 15 minutes
+       jobId: `auto-cancel-${order.id}`, // deterministic jobId for cancellation
+     }
+   );
+   
+   If this job is NOT present, add it now.
+
+5. Find the updateStatus() method where vendor accepts (status = accepted).
+   It MUST remove the auto-cancel job:
+   
+   if (newStatus === OrderStatus.accepted) {
+     const job = await this.ordersQueue.getJob(`auto-cancel-${orderId}`);
+     if (job) await job.remove();
+   }
+   
+   If missing, add it.
+
+6. Find the orders.processor.ts (or equivalent BullMQ processor).
+   It MUST handle the 'auto_cancel' job type:
+   
+   case 'auto_cancel': {
+     const order = await this.ordersRepository.findById(data.orderId);
+     if (order && order.status === OrderStatus.pending) {
+       await this.stripe.paymentIntents.cancel(order.stripePaymentIntentId);
+       await this.ordersRepository.updateStatus(data.orderId, OrderStatus.cancelled, 'auto_rejected_vendor_timeout');
+       // Enqueue customer notification: order auto-cancelled
+       await this.notificationsQueue.add('send_email', {
+         to: order.customer.email,
+         subject: 'Your Feastpot order was not accepted',
+         template: 'order_auto_cancelled',
+         data: { vendorName: order.vendor.businessName },
+       });
+     }
+     break;
+   }
+
+═══════════════════════════════════════════════════════
+AUDIT 3 — Stripe webhook idempotency
+═══════════════════════════════════════════════════════
+
+7. Check if a processed_webhook_events table exists in prisma/schema.prisma.
+   If NOT present, add this model:
+   
+   model ProcessedWebhookEvent {
+     id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+     stripeEventId  String   @unique @map("stripe_event_id") @db.VarChar(100)
+     processedAt    DateTime @default(now()) @map("processed_at") @db.Timestamptz
+     
+     @@map("processed_webhook_events")
+   }
+   
+   Then run: npx prisma migrate dev --name add_webhook_idempotency --schema=./prisma/schema.prisma
+
+8. In apps/api/src/modules/payments/stripe-webhook.controller.ts,
+   confirm the idempotency check exists at the top of the webhook handler:
+   
+   const existing = await this.prisma.processedWebhookEvent.findUnique({
+     where: { stripeEventId: event.id },
+   });
+   if (existing) {
+     return { received: true }; // already processed
+   }
+   await this.prisma.processedWebhookEvent.create({
+     data: { stripeEventId: event.id },
+   });
+   
+   If missing, add it BEFORE any business logic in the handler.
+
+═══════════════════════════════════════════════════════
+VERIFICATION STEPS (run after all fixes)
+═══════════════════════════════════════════════════════
+
+9. Start the API: npm run dev:api
+   Place a test order using Stripe test card 4242 4242 4242 4242.
+   
+   Then in the Replit shell run:
+   curl -s https://api.feastpot.co.uk/v1/orders/{orderId} | grep -i "stripePaymentIntentId"
+   
+   Take that PaymentIntent ID and check it in Stripe CLI:
+   stripe payment_intents retrieve pi_xxx --api-key=$STRIPE_SECRET_KEY
+   
+   Confirm the response shows:
+   "status": "requires_capture"  (NOT "succeeded")
+   "capture_method": "manual"
+   
+   If it shows "succeeded", the capture_method fix was not applied — check the build cache with: npm run build:api
+
+Run npm run typecheck after all changes. Output all changed file sections in full.

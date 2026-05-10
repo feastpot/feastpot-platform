@@ -1,0 +1,95 @@
+You are an expert NestJS and Next.js engineer working on the Feastpot monorepo.
+
+CONTEXT:
+The users module currently only exposes GET /v1/users/me.
+Customers need to be able to update their name, phone number, and avatar.
+The Supabase Storage bucket "feastpot-media" already exists.
+
+═══════════════════════════════════════════════════════
+PART 1 — NestJS API: extend users module
+═══════════════════════════════════════════════════════
+
+1. In apps/api/src/modules/users/users.controller.ts, add:
+
+   PATCH /v1/users/me:
+   - Requires authentication (@CurrentUser())
+   - Accepts UpdateUserDto
+   - Calls UsersService.updateMe(userId, dto)
+   - Returns updated User object
+
+   PATCH /v1/users/:userId/status (admin only):
+   - Requires @Roles('admin')
+   - Accepts { status: UserStatus, reason?: string }
+   - Calls UsersService.updateStatus(userId, dto, actorUserId)
+   - Writes to audit_logs: action "user.status_changed", previousState, newState
+
+2. In apps/api/src/modules/users/users.service.ts, add:
+
+   updateMe(userId: string, dto: UpdateUserDto):
+   - Only update fields that are present in dto (partial update)
+   - If phone is provided, validate E.164 format: /^+[1-9]d{1,14}$/
+   - If phone is provided, also update it in Supabase Auth via supabase.auth.admin.updateUserById(userId, { phone: dto.phone })
+   - Return updated user record from public.users table
+   
+   updateStatus(userId: string, dto, actorId: string):
+   - Cannot change own status (throw ForbiddenException if userId === actorId)
+   - If status=deleted, also call supabase.auth.admin.deleteUser(userId)
+   - Write to audit_logs
+   - Return updated user
+
+3. Create UpdateUserDto:
+   - fullName?: string (min 2, max 100 chars)
+   - phone?: string (E.164 format validated with regex)
+   - avatarUrl?: string (valid URL)
+
+═══════════════════════════════════════════════════════
+PART 2 — Customer PWA: account profile page
+═══════════════════════════════════════════════════════
+
+4. Create apps/web/src/app/account/profile/page.tsx:
+
+   Layout: Card with profile photo at top, form below.
+   
+   AVATAR SECTION:
+   - Shows current avatar (or initials avatar if no avatarUrl: grey circle with first letter of fullName)
+   - Camera icon overlay on hover
+   - Click triggers file input (accept="image/jpeg,image/png,image/webp", max 5MB)
+   - On file select:
+     a. Validate file size < 5MB (show error toast if exceeded)
+     b. Show preview immediately using URL.createObjectURL()
+     c. Upload to Supabase Storage: bucket "feastpot-media", path "avatars/{userId}/{timestamp}.{ext}"
+     d. Get the public URL from supabase.storage.from("feastpot-media").getPublicUrl(path)
+     e. Call PATCH /v1/users/me with { avatarUrl: publicUrl }
+     f. Show success toast: "Profile photo updated"
+   
+   PROFILE FORM:
+   Fields:
+   - Full name (text input, required, min 2 chars)
+   - Email (text input, disabled — cannot change email without re-auth)
+   - Phone number (text input, optional, placeholder "+44 7700 900000")
+     Show helper text: "Used for order SMS notifications"
+   
+   Submit calls PATCH /v1/users/me via useMutation.
+   On success: show success toast "Profile updated", invalidate useMe() query.
+   
+   DANGER ZONE section (collapsible):
+   - "Delete account" button → opens confirmation dialog
+   - Dialog text: "This will permanently delete your account and all your data. This cannot be undone."
+   - User must type "DELETE" to confirm
+   - On confirm: calls DELETE /v1/users/me (add this endpoint — it calls supabase.auth.admin.deleteUser and soft-deletes the public.users row with status=deleted)
+
+5. Create apps/web/src/hooks/use-me.ts:
+   useMe() — GET /v1/users/me, staleTime: 300_000
+   useUpdateMe() — PATCH /v1/users/me, invalidates useMe() on success
+
+6. Update apps/web/src/app/account/page.tsx (account hub):
+   Show avatar, fullName, email at top.
+   Navigation cards: Orders, Addresses, Profile, Sign out.
+   Sign out calls supabase.auth.signOut() then router.push('/sign-in').
+
+7. Add DELETE /v1/users/me to users.controller.ts:
+   - Soft-delete: update users table status=deleted, updatedAt=now()
+   - Call supabase.auth.admin.deleteUser(userId) to revoke all tokens
+   - Return 204 No Content
+
+Run npm run typecheck in both apps after all changes. Output all file contents in full.
