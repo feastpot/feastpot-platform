@@ -1,0 +1,106 @@
+You are an expert Vercel and Turborepo deployment engineer. Deploy all three Feastpot Next.js frontends to Vercel from the feastpot-platform monorepo.
+
+CONTEXT:
+- Monorepo: feastpot-platform on GitHub (private repo)
+- Three Next.js 15 apps: apps/web (customer PWA), apps/vendor (vendor portal), apps/admin (admin panel)
+- API is already deployed at https://feastpot-platform.replit.app
+- Cloudflare manages DNS for feastpot.co.uk
+
+STEP 1 — Pre-flight: audit all environment variables
+Before creating any Vercel project, audit every .env.local in all three apps.
+Find every reference to localhost and list them:
+grep -r "localhost" apps/web apps/vendor apps/admin --include="*.ts" --include="*.tsx" --include="*.env*" -l
+
+For each occurrence, confirm the variable will be set as a Vercel environment variable, not hardcoded.
+
+The production environment variables for all three apps are:
+NEXT_PUBLIC_SUPABASE_URL=          (from Supabase dashboard → Settings → API)
+NEXT_PUBLIC_SUPABASE_ANON_KEY=     (from Supabase dashboard → Settings → API)
+NEXT_PUBLIC_API_URL=https://api.feastpot.co.uk  (or feastpot-platform.replit.app until DNS)
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY= (from Stripe dashboard → Developers → API Keys)
+NEXT_PUBLIC_SITE_URL=https://feastpot.co.uk     (web app only)
+NEXT_PUBLIC_VAPID_PUBLIC_KEY=                    (from Replit Secrets — same key)
+NEXT_PUBLIC_SUPPORT_EMAIL=support@feastpot.co.uk
+NEXT_PUBLIC_SUPPORT_WHATSAPP=+447XXXXXXXXX      (your real WhatsApp Business number)
+NEXT_PUBLIC_ICO_NUMBER=ZAxxxxxx                 (once ICO registration confirmed)
+
+STEP 2 — Update next.config.ts in each app
+Ensure each app's next.config.ts does NOT hardcode any API URL.
+All API calls must use process.env.NEXT_PUBLIC_API_URL.
+
+Create a shared API client at each app's src/lib/api.ts:
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
+export const api = {
+  get: (path: string, token?: string) =>
+    fetch(`${API_BASE}${path}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
+  post: (path: string, body: unknown, token?: string) =>
+    fetch(`${API_BASE}${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify(body),
+    }),
+}
+
+STEP 3 — Vercel project creation (do this 3 times)
+Provide exact instructions for creating each Vercel project:
+
+For EACH of apps/web, apps/vendor, apps/admin:
+
+1. Go to vercel.com → Add New Project → Import from GitHub
+2. Select feastpot-platform repository
+3. Framework Preset: Next.js (auto-detected)
+4. ROOT DIRECTORY: set to apps/web (or apps/vendor or apps/admin)
+5. BUILD COMMAND: cd ../.. && npm run build --filter=@feastpot/web
+   (replace web with vendor or admin for the other two)
+6. OUTPUT DIRECTORY: .next (default)
+7. INSTALL COMMAND: npm ci
+8. Add all environment variables from Step 1
+9. Click Deploy
+
+Repeat for all three apps.
+
+STEP 4 — Configure custom domains in Vercel
+For each project after first deploy:
+1. Vercel project → Settings → Domains → Add
+2. Add the domain:
+   - apps/web → feastpot.co.uk AND www.feastpot.co.uk
+   - apps/vendor → vendor.feastpot.co.uk
+   - apps/admin → admin.feastpot.co.uk
+3. Vercel shows the CNAME value to add to Cloudflare
+4. Copy this CNAME value exactly (includes a trailing period)
+
+STEP 5 — Configure Cloudflare DNS
+For each domain, add a CNAME record in Cloudflare DNS:
+- Type: CNAME
+- Name: @ (for apex), www, vendor, or admin
+- Target: [value from Vercel — e.g. cname.vercel-dns.com.]
+- Proxy status: DNS Only (grey cloud — NOT orange cloud)
+- TTL: Auto
+
+Note: The apex domain (feastpot.co.uk) requires an A record pointing to 76.76.21.21 instead of a CNAME.
+
+STEP 6 — Configure Supabase Auth redirect URLs
+In Supabase dashboard → Authentication → URL Configuration:
+- Site URL: https://feastpot.co.uk
+- Add to Redirect URLs:
+  https://feastpot.co.uk/auth/callback
+  https://vendor.feastpot.co.uk/auth/callback
+  https://admin.feastpot.co.uk/auth/callback
+
+STEP 7 — Post-deployment verification
+After all three are deployed:
+
+1. Visit https://feastpot.co.uk — confirm homepage loads with no console errors
+2. Visit https://vendor.feastpot.co.uk — confirm sign-in page loads
+3. Visit https://admin.feastpot.co.uk — confirm sign-in page loads
+4. Attempt to sign in on each with the seeded test users
+5. Place a test order on feastpot.co.uk — confirm it hits the production API
+6. Check Vercel function logs for any build or runtime errors
+
+STEP 8 — Configure Vercel Analytics and Speed Insights
+In each Vercel project → Analytics → Enable
+In each Vercel project → Speed Insights → Enable
+These are free on the Hobby plan and provide Core Web Vitals data.
+
+Output a deployment status summary for each app once complete.
+List any errors encountered and how they were resolved.
