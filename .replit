@@ -91,10 +91,6 @@ externalPort = 80
 localPort = 3003
 externalPort = 3003
 
-[[ports]]
-localPort = 6379
-externalPort = 3002
-
 [deployment]
 deploymentTarget = "autoscale"
 run = ["bash", "-c", "npm run db:deploy && npm run start:api"]
