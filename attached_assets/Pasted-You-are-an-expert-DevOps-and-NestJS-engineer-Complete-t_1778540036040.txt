@@ -1,0 +1,209 @@
+You are an expert DevOps and NestJS engineer. Complete the production hardening tasks for the Feastpot platform.
+
+CONTEXT:
+- API is live at https://feastpot-platform.replit.app on Replit Autoscale
+- BullMQ needs Redis — not yet provisioned in production
+- Redis is currently exposed publicly on port 3002 — security issue
+- Stripe webhook endpoint not registered in live dashboard
+
+═══════════════════════════════════════════════════════
+TASK 1 — Fix the Redis public port exposure (URGENT)
+═══════════════════════════════════════════════════════
+
+Open .replit at the monorepo root.
+Find and DELETE this port mapping:
+  localPort = 6379
+  externalPort = 3002
+
+Do not replace it — Redis must not be publicly accessible.
+
+After removal, confirm the remaining port mappings are:
+  localPort 3001 → externalPort 3001 (API dev)
+  localPort 3002 → externalPort 80 (production — API binds here)
+  localPort 3000 → externalPort 3000 (web dev)
+  localPort 3003 → externalPort 3003 (admin dev)
+
+Commit this change immediately: git commit -m "security: remove public Redis port exposure"
+
+═══════════════════════════════════════════════════════
+TASK 2 — Upstash Redis provisioning guide
+═══════════════════════════════════════════════════════
+
+Provide exact step-by-step instructions:
+
+1. Go to upstash.com → Create account (or log in)
+2. Create Database → name: feastpot-prod → region: eu-west-1 (Ireland)
+3. Type: Redis → plan: Free (sufficient for early stage — upgrade to Pay-as-you-go when queue depth grows)
+4. After creation, go to database details → copy:
+   - REST URL (format: https://xxx.upstash.io)
+   - REST Token
+   - Redis URL (format: redis://:password@xxx.upstash.io:6379)
+
+5. Add to Replit Secrets:
+   REDIS_URL = redis://:password@xxx.upstash.io:6379
+   (Use the Redis URL, not the REST URL — BullMQ uses the standard Redis protocol)
+
+6. In apps/api/src/app.module.ts, confirm BullModule reads from REDIS_URL:
+   BullModule.forRootAsync({
+     imports: [ConfigModule],
+     useFactory: (config: ConfigService) => ({
+       connection: {
+         url: config.get('REDIS_URL'),
+         tls: config.get('NODE_ENV') === 'production' ? {} : undefined,
+       },
+     }),
+     inject: [ConfigService],
+   })
+   
+   Note: Upstash requires TLS in production. The tls: {} option enables it.
+
+7. Add REDIS_URL to Replit Secrets and redeploy.
+
+8. Verify BullMQ connected: check API startup logs for queue connection messages.
+
+═══════════════════════════════════════════════════════
+TASK 3 — Add Bull Board dashboard (internal monitoring)
+═══════════════════════════════════════════════════════
+
+Install: npm install @bull-board/api @bull-board/nestjs -w @feastpot/api
+
+In apps/api/src/app.module.ts add BullBoardModule:
+import { BullBoardModule } from '@bull-board/nestjs'
+import { ExpressAdapter } from '@bull-board/express'
+import { BullMQAdapter } from '@bull-board/api/bullMQAdapter'
+
+BullBoardModule.forRoot({
+  route: '/admin/queues',
+  adapter: ExpressAdapter,
+}),
+BullBoardModule.forFeature({
+  name: 'notifications',
+  adapter: BullMQAdapter,
+}),
+// Repeat for each queue: payouts, compliance, orders, stripe-webhook, events
+
+Protect the route with the JwtAuthGuard + @Roles('admin') so only admins can access it.
+
+The Bull Board UI will be available at:
+https://feastpot-platform.replit.app/admin/queues
+(shows queue depths, failed jobs, DLQ, retry controls)
+
+═══════════════════════════════════════════════════════
+TASK 4 — Register Stripe webhook in production dashboard
+═══════════════════════════════════════════════════════
+
+Provide exact instructions:
+
+1. Go to Stripe Dashboard → Developers → Webhooks → Add endpoint
+2. Endpoint URL: https://feastpot-platform.replit.app/v1/webhooks/stripe
+   (Update to https://api.feastpot.co.uk/v1/webhooks/stripe after DNS is configured)
+3. Select events to listen to:
+   - payment_intent.succeeded
+   - payment_intent.payment_failed
+   - payment_intent.canceled
+   - transfer.created
+   - refund.updated
+   - account.updated (for Stripe Connect vendor accounts)
+4. Click Add endpoint
+5. On the endpoint detail page, click "Reveal" under Signing secret
+6. Copy the signing secret (starts with whsec_)
+7. Add to Replit Secrets: STRIPE_WEBHOOK_SECRET=whsec_xxxxxx
+8. Redeploy
+
+Test the webhook:
+In Stripe Dashboard → the new endpoint → Send test event → payment_intent.succeeded
+Check API logs for "Stripe webhook received: payment_intent.succeeded"
+
+═══════════════════════════════════════════════════════
+TASK 5 — Uptime monitoring
+═══════════════════════════════════════════════════════
+
+Set up Betteruptime (betteruptime.com — free tier, no credit card):
+
+1. Create account
+2. Add monitor → HTTPS monitor
+3. URL: https://feastpot-platform.replit.app/healthz
+4. Check interval: every 3 minutes
+5. Alert via email immediately on downtime
+
+Add a second monitor for the API health endpoint:
+URL: https://feastpot-platform.replit.app/health
+Alert when status is not 200 or response time > 5000ms.
+
+After Vercel frontends are deployed, add monitors for:
+https://feastpot.co.uk
+https://vendor.feastpot.co.uk
+https://admin.feastpot.co.uk
+
+═══════════════════════════════════════════════════════
+TASK 6 — BullMQ DLQ alert
+═══════════════════════════════════════════════════════
+
+Create apps/api/src/modules/admin/dlq-monitor.service.ts:
+
+A NestJS service with a @Cron('0 9 * * *') (daily at 9am UTC) that:
+1. Checks the failed job count across all queues
+2. If any queue has > 0 failed jobs, sends an email via Resend to soul@feastpot.co.uk:
+   Subject: "⚠️ Feastpot: {count} failed jobs in BullMQ queues"
+   Body: list of queues with their failed job counts and the most recent error message
+
+Register in AdminModule.
+
+This gives you daily visibility into queue failures without needing to check the Bull Board UI.
+
+═══════════════════════════════════════════════════════
+TASK 7 — Add /healthz endpoint (uptime-monitor compatible)
+═══════════════════════════════════════════════════════
+
+The API has GET /health. Uptime monitors expect /healthz (standard Kubernetes convention).
+Check if /healthz already exists in health.controller.ts.
+
+If not, add it:
+@Get('healthz')
+@Public()
+async healthz() {
+  // Check DB connectivity
+  try {
+    await this.prisma.$queryRaw`SELECT 1`
+    return { status: 'ok', db: 'ok', timestamp: new Date().toISOString() }
+  } catch {
+    throw new ServiceUnavailableException({ status: 'error', db: 'unavailable' })
+  }
+}
+
+This endpoint actively checks the database — more useful for uptime monitoring than a static response.
+
+═══════════════════════════════════════════════════════
+TASK 8 — Verify production environment variables checklist
+═══════════════════════════════════════════════════════
+
+Run this audit in the Replit shell to confirm all required secrets are set:
+(This does not print the values — only confirms they are non-empty)
+
+node -e "
+const required = [
+  'DATABASE_URL', 'DIRECT_URL',
+  'SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_JWT_SECRET',
+  'STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET',
+  'REDIS_URL',
+  'RESEND_API_KEY',
+  'SENTRY_DSN',
+  'VAPID_PUBLIC_KEY', 'VAPID_PRIVATE_KEY',
+  'PORT',
+  'NODE_ENV'
+];
+const missing = required.filter(k => !process.env[k]);
+if (missing.length) {
+  console.error('MISSING:', missing.join(', '));
+  process.exit(1);
+} else {
+  console.log('All', required.length, 'required env vars are set');
+}
+"
+
+Fix any that are missing before the next redeploy.
+
+Output a production readiness summary at the end:
+- List each task: DONE or NEEDS ACTION
+- List any remaining secrets that need to be added
+- Confirm the API is reachable after all changes

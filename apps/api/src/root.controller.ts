@@ -1,7 +1,13 @@
-import { Controller, Get, VERSION_NEUTRAL } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  ServiceUnavailableException,
+  VERSION_NEUTRAL,
+} from '@nestjs/common';
 import { ApiExcludeController } from '@nestjs/swagger';
 
 import { Public } from './auth/decorators/public.decorator';
+import { PrismaService } from './prisma/prisma.service';
 
 /**
  * Version-neutral root controller. The rest of the API is mounted under
@@ -12,13 +18,16 @@ import { Public } from './auth/decorators/public.decorator';
  * debugged. Keeping the response tiny (no DB hit) means the probe stays
  * fast even under cold-start load.
  *
- * `GET /healthz` is the same payload exposed at an unversioned path so
- * external monitoring (UptimeRobot, BetterStack, etc.) doesn't need to know
- * about the `/v1` prefix.
+ * `GET /healthz` is a deeper liveness probe at an unversioned path: it pings
+ * the database with `SELECT 1` and returns 503 if unreachable. External
+ * monitoring (BetterStack, UptimeRobot, etc.) should hit this so a hung DB
+ * connection actually pages us instead of silently looking healthy.
  */
 @ApiExcludeController()
 @Controller({ path: '', version: VERSION_NEUTRAL })
 export class RootController {
+  constructor(private readonly prisma: PrismaService) {}
+
   @Public()
   @Get()
   root() {
@@ -32,7 +41,16 @@ export class RootController {
 
   @Public()
   @Get('healthz')
-  healthz() {
-    return { status: 'ok', timestamp: new Date().toISOString() };
+  async healthz(): Promise<{ status: string; db: string; timestamp: string }> {
+    try {
+      await this.prisma.$queryRaw`SELECT 1`;
+      return { status: 'ok', db: 'ok', timestamp: new Date().toISOString() };
+    } catch {
+      throw new ServiceUnavailableException({
+        status: 'error',
+        db: 'unavailable',
+        timestamp: new Date().toISOString(),
+      });
+    }
   }
 }

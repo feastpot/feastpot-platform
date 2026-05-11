@@ -5,6 +5,17 @@ import { APP_FILTER } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { SentryGlobalFilter, SentryModule } from '@sentry/nestjs/setup';
+import { BullAdapter } from '@bull-board/api/bullAdapter';
+import { ExpressAdapter } from '@bull-board/express';
+import { BullBoardModule } from '@bull-board/nestjs';
+
+import {
+  COMPLIANCE_QUEUE,
+  NOTIFICATIONS_QUEUE,
+  PAYOUTS_QUEUE,
+  STRIPE_WEBHOOK_QUEUE,
+} from './queues/queues.module';
+import { bullBoardBasicAuth } from './modules/admin/bull-board.middleware';
 
 import { HealthController } from './health/health.controller';
 import { RootController } from './root.controller';
@@ -47,7 +58,13 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
       useFactory: (cfg: ConfigService) => {
         const url = cfg.get<string>('REDIS_URL');
         if (url) {
-          return { url };
+          // Upstash / managed Redis: use rediss:// in REDIS_URL for TLS.
+          // ioredis auto-enables TLS when the scheme is rediss://.
+          return {
+            redis: url,
+            // Bull’s blocking BRPOPLPUSH/etc. require these on managed Redis.
+            settings: { stalledInterval: 30_000 },
+          };
         }
         return {
           redis: {
@@ -62,6 +79,21 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
     }),
     PrismaModule,
     QueuesModule,
+    BullBoardModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (cfg: ConfigService) => ({
+        route: '/admin/queues',
+        adapter: ExpressAdapter,
+        middleware: bullBoardBasicAuth(cfg),
+      }),
+    }),
+    BullBoardModule.forFeature(
+      { name: NOTIFICATIONS_QUEUE, adapter: BullAdapter },
+      { name: STRIPE_WEBHOOK_QUEUE, adapter: BullAdapter },
+      { name: PAYOUTS_QUEUE, adapter: BullAdapter },
+      { name: COMPLIANCE_QUEUE, adapter: BullAdapter },
+    ),
     AuthModule,
     UsersModule,
     AddressesModule,
