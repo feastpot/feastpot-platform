@@ -101,6 +101,19 @@
     padding-top: var(--page-safe-top);
     padding-bottom: var(--page-safe-bottom);
   }
+}
+
+/* Homepage testimonials marquee. Doubles the strip and translates -50% so
+   the loop seam is invisible. Component pauses under prefers-reduced-motion
+   via Tailwind's `motion-reduce:animate-none`. */
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+@layer base {
+  /* Sentinel — re-open the @layer base block so subsequent rules added by
+     other globals stay in the right cascade. (Empty on purpose.) */
 
   /* Card baseline — use when shadcn's `<Card>` is overkill (e.g. vendor tile,
      order summary). Pure white surface on the warm body background. */

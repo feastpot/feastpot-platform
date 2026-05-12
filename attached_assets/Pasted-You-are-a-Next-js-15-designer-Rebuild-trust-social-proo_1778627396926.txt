@@ -1,0 +1,172 @@
+You are a Next.js 15 designer. Rebuild trust, social proof, and account surfaces for the Feastpot PWA. Trust is the most underinvested conversion lever for a new food marketplace — customers who trust the platform reorder at 2× the rate.
+
+═══════════════════════════════════════════════════════
+STEP 1 — Homepage testimonials marquee
+═══════════════════════════════════════════════════════
+
+Create apps/web/src/components/home/reviews-marquee.tsx:
+A horizontally scrolling strip of short review quotes placed directly below the PostcodeHero.
+
+Adapted from the 21st.dev marquee/scroll-area pattern:
+
+'use client'
+import { useRef, useEffect } from 'react'
+
+const REVIEWS = [
+  { quote: "Best Jollof in London 🔥", name: "Grace", area: "SE15" },
+  { quote: "Party tray fed 30 people — flawless delivery", name: "David", area: "SW9" },
+  { quote: "Finally! Authentic egusi that tastes like home", name: "Amara", area: "SE18" },
+  { quote: "Ordered for my mum's birthday — she cried 😭❤️", name: "Kofi", area: "CR0" },
+  { quote: "The small chops were gone in 10 minutes", name: "Sade", area: "N17" },
+  { quote: "Proper Caribbean food, not watered down 🙏", name: "Winston", area: "SW2" },
+]
+
+export function ReviewsMarquee() {
+  const doubled = [...REVIEWS, ...REVIEWS] // duplicate for seamless loop
+
+  return (
+    <div className="py-3 overflow-hidden bg-teal-light">
+      <div
+        className="flex gap-4 animate-[marquee_40s_linear_infinite]"
+        style={{ width: 'max-content' }}
+      >
+        {doubled.map((r, i) => (
+          <div key={i} className="flex items-center gap-2 bg-white rounded-full px-4 py-2 shadow-sm flex-shrink-0">
+            <span className="text-amber-400">★★★★★</span>
+            <span className="text-xs font-medium text-dark italic">"{r.quote}"</span>
+            <span className="text-[10px] text-mid">— {r.name}, {r.area}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+Add the @keyframes marquee to globals.css:
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+Place <ReviewsMarquee /> between <PostcodeHero /> and <CuisineFilters /> in page.tsx.
+
+═══════════════════════════════════════════════════════
+STEP 2 — Testimonial cards section (homepage)
+═══════════════════════════════════════════════════════
+
+Create apps/web/src/components/home/testimonials.tsx:
+3-column card grid on desktop, single-column on mobile.
+
+Adapted from vaib215/testimonial-cards pattern:
+
+const TESTIMONIALS = [
+  {
+    name: "Grace Okafor",
+    area: "Peckham",
+    rating: 5,
+    dish: "Egusi Soup (Full Pot)",
+    quote: "I ordered the full egusi pot for my mum's birthday and she said it tasted exactly like back home. The portion was enormous — fed 8 people with leftovers. Will be ordering every Sunday.",
+    initials: "GO",
+    color: "bg-teal",
+  },
+  {
+    name: "David Campbell",
+    area: "Brixton",
+    rating: 5,
+    dish: "Jerk Chicken Tray",
+    quote: "Finally a platform that understands Caribbean food. The jerk chicken was properly seasoned — not the watered-down stuff you get from generic delivery apps. Feastpot is now my go-to.",
+    initials: "DC",
+    color: "bg-vendor",
+  },
+  {
+    name: "Amara Diallo",
+    area: "Woolwich",
+    rating: 5,
+    dish: "Small Chops Party Pack",
+    quote: "Ordered 100 pieces for my sister's baby shower. Arrived on time, everything was fresh and hot. The puff puff especially — absolute perfection. Highly recommend for any event.",
+    initials: "AD",
+    color: "bg-brand",
+  },
+]
+
+Render as cards: avatar (initials circle in coloured bg), name + area, dish ordered pill, quote in italic, 5 gold stars.
+Place this section below <HowItWorks /> on the homepage.
+
+═══════════════════════════════════════════════════════
+STEP 3 — Vendor profile rating breakdown
+═══════════════════════════════════════════════════════
+
+Create apps/web/src/components/vendor/rating-breakdown.tsx:
+Shows on the vendor profile page below the vendor info card.
+
+Props: avgRating, reviewCount, breakdown: { 5: n, 4: n, 3: n, 2: n, 1: n }
+
+Layout:
+- Left: large rating number (48px bold) + 5 stars + "X reviews"
+- Right: bar chart (5★ down to 1★), each bar is a div with width proportional to count
+
+Bar chart: each row = star label + thin bar + count
+Bar fill: brand orange, 6px height, rounded-full
+Width: (count / reviewCount) * 100%
+
+Animate bars on mount: initial width 0 → final width with 0.3s delay per row
+
+═══════════════════════════════════════════════════════
+STEP 4 — Account hub page
+═══════════════════════════════════════════════════════
+
+Rebuild apps/web/src/app/account/page.tsx:
+
+Header: avatar (initials circle if no photo, 64px), name, email in grey, "Edit profile" link
+Navigation cards (2×2 grid):
+  📦 Orders       → /account/orders
+  📍 Addresses    → /account/addresses
+  👤 Profile      → /account/profile
+  ❓ Help         → /help
+
+Sign out: link at bottom, brand-coral colour, confirmation dialog before signing out
+Each card: white, rounded-2xl, shadow-card, icon 28px, title bold, subtitle in mid-grey
+
+═══════════════════════════════════════════════════════
+STEP 5 — Order history card redesign
+═══════════════════════════════════════════════════════
+
+Rebuild apps/web/src/app/account/orders/page.tsx:
+
+Each order card:
+- Vendor logo (or initials) + vendor name + date
+- Items: truncated list "Egusi Soup, Jollof Rice +1 more"
+- Total: bold right-aligned
+- Status badge: colour-coded pill
+  pending=amber, accepted/preparing=blue, dispatched=teal, delivered=green, cancelled=red
+- Actions row:
+  delivered + no review: "⭐ Leave a review" brand orange link
+  all: "Track" or "View" teal link
+  delivered: "Reorder" — ghost button with arrow icon
+
+Reorder button: calls POST /v1/orders/{id}/reorder, shows loading spinner, navigates to checkout on success
+
+═══════════════════════════════════════════════════════
+STEP 6 — Review submission page
+═══════════════════════════════════════════════════════
+
+Rebuild apps/web/src/app/orders/[id]/review/page.tsx:
+
+Create apps/web/src/components/review/star-picker.tsx:
+Interactive star rating — 5 stars, each individually tappable.
+Tapped star and all before it fill gold. Un-tapped stars are grey outline.
+On tap: scale(1.2) spring animation then settle to scale(1).
+Label below: "Terrible" → "Poor" → "OK" → "Good" → "Excellent"
+
+Layout:
+- Vendor info at top (name, cover image strip)
+- "How was your food?" — star picker (large, 40px stars, finger-friendly)
+- "How was the food quality?" — smaller star picker (optional)
+- Text review: Textarea, placeholder "Tell others what you thought..."
+- Submit: full-width brand orange button
+- Success: animated ✅ with "Thanks for your review!" message
+
+Run: npm run dev:web
+Verify testimonials and marquee display on homepage.
+Verify account page navigation grid.
+Run: npm run typecheck --filter=@feastpot/web

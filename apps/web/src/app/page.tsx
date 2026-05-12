@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { CommunityFavourites } from '@/components/home/community-favourites';
 import { HowItWorks } from '@/components/home/how-it-works';
 import { PostcodeHero } from '@/components/home/postcode-hero';
+import { ReviewsMarquee } from '@/components/home/reviews-marquee';
+import { Testimonials } from '@/components/home/testimonials';
 import { CuisineFilter } from '@/components/vendor/cuisine-filter';
 import { VendorCard } from '@/components/vendor/vendor-card';
 import { searchVendors, type VendorListItem } from '@/lib/api/vendors';
@@ -54,6 +56,10 @@ export default async function HomePage() {
     <>
       <PostcodeHero />
 
+      {/* Social-proof marquee — sits directly below the hero so it's the
+          first thing a customer sees after the postcode prompt. */}
+      <ReviewsMarquee />
+
       <section className="pt-2">
         <h2 className="sr-only">Browse by cuisine</h2>
         <CuisineFilter />
@@ -62,6 +68,10 @@ export default async function HomePage() {
       <CommunityFavourites vendors={favourites} />
 
       <HowItWorks />
+
+      {/* Long-form testimonials — placed after HowItWorks so customers see the
+          mechanics first, then the trust reinforcement. */}
+      <Testimonials />
 
       <section className="space-y-2 py-2">
         <header className="flex items-end justify-between gap-2 px-4">

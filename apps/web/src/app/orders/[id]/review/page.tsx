@@ -1,12 +1,10 @@
 'use client';
 
-import { Star, X } from 'lucide-react';
+import { Check, X } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
-import { cn } from '@feastpot/ui';
-
-import { PageShell } from '@/components/layout/page-shell';
+import { StarPicker } from '@/components/review/star-picker';
 import { useOrder } from '@/hooks/use-orders';
 import { useAccessToken } from '@/lib/auth/use-access-token';
 import { ApiError } from '@/lib/api/client';
@@ -17,7 +15,7 @@ const MAX_REVIEW_CHARS = 500;
 /**
  * Review submission page.
  *
- * BACKEND CAPABILITY NOTE:
+ * BACKEND CAPABILITY NOTES:
  *  - The reviews API only accepts `{ orderId, rating, title?, body? }`.
  *  - Food-quality rating: surfaced as a UX field but NOT transmitted (no
  *    matching API column). Once the schema adds `foodRating`, wire it up.
@@ -42,7 +40,16 @@ export default function ReviewPage() {
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Object URLs for thumbnail previews. Memoised against the files array so
+  // we only mint new ones when the selection changes; the cleanup effect
+  // revokes the previous batch on unmount or next change to keep the
+  // browser's blob registry from growing without bound on repeated edits.
   const photoPreviews = useMemo(() => files.map((f) => URL.createObjectURL(f)), [files]);
+  useEffect(() => {
+    return () => {
+      photoPreviews.forEach((u) => URL.revokeObjectURL(u));
+    };
+  }, [photoPreviews]);
 
   const onAddPhotos = (input: HTMLInputElement) => {
     const incoming = Array.from(input.files ?? []);
@@ -84,145 +91,163 @@ export default function ReviewPage() {
 
   if (submitted) {
     return (
-      <PageShell>
-        <section className="space-y-3 py-12 text-center">
-          <h1 className="text-2xl font-bold tracking-tight">Thanks for your review!</h1>
-          <p className="text-sm text-muted-foreground">It helps the community.</p>
-          <button
-            type="button"
-            onClick={() => router.push('/account/orders')}
-            className="mt-2 rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark"
-          >
-            Back to orders
-          </button>
-        </section>
-      </PageShell>
+      <section className="flex flex-col items-center gap-3 px-4 py-16 text-center">
+        <span
+          className="flex h-20 w-20 items-center justify-center rounded-full bg-teal text-white shadow-lg shadow-teal/30"
+          style={{ animation: 'fp-pop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
+          aria-hidden
+        >
+          <Check className="h-10 w-10" strokeWidth={3} aria-hidden />
+        </span>
+        <h1 className="text-2xl font-bold tracking-tight text-dark">Thanks for your review!</h1>
+        <p className="text-sm text-mid">
+          It helps your community find great cooks.
+        </p>
+        <button
+          type="button"
+          onClick={() => router.push('/account/orders')}
+          className="mt-2 rounded-2xl bg-brand px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-dark"
+        >
+          Back to orders
+        </button>
+        <style jsx>{`
+          @keyframes fp-pop {
+            0% { transform: scale(0); opacity: 0; }
+            60% { transform: scale(1.15); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+          }
+        `}</style>
+      </section>
     );
   }
 
   return (
-    <PageShell>
-      <form onSubmit={onSubmit} className="space-y-6 py-4" noValidate>
-        <header>
-          <h1 className="text-2xl font-bold tracking-tight">Leave a review</h1>
-          {order?.vendor && (
-            <p className="text-sm text-muted-foreground">For {order.vendor.businessName}</p>
-          )}
-        </header>
-
-        <fieldset>
-          <legend className="mb-1 block text-sm font-semibold">Overall rating</legend>
-          <StarPicker value={rating} onChange={setRating} ariaLabel="Overall rating" />
-        </fieldset>
-
-        <fieldset>
-          <legend className="mb-1 block text-sm font-semibold">Food quality (optional)</legend>
-          <StarPicker value={foodRating} onChange={setFoodRating} ariaLabel="Food quality rating" />
-          <p className="mt-1 text-[11px] text-muted-foreground">
-            Not yet stored separately — for now this counts toward your overall rating.
-          </p>
-        </fieldset>
-
-        <fieldset>
-          <label htmlFor="review-text" className="mb-1 block text-sm font-semibold">
-            Your review (optional)
-          </label>
-          <textarea
-            id="review-text"
-            value={text}
-            onChange={(e) => setText(e.target.value.slice(0, MAX_REVIEW_CHARS))}
-            rows={4}
-            maxLength={MAX_REVIEW_CHARS}
-            placeholder="What did you love? Anything we should pass on to the cook?"
-            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-          />
-          <p className="mt-1 text-right text-[11px] text-muted-foreground">
-            {text.length}/{MAX_REVIEW_CHARS}
-          </p>
-        </fieldset>
-
-        <fieldset>
-          <legend className="mb-1 block text-sm font-semibold">Photos (optional, up to 3)</legend>
-          <div className="flex flex-wrap items-center gap-2">
-            {photoPreviews.map((src, i) => (
-              <div key={src} className="relative h-20 w-20 overflow-hidden rounded-md border border-border">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={src} alt={`Preview ${i + 1}`} className="h-full w-full object-cover" />
-                <button
-                  type="button"
-                  onClick={() => setFiles((f) => f.filter((_, idx) => idx !== i))}
-                  className="absolute right-0.5 top-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white"
-                  aria-label={`Remove photo ${i + 1}`}
-                >
-                  <X className="h-3 w-3" />
-                </button>
+    <form onSubmit={onSubmit} className="space-y-6 px-4 py-4 pb-12" noValidate>
+      {/* Vendor strip */}
+      <header className="space-y-1">
+        <h1 className="text-2xl font-bold tracking-tight text-dark">Leave a review</h1>
+        {order?.vendor && (
+          <div className="flex items-center gap-3 rounded-2xl border border-border bg-white p-3">
+            {order.vendor.logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={order.vendor.logoUrl}
+                alt=""
+                className="h-10 w-10 shrink-0 rounded-full object-cover"
+              />
+            ) : (
+              <div
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand/10 text-sm font-bold text-brand"
+                aria-hidden
+              >
+                {order.vendor.businessName.slice(0, 1)}
               </div>
-            ))}
-            {files.length < 3 && (
-              <label className="flex h-20 w-20 cursor-pointer items-center justify-center rounded-md border border-dashed border-border text-xs text-muted-foreground hover:bg-muted">
-                + Add
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  className="hidden"
-                  onChange={(e) => onAddPhotos(e.currentTarget)}
-                />
-              </label>
             )}
+            <div className="min-w-0">
+              <p className="text-xs text-mid">Reviewing</p>
+              <p className="truncate text-sm font-semibold text-dark">
+                {order.vendor.businessName}
+              </p>
+            </div>
           </div>
-          <p className="mt-1 text-[11px] text-muted-foreground">
-            Photo uploads aren&rsquo;t saved yet — coming soon.
-          </p>
-        </fieldset>
+        )}
+      </header>
 
-        {error && <p className="text-sm text-destructive">{error}</p>}
+      <fieldset className="rounded-2xl border border-border bg-white p-4">
+        <legend className="px-1 text-sm font-semibold text-dark">How was your food?</legend>
+        <div className="mt-2">
+          <StarPicker value={rating} onChange={setRating} ariaLabel="Overall rating" size="lg" />
+        </div>
+      </fieldset>
 
-        <button
-          type="submit"
-          disabled={submitting}
-          className="w-full rounded-md bg-brand py-3 text-sm font-semibold text-white hover:bg-brand-dark disabled:opacity-50"
-        >
-          {submitting ? 'Submitting…' : 'Submit review'}
-        </button>
-      </form>
-    </PageShell>
-  );
-}
+      <fieldset className="rounded-2xl border border-border bg-white p-4">
+        <legend className="px-1 text-sm font-semibold text-dark">Food quality (optional)</legend>
+        <div className="mt-2">
+          <StarPicker
+            value={foodRating}
+            onChange={setFoodRating}
+            ariaLabel="Food quality rating"
+            size="sm"
+            showLabel={false}
+          />
+        </div>
+        <p className="mt-2 text-[11px] text-mid">
+          Not yet stored separately — for now this counts toward your overall rating.
+        </p>
+      </fieldset>
 
-function StarPicker({
-  value,
-  onChange,
-  ariaLabel,
-}: {
-  value: number;
-  onChange: (n: number) => void;
-  ariaLabel: string;
-}) {
-  return (
-    <div role="radiogroup" aria-label={ariaLabel} className="inline-flex items-center gap-1">
-      {[1, 2, 3, 4, 5].map((n) => {
-        const active = n <= value;
-        return (
-          <button
-            key={n}
-            type="button"
-            role="radio"
-            aria-checked={value === n}
-            onClick={() => onChange(n)}
-            className="rounded p-1 hover:bg-muted"
-            aria-label={`${n} star${n === 1 ? '' : 's'}`}
-          >
-            <Star
-              className={cn(
-                'h-7 w-7',
-                active ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground/40',
-              )}
-              aria-hidden
-            />
-          </button>
-        );
-      })}
-    </div>
+      <fieldset>
+        <label htmlFor="review-text" className="mb-1 block text-sm font-semibold text-dark">
+          Your review (optional)
+        </label>
+        <textarea
+          id="review-text"
+          value={text}
+          onChange={(e) => setText(e.target.value.slice(0, MAX_REVIEW_CHARS))}
+          rows={4}
+          maxLength={MAX_REVIEW_CHARS}
+          placeholder="Tell others what you thought..."
+          className="w-full rounded-2xl border border-border bg-white px-3 py-2.5 text-sm placeholder:text-mid focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
+        />
+        <p className="mt-1 text-right text-[11px] text-mid">
+          {text.length}/{MAX_REVIEW_CHARS}
+        </p>
+      </fieldset>
+
+      <fieldset>
+        <legend className="mb-1 block text-sm font-semibold text-dark">
+          Photos (optional, up to 3)
+        </legend>
+        <div className="flex flex-wrap items-center gap-2">
+          {photoPreviews.map((src, i) => (
+            <div
+              key={src}
+              className="relative h-20 w-20 overflow-hidden rounded-xl border border-border"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={src} alt={`Preview ${i + 1}`} className="h-full w-full object-cover" />
+              <button
+                type="button"
+                onClick={() => setFiles((f) => f.filter((_, idx) => idx !== i))}
+                className="absolute right-0.5 top-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white"
+                aria-label={`Remove photo ${i + 1}`}
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          ))}
+          {files.length < 3 && (
+            <label className="flex h-20 w-20 cursor-pointer items-center justify-center rounded-xl border border-dashed border-border text-xs text-mid hover:bg-surface">
+              + Add
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={(e) => onAddPhotos(e.currentTarget)}
+              />
+            </label>
+          )}
+        </div>
+        <p className="mt-1 text-[11px] text-mid">
+          Photo uploads aren&rsquo;t saved yet — coming soon.
+        </p>
+      </fieldset>
+
+      {error && (
+        <p className="rounded-2xl border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+          {error}
+        </p>
+      )}
+
+      <button
+        type="submit"
+        disabled={submitting}
+        className="flex w-full items-center justify-center rounded-2xl bg-brand text-base font-semibold text-white hover:bg-brand-dark disabled:opacity-50"
+        style={{ height: 52 }}
+      >
+        {submitting ? 'Submitting…' : 'Submit review'}
+      </button>
+    </form>
   );
 }

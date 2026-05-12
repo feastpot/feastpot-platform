@@ -6,6 +6,7 @@ import { notFound } from 'next/navigation';
 import { FloatingBasketBar } from '@/components/basket/floating-basket-bar';
 import { MenuCategoryTabs } from '@/components/menu/menu-category-tabs';
 import { MenuItemCard } from '@/components/menu/menu-item-card';
+import { RatingBreakdown } from '@/components/vendor/rating-breakdown';
 import { ReviewsSection } from '@/components/vendor/reviews-section';
 import { ApiError } from '@/lib/api/client';
 import { getVendorBySlug, type VendorMenuItem } from '@/lib/api/vendors';
@@ -208,6 +209,17 @@ export default async function VendorProfilePage({ params }: PageProps) {
           )}
         </div>
       </section>
+
+      {/* RATING BREAKDOWN — sits below the vendor info card so the trust
+          signal is visible before the customer dives into the menu. The
+          per-bucket counts aren't yet exposed by the API, so the component
+          derives a deterministic visual estimate from `rating` + `ratingCount`
+          and shows a small "estimated" footnote. */}
+      {vendor.ratingCount > 0 && (
+        <section className="mt-6">
+          <RatingBreakdown avgRating={vendor.rating} reviewCount={vendor.ratingCount} />
+        </section>
+      )}
 
       {/* MENU */}
       <section className="mt-6">
