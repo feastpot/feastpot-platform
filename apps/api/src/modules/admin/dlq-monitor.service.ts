@@ -34,7 +34,7 @@ export class DlqMonitorService {
   ) {
     const key = config.get<string>('RESEND_API_KEY');
     this.resend = key ? new Resend(key) : null;
-    this.alertTo = config.get<string>('DLQ_ALERT_EMAIL') ?? 'soul@feastpot.co.uk';
+    this.alertTo = config.get<string>('DLQ_ALERT_EMAIL') ?? 'info@feastpot.co.uk';
     this.from = config.get<string>('EMAIL_FROM') ?? 'Feastpot <noreply@feastpot.co.uk>';
   }
 
