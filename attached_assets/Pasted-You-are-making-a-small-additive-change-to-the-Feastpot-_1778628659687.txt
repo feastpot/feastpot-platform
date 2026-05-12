@@ -1,0 +1,106 @@
+You are making a small additive change to the Feastpot customer PWA /vendors page.
+Do NOT modify any existing filter logic, data fetching, or component structure.
+This is purely additive — you are inserting one new UI element above the existing content.
+
+CONTEXT:
+- File: apps/web/src/app/vendors/page.tsx
+- When a customer arrives from the homepage they pass ?postcode=SE15 in the URL
+- The page currently has no visible reminder of which postcode is being searched
+- A sticky postcode chip at the top of the results confirms to the customer where
+  they are searching and lets them change it without going back to the homepage
+- The postcode value already exists in the URL search params — just read it
+
+TASK:
+
+STEP 1 — Create a new component file:
+apps/web/src/components/vendors/postcode-chip.tsx
+
+'use client'
+import { useSearchParams, useRouter } from 'next/navigation'
+import { MapPin, X } from 'lucide-react'
+
+export function PostcodeChip() {
+  const params   = useSearchParams()
+  const router   = useRouter()
+  const postcode = params.get('postcode')
+
+  // Only render if a postcode is present in the URL
+  if (!postcode) return null
+
+  const handleChange = () => {
+    // Navigate back to homepage — the postcode hero is the right place to change it
+    router.push('/')
+  }
+
+  return (
+    
+      
+        
+          
+          Delivering to
+          {postcode.toUpperCase()}
+        
+        
+          
+          Change
+        
+      
+    
+  )
+}
+
+STEP 2 — Add the chip to the vendors page:
+In apps/web/src/app/vendors/page.tsx, import PostcodeChip and insert it
+as the FIRST element inside the page's outermost return div, before the
+CuisineFilters, filter button, and vendor grid.
+
+The insertion looks like this:
+
+  return (
+    
+                 {/* ← ADD THIS LINE */}
+      {/* ... everything else unchanged below ... */}
+      
+      {/* filter button, vendor grid etc */}
+    
+  )
+
+Do not move, modify, or re-order anything else.
+
+POSITIONING NOTE:
+The chip uses sticky top-[56px] because the TopNav is 56px tall (set in --top-nav-height
+in globals.css from PWA-01). This makes the chip stick just below the top nav when
+the user scrolls down through vendor results — the postcode remains visible at all times.
+
+If the TopNav height is different in your implementation, adjust the top value to match.
+Check apps/web/src/components/layout/top-nav.tsx for the actual height.
+
+EDGE CASES to handle:
+- No postcode in URL (e.g. user navigated directly to /vendors): PostcodeChip renders null — nothing shown, no error
+- Postcode is lowercase from URL: .toUpperCase() handles this
+- "Change" button navigates to / where the postcode hero lets them enter a new one — this is correct behaviour, do not add inline editing
+
+DO NOT change:
+- The CuisineFilters component or its props
+- The filter sheet trigger button
+- The vendor grid or VendorCard
+- Any data fetching or filter state
+- The existing search params reading logic elsewhere on the page
+
+VERIFY:
+Run: npm run dev:web
+Test 1: Navigate to http://localhost:3000/vendors?postcode=SE15
+  → Chip should appear below the top nav showing "Delivering to SE15"
+  → Chip should remain visible (sticky) as you scroll down through vendor cards
+  → Clicking "Change" should navigate to the homepage
+
+Test 2: Navigate to http://localhost:3000/vendors (no postcode)
+  → No chip should appear — the area below the top nav should be empty
+
+Test 3: Resize to mobile width (375px)
+  → Chip should be full width, text fits on one line
+
+Run: npm run typecheck --filter=@feastpot/web
+Confirm zero TypeScript errors.
+
+Output the new PostcodeChip component file and the two changed lines in vendors/page.tsx only.

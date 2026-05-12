@@ -7,6 +7,7 @@ import { CuisineFilter } from '@/components/vendor/cuisine-filter';
 import { PageShell } from '@/components/layout/page-shell';
 import { VendorCard } from '@/components/vendor/vendor-card';
 import { VendorFilterSheet } from '@/components/vendor/vendor-filter-sheet';
+import { PostcodeChip } from '@/components/vendors/postcode-chip';
 import { useVendors } from '@/hooks/use-vendors';
 import type { SearchVendorsParams, VendorSortBy } from '@/lib/api/vendors';
 
@@ -37,6 +38,7 @@ function VendorSearch() {
   return (
     <PageShell>
       <div className="space-y-4 py-4">
+        <PostcodeChip />
         <header className="flex items-center justify-between gap-2">
           <div className="min-w-0">
             <h1 className="truncate text-xl font-bold tracking-tight">
