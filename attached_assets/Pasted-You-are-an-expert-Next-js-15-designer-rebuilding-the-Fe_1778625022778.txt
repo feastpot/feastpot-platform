@@ -1,0 +1,406 @@
+You are an expert Next.js 15 designer rebuilding the Feastpot homepage and vendor discovery pages. This prompt replaces the existing homepage and /vendors page with conversion-optimised layouts using 21st.dev component patterns.
+
+CONTEXT:
+- Phase 1 (PWA-01) has already been run — brand tokens, bottom nav, top nav, and globals are in place
+- All data fetching logic (useVendors, searchVendors) remains unchanged — only the visual layout changes
+- Components are adapted from 21st.dev patterns, implemented natively in Tailwind — no external installs needed
+
+═══════════════════════════════════════════════════════
+STEP 1 — Homepage hero with animated cuisine text
+═══════════════════════════════════════════════════════
+
+Replace apps/web/src/app/page.tsx entirely.
+
+The homepage has these sections in order:
+A. Animated hero with postcode entry
+B. Cuisine filter pills (horizontal scroll)
+C. Community Favourites carousel  
+D. How it works (3 steps)
+E. Recently added vendors
+
+Create apps/web/src/components/home/animated-headline.tsx:
+
+'use client'
+import { useState, useEffect } from 'react'
+import { cn } from '@/lib/utils'
+
+const CUISINES = ['Jollof Rice', 'Egusi Soup', 'Pepper Soup', 'Oxtail', 'Party Trays', 'Jerk Chicken', 'Pounded Yam', 'Small Chops']
+
+export function AnimatedHeadline() {
+  const [idx, setIdx] = useState(0)
+  const [visible, setVisible] = useState(true)
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setVisible(false)
+      setTimeout(() => {
+        setIdx(i => (i + 1) % CUISINES.length)
+        setVisible(true)
+      }, 300)
+    }, 2200)
+    return () => clearInterval(timer)
+  }, [])
+
+  return (
+    <div className="text-center">
+      <h1 className="text-[28px] font-black leading-tight text-white">
+        Authentic
+      </h1>
+      <div className="h-10 flex items-center justify-center overflow-hidden">
+        <span
+          className={cn(
+            'text-[28px] font-black text-white transition-all duration-300',
+            visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'
+          )}
+        >
+          {CUISINES[idx]}
+        </span>
+      </div>
+      <h1 className="text-[28px] font-black leading-tight text-white">
+        delivered in London
+      </h1>
+    </div>
+  )
+}
+
+Create apps/web/src/components/home/postcode-hero.tsx:
+
+'use client'
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { MapPin, ArrowRight } from 'lucide-react'
+import { AnimatedHeadline } from './animated-headline'
+
+export function PostcodeHero() {
+  const [postcode, setPostcode] = useState('')
+  const [error, setError] = useState('')
+  const router = useRouter()
+
+  const validate = (v: string) => /^[A-Z]{1,2}[0-9][0-9A-Z]?s?[0-9][A-Z]{2}$/i.test(v.trim())
+
+  const handleSubmit = () => {
+    if (!validate(postcode)) {
+      setError('Please enter a valid UK postcode')
+      return
+    }
+    localStorage.setItem('fp.postcode', postcode.toUpperCase().trim())
+    router.push(`/vendors?postcode=${encodeURIComponent(postcode.toUpperCase().trim())}`)
+  }
+
+  return (
+    <section className="brand-gradient pt-14 pb-10 px-5">
+      <AnimatedHeadline />
+      
+      <p className="text-center text-white/80 text-sm mt-3 mb-6">
+        Nigerian · Ghanaian · Jamaican · Caribbean
+      </p>
+
+      {/* Postcode input */}
+      <div className="bg-white rounded-2xl p-1.5 flex items-center gap-2 shadow-card-lg max-w-sm mx-auto">
+        <div className="flex items-center gap-2 flex-1 px-3">
+          <MapPin className="w-4 h-4 text-brand flex-shrink-0" />
+          <input
+            type="text"
+            placeholder="Enter your postcode"
+            value={postcode}
+            onChange={e => { setPostcode(e.target.value.toUpperCase()); setError('') }}
+            onKeyDown={e => e.key === 'Enter' && handleSubmit()}
+            className="flex-1 text-dark placeholder-mid text-[15px] font-medium outline-none bg-transparent"
+            maxLength={8}
+            autoComplete="postal-code"
+          />
+        </div>
+        <button
+          onClick={handleSubmit}
+          className="flex items-center gap-1.5 bg-brand text-white px-4 py-2.5 rounded-xl font-semibold text-sm hover:bg-brand-dark transition-colors touch-target"
+        >
+          Find food
+          <ArrowRight className="w-4 h-4" />
+        </button>
+      </div>
+
+      {error && (
+        <p className="text-center text-white/90 text-xs mt-2">{error}</p>
+      )}
+
+      {/* Trust micro-signals */}
+      <div className="flex items-center justify-center gap-6 mt-5">
+        {[
+          { icon: '🍽️', text: '50+ vendors' },
+          { icon: '⭐', text: '4.8 avg rating' },
+          { icon: '🔒', text: 'FSA verified' },
+        ].map(({ icon, text }) => (
+          <div key={text} className="flex items-center gap-1.5 text-white/80 text-xs">
+            <span>{icon}</span>
+            <span className="font-medium">{text}</span>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+Create apps/web/src/components/home/cuisine-filters.tsx:
+
+'use client'
+import { useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { cn } from '@/lib/utils'
+
+const CUISINES = [
+  { label: 'All',       emoji: '🌍', value: '' },
+  { label: 'Nigerian',  emoji: '🇳🇬', value: 'Nigerian' },
+  { label: 'Ghanaian',  emoji: '🇬🇭', value: 'Ghanaian' },
+  { label: 'Jamaican',  emoji: '🇯🇲', value: 'Jamaican' },
+  { label: 'Caribbean', emoji: '🌴', value: 'Caribbean' },
+  { label: 'Congolese', emoji: '🇨🇩', value: 'Congolese' },
+  { label: 'Somali',    emoji: '🇸🇴', value: 'Somali' },
+]
+
+export function CuisineFilters({ selected, onChange }: { selected: string; onChange: (v: string) => void }) {
+  return (
+    <div className="px-4 py-3">
+      <div
+        className="flex gap-2 overflow-x-auto scrollbar-hide pb-1"
+        style={{ scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}
+      >
+        {CUISINES.map(c => (
+          <button
+            key={c.value}
+            onClick={() => onChange(c.value)}
+            className={cn(
+              'flex items-center gap-1.5 px-3.5 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200 border touch-target flex-shrink-0',
+              selected === c.value
+                ? 'bg-brand text-white border-brand shadow-sm scale-105'
+                : 'bg-white text-dark border-gray-200 hover:border-brand/40'
+            )}
+            style={{ scrollSnapAlign: 'start' }}
+          >
+            <span>{c.emoji}</span>
+            <span>{c.label}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+Create apps/web/src/components/home/community-favourites.tsx (carousel):
+
+'use client'
+import { useRef } from 'react'
+import { ChevronRight } from 'lucide-react'
+import { VendorCard } from '@/components/vendor/vendor-card'
+import type { Vendor } from '@feastpot/types'
+
+export function CommunityFavourites({ vendors }: { vendors: Vendor[] }) {
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  if (!vendors.length) return null
+
+  return (
+    <section className="py-4">
+      <div className="flex items-center justify-between px-4 mb-3">
+        <div>
+          <h2 className="text-[17px] font-bold text-dark">🔥 Community Favourites</h2>
+          <p className="text-xs text-mid mt-0.5">Rated 4.3+ by the community</p>
+        </div>
+        <a href="/vendors?communityFavourite=true" className="flex items-center gap-0.5 text-brand text-sm font-semibold">
+          See all <ChevronRight className="w-4 h-4" />
+        </a>
+      </div>
+
+      <div
+        ref={scrollRef}
+        className="flex gap-3 overflow-x-auto scrollbar-hide px-4 pb-2"
+        style={{ scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}
+      >
+        {vendors.map(vendor => (
+          <div key={vendor.id} className="flex-shrink-0 w-48" style={{ scrollSnapAlign: 'start' }}>
+            <VendorCard vendor={vendor} compact />
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+Create apps/web/src/components/home/how-it-works.tsx:
+
+export function HowItWorks() {
+  const steps = [
+    { icon: '📍', title: 'Enter postcode', desc: 'Find authentic vendors near you' },
+    { icon: '🛒', title: 'Choose your tray', desc: 'Full trays, frozen packs, party orders' },
+    { icon: '🚗', title: 'Scheduled delivery', desc: 'Delivered when you need it' },
+  ]
+  return (
+    <section className="px-4 py-5 bg-teal-light mx-4 rounded-2xl my-3">
+      <h2 className="text-[15px] font-bold text-dark mb-4 text-center">How Feastpot works</h2>
+      <div className="flex gap-3">
+        {steps.map((s, i) => (
+          <div key={i} className="flex-1 text-center">
+            <div className="text-3xl mb-2">{s.icon}</div>
+            <div className="text-xs font-bold text-dark">{s.title}</div>
+            <div className="text-[10px] text-mid mt-0.5 leading-tight">{s.desc}</div>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+═══════════════════════════════════════════════════════
+STEP 2 — Rebuild VendorCard component (used everywhere)
+═══════════════════════════════════════════════════════
+
+Create apps/web/src/components/vendor/vendor-card.tsx.
+This is the MOST IMPORTANT component in the entire PWA — every vendor listing uses it.
+
+'use client'
+import Link from 'next/link'
+import Image from 'next/image'
+import { Star, Clock, ShoppingBag, Shield } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import type { Vendor } from '@feastpot/types'
+
+interface VendorCardProps {
+  vendor: Vendor
+  compact?: boolean  // compact = carousel card (narrower)
+}
+
+export function VendorCard({ vendor, compact = false }: VendorCardProps) {
+  const minOrder = vendor.minOrderPence ? `£${(vendor.minOrderPence / 100).toFixed(0)} min` : null
+
+  return (
+    <Link href={`/vendors/${vendor.slug}`} className="block group">
+      <div className={cn(
+        'fp-card overflow-hidden transition-transform duration-200 active:scale-[0.98]',
+        compact ? 'w-48' : 'w-full'
+      )}>
+        {/* Cover image — the hero of the card */}
+        <div className={cn('relative overflow-hidden', compact ? 'h-28' : 'h-40')}>
+          {vendor.coverUrl ? (
+            <Image
+              src={vendor.coverUrl}
+              alt={vendor.businessName}
+              fill
+              className="object-cover group-hover:scale-105 transition-transform duration-500"
+              sizes={compact ? '192px' : '(max-width: 640px) 100vw, 480px'}
+            />
+          ) : (
+            <div className="absolute inset-0 brand-gradient flex items-center justify-center">
+              <span className="text-4xl">🍽️</span>
+            </div>
+          )}
+
+          {/* Gradient overlay for text legibility */}
+          <div className="absolute inset-0 bg-gradient-to-t from-dark/60 via-transparent to-transparent" />
+
+          {/* Badges top-right */}
+          <div className="absolute top-2 right-2 flex flex-col gap-1 items-end">
+            {vendor.communityFavourite && (
+              <span className="flex items-center gap-1 bg-brand text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
+                🔥 Community Fave
+              </span>
+            )}
+            {vendor.fsaRating && vendor.fsaRating >= 4 && (
+              <span className="flex items-center gap-1 bg-teal text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
+                <Shield className="w-2.5 h-2.5" />
+                Hygiene {vendor.fsaRating}/5
+              </span>
+            )}
+          </div>
+
+          {/* Vendor logo overlay */}
+          {vendor.logoUrl && (
+            <div className="absolute bottom-2 left-2 w-9 h-9 rounded-xl overflow-hidden border-2 border-white shadow-sm bg-white">
+              <Image src={vendor.logoUrl} alt="" fill className="object-cover" />
+            </div>
+          )}
+        </div>
+
+        {/* Card body */}
+        <div className={cn('bg-white', compact ? 'p-2.5' : 'p-3')}>
+          <div className="flex items-start justify-between gap-2">
+            <h3 className={cn('font-bold text-dark leading-tight', compact ? 'text-sm' : 'text-[15px]')}>
+              {vendor.businessName}
+            </h3>
+            <div className="flex items-center gap-0.5 flex-shrink-0">
+              <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+              <span className="text-xs font-bold text-dark">{vendor.avgRating?.toFixed(1)}</span>
+              {!compact && (
+                <span className="text-[10px] text-mid">({vendor.reviewCount})</span>
+              )}
+            </div>
+          </div>
+
+          {/* Cuisine tags */}
+          <div className="flex flex-wrap gap-1 mt-1.5">
+            {vendor.cuisineTypes?.slice(0, compact ? 1 : 2).map(c => (
+              <span key={c} className="text-[10px] text-mid bg-surface px-1.5 py-0.5 rounded-md">
+                {c}
+              </span>
+            ))}
+          </div>
+
+          {/* Meta row */}
+          {!compact && (
+            <div className="flex items-center gap-3 mt-2">
+              {minOrder && (
+                <div className="flex items-center gap-1 text-[10px] text-mid">
+                  <ShoppingBag className="w-3 h-3" />
+                  {minOrder}
+                </div>
+              )}
+              <div className="flex items-center gap-1 text-[10px] text-mid">
+                <Clock className="w-3 h-3" />
+                Scheduled delivery
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </Link>
+  )
+}
+
+═══════════════════════════════════════════════════════
+STEP 3 — Rebuild /vendors page (discovery grid)
+═══════════════════════════════════════════════════════
+
+Replace apps/web/src/app/vendors/page.tsx:
+- Header: sticky search bar with postcode display and change link
+- Cuisine filter pills (CuisineFilters component)
+- Filter sheet trigger: "Filters" pill button — opens a Sheet with halal toggle, sort options
+- Vendor grid: 1 column on mobile, 2 on sm+
+- Empty state when no vendors found
+- Keep all existing data fetching (useVendors, query params) unchanged
+
+The filter sheet uses the existing shadcn Sheet component:
+- Halal toggle: prominent at top, large, brand teal when active
+- Sort: Rating (default), Distance, Most Reordered — radio group
+- Dietary: Vegan, Vegetarian checkboxes
+- "Show results" button pinned to bottom in brand orange
+
+═══════════════════════════════════════════════════════
+STEP 4 — Put it all together in page.tsx
+═══════════════════════════════════════════════════════
+
+Update apps/web/src/app/page.tsx:
+
+import { PostcodeHero } from '@/components/home/postcode-hero'
+import { CuisineFilters } from '@/components/home/cuisine-filters'
+import { CommunityFavourites } from '@/components/home/community-favourites'
+import { HowItWorks } from '@/components/home/how-it-works'
+import { VendorCard } from '@/components/vendor/vendor-card'
+// Keep existing server-side data fetching for vendors
+
+The page renders:
+1. <PostcodeHero />
+2. <CuisineFilters selected={cuisine} onChange={handleCuisineChange} />
+3. <CommunityFavourites vendors={communityFavs} />
+4. <HowItWorks />
+5. Grid of recently added vendors using <VendorCard />
+
+Run: npm run dev:web and verify the homepage loads with animation, filters, and carousel.
+Run: npm run typecheck --filter=@feastpot/web — fix all errors before PWA-03.

@@ -1,18 +1,34 @@
-import { searchVendors, type VendorListItem } from '@/lib/api/vendors';
+import { ChevronRight } from 'lucide-react';
+import Link from 'next/link';
+
+import { CommunityFavourites } from '@/components/home/community-favourites';
+import { HowItWorks } from '@/components/home/how-it-works';
+import { PostcodeHero } from '@/components/home/postcode-hero';
 import { CuisineFilter } from '@/components/vendor/cuisine-filter';
 import { VendorCard } from '@/components/vendor/vendor-card';
-import { PageShell } from '@/components/layout/page-shell';
-import { PostcodeHero } from '@/components/home/postcode-hero';
+import { searchVendors, type VendorListItem } from '@/lib/api/vendors';
 
 /**
  * Customer homepage (Server Component).
  *
- * Top-rated and "new" rails are fetched in parallel from the vendor search
- * API. We deliberately swallow API errors here — an empty rail is far less
- * jarring on first load than a full-page crash, and the search page is
- * always one tap away. Errors still surface in server logs for ops.
+ * Two vendor rails are fetched in parallel via the public search API:
+ *   - `favourites`: rating-sorted, community-favourite filter on
+ *   - `newest`:     rating-sorted (TODO: switch to true createdAt sort
+ *                   once the backend supports it; for now this is the
+ *                   closest stable proxy)
+ *
+ * Errors are swallowed at the rail level — an empty carousel is far less
+ * jarring than a full-page crash for an unauthenticated browser, and the
+ * /vendors page is one tap away. Failures still surface in server logs.
+ *
+ * Layout note: `app/layout.tsx` already wraps children in
+ * `<main className="page-content mx-auto max-w-lg">`, so we do NOT use
+ * `PageShell` here — that would double-wrap and add horizontal padding that
+ * prevents the brand-gradient hero from extending edge-to-edge.
  */
-async function safeFetch(promise: Promise<{ data: VendorListItem[] }>): Promise<VendorListItem[]> {
+async function safeFetch(
+  promise: Promise<{ data: VendorListItem[] }>,
+): Promise<VendorListItem[]> {
   try {
     const r = await promise;
     return r.data;
@@ -23,57 +39,55 @@ async function safeFetch(promise: Promise<{ data: VendorListItem[] }>): Promise<
 
 export default async function HomePage() {
   const [favourites, newest] = await Promise.all([
-    safeFetch(searchVendors({ communityFavourite: true, sortBy: 'rating', limit: 10 }, { next: { revalidate: 60 } })),
-    safeFetch(searchVendors({ sortBy: 'rating', limit: 10 }, { next: { revalidate: 60 } })),
+    safeFetch(
+      searchVendors(
+        { communityFavourite: true, sortBy: 'rating', limit: 10 },
+        { next: { revalidate: 60 } },
+      ),
+    ),
+    safeFetch(
+      searchVendors({ sortBy: 'rating', limit: 10 }, { next: { revalidate: 60 } }),
+    ),
   ]);
 
   return (
-    <PageShell>
-      <div className="space-y-6 py-4">
-        <PostcodeHero />
+    <>
+      <PostcodeHero />
 
-        <section>
-          <h2 className="sr-only">Browse by cuisine</h2>
-          <CuisineFilter />
-        </section>
+      <section className="pt-2">
+        <h2 className="sr-only">Browse by cuisine</h2>
+        <CuisineFilter />
+      </section>
 
-        <CarouselRow title="Community Favourites" emptyText="No favourites in your area yet — check back soon.">
-          {favourites.map((v) => (
-            <VendorCard key={v.id} vendor={v} variant="carousel" />
-          ))}
-        </CarouselRow>
+      <CommunityFavourites vendors={favourites} />
 
-        <CarouselRow title="New on Feastpot" emptyText="No new vendors yet.">
-          {newest.map((v) => (
-            <VendorCard key={v.id} vendor={v} variant="carousel" />
-          ))}
-        </CarouselRow>
-      </div>
-    </PageShell>
-  );
-}
+      <HowItWorks />
 
-function CarouselRow({
-  title,
-  children,
-  emptyText,
-}: {
-  title: string;
-  children: React.ReactNode;
-  emptyText: string;
-}) {
-  const arr = Array.isArray(children) ? children : [children];
-  const hasItems = arr.filter(Boolean).length > 0;
-  return (
-    <section className="space-y-2">
-      <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
-      {hasItems ? (
-        <div className="-mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {children}
-        </div>
-      ) : (
-        <p className="text-sm text-muted-foreground">{emptyText}</p>
-      )}
-    </section>
+      <section className="space-y-2 py-2">
+        <header className="flex items-end justify-between gap-2 px-4">
+          <div>
+            <h2 className="text-[17px] font-bold text-dark">✨ New on Feastpot</h2>
+            <p className="mt-0.5 text-xs text-mid">Cooks who just joined</p>
+          </div>
+          <Link
+            href="/vendors"
+            className="inline-flex items-center gap-0.5 text-sm font-semibold text-brand"
+          >
+            See all
+            <ChevronRight className="h-4 w-4" aria-hidden />
+          </Link>
+        </header>
+
+        {newest.length > 0 ? (
+          <div className="-mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {newest.map((v) => (
+              <VendorCard key={v.id} vendor={v} variant="carousel" />
+            ))}
+          </div>
+        ) : (
+          <p className="px-4 text-sm text-mid">No new vendors yet — check back soon.</p>
+        )}
+      </section>
+    </>
   );
 }
