@@ -1,0 +1,224 @@
+You are a Next.js 15 designer rebuilding the Feastpot vendor portal at apps/vendor. The vendor portal is used every service day — it must feel fast, professional, and reliable. A vendor who loves their dashboard tells other vendors to join.
+
+CONTEXT:
+- Phase 1 brand tokens apply here too — update apps/vendor/tailwind.config.ts and globals.css with the same brand system from PWA-01
+- All Supabase Realtime subscriptions and API calls remain unchanged
+- Only visual layout changes
+
+═══════════════════════════════════════════════════════
+STEP 1 — Apply brand system to vendor portal
+═══════════════════════════════════════════════════════
+
+Copy the Tailwind config and globals.css from PWA-01 to apps/vendor.
+The vendor portal uses the same brand tokens but the primary accent is vendor (#185FA5 blue) not brand orange.
+
+Update --brand to #185FA5 in the vendor app globals.css (vendor blue as the dominant accent).
+Keep brand orange for critical actions: accept order buttons, revenue metrics.
+
+═══════════════════════════════════════════════════════
+STEP 2 — Vendor dashboard home
+═══════════════════════════════════════════════════════
+
+Rebuild apps/vendor/src/app/page.tsx:
+
+Header: "Good morning, {vendorFirstName} 👋" (dynamic greeting based on time of day)
+Subtitle: "Here's how {businessName} is doing today"
+
+STAT CARDS — 2×2 grid with animated count-up on mount:
+
+Create apps/vendor/src/components/dashboard/stat-card.tsx:
+
+'use client'
+import { useEffect, useState } from 'react'
+import { cn } from '@/lib/utils'
+
+interface StatCardProps {
+  label:    string
+  value:    string | number
+  prefix?:  string  // e.g. "£"
+  suffix?:  string  // e.g. " orders"
+  change?:  number  // % vs last week, positive=good
+  icon:     string  // emoji
+  color:    'brand' | 'teal' | 'vendor' | 'gray'
+}
+
+export function StatCard({ label, value, prefix, suffix, change, icon, color }: StatCardProps) {
+  const [displayed, setDisplayed] = useState(0)
+  const numValue = typeof value === 'number' ? value : parseFloat(value.toString().replace(/[^0-9.]/g, ''))
+
+  useEffect(() => {
+    let start = 0
+    const duration = 800
+    const startTime = performance.now()
+    const animate = (now: number) => {
+      const progress = Math.min((now - startTime) / duration, 1)
+      const eased = 1 - Math.pow(1 - progress, 3) // ease-out cubic
+      setDisplayed(Math.round(eased * numValue))
+      if (progress < 1) requestAnimationFrame(animate)
+    }
+    requestAnimationFrame(animate)
+  }, [numValue])
+
+  const colorMap = {
+    brand:  'bg-brand-light border-brand/20 text-brand',
+    teal:   'bg-teal-light border-teal/20 text-teal',
+    vendor: 'bg-blue-50 border-blue-200 text-vendor',
+    gray:   'bg-surface border-gray-200 text-mid',
+  }
+
+  return (
+    <div className={cn('fp-card p-4 border', colorMap[color])}>
+      <div className="text-2xl mb-1">{icon}</div>
+      <div className="text-[22px] font-black text-dark">
+        {prefix}{displayed}{suffix}
+      </div>
+      <div className="text-xs text-mid mt-0.5">{label}</div>
+      {change !== undefined && (
+        <div className={cn('text-[11px] font-medium mt-1', change >= 0 ? 'text-teal' : 'text-red-500')}>
+          {change >= 0 ? '↑' : '↓'} {Math.abs(change)}% vs last week
+        </div>
+      )}
+    </div>
+  )
+}
+
+Stat cards on dashboard:
+- 💰 Today's revenue (£X) — brand color
+- 📦 Orders today (N) — teal color
+- ⏳ Pending (N, pulsing if > 0) — amber if > 0, gray if 0
+- ⭐ Rating (4.8) — vendor blue
+
+QUICK ACTIONS row below stats:
+"+ Add menu item" → /menu/new
+"📋 View orders" → /orders
+"📊 Analytics" → /analytics
+
+═══════════════════════════════════════════════════════
+STEP 3 — Order kanban with animated countdown
+═══════════════════════════════════════════════════════
+
+Rebuild apps/vendor/src/app/orders/page.tsx:
+
+TAB BAR at top (shadcn Tabs):
+Pending ({count}) | Preparing ({count}) | Dispatched ({count}) | Delivered
+The Pending tab badge pulses orange when count > 0.
+
+Create apps/vendor/src/components/orders/vendor-order-card.tsx:
+
+This is the most important vendor component. Design:
+
+Card sections:
+1. HEADER: Customer first name + order ref + delivery slot (prominent time)
+2. ITEMS: List of dishes with quantities — "2× Egusi Soup (Full Pot)"
+3. TOTAL: "£87.50 (you receive £77.00)" — shows net prominently
+4. NOTES: Shown if order.notes exists, in amber bg
+5. COUNTDOWN: Only on pending orders — see below
+6. ACTIONS: Context buttons
+
+COUNTDOWN TIMER component (create apps/vendor/src/components/orders/countdown.tsx):
+
+'use client'
+import { useState, useEffect } from 'react'
+import { cn } from '@/lib/utils'
+
+export function Countdown({ expiresAt }: { expiresAt: Date }) {
+  const [remaining, setRemaining] = useState(0)
+
+  useEffect(() => {
+    const tick = () => {
+      const diff = Math.max(0, expiresAt.getTime() - Date.now())
+      setRemaining(Math.floor(diff / 1000))
+    }
+    tick()
+    const interval = setInterval(tick, 1000)
+    return () => clearInterval(interval)
+  }, [expiresAt])
+
+  const mins = Math.floor(remaining / 60)
+  const secs = remaining % 60
+  const isUrgent = remaining < 180 // < 3 minutes
+  const isAlmostExpired = remaining < 60 // < 1 minute
+
+  return (
+    <div className={cn(
+      'flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm font-bold transition-colors',
+      isAlmostExpired ? 'bg-red-100 text-red-600 animate-pulse' :
+      isUrgent        ? 'bg-amber-100 text-amber-700' :
+                        'bg-surface text-mid'
+    )}>
+      ⏱️
+      <span>
+        {mins.toString().padStart(2,'0')}:{secs.toString().padStart(2,'0')}
+      </span>
+      {isUrgent && <span className="text-[10px] font-medium">Accept now</span>}
+    </div>
+  )
+}
+
+ACTION BUTTONS per status:
+pending:    [Reject (outline red)] [Accept ✓ (solid green, wider)]
+accepted:   [Mark Preparing →]
+preparing:  [Mark Dispatched →]
+dispatched: [Mark Delivered ✓]
+
+Accept button: on tap, shows a brief "Accepting..." loading state, then confirms.
+Reject button: shows a bottom sheet confirmation: "Reject this order? The customer will be refunded." with reason select (Out of stock, Capacity, Other) and Confirm Reject button.
+
+═══════════════════════════════════════════════════════
+STEP 4 — Menu item editor polish
+═══════════════════════════════════════════════════════
+
+Rebuild apps/vendor/src/app/menu/[menuId]/items/[itemId]/page.tsx layout:
+
+Group fields into visual sections (Cards):
+CARD 1 — Basic info: Name, Category (select), Description (textarea), Portion label
+CARD 2 — Pricing & availability: Price (£ input with pence conversion), Prep time (select), Available toggle (large switch, teal when on)
+CARD 3 — Dietary flags: 5 toggle pills (Halal, Vegan, Vegetarian, Gluten-free, Dairy-free) — tap to toggle, brand teal when active
+CARD 4 — Spice level: 4 pill buttons (🌿 Mild, 🌶️ Medium, 🌶️🌶️ Hot, 🌶️🌶️🌶️ Extra Hot) — tap to select, brand orange when active
+CARD 5 — Allergens: 2-column checkbox grid, 14 FSA allergens with emoji icons. Green background on checked.
+CARD 6 — Photos: Image upload area with 5 slots, drag-reorder
+
+SAVE button: sticky at bottom, "Save changes" in vendor blue, full-width.
+
+═══════════════════════════════════════════════════════
+STEP 5 — Analytics page with animated charts
+═══════════════════════════════════════════════════════
+
+Rebuild apps/vendor/src/app/analytics/page.tsx:
+
+Keep existing recharts data fetching — only visual wrapper changes.
+
+METRIC CARDS: Same StatCard component from Step 2:
+- 💰 Revenue this week — with % change vs last week
+- 📦 Orders this week
+- 🧾 Avg basket size
+- 🔁 Return rate %
+
+REVENUE CHART: recharts BarChart (already wired)
+Style updates:
+- Bar fill: brand orange (#E8520A) — not the recharts default blue
+- Grid lines: very light gray (#F0EDE8)
+- Tooltip: custom styled tooltip with white bg, dark text, £ prefix
+- X-axis: short week labels (Mon, Tue etc.)
+- No legend needed
+
+TOP DISHES table:
+Columns: # | Dish name | Orders | Revenue
+Style: alternating row bg (white / surface), first column bold number, revenue column bold orange
+
+═══════════════════════════════════════════════════════
+STEP 6 — Verify
+═══════════════════════════════════════════════════════
+
+Run: npm run dev:vendor (on port 3002)
+Open http://localhost:3002 and sign in as maman@feastpot.co.uk
+Verify:
+1. Dashboard shows animated stat cards
+2. Orders page has tab bar with pending/preparing/dispatched/delivered
+3. Countdown timer visible on pending order (seed a test order first)
+4. Accept button is prominent and tap target is ≥44px
+5. Menu item editor groups fields into cards
+6. Analytics chart uses brand orange bars
+
+Run: npm run typecheck --filter=@feastpot/vendor
+Fix all errors. Output all changed files in full.

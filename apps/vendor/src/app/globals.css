@@ -6,6 +6,11 @@
  * Theme tokens are inlined here (NOT @import-ed from @feastpot/ui/theme.css)
  * because cross-package @layer rules silently get dropped from the production
  * build — same rationale as apps/web/src/app/globals.css.
+ *
+ * Vendor portal differs from the customer app in ONE place: the shadcn
+ * `--primary` is wired to vendor blue (#185FA5 -> 211 74% 37%) instead of
+ * brand orange. Every other token mirrors the customer app so shared shadcn
+ * primitives and `@feastpot/ui` components look identical across surfaces.
  */
 @layer base {
   :root {
@@ -14,6 +19,7 @@
     --brand-vendor: #185fa5;
     --brand-dark: #1c1c1a;
     --brand-gray: #5f5e5a;
+    --surface: #f8f7f5;
 
     --background: 40 33% 98%;
     --foreground: 60 4% 11%;
@@ -21,6 +27,8 @@
     --card-foreground: 60 4% 11%;
     --popover: 0 0% 100%;
     --popover-foreground: 60 4% 11%;
+    /* Vendor blue is the dominant accent — primary buttons, focus rings,
+       active nav state. Brand orange is reserved for revenue/accept CTAs. */
     --primary: 211 74% 37%;
     --primary-foreground: 0 0% 100%;
     --secondary: 161 70% 37%;
@@ -37,7 +45,48 @@
     --radius: 0.625rem;
   }
 
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Warm off-white feels more premium than stark white. Override shadcn's
+     `bg-background` on the body specifically — individual surfaces (cards,
+     sheets, the top-nav) still pick up the white --card token. */
   body {
-    @apply bg-background text-foreground;
+    @apply text-foreground;
+    background-color: var(--surface);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  button,
+  [role='button'] {
+    @apply touch-manipulation;
+  }
+}
+
+@layer base {
+  /* Card baseline — for surfaces where the shadcn `<Card>` is overkill
+     (stat cards, kanban order cards). Pure white on the warm body bg. */
+  .fp-card {
+    background: #fff;
+    border-radius: 16px;
+    box-shadow:
+      0 1px 4px 0 rgba(28, 28, 26, 0.08),
+      0 4px 16px 0 rgba(28, 28, 26, 0.04);
+  }
+
+  /* WCAG 2.5.5 minimum tappable area — apply to icon buttons and chip
+     dismissers that would otherwise render below 44x44. */
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .brand-gradient {
+    background: linear-gradient(135deg, #e8520a 0%, #b33d07 100%);
+  }
+
+  .vendor-gradient {
+    background: linear-gradient(135deg, #185fa5 0%, #0f4373 100%);
   }
 }

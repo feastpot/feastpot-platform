@@ -10,6 +10,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  cn,
 } from '@feastpot/ui';
 import { ArrowLeft, Trash2, Upload } from 'lucide-react';
 import Image from 'next/image';
@@ -17,9 +18,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/toaster';
@@ -56,7 +55,14 @@ const PREP_OPTIONS = [
   { value: 2880, label: '48 hours' },
 ];
 
-const SPICE_LABELS = ['Mild', 'Medium', 'Hot', 'Extra Hot'];
+// 4 pill buttons per the brief — 0=Mild .. 3=Extra Hot. Stored as a numeric
+// `spice:N` tag on the menu item.
+const SPICE_OPTIONS = [
+  { value: 0, label: 'Mild', icon: '🌿' },
+  { value: 1, label: 'Medium', icon: '🌶️' },
+  { value: 2, label: 'Hot', icon: '🌶️🌶️' },
+  { value: 3, label: 'Extra Hot', icon: '🌶️🌶️🌶️' },
+];
 
 const DIETARY_FLAGS = [
   { value: 'halal', label: 'Halal' },
@@ -66,9 +72,22 @@ const DIETARY_FLAGS = [
   { value: 'dairy_free', label: 'Dairy-free' },
 ];
 
-const FSA_ALLERGENS = [
-  'celery', 'gluten', 'crustaceans', 'eggs', 'fish', 'lupin', 'milk',
-  'molluscs', 'mustard', 'peanuts', 'sesame', 'soybeans', 'sulphites', 'tree_nuts',
+// FSA 14 statutory allergens — labels and emoji icons for the 2-col grid.
+const FSA_ALLERGENS: Array<{ value: string; label: string; icon: string }> = [
+  { value: 'celery', label: 'Celery', icon: '🥬' },
+  { value: 'gluten', label: 'Gluten', icon: '🌾' },
+  { value: 'crustaceans', label: 'Crustaceans', icon: '🦐' },
+  { value: 'eggs', label: 'Eggs', icon: '🥚' },
+  { value: 'fish', label: 'Fish', icon: '🐟' },
+  { value: 'lupin', label: 'Lupin', icon: '🌼' },
+  { value: 'milk', label: 'Milk', icon: '🥛' },
+  { value: 'molluscs', label: 'Molluscs', icon: '🦪' },
+  { value: 'mustard', label: 'Mustard', icon: '🌭' },
+  { value: 'peanuts', label: 'Peanuts', icon: '🥜' },
+  { value: 'sesame', label: 'Sesame', icon: '🫘' },
+  { value: 'soybeans', label: 'Soybeans', icon: '🫛' },
+  { value: 'sulphites', label: 'Sulphites', icon: '🍷' },
+  { value: 'tree_nuts', label: 'Tree nuts', icon: '🌰' },
 ];
 
 interface FormState {
@@ -110,7 +129,9 @@ function fromMenuItem(item: MenuItem): FormState {
   const tags = item.tags ?? [];
   const spiceTag = tags.find((t) => t.startsWith(SPICE_PREFIX));
   const portionTag = tags.find((t) => t.startsWith(PORTION_PREFIX));
-  const dietary = tags.filter((t) => DIETARY_FLAGS.some((d) => d.value === t) && t !== 'halal');
+  const dietary = tags.filter(
+    (t) => DIETARY_FLAGS.some((d) => d.value === t) && t !== 'halal',
+  );
   return {
     name: item.name,
     description: item.description ?? '',
@@ -215,7 +236,10 @@ export function ItemEditorClient({
 
   async function onUpload(file: File) {
     if (isNew) {
-      toast({ title: 'Save the item first', description: 'Photos can be uploaded after the item is created.' });
+      toast({
+        title: 'Save the item first',
+        description: 'Photos can be uploaded after the item is created.',
+      });
       return;
     }
     if (form.images.length >= 5) {
@@ -258,21 +282,141 @@ export function ItemEditorClient({
   }
 
   if (!isNew && isLoading) {
-    return <p className="text-sm text-muted-foreground">Loading item…</p>;
+    return <p className="text-sm text-mid">Loading item…</p>;
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
+    <div className="mx-auto max-w-3xl space-y-4 pb-24">
+      {/* TOP STRIP — back link + availability toggle. The bottom save bar is
+          sticky so this strip is short on purpose: it's just orientation. */}
       <div className="flex items-center justify-between">
-        <Link href={`/menu/${menuId}`} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:underline">
+        <Link
+          href={`/menu/${menuId}`}
+          className="inline-flex items-center gap-1 text-sm text-mid hover:underline"
+        >
           <ArrowLeft className="h-4 w-4" /> Back to menu
         </Link>
-        {!isNew && item && (
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">Available</span>
+      </div>
+
+      <h1 className="text-2xl font-bold tracking-tight text-dark">
+        {isNew ? 'New item' : form.name || 'Edit item'}
+      </h1>
+
+      <form id="item-editor-form" onSubmit={onSubmit} className="space-y-4">
+        {/* CARD 1 — Basic info */}
+        <SectionCard title="Basic info">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Item name" required>
+              <Input
+                value={form.name}
+                onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))}
+                placeholder="e.g. Jollof rice tray (full)"
+                maxLength={255}
+                required
+              />
+            </Field>
+            <Field label="Category" required>
+              <Select
+                value={form.category}
+                onValueChange={(v) => setForm((s) => ({ ...s, category: v as ItemCategory }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {CATEGORIES.map((c) => (
+                    <SelectItem key={c.value} value={c.value}>
+                      {c.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+          </div>
+
+          <Field label="Description" hint={`${form.description.length}/500`}>
+            <Textarea
+              value={form.description}
+              maxLength={500}
+              onChange={(e) => setForm((s) => ({ ...s, description: e.target.value }))}
+              placeholder="What's in it, how it's made, any history…"
+            />
+          </Field>
+
+          <Field label="Portion label">
+            <Input
+              value={form.portionLabel}
+              onChange={(e) => setForm((s) => ({ ...s, portionLabel: e.target.value }))}
+              maxLength={64}
+              placeholder="Full tray / serves 20"
+            />
+          </Field>
+        </SectionCard>
+
+        {/* CARD 2 — Pricing & availability */}
+        <SectionCard title="Pricing & availability">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Field label="Price" required hint={priceErr ?? 'in GBP'}>
+              <div className="flex items-center rounded-md border border-input bg-background focus-within:ring-2 focus-within:ring-ring">
+                <span className="pl-3 text-sm text-mid">£</span>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  step="0.01"
+                  min="1"
+                  value={form.pricePounds}
+                  onChange={(e) => setForm((s) => ({ ...s, pricePounds: e.target.value }))}
+                  className="h-10 w-full rounded-md bg-transparent px-2 text-sm focus:outline-none"
+                  required
+                />
+              </div>
+            </Field>
+            <Field label="Servings (optional)">
+              <Input
+                type="number"
+                min="1"
+                value={form.servingsCount}
+                onChange={(e) => setForm((s) => ({ ...s, servingsCount: e.target.value }))}
+              />
+            </Field>
+            <Field label="Preparation time" required>
+              <Select
+                value={String(form.prepTimeMinutes)}
+                onValueChange={(v) => setForm((s) => ({ ...s, prepTimeMinutes: Number(v) }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PREP_OPTIONS.map((p) => (
+                    <SelectItem key={p.value} value={String(p.value)}>
+                      {p.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+          </div>
+
+          {/* Big availability switch — teal when on, mid grey when off. For
+              EXISTING items the switch is wired to the live `toggleAvail`
+              mutation so the change persists immediately. For NEW items the
+              switch is disabled because `MenuItemUpsertInput` (POST /items)
+              doesn't accept an `isAvailable` field — the server defaults new
+              items to available. Vendors can flip availability after the
+              item is saved. */}
+          <div className="flex items-center justify-between rounded-2xl bg-surface p-3">
+            <div>
+              <p className="text-sm font-semibold text-dark">Available to order</p>
+              <p className="text-xs text-mid">
+                {isNew
+                  ? 'New items are published as available. Toggle this after saving.'
+                  : 'Customers will see this item on your menu when on.'}
+              </p>
+            </div>
             <Switch
               checked={form.isAvailable}
-              disabled={toggleAvail.isPending}
+              disabled={isNew || toggleAvail.isPending}
               onCheckedChange={(checked) => {
                 // Optimistic update with rollback on failure so the toggle
                 // never gets stuck reflecting a state the server rejected.
@@ -292,229 +436,256 @@ export function ItemEditorClient({
                   },
                 );
               }}
+              className="data-[state=checked]:bg-teal"
             />
           </div>
-        )}
-      </div>
+        </SectionCard>
 
-      <h1 className="text-2xl font-semibold">{isNew ? 'New item' : form.name || 'Edit item'}</h1>
+        {/* CARD 3 — Dietary flags as toggle pills */}
+        <SectionCard title="Dietary flags">
+          <p className="text-xs text-mid">
+            Surfaced as filter chips on the customer-facing vendor page.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {DIETARY_FLAGS.map((d) => {
+              const active = form.dietaryFlags.includes(d.value);
+              return (
+                <button
+                  key={d.value}
+                  type="button"
+                  onClick={() =>
+                    setForm((s) => ({
+                      ...s,
+                      dietaryFlags: active
+                        ? s.dietaryFlags.filter((f) => f !== d.value)
+                        : [...s.dietaryFlags, d.value],
+                    }))
+                  }
+                  className={cn(
+                    'rounded-full border px-4 py-2 text-sm font-semibold transition-colors',
+                    active
+                      ? 'border-teal bg-teal text-white'
+                      : 'border-border bg-white text-mid hover:bg-surface',
+                  )}
+                  aria-pressed={active}
+                >
+                  {d.label}
+                </button>
+              );
+            })}
+          </div>
 
-      <form onSubmit={onSubmit} className="space-y-4">
-        <Card>
-          <CardContent className="space-y-4 p-4">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Item name" required>
-                <Input
-                  value={form.name}
-                  onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))}
-                  placeholder="e.g. Jollof rice tray (full)"
-                  maxLength={255}
-                  required
-                />
-              </Field>
-              <Field label="Category" required>
-                <Select value={form.category} onValueChange={(v) => setForm((s) => ({ ...s, category: v as ItemCategory }))}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CATEGORIES.map((c) => (
-                      <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-            </div>
-
-            <Field label="Description (optional)" hint={`${form.description.length}/500`}>
-              <Textarea
-                value={form.description}
-                maxLength={500}
-                onChange={(e) => setForm((s) => ({ ...s, description: e.target.value }))}
-                placeholder="What's in it, how it's made, any history…"
-              />
-            </Field>
-
-            <div className="grid gap-3 sm:grid-cols-3">
-              <Field label="Price" required hint={priceErr ?? 'in GBP'}>
-                <div className="flex items-center rounded-md border border-input bg-background focus-within:ring-2 focus-within:ring-ring">
-                  <span className="pl-3 text-sm text-muted-foreground">£</span>
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    step="0.01"
-                    min="1"
-                    value={form.pricePounds}
-                    onChange={(e) => setForm((s) => ({ ...s, pricePounds: e.target.value }))}
-                    className="h-10 w-full rounded-md bg-transparent px-2 text-sm focus:outline-none"
-                    required
-                  />
-                </div>
-              </Field>
-              <Field label="Portion label">
-                <Input
-                  value={form.portionLabel}
-                  onChange={(e) => setForm((s) => ({ ...s, portionLabel: e.target.value }))}
-                  maxLength={64}
-                  placeholder="Full tray / serves 20"
-                />
-              </Field>
-              <Field label="Servings (optional)">
-                <Input
-                  type="number"
-                  min="1"
-                  value={form.servingsCount}
-                  onChange={(e) => setForm((s) => ({ ...s, servingsCount: e.target.value }))}
-                />
-              </Field>
-            </div>
-
-            <Field label="Preparation time" required>
-              <Select
-                value={String(form.prepTimeMinutes)}
-                onValueChange={(v) => setForm((s) => ({ ...s, prepTimeMinutes: Number(v) }))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PREP_OPTIONS.map((p) => (
-                    <SelectItem key={p.value} value={String(p.value)}>{p.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-
-            <Field label={`Spice level: ${SPICE_LABELS[form.spiceLevel] ?? 'Mild'}`}>
-              <Slider
-                value={[form.spiceLevel]}
-                min={0}
-                max={3}
-                step={1}
-                onValueChange={(v) => setForm((s) => ({ ...s, spiceLevel: v[0] ?? 0 }))}
-              />
-              <div className="mt-1 flex justify-between text-xs text-muted-foreground">
-                {SPICE_LABELS.map((l) => (<span key={l}>{l}</span>))}
-              </div>
-            </Field>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="space-y-4 p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium">Halal certified</p>
-                <p className="text-xs text-muted-foreground">Separate from the Halal dietary flag — for verified certification only.</p>
-              </div>
-              <Switch
-                checked={form.isHalal}
-                onCheckedChange={(checked) => setForm((s) => ({ ...s, isHalal: checked }))}
-              />
-            </div>
-
-            <Field label="Dietary flags">
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                {DIETARY_FLAGS.map((d) => (
-                  <CheckboxRow
-                    key={d.value}
-                    label={d.label}
-                    checked={form.dietaryFlags.includes(d.value)}
-                    onChange={(checked) =>
-                      setForm((s) => ({
-                        ...s,
-                        dietaryFlags: checked
-                          ? [...s.dietaryFlags, d.value]
-                          : s.dietaryFlags.filter((f) => f !== d.value),
-                      }))
-                    }
-                  />
-                ))}
-              </div>
-            </Field>
-
-            <Field label="Allergens (FSA 14)">
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-                {FSA_ALLERGENS.map((a) => (
-                  <CheckboxRow
-                    key={a}
-                    label={a.replace('_', ' ')}
-                    checked={form.allergens.includes(a)}
-                    onChange={(checked) =>
-                      setForm((s) => ({
-                        ...s,
-                        allergens: checked ? [...s.allergens, a] : s.allergens.filter((x) => x !== a),
-                      }))
-                    }
-                  />
-                ))}
-              </div>
-            </Field>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="space-y-3 p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium">Photos</p>
-                <p className="text-xs text-muted-foreground">Up to 5. JPEG/PNG/WebP, 5 MB max each.</p>
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => fileRef.current?.click()}
-                disabled={upload.isPending || form.images.length >= 5 || isNew}
-                className="gap-2"
-              >
-                <Upload className="h-4 w-4" />
-                {upload.isPending ? 'Uploading…' : 'Upload'}
-              </Button>
-              <input
-                ref={fileRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) onUpload(f);
-                  e.target.value = '';
-                }}
-              />
-            </div>
-            {isNew && (
-              <p className="rounded-md bg-muted p-2 text-xs text-muted-foreground">
-                Save the item first, then come back here to upload photos.
+          <div className="mt-3 flex items-center justify-between rounded-2xl bg-surface p-3">
+            <div>
+              <p className="text-sm font-semibold text-dark">Halal certified</p>
+              <p className="text-xs text-mid">
+                Separate from the Halal dietary flag — for verified certification only.
               </p>
-            )}
-            <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
-              {form.images.map((url) => (
-                <div key={url} className="group relative aspect-square overflow-hidden rounded-md border">
-                  <Image src={url} alt="" fill sizes="120px" className="object-cover" />
-                  <button
-                    type="button"
-                    onClick={() => removeImage(url)}
-                    className="absolute right-1 top-1 rounded-full bg-black/70 p-1 text-white opacity-0 transition-opacity group-hover:opacity-100"
-                    aria-label="Remove photo"
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </button>
-                </div>
-              ))}
             </div>
-          </CardContent>
-        </Card>
+            <Switch
+              checked={form.isHalal}
+              onCheckedChange={(checked) => setForm((s) => ({ ...s, isHalal: checked }))}
+              className="data-[state=checked]:bg-teal"
+            />
+          </div>
+        </SectionCard>
 
-        <div className="flex items-center justify-end gap-2">
+        {/* CARD 4 — Spice level pill buttons */}
+        <SectionCard title="Spice level">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {SPICE_OPTIONS.map((s) => {
+              const active = form.spiceLevel === s.value;
+              return (
+                <button
+                  key={s.value}
+                  type="button"
+                  onClick={() => setForm((st) => ({ ...st, spiceLevel: s.value }))}
+                  className={cn(
+                    'flex flex-col items-center gap-1 rounded-2xl border px-3 py-3 text-sm font-semibold transition-colors',
+                    active
+                      ? 'border-brand bg-brand text-white'
+                      : 'border-border bg-white text-mid hover:bg-surface',
+                  )}
+                  aria-pressed={active}
+                >
+                  <span className="text-base leading-none" aria-hidden>
+                    {s.icon}
+                  </span>
+                  <span>{s.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </SectionCard>
+
+        {/* CARD 5 — FSA 14 allergens, 2-col grid w/ green-on-checked */}
+        <SectionCard title="Allergens (FSA 14)">
+          <p className="text-xs text-mid">
+            Required by law for any allergen present in the dish.
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {FSA_ALLERGENS.map((a) => {
+              const active = form.allergens.includes(a.value);
+              return (
+                <button
+                  key={a.value}
+                  type="button"
+                  onClick={() =>
+                    setForm((s) => ({
+                      ...s,
+                      allergens: active
+                        ? s.allergens.filter((x) => x !== a.value)
+                        : [...s.allergens, a.value],
+                    }))
+                  }
+                  className={cn(
+                    'flex items-center gap-2 rounded-xl border px-3 py-2 text-left text-sm transition-colors',
+                    active
+                      ? 'border-emerald-300 bg-emerald-50 text-emerald-900'
+                      : 'border-border bg-white text-dark hover:bg-surface',
+                  )}
+                  aria-pressed={active}
+                >
+                  <span aria-hidden>{a.icon}</span>
+                  <span className="flex-1 capitalize">{a.label}</span>
+                  <span
+                    aria-hidden
+                    className={cn(
+                      'flex h-5 w-5 items-center justify-center rounded border text-xs',
+                      active
+                        ? 'border-emerald-500 bg-emerald-500 text-white'
+                        : 'border-border',
+                    )}
+                  >
+                    {active ? '✓' : ''}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </SectionCard>
+
+        {/* CARD 6 — Photos. 5 slots; existing slots show the image, empty
+            slots show the upload affordance. (No drag-reorder yet — the
+            brief asks for it but the API doesn't expose an image-order
+            field, so reordering wouldn't persist. TODO: wire up once the
+            schema adds a sortable images array.) */}
+        <SectionCard title="Photos">
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-mid">
+              Up to 5. JPEG / PNG / WebP, 5 MB max each.
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => fileRef.current?.click()}
+              disabled={upload.isPending || form.images.length >= 5 || isNew}
+              className="gap-2"
+            >
+              <Upload className="h-4 w-4" />
+              {upload.isPending ? 'Uploading…' : 'Upload'}
+            </Button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) onUpload(f);
+                e.target.value = '';
+              }}
+            />
+          </div>
+          {isNew && (
+            <p className="rounded-xl bg-surface p-2 text-xs text-mid">
+              Save the item first, then come back here to upload photos.
+            </p>
+          )}
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+            {Array.from({ length: 5 }).map((_, i) => {
+              const url = form.images[i];
+              if (url) {
+                return (
+                  <div
+                    key={url}
+                    className="group relative aspect-square overflow-hidden rounded-xl border border-border"
+                  >
+                    <Image src={url} alt="" fill sizes="120px" className="object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => removeImage(url)}
+                      className="absolute right-1 top-1 rounded-full bg-black/70 p-1 text-white opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100"
+                      aria-label="Remove photo"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </div>
+                );
+              }
+              return (
+                <div
+                  key={`empty-${i}`}
+                  className="flex aspect-square items-center justify-center rounded-xl border border-dashed border-border bg-surface text-xs text-mid"
+                  aria-hidden
+                >
+                  Slot {i + 1}
+                </div>
+              );
+            })}
+          </div>
+        </SectionCard>
+      </form>
+
+      {/* STICKY SAVE BAR — always visible above the bottom safe-area so the
+          vendor never has to scroll to commit. */}
+      <div
+        className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-white/95 backdrop-blur"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+      >
+        <div className="container flex items-center justify-end gap-2 py-3">
           <Link href={`/menu/${menuId}`}>
-            <Button type="button" variant="ghost">Cancel</Button>
+            <Button type="button" variant="ghost">
+              Cancel
+            </Button>
           </Link>
-          <Button type="submit" disabled={!canSubmit || create.isPending || update.isPending}>
-            {isNew ? 'Create item' : 'Save changes'}
+          <Button
+            // Cross-form submit via the HTML5 `form` attribute — the visible
+            // submit lives in the sticky bottom bar, OUTSIDE the actual
+            // <form> element, so we associate by id rather than DOM nesting.
+            type="submit"
+            form="item-editor-form"
+            disabled={!canSubmit || create.isPending || update.isPending}
+            className="bg-vendor px-6 font-bold text-white hover:bg-vendor-dark"
+          >
+            {create.isPending || update.isPending
+              ? 'Saving…'
+              : isNew
+                ? 'Create item'
+                : 'Save changes'}
           </Button>
         </div>
-      </form>
+      </div>
     </div>
+  );
+}
+
+function SectionCard({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Card className="border-border shadow-sm">
+      <CardContent className="space-y-3 p-4">
+        <h2 className="text-sm font-bold uppercase tracking-wide text-mid">
+          {title}
+        </h2>
+        <div className="space-y-3">{children}</div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -531,29 +702,12 @@ function Field({
 }) {
   return (
     <div className="space-y-1.5">
-      <Label className="flex items-center gap-1">
+      <Label className="flex items-center gap-1 text-sm font-medium text-dark">
         {label}
         {required && <span className="text-destructive">*</span>}
       </Label>
       {children}
-      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+      {hint && <p className="text-xs text-mid">{hint}</p>}
     </div>
-  );
-}
-
-function CheckboxRow({
-  label,
-  checked,
-  onChange,
-}: {
-  label: string;
-  checked: boolean;
-  onChange: (checked: boolean) => void;
-}) {
-  return (
-    <label className="flex cursor-pointer items-center gap-2 rounded-md border border-input p-2 hover:bg-muted">
-      <Checkbox checked={checked} onCheckedChange={(c) => onChange(c === true)} />
-      <span className="text-sm capitalize">{label}</span>
-    </label>
   );
 }
