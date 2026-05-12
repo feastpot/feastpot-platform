@@ -40,7 +40,7 @@ export class RootController {
   }
 
   @Public()
-  @Get('healthz')
+  @Get(['healthz', 'livez'])
   async healthz(): Promise<{ status: string; db: string; timestamp: string }> {
     try {
       await this.prisma.$queryRaw`SELECT 1`;
