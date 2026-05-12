@@ -1,0 +1,215 @@
+You are a Next.js 15 payments and UX engineer. Rebuild the checkout, confirmation, and order tracking pages for the Feastpot PWA. Checkout is where money is lost — every visual friction point costs a sale.
+
+CONTEXT:
+- All Stripe logic, Supabase calls, and API fetches remain unchanged
+- Only visual layout and component presentation changes
+- AddressSelector, OrderSlotsService, and Stripe Elements integrations are already wired
+
+═══════════════════════════════════════════════════════
+STEP 1 — Checkout page visual redesign
+═══════════════════════════════════════════════════════
+
+Rebuild apps/web/src/app/checkout/page.tsx layout.
+
+The checkout is a SINGLE scrollable page — NOT a multi-step wizard.
+Research shows single-page checkout converts 22% better than steppers on mobile.
+All sections visible at once; user scrolls through them.
+
+Section order:
+1. ORDER SUMMARY (collapsible, shows expanded by default, collapses after review)
+2. DELIVERY ADDRESS
+3. DELIVERY SLOT
+4. ORDER NOTES
+5. PAYMENT
+
+SECTION 1 — Order summary:
+Collapsed state: "3 items · Maman's Kitchen · £87.50" with chevron
+Expanded: line items with quantities, subtotal, delivery fee, total
+Background: surface (#F8F7F5)
+
+SECTION 2 — Delivery address:
+Use the AddressSelector component (already built in FIX-01)
+Style: card with radio buttons, selected address gets brand orange border
+"+ Add new address" opens an inline accordion form (no navigation)
+
+SECTION 3 — Delivery slot visual calendar:
+
+Create apps/web/src/components/checkout/slot-picker.tsx:
+
+'use client'
+import { useState } from 'react'
+import { cn } from '@/lib/utils'
+import { format, addDays, isToday, isTomorrow } from 'date-fns'
+
+interface SlotPickerProps {
+  availableDays: number[]  // 0=Sun, 1=Mon … 6=Sat
+  slotOpenTime:  string    // "11:00"
+  slotCloseTime: string    // "18:00"
+  leadTimeHours: number
+  maxAdvanceDays: number
+  value: Date | null
+  onChange: (date: Date) => void
+}
+
+export function SlotPicker({ availableDays, slotOpenTime, slotCloseTime, leadTimeHours, maxAdvanceDays, value, onChange }: SlotPickerProps) {
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null)
+
+  // Build available dates
+  const today = new Date()
+  const cutoff = new Date(today.getTime() + leadTimeHours * 60 * 60 * 1000)
+  const dates: Date[] = []
+  for (let i = 0; i <= maxAdvanceDays; i++) {
+    const d = addDays(today, i)
+    if (availableDays.includes(d.getDay()) && d > cutoff) dates.push(d)
+  }
+
+  // Build time slots for selected date (1-hour slots between open and close)
+  const generateSlots = (date: Date) => {
+    const [openH, openM]   = slotOpenTime.split(':').map(Number)
+    const [closeH, closeM] = slotCloseTime.split(':').map(Number)
+    const slots: string[] = []
+    for (let h = openH; h < closeH; h++) {
+      slots.push(`${h.toString().padStart(2,'0')}:00–${(h+1).toString().padStart(2,'0')}:00`)
+    }
+    return slots
+  }
+
+  const formatDateLabel = (d: Date) => {
+    if (isToday(d)) return 'Today'
+    if (isTomorrow(d)) return 'Tomorrow'
+    return format(d, 'EEE d MMM')
+  }
+
+  return (
+    <div>
+      {/* Date row */}
+      <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2">
+        {dates.length === 0 ? (
+          <p className="text-sm text-mid py-2">No available slots — this vendor needs {leadTimeHours}h notice.</p>
+        ) : dates.map(d => (
+          <button
+            key={d.toISOString()}
+            onClick={() => setSelectedDate(d)}
+            className={cn(
+              'flex-shrink-0 flex flex-col items-center px-3 py-2.5 rounded-xl border text-sm font-medium transition-all',
+              selectedDate?.toDateString() === d.toDateString()
+                ? 'bg-teal text-white border-teal'
+                : 'bg-white text-dark border-gray-200 hover:border-teal/50'
+            )}
+          >
+            <span className="text-[10px] opacity-70">{format(d, 'EEE')}</span>
+            <span className="text-base font-bold">{format(d, 'd')}</span>
+            <span className="text-[10px] opacity-70">{format(d, 'MMM')}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Time slot pills */}
+      {selectedDate && (
+        <div className="flex flex-wrap gap-2 mt-3">
+          {generateSlots(selectedDate).map(slot => (
+            <button
+              key={slot}
+              onClick={() => {
+                const [h] = slot.split(':')
+                const d = new Date(selectedDate)
+                d.setHours(parseInt(h), 0, 0, 0)
+                onChange(d)
+              }}
+              className={cn(
+                'px-3 py-2 rounded-xl text-sm font-medium border transition-all',
+                value && format(value, 'HH:mm') === slot.split('–')[0]
+                  ? 'bg-brand text-white border-brand'
+                  : 'bg-white text-dark border-gray-200 hover:border-brand/50'
+              )}
+            >
+              {slot}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+SECTION 4 — Order notes:
+Simple Textarea: "Any customisation, spice adjustments, or gate codes"
+Styled: rounded-2xl border, focus:border-brand, placeholder in mid-grey
+
+SECTION 5 — Payment:
+Layout order (mobile-optimised):
+1. Apple Pay / Google Pay full-width buttons (if browser supports)
+2. "— or pay by card —" divider
+3. Stripe CardElement (already wired) in a rounded card
+4. Security badge row: 🔒 256-bit SSL · 💳 Stripe secured · 🛡️ Money-back guarantee
+5. "Place order · £{total}" — full-width brand orange button, 52px height
+
+STICKY BOTTOM — Order total summary:
+Fixed at bottom above keyboard:
+"Total: £{total}" + "Place order →" button
+Appears when the payment section scrolls into view
+
+═══════════════════════════════════════════════════════
+STEP 2 — Order confirmation screen
+═══════════════════════════════════════════════════════
+
+Rebuild apps/web/src/app/orders/[id]/confirmation/page.tsx (create if not exists, or update the post-checkout redirect):
+
+Full-screen layout:
+- Animated ✅ (CSS animation: scale 0→1 with bounce, green circle) 
+- "Order placed! 🎉" headline
+- Order reference: #FP-{short-id}
+- Vendor name and estimated delivery slot
+- Summary: items ordered, total paid
+- "Track your order →" brand orange button
+- Divider
+- "📲 Get notified when your order is ready" — push notification prompt
+  (only shown if push permission not yet granted)
+- Referral nudge: "Love Feastpot? Share your referral code and earn £5 credit"
+  Shows the customer's referral code in a copy-to-clipboard pill
+
+═══════════════════════════════════════════════════════
+STEP 3 — Order tracking page
+═══════════════════════════════════════════════════════
+
+Rebuild apps/web/src/app/orders/[id]/tracking/page.tsx:
+
+Keep the useOrderTracking hook (Supabase Realtime) — only visual changes.
+
+Layout:
+1. HEADER: Vendor name + cover image strip (h-32 blurred background)
+2. STATUS TIMELINE: Vertical stepper
+3. ORDER DETAILS: Collapsible card
+4. ACTION BUTTONS: Context-sensitive
+5. REVIEW PROMPT: Shown after delivery
+
+STATUS TIMELINE component — create apps/web/src/components/orders/status-timeline.tsx:
+
+const STAGES = [
+  { key: 'pending',    label: 'Order placed',          icon: '🛒' },
+  { key: 'accepted',   label: 'Vendor accepted',       icon: '👨‍🍳' },
+  { key: 'preparing',  label: 'Being prepared',        icon: '🍲' },
+  { key: 'dispatched', label: 'Out for delivery',      icon: '🚗' },
+  { key: 'delivered',  label: 'Delivered',             icon: '✅' },
+]
+
+For each stage, show:
+- Completed: green circle with ✓, solid line connecting to next
+- Current: brand orange circle with icon, pulsing ring animation, "In progress" label
+- Future: grey circle with icon, dashed line
+
+Add timestamps under completed stages: "Accepted at 14:32"
+
+CONNECTION STATUS (top-right corner):
+- 🟢 pulsing dot: "Live updates" (Realtime connected)
+- ⚪ dot: "Updates every 30s" (polling fallback)
+
+REVIEW PROMPT (shown 2h after delivered):
+Card at bottom with 5 interactive star buttons:
+"How was your order from {vendor}? ⭐⭐⭐⭐⭐"
+Tapping a star navigates to /orders/{id}/review
+
+Run: npm run dev:web
+Test full checkout flow with Stripe test card 4242 4242 4242 4242.
+Verify slot picker shows correct days and times for Maman's Kitchen config.
+Run: npm run typecheck --filter=@feastpot/web
