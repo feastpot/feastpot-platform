@@ -10,7 +10,20 @@ import { useVendorReviews } from '@/hooks/use-vendors';
  * fetches the next cursor page. Reviewer initials are rendered as a small
  * avatar circle since we deliberately don't expose full names of reviewers.
  */
-export function ReviewsSection({ vendorId }: { vendorId: string }) {
+/**
+ * `limit` (optional): cap visible reviews to the N most recent and HIDE the
+ * "Load more" pagination button. The vendor profile passes `limit={3}` to
+ * keep the page short and link out to a dedicated reviews surface later;
+ * passing no limit keeps the original full-pagination behaviour for
+ * standalone uses.
+ */
+export function ReviewsSection({
+  vendorId,
+  limit,
+}: {
+  vendorId: string;
+  limit?: number;
+}) {
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, error } =
     useVendorReviews(vendorId);
 
@@ -21,7 +34,9 @@ export function ReviewsSection({ vendorId }: { vendorId: string }) {
     return <p className="text-sm text-destructive">Failed to load reviews.</p>;
   }
 
-  const reviews = data?.pages.flatMap((p) => p.data) ?? [];
+  const allReviews = data?.pages.flatMap((p) => p.data) ?? [];
+  const reviews = typeof limit === 'number' ? allReviews.slice(0, limit) : allReviews;
+  const showLoadMore = limit === undefined && hasNextPage;
 
   if (reviews.length === 0) {
     return <p className="text-sm text-muted-foreground">No reviews yet.</p>;
@@ -61,7 +76,7 @@ export function ReviewsSection({ vendorId }: { vendorId: string }) {
         ))}
       </ul>
 
-      {hasNextPage && (
+      {showLoadMore && (
         <button
           type="button"
           onClick={() => fetchNextPage()}

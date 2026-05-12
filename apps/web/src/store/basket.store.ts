@@ -40,6 +40,15 @@ export interface BasketState {
   addItem(item: Omit<BasketItem, 'lineTotalPence' | 'lineId'>, vendor: BasketVendor): void;
   removeLine(lineId: string): void;
   updateLineQuantity(lineId: string, quantity: number): void;
+  /**
+   * Edit the customisation notes on an existing line. Because `lineId` is
+   * derived from `(menuItemId, customisationNotes)`, changing notes also
+   * changes the line's identity:
+   *   - if the new lineId collides with another existing line, the two are
+   *     merged (quantities summed, old line removed);
+   *   - otherwise the line is updated in place with its new lineId + notes.
+   */
+  updateLineNotes(lineId: string, notes: string): void;
   clearBasket(): void;
 
   /** Convenience selectors — kept inside the store so consumers don't recompute. */
@@ -129,6 +138,55 @@ export const useBasketStore = create<BasketState>()(
           items: get().items.map((i) =>
             i.lineId === lineId
               ? { ...i, quantity, lineTotalPence: calcLineTotal(i.unitPricePence, quantity) }
+              : i,
+          ),
+        });
+      },
+
+      updateLineNotes(lineId, notes) {
+        const trimmed = notes.trim();
+        const state = get();
+        const target = state.items.find((i) => i.lineId === lineId);
+        if (!target) return;
+
+        const newNotes = trimmed.length > 0 ? trimmed : undefined;
+        const newLineId = makeLineId(target.menuItemId, newNotes);
+        if (newLineId === lineId) {
+          // Same identity — only the (undefined↔'') normalisation can land
+          // here; just persist the cleaned value without any merge work.
+          set({
+            items: state.items.map((i) =>
+              i.lineId === lineId ? { ...i, customisationNotes: newNotes } : i,
+            ),
+          });
+          return;
+        }
+
+        const collision = state.items.find((i) => i.lineId === newLineId);
+        if (collision) {
+          // Merge: sum quantities into the collision line, drop the original.
+          const mergedQty = collision.quantity + target.quantity;
+          set({
+            items: state.items
+              .filter((i) => i.lineId !== lineId)
+              .map((i) =>
+                i.lineId === newLineId
+                  ? {
+                      ...i,
+                      quantity: mergedQty,
+                      lineTotalPence: calcLineTotal(i.unitPricePence, mergedQty),
+                    }
+                  : i,
+              ),
+          });
+          return;
+        }
+
+        // No collision: rekey the line with new notes + new lineId.
+        set({
+          items: state.items.map((i) =>
+            i.lineId === lineId
+              ? { ...i, lineId: newLineId, customisationNotes: newNotes }
               : i,
           ),
         });

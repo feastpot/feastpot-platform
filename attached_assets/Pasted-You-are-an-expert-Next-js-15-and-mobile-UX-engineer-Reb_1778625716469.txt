@@ -1,0 +1,273 @@
+You are an expert Next.js 15 and mobile UX engineer. Rebuild the vendor profile, menu display, and basket flow for the Feastpot PWA. This is the highest-revenue phase — a 10% improvement in add-to-basket rate equals thousands of pounds in additional monthly GMV.
+
+CONTEXT:
+- Phase 1 (PWA-01) and Phase 2 (PWA-02) are complete
+- All Zustand basket store logic (useBasketStore, CrossVendorBasketError) remains unchanged
+- Only the visual layer changes
+
+═══════════════════════════════════════════════════════
+STEP 1 — MenuItem card with inline quantity control
+═══════════════════════════════════════════════════════
+
+Create apps/web/src/components/menu/menu-item-card.tsx:
+
+'use client'
+import { useState } from 'react'
+import Image from 'next/image'
+import { Plus, Minus, Info, Flame } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { useBasketStore } from '@/store/basket.store'
+import type { MenuItem } from '@feastpot/types'
+
+const SPICE_ICONS = ['', '🌶️', '🌶️🌶️', '🌶️🌶️🌶️']
+const DIETARY_ICONS: Record<string,string> = { halal:'🟢', vegan:'🌱', vegetarian:'🥗', gluten_free:'⚪️', dairy_free:'🥛' }
+
+export function MenuItemCard({ item, vendorId }: { item: MenuItem; vendorId: string }) {
+  const [showAllergens, setShowAllergens] = useState(false)
+  const [justAdded, setJustAdded]         = useState(false)
+  
+  const { items, addItem, removeItem, updateQuantity } = useBasketStore()
+  const basketItem = items.find(i => i.menuItemId === item.id)
+  const qty = basketItem?.quantity ?? 0
+
+  const handleAdd = () => {
+    addItem({
+      menuItemId:      item.id,
+      menuItemName:    item.name,
+      quantity:        1,
+      unitPricePence:  item.basePricePence,
+      lineTotalPence:  item.basePricePence,
+    }, vendorId)
+    // Spring animation feedback
+    setJustAdded(true)
+    setTimeout(() => setJustAdded(false), 600)
+    // Haptic feedback on supported devices
+    if (navigator.vibrate) navigator.vibrate(30)
+  }
+
+  const handleMinus = () => {
+    if (qty === 1) removeItem(item.id)
+    else updateQuantity(item.id, qty - 1)
+  }
+
+  if (!item.isAvailable) {
+    return (
+      <div className="fp-card p-3 opacity-50">
+        <div className="flex gap-3">
+          <div className="flex-1">
+            <p className="font-semibold text-dark text-sm">{item.name}</p>
+            <p className="text-xs text-mid mt-0.5 line-through">
+              £{(item.basePricePence / 100).toFixed(2)}
+            </p>
+          </div>
+          <span className="text-xs text-mid self-center">Unavailable</span>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className={cn(
+      'fp-card p-3 transition-all duration-200',
+      justAdded && 'scale-[1.01] shadow-card-lg'
+    )}>
+      <div className="flex gap-3">
+        {/* Food image */}
+        {item.images?.[0] && (
+          <div className="relative w-24 h-24 rounded-xl overflow-hidden flex-shrink-0">
+            <Image
+              src={item.images[0]}
+              alt={item.name}
+              fill
+              className="object-cover"
+              sizes="96px"
+            />
+          </div>
+        )}
+
+        {/* Content */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-2">
+            <h3 className="font-bold text-dark text-sm leading-tight">{item.name}</h3>
+            {item.spiceLevel > 0 && (
+              <span className="text-xs flex-shrink-0">{SPICE_ICONS[item.spiceLevel]}</span>
+            )}
+          </div>
+
+          {item.portionLabel && (
+            <p className="text-[11px] text-mid mt-0.5">{item.portionLabel}</p>
+          )}
+
+          {item.description && (
+            <p className="text-[11px] text-mid mt-1 line-clamp-2 leading-relaxed">
+              {item.description}
+            </p>
+          )}
+
+          {/* Dietary flags */}
+          {item.dietaryFlags?.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-1.5">
+              {item.dietaryFlags.map(f => (
+                <span key={f} className="text-[10px] bg-teal-light text-teal-dark px-1.5 py-0.5 rounded-md">
+                  {DIETARY_ICONS[f] ?? ''} {f.replace('_', ' ')}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Price + quantity row */}
+          <div className="flex items-center justify-between mt-2.5">
+            <span className="text-[15px] font-bold text-dark">
+              £{(item.basePricePence / 100).toFixed(2)}
+            </span>
+
+            {/* Inline quantity control */}
+            {qty === 0 ? (
+              <button
+                onClick={handleAdd}
+                className="flex items-center justify-center w-9 h-9 bg-brand text-white rounded-full shadow-sm active:scale-95 transition-transform"
+                aria-label={`Add ${item.name}`}
+              >
+                <Plus className="w-5 h-5" />
+              </button>
+            ) : (
+              <div className={cn(
+                'flex items-center gap-1 bg-brand rounded-full px-1 py-1 shadow-sm transition-all duration-200',
+                justAdded && 'scale-110'
+              )}>
+                <button
+                  onClick={handleMinus}
+                  className="w-7 h-7 flex items-center justify-center text-white active:scale-90 transition-transform"
+                >
+                  <Minus className="w-4 h-4" />
+                </button>
+                <span className="text-white font-bold text-sm w-5 text-center animate-count-up">
+                  {qty}
+                </span>
+                <button
+                  onClick={handleAdd}
+                  className="w-7 h-7 flex items-center justify-center text-white active:scale-90 transition-transform"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Allergen toggle */}
+          {item.allergens?.length > 0 && (
+            <button
+              onClick={() => setShowAllergens(s => !s)}
+              className="flex items-center gap-1 text-[10px] text-mid mt-2 hover:text-dark transition-colors"
+            >
+              <Info className="w-3 h-3" />
+              {showAllergens ? 'Hide allergens' : 'View allergens'}
+            </button>
+          )}
+          {showAllergens && (
+            <p className="text-[10px] text-mid mt-1 bg-amber-50 rounded-lg p-2 leading-relaxed">
+              ⚠️ Contains: {item.allergens.join(', ')}
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+═══════════════════════════════════════════════════════
+STEP 2 — Floating sticky basket bar
+═══════════════════════════════════════════════════════
+
+Create apps/web/src/components/basket/floating-basket-bar.tsx:
+
+'use client'
+import { useBasketStore } from '@/store/basket.store'
+import { ShoppingBag, ChevronRight } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { cn } from '@/lib/utils'
+
+export function FloatingBasketBar() {
+  const router   = useRouter()
+  const { items } = useBasketStore()
+  
+  const totalItems  = items.reduce((a, i) => a + i.quantity, 0)
+  const totalPence  = items.reduce((a, i) => a + i.lineTotalPence, 0)
+  const vendorName  = items[0]?.vendorName ?? ''
+
+  if (totalItems === 0) return null
+
+  return (
+    <div
+      className="fixed bottom-[calc(64px+env(safe-area-inset-bottom))] left-4 right-4 z-40 animate-slide-up"
+    >
+      <button
+        onClick={() => router.push('/checkout')}
+        className="w-full flex items-center justify-between bg-brand text-white px-4 py-3.5 rounded-2xl shadow-card-lg active:scale-[0.98] transition-transform"
+      >
+        {/* Left: count pill + vendor */}
+        <div className="flex items-center gap-2.5">
+          <span className="flex items-center justify-center w-7 h-7 bg-white/20 rounded-full text-sm font-bold">
+            {totalItems}
+          </span>
+          <div className="text-left">
+            <p className="text-[13px] font-semibold leading-tight">View basket</p>
+            {vendorName && (
+              <p className="text-[10px] text-white/70 leading-tight">{vendorName}</p>
+            )}
+          </div>
+        </div>
+
+        {/* Right: total + arrow */}
+        <div className="flex items-center gap-1">
+          <span className="text-[15px] font-bold">
+            £{(totalPence / 100).toFixed(2)}
+          </span>
+          <ChevronRight className="w-5 h-5 text-white/80" />
+        </div>
+      </button>
+    </div>
+  )
+}
+
+Add <FloatingBasketBar /> to the vendor profile page layout (not the global layout — only shows on /vendors/[slug]).
+
+═══════════════════════════════════════════════════════
+STEP 3 — Rebuild vendor profile page layout
+═══════════════════════════════════════════════════════
+
+Rebuild apps/web/src/app/vendors/[slug]/page.tsx layout only (keep data fetching):
+
+Layout structure:
+1. HERO: Full-width cover image (h-52), vendor logo overlaid bottom-left, back arrow top-left
+2. VENDOR INFO: Card below hero — name, cuisine tags, rating, FSA badge, min order, delivery info
+3. MENU NAVIGATION: Horizontal scroll tabs for menu categories (Trays, Soups, Proteins, Snacks etc.)
+4. MENU ITEMS: Grouped by category, each group has a sticky category header
+5. FLOATING BAR: FloatingBasketBar component
+6. REVIEWS: At bottom, 3 most recent approved reviews
+
+Vendor info card design:
+- Name: 20px bold
+- Cuisine tags: pills in surface bg
+- Rating: ⭐ {avg} ({count} reviews) — tappable, scrolls to reviews
+- FSA badge: green pill if ≥4
+- Min order: "£25 minimum order" in small grey text
+- Delivery: "Fri & Sat · 11am–6pm · 24h notice"
+
+═══════════════════════════════════════════════════════
+STEP 4 — Basket Sheet
+═══════════════════════════════════════════════════════
+
+Rebuild apps/web/src/components/basket/basket-drawer.tsx using the shadcn Sheet:
+- Trigger: basket icon in TopNav (shows count badge when >0)
+- Sheet slides up from bottom on mobile
+- Header: "Your basket" + "Clear" link
+- Line items: dish name, portion label, quantity control, line total, × remove
+- Customisation notes: expandable per item (tapping item shows a text input)
+- Subtotal + delivery fee (fetched from vendor config) + total
+- "Proceed to checkout" brand orange button pinned to bottom
+- Empty state: "Your basket is empty" with browse CTA
+
+Run: npm run dev:web
+Test: add multiple items, verify floating bar appears and total updates, tap through to checkout.
+Run: npm run typecheck --filter=@feastpot/web

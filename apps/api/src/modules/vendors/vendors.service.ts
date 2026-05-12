@@ -467,6 +467,27 @@ export class VendorsService {
     return vendor;
   }
 
+  /**
+   * Slug → public profile lookup. Used by the customer PWA which addresses
+   * vendors by `/vendors/<slug>` rather than UUID. Two-hop (`findBySlug`
+   * for the id, then `findById` for the full payload) so the response
+   * shape stays identical to GET /v1/vendors/:id without us having to
+   * duplicate the Prisma include tree across two repository methods.
+   *
+   * SECURITY: this is a public, unauthenticated route addressed by
+   * human-readable slug, which is trivially guessable. We therefore return
+   * 404 for anything not in `live` status — pending/suspended/draft vendor
+   * profiles must NOT be enumerable from the customer-facing surface. Use
+   * the UUID `:id` route (admin/vendor surfaces) for non-live access.
+   */
+  async findBySlug(slug: string) {
+    const lite = await this.repo.findBySlug(slug);
+    if (!lite || lite.status !== 'live') {
+      throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'Vendor not found' });
+    }
+    return this.findById(lite.id);
+  }
+
   async findMyVendor(userId: string) {
     const vendor = await this.repo.findByUserId(userId);
     if (!vendor) {

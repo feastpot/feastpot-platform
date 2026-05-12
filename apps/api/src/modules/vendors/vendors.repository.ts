@@ -167,6 +167,19 @@ export class VendorRepository {
       include: {
         deliveryConfig: true,
         _count: { select: { menus: { where: { isActive: true } } } },
+        // Active menus + their items so the customer PWA's profile page can
+        // render the menu without an extra round-trip. Items are returned
+        // in the order vendors define on the menu (createdAt asc) — the
+        // client groups them by `category` for display.
+        menus: {
+          where: { isActive: true },
+          orderBy: { createdAt: 'asc' },
+          include: {
+            items: {
+              orderBy: { createdAt: 'asc' },
+            },
+          },
+        },
       },
     });
   }

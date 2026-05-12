@@ -117,6 +117,13 @@ export class VendorsController {
   }
 
   @Public()
+  @Get('by-slug/:slug')
+  @ApiOperation({ summary: 'Get vendor by slug (public) — used by customer PWA' })
+  findBySlug(@Param('slug') slug: string) {
+    return this.vendors.findBySlug(slug);
+  }
+
+  @Public()
   @Get(':id')
   @ApiOperation({ summary: 'Get vendor by id (public)' })
   findOne(@Param('id', new ParseUUIDPipe()) id: string) {
