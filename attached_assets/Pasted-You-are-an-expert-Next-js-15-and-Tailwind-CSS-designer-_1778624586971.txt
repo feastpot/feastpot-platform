@@ -1,0 +1,300 @@
+You are an expert Next.js 15 and Tailwind CSS designer rebuilding the Feastpot customer PWA at apps/web. This is a phased redesign starting with the global design foundation. Do NOT change any data-fetching logic, API calls, or Supabase auth — only visual and layout changes.
+
+CONTEXT:
+- Stack: Next.js 15 App Router, Tailwind CSS 4, shadcn/ui, @feastpot/ui package
+- Brand: Feastpot, food marketplace for African & Caribbean diaspora in London
+- Brand colours: #E8520A (orange/brand), #1D9E75 (teal), #1C1C1A (dark), #5F5E5A (mid-grey)
+- Target device: iPhone (primary), Android — all interactions must be thumb-reachable
+- 21st.dev components are React + Tailwind — compatible with this stack
+- DO NOT install next-pwa (broken on Next 15) — use @ducanh2912/next-pwa only if already installed
+
+═══════════════════════════════════════════════════════
+STEP 1 — Update Tailwind config with brand design tokens
+═══════════════════════════════════════════════════════
+
+Update apps/web/tailwind.config.ts:
+
+import type { Config } from 'tailwindcss'
+import { fontFamily } from 'tailwindcss/defaultTheme'
+
+const config: Config = {
+  darkMode: false,  // Feastpot is light-mode only for launch
+  content: [
+    './src/**/*.{ts,tsx}',
+    '../../packages/ui/src/**/*.{ts,tsx}',
+  ],
+  theme: {
+    extend: {
+      colors: {
+        brand: {
+          DEFAULT: '#E8520A',
+          light:   '#FEF0E9',
+          dark:    '#B33D07',
+          50:      '#FEF0E9',
+          100:     '#FDD8C4',
+          500:     '#E8520A',
+          600:     '#C94308',
+          700:     '#B33D07',
+        },
+        teal: {
+          DEFAULT: '#1D9E75',
+          light:   '#E1F5EE',
+          dark:    '#0F6E56',
+          50:      '#E1F5EE',
+          500:     '#1D9E75',
+          600:     '#178A65',
+          700:     '#0F6E56',
+        },
+        vendor: '#185FA5',
+        dark:    '#1C1C1A',
+        mid:     '#5F5E5A',
+        surface: '#F8F7F5',  // warm off-white background — food brands never use pure white
+      },
+      fontFamily: {
+        sans: ['Inter var', 'Inter', ...fontFamily.sans],
+      },
+      borderRadius: {
+        '2xl': '1rem',
+        '3xl': '1.5rem',
+        '4xl': '2rem',
+      },
+      boxShadow: {
+        'card':    '0 1px 4px 0 rgba(28,28,26,0.08), 0 4px 16px 0 rgba(28,28,26,0.04)',
+        'card-lg': '0 4px 24px 0 rgba(28,28,26,0.10)',
+        'sticky':  '0 -2px 16px 0 rgba(28,28,26,0.08)',
+      },
+      animation: {
+        'fade-up':   'fadeUp 0.3s ease-out',
+        'slide-up':  'slideUp 0.25s ease-out',
+        'pulse-dot': 'pulseDot 2s infinite',
+        'count-up':  'countUp 0.4s ease-out',
+      },
+      keyframes: {
+        fadeUp:   { '0%': { opacity:'0', transform:'translateY(8px)' }, '100%': { opacity:'1', transform:'translateY(0)' } },
+        slideUp:  { '0%': { transform:'translateY(100%)' }, '100%': { transform:'translateY(0)' } },
+        pulseDot: { '0%,100%': { opacity:'1', transform:'scale(1)' }, '50%': { opacity:'0.6', transform:'scale(1.15)' } },
+        countUp:  { '0%': { opacity:'0', transform:'translateY(4px)' }, '100%': { opacity:'1', transform:'translateY(0)' } },
+      },
+    },
+  },
+  plugins: [],
+}
+export default config
+
+═══════════════════════════════════════════════════════
+STEP 2 — Update global CSS
+═══════════════════════════════════════════════════════
+
+Replace apps/web/src/app/globals.css with:
+
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+
+:root {
+  --font-sans: 'Inter var', 'Inter', sans-serif;
+  
+  /* Brand */
+  --brand:       #E8520A;
+  --brand-light: #FEF0E9;
+  --teal:        #1D9E75;
+  --teal-light:  #E1F5EE;
+  --dark:        #1C1C1A;
+  --mid:         #5F5E5A;
+  --surface:     #F8F7F5;
+  
+  /* Spacing for bottom nav */
+  --bottom-nav-height: 64px;
+  --top-nav-height:    56px;
+  --page-safe-bottom:  calc(var(--bottom-nav-height) + env(safe-area-inset-bottom));
+}
+
+/* Remove tap highlight on mobile */
+* { -webkit-tap-highlight-color: transparent; }
+
+/* Smooth scrolling */
+html { scroll-behavior: smooth; }
+
+/* Body background — warm off-white feels more premium than stark white for food */
+body {
+  background-color: var(--surface);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Page content must clear the bottom nav */
+.page-content {
+  padding-bottom: var(--page-safe-bottom);
+  padding-top: var(--top-nav-height);
+}
+
+/* Card baseline */
+.fp-card {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 1px 4px 0 rgba(28,28,26,0.08), 0 4px 16px 0 rgba(28,28,26,0.04);
+}
+
+/* Touch target minimum */
+.touch-target { min-height: 44px; min-width: 44px; }
+
+/* Brand gradient */
+.brand-gradient { background: linear-gradient(135deg, #E8520A 0%, #B33D07 100%); }
+
+═══════════════════════════════════════════════════════
+STEP 3 — Rebuild BottomNav using 21st.dev pattern
+═══════════════════════════════════════════════════════
+
+Replace apps/web/src/components/layout/bottom-nav.tsx entirely:
+
+'use client'
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
+import { Home, Search, ShoppingBag, User } from 'lucide-react'
+import { useBasketStore } from '@/store/basket.store'
+import { cn } from '@/lib/utils'
+
+const NAV_ITEMS = [
+  { href: '/',         icon: Home,        label: 'Home'   },
+  { href: '/vendors',  icon: Search,      label: 'Browse' },
+  { href: '/orders',   icon: ShoppingBag, label: 'Orders' },
+  { href: '/account',  icon: User,        label: 'Account'},
+]
+
+export function BottomNav() {
+  const pathname = usePathname()
+  const basketCount = useBasketStore(s => s.items.reduce((a, i) => a + i.quantity, 0))
+
+  return (
+    <nav
+      className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-100 shadow-sticky"
+      style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+      aria-label="Main navigation"
+    >
+      <div className="flex items-center justify-around h-16 max-w-lg mx-auto px-2">
+        {NAV_ITEMS.map(({ href, icon: Icon, label }) => {
+          const isActive = href === '/' ? pathname === '/' : pathname.startsWith(href)
+          const isOrders = href === '/orders'
+
+          return (
+            <Link
+              key={href}
+              href={href}
+              className={cn(
+                'flex flex-col items-center gap-0.5 px-3 py-2 rounded-2xl transition-all duration-200 touch-target',
+                isActive ? 'text-brand' : 'text-mid hover:text-dark'
+              )}
+              aria-current={isActive ? 'page' : undefined}
+            >
+              <div className="relative">
+                <Icon
+                  className={cn('w-6 h-6 transition-transform duration-200', isActive && 'scale-110')}
+                  strokeWidth={isActive ? 2.5 : 1.75}
+                />
+                {/* Basket badge on Orders icon */}
+                {isOrders && basketCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center w-4 h-4 text-[9px] font-bold text-white bg-brand rounded-full animate-fade-up">
+                    {basketCount > 9 ? '9+' : basketCount}
+                  </span>
+                )}
+              </div>
+              <span className={cn('text-[10px] font-medium', isActive ? 'text-brand' : 'text-mid')}>
+                {label}
+              </span>
+              {/* Active indicator dot */}
+              {isActive && (
+                <span className="absolute bottom-1 w-1 h-1 rounded-full bg-brand" />
+              )}
+            </Link>
+          )
+        })}
+      </div>
+    </nav>
+  )
+}
+
+═══════════════════════════════════════════════════════
+STEP 4 — Rebuild TopNav
+═══════════════════════════════════════════════════════
+
+Replace apps/web/src/components/layout/top-nav.tsx:
+
+'use client'
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
+import { Bell } from 'lucide-react'
+import { useBasketStore } from '@/store/basket.store'
+import { BasketDrawer } from '@/components/basket/basket-drawer'
+
+// Page titles mapped to routes
+const PAGE_TITLES: Record<string, string> = {
+  '/':        '',           // Homepage shows the logo, not a title
+  '/vendors': 'Browse',
+  '/orders':  'Your Orders',
+  '/account': 'Account',
+  '/checkout':'Checkout',
+  '/help':    'Help',
+}
+
+export function TopNav() {
+  const pathname = usePathname()
+  const title = Object.entries(PAGE_TITLES).find(([k]) =>
+    k === '/' ? pathname === '/' : pathname.startsWith(k)
+  )?.[1] ?? ''
+
+  const isHome = pathname === '/'
+
+  return (
+    <header
+      className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm border-b border-gray-100"
+      style={{ height: 'var(--top-nav-height)', paddingTop: 'env(safe-area-inset-top)' }}
+    >
+      <div className="flex items-center justify-between h-14 max-w-lg mx-auto px-4">
+        {/* Logo on homepage, back-capable title on inner pages */}
+        {isHome ? (
+          <Link href="/" className="flex items-center gap-1.5">
+            <span className="text-2xl font-black tracking-tight text-brand">feast</span>
+            <span className="text-2xl font-black tracking-tight text-dark">pot</span>
+          </Link>
+        ) : (
+          <h1 className="text-[17px] font-semibold text-dark">{title}</h1>
+        )}
+
+        {/* Right actions */}
+        <div className="flex items-center gap-1">
+          <button
+            className="relative flex items-center justify-center w-10 h-10 rounded-full text-mid hover:text-dark hover:bg-surface transition-colors"
+            aria-label="Notifications"
+          >
+            <Bell className="w-5 h-5" strokeWidth={1.75} />
+          </button>
+          <BasketDrawer />
+        </div>
+      </div>
+    </header>
+  )
+}
+
+═══════════════════════════════════════════════════════
+STEP 5 — Update root layout
+═══════════════════════════════════════════════════════
+
+Update apps/web/src/app/layout.tsx:
+- Wrap <body> children in a <div className="relative min-h-screen bg-surface">
+- Add <TopNav /> and <BottomNav /> 
+- Wrap page content in <main className="page-content max-w-lg mx-auto">
+- Keep all existing providers (QueryProvider, Supabase, Toaster) unchanged
+
+═══════════════════════════════════════════════════════
+STEP 6 — Verify
+═══════════════════════════════════════════════════════
+
+Run: npm run dev:web
+Open http://localhost:3000 and confirm:
+1. Warm off-white background (not stark white)
+2. Bottom nav fixed at bottom with correct icons and active states
+3. Top nav with Feastpot wordmark on homepage
+4. No layout shift when navigating between routes
+5. Content does not overlap the bottom nav on any page
+
+Run: npm run typecheck --filter=@feastpot/web
+Fix all TypeScript errors before proceeding to PWA-02.

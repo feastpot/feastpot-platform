@@ -16,6 +16,14 @@
     --brand-teal: #1d9e75;
     --brand-dark: #1c1c1a;
     --brand-gray: #5f5e5a;
+    --surface: #f8f7f5;
+
+    /* Layout chrome — used by .page-content + nav components below.
+       Set as raw px so calc() can mix with env(safe-area-inset-*). */
+    --bottom-nav-height: 64px;
+    --top-nav-height: 56px;
+    --page-safe-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom));
+    --page-safe-top: calc(var(--top-nav-height) + env(safe-area-inset-top));
 
     /* shadcn/ui token set (HSL channels) */
     --background: 40 33% 98%;
@@ -62,14 +70,56 @@
     --ring: 19 92% 53%;
   }
 
-  html,
-  body {
-    @apply bg-background text-foreground;
+  /* Mobile-only: kill the iOS tap highlight. */
+  * {
     -webkit-tap-highlight-color: transparent;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Warm off-white feels more premium than stark white for food brands.
+     Override the shadcn `bg-background` on the body specifically — individual
+     surfaces (cards, sheets) still pick up the white --card token. */
+  body {
+    @apply text-foreground;
+    background-color: var(--surface);
+    -webkit-font-smoothing: antialiased;
   }
 
   button,
   [role='button'] {
     @apply touch-manipulation;
+  }
+}
+
+@layer components {
+  /* Page content must clear the fixed top + bottom navs. Apply to the <main>
+     wrapper in layout.tsx; nested route content inherits the safe area. */
+  .page-content {
+    padding-top: var(--page-safe-top);
+    padding-bottom: var(--page-safe-bottom);
+  }
+
+  /* Card baseline — use when shadcn's `<Card>` is overkill (e.g. vendor tile,
+     order summary). Pure white surface on the warm body background. */
+  .fp-card {
+    background: #fff;
+    border-radius: 16px;
+    box-shadow:
+      0 1px 4px 0 rgba(28, 28, 26, 0.08),
+      0 4px 16px 0 rgba(28, 28, 26, 0.04);
+  }
+
+  /* WCAG 2.5.5 minimum tappable area — apply to any interactive element that
+     would otherwise render below 44x44 (icon buttons, chip dismissers). */
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .brand-gradient {
+    background: linear-gradient(135deg, #e8520a 0%, #b33d07 100%);
   }
 }

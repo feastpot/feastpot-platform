@@ -67,11 +67,11 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en-GB" className={inter.variable}>
-      <body className="min-h-screen bg-background font-sans text-foreground antialiased">
+      <body className="min-h-screen bg-surface font-sans text-foreground antialiased">
         <QueryProvider>
           <ToastProvider>
             <TopNav />
-            {children}
+            <main className="page-content mx-auto max-w-lg">{children}</main>
             <BottomNav />
             <PushPermissionPrompt />
             <CookieBanner />
