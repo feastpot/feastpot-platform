@@ -72,7 +72,7 @@ function VendorSearch() {
           </div>
         )}
 
-        <ul className="space-y-3">
+        <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {vendors.map((v) => (
             <li key={v.id}>
               <VendorCard vendor={v} />
