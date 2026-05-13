@@ -29,7 +29,16 @@ export interface OrderVendorSummary {
   businessName: string;
   slug: string;
   logoUrl?: string | null;
-  phone?: string | null;
+  user?: { phone?: string | null } | null;
+}
+
+export interface OrderAmendment {
+  id: string;
+  proposedChange: string;
+  priceDeltaPence: number;
+  status: 'pending' | 'accepted' | 'declined' | 'expired';
+  expiresAt: string;
+  createdAt: string;
 }
 
 export interface Order {
@@ -49,9 +58,27 @@ export interface Order {
   dispatchedAt: string | null;
   deliveredAt: string | null;
   cancelledAt: string | null;
+  /** Vendor-provided ETA in minutes from dispatch. Null until dispatched. */
+  etaMinutes: number | null;
+  /** Absolute ETA wall-clock — preferred over etaMinutes for display. */
+  etaAt: string | null;
   createdAt: string;
   items?: OrderItem[];
   vendor?: OrderVendorSummary;
+  /** Server returns only pending amendments. */
+  amendments?: OrderAmendment[];
+}
+
+export function respondToAmendment(
+  orderId: string,
+  accepted: boolean,
+  accessToken: string,
+): Promise<OrderAmendment> {
+  return apiRequest<OrderAmendment>(`/orders/${orderId}/amendment`, {
+    method: 'PATCH',
+    body: { accepted },
+    accessToken,
+  });
 }
 
 export interface CreateOrderInput {

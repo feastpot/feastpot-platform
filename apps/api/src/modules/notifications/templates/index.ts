@@ -184,6 +184,54 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
     whatsappTemplate: 'delivery_confirmed',
   },
 
+  // ---------- Amendments + ETA (FR-AMD-001 / FR-TRK-001) ----------
+  order_amendment_proposed: {
+    subject: (d) => `${str(d.vendorName, 'Your vendor')} proposed a change to order #${str(d.orderNumber)}`,
+    render: (d) => {
+      const delta = typeof d.priceDeltaPence === 'number' ? (d.priceDeltaPence as number) : 0;
+      const deltaLine = delta < 0 ? p(`<strong>Refund:</strong> ${formatMoney(-delta)}`) : '';
+      return baseLayout(
+        'Vendor proposed a change',
+        h2(`${str(d.vendorName, 'Your vendor')} would like to change your order`) +
+          p(`<em>${esc(d.proposedChange, '')}</em>`) +
+          deltaLine +
+          p('You have 30 minutes to accept or decline. No reply means the change is declined.') +
+          brandButton('Review change', trackingUrl(d.orderId), 'teal'),
+      );
+    },
+    sms: (d) =>
+      `Feastpot: ${str(d.vendorName, 'Your vendor')} proposed a change to order ${str(d.orderNumber)}: "${str(d.proposedChange)}". Review: ${trackingUrl(d.orderId)}`,
+    channels: ['email', 'sms', 'whatsapp', 'push'],
+    whatsappTemplate: 'order_amendment_proposed',
+  },
+  order_amendment_resolved: {
+    subject: (d) => (d.accepted ? 'Order change accepted' : 'Order change declined'),
+    render: (d) =>
+      baseLayout(
+        d.accepted ? 'Change accepted' : 'Change declined',
+        h2(d.accepted ? 'Change accepted' : 'Change declined') +
+          p(`<em>${esc(d.proposedChange, '')}</em>`) +
+          (d.accepted && typeof d.priceDeltaPence === 'number' && (d.priceDeltaPence as number) < 0
+            ? p(`A refund of <strong>${formatMoney(-(d.priceDeltaPence as number))}</strong> is on its way.`)
+            : ''),
+      ),
+    channels: ['email', 'push'],
+  },
+  order_eta_overdue: {
+    subject: (d) => `Your order from ${str(d.vendorName, 'your vendor')} is running late`,
+    render: (d) =>
+      baseLayout(
+        'Order running late',
+        h2('Your order is running late') +
+          p(`Order <strong>${esc(d.orderNumber)}</strong> from ${esc(d.vendorName, 'your vendor')} is past the vendor's stated ETA.`) +
+          p('Use the contact button on the tracking page if you need to reach them.') +
+          brandButton('Open tracking', trackingUrl(d.orderId), 'teal'),
+      ),
+    sms: (d) =>
+      `Feastpot: Order ${str(d.orderNumber)} from ${str(d.vendorName, 'your vendor')} is running late. Track: ${trackingUrl(d.orderId)}`,
+    channels: ['email', 'sms', 'push'],
+  },
+
   // ---------- Refunds ----------
   refund_issued_customer: {
     subject: (d) => `Refund of ${formatMoney(d.amountPence)} processed`,

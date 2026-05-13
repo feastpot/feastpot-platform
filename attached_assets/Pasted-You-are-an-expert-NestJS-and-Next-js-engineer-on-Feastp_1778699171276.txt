@@ -1,0 +1,287 @@
+You are an expert NestJS and Next.js engineer on Feastpot.
+Implement FR-AMD-001 (order amendments) and FR-TRK-001 (vendor ETA tracking).
+The amendment controller currently throws NotImplementedException — replace it with real logic.
+
+═══════════════════════════════════════════════════════
+PART 1 — Database migration
+═══════════════════════════════════════════════════════
+
+Add to prisma/schema.prisma:
+
+enum AmendmentStatus {
+  pending
+  accepted
+  declined
+  expired
+}
+
+model OrderAmendment {
+  id               String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderId          String          @db.Uuid @map("order_id")
+  vendorId         String          @db.Uuid @map("vendor_id")
+  proposedChange   String          @db.Text @map("proposed_change")
+  priceDeltaPence  Int             @default(0) @map("price_delta_pence")
+  status           AmendmentStatus @default(pending)
+  expiresAt        DateTime        @db.Timestamptz @map("expires_at")
+  respondedAt      DateTime?       @db.Timestamptz @map("responded_at")
+  createdAt        DateTime        @default(now()) @db.Timestamptz @map("created_at")
+
+  order            Order           @relation(fields: [orderId], references: [id])
+  vendor           Vendor          @relation(fields: [vendorId], references: [id])
+
+  @@index([orderId, status])
+  @@map("order_amendments")
+}
+
+Also add to the Order model:
+  etaMinutes    Int?      @map("eta_minutes")
+  etaAt         DateTime? @db.Timestamptz @map("eta_at")
+  amendments    OrderAmendment[]
+
+Add to Vendor model: amendments OrderAmendment[]
+
+Run: npx prisma migrate dev --name add_amendments_eta --schema=./prisma/schema.prisma
+Run: npx prisma generate --schema=./prisma/schema.prisma
+
+═══════════════════════════════════════════════════════
+PART 2 — Amendment service methods
+File: apps/api/src/modules/orders/orders.service.ts
+═══════════════════════════════════════════════════════
+
+Replace the NotImplementedException in proposeAmendment() with:
+
+async proposeAmendment(orderId: string, vendorUserId: string, dto: ProposeAmendmentDto) {
+  const vendor = await this.prisma.vendor.findUnique({ where: { userId: vendorUserId } })
+  const order = await this.prisma.order.findUnique({
+    where: { id: orderId }, include: { customer: { select: { email: true } } }
+  })
+  if (!order) throw new NotFoundException('Order not found')
+  if (order.vendorId !== vendor.id) throw new ForbiddenException('Not your order')
+  if (![OrderStatus.accepted, OrderStatus.preparing].includes(order.status))
+    throw new BadRequestException('Order cannot be amended at this stage')
+
+  // Check no pending amendment already exists
+  const existing = await this.prisma.orderAmendment.findFirst({
+    where: { orderId, status: 'pending' }
+  })
+  if (existing) throw new ConflictException('An amendment is already pending for this order')
+
+  const expiresAt = new Date(Date.now() + 15 * 60 * 1000)
+  const amendment = await this.prisma.orderAmendment.create({
+    data: { orderId, vendorId: vendor.id, proposedChange: dto.proposedChange,
+            priceDeltaPence: dto.priceDeltaPence ?? 0, expiresAt }
+  })
+
+  // Enqueue expiry job
+  await this.ordersQueue.add('expire_amendment', { amendmentId: amendment.id },
+    { delay: 15 * 60 * 1000, jobId: `expire-amendment-${amendment.id}` })
+
+  // Notify customer
+  await this.notificationsQueue.add('send_email', {
+    to: order.customer.email, template: 'order_amendment_proposed',
+    data: { proposedChange: dto.proposedChange, orderId, priceDelta: dto.priceDeltaPence ?? 0 }
+  })
+  return amendment
+}
+
+Replace the NotImplementedException in respondToAmendment() with:
+
+async respondToAmendment(orderId: string, customerUserId: string, dto: RespondAmendmentDto) {
+  const order = await this.prisma.order.findUnique({ where: { id: orderId } })
+  if (!order) throw new NotFoundException()
+  if (order.customerId !== customerUserId) throw new ForbiddenException()
+
+  const amendment = await this.prisma.orderAmendment.findFirst({
+    where: { orderId, status: 'pending' }
+  })
+  if (!amendment) throw new NotFoundException('No pending amendment found')
+
+  const newStatus: AmendmentStatus = dto.accepted ? 'accepted' : 'declined'
+  await this.prisma.orderAmendment.update({
+    where: { id: amendment.id },
+    data: { status: newStatus, respondedAt: new Date() }
+  })
+
+  // Remove expiry job
+  const job = await this.ordersQueue.getJob(`expire-amendment-${amendment.id}`)
+  if (job) await job.remove()
+
+  if (dto.accepted && amendment.priceDeltaPence < 0) {
+    // Issue partial refund for price reduction
+    await this.paymentsService.createRefund({
+      orderId, amountPence: Math.abs(amendment.priceDeltaPence),
+      reason: 'Order amendment — price reduction', disputeId: undefined
+    }, 'system')
+  }
+
+  // Notify vendor
+  await this.notificationsQueue.add('send_email', {
+    to: 'vendor-notification', template: dto.accepted ? 'amendment_accepted' : 'amendment_declined',
+    data: { orderId }
+  })
+  return { status: newStatus }
+}
+
+Add expire_amendment handler in the orders BullMQ processor:
+case 'expire_amendment': {
+  await this.prisma.orderAmendment.updateMany({
+    where: { id: data.amendmentId, status: 'pending' },
+    data: { status: 'expired' }
+  })
+  // Notify vendor: customer did not respond
+  break
+}
+
+═══════════════════════════════════════════════════════
+PART 3 — ETA in updateStatus
+File: apps/api/src/modules/orders/orders.service.ts
+═══════════════════════════════════════════════════════
+
+Add to UpdateOrderStatusDto:
+  @IsOptional() @IsInt() @Min(15) @Max(120) etaMinutes?: number
+
+In updateStatus(), when newStatus === OrderStatus.dispatched:
+  const etaAt = dto.etaMinutes
+    ? new Date(Date.now() + dto.etaMinutes * 60 * 1000)
+    : new Date(Date.now() + 45 * 60 * 1000)  // default 45 min
+
+  await this.prisma.order.update({
+    where: { id: orderId },
+    data: { etaMinutes: dto.etaMinutes ?? 45, etaAt }
+  })
+
+  // Enqueue ETA overdue job
+  await this.ordersQueue.add('eta_overdue', { orderId },
+    { delay: (dto.etaMinutes ?? 45) * 60 * 1000, jobId: `eta-overdue-${orderId}` })
+
+  // Push notification to customer
+  await this.notificationsQueue.add('send_push', {
+    userId: order.customerId,
+    title: 'Your order is on the way 🚗',
+    body: `Expected by ${etaAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`,
+    url: `/orders/${orderId}/tracking`
+  })
+
+Add eta_overdue processor:
+case 'eta_overdue': {
+  const order = await this.ordersRepository.findById(data.orderId)
+  if (order && order.status === OrderStatus.dispatched) {
+    await this.notificationsQueue.add('send_push', {
+      userId: order.customerId,
+      title: 'Your order is running a little late',
+      body: 'Your vendor is on the way — thank you for your patience',
+      url: `/orders/${data.orderId}/tracking`
+    })
+  }
+  break
+}
+
+═══════════════════════════════════════════════════════
+PART 4 — Vendor portal: propose amendment UI
+File: apps/vendor/src/app/orders/page.tsx
+═══════════════════════════════════════════════════════
+
+On each order card with status=accepted or status=preparing, add a "Propose change" button.
+Button opens a shadcn Sheet from the bottom:
+
+Title: "Propose a substitution"
+Content:
+  Textarea: "What would you like to substitute?"
+  Price adjustment (optional):
+    Label: "Price difference (optional)"
+    Three radio options: "No change", "Reduce by £X", "Increase by £X"
+    If not "No change": show £ input
+  Submit button: "Send to customer"
+
+On submit: POST /v1/orders/:id/amendment
+After submit: show toast "Amendment sent — waiting for customer response"
+Card shows an amber banner: "Amendment pending — customer has 15 minutes to respond"
+Countdown timer shows remaining time
+
+═══════════════════════════════════════════════════════
+PART 5 — Vendor portal: ETA picker on dispatch
+File: apps/vendor/src/app/orders/page.tsx
+═══════════════════════════════════════════════════════
+
+When vendor taps "Mark as Dispatched", instead of immediately calling the API,
+show a bottom sheet:
+
+Title: "Estimated delivery time"
+4 pill buttons: "15 min" | "30 min" | "45 min" | "60+ min"
+Default selected: "45 min"
+Custom input: if "60+ min" selected, show a number input (min 60, max 180)
+"Confirm & dispatch" button
+
+On confirm: PATCH /v1/orders/:id/status { status: 'dispatched', etaMinutes: selectedValue }
+
+═══════════════════════════════════════════════════════
+PART 6 — Customer PWA: order tracking page updates
+File: apps/web/src/app/orders/[id]/tracking/page.tsx
+═══════════════════════════════════════════════════════
+
+1. ETA display when status=dispatched:
+  Show a prominent card above the timeline:
+  <div className="fp-card p-4 bg-teal-light border-teal/30">
+    <div className="flex items-center gap-3">
+      <span className="text-3xl">🚗</span>
+      <div>
+        <p className="font-bold text-dark">On the way!</p>
+        <p className="text-teal font-semibold">
+          {etaAt ? `Expected by ${format(etaAt, 'HH:mm')}` : 'Arriving soon'}
+        </p>
+      </div>
+    </div>
+  </div>
+
+  ETA countdown timer (update every minute):
+  const minutesRemaining = etaAt
+    ? Math.max(0, Math.ceil((new Date(etaAt).getTime() - Date.now()) / 60000))
+    : null
+  Show: "~{minutesRemaining} min away" when > 0, "Should be arriving now" when 0
+
+2. Vendor contact card when status=dispatched:
+  <div className="fp-card p-3 flex items-center justify-between">
+    <div className="flex items-center gap-2">
+      <div className="w-9 h-9 rounded-xl bg-surface flex items-center justify-center text-lg">
+        {vendorLogo ? <img src={vendorLogo}/> : '👨‍🍳'}
+      </div>
+      <div>
+        <p className="text-sm font-medium">{vendorName}</p>
+        <p className="text-xs text-mid">Tap to contact</p>
+      </div>
+    </div>
+    <a href={`https://wa.me/${vendorPhone?.replace(/\D/g,'')}?text=${encodeURIComponent("Hi! I'm waiting for my Feastpot order. Any updates?")}`}
+      target="_blank"
+      className="px-3 py-2 bg-teal text-white rounded-xl text-xs font-semibold flex items-center gap-1">
+      <span>WhatsApp</span>
+    </a>
+  </div>
+
+3. Amendment banner (shown when pending amendment exists):
+  Fetch amendments as part of GET /v1/orders/:id
+  If pendingAmendment exists:
+  <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-4">
+    <p className="font-semibold text-amber-900 mb-1">⚠️ Your vendor has proposed a change</p>
+    <p className="text-sm text-amber-800 mb-3">"{pendingAmendment.proposedChange}"</p>
+    {pendingAmendment.priceDeltaPence !== 0 && (
+      <p className="text-xs text-amber-700 mb-3">
+        Price change: {pendingAmendment.priceDeltaPence > 0 ? '+' : ''}
+        £{(pendingAmendment.priceDeltaPence/100).toFixed(2)}
+      </p>
+    )}
+    <div className="flex gap-2">
+      <button onClick={() => respond(true)}
+        className="flex-1 py-2 bg-teal text-white rounded-xl text-sm font-semibold">
+        Accept
+      </button>
+      <button onClick={() => respond(false)}
+        className="flex-1 py-2 border border-gray-300 text-dark rounded-xl text-sm font-semibold">
+        Decline
+      </button>
+    </div>
+  </div>
+
+  respond function: PATCH /v1/orders/:id/amendment { accepted: bool }
+
+Run: npm run typecheck in apps/api, apps/web, apps/vendor.
+Output all files in full.

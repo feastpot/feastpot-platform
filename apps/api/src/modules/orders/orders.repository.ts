@@ -12,11 +12,27 @@ export class OrdersRepository {
       where: { id },
       include: {
         items: true,
-        vendor: { select: { id: true, userId: true, businessName: true } },
+        // Nested `user.phone` powers the customer-facing tracking page
+        // WhatsApp / call CTAs (Vendor itself has no phone column).
+        vendor: {
+          select: {
+            id: true,
+            userId: true,
+            businessName: true,
+            user: { select: { phone: true } },
+          },
+        },
         // Vendor portal renders customer first name on every order card. Selecting
         // only firstName + email keeps the row size small and avoids leaking
         // unrelated PII (passwordHash, phone, etc.) over the API.
         customer: { select: { id: true, firstName: true, email: true } },
+        // Tracking page renders any pending amendment as a banner. Filtering
+        // server-side keeps the response small and means the UI doesn't need
+        // to know the AmendmentStatus enum values.
+        amendments: {
+          where: { status: 'pending' },
+          orderBy: { createdAt: 'desc' },
+        },
       },
     });
   }

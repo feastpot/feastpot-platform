@@ -13,6 +13,8 @@ export interface UpdateStatusInput {
   status: VendorOrderStatus;
   cancellationReason?: string;
   rejectionReason?: string;
+  /** Vendor-supplied ETA (minutes) — only meaningful on dispatched. */
+  etaMinutes?: number;
 }
 
 export function useUpdateOrderStatus() {

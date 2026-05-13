@@ -2,12 +2,13 @@ import { InjectQueue } from '@nestjs/bull';
 import {
   BadRequestException,
   ForbiddenException,
+  forwardRef,
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
-  NotImplementedException,
 } from '@nestjs/common';
-import { DeliveryType, OrderStatus, Prisma, UserRole } from '@prisma/client';
+import { AmendmentStatus, DeliveryType, OrderStatus, Prisma, UserRole } from '@prisma/client';
 import { Queue } from 'bull';
 import { randomBytes } from 'node:crypto';
 
@@ -17,6 +18,9 @@ import { StripeService } from '../../stripe/stripe.service';
 import { DiscountCodesService } from '../discount-codes/discount-codes.service';
 import { LoyaltyService } from '../loyalty/loyalty.service';
 import { ReferralService } from '../loyalty/referral.service';
+import { PaymentsService } from '../payments/payments.service';
+
+import { ProposeAmendmentDto, RespondAmendmentDto } from './dto/amendment.dto';
 
 import { CreateOrderDto } from './dto/create-order.dto';
 import { ListOrdersDto } from './dto/list-orders.dto';
@@ -76,7 +80,15 @@ export class OrdersService {
     private readonly loyalty: LoyaltyService,
     private readonly referrals: ReferralService,
     private readonly discountCodes: DiscountCodesService,
+    @Inject(forwardRef(() => PaymentsService))
+    private readonly payments: PaymentsService,
   ) {}
+
+  // Window during which a vendor-proposed amendment auto-expires if the
+  // customer doesn't respond. Kept short so we don't sit on the order.
+  private static readonly AMENDMENT_TTL_MS = 30 * 60 * 1000;
+  // Grace window after vendor's stated ETA before we ping the customer.
+  private static readonly ETA_OVERDUE_GRACE_MS = 10 * 60 * 1000;
 
   // ------------------------------------------------------------------
   // CREATE
@@ -361,7 +373,16 @@ export class OrdersService {
     const now = new Date();
 
     if (dto.status === OrderStatus.accepted) data.acceptedAt = now;
-    if (dto.status === OrderStatus.dispatched) data.dispatchedAt = now;
+    if (dto.status === OrderStatus.dispatched) {
+      data.dispatchedAt = now;
+      // FR-TRK-001: vendor MAY supply an ETA (minutes from now). Stamp both
+      // the raw minutes and the absolute eta_at so customers see a stable
+      // wall-clock target even if their device clock drifts.
+      if (dto.etaMinutes != null) {
+        data.etaMinutes = dto.etaMinutes;
+        data.etaAt = new Date(now.getTime() + dto.etaMinutes * 60_000);
+      }
+    }
     if (dto.status === OrderStatus.delivered) data.deliveredAt = now;
     if (dto.status === OrderStatus.cancelled && from === OrderStatus.pending) {
       data.cancelledAt = now;
@@ -403,6 +424,12 @@ export class OrdersService {
     }
 
     if (dto.status === OrderStatus.dispatched && snap) {
+      const etaAt = dto.etaMinutes != null ? new Date(now.getTime() + dto.etaMinutes * 60_000) : null;
+      const etaText = etaAt
+        ? etaAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+        : snap.scheduledFor
+          ? snap.scheduledFor.toISOString()
+          : undefined;
       await this.notifications.add(
         'order_dispatched',
         {
@@ -410,12 +437,20 @@ export class OrdersService {
           orderId,
           orderNumber: snap.orderNumber,
           vendorName: snap.vendor?.businessName,
-          // ETA derived from scheduledFor when present; templates fall back
-          // to "soon" if absent.
-          etaText: snap.scheduledFor ? snap.scheduledFor.toISOString() : undefined,
+          etaText,
         },
         { jobId: `order_dispatched:${orderId}` },
       );
+      // Schedule eta_overdue check after the vendor's ETA + grace window.
+      // Job name doubles as the dispatch type the processor branches on.
+      if (etaAt) {
+        const delay = etaAt.getTime() - now.getTime() + OrdersService.ETA_OVERDUE_GRACE_MS;
+        await this.notifications.add(
+          'eta_overdue',
+          { orderId, customerId: snap.customerId },
+          { jobId: `eta_overdue:${orderId}`, delay: Math.max(delay, 60_000) },
+        );
+      }
     }
 
     if (dto.status === OrderStatus.cancelled && from === OrderStatus.pending) {
@@ -589,20 +624,189 @@ export class OrdersService {
   }
 
   // ------------------------------------------------------------------
-  // AMENDMENT (stub — no Amendment model in schema yet)
+  // AMENDMENT (FR-AMD-001)
   // ------------------------------------------------------------------
 
-  requestAmendment(_orderId: string, _user: AuthUser): never {
-    throw new NotImplementedException({
-      code: 'AMENDMENTS_NOT_IMPLEMENTED',
-      message: 'Order amendments require an Amendment table — not yet present in schema.',
-    });
+  /**
+   * Vendor proposes a change to an in-flight order. Allowed only while the
+   * order is in a pre-delivery vendor-controlled state and only the assigned
+   * vendor (or admin) may do it. Enqueues a customer notification + a delayed
+   * `expire_amendment` job so a no-reply auto-resolves to declined.
+   */
+  async proposeAmendment(orderId: string, dto: ProposeAmendmentDto, user: AuthUser) {
+    const order = await this.repo.findByIdWithItems(orderId);
+    if (!order) throw new NotFoundException({ code: 'ORDER_NOT_FOUND', message: 'Order not found' });
+
+    if (user.role === UserRole.vendor) {
+      if (order.vendor?.userId !== user.id) {
+        throw new ForbiddenException({ code: 'NOT_ORDER_VENDOR', message: 'Not your order' });
+      }
+    } else if (user.role !== UserRole.admin) {
+      throw new ForbiddenException({ code: 'INSUFFICIENT_ROLE', message: 'Vendor or admin only' });
+    }
+
+    const PROPOSABLE: OrderStatus[] = [OrderStatus.accepted, OrderStatus.preparing, OrderStatus.dispatched];
+    if (!PROPOSABLE.includes(order.status)) {
+      throw new BadRequestException({
+        code: 'AMENDMENT_NOT_ALLOWED_IN_STATUS',
+        message: `Cannot amend an order in status ${order.status}`,
+      });
+    }
+
+    // Upcharges silently break captured-payment flows — block them up front.
+    const priceDeltaPence = dto.priceDeltaPence ?? 0;
+    if (priceDeltaPence > 0) {
+      throw new BadRequestException({
+        code: 'AMENDMENT_UPCHARGE_NOT_SUPPORTED',
+        message: 'Positive price deltas are not supported yet',
+      });
+    }
+
+    // Single pending amendment per order is enforced by a Postgres partial
+    // unique index (status='pending'). Catch the unique-violation and turn
+    // it into a friendly 400 instead of a 500. This closes the propose-race
+    // window that an application-level findFirst+create would leave open.
+    const expiresAt = new Date(Date.now() + OrdersService.AMENDMENT_TTL_MS);
+    let amendment;
+    try {
+      amendment = await this.prisma.orderAmendment.create({
+        data: {
+          orderId,
+          vendorId: order.vendorId,
+          proposedChange: dto.proposedChange,
+          priceDeltaPence,
+          status: AmendmentStatus.pending,
+          expiresAt,
+        },
+      });
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+        throw new BadRequestException({
+          code: 'AMENDMENT_ALREADY_PENDING',
+          message: 'There is already a pending amendment on this order',
+        });
+      }
+      throw e;
+    }
+
+    await this.notifications.add(
+      'order_amendment_proposed',
+      {
+        userId: order.customerId,
+        orderId,
+        orderNumber: order.orderNumber,
+        vendorName: order.vendor?.businessName,
+        amendmentId: amendment.id,
+        proposedChange: dto.proposedChange,
+        priceDeltaPence,
+      },
+      { jobId: `amendment_proposed:${amendment.id}` },
+    );
+
+    // Auto-expire poke. Job name routes to the special-case branch in
+    // NotificationProcessor.
+    await this.notifications.add(
+      'expire_amendment',
+      { amendmentId: amendment.id },
+      {
+        jobId: `expire_amendment:${amendment.id}`,
+        delay: OrdersService.AMENDMENT_TTL_MS,
+      },
+    );
+
+    return amendment;
   }
-  respondAmendment(_orderId: string, _user: AuthUser): never {
-    throw new NotImplementedException({
-      code: 'AMENDMENTS_NOT_IMPLEMENTED',
-      message: 'Order amendments require an Amendment table — not yet present in schema.',
+
+  /**
+   * Customer accepts/declines a pending amendment. On accept with a negative
+   * priceDelta, fires off a partial refund through PaymentsService.
+   */
+  async respondToAmendment(orderId: string, dto: RespondAmendmentDto, user: AuthUser) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: { id: true, customerId: true, vendor: { select: { businessName: true } } },
     });
+    if (!order) throw new NotFoundException({ code: 'ORDER_NOT_FOUND', message: 'Order not found' });
+    if (order.customerId !== user.id && user.role !== UserRole.admin) {
+      throw new ForbiddenException({ code: 'NOT_ORDER_CUSTOMER', message: 'Not your order' });
+    }
+
+    const amendment = await this.prisma.orderAmendment.findFirst({
+      where: { orderId, status: AmendmentStatus.pending },
+    });
+    if (!amendment) {
+      throw new NotFoundException({
+        code: 'NO_PENDING_AMENDMENT',
+        message: 'No pending amendment for this order',
+      });
+    }
+    if (amendment.expiresAt.getTime() < Date.now()) {
+      // Race with the expire job — treat as already resolved.
+      throw new BadRequestException({
+        code: 'AMENDMENT_EXPIRED',
+        message: 'Amendment has already expired',
+      });
+    }
+
+    // Issue the refund FIRST (before flipping state). If Stripe fails the
+    // amendment stays pending so the customer can retry — much better than
+    // claiming "accepted" with no refund issued. Idempotency key makes the
+    // retry safe.
+    if (dto.accepted && amendment.priceDeltaPence < 0) {
+      await this.payments.createRefund(
+        {
+          orderId,
+          amountPence: Math.abs(amendment.priceDeltaPence),
+          reason: `Order amendment ${amendment.id}`,
+        },
+        // Customer authorised this by accepting the amendment. Role=admin
+        // bypasses the large-refund role check (matters only for £100+).
+        { id: order.customerId, role: UserRole.admin },
+        `amendment-refund:${amendment.id}`,
+      );
+    }
+
+    // Conditional update: only flip if still pending. updateMany returns the
+    // number of rows changed — if 0 we lost a race (expire job, double-tap)
+    // and must surface that rather than send a stale notification.
+    const newStatus = dto.accepted ? AmendmentStatus.accepted : AmendmentStatus.declined;
+    const result = await this.prisma.orderAmendment.updateMany({
+      where: { id: amendment.id, status: AmendmentStatus.pending },
+      data: { status: newStatus, respondedAt: new Date() },
+    });
+    if (result.count === 0) {
+      throw new BadRequestException({
+        code: 'AMENDMENT_ALREADY_RESOLVED',
+        message: 'Amendment was already resolved',
+      });
+    }
+    const updated = await this.prisma.orderAmendment.findUniqueOrThrow({
+      where: { id: amendment.id },
+    });
+
+    // Cancel the pending expire job so it doesn't double-resolve. Best-effort.
+    try {
+      const job = await this.notifications.getJob(`expire_amendment:${amendment.id}`);
+      if (job) await job.remove();
+    } catch (e) {
+      this.logger.warn(`Could not remove expire_amendment job for ${amendment.id}: ${(e as Error).message}`);
+    }
+
+    await this.notifications.add(
+      'order_amendment_resolved',
+      {
+        userId: order.customerId,
+        orderId,
+        amendmentId: updated.id,
+        accepted: dto.accepted,
+        proposedChange: updated.proposedChange,
+        priceDeltaPence: updated.priceDeltaPence,
+        vendorName: order.vendor?.businessName,
+      },
+      { jobId: `amendment_resolved:${updated.id}` },
+    );
+
+    return updated;
   }
 
   // ------------------------------------------------------------------

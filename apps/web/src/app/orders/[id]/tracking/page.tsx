@@ -1,6 +1,6 @@
 'use client';
 
-import { ChevronDown, LifeBuoy, Phone, Star, X } from 'lucide-react';
+import { Check, ChevronDown, Clock, LifeBuoy, MessageCircle, Phone, Star, X } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -8,7 +8,7 @@ import { useEffect, useState } from 'react';
 import { cn } from '@feastpot/ui';
 
 import { StatusTimeline } from '@/components/orders/status-timeline';
-import { useCancelOrder, useOrder } from '@/hooks/use-orders';
+import { useCancelOrder, useOrder, useRespondAmendment } from '@/hooks/use-orders';
 import { ApiError } from '@/lib/api/client';
 import { createClient } from '@/lib/supabase/client';
 
@@ -42,6 +42,7 @@ export default function OrderTrackingPage() {
 
   const { data: order, error, isLoading, refetch } = useOrder(orderId);
   const cancelMut = useCancelOrder();
+  const respondAmendment = useRespondAmendment(orderId ?? '');
   const [cancelMsg, setCancelMsg] = useState<string | null>(null);
   const [connected, setConnected] = useState(false);
   const [lastSeenStatus, setLastSeenStatus] = useState<string | null>(null);
@@ -188,6 +189,19 @@ export default function OrderTrackingPage() {
           </div>
         )}
 
+        {/* PENDING AMENDMENT BANNER (FR-AMD-001) */}
+        {!isCancelled && order.amendments && order.amendments.length > 0 && (
+          <AmendmentBanner
+            amendment={order.amendments[0]!}
+            vendorName={order.vendor?.businessName ?? 'Your vendor'}
+            busy={respondAmendment.isPending}
+            onRespond={(accepted) => respondAmendment.mutate(accepted)}
+          />
+        )}
+
+        {/* ETA CARD (FR-TRK-001) — only when dispatched + vendor supplied an ETA. */}
+        {order.status === 'dispatched' && order.etaAt && <EtaCard etaAt={order.etaAt} />}
+
         {/* TIMELINE */}
         {!isCancelled && (
           <section className="rounded-2xl border border-border bg-white p-4">
@@ -197,13 +211,24 @@ export default function OrderTrackingPage() {
 
         {/* ACTIONS — context-sensitive */}
         <section className="space-y-2">
-          {order.vendor?.phone && (
+          {order.vendor?.user?.phone && (
             <a
-              href={`tel:${order.vendor.phone}`}
+              href={`tel:${order.vendor.user.phone}`}
               className="flex h-11 items-center justify-center gap-2 rounded-2xl border border-border bg-white text-sm font-medium text-dark hover:bg-surface"
             >
               <Phone className="h-4 w-4" aria-hidden />
               Call {order.vendor.businessName}
+            </a>
+          )}
+          {order.vendor?.user?.phone && (
+            <a
+              href={`https://wa.me/${order.vendor.user.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Hi, regarding Feastpot order #${order.orderNumber}`)}`}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="flex h-11 items-center justify-center gap-2 rounded-2xl border border-border bg-white text-sm font-medium text-dark hover:bg-surface"
+            >
+              <MessageCircle className="h-4 w-4" aria-hidden />
+              WhatsApp {order.vendor.businessName}
             </a>
           )}
           {order.status === 'pending' && (
@@ -289,6 +314,115 @@ export default function OrderTrackingPage() {
         <NeedHelpLink orderId={order.id} orderNumber={order.orderNumber} />
       </div>
     </div>
+  );
+}
+
+function EtaCard({ etaAt }: { etaAt: string }) {
+  // Live countdown — re-renders every 30s. Cheaper than 1s ticks and the
+  // user-visible precision is already minute-level.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(t);
+  }, []);
+
+  const target = new Date(etaAt);
+  const diffMs = target.getTime() - now;
+  const minsLeft = Math.round(diffMs / 60_000);
+  const overdue = diffMs < 0;
+  const wallClock = target.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+
+  return (
+    <section
+      className={cn(
+        'flex items-center gap-3 rounded-2xl border p-4',
+        overdue
+          ? 'border-amber-300 bg-amber-50 text-amber-900'
+          : 'border-teal/30 bg-teal/5 text-dark',
+      )}
+    >
+      <span
+        className={cn(
+          'flex h-10 w-10 shrink-0 items-center justify-center rounded-full',
+          overdue ? 'bg-amber-200 text-amber-900' : 'bg-teal text-white',
+        )}
+      >
+        <Clock className="h-5 w-5" aria-hidden />
+      </span>
+      <div className="min-w-0">
+        <p className="text-xs font-semibold uppercase tracking-wide opacity-80">
+          {overdue ? 'Past ETA' : 'Arriving'}
+        </p>
+        <p className="text-base font-bold">
+          {overdue
+            ? `${Math.abs(minsLeft)} min late`
+            : minsLeft <= 1
+              ? 'Any minute now'
+              : `In ${minsLeft} min`}
+        </p>
+        <p className="text-xs opacity-80">Vendor estimate: {wallClock}</p>
+      </div>
+    </section>
+  );
+}
+
+function AmendmentBanner({
+  amendment,
+  vendorName,
+  busy,
+  onRespond,
+}: {
+  amendment: { id: string; proposedChange: string; priceDeltaPence: number; expiresAt: string };
+  vendorName: string;
+  busy: boolean;
+  onRespond: (accepted: boolean) => void;
+}) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(t);
+  }, []);
+  const minsLeft = Math.max(0, Math.ceil((new Date(amendment.expiresAt).getTime() - now) / 60_000));
+  const refundPounds = amendment.priceDeltaPence < 0
+    ? `£${(Math.abs(amendment.priceDeltaPence) / 100).toFixed(2)}`
+    : null;
+
+  return (
+    <section className="space-y-3 rounded-2xl border border-vendor/40 bg-vendor/5 p-4">
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wide text-vendor">
+          {vendorName} proposed a change
+        </p>
+        <p className="mt-1 text-sm text-dark">{amendment.proposedChange}</p>
+        {refundPounds && (
+          <p className="mt-1 text-xs font-semibold text-teal-dark">
+            Includes {refundPounds} refund
+          </p>
+        )}
+        <p className="mt-2 text-[11px] text-mid">
+          {minsLeft > 0 ? `Auto-declines in ${minsLeft} min` : 'Expiring now…'}
+        </p>
+      </div>
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() => onRespond(false)}
+          disabled={busy}
+          className="flex h-10 flex-1 items-center justify-center rounded-2xl border border-border bg-white text-sm font-semibold text-dark hover:bg-surface disabled:opacity-50"
+        >
+          Decline
+        </button>
+        <button
+          type="button"
+          onClick={() => onRespond(true)}
+          disabled={busy}
+          className="flex h-10 flex-[1.6] items-center justify-center gap-1 rounded-2xl bg-teal text-sm font-bold text-white hover:bg-teal-dark disabled:opacity-50"
+        >
+          <Check className="h-4 w-4" aria-hidden />
+          {busy ? 'Saving…' : 'Accept'}
+        </button>
+      </div>
+    </section>
   );
 }
 

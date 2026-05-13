@@ -10,6 +10,7 @@ import {
   getOrder,
   listOrders,
   reorder,
+  respondToAmendment,
   type CreateOrderInput,
   type ListOrdersResponse,
   type OrderStatus,
@@ -79,6 +80,21 @@ export function useReorder() {
     mutationFn: ({ orderId, input }: { orderId: string; input: ReorderInput }) => {
       if (!token) throw new Error('Not signed in');
       return reorder(orderId, input, token);
+    },
+  });
+}
+
+/** Customer accepts/declines a vendor-proposed amendment. */
+export function useRespondAmendment(orderId: string) {
+  const { token } = useAccessToken();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (accepted: boolean) => {
+      if (!token) throw new Error('Not signed in');
+      return respondToAmendment(orderId, accepted, token);
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: [ORDERS_KEY, 'one', orderId] });
     },
   });
 }

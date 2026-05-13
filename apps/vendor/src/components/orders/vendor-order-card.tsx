@@ -4,10 +4,13 @@ import { cn } from '@feastpot/ui';
 import { format } from 'date-fns';
 import { useMemo, useState } from 'react';
 
+import { useProposeAmendment } from '@/hooks/use-propose-amendment';
 import { useUpdateOrderStatus } from '@/hooks/use-update-order-status';
 import type { VendorOrder, VendorOrderStatus } from '@/hooks/use-vendor-orders';
 
 import { Countdown } from './countdown';
+import { DispatchEtaSheet } from './dispatch-eta-sheet';
+import { ProposeAmendmentSheet } from './propose-amendment-sheet';
 import { RejectSheet } from './reject-sheet';
 
 const PENDING_TIMEOUT_MIN = 15;
@@ -62,7 +65,16 @@ interface Props {
  */
 export function VendorOrderCard({ order }: Props) {
   const updateStatus = useUpdateOrderStatus();
+  const proposeAmendment = useProposeAmendment();
   const [rejectOpen, setRejectOpen] = useState(false);
+  const [etaOpen, setEtaOpen] = useState(false);
+  const [amendOpen, setAmendOpen] = useState(false);
+
+  // Vendor can propose a change once the order is accepted and until it's
+  // delivered — same window the API enforces. Keep the button hidden outside
+  // that range so the affordance only shows when it'll work.
+  const canPropose: VendorOrderStatus[] = ['accepted', 'preparing', 'dispatched'];
+  const showProposeButton = canPropose.includes(order.status);
 
   const deadline = useMemo(() => {
     if (order.status !== 'pending') return null;
@@ -179,7 +191,7 @@ export function VendorOrderCard({ order }: Props) {
           {order.status === 'preparing' && (
             <button
               type="button"
-              onClick={() => advance('dispatched')}
+              onClick={() => setEtaOpen(true)}
               disabled={updateStatus.isPending}
               className="touch-target w-full rounded-2xl bg-vendor text-sm font-bold text-white hover:bg-vendor-dark disabled:opacity-50"
             >
@@ -197,6 +209,20 @@ export function VendorOrderCard({ order }: Props) {
             </button>
           )}
         </footer>
+
+        {/* Secondary action — propose a change (FR-AMD-001). Lives outside the
+            primary footer so the main CTA stays the obvious next step. */}
+        {showProposeButton && (
+          <div className="border-t border-border bg-white px-4 py-2 text-right">
+            <button
+              type="button"
+              onClick={() => setAmendOpen(true)}
+              className="text-xs font-semibold text-vendor underline-offset-2 hover:underline"
+            >
+              Propose a change
+            </button>
+          </div>
+        )}
       </article>
 
       <RejectSheet
@@ -208,6 +234,32 @@ export function VendorOrderCard({ order }: Props) {
           updateStatus.mutate(
             { orderId: order.id, status: 'rejected', rejectionReason: reason },
             { onSettled: () => setRejectOpen(false) },
+          );
+        }}
+      />
+
+      <DispatchEtaSheet
+        open={etaOpen}
+        onOpenChange={setEtaOpen}
+        orderNumber={order.orderNumber}
+        busy={updateStatus.isPending}
+        onConfirm={(etaMinutes) => {
+          updateStatus.mutate(
+            { orderId: order.id, status: 'dispatched', etaMinutes: etaMinutes ?? undefined },
+            { onSettled: () => setEtaOpen(false) },
+          );
+        }}
+      />
+
+      <ProposeAmendmentSheet
+        open={amendOpen}
+        onOpenChange={setAmendOpen}
+        orderNumber={order.orderNumber}
+        busy={proposeAmendment.isPending}
+        onConfirm={(proposedChange, priceDeltaPence) => {
+          proposeAmendment.mutate(
+            { orderId: order.id, proposedChange, priceDeltaPence },
+            { onSettled: () => setAmendOpen(false) },
           );
         }}
       />

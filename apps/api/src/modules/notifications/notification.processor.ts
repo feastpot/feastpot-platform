@@ -1,7 +1,7 @@
-import { Process, Processor } from '@nestjs/bull';
+import { InjectQueue, Process, Processor } from '@nestjs/bull';
 import { Injectable, Logger } from '@nestjs/common';
-import { NotificationChannel, NotificationStatus, Prisma } from '@prisma/client';
-import type { Job } from 'bull';
+import { AmendmentStatus, NotificationChannel, NotificationStatus, OrderStatus, Prisma } from '@prisma/client';
+import type { Job, Queue } from 'bull';
 
 import { PrismaService } from '../../prisma/prisma.service';
 import { NOTIFICATIONS_QUEUE } from '../../queues/queues.module';
@@ -51,11 +51,24 @@ export class NotificationProcessor {
     private readonly whatsapp: WhatsappProvider,
     private readonly push: PushProvider,
     private readonly sms: SmsProvider,
+    @InjectQueue(NOTIFICATIONS_QUEUE) private readonly notifications: Queue,
   ) {}
 
   @Process({ concurrency: 10 })
   async handle(job: Job<NotificationJobData>): Promise<{ sent: Channel[]; skipped: Channel[] }> {
     const eventName = job.name;
+
+    // System jobs that don't render a notification themselves — they mutate
+    // state (and may enqueue follow-up template-backed notifications).
+    if (eventName === 'expire_amendment') {
+      await this.handleExpireAmendment(job.data as { amendmentId?: string });
+      return { sent: [], skipped: [] };
+    }
+    if (eventName === 'eta_overdue') {
+      await this.handleEtaOverdue(job.data as { orderId?: string });
+      return { sent: [], skipped: [] };
+    }
+
     const template = getTemplate(eventName);
     if (!template) {
       this.logger.warn(`No template for event "${eventName}" — dropping (no retry).`);
@@ -112,6 +125,49 @@ export class NotificationProcessor {
     }
 
     return { sent, skipped };
+  }
+
+  /**
+   * Auto-resolve a pending amendment after its TTL elapses. Idempotent: a
+   * non-pending row is left alone, so a customer response that lands first
+   * always wins.
+   */
+  private async handleExpireAmendment(data: { amendmentId?: string }): Promise<void> {
+    if (!data.amendmentId) return;
+    const result = await this.prisma.orderAmendment.updateMany({
+      where: { id: data.amendmentId, status: AmendmentStatus.pending },
+      data: { status: AmendmentStatus.expired, respondedAt: new Date() },
+    });
+    if (result.count > 0) {
+      this.logger.log(`Auto-expired amendment ${data.amendmentId}`);
+    }
+  }
+
+  /**
+   * Fired after vendor's ETA + grace window. Only nags the customer if the
+   * order is still in-flight (not yet delivered/cancelled).
+   */
+  private async handleEtaOverdue(data: { orderId?: string }): Promise<void> {
+    if (!data.orderId) return;
+    const order = await this.prisma.order.findUnique({
+      where: { id: data.orderId },
+      select: { id: true, status: true, customerId: true, orderNumber: true, etaAt: true, vendor: { select: { businessName: true } } },
+    });
+    if (!order) return;
+    if (order.status === OrderStatus.delivered || order.status === OrderStatus.cancelled || order.status === OrderStatus.refunded) {
+      return;
+    }
+    await this.notifications.add(
+      'order_eta_overdue',
+      {
+        userId: order.customerId,
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        vendorName: order.vendor?.businessName,
+        etaAt: order.etaAt?.toISOString(),
+      },
+      { jobId: `order_eta_overdue:${order.id}` },
+    );
   }
 
   private resolveUserId(data: NotificationJobData): string | undefined {

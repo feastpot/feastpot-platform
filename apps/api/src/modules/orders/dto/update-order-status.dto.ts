@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsOptional, IsString, MaxLength, ValidateIf } from 'class-validator';
+import { IsEnum, IsInt, IsOptional, IsString, Max, MaxLength, Min, ValidateIf } from 'class-validator';
 import { OrderStatus } from '@prisma/client';
 
 export class UpdateOrderStatusDto {
@@ -18,4 +18,16 @@ export class UpdateOrderStatusDto {
   @IsString()
   @MaxLength(500)
   rejectionReason?: string;
+
+  /**
+   * Vendor-supplied ETA (minutes from now) when transitioning to dispatched.
+   * Bound to a generous 4-hour ceiling — anything longer is almost certainly
+   * a typo.
+   */
+  @ApiPropertyOptional({ description: 'ETA minutes from now (only meaningful on dispatched)', minimum: 1, maximum: 240 })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(240)
+  etaMinutes?: number;
 }

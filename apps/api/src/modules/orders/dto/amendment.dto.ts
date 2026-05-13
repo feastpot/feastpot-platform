@@ -1,40 +1,31 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
-import { IsArray, IsBoolean, IsInt, IsOptional, IsString, IsUUID, MaxLength, Min, ValidateNested } from 'class-validator';
+import { IsBoolean, IsInt, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 
-export class AmendmentItemDto {
-  @ApiProperty()
-  @IsUUID()
-  orderItemId!: string;
-
-  @ApiProperty({ description: 'Replacement menu item id' })
-  @IsUUID()
-  substituteMenuItemId!: string;
-
-  @ApiPropertyOptional({ minimum: 1 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  quantity?: number;
-}
-
-export class CreateAmendmentDto {
-  @ApiProperty({ type: [AmendmentItemDto] })
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => AmendmentItemDto)
-  substitutions!: AmendmentItemDto[];
-
-  @ApiPropertyOptional()
-  @IsOptional()
+/**
+ * Vendor proposes an amendment to an in-flight order. Free-text describes the
+ * change ("swap rice for chips", "30 min late", etc.) plus an optional
+ * price delta in pence (negative = refund customer, positive = upcharge —
+ * upcharges currently rejected to avoid surprise capture).
+ */
+export class ProposeAmendmentDto {
+  @ApiProperty({ description: 'Vendor-authored description of the proposed change' })
   @IsString()
-  @MaxLength(1000)
-  reason?: string;
+  @MinLength(3)
+  @MaxLength(500)
+  proposedChange!: string;
+
+  @ApiPropertyOptional({
+    description: 'Net change to the order total in pence. Negative = customer refund.',
+    default: 0,
+  })
+  @IsOptional()
+  @IsInt()
+  priceDeltaPence?: number;
 }
 
+/** Customer's accept/decline of a pending amendment. */
 export class RespondAmendmentDto {
   @ApiProperty()
   @IsBoolean()
-  accept!: boolean;
+  accepted!: boolean;
 }

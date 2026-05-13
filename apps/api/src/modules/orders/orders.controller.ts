@@ -15,7 +15,7 @@ import { UserRole } from '@prisma/client';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import type { AuthedRequest, AuthUser } from '../../auth/types';
 
-import { CreateAmendmentDto, RespondAmendmentDto } from './dto/amendment.dto';
+import { ProposeAmendmentDto, RespondAmendmentDto } from './dto/amendment.dto';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { ListOrdersDto } from './dto/list-orders.dto';
 import { ReorderDto } from './dto/reorder.dto';
@@ -85,23 +85,23 @@ export class OrdersController {
 
   @Post(':id/amendment')
   @Roles(UserRole.vendor, UserRole.admin)
-  @ApiOperation({ summary: 'Vendor requests substitution (NOT YET IMPLEMENTED — schema gap)' })
+  @ApiOperation({ summary: 'Vendor proposes a change to an in-flight order' })
   requestAmendment(
     @Req() req: AuthedRequest,
     @Param('id', new ParseUUIDPipe()) id: string,
-    @Body() _dto: CreateAmendmentDto,
+    @Body() dto: ProposeAmendmentDto,
   ) {
-    return this.orders.requestAmendment(id, requireUser(req));
+    return this.orders.proposeAmendment(id, dto, requireUser(req));
   }
 
   @Patch(':id/amendment')
   @Roles(UserRole.customer)
-  @ApiOperation({ summary: 'Customer accepts/declines amendment (NOT YET IMPLEMENTED)' })
+  @ApiOperation({ summary: 'Customer accepts/declines pending amendment' })
   respondAmendment(
     @Req() req: AuthedRequest,
     @Param('id', new ParseUUIDPipe()) id: string,
-    @Body() _dto: RespondAmendmentDto,
+    @Body() dto: RespondAmendmentDto,
   ) {
-    return this.orders.respondAmendment(id, requireUser(req));
+    return this.orders.respondToAmendment(id, dto, requireUser(req));
   }
 }

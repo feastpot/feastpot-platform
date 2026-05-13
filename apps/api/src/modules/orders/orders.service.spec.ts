@@ -115,6 +115,7 @@ describe('OrdersService.updateStatus authorization', () => {
       loyalty as never,
       referrals as never,
       discountCodes as never,
+      {} as never,
     );
   });
 
@@ -267,6 +268,7 @@ describe('OrdersService.confirmOrder', () => {
       loyalty as never,
       referrals as never,
       discountCodes as never,
+      {} as never,
     );
     return { svc, repo, stripe, queue };
   };
