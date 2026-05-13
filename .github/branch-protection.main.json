@@ -1,6 +1,4 @@
 {
-  "_comment": "Source of truth for the branch protection config applied to `main` on github.com/feastpot/feastpot-platform. Apply with: curl -X PUT -H 'Authorization: Bearer $GITHUB_TOKEN' -H 'Accept: application/vnd.github+json' --data @.github/branch-protection.main.json https://api.github.com/repos/feastpot/feastpot-platform/branches/main/protection",
-  "_required_checks_note": "Only PR-time checks from .github/workflows/ci.yml are listed here, because GitHub branch protection requires that the contexts can actually run on the PR. The deploy.yml jobs (Migrate production DB, Deploy *) are gated by job-level dependencies inside deploy.yml itself — that file is the source of truth for what must succeed before production is updated, not branch protection. enforce_admins is true so even repo admins cannot bypass review/checks; the only way changes reach main is via a reviewed PR with green CI.",
   "required_status_checks": {
     "strict": true,
     "contexts": [
