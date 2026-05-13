@@ -102,6 +102,10 @@ describe('OrdersService.updateStatus authorization', () => {
       linkRedemptionToOrder: jest.fn().mockResolvedValue(undefined),
     };
     const referrals = { rewardReferral: jest.fn().mockResolvedValue(undefined) };
+    const discountCodes = {
+      validate: jest.fn(),
+      applyToOrder: jest.fn().mockResolvedValue(undefined),
+    };
     service = new OrdersService(
       {} as never,
       repo as never,
@@ -110,6 +114,7 @@ describe('OrdersService.updateStatus authorization', () => {
       queue as never,
       loyalty as never,
       referrals as never,
+      discountCodes as never,
     );
   });
 
@@ -249,6 +254,10 @@ describe('OrdersService.confirmOrder', () => {
       linkRedemptionToOrder: jest.fn().mockResolvedValue(undefined),
     };
     const referrals = { rewardReferral: jest.fn().mockResolvedValue(undefined) };
+    const discountCodes = {
+      validate: jest.fn(),
+      applyToOrder: jest.fn().mockResolvedValue(undefined),
+    };
     const svc = new OrdersService(
       {} as never,
       repo as never,
@@ -257,6 +266,7 @@ describe('OrdersService.confirmOrder', () => {
       queue as never,
       loyalty as never,
       referrals as never,
+      discountCodes as never,
     );
     return { svc, repo, stripe, queue };
   };

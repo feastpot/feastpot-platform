@@ -195,6 +195,11 @@ enum EvidenceType {
   screenshot
 }
 
+enum DiscountType {
+  flat
+  percentage
+}
+
 // ============================================================
 // MODELS (21)
 // ============================================================
@@ -229,6 +234,7 @@ model User {
   auditLogs      AuditLog[]
   eventEnquiries EventEnquiry[]
   pushSubscriptions PushSubscription[]
+  createdDiscountCodes DiscountCode[] @relation("CreatedDiscountCodes")
 
   @@index([role])
   @@index([status])
@@ -342,6 +348,7 @@ model Vendor {
   reviews        Review[]
   eventQuotes    EventQuote[]
   selectedForEnquiries EventEnquiry[] @relation("EventEnquirySelectedVendor")
+  discountCodes  DiscountCode[]
 
   @@index([status])
   @@index([slug])
@@ -482,12 +489,15 @@ model Order {
   dispatchedAt      DateTime?   @map("dispatched_at") @db.Timestamptz
   deliveredAt       DateTime?   @map("delivered_at") @db.Timestamptz
   cancelledAt       DateTime?   @map("cancelled_at") @db.Timestamptz
+  discountCodeId    String?     @map("discount_code_id") @db.Uuid
+  discountAppliedAt DateTime?   @map("discount_applied_at") @db.Timestamptz(6)
   createdAt         DateTime    @default(now()) @map("created_at") @db.Timestamptz
   updatedAt         DateTime    @updatedAt @map("updated_at") @db.Timestamptz
 
-  customer User        @relation(fields: [customerId], references: [id])
-  vendor   Vendor      @relation(fields: [vendorId], references: [id])
-  address  Address?    @relation(fields: [addressId], references: [id])
+  customer     User          @relation(fields: [customerId], references: [id])
+  vendor       Vendor        @relation(fields: [vendorId], references: [id])
+  address      Address?      @relation(fields: [addressId], references: [id])
+  discountCode DiscountCode? @relation("DiscountCodeOrders", fields: [discountCodeId], references: [id])
   items    OrderItem[]
   payments Payment[]
   payouts  Payout[]
@@ -774,4 +784,27 @@ model Referral {
   @@index([status])
   @@index([code])
   @@map("referrals")
+}
+
+model DiscountCode {
+  id              String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code            String       @unique @db.VarChar(30)
+  type            DiscountType
+  value           Int
+  minOrderPence   Int          @default(0) @map("min_order_pence")
+  maxUses         Int?         @map("max_uses")
+  usedCount       Int          @default(0) @map("used_count")
+  expiresAt       DateTime?    @map("expires_at") @db.Timestamptz
+  vendorId        String?      @map("vendor_id") @db.Uuid
+  isActive        Boolean      @default(true) @map("is_active")
+  createdByUserId String       @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz
+
+  vendor    Vendor? @relation(fields: [vendorId], references: [id])
+  createdBy User    @relation("CreatedDiscountCodes", fields: [createdByUserId], references: [id])
+  orders    Order[] @relation("DiscountCodeOrders")
+
+  @@index([code])
+  @@index([isActive, expiresAt])
+  @@map("discount_codes")
 }

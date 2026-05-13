@@ -1,0 +1,273 @@
+You are an expert NestJS, Prisma, and Next.js engineer on Feastpot.
+Implement FR-DISC-001: the discount code system end-to-end.
+
+═══════════════════════════════════════════════════════
+PART 1 — Database migration
+═══════════════════════════════════════════════════════
+
+Add to prisma/schema.prisma:
+
+enum DiscountType {
+  flat
+  percentage
+}
+
+model DiscountCode {
+  id              String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code            String       @unique @db.VarChar(30)
+  type            DiscountType
+  value           Int
+  // flat: pence (e.g. 500 = £5 off). percentage: basis points (e.g. 1000 = 10% off)
+  minOrderPence   Int          @default(0)     @map("min_order_pence")
+  maxUses         Int?                          @map("max_uses")
+  usedCount       Int          @default(0)     @map("used_count")
+  expiresAt       DateTime?    @db.Timestamptz @map("expires_at")
+  vendorId        String?      @db.Uuid        @map("vendor_id")
+  isActive        Boolean      @default(true)  @map("is_active")
+  createdByUserId String       @db.Uuid        @map("created_by_user_id")
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz
+
+  vendor          Vendor?      @relation(fields: [vendorId], references: [id])
+  createdBy       User         @relation("CreatedDiscountCodes", fields: [createdByUserId], references: [id])
+  orders          Order[]      @relation("DiscountCodeOrders")
+
+  @@index([code])
+  @@index([isActive, expiresAt])
+  @@map("discount_codes")
+}
+
+Add to Order model:
+  discountCodeId  String?       @db.Uuid @map("discount_code_id")
+  discountCode    DiscountCode? @relation("DiscountCodeOrders", fields: [discountCodeId], references: [id])
+
+Add to Vendor model:
+  discountCodes   DiscountCode[]
+
+Add to User model:
+  createdDiscountCodes DiscountCode[] @relation("CreatedDiscountCodes")
+
+Run: npx prisma migrate dev --name add_discount_codes --schema=./prisma/schema.prisma
+Run: npx prisma generate --schema=./prisma/schema.prisma
+
+═══════════════════════════════════════════════════════
+PART 2 — DiscountCodesModule
+File: apps/api/src/modules/discount-codes/
+═══════════════════════════════════════════════════════
+
+Create discount-codes.service.ts:
+
+async validate(code: string, vendorId: string, subtotalPence: number) {
+  const dc = await this.prisma.discountCode.findFirst({
+    where: { code: { equals: code, mode: 'insensitive' } }
+  })
+  if (!dc)                                     throw new BadRequestException('Invalid discount code')
+  if (!dc.isActive)                            throw new BadRequestException('This code is no longer active')
+  if (dc.expiresAt && dc.expiresAt < new Date()) throw new BadRequestException('This discount code has expired')
+  if (dc.maxUses !== null && dc.usedCount >= dc.maxUses)
+                                               throw new BadRequestException('This code has reached its usage limit')
+  if (subtotalPence < dc.minOrderPence)
+    throw new BadRequestException(`Minimum order of £${(dc.minOrderPence/100).toFixed(0)} required`)
+  if (dc.vendorId && dc.vendorId !== vendorId)
+    throw new BadRequestException('This code is not valid for this vendor')
+
+  const discountPence =
+    dc.type === 'flat'
+      ? Math.min(dc.value, subtotalPence)
+      : Math.round(subtotalPence * dc.value / 10000)
+
+  return { discountCodeId: dc.id, discountPence,
+           message: `£${(discountPence/100).toFixed(2)} discount applied ✓` }
+}
+
+async applyToOrder(discountCodeId: string): Promise<void> {
+  // Atomic increment — safe for concurrent requests
+  await this.prisma.$executeRaw`
+    UPDATE discount_codes SET used_count = used_count + 1 WHERE id = ${discountCodeId}::uuid
+  `
+}
+
+async adminCreate(dto: CreateDiscountCodeDto, adminUserId: string) {
+  return this.prisma.discountCode.create({
+    data: { ...dto, createdByUserId: adminUserId }
+  })
+}
+
+async adminList(page = 1, limit = 20) {
+  const [data, total] = await Promise.all([
+    this.prisma.discountCode.findMany({
+      orderBy: { createdAt: 'desc' },
+      skip: (page - 1) * limit, take: limit,
+      include: { vendor: { select: { businessName: true } }, _count: { select: { orders: true } } }
+    }),
+    this.prisma.discountCode.count()
+  ])
+  return { data, total, page, limit }
+}
+
+async adminToggle(id: string, isActive: boolean) {
+  return this.prisma.discountCode.update({ where: { id }, data: { isActive } })
+}
+
+Create discount-codes.controller.ts:
+
+// Customer endpoint
+@Post('discount-codes/validate')
+@HttpCode(200)
+async validate(@Body() dto: ValidateDiscountCodeDto) {
+  return this.discountCodesService.validate(dto.code, dto.vendorId, dto.subtotalPence)
+}
+
+// Admin endpoints
+@Get('admin/discount-codes')
+@Roles('admin', 'finance')
+async adminList(@Query('page') page = '1') {
+  return this.discountCodesService.adminList(parseInt(page))
+}
+
+@Post('admin/discount-codes')
+@Roles('admin')
+async adminCreate(@Body() dto: CreateDiscountCodeDto, @CurrentUser() user) {
+  return this.discountCodesService.adminCreate(dto, user.id)
+}
+
+@Patch('admin/discount-codes/:id')
+@Roles('admin')
+async adminToggle(@Param('id') id: string, @Body() dto: { isActive: boolean }) {
+  return this.discountCodesService.adminToggle(id, dto.isActive)
+}
+
+DTOs:
+ValidateDiscountCodeDto: code (string), vendorId (UUID), subtotalPence (int min 1)
+CreateDiscountCodeDto: code, type (DiscountType), value (int), minOrderPence?, maxUses?,
+  expiresAt? (ISO date string), vendorId? (UUID), isActive (default true)
+
+═══════════════════════════════════════════════════════
+PART 3 — Wire into OrdersService
+File: apps/api/src/modules/orders/orders.service.ts
+═══════════════════════════════════════════════════════
+
+Add to CreateOrderDto: discountCode?: string (optional string)
+
+In createOrder(), after subtotal calculation:
+  let discountPence = 0
+  let discountCodeId: string | undefined
+
+  if (dto.discountCode) {
+    const result = await this.discountCodesService.validate(
+      dto.discountCode, dto.vendorId, subtotalPence
+    )
+    discountPence = result.discountPence
+    discountCodeId = result.discountCodeId
+  }
+  // Add discountCodeId to the order create data
+
+In confirmOrder() — AFTER payment is confirmed:
+  if (order.discountCodeId) {
+    await this.discountCodesService.applyToOrder(order.discountCodeId)
+  }
+  // This atomic increment is safe because it runs only on confirmation, not creation
+
+═══════════════════════════════════════════════════════
+PART 4 — Checkout UI
+File: apps/web/src/app/checkout/page.tsx
+═══════════════════════════════════════════════════════
+
+Create apps/web/src/components/checkout/discount-code-input.tsx:
+
+'use client'
+import { useState } from 'react'
+import { CheckCircle2, XCircle, Loader2 } from 'lucide-react'
+
+interface Props {
+  subtotalPence: number
+  vendorId: string
+  onApply: (discountPence: number, code: string) => void
+  onRemove: () => void
+}
+
+export function DiscountCodeInput({ subtotalPence, vendorId, onApply, onRemove }: Props) {
+  const [code, setCode]       = useState('')
+  const [status, setStatus]   = useState<'idle'|'loading'|'success'|'error'>('idle')
+  const [message, setMessage] = useState('')
+  const [applied, setApplied] = useState(false)
+
+  const handleApply = async () => {
+    if (!code.trim()) return
+    setStatus('loading')
+    try {
+      const res = await fetch('/api/v1/discount-codes/validate', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: code.trim(), vendorId, subtotalPence })
+      })
+      const data = await res.json()
+      if (!res.ok) { setStatus('error'); setMessage(data.message); return }
+      setStatus('success')
+      setMessage(data.message)
+      setApplied(true)
+      onApply(data.discountPence, code.trim())
+    } catch { setStatus('error'); setMessage('Could not validate code') }
+  }
+
+  const handleRemove = () => {
+    setCode(''); setStatus('idle'); setMessage(''); setApplied(false)
+    onRemove()
+  }
+
+  return (
+    <div>
+      <p className="text-sm font-medium text-dark mb-2">Discount code</p>
+      <div className="flex gap-2">
+        <input
+          value={code}
+          onChange={e => setCode(e.target.value.toUpperCase())}
+          disabled={applied}
+          placeholder="Enter code"
+          className="flex-1 px-3 py-2.5 rounded-xl border border-gray-200 focus:border-brand outline-none text-sm font-mono disabled:bg-surface"
+        />
+        {!applied ? (
+          <button onClick={handleApply} disabled={status==='loading' || !code}
+            className="px-4 py-2.5 bg-brand text-white rounded-xl text-sm font-semibold disabled:opacity-50 flex items-center gap-1.5">
+            {status==='loading' ? <Loader2 className="w-4 h-4 animate-spin"/> : 'Apply'}
+          </button>
+        ) : (
+          <button onClick={handleRemove}
+            className="px-4 py-2.5 bg-surface border border-gray-200 text-mid rounded-xl text-sm">
+            Remove
+          </button>
+        )}
+      </div>
+      {message && (
+        <div className={`flex items-center gap-1.5 mt-1.5 text-xs ${status==='success' ? 'text-teal' : 'text-red-500'}`}>
+          {status==='success' ? <CheckCircle2 className="w-3.5 h-3.5"/> : <XCircle className="w-3.5 h-3.5"/>}
+          {message}
+        </div>
+      )}
+    </div>
+  )
+}
+
+Add DiscountCodeInput to the checkout page between order notes and payment sections.
+Update the checkout total calculation to subtract the applied discount.
+Pass discountCode in the CreateOrderDto when calling POST /v1/orders.
+
+═══════════════════════════════════════════════════════
+PART 5 — Admin discount code management page
+File: apps/admin/src/app/discount-codes/page.tsx (create)
+═══════════════════════════════════════════════════════
+
+Page layout:
+- Header: "Discount Codes" + "Create new code" button
+- Table: Code | Type | Value | Min order | Uses | Expires | Vendor scope | Active | Actions
+- Create code button opens a Sheet with a form:
+  code (text, auto-uppercase), type (select: flat/percentage),
+  value (£ input with helper: "50 = £0.50, 1000 = 10%"), min order (£),
+  max uses (number, optional), expires at (date picker, optional),
+  vendor scope (vendor search, optional — leave blank for platform-wide)
+- Toggle active/inactive per row (PATCH endpoint)
+- Copy code button per row
+
+Add link in admin sidebar: "Discount Codes" between Payouts and Compliance.
+
+Run: npm run typecheck in apps/api and apps/admin.
+Run: npm run build:api to confirm production build is clean.
+Output all file contents in full.

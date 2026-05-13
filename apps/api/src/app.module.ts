@@ -29,6 +29,7 @@ import { AddressesModule } from './modules/addresses/addresses.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { CatalogueModule } from './modules/catalogue/catalogue.module';
 import { ComplianceModule } from './modules/compliance/compliance.module';
+import { DiscountCodesModule } from './modules/discount-codes/discount-codes.module';
 import { DisputesModule } from './modules/disputes/disputes.module';
 import { EventEnquiriesModule } from './modules/event-enquiries/event-enquiries.module';
 import { LoyaltyModule } from './modules/loyalty/loyalty.module';
@@ -109,6 +110,7 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
     ReviewsModule,
     NotificationsModule,
     LoyaltyModule,
+    DiscountCodesModule,
     PushModule,
     WebhooksModule,
     AdminModule,

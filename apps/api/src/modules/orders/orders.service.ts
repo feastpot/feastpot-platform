@@ -14,6 +14,7 @@ import { randomBytes } from 'node:crypto';
 import type { AuthUser } from '../../auth/types';
 import { PrismaService } from '../../prisma/prisma.service';
 import { StripeService } from '../../stripe/stripe.service';
+import { DiscountCodesService } from '../discount-codes/discount-codes.service';
 import { LoyaltyService } from '../loyalty/loyalty.service';
 import { ReferralService } from '../loyalty/referral.service';
 
@@ -74,6 +75,7 @@ export class OrdersService {
     @InjectQueue(NOTIFICATIONS_QUEUE) private readonly notifications: Queue,
     private readonly loyalty: LoyaltyService,
     private readonly referrals: ReferralService,
+    private readonly discountCodes: DiscountCodesService,
   ) {}
 
   // ------------------------------------------------------------------
@@ -138,9 +140,20 @@ export class OrdersService {
           : baseFee;
     }
 
-    // Discount: schema has no DiscountCode model — accept the field but ignore it.
+    // FR-DISC-001 promo code. Validation throws BadRequest with the
+    // customer-friendly message the checkout UI surfaces verbatim. The
+    // redemption counter (`used_count`) is bumped later, in confirmOrder,
+    // so an abandoned checkout doesn't burn one of the code's `maxUses`.
+    let promoDiscountPence = 0;
+    let discountCodeId: string | null = null;
     if (dto.discountCode) {
-      this.logger.warn(`Discount code "${dto.discountCode}" ignored (no DiscountCode model in schema)`);
+      const result = await this.discountCodes.validate(
+        dto.discountCode,
+        dto.vendorId,
+        subtotalPence,
+      );
+      promoDiscountPence = result.discountPence;
+      discountCodeId = result.discountCodeId;
     }
 
     // Loyalty redemption: cap to never exceed (subtotal + delivery) so the
@@ -161,7 +174,9 @@ export class OrdersService {
       }
     }
 
-    const discountPence = loyaltyToRedeem;
+    // Combine loyalty + promo discounts. Final clamp ensures total never
+    // dips below £0 even if the two stack to more than the order value.
+    const discountPence = loyaltyToRedeem + promoDiscountPence;
     const serviceFeePence = Math.round((subtotalPence * SERVICE_FEE_BPS) / 10_000);
     const totalPence = Math.max(0, subtotalPence + deliveryFeePence + serviceFeePence - discountPence);
 
@@ -186,6 +201,7 @@ export class OrdersService {
         vendorPayoutPence,
         notes: dto.notes ?? null,
         scheduledFor,
+        discountCodeId,
       },
       items: dto.items.map((input) => {
         const mi = byId.get(input.menuItemId)!;
@@ -255,6 +271,31 @@ export class OrdersService {
         code: 'PAYMENT_NOT_AUTHORISED',
         message: `Stripe payment intent is in state "${intent.status}", expected "requires_capture"`,
       });
+    }
+
+    // FR-DISC-001: bump the discount code's used_count exactly once, AFTER
+    // Stripe authorisation succeeds. We use a per-order CAS on
+    // `discount_applied_at` so concurrent confirmOrder calls (e.g. customer
+    // double-clicks "Pay" while the order row is still `pending`) can never
+    // double-increment. Best-effort — a transient failure here must not
+    // block the customer from being told the order is confirmed.
+    if (order.discountCodeId) {
+      try {
+        const cas = await this.prisma.$executeRaw`
+          UPDATE "orders"
+             SET "discount_applied_at" = NOW()
+           WHERE "id" = ${orderId}::uuid
+             AND "discount_code_id" IS NOT NULL
+             AND "discount_applied_at" IS NULL
+        `;
+        if (cas > 0) {
+          await this.discountCodes.applyToOrder(order.discountCodeId);
+        }
+      } catch (e) {
+        this.logger.error(
+          `applyToOrder (discount=${order.discountCodeId}) failed for ${orderId}: ${(e as Error).message}`,
+        );
+      }
     }
 
     await this.notifications.add('notify_vendor', { vendorId: order.vendorId, orderId });
