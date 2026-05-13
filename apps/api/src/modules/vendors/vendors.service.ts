@@ -444,6 +444,26 @@ export class VendorsService {
     const cursor = decodeCursor(dto.cursor);
     const rows = await this.repo.search(dto, cursor);
     const nextCursor = rows.length === limit ? encodeCursor(rows[rows.length - 1]!) : null;
+
+    // FR-SRCH-001: log every free-text search anonymously. Fire-and-forget —
+    // logging must never slow down the response or fail the request. Only
+    // log when the user actually typed something (avoids polluting the
+    // analytics table with empty pass-throughs from the cuisine carousel).
+    const q = dto.q?.trim();
+    if (q && q.length > 0) {
+      void this.prisma.searchLog
+        .create({
+          data: {
+            query: q.slice(0, 200),
+            postcode: dto.postcode?.slice(0, 10) ?? null,
+            resultsCount: rows.length,
+          },
+        })
+        .catch(() => {
+          /* analytics is non-critical — swallow */
+        });
+    }
+
     return {
       data: rows.map((r) => ({
         id: r.id,
@@ -456,6 +476,8 @@ export class VendorsService {
         ratingCount: r.rating_count,
         createdAt: r.created_at,
         distanceKm: r.distance_km,
+        // Empty array (not null) so the client can `.length` without a guard.
+        matchedDishes: r.matched_dishes ?? [],
       })),
       nextCursor,
     };

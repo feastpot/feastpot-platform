@@ -1,0 +1,249 @@
+You are an expert NestJS, Prisma, and Next.js engineer on Feastpot.
+Implement FR-SRCH-001: platform-wide search across vendor names and dish names.
+
+═══════════════════════════════════════════════════════
+PART 1 — SearchLog database migration
+═══════════════════════════════════════════════════════
+
+Add to prisma/schema.prisma:
+
+model SearchLog {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  query        String   @db.VarChar(200)
+  postcode     String?  @db.VarChar(10)
+  resultsCount Int      @map("results_count")
+  searchedAt   DateTime @default(now()) @db.Timestamptz @map("searched_at")
+
+  @@index([query, searchedAt(sort: Desc)])
+  @@map("search_logs")
+}
+
+Run: npx prisma migrate dev --name add_search_logs --schema=./prisma/schema.prisma
+Run: npx prisma generate --schema=./prisma/schema.prisma
+
+═══════════════════════════════════════════════════════
+PART 2 — Extend VendorRepository search query
+File: apps/api/src/modules/vendors/vendors.repository.ts
+═══════════════════════════════════════════════════════
+
+Update the search method to also search menu item names when q is provided.
+If a raw SQL approach is problematic, use Prisma's nested filter:
+
+async search(dto: SearchVendorsDto) {
+  const { q, postcode, cuisine, halal, communityFavourite, sortBy = 'rating', limit = 20, cursor } = dto
+
+  const where: Prisma.VendorWhereInput = {
+    status: 'live',
+    ...(communityFavourite && { communityFavourite: true }),
+    ...(cuisine?.length && { cuisineTypes: { hasSome: cuisine } }),
+    ...(q && {
+      OR: [
+        { businessName: { contains: q, mode: 'insensitive' } },
+        { description:  { contains: q, mode: 'insensitive' } },
+        { cuisineTypes: { has: q } },
+        {
+          menus: {
+            some: {
+              isActive: true,
+              items: {
+                some: {
+                  isAvailable: true,
+                  OR: [
+                    { name:        { contains: q, mode: 'insensitive' } },
+                    { description: { contains: q, mode: 'insensitive' } },
+                  ]
+                }
+              }
+            }
+          }
+        }
+      ]
+    })
+  }
+
+  const vendors = await this.prisma.vendor.findMany({
+    where,
+    orderBy: sortBy === 'rating'
+      ? { avgRating: 'desc' }
+      : sortBy === 'reorderRate'
+        ? { reorderRatePct: 'desc' }
+        : { avgRating: 'desc' },
+    take: limit + 1,
+    cursor: cursor ? { id: cursor } : undefined,
+    include: {
+      address: true,
+      // Include matched menu items so the UI can show "Has: Pounded Yam"
+      menus: q ? {
+        where: { isActive: true },
+        include: {
+          items: {
+            where: {
+              isAvailable: true,
+              OR: [
+                { name:        { contains: q, mode: 'insensitive' } },
+                { description: { contains: q, mode: 'insensitive' } },
+              ]
+            },
+            select: { name: true },
+            take: 3,
+          }
+        }
+      } : false
+    }
+  })
+
+  // Extract matchedDishes from nested menus.items
+  const withMatchedDishes = vendors.map(v => ({
+    ...v,
+    matchedDishes: q
+      ? [...new Set(v.menus?.flatMap(m => m.items?.map(i => i.name) ?? []) ?? [])]
+      : [],
+    menus: undefined  // remove menus from response to keep payload small
+  }))
+
+  const hasMore = withMatchedDishes.length > limit
+  const data = hasMore ? withMatchedDishes.slice(0, limit) : withMatchedDishes
+  const nextCursor = hasMore ? data[data.length - 1].id : null
+
+  return { data, nextCursor, total: data.length }
+}
+
+═══════════════════════════════════════════════════════
+PART 3 — Search logging
+File: apps/api/src/modules/vendors/vendors.service.ts
+═══════════════════════════════════════════════════════
+
+After the search query returns results, log the search anonymously:
+// Fire-and-forget (do not await — don't slow down the response)
+this.prisma.searchLog.create({
+  data: { query: dto.q, postcode: dto.postcode, resultsCount: result.data.length }
+}).catch(() => {}) // silently swallow errors — logging is not critical path
+
+═══════════════════════════════════════════════════════
+PART 4 — Admin search analytics endpoint
+File: apps/api/src/modules/admin/admin.controller.ts
+═══════════════════════════════════════════════════════
+
+@Get('admin/search-analytics')
+@Roles('admin')
+async searchAnalytics() {
+  const results = await this.prisma.$queryRaw`
+    SELECT
+      query,
+      COUNT(*) as search_count,
+      AVG(results_count)::int as avg_results,
+      MAX(searched_at) as last_searched
+    FROM search_logs
+    WHERE searched_at > NOW() - INTERVAL '30 days'
+    GROUP BY query
+    ORDER BY search_count DESC
+    LIMIT 25
+  `
+  return results
+}
+
+═══════════════════════════════════════════════════════
+PART 5 — Customer PWA: search input on /vendors page
+File: apps/web/src/app/vendors/page.tsx
+═══════════════════════════════════════════════════════
+
+5a. Add a search input above the CuisineFilters component:
+
+Create apps/web/src/components/vendors/vendor-search-input.tsx:
+
+'use client'
+import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams, usePathname } from 'next/navigation'
+import { Search, X } from 'lucide-react'
+
+export function VendorSearchInput() {
+  const router      = useRouter()
+  const pathname    = usePathname()
+  const searchParams = useSearchParams()
+  const [value, setValue] = useState(searchParams.get('q') ?? '')
+
+  // Debounce: update URL after 300ms of no typing
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const params = new URLSearchParams(searchParams.toString())
+      if (value.trim()) params.set('q', value.trim())
+      else params.delete('q')
+      router.replace(`${pathname}?${params.toString()}`, { scroll: false })
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [value])
+
+  return (
+    <div className="relative mx-4 mb-1">
+      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-mid" />
+      <input
+        value={value}
+        onChange={e => setValue(e.target.value)}
+        placeholder="Search for a dish or vendor..."
+        className="w-full pl-9 pr-9 py-2.5 rounded-xl border border-gray-200 bg-white focus:border-brand outline-none text-sm"
+      />
+      {value && (
+        <button onClick={() => setValue('')}
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-mid hover:text-dark">
+          <X className="w-4 h-4" />
+        </button>
+      )}
+    </div>
+  )
+}
+
+5b. When q is present in URL params: show a result chip above the vendor grid:
+{q && (
+  <div className="flex items-center gap-2 px-4 mb-3">
+    <span className="text-sm text-mid">Results for</span>
+    <span className="bg-brand text-white text-xs font-medium px-2.5 py-1 rounded-full flex items-center gap-1">
+      {q}
+      <button onClick={clearSearch}><X className="w-3 h-3"/></button>
+    </span>
+    <span className="text-xs text-mid">{vendors.length} vendors</span>
+  </div>
+)}
+
+5c. Show matched dishes under each VendorCard when q is present:
+In VendorCard component, add an optional matchedDishes prop.
+If matchedDishes.length > 0, render below the cuisine tags:
+<div className="flex flex-wrap gap-1 mt-1">
+  <span className="text-[10px] text-teal-dark bg-teal-light px-1.5 py-0.5 rounded-md font-medium">
+    Has: {matchedDishes.slice(0,3).join(' · ')}
+  </span>
+</div>
+
+5d. Empty search state when q returns no results:
+<div className="flex flex-col items-center justify-center py-16 px-6 text-center">
+  <span className="text-5xl mb-4">🔍</span>
+  <h3 className="font-bold text-dark text-lg mb-2">No results for "{q}"</h3>
+  <p className="text-mid text-sm mb-4">
+    {postcode ? `Try a different dish name or browse all vendors in ${postcode}`
+              : 'Try a different search term or browse all vendors'}
+  </p>
+  <button onClick={clearSearch}
+    className="px-4 py-2 bg-brand text-white rounded-xl text-sm font-semibold">
+    Browse all vendors
+  </button>
+</div>
+
+═══════════════════════════════════════════════════════
+PART 6 — Admin dashboard: search analytics widget
+File: apps/admin/src/app/page.tsx
+═══════════════════════════════════════════════════════
+
+Add a "Search trends" card to the admin dashboard below the main metrics:
+
+Fetch GET /v1/admin/search-analytics
+Render as a horizontal bar chart (recharts BarChart, horizontal):
+  Y-axis: search terms (top 10)
+  X-axis: search count
+  Bars coloured: green if avg_results > 2, amber if avg_results 1-2, red if avg_results = 0
+
+Below the chart, a "Recruitment opportunity" callout:
+Filter to searches where avg_results = 0 and search_count > 3
+"Customers searched for these but found no vendors: fufu (12 searches), ofe onugbu (8 searches)"
+This drives vendor recruitment decisions.
+
+Run: npm run typecheck in all three apps.
+Output all changed files in full.

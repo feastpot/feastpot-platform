@@ -29,6 +29,8 @@ export interface VendorListItem {
   minOrderPence?: number | null;
   deliveryEtaMins?: number | null;
   communityFavourite?: boolean;
+  /** FR-SRCH-001: dish names that matched the free-text query, when q is set. */
+  matchedDishes?: string[];
 }
 
 export interface VendorListResponse {
@@ -39,6 +41,8 @@ export interface VendorListResponse {
 export type VendorSortBy = 'rating' | 'distance' | 'reorderRate';
 
 export interface SearchVendorsParams {
+  /** Free-text query — vendor name, description, cuisine, or dish name. */
+  q?: string;
   postcode?: string;
   cuisine?: string[];
   halal?: boolean;

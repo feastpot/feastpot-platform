@@ -318,6 +318,21 @@ model Notification {
   @@map("notifications")
 }
 
+/// Anonymous log of every public vendor search. Powers admin "search trends"
+/// + vendor-recruitment ("we get N searches/week for X but have no vendors").
+/// Intentionally has NO userId/IP so it stays out of GDPR DSAR scope.
+model SearchLog {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  query        String   @db.VarChar(200)
+  postcode     String?  @db.VarChar(10)
+  resultsCount Int      @map("results_count")
+  searchedAt   DateTime @default(now()) @map("searched_at") @db.Timestamptz
+
+  @@index([query, searchedAt(sort: Desc)])
+  @@index([searchedAt(sort: Desc)])
+  @@map("search_logs")
+}
+
 model Vendor {
   id              String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId          String       @unique @map("user_id") @db.Uuid

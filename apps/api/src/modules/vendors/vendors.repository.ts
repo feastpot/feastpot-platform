@@ -18,6 +18,8 @@ export interface SearchedVendorRow {
   rating_count: number;
   created_at: Date;
   distance_km: number | null;
+  /** Up to 3 active menu-item names that matched `q` (Postgres array). */
+  matched_dishes: string[] | null;
 }
 
 export interface DecodedCursor {
@@ -52,6 +54,12 @@ export class VendorRepository {
     const communityFavourite = dto.communityFavourite === true;
     const sortBy = dto.sortBy ?? VendorSortBy.rating;
     const useDistance = sortBy === VendorSortBy.distance && !!postcodePrefix;
+
+    // Free-text query: trim + cap; we wrap with %…% in the SQL so users
+    // can't inject extra wildcards beyond what we choose.
+    const qRaw = dto.q?.trim();
+    const q = qRaw && qRaw.length > 0 ? qRaw.slice(0, 200) : null;
+    const qLike = q ? `%${q.replace(/[%_\\]/g, (c) => `\\${c}`)}%` : null;
 
     // ORDER BY + matching keyset cursor predicate (must use the SAME keys/direction
     // as ORDER BY for stable pagination — the previous id-only cursor was wrong).
@@ -103,6 +111,45 @@ export class VendorRepository {
       ? Prisma.sql`AND v.rating >= ${COMMUNITY_FAVOURITE_RATING}`
       : Prisma.empty;
 
+    // FR-SRCH-001: q matches vendor fields OR any active menu-item name /
+    // description. Same EXISTS pattern as halalClause keeps the planner
+    // happy (semi-join, no row blow-up).
+    const qClause = qLike
+      ? Prisma.sql`AND (
+          v.business_name ILIKE ${qLike}
+          OR v.description ILIKE ${qLike}
+          OR EXISTS (SELECT 1 FROM unnest(v.cuisines) AS c WHERE c ILIKE ${qLike})
+          OR EXISTS (
+            SELECT 1
+            FROM menu_items mi
+            JOIN menus m ON m.id = mi.menu_id
+            WHERE mi.vendor_id = v.id
+              AND mi.is_available = true
+              AND m.is_active = true
+              AND (mi.name ILIKE ${qLike} OR mi.description ILIKE ${qLike})
+          )
+        )`
+      : Prisma.empty;
+
+    // Up to 3 matched dish names per vendor — surfaced as a "Has: …" chip
+    // on the customer-facing card. NULL when no q so the JSON array stays
+    // empty rather than ["",""].
+    const matchedDishesSelect = qLike
+      ? Prisma.sql`(
+          SELECT ARRAY(
+            SELECT mi.name
+            FROM menu_items mi
+            JOIN menus m ON m.id = mi.menu_id
+            WHERE mi.vendor_id = v.id
+              AND mi.is_available = true
+              AND m.is_active = true
+              AND (mi.name ILIKE ${qLike} OR mi.description ILIKE ${qLike})
+            ORDER BY mi.name
+            LIMIT 3
+          )
+        ) AS matched_dishes`
+      : Prisma.sql`NULL::text[] AS matched_dishes`;
+
     // Distance: rough proxy — match by outward postcode (first 4 chars) on the
     // vendor's DeliveryConfig.postcodes OR owner's address.postcode. Real ST_DWithin
     // requires PostGIS which we haven't enabled; this gives 0km for matches and NULL
@@ -148,7 +195,8 @@ export class VendorRepository {
       SELECT
         v.id, v.business_name, v.slug, v.description, v.cuisines,
         v.status, v.rating, v.rating_count, v.created_at,
-        ${distanceSelect}
+        ${distanceSelect},
+        ${matchedDishesSelect}
       FROM vendors v
       WHERE v.status = 'live'
         ${cursorClause}
@@ -156,6 +204,7 @@ export class VendorRepository {
         ${halalClause}
         ${favouriteClause}
         ${postcodeFilter}
+        ${qClause}
       ORDER BY ${orderBy}
       LIMIT ${limit}
     `);

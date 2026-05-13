@@ -119,6 +119,16 @@ export function VendorCard({ vendor, variant = 'list' }: Props) {
           </div>
         )}
 
+        {/* FR-SRCH-001: when the search hit a dish name, surface the match
+            so the customer immediately sees WHY this vendor showed up. */}
+        {vendor.matchedDishes && vendor.matchedDishes.length > 0 && (
+          <div className="mt-1.5">
+            <span className="inline-block rounded-md bg-teal/10 px-1.5 py-0.5 text-[10px] font-medium text-teal">
+              Has: {vendor.matchedDishes.slice(0, 3).join(' · ')}
+            </span>
+          </div>
+        )}
+
         {!isCarousel && (
           <div className="mt-2 flex flex-wrap items-center gap-3 text-[10px] text-mid">
             {typeof vendor.minOrderPence === 'number' && vendor.minOrderPence > 0 && (

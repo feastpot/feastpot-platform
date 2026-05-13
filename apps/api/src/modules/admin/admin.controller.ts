@@ -21,9 +21,27 @@ import type { AuthedRequest } from '../../auth/types';
 import { NotificationsService } from '../notifications/notifications.service';
 import { TEMPLATES } from '../notifications/templates';
 
+import { PrismaService } from '../../prisma/prisma.service';
+
 import { AdminService } from './admin.service';
 import { ListAdminVendorsDto } from './dto/list-admin-vendors.dto';
 import { ListAuditLogDto } from './dto/list-audit-log.dto';
+
+interface SearchAnalyticsRow {
+  query: string;
+  search_count: bigint;
+  avg_results: number;
+  zero_result_count: bigint;
+  last_searched: Date;
+}
+
+interface SearchAnalyticsResponse {
+  query: string;
+  searchCount: number;
+  avgResults: number;
+  zeroResultCount: number;
+  lastSearched: string;
+}
 
 @ApiTags('Admin')
 @ApiBearerAuth()
@@ -32,7 +50,44 @@ export class AdminController {
   constructor(
     private readonly admin: AdminService,
     private readonly notifications: NotificationsService,
+    private readonly prisma: PrismaService,
   ) {}
+
+  /**
+   * FR-SRCH-001: top customer searches over the last 30 days.
+   *
+   * Returned `avgResults` drives a green/amber/red colour-coded bar in the
+   * dashboard widget, and `zeroResultCount` powers the
+   * "recruitment opportunity" callout (terms customers searched for but
+   * couldn't find any vendors).
+   */
+  @Get('search-analytics')
+  @Roles(UserRole.admin, UserRole.support)
+  @ApiOperation({ summary: 'Top customer searches over the last 30 days (count, avg results, zero-result count)' })
+  async searchAnalytics(): Promise<SearchAnalyticsResponse[]> {
+    const rows = await this.prisma.$queryRaw<SearchAnalyticsRow[]>`
+      SELECT
+        query,
+        COUNT(*)                                      AS search_count,
+        ROUND(AVG(results_count))::int               AS avg_results,
+        COUNT(*) FILTER (WHERE results_count = 0)    AS zero_result_count,
+        MAX(searched_at)                              AS last_searched
+      FROM search_logs
+      WHERE searched_at > NOW() - INTERVAL '30 days'
+      GROUP BY query
+      ORDER BY search_count DESC
+      LIMIT 25
+    `;
+    // BigInt → number for JSON; counts comfortably fit in a JS number for any
+    // realistic search volume.
+    return rows.map((r) => ({
+      query: r.query,
+      searchCount: Number(r.search_count),
+      avgResults: r.avg_results,
+      zeroResultCount: Number(r.zero_result_count),
+      lastSearched: r.last_searched.toISOString(),
+    }));
+  }
 
   @Get('dashboard')
   @Roles(UserRole.admin, UserRole.finance, UserRole.support, UserRole.compliance)

@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, Table, TableBody, TableCell, 
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
 import { PageHeader } from '@/components/layout/page-header';
+import { SearchTrendsCard } from '@/components/dashboard/search-trends-card';
 import { useAdminDashboard } from '@/hooks/use-admin-dashboard';
 import { formatPence, formatPercent } from '@/lib/format';
 
@@ -110,6 +111,8 @@ export function DashboardClient() {
           </Table>
         </CardContent>
       </Card>
+
+      <SearchTrendsCard />
     </>
   );
 }
