@@ -107,13 +107,14 @@ jobs:
 
   # ----------------------------------------------------------------------------
   # 3-5. Trigger Vercel deploy hooks for the three front-ends. These run in
-  #      parallel with the DB/API pipeline (no `needs:`). The frontends only
-  #      consume the API at runtime, so a failed migration or API deploy must
-  #      not gate a frontend-only change (e.g. a CSS / layout fix). Revert
-  #      this decoupling once the production migration step is healthy again.
+  #      parallel with each other but are gated on `deploy-api` (which itself
+  #      requires `deploy-database`), so a failed migration or API deploy
+  #      blocks the frontend deploys and prevents a broken schema from
+  #      reaching prod.
   # ----------------------------------------------------------------------------
   deploy-web:
     name: Deploy web (Vercel)
+    needs: [deploy-api]
     runs-on: ubuntu-latest
     environment: production
     steps:
@@ -122,6 +123,7 @@ jobs:
 
   deploy-vendor:
     name: Deploy vendor (Vercel)
+    needs: [deploy-api]
     runs-on: ubuntu-latest
     environment: production
     steps:
@@ -130,6 +132,7 @@ jobs:
 
   deploy-admin:
     name: Deploy admin (Vercel)
+    needs: [deploy-api]
     runs-on: ubuntu-latest
     environment: production
     steps:
