@@ -1,0 +1,258 @@
+You are an expert NestJS engineer on Feastpot.
+Wire the production notification providers (FR-NOTIF-001).
+The queue, workers, and service layer are already built.
+This prompt creates real email/SMS templates and confirms provider credentials.
+
+DO NOT change queue logic, BullMQ configuration, or any order/payment logic.
+Only touch: notification provider clients, templates, and the processor dispatch logic.
+
+═══════════════════════════════════════════════════════
+PART 1 — Verify provider clients
+Files: apps/api/src/modules/notifications/providers/
+═══════════════════════════════════════════════════════
+
+Open the notifications providers directory. Find the Resend and Twilio provider files.
+
+For Resend provider — confirm or create apps/api/src/modules/notifications/providers/resend.provider.ts:
+import { Resend } from 'resend'
+import { Injectable } from '@nestjs/common'
+import { ConfigService } from '@nestjs/config'
+
+@Injectable()
+export class ResendProvider {
+  private readonly resend: Resend
+  constructor(private config: ConfigService) {
+    this.resend = new Resend(this.config.get('RESEND_API_KEY'))
+  }
+  async send(to: string, subject: string, html: string): Promise<void> {
+    const { error } = await this.resend.emails.send({
+      from: 'Feastpot <noreply@feastpot.co.uk>',
+      to, subject, html
+    })
+    if (error) throw new Error(`Resend error: ${error.message}`)
+  }
+}
+
+For Twilio provider — confirm or create apps/api/src/modules/notifications/providers/twilio.provider.ts:
+import Twilio from 'twilio'
+import { Injectable } from '@nestjs/common'
+import { ConfigService } from '@nestjs/config'
+
+@Injectable()
+export class TwilioProvider {
+  private readonly client: Twilio.Twilio
+  private readonly from: string
+  constructor(private config: ConfigService) {
+    this.client = Twilio(
+      this.config.get('TWILIO_ACCOUNT_SID'),
+      this.config.get('TWILIO_AUTH_TOKEN')
+    )
+    this.from = this.config.get('TWILIO_FROM_NUMBER') ?? ''
+  }
+  async sendSms(to: string, body: string): Promise<void> {
+    if (!this.from) { console.warn('TWILIO_FROM_NUMBER not set — SMS skipped'); return }
+    await this.client.messages.create({ from: this.from, to, body })
+  }
+}
+
+═══════════════════════════════════════════════════════
+PART 2 — Base email layout
+File: apps/api/src/modules/notifications/templates/base-layout.ts
+═══════════════════════════════════════════════════════
+
+export function baseLayout(title: string, body: string, preheader = ''): string {
+  return `<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${title}</title>
+${preheader ? `<div style="display:none;max-height:0;overflow:hidden">${preheader}</div>` : ''}
+</head>
+<body style="margin:0;padding:0;background:#F8F7F5;font-family:Inter,Arial,Helvetica,sans-serif;-webkit-font-smoothing:antialiased">
+<div style="max-width:600px;margin:24px auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(28,28,26,.08)">
+
+  <!-- Header -->
+  <div style="background:#E8520A;padding:20px 28px;display:flex;align-items:center">
+    <span style="color:#ffffff;font-size:26px;font-weight:900;letter-spacing:-1.5px;font-family:Inter,Arial,sans-serif">feast</span><span style="color:rgba(255,255,255,.75);font-size:26px;font-weight:900;letter-spacing:-1.5px">pot</span>
+  </div>
+
+  <!-- Body -->
+  <div style="padding:28px 28px 24px">${body}</div>
+
+  <!-- Footer -->
+  <div style="background:#F8F7F5;padding:16px 28px;border-top:1px solid #EDEDEA">
+    <p style="margin:0 0 4px;font-size:12px;color:#888780">Feastpot · feastpot.co.uk · support@feastpot.co.uk</p>
+    <p style="margin:0;font-size:11px;color:#BDBBB7">ICO Registration: C1931679 · Feastpot Ltd · England & Wales</p>
+  </div>
+</div>
+</body></html>`
+}
+
+// Helper: brand button
+export function brandButton(text: string, url: string): string {
+  return `<div style="margin:20px 0"><a href="${url}" style="display:inline-block;background:#E8520A;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:10px;font-weight:700;font-size:15px">${text}</a></div>`
+}
+
+// Helper: h2 heading
+export function h2(text: string): string {
+  return `<h2 style="margin:0 0 12px;font-size:22px;font-weight:800;color:#1C1C1A;letter-spacing:-.5px">${text}</h2>`
+}
+
+// Helper: paragraph
+export function p(text: string, color = '#5F5E5A'): string {
+  return `<p style="margin:0 0 12px;font-size:15px;color:${color};line-height:1.6">${text}</p>`
+}
+
+═══════════════════════════════════════════════════════
+PART 3 — Email templates (8 files)
+Files: apps/api/src/modules/notifications/templates/email/
+═══════════════════════════════════════════════════════
+
+Create each template as a function returning { subject: string, html: string }
+
+order-confirmation.template.ts
+interface Data { customerName:string; orderRef:string; vendorName:string; items:{name:string;qty:number;pricePence:number}[]; totalPence:number; scheduledFor:string; trackingUrl:string }
+Subject: "Order confirmed with {vendorName} 🍽️"
+Body: "Hi {customerName}, your order is confirmed!", items table, total, scheduled time, brand orange "Track your order" button.
+
+order-accepted.template.ts
+interface Data { customerName:string; vendorName:string; scheduledFor:string; trackingUrl:string }
+Subject: "{vendorName} has accepted your order! 👨‍🍳"
+Body: accepted message, prep info, track button in teal.
+
+order-dispatched.template.ts
+interface Data { customerName:string; vendorName:string; etaText:string; trackingUrl:string }
+Subject: "Your order is on the way 🚗"
+Body: on-the-way message, ETA, track button, vendor contact note.
+
+order-delivered.template.ts
+interface Data { customerName:string; vendorName:string; reviewUrl:string; loyaltyPointsEarned:number }
+Subject: "Order delivered — leave a review ⭐"
+Body: delivered confirmation, points earned in teal pill, review CTA button.
+
+review-request.template.ts
+interface Data { customerName:string; vendorName:string; reviewUrl:string }
+Subject: "How was your food from {vendorName}? ⭐"
+Body: review prompt, star icons (★★★★★ as text), review button.
+
+payout-statement.template.ts
+interface Data { vendorName:string; weekLabel:string; grossPence:number; commissionPence:number; netPence:number; payoutDate:string }
+Subject: "Feastpot payout — {weekLabel}"
+Body: payout summary table (gross, commission deducted, net payable), payout date, link to vendor dashboard.
+
+document-expiry-warning.template.ts
+interface Data { vendorName:string; documentType:string; expiryDate:string; daysRemaining:number; uploadUrl:string }
+Subject: "⚠️ Action required — document expiring in {daysRemaining} days"
+Body: warning callout box (amber background), document name, expiry date, upload CTA button.
+
+dispute-opened.template.ts
+interface Data { vendorName:string; orderRef:string; issueType:string; disputeUrl:string }
+Subject: "Dispute opened on order #{orderRef}"
+Body: dispute details, 24h response window highlighted, respond button.
+
+═══════════════════════════════════════════════════════
+PART 4 — SMS templates
+File: apps/api/src/modules/notifications/templates/sms/sms.templates.ts
+═══════════════════════════════════════════════════════
+
+export const smsTemplates = {
+  order_confirmation: (d: {vendorName:string; orderRef:string; trackingUrl:string}) =>
+    `Feastpot: Order confirmed with ${d.vendorName}! Ref: ${d.orderRef}. Track: ${d.trackingUrl}`,
+
+  order_accepted: (d: {vendorName:string; trackingUrl:string}) =>
+    `Feastpot: ${d.vendorName} is preparing your order now. Track: ${d.trackingUrl}`,
+
+  order_dispatched: (d: {vendorName:string; etaText:string; trackingUrl:string}) =>
+    `Feastpot: Your order from ${d.vendorName} is on the way! ETA: ${d.etaText}. Track: ${d.trackingUrl}`,
+}
+
+═══════════════════════════════════════════════════════
+PART 5 — Wire templates into NotificationProcessor
+File: apps/api/src/modules/notifications/notification.processor.ts
+═══════════════════════════════════════════════════════
+
+Import all template functions.
+In the SEND_EMAIL job handler, replace any stub logic with:
+
+case 'send_email': {
+  const { to, template, data } = job.data
+  let subject = '', html = ''
+
+  switch (template) {
+    case 'order_confirmation':    ({ subject, html } = orderConfirmationTemplate(data)); break
+    case 'order_accepted':        ({ subject, html } = orderAcceptedTemplate(data)); break
+    case 'order_dispatched':      ({ subject, html } = orderDispatchedTemplate(data)); break
+    case 'order_delivered':       ({ subject, html } = orderDeliveredTemplate(data)); break
+    case 'review_request':        ({ subject, html } = reviewRequestTemplate(data)); break
+    case 'payout_statement':      ({ subject, html } = payoutStatementTemplate(data)); break
+    case 'document_expiry_warning': ({ subject, html } = documentExpiryTemplate(data)); break
+    case 'dispute_opened':        ({ subject, html } = disputeOpenedTemplate(data)); break
+    default:
+      this.logger.warn(`Unknown email template: ${template}`)
+      return
+  }
+  await this.resendProvider.send(to, subject, html)
+  break
+}
+
+In the SEND_SMS job handler:
+case 'send_sms': {
+  const { phone, template, data } = job.data
+  const fn = smsTemplates[template]
+  if (!fn) { this.logger.warn(`Unknown SMS template: ${template}`); return }
+  await this.twilioProvider.sendSms(phone, fn(data))
+  break
+}
+
+═══════════════════════════════════════════════════════
+PART 6 — Audit notification enqueues in orders.service.ts
+═══════════════════════════════════════════════════════
+
+Verify these notification jobs are enqueued at each order status transition.
+If any are missing, add them:
+
+Order created (POST /v1/orders):
+  send_email: order_confirmation → customer email
+  send_sms: order_confirmation → customer phone (if present)
+
+Order accepted (PATCH status → accepted):
+  send_email: order_accepted → customer
+  send_sms: order_accepted → customer phone
+
+Order dispatched (PATCH status → dispatched):
+  send_email: order_dispatched → customer
+  send_sms: order_dispatched → customer phone
+
+Order delivered (PATCH status → delivered):
+  send_email: order_delivered → customer (with loyaltyPointsEarned = Math.floor(totalPence/100))
+
+Review trigger (already in cron — verify):
+  2 hours after delivered: send_email review_request → customer
+
+═══════════════════════════════════════════════════════
+PART 7 — Admin test endpoint (development only)
+File: apps/api/src/modules/admin/admin.controller.ts
+═══════════════════════════════════════════════════════
+
+@Post('admin/test-notification')
+@Roles('admin')
+async testNotification(@Body() dto: { template: string; to: string; phone?: string }) {
+  if (process.env.NODE_ENV === 'production') throw new ForbiddenException('Not available in production')
+
+  const testData = {
+    customerName: 'Test Customer', orderRef: 'TEST-001', vendorName: "Maman's Kitchen",
+    items: [{ name: 'Egusi Soup', qty: 1, pricePence: 3500 }], totalPence: 4000,
+    scheduledFor: 'Saturday 14:00–15:00', trackingUrl: 'https://feastpot.co.uk/orders/test/tracking',
+    etaText: '14:45', loyaltyPointsEarned: 40, reviewUrl: 'https://feastpot.co.uk/orders/test/review'
+  }
+  await this.notificationsQueue.add('send_email', { to: dto.to, template: dto.template, data: testData })
+  if (dto.phone) await this.notificationsQueue.add('send_sms', { phone: dto.phone, template: 'order_confirmation', data: testData })
+  return { message: `Test notification queued for template: ${dto.template}` }
+}
+
+Test all 8 templates before deploying:
+curl -X POST https://feastpot-platform.replit.app/v1/admin/test-notification \
+  -H "Authorization: Bearer {admin_token}" \
+  -H "Content-Type: application/json" \
+  -d '{"template":"order_confirmation","to":"soul@feastpot.co.uk"}'
+
+Run: npm run typecheck in apps/api. Output all files in full.
