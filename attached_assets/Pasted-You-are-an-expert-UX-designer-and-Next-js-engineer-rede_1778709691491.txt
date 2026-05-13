@@ -1,0 +1,275 @@
+You are an expert UX designer and Next.js engineer redesigning the Feastpot Privacy Policy page.
+The page is live at feastpot.co.uk/legal/privacy.
+
+CURRENT STATE (from live site visit):
+- Standard document layout: plain h2 headings, prose paragraphs, one table, one numbered list
+- ICO registration C1931679 shown in a badge (good — make it bigger)
+- All content is correct UK GDPR compliant (do NOT change any legal text)
+- Navigation sidebar exists with links to all legal pages (keep)
+- Visual presentation is sterile and brand-inconsistent
+
+GOAL: Make the privacy policy feel like a Feastpot page, not a government document.
+Warm, honest, scannable. Trust-building, not trust-eroding.
+
+FILE: apps/web/src/app/legal/privacy/page.tsx
+
+DO NOT change any legal text. Only change the presentation and layout.
+
+═══════════════════════════════════════════════════════
+STEP 1 — Page hero: dark branded header
+═══════════════════════════════════════════════════════
+
+Replace the plain "Privacy Policy" page title with:
+
+<div
+  style={{ background: 'linear-gradient(160deg, #1C1C1A 0%, #3D1A0A 100%)', padding: '28px 20px 24px' }}
+>
+  <div style={{ maxWidth: '640px', margin: '0 auto' }}>
+    {/* Breadcrumb */}
+    <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '11px', marginBottom: '10px' }}>
+      <a href="/" style={{ color: 'rgba(255,255,255,0.5)', textDecoration: 'none' }}>Home</a>
+      {' · '}Legal{' · '}Privacy Policy
+    </p>
+
+    <h1 style={{
+      fontFamily: 'Playfair Display, Georgia, serif', fontWeight: 800, fontSize: '28px',
+      color: 'white', marginBottom: '8px', letterSpacing: '-0.5px',
+    }}>
+      Your Privacy
+    </h1>
+
+    <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: '13px', lineHeight: 1.6, marginBottom: '18px' }}>
+      We built Feastpot for your community. We handle your data with the same care
+      you'd expect from a trusted neighbour — not a faceless corporation.
+    </p>
+
+    {/* ICO Registration — prominent trust badge */}
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 14px',
+      background: 'rgba(61,122,71,0.25)', border: '1px solid rgba(61,122,71,0.45)',
+      borderRadius: '12px',
+    }}>
+      <span style={{ fontSize: '28px', flexShrink: 0 }}>🛡️</span>
+      <div style={{ flex: 1 }}>
+        <p style={{ color: 'white', fontWeight: 700, fontSize: '13px', margin: '0 0 2px' }}>
+          ICO Registered Data Controller
+        </p>
+        <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: '11px', margin: 0 }}>
+          Registration Reference:{' '}
+          <span style={{ fontFamily: 'monospace', fontWeight: 700, color: 'white' }}>C1931679</span>
+        </p>
+        <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '10px', margin: '2px 0 0' }}>
+          Registered with the Information Commissioner's Office · England & Wales
+        </p>
+      </div>
+      <a
+        href="https://ico.org.uk"
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{ color: 'rgba(255,255,255,0.4)', fontSize: '10px', textDecoration: 'underline', flexShrink: 0 }}
+      >
+        Verify ↗
+      </a>
+    </div>
+
+    <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: '10px', marginTop: '12px' }}>
+      Last updated: May 2026 · UK GDPR, Data Protection Act 2018, Data (Use and Access) Act 2025
+    </p>
+  </div>
+</div>
+
+{/* Kente divider after hero */}
+<div className="kente-divider" />
+
+═══════════════════════════════════════════════════════
+STEP 2 — Sticky quick-nav
+═══════════════════════════════════════════════════════
+
+Add after the kente divider, before the main content:
+
+<nav
+  aria-label="Privacy policy sections"
+  style={{
+    position: 'sticky', top: '56px', zIndex: 20,
+    background: 'rgba(251,246,239,0.96)', backdropFilter: 'blur(8px)',
+    borderBottom: '1px solid #EDE4D4', overflowX: 'auto', WebkitOverflowScrolling: 'touch',
+  }}
+>
+  <div style={{ display: 'flex', gap: '4px', padding: '8px 12px', whiteSpace: 'nowrap', maxWidth: '640px', margin: '0 auto' }}>
+    {[
+      { label: 'What we collect', href: '#collect' },
+      { label: 'How we use it',   href: '#use'     },
+      { label: 'Who we share with',href:'#share'   },
+      { label: 'Retention',       href: '#retention'},
+      { label: 'Your rights',     href: '#rights'  },
+      { label: 'Cookies',         href: '#cookies' },
+      { label: 'Contact',         href: '#contact' },
+    ].map(l => (
+      <a
+        key={l.href} href={l.href}
+        style={{
+          fontSize: '11px', fontWeight: 500, padding: '5px 10px', borderRadius: '20px',
+          color: '#5F5E5A', textDecoration: 'none', border: '0.5px solid #EDE4D4',
+          transition: 'all .15s',
+        }}
+        onMouseEnter={e => { (e.target as HTMLElement).style.background='#E8520A'; (e.target as HTMLElement).style.color='white'; (e.target as HTMLElement).style.borderColor='#E8520A'; }}
+        onMouseLeave={e => { (e.target as HTMLElement).style.background='transparent'; (e.target as HTMLElement).style.color='#5F5E5A'; (e.target as HTMLElement).style.borderColor='#EDE4D4'; }}
+      >
+        {l.label}
+      </a>
+    ))}
+  </div>
+</nav>
+
+═══════════════════════════════════════════════════════
+STEP 3 — Section wrapper component
+═══════════════════════════════════════════════════════
+
+Create a PrivacySection component wrapping each of the 10 sections:
+
+function PrivacySection({ id, icon, title, children }: { id: string; icon: string; title: string; children: React.ReactNode }) {
+  return (
+    <section id={id} className="scroll-mt-24 mb-5">
+      <div style={{ background: 'white', borderRadius: '16px', overflow: 'hidden', border: '1px solid #EDE4D4' }}>
+        {/* Section header */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: '10px',
+          padding: '14px 16px',
+          background: '#FBF6EF', borderBottom: '1px solid #EDE4D4',
+        }}>
+          <span style={{ fontSize: '22px' }}>{icon}</span>
+          <h2 style={{
+            fontFamily: 'Playfair Display, Georgia, serif',
+            fontWeight: 800, fontSize: '17px', color: '#1C1C1A', margin: 0,
+          }}>
+            {title}
+          </h2>
+        </div>
+        {/* Section content */}
+        <div style={{ padding: '16px', fontSize: '13px', lineHeight: 1.75, color: '#5F5E5A' }}>
+          {children}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+Apply to all 10 sections with these icons:
+1. Who we are:       🏢  id="about"
+2. What we collect:  📋  id="collect"
+3. Why we process:   ⚖️  id="use"
+4. Who we share:     🤝  id="share"
+5. Intl. transfers:  ✈️  id="transfers"
+6. Retention:        📅  id="retention"
+7. Your rights:      🔓  id="rights"
+8. Cookies:          🍪  id="cookies"
+9. Changes:          📢  id="changes"
+10. Contact:         💬  id="contact"
+
+═══════════════════════════════════════════════════════
+STEP 4 — Data retention: visual card grid (replace table)
+═══════════════════════════════════════════════════════
+
+Replace the retention table with a 2-column card grid.
+Keep all text identical — only change the presentation:
+
+const RETENTION_DATA = [
+  { type: 'Orders & payments', period: '6 years',    icon: '🧾', bg: '#FEF0E9', reason: 'HMRC/VAT obligation'    },
+  { type: 'Audit logs',        period: '6 years',    icon: '📋', bg: '#FEF0E9', reason: 'Legal obligation'       },
+  { type: 'Account data',      period: 'Until deletion or 24 months inactivity', icon: '👤', bg: '#E1F5EE', reason: 'Contract' },
+  { type: 'Marketing consent', period: 'Until withdrawn + 12 months', icon: '📣', bg: '#FFF9E6', reason: 'Accountability' },
+  { type: 'Vendor documents',  period: 'Relationship + 6 years', icon: '📄', bg: '#FEF0E9', reason: 'Food safety law' },
+  { type: 'Support comms',     period: '2 years',    icon: '💬', bg: '#E1F5EE', reason: 'Legitimate interest'    },
+  { type: 'Technical/session', period: '90 days',    icon: '🔒', bg: '#E1F5EE', reason: 'Security'              },
+]
+
+Render as:
+<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+  {RETENTION_DATA.map(r => (
+    <div key={r.type} style={{ padding: '10px', borderRadius: '10px', background: r.bg }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+        <span style={{ fontSize: '16px' }}>{r.icon}</span>
+        <span style={{ fontSize: '11px', fontWeight: 600, color: '#1C1C1A' }}>{r.type}</span>
+      </div>
+      <p style={{ fontSize: '12px', fontWeight: 700, color: '#E8520A', margin: '0 0 2px' }}>{r.period}</p>
+      <p style={{ fontSize: '10px', color: '#9B9894', margin: 0 }}>{r.reason}</p>
+    </div>
+  ))}
+</div>
+
+═══════════════════════════════════════════════════════
+STEP 5 — Your rights: 2-column interactive card grid
+═══════════════════════════════════════════════════════
+
+Replace the numbered list with visual cards. Keep all text identical:
+
+const RIGHTS_DATA = [
+  { right: 'Access your data',     icon: '👁️', desc: 'Request a copy of all data we hold', how: 'Email privacy@feastpot.co.uk' },
+  { right: 'Correct your data',    icon: '✏️', desc: 'Fix inaccurate or incomplete information', how: 'Account settings or email us' },
+  { right: 'Delete your data',     icon: '🗑️', desc: 'Erasure, subject to legal obligations', how: 'Account settings or email' },
+  { right: 'Restrict processing',  icon: '⏸️', desc: 'Limit how we use your data', how: 'Email us' },
+  { right: 'Data portability',     icon: '📦', desc: 'Your data in machine-readable format', how: 'Email with your request' },
+  { right: 'Object to processing', icon: '🚫', desc: 'Object to marketing — always honoured', how: 'Unsubscribe or email us' },
+  { right: 'No automated decisions',icon: '🤖', desc: 'Not subject to automated-only decisions', how: 'Always applies' },
+  { right: 'Withdraw consent',     icon: '↩️', desc: 'Withdraw at any time without penalty', how: 'Account settings' },
+]
+
+<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+  {RIGHTS_DATA.map(r => (
+    <div key={r.right} style={{ padding: '10px', borderRadius: '10px', background: '#FBF6EF', border: '1px solid #EDE4D4' }}>
+      <div style={{ fontSize: '20px', marginBottom: '4px' }}>{r.icon}</div>
+      <p style={{ fontSize: '11px', fontWeight: 600, color: '#E8520A', margin: '0 0 3px' }}>{r.right}</p>
+      <p style={{ fontSize: '10px', color: '#5F5E5A', margin: '0 0 5px', lineHeight: 1.5 }}>{r.desc}</p>
+      <span style={{
+        fontSize: '9px', fontWeight: 600, padding: '2px 6px', borderRadius: '4px',
+        background: '#E8F5EB', color: '#3D7A47',
+      }}>
+        {r.how}
+      </span>
+    </div>
+  ))}
+</div>
+
+═══════════════════════════════════════════════════════
+STEP 6 — Contact section: dark branded CTA
+═══════════════════════════════════════════════════════
+
+Replace the plain contact paragraph with a branded CTA card
+(matching the hero dark gradient for visual bookending):
+
+<div id="contact" style={{
+  background: 'linear-gradient(135deg, #1C1C1A, #3D1A0A)',
+  borderRadius: '16px', padding: '20px', marginBottom: '20px',
+}}>
+  <h2 style={{
+    fontFamily: 'Playfair Display, Georgia, serif',
+    fontWeight: 800, fontSize: '20px', color: 'white', margin: '0 0 8px',
+  }}>
+    Questions about your privacy?
+  </h2>
+  <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '13px', lineHeight: 1.6, margin: '0 0 16px' }}>
+    We are a small team. Real people read every email.
+    We will respond within 5 business days.
+  </p>
+  <a
+    href="mailto:privacy@feastpot.co.uk?subject=Privacy enquiry"
+    style={{
+      display: 'inline-flex', alignItems: 'center', gap: '8px',
+      background: '#E8520A', color: 'white', padding: '10px 18px',
+      borderRadius: '10px', fontWeight: 700, fontSize: '13px', textDecoration: 'none',
+    }}
+  >
+    ✉️ privacy@feastpot.co.uk
+  </a>
+  <div style={{ marginTop: '14px', paddingTop: '14px', borderTop: '1px solid rgba(255,255,255,0.1)', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+    <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)' }}>ICO Registration: C1931679</span>
+    <a href="https://ico.org.uk/make-a-complaint" target="_blank" rel="noopener noreferrer"
+      style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)', textDecoration: 'underline' }}>
+      Lodge ICO complaint ↗
+    </a>
+  </div>
+</div>
+
+Run: npm run dev:web — navigate to /legal/privacy and verify the brand consistency.
+Run: npm run typecheck --filter=@feastpot/web — confirm zero errors.
+Output all changes in full.
