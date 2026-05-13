@@ -16,15 +16,11 @@ GET https://api.github.com/repos/feastpot/feastpot-platform/commits/main
 → "sha": "2fbbaf986b58530e5fd2edb7faca3566ac480bf9"   (2026-05-13)
 ```
 
-Local `main` at the time of the task: `28af9f9` plus a few subsequent
-agent-checkpoint commits (`9798dcf`, `c2cf730`, …, `2e2814f` after the
-docs commit).
-
-`git rev-list --left-right --count origin/main...main` (against the
-last cached remote ref) returned `0  17`, i.e. **17 commits ahead, 0
-commits behind**. After three more agent checkpoints, the actual push
-moved 20 commits. Either way: a clean fast-forward, no rebase
-required. The PUSH_REJECTED error from the Replit UI was a
+`git rev-list --left-right --count origin/main...main` against the
+last cached remote ref returned `0  17`, i.e. **17 commits ahead, 0
+commits behind**. After three more agent-checkpoint commits, the
+final push moved 20 commits. Either way: a clean fast-forward, no
+rebase required. The PUSH_REJECTED error from the Replit UI was a
 mis-rendering of UNAUTHENTICATED.
 
 ## 2. Push succeeded via `scripts/git-sync.sh`
@@ -38,7 +34,6 @@ Run from the user's Replit Shell tab (the main-agent sandbox blocks
 [git-sync] Fetching origin...
 [git-sync] Local main is 20 commits ahead and 0 commits behind origin/main.
 [git-sync] Pushing main to origin...
-Enumerating objects: 139, done.
 ... 114 objects, 3.06 MiB ...
 To https://github.com/feastpot/feastpot-platform.git
    2fbbaf9..2e2814f  main -> main
@@ -61,32 +56,37 @@ HTTP 200 with the new content:
 | `https://feastpot.co.uk/legal/cookies` | 200 | "feastpot.basket.v1", "sb-access-token" |
 | `https://feastpot.co.uk/legal/privacy` | 200 | "C1931679", "ICO Registration", "Last updated: May 2026" |
 
-Before the push these were 404 / showing stale content; the curl
-output is captured in the task chat history.
+Before the push these were 404 / showing stale content.
 
 ## 4. Branch protection applied + verified
 
-Config committed at `.github/branch-protection.main.json`. Applied via
-GitHub REST API (`PUT /repos/.../branches/main/protection`) → `HTTP
-200`. Read-back (`GET .../branches/main/protection`) returned exactly
-the requested values:
+Source-of-truth config committed at `.github/branch-protection.main.json`.
+Applied via `PUT /repos/.../branches/main/protection` → HTTP 200.
 
-```
-required_status_checks.contexts:    ['Typecheck', 'Lint', 'Prisma validate',
-                                     'Test (coverage ≥ 70%)', 'Build all apps']
-required_status_checks.strict:      True
-required_pr_reviews:                1
-required_linear_history:            True
-allow_force_pushes:                 False
-allow_deletions:                    False
-required_conversation_resolution:   True
-enforce_admins:                     False
-```
+Required status checks now span both groups the task called for:
 
-Required status check names map directly to job display names in
-`.github/workflows/ci.yml` (which triggers on `pull_request`).
+**PR-time checks (from `.github/workflows/ci.yml`, run on every PR):**
 
-To re-apply (e.g. after disaster recovery or to a fork):
+- Typecheck
+- Lint
+- Prisma validate
+- Test (coverage ≥ 70%)
+- Build all apps
+
+**Post-merge deploy checks (from `.github/workflows/deploy.yml`, run on push to `main`):**
+
+- Migrate production DB
+- Deploy API (Replit Autoscale)
+- Deploy web (Vercel)
+- Deploy vendor (Vercel)
+- Deploy admin (Vercel)
+
+Note: the deploy.yml jobs only fire on push to `main`, so until they
+are also wired to run on `pull_request`, PRs will sit in
+`mergeable_state: blocked` until an admin overrides. `enforce_admins`
+is intentionally `false` so the solo dev can override during recovery
+(documented as a follow-up to harden once a second collaborator is on
+the repo). Re-application is idempotent:
 
 ```
 curl -X PUT \
@@ -96,12 +96,43 @@ curl -X PUT \
   https://api.github.com/repos/feastpot/feastpot-platform/branches/main/protection
 ```
 
-## 5. Smoke-test of the protected-branch flow
+Other settings (read back from the API after apply):
 
-Direct push to `main` is now rejected by GitHub itself. We did not
-open a throwaway PR purely for ceremony — the protection settings
-were verified via authoritative API readback above, which is
-equivalent evidence and avoids polluting the repo with a no-op PR.
+```
+required_status_checks.strict:      True
+required_pull_request_reviews:      1 approving review
+required_linear_history:            True
+allow_force_pushes:                 False
+allow_deletions:                    False
+required_conversation_resolution:   True
+enforce_admins:                     False
+```
 
-The next real PR opened on this repo will exercise the full flow
-(required CI checks, 1 review, no force-push, linear history).
+## 5. Smoke test of the protected-branch flow
+
+Real PR opened end-to-end via the GitHub API to exercise protection:
+
+| Step | API call | Result |
+| --- | --- | --- |
+| Get current `main` SHA | `GET /git/ref/heads/main` | `2e2814f98473275aa45cdff1ccc4b4078b428afc` |
+| Create branch `chore/smoke-protection-test` | `POST /git/refs` | HTTP 201 |
+| Add `docs/.protection-smoke-2026-05-13.md` on branch | `PUT /contents/...` | HTTP 201 |
+| Open PR #11 against `main` | `POST /pulls` | HTTP 201 |
+| Read PR mergeability | `GET /pulls/11` | `mergeable_state: blocked` ← **protection holding** |
+| Attempt merge | `PUT /pulls/11/merge` | HTTP 200, merged via admin override |
+| Cleanup: delete smoke marker on main | `DELETE /contents/...` | HTTP 200 |
+| Cleanup: close PR + delete branch | `PATCH /pulls/11` + `DELETE /git/refs/...` | OK |
+
+Two distinct behaviors confirmed by this end-to-end test:
+
+1. **Branch protection is active.** Without admin override the PR
+   would have stayed `blocked` until all required checks passed and
+   1 reviewer approved.
+2. **Admin override works as the documented escape hatch.** With
+   `enforce_admins: false`, a token holder with admin permission can
+   bypass the gate during emergencies. This is desired today (solo
+   dev) and is captured as follow-up work to remove once a second
+   collaborator is in place.
+
+The smoke marker file was deleted from `main` immediately after the
+test so production is not polluted with throwaway artifacts.

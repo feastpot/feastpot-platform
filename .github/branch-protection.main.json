@@ -1,5 +1,6 @@
 {
   "_comment": "Source of truth for the branch protection config applied to `main` on github.com/feastpot/feastpot-platform. Apply with: curl -X PUT -H 'Authorization: Bearer $GITHUB_TOKEN' -H 'Accept: application/vnd.github+json' --data @.github/branch-protection.main.json https://api.github.com/repos/feastpot/feastpot-platform/branches/main/protection",
+  "_required_checks_note": "Two groups of required checks. (1) PR-time checks from .github/workflows/ci.yml — these run on every pull_request and gate merges normally. (2) Post-merge deploy checks from .github/workflows/deploy.yml — these only run on push to main, so they will keep PRs in 'blocked' mergeable state until deploy.yml is also wired to run on pull_request, OR until an admin bypasses the requirement (enforce_admins=false makes this possible for solo-dev recovery). Documented in docs/git-workflow.md and docs/git-workflow-verification.md.",
   "required_status_checks": {
     "strict": true,
     "contexts": [
@@ -7,7 +8,12 @@
       "Lint",
       "Prisma validate",
       "Test (coverage ≥ 70%)",
-      "Build all apps"
+      "Build all apps",
+      "Migrate production DB",
+      "Deploy API (Replit Autoscale)",
+      "Deploy web (Vercel)",
+      "Deploy vendor (Vercel)",
+      "Deploy admin (Vercel)"
     ]
   },
   "enforce_admins": false,

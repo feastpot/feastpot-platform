@@ -105,9 +105,15 @@ if [[ "${behind}" -gt 0 ]]; then
     err "Re-run scripts/git-sync.sh after either path completes."
     exit 4
   fi
+  # Recompute after rebase — the rebased commits have new SHAs, so the
+  # pre-rebase ahead/behind numbers are no longer accurate.
+  ahead_behind=$(git rev-list --left-right --count "${REMOTE}/${BRANCH}...${BRANCH}" || echo "0 0")
+  behind=$(echo "${ahead_behind}" | awk '{print $1}')
+  ahead=$(echo "${ahead_behind}" | awk '{print $2}')
+  log "After rebase: ${ahead} commits ahead, ${behind} behind ${REMOTE}/${BRANCH}."
 fi
 
-if [[ "${ahead}" -eq 0 && "${behind}" -eq 0 ]]; then
+if [[ "${ahead}" -eq 0 ]]; then
   log "Nothing to push — already up to date."
   exit 0
 fi
