@@ -103,6 +103,12 @@ check("enforce_admins",
 check("required_pull_request_reviews.required_approving_review_count",
       pull(want, "required_pull_request_reviews", "required_approving_review_count"),
       pull(got,  "required_pull_request_reviews", "required_approving_review_count"))
+check("required_pull_request_reviews.dismiss_stale_reviews",
+      pull(want, "required_pull_request_reviews", "dismiss_stale_reviews"),
+      pull(got,  "required_pull_request_reviews", "dismiss_stale_reviews"))
+check("required_pull_request_reviews.require_code_owner_reviews",
+      pull(want, "required_pull_request_reviews", "require_code_owner_reviews"),
+      pull(got,  "required_pull_request_reviews", "require_code_owner_reviews"))
 check("required_linear_history",
       pull(want, "required_linear_history"),
       pull(got,  "required_linear_history", "enabled"))
