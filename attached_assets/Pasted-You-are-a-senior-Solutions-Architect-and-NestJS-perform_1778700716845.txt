@@ -1,0 +1,318 @@
+You are a senior Solutions Architect and NestJS performance engineer on Feastpot.
+Harden the API to handle 1,000 customers/day and 1,000 active vendors at enterprise standard.
+Scale targets: P95 < 300ms reads, < 800ms writes. Peak: 115 orders/hour Friday 17:00–20:00 London.
+
+IMPORTANT: Do NOT change any business logic, payment flows, or database schemas.
+Only performance, caching, rate limiting, logging, and infrastructure configuration.
+
+═══════════════════════════════════════════════════════
+TASK 1 — Redis caching service
+File: apps/api/src/common/cache/redis-cache.service.ts
+═══════════════════════════════════════════════════════
+
+Install if not present: npm install ioredis -w @feastpot/api
+
+@Injectable()
+export class RedisCacheService implements OnModuleDestroy {
+  private readonly client: Redis
+
+  constructor(private config: ConfigService) {
+    this.client = new Redis(this.config.get('REDIS_URL'), {
+      maxRetriesPerRequest: 3,
+      lazyConnect: true,
+      enableOfflineQueue: false,  // fail fast if Redis is down — don't queue commands
+    })
+    this.client.on('error', err => console.error('Redis cache error:', err))
+  }
+
+  async get<T>(key: string): Promise<T | null> {
+    try {
+      const val = await this.client.get(key)
+      return val ? JSON.parse(val) : null
+    } catch { return null }  // cache miss on error — never throw
+  }
+
+  async set(key: string, value: unknown, ttlSeconds: number): Promise<void> {
+    try {
+      await this.client.setex(key, ttlSeconds, JSON.stringify(value))
+    } catch { /* fire and forget */ }
+  }
+
+  async del(key: string): Promise<void> {
+    try { await this.client.del(key) } catch { /* */ }
+  }
+
+  async delByPattern(pattern: string): Promise<void> {
+    try {
+      const keys = await this.client.keys(pattern)
+      if (keys.length > 0) await this.client.del(...keys)
+    } catch { /* */ }
+  }
+
+  onModuleDestroy() { this.client.disconnect() }
+}
+
+Register in a CacheModule (global: true, exports: [RedisCacheService]).
+
+═══════════════════════════════════════════════════════
+TASK 2 — Cache vendor endpoints
+Files: vendors.service.ts + vendors.controller.ts
+═══════════════════════════════════════════════════════
+
+In VendorsService, wrap the three highest-frequency methods:
+
+async search(dto: SearchVendorsDto) {
+  const cacheKey = `vendors:search:${JSON.stringify(dto)}`
+  const cached = await this.cache.get(cacheKey)
+  if (cached) return cached
+  const result = await this.vendorsRepository.search(dto)
+  await this.cache.set(cacheKey, result, 300)  // 5 min TTL
+  return result
+}
+
+async findById(id: string) {
+  const cacheKey = `vendors:profile:${id}`
+  const cached = await this.cache.get(cacheKey)
+  if (cached) return cached
+  const result = await this.vendorsRepository.findById(id)
+  await this.cache.set(cacheKey, result, 600)  // 10 min TTL
+  return result
+}
+
+// Add cache invalidation in update():
+async update(id: string, ...) {
+  const result = await this.vendorsRepository.update(id, ...)
+  await this.cache.del(`vendors:profile:${id}`)
+  await this.cache.delByPattern('vendors:search:*')  // invalidate all search results
+  return result
+}
+
+For menu availability toggle (must be real-time — no cache):
+In MenuItemsService.toggleAvailability():
+  await this.cache.del(`vendors:menu:${vendorId}`)
+  // This ensures the menu cache is invalidated immediately
+  // so customers see sold-out items within seconds
+
+═══════════════════════════════════════════════════════
+TASK 3 — Role-aware rate limiting
+File: apps/api/src/app.module.ts + custom guard
+═══════════════════════════════════════════════════════
+
+npm install @nestjs/throttler -w @feastpot/api (if not already installed)
+
+Update ThrottlerModule in app.module.ts:
+ThrottlerModule.forRootAsync({
+  imports: [ConfigModule],
+  useFactory: () => ({
+    throttlers: [
+      { name: 'short', ttl: 1000,  limit: 10  },  // 10/sec burst protection
+      { name: 'long',  ttl: 60000, limit: 300 },  // default 300/min
+    ],
+  }),
+})
+
+Create apps/api/src/common/guards/role-throttler.guard.ts:
+@Injectable()
+export class RoleThrottlerGuard extends ThrottlerGuard {
+  protected getTracker(req: Request): Promise<string> {
+    const user = (req as any).user
+    // Authenticated users throttled by userId, not IP (prevents IP spoofing)
+    return Promise.resolve(user?.id ?? req.ip)
+  }
+
+  protected async getLimit(context: ExecutionContext): Promise<number> {
+    const user = (context.switchToHttp().getRequest() as any).user
+    switch (user?.role) {
+      case 'admin':     return 600
+      case 'finance':   return 600
+      case 'compliance':return 600
+      case 'support':   return 600
+      case 'vendor':    return 300   // vendor dashboard polls frequently
+      case 'customer':  return 120
+      default:          return 30    // unauthenticated
+    }
+  }
+}
+
+Replace the default ThrottlerGuard with RoleThrottlerGuard as APP_GUARD.
+
+═══════════════════════════════════════════════════════
+TASK 4 — BullMQ concurrency tuning
+File: apps/api/src/app.module.ts
+═══════════════════════════════════════════════════════
+
+Update BullModule queue concurrency settings.
+Find each queue registration and set concurrency:
+
+notifications queue:   concurrency 20   (email/SMS are I/O bound, high throughput needed)
+payout-batch queue:    concurrency 1    (MUST be serial — prevents double-transfer)
+compliance queue:      concurrency 2
+review-trigger queue:  concurrency 10
+stripe-webhook queue:  concurrency 5    (Stripe bursts on busy periods)
+orders queue:          concurrency 10
+
+Also add a global BullMQ error handler. Find the BullModule worker setup and add:
+worker.on('failed', (job, err) => {
+  Sentry.captureException(err, { extra: { jobName: job?.name, jobData: job?.data } })
+  // Alert on 3+ consecutive failures in the same queue
+})
+
+═══════════════════════════════════════════════════════
+TASK 5 — Database connection pool
+File: apps/api/src/prisma/prisma.service.ts
+═══════════════════════════════════════════════════════
+
+Connection pool calculation:
+  Replit Autoscale max instances: 20
+  Pool size per instance: 5 connections
+  Total: 100 connections → fits within Supabase Pro (200 max_connections)
+
+Update PrismaService constructor:
+constructor(private config: ConfigService) {
+  super({
+    log: config.get('NODE_ENV') === 'development'
+      ? ['query', 'warn', 'error']
+      : ['warn', 'error'],
+  })
+}
+
+Update DATABASE_URL format in Replit Secrets to include pool settings:
+DATABASE_URL=postgresql://user:pass@host:6543/postgres?pgbouncer=true&connection_limit=5&pool_timeout=20&connect_timeout=10
+
+Add to onModuleInit():
+  await this.$connect()
+  const { pool_size } = await this.$queryRaw`SELECT count(*) as pool_size FROM pg_stat_activity WHERE application_name = 'prisma'`.catch(() => [{pool_size: 'unknown'}])
+  console.log(`[Prisma] Connected. Active connections: ${pool_size}`)
+
+═══════════════════════════════════════════════════════
+TASK 6 — Structured JSON logging
+File: apps/api/src/main.ts + app.module.ts
+═══════════════════════════════════════════════════════
+
+npm install nestjs-pino pino-http pino-pretty -w @feastpot/api
+
+In app.module.ts, add LoggerModule:
+import { LoggerModule } from 'nestjs-pino'
+
+LoggerModule.forRoot({
+  pinoHttp: {
+    level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
+    transport: process.env.NODE_ENV !== 'production'
+      ? { target: 'pino-pretty', options: { colorize: true } }
+      : undefined,
+    serializers: {
+      req: req => ({ method: req.method, url: req.url, id: req.id }),
+      res: res => ({ statusCode: res.statusCode }),
+    },
+    customProps: (req) => ({
+      userId: (req as any).user?.id,
+      role:   (req as any).user?.role,
+    }),
+    redact: ['req.headers.authorization', 'req.headers.cookie'],
+  }
+})
+
+In main.ts:
+import { Logger } from 'nestjs-pino'
+app.useLogger(app.get(Logger))
+
+═══════════════════════════════════════════════════════
+TASK 7 — Sentry performance tracing
+File: apps/api/src/modules/orders/orders.service.ts
+═══════════════════════════════════════════════════════
+
+Wrap the critical createOrder path with a Sentry transaction:
+
+import * as Sentry from '@sentry/nestjs'
+
+async createOrder(customerId: string, dto: CreateOrderDto) {
+  return Sentry.startSpan({ name: 'createOrder', op: 'order.create' }, async () => {
+    // ... existing createOrder logic unchanged ...
+  })
+}
+
+Also add span tracking for the Stripe PaymentIntent creation:
+const pi = await Sentry.startSpan({ name: 'stripe.createPaymentIntent', op: 'stripe' }, () =>
+  this.stripe.paymentIntents.create({...})
+)
+
+This gives you P95 latency breakdowns in Sentry Performance dashboard,
+showing exactly where time is spent (Prisma vs Stripe vs BullMQ).
+
+═══════════════════════════════════════════════════════
+TASK 8 — Deep health check endpoint
+File: apps/api/src/health/health.controller.ts
+═══════════════════════════════════════════════════════
+
+Replace the existing GET /healthz (or add it if only /health exists):
+
+@Get('healthz')
+@Public()
+async healthz(): Promise<HealthzResponse> {
+  const checks = await Promise.allSettled([
+    this.prisma.$queryRaw`SELECT 1 as ok`.then(() => 'ok').catch(() => 'error'),
+    this.redis.ping().then(() => 'ok').catch(() => 'error'),
+    this.checkQueues(),
+  ])
+
+  const [db, redisStatus, queues] = checks.map(c =>
+    c.status === 'fulfilled' ? c.value : 'error'
+  )
+
+  const allOk = db === 'ok' && redisStatus === 'ok'
+  const statusCode = allOk ? 200 : 503
+
+  const response = {
+    status: allOk ? 'ok' : 'degraded',
+    version: process.env.npm_package_version ?? '0.0.0',
+    timestamp: new Date().toISOString(),
+    uptime: Math.floor(process.uptime()),
+    checks: { database: db, redis: redisStatus, queues }
+  }
+
+  // Must set statusCode manually when returning from a @Get
+  this.response.status(statusCode)
+  return response
+}
+
+private async checkQueues(): Promise<Record<string, object>> {
+  try {
+    const queueNames = ['notifications', 'payout-batch', 'compliance', 'orders', 'stripe-webhook']
+    const results: Record<string, object> = {}
+    for (const name of queueNames) {
+      const q = this.bullBoard.getQueue(name)
+      if (!q) continue
+      const [waiting, active, failed] = await Promise.all([
+        q.getWaitingCount(), q.getActiveCount(), q.getFailedCount()
+      ])
+      results[name] = { waiting, active, failed }
+    }
+    return results
+  } catch { return {} }
+}
+
+═══════════════════════════════════════════════════════
+TASK 9 — Replit Autoscale configuration comment
+File: .replit
+═══════════════════════════════════════════════════════
+
+Update the deployment block in .replit with scale comments:
+
+[deployment]
+# Scale configuration for 1,000 customers/day + 1,000 vendors
+# Peak: ~115 orders/hour on Friday 17:00-20:00 London time
+# Each order: ~500ms (Stripe 200ms + Prisma 200ms + BullMQ 100ms)
+# 1 instance @ 2vCPU handles ~120 req/min comfortably
+# Min 2 = cold-start eliminated, max 20 = burst capacity for spikes
+#
+# Machine: 2 vCPU, 4GB RAM (upgrade from 1 vCPU)
+# Min instances: 2
+# Max instances: 20
+# Scale up trigger: CPU > 60% for 30 seconds
+# Scale down trigger: CPU < 20% for 5 minutes
+run = ["bash", "-c", "PORT=3002 npm run db:deploy && PORT=3002 npm run start:api"]
+deploymentTarget = "autoscale"
+
+Run: npm run build:api to confirm production build is clean.
+Run: npm run typecheck in apps/api.
+Output all changed files in full.

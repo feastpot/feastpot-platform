@@ -1,6 +1,7 @@
-import { Process, Processor } from '@nestjs/bull';
+import { OnQueueFailed, Process, Processor } from '@nestjs/bull';
 import { Logger } from '@nestjs/common';
 import { OrderStatus, PaymentStatus, PayoutStatus } from '@prisma/client';
+import * as Sentry from '@sentry/nestjs';
 import type { Job } from 'bull';
 import type Stripe from 'stripe';
 
@@ -25,7 +26,10 @@ export class StripeWebhookProcessor {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  @Process('payment_intent.succeeded')
+  // Concurrency=5 on each handler: Stripe bursts during busy periods (peak
+  // Friday evening), and these handlers are idempotent (updateMany on the
+  // PI/refund id) so concurrent processing is safe.
+  @Process({ name: 'payment_intent.succeeded', concurrency: 5 })
   async onIntentSucceeded(job: Job<WebhookJob>): Promise<void> {
     const pi = job.data.data as Stripe.PaymentIntent;
     await this.prisma.payment.updateMany({
@@ -37,7 +41,7 @@ export class StripeWebhookProcessor {
     this.logger.log(`PI ${pi.id} succeeded`);
   }
 
-  @Process('payment_intent.payment_failed')
+  @Process({ name: 'payment_intent.payment_failed', concurrency: 5 })
   async onIntentFailed(job: Job<WebhookJob>): Promise<void> {
     const pi = job.data.data as Stripe.PaymentIntent;
     const payment = await this.prisma.payment.findFirst({
@@ -62,7 +66,7 @@ export class StripeWebhookProcessor {
     this.logger.warn(`PI ${pi.id} failed`);
   }
 
-  @Process('transfer.created')
+  @Process({ name: 'transfer.created', concurrency: 5 })
   async onTransferCreated(job: Job<WebhookJob>): Promise<void> {
     const transfer = job.data.data as Stripe.Transfer;
     // Match by metadata.payoutId if our service set it; otherwise no-op.
@@ -77,7 +81,7 @@ export class StripeWebhookProcessor {
     });
   }
 
-  @Process('refund.updated')
+  @Process({ name: 'refund.updated', concurrency: 5 })
   async onRefundUpdated(job: Job<WebhookJob>): Promise<void> {
     const refund = job.data.data as Stripe.Refund;
     if (!refund.id) return;
@@ -99,4 +103,18 @@ export class StripeWebhookProcessor {
   // Note: legacy Bull does not allow a catch-all `@Process()` alongside named
   // handlers. Unhandled event types are silently dropped after the controller
   // already recorded them in processed_webhook_events for audit.
+
+  @OnQueueFailed()
+  onFailed(job: Job<WebhookJob> | undefined, err: Error): void {
+    const exhausted = !job || job.attemptsMade >= ((job.opts?.attempts ?? 1) as number);
+    if (exhausted) {
+      Sentry.captureException(err, {
+        tags: { queue: STRIPE_WEBHOOK_QUEUE, jobName: job?.name ?? 'unknown' },
+        extra: { jobId: job?.id, attemptsMade: job?.attemptsMade, eventId: job?.data?.id },
+      });
+    }
+    this.logger.error(
+      `[${STRIPE_WEBHOOK_QUEUE}] job ${job?.id ?? '?'} (${job?.name ?? '?'}) failed (attempt ${job?.attemptsMade ?? '?'}): ${err.message}`,
+    );
+  }
 }

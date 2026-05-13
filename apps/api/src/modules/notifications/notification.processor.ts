@@ -1,6 +1,7 @@
-import { InjectQueue, Process, Processor } from '@nestjs/bull';
+import { InjectQueue, OnQueueFailed, Process, Processor } from '@nestjs/bull';
 import { Injectable, Logger } from '@nestjs/common';
 import { AmendmentStatus, NotificationChannel, NotificationStatus, OrderStatus, Prisma } from '@prisma/client';
+import * as Sentry from '@sentry/nestjs';
 import type { Job, Queue } from 'bull';
 
 import { PrismaService } from '../../prisma/prisma.service';
@@ -54,7 +55,13 @@ export class NotificationProcessor {
     @InjectQueue(NOTIFICATIONS_QUEUE) private readonly notifications: Queue,
   ) {}
 
-  @Process({ concurrency: 10 })
+  /**
+   * Concurrency=20: email/SMS/push are I/O-bound (provider API calls), so
+   * we can run many in parallel without saturating CPU. Bumped from 10
+   * to absorb the Friday 17:00–20:00 order-confirmation burst (~115/hr ×
+   * up to 4 channels each).
+   */
+  @Process({ concurrency: 20 })
   async handle(job: Job<NotificationJobData>): Promise<{ sent: Channel[]; skipped: Channel[] }> {
     const eventName = job.name;
 
@@ -167,6 +174,30 @@ export class NotificationProcessor {
         etaAt: order.etaAt?.toISOString(),
       },
       { jobId: `order_eta_overdue:${order.id}` },
+    );
+  }
+
+  /**
+   * Bull v4 hook fired after a job has exhausted its retries. We forward the
+   * error to Sentry with structured `extra` so the issue groups by queue
+   * and job name in the Sentry UI — much faster triage than scrubbing
+   * stdout for stack traces.
+   */
+  @OnQueueFailed()
+  onFailed(job: Job<NotificationJobData> | undefined, err: Error): void {
+    // Bull v4 fires this on EVERY attempt failure. Only escalate to Sentry
+    // once retries are exhausted — otherwise a flaky downstream (e.g.
+    // Twilio) creates 3× the alert volume during incidents.
+    const exhausted =
+      !job || job.attemptsMade >= ((job.opts?.attempts ?? 1) as number);
+    if (exhausted) {
+      Sentry.captureException(err, {
+        tags: { queue: NOTIFICATIONS_QUEUE, jobName: job?.name ?? 'unknown' },
+        extra: { jobId: job?.id, attemptsMade: job?.attemptsMade, data: job?.data },
+      });
+    }
+    this.logger.error(
+      `[${NOTIFICATIONS_QUEUE}] job ${job?.id ?? '?'} (${job?.name ?? '?'}) failed (attempt ${job?.attemptsMade ?? '?'}): ${err.message}`,
     );
   }
 

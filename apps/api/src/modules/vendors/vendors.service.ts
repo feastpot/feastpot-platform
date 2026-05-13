@@ -9,6 +9,7 @@ import { ConfigService } from '@nestjs/config';
 import { OrderStatus, UserRole, VendorStatus } from '@prisma/client';
 
 import type { AuthUser } from '../../auth/types';
+import { RedisCacheService } from '../../common/cache/redis-cache.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { StripeService } from '../../stripe/stripe.service';
 
@@ -124,7 +125,15 @@ export class VendorsService {
     private readonly prisma: PrismaService,
     private readonly stripe: StripeService,
     private readonly config: ConfigService,
+    private readonly cache: RedisCacheService,
   ) {}
+
+  // Cache TTLs are deliberately short — vendor data is not strictly
+  // immutable (statuses change, ratings recompute via badge-recalc cron),
+  // so we trade a small staleness window for a large hit-rate win on
+  // browse-heavy traffic.
+  private static readonly SEARCH_CACHE_TTL = 300; // 5 min
+  private static readonly PROFILE_CACHE_TTL = 600; // 10 min
 
   // ------------------------------------------------------------------
   // Analytics, delivery-config and Stripe Connect — all gated to the
@@ -346,6 +355,9 @@ export class VendorsService {
             where: { id: vendor.id },
             data: { payoutsEnabled: enabled },
           });
+          // Profile cache embeds payoutsEnabled; bust it so the vendor
+          // dashboard reflects onboarding completion immediately.
+          await this.cache.del(`vendors:profile:${vendor.id}`);
         }
       } catch {
         // Non-fatal — surface the onboarding URL even if status sync fails.
@@ -441,51 +453,80 @@ export class VendorsService {
 
   async search(dto: SearchVendorsDto) {
     const limit = dto.limit ?? 20;
+    // Cache key includes the entire DTO so each filter combo is its own
+    // bucket. Logged search rows are intentionally written below on EVERY
+    // call (including cache hits) so the analytics pipeline still sees
+    // real customer demand even when the response was served from Redis.
+    const cacheKey = `vendors:search:${RedisCacheService.stableKey(dto)}`;
+    const cached = await this.cache.get<{
+      data: ReturnType<VendorsService['mapSearchRows']>;
+      nextCursor: string | null;
+    }>(cacheKey);
+    if (cached) {
+      this.logSearchAnonymously(dto, cached.data.length);
+      return cached;
+    }
+
     const cursor = decodeCursor(dto.cursor);
     const rows = await this.repo.search(dto, cursor);
     const nextCursor = rows.length === limit ? encodeCursor(rows[rows.length - 1]!) : null;
 
-    // FR-SRCH-001: log every free-text search anonymously. Fire-and-forget —
-    // logging must never slow down the response or fail the request. Only
-    // log when the user actually typed something (avoids polluting the
-    // analytics table with empty pass-throughs from the cuisine carousel).
-    const q = dto.q?.trim();
-    if (q && q.length > 0) {
-      void this.prisma.searchLog
-        .create({
-          data: {
-            query: q.slice(0, 200),
-            postcode: dto.postcode?.slice(0, 10) ?? null,
-            resultsCount: rows.length,
-          },
-        })
-        .catch(() => {
-          /* analytics is non-critical — swallow */
-        });
-    }
+    this.logSearchAnonymously(dto, rows.length);
 
-    return {
-      data: rows.map((r) => ({
-        id: r.id,
-        businessName: r.business_name,
-        slug: r.slug,
-        description: r.description,
-        cuisines: r.cuisines,
-        status: r.status,
-        rating: r.rating,
-        ratingCount: r.rating_count,
-        createdAt: r.created_at,
-        distanceKm: r.distance_km,
-        // Empty array (not null) so the client can `.length` without a guard.
-        matchedDishes: r.matched_dishes ?? [],
-      })),
-      nextCursor,
-    };
+    const result = { data: this.mapSearchRows(rows), nextCursor };
+    await this.cache.set(cacheKey, result, VendorsService.SEARCH_CACHE_TTL);
+    return result;
+  }
+
+  private mapSearchRows(rows: SearchedVendorRow[]) {
+    return rows.map((r) => ({
+      id: r.id,
+      businessName: r.business_name,
+      slug: r.slug,
+      description: r.description,
+      cuisines: r.cuisines,
+      status: r.status,
+      rating: r.rating,
+      ratingCount: r.rating_count,
+      createdAt: r.created_at,
+      distanceKm: r.distance_km,
+      // Empty array (not null) so the client can `.length` without a guard.
+      matchedDishes: r.matched_dishes ?? [],
+    }));
+  }
+
+  /**
+   * FR-SRCH-001: log every free-text search anonymously. Fire-and-forget —
+   * logging must never slow down the response or fail the request. Only
+   * log when the user actually typed something (avoids polluting the
+   * analytics table with empty pass-throughs from the cuisine carousel).
+   */
+  private logSearchAnonymously(dto: SearchVendorsDto, resultsCount: number): void {
+    const q = dto.q?.trim();
+    if (!q) return;
+    void this.prisma.searchLog
+      .create({
+        data: {
+          query: q.slice(0, 200),
+          postcode: dto.postcode?.slice(0, 10) ?? null,
+          resultsCount,
+        },
+      })
+      .catch(() => {
+        /* analytics is non-critical — swallow */
+      });
   }
 
   async findById(id: string) {
+    const cacheKey = `vendors:profile:${id}`;
+    const cached = await this.cache.get<Awaited<ReturnType<VendorRepository['findById']>>>(
+      cacheKey,
+    );
+    if (cached) return cached;
+
     const vendor = await this.repo.findById(id);
     if (!vendor) throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'Vendor not found' });
+    await this.cache.set(cacheKey, vendor, VendorsService.PROFILE_CACHE_TTL);
     return vendor;
   }
 
@@ -557,6 +598,14 @@ export class VendorsService {
     if (dto.minOrderPence !== undefined) {
       await this.repo.upsertDeliveryConfigMinOrder(vendorId, dto.minOrderPence);
     }
+
+    // Invalidate caches: the profile we just mutated, plus every cached
+    // search result (any of which could now contain stale name/cuisine).
+    // SCAN-based delByPattern is O(N) over the cache keyspace but vendor
+    // edits are rare relative to reads, so the trade-off is correct.
+    await this.cache.del(`vendors:profile:${vendorId}`);
+    await this.cache.delByPattern('vendors:search:*');
+
     return updated;
   }
 
@@ -585,7 +634,7 @@ export class VendorsService {
       });
     }
 
-    return this.repo.transitionStatus({
+    const result = await this.repo.transitionStatus({
       vendorId,
       fromStatus: vendor.status,
       toStatus: dto.status,
@@ -594,6 +643,13 @@ export class VendorsService {
       notes: dto.notes,
       orderCapWeekly: dto.orderCapWeekly,
     });
+
+    // Critical: a suspended/removed vendor must NOT remain visible in the
+    // search cache for up to 5 min. Same for a vendor coming back online.
+    await this.cache.del(`vendors:profile:${vendorId}`);
+    await this.cache.delByPattern('vendors:search:*');
+
+    return result;
   }
 
   async getVendorReviews(vendorId: string, pagination: CursorPaginationDto) {

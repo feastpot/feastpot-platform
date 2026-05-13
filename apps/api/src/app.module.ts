@@ -1,13 +1,14 @@
 import { BullModule } from '@nestjs/bull';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { APP_FILTER } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { SentryGlobalFilter, SentryModule } from '@sentry/nestjs/setup';
 import { BullAdapter } from '@bull-board/api/bullAdapter';
 import { ExpressAdapter } from '@bull-board/express';
 import { BullBoardModule } from '@bull-board/nestjs';
+import { LoggerModule } from 'nestjs-pino';
 
 import {
   COMPLIANCE_QUEUE,
@@ -17,6 +18,8 @@ import {
 } from './queues/queues.module';
 import { bullBoardBasicAuth } from './modules/admin/bull-board.middleware';
 
+import { CacheModule } from './common/cache/cache.module';
+import { RoleThrottlerGuard } from './common/guards/role-throttler.guard';
 import { HealthController } from './health/health.controller';
 import { RootController } from './root.controller';
 // NotificationsModule is @Global(), so feature modules can inject NotificationsService
@@ -52,7 +55,43 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
       isGlobal: true,
       envFilePath: ['.env.local', '.env'],
     }),
-    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 120 }]),
+    // Pino structured JSON logging. Production emits one JSON object per
+    // line (ingestable by Datadog / Loki / Sentry log forwarder); dev uses
+    // pino-pretty for human-readable colourised output. We redact the
+    // Authorization header and Cookie so bearer tokens can never leak to
+    // the log pipeline.
+    LoggerModule.forRoot({
+      pinoHttp: {
+        level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
+        transport:
+          process.env.NODE_ENV !== 'production'
+            ? { target: 'pino-pretty', options: { colorize: true, singleLine: true } }
+            : undefined,
+        serializers: {
+          req: (req: { method: string; url: string; id: unknown }) => ({
+            method: req.method,
+            url: req.url,
+            id: req.id,
+          }),
+          res: (res: { statusCode: number }) => ({ statusCode: res.statusCode }),
+        },
+        customProps: (req) => ({
+          userId: (req as { user?: { id?: string } }).user?.id,
+          role: (req as { user?: { role?: string } }).user?.role,
+        }),
+        redact: ['req.headers.authorization', 'req.headers.cookie'],
+      },
+    }),
+    // Two-tier rate limiting:
+    //   short — 10 req/sec per tracker (burst protection against scrapers).
+    //   long  — 300 req/min default; RoleThrottlerGuard tightens or relaxes
+    //           this per role at request time.
+    ThrottlerModule.forRoot({
+      throttlers: [
+        { name: 'short', ttl: 1_000, limit: 10 },
+        { name: 'long', ttl: 60_000, limit: 300 },
+      ],
+    }),
     ScheduleModule.forRoot(),
     BullModule.forRootAsync({
       imports: [ConfigModule],
@@ -81,6 +120,7 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
     }),
     PrismaModule,
     QueuesModule,
+    CacheModule,
     BullBoardModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -120,6 +160,10 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
     // Captures unhandled exceptions in HTTP/RPC/WS contexts and forwards them
     // to Sentry before delegating to Nest's default error handling.
     { provide: APP_FILTER, useClass: SentryGlobalFilter },
+    // Registered AFTER AuthModule's APP_GUARDs (SupabaseAuthGuard, RolesGuard)
+    // so req.user is populated by the time the throttler reads it for the
+    // role-aware limit calculation.
+    { provide: APP_GUARD, useClass: RoleThrottlerGuard },
   ],
 })
 export class AppModule {}

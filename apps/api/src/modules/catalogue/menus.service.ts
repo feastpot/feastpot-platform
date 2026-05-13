@@ -7,6 +7,7 @@ import {
 import { UserRole } from '@prisma/client';
 
 import type { AuthUser } from '../../auth/types';
+import { RedisCacheService } from '../../common/cache/redis-cache.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
 import { CreateMenuDto } from './dto/create-menu.dto';
@@ -14,7 +15,22 @@ import { UpdateMenuDto } from './dto/update-menu.dto';
 
 @Injectable()
 export class MenusService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly cache: RedisCacheService,
+  ) {}
+
+  /**
+   * Bust the cached vendor profile (which embeds the menu tree via
+   * VendorRepository.findById) and any search-result keys (matched_dishes
+   * surfaces menu data in search hits). Centralised so every menu/menu-item
+   * write path can share the exact same invalidation set.
+   */
+  private async invalidateVendorCache(vendorId: string): Promise<void> {
+    await this.cache.del(`vendors:profile:${vendorId}`);
+    await this.cache.del(`vendors:menu:${vendorId}`);
+    await this.cache.delByPattern('vendors:search:*');
+  }
 
   /**
    * If `includeInactive=true` is requested but the caller is not the vendor
@@ -53,8 +69,8 @@ export class MenusService {
     return menu;
   }
 
-  create(vendorId: string, dto: CreateMenuDto) {
-    return this.prisma.menu.create({
+  async create(vendorId: string, dto: CreateMenuDto) {
+    const menu = await this.prisma.menu.create({
       data: {
         vendorId,
         name: dto.name,
@@ -64,11 +80,13 @@ export class MenusService {
         sortOrder: dto.displayOrder ?? 0,
       },
     });
+    await this.invalidateVendorCache(vendorId);
+    return menu;
   }
 
   async update(vendorId: string, menuId: string, dto: UpdateMenuDto) {
     await this.assertBelongs(vendorId, menuId);
-    return this.prisma.menu.update({
+    const menu = await this.prisma.menu.update({
       where: { id: menuId },
       data: {
         ...(dto.name !== undefined ? { name: dto.name } : {}),
@@ -76,6 +94,8 @@ export class MenusService {
         ...(dto.displayOrder !== undefined ? { sortOrder: dto.displayOrder } : {}),
       },
     });
+    await this.invalidateVendorCache(vendorId);
+    return menu;
   }
 
   async delete(vendorId: string, menuId: string) {
@@ -88,6 +108,7 @@ export class MenusService {
       });
     }
     await this.prisma.menu.delete({ where: { id: menuId } });
+    await this.invalidateVendorCache(vendorId);
     return { deleted: true };
   }
 

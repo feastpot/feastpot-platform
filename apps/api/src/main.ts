@@ -11,6 +11,7 @@ import { ValidationPipe, VersioningType } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { Logger } from 'nestjs-pino';
 
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
@@ -25,7 +26,11 @@ const ALLOWED_ORIGINS = [
 async function bootstrap(): Promise<void> {
   // rawBody: true preserves the raw request body so the Stripe webhook controller
   // can verify signatures with stripe.webhooks.constructEvent().
-  const app = await NestFactory.create(AppModule, { bufferLogs: false, rawBody: true });
+  // bufferLogs: true so the early-bootstrap logs are buffered until pino
+  // takes over below — otherwise they'd be dropped by Nest's default logger
+  // before useLogger() swaps it out.
+  const app = await NestFactory.create(AppModule, { bufferLogs: true, rawBody: true });
+  app.useLogger(app.get(Logger));
   const config = app.get(ConfigService);
   const env = config.get<string>('NODE_ENV') ?? 'development';
   const port = Number(config.get<string>('PORT') ?? process.env.PORT ?? 3001);

@@ -1,7 +1,8 @@
-import { Process, Processor } from '@nestjs/bull';
+import { OnQueueFailed, Process, Processor } from '@nestjs/bull';
 import { Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bull';
-import type { Queue } from 'bull';
+import * as Sentry from '@sentry/nestjs';
+import type { Job, Queue } from 'bull';
 
 import { PayoutsService } from '../payouts.service';
 
@@ -35,12 +36,33 @@ export class PayoutBatchProcessor implements OnApplicationBootstrap {
       .catch((e: Error) => this.logger.warn(`Failed to register payout cron: ${e.message}`));
   }
 
-  @Process(WEEKLY_BATCH_JOB)
+  /**
+   * Concurrency MUST stay at 1 — payout jobs move money via Stripe transfers
+   * and the batch's idempotency relies on exactly one runner advancing
+   * each vendor's payout window at a time. Two parallel workers could
+   * race the same vendor row and double-transfer.
+   */
+  @Process({ name: WEEKLY_BATCH_JOB, concurrency: 1 })
   async processWeekly(): Promise<{ created: number; skipped: number }> {
     const result = await this.payouts.runWeeklyBatch();
     this.logger.log(
       `Weekly batch: ${result.created.length} created, ${result.skippedVendorIds.length} skipped (period ${result.periodStart.toISOString()})`,
     );
     return { created: result.created.length, skipped: result.skippedVendorIds.length };
+  }
+
+  @OnQueueFailed()
+  onFailed(job: Job | undefined, err: Error): void {
+    // Only alert on final attempt — see notification.processor for rationale.
+    const exhausted = !job || job.attemptsMade >= ((job.opts?.attempts ?? 1) as number);
+    if (exhausted) {
+      Sentry.captureException(err, {
+        tags: { queue: PAYOUTS_QUEUE, jobName: job?.name ?? 'unknown' },
+        extra: { jobId: job?.id, attemptsMade: job?.attemptsMade },
+      });
+    }
+    this.logger.error(
+      `[${PAYOUTS_QUEUE}] job ${job?.id ?? '?'} failed (attempt ${job?.attemptsMade ?? '?'}): ${err.message}`,
+    );
   }
 }

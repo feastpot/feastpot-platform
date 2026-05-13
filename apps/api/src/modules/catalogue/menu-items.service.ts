@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
+import { RedisCacheService } from '../../common/cache/redis-cache.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
 import {
@@ -32,6 +33,7 @@ export class MenuItemsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: SupabaseStorageService,
+    private readonly cache: RedisCacheService,
   ) {}
 
   static validateAllergens(allergens: string[] | undefined): string[] {
@@ -104,7 +106,7 @@ export class MenuItemsService {
     });
     const preparationHours = Math.max(1, Math.ceil(dto.prepTimeMinutes / 60));
 
-    return this.prisma.menuItem.create({
+    const created = await this.prisma.menuItem.create({
       data: {
         vendorId,
         menuId,
@@ -119,6 +121,19 @@ export class MenuItemsService {
         tags,
       },
     });
+    await this.invalidateVendorCache(vendorId);
+    return created;
+  }
+
+  /**
+   * Single source of truth for cache busting after any menu-item write.
+   * Profile cache embeds the full menu tree; search cache surfaces dish
+   * names via matched_dishes.
+   */
+  private async invalidateVendorCache(vendorId: string): Promise<void> {
+    await this.cache.del(`vendors:profile:${vendorId}`);
+    await this.cache.del(`vendors:menu:${vendorId}`);
+    await this.cache.delByPattern('vendors:search:*');
   }
 
   async update(vendorId: string, menuId: string, itemId: string, dto: UpdateMenuItemDto) {
@@ -156,18 +171,28 @@ export class MenuItemsService {
       });
     }
 
-    return this.prisma.menuItem.update({ where: { id: itemId }, data });
+    const updated = await this.prisma.menuItem.update({ where: { id: itemId }, data });
+    await this.invalidateVendorCache(vendorId);
+    return updated;
   }
 
   async delete(vendorId: string, menuId: string, itemId: string) {
     await this.findOne(vendorId, menuId, itemId);
     await this.prisma.menuItem.delete({ where: { id: itemId } });
+    await this.invalidateVendorCache(vendorId);
     return { deleted: true };
   }
 
   async toggleAvailability(vendorId: string, menuId: string, itemId: string, isAvailable: boolean) {
     await this.findOne(vendorId, menuId, itemId);
-    return this.prisma.menuItem.update({ where: { id: itemId }, data: { isAvailable } });
+    const updated = await this.prisma.menuItem.update({
+      where: { id: itemId },
+      data: { isAvailable },
+    });
+    // Real-time correctness: vendor flipping a dish to sold-out must show up
+    // in the customer PWA within seconds.
+    await this.invalidateVendorCache(vendorId);
+    return updated;
   }
 
   async uploadImage(params: {

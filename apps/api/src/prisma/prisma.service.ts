@@ -30,18 +30,55 @@ function encodeDbUrl(raw: string | undefined): string | undefined {
 
 const datasourceUrl = encodeDbUrl(process.env.SUPABASE_DB_URL);
 
+/**
+ * Connection pool sizing:
+ *   - Replit Autoscale: up to ~20 instances at peak.
+ *   - Supabase Pro:     200 max_connections.
+ *   - Per-instance pool: 5 connections via PgBouncer transaction pooling.
+ *   - Total ceiling:    100 connections (50% headroom for migrations,
+ *                        Studio, the BullMQ Redis path's own DB writes,
+ *                        and ad-hoc psql sessions).
+ *
+ * The pool size + transaction pooling MUST be set in DATABASE_URL via env:
+ *   DATABASE_URL=postgresql://…?pgbouncer=true&connection_limit=5&pool_timeout=20&connect_timeout=10
+ * We deliberately do NOT mutate the env var here — it's a shared platform
+ * secret and should be edited once in Replit Secrets, not per-process.
+ */
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(PrismaService.name);
 
   constructor() {
-    super(datasourceUrl ? { datasourceUrl } : {});
+    super({
+      ...(datasourceUrl ? { datasourceUrl } : {}),
+      // Quiet in production: only warnings + errors are emitted to stdout.
+      // Dev keeps `query` so slow-query work stays visible without extra
+      // tooling.
+      log:
+        process.env.NODE_ENV === 'production'
+          ? ['warn', 'error']
+          : ['query', 'warn', 'error'],
+    });
   }
 
   async onModuleInit(): Promise<void> {
     try {
       await this.$connect();
       this.logger.log('Prisma connected');
+      // Best-effort connection-count probe — useful in production to confirm
+      // the pool is sized as expected and that we aren't accidentally
+      // running without PgBouncer. Failure here is non-fatal.
+      try {
+        const rows = await this.$queryRawUnsafe<{ active_connections: bigint }[]>(
+          `SELECT count(*)::int8 as active_connections FROM pg_stat_activity WHERE application_name LIKE 'prisma%'`,
+        );
+        const n = rows?.[0]?.active_connections;
+        if (n !== undefined) {
+          this.logger.log(`Prisma active connections (this DB): ${Number(n)}`);
+        }
+      } catch {
+        /* metrics-only — ignore on managed pools that block pg_stat_activity */
+      }
     } catch (err) {
       this.logger.warn(`Prisma connect failed (continuing): ${(err as Error).message}`);
     }

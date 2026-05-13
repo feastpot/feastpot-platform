@@ -1,6 +1,7 @@
-import { InjectQueue, Process, Processor } from '@nestjs/bull';
+import { InjectQueue, OnQueueFailed, Process, Processor } from '@nestjs/bull';
 import { Logger, OnApplicationBootstrap } from '@nestjs/common';
-import type { Queue } from 'bull';
+import * as Sentry from '@sentry/nestjs';
+import type { Job, Queue } from 'bull';
 
 import { COMPLIANCE_QUEUE } from '../../../queues/queues.module';
 import { ComplianceService } from '../compliance.service';
@@ -43,24 +44,40 @@ export class ComplianceProcessor implements OnApplicationBootstrap {
     }
   }
 
-  @Process(COMPLIANCE_SCAN_JOB)
+  // Concurrency=2 across all compliance handlers: scans hit Postgres heavily
+  // (vendor doc + order joins) and there's no benefit to high parallelism.
+  @Process({ name: COMPLIANCE_SCAN_JOB, concurrency: 2 })
   async runComplianceScan() {
     const r = await this.compliance.runComplianceScan();
     this.logger.log(`compliance-scan: expiring=${r.expiringNotified} expired=${r.expiredNotified}`);
     return r;
   }
 
-  @Process(REVIEW_TRIGGER_JOB)
+  @Process({ name: REVIEW_TRIGGER_JOB, concurrency: 2 })
   async runReviewTrigger() {
     const r = await this.compliance.runReviewTrigger();
     this.logger.log(`review-trigger: requested=${r.requested}`);
     return r;
   }
 
-  @Process(BADGE_RECALC_JOB)
+  @Process({ name: BADGE_RECALC_JOB, concurrency: 2 })
   async runBadgeRecalc() {
     const r = await this.compliance.runBadgeRecalc();
     this.logger.log(`badge-recalc: updated=${r.updated}`);
     return r;
+  }
+
+  @OnQueueFailed()
+  onFailed(job: Job | undefined, err: Error): void {
+    const exhausted = !job || job.attemptsMade >= ((job.opts?.attempts ?? 1) as number);
+    if (exhausted) {
+      Sentry.captureException(err, {
+        tags: { queue: COMPLIANCE_QUEUE, jobName: job?.name ?? 'unknown' },
+        extra: { jobId: job?.id, attemptsMade: job?.attemptsMade },
+      });
+    }
+    this.logger.error(
+      `[${COMPLIANCE_QUEUE}] job ${job?.id ?? '?'} (${job?.name ?? '?'}) failed (attempt ${job?.attemptsMade ?? '?'}): ${err.message}`,
+    );
   }
 }
