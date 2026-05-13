@@ -1,6 +1,7 @@
 'use client';
 
 import { Bell, ShoppingBasket } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -76,9 +77,25 @@ export function TopNav() {
     >
       <div className="mx-auto flex h-14 max-w-lg items-center justify-between px-4 sm:max-w-2xl md:max-w-4xl lg:max-w-5xl">
         {isHome ? (
-          <Link href="/" aria-label="Feastpot home" className="flex items-baseline gap-0.5">
-            <span className="text-2xl font-black tracking-tight text-brand">feast</span>
-            <span className="text-2xl font-black tracking-tight text-dark">pot</span>
+          <Link href="/" aria-label="Feastpot home" className="flex items-center gap-2">
+            {/* New brand icon (pot + steam + cradling hands on a cream
+                disc). `unoptimized` because it's an inline SVG — Next's
+                image optimiser would just re-emit it unchanged and adds
+                a network round-trip. */}
+            <Image
+              src="/images/feastpot-icon.svg"
+              alt=""
+              width={32}
+              height={32}
+              priority
+              unoptimized
+              className="h-8 w-8 shrink-0"
+              aria-hidden
+            />
+            <span className="flex items-baseline gap-0.5">
+              <span className="text-2xl font-black tracking-tight text-brand">feast</span>
+              <span className="text-2xl font-black tracking-tight text-dark">pot</span>
+            </span>
           </Link>
         ) : (
           <h1 className="truncate text-[17px] font-semibold text-dark">{title}</h1>
