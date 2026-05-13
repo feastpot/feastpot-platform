@@ -266,9 +266,18 @@ describe('OrdersService.confirmOrder', () => {
     expect(queue.add).not.toHaveBeenCalled();
   });
 
-  it('enqueues notify_vendor + auto_cancel(15m) on first successful confirm', async () => {
+  it('enqueues notify_vendor + auto_cancel(15m) + customer order_confirmation on first successful confirm', async () => {
     const { svc, repo, stripe, queue } = make();
-    repo.byCustomer.mockResolvedValue({ status: OrderStatus.pending, vendorId: 'v-1' });
+    repo.byCustomer.mockResolvedValue({
+      status: OrderStatus.pending,
+      vendorId: 'v-1',
+      customerId: 'cust-1',
+      orderNumber: 'FP-001',
+      totalPence: 4000,
+      scheduledFor: null,
+      items: [{ nameSnapshot: 'Egusi', quantity: 1, unitPence: 4000 }],
+      vendor: { businessName: "Maman's Kitchen" },
+    });
     repo.findStripePaymentIntent.mockResolvedValue('pi_ok');
     stripe.retrieve.mockResolvedValue({ status: 'requires_capture' });
     await svc.confirmOrder('o-1', 'cust-1');
@@ -278,6 +287,19 @@ describe('OrdersService.confirmOrder', () => {
       'auto_cancel',
       { orderId: 'o-1' },
       expect.objectContaining({ delay: 15 * 60 * 1000, jobId: 'auto_cancel:o-1' }),
+    );
+    expect(queue.add).toHaveBeenNthCalledWith(
+      3,
+      'order_confirmation',
+      expect.objectContaining({
+        userId: 'cust-1',
+        orderId: 'o-1',
+        orderNumber: 'FP-001',
+        vendorName: "Maman's Kitchen",
+        totalPence: 4000,
+        items: [{ name: 'Egusi', qty: 1, pricePence: 4000 }],
+      }),
+      expect.objectContaining({ jobId: 'order_confirmation:o-1' }),
     );
   });
 });

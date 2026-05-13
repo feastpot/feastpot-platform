@@ -1,5 +1,8 @@
 import {
+  BadRequestException,
+  Body,
   Controller,
+  ForbiddenException,
   Get,
   Header,
   Param,
@@ -15,6 +18,8 @@ import type { Response } from 'express';
 
 import { Roles } from '../../auth/decorators/roles.decorator';
 import type { AuthedRequest } from '../../auth/types';
+import { NotificationsService } from '../notifications/notifications.service';
+import { TEMPLATES } from '../notifications/templates';
 
 import { AdminService } from './admin.service';
 import { ListAdminVendorsDto } from './dto/list-admin-vendors.dto';
@@ -24,7 +29,10 @@ import { ListAuditLogDto } from './dto/list-audit-log.dto';
 @ApiBearerAuth()
 @Controller({ path: 'admin', version: '1' })
 export class AdminController {
-  constructor(private readonly admin: AdminService) {}
+  constructor(
+    private readonly admin: AdminService,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   @Get('dashboard')
   @Roles(UserRole.admin, UserRole.finance, UserRole.support, UserRole.compliance)
@@ -72,6 +80,65 @@ export class AdminController {
   @ApiOperation({ summary: 'Expiring or expired vendor documents, sorted by daysRemaining ASC' })
   listExpiring() {
     return this.admin.listExpiringDocuments();
+  }
+
+  @Post('test-notification')
+  @Roles(UserRole.admin)
+  @ApiOperation({
+    summary:
+      'DEV ONLY: enqueue a sample notification for any registered event template. Disabled in production.',
+  })
+  async testNotification(
+    @Req() req: AuthedRequest,
+    @Body() dto: { event: string; userId?: string; overrideEmail?: string; overridePhone?: string },
+  ) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new ForbiddenException({ code: 'NOT_AVAILABLE_IN_PROD', message: 'Test endpoint disabled in production' });
+    }
+    if (!dto?.event || !TEMPLATES[dto.event]) {
+      throw new BadRequestException({
+        code: 'UNKNOWN_TEMPLATE',
+        message: `Unknown event template "${dto?.event}". Known: ${Object.keys(TEMPLATES).join(', ')}`,
+      });
+    }
+    // The processor resolves the recipient via userId — default to the
+    // calling admin so a self-test always lands in their inbox.
+    const userId = dto.userId ?? req.user!.id;
+    const sample = {
+      userId,
+      orderId: 'test-order-id',
+      orderNumber: 'FP-TEST-001',
+      vendorName: "Maman's Kitchen",
+      vendorId: 'test-vendor-id',
+      customerName: 'Test Customer',
+      items: [{ name: 'Egusi Soup', qty: 1, pricePence: 3500 }],
+      totalPence: 4000,
+      amountPence: 4000,
+      grossPence: 5000,
+      commissionPence: 600,
+      netPence: 4400,
+      scheduledFor: 'Saturday 14:00–15:00',
+      payoutDate: 'Monday',
+      etaText: '14:45',
+      loyaltyPointsEarned: 40,
+      eventType: 'wedding',
+      guestCount: 50,
+      eventDate: '2026-06-01',
+      postcode: 'SE1 7TY',
+      balancePence: 25000,
+      deductionPence: 1500,
+      holdReason: 'KYC review pending',
+      issueType: 'late_delivery',
+      disputeId: 'test-dispute-id',
+      vendorResponse: 'Apologies — driver was held up in traffic.',
+      resolution: 'partial_refund',
+      resolutionNote: 'Issued £10 goodwill credit.',
+      documentType: 'Public liability insurance',
+      expiresAt: '2026-06-10',
+      daysUntilExpiry: 14,
+    };
+    await this.notifications.enqueue(dto.event, sample, { jobId: `test:${dto.event}:${Date.now()}` });
+    return { queued: true, event: dto.event, recipientUserId: userId };
   }
 
   @Post('payouts/:id/reconcile-stripe')

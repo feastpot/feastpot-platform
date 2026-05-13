@@ -159,7 +159,12 @@ export class OrdersRepository {
   byCustomer(orderId: string, customerId: string) {
     return this.prisma.order.findFirst({
       where: { id: orderId, customerId },
-      include: { items: true },
+      include: {
+        items: true,
+        // Vendor businessName is needed for the confirmation notification
+        // payload — selecting just the one field keeps the row size small.
+        vendor: { select: { businessName: true } },
+      },
     });
   }
 

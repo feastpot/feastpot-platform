@@ -86,7 +86,14 @@ export class NotificationProcessor {
 
     for (const channel of template.channels) {
       try {
-        const ok = await this.dispatch(channel, { user, subject, html, data, template: template.whatsappTemplate });
+        const ok = await this.dispatch(channel, {
+          user,
+          subject,
+          html,
+          data,
+          template: template.whatsappTemplate,
+          smsBody: template.sms ? template.sms(data) : undefined,
+        });
         if (ok) {
           sent.push(channel);
           await this.recordNotification(user.id, channel, eventName, subject, html, NotificationStatus.sent, data);
@@ -119,6 +126,7 @@ export class NotificationProcessor {
       html: string;
       data: NotificationJobData;
       template: string | undefined;
+      smsBody: string | undefined;
     },
   ): Promise<boolean> {
     if (channel === 'email') {
@@ -147,7 +155,12 @@ export class NotificationProcessor {
       return r.delivered > 0;
     }
     if (channel === 'sms') {
-      const r = this.sms.send({ to: ctx.user.phone ?? '', body: ctx.subject });
+      // Prefer the template's plain-text SMS body (e.g. "Feastpot: Order
+      // confirmed with X. Track: …") and fall back to the email subject
+      // so we never send empty messages even for events that haven't
+      // declared a dedicated `sms()` renderer yet.
+      const body = ctx.smsBody ?? ctx.subject;
+      const r = await this.sms.send({ to: ctx.user.phone ?? '', body });
       return r.delivered;
     }
     return false;

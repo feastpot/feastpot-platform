@@ -231,6 +231,23 @@ export class OrdersService {
       { orderId },
       { delay: AUTO_CANCEL_DELAY_MS, jobId: `auto_cancel:${orderId}` },
     );
+    // Customer-facing order_confirmation: registered template, dispatched on
+    // email + sms + whatsapp + push by the processor based on the user's
+    // contactable channels. `userId` is what the processor uses to look up
+    // the recipient's email/phone — passing customerId fills that role.
+    await this.notifications.add(
+      'order_confirmation',
+      {
+        userId: order.customerId,
+        orderId,
+        orderNumber: order.orderNumber,
+        vendorName: order.vendor?.businessName,
+        totalPence: order.totalPence,
+        scheduledFor: order.scheduledFor?.toISOString() ?? null,
+        items: order.items.map((it) => ({ name: it.nameSnapshot, qty: it.quantity, pricePence: it.unitPence })),
+      },
+      { jobId: `order_confirmation:${orderId}` },
+    );
     return { confirmed: true, orderId };
   }
 
@@ -264,6 +281,9 @@ export class OrdersService {
   }
 
   private async applyVendorTransition(orderId: string, from: OrderStatus, dto: UpdateOrderStatusDto) {
+    // Snapshot the immutable order fields once — used below to enqueue
+    // customer-facing notifications without re-fetching after the CAS.
+    const snap = await this.repo.findByIdWithItems(orderId);
     const data: Prisma.OrderUncheckedUpdateInput = { status: dto.status };
     const now = new Date();
 
@@ -294,6 +314,35 @@ export class OrdersService {
       } catch (e) {
         this.logger.warn(`Could not remove auto_cancel job for ${orderId}: ${(e as Error).message}`);
       }
+      if (snap) {
+        await this.notifications.add(
+          'order_accepted',
+          {
+            userId: snap.customerId,
+            orderId,
+            orderNumber: snap.orderNumber,
+            vendorName: snap.vendor?.businessName,
+            scheduledFor: snap.scheduledFor?.toISOString() ?? null,
+          },
+          { jobId: `order_accepted:${orderId}` },
+        );
+      }
+    }
+
+    if (dto.status === OrderStatus.dispatched && snap) {
+      await this.notifications.add(
+        'order_dispatched',
+        {
+          userId: snap.customerId,
+          orderId,
+          orderNumber: snap.orderNumber,
+          vendorName: snap.vendor?.businessName,
+          // ETA derived from scheduledFor when present; templates fall back
+          // to "soon" if absent.
+          etaText: snap.scheduledFor ? snap.scheduledFor.toISOString() : undefined,
+        },
+        { jobId: `order_dispatched:${orderId}` },
+      );
     }
 
     if (dto.status === OrderStatus.cancelled && from === OrderStatus.pending) {
@@ -315,6 +364,22 @@ export class OrdersService {
         { orderId },
         { delay: REVIEW_DELAY_MS, jobId: `review_trigger:${orderId}` },
       );
+      if (snap) {
+        await this.notifications.add(
+          'delivery_confirmed',
+          {
+            userId: snap.customerId,
+            orderId,
+            orderNumber: snap.orderNumber,
+            vendorName: snap.vendor?.businessName,
+            // 1 loyalty point per £1 spent — matches spec's example
+            // (Math.floor(totalPence / 100)). Templates render this in a
+            // teal pill when > 0.
+            loyaltyPointsEarned: Math.floor(snap.totalPence / 100),
+          },
+          { jobId: `delivery_confirmed:${orderId}` },
+        );
+      }
     }
 
     return this.repo.findByIdWithItems(orderId);
