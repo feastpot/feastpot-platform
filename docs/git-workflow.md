@@ -120,7 +120,12 @@ The script:
   (exit 2 / 1).
 - Rebases your branch on top of the remote before pushing — never
   force-pushes.
-- Surfaces rebase conflicts and exits 4 without a half-finished state.
+- On rebase conflict, exits 4 and leaves the repo in the standard
+  Git rebase-in-progress state (this is normal Git behavior, not a
+  half-finished state from the script). The error output tells you
+  exactly which two paths to take: `git rebase --abort` to return to
+  the pre-rebase state, or resolve the conflicts and
+  `git rebase --continue`. Re-run the script either way.
 - Never writes the token to `.git/config` and never echoes it.
 
 **Important:** this is for unblocking the agent / CI when the UI is

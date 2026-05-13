@@ -81,7 +81,7 @@ if [[ "${current_branch}" != "${BRANCH}" ]]; then
   exit 1
 fi
 
-ahead_behind=$(git rev-list --left-right --count "${REMOTE}/${BRANCH}...${BRANCH}" || echo "0	0")
+ahead_behind=$(git rev-list --left-right --count "${REMOTE}/${BRANCH}...${BRANCH}" || echo "0   0")
 behind=$(echo "${ahead_behind}" | awk '{print $1}')
 ahead=$(echo "${ahead_behind}" | awk '{print $2}')
 log "Local ${BRANCH} is ${ahead} commits ahead and ${behind} commits behind ${REMOTE}/${BRANCH}."
@@ -89,11 +89,20 @@ log "Local ${BRANCH} is ${ahead} commits ahead and ${behind} commits behind ${RE
 if [[ "${behind}" -gt 0 ]]; then
   log "Rebasing onto ${REMOTE}/${BRANCH}..."
   if ! git rebase "${REMOTE}/${BRANCH}"; then
-    err "Rebase produced conflicts. Resolve them manually:"
-    err "  git status                # see conflicts"
-    err "  # edit files, then:"
-    err "  git add <files> && git rebase --continue"
-    err "  # or to abort:  git rebase --abort"
+    err "Rebase produced conflicts. The repo is now in a"
+    err "rebase-in-progress state — finish or abort it before doing"
+    err "anything else. Inspect, then choose ONE of:"
+    err ""
+    err "  # 1. Abort and return to the pre-rebase state:"
+    err "       git rebase --abort"
+    err ""
+    err "  # 2. Resolve the conflicts and continue:"
+    err "       git status                       # see conflicting files"
+    err "       \$EDITOR <conflicted-files>     # fix the markers"
+    err "       git add <conflicted-files>"
+    err "       git rebase --continue"
+    err ""
+    err "Re-run scripts/git-sync.sh after either path completes."
     exit 4
   fi
 fi
