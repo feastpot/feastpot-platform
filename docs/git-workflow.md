@@ -94,8 +94,15 @@ a cron).
 
 **Setup (one-time):**
 
-1. Create a GitHub PAT with `repo` scope (classic) or fine-grained PAT
-   with `Contents: read & write` for `feastpot/feastpot-platform`.
+1. Create a GitHub PAT for `feastpot/feastpot-platform`:
+   - **Classic PAT:** scopes `repo` AND `workflow`.
+   - **Fine-grained PAT:** repository permissions
+     `Contents: read & write`, `Pull requests: read & write`,
+     `Administration: read & write` (for branch protection),
+     **`Workflows: read & write`** (required — without this, any push
+     that touches `.github/workflows/*.yml` is rejected with
+     "refusing to allow a Personal Access Token to create or update
+     workflow ... without `workflow` scope").
 2. Add it to **Replit Secrets** as `GITHUB_TOKEN`.
 
 **Use:**
