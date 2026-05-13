@@ -1,65 +1,88 @@
 <svg viewBox="0 0 260 260" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Feastpot">
   <title>Feastpot</title>
+  <defs>
+    <linearGradient id="fpiFlameRed" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#B5361A"/>
+      <stop offset="1" stop-color="#E8520A"/>
+    </linearGradient>
+    <linearGradient id="fpiFlameYellow" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#E89A1F"/>
+      <stop offset="1" stop-color="#F5C84A"/>
+    </linearGradient>
+    <linearGradient id="fpiFlameGreen" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#2F6B36"/>
+      <stop offset="1" stop-color="#5BA341"/>
+    </linearGradient>
+    <linearGradient id="fpiPotBody" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#C68955"/>
+      <stop offset="0.5" stop-color="#A06A38"/>
+      <stop offset="1" stop-color="#7A4B28"/>
+    </linearGradient>
+  </defs>
 
-  <!-- Warm cream circle background -->
+  <!-- Cream disc background -->
   <circle cx="130" cy="130" r="125" fill="#FBF6EF"/>
 
-  <!-- Pot illustration centred within the circle.
-       Source coords come from the full logo's pot region (roughly
-       110..300 horizontal, 38..306 vertical, ~190x270). We translate
-       to centre that bounding box on (130, 130) at ~0.78x scale so it
-       sits comfortably inside the cream disc. -->
-  <g transform="translate(-32, -50) scale(0.78) translate(35, 35)">
-    <!-- STEAM SWIRLS -->
-    <path d="M175 195 Q148 165 158 128 Q168 88 148 52"
-      fill="none" stroke="#E8520A" stroke-width="32" stroke-linecap="round" opacity="0.88"/>
-    <path d="M205 192 Q198 158 205 120 Q212 82 200 48"
-      fill="none" stroke="#7A7D20" stroke-width="26" stroke-linecap="round" opacity="0.82"/>
-    <path d="M232 192 Q255 162 244 126 Q234 90 252 55"
-      fill="none" stroke="#3D7A47" stroke-width="28" stroke-linecap="round" opacity="0.86"/>
+  <!-- Recentre the logo's pot region (around x=240, y=240) inside the disc.
+       Source bounds ~ (110..335, 38..360); we shift and scale to fit. -->
+  <g transform="translate(-178, -156) scale(0.78)">
+    <!-- FLAMES -->
+    <path d="M210 215 Q175 175 188 130 Q200 92 175 55
+             Q185 95 170 120 Q158 145 178 170
+             Q160 150 152 118 Q150 95 165 70
+             Q145 105 152 145 Q160 180 200 215Z"
+          fill="url(#fpiFlameRed)"/>
+    <path d="M240 215 Q228 175 235 135 Q244 95 232 60
+             Q252 92 248 130 Q260 100 270 80
+             Q262 115 252 145 Q248 175 260 215Z"
+          fill="url(#fpiFlameYellow)"/>
+    <path d="M268 215 Q295 180 285 140 Q278 100 305 65
+             Q295 100 308 130 Q322 100 330 80
+             Q322 120 312 150 Q302 180 310 215Z"
+          fill="url(#fpiFlameGreen)"/>
 
-    <!-- FLOATING INGREDIENTS -->
-    <g transform="rotate(-25, 155, 82)">
-      <path d="M145 70 Q138 54 148 46 Q162 40 170 54 Q178 68 168 78 Q158 86 148 80Z" fill="#C8B420"/>
-      <path d="M148 46 Q155 44 162 48" fill="none" stroke="#96860F" stroke-width="1.5" stroke-linecap="round"/>
+    <!-- INGREDIENTS -->
+    <g transform="translate(212, 70) rotate(-12)">
+      <ellipse cx="0" cy="0" rx="18" ry="22" fill="#E8B940"/>
+      <path d="M0 -22 Q3 -28 8 -30" fill="none" stroke="#6B5024" stroke-width="2" stroke-linecap="round"/>
     </g>
-    <g transform="translate(202, 38)">
-      <ellipse cx="0" cy="10" rx="13" ry="15" fill="#C8401F"/>
-      <path d="M-4 -2 Q0 -8 4 -2" fill="none" stroke="#C8401F" stroke-width="2"/>
-      <line x1="0" y1="-8" x2="0" y2="-16" stroke="#3D7A47" stroke-width="2.5" stroke-linecap="round"/>
-      <ellipse cx="0" cy="8" rx="8" ry="9" fill="#D45828" opacity="0.4"/>
+    <g transform="translate(170, 95) rotate(-30)">
+      <path d="M-22 0 Q-18 -16 0 -20 Q18 -22 24 -10 Q22 -4 12 -2 Q-4 0 -22 4Z" fill="#E8C04A"/>
+      <path d="M24 -10 Q28 -8 30 -4" fill="none" stroke="#5B4318" stroke-width="2.5" stroke-linecap="round"/>
     </g>
-    <g transform="rotate(30, 248, 78)">
-      <rect x="238" y="56" width="20" height="38" rx="5" fill="#8B6940"/>
-      <rect x="238" y="56" width="20" height="8" rx="5" fill="#A67D50"/>
-      <line x1="240" y1="70" x2="256" y2="70" stroke="#6B5030" stroke-width="1" opacity="0.5"/>
-      <line x1="240" y1="76" x2="256" y2="76" stroke="#6B5030" stroke-width="1" opacity="0.5"/>
+    <g transform="translate(248, 110) rotate(-8)">
+      <path d="M0 0 Q-5 18 -1 30 Q5 34 9 30 Q14 18 8 0 Z" fill="#D04621"/>
+      <path d="M0 0 Q1 -5 5 -8" fill="none" stroke="#3D7A47" stroke-width="2.2" stroke-linecap="round"/>
     </g>
-
-    <!-- POT BODY -->
-    <ellipse cx="205" cy="202" rx="72" ry="18" fill="#7A4B28"/>
-    <ellipse cx="205" cy="199" rx="68" ry="15" fill="#C4844D"/>
-    <path d="M133 202 Q128 250 148 268 Q172 282 205 282 Q238 282 262 268 Q282 250 277 202Z" fill="#A0693A"/>
-    <path d="M148 215 Q145 245 158 262 Q172 274 198 276" fill="none" stroke="#C4844D" stroke-width="3" stroke-linecap="round" opacity="0.6"/>
-
-    <!-- TRIBAL KENTE PATTERNS -->
-    <g fill="none" stroke="#6B3D1A" stroke-width="1.5" opacity="0.65">
-      <path d="M163 238 L173 228 L183 238 L173 248Z"/>
-      <path d="M188 238 L198 228 L208 238 L198 248Z"/>
-      <path d="M213 238 L223 228 L233 238 L223 248Z"/>
-      <line x1="178" y1="234" x2="184" y2="242"/><line x1="184" y1="234" x2="178" y2="242"/>
-      <line x1="203" y1="234" x2="209" y2="242"/><line x1="209" y1="234" x2="203" y2="242"/>
+    <g transform="translate(296, 70) rotate(28)">
+      <rect x="-12" y="-22" width="24" height="44" rx="6" fill="#9C7140"/>
+      <rect x="-12" y="-22" width="24" height="9" rx="6" fill="#D9B585"/>
+      <rect x="-12" y="13" width="24" height="9" rx="6" fill="#D9B585"/>
     </g>
 
-    <!-- POT HANDLES -->
-    <path d="M133 210 Q112 210 110 226 Q108 242 130 238" fill="none" stroke="#7A5230" stroke-width="14" stroke-linecap="round"/>
-    <path d="M277 210 Q298 210 300 226 Q302 242 280 238" fill="none" stroke="#7A5230" stroke-width="14" stroke-linecap="round"/>
+    <!-- POT -->
+    <ellipse cx="240" cy="220" rx="92" ry="20" fill="#6B3D1A"/>
+    <ellipse cx="240" cy="216" rx="86" ry="16" fill="#B5793F"/>
+    <ellipse cx="240" cy="214" rx="78" ry="11" fill="#7A4B28"/>
+    <path d="M152 222 Q142 280 158 308 Q180 332 240 332 Q300 332 322 308 Q338 280 328 222Z"
+          fill="url(#fpiPotBody)"/>
+    <path d="M158 252 Q240 268 322 252 L322 282 Q240 298 158 282Z"
+          fill="#8B5630" opacity="0.55"/>
+    <g fill="none" stroke="#F4D9B0" stroke-width="1.6" opacity="0.85">
+      <path d="M188 268 L198 258 L208 268 L198 278Z"/>
+      <path d="M222 269 L232 259 L242 269 L232 279Z"/>
+      <path d="M256 269 L266 259 L276 269 L266 279Z"/>
+      <path d="M290 268 L300 258 L310 268 L300 278Z"/>
+    </g>
+    <path d="M152 232 Q126 232 124 252 Q122 274 150 268"
+          fill="none" stroke="#7A4B28" stroke-width="16" stroke-linecap="round"/>
+    <path d="M328 232 Q354 232 356 252 Q358 274 330 268"
+          fill="none" stroke="#7A4B28" stroke-width="16" stroke-linecap="round"/>
 
-    <!-- CRADLING HANDS -->
-    <path d="M155 278 Q145 292 158 298 Q180 306 205 306 Q230 306 252 298 Q265 292 255 278" fill="#7A4B28" opacity="0.92"/>
-    <path d="M148 285 Q144 296 152 300" fill="none" stroke="#6B3D1A" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
-    <path d="M156 282 Q151 294 160 299" fill="none" stroke="#6B3D1A" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
-    <path d="M262 285 Q266 296 258 300" fill="none" stroke="#6B3D1A" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
-    <path d="M254 282 Q259 294 250 299" fill="none" stroke="#6B3D1A" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
+    <!-- HANDS -->
+    <path d="M168 312 Q150 318 145 332 Q142 348 158 352 Q175 354 192 348 Q200 344 200 332 Q198 320 188 314Z" fill="#7A4B28"/>
+    <path d="M192 318 Q204 318 208 326 Q210 334 200 338" fill="#8B5630"/>
+    <path d="M312 312 Q330 318 335 332 Q338 348 322 352 Q305 354 288 348 Q280 344 280 332 Q282 320 292 314Z" fill="#7A4B28"/>
+    <path d="M288 318 Q276 318 272 326 Q270 334 280 338" fill="#8B5630"/>
   </g>
 </svg>
