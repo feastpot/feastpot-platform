@@ -1,0 +1,71 @@
+<svg viewBox="0 0 420 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Feastpot logo">
+  <title>Feastpot — African and Caribbean food delivered</title>
+
+  <!-- STEAM SWIRLS (drawn first, behind ingredients) -->
+  <path d="M175 195 Q148 165 158 128 Q168 88 148 52"
+    fill="none" stroke="#E8520A" stroke-width="32" stroke-linecap="round" opacity="0.88"/>
+  <path d="M205 192 Q198 158 205 120 Q212 82 200 48"
+    fill="none" stroke="#7A7D20" stroke-width="26" stroke-linecap="round" opacity="0.82"/>
+  <path d="M232 192 Q255 162 244 126 Q234 90 252 55"
+    fill="none" stroke="#3D7A47" stroke-width="28" stroke-linecap="round" opacity="0.86"/>
+
+  <!-- FLOATING INGREDIENTS -->
+  <g transform="rotate(-25, 155, 82)">
+    <path d="M145 70 Q138 54 148 46 Q162 40 170 54 Q178 68 168 78 Q158 86 148 80Z" fill="#C8B420"/>
+    <path d="M148 46 Q155 44 162 48" fill="none" stroke="#96860F" stroke-width="1.5" stroke-linecap="round"/>
+  </g>
+  <g transform="translate(202, 38)">
+    <ellipse cx="0" cy="10" rx="13" ry="15" fill="#C8401F"/>
+    <path d="M-4 -2 Q0 -8 4 -2" fill="none" stroke="#C8401F" stroke-width="2"/>
+    <line x1="0" y1="-8" x2="0" y2="-16" stroke="#3D7A47" stroke-width="2.5" stroke-linecap="round"/>
+    <ellipse cx="0" cy="8" rx="8" ry="9" fill="#D45828" opacity="0.4"/>
+  </g>
+  <g transform="rotate(30, 248, 78)">
+    <rect x="238" y="56" width="20" height="38" rx="5" fill="#8B6940"/>
+    <rect x="238" y="56" width="20" height="8" rx="5" fill="#A67D50"/>
+    <line x1="240" y1="70" x2="256" y2="70" stroke="#6B5030" stroke-width="1" opacity="0.5"/>
+    <line x1="240" y1="76" x2="256" y2="76" stroke="#6B5030" stroke-width="1" opacity="0.5"/>
+  </g>
+
+  <!-- POT BODY -->
+  <ellipse cx="205" cy="202" rx="72" ry="18" fill="#7A4B28"/>
+  <ellipse cx="205" cy="199" rx="68" ry="15" fill="#C4844D"/>
+  <path d="M133 202 Q128 250 148 268 Q172 282 205 282 Q238 282 262 268 Q282 250 277 202Z" fill="#A0693A"/>
+  <path d="M148 215 Q145 245 158 262 Q172 274 198 276" fill="none" stroke="#C4844D" stroke-width="3" stroke-linecap="round" opacity="0.6"/>
+
+  <!-- TRIBAL KENTE PATTERNS on pot body -->
+  <g fill="none" stroke="#6B3D1A" stroke-width="1.5" opacity="0.65">
+    <path d="M163 238 L173 228 L183 238 L173 248Z"/>
+    <path d="M188 238 L198 228 L208 238 L198 248Z"/>
+    <path d="M213 238 L223 228 L233 238 L223 248Z"/>
+    <line x1="178" y1="234" x2="184" y2="242"/><line x1="184" y1="234" x2="178" y2="242"/>
+    <line x1="203" y1="234" x2="209" y2="242"/><line x1="209" y1="234" x2="203" y2="242"/>
+  </g>
+
+  <!-- POT HANDLES -->
+  <path d="M133 210 Q112 210 110 226 Q108 242 130 238" fill="none" stroke="#7A5230" stroke-width="14" stroke-linecap="round"/>
+  <path d="M277 210 Q298 210 300 226 Q302 242 280 238" fill="none" stroke="#7A5230" stroke-width="14" stroke-linecap="round"/>
+
+  <!-- CRADLING HANDS -->
+  <path d="M155 278 Q145 292 158 298 Q180 306 205 306 Q230 306 252 298 Q265 292 255 278" fill="#7A4B28" opacity="0.92"/>
+  <path d="M148 285 Q144 296 152 300" fill="none" stroke="#6B3D1A" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
+  <path d="M156 282 Q151 294 160 299" fill="none" stroke="#6B3D1A" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
+  <path d="M262 285 Q266 296 258 300" fill="none" stroke="#6B3D1A" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
+  <path d="M254 282 Q259 294 250 299" fill="none" stroke="#6B3D1A" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
+
+  <!-- WORDMARK -->
+  <text x="205" y="332" text-anchor="middle"
+    font-family="'Arial Black', 'Impact', 'Helvetica Neue', sans-serif"
+    font-weight="900" font-size="42" letter-spacing="-1">
+    <tspan fill="#E8520A">feast</tspan><tspan fill="#1C1C1A">pot</tspan>
+  </text>
+
+  <!-- TRIBAL UNDERLINE -->
+  <g transform="translate(118, 340)" fill="none" stroke="#8B5E3C" stroke-width="1.3" opacity="0.32">
+    <path d="M0 6L7 0L14 6L7 12Z M14 6L21 0L28 6L21 12Z M28 6L35 0L42 6L35 12Z
+             M42 6L49 0L56 6L49 12Z M56 6L63 0L70 6L63 12Z M70 6L77 0L84 6L77 12Z
+             M84 6L91 0L98 6L91 12Z M98 6L105 0L112 6L105 12Z M112 6L119 0L126 6L119 12Z
+             M126 6L133 0L140 6L133 12Z M140 6L147 0L154 6L147 12Z M154 6L161 0L168 6L161 12Z
+             M168 6L175 0L182 6L175 12Z M182 6L189 0L196 6L189 12Z"/>
+  </g>
+</svg>

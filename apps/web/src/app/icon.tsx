@@ -9,20 +9,17 @@ export default function Icon() {
     (
       <div
         style={{
-          background: '#E8520A',
+          background: 'linear-gradient(135deg, #1C1C1A 0%, #3D1A0A 100%)',
           width: 32,
           height: 32,
-          borderRadius: 6,
+          borderRadius: 8,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          color: 'white',
           fontSize: 20,
-          fontWeight: 800,
-          fontFamily: 'sans-serif',
         }}
       >
-        F
+        🍲
       </div>
     ),
     { ...size },
