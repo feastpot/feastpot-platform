@@ -1,6 +1,7 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@feastpot/ui';
+import Link from 'next/link';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
 import { PageHeader } from '@/components/layout/page-header';
@@ -77,32 +78,47 @@ export function DashboardClient() {
 
       <Card className="mt-6">
         <CardHeader>
-          <CardTitle className="text-base">Top vendors this month</CardTitle>
+          <CardTitle className="text-base">Vendor performance (this month)</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-12 text-right">#</TableHead>
                 <TableHead>Vendor</TableHead>
                 <TableHead className="text-right">GMV</TableHead>
                 <TableHead className="text-right">Orders</TableHead>
                 <TableHead className="text-right">Rating</TableHead>
-                <TableHead className="text-right">Dispute rate</TableHead>
+                <TableHead className="text-right">Reorder %</TableHead>
+                <TableHead className="text-right">Dispute %</TableHead>
+                <TableHead />
               </TableRow>
             </TableHeader>
             <TableBody>
-              {(data?.topVendors ?? []).map((v) => (
+              {(data?.topVendors ?? []).map((v, i) => (
                 <TableRow key={v.vendorId}>
+                  <TableCell className="text-right text-xs text-muted-foreground">{i + 1}</TableCell>
                   <TableCell className="font-medium">{v.businessName}</TableCell>
                   <TableCell className="text-right">{formatPence(v.gmvPence)}</TableCell>
                   <TableCell className="text-right">{v.ordersCount}</TableCell>
                   <TableCell className="text-right">{v.rating.toFixed(2)}</TableCell>
-                  <TableCell className="text-right">{formatPercent(v.disputeRatePct)}</TableCell>
+                  <TableCell className="text-right">{formatPercent(v.reorderRatePct)}</TableCell>
+                  <TableCell className={`text-right ${disputeColor(v.disputeRatePct)}`}>
+                    {formatPercent(v.disputeRatePct)}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Link
+                      href={`/vendors/${v.vendorId}`}
+                      className="text-xs text-vendor underline-offset-2 hover:underline"
+                    >
+                      View
+                    </Link>
+                  </TableCell>
                 </TableRow>
               ))}
               {(!data || data.topVendors.length === 0) && !isLoading && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-sm text-muted-foreground">
+                  <TableCell colSpan={8} className="text-center text-sm text-muted-foreground">
                     No vendor revenue this month yet.
                   </TableCell>
                 </TableRow>
@@ -115,6 +131,13 @@ export function DashboardClient() {
       <SearchTrendsCard />
     </>
   );
+}
+
+/** FR-ADM-002 traffic-light: green <2 %, amber 2–5 %, red >5 % dispute rate. */
+function disputeColor(pct: number): string {
+  if (pct > 5) return 'text-destructive font-semibold';
+  if (pct >= 2) return 'text-amber-600';
+  return 'text-emerald-600';
 }
 
 function Metric({ label, value, loading }: { label: string; value: string; loading: boolean }) {

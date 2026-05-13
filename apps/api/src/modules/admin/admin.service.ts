@@ -50,6 +50,7 @@ interface TopVendorRow {
   gmvPence: number;
   ordersCount: number;
   rating: number;
+  reorderRatePct: number;
   disputeRatePct: number;
 }
 
@@ -144,7 +145,7 @@ export class AdminService {
       const [vendorRows, disputeRows] = await Promise.all([
         this.prisma.vendor.findMany({
           where: { id: { in: topVendorIds } },
-          select: { id: true, businessName: true, rating: true },
+          select: { id: true, businessName: true, rating: true, reorderRatePct: true },
         }),
         // Open/escalated disputes per vendor in the same month.
         this.prisma.dispute.findMany({
@@ -171,6 +172,7 @@ export class AdminService {
           gmvPence: totals.gmv,
           ordersCount: totals.orders,
           rating: v?.rating ?? 0,
+          reorderRatePct: v?.reorderRatePct ?? 0,
           disputeRatePct: totals.orders === 0 ? 0 : Number(((disputes / totals.orders) * 100).toFixed(2)),
         };
       });
@@ -198,6 +200,113 @@ export class AdminService {
       dailyRevenue,
       topVendors,
     };
+  }
+
+  // ---------------------------------------------------------------- orders
+
+  /**
+   * Admin order browser (FR-ADM-002): search by order id / order number /
+   * customer email substring, optionally filter by status + date range.
+   *
+   * When `withPiStatus` is set we enrich the FIRST 50 rows with the live
+   * Stripe PaymentIntent status. The cap is deliberate — Stripe rate-limits
+   * are per-account and a careless 200-row enrichment would torch the
+   * checkout-flow budget. Stripe failures degrade to `pi_status: null` so
+   * the table still renders.
+   */
+  async listAdminOrders(opts: {
+    status?: OrderStatus;
+    q?: string;
+    range?: 'today' | 'week' | 'month';
+    withPiStatus?: boolean;
+    limit?: number;
+  }) {
+    const limit = Math.min(Math.max(opts.limit ?? 50, 1), 100);
+    const where: Prisma.OrderWhereInput = {};
+    if (opts.status) where.status = opts.status;
+
+    if (opts.range) {
+      const now = new Date();
+      const since =
+        opts.range === 'today'
+          ? startOfUtcDay(now)
+          : opts.range === 'week'
+            ? startOfUtcWeek(now)
+            : startOfUtcMonth(now);
+      where.createdAt = { gte: since };
+    }
+
+    const q = opts.q?.trim();
+    if (q) {
+      const uuidLike = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(q);
+      where.OR = [
+        ...(uuidLike ? [{ id: q }] : []),
+        { orderNumber: { contains: q, mode: 'insensitive' as const } },
+        { customer: { email: { contains: q, mode: 'insensitive' as const } } },
+      ];
+    }
+
+    const rows = await this.prisma.order.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      select: {
+        id: true,
+        orderNumber: true,
+        status: true,
+        totalPence: true,
+        createdAt: true,
+        // Stripe PI lives on the Payment row, not Order. Pick the most
+        // recent capture-type payment that has a PI id (manual-capture
+        // flows have at most one capture per order).
+        payments: {
+          where: { stripePaymentIntentId: { not: null } },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          select: { stripePaymentIntentId: true },
+        },
+        items: { select: { nameSnapshot: true, quantity: true } },
+        customer: { select: { id: true, email: true, firstName: true, lastName: true } },
+        vendor: { select: { id: true, businessName: true } },
+      },
+    });
+
+    const flattened = rows.map((r) => {
+      const { payments, ...rest } = r;
+      return { ...rest, stripePaymentIntentId: payments[0]?.stripePaymentIntentId ?? null };
+    });
+
+    if (!opts.withPiStatus) {
+      return flattened.map((r) => ({ ...r, piStatus: null as string | null }));
+    }
+
+    // Cap PI lookups at 50 *and* throttle to 5 concurrent in-flight reads.
+    // Stripe rate-limits are shared per-account-per-second; a 50-wide
+    // burst from an admin browsing this view can starve the customer
+    // checkout flow. We process the slice in serial chunks of 5.
+    const head = flattened.slice(0, 50);
+    const enrich: Array<string | null> = [];
+    const CONCURRENCY = 5;
+    for (let i = 0; i < head.length; i += CONCURRENCY) {
+      const chunk = head.slice(i, i + CONCURRENCY);
+      // eslint-disable-next-line no-await-in-loop -- intentional: bounded concurrency
+      const results = await Promise.all(
+        chunk.map(async (r) => {
+          if (!r.stripePaymentIntentId) return null;
+          try {
+            const pi = await this.stripe.retrieve(r.stripePaymentIntentId);
+            return pi.status;
+          } catch {
+            // Stripe lookup failed — fall through with null so the row
+            // still renders. This is a read-only admin view, never block.
+            return null;
+          }
+        }),
+      );
+      enrich.push(...results);
+    }
+
+    return flattened.map((r, i) => ({ ...r, piStatus: i < enrich.length ? enrich[i] : null }));
   }
 
   // ---------------------------------------------------------------- audit log

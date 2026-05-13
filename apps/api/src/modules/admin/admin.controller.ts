@@ -7,6 +7,7 @@ import {
   Header,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   Query,
   Req,
@@ -24,6 +25,13 @@ import { TEMPLATES } from '../notifications/templates';
 import { PrismaService } from '../../prisma/prisma.service';
 
 import { AdminService } from './admin.service';
+import { AdminUsersService } from './admin-users.service';
+import {
+  IssueCreditDto,
+  ListAdminOrdersDto,
+  OverrideOrderStatusDto,
+  SuspendUserDto,
+} from './dto/admin-user-actions.dto';
 import { ListAdminVendorsDto } from './dto/list-admin-vendors.dto';
 import { ListAuditLogDto } from './dto/list-audit-log.dto';
 
@@ -49,6 +57,7 @@ interface SearchAnalyticsResponse {
 export class AdminController {
   constructor(
     private readonly admin: AdminService,
+    private readonly adminUsers: AdminUsersService,
     private readonly notifications: NotificationsService,
     private readonly prisma: PrismaService,
   ) {}
@@ -78,8 +87,6 @@ export class AdminController {
       ORDER BY search_count DESC
       LIMIT 25
     `;
-    // BigInt → number for JSON; counts comfortably fit in a JS number for any
-    // realistic search volume.
     return rows.map((r) => ({
       query: r.query,
       searchCount: Number(r.search_count),
@@ -97,8 +104,6 @@ export class AdminController {
   }
 
   @Get('vendors')
-  // Support agents need vendor browsing for customer-contact lookups; finance
-  // does not (they only care about payouts and reconciliation).
   @Roles(UserRole.admin, UserRole.compliance, UserRole.support)
   @ApiOperation({ summary: 'Vendor approval queue (filter by status, doc-status icon map per vendor)' })
   listVendors(@Query() dto: ListAdminVendorsDto) {
@@ -106,9 +111,6 @@ export class AdminController {
   }
 
   @Get('audit-log')
-  // Audit log is a compliance/admin tool: it includes status changes,
-  // verifications, and other security-sensitive history. Support agents and
-  // finance staff don't need raw access — they have their own scoped views.
   @Roles(UserRole.admin, UserRole.compliance)
   @ApiOperation({ summary: 'List audit-log rows with filters' })
   listAuditLog(@Query() dto: ListAuditLogDto) {
@@ -121,8 +123,6 @@ export class AdminController {
   @Header('Content-Disposition', 'attachment; filename="audit-log.csv"')
   @ApiOperation({ summary: 'CSV export of audit-log rows (capped at 5 000)' })
   async exportAuditLogCsv(@Query() dto: ListAuditLogDto, @Res() res: Response) {
-    // Stream chunks straight to the wire so the client sees TTFB after the
-    // header line, not after all 5 000 rows are formatted in memory.
     res.flushHeaders?.();
     await this.admin.exportAuditLogCsv(dto, (chunk) => {
       res.write(chunk);
@@ -136,6 +136,101 @@ export class AdminController {
   listExpiring() {
     return this.admin.listExpiringDocuments();
   }
+
+  // ============================================================
+  // FR-ADM-002 — User power tools
+  // ============================================================
+
+  @Get('users/search')
+  @Roles(UserRole.admin, UserRole.support)
+  @ApiOperation({ summary: 'Look up a user by email — returns profile, balance, last 10 orders' })
+  searchUser(@Query('email') email: string) {
+    return this.adminUsers.findByEmail(email);
+  }
+
+  @Post('users/:userId/credit')
+  @Roles(UserRole.admin, UserRole.finance)
+  @ApiOperation({ summary: 'Issue goodwill credit (1p = 1 loyalty point)' })
+  async issueCredit(
+    @Req() req: AuthedRequest,
+    @Param('userId', new ParseUUIDPipe()) userId: string,
+    @Body() dto: IssueCreditDto,
+  ) {
+    await this.adminUsers.issueCredit(userId, dto.amountPence, dto.reason, req.user!.id);
+    return { success: true };
+  }
+
+  @Post('users/:userId/suspend')
+  @Roles(UserRole.admin)
+  @ApiOperation({ summary: 'Suspend user account (DB status flip + global Supabase sign-out)' })
+  async suspendUser(
+    @Req() req: AuthedRequest,
+    @Param('userId', new ParseUUIDPipe()) userId: string,
+    @Body() dto: SuspendUserDto,
+  ) {
+    await this.adminUsers.suspendUser(userId, dto.reason, req.user!.id);
+    return { success: true };
+  }
+
+  @Post('users/:userId/reinstate')
+  @Roles(UserRole.admin)
+  @ApiOperation({ summary: 'Reinstate a suspended user' })
+  async reinstateUser(
+    @Req() req: AuthedRequest,
+    @Param('userId', new ParseUUIDPipe()) userId: string,
+  ) {
+    await this.adminUsers.reinstateUser(userId, req.user!.id);
+    return { success: true };
+  }
+
+  @Patch('orders/:orderId/status')
+  @Roles(UserRole.admin, UserRole.support)
+  @ApiOperation({ summary: 'Override order status — emergency repair only, audited' })
+  overrideOrderStatus(
+    @Req() req: AuthedRequest,
+    @Param('orderId', new ParseUUIDPipe()) orderId: string,
+    @Body() dto: OverrideOrderStatusDto,
+  ) {
+    return this.adminUsers.overrideOrderStatus(orderId, dto.status, dto.reason, req.user!.id);
+  }
+
+  @Get('users/:userId/export')
+  @Roles(UserRole.admin, UserRole.compliance)
+  @ApiOperation({ summary: 'GDPR / DSAR export of all data for a user (JSON download)' })
+  async exportUser(
+    @Req() req: AuthedRequest,
+    @Param('userId', new ParseUUIDPipe()) userId: string,
+    @Res() res: Response,
+  ) {
+    const data = await this.adminUsers.exportUserData(userId, req.user!.id);
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', `attachment; filename="feastpot-user-${userId}.json"`);
+    res.send(JSON.stringify(data, null, 2));
+  }
+
+  // ============================================================
+  // FR-ADM-002 — Order browser
+  // ============================================================
+
+  @Get('orders')
+  @Roles(UserRole.admin, UserRole.support, UserRole.finance)
+  @ApiOperation({
+    summary:
+      'Admin order browser: filter by status / date range / search. Pass withPiStatus=1 to enrich first 50 rows with live Stripe PaymentIntent status.',
+  })
+  listOrders(@Query() dto: ListAdminOrdersDto) {
+    return this.admin.listAdminOrders({
+      status: dto.status,
+      q: dto.q,
+      range: dto.range,
+      withPiStatus: dto.withPiStatus === '1' || dto.withPiStatus === 'true',
+      limit: dto.limit,
+    });
+  }
+
+  // ============================================================
+  // Existing endpoints
+  // ============================================================
 
   @Post('test-notification')
   @Roles(UserRole.admin)
@@ -156,8 +251,6 @@ export class AdminController {
         message: `Unknown event template "${dto?.event}". Known: ${Object.keys(TEMPLATES).join(', ')}`,
       });
     }
-    // The processor resolves the recipient via userId — default to the
-    // calling admin so a self-test always lands in their inbox.
     const userId = dto.userId ?? req.user!.id;
     const sample = {
       userId,
@@ -191,6 +284,7 @@ export class AdminController {
       documentType: 'Public liability insurance',
       expiresAt: '2026-06-10',
       daysUntilExpiry: 14,
+      reason: 'Goodwill — late delivery',
     };
     await this.notifications.enqueue(dto.event, sample, { jobId: `test:${dto.event}:${Date.now()}` });
     return { queued: true, event: dto.event, recipientUserId: userId };
@@ -200,8 +294,6 @@ export class AdminController {
   @Roles(UserRole.admin, UserRole.finance)
   @ApiOperation({ summary: 'Reconcile a payout against the matching Stripe transfer' })
   reconcilePayout(@Req() req: AuthedRequest, @Param('id', new ParseUUIDPipe()) id: string) {
-    // Role narrowing: requireUser is unnecessary here because @Roles already
-    // rejects null users via the global SupabaseAuthGuard.
     return this.admin.reconcilePayoutWithStripe(id, req.user!.role);
   }
 }

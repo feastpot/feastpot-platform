@@ -8,10 +8,12 @@ import {
   ClipboardList,
   LayoutDashboard,
   LogOut,
+  Receipt,
   Settings,
   ShieldCheck,
   Store,
   Tag,
+  Users,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -29,6 +31,8 @@ interface NavItem {
 
 const NAV: ReadonlyArray<NavItem> = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/orders', label: 'Orders', icon: Receipt, roles: ['admin', 'support', 'finance'] },
+  { href: '/users', label: 'Users', icon: Users, roles: ['admin', 'support', 'finance', 'compliance'] },
   { href: '/vendors', label: 'Vendors', icon: Store, roles: ['admin', 'compliance', 'support'] },
   { href: '/disputes', label: 'Disputes', icon: AlertTriangle, roles: ['admin', 'support'] },
   { href: '/payouts', label: 'Payouts', icon: Banknote, roles: ['admin', 'finance'] },

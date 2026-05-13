@@ -16,6 +16,7 @@ export interface TopVendorRow {
   gmvPence: number;
   ordersCount: number;
   rating: number;
+  reorderRatePct: number;
   disputeRatePct: number;
 }
 

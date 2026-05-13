@@ -347,6 +347,32 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
       ),
     channels: ['email'],
   },
+  // ---------- Account power tools (FR-ADM-002) ----------
+  account_credit_issued: {
+    subject: (d) => `You've received ${formatMoney(d.amountPence)} in Feastpot credit`,
+    render: (d) =>
+      baseLayout(
+        'Credit added to your account',
+        h2('Credit added to your account') +
+          p(`Hi${d.customerName ? ` ${esc(d.customerName)}` : ''}, our team has added <strong>${formatMoney(d.amountPence)}</strong> in credit to your Feastpot account.`) +
+          (d.reason ? p(`Reason: <em>${esc(d.reason)}</em>`) : '') +
+          p('It will be applied automatically at checkout on your next order.') +
+          brandButton('Open Feastpot', 'https://feastpot.co.uk/account'),
+      ),
+    channels: ['email', 'push'],
+  },
+  account_suspended: {
+    subject: () => 'Your Feastpot account has been suspended',
+    render: (d) =>
+      baseLayout(
+        'Account suspended',
+        h2('Account suspended') +
+          p('Your Feastpot account has been temporarily suspended.') +
+          (d.reason ? amberCallout(`Reason: ${esc(d.reason)}`) : '') +
+          p('If you believe this was made in error, reply to this email or contact <a href="mailto:support@feastpot.co.uk">support@feastpot.co.uk</a>.'),
+      ),
+    channels: ['email'],
+  },
   review_request: {
     subject: (d) => `How was your food from ${str(d.vendorName, 'your vendor')}? ⭐`,
     render: (d) =>
