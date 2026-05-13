@@ -14,18 +14,21 @@ import {
 
 const formatPounds = (p: number) => `£${(p / 100).toFixed(2)}`;
 
-const SPICE_GLYPHS = ['', '🌶️', '🌶️🌶️', '🌶️🌶️🌶️'] as const;
-
 /**
  * Dietary flags are stored snake-cased server-side (`gluten_free`,
  * `dairy_free`) but the older UI was filtering kebab-case (`gluten-free`),
  * which silently dropped them. We accept BOTH forms here and normalise to
  * the human label so we don't lose data on the way to the screen.
+ *
+ * Halal is treated specially below the chip row (its own Yam-Green pill)
+ * because the audit calls it out as the single most important dietary
+ * signal for the diaspora customer base — burying it in a generic chip
+ * row alongside "Vegan" and "Nut free" undersells it.
  */
 const DIETARY_LABELS: Record<string, { label: string; icon: string }> = {
   vegan: { label: 'Vegan', icon: '🌱' },
   vegetarian: { label: 'Vegetarian', icon: '🥗' },
-  halal: { label: 'Halal', icon: '🟢' },
+  halal: { label: 'Halal', icon: '☪️' },
   kosher: { label: 'Kosher', icon: '🔵' },
   gluten_free: { label: 'Gluten free', icon: '⚪️' },
   'gluten-free': { label: 'Gluten free', icon: '⚪️' },
@@ -33,6 +36,35 @@ const DIETARY_LABELS: Record<string, { label: string; icon: string }> = {
   'dairy-free': { label: 'Dairy free', icon: '🥛' },
   nut_free: { label: 'Nut free', icon: '🥜' },
   'nut-free': { label: 'Nut free', icon: '🥜' },
+};
+
+/**
+ * Category gradient + emoji map used as the placeholder cover when a menu
+ * item has no photo. Each gradient terminates in the dish's "natural" hue
+ * (red stew, green soup, charred protein, etc.) so the placeholder still
+ * communicates the dish category at a glance. Falls back to a neutral
+ * brand gradient for unknown categories.
+ */
+const CATEGORY_GRADIENTS: Record<string, string> = {
+  tray: 'linear-gradient(135deg, #3D1A0A, #E8520A)',
+  soup: 'linear-gradient(135deg, #1C3D2A, #3D7A47)',
+  protein: 'linear-gradient(135deg, #4A1B0C, #C8401F)',
+  swallow: 'linear-gradient(135deg, #3D2800, #8B5E3C)',
+  snack: 'linear-gradient(135deg, #3D3800, #F5A52A)',
+  frozen: 'linear-gradient(135deg, #0A2A3D, #1D9E75)',
+  bundle: 'linear-gradient(135deg, #1C1C1A, #5F5E5A)',
+  event: 'linear-gradient(135deg, #2A0A3D, #E8520A)',
+};
+
+const CATEGORY_EMOJI: Record<string, string> = {
+  tray: '🍛',
+  soup: '🍲',
+  protein: '🍗',
+  swallow: '🫓',
+  snack: '🥟',
+  frozen: '❄️',
+  bundle: '📦',
+  event: '🎉',
 };
 
 /**
@@ -44,11 +76,13 @@ function decodeTags(tags: string[]): {
   spiceLevel: 0 | 1 | 2 | 3;
   portionLabel: string | null;
   dietary: Array<{ key: string; label: string; icon: string }>;
+  isHalal: boolean;
 } {
   let spiceLevel: 0 | 1 | 2 | 3 = 0;
   let portionLabel: string | null = null;
   const dietary: Array<{ key: string; label: string; icon: string }> = [];
   const seen = new Set<string>();
+  let isHalal = false;
 
   for (const t of tags) {
     if (t.startsWith('spicy-')) {
@@ -59,13 +93,48 @@ function decodeTags(tags: string[]): {
     } else {
       const meta = DIETARY_LABELS[t];
       if (meta && !seen.has(meta.label)) {
+        if (meta.label === 'Halal') {
+          isHalal = true;
+          seen.add(meta.label); // don't double-render in the chip row
+          continue;
+        }
         dietary.push({ key: t, ...meta });
         seen.add(meta.label);
       }
     }
   }
 
-  return { spiceLevel, portionLabel, dietary };
+  return { spiceLevel, portionLabel, dietary, isHalal };
+}
+
+const SPICE_LABELS = ['', 'Mild heat', 'Medium', 'Hot', 'Extra hot'] as const;
+
+/**
+ * Scotch-bonnet spice indicator. Three glyphs always rendered; the
+ * unfilled ones drop to 18% opacity so the row reads as a meter, not as
+ * an accidental triple-chilli. The label sits to the right in scotch-red
+ * so the card answers "how spicy?" at a glance without expanding.
+ */
+function SpiceDisplay({ level }: { level: number }) {
+  if (!level) return null;
+  return (
+    <div
+      style={{ display: 'flex', alignItems: 'center', gap: '2px', marginTop: '3px' }}
+      aria-label={`Spice level ${level} — ${SPICE_LABELS[Math.min(level, 4)]}`}
+    >
+      {[1, 2, 3].map((i) => (
+        <span key={i} aria-hidden style={{ fontSize: '11px', opacity: i <= level ? 1 : 0.18 }}>
+          🌶️
+        </span>
+      ))}
+      <span
+        aria-hidden
+        style={{ fontSize: '9px', color: '#C8401F', fontWeight: 600, marginLeft: '3px' }}
+      >
+        {SPICE_LABELS[Math.min(level, 4)]}
+      </span>
+    </div>
+  );
 }
 
 /**
@@ -112,8 +181,11 @@ export function MenuItemCard({ item, vendor }: Props) {
   const sameVendor = basketVendorId === null || basketVendorId === vendor.id;
   const qty = sameVendor ? items.find((i) => i.lineId === lineId)?.quantity ?? 0 : 0;
 
-  const { spiceLevel, portionLabel, dietary } = decodeTags(item.tags);
+  const { spiceLevel, portionLabel, dietary, isHalal } = decodeTags(item.tags);
   const cover = item.imageUrls[0];
+  const placeholderGradient =
+    CATEGORY_GRADIENTS[item.category] ?? 'linear-gradient(135deg, #E8520A, #B33D07)';
+  const placeholderEmoji = CATEGORY_EMOJI[item.category] ?? '🍽️';
 
   const flashPulse = () => {
     setPulse(true);
@@ -177,7 +249,13 @@ export function MenuItemCard({ item, vendor }: Props) {
           // eslint-disable-next-line @next/next/no-img-element
           <img src={cover} alt="" className="h-20 w-20 shrink-0 rounded-xl object-cover grayscale" />
         ) : (
-          <div className="h-20 w-20 shrink-0 rounded-xl bg-surface" aria-hidden />
+          <div
+            className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl text-2xl grayscale"
+            style={{ background: placeholderGradient }}
+            aria-hidden
+          >
+            {placeholderEmoji}
+          </div>
         )}
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-dark">{item.name}</p>
@@ -205,31 +283,74 @@ export function MenuItemCard({ item, vendor }: Props) {
             className="h-24 w-24 shrink-0 rounded-xl object-cover"
           />
         ) : (
-          <div className="brand-gradient flex h-24 w-24 shrink-0 items-center justify-center rounded-xl text-3xl" aria-hidden>
-            🍽️
+          // Category gradient placeholder + on-brand emoji — beats a
+          // generic 🍽️ tile by hinting at the dish type while photos
+          // are still being uploaded.
+          <div
+            className="flex h-24 w-24 shrink-0 items-center justify-center rounded-xl text-3xl"
+            style={{ background: placeholderGradient }}
+            aria-hidden
+          >
+            {placeholderEmoji}
           </div>
         )}
 
         <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-2">
-            <h3 className="text-sm font-bold leading-tight text-dark">{item.name}</h3>
-            {spiceLevel > 0 && (
-              <span className="shrink-0 text-xs" aria-label={`Spice level ${spiceLevel}`}>
-                {SPICE_GLYPHS[spiceLevel]}
-              </span>
-            )}
-          </div>
+          <h3 className="text-sm font-bold leading-tight text-dark">{item.name}</h3>
 
-          {(portionLabel || item.servingsCount) && (
-            <p className="mt-0.5 text-[11px] capitalize text-mid">
-              {portionLabel ?? `Serves ${item.servingsCount}`}
-            </p>
+          {/* Spice meter — three scotch-bonnet glyphs with intensity label. */}
+          <SpiceDisplay level={spiceLevel} />
+
+          {/* Portion-size pill — terracotta on brand-light, surfaces the
+              "feeds N" signal that's specific to bulk-tray ordering. */}
+          {portionLabel && (
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '3px',
+                background: '#FEF0E9',
+                color: '#E8520A',
+                padding: '2px 7px',
+                borderRadius: '20px',
+                fontSize: '10px',
+                fontWeight: 600,
+                marginTop: '4px',
+              }}
+            >
+              👥 <span className="capitalize">{portionLabel}</span>
+            </div>
+          )}
+          {!portionLabel && item.servingsCount && (
+            <p className="mt-0.5 text-[11px] text-mid">Serves {item.servingsCount}</p>
           )}
 
           {item.description && (
             <p className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-mid">
               {item.description}
             </p>
+          )}
+
+          {/* Halal — Yam-Green ☪️ pill, called out separately because it
+              materially changes whether a customer can order at all. */}
+          {isHalal && (
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                background: '#E8F5EB',
+                color: '#3D7A47',
+                border: '1px solid #3D7A47',
+                padding: '2px 7px',
+                borderRadius: '20px',
+                fontSize: '10px',
+                fontWeight: 700,
+                marginTop: '6px',
+              }}
+            >
+              ☪️ Halal
+            </div>
           )}
 
           {dietary.length > 0 && (
@@ -298,7 +419,13 @@ export function MenuItemCard({ item, vendor }: Props) {
               type="button"
               onClick={() => setShowAllergens((s) => !s)}
               aria-expanded={showAllergens}
-              className="mt-2 inline-flex items-center gap-1 text-[10px] text-mid transition-colors hover:text-dark"
+              // Deep-amber `#7A4F00` keeps the "spice on cream" hue the
+              // spec called for (Plantain-Yellow family) while clearing
+              // WCAG AA for small text — pure `#F5A52A` was ~2.5:1, this
+              // is ~7.5:1 on white. The toggle still reads as warm and
+              // intentional, not as a muted footnote.
+              style={{ color: '#7A4F00', fontWeight: 700, fontSize: '10px' }}
+              className="mt-2 inline-flex items-center gap-1 transition-opacity hover:opacity-80"
             >
               <Info className="h-3 w-3" aria-hidden />
               {showAllergens ? 'Hide allergens' : 'View allergens'}

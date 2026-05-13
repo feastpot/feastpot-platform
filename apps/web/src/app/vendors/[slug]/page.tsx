@@ -1,4 +1,4 @@
-import { ArrowLeft, Clock, ShieldCheck, ShoppingBag, Star, Truck } from 'lucide-react';
+import { ArrowLeft, Clock, ShoppingBag, Star, Truck } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -116,15 +116,39 @@ export default async function VendorProfilePage({ params }: PageProps) {
 
   return (
     <div className="px-4 pb-6">
-      {/* HERO — bleeds edge-to-edge inside max-w-lg */}
+      {/* HERO — bleeds edge-to-edge inside max-w-lg.
+          Brand-DNA fallback: when no cover photo is uploaded (most early
+          vendors), we render a rich scotch→pot→terracotta gradient with the
+          tribal weave overlay and a single floating stew-pot glyph instead
+          of the previous grey placeholder. The cover photo, when present,
+          renders ON TOP of the gradient so the gradient is invisible — that
+          way mature vendors with photography are unaffected, and brand-new
+          vendors don't look like a missing-image error. */}
       <header className="relative -mx-4">
-        <div className="relative h-52 w-full overflow-hidden bg-gradient-to-br from-brand-light to-brand/30">
+        <div
+          className="relative h-52 w-full overflow-hidden"
+          style={{
+            background: 'linear-gradient(135deg, #3D1A0A 0%, #8B5E3C 50%, #E8520A 100%)',
+          }}
+        >
+          {!vendor.coverImageUrl && (
+            <>
+              <div className="absolute inset-0 tribal-bg" style={{ opacity: 0.12 }} aria-hidden />
+              <div
+                aria-hidden
+                className="pointer-events-none absolute top-6 right-8 select-none"
+                style={{ fontSize: '48px', opacity: 0.2, transform: 'rotate(20deg)' }}
+              >
+                🍲
+              </div>
+            </>
+          )}
           {vendor.coverImageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={vendor.coverImageUrl}
               alt=""
-              className="h-full w-full object-cover"
+              className="absolute inset-0 h-full w-full object-cover"
             />
           ) : null}
           {/* Bottom scrim improves logo + name legibility on busy photos. */}
@@ -149,16 +173,13 @@ export default async function VendorProfilePage({ params }: PageProps) {
         ) : null}
       </header>
 
-      {/* VENDOR INFO CARD */}
+      {/* VENDOR INFO CARD.
+          The teal "Hygiene N/5" badge that used to sit next to the name is
+          REPLACED by the more prominent Yam-Green FSA pill below the cook-
+          identity card — the audit asked us to elevate the trust signal,
+          not duplicate it. */}
       <section className="mt-9 space-y-2">
-        <div className="flex items-start justify-between gap-3">
-          <h1 className="text-[20px] font-bold leading-tight text-dark">{vendor.businessName}</h1>
-          {typeof vendor.fsaRating === 'number' && vendor.fsaRating >= 4 && (
-            <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-teal px-2 py-0.5 text-[10px] font-bold text-white">
-              <ShieldCheck className="h-3 w-3" aria-hidden /> Hygiene {vendor.fsaRating}/5
-            </span>
-          )}
-        </div>
+        <h1 className="text-[20px] font-bold leading-tight text-dark">{vendor.businessName}</h1>
 
         {vendor.rating > 0 && (
           <Link
@@ -182,6 +203,83 @@ export default async function VendorProfilePage({ params }: PageProps) {
               </li>
             ))}
           </ul>
+        )}
+
+        {/* Cook identity row — humanises the home cook (audit headline rec).
+            Larger version of the avatar shown on vendor list cards: 44px
+            terracotta-gradient circle with white border + soft brand shadow.
+            "Cooking on Feastpot since {Month YYYY}" turns the createdAt
+            date into a community-tenure signal rather than a cold timestamp. */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            padding: '10px',
+            background: '#FBF6EF',
+            borderRadius: '12px',
+            marginTop: '8px',
+          }}
+        >
+          <div
+            aria-hidden
+            style={{
+              width: '44px',
+              height: '44px',
+              borderRadius: '50%',
+              flexShrink: 0,
+              background: 'linear-gradient(135deg, #E8520A, #C8401F)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'white',
+              fontSize: '14px',
+              fontWeight: 800,
+              border: '2px solid white',
+              boxShadow: '0 2px 8px rgba(232,82,10,0.3)',
+            }}
+          >
+            {vendor.businessName
+              .split(' ')
+              .map((w) => w[0] ?? '')
+              .join('')
+              .substring(0, 2)
+              .toUpperCase()}
+          </div>
+          <div>
+            <p style={{ fontSize: '12px', fontWeight: 600, color: '#1C1C1A', margin: '0 0 2px' }}>
+              Home cook · {vendor.address?.city || 'South London'}
+            </p>
+            <p style={{ fontSize: '11px', color: '#5F5E5A', margin: 0 }}>
+              Cooking on Feastpot since{' '}
+              {new Date(vendor.createdAt).toLocaleDateString('en-GB', {
+                month: 'long',
+                year: 'numeric',
+              })}
+            </p>
+          </div>
+        </div>
+
+        {/* Prominent FSA Hygiene pill — Yam-Green, sits as its own row so
+            it isn't lost in the metrics chip-strip below. */}
+        {typeof vendor.fsaRating === 'number' && vendor.fsaRating >= 4 && (
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '5px',
+              background: '#E8F5EB',
+              color: '#3D7A47',
+              padding: '5px 10px',
+              borderRadius: '20px',
+              fontSize: '11px',
+              fontWeight: 700,
+              border: '1px solid #3D7A47',
+              marginTop: '8px',
+            }}
+          >
+            🛡️ FSA Hygiene {vendor.fsaRating}/5 — Verified
+          </div>
         )}
 
         {vendor.description && (
