@@ -1,0 +1,13 @@
+# *
+User-agent: *
+Allow: /
+Disallow: /account
+Disallow: /checkout
+Disallow: /orders
+Disallow: /auth
+
+# Host
+Host: http://localhost:3000
+
+# Sitemaps
+Sitemap: http://localhost:3000/sitemap.xml
