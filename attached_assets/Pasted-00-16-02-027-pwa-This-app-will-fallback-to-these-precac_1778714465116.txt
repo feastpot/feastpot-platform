@@ -1,0 +1,65 @@
+00:16:02.027 
+ ○ (pwa) This app will fallback to these precached routes when fetching from the cache and the network fails:
+00:16:02.028 
+ ○ (pwa)   Documents (pages): /offline
+00:16:02.028 
+ ○ (pwa) Custom runtimeCaching array found, using it instead of the default one.
+00:16:10.802 
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (101kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+00:16:10.804 
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (231kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+00:16:16.724 
+ ✓ Compiled successfully in 14.7s
+00:16:16.727 
+   Linting and checking validity of types ...
+00:16:24.842 
+   Collecting page data ...
+00:16:25.434 
+ ⚠ Using edge runtime on a page currently disables static generation for that page
+00:16:27.433 
+   Generating static pages (0/29) ...
+00:16:28.100 
+ ⨯ useSearchParams() should be wrapped in a suspense boundary at page "/join". Read more: https://nextjs.org/docs/messages/missing-suspense-with-csr-bailout
+00:16:28.101 
+    at g (/vercel/path0/apps/web/.next/server/chunks/919.js:53:131977)
+00:16:28.101 
+    at m (/vercel/path0/apps/web/.next/server/chunks/919.js:45:142688)
+00:16:28.101 
+    at f (/vercel/path0/apps/web/.next/server/app/join/page.js:2:8288)
+00:16:28.101 
+    at n3 (/vercel/path0/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:2:82831)
+00:16:28.101 
+    at n6 (/vercel/path0/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:2:84601)
+00:16:28.101 
+    at n5 (/vercel/path0/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:2:104801)
+00:16:28.101 
+    at n7 (/vercel/path0/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:2:102219)
+00:16:28.101 
+    at n8 (/vercel/path0/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:2:83183)
+00:16:28.101 
+    at n6 (/vercel/path0/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:2:84647)
+00:16:28.101 
+    at n6 (/vercel/path0/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:2:101560)
+00:16:28.101 
+Error occurred prerendering page "/join". Read more: https://nextjs.org/docs/messages/prerender-error
+00:16:28.101 
+Export encountered an error on /join/page: /join, exiting the build.
+00:16:28.112 
+ ⨯ Next.js build worker exited with code: 1 and signal: null
+00:16:28.172 
+npm error Lifecycle script `build` failed with error:
+00:16:28.172 
+npm error code 1
+00:16:28.173 
+npm error path /vercel/path0/apps/web
+00:16:28.173 
+npm error workspace @feastpot/web@0.1.0
+00:16:28.173 
+npm error location /vercel/path0/apps/web
+00:16:28.173 
+npm error command failed
+00:16:28.173 
+npm error command sh -c next build
+00:16:28.192 
+Error: Command "cd ../.. && npm run build --workspace=@feastpot/web" exited with 1
+Deployment Summary
