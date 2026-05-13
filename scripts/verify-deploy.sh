@@ -24,9 +24,15 @@
 set -uo pipefail
 
 readonly SITE="https://feastpot.co.uk"
+readonly API_URLS=(
+  "https://api.feastpot.co.uk"          # authoritative (DNS pending — see LAUNCH_CHECKLIST)
+  "https://feastpot-platform.replit.app" # Replit Autoscale fallback
+)
+readonly API_PATHS=(/healthz /livez /health)
 readonly REPO="feastpot/feastpot-platform"
 
 pass() { printf '  PASS  %s\n' "$1"; }
+warn() { printf '  WARN  %s\n          %s\n' "$1" "$2"; }
 fail() { printf '  FAIL  %s\n          %s\n' "$1" "$2"; failures=$((failures+1)); }
 
 failures=0
@@ -62,6 +68,32 @@ probe_endpoint "/legal/cookies" "cookies" \
   "feastpot.basket.v1" "sb-access-token"
 probe_endpoint "/legal/privacy" "privacy" \
   "C1931679" "ICO Registration"
+
+# ---------- API health probe (best-effort) ----------
+# Tries the authoritative domain first, then the Replit Autoscale
+# fallback. Tries /healthz then /livez then /health on each. The API
+# probe is WARN-not-FAIL because api.feastpot.co.uk DNS is still
+# pending (LAUNCH_CHECKLIST §"DNS / domains") — once it's wired this
+# probe automatically upgrades to PASS without any code change here.
+api_health_status="not-found"
+api_health_url=""
+for base in "${API_URLS[@]}"; do
+  for p in "${API_PATHS[@]}"; do
+    code=$(curl -sS -o /tmp/verify-api.json -w "%{http_code}" \
+             --max-time 8 -A "verify-deploy/1.0" \
+             "${base}${p}" 2>/dev/null || echo "000")
+    if [[ "${code}" == "200" ]]; then
+      api_health_status="ok"
+      api_health_url="${base}${p}"
+      break 2
+    fi
+  done
+done
+if [[ "${api_health_status}" == "ok" ]]; then
+  pass "API health (${api_health_url} HTTP 200)"
+else
+  warn "API health" "no candidate URL returned 200 — expected once api.feastpot.co.uk DNS lands. Tried: ${API_URLS[*]} × ${API_PATHS[*]}"
+fi
 
 # ---------- Branch protection check ----------
 echo
