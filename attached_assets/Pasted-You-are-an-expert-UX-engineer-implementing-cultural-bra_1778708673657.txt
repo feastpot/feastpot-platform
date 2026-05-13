@@ -1,0 +1,194 @@
+You are an expert UX engineer implementing cultural brand depth on the Feastpot
+vendor profile and menu pages. The UX audit found: the platform needs to feel like
+"a gateway to a Sunday family dinner" not a tech delivery app.
+
+FILE: apps/web/src/app/vendors/[slug]/page.tsx and menu item components.
+
+═══════════════════════════════════════════════════════
+STEP 1 — Vendor hero header
+═══════════════════════════════════════════════════════
+
+When no cover photo is uploaded (most early vendors), replace the grey placeholder
+with a rich gradient + tribal pattern:
+
+<div
+  style={{
+    height: '200px',
+    position: 'relative',
+    background: 'linear-gradient(135deg, #3D1A0A 0%, #8B5E3C 50%, #E8520A 100%)',
+    overflow: 'hidden',
+  }}
+>
+  {/* Tribal texture overlay */}
+  <div className="absolute inset-0 tribal-bg" style={{ opacity: 0.12 }} />
+
+  {/* Floating ingredient */}
+  <div className="absolute top-6 right-8 select-none pointer-events-none"
+    style={{ fontSize: '48px', opacity: 0.2, transform: 'rotate(20deg)' }}>🍲</div>
+
+  {/* Actual cover photo if it exists */}
+  {vendor.coverUrl && (
+    <Image src={vendor.coverUrl} alt={vendor.businessName} fill className="object-cover" />
+  )}
+</div>
+
+═══════════════════════════════════════════════════════
+STEP 2 — Vendor info card: cook identity
+═══════════════════════════════════════════════════════
+
+Below the existing name/rating/cuisine tags, add a cook identity row:
+
+{/* Cook identity — audit recommendation: humanise the home cook */}
+<div
+  style={{ display: 'flex', alignItems: 'center', gap: '10px',
+           padding: '10px', background: '#FBF6EF', borderRadius: '12px', marginTop: '8px' }}
+>
+  {/* Cook avatar — larger version */}
+  <div style={{
+    width: '44px', height: '44px', borderRadius: '50%', flexShrink: 0,
+    background: 'linear-gradient(135deg, #E8520A, #C8401F)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    color: 'white', fontSize: '14px', fontWeight: 800,
+    border: '2px solid white', boxShadow: '0 2px 8px rgba(232,82,10,0.3)',
+  }}>
+    {vendor.businessName.split(' ').map((w:string) => w[0]).join('').substring(0,2).toUpperCase()}
+  </div>
+  <div>
+    <p style={{ fontSize: '12px', fontWeight: 600, color: '#1C1C1A', margin: '0 0 2px' }}>
+      Home cook · {vendor.address?.city || 'South London'}
+    </p>
+    <p style={{ fontSize: '11px', color: '#9B9894', margin: 0 }}>
+      Cooking on Feastpot since {new Date(vendor.createdAt).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
+    </p>
+  </div>
+</div>
+
+{/* FSA badge — prominent, Yam Green */}
+{vendor.fsaRating && vendor.fsaRating >= 4 && (
+  <div style={{
+    display: 'inline-flex', alignItems: 'center', gap: '5px',
+    background: '#E8F5EB', color: '#3D7A47',
+    padding: '5px 10px', borderRadius: '20px',
+    fontSize: '11px', fontWeight: 700,
+    border: '1px solid #3D7A47', marginTop: '8px',
+  }}>
+    🛡️ FSA Hygiene {vendor.fsaRating}/5 — Verified
+  </div>
+)}
+
+═══════════════════════════════════════════════════════
+STEP 3 — MenuItem card: spice indicators + cultural details
+File: apps/web/src/components/menu/menu-item-card.tsx
+═══════════════════════════════════════════════════════
+
+SPICE LEVEL — replace numeric with scotch bonnet indicators:
+
+const SpiceDisplay = ({ level }: { level: number }) => {
+  if (!level) return null
+  const labels = ['', 'Mild heat', 'Medium', 'Hot', 'Extra hot']
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '2px', marginTop: '3px' }}>
+      {[1,2,3].map(i => (
+        <span key={i} style={{ fontSize: '11px', opacity: i <= level ? 1 : 0.18 }}>🌶️</span>
+      ))}
+      <span style={{ fontSize: '9px', color: '#C8401F', fontWeight: 600, marginLeft: '3px' }}>
+        {labels[Math.min(level, 4)]}
+      </span>
+    </div>
+  )
+}
+
+PORTION SIZE pill:
+{item.portionLabel && (
+  <div style={{
+    display: 'inline-flex', alignItems: 'center', gap: '3px',
+    background: '#FEF0E9', color: '#E8520A',
+    padding: '2px 7px', borderRadius: '20px', fontSize: '10px', fontWeight: 600,
+    marginTop: '4px',
+  }}>
+    👥 {item.portionLabel}
+  </div>
+)}
+
+HALAL badge update:
+Replace text to: ☪️ Halal
+Background: #E8F5EB, color: #3D7A47, border: 1px solid #3D7A47
+
+CATEGORY GRADIENT PLACEHOLDERS (when no photo):
+const CATEGORY_GRADIENTS: Record<string, string> = {
+  tray:    'linear-gradient(135deg, #3D1A0A, #E8520A)',
+  soup:    'linear-gradient(135deg, #1C3D2A, #3D7A47)',
+  protein: 'linear-gradient(135deg, #4A1B0C, #C8401F)',
+  swallow: 'linear-gradient(135deg, #3D2800, #8B5E3C)',
+  snack:   'linear-gradient(135deg, #3D3800, #F5A52A)',
+  frozen:  'linear-gradient(135deg, #0A2A3D, #1D9E75)',
+  bundle:  'linear-gradient(135deg, #1C1C1A, #5F5E5A)',
+  event:   'linear-gradient(135deg, #2A0A3D, #E8520A)',
+}
+
+const CATEGORY_EMOJI: Record<string, string> = {
+  tray: '🍛', soup: '🍲', protein: '🍗', swallow: '🫓',
+  snack: '🥟', frozen: '❄️', bundle: '📦', event: '🎉'
+}
+
+Use these as placeholder background when item.images?.[0] is empty.
+
+ALLERGEN toggle:
+Update the "View allergens" button to use Plantain Yellow:
+style={{ color: '#F5A52A', fontWeight: 600, fontSize: '10px' }}
+
+═══════════════════════════════════════════════════════
+STEP 4 — Review cards on vendor profile
+═══════════════════════════════════════════════════════
+
+Update each review card on the vendor profile:
+
+<div style={{
+  background: '#FBF6EF',
+  borderRadius: '16px',
+  padding: '14px',
+  border: '1px solid #F5EDE0',
+  marginBottom: '10px',
+}}>
+  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '8px' }}>
+    {/* Reviewer avatar */}
+    <div style={{
+      width: '36px', height: '36px', borderRadius: '50%', flexShrink: 0,
+      background: 'linear-gradient(135deg, #1D9E75, #0F6E56)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      color: 'white', fontSize: '12px', fontWeight: 700,
+    }}>
+      {review.customerName?.substring(0,2).toUpperCase() || 'FP'}
+    </div>
+    <div style={{ flex: 1 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+        <span style={{ fontSize: '12px', fontWeight: 600, color: '#1C1C1A' }}>
+          {review.customerName?.split(' ')[0] || 'Customer'}
+        </span>
+        {/* Verified purchase badge — Plantain Yellow */}
+        {review.verified !== false && (
+          <span style={{
+            fontSize: '9px', fontWeight: 600, padding: '1px 6px', borderRadius: '3px',
+            background: '#FFF3CD', color: '#856404',
+          }}>
+            ✓ Verified
+          </span>
+        )}
+      </div>
+      {/* Stars in Plantain Yellow */}
+      <div style={{ color: '#F5A52A', fontSize: '11px', margin: '2px 0' }}>
+        {'★'.repeat(review.vendorRating)}{'☆'.repeat(5 - review.vendorRating)}
+      </div>
+    </div>
+    <span style={{ fontSize: '10px', color: '#9B9894', flexShrink: 0 }}>
+      {new Date(review.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+    </span>
+  </div>
+  <p style={{ fontSize: '12px', color: '#5F5E5A', fontStyle: 'italic', lineHeight: 1.6, margin: 0 }}>
+    "{review.text}"
+  </p>
+</div>
+
+Run: npm run dev:web — navigate to a vendor profile page and inspect visual quality.
+Run: npm run typecheck --filter=@feastpot/web — confirm zero errors.
+Output all changed files in full.
