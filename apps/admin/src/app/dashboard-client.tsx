@@ -4,8 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle, Table, TableBody, TableCell, 
 import Link from 'next/link';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
-import { PageHeader } from '@/components/layout/page-header';
 import { SearchTrendsCard } from '@/components/dashboard/search-trends-card';
+import { PageHeader } from '@/components/layout/page-header';
 import { useAdminDashboard } from '@/hooks/use-admin-dashboard';
 import { formatPence, formatPercent } from '@/lib/format';
 

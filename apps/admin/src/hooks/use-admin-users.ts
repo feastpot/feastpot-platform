@@ -55,7 +55,7 @@ export interface AdminUserDetail {
  * don't hammer the API as they type. Caller calls `refetch()` on submit.
  */
 export function useAdminUserSearch(email: string) {
-  const { request, ready } = useApi();
+  const { request } = useApi();
   return useQuery({
     queryKey: ['admin', 'users', 'search', email.trim().toLowerCase()],
     enabled: false,
@@ -72,7 +72,7 @@ interface MutateOpts {
 }
 
 export function useIssueCredit(userId: string, opts: MutateOpts = {}) {
-  const { request, ready } = useApi();
+  const { request } = useApi();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (body: { amountPence: number; reason: string }) =>
