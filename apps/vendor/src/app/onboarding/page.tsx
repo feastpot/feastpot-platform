@@ -52,6 +52,18 @@ export default async function OnboardingPage() {
       <TopNav businessName={vendor.businessName} />
       <main className="container py-6">
         <OnboardingClient vendor={vendor} />
+        <p className="mt-8 text-center text-xs text-muted-foreground">
+          By completing onboarding you agree to our{' '}
+          <a
+            href="https://feastpot.co.uk/legal/vendor-terms"
+            target="_blank"
+            rel="noreferrer"
+            className="underline hover:no-underline"
+          >
+            Vendor Terms of Service
+          </a>
+          .
+        </p>
       </main>
     </>
   );

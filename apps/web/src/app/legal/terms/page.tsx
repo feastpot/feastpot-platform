@@ -2,97 +2,156 @@ import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: 'Terms of Service',
-  description: 'Feastpot Terms of Service for customers and vendors using the platform.',
+  description:
+    'Feastpot customer Terms of Service — your contract with Feastpot Ltd when you place orders through our marketplace.',
   alternates: { canonical: '/legal/terms' },
 };
 
 export default function TermsPage() {
   return (
-    <article className="prose prose-slate mx-auto w-full max-w-3xl px-4 py-10 md:py-14">
+    <article className="prose prose-slate max-w-2xl prose-headings:text-foreground prose-h1:mb-2 prose-h2:mt-10 prose-p:leading-[1.75] prose-li:leading-[1.75]">
       <h1>Terms of Service</h1>
       <p className="text-sm text-muted-foreground">Last updated: May 2026</p>
 
       <h2>1. About Feastpot</h2>
       <p>
-        Feastpot Ltd (&ldquo;Feastpot&rdquo;, &ldquo;we&rdquo;, &ldquo;us&rdquo;) operates an online marketplace
-        connecting independent food vendors with customers in the United Kingdom. Feastpot itself is a
-        technology platform — we do <strong>not</strong> prepare, store, cook or serve food. Each order is
-        between you (the customer) and the vendor you select.
+        Feastpot is an online marketplace operated by Feastpot Ltd (England and Wales). We connect
+        customers with independent food vendors. Feastpot is <strong>not</strong> a food business,
+        caterer or restaurant. We are a marketplace operator and are not responsible for the
+        preparation, quality or safety of food ordered through the platform.
+      </p>
+      <p>
+        Feastpot is registered as a data controller with the ICO: <strong>C1931679</strong>.
       </p>
 
-      <h2>2. Eligibility &amp; account</h2>
-      <p>You must be at least 18 years old to place an order. You agree to keep your account credentials
-        confidential and to notify us immediately at <a href="mailto:support@feastpot.co.uk">support@feastpot.co.uk</a>
-        if you suspect unauthorised access.</p>
+      <h2>2. Accepting these terms</h2>
+      <p>
+        By creating an account or placing an order, you agree to these terms. You must be 18 or
+        over to create an account. These terms are governed by the laws of England and Wales.
+      </p>
 
-      <h2>3. Vendor obligations</h2>
+      <h2>3. Your account</h2>
       <ul>
-        <li>Comply with all applicable food hygiene, allergen labelling and food safety legislation, including the
-          Food Safety Act 1990, Food Information Regulations 2014 (FIR), and Natasha&rsquo;s Law where applicable.</li>
-        <li>Maintain a valid Food Hygiene Rating Scheme (FHRS) registration and provide evidence on request.</li>
-        <li>Declare the 14 major allergens on every menu item. Allergen information must be accurate and up to date.</li>
-        <li>Fulfil orders within the lead time committed at checkout, and notify customers promptly of any delay.</li>
-        <li>Respond to disputes within 24 hours and provide reasonable evidence on request.</li>
+        <li>You are responsible for keeping your login credentials secure.</li>
+        <li>You must provide accurate information during registration.</li>
+        <li>One account per person.</li>
+        <li>We may suspend accounts that violate these terms.</li>
       </ul>
 
-      <h2>4. Customer rights &amp; refund policy</h2>
+      <h2>4. Placing orders</h2>
       <p>
-        If your order is not delivered, is materially different from what was ordered, or is unsafe to consume,
-        you can raise a dispute from the order page within 24 hours of the delivery time. Our support team will
-        review evidence (photos, vendor messages, delivery records) and resolve the dispute within 24 hours.
-        Approved refunds are processed back to your original payment method within 5 business days.
+        Orders are a contract between you (the customer) and the vendor — not Feastpot. Feastpot
+        facilitates payment and provides the platform; we are not a party to the food supply
+        contract.
       </p>
       <p>
-        This sits alongside your statutory rights under the Consumer Rights Act 2015. Nothing in these terms
-        excludes or limits liability that cannot be excluded under English law (including death or personal
-        injury caused by negligence, or fraud).
+        Orders are confirmed when the vendor accepts. Pending orders are held in escrow via Stripe
+        and only captured when the vendor accepts. If a vendor does not accept within 15 minutes,
+        your order is automatically cancelled and a full refund is issued within 5 business days.
       </p>
 
-      <h2>5. Pricing, payments &amp; commission</h2>
+      <h2>5. Prices, fees and payment</h2>
       <ul>
-        <li>All prices are shown in pounds sterling and include VAT where applicable.</li>
-        <li>Payments are processed by Stripe. Feastpot does not store full payment card details.</li>
-        <li>Feastpot charges vendors a <strong>12% commission</strong> on the order subtotal (excluding delivery
-          fees and tips). Commission is deducted automatically at payout time.</li>
-        <li>Vendor payouts run weekly: completed-order earnings are settled every <strong>Monday</strong> by Stripe
-          Connect. Held payouts (e.g. pending compliance review) are released once cleared.</li>
+        <li>All prices shown include VAT where applicable.</li>
+        <li>Payment is processed by Stripe. Feastpot does not store card details.</li>
+        <li>
+          A platform service fee may be shown at checkout (currently £0 for customers — Feastpot&rsquo;s
+          12% commission is deducted from vendors, not charged to customers).
+        </li>
+        <li>Stripe may apply transaction fees subject to their terms.</li>
       </ul>
 
-      <h2>6. Prohibited content &amp; conduct</h2>
-      <p>You must not use Feastpot to:</p>
+      <h2>6. Delivery</h2>
+      <p>
+        Delivery is performed by the vendor or a vendor-arranged courier, not by Feastpot.
+        Delivery times are estimates. Feastpot is not liable for late deliveries caused by the
+        vendor or by circumstances outside our control. You are responsible for providing an
+        accurate delivery address.
+      </p>
+
+      <h2>7. Cancellations and refunds</h2>
       <ul>
-        <li>List, sell, or order alcohol without a valid premises licence under the Licensing Act 2003.</li>
-        <li>Misrepresent ingredients, allergens, hygiene ratings or business identity.</li>
-        <li>Harass, threaten or abuse other users, vendors, or our staff.</li>
-        <li>Attempt to circumvent platform fees by directing orders off-platform after first contact via Feastpot.</li>
+        <li>
+          <strong>Before vendor acceptance:</strong> full refund, no questions asked.
+        </li>
+        <li>
+          <strong>After vendor acceptance:</strong> cancellations are at the vendor&rsquo;s
+          discretion. Contact{' '}
+          <a href="mailto:support@feastpot.co.uk">support@feastpot.co.uk</a> within 1 hour of
+          acceptance.
+        </li>
+        <li>
+          <strong>After delivery:</strong> if food is missing, wrong, or unfit for consumption,
+          raise a dispute within 24 hours via the app or at{' '}
+          <a href="mailto:support@feastpot.co.uk">support@feastpot.co.uk</a>.
+        </li>
+      </ul>
+      <p>
+        Feastpot will acknowledge customer disputes within 24 hours and resolve them within
+        5&nbsp;business days. Approved refunds are processed within 5&nbsp;business days of
+        resolution to your original payment method. Credit may be issued as an alternative at our
+        discretion. Feastpot&rsquo;s decision on disputes is final.
+      </p>
+
+      <h2>8. Allergens and dietary requirements</h2>
+      <p>
+        Allergen information is provided by vendors and is <strong>not independently verified</strong>{' '}
+        by Feastpot. If you have a severe allergy, contact the vendor directly before ordering.
+        Feastpot cannot guarantee that any dish is allergen-free.
+      </p>
+      <p>
+        In the event of a severe allergic reaction, call <strong>999</strong> immediately. The 14
+        major allergens are listed at{' '}
+        <a href="/legal/allergens">feastpot.co.uk/legal/allergens</a>.
+      </p>
+      <p>
+        Vendors are required under the Food Information Regulations 2014 and Natasha&rsquo;s Law
+        (PPDS Regulation 2021) to declare all 14 major allergens.
+      </p>
+
+      <h2>9. Reviews</h2>
+      <ul>
+        <li>Reviews must be genuine, based on your own experience, and not defamatory.</li>
+        <li>We moderate reviews and may remove those that violate these terms.</li>
+        <li>Vendors cannot pay for or solicit fake reviews.</li>
+        <li>Reviews are subject to our moderation policy.</li>
       </ul>
 
-      <h2>7. Intellectual property</h2>
+      <h2>10. Prohibited conduct</h2>
+      <p>You must not:</p>
+      <ul>
+        <li>Use the platform for any unlawful purpose;</li>
+        <li>Attempt to place orders off-platform to avoid platform fees;</li>
+        <li>Harass, abuse or threaten vendors or Feastpot staff;</li>
+        <li>Misrepresent your identity or payment information;</li>
+        <li>Attempt to reverse-engineer, scrape or disrupt the platform.</li>
+      </ul>
+
+      <h2>11. Feastpot&rsquo;s role and liability</h2>
       <p>
-        The Feastpot brand, logos, and platform code are owned by Feastpot Ltd. Vendor-uploaded content
-        (photos, descriptions) remains owned by the vendor; by uploading, vendors grant us a worldwide,
-        royalty-free licence to display that content on the platform.
+        Feastpot is a marketplace platform operator, not a food business. We are not liable for:
+        the quality or safety of food; delivery delays; vendor non-performance; or events outside
+        our reasonable control.
+      </p>
+      <p>
+        Our maximum liability to you in any 12-month period is limited to the total fees paid by
+        you to Feastpot in that period. Nothing in these terms limits our liability for death or
+        personal injury caused by our negligence, for fraud, or for any liability that cannot be
+        excluded by law (including your statutory rights under the Consumer Rights Act 2015).
       </p>
 
-      <h2>8. Limitation of liability</h2>
+      <h2>12. Changes to these terms</h2>
       <p>
-        To the maximum extent permitted by law, Feastpot&rsquo;s total liability arising from or in connection with
-        these terms is capped at the value of the orders you have placed in the 12 months preceding the
-        relevant event. We are not liable for indirect or consequential losses.
+        We will give 14 days&rsquo; notice of material changes via email. Continued use of the
+        platform after the effective date constitutes acceptance.
       </p>
 
-      <h2>9. Suspension &amp; termination</h2>
-      <p>We may suspend or terminate accounts that breach these terms, present safety risks, or are subject to
-        ongoing fraud or chargeback investigations. Vendors may close their account at any time after
-        fulfilling outstanding orders.</p>
-
-      <h2>10. Governing law</h2>
-      <p>These terms are governed by the laws of <strong>England and Wales</strong>. Disputes are subject to the
-        exclusive jurisdiction of the English courts.</p>
-
-      <h2>11. Contact</h2>
+      <h2>13. Governing law</h2>
       <p>
-        Questions about these terms? Email <a href="mailto:legal@feastpot.co.uk">legal@feastpot.co.uk</a>.
+        These terms are governed by the laws of <strong>England and Wales</strong>. Disputes shall
+        be subject to the exclusive jurisdiction of the courts of England and Wales, unless you
+        are a consumer in Scotland or Northern Ireland, in which case you may bring proceedings in
+        your local court.
       </p>
     </article>
   );

@@ -1,0 +1,498 @@
+You are a UK legal compliance engineer and Next.js developer working on the Feastpot
+platform at apps/web. Rebuild all three legal pages with production-accurate UK legal
+content, replace the ICO registration placeholder with the real number, and create a
+fourth vendor-specific terms page.
+
+CRITICAL DETAILS — embed exactly as written in all relevant pages:
+  ICO Registration Number : C1931679
+  Data controller name    : Feastpot (trading name) / Feastpot Ltd
+  Contact email           : privacy@feastpot.co.uk
+  Legal jurisdiction      : England and Wales
+  Governing legislation   : UK GDPR, Data Protection Act 2018,
+                            Data (Use and Access) Act 2025 (in force 19 June 2025),
+                            PECR, Food Safety Act 1990, FIR 2014, Natasha's Law
+  Commission rate         : 12% of order subtotal
+  Payout schedule         : Weekly, every Monday via Stripe Connect
+  Dispute SLA             : Customer disputes acknowledged within 24 hours,
+                            resolved within 5 business days
+  Refund SLA              : Within 5 business days of resolution
+  Last updated date       : May 2026
+
+NOTE ON DATA (USE AND ACCESS) ACT 2025:
+This Act received Royal Assent and comes into force 19 June 2025. It amends
+parts of the UK GDPR and DPA 2018. Key changes relevant to Feastpot:
+- Strengthens the legitimate interests basis (now explicitly recognised for
+  intra-group transfers and fraud prevention)
+- Introduces a recognised legitimate interest list for processing
+- Updates the definition of scientific research
+- Introduces data intermediaries provisions
+The Privacy Policy must acknowledge this Act is in force and that Feastpot
+processes data in accordance with it.
+
+═══════════════════════════════════════════════════════
+PAGE 1 — /legal/privacy (UK GDPR Privacy Policy)
+File: apps/web/src/app/legal/privacy/page.tsx
+═══════════════════════════════════════════════════════
+
+Replace the entire file. Remove the ZA000000 placeholder — use C1931679.
+
+The Privacy Policy must contain ALL of the following sections in order:
+
+1. WHO WE ARE
+   Feastpot is operated by Feastpot Ltd, a UK company.
+   We are registered with the ICO as a data controller.
+   ICO Registration Reference: C1931679
+   Contact: privacy@feastpot.co.uk
+   Note: "In accordance with the UK General Data Protection Regulation (UK GDPR),
+   the Data Protection Act 2018, and the Data (Use and Access) Act 2025."
+
+2. WHAT DATA WE COLLECT
+   Section A — Account data: full name, email address, phone number, password (hashed,
+   never stored in plaintext), profile photo (optional).
+   Section B — Delivery data: delivery addresses, postcodes, geocoded coordinates.
+   Section C — Order data: order history, basket contents, delivery slot selections,
+   order notes, reorder history.
+   Section D — Payment data: Stripe payment reference IDs, last 4 card digits (held
+   by Stripe, not by Feastpot), payout bank details for vendors (held by Stripe Connect).
+   Section E — Vendor data: business name, business address, FSA registration number,
+   hygiene certificate, insurance certificate, photo ID, bank account details (Stripe).
+   Section F — Communications: email and WhatsApp message history, support ticket content,
+   dispute evidence (photos, documents).
+   Section G — Technical data: IP address, device type, browser type, session tokens,
+   push notification subscription tokens.
+   Section H — Usage data: pages visited, search queries, filter selections, click
+   patterns (used only for platform improvement, not sold or shared with advertisers).
+
+3. WHY WE PROCESS YOUR DATA (Lawful bases)
+   List each processing activity with its lawful basis:
+
+   - Account creation and authentication
+     Basis: Contract performance (Article 6(1)(b) UK GDPR)
+     Retention: Until account deletion or 24 months inactivity, then purged
+
+   - Order placement and fulfilment
+     Basis: Contract performance (Article 6(1)(b))
+     Retention: 6 years (VAT and tax record obligation under HMRC rules)
+
+   - Payment processing via Stripe
+     Basis: Contract performance (Article 6(1)(b))
+     Note: Feastpot does not store card numbers. Stripe is our payment processor
+     and acts as a data processor under our DPA with them.
+
+   - Vendor identity verification and compliance documents
+     Basis: Legal obligation (Article 6(1)(c)) — Food Safety Act 1990, FIR 2014,
+     Natasha's Law (PPDS Regulation 2021)
+     Retention: Duration of vendor relationship + 6 years
+
+   - Sending transactional notifications (order updates, delivery status)
+     Basis: Contract performance (Article 6(1)(b)) and legitimate interests
+     (Article 6(1)(f)) — the legitimate interest is ensuring customers and vendors
+     receive essential operational communications
+
+   - Marketing communications (if opted in)
+     Basis: Consent (Article 6(1)(a))
+     Retention: Until consent withdrawn + 12 months for consent records
+
+   - Fraud prevention, security, and abuse detection
+     Basis: Legitimate interests (Article 6(1)(f)) — recognised under the
+     Data (Use and Access) Act 2025 Schedule 1 legitimate interests list
+     Retention: 6 years (audit log retention)
+
+   - Dispute resolution and audit log maintenance
+     Basis: Legal obligation (Article 6(1)(c)) and legitimate interests
+     Retention: 6 years
+
+   - Analytics and platform improvement (anonymised/aggregated)
+     Basis: Legitimate interests (Article 6(1)(f))
+     Note: Individual user data is never sold to third parties or shared
+     with advertisers. No advertising cookies are used.
+
+4. WHO WE SHARE YOUR DATA WITH
+   List with reason:
+   - Stripe Inc (USA): Payment processing and vendor payouts. Protected by
+     UK International Data Transfer Agreement (UK IDTA) and Stripe's SCCs.
+   - Supabase Inc (USA, EU infrastructure): Database and authentication hosting.
+     Feastpot data is stored in the EU (Frankfurt region). Protected by UK IDTA.
+   - Resend Inc (USA): Transactional email delivery. Protected by UK IDTA.
+   - Twilio Inc (USA): SMS and OTP delivery. Protected by UK IDTA.
+   - Meta Platforms Ireland Ltd (Ireland/USA): WhatsApp Business API for order
+     notifications. Protected by EU-UK adequacy decision and SCCs.
+   - Cloudflare Inc (USA): CDN, security, and media storage. Protected by UK IDTA.
+   - Sentry Inc (USA): Error monitoring (anonymised stack traces only, no personal
+     data in error reports by design). Protected by UK IDTA.
+   - HMRC (UK): Tax records as legally required.
+   - Law enforcement / courts: When legally compelled by a valid court order
+     or statutory authority.
+   - We do NOT sell personal data. We do NOT share personal data with
+     advertisers, data brokers, or marketing companies.
+
+5. INTERNATIONAL TRANSFERS
+   Some of our service providers are based outside the UK. Where this is the case,
+   we ensure transfers are protected by one of the following safeguards:
+   - UK International Data Transfer Agreement (UK IDTA)
+   - EU Standard Contractual Clauses (SCCs) under the EU-UK adequacy decision
+   - Adequacy regulations made under section 17A of the DPA 2018
+   Transfers to the EU/EEA are covered by the UK's adequacy decision for the EEA.
+
+6. HOW LONG WE KEEP YOUR DATA
+   Structured table:
+   | Data type               | Retention period                    | Reason              |
+   | Orders and payments     | 6 years from order date             | HMRC/VAT obligation |
+   | Audit logs              | 6 years                             | Legal obligation    |
+   | Account data            | Until deletion request or 24 months inactivity | Contract |
+   | Marketing consent       | Until withdrawn + 12 months         | Accountability      |
+   | Vendor documents        | Duration of relationship + 6 years  | Food safety law     |
+   | Support communications  | 2 years from resolution             | Legitimate interest |
+   | Technical/session data  | 90 days                             | Security            |
+
+7. YOUR RIGHTS UNDER UK GDPR
+   List all 8 rights with one-line description and how to exercise:
+   1. Right of access (Subject Access Request) — email privacy@feastpot.co.uk
+   2. Right to rectification — update in account settings or email us
+   3. Right to erasure ("right to be forgotten") — subject to legal retention obligations
+   4. Right to restriction of processing
+   5. Right to data portability — machine-readable format on request
+   6. Right to object — including to direct marketing (always honoured)
+   7. Right not to be subject to automated decision-making
+   8. Right to withdraw consent at any time (does not affect prior lawful processing)
+
+   Note: Some rights are subject to exemptions under the DPA 2018 and the
+   Data (Use and Access) Act 2025, particularly where processing is required
+   for legal compliance, fraud prevention, or public interest.
+
+   To exercise any right: email privacy@feastpot.co.uk with "Data Rights Request"
+   in the subject line. We will respond within one calendar month (extendable
+   by two further months for complex requests — we will notify you).
+
+   You also have the right to lodge a complaint with the ICO:
+   ico.org.uk/make-a-complaint · 0303 123 1113
+
+8. COOKIES
+   Feastpot uses strictly necessary cookies only:
+   - Authentication session cookie (Supabase JWT — expires in 1 hour, refreshed)
+   - CSRF protection token
+   - Basket persistence (localStorage, not a cookie — client-side only)
+   Under PECR, strictly necessary cookies do not require prior consent.
+   We do not use advertising cookies, tracking pixels, or third-party analytics cookies.
+   Our cookie consent banner is informational only for this reason.
+
+9. CHANGES TO THIS POLICY
+   We will notify registered users by email of material changes at least 14 days
+   before they take effect. Minor changes (grammar, clarifications) take effect
+   immediately. The "last updated" date at the top of this page will always reflect
+   the most recent version.
+
+10. CONTACT
+    privacy@feastpot.co.uk
+    Subject line: "Privacy enquiry"
+    We aim to respond within 5 business days.
+
+Page styling:
+- Render as a clean, readable document page
+- Use prose layout (no bullets for the main sections — use headings + paragraphs)
+- Max width: max-w-2xl mx-auto, good line-height (1.75), generous section spacing
+- Section numbers as h2 headings in dark, subsections as h3
+- The table in section 6 renders as a proper HTML table with thin borders
+- "Last updated: May 2026" displayed prominently at the top below the page title
+- ICO number C1931679 in a small highlighted box (bg-teal-light, rounded-lg) near
+  the top of the page — makes it easy for anyone to verify
+
+═══════════════════════════════════════════════════════
+PAGE 2 — /legal/terms (Customer Terms of Service)
+File: apps/web/src/app/legal/terms/page.tsx
+═══════════════════════════════════════════════════════
+
+Replace the entire file with a comprehensive, legally accurate Terms of Service.
+
+Include these sections:
+
+1. ABOUT FEASTPOT
+   Feastpot is an online marketplace operated by Feastpot Ltd (England and Wales).
+   We connect customers with independent food vendors. Feastpot is NOT a food business,
+   caterer, or restaurant. We are a marketplace operator and are not responsible for
+   the preparation, quality, or safety of food ordered through the platform.
+   Feastpot is registered as a data controller with the ICO: C1931679.
+
+2. ACCEPTING THESE TERMS
+   By creating an account or placing an order, you agree to these terms.
+   Must be 18+ to create an account.
+   These terms are governed by the laws of England and Wales.
+
+3. YOUR ACCOUNT
+   You are responsible for keeping login credentials secure.
+   You must provide accurate information during registration.
+   One account per person.
+   We may suspend accounts that violate these terms.
+
+4. PLACING ORDERS
+   Orders are a contract between you (the customer) and the vendor (not Feastpot).
+   Feastpot facilitates payment and provides the platform — we are not a party
+   to the food supply contract.
+   Orders are confirmed when the vendor accepts. Pending orders are held in escrow
+   via Stripe and only captured when the vendor accepts.
+   If a vendor does not accept within 15 minutes, your order is automatically
+   cancelled and a full refund is issued within 5 business days.
+
+5. PRICES, FEES AND PAYMENT
+   All prices shown include VAT where applicable.
+   Payment is processed by Stripe. Feastpot does not store card details.
+   A platform service fee may be shown at checkout (currently £0 for customers —
+   Feastpot's commission is deducted from vendors, not charged to customers).
+   Stripe may apply transaction fees subject to their terms.
+
+6. DELIVERY
+   Delivery is performed by the vendor or a vendor-arranged courier, not by Feastpot.
+   Delivery times are estimates. Feastpot is not liable for late deliveries caused
+   by the vendor or circumstances outside our control.
+   You are responsible for providing an accurate delivery address.
+
+7. CANCELLATIONS AND REFUNDS
+   Before vendor acceptance: full refund, no questions asked.
+   After vendor acceptance: cancellations are at vendor discretion. Contact
+   support@feastpot.co.uk within 1 hour of acceptance.
+   After delivery: if food is missing, wrong, or unfit for consumption, raise a
+   dispute within 24 hours via the app or at support@feastpot.co.uk.
+   Feastpot will investigate and respond within 24 hours.
+   Approved refunds are processed within 5 business days to your original
+   payment method. Credit may be issued as an alternative at our discretion.
+   Feastpot's decision on disputes is final.
+
+8. ALLERGENS AND DIETARY REQUIREMENTS
+   Allergen information is provided by vendors and is not independently verified
+   by Feastpot. If you have a severe allergy, contact the vendor directly before
+   ordering. Feastpot cannot guarantee that any dish is allergen-free.
+   In the event of a severe allergic reaction, call 999 immediately.
+   The 14 major allergens are listed at feastpot.co.uk/legal/allergens.
+   Vendors are required under the Food Information Regulations 2014 and
+   Natasha's Law (PPDS Regulation 2021) to declare all 14 major allergens.
+
+9. REVIEWS
+   Reviews must be genuine, based on your own experience, and not defamatory.
+   We moderate reviews and may remove those that violate these terms.
+   Vendors cannot pay for or solicit fake reviews.
+   Reviews are subject to our moderation policy.
+
+10. PROHIBITED CONDUCT
+    You must not:
+    - Use the platform for any unlawful purpose
+    - Attempt to place orders off-platform to avoid platform fees
+    - Harass, abuse, or threaten vendors or Feastpot staff
+    - Misrepresent your identity or payment information
+    - Attempt to reverse-engineer, scrape, or disrupt the platform
+
+11. FEASTPOT'S ROLE AND LIABILITY
+    Feastpot is a marketplace platform operator, not a food business.
+    We are not liable for: the quality or safety of food; delivery delays;
+    vendor non-performance; or events outside our reasonable control.
+    Our maximum liability to you in any 12-month period is limited to the
+    total fees paid by you to Feastpot in that period.
+    Nothing in these terms limits our liability for death, personal injury
+    caused by our negligence, fraud, or any liability that cannot be excluded
+    by law (including your statutory rights under the Consumer Rights Act 2015).
+
+12. CHANGES TO THESE TERMS
+    We will give 14 days' notice of material changes via email.
+    Continued use of the platform after the effective date constitutes acceptance.
+
+13. GOVERNING LAW
+    These terms are governed by the laws of England and Wales.
+    Disputes shall be subject to the exclusive jurisdiction of the courts
+    of England and Wales, unless you are a consumer in Scotland or Northern
+    Ireland, in which case you may bring proceedings in your local court.
+
+Last updated: May 2026
+
+═══════════════════════════════════════════════════════
+PAGE 3 — /legal/vendor-terms (Vendor Terms of Service)
+File: apps/web/src/app/legal/vendor-terms/page.tsx (CREATE THIS FILE)
+═══════════════════════════════════════════════════════
+
+This is a NEW page — it did not exist before. Create it.
+
+Also add a link to it in:
+- The vendor onboarding flow (apps/vendor/src/app/onboarding/page.tsx)
+  "By completing onboarding you agree to our Vendor Terms of Service"
+- The footer of apps/vendor (if a footer exists)
+
+Content:
+
+1. THE VENDOR RELATIONSHIP
+   By registering as a vendor on Feastpot, you enter into a commercial agreement
+   with Feastpot Ltd. You are an independent business, not an employee or agent
+   of Feastpot. You are solely responsible for your food, your kitchen, and your
+   compliance with all applicable food law.
+
+2. ELIGIBILITY
+   To operate as a vendor you must:
+   - Be registered as a business or sole trader in the UK
+   - Hold a valid Food Business Registration under the Food Safety Act 1990
+     (register with your local authority — it is free and mandatory)
+   - Have a minimum Food Hygiene Rating Scheme (FHRS) rating of 3/5
+     (Feastpot recommends a minimum of 4/5 for listing on the platform)
+   - Hold valid public liability insurance (minimum £1 million cover)
+   - Comply with the Food Information Regulations 2014 (allergen labelling)
+   - Comply with Natasha's Law (PPDS Regulation 2021)
+   - Have a valid bank account (required for Stripe Connect payouts)
+   - Provide valid photo ID during onboarding
+
+3. PLATFORM COMMISSION
+   Feastpot charges a commission of 12% of the order subtotal (excluding
+   delivery fees) on each completed order. This commission is deducted from
+   your weekly payout — it is not charged separately.
+   Feastpot reserves the right to adjust the commission rate with 30 days'
+   written notice to active vendors.
+
+4. PAYOUTS
+   Payouts are processed weekly, every Monday, for all orders delivered in
+   the prior Monday–Sunday window.
+   Payouts are made via Stripe Connect to your registered UK bank account.
+   A payout will be held if: a dispute is open against your account; your
+   compliance documents have expired; your account is under review.
+   Feastpot will notify you of any hold via email and the vendor dashboard.
+
+5. REFUNDS AND DISPUTES
+   If a customer dispute results in a full or partial refund, the refunded
+   amount (plus any applicable commission) will be deducted from your next payout.
+   Vendors are expected to respond to dispute enquiries within 24 hours.
+   Failure to respond will be treated as non-engagement and may result in a
+   full refund to the customer at the vendor's cost.
+   Feastpot's decision on disputes is final.
+
+6. FOOD SAFETY AND COMPLIANCE
+   You are solely responsible for:
+   - The safety and quality of all food prepared and delivered
+   - Correct allergen declaration for every menu item (Food Information Regulations 2014)
+   - Compliance with Natasha's Law for pre-packaged food
+   - Maintaining your FHRS rating
+   - Keeping your compliance documents current (hygiene cert, insurance, FHRS)
+   Feastpot may suspend your listing if compliance documents expire and are
+   not renewed within 7 days of the first reminder.
+
+7. MENU AND PRICING
+   You are responsible for keeping menu items, prices, and availability accurate.
+   You must not list items that contain undeclared allergens.
+   Prices must be inclusive of VAT where applicable.
+   Feastpot may remove menu items that receive repeated complaints.
+
+8. ORDER ACCEPTANCE
+   You must accept or reject orders within 15 minutes of receipt.
+   Failure to respond results in automatic order cancellation and a full refund
+   to the customer. Repeated failures to accept orders may result in suspension.
+   You must not accept orders you do not intend to fulfil.
+
+9. PROHIBITED CONDUCT
+   You must not:
+   - Solicit customers to order off-platform
+   - Misrepresent allergen information
+   - List food you are not licensed or registered to sell
+   - Request or accept cash payments for platform orders
+   - Threaten, harass, or intimidate customers
+
+10. SUSPENSION AND REMOVAL
+    Feastpot may suspend or remove your listing immediately if:
+    - You receive 3 or more substantiated complaints in 30 days
+    - Your FHRS rating drops below 3
+    - You fail a compliance document check
+    - You engage in prohibited conduct
+    - Your Stripe Connect account is flagged by Stripe
+    We will notify you of any suspension and the reason for it.
+    Appeals must be submitted to compliance@feastpot.co.uk within 7 days.
+
+11. INTELLECTUAL PROPERTY
+    By uploading photos or content to Feastpot, you grant us a non-exclusive,
+    royalty-free licence to use that content to promote the platform and your
+    listing. You retain ownership of your content.
+
+12. LIABILITY
+    Feastpot is not liable for: food safety incidents caused by the vendor;
+    customer illness resulting from allergen misrepresentation; late or
+    failed deliveries; loss of income due to platform downtime.
+    Nothing in these terms limits liability for gross negligence or fraud.
+
+13. GOVERNING LAW
+    These terms are governed by the laws of England and Wales.
+
+Last updated: May 2026
+
+═══════════════════════════════════════════════════════
+PAGE 4 — /legal/cookies (Cookie Policy)
+File: apps/web/src/app/legal/cookies/page.tsx (CREATE THIS FILE)
+═══════════════════════════════════════════════════════
+
+A short, plain-English cookie policy. Feastpot only uses strictly necessary
+cookies so this page is simple.
+
+Sections:
+1. WHAT ARE COOKIES — plain English, 2 sentences
+2. COOKIES WE USE — table with 3 rows:
+   | Cookie name        | Purpose                          | Duration      | Strictly necessary |
+   | sb-access-token    | Supabase authentication JWT      | 1 hour        | Yes                |
+   | sb-refresh-token   | Supabase session refresh         | 30 days       | Yes                |
+   | feastpot.basket.v1 | Basket persistence (localStorage)| Session       | Yes (not a cookie) |
+3. COOKIES WE DO NOT USE — advertising cookies, tracking pixels, third-party
+   analytics cookies, Google Analytics, Facebook Pixel, etc. None. Ever.
+4. YOUR CHOICES — you can clear cookies via your browser settings. This will
+   log you out. We do not use any non-essential cookies so there is nothing
+   to opt out of.
+5. CONTACT — privacy@feastpot.co.uk
+
+═══════════════════════════════════════════════════════
+STEP — Update privacy.tsx ICO number in env variable
+═══════════════════════════════════════════════════════
+
+In apps/web/src/app/legal/privacy/page.tsx:
+Replace any reference to process.env.NEXT_PUBLIC_ICO_NUMBER or ZA000000
+with the hardcoded value C1931679.
+
+The ICO number is now confirmed and registered — it does not need to be
+an environment variable any longer. Hardcoding it is correct and simpler.
+
+Also update apps/web/.env.local:
+NEXT_PUBLIC_ICO_NUMBER=C1931679
+
+And update Vercel environment variables (reminder at end of output).
+
+═══════════════════════════════════════════════════════
+STEP — Add /legal navigation
+═══════════════════════════════════════════════════════
+
+Update apps/web/src/app/legal/layout.tsx (create if it does not exist):
+- A simple shared layout for all /legal/* pages
+- Breadcrumb: Home > Legal > [Page title]
+- Left sidebar on desktop with links to all 4 legal pages:
+  Privacy Policy, Terms of Service, Vendor Terms, Cookie Policy
+- Mobile: horizontal scroll tabs at the top
+- "Last updated: May 2026" footer on all legal pages
+- Link to privacy@feastpot.co.uk at the bottom of every legal page
+
+Add links to the footer of apps/web (if a footer component exists):
+Privacy Policy | Terms | Vendor Terms | Cookies | Help
+
+═══════════════════════════════════════════════════════
+VERIFICATION
+═══════════════════════════════════════════════════════
+
+After all pages are created:
+
+1. Run: npm run dev:web
+2. Visit each page and confirm it renders:
+   http://localhost:3000/legal/privacy  → contains "C1931679", not "ZA000000"
+   http://localhost:3000/legal/terms    → contains "12%" commission, "5 business days" refund SLA
+   http://localhost:3000/legal/vendor-terms → contains "12%" commission, "weekly Monday" payout
+   http://localhost:3000/legal/cookies  → contains the 3-row cookie table
+
+3. Search for ZA000000 across all files:
+   grep -r "ZA000000" apps/web/src --include="*.tsx" --include="*.ts"
+   This must return zero results.
+
+4. Confirm ICO number appears correctly:
+   grep -r "C1931679" apps/web/src --include="*.tsx"
+   This must return at least one result (the privacy page).
+
+5. Run: npm run typecheck --filter=@feastpot/web
+   Fix all TypeScript errors.
+
+REMINDER — add to Vercel environment variables after deployment:
+NEXT_PUBLIC_ICO_NUMBER=C1931679
+
+Output all four page files in full. Confirm ZA000000 has been removed everywhere.
