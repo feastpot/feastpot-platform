@@ -31,6 +31,10 @@ export interface VendorListItem {
   communityFavourite?: boolean;
   /** FR-SRCH-001: dish names that matched the free-text query, when q is set. */
   matchedDishes?: string[];
+  /** Loose city/area surfaced on the vendor card cook-identity row. */
+  address?: { city?: string | null } | null;
+  /** Remaining cookable slots this weekend; drives the scarcity ribbon. */
+  availableSlots?: number | null;
 }
 
 export interface VendorListResponse {

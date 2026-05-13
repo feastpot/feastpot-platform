@@ -2,7 +2,6 @@ import { ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 
 import { CommunityFavourites } from '@/components/home/community-favourites';
-import { HowItWorks } from '@/components/home/how-it-works';
 import { PostcodeHero } from '@/components/home/postcode-hero';
 import { ReviewsMarquee } from '@/components/home/reviews-marquee';
 import { Testimonials } from '@/components/home/testimonials';
@@ -13,20 +12,29 @@ import { searchVendors, type VendorListItem } from '@/lib/api/vendors';
 /**
  * Customer homepage (Server Component).
  *
+ * Brand-DNA refresh — alternating warm cream / charcoal section bands plus
+ * kente dividers replace the previous flat-white page. Each section block
+ * gets its own background so the page reads as a layered editorial feed
+ * (warmth, community, food) rather than a generic SaaS minimum-viable shell.
+ *
+ * "How it works" is rendered inline against a charcoal→scotch gradient panel
+ * — the standalone `<HowItWorks />` component is no longer used here, so we
+ * intentionally drop the import. Steps use a small fixed three-step copy
+ * deck because the homepage is a top-of-funnel surface; deeper explainers
+ * live under /help.
+ *
  * Two vendor rails are fetched in parallel via the public search API:
  *   - `favourites`: rating-sorted, community-favourite filter on
- *   - `newest`:     rating-sorted (TODO: switch to true createdAt sort
- *                   once the backend supports it; for now this is the
- *                   closest stable proxy)
+ *   - `newest`:     rating-sorted (TODO: switch to true createdAt sort once
+ *                   the backend supports it)
  *
- * Errors are swallowed at the rail level — an empty carousel is far less
- * jarring than a full-page crash for an unauthenticated browser, and the
- * /vendors page is one tap away. Failures still surface in server logs.
+ * Errors are swallowed at the rail level — an empty carousel beats a full-
+ * page crash for unauthenticated browsers, and the /vendors page is one tap
+ * away. Failures still surface in server logs.
  *
  * Layout note: `app/layout.tsx` already wraps children in
- * `<main className="page-content mx-auto max-w-lg">`, so we do NOT use
- * `PageShell` here — that would double-wrap and add horizontal padding that
- * prevents the brand-gradient hero from extending edge-to-edge.
+ * `<main className="page-content mx-auto max-w-lg">`, so the brand-gradient
+ * hero extends edge-to-edge without needing PageShell.
  */
 async function safeFetch(
   promise: Promise<{ data: VendorListItem[] }>,
@@ -38,6 +46,12 @@ async function safeFetch(
     return [];
   }
 }
+
+const HOW_IT_WORKS_STEPS = [
+  { icon: '📍', title: 'Enter your postcode', desc: 'Find authentic cooks near you' },
+  { icon: '🛒', title: 'Choose your tray', desc: 'Full trays, frozen packs, event orders' },
+  { icon: '🚗', title: 'Scheduled delivery', desc: 'Your cook delivers on your chosen day' },
+] as const;
 
 export default async function HomePage() {
   const [favourites, newest] = await Promise.all([
@@ -54,26 +68,93 @@ export default async function HomePage() {
 
   return (
     <>
+      {/* Hero already includes the trust strip + a closing kente divider. */}
       <PostcodeHero />
 
-      {/* Social-proof marquee — sits directly below the hero so it's the
-          first thing a customer sees after the postcode prompt. */}
-      <ReviewsMarquee />
+      {/* Reviews marquee on warm cream — softer than white and signals the
+          shift from "hero" to "social proof" without a hard line break. */}
+      <div style={{ background: '#FBF6EF' }}>
+        <ReviewsMarquee />
+      </div>
+      <div className="kente-divider" aria-hidden />
 
-      <section className="pt-2">
+      <section className="pt-3">
         <h2 className="sr-only">Browse by cuisine</h2>
-        <CuisineFilter />
+        <CuisineFilter variant="cards" />
       </section>
+      <div className="kente-divider" aria-hidden />
 
-      <CommunityFavourites vendors={favourites} />
+      {/* Community favourites — same warm cream as the marquee so the two
+          social-proof bands feel like one continuous editorial spread. */}
+      <section style={{ background: '#FBF6EF', padding: '16px 0' }}>
+        <CommunityFavourites vendors={favourites} />
+      </section>
+      <div className="kente-divider" aria-hidden />
 
-      <HowItWorks />
+      {/* "How it works" — charcoal→scotch gradient card. Inset margin and
+          rounded corners turn the section into a card that floats on the
+          cream body, reinforcing the "premium handmade" tone. */}
+      <section
+        style={{
+          background: 'linear-gradient(135deg, #1C1C1A, #2D1A0A)',
+          margin: '0 12px',
+          borderRadius: '24px',
+          padding: '20px 16px',
+        }}
+      >
+        <h2
+          style={{
+            color: '#F5A52A',
+            fontFamily: 'Playfair Display, Georgia, serif',
+            fontWeight: 800,
+            fontSize: '20px',
+            marginBottom: '16px',
+            textAlign: 'center',
+          }}
+        >
+          How Feastpot works
+        </h2>
+        {HOW_IT_WORKS_STEPS.map((step) => (
+          <div
+            key={step.title}
+            style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '12px',
+              marginBottom: '12px',
+            }}
+          >
+            <span aria-hidden style={{ fontSize: '24px', flexShrink: 0 }}>
+              {step.icon}
+            </span>
+            <div>
+              <p
+                style={{
+                  color: 'white',
+                  fontWeight: 600,
+                  fontSize: '13px',
+                  margin: '0 0 2px',
+                }}
+              >
+                {step.title}
+              </p>
+              <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '11px', margin: 0 }}>
+                {step.desc}
+              </p>
+            </div>
+          </div>
+        ))}
+      </section>
+      <div className="kente-divider" aria-hidden style={{ marginTop: '12px' }} />
 
-      {/* Long-form testimonials — placed after HowItWorks so customers see the
-          mechanics first, then the trust reinforcement. */}
-      <Testimonials />
+      {/* Long-form testimonials — deep cream so the two cream-bands either
+          side of "How it works" don't visually merge. */}
+      <div style={{ background: '#F5EDE0' }}>
+        <Testimonials />
+      </div>
+      <div className="kente-divider" aria-hidden />
 
-      <section className="space-y-2 py-2">
+      <section className="space-y-2 py-3">
         <header className="flex items-end justify-between gap-2 px-4">
           <div>
             <h2 className="text-[17px] font-bold text-dark">✨ New on Feastpot</h2>
