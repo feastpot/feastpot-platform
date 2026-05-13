@@ -168,7 +168,55 @@ UI is enough for humans, but agent sessions can't use it.
 
 ---
 
-## 6. Things explicitly NOT covered here
+## 6. Spec deviation accepted: required checks model
+
+The original task asked for the deploy.yml jobs (`Migrate production
+DB`, `Deploy API (Replit Autoscale)`, `Deploy web/vendor/admin
+(Vercel)`, `Smoke tests`) to be required status checks on `main`.
+
+We deliberately did NOT do that, and instead require the PR-time CI
+contexts from `ci.yml`. The reason is structural, not a shortcut:
+
+- GitHub branch protection only honors check contexts that report on
+  `pull_request` events.
+- `deploy.yml` triggers on `push` to `main`, never on PRs.
+- Listing deploy jobs as required contexts therefore leaves every PR
+  permanently `mergeable_state: blocked` — the gate can never go
+  green because it never runs.
+
+The deploy gates are still enforced — just one layer down, inside
+`deploy.yml` itself, via job-level `needs:` chains. That file is the
+source of truth for what must succeed before production updates.
+
+If a future contributor wants the literal task wording (deploy jobs
+in branch protection), the only correct fix is to also wire deploy.yml
+to run on `pull_request`, not to add unsatisfiable contexts here.
+Documented and accepted; no further action expected.
+
+---
+
+## 7. Non-interactive emergency recovery (agents / CI)
+
+The interactive `yes` prompt in `scripts/git-sync.sh` is fine for
+humans in a shell, but agents and CI cannot type into a TTY. For
+those callers, both env vars are required:
+
+```sh
+ALLOW_MAIN_PUSH=1 CONFIRM_MAIN_PUSH=yes \
+  bash scripts/git-sync.sh
+```
+
+Both are required by design — a single stray env var cannot trigger a
+main push by itself. If only `ALLOW_MAIN_PUSH=1` is set without
+`CONFIRM_MAIN_PUSH=yes`, the script will block on `read` and
+eventually time out / error in a non-interactive context.
+
+This path should be used only for the documented emergencies in §4.
+For everything else: feature branch → PR → CI → review → merge.
+
+---
+
+## 8. Things explicitly NOT covered here
 
 - **Commit signing / GPG.** Not enforced yet — see follow-up tasks.
 - **A dedicated `feastpot-bot` machine user.** Currently every agent
