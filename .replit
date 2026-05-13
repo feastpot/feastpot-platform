@@ -99,3 +99,7 @@ build = ["bash", "-c", "npm ci && npm run db:generate && npm run build:api"]
 [userenv]
 
 [userenv.shared]
+
+[postMerge]
+path = "scripts/post-merge.sh"
+timeoutMs = 180000
