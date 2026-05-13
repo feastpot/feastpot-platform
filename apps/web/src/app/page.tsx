@@ -89,7 +89,7 @@ export default async function HomePage() {
         </header>
 
         {newest.length > 0 ? (
-          <div className="-mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="-mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:mx-0 md:grid md:grid-cols-3 md:overflow-x-visible md:px-4 lg:grid-cols-4">
             {newest.map((v) => (
               <VendorCard key={v.id} vendor={v} variant="carousel" />
             ))}

@@ -71,7 +71,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <QueryProvider>
           <ToastProvider>
             <TopNav />
-            <main className="page-content mx-auto max-w-lg">{children}</main>
+            <main className="page-content mx-auto max-w-lg sm:max-w-2xl md:max-w-4xl lg:max-w-5xl">
+              {children}
+            </main>
             <BottomNav />
             <PushPermissionPrompt />
             <CookieBanner />

@@ -40,7 +40,7 @@ export function VendorCard({ vendor, variant = 'list' }: Props) {
       href={`/vendors/${vendor.slug}`}
       className={cn(
         'fp-card group block overflow-hidden transition-transform duration-200 active:scale-[0.98]',
-        isCarousel ? 'w-64 shrink-0 snap-start' : 'w-full',
+        isCarousel ? 'w-64 shrink-0 snap-start md:w-full md:shrink' : 'w-full',
       )}
     >
       {/* Cover */}

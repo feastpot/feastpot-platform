@@ -45,7 +45,7 @@ export function BottomNav() {
       className="fixed inset-x-0 bottom-0 z-50 border-t border-gray-100 bg-white shadow-sticky"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
-      <ul className="mx-auto grid h-16 max-w-lg grid-cols-4 px-2">
+      <ul className="mx-auto grid h-16 max-w-lg grid-cols-4 px-2 sm:max-w-2xl md:max-w-4xl lg:max-w-5xl">
         {ITEMS.map(({ href, label, Icon, match }) => {
           const active = match(pathname);
           const isOrders = href === '/orders';

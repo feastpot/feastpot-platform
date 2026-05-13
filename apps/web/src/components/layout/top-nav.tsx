@@ -67,7 +67,7 @@ export function TopNav() {
       className="fixed inset-x-0 top-0 z-50 border-b border-gray-100 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80"
       style={{ paddingTop: 'env(safe-area-inset-top)' }}
     >
-      <div className="mx-auto flex h-14 max-w-lg items-center justify-between px-4">
+      <div className="mx-auto flex h-14 max-w-lg items-center justify-between px-4 sm:max-w-2xl md:max-w-4xl lg:max-w-5xl">
         {isHome ? (
           <Link href="/" aria-label="Feastpot home" className="flex items-baseline gap-0.5">
             <span className="text-2xl font-black tracking-tight text-brand">feast</span>
