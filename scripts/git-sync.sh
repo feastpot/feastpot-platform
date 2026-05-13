@@ -87,29 +87,32 @@ if ! git diff --quiet || ! git diff --cached --quiet; then
 fi
 
 # Build the authenticated URL on the fly so the token never gets stored
-# in .git/config or printed to logs.
-authed_url="https://x-access-token:${GITHUB_TOKEN}@github.com/${REPO_SLUG}.git"
+# in .git/config or printed to logs. Overridable via REMOTE_URL_OVERRIDE
+# so the smoke tests can point at a local bare repo instead of GitHub.
+authed_url="${REMOTE_URL_OVERRIDE:-https://x-access-token:${GITHUB_TOKEN}@github.com/${REPO_SLUG}.git}"
 
 # Sanity check: confirm the token can actually see the repo before we
 # try to push. Fails fast on revoked / wrong-scope tokens.
-log "Validating GITHUB_TOKEN against ${REPO_SLUG}..."
-http_code=$(curl -sS -o /tmp/git-sync-perms.json -w "%{http_code}" \
-  -H "Accept: application/vnd.github+json" \
-  -H "Authorization: Bearer ${GITHUB_TOKEN}" \
-  "https://api.github.com/repos/${REPO_SLUG}")
-if [[ "${http_code}" != "200" ]]; then
-  err "GitHub API returned HTTP ${http_code} for ${REPO_SLUG}."
-  err "Token is missing, expired, or lacks read access."
-  cat /tmp/git-sync-perms.json >&2 || true
-  exit 1
+if [[ -z "${SKIP_TOKEN_CHECK:-}" ]]; then
+  log "Validating GITHUB_TOKEN against ${REPO_SLUG}..."
+  http_code=$(curl -sS -o /tmp/git-sync-perms.json -w "%{http_code}" \
+    -H "Accept: application/vnd.github+json" \
+    -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+    "https://api.github.com/repos/${REPO_SLUG}")
+  if [[ "${http_code}" != "200" ]]; then
+    err "GitHub API returned HTTP ${http_code} for ${REPO_SLUG}."
+    err "Token is missing, expired, or lacks read access."
+    cat /tmp/git-sync-perms.json >&2 || true
+    exit 1
+  fi
+  can_push=$(grep -oE '"push"[^,]*true' /tmp/git-sync-perms.json | head -1 || true)
+  if [[ -z "${can_push}" ]]; then
+    err "Token can read ${REPO_SLUG} but does NOT have push permission."
+    err "Issue a new PAT with 'repo' scope (classic) or 'Contents: read & write' (fine-grained)."
+    exit 1
+  fi
+  log "Token OK (push permission confirmed)."
 fi
-can_push=$(grep -oE '"push"[^,]*true' /tmp/git-sync-perms.json | head -1 || true)
-if [[ -z "${can_push}" ]]; then
-  err "Token can read ${REPO_SLUG} but does NOT have push permission."
-  err "Issue a new PAT with 'repo' scope (classic) or 'Contents: read & write' (fine-grained)."
-  exit 1
-fi
-log "Token OK (push permission confirmed)."
 
 log "Fetching ${REMOTE}..."
 git fetch --prune "${authed_url}" "+refs/heads/*:refs/remotes/${REMOTE}/*"
@@ -120,12 +123,24 @@ if [[ "${current_branch}" != "${BRANCH}" ]]; then
   exit 1
 fi
 
-ahead_behind=$(git rev-list --left-right --count "${REMOTE}/${BRANCH}...${BRANCH}" || echo "0   0")
-behind=$(echo "${ahead_behind}" | awk '{print $1}')
-ahead=$(echo "${ahead_behind}" | awk '{print $2}')
-log "Local ${BRANCH} is ${ahead} commits ahead and ${behind} commits behind ${REMOTE}/${BRANCH}."
+# Detect first-push case: feature branch that doesn't yet exist on
+# origin. We must NOT compute ahead/behind against a non-existent
+# ref — `git rev-list` would fail and the fallback "0 0" would make
+# the script wrongly conclude "nothing to push".
+first_push=0
+if ! git show-ref --verify --quiet "refs/remotes/${REMOTE}/${BRANCH}"; then
+  first_push=1
+  ahead=$(git rev-list --count HEAD)
+  behind=0
+  log "Branch '${BRANCH}' does not exist on ${REMOTE} yet — this will be a first push (${ahead} commits)."
+else
+  ahead_behind=$(git rev-list --left-right --count "${REMOTE}/${BRANCH}...${BRANCH}")
+  behind=$(echo "${ahead_behind}" | awk '{print $1}')
+  ahead=$(echo "${ahead_behind}" | awk '{print $2}')
+  log "Local ${BRANCH} is ${ahead} commits ahead and ${behind} commits behind ${REMOTE}/${BRANCH}."
+fi
 
-if [[ "${behind}" -gt 0 ]]; then
+if [[ "${first_push}" -eq 0 && "${behind}" -gt 0 ]]; then
   log "Rebasing onto ${REMOTE}/${BRANCH}..."
   if ! git rebase "${REMOTE}/${BRANCH}"; then
     err "Rebase produced conflicts. The repo is now in a"
@@ -162,6 +177,12 @@ if [[ "${DRY_RUN}" == "1" ]]; then
   exit 0
 fi
 
-log "Pushing ${BRANCH} to ${REMOTE}..."
-git push "${authed_url}" "${BRANCH}:${BRANCH}"
-log "Push succeeded. Vercel + Replit Autoscale should redeploy via .github/workflows/deploy.yml."
+if [[ "${first_push}" -eq 1 ]]; then
+  log "Pushing ${BRANCH} to ${REMOTE} (first push, setting upstream)..."
+  git push --set-upstream "${authed_url}" "${BRANCH}:${BRANCH}"
+  log "Push succeeded. Open a PR at https://github.com/${REPO_SLUG}/pull/new/${BRANCH}"
+else
+  log "Pushing ${BRANCH} to ${REMOTE}..."
+  git push "${authed_url}" "${BRANCH}:${BRANCH}"
+  log "Push succeeded. Vercel + Replit Autoscale should redeploy via .github/workflows/deploy.yml."
+fi

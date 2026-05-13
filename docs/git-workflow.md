@@ -71,17 +71,33 @@ These are enforced via GitHub Settings → Branches → `main`:
 
 - Require a pull request before merging.
 - Require at least **1 approving review**.
-- Require status checks to pass:
-  - `Migrate production DB`
-  - `Deploy API (Replit Autoscale)`
-  - any others wired up in `.github/workflows/`
+- Require status checks to pass — only PR-time checks from
+  `.github/workflows/ci.yml` (these are runnable on `pull_request`
+  and so can actually gate merges):
+  - `Typecheck`
+  - `Lint`
+  - `Prisma validate`
+  - `Test (coverage ≥ 70%)`
+  - `Build all apps`
+- Require strict status checks (branch must be up to date with
+  `main` before merging).
 - Require linear history (no merge commits — squash or rebase only).
 - Require conversation resolution before merge.
 - **Block force pushes.**
 - **Block deletion.**
+- **`enforce_admins: true`** — admins cannot bypass the above.
 
-If you add a new required check, also list it here so future agents
-know what's gating merges.
+The deploy-pipeline gates (`Migrate production DB`,
+`Deploy API (Replit Autoscale)`, `Deploy web/vendor/admin (Vercel)`,
+`Smoke tests`) are NOT branch-protection contexts. They run only on
+`push` to `main` (per `.github/workflows/deploy.yml`), so they
+cannot gate a `pull_request`. They are enforced by job-level
+`needs:` dependencies inside `deploy.yml` itself — that file is the
+source of truth for what must succeed before production updates.
+
+If you add a new required PR check, also list it here AND in
+`.github/branch-protection.main.json` so future agents know what's
+gating merges.
 
 ---
 
