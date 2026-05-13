@@ -141,10 +141,30 @@ succeeded). The behavior of interest — that GitHub reports the PR as
 | Cleanup: delete smoke marker on main | `DELETE /contents/...` | HTTP 200 (commit `1ffe1579`) |
 | Cleanup: close PR + delete branch | `PATCH /pulls/11` + `DELETE /git/refs/...` | OK |
 
-Under the **current** protection config (`enforce_admins: true`),
-the same `PUT /pulls/N/merge` call will return HTTP 405 with
-"Required status check ... is expected" until CI is green and a
-review is in place. There is no admin bypass any more.
+## 7. Fresh proof under `enforce_admins: true` (smoke v2)
 
-The smoke marker file was deleted from `main` immediately after the
-test so production carries no throwaway artifacts.
+Re-ran the smoke test after flipping `enforce_admins` to `true`,
+using the same admin-permission token. Direct merge attempt:
+
+```
+PUT https://api.github.com/repos/feastpot/feastpot-platform/pulls/12/merge
+Authorization: Bearer <admin token>
+{ "merge_method": "squash" }
+
+→ HTTP 405
+{
+  "message": "At least 1 approving review is required by reviewers with
+              write access. 5 of 5 required status checks are expected.",
+  "documentation_url": "https://docs.github.com/articles/about-protected-branches",
+  "status": "405"
+}
+```
+
+This is the airtight proof: even a token with `admin: true,
+push: true, maintain: true` is now blocked from merging into `main`
+without a review and the 5 required CI checks. Branch protection is
+enforced; admin bypass is gone. PR #12 was closed and the throwaway
+branch deleted immediately after.
+
+The smoke marker files were deleted from `main` after each test so
+production carries no throwaway artifacts.
