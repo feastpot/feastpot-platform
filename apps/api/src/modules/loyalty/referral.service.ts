@@ -39,26 +39,41 @@ export class ReferralService {
     });
     if (existing) return existing.code;
 
-    // Tight retry loop for unique-collision on `code` (vanishingly rare).
-    for (let attempt = 0; attempt < 5; attempt++) {
-      const code = this.generateCode();
-      try {
-        const created = await this.prisma.referral.create({
-          data: {
-            referrerId: userId,
-            refereeId: null,
-            code,
-            status: ReferralStatus.pending,
-          },
-          select: { code: true },
-        });
-        return created.code;
-      } catch (err) {
-        const msg = (err as Error).message;
-        if (!msg.includes('Unique')) throw err;
+    // Serialise concurrent calls per-user via a Postgres advisory lock
+    // so two parallel "ensure" calls (e.g. account page + checkout
+    // share-sheet loaded simultaneously) can't both create a stable
+    // share-code row — the schema has no unique index on
+    // (referrerId, refereeId IS NULL) so we enforce it in app code.
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`referral:ensure:${userId}`}, 0))`;
+      // Re-check inside the lock — the loser of the race finds the
+      // row written by the winner and returns it instead of creating.
+      const row = await tx.referral.findFirst({
+        where: { referrerId: userId, refereeId: null },
+        select: { code: true },
+      });
+      if (row) return row.code;
+
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const code = this.generateCode();
+        try {
+          const created = await tx.referral.create({
+            data: {
+              referrerId: userId,
+              refereeId: null,
+              code,
+              status: ReferralStatus.pending,
+            },
+            select: { code: true },
+          });
+          return created.code;
+        } catch (err) {
+          const msg = (err as Error).message;
+          if (!msg.includes('Unique')) throw err;
+        }
       }
-    }
-    throw new Error('Could not allocate referral code after 5 attempts');
+      throw new Error('Could not allocate referral code after 5 attempts');
+    });
   }
 
   /**
@@ -74,30 +89,37 @@ export class ReferralService {
     });
     if (!owner) return; // unknown code — silently ignore
     if (owner.referrerId === newUserId) return; // self-referral
-    // One-per-user: bail if this user is already someone's referee
-    const already = await this.prisma.referral.findFirst({
-      where: { refereeId: newUserId },
-      select: { id: true },
-    });
-    if (already) return;
 
-    for (let attempt = 0; attempt < 5; attempt++) {
-      const code = `${sharedCode}-${this.generateCode(4)}`;
-      try {
-        await this.prisma.referral.create({
-          data: {
-            referrerId: owner.referrerId,
-            refereeId: newUserId,
-            code,
-            status: ReferralStatus.pending,
-          },
-        });
-        return;
-      } catch (err) {
-        if (!(err as Error).message.includes('Unique')) throw err;
+    // Serialise per-referee so concurrent /v1/users/sync calls (e.g.
+    // an email-confirmation roundtrip + a manual retry) can't both
+    // create a referee row before either sees the other's write —
+    // we have no unique index on `referee_id`.
+    await this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`referral:process:${newUserId}`}, 0))`;
+      const already = await tx.referral.findFirst({
+        where: { refereeId: newUserId },
+        select: { id: true },
+      });
+      if (already) return;
+
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const code = `${sharedCode}-${this.generateCode(4)}`;
+        try {
+          await tx.referral.create({
+            data: {
+              referrerId: owner.referrerId,
+              refereeId: newUserId,
+              code,
+              status: ReferralStatus.pending,
+            },
+          });
+          return;
+        } catch (err) {
+          if (!(err as Error).message.includes('Unique')) throw err;
+        }
       }
-    }
-    this.logger.warn(`processReferral: code allocation failed for referee ${newUserId}`);
+      this.logger.warn(`processReferral: code allocation failed for referee ${newUserId}`);
+    });
   }
 
   /**

@@ -6,6 +6,7 @@ import type { Job } from 'bull';
 import type Stripe from 'stripe';
 
 import { PrismaService } from '../../prisma/prisma.service';
+import { LoyaltyService } from '../loyalty/loyalty.service';
 
 import { STRIPE_WEBHOOK_QUEUE } from './stripe-webhook.controller';
 
@@ -24,7 +25,13 @@ interface WebhookJob {
 export class StripeWebhookProcessor {
   private readonly logger = new Logger(StripeWebhookProcessor.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    // LoyaltyModule is @Global — no PaymentsModule import change needed.
+    // Used to refund any loyalty redemption attached to an order whose
+    // payment Stripe ultimately fails (FR-LOY-001 retention requirement).
+    private readonly loyalty: LoyaltyService,
+  ) {}
 
   // Concurrency=5 on each handler: Stripe bursts during busy periods (peak
   // Friday evening), and these handlers are idempotent (updateMany on the
@@ -58,10 +65,30 @@ export class StripeWebhookProcessor {
     });
     if (payment?.orderId) {
       // Atomic CAS-style: only cancel if still pending — never override a vendor decision.
-      await this.prisma.order.updateMany({
+      const cancelled = await this.prisma.order.updateMany({
         where: { id: payment.orderId, status: OrderStatus.pending },
         data: { status: OrderStatus.cancelled, cancelledAt: new Date(), notes: '[CANCELLED] Stripe payment failed' },
       });
+      // Only refund the loyalty redemption if WE were the one that
+      // cancelled the order on this run (`cancelled.count === 1`). The
+      // refundRedemption call is itself idempotent, but gating on the
+      // CAS result avoids a redundant lock acquisition on an order that
+      // was already moved by another worker.
+      if (cancelled.count > 0) {
+        const order = await this.prisma.order.findUnique({
+          where: { id: payment.orderId },
+          select: { customerId: true },
+        });
+        if (order) {
+          try {
+            await this.loyalty.refundRedemption(order.customerId, payment.orderId);
+          } catch (e) {
+            this.logger.error(
+              `refundRedemption (webhook) failed for ${payment.orderId}: ${(e as Error).message}`,
+            );
+          }
+        }
+      }
     }
     this.logger.warn(`PI ${pi.id} failed`);
   }

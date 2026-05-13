@@ -29,16 +29,37 @@ const config: Config = {
     },
     extend: {
       colors: {
-        // Feastpot brand palette — full scale for variants.
+        // ─── Feastpot brand palette ──────────────────────────────────
+        // "Logo DNA" tokens: terracotta + scotch-bonnet + plantain +
+        // yam + pot/kente accents. The brand brief replaced the entire
+        // colours block, but we keep shadcn's HSL semantic tokens
+        // (background/foreground/card/...) intact below — those are the
+        // mechanism the rest of the app + @feastpot/ui consume, so
+        // wholesale replacement would break unrelated components.
         brand: {
-          DEFAULT: '#E8520A',
+          DEFAULT: '#E8520A', // Terracotta Flame — primary CTAs
           light: '#FEF0E9',
-          dark: '#B33D07',
+          dark: '#C8401F', // Scotch Bonnet Red — hover state
           50: '#FEF0E9',
           100: '#FDD8C4',
           500: '#E8520A',
-          600: '#C94308',
+          600: '#C8401F',
           700: '#B33D07',
+          900: '#7A2610',
+        },
+        scotch: '#C8401F', // spice indicators, urgent
+        plantain: '#F5A52A', // rewards, highlights
+        yam: '#3D7A47', // FSA, halal, verified
+        pot: '#8B5E3C', // tribal patterns, decorative
+        cream: {
+          DEFAULT: '#FBF6EF', // main background — warmer than white
+          warm: '#F5EDE0', // section dividers, card bg
+          deep: '#EDE4D4', // stronger contrast for borders
+        },
+        charcoal: {
+          DEFAULT: '#1C1C1A',
+          mid: '#5F5E5A',
+          light: '#9B9894',
         },
         teal: {
           DEFAULT: '#1D9E75',
@@ -53,12 +74,13 @@ const config: Config = {
         // customer app — e.g. "View vendor" links).
         vendor: '#185FA5',
 
-        // Neutrals — used by mobile-only utility classes (bg-surface, text-mid).
-        // Distinct from shadcn semantic tokens below; both can coexist because
-        // Tailwind colour names are independent of the HSL var layer.
+        // Legacy neutral aliases retained for back-compat — many existing
+        // components use bg-surface/text-mid/text-dark. We rewire them to
+        // the new cream + charcoal scale so the rebrand cascades without
+        // touching every consumer file.
         dark: '#1C1C1A',
         mid: '#5F5E5A',
-        surface: '#F8F7F5',
+        surface: '#FBF6EF',
 
         // shadcn/ui semantic tokens — bound to CSS vars in globals.css.
         background: 'hsl(var(--background))',
@@ -104,7 +126,9 @@ const config: Config = {
         '4xl': '2rem',
       },
       fontFamily: {
-        sans: ['Inter var', ...defaultTheme.fontFamily.sans],
+        sans: ['Inter var', 'Inter', ...defaultTheme.fontFamily.sans],
+        // Display face — Playfair for cultural warmth on hero / headings.
+        display: ['"Playfair Display"', 'Georgia', 'serif'],
       },
       boxShadow: {
         card: '0 1px 4px 0 rgba(28,28,26,0.08), 0 4px 16px 0 rgba(28,28,26,0.04)',

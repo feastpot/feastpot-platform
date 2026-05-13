@@ -64,8 +64,15 @@ export function TopNav() {
 
   return (
     <header
-      className="fixed inset-x-0 top-0 z-50 border-b border-gray-100 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80"
-      style={{ paddingTop: 'env(safe-area-inset-top)' }}
+      // Warm cream border (not cold gray) keeps the chrome consistent
+      // with the new logo-DNA palette. Solid white background reads
+      // crisper against the page's cream body than the translucent
+      // version we used previously.
+      className="fixed inset-x-0 top-0 z-50 border-b border-cream-warm bg-white"
+      style={{
+        paddingTop: 'env(safe-area-inset-top)',
+        height: 'calc(var(--top-nav-height) + env(safe-area-inset-top))',
+      }}
     >
       <div className="mx-auto flex h-14 max-w-lg items-center justify-between px-4 sm:max-w-2xl md:max-w-4xl lg:max-w-5xl">
         {isHome ? (

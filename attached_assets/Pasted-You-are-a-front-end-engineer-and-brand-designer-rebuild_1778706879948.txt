@@ -1,0 +1,178 @@
+You are a front-end engineer and brand designer rebuilding the Feastpot PWA design system.
+The brief is based on a professional UX audit of www.feastpot.co.uk and analysis of the new logo.
+The logo shows a terracotta pot with tribal kente diamond patterns, hands cradling it,
+steam swirls in orange/olive/green carrying plantain, scotch bonnet, and yam.
+
+DO NOT change any data-fetching, API calls, routing, or Supabase auth.
+This is visual-layer only.
+
+═══════════════════════════════════════════════════════
+STEP 1 — Tailwind config: logo DNA colour palette
+File: apps/web/tailwind.config.ts
+═══════════════════════════════════════════════════════
+
+Replace the existing color object with:
+
+colors: {
+  brand: {
+    DEFAULT: '#E8520A',   // Terracotta Flame — primary CTAs
+    light:   '#FEF0E9',
+    dark:    '#C8401F',   // Scotch Bonnet Red — hover state
+    50:      '#FEF0E9',
+    600:     '#C8401F',
+    900:     '#7A2610',
+  },
+  scotch:   '#C8401F',   // spice indicators, urgent
+  plantain: '#F5A52A',   // rewards, highlights
+  yam:      '#3D7A47',   // FSA, halal, verified
+  pot:      '#8B5E3C',   // tribal patterns, decorative
+  cream: {
+    DEFAULT: '#FBF6EF',  // main background — replaces white
+    warm:    '#F5EDE0',  // section dividers, card bg
+    deep:    '#EDE4D4',  // stronger contrast for borders
+  },
+  charcoal: {
+    DEFAULT: '#1C1C1A',
+    mid:     '#5F5E5A',
+    light:   '#9B9894',
+  },
+  teal: {
+    DEFAULT: '#1D9E75',
+    light:   '#E1F5EE',
+  },
+}
+
+Also add to extend:
+fontFamily: {
+  display: ['"Playfair Display"', 'Georgia', 'serif'],
+  sans:    ['"Inter var"', 'Inter', ...defaultTheme.fontFamily.sans],
+},
+
+═══════════════════════════════════════════════════════
+STEP 2 — globals.css: full token set + tribal patterns
+File: apps/web/src/app/globals.css
+═══════════════════════════════════════════════════════
+
+Replace entirely with:
+
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=Inter:ital,wght@0,400;0,500;0,600;0,700;0,900;1,400&display=swap');
+
+:root {
+  --brand:         #E8520A;
+  --brand-light:   #FEF0E9;
+  --brand-dark:    #C8401F;
+  --scotch:        #C8401F;
+  --plantain:      #F5A52A;
+  --yam:           #3D7A47;
+  --yam-light:     #E8F5EB;
+  --pot:           #8B5E3C;
+  --teal:          #1D9E75;
+  --teal-light:    #E1F5EE;
+  --cream:         #FBF6EF;
+  --cream-warm:    #F5EDE0;
+  --cream-deep:    #EDE4D4;
+  --charcoal:      #1C1C1A;
+  --charcoal-mid:  #5F5E5A;
+  --charcoal-light:#9B9894;
+  --bottom-nav-height: 64px;
+  --top-nav-height:    56px;
+}
+
+* { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+
+body {
+  background-color: var(--cream);
+  color: var(--charcoal);
+  font-family: 'Inter var', 'Inter', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.page-content {
+  padding-top: var(--top-nav-height);
+  padding-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom));
+}
+
+/* Food card — warm cream surface with terracotta shadow */
+.food-card {
+  background: white;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(28,28,26,0.06), 0 8px 32px rgba(232,82,10,0.05);
+}
+
+/* Tribal kente diamond divider — repeating pattern from logo */
+.kente-divider {
+  height: 14px;
+  opacity: 0.35;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='14' viewBox='0 0 48 14'%3E%3Cpath d='M0 7L6 0L12 7L6 14ZM12 7L18 0L24 7L18 14ZM24 7L30 0L36 7L30 14ZM36 7L42 0L48 7L42 14Z' fill='none' stroke='%238B5E3C' stroke-width='1.2'/%3E%3C/svg%3E");
+  background-repeat: repeat-x;
+  background-position: center;
+}
+
+/* Tribal texture overlay — very subtle background pattern */
+.tribal-bg {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60' viewBox='0 0 60 60'%3E%3Cpath d='M10 30L20 20L30 30L20 40ZM30 30L40 20L50 30L40 40Z' fill='none' stroke='%238B5E3C' stroke-width='0.8' opacity='0.12'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+}
+
+/* Display headings — Playfair for cultural warmth */
+.font-display {
+  font-family: 'Playfair Display', Georgia, serif;
+}
+
+/* Touch targets */
+.touch-target { min-height: 44px; min-width: 44px; }
+
+═══════════════════════════════════════════════════════
+STEP 3 — TopNav: real logo on homepage
+File: apps/web/src/components/layout/top-nav.tsx
+═══════════════════════════════════════════════════════
+
+IMPORTANT: First copy the uploaded feastpot-logo.png to:
+apps/web/public/images/feastpot-logo.png
+
+Then update the TopNav component:
+
+In the isHome branch, replace the text wordmark with:
+import Image from 'next/image'
+
+{isHome ? (
+  <Link href="/" aria-label="Feastpot home">
+    <Image
+      src="/images/feastpot-logo.png"
+      alt="Feastpot — African & Caribbean food delivered"
+      width={130}
+      height={52}
+      className="h-11 w-auto"
+      priority
+    />
+  </Link>
+) : (
+  <Link href="/" className="flex items-center gap-0.5">
+    <span style={{ color: '#E8520A', fontWeight: 900, fontSize: '22px', letterSpacing: '-0.5px', fontFamily: 'Inter var, Inter, sans-serif' }}>feast</span>
+    <span style={{ color: '#1C1C1A', fontWeight: 900, fontSize: '22px', letterSpacing: '-0.5px', fontFamily: 'Inter var, Inter, sans-serif' }}>pot</span>
+  </Link>
+)}
+
+Also update the nav background:
+className="fixed top-0 left-0 right-0 z-50 border-b"
+style={{ background: 'white', borderColor: '#F5EDE0', height: 'var(--top-nav-height)', paddingTop: 'env(safe-area-inset-top)' }}
+
+═══════════════════════════════════════════════════════
+STEP 4 — BottomNav: brand colour active states
+File: apps/web/src/components/layout/bottom-nav.tsx
+═══════════════════════════════════════════════════════
+
+Active icon colour: #E8520A
+Active dot indicator: #E8520A
+Inactive colour: #9B9894
+Nav background: white
+Nav top border: 1px solid #F5EDE0 (warm cream — not cold grey)
+Basket badge background: #E8520A (not generic red)
+
+Run: npm run dev:web
+Confirm: warm cream background, logo on homepage, kente divider renders as tribal diamonds.
+Run: npm run typecheck --filter=@feastpot/web
+Output all changed files in full.

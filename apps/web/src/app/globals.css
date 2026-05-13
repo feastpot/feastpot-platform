@@ -2,6 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Brand typography — Playfair Display (headings) + Inter (body).
+   Fonts are loaded once at the top of the cascade so first-paint already
+   has the right family registered, avoiding a flash of unstyled text. */
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=Inter:ital,wght@0,400;0,500;0,600;0,700;0,900;1,400&display=swap');
+
 /*
  * Theme tokens are inlined here (NOT @import-ed from @feastpot/ui/theme.css)
  * because @import in CSS is processed before Tailwind's @layer directives —
@@ -11,12 +16,30 @@
  */
 @layer base {
   :root {
-    /* Feastpot brand */
-    --brand-primary: #e8520a;
+    /* ─── Feastpot logo-DNA palette ──────────────────────────────────
+       Mirrors the Tailwind tokens in apps/web/tailwind.config.ts so raw
+       CSS (kente patterns, gradients) can reference the same values
+       without going through Tailwind's color object. */
+    --brand: #e8520a;
+    --brand-primary: #e8520a; /* legacy alias — retained */
+    --brand-light: #fef0e9;
+    --brand-dark: #c8401f;
+    --scotch: #c8401f;
+    --plantain: #f5a52a;
+    --yam: #3d7a47;
+    --yam-light: #e8f5eb;
+    --pot: #8b5e3c;
     --brand-teal: #1d9e75;
-    --brand-dark: #1c1c1a;
-    --brand-gray: #5f5e5a;
-    --surface: #f8f7f5;
+    --teal: #1d9e75;
+    --teal-light: #e1f5ee;
+    --cream: #fbf6ef;
+    --cream-warm: #f5ede0;
+    --cream-deep: #ede4d4;
+    --charcoal: #1c1c1a;
+    --charcoal-mid: #5f5e5a;
+    --charcoal-light: #9b9894;
+    --brand-gray: #5f5e5a; /* legacy alias */
+    --surface: #fbf6ef; /* warm cream replaces the old greyish surface */
 
     /* Layout chrome — used by .page-content + nav components below.
        Set as raw px so calc() can mix with env(safe-area-inset-*). */
@@ -134,5 +157,44 @@
 
   .brand-gradient {
     background: linear-gradient(135deg, #e8520a 0%, #b33d07 100%);
+  }
+
+  /* Display face utility — opt-in for hero / large headings.
+     Body text stays Inter; Playfair only where editorial weight helps. */
+  .font-display {
+    font-family: 'Playfair Display', Georgia, serif;
+  }
+
+  /* Food card — warm white surface lifted on a soft terracotta shadow
+     so it reads as "warm" rather than "office product". Use in place of
+     .fp-card when a piece of merchandising/imagery sits on the page
+     (vendor hero, dish carousel). */
+  .food-card {
+    background: #fff;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow:
+      0 2px 8px rgba(28, 28, 26, 0.06),
+      0 8px 32px rgba(232, 82, 10, 0.05);
+  }
+
+  /* Tribal kente diamond divider — rendered inline as SVG so the pattern
+     scales crisply on retina without an extra image fetch. Pot-brown
+     stroke at 35 % opacity reads as a decorative band, not a chrome
+     border. Use as <div className="kente-divider" /> between sections. */
+  .kente-divider {
+    height: 14px;
+    opacity: 0.35;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='14' viewBox='0 0 48 14'%3E%3Cpath d='M0 7L6 0L12 7L6 14ZM12 7L18 0L24 7L18 14ZM24 7L30 0L36 7L30 14ZM36 7L42 0L48 7L42 14Z' fill='none' stroke='%238B5E3C' stroke-width='1.2'/%3E%3C/svg%3E");
+    background-repeat: repeat-x;
+    background-position: center;
+  }
+
+  /* Tribal texture overlay — apply to a section background to add the
+     faint "kente weave" hinted at by the logo. 12 % opacity keeps it
+     beneath text contrast minimums. */
+  .tribal-bg {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60' viewBox='0 0 60 60'%3E%3Cpath d='M10 30L20 20L30 30L20 40ZM30 30L40 20L50 30L40 40Z' fill='none' stroke='%238B5E3C' stroke-width='0.8' opacity='0.12'/%3E%3C/svg%3E");
+    background-repeat: repeat;
   }
 }

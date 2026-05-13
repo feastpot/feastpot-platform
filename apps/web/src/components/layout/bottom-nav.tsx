@@ -42,7 +42,11 @@ export function BottomNav() {
   return (
     <nav
       aria-label="Primary"
-      className="fixed inset-x-0 bottom-0 z-50 border-t border-gray-100 bg-white shadow-sticky"
+      // Warm cream top-border matches the rebrand chrome (top-nav uses
+      // the same divider colour). Active states already render in
+      // text-brand / bg-brand below — so the nav inherits the new
+      // terracotta accents automatically once the palette is in place.
+      className="fixed inset-x-0 bottom-0 z-50 border-t border-cream-warm bg-white shadow-sticky"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
       <ul className="mx-auto grid h-16 max-w-lg grid-cols-4 px-2 sm:max-w-2xl md:max-w-4xl lg:max-w-5xl">
