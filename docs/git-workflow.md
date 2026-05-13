@@ -115,6 +115,11 @@ BRANCH=foo bash scripts/git-sync.sh # same flow on a different branch
 
 The script:
 
+- **Refuses to push to `main`** unless `ALLOW_MAIN_PUSH=1` is set
+  AND you type `yes` at the confirmation prompt (exit 5). The
+  default flow is feature branch → PR → CI → review → merge.
+- Defaults `BRANCH` to the currently checked-out branch (not `main`),
+  so accidentally running the script on `main` is harmless.
 - Refuses to run if the working tree is dirty (exit 3).
 - Refuses to run if `GITHUB_TOKEN` is missing or lacks push perms
   (exit 2 / 1).

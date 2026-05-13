@@ -9,9 +9,16 @@
 # in the Replit Secret `GITHUB_TOKEN` and pushes directly over HTTPS.
 #
 # USAGE
-#   bash scripts/git-sync.sh                # rebase main onto origin/main, then push
-#   BRANCH=foo bash scripts/git-sync.sh     # same, but for branch `foo`
-#   DRY_RUN=1 bash scripts/git-sync.sh      # show what would happen, do not push
+#   bash scripts/git-sync.sh                       # push the CURRENTLY CHECKED-OUT branch
+#   BRANCH=feature/x bash scripts/git-sync.sh      # push branch `feature/x` explicitly
+#   DRY_RUN=1 bash scripts/git-sync.sh             # show what would happen, do not push
+#
+# DEFAULT BEHAVIOUR — IMPORTANT
+#   This script REFUSES to push to `main` unless ALLOW_MAIN_PUSH=1 is set
+#   AND the user types "yes" at the confirmation prompt. The day-to-day
+#   path to main is:  feature branch -> PR -> CI green -> review -> merge.
+#   Direct main pushes only exist for documented emergencies (see
+#   docs/git-workflow.md §6 "Emergency escape hatch").
 #
 # REQUIRES
 #   - $GITHUB_TOKEN with `repo` scope (write access to feastpot/feastpot-platform).
@@ -23,13 +30,16 @@
 #   2  GITHUB_TOKEN missing
 #   3  working tree dirty
 #   4  rebase conflicts — manual resolution required
+#   5  refused to push directly to main without explicit override
 
 set -euo pipefail
 
 readonly REPO_SLUG="feastpot/feastpot-platform"
 readonly REMOTE="origin"
-readonly BRANCH="${BRANCH:-main}"
+# Default to the currently checked-out branch, NOT to main.
+readonly BRANCH="${BRANCH:-$(git rev-parse --abbrev-ref HEAD)}"
 readonly DRY_RUN="${DRY_RUN:-0}"
+readonly ALLOW_MAIN_PUSH="${ALLOW_MAIN_PUSH:-0}"
 
 log() { printf '[git-sync] %s\n' "$*"; }
 err() { printf '[git-sync] ERROR: %s\n' "$*" >&2; }
@@ -38,6 +48,35 @@ if [[ -z "${GITHUB_TOKEN:-}" ]]; then
   err "GITHUB_TOKEN is not set."
   err "Add it as a Replit Secret with 'repo' scope, then re-run."
   exit 2
+fi
+
+# Hard guard: do not let this script casually push to main. The
+# enterprise default is PR-only. Pushing directly to main bypasses
+# review and CI gates and should be a deliberate, confirmed action.
+if [[ "${BRANCH}" == "main" ]]; then
+  if [[ "${ALLOW_MAIN_PUSH}" != "1" ]]; then
+    err "Refusing to push directly to 'main'."
+    err ""
+    err "The enterprise flow is: feature branch -> PR -> CI -> review -> merge."
+    err "If you have a feature branch, run:"
+    err "    git checkout -b feature/your-change"
+    err "    bash scripts/git-sync.sh"
+    err ""
+    err "If this really is an emergency (production down, hotfix, recovering"
+    err "from a broken UI), re-run with explicit confirmation:"
+    err "    ALLOW_MAIN_PUSH=1 bash scripts/git-sync.sh"
+    err ""
+    err "See docs/git-workflow.md §6 'Emergency escape hatch'."
+    exit 5
+  fi
+  printf '[git-sync] You are about to push directly to main, bypassing PR + review.\n'
+  printf '[git-sync] Type "yes" to continue, anything else to abort: '
+  read -r confirm
+  if [[ "${confirm}" != "yes" ]]; then
+    err "Aborted by user."
+    exit 5
+  fi
+  log "Main-push override confirmed. Proceeding."
 fi
 
 # Refuse to push a dirty working tree — surprises here are dangerous.

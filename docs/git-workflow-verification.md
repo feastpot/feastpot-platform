@@ -25,8 +25,10 @@ mis-rendering of UNAUTHENTICATED.
 
 ## 2. Push succeeded via `scripts/git-sync.sh`
 
-Run from the user's Replit Shell tab (the main-agent sandbox blocks
-`git push` regardless of auth):
+Run from the user's Replit Shell tab with `ALLOW_MAIN_PUSH=1` (the
+main-agent sandbox blocks `git push` regardless of auth, and the
+script's enterprise default is to refuse direct main pushes — see §6
+of `docs/git-workflow.md`):
 
 ```
 [git-sync] Validating GITHUB_TOKEN against feastpot/feastpot-platform...
@@ -63,9 +65,9 @@ Before the push these were 404 / showing stale content.
 Source-of-truth config committed at `.github/branch-protection.main.json`.
 Applied via `PUT /repos/.../branches/main/protection` → HTTP 200.
 
-Required status checks now span both groups the task called for:
-
-**PR-time checks (from `.github/workflows/ci.yml`, run on every PR):**
+**Required status checks** — only PR-time checks from
+`.github/workflows/ci.yml`, because GitHub branch protection requires
+contexts that can actually run on a `pull_request`:
 
 - Typecheck
 - Lint
@@ -73,20 +75,27 @@ Required status checks now span both groups the task called for:
 - Test (coverage ≥ 70%)
 - Build all apps
 
-**Post-merge deploy checks (from `.github/workflows/deploy.yml`, run on push to `main`):**
+Deploy gates (Migrate production DB, Deploy API/web/vendor/admin)
+are enforced inside `.github/workflows/deploy.yml` itself via
+job-level `needs:` dependencies — that workflow is the source of
+truth for what must succeed before production updates, not branch
+protection. Putting them in branch protection would structurally
+block every PR (they only run on push to `main`) which is why they
+were removed in the second iteration of this task.
 
-- Migrate production DB
-- Deploy API (Replit Autoscale)
-- Deploy web (Vercel)
-- Deploy vendor (Vercel)
-- Deploy admin (Vercel)
+Other settings (read back from the API after apply):
 
-Note: the deploy.yml jobs only fire on push to `main`, so until they
-are also wired to run on `pull_request`, PRs will sit in
-`mergeable_state: blocked` until an admin overrides. `enforce_admins`
-is intentionally `false` so the solo dev can override during recovery
-(documented as a follow-up to harden once a second collaborator is on
-the repo). Re-application is idempotent:
+```
+required_status_checks.strict:      True
+required_pull_request_reviews:      1 approving review (dismiss_stale=true)
+required_linear_history:            True
+allow_force_pushes:                 False
+allow_deletions:                    False
+required_conversation_resolution:   True
+enforce_admins:                     True   ← admins cannot bypass
+```
+
+Re-application is idempotent:
 
 ```
 curl -X PUT \
@@ -96,43 +105,46 @@ curl -X PUT \
   https://api.github.com/repos/feastpot/feastpot-platform/branches/main/protection
 ```
 
-Other settings (read back from the API after apply):
+## 5. Defence in depth — `scripts/git-sync.sh` refuses `main` by default
 
-```
-required_status_checks.strict:      True
-required_pull_request_reviews:      1 approving review
-required_linear_history:            True
-allow_force_pushes:                 False
-allow_deletions:                    False
-required_conversation_resolution:   True
-enforce_admins:                     False
-```
+Branch protection is the server-side gate. `scripts/git-sync.sh`
+adds the matching client-side gate so a stray local invocation can
+never push to `main` accidentally:
 
-## 5. Smoke test of the protected-branch flow
+- `BRANCH` defaults to the currently checked-out branch, NOT to `main`.
+- If `BRANCH=main` (explicit or implicit), the script refuses with
+  exit 5 unless BOTH `ALLOW_MAIN_PUSH=1` is set AND the operator
+  types `yes` at the confirmation prompt.
+- The error message points at the correct path
+  (`git checkout -b feature/x && bash scripts/git-sync.sh`) and at
+  `docs/git-workflow.md §6` for the documented emergency override.
 
-Real PR opened end-to-end via the GitHub API to exercise protection:
+This means the "main path to main" is the PR flow, full stop. The
+script exists for feature branches and one-off recovery scenarios.
+
+## 6. Smoke test of the protected-branch flow
+
+Real PR opened end-to-end via the GitHub API to exercise protection
+(this run was performed against the **previous** protection config
+which had `enforce_admins: false`; that's why the admin merge
+succeeded). The behavior of interest — that GitHub reports the PR as
+`blocked` until checks + reviews pass — was confirmed:
 
 | Step | API call | Result |
 | --- | --- | --- |
-| Get current `main` SHA | `GET /git/ref/heads/main` | `2e2814f98473275aa45cdff1ccc4b4078b428afc` |
+| Get current `main` SHA | `GET /git/ref/heads/main` | `2e2814f9...` |
 | Create branch `chore/smoke-protection-test` | `POST /git/refs` | HTTP 201 |
 | Add `docs/.protection-smoke-2026-05-13.md` on branch | `PUT /contents/...` | HTTP 201 |
 | Open PR #11 against `main` | `POST /pulls` | HTTP 201 |
 | Read PR mergeability | `GET /pulls/11` | `mergeable_state: blocked` ← **protection holding** |
-| Attempt merge | `PUT /pulls/11/merge` | HTTP 200, merged via admin override |
-| Cleanup: delete smoke marker on main | `DELETE /contents/...` | HTTP 200 |
+| Attempt merge | `PUT /pulls/11/merge` | HTTP 200, only because admin bypass was still on |
+| Cleanup: delete smoke marker on main | `DELETE /contents/...` | HTTP 200 (commit `1ffe1579`) |
 | Cleanup: close PR + delete branch | `PATCH /pulls/11` + `DELETE /git/refs/...` | OK |
 
-Two distinct behaviors confirmed by this end-to-end test:
-
-1. **Branch protection is active.** Without admin override the PR
-   would have stayed `blocked` until all required checks passed and
-   1 reviewer approved.
-2. **Admin override works as the documented escape hatch.** With
-   `enforce_admins: false`, a token holder with admin permission can
-   bypass the gate during emergencies. This is desired today (solo
-   dev) and is captured as follow-up work to remove once a second
-   collaborator is in place.
+Under the **current** protection config (`enforce_admins: true`),
+the same `PUT /pulls/N/merge` call will return HTTP 405 with
+"Required status check ... is expected" until CI is green and a
+review is in place. There is no admin bypass any more.
 
 The smoke marker file was deleted from `main` immediately after the
-test so production is not polluted with throwaway artifacts.
+test so production carries no throwaway artifacts.
