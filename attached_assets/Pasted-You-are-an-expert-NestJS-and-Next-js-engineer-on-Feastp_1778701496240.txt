@@ -1,0 +1,238 @@
+You are an expert NestJS and Next.js engineer on Feastpot.
+Implement FR-ADM-002: admin power tools for user and order management.
+This closes the operational gap identified in the editorial report:
+"emergency repair work isn't" — support agents cannot correct orders without API access.
+
+═══════════════════════════════════════════════════════
+PART 1 — Admin user management service
+File: apps/api/src/modules/admin/admin-users.service.ts (create)
+═══════════════════════════════════════════════════════
+
+@Injectable()
+export class AdminUsersService {
+  constructor(
+    private prisma: PrismaService,
+    private supabase: SupabaseService,
+    private loyaltyService: LoyaltyService,
+    private notificationsQueue: Queue,
+  ) {}
+
+  async findByEmail(email: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { email: { equals: email, mode: 'insensitive' } },
+      include: {
+        orders: {
+          orderBy: { createdAt: 'desc' }, take: 10,
+          include: { vendor: { select: { businessName: true } }, items: true }
+        },
+        vendor: { select: { id: true, businessName: true, status: true } },
+        _count: { select: { ordersAsCustomer: true } }
+      }
+    })
+    if (!user) throw new NotFoundException('No user found with that email')
+
+    const loyaltyBalance = await this.loyaltyService.getBalance(user.id)
+    const orderCount = user._count.ordersAsCustomer
+    const lifetimeSpend = await this.prisma.order.aggregate({
+      where: { customerId: user.id, status: 'delivered' },
+      _sum: { totalPence: true }
+    })
+
+    return { ...user, loyaltyBalance, orderCount, lifetimeSpendPence: lifetimeSpend._sum.totalPence ?? 0 }
+  }
+
+  async issueCredit(userId: string, amountPence: number, reason: string, adminUserId: string): Promise<void> {
+    const points = amountPence  // 1p = 1 point
+    await this.loyaltyService.adjustPoints(userId, points, reason, adminUserId)
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { email: true } })
+    await this.notificationsQueue.add('send_email', {
+      to: user.email, template: 'account_credit_issued',
+      data: { amountPence, reason }
+    })
+  }
+
+  async suspendUser(userId: string, reason: string, adminUserId: string): Promise<void> {
+    if (userId === adminUserId) throw new ForbiddenException('Cannot suspend yourself')
+    await this.prisma.user.update({ where: { id: userId }, data: { status: 'suspended' } })
+    // Revoke all Supabase auth sessions
+    await this.supabase.client.auth.admin.signOut(userId, { scope: 'global' })
+    // Audit log
+    await this.prisma.auditLog.create({
+      data: { actorUserId: adminUserId, entityType: 'users', entityId: userId,
+              action: 'user.suspended', newState: { reason } }
+    })
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { email: true } })
+    await this.notificationsQueue.add('send_email', {
+      to: user.email, template: 'account_suspended',
+      data: { reason }
+    })
+  }
+
+  async reinstateUser(userId: string, adminUserId: string): Promise<void> {
+    await this.prisma.user.update({ where: { id: userId }, data: { status: 'active' } })
+    await this.prisma.auditLog.create({
+      data: { actorUserId: adminUserId, entityType: 'users', entityId: userId,
+              action: 'user.reinstated', newState: {} }
+    })
+  }
+
+  async overrideOrderStatus(orderId: string, status: OrderStatus, reason: string, adminUserId: string) {
+    const order = await this.prisma.order.findUnique({ where: { id: orderId } })
+    if (!order) throw new NotFoundException('Order not found')
+    const prev = { status: order.status }
+    await this.prisma.order.update({ where: { id: orderId }, data: { status } })
+    await this.prisma.auditLog.create({
+      data: { actorUserId: adminUserId, entityType: 'orders', entityId: orderId,
+              action: 'admin.order_status_override', previousState: prev,
+              newState: { status, reason } }
+    })
+    return this.prisma.order.findUnique({ where: { id: orderId } })
+  }
+
+  async exportUserData(userId: string) {
+    const [user, orders, reviews, disputes, loyalty, auditEntries] = await Promise.all([
+      this.prisma.user.findUnique({ where: { id: userId } }),
+      this.prisma.order.findMany({ where: { customerId: userId }, include: { items: true } }),
+      this.prisma.review.findMany({ where: { customerId: userId } }),
+      this.prisma.dispute.findMany({ where: { customerId: userId } }),
+      this.prisma.loyaltyPoint.findMany({ where: { userId } }),
+      this.prisma.auditLog.findMany({ where: { actorUserId: userId } }),
+    ])
+    return { user, orders, reviews, disputes, loyalty, auditEntries, exportedAt: new Date() }
+  }
+}
+
+═══════════════════════════════════════════════════════
+PART 2 — Admin API endpoints
+File: apps/api/src/modules/admin/admin.controller.ts (extend)
+═══════════════════════════════════════════════════════
+
+Inject AdminUsersService. Add these endpoints:
+
+@Get('admin/users/search')
+@Roles('admin', 'support')
+async searchUser(@Query('email') email: string) {
+  return this.adminUsersService.findByEmail(email)
+}
+
+@Post('admin/users/:userId/credit')
+@Roles('admin', 'finance')
+async issueCredit(@Param('userId') userId: string, @Body() dto: { amountPence: number; reason: string }, @CurrentUser() admin) {
+  await this.adminUsersService.issueCredit(userId, dto.amountPence, dto.reason, admin.id)
+  return { success: true }
+}
+
+@Post('admin/users/:userId/suspend')
+@Roles('admin')
+async suspendUser(@Param('userId') userId: string, @Body() dto: { reason: string }, @CurrentUser() admin) {
+  await this.adminUsersService.suspendUser(userId, dto.reason, admin.id)
+  return { success: true }
+}
+
+@Post('admin/users/:userId/reinstate')
+@Roles('admin')
+async reinstateUser(@Param('userId') userId: string, @CurrentUser() admin) {
+  await this.adminUsersService.reinstateUser(userId, admin.id)
+  return { success: true }
+}
+
+@Patch('admin/orders/:orderId/status')
+@Roles('admin', 'support')
+async overrideOrderStatus(@Param('orderId') orderId: string, @Body() dto: { status: OrderStatus; reason: string }, @CurrentUser() admin) {
+  return this.adminUsersService.overrideOrderStatus(orderId, dto.status, dto.reason, admin.id)
+}
+
+@Get('admin/users/:userId/export')
+@Roles('admin', 'compliance')
+async exportUser(@Param('userId') userId: string, @Res() res: Response) {
+  const data = await this.adminUsersService.exportUserData(userId)
+  res.setHeader('Content-Type', 'application/json')
+  res.setHeader('Content-Disposition', `attachment; filename="feastpot-user-${userId}.json"`)
+  res.send(JSON.stringify(data, null, 2))
+}
+
+═══════════════════════════════════════════════════════
+PART 3 — Admin panel: user search page
+File: apps/admin/src/app/users/page.tsx (create)
+═══════════════════════════════════════════════════════
+
+Page layout:
+
+SEARCH BAR:
+Email input + "Search" button
+On submit: GET /v1/admin/users/search?email=
+
+USER CARD (appears on result):
+Row 1: Avatar (initials circle) + name + email + role badge + status badge
+Row 2: "Member since {date}" · "{orderCount} orders" · "£{lifetimeSpend} spent" · "⭐ {loyaltyBalance} points"
+Row 3: Vendor badge if user is also a vendor: "Also a vendor: {businessName} ({status})"
+
+ACTION BUTTONS (horizontal row):
+[Issue credit] → opens Dialog: amount input + reason text
+[Suspend] → opens Dialog: reason text + "Confirm suspend" (red button)
+[Reinstate] → only shown if suspended
+[Export DSAR] → triggers file download
+
+RECENT ORDERS TABLE (last 10):
+Columns: Date | Vendor | Items summary | Total | Status | Override
+Override button: opens a small popover with status select (all statuses) + reason input → PATCH
+
+═══════════════════════════════════════════════════════
+PART 4 — Admin panel: order management page
+File: apps/admin/src/app/orders/page.tsx (create if not exists)
+═══════════════════════════════════════════════════════
+
+Quick search: input for order ID (UUID) or customer email
+Filter bar: status (all statuses), date range (today / this week / this month / custom)
+
+Results table:
+Columns: Created | Customer | Vendor | Items | Total | Status | PI Status | Actions
+
+PI Status: call Stripe to check the PaymentIntent status for each row (only for last 50 orders to avoid rate limits)
+Show: requires_capture / succeeded / canceled / requires_payment_method
+
+Actions column dropdown per row:
+- View customer → opens user search pre-filled with customer email
+- Override status → inline status select + reason
+- Trigger refund → opens refund dialog (amount, reason) → calls POST /v1/payments/refunds
+- Open dispute → links to dispute detail page
+
+Add "Orders" to the admin sidebar navigation.
+
+═══════════════════════════════════════════════════════
+PART 5 — Vendor revenue league table (admin dashboard)
+File: apps/admin/src/app/page.tsx (extend existing dashboard)
+═══════════════════════════════════════════════════════
+
+Add a "Vendor performance" table below the main metrics cards.
+
+Fetch from GET /v1/admin/dashboard which already returns vendor metrics.
+If the dashboard endpoint doesn't include vendor stats, add:
+
+In AdminService.getDashboard(), add:
+const vendorLeague = await this.prisma.$queryRaw`
+  SELECT
+    v.business_name,
+    COUNT(o.id) as order_count,
+    SUM(o.total_pence) as gmv_pence,
+    v.avg_rating,
+    v.reorder_rate_pct,
+    (COUNT(d.id)::float / NULLIF(COUNT(o.id), 0) * 100)::int as dispute_rate_pct
+  FROM vendors v
+  LEFT JOIN orders o ON o.vendor_id = v.id
+    AND o.status = 'delivered'
+    AND o.created_at > NOW() - INTERVAL '30 days'
+  LEFT JOIN disputes d ON d.order_id = o.id
+  WHERE v.status = 'live'
+  GROUP BY v.id, v.business_name, v.avg_rating, v.reorder_rate_pct
+  ORDER BY gmv_pence DESC NULLS LAST
+  LIMIT 10
+`
+
+Render as a table: Rank | Vendor | GMV (30d) | Orders | Rating | Dispute rate
+Colour dispute_rate_pct: green <2%, amber 2-5%, red >5%
+Add "View vendor" link to /admin/vendors/:id on each row.
+
+Run: npm run typecheck in apps/api and apps/admin.
+Run: npm run build:api to confirm clean production build.
+Output all files in full.
