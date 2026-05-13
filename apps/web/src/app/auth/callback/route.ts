@@ -43,6 +43,29 @@ export async function GET(request: NextRequest) {
     return redirect;
   }
 
+  // Best-effort mirror to public.users + referral processing. The endpoint
+  // reads user_metadata server-side, so an empty body is enough — the
+  // backend pulls firstName/lastName/phone/referralCode out of the Supabase
+  // user record we just confirmed. Failure is non-blocking: a missing
+  // mirror won't trap the user on /auth/callback.
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (token) {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
+      await fetch(`${apiUrl.replace(/\/$/, '')}/v1/users/sync`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          authorization: `Bearer ${token}`,
+        },
+        body: '{}',
+      }).catch(() => undefined);
+    }
+  } catch {
+    /* ignore — sync is best-effort */
+  }
+
   // Success — redirect to `next`, preserving the freshly-set session cookies.
   const dest = new URL(next.startsWith('/') ? next : '/', url.origin);
   const redirect = NextResponse.redirect(dest);

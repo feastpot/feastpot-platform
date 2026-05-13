@@ -1,0 +1,302 @@
+You are an expert NestJS and Next.js engineer on the Feastpot monorepo.
+Implement FR-LOY-001 (loyalty points) and FR-REF-001 (referral programme).
+The Prisma models LoyaltyPoint and Referral already exist in the schema — no migrations needed.
+This is service + API + UI work only.
+
+IMPORTANT CONTEXT:
+- LoyaltyPoint fields: userId, orderId, transactionType (earned|redeemed|expired|adjusted), points, balanceAfter, description, expiresAt
+- Referral fields: referrerUserId, referredUserId, referralCode, status (pending|completed|rewarded), rewardCreditPence
+- User.referralCode is a unique nullable field — generate on registration if missing
+- Do NOT touch any Stripe logic, order creation logic, or auth flows
+
+═══════════════════════════════════════════════════════
+PART 1 — Create LoyaltyModule
+File: apps/api/src/modules/loyalty/
+═══════════════════════════════════════════════════════
+
+Create loyalty.module.ts — register globally, export LoyaltyService.
+Create loyalty.service.ts with these methods:
+
+getBalance(userId: string): Promise<number>
+  SELECT SUM(points) FROM loyalty_points WHERE user_id = userId
+  Use: await this.prisma.loyaltyPoint.aggregate({ where: { userId }, _sum: { points: true } })
+  Return: _sum.points ?? 0
+
+async creditPoints(userId: string, orderId: string, orderTotalPence: number): Promise<void>
+  const points = Math.floor(orderTotalPence / 100)  // 1 point per £1
+  const currentBalance = await this.getBalance(userId)
+  const balanceAfter = currentBalance + points
+  const expiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000) // 12 months
+  await this.prisma.loyaltyPoint.create({
+    data: { userId, orderId, transactionType: 'earned', points, balanceAfter,
+            description: 'Earned from order', expiresAt }
+  })
+
+async redeemPoints(userId: string, pointsToRedeem: number, orderId: string): Promise<number>
+  Validate: if pointsToRedeem < 200 throw BadRequestException('Minimum redemption is 200 points')
+  const balance = await this.getBalance(userId)
+  if (balance < pointsToRedeem) throw BadRequestException('Insufficient points')
+  const discountPence = pointsToRedeem  // 1 point = 1p
+  const balanceAfter = balance - pointsToRedeem
+  await this.prisma.loyaltyPoint.create({
+    data: { userId, orderId, transactionType: 'redeemed', points: -pointsToRedeem,
+            balanceAfter, description: `Redeemed ${pointsToRedeem} points at checkout` }
+  })
+  return discountPence
+
+async expirePoints(): Promise<void>
+  // Called by nightly cron @Cron('30 0 * * *')
+  const now = new Date()
+  const expiring = await this.prisma.loyaltyPoint.findMany({
+    where: { transactionType: 'earned', expiresAt: { lt: now }, points: { gt: 0 } }
+  })
+  for (const row of expiring) {
+    const balance = await this.getBalance(row.userId)
+    await this.prisma.loyaltyPoint.create({
+      data: { userId: row.userId, transactionType: 'expired',
+              points: -row.points, balanceAfter: Math.max(0, balance - row.points),
+              description: 'Points expired after 12 months' }
+    })
+    // Notify user
+    await this.notificationsQueue.add('send_email', {
+      to: row.userId, template: 'points_expiry',
+      data: { points: row.points }
+    })
+  }
+
+async adjustPoints(userId: string, points: number, reason: string, adminUserId: string): Promise<void>
+  const balance = await this.getBalance(userId)
+  await this.prisma.loyaltyPoint.create({
+    data: { userId, transactionType: 'adjusted', points,
+            balanceAfter: balance + points, description: reason }
+  })
+  await this.prisma.auditLog.create({
+    data: { actorUserId: adminUserId, entityType: 'users', entityId: userId,
+            action: 'loyalty.adjusted', newState: { points, reason } }
+  })
+
+async getHistory(userId: string, take = 20, cursor?: string)
+  return this.prisma.loyaltyPoint.findMany({
+    where: { userId }, orderBy: { createdAt: 'desc' },
+    take, cursor: cursor ? { id: cursor } : undefined
+  })
+
+═══════════════════════════════════════════════════════
+PART 2 — Wire creditPoints into order delivery
+File: apps/api/src/modules/orders/orders.service.ts
+═══════════════════════════════════════════════════════
+
+In the updateStatus method, find the block where newStatus === OrderStatus.delivered.
+AFTER the Stripe capture call, add:
+  await this.loyaltyService.creditPoints(order.customerId, order.id, order.totalPence)
+
+Inject LoyaltyService in OrdersService constructor.
+
+═══════════════════════════════════════════════════════
+PART 3 — Wire loyaltyPointsToRedeem into createOrder
+File: apps/api/src/modules/orders/orders.service.ts
+═══════════════════════════════════════════════════════
+
+Add to CreateOrderDto (orders/dto/create-order.dto.ts):
+  @IsOptional() @IsInt() @Min(200) loyaltyPointsToRedeem?: number
+
+In createOrder(), after calculating subtotalPence and before creating the Stripe PI:
+  let loyaltyDiscountPence = 0
+  if (dto.loyaltyPointsToRedeem) {
+    loyaltyDiscountPence = await this.loyaltyService.redeemPoints(
+      customerId, dto.loyaltyPointsToRedeem, 'pending-' + Date.now()
+    )
+    // Update the orderId on the redemption row after order is created
+  }
+  const totalPence = subtotalPence + deliveryFeePence - discountPence - loyaltyDiscountPence
+
+═══════════════════════════════════════════════════════
+PART 4 — ReferralService
+File: apps/api/src/modules/loyalty/referral.service.ts
+═══════════════════════════════════════════════════════
+
+generateCode(): string
+  return Math.random().toString(36).substring(2, 10).toUpperCase()
+
+async ensureReferralCode(userId: string): Promise<string>
+  const user = await this.prisma.user.findUnique({ where: { id: userId } })
+  if (user.referralCode) return user.referralCode
+  const code = this.generateCode()
+  await this.prisma.user.update({ where: { id: userId }, data: { referralCode: code } })
+  return code
+
+async processReferral(newUserId: string, referralCode: string): Promise<void>
+  const referrer = await this.prisma.user.findUnique({ where: { referralCode } })
+  if (!referrer || referrer.id === newUserId) return  // ignore invalid/self-referral
+  await this.prisma.referral.create({
+    data: { referrerUserId: referrer.id, referredUserId: newUserId,
+            referralCode, status: 'pending' }
+  })
+
+async rewardReferral(newUserId: string): Promise<void>
+  // Called when new user's first order is delivered
+  const referral = await this.prisma.referral.findUnique({
+    where: { referredUserId: newUserId }, include: { referrer: true }
+  })
+  if (!referral || referral.status !== 'pending') return
+  // Credit both users 500 points (= £5)
+  await this.loyaltyService.adjustPoints(referral.referrerUserId, 500,
+    'Referral reward — friend placed first order', 'system')
+  await this.loyaltyService.adjustPoints(newUserId, 500,
+    'Welcome bonus — joined via referral', 'system')
+  await this.prisma.referral.update({
+    where: { id: referral.id },
+    data: { status: 'rewarded', rewardCreditPence: 500 }
+  })
+  // Notify both
+  await this.notificationsQueue.add('send_email', {
+    to: referral.referrer.email, template: 'referral_rewarded',
+    data: { referredName: 'your friend', creditAmount: '£5' }
+  })
+
+Wire rewardReferral into orders.service.ts updateStatus on delivered:
+  // After creditPoints:
+  await this.referralService.rewardReferral(order.customerId)
+
+═══════════════════════════════════════════════════════
+PART 5 — API controllers
+═══════════════════════════════════════════════════════
+
+Create apps/api/src/modules/loyalty/loyalty.controller.ts:
+
+@Get('loyalty-points')
+async getMyLoyalty(@CurrentUser() user) {
+  const [balance, history] = await Promise.all([
+    this.loyaltyService.getBalance(user.id),
+    this.loyaltyService.getHistory(user.id)
+  ])
+  return { balance, worthPence: balance, history }
+}
+
+@Get('referrals')
+async getMyReferrals(@CurrentUser() user) {
+  const code = await this.referralService.ensureReferralCode(user.id)
+  const referrals = await this.prisma.referral.findMany({
+    where: { referrerUserId: user.id }, orderBy: { createdAt: 'desc' }
+  })
+  return {
+    referralCode: code,
+    shareUrl: `https://feastpot.co.uk/join?ref=${code}`,
+    referrals,
+    totalEarnedPence: referrals.filter(r => r.status === 'rewarded').length * 500
+  }
+}
+
+Register LoyaltyController in LoyaltyModule.
+
+═══════════════════════════════════════════════════════
+PART 6 — Customer PWA: loyalty + referral UI
+Files: apps/web/src/app/account/page.tsx + checkout page
+═══════════════════════════════════════════════════════
+
+6a. Create apps/web/src/components/account/loyalty-card.tsx:
+Uses GET /v1/loyalty-points via TanStack Query.
+
+<div className="fp-card p-4">
+  <div className="flex items-center justify-between mb-2">
+    <h3 className="font-bold text-dark">⭐ Loyalty Points</h3>
+    <span className="text-2xl font-black text-brand">{balance}</span>
+  </div>
+  <p className="text-xs text-mid mb-3">Worth £{(balance/100).toFixed(2)}</p>
+  {/* Progress bar to next reward */}
+  <div className="mb-1">
+    <div className="flex justify-between text-[10px] text-mid mb-1">
+      <span>Progress to next reward</span>
+      <span>{200 - (balance % 200)} points to go</span>
+    </div>
+    <div className="h-2 bg-surface rounded-full overflow-hidden">
+      <div
+        className="h-full bg-teal rounded-full transition-all duration-500"
+        style={{ width: `${((balance % 200) / 200) * 100}%` }}
+      />
+    </div>
+  </div>
+  <a href="/account/loyalty" className="text-xs text-teal font-medium">View history →</a>
+</div>
+
+6b. Create apps/web/src/components/account/referral-card.tsx:
+Uses GET /v1/referrals.
+
+<div className="fp-card p-4">
+  <h3 className="font-bold text-dark mb-1">🎁 Refer friends, earn £5</h3>
+  <p className="text-xs text-mid mb-3">You both get 500 points (£5) when they place their first order</p>
+  
+  {/* Code pill */}
+  <div className="flex items-center gap-2 mb-3">
+    <div className="flex-1 bg-surface rounded-xl px-3 py-2 text-center font-mono font-bold text-lg tracking-widest text-brand">
+      {referralCode}
+    </div>
+    <button onClick={copyCode} className="p-2 rounded-xl bg-brand text-white">
+      {copied ? <Check className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
+    </button>
+  </div>
+
+  {/* Share button — native share API */}
+  <button
+    onClick={() => navigator.share?.({
+      title: 'Try Feastpot',
+      text: `Get authentic African & Caribbean food delivered in London. Use my code ${referralCode} and we both get £5 off! `,
+      url: shareUrl,
+    }) ?? window.open(`https://wa.me/?text=${encodeURIComponent(whatsappText)}`)}
+    className="w-full flex items-center justify-center gap-2 bg-teal text-white rounded-2xl py-3 font-semibold text-sm"
+  >
+    <Share2 className="w-4 h-4" /> Share with friends
+  </button>
+
+  {referrals.length > 0 && (
+    <p className="text-xs text-mid mt-3 text-center">
+      {referrals.filter(r=>r.status==='rewarded').length} friends rewarded · £{(totalEarnedPence/100).toFixed(0)} earned
+    </p>
+  )}
+</div>
+
+WhatsApp text: `I've been ordering from Feastpot — authentic African & Caribbean food delivered in London. Use my code ${referralCode} and we both get £5 credit! feastpot.co.uk/join?ref=${referralCode}`
+
+6c. Add loyalty redemption toggle to checkout page:
+In apps/web/src/app/checkout/page.tsx, inside the order summary section:
+
+{balance >= 200 && (
+  <div className="flex items-center justify-between p-3 bg-teal-light rounded-xl">
+    <div>
+      <p className="text-sm font-medium text-dark">Use loyalty points</p>
+      <p className="text-xs text-mid">{pointsToUse} points = £{(pointsToUse/100).toFixed(2)} off</p>
+    </div>
+    <div className="flex items-center gap-2">
+      <button onClick={() => setPointsToUse(p => Math.max(0, p - 200))}
+        className="w-7 h-7 rounded-full bg-white text-teal font-bold flex items-center justify-center">−</button>
+      <span className="font-bold text-teal w-12 text-center">{pointsToUse}</span>
+      <button onClick={() => setPointsToUse(p => Math.min(balance, p + 200))}
+        className="w-7 h-7 rounded-full bg-teal text-white font-bold flex items-center justify-center">+</button>
+    </div>
+  </div>
+)}
+Pass loyaltyPointsToRedeem: pointsToUse > 0 ? pointsToUse : undefined in CreateOrderDto.
+
+6d. Order confirmation screen: show "+{pointsEarned} points earned" in teal after successful order.
+
+6e. Create apps/web/src/app/join/page.tsx (referral landing):
+Reads ?ref= from URL, stores in localStorage, redirects to /register.
+Registration page reads from localStorage and passes referralCode to POST /v1/auth/register.
+
+═══════════════════════════════════════════════════════
+PART 7 — Nightly cron job
+File: apps/api/src/modules/loyalty/loyalty-cron.service.ts
+═══════════════════════════════════════════════════════
+
+@Injectable()
+export class LoyaltyCronService {
+  @Cron('30 0 * * *', { name: 'expire-loyalty-points' })
+  async expirePoints() {
+    await this.loyaltyService.expirePoints()
+    this.logger.log('Loyalty points expiry run complete')
+  }
+}
+Register in LoyaltyModule.
+
+Run: npm run typecheck in apps/api and apps/web.
+Output all files in full. Confirm zero TypeScript errors.

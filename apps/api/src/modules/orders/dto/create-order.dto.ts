@@ -65,4 +65,11 @@ export class CreateOrderDto {
   @IsString()
   @MaxLength(64)
   discountCode?: string;
+
+  @ApiPropertyOptional({ description: 'Loyalty points to redeem at checkout (min 200, 1pt = 1p)' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(200)
+  loyaltyPointsToRedeem?: number;
 }

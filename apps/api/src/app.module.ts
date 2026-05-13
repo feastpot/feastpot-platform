@@ -31,6 +31,7 @@ import { CatalogueModule } from './modules/catalogue/catalogue.module';
 import { ComplianceModule } from './modules/compliance/compliance.module';
 import { DisputesModule } from './modules/disputes/disputes.module';
 import { EventEnquiriesModule } from './modules/event-enquiries/event-enquiries.module';
+import { LoyaltyModule } from './modules/loyalty/loyalty.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { PaymentsModule } from './modules/payments/payments.module';
@@ -107,6 +108,7 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
     PayoutsModule,
     ReviewsModule,
     NotificationsModule,
+    LoyaltyModule,
     PushModule,
     WebhooksModule,
     AdminModule,

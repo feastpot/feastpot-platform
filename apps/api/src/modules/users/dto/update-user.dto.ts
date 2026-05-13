@@ -35,6 +35,37 @@ export class UpdateUserDto {
   avatarUrl?: string;
 }
 
+export class SyncUserDto {
+  @ApiPropertyOptional({ maxLength: 100 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  firstName?: string;
+
+  @ApiPropertyOptional({ maxLength: 100 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  lastName?: string;
+
+  @ApiPropertyOptional({ description: 'E.164 phone' })
+  @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' ? value.replace(/\s+/g, '') : value))
+  @IsString()
+  @Matches(E164_PHONE_REGEX, { message: 'phone must be in E.164 format' })
+  phone?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  marketingOptIn?: boolean;
+
+  @ApiPropertyOptional({ description: 'Referral code from /join?ref=... (FR-REF-001)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  referralCode?: string;
+}
+
 export class UpdateUserStatusDto {
   @ApiPropertyOptional({ enum: UserStatus })
   @IsEnum(UserStatus)

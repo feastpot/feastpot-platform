@@ -96,12 +96,20 @@ describe('OrdersService.updateStatus authorization', () => {
     };
     queue = { add: jest.fn().mockResolvedValue({}), getJob: jest.fn().mockResolvedValue(null) };
 
+    const loyalty = {
+      creditPoints: jest.fn().mockResolvedValue(0),
+      redeemPoints: jest.fn().mockResolvedValue(0),
+      linkRedemptionToOrder: jest.fn().mockResolvedValue(undefined),
+    };
+    const referrals = { rewardReferral: jest.fn().mockResolvedValue(undefined) };
     service = new OrdersService(
       {} as never,
       repo as never,
       {} as never,
       stripe as never,
       queue as never,
+      loyalty as never,
+      referrals as never,
     );
   });
 
@@ -235,7 +243,21 @@ describe('OrdersService.confirmOrder', () => {
     const repo = overrides?.repo ?? baseRepo();
     const stripe = overrides?.stripe ?? baseStripe();
     const queue = overrides?.queue ?? baseQueue();
-    const svc = new OrdersService({} as never, repo as never, {} as never, stripe as never, queue as never);
+    const loyalty = {
+      creditPoints: jest.fn().mockResolvedValue(0),
+      redeemPoints: jest.fn().mockResolvedValue(0),
+      linkRedemptionToOrder: jest.fn().mockResolvedValue(undefined),
+    };
+    const referrals = { rewardReferral: jest.fn().mockResolvedValue(undefined) };
+    const svc = new OrdersService(
+      {} as never,
+      repo as never,
+      {} as never,
+      stripe as never,
+      queue as never,
+      loyalty as never,
+      referrals as never,
+    );
     return { svc, repo, stripe, queue };
   };
 

@@ -8,6 +8,7 @@ import {
   Param,
   ParseUUIDPipe,
   Patch,
+  Post,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -17,7 +18,7 @@ import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import type { AuthUser } from '../../auth/types';
 
-import { UpdateUserDto, UpdateUserStatusDto } from './dto/update-user.dto';
+import { SyncUserDto, UpdateUserDto, UpdateUserStatusDto } from './dto/update-user.dto';
 import { UsersService } from './users.service';
 
 @ApiTags('Users')
@@ -36,6 +37,14 @@ export class UsersController {
   @ApiOperation({ summary: 'Update the calling user’s own profile (name, phone, avatar)' })
   updateMe(@CurrentUser() user: AuthUser | null, @Body() dto: UpdateUserDto) {
     return this.users.updateMe(this.requireUser(user).id, dto);
+  }
+
+  @Post('sync')
+  @ApiOperation({
+    summary: 'Mirror Supabase signup data into public.users (idempotent) + process referral code if present',
+  })
+  sync(@CurrentUser() user: AuthUser | null, @Body() dto: SyncUserDto) {
+    return this.users.sync(this.requireUser(user).id, dto);
   }
 
   @Delete('me')

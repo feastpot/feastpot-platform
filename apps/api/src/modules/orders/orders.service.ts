@@ -14,6 +14,8 @@ import { randomBytes } from 'node:crypto';
 import type { AuthUser } from '../../auth/types';
 import { PrismaService } from '../../prisma/prisma.service';
 import { StripeService } from '../../stripe/stripe.service';
+import { LoyaltyService } from '../loyalty/loyalty.service';
+import { ReferralService } from '../loyalty/referral.service';
 
 import { CreateOrderDto } from './dto/create-order.dto';
 import { ListOrdersDto } from './dto/list-orders.dto';
@@ -70,6 +72,8 @@ export class OrdersService {
     private readonly slots: OrderSlotsService,
     private readonly stripe: StripeService,
     @InjectQueue(NOTIFICATIONS_QUEUE) private readonly notifications: Queue,
+    private readonly loyalty: LoyaltyService,
+    private readonly referrals: ReferralService,
   ) {}
 
   // ------------------------------------------------------------------
@@ -138,7 +142,26 @@ export class OrdersService {
     if (dto.discountCode) {
       this.logger.warn(`Discount code "${dto.discountCode}" ignored (no DiscountCode model in schema)`);
     }
-    const discountPence = 0;
+
+    // Loyalty redemption: cap to never exceed (subtotal + delivery) so the
+    // order total can't go negative. We pre-validate the balance here
+    // (read-only) and write the redeem ledger row AFTER the order row
+    // exists, with the real orderId — that removes the need to patch a
+    // freshly-orphaned row and eliminates a "wrong row picked under
+    // concurrency" hazard. The window between assert + write is narrow
+    // (single request) and the ledger write is itself idempotent per
+    // (userId, orderId).
+    let loyaltyToRedeem = 0;
+    if (dto.loyaltyPointsToRedeem) {
+      const maxRedeemable = subtotalPence + deliveryFeePence;
+      const requested = Math.min(dto.loyaltyPointsToRedeem, maxRedeemable);
+      if (requested >= 200) {
+        await this.loyalty.assertCanRedeem(customerId, requested);
+        loyaltyToRedeem = requested;
+      }
+    }
+
+    const discountPence = loyaltyToRedeem;
     const serviceFeePence = Math.round((subtotalPence * SERVICE_FEE_BPS) / 10_000);
     const totalPence = Math.max(0, subtotalPence + deliveryFeePence + serviceFeePence - discountPence);
 
@@ -176,6 +199,15 @@ export class OrdersService {
         };
       }),
     });
+
+    // Write the redeemed-points ledger row with the real orderId. If this
+    // throws after the order is committed the order's `discountPence` is
+    // already on the order row — the caller will see the failure and
+    // can retry; redeemPoints is idempotent per (userId, orderId) so a
+    // retry won't double-debit.
+    if (loyaltyToRedeem > 0) {
+      await this.loyalty.redeemPoints(customerId, loyaltyToRedeem, order.id);
+    }
 
     // Stripe payment intent (auth-only; capture happens on delivery).
     const intent = await this.stripe.createPaymentIntent({
@@ -351,6 +383,16 @@ export class OrdersService {
         await this.stripe.cancel(pi);
         await this.repo.markPaymentStatus(pi, 'cancelled');
       }
+      // Refund any loyalty redemption attached to this order so the
+      // customer doesn't permanently lose points to a vendor-rejected
+      // order. Idempotent on the loyalty side.
+      if (snap) {
+        try {
+          await this.loyalty.refundRedemption(snap.customerId, orderId);
+        } catch (e) {
+          this.logger.error(`refundRedemption failed for ${orderId}: ${(e as Error).message}`);
+        }
+      }
     }
 
     if (dto.status === OrderStatus.delivered) {
@@ -365,6 +407,26 @@ export class OrdersService {
         { delay: REVIEW_DELAY_MS, jobId: `review_trigger:${orderId}` },
       );
       if (snap) {
+        // FR-LOY-001: credit loyalty points (idempotent per orderId) +
+        // FR-REF-001: reward referrer if this is the customer's first
+        // delivered order. Both are best-effort — a transient failure
+        // here must not roll back the delivered transition itself.
+        let pointsEarned = 0;
+        try {
+          pointsEarned = await this.loyalty.creditPoints(
+            snap.customerId,
+            orderId,
+            snap.totalPence,
+          );
+        } catch (e) {
+          this.logger.error(`creditPoints failed for ${orderId}: ${(e as Error).message}`);
+        }
+        try {
+          await this.referrals.rewardReferral(snap.customerId);
+        } catch (e) {
+          this.logger.error(`rewardReferral failed for ${orderId}: ${(e as Error).message}`);
+        }
+
         await this.notifications.add(
           'delivery_confirmed',
           {
@@ -372,10 +434,7 @@ export class OrdersService {
             orderId,
             orderNumber: snap.orderNumber,
             vendorName: snap.vendor?.businessName,
-            // 1 loyalty point per £1 spent — matches spec's example
-            // (Math.floor(totalPence / 100)). Templates render this in a
-            // teal pill when > 0.
-            loyaltyPointsEarned: Math.floor(snap.totalPence / 100),
+            loyaltyPointsEarned: pointsEarned,
           },
           { jobId: `delivery_confirmed:${orderId}` },
         );
@@ -397,6 +456,16 @@ export class OrdersService {
         code: 'STATUS_CHANGED_CONCURRENTLY',
         message: 'Order status changed concurrently; please reload and retry',
       });
+    }
+
+    // Admin terminal cancel/refund — refund any loyalty redemption.
+    const snap = await this.repo.findByIdWithItems(orderId);
+    if (snap?.customerId) {
+      try {
+        await this.loyalty.refundRedemption(snap.customerId, orderId);
+      } catch (e) {
+        this.logger.error(`refundRedemption (admin) failed for ${orderId}: ${(e as Error).message}`);
+      }
     }
 
     const pi = await this.repo.findStripePaymentIntent(orderId);

@@ -61,6 +61,8 @@ export interface CreateOrderInput {
   scheduledFor: string; // ISO 8601
   notes?: string;
   discountCode?: string;
+  /** Loyalty points to redeem at checkout (min 200, 1pt = 1p discount). */
+  loyaltyPointsToRedeem?: number;
 }
 
 export interface CreateOrderResult {

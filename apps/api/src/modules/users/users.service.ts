@@ -9,8 +9,9 @@ import { UserStatus } from '@prisma/client';
 
 import { SupabaseService } from '../../auth/supabase.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { ReferralService } from '../loyalty/referral.service';
 
-import type { UpdateUserDto, UpdateUserStatusDto } from './dto/update-user.dto';
+import type { SyncUserDto, UpdateUserDto, UpdateUserStatusDto } from './dto/update-user.dto';
 
 const PROFILE_SELECT = {
   id: true,
@@ -37,7 +38,55 @@ export class UsersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly supabase: SupabaseService,
+    private readonly referrals: ReferralService,
   ) {}
+
+  /**
+   * Mirror a freshly-signed-up Supabase user into public.users (idempotent
+   * upsert keyed on the Supabase user id) and process their referral code
+   * if the signup carried one. Safe to re-call: every call is a no-op
+   * when nothing has actually changed, and the referral handler itself
+   * is one-per-user.
+   */
+  async sync(userId: string, dto: SyncUserDto) {
+    // Pull the Supabase user so we have the canonical email — the public.users
+    // row is keyed on the same UUID as Supabase auth.users.id. We also
+    // read user_metadata for fields the email-confirmation callback flow
+    // doesn't get a chance to repost (the auth/callback route calls this
+    // endpoint with an empty body once the session is established).
+    const { data: authUser, error } = await this.supabase
+      .getClient()
+      .auth.admin.getUserById(userId);
+    if (error || !authUser?.user?.email) {
+      throw new NotFoundException({ code: 'USER_NOT_FOUND', message: 'Supabase user not found' });
+    }
+    const email = authUser.user.email;
+    const meta = (authUser.user.user_metadata ?? {}) as Record<string, unknown>;
+    const pick = (k: string) => (typeof meta[k] === 'string' ? (meta[k] as string) : undefined);
+    const firstName = dto.firstName ?? pick('firstName') ?? null;
+    const lastName = dto.lastName ?? pick('lastName') ?? null;
+    const phone = dto.phone ?? pick('phone') ?? null;
+    const referralCode = dto.referralCode ?? pick('referralCode');
+
+    await this.prisma.user.upsert({
+      where: { id: userId },
+      create: { id: userId, email, firstName, lastName, phone },
+      update: {
+        firstName: firstName ?? undefined,
+        lastName: lastName ?? undefined,
+        phone: phone ?? undefined,
+      },
+    });
+
+    if (referralCode) {
+      try {
+        await this.referrals.processReferral(userId, referralCode);
+      } catch (e) {
+        this.logger.warn(`processReferral failed for ${userId}: ${(e as Error).message}`);
+      }
+    }
+    return { synced: true };
+  }
 
   /**
    * Returns the canonical profile for the calling user. Read from Postgres

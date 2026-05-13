@@ -3,7 +3,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { RegisterSchema, type RegisterDto } from '@feastpot/types';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 
 import { PageShell } from '@/components/layout/page-shell';
@@ -31,6 +31,21 @@ export default function RegisterPage() {
       marketingOptIn: false,
     },
   });
+
+  // Pull a referral code that /join saved into localStorage so it survives
+  // the email-confirmation round-trip — and clear it so a later signup on
+  // the same device doesn't accidentally reuse a stale code.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const stored = window.localStorage.getItem('feastpot.referral.v1');
+      if (stored) {
+        form.setValue('referralCode', stored);
+      }
+    } catch {
+      /* localStorage unavailable */
+    }
+  }, [form]);
 
   const onSubmit = async (values: FormValues) => {
     setServerError(null);

@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 import { Avatar } from '@/components/account/avatar';
+import { LoyaltyCard } from '@/components/account/loyalty-card';
+import { ReferralCard } from '@/components/account/referral-card';
 import { useMe } from '@/hooks/use-me';
 import { createClient } from '@/lib/supabase/client';
 
@@ -56,6 +58,9 @@ export default function AccountHubPage() {
           </Link>
         </div>
       </header>
+
+      <LoyaltyCard />
+      <ReferralCard />
 
       {/* 2×2 destination grid */}
       <ul className="grid grid-cols-2 gap-3">

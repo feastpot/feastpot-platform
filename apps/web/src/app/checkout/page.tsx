@@ -11,6 +11,7 @@ import { cn } from '@feastpot/ui';
 
 import { AddressSelector } from '@/components/address/address-selector';
 import { SlotPicker } from '@/components/checkout/slot-picker';
+import { useLoyalty } from '@/hooks/use-loyalty';
 import { useConfirmOrder, useCreateOrder } from '@/hooks/use-orders';
 import { ApiError } from '@/lib/api/client';
 import { useAccessToken } from '@/lib/auth/use-access-token';
@@ -118,6 +119,20 @@ function CheckoutInner() {
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
 
+  // Loyalty redemption (FR-LOY-001). Capped at min(balance, subtotal) and
+  // floored to a multiple of 100 so the stepper buttons stay sensible.
+  // The actual discount is recomputed server-side; this is just UX.
+  const { data: loyalty } = useLoyalty();
+  const [loyaltyPoints, setLoyaltyPoints] = useState<number>(0);
+  const maxRedeemable = Math.min(
+    Math.floor((loyalty?.balance ?? 0) / 100) * 100,
+    Math.floor(subtotal / 100) * 100,
+  );
+  // If basket value or balance changes, clamp downward.
+  useEffect(() => {
+    if (loyaltyPoints > maxRedeemable) setLoyaltyPoints(maxRedeemable);
+  }, [maxRedeemable, loyaltyPoints]);
+
   // Tracks an order whose Stripe PaymentIntent has already been authorised.
   // If a post-payment step (confirmOrder) fails, we MUST NOT call createOrder
   // again — that would mint a second order + second PaymentIntent and risk a
@@ -198,6 +213,7 @@ function CheckoutInner() {
         scheduledFor: scheduledFor.toISOString(),
         notes: notes || undefined,
         discountCode,
+        loyaltyPointsToRedeem: loyaltyPoints >= 200 ? loyaltyPoints : undefined,
       });
 
       // 2. Confirm the card payment with Stripe.
@@ -321,6 +337,76 @@ function CheckoutInner() {
           )}
         </div>
       </Section>
+
+      {/* SECTION 1b — LOYALTY POINTS REDEMPTION */}
+      {(loyalty?.balance ?? 0) >= 200 && (
+        <Section title="Loyalty points">
+          <div className="rounded-2xl border border-border bg-white p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm text-dark">
+                  You have{' '}
+                  <span className="font-semibold text-teal">
+                    {loyalty!.balance.toLocaleString()} pts
+                  </span>{' '}
+                  ({formatPounds(loyalty!.worthPence)})
+                </p>
+                <p className="text-[11px] text-mid">1 point = 1p · 200pt minimum · max {maxRedeemable.toLocaleString()}pt</p>
+              </div>
+            </div>
+
+            <div className="mt-3 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setLoyaltyPoints(Math.max(0, loyaltyPoints - 100))}
+                disabled={loyaltyPoints <= 0}
+                className="h-10 w-10 rounded-full border border-border text-lg font-semibold text-dark hover:bg-surface disabled:opacity-40"
+                aria-label="Redeem fewer points"
+              >
+                −
+              </button>
+              <input
+                type="number"
+                inputMode="numeric"
+                step={100}
+                min={0}
+                max={maxRedeemable}
+                value={loyaltyPoints}
+                onChange={(e) => {
+                  const n = Math.max(0, Math.min(maxRedeemable, Math.floor(Number(e.target.value) / 100) * 100));
+                  setLoyaltyPoints(Number.isFinite(n) ? n : 0);
+                }}
+                className="h-10 flex-1 rounded-xl border border-border bg-white px-3 text-center text-base font-semibold tabular-nums text-dark focus:border-brand focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => setLoyaltyPoints(Math.min(maxRedeemable, loyaltyPoints + 100))}
+                disabled={loyaltyPoints >= maxRedeemable}
+                className="h-10 w-10 rounded-full border border-border text-lg font-semibold text-dark hover:bg-surface disabled:opacity-40"
+                aria-label="Redeem more points"
+              >
+                +
+              </button>
+              <button
+                type="button"
+                onClick={() => setLoyaltyPoints(maxRedeemable)}
+                disabled={loyaltyPoints === maxRedeemable || maxRedeemable === 0}
+                className="h-10 rounded-xl bg-teal px-3 text-xs font-semibold text-white hover:bg-teal/90 disabled:opacity-40"
+              >
+                Max
+              </button>
+            </div>
+
+            {loyaltyPoints >= 200 ? (
+              <p className="mt-2 text-xs text-teal">
+                −{formatPounds(loyaltyPoints)} discount applied
+              </p>
+            ) : loyaltyPoints > 0 ? (
+              <p className="mt-2 text-xs text-mid">Redeem at least 200pt to apply a discount.</p>
+            ) : null}
+          </div>
+        </Section>
+      )}
 
       {/* SECTION 2 — DELIVERY ADDRESS */}
       <Section title="Delivery address">
