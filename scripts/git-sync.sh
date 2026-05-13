@@ -115,8 +115,13 @@ if [[ -z "${SKIP_TOKEN_CHECK:-}" ]]; then
     cat /tmp/git-sync-perms.json >&2 || true
     exit 1
   fi
-  can_push=$(grep -oE '"push"[^,]*true' /tmp/git-sync-perms.json | head -1 || true)
-  if [[ -z "${can_push}" ]]; then
+  # Parse the permissions object properly (a previous regex over the raw
+  # JSON was brittle — key order and whitespace are not guaranteed).
+  if ! python3 -c "
+import json, sys
+d = json.load(open('/tmp/git-sync-perms.json'))
+sys.exit(0 if d.get('permissions', {}).get('push') is True else 1)
+" 2>/dev/null; then
     err "Token can read ${REPO_SLUG} but does NOT have push permission."
     err "Issue a new PAT with 'repo' scope (classic) or 'Contents: read & write' (fine-grained)."
     exit 1
