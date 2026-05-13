@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "JjdU8nCg_2Anc8NSdVBt9"
+uri = "file://docs/PROJECT_STATUS.md"
+type = "text"
+title = "Feastpot — Editorial Status Report"
