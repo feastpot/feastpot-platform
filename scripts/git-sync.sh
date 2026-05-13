@@ -18,7 +18,9 @@
 #   AND the user types "yes" at the confirmation prompt. The day-to-day
 #   path to main is:  feature branch -> PR -> CI green -> review -> merge.
 #   Direct main pushes only exist for documented emergencies (see
-#   docs/git-workflow.md §6 "Emergency escape hatch").
+#   docs/git-workflow.md §4 "Emergency-push escape hatch"). For
+#   non-interactive use (agents, CI), set both ALLOW_MAIN_PUSH=1
+#   and CONFIRM_MAIN_PUSH=yes to skip the interactive prompt.
 #
 # REQUIRES
 #   - $GITHUB_TOKEN with `repo` scope (write access to feastpot/feastpot-platform).
@@ -65,18 +67,26 @@ if [[ "${BRANCH}" == "main" ]]; then
     err "If this really is an emergency (production down, hotfix, recovering"
     err "from a broken UI), re-run with explicit confirmation:"
     err "    ALLOW_MAIN_PUSH=1 bash scripts/git-sync.sh"
+    err "(or for non-interactive: ALLOW_MAIN_PUSH=1 CONFIRM_MAIN_PUSH=yes ...)"
     err ""
-    err "See docs/git-workflow.md §6 'Emergency escape hatch'."
+    err "See docs/git-workflow.md §4 'Emergency-push escape hatch'."
     exit 5
   fi
-  printf '[git-sync] You are about to push directly to main, bypassing PR + review.\n'
-  printf '[git-sync] Type "yes" to continue, anything else to abort: '
-  read -r confirm
-  if [[ "${confirm}" != "yes" ]]; then
-    err "Aborted by user."
-    exit 5
+  # Non-interactive bypass for agents / CI: setting CONFIRM_MAIN_PUSH=yes
+  # skips the prompt. ALLOW_MAIN_PUSH=1 is still required, so a single
+  # stray env var can't cause an accidental main push.
+  if [[ "${CONFIRM_MAIN_PUSH:-}" == "yes" ]]; then
+    log "Main-push override confirmed via CONFIRM_MAIN_PUSH=yes. Proceeding."
+  else
+    printf '[git-sync] You are about to push directly to main, bypassing PR + review.\n'
+    printf '[git-sync] Type "yes" to continue, anything else to abort: '
+    read -r confirm
+    if [[ "${confirm}" != "yes" ]]; then
+      err "Aborted by user."
+      exit 5
+    fi
+    log "Main-push override confirmed. Proceeding."
   fi
-  log "Main-push override confirmed. Proceeding."
 fi
 
 # Refuse to push a dirty working tree — surprises here are dangerous.
