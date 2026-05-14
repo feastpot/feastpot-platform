@@ -1,0 +1,116 @@
+You are a Next.js 15 and Supabase engineer. The #1 complaint on food delivery apps (confirmed by industry research) is "no images of food on the menu." Currently ALL menu items on feastpot.co.uk show emoji placeholders (🍛, 🍲, 🥟 etc.) because no real food photography exists yet.
+
+This prompt has two parts: (1) improve the placeholder quality so the platform looks premium even before photography exists, and (2) ensure the vendor photo upload pipeline is production-ready so real photos can replace placeholders immediately.
+
+FROM LIVE AUDIT (confirmed):
+- All 12 Maman's Kitchen menu items show generic emoji on dark/light backgrounds
+- All 2 Kwame's Jollof menu items show emoji placeholders
+- Vendor cover images: both vendors show gradient placeholders (looks OK, but needs improvement)
+
+═══════════════════════════════════════════════════════
+STEP 1 — Rich placeholder system (until real photos exist)
+File: apps/web/src/components/menu/menu-item-card.tsx
+═══════════════════════════════════════════════════════
+
+Replace the simple emoji placeholder with a richer category-specific gradient card:
+
+const CATEGORY_STYLES: Record<string, { gradient: string; emoji: string; label: string }> = {
+  tray:    { gradient: 'linear-gradient(135deg,#3D1A0A 0%,#E8520A 100%)', emoji: '🍛', label: 'Party Tray' },
+  soup:    { gradient: 'linear-gradient(135deg,#1C3D2A 0%,#3D7A47 100%)', emoji: '🍲', label: 'Pot Soup'   },
+  protein: { gradient: 'linear-gradient(135deg,#4A1B0C 0%,#C8401F 100%)', emoji: '🍗', label: 'Proteins'  },
+  swallow: { gradient: 'linear-gradient(135deg,#3D2800 0%,#8B5E3C 100%)', emoji: '🫓', label: 'Swallows'  },
+  snack:   { gradient: 'linear-gradient(135deg,#3D3800 0%,#F5A52A 100%)', emoji: '🥟', label: 'Snacks'    },
+  frozen:  { gradient: 'linear-gradient(135deg,#0A2A3D 0%,#185FA5 100%)', emoji: '❄️', label: 'Frozen'    },
+  bundle:  { gradient: 'linear-gradient(135deg,#1C1C1A 0%,#5F5E5A 100%)', emoji: '📦', label: 'Bundle'    },
+  event:   { gradient: 'linear-gradient(135deg,#2A0A3D 0%,#E8520A 100%)', emoji: '🎉', label: 'Events'    },
+}
+
+When no image exists (item.images?.length === 0 or undefined), render:
+<div style={{
+  width: '88px', height: '88px', borderRadius: '12px', flexShrink: 0,
+  background: style.gradient,
+  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+  gap: '2px', overflow: 'hidden',
+}}>
+  <span style={{ fontSize: '28px' }}>{style.emoji}</span>
+  <span style={{ fontSize: '8px', color: 'rgba(255,255,255,0.6)', fontWeight: 500 }}>{style.label}</span>
+</div>
+
+For vendor cover image placeholder (when no coverUrl):
+<div style={{
+  height: '200px', position: 'relative', overflow: 'hidden',
+  background: 'linear-gradient(160deg,#1C1C1A 0%,#3D1A0A 45%,#E8520A 100%)',
+}}>
+  <div className="absolute inset-0 tribal-bg" style={{ opacity: 0.1 }} />
+  <div style={{ position: 'absolute', bottom: '16px', left: '16px' }}>
+    <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '11px', margin: 0 }}>
+      {vendor.cuisineTypes?.join(' · ')}
+    </p>
+    <p style={{ color: 'white', fontWeight: 800, fontSize: '20px', margin: '2px 0 0',
+      fontFamily: 'Playfair Display, Georgia, serif' }}>
+      {vendor.businessName}
+    </p>
+  </div>
+</div>
+
+═══════════════════════════════════════════════════════
+STEP 2 — Production-ready image upload in vendor portal
+File: apps/vendor/src/app/menu/[menuId]/items/[itemId]/page.tsx
+═══════════════════════════════════════════════════════
+
+The image upload section must:
+1. Show a clear "Add food photo" upload zone (not just a small button)
+2. Show existing photos in a 3-column grid with delete option
+3. Accept JPEG, WebP, PNG up to 5MB
+4. Show upload progress indicator
+5. On upload: send to POST /v1/vendors/:vendorId/menus/:menuId/items/:itemId/images
+6. The API returns the Supabase CDN URL
+7. Show a preview immediately using URL.createObjectURL()
+
+Upload zone design (large, visible, actionable):
+<div
+  style={{
+    border: '2px dashed #EDE4D4', borderRadius: '16px', padding: '24px',
+    textAlign: 'center', cursor: 'pointer', background: '#FBF6EF',
+    transition: 'border-color .2s',
+  }}
+  onDragOver={(e) => { e.preventDefault(); e.currentTarget.style.borderColor = '#E8520A' }}
+  onDragLeave={(e) => { e.currentTarget.style.borderColor = '#EDE4D4' }}
+>
+  <span style={{ fontSize: '36px', display: 'block', marginBottom: '8px' }}>📷</span>
+  <p style={{ fontWeight: 600, color: '#1C1C1A', marginBottom: '4px' }}>Add food photos</p>
+  <p style={{ fontSize: '12px', color: '#9B9894' }}>Drag & drop or tap to browse · Max 5MB · JPEG or WebP</p>
+  <input type="file" accept="image/jpeg,image/webp,image/png" multiple className="sr-only"
+    onChange={handleFileSelect} ref={inputRef} />
+</div>
+
+TIP BANNER below the upload zone:
+<div style={{ background: '#E1F5EE', borderRadius: '10px', padding: '10px 12px', marginTop: '10px', fontSize: '12px', color: '#085041' }}>
+  💡 <strong>Tip:</strong> Good food photos increase orders by up to 3×. Natural light, top-down angle, and a clean background work best.
+</div>
+
+═══════════════════════════════════════════════════════
+STEP 3 — next/image optimisation for real photos
+File: apps/web/src/components/menu/menu-item-card.tsx
+═══════════════════════════════════════════════════════
+
+When item.images?.[0] exists, use next/image with optimisation:
+
+import Image from 'next/image'
+
+<div style={{ width: '88px', height: '88px', borderRadius: '12px', overflow: 'hidden', flexShrink: 0, position: 'relative' }}>
+  <Image
+    src={item.images[0]}
+    alt={item.name}
+    fill
+    sizes="88px"
+    className="object-cover"
+    loading="lazy"
+    placeholder="blur"
+    blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoH..."
+  />
+</div>
+
+Run: npm run typecheck — fix all errors.
+Run: npm run dev:web — confirm category gradients show correctly and are visually distinct.
+Output all files in full.

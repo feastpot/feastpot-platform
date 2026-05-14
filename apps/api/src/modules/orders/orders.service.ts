@@ -188,9 +188,15 @@ export class OrdersService {
     // concurrency" hazard. The window between assert + write is narrow
     // (single request) and the ledger write is itself idempotent per
     // (userId, orderId).
+    // Cap loyalty redemption against the value REMAINING after the promo
+    // discount, never the gross order value. Without this, a customer
+    // with promo=£5 on a £10 order could redeem £10 of points and we'd
+    // debit the full 1000pt while only £5 of value was actually applied
+    // (the total clamps at £0). Subtracting promo first keeps the
+    // ledger debit equal to the cash discount delivered.
     let loyaltyToRedeem = 0;
     if (dto.loyaltyPointsToRedeem) {
-      const maxRedeemable = subtotalPence + deliveryFeePence;
+      const maxRedeemable = Math.max(0, subtotalPence + deliveryFeePence - promoDiscountPence);
       const requested = Math.min(dto.loyaltyPointsToRedeem, maxRedeemable);
       if (requested >= 200) {
         await this.loyalty.assertCanRedeem(customerId, requested);

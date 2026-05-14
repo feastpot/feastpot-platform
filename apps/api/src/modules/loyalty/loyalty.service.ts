@@ -132,7 +132,14 @@ export class LoyaltyService {
     pointsToRedeem: number,
     orderId: string,
   ): Promise<number> {
-    return this.withLock(`loyalty:redeem:${orderId}`, async (tx) => {
+    // Lock by USER (not by orderId) so two concurrent checkouts for the
+    // same user — each on a different orderId — can't both pass the
+    // balance check on stale reads and overdraw the ledger. Idempotency
+    // per-order is still enforced inside the lock by the existing
+    // (userId, orderId, redeemed) lookup. Credit/refund continue to lock
+    // by orderId because their idempotency contract is per-order and
+    // they don't read+write a shared (per-user) balance value.
+    return this.withLock(`loyalty:user:${userId}`, async (tx) => {
       const existing = await tx.loyaltyPoint.findFirst({
         where: { userId, orderId, type: LoyaltyTxType.redeemed },
         select: { points: true },

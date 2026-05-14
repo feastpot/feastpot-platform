@@ -20,7 +20,7 @@ export interface LoyaltySummary {
 
 export interface ReferralEntry {
   id: string;
-  status: 'pending' | 'rewarded' | 'expired';
+  status: 'pending' | 'completed' | 'rewarded';
   rewardPence: number | null;
   completedAt: string | null;
   rewardedAt: string | null;
