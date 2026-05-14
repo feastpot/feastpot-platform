@@ -1,0 +1,145 @@
+You are a Next.js 15 engineer fixing authentication and redirect flows on feastpot.co.uk.
+
+PROBLEM IDENTIFIED FROM LIVE AUDIT:
+The /account route is blocked by robots.txt and redirects unauthenticated users.
+The /orders route also redirects. This creates a poor experience for new visitors
+who tap "Account" or "Orders" in the bottom nav out of curiosity.
+Guest users should be able to browse freely — auth gates only at the purchase step.
+
+DEMOGRAPHIC NOTE:
+Older mobile users (the core demographic) are more likely to tap around to explore
+before committing to sign up. Hard redirects to sign-in pages on exploratory taps
+feel punishing and cause app abandonment.
+
+═══════════════════════════════════════════════════════
+STEP 1 — Allow guest browsing on vendors and vendor profiles
+File: apps/web/src/middleware.ts
+═══════════════════════════════════════════════════════
+
+Review the middleware to confirm these routes are NOT protected for guests:
+- / (homepage)
+- /vendors (vendor list)
+- /vendors/[slug] (vendor profile + menu)
+- /legal/* (all legal pages)
+- /help
+- /nigerian-food-delivery-london etc. (SEO pages)
+
+These routes MUST remain accessible to guests:
+DO NOT redirect unauthenticated users away from vendor browsing.
+
+Only these routes should require authentication (add them to protected list if not already):
+- /checkout
+- /orders/* (individual order tracking)
+- /account/* (all account pages)
+- /events/new (create event enquiry)
+
+═══════════════════════════════════════════════════════
+STEP 2 — Orders page: guest CTA instead of redirect
+File: apps/web/src/app/orders/page.tsx (or account/orders)
+═══════════════════════════════════════════════════════
+
+Instead of redirecting to /sign-in when the user is not authenticated,
+show an inline CTA:
+
+export default function OrdersPage() {
+  const { user, isLoading } = useAuth()  // or however auth is read
+
+  if (isLoading) return <OrdersPageSkeleton />
+
+  if (!user) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center',
+                    justifyContent: 'center', padding: '48px 24px', textAlign: 'center' }}>
+        <span style={{ fontSize: '64px', marginBottom: '16px' }}>🍽️</span>
+        <h2 style={{ fontFamily: 'Playfair Display, Georgia, serif', fontWeight: 800,
+                     fontSize: '22px', color: '#1C1C1A', marginBottom: '8px' }}>
+          Your orders will appear here
+        </h2>
+        <p style={{ fontSize: '14px', color: '#5F5E5A', lineHeight: 1.6, marginBottom: '24px', maxWidth: '280px' }}>
+          Sign in to track your orders, reorder favourites, and manage your account.
+        </p>
+        <a href="/sign-in?redirect=/account/orders"
+          style={{ display: 'inline-block', background: '#E8520A', color: 'white',
+                   padding: '14px 28px', borderRadius: '14px', fontWeight: 700,
+                   fontSize: '15px', textDecoration: 'none', marginBottom: '12px' }}>
+          Sign in to your account
+        </a>
+        <a href="/vendors" style={{ fontSize: '13px', color: '#9B9894', textDecoration: 'none' }}>
+          Continue browsing without signing in →
+        </a>
+      </div>
+    )
+  }
+
+  return <AuthenticatedOrdersList />
+}
+
+═══════════════════════════════════════════════════════
+STEP 3 — Account page: guest welcome instead of redirect
+File: apps/web/src/app/account/page.tsx
+═══════════════════════════════════════════════════════
+
+Same pattern as orders — show a benefits-focused sign-in prompt:
+
+if (!user) {
+  return (
+    <div style={{ padding: '24px 16px' }}>
+      {/* Benefits of signing in */}
+      <h2 style={{ fontFamily: 'Playfair Display, Georgia, serif', fontWeight: 800,
+                   fontSize: '24px', color: '#1C1C1A', marginBottom: '6px' }}>
+        Join Feastpot
+      </h2>
+      <p style={{ fontSize: '14px', color: '#5F5E5A', marginBottom: '20px' }}>
+        Sign in to unlock your full Feastpot experience
+      </p>
+
+      {/* Benefits list */}
+      {[
+        { icon: '📦', text: 'Track your orders in real time' },
+        { icon: '🔁', text: 'One-tap reorder your favourites' },
+        { icon: '⭐', text: 'Earn loyalty points with every order' },
+        { icon: '🎁', text: 'Refer friends and earn £5 each' },
+        { icon: '📍', text: 'Save your delivery addresses' },
+      ].map(b => (
+        <div key={b.text} style={{ display: 'flex', alignItems: 'center', gap: '12px',
+               padding: '12px 0', borderBottom: '1px solid #F5EDE0' }}>
+          <span style={{ fontSize: '22px' }}>{b.icon}</span>
+          <span style={{ fontSize: '14px', color: '#1C1C1A' }}>{b.text}</span>
+        </div>
+      ))}
+
+      <a href="/sign-in?redirect=/account"
+        style={{ display: 'block', textAlign: 'center', background: '#E8520A', color: 'white',
+                 padding: '16px', borderRadius: '14px', fontWeight: 700, fontSize: '16px',
+                 textDecoration: 'none', marginTop: '24px' }}>
+        Sign in
+      </a>
+      <a href="/register"
+        style={{ display: 'block', textAlign: 'center', padding: '12px',
+                 fontSize: '14px', color: '#5F5E5A', textDecoration: 'none', marginTop: '8px' }}>
+        Create a free account
+      </a>
+    </div>
+  )
+}
+
+═══════════════════════════════════════════════════════
+STEP 4 — Sign-in redirect: return to intended destination
+File: apps/web/src/app/(auth)/sign-in/page.tsx
+═══════════════════════════════════════════════════════
+
+After successful sign-in, redirect to the URL in ?redirect= param, not always to /:
+
+const searchParams = useSearchParams()
+const redirect = searchParams.get('redirect') || '/'
+
+// After successful auth:
+router.replace(redirect)
+
+Also ensure the checkout page redirects to /sign-in?redirect=/checkout so the user
+returns to checkout after signing in, not to the homepage.
+
+Run: npm run typecheck — fix all errors.
+Test: visit /account without signing in — should see benefits CTA, not a redirect.
+Test: sign in via /sign-in?redirect=/checkout — should land on /checkout after auth.
+Output all files in full.
