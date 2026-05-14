@@ -77,25 +77,19 @@ export function TopNav() {
     >
       <div className="mx-auto flex h-14 max-w-lg items-center justify-between px-4 sm:max-w-2xl md:max-w-4xl lg:max-w-5xl">
         {isHome ? (
-          <Link href="/" aria-label="Feastpot home" className="flex items-center gap-2">
-            {/* New brand icon (pot + steam + cradling hands on a cream
-                disc). `unoptimized` because it's an inline SVG — Next's
-                image optimiser would just re-emit it unchanged and adds
-                a network round-trip. */}
+          <Link href="/" aria-label="Feastpot home" className="flex items-center">
+            {/* Full Pan-African brand lockup (pot + colored "feastpot"
+                wordmark) shipped as a single PNG so the icon and
+                wordmark stay perfectly aligned and colored. The source
+                asset is ~4:3, so we let height drive width via auto. */}
             <Image
-              src="/images/feastpot-icon.png"
-              alt=""
-              width={32}
-              height={32}
+              src="/images/feastpot-logo.png"
+              alt="Feastpot"
+              width={160}
+              height={40}
               priority
-              unoptimized
-              className="h-8 w-8 shrink-0"
-              aria-hidden
+              className="h-8 w-auto"
             />
-            <span className="flex items-baseline gap-0.5">
-              <span className="text-2xl font-black tracking-tight text-brand">feast</span>
-              <span className="text-2xl font-black tracking-tight text-dark">pot</span>
-            </span>
           </Link>
         ) : (
           <h1 className="truncate text-[17px] font-semibold text-dark">{title}</h1>
