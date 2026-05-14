@@ -16,9 +16,19 @@ import withPWAInit from '@ducanh2912/next-pwa';
 const withPWA = withPWAInit({
   dest: 'public',
   register: true,
+  // Cache the App Router payloads for routes the user has already navigated
+  // through, so client-side back/forward and Link prefetch hits stay snappy
+  // even on a flaky train-tunnel connection. Pairs with the navigate
+  // NetworkFirst handler below for the initial document request.
+  cacheOnFrontEndNav: true,
+  aggressiveFrontEndNavCaching: true,
+  // When the device comes back online, refresh open tabs so users don't
+  // keep staring at a stale "you're offline" shell after their wifi returns.
+  reloadOnOnline: true,
   // Aggressive: skip the install-then-activate handshake so a returning user
   // sees the new SW immediately. Safe because we have no in-flight long-lived
-  // SW state (no offline mutation queue yet).
+  // SW state (no offline mutation queue yet). The <SWUpdatePrompt> in the
+  // root layout still surfaces a toast so users can opt to reload.
   workboxOptions: {
     skipWaiting: true,
     clientsClaim: true,
@@ -50,6 +60,27 @@ const withPWA = withPWAInit({
         options: {
           cacheName: 'static-cache',
           expiration: { maxAgeSeconds: 60 * 60 * 24 * 365 },
+        },
+      },
+      {
+        // Top-level page navigations — try the network first (so users see
+        // fresh menus/prices), then fall back to the cached HTML, and only
+        // then to the precached /offline shell via `fallbacks.document`.
+        //
+        // We use a regex (not a `({request}) => request.mode === 'navigate'`
+        // callback) because @ducanh2912/next-pwa serialises the runtime
+        // config through workbox-build, which silently drops function-typed
+        // urlPatterns — leaving navigations completely unrouted in the
+        // generated `public/sw.js`. The regex matches "extension-less"
+        // same-origin URLs (i.e. document requests) and explicitly excludes
+        // `/_next/`, `/api/`, and `/sw.js` so they keep falling through to
+        // their dedicated handlers above.
+        urlPattern: /^https?:\/\/[^/]+\/(?!_next\/|api\/|sw\.js)[^.]*$/,
+        handler: 'NetworkFirst',
+        options: {
+          cacheName: 'pages-cache',
+          networkTimeoutSeconds: 5,
+          expiration: { maxAgeSeconds: 60 * 60 * 24, maxEntries: 50 },
         },
       },
     ],

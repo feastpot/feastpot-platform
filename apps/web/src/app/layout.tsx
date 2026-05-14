@@ -8,6 +8,7 @@ import { CookieBanner } from '@/components/cookie-banner';
 import { BottomNav } from '@/components/layout/bottom-nav';
 import { Footer } from '@/components/layout/footer';
 import { TopNav } from '@/components/layout/top-nav';
+import { SWUpdatePrompt } from '@/components/pwa/sw-update-prompt';
 import { PushPermissionPrompt } from '@/components/push-permission-prompt';
 import { QueryProvider } from '@/providers/query-provider';
 
@@ -110,6 +111,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             <Footer />
             <BottomNav />
             <PushPermissionPrompt />
+            <SWUpdatePrompt />
             <CookieBanner />
             <ToastViewport />
           </ToastProvider>

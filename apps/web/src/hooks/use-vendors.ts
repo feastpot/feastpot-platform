@@ -24,8 +24,29 @@ export function useVendors(params: SearchVendorsParams, options?: { enabled?: bo
   return useInfiniteQuery<VendorListResponse, Error>({
     queryKey: [VENDORS_KEY, 'list', params],
     initialPageParam: undefined as string | undefined,
-    queryFn: ({ pageParam, signal }) =>
-      searchVendors({ ...params, cursor: pageParam as string | undefined }, { signal }),
+    queryFn: async ({ pageParam, signal }) => {
+      const res = await searchVendors(
+        { ...params, cursor: pageParam as string | undefined },
+        { signal },
+      );
+      // Mirror the first page into localStorage so the offline shell
+      // (`/offline`) can show a "last seen vendors" list even when the SW
+      // hasn't precached the route yet. Skipped on subsequent pages so we
+      // don't keep overwriting the cache with deeper pagination tails.
+      if (!pageParam && typeof window !== 'undefined') {
+        try {
+          const slim = (res.data ?? []).slice(0, 20).map((v) => ({
+            id: v.id,
+            slug: v.slug,
+            businessName: v.businessName,
+          }));
+          localStorage.setItem('fp.vendors.cache', JSON.stringify(slim));
+        } catch {
+          /* quota exceeded / private mode — silently ignore */
+        }
+      }
+      return res;
+    },
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     enabled: options?.enabled ?? true,
   });
