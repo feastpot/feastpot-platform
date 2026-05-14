@@ -10,12 +10,30 @@ import { useForm } from 'react-hook-form';
 import { PageShell } from '@/components/layout/page-shell';
 import { createClient } from '@/lib/supabase/client';
 
+function isSafeInternalPath(value: string): boolean {
+  if (typeof value !== 'string' || value.length === 0) return false;
+  if (!value.startsWith('/')) return false;
+  // `//host` → protocol-relative external URL.
+  // `/\host` → some browsers normalise the backslash to `/`, same risk.
+  if (value.startsWith('//') || value.startsWith('/\\')) return false;
+  return true;
+}
+
 function SignInForm() {
   const router = useRouter();
   const params = useSearchParams();
   // Middleware redirects unauthenticated /account hits to `?next=…` — accept
   // both names so external links using `?redirect=` still work.
-  const redirect = params?.get('next') ?? params?.get('redirect') ?? '/';
+  //
+  // Open-redirect guard: only honour internal app paths. An attacker who
+  // gets a victim to click `/sign-in?next=https://evil.example/login`
+  // would otherwise land them on a phishing clone the moment the
+  // legitimate sign-in succeeds. We require a single leading slash and
+  // explicitly reject `//host` and `/\host` (both interpreted as a
+  // protocol-relative URL by the browser), as well as anything with a
+  // scheme. Anything that fails the check silently falls back to `/`.
+  const rawRedirect = params?.get('next') ?? params?.get('redirect') ?? '/';
+  const redirect = isSafeInternalPath(rawRedirect) ? rawRedirect : '/';
 
   const [serverError, setServerError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);

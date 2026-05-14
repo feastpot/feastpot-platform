@@ -26,10 +26,17 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const { pathname } = request.nextUrl;
-  const isAccountRoute = pathname.startsWith('/account');
+  // `/account` (exact) is the public hub that shows a guest welcome /
+  // benefits CTA when the user isn't signed in — older / first-time
+  // visitors are far more likely to tap "Account" out of curiosity than
+  // commit to sign-in cold, and a hard redirect on that exploratory tap
+  // reads as punishing. Only the *sub*-routes (`/account/orders`,
+  // `/account/profile`, `/account/addresses`, …) are auth-gated because
+  // those genuinely need a user to render.
+  const isAccountSubRoute = pathname.startsWith('/account/');
   const isSignInRoute = pathname === '/sign-in' || pathname.startsWith('/sign-in/');
 
-  if (isAccountRoute && !user) {
+  if (isAccountSubRoute && !user) {
     const signInUrl = request.nextUrl.clone();
     signInUrl.pathname = '/sign-in';
     signInUrl.searchParams.set('next', pathname);

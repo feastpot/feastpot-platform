@@ -9,6 +9,7 @@ import { Avatar } from '@/components/account/avatar';
 import { LoyaltyCard } from '@/components/account/loyalty-card';
 import { ReferralCard } from '@/components/account/referral-card';
 import { useMe } from '@/hooks/use-me';
+import { useAccessToken } from '@/lib/auth/use-access-token';
 import { createClient } from '@/lib/supabase/client';
 
 /**
@@ -23,6 +24,7 @@ import { createClient } from '@/lib/supabase/client';
  */
 export default function AccountHubPage() {
   const router = useRouter();
+  const { token, loading: authLoading } = useAccessToken();
   const { data: me, isLoading } = useMe();
   const [signingOut, setSigningOut] = useState(false);
 
@@ -33,6 +35,15 @@ export default function AccountHubPage() {
     await supabase.auth.signOut();
     router.push('/sign-in');
   };
+
+  // Guest hub — `/account` (exact) is intentionally NOT middleware-
+  // gated so that the bottom-nav "Account" tap on a fresh visitor
+  // lands on a benefits-led welcome instead of a sign-in form. The
+  // benefits list is the same value-prop pitch we use across the
+  // marketing surface so the message stays coherent.
+  if (!authLoading && !token) {
+    return <GuestAccountWelcome />;
+  }
 
   return (
     <div className="space-y-5 px-4 py-4">
@@ -106,6 +117,60 @@ export default function AccountHubPage() {
         {signingOut ? 'Signing out…' : 'Sign out'}
       </button>
     </div>
+  );
+}
+
+function GuestAccountWelcome() {
+  // Benefits list is rendered server-deterministically (no t() / no
+  // CMS) so AT users hear the same copy as sighted users. Emojis are
+  // aria-hidden — the adjacent text already names the benefit.
+  const benefits: { icon: string; text: string }[] = [
+    { icon: '📦', text: 'Track your orders in real time' },
+    { icon: '🔁', text: 'One-tap reorder your favourites' },
+    { icon: '⭐', text: 'Earn loyalty points with every order' },
+    { icon: '🎁', text: 'Refer friends and earn £5 each' },
+    { icon: '📍', text: 'Save your delivery addresses' },
+  ];
+  return (
+    <section className="px-4 py-6">
+      <h1 className="font-display text-2xl font-extrabold text-dark">Join Feastpot</h1>
+      <p className="mt-1.5 text-sm text-mid">
+        Sign in to unlock your full Feastpot experience
+      </p>
+
+      <ul className="mt-5">
+        {benefits.map((b) => (
+          <li
+            key={b.text}
+            className="flex items-center gap-3 border-b border-cream-warm/70 py-3 last:border-b-0"
+          >
+            <span className="text-[22px] leading-none" aria-hidden>
+              {b.icon}
+            </span>
+            <span className="text-sm text-dark">{b.text}</span>
+          </li>
+        ))}
+      </ul>
+
+      <Link
+        href="/sign-in?redirect=/account"
+        className="touch-target mt-6 block rounded-2xl bg-brand py-4 text-center text-base font-bold text-white shadow-card transition-colors hover:bg-brand-dark"
+      >
+        Sign in
+      </Link>
+      <Link
+        href="/register"
+        className="block py-3 text-center text-sm text-mid hover:text-dark"
+      >
+        Create a free account
+      </Link>
+      <Link
+        href="/vendors"
+        className="mt-1 block text-center text-[13px] text-subtle hover:text-mid"
+      >
+        Continue browsing without signing in →
+      </Link>
+    </section>
   );
 }
 
