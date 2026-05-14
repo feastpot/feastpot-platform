@@ -421,16 +421,22 @@ export function MenuItemCard({ item, vendor }: Props) {
                     pulse && 'scale-110',
                   )}
                 >
+                {/* +/- pill buttons bumped from 28×28 → 44×44 so each
+                    individual control meets WCAG 2.5.5 / Apple HIG.
+                    Older / less-precise users (the core demo) were
+                    routinely double-tapping the wrong button on the
+                    smaller pill. Visible icon size is unchanged
+                    (h-4 w-4) — only the hit area grows. */}
                 <button
                   type="button"
                   onClick={handleMinus}
                   aria-label={`Decrease ${item.name} quantity`}
-                  className="flex h-7 w-7 items-center justify-center text-white transition-transform active:scale-90"
+                  className="flex h-11 w-11 items-center justify-center rounded-full text-white transition-transform active:scale-90"
                 >
                   <Minus className="h-4 w-4" aria-hidden />
                 </button>
                 <span
-                  className="w-5 text-center text-sm font-bold tabular-nums text-white"
+                  className="min-w-5 text-center text-sm font-bold tabular-nums text-white"
                   aria-live="polite"
                 >
                   {qty}
@@ -439,7 +445,7 @@ export function MenuItemCard({ item, vendor }: Props) {
                   type="button"
                   onClick={tryAdd}
                   aria-label={`Increase ${item.name} quantity`}
-                  className="flex h-7 w-7 items-center justify-center text-white transition-transform active:scale-90"
+                  className="flex h-11 w-11 items-center justify-center rounded-full text-white transition-transform active:scale-90"
                 >
                   <Plus className="h-4 w-4" aria-hidden />
                 </button>
@@ -456,17 +462,21 @@ export function MenuItemCard({ item, vendor }: Props) {
               // Deep-amber `#7A4F00` keeps the "spice on cream" hue the
               // spec called for (Plantain-Yellow family) while clearing
               // WCAG AA for small text — pure `#F5A52A` was ~2.5:1, this
-              // is ~7.5:1 on white. The toggle still reads as warm and
-              // intentional, not as a muted footnote.
-              style={{ color: '#7A4F00', fontWeight: 700, fontSize: '10px' }}
-              className="mt-2 inline-flex items-center gap-1 transition-opacity hover:opacity-80"
+              // is ~7.5:1 on white. Bumped 10px → 12px and added a 44px
+              // min-height so the toggle clears WCAG 2.5.5 on touch.
+              style={{ color: '#7A4F00', fontWeight: 700, fontSize: '12px' }}
+              className="touch-target mt-1 -ml-2 inline-flex items-center gap-1.5 rounded-md px-2 transition-opacity hover:opacity-80"
             >
-              <Info className="h-3 w-3" aria-hidden />
+              <Info className="h-4 w-4" aria-hidden />
               {showAllergens ? 'Hide allergens' : 'View allergens'}
             </button>
           )}
           {showAllergens && (
-            <p className="mt-1 rounded-lg bg-amber-50 p-2 text-[10px] leading-relaxed text-mid">
+            // Allergen disclosure is safety-critical for users with
+            // intolerances — bumped from 10px → 12px so it clears the
+            // WCAG AA min for small text in the older demo. text-mid
+            // (#5F5E5A) on amber-50 already meets contrast.
+            <p className="mt-1 rounded-lg bg-amber-50 p-2 text-[12px] leading-relaxed text-mid">
               ⚠️ Contains: {item.allergens.join(', ')}
             </p>
           )}

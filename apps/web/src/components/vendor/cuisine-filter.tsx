@@ -83,7 +83,10 @@ export function CuisineFilter({ active, href = true, onSelect, postcode, variant
                 </span>
                 <span
                   className="mt-0.5 line-clamp-1"
-                  style={{ fontSize: '9px', color: '#9B9894' }}
+                  // 9px → 11px, charcoal-light → charcoal-mid: cuisine
+                  // sub-label was failing WCAG AA on cream (3.2:1).
+                  // Now ~7.5:1 and above the AA min font size.
+                  style={{ fontSize: '11px', color: '#5F5E5A' }}
                 >
                   {c.dish}
                 </span>

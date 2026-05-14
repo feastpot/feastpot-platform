@@ -75,10 +75,21 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en-GB" className={inter.variable}>
       <body className="min-h-screen bg-surface font-sans text-foreground antialiased">
+        {/* WCAG 2.4.1 skip link — first focusable element on every page
+            so AT/keyboard users can bypass the persistent top-nav and
+            jump straight into the route's content. Visually hidden by
+            default, slides into view on focus (see .skip-link in
+            globals.css). */}
+        <a href="#main-content" className="skip-link">
+          Skip to main content
+        </a>
         <QueryProvider>
           <ToastProvider>
             <TopNav />
-            <main className="page-content mx-auto max-w-lg sm:max-w-2xl md:max-w-4xl lg:max-w-5xl">
+            <main
+              id="main-content"
+              className="page-content mx-auto max-w-lg sm:max-w-2xl md:max-w-4xl lg:max-w-5xl"
+            >
               {children}
             </main>
             {/* Footer self-hides on /checkout and the (auth) routes

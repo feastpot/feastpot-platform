@@ -98,6 +98,23 @@
     -webkit-tap-highlight-color: transparent;
   }
 
+  /* Visible focus ring for keyboard + AT-driven users. `:focus-visible`
+     scopes to genuine keyboard/AT focus so the ring doesn't appear on
+     ordinary mouse / touch taps (which would feel noisy). The 2px
+     terracotta outline meets WCAG 1.4.11 non-text-contrast (3:1)
+     against both white and the warm-cream surface. Stripping the ring
+     for non-keyboard focus is the second half of the same pattern —
+     without the override, browsers like Safari paint a default outline
+     that conflicts with our brand colour. */
+  :focus-visible {
+    outline: 2px solid var(--brand);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+
   html {
     scroll-behavior: smooth;
   }
@@ -175,6 +192,35 @@
   .touch-target {
     min-height: 44px;
     min-width: 44px;
+  }
+
+  /* Skip-to-main-content link. WCAG 2.4.1 — keyboard users tabbing into
+     the page should be able to bypass the top-nav, basket button, etc.
+     and jump straight to the page content. Hidden off-screen until
+     focused; on focus it slides into view. Brand-coloured so it reads
+     as part of Feastpot, not a generic browser-default link. */
+  .skip-link {
+    position: absolute;
+    top: -100px;
+    left: 8px;
+    z-index: 999;
+    /* Charcoal (#1C1C1A) on white → ~17:1, well above WCAG AAA.
+       White-on-brand (#E8520A) was only ~3.1:1 and would have
+       failed AA. A 2px brand outline keeps the link visually
+       part of the Feastpot palette without sacrificing contrast. */
+    background: var(--charcoal);
+    color: #ffffff;
+    padding: 10px 16px;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 14px;
+    text-decoration: none;
+    box-shadow: 0 0 0 2px var(--brand);
+    transition: top 0.12s ease-out;
+  }
+  .skip-link:focus,
+  .skip-link:focus-visible {
+    top: calc(env(safe-area-inset-top) + 8px);
   }
 
   .brand-gradient {

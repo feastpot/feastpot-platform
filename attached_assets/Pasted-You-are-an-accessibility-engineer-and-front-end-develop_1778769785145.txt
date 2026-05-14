@@ -1,0 +1,175 @@
+You are an accessibility engineer and front-end developer auditing and fixing feastpot.co.uk for touch usability and accessibility.
+
+CONTEXT:
+The primary users are 30–55 year olds on mid-range Android phones with variable screen sizes.
+This age group has higher rates of visual impairment, larger fingers, and less precise touch accuracy.
+All interactive elements must meet WCAG 2.1 AA at minimum.
+
+═══════════════════════════════════════════════════════
+STEP 1 — Audit and fix all touch targets
+Files: multiple component files
+═══════════════════════════════════════════════════════
+
+Minimum touch target: 44×44px on all tappable elements.
+
+Check and fix each of these:
+
+1. MenuItemCard +/- quantity buttons:
+   Currently: likely 28×28px circles
+   Required: minimum 44×44px tap target
+   Fix: add padding to increase tap area without changing visual size:
+   <button
+     style={{ width: '36px', height: '36px', borderRadius: '50%',
+              background: '#E8520A', color: 'white', border: 'none',
+              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              // Extend tap area with pseudo-element or padding trick:
+              padding: '4px', boxSizing: 'content-box',
+              WebkitTapHighlightColor: 'transparent' }}
+     aria-label="Add one more"
+   >
+     <Plus style={{ width: '18px', height: '18px' }} />
+   </button>
+
+2. Cuisine filter cards: ensure minimum height 56px (not 72px is fine, 44px minimum)
+
+3. BottomNav items: ensure each item's tap area covers the full 1/4 of the nav bar width
+   Add: width: 25%; height: 64px; to each nav item
+
+4. TopNav back button: ensure 44×44px minimum
+   (Already set as w-9 h-9 = 36px — increase to w-11 h-11 = 44px)
+
+5. FloatingBasketBar: the entire bar should be tappable, not just the text
+
+6. Review "View allergens" text link: too small. Make it a 44px tall button.
+
+═══════════════════════════════════════════════════════
+STEP 2 — ARIA labels on icon-only buttons
+Files: top-nav.tsx, bottom-nav.tsx, basket components
+═══════════════════════════════════════════════════════
+
+Audit every button that contains only an icon (no visible text):
+
+TopNav notification bell:
+  aria-label="View notifications"
+
+TopNav basket icon:
+  aria-label={`View basket${basketCount > 0 ? ` (${basketCount} items)` : ''}`}
+
+MenuItemCard + button:
+  aria-label={`Add ${item.name} to basket`}
+
+MenuItemCard - button:
+  aria-label={`Remove one ${item.name} from basket`}
+
+BottomNav Home:
+  aria-label="Home"
+BottomNav Browse:
+  aria-label="Browse vendors"
+BottomNav Orders:
+  aria-label={`Orders${basketCount > 0 ? ` — ${basketCount} items in basket` : ''}`}
+BottomNav Account:
+  aria-label="Account"
+
+VendorCard close/remove buttons: add aria-labels
+
+═══════════════════════════════════════════════════════
+STEP 3 — Focus visible styles
+File: apps/web/src/app/globals.css
+═══════════════════════════════════════════════════════
+
+Ensure focus rings are visible for keyboard users (accessibility requirement):
+
+/* Visible focus ring for keyboard navigation */
+:focus-visible {
+  outline: 2px solid #E8520A;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Remove focus ring for mouse users (not keyboard) */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Skip to content link */
+.skip-link {
+  position: absolute;
+  top: -100px;
+  left: 8px;
+  z-index: 999;
+  background: #E8520A;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: top .1s;
+}
+.skip-link:focus { top: 8px; }
+
+═══════════════════════════════════════════════════════
+STEP 4 — Skip to content link
+File: apps/web/src/app/layout.tsx
+═══════════════════════════════════════════════════════
+
+Add as the very first element inside <body>:
+<a href="#main-content" className="skip-link">Skip to main content</a>
+
+Add id="main-content" to the main page content wrapper:
+<main id="main-content" className="page-content max-w-lg mx-auto">
+
+═══════════════════════════════════════════════════════
+STEP 5 — Semantic heading hierarchy
+Files: homepage, vendor profile, vendors list
+═══════════════════════════════════════════════════════
+
+Audit the heading hierarchy across all main pages.
+Common issues found:
+
+Homepage:
+  <h1> should be "Authentic [cuisine] delivered in London" (the animated headline)
+  "Browse by cuisine" should be <h2>
+  "🔥 Community Favourites" should be <h2>
+  "How Feastpot works" should be <h2>
+
+Vendors page:
+  <h1> should be "Find food near you" or "Vendors in {postcode}"
+  Section headers should be <h2>
+
+Vendor profile:
+  <h1> should be the vendor business name (currently appears to be implemented)
+  Menu category names (Trays, Soups, etc.) should be <h2>
+  Individual item names should be <h3>
+
+Ensure NO page has two <h1> elements.
+Ensure heading levels do not skip (h1 → h3 without h2).
+
+═══════════════════════════════════════════════════════
+STEP 6 — Colour contrast check
+═══════════════════════════════════════════════════════
+
+Check these specific combinations against WCAG 2.1 AA (4.5:1 for normal text, 3:1 for large text):
+
+1. Charcoal-light (#9B9894) on Warm Cream (#FBF6EF):
+   Contrast ratio: ~3.2:1 — FAILS for normal text (11px)
+   Fix: use #5F5E5A (charcoal-mid) for body text on cream backgrounds minimum
+
+2. White text on Terracotta Flame (#E8520A):
+   Contrast ratio: ~3.1:1 — FAILS for normal text
+   Fix: use minimum 15px bold for any white text on brand orange backgrounds
+   Or darken the orange to #C8401F (Scotch Bonnet Red) for text backgrounds
+
+3. Review stars (#F5A52A Plantain Yellow) on white:
+   Contrast ratio: ~2.1:1 — FAILS
+   Fix: use #B8860B (darker gold) for star colour, or add dark text alongside
+
+Update these specific instances in:
+- Vendor card meta text (cooking since, location): use #5F5E5A not #9B9894
+- Allergen disclosure text: increase from 10px to 12px minimum
+- Micro-review snippet text: increase from 9px to 11px minimum
+
+Run: npm run typecheck — fix all TypeScript errors.
+Run: npm run dev:web — test all fixes manually on a mobile viewport (375px).
+Run a quick Lighthouse accessibility audit (DevTools → Lighthouse → Accessibility).
+Target score: 90+.
+Output all changed files in full.

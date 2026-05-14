@@ -214,10 +214,15 @@ export function VendorCard({ vendor, variant = 'list' }: Props) {
             >
               Home cook · {vendor.address?.city || 'South London'}
             </p>
+            {/* Micro-review snippet bumped 9px → 11px and switched
+                from charcoal-light (#9B9894 ≈ 3.2:1 on cream — fails
+                WCAG AA for normal text) to charcoal-mid (#5F5E5A
+                ≈ 7.5:1 — passes AAA). Italic preserved as the
+                "this is a customer voice" cue. */}
             <p
               style={{
-                fontSize: '9px',
-                color: '#9B9894',
+                fontSize: '11px',
+                color: '#5F5E5A',
                 margin: 0,
                 fontStyle: 'italic',
                 overflow: 'hidden',
