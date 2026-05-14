@@ -9,6 +9,9 @@ const nextConfig = {
     // without "Module not found" warnings.
     externalDir: true,
   },
+  // Lets the Replit proxy iframe (mTLS, cross-origin host) load dev pages
+  // without Next 15's cross-origin warning blocking HMR/RSC.
+  allowedDevOrigins: ['*'],
 };
 
 export default nextConfig;
