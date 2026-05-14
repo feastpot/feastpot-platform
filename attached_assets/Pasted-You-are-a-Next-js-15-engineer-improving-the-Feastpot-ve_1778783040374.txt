@@ -1,0 +1,151 @@
+You are a Next.js 15 engineer improving the Feastpot vendor portal at apps/vendor.
+The vendor order dashboard is the most-used screen in the entire platform.
+A vendor who finds this dashboard confusing or slow will abandon the platform.
+
+REFERENCE: Deliveroo's restaurant tablet dashboard uses large tap targets, sound alerts,
+and a clear Accept/Reject flow. JustEat uses colour-coded status cards with countdown timers.
+
+═══════════════════════════════════════════════════════
+STEP 1 — Sound alert for new orders
+File: apps/vendor/src/app/orders/page.tsx
+═══════════════════════════════════════════════════════
+
+When a new order arrives via Supabase Realtime:
+1. Play an alert sound
+2. Show a toast notification
+3. Pulse the Pending tab badge
+
+// Add a simple base64 audio chime (short, professional):
+// Or reference the existing /sounds/status-update.mp3 from the PWA
+const playAlert = () => {
+  const audio = new Audio('/sounds/new-order.mp3')
+  audio.volume = 0.7
+  audio.play().catch(() => {}) // ignore autoplay restrictions
+}
+
+// On new order via Realtime:
+const handleNewOrder = (payload: any) => {
+  const newOrder = payload.new
+  setOrders(prev => [newOrder, ...prev])
+  playAlert()
+  toast.success(`New order from ${newOrder.customerFirstName}!`, {
+    duration: 8000,
+    position: 'top-center',
+    icon: '🍲',
+  })
+}
+
+Create a simple chime MP3. Since we can't generate audio in code, provide instructions:
+"Download a short (0.5 second) bell/chime from freesound.org (Creative Commons).
+Save as apps/vendor/public/sounds/new-order.mp3.
+Suggested search: 'restaurant bell ding' or 'notification chime soft'"
+
+═══════════════════════════════════════════════════════
+STEP 2 — Order card with large accept/reject buttons
+File: apps/vendor/src/components/orders/vendor-order-card.tsx
+═══════════════════════════════════════════════════════
+
+The Accept and Reject buttons must be large enough to tap reliably in a kitchen environment
+(where the vendor may have wet hands, gloves, or be using a tablet):
+
+{/* ACCEPT BUTTON — full width, large, green */}
+<button
+  onClick={() => handleAccept(order.id)}
+  style={{
+    display: 'block', width: '100%', padding: '16px',
+    background: '#3D7A47', color: 'white', border: 'none',
+    borderRadius: '12px', fontWeight: 800, fontSize: '16px',
+    cursor: 'pointer', marginBottom: '8px',
+    boxShadow: '0 4px 12px rgba(61,122,71,0.35)',
+    WebkitTapHighlightColor: 'transparent',
+  }}
+>
+  ✓ Accept order
+</button>
+
+{/* REJECT BUTTON — outlined, smaller visual weight */}
+<button
+  onClick={() => setShowRejectDialog(true)}
+  style={{
+    display: 'block', width: '100%', padding: '12px',
+    background: 'white', color: '#E24B4A',
+    border: '1.5px solid #E24B4A', borderRadius: '12px',
+    fontWeight: 600, fontSize: '14px', cursor: 'pointer',
+  }}
+>
+  ✕ Reject order
+</button>
+
+Reject dialog (bottom sheet):
+<div>
+  <p style={{ fontWeight: 700, fontSize: '16px', marginBottom: '12px' }}>Why are you rejecting?</p>
+  {['Item(s) sold out', 'Cannot fulfil this slot', 'Technical issue', 'Other'].map(reason => (
+    <button key={reason} onClick={() => handleReject(order.id, reason)}
+      style={{ display: 'block', width: '100%', padding: '14px', background: '#FBF6EF',
+        border: '1px solid #EDE4D4', borderRadius: '10px', marginBottom: '8px',
+        textAlign: 'left', fontSize: '14px', cursor: 'pointer', fontWeight: 500 }}>
+      {reason}
+    </button>
+  ))}
+</div>
+
+═══════════════════════════════════════════════════════
+STEP 3 — Countdown timer with urgency states
+File: apps/vendor/src/components/orders/countdown.tsx
+═══════════════════════════════════════════════════════
+
+'use client'
+import { useState, useEffect } from 'react'
+
+export function Countdown({ expiresAt }: { expiresAt: Date }) {
+  const [secs, setSecs] = useState(Math.max(0, Math.floor((expiresAt.getTime() - Date.now()) / 1000)))
+
+  useEffect(() => {
+    const t = setInterval(() => setSecs(s => Math.max(0, s - 1)), 1000)
+    return () => clearInterval(t)
+  }, [])
+
+  const mins = Math.floor(secs / 60)
+  const s = secs % 60
+  const isUrgent   = secs < 180 // < 3 min
+  const isCritical = secs < 60  // < 1 min
+
+  return (
+    <div style={{
+      display: 'inline-flex', alignItems: 'center', gap: '6px',
+      padding: '6px 12px', borderRadius: '20px', fontWeight: 700, fontSize: '14px',
+      background: isCritical ? '#FCEBEB' : isUrgent ? '#FAEEDA' : '#E8F5EB',
+      color:      isCritical ? '#791F1F' : isUrgent ? '#633806' : '#085041',
+      animation:  isCritical ? 'fp-pulse 1s infinite' : 'none',
+    }}>
+      ⏱ {String(mins).padStart(2,'0')}:{String(s).padStart(2,'0')}
+      {isUrgent && <span style={{ fontSize: '11px', fontWeight: 600 }}>Respond now</span>}
+    </div>
+  )
+}
+
+Add to globals.css (vendor):
+@keyframes fp-pulse { 0%,100%{opacity:1} 50%{opacity:.6} }
+
+═══════════════════════════════════════════════════════
+STEP 4 — Order card: show net-to-vendor prominently
+File: apps/vendor/src/components/orders/vendor-order-card.tsx
+═══════════════════════════════════════════════════════
+
+Every vendor needs to see at a glance: "what will I receive for this order?"
+
+<div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #EDE4D4' }}>
+  <span style={{ fontSize: '12px', color: '#9B9894' }}>Order total</span>
+  <span style={{ fontSize: '14px', fontWeight: 600, color: '#1C1C1A' }}>
+    £{(order.totalPence / 100).toFixed(2)}
+  </span>
+</div>
+<div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0' }}>
+  <span style={{ fontSize: '12px', color: '#9B9894' }}>You receive (after 12%)</span>
+  <span style={{ fontSize: '16px', fontWeight: 800, color: '#3D7A47' }}>
+    £{(order.netToVendorPence / 100).toFixed(2)}
+  </span>
+</div>
+
+Run: npm run typecheck --filter=@feastpot/vendor
+Output all files in full.
