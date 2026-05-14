@@ -6,6 +6,7 @@ import { ToastProvider, ToastViewport } from '@feastpot/ui';
 
 import { CookieBanner } from '@/components/cookie-banner';
 import { BottomNav } from '@/components/layout/bottom-nav';
+import { Footer } from '@/components/layout/footer';
 import { TopNav } from '@/components/layout/top-nav';
 import { PushPermissionPrompt } from '@/components/push-permission-prompt';
 import { QueryProvider } from '@/providers/query-provider';
@@ -80,6 +81,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             <main className="page-content mx-auto max-w-lg sm:max-w-2xl md:max-w-4xl lg:max-w-5xl">
               {children}
             </main>
+            {/* Footer self-hides on /checkout and the (auth) routes
+                via usePathname(). Rendered before BottomNav so the
+                fixed bottom-nav still sits visually on top. */}
+            <Footer />
             <BottomNav />
             <PushPermissionPrompt />
             <CookieBanner />

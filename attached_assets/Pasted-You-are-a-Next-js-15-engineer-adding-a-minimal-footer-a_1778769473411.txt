@@ -1,0 +1,122 @@
+You are a Next.js 15 engineer adding a minimal footer and improving discoverability links on feastpot.co.uk.
+
+PROBLEM IDENTIFIED FROM LIVE AUDIT:
+The live site has no visible footer on the main pages.
+Legal links (Privacy, Terms) are only discoverable via /legal/ routes.
+"Become a vendor" is not linked from anywhere visible in the customer PWA.
+The help page exists (/help) but is not linked from the main navigation.
+
+═══════════════════════════════════════════════════════
+STEP 1 — Create minimal footer component
+File: apps/web/src/components/layout/footer.tsx (create)
+═══════════════════════════════════════════════════════
+
+export function Footer() {
+  return (
+    <footer
+      style={{
+        background: '#1C1C1A',
+        padding: '20px 16px calc(20px + env(safe-area-inset-bottom))',
+        marginTop: '24px',
+      }}
+    >
+      <div style={{ maxWidth: '640px', margin: '0 auto' }}>
+
+        {/* Vendor CTA */}
+        <div style={{
+          background: 'rgba(232,82,10,0.15)', border: '1px solid rgba(232,82,10,0.3)',
+          borderRadius: '12px', padding: '14px', marginBottom: '16px',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        }}>
+          <div>
+            <p style={{ color: 'white', fontWeight: 600, fontSize: '13px', margin: '0 0 2px' }}>
+              Cook from home? Join Feastpot
+            </p>
+            <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '11px', margin: 0 }}>
+              Keep 88% of every sale. 100+ vendors.
+            </p>
+          </div>
+          <a
+            href="https://vendor.feastpot.co.uk"
+            style={{
+              background: '#E8520A', color: 'white', padding: '8px 14px',
+              borderRadius: '8px', fontWeight: 600, fontSize: '12px',
+              textDecoration: 'none', flexShrink: 0,
+            }}
+          >
+            Join →
+          </a>
+        </div>
+
+        {/* Links grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 24px', marginBottom: '16px' }}>
+          {[
+            { label: 'Help & FAQ',        href: '/help' },
+            { label: 'Privacy Policy',    href: '/legal/privacy' },
+            { label: 'Terms of Service',  href: '/legal/terms' },
+            { label: 'Cookie Policy',     href: '/legal/cookies' },
+            { label: 'Allergen info',     href: '/legal/allergens' },
+            { label: 'Vendor Terms',      href: '/legal/vendor-terms' },
+          ].map(l => (
+            <a key={l.href} href={l.href}
+              style={{ color: 'rgba(255,255,255,0.45)', fontSize: '12px', textDecoration: 'none', padding: '3px 0' }}>
+              {l.label}
+            </a>
+          ))}
+        </div>
+
+        {/* Copyright + ICO */}
+        <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '12px' }}>
+          <p style={{ color: 'rgba(255,255,255,0.25)', fontSize: '10px', margin: '0 0 3px' }}>
+            © 2026 Feastpot Ltd · England & Wales
+          </p>
+          <p style={{ color: 'rgba(255,255,255,0.2)', fontSize: '10px', margin: 0 }}>
+            ICO Registration C1931679 · support@feastpot.co.uk
+          </p>
+        </div>
+      </div>
+    </footer>
+  )
+}
+
+═══════════════════════════════════════════════════════
+STEP 2 — Add footer to root layout
+File: apps/web/src/app/layout.tsx
+═══════════════════════════════════════════════════════
+
+Import and add Footer at the bottom of the main content, before BottomNav:
+Place it only on non-checkout, non-auth pages.
+
+import { Footer } from '@/components/layout/footer'
+
+In the layout, after the main page content:
+{!isCheckout && !isAuthPage && <Footer />}
+
+Use usePathname() in a client component wrapper to determine:
+const isCheckout = pathname === '/checkout'
+const isAuthPage = pathname.startsWith('/(auth)') || pathname === '/sign-in' || pathname === '/register'
+
+═══════════════════════════════════════════════════════
+STEP 3 — Help link in BottomNav (Account icon secondary action)
+File: apps/web/src/components/layout/bottom-nav.tsx
+═══════════════════════════════════════════════════════
+
+The current bottom nav: Home | Browse | Orders | Account
+Help is completely undiscoverable without the footer.
+
+Add a subtle help link to the Account screen guest state (already handled in UX-04).
+Also ensure the Account item links to /account for authenticated users
+and shows a "?" helper badge for unauthenticated users:
+
+For unauthenticated users, the Account nav icon can show a subtle "Sign in" label
+instead of "Account" — this signals clearly that the tab is for account management.
+
+const isAuthenticated = !!user
+// In the Account nav item:
+<span className={...}>
+  {isAuthenticated ? 'Account' : 'Sign in'}
+</span>
+
+Run: npm run typecheck — fix all errors.
+Run: npm run dev:web — verify footer appears on homepage and vendor pages but not checkout.
+Output all files in full.

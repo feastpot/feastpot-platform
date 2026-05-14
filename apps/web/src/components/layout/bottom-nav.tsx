@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 
 import { cn } from '@feastpot/ui';
 
+import { useAccessToken } from '@/lib/auth/use-access-token';
 import { useBasketStore } from '@/store/basket.store';
 
 interface NavItem {
@@ -38,6 +39,13 @@ const ITEMS: NavItem[] = [
 export function BottomNav() {
   const pathname = usePathname() ?? '/';
   const basketCount = useBasketStore((s) => s.items.reduce((acc, i) => acc + i.quantity, 0));
+  // Relabel the Account tab to "Sign in" for guests so the tab
+  // self-describes its purpose (otherwise tapping "Account" while
+  // logged out lands on the benefits welcome and the label feels
+  // mis-set). Loading state keeps the neutral "Account" so we don't
+  // flash "Sign in" at a user who is in fact authenticated.
+  const { token, loading: authLoading } = useAccessToken();
+  const isGuest = !authLoading && !token;
 
   return (
     <nav
@@ -53,6 +61,8 @@ export function BottomNav() {
         {ITEMS.map(({ href, label, Icon, match }) => {
           const active = match(pathname);
           const isOrders = href === '/orders';
+          const isAccount = href === '/account';
+          const displayLabel = isAccount && isGuest ? 'Sign in' : label;
           return (
             <li key={href} className="flex">
               <Link
@@ -79,7 +89,7 @@ export function BottomNav() {
                   )}
                 </span>
                 <span className={cn('text-[10px] font-medium', active ? 'text-brand' : 'text-mid')}>
-                  {label}
+                  {displayLabel}
                 </span>
                 {active && (
                   <span className="absolute bottom-1 h-1 w-1 rounded-full bg-brand" aria-hidden />
