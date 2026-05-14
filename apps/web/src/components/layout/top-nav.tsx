@@ -77,18 +77,30 @@ export function TopNav() {
     >
       <div className="mx-auto flex h-14 max-w-lg items-center justify-between px-4 sm:max-w-2xl md:max-w-4xl lg:max-w-5xl">
         {isHome ? (
-          <Link href="/" aria-label="Feastpot home" className="flex items-center">
-            {/* Full Pan-African brand lockup (pot + colored "feastpot"
-                wordmark) shipped as a single PNG so the icon and
-                wordmark stay perfectly aligned and colored. The source
-                asset is ~4:3, so we let height drive width via auto. */}
+          <Link
+            href="/"
+            aria-label="Feastpot home"
+            // -mx-1 px-1 grows the hit area horizontally, min-h-11 (44px)
+            // brings the touch target up to the WCAG 2.2 / Apple HIG mobile
+            // minimum without enlarging the visible logo. -my-1 keeps the
+            // expanded zone from pushing the header taller.
+            className="-mx-1 -my-1 flex min-h-11 items-center px-1 py-1"
+          >
+            {/* Full Pan-African brand lockup (pot + coloured "feastpot"
+                wordmark) shipped as a single PNG. Source asset is now
+                whitespace-trimmed (was 1448×1086 with ~40% padding,
+                which collapsed the visible logo to ~18px tall at h-8).
+                With trimmed art we can size the rendered logo to a
+                modern PWA chrome standard: 40px tall (h-10) inside a
+                56px (h-14) header — ~71% fill, the ratio used by Uber
+                Eats / Deliveroo / Just Eat. Width is intrinsic. */}
             <Image
               src="/images/feastpot-logo.png"
               alt="Feastpot"
-              width={160}
-              height={40}
+              width={200}
+              height={50}
               priority
-              className="h-8 w-auto"
+              className="h-10 w-auto"
             />
           </Link>
         ) : (

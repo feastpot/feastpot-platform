@@ -34,7 +34,14 @@ export const metadata: Metadata = {
     statusBarStyle: 'default',
   },
   icons: {
+    // /favicon.ico (multi-size 16/32/48 .ico) is the legacy fallback for
+    // older browsers / RSS readers / Slack link unfurls that don't honour
+    // the PNG <link rel="icon"> tags below. Listed first so user agents
+    // that walk the array in order pick up the .ico without us having to
+    // also drop a file at /favicon.ico (Next 15 still serves it from
+    // public/ but having it in metadata is the canonical signal).
     icon: [
+      { url: '/favicon.ico', sizes: 'any' },
       { url: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
       { url: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
     ],
