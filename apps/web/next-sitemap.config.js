@@ -35,8 +35,21 @@ module.exports = {
     policies: [
       {
         userAgent: '*',
-        allow: '/',
-        disallow: ['/account', '/checkout', '/orders', '/auth'],
+        // Explicit allow for the SEO-critical surfaces so crawlers don't
+        // have to infer permission from the broader `/` allow when a
+        // narrower disallow sits on a sibling path.
+        allow: ['/', '/vendors', '/vendors/'],
+        disallow: [
+          '/account',
+          '/checkout',
+          '/orders',
+          '/auth',
+          // Next 15 route group — the `(auth)` segment never appears in
+          // the URL, but a crawler that picked up a stale link from a
+          // build artefact should still be told to stay out.
+          '/(auth)',
+          '/api',
+        ],
       },
     ],
   },

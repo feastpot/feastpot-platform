@@ -1,3 +1,5 @@
+import { Analytics } from '@vercel/analytics/react';
+import { SpeedInsights } from '@vercel/speed-insights/next';
 import type { Metadata, Viewport } from 'next';
 import { Inter, Playfair_Display } from 'next/font/google';
 import type { ReactNode } from 'react';
@@ -116,6 +118,12 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             <ToastViewport />
           </ToastProvider>
         </QueryProvider>
+        {/* Vercel Analytics + Web Vitals — free on the Hobby plan, gives us
+            per-page Core Web Vitals + traffic by referrer. Both components
+            no-op outside the Vercel runtime so local `npm run dev` is
+            unaffected. */}
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );

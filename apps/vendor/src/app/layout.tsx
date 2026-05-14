@@ -1,3 +1,5 @@
+import { Analytics } from '@vercel/analytics/react';
+import { SpeedInsights } from '@vercel/speed-insights/next';
 import type { Metadata, Viewport } from 'next';
 
 import { Toaster } from '@/components/ui/toaster';
@@ -23,6 +25,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <QueryProvider>
           <Toaster>{children}</Toaster>
         </QueryProvider>
+        {/* Vercel Analytics + Web Vitals (free on Hobby). No-op outside the
+            Vercel runtime so local dev is unaffected. */}
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );

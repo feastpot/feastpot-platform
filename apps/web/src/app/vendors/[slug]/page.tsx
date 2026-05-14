@@ -22,13 +22,37 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { slug } = await params;
   try {
     const vendor = await getVendorBySlug(slug, { next: { revalidate: 300 } });
+
+    // Fallback description (used when the vendor hasn't written their own bio
+    // yet). Includes cuisine + city + a few menu items so every vendor page
+    // ships a unique og:description string — Kwame's Jollof was flagged in
+    // the live SEO audit for serving an empty description here.
+    const cuisines = vendor.cuisines?.filter(Boolean).join(' & ');
+    const city = vendor.address?.city ?? 'London';
+    const topDishes = vendor.menus
+      ?.flatMap((m) => m.items ?? [])
+      .slice(0, 3)
+      .map((i) => i.name)
+      .filter(Boolean)
+      .join(', ');
+    const fallback = [
+      cuisines ? `${cuisines} home cooking in ${city}.` : `Home cooking in ${city}.`,
+      topDishes ? `Dishes include: ${topDishes}.` : '',
+      'Order party trays, frozen packs and more on Feastpot.',
+    ]
+      .filter(Boolean)
+      .join(' ');
+    const description = vendor.description?.trim() || fallback;
+
     return {
       title: vendor.businessName,
-      description: vendor.description ?? `Order from ${vendor.businessName} on Feastpot.`,
+      description,
       openGraph: {
         title: vendor.businessName,
-        description: vendor.description ?? undefined,
-        images: vendor.coverImageUrl ? [{ url: vendor.coverImageUrl }] : undefined,
+        description,
+        images: vendor.coverImageUrl
+          ? [{ url: vendor.coverImageUrl, width: 1200, height: 630 }]
+          : undefined,
       },
     };
   } catch {
