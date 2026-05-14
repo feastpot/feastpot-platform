@@ -1,0 +1,135 @@
+You are a Next.js 15 performance engineer auditing and fixing Core Web Vitals on feastpot.co.uk.
+
+PERFORMANCE TARGETS (matching Deliveroo mobile benchmarks):
+- LCP (Largest Contentful Paint): < 2.5s on 4G mobile
+- CLS (Cumulative Layout Shift): < 0.1
+- FID/INP (Input Delay): < 200ms
+- TTFB: < 800ms
+- Total bundle size: < 200KB initial JS
+
+FROM LIVE AUDIT:
+- Homepage renders correctly but the hero section uses a CSS gradient (good — no image LCP issue)
+- /vendors shows "Loading…" which means the initial HTML is nearly empty (bad for LCP metrics)
+- The animated headlines and reviews marquee could cause CLS if dimensions are not locked
+
+═══════════════════════════════════════════════════════
+STEP 1 — Font loading optimisation
+File: apps/web/src/app/layout.tsx
+═══════════════════════════════════════════════════════
+
+Replace the Google Fonts @import in globals.css with Next.js font optimisation:
+
+import { Inter, Playfair_Display } from 'next/font/google'
+
+const inter = Inter({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-inter',
+  preload: true,
+})
+
+const playfair = Playfair_Display({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-playfair',
+  weight: ['700', '800', '900'],
+  preload: true,
+})
+
+export default function RootLayout({ children }) {
+  return (
+    <html lang="en-GB" className={`${inter.variable} ${playfair.variable}`}>
+
+Update globals.css font references:
+--font-sans:    var(--font-inter), system-ui, sans-serif;
+--font-display: var(--font-playfair), Georgia, serif;
+
+This eliminates the render-blocking Google Fonts request and enables
+font preloading that shaves 200–400ms off FCP.
+
+═══════════════════════════════════════════════════════
+STEP 2 — CLS prevention: lock all image and card dimensions
+Files: vendor-card.tsx, menu-item-card.tsx, vendor profile
+═══════════════════════════════════════════════════════
+
+Every image container must have explicit dimensions BEFORE the image loads.
+Use aspect-ratio CSS property to hold space:
+
+Vendor card cover image container:
+style={{ aspectRatio: '16/9', width: '100%', position: 'relative', overflow: 'hidden' }}
+
+Menu item image container:
+style={{ width: '88px', height: '88px', flexShrink: 0, position: 'relative' }}
+
+Vendor profile cover:
+style={{ height: '200px', position: 'relative', overflow: 'hidden' }}
+
+The skeleton components from FIX-01 already do this correctly — verify the real
+components match the skeleton dimensions exactly so there is no layout shift
+when content replaces skeletons.
+
+═══════════════════════════════════════════════════════
+STEP 3 — Defer non-critical resources
+File: apps/web/src/app/layout.tsx
+═══════════════════════════════════════════════════════
+
+Push notification permission prompt: do NOT show on first page load.
+Defer to after the user has placed their first order.
+
+Remove any immediate push subscription calls from the layout.
+The push permission prompt should only appear after:
+- User is authenticated
+- User has at least 1 delivered order
+- User has not already granted/denied permission
+
+This reduces TBT (Total Blocking Time) on the initial page load.
+
+═══════════════════════════════════════════════════════
+STEP 4 — next.config.ts: image optimisation settings
+File: apps/web/next.config.ts
+═══════════════════════════════════════════════════════
+
+Ensure the Next.js image optimisation config covers Supabase Storage:
+
+const nextConfig = {
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '*.supabase.co',
+        pathname: '/storage/v1/object/public/**',
+      },
+    ],
+    formats: ['image/avif', 'image/webp'],
+    minimumCacheTTL: 86400,  // 24 hours
+    deviceSizes: [375, 640, 750, 828, 1080],  // Mobile-first sizes
+    imageSizes: [88, 176, 256, 384],           // Icon/thumbnail sizes
+  },
+  compress: true,
+  poweredByHeader: false,
+}
+
+═══════════════════════════════════════════════════════
+STEP 5 — Bundle analysis
+═══════════════════════════════════════════════════════
+
+Install and run bundle analyser:
+npm install --save-dev @next/bundle-analyzer -w @feastpot/web
+
+In next.config.ts:
+const withBundleAnalyzer = require('@next/bundle-analyzer')({
+  enabled: process.env.ANALYZE === 'true',
+})
+module.exports = withBundleAnalyzer(nextConfig)
+
+Run: ANALYZE=true npm run build --filter=@feastpot/web
+Open the generated .next/analyze/client.html
+
+Look for and fix:
+- Any dependency > 100KB that can be dynamically imported
+- Duplicate lodash/date-fns instances
+- Large icon sets (lucide-react should be tree-shaken — verify)
+
+Run: npm run build --filter=@feastpot/web
+Confirm no TypeScript errors.
+Output all changed files in full.

@@ -126,9 +126,11 @@ const config: Config = {
         '4xl': '2rem',
       },
       fontFamily: {
-        sans: ['Inter var', 'Inter', ...defaultTheme.fontFamily.sans],
-        // Display face — Playfair for cultural warmth on hero / headings.
-        display: ['"Playfair Display"', 'Georgia', 'serif'],
+        // `--font-inter` / `--font-playfair` are emitted by next/font in
+        // apps/web/src/app/layout.tsx so the families resolve to the
+        // self-hosted, preloaded woff2 (no Google Fonts request).
+        sans: ['var(--font-inter)', 'Inter', ...defaultTheme.fontFamily.sans],
+        display: ['var(--font-playfair)', '"Playfair Display"', 'Georgia', 'serif'],
       },
       boxShadow: {
         card: '0 1px 4px 0 rgba(28,28,26,0.08), 0 4px 16px 0 rgba(28,28,26,0.04)',
