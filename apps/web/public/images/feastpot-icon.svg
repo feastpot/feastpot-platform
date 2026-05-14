@@ -4,45 +4,44 @@
   <!-- Warm cream disc -->
   <circle cx="128" cy="128" r="124" fill="#FBF6EF"/>
 
-  <!-- ===== Steam: African Caribbean palette (red, gold, green) ===== -->
+  <!-- ===== Steam: Pan-African / Caribbean palette =====
+       Deep red, gold and green, kept distinct from the brand-orange pot
+       so the three wisps don't visually blend with the outline below. -->
   <!-- Red wisp (left) -->
   <path d="M104 116
            Q88 96 100 76
            Q116 56 100 36"
-        fill="none" stroke="#C8401F" stroke-width="9" stroke-linecap="round"/>
+        fill="none" stroke="#C1272D" stroke-width="11" stroke-linecap="round"/>
   <!-- Gold wisp (center, taller) -->
   <path d="M132 116
            Q120 92 134 68
            Q150 44 130 22"
-        fill="none" stroke="#E8B940" stroke-width="9" stroke-linecap="round"/>
+        fill="none" stroke="#FFC72C" stroke-width="11" stroke-linecap="round"/>
   <!-- Green wisp (right) -->
   <path d="M158 116
            Q174 96 162 76
            Q146 56 162 36"
-        fill="none" stroke="#3D7A47" stroke-width="9" stroke-linecap="round"/>
+        fill="none" stroke="#009A49" stroke-width="11" stroke-linecap="round"/>
 
-  <!-- ===== Pot, drawn in clean strokes (warm charcoal) ===== -->
-  <g fill="none" stroke="#2A1F18" stroke-width="9" stroke-linecap="round" stroke-linejoin="round">
-    <!-- Lid knob -->
-    <circle cx="128" cy="118" r="6" fill="#2A1F18"/>
-    <!-- Lid (flattened ellipse over the rim) -->
+  <!-- ===== Pot in brand orange, matching the "feast" wordmark ===== -->
+  <g fill="none" stroke="#E8520A" stroke-width="14" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Lid knob (filled to read as a single piece with the lid stroke) -->
+    <circle cx="128" cy="116" r="7" fill="#E8520A" stroke="none"/>
+    <!-- Lid -->
     <path d="M62 134
-             Q62 116 128 116
-             Q194 116 194 134"/>
+             Q62 114 128 114
+             Q194 114 194 134"/>
     <!-- Rim line under the lid -->
     <line x1="50" y1="138" x2="206" y2="138"/>
-    <!-- Body (U-shape with rounded bottom corners) -->
+    <!-- Body -->
     <path d="M62 144
              L62 196
              Q62 224 90 224
              L166 224
              Q194 224 194 196
              L194 144"/>
-    <!-- Left side handle -->
-    <path d="M50 154
-             Q34 158 38 168"/>
-    <!-- Right side handle -->
-    <path d="M206 154
-             Q222 158 218 168"/>
+    <!-- Side handles -->
+    <path d="M50 154 Q32 158 36 170"/>
+    <path d="M206 154 Q224 158 220 170"/>
   </g>
 </svg>
