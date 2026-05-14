@@ -1,0 +1,151 @@
+You are a Next.js 15 and NestJS engineer. The most important business priority right now is onboarding real vendors. Without vendors, there is no marketplace. This prompt builds the complete vendor acquisition and onboarding journey.
+
+CURRENT STATE (from audit):
+- "Cook from home? Join Feastpot" appears only in the footer of the customer PWA
+- The vendor portal at vendor.feastpot.co.uk has an onboarding flow but it is not linked prominently
+- No vendor acquisition landing page exists
+
+COMPETITOR REFERENCE:
+Deliveroo Editions and JustEat both have dedicated "become a partner" landing pages with
+clear benefit statements, social proof, and a 2-click start flow. This is the standard.
+
+═══════════════════════════════════════════════════════
+PART 1 — Customer PWA: Vendor recruitment CTA (above fold)
+File: apps/web/src/app/page.tsx
+═══════════════════════════════════════════════════════
+
+Add a vendor recruitment strip BETWEEN the "How it works" section and the testimonials section.
+This is visible without scrolling on most phones.
+
+<section style={{ margin: '0 12px 12px', borderRadius: '20px', overflow: 'hidden' }}>
+  <div style={{
+    background: 'linear-gradient(135deg,#1C1C1A 0%,#3D1A0A 100%)',
+    padding: '20px 16px',
+  }}>
+    <div className="kente-divider" style={{ marginBottom: '14px' }} />
+    <p style={{ color: '#F5A52A', fontSize: '11px', fontWeight: 600, letterSpacing: '.08em',
+      textTransform: 'uppercase', marginBottom: '6px' }}>For cooks & caterers</p>
+    <h2 style={{ color: 'white', fontFamily: 'Playfair Display, Georgia, serif',
+      fontWeight: 800, fontSize: '22px', marginBottom: '8px', lineHeight: 1.25 }}>
+      Turn your cooking into a business
+    </h2>
+    <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: '13px', lineHeight: 1.6, marginBottom: '16px' }}>
+      Keep 88% of every sale. We handle payments, orders, and compliance. You cook.
+    </p>
+    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
+      {['£0 to join','Keep 88%','Weekly payouts','FSA support'].map(b => (
+        <span key={b} style={{
+          background: 'rgba(245,165,42,0.2)', color: '#F5A52A',
+          padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 600
+        }}>✓ {b}</span>
+      ))}
+    </div>
+    <a href="https://vendor.feastpot.co.uk/onboarding"
+      style={{ display: 'inline-block', background: '#E8520A', color: 'white',
+        padding: '13px 22px', borderRadius: '12px', fontWeight: 700,
+        fontSize: '14px', textDecoration: 'none' }}>
+      Start cooking for Feastpot →
+    </a>
+  </div>
+</section>
+
+═══════════════════════════════════════════════════════
+PART 2 — Vendor portal: improve onboarding step indicator
+File: apps/vendor/src/app/onboarding/page.tsx
+═══════════════════════════════════════════════════════
+
+Add a clear step progress indicator at the top of every onboarding step:
+
+const STEPS = [
+  { num: 1, label: 'Business details' },
+  { num: 2, label: 'Documents'        },
+  { num: 3, label: 'Set up payouts'   },
+  { num: 4, label: 'Your first menu'  },
+]
+
+<div style={{ padding: '16px', background: 'white', borderBottom: '1px solid #EDE4D4', marginBottom: '0' }}>
+  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', maxWidth: '400px', margin: '0 auto' }}>
+    {STEPS.map((s, i) => (
+      <div key={s.num} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, position: 'relative' }}>
+        {/* Connector line */}
+        {i < STEPS.length - 1 && (
+          <div style={{ position: 'absolute', top: '14px', left: '50%', right: '-50%', height: '2px',
+            background: currentStep > s.num ? '#E8520A' : '#EDE4D4', zIndex: 0 }} />
+        )}
+        {/* Step circle */}
+        <div style={{
+          width: '28px', height: '28px', borderRadius: '50%', border: '2px solid',
+          borderColor: currentStep >= s.num ? '#E8520A' : '#EDE4D4',
+          background: currentStep > s.num ? '#E8520A' : currentStep === s.num ? 'white' : '#FBF6EF',
+          color: currentStep > s.num ? 'white' : currentStep === s.num ? '#E8520A' : '#9B9894',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: '12px', fontWeight: 700, zIndex: 1, position: 'relative',
+        }}>
+          {currentStep > s.num ? '✓' : s.num}
+        </div>
+        <span style={{ fontSize: '9px', color: currentStep >= s.num ? '#1C1C1A' : '#9B9894',
+          marginTop: '4px', fontWeight: currentStep === s.num ? 600 : 400, textAlign: 'center' }}>
+          {s.label}
+        </span>
+      </div>
+    ))}
+  </div>
+</div>
+
+═══════════════════════════════════════════════════════
+PART 3 — Document upload: clear guidance
+File: apps/vendor/src/app/onboarding/page.tsx (Step 2)
+═══════════════════════════════════════════════════════
+
+Each document upload slot must show:
+1. What the document is and WHY it is required (one sentence)
+2. Accepted file types and max size
+3. A checklist of what the document must show
+4. An "Example" collapsible showing a sample document layout
+
+Required documents with guidance copy:
+
+Food Business Registration:
+  "Required by the Food Safety Act 1990. Free to obtain from your local council."
+  "Must show: your name, business address, registration number, date of issue."
+  "Get yours at: food.gov.uk/business-guidance/register-a-food-business"
+
+Food Hygiene Certificate (minimum Level 2):
+  "Proves you have completed food safety training."
+  "Must show: your name, the awarding body, the date of completion."
+
+Public Liability Insurance:
+  "Protects you and your customers. Minimum £1 million cover required."
+  "Must show: your name, policy number, coverage amount, expiry date."
+
+Photo ID:
+  "Passport or driving licence. Used for identity verification only."
+
+Bank Account Details (via Stripe):
+  "For weekly payouts. Stripe handles this securely — we never see your account number."
+
+═══════════════════════════════════════════════════════
+PART 4 — Post-onboarding: confirmation and next steps email
+File: apps/api/src/modules/notifications/templates/email/vendor-onboarding-complete.template.ts
+═══════════════════════════════════════════════════════
+
+Create this email template (sent when vendor completes all 4 onboarding steps):
+
+Subject: "Welcome to Feastpot! Here's what happens next 🍲"
+
+Body sections:
+1. "You've done the hard part" — congratulations message
+2. What happens next (numbered list):
+   - Your documents are reviewed within 2 business days
+   - We'll email you when you're approved
+   - Once approved, your menu goes live and customers can find you
+3. While you wait — tips for a great first week:
+   - Add more menu items (3 minimum, 8+ recommended)
+   - Upload real food photos (biggest impact on orders)
+   - Set clear delivery days and times
+4. Questions? Contact: support@feastpot.co.uk or WhatsApp
+
+Wire this into the vendor onboarding completion flow in the API.
+
+Run: npm run typecheck in apps/vendor and apps/web.
+Output all changed files in full.

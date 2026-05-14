@@ -147,6 +147,111 @@ export default async function HomePage() {
       </section>
       <div className="kente-divider" aria-hidden style={{ marginTop: '12px' }} />
 
+      {/* Vendor recruitment strip — placed AFTER "How it works" so a first-
+          time visitor reads the value prop for customers first, then sees the
+          "you can be on the other side of this" pitch. The dark
+          charcoal→pot-brown gradient deliberately contrasts the surrounding
+          cream so it reads as a separate "for cooks" surface, not a customer
+          banner. Vendor portal lives on its own subdomain (vendor.feastpot.co.uk)
+          so the CTA is a plain <a> rather than next/link — we want the new
+          tab / context switch behaviour the browser provides. */}
+      <section
+        aria-labelledby="vendor-recruitment-heading"
+        style={{ margin: '12px 12px 12px', borderRadius: '20px', overflow: 'hidden' }}
+      >
+        <div
+          style={{
+            background: 'linear-gradient(135deg, #1C1C1A 0%, #3D1A0A 100%)',
+            padding: '20px 16px',
+          }}
+        >
+          <div className="kente-divider" aria-hidden style={{ marginBottom: '14px' }} />
+          <p
+            style={{
+              color: '#F5A52A',
+              fontSize: '11px',
+              fontWeight: 600,
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              marginBottom: '6px',
+            }}
+          >
+            For cooks &amp; caterers
+          </p>
+          <h2
+            id="vendor-recruitment-heading"
+            style={{
+              color: 'white',
+              fontFamily: 'Playfair Display, Georgia, serif',
+              fontWeight: 800,
+              fontSize: '22px',
+              marginBottom: '8px',
+              lineHeight: 1.25,
+            }}
+          >
+            Turn your cooking into a business
+          </h2>
+          <p
+            style={{
+              color: 'rgba(255, 255, 255, 0.65)',
+              fontSize: '13px',
+              lineHeight: 1.6,
+              marginBottom: '16px',
+            }}
+          >
+            Keep 88% of every sale. We handle payments, orders, and compliance. You cook.
+          </p>
+          <ul
+            style={{
+              display: 'flex',
+              gap: '8px',
+              flexWrap: 'wrap',
+              marginBottom: '14px',
+              padding: 0,
+              listStyle: 'none',
+            }}
+          >
+            {['£0 to join', 'Keep 88%', 'Weekly payouts', 'FSA support'].map((b) => (
+              <li
+                key={b}
+                style={{
+                  background: 'rgba(245, 165, 42, 0.2)',
+                  color: '#F5A52A',
+                  padding: '4px 10px',
+                  borderRadius: '20px',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                }}
+              >
+                ✓ {b}
+              </li>
+            ))}
+          </ul>
+          <a
+            href="https://vendor.feastpot.co.uk/onboarding"
+            // External vendor portal — open in a new context so we don't
+            // navigate the customer away from the marketplace.
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: 'inline-block',
+              background: '#E8520A',
+              color: 'white',
+              padding: '13px 22px',
+              borderRadius: '12px',
+              fontWeight: 700,
+              fontSize: '14px',
+              textDecoration: 'none',
+              minHeight: '44px',
+              minWidth: '44px',
+            }}
+          >
+            Start cooking for Feastpot →
+          </a>
+        </div>
+      </section>
+      <div className="kente-divider" aria-hidden />
+
       {/* Long-form testimonials — deep cream so the two cream-bands either
           side of "How it works" don't visually merge. */}
       <div style={{ background: '#F5EDE0' }}>

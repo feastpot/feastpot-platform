@@ -373,6 +373,58 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
       ),
     channels: ['email'],
   },
+  // ---------- Vendor onboarding ----------
+  /**
+   * Sent once a vendor has completed all four self-serve onboarding steps
+   * (profile + docs + Stripe + first menu items). Bridges the gap between
+   * "I clicked submit" and "compliance approved me to go live" — without
+   * it the vendor sits in silence for up to 2 business days wondering if
+   * they did something wrong.
+   *
+   * Wiring is a follow-up: today the four "done" flags are computed
+   * client-side and there's no single API endpoint that fires once when
+   * everything's complete. Two options for the wire-up:
+   *  1. Add a one-shot POST /v1/vendors/me/onboarding-complete the
+   *     vendor portal calls when canGoLive flips true (server uses a
+   *     `Vendor.onboardingCompletedAt` flag for idempotency).
+   *  2. Fire on the first `compliance.approveVendor` admin action
+   *     (closer to the user-facing "you're approved" event).
+   * The template is registered here so the dispatch site can be added
+   * without a second template change.
+   */
+  vendor_onboarding_complete: {
+    subject: () => "Welcome to Feastpot! Here's what happens next 🍲",
+    render: (d) =>
+      baseLayout(
+        "You've done the hard part",
+        h2("You've done the hard part") +
+          p(
+            `Thanks${d.vendorName ? `, ${esc(d.vendorName)}` : ''}, for finishing your onboarding. Your menu, documents, and payout details are all in.`,
+          ) +
+          h2('What happens next') +
+          // Lists must be raw <ol>/<ul> strings — wrapping them in p() would
+          // emit <p><ol>…</ol></p>, which is invalid HTML and renders
+          // inconsistently across Outlook / Gmail / Apple Mail.
+          '<ol style="margin:0 0 14px 20px;padding:0;color:#1C1C1A;font-size:14px;line-height:1.6">' +
+            '<li>Your documents are reviewed within <strong>2 business days</strong>.</li>' +
+            "<li>We'll email you the moment you're approved.</li>" +
+            '<li>Once approved, your menu goes live and customers can find you in search.</li>' +
+            '</ol>' +
+          h2('While you wait — set yourself up to win') +
+          '<ul style="margin:0 0 14px 20px;padding:0;color:#1C1C1A;font-size:14px;line-height:1.6">' +
+            '<li>Add more menu items — <strong>3 minimum, 8+ recommended</strong>.</li>' +
+            '<li>Upload real food photos. This is the single biggest driver of orders.</li>' +
+            '<li>Set clear delivery days and times so customers know when to expect you.</li>' +
+            '</ul>' +
+          brandButton('Open vendor portal', 'https://vendor.feastpot.co.uk/onboarding', 'vendorBlue') +
+          p(
+            'Questions? Email <a href="mailto:support@feastpot.co.uk">support@feastpot.co.uk</a> or message us on WhatsApp.',
+            '#5F5E5A',
+          ),
+      ),
+    channels: ['email'],
+  },
+
   review_request: {
     subject: (d) => `How was your food from ${str(d.vendorName, 'your vendor')}? ⭐`,
     render: (d) =>
