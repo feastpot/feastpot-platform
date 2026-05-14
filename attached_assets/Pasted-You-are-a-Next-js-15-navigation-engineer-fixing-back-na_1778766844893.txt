@@ -1,0 +1,126 @@
+You are a Next.js 15 navigation engineer fixing back navigation across feastpot.co.uk.
+
+PROBLEM IDENTIFIED FROM LIVE AUDIT:
+1. The vendor profile page shows a back link "/vendors" as plain text — not a styled back button
+2. No back arrow in the TopNav on inner pages — users must use phone hardware back button
+3. The TopNav on inner pages shows the page title (e.g. "Browse") but no navigation affordance
+4. Users who land directly on a vendor page (from Google or a shared link) have no visible path back
+
+DEMOGRAPHIC CONTEXT:
+The primary users are 30–55 year olds on mid-range Android phones.
+This age group is less likely to use swipe-back gestures. A visible back button is not optional.
+
+FILE: apps/web/src/components/layout/top-nav.tsx and vendor profile page.
+
+═══════════════════════════════════════════════════════
+STEP 1 — TopNav: back button on all inner pages
+File: apps/web/src/components/layout/top-nav.tsx
+═══════════════════════════════════════════════════════
+
+The TopNav currently shows a page title on inner pages with no navigation control.
+Add a back arrow to the left of the title on all non-homepage routes.
+
+import { useRouter, usePathname } from 'next/navigation'
+import { ChevronLeft } from 'lucide-react'
+
+// Determine if we are on an inner page
+const isHome = pathname === '/'
+const isVendorProfile = pathname.startsWith('/vendors/') && pathname !== '/vendors'
+const isCheckout = pathname === '/checkout'
+const isOrderTracking = pathname.startsWith('/orders/')
+
+// Back destination logic
+const getBackPath = (): string => {
+  if (isVendorProfile) return '/vendors'
+  if (isCheckout) return router.back() as any  // go back to vendor page
+  if (pathname.startsWith('/orders/') && pathname.endsWith('/tracking')) return '/account/orders'
+  if (pathname.startsWith('/orders/') && pathname.endsWith('/review')) return '/account/orders'
+  if (pathname.startsWith('/account/')) return '/account'
+  if (pathname.startsWith('/legal/')) return '/'
+  return '/'
+}
+
+On all non-homepage routes, replace the title-only left section with:
+
+<div className="flex items-center gap-1">
+  <button
+    onClick={() => {
+      const back = getBackPath()
+      if (typeof back === 'string') router.push(back)
+      else router.back()
+    }}
+    className="flex items-center justify-center w-9 h-9 rounded-full hover:bg-cream transition-colors touch-target -ml-1"
+    aria-label="Go back"
+  >
+    <ChevronLeft className="w-6 h-6" style={{ color: '#1C1C1A' }} strokeWidth={2.5} />
+  </button>
+  <h1 className="text-[17px] font-semibold" style={{ color: '#1C1C1A' }}>{title}</h1>
+</div>
+
+═══════════════════════════════════════════════════════
+STEP 2 — Vendor profile: styled breadcrumb replaces plain text
+File: apps/web/src/app/vendors/[slug]/page.tsx
+═══════════════════════════════════════════════════════
+
+The current vendor profile shows "/vendors" as a plain text link above the cover image.
+Replace with a proper breadcrumb component:
+
+import Link from 'next/link'
+import { ChevronRight } from 'lucide-react'
+
+// Above the cover image, inside the page content:
+<nav aria-label="Breadcrumb" style={{ padding: '10px 16px', background: '#FBF6EF' }}>
+  <ol style={{ display: 'flex', alignItems: 'center', gap: '4px', listStyle: 'none', fontSize: '12px' }}>
+    <li>
+      <Link href="/" style={{ color: '#9B9894', textDecoration: 'none' }}>Home</Link>
+    </li>
+    <li aria-hidden="true"><ChevronRight className="w-3 h-3" style={{ color: '#9B9894' }} /></li>
+    <li>
+      <Link href="/vendors" style={{ color: '#9B9894', textDecoration: 'none' }}>Browse</Link>
+    </li>
+    <li aria-hidden="true"><ChevronRight className="w-3 h-3" style={{ color: '#9B9894' }} /></li>
+    <li aria-current="page" style={{ color: '#1C1C1A', fontWeight: 500 }}>
+      {vendor.businessName}
+    </li>
+  </ol>
+</nav>
+
+Remove the existing plain "/vendors" text link — the breadcrumb replaces it.
+
+═══════════════════════════════════════════════════════
+STEP 3 — Scroll position preservation on back navigation
+File: apps/web/src/app/vendors/page.tsx
+═══════════════════════════════════════════════════════
+
+When a user taps a vendor card and then presses back, the /vendors list scrolls
+back to the top. This is disorienting — the user expects to return to where they were.
+
+Add scroll position persistence:
+
+'use client'
+import { useEffect, useRef } from 'react'
+
+// Store scroll position before navigating away
+useEffect(() => {
+  const handleBeforeUnload = () => {
+    sessionStorage.setItem('vendors-scroll', window.scrollY.toString())
+  }
+  window.addEventListener('beforeunload', handleBeforeUnload)
+  return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+}, [])
+
+// Restore scroll position on mount
+useEffect(() => {
+  const saved = sessionStorage.getItem('vendors-scroll')
+  if (saved) {
+    window.scrollTo({ top: parseInt(saved), behavior: 'instant' })
+    sessionStorage.removeItem('vendors-scroll')
+  }
+}, [])
+
+Also use Next.js scroll={false} on vendor card links to prevent scroll-to-top:
+<Link href={`/vendors/${vendor.slug}`} scroll={false}>
+
+Run: npm run typecheck — fix all errors.
+Test: tap a vendor → press back → confirm scroll position is preserved.
+Output all changed files in full.

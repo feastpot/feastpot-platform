@@ -1,12 +1,54 @@
 'use client';
 
-import { Bell, ShoppingBasket } from 'lucide-react';
+import { Bell, ChevronLeft, ShoppingBasket } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 
 import { BasketDrawer } from '@/components/basket/basket-drawer';
 import { useBasketStore } from '@/store/basket.store';
+
+/**
+ * Resolve an explicit back destination for the TopNav back button.
+ *
+ * We avoid `router.back()` as the primary path because users who land
+ * deep-linked from Google or a shared SMS have no history entry — the
+ * browser would either no-op or kick them off the site. Returning a
+ * concrete URL guarantees the back affordance always works, and the
+ * caller can still fall through to `router.back()` for cases where the
+ * in-context history is the right destination (e.g. checkout, where
+ * the previous vendor page is the natural return).
+ *
+ * Order matters — more specific paths must come before their parents.
+ */
+function resolveBackPath(
+  pathname: string,
+): { href: string } | { history: true; fallback: string } {
+  // Order/account sub-pages return to the relevant list, not the root.
+  if (pathname.startsWith('/orders/') && /\/(tracking|review|confirmation)$/.test(pathname)) {
+    return { href: '/account/orders' };
+  }
+  if (pathname.startsWith('/orders/')) return { href: '/account/orders' };
+  // Checkout — natural back is the vendor page the basket was built on,
+  // so we let the browser history walk one step back. Fallback to
+  // /vendors when the user has no history (deep link from a saved
+  // checkout URL, push notification, etc.) so the button never no-ops.
+  if (pathname === '/checkout') return { history: true, fallback: '/vendors' };
+  // Vendor profile → search list.
+  if (pathname.startsWith('/vendors/') && pathname !== '/vendors') {
+    return { href: '/vendors' };
+  }
+  // Nested events / help / legal pages return to their index, not /.
+  if (pathname.startsWith('/events/') && pathname !== '/events') return { href: '/events' };
+  if (pathname.startsWith('/help/') && pathname !== '/help') return { href: '/help' };
+  if (pathname.startsWith('/legal/') && pathname !== '/legal') return { href: '/legal' };
+  // /account/* → /account (but /account itself goes home via the
+  // catch-all below).
+  if (pathname.startsWith('/account/')) return { href: '/account' };
+  // Catch-all for top-level inner pages (/vendors, /events, /account,
+  // /legal, /help, /offline) — back goes home.
+  return { href: '/' };
+}
 
 /**
  * Page titles mapped to route prefixes. The empty string for `/` means "show
@@ -54,6 +96,7 @@ function fallbackTitleFromPath(pathname: string): string | null {
  */
 export function TopNav() {
   const pathname = usePathname() ?? '/';
+  const router = useRouter();
   const itemCount = useBasketStore((s) => s.items.reduce((acc, i) => acc + i.quantity, 0));
 
   const isHome = pathname === '/';
@@ -62,6 +105,23 @@ export function TopNav() {
     : (PAGE_TITLES.find(([prefix]) => pathname.startsWith(prefix))?.[1] ??
       fallbackTitleFromPath(pathname) ??
       '');
+
+  const handleBack = () => {
+    const target = resolveBackPath(pathname);
+    if ('history' in target) {
+      // window.history.length === 1 means the current entry is the
+      // first in this tab — router.back() would be a no-op. Route to
+      // the fallback so the button always advances the user somewhere
+      // sensible. (length includes the current entry, hence <= 1.)
+      if (typeof window !== 'undefined' && window.history.length <= 1) {
+        router.push(target.fallback);
+      } else {
+        router.back();
+      }
+    } else {
+      router.push(target.href);
+    }
+  };
 
   return (
     <header
@@ -104,14 +164,34 @@ export function TopNav() {
             />
           </Link>
         ) : (
-          <h1 className="truncate text-[17px] font-semibold text-dark">{title}</h1>
+          // Inner-page header: back chevron + truncating H1. The back
+          // button is critical for the 30–55yo Android demographic that
+          // is less likely to use swipe-back gestures, and for users who
+          // landed deep-linked from Google or a shared SMS (no history).
+          // -ml-2 nudges the chevron flush with the page edge so it
+          // sits in the natural left-thumb zone; min-w-0 + flex-1 lets
+          // the title truncate instead of pushing the basket off-screen.
+          <div className="flex min-w-0 flex-1 items-center gap-1">
+            <button
+              type="button"
+              onClick={handleBack}
+              aria-label="Go back"
+              className="-ml-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-dark transition-colors hover:bg-surface"
+            >
+              <ChevronLeft className="h-6 w-6" strokeWidth={2.25} aria-hidden />
+            </button>
+            <h1 className="truncate text-[17px] font-semibold text-dark">{title}</h1>
+          </div>
         )}
 
         <div className="flex items-center gap-1">
+          {/* Bell + basket bumped to 44×44 (h-11 w-11) so the entire
+              top-bar control row meets WCAG 2.5.5 / Apple HIG mobile
+              minimums. Icon size unchanged — just the hit area grows. */}
           <button
             type="button"
             aria-label="Notifications"
-            className="flex h-10 w-10 items-center justify-center rounded-full text-mid transition-colors hover:bg-surface hover:text-dark"
+            className="flex h-11 w-11 items-center justify-center rounded-full text-mid transition-colors hover:bg-surface hover:text-dark"
           >
             <Bell className="h-5 w-5" strokeWidth={1.75} aria-hidden />
           </button>
@@ -120,7 +200,7 @@ export function TopNav() {
             <button
               type="button"
               aria-label={`Basket (${itemCount} item${itemCount === 1 ? '' : 's'})`}
-              className="relative flex h-10 w-10 items-center justify-center rounded-full text-mid transition-colors hover:bg-surface hover:text-dark"
+              className="relative flex h-11 w-11 items-center justify-center rounded-full text-mid transition-colors hover:bg-surface hover:text-dark"
             >
               <ShoppingBasket className="h-5 w-5" strokeWidth={1.75} aria-hidden />
               {itemCount > 0 && (

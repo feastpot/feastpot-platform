@@ -2,7 +2,7 @@
 
 import { X } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { Suspense } from 'react';
+import { Suspense, useEffect } from 'react';
 
 import { CuisineFilterSkeleton } from '@/components/home/cuisine-filters-skeleton';
 import { CuisineFilter } from '@/components/vendor/cuisine-filter';
@@ -44,6 +44,85 @@ function VendorSearch() {
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, error } =
     useVendors(search);
   const vendors = data?.pages.flatMap((p) => p.data) ?? [];
+
+  // Scroll-position restoration. Next 15's App Router doesn't restore
+  // scroll on client-side back navigation, so tapping a vendor card and
+  // pressing back drops the user at the top of the list — disorienting
+  // when they were 20 cards deep.
+  //
+  // Persistence strategy: capture-phase click listener on the vendor
+  // grid intercepts every navigation intent and writes scrollY BEFORE
+  // Next's router unmounts the page. `pagehide` is kept as a belt-and-
+  // braces fallback for hardware back / tab switch, but it isn't
+  // reliable for SPA route changes on its own.
+  //
+  // Key is scoped to pathname + search params so /vendors?cuisine=jollof
+  // and /vendors?cuisine=ghanaian don't restore each other's offsets
+  // when the user changes filters.
+  //
+  // Restore strategy: a bounded rAF retry loop. With infinite scroll,
+  // if the saved Y is past the initial content height the browser
+  // silently clamps to the bottom; the loop polls scrollHeight for up
+  // to ~30 frames (~500ms at 60fps) and re-triggers `fetchNextPage`
+  // when more pages are needed to reach the saved offset.
+  const searchKey = params?.toString() ?? '';
+  const scrollKey = `feastpot.vendors-scroll:${pathname}?${searchKey}`;
+
+  useEffect(() => {
+    const save = () => {
+      sessionStorage.setItem(scrollKey, String(window.scrollY));
+    };
+    const onClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target?.closest('a[href^="/vendors/"]')) save();
+    };
+    document.addEventListener('click', onClick, true);
+    window.addEventListener('pagehide', save);
+    return () => {
+      document.removeEventListener('click', onClick, true);
+      window.removeEventListener('pagehide', save);
+    };
+  }, [scrollKey]);
+
+  useEffect(() => {
+    if (vendors.length === 0) return;
+    const saved = sessionStorage.getItem(scrollKey);
+    if (!saved) return;
+    const targetY = Number.parseInt(saved, 10);
+    if (!Number.isFinite(targetY) || targetY <= 0) {
+      sessionStorage.removeItem(scrollKey);
+      return;
+    }
+
+    let frames = 0;
+    let cancelled = false;
+    const tick = () => {
+      if (cancelled) return;
+      const max = document.documentElement.scrollHeight - window.innerHeight;
+      if (max >= targetY) {
+        window.scrollTo({ top: targetY, behavior: 'instant' as ScrollBehavior });
+        sessionStorage.removeItem(scrollKey);
+        return;
+      }
+      // Need more content. Trigger the next page (idempotent — TanStack
+      // Query dedupes) and keep polling until we either have enough
+      // height or run out of frames.
+      if (hasNextPage && !isFetchingNextPage) fetchNextPage();
+      if (++frames < 30) {
+        requestAnimationFrame(tick);
+      } else {
+        // Give up — clamp to whatever height we have so we land near
+        // the user's previous position rather than the top.
+        window.scrollTo({ top: max, behavior: 'instant' as ScrollBehavior });
+        sessionStorage.removeItem(scrollKey);
+      }
+    };
+    requestAnimationFrame(tick);
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vendors.length > 0, scrollKey]);
 
   const clearSearch = () => {
     const next = new URLSearchParams(params?.toString() ?? '');

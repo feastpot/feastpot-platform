@@ -1,4 +1,4 @@
-import { ArrowLeft, Clock, ShoppingBag, Star, Truck } from 'lucide-react';
+import { ChevronRight, Clock, ShoppingBag, Star, Truck } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -116,6 +116,36 @@ export default async function VendorProfilePage({ params }: PageProps) {
 
   return (
     <div className="px-4 pb-6">
+      {/* Breadcrumb — gives deep-linked visitors (Google / shared SMS)
+          a visible Home → Browse → {vendor} trail before the visual
+          chrome takes over. The TopNav back chevron handles single-step
+          back; the breadcrumb covers the "where am I in the site" gap
+          and provides per-segment links to either parent. -mx-4 lets it
+          bleed edge-to-edge so the warm cream strip reads as a chrome
+          band rather than a card. */}
+      <nav
+        aria-label="Breadcrumb"
+        className="-mx-4 border-b border-cream-warm bg-surface px-4 py-2"
+      >
+        <ol className="flex items-center gap-1 text-[12px] text-mid">
+          <li>
+            <Link href="/" className="hover:text-dark">Home</Link>
+          </li>
+          <li aria-hidden="true" className="flex items-center">
+            <ChevronRight className="h-3 w-3" aria-hidden />
+          </li>
+          <li>
+            <Link href="/vendors" className="hover:text-dark">Browse</Link>
+          </li>
+          <li aria-hidden="true" className="flex items-center">
+            <ChevronRight className="h-3 w-3" aria-hidden />
+          </li>
+          <li aria-current="page" className="min-w-0 truncate font-medium text-dark">
+            {vendor.businessName}
+          </li>
+        </ol>
+      </nav>
+
       {/* HERO — bleeds edge-to-edge inside max-w-lg.
           Brand-DNA fallback: when no cover photo is uploaded (most early
           vendors), we render a rich scotch→pot→terracotta gradient with the
@@ -155,13 +185,11 @@ export default async function VendorProfilePage({ params }: PageProps) {
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-dark/50 via-transparent to-dark/10" />
         </div>
 
-        <Link
-          href="/vendors"
-          aria-label="Back to vendors"
-          className="touch-target absolute left-3 top-3 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-dark shadow-sm backdrop-blur transition-colors hover:bg-white"
-        >
-          <ArrowLeft className="h-5 w-5" aria-hidden />
-        </Link>
+        {/* The hero-overlay back arrow that previously sat here was
+            removed — TopNav now ships a global back chevron on every
+            inner page, and the breadcrumb above gives a textual
+            fallback. Two visible back affordances on the same view
+            invite confusion (Deliveroo / UberEats both ship one). */}
 
         {vendor.logoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
