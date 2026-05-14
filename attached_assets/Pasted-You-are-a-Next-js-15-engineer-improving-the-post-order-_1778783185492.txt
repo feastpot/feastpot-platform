@@ -1,0 +1,131 @@
+You are a Next.js 15 engineer improving the post-order experience on feastpot.co.uk.
+
+Industry research confirms: "real-time order tracking" is the #1 most-used feature on food delivery apps. The order tracking page must be excellent because it is what customers see most during the critical delivery window when they are most anxious.
+
+═══════════════════════════════════════════════════════
+STEP 1 — Order tracking timeline
+File: apps/web/src/app/orders/[id]/tracking/page.tsx
+═══════════════════════════════════════════════════════
+
+Create a 5-stage vertical timeline:
+
+const STAGES = [
+  { key: 'pending',    icon: '🛒', label: 'Order placed'    },
+  { key: 'accepted',   icon: '👨‍🍳', label: 'Vendor confirmed' },
+  { key: 'preparing',  icon: '🍲', label: 'Being prepared'  },
+  { key: 'dispatched', icon: '🚗', label: 'On the way'      },
+  { key: 'delivered',  icon: '✅', label: 'Delivered'       },
+]
+
+const ORDER_INDEX: Record<string, number> = {
+  pending:0, accepted:1, preparing:2, dispatched:3, delivered:4
+}
+
+For each stage, show:
+- Completed (index < currentIndex): green check circle, solid line to next, timestamp
+- Current (index === currentIndex): brand orange circle with pulsing ring, "In progress" label
+- Future (index > currentIndex): grey circle with dashed line
+
+{STAGES.map((stage, i) => {
+  const isComplete = i < ORDER_INDEX[currentStatus]
+  const isCurrent  = i === ORDER_INDEX[currentStatus]
+  return (
+    <div key={stage.key} style={{ display:'flex', gap:'12px', marginBottom:'8px' }}>
+      {/* Stage indicator */}
+      <div style={{ display:'flex', flexDirection:'column', alignItems:'center' }}>
+        <div style={{
+          width:'40px', height:'40px', borderRadius:'50%', flexShrink:0,
+          background: isComplete ? '#3D7A47' : isCurrent ? 'white' : '#F5EDE0',
+          border: `2px solid ${isComplete?'#3D7A47':isCurrent?'#E8520A':'#EDE4D4'}`,
+          display:'flex', alignItems:'center', justifyContent:'center',
+          fontSize:'18px',
+          boxShadow: isCurrent ? '0 0 0 4px rgba(232,82,10,0.15)' : 'none',
+          animation: isCurrent ? 'fp-pulse 2s infinite' : 'none',
+        }}>
+          {isComplete ? '✓' : stage.icon}
+        </div>
+        {i < 4 && <div style={{ width:'2px', flex:1, minHeight:'24px', marginTop:'4px',
+          background: isComplete ? '#3D7A47' : '#EDE4D4',
+          borderStyle: isCurrent ? 'solid' : 'dashed', borderWidth:'0 0 0 2px',
+          borderColor: isComplete ? '#3D7A47' : '#EDE4D4' }} />}
+      </div>
+      {/* Stage text */}
+      <div style={{ paddingTop:'8px', paddingBottom:'8px' }}>
+        <p style={{ fontSize:'14px', fontWeight: isCurrent?700:500,
+          color: isComplete?'#1D9E75':isCurrent?'#1C1C1A':'#9B9894', margin:'0 0 2px' }}>
+          {stage.label}
+        </p>
+        {isComplete && order.statusTimestamps?.[stage.key] && (
+          <p style={{ fontSize:'11px', color:'#9B9894', margin:0 }}>
+            {new Date(order.statusTimestamps[stage.key]).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}
+          </p>
+        )}
+        {isCurrent && <p style={{fontSize:'11px',color:'#E8520A',fontWeight:500,margin:0}}>In progress…</p>}
+      </div>
+    </div>
+  )
+})}
+
+═══════════════════════════════════════════════════════
+STEP 2 — ETA display and vendor contact when dispatched
+═══════════════════════════════════════════════════════
+
+When order.status === 'dispatched':
+
+{/* ETA card */}
+{order.etaAt && (
+  <div style={{ background:'#E1F5EE', borderRadius:'16px', padding:'14px 16px', marginBottom:'12px',
+    display:'flex', alignItems:'center', gap:'12px' }}>
+    <span style={{fontSize:'36px'}}>🚗</span>
+    <div>
+      <p style={{fontWeight:700,color:'#1C1C1A',margin:'0 0 2px',fontSize:'15px'}}>On the way!</p>
+      <p style={{color:'#3D7A47',fontWeight:600,margin:0,fontSize:'13px'}}>
+        Expected by {new Date(order.etaAt).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}
+      </p>
+    </div>
+  </div>
+)}
+
+{/* Vendor contact */}
+{order.vendorPhone && (
+  <a href={`https://wa.me/${order.vendorPhone.replace(/\D/g,'')}?text=${encodeURIComponent('Hi! I'm waiting for my Feastpot order. Any update?')}`}
+    target="_blank" rel="noopener noreferrer"
+    style={{ display:'flex', alignItems:'center', gap:'10px', padding:'12px 14px',
+      background:'white', borderRadius:'14px', border:'1px solid #EDE4D4', textDecoration:'none',
+      marginBottom:'12px' }}>
+    <span style={{fontSize:'22px'}}>💬</span>
+    <div>
+      <p style={{fontSize:'13px',fontWeight:600,color:'#1C1C1A',margin:0}}>Contact {order.vendorName}</p>
+      <p style={{fontSize:'11px',color:'#9B9894',margin:0}}>WhatsApp your cook directly</p>
+    </div>
+  </a>
+)}
+
+═══════════════════════════════════════════════════════
+STEP 3 — Post-delivery review prompt
+═══════════════════════════════════════════════════════
+
+When order.status === 'delivered' AND no review exists for this order:
+
+<div style={{ background:'linear-gradient(135deg,#1C1C1A,#3D1A0A)', borderRadius:'20px',
+  padding:'20px 16px', textAlign:'center', marginTop:'16px' }}>
+  <p style={{color:'white',fontWeight:800,fontSize:'18px',
+    fontFamily:'Playfair Display,Georgia,serif',marginBottom:'6px'}}>
+    How was your order?
+  </p>
+  <p style={{color:'rgba(255,255,255,0.6)',fontSize:'13px',marginBottom:'14px'}}>
+    from {order.vendorName}
+  </p>
+  <div style={{ display:'flex', justifyContent:'center', gap:'8px', marginBottom:'16px' }}>
+    {[1,2,3,4,5].map(star => (
+      <button key={star} onClick={() => router.push(`/orders/${order.id}/review?rating=${star}`)}
+        style={{ fontSize:'36px', background:'none', border:'none', cursor:'pointer',
+          WebkitTapHighlightColor:'transparent' }}>
+        ⭐
+      </button>
+    ))}
+  </div>
+  <p style={{color:'rgba(255,255,255,0.4)',fontSize:'11px'}}>Tap a star to leave a review</p>
+</div>
+
+Run: npm run typecheck. Output all files in full.
