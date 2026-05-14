@@ -1,129 +1,48 @@
 <svg viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Feastpot">
   <title>Feastpot</title>
-  <defs>
-    <linearGradient id="fpiFlameRed" x1="0" y1="1" x2="0" y2="0">
-      <stop offset="0" stop-color="#B5361A"/>
-      <stop offset="1" stop-color="#E8520A"/>
-    </linearGradient>
-    <linearGradient id="fpiFlameYellow" x1="0" y1="1" x2="0" y2="0">
-      <stop offset="0" stop-color="#E89A1F"/>
-      <stop offset="1" stop-color="#F5C84A"/>
-    </linearGradient>
-    <linearGradient id="fpiFlameGreen" x1="0" y1="1" x2="0" y2="0">
-      <stop offset="0" stop-color="#2F6B36"/>
-      <stop offset="1" stop-color="#5BA341"/>
-    </linearGradient>
-    <linearGradient id="fpiPotBody" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#C68955"/>
-      <stop offset="0.5" stop-color="#A06A38"/>
-      <stop offset="1" stop-color="#7A4B28"/>
-    </linearGradient>
-  </defs>
 
-  <!-- Cream disc -->
+  <!-- Warm cream disc -->
   <circle cx="128" cy="128" r="124" fill="#FBF6EF"/>
 
-  <!-- ===== Flames (sit above the rim ~y=124) ===== -->
-  <!-- Red flame left -->
-  <path d="M104 124
-           Q86 100 94 70
-           Q102 44 88 22
-           Q98 50 90 70
-           Q82 92 100 110
-           Q86 96 80 72
-           Q80 52 92 36
-           Q76 60 80 90
-           Q86 110 100 124Z"
-        fill="url(#fpiFlameRed)"/>
-  <!-- Yellow flame center -->
-  <path d="M122 124
-           Q118 96 124 70
-           Q132 42 122 18
-           Q138 42 134 70
-           Q142 50 150 38
-           Q142 66 134 90
-           Q130 110 138 124Z"
-        fill="url(#fpiFlameYellow)"/>
-  <!-- Green flame right -->
-  <path d="M148 124
-           Q170 100 162 72
-           Q156 44 178 24
-           Q170 50 178 72
-           Q188 50 196 36
-           Q190 64 180 86
-           Q172 108 176 124Z"
-        fill="url(#fpiFlameGreen)"/>
+  <!-- ===== Steam: African Caribbean palette (red, gold, green) ===== -->
+  <!-- Red wisp (left) -->
+  <path d="M104 116
+           Q88 96 100 76
+           Q116 56 100 36"
+        fill="none" stroke="#C8401F" stroke-width="9" stroke-linecap="round"/>
+  <!-- Gold wisp (center, taller) -->
+  <path d="M132 116
+           Q120 92 134 68
+           Q150 44 130 22"
+        fill="none" stroke="#E8B940" stroke-width="9" stroke-linecap="round"/>
+  <!-- Green wisp (right) -->
+  <path d="M158 116
+           Q174 96 162 76
+           Q146 56 162 36"
+        fill="none" stroke="#3D7A47" stroke-width="9" stroke-linecap="round"/>
 
-  <!-- ===== Floating ingredients ===== -->
-  <!-- Yellow gourd top -->
-  <g transform="translate(128, 36)">
-    <ellipse cx="0" cy="0" rx="11" ry="13" fill="#E8B940"/>
-    <path d="M0 -13 Q3 -18 7 -19" fill="none" stroke="#6B5024" stroke-width="2" stroke-linecap="round"/>
-  </g>
-  <!-- Red chilli right -->
-  <g transform="translate(160, 60) rotate(-10)">
-    <path d="M0 0 Q-3 12 0 20 Q4 24 6 20 Q9 12 5 0Z" fill="#D04621"/>
-    <path d="M0 0 Q1 -3 4 -5" fill="none" stroke="#3D7A47" stroke-width="2" stroke-linecap="round"/>
-  </g>
-
-  <!-- ===== Pot ===== -->
-  <!-- Rim back -->
-  <ellipse cx="128" cy="138" rx="74" ry="14" fill="#6B3D1A"/>
-  <!-- Rim top -->
-  <ellipse cx="128" cy="134" rx="68" ry="11" fill="#B5793F"/>
-  <ellipse cx="128" cy="132" rx="60" ry="7" fill="#7A4B28"/>
-
-  <!-- Body -->
-  <path d="M58 140
-           Q50 188 64 212
-           Q84 232 128 232
-           Q172 232 192 212
-           Q206 188 198 140Z"
-        fill="url(#fpiPotBody)"/>
-
-  <!-- Decorative band -->
-  <path d="M62 162 Q128 176 194 162 L194 184 Q128 198 62 184Z"
-        fill="#8B5630" opacity="0.55"/>
-  <!-- Kente diamonds -->
-  <g fill="none" stroke="#F4D9B0" stroke-width="1.6" opacity="0.85">
-    <path d="M84 174 L92 166 L100 174 L92 182Z"/>
-    <path d="M110 175 L118 167 L126 175 L118 183Z"/>
-    <path d="M136 175 L144 167 L152 175 L144 183Z"/>
-    <path d="M162 174 L170 166 L178 174 L170 182Z"/>
-  </g>
-
-  <!-- Handles -->
-  <path d="M58 148 Q36 148 34 168 Q32 188 58 184"
-        fill="none" stroke="#7A4B28" stroke-width="13" stroke-linecap="round"/>
-  <path d="M198 148 Q220 148 222 168 Q224 188 198 184"
-        fill="none" stroke="#7A4B28" stroke-width="13" stroke-linecap="round"/>
-
-  <!-- ===== Cradling hands ===== -->
-  <path d="M76 216
-           Q60 222 56 234
-           Q54 248 70 250
-           Q88 250 102 244
-           Q108 240 108 230
-           Q106 220 96 216Z"
-        fill="#7A4B28"/>
-  <path d="M102 220 Q114 220 118 228 Q120 236 110 240" fill="#8B5630"/>
-  <g fill="none" stroke="#5B3818" stroke-width="1.3" stroke-linecap="round" opacity="0.6">
-    <path d="M70 232 Q68 240 74 246"/>
-    <path d="M80 230 Q78 240 84 246"/>
-    <path d="M90 228 Q88 238 94 244"/>
-  </g>
-
-  <path d="M180 216
-           Q196 222 200 234
-           Q202 248 186 250
-           Q168 250 154 244
-           Q148 240 148 230
-           Q150 220 160 216Z"
-        fill="#7A4B28"/>
-  <path d="M154 220 Q142 220 138 228 Q136 236 146 240" fill="#8B5630"/>
-  <g fill="none" stroke="#5B3818" stroke-width="1.3" stroke-linecap="round" opacity="0.6">
-    <path d="M186 232 Q188 240 182 246"/>
-    <path d="M176 230 Q178 240 172 246"/>
-    <path d="M166 228 Q168 238 162 244"/>
+  <!-- ===== Pot, drawn in clean strokes (warm charcoal) ===== -->
+  <g fill="none" stroke="#2A1F18" stroke-width="9" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Lid knob -->
+    <circle cx="128" cy="118" r="6" fill="#2A1F18"/>
+    <!-- Lid (flattened ellipse over the rim) -->
+    <path d="M62 134
+             Q62 116 128 116
+             Q194 116 194 134"/>
+    <!-- Rim line under the lid -->
+    <line x1="50" y1="138" x2="206" y2="138"/>
+    <!-- Body (U-shape with rounded bottom corners) -->
+    <path d="M62 144
+             L62 196
+             Q62 224 90 224
+             L166 224
+             Q194 224 194 196
+             L194 144"/>
+    <!-- Left side handle -->
+    <path d="M50 154
+             Q34 158 38 168"/>
+    <!-- Right side handle -->
+    <path d="M206 154
+             Q222 158 218 168"/>
   </g>
 </svg>
