@@ -1,0 +1,139 @@
+You are an expert Next.js 15 UX engineer. Industry research confirms: "real-time order tracking and order customization" are the most used features on food delivery apps. "No images and poor add-to-cart UX" are the top complaints. Fix the entire add-to-basket experience on feastpot.co.uk.
+
+CONFIRMED FROM LIVE AUDIT: The vendor profile shows items with price and dietary info but no visible +/- controls in the rendered HTML. The floating basket bar may not appear. This is a conversion-critical fix.
+
+═══════════════════════════════════════════════════════
+STEP 1 — MenuItemCard: inline +/- with animation
+File: apps/web/src/components/menu/menu-item-card.tsx
+═══════════════════════════════════════════════════════
+
+The card must always show the quantity control. NO "Add to basket" modal.
+Following Deliveroo/UberEats pattern: + button inline on card.
+
+Full card layout (confirm this matches current implementation):
+
+<div className="food-card p-3 flex gap-3">
+  {/* Left: image or gradient placeholder */}
+  <div style={{ width: '88px', height: '88px', borderRadius: '12px', flexShrink: 0, position: 'relative' }}>
+    {/* image or gradient */}
+  </div>
+
+  {/* Right: content */}
+  <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '3px' }}>
+    <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#1C1C1A', margin: 0 }}>{item.name}</h3>
+    {item.portionLabel && (
+      <span style={{ fontSize: '11px', color: '#9B9894' }}>👥 {item.portionLabel}</span>
+    )}
+    {item.description && (
+      <p style={{ fontSize: '11px', color: '#5F5E5A', margin: 0, lineHeight: 1.5,
+        display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+        {item.description}
+      </p>
+    )}
+    {/* Dietary flags */}
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '2px' }}>
+      {item.isHalal && <span style={{ fontSize: '10px', background: '#E8F5EB', color: '#3D7A47', padding: '1px 6px', borderRadius: '20px', fontWeight: 600 }}>☪️ Halal</span>}
+      {item.dietaryFlags?.includes('vegan') && <span style={{ fontSize: '10px', background: '#E8F5EB', color: '#3D7A47', padding: '1px 6px', borderRadius: '20px', fontWeight: 600 }}>🌱 Vegan</span>}
+    </div>
+    {/* Price + quantity row */}
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto', paddingTop: '4px' }}>
+      <span style={{ fontSize: '16px', fontWeight: 800, color: '#1C1C1A' }}>
+        £{(item.basePricePence / 100).toFixed(2)}
+      </span>
+      {/* INLINE QUANTITY CONTROL */}
+      {qty === 0 ? (
+        <button
+          onClick={handleAdd}
+          style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#E8520A',
+            border: 'none', color: 'white', fontSize: '22px', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            WebkitTapHighlightColor: 'transparent', flexShrink: 0 }}
+          aria-label={`Add ${item.name} to basket`}
+        >
+          +
+        </button>
+      ) : (
+        <div style={{ display: 'flex', alignItems: 'center', background: '#E8520A',
+          borderRadius: '20px', padding: '2px 4px', gap: '2px' }}>
+          <button onClick={handleMinus} aria-label="Remove one"
+            style={{ width: '32px', height: '32px', border: 'none', background: 'transparent',
+              color: 'white', fontSize: '20px', cursor: 'pointer', borderRadius: '50%',
+              display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
+          <span style={{ color: 'white', fontWeight: 800, fontSize: '15px', minWidth: '20px', textAlign: 'center',
+            animation: justAdded ? 'fp-pop 0.2s ease-out' : 'none' }}>{qty}</span>
+          <button onClick={handleAdd} aria-label="Add one more"
+            style={{ width: '32px', height: '32px', border: 'none', background: 'transparent',
+              color: 'white', fontSize: '20px', cursor: 'pointer', borderRadius: '50%',
+              display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+        </div>
+      )}
+    </div>
+    {/* Per-item notes — expands when item is in basket */}
+    {qty > 0 && (
+      <div style={{ marginTop: '6px' }}>
+        <input
+          type="text" placeholder="Any notes? (e.g. extra spicy, no onion)"
+          value={note} onChange={e => setNote(e.target.value)}
+          style={{ width: '100%', padding: '6px 10px', fontSize: '11px', borderRadius: '8px',
+            border: '1px solid #EDE4D4', outline: 'none', color: '#1C1C1A' }}
+        />
+      </div>
+    )}
+  </div>
+</div>
+
+Add to globals.css:
+@keyframes fp-pop {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.3); }
+  100% { transform: scale(1); }
+}
+
+On handleAdd:
+1. Call addItem to basket store
+2. setJustAdded(true); setTimeout(() => setJustAdded(false), 400)
+3. if (navigator.vibrate) navigator.vibrate(25)
+
+═══════════════════════════════════════════════════════
+STEP 2 — FloatingBasketBar: guaranteed visibility
+File: apps/web/src/components/basket/floating-basket-bar.tsx
+═══════════════════════════════════════════════════════
+
+Confirm the bar:
+1. Appears instantly when items > 0 (no delay, no fade-in delay > 100ms)
+2. Is positioned above BottomNav: bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom) + 8px)
+3. Shows: [item count pill] [vendor name] [total → chevron]
+4. Full width minus 24px padding on each side
+5. Does NOT appear on /checkout page
+
+Key check — the bar must read from useBasketStore reactively:
+const { items } = useBasketStore()
+const total = items.reduce((a, i) => a + i.lineTotalPence, 0)
+const count = items.reduce((a, i) => a + i.quantity, 0)
+if (count === 0) return null
+
+═══════════════════════════════════════════════════════
+STEP 3 — Basket count on BottomNav
+File: apps/web/src/components/layout/bottom-nav.tsx
+═══════════════════════════════════════════════════════
+
+The Orders icon MUST show basket item count when basket is not empty.
+This is the Deliveroo/UberEats standard — the basket count is always visible in the nav.
+
+const count = useBasketStore(s => s.items.reduce((a,i)=>a+i.quantity,0))
+
+On the Orders icon, overlay:
+{count > 0 && (
+  <span style={{
+    position: 'absolute', top: '-4px', right: '-4px',
+    minWidth: '16px', height: '16px', borderRadius: '8px',
+    background: '#E8520A', color: 'white',
+    fontSize: '9px', fontWeight: 700,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    padding: '0 3px',
+  }}>
+    {count > 9 ? '9+' : count}
+  </span>
+)}
+
+Run: npm run typecheck. Output all files in full.
