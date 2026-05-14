@@ -118,10 +118,6 @@ export function PostcodeHero() {
         <div className="relative z-10 px-5 pt-14 pb-8">
           <AnimatedHeadline />
 
-          <p className="mt-3 text-center text-sm text-white/85">
-            Nigerian · Ghanaian · Jamaican · Caribbean
-          </p>
-
           {/* Resume banner — when we have a stored postcode from a
               previous session, surface it as a one-tap shortcut so
               returning users don't have to re-type. The 45yo target

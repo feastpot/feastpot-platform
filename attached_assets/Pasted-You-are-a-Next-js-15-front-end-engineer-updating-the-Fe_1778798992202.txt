@@ -1,0 +1,94 @@
+You are a Next.js 15 front-end engineer updating the Feastpot hero headline.
+
+APPROVED COPY:
+  Line 1 (static):  "Your community's best cooks."
+  Line 2 (animated):"Delivering to {CITY}."
+  Subline (static): "Party trays • Family portions • Weekly meals • Event catering"
+
+CITY ROTATION ORDER — starts with Croydon (largest African & Caribbean
+population outside inner London), then largest diaspora metros in order:
+  Croydon, London, Birmingham, Manchester, Leeds,
+  Bristol, Nottingham, Leicester, Luton, Reading
+
+Interval: 2200ms. Transition: fade + 6px slide-up over 280ms.
+
+FILE: apps/web/src/components/home/animated-headline.tsx
+Replace the entire file with the following:
+
+'use client'
+import { useState, useEffect } from 'react'
+
+const CITIES = [
+  'Croydon',
+  'London',
+  'Birmingham',
+  'Manchester',
+  'Leeds',
+  'Bristol',
+  'Nottingham',
+  'Leicester',
+  'Luton',
+  'Reading',
+]
+
+export function AnimatedHeadline() {
+  const [idx, setIdx]         = useState(0)
+  const [visible, setVisible] = useState(true)
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setVisible(false)
+      setTimeout(() => {
+        setIdx(i => (i + 1) % CITIES.length)
+        setVisible(true)
+      }, 280)
+    }, 2200)
+    return () => clearInterval(timer)
+  }, [])
+
+  return (
+    
+
+      {/* Line 1 — static */}
+      
+        Your community's best cooks.
+      
+
+      {/* Line 2 — "Delivering to" + animated city */}
+      
+        Delivering to
+        
+          {CITIES[idx]}.
+        
+      
+
+      {/* Subline — four use cases */}
+      
+        Party trays • Family portions • Weekly meals • Event catering
+      
+
+    
+  )
+}
+
+════════════════════════════════════════════
+VERIFY
+════════════════════════════════════════════
+
+Run: npm run dev:web
+Open localhost:3000 in Chrome DevTools at 375px (iPhone SE viewport).
+
+Check all of these before committing:
+1. "Your community's best cooks." fits on one line at 375px — no wrap
+2. "Delivering to Croydon." fits on one line — if it wraps on 375px,
+   reduce clamp min to 22px: fontSize: 'clamp(22px, 5.8vw, 34px)'
+3. City transitions every 2.2s with smooth fade-up — not a hard cut
+4. Croydon is the first city shown on page load
+5. Subline fits on one line — if it wraps, reduce fontSize to '12px'
+6. The aria-live="polite" attribute is present on the city span so
+   screen readers announce each city change
+
+Run: npm run typecheck --filter=@feastpot/web
+Zero errors required before deploying.
+
+Output the complete animated-headline.tsx file only.

@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { cn } from '@feastpot/ui';
 
 const CITIES = [
+  'Croydon',
   'London',
   'Birmingham',
   'Manchester',
@@ -12,28 +13,35 @@ const CITIES = [
   'Bristol',
   'Nottingham',
   'Leicester',
-  'Croydon',
   'Luton',
   'Reading',
 ] as const;
 
 const SWAP_INTERVAL_MS = 2200;
-const FADE_OUT_MS = 300;
+const FADE_OUT_MS = 280;
 
 /**
- * Three-line headline whose final line cycles through UK cities/major
- * towns where the African & Caribbean diaspora has critical mass:
+ * Two-line hero headline + use-case subline:
  *
- *   Authentic African & Caribbean
- *   Meals and Trays Delivered in
- *   <London>           ← fades out, swaps, fades in every 2.2s
+ *   Your community's best cooks.
+ *   Delivering to <Croydon>.        ← city fades + slides up every 2.2s
+ *   Party trays • Family portions • Weekly meals • Event catering
  *
- * The inner setTimeout is tracked in a ref so we can cancel it on unmount —
+ * City rotation order starts with Croydon (largest African & Caribbean
+ * population outside inner London), then descends through the next nine
+ * UK metros with strongest diaspora density.
+ *
+ * The swap timeout is tracked in a ref so we can cancel it on unmount —
  * otherwise React warns "Can't perform a state update on an unmounted
- * component" if the interval fires within 300ms of navigation away.
+ * component" if the timeout fires within 280ms of navigation away.
  *
- * Fixed-height row prevents the surrounding layout from jumping when a
- * longer city name (e.g. "Birmingham") replaces a shorter one ("Leeds").
+ * Fixed-height row on the second line prevents the subline from jumping
+ * up when a longer city name (e.g. "Birmingham") replaces a shorter
+ * one ("Leeds"). The city span carries `aria-live="polite"` so screen
+ * readers announce each rotation without interrupting the user.
+ *
+ * Font sizes use a clamp() so the headline never wraps at 375px (iPhone
+ * SE) yet scales up cleanly on tablet/desktop without a media query.
  */
 export function AnimatedHeadline() {
   const [idx, setIdx] = useState(0);
@@ -57,22 +65,38 @@ export function AnimatedHeadline() {
 
   return (
     <div className="text-center text-white">
-      <h1 className="text-[26px] font-black leading-tight tracking-tight sm:text-[28px]">
-        Authentic African &amp; Caribbean
+      {/* Line 1 — static */}
+      <h1
+        className="font-black leading-tight tracking-tight"
+        style={{ fontSize: 'clamp(22px, 5.8vw, 34px)' }}
+      >
+        Your community&rsquo;s best cooks.
       </h1>
-      <h1 className="text-[26px] font-black leading-tight tracking-tight sm:text-[28px]">
-        Meals and Trays Delivered in
-      </h1>
-      <div className="flex h-10 items-center justify-center overflow-hidden" aria-live="polite">
+
+      {/* Line 2 — "Delivering to" + animated city */}
+      <h2
+        className="mt-1 font-black leading-tight tracking-tight"
+        style={{ fontSize: 'clamp(22px, 5.8vw, 34px)' }}
+      >
+        Delivering to{' '}
         <span
+          aria-live="polite"
           className={cn(
-            'text-[28px] font-black tracking-tight transition-all duration-300',
-            visible ? 'translate-y-0 opacity-100' : 'translate-y-2 opacity-0',
+            'inline-block transition-all',
+            visible
+              ? 'translate-y-0 opacity-100'
+              : '-translate-y-[6px] opacity-0',
           )}
+          style={{ transitionDuration: `${FADE_OUT_MS}ms` }}
         >
-          {CITIES[idx]}
+          {CITIES[idx]}.
         </span>
-      </div>
+      </h2>
+
+      {/* Subline — four use cases */}
+      <p className="mt-3 text-[13px] text-white/85">
+        Party trays • Family portions • Weekly meals • Event catering
+      </p>
     </div>
   );
 }
