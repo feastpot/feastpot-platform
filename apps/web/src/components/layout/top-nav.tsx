@@ -83,7 +83,7 @@ export function TopNav() {
                 image optimiser would just re-emit it unchanged and adds
                 a network round-trip. */}
             <Image
-              src="/images/feastpot-icon.svg"
+              src="/images/feastpot-icon.png"
               alt=""
               width={32}
               height={32}
