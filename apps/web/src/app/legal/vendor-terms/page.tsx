@@ -14,7 +14,7 @@ import {
 export const metadata: Metadata = {
   title: 'Vendor Terms of Service',
   description:
-    'Vendor Terms of Service — your commercial agreement with Feastpot Ltd when you list and sell food on the platform.',
+    'Vendor Terms of Service, your commercial agreement with Feastpot Ltd when you list and sell food on the platform.',
   alternates: { canonical: '/legal/vendor-terms' },
 };
 
@@ -39,7 +39,7 @@ export default function VendorTermsPage() {
         lede={
           <>
             Your commercial agreement with Feastpot Ltd when you list and sell food on the
-            platform &mdash; clear commission, weekly payouts, plain rules.
+            platform, clear commission, weekly payouts, plain rules.
           </>
         }
         footnote={<>Last updated: May 2026 &middot; England &amp; Wales</>}
@@ -63,7 +63,7 @@ export default function VendorTermsPage() {
             <li>Be registered as a business or sole trader in the UK;</li>
             <li>
               Hold a valid Food Business Registration under the Food Safety Act 1990 (register
-              with your local authority &mdash; it is free and mandatory);
+              with your local authority, it is free and mandatory);
             </li>
             <li>
               Have a minimum Food Hygiene Rating Scheme (FHRS) rating of 3/5 (Feastpot recommends
@@ -81,7 +81,7 @@ export default function VendorTermsPage() {
           <p>
             Feastpot charges a commission of <strong>12% of the order subtotal</strong>{' '}
             (excluding delivery fees) on each completed order. This commission is deducted from
-            your weekly payout &mdash; it is not charged separately.
+            your weekly payout, it is not charged separately.
           </p>
           <p>
             Feastpot reserves the right to adjust the commission rate with 30 days&rsquo; written

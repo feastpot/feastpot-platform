@@ -11,16 +11,16 @@ export const metadata: Metadata = {
 const ICO_NUMBER = 'C1931679';
 
 /**
- * Privacy policy — brand-DNA refresh.
+ * Privacy policy, brand-DNA refresh.
  *
  * Wrapping `legal/layout.tsx` already gives us a max-w-6xl shell with
  * px-4, a breadcrumb, a sidebar of legal pages, and a "last updated"
  * footer. So this page deliberately:
  *   - skips its own breadcrumb (the layout already shows one);
  *   - bleeds the hero edge-to-edge inside the main column with -mx-4 +
- *     md:-mx-0 (mobile only — on desktop the sidebar takes the left
+ *     md:-mx-0 (mobile only, on desktop the sidebar takes the left
  *     gutter and a full-bleed hero would look truncated);
- *   - keeps EVERY word of the existing UK GDPR copy verbatim — only the
+ *   - keeps EVERY word of the existing UK GDPR copy verbatim, only the
  *     presentation changes (cards instead of a table, cards instead of
  *     a numbered list, branded contact CTA in place of the plain
  *     paragraph).
@@ -28,7 +28,7 @@ const ICO_NUMBER = 'C1931679';
 export default function PrivacyPage() {
   return (
     <div className="-mx-4 md:mx-0">
-      {/* HERO — dark branded header (replaces the plain h1 + ICO chip) */}
+      {/* HERO, dark branded header (replaces the plain h1 + ICO chip) */}
       <div
         style={{
           background: 'linear-gradient(160deg, #1C1C1A 0%, #3D1A0A 100%)',
@@ -60,10 +60,10 @@ export default function PrivacyPage() {
             }}
           >
             We built Feastpot for your community. We handle your data with the same care
-            you&rsquo;d expect from a trusted neighbour &mdash; not a faceless corporation.
+            you&rsquo;d expect from a trusted neighbour, not a faceless corporation.
           </p>
 
-          {/* ICO Registration — prominent trust badge */}
+          {/* ICO Registration, prominent trust badge */}
           <div
             style={{
               display: 'flex',
@@ -131,7 +131,7 @@ export default function PrivacyPage() {
       {/* Kente strip bookends the hero with a touch of brand pattern. */}
       <div className="kente-divider" aria-hidden />
 
-      {/* STICKY QUICK-NAV — anchors to the most-asked sections only.
+      {/* STICKY QUICK-NAV, anchors to the most-asked sections only.
           `top: 56px` clears the global topnav. Pills are warm-cream by
           default and flip to brand on hover via inline handlers (the
           page is a Server Component so we keep the pills as plain
@@ -202,7 +202,7 @@ export default function PrivacyPage() {
         }
       `}</style>
 
-      {/* MAIN CONTENT — every section wrapped in a card.
+      {/* MAIN CONTENT, every section wrapped in a card.
           The original `prose` styles are dropped intentionally: each
           PrivacySection sets its own typography so the card chrome
           stays predictable across screen sizes. */}
@@ -227,7 +227,7 @@ export default function PrivacyPage() {
         <PrivacySection id="collect" icon="📋" title="2. What data we collect">
           <h3 style={subHeading}>A. Account data</h3>
           <p>
-            Full name, email address, phone number, password (hashed &mdash; never stored in plaintext),
+            Full name, email address, phone number, password (hashed, never stored in plaintext),
             and an optional profile photo.
           </p>
           <h3 style={subHeading}>B. Delivery data</h3>
@@ -259,7 +259,7 @@ export default function PrivacyPage() {
           <h3 style={subHeading}>H. Usage data</h3>
           <p>
             Pages visited, search queries, filter selections and click patterns. Used only for platform
-            improvement &mdash; never sold or shared with advertisers.
+            improvement, never sold or shared with advertisers.
           </p>
         </PrivacySection>
 
@@ -288,7 +288,7 @@ export default function PrivacyPage() {
 
           <h3 style={subHeading}>Vendor identity verification and compliance documents</h3>
           <p>
-            <strong>Basis:</strong> Legal obligation (Article 6(1)(c)) &mdash; Food Safety Act 1990, Food
+            <strong>Basis:</strong> Legal obligation (Article 6(1)(c)), Food Safety Act 1990, Food
             Information Regulations 2014, and Natasha&rsquo;s Law (PPDS Regulation 2021).
             <br />
             <strong>Retention:</strong> Duration of vendor relationship + 6 years.
@@ -297,7 +297,7 @@ export default function PrivacyPage() {
           <h3 style={subHeading}>Sending transactional notifications (order updates, delivery status)</h3>
           <p>
             <strong>Basis:</strong> Contract performance (Article 6(1)(b)) and legitimate interests
-            (Article 6(1)(f)) &mdash; the legitimate interest is ensuring customers and vendors receive
+            (Article 6(1)(f)), the legitimate interest is ensuring customers and vendors receive
             essential operational communications.
           </p>
 
@@ -310,7 +310,7 @@ export default function PrivacyPage() {
 
           <h3 style={subHeading}>Fraud prevention, security, and abuse detection</h3>
           <p>
-            <strong>Basis:</strong> Legitimate interests (Article 6(1)(f)) &mdash; recognised under the Data
+            <strong>Basis:</strong> Legitimate interests (Article 6(1)(f)), recognised under the Data
             (Use and Access) Act 2025 Schedule 1 legitimate interests list.
             <br />
             <strong>Retention:</strong> 6 years (audit log retention).
@@ -335,38 +335,38 @@ export default function PrivacyPage() {
         <PrivacySection id="share" icon="🤝" title="4. Who we share your data with">
           <ul style={listStyle}>
             <li>
-              <strong>Stripe Inc</strong> (USA) &mdash; payment processing and vendor payouts. Protected
+              <strong>Stripe Inc</strong> (USA), payment processing and vendor payouts. Protected
               by the UK International Data Transfer Agreement (UK&nbsp;IDTA) and Stripe&rsquo;s SCCs.
             </li>
             <li>
-              <strong>Supabase Inc</strong> (USA, EU infrastructure) &mdash; database and authentication
+              <strong>Supabase Inc</strong> (USA, EU infrastructure), database and authentication
               hosting. Feastpot data is stored in the EU (Frankfurt region). Protected by the
               UK&nbsp;IDTA.
             </li>
             <li>
-              <strong>Resend Inc</strong> (USA) &mdash; transactional email delivery. Protected by the
+              <strong>Resend Inc</strong> (USA), transactional email delivery. Protected by the
               UK&nbsp;IDTA.
             </li>
             <li>
-              <strong>Twilio Inc</strong> (USA) &mdash; SMS and OTP delivery. Protected by the UK&nbsp;IDTA.
+              <strong>Twilio Inc</strong> (USA), SMS and OTP delivery. Protected by the UK&nbsp;IDTA.
             </li>
             <li>
-              <strong>Meta Platforms Ireland Ltd</strong> (Ireland / USA) &mdash; WhatsApp Business API
+              <strong>Meta Platforms Ireland Ltd</strong> (Ireland / USA), WhatsApp Business API
               for order notifications. Protected by the EU-UK adequacy decision and SCCs.
             </li>
             <li>
-              <strong>Cloudflare Inc</strong> (USA) &mdash; CDN, security and media storage. Protected by
+              <strong>Cloudflare Inc</strong> (USA), CDN, security and media storage. Protected by
               the UK&nbsp;IDTA.
             </li>
             <li>
-              <strong>Sentry Inc</strong> (USA) &mdash; error monitoring (anonymised stack traces only;
+              <strong>Sentry Inc</strong> (USA), error monitoring (anonymised stack traces only;
               no personal data in error reports by design). Protected by the UK&nbsp;IDTA.
             </li>
             <li>
-              <strong>HMRC (UK)</strong> &mdash; tax records as legally required.
+              <strong>HMRC (UK)</strong>, tax records as legally required.
             </li>
             <li>
-              <strong>Law enforcement / courts</strong> &mdash; when legally compelled by a valid court
+              <strong>Law enforcement / courts</strong>, when legally compelled by a valid court
               order or statutory authority.
             </li>
           </ul>
@@ -390,7 +390,7 @@ export default function PrivacyPage() {
         </PrivacySection>
 
         <PrivacySection id="retention" icon="📅" title="6. How long we keep your data">
-          {/* Card grid replaces the table — same data, friendlier scan.
+          {/* Card grid replaces the table, same data, friendlier scan.
               Periods + reasons are kept verbatim from the original
               table so the legal specificity isn't softened. */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -437,24 +437,24 @@ export default function PrivacyPage() {
           {/* Original numbered list, kept verbatim for legal fidelity. */}
           <ol style={{ ...listStyle, listStyleType: 'decimal', marginBottom: '14px' }}>
             <li>
-              <strong>Right of access</strong> (Subject Access Request) &mdash; email{' '}
+              <strong>Right of access</strong> (Subject Access Request), email{' '}
               <PrivacyLink href="mailto:privacy@feastpot.co.uk">privacy@feastpot.co.uk</PrivacyLink>.
             </li>
             <li>
-              <strong>Right to rectification</strong> &mdash; update in account settings or email us.
+              <strong>Right to rectification</strong>, update in account settings or email us.
             </li>
             <li>
-              <strong>Right to erasure</strong> (&ldquo;right to be forgotten&rdquo;) &mdash; subject to
+              <strong>Right to erasure</strong> (&ldquo;right to be forgotten&rdquo;), subject to
               legal retention obligations.
             </li>
             <li>
               <strong>Right to restriction of processing.</strong>
             </li>
             <li>
-              <strong>Right to data portability</strong> &mdash; machine-readable format on request.
+              <strong>Right to data portability</strong>, machine-readable format on request.
             </li>
             <li>
-              <strong>Right to object</strong> &mdash; including to direct marketing (always honoured).
+              <strong>Right to object</strong>, including to direct marketing (always honoured).
             </li>
             <li>
               <strong>Right not to be subject to automated decision-making.</strong>
@@ -517,7 +517,7 @@ export default function PrivacyPage() {
             To exercise any right, email{' '}
             <PrivacyLink href="mailto:privacy@feastpot.co.uk">privacy@feastpot.co.uk</PrivacyLink>{' '}
             with &ldquo;Data Rights Request&rdquo; in the subject line. We will respond within one
-            calendar month (extendable by two further months for complex requests &mdash; we will notify
+            calendar month (extendable by two further months for complex requests, we will notify
             you).
           </p>
           <p>
@@ -532,9 +532,9 @@ export default function PrivacyPage() {
         <PrivacySection id="cookies" icon="🍪" title="8. Cookies">
           <p>Feastpot uses strictly necessary cookies only:</p>
           <ul style={listStyle}>
-            <li>Authentication session cookie (Supabase JWT &mdash; expires in 1 hour, refreshed);</li>
+            <li>Authentication session cookie (Supabase JWT, expires in 1 hour, refreshed);</li>
             <li>CSRF protection token;</li>
-            <li>Basket persistence (localStorage, not a cookie &mdash; client-side only).</li>
+            <li>Basket persistence (localStorage, not a cookie, client-side only).</li>
           </ul>
           <p>
             Under the Privacy and Electronic Communications Regulations (PECR), strictly necessary
@@ -552,7 +552,7 @@ export default function PrivacyPage() {
           </p>
         </PrivacySection>
 
-        {/* CONTACT — dark branded CTA bookends the hero. Section 10 keeps
+        {/* CONTACT, dark branded CTA bookends the hero. Section 10 keeps
             its semantic h2 (with id="contact") so the sticky quick-nav
             and any deep links continue to work. */}
         <section
@@ -748,7 +748,7 @@ const listStyle: React.CSSProperties = {
 };
 
 // Periods + reasons reproduce the ORIGINAL retention table verbatim
-// — only the visual presentation (cards) changes.
+//, only the visual presentation (cards) changes.
 const RETENTION_DATA = [
   { type: 'Orders and payments', period: '6 years from order date', icon: '🧾', bg: '#FEF0E9', reason: 'HMRC / VAT obligation' },
   { type: 'Audit logs', period: '6 years', icon: '📋', bg: '#FEF0E9', reason: 'Legal obligation' },
@@ -789,7 +789,7 @@ const RIGHTS_DATA = [
   { right: 'Delete your data', icon: '🗑️', desc: 'Erasure, subject to legal obligations', how: 'Account settings or email' },
   { right: 'Restrict processing', icon: '⏸️', desc: 'Limit how we use your data', how: 'Email us' },
   { right: 'Data portability', icon: '📦', desc: 'Your data in machine-readable format', how: 'Email with your request' },
-  { right: 'Object to processing', icon: '🚫', desc: 'Object to marketing — always honoured', how: 'Unsubscribe or email us' },
+  { right: 'Object to processing', icon: '🚫', desc: 'Object to marketing, always honoured', how: 'Unsubscribe or email us' },
   { right: 'No automated decisions', icon: '🤖', desc: 'Not subject to automated-only decisions', how: 'Always applies' },
   { right: 'Withdraw consent', icon: '↩️', desc: 'Withdraw at any time without penalty', how: 'Account settings' },
 ] as const;

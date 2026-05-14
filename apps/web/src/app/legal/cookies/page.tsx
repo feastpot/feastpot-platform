@@ -12,7 +12,7 @@ import {
 export const metadata: Metadata = {
   title: 'Cookie Policy',
   description:
-    'Feastpot uses strictly necessary cookies only — no advertising, no tracking, no third-party analytics.',
+    'Feastpot uses strictly necessary cookies only, no advertising, no tracking, no third-party analytics.',
   alternates: { canonical: '/legal/cookies' },
 };
 
@@ -39,7 +39,7 @@ const COOKIES = [
   },
   {
     name: 'feastpot.basket.v1',
-    purpose: 'Basket persistence (localStorage — not a cookie)',
+    purpose: 'Basket persistence (localStorage, not a cookie)',
     duration: 'Session',
   },
 ] as const;
@@ -101,7 +101,7 @@ export default function CookiesPage() {
           <p>
             Cookies are small text files that a website stores on your device to remember things
             like whether you&rsquo;re signed in. Some sites also use them to track you across the
-            web &mdash; Feastpot does not.
+            web, Feastpot does not.
           </p>
         </LegalSection>
 
@@ -171,7 +171,7 @@ export default function CookiesPage() {
 
         <LegalSection id="choices" icon="⚙️" title="4. Your choices">
           <p>
-            You can clear cookies via your browser settings &mdash; this will sign you out.
+            You can clear cookies via your browser settings, this will sign you out.
             Because we don&rsquo;t use any non-essential cookies, there is nothing to opt out of.
           </p>
         </LegalSection>

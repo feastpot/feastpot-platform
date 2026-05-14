@@ -14,7 +14,7 @@ import {
 export const metadata: Metadata = {
   title: 'Terms of Service',
   description:
-    'Feastpot customer Terms of Service — your contract with Feastpot Ltd when you place orders through our marketplace.',
+    'Feastpot customer Terms of Service, your contract with Feastpot Ltd when you place orders through our marketplace.',
   alternates: { canonical: '/legal/terms' },
 };
 
@@ -80,7 +80,7 @@ export default function TermsPage() {
 
         <LegalSection id="orders" icon="🛒" title="4. Placing orders">
           <p>
-            Orders are a contract between you (the customer) and the vendor &mdash; not Feastpot.
+            Orders are a contract between you (the customer) and the vendor, not Feastpot.
             Feastpot facilitates payment and provides the platform; we are not a party to the
             food supply contract.
           </p>
@@ -98,7 +98,7 @@ export default function TermsPage() {
             <li>Payment is processed by Stripe. Feastpot does not store card details.</li>
             <li>
               A platform service fee may be shown at checkout (currently &pound;0 for customers
-              &mdash; Feastpot&rsquo;s 12% commission is deducted from vendors, not charged to
+             , Feastpot&rsquo;s 12% commission is deducted from vendors, not charged to
               customers).
             </li>
             <li>Stripe may apply transaction fees subject to their terms.</li>

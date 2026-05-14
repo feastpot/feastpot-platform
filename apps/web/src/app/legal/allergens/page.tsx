@@ -15,7 +15,7 @@ import {
 export const metadata: Metadata = {
   title: 'Allergen Information',
   description:
-    'Allergen guidance for Feastpot orders — the 14 FSA major allergens, how to filter on the platform, and what to do in an allergic emergency.',
+    'Allergen guidance for Feastpot orders, the 14 FSA major allergens, how to filter on the platform, and what to do in an allergic emergency.',
   alternates: { canonical: '/legal/allergens' },
 };
 
@@ -54,7 +54,7 @@ export default function AllergensPage() {
         lede={
           <>
             Every dish on Feastpot displays its allergens. If in doubt, contact the vendor
-            directly before ordering &mdash; their phone and message link is on the vendor
+            directly before ordering, their phone and message link is on the vendor
             profile page.
           </>
         }
@@ -138,7 +138,7 @@ export default function AllergensPage() {
               Open the search bar on the homepage and tap <strong>Filters</strong>.
             </li>
             <li>
-              Toggle the allergens you want to <em>exclude</em> &mdash; only menu items free of
+              Toggle the allergens you want to <em>exclude</em>, only menu items free of
               those allergens will be shown.
             </li>
             <li>
