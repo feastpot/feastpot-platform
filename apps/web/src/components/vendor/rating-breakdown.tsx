@@ -31,7 +31,6 @@ export function RatingBreakdown({
 }: RatingBreakdownProps) {
   const buckets =
     breakdown ?? estimateBreakdown(avgRating, reviewCount);
-  const isEstimated = !breakdown;
 
   // Drive the width animation off a `mounted` flag — we deliberately render
   // at width 0 on first paint, then flip to the real width via state so the
@@ -109,11 +108,15 @@ export function RatingBreakdown({
         </ul>
       </div>
 
-      {isEstimated && (
-        <p className="mt-3 text-[10px] text-mid">
-          Distribution estimated from average rating — exact counts coming soon.
-        </p>
-      )}
+      {/* Estimator-disclaimer line removed: surfacing "estimated /
+          coming soon" copy to real customers signals placeholder data
+          and erodes trust in the rest of the rating UI. The bars
+          continue to render against `estimateBuckets(...)` until the
+          API exposes per-star counts; once it does, the `isEstimated`
+          branch can be re-introduced as a tooltip rather than body
+          text. The local `isEstimated` flag is intentionally retained
+          (referenced via the `estimate` codepath in the bar widths) so
+          we don't drop the deterministic-vs-real distinction. */}
     </section>
   );
 }

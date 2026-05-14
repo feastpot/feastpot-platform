@@ -1,0 +1,142 @@
+You are a Next.js 15 front-end engineer. Fix the most critical UX issue on feastpot.co.uk.
+
+CONFIRMED FROM LIVE AUDIT (14 May 2026):
+/vendors still shows ONLY the word "Loading…" on a cream background.
+/vendors/kwames-jollof-brixton shows "Loading vendor profile" with no skeleton.
+This is unchanged from the previous audit. It is the #1 conversion killer on the platform.
+
+FILE TARGETS: apps/web/src/app/vendors/page.tsx and apps/web/src/app/vendors/[slug]/page.tsx
+
+═══════════════════════════════════════════════════════
+STEP 1 — VendorCardSkeleton component
+File: apps/web/src/components/vendor/vendor-card-skeleton.tsx
+═══════════════════════════════════════════════════════
+
+'use client'
+export function VendorCardSkeleton() {
+  return (
+    <div className="food-card overflow-hidden" aria-hidden="true"
+      style={{ animation: 'none' }}>
+      <div style={{
+        height: '140px',
+        background: 'linear-gradient(90deg, #F5EDE0 25%, #EDE4D4 50%, #F5EDE0 75%)',
+        backgroundSize: '200% 100%',
+        animation: 'fp-shimmer 1.5s infinite',
+      }} />
+      <div style={{ padding: '12px', background: 'white' }}>
+        <div style={{ height: '16px', width: '62%', background: '#EDE4D4', borderRadius: '6px', marginBottom: '8px', animation: 'fp-shimmer 1.5s infinite' }} />
+        <div style={{ height: '11px', width: '38%', background: '#F5EDE0', borderRadius: '4px', marginBottom: '10px', animation: 'fp-shimmer 1.5s infinite .1s' }} />
+        <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
+          <div style={{ height: '11px', width: '70px', background: '#EDE4D4', borderRadius: '4px', animation: 'fp-shimmer 1.5s infinite .2s' }} />
+          <div style={{ height: '11px', width: '45px', background: '#F5EDE0', borderRadius: '4px', animation: 'fp-shimmer 1.5s infinite .3s' }} />
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingTop: '10px', borderTop: '1px solid #F5EDE0' }}>
+          <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#EDE4D4', flexShrink: 0, animation: 'fp-shimmer 1.5s infinite' }} />
+          <div style={{ flex: 1 }}>
+            <div style={{ height: '10px', width: '68%', background: '#EDE4D4', borderRadius: '3px', marginBottom: '4px', animation: 'fp-shimmer 1.5s infinite .15s' }} />
+            <div style={{ height: '9px', width: '50%', background: '#F5EDE0', borderRadius: '3px', animation: 'fp-shimmer 1.5s infinite .25s' }} />
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+Add to globals.css:
+@keyframes fp-shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+
+═══════════════════════════════════════════════════════
+STEP 2 — VendorPageSkeleton (full vendors list page)
+File: apps/web/src/components/vendor/vendor-page-skeleton.tsx
+═══════════════════════════════════════════════════════
+
+export function VendorPageSkeleton() {
+  return (
+    <div aria-busy="true" aria-label="Loading vendors near you">
+      {/* Search bar skeleton */}
+      <div style={{ padding: '8px 16px', marginBottom: '4px' }}>
+        <div style={{ height: '42px', background: '#EDE4D4', borderRadius: '12px',
+          animation: 'fp-shimmer 1.5s infinite', backgroundSize: '200% 100%',
+          backgroundImage: 'linear-gradient(90deg,#F5EDE0 25%,#EDE4D4 50%,#F5EDE0 75%)' }} />
+      </div>
+      {/* Cuisine pill skeletons */}
+      <div style={{ display: 'flex', gap: '8px', padding: '8px 16px', overflowX: 'hidden' }}>
+        {[80,96,88,80,92,76].map((w,i) => (
+          <div key={i} style={{ height: '72px', width: w+'px', borderRadius: '12px', flexShrink: 0,
+            backgroundImage: 'linear-gradient(90deg,#F5EDE0 25%,#EDE4D4 50%,#F5EDE0 75%)',
+            backgroundSize: '200% 100%', animation: `fp-shimmer 1.5s infinite ${i*.08}s` }} />
+        ))}
+      </div>
+      {/* Vendor grid skeleton */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', padding: '8px 16px' }}>
+        {Array.from({ length: 6 }).map((_,i) => <VendorCardSkeleton key={i} />)}
+      </div>
+    </div>
+  )
+}
+
+═══════════════════════════════════════════════════════
+STEP 3 — VendorProfileSkeleton
+File: apps/web/src/components/vendor/vendor-profile-skeleton.tsx
+═══════════════════════════════════════════════════════
+
+export function VendorProfileSkeleton() {
+  return (
+    <div aria-busy="true" aria-label="Loading vendor profile">
+      {/* Cover */}
+      <div style={{ height: '200px', backgroundImage: 'linear-gradient(90deg,#F5EDE0 25%,#EDE4D4 50%,#F5EDE0 75%)',
+        backgroundSize: '200% 100%', animation: 'fp-shimmer 1.5s infinite' }} />
+      {/* Info card */}
+      <div style={{ padding: '14px 16px', background: 'white', borderBottom: '1px solid #F5EDE0' }}>
+        <div style={{ height: '22px', width: '55%', background: '#EDE4D4', borderRadius: '6px', marginBottom: '8px', animation: 'fp-shimmer 1.5s infinite' }} />
+        <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
+          {[60,72,55].map((w,i)=><div key={i} style={{ height:'20px', width:w+'px', background:'#F5EDE0', borderRadius:'20px', animation:`fp-shimmer 1.5s infinite ${i*.1}s` }}/>)}
+        </div>
+        <div style={{ height: '14px', width: '80%', background: '#F5EDE0', borderRadius: '4px', animation: 'fp-shimmer 1.5s infinite .2s' }} />
+      </div>
+      {/* Menu tab skeletons */}
+      <div style={{ display: 'flex', gap: '8px', padding: '10px 16px', borderBottom: '1px solid #F5EDE0', overflowX: 'hidden' }}>
+        {[50,48,62,52,55].map((w,i)=><div key={i} style={{ height:'32px', width:w+'px', background:'#EDE4D4', borderRadius:'20px', flexShrink:0, animation:`fp-shimmer 1.5s infinite ${i*.08}s` }}/>)}
+      </div>
+      {/* Menu item skeletons */}
+      <div style={{ padding: '8px 16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        {Array.from({length:5}).map((_,i)=>(
+          <div key={i} style={{ display:'flex', gap:'10px', padding:'10px', background:'white', borderRadius:'16px' }}>
+            <div style={{ width:'88px', height:'88px', background:'#EDE4D4', borderRadius:'12px', flexShrink:0, animation:`fp-shimmer 1.5s infinite ${i*.1}s` }}/>
+            <div style={{ flex:1 }}>
+              <div style={{ height:'14px', width:'70%', background:'#EDE4D4', borderRadius:'4px', marginBottom:'6px', animation:'fp-shimmer 1.5s infinite' }}/>
+              <div style={{ height:'11px', width:'50%', background:'#F5EDE0', borderRadius:'4px', marginBottom:'8px', animation:'fp-shimmer 1.5s infinite .1s' }}/>
+              <div style={{ height:'16px', width:'30%', background:'#EDE4D4', borderRadius:'4px', animation:'fp-shimmer 1.5s infinite .2s' }}/>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+═══════════════════════════════════════════════════════
+STEP 4 — Wire skeletons into pages
+═══════════════════════════════════════════════════════
+
+In apps/web/src/app/vendors/page.tsx:
+Replace any "Loading…" text with:
+{isLoading ? <VendorPageSkeleton /> : <VendorGrid vendors={vendors} />}
+
+In apps/web/src/app/vendors/[slug]/page.tsx:
+Replace "Loading vendor profile" with:
+{isLoading ? <VendorProfileSkeleton /> : <VendorProfile vendor={vendor} />}
+
+Also fix the reviews section which shows "Loading reviews…" indefinitely:
+- If reviewsLoading: show 3 review skeletons
+- If reviews.length === 0 && !reviewsLoading: show empty state "No reviews yet — be the first to order"
+- If reviewsError: show "Reviews unavailable — try refreshing"
+
+ALSO CRITICAL: The rating distribution note "Distribution estimated from average rating — exact counts coming soon" must be removed. It signals placeholder data to real customers. Remove entirely until real distribution data is available.
+
+Run: npm run typecheck --filter=@feastpot/web
+Run: npm run dev:web — visit /vendors and /vendors/mamans-kitchen-peckham and confirm skeletons appear.
+Output all files in full.

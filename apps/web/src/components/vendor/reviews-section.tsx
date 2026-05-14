@@ -33,10 +33,59 @@ export function ReviewsSection({
     useVendorReviews(vendorId);
 
   if (isLoading) {
-    return <p className="text-sm text-muted-foreground">Loading reviews&hellip;</p>;
+    // Skeleton mirrors the live review card layout — warm cream
+    // surface, teal-gradient avatar slot, two-line quote — so the
+    // section doesn't pop/reflow when data lands. 3 placeholders is
+    // the same number we render at `limit={3}` from the vendor
+    // profile, the only place this section currently mounts.
+    return (
+      <div className="space-y-2.5" aria-busy="true" aria-label="Loading reviews">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div
+            key={i}
+            aria-hidden="true"
+            style={{
+              background: '#FBF6EF',
+              borderRadius: '16px',
+              padding: '14px',
+              border: '1px solid #F5EDE0',
+            }}
+          >
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
+              <div
+                className="animate-shimmer"
+                style={{ width: '36px', height: '36px', borderRadius: '50%', flexShrink: 0 }}
+              />
+              <div style={{ flex: 1 }}>
+                <div
+                  className="animate-shimmer"
+                  style={{ height: '12px', width: '40%', borderRadius: '4px', marginBottom: '6px' }}
+                />
+                <div
+                  className="animate-shimmer"
+                  style={{ height: '10px', width: '25%', borderRadius: '4px' }}
+                />
+              </div>
+            </div>
+            <div
+              className="animate-shimmer"
+              style={{ height: '11px', width: '92%', borderRadius: '4px', marginBottom: '5px' }}
+            />
+            <div
+              className="animate-shimmer"
+              style={{ height: '11px', width: '78%', borderRadius: '4px' }}
+            />
+          </div>
+        ))}
+      </div>
+    );
   }
   if (error) {
-    return <p className="text-sm text-destructive">Failed to load reviews.</p>;
+    // Friendlier than "Failed to load reviews." — tells the user what
+    // to do (refresh) rather than just announcing the failure.
+    return (
+      <p className="text-sm text-mid">Reviews unavailable — try refreshing the page.</p>
+    );
   }
 
   const allReviews = data?.pages.flatMap((p) => p.data) ?? [];
@@ -44,7 +93,11 @@ export function ReviewsSection({
   const showLoadMore = limit === undefined && hasNextPage;
 
   if (reviews.length === 0) {
-    return <p className="text-sm text-muted-foreground">No reviews yet.</p>;
+    return (
+      <p className="text-sm text-mid">
+        No reviews yet — be the first to order and share what you think.
+      </p>
+    );
   }
 
   return (
