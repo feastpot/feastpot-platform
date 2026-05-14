@@ -8,7 +8,7 @@ import { usePathname } from 'next/navigation';
  * reach Privacy / Terms / Cookies / Allergen / Vendor T&Cs without
  * URL-guessing — the legal team requires those links to be
  * persistently discoverable, and ICO guidance also expects a visible
- * data-controller note (the "ICO Registration C1931679" line below).
+ * data-controller note (the "ICO Registration ZC146267" line below).
  *
  * Hidden on /checkout and the (auth) routes because:
  *  - Checkout has its own legal acceptance copy beside the pay button
@@ -80,7 +80,7 @@ export function Footer() {
             © 2026 Feastpot Ltd · England &amp; Wales
           </p>
           <p className="mt-0.5 text-[10px] text-white/20">
-            ICO Registration C1931679 ·{' '}
+            ICO Registration ZC146267 ·{' '}
             <a
               href="mailto:support@feastpot.co.uk"
               className="hover:text-white/40"

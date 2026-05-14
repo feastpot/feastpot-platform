@@ -67,7 +67,7 @@ probe_endpoint "/legal/vendor-terms" "vendor-terms" \
 probe_endpoint "/legal/cookies" "cookies" \
   "feastpot.basket.v1" "sb-access-token"
 probe_endpoint "/legal/privacy" "privacy" \
-  "C1931679" "ICO Registration"
+  "ZC146267" "ICO Registration"
 
 # ---------- API health probe (best-effort) ----------
 # Tries the authoritative domain first, then the Replit Autoscale

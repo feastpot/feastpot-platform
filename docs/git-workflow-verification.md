@@ -56,7 +56,7 @@ HTTP 200 with the new content:
 | --- | --- | --- |
 | `https://feastpot.co.uk/legal/vendor-terms` | 200 | "12% of the order subtotal", "weekly, every Monday", "FHRS" |
 | `https://feastpot.co.uk/legal/cookies` | 200 | "feastpot.basket.v1", "sb-access-token" |
-| `https://feastpot.co.uk/legal/privacy` | 200 | "C1931679", "ICO Registration", "Last updated: May 2026" |
+| `https://feastpot.co.uk/legal/privacy` | 200 | "ZC146267", "ICO Registration", "Last updated: May 2026" |
 
 Before the push these were 404 / showing stale content.
 

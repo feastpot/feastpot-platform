@@ -47,7 +47,7 @@ ${preheader ? `<div style="display:none;max-height:0;overflow:hidden;color:trans
   <div style="padding:28px 28px 24px">${body}</div>
   <div style="background:${BRAND.paper};padding:16px 28px;border-top:1px solid ${BRAND.hairline}">
     <p style="margin:0 0 4px;font-size:12px;color:${BRAND.muteSoft}">Feastpot · feastpot.co.uk · support@feastpot.co.uk</p>
-    <p style="margin:0;font-size:11px;color:#BDBBB7">ICO Registration: C1931679 · Feastpot Ltd · England &amp; Wales</p>
+    <p style="margin:0;font-size:11px;color:#BDBBB7">ICO Registration: ZC146267 · Feastpot Ltd · England &amp; Wales</p>
   </div>
 </div>
 </body></html>`;
