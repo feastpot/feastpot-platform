@@ -1,9 +1,11 @@
+import { randomBytes } from 'node:crypto';
+
 import { Injectable, Logger } from '@nestjs/common';
 import { ReferralStatus } from '@prisma/client';
-import { randomBytes } from 'node:crypto';
 
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+
 import { LoyaltyService } from './loyalty.service';
 
 const REWARD_POINTS = 500; // = £5

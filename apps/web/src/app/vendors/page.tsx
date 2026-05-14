@@ -2,7 +2,7 @@
 
 import { X } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useEffect } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 
 import { CuisineFilterSkeleton } from '@/components/home/cuisine-filters-skeleton';
 import { CuisineFilter } from '@/components/vendor/cuisine-filter';
@@ -14,6 +14,7 @@ import { PostcodeChip } from '@/components/vendors/postcode-chip';
 import { VendorSearchInput } from '@/components/vendors/vendor-search-input';
 import { useVendors } from '@/hooks/use-vendors';
 import type { SearchVendorsParams, VendorSortBy } from '@/lib/api/vendors';
+import { readStoredPostcode, writeStoredPostcode } from '@/lib/postcode';
 
 /**
  * Vendor search page. URL is the source of truth for every filter so:
@@ -28,6 +29,52 @@ function VendorSearch() {
   const q = params?.get('q')?.trim() || undefined;
   const postcode = params?.get('postcode') ?? undefined;
   const cuisineParam = params?.get('cuisine');
+
+  // Postcode persistence — two-way sync between the URL (which is the
+  // source of truth for filters so links stay shareable) and
+  // localStorage (so a returning user who lands on /vendors directly,
+  // e.g. via the bottom-nav "Browse" tab, sees vendors for their
+  // remembered location instead of an unfiltered national list).
+  //
+  // - URL has ?postcode= → write through to storage so the latest
+  //   browsed postcode wins (the user implicitly picked it).
+  // - URL has none but storage does → replaceState the URL so the
+  //   PostcodeChip + the actual data fetch both see it. `replace`
+  //   (not `push`) so the back button doesn't bounce the user
+  //   between /vendors and /vendors?postcode=X.
+  // - Neither → leave the page as-is (national results / empty
+  //   state).
+  //
+  // `postcodeSyncResolved` gates the vendor query so we don't fire an
+  // initial postcode-less national fetch + then a second filtered
+  // fetch a tick later when the storage rehydrate replaces the URL.
+  // The flag is true once we've either confirmed the URL has a
+  // postcode, the URL is missing one but no saved postcode exists, OR
+  // we've issued the replace (the next render with the new URL will
+  // satisfy the first branch).
+  const [postcodeSyncResolved, setPostcodeSyncResolved] = useState<boolean>(() =>
+    typeof postcode === 'string' && postcode.length > 0,
+  );
+  useEffect(() => {
+    if (postcode) {
+      writeStoredPostcode(postcode);
+      setPostcodeSyncResolved(true);
+      return;
+    }
+    const saved = readStoredPostcode();
+    if (!saved) {
+      setPostcodeSyncResolved(true);
+      return;
+    }
+    const next = new URLSearchParams(params?.toString() ?? '');
+    next.set('postcode', saved);
+    router.replace(`${pathname}?${next.toString()}`, { scroll: false });
+    // Don't flip resolved here — wait for the replace to land and the
+    // first branch above to fire on the next render. That avoids the
+    // single national-list fetch the architect flagged.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [postcode]);
+
   const halal = params?.get('halal') === 'true';
   const orderType = params?.get('orderType') ?? undefined;
   const sortBy = (params?.get('sort') as VendorSortBy | null) ?? undefined;
@@ -42,7 +89,7 @@ function VendorSearch() {
   };
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, error } =
-    useVendors(search);
+    useVendors(search, { enabled: postcodeSyncResolved });
   const vendors = data?.pages.flatMap((p) => p.data) ?? [];
 
   // Scroll-position restoration. Next 15's App Router doesn't restore

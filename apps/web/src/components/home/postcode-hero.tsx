@@ -1,8 +1,8 @@
 'use client';
 
-import { ArrowRight, MapPin } from 'lucide-react';
+import { ArrowRight, MapPin, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 
 import { AnimatedHeadline } from '@/components/home/animated-headline';
 import { normalisePostcode, useStoredPostcode } from '@/lib/postcode';
@@ -35,6 +35,7 @@ export function PostcodeHero() {
   const [stored, setStored] = useStoredPostcode();
   const [value, setValue] = useState<string>('');
   const [error, setError] = useState<string>('');
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (stored && !value) setValue(stored);
@@ -51,6 +52,20 @@ export function PostcodeHero() {
     setError('');
     setStored(pc);
     router.push(`/vendors?postcode=${encodeURIComponent(pc)}`);
+  };
+
+  const resumeWithStored = () => {
+    if (!stored) return;
+    router.push(`/vendors?postcode=${encodeURIComponent(stored)}`);
+  };
+
+  const clearStored = () => {
+    setStored(null);
+    setValue('');
+    // Move focus into the postcode input so keyboard / screen-reader
+    // users can immediately type a new value without hunting for the
+    // next interactive element.
+    inputRef.current?.focus();
   };
 
   return (
@@ -107,6 +122,45 @@ export function PostcodeHero() {
             Nigerian · Ghanaian · Jamaican · Caribbean
           </p>
 
+          {/* Resume banner — when we have a stored postcode from a
+              previous session, surface it as a one-tap shortcut so
+              returning users don't have to re-type. The 45yo target
+              demographic is the #1 churn risk if we make them re-enter
+              their location every visit. The banner is rendered ABOVE
+              the form (not in place of it) so changing postcodes
+              remains a single visible action. Pure white-on-translucent
+              chrome to sit cleanly on the dark gradient. */}
+          {stored && (
+            <div
+              className="mx-auto mt-4 flex max-w-sm items-center justify-between gap-2 rounded-xl border border-white/15 bg-white/10 px-3 py-2 backdrop-blur"
+              role="region"
+              aria-label="Resume previous search"
+            >
+              <span className="min-w-0 truncate text-[13px] text-white">
+                <MapPin className="mr-1 -mt-0.5 inline h-3.5 w-3.5" aria-hidden />
+                Ordering for <strong className="font-semibold">{stored}</strong>?
+              </span>
+              <div className="flex shrink-0 items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={resumeWithStored}
+                  className="touch-target rounded-lg bg-brand px-3 py-1.5 text-[12px] font-semibold text-white shadow-sm transition-colors hover:bg-brand-dark"
+                >
+                  Find food
+                </button>
+                <button
+                  type="button"
+                  onClick={clearStored}
+                  aria-label="Clear saved postcode"
+                  className="touch-target inline-flex items-center gap-1 rounded-lg bg-white/15 px-2 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-white/25"
+                >
+                  <X className="h-3 w-3" aria-hidden />
+                  Change
+                </button>
+              </div>
+            </div>
+          )}
+
           <form
             onSubmit={onSubmit}
             role="search"
@@ -119,6 +173,7 @@ export function PostcodeHero() {
             <div className="flex flex-1 items-center gap-2 px-3">
               <MapPin className="h-4 w-4 shrink-0 text-brand" aria-hidden />
               <input
+                ref={inputRef}
                 id="hero-postcode"
                 type="text"
                 inputMode="text"

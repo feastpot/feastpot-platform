@@ -2,8 +2,8 @@ import { Global, Module } from '@nestjs/common';
 
 import { PrismaModule } from '../../prisma/prisma.module';
 
-import { LoyaltyController } from './loyalty.controller';
 import { LoyaltyCronService } from './loyalty-cron.service';
+import { LoyaltyController } from './loyalty.controller';
 import { LoyaltyService } from './loyalty.service';
 import { ReferralService } from './referral.service';
 

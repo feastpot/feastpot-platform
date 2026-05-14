@@ -1,0 +1,143 @@
+You are a Next.js 15 engineer fixing postcode persistence across feastpot.co.uk.
+
+PROBLEM IDENTIFIED FROM LIVE AUDIT:
+A user who searches "SE15" and browses vendors, then returns the next day, must
+re-enter their postcode on the homepage again. There is no memory.
+For a 45-year-old user on their phone, this repeated friction is the #1 reason
+to use a competitor that remembers their location.
+
+═══════════════════════════════════════════════════════
+STEP 1 — Postcode storage utility
+File: apps/web/src/lib/postcode.ts (create)
+═══════════════════════════════════════════════════════
+
+const STORAGE_KEY = 'fp.postcode.v1'
+
+export const postcodeStorage = {
+  get(): string | null {
+    if (typeof window === 'undefined') return null
+    return localStorage.getItem(STORAGE_KEY)
+  },
+  set(postcode: string): void {
+    if (typeof window === 'undefined') return
+    localStorage.setItem(STORAGE_KEY, postcode.toUpperCase().trim())
+  },
+  clear(): void {
+    if (typeof window === 'undefined') return
+    localStorage.removeItem(STORAGE_KEY)
+  },
+}
+
+export function isValidUKPostcode(postcode: string): boolean {
+  return /^[A-Z]{1,2}[0-9][0-9A-Z]?s?[0-9][A-Z]{2}$/i.test(postcode.trim())
+}
+
+═══════════════════════════════════════════════════════
+STEP 2 — Homepage hero: detect saved postcode
+File: apps/web/src/components/home/postcode-hero.tsx
+═══════════════════════════════════════════════════════
+
+On mount, check for a saved postcode:
+
+const [postcode, setPostcode] = useState('')
+const [savedPostcode, setSavedPostcode] = useState<string | null>(null)
+
+useEffect(() => {
+  const saved = postcodeStorage.get()
+  if (saved) {
+    setSavedPostcode(saved)
+    setPostcode(saved)  // pre-fill the input
+  }
+}, [])
+
+If savedPostcode exists, show a prompt above the postcode input:
+<div
+  style={{ background: 'rgba(255,255,255,0.15)', borderRadius: '10px',
+           padding: '8px 12px', marginBottom: '10px', display: 'flex',
+           alignItems: 'center', justifyContent: 'space-between' }}
+>
+  <span style={{ color: 'white', fontSize: '13px' }}>
+    📍 Ordering for <strong>{savedPostcode}</strong>?
+  </span>
+  <div style={{ display: 'flex', gap: '8px' }}>
+    <button
+      onClick={() => router.push(`/vendors?postcode=${savedPostcode}`)}
+      style={{ background: '#E8520A', color: 'white', border: 'none', borderRadius: '8px',
+               padding: '5px 12px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
+    >
+      Find food →
+    </button>
+    <button
+      onClick={() => { postcodeStorage.clear(); setSavedPostcode(null); setPostcode('') }}
+      style={{ background: 'rgba(255,255,255,0.2)', color: 'white', border: 'none',
+               borderRadius: '8px', padding: '5px 10px', fontSize: '12px', cursor: 'pointer' }}
+    >
+      Change
+    </button>
+  </div>
+</div>
+
+═══════════════════════════════════════════════════════
+STEP 3 — Save postcode on search submit
+File: apps/web/src/components/home/postcode-hero.tsx
+═══════════════════════════════════════════════════════
+
+In the handleSubmit function, after validation:
+
+const handleSubmit = () => {
+  if (!isValidUKPostcode(postcode)) {
+    setError('Please enter a valid UK postcode (e.g. SE15 4ST)')
+    return
+  }
+  const clean = postcode.toUpperCase().replace(/s+/, ' ').trim()
+  postcodeStorage.set(clean)  // ← persist before navigating
+  router.push(`/vendors?postcode=${encodeURIComponent(clean)}`)
+}
+
+═══════════════════════════════════════════════════════
+STEP 4 — Vendors page: auto-populate from storage if no URL param
+File: apps/web/src/app/vendors/page.tsx
+═══════════════════════════════════════════════════════
+
+If the user navigates directly to /vendors with no ?postcode= param,
+auto-populate from localStorage:
+
+const searchParams = useSearchParams()
+const [postcode, setPostcode] = useState<string | null>(null)
+
+useEffect(() => {
+  const urlPostcode = searchParams.get('postcode')
+  if (urlPostcode) {
+    setPostcode(urlPostcode)
+    postcodeStorage.set(urlPostcode)
+  } else {
+    const saved = postcodeStorage.get()
+    if (saved) {
+      setPostcode(saved)
+      // Update URL without page reload so the chip shows
+      const params = new URLSearchParams(searchParams.toString())
+      params.set('postcode', saved)
+      router.replace(`/vendors?${params.toString()}`, { scroll: false })
+    }
+  }
+}, [])
+
+═══════════════════════════════════════════════════════
+STEP 5 — PostcodeChip: clear postcode button
+File: apps/web/src/components/vendors/postcode-chip.tsx
+═══════════════════════════════════════════════════════
+
+Update the Change/× button to also clear localStorage:
+
+const handleChange = () => {
+  postcodeStorage.clear()
+  router.push('/')
+}
+
+Also ensure the chip shows "Delivering to SE15" when postcode is auto-populated
+from localStorage (not just from URL param).
+
+Run: npm run typecheck — fix all errors.
+Test: enter a postcode, navigate away, return to homepage — postcode should be remembered.
+Test: click "Change" — postcode should be cleared from storage.
+Output all files in full.

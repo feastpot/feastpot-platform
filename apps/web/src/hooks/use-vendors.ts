@@ -20,13 +20,14 @@ const VENDORS_KEY = 'vendors';
  * leaking into the new list). `getNextPageParam` returns `undefined` when the
  * server replies with `nextCursor: null`, which stops `fetchNextPage()`.
  */
-export function useVendors(params: SearchVendorsParams) {
+export function useVendors(params: SearchVendorsParams, options?: { enabled?: boolean }) {
   return useInfiniteQuery<VendorListResponse, Error>({
     queryKey: [VENDORS_KEY, 'list', params],
     initialPageParam: undefined as string | undefined,
     queryFn: ({ pageParam, signal }) =>
       searchVendors({ ...params, cursor: pageParam as string | undefined }, { signal }),
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    enabled: options?.enabled ?? true,
   });
 }
 
