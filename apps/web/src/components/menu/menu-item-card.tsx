@@ -1,9 +1,9 @@
 'use client';
 
 import { Info, Minus, Plus } from 'lucide-react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
-import { cn } from '@feastpot/ui';
+import { cn, Sheet, SheetContent } from '@feastpot/ui';
 
 import type { VendorMenuItem } from '@/lib/api/vendors';
 import {
@@ -166,7 +166,8 @@ interface Props {
  */
 export function MenuItemCard({ item, vendor }: Props) {
   const items = useBasketStore((s) => s.items);
-  const basketVendorId = useBasketStore((s) => s.vendor?.id ?? null);
+  const basketVendor = useBasketStore((s) => s.vendor);
+  const basketVendorId = basketVendor?.id ?? null;
   const addItem = useBasketStore((s) => s.addItem);
   const removeLine = useBasketStore((s) => s.removeLine);
   const updateLineQuantity = useBasketStore((s) => s.updateLineQuantity);
@@ -174,6 +175,12 @@ export function MenuItemCard({ item, vendor }: Props) {
 
   const [showAllergens, setShowAllergens] = useState(false);
   const [pulse, setPulse] = useState(false);
+  const [justAdded, setJustAdded] = useState(false);
+  const [crossVendorOpen, setCrossVendorOpen] = useState(false);
+  // Single-fire guard so a user mashing "Start new order" can't queue
+  // multiple add-after-clear operations on subsequent animation frames
+  // (which would silently inflate the line quantity).
+  const confirmingCrossVendorRef = useRef(false);
 
   // Only count the inline (no-customisation) line; customised lines are
   // separate orders from the user's perspective and shown in the drawer.
@@ -189,52 +196,61 @@ export function MenuItemCard({ item, vendor }: Props) {
 
   const flashPulse = () => {
     setPulse(true);
+    setJustAdded(true);
     window.setTimeout(() => setPulse(false), 220);
+    // 800ms keyframe — long enough that the eye lands on it after the
+    // tap micro-interaction, short enough to not stack confirmations
+    // when the user adds two items in quick succession.
+    window.setTimeout(() => setJustAdded(false), 800);
     if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
       navigator.vibrate(15);
     }
   };
 
+  const performAdd = () => {
+    addItem(
+      {
+        menuItemId: item.id,
+        menuItemName: item.name,
+        quantity: 1,
+        unitPricePence: item.pricePence,
+        imageUrl: cover,
+        portionLabel: portionLabel ?? undefined,
+      },
+      vendor,
+    );
+    flashPulse();
+  };
+
   const tryAdd = () => {
     try {
-      addItem(
-        {
-          menuItemId: item.id,
-          menuItemName: item.name,
-          quantity: 1,
-          unitPricePence: item.pricePence,
-          imageUrl: cover,
-          portionLabel: portionLabel ?? undefined,
-        },
-        vendor,
-      );
-      flashPulse();
+      performAdd();
     } catch (e) {
       if (e instanceof CrossVendorBasketError) {
-        const ok =
-          typeof window !== 'undefined' &&
-          window.confirm(
-            'Your basket has items from another vendor. Clear basket and add this item?',
-          );
-        if (ok) {
-          clearBasket();
-          addItem(
-            {
-              menuItemId: item.id,
-              menuItemName: item.name,
-              quantity: 1,
-              unitPricePence: item.pricePence,
-              imageUrl: cover,
-              portionLabel: portionLabel ?? undefined,
-            },
-            vendor,
-          );
-          flashPulse();
-        }
+        // Replaces the older window.confirm() — a native dialog feels
+        // jarring on mobile and the message ("Clear basket?") was
+        // technical. The bottom-sheet below names BOTH vendors and uses
+        // copy a non-technical user can act on.
+        setCrossVendorOpen(true);
         return;
       }
       throw e;
     }
+  };
+
+  const onConfirmReplaceBasket = () => {
+    if (confirmingCrossVendorRef.current) return;
+    confirmingCrossVendorRef.current = true;
+    clearBasket();
+    setCrossVendorOpen(false);
+    // Defer the add so the sheet's exit animation isn't competing with
+    // the +/- pill swap-in animation on the card. One frame is enough.
+    window.requestAnimationFrame(() => {
+      performAdd();
+      // Release the guard once the add has landed so a *future*
+      // legitimate cross-vendor switch on the same card still works.
+      confirmingCrossVendorRef.current = false;
+    });
   };
 
   const handleMinus = () => {
@@ -372,22 +388,39 @@ export function MenuItemCard({ item, vendor }: Props) {
               {formatPounds(item.pricePence)}
             </span>
 
-            {qty === 0 ? (
-              <button
-                type="button"
-                onClick={tryAdd}
-                aria-label={`Add ${item.name} to basket`}
-                className="touch-target flex h-9 w-9 items-center justify-center rounded-full bg-brand text-white shadow-sm transition-transform active:scale-90"
-              >
-                <Plus className="h-5 w-5" aria-hidden />
-              </button>
-            ) : (
-              <div
-                className={cn(
-                  'flex items-center gap-1 rounded-full bg-brand p-1 shadow-sm transition-transform duration-200',
-                  pulse && 'scale-110',
-                )}
-              >
+            {/* Right-side controls. The relative wrapper hosts the
+                "Added ✓" floating confirmation OUTSIDE the qty===0
+                conditional so it stays visible across the
+                Plus-button → +/- pill swap on the very first add (the
+                first add is exactly the moment the user most needs the
+                confirmation). aria-live so AT users hear the count
+                change without the toast being announced as a generic
+                aria-live region itself. */}
+            <div className="relative">
+              {justAdded && (
+                <span
+                  className="pointer-events-none absolute -top-5 right-0 whitespace-nowrap text-[11px] font-semibold text-teal-dark animate-fade-up"
+                  aria-hidden
+                >
+                  Added ✓
+                </span>
+              )}
+              {qty === 0 ? (
+                <button
+                  type="button"
+                  onClick={tryAdd}
+                  aria-label={`Add ${item.name} to basket`}
+                  className="touch-target flex h-9 w-9 items-center justify-center rounded-full bg-brand text-white shadow-sm transition-transform active:scale-90"
+                >
+                  <Plus className="h-5 w-5" aria-hidden />
+                </button>
+              ) : (
+                <div
+                  className={cn(
+                    'flex items-center gap-1 rounded-full bg-brand p-1 shadow-sm transition-transform duration-200',
+                    pulse && 'scale-110',
+                  )}
+                >
                 <button
                   type="button"
                   onClick={handleMinus}
@@ -410,8 +443,9 @@ export function MenuItemCard({ item, vendor }: Props) {
                 >
                   <Plus className="h-4 w-4" aria-hidden />
                 </button>
-              </div>
-            )}
+                </div>
+              )}
+            </div>
           </div>
 
           {item.allergens.length > 0 && (
@@ -438,6 +472,63 @@ export function MenuItemCard({ item, vendor }: Props) {
           )}
         </div>
       </div>
+
+      {/* Cross-vendor confirmation. Bottom-sheet (mobile) / right-sheet
+          (≥sm) via the shared shadcn Sheet — same chrome as the basket
+          drawer so it feels like part of the same system. Names BOTH
+          vendors so the user understands the trade-off without having
+          to remember what's in their basket.
+
+          A11y: this UI package doesn't re-export SheetTitle /
+          SheetDescription helpers, so the title <h2> and description
+          <p> are wired up via aria-labelledby / aria-describedby on
+          the SheetContent (the underlying Radix Dialog requires both
+          for a screen-reader-announceable dialog). The visible
+          heading doubles as the AT-announced title, no extra
+          sr-only duplicate needed. */}
+      <Sheet open={crossVendorOpen} onOpenChange={setCrossVendorOpen}>
+        <SheetContent
+          side="bottom"
+          className="rounded-t-2xl"
+          aria-labelledby={`cross-vendor-title-${item.id}`}
+          aria-describedby={`cross-vendor-desc-${item.id}`}
+        >
+          <div className="mx-auto max-w-sm py-2">
+            <h2
+              id={`cross-vendor-title-${item.id}`}
+              className="text-base font-bold text-dark"
+            >
+              Start a new order?
+            </h2>
+            <p
+              id={`cross-vendor-desc-${item.id}`}
+              className="mt-2 text-[13px] leading-relaxed text-mid"
+            >
+              Your basket has items from{' '}
+              <strong className="text-dark">{basketVendor?.name ?? 'another vendor'}</strong>.
+              Adding from <strong className="text-dark">{vendor.name}</strong> will clear your
+              current basket.
+            </p>
+            <div className="mt-4 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setCrossVendorOpen(false)}
+                className="touch-target flex-1 rounded-xl border border-cream-warm bg-white px-3 py-3 text-sm font-semibold text-mid transition-colors hover:bg-cream-warm/40"
+              >
+                Keep current basket
+              </button>
+              <button
+                type="button"
+                onClick={onConfirmReplaceBasket}
+                disabled={confirmingCrossVendorRef.current}
+                className="touch-target flex-1 rounded-xl bg-brand px-3 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-dark disabled:opacity-60"
+              >
+                Start new order
+              </button>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
     </article>
   );
 }

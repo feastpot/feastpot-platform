@@ -1,0 +1,144 @@
+You are a Next.js 15 engineer fixing the add-to-basket UX on feastpot.co.uk.
+
+PROBLEMS IDENTIFIED FROM LIVE AUDIT:
+1. No visual confirmation when tapping the + button on a menu item — users may tap multiple times
+2. The FloatingBasketBar may not animate in immediately on first add
+3. Cross-vendor basket errors are technical-sounding and unclear to non-technical users
+4. The basket icon in the TopNav has no item count badge
+
+FILE: apps/web/src/components/menu/menu-item-card.tsx and basket components.
+
+═══════════════════════════════════════════════════════
+STEP 1 — Add-to-basket confirmation feedback
+File: apps/web/src/components/menu/menu-item-card.tsx
+═══════════════════════════════════════════════════════
+
+When the + button is tapped, provide three simultaneous feedback signals:
+1. The button shows a brief green checkmark (250ms) before reverting to +
+2. The quantity counter animates in with a spring (already partially implemented — verify)
+3. Haptic feedback via navigator.vibrate (already there — confirm it fires)
+
+Add a brief "Added!" text that appears next to the + and fades in 600ms:
+
+const [justAdded, setJustAdded] = useState(false)
+
+const handleAdd = () => {
+  // ... existing add logic ...
+  setJustAdded(true)
+  setTimeout(() => setJustAdded(false), 800)
+  if (navigator.vibrate) navigator.vibrate(25)
+}
+
+// In the JSX, add this next to the quantity control:
+{justAdded && qty === 1 && (
+  <span
+    style={{
+      position: 'absolute', top: '-20px', right: 0,
+      fontSize: '11px', fontWeight: 600, color: '#3D7A47',
+      animation: 'fadeUp 0.3s ease-out forwards',
+      pointerEvents: 'none', whiteSpace: 'nowrap',
+    }}
+  >
+    Added ✓
+  </span>
+)}
+
+Add fadeUp keyframe to globals.css if not already present:
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(-4px); }
+}
+
+═══════════════════════════════════════════════════════
+STEP 2 — Cross-vendor error: friendly message, not technical
+File: apps/web/src/store/basket.store.ts and basket drawer
+═══════════════════════════════════════════════════════
+
+The CrossVendorBasketError currently likely shows a technical message or crashes silently.
+Replace with a friendly, actionable dialog:
+
+When a cross-vendor add is attempted, instead of throwing:
+Show a bottom-sheet confirmation:
+
+<div> {/* CrossVendorWarning sheet */}
+  <p style={{ fontWeight: 700, fontSize: '16px', color: '#1C1C1A', marginBottom: '8px' }}>
+    Start a new order?
+  </p>
+  <p style={{ fontSize: '13px', color: '#5F5E5A', lineHeight: 1.6, marginBottom: '16px' }}>
+    Your basket has items from <strong>{currentVendorName}</strong>.
+    Adding from <strong>{newVendorName}</strong> will clear your current basket.
+  </p>
+  <div style={{ display: 'flex', gap: '8px' }}>
+    <button onClick={onCancel}
+      style={{ flex: 1, padding: '12px', borderRadius: '12px', border: '1px solid #EDE4D4',
+               background: 'white', fontSize: '14px', fontWeight: 600, color: '#5F5E5A' }}>
+      Keep current basket
+    </button>
+    <button onClick={onConfirmClear}
+      style={{ flex: 1, padding: '12px', borderRadius: '12px', border: 'none',
+               background: '#E8520A', fontSize: '14px', fontWeight: 600, color: 'white' }}>
+      Start new order
+    </button>
+  </div>
+</div>
+
+In the basket store, add a pendingCrossVendorItem state.
+Instead of throwing CrossVendorBasketError, set pendingCrossVendorItem and show the dialog.
+If user confirms: clear basket, add the new item. If cancelled: discard new item.
+
+═══════════════════════════════════════════════════════
+STEP 3 — Basket count badge on BottomNav
+File: apps/web/src/components/layout/bottom-nav.tsx
+═══════════════════════════════════════════════════════
+
+The Orders icon in the bottom nav must show the basket item count when items are in the basket.
+This is already partially implemented — verify the badge is showing correctly.
+
+Key requirements:
+- Badge appears immediately when first item is added (no delay)
+- Badge disappears immediately when basket is cleared
+- Badge count > 9 shows "9+" not "10", "11" etc.
+- Badge position: top-right of the Orders icon (not centred)
+- Badge size: 16px circle, white text on brand orange (#E8520A) background
+- Badge must NOT appear on the Orders icon when viewing order history (only when basket has items)
+
+const basketCount = useBasketStore(s => s.items.reduce((a, i) => a + i.quantity, 0))
+
+{/* On the Orders nav item */}
+{basketCount > 0 && (
+  <span
+    className="absolute -top-1 -right-1 flex items-center justify-center"
+    style={{
+      width: '16px', height: '16px', borderRadius: '50%',
+      background: '#E8520A', color: 'white', fontSize: '9px', fontWeight: 700,
+    }}
+  >
+    {basketCount > 9 ? '9+' : basketCount}
+  </span>
+)}
+
+═══════════════════════════════════════════════════════
+STEP 4 — FloatingBasketBar: ensure instant appearance
+File: apps/web/src/components/basket/floating-basket-bar.tsx
+═══════════════════════════════════════════════════════
+
+The floating bar must appear with a slide-up animation the moment the first item is added.
+
+Verify the component:
+1. Reads from useBasketStore — totalItems must be reactive
+2. When totalItems goes from 0 to 1: bar slides up (animate-slide-up class from globals.css)
+3. When totalItems goes to 0: bar slides down and disappears (reverse animation)
+4. Bar is positioned above the bottom nav: bottom: calc(64px + env(safe-area-inset-bottom) + 8px)
+5. Bar does NOT appear on the checkout page (check pathname)
+
+Add slide-down animation for when basket is cleared:
+@keyframes slideDown {
+  from { transform: translateY(0); opacity: 1; }
+  to   { transform: translateY(100%); opacity: 0; }
+}
+.animate-slide-down { animation: slideDown 0.2s ease-in forwards; }
+
+Run: npm run typecheck — fix all errors.
+Test: add an item → confirm "Added ✓" appears, haptic fires, bar slides up, badge shows.
+Test: try to add from a second vendor → confirm friendly dialog appears.
+Output all files in full.

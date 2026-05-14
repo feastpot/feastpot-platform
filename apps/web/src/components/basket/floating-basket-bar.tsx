@@ -2,6 +2,7 @@
 
 import { ChevronRight } from 'lucide-react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 
 import { useBasketStore } from '@/store/basket.store';
 
@@ -29,16 +30,21 @@ interface Props {
  * Sheet's overlay (z-50) so opening the drawer obscures us correctly.
  */
 export function FloatingBasketBar({ vendorId }: Props) {
+  const pathname = usePathname() ?? '';
   const items = useBasketStore((s) => s.items);
   const basketVendor = useBasketStore((s) => s.vendor);
   const itemCount = items.reduce((acc, i) => acc + i.quantity, 0);
   const totalPence = items.reduce((acc, i) => acc + i.lineTotalPence, 0);
 
+  // Don't render on the checkout flow itself — the page already shows
+  // the same "View basket / total" affordance, and stacking a floating
+  // CTA over a static one creates a duplicate-action smell.
+  if (pathname.startsWith('/checkout')) return null;
   if (itemCount === 0 || basketVendor?.id !== vendorId) return null;
 
   return (
     <div
-      className="fixed inset-x-0 z-30 mx-auto max-w-lg px-4"
+      className="fixed inset-x-0 z-30 mx-auto max-w-lg px-4 animate-slide-up"
       style={{ bottom: 'calc(64px + env(safe-area-inset-bottom) + 12px)' }}
     >
       <Link
