@@ -134,6 +134,28 @@
   to   { transform: translateX(-50%); }
 }
 
+/* Shimmer for skeleton placeholders. The gradient slides from -200% to
+   200% so the bright band traverses the full element width once per
+   1.5s, matching the cadence Deliveroo / UberEats use on their vendor
+   list. Colours are pulled from our warm body palette (#F5EDE0 base,
+   #EDE4D4 highlight) so the placeholders look like temporarily-muted
+   surfaces instead of grey holes. Honours prefers-reduced-motion. */
+@keyframes fp-shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.animate-shimmer {
+  background: linear-gradient(90deg, #F5EDE0 25%, #EDE4D4 50%, #F5EDE0 75%);
+  background-size: 200% 100%;
+  animation: fp-shimmer 1.5s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-shimmer {
+    animation: none;
+    background: #EDE4D4;
+  }
+}
+
 @layer base {
   /* Sentinel — re-open the @layer base block so subsequent rules added by
      other globals stay in the right cascade. (Empty on purpose.) */

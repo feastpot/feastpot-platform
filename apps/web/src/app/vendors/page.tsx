@@ -4,9 +4,11 @@ import { X } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
 
+import { CuisineFilterSkeleton } from '@/components/home/cuisine-filters-skeleton';
 import { CuisineFilter } from '@/components/vendor/cuisine-filter';
 import { PageShell } from '@/components/layout/page-shell';
 import { VendorCard } from '@/components/vendor/vendor-card';
+import { VendorCardSkeleton } from '@/components/vendor/vendor-card-skeleton';
 import { VendorFilterSheet } from '@/components/vendor/vendor-filter-sheet';
 import { PostcodeChip } from '@/components/vendors/postcode-chip';
 import { VendorSearchInput } from '@/components/vendors/vendor-search-input';
@@ -104,7 +106,33 @@ function VendorSearch() {
           }}
         />
 
-        {isLoading && <p className="text-sm text-muted-foreground">Loading vendors&hellip;</p>}
+        {/* Loading state — skeleton cards in the same grid as the real
+            results. We deliberately do NOT render CuisineFilterSkeleton
+            here because the live <CuisineFilter /> above is already
+            mounted and interactive (the user can change cuisine while
+            data is loading); duplicating it would create a visible
+            collapse when the skeleton unmounted. The empty/error
+            branches below remain string-based because they're terminal
+            states, not transient loads.
+
+            role="status" + sr-only text gives screen readers a single
+            announcement; the visual subtree is aria-hidden so SR users
+            don't traverse 6× empty list/listitem nodes. */}
+        {isLoading && (
+          <div role="status" aria-live="polite">
+            <span className="sr-only">Loading vendors</span>
+            <ul
+              aria-hidden="true"
+              className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
+            >
+              {Array.from({ length: 6 }).map((_, i) => (
+                <li key={i}>
+                  <VendorCardSkeleton />
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         {error && (
           <p className="text-sm text-destructive">
             Couldn&rsquo;t load vendors. Please try again in a moment.
@@ -171,7 +199,25 @@ export default function VendorsPage() {
     <Suspense
       fallback={
         <PageShell>
-          <p className="py-8 text-sm text-muted-foreground">Loading&hellip;</p>
+          {/* Suspense fires before useSearchParams resolves; show the
+              skeleton shell (cuisine rail + grid) so first paint never
+              flashes a bare "Loading…" string. The live CuisineFilter
+              hasn't mounted yet at this point so showing the skeleton
+              rail here is correct (no duplication, unlike the in-page
+              isLoading branch). */}
+          <div className="space-y-4 py-4" role="status" aria-live="polite">
+            <span className="sr-only">Loading vendors</span>
+            <div aria-hidden="true">
+              <CuisineFilterSkeleton />
+              <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <li key={i}>
+                    <VendorCardSkeleton />
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
         </PageShell>
       }
     >
