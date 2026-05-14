@@ -241,12 +241,25 @@ export class OrdersService {
     });
 
     // Write the redeemed-points ledger row with the real orderId. If this
-    // throws after the order is committed the order's `discountPence` is
-    // already on the order row — the caller will see the failure and
-    // can retry; redeemPoints is idempotent per (userId, orderId) so a
-    // retry won't double-debit.
+    // throws (e.g. balance drained by a parallel redemption between
+    // assertCanRedeem and here) the order row is already committed with
+    // `discountPence` applied but no matching debit — leaving an
+    // inconsistency and an under-charged order. Roll back by deleting
+    // the freshly-created pending order before rethrowing. Stripe payment
+    // intent has not been created yet so this is safe.
     if (loyaltyToRedeem > 0) {
-      await this.loyalty.redeemPoints(customerId, loyaltyToRedeem, order.id);
+      try {
+        await this.loyalty.redeemPoints(customerId, loyaltyToRedeem, order.id);
+      } catch (err) {
+        await this.prisma.order
+          .delete({ where: { id: order.id } })
+          .catch((cleanupErr) =>
+            this.logger.error(
+              `Failed to roll back order ${order.id} after redeemPoints error: ${(cleanupErr as Error).message}`,
+            ),
+          );
+        throw err;
+      }
     }
 
     // Stripe payment intent (auth-only; capture happens on delivery).

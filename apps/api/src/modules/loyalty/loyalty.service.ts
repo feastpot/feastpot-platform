@@ -48,10 +48,13 @@ export class LoyaltyService {
    * the input fits Postgres' single-arg advisory-lock signature without
    * collision-prone int4 truncation.
    */
-  private async withLock<T>(key: string, fn: () => Promise<T>): Promise<T> {
+  private async withLock<T>(
+    key: string,
+    fn: (tx: Prisma.TransactionClient) => Promise<T>,
+  ): Promise<T> {
     return this.prisma.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${key}, 0))`;
-      return fn();
+      return fn(tx);
     });
   }
 
@@ -70,8 +73,8 @@ export class LoyaltyService {
    */
   async creditPoints(userId: string, orderId: string, orderTotalPence: number): Promise<number> {
     if (orderTotalPence <= 0) return 0;
-    return this.withLock(`loyalty:credit:${orderId}`, async () => {
-      const existing = await this.prisma.loyaltyPoint.findFirst({
+    return this.withLock(`loyalty:credit:${orderId}`, async (tx) => {
+      const existing = await tx.loyaltyPoint.findFirst({
         where: { userId, orderId, type: LoyaltyTxType.earned },
         select: { id: true, points: true },
       });
@@ -81,7 +84,7 @@ export class LoyaltyService {
       }
       const points = Math.floor(orderTotalPence / POINTS_PER_PENCE);
       if (points <= 0) return 0;
-      await this.prisma.loyaltyPoint.create({
+      await tx.loyaltyPoint.create({
         data: {
           userId,
           orderId,
@@ -129,8 +132,8 @@ export class LoyaltyService {
     pointsToRedeem: number,
     orderId: string,
   ): Promise<number> {
-    return this.withLock(`loyalty:redeem:${orderId}`, async () => {
-      const existing = await this.prisma.loyaltyPoint.findFirst({
+    return this.withLock(`loyalty:redeem:${orderId}`, async (tx) => {
+      const existing = await tx.loyaltyPoint.findFirst({
         where: { userId, orderId, type: LoyaltyTxType.redeemed },
         select: { points: true },
       });
@@ -142,17 +145,23 @@ export class LoyaltyService {
           message: `Minimum redemption is ${MIN_REDEMPTION} points`,
         });
       }
-      // Re-check balance INSIDE the lock — another concurrent redemption
-      // for a different orderId could have drained the balance between
-      // the caller's pre-flight `assertCanRedeem` and this write.
-      const balance = await this.getBalance(userId);
+      // Re-check balance INSIDE the lock and on the SAME tx connection —
+      // another concurrent redemption for a different orderId could have
+      // drained the balance between the caller's pre-flight assertCanRedeem
+      // and this write. Aggregating via tx ensures we see only committed
+      // rows but no other in-flight redemption holding the same lock key.
+      const agg = await tx.loyaltyPoint.aggregate({
+        where: { userId },
+        _sum: { points: true },
+      });
+      const balance = agg._sum.points ?? 0;
       if (balance < pointsToRedeem) {
         throw new BadRequestException({
           code: 'LOYALTY_INSUFFICIENT',
           message: 'Insufficient loyalty points',
         });
       }
-      await this.prisma.loyaltyPoint.create({
+      await tx.loyaltyPoint.create({
         data: {
           userId,
           orderId,
@@ -171,13 +180,13 @@ export class LoyaltyService {
    * the order and (b) no compensating `adjusted` row already does.
    */
   async refundRedemption(userId: string, orderId: string): Promise<number> {
-    return this.withLock(`loyalty:refund:${orderId}`, async () => {
-      const redeemed = await this.prisma.loyaltyPoint.findFirst({
+    return this.withLock(`loyalty:refund:${orderId}`, async (tx) => {
+      const redeemed = await tx.loyaltyPoint.findFirst({
         where: { userId, orderId, type: LoyaltyTxType.redeemed },
         select: { id: true, points: true },
       });
       if (!redeemed) return 0;
-      const alreadyRefunded = await this.prisma.loyaltyPoint.findFirst({
+      const alreadyRefunded = await tx.loyaltyPoint.findFirst({
         where: {
           userId,
           orderId,
@@ -188,7 +197,7 @@ export class LoyaltyService {
       });
       if (alreadyRefunded) return 0;
       const credit = Math.abs(redeemed.points);
-      await this.prisma.loyaltyPoint.create({
+      await tx.loyaltyPoint.create({
         data: {
           userId,
           orderId,
@@ -219,24 +228,29 @@ export class LoyaltyService {
     let processed = 0;
     for (const row of expiring) {
       try {
-        // Atomic claim: only proceed if THIS run is the first to clear
-        // the row's `expiresAt`. Two overlapping cron workers would
-        // otherwise both observe the row in `expiring` and write
-        // duplicate `expired` ledger entries. `updateMany` returns
-        // `count: 0` for the loser, who then skips silently.
-        const claimed = await this.prisma.loyaltyPoint.updateMany({
-          where: { id: row.id, expiresAt: { not: null } },
-          data: { expiresAt: null },
+        // Claim + write the compensating expired row in a SINGLE transaction.
+        // If we did them separately and the create failed, `expiresAt` would
+        // already be cleared and the row would never be retried, leaving a
+        // permanent ledger inconsistency (points "expired" with no debit row).
+        // Two overlapping cron workers race on the conditional updateMany —
+        // the loser sees count:0 and skips silently.
+        const didProcess = await this.prisma.$transaction(async (tx) => {
+          const claimed = await tx.loyaltyPoint.updateMany({
+            where: { id: row.id, expiresAt: { not: null } },
+            data: { expiresAt: null },
+          });
+          if (claimed.count === 0) return false;
+          await tx.loyaltyPoint.create({
+            data: {
+              userId: row.userId,
+              type: LoyaltyTxType.expired,
+              points: -row.points,
+              reason: 'Points expired after 12 months',
+            },
+          });
+          return true;
         });
-        if (claimed.count === 0) continue;
-        await this.prisma.loyaltyPoint.create({
-          data: {
-            userId: row.userId,
-            type: LoyaltyTxType.expired,
-            points: -row.points,
-            reason: 'Points expired after 12 months',
-          },
-        });
+        if (!didProcess) continue;
         processed++;
         await this.notifications.enqueue(
           'points_expired',
