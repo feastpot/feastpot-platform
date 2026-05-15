@@ -45,7 +45,7 @@ export function Footer() {
               Cook from home? Join Feastpot
             </p>
             <p className="mt-0.5 text-[11px] text-white/50">
-              Keep 88% of every sale. 100+ vendors.
+              Keep 88% of every sale. Join a growing community of home cooks.
             </p>
           </div>
           <a

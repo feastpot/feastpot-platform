@@ -10,7 +10,7 @@ import { normalisePostcode, useStoredPostcode } from '@/lib/postcode';
 const TRUST_STRIP = [
   { icon: '🛡️', label: 'FSA Verified', sub: 'All kitchens checked' },
   { icon: '⭐', label: '4.8 Rating', sub: '500+ community reviews' },
-  { icon: '🍽️', label: '50+ Vendors', sub: 'New cooks weekly' },
+  { icon: '🍽️', label: 'Growing fast', sub: 'New kitchens joining' },
   { icon: '🔒', label: 'Secure Pay', sub: 'Stripe encrypted' },
 ] as const;
 
