@@ -16,6 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from '@feastpot/ui';
+import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 import { PageHeader } from '@/components/layout/page-header';
@@ -48,6 +49,7 @@ const STATUSES: ReadonlyArray<EnquiryStatus | 'all'> = [
  * a follow-up if /events/[id] becomes a need.
  */
 export function EventsClient() {
+  const router = useRouter();
   const [status, setStatus] = useState<EnquiryStatus | 'all'>('all');
   const { data, isLoading, error } = useEventEnquiries({
     status: status === 'all' ? undefined : status,
@@ -120,7 +122,11 @@ export function EventsClient() {
                 </TableRow>
               )}
               {rows.map((e) => (
-                <EnquiryRowView key={e.id} row={e} />
+                <EnquiryRowView
+                  key={e.id}
+                  row={e}
+                  onOpen={() => router.push(`/events/${e.id}`)}
+                />
               ))}
             </TableBody>
           </Table>
@@ -130,13 +136,25 @@ export function EventsClient() {
   );
 }
 
-function EnquiryRowView({ row: e }: { row: EnquiryRow }) {
+function EnquiryRowView({ row: e, onOpen }: { row: EnquiryRow; onOpen: () => void }) {
   const customerName =
     `${e.customer.firstName ?? ''} ${e.customer.lastName ?? ''}`.trim() || e.customer.email;
   const guests = e.finalGuestCount ?? e.guestCount;
   const cuisines = e.cuisines.length > 0 ? e.cuisines.join(', ') : '—';
   return (
-    <TableRow>
+    <TableRow
+      className="cursor-pointer hover:bg-muted/50"
+      onClick={onOpen}
+      // Keyboard parity for the click handler — `<TableRow>` renders a
+      // <tr> which isn't focusable by default, so we make it tab-stoppable.
+      tabIndex={0}
+      onKeyDown={(ev) => {
+        if (ev.key === 'Enter' || ev.key === ' ') {
+          ev.preventDefault();
+          onOpen();
+        }
+      }}
+    >
       <TableCell className="text-sm">{formatDate(e.createdAt)}</TableCell>
       <TableCell className="text-sm">{customerName}</TableCell>
       <TableCell className="text-sm">{formatDate(e.eventDate)}</TableCell>

@@ -1,0 +1,124 @@
+You are a Next.js 15 engineer fixing the admin reviews moderation queue UX.
+
+DEFECTS (D18, D19, D20 — S3):
+D18: Reviews queue only shows 'held' reviews — no "All" filter tab
+D19: No "Hold" button on review rows (only Release / Reject available)
+D20: Reject reason uses window.prompt() — must be replaced with a proper dialog
+
+FILE: apps/admin/src/app/reviews/queue/page.tsx
+
+STEP 1 — Fix filter tabs (D18)
+Ensure the filter options array includes 'all' as the first option:
+
+const FILTER_TABS: Array<ModerationStatus | 'all'> = [
+  'all',           // ← ensure this is present and is the default
+  'pending',
+  'approved',
+  'auto_approved',
+  'held',
+  'rejected',
+]
+
+const [filter, setFilter] = useState<ModerationStatus | 'all'>('all')  // default = all
+
+STEP 2 — Add Hold button to each review row (D19)
+
+In the action buttons section for pending reviews, add the Hold button:
+
+<div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+  <button onClick={() => moderate.mutate({ id: review.id, status: 'approved' })}
+    style={{ padding: '6px 12px', borderRadius: '8px', border: 'none',
+      background: '#3D7A47', color: 'white', fontSize: '12px', cursor: 'pointer', fontWeight: 500 }}>
+    Approve
+  </button>
+
+  <button onClick={() => setRejectTarget(review.id)}  {/* opens dialog — see Step 3 */}
+    style={{ padding: '6px 12px', borderRadius: '8px', border: '.5px solid #E24B4A',
+      background: 'white', color: '#E24B4A', fontSize: '12px', cursor: 'pointer', fontWeight: 500 }}>
+    Reject
+  </button>
+
+  {/* HOLD BUTTON — new addition (D19) */}
+  <button
+    onClick={() => moderate.mutate({ id: review.id, status: 'held' })}
+    style={{ padding: '6px 12px', borderRadius: '8px',
+      border: '.5px solid var(--color-border-secondary)',
+      background: 'white', color: 'var(--color-text-secondary)',
+      fontSize: '12px', cursor: 'pointer' }}>
+    Hold
+  </button>
+</div>
+
+Also show "Release" and "Reject" buttons on held reviews:
+{review.moderationStatus === 'held' && (
+  <div style={{ display: 'flex', gap: '6px' }}>
+    <button onClick={() => moderate.mutate({ id: review.id, status: 'approved' })}
+      style={{ padding: '6px 12px', borderRadius: '8px', border: 'none',
+        background: '#3D7A47', color: 'white', fontSize: '12px', cursor: 'pointer' }}>
+      Approve
+    </button>
+    <button onClick={() => setRejectTarget(review.id)}
+      style={{ padding: '6px 12px', borderRadius: '8px', border: '.5px solid #E24B4A',
+        background: 'white', color: '#E24B4A', fontSize: '12px', cursor: 'pointer' }}>
+      Reject
+    </button>
+  </div>
+)}
+
+STEP 3 — Replace window.prompt() with a proper dialog (D20)
+
+Add state:
+const [rejectTarget, setRejectTarget] = useState<string | null>(null)
+const [rejectReason, setRejectReason] = useState('')
+
+Add dialog component (rendered at page level, below the reviews list):
+
+{rejectTarget && (
+  <div style={{
+    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 50,
+    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px',
+  }}>
+    <div style={{ background: 'white', borderRadius: '16px', padding: '24px',
+      width: '100%', maxWidth: '420px', boxShadow: '0 8px 40px rgba(0,0,0,0.2)' }}>
+      <h3 style={{ fontWeight: 600, fontSize: '16px', marginBottom: '8px' }}>
+        Reject review
+      </h3>
+      <p style={{ fontSize: '13px', color: '#5F5E5A', marginBottom: '14px', lineHeight: 1.6 }}>
+        This review will be removed from the vendor's profile. A reason is required for the audit log.
+      </p>
+      <textarea
+        value={rejectReason}
+        onChange={e => setRejectReason(e.target.value)}
+        placeholder="Reason for rejection (min 10 characters)"
+        style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #EDE4D4',
+          fontSize: '13px', minHeight: '80px', resize: 'vertical', marginBottom: '14px',
+          fontFamily: 'inherit' }}
+      />
+      <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+        <button
+          onClick={() => { setRejectTarget(null); setRejectReason('') }}
+          style={{ padding: '8px 16px', borderRadius: '8px',
+            border: '.5px solid var(--color-border-secondary)',
+            background: 'white', fontSize: '13px', cursor: 'pointer' }}>
+          Cancel
+        </button>
+        <button
+          onClick={() => {
+            moderate.mutate({ id: rejectTarget, status: 'rejected', reason: rejectReason })
+            setRejectTarget(null)
+            setRejectReason('')
+          }}
+          disabled={rejectReason.trim().length < 10}
+          style={{ padding: '8px 16px', borderRadius: '8px', border: 'none',
+            background: rejectReason.trim().length >= 10 ? '#E24B4A' : '#EDE4D4',
+            color: rejectReason.trim().length >= 10 ? 'white' : '#9B9894',
+            fontSize: '13px', fontWeight: 500, cursor: 'pointer' }}>
+          Confirm rejection
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
+Run: npm run typecheck --filter=@feastpot/admin
+Output the complete updated reviews queue page file.

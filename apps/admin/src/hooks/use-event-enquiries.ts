@@ -55,3 +55,18 @@ export function useEventEnquiries(filter: { status?: EnquiryStatus }) {
     },
   });
 }
+
+/**
+ * D17: single-enquiry fetch for the detail page. Hits the existing
+ * GET /v1/event-enquiries/:id which is already admin-aware (see
+ * EventEnquiriesService.getById — role=admin returns the full row
+ * with all quotes unfiltered). No new admin-prefixed endpoint needed.
+ */
+export function useEventEnquiry(id: string | undefined) {
+  const { request, ready } = useApi();
+  return useQuery({
+    queryKey: ['admin', 'event-enquiry', id],
+    enabled: ready && !!id,
+    queryFn: () => request<EnquiryRow>(`/event-enquiries/${id}`),
+  });
+}
