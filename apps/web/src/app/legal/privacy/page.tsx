@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   alternates: { canonical: '/legal/privacy' },
 };
 
-const ICO_NUMBER = 'ZC146267';
+const ICO_NUMBER = 'C1931679';
 
 /**
  * Privacy policy, brand-DNA refresh.

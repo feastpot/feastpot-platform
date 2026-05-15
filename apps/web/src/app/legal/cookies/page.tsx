@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   alternates: { canonical: '/legal/cookies' },
 };
 
-const ICO_NUMBER = 'ZC146267';
+const ICO_NUMBER = 'C1931679';
 
 const QUICK_NAV = [
   { label: 'What are cookies', href: '#what' },

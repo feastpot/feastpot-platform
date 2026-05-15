@@ -18,7 +18,7 @@ export const metadata: Metadata = {
   alternates: { canonical: '/legal/vendor-terms' },
 };
 
-const ICO_NUMBER = 'ZC146267';
+const ICO_NUMBER = 'C1931679';
 
 const QUICK_NAV = [
   { label: 'Relationship', href: '#relationship' },
