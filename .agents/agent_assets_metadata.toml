@@ -6,3 +6,9 @@ id = "JjdU8nCg_2Anc8NSdVBt9"
 uri = "file://docs/PROJECT_STATUS.md"
 type = "text"
 title = "Feastpot — Editorial Status Report"
+
+[[outputs]]
+id = "RV22FpBzAijGIdOG4YTLv"
+uri = "file://docs/QA_DEFECT_REPORT_2026-05-15.md"
+type = "text"
+title = "Feastpot UAT Defect Report — 2026-05-15"
