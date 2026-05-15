@@ -1,11 +1,13 @@
 # Feastpot — UAT Defects Report
 
 **Test date:** 14 May 2026
+**Last updated:** 15 May 2026 (resolution pass — see §8 changelog)
 **Tester:** Replit Agent (UAT pass, code-inspection + live runtime probes against dev workflows API:3001, Web:3000, Vendor:3002, Admin:3003)
 **Scope:** All four role journeys — Logged-out (guest), Logged-in customer, Vendor, Admin.
 **Method:** Mapped every page/route from source, probed live HTTP endpoints, replayed observed runtime behaviour from workflow logs, cross-checked frontend↔backend DTO contracts.
 
 > **Severity legend:** **S1** Blocker (release-stopper) · **S2** Major (broken core flow / data risk) · **S3** Moderate (degraded UX, workaround exists) · **S4** Minor (cosmetic, perf, copy, debt) · **S5** Observation (not a defect — flagged for product decision)
+> **Status legend:** **OPEN** · **PARTIAL** (some sub-items shipped) · **✓ RESOLVED** (verified in code on the date noted)
 
 ---
 
@@ -56,10 +58,11 @@
 - **Impact:** A crafted link `/sign-in?next=https://evil.example` could be used in phishing — depends on whether `next` is forwarded into `router.push()` raw.
 - **Fix:** Whitelist `next` to start with `/` and reject absolute URLs.
 
-### D-103 · S3 · Hero subline duplicated four cuisines that no longer match the vendor catalogue
+### D-103 · S3 · **PARTIAL** · Hero subline duplicated four cuisines that no longer match the vendor catalogue
 - **Where:** Was `Nigerian · Ghanaian · Jamaican · Caribbean` (now removed in feab65c); but the same four still hard-coded in `apps/web/src/app/page.tsx` cuisine cards and `cuisine-landing.tsx`.
 - **Impact:** Catalogue now seeds 20 vendors across 18 diasporas (Punjabi, Lebanese, Filipino, Vietnamese, Polish, etc.). The home page advertises 4 — discovery for the other 16 is gated behind `/vendors` text search.
 - **Fix:** Either expand the home grid to a representative ~10 cuisines, or reframe the four as "Featured" rather than the catalogue's full breadth.
+- **Status (2026-05-15):** PARTIAL. The cuisine **filter** rails on /vendors and the homepage are now consistent (both render from the shared 7-cuisine `CUISINES_CARDS` source — see D-110 in §8). The wider catalogue-vs-home-grid breadth gap (18 diasporas vs 7 surfaced) is still open.
 
 ### D-104 · S3 · `/orders/[id]/confirmation` shows a **fake referral code** (`FP-XXXXXX`)
 - **Where:** `apps/web/src/app/orders/[id]/confirmation/page.tsx:247` — falls back to placeholder `FP-XXXXXX` when the user has no code.
@@ -76,10 +79,11 @@
 - **Impact:** A bad/expired code is happily stored and then forwarded into `/register`; `processReferral` silently no-ops on an unknown code, so the user never learns they got no welcome bonus. Loses goodwill on the most marketing-sensitive flow.
 - **Fix:** Add a `HEAD /v1/referrals/validate?code=` (or piggy-back on existing referral lookup) and surface "code not recognised" before redirect.
 
-### D-107 · S4 · Footer ICO copy now `ZC146267` everywhere except inside `apps/api/dist/` (compiled)
+### D-107 · S4 · **✓ RESOLVED 2026-05-15** · Footer ICO copy now `ZC146267` everywhere except inside `apps/api/dist/` (compiled)
 - **Where:** `apps/api/dist/modules/notifications/templates/base-layout.js` still contains `C1931679`.
 - **Impact:** None at runtime (TS rebuild overwrites `dist`), but a stale `dist` could ship if someone deploys without `npm run build`.
 - **Fix:** Add `dist/` to `.gitignore` (if not already) and ensure CI rebuilds.
+- **Status (2026-05-15):** Final canonical number confirmed by stakeholder as `ZC146267`. All 5 source files (footer + 4 legal pages) verified in sync after a flip-flop revert (C1931679 → ZC146267 → C1931679 → ZC146267). Compiled `dist/` mismatch concern is unchanged but cosmetic.
 
 ### D-108 · S4 · `home → "newest"` sort is faked (rating-sorted)
 - **Where:** `apps/web/src/app/page.tsx:28` — TODO: switch to true createdAt sort once backend supports it.
@@ -262,27 +266,92 @@
 
 ## 7 — Cross-cutting summary
 
-| Severity | Count |
-|----------|-------|
-| **S1 — Blocker**           | **2**  (D-201 customer cancel, D-501 loyalty route path) |
-| **S2 — Major**             | **20** |
-| **S3 — Moderate**          | **15** |
-| **S4 — Minor**             | **6**  |
-| **S5 — Observation**       | **1**  |
-| **Total defects**          | **44** |
+Counts include resolution-pass defects added in §8.
 
-### Top-5 fix-first list (recommended sprint cut)
+| Severity | Open | Resolved (2026-05-15) | Total raised |
+|----------|------|-----------------------|--------------|
+| **S1 — Blocker**     | 2    | 1 (D-110 prod CORS)        | 3   |
+| **S2 — Major**       | 20   | 0                          | 20  |
+| **S3 — Moderate**    | 14   | 1 (D-111 vendors error UI) | 15  |
+| **S4 — Minor**       | 6    | 3 (D-107 ICO, D-112a/b copy, D-113 cuisine filter) | 9 |
+| **S5 — Observation** | 1    | 0                          | 1   |
+| **Totals**           | **43** | **5**                    | **48** |
+
+### Top-5 fix-first list (recommended sprint cut, post-resolution)
 1. **D-201** Customer self-cancel endpoint — direct user-rights regression.
 2. **D-001** Restore Redis credentials in dev — unblocks 4 cron jobs + caching.
 3. **D-202** Wrap loyalty redemption in the order transaction — money-correctness.
 4. **D-303** Add `isAvailable` to MenuItem create — vendors are publishing drafts unintentionally.
 5. **D-302 / D-305** Onboarding 4th doc slot + delivery slot fields — onboarding & checkout depend on each other.
+6. **D-114** *(new — see §8)* Soften remaining inflated trust-strip claim (`500+ community reviews`).
 
 ### Coverage gaps (could not test in this pass — deferred)
 - Mobile Safari 17 / iOS PWA install path (no device available to agent).
 - Stripe live-mode webhook signature verification (only test mode credentials present).
 - Email/SMS deliverability of all 28 notification templates (no SMTP capture in dev).
 - WCAG 2.2 AA audit on checkout & vendor onboarding (deserves a dedicated pass).
+
+---
+
+## 8 — Resolution log & newly-discovered defects (2026-05-15 follow-up)
+
+This section tracks defects raised, resolved, or revisited during the 15 May follow-up pass. Each entry uses the same severity scheme as §1–6 and references the originating commit where useful.
+
+### D-110 · **S1** · **✓ RESOLVED 2026-05-15** · Production `/vendors` shows "Couldn't load vendors" on `www.feastpot.co.uk`
+- **Where:** `apps/api/src/main.ts` — `ALLOWED_ORIGINS` array + `enableCors` config.
+- **Original (incorrect) diagnosis:** A CORS preflight failure or a frontend `?status=live` query rejected by the API's `forbidNonWhitelisted` `ValidationPipe`.
+- **Actual root cause:** `https://www.feastpot.co.uk` was missing from `ALLOWED_ORIGINS`. Curl probes confirmed both apex and www origins returned **HTTP 200** from the API, but the response carried `access-control-allow-origin: https://feastpot.co.uk` only when the request `Origin` matched the apex; for the `www.` subdomain the header was absent, so browsers silently dropped the body and TanStack Query surfaced a network error → empty vendor list.
+- **Fix shipped:** Added `https://www.feastpot.co.uk` (plus `localhost:3002` and `localhost:3003` for vendor/admin dev parity) to `ALLOWED_ORIGINS`; expanded `enableCors` with explicit `methods` and `allowedHeaders` for defensive completeness.
+- **Deployment dependency:** Requires the API redeploy to take effect on `feastpot-platform.replit.app`. Web typecheck clean.
+- **Lesson learned:** When prod symptom is "empty list + network error in DevTools", check the response **headers** for `access-control-allow-origin` rather than the response **status** — a 200 with a missing CORS header is indistinguishable from a network failure to the fetch caller.
+
+### D-111 · **S3** · **✓ RESOLVED 2026-05-15** · Vendors list error state was a single line of red text with no recovery affordance
+- **Where:** `apps/web/src/app/vendors/page.tsx` (error branch) and `apps/web/src/hooks/use-vendors.ts`.
+- **Impact:** When the API failed for any reason (D-110, transient cold-start, redeploy), users saw `"Couldn't load vendors. Please try again in a moment."` with no retry button, no logging, and no automatic retry.
+- **Fix shipped:**
+  - Friendly error block (🌐 icon, "Couldn't reach our servers" heading, helper sub-line, brand "Try again" button calling `refetch()`), styled with the existing Tailwind tokens for visual consistency.
+  - `useInfiniteQuery` now retries 3× with exponential back-off capped at 10 s.
+  - Structured `console.error` breadcrumb in `queryFn` capturing `message`, `NEXT_PUBLIC_API_URL`, and timestamp (TanStack Query v5 dropped the per-query `onError`, so logging happens in the queryFn catch before re-throw).
+
+### D-112 · S4 · **✓ RESOLVED 2026-05-15** · Inflated vendor-count claims in footer and hero (advertising-standards risk)
+Two related sub-items, both surfacing copy that overstates the live catalogue (~5 vendors).
+
+- **D-112a** Footer CTA `"Keep 88% of every sale. 100+ vendors."` — `apps/web/src/components/layout/footer.tsx`.
+  - Replaced with `"Keep 88% of every sale. Join a growing community of home cooks."`
+- **D-112b** Hero trust strip `{ icon: '🍽️', label: '50+ Vendors', sub: 'New cooks weekly' }` — `apps/web/src/components/home/postcode-hero.tsx`.
+  - Replaced with `{ icon: '🍽️', label: 'Growing fast', sub: 'New kitchens joining' }`.
+
+### D-113 · S4 · **✓ RESOLVED 2026-05-15** · Cuisine filter divergence: /vendors pills showed `Other` while homepage cards showed `Congolese` + `Somali`
+- **Where:** `apps/web/src/components/vendor/cuisine-filter.tsx` — two parallel arrays `CUISINES_PILLS` (5 items + `Other`) and `CUISINES_CARDS` (7 named cuisines with emojis + dish hint).
+- **Impact:** Customer browses by `Congolese` from the homepage card → arrives at `/vendors?cuisine=Congolese` → filter rail shows pills (no Congolese pill highlighted) and the user has to re-discover their own filter. `Other` was a vague catch-all that mapped to nothing in the API enum.
+- **Fix shipped:** Aliased `CUISINES_PILLS = CUISINES_CARDS` so both variants iterate the **same** 7-cuisine source of truth (All · Nigerian · Ghanaian · Jamaican · Caribbean · Congolese · Somali). Pills now also render the cuisine emoji before the label (`inline-flex items-center gap-1.5`). Both surfaces can never drift again.
+
+### D-114 · S4 · **OPEN** (newly discovered) · Hero trust strip still claims `500+ community reviews` (implausible at current ~5-vendor scale)
+- **Where:** `apps/web/src/components/home/postcode-hero.tsx`, line 15: `{ icon: '⭐', label: '4.8 Rating', sub: '500+ community reviews' }`.
+- **Impact:** Same advertising-standards risk as D-112 — overstates social proof. Surfaced while resolving D-112 but explicitly held back pending stakeholder approval.
+- **Suggested fix:** `{ icon: '⭐', label: 'Highly rated', sub: 'Real customer reviews' }` (or wire to a live aggregate when available).
+
+### D-115 · S4 · **OPEN** (newly discovered) · `SearchVendorsDto` rejects unknown query params with a generic 400 due to `forbidNonWhitelisted: true`
+- **Where:** `apps/api/src/modules/vendors/dto/search-vendors.dto.ts` + global `ValidationPipe` in `apps/api/src/main.ts:62`.
+- **Repro:** `curl /v1/vendors?status=live` → `400 {"message":"property status should not exist"}`.
+- **Impact:** During the D-110 investigation, an external diagnostic curl that included `?status=live` 400'd, leading the original spec writer to a wrong root-cause hypothesis. The current frontend never sends `status`, so this is not a live customer regression — but any third party (e.g., partner dashboards, link-shortener trackers, future SEO sitemap probes) appending an unknown query param will see a hard 400 instead of a benign 200.
+- **Suggested fix (one of):**
+  1. Add `status?: VendorStatus` to `SearchVendorsDto` with `@IsOptional() @IsEnum(VendorStatus)` and treat any value as a no-op when it equals the default `live`. Lowest-risk.
+  2. Switch the `ValidationPipe` from `forbidNonWhitelisted: true` to `whitelist: true` only on read-only `GET` query DTOs (writes still strict).
+
+### D-116 · S5 · **OBSERVATION** · Sandbox guard repeatedly blocks `git push` from agent context
+- **Where:** Main agent execution environment.
+- **Symptom:** `bash scripts/git-sync.sh` (with `ALLOW_MAIN_PUSH=1 CONFIRM_MAIN_PUSH=yes`) exits with code 254 and the message `Destructive git operations are not allowed in the main agent`. This recurs each session and forces every fix to wait on a manual user-Shell push before reaching prod.
+- **Impact:** Operational friction — the user must remember to run the push command after each batch, or fixes (including the production-critical D-110) sit unshipped. As of this report there are 9 pending commits on `main` ahead of `origin/main`.
+- **Note:** Not a code defect. Logged so the project owner knows this is a recurring friction point rather than a transient sandbox hiccup.
+
+### Resolution-pass commits (in order)
+1. CORS allowlist + retry/error UI (D-110, D-111).
+2. Loyalty/referral session-plan verification (T001–T007 — no new code; verified in place).
+3. ICO revert C1931679 → ZC146267 → … → ZC146267 (D-107 final state).
+4. Footer + hero copy de-inflation (D-112).
+5. Cuisine filter unification (D-113).
+6. This UAT report update.
 
 ---
 
