@@ -1,15 +1,17 @@
 'use client';
 
 import { format } from 'date-fns';
-import { ArrowRight, Star } from 'lucide-react';
+import { Star } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 import { cn } from '@feastpot/ui';
 
-import { useOrders, useReorder } from '@/hooks/use-orders';
+import { useOrders } from '@/hooks/use-orders';
 import type { Order, OrderStatus } from '@/lib/api/orders';
+import { API_URL } from '@/lib/env';
+import { CrossVendorBasketError, useBasketStore } from '@/store/basket.store';
 
 const formatPounds = (p: number) => `£${(p / 100).toFixed(2)}`;
 
@@ -26,21 +28,18 @@ const STATUS_BADGE: Record<OrderStatus, { label: string; cls: string }> = {
 /**
  * Order history. /account/* is auth-gated by middleware so we don't need a
  * client-side check here. The list is cursor-paginated via TanStack Query's
- * `useInfiniteQuery`; "Reorder" calls POST /v1/orders/{id}/reorder which
- * server-side re-creates an order + a fresh PaymentIntent.
+ * `useInfiniteQuery`.
  *
- * NOTE on "Reorder" routing: the endpoint mints a new order today but does
- * NOT bring the user back through Stripe checkout (the brief says "navigate
- * to checkout on success", but our /reorder route already returns an order
- * with an authorised PaymentIntent — there's no checkout step to perform).
- * We route to the new order's tracking page instead, which matches reality.
- * If the API contract changes to return only a basket-rehydration payload,
- * change the redirect to `/checkout` here.
+ * "Reorder" REHYDRATES THE BASKET and routes to /checkout — it does NOT auto-
+ * mint a new order. The previous behaviour (POST /v1/orders/{id}/reorder)
+ * silently re-used the original order's `scheduledFor`, which by the time
+ * the customer tapped Reorder was either booked-out or in the past. Sending
+ * the customer back through checkout forces fresh slot selection against the
+ * vendor's live availability.
  */
 export default function OrderHistoryPage() {
   const router = useRouter();
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, error } = useOrders();
-  const reorderMut = useReorder();
   const [reorderId, setReorderId] = useState<string | null>(null);
 
   if (isLoading) {
@@ -68,17 +67,75 @@ export default function OrderHistoryPage() {
   }
 
   const onReorder = async (order: Order) => {
+    // Single-flight: if any row's reorder is already in progress, ignore
+    // further clicks. Per-row `disabled` only blocks the SAME button — a
+    // user could otherwise tap Reorder on order B while A's vendor fetch
+    // was still resolving and end up racing two basket-rehydrate flows
+    // into a single redirect.
+    if (reorderId !== null) return;
     setReorderId(order.id);
     try {
-      // Reorder needs a future scheduledFor — default to "tomorrow at 12:00".
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      tomorrow.setHours(12, 0, 0, 0);
-      const result = await reorderMut.mutateAsync({
-        orderId: order.id,
-        input: { scheduledFor: tomorrow.toISOString() },
+      // Hit the public vendor lookup so we (a) confirm the vendor still
+      // exists/serves and (b) get the canonical { id, name, slug } the basket
+      // store needs to lock to a vendor. Public endpoint — no auth header.
+      const vendorRes = await fetch(`${API_URL}/v1/vendors/${order.vendorId}`, {
+        cache: 'no-store',
       });
-      router.push(`/orders/${result.order.id}/tracking`);
+      if (!vendorRes.ok) {
+        window.alert('Sorry, this vendor is no longer available.');
+        return;
+      }
+      const vendor = (await vendorRes.json()) as { id: string; businessName: string; slug: string };
+
+      const store = useBasketStore.getState();
+      // Cross-vendor guard. If the customer already has items from a DIFFERENT
+      // vendor, ask before clobbering — single-vendor basket is enforced by
+      // the store and silently dropping items would feel hostile.
+      if (store.items.length > 0 && store.vendor && store.vendor.id !== order.vendorId) {
+        const ok = window.confirm(
+          'This will replace items currently in your basket. Continue?',
+        );
+        if (!ok) return;
+        store.clearBasket();
+      } else if (store.items.length > 0 && store.vendor?.id === order.vendorId) {
+        // Same vendor — start fresh anyway so quantities reflect THIS order
+        // exactly, not "this order PLUS whatever was already pending".
+        store.clearBasket();
+      }
+
+      const basketVendor = { id: vendor.id, name: vendor.businessName, slug: vendor.slug };
+      const items = order.items ?? [];
+      try {
+        for (const item of items) {
+          // Field-map: API OrderItem uses `nameSnapshot` + `unitPence`;
+          // the basket store uses `menuItemName` + `unitPricePence` and
+          // computes `lineTotalPence` itself, so we omit it here.
+          useBasketStore.getState().addItem(
+            {
+              menuItemId: item.menuItemId,
+              menuItemName: item.nameSnapshot,
+              quantity: item.quantity,
+              unitPricePence: item.unitPence,
+              customisationNotes: item.notes ?? undefined,
+            },
+            basketVendor,
+          );
+        }
+      } catch (err) {
+        // Defensive: addItem can throw CrossVendorBasketError if a parallel
+        // tab raced us. Reset and bail with a clear message rather than
+        // leaving the basket half-populated.
+        if (err instanceof CrossVendorBasketError) {
+          useBasketStore.getState().clearBasket();
+          window.alert('Your basket changed in another tab — please try again.');
+          return;
+        }
+        throw err;
+      }
+
+      router.push('/checkout');
+    } catch {
+      window.alert('Could not reorder — please try again.');
     } finally {
       setReorderId(null);
     }
@@ -165,14 +222,7 @@ export default function OrderHistoryPage() {
                         disabled={reorderId === order.id}
                         className="ml-auto inline-flex items-center gap-1 rounded-full border border-border bg-white px-3 py-1 text-xs font-medium text-dark hover:border-brand/50 hover:bg-brand/5 disabled:opacity-50"
                       >
-                        {reorderId === order.id ? (
-                          'Reordering…'
-                        ) : (
-                          <>
-                            Reorder
-                            <ArrowRight className="h-3 w-3" aria-hidden />
-                          </>
-                        )}
+                        {reorderId === order.id ? 'Adding…' : '↺ Reorder'}
                       </button>
                     )}
                   </div>
