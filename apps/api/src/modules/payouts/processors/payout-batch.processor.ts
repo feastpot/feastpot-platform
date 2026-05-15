@@ -4,6 +4,7 @@ import { InjectQueue } from '@nestjs/bull';
 import * as Sentry from '@sentry/nestjs';
 import type { Job, Queue } from 'bull';
 
+import { RedisCacheService } from '../../../common/cache/redis-cache.service';
 import { PayoutsService } from '../payouts.service';
 
 export const PAYOUTS_QUEUE = 'payouts';
@@ -24,9 +25,19 @@ export class PayoutBatchProcessor implements OnApplicationBootstrap {
   constructor(
     private readonly payouts: PayoutsService,
     @InjectQueue(PAYOUTS_QUEUE) private readonly queue: Queue,
+    private readonly cache: RedisCacheService,
   ) {}
 
   onApplicationBootstrap(): void {
+    // Skip cron registration entirely when Redis is unavailable. Without
+    // this guard, queue.add() retries against a dead/misconfigured Redis
+    // for the cap window (~5 attempts) before logging a `Failed to
+    // register payout cron` warning — noisy and misleading because in
+    // practice the cron will never fire anyway without Bull's Redis.
+    if (!this.cache.available) {
+      this.logger.warn('Redis unavailable — skipping payout cron registration');
+      return;
+    }
     // Fire-and-forget: queue.add() blocks until Redis accepts the command, which
     // can hang indefinitely in environments without Redis (local dev, CI). We
     // log success/failure but never block app bootstrap on it.

@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { EnquiryStatus, QuoteStatus } from '@prisma/client';
 
+import { RedisCacheService } from '../../common/cache/redis-cache.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { StripeService } from '../../stripe/stripe.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -25,10 +26,15 @@ export class EventCronService {
     private readonly prisma: PrismaService,
     private readonly stripe: StripeService,
     private readonly notifications: NotificationsService,
+    private readonly cache: RedisCacheService,
   ) {}
 
   @Cron(CronExpression.EVERY_HOUR, { name: 'event-reminder-72h' })
   async eventReminder72h() {
+    if (!this.cache.available) {
+      this.logger.warn('Redis unavailable — skipping event-reminder-72h tick');
+      return;
+    }
     const now = Date.now();
     const lower = new Date(now + 71 * HOUR_MS);
     const upper = new Date(now + 73 * HOUR_MS);
@@ -56,6 +62,10 @@ export class EventCronService {
 
   @Cron(CronExpression.EVERY_HOUR, { name: 'event-balance-48h' })
   async eventBalance48h() {
+    if (!this.cache.available) {
+      this.logger.warn('Redis unavailable — skipping event-balance-48h tick');
+      return;
+    }
     const now = Date.now();
     const lower = new Date(now + 47 * HOUR_MS);
     const upper = new Date(now + 49 * HOUR_MS);

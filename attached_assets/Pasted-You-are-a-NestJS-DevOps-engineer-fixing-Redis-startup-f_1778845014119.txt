@@ -1,0 +1,97 @@
+You are a NestJS DevOps engineer fixing Redis startup failures on the Feastpot API.
+
+DEFECT: API logs show on every startup:
+  "Redis cache error: WRONGPASS invalid username-password pair" x3
+  "Redis cache disabled after exhausting reconnection attempts"
+  "Failed to register payout cron"
+  "Failed to register compliance-scan cron"
+  "Failed to register review-trigger cron"
+  "Failed to register badge-recalc cron"
+
+STEP 1 — Fix Redis credentials in Replit Secrets
+Check the Upstash dashboard for correct values. Set:
+  REDIS_URL = rediss://:{password}@{host}.upstash.io:6380
+
+Common mistake: REDIS_URL already embeds password but a separate REDIS_PASSWORD
+overrides it with a blank value, causing WRONGPASS. Use one or the other, not both.
+
+STEP 2 — Graceful fallback in RedisCacheService
+File: apps/api/src/common/cache/redis-cache.service.ts
+
+Replace the existing client setup with:
+
+@Injectable()
+export class RedisCacheService implements OnModuleDestroy {
+  private client: Redis | null = null
+  private available = false
+
+  constructor(private config: ConfigService, private logger: Logger) {
+    const url = this.config.get('REDIS_URL')
+    if (!url) {
+      this.logger.warn('[Redis] REDIS_URL not set — running without cache')
+      return
+    }
+    this.client = new Redis(url, {
+      maxRetriesPerRequest: 3,
+      retryStrategy: (times) => {
+        if (times > 3) {
+          if (times === 4) this.logger.warn('[Redis] Could not connect after 3 attempts — cache disabled')
+          return null
+        }
+        return Math.min(times * 200, 1000)
+      },
+      enableOfflineQueue: false,
+      lazyConnect: true,
+    })
+    this.client.on('ready', () => { this.available = true; this.logger.log('[Redis] Connected') })
+    this.client.on('error', (err) => { if (this.available) { this.logger.warn(`[Redis] Lost: ${err.message}`); this.available = false } })
+    this.client.connect().catch(() => {})
+  }
+
+  async get<T>(key: string): Promise<T | null> {
+    if (!this.available || !this.client) return null
+    try { const v = await this.client.get(key); return v ? JSON.parse(v) : null } catch { return null }
+  }
+  async set(key: string, value: unknown, ttl: number): Promise<void> {
+    if (!this.available || !this.client) return
+    try { await this.client.setex(key, ttl, JSON.stringify(value)) } catch {}
+  }
+  async del(key: string): Promise<void> {
+    if (!this.available || !this.client) return
+    try { await this.client.del(key) } catch {}
+  }
+  async ping(): Promise<string> {
+    if (!this.available || !this.client) return 'DISABLED'
+    return this.client.ping()
+  }
+  onModuleDestroy() { this.client?.disconnect() }
+}
+
+STEP 3 — Gate BullMQ on Redis availability
+File: apps/api/src/app.module.ts
+
+const redisUrl = process.env.REDIS_URL
+const bullModules = redisUrl
+  ? [
+      BullModule.forRoot({ connection: { url: redisUrl } }),
+      BullModule.registerQueue(
+        { name: 'notifications' },
+        { name: 'payout-batch' },
+        { name: 'compliance' },
+        { name: 'orders' },
+        { name: 'stripe-webhook' },
+        { name: 'review-trigger' },
+      ),
+    ]
+  : []
+
+STEP 4 — Guard cron methods
+In each cron service (payout, compliance-scan, review-trigger, badge-recalc), add at the top:
+if (!this.redisCache.available) {
+  this.logger.warn('[Cron] Redis not available — skipping this run')
+  return
+}
+
+Run: npm run build:api — confirm zero TypeScript errors.
+Run: npm run start:api — confirm no WRONGPASS spam in logs.
+Output all changed files.

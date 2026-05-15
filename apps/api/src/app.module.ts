@@ -98,12 +98,37 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
       inject: [ConfigService],
       useFactory: (cfg: ConfigService) => {
         const url = cfg.get<string>('REDIS_URL');
+        // Cap reconnection attempts at the Bull layer too (mirrors
+        // RedisCacheService) — without this, a misconfigured REDIS_URL
+        // (WRONGPASS, dead host) causes ioredis to retry forever and
+        // spam the log stream at 1 Hz, AND blocks Bull's `queue.add()`
+        // calls indefinitely so the cron-registration callsites never
+        // resolve. After 5 failures we give up.
+        const cappedRetry = (times: number): number | null =>
+          times > 5 ? null : Math.min(times * 500, 3000);
         if (url) {
-          // Upstash / managed Redis: use rediss:// in REDIS_URL for TLS.
-          // ioredis auto-enables TLS when the scheme is rediss://.
+          // Bull's `redis` option accepts an ioredis RedisOptions OBJECT
+          // (not a `{ url }` shape), so we must parse the URL into
+          // host/port/password/tls ourselves — otherwise ioredis silently
+          // falls back to 127.0.0.1:6379, which on Replit is unreachable
+          // and produces an unhandled `ECONNREFUSED` that crashes the
+          // process. `rediss://` (TLS) is mapped to `tls: {}`; ioredis
+          // upgrades the socket when `tls` is present.
+          const parsed = new URL(url);
+          const isTls = parsed.protocol === 'rediss:';
           return {
-            redis: url,
-            // Bull’s blocking BRPOPLPUSH/etc. require these on managed Redis.
+            redis: {
+              host: parsed.hostname,
+              port: Number(parsed.port || (isTls ? 6380 : 6379)),
+              username: parsed.username ? decodeURIComponent(parsed.username) : undefined,
+              password: parsed.password ? decodeURIComponent(parsed.password) : undefined,
+              tls: isTls ? {} : undefined,
+              maxRetriesPerRequest: 3,
+              retryStrategy: cappedRetry,
+              reconnectOnError: () => false,
+              enableReadyCheck: false,
+            },
+            // Bull's blocking BRPOPLPUSH/etc. require these on managed Redis.
             settings: { stalledInterval: 30_000 },
           };
         }
@@ -112,7 +137,9 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
             host: cfg.get<string>('REDIS_HOST') ?? '127.0.0.1',
             port: Number(cfg.get<string>('REDIS_PORT') ?? 6379),
             password: cfg.get<string>('REDIS_PASSWORD'),
-            maxRetriesPerRequest: null,
+            maxRetriesPerRequest: 3,
+            retryStrategy: cappedRetry,
+            reconnectOnError: () => false,
             enableReadyCheck: false,
           },
         };

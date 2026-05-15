@@ -5,6 +5,7 @@ import { Cron } from '@nestjs/schedule';
 import type { Queue } from 'bull';
 import { Resend } from 'resend';
 
+import { RedisCacheService } from '../../common/cache/redis-cache.service';
 import {
   COMPLIANCE_QUEUE,
   NOTIFICATIONS_QUEUE,
@@ -31,6 +32,7 @@ export class DlqMonitorService {
     @InjectQueue(PAYOUTS_QUEUE) private readonly payouts: Queue,
     @InjectQueue(COMPLIANCE_QUEUE) private readonly compliance: Queue,
     config: ConfigService,
+    private readonly cache: RedisCacheService,
   ) {
     const key = config.get<string>('RESEND_API_KEY');
     this.resend = key ? new Resend(key) : null;
@@ -41,6 +43,10 @@ export class DlqMonitorService {
   /** Daily at 09:00 UTC. */
   @Cron('0 9 * * *')
   async checkAndAlert(): Promise<void> {
+    if (!this.cache.available) {
+      this.logger.warn('Redis unavailable — skipping DLQ scan');
+      return;
+    }
     const summaries = await this.collectFailures();
     const failing = summaries.filter((s) => s.failed > 0);
     if (failing.length === 0) {

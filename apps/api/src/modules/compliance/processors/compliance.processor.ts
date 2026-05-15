@@ -3,6 +3,7 @@ import { Logger, OnApplicationBootstrap } from '@nestjs/common';
 import * as Sentry from '@sentry/nestjs';
 import type { Job, Queue } from 'bull';
 
+import { RedisCacheService } from '../../../common/cache/redis-cache.service';
 import { COMPLIANCE_QUEUE } from '../../../queues/queues.module';
 import { ComplianceService } from '../compliance.service';
 
@@ -27,9 +28,17 @@ export class ComplianceProcessor implements OnApplicationBootstrap {
   constructor(
     private readonly compliance: ComplianceService,
     @InjectQueue(COMPLIANCE_QUEUE) private readonly queue: Queue,
+    private readonly cache: RedisCacheService,
   ) {}
 
   onApplicationBootstrap(): void {
+    // See PayoutBatchProcessor for the rationale: skip registration when
+    // Redis is unavailable to avoid noisy WRONGPASS / connection-refused
+    // chatter for crons that can never fire anyway without Bull's Redis.
+    if (!this.cache.available) {
+      this.logger.warn('Redis unavailable — skipping compliance/review/badge cron registration');
+      return;
+    }
     void this.registerCron(COMPLIANCE_SCAN_JOB, '0 6 * * *');
     void this.registerCron(REVIEW_TRIGGER_JOB, '*/15 * * * *');
     void this.registerCron(BADGE_RECALC_JOB, '0 1 * * *');

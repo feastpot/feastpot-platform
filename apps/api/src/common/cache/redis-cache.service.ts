@@ -22,6 +22,11 @@ export class RedisCacheService implements OnModuleDestroy {
   private readonly logger = new Logger(RedisCacheService.name);
   private readonly client: Redis | null;
   private readonly enabled: boolean;
+  // Flips true once ioredis emits `end` (retryStrategy returned null) — at
+  // that point the cache will never reconnect within this process. Used by
+  // `available` so cron handlers / processors can short-circuit cleanly
+  // when Redis is permanently unreachable (e.g. WRONGPASS).
+  private connectionDead = false;
 
   constructor(config: ConfigService) {
     const url = config.get<string>('REDIS_URL');
@@ -59,7 +64,12 @@ export class RedisCacheService implements OnModuleDestroy {
       // ioredis emits 'end' once retryStrategy returns null. From here on,
       // every operation is a no-op (try/catch swallows the closed-conn
       // error) — equivalent to running without REDIS_URL.
+      this.connectionDead = true;
       this.logger.warn('Redis cache disabled after exhausting reconnection attempts');
+    });
+    this.client.on('ready', () => {
+      // If a transient blip recovered, treat the cache as live again.
+      this.connectionDead = false;
     });
     this.enabled = true;
 
@@ -128,6 +138,23 @@ export class RedisCacheService implements OnModuleDestroy {
 
   isEnabled(): boolean {
     return this.enabled;
+  }
+
+  /**
+   * Public availability flag for cron + processor services. Mirrors
+   * `isEnabled()` but exposed as a property getter so callers can write
+   * the more natural `if (!cache.available) return;` guard at the top of
+   * a cron handler — the same shape used by ops runbooks.
+   *
+   * `enabled` reflects whether `REDIS_URL` was set at boot. We additionally
+   * gate on `connectionDead` (set by the `end` event) so that once ioredis
+   * has exhausted reconnection attempts — e.g. WRONGPASS, dead host —
+   * cron handlers / processors short-circuit cleanly instead of piling
+   * up failed `queue.add()` calls. A transient blip during which ioredis
+   * is still retrying does NOT flip this — only permanent giveup does.
+   */
+  get available(): boolean {
+    return this.enabled && !this.connectionDead;
   }
 
   /**

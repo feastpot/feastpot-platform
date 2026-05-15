@@ -7,6 +7,74 @@ import compression from 'compression';
 import express from 'express';
 import helmet from 'helmet';
 
+// Bull v3 spins up three ioredis connections per queue (client, subscriber,
+// bclient). When REDIS_URL has bad credentials, AUTH fails on all three —
+// but Bull only attaches an `error` listener to its main `client`, so the
+// AUTH failure on the bclient/subscriber bubbles up as an unhandled
+// `ReplyError: WRONGPASS` and crashes the entire process. We don't want a
+// misconfigured Redis URL to take the whole API down (HTTP routes that
+// don't touch queues still work fine), so swallow ONLY Redis-auth-style
+// errors at the process boundary. Everything else (Postgres ECONNREFUSED,
+// SMTP ENOTFOUND, real bugs) still terminates as normal so we never mask
+// a non-Redis failure as benign.
+const isBenignRedisError = (err: unknown): boolean => {
+  if (!err || typeof err !== 'object') return false;
+  const message = String((err as { message?: unknown }).message ?? '');
+  // Redis-protocol auth errors are unambiguous — they only come from a
+  // Redis server and never from Postgres/HTTP/etc.
+  if (/\b(WRONGPASS|NOAUTH|NOPERM|MOVED|CLUSTERDOWN|READONLY)\b/.test(message)) {
+    return true;
+  }
+  // ioredis tags its own ReplyError instances with `name === 'ReplyError'`
+  // and attaches a `command` of the form `{ name: 'auth', args: [...] }`.
+  // That combination is uniquely Redis.
+  const name = String((err as { name?: unknown }).name ?? '');
+  const command = (err as { command?: { name?: unknown } }).command;
+  if (name === 'ReplyError' && command && typeof command.name === 'string') {
+    return true;
+  }
+  return false;
+};
+// Rate-limit the "suppressed Redis error" log itself — Bull's three
+// connections per queue × four queues × N retries can produce dozens of
+// identical lines in the first second. Log the first few, then stay
+// quiet for the rest of the process lifetime so real errors stay visible.
+let suppressedRedisLogCount = 0;
+const SUPPRESS_LOG_BUDGET = 3;
+const logSuppressedRedisError = (kind: string, err: unknown): void => {
+  suppressedRedisLogCount += 1;
+  if (suppressedRedisLogCount <= SUPPRESS_LOG_BUDGET) {
+    // eslint-disable-next-line no-console
+    console.warn(`[feastpot-api] suppressed ${kind}:`, (err as Error).message);
+    if (suppressedRedisLogCount === SUPPRESS_LOG_BUDGET) {
+      // eslint-disable-next-line no-console
+      console.warn('[feastpot-api] (further benign Redis errors will be silently suppressed)');
+    }
+  }
+};
+process.on('uncaughtException', (err) => {
+  if (isBenignRedisError(err)) {
+    logSuppressedRedisError('uncaught Redis error', err);
+    return;
+  }
+  // eslint-disable-next-line no-console
+  console.error('[feastpot-api] uncaughtException', err);
+  process.exit(1);
+});
+process.on('unhandledRejection', (reason) => {
+  if (isBenignRedisError(reason)) {
+    logSuppressedRedisError('unhandled Redis rejection', reason);
+    return;
+  }
+  // Real unhandled rejections indicate a programming bug; continuing in
+  // an undefined state can corrupt data or hide regressions. Re-throw so
+  // Node's default handler exits the process, then the platform restarts
+  // us cleanly. (Without this, Node 22 deprecates silent ignore anyway.)
+  // eslint-disable-next-line no-console
+  console.error('[feastpot-api] unhandledRejection', reason);
+  throw reason;
+});
+
 import { ValidationPipe, VersioningType } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
