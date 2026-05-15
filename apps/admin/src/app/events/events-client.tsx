@@ -146,7 +146,7 @@ function EnquiryRowView({ row: e }: { row: EnquiryRow }) {
       <TableCell className="font-mono text-xs uppercase">{e.postcode}</TableCell>
       <TableCell className="text-sm text-muted-foreground">{cuisines}</TableCell>
       <TableCell className="text-right text-sm">
-        {e.budgetPence != null ? formatPence(e.budgetPence) : '—'}
+        {e.budgetPence !== null ? formatPence(e.budgetPence) : '—'}
       </TableCell>
       <TableCell className="text-right text-sm">{e.quotes.length}</TableCell>
       <TableCell className="text-sm">{e.selectedVendor?.businessName ?? '—'}</TableCell>
