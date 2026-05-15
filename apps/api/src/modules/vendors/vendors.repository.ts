@@ -200,7 +200,7 @@ export class VendorRepository {
         ${distanceSelect},
         ${matchedDishesSelect}
       FROM vendors v
-      WHERE v.status = 'live'
+      WHERE v.status::text = ${dto.status ?? VendorStatus.live}
         ${cursorClause}
         ${cuisineClause}
         ${halalClause}

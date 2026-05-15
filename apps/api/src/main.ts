@@ -147,7 +147,15 @@ async function bootstrap(): Promise<void> {
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
-      forbidNonWhitelisted: true,
+      // `forbidNonWhitelisted` was previously `true`, which 400'd ANY request
+      // carrying an unknown key — including harmless query-string passengers
+      // like `?utm_source=google` / `?fbclid=…` from ad deep-links and
+      // `?status=live` diagnostic curls before the DTO declared `status`.
+      // We keep `whitelist: true` so unknown keys are STRIPPED before they
+      // reach handlers (no Prisma `where`-spread escape route), but stop
+      // throwing on their presence — matching what most production NestJS
+      // APIs ship with.
+      forbidNonWhitelisted: false,
       transform: true,
       transformOptions: { enableImplicitConversion: true },
     }),

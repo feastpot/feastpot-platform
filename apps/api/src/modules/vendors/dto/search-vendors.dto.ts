@@ -13,7 +13,7 @@ import {
   Min,
 } from 'class-validator';
 
-import { OrderType } from '@prisma/client';
+import { OrderType, VendorStatus } from '@prisma/client';
 
 export enum VendorSortBy {
   rating = 'rating',
@@ -63,6 +63,16 @@ export class SearchVendorsDto {
   @IsOptional()
   @IsEnum(OrderType)
   orderType?: OrderType;
+
+  @ApiPropertyOptional({
+    enum: VendorStatus,
+    default: VendorStatus.live,
+    description:
+      'Filter by vendor lifecycle status. Defaults to `live` so the customer-facing search continues to hide pending/suspended vendors. Admin tools may pass other values to surface the full pipeline.',
+  })
+  @IsOptional()
+  @IsEnum(VendorStatus)
+  status?: VendorStatus = VendorStatus.live;
 
   @ApiPropertyOptional({ description: 'Filter to community-favourite vendors (rating >= 4.3)' })
   @IsOptional()

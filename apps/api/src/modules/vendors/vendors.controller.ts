@@ -43,7 +43,7 @@ export class VendorsController {
 
   @Public()
   @Get()
-  @ApiOperation({ summary: 'Search live vendors (public)' })
+  @ApiOperation({ summary: 'Search vendors (public). Defaults to status=live.' })
   search(@Query() dto: SearchVendorsDto) {
     return this.vendors.search(dto);
   }
