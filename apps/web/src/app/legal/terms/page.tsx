@@ -97,9 +97,7 @@ export default function TermsPage() {
             <li>All prices shown include VAT where applicable.</li>
             <li>Payment is processed by Stripe. Feastpot does not store card details.</li>
             <li>
-              A platform service fee may be shown at checkout (currently &pound;0 for customers
-             , Feastpot&rsquo;s 12% commission is deducted from vendors, not charged to
-              customers).
+              A platform service fee may be shown at checkout (currently &pound;0 for customers).
             </li>
             <li>Stripe may apply transaction fees subject to their terms.</li>
           </ul>

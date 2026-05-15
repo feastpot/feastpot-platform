@@ -23,7 +23,6 @@ const ICO_NUMBER = 'ZC146267';
 const QUICK_NAV = [
   { label: 'Relationship', href: '#relationship' },
   { label: 'Eligibility', href: '#eligibility' },
-  { label: 'Commission', href: '#commission' },
   { label: 'Payouts', href: '#payouts' },
   { label: 'Compliance', href: '#compliance' },
   { label: 'Suspension', href: '#suspension' },
@@ -39,7 +38,7 @@ export default function VendorTermsPage() {
         lede={
           <>
             Your commercial agreement with Feastpot Ltd when you list and sell food on the
-            platform, clear commission, weekly payouts, plain rules.
+            platform, weekly payouts, plain rules.
           </>
         }
         footnote={<>Last updated: May 2026 &middot; England &amp; Wales</>}
@@ -77,19 +76,7 @@ export default function VendorTermsPage() {
           </ul>
         </LegalSection>
 
-        <LegalSection id="commission" icon="💷" title="3. Platform commission">
-          <p>
-            Feastpot charges a commission of <strong>12% of the order subtotal</strong>{' '}
-            (excluding delivery fees) on each completed order. This commission is deducted from
-            your weekly payout, it is not charged separately.
-          </p>
-          <p>
-            Feastpot reserves the right to adjust the commission rate with 30 days&rsquo; written
-            notice to active vendors.
-          </p>
-        </LegalSection>
-
-        <LegalSection id="payouts" icon="🏦" title="4. Payouts">
+        <LegalSection id="payouts" icon="🏦" title="3. Payouts">
           <p>
             Payouts are processed <strong>weekly, every Monday</strong>, for all orders delivered
             in the prior Monday&ndash;Sunday window. Payouts are made via Stripe Connect to your
@@ -104,17 +91,17 @@ export default function VendorTermsPage() {
           <p>Feastpot will notify you of any hold via email and the vendor dashboard.</p>
         </LegalSection>
 
-        <LegalSection id="disputes" icon="⚖️" title="5. Refunds and disputes">
+        <LegalSection id="disputes" icon="⚖️" title="4. Refunds and disputes">
           <p>
-            If a customer dispute results in a full or partial refund, the refunded amount (plus
-            any applicable commission) will be deducted from your next payout. Vendors are
+            If a customer dispute results in a full or partial refund, the refunded amount will
+            be deducted from your next payout. Vendors are
             expected to respond to dispute enquiries within 24 hours. Failure to respond will be
             treated as non-engagement and may result in a full refund to the customer at the
             vendor&rsquo;s cost. Feastpot&rsquo;s decision on disputes is final.
           </p>
         </LegalSection>
 
-        <LegalSection id="compliance" icon="🛡️" title="6. Food safety and compliance">
+        <LegalSection id="compliance" icon="🛡️" title="5. Food safety and compliance">
           <p>You are solely responsible for:</p>
           <ul style={legalListStyle}>
             <li>The safety and quality of all food prepared and delivered;</li>
@@ -133,7 +120,7 @@ export default function VendorTermsPage() {
           </p>
         </LegalSection>
 
-        <LegalSection id="menu" icon="📋" title="7. Menu and pricing">
+        <LegalSection id="menu" icon="📋" title="6. Menu and pricing">
           <ul style={legalListStyle}>
             <li>You are responsible for keeping menu items, prices and availability accurate.</li>
             <li>You must not list items that contain undeclared allergens.</li>
@@ -142,7 +129,7 @@ export default function VendorTermsPage() {
           </ul>
         </LegalSection>
 
-        <LegalSection id="acceptance" icon="⏱️" title="8. Order acceptance">
+        <LegalSection id="acceptance" icon="⏱️" title="7. Order acceptance">
           <p>
             You must accept or reject orders within 15 minutes of receipt. Failure to respond
             results in automatic order cancellation and a full refund to the customer. Repeated
@@ -151,7 +138,7 @@ export default function VendorTermsPage() {
           </p>
         </LegalSection>
 
-        <LegalSection id="prohibited" icon="🚫" title="9. Prohibited conduct">
+        <LegalSection id="prohibited" icon="🚫" title="8. Prohibited conduct">
           <p>You must not:</p>
           <ul style={legalListStyle}>
             <li>Solicit customers to order off-platform;</li>
@@ -162,7 +149,7 @@ export default function VendorTermsPage() {
           </ul>
         </LegalSection>
 
-        <LegalSection id="suspension" icon="🛑" title="10. Suspension and removal">
+        <LegalSection id="suspension" icon="🛑" title="9. Suspension and removal">
           <p>Feastpot may suspend or remove your listing immediately if:</p>
           <ul style={legalListStyle}>
             <li>You receive 3 or more substantiated complaints in 30 days;</li>
@@ -181,7 +168,7 @@ export default function VendorTermsPage() {
           </p>
         </LegalSection>
 
-        <LegalSection id="ip" icon="📸" title="11. Intellectual property">
+        <LegalSection id="ip" icon="📸" title="10. Intellectual property">
           <p>
             By uploading photos or content to Feastpot, you grant us a non-exclusive,
             royalty-free licence to use that content to promote the platform and your listing.
@@ -189,7 +176,7 @@ export default function VendorTermsPage() {
           </p>
         </LegalSection>
 
-        <LegalSection id="liability" icon="⚠️" title="12. Liability">
+        <LegalSection id="liability" icon="⚠️" title="11. Liability">
           <p>Feastpot is not liable for:</p>
           <ul style={legalListStyle}>
             <li>Food safety incidents caused by the vendor;</li>
@@ -200,12 +187,12 @@ export default function VendorTermsPage() {
           <p>Nothing in these terms limits liability for gross negligence or fraud.</p>
         </LegalSection>
 
-        <LegalSection id="law" icon="🏛️" title="13. Governing law">
+        <LegalSection id="law" icon="🏛️" title="12. Governing law">
           <p>These terms are governed by the laws of England and Wales.</p>
         </LegalSection>
 
         <LegalContact
-          number="14"
+          number="13"
           title="Contact"
           email="compliance@feastpot.co.uk"
           subject="Vendor enquiry"
