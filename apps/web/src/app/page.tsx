@@ -189,7 +189,7 @@ export default async function HomePage() {
               lineHeight: 1.25,
             }}
           >
-            Turn your cooking into a business
+            Turn your cooking into a weekly income stream
           </h2>
           <p
             style={{
@@ -199,7 +199,8 @@ export default async function HomePage() {
               marginBottom: '16px',
             }}
           >
-            Keep 88% of every sale. We handle payments, orders, and compliance. You cook.
+            Get paid to cook from home without building a website, chasing customers,
+            or dealing with admin. We bring the orders, you focus on the food.
           </p>
           <ul
             style={{
@@ -211,7 +212,12 @@ export default async function HomePage() {
               listStyle: 'none',
             }}
           >
-            {['£0 to join', 'Keep 88%', 'Weekly payouts', 'FSA support'].map((b) => (
+            {[
+              'Start with no upfront cost',
+              'Get orders in your area',
+              'Paid out every week',
+              'We handle the boring stuff',
+            ].map((b) => (
               <li
                 key={b}
                 style={{
