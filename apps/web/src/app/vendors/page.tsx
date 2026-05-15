@@ -88,7 +88,7 @@ function VendorSearch() {
     sortBy,
   };
 
-  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, error } =
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, error, refetch } =
     useVendors(search, { enabled: postcodeSyncResolved });
   const vendors = data?.pages.flatMap((p) => p.data) ?? [];
 
@@ -260,9 +260,27 @@ function VendorSearch() {
           </div>
         )}
         {error && (
-          <p className="text-sm text-destructive">
-            Couldn&rsquo;t load vendors. Please try again in a moment.
-          </p>
+          <div
+            role="alert"
+            className="flex flex-col items-center px-6 py-12 text-center"
+          >
+            <span className="mb-3 text-5xl" aria-hidden>
+              🌐
+            </span>
+            <h3 className="mb-2 font-serif text-xl font-extrabold text-dark">
+              Couldn&rsquo;t reach our servers
+            </h3>
+            <p className="mx-auto mb-5 max-w-[260px] text-[13px] leading-relaxed text-mid">
+              This usually fixes itself in a few seconds.
+            </p>
+            <button
+              type="button"
+              onClick={() => refetch()}
+              className="touch-target rounded-xl bg-brand px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+            >
+              Try again
+            </button>
+          </div>
         )}
 
         {/* Empty state — different copy when the user typed a query, since

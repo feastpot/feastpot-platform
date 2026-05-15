@@ -18,9 +18,12 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 
 const ALLOWED_ORIGINS = [
   'https://feastpot.co.uk',
+  'https://www.feastpot.co.uk',
   'https://vendor.feastpot.co.uk',
   'https://admin.feastpot.co.uk',
   'http://localhost:3000',
+  'http://localhost:3002',
+  'http://localhost:3003',
 ];
 
 async function bootstrap(): Promise<void> {
@@ -49,6 +52,8 @@ async function bootstrap(): Promise<void> {
   app.enableCors({
     origin: ALLOWED_ORIGINS,
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
   app.useGlobalPipes(

@@ -1,0 +1,92 @@
+You are a NestJS and Next.js 15 engineer. Fix the broken vendor list on feastpot.co.uk.
+
+DEFECT: /vendors shows "Couldn't load vendors. Please try again in a moment."
+Zero vendors load. The cuisine filters and search bar render but the vendor list fails entirely.
+
+DIAGNOSIS STEPS — run these in the Replit shell before changing any code:
+
+Step A — Test the API directly without origin header:
+curl -s "https://feastpot-platform.replit.app/v1/vendors?status=live&limit=10"
+
+Step B — Test with the production origin header:
+curl -s "https://feastpot-platform.replit.app/v1/vendors?status=live&limit=10" \
+  -H "Origin: https://www.feastpot.co.uk" -v 2>&1 | grep -E "HTTP|Access-Control|error"
+
+If Step A works but Step B fails: CORS is the root cause. Go to Fix 1.
+If both fail: the API route is broken. Check Replit deployment logs.
+
+FIX 1 — Add feastpot.co.uk to CORS allowed origins
+File: apps/api/src/main.ts
+
+app.enableCors({
+  origin: [
+    'https://feastpot.co.uk',
+    'https://www.feastpot.co.uk',
+    'https://vendor.feastpot.co.uk',
+    'https://admin.feastpot.co.uk',
+    'http://localhost:3000',
+    'http://localhost:3002',
+    'http://localhost:3003',
+  ],
+  credentials: true,
+  methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
+  allowedHeaders: ['Content-Type','Authorization'],
+})
+
+Redeploy the API after this change.
+
+FIX 2 — Verify NEXT_PUBLIC_API_URL in Vercel
+In Vercel dashboard → feastpot.co.uk project → Settings → Environment Variables:
+NEXT_PUBLIC_API_URL must equal: https://feastpot-platform.replit.app
+If it is missing, empty, or set to localhost: update it and trigger a redeploy.
+
+FIX 3 — Replace red error text with friendly error state
+File: apps/web/src/app/vendors/page.tsx
+
+Replace the current error render with:
+
+{isError && (
+  <div style={{ textAlign: 'center', padding: '48px 24px' }}>
+    <span style={{ fontSize: '56px', display: 'block', marginBottom: '12px' }}>🌐</span>
+    <h3 style={{
+      fontFamily: 'Playfair Display, Georgia, serif',
+      fontWeight: 800, fontSize: '20px', color: '#1C1C1A', marginBottom: '8px'
+    }}>
+      Couldn't reach our servers
+    </h3>
+    <p style={{
+      fontSize: '13px', color: '#5F5E5A', lineHeight: 1.6,
+      maxWidth: '260px', margin: '0 auto 20px'
+    }}>
+      This usually fixes itself in a few seconds.
+    </p>
+    <button
+      onClick={() => refetch()}
+      style={{
+        background: '#E8520A', color: 'white', border: 'none',
+        padding: '13px 26px', borderRadius: '12px',
+        fontWeight: 700, fontSize: '14px', cursor: 'pointer',
+      }}
+    >
+      Try again
+    </button>
+  </div>
+)}
+
+FIX 4 — Add retry logic to the vendors TanStack Query
+In the useVendors hook or the vendors page query config, add:
+  retry: 3,
+  retryDelay: (attempt: number) => Math.min(1000 * 2 ** attempt, 10000),
+
+FIX 5 — Add error logging
+In the onError callback:
+onError: (error: Error) => {
+  console.error('[Vendors] API failed:', {
+    message: error.message,
+    apiUrl: process.env.NEXT_PUBLIC_API_URL,
+    time: new Date().toISOString(),
+  })
+}
+
+Run: npm run typecheck --filter=@feastpot/web
+Output all changed files.
