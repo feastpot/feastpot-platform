@@ -1,0 +1,90 @@
+You are a QA Engineer writing the final defect report for the Feastpot platform UAT pass.
+
+TASK: Based on all the test scenario results from this session, produce a comprehensive
+editorial defect report as a markdown file.
+
+The report must follow this exact structure:
+
+# Feastpot — UAT Defect Report
+**Generated:** [today's date and time]
+**Test pass:** Scenario-based QA, all four roles
+**Total scenarios run:** [count]
+**Pass:** [count] | **Fail:** [count] | **Partial:** [count]
+
+---
+
+## Executive Summary
+[3-4 sentence summary of overall platform readiness. Is it ready for first vendor?
+What are the top 3 blockers?]
+
+---
+
+## Severity Legend
+S1 Blocker | S2 Major | S3 Moderate | S4 Minor
+
+---
+
+## Section A — Guest / Logged-out (scenarios A-01 to A-10)
+[Table format: | Scenario | Result | Defects found | Severity |]
+[Then each FAIL or PARTIAL as a sub-section with:
+  - Defect ID (e.g. QA-A-01-001)
+  - Title
+  - Steps to reproduce
+  - Expected result
+  - Actual result
+  - Severity
+  - Root cause (code location if identifiable)
+  - Suggested fix reference (e.g. FIX-001)]
+
+## Section B — Customer Logged-in (scenarios B-01 to B-12)
+[Same structure]
+
+## Section C — Vendor (scenarios C-01 to C-10)
+[Same structure]
+
+## Section D — Admin (scenarios D-01 to D-08)
+[Same structure]
+
+## Section E — Security and Compliance (scenarios E-01 to E-05)
+[Same structure]
+
+---
+
+## Defect Summary Table
+| Defect ID | Title | Severity | Section | Status | Fix Reference |
+|-----------|-------|----------|---------|--------|---------------|
+[All defects in one sortable table]
+
+---
+
+## Pass/Fail Matrix
+| Scenario | Title | Result | Defects |
+[All 45 scenarios in one table]
+
+---
+
+## Recommended Fix Priority Order
+1. [S1 defects first, then S2 by business impact]
+2. ...
+
+---
+
+## Coverage Gaps (not tested in this pass)
+- Mobile Safari / iOS PWA install
+- Stripe live-mode webhook
+- Email deliverability
+- WCAG 2.2 AA audit
+
+---
+
+## Sign-off Criteria (definition of done before first vendor onboarding)
+- [ ] Zero S1 defects open
+- [ ] Zero S2 defects in customer cancel, loyalty transaction, and Stripe webhook
+- [ ] /vendors page loads with skeleton (not "Loading…")
+- [ ] All 4 onboarding document slots present
+- [ ] ICO number C1931679 confirmed in footer and privacy page
+- [ ] Vendor Realtime UPDATE subscription confirmed active
+- [ ] Redis confirmed connected in production
+
+Save the complete report as: docs/QA_DEFECT_REPORT_[date].md
+Output the full file content.
