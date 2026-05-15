@@ -1,7 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { OrderStatus } from '@prisma/client';
 import { Type } from 'class-transformer';
-import { IsEnum, IsInt, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+import { IsEnum, IsInt, IsOptional, IsString, MaxLength, Min, MinLength } from 'class-validator';
 
 export class IssueCreditDto {
   @ApiProperty({ minimum: 1, description: 'Credit in pence — added 1:1 to the customer loyalty balance' })
@@ -17,8 +17,17 @@ export class IssueCreditDto {
 }
 
 export class SuspendUserDto {
-  @ApiProperty({ maxLength: 500 })
+  @ApiProperty({ minLength: 10, maxLength: 500 })
   @IsString()
+  @MinLength(10)
+  @MaxLength(500)
+  reason!: string;
+}
+
+export class ReinstateUserDto {
+  @ApiProperty({ minLength: 10, maxLength: 500 })
+  @IsString()
+  @MinLength(10)
   @MaxLength(500)
   reason!: string;
 }

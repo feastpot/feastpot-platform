@@ -159,7 +159,7 @@ export class AdminUsersService {
     await this.notifications.enqueue('account_suspended', { userId, reason });
   }
 
-  async reinstateUser(userId: string, adminUserId: string): Promise<void> {
+  async reinstateUser(userId: string, reason: string, adminUserId: string): Promise<void> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { id: true, status: true },
@@ -174,6 +174,7 @@ export class AdminUsersService {
         entityId: userId,
         action: 'user.reinstated',
         metadata: {
+          reason,
           previousState: { status: user.status },
           newState: { status: UserStatus.active },
         } as Prisma.JsonObject,

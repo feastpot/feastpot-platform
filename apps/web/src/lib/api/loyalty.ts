@@ -35,9 +35,9 @@ export interface ReferralSummary {
 }
 
 export function getLoyalty(accessToken: string): Promise<LoyaltySummary> {
-  return apiRequest<LoyaltySummary>('/loyalty-points', { accessToken });
+  return apiRequest<LoyaltySummary>('/loyalty/points', { accessToken });
 }
 
 export function getReferrals(accessToken: string): Promise<ReferralSummary> {
-  return apiRequest<ReferralSummary>('/referrals', { accessToken });
+  return apiRequest<ReferralSummary>('/loyalty/referrals', { accessToken });
 }

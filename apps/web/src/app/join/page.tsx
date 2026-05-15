@@ -43,7 +43,7 @@ function JoinFlow() {
     (async () => {
       try {
         const res = await fetch(
-          `${API_URL}/v1/referrals/validate?code=${encodeURIComponent(code)}`,
+          `${API_URL}/v1/loyalty/referrals/validate?code=${encodeURIComponent(code)}`,
           { cache: 'no-store' },
         );
         const body = (await res.json().catch(() => null)) as

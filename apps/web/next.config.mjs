@@ -110,7 +110,7 @@ const supabaseHost = (() => {
 const nextConfig = {
   reactStrictMode: true,
   transpilePackages: ['@feastpot/ui', '@feastpot/types'],
-  allowedDevOrigins: ['*'],
+  allowedDevOrigins: ['*.replit.dev', '*.worf.replit.dev'],
   poweredByHeader: false,
   compress: true,
   images: {

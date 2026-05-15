@@ -20,6 +20,7 @@ import type { Response } from 'express';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import type { AuthedRequest } from '../../auth/types';
 import { NotificationsService } from '../notifications/notifications.service';
+import { PushProvider } from '../notifications/providers/push.provider';
 import { TEMPLATES } from '../notifications/templates';
 
 import { PrismaService } from '../../prisma/prisma.service';
@@ -30,8 +31,10 @@ import {
   IssueCreditDto,
   ListAdminOrdersDto,
   OverrideOrderStatusDto,
+  ReinstateUserDto,
   SuspendUserDto,
 } from './dto/admin-user-actions.dto';
+import { BroadcastAudience, BroadcastPushDto } from './dto/broadcast-push.dto';
 import { ListAdminVendorsDto } from './dto/list-admin-vendors.dto';
 import { ListAuditLogDto } from './dto/list-audit-log.dto';
 
@@ -59,6 +62,7 @@ export class AdminController {
     private readonly admin: AdminService,
     private readonly adminUsers: AdminUsersService,
     private readonly notifications: NotificationsService,
+    private readonly push: PushProvider,
     private readonly prisma: PrismaService,
   ) {}
 
@@ -174,13 +178,61 @@ export class AdminController {
 
   @Post('users/:userId/reinstate')
   @Roles(UserRole.admin)
-  @ApiOperation({ summary: 'Reinstate a suspended user' })
+  @ApiOperation({ summary: 'Reinstate a suspended user (reason persisted to AuditLog.metadata)' })
   async reinstateUser(
     @Req() req: AuthedRequest,
     @Param('userId', new ParseUUIDPipe()) userId: string,
+    @Body() dto: ReinstateUserDto,
   ) {
-    await this.adminUsers.reinstateUser(userId, req.user!.id);
+    await this.adminUsers.reinstateUser(userId, dto.reason, req.user!.id);
     return { success: true };
+  }
+
+  // ============================================================
+  // FR-PUSH-001 — Operator broadcast composer
+  // ============================================================
+
+  @Post('push/broadcast')
+  @Roles(UserRole.admin)
+  @ApiOperation({
+    summary:
+      'Broadcast a web-push notification to an audience (all / by_city / by_cuisine). Audited.',
+  })
+  async broadcastPush(@Req() req: AuthedRequest, @Body() dto: BroadcastPushDto) {
+    const filter =
+      dto.audience === BroadcastAudience.all
+        ? ({ audience: 'all' } as const)
+        : dto.audience === BroadcastAudience.by_city
+          ? ({ audience: 'by_city', city: dto.city! } as const)
+          : ({ audience: 'by_cuisine', cuisine: dto.cuisine! } as const);
+
+    const result = await this.push.broadcast(filter, {
+      title: dto.title,
+      body: dto.body,
+      url: dto.url,
+    });
+
+    await this.prisma.auditLog.create({
+      data: {
+        actorId: req.user!.id,
+        entityType: 'push_broadcast',
+        entityId: req.user!.id,
+        action: 'push.broadcast',
+        metadata: {
+          audience: dto.audience,
+          city: dto.city ?? null,
+          cuisine: dto.cuisine ?? null,
+          title: dto.title,
+          body: dto.body,
+          url: dto.url ?? null,
+          recipients: result.recipients,
+          delivered: result.delivered,
+          failed: result.failed,
+        },
+      },
+    });
+
+    return result;
   }
 
   @Patch('orders/:orderId/status')

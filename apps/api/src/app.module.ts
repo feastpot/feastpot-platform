@@ -21,6 +21,7 @@ import { bullBoardBasicAuth } from './modules/admin/bull-board.middleware';
 import { CacheModule } from './common/cache/cache.module';
 import { RoleThrottlerGuard } from './common/guards/role-throttler.guard';
 import { HealthController } from './health/health.controller';
+import { HealthzController } from './health/healthz.controller';
 import { RootController } from './root.controller';
 // NotificationsModule is @Global(), so feature modules can inject NotificationsService
 // without re-importing it everywhere.
@@ -192,7 +193,7 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
     WebhooksModule,
     AdminModule,
   ],
-  controllers: [RootController, HealthController],
+  controllers: [RootController, HealthController, HealthzController],
   providers: [
     // Captures unhandled exceptions in HTTP/RPC/WS contexts and forwards them
     // to Sentry before delegating to Nest's default error handling.

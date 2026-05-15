@@ -19,14 +19,14 @@ const SHARE_BASE_URL = 'https://feastpot.co.uk/join';
 
 @ApiTags('Loyalty')
 @ApiBearerAuth()
-@Controller({ version: '1' })
+@Controller({ version: '1', path: 'loyalty' })
 export class LoyaltyController {
   constructor(
     private readonly loyalty: LoyaltyService,
     private readonly referrals: ReferralService,
   ) {}
 
-  @Get('loyalty-points')
+  @Get('points')
   @ApiOperation({ summary: 'Loyalty balance + recent ledger for the calling user' })
   async getMyLoyalty(@CurrentUser() user: AuthUser | null) {
     const u = this.requireUser(user);
