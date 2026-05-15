@@ -104,7 +104,9 @@ export class VendorRepository {
     const halalClause = halal
       ? Prisma.sql`AND EXISTS (
           SELECT 1 FROM menu_items mi
-          WHERE mi.vendor_id = v.id AND 'halal' = ANY(mi.tags)
+          WHERE mi.vendor_id = v.id
+            AND mi.is_available = true
+            AND 'halal' = ANY(mi.tags)
         )`
       : Prisma.empty;
     const favouriteClause = communityFavourite
@@ -224,7 +226,10 @@ export class VendorRepository {
           where: { isActive: true },
           orderBy: { createdAt: 'asc' },
           include: {
+            // Customer-facing payload: only include published items so
+            // vendor drafts (isAvailable=false) never leak to the PWA.
             items: {
+              where: { isAvailable: true },
               orderBy: { createdAt: 'asc' },
             },
           },

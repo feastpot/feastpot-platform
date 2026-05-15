@@ -101,4 +101,13 @@ export class CreateMenuItemDto {
   @IsInt()
   @Min(1)
   servingsCount?: number;
+
+  // Defaults to false so vendors can save in-progress items as drafts. The
+  // editor sends an explicit value; this default only matters for raw API
+  // callers that omit the field. Mirrored by the Prisma column default.
+  @ApiPropertyOptional({ default: false, description: 'Publish state. Defaults to false (draft).' })
+  @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' ? value === 'true' : value))
+  @IsBoolean()
+  isAvailable?: boolean = false;
 }

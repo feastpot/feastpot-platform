@@ -40,6 +40,7 @@ export interface MenuItemUpsertInput {
   allergens?: string[];
   images?: string[];
   servingsCount?: number;
+  isAvailable?: boolean;
 }
 
 const ITEMS_KEY = (vendorId: string, menuId: string) =>

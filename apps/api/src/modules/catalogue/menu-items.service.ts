@@ -4,8 +4,9 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, UserRole } from '@prisma/client';
 
+import type { AuthUser } from '../../auth/types';
 import { RedisCacheService } from '../../common/cache/redis-cache.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -69,11 +70,27 @@ export class MenuItemsService {
     return Array.from(out);
   }
 
-  async findByMenu(vendorId: string, menuId: string, filters: ListMenuItemsDto) {
+  async findByMenu(
+    vendorId: string,
+    menuId: string,
+    filters: ListMenuItemsDto,
+    caller: AuthUser | null = null,
+  ) {
     await this.assertMenuBelongs(vendorId, menuId);
     const where: Prisma.MenuItemWhereInput = { menuId };
     if (filters.category) where.category = filters.category;
-    if (filters.isAvailable !== undefined) where.isAvailable = filters.isAvailable;
+
+    // Draft visibility gate: only the vendor owner / admin / compliance may
+    // see drafts. Public callers always get isAvailable=true regardless of
+    // any filter they send (so a customer can't unmask drafts by passing
+    // ?isAvailable=false). Owners may filter freely with the query param.
+    const canSeeDrafts = await this.callerOwnsVendor(vendorId, caller);
+    if (canSeeDrafts) {
+      if (filters.isAvailable !== undefined) where.isAvailable = filters.isAvailable;
+    } else {
+      where.isAvailable = true;
+    }
+
     const tagFilters: string[] = [];
     if (filters.isHalal === true) tagFilters.push('halal');
     if (filters.dietaryFlag) tagFilters.push(filters.dietaryFlag);
@@ -85,12 +102,41 @@ export class MenuItemsService {
     });
   }
 
-  async findOne(vendorId: string, menuId: string, itemId: string) {
+  async findOne(
+    vendorId: string,
+    menuId: string,
+    itemId: string,
+    caller: AuthUser | null = null,
+  ) {
     const item = await this.prisma.menuItem.findUnique({ where: { id: itemId } });
     if (!item || item.menuId !== menuId || item.vendorId !== vendorId) {
       throw new NotFoundException({ code: 'MENU_ITEM_NOT_FOUND', message: 'Menu item not found' });
     }
+    // Drafts must not leak to customers via direct id lookup. Owner / admin /
+    // compliance bypass the gate; everyone else gets a 404 (NOT 403 — we
+    // refuse to confirm the item exists at all).
+    if (!item.isAvailable) {
+      const canSeeDrafts = await this.callerOwnsVendor(vendorId, caller);
+      if (!canSeeDrafts) {
+        throw new NotFoundException({ code: 'MENU_ITEM_NOT_FOUND', message: 'Menu item not found' });
+      }
+    }
     return item;
+  }
+
+  /**
+   * True if `caller` is the vendor's owning user, an admin, or compliance.
+   * Used by public read endpoints to decide whether drafts are visible.
+   */
+  private async callerOwnsVendor(vendorId: string, caller: AuthUser | null): Promise<boolean> {
+    if (!caller) return false;
+    if (caller.role === UserRole.admin || caller.role === UserRole.compliance) return true;
+    if (caller.role !== UserRole.vendor) return false;
+    const owner = await this.prisma.vendor.findUnique({
+      where: { id: vendorId },
+      select: { userId: true },
+    });
+    return owner?.userId === caller.id;
   }
 
   async create(vendorId: string, menuId: string, dto: CreateMenuItemDto) {
@@ -119,6 +165,9 @@ export class MenuItemsService {
         imageUrls: dto.images ?? [],
         allergens,
         tags,
+        // Honour the explicit publish state from the DTO so vendors can save
+        // drafts. Falls back to the schema default (false) when omitted.
+        ...(dto.isAvailable !== undefined ? { isAvailable: dto.isAvailable } : {}),
       },
     });
     await this.invalidateVendorCache(vendorId);
@@ -149,6 +198,10 @@ export class MenuItemsService {
     if (dto.prepTimeMinutes !== undefined) {
       data.preparationHours = Math.max(1, Math.ceil(dto.prepTimeMinutes / 60));
     }
+    // Honour explicit publish-state changes from the editor's upsert payload.
+    // (The dedicated /availability toggle endpoint is still the right call
+    // for in-place flips, but the full upsert must not silently drop this.)
+    if (dto.isAvailable !== undefined) data.isAvailable = dto.isAvailable;
 
     // Tag-encoded fields: if any of them is supplied, recompute the full tag set
     // by merging the supplied values with the previously-stored ones.

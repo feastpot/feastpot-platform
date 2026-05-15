@@ -1,0 +1,56 @@
+You are a NestJS and Next.js 15 engineer. Fix vendor menu item draft publishing.
+
+DEFECT: CreateMenuItemDto does not accept isAvailable.
+Every new item publishes immediately. Vendors cannot create drafts.
+
+PART 1 — DTO
+File: apps/api/src/modules/catalogue/dto/create-menu-item.dto.ts
+
+Add: @IsBoolean() @IsOptional() isAvailable?: boolean = false
+
+PART 2 — Schema default
+File: prisma/schema.prisma
+Confirm MenuItem has: isAvailable Boolean @default(false) @map("is_available")
+If it defaults to true, change to false and run:
+npx prisma migrate dev --name menu_item_default_not_available
+
+PART 3 — Enable toggle in vendor editor
+File: apps/vendor/src/app/menu/[menuId]/items/[itemId]/item-editor-client.tsx
+
+Remove the disabled attribute from the isAvailable toggle.
+Replace with a functional toggle:
+
+<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+  padding: '14px', background: '#FBF6EF', borderRadius: '12px' }}>
+  <div>
+    <p style={{ fontWeight: 600, color: '#1C1C1A', marginBottom: '2px' }}>Available to customers</p>
+    <p style={{ fontSize: '12px', color: '#9B9894' }}>
+      {isAvailable ? 'Visible in your menu' : 'Hidden — draft mode'}
+    </p>
+  </div>
+  <button role="switch" aria-checked={isAvailable} onClick={() => setIsAvailable(v => !v)}
+    style={{ width: '48px', height: '28px', borderRadius: '14px', border: 'none',
+      background: isAvailable ? '#3D7A47' : '#EDE4D4', position: 'relative', cursor: 'pointer' }}>
+    <span style={{ position: 'absolute', top: '3px', left: isAvailable ? '22px' : '3px',
+      width: '22px', height: '22px', borderRadius: '50%', background: 'white',
+      transition: 'left .2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
+  </button>
+</div>
+
+Add draft banner when isAvailable is false:
+{!isAvailable && (
+  <div style={{ background: '#FAEEDA', borderRadius: '10px', padding: '10px 14px', marginBottom: '14px' }}>
+    <p style={{ fontWeight: 600, color: '#633806', fontSize: '13px', margin: '0 0 2px' }}>
+      Draft — not visible to customers
+    </p>
+    <p style={{ fontSize: '11px', color: '#7A4A1C', margin: 0 }}>
+      Toggle "Available to customers" below to publish.
+    </p>
+  </div>
+)}
+
+PART 4 — Customer catalogue only shows available items
+File: apps/api/src/modules/catalogue/catalogue.service.ts
+Confirm the menu item query includes: where: { isAvailable: true }
+
+Run: npm run typecheck in apps/api and apps/vendor. Output all files.

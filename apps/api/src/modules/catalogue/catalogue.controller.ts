@@ -115,14 +115,19 @@ export class CatalogueController {
   // ---------- Menu items ----------
 
   @Public()
+  @UseGuards(OptionalAuthGuard)
   @Get('menus/:menuId/items')
-  @ApiOperation({ summary: 'List menu items (public, with filters)' })
+  @ApiOperation({
+    summary:
+      'List menu items. Public callers always receive only published items (isAvailable=true); the vendor owner / admin / compliance see drafts too. OptionalAuthGuard populates req.user when a bearer token is present so the service can apply the gate.',
+  })
   listItems(
     @Param('vendorId', new ParseUUIDPipe()) vendorId: string,
     @Param('menuId', new ParseUUIDPipe()) menuId: string,
     @Query() filters: ListMenuItemsDto,
+    @Req() req?: AuthedRequest,
   ) {
-    return this.items.findByMenu(vendorId, menuId, filters);
+    return this.items.findByMenu(vendorId, menuId, filters, req?.user ?? null);
   }
 
   @Post('menus/:menuId/items')
@@ -139,14 +144,19 @@ export class CatalogueController {
   }
 
   @Public()
+  @UseGuards(OptionalAuthGuard)
   @Get('menus/:menuId/items/:itemId')
-  @ApiOperation({ summary: 'Get a menu item (public)' })
+  @ApiOperation({
+    summary:
+      'Get a menu item. Public callers receive a 404 for unpublished drafts; the vendor owner / admin / compliance can read drafts.',
+  })
   getItem(
     @Param('vendorId', new ParseUUIDPipe()) vendorId: string,
     @Param('menuId', new ParseUUIDPipe()) menuId: string,
     @Param('itemId', new ParseUUIDPipe()) itemId: string,
+    @Req() req?: AuthedRequest,
   ) {
-    return this.items.findOne(vendorId, menuId, itemId);
+    return this.items.findOne(vendorId, menuId, itemId, req?.user ?? null);
   }
 
   @Patch('menus/:menuId/items/:itemId')

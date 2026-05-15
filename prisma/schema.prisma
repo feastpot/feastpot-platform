@@ -403,7 +403,7 @@ model MenuItem {
   imageUrls        String[]         @map("image_urls") @db.VarChar(500)
   allergens        String[]         @db.VarChar(64)
   tags             String[]         @db.VarChar(64)
-  isAvailable      Boolean          @default(true) @map("is_available")
+  isAvailable      Boolean          @default(false) @map("is_available")
   stockCount       Int?             @map("stock_count")
   moderationStatus ModerationStatus @default(auto_approved) @map("moderation_status")
   createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz

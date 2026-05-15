@@ -118,7 +118,7 @@ const EMPTY: FormState = {
   dietaryFlags: [],
   allergens: [],
   servingsCount: '',
-  isAvailable: true,
+  isAvailable: false,
   images: [],
 };
 
@@ -209,6 +209,10 @@ export function ItemEditorClient({
       allergens: form.allergens,
       images: form.images,
       servingsCount: form.servingsCount ? Number(form.servingsCount) : undefined,
+      // Send the publish flag on every upsert. New items default to draft
+      // (false) so vendors can iterate before going live; existing items
+      // keep whatever the toggle currently shows.
+      isAvailable: form.isAvailable,
     };
   }
 
@@ -398,26 +402,40 @@ export function ItemEditorClient({
             </Field>
           </div>
 
-          {/* Big availability switch — teal when on, mid grey when off. For
-              EXISTING items the switch is wired to the live `toggleAvail`
-              mutation so the change persists immediately. For NEW items the
-              switch is disabled because `MenuItemUpsertInput` (POST /items)
-              doesn't accept an `isAvailable` field — the server defaults new
-              items to available. Vendors can flip availability after the
-              item is saved. */}
+          {/* Draft banner — shown whenever the item is not yet published, so
+              vendors are unambiguous about whether customers can see it. */}
+          {!form.isAvailable && (
+            <div className="rounded-xl bg-[#FAEEDA] px-4 py-3">
+              <p className="m-0 mb-0.5 text-[13px] font-semibold text-[#633806]">
+                Draft — not visible to customers
+              </p>
+              <p className="m-0 text-[11px] text-[#7A4A1C]">
+                Toggle &quot;Available to customers&quot; below to publish.
+              </p>
+            </div>
+          )}
+
+          {/* Big availability switch — teal when on, neutral when off. NEW
+              items: toggling only updates local form state; the value is
+              persisted by the create mutation on save. EXISTING items: the
+              toggle still hits the live `toggleAvail` endpoint so the
+              publish state changes immediately, with optimistic-rollback. */}
           <div className="flex items-center justify-between rounded-2xl bg-surface p-3">
             <div>
-              <p className="text-sm font-semibold text-dark">Available to order</p>
+              <p className="text-sm font-semibold text-dark">Available to customers</p>
               <p className="text-xs text-mid">
-                {isNew
-                  ? 'New items are published as available. Toggle this after saving.'
-                  : 'Customers will see this item on your menu when on.'}
+                {form.isAvailable ? 'Visible in your menu' : 'Hidden — draft mode'}
               </p>
             </div>
             <Switch
               checked={form.isAvailable}
-              disabled={isNew || toggleAvail.isPending}
+              disabled={!isNew && toggleAvail.isPending}
               onCheckedChange={(checked) => {
+                if (isNew) {
+                  // Local-only flip; persisted when the vendor hits Save.
+                  setForm((s) => ({ ...s, isAvailable: checked }));
+                  return;
+                }
                 // Optimistic update with rollback on failure so the toggle
                 // never gets stuck reflecting a state the server rejected.
                 const prev = form.isAvailable;
