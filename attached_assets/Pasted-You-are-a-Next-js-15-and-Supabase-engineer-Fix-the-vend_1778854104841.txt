@@ -1,0 +1,56 @@
+You are a Next.js 15 and Supabase engineer. Fix the vendor order dashboard Realtime subscription.
+
+DEFECT: Vendor dashboard subscribes to INSERT (new orders) only.
+Customer cancellations and admin overrides are missed.
+Vendor preps food for a cancelled order.
+
+FILE: apps/vendor/src/app/orders/orders-client.tsx
+
+Extend the Supabase channel to include UPDATE events:
+
+useEffect(() => {
+  if (!vendor?.id) return
+  const channel = supabase
+    .channel(`vendor-orders-${vendor.id}`)
+    .on('postgres_changes', {
+      event: 'INSERT', schema: 'public', table: 'orders',
+      filter: `vendor_id=eq.${vendor.id}`,
+    }, (payload) => handleNewOrder(payload.new))
+    .on('postgres_changes', {
+      event: 'UPDATE', schema: 'public', table: 'orders',
+      filter: `vendor_id=eq.${vendor.id}`,
+    }, (payload) => handleOrderUpdate(payload.new, payload.old))
+    .subscribe((status) => {
+      setRealtimeStatus(status === 'SUBSCRIBED' ? 'connected' : 'disconnected')
+    })
+  return () => { supabase.removeChannel(channel) }
+}, [vendor?.id])
+
+const handleOrderUpdate = (newOrder: any, oldOrder: any) => {
+  if (newOrder.status === oldOrder.status) return
+  setOrders(prev => prev.map(o => o.id === newOrder.id ? { ...o, ...newOrder } : o))
+
+  if (newOrder.status === 'cancelled') {
+    toast.error(
+      `Order #${newOrder.id.slice(-6)} was cancelled by the customer.`,
+      { duration: 10000, icon: '❌' }
+    )
+  }
+  if (newOrder.status === 'cancelled' && oldOrder.status === 'preparing') {
+    toast.error(
+      `⚠️ STOP! Order #${newOrder.id.slice(-6)} was cancelled while you were preparing it.`,
+      { duration: 15000 }
+    )
+  }
+}
+
+Add connection indicator to the orders page header:
+<div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: '#9B9894' }}>
+  <div style={{
+    width: '8px', height: '8px', borderRadius: '50%',
+    background: realtimeStatus === 'connected' ? '#3D7A47' : '#E24B4A',
+  }} />
+  {realtimeStatus === 'connected' ? 'Live updates' : 'Offline — refresh to update'}
+</div>
+
+Run: npm run typecheck --filter=@feastpot/vendor. Output the changed file.
