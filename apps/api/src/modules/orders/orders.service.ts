@@ -8,10 +8,10 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { AmendmentStatus, DeliveryType, OrderStatus, Prisma, UserRole } from '@prisma/client';
+import { AmendmentStatus, DeliveryType, LoyaltyTxType, OrderStatus, Prisma, UserRole } from '@prisma/client';
 import * as Sentry from '@sentry/nestjs';
 import { Queue } from 'bull';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 
 import type { AuthUser } from '../../auth/types';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -212,85 +212,139 @@ export class OrdersService {
 
     const { commissionPence, vendorPayoutPence } = computeCommission(totalPence, vendor.commissionBps);
     const orderNumber = this.generateOrderNumber();
+    // Generate the order id client-side so the Stripe PI (created BEFORE the
+    // DB transaction, for idempotency) can carry the real orderId in its
+    // metadata — matches the value the order row will be inserted with.
+    const orderId = randomUUID();
 
-    // Transaction: create the order with snapshotted line items.
-    const order = await this.repo.createWithItems({
-      data: {
-        orderNumber,
-        customerId,
-        vendorId: dto.vendorId,
-        addressId: dto.deliveryAddressId ?? null,
-        deliveryType,
-        status: OrderStatus.pending,
-        subtotalPence,
-        deliveryFeePence,
-        serviceFeePence,
-        discountPence,
-        totalPence,
-        commissionPence,
-        vendorPayoutPence,
-        notes: dto.notes ?? null,
-        scheduledFor,
-        discountCodeId,
-      },
-      items: dto.items.map((input) => {
-        const mi = byId.get(input.menuItemId)!;
-        return {
-          menuItemId: mi.id,
-          nameSnapshot: mi.name,
-          quantity: input.quantity,
-          unitPence: mi.pricePence,
-          totalPence: mi.pricePence * input.quantity,
-          notes: input.customisationNotes ?? null,
-        };
-      }),
-    });
-
-    // Write the redeemed-points ledger row with the real orderId. If this
-    // throws (e.g. balance drained by a parallel redemption between
-    // assertCanRedeem and here) the order row is already committed with
-    // `discountPence` applied but no matching debit — leaving an
-    // inconsistency and an under-charged order. Roll back by deleting
-    // the freshly-created pending order before rethrowing. Stripe payment
-    // intent has not been created yet so this is safe.
-    if (loyaltyToRedeem > 0) {
-      try {
-        await this.loyalty.redeemPoints(customerId, loyaltyToRedeem, order.id);
-      } catch (err) {
-        await this.prisma.order
-          .delete({ where: { id: order.id } })
-          .catch((cleanupErr) =>
-            this.logger.error(
-              `Failed to roll back order ${order.id} after redeemPoints error: ${(cleanupErr as Error).message}`,
-            ),
-          );
-        throw err;
-      }
-    }
-
-    // Stripe payment intent (auth-only; capture happens on delivery).
-    // Tracked as its own span — Stripe is the dominant external dependency
-    // in createOrder's wall-clock time; isolating it tells us instantly
-    // whether a regression is in our DB code or upstream at Stripe.
+    // Stripe PI is created BEFORE the DB transaction so we have a single
+    // outbound side-effect to compensate for if the DB tx fails (cancel the
+    // PI). orderNumber is unique-per-attempt and stable across SDK-level
+    // retries, making it a safe Stripe idempotency key. Tracked as its own
+    // Sentry span — Stripe is the dominant external dependency in createOrder.
     const intent = await Sentry.startSpan(
-      { name: 'stripe.paymentIntents.create', op: 'http.client', attributes: { orderId: order.id } },
+      { name: 'stripe.paymentIntents.create', op: 'http.client', attributes: { orderId } },
       () =>
         this.stripe.createPaymentIntent({
           amountPence: totalPence,
-          orderId: order.id,
+          orderId,
           customerId,
           vendorId: dto.vendorId,
+          idempotencyKey: orderNumber,
         }),
     );
 
-    await this.repo.recordPaymentIntent({
-      orderId: order.id,
-      userId: customerId,
-      amountPence: totalPence,
-      stripePaymentIntentId: intent.id,
-    });
+    try {
+      // ATOMIC: order row + line items + payment row + loyalty debit are all
+      // committed in a single Prisma interactive transaction. If any step
+      // throws, every write rolls back together — no half-created order, no
+      // orphaned loyalty debit, no payment row pointing at a non-existent
+      // order. The compensating action for the already-created Stripe PI
+      // happens in the catch block below.
+      const order = await this.prisma.$transaction(async (tx) => {
+        const created = await tx.order.create({
+          data: {
+            id: orderId,
+            orderNumber,
+            customerId,
+            vendorId: dto.vendorId,
+            addressId: dto.deliveryAddressId ?? null,
+            deliveryType,
+            status: OrderStatus.pending,
+            subtotalPence,
+            deliveryFeePence,
+            serviceFeePence,
+            discountPence,
+            totalPence,
+            commissionPence,
+            vendorPayoutPence,
+            notes: dto.notes ?? null,
+            scheduledFor,
+            discountCodeId,
+            items: {
+              create: dto.items.map((input) => {
+                const mi = byId.get(input.menuItemId)!;
+                return {
+                  menuItemId: mi.id,
+                  nameSnapshot: mi.name,
+                  quantity: input.quantity,
+                  unitPence: mi.pricePence,
+                  totalPence: mi.pricePence * input.quantity,
+                  notes: input.customisationNotes ?? null,
+                };
+              }),
+            },
+          },
+          include: { items: true },
+        });
 
-    return { order, clientSecret: intent.client_secret };
+        // Payment row holds the Stripe PI ID (the Order model has no
+        // stripePaymentIntentId column — PI lives on the related Payment row).
+        await tx.payment.create({
+          data: {
+            orderId: created.id,
+            userId: customerId,
+            amountPence: totalPence,
+            stripePaymentIntentId: intent.id,
+          },
+        });
+
+        // Loyalty debit, atomic with the order. We replicate the per-user
+        // advisory-lock pattern that LoyaltyService.redeemPoints uses
+        // (pg_advisory_xact_lock with the same key shape) so concurrent
+        // checkouts for the same user serialize on the balance read+write
+        // and cannot overdraw the ledger. Cannot reuse redeemPoints() here
+        // because it opens its own interactive transaction — Prisma doesn't
+        // support nesting interactive txs on a single connection.
+        if (loyaltyToRedeem > 0) {
+          const lockKey = `loyalty:user:${customerId}`;
+          await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`;
+
+          // Idempotency per (userId, orderId) — same guard as redeemPoints.
+          const existing = await tx.loyaltyPoint.findFirst({
+            where: { userId: customerId, orderId: created.id, type: LoyaltyTxType.redeemed },
+            select: { id: true },
+          });
+          if (!existing) {
+            const agg = await tx.loyaltyPoint.aggregate({
+              where: { userId: customerId },
+              _sum: { points: true },
+            });
+            const balance = agg._sum.points ?? 0;
+            if (balance < loyaltyToRedeem) {
+              throw new BadRequestException({
+                code: 'LOYALTY_INSUFFICIENT',
+                message: 'Insufficient loyalty points',
+              });
+            }
+            await tx.loyaltyPoint.create({
+              data: {
+                userId: customerId,
+                orderId: created.id,
+                type: LoyaltyTxType.redeemed,
+                points: -loyaltyToRedeem,
+                reason: `Redeemed ${loyaltyToRedeem} points at checkout`,
+              },
+            });
+          }
+        }
+
+        return created;
+      });
+
+      return { order, clientSecret: intent.client_secret };
+    } catch (err) {
+      // DB tx rolled back — release the Stripe authorization so the
+      // customer's card isn't held against an order that doesn't exist.
+      // Swallow the cancel failure (log only) so the original DB error
+      // surfaces to the caller; PI cleanup is best-effort.
+      await this.stripe.cancel(intent.id).catch((cancelErr) => {
+        this.logger.error(
+          `Failed to cancel orphaned Stripe PI ${intent.id} after order tx rollback: ${(cancelErr as Error).message}`,
+        );
+      });
+      throw err;
+    }
   }
 
   // ------------------------------------------------------------------

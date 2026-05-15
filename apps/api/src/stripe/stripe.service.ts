@@ -9,6 +9,7 @@ export interface CreatePaymentIntentParams {
   orderId: string;
   customerId: string;
   vendorId: string;
+  idempotencyKey?: string;
 }
 
 @Injectable()
@@ -22,12 +23,15 @@ export class StripeService {
   }
 
   async createPaymentIntent(params: CreatePaymentIntentParams): Promise<Stripe.PaymentIntent> {
-    return this.stripe.paymentIntents.create({
-      amount: params.amountPence,
-      currency: 'gbp',
-      capture_method: 'manual',
-      metadata: { orderId: params.orderId, customerId: params.customerId, vendorId: params.vendorId },
-    });
+    return this.stripe.paymentIntents.create(
+      {
+        amount: params.amountPence,
+        currency: 'gbp',
+        capture_method: 'manual',
+        metadata: { orderId: params.orderId, customerId: params.customerId, vendorId: params.vendorId },
+      },
+      params.idempotencyKey ? { idempotencyKey: params.idempotencyKey } : undefined,
+    );
   }
 
   /**

@@ -1,0 +1,74 @@
+You are a NestJS and Prisma engineer fixing a financial correctness defect.
+
+DEFECT: LoyaltyService.redeemPoints() is called BEFORE the Order row is created.
+If the Order INSERT fails, customer loses points permanently.
+
+FILE: apps/api/src/modules/orders/orders.service.ts
+
+Refactor createOrder() to use prisma.$transaction:
+
+async createOrder(customerId: string, dto: CreateOrderDto) {
+  // Pre-validate loyalty OUTSIDE transaction (read-only)
+  let loyaltyDiscountPence = 0
+  if (dto.loyaltyPointsToRedeem && dto.loyaltyPointsToRedeem > 0) {
+    const balance = await this.loyaltyService.getBalance(customerId)
+    if (balance < dto.loyaltyPointsToRedeem) throw new BadRequestException('Insufficient loyalty points')
+    if (dto.loyaltyPointsToRedeem < 200) throw new BadRequestException('Minimum redemption is 200 points')
+    loyaltyDiscountPence = dto.loyaltyPointsToRedeem
+  }
+
+  const subtotalPence = this.calculateSubtotal(dto.items)
+  const deliveryFeePence = await this.getDeliveryFee(dto.vendorId)
+  const totalPence = Math.max(0, subtotalPence + deliveryFeePence - loyaltyDiscountPence)
+
+  // Create Stripe PI before DB transaction (idempotent)
+  const paymentIntent = await this.stripe.paymentIntents.create({
+    amount: totalPence, currency: 'gbp', capture_method: 'manual',
+    metadata: { customerId, vendorId: dto.vendorId },
+    idempotency_key: `order-${customerId}-${Date.now()}`,
+  })
+
+  try {
+    // ATOMIC: order + loyalty debit in ONE transaction
+    const order = await this.prisma.$transaction(async (tx) => {
+      const newOrder = await tx.order.create({
+        data: {
+          customerId, vendorId: dto.vendorId, status: OrderStatus.pending,
+          totalPence, subtotalPence, deliveryFeePence,
+          discountPence: loyaltyDiscountPence,
+          stripePaymentIntentId: paymentIntent.id,
+          items: { create: dto.items.map(item => ({ ...item })) },
+        },
+      })
+
+      if (dto.loyaltyPointsToRedeem && dto.loyaltyPointsToRedeem > 0) {
+        const currentBalance = await this.loyaltyService.getBalance(customerId)
+        await tx.loyaltyPoint.create({
+          data: {
+            userId: customerId,
+            orderId: newOrder.id,  // real orderId now exists
+            transactionType: 'redeemed',
+            points: -dto.loyaltyPointsToRedeem,
+            balanceAfter: currentBalance - dto.loyaltyPointsToRedeem,
+            description: `Redeemed ${dto.loyaltyPointsToRedeem} points at checkout`,
+          },
+        })
+      }
+      return newOrder
+    })
+
+    await this.notificationsQueue.add('send_email', {
+      to: customerId, template: 'order_confirmation', data: { orderId: order.id }
+    })
+    return order
+
+  } catch (e) {
+    // Cancel the PI if DB transaction failed
+    if (paymentIntent?.id) {
+      await this.stripe.paymentIntents.cancel(paymentIntent.id).catch(() => {})
+    }
+    throw e
+  }
+}
+
+Run: npm run typecheck --filter=@feastpot/api. Output the changed file.
