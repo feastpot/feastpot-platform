@@ -1,0 +1,77 @@
+You are a NestJS and Prisma engineer fixing a revenue-critical defect.
+
+DEFECT (D4 — S1 Revenue Correctness):
+Vendor.commission_bps default is 1500 (= 15%) in the Prisma schema.
+Product copy, legal pages, and marketing all state 12% (1200 bps).
+Vendors will be paid the WRONG AMOUNT until this is fixed.
+
+THIS IS THE HIGHEST PRIORITY DEFECT after the ICO number (FIX-001).
+
+STEP 1 — Fix the Prisma schema default
+File: prisma/schema.prisma
+
+Find the Vendor model commission_bps field.
+Change the default from 1500 to 1200:
+
+  commission_bps  Int  @default(1200)  @map("commission_bps")
+
+Note: 1200 bps = 12.00%. Always store as basis points (integer) not float
+to avoid floating point rounding on financial calculations.
+
+Run: npx prisma migrate dev --name fix_commission_bps_1200
+
+STEP 2 — Fix any existing vendor rows in dev/staging DB
+Run this SQL after the migration:
+
+UPDATE vendors
+SET commission_bps = 1200
+WHERE commission_bps = 1500;
+
+Add to the migration file as a data migration:
+-- Update existing vendors from 15% to 12%
+UPDATE vendors SET commission_bps = 1200 WHERE commission_bps = 1500;
+
+STEP 3 — Fix the payout calculation service
+File: apps/api/src/modules/payouts/payouts.service.ts
+
+Find where net-to-vendor is calculated. It currently reads:
+  const commissionBps = vendor.commission_bps  // was 1500
+
+Ensure the calculation is:
+  const grossPence      = order.subtotalPence  // NOT totalPence (excludes delivery)
+  const commissionPence = Math.round(grossPence * vendor.commission_bps / 10_000)
+  const netPence        = grossPence - commissionPence
+
+Example: £100 order → commission = £12.00 → vendor receives £88.00
+
+STEP 4 — Use the constant from FIX-001 in admin UI
+File: apps/admin (wherever commission % is displayed)
+
+Replace any hardcoded "15%" or "12%" with:
+  import { LEGAL } from '@/lib/legal-constants'
+  {LEGAL.PLATFORM_COMMISSION_PCT}%
+
+STEP 5 — Verify payout calculation
+Write a unit test in apps/api/src/modules/payouts/payouts.service.spec.ts:
+
+it('calculates 12% commission correctly', () => {
+  const grossPence = 10000  // £100
+  const commissionBps = 1200
+  const commissionPence = Math.round(grossPence * commissionBps / 10_000)
+  const netPence = grossPence - commissionPence
+  expect(commissionPence).toBe(1200)  // £12
+  expect(netPence).toBe(8800)         // £88
+})
+
+it('calculates correctly on non-round amounts', () => {
+  const grossPence = 3750  // £37.50
+  const commissionBps = 1200
+  const commissionPence = Math.round(grossPence * commissionBps / 10_000)
+  expect(commissionPence).toBe(450)  // £4.50
+  expect(grossPence - commissionPence).toBe(3300)  // £33.00
+})
+
+Run: npx prisma migrate dev --name fix_commission_bps_1200
+Run: npm run test:api -- --testPathPattern=payouts
+Run: npm run typecheck in apps/api
+Output all changed files in full. This is a blocking S1 defect.

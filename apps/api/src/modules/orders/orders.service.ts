@@ -59,8 +59,20 @@ export interface CommissionBreakdown {
   vendorPayoutPence: number;
 }
 
-export function computeCommission(totalPence: number, commissionBps: number): CommissionBreakdown {
-  const commissionPence = Math.round((totalPence * commissionBps) / 10_000);
+/**
+ * Commission is charged on the vendor's food revenue (subtotalPence) only —
+ * NOT on delivery fees (which are vendor reimbursement, not vendor income)
+ * and NOT on the platform service fee (which is platform revenue, not the
+ * vendor's). The vendor's payout is the customer-paid total minus the
+ * platform commission, so the vendor still receives their delivery-fee
+ * reimbursement and any service-fee that flowed to the order in full.
+ */
+export function computeCommission(
+  subtotalPence: number,
+  totalPence: number,
+  commissionBps: number,
+): CommissionBreakdown {
+  const commissionPence = Math.round((subtotalPence * commissionBps) / 10_000);
   return { commissionPence, vendorPayoutPence: totalPence - commissionPence };
 }
 
@@ -210,7 +222,11 @@ export class OrdersService {
     const serviceFeePence = Math.round((subtotalPence * SERVICE_FEE_BPS) / 10_000);
     const totalPence = Math.max(0, subtotalPence + deliveryFeePence + serviceFeePence - discountPence);
 
-    const { commissionPence, vendorPayoutPence } = computeCommission(totalPence, vendor.commissionBps);
+    const { commissionPence, vendorPayoutPence } = computeCommission(
+      subtotalPence,
+      totalPence,
+      vendor.commissionBps,
+    );
     const orderNumber = this.generateOrderNumber();
     // Generate the order id client-side so the Stripe PI (created BEFORE the
     // DB transaction, for idempotency) can carry the real orderId in its
