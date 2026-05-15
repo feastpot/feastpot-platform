@@ -8,6 +8,7 @@ import { Testimonials } from '@/components/home/testimonials';
 import { CuisineFilter } from '@/components/vendor/cuisine-filter';
 import { VendorCard } from '@/components/vendor/vendor-card';
 import { searchVendors, type VendorListItem } from '@/lib/api/vendors';
+import { LEGAL } from '@/lib/legal-constants';
 
 /**
  * Customer homepage (Server Component).
@@ -213,10 +214,10 @@ export default async function HomePage() {
             }}
           >
             {[
+              `Keep ${LEGAL.VENDOR_PAYOUT_PCT}% of every sale`,
               'Start with no upfront cost',
               'Get orders in your area',
               'Paid out every week',
-              'We handle the boring stuff',
             ].map((b) => (
               <li
                 key={b}

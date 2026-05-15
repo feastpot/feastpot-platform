@@ -102,6 +102,12 @@ export default function TermsPage() {
             </li>
             <li>Stripe may apply transaction fees subject to their terms.</li>
           </ul>
+          <p>
+            Feastpot operates as a marketplace and charges food vendors a platform commission
+            of <strong>{LEGAL.PLATFORM_COMMISSION_PCT}%</strong> on each completed order subtotal.
+            This commission is deducted from the vendor &mdash; customers are not charged any
+            additional platform fee beyond the prices shown at checkout.
+          </p>
         </LegalSection>
 
         <LegalSection id="delivery" icon="🛵" title="6. Delivery">

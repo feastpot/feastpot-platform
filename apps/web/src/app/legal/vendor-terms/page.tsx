@@ -79,6 +79,12 @@ export default function VendorTermsPage() {
 
         <LegalSection id="payouts" icon="🏦" title="3. Payouts">
           <p>
+            Feastpot charges a commission of <strong>{LEGAL.PLATFORM_COMMISSION_PCT}%</strong> of
+            the order subtotal on each completed order. You receive{' '}
+            <strong>{LEGAL.VENDOR_PAYOUT_PCT}%</strong> of every sale.
+            Commission is deducted from your weekly payout &mdash; it is not charged separately.
+          </p>
+          <p>
             Payouts are processed <strong>weekly, every Monday</strong>, for all orders delivered
             in the prior Monday&ndash;Sunday window. Payouts are made via Stripe Connect to your
             registered UK bank account.
