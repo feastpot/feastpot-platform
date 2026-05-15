@@ -10,6 +10,7 @@ import { OrderStatus, UserRole, VendorStatus } from '@prisma/client';
 
 import type { AuthUser } from '../../auth/types';
 import { RedisCacheService } from '../../common/cache/redis-cache.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { StripeService } from '../../stripe/stripe.service';
 
@@ -126,6 +127,8 @@ export class VendorsService {
     private readonly stripe: StripeService,
     private readonly config: ConfigService,
     private readonly cache: RedisCacheService,
+    // NotificationsModule is @Global() so no module import needed here.
+    private readonly notifications: NotificationsService,
   ) {}
 
   // Cache TTLs are deliberately short — vendor data is not strictly
@@ -648,6 +651,43 @@ export class VendorsService {
     // search cache for up to 5 min. Same for a vendor coming back online.
     await this.cache.del(`vendors:profile:${vendorId}`);
     await this.cache.delByPattern('vendors:search:*');
+
+    // FR-NOTIF (D14): notify the vendor when they go live so they don't
+    // have to poll the portal to discover approval. Fire only on the
+    // pending/approved → live transition (the customer-facing go-live
+    // event). Re-activations from suspended/probation aren't "approval"
+    // and intentionally don't re-send this celebration email.
+    if (
+      dto.status === VendorStatus.live &&
+      (vendor.status === VendorStatus.pending || vendor.status === VendorStatus.approved)
+    ) {
+      const detail = await this.prisma.vendor.findUnique({
+        where: { id: vendorId },
+        select: {
+          businessName: true,
+          user: { select: { id: true, firstName: true } },
+        },
+      });
+      if (detail?.user) {
+        await this.notifications.enqueue(
+          'vendor_approved',
+          {
+            // Routes the email/push to the vendor's user via the resolver
+            // in NotificationProcessor (resolveUserId reads userId first).
+            userId: detail.user.id,
+            vendorFirstName: detail.user.firstName ?? 'there',
+            businessName: detail.businessName,
+            portalUrl:
+              this.config.get<string>('VENDOR_PORTAL_URL') ?? 'https://vendor.feastpot.co.uk',
+            supportEmail: 'support@feastpot.co.uk',
+          },
+          // Dedupe so a double-click on the admin Approve button can't
+          // double-send. The processor / BullMQ refuse a second job with
+          // the same id while the original is in queue/active.
+          { jobId: `vendor_approved:${vendorId}` },
+        );
+      }
+    }
 
     return result;
   }

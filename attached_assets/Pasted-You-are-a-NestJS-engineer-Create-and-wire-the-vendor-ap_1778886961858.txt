@@ -1,0 +1,73 @@
+You are a NestJS engineer. Create and wire the vendor approval notification email.
+
+DEFECT (D14 — S2):
+When a vendor is approved in the admin panel, no email is sent.
+Vendors have no way to know their application was approved without polling the portal.
+
+STEP 1 — Create the email template
+File: apps/api/src/modules/notifications/templates/email/vendor-approved.template.ts
+
+import { baseLayout, brandButton, h2, p } from '../base-layout'
+
+interface VendorApprovedData {
+  vendorFirstName: string
+  businessName: string
+  portalUrl: string
+  supportEmail: string
+}
+
+export function vendorApprovedTemplate(data: VendorApprovedData): { subject: string; html: string } {
+  return {
+    subject: `You're approved! ${data.businessName} is now live on Feastpot 🎉`,
+    html: baseLayout(
+      'Welcome to Feastpot',
+      `
+      ${h2(`Congratulations, ${data.vendorFirstName}!`)}
+      ${p(`${data.businessName} has been approved and is now live on Feastpot.
+           Customers in your area can now find your menu and place orders.`)}
+      ${p('Here is what to do next:')}
+      <ol style="margin:0 0 16px;padding-left:20px;color:#5F5E5A;font-size:14px;line-height:1.8">
+        <li>Add your food photos to every menu item — vendors with photos get 3× more orders</li>
+        <li>Set your delivery days and hours in Settings → Delivery</li>
+        <li>Share your vendor profile link with your community</li>
+        <li>Check your vendor dashboard daily for new orders</li>
+      </ol>
+      ${brandButton('Go to your dashboard', data.portalUrl)}
+      ${p(`Questions? Email us at <a href="mailto:${data.supportEmail}" style="color:#E8520A">${data.supportEmail}</a> — we reply within 1 business day.`)}
+      `,
+      `Your Feastpot kitchen is open — let's get cooking`
+    ),
+  }
+}
+
+STEP 2 — Wire into vendor approval mutation
+File: apps/api/src/modules/admin/admin.service.ts (or admin-vendors.service.ts)
+
+Find the method that handles vendor approval (PATCH status to 'live').
+After the DB update, enqueue the notification:
+
+await this.notificationsQueue.add('send_email', {
+  to: vendor.user.email,
+  template: 'vendor_approved',
+  data: {
+    vendorFirstName: vendor.user.profile?.firstName || 'there',
+    businessName:    vendor.businessName,
+    portalUrl:       process.env.VENDOR_PORTAL_URL || 'https://vendor.feastpot.co.uk',
+    supportEmail:    'support@feastpot.co.uk',
+  },
+})
+
+STEP 3 — Wire template into NotificationProcessor
+File: apps/api/src/modules/notifications/notification.processor.ts
+
+Add to the switch statement in the send_email case:
+  case 'vendor_approved':
+    ({ subject, html } = vendorApprovedTemplate(data)); break
+
+STEP 4 — Test
+Run: POST /v1/admin/vendors/{vendorId}/status { status: 'live' }
+Observe: notification queue receives a job with template: 'vendor_approved'
+Check job payload in BullBoard at /admin/queues
+
+Run: npm run typecheck in apps/api
+Output all changed files in full.

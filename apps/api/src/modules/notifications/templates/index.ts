@@ -425,6 +425,40 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
     channels: ['email'],
   },
 
+  vendor_approved: {
+    subject: (d) =>
+      `You're approved! ${str(d.businessName, 'Your kitchen')} is now live on Feastpot 🎉`,
+    render: (d) =>
+      baseLayout(
+        'Welcome to Feastpot',
+        h2(`Congratulations${d.vendorFirstName ? `, ${esc(d.vendorFirstName)}` : ''}!`) +
+          p(
+            `<strong>${esc(d.businessName, 'Your kitchen')}</strong> has been approved and is now live on Feastpot. Customers in your area can now find your menu and place orders.`,
+          ) +
+          p('Here is what to do next:') +
+          // Lists must be raw <ol> strings — wrapping them in p() emits
+          // <p><ol>…</ol></p>, which is invalid HTML and renders
+          // inconsistently across Outlook / Gmail / Apple Mail.
+          '<ol style="margin:0 0 16px 20px;padding:0;color:#5F5E5A;font-size:14px;line-height:1.8">' +
+            '<li>Add your food photos to every menu item — vendors with photos get 3× more orders.</li>' +
+            '<li>Set your delivery days and hours in <strong>Settings → Delivery</strong>.</li>' +
+            '<li>Share your vendor profile link with your community.</li>' +
+            '<li>Check your vendor dashboard daily for new orders.</li>' +
+            '</ol>' +
+          brandButton(
+            'Go to your dashboard',
+            str(d.portalUrl, 'https://vendor.feastpot.co.uk'),
+            'vendorBlue',
+          ) +
+          p(
+            `Questions? Email us at <a href="mailto:${esc(d.supportEmail, 'support@feastpot.co.uk')}" style="color:#E8520A">${esc(d.supportEmail, 'support@feastpot.co.uk')}</a> — we reply within 1 business day.`,
+            '#5F5E5A',
+          ),
+        "Your Feastpot kitchen is open — let's get cooking",
+      ),
+    channels: ['email'],
+  },
+
   review_request: {
     subject: (d) => `How was your food from ${str(d.vendorName, 'your vendor')}? ⭐`,
     render: (d) =>
