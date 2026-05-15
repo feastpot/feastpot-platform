@@ -106,6 +106,15 @@ const supabaseHost = (() => {
   }
 })();
 
+/**
+ * Origin used by the dev rewrite below to reach the NestJS API container.
+ * In Replit (and on a developer's laptop) the API listens on port 3001 of
+ * the same host that runs Next, so `localhost:3001` is correct from the
+ * Next process. Override with `API_PROXY_TARGET` if you ever run them on
+ * different hosts (e.g. docker-compose with named services).
+ */
+const API_PROXY_TARGET = process.env.API_PROXY_TARGET ?? 'http://localhost:3001';
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -113,6 +122,23 @@ const nextConfig = {
   allowedDevOrigins: ['*.replit.dev', '*.worf.replit.dev'],
   poweredByHeader: false,
   compress: true,
+  /**
+   * Proxy `/v1/*` to the API container so the browser can reach it via the
+   * same origin as the Next app. Required in Replit because the user's
+   * browser cannot resolve `localhost:3001` (the API is in a remote
+   * container), and useful on a developer laptop because it sidesteps CORS
+   * entirely. Production sets NEXT_PUBLIC_API_URL to the public API origin
+   * and skips this rewrite path entirely (`API_URL` becomes absolute, so
+   * fetches don't hit `/v1/*` on the Next origin).
+   */
+  async rewrites() {
+    return [
+      {
+        source: '/v1/:path*',
+        destination: `${API_PROXY_TARGET}/v1/:path*`,
+      },
+    ];
+  },
   images: {
     // Allow next/image to optimise Supabase Storage public-bucket URLs
     // (vendor cover photos, menu item photos, avatars). The exact host
