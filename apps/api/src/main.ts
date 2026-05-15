@@ -95,13 +95,33 @@ const ALLOWED_ORIGINS = [
 ];
 
 async function bootstrap(): Promise<void> {
-  // rawBody: true preserves the raw request body so the Stripe webhook controller
-  // can verify signatures with stripe.webhooks.constructEvent().
+  // rawBody: true + bodyParser: false → we install express.json with a verify
+  // hook ourselves so req.rawBody is the EXACT bytes Stripe signed. If we let
+  // Nest install its own parser, edge cases (charset, content-type quirks,
+  // double-parse) have historically dropped rawBody and broken signature
+  // verification — every webhook then 400s and orders never confirm.
   // bufferLogs: true so the early-bootstrap logs are buffered until pino
   // takes over below — otherwise they'd be dropped by Nest's default logger
   // before useLogger() swaps it out.
-  const app = await NestFactory.create(AppModule, { bufferLogs: true, rawBody: true });
+  const app = await NestFactory.create(AppModule, {
+    rawBody: true,
+    bodyParser: false,
+    bufferLogs: true,
+  });
   app.useLogger(app.get(Logger));
+
+  // Manual body parsers — must be installed BEFORE any route runs. The verify
+  // callback stashes the raw Buffer on the request so Stripe's webhook
+  // controller can call stripe.webhooks.constructEvent(req.rawBody, sig, secret).
+  app.use(
+    express.json({
+      limit: '1mb',
+      verify: (req: express.Request & { rawBody?: Buffer }, _res, buf) => {
+        req.rawBody = buf;
+      },
+    }),
+  );
+  app.use(express.urlencoded({ extended: true }));
   const config = app.get(ConfigService);
   const env = config.get<string>('NODE_ENV') ?? 'development';
   const port = Number(config.get<string>('PORT') ?? process.env.PORT ?? 3001);

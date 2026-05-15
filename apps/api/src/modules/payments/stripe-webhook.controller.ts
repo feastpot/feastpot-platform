@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Controller,
+  ForbiddenException,
   Headers,
   HttpCode,
   Logger,
@@ -40,6 +41,15 @@ export class StripeWebhookController {
     @Req() req: RawBodyRequest<Request>,
     @Headers('stripe-signature') signature: string | undefined,
   ): Promise<{ received: true }> {
+    // Hard guard: if rawBody is undefined, NestFactory.create is misconfigured
+    // (rawBody:true / bodyParser:false / express.json verify hook). Every
+    // webhook would 400 silently and orders would never confirm — log loudly.
+    const rawBody = req.rawBody;
+    if (!rawBody) {
+      this.logger.error('[Stripe Webhook] rawBody is undefined — check NestFactory.create options');
+      throw new BadRequestException({ code: 'MISSING_RAW_BODY', message: 'Webhook payload missing' });
+    }
+
     const secret = this.config.get<string>('STRIPE_WEBHOOK_SECRET');
     if (!secret) {
       this.logger.error('STRIPE_WEBHOOK_SECRET not configured — rejecting webhook');
@@ -48,13 +58,10 @@ export class StripeWebhookController {
     if (!signature) {
       throw new BadRequestException({ code: 'MISSING_SIGNATURE', message: 'Missing stripe-signature header' });
     }
-    if (!req.rawBody) {
-      throw new BadRequestException({ code: 'MISSING_RAW_BODY', message: 'Raw body is required for signature verification' });
-    }
 
     let event: Stripe.Event;
     try {
-      event = this.stripe.constructEvent(req.rawBody, signature, secret);
+      event = this.stripe.constructEvent(rawBody, signature, secret);
     } catch (e) {
       this.logger.warn(`Stripe signature verification failed: ${(e as Error).message}`);
       throw new BadRequestException({ code: 'INVALID_SIGNATURE', message: 'Stripe signature invalid' });
@@ -93,5 +100,25 @@ export class StripeWebhookController {
     }
 
     return { received: true };
+  }
+
+  // Dev-only smoke test: verifies the express.json verify hook is wired up
+  // and Nest is forwarding req.rawBody. Returns 403 in production so it
+  // can never be probed on a live deployment.
+  //   curl -X POST http://localhost:3001/v1/webhooks/stripe-test \
+  //     -H "Content-Type: application/json" -d '{}'
+  //   → { rawBodyPresent: true, rawBodyLength: 2 }
+  @Post('stripe-test')
+  @Public()
+  async webhookSmokeTest(
+    @Req() req: RawBodyRequest<Request>,
+  ): Promise<{ rawBodyPresent: boolean; rawBodyLength: number }> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new ForbiddenException();
+    }
+    return {
+      rawBodyPresent: !!req.rawBody,
+      rawBodyLength: req.rawBody?.length ?? 0,
+    };
   }
 }
