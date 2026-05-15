@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
+import { safeRedirect } from '@/lib/safe-redirect';
 import { createClient } from '@/lib/supabase/middleware';
 
 /**
@@ -67,7 +68,10 @@ export async function GET(request: NextRequest) {
   }
 
   // Success — redirect to `next`, preserving the freshly-set session cookies.
-  const dest = new URL(next.startsWith('/') ? next : '/', url.origin);
+  // The previous guard only checked `startsWith('/')`, which still let
+  // `//evil.example` (protocol-relative) through. `safeRedirect` blocks
+  // that plus `..` traversal and backslash normalisation tricks.
+  const dest = new URL(safeRedirect(next, '/'), url.origin);
   const redirect = NextResponse.redirect(dest);
   response.headers.getSetCookie().forEach((sc) => redirect.headers.append('set-cookie', sc));
   return redirect;

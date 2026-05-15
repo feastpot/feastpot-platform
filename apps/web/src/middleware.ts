@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
+import { safeRedirect } from './lib/safe-redirect';
 import { createClient } from './lib/supabase/middleware';
 
 /**
@@ -39,7 +40,11 @@ export async function middleware(request: NextRequest) {
   if (isAccountSubRoute && !user) {
     const signInUrl = request.nextUrl.clone();
     signInUrl.pathname = '/sign-in';
-    signInUrl.searchParams.set('next', pathname);
+    // `pathname` is already an internal route here, but we still pass it
+    // through `safeRedirect` so this branch can never become a vector if
+    // the matcher ever broadens. Defense-in-depth: the sign-in page also
+    // re-validates `next` before consuming it.
+    signInUrl.searchParams.set('next', safeRedirect(pathname, '/'));
     return redirectPreservingCookies(signInUrl, response);
   }
 
