@@ -84,12 +84,22 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
     }),
     // Two-tier rate limiting:
     //   short — 10 req/sec per tracker (burst protection against scrapers).
-    //   long  — 300 req/min default; RoleThrottlerGuard tightens or relaxes
-    //           this per role at request time.
+    //   long  — 600 req/min CEILING; RoleThrottlerGuard then takes
+    //           min(roleCap, routeLimit) so it tightens per role
+    //           (anon 30 / customer 120 / vendor 300 / admin-tier 600)
+    //           AND so route-level @Throttle({ long: { limit: N } }) wins
+    //           when N is stricter (e.g. 10/min anti-enumeration on
+    //           /v1/discount-codes/validate).
+    //
+    // The default is set to 600 (not 300) on purpose: it's the ceiling
+    // for the highest-trust roles. Lower roles are clamped down by the
+    // guard's role cap. Setting the module default to 300 would silently
+    // collapse admin/finance/compliance/support to 300 on any route that
+    // doesn't explicitly opt into a looser @Throttle.
     ThrottlerModule.forRoot({
       throttlers: [
         { name: 'short', ttl: 1_000, limit: 10 },
-        { name: 'long', ttl: 60_000, limit: 300 },
+        { name: 'long', ttl: 60_000, limit: 600 },
       ],
     }),
     ScheduleModule.forRoot(),

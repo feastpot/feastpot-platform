@@ -12,9 +12,11 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { UserRole } from '@prisma/client';
 
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
+import { Public } from '../../auth/decorators/public.decorator';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import type { AuthUser } from '../../auth/types';
@@ -32,9 +34,28 @@ export class DiscountCodesController {
 
   // -- customer-facing --
 
+  @Public()
   @Post('discount-codes/validate')
   @HttpCode(200)
-  @ApiOperation({ summary: 'Validate a discount code against the calling basket (returns discountPence).' })
+  // Anti-enumeration rate limit. Without this, an attacker can iterate
+  // SAVE10 / WELCOME20 / LAUNCH50 / … against this endpoint to discover
+  // live promotions. The named throttler must be `long` (60 s window) —
+  // our ThrottlerModule registers `short` (1 s burst) + `long` (60 s);
+  // there is NO throttler called `default`, so a `{ default: … }` override
+  // would be a silent no-op. We tighten `long` to 10/min for this single
+  // route while leaving the global per-role caps in place. The 1 s/10 req
+  // burst limit from `short` still applies on top.
+  //
+  // Tracker: anonymous callers are tracked by `ip:<req.ip>` via
+  // RoleThrottlerGuard.getTracker(); req.ip is the real client IP because
+  // Express `trust proxy` is set in main.ts. We deliberately do NOT use
+  // raw `x-forwarded-for` — that header is attacker-controlled and can be
+  // spoofed to bypass the limit.
+  @Throttle({ long: { limit: 10, ttl: 60_000 } })
+  @ApiOperation({
+    summary:
+      'Validate a discount code against the calling basket (returns discountPence). Rate-limited to 10/min per caller to prevent code enumeration.',
+  })
   validate(@Body() dto: ValidateDiscountCodeDto) {
     return this.discountCodes.validate(dto.code, dto.vendorId, dto.subtotalPence);
   }

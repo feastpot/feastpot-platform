@@ -39,25 +39,34 @@ export class RoleThrottlerGuard extends ThrottlerGuard {
     const req = context.switchToHttp().getRequest<Request & { user?: AuthUser }>();
     const role = req.user?.role;
 
-    let limit: number;
+    let roleCap: number;
     switch (role) {
       case 'admin':
       case 'finance':
       case 'compliance':
       case 'support':
-        limit = 600;
+        roleCap = 600;
         break;
       case 'vendor':
-        limit = 300;
+        roleCap = 300;
         break;
       case 'customer':
-        limit = 120;
+        roleCap = 120;
         break;
       default:
         // Anonymous: keep the configured default for the 'short' throttler
         // (burst protection) and tighten the long window.
-        limit = throttler.name === 'short' ? (throttler.limit as number) : 30;
+        roleCap = throttler.name === 'short' ? (throttler.limit as number) : 30;
     }
+
+    // CRITICAL: take the MIN of the role cap and whatever the route asked
+    // for via @Throttle({...}). Without this, a route-level tightening
+    // (e.g. discount-code validation @Throttle({ long: { limit: 10 } })
+    // for anti-enumeration) gets silently relaxed back up to the role cap
+    // (30 anon / 120 customer / …), defeating the security intent.
+    // Route-level looser limits are still capped by the role ceiling.
+    const routeLimit = throttler.limit as number;
+    const limit = Math.min(roleCap, routeLimit);
 
     return super.handleRequest({
       ...requestProps,
