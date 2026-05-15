@@ -8,6 +8,8 @@ import {
   Bell,
   CalendarHeart,
   ClipboardList,
+  ExternalLink,
+  Layers,
   LayoutDashboard,
   LogOut,
   MessageSquare,
@@ -22,6 +24,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import type { ReactNode } from 'react';
 
+import { API_URL } from '@/lib/env';
 import { createClient } from '@/lib/supabase/client';
 
 interface NavItem {
@@ -30,6 +33,10 @@ interface NavItem {
   icon: typeof LayoutDashboard;
   /** Roles that should see this item. Empty array = visible to all staff roles. */
   roles?: ReadonlyArray<'admin' | 'support' | 'finance' | 'compliance'>;
+  /** When true, render as an <a target="_blank"> instead of a <Link>. */
+  external?: boolean;
+  /** Optional tooltip / description, currently surfaced via the title attribute. */
+  description?: string;
 }
 
 const NAV: ReadonlyArray<NavItem> = [
@@ -46,6 +53,23 @@ const NAV: ReadonlyArray<NavItem> = [
   { href: '/compliance', label: 'Compliance', icon: ShieldCheck, roles: ['admin', 'compliance'] },
   { href: '/audit-log', label: 'Audit log', icon: Activity, roles: ['admin', 'compliance'] },
   { href: '/settings', label: 'Settings', icon: Settings, roles: ['admin'] },
+];
+
+// Operations links live in their own grouped block at the bottom of the
+// sidebar — they point at out-of-app tools (Bull Board) rather than admin
+// pages, so they render as external <a target="_blank"> with an external-
+// link affordance and are gated to admin-only.
+const OPS_NAV: ReadonlyArray<NavItem> = [
+  {
+    // Bull Board is mounted on the API host (Basic-Auth gated by the API),
+    // not on the admin Next app — hence absolute URL via API_URL.
+    href: `${API_URL}/admin/queues`,
+    label: 'Job queues',
+    icon: Layers,
+    external: true,
+    description: 'Bull Board — inspect failed jobs and DLQ',
+    roles: ['admin'],
+  },
 ];
 
 interface AdminShellProps {
@@ -74,6 +98,7 @@ export function AdminShell({ user, children }: AdminShellProps) {
   }
 
   const visibleNav = NAV.filter((n) => !n.roles || n.roles.includes(user.role));
+  const visibleOpsNav = OPS_NAV.filter((n) => !n.roles || n.roles.includes(user.role));
 
   return (
     <div className="flex min-h-screen bg-muted/20">
@@ -107,6 +132,34 @@ export function AdminShell({ user, children }: AdminShellProps) {
               </Link>
             );
           })}
+          {visibleOpsNav.length > 0 && (
+            <div className="pt-3">
+              <div className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+                Operations
+              </div>
+              {visibleOpsNav.map((item) => {
+                const Icon = item.icon;
+                // External links bypass <Link> (Next prefetch + client routing
+                // would try to treat the absolute API URL as an internal route)
+                // and use rel="noopener noreferrer" to prevent the popup window
+                // from gaining a window.opener handle back into the admin app.
+                return (
+                  <a
+                    key={item.href}
+                    href={item.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={item.description}
+                    className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  >
+                    <Icon className="h-4 w-4" />
+                    <span className="flex-1">{item.label}</span>
+                    <ExternalLink className="h-3 w-3 opacity-50" aria-hidden="true" />
+                  </a>
+                );
+              })}
+            </div>
+          )}
         </nav>
         <div className="border-t border-border p-3">
           <div className="flex items-center gap-2 rounded-md px-2 py-1.5">
