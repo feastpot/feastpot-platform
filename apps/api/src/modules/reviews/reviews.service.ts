@@ -5,6 +5,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { ModerationStatus, OrderStatus, Prisma, UserRole } from '@prisma/client';
 // Pinned to bad-words v3 (CJS). v4 is ESM-only and breaks under Nest's CJS runtime.
@@ -45,9 +46,26 @@ export class ReviewsService {
       throw new ForbiddenException({ code: 'NOT_ORDER_OWNER', message: 'You did not place this order' });
     }
     if (order.status !== OrderStatus.delivered) {
-      throw new BadRequestException({
+      // 422 (not 400): the request is well-formed but the order's current
+      // state forbids the action. Prevents customers leaving 1-star reviews
+      // on pending / cancelled orders to unfairly tank a vendor's rating.
+      throw new UnprocessableEntityException({
         code: 'ORDER_NOT_DELIVERED',
-        message: 'You can only review delivered orders',
+        message: 'You can only review an order after it has been delivered.',
+      });
+    }
+
+    // Proactive duplicate check — gives a clean 409 without attempting an
+    // INSERT. The unique-constraint catch below is still kept as the
+    // race-condition backstop (two concurrent submits → only one wins).
+    const existing = await this.prisma.review.findFirst({
+      where: { orderId: dto.orderId, customerId: user.id },
+      select: { id: true },
+    });
+    if (existing) {
+      throw new ConflictException({
+        code: 'REVIEW_EXISTS',
+        message: 'You have already reviewed this order',
       });
     }
 

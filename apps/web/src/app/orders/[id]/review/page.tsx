@@ -89,6 +89,30 @@ export default function ReviewPage() {
     }
   };
 
+  // Status gate: the API rejects pre-delivery reviews with 422, but we also
+  // refuse to render the form so the customer never fills in stars and text
+  // only to be bounced. Mirrors the same delivered check on the tracking
+  // page's review prompt. Placed AFTER all hook calls (rules of hooks).
+  if (order && order.status !== 'delivered') {
+    return (
+      <section className="px-6 py-16 text-center">
+        <span className="mb-3 block text-5xl" aria-hidden>
+          ⏳
+        </span>
+        <h2 className="mb-2 text-xl font-bold text-dark">Order not yet delivered</h2>
+        <p className="mb-5 text-sm text-mid">
+          You can leave a review once your order has been delivered.
+        </p>
+        <a
+          href={`/orders/${order.id}/tracking`}
+          className="text-sm font-semibold text-brand hover:underline"
+        >
+          Track your order →
+        </a>
+      </section>
+    );
+  }
+
   if (submitted) {
     return (
       <section className="flex flex-col items-center gap-3 px-4 py-16 text-center">
