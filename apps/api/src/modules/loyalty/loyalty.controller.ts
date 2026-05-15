@@ -25,14 +25,19 @@ const SHARE_BASE_URL = 'https://feastpot.co.uk/join';
 @ApiBearerAuth()
 @Controller({ version: '1', path: 'loyalty' })
 @UseGuards(SupabaseAuthGuard, RolesGuard)
-@Roles(UserRole.customer, UserRole.admin)
 export class LoyaltyController {
   constructor(
     private readonly loyalty: LoyaltyService,
     private readonly referrals: ReferralService,
   ) {}
 
+  // Roles are applied per-handler rather than at the class level so that the
+  // @Public() handler below (`validateReferral`) is reachable for anonymous
+  // /join visitors. RolesGuard reads @Roles via getAllAndOverride from
+  // handler+class, so a class-level decorator would still enforce a role on
+  // unauthenticated requests (no request.user → 403) even with @Public.
   @Get('points')
+  @Roles(UserRole.customer, UserRole.admin)
   @ApiOperation({ summary: 'Loyalty balance + recent ledger for the calling user' })
   async getMyLoyalty(@CurrentUser() user: AuthUser) {
     const [balance, history] = await Promise.all([
@@ -43,6 +48,7 @@ export class LoyaltyController {
   }
 
   @Get('referrals')
+  @Roles(UserRole.customer, UserRole.admin)
   @ApiOperation({ summary: 'Personal referral code, share URL, and referred-friend list' })
   async getMyReferrals(@CurrentUser() user: AuthUser) {
     const code = await this.referrals.ensureCode(user.id);
