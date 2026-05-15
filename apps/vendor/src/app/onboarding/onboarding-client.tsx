@@ -71,6 +71,13 @@ const REQUIRED_DOCS: Array<{
     mustShow: ['Clear photo of the document', 'Name matches your account', 'Document not expired'],
     acceptedFiles: 'PDF, JPG or PNG · max 10 MB',
   },
+  {
+    type: 'kitchen_reg',
+    label: 'Food business registration',
+    why: 'Required under the Food Safety Act 1990. Register for free at your local council — usually takes 1–2 weeks, so apply early. Guidance: https://www.food.gov.uk/business-guidance/register-a-food-business',
+    mustShow: ['Your name or business name', 'Issuing council', 'Registration date'],
+    acceptedFiles: 'PDF, JPG or PNG · max 10 MB',
+  },
 ];
 
 /**
