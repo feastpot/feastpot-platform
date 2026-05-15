@@ -1,0 +1,115 @@
+You are a Next.js 15 engineer. Build the admin reviews moderation queue page.
+
+DEFECT: ReviewsController.listModerationQueue and PATCH /reviews/:id/moderation exist
+in the API. Admin panel has no page consuming them. Spam/libellous reviews cannot
+be removed without a direct DB edit.
+
+FILE: apps/admin/src/app/reviews/queue/page.tsx (create)
+
+'use client'
+import { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+
+const STATUS_STYLES = {
+  pending:       { bg: '#FAEEDA', color: '#633806', label: 'Pending' },
+  approved:      { bg: '#EAF3DE', color: '#27500A', label: 'Approved' },
+  auto_approved: { bg: '#E1F5EE', color: '#085041', label: 'Auto-approved' },
+  rejected:      { bg: '#FCEBEB', color: '#791F1F', label: 'Rejected' },
+  held:          { bg: '#EEEDFE', color: '#3C3489', label: 'Held' },
+}
+
+export default function ReviewsQueuePage() {
+  const [filter, setFilter] = useState('pending')
+  const qc = useQueryClient()
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['admin-reviews-queue', filter],
+    queryFn: () =>
+      fetch(`${process.env.NEXT_PUBLIC_API_URL}/v1/admin/reviews/queue${filter !== 'all' ? `?status=${filter}` : ''}`,
+        { headers: { Authorization: `Bearer ${getAdminToken()}` } }
+      ).then(r => r.json()),
+    refetchInterval: 30_000,
+  })
+
+  const moderate = useMutation({
+    mutationFn: ({ id, status, reason }) =>
+      fetch(`${process.env.NEXT_PUBLIC_API_URL}/v1/admin/reviews/${id}/moderation`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAdminToken()}` },
+        body: JSON.stringify({ status, reason }),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-reviews-queue'] }),
+  })
+
+  return (
+    <div style={{ padding: '24px' }}>
+      <h1 style={{ fontSize: '22px', fontWeight: 500, marginBottom: '16px' }}>Reviews moderation</h1>
+      <div style={{ display: 'flex', gap: '6px', marginBottom: '16px', flexWrap: 'wrap' }}>
+        {['all', 'pending', 'approved', 'auto_approved', 'rejected', 'held'].map(f => (
+          <button key={f} onClick={() => setFilter(f)}
+            style={{ padding: '6px 14px', borderRadius: '20px', border: '.5px solid',
+              borderColor: f === filter ? '#E8520A' : 'var(--color-border-secondary)',
+              background: f === filter ? '#FEF0E9' : 'var(--color-background-primary)',
+              color: f === filter ? '#E8520A' : 'var(--color-text-secondary)',
+              fontSize: '12px', fontWeight: 500, cursor: 'pointer' }}>
+            {f === 'all' ? 'All' : STATUS_STYLES[f]?.label}
+          </button>
+        ))}
+      </div>
+
+      {isLoading ? <p>Loading...</p> : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {(data?.reviews ?? []).map((review) => (
+            <div key={review.id} style={{ background: 'var(--color-background-primary)',
+              border: '.5px solid var(--color-border-tertiary)', borderRadius: '12px', padding: '14px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
+                    <span style={{ fontWeight: 500 }}>{review.customerName}</span>
+                    <span style={{ color: '#F5A52A' }}>{'★'.repeat(review.vendorRating)}</span>
+                    <span style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>for {review.vendorName}</span>
+                    <span style={{ fontSize: '10px', padding: '1px 7px', borderRadius: '4px',
+                      background: STATUS_STYLES[review.moderationStatus]?.bg,
+                      color: STATUS_STYLES[review.moderationStatus]?.color }}>
+                      {STATUS_STYLES[review.moderationStatus]?.label}
+                    </span>
+                  </div>
+                  <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', fontStyle: 'italic' }}>
+                    "{review.text}"
+                  </p>
+                </div>
+                {review.moderationStatus === 'pending' && (
+                  <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
+                    <button onClick={() => moderate.mutate({ id: review.id, status: 'approved' })}
+                      style={{ padding: '6px 12px', borderRadius: '8px', border: 'none',
+                        background: '#3D7A47', color: 'white', fontSize: '12px', cursor: 'pointer' }}>
+                      Approve
+                    </button>
+                    <button onClick={() => { const r = prompt('Rejection reason:'); if (r) moderate.mutate({ id: review.id, status: 'rejected', reason: r }) }}
+                      style={{ padding: '6px 12px', borderRadius: '8px', border: '.5px solid #E24B4A',
+                        background: 'white', color: '#E24B4A', fontSize: '12px', cursor: 'pointer' }}>
+                      Reject
+                    </button>
+                    <button onClick={() => moderate.mutate({ id: review.id, status: 'held' })}
+                      style={{ padding: '6px 12px', borderRadius: '8px', border: '.5px solid var(--color-border-secondary)',
+                        background: 'white', fontSize: '12px', cursor: 'pointer' }}>
+                      Hold
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+          {(data?.reviews ?? []).length === 0 && (
+            <p style={{ textAlign: 'center', padding: '40px', color: 'var(--color-text-secondary)' }}>
+              No reviews in this queue.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+Add "Reviews" link to admin sidebar navigation.
+Run: npm run typecheck --filter=@feastpot/admin. Output all files.

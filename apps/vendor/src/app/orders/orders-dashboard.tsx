@@ -2,7 +2,7 @@
 
 import { Tabs, TabsContent, TabsList, TabsTrigger, cn } from '@feastpot/ui';
 import { useQueryClient } from '@tanstack/react-query';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { VendorOrderCard } from '@/components/orders/vendor-order-card';
 import { useToast } from '@/components/ui/toaster';
@@ -43,15 +43,32 @@ export function OrdersDashboard({ vendorId }: Props) {
   const { toast } = useToast();
   // Track which order ids we've already chimed for so reconnects don't spam.
   const knownIds = useRef<Set<string>>(new Set());
+  // Track previous status per order so UPDATE handler can detect transitions
+  // (e.g. preparing → cancelled) without trusting Supabase's `old` payload,
+  // which only includes columns in the table's REPLICA IDENTITY (often just id).
+  const prevStatus = useRef<Map<string, string>>(new Map());
+  const [realtimeStatus, setRealtimeStatus] = useState<'connected' | 'disconnected'>(
+    'disconnected',
+  );
 
   useEffect(() => {
-    for (const o of active) knownIds.current.add(o.id);
+    for (const o of active) {
+      knownIds.current.add(o.id);
+      prevStatus.current.set(o.id, o.status);
+    }
   }, [active]);
 
   useEffect(() => {
+    // Vendor switch (e.g. multi-vendor admin user) must not carry per-order
+    // memory across accounts — that would suppress chimes / mis-classify
+    // status transitions on the new vendor's orders.
+    knownIds.current.clear();
+    prevStatus.current.clear();
+    setRealtimeStatus('disconnected');
+
     const supabase = createClient();
     const channel = supabase
-      .channel('vendor-orders')
+      .channel(`vendor-orders-${vendorId}`)
       .on(
         // Supabase Realtime postgres_changes payload is loosely typed in
         // @supabase/supabase-js; the cast keeps the call site strict.
@@ -62,10 +79,13 @@ export function OrdersDashboard({ vendorId }: Props) {
           table: 'orders',
           filter: `vendor_id=eq.${vendorId}`,
         },
-        (payload: { new?: { id?: string; order_number?: string } }) => {
+        (payload: { new?: { id?: string; order_number?: string; status?: string } }) => {
           const id = payload.new?.id;
           if (id && knownIds.current.has(id)) return;
-          if (id) knownIds.current.add(id);
+          if (id) {
+            knownIds.current.add(id);
+            if (payload.new?.status) prevStatus.current.set(id, payload.new.status);
+          }
           playOrderChime();
           toast({
             title: 'New order received',
@@ -77,7 +97,52 @@ export function OrdersDashboard({ vendorId }: Props) {
           qc.invalidateQueries({ queryKey: ['vendor', 'stats'] });
         },
       )
-      .subscribe();
+      .on(
+        'postgres_changes' as never,
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'orders',
+          filter: `vendor_id=eq.${vendorId}`,
+        },
+        (payload: {
+          new?: { id?: string; order_number?: string; status?: string };
+          old?: { status?: string };
+        }) => {
+          const id = payload.new?.id;
+          const newStatus = payload.new?.status;
+          if (!id || !newStatus) return;
+          // Prefer our own cache because REPLICA IDENTITY DEFAULT means
+          // payload.old.status is usually undefined.
+          const oldStatus = prevStatus.current.get(id) ?? payload.old?.status;
+          prevStatus.current.set(id, newStatus);
+          if (oldStatus === newStatus) return;
+
+          qc.invalidateQueries({ queryKey: ['vendor', 'orders'] });
+          qc.invalidateQueries({ queryKey: ['vendor', 'stats'] });
+
+          const orderRef = payload.new?.order_number ?? `#${id.slice(-6)}`;
+          if (newStatus === 'cancelled') {
+            if (oldStatus === 'preparing' || oldStatus === 'accepted') {
+              toast({
+                variant: 'destructive',
+                title: `STOP — order ${orderRef} cancelled`,
+                description:
+                  'This order was cancelled while you were preparing it. Halt prep and check the order details.',
+              });
+            } else {
+              toast({
+                variant: 'destructive',
+                title: `Order ${orderRef} cancelled`,
+                description: 'The customer cancelled this order.',
+              });
+            }
+          }
+        },
+      )
+      .subscribe((status) => {
+        setRealtimeStatus(status === 'SUBSCRIBED' ? 'connected' : 'disconnected');
+      });
 
     return () => {
       void supabase.removeChannel(channel);
@@ -111,6 +176,20 @@ export function OrdersDashboard({ vendorId }: Props) {
 
   return (
     <Tabs defaultValue="pending" className="space-y-4">
+      <div className="flex items-center gap-1.5 text-[11px] text-mid">
+        <span
+          className={cn(
+            'h-2 w-2 rounded-full',
+            realtimeStatus === 'connected' ? 'bg-emerald-600' : 'bg-red-500',
+          )}
+          aria-hidden
+        />
+        <span>
+          {realtimeStatus === 'connected'
+            ? 'Live updates'
+            : 'Offline — refresh to update'}
+        </span>
+      </div>
       <TabsList className="w-full justify-start gap-1 overflow-x-auto bg-transparent p-0">
         {TABS.map((t) => {
           const count = counts[t.value];
