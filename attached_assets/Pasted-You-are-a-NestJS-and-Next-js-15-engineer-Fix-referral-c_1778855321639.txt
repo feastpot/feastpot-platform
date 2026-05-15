@@ -1,0 +1,62 @@
+You are a NestJS and Next.js 15 engineer. Fix referral code landing validation.
+
+DEFECT D-106: /join?ref= stores code without checking it exists.
+DEFECT D-104: Order confirmation shows fake FP-XXXXXX placeholder referral code.
+
+PART 1 — API: validate endpoint
+File: apps/api/src/modules/loyalty/loyalty.controller.ts
+
+@Get('referrals/validate')
+@Public()
+async validateCode(@Query('code') code: string) {
+  if (!code || code.length < 4) throw new BadRequestException('Invalid code')
+  const user = await this.prisma.user.findFirst({
+    where: { referralCode: { equals: code, mode: 'insensitive' } },
+    select: { id: true, profile: { select: { firstName: true } } },
+  })
+  if (!user) throw new NotFoundException('Referral code not found or expired')
+  return { valid: true, referrerFirstName: user.profile?.firstName || 'a Feastpot member', bonusPence: 500 }
+}
+
+PART 2 — /join page validates before storing
+File: apps/web/src/app/join/page.tsx
+
+useEffect(() => {
+  if (!code) { router.replace('/register'); return }
+  fetch(`${process.env.NEXT_PUBLIC_API_URL}/v1/referrals/validate?code=${code}`)
+    .then(r => r.json())
+    .then(data => {
+      if (data.valid) {
+        localStorage.setItem('fp.referral_code', code.toUpperCase())
+        setReferrerName(data.referrerFirstName)
+        setState('valid')
+        setTimeout(() => router.replace('/register'), 2000)
+      } else { setState('invalid') }
+    })
+    .catch(() => setState('invalid'))
+}, [code])
+
+Show friendly error when invalid:
+<div style={{ textAlign: 'center', padding: '60px 24px' }}>
+  <span style={{ fontSize: '48px', display: 'block', marginBottom: '16px' }}>🤔</span>
+  <h2>That referral code wasn't found</h2>
+  <p>It may have expired. You can still create a free account.</p>
+  <a href="/register">Create account anyway</a>
+</div>
+
+PART 3 — Fix fake referral code on order confirmation
+File: apps/web/src/app/orders/[id]/confirmation/page.tsx
+
+Replace the FP-XXXXXX placeholder with a real API call:
+
+const { data: referralData } = useQuery({
+  queryKey: ['my-referrals'],
+  queryFn: () => fetch(`${API}/v1/referrals`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+})
+
+Only render the share card when referralData?.referralCode exists and is not empty:
+{referralData?.referralCode && (
+  <div>... share card with real code ...</div>
+)}
+
+Run: npm run typecheck in apps/api and apps/web. Output all changed files.

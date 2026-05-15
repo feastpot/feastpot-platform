@@ -15,6 +15,25 @@ export function normalisePostcode(input: string): string {
   return input.replace(/\s+/g, ' ').trim().toUpperCase();
 }
 
+/**
+ * Strict UK-postcode shape check. Accepts either the outward code alone
+ * (e.g. "SE15") or a full postcode (e.g. "SE15 4ST" / "SE154ST"); whitespace
+ * and case are normalised before matching. Used at form submission time to
+ * reject obvious garbage like "asdf" before we route the user into the
+ * vendor search and waste an API round-trip.
+ *
+ * Note: this is a SHAPE check — it does not verify the postcode actually
+ * exists (Royal Mail's PAF database is paywalled). Real existence is
+ * checked downstream by the geocode/vendor-search call.
+ */
+export function isValidUKPostcode(postcode: string): boolean {
+  const clean = postcode.replace(/\s+/g, '').toUpperCase();
+  // Outward: 1-2 letters, 1 digit, optional letter-or-digit.
+  // Inward (optional): 1 digit + 2 letters.
+  const regex = /^[A-Z]{1,2}\d[A-Z\d]?(\d[A-Z]{2})?$/;
+  return regex.test(clean);
+}
+
 export function readStoredPostcode(): string | null {
   if (typeof window === 'undefined') return null;
   try {

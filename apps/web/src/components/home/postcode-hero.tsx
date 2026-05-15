@@ -5,11 +5,11 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 
 import { AnimatedHeadline } from '@/components/home/animated-headline';
-import { normalisePostcode, useStoredPostcode } from '@/lib/postcode';
+import { isValidUKPostcode, normalisePostcode, useStoredPostcode } from '@/lib/postcode';
 
 const TRUST_STRIP = [
   { icon: '🛡️', label: 'FSA Verified', sub: 'All kitchens checked' },
-  { icon: '⭐', label: '4.8 Rating', sub: '500+ community reviews' },
+  { icon: '⭐', label: 'Highly rated', sub: 'Real customer reviews' },
   { icon: '🍽️', label: 'Growing fast', sub: 'New kitchens joining' },
   { icon: '🔒', label: 'Secure Pay', sub: 'Stripe encrypted' },
 ] as const;
@@ -47,6 +47,10 @@ export function PostcodeHero() {
     const pc = normalisePostcode(value);
     if (!pc) {
       setError('Please enter your postcode');
+      return;
+    }
+    if (!isValidUKPostcode(pc)) {
+      setError('Please enter a valid UK postcode (e.g. SE15 4ST or SE15)');
       return;
     }
     setError('');
