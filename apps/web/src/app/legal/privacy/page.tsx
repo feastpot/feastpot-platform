@@ -786,12 +786,17 @@ const RETENTION_DATA = [
 ] as const;
 
 const RIGHTS_DATA = [
-  { right: 'Access your data', icon: '👁️', desc: 'Request a copy of all data we hold', how: 'Email privacy@feastpot.co.uk' },
-  { right: 'Correct your data', icon: '✏️', desc: 'Fix inaccurate or incomplete information', how: 'Account settings or email us' },
-  { right: 'Delete your data', icon: '🗑️', desc: 'Erasure, subject to legal obligations', how: 'Account settings or email' },
-  { right: 'Restrict processing', icon: '⏸️', desc: 'Limit how we use your data', how: 'Email us' },
-  { right: 'Data portability', icon: '📦', desc: 'Your data in machine-readable format', how: 'Email with your request' },
-  { right: 'Object to processing', icon: '🚫', desc: 'Object to marketing, always honoured', how: 'Unsubscribe or email us' },
-  { right: 'No automated decisions', icon: '🤖', desc: 'Not subject to automated-only decisions', how: 'Always applies' },
-  { right: 'Withdraw consent', icon: '↩️', desc: 'Withdraw at any time without penalty', how: 'Account settings' },
+  {
+    right: 'Right to be informed',
+    icon: '📢',
+    desc: 'Know how and why we process your personal data — provided at the point of collection.',
+    how: 'This page, our cookie banner, and our sign-up flow',
+  },
+  { right: 'Right of access', icon: '👁️', desc: 'Request a copy of all data we hold', how: 'Email privacy@feastpot.co.uk' },
+  { right: 'Right to rectification', icon: '✏️', desc: 'Fix inaccurate or incomplete information', how: 'Account settings or email us' },
+  { right: 'Right to erasure', icon: '🗑️', desc: 'Deletion, subject to legal obligations', how: 'Account settings or email' },
+  { right: 'Right to restrict processing', icon: '⏸️', desc: 'Limit how we use your data', how: 'Email us' },
+  { right: 'Right to data portability', icon: '📦', desc: 'Your data in machine-readable format', how: 'Email with your request' },
+  { right: 'Right to object', icon: '🚫', desc: 'Object to marketing, always honoured', how: 'Unsubscribe or email us' },
+  { right: 'Rights related to automated decision-making', icon: '🤖', desc: 'Not subject to automated-only decisions', how: 'Always applies' },
 ] as const;
