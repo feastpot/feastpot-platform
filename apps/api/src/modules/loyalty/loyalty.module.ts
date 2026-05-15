@@ -7,6 +7,7 @@ import { LoyaltyCronService } from './loyalty-cron.service';
 import { LoyaltyController } from './loyalty.controller';
 import { LoyaltyService } from './loyalty.service';
 import { ReferralService } from './referral.service';
+import { ReferralsController } from './referrals.controller';
 
 /**
  * @Global so OrdersService and UsersService can inject LoyaltyService /
@@ -22,7 +23,7 @@ import { ReferralService } from './referral.service';
 @Global()
 @Module({
   imports: [PrismaModule, AuthModule],
-  controllers: [LoyaltyController],
+  controllers: [LoyaltyController, ReferralsController],
   providers: [LoyaltyService, ReferralService, LoyaltyCronService],
   exports: [LoyaltyService, ReferralService],
 })
