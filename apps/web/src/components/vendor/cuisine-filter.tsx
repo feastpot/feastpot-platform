@@ -17,12 +17,11 @@ import { cn } from '@feastpot/ui';
  *                         used inside the /vendors search page where vertical
  *                         space is tight and the filter is one of many.
  *
- * The cards variant lists more cuisines than pills (Congolese, Somali) since
- * the homepage is a "discover what's possible" surface; the search page sticks
- * to the canonical short list to keep the toolbar compact.
+ * Both variants render from the same CUISINES list so the homepage and the
+ * /vendors search page can never drift apart (an earlier defect: pills said
+ * "Other" while cards listed Congolese + Somali). Pills ignore the `dish`
+ * sub-label since they're a compact toolbar.
  */
-const CUISINES_PILLS = ['All', 'Nigerian', 'Ghanaian', 'Jamaican', 'Caribbean', 'Other'] as const;
-
 const CUISINES_CARDS = [
   { label: 'All', emoji: '🌍', dish: 'Everything', value: '' },
   { label: 'Nigerian', emoji: '🇳🇬', dish: 'Jollof · Egusi · Suya', value: 'Nigerian' },
@@ -32,6 +31,8 @@ const CUISINES_CARDS = [
   { label: 'Congolese', emoji: '🇨🇩', dish: 'Pondu · Liboke', value: 'Congolese' },
   { label: 'Somali', emoji: '🇸🇴', dish: 'Bariis · Suqaar', value: 'Somali' },
 ] as const;
+
+const CUISINES_PILLS = CUISINES_CARDS;
 
 interface Props {
   /** Active cuisine label, e.g. "Nigerian". `null` / undefined means "All". */
@@ -129,32 +130,42 @@ export function CuisineFilter({ active, href = true, onSelect, postcode, variant
     <nav aria-label="Cuisine filter">
       <ul className="-mx-4 flex snap-x gap-2 overflow-x-auto px-4 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {CUISINES_PILLS.map((c) => {
-          const isActive = current === c;
+          const isActive = current === c.label;
           const pillCls = cn(
-            'snap-start whitespace-nowrap rounded-full border px-4 py-1.5 text-sm font-medium transition',
+            'inline-flex snap-start items-center gap-1.5 whitespace-nowrap rounded-full border px-4 py-1.5 text-sm font-medium transition',
             isActive
               ? 'border-brand bg-brand text-white'
               : 'border-border bg-background text-foreground hover:bg-muted',
+          );
+          const inner = (
+            <>
+              <span aria-hidden>{c.emoji}</span>
+              <span>{c.label}</span>
+            </>
           );
 
           if (href) {
             const params = new URLSearchParams();
             if (postcode) params.set('postcode', postcode);
-            if (c !== 'All') params.set('cuisine', c);
+            if (c.value) params.set('cuisine', c.value);
             const qs = params.toString();
             return (
-              <li key={c}>
+              <li key={c.label}>
                 <Link href={`/vendors${qs ? `?${qs}` : ''}`} className={pillCls}>
-                  {c}
+                  {inner}
                 </Link>
               </li>
             );
           }
 
           return (
-            <li key={c}>
-              <button type="button" className={pillCls} onClick={() => onSelect?.(c === 'All' ? null : c)}>
-                {c}
+            <li key={c.label}>
+              <button
+                type="button"
+                className={pillCls}
+                onClick={() => onSelect?.(c.value ? c.value : null)}
+              >
+                {inner}
               </button>
             </li>
           );
