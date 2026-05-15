@@ -109,8 +109,14 @@ export class ReviewsService {
     const cursorWhere: Prisma.ReviewWhereInput = cursor
       ? { OR: [{ createdAt: { lt: cursor.createdAt } }, { createdAt: cursor.createdAt, id: { lt: cursor.id } }] }
       : {};
+    // D18: explicit status filter. Omitted defaults to 'held' (preserves
+    // legacy behaviour for any caller that wasn't updated). 'all' drops
+    // the status predicate entirely. Any other value pins to that status.
+    const filterStatus = dto.status ?? ModerationStatus.held;
+    const statusWhere: Prisma.ReviewWhereInput =
+      filterStatus === 'all' ? {} : { moderationStatus: filterStatus };
     const rows = await this.prisma.review.findMany({
-      where: { AND: [{ moderationStatus: ModerationStatus.held }, cursorWhere] },
+      where: { AND: [statusWhere, cursorWhere] },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: limit,
       include: { vendor: { select: { id: true, businessName: true } } },
@@ -120,11 +126,18 @@ export class ReviewsService {
   }
 
   async moderate(id: string, dto: ModerateReviewDto, user: AuthUser) {
-    const allowed: ModerationStatus[] = [ModerationStatus.approved, ModerationStatus.rejected];
+    // D19: admins can also push a review back to 'held' (e.g. after release
+    // they spot something concerning and want a second pair of eyes).
+    // 'pending' / 'auto_approved' remain system-only states.
+    const allowed: ModerationStatus[] = [
+      ModerationStatus.approved,
+      ModerationStatus.rejected,
+      ModerationStatus.held,
+    ];
     if (!allowed.includes(dto.status)) {
       throw new BadRequestException({
         code: 'INVALID_MODERATION_STATUS',
-        message: 'status must be approved or rejected',
+        message: 'status must be approved, rejected, or held',
       });
     }
     const review = await this.prisma.review.findUnique({ where: { id }, select: { id: true, vendorId: true, moderationStatus: true } });
@@ -136,18 +149,15 @@ export class ReviewsService {
         moderationStatus: dto.status,
         moderatedById: user.id,
         moderatedAt: new Date(),
-        isHidden: dto.status === ModerationStatus.rejected,
+        // Anything other than `approved` is hidden from the public profile.
+        // 'held' must be hidden too — otherwise an auto-approved review the
+        // admin pushes to held would still show up on the vendor page.
+        isHidden: dto.status !== ModerationStatus.approved,
       },
     });
-    // Recalc on EITHER outcome:
-    //  - approved: a previously-held review enters the published pool.
-    //  - rejected: a previously-published review (auto_approved → rejected by
-    //    a moderator who later disagreed) must leave the published pool. If we
-    //    only recalc on `approved`, the vendor's rating stays inflated until
-    //    the nightly badge cron runs.
-    if (dto.status === ModerationStatus.approved || dto.status === ModerationStatus.rejected) {
-      await this.recalculateVendorRating(review.vendorId);
-    }
+    // Recalc on every transition that can move a row in or out of the
+    // PUBLISHED_STATUSES pool — that's all three allowed transitions.
+    await this.recalculateVendorRating(review.vendorId);
     return updated;
   }
 
