@@ -8,6 +8,7 @@ import {
   LegalQuickNav,
   LegalSection,
 } from '@/components/legal/legal-shell';
+import { LEGAL } from '@/lib/legal-constants';
 
 export const metadata: Metadata = {
   title: 'Cookie Policy',
@@ -16,7 +17,7 @@ export const metadata: Metadata = {
   alternates: { canonical: '/legal/cookies' },
 };
 
-const ICO_NUMBER = 'ZC146267';
+const ICO_NUMBER = LEGAL.ICO_NUMBER;
 
 const QUICK_NAV = [
   { label: 'What are cookies', href: '#what' },

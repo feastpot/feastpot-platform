@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 
+import { LEGAL } from '@/lib/legal-constants';
+
 export const metadata: Metadata = {
   title: 'Privacy Policy',
   description:
@@ -8,7 +10,7 @@ export const metadata: Metadata = {
   alternates: { canonical: '/legal/privacy' },
 };
 
-const ICO_NUMBER = 'ZC146267';
+const ICO_NUMBER = LEGAL.ICO_NUMBER;
 
 /**
  * Privacy policy, brand-DNA refresh.
@@ -108,7 +110,7 @@ export default function PrivacyPage() {
               </p>
             </div>
             <a
-              href="https://ico.org.uk"
+              href={LEGAL.ICO_VERIFY_URL}
               target="_blank"
               rel="noopener noreferrer"
               style={{

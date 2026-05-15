@@ -16,6 +16,8 @@
  *   - hairline:     #EDEDEA
  */
 
+import { LEGAL } from '../../../lib/legal-constants';
+
 export const BRAND = {
   orange: '#E8520A',
   teal: '#1D9E75',
@@ -46,8 +48,8 @@ ${preheader ? `<div style="display:none;max-height:0;overflow:hidden;color:trans
   </div>
   <div style="padding:28px 28px 24px">${body}</div>
   <div style="background:${BRAND.paper};padding:16px 28px;border-top:1px solid ${BRAND.hairline}">
-    <p style="margin:0 0 4px;font-size:12px;color:${BRAND.muteSoft}">Feastpot · feastpot.co.uk · support@feastpot.co.uk</p>
-    <p style="margin:0;font-size:11px;color:#BDBBB7">ICO Registration: ZC146267 · Feastpot Ltd · England &amp; Wales</p>
+    <p style="margin:0 0 4px;font-size:12px;color:${BRAND.muteSoft}">Feastpot · feastpot.co.uk · ${LEGAL.SUPPORT_EMAIL}</p>
+    <p style="margin:0;font-size:11px;color:#BDBBB7">ICO Registration: ${LEGAL.ICO_NUMBER} · ${LEGAL.COMPANY_NAME} · England &amp; Wales</p>
   </div>
 </div>
 </body></html>`;

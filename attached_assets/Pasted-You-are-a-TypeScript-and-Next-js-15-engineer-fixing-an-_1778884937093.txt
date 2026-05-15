@@ -1,0 +1,78 @@
+You are a TypeScript and Next.js 15 engineer fixing an S1 legal compliance defect
+on the Feastpot platform.
+
+DEFECT (D1 + D2 — S1 Legal/Compliance):
+- Old ICO number ZC146267 ships in 6 files including transactional emails
+- New confirmed ICO number C1931679 exists NOWHERE in the codebase
+- rg "ZC146267" apps returns 6 hits
+- rg "C1931679" apps returns 0 hits
+- This is a legal/compliance blocker — UK ICO registration must be accurate
+
+STEP 1 — Create single source of truth
+File: apps/web/src/lib/legal-constants.ts (CREATE)
+
+export const LEGAL = {
+  ICO_NUMBER:          'C1931679',
+  ICO_VERIFY_URL:      'https://ico.org.uk/ESDWebPages/Entry/C1931679',
+  PLATFORM_COMMISSION_PCT: 12,
+  VENDOR_PAYOUT_PCT:   88,
+  COMPANY_NAME:        'Feastpot Ltd',
+  REGISTERED_IN:       'England and Wales',
+  SUPPORT_EMAIL:       'support@feastpot.co.uk',
+  PRIVACY_EMAIL:       'privacy@feastpot.co.uk',
+  LAST_UPDATED:        'May 2026',
+} as const
+
+File: apps/api/src/lib/legal-constants.ts (CREATE — mirror for API/email templates)
+
+export const LEGAL = {
+  ICO_NUMBER:      'C1931679',
+  ICO_VERIFY_URL:  'https://ico.org.uk/ESDWebPages/Entry/C1931679',
+  COMPANY_NAME:    'Feastpot Ltd',
+  SUPPORT_EMAIL:   'support@feastpot.co.uk',
+  PLATFORM_COMMISSION_PCT: 12,
+  VENDOR_PAYOUT_PCT:   88,
+} as const
+
+STEP 2 — Fix all 6 files with the old ICO number
+
+File 1: apps/web/src/components/layout/footer.tsx
+Find: any string "ZC146267" or "ZA000000" or const ICO_NUMBER = ...
+Replace with:
+  import { LEGAL } from '@/lib/legal-constants'
+  // Then use LEGAL.ICO_NUMBER wherever the number appears
+
+File 2: apps/api/src/modules/notifications/templates/base-layout.ts
+Find: "ZC146267" or hardcoded ICO string
+Replace with:
+  import { LEGAL } from '../../../lib/legal-constants'
+  // Use LEGAL.ICO_NUMBER in the footer HTML
+
+File 3: apps/web/src/app/legal/privacy/page.tsx
+Find: const ICO_NUMBER = 'ZC146267'
+Replace with:
+  import { LEGAL } from '@/lib/legal-constants'
+  // Use LEGAL.ICO_NUMBER and LEGAL.ICO_VERIFY_URL throughout
+
+File 4: apps/web/src/app/legal/cookies/page.tsx
+File 5: apps/web/src/app/legal/terms/page.tsx
+File 6: apps/web/src/app/legal/vendor-terms/page.tsx
+Same pattern: remove local const ICO_NUMBER = 'ZC146267', import from LEGAL.
+
+STEP 3 — Fix the "Verify ↗" link (D7)
+In apps/web/src/app/legal/privacy/page.tsx:
+The "Verify ↗" link must point to LEGAL.ICO_VERIFY_URL
+(https://ico.org.uk/ESDWebPages/Entry/C1931679)
+NOT to ico.org.uk/make-a-complaint
+
+STEP 4 — Verify the fix
+Run: grep -r "ZC146267\|ZA000000" apps --include="*.ts" --include="*.tsx"
+Assert: ZERO results
+
+Run: grep -r "C1931679" apps --include="*.ts" --include="*.tsx"
+Assert: AT LEAST 6 results (all 6 files updated)
+
+Run: npm run typecheck in apps/web and apps/api
+Assert: zero TypeScript errors
+
+Output all changed files in full.

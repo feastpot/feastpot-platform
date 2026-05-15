@@ -10,6 +10,7 @@ import {
   LegalSection,
   legalListStyle,
 } from '@/components/legal/legal-shell';
+import { LEGAL } from '@/lib/legal-constants';
 
 export const metadata: Metadata = {
   title: 'Terms of Service',
@@ -18,7 +19,7 @@ export const metadata: Metadata = {
   alternates: { canonical: '/legal/terms' },
 };
 
-const ICO_NUMBER = 'ZC146267';
+const ICO_NUMBER = LEGAL.ICO_NUMBER;
 
 const QUICK_NAV = [
   { label: 'About', href: '#about' },

@@ -3,12 +3,14 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
+import { LEGAL } from '@/lib/legal-constants';
+
 /**
  * Site footer. Currently the only place from which a customer can
  * reach Privacy / Terms / Cookies / Allergen / Vendor T&Cs without
  * URL-guessing — the legal team requires those links to be
  * persistently discoverable, and ICO guidance also expects a visible
- * data-controller note (the "ICO Registration ZC146267" line below).
+ * data-controller note (the "ICO Registration {LEGAL.ICO_NUMBER}" line below).
  *
  * Hidden on /checkout and the (auth) routes because:
  *  - Checkout has its own legal acceptance copy beside the pay button
@@ -77,15 +79,15 @@ export function Footer() {
             range yet. Bump in Jan. */}
         <div className="border-t border-white/10 pt-3">
           <p className="text-[10px] text-white/25">
-            © 2026 Feastpot Ltd · England &amp; Wales
+            © 2026 {LEGAL.COMPANY_NAME} · {LEGAL.REGISTERED_IN}
           </p>
           <p className="mt-0.5 text-[10px] text-white/20">
-            ICO Registration ZC146267 ·{' '}
+            ICO Registration {LEGAL.ICO_NUMBER} ·{' '}
             <a
-              href="mailto:support@feastpot.co.uk"
+              href={`mailto:${LEGAL.SUPPORT_EMAIL}`}
               className="hover:text-white/40"
             >
-              support@feastpot.co.uk
+              {LEGAL.SUPPORT_EMAIL}
             </a>
           </p>
         </div>
