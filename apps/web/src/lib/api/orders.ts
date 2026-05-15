@@ -167,10 +167,19 @@ export function reorder(
  * adds the role; until then the FE surfaces a 403 with a helpful message
  * ("contact the vendor to cancel").
  */
-export function cancelOrder(orderId: string, accessToken: string): Promise<Order> {
-  return apiRequest<Order>(`/orders/${orderId}/status`, {
-    method: 'PATCH',
-    body: { status: 'cancelled' },
+/**
+ * Customer self-cancel (UK Consumer Contracts Regulations 2013).
+ * Hits POST /v1/orders/:id/cancel — the legacy PATCH /status route is
+ * vendor/admin only and 403s for customers.
+ */
+export function cancelOrder(
+  orderId: string,
+  reason: string,
+  accessToken: string,
+): Promise<Order> {
+  return apiRequest<Order>(`/orders/${orderId}/cancel`, {
+    method: 'POST',
+    body: { reason },
     accessToken,
   });
 }

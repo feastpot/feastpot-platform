@@ -103,12 +103,13 @@ export function useCancelOrder() {
   const { token } = useAccessToken();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (orderId: string) => {
+    mutationFn: ({ orderId, reason }: { orderId: string; reason: string }) => {
       if (!token) throw new Error('Not signed in');
-      return cancelOrder(orderId, token);
+      return cancelOrder(orderId, reason, token);
     },
-    onSuccess: (_, orderId) => {
+    onSuccess: (_, { orderId }) => {
       void qc.invalidateQueries({ queryKey: [ORDERS_KEY, 'one', orderId] });
+      void qc.invalidateQueries({ queryKey: [ORDERS_KEY, 'list'] });
     },
   });
 }

@@ -47,6 +47,8 @@ export default function OrderTrackingPage() {
   const [connected, setConnected] = useState(false);
   const [lastSeenStatus, setLastSeenStatus] = useState<string | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
 
   // Subscribe to Realtime updates on this order row.
   useEffect(() => {
@@ -106,20 +108,23 @@ export default function OrderTrackingPage() {
   const isCancelled = order.status === 'cancelled' || order.status === 'refunded';
   const isDelivered = order.status === 'delivered';
 
-  const onCancel = async () => {
+  const onConfirmCancel = async () => {
     setCancelMsg(null);
-    if (!confirm('Cancel this order? You won\u2019t be charged.')) return;
+    if (cancelReason.trim().length < 5) return;
     try {
-      await cancelMut.mutateAsync(order.id);
+      await cancelMut.mutateAsync({ orderId: order.id, reason: cancelReason.trim() });
+      router.push('/account/orders?cancelled=1');
     } catch (e) {
-      // BACKEND GAP: customer-callable cancel doesn't exist yet (only vendors
-      // can PATCH status). Surface a useful message instead of a stack trace.
       if (e instanceof ApiError && e.status === 403) {
         setCancelMsg('Please contact the vendor to cancel this order.');
+      } else if (e instanceof ApiError && e.status === 400) {
+        // Surface the server's customer-facing message verbatim
+        // (e.g. "already being prepared", "already on the way").
+        setCancelMsg(e.message);
       } else if (e instanceof Error) {
         setCancelMsg(e.message);
       } else {
-        setCancelMsg('Could not cancel right now. Please try again.');
+        setCancelMsg('Could not cancel — please contact support@feastpot.co.uk');
       }
     }
   };
@@ -231,17 +236,60 @@ export default function OrderTrackingPage() {
               WhatsApp {order.vendor.businessName}
             </a>
           )}
-          {order.status === 'pending' && (
+          {(order.status === 'pending' || order.status === 'accepted') && !showCancelConfirm && (
             <button
               type="button"
-              onClick={onCancel}
-              disabled={cancelMut.isPending}
-              className="flex h-11 w-full items-center justify-center rounded-2xl border border-destructive/40 bg-white text-sm font-medium text-destructive hover:bg-destructive/5 disabled:opacity-50"
+              onClick={() => setShowCancelConfirm(true)}
+              className="flex h-11 w-full items-center justify-center rounded-2xl border border-destructive/40 bg-white text-sm font-medium text-destructive hover:bg-destructive/5"
             >
-              {cancelMut.isPending ? 'Cancelling…' : 'Cancel order'}
+              Cancel order
             </button>
           )}
-          {cancelMsg && <p className="text-xs text-destructive">{cancelMsg}</p>}
+          {showCancelConfirm && (
+            <div className="rounded-2xl border border-destructive/40 bg-destructive/5 p-4">
+              <p className="text-sm font-semibold text-destructive">
+                Are you sure you want to cancel?
+              </p>
+              <p className="mt-1 text-xs text-mid">
+                You will receive a full refund within 5 business days.
+              </p>
+              <textarea
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                placeholder="Tell us why (required)"
+                className="mt-3 w-full min-h-[60px] resize-y rounded-xl border border-border bg-white p-2 text-sm text-dark placeholder:text-mid focus:outline-none focus:ring-2 focus:ring-destructive/30"
+              />
+              <div className="mt-3 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCancelConfirm(false);
+                    setCancelMsg(null);
+                  }}
+                  disabled={cancelMut.isPending}
+                  className="flex h-10 flex-1 items-center justify-center rounded-2xl border border-border bg-white text-sm font-semibold text-dark hover:bg-surface disabled:opacity-50"
+                >
+                  Keep order
+                </button>
+                <button
+                  type="button"
+                  onClick={onConfirmCancel}
+                  disabled={cancelReason.trim().length < 5 || cancelMut.isPending}
+                  className="flex h-10 flex-1 items-center justify-center rounded-2xl bg-destructive text-sm font-bold text-white hover:bg-destructive/90 disabled:opacity-50"
+                >
+                  {cancelMut.isPending ? 'Cancelling…' : 'Confirm cancel'}
+                </button>
+              </div>
+              {cancelMsg && (
+                <p className="mt-2 text-xs text-destructive" role="alert">
+                  {cancelMsg}
+                </p>
+              )}
+            </div>
+          )}
+          {!showCancelConfirm && cancelMsg && (
+            <p className="text-xs text-destructive">{cancelMsg}</p>
+          )}
         </section>
 
         {/* ORDER DETAILS — collapsible */}

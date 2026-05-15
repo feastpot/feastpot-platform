@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -16,6 +17,7 @@ import { Roles } from '../../auth/decorators/roles.decorator';
 import type { AuthedRequest, AuthUser } from '../../auth/types';
 
 import { ProposeAmendmentDto, RespondAmendmentDto } from './dto/amendment.dto';
+import { CancelOrderDto } from './dto/cancel-order.dto';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { ListOrdersDto } from './dto/list-orders.dto';
 import { ReorderDto } from './dto/reorder.dto';
@@ -70,6 +72,22 @@ export class OrdersController {
     @Body() dto: UpdateOrderStatusDto,
   ) {
     return this.orders.updateStatus(id, dto, requireUser(req));
+  }
+
+  @Post(':id/cancel')
+  @Roles(UserRole.customer)
+  @HttpCode(200)
+  @ApiOperation({
+    summary:
+      'Customer cancels their own order (UK Consumer Contracts Regulations 2013). ' +
+      'Allowed only while status is pending or accepted.',
+  })
+  cancel(
+    @Req() req: AuthedRequest,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: CancelOrderDto,
+  ) {
+    return this.orders.customerCancel(id, requireUser(req).id, dto.reason);
   }
 
   @Post(':id/reorder')

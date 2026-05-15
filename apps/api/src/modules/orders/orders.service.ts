@@ -602,6 +602,130 @@ export class OrdersService {
   }
 
   // ------------------------------------------------------------------
+  // CUSTOMER CANCEL (UK Consumer Contracts Regulations 2013)
+  // ------------------------------------------------------------------
+
+  /**
+   * Customer self-cancellation. Permitted only while the order is still in a
+   * pre-prep state (pending or accepted) — once the vendor moves to
+   * `preparing`, ingredients are committed and refunds become a dispute
+   * (handled separately).
+   *
+   * NB on Stripe: this codebase uses MANUAL CAPTURE (capture happens on
+   * `delivered`). For BOTH `pending` and `accepted` the PaymentIntent is
+   * still in `requires_capture` — `refunds.create` would 400 with
+   * "charge has not been captured yet". So we always `paymentIntents.cancel`
+   * here regardless of status; the customer is never charged in the first
+   * place. (The spec literally says refund-on-accepted; we deliberately
+   * deviate because that call would fail at runtime.)
+   */
+  async customerCancel(orderId: string, customerId: string, reason: string) {
+    const order = await this.repo.findByIdWithItems(orderId);
+    if (!order) {
+      throw new NotFoundException({ code: 'ORDER_NOT_FOUND', message: 'Order not found' });
+    }
+    if (order.customerId !== customerId) {
+      throw new ForbiddenException({ code: 'NOT_YOUR_ORDER', message: 'Not your order' });
+    }
+
+    const cancellable: OrderStatus[] = [OrderStatus.pending, OrderStatus.accepted];
+    if (!cancellable.includes(order.status)) {
+      const message =
+        order.status === OrderStatus.preparing
+          ? 'Your order is already being prepared — please contact the vendor'
+          : order.status === OrderStatus.dispatched
+            ? 'Your order is already on the way'
+            : order.status === OrderStatus.delivered
+              ? 'This order has already been delivered'
+              : 'This order cannot be cancelled';
+      throw new BadRequestException({ code: 'ORDER_NOT_CANCELLABLE', message });
+    }
+
+    const now = new Date();
+
+    // Atomic CAS through the existing repository helper guarantees we only
+    // write if the row is still in the status we read. If a vendor accepted
+    // (pending → accepted) between read and write, the second cancel-from-
+    // pending attempt is rejected and the customer is asked to reload.
+    const ok = await this.repo.transitionStatus(orderId, order.status, {
+      status: OrderStatus.cancelled,
+      cancelledAt: now,
+      cancellationReason: reason,
+      cancelledBy: 'customer',
+    });
+    if (!ok) {
+      throw new BadRequestException({
+        code: 'STATUS_CHANGED_CONCURRENTLY',
+        message: 'Order status changed while you were cancelling — please reload and retry',
+      });
+    }
+
+    // Audit trail — schema uses actorId + metadata (not actorUserId/newState).
+    await this.prisma.auditLog
+      .create({
+        data: {
+          actorId: customerId,
+          entityType: 'orders',
+          entityId: orderId,
+          action: 'order.cancelled_by_customer',
+          metadata: { status: 'cancelled', reason, previousStatus: order.status },
+        },
+      })
+      .catch((e) =>
+        this.logger.error(`AuditLog write failed for cancel ${orderId}: ${(e as Error).message}`),
+      );
+
+    // Release the auto-cancel job so it doesn't fire after the row is already terminal.
+    try {
+      const job = await this.notifications.getJob(`auto_cancel:${orderId}`);
+      if (job) await job.remove();
+    } catch (e) {
+      this.logger.warn(`Could not remove auto_cancel job for ${orderId}: ${(e as Error).message}`);
+    }
+
+    // Cancel the (still uncaptured) PaymentIntent so the auth is released.
+    const pi = await this.repo.findStripePaymentIntent(orderId);
+    if (pi) {
+      try {
+        await this.stripe.cancel(pi);
+        await this.repo.markPaymentStatus(pi, 'cancelled');
+      } catch (e) {
+        // Stripe failure must not block the cancel — the customer's intent
+        // is already recorded; ops can reconcile from the audit log + Stripe
+        // dashboard. Log loudly so on-call sees it.
+        this.logger.error(
+          `Stripe cancel failed for order ${orderId} pi=${pi}: ${(e as Error).message}`,
+        );
+      }
+    }
+
+    // Refund any loyalty redemption attached so the customer doesn't lose
+    // points to their own cancellation. Idempotent on the loyalty side.
+    try {
+      await this.loyalty.refundRedemption(customerId, orderId);
+    } catch (e) {
+      this.logger.error(
+        `refundRedemption (customer-cancel) failed for ${orderId}: ${(e as Error).message}`,
+      );
+    }
+
+    // Notify the vendor a customer cancelled. Reuses the generic notifications
+    // queue; the processor branches on job name to pick the right template.
+    await this.notifications.add(
+      'order_cancelled_by_customer',
+      {
+        vendorId: order.vendorId,
+        orderId,
+        orderNumber: order.orderNumber,
+        reason,
+      },
+      { jobId: `cancelled_by_customer:${orderId}` },
+    );
+
+    return this.repo.findByIdWithItems(orderId);
+  }
+
+  // ------------------------------------------------------------------
   // REORDER
   // ------------------------------------------------------------------
 
