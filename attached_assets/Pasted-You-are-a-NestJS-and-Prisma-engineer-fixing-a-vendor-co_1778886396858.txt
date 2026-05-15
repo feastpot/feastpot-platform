@@ -1,0 +1,63 @@
+You are a NestJS and Prisma engineer fixing a vendor compliance gap.
+
+DEFECT (D10 — S2):
+The Prisma DocumentType enum has only 3 values.
+food_business_registration is referenced in admin UI copy
+but is absent from the schema — vendors can never upload it,
+and it can never be stored or verified.
+
+STEP 1 — Prisma migration
+File: prisma/schema.prisma
+
+Find the DocumentType enum. Currently has 3 values:
+  hygiene_certificate
+  public_liability_insurance
+  photo_id
+
+Add the 4th:
+  food_business_registration
+
+Full enum after fix:
+enum DocumentType {
+  hygiene_certificate
+  public_liability_insurance
+  photo_id
+  food_business_registration
+}
+
+Run: npx prisma migrate dev --name add_food_business_registration_doc_type
+Run: npx prisma generate
+
+STEP 2 — Vendor onboarding document upload (4th slot)
+File: apps/vendor/src/app/onboarding/page.tsx (Step 2 — Documents)
+
+Add to REQUIRED_DOCUMENTS array:
+{
+  type: 'food_business_registration' as DocumentType,
+  label: 'Food Business Registration',
+  description: 'Required under the Food Safety Act 1990. Register for free at your local council.',
+  required: true,
+  helpUrl: 'https://www.food.gov.uk/business-guidance/register-a-food-business',
+  note: 'Free to register — usually takes 1–2 weeks. Apply early.',
+}
+
+Each document slot renders:
+- Label with "Required" badge
+- Description
+- "How to get this →" link if helpUrl is present
+- Upload zone (existing pattern)
+- Status indicator: not uploaded / uploaded / verified / rejected
+
+STEP 3 — Admin compliance list (4 slots)
+File: apps/admin/src/app/compliance/[vendorId]/page.tsx (or compliance detail)
+
+Ensure the admin compliance view shows all 4 document types.
+The 4th slot (food_business_registration) must show as "Missing" until uploaded.
+
+STEP 4 — Compliance cron (once Redis is fixed by FIX-017)
+In the compliance-scan cron job, ensure all 4 document types are checked
+for expiry, not just the original 3.
+
+Run: npm run typecheck in apps/api, apps/vendor, apps/admin
+Run: npx prisma validate
+Output all changed files in full.
