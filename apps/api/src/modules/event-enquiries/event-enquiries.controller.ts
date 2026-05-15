@@ -34,7 +34,7 @@ export class EventEnquiriesController {
   constructor(private readonly enquiries: EventEnquiriesService) {}
 
   @Get()
-  @Roles(UserRole.customer, UserRole.vendor, UserRole.admin)
+  @Roles(UserRole.customer, UserRole.vendor, UserRole.admin, UserRole.support)
   @ApiOperation({ summary: 'List event enquiries scoped by role' })
   list(@Req() req: AuthedRequest, @Query() dto: ListEventEnquiriesDto) {
     return this.enquiries.list(requireUser(req), dto);

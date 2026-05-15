@@ -72,16 +72,24 @@ export class EventEnquiriesService {
       include: {
         quotes: { include: { vendor: { select: { id: true, businessName: true, slug: true, rating: true } } } },
         selectedVendor: { select: { id: true, businessName: true, slug: true } },
+        // Customer PII included so admin/customer surfaces can render a
+        // human-readable enquirer name. Vendors must NOT receive this — we
+        // strip it below before returning to vendor callers.
+        customer: { select: { id: true, firstName: true, lastName: true, email: true } },
       },
       take: 200,
     });
 
     // Vendors must only see their own quote rows on each enquiry — never
-    // competitors' pricing or vendor identity.
+    // competitors' pricing or vendor identity. Strip customer PII too so the
+    // marketplace stays neutral pre-booking.
     if (user.role === UserRole.vendor) {
       const vendor = await this.prisma.vendor.findUnique({ where: { userId: user.id }, select: { id: true } });
       const vid = vendor?.id;
-      return rows.map((r) => ({ ...r, quotes: r.quotes.filter((q) => q.vendorId === vid) }));
+      return rows.map(({ customer: _customer, ...r }) => ({
+        ...r,
+        quotes: r.quotes.filter((q) => q.vendorId === vid),
+      }));
     }
     return rows;
   }
