@@ -1,0 +1,129 @@
+You are a Next.js 15 engineer. Build the admin event enquiry detail page.
+
+DEFECT (D17 — S3):
+/admin/events is a list-only view. There is no detail page.
+Admin cannot view the full enquiry thread, the quote offered,
+or the vendor matched to the enquiry.
+
+FILE: apps/admin/src/app/events/[enquiryId]/page.tsx (CREATE)
+
+'use client'
+import { useParams, useRouter } from 'next/navigation'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+
+export default function EventEnquiryDetailPage() {
+  const { enquiryId } = useParams()
+  const router = useRouter()
+  const qc = useQueryClient()
+
+  const { data: enquiry, isLoading } = useQuery({
+    queryKey: ['admin-event-enquiry', enquiryId],
+    queryFn: () =>
+      fetch(`${process.env.NEXT_PUBLIC_API_URL}/v1/admin/event-enquiries/${enquiryId}`,
+        { headers: { Authorization: `Bearer ${getAdminToken()}` } }
+      ).then(r => r.json()),
+  })
+
+  if (isLoading) return <div style={{ padding: '24px' }}>Loading...</div>
+  if (!enquiry) return <div style={{ padding: '24px' }}>Enquiry not found</div>
+
+  const STATUS_BADGE = {
+    open:      { bg: '#FAEEDA', color: '#633806', label: 'Awaiting quote' },
+    quoted:    { bg: '#E6F1FB', color: '#0C447C', label: 'Quote sent' },
+    confirmed: { bg: '#E1F5EE', color: '#085041', label: 'Confirmed' },
+    completed: { bg: '#EAF3DE', color: '#27500A', label: 'Completed' },
+    cancelled: { bg: '#FCEBEB', color: '#791F1F', label: 'Cancelled' },
+    expired:   { bg: '#F1EFE8', color: '#444441', label: 'Expired' },
+  }
+
+  const badge = STATUS_BADGE[enquiry.status] || STATUS_BADGE.open
+
+  return (
+    <div style={{ padding: '24px', maxWidth: '760px' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+        <button onClick={() => router.back()}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '20px' }}>←</button>
+        <h1 style={{ fontSize: '20px', fontWeight: 500, flex: 1 }}>
+          Event enquiry — {enquiry.customerName}
+        </h1>
+        <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '20px',
+          background: badge.bg, color: badge.color, fontWeight: 500 }}>
+          {badge.label}
+        </span>
+      </div>
+
+      {/* Core details */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px' }}>
+        {[
+          { label: 'Customer',         value: enquiry.customerName  },
+          { label: 'Email',            value: enquiry.customerEmail },
+          { label: 'Event date',       value: new Date(enquiry.eventDate).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) },
+          { label: 'Guest count',      value: `${enquiry.guestCount} guests` },
+          { label: 'Budget',           value: enquiry.budgetPence ? `£${(enquiry.budgetPence / 100).toFixed(0)} total` : 'Not specified' },
+          { label: 'Cuisine prefs',    value: enquiry.cuisinePreferences?.join(', ') || '—' },
+          { label: 'Venue',            value: enquiry.venueName || '—' },
+          { label: 'Vendor matched',   value: enquiry.vendorName || 'Not yet matched' },
+          { label: 'Submitted',        value: new Date(enquiry.createdAt).toLocaleString('en-GB') },
+          { label: 'Last updated',     value: new Date(enquiry.updatedAt).toLocaleString('en-GB') },
+        ].map(({ label, value }) => (
+          <div key={label} style={{ background: 'var(--color-background-secondary)',
+            border: '.5px solid var(--color-border-tertiary)', borderRadius: '10px', padding: '12px' }}>
+            <div style={{ fontSize: '10px', color: 'var(--color-text-secondary)', fontWeight: 500,
+              textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: '4px' }}>{label}</div>
+            <div style={{ fontSize: '13px', fontWeight: 500 }}>{value}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Notes / requirements */}
+      {enquiry.requirements && (
+        <div style={{ marginBottom: '20px', padding: '14px', background: '#FBF6EF',
+          borderRadius: '12px', border: '1px solid #F5EDE0' }}>
+          <p style={{ fontSize: '11px', color: 'var(--color-text-secondary)', marginBottom: '6px', textTransform: 'uppercase', fontWeight: 500 }}>
+            Requirements
+          </p>
+          <p style={{ fontSize: '13px', lineHeight: 1.65 }}>{enquiry.requirements}</p>
+        </div>
+      )}
+
+      {/* Quote details if quoted */}
+      {enquiry.quote && (
+        <div style={{ marginBottom: '20px', padding: '14px', background: '#E6F1FB',
+          borderRadius: '12px' }}>
+          <p style={{ fontSize: '11px', color: '#0C447C', fontWeight: 500, marginBottom: '8px' }}>Quote offered</p>
+          <p style={{ fontSize: '20px', fontWeight: 700, color: '#1C1C1A' }}>
+            £{(enquiry.quote.totalPence / 100).toFixed(2)}
+          </p>
+          <p style={{ fontSize: '12px', color: '#5F5E5A', marginTop: '4px' }}>{enquiry.quote.description}</p>
+        </div>
+      )}
+
+      {/* Admin action buttons */}
+      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+        <a href={`/admin/users?email=${enquiry.customerEmail}`}
+          style={{ padding: '8px 14px', borderRadius: '10px', border: '.5px solid var(--color-border-secondary)',
+            background: 'var(--color-background-primary)', fontSize: '12px', textDecoration: 'none',
+            color: 'var(--color-text-primary)' }}>
+          View customer profile →
+        </a>
+        {enquiry.vendorId && (
+          <a href={`/admin/vendors/${enquiry.vendorId}`}
+            style={{ padding: '8px 14px', borderRadius: '10px', border: '.5px solid var(--color-border-secondary)',
+              background: 'var(--color-background-primary)', fontSize: '12px', textDecoration: 'none',
+              color: 'var(--color-text-primary)' }}>
+            View vendor →
+          </a>
+        )}
+      </div>
+    </div>
+  )
+}
+
+Make the list rows on /admin/events/page.tsx clickable:
+Add onClick={() => router.push(`/admin/events/${enq.id}`)} to each row div.
+
+Add GET /v1/admin/event-enquiries/:id endpoint to AdminController if not present.
+
+Run: npm run typecheck --filter=@feastpot/admin
+Output all new and changed files.

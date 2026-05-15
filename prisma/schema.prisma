@@ -146,6 +146,9 @@ enum EnquiryStatus {
   confirmed
   completed
   cancelled
+  // D16: distinguishes operational SLA failure (no quote within 48h)
+  // from active cancellation. Drives "vendor unresponsive" analytics.
+  expired
 }
 
 enum QuoteStatus {

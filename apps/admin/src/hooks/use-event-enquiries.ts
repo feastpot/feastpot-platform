@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { useApi } from './use-api';
 
-export type EnquiryStatus = 'open' | 'quoted' | 'confirmed' | 'completed' | 'cancelled';
+export type EnquiryStatus = 'open' | 'quoted' | 'confirmed' | 'completed' | 'cancelled' | 'expired';
 
 export interface EnquiryQuoteRow {
   id: string;

@@ -33,6 +33,9 @@ const STATUSES: ReadonlyArray<EnquiryStatus | 'all'> = [
   'confirmed',
   'completed',
   'cancelled',
+  // D16: SLA-expired enquiries (no quote within 48h). Distinct from
+  // 'cancelled' so support can spot vendor-responsiveness issues at a glance.
+  'expired',
 ];
 
 /**
@@ -164,6 +167,9 @@ function StatusPill({ status }: { status: EnquiryStatus }) {
     confirmed: 'bg-emerald-100 text-emerald-900',
     completed: 'bg-teal-light text-teal-dark',
     cancelled: 'bg-red-100 text-red-900',
+    // Neutral grey to visually separate operational expiry from the red
+    // 'cancelled' state — matches the spec's #444441/#F1EFE8 intent.
+    expired: 'bg-stone-200 text-stone-800',
   };
   return <Badge className={styles[status]}>{status}</Badge>;
 }

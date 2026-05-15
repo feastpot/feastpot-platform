@@ -60,6 +60,60 @@ export class EventCronService {
     );
   }
 
+  /**
+   * D16 (S2): expire enquiries that received no quote within the
+   * 48h SLA window. Runs every 6 hours — finer granularity isn't
+   * useful because the SLA is measured in days. Status 'expired'
+   * (vs 'cancelled') preserves the distinction in analytics between
+   * "vendor unresponsive" and "customer/vendor changed their mind".
+   *
+   * Idempotency: the WHERE clause already filters out non-`open`
+   * enquiries, so re-running this cron after a Redis blip is safe —
+   * an already-expired row is no longer `open`, won't match again,
+   * and the customer won't get a duplicate "expired" email.
+   */
+  @Cron(CronExpression.EVERY_6_HOURS, { name: 'enquiries-expire-stale' })
+  async expireStaleEnquiries() {
+    if (!this.cache.available) {
+      this.logger.warn('Redis unavailable — skipping enquiries-expire-stale tick');
+      return;
+    }
+    const SLA_HOURS = 48;
+    const expiryThreshold = new Date(Date.now() - SLA_HOURS * HOUR_MS);
+
+    const stale = await this.prisma.eventEnquiry.findMany({
+      where: { status: EnquiryStatus.open, createdAt: { lt: expiryThreshold } },
+      select: { id: true, customerId: true, eventDate: true },
+    });
+    if (stale.length === 0) return;
+
+    let expired = 0;
+    for (const e of stale) {
+      // Conditional update: re-check status at write time to avoid
+      // racing the customer hitting "cancel" or a vendor finally quoting
+      // between the SELECT above and this UPDATE.
+      const claim = await this.prisma.eventEnquiry.updateMany({
+        where: { id: e.id, status: EnquiryStatus.open },
+        data: { status: EnquiryStatus.expired },
+      });
+      if (claim.count === 0) continue;
+      expired += 1;
+      // Notify the customer via the standard NotificationsService pipeline
+      // so the email/push channel resolution is consistent with the rest
+      // of the app (resolves recipient via userId; bypasses raw queue).
+      await this.notifications.enqueue(
+        'enquiry_expired',
+        {
+          userId: e.customerId,
+          enquiryId: e.id,
+          eventDate: e.eventDate.toISOString(),
+        },
+        { jobId: `enquiry_expired:${e.id}` },
+      );
+    }
+    this.logger.log(`enquiries-expire-stale: expired ${expired} of ${stale.length} candidate enquiries`);
+  }
+
   @Cron(CronExpression.EVERY_HOUR, { name: 'event-balance-48h' })
   async eventBalance48h() {
     if (!this.cache.available) {

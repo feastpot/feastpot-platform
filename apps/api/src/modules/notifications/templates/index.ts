@@ -459,6 +459,32 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
     channels: ['email'],
   },
 
+  enquiry_expired: {
+    subject: () => 'Your event enquiry has expired',
+    render: (d) =>
+      baseLayout(
+        'Enquiry expired',
+        h2('We didn\'t hear back from any vendors in time') +
+          p(
+            'Your event enquiry stayed open for 48 hours without a quote, so we\'ve closed it as expired. We\'re sorry — vendor responsiveness during peak weeks isn\'t always what we\'d like.',
+          ) +
+          p(
+            'If you still want to host this event, the easiest next step is to submit a fresh enquiry — that puts you back in front of every vendor in your area, including any that have just opened up new availability.',
+          ) +
+          brandButton(
+            'Submit a new enquiry',
+            'https://feastpot.co.uk/events/new',
+            'orange',
+          ) +
+          p(
+            `Questions or want help finding a vendor directly? Email <a href="mailto:support@feastpot.co.uk" style="color:#E8520A">support@feastpot.co.uk</a> with your enquiry reference (${esc(d.enquiryId)}) and we\'ll see what we can do.`,
+            '#5F5E5A',
+          ),
+        'No quote within 48h — enquiry closed',
+      ),
+    channels: ['email'],
+  },
+
   review_request: {
     subject: (d) => `How was your food from ${str(d.vendorName, 'your vendor')}? ⭐`,
     render: (d) =>
