@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react';
 
 import { cn } from '@feastpot/ui';
 
-import { useMe } from '@/hooks/use-me';
+import { useReferrals } from '@/hooks/use-loyalty';
 import { useOrder } from '@/hooks/use-orders';
 import { getPushSupport } from '@/lib/push';
 
@@ -32,7 +32,7 @@ export default function OrderConfirmationPage() {
   const orderId = params?.id;
 
   const { data: order, isLoading, error } = useOrder(orderId);
-  const { data: me } = useMe();
+  const { data: referralData } = useReferrals();
 
   if (isLoading) {
     return <p className="px-4 py-12 text-center text-sm text-mid">Loading your order&hellip;</p>;
@@ -154,8 +154,12 @@ export default function OrderConfirmationPage() {
       {/* Push permission nudge */}
       <PushNudge />
 
-      {/* Referral — display-only until backend exposes a real referral code */}
-      <ReferralCard userEmail={me?.email ?? null} />
+      {/* Referral — only render once the API has returned the user's real
+          share code (D-104). Hides cleanly for guests and while the request
+          is in-flight, instead of rendering a fake `FP-XXXXXX` placeholder. */}
+      {referralData?.referralCode ? (
+        <ReferralCard code={referralData.referralCode} />
+      ) : null}
     </div>
   );
 }
@@ -228,27 +232,17 @@ function PushNudge() {
 }
 
 /**
- * Referral pill. There is no `referralCode` field on `User` exposed via /me
- * yet (referrals exist as their own table but aren't joined into the profile
- * payload). Until that lands we render a visually-real pill containing a
- * DETERMINISTIC PREVIEW code derived from the user's email local-part so
- * the layout and copy-flow can ship today; the code is stable per-user but
- * IS NOT redeemable yet. When /me.referralCode is wired, swap the derivation
- * for the real value — no other change needed.
+ * Referral pill. Receives the user's REAL share code from `/v1/referrals`
+ * (D-104 fix — previously rendered a fake `FP-XXXXXX` placeholder derived
+ * from the email local-part). The parent gates rendering on the code being
+ * present, so we can assume `code` is a non-empty redeemable string here.
  */
-function ReferralCard({ userEmail }: { userEmail: string | null }) {
+function ReferralCard({ code }: { code: string }) {
   const [copied, setCopied] = useState(false);
-
-  // Derive a stable "preview" code purely for visual demo. The real one,
-  // when wired, will come from /me.referralCode and replace this inline.
-  const localPart = userEmail?.split('@')[0] ?? '';
-  const previewCode = localPart
-    ? `FP-${localPart.slice(0, 6).toUpperCase()}`
-    : 'FP-XXXXXX';
 
   const onCopy = async () => {
     try {
-      await navigator.clipboard.writeText(previewCode);
+      await navigator.clipboard.writeText(code);
       setCopied(true);
       setTimeout(() => setCopied(false), 1800);
     } catch {
@@ -267,7 +261,7 @@ function ReferralCard({ userEmail }: { userEmail: string | null }) {
           </p>
           <div className="mt-2 flex items-center gap-2">
             <code className="flex-1 truncate rounded-full bg-white px-3 py-1.5 text-center text-xs font-mono font-semibold tracking-wider text-brand">
-              {previewCode}
+              {code}
             </code>
             <button
               type="button"

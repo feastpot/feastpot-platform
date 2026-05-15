@@ -186,6 +186,30 @@ export class ReferralService {
     );
   }
 
+  /**
+   * Public lookup used by the /join landing page to verify a shared code
+   * before we persist it to the new visitor's localStorage. Case-insensitive
+   * match against the user's stable share row (refereeId IS NULL). Returns
+   * null when nothing matches so the controller can throw a clean 404.
+   */
+  async validateCode(code: string): Promise<{ referrerFirstName: string } | null> {
+    const trimmed = code.trim();
+    if (trimmed.length < 4) return null;
+    const row = await this.prisma.referral.findFirst({
+      where: {
+        refereeId: null,
+        code: { equals: trimmed, mode: 'insensitive' },
+      },
+      select: {
+        referrer: { select: { firstName: true } },
+      },
+    });
+    if (!row) return null;
+    return {
+      referrerFirstName: row.referrer?.firstName?.trim() || 'a Feastpot member',
+    };
+  }
+
   async listForUser(referrerId: string) {
     return this.prisma.referral.findMany({
       where: { referrerId, NOT: { refereeId: null } },
