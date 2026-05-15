@@ -1,3 +1,4 @@
+import { InjectQueue } from '@nestjs/bull';
 import {
   BadRequestException,
   Body,
@@ -5,6 +6,8 @@ import {
   ForbiddenException,
   Get,
   Header,
+  HttpCode,
+  Logger,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -16,12 +19,14 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 import type { Response } from 'express';
+import type { Queue } from 'bull';
 
 import { Roles } from '../../auth/decorators/roles.decorator';
 import type { AuthedRequest } from '../../auth/types';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PushProvider } from '../notifications/providers/push.provider';
 import { TEMPLATES } from '../notifications/templates';
+import { PAYOUTS_QUEUE, WEEKLY_BATCH_JOB } from '../payouts/processors/payout-batch.processor';
 
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -58,12 +63,19 @@ interface SearchAnalyticsResponse {
 @ApiBearerAuth()
 @Controller({ path: 'admin', version: '1' })
 export class AdminController {
+  private readonly logger = new Logger(AdminController.name);
+
   constructor(
     private readonly admin: AdminService,
     private readonly adminUsers: AdminUsersService,
     private readonly notifications: NotificationsService,
     private readonly push: PushProvider,
     private readonly prisma: PrismaService,
+    // PAYOUTS_QUEUE is registered globally in app.module.ts (BullModule.registerQueue),
+    // same instance the cron in PayoutBatchProcessor enqueues against. Injecting
+    // it here lets admins fire the same job out-of-cycle without duplicating
+    // the runWeeklyBatch logic.
+    @InjectQueue(PAYOUTS_QUEUE) private readonly payoutBatchQueue: Queue,
   ) {}
 
   /**
@@ -347,5 +359,60 @@ export class AdminController {
   @ApiOperation({ summary: 'Reconcile a payout against the matching Stripe transfer' })
   reconcilePayout(@Req() req: AuthedRequest, @Param('id', new ParseUUIDPipe()) id: string) {
     return this.admin.reconcilePayoutWithStripe(id, req.user!.role);
+  }
+
+  /**
+   * D13 (S4): Manual out-of-cycle payout trigger. The cron at
+   * `0 2 * * 1` is the canonical scheduler; this endpoint enqueues the
+   * SAME job the cron does so business logic stays single-sourced in
+   * `PayoutsService.runWeeklyBatch`. Idempotency inside the batch
+   * (`skippedVendorIds` for vendors whose period is already paid out)
+   * means admin can safely click this even if the cron just ran — no
+   * duplicate transfers.
+   *
+   * Returns 202 Accepted (not 200) because the response is sent before
+   * the batch actually runs; the caller monitors progress via Bull
+   * Board (`/admin/queues`).
+   */
+  @Post('payouts/run-batch')
+  @Roles(UserRole.admin, UserRole.finance)
+  @HttpCode(202)
+  @ApiOperation({ summary: 'Manually enqueue the weekly payout batch (out-of-cycle run)' })
+  async runPayoutBatch(@Req() req: AuthedRequest) {
+    const adminUserId = req.user!.id;
+    this.logger.log(`[Admin] Manual payout batch triggered by ${adminUserId}`);
+
+    // Audit BEFORE enqueue so the trail exists even if Redis is down and the
+    // queue.add() below throws — we still want a record that an admin tried.
+    await this.prisma.auditLog.create({
+      data: {
+        actorId: adminUserId,
+        entityType: 'system',
+        // entityId is UUID-typed in the schema; null is the only safe value
+        // for a non-row-scoped action like a global batch trigger.
+        entityId: null,
+        action: 'admin.payout_batch_manually_triggered',
+        metadata: {
+          target: 'payout-batch',
+          triggeredAt: new Date().toISOString(),
+        },
+      },
+    });
+
+    // Unique jobId per click prevents BullMQ deduplication against the cron's
+    // repeating job (jobId: 'weekly-payout'). Without this, a manual click
+    // shortly after the cron tick would silently no-op.
+    const jobId = `manual-payout-${Date.now()}`;
+    await this.payoutBatchQueue.add(
+      WEEKLY_BATCH_JOB,
+      { triggeredBy: 'admin', adminUserId },
+      { jobId },
+    );
+
+    return {
+      message: 'Payout batch job enqueued. Check Job queues to monitor progress.',
+      queue: PAYOUTS_QUEUE,
+      jobId,
+    };
   }
 }

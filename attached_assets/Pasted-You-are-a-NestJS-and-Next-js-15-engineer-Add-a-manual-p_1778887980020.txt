@@ -1,0 +1,83 @@
+You are a NestJS and Next.js 15 engineer. Add a manual payout trigger for admin.
+
+DEFECT (D13 — S4):
+Payout batch runs only at Mon 02:00 UTC via cron.
+Admin cannot manually trigger it for testing, emergency runs,
+or when a vendor needs an out-of-cycle payment.
+
+STEP 1 — API endpoint
+File: apps/api/src/modules/admin/admin.controller.ts
+
+@Post('admin/payouts/run-batch')
+@Roles('admin', 'finance')
+@HttpCode(202)
+async runPayoutBatch(@CurrentUser() admin: JwtUser) {
+  this.logger.log(`[Admin] Manual payout batch triggered by ${admin.id}`)
+
+  // Write audit log before triggering
+  await this.prisma.auditLog.create({
+    data: {
+      actorUserId: admin.id,
+      entityType: 'system',
+      entityId: 'payout-batch',
+      action: 'admin.payout_batch_manually_triggered',
+      newState: { triggeredAt: new Date().toISOString() },
+    },
+  })
+
+  // Enqueue the payout batch job (same job the cron uses)
+  await this.payoutBatchQueue.add(
+    'run-payout-batch',
+    { triggeredBy: 'admin', adminUserId: admin.id },
+    { jobId: `manual-payout-${Date.now()}` }  // unique jobId prevents deduplication conflict with cron
+  )
+
+  return {
+    message: 'Payout batch job enqueued. Check Job queues to monitor progress.',
+    jobQueueUrl: `${process.env.API_URL}/admin/queues`,
+  }
+}
+
+STEP 2 — Admin UI button
+File: apps/admin/src/app/payouts/page.tsx
+
+Add a "Run payouts now" button at the top of the payouts page,
+visible only to admin role (not finance-only role):
+
+{isAdmin && (
+  <button
+    onClick={handleManualRun}
+    disabled={isRunning}
+    style={{
+      display: 'flex', alignItems: 'center', gap: '6px',
+      padding: '8px 16px', borderRadius: '10px',
+      border: '.5px solid var(--color-border-secondary)',
+      background: 'var(--color-background-primary)',
+      fontSize: '13px', fontWeight: 500, cursor: 'pointer',
+    }}
+  >
+    <i className="ti ti-player-play" aria-hidden="true" />
+    {isRunning ? 'Batch queued...' : 'Run payouts now'}
+  </button>
+)}
+
+Confirmation dialog before triggering:
+const handleManualRun = async () => {
+  const confirmed = confirm(
+    'This will run the payout batch for all pending orders. ' +
+    'Payouts already transferred this week will not be duplicated. Continue?'
+  )
+  if (!confirmed) return
+  setIsRunning(true)
+  try {
+    await fetch(`${API}/v1/admin/payouts/run-batch`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}` },
+    })
+    toast.success('Payout batch queued. Check Job queues to monitor.')
+  } catch { toast.error('Failed to queue payout batch') }
+  finally { setTimeout(() => setIsRunning(false), 5000) }
+}
+
+Run: npm run typecheck in apps/api and apps/admin.
+Output all changed files in full.

@@ -9,7 +9,9 @@ export default async function PayoutsPage() {
   const user = await requireStaff('/payouts', ['admin', 'finance']);
   return (
     <StaffShell user={user}>
-      <PayoutsClient />
+      {/* role threaded through so the client can gate the manual
+          "Run payouts now" trigger to admins only (D13). */}
+      <PayoutsClient role={user.role} />
     </StaffShell>
   );
 }

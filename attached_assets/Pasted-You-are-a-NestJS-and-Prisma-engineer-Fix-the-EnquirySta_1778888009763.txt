@@ -1,0 +1,70 @@
+You are a NestJS and Prisma engineer. Fix the EnquiryStatus enum.
+
+DEFECT (D16 — S2):
+EnquiryStatus enum has 5 states: open / quoted / confirmed / completed / cancelled
+Spec defines 6 states — missing: 'expired' (enquiries that received no quote
+within the SLA window should be automatically expired, not just cancelled).
+
+The distinction matters for analytics and vendor accountability:
+- cancelled = customer or vendor actively cancelled
+- expired   = nobody acted within the time window (operational failure)
+
+STEP 1 — Prisma migration
+File: prisma/schema.prisma
+
+Find the EnquiryStatus enum. Add 'expired':
+
+enum EnquiryStatus {
+  open
+  quoted
+  confirmed
+  completed
+  cancelled
+  expired    ← ADD THIS
+}
+
+Run: npx prisma migrate dev --name add_enquiry_status_expired
+
+STEP 2 — Expiry cron job
+File: apps/api/src/modules/event-enquiries/enquiries-cron.service.ts
+(create if not exists, or add to existing cron service)
+
+@Cron('0 */6 * * *')  // every 6 hours
+async expireStaleEnquiries() {
+  const SLA_HOURS = 48  // vendor must quote within 48h of enquiry submission
+  const expiryThreshold = new Date(Date.now() - SLA_HOURS * 60 * 60 * 1000)
+
+  const stale = await this.prisma.eventEnquiry.findMany({
+    where: {
+      status: EnquiryStatus.open,
+      createdAt: { lt: expiryThreshold },
+    },
+    include: { customer: { select: { email: true } } },
+  })
+
+  for (const enquiry of stale) {
+    await this.prisma.eventEnquiry.update({
+      where: { id: enquiry.id },
+      data: { status: EnquiryStatus.expired },
+    })
+    // Notify customer
+    await this.notificationsQueue.add('send_email', {
+      to: enquiry.customer.email,
+      template: 'enquiry_expired',
+      data: { enquiryId: enquiry.id },
+    })
+  }
+  this.logger.log(`[EnquiriesCron] Expired ${stale.length} stale enquiries`)
+}
+
+STEP 3 — Admin UI: add 'expired' filter tab
+File: apps/admin/src/app/events/page.tsx
+
+Add 'expired' to STATUS_LABELS:
+  expired: { label: 'Expired', color: '#444441', bg: '#F1EFE8' }
+
+Add to the filter tabs array.
+
+Run: npx prisma migrate dev --name add_enquiry_status_expired
+Run: npm run typecheck in apps/api and apps/admin
+Output all changed files in full.

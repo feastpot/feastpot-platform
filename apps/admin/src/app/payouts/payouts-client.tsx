@@ -34,7 +34,10 @@ import {
   type PayoutStatus,
   type ReconcileResult,
 } from '@/hooks/use-payouts';
+import { apiRequest } from '@/lib/api/client';
+import { createClient } from '@/lib/supabase/client';
 import { formatDate, formatPence } from '@/lib/format';
+import { Play } from 'lucide-react';
 
 function DialogFooter({ children }: { children: React.ReactNode }) {
   return <div className="mt-4 flex justify-end gap-2">{children}</div>;
@@ -42,7 +45,11 @@ function DialogFooter({ children }: { children: React.ReactNode }) {
 
 const STATUSES: ReadonlyArray<PayoutStatus | 'all'> = ['draft', 'approved', 'held', 'transferred', 'failed', 'all'];
 
-export function PayoutsClient() {
+interface PayoutsClientProps {
+  role: 'admin' | 'support' | 'finance' | 'compliance';
+}
+
+export function PayoutsClient({ role }: PayoutsClientProps) {
   const { toast } = useToast();
   const [status, setStatus] = useState<PayoutStatus | 'all'>('draft');
   const { data, isLoading, error } = usePayouts({ status: status === 'all' ? undefined : status });
@@ -55,6 +62,47 @@ export function PayoutsClient() {
   const [holdTarget, setHoldTarget] = useState<{ id: string; vendor: string } | null>(null);
   const [holdReason, setHoldReason] = useState('');
   const [reconcileResult, setReconcileResult] = useState<ReconcileResult | null>(null);
+  const [isRunningBatch, setIsRunningBatch] = useState(false);
+
+  const isAdmin = role === 'admin';
+
+  // D13: manual out-of-cycle payout batch trigger. Spec called for finance
+  // visibility too on the API, but the UI button is admin-only because
+  // accidental clicks affect every vendor — finance can still trigger via
+  // the API directly if needed.
+  async function handleManualRun() {
+    const confirmed = window.confirm(
+      'This will run the payout batch for all pending orders. ' +
+        'Payouts already transferred this week will not be duplicated. Continue?',
+    );
+    if (!confirmed) return;
+
+    setIsRunningBatch(true);
+    try {
+      const supabase = createClient();
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token ?? null;
+      const result = await apiRequest<{ message: string; jobId: string }>(
+        '/admin/payouts/run-batch',
+        { method: 'POST', accessToken },
+      );
+      toast({
+        title: 'Payout batch queued',
+        description: `${result.message} (job ${result.jobId})`,
+      });
+    } catch (err) {
+      toast({
+        title: 'Failed to queue payout batch',
+        description: (err as Error).message,
+        variant: 'destructive',
+      });
+    } finally {
+      // Brief debounce on the spinner so a single click doesn't get
+      // re-fired by twitchy admins; the actual batch is idempotent so
+      // a second click is safe but noisy in the logs.
+      setTimeout(() => setIsRunningBatch(false), 5000);
+    }
+  }
 
   const draftRows = data?.data ?? [];
   const totalSelectedPence = useMemo(
@@ -127,11 +175,24 @@ export function PayoutsClient() {
         title="Payouts"
         description="Batch approve drafts, hold suspicious transfers, reconcile against Stripe."
         actions={
-          status === 'draft' && selected.size > 0 ? (
-            <Button onClick={approveSelected} disabled={approveMutation.isPending}>
-              Approve {selected.size} ({formatPence(totalSelectedPence)})
-            </Button>
-          ) : null
+          <div className="flex items-center gap-2">
+            {isAdmin && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleManualRun}
+                disabled={isRunningBatch}
+              >
+                <Play className="mr-1 h-4 w-4" aria-hidden="true" />
+                {isRunningBatch ? 'Batch queued…' : 'Run payouts now'}
+              </Button>
+            )}
+            {status === 'draft' && selected.size > 0 ? (
+              <Button onClick={approveSelected} disabled={approveMutation.isPending}>
+                Approve {selected.size} ({formatPence(totalSelectedPence)})
+              </Button>
+            ) : null}
+          </div>
         }
       />
 
