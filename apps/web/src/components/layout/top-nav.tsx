@@ -157,8 +157,8 @@ export function TopNav() {
             <Image
               src="/images/feastpot-logo.png"
               alt="Feastpot"
-              width={200}
-              height={50}
+              width={317}
+              height={100}
               priority
               className="h-10 w-auto"
             />
