@@ -1,25 +1,28 @@
 'use client';
 
-import { MapPin, Search, X } from 'lucide-react';
+import { Loader2, MapPin, Search, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 
-import { isValidUKPostcode, normalisePostcode, useStoredPostcode } from '@/lib/postcode';
+import { checkCoverage } from '@/lib/api/coverage';
+import {
+  isValidUKPostcode,
+  normalisePostcode,
+  useStoredPostcode,
+  writeCoverageCookie,
+} from '@/lib/postcode';
 
 /**
- * 2026-05-16 wireframe redesign hero.
+ * 2026-05-17 postcode-first hero.
  *
- * Replaces the previous dark-gradient hero with the wireframe's light-cream
- * editorial layout: two-column (text + food collage on desktop, stacked on
- * mobile) with a coloured headline ("African" green, "Caribbean" red) and a
- * white postcode capture pill. The hero is the only place a first-time
- * visitor decides whether to engage, so the form stays the primary
- * affordance — validation + storage path is unchanged from the previous
- * version (normalisePostcode + isValidUKPostcode).
+ * Now performs an inline coverage check on submit:
+ *   - Covered  → set `feastpot.coverage.v1` cookie + reload home so the
+ *               server component renders the vendor rails.
+ *   - Uncovered → route to `/waitlist?postcode=…` (no cookie set).
  *
- * No external food photography is shipped in Wave 1 — the right column
- * renders as a layered brand-colour collage so we don't fake a stock shot.
- * Real photography drops in a follow-up content wave.
+ * Coverage failure (network blip) is treated as "covered" inside
+ * `checkCoverage` to avoid stranding users — they fall through to the
+ * vendors page which has its own empty state.
  */
 export function PostcodeHero() {
   const router = useRouter();
@@ -27,6 +30,7 @@ export function PostcodeHero() {
   const [value, setValue] = useState<string>('');
   const [error, setError] = useState<string>('');
   const [editing, setEditing] = useState<boolean>(false);
+  const [submitting, setSubmitting] = useState<boolean>(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -37,8 +41,16 @@ export function PostcodeHero() {
   const showResumeBanner = Boolean(stored) && !editing;
   const showForm = !showResumeBanner;
 
-  const onSubmit = (e: FormEvent) => {
+  const goCovered = (pc: string) => {
+    writeCoverageCookie(pc);
+    // Hard reload so the homepage server component re-renders with the
+    // newly-set cookie and the gated vendor rails appear.
+    window.location.assign(`/?pc=${encodeURIComponent(pc)}`);
+  };
+
+  const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (submitting) return;
     const pc = normalisePostcode(value);
     if (!pc) {
       setError('Please enter your postcode');
@@ -49,13 +61,38 @@ export function PostcodeHero() {
       return;
     }
     setError('');
+    setSubmitting(true);
     setStored(pc);
-    router.push(`/vendors?postcode=${encodeURIComponent(pc)}`);
+    try {
+      const result = await checkCoverage(pc);
+      if (result.status === 'covered') {
+        goCovered(pc);
+      } else if (result.status === 'uncovered') {
+        router.push(`/waitlist?postcode=${encodeURIComponent(pc)}`);
+      } else {
+        setError(result.message);
+      }
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const resumeWithStored = () => {
-    if (!stored) return;
-    router.push(`/vendors?postcode=${encodeURIComponent(stored)}`);
+  const resumeWithStored = async () => {
+    if (!stored || submitting) return;
+    setSubmitting(true);
+    try {
+      const result = await checkCoverage(stored);
+      if (result.status === 'covered') {
+        goCovered(stored);
+      } else if (result.status === 'uncovered') {
+        router.push(`/waitlist?postcode=${encodeURIComponent(stored)}`);
+      } else {
+        setError(result.message);
+        enterEditMode();
+      }
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const enterEditMode = () => {
@@ -72,7 +109,6 @@ export function PostcodeHero() {
       className="relative overflow-hidden bg-cream px-4 pb-8 pt-8 md:px-8 md:pb-14 md:pt-14"
     >
       <div className="mx-auto grid max-w-5xl gap-8 md:grid-cols-[1.05fr_0.95fr] md:items-center md:gap-10">
-        {/* LEFT — copy + postcode form */}
         <div>
           <h1
             id="hero-headline"
@@ -86,7 +122,6 @@ export function PostcodeHero() {
             Bold flavours. Real culture. Right to your door.
           </p>
 
-          {/* Resume banner — returning user gets a one-tap shortcut. */}
           {showResumeBanner && (
             <div
               className="mt-5 flex max-w-md items-center justify-between gap-2 rounded-2xl border border-brand-100 bg-brand-light px-3 py-2"
@@ -101,8 +136,10 @@ export function PostcodeHero() {
                 <button
                   type="button"
                   onClick={resumeWithStored}
-                  className="touch-target rounded-xl bg-brand px-3 py-1.5 text-[12px] font-semibold text-white shadow-sm transition-colors hover:bg-brand-dark"
+                  disabled={submitting}
+                  className="touch-target inline-flex items-center gap-1.5 rounded-xl bg-brand px-3 py-1.5 text-[12px] font-semibold text-white shadow-sm transition-colors hover:bg-brand-dark disabled:opacity-60"
                 >
+                  {submitting && <Loader2 className="h-3 w-3 animate-spin" aria-hidden />}
                   Find food
                 </button>
                 <button
@@ -119,40 +156,49 @@ export function PostcodeHero() {
           )}
 
           {showForm && (
-          <form
-            onSubmit={onSubmit}
-            role="search"
-            aria-label="Find vendors by postcode"
-            className="mt-7 flex max-w-md items-center gap-1 rounded-2xl border border-cream-deep bg-white p-1.5 shadow-card"
-          >
-            <label htmlFor="hero-postcode" className="sr-only">
-              UK postcode
-            </label>
-            <div className="flex flex-1 items-center gap-2 px-3">
-              <Search className="h-4 w-4 shrink-0 text-charcoal-light" aria-hidden />
-              <input
-                ref={inputRef}
-                id="hero-postcode"
-                type="text"
-                inputMode="text"
-                autoComplete="postal-code"
-                placeholder="Enter your postcode"
-                value={value}
-                onChange={(e) => {
-                  setValue(e.target.value);
-                  if (error) setError('');
-                }}
-                maxLength={8}
-                className="flex-1 bg-transparent py-2 text-[15px] font-medium text-charcoal placeholder:text-charcoal-light focus:outline-none"
-              />
-            </div>
-            <button
-              type="submit"
-              className="touch-target inline-flex items-center gap-1.5 rounded-xl bg-brand px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+            <form
+              onSubmit={onSubmit}
+              role="search"
+              aria-label="Find vendors by postcode"
+              className="mt-7 flex max-w-md items-center gap-1 rounded-2xl border border-cream-deep bg-white p-1.5 shadow-card"
             >
-              Find Food
-            </button>
-          </form>
+              <label htmlFor="hero-postcode" className="sr-only">
+                UK postcode
+              </label>
+              <div className="flex flex-1 items-center gap-2 px-3">
+                <Search className="h-4 w-4 shrink-0 text-charcoal-light" aria-hidden />
+                <input
+                  ref={inputRef}
+                  id="hero-postcode"
+                  type="text"
+                  inputMode="text"
+                  autoComplete="postal-code"
+                  placeholder="Enter your postcode"
+                  value={value}
+                  onChange={(e) => {
+                    setValue(e.target.value);
+                    if (error) setError('');
+                  }}
+                  maxLength={8}
+                  disabled={submitting}
+                  className="flex-1 bg-transparent py-2 text-[15px] font-medium text-charcoal placeholder:text-charcoal-light focus:outline-none disabled:opacity-60"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={submitting}
+                className="touch-target inline-flex items-center gap-1.5 rounded-xl bg-brand px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-brand-dark disabled:opacity-60"
+              >
+                {submitting ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                    Checking
+                  </>
+                ) : (
+                  'Find Food'
+                )}
+              </button>
+            </form>
           )}
 
           {error && (
@@ -162,11 +208,6 @@ export function PostcodeHero() {
           )}
         </div>
 
-        {/* RIGHT — brand-colour food collage placeholder. Pure CSS so we
-            don't ship a stock photo we don't have rights to. The three
-            green / gold / red bands echo the wireframe's plated trio
-            without faking specific dishes. Hidden on the smallest
-            screens so the form gets the full attention. */}
         <div className="relative hidden min-h-[300px] md:block">
           <div
             className="absolute inset-0 overflow-hidden rounded-[40px] shadow-card-lg"

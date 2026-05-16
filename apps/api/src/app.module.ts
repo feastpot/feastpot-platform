@@ -47,6 +47,7 @@ import { PayoutsModule } from './modules/payouts/payouts.module';
 import { PushModule } from './modules/push/push.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
 import { UsersModule } from './modules/users/users.module';
+import { CoverageModule } from './modules/coverage/coverage.module';
 import { VendorsModule } from './modules/vendors/vendors.module';
 import { WebhooksModule } from './modules/webhooks/webhooks.module';
 
@@ -248,6 +249,7 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
     UsersModule,
     AddressesModule,
     VendorsModule,
+    CoverageModule,
     CatalogueModule,
     OrdersModule,
     PaymentsModule,

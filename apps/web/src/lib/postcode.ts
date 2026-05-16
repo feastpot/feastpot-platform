@@ -3,6 +3,17 @@
 import { useEffect, useState } from 'react';
 
 const KEY = 'feastpot.postcode.v1';
+/**
+ * Server-readable mirror of the user's confirmed coverage. Set as a cookie
+ * (not just localStorage) so the homepage server component can render the
+ * post-postcode layout — vendor rails, popular kitchens, featured cooks —
+ * without a client roundtrip. Format: `"<POSTCODE>"` once coverage is
+ * verified; absent means "not yet entered or not covered".
+ *
+ * `Max-Age=2592000` = 30 days. `SameSite=Lax` is enough — this is a
+ * UX preference, not an auth credential.
+ */
+export const COVERAGE_COOKIE = 'feastpot.coverage.v1';
 
 /**
  * Quick localStorage-backed postcode preference. Lives client-only — the
@@ -50,6 +61,19 @@ export function writeStoredPostcode(value: string | null): void {
     else window.localStorage.removeItem(KEY);
   } catch {
     // Quota / privacy mode — best-effort, ignore.
+  }
+}
+
+export function writeCoverageCookie(postcode: string | null): void {
+  if (typeof document === 'undefined') return;
+  // Only set Secure over HTTPS — local dev runs on http://localhost so the
+  // browser would silently drop a Secure cookie there.
+  const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+  if (postcode) {
+    const v = encodeURIComponent(normalisePostcode(postcode));
+    document.cookie = `${COVERAGE_COOKIE}=${v}; Path=/; Max-Age=2592000; SameSite=Lax${secure}`;
+  } else {
+    document.cookie = `${COVERAGE_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax${secure}`;
   }
 }
 

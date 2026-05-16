@@ -14,7 +14,7 @@ import { PostcodeChip } from '@/components/vendors/postcode-chip';
 import { VendorSearchInput } from '@/components/vendors/vendor-search-input';
 import { useVendors } from '@/hooks/use-vendors';
 import type { SearchVendorsParams, VendorSortBy } from '@/lib/api/vendors';
-import { readStoredPostcode, writeStoredPostcode } from '@/lib/postcode';
+import { readStoredPostcode, writeCoverageCookie, writeStoredPostcode } from '@/lib/postcode';
 
 /**
  * Vendor search page. URL is the source of truth for every filter so:
@@ -58,6 +58,12 @@ function VendorSearch() {
   useEffect(() => {
     if (postcode) {
       writeStoredPostcode(postcode);
+      // Mirror the postcode into the coverage cookie so the home server
+      // component can render the vendor rails on the next visit. Landing
+      // on /vendors with a postcode implies the user passed the gate
+      // (either from the hero coverage check, or via a shared link that
+      // already filters to a real area).
+      writeCoverageCookie(postcode);
       setPostcodeSyncResolved(true);
       return;
     }
