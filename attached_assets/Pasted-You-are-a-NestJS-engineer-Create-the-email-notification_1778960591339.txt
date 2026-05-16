@@ -1,0 +1,124 @@
+You are a NestJS engineer. Create the email notification sent to the admin
+when a new vendor submits a registration interest form.
+
+TRIGGER: POST /v1/vendors/register-interest is called successfully.
+The admin (soul@feastpot.co.uk) must be notified immediately so they
+can review the application within the 1-2 business day SLA.
+
+════════════════════════════════════════════════════════
+STEP 1 — Email template
+File: apps/api/src/modules/notifications/templates/email/vendor-application-received.template.ts
+════════════════════════════════════════════════════════
+
+import { baseLayout, brandButton, h2, p } from '../base-layout'
+
+interface VendorApplicationData {
+  vendorName:   string
+  kitchenName:  string
+  email:        string
+  phone:        string
+  postcode:     string
+  cuisineType:  string
+  kitchenType:  string
+  hasFSA:       string
+  foodStory:    string
+  instagram?:   string
+  adminUrl:     string
+}
+
+export function vendorApplicationReceivedTemplate(data: VendorApplicationData): { subject: string; html: string } {
+  return {
+    subject: `New vendor application: ${data.kitchenName} (${data.cuisineType})`,
+    html: baseLayout(
+      'New vendor application',
+      `
+      ${h2('New vendor application received')}
+      ${p(`A new vendor has submitted an interest form. Review and approve or reject within 1-2 business days.`)}
+
+      <table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:14px">
+        ${[
+          ['Kitchen name',   data.kitchenName],
+          ['Contact name',   data.vendorName],
+          ['Email',          data.email],
+          ['Phone',          data.phone],
+          ['Postcode',       data.postcode],
+          ['Cuisine type',   data.cuisineType],
+          ['Kitchen type',   data.kitchenType],
+          ['FSA registered', data.hasFSA],
+          ['Instagram',      data.instagram || 'Not provided'],
+        ].map(([label, value]) => `
+          <tr>
+            <td style="padding:8px 12px;background:#F4F4F4;border-radius:4px;font-weight:600;color:#1A1A1A;width:40%">${label}</td>
+            <td style="padding:8px 12px;color:#666666">${value}</td>
+          </tr>
+        `).join('')}
+      </table>
+
+      ${p(`<strong>Their food story:</strong><br>${data.foodStory}`)}
+
+      ${brandButton('Review application in admin', data.adminUrl)}
+
+      ${p('SLA: Respond within 1-2 business days. The vendor has been sent an acknowledgement.')}
+      `,
+      'New vendor — action required'
+    ),
+  }
+}
+
+════════════════════════════════════════════════════════
+STEP 2 — Wire into notification processor
+File: apps/api/src/modules/notifications/notification.processor.ts
+════════════════════════════════════════════════════════
+
+Add to the switch statement in the send_email case:
+
+case 'vendor_application_received':
+  ({ subject, html } = vendorApplicationReceivedTemplate({
+    ...data,
+    adminUrl: `${process.env.ADMIN_URL || 'https://admin.feastpot.co.uk'}/vendors/${data.vendorId}`,
+  }))
+  break
+
+════════════════════════════════════════════════════════
+STEP 3 — Vendor acknowledgement email
+File: apps/api/src/modules/notifications/templates/email/vendor-application-acknowledged.template.ts
+════════════════════════════════════════════════════════
+
+Sent to the vendor after they submit their form:
+Subject: "We've received your FeastPot application, {firstName}! 🍲"
+
+Content:
+- Thank you message
+- "What happens next" numbered list (1. Review 1-2 days, 2. We'll email you the outcome, 3. If approved — menu setup & Stripe)
+- "While you wait" tips: prepare your menu list, gather FSA documents, take food photos
+- Support email
+
+Wire into VendorsService.registerInterest() — enqueue this notification to the vendor
+at the same time as the admin notification:
+
+await this.notificationsQueue.add('send_email', {
+  to: dto.email,
+  template: 'vendor_application_acknowledged',
+  data: {
+    firstName: dto.fullName.split(' ')[0],
+    kitchenName: dto.kitchenName,
+  },
+})
+
+════════════════════════════════════════════════════════
+STEP 4 — Admin panel: new vendor shows in pending queue
+════════════════════════════════════════════════════════
+
+Verify that after form submission, the new vendor appears in:
+GET /v1/admin/vendors?status=pending
+
+The admin card in the pending queue must show:
+- Kitchen name + contact name
+- Registration date
+- Cuisine type + kitchen type
+- FSA: Yes / No indicator
+- Email + phone
+- "View application" button that opens the vendor detail page
+
+Run: npm run typecheck in apps/api and apps/admin.
+Output all new template files and updated processor.
