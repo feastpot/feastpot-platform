@@ -77,53 +77,53 @@ export async function CuisineLanding({
   return (
     <article className="mx-auto w-full max-w-4xl space-y-12 px-4 py-8 md:py-12">
       <header className="space-y-3">
-        <p className="text-sm font-medium uppercase tracking-wide text-brand">London delivery</p>
-        <h1 className="text-3xl font-bold leading-tight text-foreground md:text-4xl">{heading}</h1>
-        <p className="text-base text-muted-foreground md:text-lg">{intro}</p>
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-brand-dark">London delivery</p>
+        <h1 className="font-display text-3xl font-black leading-tight tracking-tight text-charcoal md:text-5xl">{heading}</h1>
+        <p className="text-base font-medium text-charcoal-mid md:text-lg">{intro}</p>
       </header>
 
       <section aria-labelledby="cuisine-highlights">
-        <h2 id="cuisine-highlights" className="mb-4 text-2xl font-semibold text-foreground">
+        <h2 id="cuisine-highlights" className="mb-4 font-display text-2xl font-black tracking-tight text-charcoal">
           What to order
         </h2>
         <div className="grid gap-4 md:grid-cols-2">
           {highlights.map((h) => (
-            <div key={h.name} className="rounded-lg border border-border bg-card p-4">
-              <h3 className="text-lg font-semibold text-foreground">{h.name}</h3>
-              <p className="mt-1 text-sm text-muted-foreground">{h.description}</p>
+            <div key={h.name} className="rounded-2xl border border-cream-deep bg-white p-4 shadow-sm">
+              <h3 className="font-display text-lg font-black text-charcoal">{h.name}</h3>
+              <p className="mt-1 text-sm font-medium text-charcoal-mid">{h.description}</p>
             </div>
           ))}
         </div>
       </section>
 
-      <section aria-labelledby="how-it-works" className="rounded-lg bg-muted/40 p-6">
-        <h2 id="how-it-works" className="mb-3 text-2xl font-semibold text-foreground">
+      <section aria-labelledby="how-it-works" className="rounded-2xl border border-cream-deep bg-cream p-6">
+        <h2 id="how-it-works" className="mb-3 font-display text-2xl font-black tracking-tight text-charcoal">
           How Feastpot works
         </h2>
-        <ol className="space-y-2 text-sm text-foreground md:text-base">
+        <ol className="space-y-2 text-sm font-medium text-charcoal md:text-base">
           <li>
-            <strong>1. Enter your postcode</strong> — we show the {cuisine} vendors covering your area.
+            <strong className="font-bold text-charcoal">1. Enter your postcode</strong> — we show the {cuisine} vendors covering your area.
           </li>
           <li>
-            <strong>2. Pick a tray or family portion</strong> — most vendors take orders 24–72 hours ahead.
+            <strong className="font-bold text-charcoal">2. Pick a tray or family portion</strong> — most vendors take orders 24–72 hours ahead.
           </li>
           <li>
-            <strong>3. Pay securely with Stripe</strong> — we hold the funds until your order is fulfilled.
+            <strong className="font-bold text-charcoal">3. Pay securely with Stripe</strong> — we hold the funds until your order is fulfilled.
           </li>
           <li>
-            <strong>4. Track delivery</strong> — get push and WhatsApp updates from the vendor.
+            <strong className="font-bold text-charcoal">4. Track delivery</strong> — get push and WhatsApp updates from the vendor.
           </li>
         </ol>
       </section>
 
       <section aria-labelledby="vendors">
-        <h2 id="vendors" className="mb-4 text-2xl font-semibold text-foreground">
+        <h2 id="vendors" className="mb-4 font-display text-2xl font-black tracking-tight text-charcoal">
           {cuisine} vendors in London
         </h2>
         {vendors.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm font-medium text-charcoal-mid">
             We&apos;re onboarding new {cuisine} vendors right now.{' '}
-            <Link href="/" className="font-medium text-brand underline underline-offset-2">
+            <Link href="/" className="font-bold text-brand-dark underline underline-offset-2 hover:text-brand">
               Browse the full directory
             </Link>{' '}
             or check back next week.
@@ -131,14 +131,14 @@ export async function CuisineLanding({
         ) : (
           <ul className="grid gap-3 md:grid-cols-2">
             {vendors.map((v) => (
-              <li key={v.id} className="rounded-lg border border-border bg-card p-4">
+              <li key={v.id} className="rounded-2xl border border-cream-deep bg-white p-4 shadow-sm transition hover:border-brand hover:shadow-md">
                 <Link href={`/vendors/${v.slug}`} className="block">
-                  <p className="text-base font-semibold text-foreground">{v.businessName}</p>
+                  <p className="font-display text-base font-black text-charcoal">{v.businessName}</p>
                   {v.description ? (
-                    <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{v.description}</p>
+                    <p className="mt-1 line-clamp-2 text-sm font-medium text-charcoal-mid">{v.description}</p>
                   ) : null}
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    ★ {v.rating.toFixed(1)} ({v.ratingCount} reviews) · {v.cuisines.join(' · ')}
+                  <p className="mt-2 text-xs font-bold text-charcoal-mid">
+                    <span className="text-plantain">★</span> {v.rating.toFixed(1)} ({v.ratingCount} reviews) · {v.cuisines.join(' · ')}
                   </p>
                 </Link>
               </li>
@@ -148,43 +148,43 @@ export async function CuisineLanding({
       </section>
 
       <section aria-labelledby="reviews">
-        <h2 id="reviews" className="mb-4 text-2xl font-semibold text-foreground">
+        <h2 id="reviews" className="mb-4 font-display text-2xl font-black tracking-tight text-charcoal">
           What customers say
         </h2>
         <div className="grid gap-4 md:grid-cols-3">
           {CUSTOMER_REVIEWS.map((r) => (
-            <blockquote key={r.name} className="rounded-lg border border-border bg-card p-4">
-              <p className="text-sm text-foreground">&ldquo;{r.quote}&rdquo;</p>
-              <footer className="mt-2 text-xs font-medium text-muted-foreground">— {r.name}</footer>
+            <blockquote key={r.name} className="rounded-2xl border border-cream-deep bg-cream p-4">
+              <p className="text-sm font-medium italic text-charcoal">&ldquo;{r.quote}&rdquo;</p>
+              <footer className="mt-2 text-xs font-bold text-charcoal-mid">— {r.name}</footer>
             </blockquote>
           ))}
         </div>
       </section>
 
       <section aria-labelledby="faq">
-        <h2 id="faq" className="mb-4 text-2xl font-semibold text-foreground">
+        <h2 id="faq" className="mb-4 font-display text-2xl font-black tracking-tight text-charcoal">
           Frequently asked questions
         </h2>
         <dl className="space-y-4">
           {faqs.map((f) => (
-            <div key={f.question} className="rounded-lg border border-border p-4">
-              <dt className="font-semibold text-foreground">{f.question}</dt>
-              <dd className="mt-1 text-sm text-muted-foreground">{f.answer}</dd>
+            <div key={f.question} className="rounded-2xl border border-cream-deep bg-white p-4">
+              <dt className="font-bold text-charcoal">{f.question}</dt>
+              <dd className="mt-1 text-sm font-medium text-charcoal-mid">{f.answer}</dd>
             </div>
           ))}
         </dl>
       </section>
 
-      <section aria-labelledby="cta" className="rounded-lg bg-brand p-6 text-white">
-        <h2 id="cta" className="text-xl font-semibold">
+      <section aria-labelledby="cta" className="rounded-2xl bg-brand p-6 text-white shadow-lg">
+        <h2 id="cta" className="font-display text-xl font-black tracking-tight">
           Ready to order?
         </h2>
-        <p className="mt-1 text-sm text-white/90">
+        <p className="mt-1 text-sm font-medium text-white/90">
           Enter your postcode on the homepage to see {cuisine} vendors delivering near you tonight or this weekend.
         </p>
         <Link
           href="/"
-          className="mt-4 inline-flex items-center rounded-md bg-white px-4 py-2 text-sm font-semibold text-brand hover:bg-white/90"
+          className="mt-4 inline-flex items-center rounded-xl bg-white px-5 py-3 text-sm font-bold text-brand-dark transition hover:bg-cream"
         >
           Browse vendors
         </Link>
