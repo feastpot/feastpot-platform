@@ -60,7 +60,8 @@ export default function VendorForgotPasswordPage() {
             </h1>
             <p className="mt-2 text-sm text-charcoal-mid">
               If a vendor account exists for{' '}
-              <strong className="text-charcoal">{email}</strong>, we&rsquo;ll
+              <strong className="break-all text-charcoal">{email}</strong>,
+              we&rsquo;ll
               send a link to reset your password.
             </p>
             <Link

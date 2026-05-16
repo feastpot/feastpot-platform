@@ -262,7 +262,7 @@ function SignInForm() {
                   type="button"
                   onClick={() => setShowPwd((v) => !v)}
                   aria-label={showPwd ? 'Hide password' : 'Show password'}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-charcoal-mid hover:text-charcoal"
+                  className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-charcoal-mid hover:text-charcoal"
                 >
                   {showPwd ? (
                     <EyeOff className="h-4 w-4" />
@@ -285,7 +285,7 @@ function SignInForm() {
               </label>
               <Link
                 href="/forgot-password"
-                className="text-[13px] font-semibold text-brand hover:underline"
+                className="-mr-2 inline-flex min-h-11 items-center px-2 text-[13px] font-semibold text-brand hover:underline"
               >
                 Forgot password?
               </Link>
@@ -294,7 +294,7 @@ function SignInForm() {
             <button
               type="submit"
               disabled={busy}
-              className="mt-2 w-full rounded-xl bg-brand py-3.5 text-sm font-bold text-white shadow-card transition-colors hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
+              className="mt-2 flex min-h-12 w-full items-center justify-center rounded-xl bg-brand px-4 py-3.5 text-sm font-bold text-white shadow-card transition-colors hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
             >
               {busy ? 'Signing in…' : 'Sign in'}
             </button>
@@ -305,7 +305,7 @@ function SignInForm() {
 
             <Link
               href="/onboarding/register"
-              className="flex w-full items-center justify-center rounded-xl border border-cream-deep bg-white py-3 text-sm font-semibold text-charcoal hover:bg-cream"
+              className="flex min-h-12 w-full items-center justify-center rounded-xl border border-cream-deep bg-white py-3 text-sm font-semibold text-charcoal hover:bg-cream"
             >
               Request access
             </Link>

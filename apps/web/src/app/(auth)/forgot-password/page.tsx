@@ -33,7 +33,7 @@ export default function ForgotPasswordPage() {
         <section className="space-y-3 py-10 text-center">
           <h1 className="font-display text-2xl font-black tracking-tight text-charcoal">Check your email</h1>
           <p className="text-sm text-charcoal-mid">
-            If an account exists for <strong>{email}</strong>, you&rsquo;ll get a reset link shortly.
+            If an account exists for <strong className="break-all">{email}</strong>, you&rsquo;ll get a reset link shortly.
           </p>
         </section>
       </PageShell>

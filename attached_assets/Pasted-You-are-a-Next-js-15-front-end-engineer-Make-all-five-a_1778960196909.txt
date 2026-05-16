@@ -1,0 +1,96 @@
+You are a Next.js 15 front-end engineer. Make all five auth pages fully responsive
+at 375px mobile width, matching Image 1 panel 4 and Image 2 panel 4 (Mobile Preview).
+
+FROM THE DESIGN (mobile previews):
+Customer create account (mobile):
+  Single-column layout — no left panel visible
+  Logo top, heading, form fields stacked, SSO buttons at bottom
+  "Already have an account? Sign in" footer
+
+Customer sign in (mobile):
+  Green panel becomes a compact banner at top (not full-height)
+  Logo white on green, "Welcome back 👋" heading, short subtext
+  Form below on white background
+  Magic link button visible
+
+Vendor register (mobile):
+  Logo top, heading, green bullet points collapsed, form stacked
+  Kitchen type toggle still visible as 3-button row
+
+Vendor sign in (mobile):
+  Same compact green banner pattern as customer sign in
+
+FILES: Update all auth pages from AUTH-001 through AUTH-005.
+
+════════════════════════════════════════════════════════
+APPROACH: CSS media queries using inline style + useWindowSize hook
+════════════════════════════════════════════════════════
+
+Create a hook:
+FILE: apps/web/src/hooks/use-mobile.ts
+
+'use client'
+import { useState, useEffect } from 'react'
+
+export function useIsMobile(breakpoint = 768): boolean {
+  const [isMobile, setIsMobile] = useState(false)
+  useEffect(() => {
+    const mq = window.matchMedia(`(max-width: ${breakpoint}px)`)
+    setIsMobile(mq.matches)
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches)
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [breakpoint])
+  return isMobile
+}
+
+Also create for vendor:
+FILE: apps/vendor/src/hooks/use-mobile.ts (identical content)
+
+════════════════════════════════════════════════════════
+APPLY TO EACH AUTH PAGE:
+════════════════════════════════════════════════════════
+
+In each auth page, import useIsMobile and apply responsive styles:
+
+Customer sign-in (AUTH-003): apps/web/src/(auth)/sign-in/page.tsx
+  const isMobile = useIsMobile()
+  On mobile: the two-column flex becomes single column.
+  The left green panel collapses to a 120px-tall top banner:
+    - Logo + "Welcome back 👋" in one row
+    - Yellow underline (hidden on mobile)
+    - Benefits list hidden on mobile
+    - Food image hidden on mobile
+  The right form takes full width with padding: 24px.
+
+Customer create account (AUTH-002): apps/web/src/(auth)/register/create-account/page.tsx
+  On mobile: hide the left "Why join" panel entirely.
+  Form takes full width. Logo shows at top of form.
+
+Vendor register (AUTH-004): apps/vendor/src/app/onboarding/register/page.tsx
+  On mobile: hide the left info panel.
+  Show a compact header: logo + "Join FeastPot" + 3 benefit bullets (collapsed, no step diagram).
+  Form takes full width.
+
+Vendor sign-in (AUTH-005): apps/vendor/src/(auth)/sign-in/page.tsx
+  Same mobile pattern as customer sign-in.
+
+════════════════════════════════════════════════════════
+ALSO: ensure the mobile auth pages pass the following checks
+════════════════════════════════════════════════════════
+
+At 375px viewport:
+[ ] No horizontal overflow
+[ ] All input fields full width (width: 100%)
+[ ] All buttons minimum 48px height touch target
+[ ] Password eye toggle button minimum 44px touch area
+[ ] Kitchen type segmented toggle: each button minimum 44px height
+[ ] Checkboxes minimum 20px for easy tapping (margin compensates for small hit area)
+[ ] "Forgot password?" link minimum 44px touch target height (add padding: 10px 0)
+[ ] SSO buttons minimum 48px height
+[ ] No text overlapping or cut off
+[ ] Form scrolls correctly within the viewport
+
+Run: npm run typecheck in apps/web and apps/vendor.
+Run: npm run dev:web and npm run dev:vendor — test at 375px in Chrome DevTools.
+Output all changed files in full.

@@ -358,7 +358,7 @@ export default function CreateAccountPage() {
             <button
               type="submit"
               disabled={form.formState.isSubmitting}
-              className="mt-2 w-full rounded-xl bg-brand py-3.5 text-sm font-bold text-white shadow-card transition-colors hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
+              className="mt-2 flex min-h-12 w-full items-center justify-center rounded-xl bg-brand px-4 py-3.5 text-sm font-bold text-white shadow-card transition-colors hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
             >
               {form.formState.isSubmitting
                 ? 'Creating account…'
@@ -376,14 +376,14 @@ export default function CreateAccountPage() {
             <button
               type="button"
               onClick={() => handleOAuth('google')}
-              className="flex w-full items-center justify-center gap-2.5 rounded-xl border border-cream-deep bg-white py-3 text-sm font-semibold text-charcoal hover:bg-cream"
+              className="flex min-h-12 w-full items-center justify-center gap-2.5 rounded-xl border border-cream-deep bg-white py-3 text-sm font-semibold text-charcoal hover:bg-cream"
             >
               <GoogleLogo className="h-4 w-4" /> Continue with Google
             </button>
             <button
               type="button"
               onClick={() => handleOAuth('apple')}
-              className="flex w-full items-center justify-center gap-2.5 rounded-xl border border-cream-deep bg-white py-3 text-sm font-semibold text-charcoal hover:bg-cream"
+              className="flex min-h-12 w-full items-center justify-center gap-2.5 rounded-xl border border-cream-deep bg-white py-3 text-sm font-semibold text-charcoal hover:bg-cream"
             >
               <AppleLogo className="h-4 w-4" /> Continue with Apple
             </button>
@@ -501,7 +501,7 @@ function PasswordField({
           type="button"
           onClick={onToggle}
           aria-label={show ? 'Hide password' : 'Show password'}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-charcoal-mid hover:text-charcoal"
+          className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-charcoal-mid hover:text-charcoal"
         >
           {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
         </button>

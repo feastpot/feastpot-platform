@@ -211,7 +211,9 @@ export default function VendorRegisterInterestPage() {
             ))}
           </ul>
 
-          <div className="mt-8">
+          {/* Step diagram: hidden on mobile to keep the aside compact —
+              the bullet list above already conveys the value prop. */}
+          <div className="mt-8 hidden lg:block">
             <p className="font-display text-sm font-black text-charcoal">
               Your onboarding journey
             </p>
@@ -362,7 +364,7 @@ export default function VendorRegisterInterestPage() {
                       onClick={() =>
                         setForm((f) => ({ ...f, kitchenType: k }))
                       }
-                      className={`rounded-md py-2 text-[13px] font-semibold transition-colors ${
+                      className={`min-h-11 rounded-md px-2 py-2 text-[13px] font-semibold transition-colors ${
                         active
                           ? 'bg-white text-brand shadow-card'
                           : 'text-charcoal-mid hover:text-charcoal'
@@ -427,7 +429,7 @@ export default function VendorRegisterInterestPage() {
                       role="radio"
                       aria-checked={active}
                       onClick={() => setForm((f) => ({ ...f, hasFSA: v }))}
-                      className={`flex-1 rounded-lg border py-2.5 text-[13px] font-semibold capitalize transition-colors ${
+                      className={`min-h-11 flex-1 rounded-lg border py-2.5 text-[13px] font-semibold capitalize transition-colors ${
                         active
                           ? 'border-brand bg-brand-light text-brand'
                           : 'border-cream-deep bg-white text-charcoal-mid hover:border-charcoal-mid'
@@ -481,7 +483,7 @@ export default function VendorRegisterInterestPage() {
             <button
               type="submit"
               disabled={submitting}
-              className="mt-3 w-full rounded-xl bg-brand py-3.5 text-sm font-bold text-white shadow-card transition-colors hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
+              className="mt-3 flex min-h-12 w-full items-center justify-center rounded-xl bg-brand px-4 py-3.5 text-sm font-bold text-white shadow-card transition-colors hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
             >
               {submitting ? 'Submitting…' : 'Submit interest'}
             </button>
