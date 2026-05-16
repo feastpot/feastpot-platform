@@ -12,9 +12,9 @@ const CUISINE_OPTS = ['Nigerian', 'Ghanaian', 'Jamaican', 'Caribbean', 'Other'];
 const DIET_OPTS = ['Halal', 'Vegan', 'Vegetarian', 'Other'];
 const EVENT_TYPES = ['wedding', 'birthday', 'corporate', 'naming-ceremony', 'funeral', 'other'];
 
-const fieldLabel = 'mb-1 block text-sm font-medium';
+const fieldLabel = 'mb-1 block text-sm font-bold text-charcoal';
 const textareaCls =
-  'block w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring';
+  'block w-full rounded-xl border border-cream-deep bg-white px-3 py-2.5 text-sm font-medium text-charcoal placeholder:text-charcoal-mid/50 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20';
 
 export default function NewEventEnquiryPage() {
   const router = useRouter();
@@ -65,12 +65,12 @@ export default function NewEventEnquiryPage() {
   return (
     <PageShell>
       <header className="py-4">
-        <h1 className="text-xl font-semibold">Plan an event</h1>
-        <p className="text-sm text-muted-foreground">Send a brief — vendors will quote within 24 hours.</p>
+        <h1 className="font-display text-2xl font-black tracking-tight text-charcoal">Plan an event</h1>
+        <p className="text-sm font-medium text-charcoal-mid">Send a brief — vendors will quote within 24 hours.</p>
       </header>
 
       {success && (
-        <p className="mb-3 rounded border border-emerald-300 bg-emerald-50 p-2 text-sm text-emerald-900">
+        <p className="mb-3 rounded-xl border border-brand/30 bg-brand/10 p-3 text-sm font-medium text-brand-dark">
           We&apos;re finding vendors for you!
         </p>
       )}
@@ -90,7 +90,7 @@ export default function NewEventEnquiryPage() {
         <label className="block">
           <span className={fieldLabel}>Event date</span>
           <Input type="date" min={minDate} value={eventDate} onChange={(e) => setEventDate(e.target.value)} required />
-          <span className="mt-1 block text-xs text-muted-foreground">Minimum 7 days from today.</span>
+          <span className="mt-1 block text-xs font-medium text-charcoal-mid">Minimum 7 days from today.</span>
         </label>
 
         <label className="block">
@@ -99,14 +99,14 @@ export default function NewEventEnquiryPage() {
         </label>
 
         <fieldset>
-          <legend className="text-sm font-medium">Cuisine preferences</legend>
+          <legend className="text-sm font-bold text-charcoal">Cuisine preferences</legend>
           <div className="mt-2 flex flex-wrap gap-2">
             {CUISINE_OPTS.map((c) => (
               <button
                 key={c}
                 type="button"
                 onClick={() => toggle(cuisines, setCuisines, c)}
-                className={`rounded-full border px-3 py-1 text-xs ${cuisines.includes(c) ? 'border-foreground bg-foreground text-background' : 'border-input'}`}
+                className={`rounded-full border px-3.5 py-1.5 text-xs font-bold transition ${cuisines.includes(c) ? 'border-brand bg-brand text-white shadow-sm' : 'border-cream-deep bg-white text-charcoal hover:bg-cream'}`}
               >
                 {c}
               </button>
@@ -115,14 +115,14 @@ export default function NewEventEnquiryPage() {
         </fieldset>
 
         <fieldset>
-          <legend className="text-sm font-medium">Dietary requirements</legend>
+          <legend className="text-sm font-bold text-charcoal">Dietary requirements</legend>
           <div className="mt-2 flex flex-wrap gap-2">
             {DIET_OPTS.map((d) => (
               <button
                 key={d}
                 type="button"
                 onClick={() => toggle(dietary, setDietary, d)}
-                className={`rounded-full border px-3 py-1 text-xs ${dietary.includes(d) ? 'border-foreground bg-foreground text-background' : 'border-input'}`}
+                className={`rounded-full border px-3.5 py-1.5 text-xs font-bold transition ${dietary.includes(d) ? 'border-brand bg-brand text-white shadow-sm' : 'border-cream-deep bg-white text-charcoal hover:bg-cream'}`}
               >
                 {d}
               </button>
@@ -152,12 +152,12 @@ export default function NewEventEnquiryPage() {
         </label>
 
         {serverError && (
-          <p className="rounded border border-destructive/40 bg-destructive/5 p-2 text-sm text-destructive">
+          <p className="rounded-xl border border-scotch/30 bg-scotch/10 p-3 text-sm font-medium text-scotch">
             {serverError}
           </p>
         )}
 
-        <Button type="submit" className="w-full" disabled={create.isPending}>
+        <Button type="submit" className="w-full rounded-xl bg-brand py-3 font-bold text-white hover:bg-brand-dark" disabled={create.isPending}>
           {create.isPending ? 'Sending…' : 'Send enquiry'}
         </Button>
       </form>
