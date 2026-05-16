@@ -86,12 +86,12 @@ export function PushPermissionPrompt({ forceShow = false }: Props) {
       aria-label="Enable notifications"
       className="fixed inset-x-0 bottom-20 z-30 mx-auto max-w-md px-4"
     >
-      <div className="relative rounded-xl border border-border bg-background p-4 shadow-lg">
+      <div className="relative rounded-2xl border border-cream-deep bg-white p-4 shadow-xl">
         <button
           type="button"
           onClick={onDismiss}
           aria-label="Dismiss"
-          className="absolute right-2 top-2 rounded-full p-1 text-muted-foreground hover:bg-muted"
+          className="absolute right-2 top-2 rounded-full p-1 text-charcoal-mid hover:bg-cream"
         >
           <X className="h-4 w-4" />
         </button>
@@ -100,24 +100,24 @@ export function PushPermissionPrompt({ forceShow = false }: Props) {
             <Bell className="h-4 w-4" aria-hidden />
           </span>
           <div className="min-w-0 flex-1">
-            <h3 className="text-sm font-semibold">Get notified when your order is ready?</h3>
-            <p className="mt-0.5 text-xs text-muted-foreground">
+            <h3 className="font-display text-sm font-black text-charcoal">Get notified when your order is ready?</h3>
+            <p className="mt-0.5 text-xs font-medium text-charcoal-mid">
               We&rsquo;ll only ping you about your order — no marketing.
             </p>
-            {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
+            {error && <p className="mt-2 text-xs font-medium text-scotch">{error}</p>}
             <div className="mt-3 flex gap-2">
               <button
                 type="button"
                 onClick={onEnable}
                 disabled={busy}
-                className="rounded-md bg-brand px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-dark disabled:opacity-50"
+                className="rounded-xl bg-brand px-3 py-2 text-xs font-bold text-white hover:bg-brand-dark disabled:opacity-50"
               >
                 {busy ? 'Enabling…' : 'Enable notifications'}
               </button>
               <button
                 type="button"
                 onClick={onDismiss}
-                className="rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium hover:bg-muted"
+                className="rounded-xl border border-cream-deep bg-white px-3 py-2 text-xs font-bold text-charcoal hover:bg-cream"
               >
                 Not now
               </button>

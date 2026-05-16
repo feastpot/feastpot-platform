@@ -47,17 +47,17 @@ export function CookieBanner() {
       role="dialog"
       aria-live="polite"
       aria-label="Cookie notice"
-      className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-background/95 px-4 py-3 shadow-lg backdrop-blur md:px-6"
+      className="fixed inset-x-0 bottom-0 z-50 border-t border-cream-deep bg-white/95 px-4 py-3 shadow-lg backdrop-blur md:px-6"
     >
       <div className="mx-auto flex max-w-4xl flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <p className="text-sm text-foreground">
+        <p className="text-sm font-medium text-charcoal">
           We use cookies for essential platform functionality. No advertising cookies.{' '}
-          <Link href="/legal/privacy" className="font-medium text-brand underline underline-offset-2">
+          <Link href="/legal/privacy" className="font-bold text-brand-dark underline underline-offset-2 hover:text-brand">
             Read our privacy policy
           </Link>
           .
         </p>
-        <Button onClick={handleAccept} className="self-end md:self-auto" size="sm">
+        <Button onClick={handleAccept} className="self-end rounded-xl bg-brand font-bold text-white hover:bg-brand-dark md:self-auto" size="sm">
           Accept
         </Button>
       </div>
