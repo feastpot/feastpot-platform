@@ -26,12 +26,16 @@ export function PostcodeHero() {
   const [stored, setStored] = useStoredPostcode();
   const [value, setValue] = useState<string>('');
   const [error, setError] = useState<string>('');
+  const [editing, setEditing] = useState<boolean>(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (stored && !value) setValue(stored);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stored]);
+
+  const showResumeBanner = Boolean(stored) && !editing;
+  const showForm = !showResumeBanner;
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -54,10 +58,12 @@ export function PostcodeHero() {
     router.push(`/vendors?postcode=${encodeURIComponent(stored)}`);
   };
 
-  const clearStored = () => {
-    setStored(null);
-    setValue('');
-    inputRef.current?.focus();
+  const enterEditMode = () => {
+    setEditing(true);
+    requestAnimationFrame(() => {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    });
   };
 
   return (
@@ -81,7 +87,7 @@ export function PostcodeHero() {
           </p>
 
           {/* Resume banner — returning user gets a one-tap shortcut. */}
-          {stored && (
+          {showResumeBanner && (
             <div
               className="mt-5 flex max-w-md items-center justify-between gap-2 rounded-2xl border border-brand-100 bg-brand-light px-3 py-2"
               role="region"
@@ -101,8 +107,8 @@ export function PostcodeHero() {
                 </button>
                 <button
                   type="button"
-                  onClick={clearStored}
-                  aria-label="Clear saved postcode"
+                  onClick={enterEditMode}
+                  aria-label="Change saved postcode"
                   className="touch-target inline-flex items-center gap-1 rounded-xl bg-white px-2 py-1.5 text-[12px] font-medium text-charcoal-mid transition-colors hover:bg-cream-warm"
                 >
                   <X className="h-3 w-3" aria-hidden />
@@ -112,6 +118,7 @@ export function PostcodeHero() {
             </div>
           )}
 
+          {showForm && (
           <form
             onSubmit={onSubmit}
             role="search"
@@ -146,6 +153,7 @@ export function PostcodeHero() {
               Find Food
             </button>
           </form>
+          )}
 
           {error && (
             <p role="alert" className="mt-2 max-w-md text-xs font-medium text-scotch">
