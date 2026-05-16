@@ -19,7 +19,7 @@ export interface AddressFormProps {
 }
 
 const inputCls =
-  'w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-brand/30';
+  'w-full rounded-xl border border-cream-deep bg-white px-3 py-2.5 text-sm font-medium text-charcoal placeholder:text-charcoal-mid/50 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20';
 
 /**
  * Shared address form used by:
@@ -135,14 +135,14 @@ export function AddressForm({
             type="checkbox"
             checked={isDefault}
             onChange={(e) => setIsDefault(e.target.checked)}
-            className="h-4 w-4 rounded border-border"
+            className="h-4 w-4 rounded border-cream-deep accent-brand"
           />
-          Set as my default delivery address
+          <span className="font-medium text-charcoal">Set as my default delivery address</span>
         </label>
       )}
 
       {(localError || serverError) && (
-        <p className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+        <p className="rounded-xl border border-scotch/30 bg-scotch/10 p-3 text-sm font-medium text-scotch">
           {localError ?? serverError}
         </p>
       )}
@@ -151,7 +151,7 @@ export function AddressForm({
         <button
           type="submit"
           disabled={pending}
-          className="rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-dark disabled:opacity-50"
+          className="rounded-xl bg-brand px-5 py-3 text-sm font-bold text-white hover:bg-brand-dark disabled:opacity-50"
         >
           {pending ? 'Saving…' : submitLabel}
         </button>
@@ -159,7 +159,7 @@ export function AddressForm({
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-md border border-border bg-background px-4 py-2 text-sm font-medium hover:bg-muted/40"
+            className="rounded-xl border border-cream-deep bg-white px-5 py-3 text-sm font-bold text-charcoal hover:bg-cream"
           >
             Cancel
           </button>
@@ -172,9 +172,9 @@ export function AddressForm({
 function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
   return (
     <label className="block text-sm">
-      <span className="mb-1 block font-medium">
+      <span className="mb-1 block font-bold text-charcoal">
         {label}
-        {required && <span className="ml-0.5 text-destructive">*</span>}
+        {required && <span className="ml-0.5 text-scotch">*</span>}
       </span>
       {children}
     </label>

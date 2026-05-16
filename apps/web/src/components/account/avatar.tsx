@@ -35,10 +35,10 @@ export function Avatar({ url, name, size = 96, className }: AvatarProps) {
   return (
     <div
       aria-hidden
-      className={`flex select-none items-center justify-center rounded-full bg-muted text-muted-foreground ${className ?? ''}`}
+      className={`flex select-none items-center justify-center rounded-full bg-brand/10 text-brand-dark ${className ?? ''}`}
       style={{ width: size, height: size, fontSize: size * 0.4 }}
     >
-      <span className="font-semibold">{initial}</span>
+      <span className="font-display font-black">{initial}</span>
     </div>
   );
 }

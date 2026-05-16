@@ -16,8 +16,8 @@ export default function NewAddressPage() {
     <PageShell>
       <div className="space-y-4 py-4">
         <header>
-          <h1 className="text-2xl font-bold tracking-tight">Add address</h1>
-          <p className="text-sm text-muted-foreground">UK addresses only. We use postcodes.io for delivery checks.</p>
+          <h1 className="font-display text-2xl font-black tracking-tight text-charcoal">Add address</h1>
+          <p className="text-sm text-charcoal-mid">UK addresses only. We use postcodes.io for delivery checks.</p>
         </header>
 
         <AddressForm

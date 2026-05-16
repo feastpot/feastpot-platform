@@ -26,7 +26,7 @@ export default function EditAddressPage() {
   if (isLoading) {
     return (
       <PageShell>
-        <p className="py-12 text-center text-sm text-muted-foreground">Loading address&hellip;</p>
+        <p className="py-12 text-center text-sm text-charcoal-mid">Loading address&hellip;</p>
       </PageShell>
     );
   }
@@ -35,11 +35,11 @@ export default function EditAddressPage() {
     return (
       <PageShell>
         <div className="space-y-3 py-12 text-center">
-          <h1 className="text-xl font-semibold">Address not found</h1>
-          <p className="text-sm text-muted-foreground">It may have been deleted from another device.</p>
+          <h1 className="font-display text-xl font-black text-charcoal">Address not found</h1>
+          <p className="text-sm text-charcoal-mid">It may have been deleted from another device.</p>
           <button
             onClick={() => router.push('/account/addresses')}
-            className="rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-muted/40"
+            className="rounded-xl border border-cream-deep bg-white px-5 py-3 text-sm font-bold text-charcoal hover:bg-cream"
           >
             Back to addresses
           </button>
@@ -52,7 +52,7 @@ export default function EditAddressPage() {
     <PageShell>
       <div className="space-y-4 py-4">
         <header>
-          <h1 className="text-2xl font-bold tracking-tight">Edit address</h1>
+          <h1 className="font-display text-2xl font-black tracking-tight text-charcoal">Edit address</h1>
         </header>
 
         <AddressForm
