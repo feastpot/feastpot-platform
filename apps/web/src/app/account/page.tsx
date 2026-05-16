@@ -66,23 +66,27 @@ export default function AccountHubPage() {
 
   return (
     <div className="space-y-5 px-4 py-4">
-      {/* Profile header */}
-      <header className="flex items-center gap-4 rounded-2xl border border-cream-deep bg-white p-4 shadow-card">
+      {/* Profile header — wireframe-spec: oversize avatar, bold greeting,
+          green "Edit Profile" link. The waving emoji + first-name greeting
+          mirror the wireframe's "Hi Alex! 👋" treatment. */}
+      <header className="flex items-center gap-4 rounded-3xl border border-cream-deep bg-white p-4 shadow-card">
         <Avatar
           url={me?.avatarUrl ?? null}
           name={me?.fullName ?? me?.email ?? null}
-          size={64}
+          size={72}
         />
         <div className="min-w-0 flex-1">
-          <p className="truncate font-display text-base font-black text-charcoal">
-            {isLoading ? '…' : me?.fullName || me?.email || '—'}
+          <p className="truncate font-display text-lg font-black text-charcoal">
+            {isLoading
+              ? '…'
+              : `Hi ${(me?.fullName || me?.email || 'there').split(' ')[0]}! 👋`}
           </p>
           {me?.email && (
             <p className="truncate text-xs font-medium text-charcoal-mid">{me.email}</p>
           )}
           <Link
             href="/account/profile"
-            className="mt-1 inline-block text-xs font-bold text-brand hover:underline"
+            className="mt-1 inline-flex items-center gap-1 text-xs font-black text-brand hover:underline"
           >
             Edit profile →
           </Link>
@@ -93,6 +97,9 @@ export default function AccountHubPage() {
       <ReferralCard />
 
       {/* 2×2 destination grid */}
+      <p className="mt-1 text-[11px] font-black uppercase tracking-[0.18em] text-brand">
+        Manage your account
+      </p>
       <ul className="grid grid-cols-2 gap-3">
         <NavCard
           href="/account/orders"

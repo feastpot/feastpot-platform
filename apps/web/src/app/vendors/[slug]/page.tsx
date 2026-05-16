@@ -349,7 +349,7 @@ export default async function VendorProfilePage({ params }: PageProps) {
           </p>
         ) : (
           <div className="mt-4 space-y-6">
-            {grouped.map(([category, items]) => (
+            {grouped.map(([category, items], idx) => (
               <section
                 key={category}
                 id={`menu-cat-${category}`}
@@ -358,8 +358,15 @@ export default async function VendorProfilePage({ params }: PageProps) {
               >
                 <h2
                   style={{ top: 'calc(var(--page-safe-top) + 48px)' }}
-                  className="sticky z-10 -mx-4 bg-cream px-4 py-2 font-display text-[17px] font-black text-charcoal"
+                  className="sticky z-10 -mx-4 flex items-center gap-2.5 bg-cream px-4 py-2 font-display text-[17px] font-black text-charcoal"
                 >
+                  <span
+                    aria-label={`Category ${idx + 1}`}
+                    role="img"
+                    className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-charcoal text-[11px] font-black text-white"
+                  >
+                    {idx + 1}
+                  </span>
                   {CATEGORY_LABELS[category] ?? category}
                 </h2>
                 <ul className="space-y-2">
@@ -381,7 +388,10 @@ export default async function VendorProfilePage({ params }: PageProps) {
         style={{ scrollMarginTop: 'var(--page-safe-top)' }}
         className="mt-8 space-y-3"
       >
-        <h2 className="font-display text-[18px] font-black text-charcoal">Reviews</h2>
+        <p className="text-[11px] font-black uppercase tracking-[0.18em] text-brand">
+          From the community
+        </p>
+        <h2 className="font-display text-[20px] font-black text-charcoal">Reviews</h2>
         <ReviewsSection vendorId={vendor.id} limit={3} />
       </section>
 

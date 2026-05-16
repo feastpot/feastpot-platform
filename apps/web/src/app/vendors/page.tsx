@@ -187,14 +187,17 @@ function VendorSearch() {
 
         <VendorSearchInput />
 
-        <header className="flex items-center justify-between gap-2">
+        <header className="flex items-end justify-between gap-2">
           <div className="min-w-0">
-            <h1 className="truncate font-display text-2xl font-black tracking-tight text-charcoal">
+            <p className="mb-1 text-[11px] font-black uppercase tracking-[0.18em] text-brand">
+              {cuisineParam ? `${cuisineParam} kitchens` : 'Local kitchens'}
+            </p>
+            <h1 className="truncate font-display text-2xl font-black tracking-tight text-charcoal md:text-3xl">
               {postcode ? `Kitchens near ${postcode}` : 'Browse kitchens'}
             </h1>
             {cuisineParam && (
               <p className="mt-0.5 text-xs font-medium text-charcoal-mid">
-                Cuisine: <span className="font-bold text-brand">{cuisineParam}</span>
+                Filtered by <span className="font-bold text-brand">{cuisineParam}</span>
               </p>
             )}
           </div>

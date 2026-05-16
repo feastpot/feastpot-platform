@@ -140,6 +140,9 @@ export default function BecomeAVendorPage() {
       {/* Hero */}
       <section className="mx-auto grid max-w-6xl items-center gap-10 px-5 py-12 sm:px-8 lg:grid-cols-2 lg:gap-12 lg:px-12 lg:py-16">
         <div>
+          <p className="mb-3 text-[11px] font-black uppercase tracking-[0.18em] text-brand">
+            Join FeastPot · For home cooks
+          </p>
           <h1 className="font-display text-4xl font-black leading-[1.1] tracking-tight text-charcoal sm:text-5xl lg:text-[56px]">
             Turn your cooking
             <br />

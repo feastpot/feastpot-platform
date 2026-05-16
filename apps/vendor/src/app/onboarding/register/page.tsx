@@ -184,8 +184,13 @@ export default function VendorRegisterInterestPage() {
       <div className="mx-auto w-full max-w-5xl overflow-hidden rounded-3xl bg-white shadow-card lg:grid lg:grid-cols-[360px_1fr]">
         {/* LEFT — value prop + 4-step diagram */}
         <aside className="border-b border-cream-deep p-8 lg:border-b-0 lg:border-r">
-          <h2 className="font-display text-2xl font-black tracking-tight text-charcoal">
+          <p className="mb-2 text-[11px] font-black uppercase tracking-[0.18em] text-brand">
+            Vendor onboarding
+          </p>
+          <h2 className="font-display text-2xl font-black tracking-tight text-charcoal md:text-3xl">
             Join FeastPot
+            <br />
+            <span className="text-brand">and grow your business</span>
           </h2>
           <p className="mt-2 text-sm leading-relaxed text-charcoal-mid">
             Apply in a few minutes. Our team reviews every application and
@@ -242,6 +247,9 @@ export default function VendorRegisterInterestPage() {
 
         {/* RIGHT — form */}
         <form onSubmit={handleSubmit} className="p-7 sm:p-9" noValidate>
+          <p className="mb-1.5 text-[11px] font-black uppercase tracking-[0.18em] text-brand">
+            Step 1 of 4 · Apply
+          </p>
           <h1 className="font-display text-2xl font-black tracking-tight text-charcoal">
             Register your interest
           </h1>

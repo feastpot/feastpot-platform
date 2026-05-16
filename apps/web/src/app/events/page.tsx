@@ -30,13 +30,22 @@ export default function EventsListPage() {
 
   return (
     <PageShell>
-      <header className="flex items-center justify-between py-4">
-        <div>
-          <h1 className="font-display text-2xl font-black tracking-tight text-charcoal">My events</h1>
-          <p className="text-sm text-charcoal-mid">Catering enquiries you&apos;ve sent.</p>
+      <header className="flex items-end justify-between gap-3 py-4">
+        <div className="min-w-0">
+          <p className="mb-1 text-[11px] font-black uppercase tracking-[0.18em] text-brand">
+            Event catering
+          </p>
+          <h1 className="font-display text-2xl font-black tracking-tight text-charcoal md:text-3xl">
+            My events
+          </h1>
+          <p className="mt-1 text-sm font-medium text-charcoal-mid">
+            Catering enquiries you&apos;ve sent.
+          </p>
         </div>
         <Link href="/events/new">
-          <Button>Plan a new event</Button>
+          <Button className="rounded-2xl bg-brand font-black text-white hover:bg-brand-dark">
+            Plan a new event
+          </Button>
         </Link>
       </header>
 
@@ -44,10 +53,22 @@ export default function EventsListPage() {
       {error && <p className="py-8 text-center text-sm text-scotch">Couldn&apos;t load enquiries.</p>}
 
       {data && data.length === 0 && (
-        <div className="space-y-2 rounded-2xl border border-dashed border-cream-deep bg-white p-6 text-center">
-          <p className="text-sm text-charcoal-mid">No event enquiries yet.</p>
+        <div className="space-y-3 rounded-3xl border border-dashed border-cream-deep bg-white p-8 text-center shadow-card">
+          <div
+            aria-hidden
+            className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-brand-light text-2xl"
+          >
+            🎉
+          </div>
+          <p className="font-display text-lg font-black text-charcoal">No events yet</p>
+          <p className="mx-auto max-w-xs text-sm font-medium text-charcoal-mid">
+            Plan a wedding, birthday, or corporate event — vendors will quote
+            within 24 hours.
+          </p>
           <Link href="/events/new">
-            <Button variant="outline">Send your first enquiry</Button>
+            <Button className="rounded-2xl bg-brand font-black text-white hover:bg-brand-dark">
+              Send your first enquiry
+            </Button>
           </Link>
         </div>
       )}

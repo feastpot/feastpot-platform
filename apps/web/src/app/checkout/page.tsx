@@ -11,6 +11,7 @@ import { cn } from '@feastpot/ui';
 
 import { AddressSelector } from '@/components/address/address-selector';
 import { SlotPicker } from '@/components/checkout/slot-picker';
+import { PanelTitle } from '@/components/ui/wireframe';
 import { useLoyalty } from '@/hooks/use-loyalty';
 import { useConfirmOrder, useCreateOrder } from '@/hooks/use-orders';
 import { ApiError } from '@/lib/api/client';
@@ -297,7 +298,7 @@ function CheckoutInner() {
       </header>
 
       {/* SECTION 1 — ORDER SUMMARY (collapsible) */}
-      <Section title="Order summary">
+      <Section num={1} title="Order summary">
         <div className="overflow-hidden rounded-2xl border border-cream-deep bg-white">
           <button
             type="button"
@@ -348,7 +349,7 @@ function CheckoutInner() {
 
       {/* SECTION 1b — LOYALTY POINTS REDEMPTION */}
       {(loyalty?.balance ?? 0) >= 200 && (
-        <Section title="Loyalty points">
+        <Section num={2} title="Loyalty points">
           <div className="rounded-2xl border border-plantain/40 bg-plantain/10 p-4">
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
@@ -421,12 +422,12 @@ function CheckoutInner() {
       )}
 
       {/* SECTION 2 — DELIVERY ADDRESS */}
-      <Section title="Delivery address">
+      <Section num={3} title="Delivery address">
         <AddressSelector value={selectedAddressId} onChange={setSelectedAddressId} />
       </Section>
 
       {/* SECTION 3 — DELIVERY SLOT */}
-      <Section title="Delivery slot">
+      <Section num={4} title="Delivery slot">
         <SlotPicker
           // The vendor DeliveryConfig schema does NOT yet expose the
           // open/close hours, lead time, or weekly availability per vendor —
@@ -455,7 +456,7 @@ function CheckoutInner() {
       </Section>
 
       {/* SECTION 4 — ORDER NOTES */}
-      <Section title="Order notes">
+      <Section num={5} title="Order notes">
         <textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
@@ -575,10 +576,21 @@ function CheckoutInner() {
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+// Numbered checkout panel. Each callsite passes its explicit step
+// number so numbering is deterministic across re-renders (no hidden
+// module-level state).
+function Section({
+  num,
+  title,
+  children,
+}: {
+  num: number;
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
     <section className="space-y-3">
-      <h2 className="font-display text-base font-black text-charcoal">{title}</h2>
+      <PanelTitle num={num} title={title} size="sm" />
       {children}
     </section>
   );

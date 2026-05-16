@@ -65,8 +65,15 @@ export default function NewEventEnquiryPage() {
   return (
     <PageShell>
       <header className="py-4">
-        <h1 className="font-display text-2xl font-black tracking-tight text-charcoal">Plan an event</h1>
-        <p className="text-sm font-medium text-charcoal-mid">Send a brief — vendors will quote within 24 hours.</p>
+        <p className="mb-1 text-[11px] font-black uppercase tracking-[0.18em] text-brand">
+          Catering enquiry
+        </p>
+        <h1 className="font-display text-2xl font-black tracking-tight text-charcoal md:text-3xl">
+          Catering for every occasion
+        </h1>
+        <p className="mt-1.5 text-sm font-medium text-charcoal-mid">
+          Tell us about your event — vendors will quote within 24 hours.
+        </p>
       </header>
 
       {success && (
