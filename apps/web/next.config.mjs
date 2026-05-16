@@ -139,11 +139,21 @@ const nextConfig = {
    * same origin as the Next app. Required in Replit because the user's
    * browser cannot resolve `localhost:3001` (the API is in a remote
    * container), and useful on a developer laptop because it sidesteps CORS
-   * entirely. Production sets NEXT_PUBLIC_API_URL to the public API origin
-   * and skips this rewrite path entirely (`API_URL` becomes absolute, so
-   * fetches don't hit `/v1/*` on the Next origin).
+   * entirely.
+   *
+   * GATED TO NON-PRODUCTION BUILDS. Production must set NEXT_PUBLIC_API_URL
+   * to the public API origin so `API_URL` becomes absolute and `/v1/*`
+   * never hits the Next origin. If we left this rewrite enabled in
+   * production and someone forgot to set NEXT_PUBLIC_API_URL on Vercel,
+   * the browser's relative `/v1/vendors` fetch would be rewritten to
+   * `http://localhost:3001/v1/vendors` on the Vercel edge — Vercel can't
+   * reach localhost, the request hangs / 502s, the service worker caches
+   * the bad response, and the page locks into a permanent skeleton loop.
+   * Far better to fail loudly with a 404 on `/v1/*` than to silently
+   * proxy to a non-existent localhost in production.
    */
   async rewrites() {
+    if (process.env.NODE_ENV === 'production') return [];
     return [
       {
         source: '/v1/:path*',
