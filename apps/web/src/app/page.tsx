@@ -28,29 +28,39 @@ import { searchVendors, type VendorListItem } from '@/lib/api/vendors';
  * Vendor rails fetched in parallel; errors swallowed at rail level so a
  * single bad query never crashes the page for unauthenticated visitors.
  */
-async function safeFetch(
-  promise: Promise<{ data: VendorListItem[] }>,
+async function safeFetchWithTimeout(
+  build: (signal: AbortSignal) => Promise<{ data: VendorListItem[] }>,
 ): Promise<VendorListItem[]> {
+  // Hard 3s abort so static generation / ISR warmup never hangs when the
+  // API is unreachable from the build worker (first deploy before the API
+  // is live, build env without egress, etc.). Without this, a hung fetch
+  // would burn through Next.js's 60s per-page timeout × 3 retries and
+  // fail the deploy. The catch falls through to the empty rail copy;
+  // the next request after revalidate=60 picks up real data.
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 3000);
   try {
-    const r = await promise;
+    const r = await build(controller.signal);
     return r.data;
   } catch {
     return [];
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
 export default async function HomePage() {
   const [favourites, featured] = await Promise.all([
-    safeFetch(
+    safeFetchWithTimeout((signal) =>
       searchVendors(
         { sortBy: 'rating', limit: 8 },
-        { next: { revalidate: 60 } },
+        { next: { revalidate: 60 }, signal },
       ),
     ),
-    safeFetch(
+    safeFetchWithTimeout((signal) =>
       searchVendors(
         { communityFavourite: true, sortBy: 'rating', limit: 3 },
-        { next: { revalidate: 60 } },
+        { next: { revalidate: 60 }, signal },
       ),
     ),
   ]);
