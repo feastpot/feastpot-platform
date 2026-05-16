@@ -1,0 +1,251 @@
+You are a Next.js 15 front-end engineer. Build the vendor sign-in page to exactly
+match Image 2, panel 3 — "Vendor Sign In".
+
+FROM THE DESIGN:
+Same two-column pattern as customer sign-in but for vendors.
+
+LEFT PANEL (dark green #1E7B34):
+  - Feastpot logo (white)
+  - "Welcome back, vendor" heading (white, bold)
+  - Subtext: "Log in to manage orders, update your menu, and grow your food business."
+  - Yellow underline decoration
+  - 3 benefit rows with icon circles:
+    📋 Manage orders — View and manage incoming orders
+    ✏️ Update your menu — Add dishes, edit prices, update availability
+    💳 Track payouts — See your earnings and payout history
+  - Bottom: food/spice photography image
+
+RIGHT PANEL (white):
+  - "Sign in to your vendor account" heading
+  - Email input (placeholder: you@domain.com)
+  - Password input with eye toggle
+  - Remember me checkbox + Forgot password? link
+  - "Sign in" green full-width button
+  - "or" divider
+  - "Request access" outlined button (for new vendors — links to register)
+  - "New to FeastPot? Register interest" footer
+  - "💬 Need help? Contact vendor support" link at bottom (in green)
+
+FILE: apps/vendor/src/(auth)/sign-in/page.tsx
+
+════════════════════════════════════════════════════════
+IMPLEMENTATION
+════════════════════════════════════════════════════════
+
+'use client'
+import { useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import Image from 'next/image'
+import Link from 'next/link'
+import { Eye, EyeOff } from 'lucide-react'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+
+const VENDOR_BENEFITS = [
+  { icon: '📋', label: 'Manage orders',   sub: 'View and manage incoming orders'               },
+  { icon: '✏️', label: 'Update your menu', sub: 'Add dishes, edit prices, update availability'  },
+  { icon: '💳', label: 'Track payouts',   sub: 'See your earnings and payout history'           },
+]
+
+export default function VendorSignInPage() {
+  const router       = useRouter()
+  const searchParams = useSearchParams()
+  const supabase     = createClientComponentClient()
+  const next         = searchParams.get('next') || '/dashboard'
+
+  const [email, setEmail]           = useState('')
+  const [password, setPassword]     = useState('')
+  const [showPwd, setShowPwd]       = useState(false)
+  const [rememberMe, setRememberMe] = useState(true)
+  const [loading, setLoading]       = useState(false)
+  const [error, setError]           = useState('')
+
+  const handleSignIn = async () => {
+    if (!email || !password) { setError('Please enter your email and password'); return }
+    setLoading(true); setError('')
+    const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password })
+    if (authError) { setError('Invalid email or password.'); setLoading(false); return }
+
+    // Verify the signed-in user has vendor role
+    const userRole = data.user?.user_metadata?.role
+    if (userRole !== 'vendor' && userRole !== 'admin') {
+      await supabase.auth.signOut()
+      setError('This account does not have vendor access. Please use the customer sign-in.')
+      setLoading(false)
+      return
+    }
+
+    const safeDest = next.startsWith('/') && !next.startsWith('//') ? next : '/dashboard'
+    router.replace(safeDest)
+  }
+
+  return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'stretch' }}>
+      {/* LEFT — green panel */}
+      <div style={{
+        width: '42%', background: '#1E7B34', padding: '48px 40px',
+        display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+      }}>
+        <div>
+          <Image src="/images/feastpot-logo.svg" alt="Feastpot" width={130} height={34}
+            style={{ filter: 'brightness(0) invert(1)', marginBottom: '32px' }} />
+
+          <h1 style={{ fontSize: '34px', fontWeight: 800, color: 'white',
+            lineHeight: 1.2, marginBottom: '8px' }}>
+            Welcome back,<br />vendor
+          </h1>
+          <div style={{ width: '60px', height: '3px', background: '#F5A623',
+            borderRadius: '2px', marginBottom: '16px' }} />
+          <p style={{ fontSize: '15px', color: 'rgba(255,255,255,0.8)',
+            lineHeight: 1.65, marginBottom: '32px' }}>
+            Log in to manage orders, update your menu,
+            and grow your food business.
+          </p>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+            {VENDOR_BENEFITS.map(b => (
+              <div key={b.label} style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                <div style={{
+                  width: '38px', height: '38px', borderRadius: '10px',
+                  background: 'rgba(255,255,255,0.15)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '18px', flexShrink: 0,
+                }}>{b.icon}</div>
+                <div>
+                  <div style={{ fontSize: '14px', fontWeight: 700, color: 'white' }}>{b.label}</div>
+                  <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.65)' }}>{b.sub}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Food/spice image at bottom */}
+        <div style={{
+          width: '260px', height: '200px', borderRadius: '50% 50% 0 50%',
+          overflow: 'hidden', background: 'rgba(255,255,255,0.1)',
+          marginTop: '32px', alignSelf: 'center',
+        }}>
+          <div style={{ width: '100%', height: '100%',
+            background: 'linear-gradient(135deg,#F5A623,#E8220A)', opacity: 0.7 }} />
+        </div>
+      </div>
+
+      {/* RIGHT — sign in form */}
+      <div style={{
+        flex: 1, display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+        padding: '48px 40px', background: 'white',
+      }}>
+        <div style={{ width: '100%', maxWidth: '380px' }}>
+          <h2 style={{ fontSize: '22px', fontWeight: 800, color: '#1A1A1A', marginBottom: '24px' }}>
+            Sign in to your vendor account
+          </h2>
+
+          {error && (
+            <div style={{ background: '#FDECEA', borderRadius: '8px', padding: '12px',
+              marginBottom: '16px', fontSize: '13px', color: '#E8220A' }}>{error}</div>
+          )}
+
+          {/* Email */}
+          <div style={{ marginBottom: '14px' }}>
+            <label style={{ display: 'block', fontSize: '13px', fontWeight: 500,
+              color: '#1A1A1A', marginBottom: '6px' }}>Email</label>
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+              placeholder="you@domain.com"
+              onKeyDown={e => e.key === 'Enter' && handleSignIn()}
+              style={{
+                width: '100%', padding: '12px 14px', borderRadius: '8px',
+                border: '1.5px solid #E8E8E8', fontSize: '14px',
+                fontFamily: 'DM Sans, sans-serif', outline: 'none', color: '#1A1A1A',
+              }} />
+          </div>
+
+          {/* Password */}
+          <div style={{ marginBottom: '14px' }}>
+            <label style={{ display: 'block', fontSize: '13px', fontWeight: 500,
+              color: '#1A1A1A', marginBottom: '6px' }}>Password</label>
+            <div style={{ position: 'relative' }}>
+              <input type={showPwd ? 'text' : 'password'} value={password}
+                onChange={e => setPassword(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleSignIn()}
+                style={{
+                  width: '100%', padding: '12px 44px 12px 14px', borderRadius: '8px',
+                  border: '1.5px solid #E8E8E8', fontSize: '14px',
+                  fontFamily: 'DM Sans, sans-serif', outline: 'none', color: '#1A1A1A',
+                }} />
+              <button onClick={() => setShowPwd(v => !v)} type="button" style={{
+                position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)',
+                background: 'none', border: 'none', cursor: 'pointer', color: '#999999',
+              }}>
+                {showPwd ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
+          </div>
+
+          {/* Remember + forgot */}
+          <div style={{ display: 'flex', alignItems: 'center',
+            justifyContent: 'space-between', marginBottom: '20px' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+              <input type="checkbox" checked={rememberMe}
+                onChange={e => setRememberMe(e.target.checked)}
+                style={{ accentColor: '#1E7B34', width: '16px', height: '16px' }} />
+              <span style={{ fontSize: '13px', color: '#1A1A1A' }}>Remember me</span>
+            </label>
+            <Link href="/forgot-password"
+              style={{ fontSize: '13px', color: '#1E7B34', fontWeight: 600, textDecoration: 'none' }}>
+              Forgot password?
+            </Link>
+          </div>
+
+          {/* Sign in */}
+          <button onClick={handleSignIn} disabled={loading}
+            style={{
+              width: '100%', padding: '15px', borderRadius: '8px', border: 'none',
+              background: loading ? '#E8E8E8' : '#1E7B34', color: 'white',
+              fontSize: '15px', fontWeight: 700, cursor: loading ? 'default' : 'pointer',
+              marginBottom: '14px', fontFamily: 'DM Sans, sans-serif',
+            }}>
+            {loading ? 'Signing in...' : 'Sign in'}
+          </button>
+
+          <div style={{ textAlign: 'center', fontSize: '13px', color: '#999999', marginBottom: '14px' }}>or</div>
+
+          {/* Request access */}
+          <Link href="/onboarding/register"
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: '100%', padding: '13px', borderRadius: '8px',
+              border: '1.5px solid #E8E8E8', background: 'white',
+              fontSize: '14px', fontWeight: 500, textDecoration: 'none', color: '#1A1A1A',
+            }}>
+            Request access
+          </Link>
+
+          <p style={{ textAlign: 'center', fontSize: '13px', color: '#666666', marginTop: '16px' }}>
+            New to FeastPot?{' '}
+            <Link href="/onboarding/register"
+              style={{ color: '#1E7B34', fontWeight: 600, textDecoration: 'none' }}>
+              Register interest
+            </Link>
+          </p>
+
+          <div style={{ textAlign: 'center', marginTop: '24px', paddingTop: '16px',
+            borderTop: '1px solid #E8E8E8' }}>
+            <a href="mailto:vendors@feastpot.co.uk"
+              style={{ fontSize: '13px', color: '#1E7B34', fontWeight: 500, textDecoration: 'none',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+              💬 Need help? Contact <span style={{ fontWeight: 700 }}>vendor support</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+Also create the vendor forgot password page:
+FILE: apps/vendor/src/(auth)/forgot-password/page.tsx
+Same pattern as customer forgot password but with vendor branding.
+After reset link sent: "Check your email. We'll send you a link to reset your password."
+
+Run: npm run typecheck --filter=@feastpot/vendor. Output all files in full.
