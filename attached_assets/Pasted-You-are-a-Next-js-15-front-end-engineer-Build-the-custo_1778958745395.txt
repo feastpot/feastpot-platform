@@ -1,0 +1,202 @@
+You are a Next.js 15 front-end engineer. Build the customer registration CTA page
+to exactly match Image 1, panel 1 — "User Registration CTA".
+
+ARCHITECTURE CONTEXT:
+This is a marketing/conversion page at / or /welcome.
+Its sole job: convert a visitor into a registered customer.
+Two CTAs: "Create account" (primary green) and "Sign in" (secondary outlined).
+Below: 4 benefit cards, then a social proof strip.
+
+FILE: apps/web/src/app/(auth)/register/page.tsx
+(The full page including the landing hero section above the form)
+
+Also update: apps/web/src/app/page.tsx to show this CTA for unauthenticated users.
+
+════════════════════════════════════════════════════════
+STEP 1 — Desktop registration CTA (top section)
+════════════════════════════════════════════════════════
+
+FROM THE DESIGN:
+- White background page
+- Top nav: logo left, nav links centre (Explore, How it works, Become a cook, FeastPass),
+  bell icon + basket icon + "Sign in" green button right
+- Hero: left side text, right side food photo (circular/rounded crop)
+- Heading (large, bold, black):
+  "Create your account and
+   order the best of
+   African & Caribbean food"
+  "African & Caribbean" is in green (#1E7B34)
+- Gold/yellow horizontal underline decoration below the heading (3px, 60px wide, #F5A623)
+- Subtext (grey): "Faster checkout, saved addresses, order tracking,
+  exclusive offers, loyalty rewards and referral benefits."
+- Two CTA buttons side by side:
+  Button 1: "Create account" — filled green #1E7B34, white text, rounded 8px, padding 12px 24px
+  Button 2: "Sign in" — outlined, green border + text, same size
+- Below buttons: "🛡️ Trusted by 50,000+ happy food lovers across the UK" (small grey text)
+- Food photo: right side, multiple food dishes in a diagonal/stacked composition
+  with small red chilli pepper decorations around it. Use a warm food photography style.
+
+<section style={{ background: 'white', minHeight: '100vh' }}>
+  {/* Top nav */}
+  <nav style={{
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+    padding: '16px 48px', borderBottom: '1px solid #E8E8E8',
+    position: 'sticky', top: 0, background: 'white', zIndex: 50,
+  }}>
+    <Image src="/images/feastpot-logo.svg" alt="Feastpot" width={130} height={34} />
+    <div style={{ display: 'flex', gap: '32px' }}>
+      {['Explore', 'How it works', 'Become a cook', 'FeastPass'].map(item => (
+        <a key={item} href="#" style={{ fontSize: '14px', fontWeight: 500, color: '#1A1A1A', textDecoration: 'none' }}>{item}</a>
+      ))}
+    </div>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+      <Bell size={20} color="#1A1A1A" style={{ cursor: 'pointer' }} />
+      <ShoppingBag size={20} color="#1A1A1A" style={{ cursor: 'pointer' }} />
+      <a href="/sign-in" style={{
+        padding: '9px 20px', borderRadius: '8px',
+        background: '#1E7B34', color: 'white',
+        fontSize: '14px', fontWeight: 600, textDecoration: 'none',
+      }}>Sign in</a>
+    </div>
+  </nav>
+
+  {/* Hero */}
+  <div style={{
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+    padding: '60px 48px', maxWidth: '1200px', margin: '0 auto', gap: '48px',
+  }}>
+    {/* Left: copy */}
+    <div style={{ flex: 1 }}>
+      <h1 style={{
+        fontSize: 'clamp(32px, 4vw, 52px)', fontWeight: 800, color: '#1A1A1A',
+        lineHeight: 1.15, marginBottom: '12px', fontFamily: 'DM Sans, sans-serif',
+      }}>
+        Create your account and<br />
+        order the best of<br />
+        <span style={{ color: '#1E7B34' }}>African &amp; Caribbean</span> food
+      </h1>
+
+      {/* Yellow underline decoration */}
+      <div style={{ width: '60px', height: '3px', background: '#F5A623', marginBottom: '20px', borderRadius: '2px' }} />
+
+      <p style={{ fontSize: '16px', color: '#666666', lineHeight: 1.6, marginBottom: '28px', maxWidth: '480px' }}>
+        Faster checkout, saved addresses, order tracking, exclusive offers,
+        loyalty rewards and referral benefits.
+      </p>
+
+      <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
+        <a href="/register/create-account" style={{
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          padding: '14px 28px', borderRadius: '8px',
+          background: '#1E7B34', color: 'white',
+          fontSize: '15px', fontWeight: 700, textDecoration: 'none',
+        }}>Create account</a>
+        <a href="/sign-in" style={{
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          padding: '14px 28px', borderRadius: '8px',
+          background: 'white', color: '#1E7B34',
+          border: '1.5px solid #1E7B34',
+          fontSize: '15px', fontWeight: 700, textDecoration: 'none',
+        }}>Sign in</a>
+      </div>
+
+      <p style={{ fontSize: '13px', color: '#999999', display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <span>🛡️</span> Trusted by 50,000+ happy food lovers across the UK
+      </p>
+    </div>
+
+    {/* Right: food photography */}
+    <div style={{
+      flexShrink: 0, width: '420px', height: '380px', position: 'relative',
+    }}>
+      {/* Main food image — circular crop */}
+      <div style={{
+        width: '340px', height: '340px', borderRadius: '50%',
+        overflow: 'hidden', background: '#F4F4F4',
+        position: 'absolute', top: '20px', right: 0,
+        boxShadow: '0 8px 40px rgba(0,0,0,0.12)',
+      }}>
+        {/* Use next/image with a Supabase food photo, or gradient placeholder */}
+        <div style={{ width: '100%', height: '100%',
+          background: 'linear-gradient(135deg,#F5A623,#E8220A)',
+          opacity: 0.15 }} />
+      </div>
+      {/* Decorative chilli peppers — small red shapes */}
+      {[{top:'10px',left:'40px',rotate:'-30deg'},{top:'60px',right:'-10px',rotate:'45deg'},{bottom:'40px',left:'10px',rotate:'20deg'}].map((pos,i) => (
+        <span key={i} style={{
+          position: 'absolute', fontSize: '24px',
+          ...pos, transform: `rotate(${pos.rotate})`,
+        }}>🌶️</span>
+      ))}
+    </div>
+  </div>
+
+  {/* 4 feature cards */}
+  <div style={{
+    display: 'grid', gridTemplateColumns: 'repeat(4,1fr)',
+    gap: '16px', padding: '0 48px 40px', maxWidth: '1200px', margin: '0 auto',
+  }}>
+    {[
+      { icon: '⚡', label: 'Faster checkout', sub: 'Checkout in seconds with saved details' },
+      { icon: '📍', label: 'Track every order', sub: 'Live updates from kitchen to door' },
+      { icon: '❤️', label: 'Save favourites', sub: 'Build your list and reorder easily' },
+      { icon: '⭐', label: 'Earn FeastPoints', sub: 'Get rewarded for every order & invite' },
+    ].map(f => (
+      <div key={f.label} style={{
+        background: '#F4F4F4', borderRadius: '14px', padding: '20px',
+        display: 'flex', flexDirection: 'column', gap: '8px',
+      }}>
+        <span style={{ fontSize: '28px' }}>{f.icon}</span>
+        <span style={{ fontSize: '15px', fontWeight: 700, color: '#1A1A1A' }}>{f.label}</span>
+        <span style={{ fontSize: '13px', color: '#666666', lineHeight: 1.5 }}>{f.sub}</span>
+      </div>
+    ))}
+  </div>
+
+  {/* Social proof strip */}
+  <div style={{
+    display: 'grid', gridTemplateColumns: 'repeat(4,1fr)',
+    gap: '24px', padding: '24px 48px', maxWidth: '1200px', margin: '0 auto',
+    borderTop: '1px solid #E8E8E8',
+  }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+      {/* Avatar cluster */}
+      <div style={{ display: 'flex' }}>
+        {['#1E7B34','#F5A623','#E8220A','#1A1A1A'].map((c,i) => (
+          <div key={i} style={{
+            width: '32px', height: '32px', borderRadius: '50%',
+            background: c, border: '2px solid white',
+            marginLeft: i > 0 ? '-8px' : '0',
+          }} />
+        ))}
+      </div>
+      <div>
+        <div style={{ fontSize: '15px', fontWeight: 700 }}>50,000+</div>
+        <div style={{ fontSize: '12px', color: '#666666' }}>Happy food lovers</div>
+      </div>
+    </div>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+      <span style={{ fontSize: '28px' }}>⭐</span>
+      <div>
+        <div style={{ fontSize: '15px', fontWeight: 700, color: '#F5A623' }}>★★★★★ 4.8/5</div>
+        <div style={{ fontSize: '12px', color: '#666666' }}>App Store rating</div>
+      </div>
+    </div>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+      <span style={{ fontSize: '28px' }}>🛡️</span>
+      <div>
+        <div style={{ fontSize: '15px', fontWeight: 700 }}>Secure &amp; safe</div>
+        <div style={{ fontSize: '12px', color: '#666666' }}>Your data is protected</div>
+      </div>
+    </div>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+      <span style={{ fontSize: '28px' }}>🚚</span>
+      <div>
+        <div style={{ fontSize: '15px', fontWeight: 700 }}>Fast delivery</div>
+        <div style={{ fontSize: '12px', color: '#666666' }}>From local kitchens</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+Run: npm run typecheck --filter=@feastpot/web. Output the full page file.

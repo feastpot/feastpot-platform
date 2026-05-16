@@ -1,245 +1,310 @@
-'use client';
-
-import { zodResolver } from '@hookform/resolvers/zod';
-import { RegisterSchema, type RegisterDto } from '@feastpot/types';
+import { Bell, Heart, MapPin, Shield, ShoppingBag, Star, Truck, Zap } from 'lucide-react';
+import type { Metadata } from 'next';
+import Image from 'next/image';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
-import { useForm } from 'react-hook-form';
 
-import { PageShell } from '@/components/layout/page-shell';
-import { apiRequest, ApiError } from '@/lib/api/client';
-import { createClient } from '@/lib/supabase/client';
+export const metadata: Metadata = {
+  title: 'Create your Feastpot account',
+  description:
+    'Order African & Caribbean food from local cooks across the UK. Faster checkout, saved addresses, order tracking, loyalty rewards.',
+};
 
 /**
- * Form schema is the shared `RegisterSchema` from @feastpot/types so client +
- * API agree byte-for-byte. We extend it with a UI-only `referralCode` field
- * (Zod schema doesn't include it because the API endpoint hasn't shipped yet).
+ * Customer registration CTA landing — the "panel 1" wireframe.
+ *
+ * This is a conversion page, not the actual sign-up form. The real form
+ * lives at `/register/create-account` (it was the page that previously
+ * sat at /register; we moved it down a level so this CTA can take the
+ * top slot without disrupting any existing deep links — both Supabase
+ * email-confirmation callbacks and the existing /sign-in "Create an
+ * account" link go through here first).
+ *
+ * Layout: desktop = 12-col grid with a 7/5 split (copy left, food photo
+ * right). Mobile = single column, photo first then copy then features.
+ * The page intentionally bypasses the customer PWA's bottom-nav +
+ * top-nav (it has its own marketing nav with the Sign in button) so it
+ * reads as a marketing surface and not an in-app screen.
  */
-type FormValues = RegisterDto & { referralCode?: string };
+export default function RegisterCtaPage() {
+  return (
+    <div className="min-h-screen bg-white">
+      <MarketingNav />
 
-export default function RegisterPage() {
-  const [submitted, setSubmitted] = useState(false);
-  const [serverError, setServerError] = useState<string | null>(null);
+      <main className="mx-auto max-w-6xl px-5 pb-12 pt-8 sm:px-8 lg:pt-14">
+        {/* Hero */}
+        <section className="grid items-center gap-10 lg:grid-cols-12 lg:gap-12">
+          <div className="order-2 lg:order-1 lg:col-span-7">
+            <h1 className="font-display text-3xl font-black leading-[1.1] tracking-tight text-charcoal sm:text-4xl lg:text-[52px]">
+              Create your account and
+              <br />
+              order the best of
+              <br />
+              <span className="text-brand">African &amp; Caribbean</span> food
+            </h1>
 
-  const form = useForm<FormValues>({
-    resolver: zodResolver(RegisterSchema),
-    defaultValues: {
-      email: '',
-      password: '',
-      firstName: '',
-      lastName: '',
-      marketingOptIn: false,
-    },
-  });
+            {/* Plantain underline accent — matches the wireframe's gold rule */}
+            <div
+              className="mt-4 h-[3px] w-16 rounded-full bg-plantain"
+              aria-hidden
+            />
 
-  // Pull a referral code that /join saved into localStorage so it survives
-  // the email-confirmation round-trip — and clear it so a later signup on
-  // the same device doesn't accidentally reuse a stale code.
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      const stored = window.localStorage.getItem('feastpot.referral.v1');
-      if (stored) {
-        form.setValue('referralCode', stored);
-      }
-    } catch {
-      /* localStorage unavailable */
-    }
-  }, [form]);
+            <p className="mt-5 max-w-xl text-base font-medium leading-relaxed text-charcoal-mid">
+              Faster checkout, saved addresses, order tracking, exclusive
+              offers, loyalty rewards and referral benefits.
+            </p>
 
-  const onSubmit = async (values: FormValues) => {
-    setServerError(null);
-    const supabase = createClient();
+            <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+              <Link
+                href="/register/create-account"
+                className="inline-flex items-center justify-center rounded-xl bg-brand px-7 py-3.5 text-sm font-bold text-white shadow-card transition-colors hover:bg-brand-dark"
+              >
+                Create account
+              </Link>
+              <Link
+                href="/sign-in"
+                className="inline-flex items-center justify-center rounded-xl border-2 border-brand bg-white px-7 py-3.5 text-sm font-bold text-brand transition-colors hover:bg-brand-light"
+              >
+                Sign in
+              </Link>
+            </div>
 
-    // Step 1: create the Supabase Auth user (sends confirmation email).
-    const { data, error } = await supabase.auth.signUp({
-      email: values.email,
-      password: values.password,
-      options: {
-        // Surfaced back via the user_metadata payload so the API sync route
-        // can copy it into public.users without a second round trip.
-        data: {
-          firstName: values.firstName,
-          lastName: values.lastName,
-          phone: values.phone,
-          marketingOptIn: values.marketingOptIn,
-          referralCode: values.referralCode,
-        },
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-      },
-    });
-    if (error) {
-      setServerError(error.message);
-      return;
-    }
+            <p className="mt-4 flex items-center gap-2 text-xs font-medium text-charcoal-mid">
+              <Shield className="h-4 w-4 text-brand" aria-hidden />
+              Trusted by 50,000+ happy food lovers across the UK
+            </p>
+          </div>
 
-    // Step 2: best-effort sync to our own users table. Skipped if Supabase
-    // didn't return a session yet (typical for "confirm email" flows) — the
-    // /auth/callback route handler will sync once the user clicks the link.
-    if (data.session) {
-      try {
-        await apiRequest('/users/sync', {
-          method: 'POST',
-          accessToken: data.session.access_token,
-          body: {
-            firstName: values.firstName,
-            lastName: values.lastName,
-            phone: values.phone,
-            marketingOptIn: values.marketingOptIn,
-            referralCode: values.referralCode,
-          },
-        });
-      } catch (e) {
-        // BACKEND GAP: /v1/users/sync is not implemented yet. Don't fail the
-        // signup just because the mirror route is missing — the user is
-        // authenticated and we can backfill later. We log so it's visible in
-        // browser devtools during local dev.
-        if (e instanceof ApiError && e.status === 404) {
-          console.warn('[register] /v1/users/sync not yet implemented — skipping mirror.');
-        } else {
-          throw e;
-        }
-      }
-    }
+          {/* Right: food photography in a circular crop with chilli accents */}
+          <div className="order-1 mx-auto lg:order-2 lg:col-span-5">
+            <div className="relative aspect-square w-full max-w-[360px] sm:max-w-[420px]">
+              <div className="absolute inset-2 overflow-hidden rounded-full bg-plantain/15 shadow-[0_8px_40px_rgba(0,0,0,0.12)]">
+                <Image
+                  src="/images/auth-hero-food.png"
+                  alt="A spread of African and Caribbean dishes — jollof rice, jerk chicken, plantain curry"
+                  fill
+                  sizes="(max-width: 1024px) 360px, 420px"
+                  className="object-cover"
+                  priority
+                />
+              </div>
+              {/* Decorative scotch-bonnet accents — pure CSS so we don't
+                  ship another asset just for three little dots. */}
+              <ChilliAccent className="absolute -left-1 top-6 h-7 w-7 -rotate-[28deg]" />
+              <ChilliAccent className="absolute right-0 top-16 h-6 w-6 rotate-[42deg]" />
+              <ChilliAccent className="absolute bottom-10 left-4 h-6 w-6 rotate-[18deg]" />
+            </div>
+          </div>
+        </section>
 
-    setSubmitted(true);
-  };
+        {/* 4 benefit cards */}
+        <section className="mt-10 grid gap-3 sm:grid-cols-2 lg:mt-14 lg:grid-cols-4">
+          {[
+            {
+              Icon: Zap,
+              label: 'Faster checkout',
+              sub: 'Checkout in seconds with saved details',
+            },
+            {
+              Icon: MapPin,
+              label: 'Track every order',
+              sub: 'Live updates from kitchen to door',
+            },
+            {
+              Icon: Heart,
+              label: 'Save favourites',
+              sub: 'Build your list and reorder easily',
+            },
+            {
+              Icon: Star,
+              label: 'Earn FeastPoints',
+              sub: 'Get rewarded for every order & invite',
+            },
+          ].map(({ Icon, label, sub }) => (
+            <div
+              key={label}
+              className="flex flex-col gap-2 rounded-2xl border border-cream-deep bg-cream-warm/60 p-5"
+            >
+              <span
+                className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-light"
+                aria-hidden
+              >
+                <Icon className="h-5 w-5 text-brand" />
+              </span>
+              <p className="font-display text-[15px] font-black text-charcoal">
+                {label}
+              </p>
+              <p className="text-[13px] font-medium leading-snug text-charcoal-mid">
+                {sub}
+              </p>
+            </div>
+          ))}
+        </section>
 
-  if (submitted) {
-    return (
-      <PageShell>
-        <section className="space-y-4 py-10 text-center">
-          <h1 className="font-display text-2xl font-black tracking-tight text-charcoal">Check your email</h1>
-          <p className="text-sm text-charcoal-mid">
-            We&rsquo;ve sent a confirmation link to <strong>{form.getValues('email')}</strong>.
-            Open it on this device to finish creating your account.
-          </p>
+        {/* Social-proof strip */}
+        <section className="mt-8 grid gap-5 border-t border-cream-deep pt-6 sm:grid-cols-2 lg:grid-cols-4 lg:gap-8">
+          <ProofItem
+            visual={
+              <div className="flex">
+                {['bg-brand', 'bg-plantain', 'bg-scotch', 'bg-charcoal'].map(
+                  (c, i) => (
+                    <span
+                      key={c}
+                      className={`h-8 w-8 rounded-full border-2 border-white ${c} ${
+                        i > 0 ? '-ml-2' : ''
+                      }`}
+                      aria-hidden
+                    />
+                  ),
+                )}
+              </div>
+            }
+            title="50,000+"
+            subtitle="Happy food lovers"
+          />
+          <ProofItem
+            visual={
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-plantain/15">
+                <Star className="h-5 w-5 fill-plantain text-plantain" />
+              </span>
+            }
+            title={
+              <span className="text-plantain">★★★★★ <span className="text-charcoal">4.8/5</span></span>
+            }
+            subtitle="App Store rating"
+          />
+          <ProofItem
+            visual={
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-light">
+                <Shield className="h-5 w-5 text-brand" />
+              </span>
+            }
+            title="Secure & safe"
+            subtitle="Your data is protected"
+          />
+          <ProofItem
+            visual={
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-teal-light">
+                <Truck className="h-5 w-5 text-teal" />
+              </span>
+            }
+            title="Fast delivery"
+            subtitle="From local kitchens"
+          />
+        </section>
+      </main>
+    </div>
+  );
+}
+
+/**
+ * Marketing top nav for the CTA surface. Deliberately separate from the
+ * customer PWA's TopNav (which assumes an in-app context with back
+ * chevrons and basket state) — this nav is conversion-first and only
+ * surfaces the Sign in button + a handful of marketing links.
+ */
+function MarketingNav() {
+  const links = [
+    { label: 'Explore', href: '/vendors' },
+    { label: 'How it works', href: '/help' },
+    { label: 'Become a cook', href: '/vendor/register-interest' },
+    { label: 'FeastPass', href: '/feastpass' },
+  ];
+  return (
+    <nav className="sticky top-0 z-50 border-b border-cream-deep bg-white/95 backdrop-blur">
+      <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-3 sm:px-8">
+        <Link href="/" aria-label="Feastpot home" className="flex items-center">
+          <Image
+            src="/images/feastpot-logo.png"
+            alt="Feastpot"
+            width={317}
+            height={100}
+            className="h-8 w-auto sm:h-9"
+            priority
+          />
+        </Link>
+        <ul className="hidden items-center gap-7 lg:flex">
+          {links.map((l) => (
+            <li key={l.href}>
+              <Link
+                href={l.href}
+                className="text-sm font-semibold text-charcoal hover:text-brand"
+              >
+                {l.label}
+              </Link>
+            </li>
+          ))}
+        </ul>
+        <div className="flex items-center gap-3 sm:gap-4">
+          <button
+            type="button"
+            aria-label="Notifications"
+            className="hidden text-charcoal hover:text-brand sm:block"
+          >
+            <Bell className="h-5 w-5" />
+          </button>
+          <Link
+            href="/basket"
+            aria-label="Basket"
+            className="hidden text-charcoal hover:text-brand sm:block"
+          >
+            <ShoppingBag className="h-5 w-5" />
+          </Link>
           <Link
             href="/sign-in"
-            className="inline-block rounded-xl border border-cream-deep bg-white px-4 py-2.5 text-sm font-bold text-charcoal hover:bg-cream"
+            className="rounded-lg bg-brand px-4 py-2 text-sm font-bold text-white hover:bg-brand-dark sm:px-5 sm:py-2.5"
           >
-            Back to sign in
+            Sign in
           </Link>
-        </section>
-      </PageShell>
-    );
-  }
+        </div>
+      </div>
+    </nav>
+  );
+}
 
+function ProofItem({
+  visual,
+  title,
+  subtitle,
+}: {
+  visual: React.ReactNode;
+  title: React.ReactNode;
+  subtitle: string;
+}) {
   return (
-    <PageShell>
-      <section className="space-y-4 py-6">
-        <header className="space-y-1">
-          <h1 className="font-display text-2xl font-black tracking-tight text-charcoal">Create your account</h1>
-          <p className="text-sm text-charcoal-mid">Order from local cooks in minutes.</p>
-        </header>
+    <div className="flex items-center gap-3">
+      {visual}
+      <div className="min-w-0">
+        <div className="font-display text-[15px] font-black text-charcoal">
+          {title}
+        </div>
+        <div className="text-xs font-medium text-charcoal-mid">{subtitle}</div>
+      </div>
+    </div>
+  );
+}
 
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3" noValidate>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label htmlFor="firstName" className="mb-1 block text-sm font-bold text-charcoal">First name</label>
-              <input
-                id="firstName"
-                autoComplete="given-name"
-                {...form.register('firstName')}
-                className="w-full rounded-md border border-cream-deep bg-white px-3 py-2.5 text-sm font-medium text-charcoal placeholder:text-charcoal-mid/50 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
-              />
-              {form.formState.errors.firstName && (
-                <p className="mt-1 text-xs text-scotch">{form.formState.errors.firstName.message}</p>
-              )}
-            </div>
-            <div>
-              <label htmlFor="lastName" className="mb-1 block text-sm font-bold text-charcoal">Last name</label>
-              <input
-                id="lastName"
-                autoComplete="family-name"
-                {...form.register('lastName')}
-                className="w-full rounded-md border border-cream-deep bg-white px-3 py-2.5 text-sm font-medium text-charcoal placeholder:text-charcoal-mid/50 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
-              />
-              {form.formState.errors.lastName && (
-                <p className="mt-1 text-xs text-scotch">{form.formState.errors.lastName.message}</p>
-              )}
-            </div>
-          </div>
-
-          <div>
-            <label htmlFor="email" className="mb-1 block text-sm font-bold text-charcoal">Email</label>
-            <input
-              id="email"
-              type="email"
-              autoComplete="email"
-              {...form.register('email')}
-              className="w-full rounded-md border border-cream-deep bg-white px-3 py-2.5 text-sm font-medium text-charcoal placeholder:text-charcoal-mid/50 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
-            />
-            {form.formState.errors.email && (
-              <p className="mt-1 text-xs text-scotch">{form.formState.errors.email.message}</p>
-            )}
-          </div>
-
-          <div>
-            <label htmlFor="password" className="mb-1 block text-sm font-bold text-charcoal">Password (min 8 chars)</label>
-            <input
-              id="password"
-              type="password"
-              autoComplete="new-password"
-              {...form.register('password')}
-              className="w-full rounded-md border border-cream-deep bg-white px-3 py-2.5 text-sm font-medium text-charcoal placeholder:text-charcoal-mid/50 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
-            />
-            {form.formState.errors.password && (
-              <p className="mt-1 text-xs text-scotch">{form.formState.errors.password.message}</p>
-            )}
-          </div>
-
-          <div>
-            <label htmlFor="phone" className="mb-1 block text-sm font-bold text-charcoal">Phone (optional)</label>
-            <input
-              id="phone"
-              type="tel"
-              autoComplete="tel"
-              placeholder="+44 7700 900123"
-              {...form.register('phone')}
-              className="w-full rounded-md border border-cream-deep bg-white px-3 py-2.5 text-sm font-medium text-charcoal placeholder:text-charcoal-mid/50 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
-            />
-            {form.formState.errors.phone && (
-              <p className="mt-1 text-xs text-scotch">{form.formState.errors.phone.message}</p>
-            )}
-          </div>
-
-          <div>
-            <label htmlFor="referralCode" className="mb-1 block text-sm font-bold text-charcoal">Referral code (optional)</label>
-            <input
-              id="referralCode"
-              {...form.register('referralCode')}
-              className="w-full rounded-md border border-cream-deep bg-white px-3 py-2.5 text-sm font-medium text-charcoal placeholder:text-charcoal-mid/50 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
-            />
-          </div>
-
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              {...form.register('marketingOptIn')}
-              className="h-4 w-4 rounded border-cream-deep accent-brand"
-            />
-            <span>Send me occasional offers and new vendor news.</span>
-          </label>
-
-          {serverError && <p className="text-sm text-scotch">{serverError}</p>}
-
-          <button
-            type="submit"
-            disabled={form.formState.isSubmitting}
-            className="w-full rounded-xl bg-brand py-3 text-sm font-bold text-white hover:bg-brand-dark disabled:opacity-50"
-          >
-            {form.formState.isSubmitting ? 'Creating account…' : 'Create account'}
-          </button>
-
-          <p className="text-center text-sm text-charcoal-mid">
-            Already have an account?{' '}
-            <Link href="/sign-in" className="font-bold text-brand hover:underline">
-              Sign in
-            </Link>
-          </p>
-        </form>
-      </section>
-    </PageShell>
+/**
+ * Tiny inline SVG scotch-bonnet chilli — three of these are scattered
+ * around the food photo as decorative accents. Inline avoids a network
+ * round-trip for a 1KB shape and keeps the colour theme-controllable
+ * via `text-scotch` on the parent.
+ */
+function ChilliAccent({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      aria-hidden
+      role="presentation"
+    >
+      <path
+        d="M14 3c1.2.6 2 1.8 2 3 0 .6-.2 1-.4 1.4 2.4 1.4 4.4 4.2 4.4 7.6 0 4-3 7-7 7s-7-3-7-7c0-4.6 4-8 8-9 0-1.2-.6-2.4-.8-3 .2 0 .5 0 .8 0z"
+        className="fill-scotch"
+      />
+      <path
+        d="M14 3c.5 1 .8 1.8.8 2.4-.4-.1-.9-.2-1.4-.2-.5 0-1 .1-1.4.2.4-1.2 1-2.2 2-2.4z"
+        className="fill-brand"
+      />
+    </svg>
   );
 }

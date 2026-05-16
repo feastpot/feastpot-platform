@@ -1,0 +1,304 @@
+You are a Next.js 15 front-end engineer. Build the customer account creation form
+to exactly match Image 1, panel 2 — "Create Account".
+
+FROM THE DESIGN:
+- Two-column desktop layout:
+  Left col (~380px): "Join FeastPot today" heading, subtext, "Why join FeastPot" green card
+    with 5 green-tick bullet points
+  Right col: the actual form fields + SSO options
+- The green "Why join" card is a soft green background (#E8F5EC) with green ticks
+- Form fields: Full name, Email address, Phone number, Password (with eye toggle),
+  Confirm password (with eye toggle), Postcode / service area
+- Below fields: "Send me offers..." checkbox, "I agree to Terms of Service and Privacy Policy" checkbox
+- Primary CTA: "Create Account" — full-width green button
+- "or sign up with" divider
+- Google SSO button (white, border, Google logo)
+- Apple SSO button (white, border, Apple logo)
+- Bottom: "Already have an account? Sign in" link (Sign in in green)
+- Bottom left of card: "🔒 Your information is secure and never shared."
+
+FILE: apps/web/src/(auth)/register/create-account/page.tsx
+
+════════════════════════════════════════════════════════
+IMPLEMENTATION
+════════════════════════════════════════════════════════
+
+'use client'
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import Image from 'next/image'
+import Link from 'next/link'
+import { Eye, EyeOff } from 'lucide-react'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+
+const WHY_JOIN = [
+  'Save addresses for faster checkout',
+  'Reorder your favourites in one tap',
+  'Earn FeastPoints on every order',
+  'Invite friends and earn rewards',
+  'Access member-only offers & perks',
+]
+
+export default function CreateAccountPage() {
+  const router = useRouter()
+  const supabase = createClientComponentClient()
+  const [form, setForm] = useState({
+    fullName: '', email: '', phone: '', password: '',
+    confirmPassword: '', postcode: '',
+    marketingConsent: false, termsAccepted: false,
+  })
+  const [showPwd, setShowPwd]   = useState(false)
+  const [showCpwd, setShowCpwd] = useState(false)
+  const [errors, setErrors]     = useState<Record<string,string>>({})
+  const [loading, setLoading]   = useState(false)
+  const [serverError, setServerError] = useState('')
+
+  const validate = () => {
+    const e: Record<string,string> = {}
+    if (!form.fullName.trim())       e.fullName = 'Full name is required'
+    if (!form.email.includes('@'))   e.email    = 'Enter a valid email address'
+    if (form.phone.length < 10)      e.phone    = 'Enter a valid UK phone number'
+    if (form.password.length < 8)    e.password = 'Password must be at least 8 characters'
+    if (form.password !== form.confirmPassword) e.confirmPassword = 'Passwords do not match'
+    if (!form.postcode.trim())       e.postcode = 'Enter your postcode or service area'
+    if (!form.termsAccepted)         e.terms    = 'You must accept the Terms and Privacy Policy'
+    setErrors(e)
+    return Object.keys(e).length === 0
+  }
+
+  const handleSubmit = async () => {
+    if (!validate()) return
+    setLoading(true)
+    setServerError('')
+    try {
+      const { error } = await supabase.auth.signUp({
+        email:    form.email,
+        password: form.password,
+        options: {
+          data: {
+            full_name:          form.fullName,
+            phone:              form.phone,
+            postcode:           form.postcode.toUpperCase().trim(),
+            marketing_consent:  form.marketingConsent,
+            role:               'customer',
+          },
+        },
+      })
+      if (error) { setServerError(error.message); return }
+      // Call API to create the user profile
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/v1/auth/sync`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fullName: form.fullName,
+          phone:    form.phone,
+          postcode: form.postcode,
+        }),
+      })
+      router.push('/register/verify-email')
+    } catch { setServerError('Something went wrong. Please try again.') }
+    finally { setLoading(false) }
+  }
+
+  const handleGoogle = async () => {
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: `${window.location.origin}/auth/callback?next=/` },
+    })
+  }
+
+  const handleApple = async () => {
+    await supabase.auth.signInWithOAuth({
+      provider: 'apple',
+      options: { redirectTo: `${window.location.origin}/auth/callback?next=/` },
+    })
+  }
+
+  const field = (key: string, label: string, type = 'text', placeholder = '') => (
+    <div style={{ marginBottom: '14px' }}>
+      <label style={{ display: 'block', fontSize: '13px', fontWeight: 500,
+        color: '#1A1A1A', marginBottom: '6px' }}>{label}</label>
+      <input
+        type={type} value={(form as any)[key]} placeholder={placeholder}
+        onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
+        style={{
+          width: '100%', padding: '12px 14px', borderRadius: '8px',
+          border: `1.5px solid ${errors[key] ? '#E8220A' : '#E8E8E8'}`,
+          fontSize: '14px', fontFamily: 'DM Sans, sans-serif',
+          outline: 'none', color: '#1A1A1A', background: 'white',
+        }}
+      />
+      {errors[key] && <p style={{ fontSize: '12px', color: '#E8220A', marginTop: '4px' }}>{errors[key]}</p>}
+    </div>
+  )
+
+  const pwField = (key: 'password'|'confirmPassword', label: string, show: boolean, toggle: ()=>void) => (
+    <div style={{ marginBottom: '14px' }}>
+      <label style={{ display: 'block', fontSize: '13px', fontWeight: 500,
+        color: '#1A1A1A', marginBottom: '6px' }}>{label}</label>
+      <div style={{ position: 'relative' }}>
+        <input
+          type={show ? 'text' : 'password'}
+          value={form[key]}
+          placeholder={key === 'password' ? 'Create a strong password' : 'Confirm your password'}
+          onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
+          style={{
+            width: '100%', padding: '12px 44px 12px 14px', borderRadius: '8px',
+            border: `1.5px solid ${errors[key] ? '#E8220A' : '#E8E8E8'}`,
+            fontSize: '14px', fontFamily: 'DM Sans, sans-serif',
+            outline: 'none', color: '#1A1A1A',
+          }}
+        />
+        <button onClick={toggle} type="button" style={{
+          position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)',
+          background: 'none', border: 'none', cursor: 'pointer', color: '#999999',
+        }}>
+          {show ? <EyeOff size={18} /> : <Eye size={18} />}
+        </button>
+      </div>
+      {errors[key] && <p style={{ fontSize: '12px', color: '#E8220A', marginTop: '4px' }}>{errors[key]}</p>}
+    </div>
+  )
+
+  return (
+    <div style={{ minHeight: '100vh', background: '#F4F4F4', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 16px' }}>
+      {/* Logo */}
+      <div style={{ marginBottom: '32px' }}>
+        <Image src="/images/feastpot-logo.svg" alt="Feastpot" width={130} height={34} />
+      </div>
+
+      {/* Two-column card */}
+      <div style={{
+        display: 'flex', width: '100%', maxWidth: '900px',
+        background: 'white', borderRadius: '20px',
+        boxShadow: '0 4px 24px rgba(0,0,0,0.08)', overflow: 'hidden',
+      }}>
+        {/* Left: why join */}
+        <div style={{
+          width: '320px', flexShrink: 0, padding: '40px 32px',
+          background: 'white', borderRight: '1px solid #E8E8E8',
+          display: 'flex', flexDirection: 'column', justifyContent: 'center',
+        }}>
+          <h2 style={{ fontSize: '24px', fontWeight: 800, color: '#1A1A1A', marginBottom: '8px' }}>
+            Join FeastPot today
+          </h2>
+          <p style={{ fontSize: '14px', color: '#666666', lineHeight: 1.6, marginBottom: '24px' }}>
+            Create your account and unlock a world of flavour, perks and convenience.
+          </p>
+
+          {/* Why join green card */}
+          <div style={{ background: '#E8F5EC', borderRadius: '14px', padding: '20px' }}>
+            <p style={{ fontSize: '14px', fontWeight: 700, color: '#1A1A1A', marginBottom: '14px' }}>
+              Why join FeastPot
+            </p>
+            {WHY_JOIN.map(item => (
+              <div key={item} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '10px' }}>
+                <span style={{ color: '#1E7B34', flexShrink: 0, marginTop: '1px' }}>✓</span>
+                <span style={{ fontSize: '13px', color: '#1A1A1A', lineHeight: 1.5 }}>{item}</span>
+              </div>
+            ))}
+          </div>
+
+          <p style={{ fontSize: '12px', color: '#999999', marginTop: '20px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            🔒 Your information is secure and never shared.
+          </p>
+        </div>
+
+        {/* Right: form */}
+        <div style={{ flex: 1, padding: '40px 36px', overflowY: 'auto', maxHeight: '90vh' }}>
+          {serverError && (
+            <div style={{ background: '#FDECEA', borderRadius: '8px', padding: '12px',
+              marginBottom: '16px', fontSize: '13px', color: '#E8220A' }}>
+              {serverError}
+            </div>
+          )}
+
+          {field('fullName', 'Full name', 'text', 'e.g. Amara Okafor')}
+          {field('email', 'Email address', 'email', 'you@example.com')}
+          {field('phone', 'Phone number', 'tel', '07XXXXXXXX')}
+          {pwField('password', 'Password', showPwd, () => setShowPwd(v => !v))}
+          {pwField('confirmPassword', 'Confirm password', showCpwd, () => setShowCpwd(v => !v))}
+          {field('postcode', 'Postcode / service area', 'text', 'e.g. SW1A 1AA')}
+
+          {/* Checkboxes */}
+          <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '10px', cursor: 'pointer' }}>
+            <input type="checkbox" checked={form.marketingConsent}
+              onChange={e => setForm(f => ({ ...f, marketingConsent: e.target.checked }))}
+              style={{ marginTop: '2px', accentColor: '#1E7B34', width: '16px', height: '16px', flexShrink: 0 }} />
+            <span style={{ fontSize: '13px', color: '#666666', lineHeight: 1.5 }}>
+              Send me offers, updates and recommendations
+            </span>
+          </label>
+          <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '20px', cursor: 'pointer' }}>
+            <input type="checkbox" checked={form.termsAccepted}
+              onChange={e => setForm(f => ({ ...f, termsAccepted: e.target.checked }))}
+              style={{ marginTop: '2px', accentColor: '#1E7B34', width: '16px', height: '16px', flexShrink: 0 }} />
+            <span style={{ fontSize: '13px', color: '#666666', lineHeight: 1.5 }}>
+              I agree to the{' '}
+              <Link href="/legal/terms" style={{ color: '#1E7B34', fontWeight: 600 }}>Terms of Service</Link>
+              {' '}and{' '}
+              <Link href="/legal/privacy" style={{ color: '#1E7B34', fontWeight: 600 }}>Privacy Policy</Link>
+            </span>
+          </label>
+          {errors.terms && <p style={{ fontSize: '12px', color: '#E8220A', marginTop: '-14px', marginBottom: '12px' }}>{errors.terms}</p>}
+
+          {/* Primary CTA */}
+          <button onClick={handleSubmit} disabled={loading}
+            style={{
+              width: '100%', padding: '15px', borderRadius: '8px', border: 'none',
+              background: loading ? '#E8E8E8' : '#1E7B34', color: 'white',
+              fontSize: '15px', fontWeight: 700, cursor: loading ? 'default' : 'pointer',
+              marginBottom: '16px', fontFamily: 'DM Sans, sans-serif',
+            }}>
+            {loading ? 'Creating account...' : 'Create Account'}
+          </button>
+
+          {/* SSO divider */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+            <div style={{ flex: 1, height: '1px', background: '#E8E8E8' }} />
+            <span style={{ fontSize: '13px', color: '#999999' }}>or sign up with</span>
+            <div style={{ flex: 1, height: '1px', background: '#E8E8E8' }} />
+          </div>
+
+          {/* SSO buttons */}
+          <button onClick={handleGoogle}
+            style={{
+              width: '100%', padding: '13px', borderRadius: '8px',
+              border: '1.5px solid #E8E8E8', background: 'white',
+              fontSize: '14px', fontWeight: 500, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
+              marginBottom: '8px', fontFamily: 'DM Sans, sans-serif',
+            }}>
+            <span style={{ fontSize: '18px' }}>G</span>
+            Continue with Google
+          </button>
+          <button onClick={handleApple}
+            style={{
+              width: '100%', padding: '13px', borderRadius: '8px',
+              border: '1.5px solid #E8E8E8', background: 'white',
+              fontSize: '14px', fontWeight: 500, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
+              fontFamily: 'DM Sans, sans-serif',
+            }}>
+            <span style={{ fontSize: '18px' }}>🍎</span>
+            Continue with Apple
+          </button>
+
+          <p style={{ textAlign: 'right', fontSize: '13px', color: '#666666', marginTop: '16px' }}>
+            Already have an account?{' '}
+            <Link href="/sign-in" style={{ color: '#1E7B34', fontWeight: 600 }}>Sign in</Link>
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+Also create the email verification confirmation page:
+FILE: apps/web/src/(auth)/register/verify-email/page.tsx
+
+Simple page: green tick icon, "Check your email" heading,
+"We've sent a verification link to {email}. Click the link to activate your account."
+"Resend email" green link, "Back to sign in" grey link.
+
+Run: npm run typecheck --filter=@feastpot/web. Output all files in full.
