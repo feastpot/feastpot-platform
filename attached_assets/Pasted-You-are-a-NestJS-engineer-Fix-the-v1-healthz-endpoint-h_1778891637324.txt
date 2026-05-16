@@ -1,0 +1,91 @@
+You are a NestJS engineer. Fix the /v1/healthz endpoint hanging for 30 seconds
+when Redis is unavailable, instead of returning a fast degraded response.
+
+DEFECT (D3 part 2 — S1):
+/v1/healthz calls Bull getJobCounts() against a dead Redis connection.
+Bull's ioredis client blocks 30 seconds before timing out.
+This means uptime monitors report the API as DOWN when Redis is unhealthy,
+even though the API itself is serving requests normally.
+A dead Redis should cause "degraded" status, not a 30-second timeout.
+
+FILE: apps/api/src/health/health.controller.ts
+
+Replace the direct Bull getJobCounts call with a Promise.race timeout wrapper:
+
+@Get()
+@Get('v1')  // accessible at both /healthz and /v1/healthz
+@Public()
+async healthz(): Promise<HealthzResponse> {
+  const TIMEOUT_MS = 2000  // 2 second maximum for any single check
+
+  const withTimeout = <T>(promise: Promise<T>, fallback: T): Promise<T> =>
+    Promise.race([
+      promise,
+      new Promise<T>(resolve => setTimeout(() => resolve(fallback), TIMEOUT_MS)),
+    ])
+
+  const [dbStatus, redisStatus, queuesStatus] = await Promise.all([
+    // Database check
+    withTimeout(
+      this.prisma.$queryRaw`SELECT 1`.then(() => 'ok').catch(() => 'error'),
+      'timeout'
+    ),
+    // Redis check
+    withTimeout(
+      this.redisCacheService.ping().then(r => r === 'PONG' || r === 'DISABLED' ? (r === 'DISABLED' ? 'disabled' : 'ok') : 'error'),
+      'timeout'
+    ),
+    // Queue depths check (most likely to hang)
+    withTimeout(
+      this.checkQueueDepths(),
+      { error: 'timeout — Redis may be unhealthy' }
+    ),
+  ])
+
+  const critical = [dbStatus]  // only DB being down is truly critical
+  const allCriticalOk = critical.every(s => s === 'ok')
+
+  return {
+    status: allCriticalOk ? (redisStatus === 'ok' ? 'ok' : 'degraded') : 'down',
+    version: process.env.npm_package_version ?? '0.0.0',
+    uptime: Math.floor(process.uptime()),
+    timestamp: new Date().toISOString(),
+    checks: {
+      database: dbStatus,
+      redis:    redisStatus,
+      queues:   queuesStatus,
+    },
+  }
+}
+
+private async checkQueueDepths(): Promise<Record<string, object>> {
+  try {
+    const queueNames = ['notifications', 'payout-batch', 'compliance', 'orders', 'stripe-webhook']
+    const results: Record<string, object> = {}
+    for (const name of queueNames) {
+      const queue = this.bullBoardService?.getQueue(name)
+      if (!queue) { results[name] = { status: 'not_registered' }; continue }
+      const [waiting, active, failed] = await Promise.all([
+        queue.getWaitingCount(),
+        queue.getActiveCount(),
+        queue.getFailedCount(),
+      ])
+      results[name] = { waiting, active, failed }
+    }
+    return results
+  } catch {
+    return { error: 'Could not fetch queue depths' }
+  }
+}
+
+ALSO: Set the HTTP status code correctly based on status:
+const httpStatus = status === 'ok' ? 200 : status === 'degraded' ? 200 : 503
+// 'degraded' returns 200 so uptime monitors don't alert on Redis outage
+// Only 'down' (database unreachable) returns 503
+
+Test:
+1. With Redis broken: curl /v1/healthz should return within 3 seconds with status: "degraded"
+2. With Redis healthy: should return within 500ms with status: "ok"
+
+Run: npm run build:api — confirm zero errors.
+Output all changed files.

@@ -42,21 +42,35 @@ export class RedisCacheService implements OnModuleDestroy {
       lazyConnect: true,
       enableOfflineQueue: false,
       connectionName: 'feastpot-cache',
-      // Cap reconnection attempts so a misconfigured REDIS_URL (wrong
-      // password, dead host) doesn't spam ERROR logs at 1 Hz forever.
-      // After 5 failures we give up and the cache stays in degraded mode
-      // — every operation falls through to the source of truth.
-      retryStrategy: (times: number) => (times > 5 ? null : Math.min(times * 500, 3000)),
+      // D3: cap reconnection at 3 attempts so a misconfigured REDIS_URL
+      // (wrong password, dead host) doesn't spam ERROR logs at 1 Hz
+      // forever. After the 3rd failed attempt we log ONCE that we're
+      // giving up and return null — ioredis emits `end`, the cache stays
+      // in degraded mode, and every operation falls through to the
+      // source of truth.
+      retryStrategy: (times: number) => {
+        if (times === 1) {
+          this.logger.warn('[Redis] Attempting to reconnect...');
+        }
+        if (times > 3) {
+          if (times === 4) {
+            this.logger.warn(
+              '[Redis] Could not connect after 3 attempts — cache disabled. Check REDIS_URL secret.',
+            );
+          }
+          return null;
+        }
+        return Math.min(times * 500, 2000);
+      },
       reconnectOnError: () => false,
     });
     let errorCount = 0;
     this.client.on('error', (err) => {
-      // Log only the first handful so a permanent auth error doesn't drown
-      // the rest of the log stream. After that it's just noise.
-      if (errorCount < 3) {
+      // Log only the first 2 errors so a permanent auth error doesn't drown
+      // the log stream. The retryStrategy above will surface the giveup
+      // message after the 3rd attempt; further `error` events are noise.
+      if (errorCount < 2) {
         this.logger.error(`Redis cache error: ${err.message}`);
-      } else if (errorCount === 3) {
-        this.logger.error('Redis cache error (further errors will be suppressed)');
       }
       errorCount += 1;
     });

@@ -1,0 +1,78 @@
+You are a NestJS and DevOps engineer fixing the most impactful infrastructure defect.
+
+DEFECT (D3 — S1):
+REDIS_URL password is wrong — API logs show WRONGPASS on every startup.
+4 cron jobs fail to register: compliance-scan, review-trigger, badge-recalc, weekly-payouts.
+/v1/healthz hangs 30 seconds because Bull getJobCounts blocks on the dead Redis client.
+
+THIS BLOCKS: all payout processing, all compliance sweeps, all review triggers,
+all badge recalculation. The platform cannot process vendors at scale without this.
+
+STEP 1 — Rotate Redis credentials (OPERATIONAL)
+1. Log into Upstash dashboard (upstash.com)
+2. Navigate to your Redis database
+3. Copy the connection string — format:
+   rediss://default:{password}@{host}.upstash.io:6380
+4. In Replit Secrets: update REDIS_URL with the fresh connection string
+5. Do NOT set a separate REDIS_PASSWORD if the password is already in REDIS_URL
+   (double-setting causes WRONGPASS)
+6. Restart the API workflow after updating the secret
+
+STEP 2 — Verify the fix
+After restarting, check logs for:
+  "[Redis] Connected and ready"  ← success
+NOT:
+  "WRONGPASS invalid username-password pair"
+
+Also verify crons register:
+  "[PayoutCron] Registered: 0 2 * * 1"
+  "[ComplianceCron] Registered"
+  "[ReviewTriggerCron] Registered"
+  "[BadgeRecalcCron] Registered"
+
+STEP 3 — RedisCacheService: graceful fallback with no reconnection spam
+File: apps/api/src/common/cache/redis-cache.service.ts
+
+The retryStrategy must stop retrying and log ONCE after 3 failures,
+not repeat the error on every reconnect attempt:
+
+retryStrategy: (times: number) => {
+  if (times === 1) this.logger.warn('[Redis] Attempting to reconnect...')
+  if (times > 3) {
+    if (times === 4) {
+      this.logger.warn('[Redis] Could not connect after 3 attempts — cache disabled. Check REDIS_URL secret.')
+      this.available = false
+    }
+    return null  // stop retrying — no more error spam
+  }
+  return Math.min(times * 500, 2000)
+},
+
+STEP 4 — BullMQ: guard cron jobs behind Redis availability check
+File: apps/api/src/modules/payouts/payouts-cron.service.ts (and other cron services)
+
+In each @Cron method, add a Redis availability guard at the top:
+
+@Cron('0 2 * * 1')
+async runWeeklyPayouts() {
+  if (!this.redisCacheService.available) {
+    this.logger.warn('[PayoutCron] Redis not available — skipping this run. Check REDIS_URL.')
+    return
+  }
+  // ... existing payout logic
+}
+
+Same pattern for:
+- compliance-scan cron
+- review-trigger cron
+- badge-recalc cron
+
+STEP 5 — Test after credentials are updated
+curl -s http://localhost:3001/healthz
+Assert: { status: "ok", checks: { redis: "ok" } }
+
+curl -s http://localhost:3001/v1/healthz
+Assert: responds in < 1 second (not 30-second hang)
+
+Run: npm run build:api — confirm zero errors.
+Output all changed files in full.
