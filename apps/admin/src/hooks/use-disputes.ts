@@ -19,6 +19,8 @@ export interface DisputeRow {
   refundAmountPence: number | null;
   createdAt: string;
   closedAt: string | null;
+  vendorRespondedAt: string | null;
+  resolvedAt: string | null;
   order: {
     id: string;
     orderNumber: string;

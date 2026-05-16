@@ -1,0 +1,58 @@
+You are a Next.js 15 engineer. Add an SLA age indicator to the admin disputes list.
+
+DEFECT (D15 — S4):
+The disputes list shows status and type but not how long the dispute
+has been open. The spec states a 24h acknowledgement SLA and 5-day
+resolution SLA. Without visibility, breaches go unnoticed.
+
+FILE: apps/admin/src/app/disputes/page.tsx
+
+STEP 1 — Create SLA age utility
+File: apps/admin/src/lib/sla.ts
+
+export function getSLAStatus(
+  createdAt: string,
+  acknowledgedAt?: string | null,
+  resolvedAt?: string | null
+): { label: string; color: string; bg: string; urgent: boolean } {
+  const now = Date.now()
+  const created = new Date(createdAt).getTime()
+  const ageHours = (now - created) / (1000 * 60 * 60)
+
+  if (resolvedAt) {
+    return { label: 'Resolved', color: '#27500A', bg: '#EAF3DE', urgent: false }
+  }
+  if (!acknowledgedAt && ageHours > 24) {
+    return { label: `${Math.floor(ageHours)}h — ACK overdue`, color: '#791F1F', bg: '#FCEBEB', urgent: true }
+  }
+  if (ageHours > 120) {  // 5 days
+    return { label: `${Math.floor(ageHours / 24)}d — resolution overdue`, color: '#791F1F', bg: '#FCEBEB', urgent: true }
+  }
+  if (ageHours > 96) {  // 4 days
+    return { label: `${Math.floor(ageHours / 24)}d — closing SLA`, color: '#633806', bg: '#FAEEDA', urgent: true }
+  }
+  return { label: `${Math.floor(ageHours)}h open`, color: '#5F5E5A', bg: '#F1EFE8', urgent: false }
+}
+
+STEP 2 — Add SLA column to disputes table
+
+In each dispute row, add the SLA indicator:
+
+import { getSLAStatus } from '@/lib/sla'
+
+const sla = getSLAStatus(dispute.createdAt, dispute.acknowledgedAt, dispute.resolvedAt)
+
+<span style={{
+  fontSize: '10px', padding: '2px 8px', borderRadius: '4px',
+  background: sla.bg, color: sla.color, fontWeight: sla.urgent ? 700 : 500,
+  animation: sla.urgent ? 'fp-pulse 2s infinite' : 'none',
+}}>
+  {sla.label}
+</span>
+
+STEP 3 — Sort by urgency by default
+Ensure the disputes list is sorted by: urgent first, then by createdAt ascending
+(oldest open dispute appears at the top).
+
+Run: npm run typecheck --filter=@feastpot/admin
+Output the changed disputes page and sla.ts utility.

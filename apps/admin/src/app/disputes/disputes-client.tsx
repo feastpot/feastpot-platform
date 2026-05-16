@@ -26,6 +26,7 @@ import {
   type Severity,
 } from '@/hooks/use-disputes';
 import { formatDate, formatPence } from '@/lib/format';
+import { getSLAStatus, SLA_TONE_CLASSES, type SLAStatus } from '@/lib/sla';
 
 const STATUSES: ReadonlyArray<DisputeStatus | 'all'> = [
   'all',
@@ -44,6 +45,16 @@ export function DisputesClient() {
     status: status === 'all' ? undefined : status,
     severity: severity === 'all' ? undefined : severity,
   });
+
+  // D15: surface SLA breaches first, then oldest open disputes, so the rows
+  // most likely to need staff attention appear at the top regardless of the
+  // server's default `createdAt desc` ordering.
+  const rows = (data?.data ?? [])
+    .map((d) => ({ d, sla: getSLAStatus(d.createdAt, d.vendorRespondedAt, d.resolvedAt) }))
+    .sort((a, b) => {
+      if (a.sla.urgent !== b.sla.urgent) return a.sla.urgent ? -1 : 1;
+      return new Date(a.d.createdAt).getTime() - new Date(b.d.createdAt).getTime();
+    });
 
   return (
     <>
@@ -82,6 +93,7 @@ export function DisputesClient() {
             <TableHeader>
               <TableRow>
                 <TableHead>Created</TableHead>
+                <TableHead>SLA</TableHead>
                 <TableHead>Order</TableHead>
                 <TableHead>Vendor</TableHead>
                 <TableHead>Customer</TableHead>
@@ -94,16 +106,17 @@ export function DisputesClient() {
             </TableHeader>
             <TableBody>
               {isLoading && (
-                <TableRow><TableCell colSpan={9} className="py-6 text-center text-sm text-muted-foreground">Loading…</TableCell></TableRow>
+                <TableRow><TableCell colSpan={10} className="py-6 text-center text-sm text-muted-foreground">Loading…</TableCell></TableRow>
               )}
-              {!isLoading && (data?.data ?? []).length === 0 && (
-                <TableRow><TableCell colSpan={9} className="py-6 text-center text-sm text-muted-foreground">No disputes match these filters.</TableCell></TableRow>
+              {!isLoading && rows.length === 0 && (
+                <TableRow><TableCell colSpan={10} className="py-6 text-center text-sm text-muted-foreground">No disputes match these filters.</TableCell></TableRow>
               )}
-              {(data?.data ?? []).map((d) => {
+              {rows.map(({ d, sla }) => {
                 const customerName = `${d.order.customer.firstName ?? ''} ${d.order.customer.lastName ?? ''}`.trim();
                 return (
                   <TableRow key={d.id}>
                     <TableCell className="text-sm">{formatDate(d.createdAt)}</TableCell>
+                    <TableCell><SLAPill sla={sla} /></TableCell>
                     <TableCell className="text-sm font-mono">{d.order.orderNumber}</TableCell>
                     <TableCell className="text-sm">{d.order.vendor.businessName}</TableCell>
                     <TableCell className="text-sm">{customerName || d.order.customer.email}</TableCell>
@@ -134,6 +147,13 @@ function SeverityPill({ severity }: { severity: Severity }) {
     high: 'bg-red-100 text-red-900',
   };
   return <Badge className={styles[severity]}>{severity}</Badge>;
+}
+
+function SLAPill({ sla }: { sla: SLAStatus }) {
+  const tone = SLA_TONE_CLASSES[sla.tone];
+  const weight = sla.urgent ? 'font-semibold' : 'font-medium';
+  const pulse = sla.urgent ? 'animate-pulse' : '';
+  return <Badge className={`${tone} ${weight} ${pulse}`.trim()}>{sla.label}</Badge>;
 }
 
 function StatusPill({ status }: { status: DisputeStatus }) {

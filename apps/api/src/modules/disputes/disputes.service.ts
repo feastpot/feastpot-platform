@@ -104,6 +104,9 @@ export class DisputesService {
         },
       },
     });
+    // `vendorRespondedAt` and `resolvedAt` are scalar columns on Dispute and
+    // come through automatically — explicitly mentioned here so the admin
+    // SLA indicator (D15) keeps working if anyone narrows this to a `select`.
     const nextCursor = rows.length === limit ? this.encodeCursor(rows[rows.length - 1]!) : null;
     return { data: rows, nextCursor };
   }
