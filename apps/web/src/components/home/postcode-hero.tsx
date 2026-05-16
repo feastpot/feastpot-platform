@@ -1,34 +1,25 @@
 'use client';
 
-import { ArrowRight, MapPin, X } from 'lucide-react';
+import { MapPin, Search, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 
-import { AnimatedHeadline } from '@/components/home/animated-headline';
 import { isValidUKPostcode, normalisePostcode, useStoredPostcode } from '@/lib/postcode';
 
-const TRUST_STRIP = [
-  { icon: '🛡️', label: 'FSA Verified', sub: 'All kitchens checked' },
-  { icon: '⭐', label: 'Highly rated', sub: 'Real customer reviews' },
-  { icon: '🍽️', label: 'Growing fast', sub: 'New kitchens joining' },
-  { icon: '🔒', label: 'Secure Pay', sub: 'Stripe encrypted' },
-] as const;
-
 /**
- * Brand-DNA hero: layered charcoal→scotch→terracotta gradient with a faint
- * tribal-weave overlay and four floating ingredient glyphs (chilli, plantain,
- * stew-pot, jar) lifted from the Feastpot logo. The depth + warmth push the
- * page away from "generic tech app" minimalism and signal "African / Caribbean
- * home cooking" before the user reads a single word.
+ * 2026-05-16 wireframe redesign hero.
  *
- * The postcode form is unchanged — it's the section's primary conversion goal,
- * so we preserve the exact validation + storage path. The trust strip + kente
- * divider sit inside the same root fragment so the hero ships as one self-
- * contained unit (page.tsx doesn't need to compose them itself).
+ * Replaces the previous dark-gradient hero with the wireframe's light-cream
+ * editorial layout: two-column (text + food collage on desktop, stacked on
+ * mobile) with a coloured headline ("African" green, "Caribbean" red) and a
+ * white postcode capture pill. The hero is the only place a first-time
+ * visitor decides whether to engage, so the form stays the primary
+ * affordance — validation + storage path is unchanged from the previous
+ * version (normalisePostcode + isValidUKPostcode).
  *
- * Validation reuses `normalisePostcode` (deliberately permissive — see prior
- * comment about BFPO / GIR 0AA edge cases). `<form>` not `<div>` so iOS Safari
- * surfaces the "Go" key on the postcode keyboard.
+ * No external food photography is shipped in Wave 1 — the right column
+ * renders as a layered brand-colour collage so we don't fake a stock shot.
+ * Real photography drops in a follow-up content wave.
  */
 export function PostcodeHero() {
   const router = useRouter();
@@ -66,85 +57,45 @@ export function PostcodeHero() {
   const clearStored = () => {
     setStored(null);
     setValue('');
-    // Move focus into the postcode input so keyboard / screen-reader
-    // users can immediately type a new value without hunting for the
-    // next interactive element.
     inputRef.current?.focus();
   };
 
   return (
-    <>
-      <section
-        className="relative overflow-hidden"
-        style={{
-          background: 'linear-gradient(160deg, #1C1C1A 0%, #3D1A0A 45%, #E8520A 100%)',
-          minHeight: '360px',
-        }}
-      >
-        {/* Faint kente weave — already defined in globals.css as .tribal-bg.
-            Forced opacity 0.07 keeps it well below WCAG contrast minimums so
-            it never interferes with overlaid white text. */}
-        <div className="absolute inset-0 tribal-bg" style={{ opacity: 0.07 }} aria-hidden />
+    <section
+      aria-labelledby="hero-headline"
+      className="relative overflow-hidden bg-cream px-4 pb-8 pt-8 md:px-8 md:pb-14 md:pt-14"
+    >
+      <div className="mx-auto grid max-w-5xl gap-8 md:grid-cols-[1.05fr_0.95fr] md:items-center md:gap-10">
+        {/* LEFT — copy + postcode form */}
+        <div>
+          <h1
+            id="hero-headline"
+            className="font-display text-[40px] font-black leading-[1.02] tracking-tight text-charcoal md:text-[56px]"
+          >
+            The best of{' '}
+            <span className="text-brand">African</span> &amp;{' '}
+            <span className="text-scotch">Caribbean</span> food, delivered to you
+          </h1>
+          <p className="mt-4 max-w-xl text-base font-medium text-charcoal-mid md:text-lg">
+            Bold flavours. Real culture. Right to your door.
+          </p>
 
-        {/* Floating ingredient glyphs — purely decorative; pointer-events:none
-            so they never intercept taps on the postcode form. Positioned
-            asymmetrically (top-right cluster, plus a single top-left jar) to
-            mimic spilled spices on a dark wood table. */}
-        <div
-          className="pointer-events-none absolute top-8 right-6 select-none"
-          aria-hidden
-          style={{ opacity: 0.18, transform: 'rotate(15deg)', fontSize: '36px' }}
-        >
-          🌶️
-        </div>
-        <div
-          className="pointer-events-none absolute top-20 right-20 select-none"
-          aria-hidden
-          style={{ opacity: 0.13, transform: 'rotate(-8deg)', fontSize: '28px' }}
-        >
-          🍌
-        </div>
-        <div
-          className="pointer-events-none absolute bottom-14 right-10 select-none"
-          aria-hidden
-          style={{ opacity: 0.16, transform: 'rotate(5deg)', fontSize: '30px' }}
-        >
-          🥘
-        </div>
-        <div
-          className="pointer-events-none absolute top-12 left-6 select-none"
-          aria-hidden
-          style={{ opacity: 0.12, transform: 'rotate(-12deg)', fontSize: '26px' }}
-        >
-          🫙
-        </div>
-
-        <div className="relative z-10 px-5 pt-14 pb-8">
-          <AnimatedHeadline />
-
-          {/* Resume banner — when we have a stored postcode from a
-              previous session, surface it as a one-tap shortcut so
-              returning users don't have to re-type. The 45yo target
-              demographic is the #1 churn risk if we make them re-enter
-              their location every visit. The banner is rendered ABOVE
-              the form (not in place of it) so changing postcodes
-              remains a single visible action. Pure white-on-translucent
-              chrome to sit cleanly on the dark gradient. */}
+          {/* Resume banner — returning user gets a one-tap shortcut. */}
           {stored && (
             <div
-              className="mx-auto mt-4 flex max-w-sm items-center justify-between gap-2 rounded-xl border border-white/15 bg-white/10 px-3 py-2 backdrop-blur"
+              className="mt-5 flex max-w-md items-center justify-between gap-2 rounded-2xl border border-brand-100 bg-brand-light px-3 py-2"
               role="region"
               aria-label="Resume previous search"
             >
-              <span className="min-w-0 truncate text-[13px] text-white">
-                <MapPin className="mr-1 -mt-0.5 inline h-3.5 w-3.5" aria-hidden />
+              <span className="min-w-0 truncate text-[13px] text-charcoal">
+                <MapPin className="mr-1 -mt-0.5 inline h-3.5 w-3.5 text-brand" aria-hidden />
                 Ordering for <strong className="font-semibold">{stored}</strong>?
               </span>
               <div className="flex shrink-0 items-center gap-1.5">
                 <button
                   type="button"
                   onClick={resumeWithStored}
-                  className="touch-target rounded-lg bg-brand px-3 py-1.5 text-[12px] font-semibold text-white shadow-sm transition-colors hover:bg-brand-dark"
+                  className="touch-target rounded-xl bg-brand px-3 py-1.5 text-[12px] font-semibold text-white shadow-sm transition-colors hover:bg-brand-dark"
                 >
                   Find food
                 </button>
@@ -152,7 +103,7 @@ export function PostcodeHero() {
                   type="button"
                   onClick={clearStored}
                   aria-label="Clear saved postcode"
-                  className="touch-target inline-flex items-center gap-1 rounded-lg bg-white/15 px-2 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-white/25"
+                  className="touch-target inline-flex items-center gap-1 rounded-xl bg-white px-2 py-1.5 text-[12px] font-medium text-charcoal-mid transition-colors hover:bg-cream-warm"
                 >
                   <X className="h-3 w-3" aria-hidden />
                   Change
@@ -165,13 +116,13 @@ export function PostcodeHero() {
             onSubmit={onSubmit}
             role="search"
             aria-label="Find vendors by postcode"
-            className="mx-auto mt-6 flex max-w-sm items-center gap-2 rounded-2xl bg-white p-1.5 shadow-card-lg"
+            className="mt-7 flex max-w-md items-center gap-1 rounded-2xl border border-cream-deep bg-white p-1.5 shadow-card"
           >
             <label htmlFor="hero-postcode" className="sr-only">
               UK postcode
             </label>
             <div className="flex flex-1 items-center gap-2 px-3">
-              <MapPin className="h-4 w-4 shrink-0 text-brand" aria-hidden />
+              <Search className="h-4 w-4 shrink-0 text-charcoal-light" aria-hidden />
               <input
                 ref={inputRef}
                 id="hero-postcode"
@@ -185,50 +136,54 @@ export function PostcodeHero() {
                   if (error) setError('');
                 }}
                 maxLength={8}
-                className="flex-1 bg-transparent text-[15px] font-medium text-dark placeholder:text-mid focus:outline-none"
+                className="flex-1 bg-transparent py-2 text-[15px] font-medium text-charcoal placeholder:text-charcoal-light focus:outline-none"
               />
             </div>
             <button
               type="submit"
-              className="touch-target inline-flex items-center gap-1.5 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-dark"
+              className="touch-target inline-flex items-center gap-1.5 rounded-xl bg-brand px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
             >
-              Find food
-              <ArrowRight className="h-4 w-4" aria-hidden />
+              Find Food
             </button>
           </form>
 
           {error && (
-            <p role="alert" className="mt-2 text-center text-xs text-white/95">
+            <p role="alert" className="mt-2 max-w-md text-xs font-medium text-scotch">
               {error}
             </p>
           )}
         </div>
-      </section>
 
-      {/* TRUST STRIP — full-width charcoal band immediately under the hero.
-          Sits OUTSIDE the gradient section so the four pillars feel like a
-          distinct foundation row, not a footer of the hero. */}
-      <div style={{ background: '#1C1C1A', padding: '12px 16px' }}>
-        <ul className="mx-auto flex max-w-lg items-center justify-around">
-          {TRUST_STRIP.map((t) => (
-            <li key={t.label} className="flex flex-col items-center text-center">
-              <span aria-hidden style={{ fontSize: '18px', marginBottom: '2px' }}>
-                {t.icon}
-              </span>
-              <span style={{ color: 'white', fontSize: '10px', fontWeight: 700 }}>
-                {t.label}
-              </span>
-              <span style={{ color: 'rgba(255,255,255,0.45)', fontSize: '9px' }}>
-                {t.sub}
-              </span>
-            </li>
-          ))}
-        </ul>
+        {/* RIGHT — brand-colour food collage placeholder. Pure CSS so we
+            don't ship a stock photo we don't have rights to. The three
+            green / gold / red bands echo the wireframe's plated trio
+            without faking specific dishes. Hidden on the smallest
+            screens so the form gets the full attention. */}
+        <div className="relative hidden min-h-[300px] md:block">
+          <div
+            className="absolute inset-0 overflow-hidden rounded-[40px] shadow-card-lg"
+            style={{
+              background:
+                'radial-gradient(circle at 30% 30%, #F6B400 0%, transparent 45%), radial-gradient(circle at 75% 65%, #E30613 0%, transparent 50%), linear-gradient(135deg, #00843D 0%, #005C2B 100%)',
+            }}
+            aria-hidden
+          />
+          <div
+            className="absolute -left-4 top-12 h-72 w-16 rounded-l-full border-l-[18px] border-brand"
+            aria-hidden
+          />
+          <div
+            className="absolute bottom-8 left-12 h-32 w-48 rounded-b-full border-b-[16px] border-plantain"
+            aria-hidden
+          />
+          <div
+            className="absolute bottom-6 right-6 rounded-2xl bg-white/95 px-4 py-2 text-xs font-bold text-charcoal shadow-card backdrop-blur"
+            aria-hidden
+          >
+            Jollof · Jerk · Egusi · Small chops
+          </div>
+        </div>
       </div>
-
-      {/* Kente diamond divider closes out the hero "stack" before the page
-          transitions into the lighter cream sections below. */}
-      <div className="kente-divider" aria-hidden />
-    </>
+    </section>
   );
 }

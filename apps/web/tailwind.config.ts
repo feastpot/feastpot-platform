@@ -37,24 +37,28 @@ const config: Config = {
         // mechanism the rest of the app + @feastpot/ui consume, so
         // wholesale replacement would break unrelated components.
         brand: {
-          DEFAULT: '#E8520A', // Terracotta Flame — primary CTAs
-          light: '#FEF0E9',
-          dark: '#C8401F', // Scotch Bonnet Red — hover state
-          50: '#FEF0E9',
-          100: '#FDD8C4',
-          500: '#E8520A',
-          600: '#C8401F',
-          700: '#B33D07',
-          900: '#7A2610',
+          // 2026-05-16 PWA redesign — wireframe palette. Brand green is
+          // the new primary CTA (was terracotta orange). Cascades to
+          // every `bg-brand` / `text-brand` / `border-brand` consumer
+          // across apps/web — no per-file edit needed.
+          DEFAULT: '#00843D', // Pan-African green — primary CTAs
+          light: '#E6F4EC',
+          dark: '#005C2B', // Deep forest — hover state
+          50: '#E6F4EC',
+          100: '#C2E5D0',
+          500: '#00843D',
+          600: '#006E32',
+          700: '#005C2B',
+          900: '#003318',
         },
-        scotch: '#C8401F', // spice indicators, urgent
-        plantain: '#F5A52A', // rewards, highlights
-        yam: '#3D7A47', // FSA, halal, verified
-        pot: '#8B5E3C', // tribal patterns, decorative
+        scotch: '#E30613', // wireframe red — offers, discounts, urgent
+        plantain: '#F6B400', // wireframe gold — rewards, FeastPass, highlights
+        yam: '#00843D', // FSA, halal, verified — collapses to brand green
+        pot: '#5F5E5A', // neutral decorative
         cream: {
-          DEFAULT: '#FBF6EF', // main background — warmer than white
-          warm: '#F5EDE0', // section dividers, card bg
-          deep: '#EDE4D4', // stronger contrast for borders
+          DEFAULT: '#FFFDF7', // wireframe cream — main background
+          warm: '#FFF8E8', // section dividers, card bg
+          deep: '#F2EAD3', // stronger contrast for borders
         },
         charcoal: {
           DEFAULT: '#1C1C1A',

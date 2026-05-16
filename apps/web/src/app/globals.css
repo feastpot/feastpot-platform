@@ -20,26 +20,29 @@
        Mirrors the Tailwind tokens in apps/web/tailwind.config.ts so raw
        CSS (kente patterns, gradients) can reference the same values
        without going through Tailwind's color object. */
-    --brand: #e8520a;
-    --brand-primary: #e8520a; /* legacy alias — retained */
-    --brand-light: #fef0e9;
-    --brand-dark: #c8401f;
-    --scotch: #c8401f;
-    --plantain: #f5a52a;
-    --yam: #3d7a47;
-    --yam-light: #e8f5eb;
-    --pot: #8b5e3c;
+    /* 2026-05-16 PWA redesign — wireframe palette (Pan-African green
+       primary + gold + red accents on warm cream). Mirrors Tailwind
+       tokens in apps/web/tailwind.config.ts. */
+    --brand: #00843d;
+    --brand-primary: #00843d; /* legacy alias — retained */
+    --brand-light: #e6f4ec;
+    --brand-dark: #005c2b;
+    --scotch: #e30613; /* wireframe red — offers/urgent */
+    --plantain: #f6b400; /* wireframe gold — rewards/feastpass */
+    --yam: #00843d;
+    --yam-light: #e6f4ec;
+    --pot: #5f5e5a;
     --brand-teal: #1d9e75;
     --teal: #1d9e75;
     --teal-light: #e1f5ee;
-    --cream: #fbf6ef;
-    --cream-warm: #f5ede0;
-    --cream-deep: #ede4d4;
-    --charcoal: #1c1c1a;
+    --cream: #fffdf7;
+    --cream-warm: #fff8e8;
+    --cream-deep: #f2ead3;
+    --charcoal: #070707;
     --charcoal-mid: #5f5e5a;
     --charcoal-light: #9b9894;
     --brand-gray: #5f5e5a; /* legacy alias */
-    --surface: #fbf6ef; /* warm cream replaces the old greyish surface */
+    --surface: #fffdf7; /* warm cream replaces the old greyish surface */
 
     /* Layout chrome — used by .page-content + nav components below.
        Set as raw px so calc() can mix with env(safe-area-inset-*). */
@@ -55,19 +58,20 @@
     --card-foreground: 60 4% 11%;
     --popover: 0 0% 100%;
     --popover-foreground: 60 4% 11%;
-    --primary: 19 92% 47%;
+    /* Primary = wireframe green #00843D; accent = its 95% tint. */
+    --primary: 149 100% 26%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 161 70% 37%;
-    --secondary-foreground: 0 0% 100%;
-    --muted: 40 12% 94%;
+    --secondary: 44 100% 48%; /* wireframe gold #F6B400 */
+    --secondary-foreground: 0 0% 4%;
+    --muted: 48 30% 94%;
     --muted-foreground: 60 4% 37%;
-    --accent: 19 92% 95%;
-    --accent-foreground: 19 92% 25%;
-    --destructive: 0 72% 51%;
+    --accent: 149 60% 95%;
+    --accent-foreground: 149 100% 18%;
+    --destructive: 356 95% 45%; /* wireframe red #E30613 */
     --destructive-foreground: 0 0% 100%;
-    --border: 40 10% 88%;
-    --input: 40 10% 88%;
-    --ring: 19 92% 47%;
+    --border: 48 30% 88%;
+    --input: 48 30% 88%;
+    --ring: 149 100% 26%;
     --radius: 0.625rem;
   }
 
@@ -162,14 +166,14 @@
   100% { background-position: 200% 0; }
 }
 .animate-shimmer {
-  background: linear-gradient(90deg, #F5EDE0 25%, #EDE4D4 50%, #F5EDE0 75%);
+  background: linear-gradient(90deg, #FFF8E8 25%, #F2EAD3 50%, #FFF8E8 75%);
   background-size: 200% 100%;
   animation: fp-shimmer 1.5s linear infinite;
 }
 @media (prefers-reduced-motion: reduce) {
   .animate-shimmer {
     animation: none;
-    background: #EDE4D4;
+    background: #F2EAD3;
   }
 }
 
@@ -224,7 +228,7 @@
   }
 
   .brand-gradient {
-    background: linear-gradient(135deg, #e8520a 0%, #b33d07 100%);
+    background: linear-gradient(135deg, #00843d 0%, #005c2b 100%);
   }
 
   /* Display face utility — opt-in for hero / large headings.
@@ -239,11 +243,18 @@
      (vendor hero, dish carousel). */
   .food-card {
     background: #fff;
-    border-radius: 20px;
+    border-radius: 24px;
     overflow: hidden;
     box-shadow:
-      0 2px 8px rgba(28, 28, 26, 0.06),
-      0 8px 32px rgba(232, 82, 10, 0.05);
+      0 2px 8px rgba(7, 7, 7, 0.06),
+      0 8px 32px rgba(0, 132, 61, 0.06);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  .food-card:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      0 4px 12px rgba(7, 7, 7, 0.08),
+      0 12px 40px rgba(0, 132, 61, 0.1);
   }
 
   /* Tribal kente diamond divider — hidden everywhere on the customer PWA

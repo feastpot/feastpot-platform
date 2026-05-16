@@ -3,24 +3,21 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
+import { BenefitsStrip } from '@/components/layout/benefits-strip';
 import { LEGAL } from '@/lib/legal-constants';
 
 /**
- * Site footer. Currently the only place from which a customer can
- * reach Privacy / Terms / Cookies / Allergen / Vendor T&Cs without
- * URL-guessing — the legal team requires those links to be
- * persistently discoverable, and ICO guidance also expects a visible
- * data-controller note (the "ICO Registration {LEGAL.ICO_NUMBER}" line below).
+ * 2026-05-16 wireframe redesign footer.
  *
- * Hidden on /checkout and the (auth) routes because:
- *  - Checkout has its own legal acceptance copy beside the pay button
- *    and an extra footer doubles the legal noise.
- *  - The auth pages are intentionally minimal so the form stays the
- *    primary affordance.
+ * Replaces the previous dark charcoal footer with the wireframe's light
+ * variant: a thin BenefitsStrip on top (4 icons + brand promises) followed
+ * by a compact legal/links band on warm cream. The vendor recruitment
+ * card and ICO + copyright lines are retained — legal requires the latter
+ * to be persistently discoverable on every page.
  *
- * The vendor-recruitment card at the top is the customer PWA's only
- * outbound link to vendor.feastpot.co.uk — without it the vendor
- * funnel relies entirely on direct traffic.
+ * Hidden on /checkout and the (auth) routes for the same reasons as
+ * before — those screens already have inline legal copy and removing the
+ * persistent footer keeps the conversion surface clean.
  */
 export function Footer() {
   const pathname = usePathname() ?? '/';
@@ -31,42 +28,40 @@ export function Footer() {
 
   return (
     <footer
-      className="bg-dark px-4 pt-5 mt-6"
-      // env() for the iOS home-indicator strip — without this the
-      // copyright line collapses behind the bottom-nav's safe-area
-      // on notched devices.
+      className="mt-8 bg-cream"
       style={{ paddingBottom: 'calc(20px + env(safe-area-inset-bottom) + 64px)' }}
     >
-      <div className="mx-auto max-w-[640px]">
-        {/* Vendor recruitment card. Subtle brand-tinted panel rather
-            than a full-bleed CTA so it doesn't compete with the
-            customer flow above it. */}
-        <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-brand/30 bg-brand/15 p-3.5">
+      <BenefitsStrip />
+
+      <div className="mx-auto max-w-5xl px-4 pt-6">
+        {/* Vendor recruitment card — subtle green-tinted panel; this is
+            the customer PWA's only outbound link to the vendor portal,
+            so the recruitment ask stays visible without overpowering
+            the legal copy below. */}
+        <div className="mb-5 flex flex-col items-start justify-between gap-3 rounded-2xl border border-brand-100 bg-brand-light p-4 md:flex-row md:items-center">
           <div className="min-w-0">
-            <p className="text-[13px] font-semibold text-white">
+            <p className="text-[14px] font-bold text-charcoal">
               Cook from home? Join Feastpot
             </p>
-            <p className="mt-0.5 text-[11px] text-white/50">
+            <p className="mt-0.5 text-[12px] font-medium text-charcoal-mid">
               Keep {LEGAL.VENDOR_PAYOUT_PCT}% of every sale. Join a growing network of home cooks.
             </p>
           </div>
           <a
             href="https://vendor.feastpot.co.uk"
-            className="shrink-0 rounded-lg bg-brand px-3.5 py-2 text-[12px] font-semibold text-white transition-colors hover:bg-brand-dark"
+            className="shrink-0 rounded-xl bg-brand px-4 py-2.5 text-[13px] font-bold text-white transition-colors hover:bg-brand-dark"
           >
-            Join →
+            Join Feastpot
           </a>
         </div>
 
-        {/* Two-column links grid. Help link sits first so it's
-            findable for older users who treat the footer as a
-            help-desk locator. */}
-        <ul className="mb-4 grid grid-cols-2 gap-x-6 gap-y-1.5">
+        {/* Two-column legal/help link grid. */}
+        <ul className="mb-5 grid grid-cols-2 gap-x-6 gap-y-2 md:grid-cols-3">
           {FOOTER_LINKS.map((l) => (
             <li key={l.href}>
               <Link
                 href={l.href}
-                className="block py-0.5 text-[12px] text-white/45 transition-colors hover:text-white/80"
+                className="block py-0.5 text-[12px] font-medium text-charcoal-mid transition-colors hover:text-charcoal"
               >
                 {l.label}
               </Link>
@@ -74,18 +69,15 @@ export function Footer() {
           ))}
         </ul>
 
-        {/* Copyright + ICO line. Year is hard-coded — feastpot.co.uk
-            is a fresh trading entity so we don't need a from-year
-            range yet. Bump in Jan. */}
-        <div className="border-t border-white/10 pt-3">
-          <p className="text-[10px] text-white/25">
+        <div className="border-t border-cream-deep pt-4">
+          <p className="text-[11px] font-medium text-charcoal-light">
             © 2026 {LEGAL.COMPANY_NAME} · {LEGAL.REGISTERED_IN}
           </p>
-          <p className="mt-0.5 text-[10px] text-white/20">
+          <p className="mt-1 text-[11px] font-medium text-charcoal-light">
             ICO Registration {LEGAL.ICO_NUMBER} ·{' '}
             <a
               href={`mailto:${LEGAL.SUPPORT_EMAIL}`}
-              className="hover:text-white/40"
+              className="hover:text-charcoal-mid"
             >
               {LEGAL.SUPPORT_EMAIL}
             </a>
