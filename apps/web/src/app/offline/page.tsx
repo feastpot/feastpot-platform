@@ -66,14 +66,14 @@ export default function OfflinePage() {
 
   return (
     <main className="mx-auto flex min-h-[80vh] max-w-md flex-col items-center justify-center gap-6 px-6 py-12 text-center">
-      <span className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-brand text-white">
-        <span className="text-2xl font-bold">FP</span>
+      <span className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-brand text-white shadow-md">
+        <span className="font-display text-2xl font-black">FP</span>
       </span>
       <div className="space-y-2">
-        <h1 className="flex items-center justify-center gap-2 text-2xl font-bold tracking-tight">
-          <WifiOff className="h-5 w-5" aria-hidden /> You&rsquo;re offline
+        <h1 className="flex items-center justify-center gap-2 font-display text-2xl font-black tracking-tight text-charcoal">
+          <WifiOff className="h-5 w-5 text-scotch" aria-hidden /> You&rsquo;re offline
         </h1>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-charcoal-mid">
           {online
             ? 'We couldn&rsquo;t load that page from the cache. Try again in a moment.'
             : 'Check your connection — Feastpot needs the internet to place orders.'}
@@ -83,18 +83,18 @@ export default function OfflinePage() {
       <button
         type="button"
         onClick={() => window.location.reload()}
-        className="rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark"
+        className="rounded-xl bg-brand px-5 py-3 text-sm font-bold text-white hover:bg-brand-dark"
       >
         Try again
       </button>
 
       {vendors.length > 0 && (
-        <section className="w-full space-y-2 rounded-lg border border-border p-4 text-left">
-          <h2 className="text-sm font-semibold">Last seen vendors</h2>
-          <p className="text-[11px] text-muted-foreground">
+        <section className="w-full space-y-2 rounded-2xl border border-cream-deep bg-white p-4 text-left shadow-sm">
+          <h2 className="text-sm font-bold text-charcoal">Last seen vendors</h2>
+          <p className="text-[11px] text-charcoal-mid">
             From your last visit — may be outdated.
           </p>
-          <ul className="divide-y divide-border">
+          <ul className="divide-y divide-cream-deep">
             {vendors.map((v) => (
               <li key={v.id} className="py-2 text-sm">
                 {v.slug ? (
@@ -111,20 +111,20 @@ export default function OfflinePage() {
       )}
 
       {orders.length > 0 && (
-        <section className="w-full space-y-2 rounded-lg border border-border p-4 text-left">
-          <h2 className="text-sm font-semibold">Recent orders</h2>
-          <ul className="divide-y divide-border">
+        <section className="w-full space-y-2 rounded-2xl border border-cream-deep bg-white p-4 text-left shadow-sm">
+          <h2 className="text-sm font-bold text-charcoal">Recent orders</h2>
+          <ul className="divide-y divide-cream-deep">
             {orders.slice(0, 5).map((o) => (
               <li key={o.id} className="py-2 text-sm">
                 <Link href={`/orders/${o.id}/tracking`} className="block hover:underline">
                   <strong>#{o.orderNumber}</strong>
-                  {o.vendorName && <span className="text-muted-foreground"> — {o.vendorName}</span>}
-                  {o.status && <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-[11px] capitalize">{o.status}</span>}
+                  {o.vendorName && <span className="text-charcoal-mid"> — {o.vendorName}</span>}
+                  {o.status && <span className="ml-2 rounded-full bg-brand-light px-2 py-0.5 text-[11px] font-bold capitalize text-brand-dark">{o.status}</span>}
                 </Link>
               </li>
             ))}
           </ul>
-          <p className="text-[11px] text-muted-foreground">
+          <p className="text-[11px] text-charcoal-mid">
             These pages will load from your device&rsquo;s cache while offline.
           </p>
         </section>

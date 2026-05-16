@@ -16,7 +16,7 @@ const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
 const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
 const inputCls =
-  'w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-brand/30 disabled:bg-muted/50 disabled:text-muted-foreground';
+  'w-full rounded-xl border border-cream-deep bg-white px-3 py-2.5 text-sm font-medium text-charcoal placeholder:text-charcoal-mid/50 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20 disabled:bg-cream disabled:text-charcoal-mid';
 
 /**
  * Customer profile editor.
@@ -155,7 +155,7 @@ export default function ProfilePage() {
   if (isLoading || !me || !token) {
     return (
       <PageShell>
-        <p className="py-12 text-center text-sm text-muted-foreground">Loading profile&hellip;</p>
+        <p className="py-12 text-center text-sm text-charcoal-mid">Loading profile&hellip;</p>
       </PageShell>
     );
   }
@@ -166,12 +166,12 @@ export default function ProfilePage() {
     <PageShell>
       <div className="space-y-6 py-4">
         <header>
-          <h1 className="text-2xl font-bold tracking-tight">Profile</h1>
-          <p className="text-sm text-muted-foreground">Update how vendors and Feastpot reach you.</p>
+          <h1 className="font-display text-2xl font-black tracking-tight text-charcoal">Profile</h1>
+          <p className="text-sm text-charcoal-mid">Update how vendors and Feastpot reach you.</p>
         </header>
 
         {/* Avatar */}
-        <section className="rounded-lg border border-border bg-card p-5">
+        <section className="rounded-2xl border border-cream-deep bg-white p-5 shadow-sm">
           <div className="flex items-center gap-4">
             <button
               type="button"
@@ -190,12 +190,12 @@ export default function ProfilePage() {
               )}
             </button>
             <div>
-              <p className="font-semibold">{me.fullName || me.email}</p>
-              <p className="text-xs text-muted-foreground">JPG / PNG / WebP, up to 5 MB.</p>
+              <p className="font-bold text-charcoal">{me.fullName || me.email}</p>
+              <p className="text-xs text-charcoal-mid">JPG / PNG / WebP, up to 5 MB.</p>
               <button
                 type="button"
                 onClick={onPickFile}
-                className="mt-2 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium hover:bg-muted/40"
+                className="mt-2 rounded-full border border-cream-deep bg-white px-3 py-1.5 text-xs font-bold text-charcoal hover:bg-cream"
               >
                 Choose photo
               </button>
@@ -211,7 +211,7 @@ export default function ProfilePage() {
         </section>
 
         {/* Profile form */}
-        <form onSubmit={onSubmit} className="space-y-4 rounded-lg border border-border bg-card p-5" noValidate>
+        <form onSubmit={onSubmit} className="space-y-4 rounded-2xl border border-cream-deep bg-white p-5 shadow-sm" noValidate>
           <Field label="Full name" required>
             <input
               value={fullName}
@@ -226,7 +226,7 @@ export default function ProfilePage() {
 
           <Field label="Email">
             <input value={me.email} disabled className={inputCls} autoComplete="email" />
-            <p className="mt-1 text-xs text-muted-foreground">
+            <p className="mt-1 text-xs text-charcoal-mid">
               To change your email, contact support — we have to re-verify it.
             </p>
           </Field>
@@ -240,11 +240,11 @@ export default function ProfilePage() {
               inputMode="tel"
               className={inputCls}
             />
-            <p className="mt-1 text-xs text-muted-foreground">Used for order SMS notifications.</p>
+            <p className="mt-1 text-xs text-charcoal-mid">Used for order SMS notifications.</p>
           </Field>
 
           {formError && (
-            <p className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+            <p className="rounded-xl border border-scotch/30 bg-scotch/10 p-3 text-sm font-medium text-scotch">
               {formError}
             </p>
           )}
@@ -252,18 +252,18 @@ export default function ProfilePage() {
           <button
             type="submit"
             disabled={update.isPending}
-            className="rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-dark disabled:opacity-50"
+            className="rounded-xl bg-brand px-5 py-3 text-sm font-bold text-white hover:bg-brand-dark disabled:opacity-50"
           >
             {update.isPending ? 'Saving…' : 'Save changes'}
           </button>
         </form>
 
         {/* Danger zone */}
-        <section className="rounded-lg border border-destructive/30 bg-destructive/5 p-5">
+        <section className="rounded-2xl border border-scotch/30 bg-scotch/5 p-5">
           <button
             type="button"
             onClick={() => setShowDangerZone((s) => !s)}
-            className="flex w-full items-center justify-between text-left text-sm font-semibold text-destructive"
+            className="flex w-full items-center justify-between text-left text-sm font-bold text-scotch"
             aria-expanded={showDangerZone}
           >
             Danger zone
@@ -271,7 +271,7 @@ export default function ProfilePage() {
           </button>
           {showDangerZone && (
             <div className="mt-3 space-y-3 text-sm">
-              <p className="text-muted-foreground">
+              <p className="text-charcoal-mid">
                 Deleting your account removes your profile, addresses, and saved payment methods. Past order
                 records are kept for tax and dispute reasons.
               </p>
@@ -282,7 +282,7 @@ export default function ProfilePage() {
                   setDeleteText('');
                   setDeleteError(null);
                 }}
-                className="rounded-md border border-destructive/40 px-3 py-2 text-xs font-semibold text-destructive hover:bg-destructive/10"
+                className="rounded-xl border border-scotch/40 bg-white px-4 py-2 text-xs font-bold text-scotch hover:bg-scotch/10"
               >
                 Delete account
               </button>
@@ -294,7 +294,7 @@ export default function ProfilePage() {
         {toast && (
           <div
             role="status"
-            className="fixed bottom-24 left-1/2 z-50 -translate-x-1/2 rounded-full bg-foreground px-4 py-2 text-xs font-medium text-background shadow-lg"
+            className="fixed bottom-24 left-1/2 z-50 -translate-x-1/2 rounded-full bg-charcoal px-4 py-2 text-xs font-bold text-white shadow-lg"
           >
             {toast}
           </div>
@@ -309,16 +309,16 @@ export default function ProfilePage() {
             onClick={() => setConfirmDelete(false)}
           >
             <div
-              className="w-full max-w-sm space-y-3 rounded-lg bg-background p-5 shadow-lg"
+              className="w-full max-w-sm space-y-3 rounded-2xl bg-white p-5 shadow-lg"
               onClick={(e) => e.stopPropagation()}
             >
-              <h2 className="text-lg font-semibold text-destructive">Delete account?</h2>
-              <p className="text-sm text-muted-foreground">
+              <h2 className="font-display text-lg font-black text-scotch">Delete account?</h2>
+              <p className="text-sm text-charcoal-mid">
                 This will permanently delete your account and all your data. This cannot be undone.
               </p>
               <label className="block text-sm">
-                <span className="mb-1 block font-medium">
-                  Type <code className="rounded bg-muted px-1 py-0.5 text-xs">DELETE</code> to confirm.
+                <span className="mb-1 block font-bold text-charcoal">
+                  Type <code className="rounded bg-cream px-1 py-0.5 text-xs font-bold text-scotch">DELETE</code> to confirm.
                 </span>
                 <input
                   value={deleteText}
@@ -328,14 +328,14 @@ export default function ProfilePage() {
                 />
               </label>
               {deleteError && (
-                <p className="rounded-md border border-destructive/30 bg-destructive/10 p-2 text-xs text-destructive">
+                <p className="rounded-xl border border-scotch/30 bg-scotch/10 p-2 text-xs font-medium text-scotch">
                   {deleteError}
                 </p>
               )}
               <div className="flex justify-end gap-2">
                 <button
                   type="button"
-                  className="rounded-md border border-border px-3 py-2 text-sm hover:bg-muted/40"
+                  className="rounded-xl border border-cream-deep px-4 py-2.5 text-sm font-bold text-charcoal hover:bg-cream"
                   onClick={() => setConfirmDelete(false)}
                 >
                   Cancel
@@ -344,7 +344,7 @@ export default function ProfilePage() {
                   type="button"
                   disabled={deleteText !== 'DELETE' || del.isPending}
                   onClick={onConfirmDelete}
-                  className="rounded-md bg-destructive px-3 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
+                  className="rounded-xl bg-scotch px-4 py-2.5 text-sm font-bold text-white hover:bg-scotch-dark disabled:opacity-50"
                 >
                   {del.isPending ? 'Deleting…' : 'Delete account'}
                 </button>
@@ -360,9 +360,9 @@ export default function ProfilePage() {
 function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
   return (
     <label className="block text-sm">
-      <span className="mb-1 block font-medium">
+      <span className="mb-1 block font-bold text-charcoal">
         {label}
-        {required && <span className="ml-0.5 text-destructive">*</span>}
+        {required && <span className="ml-0.5 text-scotch">*</span>}
       </span>
       {children}
     </label>

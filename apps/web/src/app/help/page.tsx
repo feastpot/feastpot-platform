@@ -115,55 +115,55 @@ export default function HelpPage() {
 
   return (
     <article className="mx-auto w-full max-w-3xl px-4 py-10 md:py-14">
-      <h1 className="text-3xl font-bold text-foreground">Help &amp; FAQ</h1>
-      <p className="mt-3 text-base text-muted-foreground">
+      <h1 className="font-display text-3xl font-black text-charcoal md:text-4xl">Help &amp; FAQ</h1>
+      <p className="mt-3 text-base text-charcoal-mid">
         Most answers are below. If you can&rsquo;t find what you need, our support team is happy to help.
       </p>
 
-      <div className="mt-8 grid gap-3 rounded-lg border border-border bg-card p-4 md:grid-cols-2">
+      <div className="mt-8 grid gap-3 rounded-2xl border border-cream-deep bg-white p-5 shadow-sm md:grid-cols-2">
         <div>
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Email support</h2>
-          <a href={`mailto:${supportEmail}`} className="mt-1 block text-base font-medium text-brand">
+          <h2 className="text-xs font-bold uppercase tracking-wide text-charcoal-mid">Email support</h2>
+          <a href={`mailto:${supportEmail}`} className="mt-1 block text-base font-bold text-brand hover:underline">
             {supportEmail}
           </a>
-          <p className="mt-1 text-xs text-muted-foreground">Reply within 24 hours, 7 days a week.</p>
+          <p className="mt-1 text-xs text-charcoal-mid">Reply within 24 hours, 7 days a week.</p>
         </div>
         <div>
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">WhatsApp</h2>
+          <h2 className="text-xs font-bold uppercase tracking-wide text-charcoal-mid">WhatsApp</h2>
           <a
             href={`https://wa.me/${whatsappDigits}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-1 block text-base font-medium text-brand"
+            className="mt-1 block text-base font-bold text-brand hover:underline"
           >
             WhatsApp: {whatsapp}
           </a>
-          <p className="mt-1 text-xs text-muted-foreground">Faster for live order issues, 9am–9pm.</p>
+          <p className="mt-1 text-xs text-charcoal-mid">Faster for live order issues, 9am–9pm.</p>
         </div>
       </div>
 
       {SECTIONS.map((section) => (
         <section key={section.heading} className="mt-10">
-          <h2 className="text-2xl font-semibold text-foreground">{section.heading}</h2>
-          <dl className="mt-4 space-y-4">
+          <h2 className="font-display text-2xl font-black text-charcoal">{section.heading}</h2>
+          <dl className="mt-4 space-y-3">
             {section.items.map((item) => (
-              <div key={item.question} className="rounded-lg border border-border p-4">
-                <dt className="font-semibold text-foreground">{item.question}</dt>
-                <dd className="mt-1 text-sm text-muted-foreground">{item.answer}</dd>
+              <div key={item.question} className="rounded-2xl border border-cream-deep bg-white p-4 shadow-sm">
+                <dt className="font-bold text-charcoal">{item.question}</dt>
+                <dd className="mt-1 text-sm text-charcoal-mid">{item.answer}</dd>
               </div>
             ))}
           </dl>
         </section>
       ))}
 
-      <section className="mt-12 rounded-lg bg-brand p-6 text-white">
-        <h2 className="text-xl font-semibold">Need to raise a dispute?</h2>
+      <section className="mt-12 rounded-2xl bg-brand p-6 text-white shadow-md">
+        <h2 className="font-display text-xl font-black">Need to raise a dispute?</h2>
         <p className="mt-1 text-sm text-white/90">
           Open the order page and tap &ldquo;Raise a dispute&rdquo;. We resolve disputes within one working day.
         </p>
         <Link
           href="/orders"
-          className="mt-4 inline-flex items-center rounded-md bg-white px-4 py-2 text-sm font-semibold text-brand hover:bg-white/90"
+          className="mt-4 inline-flex items-center rounded-xl bg-white px-5 py-2.5 text-sm font-bold text-brand hover:bg-cream"
         >
           Go to my orders
         </Link>

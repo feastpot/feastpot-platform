@@ -18,10 +18,10 @@ export default function LegalLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-6 md:py-10">
-      <nav aria-label="Breadcrumb" className="text-sm text-muted-foreground">
+      <nav aria-label="Breadcrumb" className="text-sm text-charcoal-mid">
         <ol className="flex flex-wrap items-center gap-1.5">
           <li>
-            <Link href="/" className="hover:text-foreground hover:underline">
+            <Link href="/" className="hover:text-charcoal hover:underline">
               Home
             </Link>
           </li>
@@ -29,15 +29,15 @@ export default function LegalLayout({ children }: { children: ReactNode }) {
           {current ? (
             <>
               <li>
-                <span className="hover:text-foreground">Legal</span>
+                <span className="hover:text-charcoal">Legal</span>
               </li>
               <li aria-hidden="true">/</li>
-              <li className="text-foreground" aria-current="page">
+              <li className="text-charcoal" aria-current="page">
                 {current.title}
               </li>
             </>
           ) : (
-            <li className="text-foreground" aria-current="page">
+            <li className="text-charcoal" aria-current="page">
               Legal
             </li>
           )}
@@ -58,8 +58,8 @@ export default function LegalLayout({ children }: { children: ReactNode }) {
                       aria-current={active ? 'page' : undefined}
                       className={
                         active
-                          ? 'inline-block rounded-full border border-brand bg-brand px-3 py-1.5 text-sm font-medium text-white'
-                          : 'inline-block rounded-full border border-border bg-card px-3 py-1.5 text-sm text-foreground hover:bg-muted'
+                          ? 'inline-block rounded-full border border-brand bg-brand px-3 py-1.5 text-sm font-bold text-white shadow-sm'
+                          : 'inline-block rounded-full border border-cream-deep bg-white px-3 py-1.5 text-sm font-bold text-charcoal hover:bg-cream'
                       }
                     >
                       {p.title}
@@ -81,8 +81,8 @@ export default function LegalLayout({ children }: { children: ReactNode }) {
                     aria-current={active ? 'page' : undefined}
                     className={
                       active
-                        ? 'block rounded-md bg-muted px-3 py-2 text-sm font-semibold text-foreground'
-                        : 'block rounded-md px-3 py-2 text-sm text-foreground hover:bg-muted'
+                        ? 'block rounded-xl bg-brand/10 px-3 py-2 text-sm font-bold text-brand-dark'
+                        : 'block rounded-xl px-3 py-2 text-sm font-medium text-charcoal hover:bg-cream'
                     }
                   >
                     {p.title}
@@ -96,7 +96,7 @@ export default function LegalLayout({ children }: { children: ReactNode }) {
         <main className="min-w-0">
           {children}
 
-          <footer className="mt-12 border-t border-border pt-6 text-sm text-muted-foreground">
+          <footer className="mt-12 border-t border-cream-deep pt-6 text-sm text-charcoal-mid">
             <p>Last updated: May 2026</p>
             <p className="mt-1">
               Questions? Email{' '}

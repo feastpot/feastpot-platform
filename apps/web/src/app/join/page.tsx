@@ -1,5 +1,6 @@
 'use client';
 
+import { HelpCircle, PartyPopper } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
@@ -88,20 +89,20 @@ function JoinFlow() {
   }, [code, router]);
 
   if (state.kind === 'loading') {
-    return <p className="text-sm text-mid">Checking your referral code…</p>;
+    return <p className="text-sm text-charcoal-mid">Checking your referral code…</p>;
   }
 
   if (state.kind === 'valid') {
     const pounds = (state.bonusPence / 100).toFixed(0);
     return (
       <div className="text-center">
-        <span className="mb-3 block text-4xl" aria-hidden>
-          🎉
+        <span className="mx-auto mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-plantain/20 text-plantain-dark" aria-hidden>
+          <PartyPopper className="h-8 w-8" />
         </span>
-        <h2 className="text-lg font-semibold text-dark">
+        <h2 className="font-display text-xl font-black text-charcoal">
           {state.referrerFirstName} invited you to Feastpot
         </h2>
-        <p className="mt-1 text-sm text-mid">
+        <p className="mt-2 text-sm font-medium text-charcoal-mid">
           You’ll get £{pounds} off your first order. Taking you to sign up…
         </p>
       </div>
@@ -110,16 +111,16 @@ function JoinFlow() {
 
   return (
     <div className="text-center">
-      <span className="mb-3 block text-4xl" aria-hidden>
-        🤔
+      <span className="mx-auto mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-cream-deep text-charcoal-mid" aria-hidden>
+        <HelpCircle className="h-8 w-8" />
       </span>
-      <h2 className="text-lg font-semibold text-dark">That referral code wasn’t found</h2>
-      <p className="mt-1 text-sm text-mid">
+      <h2 className="font-display text-xl font-black text-charcoal">That referral code wasn’t found</h2>
+      <p className="mt-2 text-sm font-medium text-charcoal-mid">
         It may have expired. You can still create a free account.
       </p>
       <Link
         href="/register"
-        className="mt-4 inline-flex h-11 items-center justify-center rounded-xl bg-brand px-5 text-sm font-semibold text-white hover:bg-brand-dark"
+        className="mt-4 inline-flex h-11 items-center justify-center rounded-xl bg-brand px-5 text-sm font-bold text-white hover:bg-brand-dark"
       >
         Create account anyway
       </Link>
@@ -130,7 +131,7 @@ function JoinFlow() {
 export default function JoinPage() {
   return (
     <div className="flex min-h-[40vh] items-center justify-center px-4 py-16">
-      <Suspense fallback={<p className="text-sm text-mid">Loading…</p>}>
+      <Suspense fallback={<p className="text-sm text-charcoal-mid">Loading…</p>}>
         <JoinFlow />
       </Suspense>
     </div>

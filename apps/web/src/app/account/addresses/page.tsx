@@ -45,32 +45,32 @@ export default function AddressesListPage() {
       <div className="space-y-5 py-4">
         <header className="flex items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Saved addresses</h1>
-            <p className="text-sm text-muted-foreground">Manage delivery addresses to speed up checkout.</p>
+            <h1 className="font-display text-2xl font-black tracking-tight text-charcoal">Saved addresses</h1>
+            <p className="text-sm text-charcoal-mid">Manage delivery addresses to speed up checkout.</p>
           </div>
           <Link
             href="/account/addresses/new"
-            className="rounded-md bg-brand px-3 py-2 text-sm font-semibold text-white hover:bg-brand-dark"
+            className="rounded-xl bg-brand px-4 py-2.5 text-sm font-bold text-white hover:bg-brand-dark"
           >
             Add new
           </Link>
         </header>
 
-        {isLoading && <p className="text-sm text-muted-foreground">Loading addresses&hellip;</p>}
+        {isLoading && <p className="text-sm text-charcoal-mid">Loading addresses&hellip;</p>}
 
         {error && !isLoading && (
-          <p className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+          <p className="rounded-xl border border-scotch/30 bg-scotch/10 p-3 text-sm font-medium text-scotch">
             Could not load your addresses. Please refresh.
           </p>
         )}
 
         {data && data.length === 0 && !isLoading && (
-          <div className="rounded-lg border border-dashed border-border p-6 text-center">
-            <p className="text-sm text-foreground">No saved addresses.</p>
-            <p className="mt-1 text-xs text-muted-foreground">Add one to speed up checkout.</p>
+          <div className="rounded-2xl border border-dashed border-cream-deep bg-white p-6 text-center">
+            <p className="text-sm font-bold text-charcoal">No saved addresses.</p>
+            <p className="mt-1 text-xs text-charcoal-mid">Add one to speed up checkout.</p>
             <Link
               href="/account/addresses/new"
-              className="mt-4 inline-flex rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-dark"
+              className="mt-4 inline-flex rounded-xl bg-brand px-4 py-2.5 text-sm font-bold text-white hover:bg-brand-dark"
             >
               Add your first address
             </Link>
@@ -80,7 +80,7 @@ export default function AddressesListPage() {
         {data && data.length > 0 && (
           <ul className="space-y-3">
             {data.map((a) => (
-              <li key={a.id} className="rounded-lg border border-border bg-card p-4">
+              <li key={a.id} className="rounded-2xl border border-cream-deep bg-white p-4 shadow-sm">
                 <AddressRow
                   address={a}
                   pendingDefault={setDefault.isPending && setDefault.variables === a.id}
@@ -93,7 +93,7 @@ export default function AddressesListPage() {
         )}
 
         {actionError && (
-          <p className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+          <p className="rounded-xl border border-scotch/30 bg-scotch/10 p-3 text-sm font-medium text-scotch">
             {actionError}
           </p>
         )}
@@ -106,22 +106,22 @@ export default function AddressesListPage() {
             onClick={() => setConfirmId(null)}
           >
             <div
-              className="w-full max-w-sm rounded-lg bg-background p-5 shadow-lg"
+              className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-lg"
               onClick={(e) => e.stopPropagation()}
             >
-              <h2 className="text-lg font-semibold">Delete this address?</h2>
-              <p className="mt-2 text-sm text-muted-foreground">
+              <h2 className="font-display text-lg font-black text-charcoal">Delete this address?</h2>
+              <p className="mt-2 text-sm text-charcoal-mid">
                 This can&rsquo;t be undone. We won&rsquo;t let you delete it if it&rsquo;s used by an in-flight order.
               </p>
               <div className="mt-4 flex justify-end gap-2">
                 <button
-                  className="rounded-md border border-border px-3 py-2 text-sm hover:bg-muted/40"
+                  className="rounded-xl border border-cream-deep px-4 py-2.5 text-sm font-bold text-charcoal hover:bg-cream"
                   onClick={() => setConfirmId(null)}
                 >
                   Cancel
                 </button>
                 <button
-                  className="rounded-md bg-destructive px-3 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
+                  className="rounded-xl bg-scotch px-4 py-2.5 text-sm font-bold text-white hover:bg-scotch-dark disabled:opacity-50"
                   disabled={del.isPending}
                   onClick={() => onDelete(confirmId)}
                 >
@@ -150,17 +150,17 @@ function AddressRow({
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
       <div className="text-sm">
-        <p className="flex items-center gap-2 font-semibold">
+        <p className="flex items-center gap-2 font-bold text-charcoal">
           {address.label || 'Address'}
           {address.isDefault && (
-            <span className="rounded-full bg-teal-light px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-teal-dark">
+            <span className="rounded-full bg-brand-light px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand-dark">
               Default
             </span>
           )}
         </p>
-        <p className="mt-1 text-muted-foreground">{address.line1}</p>
-        {address.line2 && <p className="text-muted-foreground">{address.line2}</p>}
-        <p className="text-muted-foreground">
+        <p className="mt-1 text-charcoal-mid">{address.line1}</p>
+        {address.line2 && <p className="text-charcoal-mid">{address.line2}</p>}
+        <p className="text-charcoal-mid">
           {address.city}, {address.postcode}
         </p>
       </div>
@@ -171,21 +171,21 @@ function AddressRow({
             type="button"
             onClick={onSetDefault}
             disabled={pendingDefault}
-            className="rounded-md border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted/40 disabled:opacity-50"
+            className="rounded-full border border-cream-deep bg-white px-3 py-1.5 text-xs font-bold text-charcoal hover:bg-cream disabled:opacity-50"
           >
             {pendingDefault ? 'Saving…' : 'Set as default'}
           </button>
         )}
         <Link
           href={`/account/addresses/${address.id}/edit`}
-          className="rounded-md border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted/40"
+          className="rounded-full border border-cream-deep bg-white px-3 py-1.5 text-xs font-bold text-charcoal hover:bg-cream"
         >
           Edit
         </Link>
         <button
           type="button"
           onClick={onDelete}
-          className="rounded-md border border-destructive/40 px-3 py-1.5 text-xs font-medium text-destructive hover:bg-destructive/10"
+          className="rounded-full border border-scotch/40 bg-white px-3 py-1.5 text-xs font-bold text-scotch hover:bg-scotch/10"
         >
           Delete
         </button>
