@@ -73,9 +73,21 @@ const withPWA = withPWAInit({
         // urlPatterns — leaving navigations completely unrouted in the
         // generated `public/sw.js`. The regex matches "extension-less"
         // same-origin URLs (i.e. document requests) and explicitly excludes
-        // `/_next/`, `/api/`, and `/sw.js` so they keep falling through to
-        // their dedicated handlers above.
-        urlPattern: /^https?:\/\/[^/]+\/(?!_next\/|api\/|sw\.js)[^.]*$/,
+        // paths that must always go to the network and never be served from
+        // the HTML page cache:
+        //   - `/_next/`   Next.js static assets (handled above)
+        //   - `/api/`     Next route handlers
+        //   - `/v1/`      Same-origin proxy to the Feastpot NestJS API
+        //                 (used when NEXT_PUBLIC_API_URL is unset and the
+        //                 dev rewrite or a Vercel rewrite proxies /v1/*).
+        //                 Without this exclusion, a misconfigured API_URL
+        //                 in production would fetch `/v1/vendors`, the SW
+        //                 navigation handler would match it, cache the
+        //                 returned SPA HTML, and lock the page into a
+        //                 perpetual skeleton-loader loop because every
+        //                 subsequent JSON parse fails on the cached HTML.
+        //   - `/sw.js`    The service worker itself
+        urlPattern: /^https?:\/\/[^/]+\/(?!_next\/|api\/|v1\/|sw\.js)[^.]*$/,
         handler: 'NetworkFirst',
         options: {
           cacheName: 'pages-cache',
