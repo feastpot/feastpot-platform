@@ -63,45 +63,45 @@ function SignInForm() {
     <PageShell>
       <section className="space-y-5 py-6">
         <header className="space-y-1">
-          <h1 className="text-2xl font-bold tracking-tight">Welcome back</h1>
-          <p className="text-sm text-muted-foreground">Sign in to track orders and pay quickly.</p>
+          <h1 className="font-display text-2xl font-black tracking-tight text-charcoal">Welcome back</h1>
+          <p className="text-sm font-medium text-charcoal-mid">Sign in to track orders and pay quickly.</p>
         </header>
 
         <button
           type="button"
           onClick={onGoogle}
-          className="w-full rounded-md border border-border bg-background py-2 text-sm font-medium hover:bg-muted"
+          className="w-full rounded-xl border border-cream-deep bg-white py-2.5 text-sm font-bold text-charcoal hover:bg-cream"
         >
           Continue with Google
         </button>
 
-        <div className="relative my-2 text-center text-xs text-muted-foreground">
-          <span className="bg-background px-2">or</span>
-          <span className="absolute left-0 right-0 top-1/2 -z-10 border-t border-border" aria-hidden />
+        <div className="relative my-2 text-center text-xs font-medium text-charcoal-mid">
+          <span className="bg-cream px-2">or</span>
+          <span className="absolute left-0 right-0 top-1/2 -z-10 border-t border-cream-deep" aria-hidden />
         </div>
 
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3" noValidate>
           <div>
-            <label htmlFor="email" className="mb-1 block text-sm font-medium">Email</label>
+            <label htmlFor="email" className="mb-1 block text-sm font-bold text-charcoal">Email</label>
             <input
               id="email"
               type="email"
               autoComplete="email"
               {...form.register('email')}
-              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+              className="w-full rounded-md border border-cream-deep bg-white px-3 py-2.5 text-sm font-medium text-charcoal placeholder:text-charcoal-mid/50 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
             />
             {form.formState.errors.email && (
               <p className="mt-1 text-xs text-destructive">{form.formState.errors.email.message}</p>
             )}
           </div>
           <div>
-            <label htmlFor="password" className="mb-1 block text-sm font-medium">Password</label>
+            <label htmlFor="password" className="mb-1 block text-sm font-bold text-charcoal">Password</label>
             <input
               id="password"
               type="password"
               autoComplete="current-password"
               {...form.register('password')}
-              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+              className="w-full rounded-md border border-cream-deep bg-white px-3 py-2.5 text-sm font-medium text-charcoal placeholder:text-charcoal-mid/50 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
             />
             {form.formState.errors.password && (
               <p className="mt-1 text-xs text-destructive">{form.formState.errors.password.message}</p>
@@ -113,13 +113,13 @@ function SignInForm() {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full rounded-md bg-brand py-2 text-sm font-semibold text-white hover:bg-brand-dark disabled:opacity-50"
+            className="w-full rounded-xl bg-brand py-3 text-sm font-bold text-white hover:bg-brand-dark disabled:opacity-50"
           >
             {submitting ? 'Signing in…' : 'Sign in'}
           </button>
         </form>
 
-        <div className="space-y-2 text-center text-sm text-muted-foreground">
+        <div className="space-y-2 text-center text-sm text-charcoal-mid">
           <Link href="/sign-in/otp" className="underline-offset-2 hover:underline">
             Sign in with phone
           </Link>
@@ -130,7 +130,7 @@ function SignInForm() {
           </div>
           <div>
             New here?{' '}
-            <Link href="/register" className="font-medium text-brand hover:underline">
+            <Link href="/register" className="font-bold text-brand hover:underline">
               Create an account
             </Link>
           </div>

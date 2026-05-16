@@ -31,8 +31,8 @@ export default function ForgotPasswordPage() {
     return (
       <PageShell>
         <section className="space-y-3 py-10 text-center">
-          <h1 className="text-2xl font-bold tracking-tight">Check your email</h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="font-display text-2xl font-black tracking-tight text-charcoal">Check your email</h1>
+          <p className="text-sm text-charcoal-mid">
             If an account exists for <strong>{email}</strong>, you&rsquo;ll get a reset link shortly.
           </p>
         </section>
@@ -44,8 +44,8 @@ export default function ForgotPasswordPage() {
     <PageShell>
       <section className="space-y-4 py-6">
         <header className="space-y-1">
-          <h1 className="text-2xl font-bold tracking-tight">Reset your password</h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="font-display text-2xl font-black tracking-tight text-charcoal">Reset your password</h1>
+          <p className="text-sm text-charcoal-mid">
             Enter your account email and we&rsquo;ll send a reset link.
           </p>
         </header>
@@ -59,12 +59,12 @@ export default function ForgotPasswordPage() {
             placeholder="you@example.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+            className="w-full rounded-md border border-cream-deep bg-white px-3 py-2.5 text-sm font-medium text-charcoal placeholder:text-charcoal-mid/50 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
           />
           <button
             type="submit"
             disabled={busy}
-            className="w-full rounded-md bg-brand py-2 text-sm font-semibold text-white hover:bg-brand-dark disabled:opacity-50"
+            className="w-full rounded-xl bg-brand py-3 text-sm font-bold text-white hover:bg-brand-dark disabled:opacity-50"
           >
             {busy ? 'Sending…' : 'Send reset link'}
           </button>

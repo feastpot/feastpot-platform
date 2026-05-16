@@ -109,14 +109,14 @@ export default function RegisterPage() {
     return (
       <PageShell>
         <section className="space-y-4 py-10 text-center">
-          <h1 className="text-2xl font-bold tracking-tight">Check your email</h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="font-display text-2xl font-black tracking-tight text-charcoal">Check your email</h1>
+          <p className="text-sm text-charcoal-mid">
             We&rsquo;ve sent a confirmation link to <strong>{form.getValues('email')}</strong>.
             Open it on this device to finish creating your account.
           </p>
           <Link
             href="/sign-in"
-            className="inline-block rounded-md border border-border bg-background px-4 py-2 text-sm font-medium hover:bg-muted"
+            className="inline-block rounded-xl border border-cream-deep bg-white px-4 py-2.5 text-sm font-bold text-charcoal hover:bg-cream"
           >
             Back to sign in
           </Link>
@@ -129,31 +129,31 @@ export default function RegisterPage() {
     <PageShell>
       <section className="space-y-4 py-6">
         <header className="space-y-1">
-          <h1 className="text-2xl font-bold tracking-tight">Create your account</h1>
-          <p className="text-sm text-muted-foreground">Order from local cooks in minutes.</p>
+          <h1 className="font-display text-2xl font-black tracking-tight text-charcoal">Create your account</h1>
+          <p className="text-sm text-charcoal-mid">Order from local cooks in minutes.</p>
         </header>
 
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3" noValidate>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label htmlFor="firstName" className="mb-1 block text-sm font-medium">First name</label>
+              <label htmlFor="firstName" className="mb-1 block text-sm font-bold text-charcoal">First name</label>
               <input
                 id="firstName"
                 autoComplete="given-name"
                 {...form.register('firstName')}
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                className="w-full rounded-md border border-cream-deep bg-white px-3 py-2.5 text-sm font-medium text-charcoal placeholder:text-charcoal-mid/50 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
               />
               {form.formState.errors.firstName && (
                 <p className="mt-1 text-xs text-destructive">{form.formState.errors.firstName.message}</p>
               )}
             </div>
             <div>
-              <label htmlFor="lastName" className="mb-1 block text-sm font-medium">Last name</label>
+              <label htmlFor="lastName" className="mb-1 block text-sm font-bold text-charcoal">Last name</label>
               <input
                 id="lastName"
                 autoComplete="family-name"
                 {...form.register('lastName')}
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                className="w-full rounded-md border border-cream-deep bg-white px-3 py-2.5 text-sm font-medium text-charcoal placeholder:text-charcoal-mid/50 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
               />
               {form.formState.errors.lastName && (
                 <p className="mt-1 text-xs text-destructive">{form.formState.errors.lastName.message}</p>
@@ -162,13 +162,13 @@ export default function RegisterPage() {
           </div>
 
           <div>
-            <label htmlFor="email" className="mb-1 block text-sm font-medium">Email</label>
+            <label htmlFor="email" className="mb-1 block text-sm font-bold text-charcoal">Email</label>
             <input
               id="email"
               type="email"
               autoComplete="email"
               {...form.register('email')}
-              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+              className="w-full rounded-md border border-cream-deep bg-white px-3 py-2.5 text-sm font-medium text-charcoal placeholder:text-charcoal-mid/50 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
             />
             {form.formState.errors.email && (
               <p className="mt-1 text-xs text-destructive">{form.formState.errors.email.message}</p>
@@ -176,13 +176,13 @@ export default function RegisterPage() {
           </div>
 
           <div>
-            <label htmlFor="password" className="mb-1 block text-sm font-medium">Password (min 8 chars)</label>
+            <label htmlFor="password" className="mb-1 block text-sm font-bold text-charcoal">Password (min 8 chars)</label>
             <input
               id="password"
               type="password"
               autoComplete="new-password"
               {...form.register('password')}
-              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+              className="w-full rounded-md border border-cream-deep bg-white px-3 py-2.5 text-sm font-medium text-charcoal placeholder:text-charcoal-mid/50 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
             />
             {form.formState.errors.password && (
               <p className="mt-1 text-xs text-destructive">{form.formState.errors.password.message}</p>
@@ -190,14 +190,14 @@ export default function RegisterPage() {
           </div>
 
           <div>
-            <label htmlFor="phone" className="mb-1 block text-sm font-medium">Phone (optional)</label>
+            <label htmlFor="phone" className="mb-1 block text-sm font-bold text-charcoal">Phone (optional)</label>
             <input
               id="phone"
               type="tel"
               autoComplete="tel"
               placeholder="+44 7700 900123"
               {...form.register('phone')}
-              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+              className="w-full rounded-md border border-cream-deep bg-white px-3 py-2.5 text-sm font-medium text-charcoal placeholder:text-charcoal-mid/50 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
             />
             {form.formState.errors.phone && (
               <p className="mt-1 text-xs text-destructive">{form.formState.errors.phone.message}</p>
@@ -205,11 +205,11 @@ export default function RegisterPage() {
           </div>
 
           <div>
-            <label htmlFor="referralCode" className="mb-1 block text-sm font-medium">Referral code (optional)</label>
+            <label htmlFor="referralCode" className="mb-1 block text-sm font-bold text-charcoal">Referral code (optional)</label>
             <input
               id="referralCode"
               {...form.register('referralCode')}
-              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+              className="w-full rounded-md border border-cream-deep bg-white px-3 py-2.5 text-sm font-medium text-charcoal placeholder:text-charcoal-mid/50 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
             />
           </div>
 
@@ -217,7 +217,7 @@ export default function RegisterPage() {
             <input
               type="checkbox"
               {...form.register('marketingOptIn')}
-              className="h-4 w-4 rounded border-border"
+              className="h-4 w-4 rounded border-cream-deep accent-brand"
             />
             <span>Send me occasional offers and new vendor news.</span>
           </label>
@@ -227,14 +227,14 @@ export default function RegisterPage() {
           <button
             type="submit"
             disabled={form.formState.isSubmitting}
-            className="w-full rounded-md bg-brand py-2 text-sm font-semibold text-white hover:bg-brand-dark disabled:opacity-50"
+            className="w-full rounded-xl bg-brand py-3 text-sm font-bold text-white hover:bg-brand-dark disabled:opacity-50"
           >
             {form.formState.isSubmitting ? 'Creating account…' : 'Create account'}
           </button>
 
-          <p className="text-center text-sm text-muted-foreground">
+          <p className="text-center text-sm text-charcoal-mid">
             Already have an account?{' '}
-            <Link href="/sign-in" className="font-medium text-brand hover:underline">
+            <Link href="/sign-in" className="font-bold text-brand hover:underline">
               Sign in
             </Link>
           </p>

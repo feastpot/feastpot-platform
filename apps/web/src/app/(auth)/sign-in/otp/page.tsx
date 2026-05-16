@@ -71,8 +71,8 @@ export default function OtpSignInPage() {
     <PageShell>
       <section className="space-y-4 py-6">
         <header className="space-y-1">
-          <h1 className="text-2xl font-bold tracking-tight">Sign in with phone</h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="font-display text-2xl font-black tracking-tight text-charcoal">Sign in with phone</h1>
+          <p className="text-sm text-charcoal-mid">
             {step === 'phone'
               ? 'We&rsquo;ll text you a one-time code.'
               : `Enter the 6-digit code we sent to ${phone}.`}
@@ -81,7 +81,7 @@ export default function OtpSignInPage() {
 
         {step === 'phone' && (
           <form onSubmit={requestCode} className="space-y-3" noValidate>
-            <label htmlFor="phone" className="mb-1 block text-sm font-medium">Phone number</label>
+            <label htmlFor="phone" className="mb-1 block text-sm font-bold text-charcoal">Phone number</label>
             <input
               id="phone"
               type="tel"
@@ -91,13 +91,13 @@ export default function OtpSignInPage() {
               placeholder="+44 7700 900123"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+              className="w-full rounded-md border border-cream-deep bg-white px-3 py-2.5 text-sm font-medium text-charcoal placeholder:text-charcoal-mid/50 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
             />
             {error && <p className="text-sm text-destructive">{error}</p>}
             <button
               type="submit"
               disabled={busy || phone.trim().length === 0}
-              className="w-full rounded-md bg-brand py-2 text-sm font-semibold text-white hover:bg-brand-dark disabled:opacity-50"
+              className="w-full rounded-xl bg-brand py-3 text-sm font-bold text-white hover:bg-brand-dark disabled:opacity-50"
             >
               {busy ? 'Sending…' : 'Send code'}
             </button>
@@ -113,7 +113,7 @@ export default function OtpSignInPage() {
             className="space-y-3"
             noValidate
           >
-            <label htmlFor="otp" className="mb-1 block text-sm font-medium">6-digit code</label>
+            <label htmlFor="otp" className="mb-1 block text-sm font-bold text-charcoal">6-digit code</label>
             <input
               id="otp"
               ref={codeInputRef}
@@ -129,12 +129,12 @@ export default function OtpSignInPage() {
             <button
               type="button"
               onClick={() => setStep('phone')}
-              className="w-full rounded-md border border-border bg-background py-2 text-sm font-medium hover:bg-muted"
+              className="w-full rounded-md border border-cream-deep bg-white py-2.5 text-sm font-bold text-charcoal hover:bg-cream"
               disabled={busy}
             >
               Use a different number
             </button>
-            {busy && <p className="text-center text-xs text-muted-foreground">Verifying…</p>}
+            {busy && <p className="text-center text-xs text-charcoal-mid">Verifying…</p>}
           </form>
         )}
       </section>
