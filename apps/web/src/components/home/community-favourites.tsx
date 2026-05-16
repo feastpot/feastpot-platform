@@ -1,4 +1,4 @@
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Flame } from 'lucide-react';
 import Link from 'next/link';
 
 import { VendorCard } from '@/components/vendor/vendor-card';
@@ -28,12 +28,17 @@ export function CommunityFavourites({ vendors }: Props) {
     <section className="space-y-2 py-2">
       <header className="flex items-end justify-between gap-2 px-4">
         <div>
-          <h2 className="text-[17px] font-bold text-dark">🔥 Community Favourites</h2>
-          <p className="mt-0.5 text-xs text-mid">Top-rated by people in your area</p>
+          <h2 className="flex items-center gap-1.5 font-display text-[17px] font-black text-charcoal">
+            <Flame className="h-4 w-4 text-scotch" aria-hidden />
+            Community Favourites
+          </h2>
+          <p className="mt-0.5 text-xs font-medium text-charcoal-mid">
+            Top-rated by people in your area
+          </p>
         </div>
         <Link
           href="/vendors?communityFavourite=true"
-          className="inline-flex items-center gap-0.5 text-sm font-semibold text-brand"
+          className="inline-flex items-center gap-0.5 text-sm font-bold text-brand transition-colors hover:text-brand-dark"
         >
           See all
           <ChevronRight className="h-4 w-4" aria-hidden />

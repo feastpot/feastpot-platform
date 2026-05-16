@@ -29,7 +29,7 @@ export function ReviewsMarquee() {
 
   return (
     <div
-      className="overflow-hidden bg-teal-light py-3"
+      className="overflow-hidden border-y border-cream-deep bg-cream-warm py-3"
       aria-label="What customers are saying"
     >
       <div
@@ -39,13 +39,13 @@ export function ReviewsMarquee() {
         {doubled.map((r, i) => (
           <div
             key={i}
-            className="flex shrink-0 items-center gap-2 rounded-full bg-white px-4 py-2 shadow-sm"
+            className="flex shrink-0 items-center gap-2 rounded-full border border-cream-deep bg-white px-4 py-2 shadow-card"
             // Hide duplicates from screen readers so the list isn't read twice.
             aria-hidden={i >= REVIEWS.length || undefined}
           >
-            <span className="text-amber-400" aria-hidden>★★★★★</span>
-            <span className="text-xs font-medium italic text-dark">&ldquo;{r.quote}&rdquo;</span>
-            <span className="text-[10px] text-mid">— {r.name}, {r.area}</span>
+            <span className="text-plantain" aria-hidden>★★★★★</span>
+            <span className="text-xs font-medium italic text-charcoal">&ldquo;{r.quote}&rdquo;</span>
+            <span className="text-[10px] font-medium text-charcoal-mid">— {r.name}, {r.area}</span>
           </div>
         ))}
       </div>
