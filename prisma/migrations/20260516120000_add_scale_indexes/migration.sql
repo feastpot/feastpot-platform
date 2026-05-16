@@ -1,12 +1,25 @@
 -- Scale indexes for 500-vendor / 10k-orders-per-day workload.
 --
--- All indexes are created CONCURRENTLY and use IF NOT EXISTS so the
--- migration is safe to re-run and won't take a long table lock on the
--- production database. Prisma's migration engine wraps statements in a
--- transaction by default, but CONCURRENT index builds cannot run in a
--- transaction — so we mark this migration as "no transaction" via the
--- migration.toml sibling file (see `--add-no-transaction` if rerunning
--- via prisma migrate dev).
+-- IMPORTANT — why no CONCURRENTLY:
+-- Prisma's `migrate deploy` engine wraps every migration file in a single
+-- transaction, and Postgres rejects `CREATE INDEX CONCURRENTLY` inside a
+-- transaction (SQLSTATE 25001). The first attempt of this migration used
+-- CONCURRENTLY and got stuck in `_prisma_migrations` as failed (P3009),
+-- which blocked every subsequent deploy.
+--
+-- Plain `CREATE INDEX` takes a short ACCESS EXCLUSIVE lock on the target
+-- table for the duration of the build. At our current scale (vendors,
+-- menu_items, discount_codes, loyalty_points are small; orders is the
+-- largest but still well under a million rows pre-launch) every index
+-- here builds in well under a second, so the lock window is acceptable.
+-- If/when `orders` grows past a few million rows, follow up by running
+-- the index rebuilds manually via psql with CONCURRENTLY (see Prisma's
+-- "Customizing migrations" docs) and recording the result with
+-- `prisma migrate resolve --applied`.
+--
+-- DROP IF EXISTS in front of each CREATE: defensively cleans up any
+-- INVALID leftovers from the prior failed CONCURRENTLY attempt so the
+-- replacement build is guaranteed to succeed and to be valid.
 --
 -- Why these specific indexes:
 --   - vendors(status, avg_rating DESC) WHERE status='live'
@@ -28,27 +41,34 @@
 --   - discount_codes(UPPER(code)) WHERE is_active
 --       Case-insensitive code lookup on /validate.
 
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_vendors_status_rating
+DROP INDEX IF EXISTS idx_vendors_status_rating;
+CREATE INDEX idx_vendors_status_rating
   ON vendors(status, avg_rating DESC)
   WHERE status = 'live';
 
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_vendors_cuisine_gin
+DROP INDEX IF EXISTS idx_vendors_cuisine_gin;
+CREATE INDEX idx_vendors_cuisine_gin
   ON vendors USING GIN(cuisine_types);
 
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_orders_vendor_status
+DROP INDEX IF EXISTS idx_orders_vendor_status;
+CREATE INDEX idx_orders_vendor_status
   ON orders(vendor_id, status, created_at DESC)
   WHERE status NOT IN ('delivered', 'cancelled');
 
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_orders_customer_created
+DROP INDEX IF EXISTS idx_orders_customer_created;
+CREATE INDEX idx_orders_customer_created
   ON orders(customer_id, created_at DESC);
 
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_menu_items_vendor_available
+DROP INDEX IF EXISTS idx_menu_items_vendor_available;
+CREATE INDEX idx_menu_items_vendor_available
   ON menu_items(vendor_id, is_available)
   WHERE is_available = true;
 
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_loyalty_points_user_id
+DROP INDEX IF EXISTS idx_loyalty_points_user_id;
+CREATE INDEX idx_loyalty_points_user_id
   ON loyalty_points(user_id, created_at DESC);
 
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_discount_codes_code_active
+DROP INDEX IF EXISTS idx_discount_codes_code_active;
+CREATE INDEX idx_discount_codes_code_active
   ON discount_codes(UPPER(code))
   WHERE is_active = true;
