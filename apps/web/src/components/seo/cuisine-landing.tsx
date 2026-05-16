@@ -47,14 +47,25 @@ const CUSTOMER_REVIEWS = [
 ];
 
 async function safeFetchVendors(cuisines: string[]): Promise<VendorListItem[]> {
+  // Hard timeout so static generation never hangs when the API is
+  // unreachable from the build worker (e.g. first deploy before the API
+  // is live, or build env with no egress to api.feastpot.co.uk). Without
+  // this, fetch can hang past Next.js's per-page static-gen timeout and
+  // fail the whole build after 3 retries. The catch falls through to the
+  // "we're onboarding new vendors" empty state, which is acceptable copy
+  // until the next ISR revalidation picks up real data.
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 3000);
   try {
     const res = await searchVendors(
       { cuisine: cuisines, sortBy: 'rating', limit: 12 },
-      { next: { revalidate: 3600 } },
+      { next: { revalidate: 3600 }, signal: controller.signal },
     );
     return res.data;
   } catch {
     return [];
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
