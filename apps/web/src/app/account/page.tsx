@@ -16,6 +16,14 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@feastpot/ui';
+
 import { Avatar } from '@/components/account/avatar';
 import { LoyaltyCard } from '@/components/account/loyalty-card';
 import { ReferralCard } from '@/components/account/referral-card';
@@ -38,9 +46,9 @@ export default function AccountHubPage() {
   const { token, loading: authLoading } = useAccessToken();
   const { data: me, isLoading } = useMe();
   const [signingOut, setSigningOut] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const onSignOut = async () => {
-    if (!confirm('Sign out of Feastpot?')) return;
     setSigningOut(true);
     const supabase = createClient();
     await supabase.auth.signOut();
@@ -112,16 +120,59 @@ export default function AccountHubPage() {
         />
       </ul>
 
-      {/* Sign-out */}
+      {/* Sign-out — opens a branded confirm dialog instead of the
+          native window.confirm() which renders as a flat OS-chrome
+          "www.feastpot.co.uk says" alert that breaks the visual
+          language of the rest of the app. */}
       <button
         type="button"
-        onClick={onSignOut}
+        onClick={() => setConfirmOpen(true)}
         disabled={signingOut}
         className="flex w-full items-center justify-center gap-2 rounded-2xl border border-brand/30 bg-white py-3 text-sm font-bold text-brand hover:bg-brand-light disabled:opacity-50"
       >
         <LogOut className="h-4 w-4" aria-hidden />
         {signingOut ? 'Signing out…' : 'Sign out'}
       </button>
+
+      <Dialog open={confirmOpen} onOpenChange={(o) => !signingOut && setConfirmOpen(o)}>
+        <DialogContent className="max-w-sm rounded-2xl border-cream-deep p-0 shadow-card">
+          <div className="flex flex-col items-center gap-3 px-6 pb-2 pt-7 text-center">
+            <span
+              className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-light"
+              aria-hidden
+            >
+              <LogOut className="h-5 w-5 text-brand" />
+            </span>
+            <DialogHeader className="space-y-1.5 text-center sm:text-center">
+              <DialogTitle className="font-display text-lg font-black text-charcoal">
+                Sign out of Feastpot?
+              </DialogTitle>
+              <DialogDescription className="text-sm font-medium text-charcoal-mid">
+                You'll need to sign in again to track orders, redeem points, or
+                reorder your favourites.
+              </DialogDescription>
+            </DialogHeader>
+          </div>
+          <div className="flex flex-col-reverse gap-2 px-6 pb-6 pt-4 sm:flex-row sm:gap-3">
+            <button
+              type="button"
+              onClick={() => setConfirmOpen(false)}
+              disabled={signingOut}
+              className="flex-1 rounded-xl border border-cream-deep bg-white py-3 text-sm font-bold text-charcoal hover:bg-cream-warm disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={onSignOut}
+              disabled={signingOut}
+              className="flex-1 rounded-xl bg-brand py-3 text-sm font-bold text-white shadow-card hover:bg-brand-dark disabled:opacity-50"
+            >
+              {signingOut ? 'Signing out…' : 'Sign out'}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
