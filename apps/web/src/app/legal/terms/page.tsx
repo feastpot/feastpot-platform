@@ -8,6 +8,7 @@ import {
   LegalPageShell,
   LegalQuickNav,
   LegalSection,
+  LegalTrustStrip,
   legalListStyle,
 } from '@/components/legal/legal-shell';
 import { LEGAL } from '@/lib/legal-constants';
@@ -226,11 +227,13 @@ export default function TermsPage() {
             </>
           }
           meta={
-            <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.55)' }}>
+            <span className="text-[11px] font-medium text-white/70">
               ICO Registration: {ICO_NUMBER}
             </span>
           }
         />
+
+        <LegalTrustStrip />
       </LegalContentWrapper>
     </LegalPageShell>
   );

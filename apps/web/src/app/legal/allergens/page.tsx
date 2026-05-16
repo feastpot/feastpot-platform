@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 
 import {
+  LegalBadge,
   LegalContact,
   LegalContentWrapper,
   LegalHero,
@@ -8,6 +9,7 @@ import {
   LegalPageShell,
   LegalQuickNav,
   LegalSection,
+  LegalTrustStrip,
   legalListStyle,
   legalOrderedListStyle,
 } from '@/components/legal/legal-shell';
@@ -59,29 +61,17 @@ export default function AllergensPage() {
           </>
         }
         badge={
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-              padding: '12px 14px',
-              background: 'rgba(232,82,10,0.18)',
-              border: '1px solid rgba(232,82,10,0.45)',
-              borderRadius: '12px',
-            }}
-          >
-            <span style={{ fontSize: '28px', flexShrink: 0 }} aria-hidden>
-              🚨
-            </span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ color: 'white', fontWeight: 700, fontSize: '13px', margin: '0 0 2px' }}>
-                Severe allergic reaction?
-              </p>
-              <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '11px', margin: 0 }}>
-                Use your auto-injector if prescribed and call <strong>999</strong> immediately.
-              </p>
-            </div>
-          </div>
+          <LegalBadge
+            tone="scotch"
+            icon="🚨"
+            title="Severe allergic reaction?"
+            body={
+              <>
+                Use your auto-injector if prescribed and call <strong>999</strong>{' '}
+                immediately.
+              </>
+            }
+          />
         }
         footnote={<>Last updated: May 2026 &middot; FIR 2014 &amp; Natasha&rsquo;s Law (PPDS 2021)</>}
       />
@@ -95,29 +85,16 @@ export default function AllergensPage() {
             amendments) requires every prepared food to declare these 14 allergens. Each menu
             item on Feastpot lists which of these it contains.
           </p>
-          <ul
-            className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4"
-            style={{ listStyle: 'none', padding: 0, margin: '12px 0 0' }}
-          >
+          <ul className="mt-3 grid list-none grid-cols-2 gap-2 p-0 sm:grid-cols-3 md:grid-cols-4">
             {ALLERGENS.map((a) => (
               <li
                 key={a.name}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  padding: '10px',
-                  borderRadius: '10px',
-                  background: '#FBF6EF',
-                  border: '1px solid #EDE4D4',
-                }}
+                className="flex items-center gap-2 rounded-2xl border border-cream-deep bg-cream-warm p-2.5"
               >
-                <span aria-hidden style={{ fontSize: '20px', flexShrink: 0 }}>
+                <span aria-hidden className="shrink-0 text-xl">
                   {a.emoji}
                 </span>
-                <span style={{ fontSize: '12px', fontWeight: 600, color: '#1C1C1A' }}>
-                  {a.name}
-                </span>
+                <span className="text-xs font-bold text-charcoal">{a.name}</span>
               </li>
             ))}
           </ul>
@@ -192,6 +169,8 @@ export default function AllergensPage() {
             </>
           }
         />
+
+        <LegalTrustStrip />
       </LegalContentWrapper>
     </LegalPageShell>
   );

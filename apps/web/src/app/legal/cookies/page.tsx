@@ -1,12 +1,14 @@
 import type { Metadata } from 'next';
 
 import {
+  LegalBadge,
   LegalContact,
   LegalContentWrapper,
   LegalHero,
   LegalPageShell,
   LegalQuickNav,
   LegalSection,
+  LegalTrustStrip,
 } from '@/components/legal/legal-shell';
 import { LEGAL } from '@/lib/legal-constants';
 
@@ -57,36 +59,12 @@ export default function CookiesPage() {
           </>
         }
         badge={
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-              padding: '12px 14px',
-              background: 'rgba(61,122,71,0.25)',
-              border: '1px solid rgba(61,122,71,0.45)',
-              borderRadius: '12px',
-            }}
-          >
-            <span style={{ fontSize: '28px', flexShrink: 0 }} aria-hidden>
-              🍪
-            </span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <p
-                style={{
-                  color: 'white',
-                  fontWeight: 700,
-                  fontSize: '13px',
-                  margin: '0 0 2px',
-                }}
-              >
-                3 strictly necessary items
-              </p>
-              <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: '11px', margin: 0 }}>
-                Authentication &middot; session refresh &middot; basket persistence
-              </p>
-            </div>
-          </div>
+          <LegalBadge
+            tone="brand"
+            icon="🍪"
+            title="3 strictly necessary items"
+            body={<>Authentication &middot; session refresh &middot; basket persistence</>}
+          />
         }
         footnote={
           <>
@@ -112,49 +90,18 @@ export default function CookiesPage() {
             {COOKIES.map((c) => (
               <div
                 key={c.name}
-                style={{
-                  padding: '12px',
-                  borderRadius: '10px',
-                  background: '#FBF6EF',
-                  border: '1px solid #EDE4D4',
-                }}
+                className="rounded-2xl border border-cream-deep bg-cream-warm p-3"
               >
-                <p
-                  style={{
-                    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-                    fontSize: '12px',
-                    fontWeight: 700,
-                    color: '#1C1C1A',
-                    margin: '0 0 6px',
-                    wordBreak: 'break-all',
-                  }}
-                >
+                <p className="mb-1.5 break-all font-mono text-xs font-black text-charcoal">
                   {c.name}
                 </p>
-                <p style={{ fontSize: '12px', color: '#5F5E5A', margin: '0 0 6px', lineHeight: 1.5 }}>
+                <p className="mb-1.5 text-xs leading-snug text-charcoal-mid">
                   {c.purpose}
                 </p>
-                <p
-                  style={{
-                    fontSize: '11px',
-                    fontWeight: 700,
-                    color: '#E8520A',
-                    margin: '0 0 4px',
-                  }}
-                >
+                <p className="mb-1 text-[11px] font-black text-brand">
                   {c.duration}
                 </p>
-                <span
-                  style={{
-                    display: 'inline-block',
-                    fontSize: '10px',
-                    fontWeight: 600,
-                    padding: '2px 6px',
-                    borderRadius: '4px',
-                    background: '#E8F5EB',
-                    color: '#3D7A47',
-                  }}
-                >
+                <span className="inline-block rounded-md bg-brand-light px-1.5 py-0.5 text-[10px] font-bold text-brand-dark">
                   Strictly necessary
                 </span>
               </div>
@@ -190,11 +137,13 @@ export default function CookiesPage() {
             </>
           }
           meta={
-            <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.55)' }}>
+            <span className="text-[11px] font-medium text-white/70">
               ICO Registration: {ICO_NUMBER}
             </span>
           }
         />
+
+        <LegalTrustStrip />
       </LegalContentWrapper>
     </LegalPageShell>
   );

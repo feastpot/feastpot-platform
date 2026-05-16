@@ -1,7 +1,23 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 
+import {
+  LegalBadge,
+  LegalHero,
+  LegalQuickNav,
+  LegalTrustStrip,
+} from '@/components/legal/legal-shell';
 import { LEGAL } from '@/lib/legal-constants';
+
+const PRIVACY_QUICK_NAV = [
+  { label: 'What we collect', href: '#collect' },
+  { label: 'How we use it', href: '#use' },
+  { label: 'Who we share with', href: '#share' },
+  { label: 'Retention', href: '#retention' },
+  { label: 'Your rights', href: '#rights' },
+  { label: 'Cookies', href: '#cookies' },
+  { label: 'Contact', href: '#contact' },
+];
 
 export const metadata: Metadata = {
   title: 'Privacy Policy',
@@ -30,179 +46,49 @@ const ICO_NUMBER = LEGAL.ICO_NUMBER;
 export default function PrivacyPage() {
   return (
     <div className="-mx-4 md:mx-0">
-      {/* HERO, dark branded header (replaces the plain h1 + ICO chip) */}
-      <div
-        style={{
-          background: 'linear-gradient(160deg, #1C1C1A 0%, #3D1A0A 100%)',
-          padding: '28px 20px 24px',
-          borderRadius: 0,
-        }}
-        className="md:rounded-2xl"
-      >
-        <div style={{ maxWidth: '640px', margin: '0 auto' }}>
-          <h1
-            style={{
-              fontFamily: 'Playfair Display, Georgia, serif',
-              fontWeight: 800,
-              fontSize: '28px',
-              color: 'white',
-              marginBottom: '8px',
-              letterSpacing: '-0.5px',
-            }}
-          >
-            Your Privacy
-          </h1>
-
-          <p
-            style={{
-              color: 'rgba(255,255,255,0.65)',
-              fontSize: '13px',
-              lineHeight: 1.6,
-              marginBottom: '18px',
-            }}
-          >
-            We built Feastpot for your community. We handle your data with the same care
-            you&rsquo;d expect from a trusted neighbour, not a faceless corporation.
-          </p>
-
-          {/* ICO Registration, prominent trust badge */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-              padding: '12px 14px',
-              background: 'rgba(61,122,71,0.25)',
-              border: '1px solid rgba(61,122,71,0.45)',
-              borderRadius: '12px',
-            }}
-          >
-            <span style={{ fontSize: '28px', flexShrink: 0 }} aria-hidden>
-              🛡️
-            </span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <p
-                style={{
-                  color: 'white',
-                  fontWeight: 700,
-                  fontSize: '13px',
-                  margin: '0 0 2px',
-                }}
-              >
-                ICO Registered Data Controller
-              </p>
-              <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: '11px', margin: 0 }}>
-                Registration Reference:{' '}
-                <span
-                  style={{ fontFamily: 'monospace', fontWeight: 700, color: 'white' }}
-                >
-                  {ICO_NUMBER}
-                </span>
-              </p>
-              <p
-                style={{
-                  color: 'rgba(255,255,255,0.4)',
-                  fontSize: '10px',
-                  margin: '2px 0 0',
-                }}
-              >
-                Registered with the Information Commissioner&rsquo;s Office &middot; England &amp; Wales
-              </p>
-            </div>
-            <a
-              href={LEGAL.ICO_VERIFY_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                color: 'rgba(255,255,255,0.4)',
-                fontSize: '10px',
-                textDecoration: 'underline',
-                flexShrink: 0,
-              }}
-            >
-              Verify ↗
-            </a>
-          </div>
-
-          <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '11px', marginTop: '12px' }}>
-            Last updated: May 2026 &middot; UK GDPR, Data Protection Act 2018, Data (Use and Access) Act 2025
-          </p>
-        </div>
-      </div>
-
-      {/* Kente strip bookends the hero with a touch of brand pattern. */}
-      <div className="kente-divider" aria-hidden />
-
-      {/* STICKY QUICK-NAV, anchors to the most-asked sections only.
-          `top: 56px` clears the global topnav. Pills are warm-cream by
-          default and flip to brand on hover via inline handlers (the
-          page is a Server Component so we keep the pills as plain
-          anchors and animate via CSS pseudo-states below). */}
-      <nav
-        aria-label="Privacy policy sections"
-        style={{
-          position: 'sticky',
-          top: '56px',
-          zIndex: 20,
-          background: 'rgba(251,246,239,0.96)',
-          backdropFilter: 'blur(8px)',
-          borderBottom: '1px solid #EDE4D4',
-          overflowX: 'auto',
-          WebkitOverflowScrolling: 'touch',
-        }}
-      >
-        <div
-          style={{
-            display: 'flex',
-            gap: '4px',
-            padding: '8px 12px',
-            whiteSpace: 'nowrap',
-            maxWidth: '640px',
-            margin: '0 auto',
-          }}
-        >
-          {[
-            { label: 'What we collect', href: '#collect' },
-            { label: 'How we use it', href: '#use' },
-            { label: 'Who we share with', href: '#share' },
-            { label: 'Retention', href: '#retention' },
-            { label: 'Your rights', href: '#rights' },
-            { label: 'Cookies', href: '#cookies' },
-            { label: 'Contact', href: '#contact' },
-          ].map((l) => (
-            <a
-              key={l.href}
-              href={l.href}
-              className="privacy-quicknav-pill"
-              style={{
-                fontSize: '11px',
-                fontWeight: 500,
-                padding: '5px 10px',
-                borderRadius: '20px',
-                color: '#5F5E5A',
-                textDecoration: 'none',
-                border: '1px solid #EDE4D4',
-                transition: 'background-color .15s, color .15s, border-color .15s',
-              }}
-            >
-              {l.label}
-            </a>
-          ))}
-        </div>
-      </nav>
-
-      {/* Hover styling for the quick-nav pills. Inline <style> keeps the
-          rule co-located with the markup so a future move/refactor of
-          the section can't leave orphan CSS behind. */}
-      <style>{`
-        .privacy-quicknav-pill:hover,
-        .privacy-quicknav-pill:focus-visible {
-          background: #E8520A;
-          color: #fff !important;
-          border-color: #E8520A !important;
-          outline: none;
+      <LegalHero
+        title="Your privacy"
+        lede={
+          <>
+            We built Feastpot for your community. We handle your data with the same
+            care you&rsquo;d expect from a trusted neighbour, not a faceless
+            corporation.
+          </>
         }
-      `}</style>
+        badge={
+          <LegalBadge
+            tone="brand"
+            icon="🛡️"
+            title="ICO Registered Data Controller"
+            body={
+              <>
+                Registration:{' '}
+                <span className="font-mono font-black">{ICO_NUMBER}</span>{' '}
+                &middot;{' '}
+                <a
+                  href={LEGAL.ICO_VERIFY_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline underline-offset-2"
+                >
+                  Verify ↗
+                </a>
+              </>
+            }
+          />
+        }
+        footnote={
+          <>
+            Last updated: May 2026 &middot; UK GDPR, Data Protection Act 2018, Data
+            (Use and Access) Act 2025
+          </>
+        }
+      />
+
+      <LegalQuickNav
+        ariaLabel="Privacy policy sections"
+        items={PRIVACY_QUICK_NAV}
+      />
 
       {/* MAIN CONTENT, every section wrapped in a card.
           The original `prose` styles are dropped intentionally: each
@@ -412,7 +298,7 @@ export default function PrivacyPage() {
                   <span style={{ fontSize: '16px' }} aria-hidden>
                     {r.icon}
                   </span>
-                  <span style={{ fontSize: '11px', fontWeight: 600, color: '#1C1C1A' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 600, color: '#0F1A0F' }}>
                     {r.type}
                   </span>
                 </div>
@@ -420,7 +306,7 @@ export default function PrivacyPage() {
                   style={{
                     fontSize: '12px',
                     fontWeight: 700,
-                    color: '#E8520A',
+                    color: '#00843D',
                     margin: '0 0 2px',
                   }}
                 >
@@ -485,7 +371,7 @@ export default function PrivacyPage() {
                   style={{
                     fontSize: '11px',
                     fontWeight: 700,
-                    color: '#E8520A',
+                    color: '#00843D',
                     margin: '0 0 3px',
                   }}
                 >
@@ -561,7 +447,7 @@ export default function PrivacyPage() {
           id="contact"
           className="scroll-mt-24"
           style={{
-            background: 'linear-gradient(135deg, #1C1C1A, #3D1A0A)',
+            background: 'linear-gradient(135deg, #005C2B, #00843D)',
             borderRadius: '16px',
             padding: '20px',
             marginBottom: '20px',
@@ -569,7 +455,7 @@ export default function PrivacyPage() {
         >
           <h2
             style={{
-              fontFamily: 'Playfair Display, Georgia, serif',
+              fontFamily: 'var(--font-display, "Playfair Display"), Georgia, serif',
               fontWeight: 800,
               fontSize: '20px',
               color: 'white',
@@ -600,18 +486,7 @@ export default function PrivacyPage() {
           </p>
           <a
             href="mailto:privacy@feastpot.co.uk?subject=Privacy enquiry"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '8px',
-              background: '#E8520A',
-              color: 'white',
-              padding: '10px 18px',
-              borderRadius: '10px',
-              fontWeight: 700,
-              fontSize: '13px',
-              textDecoration: 'none',
-            }}
+            className="inline-flex items-center gap-2 rounded-2xl bg-plantain px-5 py-2.5 text-sm font-black text-charcoal shadow-sm transition hover:bg-plantain/90"
           >
             <span aria-hidden>✉️</span> privacy@feastpot.co.uk
           </a>
@@ -625,23 +500,21 @@ export default function PrivacyPage() {
               flexWrap: 'wrap',
             }}
           >
-            <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.55)' }}>
+            <span className="text-[11px] font-medium text-white/70">
               ICO Registration: {ICO_NUMBER}
             </span>
             <a
               href="https://ico.org.uk/make-a-complaint"
               target="_blank"
               rel="noopener noreferrer"
-              style={{
-                fontSize: '11px',
-                color: 'rgba(255,255,255,0.55)',
-                textDecoration: 'underline',
-              }}
+              className="text-[11px] font-medium text-white/70 underline"
             >
               Lodge ICO complaint ↗
             </a>
           </div>
         </section>
+
+        <LegalTrustStrip />
       </div>
     </div>
   );
@@ -689,10 +562,10 @@ function PrivacySection({
           </span>
           <h2
             style={{
-              fontFamily: 'Playfair Display, Georgia, serif',
+              fontFamily: 'var(--font-display, "Playfair Display"), Georgia, serif',
               fontWeight: 800,
               fontSize: '17px',
-              color: '#1C1C1A',
+              color: '#0F1A0F',
               margin: 0,
             }}
           >
@@ -729,7 +602,7 @@ function PrivacyLink({
     <a
       href={href}
       {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
-      style={{ color: '#E8520A', fontWeight: 600, textDecoration: 'underline' }}
+      style={{ color: '#00843D', fontWeight: 600, textDecoration: 'underline' }}
     >
       {children}
     </a>
@@ -739,7 +612,7 @@ function PrivacyLink({
 const subHeading: React.CSSProperties = {
   fontSize: '13px',
   fontWeight: 700,
-  color: '#1C1C1A',
+  color: '#0F1A0F',
   margin: '14px 0 4px',
 };
 
