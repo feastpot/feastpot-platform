@@ -1,19 +1,54 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import {
   DisputeStatus,
   DocumentStatus,
   OrderStatus,
   Prisma,
   UserRole,
+  VendorApplicationStatus,
   VendorStatus,
 } from '@prisma/client';
 
+import { SupabaseService } from '../../auth/supabase.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { StripeService } from '../../stripe/stripe.service';
+import { EmailProvider } from '../notifications/providers/email.provider';
+import { vendorApplicationInfoRequestedTemplate } from '../notifications/templates/vendor-application-info-requested.template';
+import { vendorApplicationRejectedTemplate } from '../notifications/templates/vendor-application-rejected.template';
+import { vendorPortalInviteTemplate } from '../notifications/templates/vendor-portal-invite.template';
 
 import { ListAdminVendorsDto } from './dto/list-admin-vendors.dto';
 import { ListAuditLogDto } from './dto/list-audit-log.dto';
 import { UpdateVendorApplicationDto } from './dto/update-vendor-application.dto';
+
+/**
+ * Statuses an application can move OUT of. Once it's in approved/rejected,
+ * no further admin transitions are allowed (the row is the permanent record).
+ */
+const IN_FLIGHT_APPLICATION_STATUSES: VendorApplicationStatus[] = [
+  VendorApplicationStatus.pending,
+  VendorApplicationStatus.under_review,
+  VendorApplicationStatus.information_requested,
+];
+
+function slugifyForVendor(input: string): string {
+  return input
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80);
+}
 
 /**
  * Order statuses that count as "real revenue" — same set used by the vendor
@@ -57,9 +92,14 @@ interface TopVendorRow {
 
 @Injectable()
 export class AdminService {
+  private readonly logger = new Logger(AdminService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly stripe: StripeService,
+    private readonly supabase: SupabaseService,
+    private readonly email: EmailProvider,
+    private readonly config: ConfigService,
   ) {}
 
   // ---------------------------------------------------------------- dashboard
@@ -498,13 +538,14 @@ export class AdminService {
    * "what's new" tab is one click away. Limited to 100 rows — applications
    * are low-volume (handful per week) so cursor pagination is overkill.
    */
-  async listVendorApplications(status?: 'pending' | 'approved' | 'rejected') {
+  async listVendorApplications(status?: VendorApplicationStatus) {
     const rows = await this.prisma.vendorApplication.findMany({
-      where: { status: status ?? 'pending' },
+      where: status ? { status } : { status: { in: IN_FLIGHT_APPLICATION_STATUSES } },
       orderBy: { createdAt: 'desc' },
       take: 100,
       include: {
         reviewedBy: { select: { id: true, firstName: true, lastName: true, email: true } },
+        vendor: { select: { id: true, slug: true, status: true } },
       },
     });
     return rows.map((r) => ({
@@ -521,7 +562,9 @@ export class AdminService {
       status: r.status,
       reviewedAt: r.reviewedAt,
       reviewedBy: r.reviewedBy,
-      reviewNote: r.reviewNote,
+      adminNotes: r.adminNotes,
+      rejectionReason: r.rejectionReason,
+      vendor: r.vendor,
       createdAt: r.createdAt,
     }));
   }
@@ -531,6 +574,7 @@ export class AdminService {
       where: { id },
       include: {
         reviewedBy: { select: { id: true, firstName: true, lastName: true, email: true } },
+        vendor: { select: { id: true, slug: true, status: true, businessName: true } },
       },
     });
     if (!row) {
@@ -543,52 +587,485 @@ export class AdminService {
   }
 
   /**
-   * Approve / reject. Approval here is just a status flip + audit stamp —
-   * it does NOT create the Vendor + User pair yet. That belongs to a
-   * follow-up "invite vendor to create account" flow (out of scope for
-   * this slice; tracked separately).
+   * Admin review action on a VendorApplication. Side effects per status:
+   *   under_review          → audit-stamp only
+   *   information_requested → email applicant with adminNotes
+   *   rejected              → email applicant with rejectionReason
+   *   approved              → provision Supabase auth user + DB User +
+   *                           Vendor row, link application, send portal
+   *                           invite (magic link). Skippable with
+   *                           sendInvite=false for "fix-up" re-runs.
+   *
+   * Concurrency: every branch uses an atomic updateMany gated on the
+   * application still being in an in-flight status. The strong guarantee
+   * this gives is that two concurrent transitions to a TERMINAL status
+   * (approved/rejected) cannot both succeed — last writer is rejected
+   * with VENDOR_APPLICATION_ALREADY_REVIEWED. Weaker case: two admins
+   * working from stale UI could sequentially flip pending→under_review
+   * then under_review→information_requested; we accept that as low-stakes
+   * (no provisioning side effects until approved) and trade strict
+   * If-Match semantics for a simpler API. The approval branch additionally
+   * wraps the DB writes in a Prisma transaction with compensating
+   * supabase.deleteUser if the tx fails after the auth user was created.
    */
   async updateVendorApplication(
     id: string,
     reviewerId: string,
     dto: UpdateVendorApplicationDto,
   ) {
-    // Atomic compare-and-set so two reviewers can't both succeed: the
-    // updateMany only matches rows still in status=pending. If count===0
-    // we then disambiguate "doesn't exist" from "already reviewed" with
-    // a single read — cheaper than a serializable tx and racier surfaces
-    // (admin queue) tolerate the extra round-trip on the failure path.
-    const result = await this.prisma.vendorApplication.updateMany({
-      where: { id, status: 'pending' },
+    // Per-branch input guards — class-validator can't express "required
+    // when status=X", so we check here.
+    if (dto.status === 'rejected' && !dto.rejectionReason?.trim()) {
+      throw new BadRequestException({
+        code: 'REJECTION_REASON_REQUIRED',
+        message: 'rejectionReason is required when status="rejected"',
+      });
+    }
+    if (dto.status === 'information_requested' && !dto.adminNotes?.trim()) {
+      throw new BadRequestException({
+        code: 'ADMIN_NOTES_REQUIRED',
+        message: 'adminNotes is required when status="information_requested" — they are surfaced to the applicant verbatim',
+      });
+    }
+
+    const app = await this.prisma.vendorApplication.findUnique({
+      where: { id },
+    });
+    if (!app) {
+      throw new NotFoundException({
+        code: 'VENDOR_APPLICATION_NOT_FOUND',
+        message: 'Vendor application not found',
+      });
+    }
+    if (!IN_FLIGHT_APPLICATION_STATUSES.includes(app.status)) {
+      throw new ForbiddenException({
+        code: 'VENDOR_APPLICATION_ALREADY_REVIEWED',
+        message: `Application already ${app.status}`,
+      });
+    }
+
+    if (dto.status === 'approved') {
+      return this.approveVendorApplication(app, reviewerId, dto);
+    }
+
+    // Non-approval transitions: simple atomic claim + audit + maybe email.
+    const claim = await this.prisma.vendorApplication.updateMany({
+      where: { id, status: { in: IN_FLIGHT_APPLICATION_STATUSES } },
       data: {
         status: dto.status,
-        reviewNote: dto.reviewNote ?? null,
+        adminNotes: dto.adminNotes ?? undefined,
+        rejectionReason: dto.status === 'rejected' ? dto.rejectionReason!.trim() : undefined,
         reviewedAt: new Date(),
         reviewedById: reviewerId,
       },
     });
-    if (result.count === 0) {
-      const existing = await this.prisma.vendorApplication.findUnique({
-        where: { id },
-        select: { status: true },
-      });
-      if (!existing) {
-        throw new NotFoundException({
-          code: 'VENDOR_APPLICATION_NOT_FOUND',
-          message: 'Vendor application not found',
-        });
-      }
+    if (claim.count === 0) {
       throw new ForbiddenException({
         code: 'VENDOR_APPLICATION_ALREADY_REVIEWED',
-        message: `Application already ${existing.status}`,
+        message: 'Application was reviewed by another admin while you were editing',
       });
     }
-    return this.prisma.vendorApplication.findUnique({
-      where: { id },
-      include: {
-        reviewedBy: { select: { id: true, firstName: true, lastName: true, email: true } },
+
+    await this.prisma.auditLog.create({
+      data: {
+        actorId: reviewerId,
+        action: `vendor_application.${dto.status}`,
+        entityType: 'vendor_applications',
+        entityId: id,
+        metadata: {
+          previousState: { status: app.status },
+          newState: {
+            status: dto.status,
+            adminNotes: dto.adminNotes ?? null,
+            rejectionReason: dto.status === 'rejected' ? dto.rejectionReason!.trim() : null,
+          },
+        } as Prisma.JsonObject,
       },
     });
+
+    // Fire-and-forget email (persistence already succeeded). Timeboxed
+    // and logged on failure so on-call sees provider outages.
+    const firstName = (app.fullName.trim().split(/\s+/)[0] || app.fullName).trim();
+    if (dto.status === 'rejected') {
+      const tmpl = vendorApplicationRejectedTemplate({
+        firstName,
+        kitchenName: app.kitchenName,
+        reason: dto.rejectionReason!.trim(),
+      });
+      await this.sendAdminEmail(tmpl, app.email, `rejection email for application ${id}`);
+    } else if (dto.status === 'information_requested') {
+      const tmpl = vendorApplicationInfoRequestedTemplate({
+        firstName,
+        kitchenName: app.kitchenName,
+        question: dto.adminNotes!.trim(),
+      });
+      await this.sendAdminEmail(tmpl, app.email, `info-requested email for application ${id}`);
+    }
+    // under_review: no email — purely internal signal.
+
+    return this.getVendorApplication(id);
+  }
+
+  /**
+   * Approval flow. Ordering matters for compensation:
+   *   1. Pre-flight checks (slug availability, email collision)
+   *   2. Create Supabase auth user           (SIDE EFFECT, not in tx)
+   *   3. Begin Prisma tx:
+   *        a. Atomic claim (in-flight → approved)
+   *        b. Create User (id = Supabase uid)
+   *        c. Create Vendor
+   *        d. Link application.vendor_id
+   *        e. Write audit log
+   *      Commit.
+   *   4. If tx throws → compensate by deleting the Supabase auth user
+   *   5. Generate magic link + send portal invite (best effort; failures
+   *      logged but don't unwind — the admin can re-send manually).
+   */
+  private async approveVendorApplication(
+    app: Prisma.VendorApplicationGetPayload<{}>,
+    reviewerId: string,
+    dto: UpdateVendorApplicationDto,
+  ) {
+    const shouldProvision = dto.sendInvite !== false;
+    const normalisedEmail = app.email.trim().toLowerCase();
+    const [firstNameRaw, ...rest] = app.fullName.trim().split(/\s+/);
+    const firstName = (firstNameRaw || app.fullName).trim();
+    const lastName = rest.join(' ').trim() || null;
+
+    if (!shouldProvision) {
+      // "Mark approved without provisioning" path — used when a previous
+      // approval partially failed and the operator just wants to flip the
+      // status without re-creating duplicate auth/vendor rows.
+      const claim = await this.prisma.vendorApplication.updateMany({
+        where: { id: app.id, status: { in: IN_FLIGHT_APPLICATION_STATUSES } },
+        data: {
+          status: VendorApplicationStatus.approved,
+          adminNotes: dto.adminNotes ?? undefined,
+          reviewedAt: new Date(),
+          reviewedById: reviewerId,
+        },
+      });
+      if (claim.count === 0) {
+        throw new ForbiddenException({
+          code: 'VENDOR_APPLICATION_ALREADY_REVIEWED',
+          message: 'Application was reviewed by another admin while you were editing',
+        });
+      }
+      await this.prisma.auditLog.create({
+        data: {
+          actorId: reviewerId,
+          action: 'vendor_application.approved_no_provision',
+          entityType: 'vendor_applications',
+          entityId: app.id,
+          metadata: {
+            previousState: { status: app.status },
+            note: 'sendInvite=false — admin will provision manually',
+          } as Prisma.JsonObject,
+        },
+      });
+      return this.getVendorApplication(app.id);
+    }
+
+    // Email-collision guard: if a User row already exists for this email,
+    // we'd hit a unique constraint inside the tx. Surface that as a 409
+    // BEFORE creating the Supabase user so we don't need to compensate.
+    const emailCollision = await this.prisma.user.findFirst({
+      where: { email: normalisedEmail },
+      select: { id: true },
+    });
+    if (emailCollision) {
+      throw new ConflictException({
+        code: 'EMAIL_ALREADY_REGISTERED',
+        message: `A user with email ${normalisedEmail} already exists — link the existing user manually or have them change their email before approving.`,
+      });
+    }
+
+    const baseSlug = slugifyForVendor(app.kitchenName) || `vendor-${app.id.slice(0, 8)}`;
+    const slug = await this.uniqueVendorSlug(baseSlug);
+
+    // STEP 2: Create Supabase auth user.
+    const supabaseAdmin = this.supabase.getClient().auth.admin;
+    const { data: created, error: createErr } = await supabaseAdmin.createUser({
+      email: normalisedEmail,
+      email_confirm: true, // skip the click-to-confirm — the magic link is the confirmation
+      user_metadata: {
+        role: 'vendor',
+        source: 'vendor_application',
+        applicationId: app.id,
+        fullName: app.fullName,
+      },
+    });
+    if (createErr || !created?.user?.id) {
+      // Common cause: email already exists in Supabase auth from a prior
+      // failed approval whose DB writes never landed. Surface as 502 so
+      // the admin knows to clean up in Supabase before retrying.
+      this.logger.error(
+        `Supabase createUser failed for application ${app.id}: ${createErr?.message ?? 'no user returned'}`,
+      );
+      throw new InternalServerErrorException({
+        code: 'SUPABASE_CREATE_USER_FAILED',
+        message: createErr?.message ?? 'Supabase did not return a user',
+      });
+    }
+    const supabaseUserId = created.user.id;
+
+    // STEP 3: DB tx. If anything throws, compensate by deleting the auth user.
+    let vendorId: string;
+    try {
+      vendorId = await this.prisma.$transaction(async (tx) => {
+        const claim = await tx.vendorApplication.updateMany({
+          where: { id: app.id, status: { in: IN_FLIGHT_APPLICATION_STATUSES } },
+          data: {
+            status: VendorApplicationStatus.approved,
+            adminNotes: dto.adminNotes ?? undefined,
+            reviewedAt: new Date(),
+            reviewedById: reviewerId,
+          },
+        });
+        if (claim.count === 0) {
+          throw new ForbiddenException({
+            code: 'VENDOR_APPLICATION_ALREADY_REVIEWED',
+            message: 'Application was reviewed by another admin while you were editing',
+          });
+        }
+
+        await tx.user.create({
+          data: {
+            id: supabaseUserId, // pin to Supabase uid — same convention as users.service.sync
+            email: normalisedEmail,
+            firstName,
+            lastName,
+            phone: app.phone,
+            role: UserRole.vendor,
+          },
+        });
+
+        const newVendor = await tx.vendor.create({
+          data: {
+            userId: supabaseUserId,
+            businessName: app.kitchenName,
+            slug,
+            description: app.foodStory,
+            cuisines: [app.cuisineType],
+            status: VendorStatus.approved, // approved (not yet `live`) — vendor still has menu/Stripe setup ahead
+            commissionBps: 1200,
+            approvedAt: new Date(),
+          },
+        });
+
+        await tx.vendorApplication.update({
+          where: { id: app.id },
+          data: { vendorId: newVendor.id },
+        });
+
+        await tx.auditLog.create({
+          data: {
+            actorId: reviewerId,
+            action: 'vendor_application.approved',
+            entityType: 'vendor_applications',
+            entityId: app.id,
+            metadata: {
+              previousState: { status: app.status },
+              newState: {
+                status: VendorApplicationStatus.approved,
+                vendorId: newVendor.id,
+                userId: supabaseUserId,
+                slug,
+              },
+            } as Prisma.JsonObject,
+          },
+        });
+
+        return newVendor.id;
+      });
+    } catch (err) {
+      // Compensation: undo the Supabase user creation so a retry can succeed.
+      try {
+        await this.supabase.getClient().auth.admin.deleteUser(supabaseUserId);
+      } catch (delErr) {
+        this.logger.error(
+          `COMPENSATION FAILED: could not delete orphaned Supabase user ${supabaseUserId} after approval-tx failure for application ${app.id} — manual cleanup required: ${(delErr as Error).message}`,
+        );
+      }
+      throw err;
+    }
+
+    // STEP 5: magic link + portal invite email. Best effort.
+    const vendorPortalUrl =
+      this.config.get<string>('VENDOR_PORTAL_URL') ?? 'https://vendor.feastpot.co.uk';
+    try {
+      const { data: linkData, error: linkErr } = await this.supabase
+        .getClient()
+        .auth.admin.generateLink({
+          type: 'magiclink',
+          email: normalisedEmail,
+          options: { redirectTo: `${vendorPortalUrl}/onboarding` },
+        });
+      // Note: Supabase magic-link expiry is controlled by the project's
+      // auth config (Dashboard → Authentication → Email Templates). The
+      // "expires in 7 days" copy in the email is informational; set the
+      // project-level JWT_EXP / mailer_otp_exp to 604800 to match.
+      const magicLinkUrl = linkData?.properties?.action_link;
+      if (linkErr || !magicLinkUrl) {
+        this.logger.error(
+          `Magic link generation failed for vendor application ${app.id}: ${linkErr?.message ?? 'no action_link in response'} — vendor was provisioned but did NOT receive an invite email; resend manually.`,
+        );
+      } else {
+        const tmpl = vendorPortalInviteTemplate({
+          firstName,
+          kitchenName: app.kitchenName,
+          magicLinkUrl,
+          expiresInDays: 7,
+        });
+        await this.sendAdminEmail(
+          tmpl,
+          normalisedEmail,
+          `portal invite for newly-provisioned vendor ${vendorId}`,
+        );
+      }
+    } catch (err) {
+      this.logger.error(
+        `Portal invite email pipeline threw for application ${app.id}: ${(err as Error).message}`,
+      );
+    }
+
+    return this.getVendorApplication(app.id);
+  }
+
+  /**
+   * Operator action: regenerate the magic-link portal invite for an already-
+   * approved-and-provisioned vendor application. Use when the original
+   * invite email failed delivery, expired, or the vendor lost it.
+   *
+   * Preconditions:
+   *   - application.status === 'approved'
+   *   - application.vendorId IS NOT NULL  (Vendor was actually provisioned)
+   *
+   * Side effects: generates a fresh Supabase magic link and emails it.
+   * Writes an audit log entry. Does NOT create new users/vendors.
+   */
+  async resendVendorApplicationInvite(applicationId: string, actorId: string) {
+    const app = await this.prisma.vendorApplication.findUnique({
+      where: { id: applicationId },
+      include: {
+        vendor: { select: { id: true, userId: true, businessName: true } },
+      },
+    });
+    if (!app) {
+      throw new NotFoundException({
+        code: 'VENDOR_APPLICATION_NOT_FOUND',
+        message: 'Vendor application not found',
+      });
+    }
+    if (app.status !== VendorApplicationStatus.approved || !app.vendor) {
+      throw new BadRequestException({
+        code: 'VENDOR_APPLICATION_NOT_PROVISIONED',
+        message:
+          'Can only resend invites for approved applications that have a provisioned vendor. Use PATCH /vendor-applications/:id with status=approved (sendInvite=true) to provision a vendor that was approved with sendInvite=false.',
+      });
+    }
+
+    const normalisedEmail = app.email.trim().toLowerCase();
+    const firstName = (app.fullName.trim().split(/\s+/)[0] || app.fullName).trim();
+    const vendorPortalUrl =
+      this.config.get<string>('VENDOR_PORTAL_URL') ?? 'https://vendor.feastpot.co.uk';
+
+    const { data: linkData, error: linkErr } = await this.supabase
+      .getClient()
+      .auth.admin.generateLink({
+        type: 'magiclink',
+        email: normalisedEmail,
+        options: { redirectTo: `${vendorPortalUrl}/onboarding` },
+      });
+    const magicLinkUrl = linkData?.properties?.action_link;
+    if (linkErr || !magicLinkUrl) {
+      this.logger.error(
+        `Magic link regeneration failed for application ${applicationId}: ${linkErr?.message ?? 'no action_link'}`,
+      );
+      throw new InternalServerErrorException({
+        code: 'MAGIC_LINK_GENERATION_FAILED',
+        message: linkErr?.message ?? 'Supabase did not return an action link',
+      });
+    }
+
+    const tmpl = vendorPortalInviteTemplate({
+      firstName,
+      kitchenName: app.kitchenName,
+      magicLinkUrl,
+      expiresInDays: 7,
+    });
+    // Send synchronously here (vs the fire-and-forget pattern in
+    // updateVendorApplication) because the operator explicitly asked to
+    // resend — they need to know if it failed.
+    try {
+      await Promise.race([
+        this.email.send({ to: normalisedEmail, subject: tmpl.subject, html: tmpl.html }),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('email timed out after 10s')), 10_000),
+        ),
+      ]);
+    } catch (err) {
+      throw new InternalServerErrorException({
+        code: 'INVITE_EMAIL_SEND_FAILED',
+        message: (err as Error).message,
+      });
+    }
+
+    await this.prisma.auditLog.create({
+      data: {
+        actorId,
+        action: 'vendor_application.invite_resent',
+        entityType: 'vendor_applications',
+        entityId: applicationId,
+        metadata: {
+          vendorId: app.vendor.id,
+          email: normalisedEmail,
+        } as Prisma.JsonObject,
+      },
+    });
+
+    return { ok: true, applicationId, email: normalisedEmail };
+  }
+
+  /**
+   * Slug uniqueness probe. Same algorithm as VendorsService.uniqueSlug —
+   * intentionally duplicated rather than crossing module boundaries
+   * because the Vendors module doesn't currently export its repository.
+   */
+  private async uniqueVendorSlug(base: string): Promise<string> {
+    let candidate = base;
+    for (let attempt = 0; attempt <= 50; attempt += 1) {
+      candidate = attempt === 0 ? base : `${base}-${attempt}`;
+      const existing = await this.prisma.vendor.findUnique({
+        where: { slug: candidate },
+        select: { id: true },
+      });
+      if (!existing) return candidate;
+    }
+    throw new ConflictException({
+      code: 'SLUG_CONFLICT',
+      message: 'Could not generate unique vendor slug from kitchen name',
+    });
+  }
+
+  /** Send a transactional email with a 10s timeout; log rejections. */
+  private async sendAdminEmail(
+    tmpl: { subject: string; html: string },
+    to: string,
+    contextLabel: string,
+  ): Promise<void> {
+    const withTimeout = <T>(p: Promise<T>): Promise<T> =>
+      Promise.race([
+        p,
+        new Promise<T>((_, reject) =>
+          setTimeout(() => reject(new Error(`email timed out after 10s`)), 10_000),
+        ),
+      ]);
+    try {
+      await withTimeout(this.email.send({ to, subject: tmpl.subject, html: tmpl.html }));
+    } catch (err) {
+      this.logger.error(`[AdminService] ${contextLabel} failed: ${(err as Error).message}`);
+    }
   }
 
   async listAdminVendors(dto: ListAdminVendorsDto) {

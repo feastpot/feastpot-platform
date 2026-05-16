@@ -132,7 +132,10 @@ export class AdminController {
   @ApiOperation({
     summary: 'Pre-account vendor application leads (default: status=pending, newest first)',
   })
-  listVendorApplications(@Query('status') status?: 'pending' | 'approved' | 'rejected') {
+  listVendorApplications(
+    @Query('status')
+    status?: 'pending' | 'under_review' | 'information_requested' | 'approved' | 'rejected',
+  ) {
     return this.admin.listVendorApplications(status);
   }
 
@@ -145,13 +148,29 @@ export class AdminController {
 
   @Patch('vendor-applications/:id')
   @Roles(UserRole.admin, UserRole.compliance)
-  @ApiOperation({ summary: 'Approve or reject a vendor application' })
+  @ApiOperation({
+    summary:
+      'Review a vendor application (under_review / information_requested / approved / rejected). Approval provisions Supabase auth user + Vendor row and sends portal invite.',
+  })
   updateVendorApplication(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Req() req: AuthedRequest,
     @Body() dto: UpdateVendorApplicationDto,
   ) {
     return this.admin.updateVendorApplication(id, req.user!.id, dto);
+  }
+
+  @Post('vendor-applications/:id/resend-invite')
+  @Roles(UserRole.admin, UserRole.compliance)
+  @ApiOperation({
+    summary:
+      'Operator action: regenerate the magic-link portal invite for an already-approved-and-provisioned vendor application. Use when the original email was lost or expired.',
+  })
+  resendVendorApplicationInvite(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Req() req: AuthedRequest,
+  ) {
+    return this.admin.resendVendorApplicationInvite(id, req.user!.id);
   }
 
   @Get('audit-log')

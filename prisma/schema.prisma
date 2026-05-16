@@ -342,11 +342,22 @@ model VendorApplication {
   status           VendorApplicationStatus @default(pending)
   reviewedAt       DateTime?               @map("reviewed_at") @db.Timestamptz
   reviewedById     String?                 @map("reviewed_by_id") @db.Uuid
-  reviewNote       String?                 @map("review_note")
+  // adminNotes: free-form internal notes (visible to admins, never to the
+  // applicant). Also doubles as the body of an "information_requested"
+  // message — the email template surfaces it to the applicant verbatim.
+  adminNotes       String?                 @map("admin_notes")
+  // rejectionReason: surfaced to the applicant in the rejection email.
+  // Separate from adminNotes so we never leak internal triage commentary.
+  rejectionReason  String?                 @map("rejection_reason")
+  // Populated by the approval flow when we provision the real Vendor row.
+  // ON DELETE SET NULL so removing a vendor (rare, GDPR) doesn't erase the
+  // permanent application record.
+  vendorId         String?                 @unique @map("vendor_id") @db.Uuid
   createdAt        DateTime                @default(now()) @map("created_at") @db.Timestamptz
   updatedAt        DateTime                @updatedAt @map("updated_at") @db.Timestamptz
 
-  reviewedBy User? @relation("VendorApplicationReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedBy User?   @relation("VendorApplicationReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  vendor     Vendor? @relation("VendorApplicationVendor", fields: [vendorId], references: [id], onDelete: SetNull)
 
   @@index([status, createdAt])
   @@index([email])
@@ -355,6 +366,8 @@ model VendorApplication {
 
 enum VendorApplicationStatus {
   pending
+  under_review
+  information_requested
   approved
   rejected
 }
@@ -406,6 +419,7 @@ model Vendor {
   selectedForEnquiries EventEnquiry[] @relation("EventEnquirySelectedVendor")
   discountCodes  DiscountCode[]
   amendments     OrderAmendment[]
+  application    VendorApplication? @relation("VendorApplicationVendor")
 
   @@index([status])
   @@index([slug])
