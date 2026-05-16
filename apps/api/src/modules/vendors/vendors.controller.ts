@@ -20,6 +20,7 @@ import type { AuthUser } from '../../auth/types';
 
 import { CreateVendorDto } from './dto/create-vendor.dto';
 import { CursorPaginationDto } from './dto/pagination.dto';
+import { RegisterVendorInterestDto } from './dto/register-vendor-interest.dto';
 import { SearchVendorsDto } from './dto/search-vendors.dto';
 import { UpdateVendorStatusDto } from './dto/update-vendor-status.dto';
 import { UpdateVendorDto } from './dto/update-vendor.dto';
@@ -53,6 +54,16 @@ export class VendorsController {
   @ApiOperation({ summary: 'Register a new vendor profile (any authenticated user)' })
   create(@CurrentUser() user: AuthUser | null, @Body() dto: CreateVendorDto) {
     return this.vendors.create(requireUser(user), dto);
+  }
+
+  @Public()
+  @Post('register-interest')
+  @ApiOperation({
+    summary:
+      'Public become-a-vendor application capture. Persists a VendorApplication row and emails the admin + the applicant.',
+  })
+  registerInterest(@Body() dto: RegisterVendorInterestDto) {
+    return this.vendors.registerInterest(dto);
   }
 
   @Get('me')

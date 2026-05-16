@@ -11,10 +11,14 @@ import { OrderStatus, UserRole, VendorStatus } from '@prisma/client';
 import type { AuthUser } from '../../auth/types';
 import { RedisCacheService } from '../../common/cache/redis-cache.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { EmailProvider } from '../notifications/providers/email.provider';
+import { vendorApplicationAcknowledgedTemplate } from '../notifications/templates/vendor-application-acknowledged.template';
+import { vendorApplicationReceivedTemplate } from '../notifications/templates/vendor-application-received.template';
 import { PrismaService } from '../../prisma/prisma.service';
 import { StripeService } from '../../stripe/stripe.service';
 
 import { CreateVendorDto } from './dto/create-vendor.dto';
+import { RegisterVendorInterestDto } from './dto/register-vendor-interest.dto';
 import { CursorPaginationDto } from './dto/pagination.dto';
 import { SearchVendorsDto } from './dto/search-vendors.dto';
 import { UpdateVendorStatusDto } from './dto/update-vendor-status.dto';
@@ -129,7 +133,112 @@ export class VendorsService {
     private readonly cache: RedisCacheService,
     // NotificationsModule is @Global() so no module import needed here.
     private readonly notifications: NotificationsService,
+    private readonly email: EmailProvider,
   ) {}
+
+  /**
+   * Public vendor application capture. Persists the row first (source of
+   * truth for the admin queue), then fires admin + applicant emails as
+   * best-effort side effects. Email failures are logged but NEVER fail
+   * the HTTP request — the row is already saved, so the lead is never lost.
+   *
+   * No auth: this is a pre-account form. Anyone can POST. Length-bounded
+   * DTO + Prisma column lengths cap abuse vectors; we deliberately don't
+   * dedupe by email here so an applicant who fat-fingers the kitchen name
+   * can re-submit. The admin queue surfaces same-email duplicates naturally.
+   */
+  async registerInterest(dto: RegisterVendorInterestDto) {
+    const normalisedEmail = dto.email.trim().toLowerCase();
+    const application = await this.prisma.vendorApplication.create({
+      data: {
+        fullName: dto.fullName.trim(),
+        kitchenName: dto.kitchenName.trim(),
+        email: normalisedEmail,
+        phone: dto.phone.trim(),
+        postcode: dto.postcode.trim().toUpperCase(),
+        cuisineType: dto.cuisineType,
+        kitchenType: dto.kitchenType,
+        hasFsaRegistration: dto.hasFoodHygieneRegistration,
+        foodStory: dto.foodStory.trim(),
+        instagram: dto.instagram?.trim().replace(/^@/, '') || null,
+        marketingConsent: dto.marketingConsent ?? true,
+      },
+      select: { id: true, kitchenName: true, createdAt: true, status: true },
+    });
+
+    // Fire-and-await both emails in parallel. Catch per-side so one failure
+    // doesn't suppress the other. Errors logged via the provider's own
+    // logger; persistence already succeeded so the lead is safe.
+    const adminEmail =
+      this.config.get<string>('VENDOR_APPLICATIONS_ADMIN_EMAIL') ?? 'soul@feastpot.co.uk';
+    const adminBase =
+      this.config.get<string>('ADMIN_URL') ?? 'https://admin.feastpot.co.uk';
+    const firstName = dto.fullName.trim().split(/\s+/)[0] ?? 'there';
+
+    const adminMsg = vendorApplicationReceivedTemplate({
+      applicationId: application.id,
+      fullName: dto.fullName.trim(),
+      kitchenName: dto.kitchenName.trim(),
+      email: normalisedEmail,
+      phone: dto.phone.trim(),
+      postcode: dto.postcode.trim().toUpperCase(),
+      cuisineType: dto.cuisineType,
+      kitchenType: dto.kitchenType,
+      hasFsaRegistration: dto.hasFoodHygieneRegistration,
+      foodStory: dto.foodStory.trim(),
+      instagram: dto.instagram?.trim().replace(/^@/, '') || null,
+      adminUrl: `${adminBase}/vendor-applications/${application.id}`,
+    });
+    const applicantMsg = vendorApplicationAcknowledgedTemplate({
+      firstName,
+      kitchenName: dto.kitchenName.trim(),
+    });
+
+    // Persistence already succeeded above, so the lead is safe regardless
+    // of email outcomes — but we MUST log rejections so on-call sees provider
+    // outages instead of silently swallowing them. Each send is timeboxed
+    // at 10s to bound HTTP response latency if Resend hangs.
+    const withTimeout = <T>(p: Promise<T>, label: string): Promise<T> =>
+      Promise.race([
+        p,
+        new Promise<T>((_, reject) =>
+          setTimeout(() => reject(new Error(`${label} email timed out after 10s`)), 10_000),
+        ),
+      ]);
+    const results = await Promise.allSettled([
+      withTimeout(
+        this.email.send({ to: adminEmail, subject: adminMsg.subject, html: adminMsg.html }),
+        'admin',
+      ),
+      withTimeout(
+        this.email.send({
+          to: normalisedEmail,
+          subject: applicantMsg.subject,
+          html: applicantMsg.html,
+        }),
+        'applicant',
+      ),
+    ]);
+    const labels = ['admin', 'applicant'] as const;
+    results.forEach((r, i) => {
+      if (r.status === 'rejected') {
+        // Logger.error so it shows in stdout AND is captured by the nest
+        // exception filter / Sentry transport (when configured).
+        // Application id included so the row can be re-emailed manually.
+        // eslint-disable-next-line no-console
+        console.error(
+          `[VendorsService.registerInterest] ${labels[i]} email failed for application ${application.id}: ${(r.reason as Error).message}`,
+        );
+      }
+    });
+
+    return {
+      id: application.id,
+      status: application.status,
+      kitchenName: application.kitchenName,
+      createdAt: application.createdAt,
+    };
+  }
 
   // Cache TTLs are deliberately short — vendor data is not strictly
   // immutable (statuses change, ratings recompute via badge-recalc cron),

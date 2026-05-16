@@ -238,6 +238,7 @@ model User {
   eventEnquiries EventEnquiry[]
   pushSubscriptions PushSubscription[]
   createdDiscountCodes DiscountCode[] @relation("CreatedDiscountCodes")
+  reviewedVendorApplications VendorApplication[] @relation("VendorApplicationReviewer")
 
   @@index([role])
   @@index([status])
@@ -319,6 +320,43 @@ model Notification {
   @@index([channel])
   @@index([createdAt])
   @@map("notifications")
+}
+
+/// Vendor registration leads captured from the public become-a-vendor form.
+/// Distinct from `Vendor` (which requires an authenticated User) — applicants
+/// don't have accounts yet. Admin review converts an approved application
+/// into a full Vendor + User pair.
+model VendorApplication {
+  id               String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fullName         String                  @map("full_name") @db.VarChar(255)
+  kitchenName      String                  @map("kitchen_name") @db.VarChar(255)
+  email            String                  @db.VarChar(255)
+  phone            String                  @db.VarChar(40)
+  postcode         String                  @db.VarChar(16)
+  cuisineType      String                  @map("cuisine_type") @db.VarChar(64)
+  kitchenType      String                  @map("kitchen_type") @db.VarChar(40)
+  hasFsaRegistration Boolean               @map("has_fsa_registration")
+  foodStory        String
+  instagram        String?                 @db.VarChar(255)
+  marketingConsent Boolean                 @default(true) @map("marketing_consent")
+  status           VendorApplicationStatus @default(pending)
+  reviewedAt       DateTime?               @map("reviewed_at") @db.Timestamptz
+  reviewedById     String?                 @map("reviewed_by_id") @db.Uuid
+  reviewNote       String?                 @map("review_note")
+  createdAt        DateTime                @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime                @updatedAt @map("updated_at") @db.Timestamptz
+
+  reviewedBy User? @relation("VendorApplicationReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([email])
+  @@map("vendor_applications")
+}
+
+enum VendorApplicationStatus {
+  pending
+  approved
+  rejected
 }
 
 /// Anonymous log of every public vendor search. Powers admin "search trends"

@@ -13,6 +13,7 @@ import { StripeService } from '../../stripe/stripe.service';
 
 import { ListAdminVendorsDto } from './dto/list-admin-vendors.dto';
 import { ListAuditLogDto } from './dto/list-audit-log.dto';
+import { UpdateVendorApplicationDto } from './dto/update-vendor-application.dto';
 
 /**
  * Order statuses that count as "real revenue" — same set used by the vendor
@@ -493,11 +494,103 @@ export class AdminService {
   // ------------------------------------------------------------ admin vendors
 
   /**
-   * Vendor list for the admin approval queue. Unlike the public vendor search
-   * (which is hard-locked to `live`), this returns vendors in any status with
-   * a per-document-type status map so the UI can render the 5-icon grid
-   * without N+1 follow-up queries.
+   * Vendor application queue. Defaults to status=pending so the admin's
+   * "what's new" tab is one click away. Limited to 100 rows — applications
+   * are low-volume (handful per week) so cursor pagination is overkill.
    */
+  async listVendorApplications(status?: 'pending' | 'approved' | 'rejected') {
+    const rows = await this.prisma.vendorApplication.findMany({
+      where: { status: status ?? 'pending' },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+      include: {
+        reviewedBy: { select: { id: true, firstName: true, lastName: true, email: true } },
+      },
+    });
+    return rows.map((r) => ({
+      id: r.id,
+      fullName: r.fullName,
+      kitchenName: r.kitchenName,
+      email: r.email,
+      phone: r.phone,
+      postcode: r.postcode,
+      cuisineType: r.cuisineType,
+      kitchenType: r.kitchenType,
+      hasFsaRegistration: r.hasFsaRegistration,
+      instagram: r.instagram,
+      status: r.status,
+      reviewedAt: r.reviewedAt,
+      reviewedBy: r.reviewedBy,
+      reviewNote: r.reviewNote,
+      createdAt: r.createdAt,
+    }));
+  }
+
+  async getVendorApplication(id: string) {
+    const row = await this.prisma.vendorApplication.findUnique({
+      where: { id },
+      include: {
+        reviewedBy: { select: { id: true, firstName: true, lastName: true, email: true } },
+      },
+    });
+    if (!row) {
+      throw new NotFoundException({
+        code: 'VENDOR_APPLICATION_NOT_FOUND',
+        message: 'Vendor application not found',
+      });
+    }
+    return row;
+  }
+
+  /**
+   * Approve / reject. Approval here is just a status flip + audit stamp —
+   * it does NOT create the Vendor + User pair yet. That belongs to a
+   * follow-up "invite vendor to create account" flow (out of scope for
+   * this slice; tracked separately).
+   */
+  async updateVendorApplication(
+    id: string,
+    reviewerId: string,
+    dto: UpdateVendorApplicationDto,
+  ) {
+    // Atomic compare-and-set so two reviewers can't both succeed: the
+    // updateMany only matches rows still in status=pending. If count===0
+    // we then disambiguate "doesn't exist" from "already reviewed" with
+    // a single read — cheaper than a serializable tx and racier surfaces
+    // (admin queue) tolerate the extra round-trip on the failure path.
+    const result = await this.prisma.vendorApplication.updateMany({
+      where: { id, status: 'pending' },
+      data: {
+        status: dto.status,
+        reviewNote: dto.reviewNote ?? null,
+        reviewedAt: new Date(),
+        reviewedById: reviewerId,
+      },
+    });
+    if (result.count === 0) {
+      const existing = await this.prisma.vendorApplication.findUnique({
+        where: { id },
+        select: { status: true },
+      });
+      if (!existing) {
+        throw new NotFoundException({
+          code: 'VENDOR_APPLICATION_NOT_FOUND',
+          message: 'Vendor application not found',
+        });
+      }
+      throw new ForbiddenException({
+        code: 'VENDOR_APPLICATION_ALREADY_REVIEWED',
+        message: `Application already ${existing.status}`,
+      });
+    }
+    return this.prisma.vendorApplication.findUnique({
+      where: { id },
+      include: {
+        reviewedBy: { select: { id: true, firstName: true, lastName: true, email: true } },
+      },
+    });
+  }
+
   async listAdminVendors(dto: ListAdminVendorsDto) {
     const limit = dto.limit ?? 25;
     const cursor = dto.cursor ? this.decodeVendorCursor(dto.cursor) : null;

@@ -42,6 +42,7 @@ import {
 import { BroadcastAudience, BroadcastPushDto } from './dto/broadcast-push.dto';
 import { ListAdminVendorsDto } from './dto/list-admin-vendors.dto';
 import { ListAuditLogDto } from './dto/list-audit-log.dto';
+import { UpdateVendorApplicationDto } from './dto/update-vendor-application.dto';
 
 interface SearchAnalyticsRow {
   query: string;
@@ -124,6 +125,33 @@ export class AdminController {
   @ApiOperation({ summary: 'Vendor approval queue (filter by status, doc-status icon map per vendor)' })
   listVendors(@Query() dto: ListAdminVendorsDto) {
     return this.admin.listAdminVendors(dto);
+  }
+
+  @Get('vendor-applications')
+  @Roles(UserRole.admin, UserRole.compliance, UserRole.support)
+  @ApiOperation({
+    summary: 'Pre-account vendor application leads (default: status=pending, newest first)',
+  })
+  listVendorApplications(@Query('status') status?: 'pending' | 'approved' | 'rejected') {
+    return this.admin.listVendorApplications(status);
+  }
+
+  @Get('vendor-applications/:id')
+  @Roles(UserRole.admin, UserRole.compliance, UserRole.support)
+  @ApiOperation({ summary: 'Single vendor application detail' })
+  getVendorApplication(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.admin.getVendorApplication(id);
+  }
+
+  @Patch('vendor-applications/:id')
+  @Roles(UserRole.admin, UserRole.compliance)
+  @ApiOperation({ summary: 'Approve or reject a vendor application' })
+  updateVendorApplication(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Req() req: AuthedRequest,
+    @Body() dto: UpdateVendorApplicationDto,
+  ) {
+    return this.admin.updateVendorApplication(id, req.user!.id, dto);
   }
 
   @Get('audit-log')
