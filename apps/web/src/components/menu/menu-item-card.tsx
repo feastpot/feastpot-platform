@@ -46,14 +46,17 @@ const DIETARY_LABELS: Record<string, { label: string; icon: string }> = {
  * brand gradient for unknown categories.
  */
 const CATEGORY_GRADIENTS: Record<string, string> = {
-  tray: 'linear-gradient(135deg, #3D1A0A, #E8520A)',
-  soup: 'linear-gradient(135deg, #1C3D2A, #3D7A47)',
-  protein: 'linear-gradient(135deg, #4A1B0C, #C8401F)',
-  swallow: 'linear-gradient(135deg, #3D2800, #8B5E3C)',
-  snack: 'linear-gradient(135deg, #3D3800, #F5A52A)',
-  frozen: 'linear-gradient(135deg, #0A2A3D, #1D9E75)',
-  bundle: 'linear-gradient(135deg, #1C1C1A, #5F5E5A)',
-  event: 'linear-gradient(135deg, #2A0A3D, #E8520A)',
+  // Wireframe palette — every gradient terminates in a brand hue
+  // (green primary, gold rewards, red scotch). Each pair is dark→light
+  // so the emoji centered on top reads clearly.
+  tray: 'linear-gradient(135deg, #005C2B, #00843D)',
+  soup: 'linear-gradient(135deg, #003318, #00843D)',
+  protein: 'linear-gradient(135deg, #8B0410, #E30613)',
+  swallow: 'linear-gradient(135deg, #5F5E5A, #9B9894)',
+  snack: 'linear-gradient(135deg, #B38400, #F6B400)',
+  frozen: 'linear-gradient(135deg, #003318, #00843D)',
+  bundle: 'linear-gradient(135deg, #070707, #5F5E5A)',
+  event: 'linear-gradient(135deg, #8B0410, #F6B400)',
 };
 
 const CATEGORY_EMOJI: Record<string, string> = {
@@ -129,7 +132,7 @@ function SpiceDisplay({ level }: { level: number }) {
       ))}
       <span
         aria-hidden
-        style={{ fontSize: '9px', color: '#C8401F', fontWeight: 600, marginLeft: '3px' }}
+        className="ml-1 text-[10px] font-bold text-scotch"
       >
         {SPICE_LABELS[Math.min(level, 4)]}
       </span>
@@ -191,7 +194,7 @@ export function MenuItemCard({ item, vendor }: Props) {
   const { spiceLevel, portionLabel, dietary, isHalal } = decodeTags(item.tags);
   const cover = item.imageUrls[0];
   const placeholderGradient =
-    CATEGORY_GRADIENTS[item.category] ?? 'linear-gradient(135deg, #E8520A, #B33D07)';
+    CATEGORY_GRADIENTS[item.category] ?? 'linear-gradient(135deg, #00843D, #005C2B)';
   const placeholderEmoji = CATEGORY_EMOJI[item.category] ?? '🍽️';
 
   const flashPulse = () => {
@@ -312,60 +315,36 @@ export function MenuItemCard({ item, vendor }: Props) {
         )}
 
         <div className="min-w-0 flex-1">
-          <h3 className="text-sm font-bold leading-tight text-dark">{item.name}</h3>
+          <h3 className="text-sm font-bold leading-tight text-charcoal">{item.name}</h3>
 
           {/* Spice meter — three scotch-bonnet glyphs with intensity label. */}
           <SpiceDisplay level={spiceLevel} />
 
-          {/* Portion-size pill — terracotta on brand-light, surfaces the
-              "feeds N" signal that's specific to bulk-tray ordering. */}
+          {/* Portion-size pill — wireframe gold on light tint. */}
           {portionLabel && (
-            <div
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '3px',
-                background: '#FEF0E9',
-                color: '#E8520A',
-                padding: '2px 7px',
-                borderRadius: '20px',
-                fontSize: '10px',
-                fontWeight: 600,
-                marginTop: '4px',
-              }}
-            >
-              👥 <span className="capitalize">{portionLabel}</span>
+            <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-plantain/15 px-2 py-0.5 text-[10px] font-bold text-charcoal">
+              <span aria-hidden>👥</span>
+              <span className="capitalize">{portionLabel}</span>
             </div>
           )}
           {!portionLabel && item.servingsCount && (
-            <p className="mt-0.5 text-[11px] text-mid">Serves {item.servingsCount}</p>
+            <p className="mt-0.5 text-[11px] font-medium text-charcoal-mid">
+              Serves {item.servingsCount}
+            </p>
           )}
 
           {item.description && (
-            <p className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-mid">
+            <p className="mt-1 line-clamp-2 text-[11px] font-medium leading-relaxed text-charcoal-mid">
               {item.description}
             </p>
           )}
 
-          {/* Halal — Yam-Green ☪️ pill, called out separately because it
-              materially changes whether a customer can order at all. */}
+          {/* Halal — wireframe brand-green pill, called out separately
+              because it materially changes whether a customer can order. */}
           {isHalal && (
-            <div
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '4px',
-                background: '#E8F5EB',
-                color: '#3D7A47',
-                border: '1px solid #3D7A47',
-                padding: '2px 7px',
-                borderRadius: '20px',
-                fontSize: '10px',
-                fontWeight: 700,
-                marginTop: '6px',
-              }}
-            >
-              ☪️ Halal
+            <div className="mt-1.5 inline-flex items-center gap-1 rounded-full border border-brand bg-brand-light px-2 py-0.5 text-[10px] font-bold text-brand-dark">
+              <span aria-hidden>☪️</span>
+              Halal
             </div>
           )}
 
@@ -374,7 +353,7 @@ export function MenuItemCard({ item, vendor }: Props) {
               {dietary.map((d) => (
                 <li
                   key={d.key}
-                  className="inline-flex items-center gap-1 rounded-md bg-teal-light px-1.5 py-0.5 text-[10px] font-medium text-teal-dark"
+                  className="inline-flex items-center gap-1 rounded-md bg-brand-light px-1.5 py-0.5 text-[10px] font-bold text-brand-dark"
                 >
                   <span aria-hidden>{d.icon}</span>
                   {d.label}
@@ -384,7 +363,7 @@ export function MenuItemCard({ item, vendor }: Props) {
           )}
 
           <div className="mt-2.5 flex items-center justify-between gap-2">
-            <span className="text-[15px] font-bold text-dark">
+            <span className="text-[15px] font-black text-charcoal">
               {formatPounds(item.pricePence)}
             </span>
 
@@ -399,7 +378,7 @@ export function MenuItemCard({ item, vendor }: Props) {
             <div className="relative">
               {justAdded && (
                 <span
-                  className="pointer-events-none absolute -top-5 right-0 whitespace-nowrap text-[11px] font-semibold text-teal-dark animate-fade-up"
+                  className="pointer-events-none absolute -top-5 right-0 whitespace-nowrap text-[11px] font-bold text-brand-dark animate-fade-up"
                   aria-hidden
                 >
                   Added ✓
@@ -459,24 +438,18 @@ export function MenuItemCard({ item, vendor }: Props) {
               type="button"
               onClick={() => setShowAllergens((s) => !s)}
               aria-expanded={showAllergens}
-              // Deep-amber `#7A4F00` keeps the "spice on cream" hue the
-              // spec called for (Plantain-Yellow family) while clearing
-              // WCAG AA for small text — pure `#F5A52A` was ~2.5:1, this
-              // is ~7.5:1 on white. Bumped 10px → 12px and added a 44px
-              // min-height so the toggle clears WCAG 2.5.5 on touch.
-              style={{ color: '#7A4F00', fontWeight: 700, fontSize: '12px' }}
-              className="touch-target mt-1 -ml-2 inline-flex items-center gap-1.5 rounded-md px-2 transition-opacity hover:opacity-80"
+              // Wireframe red (scotch) for the allergen toggle — allergens
+              // are safety-critical so they deserve the urgency colour
+              // rather than the muted amber the previous design used.
+              // Contrast on white: ~6:1, WCAG AA pass.
+              className="touch-target mt-1 -ml-2 inline-flex items-center gap-1.5 rounded-md px-2 text-[12px] font-bold text-scotch transition-opacity hover:opacity-80"
             >
               <Info className="h-4 w-4" aria-hidden />
               {showAllergens ? 'Hide allergens' : 'View allergens'}
             </button>
           )}
           {showAllergens && (
-            // Allergen disclosure is safety-critical for users with
-            // intolerances — bumped from 10px → 12px so it clears the
-            // WCAG AA min for small text in the older demo. text-mid
-            // (#5F5E5A) on amber-50 already meets contrast.
-            <p className="mt-1 rounded-lg bg-amber-50 p-2 text-[12px] leading-relaxed text-mid">
+            <p className="mt-1 rounded-lg border border-scotch/20 bg-scotch/10 p-2 text-[12px] font-medium leading-relaxed text-charcoal">
               ⚠️ Contains: {item.allergens.join(', ')}
             </p>
           )}
@@ -506,24 +479,27 @@ export function MenuItemCard({ item, vendor }: Props) {
           <div className="mx-auto max-w-sm py-2">
             <h2
               id={`cross-vendor-title-${item.id}`}
-              className="text-base font-bold text-dark"
+              className="font-display text-base font-black text-charcoal"
             >
               Start a new order?
             </h2>
             <p
               id={`cross-vendor-desc-${item.id}`}
-              className="mt-2 text-[13px] leading-relaxed text-mid"
+              className="mt-2 text-[13px] font-medium leading-relaxed text-charcoal-mid"
             >
               Your basket has items from{' '}
-              <strong className="text-dark">{basketVendor?.name ?? 'another vendor'}</strong>.
-              Adding from <strong className="text-dark">{vendor.name}</strong> will clear your
+              <strong className="font-bold text-charcoal">
+                {basketVendor?.name ?? 'another kitchen'}
+              </strong>
+              . Adding from{' '}
+              <strong className="font-bold text-charcoal">{vendor.name}</strong> will clear your
               current basket.
             </p>
             <div className="mt-4 flex gap-2">
               <button
                 type="button"
                 onClick={() => setCrossVendorOpen(false)}
-                className="touch-target flex-1 rounded-xl border border-cream-warm bg-white px-3 py-3 text-sm font-semibold text-mid transition-colors hover:bg-cream-warm/40"
+                className="touch-target flex-1 rounded-xl border border-cream-deep bg-white px-3 py-3 text-sm font-bold text-charcoal-mid transition-colors hover:bg-cream"
               >
                 Keep current basket
               </button>
@@ -531,7 +507,7 @@ export function MenuItemCard({ item, vendor }: Props) {
                 type="button"
                 onClick={onConfirmReplaceBasket}
                 disabled={confirmingCrossVendorRef.current}
-                className="touch-target flex-1 rounded-xl bg-brand px-3 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-dark disabled:opacity-60"
+                className="touch-target flex-1 rounded-xl bg-brand px-3 py-3 text-sm font-bold text-white shadow-sm transition-colors hover:bg-brand-dark disabled:opacity-60"
               >
                 Start new order
               </button>

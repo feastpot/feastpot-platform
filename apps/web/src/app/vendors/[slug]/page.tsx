@@ -1,4 +1,4 @@
-import { ChevronRight, Clock, ShoppingBag, Star, Truck } from 'lucide-react';
+import { ChevronRight, Clock, ShieldCheck, ShoppingBag, Soup, Star, Truck } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -149,22 +149,22 @@ export default async function VendorProfilePage({ params }: PageProps) {
           band rather than a card. */}
       <nav
         aria-label="Breadcrumb"
-        className="-mx-4 border-b border-cream-warm bg-surface px-4 py-2"
+        className="-mx-4 border-b border-cream-deep bg-cream px-4 py-2"
       >
-        <ol className="flex items-center gap-1 text-[12px] text-mid">
+        <ol className="flex items-center gap-1 text-[12px] font-medium text-charcoal-mid">
           <li>
-            <Link href="/" className="hover:text-dark">Home</Link>
+            <Link href="/" className="transition-colors hover:text-brand">Home</Link>
           </li>
           <li aria-hidden="true" className="flex items-center">
             <ChevronRight className="h-3 w-3" aria-hidden />
           </li>
           <li>
-            <Link href="/vendors" className="hover:text-dark">Browse</Link>
+            <Link href="/vendors" className="transition-colors hover:text-brand">Browse</Link>
           </li>
           <li aria-hidden="true" className="flex items-center">
             <ChevronRight className="h-3 w-3" aria-hidden />
           </li>
-          <li aria-current="page" className="min-w-0 truncate font-medium text-dark">
+          <li aria-current="page" className="min-w-0 truncate font-bold text-charcoal">
             {vendor.businessName}
           </li>
         </ol>
@@ -182,20 +182,20 @@ export default async function VendorProfilePage({ params }: PageProps) {
         <div
           className="relative h-52 w-full overflow-hidden"
           style={{
-            background: 'linear-gradient(135deg, #3D1A0A 0%, #8B5E3C 50%, #E8520A 100%)',
+            // Wireframe palette — brand green deepens into the darker
+            // forest with a gold radial accent in the top-right so empty
+            // covers read as "Feastpot" rather than "missing image".
+            background:
+              'radial-gradient(circle at 80% 20%, #F6B400 0%, transparent 45%), linear-gradient(135deg, #005C2B 0%, #00843D 100%)',
           }}
         >
           {!vendor.coverImageUrl && (
-            <>
-              <div className="absolute inset-0 tribal-bg" style={{ opacity: 0.12 }} aria-hidden />
-              <div
-                aria-hidden
-                className="pointer-events-none absolute top-6 right-8 select-none"
-                style={{ fontSize: '48px', opacity: 0.2, transform: 'rotate(20deg)' }}
-              >
-                🍲
-              </div>
-            </>
+            <div
+              aria-hidden
+              className="pointer-events-none absolute right-6 top-6 grid h-16 w-16 place-items-center rounded-2xl bg-white/15 text-white/80 backdrop-blur"
+            >
+              <Soup className="h-8 w-8" strokeWidth={1.75} />
+            </div>
           )}
           {vendor.coverImageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -206,7 +206,7 @@ export default async function VendorProfilePage({ params }: PageProps) {
             />
           ) : null}
           {/* Bottom scrim improves logo + name legibility on busy photos. */}
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-dark/50 via-transparent to-dark/10" />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-charcoal/50 via-transparent to-charcoal/10" />
         </div>
 
         {/* The hero-overlay back arrow that previously sat here was
@@ -230,17 +230,19 @@ export default async function VendorProfilePage({ params }: PageProps) {
           REPLACED by the more prominent Yam-Green FSA pill below the cook-
           identity card — the audit asked us to elevate the trust signal,
           not duplicate it. */}
-      <section className="mt-9 space-y-2">
-        <h1 className="text-[20px] font-bold leading-tight text-dark">{vendor.businessName}</h1>
+      <section className="mt-9 space-y-3">
+        <h1 className="font-display text-[24px] font-black leading-tight text-charcoal">
+          {vendor.businessName}
+        </h1>
 
         {vendor.rating > 0 && (
           <Link
             href="#reviews"
-            className="inline-flex items-center gap-1 text-sm text-dark"
+            className="inline-flex items-center gap-1 text-sm text-charcoal transition-colors hover:text-brand"
           >
-            <Star className="h-4 w-4 fill-amber-400 text-amber-400" aria-hidden />
+            <Star className="h-4 w-4 fill-plantain text-plantain" aria-hidden />
             <span className="font-bold">{vendor.rating.toFixed(1)}</span>
-            <span className="text-mid">({vendor.ratingCount} reviews)</span>
+            <span className="text-charcoal-mid">({vendor.ratingCount} reviews)</span>
           </Link>
         )}
 
@@ -249,7 +251,7 @@ export default async function VendorProfilePage({ params }: PageProps) {
             {vendor.cuisines.map((c) => (
               <li
                 key={c}
-                className="rounded-full bg-surface px-2 py-0.5 text-xs font-medium text-dark"
+                className="rounded-full bg-cream-warm px-2.5 py-1 text-xs font-bold text-charcoal"
               >
                 {c}
               </li>
@@ -257,39 +259,15 @@ export default async function VendorProfilePage({ params }: PageProps) {
           </ul>
         )}
 
-        {/* Cook identity row — humanises the home cook (audit headline rec).
-            Larger version of the avatar shown on vendor list cards: 44px
-            terracotta-gradient circle with white border + soft brand shadow.
-            "Cooking on Feastpot since {Month YYYY}" turns the createdAt
-            date into a community-tenure signal rather than a cold timestamp. */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-            padding: '10px',
-            background: '#FBF6EF',
-            borderRadius: '12px',
-            marginTop: '8px',
-          }}
-        >
+        {/* Cook identity row — humanises the home cook (audit headline
+            rec). Wireframe palette: green-gradient avatar on cream-warm
+            card. "Cooking on Feastpot since {Month YYYY}" turns the
+            createdAt into a community-tenure signal. */}
+        <div className="flex items-center gap-3 rounded-2xl bg-cream-warm p-3">
           <div
             aria-hidden
-            style={{
-              width: '44px',
-              height: '44px',
-              borderRadius: '50%',
-              flexShrink: 0,
-              background: 'linear-gradient(135deg, #E8520A, #C8401F)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'white',
-              fontSize: '14px',
-              fontWeight: 800,
-              border: '2px solid white',
-              boxShadow: '0 2px 8px rgba(232,82,10,0.3)',
-            }}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 border-white text-sm font-black text-white shadow-card"
+            style={{ background: 'linear-gradient(135deg, #00843D, #005C2B)' }}
           >
             {vendor.businessName
               .split(' ')
@@ -298,11 +276,11 @@ export default async function VendorProfilePage({ params }: PageProps) {
               .substring(0, 2)
               .toUpperCase()}
           </div>
-          <div>
-            <p style={{ fontSize: '12px', fontWeight: 600, color: '#1C1C1A', margin: '0 0 2px' }}>
+          <div className="min-w-0">
+            <p className="text-[12px] font-bold text-charcoal">
               Home cook · {vendor.address?.city || 'South London'}
             </p>
-            <p style={{ fontSize: '11px', color: '#5F5E5A', margin: 0 }}>
+            <p className="text-[11px] font-medium text-charcoal-mid">
               Cooking on Feastpot since{' '}
               {new Date(vendor.createdAt).toLocaleDateString('en-GB', {
                 month: 'long',
@@ -312,33 +290,23 @@ export default async function VendorProfilePage({ params }: PageProps) {
           </div>
         </div>
 
-        {/* Prominent FSA Hygiene pill — Yam-Green, sits as its own row so
-            it isn't lost in the metrics chip-strip below. */}
+        {/* Prominent FSA Hygiene pill — wireframe brand-green palette,
+            sits as its own row so it isn't lost in the metrics
+            chip-strip below. Lucide shield replaces emoji. */}
         {typeof vendor.fsaRating === 'number' && vendor.fsaRating >= 4 && (
-          <div
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '5px',
-              background: '#E8F5EB',
-              color: '#3D7A47',
-              padding: '5px 10px',
-              borderRadius: '20px',
-              fontSize: '11px',
-              fontWeight: 700,
-              border: '1px solid #3D7A47',
-              marginTop: '8px',
-            }}
-          >
-            🛡️ FSA Hygiene {vendor.fsaRating}/5 — Verified
+          <div className="inline-flex items-center gap-1.5 rounded-full border border-brand bg-brand-light px-3 py-1 text-[11px] font-bold text-brand-dark">
+            <ShieldCheck className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden />
+            FSA Hygiene {vendor.fsaRating}/5 — Verified
           </div>
         )}
 
         {vendor.description && (
-          <p className="text-sm leading-relaxed text-mid">{vendor.description}</p>
+          <p className="text-sm font-medium leading-relaxed text-charcoal-mid">
+            {vendor.description}
+          </p>
         )}
 
-        <div className="flex flex-wrap gap-x-4 gap-y-1 pt-1 text-[11px] text-mid">
+        <div className="flex flex-wrap gap-x-4 gap-y-1 pt-1 text-[11px] font-medium text-charcoal-mid">
           {minOrderPence != null && minOrderPence > 0 && (
             <span className="inline-flex items-center gap-1">
               <ShoppingBag className="h-3 w-3" aria-hidden />
@@ -376,7 +344,9 @@ export default async function VendorProfilePage({ params }: PageProps) {
         <MenuCategoryTabs categories={categories} />
 
         {grouped.length === 0 ? (
-          <p className="mt-4 text-sm text-mid">This vendor hasn’t published a menu yet.</p>
+          <p className="mt-4 text-sm font-medium text-charcoal-mid">
+            This kitchen hasn’t published a menu yet.
+          </p>
         ) : (
           <div className="mt-4 space-y-6">
             {grouped.map(([category, items]) => (
@@ -386,14 +356,9 @@ export default async function VendorProfilePage({ params }: PageProps) {
                 style={{ scrollMarginTop: 'calc(var(--page-safe-top) + 56px)' }}
                 className="space-y-2"
               >
-                {/* Sticky category header: parks just below the tab strip
-                    (tabs are at var(--page-safe-top), strip is ~48px tall).
-                    Negative -mx-4 + px-4 on the inner span lets the white
-                    background extend edge-to-edge so menu cards don't bleed
-                    through as the user scrolls past. */}
                 <h2
                   style={{ top: 'calc(var(--page-safe-top) + 48px)' }}
-                  className="sticky z-10 -mx-4 bg-white px-4 py-2 text-[15px] font-bold text-dark"
+                  className="sticky z-10 -mx-4 bg-cream px-4 py-2 font-display text-[17px] font-black text-charcoal"
                 >
                   {CATEGORY_LABELS[category] ?? category}
                 </h2>
@@ -416,7 +381,7 @@ export default async function VendorProfilePage({ params }: PageProps) {
         style={{ scrollMarginTop: 'var(--page-safe-top)' }}
         className="mt-8 space-y-3"
       >
-        <h2 className="text-[15px] font-bold text-dark">Reviews</h2>
+        <h2 className="font-display text-[18px] font-black text-charcoal">Reviews</h2>
         <ReviewsSection vendorId={vendor.id} limit={3} />
       </section>
 

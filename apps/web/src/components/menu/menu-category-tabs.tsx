@@ -37,20 +37,20 @@ export function MenuCategoryTabs({ categories }: Props) {
     <nav
       aria-label="Menu categories"
       className={cn(
-        'sticky z-20 -mx-4 border-b border-border bg-white/90 backdrop-blur',
+        'sticky z-20 -mx-4 border-b border-cream-deep bg-cream/90 backdrop-blur',
       )}
       style={{ top: 'var(--page-safe-top)' }}
     >
-      <ul className="flex gap-1 overflow-x-auto px-4 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <ul className="flex gap-1.5 overflow-x-auto px-4 py-2.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {categories.map((c) => (
           <li key={c.key}>
             <button
               type="button"
               onClick={() => handleClick(c.key)}
-              className="touch-target whitespace-nowrap rounded-full bg-surface px-3 py-1.5 text-xs font-semibold text-dark transition-colors hover:bg-brand-light"
+              className="touch-target whitespace-nowrap rounded-full border border-cream-deep bg-white px-3.5 py-1.5 text-xs font-bold text-charcoal transition-colors hover:border-brand hover:bg-brand-light hover:text-brand-dark"
             >
               {c.label}
-              <span className="ml-1 text-[10px] font-normal text-mid">{c.count}</span>
+              <span className="ml-1 text-[10px] font-medium text-charcoal-mid">{c.count}</span>
             </button>
           </li>
         ))}
