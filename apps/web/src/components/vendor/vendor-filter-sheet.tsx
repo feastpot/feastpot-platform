@@ -71,14 +71,16 @@ export function VendorFilterSheet() {
       <SheetTrigger asChild>
         <button
           type="button"
-          className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+          className="inline-flex items-center gap-1.5 rounded-xl border border-cream-deep bg-white px-3.5 py-2 text-sm font-bold text-charcoal transition-colors hover:bg-brand-light hover:text-brand-dark"
         >
           <SlidersHorizontal className="h-4 w-4" aria-hidden /> Filters
         </button>
       </SheetTrigger>
       <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto">
-        <div className="border-b border-border pb-3">
-          <h2 className="text-lg font-semibold tracking-tight">Filter vendors</h2>
+        <div className="border-b border-cream-deep pb-3">
+          <h2 className="font-display text-lg font-black tracking-tight text-charcoal">
+            Filter kitchens
+          </h2>
         </div>
 
         <form
@@ -145,15 +147,15 @@ export function VendorFilterSheet() {
                 router.push('/vendors');
                 setOpen(false);
               }}
-              className="flex-1 rounded-md border border-border bg-background px-4 py-2 text-sm font-medium hover:bg-muted"
+              className="touch-target flex-1 rounded-xl border border-cream-deep bg-white px-4 py-3 text-sm font-bold text-charcoal hover:bg-cream"
             >
               Reset
             </button>
             <button
               type="submit"
-              className="flex-1 rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark"
+              className="touch-target flex-1 rounded-xl bg-brand px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
             >
-              Apply
+              Apply filters
             </button>
           </div>
         </form>

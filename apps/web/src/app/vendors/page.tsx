@@ -1,6 +1,6 @@
 'use client';
 
-import { X } from 'lucide-react';
+import { Search, WifiOff, X } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 
@@ -189,11 +189,13 @@ function VendorSearch() {
 
         <header className="flex items-center justify-between gap-2">
           <div className="min-w-0">
-            <h1 className="truncate text-xl font-bold tracking-tight">
-              {postcode ? `Vendors near ${postcode}` : 'Vendors'}
+            <h1 className="truncate font-display text-2xl font-black tracking-tight text-charcoal">
+              {postcode ? `Kitchens near ${postcode}` : 'Browse kitchens'}
             </h1>
             {cuisineParam && (
-              <p className="text-xs text-muted-foreground">Cuisine: {cuisineParam}</p>
+              <p className="mt-0.5 text-xs font-medium text-charcoal-mid">
+                Cuisine: <span className="font-bold text-brand">{cuisineParam}</span>
+              </p>
             )}
           </div>
           <VendorFilterSheet />
@@ -201,8 +203,8 @@ function VendorSearch() {
 
         {q && (
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm text-muted-foreground">Results for</span>
-            <span className="inline-flex items-center gap-1 rounded-full bg-brand px-2.5 py-1 text-xs font-medium text-white">
+            <span className="text-sm font-medium text-charcoal-mid">Results for</span>
+            <span className="inline-flex items-center gap-1 rounded-full bg-brand px-3 py-1 text-xs font-bold text-white">
               {q}
               <button
                 type="button"
@@ -214,8 +216,8 @@ function VendorSearch() {
               </button>
             </span>
             {!isLoading && (
-              <span className="text-xs text-muted-foreground">
-                {vendors.length} {vendors.length === 1 ? 'vendor' : 'vendors'}
+              <span className="text-xs font-medium text-charcoal-mid">
+                {vendors.length} {vendors.length === 1 ? 'kitchen' : 'kitchens'}
               </span>
             )}
           </div>
@@ -262,15 +264,15 @@ function VendorSearch() {
         {error && (
           <div
             role="alert"
-            className="flex flex-col items-center px-6 py-12 text-center"
+            className="flex flex-col items-center rounded-3xl border border-cream-deep bg-white px-6 py-12 text-center shadow-card"
           >
-            <span className="mb-3 text-5xl" aria-hidden>
-              🌐
+            <span className="mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-scotch/10 text-scotch" aria-hidden>
+              <WifiOff className="h-7 w-7" strokeWidth={2.25} />
             </span>
-            <h3 className="mb-2 font-serif text-xl font-extrabold text-dark">
-              Couldn&rsquo;t reach our servers
+            <h3 className="mb-2 font-display text-xl font-black text-charcoal">
+              Couldn&rsquo;t reach our kitchens
             </h3>
-            <p className="mx-auto mb-5 max-w-[260px] text-[13px] leading-relaxed text-mid">
+            <p className="mx-auto mb-5 max-w-[280px] text-[13px] font-medium leading-relaxed text-charcoal-mid">
               This usually fixes itself in a few seconds.
             </p>
             <button
@@ -284,32 +286,36 @@ function VendorSearch() {
         )}
 
         {/* Empty state — different copy when the user typed a query, since
-            "no results for jollof" is a different problem from "no vendors live yet". */}
+            "no results for jollof" is a different problem from "no kitchens live yet". */}
         {empty && q && (
-          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border px-6 py-16 text-center">
-            <span className="mb-4 text-5xl" aria-hidden>
-              🔍
+          <div className="flex flex-col items-center justify-center rounded-3xl border border-cream-deep bg-white px-6 py-16 text-center shadow-card">
+            <span className="mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-brand-light text-brand" aria-hidden>
+              <Search className="h-7 w-7" strokeWidth={2.25} />
             </span>
-            <h2 className="mb-2 text-lg font-bold">No results for &ldquo;{q}&rdquo;</h2>
-            <p className="mb-4 text-sm text-muted-foreground">
+            <h2 className="mb-2 font-display text-xl font-black text-charcoal">
+              No results for &ldquo;{q}&rdquo;
+            </h2>
+            <p className="mb-5 max-w-[300px] text-sm font-medium text-charcoal-mid">
               {postcode
-                ? `Try a different dish name or browse all vendors near ${postcode}.`
-                : 'Try a different search term or browse all vendors.'}
+                ? `Try a different dish name or browse all kitchens near ${postcode}.`
+                : 'Try a different search term or browse all kitchens.'}
             </p>
             <button
               type="button"
               onClick={clearSearch}
-              className="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white"
+              className="touch-target rounded-xl bg-brand px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
             >
-              Browse all vendors
+              Browse all kitchens
             </button>
           </div>
         )}
 
         {empty && !q && (
-          <div className="rounded-xl border border-dashed border-border p-8 text-center">
-            <h2 className="font-semibold">No vendors{postcode ? ` near ${postcode}` : ''} yet</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
+          <div className="rounded-3xl border border-cream-deep bg-white p-8 text-center shadow-card">
+            <h2 className="font-display text-lg font-black text-charcoal">
+              No kitchens{postcode ? ` near ${postcode}` : ''} yet
+            </h2>
+            <p className="mt-2 text-sm font-medium text-charcoal-mid">
               Try a different cuisine or check back soon — new cooks join Feastpot every week.
             </p>
           </div>
@@ -328,9 +334,9 @@ function VendorSearch() {
             type="button"
             onClick={() => fetchNextPage()}
             disabled={isFetchingNextPage}
-            className="w-full rounded-md border border-border bg-background py-2 text-sm font-medium hover:bg-muted disabled:opacity-50"
+            className="touch-target w-full rounded-xl border border-cream-deep bg-white py-3 text-sm font-bold text-charcoal transition-colors hover:bg-brand-light hover:text-brand-dark disabled:opacity-50"
           >
-            {isFetchingNextPage ? 'Loading…' : 'Load more'}
+            {isFetchingNextPage ? 'Loading…' : 'Load more kitchens'}
           </button>
         )}
       </div>

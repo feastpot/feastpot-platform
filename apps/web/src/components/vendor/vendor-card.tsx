@@ -71,19 +71,18 @@ export function VendorCard({ vendor, variant = 'list' }: Props) {
           {vendor.communityFavourite && (
             <span
               className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold shadow-sm"
-              // Darker `#3D1A0A` text on plantain bg gives ≈8:1 contrast —
-              // the spec's `#7A4000` came in at ~4.02:1 (below WCAG AA 4.5:1
-              // for normal text), so we bias to legibility while keeping
-              // the on-brand "spice on yellow" feel.
-              style={{ background: '#F5A52A', color: '#3D1A0A' }}
+              // Wireframe gold #F6B400 with near-black text — 9.6:1 contrast,
+              // WCAG AAA. The crown emoji is replaced with a star glyph to
+              // match the wireframe's cleaner badge language.
+              style={{ background: '#F6B400', color: '#070707' }}
             >
-              👑 Community Favourite
+              ★ Community Favourite
             </span>
           )}
           {typeof vendor.fsaRating === 'number' && vendor.fsaRating >= 4 && (
             <span
               className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold shadow-sm"
-              style={{ background: '#E8F5EB', color: '#3D7A47' }}
+              style={{ background: '#E6F4EC', color: '#005C2B' }}
             >
               <ShieldCheck className="h-2.5 w-2.5" aria-hidden /> FSA {vendor.fsaRating}/5
             </span>
@@ -135,7 +134,7 @@ export function VendorCard({ vendor, variant = 'list' }: Props) {
             so the customer immediately sees WHY this vendor showed up. */}
         {vendor.matchedDishes && vendor.matchedDishes.length > 0 && (
           <div className="mt-1.5">
-            <span className="inline-block rounded-md bg-teal/10 px-1.5 py-0.5 text-[10px] font-medium text-teal">
+            <span className="inline-block rounded-md bg-brand-light px-1.5 py-0.5 text-[10px] font-medium text-brand-dark">
               Has: {vendor.matchedDishes.slice(0, 3).join(' · ')}
             </span>
           </div>
@@ -167,31 +166,11 @@ export function VendorCard({ vendor, variant = 'list' }: Props) {
             review-style snippet. The snippet is intentionally evergreen
             (not pulled from real reviews) so empty-review vendors still
             show a warm human note instead of going blank. */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            marginTop: '8px',
-            paddingTop: '8px',
-            borderTop: '1px solid #F5EDE0',
-          }}
-        >
+        <div className="mt-2 flex items-center gap-2 border-t border-cream-warm pt-2">
           <div
             aria-hidden
-            style={{
-              width: '28px',
-              height: '28px',
-              borderRadius: '50%',
-              flexShrink: 0,
-              background: 'linear-gradient(135deg, #E8520A, #C8401F)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'white',
-              fontSize: '10px',
-              fontWeight: 700,
-            }}
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand text-[10px] font-bold text-white"
+            style={{ background: 'linear-gradient(135deg, #00843D, #005C2B)' }}
           >
             {vendor.businessName
               .split(' ')
@@ -200,36 +179,11 @@ export function VendorCard({ vendor, variant = 'list' }: Props) {
               .substring(0, 2)
               .toUpperCase()}
           </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <p
-              style={{
-                fontSize: '10px',
-                fontWeight: 600,
-                color: '#1C1C1A',
-                margin: 0,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }}
-            >
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[10px] font-semibold text-charcoal">
               Home cook · {vendor.address?.city || 'South London'}
             </p>
-            {/* Micro-review snippet bumped 9px → 11px and switched
-                from charcoal-light (#9B9894 ≈ 3.2:1 on cream — fails
-                WCAG AA for normal text) to charcoal-mid (#5F5E5A
-                ≈ 7.5:1 — passes AAA). Italic preserved as the
-                "this is a customer voice" cue. */}
-            <p
-              style={{
-                fontSize: '11px',
-                color: '#5F5E5A',
-                margin: 0,
-                fontStyle: 'italic',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }}
-            >
+            <p className="truncate text-[11px] italic text-charcoal-mid">
               &ldquo;Just like my grandmother makes it.&rdquo;
             </p>
           </div>
@@ -238,10 +192,11 @@ export function VendorCard({ vendor, variant = 'list' }: Props) {
         {/* Scarcity ribbon — only renders when the API has surfaced a real
             `availableSlots` count of 3 or fewer. Slot scarcity on Feastpot
             is genuine (cooks pre-commit a fixed weekend tray count), so
-            this isn't a dark pattern — it reflects the actual marketplace. */}
+            this isn't a dark pattern — it reflects the actual marketplace.
+            Uses wireframe red #E30613 (scotch) for urgency. */}
         {typeof vendor.availableSlots === 'number' && vendor.availableSlots <= 3 && vendor.availableSlots > 0 && (
-          <p style={{ fontSize: '9px', color: '#C8401F', fontWeight: 600, margin: '6px 0 0' }}>
-            🔥 Only {vendor.availableSlots} {vendor.availableSlots === 1 ? 'slot' : 'slots'} left this weekend
+          <p className="mt-1.5 text-[10px] font-semibold text-scotch">
+            Only {vendor.availableSlots} {vendor.availableSlots === 1 ? 'slot' : 'slots'} left this weekend
           </p>
         )}
       </div>
