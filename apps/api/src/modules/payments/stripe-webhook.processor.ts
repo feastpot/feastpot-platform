@@ -36,7 +36,7 @@ export class StripeWebhookProcessor {
   // Concurrency=5 on each handler: Stripe bursts during busy periods (peak
   // Friday evening), and these handlers are idempotent (updateMany on the
   // PI/refund id) so concurrent processing is safe.
-  @Process({ name: 'payment_intent.succeeded', concurrency: 5 })
+  @Process({ name: 'payment_intent.succeeded', concurrency: 10 })
   async onIntentSucceeded(job: Job<WebhookJob>): Promise<void> {
     const pi = job.data.data as Stripe.PaymentIntent;
     await this.prisma.payment.updateMany({
@@ -48,7 +48,7 @@ export class StripeWebhookProcessor {
     this.logger.log(`PI ${pi.id} succeeded`);
   }
 
-  @Process({ name: 'payment_intent.payment_failed', concurrency: 5 })
+  @Process({ name: 'payment_intent.payment_failed', concurrency: 10 })
   async onIntentFailed(job: Job<WebhookJob>): Promise<void> {
     const pi = job.data.data as Stripe.PaymentIntent;
     const payment = await this.prisma.payment.findFirst({
@@ -93,7 +93,7 @@ export class StripeWebhookProcessor {
     this.logger.warn(`PI ${pi.id} failed`);
   }
 
-  @Process({ name: 'transfer.created', concurrency: 5 })
+  @Process({ name: 'transfer.created', concurrency: 10 })
   async onTransferCreated(job: Job<WebhookJob>): Promise<void> {
     const transfer = job.data.data as Stripe.Transfer;
     // Match by metadata.payoutId if our service set it; otherwise no-op.
@@ -108,7 +108,7 @@ export class StripeWebhookProcessor {
     });
   }
 
-  @Process({ name: 'refund.updated', concurrency: 5 })
+  @Process({ name: 'refund.updated', concurrency: 10 })
   async onRefundUpdated(job: Job<WebhookJob>): Promise<void> {
     const refund = job.data.data as Stripe.Refund;
     if (!refund.id) return;

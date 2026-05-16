@@ -1,0 +1,306 @@
+You are a senior Solutions Architect and NestJS performance engineer.
+Scale the Feastpot platform to handle 500 active vendors and 10,000 orders per day.
+
+SCALE TARGETS:
+- 10,000 orders/day = ~417/hour average, ~1,200/hour peak (Friday 17:00-21:00 London)
+- 500 active vendors × avg 50 orders/week = 25,000 orders/week
+- API must sustain: 500 concurrent sessions, 300 req/sec burst
+- P95 response time: < 400ms reads, < 1,200ms writes (order creation with Stripe)
+- Database: Supabase connection pool must not exhaust (target: use max 80 connections)
+- BullMQ: must process 10,000 notification jobs/day without queue backup
+
+═══════════════════════════════════════════════════════
+PART 1 — Database: critical indexes for 500-vendor scale
+═══════════════════════════════════════════════════════
+
+File: prisma/schema.prisma — add or verify these indexes:
+
+// Vendor search (called on every browse page load — highest volume read)
+@@index([status, avgRating(sort: Desc)])  // on Vendor
+@@index([cuisineTypes], type: Raw("using gin"))  // GIN index for array containment
+// If Prisma doesn't support GIN directly, create via raw migration:
+
+File: prisma/migrations/add_scale_indexes/migration.sql (CREATE)
+
+-- Vendor browse performance (most critical — called 50k+ times/day at scale)
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_vendors_status_rating
+  ON vendors(status, avg_rating DESC)
+  WHERE status = 'live';
+
+-- GIN index for cuisine_types array (enables fast @> containment queries)
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_vendors_cuisine_gin
+  ON vendors USING GIN(cuisine_types);
+
+-- Order list by vendor+status (vendor dashboard load — 500 vendors polling)
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_orders_vendor_status
+  ON orders(vendor_id, status, created_at DESC)
+  WHERE status NOT IN ('delivered', 'cancelled');
+
+-- Order list by customer (account page, tracking)
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_orders_customer_created
+  ON orders(customer_id, created_at DESC);
+
+-- Menu items by vendor + availability (vendor profile page)
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_menu_items_vendor_available
+  ON menu_items(vendor_id, is_available)
+  WHERE is_available = true;
+
+-- Loyalty points balance lookup (called on every checkout)
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_loyalty_points_user_id
+  ON loyalty_points(user_id, created_at DESC);
+
+-- Discount code lookup (called on validate — must be sub-5ms)
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_discount_codes_code_active
+  ON discount_codes(UPPER(code))
+  WHERE is_active = true;
+
+Run: psql $DATABASE_URL -f prisma/migrations/add_scale_indexes/migration.sql
+
+═══════════════════════════════════════════════════════
+PART 2 — Prisma connection pool: right-sized for 500 vendors
+═══════════════════════════════════════════════════════
+
+At 10,000 orders/day peak = ~1,200/hour = 20/minute = 0.33/second average.
+Peak burst (Friday evening): 5x average = ~1.67/second = ~100/minute.
+Each order takes ~3 DB queries. Peak DB QPS: ~300.
+
+Supabase Pro plan: 200 max_connections.
+Replit Autoscale: max 20 instances.
+
+Connection budget: 20 instances × 5 connections = 100 connections (50% of max — healthy headroom).
+
+File: .env (or Replit Secrets)
+DATABASE_URL with pgbouncer params:
+  postgresql://...?pgbouncer=true&connection_limit=5&pool_timeout=20&connect_timeout=10
+
+File: apps/api/src/prisma/prisma.service.ts
+
+Confirm PrismaService logs pool connection on init:
+async onModuleInit() {
+  await this.$connect()
+  const result = await this.$queryRaw<Array<{count: bigint}>>`
+    SELECT COUNT(*) as count FROM pg_stat_activity WHERE application_name LIKE 'prisma%'
+  `.catch(() => [{ count: 0n }])
+  this.logger.log(`[Prisma] Connected. Active DB connections: ${result[0].count}`)
+}
+
+═══════════════════════════════════════════════════════
+PART 3 — Redis caching: cache the 3 highest-volume reads
+═══════════════════════════════════════════════════════
+
+File: apps/api/src/modules/vendors/vendors.service.ts
+
+At 10,000 orders/day, vendor browse is called ~50,000 times/day.
+Without caching, that is 50,000 DB queries just for browse.
+With 5-minute cache: 50,000 → ~17 DB queries (one per cache miss per 5 min window).
+
+Add caching to searchVendors, findById, and menu fetching:
+
+async searchVendors(dto: SearchVendorsDto) {
+  const cacheKey = `vendors:search:${JSON.stringify(dto)}`
+  const cached = await this.cache.get<VendorSearchResult>(cacheKey)
+  if (cached) return cached
+
+  const result = await this.vendorsRepository.search(dto)
+  await this.cache.set(cacheKey, result, 300)  // 5 min TTL
+  return result
+}
+
+async getVendorProfile(id: string) {
+  const cacheKey = `vendors:profile:${id}`
+  const cached = await this.cache.get<Vendor>(cacheKey)
+  if (cached) return cached
+
+  const vendor = await this.vendorsRepository.findById(id)
+  await this.cache.set(cacheKey, vendor, 600)  // 10 min TTL
+  return vendor
+}
+
+// Invalidate on any vendor update
+async updateVendor(id: string, dto: UpdateVendorDto) {
+  const result = await this.vendorsRepository.update(id, dto)
+  await this.cache.del(`vendors:profile:${id}`)
+  await this.cache.delByPattern('vendors:search:*')  // all search caches
+  return result
+}
+
+// Menu items: short TTL because availability can change instantly
+async getVendorMenus(vendorId: string) {
+  const cacheKey = `vendors:menus:${vendorId}`
+  const cached = await this.cache.get(cacheKey)
+  if (cached) return cached
+
+  const menus = await this.catalogueRepository.findByVendor(vendorId)
+  await this.cache.set(cacheKey, menus, 120)  // 2 min TTL
+  return menus
+}
+
+// When vendor toggles item availability: immediate cache invalidation
+async toggleItemAvailability(vendorId: string, itemId: string, isAvailable: boolean) {
+  await this.prisma.menuItem.update({ where: { id: itemId }, data: { isAvailable } })
+  await this.cache.del(`vendors:menus:${vendorId}`)  // immediate — sold-out must show NOW
+}
+
+═══════════════════════════════════════════════════════
+PART 4 — BullMQ: concurrency tuning for 10k orders/day
+═══════════════════════════════════════════════════════
+
+At 10,000 orders/day:
+- 10,000 order confirmations (email + SMS) = 20,000 notification jobs/day
+- 10,000 delivery notifications = 20,000 more
+- 500 payout statements weekly = 1,000 jobs/week
+Total: ~50,000 queue jobs/day = ~35 jobs/minute average, ~175/minute at peak.
+
+File: apps/api/src/app.module.ts — update BullMQ concurrency:
+
+BullModule.registerQueue(
+  { name: 'notifications',   defaultJobOptions: { removeOnComplete: 100, removeOnFail: 500 } },
+  { name: 'payout-batch',    defaultJobOptions: { removeOnComplete: 50,  removeOnFail: 100 } },
+  { name: 'compliance',      defaultJobOptions: { removeOnComplete: 50,  removeOnFail: 100 } },
+  { name: 'orders',          defaultJobOptions: { removeOnComplete: 200, removeOnFail: 500 } },
+  { name: 'stripe-webhook',  defaultJobOptions: { removeOnComplete: 200, removeOnFail: 200 } },
+  { name: 'review-trigger',  defaultJobOptions: { removeOnComplete: 100, removeOnFail: 100 } },
+)
+
+Update processors with higher concurrency:
+@Processor('notifications', { concurrency: 30 })  // was 10 or 20 — email/SMS I/O-bound, safe to increase
+@Processor('stripe-webhook', { concurrency: 10 })  // Stripe webhooks can burst
+@Processor('payout-batch', { concurrency: 1 })     // MUST remain serial — financial
+@Processor('orders', { concurrency: 15 })
+
+Add job completion monitoring:
+worker.on('completed', (job) => {
+  const duration = Date.now() - job.timestamp
+  if (duration > 5000) {
+    this.logger.warn(`[Queue:${job.queueName}] Slow job: ${job.name} took ${duration}ms`)
+  }
+})
+
+═══════════════════════════════════════════════════════
+PART 5 — Replit Autoscale: min 2, max 30 for 500 vendors
+═══════════════════════════════════════════════════════
+
+File: .replit (update deployment config comments)
+
+[deployment]
+# Scale config for 500 vendors / 10,000 orders/day
+# Peak: ~1,200 orders/hour on Friday 17:00-21:00 London time
+# Each order: ~1,200ms P95 (Stripe 200ms + 3 Prisma queries 300ms + BullMQ 100ms + overhead)
+# 1 instance @ 2vCPU handles ~50 concurrent requests
+# 30 instances = 1,500 concurrent = comfortable headroom for 500-vendor peak
+#
+# Machine: 2 vCPU, 4GB RAM
+# Min instances: 2  (never scale to zero — cold start is 8-12s)
+# Max instances: 30
+# Scale up:   CPU > 65% for 20 seconds
+# Scale down: CPU < 15% for 5 minutes
+run = ["bash", "-c", "PORT=3002 npm run db:deploy && PORT=3002 npm run start:api"]
+deploymentTarget = "autoscale"
+
+═══════════════════════════════════════════════════════
+PART 6 — Multi-instance throttler: swap to Redis storage
+═══════════════════════════════════════════════════════
+
+With 30 Autoscale instances, the default in-process Map throttler
+counts requests per-instance, not globally. At 30 instances, effective
+rate limit is 30× the configured value — discount codes could be brute-forced.
+
+File: apps/api/src/app.module.ts
+
+npm install @nest-lab/throttler-storage-redis -w @feastpot/api
+
+ThrottlerModule.forRootAsync({
+  imports: [ConfigModule],
+  useFactory: (config: ConfigService) => ({
+    storage: new ThrottlerStorageRedisService(
+      new Redis(config.get('REDIS_URL'))
+    ),
+    throttlers: [
+      { name: 'short', ttl: 1000,   limit: 20  },
+      { name: 'long',  ttl: 60_000, limit: 300 },
+    ],
+  }),
+  inject: [ConfigService],
+})
+
+This makes rate limits accurate across all 30 instances.
+The Redis-backed throttler adds ~2ms per rate-checked request (acceptable).
+
+═══════════════════════════════════════════════════════
+PART 7 — Structured JSON logging (pino) for 500-vendor ops
+═══════════════════════════════════════════════════════
+
+At 500 vendors / 10,000 orders/day, console.log is not searchable.
+Production logs must be JSON so they can be queried in Sentry/Datadog/CloudWatch.
+
+npm install nestjs-pino pino-http -w @feastpot/api
+
+File: apps/api/src/app.module.ts
+
+import { LoggerModule } from 'nestjs-pino'
+
+LoggerModule.forRoot({
+  pinoHttp: {
+    level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
+    transport: process.env.NODE_ENV !== 'production'
+      ? { target: 'pino-pretty', options: { colorize: true } }
+      : undefined,
+    serializers: {
+      req: (req) => ({ method: req.method, url: req.url, requestId: req.id }),
+      res: (res) => ({ statusCode: res.statusCode }),
+    },
+    customProps: (req) => ({
+      userId: (req as any).user?.id,
+      role:   (req as any).user?.role,
+    }),
+    redact: ['req.headers.authorization', 'req.headers.cookie'],
+  },
+})
+
+File: apps/api/src/main.ts
+import { Logger } from 'nestjs-pino'
+app.useLogger(app.get(Logger))
+
+═══════════════════════════════════════════════════════
+PART 8 — SearchVendorsDto query param tolerance (D115)
+═══════════════════════════════════════════════════════
+
+File: apps/api/src/modules/vendors/dto/search-vendors.dto.ts
+
+At 500 vendors, marketing will add UTM params to vendor URLs.
+GET /v1/vendors?utm_source=instagram currently returns 400.
+
+Add status field and make unknown params non-fatal on GETs:
+
+@IsOptional() @IsEnum(VendorStatus) status?: VendorStatus = VendorStatus.live
+
+In main.ts, create a lenient ValidationPipe for query strings only:
+
+const queryPipe = new ValidationPipe({
+  whitelist: true,
+  forbidNonWhitelisted: false,  // silently strip UTM params etc. on GET endpoints
+  transform: true,
+})
+
+Apply to vendor search and other read-only GET endpoints:
+@UsePipes(queryPipe)
+@Get()
+async searchVendors(@Query() dto: SearchVendorsDto) { ... }
+
+═══════════════════════════════════════════════════════
+VERIFICATIONS
+═══════════════════════════════════════════════════════
+
+Run all of these after applying changes:
+
+1. npm run build:api — zero errors required
+2. npx prisma validate — schema valid
+3. psql $DATABASE_URL -c "\d vendors" | grep -i index — confirm new indexes present
+4. curl -s "http://localhost:3001/v1/vendors?utm_source=test" — must return 200 not 400
+5. curl -s http://localhost:3001/v1/healthz — must return within 2 seconds
+6. npm run test:api -- --testPathPattern=payouts — commission tests pass
+7. grep -r "ZC146267\|ZA000000" apps — must return ZERO results
+8. grep -r "C1931679" apps/web/src apps/api/src — must return >= 6 results
+
+Output all changed files. This prompt is the foundation for operating
+at 500 vendor / 10,000 orders/day scale.

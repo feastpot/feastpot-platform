@@ -3,8 +3,11 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
-import { ThrottlerModule } from '@nestjs/throttler';
+import { Logger } from '@nestjs/common';
+import { ThrottlerModule, ThrottlerStorage } from '@nestjs/throttler';
+import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis';
 import { SentryGlobalFilter, SentryModule } from '@sentry/nestjs/setup';
+import IORedis from 'ioredis';
 import { BullAdapter } from '@bull-board/api/bullAdapter';
 import { ExpressAdapter } from '@bull-board/express';
 import { BullBoardModule } from '@bull-board/nestjs';
@@ -97,11 +100,78 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
     // guard's role cap. Setting the module default to 300 would silently
     // collapse admin/finance/compliance/support to 300 on any route that
     // doesn't explicitly opt into a looser @Throttle.
-    ThrottlerModule.forRoot({
-      throttlers: [
-        { name: 'short', ttl: 1_000, limit: 10 },
-        { name: 'long', ttl: 60_000, limit: 600 },
-      ],
+    // Redis-backed throttler storage. Critical for Autoscale: the default
+    // in-process Map counts requests per-instance, so with N instances the
+    // effective rate limit is N× the configured value — discount-code
+    // validation could be brute-forced at 30× the intended 10/min cap.
+    // Falls back to the in-memory storage (forRoot) when REDIS_URL is not
+    // set so local dev without Redis still boots.
+    ThrottlerModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (cfg: ConfigService) => {
+        const url = cfg.get<string>('REDIS_URL');
+        const throttlers = [
+          { name: 'short', ttl: 1_000, limit: 10 },
+          { name: 'long', ttl: 60_000, limit: 600 },
+        ];
+        if (!url) {
+          // No Redis configured — fall back to per-instance memory storage.
+          return { throttlers };
+        }
+        // Mirror the ioredis settings used by Bull / RedisCacheService: cap
+        // reconnection attempts so a misconfigured REDIS_URL doesn't spam
+        // the log stream at 1 Hz forever. Without these the rate-limit
+        // INCR adds ~2ms per request — well inside the 400ms read SLA.
+        const parsed = new URL(url);
+        const isTls = parsed.protocol === 'rediss:';
+        const redis = new IORedis({
+          host: parsed.hostname,
+          port: Number(parsed.port || (isTls ? 6380 : 6379)),
+          username: parsed.username ? decodeURIComponent(parsed.username) : undefined,
+          password: parsed.password ? decodeURIComponent(parsed.password) : undefined,
+          tls: isTls ? {} : undefined,
+          maxRetriesPerRequest: 3,
+          retryStrategy: (times) => (times > 5 ? null : Math.min(times * 500, 3000)),
+          reconnectOnError: () => false,
+          enableReadyCheck: false,
+          lazyConnect: false,
+        });
+        // Attach an error listener so ioredis doesn't crash the process
+        // on transient connection failures (WRONGPASS, ECONNREFUSED, etc.).
+        // We deliberately keep the log at warn level — a Redis outage on
+        // the rate-limit path is bad, but it shouldn't 500 every request;
+        // we degrade to fail-open (see the wrapper below).
+        const log = new Logger('ThrottlerRedis');
+        redis.on('error', (err) => {
+          log.warn(`Redis error on throttler client: ${(err as Error).message}`);
+        });
+        const inner = new ThrottlerStorageRedisService(redis);
+        // Fail-open wrapper: if the Redis INCR fails for any reason
+        // (auth, connectivity, script load), allow the request rather
+        // than 500'ing every caller. Throttling is best-effort under a
+        // Redis outage — the global `short` window (10 req/sec) is
+        // still enforced upstream by Cloudflare / Replit's L7 LB on
+        // the deployed path.
+        const storage: ThrottlerStorage = {
+          increment: async (key, ttl, limit, blockDuration, name) => {
+            try {
+              return await inner.increment(key, ttl, limit, blockDuration, name);
+            } catch (err) {
+              log.warn(
+                `Throttler storage degraded — allowing request: ${(err as Error).message}`,
+              );
+              return {
+                totalHits: 0,
+                timeToExpire: Math.ceil(ttl / 1000),
+                isBlocked: false,
+                timeToBlockExpire: 0,
+              };
+            }
+          },
+        };
+        return { throttlers, storage };
+      },
     }),
     ScheduleModule.forRoot(),
     BullModule.forRootAsync({

@@ -56,12 +56,14 @@ export class NotificationProcessor {
   ) {}
 
   /**
-   * Concurrency=20: email/SMS/push are I/O-bound (provider API calls), so
-   * we can run many in parallel without saturating CPU. Bumped from 10
-   * to absorb the Friday 17:00–20:00 order-confirmation burst (~115/hr ×
-   * up to 4 channels each).
+   * Concurrency=30: email/SMS/push are I/O-bound (provider API calls), so
+   * we can run many in parallel without saturating CPU. Sized for the
+   * 500-vendor / 10k-orders-per-day target — at peak (~1,200 orders/hr
+   * × up to 4 channels) we need to drain ~80 jobs/min sustained with
+   * headroom for the delivery-notification wave that follows ~45 min
+   * later.
    */
-  @Process({ concurrency: 20 })
+  @Process({ concurrency: 30 })
   async handle(job: Job<NotificationJobData>): Promise<{ sent: Channel[]; skipped: Channel[] }> {
     const eventName = job.name;
 
