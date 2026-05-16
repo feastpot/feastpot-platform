@@ -84,7 +84,7 @@ export function ReviewsSection({
     // Friendlier than "Failed to load reviews." — tells the user what
     // to do (refresh) rather than just announcing the failure.
     return (
-      <p className="text-sm text-mid">Reviews unavailable — try refreshing the page.</p>
+      <p className="text-sm text-charcoal-mid">Reviews unavailable — try refreshing the page.</p>
     );
   }
 
@@ -94,7 +94,7 @@ export function ReviewsSection({
 
   if (reviews.length === 0) {
     return (
-      <p className="text-sm text-mid">
+      <p className="text-sm text-charcoal-mid">
         No reviews yet — be the first to order and share what you think.
       </p>
     );
@@ -131,7 +131,7 @@ export function ReviewsSection({
                     height: '36px',
                     borderRadius: '50%',
                     flexShrink: 0,
-                    background: 'linear-gradient(135deg, #1D9E75, #0F6E56)',
+                    background: 'linear-gradient(135deg, #00843D, #006A30)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -159,11 +159,11 @@ export function ReviewsSection({
                     <span
                       style={{
                         fontSize: '9px',
-                        fontWeight: 600,
+                        fontWeight: 700,
                         padding: '1px 6px',
-                        borderRadius: '3px',
-                        background: '#FFF3CD',
-                        color: '#856404',
+                        borderRadius: '999px',
+                        background: 'rgba(246, 180, 0, 0.2)',
+                        color: '#8A6500',
                       }}
                     >
                       ✓ Verified
@@ -171,7 +171,7 @@ export function ReviewsSection({
                   </div>
                   <div
                     aria-label={`${safeRating} out of 5 stars`}
-                    style={{ color: '#F5A52A', fontSize: '11px', margin: '2px 0' }}
+                    style={{ color: '#F6B400', fontSize: '12px', margin: '2px 0', letterSpacing: '1px' }}
                   >
                     {'★'.repeat(safeRating)}
                     <span style={{ opacity: 0.3 }}>{'★'.repeat(5 - safeRating)}</span>
@@ -210,7 +210,7 @@ export function ReviewsSection({
           type="button"
           onClick={() => fetchNextPage()}
           disabled={isFetchingNextPage}
-          className="w-full rounded-md border border-border bg-background py-2 text-sm font-medium hover:bg-muted disabled:opacity-50"
+          className="w-full rounded-xl border border-cream-deep bg-white py-3 text-sm font-bold text-charcoal hover:bg-cream disabled:opacity-50"
         >
           {isFetchingNextPage ? 'Loading…' : 'Load more reviews'}
         </button>

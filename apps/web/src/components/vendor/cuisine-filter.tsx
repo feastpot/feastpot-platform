@@ -132,10 +132,10 @@ export function CuisineFilter({ active, href = true, onSelect, postcode, variant
         {CUISINES_PILLS.map((c) => {
           const isActive = current === c.label;
           const pillCls = cn(
-            'inline-flex snap-start items-center gap-1.5 whitespace-nowrap rounded-full border px-4 py-1.5 text-sm font-medium transition',
+            'inline-flex snap-start items-center gap-1.5 whitespace-nowrap rounded-full border px-4 py-1.5 text-sm font-bold transition',
             isActive
-              ? 'border-brand bg-brand text-white'
-              : 'border-border bg-background text-foreground hover:bg-muted',
+              ? 'border-brand bg-brand text-white shadow-sm'
+              : 'border-cream-deep bg-white text-charcoal hover:bg-cream',
           );
           const inner = (
             <>

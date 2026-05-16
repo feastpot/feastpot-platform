@@ -91,19 +91,19 @@ export function VendorFilterSheet() {
           }}
         >
           <fieldset className="space-y-2">
-            <legend className="text-sm font-semibold text-foreground">Dietary</legend>
-            <label className="flex items-center gap-3 text-sm">
-              <input type="checkbox" name="halal" defaultChecked={initial.halal} className="h-4 w-4 rounded border-border" />
+            <legend className="text-sm font-bold text-charcoal">Dietary</legend>
+            <label className="flex items-center gap-3 text-sm font-medium text-charcoal">
+              <input type="checkbox" name="halal" defaultChecked={initial.halal} className="h-4 w-4 rounded border-cream-deep accent-brand" />
               <span>Halal-certified only</span>
             </label>
             {DIETARY_FLAGS.map((flag) => (
-              <label key={flag} className="flex items-center gap-3 text-sm">
+              <label key={flag} className="flex items-center gap-3 text-sm font-medium text-charcoal">
                 <input
                   type="checkbox"
                   name="dietary"
                   value={flag}
                   defaultChecked={initial.dietary.includes(flag)}
-                  className="h-4 w-4 rounded border-border"
+                  className="h-4 w-4 rounded border-cream-deep accent-brand"
                 />
                 <span className="capitalize">{flag.replace('-', ' ')}</span>
               </label>
@@ -111,11 +111,11 @@ export function VendorFilterSheet() {
           </fieldset>
 
           <fieldset className="space-y-2">
-            <legend className="text-sm font-semibold text-foreground">Order type</legend>
+            <legend className="text-sm font-bold text-charcoal">Order type</legend>
             <select
               name="orderType"
               defaultValue={initial.orderType}
-              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+              className="w-full rounded-xl border border-cream-deep bg-white px-3 py-2.5 text-sm font-medium text-charcoal focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
             >
               {ORDER_TYPES.map((o) => (
                 <option key={o.value} value={o.value}>
@@ -126,11 +126,11 @@ export function VendorFilterSheet() {
           </fieldset>
 
           <fieldset className="space-y-2">
-            <legend className="text-sm font-semibold text-foreground">Sort by</legend>
+            <legend className="text-sm font-bold text-charcoal">Sort by</legend>
             <select
               name="sort"
               defaultValue={initial.sortBy}
-              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+              className="w-full rounded-xl border border-cream-deep bg-white px-3 py-2.5 text-sm font-medium text-charcoal focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
             >
               {SORTS.map((s) => (
                 <option key={s.value} value={s.value}>
