@@ -176,11 +176,11 @@ export function TopNav() {
               type="button"
               onClick={handleBack}
               aria-label="Go back"
-              className="-ml-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-dark transition-colors hover:bg-surface"
+              className="-ml-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-charcoal transition-colors hover:bg-cream"
             >
               <ChevronLeft className="h-6 w-6" strokeWidth={2.25} aria-hidden />
             </button>
-            <h1 className="truncate text-[17px] font-semibold text-dark">{title}</h1>
+            <h1 className="truncate font-display text-[17px] font-black text-charcoal">{title}</h1>
           </div>
         )}
 
@@ -191,7 +191,7 @@ export function TopNav() {
           <button
             type="button"
             aria-label="Notifications"
-            className="flex h-11 w-11 items-center justify-center rounded-full text-mid transition-colors hover:bg-surface hover:text-dark"
+            className="flex h-11 w-11 items-center justify-center rounded-full text-charcoal-mid transition-colors hover:bg-cream hover:text-charcoal"
           >
             <Bell className="h-5 w-5" strokeWidth={1.75} aria-hidden />
           </button>
@@ -200,7 +200,7 @@ export function TopNav() {
             <button
               type="button"
               aria-label={`Basket (${itemCount} item${itemCount === 1 ? '' : 's'})`}
-              className="relative flex h-11 w-11 items-center justify-center rounded-full text-mid transition-colors hover:bg-surface hover:text-dark"
+              className="relative flex h-11 w-11 items-center justify-center rounded-full text-charcoal-mid transition-colors hover:bg-cream hover:text-charcoal"
             >
               <ShoppingBasket className="h-5 w-5" strokeWidth={1.75} aria-hidden />
               {itemCount > 0 && (

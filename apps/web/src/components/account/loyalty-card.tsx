@@ -22,24 +22,29 @@ export function LoyaltyCard() {
   const { data, isLoading, isError } = useLoyalty();
 
   return (
-    <section className="rounded-2xl border border-border bg-white p-4 shadow-sm">
+    <section className="rounded-2xl border border-cream-deep bg-white p-4 shadow-card">
       <header className="mb-3 flex items-center gap-2">
-        <Sparkles className="h-5 w-5 text-teal" aria-hidden />
-        <h2 className="text-base font-semibold text-dark">Loyalty points</h2>
+        <span
+          className="flex h-8 w-8 items-center justify-center rounded-full bg-plantain/20"
+          aria-hidden
+        >
+          <Sparkles className="h-4 w-4 text-plantain" />
+        </span>
+        <h2 className="font-display text-base font-black text-charcoal">Loyalty points</h2>
       </header>
 
       {isLoading ? (
-        <p className="text-sm text-mid">Loading…</p>
+        <p className="text-sm font-medium text-charcoal-mid">Loading…</p>
       ) : isError || !data ? (
-        <p className="text-sm text-mid">Sign in to start earning points.</p>
+        <p className="text-sm font-medium text-charcoal-mid">Sign in to start earning points.</p>
       ) : (
         <>
-          <div className="rounded-xl bg-teal-light/40 p-4">
-            <p className="text-3xl font-bold tabular-nums text-teal">
+          <div className="rounded-xl bg-gradient-to-br from-plantain/25 to-plantain/10 p-4">
+            <p className="font-display text-3xl font-black tabular-nums text-charcoal">
               {data.balance.toLocaleString()}
-              <span className="ml-1 text-sm font-medium text-mid">pts</span>
+              <span className="ml-1 text-sm font-bold text-charcoal-mid">pts</span>
             </p>
-            <p className="mt-1 text-xs text-mid">
+            <p className="mt-1 text-xs font-medium text-charcoal-mid">
               Worth {formatPounds(data.worthPence)} off your next order
               {data.balance < 200 && ' · 200pt minimum to redeem'}
             </p>
@@ -50,17 +55,19 @@ export function LoyaltyCard() {
               {data.history.slice(0, 5).map((h) => (
                 <li
                   key={h.id}
-                  className="flex items-center justify-between gap-2 border-b border-border/40 pb-2 last:border-0 last:pb-0"
+                  className="flex items-center justify-between gap-2 border-b border-cream-deep/60 pb-2 last:border-0 last:pb-0"
                 >
                   <div className="min-w-0">
-                    <p className="truncate text-sm text-dark">{h.reason ?? TX_LABEL[h.type] ?? h.type}</p>
-                    <p className="text-[11px] text-mid">
+                    <p className="truncate text-sm font-medium text-charcoal">
+                      {h.reason ?? TX_LABEL[h.type] ?? h.type}
+                    </p>
+                    <p className="text-[11px] font-medium text-charcoal-mid">
                       {new Date(h.createdAt).toLocaleDateString()}
                     </p>
                   </div>
                   <span
-                    className={`shrink-0 text-sm font-semibold tabular-nums ${
-                      h.points >= 0 ? 'text-teal' : 'text-mid'
+                    className={`shrink-0 text-sm font-bold tabular-nums ${
+                      h.points >= 0 ? 'text-brand' : 'text-charcoal-mid'
                     }`}
                   >
                     {h.points >= 0 ? '+' : ''}
@@ -71,7 +78,7 @@ export function LoyaltyCard() {
             </ul>
           )}
 
-          <p className="mt-3 text-[11px] text-mid">
+          <p className="mt-3 text-[11px] font-medium text-charcoal-mid">
             Earn 1 point per £1 spent. Points expire 12 months after they&rsquo;re earned.
           </p>
         </>

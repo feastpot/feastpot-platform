@@ -49,31 +49,38 @@ export function ReferralCard() {
   const pendingCount = data?.referrals.filter((r) => r.status === 'pending').length ?? 0;
 
   return (
-    <section className="rounded-2xl border border-border bg-white p-4 shadow-sm">
+    <section className="rounded-2xl border border-cream-deep bg-white p-4 shadow-card">
       <header className="mb-3 flex items-center gap-2">
-        <Gift className="h-5 w-5 text-brand" aria-hidden />
-        <h2 className="text-base font-semibold text-dark">Refer a friend</h2>
+        <span
+          className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-light"
+          aria-hidden
+        >
+          <Gift className="h-4 w-4 text-brand" />
+        </span>
+        <h2 className="font-display text-base font-black text-charcoal">Refer a friend</h2>
       </header>
 
-      <p className="text-sm text-mid">
+      <p className="text-sm font-medium text-charcoal-mid">
         Share your code — when a friend places their first order, you both get{' '}
-        <span className="font-semibold text-dark">500 points (£5)</span>.
+        <span className="font-bold text-charcoal">500 points (£5)</span>.
       </p>
 
       {isLoading ? (
-        <p className="mt-3 text-sm text-mid">Loading…</p>
+        <p className="mt-3 text-sm font-medium text-charcoal-mid">Loading…</p>
       ) : isError || !data ? (
-        <p className="mt-3 text-sm text-mid">Sign in to get your referral code.</p>
+        <p className="mt-3 text-sm font-medium text-charcoal-mid">
+          Sign in to get your referral code.
+        </p>
       ) : (
         <>
           <div className="mt-3 flex items-stretch gap-2">
-            <code className="flex flex-1 items-center rounded-xl border border-dashed border-brand/40 bg-surface px-3 py-2 text-base font-bold tracking-wider text-brand">
+            <code className="flex flex-1 items-center rounded-xl border border-dashed border-brand/40 bg-cream px-3 py-2 text-base font-black tracking-wider text-brand">
               {data.referralCode}
             </code>
             <button
               type="button"
               onClick={onCopy}
-              className="flex items-center justify-center gap-1 rounded-xl bg-brand px-3 text-sm font-semibold text-white hover:bg-brand-dark"
+              className="flex items-center justify-center gap-1 rounded-xl bg-brand px-3 text-sm font-bold text-white hover:bg-brand-dark"
               aria-label="Copy referral code"
             >
               {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
@@ -84,17 +91,17 @@ export function ReferralCard() {
           <button
             type="button"
             onClick={onShare}
-            className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-white px-3 py-2 text-sm font-semibold text-dark hover:bg-surface"
+            className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-cream-deep bg-white px-3 py-2 text-sm font-bold text-charcoal hover:bg-cream"
           >
             <Share2 className="h-4 w-4" aria-hidden />
             Share link
           </button>
 
           {(rewardedCount > 0 || pendingCount > 0) && (
-            <div className="mt-4 flex justify-between text-xs text-mid">
+            <div className="mt-4 flex justify-between text-xs font-medium text-charcoal-mid">
               <span>
-                <span className="font-semibold text-teal">{rewardedCount}</span> rewarded ·{' '}
-                <span className="font-semibold text-dark">{pendingCount}</span> pending
+                <span className="font-bold text-brand">{rewardedCount}</span> rewarded ·{' '}
+                <span className="font-bold text-charcoal">{pendingCount}</span> pending
               </span>
               <span>Earned {formatPounds(data.totalEarnedPence)} so far</span>
             </div>

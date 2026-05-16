@@ -70,7 +70,7 @@ export function BottomNav() {
                 aria-current={active ? 'page' : undefined}
                 className={cn(
                   'relative flex flex-1 flex-col items-center justify-center gap-0.5 rounded-2xl px-3 py-2 transition-all duration-200',
-                  active ? 'text-brand' : 'text-mid hover:text-dark',
+                  active ? 'text-brand' : 'text-charcoal-mid hover:text-charcoal',
                 )}
               >
                 <span className="relative inline-flex">
@@ -88,7 +88,7 @@ export function BottomNav() {
                     </span>
                   )}
                 </span>
-                <span className={cn('text-[10px] font-medium', active ? 'text-brand' : 'text-mid')}>
+                <span className={cn('text-[10px] font-bold', active ? 'text-brand' : 'text-charcoal-mid')}>
                   {displayLabel}
                 </span>
                 {active && (
