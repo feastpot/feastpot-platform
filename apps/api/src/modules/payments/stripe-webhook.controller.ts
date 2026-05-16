@@ -8,6 +8,7 @@ import {
   Post,
   RawBodyRequest,
   Req,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { ApiExcludeController } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
@@ -52,8 +53,14 @@ export class StripeWebhookController {
 
     const secret = this.config.get<string>('STRIPE_WEBHOOK_SECRET');
     if (!secret) {
-      this.logger.error('STRIPE_WEBHOOK_SECRET not configured — rejecting webhook');
-      throw new BadRequestException({ code: 'WEBHOOK_NOT_CONFIGURED', message: 'Webhook not configured' });
+      // D21: 503 (not 400) — this is an ops/config failure on our side, not
+      // a malformed request from Stripe. A 503 also makes Stripe retry with
+      // backoff so events aren't lost once the secret is set.
+      this.logger.error('[Stripe Webhook] STRIPE_WEBHOOK_SECRET not configured');
+      throw new ServiceUnavailableException({
+        code: 'WEBHOOK_NOT_CONFIGURED',
+        message: 'Webhook processing not available — contact ops',
+      });
     }
     if (!signature) {
       throw new BadRequestException({ code: 'MISSING_SIGNATURE', message: 'Missing stripe-signature header' });

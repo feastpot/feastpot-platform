@@ -6,6 +6,7 @@ import type { Queue } from 'bull';
 
 import { Public } from '../auth/decorators/public.decorator';
 import { RedisCacheService } from '../common/cache/redis-cache.service';
+import { missingRequiredEnv } from '../common/config/required-env';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   COMPLIANCE_QUEUE,
@@ -30,6 +31,7 @@ interface HealthzResponse {
     database: 'ok' | 'error';
     redis: 'ok' | 'error' | 'disabled';
     queues: Record<string, QueueDepth | 'error'>;
+    secrets: 'ok' | string;
   };
 }
 
@@ -88,9 +90,15 @@ export class HealthController {
     const queues: Record<string, QueueDepth | 'error'> =
       queueResult.status === 'fulfilled' ? queueResult.value : {};
 
+    // D21: a missing required secret (e.g. STRIPE_WEBHOOK_SECRET) is a
+    // hard 503 — payment confirmations would be silently dropped, so the
+    // load balancer should drain the instance.
+    const missing = missingRequiredEnv();
+    const secrets: 'ok' | string = missing.length === 0 ? 'ok' : `missing: ${missing.join(', ')}`;
+
     // Redis being intentionally disabled (no REDIS_URL in dev) is not a
     // degradation — only an unreachable Redis (configured but down) is.
-    const allOk = db === 'ok' && redis !== 'error';
+    const allOk = db === 'ok' && redis !== 'error' && missing.length === 0;
     res.status(allOk ? 200 : 503);
 
     return {
@@ -99,7 +107,7 @@ export class HealthController {
       timestamp: new Date().toISOString(),
       uptime: Math.floor(process.uptime()),
       environment: process.env.NODE_ENV,
-      checks: { database: db, redis, queues },
+      checks: { database: db, redis, queues, secrets },
     };
   }
 

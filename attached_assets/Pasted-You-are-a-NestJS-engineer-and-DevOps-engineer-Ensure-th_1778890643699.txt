@@ -1,0 +1,75 @@
+You are a NestJS engineer and DevOps engineer. Ensure the Stripe webhook secret
+is set and the controller handles its absence gracefully.
+
+DEFECT (D21 — S2):
+STRIPE_WEBHOOK_SECRET is not set in the Replit Secrets.
+Every real Stripe webhook will throw:
+  BadRequestException({ code: 'WEBHOOK_NOT_CONFIGURED' })
+This means all payment confirmations, refund notifications,
+and dispute events are silently dropped.
+
+STEP 1 — Operational: add secret to Replit Secrets
+This is a required manual step:
+1. Go to Stripe Dashboard → Developers → Webhooks
+2. Add endpoint: https://feastpot-platform.replit.app/v1/stripe/webhook
+3. Select events:
+   - payment_intent.succeeded
+   - payment_intent.payment_failed
+   - payment_intent.canceled
+   - refund.created
+   - payout.paid
+   - payout.failed
+4. Copy the Signing secret (whsec_...)
+5. In Replit Secrets: add STRIPE_WEBHOOK_SECRET = whsec_...
+
+STEP 2 — Code: startup validation
+File: apps/api/src/main.ts
+
+Add a startup check for critical environment variables:
+
+const REQUIRED_ENV_VARS = [
+  'DATABASE_URL',
+  'SUPABASE_URL',
+  'SUPABASE_SERVICE_ROLE_KEY',
+  'STRIPE_SECRET_KEY',
+  'STRIPE_WEBHOOK_SECRET',
+  'JWT_SECRET',
+]
+
+for (const key of REQUIRED_ENV_VARS) {
+  if (!process.env[key]) {
+    console.error(`[STARTUP] MISSING REQUIRED ENV VAR: ${key}`)
+    if (process.env.NODE_ENV === 'production') {
+      process.exit(1)  // hard fail in production — do not start with missing secrets
+    }
+  }
+}
+
+STEP 3 — Code: controller guard with clear error
+File: apps/api/src/modules/payments/stripe-webhook.controller.ts
+
+At the start of the webhook handler:
+const webhookSecret = this.config.get('STRIPE_WEBHOOK_SECRET')
+if (!webhookSecret) {
+  this.logger.error('[Stripe Webhook] STRIPE_WEBHOOK_SECRET not configured')
+  throw new ServiceUnavailableException('Webhook processing not available — contact ops')
+}
+
+This changes the error from a cryptic BadRequestException to a clear 503
+that is easier to diagnose in logs.
+
+STEP 4 — /healthz: surface missing secrets
+File: apps/api/src/health/health.controller.ts
+
+Add a secrets check to the health response:
+const missingSecrets = REQUIRED_ENV_VARS.filter(k => !process.env[k])
+checks: {
+  ...existingChecks,
+  secrets: missingSecrets.length === 0 ? 'ok' : `missing: ${missingSecrets.join(', ')}`,
+}
+
+Return 503 if any required secret is missing.
+
+Run: npm run build:api — confirm zero errors.
+Document: remind to run STEP 1 in the Replit Secrets dashboard.
+Output all changed files in full.

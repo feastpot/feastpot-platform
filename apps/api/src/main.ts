@@ -82,6 +82,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Logger } from 'nestjs-pino';
 
 import { AppModule } from './app.module';
+import { assertRequiredEnvOrExit } from './common/config/required-env';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 
 const ALLOWED_ORIGINS = [
@@ -95,6 +96,11 @@ const ALLOWED_ORIGINS = [
 ];
 
 async function bootstrap(): Promise<void> {
+  // D21: fail loudly at startup if a critical secret is missing.
+  // In production we hard-exit (1); in dev we just log so contributors can
+  // run a partial stack without every secret set.
+  assertRequiredEnvOrExit();
+
   // rawBody: true + bodyParser: false → we install express.json with a verify
   // hook ourselves so req.rawBody is the EXACT bytes Stripe signed. If we let
   // Nest install its own parser, edge cases (charset, content-type quirks,
