@@ -1,5 +1,6 @@
 'use client';
 
+import { UtensilsCrossed } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
@@ -42,13 +43,16 @@ export default function OrdersIndexPage() {
 
   return (
     <section className="flex flex-col items-center justify-center px-6 py-12 text-center">
-      <span className="mb-4 text-6xl" aria-hidden>
-        🍽️
+      <span
+        className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-brand-light"
+        aria-hidden
+      >
+        <UtensilsCrossed className="h-10 w-10 text-brand" />
       </span>
-      <h1 className="font-display text-[22px] font-extrabold text-dark">
+      <h1 className="font-display text-[22px] font-black text-charcoal">
         Your orders will appear here
       </h1>
-      <p className="mt-2 max-w-[280px] text-sm leading-relaxed text-mid">
+      <p className="mt-2 max-w-[280px] text-sm font-medium leading-relaxed text-charcoal-mid">
         Sign in to track your orders, reorder favourites, and manage your account.
       </p>
       <Link
@@ -59,7 +63,7 @@ export default function OrdersIndexPage() {
       </Link>
       <Link
         href="/vendors"
-        className="mt-3 text-[13px] text-mid hover:text-dark"
+        className="mt-3 text-[13px] font-medium text-charcoal-mid hover:text-charcoal"
       >
         Continue browsing without signing in →
       </Link>

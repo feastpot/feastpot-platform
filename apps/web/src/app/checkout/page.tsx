@@ -36,10 +36,10 @@ export default function CheckoutPage() {
   if (!STRIPE_CONFIGURED) {
     return (
       <div className="px-4 py-12 text-center space-y-3">
-        <h1 className="text-xl font-semibold text-dark">Checkout unavailable</h1>
-        <p className="text-sm text-mid">
+        <h1 className="font-display text-xl font-black text-charcoal">Checkout unavailable</h1>
+        <p className="text-sm font-medium text-charcoal-mid">
           Payments aren&rsquo;t configured for this environment yet
-          (<code className="rounded bg-surface px-1 py-0.5 text-xs">NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY</code> is missing).
+          (<code className="rounded bg-cream px-1 py-0.5 text-xs">NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY</code> is missing).
         </p>
       </div>
     );
@@ -142,7 +142,11 @@ function CheckoutInner() {
   const [paidButUnconfirmed, setPaidButUnconfirmed] = useState<string | null>(null);
 
   if (tokenLoading || !token || items.length === 0 || !vendor) {
-    return <p className="px-4 py-12 text-center text-sm text-mid">Loading checkout&hellip;</p>;
+    return (
+      <p className="px-4 py-12 text-center text-sm font-medium text-charcoal-mid">
+        Loading checkout&hellip;
+      </p>
+    );
   }
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -284,53 +288,57 @@ function CheckoutInner() {
   return (
     <form onSubmit={onSubmit} className="px-4 py-4 pb-32 space-y-5" noValidate>
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight text-dark">Checkout</h1>
-        <p className="text-sm text-mid">Ordering from {vendor.name}</p>
+        <h1 className="font-display text-2xl font-black tracking-tight text-charcoal">
+          Checkout
+        </h1>
+        <p className="text-sm font-medium text-charcoal-mid">
+          Ordering from <span className="font-bold text-brand">{vendor.name}</span>
+        </p>
       </header>
 
       {/* SECTION 1 — ORDER SUMMARY (collapsible) */}
       <Section title="Order summary">
-        <div className="overflow-hidden rounded-2xl bg-surface">
+        <div className="overflow-hidden rounded-2xl border border-cream-deep bg-white">
           <button
             type="button"
             onClick={() => setSummaryOpen((o) => !o)}
             aria-expanded={summaryOpen}
-            className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm"
+            className="flex w-full items-center justify-between gap-3 bg-cream px-4 py-3 text-left text-sm"
           >
-            <span className="min-w-0 flex-1 truncate text-mid">
-              <span className="font-semibold text-dark">{itemCount} item{itemCount === 1 ? '' : 's'}</span>
+            <span className="min-w-0 flex-1 truncate text-charcoal-mid">
+              <span className="font-bold text-charcoal">{itemCount} item{itemCount === 1 ? '' : 's'}</span>
               {' · '}
               <span className="truncate">{vendor.name}</span>
               {' · '}
-              <span className="font-semibold text-dark">{formatPounds(subtotal)}</span>
+              <span className="font-bold text-charcoal">{formatPounds(subtotal)}</span>
             </span>
             <ChevronDown
-              className={cn('h-4 w-4 shrink-0 text-mid transition-transform', summaryOpen && 'rotate-180')}
+              className={cn('h-4 w-4 shrink-0 text-charcoal-mid transition-transform', summaryOpen && 'rotate-180')}
               aria-hidden
             />
           </button>
           {summaryOpen && (
-            <div className="border-t border-border/60 bg-white px-4 py-3 text-sm">
+            <div className="border-t border-cream-deep bg-white px-4 py-3 text-sm">
               <ul className="space-y-1.5">
                 {items.map((i) => (
-                  <li key={i.lineId} className="flex justify-between gap-2 text-mid">
+                  <li key={i.lineId} className="flex justify-between gap-2 text-charcoal-mid">
                     <span className="min-w-0">
-                      <span className="text-dark">{i.quantity}× {i.menuItemName}</span>
+                      <span className="font-medium text-charcoal">{i.quantity}× {i.menuItemName}</span>
                       {i.customisationNotes && (
-                        <span className="block truncate text-[11px] italic text-mid">
+                        <span className="block truncate text-[11px] italic text-charcoal-mid">
                           &ldquo;{i.customisationNotes}&rdquo;
                         </span>
                       )}
                     </span>
-                    <span className="shrink-0 tabular-nums text-dark">{formatPounds(i.lineTotalPence)}</span>
+                    <span className="shrink-0 tabular-nums font-medium text-charcoal">{formatPounds(i.lineTotalPence)}</span>
                   </li>
                 ))}
               </ul>
-              <div className="mt-3 flex justify-between border-t border-border pt-2 text-sm">
-                <span className="text-mid">Subtotal</span>
-                <span className="font-semibold tabular-nums text-dark">{formatPounds(subtotal)}</span>
+              <div className="mt-3 flex justify-between border-t border-cream-deep pt-2 text-sm">
+                <span className="text-charcoal-mid">Subtotal</span>
+                <span className="font-bold tabular-nums text-charcoal">{formatPounds(subtotal)}</span>
               </div>
-              <p className="mt-1 text-[11px] text-mid">
+              <p className="mt-1 text-[11px] font-medium text-charcoal-mid">
                 Delivery, service fees and any discounts are calculated at order placement.
               </p>
             </div>
@@ -341,17 +349,19 @@ function CheckoutInner() {
       {/* SECTION 1b — LOYALTY POINTS REDEMPTION */}
       {(loyalty?.balance ?? 0) >= 200 && (
         <Section title="Loyalty points">
-          <div className="rounded-2xl border border-border bg-white p-4">
+          <div className="rounded-2xl border border-plantain/40 bg-plantain/10 p-4">
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-sm text-dark">
+                <p className="text-sm font-medium text-charcoal">
                   You have{' '}
-                  <span className="font-semibold text-teal">
+                  <span className="font-black text-charcoal">
                     {loyalty!.balance.toLocaleString()} pts
                   </span>{' '}
                   ({formatPounds(loyalty!.worthPence)})
                 </p>
-                <p className="text-[11px] text-mid">1 point = 1p · 200pt minimum · max {maxRedeemable.toLocaleString()}pt</p>
+                <p className="text-[11px] font-medium text-charcoal-mid">
+                  1 point = 1p · 200pt minimum · max {maxRedeemable.toLocaleString()}pt
+                </p>
               </div>
             </div>
 
@@ -360,7 +370,7 @@ function CheckoutInner() {
                 type="button"
                 onClick={() => setLoyaltyPoints(Math.max(0, loyaltyPoints - 100))}
                 disabled={loyaltyPoints <= 0}
-                className="h-10 w-10 rounded-full border border-border text-lg font-semibold text-dark hover:bg-surface disabled:opacity-40"
+                className="h-10 w-10 rounded-full border border-cream-deep bg-white text-lg font-bold text-charcoal hover:bg-cream disabled:opacity-40"
                 aria-label="Redeem fewer points"
               >
                 −
@@ -376,13 +386,13 @@ function CheckoutInner() {
                   const n = Math.max(0, Math.min(maxRedeemable, Math.floor(Number(e.target.value) / 100) * 100));
                   setLoyaltyPoints(Number.isFinite(n) ? n : 0);
                 }}
-                className="h-10 flex-1 rounded-xl border border-border bg-white px-3 text-center text-base font-semibold tabular-nums text-dark focus:border-brand focus:outline-none"
+                className="h-10 flex-1 rounded-xl border border-cream-deep bg-white px-3 text-center text-base font-bold tabular-nums text-charcoal focus:border-brand focus:outline-none"
               />
               <button
                 type="button"
                 onClick={() => setLoyaltyPoints(Math.min(maxRedeemable, loyaltyPoints + 100))}
                 disabled={loyaltyPoints >= maxRedeemable}
-                className="h-10 w-10 rounded-full border border-border text-lg font-semibold text-dark hover:bg-surface disabled:opacity-40"
+                className="h-10 w-10 rounded-full border border-cream-deep bg-white text-lg font-bold text-charcoal hover:bg-cream disabled:opacity-40"
                 aria-label="Redeem more points"
               >
                 +
@@ -391,18 +401,20 @@ function CheckoutInner() {
                 type="button"
                 onClick={() => setLoyaltyPoints(maxRedeemable)}
                 disabled={loyaltyPoints === maxRedeemable || maxRedeemable === 0}
-                className="h-10 rounded-xl bg-teal px-3 text-xs font-semibold text-white hover:bg-teal/90 disabled:opacity-40"
+                className="h-10 rounded-xl bg-brand px-3 text-xs font-bold text-white hover:bg-brand-dark disabled:opacity-40"
               >
                 Max
               </button>
             </div>
 
             {loyaltyPoints >= 200 ? (
-              <p className="mt-2 text-xs text-teal">
+              <p className="mt-2 text-xs font-bold text-brand-dark">
                 −{formatPounds(loyaltyPoints)} discount applied
               </p>
             ) : loyaltyPoints > 0 ? (
-              <p className="mt-2 text-xs text-mid">Redeem at least 200pt to apply a discount.</p>
+              <p className="mt-2 text-xs font-medium text-charcoal-mid">
+                Redeem at least 200pt to apply a discount.
+              </p>
             ) : null}
           </div>
         </Section>
@@ -430,7 +442,7 @@ function CheckoutInner() {
           onChange={setScheduledFor}
         />
         {scheduledFor && (
-          <p className="mt-2 inline-block rounded-full bg-teal/10 px-3 py-1 text-xs font-medium text-teal-dark">
+          <p className="mt-2 inline-block rounded-full bg-brand-light px-3 py-1 text-xs font-bold text-brand-dark">
             {scheduledFor.toLocaleString(undefined, {
               weekday: 'long',
               day: 'numeric',
@@ -450,48 +462,50 @@ function CheckoutInner() {
           rows={3}
           maxLength={1000}
           placeholder="Any customisation, spice adjustments, or gate codes"
-          className="w-full rounded-2xl border border-border bg-white px-3 py-2.5 text-sm placeholder:text-mid focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
+          className="w-full rounded-2xl border border-cream-deep bg-white px-3 py-2.5 text-sm text-charcoal placeholder:text-charcoal-mid focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
         />
-        <p className="mt-1 text-right text-[11px] text-mid">{notes.length}/1000</p>
+        <p className="mt-1 text-right text-[11px] font-medium text-charcoal-mid">
+          {notes.length}/1000
+        </p>
       </Section>
 
       {/* SECTION 5 — PAYMENT */}
       <section ref={paymentSectionRef} className="space-y-3">
-        <h2 className="text-base font-semibold text-dark">Payment</h2>
+        <h2 className="font-display text-base font-black text-charcoal">Payment</h2>
 
-        {/* Apple/Google Pay placeholder. PaymentRequestButton needs a verified
-            Stripe domain + a server-side PR setup; until that lands we render
-            a disabled affordance so the visual order matches the brief. */}
+        {/* Apple/Google Pay placeholder. */}
         <button
           type="button"
           disabled
           aria-disabled
-          className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-dark text-sm font-semibold text-white opacity-60"
+          className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-charcoal text-sm font-bold text-white opacity-60"
           title="Apple/Google Pay coming soon"
         >
           Apple Pay / Google Pay — coming soon
         </button>
 
         <div className="flex items-center gap-3">
-          <span className="h-px flex-1 bg-border" />
-          <span className="text-[11px] uppercase tracking-wider text-mid">or pay by card</span>
-          <span className="h-px flex-1 bg-border" />
+          <span className="h-px flex-1 bg-cream-deep" />
+          <span className="text-[11px] font-bold uppercase tracking-wider text-charcoal-mid">
+            or pay by card
+          </span>
+          <span className="h-px flex-1 bg-cream-deep" />
         </div>
 
-        <div className="rounded-2xl border border-border bg-white p-3">
+        <div className="rounded-2xl border border-cream-deep bg-white p-3">
           <CardElement options={CARD_ELEMENT_OPTIONS} />
         </div>
 
         {/* Trust row */}
-        <ul className="flex items-center justify-center gap-3 text-[11px] text-mid">
+        <ul className="flex items-center justify-center gap-3 text-[11px] font-medium text-charcoal-mid">
           <li className="inline-flex items-center gap-1">
-            <Lock className="h-3 w-3" aria-hidden /> 256-bit SSL
+            <Lock className="h-3 w-3 text-brand" aria-hidden /> 256-bit SSL
           </li>
           <li className="inline-flex items-center gap-1">
-            <Sparkles className="h-3 w-3" aria-hidden /> Stripe secured
+            <Sparkles className="h-3 w-3 text-brand" aria-hidden /> Stripe secured
           </li>
           <li className="inline-flex items-center gap-1">
-            <ShieldCheck className="h-3 w-3" aria-hidden /> Money-back guarantee
+            <ShieldCheck className="h-3 w-3 text-brand" aria-hidden /> Money-back guarantee
           </li>
         </ul>
       </section>
@@ -503,16 +517,16 @@ function CheckoutInner() {
       )}
 
       {paidButUnconfirmed && (
-        <div className="space-y-2 rounded-2xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
-          <p className="font-semibold">Your payment was authorised.</p>
-          <p>
+        <div className="space-y-2 rounded-2xl border border-plantain bg-plantain/15 p-3 text-sm text-charcoal">
+          <p className="font-display font-black">Your payment was authorised.</p>
+          <p className="font-medium text-charcoal-mid">
             We had trouble finalising the order with the kitchen. Tap retry — we&rsquo;ll only
             re-confirm the existing order, never charge you again.
           </p>
           <button
             type="button"
             onClick={() => router.push(`/orders/${paidButUnconfirmed}/tracking`)}
-            className="rounded-md border border-amber-400 bg-white px-3 py-1.5 text-xs font-medium text-amber-900 hover:bg-amber-100"
+            className="rounded-xl border border-plantain bg-white px-3 py-1.5 text-xs font-bold text-charcoal hover:bg-plantain/10"
           >
             View your order
           </button>
@@ -524,7 +538,7 @@ function CheckoutInner() {
       <button
         type="submit"
         disabled={submitting || !stripe || !selectedAddressId || !scheduledFor}
-        className="flex w-full items-center justify-center rounded-2xl bg-brand text-base font-semibold text-white hover:bg-brand-dark disabled:opacity-50"
+        className="flex w-full items-center justify-center rounded-2xl bg-brand text-base font-bold text-white shadow-card transition-colors hover:bg-brand-dark disabled:opacity-50"
         style={{ height: 52 }}
       >
         {submitting
@@ -534,18 +548,18 @@ function CheckoutInner() {
             : `Place order · ${formatPounds(subtotal)}`}
       </button>
 
-      {/* STICKY BOTTOM — appears once the payment section is in view so the
-          customer can submit without scrolling back up. Sits ABOVE the
-          BottomNav (which is 64px tall + safe-area). */}
+      {/* STICKY BOTTOM — appears once the payment section is in view. */}
       {showStickyBar && (
         <div
-          className="fixed inset-x-0 z-30 border-t border-border bg-white/95 px-4 py-3 backdrop-blur"
+          className="fixed inset-x-0 z-30 border-t border-cream-deep bg-white/95 px-4 py-3 backdrop-blur"
           style={{ bottom: 'calc(var(--bottom-nav-height) + env(safe-area-inset-bottom))' }}
         >
           <div className="mx-auto flex max-w-lg items-center gap-3">
             <div className="min-w-0 flex-1">
-              <p className="text-[11px] uppercase tracking-wide text-mid">Total</p>
-              <p className="text-lg font-bold tabular-nums text-dark">{formatPounds(subtotal)}</p>
+              <p className="text-[11px] font-bold uppercase tracking-wide text-charcoal-mid">Total</p>
+              <p className="font-display text-lg font-black tabular-nums text-charcoal">
+                {formatPounds(subtotal)}
+              </p>
             </div>
             <button
               type="submit"
@@ -564,7 +578,7 @@ function CheckoutInner() {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="space-y-3">
-      <h2 className="text-base font-semibold text-dark">{title}</h2>
+      <h2 className="font-display text-base font-black text-charcoal">{title}</h2>
       {children}
     </section>
   );

@@ -95,7 +95,11 @@ export default function OrderTrackingPage() {
   }, [order?.status, lastSeenStatus]);
 
   if (isLoading) {
-    return <p className="px-4 py-12 text-center text-sm text-mid">Loading order&hellip;</p>;
+    return (
+      <p className="px-4 py-12 text-center text-sm font-medium text-charcoal-mid">
+        Loading order&hellip;
+      </p>
+    );
   }
   if (error || !order) {
     return (
@@ -134,7 +138,7 @@ export default function OrderTrackingPage() {
       {/* HEADER STRIP — h-32 brand backdrop with the vendor logo as a blurred
           watermark. We don't have a dedicated cover image on Vendor, so the
           logo (or a brand gradient fallback) does double duty. */}
-      <header className="relative -mx-0 h-32 overflow-hidden bg-gradient-to-br from-brand via-brand-dark to-vendor">
+      <header className="relative -mx-0 h-32 overflow-hidden bg-gradient-to-br from-brand via-brand-dark to-brand-dark">
         {order.vendor?.logoUrl && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -153,11 +157,11 @@ export default function OrderTrackingPage() {
 
         {/* Vendor + order number — bottom-left */}
         <div className="absolute bottom-3 left-4 right-4 z-10 text-white drop-shadow">
-          <p className="text-[11px] uppercase tracking-wide opacity-80">
+          <p className="text-[11px] font-bold uppercase tracking-wide opacity-80">
             Order #{order.orderNumber}
           </p>
           {order.vendor && (
-            <h1 className="truncate text-xl font-bold leading-tight">
+            <h1 className="font-display truncate text-xl font-black leading-tight">
               {order.vendor.businessName}
             </h1>
           )}
@@ -184,10 +188,10 @@ export default function OrderTrackingPage() {
               <X className="h-5 w-5" aria-hidden />
             </span>
             <div className="text-sm">
-              <p className="font-semibold text-destructive">
+              <p className="font-display font-black text-destructive">
                 {order.status === 'refunded' ? 'Order refunded' : 'Order cancelled'}
               </p>
-              <p className="text-xs text-mid">
+              <p className="text-xs font-medium text-charcoal-mid">
                 You haven&rsquo;t been charged. Reach out for help if you have questions.
               </p>
             </div>
@@ -209,7 +213,7 @@ export default function OrderTrackingPage() {
 
         {/* TIMELINE */}
         {!isCancelled && (
-          <section className="rounded-2xl border border-border bg-white p-4">
+          <section className="rounded-2xl border border-cream-deep bg-white p-4 shadow-card">
             <StatusTimeline order={order} />
           </section>
         )}
@@ -219,9 +223,9 @@ export default function OrderTrackingPage() {
           {order.vendor?.user?.phone && (
             <a
               href={`tel:${order.vendor.user.phone}`}
-              className="flex h-11 items-center justify-center gap-2 rounded-2xl border border-border bg-white text-sm font-medium text-dark hover:bg-surface"
+              className="flex h-11 items-center justify-center gap-2 rounded-2xl border border-cream-deep bg-white text-sm font-bold text-charcoal hover:bg-cream"
             >
-              <Phone className="h-4 w-4" aria-hidden />
+              <Phone className="h-4 w-4 text-brand" aria-hidden />
               Call {order.vendor.businessName}
             </a>
           )}
@@ -230,9 +234,9 @@ export default function OrderTrackingPage() {
               href={`https://wa.me/${order.vendor.user.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Hi, regarding Feastpot order #${order.orderNumber}`)}`}
               target="_blank"
               rel="noreferrer noopener"
-              className="flex h-11 items-center justify-center gap-2 rounded-2xl border border-border bg-white text-sm font-medium text-dark hover:bg-surface"
+              className="flex h-11 items-center justify-center gap-2 rounded-2xl border border-cream-deep bg-white text-sm font-bold text-charcoal hover:bg-cream"
             >
-              <MessageCircle className="h-4 w-4" aria-hidden />
+              <MessageCircle className="h-4 w-4 text-brand" aria-hidden />
               WhatsApp {order.vendor.businessName}
             </a>
           )}
@@ -240,24 +244,24 @@ export default function OrderTrackingPage() {
             <button
               type="button"
               onClick={() => setShowCancelConfirm(true)}
-              className="flex h-11 w-full items-center justify-center rounded-2xl border border-destructive/40 bg-white text-sm font-medium text-destructive hover:bg-destructive/5"
+              className="flex h-11 w-full items-center justify-center rounded-2xl border border-destructive/40 bg-white text-sm font-bold text-destructive hover:bg-destructive/5"
             >
               Cancel order
             </button>
           )}
           {showCancelConfirm && (
             <div className="rounded-2xl border border-destructive/40 bg-destructive/5 p-4">
-              <p className="text-sm font-semibold text-destructive">
+              <p className="font-display text-sm font-black text-destructive">
                 Are you sure you want to cancel?
               </p>
-              <p className="mt-1 text-xs text-mid">
+              <p className="mt-1 text-xs font-medium text-charcoal-mid">
                 You will receive a full refund within 5 business days.
               </p>
               <textarea
                 value={cancelReason}
                 onChange={(e) => setCancelReason(e.target.value)}
                 placeholder="Tell us why (required)"
-                className="mt-3 w-full min-h-[60px] resize-y rounded-xl border border-border bg-white p-2 text-sm text-dark placeholder:text-mid focus:outline-none focus:ring-2 focus:ring-destructive/30"
+                className="mt-3 w-full min-h-[60px] resize-y rounded-xl border border-cream-deep bg-white p-2 text-sm text-charcoal placeholder:text-charcoal-mid focus:outline-none focus:ring-2 focus:ring-destructive/30"
               />
               <div className="mt-3 flex gap-2">
                 <button
@@ -267,7 +271,7 @@ export default function OrderTrackingPage() {
                     setCancelMsg(null);
                   }}
                   disabled={cancelMut.isPending}
-                  className="flex h-10 flex-1 items-center justify-center rounded-2xl border border-border bg-white text-sm font-semibold text-dark hover:bg-surface disabled:opacity-50"
+                  className="flex h-10 flex-1 items-center justify-center rounded-2xl border border-cream-deep bg-white text-sm font-bold text-charcoal hover:bg-cream disabled:opacity-50"
                 >
                   Keep order
                 </button>
@@ -293,39 +297,39 @@ export default function OrderTrackingPage() {
         </section>
 
         {/* ORDER DETAILS — collapsible */}
-        <section className="overflow-hidden rounded-2xl border border-border bg-white">
+        <section className="overflow-hidden rounded-2xl border border-cream-deep bg-white">
           <button
             type="button"
             onClick={() => setDetailsOpen((o) => !o)}
             aria-expanded={detailsOpen}
             className="flex w-full items-center justify-between px-4 py-3 text-left text-sm"
           >
-            <span className="font-semibold text-dark">Order details</span>
+            <span className="font-display font-black text-charcoal">Order details</span>
             <ChevronDown
               className={cn(
-                'h-4 w-4 text-mid transition-transform',
+                'h-4 w-4 text-charcoal-mid transition-transform',
                 detailsOpen && 'rotate-180',
               )}
               aria-hidden
             />
           </button>
           {detailsOpen && (
-            <div className="border-t border-border px-4 py-3 text-sm space-y-3">
+            <div className="border-t border-cream-deep px-4 py-3 text-sm space-y-3">
               {order.items && order.items.length > 0 && (
                 <ul className="space-y-1.5">
                   {order.items.map((it) => (
-                    <li key={it.id} className="flex justify-between gap-2 text-mid">
-                      <span className="min-w-0 truncate">
+                    <li key={it.id} className="flex justify-between gap-2 text-charcoal-mid">
+                      <span className="min-w-0 truncate font-medium text-charcoal">
                         {it.quantity}× {it.nameSnapshot}
                       </span>
-                      <span className="shrink-0 tabular-nums text-dark">
+                      <span className="shrink-0 tabular-nums font-medium text-charcoal">
                         {formatPounds(it.totalPence)}
                       </span>
                     </li>
                   ))}
                 </ul>
               )}
-              <div className="space-y-1 border-t border-border pt-3 text-xs">
+              <div className="space-y-1 border-t border-cream-deep pt-3 text-xs">
                 <Row label="Subtotal" value={formatPounds(order.subtotalPence)} />
                 <Row label="Delivery" value={formatPounds(order.deliveryFeePence)} />
                 {order.serviceFeePence > 0 && (
@@ -335,9 +339,9 @@ export default function OrderTrackingPage() {
                   <Row label="Discount" value={`−${formatPounds(order.discountPence)}`} />
                 )}
               </div>
-              <div className="flex justify-between border-t border-border pt-2 text-sm">
-                <span className="font-semibold text-dark">Total paid</span>
-                <span className="font-semibold tabular-nums text-dark">
+              <div className="flex justify-between border-t border-cream-deep pt-2 text-sm">
+                <span className="font-display font-black text-charcoal">Total paid</span>
+                <span className="font-display font-black tabular-nums text-charcoal">
                   {formatPounds(order.totalPence)}
                 </span>
               </div>
@@ -385,23 +389,23 @@ function EtaCard({ etaAt }: { etaAt: string }) {
       className={cn(
         'flex items-center gap-3 rounded-2xl border p-4',
         overdue
-          ? 'border-amber-300 bg-amber-50 text-amber-900'
-          : 'border-teal/30 bg-teal/5 text-dark',
+          ? 'border-plantain bg-plantain/15 text-charcoal'
+          : 'border-brand/30 bg-brand-light text-charcoal',
       )}
     >
       <span
         className={cn(
           'flex h-10 w-10 shrink-0 items-center justify-center rounded-full',
-          overdue ? 'bg-amber-200 text-amber-900' : 'bg-teal text-white',
+          overdue ? 'bg-plantain text-charcoal' : 'bg-brand text-white',
         )}
       >
         <Clock className="h-5 w-5" aria-hidden />
       </span>
       <div className="min-w-0">
-        <p className="text-xs font-semibold uppercase tracking-wide opacity-80">
+        <p className="text-xs font-bold uppercase tracking-wide opacity-80">
           {overdue ? 'Past ETA' : 'Arriving'}
         </p>
-        <p className="text-base font-bold">
+        <p className="font-display text-base font-black">
           {overdue
             ? `${Math.abs(minsLeft)} min late`
             : minsLeft <= 1
@@ -436,18 +440,18 @@ function AmendmentBanner({
     : null;
 
   return (
-    <section className="space-y-3 rounded-2xl border border-vendor/40 bg-vendor/5 p-4">
+    <section className="space-y-3 rounded-2xl border border-plantain/60 bg-plantain/10 p-4">
       <div>
-        <p className="text-xs font-semibold uppercase tracking-wide text-vendor">
+        <p className="text-xs font-bold uppercase tracking-wide text-brand-dark">
           {vendorName} proposed a change
         </p>
-        <p className="mt-1 text-sm text-dark">{amendment.proposedChange}</p>
+        <p className="mt-1 text-sm font-medium text-charcoal">{amendment.proposedChange}</p>
         {refundPounds && (
-          <p className="mt-1 text-xs font-semibold text-teal-dark">
+          <p className="mt-1 text-xs font-bold text-brand-dark">
             Includes {refundPounds} refund
           </p>
         )}
-        <p className="mt-2 text-[11px] text-mid">
+        <p className="mt-2 text-[11px] font-medium text-charcoal-mid">
           {minsLeft > 0 ? `Auto-declines in ${minsLeft} min` : 'Expiring now…'}
         </p>
       </div>
@@ -456,7 +460,7 @@ function AmendmentBanner({
           type="button"
           onClick={() => onRespond(false)}
           disabled={busy}
-          className="flex h-10 flex-1 items-center justify-center rounded-2xl border border-border bg-white text-sm font-semibold text-dark hover:bg-surface disabled:opacity-50"
+          className="flex h-10 flex-1 items-center justify-center rounded-2xl border border-cream-deep bg-white text-sm font-bold text-charcoal hover:bg-cream disabled:opacity-50"
         >
           Decline
         </button>
@@ -464,7 +468,7 @@ function AmendmentBanner({
           type="button"
           onClick={() => onRespond(true)}
           disabled={busy}
-          className="flex h-10 flex-[1.6] items-center justify-center gap-1 rounded-2xl bg-teal text-sm font-bold text-white hover:bg-teal-dark disabled:opacity-50"
+          className="flex h-10 flex-[1.6] items-center justify-center gap-1 rounded-2xl bg-brand text-sm font-bold text-white hover:bg-brand-dark disabled:opacity-50"
         >
           <Check className="h-4 w-4" aria-hidden />
           {busy ? 'Saving…' : 'Accept'}
@@ -476,32 +480,34 @@ function AmendmentBanner({
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex justify-between text-mid">
+    <div className="flex justify-between text-charcoal-mid">
       <span>{label}</span>
-      <span className="tabular-nums text-dark">{value}</span>
+      <span className="tabular-nums font-medium text-charcoal">{value}</span>
     </div>
   );
 }
 
 function ConnectionPill({ connected }: { connected: boolean }) {
   return (
-    <div className="flex items-center gap-2 rounded-full bg-white/95 px-2.5 py-1 text-[11px] shadow-sm backdrop-blur">
+    <div className="flex items-center gap-2 rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-bold shadow-sm backdrop-blur">
       <span className="relative inline-flex h-2 w-2">
         {connected && (
           <span
-            className="absolute inline-flex h-full w-full animate-ping rounded-full bg-teal opacity-60"
+            className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand opacity-60"
             aria-hidden
           />
         )}
         <span
           className={cn(
             'relative inline-flex h-2 w-2 rounded-full',
-            connected ? 'bg-teal' : 'bg-mid/60',
+            connected ? 'bg-brand' : 'bg-charcoal-mid/60',
           )}
           aria-hidden
         />
       </span>
-      <span className="text-mid">{connected ? 'Live updates' : 'Updates every 30s'}</span>
+      <span className="text-charcoal-mid">
+        {connected ? 'Live updates' : 'Updates every 30s'}
+      </span>
     </div>
   );
 }
@@ -515,9 +521,11 @@ function ReviewPrompt({
 }) {
   const [hover, setHover] = useState(0);
   return (
-    <div className="rounded-2xl border border-brand/30 bg-brand/5 p-4 text-sm">
-      <h3 className="font-semibold text-dark">How was your order from {vendorName}?</h3>
-      <p className="mt-1 text-xs text-mid">
+    <div className="rounded-2xl border border-brand/30 bg-brand-light p-4 text-sm">
+      <h3 className="font-display font-black text-charcoal">
+        How was your order from {vendorName}?
+      </h3>
+      <p className="mt-1 text-xs font-medium text-charcoal-mid">
         Tap a star to leave a quick review — your rating helps your community find great cooks.
       </p>
       <div role="radiogroup" aria-label="Rate your order" className="mt-3 inline-flex items-center gap-1">
@@ -540,7 +548,7 @@ function ReviewPrompt({
               <Star
                 className={cn(
                   'h-7 w-7 transition-colors',
-                  active ? 'fill-amber-400 text-amber-400' : 'text-mid/50',
+                  active ? 'fill-plantain text-plantain' : 'text-charcoal-mid/40',
                 )}
                 aria-hidden
               />
@@ -557,7 +565,7 @@ function NeedHelpLink({ orderId, orderNumber }: { orderId: string; orderNumber: 
   return (
     <Link
       href={href}
-      className="inline-flex items-center gap-2 text-sm font-medium text-brand hover:underline"
+      className="inline-flex items-center gap-2 text-sm font-bold text-brand hover:underline"
     >
       <LifeBuoy className="h-4 w-4" aria-hidden />
       Need help with this order?

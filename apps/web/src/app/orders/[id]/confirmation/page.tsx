@@ -35,7 +35,11 @@ export default function OrderConfirmationPage() {
   const { data: referralData } = useReferrals();
 
   if (isLoading) {
-    return <p className="px-4 py-12 text-center text-sm text-mid">Loading your order&hellip;</p>;
+    return (
+      <p className="px-4 py-12 text-center text-sm font-medium text-charcoal-mid">
+        Loading your order&hellip;
+      </p>
+    );
   }
   if (error || !order) {
     return (
@@ -43,7 +47,7 @@ export default function OrderConfirmationPage() {
         <p className="text-sm text-destructive">We couldn&rsquo;t load this order.</p>
         <Link
           href="/account/orders"
-          className="mt-3 inline-block text-sm text-brand hover:underline"
+          className="mt-3 inline-block text-sm font-bold text-brand hover:underline"
         >
           Go to your order history
         </Link>
@@ -57,16 +61,16 @@ export default function OrderConfirmationPage() {
       <SuccessHero />
 
       <header className="text-center space-y-1">
-        <h1 className="text-2xl font-bold text-dark">Order placed! 🎉</h1>
-        <p className="text-sm text-mid">
+        <h1 className="font-display text-2xl font-black text-charcoal">Order placed!</h1>
+        <p className="text-sm font-medium text-charcoal-mid">
           Reference{' '}
-          <span className="font-mono font-semibold text-dark">#{order.orderNumber}</span>
+          <span className="font-mono font-bold text-charcoal">#{order.orderNumber}</span>
         </p>
       </header>
 
       {/* Vendor + slot card */}
       {order.vendor && (
-        <section className="rounded-2xl border border-border bg-white p-4 space-y-3">
+        <section className="rounded-2xl border border-cream-deep bg-white p-4 space-y-3 shadow-card">
           <div className="flex items-center gap-3">
             {order.vendor.logoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -77,26 +81,28 @@ export default function OrderConfirmationPage() {
               />
             ) : (
               <div
-                className="h-12 w-12 shrink-0 rounded-full bg-brand/10 text-center text-base font-bold leading-[3rem] text-brand"
+                className="h-12 w-12 shrink-0 rounded-full bg-brand-light text-center font-display text-base font-black leading-[3rem] text-brand"
                 aria-hidden
               >
                 {order.vendor.businessName.slice(0, 1)}
               </div>
             )}
             <div className="min-w-0 flex-1">
-              <p className="text-xs uppercase tracking-wide text-mid">Ordered from</p>
-              <p className="truncate text-sm font-semibold text-dark">
+              <p className="text-xs font-bold uppercase tracking-wide text-charcoal-mid">
+                Ordered from
+              </p>
+              <p className="truncate font-display text-sm font-black text-charcoal">
                 {order.vendor.businessName}
               </p>
             </div>
           </div>
 
           {order.scheduledFor && (
-            <div className="flex items-start gap-2 rounded-xl bg-surface px-3 py-2">
-              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-teal" aria-hidden />
-              <div className="text-xs text-dark">
-                <p className="font-semibold">Estimated delivery</p>
-                <p className="text-mid">
+            <div className="flex items-start gap-2 rounded-xl bg-cream px-3 py-2">
+              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-brand" aria-hidden />
+              <div className="text-xs">
+                <p className="font-bold text-charcoal">Estimated delivery</p>
+                <p className="font-medium text-charcoal-mid">
                   {new Date(order.scheduledFor).toLocaleString(undefined, {
                     weekday: 'long',
                     day: 'numeric',
@@ -112,21 +118,23 @@ export default function OrderConfirmationPage() {
       )}
 
       {/* Items + totals */}
-      <section className="rounded-2xl border border-border bg-white p-4 space-y-3 text-sm">
-        <h2 className="font-semibold text-dark">Order summary</h2>
+      <section className="rounded-2xl border border-cream-deep bg-white p-4 space-y-3 text-sm">
+        <h2 className="font-display font-black text-charcoal">Order summary</h2>
         {order.items && order.items.length > 0 && (
           <ul className="space-y-1.5">
             {order.items.map((it) => (
-              <li key={it.id} className="flex justify-between gap-2 text-mid">
-                <span className="min-w-0 truncate">
+              <li key={it.id} className="flex justify-between gap-2 text-charcoal-mid">
+                <span className="min-w-0 truncate font-medium text-charcoal">
                   {it.quantity}× {it.nameSnapshot}
                 </span>
-                <span className="shrink-0 tabular-nums text-dark">{formatPounds(it.totalPence)}</span>
+                <span className="shrink-0 tabular-nums font-medium text-charcoal">
+                  {formatPounds(it.totalPence)}
+                </span>
               </li>
             ))}
           </ul>
         )}
-        <div className="space-y-1 border-t border-border pt-3 text-xs">
+        <div className="space-y-1 border-t border-cream-deep pt-3 text-xs">
           <Row label="Subtotal" value={formatPounds(order.subtotalPence)} />
           <Row label="Delivery" value={formatPounds(order.deliveryFeePence)} />
           {order.serviceFeePence > 0 && (
@@ -136,16 +144,18 @@ export default function OrderConfirmationPage() {
             <Row label="Discount" value={`−${formatPounds(order.discountPence)}`} />
           )}
         </div>
-        <div className="flex justify-between border-t border-border pt-3 text-base font-bold text-dark">
-          <span>Total paid</span>
-          <span className="tabular-nums">{formatPounds(order.totalPence)}</span>
+        <div className="flex justify-between border-t border-cream-deep pt-3 text-base">
+          <span className="font-display font-black text-charcoal">Total paid</span>
+          <span className="font-display font-black tabular-nums text-charcoal">
+            {formatPounds(order.totalPence)}
+          </span>
         </div>
       </section>
 
       {/* Primary CTA */}
       <Link
         href={`/orders/${order.id}/tracking`}
-        className="flex h-13 w-full items-center justify-center rounded-2xl bg-brand text-base font-semibold text-white hover:bg-brand-dark"
+        className="flex h-13 w-full items-center justify-center rounded-2xl bg-brand text-base font-bold text-white shadow-card transition-colors hover:bg-brand-dark"
         style={{ height: 52 }}
       >
         Track your order →
@@ -166,9 +176,9 @@ export default function OrderConfirmationPage() {
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex justify-between text-mid">
+    <div className="flex justify-between text-charcoal-mid">
       <span>{label}</span>
-      <span className="tabular-nums text-dark">{value}</span>
+      <span className="tabular-nums font-medium text-charcoal">{value}</span>
     </div>
   );
 }
@@ -183,7 +193,7 @@ function SuccessHero() {
   return (
     <div className="flex justify-center">
       <span
-        className="flex h-20 w-20 items-center justify-center rounded-full bg-teal text-white shadow-lg shadow-teal/30"
+        className="flex h-20 w-20 items-center justify-center rounded-full bg-brand text-white shadow-lg shadow-brand/30"
         style={{ animation: 'fp-pop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
       >
         <Check className="h-10 w-10" strokeWidth={3} aria-hidden />
@@ -216,12 +226,14 @@ function PushNudge() {
   if (status !== 'default') return null;
 
   return (
-    <section className="rounded-2xl border border-teal/30 bg-teal/5 p-4">
+    <section className="rounded-2xl border border-brand/30 bg-brand-light p-4">
       <div className="flex items-start gap-3">
-        <Bell className="mt-0.5 h-5 w-5 shrink-0 text-teal" aria-hidden />
+        <Bell className="mt-0.5 h-5 w-5 shrink-0 text-brand" aria-hidden />
         <div className="text-sm">
-          <p className="font-semibold text-dark">Get notified when your order is ready</p>
-          <p className="mt-0.5 text-xs text-mid">
+          <p className="font-display font-black text-charcoal">
+            Get notified when your order is ready
+          </p>
+          <p className="mt-0.5 text-xs font-medium text-charcoal-mid">
             We&rsquo;ll let you know the moment your cook starts preparing and when delivery is on
             its way.
           </p>
@@ -251,26 +263,28 @@ function ReferralCard({ code }: { code: string }) {
   };
 
   return (
-    <section className="rounded-2xl bg-gradient-to-br from-brand/10 via-white to-teal/10 border border-border p-4">
+    <section className="rounded-2xl bg-gradient-to-br from-brand-light via-white to-plantain/15 border border-plantain/40 p-4">
       <div className="flex items-start gap-3">
-        <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-brand" aria-hidden />
+        <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-plantain" aria-hidden />
         <div className="min-w-0 flex-1 text-sm">
-          <p className="font-semibold text-dark">Love Feastpot? Earn £5 credit</p>
-          <p className="mt-0.5 text-xs text-mid">
+          <p className="font-display font-black text-charcoal">
+            Love Feastpot? Earn £5 credit
+          </p>
+          <p className="mt-0.5 text-xs font-medium text-charcoal-mid">
             Share your code with friends — when they place their first order you both get £5 off.
           </p>
           <div className="mt-2 flex items-center gap-2">
-            <code className="flex-1 truncate rounded-full bg-white px-3 py-1.5 text-center text-xs font-mono font-semibold tracking-wider text-brand">
+            <code className="flex-1 truncate rounded-full bg-white px-3 py-1.5 text-center text-xs font-mono font-bold tracking-wider text-brand-dark">
               {code}
             </code>
             <button
               type="button"
               onClick={onCopy}
               className={cn(
-                'inline-flex h-8 items-center gap-1 rounded-full px-3 text-xs font-medium transition-colors',
+                'inline-flex h-8 items-center gap-1 rounded-full px-3 text-xs font-bold transition-colors',
                 copied
-                  ? 'bg-teal text-white'
-                  : 'border border-border bg-white text-dark hover:border-brand/50',
+                  ? 'bg-brand text-white'
+                  : 'border border-cream-deep bg-white text-charcoal hover:border-brand/50',
               )}
               aria-label="Copy referral code"
             >
