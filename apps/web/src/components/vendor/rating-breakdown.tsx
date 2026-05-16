@@ -44,7 +44,7 @@ export function RatingBreakdown({
 
   if (reviewCount === 0) {
     return (
-      <section className="rounded-2xl border border-border bg-white p-4 text-sm text-mid">
+      <section className="rounded-2xl border border-cream-deep bg-white p-4 text-sm font-medium text-charcoal-mid">
         No reviews yet — be the first to share your experience after delivery.
       </section>
     );
@@ -52,12 +52,12 @@ export function RatingBreakdown({
 
   return (
     <section
-      className="rounded-2xl border border-border bg-white p-4"
+      className="rounded-2xl border border-cream-deep bg-white p-4 shadow-sm"
       aria-label="Rating breakdown"
     >
       <div className="flex items-stretch gap-4">
         {/* Left — big average */}
-        <div className="flex w-24 shrink-0 flex-col items-center justify-center border-r border-border pr-4">
+        <div className="flex w-24 shrink-0 flex-col items-center justify-center border-r border-cream-deep pr-4">
           <div className="text-5xl font-extrabold leading-none tracking-tight text-dark">
             {avgRating.toFixed(1)}
           </div>

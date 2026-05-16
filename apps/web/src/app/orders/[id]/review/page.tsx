@@ -151,7 +151,7 @@ export default function ReviewPage() {
       <header className="space-y-1">
         <h1 className="text-2xl font-bold tracking-tight text-dark">Leave a review</h1>
         {order?.vendor && (
-          <div className="flex items-center gap-3 rounded-2xl border border-border bg-white p-3">
+          <div className="flex items-center gap-3 rounded-2xl border border-cream-deep bg-white p-3">
             {order.vendor.logoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -177,14 +177,14 @@ export default function ReviewPage() {
         )}
       </header>
 
-      <fieldset className="rounded-2xl border border-border bg-white p-4">
+      <fieldset className="rounded-2xl border border-cream-deep bg-white p-4">
         <legend className="px-1 text-sm font-semibold text-dark">How was your food?</legend>
         <div className="mt-2">
           <StarPicker value={rating} onChange={setRating} ariaLabel="Overall rating" size="lg" />
         </div>
       </fieldset>
 
-      <fieldset className="rounded-2xl border border-border bg-white p-4">
+      <fieldset className="rounded-2xl border border-cream-deep bg-white p-4">
         <legend className="px-1 text-sm font-semibold text-dark">Food quality (optional)</legend>
         <div className="mt-2">
           <StarPicker
@@ -211,7 +211,7 @@ export default function ReviewPage() {
           rows={4}
           maxLength={MAX_REVIEW_CHARS}
           placeholder="Tell others what you thought..."
-          className="w-full rounded-2xl border border-border bg-white px-3 py-2.5 text-sm placeholder:text-mid focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
+          className="w-full rounded-2xl border border-cream-deep bg-white px-3 py-2.5 text-sm font-medium text-charcoal placeholder:text-charcoal-mid/60 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
         />
         <p className="mt-1 text-right text-[11px] text-mid">
           {text.length}/{MAX_REVIEW_CHARS}
@@ -226,7 +226,7 @@ export default function ReviewPage() {
           {photoPreviews.map((src, i) => (
             <div
               key={src}
-              className="relative h-20 w-20 overflow-hidden rounded-xl border border-border"
+              className="relative h-20 w-20 overflow-hidden rounded-xl border border-cream-deep"
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={src} alt={`Preview ${i + 1}`} className="h-full w-full object-cover" />
@@ -241,7 +241,7 @@ export default function ReviewPage() {
             </div>
           ))}
           {files.length < 3 && (
-            <label className="flex h-20 w-20 cursor-pointer items-center justify-center rounded-xl border border-dashed border-border text-xs text-mid hover:bg-surface">
+            <label className="flex h-20 w-20 cursor-pointer items-center justify-center rounded-xl border border-dashed border-cream-deep text-xs font-medium text-charcoal-mid hover:bg-cream">
               + Add
               <input
                 type="file"
@@ -259,7 +259,7 @@ export default function ReviewPage() {
       </fieldset>
 
       {error && (
-        <p className="rounded-2xl border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+        <p className="rounded-2xl border border-scotch/30 bg-scotch/10 p-3 text-sm font-medium text-scotch">
           {error}
         </p>
       )}

@@ -103,7 +103,7 @@ export default function OrderTrackingPage() {
   }
   if (error || !order) {
     return (
-      <p className="px-4 py-12 text-center text-sm text-destructive">
+      <p className="px-4 py-12 text-center text-sm text-scotch">
         Couldn&rsquo;t load this order.
       </p>
     );
@@ -183,12 +183,12 @@ export default function OrderTrackingPage() {
         {/* Cancelled banner — we don't show the timeline at all once the
             order is in a terminal failure state, just a clear notice. */}
         {isCancelled && (
-          <div className="flex items-center gap-3 rounded-2xl border border-destructive/40 bg-destructive/5 p-4">
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-destructive text-white">
+          <div className="flex items-center gap-3 rounded-2xl border border-scotch/40 bg-scotch/5 p-4">
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-scotch text-white">
               <X className="h-5 w-5" aria-hidden />
             </span>
             <div className="text-sm">
-              <p className="font-display font-black text-destructive">
+              <p className="font-display font-black text-scotch">
                 {order.status === 'refunded' ? 'Order refunded' : 'Order cancelled'}
               </p>
               <p className="text-xs font-medium text-charcoal-mid">
@@ -244,14 +244,14 @@ export default function OrderTrackingPage() {
             <button
               type="button"
               onClick={() => setShowCancelConfirm(true)}
-              className="flex h-11 w-full items-center justify-center rounded-2xl border border-destructive/40 bg-white text-sm font-bold text-destructive hover:bg-destructive/5"
+              className="flex h-11 w-full items-center justify-center rounded-2xl border border-scotch/40 bg-white text-sm font-bold text-scotch hover:bg-scotch/5"
             >
               Cancel order
             </button>
           )}
           {showCancelConfirm && (
-            <div className="rounded-2xl border border-destructive/40 bg-destructive/5 p-4">
-              <p className="font-display text-sm font-black text-destructive">
+            <div className="rounded-2xl border border-scotch/40 bg-scotch/5 p-4">
+              <p className="font-display text-sm font-black text-scotch">
                 Are you sure you want to cancel?
               </p>
               <p className="mt-1 text-xs font-medium text-charcoal-mid">
@@ -279,20 +279,20 @@ export default function OrderTrackingPage() {
                   type="button"
                   onClick={onConfirmCancel}
                   disabled={cancelReason.trim().length < 5 || cancelMut.isPending}
-                  className="flex h-10 flex-1 items-center justify-center rounded-2xl bg-destructive text-sm font-bold text-white hover:bg-destructive/90 disabled:opacity-50"
+                  className="flex h-10 flex-1 items-center justify-center rounded-2xl bg-scotch text-sm font-bold text-white hover:bg-scotch/90 disabled:opacity-50"
                 >
                   {cancelMut.isPending ? 'Cancelling…' : 'Confirm cancel'}
                 </button>
               </div>
               {cancelMsg && (
-                <p className="mt-2 text-xs text-destructive" role="alert">
+                <p className="mt-2 text-xs text-scotch" role="alert">
                   {cancelMsg}
                 </p>
               )}
             </div>
           )}
           {!showCancelConfirm && cancelMsg && (
-            <p className="text-xs text-destructive">{cancelMsg}</p>
+            <p className="text-xs text-scotch">{cancelMsg}</p>
           )}
         </section>
 

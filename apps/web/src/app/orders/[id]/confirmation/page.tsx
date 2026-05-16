@@ -44,7 +44,7 @@ export default function OrderConfirmationPage() {
   if (error || !order) {
     return (
       <div className="px-4 py-12 text-center">
-        <p className="text-sm text-destructive">We couldn&rsquo;t load this order.</p>
+        <p className="text-sm text-scotch">We couldn&rsquo;t load this order.</p>
         <Link
           href="/account/orders"
           className="mt-3 inline-block text-sm font-bold text-brand hover:underline"

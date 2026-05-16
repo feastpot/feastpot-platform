@@ -214,7 +214,7 @@ function BasketLine({
             type="button"
             onClick={onRemove}
             aria-label={`Remove ${item.menuItemName}`}
-            className="text-charcoal-mid hover:text-destructive"
+            className="text-charcoal-mid hover:text-scotch"
           >
             <Trash2 className="h-4 w-4" />
           </button>

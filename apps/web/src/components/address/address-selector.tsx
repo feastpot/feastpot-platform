@@ -43,7 +43,7 @@ export function AddressSelector({ value, onChange, onCreateError }: AddressSelec
   }, [addresses, value, onChange]);
 
   if (isLoading) {
-    return <p className="text-sm text-muted-foreground">Loading saved addresses&hellip;</p>;
+    return <p className="text-sm font-medium text-charcoal-mid">Loading saved addresses&hellip;</p>;
   }
 
   return (
@@ -52,7 +52,7 @@ export function AddressSelector({ value, onChange, onCreateError }: AddressSelec
         <ul className="space-y-2">
           {addresses.map((a) => (
             <li key={a.id}>
-              <label className="flex cursor-pointer items-start gap-3 rounded-md border border-border p-3 hover:bg-muted/40">
+              <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-cream-deep bg-white p-3 hover:border-brand/40 hover:bg-cream/50">
                 <input
                   type="radio"
                   name="address"
@@ -72,7 +72,7 @@ export function AddressSelector({ value, onChange, onCreateError }: AddressSelec
                       </span>
                     )}
                   </span>
-                  <span className="block text-muted-foreground">{formatLine(a)}</span>
+                  <span className="block text-charcoal-mid">{formatLine(a)}</span>
                 </span>
               </label>
             </li>
@@ -80,7 +80,7 @@ export function AddressSelector({ value, onChange, onCreateError }: AddressSelec
         </ul>
       )}
 
-      <label className="flex cursor-pointer items-center gap-3 rounded-md border border-dashed border-border p-3 text-sm">
+      <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-cream-deep p-3 text-sm font-medium text-charcoal">
         <input
           type="radio"
           name="address"
@@ -95,7 +95,7 @@ export function AddressSelector({ value, onChange, onCreateError }: AddressSelec
       </label>
 
       {showForm && (
-        <div className="rounded-md border border-border p-3">
+        <div className="rounded-xl border border-cream-deep bg-white p-3">
           <AddressForm
             submitLabel="Save address"
             pending={createAddr.isPending}

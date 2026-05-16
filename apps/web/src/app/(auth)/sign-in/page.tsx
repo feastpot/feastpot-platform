@@ -91,7 +91,7 @@ function SignInForm() {
               className="w-full rounded-md border border-cream-deep bg-white px-3 py-2.5 text-sm font-medium text-charcoal placeholder:text-charcoal-mid/50 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
             />
             {form.formState.errors.email && (
-              <p className="mt-1 text-xs text-destructive">{form.formState.errors.email.message}</p>
+              <p className="mt-1 text-xs text-scotch">{form.formState.errors.email.message}</p>
             )}
           </div>
           <div>
@@ -104,11 +104,11 @@ function SignInForm() {
               className="w-full rounded-md border border-cream-deep bg-white px-3 py-2.5 text-sm font-medium text-charcoal placeholder:text-charcoal-mid/50 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
             />
             {form.formState.errors.password && (
-              <p className="mt-1 text-xs text-destructive">{form.formState.errors.password.message}</p>
+              <p className="mt-1 text-xs text-scotch">{form.formState.errors.password.message}</p>
             )}
           </div>
 
-          {serverError && <p className="text-sm text-destructive">{serverError}</p>}
+          {serverError && <p className="text-sm text-scotch">{serverError}</p>}
 
           <button
             type="submit"

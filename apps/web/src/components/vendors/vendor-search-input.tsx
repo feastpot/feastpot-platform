@@ -54,7 +54,7 @@ export function VendorSearchInput() {
   return (
     <div className="relative">
       <Search
-        className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+        className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-charcoal-mid"
         aria-hidden
       />
       <input
@@ -64,14 +64,14 @@ export function VendorSearchInput() {
         placeholder="Search for a dish or vendor…"
         aria-label="Search vendors and dishes"
         enterKeyHint="search"
-        className="h-11 w-full rounded-xl border border-border bg-white pl-9 pr-9 text-sm outline-none focus:border-brand"
+        className="h-11 w-full rounded-xl border border-cream-deep bg-white pl-9 pr-9 text-sm font-medium text-charcoal placeholder:text-charcoal-mid/60 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
       />
       {value && (
         <button
           type="button"
           onClick={() => setValue('')}
           aria-label="Clear search"
-          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-1 text-charcoal-mid hover:bg-cream hover:text-charcoal"
         >
           <X className="h-4 w-4" aria-hidden />
         </button>

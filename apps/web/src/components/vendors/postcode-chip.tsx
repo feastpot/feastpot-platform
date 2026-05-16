@@ -31,19 +31,19 @@ export function PostcodeChip() {
   };
 
   return (
-    <div className="sticky top-[56px] z-30 -mx-4 border-b border-border bg-background/90 px-4 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/75">
+    <div className="sticky top-[56px] z-30 -mx-4 border-b border-cream-deep bg-white/90 px-4 py-2 backdrop-blur supports-[backdrop-filter]:bg-white/75">
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2 text-sm">
           <MapPin className="h-4 w-4 shrink-0 text-brand" aria-hidden />
-          <span className="text-muted-foreground">Delivering to</span>
-          <span className="truncate font-semibold text-foreground">
+          <span className="font-medium text-charcoal-mid">Delivering to</span>
+          <span className="truncate font-bold text-charcoal">
             {postcode.toUpperCase()}
           </span>
         </div>
         <button
           type="button"
           onClick={handleChange}
-          className="inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+          className="inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-xs font-bold text-charcoal-mid hover:bg-cream hover:text-charcoal"
         >
           <X className="h-3.5 w-3.5" aria-hidden />
           Change

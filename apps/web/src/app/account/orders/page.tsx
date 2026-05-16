@@ -46,7 +46,7 @@ export default function OrderHistoryPage() {
     return <p className="px-4 py-12 text-center text-sm text-charcoal-mid">Loading orders&hellip;</p>;
   }
   if (error) {
-    return <p className="px-4 py-12 text-center text-sm text-destructive">Couldn&rsquo;t load orders.</p>;
+    return <p className="px-4 py-12 text-center text-sm text-scotch">Couldn&rsquo;t load orders.</p>;
   }
 
   const orders = data?.pages.flatMap((p) => p.data) ?? [];

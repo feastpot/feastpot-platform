@@ -93,7 +93,7 @@ export default function OtpSignInPage() {
               onChange={(e) => setPhone(e.target.value)}
               className="w-full rounded-md border border-cream-deep bg-white px-3 py-2.5 text-sm font-medium text-charcoal placeholder:text-charcoal-mid/50 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
             />
-            {error && <p className="text-sm text-destructive">{error}</p>}
+            {error && <p className="text-sm text-scotch">{error}</p>}
             <button
               type="submit"
               disabled={busy || phone.trim().length === 0}
@@ -123,9 +123,9 @@ export default function OtpSignInPage() {
               maxLength={6}
               value={code}
               onChange={(e) => onCodeChange(e.target.value)}
-              className="w-full rounded-md border border-border bg-background px-3 py-3 text-center text-xl tracking-[0.4em]"
+              className="w-full rounded-xl border border-cream-deep bg-white px-3 py-3 text-center text-xl font-bold tracking-[0.4em] text-charcoal focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
             />
-            {error && <p className="text-sm text-destructive">{error}</p>}
+            {error && <p className="text-sm text-scotch">{error}</p>}
             <button
               type="button"
               onClick={() => setStep('phone')}

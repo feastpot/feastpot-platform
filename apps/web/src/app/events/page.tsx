@@ -41,7 +41,7 @@ export default function EventsListPage() {
       </header>
 
       {isLoading && <p className="py-8 text-center text-sm text-charcoal-mid">Loading…</p>}
-      {error && <p className="py-8 text-center text-sm text-destructive">Couldn&apos;t load enquiries.</p>}
+      {error && <p className="py-8 text-center text-sm text-scotch">Couldn&apos;t load enquiries.</p>}
 
       {data && data.length === 0 && (
         <div className="space-y-2 rounded-2xl border border-dashed border-cream-deep bg-white p-6 text-center">

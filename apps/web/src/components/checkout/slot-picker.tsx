@@ -82,7 +82,7 @@ export function SlotPicker({
     <div>
       {/* Date strip */}
       {dates.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-border bg-surface px-3 py-3 text-sm text-mid">
+        <p className="rounded-xl border border-dashed border-cream-deep bg-cream/50 px-3 py-3 text-sm font-medium text-charcoal-mid">
           No available slots — this vendor needs {leadTimeHours}h notice and isn&rsquo;t open
           on the next {maxAdvanceDays + 1} days.
         </p>

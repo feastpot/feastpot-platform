@@ -144,7 +144,7 @@ export default function RegisterPage() {
                 className="w-full rounded-md border border-cream-deep bg-white px-3 py-2.5 text-sm font-medium text-charcoal placeholder:text-charcoal-mid/50 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
               />
               {form.formState.errors.firstName && (
-                <p className="mt-1 text-xs text-destructive">{form.formState.errors.firstName.message}</p>
+                <p className="mt-1 text-xs text-scotch">{form.formState.errors.firstName.message}</p>
               )}
             </div>
             <div>
@@ -156,7 +156,7 @@ export default function RegisterPage() {
                 className="w-full rounded-md border border-cream-deep bg-white px-3 py-2.5 text-sm font-medium text-charcoal placeholder:text-charcoal-mid/50 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
               />
               {form.formState.errors.lastName && (
-                <p className="mt-1 text-xs text-destructive">{form.formState.errors.lastName.message}</p>
+                <p className="mt-1 text-xs text-scotch">{form.formState.errors.lastName.message}</p>
               )}
             </div>
           </div>
@@ -171,7 +171,7 @@ export default function RegisterPage() {
               className="w-full rounded-md border border-cream-deep bg-white px-3 py-2.5 text-sm font-medium text-charcoal placeholder:text-charcoal-mid/50 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
             />
             {form.formState.errors.email && (
-              <p className="mt-1 text-xs text-destructive">{form.formState.errors.email.message}</p>
+              <p className="mt-1 text-xs text-scotch">{form.formState.errors.email.message}</p>
             )}
           </div>
 
@@ -185,7 +185,7 @@ export default function RegisterPage() {
               className="w-full rounded-md border border-cream-deep bg-white px-3 py-2.5 text-sm font-medium text-charcoal placeholder:text-charcoal-mid/50 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
             />
             {form.formState.errors.password && (
-              <p className="mt-1 text-xs text-destructive">{form.formState.errors.password.message}</p>
+              <p className="mt-1 text-xs text-scotch">{form.formState.errors.password.message}</p>
             )}
           </div>
 
@@ -200,7 +200,7 @@ export default function RegisterPage() {
               className="w-full rounded-md border border-cream-deep bg-white px-3 py-2.5 text-sm font-medium text-charcoal placeholder:text-charcoal-mid/50 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
             />
             {form.formState.errors.phone && (
-              <p className="mt-1 text-xs text-destructive">{form.formState.errors.phone.message}</p>
+              <p className="mt-1 text-xs text-scotch">{form.formState.errors.phone.message}</p>
             )}
           </div>
 
@@ -222,7 +222,7 @@ export default function RegisterPage() {
             <span>Send me occasional offers and new vendor news.</span>
           </label>
 
-          {serverError && <p className="text-sm text-destructive">{serverError}</p>}
+          {serverError && <p className="text-sm text-scotch">{serverError}</p>}
 
           <button
             type="submit"
