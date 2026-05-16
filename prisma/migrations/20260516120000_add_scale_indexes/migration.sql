@@ -22,12 +22,12 @@
 -- replacement build is guaranteed to succeed and to be valid.
 --
 -- Why these specific indexes:
---   - vendors(status, avg_rating DESC) WHERE status='live'
+--   - vendors(status, rating DESC) WHERE status='live'
 --       Customer-facing search hits this hundreds of times per minute at
 --       peak. Partial index keeps it tiny (only the ~500 live vendors)
 --       and pre-sorts by rating so default-sort scans are index-only.
---   - vendors USING GIN(cuisine_types)
---       Enables `cuisine_types @> ARRAY['nigerian']` containment without
+--   - vendors USING GIN(cuisines)
+--       Enables `cuisines @> ARRAY['nigerian']` containment without
 --       a seq scan as the vendor table grows.
 --   - orders(vendor_id, status, created_at DESC) WHERE NOT terminal
 --       Vendor dashboard polls active orders every few seconds across
@@ -43,12 +43,12 @@
 
 DROP INDEX IF EXISTS idx_vendors_status_rating;
 CREATE INDEX idx_vendors_status_rating
-  ON vendors(status, avg_rating DESC)
+  ON vendors(status, rating DESC)
   WHERE status = 'live';
 
 DROP INDEX IF EXISTS idx_vendors_cuisine_gin;
 CREATE INDEX idx_vendors_cuisine_gin
-  ON vendors USING GIN(cuisine_types);
+  ON vendors USING GIN(cuisines);
 
 DROP INDEX IF EXISTS idx_orders_vendor_status;
 CREATE INDEX idx_orders_vendor_status
