@@ -1,0 +1,281 @@
+You are a Next.js 15 front-end engineer. Build the customer sign-in page to exactly
+match Image 1, panel 3 — "User Sign In".
+
+FROM THE DESIGN:
+Desktop two-column layout:
+LEFT PANEL (dark green #1E7B34, ~40% width):
+  - Feastpot logo (white version or normal logo)
+  - "Welcome back 👋" heading in white, large, bold
+  - Subtext in white/70%: "Sign in to pick up where you left off.
+    Manage orders, saved addresses, FeastPoints and your favourites."
+  - Yellow horizontal underline decoration (same as register page)
+  - 4 benefit rows with white icons:
+    📦 Track your orders — Live updates to your door
+    📍 Saved addresses — One tap faster checkout
+    ⭐ FeastPoints balance — Earn, track and redeem
+    ❤️ Your favourites — Reorder what you love
+  - Bottom: large food photography image (circular crop, warm tones)
+
+RIGHT PANEL (white, ~60% width):
+  - "Sign in to your account" heading (black, 24px, bold)
+  - Email address input (pre-filled example: maman@feastpot.co.uk in the design)
+  - Password input with eye toggle (dots shown = entered)
+  - Row: "Remember me" checkbox left, "Forgot password?" green link right
+  - "Sign in" primary green full-width button
+  - "or" divider (plain text, centred)
+  - "✉️ Request magic link" outlined white button (full width, border)
+  - "New to FeastPot? Create account" footer (Create account in green)
+
+FILE: apps/web/src/(auth)/sign-in/page.tsx
+
+════════════════════════════════════════════════════════
+IMPLEMENTATION
+════════════════════════════════════════════════════════
+
+'use client'
+import { useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import Image from 'next/image'
+import Link from 'next/link'
+import { Eye, EyeOff } from 'lucide-react'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+
+const BENEFITS = [
+  { icon: '📦', label: 'Track your orders',      sub: 'Live updates to your door'     },
+  { icon: '📍', label: 'Saved addresses',         sub: 'One tap faster checkout'       },
+  { icon: '⭐', label: 'FeastPoints balance',     sub: 'Earn, track and redeem'        },
+  { icon: '❤️', label: 'Your favourites',         sub: 'Reorder what you love'         },
+]
+
+export default function SignInPage() {
+  const router       = useRouter()
+  const searchParams = useSearchParams()
+  const supabase     = createClientComponentClient()
+  const next         = searchParams.get('next') || '/'
+
+  const [email, setEmail]             = useState('')
+  const [password, setPassword]       = useState('')
+  const [showPwd, setShowPwd]         = useState(false)
+  const [rememberMe, setRememberMe]   = useState(true)
+  const [loading, setLoading]         = useState(false)
+  const [magicLoading, setMagicLoading] = useState(false)
+  const [error, setError]             = useState('')
+  const [magicSent, setMagicSent]     = useState(false)
+
+  const handleSignIn = async () => {
+    if (!email || !password) { setError('Please enter your email and password'); return }
+    setLoading(true); setError('')
+    const { error: authError } = await supabase.auth.signInWithPassword({ email, password })
+    if (authError) { setError('Invalid email or password. Please try again.'); setLoading(false); return }
+    // Validate next param safety
+    const safeDest = next.startsWith('/') && !next.startsWith('//') ? next : '/'
+    router.replace(safeDest)
+  }
+
+  const handleMagicLink = async () => {
+    if (!email) { setError('Enter your email address first'); return }
+    setMagicLoading(true); setError('')
+    const { error: magicError } = await supabase.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: `${window.location.origin}/auth/callback?next=${next}` },
+    })
+    if (magicError) { setError(magicError.message) } else { setMagicSent(true) }
+    setMagicLoading(false)
+  }
+
+  return (
+    <div style={{
+      minHeight: '100vh', display: 'flex', alignItems: 'stretch',
+      background: '#F4F4F4',
+    }}>
+      {/* LEFT — green panel */}
+      <div style={{
+        width: '42%', background: '#1E7B34', padding: '48px 40px',
+        display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+        position: 'relative', overflow: 'hidden',
+      }}>
+        <div>
+          <Image src="/images/feastpot-logo.svg" alt="Feastpot" width={130} height={34}
+            style={{ filter: 'brightness(0) invert(1)', marginBottom: '32px' }} />
+
+          <h1 style={{
+            fontSize: '36px', fontWeight: 800, color: 'white',
+            lineHeight: 1.2, marginBottom: '8px',
+          }}>
+            Welcome back 👋
+          </h1>
+
+          {/* Yellow underline */}
+          <div style={{ width: '60px', height: '3px', background: '#F5A623',
+            borderRadius: '2px', marginBottom: '16px' }} />
+
+          <p style={{ fontSize: '15px', color: 'rgba(255,255,255,0.8)', lineHeight: 1.6, marginBottom: '32px' }}>
+            Sign in to pick up where you left off.<br />
+            Manage orders, saved addresses,<br />
+            FeastPoints and your favourites.
+          </p>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+            {BENEFITS.map(b => (
+              <div key={b.label} style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                <div style={{
+                  width: '38px', height: '38px', borderRadius: '10px',
+                  background: 'rgba(255,255,255,0.15)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '18px', flexShrink: 0,
+                }}>{b.icon}</div>
+                <div>
+                  <div style={{ fontSize: '14px', fontWeight: 700, color: 'white' }}>{b.label}</div>
+                  <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.65)' }}>{b.sub}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Food image at bottom */}
+        <div style={{
+          width: '260px', height: '220px', borderRadius: '50% 50% 0 50%',
+          overflow: 'hidden', background: 'rgba(255,255,255,0.1)',
+          marginTop: '32px', alignSelf: 'center',
+        }}>
+          <div style={{ width: '100%', height: '100%',
+            background: 'linear-gradient(135deg,#F5A623,#E8220A)', opacity: 0.6 }} />
+        </div>
+      </div>
+
+      {/* RIGHT — sign in form */}
+      <div style={{
+        flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '48px 40px',
+      }}>
+        <div style={{ width: '100%', maxWidth: '400px' }}>
+          <h2 style={{ fontSize: '24px', fontWeight: 800, color: '#1A1A1A', marginBottom: '28px' }}>
+            Sign in to your account
+          </h2>
+
+          {error && (
+            <div style={{ background: '#FDECEA', borderRadius: '8px', padding: '12px',
+              marginBottom: '16px', fontSize: '13px', color: '#E8220A' }}>
+              {error}
+            </div>
+          )}
+
+          {magicSent && (
+            <div style={{ background: '#E8F5EC', borderRadius: '8px', padding: '12px',
+              marginBottom: '16px', fontSize: '13px', color: '#1E7B34' }}>
+              ✓ Magic link sent to {email}. Check your inbox.
+            </div>
+          )}
+
+          {/* Email */}
+          <div style={{ marginBottom: '14px' }}>
+            <label style={{ display: 'block', fontSize: '13px', fontWeight: 500,
+              color: '#1A1A1A', marginBottom: '6px' }}>Email address</label>
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              onKeyDown={e => e.key === 'Enter' && handleSignIn()}
+              style={{
+                width: '100%', padding: '12px 14px', borderRadius: '8px',
+                border: '1.5px solid #E8E8E8', fontSize: '14px',
+                fontFamily: 'DM Sans, sans-serif', outline: 'none', color: '#1A1A1A',
+              }} />
+          </div>
+
+          {/* Password */}
+          <div style={{ marginBottom: '14px' }}>
+            <label style={{ display: 'block', fontSize: '13px', fontWeight: 500,
+              color: '#1A1A1A', marginBottom: '6px' }}>Password</label>
+            <div style={{ position: 'relative' }}>
+              <input type={showPwd ? 'text' : 'password'} value={password}
+                onChange={e => setPassword(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleSignIn()}
+                style={{
+                  width: '100%', padding: '12px 44px 12px 14px', borderRadius: '8px',
+                  border: '1.5px solid #E8E8E8', fontSize: '14px',
+                  fontFamily: 'DM Sans, sans-serif', outline: 'none', color: '#1A1A1A',
+                }} />
+              <button onClick={() => setShowPwd(v => !v)} type="button" style={{
+                position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)',
+                background: 'none', border: 'none', cursor: 'pointer', color: '#999999',
+              }}>
+                {showPwd ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
+          </div>
+
+          {/* Remember me + Forgot password */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+              <input type="checkbox" checked={rememberMe}
+                onChange={e => setRememberMe(e.target.checked)}
+                style={{ accentColor: '#1E7B34', width: '16px', height: '16px' }} />
+              <span style={{ fontSize: '13px', color: '#1A1A1A' }}>Remember me</span>
+            </label>
+            <Link href="/forgot-password" style={{ fontSize: '13px', color: '#1E7B34', fontWeight: 600, textDecoration: 'none' }}>
+              Forgot password?
+            </Link>
+          </div>
+
+          {/* Sign in button */}
+          <button onClick={handleSignIn} disabled={loading}
+            style={{
+              width: '100%', padding: '15px', borderRadius: '8px', border: 'none',
+              background: loading ? '#E8E8E8' : '#1E7B34', color: 'white',
+              fontSize: '15px', fontWeight: 700, cursor: loading ? 'default' : 'pointer',
+              marginBottom: '14px', fontFamily: 'DM Sans, sans-serif',
+            }}>
+            {loading ? 'Signing in...' : 'Sign in'}
+          </button>
+
+          <div style={{ textAlign: 'center', fontSize: '13px', color: '#999999', marginBottom: '14px' }}>or</div>
+
+          {/* Magic link button */}
+          <button onClick={handleMagicLink} disabled={magicLoading}
+            style={{
+              width: '100%', padding: '13px', borderRadius: '8px',
+              border: '1.5px solid #E8E8E8', background: 'white',
+              fontSize: '14px', fontWeight: 500, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+              fontFamily: 'DM Sans, sans-serif', color: '#1A1A1A',
+            }}>
+            ✉️ {magicLoading ? 'Sending...' : 'Request magic link'}
+          </button>
+
+          <p style={{ textAlign: 'center', fontSize: '13px', color: '#666666', marginTop: '20px' }}>
+            New to FeastPot?{' '}
+            <Link href="/register/create-account" style={{ color: '#1E7B34', fontWeight: 600, textDecoration: 'none' }}>
+              Create account
+            </Link>
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+Also create:
+FILE: apps/web/src/(auth)/forgot-password/page.tsx
+Simple single-field form: email input + "Send reset link" green button.
+Success state: "Check your email for a reset link."
+
+FILE: apps/web/src/app/auth/callback/route.ts
+Supabase auth callback route handler — exchange code for session:
+
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { cookies } from 'next/headers'
+import { NextRequest, NextResponse } from 'next/server'
+
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url)
+  const code = searchParams.get('code')
+  const next = searchParams.get('next') || '/'
+  if (code) {
+    const supabase = createRouteHandlerClient({ cookies })
+    await supabase.auth.exchangeCodeForSession(code)
+  }
+  const safeDest = next.startsWith('/') && !next.startsWith('//') ? next : '/'
+  return NextResponse.redirect(new URL(safeDest, request.url))
+}
+
+Run: npm run typecheck --filter=@feastpot/web. Output all files in full.

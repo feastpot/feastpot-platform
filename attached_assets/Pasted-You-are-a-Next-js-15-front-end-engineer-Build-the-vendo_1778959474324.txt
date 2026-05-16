@@ -1,0 +1,578 @@
+You are a Next.js 15 front-end engineer. Build the vendor acquisition landing page
+and self-serve registration form to exactly match Image 2, panels 1 and 2.
+
+ARCHITECTURE DECISION (confirmed by solutions architect):
+Option B — full self-serve registration. The form creates a REAL Vendor account
+with status: 'pending'. Admin reviews and approves. The "We'll contact you
+within 1-2 business days" copy refers to the admin review SLA, not a manual invite.
+The "Register interest" button takes vendors directly to vendor.feastpot.co.uk/onboarding.
+
+════════════════════════════════════════════════════════
+FILE 1: apps/web/src/app/become-a-vendor/page.tsx
+(The marketing landing page — accessible from the main customer site)
+════════════════════════════════════════════════════════
+
+FROM THE DESIGN (Image 2, panel 1):
+Top nav: logo left, "How it works", "Benefits", "Sign in" right
+Hero: large bold heading "Turn your cooking into weekly income" (first line black, second line green #1E7B34)
+Subtext: "Get paid to cook from home without building a website, chasing customers, or dealing with admin. We bring the orders, you focus on the food."
+Two CTA buttons: "Register interest" (filled green) + "Vendor sign in" (outlined black)
+4 benefit columns: No upfront cost, Orders in your area, Paid weekly, We handle the boring stuff
+3 trust strips: FSA ready, Growing network of cooks (500+ joined), London launch
+Social proof: 500+ Cooks joined, 4.8/5 Vendor satisfaction ⭐, Weekly payouts (On time, every time)
+
+<section style={{ background: 'white', minHeight: '100vh' }}>
+  {/* Top nav */}
+  <nav style={{
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+    padding: '16px 48px', borderBottom: '1px solid #E8E8E8',
+    position: 'sticky', top: 0, background: 'white', zIndex: 50,
+  }}>
+    <Image src="/images/feastpot-logo.svg" alt="Feastpot" width={130} height={34} />
+    <div style={{ display: 'flex', gap: '32px' }}>
+      <a href="#how-it-works" style={{ fontSize: '14px', fontWeight: 500, color: '#1A1A1A', textDecoration: 'none' }}>How it works</a>
+      <a href="#benefits" style={{ fontSize: '14px', fontWeight: 500, color: '#1A1A1A', textDecoration: 'none' }}>Benefits</a>
+    </div>
+    <a href="https://vendor.feastpot.co.uk/sign-in" style={{
+      padding: '9px 20px', borderRadius: '8px',
+      background: '#1E7B34', color: 'white',
+      fontSize: '14px', fontWeight: 600, textDecoration: 'none',
+    }}>Sign in</a>
+  </nav>
+
+  {/* Hero */}
+  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+    padding: '60px 48px', maxWidth: '1200px', margin: '0 auto', gap: '48px' }}>
+    <div style={{ flex: 1 }}>
+      <h1 style={{ fontSize: 'clamp(36px,4vw,56px)', fontWeight: 800, lineHeight: 1.15,
+        color: '#1A1A1A', marginBottom: '8px' }}>
+        Turn your cooking<br />
+        <span style={{ color: '#1E7B34' }}>into weekly income</span>
+      </h1>
+      <div style={{ width: '60px', height: '3px', background: '#F5A623', borderRadius: '2px', marginBottom: '20px' }} />
+      <p style={{ fontSize: '16px', color: '#666666', lineHeight: 1.7, marginBottom: '32px', maxWidth: '480px' }}>
+        Get paid to cook from home without building a website,
+        chasing customers, or dealing with admin.
+        We bring the orders, you focus on the food.
+      </p>
+      <div style={{ display: 'flex', gap: '12px' }}>
+        <a href="https://vendor.feastpot.co.uk/onboarding"
+          style={{ padding: '14px 28px', borderRadius: '8px', background: '#1E7B34',
+            color: 'white', fontSize: '15px', fontWeight: 700, textDecoration: 'none' }}>
+          Register interest
+        </a>
+        <a href="https://vendor.feastpot.co.uk/sign-in"
+          style={{ padding: '14px 28px', borderRadius: '8px', background: 'white',
+            color: '#1A1A1A', border: '1.5px solid #1A1A1A',
+            fontSize: '15px', fontWeight: 700, textDecoration: 'none' }}>
+          Vendor sign in
+        </a>
+      </div>
+    </div>
+    <div style={{ flexShrink: 0, width: '400px', height: '360px', borderRadius: '20px',
+      overflow: 'hidden', background: '#F4F4F4', boxShadow: '0 8px 40px rgba(0,0,0,0.12)' }}>
+      <div style={{ width: '100%', height: '100%',
+        background: 'linear-gradient(135deg,#1E7B34,#F5A623)', opacity: 0.4 }} />
+    </div>
+  </div>
+
+  {/* 4 benefit columns */}
+  <div id="benefits" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)',
+    gap: '16px', padding: '0 48px 48px', maxWidth: '1200px', margin: '0 auto' }}>
+    {[
+      { icon: '💷', label: 'No upfront cost',          sub: 'Join free and start when you\'re ready.' },
+      { icon: '📍', label: 'Orders in your area',      sub: 'We connect you with hungry customers nearby.' },
+      { icon: '📅', label: 'Paid weekly',              sub: 'Reliable weekly payouts direct to your account.' },
+      { icon: '⚙️', label: 'We handle the boring stuff', sub: 'Marketing, payments and customer support.' },
+    ].map(b => (
+      <div key={b.label} style={{ background: '#F4F4F4', borderRadius: '14px', padding: '20px' }}>
+        <span style={{ fontSize: '28px', display: 'block', marginBottom: '10px' }}>{b.icon}</span>
+        <span style={{ fontSize: '15px', fontWeight: 700, color: '#1A1A1A', display: 'block', marginBottom: '6px' }}>{b.label}</span>
+        <span style={{ fontSize: '13px', color: '#666666', lineHeight: 1.5 }}>{b.sub}</span>
+      </div>
+    ))}
+  </div>
+
+  {/* How it works — 4 steps */}
+  <div id="how-it-works" style={{ background: '#F4F4F4', padding: '48px', textAlign: 'center' }}>
+    <h2 style={{ fontSize: '28px', fontWeight: 800, color: '#1A1A1A', marginBottom: '8px' }}>Your onboarding journey</h2>
+    <p style={{ fontSize: '15px', color: '#666666', marginBottom: '40px' }}>Four simple steps to start earning</p>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)',
+      gap: '16px', maxWidth: '1000px', margin: '0 auto' }}>
+      {[
+        { n: 1, label: 'Apply',                   sub: 'Tell us about you and your kitchen' },
+        { n: 2, label: 'Quick review',             sub: "We'll review your details within 1-2 days" },
+        { n: 3, label: 'Menu setup',               sub: 'Add your dishes and set your prices' },
+        { n: 4, label: 'Start receiving orders',   sub: 'Go live and get your first orders' },
+      ].map(s => (
+        <div key={s.n} style={{ background: 'white', borderRadius: '14px', padding: '24px' }}>
+          <div style={{
+            width: '40px', height: '40px', borderRadius: '50%',
+            background: '#1E7B34', color: 'white',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: '16px', fontWeight: 800, margin: '0 auto 14px',
+          }}>{s.n}</div>
+          <div style={{ fontSize: '15px', fontWeight: 700, color: '#1A1A1A', marginBottom: '6px' }}>{s.label}</div>
+          <div style={{ fontSize: '13px', color: '#666666', lineHeight: 1.5 }}>{s.sub}</div>
+        </div>
+      ))}
+    </div>
+  </div>
+
+  {/* Trust strips and social proof */}
+  <div style={{ padding: '40px 48px', maxWidth: '1200px', margin: '0 auto',
+    display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '24px', marginBottom: '0' }}>
+    {[
+      { icon: '🛡️', label: 'FSA ready',             sub: 'Food safety first. We follow UK standards.' },
+      { icon: '👥', label: 'Growing network of cooks', sub: '500+ cooks and caterers already joined.' },
+      { icon: '🏙️', label: 'London launch',          sub: 'Proudly launching across London.' },
+    ].map(t => (
+      <div key={t.label} style={{ display: 'flex', alignItems: 'flex-start', gap: '14px',
+        padding: '20px', background: '#F4F4F4', borderRadius: '14px' }}>
+        <span style={{ fontSize: '28px', flexShrink: 0 }}>{t.icon}</span>
+        <div>
+          <div style={{ fontSize: '15px', fontWeight: 700, color: '#1A1A1A', marginBottom: '4px' }}>{t.label}</div>
+          <div style={{ fontSize: '13px', color: '#666666', lineHeight: 1.5 }}>{t.sub}</div>
+        </div>
+      </div>
+    ))}
+  </div>
+
+  {/* Social proof footer */}
+  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)',
+    padding: '24px 48px 48px', maxWidth: '1200px', margin: '0 auto',
+    borderTop: '1px solid #E8E8E8', gap: '24px' }}>
+    {[
+      { icon: '👥', value: '500+',     label: 'Cooks joined' },
+      { icon: '⭐', value: '4.8 / 5', label: 'Vendor satisfaction' },
+      { icon: '💳', value: 'Weekly payouts', label: 'On time, every time' },
+    ].map(s => (
+      <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <span style={{ fontSize: '28px' }}>{s.icon}</span>
+        <div>
+          <div style={{ fontSize: '18px', fontWeight: 800, color: '#1A1A1A' }}>{s.value}</div>
+          <div style={{ fontSize: '13px', color: '#666666' }}>{s.label}</div>
+        </div>
+      </div>
+    ))}
+  </div>
+</section>
+
+════════════════════════════════════════════════════════
+FILE 2: apps/vendor/src/app/onboarding/register/page.tsx
+(The actual self-serve registration form — lives in the vendor portal)
+════════════════════════════════════════════════════════
+
+FROM THE DESIGN (Image 2, panel 2):
+Two-column layout:
+LEFT: "Join FeastPot" heading, subtext, 3 green-tick bullets (Reach customers, Set delivery radius, Get paid every week), then the 4-step journey diagram
+RIGHT: Full registration form
+
+FORM FIELDS:
+  Full name (full width)
+  Kitchen / business name (full width)
+  Email address + Phone / WhatsApp (two columns)
+  Postcode / service area + Cuisine type dropdown (two columns)
+  Kitchen type: segmented toggle — "Home cook" | "Caterer" | "Restaurant" (Home cook selected by default)
+  Instagram handle (optional, full width, @yourhandle placeholder)
+  "Tell us about your food" textarea
+  "Do you have food registration / hygiene details?" — Yes / No radio
+  T&C checkbox with links
+  "Submit interest" full-width green button
+  "⏱ We'll contact you within 1-2 business days." caption below button
+
+'use client'
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import Image from 'next/image'
+import Link from 'next/link'
+
+const CUISINE_OPTIONS = [
+  'Select cuisine','Nigerian','Ghanaian','Jamaican','Caribbean',
+  'Congolese','Somali','Ethiopian','West African','Other',
+]
+
+const KITCHEN_TYPES = ['Home cook', 'Caterer', 'Restaurant']
+
+const BENEFITS = [
+  'Reach customers near you',
+  'Set your delivery radius',
+  'Get paid every week',
+]
+
+const STEPS = [
+  { n: 1, label: 'Apply',               sub: 'Tell us about you and your kitchen' },
+  { n: 2, label: 'Quick review',         sub: "We'll review your details within 1-2 days" },
+  { n: 3, label: 'Menu setup',           sub: 'Add your dishes and set your prices' },
+  { n: 4, label: 'Start receiving orders', sub: 'Go live and get your first orders' },
+]
+
+export default function VendorRegisterPage() {
+  const router = useRouter()
+  const [form, setForm] = useState({
+    fullName: '', kitchenName: '', email: '', phone: '',
+    postcode: '', cuisineType: '', kitchenType: 'Home cook',
+    instagram: '', foodStory: '', hasFSA: '', termsAccepted: false,
+  })
+  const [errors, setErrors]   = useState<Record<string,string>>({})
+  const [loading, setLoading] = useState(false)
+  const [submitted, setSubmitted] = useState(false)
+  const [serverError, setServerError] = useState('')
+
+  const validate = () => {
+    const e: Record<string,string> = {}
+    if (!form.fullName.trim())    e.fullName    = 'Required'
+    if (!form.kitchenName.trim()) e.kitchenName = 'Required'
+    if (!form.email.includes('@'))e.email       = 'Enter a valid email'
+    if (form.phone.length < 10)   e.phone       = 'Enter a valid phone number'
+    if (!form.postcode.trim())    e.postcode    = 'Required'
+    if (!form.cuisineType || form.cuisineType === 'Select cuisine') e.cuisineType = 'Select a cuisine'
+    if (!form.foodStory.trim())   e.foodStory   = 'Tell us a little about your food'
+    if (!form.hasFSA)             e.hasFSA      = 'Please answer this question'
+    if (!form.termsAccepted)      e.terms       = 'You must accept the Terms and Privacy Policy'
+    setErrors(e)
+    return Object.keys(e).length === 0
+  }
+
+  const handleSubmit = async () => {
+    if (!validate()) return
+    setLoading(true); setServerError('')
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/v1/vendors/register-interest`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        setServerError(data.message || 'Something went wrong. Please try again.')
+        return
+      }
+      setSubmitted(true)
+    } catch { setServerError('Could not submit. Check your connection and try again.') }
+    finally { setLoading(false) }
+  }
+
+  if (submitted) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center',
+        justifyContent: 'center', background: '#F4F4F4', padding: '40px 16px' }}>
+        <div style={{ background: 'white', borderRadius: '20px', padding: '48px',
+          maxWidth: '500px', textAlign: 'center', boxShadow: '0 4px 24px rgba(0,0,0,0.08)' }}>
+          <div style={{ fontSize: '56px', marginBottom: '16px' }}>🎉</div>
+          <h2 style={{ fontSize: '24px', fontWeight: 800, color: '#1A1A1A', marginBottom: '8px' }}>
+            Application received!
+          </h2>
+          <p style={{ fontSize: '15px', color: '#666666', lineHeight: 1.6, marginBottom: '24px' }}>
+            Thank you, {form.fullName.split(' ')[0]}. We'll review your application
+            and be in touch within 1-2 business days.
+          </p>
+          <p style={{ fontSize: '13px', color: '#999999' }}>
+            Questions? Email us at{' '}
+            <a href="mailto:vendors@feastpot.co.uk" style={{ color: '#1E7B34', fontWeight: 600 }}>
+              vendors@feastpot.co.uk
+            </a>
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  const inp = (key: string, label: string, type='text', placeholder='', optional=false) => (
+    <div>
+      <label style={{ display: 'block', fontSize: '13px', fontWeight: 500,
+        color: '#1A1A1A', marginBottom: '6px' }}>
+        {label}{optional && <span style={{ color: '#999999', fontWeight: 400 }}> (optional)</span>}
+      </label>
+      <input type={type} value={(form as any)[key]} placeholder={placeholder}
+        onChange={e => setForm(f => ({...f,[key]:e.target.value}))}
+        style={{
+          width: '100%', padding: '11px 13px', borderRadius: '8px',
+          border: `1.5px solid ${errors[key] ? '#E8220A' : '#E8E8E8'}`,
+          fontSize: '14px', fontFamily: 'DM Sans, sans-serif',
+          outline: 'none', color: '#1A1A1A', background: 'white',
+        }} />
+      {errors[key] && <p style={{ fontSize: '11px', color: '#E8220A', marginTop: '3px' }}>{errors[key]}</p>}
+    </div>
+  )
+
+  return (
+    <div style={{ minHeight: '100vh', background: '#F4F4F4' }}>
+      {/* Logo bar */}
+      <div style={{ padding: '20px 32px', background: 'white', borderBottom: '1px solid #E8E8E8' }}>
+        <Image src="/images/feastpot-logo.svg" alt="Feastpot" width={120} height={32} />
+      </div>
+
+      <div style={{ display: 'flex', maxWidth: '1100px', margin: '40px auto',
+        background: 'white', borderRadius: '20px',
+        boxShadow: '0 4px 24px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+
+        {/* LEFT: info panel */}
+        <div style={{ width: '340px', flexShrink: 0, padding: '40px 32px',
+          background: 'white', borderRight: '1px solid #E8E8E8' }}>
+          <h2 style={{ fontSize: '22px', fontWeight: 800, color: '#1A1A1A', marginBottom: '6px' }}>
+            Join FeastPot
+          </h2>
+          <p style={{ fontSize: '14px', color: '#666666', lineHeight: 1.6, marginBottom: '20px' }}>
+            Start earning by sharing the food you love to cook.
+          </p>
+
+          {/* Benefits */}
+          <div style={{ marginBottom: '28px' }}>
+            {BENEFITS.map(b => (
+              <div key={b} style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+                <div style={{ width: '22px', height: '22px', borderRadius: '50%',
+                  background: '#1E7B34', color: 'white',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '12px', flexShrink: 0 }}>✓</div>
+                <span style={{ fontSize: '14px', color: '#1A1A1A', fontWeight: 500 }}>{b}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Journey steps */}
+          <div style={{ background: '#F4F4F4', borderRadius: '14px', padding: '16px' }}>
+            <p style={{ fontSize: '13px', fontWeight: 700, color: '#1A1A1A', marginBottom: '14px' }}>
+              Your onboarding journey
+            </p>
+            {STEPS.map((s, i) => (
+              <div key={s.n} style={{ display: 'flex', gap: '10px', marginBottom: i < STEPS.length-1 ? '16px' : 0, alignItems: 'flex-start' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <div style={{ width: '26px', height: '26px', borderRadius: '50%',
+                    background: '#1E7B34', color: 'white',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: '12px', fontWeight: 700, flexShrink: 0 }}>{s.n}</div>
+                  {i < STEPS.length - 1 && (
+                    <div style={{ width: '2px', height: '20px', background: '#E8E8E8', margin: '3px 0' }} />
+                  )}
+                </div>
+                <div style={{ paddingTop: '3px' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 700, color: '#1A1A1A' }}>{s.label}</div>
+                  <div style={{ fontSize: '12px', color: '#666666', lineHeight: 1.4 }}>{s.sub}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* RIGHT: form */}
+        <div style={{ flex: 1, padding: '40px 36px', overflowY: 'auto', maxHeight: '90vh' }}>
+          {serverError && (
+            <div style={{ background: '#FDECEA', borderRadius: '8px', padding: '12px',
+              marginBottom: '16px', fontSize: '13px', color: '#E8220A' }}>{serverError}</div>
+          )}
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            {inp('fullName', 'Full name', 'text', 'Your full name')}
+            {inp('kitchenName', 'Kitchen / business name', 'text', 'e.g. Mama J\'s Kitchen')}
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              {inp('email', 'Email address', 'email', 'you@domain.com')}
+              {inp('phone', 'Phone / WhatsApp', 'tel', '07XXXXXXXXX')}
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              {inp('postcode', 'Postcode / service area', 'text', 'e.g. SE1 7SP')}
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500,
+                  color: '#1A1A1A', marginBottom: '6px' }}>Cuisine type</label>
+                <select value={form.cuisineType}
+                  onChange={e => setForm(f => ({...f, cuisineType: e.target.value}))}
+                  style={{
+                    width: '100%', padding: '11px 13px', borderRadius: '8px',
+                    border: `1.5px solid ${errors.cuisineType ? '#E8220A' : '#E8E8E8'}`,
+                    fontSize: '14px', fontFamily: 'DM Sans, sans-serif',
+                    outline: 'none', color: '#1A1A1A', background: 'white', cursor: 'pointer',
+                  }}>
+                  {CUISINE_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                </select>
+                {errors.cuisineType && <p style={{ fontSize: '11px', color: '#E8220A', marginTop: '3px' }}>{errors.cuisineType}</p>}
+              </div>
+            </div>
+
+            {/* Kitchen type segmented toggle */}
+            <div>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: 500,
+                color: '#1A1A1A', marginBottom: '8px' }}>Kitchen type</label>
+              <div style={{ display: 'flex', gap: '0', border: '1.5px solid #E8E8E8',
+                borderRadius: '8px', overflow: 'hidden' }}>
+                {KITCHEN_TYPES.map((kt, i) => (
+                  <button key={kt} onClick={() => setForm(f => ({...f, kitchenType: kt}))}
+                    style={{
+                      flex: 1, padding: '10px',
+                      border: 'none',
+                      borderRight: i < KITCHEN_TYPES.length - 1 ? '1px solid #E8E8E8' : 'none',
+                      background: form.kitchenType === kt ? '#1E7B34' : 'white',
+                      color: form.kitchenType === kt ? 'white' : '#1A1A1A',
+                      fontSize: '13px', fontWeight: form.kitchenType === kt ? 700 : 400,
+                      cursor: 'pointer', fontFamily: 'DM Sans, sans-serif',
+                      transition: 'all .15s',
+                    }}>
+                    {kt}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {inp('instagram', 'Instagram handle', 'text', '@yourhandle', true)}
+
+            {/* Food story textarea */}
+            <div>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: 500,
+                color: '#1A1A1A', marginBottom: '6px' }}>Tell us about your food</label>
+              <textarea value={form.foodStory} rows={4}
+                onChange={e => setForm(f => ({...f, foodStory: e.target.value}))}
+                placeholder="Tell us about your dishes, specialties and experience..."
+                style={{
+                  width: '100%', padding: '11px 13px', borderRadius: '8px',
+                  border: `1.5px solid ${errors.foodStory ? '#E8220A' : '#E8E8E8'}`,
+                  fontSize: '14px', fontFamily: 'DM Sans, sans-serif',
+                  outline: 'none', resize: 'vertical', color: '#1A1A1A',
+                }} />
+              {errors.foodStory && <p style={{ fontSize: '11px', color: '#E8220A', marginTop: '3px' }}>{errors.foodStory}</p>}
+            </div>
+
+            {/* FSA radio */}
+            <div>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: 500,
+                color: '#1A1A1A', marginBottom: '8px' }}>
+                Do you have food registration / hygiene details?
+              </label>
+              <div style={{ display: 'flex', gap: '24px' }}>
+                {['Yes','No'].map(opt => (
+                  <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                    <input type="radio" name="hasFSA" value={opt}
+                      checked={form.hasFSA === opt}
+                      onChange={() => setForm(f => ({...f, hasFSA: opt}))}
+                      style={{ accentColor: '#1E7B34', width: '16px', height: '16px' }} />
+                    <span style={{ fontSize: '14px', color: '#1A1A1A' }}>{opt}</span>
+                  </label>
+                ))}
+              </div>
+              {errors.hasFSA && <p style={{ fontSize: '11px', color: '#E8220A', marginTop: '4px' }}>{errors.hasFSA}</p>}
+            </div>
+
+            {/* T&C */}
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer' }}>
+              <input type="checkbox" checked={form.termsAccepted}
+                onChange={e => setForm(f => ({...f, termsAccepted: e.target.checked}))}
+                style={{ marginTop: '2px', accentColor: '#1E7B34', width: '16px', height: '16px', flexShrink: 0 }} />
+              <span style={{ fontSize: '13px', color: '#666666', lineHeight: 1.5 }}>
+                I agree to FeastPot's{' '}
+                <a href="https://feastpot.co.uk/legal/terms" style={{ color: '#1E7B34', fontWeight: 600 }}>Terms of Service</a>
+                {' '}and{' '}
+                <a href="https://feastpot.co.uk/legal/privacy" style={{ color: '#1E7B34', fontWeight: 600 }}>Privacy Policy</a>
+              </span>
+            </label>
+            {errors.terms && <p style={{ fontSize: '11px', color: '#E8220A' }}>{errors.terms}</p>}
+
+            {/* Submit */}
+            <button onClick={handleSubmit} disabled={loading}
+              style={{
+                width: '100%', padding: '15px', borderRadius: '8px', border: 'none',
+                background: loading ? '#E8E8E8' : '#1E7B34', color: 'white',
+                fontSize: '15px', fontWeight: 700, cursor: loading ? 'default' : 'pointer',
+                fontFamily: 'DM Sans, sans-serif',
+              }}>
+              {loading ? 'Submitting...' : 'Submit interest'}
+            </button>
+
+            <p style={{ textAlign: 'center', fontSize: '13px', color: '#999999',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+              ⏱ We'll contact you within 1-2 business days.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+Also create the API endpoint that the form submits to:
+FILE: apps/api/src/modules/vendors/vendors.controller.ts — add:
+
+@Post('vendors/register-interest')
+@Public()
+@HttpCode(201)
+async registerInterest(@Body() dto: RegisterVendorInterestDto) {
+  return this.vendorsService.registerInterest(dto)
+}
+
+FILE: apps/api/src/modules/vendors/dto/register-vendor-interest.dto.ts:
+
+import { IsString, IsEmail, IsOptional, MinLength, IsEnum } from 'class-validator'
+
+export class RegisterVendorInterestDto {
+  @IsString() @MinLength(2)  fullName:    string
+  @IsString() @MinLength(2)  kitchenName: string
+  @IsEmail()                 email:       string
+  @IsString()                phone:       string
+  @IsString()                postcode:    string
+  @IsString()                cuisineType: string
+  @IsString()                kitchenType: string
+  @IsOptional() @IsString()  instagram?:  string
+  @IsString() @MinLength(10) foodStory:   string
+  @IsEnum(['Yes','No'])      hasFSA:      string
+}
+
+FILE: apps/api/src/modules/vendors/vendors.service.ts — add registerInterest():
+
+async registerInterest(dto: RegisterVendorInterestDto) {
+  // 1. Create Supabase auth user (pending — no password set yet)
+  const { data, error } = await this.supabaseAdmin.auth.admin.createUser({
+    email: dto.email,
+    email_confirm: false,
+    user_metadata: {
+      full_name:    dto.fullName,
+      phone:        dto.phone,
+      role:         'vendor',
+      kitchen_name: dto.kitchenName,
+    },
+  })
+  if (error) throw new ConflictException(error.message)
+
+  // 2. Create User + Vendor records in DB (status: pending)
+  const user = await this.prisma.user.create({
+    data: {
+      supabaseId: data.user.id,
+      email:      dto.email,
+      role:       'vendor',
+      profile: {
+        create: {
+          firstName:    dto.fullName.split(' ')[0],
+          lastName:     dto.fullName.split(' ').slice(1).join(' '),
+          phone:        dto.phone,
+        },
+      },
+    },
+  })
+
+  await this.prisma.vendor.create({
+    data: {
+      userId:         user.id,
+      businessName:   dto.kitchenName,
+      cuisineTypes:   [dto.cuisineType],
+      status:         'pending',
+      commissionBps:  1200,
+      registrationData: {
+        kitchenType:  dto.kitchenType,
+        postcode:     dto.postcode,
+        instagram:    dto.instagram || null,
+        foodStory:    dto.foodStory,
+        hasFSA:       dto.hasFSA === 'Yes',
+      },
+    },
+  })
+
+  // 3. Notify admin of new vendor application
+  await this.notificationsQueue.add('send_email', {
+    to: process.env.ADMIN_EMAIL || 'soul@feastpot.co.uk',
+    template: 'vendor_application_received',
+    data: { vendorName: dto.fullName, kitchenName: dto.kitchenName, email: dto.email },
+  })
+
+  return { message: 'Application received. We will be in touch within 1-2 business days.' }
+}
+
+Run: npm run typecheck in apps/web, apps/vendor, apps/api.
+Output all files in full.
