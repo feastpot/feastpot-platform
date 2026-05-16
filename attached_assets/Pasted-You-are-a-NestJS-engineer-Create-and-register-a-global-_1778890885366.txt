@@ -1,0 +1,117 @@
+You are a NestJS engineer. Create and register a global Prisma exception filter.
+
+DEFECT (D22 — S3):
+Only HttpExceptionFilter is registered globally.
+5 services hand-catch P2002 (unique constraint) individually.
+All other Prisma error codes (P2025, P2003, P2014 etc.) leak full error metadata
+in 500 responses — exposing column names, constraint names, and table names.
+
+STEP 1 — Create the filter
+File: apps/api/src/common/filters/prisma-exception.filter.ts
+
+import {
+  ArgumentsHost, Catch, ExceptionFilter,
+  HttpStatus, Logger,
+} from '@nestjs/common'
+import { Prisma } from '@prisma/client'
+import { Response, Request } from 'express'
+
+@Catch(Prisma.PrismaClientKnownRequestError)
+export class PrismaExceptionFilter implements ExceptionFilter {
+  private readonly logger = new Logger(PrismaExceptionFilter.name)
+
+  catch(exception: Prisma.PrismaClientKnownRequestError, host: ArgumentsHost) {
+    const ctx  = host.switchToHttp()
+    const res  = ctx.getResponse<Response>()
+    const req  = ctx.getRequest<Request>()
+
+    let status  = HttpStatus.INTERNAL_SERVER_ERROR
+    let message = 'An unexpected error occurred'
+
+    switch (exception.code) {
+      case 'P2025':
+        status  = HttpStatus.NOT_FOUND
+        message = 'The requested resource was not found'
+        break
+      case 'P2002':
+        status  = HttpStatus.CONFLICT
+        message = 'A record with these details already exists'
+        break
+      case 'P2003':
+        status  = HttpStatus.BAD_REQUEST
+        message = 'Referenced resource does not exist'
+        break
+      case 'P2014':
+        status  = HttpStatus.BAD_REQUEST
+        message = 'This operation violates a data relationship constraint'
+        break
+      case 'P2016':
+        status  = HttpStatus.BAD_REQUEST
+        message = 'Query interpretation error'
+        break
+      default:
+        this.logger.error(
+          `[Prisma] Unhandled error ${exception.code}`,
+          exception.message,
+        )
+    }
+
+    res.status(status).json({
+      statusCode: status,
+      message,
+      error: HttpStatus[status],
+      timestamp: new Date().toISOString(),
+      path: req.url,
+    })
+  }
+}
+
+@Catch(Prisma.PrismaClientValidationError)
+export class PrismaValidationFilter implements ExceptionFilter {
+  catch(exception: Prisma.PrismaClientValidationError, host: ArgumentsHost) {
+    const res = host.switchToHttp().getResponse<Response>()
+    res.status(400).json({
+      statusCode: 400,
+      message: 'Invalid request data',
+      error: 'Bad Request',
+      timestamp: new Date().toISOString(),
+    })
+  }
+}
+
+STEP 2 — Register globally
+File: apps/api/src/main.ts
+
+import { PrismaExceptionFilter, PrismaValidationFilter } from './common/filters/prisma-exception.filter'
+
+app.useGlobalFilters(
+  new PrismaExceptionFilter(),
+  new PrismaValidationFilter(),
+  // Keep existing HttpExceptionFilter
+)
+
+STEP 3 — Remove the 5 ad-hoc P2002 catches
+Search for all hand-caught P2002 in services:
+
+grep -rn "P2002\|PrismaClientKnownRequestError" apps/api/src/modules \
+  --include="*.ts" | grep -v ".spec.ts"
+
+For each hit, remove the try/catch block for P2002.
+The global filter now handles it uniformly.
+
+Services likely affected (from UAT report):
+- discount-codes.service.ts
+- payouts.service.ts
+- disputes.service.ts
+- orders.service.ts
+- reviews.service.ts
+
+STEP 4 — Verify
+curl -X DELETE http://localhost:3001/v1/addresses/00000000-0000-0000-0000-000000000000 \
+  -H "Authorization: Bearer {customer_token}"
+Assert: HTTP 404 (not HTTP 500)
+Assert: Response body does not contain Prisma-internal fields
+  (meta, clientVersion, constraint names)
+
+Run: npm run build:api — confirm zero errors.
+Output the filter file and updated main.ts.

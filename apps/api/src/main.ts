@@ -84,6 +84,10 @@ import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module';
 import { assertRequiredEnvOrExit } from './common/config/required-env';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import {
+  PrismaExceptionFilter,
+  PrismaValidationFilter,
+} from './common/filters/prisma-exception.filter';
 
 const ALLOWED_ORIGINS = [
   'https://feastpot.co.uk',
@@ -167,7 +171,15 @@ async function bootstrap(): Promise<void> {
     }),
   );
 
-  app.useGlobalFilters(new HttpExceptionFilter());
+  // D22: Prisma filters are registered BEFORE HttpExceptionFilter. Nest
+  // matches filters by their @Catch() decorator, so Prisma errors land on
+  // the Prisma filters and HttpExceptions still land on HttpExceptionFilter
+  // — registration order only matters for filters that catch the same type.
+  app.useGlobalFilters(
+    new PrismaExceptionFilter(),
+    new PrismaValidationFilter(),
+    new HttpExceptionFilter(),
+  );
 
   if (env !== 'production') {
     const swaggerConfig = new DocumentBuilder()
