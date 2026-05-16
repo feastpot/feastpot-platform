@@ -44,7 +44,7 @@ export function Footer() {
               Cook from home? Join Feastpot
             </p>
             <p className="mt-0.5 text-[12px] font-medium text-charcoal-mid">
-              Keep {LEGAL.VENDOR_PAYOUT_PCT}% of every sale. Join a growing network of home cooks.
+              Join a growing network of home cooks.
             </p>
           </div>
           <a
