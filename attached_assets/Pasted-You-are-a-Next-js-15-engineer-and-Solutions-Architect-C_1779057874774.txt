@@ -1,0 +1,764 @@
+You are a Next.js 15 engineer and Solutions Architect. Consolidate the customer
+sign-in and create-account flows into a single dynamic page at one URL.
+
+CONFIRMED FROM LIVE SITE AUDIT (feastpot.co.uk):
+- /sign-in exists but renders only the footer — the form component is not
+  rendering (likely a 'use client' hydration or import issue)
+- /register/create-account is a separate route
+- The requirement: ONE URL, ONE page, TWO modes — toggled dynamically
+- No navigation between pages. No full-page reload. Instant tab switch.
+- URL: /sign-in (keep this — it is already linked from the homepage nav)
+
+ARCHITECTURE DECISION:
+Single file at apps/web/src/app/(auth)/sign-in/page.tsx
+A ?mode=register query param controls which tab is active on load.
+Tab switching updates the URL with router.replace() (no page reload)
+so deep-linking still works:
+  /sign-in            → Sign in tab active
+  /sign-in?mode=register → Create account tab active
+
+This means every existing link to /register/create-account becomes
+/sign-in?mode=register — update those links as part of this prompt.
+
+════════════════════════════════════════════════════════
+FILE: apps/web/src/(auth)/sign-in/page.tsx
+REPLACE THE ENTIRE FILE
+════════════════════════════════════════════════════════
+
+'use client'
+import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import Image from 'next/image'
+import Link from 'next/link'
+import { Eye, EyeOff } from 'lucide-react'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+
+type Mode = 'signin' | 'register'
+
+// ─── Sign-in fields ────────────────────────────────────────────────────────
+interface SignInForm {
+  email: string
+  password: string
+  rememberMe: boolean
+}
+
+// ─── Register fields ────────────────────────────────────────────────────────
+interface RegisterForm {
+  fullName: string
+  email: string
+  phone: string
+  password: string
+  confirmPassword: string
+  postcode: string
+  marketingConsent: boolean
+  termsAccepted: boolean
+}
+
+export default function AuthPage() {
+  const router       = useRouter()
+  const searchParams = useSearchParams()
+  const supabase     = createClientComponentClient()
+
+  // Derive initial mode from ?mode= param
+  const initialMode: Mode =
+    searchParams.get('mode') === 'register' ? 'register' : 'signin'
+  const [mode, setMode] = useState<Mode>(initialMode)
+
+  // Sync mode → URL without page reload
+  const switchMode = (next: Mode) => {
+    setMode(next)
+    setError('')
+    setMagicSent(false)
+    const params = new URLSearchParams(searchParams.toString())
+    if (next === 'register') {
+      params.set('mode', 'register')
+    } else {
+      params.delete('mode')
+    }
+    router.replace(`/sign-in?${params.toString()}`, { scroll: false })
+  }
+
+  // ── Shared state ────────────────────────────────────────────────────────
+  const [error, setError]           = useState('')
+  const [loading, setLoading]       = useState(false)
+  const [showPwd, setShowPwd]       = useState(false)
+  const [showCpwd, setShowCpwd]     = useState(false)
+  const [magicSent, setMagicSent]   = useState(false)
+  const [registered, setRegistered] = useState(false)
+
+  // ── Sign-in form ────────────────────────────────────────────────────────
+  const [si, setSi] = useState<SignInForm>({
+    email: '', password: '', rememberMe: true,
+  })
+
+  // ── Register form ───────────────────────────────────────────────────────
+  const [reg, setReg] = useState<RegisterForm>({
+    fullName: '', email: '', phone: '',
+    password: '', confirmPassword: '', postcode: '',
+    marketingConsent: false, termsAccepted: false,
+  })
+  const [regErrors, setRegErrors] = useState<Partial<RegisterForm & { terms: string }>>({})
+
+  // ── Sign-in handler ─────────────────────────────────────────────────────
+  const handleSignIn = async () => {
+    if (!si.email || !si.password) {
+      setError('Please enter your email and password')
+      return
+    }
+    setLoading(true); setError('')
+    const { error: authError } = await supabase.auth.signInWithPassword({
+      email: si.email, password: si.password,
+    })
+    if (authError) {
+      setError('Incorrect email or password. Try again or use magic link.')
+      setLoading(false)
+      return
+    }
+    const next = searchParams.get('next') || '/'
+    const safe = next.startsWith('/') && !next.startsWith('//') ? next : '/'
+    router.replace(safe)
+  }
+
+  const handleMagicLink = async () => {
+    if (!si.email) { setError('Enter your email address first'); return }
+    setLoading(true); setError('')
+    const { error: magicError } = await supabase.auth.signInWithOtp({
+      email: si.email,
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback?next=${searchParams.get('next') || '/'}`,
+      },
+    })
+    if (magicError) { setError(magicError.message) } else { setMagicSent(true) }
+    setLoading(false)
+  }
+
+  // ── Register handler ────────────────────────────────────────────────────
+  const validateReg = () => {
+    const e: typeof regErrors = {}
+    if (!reg.fullName.trim())                  e.fullName        = 'Required'
+    if (!reg.email.includes('@'))              e.email           = 'Enter a valid email'
+    if (reg.phone.replace(/\D/g,'').length < 10) e.phone        = 'Enter a valid UK number'
+    if (reg.password.length < 8)               e.password        = 'Minimum 8 characters'
+    if (reg.password !== reg.confirmPassword)  e.confirmPassword = 'Passwords do not match'
+    if (!reg.postcode.trim())                  e.postcode        = 'Required'
+    if (!reg.termsAccepted)                    e.terms           = 'You must accept the terms'
+    setRegErrors(e)
+    return Object.keys(e).length === 0
+  }
+
+  const handleRegister = async () => {
+    if (!validateReg()) return
+    setLoading(true); setError('')
+    try {
+      const { error: authError } = await supabase.auth.signUp({
+        email: reg.email,
+        password: reg.password,
+        options: {
+          data: {
+            full_name:         reg.fullName,
+            phone:             reg.phone,
+            postcode:          reg.postcode.toUpperCase().trim(),
+            marketing_consent: reg.marketingConsent,
+            role:              'customer',
+          },
+        },
+      })
+      if (authError) { setError(authError.message); return }
+
+      // Sync profile to API
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/v1/auth/sync`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fullName: reg.fullName,
+          phone:    reg.phone,
+          postcode: reg.postcode,
+        }),
+      }).catch(() => {}) // non-blocking
+
+      setRegistered(true)
+    } catch { setError('Something went wrong. Please try again.') }
+    finally { setLoading(false) }
+  }
+
+  // ── SSO ─────────────────────────────────────────────────────────────────
+  const ssoGoogle = () => supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: `${window.location.origin}/auth/callback?next=/` },
+  })
+  const ssoApple = () => supabase.auth.signInWithOAuth({
+    provider: 'apple',
+    options: { redirectTo: `${window.location.origin}/auth/callback?next=/` },
+  })
+
+  // ── Registered success screen ────────────────────────────────────────────
+  if (registered) {
+    return (
+      <div style={{
+        minHeight: '100dvh', display: 'flex', alignItems: 'center',
+        justifyContent: 'center', background: '#F4F4F4', padding: '24px 16px',
+      }}>
+        <div style={{
+          background: 'white', borderRadius: '20px', padding: '40px 32px',
+          maxWidth: '420px', width: '100%', textAlign: 'center',
+          boxShadow: '0 4px 24px rgba(0,0,0,0.08)',
+        }}>
+          <div style={{ fontSize: '56px', marginBottom: '16px' }}>✉️</div>
+          <h2 style={{ fontSize: '22px', fontWeight: 800, color: '#1A1A1A', marginBottom: '8px' }}>
+            Check your email
+          </h2>
+          <p style={{ fontSize: '14px', color: '#666666', lineHeight: 1.65, marginBottom: '24px' }}>
+            We've sent a confirmation link to{' '}
+            <strong>{reg.email}</strong>.<br />
+            Click it to activate your account.
+          </p>
+          <button
+            onClick={() => { setRegistered(false); switchMode('signin') }}
+            style={{
+              width: '100%', padding: '13px', borderRadius: '8px', border: 'none',
+              background: '#1E7B34', color: 'white', fontSize: '14px', fontWeight: 700,
+              cursor: 'pointer', fontFamily: 'DM Sans, sans-serif',
+            }}>
+            Back to sign in
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // ── Shared input helper ──────────────────────────────────────────────────
+  const Field = ({
+    label, value, onChange, type = 'text', placeholder = '', error: err = '',
+    rightSlot,
+  }: {
+    label: string; value: string; onChange: (v: string) => void;
+    type?: string; placeholder?: string; error?: string; rightSlot?: React.ReactNode
+  }) => (
+    <div style={{ marginBottom: err ? '6px' : '14px' }}>
+      <label style={{
+        display: 'block', fontSize: '13px', fontWeight: 600,
+        color: '#1A1A1A', marginBottom: '6px',
+      }}>{label}</label>
+      <div style={{ position: 'relative' }}>
+        <input
+          type={type} value={value} placeholder={placeholder}
+          onChange={e => onChange(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter' && mode === 'signin') handleSignIn() }}
+          style={{
+            width: '100%', padding: rightSlot ? '12px 44px 12px 14px' : '12px 14px',
+            borderRadius: '8px', border: `1.5px solid ${err ? '#E8220A' : '#E8E8E8'}`,
+            fontSize: '14px', fontFamily: 'DM Sans, sans-serif',
+            outline: 'none', color: '#1A1A1A', background: 'white',
+            boxSizing: 'border-box',
+          }}
+        />
+        {rightSlot && (
+          <div style={{
+            position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)',
+          }}>
+            {rightSlot}
+          </div>
+        )}
+      </div>
+      {err && (
+        <p style={{ fontSize: '12px', color: '#E8220A', marginTop: '4px', marginBottom: '8px' }}>
+          {err}
+        </p>
+      )}
+    </div>
+  )
+
+  const EyeBtn = ({ show, toggle }: { show: boolean; toggle: () => void }) => (
+    <button type="button" onClick={toggle} style={{
+      background: 'none', border: 'none', cursor: 'pointer', color: '#999999',
+      display: 'flex', alignItems: 'center', padding: 0,
+    }}>
+      {show ? <EyeOff size={18} /> : <Eye size={18} />}
+    </button>
+  )
+
+  // ── Page shell ───────────────────────────────────────────────────────────
+  return (
+    <div style={{
+      minHeight: '100dvh', display: 'flex', alignItems: 'center',
+      justifyContent: 'center', background: '#F4F4F4',
+      padding: '24px 16px', fontFamily: 'DM Sans, sans-serif',
+    }}>
+      <div style={{
+        width: '100%', maxWidth: '440px',
+        background: 'white', borderRadius: '20px',
+        boxShadow: '0 4px 24px rgba(0,0,0,0.08)',
+        overflow: 'hidden',
+      }}>
+
+        {/* ── Logo ──────────────────────────────────────────────────────── */}
+        <div style={{
+          padding: '28px 32px 0',
+          display: 'flex', justifyContent: 'center',
+        }}>
+          <Link href="/">
+            <Image
+              src="/images/feastpot-logo.png"
+              alt="Feastpot"
+              width={120}
+              height={38}
+              priority
+            />
+          </Link>
+        </div>
+
+        {/* ── Tab switcher ──────────────────────────────────────────────── */}
+        <div style={{ padding: '24px 32px 0' }}>
+          <div style={{
+            display: 'grid', gridTemplateColumns: '1fr 1fr',
+            background: '#F4F4F4', borderRadius: '10px',
+            padding: '4px', gap: '4px',
+          }}>
+            {([
+              { key: 'signin',   label: 'Sign in'        },
+              { key: 'register', label: 'Create account' },
+            ] as { key: Mode; label: string }[]).map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => switchMode(tab.key)}
+                style={{
+                  padding: '10px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  fontFamily: 'DM Sans, sans-serif',
+                  fontSize: '14px',
+                  fontWeight: mode === tab.key ? 700 : 500,
+                  cursor: 'pointer',
+                  transition: 'all .18s',
+                  background: mode === tab.key ? 'white' : 'transparent',
+                  color:      mode === tab.key ? '#1A1A1A' : '#666666',
+                  boxShadow:  mode === tab.key
+                    ? '0 1px 4px rgba(0,0,0,0.10)'
+                    : 'none',
+                }}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* ── Form area ─────────────────────────────────────────────────── */}
+        <div style={{ padding: '24px 32px 32px' }}>
+
+          {/* ── Error banner ──────────────────────────────────────────── */}
+          {error && (
+            <div style={{
+              background: '#FDECEA', borderRadius: '8px',
+              padding: '11px 14px', marginBottom: '16px',
+              fontSize: '13px', color: '#E8220A', lineHeight: 1.5,
+            }}>
+              {error}
+            </div>
+          )}
+
+          {/* ── Magic link success ────────────────────────────────────── */}
+          {magicSent && (
+            <div style={{
+              background: '#E8F5EC', borderRadius: '8px',
+              padding: '11px 14px', marginBottom: '16px',
+              fontSize: '13px', color: '#1E7B34', lineHeight: 1.5,
+            }}>
+              ✓ Magic link sent to <strong>{si.email}</strong> — check your inbox.
+            </div>
+          )}
+
+          {/* ════════════════════════════════════════════════════════════
+              SIGN IN MODE
+          ════════════════════════════════════════════════════════════ */}
+          {mode === 'signin' && (
+            <>
+              <Field
+                label="Email address"
+                value={si.email}
+                onChange={v => setSi(f => ({ ...f, email: v }))}
+                type="email"
+                placeholder="you@example.com"
+              />
+              <Field
+                label="Password"
+                value={si.password}
+                onChange={v => setSi(f => ({ ...f, password: v }))}
+                type={showPwd ? 'text' : 'password'}
+                placeholder="Your password"
+                rightSlot={<EyeBtn show={showPwd} toggle={() => setShowPwd(v => !v)} />}
+              />
+
+              {/* Remember + Forgot */}
+              <div style={{
+                display: 'flex', alignItems: 'center',
+                justifyContent: 'space-between', marginBottom: '20px',
+              }}>
+                <label style={{
+                  display: 'flex', alignItems: 'center',
+                  gap: '8px', cursor: 'pointer',
+                }}>
+                  <input
+                    type="checkbox" checked={si.rememberMe}
+                    onChange={e => setSi(f => ({ ...f, rememberMe: e.target.checked }))}
+                    style={{ accentColor: '#1E7B34', width: '16px', height: '16px' }}
+                  />
+                  <span style={{ fontSize: '13px', color: '#1A1A1A' }}>Remember me</span>
+                </label>
+                <Link href="/forgot-password" style={{
+                  fontSize: '13px', color: '#1E7B34',
+                  fontWeight: 600, textDecoration: 'none',
+                }}>
+                  Forgot password?
+                </Link>
+              </div>
+
+              {/* Sign in CTA */}
+              <button
+                onClick={handleSignIn}
+                disabled={loading}
+                style={{
+                  width: '100%', padding: '14px', borderRadius: '8px', border: 'none',
+                  background: loading ? '#E8E8E8' : '#1E7B34', color: 'white',
+                  fontSize: '15px', fontWeight: 700,
+                  cursor: loading ? 'default' : 'pointer',
+                  marginBottom: '12px', fontFamily: 'DM Sans, sans-serif',
+                  transition: 'background .15s',
+                }}
+              >
+                {loading ? 'Signing in…' : 'Sign in'}
+              </button>
+
+              {/* Divider */}
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px',
+              }}>
+                <div style={{ flex: 1, height: '1px', background: '#E8E8E8' }} />
+                <span style={{ fontSize: '12px', color: '#999999' }}>or</span>
+                <div style={{ flex: 1, height: '1px', background: '#E8E8E8' }} />
+              </div>
+
+              {/* Magic link */}
+              <button
+                onClick={handleMagicLink}
+                disabled={loading}
+                style={{
+                  width: '100%', padding: '13px', borderRadius: '8px',
+                  border: '1.5px solid #E8E8E8', background: 'white',
+                  fontSize: '14px', fontWeight: 500, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                  fontFamily: 'DM Sans, sans-serif', color: '#1A1A1A', marginBottom: '20px',
+                }}
+              >
+                ✉️ Send magic link
+              </button>
+
+              {/* Switch to register */}
+              <p style={{ textAlign: 'center', fontSize: '13px', color: '#666666' }}>
+                New to Feastpot?{' '}
+                <button
+                  onClick={() => switchMode('register')}
+                  style={{
+                    background: 'none', border: 'none', padding: 0,
+                    color: '#1E7B34', fontWeight: 700, fontSize: '13px',
+                    cursor: 'pointer', fontFamily: 'DM Sans, sans-serif',
+                  }}
+                >
+                  Create account
+                </button>
+              </p>
+            </>
+          )}
+
+          {/* ════════════════════════════════════════════════════════════
+              REGISTER MODE
+          ════════════════════════════════════════════════════════════ */}
+          {mode === 'register' && (
+            <>
+              <Field
+                label="Full name"
+                value={reg.fullName}
+                onChange={v => setReg(f => ({ ...f, fullName: v }))}
+                placeholder="e.g. Amara Okafor"
+                error={regErrors.fullName}
+              />
+              <Field
+                label="Email address"
+                value={reg.email}
+                onChange={v => setReg(f => ({ ...f, email: v }))}
+                type="email"
+                placeholder="you@example.com"
+                error={regErrors.email}
+              />
+              <Field
+                label="Phone number"
+                value={reg.phone}
+                onChange={v => setReg(f => ({ ...f, phone: v }))}
+                type="tel"
+                placeholder="07XXXXXXXXX"
+                error={regErrors.phone}
+              />
+              <Field
+                label="Password"
+                value={reg.password}
+                onChange={v => setReg(f => ({ ...f, password: v }))}
+                type={showPwd ? 'text' : 'password'}
+                placeholder="Minimum 8 characters"
+                error={regErrors.password}
+                rightSlot={<EyeBtn show={showPwd} toggle={() => setShowPwd(v => !v)} />}
+              />
+              <Field
+                label="Confirm password"
+                value={reg.confirmPassword}
+                onChange={v => setReg(f => ({ ...f, confirmPassword: v }))}
+                type={showCpwd ? 'text' : 'password'}
+                placeholder="Repeat your password"
+                error={regErrors.confirmPassword}
+                rightSlot={<EyeBtn show={showCpwd} toggle={() => setShowCpwd(v => !v)} />}
+              />
+              <Field
+                label="Postcode / service area"
+                value={reg.postcode}
+                onChange={v => setReg(f => ({ ...f, postcode: v }))}
+                placeholder="e.g. SE15 4ST"
+                error={regErrors.postcode}
+              />
+
+              {/* Marketing consent */}
+              <label style={{
+                display: 'flex', alignItems: 'flex-start', gap: '10px',
+                marginBottom: '10px', cursor: 'pointer',
+              }}>
+                <input
+                  type="checkbox" checked={reg.marketingConsent}
+                  onChange={e => setReg(f => ({ ...f, marketingConsent: e.target.checked }))}
+                  style={{
+                    marginTop: '2px', accentColor: '#1E7B34',
+                    width: '16px', height: '16px', flexShrink: 0,
+                  }}
+                />
+                <span style={{ fontSize: '13px', color: '#666666', lineHeight: 1.5 }}>
+                  Send me offers, updates and recommendations
+                </span>
+              </label>
+
+              {/* Terms */}
+              <label style={{
+                display: 'flex', alignItems: 'flex-start', gap: '10px',
+                marginBottom: regErrors.terms ? '4px' : '20px', cursor: 'pointer',
+              }}>
+                <input
+                  type="checkbox" checked={reg.termsAccepted}
+                  onChange={e => setReg(f => ({ ...f, termsAccepted: e.target.checked }))}
+                  style={{
+                    marginTop: '2px', accentColor: '#1E7B34',
+                    width: '16px', height: '16px', flexShrink: 0,
+                  }}
+                />
+                <span style={{ fontSize: '13px', color: '#666666', lineHeight: 1.5 }}>
+                  I agree to the{' '}
+                  <Link
+                    href="/legal/terms" target="_blank"
+                    style={{ color: '#1E7B34', fontWeight: 600 }}
+                  >
+                    Terms of Service
+                  </Link>
+                  {' '}and{' '}
+                  <Link
+                    href="/legal/privacy" target="_blank"
+                    style={{ color: '#1E7B34', fontWeight: 600 }}
+                  >
+                    Privacy Policy
+                  </Link>
+                </span>
+              </label>
+              {regErrors.terms && (
+                <p style={{ fontSize: '12px', color: '#E8220A', marginBottom: '14px' }}>
+                  {regErrors.terms}
+                </p>
+              )}
+
+              {/* Register CTA */}
+              <button
+                onClick={handleRegister}
+                disabled={loading}
+                style={{
+                  width: '100%', padding: '14px', borderRadius: '8px', border: 'none',
+                  background: loading ? '#E8E8E8' : '#1E7B34', color: 'white',
+                  fontSize: '15px', fontWeight: 700,
+                  cursor: loading ? 'default' : 'pointer',
+                  marginBottom: '12px', fontFamily: 'DM Sans, sans-serif',
+                  transition: 'background .15s',
+                }}
+              >
+                {loading ? 'Creating account…' : 'Create account'}
+              </button>
+
+              {/* Divider + SSO */}
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px',
+              }}>
+                <div style={{ flex: 1, height: '1px', background: '#E8E8E8' }} />
+                <span style={{ fontSize: '12px', color: '#999999' }}>or sign up with</span>
+                <div style={{ flex: 1, height: '1px', background: '#E8E8E8' }} />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '20px' }}>
+                <button
+                  onClick={ssoGoogle}
+                  style={{
+                    padding: '12px', borderRadius: '8px',
+                    border: '1.5px solid #E8E8E8', background: 'white',
+                    fontSize: '13px', fontWeight: 500, cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                    fontFamily: 'DM Sans, sans-serif', color: '#1A1A1A',
+                  }}
+                >
+                  <span style={{ fontSize: '16px' }}>G</span> Google
+                </button>
+                <button
+                  onClick={ssoApple}
+                  style={{
+                    padding: '12px', borderRadius: '8px',
+                    border: '1.5px solid #E8E8E8', background: 'white',
+                    fontSize: '13px', fontWeight: 500, cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                    fontFamily: 'DM Sans, sans-serif', color: '#1A1A1A',
+                  }}
+                >
+                  <span style={{ fontSize: '16px' }}>🍎</span> Apple
+                </button>
+              </div>
+
+              {/* Switch to sign in */}
+              <p style={{ textAlign: 'center', fontSize: '13px', color: '#666666' }}>
+                Already have an account?{' '}
+                <button
+                  onClick={() => switchMode('signin')}
+                  style={{
+                    background: 'none', border: 'none', padding: 0,
+                    color: '#1E7B34', fontWeight: 700, fontSize: '13px',
+                    cursor: 'pointer', fontFamily: 'DM Sans, sans-serif',
+                  }}
+                >
+                  Sign in
+                </button>
+              </p>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+════════════════════════════════════════════════════════
+STEP 2 — Delete the old separate register page
+════════════════════════════════════════════════════════
+
+Delete this file (or the folder) entirely:
+apps/web/src/app/(auth)/register/create-account/page.tsx
+
+If the folder apps/web/src/app/(auth)/register/ contains nothing else, delete
+the entire folder.
+
+════════════════════════════════════════════════════════
+STEP 3 — Add a redirect for the old URL
+File: apps/web/src/app/(auth)/register/page.tsx (create)
+════════════════════════════════════════════════════════
+
+import { redirect } from 'next/navigation'
+
+export default function RegisterRedirect() {
+  redirect('/sign-in?mode=register')
+}
+
+This ensures any existing bookmarks or links to /register land correctly.
+
+════════════════════════════════════════════════════════
+STEP 4 — Update every link that points to /register/create-account
+════════════════════════════════════════════════════════
+
+Run in the Replit shell:
+grep -rn "register/create-account\|/register\"" apps/web/src \
+  --include="*.tsx" --include="*.ts"
+
+For every result, change the href:
+  FROM: href="/register/create-account"
+  TO:   href="/sign-in?mode=register"
+
+  FROM: href="/register"
+  TO:   href="/sign-in?mode=register"
+
+Files most likely to need updating:
+- apps/web/src/app/page.tsx (homepage — "Create account" CTA)
+- apps/web/src/components/layout/top-nav.tsx (nav links)
+- apps/web/src/components/layout/footer.tsx (footer links)
+- apps/web/src/app/(auth)/sign-in/page.tsx (already handled above)
+
+════════════════════════════════════════════════════════
+STEP 5 — Fix the /sign-in page metadata
+File: apps/web/src/app/(auth)/sign-in/page.tsx — add at the top
+════════════════════════════════════════════════════════
+
+Since this is a 'use client' component, metadata must go in a separate
+layout file:
+
+File: apps/web/src/app/(auth)/sign-in/layout.tsx (create)
+
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: 'Sign in or Create account | Feastpot',
+  description: 'Sign in to your Feastpot account or create a new one.',
+  robots: { index: false },
+}
+
+export default function AuthLayout({ children }: { children: React.ReactNode }) {
+  return <>{children}</>
+}
+
+════════════════════════════════════════════════════════
+STEP 6 — Verify on mobile (375px) and desktop
+════════════════════════════════════════════════════════
+
+Run: npm run dev:web
+Navigate to: http://localhost:3000/sign-in
+
+Check Sign in tab:
+[ ] Only 2 fields visible: Email, Password
+[ ] Remember me + Forgot password row
+[ ] "Sign in" green button
+[ ] "Send magic link" outlined button
+[ ] "New to Feastpot? Create account" link at bottom
+[ ] Clicking "Create account" switches tab — NO page reload, NO scroll to top
+
+Check Create account tab:
+[ ] 6 fields: Full name, Email, Phone, Password, Confirm password, Postcode
+[ ] Two checkboxes: marketing, T&C
+[ ] "Create account" green button
+[ ] Google + Apple SSO buttons side by side
+[ ] "Already have an account? Sign in" link switches back
+[ ] Clicking "Sign in" switches tab — NO page reload
+
+Check URL behaviour:
+[ ] /sign-in shows Sign in tab
+[ ] /sign-in?mode=register shows Create account tab
+[ ] Switching tabs updates URL bar without page reload
+[ ] Browser back button switches back between tabs correctly
+
+Check at 375px mobile:
+[ ] Card fills width with 16px margins
+[ ] No horizontal overflow
+[ ] All inputs full width
+[ ] Tab switcher spans full width
+[ ] Buttons minimum 48px height
+
+Run: npm run typecheck --filter=@feastpot/web
+Assert: zero TypeScript errors
+
+Run: npm run build --filter=@feastpot/web
+Assert: builds without error (no static generation timeout)
+Assert: /sign-in shows as (dynamic) in build output
+
+Output the complete page.tsx and all other changed files.
