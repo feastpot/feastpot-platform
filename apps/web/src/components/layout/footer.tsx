@@ -47,12 +47,12 @@ export function Footer() {
               you. Keep your food business moving without chasing DMs.
             </p>
           </div>
-          <a
-            href={`${process.env.NEXT_PUBLIC_VENDOR_URL ?? 'https://vendor.feastpot.co.uk'}/onboarding/register`}
+          <Link
+            href="/become-a-vendor"
             className="shrink-0 rounded-xl bg-brand px-4 py-2.5 text-[13px] font-bold text-white transition-colors hover:bg-brand-dark"
           >
             Join Feastpot
-          </a>
+          </Link>
         </div>
 
         {/* Two-column legal/help link grid. */}

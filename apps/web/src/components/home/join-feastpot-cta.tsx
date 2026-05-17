@@ -1,8 +1,10 @@
+import Link from 'next/link';
+
 /**
  * "Cook from home? Join FeastPot." Soft green-tinted recruitment bar
- * sitting just above the footer. The customer PWA's only outbound
- * link to the vendor portal — stays visible without overpowering the
- * primary buyer flow above it.
+ * sitting just above the footer. Routes prospective cooks to the
+ * public acquisition page on the customer site — the vendor portal
+ * URL is intentionally absent from all public chrome.
  */
 export function JoinFeastpotCta() {
   return (
@@ -20,12 +22,12 @@ export function JoinFeastpotCta() {
             you. Keep your food business moving without chasing DMs.
           </p>
         </div>
-        <a
-          href={`${process.env.NEXT_PUBLIC_VENDOR_URL ?? 'https://vendor.feastpot.co.uk'}/onboarding/register`}
+        <Link
+          href="/become-a-vendor"
           className="shrink-0 rounded-xl bg-brand px-5 py-3 text-sm font-bold text-white shadow-card transition-colors hover:bg-brand-dark"
         >
           Join FeastPot
-        </a>
+        </Link>
       </div>
     </section>
   );
