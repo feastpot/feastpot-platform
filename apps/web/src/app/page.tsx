@@ -7,7 +7,6 @@ import { FavouritesPills } from '@/components/home/favourites-pills';
 import { FeastPassStrip } from '@/components/home/feast-pass-strip';
 import { HowFeastpotWorks } from '@/components/home/how-feastpot-works';
 import { InstagramDmsBlock } from '@/components/home/instagram-dms-block';
-import { JoinFeastpotCta } from '@/components/home/join-feastpot-cta';
 import { MarketingNav } from '@/components/home/marketing-nav';
 import { OccasionGrid } from '@/components/home/occasion-grid';
 import { PostcodeHero } from '@/components/home/postcode-hero';
@@ -22,7 +21,7 @@ import { COVERAGE_COOKIE } from '@/lib/postcode';
  * Composition (top → bottom):
  *   MarketingNav · PostcodeHero · TrustIconStrip · OccasionGrid ·
  *   HowFeastpotWorks · InstagramDmsBlock · CommunityReviews ·
- *   FavouritesPills · FeastPassStrip · JoinFeastpotCta
+ *   FavouritesPills · FeastPassStrip
  *
  * The "no vendors before postcode" gate (per the wireframe copy) is
  * preserved: vendor rails only render once the `feastpot.coverage.v1`
@@ -155,7 +154,6 @@ export default async function HomePage() {
       )}
 
       <FeastPassStrip />
-      <JoinFeastpotCta />
     </>
   );
 }
