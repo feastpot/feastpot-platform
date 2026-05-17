@@ -39,7 +39,11 @@ export function FavouritesPills() {
       >
         <span className="text-brand">African</span> &amp;{' '}
         <span className="text-scotch">Caribbean</span> favourites on{' '}
-        <span className="text-brand">FeastPot</span>
+        {/* Logo wordmark colours: "feast" = terracotta #E8520A,
+            "pot" = charcoal #1C1C1A. Brand token is now green, so the
+            terracotta is an arbitrary value. */}
+        <span className="text-[#E8520A]">Feast</span>
+        <span className="text-charcoal">Pot</span>
       </h2>
       <p className="mt-1 text-[14px] font-medium text-charcoal-mid">
         These cards are teasers only. Clicking one asks for postcode before
