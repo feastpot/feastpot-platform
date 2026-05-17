@@ -108,12 +108,6 @@ export function OccasionGrid() {
             showing available cooks.
           </p>
         </div>
-        <a
-          href="#hero-headline"
-          className="inline-flex items-center gap-1.5 rounded-full border border-cream-deep bg-white px-4 py-2 text-[13px] font-semibold text-charcoal hover:bg-cream-warm"
-        >
-          See what delivers here
-        </a>
       </header>
 
       <ul className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">

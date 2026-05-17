@@ -312,14 +312,6 @@ export function PostcodeHero() {
         </div>
       </div>
 
-      {/* Stats card — sits under the form on desktop, mirrors the wireframe */}
-      <div className="mx-auto mt-6 max-w-6xl">
-        <div className="grid max-w-md grid-cols-3 gap-3 rounded-2xl border border-cream-deep bg-white p-4 shadow-card sm:gap-6">
-          <Stat value="4.8/5" label="community rating" />
-          <Stat value="30+" label="occasion types" />
-          <Stat value="0" label="vendors shown before postcode" />
-        </div>
-      </div>
     </section>
   );
 }
@@ -346,15 +338,3 @@ function EyebrowTag({
   );
 }
 
-function Stat({ value, label }: { value: string; label: string }) {
-  return (
-    <div>
-      <p className="font-display text-xl font-black leading-none text-charcoal sm:text-2xl">
-        {value}
-      </p>
-      <p className="mt-1 text-[11px] font-medium leading-tight text-charcoal-mid">
-        {label}
-      </p>
-    </div>
-  );
-}
