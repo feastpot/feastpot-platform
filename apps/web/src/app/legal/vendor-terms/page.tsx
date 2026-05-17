@@ -80,9 +80,7 @@ export default function VendorTermsPage() {
 
         <LegalSection id="payouts" icon="🏦" title="3. Payouts">
           <p>
-            Vendor Commission is <strong>{LEGAL.PLATFORM_COMMISSION_PCT}%</strong> of the order
-            subtotal on each completed order. Commission is deducted from your weekly payout
-            &mdash; it is not charged separately.
+            Commission is deducted from your weekly payout &mdash; it is not charged separately.
           </p>
           <p>
             Payouts are processed <strong>weekly, every Monday</strong>, for all orders delivered

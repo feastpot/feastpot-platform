@@ -155,7 +155,7 @@ export function PostcodeHero() {
             The best of{' '}
             <span className="text-brand">African</span> &amp;{' '}
             <span className="text-scotch">Caribbean</span> food,
-            <br className="hidden md:block" /> delivered near you
+            <br className="hidden md:block" /> delivered to you
           </h1>
 
           <p className="mt-5 max-w-xl text-[15px] font-medium leading-relaxed text-charcoal-mid lg:text-base">
