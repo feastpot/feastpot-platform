@@ -219,16 +219,36 @@ function RadioRow({
   label: string;
   onChange: () => void;
 }) {
+  // Custom radio: native `accent-color` rendering of the inner dot is
+  // unreliable when paired with a custom border colour (the dot ends up
+  // hidden behind the thicker border on some browsers). We render a
+  // visible 16px ring + 8px green inner dot ourselves and hide the
+  // native control via `peer sr-only` so the underlying form semantics
+  // (keyboard nav, screen readers, radio group exclusivity) still work.
   return (
-    <label className="flex cursor-pointer items-center gap-3 text-sm font-medium text-charcoal-mid hover:text-charcoal">
+    <label
+      className={`flex cursor-pointer items-center gap-3 text-sm font-medium hover:text-charcoal ${
+        checked ? 'text-charcoal' : 'text-charcoal-mid'
+      }`}
+    >
       <input
         type="radio"
         name={name}
         value={value}
         checked={checked}
         onChange={onChange}
-        className="h-4 w-4 border-cream-deep accent-brand"
+        className="peer sr-only"
       />
+      <span
+        aria-hidden
+        className="relative grid h-4 w-4 shrink-0 place-items-center rounded-full border-2 border-cream-deep bg-white transition-colors peer-checked:border-brand peer-focus-visible:ring-2 peer-focus-visible:ring-brand/40 peer-focus-visible:ring-offset-1"
+      >
+        <span
+          className={`h-2 w-2 rounded-full bg-brand transition-opacity ${
+            checked ? 'opacity-100' : 'opacity-0'
+          }`}
+        />
+      </span>
       <span>{label}</span>
     </label>
   );
