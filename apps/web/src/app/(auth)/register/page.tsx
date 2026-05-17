@@ -55,7 +55,7 @@ export default function RegisterCtaPage() {
 
             <div className="mt-7 flex flex-col gap-3 sm:flex-row">
               <Link
-                href="/register/create-account"
+                href="/sign-in?mode=register"
                 className="inline-flex items-center justify-center rounded-xl bg-brand px-7 py-3.5 text-sm font-bold text-white shadow-card transition-colors hover:bg-brand-dark"
               >
                 Create account
