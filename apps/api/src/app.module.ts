@@ -143,9 +143,26 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
         // We deliberately keep the log at warn level — a Redis outage on
         // the rate-limit path is bad, but it shouldn't 500 every request;
         // we degrade to fail-open (see the wrapper below).
+        //
+        // 60s log throttle. The 2026-05-17 outage was caused by THIS
+        // listener firing at ~1Hz with un-throttled `log.warn` calls;
+        // pino's sync transport flushes JSON to stderr on every call,
+        // which starved the event loop enough to make /livez (a
+        // zero-IO SELECT 1) time out at 10s. With this throttle, a
+        // permanent WRONGPASS produces 1 log line per minute instead
+        // of 60.
         const log = new Logger('ThrottlerRedis');
+        let lastErrorLog = 0;
+        let lastDegradedLog = 0;
+        const THROTTLE_MS = 60_000;
         redis.on('error', (err) => {
-          log.warn(`Redis error on throttler client: ${(err as Error).message}`);
+          const now = Date.now();
+          if (now - lastErrorLog > THROTTLE_MS) {
+            lastErrorLog = now;
+            log.warn(
+              `Redis error on throttler client: ${(err as Error).message} (further errors suppressed for 60s)`,
+            );
+          }
         });
         const inner = new ThrottlerStorageRedisService(redis);
         // Fail-open wrapper: if the Redis INCR fails for any reason
@@ -154,14 +171,22 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
         // Redis outage — the global `short` window (10 req/sec) is
         // still enforced upstream by Cloudflare / Replit's L7 LB on
         // the deployed path.
+        //
+        // The `log.warn` here ALSO needs throttling: under real load,
+        // every request hits this path, so without the throttle a
+        // Redis outage produces N log lines per second where N = RPS.
         const storage: ThrottlerStorage = {
           increment: async (key, ttl, limit, blockDuration, name) => {
             try {
               return await inner.increment(key, ttl, limit, blockDuration, name);
             } catch (err) {
-              log.warn(
-                `Throttler storage degraded — allowing request: ${(err as Error).message}`,
-              );
+              const now = Date.now();
+              if (now - lastDegradedLog > THROTTLE_MS) {
+                lastDegradedLog = now;
+                log.warn(
+                  `Throttler storage degraded — allowing requests: ${(err as Error).message} (further degradation logs suppressed for 60s)`,
+                );
+              }
               return {
                 totalHits: 0,
                 timeToExpire: Math.ceil(ttl / 1000),

@@ -1,0 +1,254 @@
+You are a NestJS DevOps engineer. Ship three Redis hardening changes as a single PR.
+
+INCIDENT CONTEXT (2026-05-16):
+Upstash Redis password drifted between the workspace secret and the deployment secret.
+ioredis reconnect-stormed ~14 clients with WRONGPASS on every retry cycle.
+Main thread starvation caused /livez to time out. Better Stack paged. Site appeared down.
+Fix: three hardening changes that make the next credential drift auto-recover or fast-fail
+instead of silently degrading the entire platform.
+
+════════════════════════════════════════════════════════
+CHANGE 1 — Fail-fast Redis boot check
+File: apps/api/src/common/cache/redis-cache.service.ts
+════════════════════════════════════════════════════════
+
+On module init, run a 5-second PING before accepting any traffic.
+If PING fails due to auth, log clearly and abort — don't silently reconnect-storm.
+
+Add to RedisCacheService:
+
+async onModuleInit() {
+  if (!this.client) return  // Redis not configured — already warned, continue
+
+  try {
+    const result = await Promise.race([
+      this.client.ping(),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('PING timeout after 5s')), 5000)
+      ),
+    ])
+    if (result === 'PONG') {
+      this.available = true
+      this.logger.log('[Redis] Boot PING succeeded — connection healthy')
+    }
+  } catch (err: any) {
+    const isAuth = err.message?.includes('WRONGPASS') || err.message?.includes('NOAUTH')
+    if (isAuth) {
+      // Auth failure is unrecoverable without a secret rotation — abort fast
+      this.logger.error(
+        '[CRITICAL] REDIS_URL auth failed at boot — ' +
+        'rotate REDIS_URL in Replit Secrets and redeploy. ' +
+        'Aborting to prevent reconnect-storm.'
+      )
+      // In production: hard exit so the container restarts with the correct secret
+      // In development: log and continue degraded so devs aren't blocked
+      if (process.env.NODE_ENV === 'production') {
+        process.exit(1)
+      }
+    } else {
+      // Network timeout, DNS issue — degrade gracefully, don't abort
+      this.logger.warn(
+        `[Redis] Boot PING failed (${err.message}) — running degraded. ` +
+        'Caching and queues disabled until Redis recovers.'
+      )
+    }
+    this.available = false
+  }
+}
+
+This means: next time the password drifts, the container refuses to start,
+Better Stack sees a crash-loop not a silent degradation, and the alert is
+"deployment unhealthy" not "site down for an hour".
+
+════════════════════════════════════════════════════════
+CHANGE 2 — Bound reconnect noise and event-loop starvation
+File: apps/api/src/common/cache/redis-cache.service.ts
+════════════════════════════════════════════════════════
+
+Update the ioredis client constructor options:
+
+this.client = new Redis(url, {
+  // Hard cap on retries — after 3 failures, stop reconnecting
+  maxRetriesPerRequest: 3,
+
+  // Exponential backoff capped at 30s — not hammering every 100ms
+  retryStrategy: (times: number) => {
+    if (times > 3) {
+      // Log ONCE at the threshold, then silence
+      if (times === 4) {
+        this.logger.warn(
+          '[Redis] Giving up after 3 reconnect attempts. ' +
+          'Running without cache. ' +
+          'Next log in 60s if still failing.'
+        )
+        // Start the 60s periodic health check
+        this.startHealthCheckInterval()
+      }
+      return null  // stop ioredis retrying — we manage reconnects ourselves
+    }
+    const delay = Math.min(500 * Math.pow(2, times), 30_000)
+    return delay
+  },
+
+  // Throttle WRONGPASS log — one log per 60 seconds max
+  enableOfflineQueue: false,  // don't queue commands while disconnected
+  lazyConnect: true,          // don't connect until first command
+  connectTimeout: 5000,
+  commandTimeout: 3000,
+})
+
+// One error log per 60s instead of per reconnect attempt
+private lastErrorLog = 0
+this.client.on('error', (err) => {
+  const now = Date.now()
+  if (now - this.lastErrorLog > 60_000) {
+    this.lastErrorLog = now
+    this.logger.warn(`[Redis] Connection error: ${err.message} (further errors suppressed for 60s)`)
+  }
+  this.available = false
+})
+
+// Periodic health check when Redis is down (every 60s)
+private startHealthCheckInterval() {
+  const interval = setInterval(async () => {
+    try {
+      await this.client?.ping()
+      this.available = true
+      this.logger.log('[Redis] Reconnected — cache and queues restored')
+      clearInterval(interval)
+    } catch {
+      // Still down — next check in 60s, no log spam
+    }
+  }, 60_000)
+}
+
+Also update BullMQ connection options in app.module.ts:
+
+BullModule.forRootAsync({
+  useFactory: (config: ConfigService) => ({
+    connection: {
+      url: config.get('REDIS_URL'),
+      maxRetriesPerRequest: 3,
+      enableOfflineQueue: false,
+      connectTimeout: 5000,
+      // Reduce per-queue connection count from default 10 to 3
+      // 4 queues × 3 connections = 12 total (was ~14 hitting the event loop)
+      family: 0,
+    },
+    defaultJobOptions: {
+      attempts: 3,
+      backoff: { type: 'exponential', delay: 2000 },
+    },
+  }),
+  inject: [ConfigService],
+})
+
+════════════════════════════════════════════════════════
+CHANGE 3 — /healthz returns 503 only on DB down, not Redis down
+File: apps/api/src/health/health.controller.ts
+════════════════════════════════════════════════════════
+
+The current /healthz returns 503 when Redis is unavailable.
+Better Stack points at /healthz and pages on any non-200.
+Redis being down should be "degraded" (200) not "down" (503).
+Only a database failure should return 503.
+
+Update the health check response logic:
+
+@Get()
+@Public()
+async healthz(): Promise<HealthzResponse> {
+  const TIMEOUT = 2000
+
+  const withTimeout = <T>(p: Promise<T>, fallback: T): Promise<T> =>
+    Promise.race([p, new Promise<T>(r => setTimeout(() => r(fallback), TIMEOUT))])
+
+  const [dbStatus, redisStatus, queuesStatus] = await Promise.all([
+    // DB — the only thing that makes us truly "down"
+    withTimeout(
+      this.prisma.$queryRaw`SELECT 1`
+        .then(() => 'ok' as const)
+        .catch(() => 'error' as const),
+      'timeout' as const
+    ),
+    // Redis — degraded if down, not critical
+    withTimeout(
+      this.redisCacheService.ping()
+        .then(r => r === 'PONG' ? 'ok' as const : 'disabled' as const)
+        .catch(() => 'error' as const),
+      'timeout' as const
+    ),
+    // Queues — best-effort, never blocks health response
+    withTimeout(
+      this.getQueueDepths(),
+      { status: 'timeout' }
+    ),
+  ])
+
+  // ONLY the database determines HTTP status code
+  const isDown = dbStatus !== 'ok'
+
+  // Status string for observability
+  const status = isDown ? 'down'
+    : redisStatus !== 'ok' ? 'degraded'
+    : 'ok'
+
+  const httpStatus = isDown ? 503 : 200  // Redis degraded = 200, DB down = 503
+
+  return {
+    status,
+    httpStatus,
+    uptime: Math.floor(process.uptime()),
+    version: process.env.npm_package_version ?? '0.0.0',
+    timestamp: new Date().toISOString(),
+    checks: {
+      database: dbStatus,   // 'ok' | 'error' | 'timeout'
+      redis: redisStatus,   // 'ok' | 'disabled' | 'error' | 'timeout'
+      queues: queuesStatus,
+    },
+  }
+}
+
+// Ensure the response uses the correct HTTP status code
+// Add this to the controller method:
+@Res({ passthrough: true }) res: Response,
+
+// And inside the method before return:
+res.status(httpStatus)
+
+Better Stack action (non-code — do this in the dashboard):
+1. Change the monitored URL from /livez to /healthz (if not already)
+2. Keep alert threshold at: non-200 for 2 consecutive checks (1 minute)
+3. Add a separate "degraded" alert: look for { status: "degraded" } in response body
+   with a 15-minute threshold (Redis being down for 15min = alert, not instant page)
+
+════════════════════════════════════════════════════════
+VERIFICATION
+════════════════════════════════════════════════════════
+
+Run: npm run build:api — zero errors required
+
+Simulate WRONGPASS (change REDIS_URL password to wrong value in dev):
+Run: npm run start:api
+Assert:
+  - Boot PING fires within 5 seconds
+  - One [CRITICAL] log line appears
+  - In production mode: process exits with code 1 (fast-fail)
+  - In development mode: API starts degraded, one warning log, no spam
+
+Restore correct REDIS_URL:
+Run: npm run start:api
+Assert:
+  - "[Redis] Boot PING succeeded — connection healthy" in logs
+  - All 4 Bull queues connect
+  - /healthz returns 200 { status: "ok" }
+
+Simulate Redis going down mid-runtime (pause Upstash in dashboard):
+Assert:
+  - /healthz returns 200 { status: "degraded" } (not 503)
+  - Error logs appear at most once per 60 seconds (not continuously)
+  - API continues serving vendor browse, checkout, etc.
+  - After 60s health check: reconnects automatically when Redis comes back
+
+Run: npm run typecheck in apps/api
+Output all changed files in full.

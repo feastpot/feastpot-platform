@@ -1,6 +1,26 @@
-import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
+
+/**
+ * Boot PING budget. If we cannot complete an AUTH+PING handshake within
+ * this window, the boot probe gives up and either fail-fasts (prod, auth
+ * error) or starts degraded (network blip). 5s comfortably covers Upstash
+ * EU→EU TLS handshake (~150ms) plus 3 retry attempts with backoff.
+ */
+const BOOT_PING_TIMEOUT_MS = 5_000;
+
+/**
+ * Reconnect probe interval after ioredis exhausts its retry budget. Once
+ * `retryStrategy` returns null, ioredis stops trying forever — so we run
+ * a manual probe every 60s. When Upstash comes back (after a credential
+ * rotation, network restoration, etc.) the cache restores itself with
+ * exactly one log line, no operator intervention required.
+ */
+const RECONNECT_PROBE_INTERVAL_MS = 60_000;
+
+/** Suppress repeat error logs from the same source for this window. */
+const ERROR_LOG_THROTTLE_MS = 60_000;
 
 /**
  * General-purpose Redis cache for hot read paths (vendor profiles, search
@@ -18,7 +38,7 @@ import Redis from 'ioredis';
  * becomes a no-op so `findById` / `search` etc just hit Postgres.
  */
 @Injectable()
-export class RedisCacheService implements OnModuleDestroy {
+export class RedisCacheService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(RedisCacheService.name);
   private readonly client: Redis | null;
   private readonly enabled: boolean;
@@ -27,6 +47,17 @@ export class RedisCacheService implements OnModuleDestroy {
   // `available` so cron handlers / processors can short-circuit cleanly
   // when Redis is permanently unreachable (e.g. WRONGPASS).
   private connectionDead = false;
+  // Last captured auth-failure error message. Surfaced by `onModuleInit`
+  // to decide whether to fail-fast (production WRONGPASS → process.exit)
+  // vs degrade quietly (transient network blip).
+  private lastAuthError: string | null = null;
+  // 60s log throttle so a permanent WRONGPASS doesn't fill the log
+  // stream / cost Loki ingestion / starve the event loop with sync
+  // log writes (this is what took /livez down on 2026-05-17).
+  private lastErrorLog = 0;
+  // Periodic reconnect probe (started after ioredis gives up). Cleared
+  // when Redis recovers, or on module destroy.
+  private reconnectProbe: NodeJS.Timeout | null = null;
 
   constructor(config: ConfigService) {
     const url = config.get<string>('REDIS_URL');
@@ -64,26 +95,47 @@ export class RedisCacheService implements OnModuleDestroy {
       },
       reconnectOnError: () => false,
     });
-    let errorCount = 0;
     this.client.on('error', (err) => {
-      // Log only the first 2 errors so a permanent auth error doesn't drown
-      // the log stream. The retryStrategy above will surface the giveup
-      // message after the 3rd attempt; further `error` events are noise.
-      if (errorCount < 2) {
-        this.logger.error(`Redis cache error: ${err.message}`);
+      // Capture auth failures so `onModuleInit` can decide whether to
+      // fail-fast at boot (prod WRONGPASS → process.exit(1)). The actual
+      // log line is throttled to once per 60s — see notes on
+      // `lastErrorLog`. The 2026-05-17 incident was caused by an
+      // un-throttled 1Hz log loop from the throttler client; we make
+      // sure the cache can never be the cause of the same failure mode.
+      const msg = err?.message ?? '';
+      if (/WRONGPASS|NOAUTH/i.test(msg)) {
+        this.lastAuthError = msg;
       }
-      errorCount += 1;
+      const now = Date.now();
+      if (now - this.lastErrorLog > ERROR_LOG_THROTTLE_MS) {
+        this.lastErrorLog = now;
+        this.logger.warn(
+          `[Redis] Cache client error: ${msg} (further errors suppressed for 60s)`,
+        );
+      }
     });
     this.client.on('end', () => {
       // ioredis emits 'end' once retryStrategy returns null. From here on,
       // every operation is a no-op (try/catch swallows the closed-conn
-      // error) — equivalent to running without REDIS_URL.
+      // error) — equivalent to running without REDIS_URL. We additionally
+      // start a periodic reconnect probe so the cache auto-recovers when
+      // Redis comes back (e.g. after a credential rotation), without
+      // requiring an operator to redeploy.
       this.connectionDead = true;
-      this.logger.warn('Redis cache disabled after exhausting reconnection attempts');
+      this.logger.warn(
+        '[Redis] Cache disabled after exhausting reconnection attempts — probing every 60s',
+      );
+      this.startReconnectProbe();
     });
     this.client.on('ready', () => {
       // If a transient blip recovered, treat the cache as live again.
+      const wasDead = this.connectionDead;
       this.connectionDead = false;
+      this.lastAuthError = null;
+      if (wasDead) {
+        this.logger.log('[Redis] Cache reconnected — caching restored');
+      }
+      this.stopReconnectProbe();
     });
     this.enabled = true;
 
@@ -187,7 +239,128 @@ export class RedisCacheService implements OnModuleDestroy {
     return JSON.stringify(sorted);
   }
 
+  /**
+   * Fail-fast boot probe. Waits up to 5s for the cache client to reach
+   * `ready` (handshake + AUTH complete). Three outcomes:
+   *
+   *   1. `ready` fires → log success, return. Normal path.
+   *   2. `end` fires (ioredis exhausted retries) → check whether we
+   *      captured a WRONGPASS/NOAUTH error along the way. If yes and
+   *      NODE_ENV=production, `process.exit(1)` so the container
+   *      crash-loops with a clear `[CRITICAL]` log line — operators get
+   *      a "deployment unhealthy" alert instead of a silent degradation
+   *      that takes the whole site down (2026-05-17 failure mode).
+   *   3. 5s timeout → degrade quietly. Probably a network blip; the
+   *      reconnect probe will keep trying.
+   *
+   * In dev (`NODE_ENV !== 'production'`) we never exit, so a stale
+   * `.env.local` doesn't stop the API from booting.
+   */
+  async onModuleInit(): Promise<void> {
+    if (!this.client) return;
+
+    const client = this.client;
+    const outcome = await new Promise<'ready' | 'end' | 'timeout'>((resolve) => {
+      if (client.status === 'ready') {
+        resolve('ready');
+        return;
+      }
+      const onReady = () => {
+        cleanup();
+        resolve('ready');
+      };
+      const onEnd = () => {
+        cleanup();
+        resolve('end');
+      };
+      const timer = setTimeout(() => {
+        cleanup();
+        resolve('timeout');
+      }, BOOT_PING_TIMEOUT_MS);
+      timer.unref?.();
+      const cleanup = () => {
+        clearTimeout(timer);
+        client.off('ready', onReady);
+        client.off('end', onEnd);
+      };
+      client.once('ready', onReady);
+      client.once('end', onEnd);
+    });
+
+    if (outcome === 'ready') {
+      this.logger.log('[Redis] Boot connection succeeded — cache healthy');
+      return;
+    }
+
+    // If we timed out before either ready/end fired, the auth error may
+    // still be arriving on a different microtask. Yield once and re-check
+    // both `lastAuthError` and the client's reported status so a slow
+    // WRONGPASS still trips the fail-fast path (architect review fix).
+    if (outcome === 'timeout') {
+      await new Promise<void>((r) => setImmediate(r));
+      const status = client.status;
+      if (
+        !this.lastAuthError &&
+        (status === 'end' || status === 'close' || status === 'reconnecting')
+      ) {
+        // Status indicates a connection problem but we didn't capture a
+        // specific auth error — surface it in the log line below.
+        this.logger.debug(`[Redis] Boot timeout — ioredis status=${status}`);
+      }
+    }
+
+    // ioredis gave up OR we timed out. If we captured an auth error
+    // along the way, this is unrecoverable without a secret rotation
+    // — fail-fast in production so the deployment is visibly broken.
+    if (this.lastAuthError && process.env.NODE_ENV === 'production') {
+      this.logger.error(
+        `[CRITICAL] REDIS_URL auth failed at boot (${this.lastAuthError}) — ` +
+          'rotate REDIS_URL in Replit Secrets (workspace AND deployment) and redeploy. ' +
+          'Aborting to prevent silent degradation and event-loop starvation.',
+      );
+      // Set exitCode so the process terminates non-zero even if the
+      // delayed exit() never runs (architect review fix — do NOT unref
+      // this timer or the event loop could drain before exit fires).
+      process.exitCode = 1;
+      setTimeout(() => process.exit(1), 100);
+      return;
+    }
+
+    this.logger.warn(
+      `[Redis] Boot ${outcome === 'timeout' ? 'PING timed out after 5s' : 'connection failed'}` +
+        `${this.lastAuthError ? ` (${this.lastAuthError})` : ''} — ` +
+        'running degraded. Cache and queues disabled until Redis recovers.',
+    );
+  }
+
+  /**
+   * Start a 60s manual reconnect probe. Triggered when ioredis emits
+   * `end` (retryStrategy returned null). Calls `client.connect()` on
+   * each tick — if it succeeds, the `ready` handler stops the probe and
+   * logs the recovery. No-ops if a probe is already running.
+   */
+  private startReconnectProbe(): void {
+    if (this.reconnectProbe || !this.client) return;
+    const client = this.client;
+    this.reconnectProbe = setInterval(() => {
+      // `connect()` rejects if the client is already connecting / connected;
+      // we just swallow — the `ready` handler is what flips state back.
+      client.connect().catch(() => {
+        /* still down — next probe in 60s */
+      });
+    }, RECONNECT_PROBE_INTERVAL_MS);
+    this.reconnectProbe.unref?.();
+  }
+
+  private stopReconnectProbe(): void {
+    if (this.reconnectProbe) {
+      clearInterval(this.reconnectProbe);
+      this.reconnectProbe = null;
+    }
+  }
+
   onModuleDestroy(): void {
+    this.stopReconnectProbe();
     this.client?.disconnect();
   }
 }
