@@ -141,8 +141,15 @@ function WelcomePanel() {
       <h1 className="mt-5 font-display text-4xl font-black leading-[1.05] tracking-tight text-charcoal sm:text-5xl">
         Welcome to
         <br />
-        <span className="text-brand">Feast</span>
-        <span className="text-scotch">Pot</span>
+        {/* Per-letter wordmark matching the brand logo: F-green, e-red,
+            a-gold, st-green, Pot-charcoal. Kept inline (vs a shared
+            component) because there are only two sites and the JSX is
+            self-documenting at the call site. */}
+        <span className="text-brand">F</span>
+        <span className="text-scotch">e</span>
+        <span className="text-plantain">a</span>
+        <span className="text-brand">st</span>
+        <span className="text-charcoal">Pot</span>
       </h1>
 
       <p className="mt-4 max-w-md text-[15px] leading-relaxed text-charcoal-mid">
