@@ -33,6 +33,18 @@ const isBenignRedisError = (err: unknown): boolean => {
   if (name === 'ReplyError' && command && typeof command.name === 'string') {
     return true;
   }
+  // ECONNREFUSED to the standard Redis ports (6379 plain, 6380 TLS) is
+  // unambiguously a Redis connection — Postgres is 5432, SMTP is
+  // 25/465/587, etc. Catching this means a dev env without REDIS_URL
+  // doesn't crash from Bull's eager localhost-fallback connect attempt
+  // (which otherwise produces an `uncaughtException` Node 22 surfaces).
+  const net = err as { code?: unknown; port?: unknown };
+  if (
+    String(net.code ?? '') === 'ECONNREFUSED' &&
+    (net.port === 6379 || net.port === 6380)
+  ) {
+    return true;
+  }
   return false;
 };
 // Rate-limit the "suppressed Redis error" log itself — Bull's three

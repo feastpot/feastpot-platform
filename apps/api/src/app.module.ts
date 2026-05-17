@@ -239,13 +239,27 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
             settings: { stalledInterval: 30_000 },
           };
         }
+        // No REDIS_URL set — there is no source of truth for Redis, so
+        // Bull is effectively disabled. We still have to return a valid
+        // BullModule config (Queue instances are constructed at module
+        // load), so we hand back a connection that:
+        //   - never auto-connects (`lazyConnect: true`),
+        //   - never retries if something does try to use it
+        //     (`retryStrategy: () => null`, `maxRetriesPerRequest: 0`),
+        //   - never queues commands offline (`enableOfflineQueue: false`).
+        // Processors check `cache.available` before registering crons /
+        // calling queue.add(), so under this config Bull simply sits idle.
+        // The host/port are placeholders that should never actually be
+        // dialled — kept on the loopback so any accidental connect attempt
+        // fails fast locally instead of hitting an external service.
         return {
           redis: {
-            host: cfg.get<string>('REDIS_HOST') ?? '127.0.0.1',
-            port: Number(cfg.get<string>('REDIS_PORT') ?? 6379),
-            password: cfg.get<string>('REDIS_PASSWORD'),
-            maxRetriesPerRequest: 3,
-            retryStrategy: cappedRetry,
+            host: '127.0.0.1',
+            port: 6379,
+            lazyConnect: true,
+            enableOfflineQueue: false,
+            maxRetriesPerRequest: 0,
+            retryStrategy: () => null,
             reconnectOnError: () => false,
             enableReadyCheck: false,
           },
