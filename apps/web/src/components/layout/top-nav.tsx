@@ -111,9 +111,12 @@ export function TopNav() {
   // (with a postcode pill + Browse/How it works/Event catering/Become
   // a cook/Help links) inside the page itself, so this in-app chrome
   // would just be a second nav bar on top.
+  // /sign-in is intentionally NOT in this list — the consolidated auth page
+  // is meant to live inside the regular customer chrome so users can keep
+  // navigating (Categories, Offers, basket) without losing the form.
+  // Subroutes like /sign-in/otp stay hidden via the startsWith below.
   if (
     pathname === '/' ||
-    pathname === '/sign-in' ||
     pathname.startsWith('/sign-in/') ||
     pathname === '/register' ||
     pathname.startsWith('/register/') ||

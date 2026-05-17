@@ -17,7 +17,6 @@ import {
   ShieldCheck,
   TriangleAlert,
 } from 'lucide-react';
-import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useMemo, useState } from 'react';
@@ -143,7 +142,7 @@ function WelcomePanel() {
         Welcome to
         <br />
         <span className="text-brand">Feast</span>
-        <span className="text-plantain">Pot</span>
+        <span className="text-scotch">Pot</span>
       </h1>
 
       <p className="mt-4 max-w-md text-[15px] leading-relaxed text-charcoal-mid">
@@ -153,19 +152,7 @@ function WelcomePanel() {
 
       {/* Order-faster-next-time card */}
       <div className="mt-7 rounded-2xl bg-brand p-6 text-white shadow-card">
-        <div className="flex items-center gap-3">
-          <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-white/15">
-            <Image
-              src="/images/feastpot-logo.png"
-              alt=""
-              width={28}
-              height={28}
-              className="h-5 w-auto"
-              aria-hidden
-            />
-          </span>
-        </div>
-        <p className="mt-4 font-display text-[22px] font-black leading-tight">
+        <p className="font-display text-[22px] font-black leading-tight">
           Order faster next time
         </p>
         <ul className="mt-4 grid grid-cols-1 gap-x-6 gap-y-2 text-[13.5px] font-medium sm:grid-cols-2">
