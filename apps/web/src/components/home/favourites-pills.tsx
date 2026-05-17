@@ -37,7 +37,9 @@ export function FavouritesPills() {
         id="favourites-heading"
         className="mt-1 font-display text-[26px] font-black leading-tight text-charcoal sm:text-3xl"
       >
-        African &amp; Caribbean favourites on FeastPot
+        <span className="text-brand">African</span> &amp;{' '}
+        <span className="text-scotch">Caribbean</span> favourites on{' '}
+        <span className="text-brand">FeastPot</span>
       </h2>
       <p className="mt-1 text-[14px] font-medium text-charcoal-mid">
         These cards are teasers only. Clicking one asks for postcode before
