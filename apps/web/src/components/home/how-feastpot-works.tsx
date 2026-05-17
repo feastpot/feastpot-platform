@@ -45,7 +45,7 @@ export function HowFeastpotWorks() {
         id="how-it-works-heading"
         className="mt-1 font-display text-[26px] font-black leading-tight text-charcoal sm:text-3xl"
       >
-        How FeastPot works
+        How <span className="text-brand">FeastPot</span> works
       </h2>
       <p className="mt-1 max-w-2xl text-[14px] font-medium text-charcoal-mid">
         No guessing who delivers to you. Enter your postcode first, then browse
