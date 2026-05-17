@@ -84,9 +84,14 @@ export class ReferralService {
    * the new user's first delivered order, via `rewardReferral`.
    */
   async processReferral(newUserId: string, sharedCode: string): Promise<void> {
-    if (!sharedCode) return;
-    const owner = await this.prisma.referral.findUnique({
-      where: { code: sharedCode },
+    // Normalise: codes are persisted upper-cased by `generateCode`, but
+    // signup payloads (sync metadata, deeplinks, manual entry) may carry
+    // them in any case/whitespace. Match `validateCode`'s lenient lookup
+    // so a lower-case code from a non-/join signup path still resolves.
+    const normalised = (sharedCode ?? '').trim();
+    if (!normalised) return;
+    const owner = await this.prisma.referral.findFirst({
+      where: { code: { equals: normalised, mode: 'insensitive' } },
       select: { referrerId: true },
     });
     if (!owner) return; // unknown code — silently ignore
@@ -134,6 +139,19 @@ export class ReferralService {
    * neither side can be paid twice.
    */
   async rewardReferral(newUserId: string): Promise<void> {
+    // Belt-and-braces guard against multi-reward when legacy data left
+    // more than one referral row for the same referee: if ANY row for
+    // this referee is already rewarded/completed, refuse to reward
+    // again even if a stray pending row also exists.
+    const alreadyRewarded = await this.prisma.referral.findFirst({
+      where: {
+        refereeId: newUserId,
+        status: { in: [ReferralStatus.rewarded, ReferralStatus.completed] },
+      },
+      select: { id: true },
+    });
+    if (alreadyRewarded) return;
+
     const referral = await this.prisma.referral.findFirst({
       where: { refereeId: newUserId, status: ReferralStatus.pending },
       select: { id: true, referrerId: true },

@@ -120,15 +120,14 @@ function CheckoutInner() {
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
 
-  // Loyalty redemption (FR-LOY-001). Capped at min(balance, subtotal) and
-  // floored to a multiple of 100 so the stepper buttons stay sensible.
-  // The actual discount is recomputed server-side; this is just UX.
+  // Loyalty redemption (FR-LOY-001). Cap by balance only — backend caps
+  // the redemption against (subtotal + delivery − promo) and we don't
+  // know the server-side delivery fee here, so capping by subtotal alone
+  // would under-state the true max. Floor to a multiple of 100 so the
+  // stepper buttons stay sensible. Actual discount is recomputed server-side.
   const { data: loyalty } = useLoyalty();
   const [loyaltyPoints, setLoyaltyPoints] = useState<number>(0);
-  const maxRedeemable = Math.min(
-    Math.floor((loyalty?.balance ?? 0) / 100) * 100,
-    Math.floor(subtotal / 100) * 100,
-  );
+  const maxRedeemable = Math.floor((loyalty?.balance ?? 0) / 100) * 100;
   // If basket value or balance changes, clamp downward.
   useEffect(() => {
     if (loyaltyPoints > maxRedeemable) setLoyaltyPoints(maxRedeemable);
