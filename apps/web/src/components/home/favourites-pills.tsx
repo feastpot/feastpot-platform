@@ -39,10 +39,13 @@ export function FavouritesPills() {
       >
         <span className="text-brand">African</span> &amp;{' '}
         <span className="text-scotch">Caribbean</span> favourites on{' '}
-        {/* Logo wordmark colours: "feast" = terracotta #E8520A,
-            "pot" = charcoal #1C1C1A. Brand token is now green, so the
-            terracotta is an arbitrary value. */}
-        <span className="text-[#E8520A]">Feast</span>
+        {/* Per-letter colours sampled directly from the logo wordmark:
+            f=green, e=gold, a=red, s=green, t=gold, p/o/t=charcoal. */}
+        <span className="text-brand">F</span>
+        <span className="text-plantain">e</span>
+        <span className="text-scotch">a</span>
+        <span className="text-brand">s</span>
+        <span className="text-plantain">t</span>
         <span className="text-charcoal">Pot</span>
       </h2>
       <p className="mt-1 text-[14px] font-medium text-charcoal-mid">
