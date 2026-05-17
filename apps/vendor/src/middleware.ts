@@ -25,7 +25,25 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
   const isSignIn = pathname === '/sign-in' || pathname.startsWith('/sign-in/');
-  const isPublic = isSignIn || pathname === '/unauthorized';
+  // `/onboarding/register` (and the forgot-password flow) are the two
+  // prospect-facing forms on the vendor portal: a potential cook lands
+  // there from the customer site's "Join FeastPot" CTAs and must be
+  // able to fill them in without a Supabase session. Without this
+  // exception they get bounced through `/sign-in?next=/onboarding/register`
+  // which is the "multi-step" friction the wireframes call out.
+  // The /onboarding ROOT (no /register suffix) stays auth-gated because
+  // that's the post-sign-up dashboard for already-registered vendors
+  // setting up Stripe, menus, etc.
+  const isOnboardingRegister =
+    pathname === '/onboarding/register' ||
+    pathname.startsWith('/onboarding/register/');
+  const isForgotPassword =
+    pathname === '/forgot-password' || pathname.startsWith('/forgot-password/');
+  const isPublic =
+    isSignIn ||
+    pathname === '/unauthorized' ||
+    isOnboardingRegister ||
+    isForgotPassword;
 
   if (!isPublic && !user) {
     const signInUrl = request.nextUrl.clone();

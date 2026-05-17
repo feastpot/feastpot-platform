@@ -47,7 +47,7 @@ export function Footer() {
             </p>
           </div>
           <a
-            href="https://vendor.feastpot.co.uk"
+            href={`${process.env.NEXT_PUBLIC_VENDOR_URL ?? 'https://vendor.feastpot.co.uk'}/onboarding/register`}
             className="shrink-0 rounded-xl bg-brand px-4 py-2.5 text-[13px] font-bold text-white transition-colors hover:bg-brand-dark"
           >
             Join Feastpot

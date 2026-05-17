@@ -21,7 +21,7 @@ export function JoinFeastpotCta() {
           </p>
         </div>
         <a
-          href="https://vendor.feastpot.co.uk"
+          href={`${process.env.NEXT_PUBLIC_VENDOR_URL ?? 'https://vendor.feastpot.co.uk'}/onboarding/register`}
           className="shrink-0 rounded-xl bg-brand px-5 py-3 text-sm font-bold text-white shadow-card transition-colors hover:bg-brand-dark"
         >
           Join FeastPot

@@ -22,11 +22,20 @@ import { useStoredPostcode } from '@/lib/postcode';
  * saved postcode (from localStorage) if one exists so returning users
  * see "Delivering to SE15" instead of a generic prompt.
  */
+// "Become a cook" deep-links straight into the vendor portal's
+// `/onboarding/register` form (the "Apply to become a partner"
+// screen). Going to the portal root used to land prospects on the
+// vendor sign-in page, which is a dead end for someone who doesn't
+// have an account yet.
+const VENDOR_ONBOARDING =
+  (process.env.NEXT_PUBLIC_VENDOR_URL ?? 'https://vendor.feastpot.co.uk') +
+  '/onboarding/register';
+
 const NAV_LINKS = [
   { label: 'Browse', href: '/vendors' },
   { label: 'How it works', href: '/#how-it-works' },
   { label: 'Event catering', href: '/#what-are-you-ordering-for' },
-  { label: 'Become a cook', href: 'https://vendor.feastpot.co.uk' },
+  { label: 'Become a cook', href: VENDOR_ONBOARDING },
   { label: 'Help', href: '/help' },
 ] as const;
 
