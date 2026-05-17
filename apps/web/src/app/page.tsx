@@ -1,4 +1,4 @@
-import { ChevronRight, MapPin } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import { cookies } from 'next/headers';
 import Link from 'next/link';
 
@@ -152,38 +152,6 @@ export default async function HomePage() {
             </section>
           )}
         </>
-      )}
-
-      {!coveredPostcode && (
-        <section
-          aria-labelledby="gate-heading"
-          className="mx-auto max-w-6xl px-4 pt-14 sm:px-6 lg:px-8 lg:pt-20"
-        >
-          <div className="rounded-3xl border border-cream-deep bg-white p-7 text-center shadow-card md:p-10">
-            <span
-              aria-hidden
-              className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-brand-light text-brand"
-            >
-              <MapPin className="h-6 w-6" />
-            </span>
-            <h2
-              id="gate-heading"
-              className="mt-4 font-display text-2xl font-black text-charcoal md:text-[28px]"
-            >
-              Enter your postcode to see what&rsquo;s cooking
-            </h2>
-            <p className="mx-auto mt-2 max-w-md text-sm font-medium text-charcoal-mid">
-              Popular kitchens, featured cooks and what&rsquo;s available right
-              now all unlock once we know where to deliver.
-            </p>
-            <a
-              href="#hero-headline"
-              className="mt-5 inline-flex items-center rounded-xl bg-brand px-5 py-3 text-sm font-black text-white shadow-sm transition hover:bg-brand-dark"
-            >
-              Check your postcode
-            </a>
-          </div>
-        </section>
       )}
 
       <FeastPassStrip />
