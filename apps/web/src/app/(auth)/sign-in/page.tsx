@@ -141,14 +141,13 @@ function WelcomePanel() {
       <h1 className="mt-5 font-display text-4xl font-black leading-[1.05] tracking-tight text-charcoal sm:text-5xl">
         Welcome to
         <br />
-        {/* Per-letter wordmark matching the brand logo: F-green, e-red,
-            a-gold, st-green, Pot-charcoal. Kept inline (vs a shared
-            component) because there are only two sites and the JSX is
-            self-documenting at the call site. */}
+        {/* Per-letter wordmark mirroring /images/feastpot-logo.png exactly:
+            F-green, e-gold, a-red, s-green, t-gold, Pot-charcoal. */}
         <span className="text-brand">F</span>
-        <span className="text-scotch">e</span>
-        <span className="text-plantain">a</span>
-        <span className="text-brand">st</span>
+        <span className="text-plantain">e</span>
+        <span className="text-scotch">a</span>
+        <span className="text-brand">s</span>
+        <span className="text-plantain">t</span>
         <span className="text-charcoal">Pot</span>
       </h1>
 

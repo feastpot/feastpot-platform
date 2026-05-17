@@ -47,9 +47,10 @@ export function HowFeastpotWorks() {
       >
         How{' '}
         <span className="text-brand">F</span>
-        <span className="text-scotch">e</span>
-        <span className="text-plantain">a</span>
-        <span className="text-brand">st</span>
+        <span className="text-plantain">e</span>
+        <span className="text-scotch">a</span>
+        <span className="text-brand">s</span>
+        <span className="text-plantain">t</span>
         <span className="text-charcoal">Pot</span>{' '}
         works
       </h2>
