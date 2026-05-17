@@ -78,10 +78,16 @@ export function BottomNav() {
           const isOrders = href === '/orders';
           const isAccount = href === '/account';
           const displayLabel = isAccount && isGuest ? 'Sign in' : label;
+          // Skip the `/account` guest hub for signed-out users — when
+          // the tab already says "Sign in", going via the benefits
+          // welcome (which itself has another "Sign in" button) reads
+          // as two sign-in pages in a row. Send guests straight to the
+          // real form.
+          const displayHref = isAccount && isGuest ? '/sign-in' : href;
           return (
             <li key={href} className="flex">
               <Link
-                href={href}
+                href={displayHref}
                 aria-current={active ? 'page' : undefined}
                 className={cn(
                   'relative flex flex-1 flex-col items-center justify-center gap-0.5 rounded-2xl px-3 py-2 transition-all duration-200',

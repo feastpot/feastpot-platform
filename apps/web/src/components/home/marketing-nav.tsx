@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 
 import { BasketDrawer } from '@/components/basket/basket-drawer';
+import { useAccessToken } from '@/lib/auth/use-access-token';
 import { useBasketStore } from '@/store/basket.store';
 import { useStoredPostcode } from '@/lib/postcode';
 
@@ -44,6 +45,13 @@ export function MarketingNav() {
   const itemCount = useBasketStore((s) =>
     s.items.reduce((acc, i) => acc + i.quantity, 0),
   );
+  // Guests get sent straight to `/sign-in` instead of the `/account`
+  // guest hub — the hub itself is just a benefits welcome with another
+  // big "Sign in" button, so reusing it here makes the flow feel like
+  // two sign-in pages in a row. Loading state keeps `/account` so we
+  // don't flicker the wrong destination at a returning signed-in user.
+  const { token, loading: authLoading } = useAccessToken();
+  const accountHref = !authLoading && !token ? '/sign-in' : '/account';
 
   return (
     <nav
@@ -95,8 +103,8 @@ export function MarketingNav() {
           </a>
 
           <Link
-            href="/account"
-            aria-label="Account"
+            href={accountHref}
+            aria-label={accountHref === '/sign-in' ? 'Sign in' : 'Account'}
             className="flex h-10 w-10 items-center justify-center rounded-full text-charcoal hover:bg-cream-warm hover:text-brand"
           >
             <User className="h-5 w-5" strokeWidth={1.75} aria-hidden />
