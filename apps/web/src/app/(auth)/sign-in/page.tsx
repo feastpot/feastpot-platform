@@ -143,13 +143,23 @@ function SignInForm() {
           surface); shown from `lg` up as a 42% rail. */}
       <aside className="relative hidden w-[42%] flex-col justify-between overflow-hidden bg-brand p-10 text-white lg:flex xl:p-12">
         <div className="relative z-10">
-          <Link href="/" aria-label="Feastpot home" className="inline-block">
+          {/* Logo PNG has a baked-in white background (RGB, no alpha),
+              so the previous `brightness-0 invert` filter rendered as a
+              solid white slab against the brand panel. Wrapping the
+              colour logo in a white pill keeps the artwork crisp on
+              the dark brand fill without needing a separate inverted
+              asset. */}
+          <Link
+            href="/"
+            aria-label="Feastpot home"
+            className="inline-flex items-center rounded-xl bg-white px-3 py-1.5 shadow-sm"
+          >
             <Image
               src="/images/feastpot-logo.png"
               alt="Feastpot"
               width={317}
               height={100}
-              className="h-9 w-auto brightness-0 invert"
+              className="h-8 w-auto"
               priority
             />
           </Link>

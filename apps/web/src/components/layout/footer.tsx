@@ -15,16 +15,15 @@ import { LEGAL } from '@/lib/legal-constants';
  * card and ICO + copyright lines are retained — legal requires the latter
  * to be persistently discoverable on every page.
  *
- * Hidden on /checkout and the (auth) routes for the same reasons as
- * before — those screens already have inline legal copy and removing the
- * persistent footer keeps the conversion surface clean.
+ * Hidden on /checkout only — the conversion surface there deliberately
+ * strips persistent chrome. Auth routes (/sign-in, /register,
+ * /forgot-password) now keep the footer so the ICO + legal links stay
+ * discoverable on every page (legal requirement) and so users have a
+ * footer-level escape hatch back to Help / Terms / Privacy.
  */
 export function Footer() {
   const pathname = usePathname() ?? '/';
   if (pathname === '/checkout' || pathname.startsWith('/checkout/')) return null;
-  if (pathname === '/sign-in' || pathname.startsWith('/sign-in/')) return null;
-  if (pathname === '/register' || pathname.startsWith('/register/')) return null;
-  if (pathname === '/forgot-password') return null;
 
   return (
     <footer

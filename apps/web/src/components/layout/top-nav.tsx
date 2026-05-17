@@ -99,6 +99,24 @@ export function TopNav() {
   const router = useRouter();
   const itemCount = useBasketStore((s) => s.items.reduce((acc, i) => acc + i.quantity, 0));
 
+  // Auth routes bring their own conversion-first chrome (marketing nav
+  // on /register, centered logo on /register/create-account, brand rail
+  // on /sign-in). Rendering the in-app TopNav on top of those produces
+  // a duplicate "< Register" / "< Sign in" band stacked above the
+  // page's own header — so we suppress the TopNav for the (auth)
+  // route group. Footer self-shows on these routes via its own
+  // pathname check so the legal copy is still discoverable.
+  if (
+    pathname === '/sign-in' ||
+    pathname.startsWith('/sign-in/') ||
+    pathname === '/register' ||
+    pathname.startsWith('/register/') ||
+    pathname === '/forgot-password' ||
+    pathname.startsWith('/forgot-password/')
+  ) {
+    return null;
+  }
+
   const isHome = pathname === '/';
   const title = isHome
     ? ''
