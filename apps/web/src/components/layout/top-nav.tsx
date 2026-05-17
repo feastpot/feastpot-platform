@@ -106,7 +106,13 @@ export function TopNav() {
   // page's own header — so we suppress the TopNav for the (auth)
   // route group. Footer self-shows on these routes via its own
   // pathname check so the legal copy is still discoverable.
+  //
+  // Same story for `/` — the homepage now renders a wide MarketingNav
+  // (with a postcode pill + Browse/How it works/Event catering/Become
+  // a cook/Help links) inside the page itself, so this in-app chrome
+  // would just be a second nav bar on top.
   if (
+    pathname === '/' ||
     pathname === '/sign-in' ||
     pathname.startsWith('/sign-in/') ||
     pathname === '/register' ||
