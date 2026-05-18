@@ -58,6 +58,10 @@ export class VendorRepository {
     const userLng =
       userCoords && typeof userCoords.longitude === 'number' ? userCoords.longitude : null;
     const hasUserCoords = userLat !== null && userLng !== null;
+    const maxDistanceKm =
+      typeof dto.maxDistanceKm === 'number' && Number.isFinite(dto.maxDistanceKm) && dto.maxDistanceKm > 0
+        ? dto.maxDistanceKm
+        : null;
     const cuisines = dto.cuisine && dto.cuisine.length ? dto.cuisine : null;
     const halal = dto.halal === true;
     const communityFavourite = dto.communityFavourite === true;
@@ -254,6 +258,28 @@ export class VendorRepository {
           )`
         : Prisma.empty;
 
+    // Customer-chosen "within X miles" cap. We only honour the cap when we
+    // have real coords for both sides — vendors lacking geocoded delivery
+    // coordinates are excluded rather than silently bypassed via the
+    // outward-prefix proxy, otherwise a "within 1 mile" filter could return
+    // anyone in the whole SE15 outward district.
+    const maxDistanceClause =
+      hasUserCoords && maxDistanceKm !== null
+        ? Prisma.sql`AND EXISTS (
+            SELECT 1 FROM delivery_configs dc
+            WHERE dc.vendor_id = v.id
+              AND dc.latitude IS NOT NULL
+              AND dc.longitude IS NOT NULL
+              AND (
+                2 * 6371 * asin(sqrt(
+                  power(sin(radians((dc.latitude - ${userLat}::float) / 2)), 2)
+                  + cos(radians(${userLat}::float)) * cos(radians(dc.latitude))
+                  * power(sin(radians((dc.longitude - ${userLng}::float) / 2)), 2)
+                ))
+              ) <= ${maxDistanceKm}::float
+          )`
+        : Prisma.empty;
+
     return this.prisma.$queryRaw<SearchedVendorRow[]>(Prisma.sql`
       SELECT
         v.id, v.business_name, v.slug, v.description, v.cuisines,
@@ -267,6 +293,7 @@ export class VendorRepository {
         ${halalClause}
         ${favouriteClause}
         ${postcodeFilter}
+        ${maxDistanceClause}
         ${qClause}
       ORDER BY ${orderBy}
       LIMIT ${limit}

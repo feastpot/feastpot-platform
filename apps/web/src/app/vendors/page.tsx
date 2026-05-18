@@ -85,11 +85,26 @@ function VendorSearch() {
   const sortParam = (params?.get('sort') as VendorSortBy | null) ?? undefined;
   const sortBy: VendorSortBy | undefined = sortParam ?? (postcode ? 'distance' : undefined);
 
+  // Radius cap (miles in URL, km on the wire). Only honoured when the user
+  // has a postcode set — without one we have no origin to measure from, so a
+  // radius value would be meaningless. Validated against the same option set
+  // the sidebar offers so a hand-rolled `?radius=999` URL doesn't sneak past.
+  const RADIUS_OPTIONS_MI = [1, 3, 5, 10] as const;
+  const radiusRaw = postcode ? params?.get('radius') : null;
+  const radiusMiles = (() => {
+    if (!radiusRaw) return null;
+    const n = Number.parseFloat(radiusRaw);
+    if (!Number.isFinite(n)) return null;
+    return (RADIUS_OPTIONS_MI as readonly number[]).includes(n) ? n : null;
+  })();
+  const maxDistanceKm = radiusMiles !== null ? radiusMiles * 1.609344 : undefined;
+
   const search: SearchVendorsParams = {
     q,
     postcode,
     cuisine: cuisineParam ? [cuisineParam] : undefined,
     halal: halal || dietary.includes('halal') || undefined,
+    maxDistanceKm,
     sortBy,
   };
 

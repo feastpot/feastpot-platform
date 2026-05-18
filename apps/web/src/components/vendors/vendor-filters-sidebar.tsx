@@ -10,6 +10,10 @@ const DIETARY = [
   { value: 'vegan', label: 'Vegan' },
   { value: 'gluten-free', label: 'Gluten-free' },
 ] as const;
+// Keep in sync with RADIUS_OPTIONS_MI in apps/web/src/app/vendors/page.tsx —
+// the page-level URL parser only accepts these exact values so the sidebar
+// must offer the same set.
+const RADIUS_OPTIONS_MI = [1, 3, 5, 10] as const;
 
 /**
  * Desktop two-column sidebar matching the wireframe. URL is the source of
@@ -40,6 +44,16 @@ export function VendorFiltersSidebar() {
   const delivery = (params?.get('delivery') ?? '').split(',').filter(Boolean);
   const halal = params?.get('halal') === 'true';
   const dietary = (params?.get('dietary') ?? '').split(',').filter(Boolean);
+  // Radius is only meaningful when a postcode is set — without an origin,
+  // "within 3 miles" of nothing is incoherent — so the Distance group hides
+  // entirely until the user enters a postcode.
+  const postcode = params?.get('postcode')?.trim() ?? '';
+  const radiusRaw = params?.get('radius');
+  const radiusMiles = (() => {
+    if (!radiusRaw) return null;
+    const n = Number.parseFloat(radiusRaw);
+    return Number.isFinite(n) && (RADIUS_OPTIONS_MI as readonly number[]).includes(n) ? n : null;
+  })();
 
   const toggleMulti = (key: 'occasion' | 'delivery' | 'dietary', value: string) => {
     update((sp) => {
@@ -76,6 +90,13 @@ export function VendorFiltersSidebar() {
     });
   };
 
+  const setRadius = (next: number | null) => {
+    update((sp) => {
+      if (next === null) sp.delete('radius');
+      else sp.set('radius', String(next));
+    });
+  };
+
   const clearAll = () => {
     update((sp) => {
       sp.delete('cuisine');
@@ -83,11 +104,17 @@ export function VendorFiltersSidebar() {
       sp.delete('delivery');
       sp.delete('halal');
       sp.delete('dietary');
+      sp.delete('radius');
     });
   };
 
   const hasAny =
-    !!cuisine || occasion.length > 0 || delivery.length > 0 || halal || dietary.length > 0;
+    !!cuisine ||
+    occasion.length > 0 ||
+    delivery.length > 0 ||
+    halal ||
+    dietary.length > 0 ||
+    radiusMiles !== null;
 
   return (
     <aside
@@ -105,6 +132,29 @@ export function VendorFiltersSidebar() {
           Clear all
         </button>
       </div>
+
+      {postcode && (
+        <FilterGroup title="Distance">
+          {/* Single-select pill row — radius is a single value, so a pill
+              picker reads more naturally than checkboxes and matches the
+              "1 / 3 / 5 / 10 mi" wireframe. "Any" clears the URL param. */}
+          <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Maximum distance">
+            <RadiusPill
+              label="Any"
+              selected={radiusMiles === null}
+              onClick={() => setRadius(null)}
+            />
+            {RADIUS_OPTIONS_MI.map((mi) => (
+              <RadiusPill
+                key={mi}
+                label={`${mi} mi`}
+                selected={radiusMiles === mi}
+                onClick={() => setRadius(mi)}
+              />
+            ))}
+          </div>
+        </FilterGroup>
+      )}
 
       <FilterGroup title="Cuisine">
         {/* Single-select — rendered as native radios (with an "Any" option
@@ -203,6 +253,32 @@ function CheckboxRow({
       />
       <span>{label}</span>
     </label>
+  );
+}
+
+function RadiusPill({
+  label,
+  selected,
+  onClick,
+}: {
+  label: string;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={selected}
+      onClick={onClick}
+      className={`touch-target rounded-full border px-3 py-1.5 text-xs font-bold transition-colors ${
+        selected
+          ? 'border-brand bg-brand text-white'
+          : 'border-cream-deep bg-white text-charcoal-mid hover:border-brand/40 hover:text-charcoal'
+      }`}
+    >
+      {label}
+    </button>
   );
 }
 

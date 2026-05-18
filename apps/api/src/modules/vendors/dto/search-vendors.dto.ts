@@ -5,6 +5,7 @@ import {
   IsBoolean,
   IsEnum,
   IsInt,
+  IsNumber,
   IsOptional,
   IsString,
   Matches,
@@ -79,6 +80,19 @@ export class SearchVendorsDto {
   @Transform(toBool)
   @IsBoolean()
   communityFavourite?: boolean;
+
+  @ApiPropertyOptional({
+    description:
+      'Maximum distance from the requesting postcode, in kilometres. Only applied when `postcode` is set AND geocoding succeeds; vendors without geocoded delivery coordinates are excluded from the radius filter (no silent prefix-proxy fallback).',
+    minimum: 0.1,
+    maximum: 500,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0.1)
+  @Max(500)
+  maxDistanceKm?: number;
 
   @ApiPropertyOptional({ enum: VendorSortBy, default: VendorSortBy.rating })
   @IsOptional()

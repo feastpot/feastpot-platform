@@ -52,6 +52,8 @@ export interface SearchVendorsParams {
   halal?: boolean;
   orderType?: OrderType;
   communityFavourite?: boolean;
+  /** Cap results to this radius (km) from the requesting postcode. */
+  maxDistanceKm?: number;
   sortBy?: VendorSortBy;
   limit?: number;
   cursor?: string;
