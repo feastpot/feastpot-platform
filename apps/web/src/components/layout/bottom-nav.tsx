@@ -47,12 +47,12 @@ export function BottomNav() {
   const { token, loading: authLoading } = useAccessToken();
   const isGuest = !authLoading && !token;
 
-  // Mirror TopNav/Footer: auth routes (/sign-in, /register,
-  // /forgot-password) bring their own conversion-first chrome and the
-  // primary bottom-nav would compete with the page's CTA buttons.
-  // Suppressed here so the auth screens render edge-to-edge.
+  // /sign-in keeps the bottom nav so the auth page stays consistent
+  // with the rest of the app — it's now a primary destination, not a
+  // modal. Subroutes like /sign-in/otp still hide via startsWith below.
+  // /register and /forgot-password keep their own conversion-first
+  // chrome where the bottom-nav would compete with the page's CTAs.
   if (
-    pathname === '/sign-in' ||
     pathname.startsWith('/sign-in/') ||
     pathname === '/register' ||
     pathname.startsWith('/register/') ||

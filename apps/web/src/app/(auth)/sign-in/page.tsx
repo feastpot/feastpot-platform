@@ -134,24 +134,7 @@ function AuthShell() {
 function WelcomePanel() {
   return (
     <aside className="flex flex-col">
-      <Link
-        href="/"
-        aria-label="FeastPot home"
-        className="inline-flex w-fit rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-      >
-        {/* Plain <img> keeps things simple — the logo is a single small PNG
-            and Next/Image would force layout-shift props for a brand mark. */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/images/feastpot-logo.png"
-          alt="FeastPot"
-          width={180}
-          height={56}
-          className="h-12 w-auto sm:h-14"
-        />
-      </Link>
-
-      <h1 className="mt-5 font-display text-4xl font-black leading-[1.05] tracking-tight text-charcoal sm:text-5xl">
+      <h1 className="font-display text-4xl font-black leading-[1.05] tracking-tight text-charcoal sm:text-5xl">
         Welcome to
         <br />
         {/* Per-letter wordmark mirroring /images/feastpot-logo.png exactly:
