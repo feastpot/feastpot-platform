@@ -488,11 +488,14 @@ model DeliveryConfig {
   minOrderPence        Int            @default(0) @map("min_order_pence")
   freeDeliveryOverPence Int?          @map("free_delivery_over_pence")
   postcodes            String[]       @db.VarChar(16)
+  latitude             Float?
+  longitude            Float?
   createdAt            DateTime       @default(now()) @map("created_at") @db.Timestamptz
   updatedAt            DateTime       @updatedAt @map("updated_at") @db.Timestamptz
 
   vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
 
+  @@index([latitude, longitude])
   @@map("delivery_configs")
 }
 

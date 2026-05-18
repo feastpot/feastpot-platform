@@ -43,12 +43,21 @@ export class VendorRepository {
    *   - Halal filter checks for any MenuItem.tags containing 'halal'.
    *   - communityFavourite has no boolean column → derived from rating >= 4.3.
    */
-  async search(dto: SearchVendorsDto, cursor: DecodedCursor | null): Promise<SearchedVendorRow[]> {
+  async search(
+    dto: SearchVendorsDto,
+    cursor: DecodedCursor | null,
+    userCoords?: { latitude: number | null; longitude: number | null } | null,
+  ): Promise<SearchedVendorRow[]> {
     const limit = dto.limit ?? 20;
     // Strip SQL LIKE wildcards so users can't broaden the prefix scan.
     const postcodePrefix = dto.postcode
       ? dto.postcode.replace(/\s+/g, '').replace(/[%_]/g, '').slice(0, 4).toUpperCase()
       : null;
+    const userLat =
+      userCoords && typeof userCoords.latitude === 'number' ? userCoords.latitude : null;
+    const userLng =
+      userCoords && typeof userCoords.longitude === 'number' ? userCoords.longitude : null;
+    const hasUserCoords = userLat !== null && userLng !== null;
     const cuisines = dto.cuisine && dto.cuisine.length ? dto.cuisine : null;
     const halal = dto.halal === true;
     const communityFavourite = dto.communityFavourite === true;
@@ -152,46 +161,98 @@ export class VendorRepository {
         ) AS matched_dishes`
       : Prisma.sql`NULL::text[] AS matched_dishes`;
 
-    // Distance: rough proxy — match by outward postcode (first 4 chars) on the
-    // vendor's DeliveryConfig.postcodes OR owner's address.postcode. Real ST_DWithin
-    // requires PostGIS which we haven't enabled; this gives 0km for matches and NULL
-    // for everything else, which is fine for "in your area" UX.
-    const distanceSelect = postcodePrefix
-      ? Prisma.sql`CASE
-            WHEN EXISTS (
+    // Distance: when we have geocoded user coords, compute a real haversine
+    // distance against the vendor's DeliveryConfig coordinates (great-circle,
+    // 6371km radius). When we don't (no postcode, geocoding miss, or vendor
+    // not yet geocoded), we fall back to the legacy outward-postcode-prefix
+    // proxy so the surface still returns something useful instead of empty.
+    const distanceSelect = hasUserCoords
+      ? Prisma.sql`(
+            SELECT 2 * 6371 * asin(sqrt(
+              power(sin(radians((dc.latitude - ${userLat}::float) / 2)), 2)
+              + cos(radians(${userLat}::float)) * cos(radians(dc.latitude))
+              * power(sin(radians((dc.longitude - ${userLng}::float) / 2)), 2)
+            ))
+            FROM delivery_configs dc
+            WHERE dc.vendor_id = v.id
+              AND dc.latitude IS NOT NULL
+              AND dc.longitude IS NOT NULL
+          ) AS distance_km`
+      : postcodePrefix
+        ? Prisma.sql`CASE
+              WHEN EXISTS (
+                SELECT 1 FROM delivery_configs dc
+                WHERE dc.vendor_id = v.id
+                  AND EXISTS (
+                    SELECT 1 FROM unnest(dc.postcodes) AS pc
+                    WHERE UPPER(REPLACE(pc, ' ', '')) LIKE ${postcodePrefix + '%'}
+                  )
+              ) THEN 0::float
+              WHEN EXISTS (
+                SELECT 1 FROM addresses a
+                WHERE a.user_id = v.user_id
+                  AND UPPER(REPLACE(a.postcode, ' ', '')) LIKE ${postcodePrefix + '%'}
+              ) THEN 0::float
+              ELSE NULL::float
+            END AS distance_km`
+        : Prisma.sql`NULL::float AS distance_km`;
+
+    // Radius filter: when the user gave us a postcode AND we successfully
+    // geocoded it, restrict to vendors whose delivery centre is within their
+    // own `local_radius_miles` of the user (1 mile ≈ 1.609344 km). Vendors
+    // without coordinates fall back to the outward-prefix proxy so they
+    // still surface until the backfill catches them.
+    const postcodeFilter = hasUserCoords
+      ? Prisma.sql`AND (
+          EXISTS (
+            SELECT 1 FROM delivery_configs dc
+            WHERE dc.vendor_id = v.id
+              AND dc.latitude IS NOT NULL
+              AND dc.longitude IS NOT NULL
+              AND (
+                2 * 6371 * asin(sqrt(
+                  power(sin(radians((dc.latitude - ${userLat}::float) / 2)), 2)
+                  + cos(radians(${userLat}::float)) * cos(radians(dc.latitude))
+                  * power(sin(radians((dc.longitude - ${userLng}::float) / 2)), 2)
+                ))
+              ) <= (dc.local_radius_miles * 1.609344)
+          )
+          OR (
+            ${postcodePrefix ? Prisma.sql`(
+              EXISTS (
+                SELECT 1 FROM delivery_configs dc2
+                WHERE dc2.vendor_id = v.id
+                  AND (dc2.latitude IS NULL OR dc2.longitude IS NULL)
+                  AND EXISTS (
+                    SELECT 1 FROM unnest(dc2.postcodes) AS pc
+                    WHERE UPPER(REPLACE(pc, ' ', '')) LIKE ${postcodePrefix + '%'}
+                  )
+              )
+              OR EXISTS (
+                SELECT 1 FROM addresses a
+                WHERE a.user_id = v.user_id
+                  AND UPPER(REPLACE(a.postcode, ' ', '')) LIKE ${postcodePrefix + '%'}
+              )
+            )` : Prisma.sql`FALSE`}
+          )
+        )`
+      : postcodePrefix && sortBy === VendorSortBy.distance
+        ? Prisma.sql`AND (
+            EXISTS (
               SELECT 1 FROM delivery_configs dc
               WHERE dc.vendor_id = v.id
                 AND EXISTS (
                   SELECT 1 FROM unnest(dc.postcodes) AS pc
                   WHERE UPPER(REPLACE(pc, ' ', '')) LIKE ${postcodePrefix + '%'}
                 )
-            ) THEN 0::float
-            WHEN EXISTS (
+            )
+            OR EXISTS (
               SELECT 1 FROM addresses a
               WHERE a.user_id = v.user_id
                 AND UPPER(REPLACE(a.postcode, ' ', '')) LIKE ${postcodePrefix + '%'}
-            ) THEN 0::float
-            ELSE NULL::float
-          END AS distance_km`
-      : Prisma.sql`NULL::float AS distance_km`;
-
-    const postcodeFilter = postcodePrefix && sortBy === VendorSortBy.distance
-      ? Prisma.sql`AND (
-          EXISTS (
-            SELECT 1 FROM delivery_configs dc
-            WHERE dc.vendor_id = v.id
-              AND EXISTS (
-                SELECT 1 FROM unnest(dc.postcodes) AS pc
-                WHERE UPPER(REPLACE(pc, ' ', '')) LIKE ${postcodePrefix + '%'}
-              )
-          )
-          OR EXISTS (
-            SELECT 1 FROM addresses a
-            WHERE a.user_id = v.user_id
-              AND UPPER(REPLACE(a.postcode, ' ', '')) LIKE ${postcodePrefix + '%'}
-          )
-        )`
-      : Prisma.empty;
+            )
+          )`
+        : Prisma.empty;
 
     return this.prisma.$queryRaw<SearchedVendorRow[]>(Prisma.sql`
       SELECT

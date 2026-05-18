@@ -708,9 +708,12 @@ async function main() {
   console.info(`[seed] extra vendors: ${EXTRA_VENDORS.length} (+${extraItemCount} menu items)`);
 
   // 5. Delivery config (Maman: local 8mi, Kwame: local 5mi)
+  // Coords seeded so the customer search has working radius matches without
+  // requiring a separate backfill run after `db:seed`. Sourced from
+  // postcodes.io for SE15 4ST / SW9 8HX.
   await prisma.deliveryConfig.upsert({
     where: { vendorId: maman.id },
-    update: {},
+    update: { latitude: 51.4694, longitude: -0.0694 },
     create: {
       vendorId: maman.id,
       types: [DeliveryType.local, DeliveryType.collection],
@@ -720,11 +723,13 @@ async function main() {
       freeDeliveryOverPence: 7500,
       collectionAddress: '45 Rye Lane, Peckham, London SE15 4ST',
       postcodes: ['SE15', 'SE5', 'SE22', 'SE24', 'SW2', 'SW9'],
+      latitude: 51.4694,
+      longitude: -0.0694,
     },
   });
   await prisma.deliveryConfig.upsert({
     where: { vendorId: kwame.id },
-    update: {},
+    update: { latitude: 51.4626, longitude: -0.1132 },
     create: {
       vendorId: kwame.id,
       types: [DeliveryType.local, DeliveryType.collection],
@@ -733,8 +738,41 @@ async function main() {
       minOrderPence: 2000,
       collectionAddress: '12 Atlantic Road, Brixton, London SW9 8HX',
       postcodes: ['SW9', 'SW2', 'SE5', 'SW8'],
+      latitude: 51.4626,
+      longitude: -0.1132,
     },
   });
+
+  // Best-effort backfill for the EXTRA_VENDORS — their delivery configs are
+  // upserted further up without coords. Geocode the first servicing
+  // postcode of each so the customer-facing search returns them on a real
+  // radius match. Best-effort: postcodes.io misses leave the row untouched.
+  const needCoords = await prisma.deliveryConfig.findMany({
+    where: { OR: [{ latitude: null }, { longitude: null }] },
+    select: { id: true, postcodes: true, collectionAddress: true },
+  });
+  for (const cfg of needCoords) {
+    const first = cfg.postcodes[0];
+    if (!first) continue;
+    try {
+      const res = await fetch(
+        `https://api.postcodes.io/outcodes/${encodeURIComponent(first.trim().toUpperCase())}`,
+      );
+      if (!res.ok) continue;
+      const json = (await res.json()) as {
+        result?: { latitude?: number; longitude?: number };
+      };
+      const lat = json.result?.latitude;
+      const lng = json.result?.longitude;
+      if (typeof lat !== 'number' || typeof lng !== 'number') continue;
+      await prisma.deliveryConfig.update({
+        where: { id: cfg.id },
+        data: { latitude: lat, longitude: lng },
+      });
+    } catch {
+      /* best-effort: skip */
+    }
+  }
 
   // 6. Customer addresses
   const graceId = userMap.get('grace@example.com')!;

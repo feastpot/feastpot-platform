@@ -3,6 +3,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -123,8 +124,94 @@ function slugify(input: string): string {
     .slice(0, 80);
 }
 
+interface PostcodeLatLng {
+  latitude: number | null;
+  longitude: number | null;
+}
+
+/**
+ * Process-lifetime cache for postcodes.io lookups. Shared between requests
+ * (and across VendorsService instances) so the customer-search hot path
+ * doesn't re-hit the network for popular postcodes on every keystroke.
+ * Misses are cached too so repeated invalid postcodes don't melt the API.
+ */
+const GEOCODE_CACHE = new Map<string, PostcodeLatLng>();
+
+async function fetchPostcodesIo(
+  path: string,
+  logger?: Logger,
+): Promise<PostcodeLatLng> {
+  try {
+    const res = await fetch(`https://api.postcodes.io${path}`, {
+      signal: AbortSignal.timeout(2_500),
+    });
+    if (!res.ok) return { latitude: null, longitude: null };
+    const json = (await res.json()) as {
+      result?: { latitude?: number; longitude?: number };
+    };
+    const lat = json.result?.latitude;
+    const lng = json.result?.longitude;
+    return {
+      latitude: typeof lat === 'number' ? lat : null,
+      longitude: typeof lng === 'number' ? lng : null,
+    };
+  } catch (e) {
+    logger?.warn(`postcodes.io request failed for ${path}: ${(e as Error).message}`);
+    return { latitude: null, longitude: null };
+  }
+}
+
+async function geocodePostcode(raw: string, logger?: Logger): Promise<PostcodeLatLng> {
+  const key = raw.replace(/\s+/g, '').toUpperCase();
+  if (!key) return { latitude: null, longitude: null };
+  const cached = GEOCODE_CACHE.get(key);
+  if (cached) return cached;
+  // Try the full-postcode endpoint first (handles "SE15 4ST"). If that
+  // misses — or the caller passed an outward-only code like "SE15" — fall
+  // back to /outcodes/<outward> which returns the district centroid. The
+  // centroid is plenty accurate for the customer-search "in your area" UX.
+  let out = await fetchPostcodesIo(`/postcodes/${encodeURIComponent(key)}`, logger);
+  if (out.latitude === null || out.longitude === null) {
+    const outward = key.match(/^[A-Z]{1,2}[0-9][A-Z0-9]?/)?.[0];
+    if (outward) {
+      out = await fetchPostcodesIo(`/outcodes/${encodeURIComponent(outward)}`, logger);
+    }
+  }
+  GEOCODE_CACHE.set(key, out);
+  return out;
+}
+
+/**
+ * Pull a UK postcode out of a free-form collection address. Matches the
+ * standard outward+inward shape (e.g. "SE15 4ST", "SW1A 1AA"). Returns the
+ * canonicalised "OUT IN" form so callers can hand it straight to postcodes.io.
+ */
+function extractPostcodeFromAddress(addr: string | null | undefined): string | null {
+  if (!addr) return null;
+  const m = addr.toUpperCase().match(/([A-Z]{1,2}[0-9][A-Z0-9]?)\s*([0-9][A-Z]{2})/);
+  return m ? `${m[1]} ${m[2]}` : null;
+}
+
+/**
+ * Best-effort postcode for geocoding a vendor's local-delivery centre.
+ * Prefers the first servicing postcode (those tend to be outward-only and
+ * map cleanly), then falls back to anything we can dig out of the
+ * collection address. Returns null if nothing usable is available — the
+ * caller persists null lat/lng and the search just won't include this
+ * vendor in radius results until a vendor edits their delivery config.
+ */
+export function pickGeocodingPostcode(input: {
+  postcodes?: string[] | null;
+  collectionAddress?: string | null;
+}): string | null {
+  const first = input.postcodes?.find((p) => p && p.trim().length > 0);
+  if (first) return first.trim();
+  return extractPostcodeFromAddress(input.collectionAddress ?? null);
+}
+
 @Injectable()
 export class VendorsService {
+  private readonly logger = new Logger(VendorsService.name);
   constructor(
     private readonly repo: VendorRepository,
     private readonly prisma: PrismaService,
@@ -372,7 +459,45 @@ export class VendorsService {
     if (!vendor) {
       throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'No vendor profile' });
     }
-    return this.prisma.deliveryConfig.upsert({
+
+    // Geocode the vendor's local-delivery centre so the customer-facing
+    // search can match by real distance instead of relying on the legacy
+    // outward-postcode-prefix proxy. Best-effort: if postcodes.io is down
+    // or the postcode is unrecognised we still persist the rest of the
+    // config (lat/lng = NULL) — vendors must never be blocked from
+    // editing their delivery settings by a flaky third party.
+    const existing = vendor.deliveryConfig;
+    const postcodesForGeo = dto.postcodes ?? existing?.postcodes ?? [];
+    const collectionForGeo =
+      dto.collectionAddress !== undefined ? dto.collectionAddress : existing?.collectionAddress;
+    const geocodeTarget = pickGeocodingPostcode({
+      postcodes: postcodesForGeo,
+      collectionAddress: collectionForGeo,
+    });
+
+    // Decide whether the geo-driving fields actually changed in this PATCH.
+    // If they did, the new coords (even nulls) replace the old ones — the
+    // vendor explicitly moved. If they didn't, we treat a geocode miss as a
+    // transient postcodes.io failure and KEEP the existing coordinates so a
+    // vendor toggling, say, `nationwideEnabled` during an outage can't
+    // silently wipe their on-map location.
+    const geoInputsChanged =
+      (dto.postcodes !== undefined &&
+        JSON.stringify(dto.postcodes) !== JSON.stringify(existing?.postcodes ?? [])) ||
+      (dto.collectionAddress !== undefined &&
+        (dto.collectionAddress ?? null) !== (existing?.collectionAddress ?? null));
+
+    const fresh: PostcodeLatLng = geocodeTarget
+      ? await geocodePostcode(geocodeTarget, this.logger)
+      : { latitude: null, longitude: null };
+    const coords: PostcodeLatLng =
+      geoInputsChanged || !existing || existing.latitude == null || existing.longitude == null
+        ? fresh
+        : fresh.latitude != null && fresh.longitude != null
+          ? fresh
+          : { latitude: existing.latitude, longitude: existing.longitude };
+
+    const result = await this.prisma.deliveryConfig.upsert({
       where: { vendorId: vendor.id },
       create: {
         vendorId: vendor.id,
@@ -385,6 +510,8 @@ export class VendorsService {
         minOrderPence: dto.minOrderPence ?? 0,
         freeDeliveryOverPence: dto.freeDeliveryOverPence ?? null,
         postcodes: dto.postcodes ?? [],
+        latitude: coords.latitude,
+        longitude: coords.longitude,
       },
       update: {
         types: dto.types,
@@ -398,8 +525,19 @@ export class VendorsService {
           ? { freeDeliveryOverPence: dto.freeDeliveryOverPence }
           : {}),
         ...(dto.postcodes !== undefined ? { postcodes: dto.postcodes } : {}),
+        // Always persist the freshly-computed coords (including nulls) so a
+        // vendor wiping their postcodes/address visibly disables radius
+        // matching instead of leaving a stale point on the map.
+        latitude: coords.latitude,
+        longitude: coords.longitude,
       },
     });
+
+    // Search results embed delivery radius hits — invalidate so the next
+    // search reflects the new coordinates immediately.
+    await this.cache.delByPattern('vendors:search:*');
+
+    return result;
   }
 
   /**
@@ -580,7 +718,14 @@ export class VendorsService {
     }
 
     const cursor = decodeCursor(dto.cursor);
-    const rows = await this.repo.search(dto, cursor);
+    // Geocode the requesting postcode once per search so the repo can do
+    // real haversine distance against each vendor's delivery-config
+    // coordinates instead of falling back to the legacy outward-prefix
+    // proxy. A miss returns nulls and the repo gracefully degrades.
+    const userCoords = dto.postcode
+      ? await geocodePostcode(dto.postcode, this.logger)
+      : { latitude: null, longitude: null };
+    const rows = await this.repo.search(dto, cursor, userCoords);
     const nextCursor = rows.length === limit ? encodeCursor(rows[rows.length - 1]!) : null;
 
     this.logSearchAnonymously(dto, rows.length);
@@ -838,29 +983,35 @@ export class VendorsService {
    * coordinates, not a query bug or a missing env var.
    */
   async getDebugInfo(postcode?: string) {
-    const [liveVendors, deliveryConfigCount] = await Promise.all([
-      this.prisma.vendor.findMany({
-        where: { status: 'live' },
-        select: {
-          id: true,
-          businessName: true,
-          status: true,
-          deliveryConfig: { select: { localRadiusMiles: true } },
-        },
-        orderBy: { createdAt: 'desc' },
-        take: 5,
-      }),
-      this.prisma.deliveryConfig.count(),
-    ]);
-
-    const liveVendorCount = await this.prisma.vendor.count({ where: { status: 'live' } });
+    const [liveVendors, deliveryConfigCount, configsWithCoordinates, liveVendorCount] =
+      await Promise.all([
+        this.prisma.vendor.findMany({
+          where: { status: 'live' },
+          select: {
+            id: true,
+            businessName: true,
+            status: true,
+            deliveryConfig: {
+              select: { localRadiusMiles: true, latitude: true, longitude: true },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 5,
+        }),
+        this.prisma.deliveryConfig.count(),
+        this.prisma.deliveryConfig.count({
+          where: { latitude: { not: null }, longitude: { not: null } },
+        }),
+        this.prisma.vendor.count({ where: { status: 'live' } }),
+      ]);
 
     const sampleVendors = liveVendors.map((v) => ({
       id: v.id,
       businessName: v.businessName,
       status: v.status,
       hasDeliveryConfig: v.deliveryConfig !== null,
-      hasCoordinates: false,
+      hasCoordinates:
+        v.deliveryConfig?.latitude != null && v.deliveryConfig?.longitude != null,
       deliveryRadiusMiles: v.deliveryConfig?.localRadiusMiles ?? null,
     }));
 
@@ -872,7 +1023,7 @@ export class VendorsService {
     return {
       liveVendorCount,
       deliveryConfigCount,
-      configsWithCoordinates: 0,
+      configsWithCoordinates,
       sampleVendors,
       postcodeTest,
       apiUrlSetInEnv: nextPublicApiUrl !== null,
@@ -881,36 +1032,46 @@ export class VendorsService {
   }
 
   /**
-   * Tiny hardcoded UK-postcode-district → lat/lng map. Enough for the
-   * diagnostic to demonstrate the "no vendor coordinates" finding
-   * without standing up a real geocoder. Unknown districts return
-   * geocoded:null so the caller can tell geocoding from radius failure.
+   * Live diagnostic of the postcode → in-radius pipeline used by the
+   * customer search. Hits the same postcodes.io path the real search uses
+   * so the result reflects production behaviour rather than a hardcoded
+   * sample map.
    */
   private async runPostcodeTest(rawPostcode: string) {
     const postcode = rawPostcode.trim().toUpperCase();
-    const district = postcode.replace(/\s+/g, '').match(/^[A-Z]{1,2}[0-9][A-Z0-9]?/)?.[0] ?? postcode;
+    const coords = await geocodePostcode(postcode, this.logger);
+    const geocoded =
+      coords.latitude != null && coords.longitude != null
+        ? { lat: coords.latitude, lng: coords.longitude }
+        : null;
 
-    const DISTRICTS: Record<string, { lat: number; lng: number }> = {
-      SE15: { lat: 51.4694, lng: -0.0694 },
-      SE1: { lat: 51.5045, lng: -0.0865 },
-      E1: { lat: 51.5154, lng: -0.0719 },
-      E8: { lat: 51.5448, lng: -0.0688 },
-      N1: { lat: 51.5362, lng: -0.1029 },
-      NW1: { lat: 51.5360, lng: -0.1450 },
-      SW1: { lat: 51.4975, lng: -0.1357 },
-      W1: { lat: 51.5154, lng: -0.1419 },
-      EC1: { lat: 51.5246, lng: -0.1037 },
-      CR0: { lat: 51.3762, lng: -0.0982 },
-      BR1: { lat: 51.4044, lng: 0.0149 },
-    };
+    const vendorsWithNoLocation = await this.prisma.vendor.count({
+      where: {
+        status: 'live',
+        OR: [
+          { deliveryConfig: null },
+          { deliveryConfig: { latitude: null } },
+          { deliveryConfig: { longitude: null } },
+        ],
+      },
+    });
 
-    const geocoded = DISTRICTS[district] ?? null;
-    const vendorsWithNoLocation = await this.prisma.vendor.count({ where: { status: 'live' } });
+    let vendorsInRadius = 0;
+    if (geocoded) {
+      // Reuse the production search path so this diagnostic actually
+      // covers the customer flow (postcode-prefix proxy + radius filter).
+      const rows = await this.repo.search(
+        { postcode, limit: 100, status: VendorStatus.live } as SearchVendorsDto,
+        null,
+        { latitude: geocoded.lat, longitude: geocoded.lng },
+      );
+      vendorsInRadius = rows.length;
+    }
 
     return {
       postcode,
       geocoded,
-      vendorsInRadius: 0,
+      vendorsInRadius,
       vendorsWithNoLocation,
     };
   }

@@ -28,6 +28,7 @@
     "db:studio": "prisma studio --schema=prisma/schema.prisma",
     "db:validate": "prisma validate --schema=prisma/schema.prisma",
     "db:reset": "prisma migrate reset --schema=prisma/schema.prisma --force",
+    "db:backfill-coords": "ts-node scripts/backfill-delivery-coords.ts",
     "ci": "turbo run lint typecheck test build",
     "build:api": "turbo run build --filter=@feastpot/api",
     "start:api": "node apps/api/dist/main.js",
