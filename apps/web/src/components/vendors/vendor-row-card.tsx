@@ -34,6 +34,13 @@ const deliveryEta = (mins?: number | null): string => {
   return `${low}–${high} min`;
 };
 
+const KM_PER_MILE = 1.609344;
+const formatDistanceMiles = (km?: number | null): string | null => {
+  if (typeof km !== 'number' || !Number.isFinite(km) || km < 0) return null;
+  const miles = km / KM_PER_MILE;
+  return `${miles.toFixed(1)} mi away`;
+};
+
 interface Props {
   vendor: VendorListItem;
 }
@@ -41,6 +48,7 @@ interface Props {
 export function VendorRowCard({ vendor }: Props) {
   const tags = (vendor.matchedDishes?.length ? vendor.matchedDishes : vendor.cuisines).slice(0, 2);
   const isPopular = vendor.communityFavourite === true;
+  const distanceLabel = formatDistanceMiles(vendor.distanceKm);
 
   return (
     <article className="group relative overflow-hidden rounded-3xl border border-cream-deep bg-white shadow-sm transition hover:shadow-md">
@@ -99,6 +107,14 @@ export function VendorRowCard({ vendor }: Props) {
           <p className="mt-1 text-xs font-medium text-charcoal-mid">
             {deliveryEta(vendor.deliveryEtaMins)} · {deliveryFee(vendor.minOrderPence)}
           </p>
+
+          {distanceLabel && (
+            <p className="mt-1.5">
+              <span className="inline-flex items-center rounded-full bg-teal/10 px-2 py-0.5 text-[11px] font-bold text-teal">
+                {distanceLabel}
+              </span>
+            </p>
+          )}
 
           {tags.length > 0 && (
             <ul className="mt-2 flex flex-wrap gap-1.5">

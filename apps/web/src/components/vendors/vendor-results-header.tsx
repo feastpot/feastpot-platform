@@ -27,7 +27,17 @@ export function VendorResultsHeader({ count, postcode, loading }: Props) {
   const params = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
-  const current = params?.get('sort') ?? '';
+  // Mirror the page-level default: when a postcode is set and no explicit
+  // `?sort=` is in the URL, the list is sorted by distance, so reflect that
+  // in the dropdown instead of falsely showing "Recommended".
+  //
+  // We also drop the "Recommended" (empty value) option from the menu while a
+  // postcode is set — selecting it would clear `?sort=`, which the page would
+  // immediately reinterpret as the implicit distance default, leaving the
+  // user with a sticky "selected but never applied" state.
+  const sortParam = params?.get('sort') ?? '';
+  const current = sortParam || (postcode ? 'distance' : '');
+  const options = postcode ? SORTS.filter((s) => s.value !== '') : SORTS;
 
   const onChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value;
@@ -55,7 +65,7 @@ export function VendorResultsHeader({ count, postcode, loading }: Props) {
           aria-label="Sort results"
           className="rounded-xl border border-cream-deep bg-white px-3 py-2 text-sm font-bold text-charcoal focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
         >
-          {SORTS.map((s) => (
+          {options.map((s) => (
             <option key={s.value} value={s.value}>
               {s.label}
             </option>

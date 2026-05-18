@@ -78,7 +78,12 @@ function VendorSearch() {
 
   const halal = params?.get('halal') === 'true';
   const dietary = (params?.get('dietary') ?? '').split(',').filter(Boolean);
-  const sortBy = (params?.get('sort') as VendorSortBy | null) ?? undefined;
+  // When the user has set a postcode we now have real distances for every
+  // vendor row, so default the sort to "distance" so the closest kitchens
+  // bubble to the top. An explicit `?sort=` in the URL always wins, so users
+  // who picked another order keep it on refresh / share.
+  const sortParam = (params?.get('sort') as VendorSortBy | null) ?? undefined;
+  const sortBy: VendorSortBy | undefined = sortParam ?? (postcode ? 'distance' : undefined);
 
   const search: SearchVendorsParams = {
     q,
