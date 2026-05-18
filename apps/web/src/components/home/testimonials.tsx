@@ -47,7 +47,7 @@ export function Testimonials() {
     <section className="space-y-3 px-4 py-6">
       <header className="space-y-1">
         <h2 className="font-display text-[17px] font-black text-charcoal">
-          Loved by communities across London
+          Loved by communities across the UK
         </h2>
         <p className="text-xs font-medium text-charcoal-mid">
           Real reviews from customers who&rsquo;ve cooked at, fed, and celebrated with Feastpot vendors.

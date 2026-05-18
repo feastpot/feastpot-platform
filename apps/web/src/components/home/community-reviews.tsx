@@ -27,7 +27,7 @@ export function CommunityReviews() {
         id="reviews-heading"
         className="mt-1 font-display text-[26px] font-black leading-tight text-charcoal sm:text-3xl"
       >
-        Loved by communities across London
+        Loved by communities across the UK
       </h2>
       <p className="mt-1 text-[14px] font-medium text-charcoal-mid">
         Review teasers build confidence without showing vendors before postcode
