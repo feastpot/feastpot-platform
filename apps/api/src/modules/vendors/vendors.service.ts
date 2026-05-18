@@ -161,6 +161,21 @@ async function fetchPostcodesIo(
   }
 }
 
+/**
+ * Great-circle distance in kilometres between two WGS-84 points (Earth radius
+ * 6371km). Mirrors the SQL haversine used in vendor search so the customer
+ * sees the same number whether they're looking at the list or the profile.
+ */
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return 2 * 6371 * Math.asin(Math.sqrt(a));
+}
+
 async function geocodePostcode(raw: string, logger?: Logger): Promise<PostcodeLatLng> {
   const key = raw.replace(/\s+/g, '').toUpperCase();
   if (!key) return { latitude: null, longitude: null };
@@ -799,13 +814,29 @@ export class VendorsService {
    * 404 for anything not in `live` status — pending/suspended/draft vendor
    * profiles must NOT be enumerable from the customer-facing surface. Use
    * the UUID `:id` route (admin/vendor surfaces) for non-live access.
+   *
+   * `postcode` is an optional customer postcode used to attach a real
+   * great-circle `distanceKm` to the response so the profile page can show
+   * "X.X mi away" — matching the surfacing already provided on the search
+   * list. Distance is computed in JS off the (cached) findById payload, so
+   * it never pollutes the profile cache and gracefully degrades to null
+   * when either the postcode geocode misses or the vendor has no
+   * delivery-config coordinates.
    */
-  async findBySlug(slug: string) {
+  async findBySlug(slug: string, postcode?: string) {
     const lite = await this.repo.findBySlug(slug);
     if (!lite || lite.status !== 'live') {
       throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'Vendor not found' });
     }
-    return this.findById(lite.id);
+    const vendor = await this.findById(lite.id);
+    const trimmed = postcode?.trim();
+    if (!trimmed) return vendor;
+    const dc = vendor.deliveryConfig;
+    if (!dc || dc.latitude == null || dc.longitude == null) return vendor;
+    const coords = await geocodePostcode(trimmed, this.logger);
+    if (coords.latitude == null || coords.longitude == null) return vendor;
+    const distanceKm = haversineKm(coords.latitude, coords.longitude, dc.latitude, dc.longitude);
+    return { ...vendor, distanceKm };
   }
 
   async findMyVendor(userId: string) {

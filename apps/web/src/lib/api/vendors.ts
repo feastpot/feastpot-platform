@@ -109,9 +109,13 @@ export interface VendorMenuItem {
 
 export function getVendorBySlug(
   slug: string,
-  options?: Pick<ApiRequestOptions, 'next' | 'signal'>,
+  options?: Pick<ApiRequestOptions, 'next' | 'signal'> & { postcode?: string | null },
 ): Promise<VendorProfile> {
-  return apiRequest<VendorProfile>(`/vendors/by-slug/${encodeURIComponent(slug)}`, options);
+  const { postcode, ...rest } = options ?? {};
+  return apiRequest<VendorProfile>(`/vendors/by-slug/${encodeURIComponent(slug)}`, {
+    ...rest,
+    query: postcode ? { postcode } : undefined,
+  });
 }
 
 export interface VendorReview {

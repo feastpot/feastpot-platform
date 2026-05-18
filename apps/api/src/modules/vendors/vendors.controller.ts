@@ -149,8 +149,8 @@ export class VendorsController {
   @Public()
   @Get('by-slug/:slug')
   @ApiOperation({ summary: 'Get vendor by slug (public) — used by customer PWA' })
-  findBySlug(@Param('slug') slug: string) {
-    return this.vendors.findBySlug(slug);
+  findBySlug(@Param('slug') slug: string, @Query('postcode') postcode?: string) {
+    return this.vendors.findBySlug(slug, postcode);
   }
 
   @Public()

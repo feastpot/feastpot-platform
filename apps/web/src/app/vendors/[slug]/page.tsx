@@ -1,5 +1,6 @@
-import { ChevronRight, Clock, ShieldCheck, ShoppingBag, Soup, Star, Truck } from 'lucide-react';
+import { ChevronRight, Clock, MapPin, ShieldCheck, ShoppingBag, Soup, Star, Truck } from 'lucide-react';
 import type { Metadata } from 'next';
+import { cookies } from 'next/headers';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
@@ -10,6 +11,7 @@ import { RatingBreakdown } from '@/components/vendor/rating-breakdown';
 import { ReviewsSection } from '@/components/vendor/reviews-section';
 import { ApiError } from '@/lib/api/client';
 import { getVendorBySlug, type VendorMenuItem } from '@/lib/api/vendors';
+import { COVERAGE_COOKIE } from '@/lib/postcode';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -119,13 +121,41 @@ function groupByCategory(items: VendorMenuItem[]) {
 export default async function VendorProfilePage({ params }: PageProps) {
   const { slug } = await params;
 
+  // Pull the customer's coverage postcode (the same one the homepage gate
+  // stores) straight off the cookie so the profile can surface "X.X mi away"
+  // — matching the badge already shown on the search list. Server-readable
+  // cookie keeps this a single round-trip with no client hydration flicker.
+  // Cookie value is URL-encoded by writeCoverageCookie; decode here.
+  const cookieStore = await cookies();
+  const rawPostcode = cookieStore.get(COVERAGE_COOKIE)?.value || null;
+  // Guard decode: a tampered/malformed cookie shouldn't 500 the profile page.
+  let customerPostcode: string | null = null;
+  if (rawPostcode) {
+    try {
+      customerPostcode = decodeURIComponent(rawPostcode);
+    } catch {
+      customerPostcode = null;
+    }
+  }
+
   let vendor;
   try {
-    vendor = await getVendorBySlug(slug, { next: { revalidate: 60 } });
+    // Skip the 60s revalidate cache when we have a postcode — the response
+    // is per-customer (distanceKm depends on their postcode) and Next would
+    // otherwise serve a stale distance to other visitors.
+    vendor = await getVendorBySlug(slug, {
+      postcode: customerPostcode,
+      next: customerPostcode ? { revalidate: 0 } : { revalidate: 60 },
+    });
   } catch (e) {
     if (e instanceof ApiError && e.status === 404) notFound();
     throw e;
   }
+
+  const distanceMiles =
+    typeof vendor.distanceKm === 'number' && vendor.distanceKm >= 0
+      ? vendor.distanceKm * 0.621371
+      : null;
 
   const allItems: VendorMenuItem[] = (vendor.menus ?? []).flatMap((m) => m.items ?? []);
   const grouped = groupByCategory(allItems);
@@ -307,6 +337,12 @@ export default async function VendorProfilePage({ params }: PageProps) {
         )}
 
         <div className="flex flex-wrap gap-x-4 gap-y-1 pt-1 text-[11px] font-medium text-charcoal-mid">
+          {distanceMiles != null && (
+            <span className="inline-flex items-center gap-1">
+              <MapPin className="h-3 w-3" aria-hidden />
+              {distanceMiles.toFixed(1)} mi away
+            </span>
+          )}
           {minOrderPence != null && minOrderPence > 0 && (
             <span className="inline-flex items-center gap-1">
               <ShoppingBag className="h-3 w-3" aria-hidden />
