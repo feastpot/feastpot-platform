@@ -64,7 +64,7 @@ export function InstagramDmsBlock() {
             href="#hero-headline"
             className="mt-5 inline-flex items-center rounded-xl bg-brand px-5 py-3 text-sm font-bold text-white shadow-card transition-colors hover:bg-brand-dark"
           >
-            See what delivers to me
+            See local cooks near me
           </a>
         </div>
 
