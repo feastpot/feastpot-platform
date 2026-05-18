@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  NotFoundException,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -125,6 +126,24 @@ export class VendorsController {
     @CurrentUser() user: AuthUser | null,
   ): Promise<StripeConnectLinkResponseDto> {
     return this.vendors.createStripeConnectLink(requireUser(user).id);
+  }
+
+  // Diagnostic-only endpoint. MUST be declared before @Get(':id') so
+  // Nest matches "debug" as a literal segment rather than falling through
+  // to the UUID-validated `/:id` route (which is what produced the
+  // "Validation failed (uuid is expected)" 400s in production logs).
+  // Gated to non-prod so we never accidentally leak internals from a
+  // real deploy — returns 404 in production.
+  @Public()
+  @Get('debug')
+  @ApiOperation({
+    summary: 'Diagnostic snapshot of live vendors + delivery configs (non-prod only).',
+  })
+  debug(@Query('postcode') postcode?: string) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new NotFoundException({ code: 'NOT_FOUND', message: 'Not found' });
+    }
+    return this.vendors.getDebugInfo(postcode);
   }
 
   @Public()

@@ -823,4 +823,95 @@ export class VendorsService {
     }
     return candidate;
   }
+
+  /**
+   * Diagnostic-only snapshot for /v1/vendors/debug. Gated to non-prod by
+   * the controller. Returns a fixed shape — see VendorsController.debug
+   * for the contract.
+   *
+   * The current Prisma schema has NO lat/lng on Vendor or DeliveryConfig
+   * (only Address carries coordinates). So `hasCoordinates`,
+   * `configsWithCoordinates`, and `vendorsInRadius` are intentionally
+   * always false / 0 — that is exactly the signal this endpoint exists
+   * to surface: when `vendorsWithNoLocation === liveVendorCount` and
+   * `vendorsInRadius === 0`, the root cause is missing vendor
+   * coordinates, not a query bug or a missing env var.
+   */
+  async getDebugInfo(postcode?: string) {
+    const [liveVendors, deliveryConfigCount] = await Promise.all([
+      this.prisma.vendor.findMany({
+        where: { status: 'live' },
+        select: {
+          id: true,
+          businessName: true,
+          status: true,
+          deliveryConfig: { select: { localRadiusMiles: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 5,
+      }),
+      this.prisma.deliveryConfig.count(),
+    ]);
+
+    const liveVendorCount = await this.prisma.vendor.count({ where: { status: 'live' } });
+
+    const sampleVendors = liveVendors.map((v) => ({
+      id: v.id,
+      businessName: v.businessName,
+      status: v.status,
+      hasDeliveryConfig: v.deliveryConfig !== null,
+      hasCoordinates: false,
+      deliveryRadiusMiles: v.deliveryConfig?.localRadiusMiles ?? null,
+    }));
+
+    const postcodeTest = postcode ? await this.runPostcodeTest(postcode) : null;
+
+    const nextPublicApiUrl =
+      process.env.NEXT_PUBLIC_API_URL ?? process.env.API_PUBLIC_URL ?? null;
+
+    return {
+      liveVendorCount,
+      deliveryConfigCount,
+      configsWithCoordinates: 0,
+      sampleVendors,
+      postcodeTest,
+      apiUrlSetInEnv: nextPublicApiUrl !== null,
+      nextPublicApiUrl,
+    };
+  }
+
+  /**
+   * Tiny hardcoded UK-postcode-district → lat/lng map. Enough for the
+   * diagnostic to demonstrate the "no vendor coordinates" finding
+   * without standing up a real geocoder. Unknown districts return
+   * geocoded:null so the caller can tell geocoding from radius failure.
+   */
+  private async runPostcodeTest(rawPostcode: string) {
+    const postcode = rawPostcode.trim().toUpperCase();
+    const district = postcode.replace(/\s+/g, '').match(/^[A-Z]{1,2}[0-9][A-Z0-9]?/)?.[0] ?? postcode;
+
+    const DISTRICTS: Record<string, { lat: number; lng: number }> = {
+      SE15: { lat: 51.4694, lng: -0.0694 },
+      SE1: { lat: 51.5045, lng: -0.0865 },
+      E1: { lat: 51.5154, lng: -0.0719 },
+      E8: { lat: 51.5448, lng: -0.0688 },
+      N1: { lat: 51.5362, lng: -0.1029 },
+      NW1: { lat: 51.5360, lng: -0.1450 },
+      SW1: { lat: 51.4975, lng: -0.1357 },
+      W1: { lat: 51.5154, lng: -0.1419 },
+      EC1: { lat: 51.5246, lng: -0.1037 },
+      CR0: { lat: 51.3762, lng: -0.0982 },
+      BR1: { lat: 51.4044, lng: 0.0149 },
+    };
+
+    const geocoded = DISTRICTS[district] ?? null;
+    const vendorsWithNoLocation = await this.prisma.vendor.count({ where: { status: 'live' } });
+
+    return {
+      postcode,
+      geocoded,
+      vendorsInRadius: 0,
+      vendorsWithNoLocation,
+    };
+  }
 }
