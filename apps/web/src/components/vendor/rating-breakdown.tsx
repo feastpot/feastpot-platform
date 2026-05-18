@@ -32,7 +32,7 @@ export function RatingBreakdown({
   const buckets =
     breakdown ?? estimateBreakdown(avgRating, reviewCount);
 
-  // Drive the width animation off a `mounted` flag — we deliberately render
+  // Drive the width animation off a `mounted` flag - we deliberately render
   // at width 0 on first paint, then flip to the real width via state so the
   // CSS `transition-[width]` engages. We can't use `animate-` classes here
   // because the target width is data-dependent.
@@ -45,7 +45,7 @@ export function RatingBreakdown({
   if (reviewCount === 0) {
     return (
       <section className="rounded-2xl border border-cream-deep bg-white p-4 text-sm font-medium text-charcoal-mid">
-        No reviews yet — be the first to share your experience after delivery.
+        No reviews yet - be the first to share your experience after delivery.
       </section>
     );
   }
@@ -56,7 +56,7 @@ export function RatingBreakdown({
       aria-label="Rating breakdown"
     >
       <div className="flex items-stretch gap-4">
-        {/* Left — big average */}
+        {/* Left - big average */}
         <div className="flex w-24 shrink-0 flex-col items-center justify-center border-r border-cream-deep pr-4">
           <div className="text-5xl font-extrabold leading-none tracking-tight text-dark">
             {avgRating.toFixed(1)}
@@ -77,7 +77,7 @@ export function RatingBreakdown({
           </div>
         </div>
 
-        {/* Right — bars */}
+        {/* Right - bars */}
         <ul className="flex-1 space-y-1.5">
           {([5, 4, 3, 2, 1] as const).map((star, idx) => {
             const count = buckets[star];

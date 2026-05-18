@@ -100,7 +100,7 @@ export function DisputeDetailClient({ disputeId }: { disputeId: string }) {
                     label="Customer"
                     value={
                       <>
-                        {`${dispute.order.customer.firstName ?? ''} ${dispute.order.customer.lastName ?? ''}`.trim() || '—'}
+                        {`${dispute.order.customer.firstName ?? ''} ${dispute.order.customer.lastName ?? ''}`.trim() || '-'}
                         <div className="text-xs text-muted-foreground">{dispute.order.customer.email}</div>
                       </>
                     }
@@ -118,7 +118,7 @@ export function DisputeDetailClient({ disputeId }: { disputeId: string }) {
           <Card>
             <CardHeader><CardTitle className="text-base">Description</CardTitle></CardHeader>
             <CardContent>
-              <p className="whitespace-pre-wrap text-sm">{dispute?.description ?? '—'}</p>
+              <p className="whitespace-pre-wrap text-sm">{dispute?.description ?? '-'}</p>
               {dispute?.resolutionNote && (
                 <div className="mt-4">
                   <div className="text-xs uppercase tracking-wide text-muted-foreground">Resolution note</div>

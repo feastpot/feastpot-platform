@@ -71,7 +71,7 @@ async function safeFetchVendors(cuisines: string[]): Promise<VendorListItem[]> {
 
 /**
  * Shared template for the three diaspora-cuisine SEO landing pages
- * (Nigerian, Ghanaian, Caribbean). Server component — vendor list is
+ * (Nigerian, Ghanaian, Caribbean). Server component - vendor list is
  * fetched at request time and cached for an hour. The pages target London
  * postcodes, so copy and reviews are intentionally London-flavoured.
  */
@@ -113,16 +113,16 @@ export async function CuisineLanding({
         </h2>
         <ol className="space-y-2 text-sm font-medium text-charcoal md:text-base">
           <li>
-            <strong className="font-bold text-charcoal">1. Enter your postcode</strong> — we show the {cuisine} vendors covering your area.
+            <strong className="font-bold text-charcoal">1. Enter your postcode</strong> - we show the {cuisine} vendors covering your area.
           </li>
           <li>
-            <strong className="font-bold text-charcoal">2. Pick a tray or family portion</strong> — most vendors take orders 24–72 hours ahead.
+            <strong className="font-bold text-charcoal">2. Pick a tray or family portion</strong> - most vendors take orders 24–72 hours ahead.
           </li>
           <li>
-            <strong className="font-bold text-charcoal">3. Pay securely with Stripe</strong> — we hold the funds until your order is fulfilled.
+            <strong className="font-bold text-charcoal">3. Pay securely with Stripe</strong> - we hold the funds until your order is fulfilled.
           </li>
           <li>
-            <strong className="font-bold text-charcoal">4. Track delivery</strong> — get push and WhatsApp updates from the vendor.
+            <strong className="font-bold text-charcoal">4. Track delivery</strong> - get push and WhatsApp updates from the vendor.
           </li>
         </ol>
       </section>
@@ -166,7 +166,7 @@ export async function CuisineLanding({
           {CUSTOMER_REVIEWS.map((r) => (
             <blockquote key={r.name} className="rounded-2xl border border-cream-deep bg-cream p-4">
               <p className="text-sm font-medium italic text-charcoal">&ldquo;{r.quote}&rdquo;</p>
-              <footer className="mt-2 text-xs font-bold text-charcoal-mid">— {r.name}</footer>
+              <footer className="mt-2 text-xs font-bold text-charcoal-mid">- {r.name}</footer>
             </blockquote>
           ))}
         </div>

@@ -18,13 +18,13 @@ import { StatCard } from '@/components/dashboard/stat-card';
 import { useAnalytics } from '@/hooks/use-analytics';
 import { formatPence } from '@/lib/format';
 
-// Recharts can't read CSS vars at draw time — keep these as literals.
+// Recharts can't read CSS vars at draw time - keep these as literals.
 const BRAND_ORANGE = '#E8520A';
 const VENDOR_BLUE = '#185FA5';
 const GRID_GREY = '#F0EDE8';
 
 /**
- * Vendor analytics. Data fetching is unchanged — only the visual wrapper
+ * Vendor analytics. Data fetching is unchanged - only the visual wrapper
  * has been refreshed to match the brief:
  *   - Metric strip uses the shared StatCard so the count-up + colour
  *     treatment matches the dashboard home.

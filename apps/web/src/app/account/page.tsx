@@ -55,7 +55,7 @@ export default function AccountHubPage() {
     router.push('/sign-in');
   };
 
-  // Guest hub — `/account` (exact) is intentionally NOT middleware-
+  // Guest hub - `/account` (exact) is intentionally NOT middleware-
   // gated so that the bottom-nav "Account" tap on a fresh visitor
   // lands on a benefits-led welcome instead of a sign-in form. The
   // benefits list is the same value-prop pitch we use across the
@@ -66,7 +66,7 @@ export default function AccountHubPage() {
 
   return (
     <div className="space-y-5 px-4 py-4">
-      {/* Profile header — wireframe-spec: oversize avatar, bold greeting,
+      {/* Profile header - wireframe-spec: oversize avatar, bold greeting,
           green "Edit Profile" link. The waving emoji + first-name greeting
           mirror the wireframe's "Hi Alex! 👋" treatment. */}
       <header className="flex items-center gap-4 rounded-3xl border border-cream-deep bg-white p-4 shadow-card">
@@ -127,7 +127,7 @@ export default function AccountHubPage() {
         />
       </ul>
 
-      {/* Sign-out — opens a branded confirm dialog instead of the
+      {/* Sign-out - opens a branded confirm dialog instead of the
           native window.confirm() which renders as a flat OS-chrome
           "www.feastpot.co.uk says" alert that breaks the visual
           language of the rest of the app. */}

@@ -5,7 +5,7 @@
  *   - public/sitemap.xml + public/sitemap-0.xml
  *   - public/robots.txt
  *
- * Account/checkout/order pages are excluded — they require auth and have no
+ * Account/checkout/order pages are excluded - they require auth and have no
  * SEO value. Vendor profile pages are added dynamically by querying the live
  * API for `status=live` vendors (capped at 1000 per call). If the API is
  * unreachable at build time we silently fall back to an empty list rather
@@ -44,7 +44,7 @@ module.exports = {
           '/checkout',
           '/orders',
           '/auth',
-          // Next 15 route group — the `(auth)` segment never appears in
+          // Next 15 route group - the `(auth)` segment never appears in
           // the URL, but a crawler that picked up a stale link from a
           // build artefact should still be told to stay out.
           '/(auth)',
@@ -62,7 +62,7 @@ module.exports = {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.feastpot.co.uk';
     try {
       const res = await fetch(`${apiUrl}/v1/vendors?limit=1000&status=live`, {
-        // 15 s ceiling — we'd rather ship a smaller sitemap than block the build.
+        // 15 s ceiling - we'd rather ship a smaller sitemap than block the build.
         signal: AbortSignal.timeout(15_000),
       });
       if (!res.ok) {

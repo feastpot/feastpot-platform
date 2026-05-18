@@ -23,7 +23,7 @@ const RATING_LABELS = ['Terrible', 'Poor', 'OK', 'Good', 'Excellent'] as const;
  * stars fill amber.
  *
  * Tap animation: we drive a brief scale spring from a per-star `popped`
- * state — set on click, cleared 200ms later. Pure CSS via Tailwind's
+ * state - set on click, cleared 200ms later. Pure CSS via Tailwind's
  * `transition-transform` + a temporary scale class is enough; we don't pull
  * in framer-motion just for this.
  */

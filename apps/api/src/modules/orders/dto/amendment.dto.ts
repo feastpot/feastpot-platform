@@ -4,7 +4,7 @@ import { IsBoolean, IsInt, IsOptional, IsString, MaxLength, MinLength } from 'cl
 /**
  * Vendor proposes an amendment to an in-flight order. Free-text describes the
  * change ("swap rice for chips", "30 min late", etc.) plus an optional
- * price delta in pence (negative = refund customer, positive = upcharge —
+ * price delta in pence (negative = refund customer, positive = upcharge -
  * upcharges currently rejected to avoid surprise capture).
  */
 export class ProposeAmendmentDto {

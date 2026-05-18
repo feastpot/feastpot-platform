@@ -9,7 +9,7 @@ import { PageShell } from '@/components/layout/page-shell';
 import { useConfirmNumbers, useEventEnquiry } from '@/hooks/use-event-enquiries';
 
 const formatPounds = (p: number | null | undefined) =>
-  typeof p === 'number' ? `£${(p / 100).toFixed(2)}` : '—';
+  typeof p === 'number' ? `£${(p / 100).toFixed(2)}` : '-';
 
 const fieldLabel = 'mb-1 block text-sm font-bold text-charcoal';
 const textareaCls =

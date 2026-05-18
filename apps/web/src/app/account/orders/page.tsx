@@ -30,7 +30,7 @@ const STATUS_BADGE: Record<OrderStatus, { label: string; cls: string }> = {
  * client-side check here. The list is cursor-paginated via TanStack Query's
  * `useInfiniteQuery`.
  *
- * "Reorder" REHYDRATES THE BASKET and routes to /checkout — it does NOT auto-
+ * "Reorder" REHYDRATES THE BASKET and routes to /checkout - it does NOT auto-
  * mint a new order. The previous behaviour (POST /v1/orders/{id}/reorder)
  * silently re-used the original order's `scheduledFor`, which by the time
  * the customer tapped Reorder was either booked-out or in the past. Sending
@@ -68,7 +68,7 @@ export default function OrderHistoryPage() {
 
   const onReorder = async (order: Order) => {
     // Single-flight: if any row's reorder is already in progress, ignore
-    // further clicks. Per-row `disabled` only blocks the SAME button — a
+    // further clicks. Per-row `disabled` only blocks the SAME button - a
     // user could otherwise tap Reorder on order B while A's vendor fetch
     // was still resolving and end up racing two basket-rehydrate flows
     // into a single redirect.
@@ -77,7 +77,7 @@ export default function OrderHistoryPage() {
     try {
       // Hit the public vendor lookup so we (a) confirm the vendor still
       // exists/serves and (b) get the canonical { id, name, slug } the basket
-      // store needs to lock to a vendor. Public endpoint — no auth header.
+      // store needs to lock to a vendor. Public endpoint - no auth header.
       const vendorRes = await fetch(`${API_URL}/v1/vendors/${order.vendorId}`, {
         cache: 'no-store',
       });
@@ -89,7 +89,7 @@ export default function OrderHistoryPage() {
 
       const store = useBasketStore.getState();
       // Cross-vendor guard. If the customer already has items from a DIFFERENT
-      // vendor, ask before clobbering — single-vendor basket is enforced by
+      // vendor, ask before clobbering - single-vendor basket is enforced by
       // the store and silently dropping items would feel hostile.
       if (store.items.length > 0 && store.vendor && store.vendor.id !== order.vendorId) {
         const ok = window.confirm(
@@ -98,7 +98,7 @@ export default function OrderHistoryPage() {
         if (!ok) return;
         store.clearBasket();
       } else if (store.items.length > 0 && store.vendor?.id === order.vendorId) {
-        // Same vendor — start fresh anyway so quantities reflect THIS order
+        // Same vendor - start fresh anyway so quantities reflect THIS order
         // exactly, not "this order PLUS whatever was already pending".
         store.clearBasket();
       }
@@ -127,7 +127,7 @@ export default function OrderHistoryPage() {
         // leaving the basket half-populated.
         if (err instanceof CrossVendorBasketError) {
           useBasketStore.getState().clearBasket();
-          window.alert('Your basket changed in another tab — please try again.');
+          window.alert('Your basket changed in another tab - please try again.');
           return;
         }
         throw err;
@@ -135,7 +135,7 @@ export default function OrderHistoryPage() {
 
       router.push('/checkout');
     } catch {
-      window.alert('Could not reorder — please try again.');
+      window.alert('Could not reorder - please try again.');
     } finally {
       setReorderId(null);
     }

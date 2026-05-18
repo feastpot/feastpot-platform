@@ -201,12 +201,12 @@ export class AdminController {
   }
 
   // ============================================================
-  // FR-ADM-002 — User power tools
+  // FR-ADM-002 - User power tools
   // ============================================================
 
   @Get('users/search')
   @Roles(UserRole.admin, UserRole.support)
-  @ApiOperation({ summary: 'Look up a user by email — returns profile, balance, last 10 orders' })
+  @ApiOperation({ summary: 'Look up a user by email - returns profile, balance, last 10 orders' })
   searchUser(@Query('email') email: string) {
     return this.adminUsers.findByEmail(email);
   }
@@ -248,7 +248,7 @@ export class AdminController {
   }
 
   // ============================================================
-  // FR-PUSH-001 — Operator broadcast composer
+  // FR-PUSH-001 - Operator broadcast composer
   // ============================================================
 
   @Post('push/broadcast')
@@ -296,7 +296,7 @@ export class AdminController {
 
   @Patch('orders/:orderId/status')
   @Roles(UserRole.admin, UserRole.support)
-  @ApiOperation({ summary: 'Override order status — emergency repair only, audited' })
+  @ApiOperation({ summary: 'Override order status - emergency repair only, audited' })
   overrideOrderStatus(
     @Req() req: AuthedRequest,
     @Param('orderId', new ParseUUIDPipe()) orderId: string,
@@ -320,7 +320,7 @@ export class AdminController {
   }
 
   // ============================================================
-  // FR-ADM-002 — Order browser
+  // FR-ADM-002 - Order browser
   // ============================================================
 
   @Get('orders')
@@ -389,13 +389,13 @@ export class AdminController {
       holdReason: 'KYC review pending',
       issueType: 'late_delivery',
       disputeId: 'test-dispute-id',
-      vendorResponse: 'Apologies — driver was held up in traffic.',
+      vendorResponse: 'Apologies - driver was held up in traffic.',
       resolution: 'partial_refund',
       resolutionNote: 'Issued £10 goodwill credit.',
       documentType: 'Public liability insurance',
       expiresAt: '2026-06-10',
       daysUntilExpiry: 14,
-      reason: 'Goodwill — late delivery',
+      reason: 'Goodwill - late delivery',
     };
     await this.notifications.enqueue(dto.event, sample, { jobId: `test:${dto.event}:${Date.now()}` });
     return { queued: true, event: dto.event, recipientUserId: userId };
@@ -414,7 +414,7 @@ export class AdminController {
    * SAME job the cron does so business logic stays single-sourced in
    * `PayoutsService.runWeeklyBatch`. Idempotency inside the batch
    * (`skippedVendorIds` for vendors whose period is already paid out)
-   * means admin can safely click this even if the cron just ran — no
+   * means admin can safely click this even if the cron just ran - no
    * duplicate transfers.
    *
    * Returns 202 Accepted (not 200) because the response is sent before
@@ -430,7 +430,7 @@ export class AdminController {
     this.logger.log(`[Admin] Manual payout batch triggered by ${adminUserId}`);
 
     // Audit BEFORE enqueue so the trail exists even if Redis is down and the
-    // queue.add() below throws — we still want a record that an admin tried.
+    // queue.add() below throws - we still want a record that an admin tried.
     await this.prisma.auditLog.create({
       data: {
         actorId: adminUserId,

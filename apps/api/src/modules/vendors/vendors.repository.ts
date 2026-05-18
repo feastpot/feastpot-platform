@@ -75,24 +75,24 @@ export class VendorRepository {
     const qLike = q ? `%${q.replace(/[%_\\]/g, (c) => `\\${c}`)}%` : null;
 
     // ORDER BY + matching keyset cursor predicate (must use the SAME keys/direction
-    // as ORDER BY for stable pagination — the previous id-only cursor was wrong).
+    // as ORDER BY for stable pagination - the previous id-only cursor was wrong).
     let orderBy: Prisma.Sql;
     let cursorClause: Prisma.Sql = Prisma.empty;
     if (useDistance) {
       // distance_km ASC NULLS LAST, rating DESC, id ASC. distance is computed in the SELECT,
-      // so we recompute it inline for the WHERE predicate via a CTE-like sub-expression — but
+      // so we recompute it inline for the WHERE predicate via a CTE-like sub-expression - but
       // since cursor only continues from the last seen row, we approximate: rows whose
       // (rating, id) compare past the cursor at equal distance bucket.
       orderBy = Prisma.sql`distance_km NULLS LAST, v.rating DESC, v.id ASC`;
       if (cursor) {
-        // Treat distance as a coarse 0/NULL proxy in this implementation — keyset over (rating,id).
+        // Treat distance as a coarse 0/NULL proxy in this implementation - keyset over (rating,id).
         cursorClause = Prisma.sql`AND (
           v.rating < ${cursor.rating}::float
           OR (v.rating = ${cursor.rating}::float AND v.id > ${cursor.id}::uuid)
         )`;
       }
     } else if (sortBy === VendorSortBy.reorderRate) {
-      // No reorder_rate column — proxy with (rating DESC, rating_count DESC, id ASC).
+      // No reorder_rate column - proxy with (rating DESC, rating_count DESC, id ASC).
       orderBy = Prisma.sql`v.rating DESC, v.rating_count DESC, v.id ASC`;
       if (cursor) {
         cursorClause = Prisma.sql`AND (
@@ -146,7 +146,7 @@ export class VendorRepository {
         )`
       : Prisma.empty;
 
-    // Up to 3 matched dish names per vendor — surfaced as a "Has: …" chip
+    // Up to 3 matched dish names per vendor - surfaced as a "Has: …" chip
     // on the customer-facing card. NULL when no q so the JSON array stays
     // empty rather than ["",""].
     const matchedDishesSelect = qLike
@@ -259,7 +259,7 @@ export class VendorRepository {
         : Prisma.empty;
 
     // Customer-chosen "within X miles" cap. We only honour the cap when we
-    // have real coords for both sides — vendors lacking geocoded delivery
+    // have real coords for both sides - vendors lacking geocoded delivery
     // coordinates are excluded rather than silently bypassed via the
     // outward-prefix proxy, otherwise a "within 1 mile" filter could return
     // anyone in the whole SE15 outward district.
@@ -308,7 +308,7 @@ export class VendorRepository {
         _count: { select: { menus: { where: { isActive: true } } } },
         // Active menus + their items so the customer PWA's profile page can
         // render the menu without an extra round-trip. Items are returned
-        // in the order vendors define on the menu (createdAt asc) — the
+        // in the order vendors define on the menu (createdAt asc) - the
         // client groups them by `category` for display.
         menus: {
           where: { isActive: true },

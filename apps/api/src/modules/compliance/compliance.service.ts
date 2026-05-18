@@ -133,7 +133,7 @@ export class ComplianceService {
         where: { id: { in: expired.map((e) => e.id) } },
         data: { status: DocumentStatus.expired },
       });
-      // Notify all compliance admins (not the vendor — vendor was already
+      // Notify all compliance admins (not the vendor - vendor was already
       // notified during the warning window; this is to flag the gap to staff).
       const admins = await this.prisma.user.findMany({
         where: { role: { in: [UserRole.compliance, UserRole.admin] }, status: 'active' },
@@ -162,7 +162,7 @@ export class ComplianceService {
    *
    *  1. DB check: skip orders that already have a `review_request` notification
    *     row for the customer (Notification.metadata.orderId == this order).
-   *  2. BullMQ jobId `review_request:<orderId>` — even if two pods/ticks race
+   *  2. BullMQ jobId `review_request:<orderId>` - even if two pods/ticks race
    *     past the DB check (or the notification row hasn't been written yet),
    *     BullMQ will reject the duplicate while the first job is queued/active.
    */
@@ -231,7 +231,7 @@ export class ComplianceService {
 
   /**
    * Nightly 01:00 UTC: recompute reorderRatePct + communityFavourite for live vendors.
-   * `rating` itself is recalculated synchronously on each new review — this
+   * `rating` itself is recalculated synchronously on each new review - this
    * cron just guarantees we don't drift if a recalc was missed (e.g. during
    * an outage) and updates the derived "favourite" badge.
    */

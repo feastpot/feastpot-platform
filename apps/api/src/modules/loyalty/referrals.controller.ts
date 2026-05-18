@@ -16,7 +16,7 @@ import { ReferralService } from './referral.service';
  *
  * The same handler is also reachable at `/v1/loyalty/referrals/validate`
  * via LoyaltyController. Both routes delegate to ReferralService.validateCode
- * so they cannot drift — this controller exists purely to satisfy the public
+ * so they cannot drift - this controller exists purely to satisfy the public
  * URL contract documented in the integration spec without forcing the loyalty
  * UI (which already uses the /loyalty-prefixed path) to change.
  */

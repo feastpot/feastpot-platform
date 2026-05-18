@@ -14,7 +14,7 @@ import { PrismaService } from './prisma/prisma.service';
  * `/v1/...` via `app.enableVersioning(URI)`, but Cloud Run / autoscale's
  * default startup probe pings `GET /` and requires HTTP 200. Without this,
  * the probe gets a 404 from `HttpExceptionFilter`, fails enough times in a
- * row, and the Promote phase aborts — exactly the failure mode we just
+ * row, and the Promote phase aborts - exactly the failure mode we just
  * debugged. Keeping the response tiny (no DB hit) means the probe stays
  * fast even under cold-start load.
  *

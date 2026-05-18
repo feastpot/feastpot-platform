@@ -6,12 +6,12 @@ import { createClient } from './lib/supabase/middleware';
  * Vendor-portal edge middleware:
  *
  *  1. Refresh the Supabase session cookie on every request via `getUser()`
- *     (NOT `getSession()` — see apps/web/src/middleware.ts for why).
+ *     (NOT `getSession()` - see apps/web/src/middleware.ts for why).
  *  2. Gate every route except `/sign-in` and `/unauthorized`: unauthed users
  *     get bounced to `/sign-in?next=<path>`.
  *
  * We deliberately do NOT check `user.role === 'vendor'` or vendor `status`
- * here — that requires hitting the API/Prisma which is slow and flaky from
+ * here - that requires hitting the API/Prisma which is slow and flaky from
  * edge middleware. Those checks live in the `/orders` server component
  * (which already has to fetch the vendor's profile to render the dashboard),
  * which redirects to `/unauthorized` or `/onboarding` as needed.

@@ -183,7 +183,7 @@ export function PushComposeClient() {
           {result && (
             <div className="rounded-md border border-teal/40 bg-teal/10 p-3 text-sm text-dark">
               Sent to <strong>{result.recipients}</strong> device
-              {result.recipients === 1 ? '' : 's'} — delivered {result.delivered}, failed{' '}
+              {result.recipients === 1 ? '' : 's'} - delivered {result.delivered}, failed{' '}
               {result.failed}.
             </div>
           )}

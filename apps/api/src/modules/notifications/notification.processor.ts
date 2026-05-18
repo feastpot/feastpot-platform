@@ -39,7 +39,7 @@ const CHANNEL_TO_DB: Record<Channel, NotificationChannel> = {
  * Bull's catch-all (no name) is used here so any event the rest of the app
  * enqueues by name (e.g. `notifications.add('order_confirmation', ...)`) is
  * routed through the template registry. Unknown events are logged and dropped
- * — never re-tried indefinitely (would block the queue).
+ * - never re-tried indefinitely (would block the queue).
  */
 @Injectable()
 @Processor(NOTIFICATIONS_QUEUE)
@@ -58,7 +58,7 @@ export class NotificationProcessor {
   /**
    * Concurrency=30: email/SMS/push are I/O-bound (provider API calls), so
    * we can run many in parallel without saturating CPU. Sized for the
-   * 500-vendor / 10k-orders-per-day target — at peak (~1,200 orders/hr
+   * 500-vendor / 10k-orders-per-day target - at peak (~1,200 orders/hr
    * × up to 4 channels) we need to drain ~80 jobs/min sustained with
    * headroom for the delivery-notification wave that follows ~45 min
    * later.
@@ -67,7 +67,7 @@ export class NotificationProcessor {
   async handle(job: Job<NotificationJobData>): Promise<{ sent: Channel[]; skipped: Channel[] }> {
     const eventName = job.name;
 
-    // System jobs that don't render a notification themselves — they mutate
+    // System jobs that don't render a notification themselves - they mutate
     // state (and may enqueue follow-up template-backed notifications).
     if (eventName === 'expire_amendment') {
       await this.handleExpireAmendment(job.data as { amendmentId?: string });
@@ -80,14 +80,14 @@ export class NotificationProcessor {
 
     const template = getTemplate(eventName);
     if (!template) {
-      this.logger.warn(`No template for event "${eventName}" — dropping (no retry).`);
+      this.logger.warn(`No template for event "${eventName}" - dropping (no retry).`);
       return { sent: [], skipped: [] };
     }
 
     const data = job.data ?? {};
     const userId = this.resolveUserId(data);
     if (!userId) {
-      this.logger.warn(`Event "${eventName}" missing userId/recipient — dropping.`);
+      this.logger.warn(`Event "${eventName}" missing userId/recipient - dropping.`);
       return { sent: [], skipped: [] };
     }
 
@@ -96,7 +96,7 @@ export class NotificationProcessor {
       select: { id: true, email: true, phone: true, firstName: true },
     });
     if (!user) {
-      this.logger.warn(`Event "${eventName}" user ${userId} not found — dropping.`);
+      this.logger.warn(`Event "${eventName}" user ${userId} not found - dropping.`);
       return { sent: [], skipped: [] };
     }
 
@@ -127,7 +127,7 @@ export class NotificationProcessor {
         await this.recordNotification(user.id, channel, eventName, subject, html, NotificationStatus.failed, data);
         // Re-throw so BullMQ retries the WHOLE job (all channels). Acceptable
         // because each channel's send is itself idempotent on the provider side
-        // (Stripe-style: same event, same content) — duplicates are tolerable
+        // (Stripe-style: same event, same content) - duplicates are tolerable
         // for transactional notifications.
         throw e;
       }
@@ -182,13 +182,13 @@ export class NotificationProcessor {
   /**
    * Bull v4 hook fired after a job has exhausted its retries. We forward the
    * error to Sentry with structured `extra` so the issue groups by queue
-   * and job name in the Sentry UI — much faster triage than scrubbing
+   * and job name in the Sentry UI - much faster triage than scrubbing
    * stdout for stack traces.
    */
   @OnQueueFailed()
   onFailed(job: Job<NotificationJobData> | undefined, err: Error): void {
     // Bull v4 fires this on EVERY attempt failure. Only escalate to Sentry
-    // once retries are exhausted — otherwise a flaky downstream (e.g.
+    // once retries are exhausted - otherwise a flaky downstream (e.g.
     // Twilio) creates 3× the alert volume during incidents.
     const exhausted =
       !job || job.attemptsMade >= ((job.opts?.attempts ?? 1) as number);
@@ -225,7 +225,7 @@ export class NotificationProcessor {
     if (channel === 'whatsapp') {
       if (!ctx.user.phone || !ctx.template) return false;
       // WhatsApp template params: pull stringified values from data in declared order.
-      // For now we send 3 generic slots (recipient, headline, detail) — extend per template.
+      // For now we send 3 generic slots (recipient, headline, detail) - extend per template.
       const params = [
         ctx.user.firstName ?? 'there',
         String(ctx.data.orderNumber ?? ctx.data.title ?? ''),

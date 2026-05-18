@@ -5,7 +5,7 @@ import { IsBoolean, IsOptional, IsString, Matches, MaxLength, MinLength } from '
 /**
  * UK postcode format. Mirrors the FSA's accepted pattern, allowing the
  * single optional space (`AB1 2CD` and `AB12CD` both match). The spec we
- * inherited used `s?` which is a typo — we keep `\s?` so the regex actually
+ * inherited used `s?` which is a typo - we keep `\s?` so the regex actually
  * accepts the optional whitespace it intends to.
  */
 export const UK_POSTCODE_REGEX = /^[A-Z]{1,2}[0-9][0-9A-Z]?\s?[0-9][A-Z]{2}$/i;

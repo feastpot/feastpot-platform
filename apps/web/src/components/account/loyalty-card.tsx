@@ -13,7 +13,7 @@ const TX_LABEL: Record<string, string> = {
   adjusted: 'Adjusted',
 };
 
-/** Membership tier derived from the running balance — purely cosmetic. */
+/** Membership tier derived from the running balance - purely cosmetic. */
 function tierFor(balance: number): { label: string; tone: string } {
   if (balance >= 2500) return { label: 'Gold Member', tone: 'bg-plantain text-charcoal' };
   if (balance >= 1000) return { label: 'Silver Member', tone: 'bg-charcoal/10 text-charcoal' };
@@ -28,7 +28,7 @@ function nextMilestone(balance: number): { goal: number; remaining: number } {
 }
 
 /**
- * feastpoints panel — wireframe-spec loyalty surface. Green primary band
+ * feastpoints panel - wireframe-spec loyalty surface. Green primary band
  * with the live balance + a progress bar to the next reward, three perks
  * underneath, and a collapsed ledger preview. Renders gracefully when the
  * API hasn't been wired (isError / isLoading) so /account doesn't blank.
@@ -42,7 +42,7 @@ export function LoyaltyCard() {
 
   return (
     <section className="overflow-hidden rounded-3xl border border-cream-deep bg-white shadow-card">
-      {/* Header strip — feastpoints wordmark + tier pill. */}
+      {/* Header strip - feastpoints wordmark + tier pill. */}
       <header className="flex items-center justify-between gap-2 px-4 py-3">
         <div className="flex items-baseline gap-1">
           <span className="font-display text-xl font-black tracking-tight text-brand">
@@ -97,7 +97,7 @@ export function LoyaltyCard() {
         )}
       </div>
 
-      {/* Perk row — three tonal cells echoing the wireframe. */}
+      {/* Perk row - three tonal cells echoing the wireframe. */}
       <ul className="grid grid-cols-3 gap-2 border-t border-cream-deep bg-cream-warm/40 p-3">
         {[
           { Icon: Star, title: 'Earn points', body: 'With every order', tone: 'text-plantain' },
@@ -115,7 +115,7 @@ export function LoyaltyCard() {
         ))}
       </ul>
 
-      {/* Ledger preview — only render when we have history. */}
+      {/* Ledger preview - only render when we have history. */}
       {data && data.history.length > 0 && (
         <div className="border-t border-cream-deep px-4 py-3">
           <p className="mb-2 text-[11px] font-black uppercase tracking-[0.18em] text-charcoal-mid">

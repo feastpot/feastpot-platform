@@ -18,7 +18,7 @@ interface PostcodesIoResult {
  * Saved customer delivery addresses.
  *
  * Business rules enforced here:
- * - A user can have at most one default address — set/update operations
+ * - A user can have at most one default address - set/update operations
  *   atomically clear the previous default in the same transaction.
  * - Addresses in use by an "active" order (pending/accepted/preparing/
  *   dispatched) cannot be deleted; we surface a 409 with a code the UI can
@@ -125,7 +125,7 @@ export class AddressesService {
   /**
    * Best-effort UK geocoding via postcodes.io (free, no auth, ~50ms). On
    * any failure we log and return nulls so the caller can still persist
-   * the address — the user's experience trumps a perfect lat/lng.
+   * the address - the user's experience trumps a perfect lat/lng.
    */
   private async geocodePostcode(postcode: string): Promise<{ latitude: number | null; longitude: number | null }> {
     try {

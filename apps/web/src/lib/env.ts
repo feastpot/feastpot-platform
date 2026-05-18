@@ -1,6 +1,6 @@
 /**
  * Centralised env access. Throw early if a required public var is missing
- * — better than a confusing CORS / 404 storm later.
+ * - better than a confusing CORS / 404 storm later.
  *
  * Default behaviour when NEXT_PUBLIC_API_URL is unset:
  *  - Browser: empty string → fetches go to `/v1/...` (relative, same-origin).

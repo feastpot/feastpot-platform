@@ -127,21 +127,21 @@ export function AuditLogClient() {
                   <TableCell className="text-xs whitespace-nowrap">{formatDateTime(row.createdAt)}</TableCell>
                   <TableCell className="text-sm">
                     <div>{row.actor?.email ?? row.actorId ?? 'system'}</div>
-                    <div className="text-xs text-muted-foreground capitalize">{row.actor?.role ?? '—'}</div>
+                    <div className="text-xs text-muted-foreground capitalize">{row.actor?.role ?? '-'}</div>
                   </TableCell>
                   <TableCell className="font-mono text-xs">{row.action}</TableCell>
                   <TableCell className="text-sm">
                     <div>{row.entityType}</div>
-                    <div className="font-mono text-xs text-muted-foreground">{row.entityId ?? '—'}</div>
+                    <div className="font-mono text-xs text-muted-foreground">{row.entityId ?? '-'}</div>
                   </TableCell>
-                  <TableCell className="font-mono text-xs">{row.ipAddress ?? '—'}</TableCell>
+                  <TableCell className="font-mono text-xs">{row.ipAddress ?? '-'}</TableCell>
                   <TableCell>
                     {row.metadata ? (
                       <pre className="max-w-md overflow-x-auto rounded bg-muted p-2 text-xs">
                         {JSON.stringify(row.metadata, null, 2)}
                       </pre>
                     ) : (
-                      <span className="text-xs text-muted-foreground">—</span>
+                      <span className="text-xs text-muted-foreground">-</span>
                     )}
                   </TableCell>
                 </TableRow>

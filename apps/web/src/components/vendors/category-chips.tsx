@@ -12,7 +12,7 @@ import { cn } from '@feastpot/ui';
  *
  * The vendor API doesn't (yet) expose a category-bucket filter, so the
  * /vendors page falls the chip through to the free-text `q` parameter when
- * no explicit query is present — close enough to "show me kitchens that do
+ * no explicit query is present - close enough to "show me kitchens that do
  * party trays" without inventing a fake field. When the API ships a real
  * category facet, swap to a dedicated query param here without touching the
  * UI surface.

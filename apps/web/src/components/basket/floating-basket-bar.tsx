@@ -11,7 +11,7 @@ const formatPounds = (p: number) => `£${(p / 100).toFixed(2)}`;
 interface Props {
   /**
    * Vendor whose profile is currently mounted. The bar only renders when
-   * the basket holds items from THIS vendor — preventing the cross-vendor
+   * the basket holds items from THIS vendor - preventing the cross-vendor
    * footgun of a customer browsing vendor B while their basket holds
    * vendor A's items, then tapping "View basket" and going to checkout.
    */
@@ -22,7 +22,7 @@ interface Props {
  * Always-visible floating basket bar shown above the bottom nav while the
  * customer is on a vendor profile and has items from that vendor in the
  * basket. Replaces the older `StickyAddToOrder` which only appeared after
- * scrolling 220px — that gating cost some "Checkout" clicks because the
+ * scrolling 220px - that gating cost some "Checkout" clicks because the
  * CTA was hidden during the most engaged part of the menu browse.
  *
  * Stacking: bottom-nav is fixed at bottom: 0, height ~64px. We sit
@@ -36,7 +36,7 @@ export function FloatingBasketBar({ vendorId }: Props) {
   const itemCount = items.reduce((acc, i) => acc + i.quantity, 0);
   const totalPence = items.reduce((acc, i) => acc + i.lineTotalPence, 0);
 
-  // Don't render on the checkout flow itself — the page already shows
+  // Don't render on the checkout flow itself - the page already shows
   // the same "View basket / total" affordance, and stacking a floating
   // CTA over a static one creates a duplicate-action smell.
   if (pathname.startsWith('/checkout')) return null;

@@ -16,7 +16,7 @@ import { DlqMonitorService } from './dlq-monitor.service';
  * approval flow.
  *
  * NotificationsModule + LoyaltyModule are both @Global() so they don't
- * appear here — feature modules can inject NotificationsService /
+ * appear here - feature modules can inject NotificationsService /
  * EmailProvider / LoyaltyService directly.
  */
 @Module({

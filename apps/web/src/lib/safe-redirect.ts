@@ -3,7 +3,7 @@
  *
  * An attacker who can pick the `next` parameter on a phishing link
  * (`/sign-in?next=https://evil.example`) would otherwise land the victim on
- * a clone the moment the legitimate sign-in succeeds — and the URL bar
+ * a clone the moment the legitimate sign-in succeeds - and the URL bar
  * still shows our own domain right up until the redirect fires, which
  * makes the lure highly convincing.
  *
@@ -19,7 +19,7 @@
  *     attempts at smuggling a giant payload through the query string
  *
  * Anything that fails the check silently falls back to `fallback` (default
- * `/`) — we never echo the attacker's input back as an error message.
+ * `/`) - we never echo the attacker's input back as an error message.
  */
 export function safeRedirect(next: string | null, fallback = '/'): string {
   if (!next) return fallback;

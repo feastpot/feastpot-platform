@@ -19,7 +19,7 @@ import {
 
 const ORDERS_KEY = 'orders';
 
-/** Single order — used by the tracking page. Polls every 30s as a fallback to
+/** Single order - used by the tracking page. Polls every 30s as a fallback to
  * Supabase Realtime so we never get stuck on a stale status. */
 export function useOrder(orderId: string | undefined) {
   const { token } = useAccessToken();

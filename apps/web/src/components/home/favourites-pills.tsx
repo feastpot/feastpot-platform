@@ -1,7 +1,7 @@
 /**
- * "POPULAR FOOD — African & Caribbean favourites on FeastPot." A
+ * "POPULAR FOOD - African & Caribbean favourites on FeastPot." A
  * tonal pill cloud of cuisine teasers. Tapping a pill anchors back
- * to the hero (so the user enters their postcode first) — per the
+ * to the hero (so the user enters their postcode first) - per the
  * "no vendors before postcode" product rule called out in the
  * wireframe copy.
  */

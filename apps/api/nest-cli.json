@@ -10,6 +10,6 @@
     "assets": [],
     "watchAssets": false
   },
-  "$comment_sourcemaps": "Source maps let Sentry display readable stack traces. The tsc builder honours the `sourceMap` flag in tsconfig.json — make sure it's enabled there as well.",
+  "$comment_sourcemaps": "Source maps let Sentry display readable stack traces. The tsc builder honours the `sourceMap` flag in tsconfig.json - make sure it's enabled there as well.",
   "sourceRoot": "src"
 }

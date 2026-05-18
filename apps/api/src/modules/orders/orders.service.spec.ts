@@ -15,7 +15,7 @@ const vendorUser = (id = 'u-vend'): AuthUser => ({ id, email: 'v@x', role: UserR
 const adminUser = (): AuthUser => ({ id: 'u-admin', email: 'a@x', role: UserRole.admin });
 const customerUser = (id = 'u-cust'): AuthUser => ({ id, email: 'c@x', role: UserRole.customer });
 
-describe('OrdersService — pure helpers', () => {
+describe('OrdersService - pure helpers', () => {
   describe('computeCommission', () => {
     // Signature: computeCommission(subtotalPence, totalPence, commissionBps)
     // Commission is on subtotal (food revenue); vendor payout is total
@@ -34,7 +34,7 @@ describe('OrdersService — pure helpers', () => {
         vendorPayoutPence: 3300,
       });
     });
-    it('does NOT charge commission on delivery fee — vendor keeps the £3 reimbursement', () => {
+    it('does NOT charge commission on delivery fee - vendor keeps the £3 reimbursement', () => {
       // £20 food + £3 delivery = £23 total. 12% of £20 = £2.40 commission.
       // Vendor payout = total (£23) - commission (£2.40) = £20.60.
       expect(computeCommission(2000, 2300, 1200)).toEqual({

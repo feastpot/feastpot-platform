@@ -22,7 +22,7 @@ export default function VendorForgotPasswordPage() {
     setBusy(true);
     const supabase = createClient();
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      // Vendor portal has its own /auth/callback? Not yet — fall back to
+      // Vendor portal has its own /auth/callback? Not yet - fall back to
       // the customer app's callback which sets the session cookie and
       // bounces to a safe destination. Long-term we should add a vendor
       // callback route, but a vendor confirming via email link already

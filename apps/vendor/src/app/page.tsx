@@ -10,7 +10,7 @@ import { DashboardClient } from './dashboard-client';
 export const dynamic = 'force-dynamic';
 
 /**
- * Vendor /me payload — widened from the orders/menu pages to also pull
+ * Vendor /me payload - widened from the orders/menu pages to also pull
  * `rating` so the dashboard rating card has a real value on first paint.
  * Both rating fields are typed as optional because the API may omit them
  * for brand-new vendors.
@@ -26,7 +26,7 @@ interface VendorMe {
 /**
  * Vendor dashboard home. Replaces the previous redirect-to-/orders so
  * vendors land on a personalised greeting + today's metrics + quick links.
- * Auth gate mirrors /orders, /menu, /analytics — they all do the same
+ * Auth gate mirrors /orders, /menu, /analytics - they all do the same
  * `/vendors/me` round-trip because Next 15 segment layouts can't read the
  * session before render.
  */

@@ -1,4 +1,4 @@
-# Verification log — Task #8 (May 13, 2026)
+# Verification log - Task #8 (May 13, 2026)
 
 Evidence the unblock+harden work actually landed in production. Kept
 as a committed artifact so future agents and auditors can confirm
@@ -27,7 +27,7 @@ mis-rendering of UNAUTHENTICATED.
 
 Run from the user's Replit Shell tab with `ALLOW_MAIN_PUSH=1` (the
 main-agent sandbox blocks `git push` regardless of auth, and the
-script's enterprise default is to refuse direct main pushes — see §6
+script's enterprise default is to refuse direct main pushes - see §6
 of `docs/git-workflow.md`):
 
 ```
@@ -65,7 +65,7 @@ Before the push these were 404 / showing stale content.
 Source-of-truth config committed at `.github/branch-protection.main.json`.
 Applied via `PUT /repos/.../branches/main/protection` → HTTP 200.
 
-**Required status checks** — only PR-time checks from
+**Required status checks** - only PR-time checks from
 `.github/workflows/ci.yml`, because GitHub branch protection requires
 contexts that can actually run on a `pull_request`:
 
@@ -77,7 +77,7 @@ contexts that can actually run on a `pull_request`:
 
 Deploy gates (Migrate production DB, Deploy API/web/vendor/admin)
 are enforced inside `.github/workflows/deploy.yml` itself via
-job-level `needs:` dependencies — that workflow is the source of
+job-level `needs:` dependencies - that workflow is the source of
 truth for what must succeed before production updates, not branch
 protection. Putting them in branch protection would structurally
 block every PR (they only run on push to `main`) which is why they
@@ -105,7 +105,7 @@ curl -X PUT \
   https://api.github.com/repos/feastpot/feastpot-platform/branches/main/protection
 ```
 
-## 5. Defence in depth — `scripts/git-sync.sh` refuses `main` by default
+## 5. Defence in depth - `scripts/git-sync.sh` refuses `main` by default
 
 Branch protection is the server-side gate. `scripts/git-sync.sh`
 adds the matching client-side gate so a stray local invocation can
@@ -127,8 +127,8 @@ script exists for feature branches and one-off recovery scenarios.
 Real PR opened end-to-end via the GitHub API to exercise protection
 (this run was performed against the **previous** protection config
 which had `enforce_admins: false`; that's why the admin merge
-succeeded). The behavior of interest — that GitHub reports the PR as
-`blocked` until checks + reviews pass — was confirmed:
+succeeded). The behavior of interest - that GitHub reports the PR as
+`blocked` until checks + reviews pass - was confirmed:
 
 | Step | API call | Result |
 | --- | --- | --- |

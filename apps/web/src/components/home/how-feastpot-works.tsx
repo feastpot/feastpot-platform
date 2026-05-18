@@ -1,5 +1,5 @@
 /**
- * "REDUCE EFFORT · How FeastPot works" — five numbered steps in green
+ * "REDUCE EFFORT · How FeastPot works" - five numbered steps in green
  * circles. Mirrors the wireframe's horizontal flow on desktop; on
  * mobile each step becomes its own card stacked vertically.
  */

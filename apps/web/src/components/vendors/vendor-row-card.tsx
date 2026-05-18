@@ -4,7 +4,7 @@ import Link from 'next/link';
 import type { VendorListItem } from '@/lib/api/vendors';
 
 /**
- * Horizontal "row" vendor card matching the wireframe — gradient thumb on
+ * Horizontal "row" vendor card matching the wireframe - gradient thumb on
  * the left, vendor identity in the middle, accent badge top-right (Popular
  * for community favourites), and a green circular `+` action bottom-right
  * that quick-jumps to the menu.
@@ -131,7 +131,7 @@ export function VendorRowCard({ vendor }: Props) {
         </div>
       </Link>
 
-      {/* Top-right accent — Popular badge only when the API has actually
+      {/* Top-right accent - Popular badge only when the API has actually
           flagged the vendor as a community favourite. We intentionally do
           NOT fabricate "X% off" promo badges from card-side guesses; once
           the API exposes a real promo field, render it here. */}
@@ -141,7 +141,7 @@ export function VendorRowCard({ vendor }: Props) {
         </span>
       )}
 
-      {/* Bottom-right quick-add — links to the menu rather than committing
+      {/* Bottom-right quick-add - links to the menu rather than committing
           to a basket add (which would require a chosen item). */}
       <Link
         href={`/vendors/${vendor.slug}#menu`}

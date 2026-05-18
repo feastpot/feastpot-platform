@@ -15,7 +15,7 @@ import { ReferralsController } from './referrals.controller';
  * would create a fan-out of identical imports across feature modules).
  *
  * AuthModule is imported (not just relied on globally) because
- * LoyaltyController @UseGuards(SupabaseAuthGuard, RolesGuard) — the guard
+ * LoyaltyController @UseGuards(SupabaseAuthGuard, RolesGuard) - the guard
  * depends on SupabaseService which AuthModule re-exports. Without this
  * import Nest cannot resolve SupabaseService inside the LoyaltyModule
  * scope and the whole API fails to bootstrap.

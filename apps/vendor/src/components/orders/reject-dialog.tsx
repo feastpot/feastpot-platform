@@ -11,7 +11,7 @@ import {
 } from '@feastpot/ui';
 import { useState } from 'react';
 
-// Inline footer — @feastpot/ui doesn't ship a DialogFooter primitive. Keeping
+// Inline footer - @feastpot/ui doesn't ship a DialogFooter primitive. Keeping
 // it local avoids modifying the shared package for a single layout helper.
 function DialogFooter({ children }: { children: React.ReactNode }) {
   return <div className="mt-4 flex justify-end gap-2">{children}</div>;
@@ -47,7 +47,7 @@ export function RejectDialog({ open, onOpenChange, orderNumber, onConfirm, busy 
         <DialogHeader>
           <DialogTitle>Reject order {orderNumber}?</DialogTitle>
           <DialogDescription>
-            Tell the customer why — this is sent in their cancellation email.
+            Tell the customer why - this is sent in their cancellation email.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-2">

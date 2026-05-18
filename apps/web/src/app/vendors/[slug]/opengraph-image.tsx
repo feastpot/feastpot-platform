@@ -16,7 +16,7 @@ interface Props {
 /**
  * Per-vendor OG card. Falls back to the generic Feastpot card if the vendor
  * lookup fails so social shares never serve a broken image. ImageResponse
- * runs at the edge on every request — no static caching here, but Next will
+ * runs at the edge on every request - no static caching here, but Next will
  * stamp a stable URL with a content hash.
  */
 export default async function VendorOgImage({ params }: Props) {
@@ -33,7 +33,7 @@ export default async function VendorOgImage({ params }: Props) {
     rating = vendor.rating > 0 ? vendor.rating : null;
     ratingCount = vendor.ratingCount;
   } catch {
-    // Swallow — render the generic fallback below.
+    // Swallow - render the generic fallback below.
   }
 
   return new ImageResponse(

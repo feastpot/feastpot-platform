@@ -22,7 +22,7 @@ const formatPounds = (p: number) => `£${(p / 100).toFixed(2)}`;
  *
  * Halal is treated specially below the chip row (its own Yam-Green pill)
  * because the audit calls it out as the single most important dietary
- * signal for the diaspora customer base — burying it in a generic chip
+ * signal for the diaspora customer base - burying it in a generic chip
  * row alongside "Vegan" and "Nut free" undersells it.
  */
 const DIETARY_LABELS: Record<string, { label: string; icon: string }> = {
@@ -46,7 +46,7 @@ const DIETARY_LABELS: Record<string, { label: string; icon: string }> = {
  * brand gradient for unknown categories.
  */
 const CATEGORY_GRADIENTS: Record<string, string> = {
-  // Wireframe palette — every gradient terminates in a brand hue
+  // Wireframe palette - every gradient terminates in a brand hue
   // (green primary, gold rewards, red scotch). Each pair is dark→light
   // so the emoji centered on top reads clearly.
   tray: 'linear-gradient(135deg, #005C2B, #00843D)',
@@ -123,7 +123,7 @@ function SpiceDisplay({ level }: { level: number }) {
   return (
     <div
       style={{ display: 'flex', alignItems: 'center', gap: '2px', marginTop: '3px' }}
-      aria-label={`Spice level ${level} — ${SPICE_LABELS[Math.min(level, 4)]}`}
+      aria-label={`Spice level ${level} - ${SPICE_LABELS[Math.min(level, 4)]}`}
     >
       {[1, 2, 3].map((i) => (
         <span key={i} aria-hidden style={{ fontSize: '11px', opacity: i <= level ? 1 : 0.18 }}>
@@ -164,7 +164,7 @@ interface Props {
  * Deliveroo/UberEats and removes one full tap per item from the order flow.
  *
  * Cross-vendor: clicking + when the basket holds items from another vendor
- * triggers a confirm() prompt before clearing — same behaviour as the old
+ * triggers a confirm() prompt before clearing - same behaviour as the old
  * card. Replacing the native confirm with a Dialog is a future polish.
  */
 export function MenuItemCard({ item, vendor }: Props) {
@@ -201,7 +201,7 @@ export function MenuItemCard({ item, vendor }: Props) {
     setPulse(true);
     setJustAdded(true);
     window.setTimeout(() => setPulse(false), 220);
-    // 800ms keyframe — long enough that the eye lands on it after the
+    // 800ms keyframe - long enough that the eye lands on it after the
     // tap micro-interaction, short enough to not stack confirmations
     // when the user adds two items in quick succession.
     window.setTimeout(() => setJustAdded(false), 800);
@@ -230,7 +230,7 @@ export function MenuItemCard({ item, vendor }: Props) {
       performAdd();
     } catch (e) {
       if (e instanceof CrossVendorBasketError) {
-        // Replaces the older window.confirm() — a native dialog feels
+        // Replaces the older window.confirm() - a native dialog feels
         // jarring on mobile and the message ("Clear basket?") was
         // technical. The bottom-sheet below names BOTH vendors and uses
         // copy a non-technical user can act on.
@@ -302,7 +302,7 @@ export function MenuItemCard({ item, vendor }: Props) {
             className="h-24 w-24 shrink-0 rounded-xl object-cover"
           />
         ) : (
-          // Category gradient placeholder + on-brand emoji — beats a
+          // Category gradient placeholder + on-brand emoji - beats a
           // generic 🍽️ tile by hinting at the dish type while photos
           // are still being uploaded.
           <div
@@ -317,10 +317,10 @@ export function MenuItemCard({ item, vendor }: Props) {
         <div className="min-w-0 flex-1">
           <h3 className="text-sm font-bold leading-tight text-charcoal">{item.name}</h3>
 
-          {/* Spice meter — three scotch-bonnet glyphs with intensity label. */}
+          {/* Spice meter - three scotch-bonnet glyphs with intensity label. */}
           <SpiceDisplay level={spiceLevel} />
 
-          {/* Portion-size pill — wireframe gold on light tint. */}
+          {/* Portion-size pill - wireframe gold on light tint. */}
           {portionLabel && (
             <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-plantain/15 px-2 py-0.5 text-[10px] font-bold text-charcoal">
               <span aria-hidden>👥</span>
@@ -339,7 +339,7 @@ export function MenuItemCard({ item, vendor }: Props) {
             </p>
           )}
 
-          {/* Halal — wireframe brand-green pill, called out separately
+          {/* Halal - wireframe brand-green pill, called out separately
               because it materially changes whether a customer can order. */}
           {isHalal && (
             <div className="mt-1.5 inline-flex items-center gap-1 rounded-full border border-brand bg-brand-light px-2 py-0.5 text-[10px] font-bold text-brand-dark">
@@ -405,7 +405,7 @@ export function MenuItemCard({ item, vendor }: Props) {
                     Older / less-precise users (the core demo) were
                     routinely double-tapping the wrong button on the
                     smaller pill. Visible icon size is unchanged
-                    (h-4 w-4) — only the hit area grows. */}
+                    (h-4 w-4) - only the hit area grows. */}
                 <button
                   type="button"
                   onClick={handleMinus}
@@ -438,7 +438,7 @@ export function MenuItemCard({ item, vendor }: Props) {
               type="button"
               onClick={() => setShowAllergens((s) => !s)}
               aria-expanded={showAllergens}
-              // Wireframe red (scotch) for the allergen toggle — allergens
+              // Wireframe red (scotch) for the allergen toggle - allergens
               // are safety-critical so they deserve the urgency colour
               // rather than the muted amber the previous design used.
               // Contrast on white: ~6:1, WCAG AA pass.
@@ -457,7 +457,7 @@ export function MenuItemCard({ item, vendor }: Props) {
       </div>
 
       {/* Cross-vendor confirmation. Bottom-sheet (mobile) / right-sheet
-          (≥sm) via the shared shadcn Sheet — same chrome as the basket
+          (≥sm) via the shared shadcn Sheet - same chrome as the basket
           drawer so it feels like part of the same system. Names BOTH
           vendors so the user understands the trade-off without having
           to remember what's in their basket.

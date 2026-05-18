@@ -36,7 +36,7 @@ export interface ApiRequestOptions {
   query?: QueryParams;
   body?: unknown;
   accessToken?: string;
-  /** Forward to fetch — useful for Next.js cache control on server components. */
+  /** Forward to fetch - useful for Next.js cache control on server components. */
   next?: { revalidate?: number; tags?: string[] };
   signal?: AbortSignal;
 }
@@ -68,7 +68,7 @@ export async function apiRequest<T>(path: string, opts: ApiRequestOptions = {}):
     headers,
     body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
     signal: opts.signal,
-    // Next.js cache hints — only consumed when called from a Server Component.
+    // Next.js cache hints - only consumed when called from a Server Component.
     next: opts.next,
   });
 

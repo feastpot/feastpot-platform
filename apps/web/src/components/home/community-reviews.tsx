@@ -1,7 +1,7 @@
 import { Star } from 'lucide-react';
 
 /**
- * "SOCIAL PROOF WITHOUT FAKE AVAILABILITY — Loved by communities
+ * "SOCIAL PROOF WITHOUT FAKE AVAILABILITY - Loved by communities
  * across London." Four customer review teasers. Quotes are
  * intentionally short and area-coded (postcode prefixes) so the
  * social proof reads as genuinely local rather than generic
@@ -53,7 +53,7 @@ export function CommunityReviews() {
               &ldquo;{quote}&rdquo;
             </p>
             <p className="text-[12.5px] font-medium text-charcoal-mid">
-              — {author}
+              - {author}
             </p>
           </li>
         ))}

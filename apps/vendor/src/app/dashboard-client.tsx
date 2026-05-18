@@ -5,10 +5,10 @@ import { StatCard } from '@/components/dashboard/stat-card';
 import { useVendorStats } from '@/hooks/use-vendor-stats';
 
 interface Props {
-  /** Friendly greeting name — usually the first word of businessName. */
+  /** Friendly greeting name - usually the first word of businessName. */
   greetingName: string;
   businessName: string;
-  /** Average rating from /vendors/me — null if the API didn't return one. */
+  /** Average rating from /vendors/me - null if the API didn't return one. */
   rating: number | null;
 }
 
@@ -66,7 +66,7 @@ export function DashboardClient({ greetingName, businessName, rating }: Props) {
           icon="⭐"
           label={rating === null ? 'No rating yet' : 'Rating'}
           // The animated counter only handles whole numbers, so for the
-          // rating we render the formatted number directly via `suffix` —
+          // rating we render the formatted number directly via `suffix` -
           // the component shows `0.0` while animating, which is fine for
           // < 1s but feels off for a static metric. For ratings we pass
           // the integer part and a fractional suffix so the count-up still

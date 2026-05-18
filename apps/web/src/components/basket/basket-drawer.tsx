@@ -12,7 +12,7 @@ import { useBasketStore, type BasketItem } from '@/store/basket.store';
 const formatPounds = (p: number) => `£${(p / 100).toFixed(2)}`;
 
 interface Props {
-  /** Trigger element — typically the basket icon in TopNav. */
+  /** Trigger element - typically the basket icon in TopNav. */
   children: React.ReactNode;
 }
 
@@ -47,7 +47,7 @@ export function BasketDrawer({ children }: Props) {
       try {
         sessionStorage.setItem('feastpot.discount.v1', discount.trim());
       } catch {
-        /* private mode — ignore */
+        /* private mode - ignore */
       }
     }
     setOpen(false);
@@ -170,7 +170,7 @@ export function BasketDrawer({ children }: Props) {
  * being typed. The "Add note" / "Edit" affordance opens an inline textarea
  * that commits via `onNotes` on Save (or Enter). Saving may merge this
  * line with another (if the new notes match an existing line's notes for
- * the same menu item) — that's handled by the store's `updateLineNotes`.
+ * the same menu item) - that's handled by the store's `updateLineNotes`.
  */
 function BasketLine({
   item,

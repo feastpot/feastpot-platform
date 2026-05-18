@@ -4,7 +4,7 @@ import { useState, type FormEvent } from 'react';
 
 import type { CreateAddressInput } from '@/lib/api/addresses';
 
-/** UK postcode format used by the API DTO — kept identical so client-side validation matches server. */
+/** UK postcode format used by the API DTO - kept identical so client-side validation matches server. */
 export const UK_POSTCODE_REGEX = /^[A-Z]{1,2}[0-9][0-9A-Z]?\s?[0-9][A-Z]{2}$/i;
 
 export interface AddressFormProps {

@@ -23,7 +23,7 @@ const STATUS_COLOUR: Record<string, string> = {
 };
 
 const formatPounds = (p: number | null | undefined) =>
-  typeof p === 'number' ? `£${(p / 100).toFixed(2)}` : '—';
+  typeof p === 'number' ? `£${(p / 100).toFixed(2)}` : '-';
 
 export default function EventsListPage() {
   const { data, isLoading, error } = useEventEnquiries();
@@ -62,7 +62,7 @@ export default function EventsListPage() {
           </div>
           <p className="font-display text-lg font-black text-charcoal">No events yet</p>
           <p className="mx-auto max-w-xs text-sm font-medium text-charcoal-mid">
-            Plan a wedding, birthday, or corporate event — vendors will quote
+            Plan a wedding, birthday, or corporate event - vendors will quote
             within 24 hours.
           </p>
           <Link href="/events/new">

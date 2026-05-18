@@ -12,7 +12,7 @@ export class ValidateDiscountCodeDto {
   @IsUUID()
   vendorId!: string;
 
-  @ApiProperty({ minimum: 1, description: 'Subtotal in pence — used for min-order validation + percentage maths.' })
+  @ApiProperty({ minimum: 1, description: 'Subtotal in pence - used for min-order validation + percentage maths.' })
   @Type(() => Number)
   @IsInt()
   @Min(1)

@@ -36,7 +36,7 @@ export class ComplianceProcessor implements OnApplicationBootstrap {
     // Redis is unavailable to avoid noisy WRONGPASS / connection-refused
     // chatter for crons that can never fire anyway without Bull's Redis.
     if (!this.cache.available) {
-      this.logger.warn('Redis unavailable — skipping compliance/review/badge cron registration');
+      this.logger.warn('Redis unavailable - skipping compliance/review/badge cron registration');
       return;
     }
     void this.registerCron(COMPLIANCE_SCAN_JOB, '0 6 * * *');

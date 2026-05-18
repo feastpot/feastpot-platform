@@ -55,7 +55,7 @@ const PREP_OPTIONS = [
   { value: 2880, label: '48 hours' },
 ];
 
-// 4 pill buttons per the brief — 0=Mild .. 3=Extra Hot. Stored as a numeric
+// 4 pill buttons per the brief - 0=Mild .. 3=Extra Hot. Stored as a numeric
 // `spice:N` tag on the menu item.
 const SPICE_OPTIONS = [
   { value: 0, label: 'Mild', icon: '🌿' },
@@ -72,7 +72,7 @@ const DIETARY_FLAGS = [
   { value: 'dairy_free', label: 'Dairy-free' },
 ];
 
-// FSA 14 statutory allergens — labels and emoji icons for the 2-col grid.
+// FSA 14 statutory allergens - labels and emoji icons for the 2-col grid.
 const FSA_ALLERGENS: Array<{ value: string; label: string; icon: string }> = [
   { value: 'celery', label: 'Celery', icon: '🥬' },
   { value: 'gluten', label: 'Gluten', icon: '🌾' },
@@ -291,7 +291,7 @@ export function ItemEditorClient({
 
   return (
     <div className="mx-auto max-w-3xl space-y-4 pb-24">
-      {/* TOP STRIP — back link + availability toggle. The bottom save bar is
+      {/* TOP STRIP - back link + availability toggle. The bottom save bar is
           sticky so this strip is short on purpose: it's just orientation. */}
       <div className="flex items-center justify-between">
         <Link
@@ -307,7 +307,7 @@ export function ItemEditorClient({
       </h1>
 
       <form id="item-editor-form" onSubmit={onSubmit} className="space-y-4">
-        {/* CARD 1 — Basic info */}
+        {/* CARD 1 - Basic info */}
         <SectionCard title="Basic info">
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Item name" required>
@@ -357,7 +357,7 @@ export function ItemEditorClient({
           </Field>
         </SectionCard>
 
-        {/* CARD 2 — Pricing & availability */}
+        {/* CARD 2 - Pricing & availability */}
         <SectionCard title="Pricing & availability">
           <div className="grid gap-3 sm:grid-cols-3">
             <Field label="Price" required hint={priceErr ?? 'in GBP'}>
@@ -402,12 +402,12 @@ export function ItemEditorClient({
             </Field>
           </div>
 
-          {/* Draft banner — shown whenever the item is not yet published, so
+          {/* Draft banner - shown whenever the item is not yet published, so
               vendors are unambiguous about whether customers can see it. */}
           {!form.isAvailable && (
             <div className="rounded-xl bg-[#FAEEDA] px-4 py-3">
               <p className="m-0 mb-0.5 text-[13px] font-semibold text-[#633806]">
-                Draft — not visible to customers
+                Draft - not visible to customers
               </p>
               <p className="m-0 text-[11px] text-[#7A4A1C]">
                 Toggle &quot;Available to customers&quot; below to publish.
@@ -415,7 +415,7 @@ export function ItemEditorClient({
             </div>
           )}
 
-          {/* Big availability switch — teal when on, neutral when off. NEW
+          {/* Big availability switch - teal when on, neutral when off. NEW
               items: toggling only updates local form state; the value is
               persisted by the create mutation on save. EXISTING items: the
               toggle still hits the live `toggleAvail` endpoint so the
@@ -424,7 +424,7 @@ export function ItemEditorClient({
             <div>
               <p className="text-sm font-semibold text-dark">Available to customers</p>
               <p className="text-xs text-mid">
-                {form.isAvailable ? 'Visible in your menu' : 'Hidden — draft mode'}
+                {form.isAvailable ? 'Visible in your menu' : 'Hidden - draft mode'}
               </p>
             </div>
             <Switch
@@ -459,7 +459,7 @@ export function ItemEditorClient({
           </div>
         </SectionCard>
 
-        {/* CARD 3 — Dietary flags as toggle pills */}
+        {/* CARD 3 - Dietary flags as toggle pills */}
         <SectionCard title="Dietary flags">
           <p className="text-xs text-mid">
             Surfaced as filter chips on the customer-facing vendor page.
@@ -497,7 +497,7 @@ export function ItemEditorClient({
             <div>
               <p className="text-sm font-semibold text-dark">Halal certified</p>
               <p className="text-xs text-mid">
-                Separate from the Halal dietary flag — for verified certification only.
+                Separate from the Halal dietary flag - for verified certification only.
               </p>
             </div>
             <Switch
@@ -508,7 +508,7 @@ export function ItemEditorClient({
           </div>
         </SectionCard>
 
-        {/* CARD 4 — Spice level pill buttons */}
+        {/* CARD 4 - Spice level pill buttons */}
         <SectionCard title="Spice level">
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             {SPICE_OPTIONS.map((s) => {
@@ -536,7 +536,7 @@ export function ItemEditorClient({
           </div>
         </SectionCard>
 
-        {/* CARD 5 — FSA 14 allergens, 2-col grid w/ green-on-checked */}
+        {/* CARD 5 - FSA 14 allergens, 2-col grid w/ green-on-checked */}
         <SectionCard title="Allergens (FSA 14)">
           <p className="text-xs text-mid">
             Required by law for any allergen present in the dish.
@@ -583,8 +583,8 @@ export function ItemEditorClient({
           </div>
         </SectionCard>
 
-        {/* CARD 6 — Photos. 5 slots; existing slots show the image, empty
-            slots show the upload affordance. (No drag-reorder yet — the
+        {/* CARD 6 - Photos. 5 slots; existing slots show the image, empty
+            slots show the upload affordance. (No drag-reorder yet - the
             brief asks for it but the API doesn't expose an image-order
             field, so reordering wouldn't persist. TODO: wire up once the
             schema adds a sortable images array.) */}
@@ -655,7 +655,7 @@ export function ItemEditorClient({
         </SectionCard>
       </form>
 
-      {/* STICKY SAVE BAR — always visible above the bottom safe-area so the
+      {/* STICKY SAVE BAR - always visible above the bottom safe-area so the
           vendor never has to scroll to commit. */}
       <div
         className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-white/95 backdrop-blur"
@@ -668,7 +668,7 @@ export function ItemEditorClient({
             </Button>
           </Link>
           <Button
-            // Cross-form submit via the HTML5 `form` attribute — the visible
+            // Cross-form submit via the HTML5 `form` attribute - the visible
             // submit lives in the sticky bottom bar, OUTSIDE the actual
             // <form> element, so we associate by id rather than DOM nesting.
             type="submit"

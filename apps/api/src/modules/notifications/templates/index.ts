@@ -9,7 +9,7 @@
  *   - whatsappTemplate?: pre-approved Meta template name (when channels includes whatsapp)
  *
  * Adding a new event: register here so the processor can route it. Unknown
- * events are logged and dropped — we never silently invent body text.
+ * events are logged and dropped - we never silently invent body text.
  *
  * Brand styling: all email bodies use the helpers in `./base-layout.ts` to
  * keep visual identity consistent across transactional emails (Feastpot
@@ -48,12 +48,12 @@ export interface NotificationTemplate {
   whatsappTemplate?: string;
 }
 
-/** Plain string coercion — UNESCAPED. Use for subjects, SMS bodies, and URL components. */
+/** Plain string coercion - UNESCAPED. Use for subjects, SMS bodies, and URL components. */
 const str = (v: unknown, fallback = ''): string =>
   typeof v === 'string' || typeof v === 'number' ? String(v) : fallback;
 
 /**
- * Escaped string coercion — USE WHENEVER interpolating user-controlled
+ * Escaped string coercion - USE WHENEVER interpolating user-controlled
  * data inside an HTML body (p / amberCallout / raw <…> strings).
  */
 const esc = (v: unknown, fallback = ''): string => escapeHtml(str(v, fallback));
@@ -123,13 +123,13 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
       const orderNumber = str(d.orderNumber);
       return baseLayout(
         'Order confirmed',
-        h2(`Thanks${d.customerName ? ', ' + str(d.customerName) : ''} — your order is confirmed!`) +
+        h2(`Thanks${d.customerName ? ', ' + str(d.customerName) : ''} - your order is confirmed!`) +
           p(`<strong>${esc(d.vendorName, 'Your vendor')}</strong> has received order <strong>${esc(orderNumber)}</strong> and will accept it shortly.`) +
           (items.length ? itemsTable(items) : '') +
           keyValueRow('Total', formatMoney(d.totalPence), { bold: true }) +
           (d.scheduledFor ? keyValueRow('Scheduled for', str(d.scheduledFor)) : '') +
           brandButton('Track your order', trackingUrl(d.orderId)),
-        `Order ${orderNumber} confirmed — total ${formatMoney(d.totalPence)}`,
+        `Order ${orderNumber} confirmed - total ${formatMoney(d.totalPence)}`,
       );
     },
     sms: (d) =>
@@ -169,7 +169,7 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
     whatsappTemplate: 'order_dispatched',
   },
   delivery_confirmed: {
-    subject: () => `Order delivered — leave a review ⭐`,
+    subject: () => `Order delivered - leave a review ⭐`,
     render: (d) => {
       const points = typeof d.loyaltyPointsEarned === 'number' ? (d.loyaltyPointsEarned as number) : 0;
       return baseLayout(
@@ -303,7 +303,7 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
         'Vendor responded',
         h2('The vendor has responded') +
           p('Our support team is reviewing the case.') +
-          // vendorResponse is vendor-supplied free text — MUST be escaped before
+          // vendorResponse is vendor-supplied free text - MUST be escaped before
           // landing inside the blockquote, otherwise vendors can inject HTML
           // into customer email inboxes.
           `<blockquote style="margin:12px 0;padding:12px 14px;border-left:3px solid #BDBBB7;background:#F8F7F5;border-radius:0 8px 8px 0;color:#1C1C1A;font-size:14px">${esc(d.vendorResponse)}</blockquote>`,
@@ -324,7 +324,7 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
 
   // ---------- Compliance ----------
   document_expiring: {
-    subject: (d) => `⚠️ Action required — ${str(d.documentType, 'document')} expires in ${str(d.daysUntilExpiry, '?')} days`,
+    subject: (d) => `⚠️ Action required - ${str(d.documentType, 'document')} expires in ${str(d.daysUntilExpiry, '?')} days`,
     render: (d) =>
       baseLayout(
         'Document expiring',
@@ -377,7 +377,7 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
   /**
    * Sent once a vendor has completed all four self-serve onboarding steps
    * (profile + docs + Stripe + first menu items). Bridges the gap between
-   * "I clicked submit" and "compliance approved me to go live" — without
+   * "I clicked submit" and "compliance approved me to go live" - without
    * it the vendor sits in silence for up to 2 business days wondering if
    * they did something wrong.
    *
@@ -402,7 +402,7 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
             `Thanks${d.vendorName ? `, ${esc(d.vendorName)}` : ''}, for finishing your onboarding. Your menu, documents, and payout details are all in.`,
           ) +
           h2('What happens next') +
-          // Lists must be raw <ol>/<ul> strings — wrapping them in p() would
+          // Lists must be raw <ol>/<ul> strings - wrapping them in p() would
           // emit <p><ol>…</ol></p>, which is invalid HTML and renders
           // inconsistently across Outlook / Gmail / Apple Mail.
           '<ol style="margin:0 0 14px 20px;padding:0;color:#1C1C1A;font-size:14px;line-height:1.6">' +
@@ -410,9 +410,9 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
             "<li>We'll email you the moment you're approved.</li>" +
             '<li>Once approved, your menu goes live and customers can find you in search.</li>' +
             '</ol>' +
-          h2('While you wait — set yourself up to win') +
+          h2('While you wait - set yourself up to win') +
           '<ul style="margin:0 0 14px 20px;padding:0;color:#1C1C1A;font-size:14px;line-height:1.6">' +
-            '<li>Add more menu items — <strong>3 minimum, 8+ recommended</strong>.</li>' +
+            '<li>Add more menu items - <strong>3 minimum, 8+ recommended</strong>.</li>' +
             '<li>Upload real food photos. This is the single biggest driver of orders.</li>' +
             '<li>Set clear delivery days and times so customers know when to expect you.</li>' +
             '</ul>' +
@@ -436,11 +436,11 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
             `<strong>${esc(d.businessName, 'Your kitchen')}</strong> has been approved and is now live on Feastpot. Customers in your area can now find your menu and place orders.`,
           ) +
           p('Here is what to do next:') +
-          // Lists must be raw <ol> strings — wrapping them in p() emits
+          // Lists must be raw <ol> strings - wrapping them in p() emits
           // <p><ol>…</ol></p>, which is invalid HTML and renders
           // inconsistently across Outlook / Gmail / Apple Mail.
           '<ol style="margin:0 0 16px 20px;padding:0;color:#5F5E5A;font-size:14px;line-height:1.8">' +
-            '<li>Add your food photos to every menu item — vendors with photos get 3× more orders.</li>' +
+            '<li>Add your food photos to every menu item - vendors with photos get 3× more orders.</li>' +
             '<li>Set your delivery days and hours in <strong>Settings → Delivery</strong>.</li>' +
             '<li>Share your vendor profile link with your community.</li>' +
             '<li>Check your vendor dashboard daily for new orders.</li>' +
@@ -451,10 +451,10 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
             'vendorBlue',
           ) +
           p(
-            `Questions? Email us at <a href="mailto:${esc(d.supportEmail, 'support@feastpot.co.uk')}" style="color:#E8520A">${esc(d.supportEmail, 'support@feastpot.co.uk')}</a> — we reply within 1 business day.`,
+            `Questions? Email us at <a href="mailto:${esc(d.supportEmail, 'support@feastpot.co.uk')}" style="color:#E8520A">${esc(d.supportEmail, 'support@feastpot.co.uk')}</a> - we reply within 1 business day.`,
             '#5F5E5A',
           ),
-        "Your Feastpot kitchen is open — let's get cooking",
+        "Your Feastpot kitchen is open - let's get cooking",
       ),
     channels: ['email'],
   },
@@ -466,10 +466,10 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
         'Enquiry expired',
         h2('We didn\'t hear back from any vendors in time') +
           p(
-            'Your event enquiry stayed open for 48 hours without a quote, so we\'ve closed it as expired. We\'re sorry — vendor responsiveness during peak weeks isn\'t always what we\'d like.',
+            'Your event enquiry stayed open for 48 hours without a quote, so we\'ve closed it as expired. We\'re sorry - vendor responsiveness during peak weeks isn\'t always what we\'d like.',
           ) +
           p(
-            'If you still want to host this event, the easiest next step is to submit a fresh enquiry — that puts you back in front of every vendor in your area, including any that have just opened up new availability.',
+            'If you still want to host this event, the easiest next step is to submit a fresh enquiry - that puts you back in front of every vendor in your area, including any that have just opened up new availability.',
           ) +
           brandButton(
             'Submit a new enquiry',
@@ -480,7 +480,7 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
             `Questions or want help finding a vendor directly? Email <a href="mailto:support@feastpot.co.uk" style="color:#E8520A">support@feastpot.co.uk</a> with your enquiry reference (${esc(d.enquiryId)}) and we\'ll see what we can do.`,
             '#5F5E5A',
           ),
-        'No quote within 48h — enquiry closed',
+        'No quote within 48h - enquiry closed',
       ),
     channels: ['email'],
   },
@@ -491,7 +491,7 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
       baseLayout(
         'Leave a review',
         h2('★★★★★') +
-          p(`How was your food from <strong>${esc(d.vendorName, 'your vendor')}</strong>? Order ${esc(d.orderNumber)} arrived a couple of hours ago — would you mind leaving a quick review?`) +
+          p(`How was your food from <strong>${esc(d.vendorName, 'your vendor')}</strong>? Order ${esc(d.orderNumber)} arrived a couple of hours ago - would you mind leaving a quick review?`) +
           brandButton('Leave a review', reviewUrl(d.orderId), 'teal'),
       ),
     channels: ['email', 'whatsapp', 'push'],

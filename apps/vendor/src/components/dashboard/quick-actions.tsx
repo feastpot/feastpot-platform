@@ -4,7 +4,7 @@ import Link from 'next/link';
  * Three quick-action shortcuts shown directly under the stats grid on the
  * dashboard home.
  *
- * NOTE on "Add menu item": there is no `/menu/new` route — the vendor app's
+ * NOTE on "Add menu item": there is no `/menu/new` route - the vendor app's
  * item editor lives under `/menu/[menuId]/items/[itemId]` and a new item is
  * minted by visiting `/menu/[menuId]/items/new`. Without knowing the
  * vendor's preferred menu we route to `/menu` (the menu list) so the vendor

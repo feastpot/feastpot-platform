@@ -39,7 +39,7 @@ export class DiscountCodesController {
   @HttpCode(200)
   // Anti-enumeration rate limit. Without this, an attacker can iterate
   // SAVE10 / WELCOME20 / LAUNCH50 / … against this endpoint to discover
-  // live promotions. The named throttler must be `long` (60 s window) —
+  // live promotions. The named throttler must be `long` (60 s window) -
   // our ThrottlerModule registers `short` (1 s burst) + `long` (60 s);
   // there is NO throttler called `default`, so a `{ default: … }` override
   // would be a silent no-op. We tighten `long` to 10/min for this single
@@ -49,7 +49,7 @@ export class DiscountCodesController {
   // Tracker: anonymous callers are tracked by `ip:<req.ip>` via
   // RoleThrottlerGuard.getTracker(); req.ip is the real client IP because
   // Express `trust proxy` is set in main.ts. We deliberately do NOT use
-  // raw `x-forwarded-for` — that header is attacker-controlled and can be
+  // raw `x-forwarded-for` - that header is attacker-controlled and can be
   // spoofed to bypass the limit.
   @Throttle({ long: { limit: 10, ttl: 60_000 } })
   @ApiOperation({

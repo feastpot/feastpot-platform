@@ -44,7 +44,7 @@ export class DlqMonitorService {
   @Cron('0 9 * * *')
   async checkAndAlert(): Promise<void> {
     if (!this.cache.available) {
-      this.logger.warn('Redis unavailable — skipping DLQ scan');
+      this.logger.warn('Redis unavailable - skipping DLQ scan');
       return;
     }
     const summaries = await this.collectFailures();
@@ -119,7 +119,7 @@ export class DlqMonitorService {
       .join('');
 
     return `<!doctype html><html><body style="font-family:system-ui,sans-serif;max-width:720px;margin:0 auto;padding:20px;">
-      <h2>Feastpot — BullMQ failed jobs</h2>
+      <h2>Feastpot - BullMQ failed jobs</h2>
       <p>The daily DLQ scan found queues with failed jobs. Inspect and replay or discard via Bull Board:
         <a href="https://feastpot-platform.replit.app/admin/queues">Bull Board</a>
       </p>

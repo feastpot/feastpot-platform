@@ -8,7 +8,7 @@
 -- This migration adds narrowly-scoped SELECT policies on the three
 -- public-facing catalogue tables so that the frontends can (now or in the
 -- future) read directly from Supabase without exposing PII or
--- unapproved/inactive content. No INSERT/UPDATE/DELETE policies are added —
+-- unapproved/inactive content. No INSERT/UPDATE/DELETE policies are added -
 -- writes continue to flow exclusively through the API.
 --
 -- Visibility rules:

@@ -36,7 +36,7 @@ const toArray = ({ value }: { value: unknown }): unknown => {
 };
 
 export class SearchVendorsDto {
-  @ApiPropertyOptional({ description: 'Free-text query — matches business name, description, cuisine list, AND active menu-item names/descriptions' })
+  @ApiPropertyOptional({ description: 'Free-text query - matches business name, description, cuisine list, AND active menu-item names/descriptions' })
   @IsOptional()
   @IsString()
   @MaxLength(200)

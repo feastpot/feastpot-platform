@@ -17,8 +17,8 @@ import {
 import { HealthController } from './health.controller';
 
 /**
- * Top-level `/healthz` endpoint mirrored at both `/healthz` (unversioned —
- * for legacy LB / autoscale probes) and `/v1/healthz` (versioned — for the
+ * Top-level `/healthz` endpoint mirrored at both `/healthz` (unversioned -
+ * for legacy LB / autoscale probes) and `/v1/healthz` (versioned - for the
  * public API contract). Delegates to HealthController's existing readiness
  * implementation so we have a single source of truth for the deep check.
  *

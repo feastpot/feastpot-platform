@@ -14,7 +14,7 @@ Feastpot. Read it before pushing to `main` or wiring up new automation.
   runs migrations → deploys API → deploys the three Vercel frontends →
   smoke-tests every public URL → notifies Slack.
 - **If the Replit Git UI breaks (UNAUTHENTICATED, PUSH_REJECTED, etc.),
-  use `bash scripts/git-sync.sh`** — it bypasses the UI's OAuth state
+  use `bash scripts/git-sync.sh`** - it bypasses the UI's OAuth state
   and pushes via a token-authenticated HTTPS URL.
 
 ---
@@ -32,10 +32,10 @@ git push -u origin feat/<short-name>  # opens a PR via GitHub
 
 ### Branch naming
 
-- `feat/<thing>` — new feature
-- `fix/<thing>` — bug fix
-- `chore/<thing>` — tooling, deps, docs
-- `hotfix/<thing>` — emergency prod fix (still goes through PR)
+- `feat/<thing>` - new feature
+- `fix/<thing>` - bug fix
+- `chore/<thing>` - tooling, deps, docs
+- `hotfix/<thing>` - emergency prod fix (still goes through PR)
 
 ### Commit messages
 
@@ -49,16 +49,16 @@ and explain *why* in the body if it isn't obvious from the diff.
 
 `.github/workflows/deploy.yml` runs in this order:
 
-1. **`deploy-database`** — applies pending Prisma migrations to prod
+1. **`deploy-database`** - applies pending Prisma migrations to prod
    Supabase. **Gates everything below.** A failed migration aborts the
    deploy with no partial state.
-2. **`deploy-api`** — builds `apps/api`, triggers a Replit Autoscale
+2. **`deploy-api`** - builds `apps/api`, triggers a Replit Autoscale
    deploy, polls until it reports `succeeded` (5-min timeout).
-3. **`deploy-web` / `deploy-vendor` / `deploy-admin`** — three Vercel
+3. **`deploy-web` / `deploy-vendor` / `deploy-admin`** - three Vercel
    deploy hooks fire in parallel, each gated on `deploy-api`.
-4. **`smoke-test`** — pings `api.feastpot.co.uk/health`,
+4. **`smoke-test`** - pings `api.feastpot.co.uk/health`,
    `feastpot.co.uk`, `vendor.feastpot.co.uk`, `admin.feastpot.co.uk`.
-5. **`notify`** — green or red Slack message either way.
+5. **`notify`** - green or red Slack message either way.
 
 If smoke-test fails, the Slack message includes the run URL so you can
 roll forward (revert PR + merge) within minutes.
@@ -71,7 +71,7 @@ These are enforced via GitHub Settings → Branches → `main`:
 
 - Require a pull request before merging.
 - Require at least **1 approving review**.
-- Require status checks to pass — only PR-time checks from
+- Require status checks to pass - only PR-time checks from
   `.github/workflows/ci.yml` (these are runnable on `pull_request`
   and so can actually gate merges):
   - `Typecheck`
@@ -81,18 +81,18 @@ These are enforced via GitHub Settings → Branches → `main`:
   - `Build all apps`
 - Require strict status checks (branch must be up to date with
   `main` before merging).
-- Require linear history (no merge commits — squash or rebase only).
+- Require linear history (no merge commits - squash or rebase only).
 - Require conversation resolution before merge.
 - **Block force pushes.**
 - **Block deletion.**
-- **`enforce_admins: true`** — admins cannot bypass the above.
+- **`enforce_admins: true`** - admins cannot bypass the above.
 
 The deploy-pipeline gates (`Migrate production DB`,
 `Deploy API (Replit Autoscale)`, `Deploy web/vendor/admin (Vercel)`,
 `Smoke tests`) are NOT branch-protection contexts. They run only on
 `push` to `main` (per `.github/workflows/deploy.yml`), so they
 cannot gate a `pull_request`. They are enforced by job-level
-`needs:` dependencies inside `deploy.yml` itself — that file is the
+`needs:` dependencies inside `deploy.yml` itself - that file is the
 source of truth for what must succeed before production updates.
 
 If you add a new required PR check, also list it here AND in
@@ -101,7 +101,7 @@ gating merges.
 
 ---
 
-## 4. Emergency-push escape hatch — `scripts/git-sync.sh`
+## 4. Emergency-push escape hatch - `scripts/git-sync.sh`
 
 **When to use it:** the Replit Git UI shows `UNAUTHENTICATED`, or a
 push from the UI keeps failing with `PUSH_REJECTED` even after Pull,
@@ -115,7 +115,7 @@ a cron).
    - **Fine-grained PAT:** repository permissions
      `Contents: read & write`, `Pull requests: read & write`,
      `Administration: read & write` (for branch protection),
-     **`Workflows: read & write`** (required — without this, any push
+     **`Workflows: read & write`** (required - without this, any push
      that touches `.github/workflows/*.yml` is rejected with
      "refusing to allow a Personal Access Token to create or update
      workflow ... without `workflow` scope").
@@ -139,7 +139,7 @@ The script:
 - Refuses to run if the working tree is dirty (exit 3).
 - Refuses to run if `GITHUB_TOKEN` is missing or lacks push perms
   (exit 2 / 1).
-- Rebases your branch on top of the remote before pushing — never
+- Rebases your branch on top of the remote before pushing - never
   force-pushes.
 - On rebase conflict, exits 4 and leaves the repo in the standard
   Git rebase-in-progress state (this is normal Git behavior, not a
@@ -150,7 +150,7 @@ The script:
 - Never writes the token to `.git/config` and never echoes it.
 
 **Important:** this is for unblocking the agent / CI when the UI is
-broken. It does **not** bypass branch protection — it still has to
+broken. It does **not** bypass branch protection - it still has to
 target a branch you have write access to. For changes to `main`, open
 a PR like normal once your branch is up there.
 
@@ -181,10 +181,10 @@ contexts from `ci.yml`. The reason is structural, not a shortcut:
   `pull_request` events.
 - `deploy.yml` triggers on `push` to `main`, never on PRs.
 - Listing deploy jobs as required contexts therefore leaves every PR
-  permanently `mergeable_state: blocked` — the gate can never go
+  permanently `mergeable_state: blocked` - the gate can never go
   green because it never runs.
 
-The deploy gates are still enforced — just one layer down, inside
+The deploy gates are still enforced - just one layer down, inside
 `deploy.yml` itself, via job-level `needs:` chains. That file is the
 source of truth for what must succeed before production updates.
 
@@ -206,7 +206,7 @@ ALLOW_MAIN_PUSH=1 CONFIRM_MAIN_PUSH=yes \
   bash scripts/git-sync.sh
 ```
 
-Both are required by design — a single stray env var cannot trigger a
+Both are required by design - a single stray env var cannot trigger a
 main push by itself. If only `ALLOW_MAIN_PUSH=1` is set without
 `CONFIRM_MAIN_PUSH=yes`, the script will block on `read` and
 eventually time out / error in a non-interactive context.
@@ -218,7 +218,7 @@ For everything else: feature branch → PR → CI → review → merge.
 
 ## 8. Things explicitly NOT covered here
 
-- **Commit signing / GPG.** Not enforced yet — see follow-up tasks.
+- **Commit signing / GPG.** Not enforced yet - see follow-up tasks.
 - **A dedicated `feastpot-bot` machine user.** Currently every agent
   push uses the human owner's PAT. If we hit rate limits or audit
   needs, switch to a bot account and update `GITHUB_TOKEN`.

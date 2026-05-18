@@ -57,6 +57,6 @@ export class StripeConnectLinkResponseDto {
   @ApiProperty({ description: 'Hosted Stripe URL the vendor should be redirected to' })
   url!: string;
 
-  @ApiProperty({ description: 'Connected account id (acct_…) — useful for debugging' })
+  @ApiProperty({ description: 'Connected account id (acct_…) - useful for debugging' })
   accountId!: string;
 }

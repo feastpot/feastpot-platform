@@ -31,7 +31,7 @@ const FADE_OUT_MS = 280;
  * population outside inner London), then descends through the next nine
  * UK metros with strongest diaspora density.
  *
- * The swap timeout is tracked in a ref so we can cancel it on unmount —
+ * The swap timeout is tracked in a ref so we can cancel it on unmount -
  * otherwise React warns "Can't perform a state update on an unmounted
  * component" if the timeout fires within 280ms of navigation away.
  *
@@ -65,7 +65,7 @@ export function AnimatedHeadline() {
 
   return (
     <div className="text-center text-white">
-      {/* Line 1 — static */}
+      {/* Line 1 - static */}
       <h1
         className="font-black leading-tight tracking-tight"
         style={{ fontSize: 'clamp(22px, 5.8vw, 34px)' }}
@@ -73,7 +73,7 @@ export function AnimatedHeadline() {
         Your community&rsquo;s best cooks.
       </h1>
 
-      {/* Line 2 — "Delivering to" + animated city */}
+      {/* Line 2 - "Delivering to" + animated city */}
       <h2
         className="mt-1 font-black leading-tight tracking-tight"
         style={{ fontSize: 'clamp(22px, 5.8vw, 34px)' }}
@@ -93,7 +93,7 @@ export function AnimatedHeadline() {
         </span>
       </h2>
 
-      {/* Subline — four use cases */}
+      {/* Subline - four use cases */}
       <p className="mt-3 text-[13px] text-white/85">
         Party trays • Family portions • Weekly meals • Event catering
       </p>

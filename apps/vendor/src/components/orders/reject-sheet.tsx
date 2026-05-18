@@ -32,7 +32,7 @@ export interface RejectSheetProps {
 
 /**
  * Bottom-sheet rejection confirmation. Replaces the older free-text
- * RejectDialog with a structured reason picker per the brief — vendors
+ * RejectDialog with a structured reason picker per the brief - vendors
  * usually reject for one of three reasons and a structured value is far
  * easier for support to triage later.
  *
@@ -50,7 +50,7 @@ export function RejectSheet({
   const [picked, setPicked] = useState<string | null>(null);
   const [otherText, setOtherText] = useState('');
 
-  // Reset the form whenever the sheet closes — so reopening it for another
+  // Reset the form whenever the sheet closes - so reopening it for another
   // order doesn't carry over the previous selection.
   useEffect(() => {
     if (!open) {

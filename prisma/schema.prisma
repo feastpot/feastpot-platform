@@ -323,7 +323,7 @@ model Notification {
 }
 
 /// Vendor registration leads captured from the public become-a-vendor form.
-/// Distinct from `Vendor` (which requires an authenticated User) — applicants
+/// Distinct from `Vendor` (which requires an authenticated User) - applicants
 /// don't have accounts yet. Admin review converts an approved application
 /// into a full Vendor + User pair.
 model VendorApplication {
@@ -344,7 +344,7 @@ model VendorApplication {
   reviewedById     String?                 @map("reviewed_by_id") @db.Uuid
   // adminNotes: free-form internal notes (visible to admins, never to the
   // applicant). Also doubles as the body of an "information_requested"
-  // message — the email template surfaces it to the applicant verbatim.
+  // message - the email template surfaces it to the applicant verbatim.
   adminNotes       String?                 @map("admin_notes")
   // rejectionReason: surfaced to the applicant in the rejection email.
   // Separate from adminNotes so we never leak internal triage commentary.

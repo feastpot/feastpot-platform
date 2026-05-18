@@ -21,7 +21,7 @@ export function bullBoardBasicAuth(config: ConfigService) {
 
   if (!password) {
     logger.warn(
-      'BULL_BOARD_PASSWORD is not set — /admin/queues will return 503 until configured.',
+      'BULL_BOARD_PASSWORD is not set - /admin/queues will return 503 until configured.',
     );
   }
 

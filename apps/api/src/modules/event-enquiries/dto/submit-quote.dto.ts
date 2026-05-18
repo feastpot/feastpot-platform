@@ -33,7 +33,7 @@ export class SubmitQuoteDto {
   @MaxLength(4000)
   terms?: string;
 
-  @ApiProperty({ description: 'ISO datetime — when this quote expires' })
+  @ApiProperty({ description: 'ISO datetime - when this quote expires' })
   @IsDateString()
   expiresAt!: string;
 }

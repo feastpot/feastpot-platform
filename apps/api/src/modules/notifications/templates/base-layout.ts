@@ -101,7 +101,7 @@ export function itemsTable(items: Array<{ name: string; qty: number; pricePence:
 }
 
 export function formatMoney(pence: unknown): string {
-  if (typeof pence !== 'number' || !Number.isFinite(pence)) return '—';
+  if (typeof pence !== 'number' || !Number.isFinite(pence)) return '-';
   return `£${(pence / 100).toFixed(2)}`;
 }
 
@@ -109,8 +109,8 @@ export function formatMoney(pence: unknown): string {
  * HTML-escape a string for safe interpolation inside an HTML body.
  *
  * Exported because templates that pass user-controlled fields into the
- * non-escaping helpers (`p`, `amberCallout`) — or into raw HTML strings
- * like `<blockquote>${...}</blockquote>` — must escape at the call site.
+ * non-escaping helpers (`p`, `amberCallout`) - or into raw HTML strings
+ * like `<blockquote>${...}</blockquote>` - must escape at the call site.
  * Helpers whose input is HTML-by-contract (`p`, `amberCallout`) keep
  * their loose typing so callers can still embed `<strong>` etc.
  */

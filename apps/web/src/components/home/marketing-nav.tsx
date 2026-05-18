@@ -11,7 +11,7 @@ import { useStoredPostcode } from '@/lib/postcode';
 
 /**
  * Desktop-first marketing nav for the homepage redesign (2026-05-17
- * wireframe). Replaces the in-app TopNav on `/` only — the TopNav now
+ * wireframe). Replaces the in-app TopNav on `/` only - the TopNav now
  * self-hides on `/` so this nav owns the chrome on the landing page.
  *
  * Layout:
@@ -25,7 +25,7 @@ import { useStoredPostcode } from '@/lib/postcode';
  */
 // "Become a cook" deep-links to the public acquisition page on the
 // customer site. The vendor portal URL is never exposed from public
-// chrome — prospective cooks land on /become-a-vendor, submit the
+// chrome - prospective cooks land on /become-a-vendor, submit the
 // interest form there, and only receive a portal link in the approval
 // email after admin review.
 const NAV_LINKS = [
@@ -42,7 +42,7 @@ export function MarketingNav() {
     s.items.reduce((acc, i) => acc + i.quantity, 0),
   );
   // Guests get sent straight to `/sign-in` instead of the `/account`
-  // guest hub — the hub itself is just a benefits welcome with another
+  // guest hub - the hub itself is just a benefits welcome with another
   // big "Sign in" button, so reusing it here makes the flow feel like
   // two sign-in pages in a row. Loading state keeps `/account` so we
   // don't flicker the wrong destination at a returning signed-in user.

@@ -31,7 +31,7 @@ export default function EventEnquiryDetailPage() {
           <div><dt className="inline">Date: </dt><dd className="inline text-charcoal">{new Date(enquiry.eventDate).toLocaleString('en-GB')}</dd></div>
           <div><dt className="inline">Guests: </dt><dd className="inline text-charcoal">{enquiry.guestCount}</dd></div>
           <div><dt className="inline">Postcode: </dt><dd className="inline text-charcoal">{enquiry.postcode}</dd></div>
-          <div><dt className="inline">Cuisines: </dt><dd className="inline text-charcoal">{enquiry.cuisines.join(', ') || '—'}</dd></div>
+          <div><dt className="inline">Cuisines: </dt><dd className="inline text-charcoal">{enquiry.cuisines.join(', ') || '-'}</dd></div>
         </dl>
         <p className="mt-3 text-xs font-medium text-charcoal-mid">
           Matched vendors: <strong className="font-bold text-charcoal">{enquiry.matchedVendorIds.length}</strong> · Quotes received: <strong className="font-bold text-charcoal">{enquiry.quotes?.length ?? 0}</strong>
@@ -49,7 +49,7 @@ export default function EventEnquiryDetailPage() {
         <h2 className="font-display text-base font-black tracking-tight text-charcoal">Quotes received</h2>
         {(!enquiry.quotes || enquiry.quotes.length === 0) && (
           <p className="rounded-xl border border-dashed border-cream-deep bg-cream/50 p-4 text-sm font-medium text-charcoal-mid">
-            No quotes yet — vendors typically respond within 24 hours.
+            No quotes yet - vendors typically respond within 24 hours.
           </p>
         )}
         {enquiry.quotes?.filter((q) => q.status === 'submitted' || q.status === 'accepted').map((q) => (
@@ -129,7 +129,7 @@ function QuoteCard({
     <article className="rounded-2xl border border-cream-deep bg-white p-4 shadow-sm">
       <header className="flex items-baseline justify-between">
         <h3 className="font-display text-base font-black text-charcoal">{quote.vendor?.businessName ?? 'Vendor'}</h3>
-        <span className="text-xs font-bold text-charcoal-mid"><span className="text-plantain">★</span> {quote.vendor?.rating?.toFixed(1) ?? '—'}</span>
+        <span className="text-xs font-bold text-charcoal-mid"><span className="text-plantain">★</span> {quote.vendor?.rating?.toFixed(1) ?? '-'}</span>
       </header>
       {quote.proposedMenu && (
         <p className="mt-2 whitespace-pre-line text-sm font-medium text-charcoal">{quote.proposedMenu}</p>

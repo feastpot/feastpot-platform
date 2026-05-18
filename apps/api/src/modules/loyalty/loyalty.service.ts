@@ -13,7 +13,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
  * Loyalty points ledger.
  *
  * Schema realities (FR-LOY-001 spec assumed fields that don't exist):
- *   - LoyaltyPoint has {type, points, reason, orderId, expiresAt} — no
+ *   - LoyaltyPoint has {type, points, reason, orderId, expiresAt} - no
  *     `transactionType`, no `description`, no `balanceAfter`.
  *   - Balance is therefore derived (SUM of `points`) rather than stored
  *     per row. This avoids drift and is cheap with the userId index.
@@ -37,7 +37,7 @@ export class LoyaltyService {
 
   /**
    * Postgres advisory-lock wrapper. We don't have a UNIQUE index on
-   * (userId, orderId, type) — adding one would require a migration which
+   * (userId, orderId, type) - adding one would require a migration which
    * the FR-LOY-001 spec explicitly forbids. Instead we serialise every
    * read-then-write window for a given (userId, orderId) pair using
    * `pg_advisory_xact_lock`, so the "find existing row → create if
@@ -68,7 +68,7 @@ export class LoyaltyService {
 
   /**
    * Credit points for a delivered order. Idempotent per (userId, orderId)
-   * via a pre-check — Prisma can't enforce a partial unique index without
+   * via a pre-check - Prisma can't enforce a partial unique index without
    * a migration, so we read-then-write inside the same logical step.
    */
   async creditPoints(userId: string, orderId: string, orderTotalPence: number): Promise<number> {
@@ -79,7 +79,7 @@ export class LoyaltyService {
         select: { id: true, points: true },
       });
       if (existing) {
-        this.logger.log(`creditPoints skipped — already credited ${existing.points}pt for order ${orderId}`);
+        this.logger.log(`creditPoints skipped - already credited ${existing.points}pt for order ${orderId}`);
         return existing.points;
       }
       const points = Math.floor(orderTotalPence / POINTS_PER_PENCE);
@@ -123,7 +123,7 @@ export class LoyaltyService {
    * Redeem points at checkout. Returns the discount in pence.
    *
    * Idempotent per (userId, orderId): if a redemption row already exists
-   * for the same order it returns the existing magnitude — guards
+   * for the same order it returns the existing magnitude - guards
    * against double-debiting on a checkout retry that re-runs createOrder
    * for an order that was actually committed.
    */
@@ -133,7 +133,7 @@ export class LoyaltyService {
     orderId: string,
   ): Promise<number> {
     // Lock by USER (not by orderId) so two concurrent checkouts for the
-    // same user — each on a different orderId — can't both pass the
+    // same user - each on a different orderId - can't both pass the
     // balance check on stale reads and overdraw the ledger. Idempotency
     // per-order is still enforced inside the lock by the existing
     // (userId, orderId, redeemed) lookup. Credit/refund continue to lock
@@ -152,7 +152,7 @@ export class LoyaltyService {
           message: `Minimum redemption is ${MIN_REDEMPTION} points`,
         });
       }
-      // Re-check balance INSIDE the lock and on the SAME tx connection —
+      // Re-check balance INSIDE the lock and on the SAME tx connection -
       // another concurrent redemption for a different orderId could have
       // drained the balance between the caller's pre-flight assertCanRedeem
       // and this write. Aggregating via tx ensures we see only committed
@@ -239,7 +239,7 @@ export class LoyaltyService {
         // If we did them separately and the create failed, `expiresAt` would
         // already be cleared and the row would never be retried, leaving a
         // permanent ledger inconsistency (points "expired" with no debit row).
-        // Two overlapping cron workers race on the conditional updateMany —
+        // Two overlapping cron workers race on the conditional updateMany -
         // the loser sees count:0 and skips silently.
         const didProcess = await this.prisma.$transaction(async (tx) => {
           const claimed = await tx.loyaltyPoint.updateMany({

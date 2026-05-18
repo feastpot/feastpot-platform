@@ -50,7 +50,7 @@ const EMPTY_FORM: CreateDiscountCodeInput = {
 
 /**
  * Admin discount-code console. Finance can view + see redemption stats;
- * only `admin` can mint new codes or toggle active status — the server
+ * only `admin` can mint new codes or toggle active status - the server
  * also enforces this, the prop is just used to hide the buttons.
  */
 export function DiscountCodesClient({ canCreate }: Props) {
@@ -151,12 +151,12 @@ export function DiscountCodesClient({ canCreate }: Props) {
                     <TableCell>
                       {r.type === 'flat' ? formatPence(r.value) : `${(r.value / 100).toFixed(2)}%`}
                     </TableCell>
-                    <TableCell>{r.minOrderPence ? formatPence(r.minOrderPence) : '—'}</TableCell>
+                    <TableCell>{r.minOrderPence ? formatPence(r.minOrderPence) : '-'}</TableCell>
                     <TableCell>
                       {r.usedCount}
                       {r.maxUses ? ` / ${r.maxUses}` : ''}
                     </TableCell>
-                    <TableCell>{r.expiresAt ? formatDate(r.expiresAt) : '—'}</TableCell>
+                    <TableCell>{r.expiresAt ? formatDate(r.expiresAt) : '-'}</TableCell>
                     <TableCell>{r.vendor?.businessName ?? 'All vendors'}</TableCell>
                     <TableCell>
                       <Badge variant={r.isActive ? 'default' : 'secondary'}>
@@ -214,8 +214,8 @@ export function DiscountCodesClient({ canCreate }: Props) {
               label="Value"
               hint={
                 form.type === 'flat'
-                  ? 'Pence — e.g. 500 = £5 off'
-                  : 'Basis points — e.g. 1000 = 10% off, 500 = 5%'
+                  ? 'Pence - e.g. 500 = £5 off'
+                  : 'Basis points - e.g. 1000 = 10% off, 500 = 5%'
               }
             >
               <Input

@@ -23,7 +23,7 @@ interface Props {
  * enough that a static tab strip is the better trade for v1.
  *
  * The tab strip is sticky just below the topnav (`top: var(--page-safe-top)`
- * — defined in globals.css to include the iOS safe-area inset).
+ * - defined in globals.css to include the iOS safe-area inset).
  */
 export function MenuCategoryTabs({ categories }: Props) {
   if (categories.length === 0) return null;

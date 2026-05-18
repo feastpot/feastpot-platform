@@ -14,7 +14,7 @@ import { DisputesController } from '../disputes/disputes.controller';
  * Per-route role enforcement tests (Step 6 of the security audit).
  *
  * These tests assert the decorator metadata declared on each controller
- * method — i.e. the contract the global RolesGuard enforces at runtime —
+ * method - i.e. the contract the global RolesGuard enforces at runtime -
  * rather than spinning up the full Nest app. That keeps the tests:
  *   - fast (no DI container, no Prisma, no Stripe);
  *   - deterministic (no role can sneak through via mocked guards);

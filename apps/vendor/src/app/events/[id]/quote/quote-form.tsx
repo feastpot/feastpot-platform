@@ -8,7 +8,7 @@ import { type ChangeEvent, type FormEvent, useEffect, useState } from 'react';
 import { useSubmitVendorQuote, useVendorEventEnquiry } from '@/hooks/use-event-enquiries';
 
 const formatPounds = (p: number | null | undefined) =>
-  typeof p === 'number' ? `£${(p / 100).toFixed(2)}` : '—';
+  typeof p === 'number' ? `£${(p / 100).toFixed(2)}` : '-';
 
 const fieldLabel = 'mb-1 block text-sm font-medium';
 const textareaCls =
@@ -80,8 +80,8 @@ export function QuoteForm({ enquiryId, accessToken }: { enquiryId: string; acces
           <div><dt className="inline">Guests: </dt><dd className="inline">{enquiry.guestCount}</dd></div>
           <div><dt className="inline">Postcode: </dt><dd className="inline">{enquiry.postcode}</dd></div>
           <div><dt className="inline">Budget: </dt><dd className="inline">{formatPounds(enquiry.budgetPence)}</dd></div>
-          <div className="col-span-2"><dt className="inline">Cuisines: </dt><dd className="inline">{enquiry.cuisines.join(', ') || '—'}</dd></div>
-          <div className="col-span-2"><dt className="inline">Dietary: </dt><dd className="inline">{enquiry.dietary.join(', ') || '—'}</dd></div>
+          <div className="col-span-2"><dt className="inline">Cuisines: </dt><dd className="inline">{enquiry.cuisines.join(', ') || '-'}</dd></div>
+          <div className="col-span-2"><dt className="inline">Dietary: </dt><dd className="inline">{enquiry.dietary.join(', ') || '-'}</dd></div>
           {enquiry.notes && <div className="col-span-2"><dt className="inline">Notes: </dt><dd className="inline whitespace-pre-line">{enquiry.notes}</dd></div>}
         </dl>
       </header>

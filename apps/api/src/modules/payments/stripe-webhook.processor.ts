@@ -27,7 +27,7 @@ export class StripeWebhookProcessor {
 
   constructor(
     private readonly prisma: PrismaService,
-    // LoyaltyModule is @Global — no PaymentsModule import change needed.
+    // LoyaltyModule is @Global - no PaymentsModule import change needed.
     // Used to refund any loyalty redemption attached to an order whose
     // payment Stripe ultimately fails (FR-LOY-001 retention requirement).
     private readonly loyalty: LoyaltyService,
@@ -43,7 +43,7 @@ export class StripeWebhookProcessor {
       where: { stripePaymentIntentId: pi.id },
       data: { status: PaymentStatus.succeeded, processedAt: new Date() },
     });
-    // We do NOT auto-advance the order here — order status is driven by the vendor
+    // We do NOT auto-advance the order here - order status is driven by the vendor
     // workflow; the capture call inside that flow already records succeeded.
     this.logger.log(`PI ${pi.id} succeeded`);
   }
@@ -64,7 +64,7 @@ export class StripeWebhookProcessor {
       },
     });
     if (payment?.orderId) {
-      // Atomic CAS-style: only cancel if still pending — never override a vendor decision.
+      // Atomic CAS-style: only cancel if still pending - never override a vendor decision.
       const cancelled = await this.prisma.order.updateMany({
         where: { id: payment.orderId, status: OrderStatus.pending },
         data: { status: OrderStatus.cancelled, cancelledAt: new Date(), notes: '[CANCELLED] Stripe payment failed' },
@@ -99,7 +99,7 @@ export class StripeWebhookProcessor {
     // Match by metadata.payoutId if our service set it; otherwise no-op.
     const payoutId = (transfer.metadata as { payoutId?: string } | null)?.payoutId;
     if (!payoutId) {
-      this.logger.debug(`transfer.created ${transfer.id} has no payoutId metadata — ignoring`);
+      this.logger.debug(`transfer.created ${transfer.id} has no payoutId metadata - ignoring`);
       return;
     }
     await this.prisma.payout.updateMany({

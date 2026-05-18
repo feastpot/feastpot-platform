@@ -73,14 +73,14 @@ export class EventEnquiriesService {
         quotes: { include: { vendor: { select: { id: true, businessName: true, slug: true, rating: true } } } },
         selectedVendor: { select: { id: true, businessName: true, slug: true } },
         // Customer PII included so admin/customer surfaces can render a
-        // human-readable enquirer name. Vendors must NOT receive this — we
+        // human-readable enquirer name. Vendors must NOT receive this - we
         // strip it below before returning to vendor callers.
         customer: { select: { id: true, firstName: true, lastName: true, email: true } },
       },
       take: 200,
     });
 
-    // Vendors must only see their own quote rows on each enquiry — never
+    // Vendors must only see their own quote rows on each enquiry - never
     // competitors' pricing or vendor identity. Strip customer PII too so the
     // marketplace stays neutral pre-booking.
     if (user.role === UserRole.vendor) {
@@ -152,7 +152,7 @@ export class EventEnquiriesService {
       },
     });
 
-    // Vendor matching is best-effort — failure must NOT abort enquiry creation.
+    // Vendor matching is best-effort - failure must NOT abort enquiry creation.
     this.matchVendors(enquiry).catch((e) =>
       this.logger.error(`matchVendors failed for ${enquiry.id}: ${(e as Error).message}`),
     );
@@ -306,7 +306,7 @@ export class EventEnquiriesService {
   // ---------------------------------------------------------------------------
 
   /**
-   * Reserve a vendor and create a deposit PaymentIntent — but DO NOT yet
+   * Reserve a vendor and create a deposit PaymentIntent - but DO NOT yet
    * accept the quote, expire siblings, or flip the enquiry to `confirmed`.
    * Those state changes happen in `confirmDeposit()` after Stripe confirms
    * the payment really succeeded. This prevents an unpaid customer from
@@ -338,7 +338,7 @@ export class EventEnquiriesService {
       const existing = await this.stripe.retrieve(enquiry.depositPiId);
       return { enquiry, clientSecret: existing.client_secret, depositPence };
     }
-    // Already reserved with a *different* vendor — caller must explicitly
+    // Already reserved with a *different* vendor - caller must explicitly
     // release before switching (no automatic flip during pending payment).
     if (enquiry.depositPiId && enquiry.vendorId && enquiry.vendorId !== dto.vendorId) {
       throw new BadRequestException('A deposit is already pending for another vendor on this enquiry');
@@ -358,7 +358,7 @@ export class EventEnquiriesService {
       data: { vendorId: dto.vendorId, depositPiId: pi.id },
     });
     if (claim.count === 0) {
-      // Race lost — another request beat us. Only return the winner if it's
+      // Race lost - another request beat us. Only return the winner if it's
       // the same vendor; otherwise cancel our orphan PI and reject so the
       // customer can't bind two different vendors to one enquiry.
       const fresh = await this.prisma.eventEnquiry.findUnique({ where: { id: enquiryId } });
@@ -381,7 +381,7 @@ export class EventEnquiriesService {
 
   /**
    * Finalize the booking *after* the customer has paid the deposit. Verifies
-   * the PI status with Stripe (source of truth — never trust the client),
+   * the PI status with Stripe (source of truth - never trust the client),
    * then atomically marks the chosen quote accepted, expires sibling quotes,
    * and flips the enquiry to `confirmed`. Safe to call multiple times.
    */
@@ -458,7 +458,7 @@ export class EventEnquiriesService {
         metadata: { enquiryId, customerId, kind: 'event_balance' },
         idempotencyKey: `event_balance:${enquiryId}`,
       });
-      // Conditional claim — if cron raced us, cancel the duplicate PI.
+      // Conditional claim - if cron raced us, cancel the duplicate PI.
       const claim = await this.prisma.eventEnquiry.updateMany({
         where: { id: enquiryId, balancePiId: null },
         data: { balancePiId: pi.id },

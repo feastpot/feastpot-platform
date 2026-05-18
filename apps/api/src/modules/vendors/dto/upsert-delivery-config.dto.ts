@@ -21,7 +21,7 @@ import { DeliveryType } from '@prisma/client';
  * Mirrors the (limited) DeliveryConfig schema columns. Fields requested by
  * the vendor portal spec but absent from the schema (lead time, available
  * days, slot windows, max-advance-booking) are intentionally NOT accepted
- * here — silently dropping them would mislead the UI. Add them via a
+ * here - silently dropping them would mislead the UI. Add them via a
  * follow-up migration when scheduled-orders ships.
  */
 export class UpsertDeliveryConfigDto {

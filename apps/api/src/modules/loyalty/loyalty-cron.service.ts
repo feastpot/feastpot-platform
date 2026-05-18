@@ -6,7 +6,7 @@ import { LoyaltyService } from './loyalty.service';
 
 /**
  * Nightly sweep at 00:30 UTC: expire any earned points whose 12-month
- * window has lapsed. Idempotent — already-expired rows have their
+ * window has lapsed. Idempotent - already-expired rows have their
  * `expiresAt` cleared so this won't double-process.
  */
 @Injectable()
@@ -20,12 +20,12 @@ export class LoyaltyCronService {
 
   @Cron('30 0 * * *', { name: 'expire-loyalty-points' })
   async runExpiry() {
-    // Loyalty expiry only runs on the leader pod — without a working
+    // Loyalty expiry only runs on the leader pod - without a working
     // Redis-backed lock there's no way to prevent every replica from
     // double-debiting the same points rows. Skip cleanly when Redis
     // is unavailable.
     if (!this.cache.available) {
-      this.logger.warn('Redis unavailable — skipping loyalty expiry sweep');
+      this.logger.warn('Redis unavailable - skipping loyalty expiry sweep');
       return;
     }
     const { processed } = await this.loyalty.expirePoints();

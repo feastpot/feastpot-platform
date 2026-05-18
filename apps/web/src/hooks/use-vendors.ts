@@ -43,7 +43,7 @@ export function useVendors(params: SearchVendorsParams, options?: { enabled?: bo
             }));
             localStorage.setItem('fp.vendors.cache', JSON.stringify(slim));
           } catch {
-            /* quota exceeded / private mode — silently ignore */
+            /* quota exceeded / private mode - silently ignore */
           }
         }
         return res;

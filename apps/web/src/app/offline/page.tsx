@@ -22,15 +22,15 @@ interface CachedVendor {
  * whenever a navigation hits a route that isn't precached AND we have no
  * network. Two design intents:
  *
- *  1. Stay reassuring — show the brand mark + a clear "Try again" so the
+ *  1. Stay reassuring - show the brand mark + a clear "Try again" so the
  *     customer doesn't think the app is broken.
  *  2. Surface useful read-only context: cached recent orders from
  *     `localStorage` so the customer can still glance at order numbers /
  *     statuses while disconnected. (Writing the cache is the responsibility
- *     of `/account/orders` and `/orders/[id]/tracking` — they call
+ *     of `/account/orders` and `/orders/[id]/tracking` - they call
  *     `cacheRecentOrders()` in `lib/offline-cache.ts`.)
  *
- * NOTE: this page must NOT use Server Components or runtime data fetching —
+ * NOTE: this page must NOT use Server Components or runtime data fetching -
  * it has to render entirely from the precached HTML/JS.
  */
 export default function OfflinePage() {
@@ -43,16 +43,16 @@ export default function OfflinePage() {
       const raw = localStorage.getItem('feastpot.recent-orders.v1');
       if (raw) setOrders(JSON.parse(raw) as CachedOrder[]);
     } catch {
-      /* ignore — corrupt cache simply hides the section */
+      /* ignore - corrupt cache simply hides the section */
     }
     try {
-      // Written by `useVendors` after a successful list fetch — gives the
+      // Written by `useVendors` after a successful list fetch - gives the
       // offline shell something useful to show even for first-time users
       // who haven't placed an order yet.
       const raw = localStorage.getItem('fp.vendors.cache');
       if (raw) setVendors((JSON.parse(raw) as CachedVendor[]).slice(0, 4));
     } catch {
-      /* ignore — corrupt cache simply hides the section */
+      /* ignore - corrupt cache simply hides the section */
     }
     setOnline(typeof navigator === 'undefined' ? true : navigator.onLine);
     const onChange = () => setOnline(navigator.onLine);
@@ -76,7 +76,7 @@ export default function OfflinePage() {
         <p className="text-sm text-charcoal-mid">
           {online
             ? 'We couldn&rsquo;t load that page from the cache. Try again in a moment.'
-            : 'Check your connection — Feastpot needs the internet to place orders.'}
+            : 'Check your connection - Feastpot needs the internet to place orders.'}
         </p>
       </div>
 
@@ -92,7 +92,7 @@ export default function OfflinePage() {
         <section className="w-full space-y-2 rounded-2xl border border-cream-deep bg-white p-4 text-left shadow-sm">
           <h2 className="text-sm font-bold text-charcoal">Last seen vendors</h2>
           <p className="text-[11px] text-charcoal-mid">
-            From your last visit — may be outdated.
+            From your last visit - may be outdated.
           </p>
           <ul className="divide-y divide-cream-deep">
             {vendors.map((v) => (
@@ -118,7 +118,7 @@ export default function OfflinePage() {
               <li key={o.id} className="py-2 text-sm">
                 <Link href={`/orders/${o.id}/tracking`} className="block hover:underline">
                   <strong>#{o.orderNumber}</strong>
-                  {o.vendorName && <span className="text-charcoal-mid"> — {o.vendorName}</span>}
+                  {o.vendorName && <span className="text-charcoal-mid"> - {o.vendorName}</span>}
                   {o.status && <span className="ml-2 rounded-full bg-brand-light px-2 py-0.5 text-[11px] font-bold capitalize text-brand-dark">{o.status}</span>}
                 </Link>
               </li>

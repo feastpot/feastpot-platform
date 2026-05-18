@@ -1,6 +1,6 @@
 -- Scale indexes for 500-vendor / 10k-orders-per-day workload.
 --
--- IMPORTANT — why no CONCURRENTLY:
+-- IMPORTANT - why no CONCURRENTLY:
 -- Prisma's `migrate deploy` engine wraps every migration file in a single
 -- transaction, and Postgres rejects `CREATE INDEX CONCURRENTLY` inside a
 -- transaction (SQLSTATE 25001). The first attempt of this migration used

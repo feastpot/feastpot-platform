@@ -21,7 +21,7 @@ export class UpdateVendorStatusDto {
   @MaxLength(2000)
   notes?: string;
 
-  @ApiPropertyOptional({ description: 'Optional weekly order cap (informational metadata only — no schema column)' })
+  @ApiPropertyOptional({ description: 'Optional weekly order cap (informational metadata only - no schema column)' })
   @IsOptional()
   @Type(() => Number)
   @IsInt()

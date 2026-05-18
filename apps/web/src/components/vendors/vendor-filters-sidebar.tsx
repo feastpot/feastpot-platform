@@ -10,14 +10,14 @@ const DIETARY = [
   { value: 'vegan', label: 'Vegan' },
   { value: 'gluten-free', label: 'Gluten-free' },
 ] as const;
-// Keep in sync with RADIUS_OPTIONS_MI in apps/web/src/app/vendors/page.tsx —
+// Keep in sync with RADIUS_OPTIONS_MI in apps/web/src/app/vendors/page.tsx -
 // the page-level URL parser only accepts these exact values so the sidebar
 // must offer the same set.
 const RADIUS_OPTIONS_MI = [1, 3, 5, 10] as const;
 
 /**
  * Desktop two-column sidebar matching the wireframe. URL is the source of
- * truth — every checkbox toggle does a `router.replace` so the search reruns
+ * truth - every checkbox toggle does a `router.replace` so the search reruns
  * via TanStack Query's queryKey change, the back button works, and links
  * stay shareable.
  *
@@ -44,8 +44,8 @@ export function VendorFiltersSidebar() {
   const delivery = (params?.get('delivery') ?? '').split(',').filter(Boolean);
   const halal = params?.get('halal') === 'true';
   const dietary = (params?.get('dietary') ?? '').split(',').filter(Boolean);
-  // Radius is only meaningful when a postcode is set — without an origin,
-  // "within 3 miles" of nothing is incoherent — so the Distance group hides
+  // Radius is only meaningful when a postcode is set - without an origin,
+  // "within 3 miles" of nothing is incoherent - so the Distance group hides
   // entirely until the user enters a postcode.
   const postcode = params?.get('postcode')?.trim() ?? '';
   const radiusRaw = params?.get('radius');
@@ -135,7 +135,7 @@ export function VendorFiltersSidebar() {
 
       {postcode && (
         <FilterGroup title="Distance">
-          {/* Single-select pill row — radius is a single value, so a pill
+          {/* Single-select pill row - radius is a single value, so a pill
               picker reads more naturally than checkboxes and matches the
               "1 / 3 / 5 / 10 mi" wireframe. "Any" clears the URL param. */}
           <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Maximum distance">
@@ -157,7 +157,7 @@ export function VendorFiltersSidebar() {
       )}
 
       <FilterGroup title="Cuisine">
-        {/* Single-select — rendered as native radios (with an "Any" option
+        {/* Single-select - rendered as native radios (with an "Any" option
             so the user can clear without hunting for the chosen pill).
             Checkboxes would announce as multi-select to screen readers
             and mismatch the actual behaviour. */}

@@ -1,7 +1,7 @@
 import { CreditCard, ShieldCheck, Star, Truck } from 'lucide-react';
 
 /**
- * Wireframe 1 trust strip — white rounded card sitting between the hero and
+ * Wireframe 1 trust strip - white rounded card sitting between the hero and
  * the categories grid, with four pillars: fast delivery / trusted kitchens /
  * top rated / secure payments. Each pillar has a coloured icon chip in the
  * brand palette (green / green / gold / red).

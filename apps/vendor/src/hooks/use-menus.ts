@@ -19,7 +19,7 @@ export interface VendorMenu {
 const KEY = (vendorId: string) => ['vendor', 'menus', vendorId] as const;
 
 /**
- * The vendor portal needs to see ALL menus — including inactive ones — so we
+ * The vendor portal needs to see ALL menus - including inactive ones - so we
  * always pass `?includeInactive=true`. The backend will silently downgrade to
  * active-only if the bearer token doesn't match the vendor (defence-in-depth).
  */

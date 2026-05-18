@@ -13,7 +13,7 @@ import {
 } from '@/lib/postcode';
 
 /**
- * 2026-05-17 wireframe hero — desktop-first split layout with eyebrow
+ * 2026-05-17 wireframe hero - desktop-first split layout with eyebrow
  * tags, big two-tone headline, postcode form, stats card and a
  * decorative gradient hero panel on the right. The coverage flow is
  * unchanged from the previous postcode-first hero: on submit we call
@@ -21,7 +21,7 @@ import {
  * server component re-renders the gated vendor rails) or route to
  * /waitlist for uncovered postcodes.
  *
- * Geolocation fallback ("Use my location") is best-effort — if the
+ * Geolocation fallback ("Use my location") is best-effort - if the
  * browser permission prompt is dismissed or the lookup fails we
  * silently surface the form-validation error so the user can type a
  * postcode manually.
@@ -93,7 +93,7 @@ export function PostcodeHero() {
   // hand them to the public postcodes.io API to find the nearest UK
   // postcode. Anything that fails (denied permission, no signal, API
   // down) falls back to a friendly inline error so the user can type
-  // their postcode manually — we never silently grant coverage.
+  // their postcode manually - we never silently grant coverage.
   const onUseLocation = async () => {
     if (locating || submitting) return;
     if (typeof navigator === 'undefined' || !navigator.geolocation) {
@@ -111,7 +111,7 @@ export function PostcodeHero() {
           const json = await r.json();
           const pc = json?.result?.[0]?.postcode as string | undefined;
           if (!pc) {
-            setError('Couldn’t find a postcode for your location — please type it in.');
+            setError('Couldn’t find a postcode for your location - please type it in.');
             setLocating(false);
             return;
           }
@@ -121,12 +121,12 @@ export function PostcodeHero() {
           setLocating(false);
           await runCoverage(normalised);
         } catch {
-          setError('Couldn’t look up your location — please type your postcode.');
+          setError('Couldn’t look up your location - please type your postcode.');
           setLocating(false);
         }
       },
       () => {
-        setError('Location permission denied — please type your postcode.');
+        setError('Location permission denied - please type your postcode.');
         setLocating(false);
       },
       { enableHighAccuracy: false, timeout: 8000 },
@@ -139,9 +139,9 @@ export function PostcodeHero() {
       className="bg-cream-warm/40 px-4 pb-12 pt-8 sm:px-6 md:pt-12 lg:px-8 lg:pb-16"
     >
       <div className="mx-auto grid max-w-6xl items-center gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-14">
-        {/* LEFT — copy + form */}
+        {/* LEFT - copy + form */}
         <div>
-          {/* Eyebrow tag row — three tonal pills surfacing the value props */}
+          {/* Eyebrow tag row - three tonal pills surfacing the value props */}
           <div className="flex flex-wrap gap-2">
             <EyebrowTag tone="brand">Location first</EyebrowTag>
             <EyebrowTag tone="plantain">No unavailable vendors shown</EyebrowTag>
@@ -279,7 +279,7 @@ export function PostcodeHero() {
           </p>
         </div>
 
-        {/* RIGHT — gradient hero card with cuisine caption */}
+        {/* RIGHT - gradient hero card with cuisine caption */}
         <div className="relative hidden min-h-[360px] lg:block">
           <div
             className="absolute inset-0 overflow-hidden rounded-[40px] shadow-card-lg"

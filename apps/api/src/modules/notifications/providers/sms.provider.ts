@@ -13,13 +13,13 @@ export interface SmsMessage {
  *
  * Background:
  *   Supabase Auth still owns OTP / verification SMS via its own Twilio
- *   integration — this provider does NOT touch those. Here we only send
+ *   integration - this provider does NOT touch those. Here we only send
  *   transactional notifications the registry routes to the `sms` channel
  *   (e.g. `order_confirmation`, `order_accepted`, `order_dispatched`).
  *
  * Graceful degradation:
  *   When TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN / TWILIO_FROM_NUMBER are
- *   missing — or when the recipient phone is empty — the provider logs
+ *   missing - or when the recipient phone is empty - the provider logs
  *   a stub line and reports `delivered:false`. This matches the
  *   EmailProvider / WhatsappProvider patterns so the processor's per-channel
  *   accounting (sent vs skipped) stays consistent across providers.
@@ -36,7 +36,7 @@ export class SmsProvider {
     this.from = config.get<string>('TWILIO_FROM_NUMBER') ?? '';
     if (!sid || !token || !this.from) {
       this.logger.warn(
-        'TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN / TWILIO_FROM_NUMBER not all set — SMS sends will be logged only.',
+        'TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN / TWILIO_FROM_NUMBER not all set - SMS sends will be logged only.',
       );
       this.client = null;
     } else {

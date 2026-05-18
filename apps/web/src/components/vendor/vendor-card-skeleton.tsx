@@ -14,7 +14,7 @@
 export function VendorCardSkeleton() {
   return (
     <div className="fp-card overflow-hidden" aria-hidden="true">
-      {/* Cover image placeholder — h-40 matches VendorCard list variant. */}
+      {/* Cover image placeholder - h-40 matches VendorCard list variant. */}
       <div className="animate-shimmer h-40 w-full" />
 
       {/* Body padding matches `p-3` from the live card. */}
@@ -44,7 +44,7 @@ export function VendorCardSkeleton() {
           <div style={{ height: '12px', width: '80px', background: '#EDE4D4', borderRadius: '4px' }} />
           <div style={{ height: '12px', width: '50px', background: '#F5EDE0', borderRadius: '4px' }} />
         </div>
-        {/* Cook identity row — same divider treatment as the live card. */}
+        {/* Cook identity row - same divider treatment as the live card. */}
         <div
           style={{
             display: 'flex',

@@ -16,7 +16,7 @@ const formatPounds = (p: number) => `£${(p / 100).toFixed(2)}`;
 /**
  * Post-checkout celebration screen. Reached via redirect from
  * /checkout once the PaymentIntent has confirmed AND the API
- * `confirmOrder` call has succeeded — so by the time we mount,
+ * `confirmOrder` call has succeeded - so by the time we mount,
  * the order definitely exists, has a number, and is queued
  * for the vendor.
  *
@@ -164,7 +164,7 @@ export default function OrderConfirmationPage() {
       {/* Push permission nudge */}
       <PushNudge />
 
-      {/* Referral — only render once the API has returned the user's real
+      {/* Referral - only render once the API has returned the user's real
           share code (D-104). Hides cleanly for guests and while the request
           is in-flight, instead of rendering a fake `FP-XXXXXX` placeholder. */}
       {referralData?.referralCode ? (
@@ -185,7 +185,7 @@ function Row({ label, value }: { label: string; value: string }) {
 
 /**
  * Animated tick. Pure CSS using Tailwind's `animate-[bounce-in]` would need a
- * keyframe definition in the global stylesheet — we instead drive the bounce
+ * keyframe definition in the global stylesheet - we instead drive the bounce
  * with a tiny inline keyframe + `style={{ animation }}` so this component is
  * self-contained and doesn't bloat globals.css.
  */
@@ -211,7 +211,7 @@ function SuccessHero() {
 
 function PushNudge() {
   // `getPushSupport()` returns a flat status string (or 'unsupported' /
-  // 'no-vapid-key' when the env can't subscribe) — we only show this nudge
+  // 'no-vapid-key' when the env can't subscribe) - we only show this nudge
   // when the customer has push capability AND hasn't yet decided.
   const [status, setStatus] = useState<ReturnType<typeof getPushSupport> | null>(null);
 
@@ -222,7 +222,7 @@ function PushNudge() {
   // Hide entirely if the browser can't do push, or the customer already
   // granted/denied. The global PushPermissionPrompt also picks up after
   // checkout via `feastpot.has-ordered.v1`, so we don't need to duplicate
-  // the actual subscribe flow here — this is a contextual reminder.
+  // the actual subscribe flow here - this is a contextual reminder.
   if (status !== 'default') return null;
 
   return (
@@ -245,7 +245,7 @@ function PushNudge() {
 
 /**
  * Referral pill. Receives the user's REAL share code from `/v1/referrals`
- * (D-104 fix — previously rendered a fake `FP-XXXXXX` placeholder derived
+ * (D-104 fix - previously rendered a fake `FP-XXXXXX` placeholder derived
  * from the email local-part). The parent gates rendering on the code being
  * present, so we can assume `code` is a non-empty redeemable string here.
  */
@@ -258,7 +258,7 @@ function ReferralCard({ code }: { code: string }) {
       setCopied(true);
       setTimeout(() => setCopied(false), 1800);
     } catch {
-      /* clipboard blocked — fail silently */
+      /* clipboard blocked - fail silently */
     }
   };
 
@@ -271,7 +271,7 @@ function ReferralCard({ code }: { code: string }) {
             Love Feastpot? Earn £5 credit
           </p>
           <p className="mt-0.5 text-xs font-medium text-charcoal-mid">
-            Share your code with friends — when they place their first order you both get £5 off.
+            Share your code with friends - when they place their first order you both get £5 off.
           </p>
           <div className="mt-2 flex items-center gap-2">
             <code className="flex-1 truncate rounded-full bg-white px-3 py-1.5 text-center text-xs font-mono font-bold tracking-wider text-brand-dark">

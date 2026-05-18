@@ -39,4 +39,4 @@ After creating the function, register it: **Auth → Hooks → Custom Access Tok
 1. The top-level `role` claim of the verified JWT (set by this hook).
 2. `user.app_metadata.role` (server-managed, set via the admin API only).
 
-`user_metadata.role` is **never** trusted — that field is writable by the user themselves and would allow privilege escalation.
+`user_metadata.role` is **never** trusted - that field is writable by the user themselves and would allow privilege escalation.

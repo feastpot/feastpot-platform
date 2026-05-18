@@ -9,14 +9,14 @@ import { useState, type ReactNode } from 'react';
  *
  * `useState(() => new QueryClient(...))` ensures ONE client per browser tab.
  * Creating it as a module-level singleton causes hydration cache leaks
- * between users in SSR contexts — `useState`'s lazy initializer pins the
+ * between users in SSR contexts - `useState`'s lazy initializer pins the
  * client to the React tree's lifetime instead.
  *
  * Defaults rationale:
- *  - `staleTime: 60_000` — most marketplace data (vendors, menus) is fine
+ *  - `staleTime: 60_000` - most marketplace data (vendors, menus) is fine
  *    when ≤60s old; this stops the over-refetch storm React Query does by
  *    default on every window-focus.
- *  - `retry: 1` — one retry covers transient network blips without making
+ *  - `retry: 1` - one retry covers transient network blips without making
  *    real failures (e.g. 4xx user errors) take 4× longer to surface.
  */
 export function QueryProvider({ children }: { children: ReactNode }) {

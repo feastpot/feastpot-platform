@@ -14,7 +14,7 @@ export interface PageShellProps extends HTMLAttributes<HTMLDivElement> {
  * don't render a narrow column with empty gutters either side.
  * `pb-20` reserves space so the fixed bottom nav never overlaps the last
  * row of content. We deliberately do NOT use the more generous `PageShell`
- * exported by `@feastpot/ui` here — that component targets the wider
+ * exported by `@feastpot/ui` here - that component targets the wider
  * vendor/admin desktop UIs.
  */
 export function PageShell({ className, children, ...props }: PageShellProps) {

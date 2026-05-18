@@ -6,7 +6,7 @@ import { PageShell } from '@/components/layout/page-shell';
 import { createClient } from '@/lib/supabase/client';
 
 /**
- * Forgot-password — sends a Supabase reset-password email. Always shows a
+ * Forgot-password - sends a Supabase reset-password email. Always shows a
  * generic success state (even on error) so we don't leak whether an email is
  * registered. Real errors still log to the console for ops debugging.
  */

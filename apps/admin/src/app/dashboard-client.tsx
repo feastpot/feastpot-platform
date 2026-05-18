@@ -28,8 +28,8 @@ export function DashboardClient() {
         <Metric label="GMV today" value={formatPence(data?.gmvTodayPence)} loading={isLoading} />
         <Metric label="GMV this week" value={formatPence(data?.gmvWeekPence)} loading={isLoading} />
         <Metric label="GMV this month" value={formatPence(data?.gmvMonthPence)} loading={isLoading} />
-        <Metric label="Orders today" value={data?.ordersToday?.toString() ?? '—'} loading={isLoading} />
-        <Metric label="Active vendors" value={data?.activeVendors?.toString() ?? '—'} loading={isLoading} />
+        <Metric label="Orders today" value={data?.ordersToday?.toString() ?? '-'} loading={isLoading} />
+        <Metric label="Active vendors" value={data?.activeVendors?.toString() ?? '-'} loading={isLoading} />
         <Metric label="Avg basket (30 d)" value={formatPence(data?.avgBasketPence)} loading={isLoading} />
       </div>
 

@@ -16,7 +16,7 @@ import { searchVendors, type VendorListItem } from '@/lib/api/vendors';
 import { COVERAGE_COOKIE } from '@/lib/postcode';
 
 /**
- * Customer homepage — 2026-05-17 wireframe redesign.
+ * Customer homepage - 2026-05-17 wireframe redesign.
  *
  * Composition (top → bottom):
  *   MarketingNav · PostcodeHero · TrustIconStrip · OccasionGrid ·
@@ -30,7 +30,7 @@ import { COVERAGE_COOKIE } from '@/lib/postcode';
  * promos so returning users see relevant kitchens without disrupting
  * the marketing flow above for first-time visitors.
  *
- * The in-app TopNav self-hides on `/` (see top-nav.tsx) — MarketingNav
+ * The in-app TopNav self-hides on `/` (see top-nav.tsx) - MarketingNav
  * owns the chrome here.
  */
 async function safeFetchWithTimeout(
@@ -87,7 +87,7 @@ export default async function HomePage() {
 
       {coveredPostcode && (
         <>
-          {/* Vendor rails — only mount once the coverage cookie is set.
+          {/* Vendor rails - only mount once the coverage cookie is set.
               The "Popular near …" rail uses a snap-x carousel on mobile
               and a 3/4-up grid on desktop so the wireframe's discover
               behaviour survives at narrow widths. */}
@@ -118,7 +118,7 @@ export default async function HomePage() {
               </div>
             ) : (
               <p className="text-sm font-medium text-charcoal-mid">
-                No popular kitchens to show right now — check back soon.
+                No popular kitchens to show right now - check back soon.
               </p>
             )}
           </section>

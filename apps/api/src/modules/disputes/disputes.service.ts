@@ -76,7 +76,7 @@ export class DisputesService {
     } else if (user.role === UserRole.vendor) {
       where.order = { vendor: { userId: user.id } };
     } else if (dto.assignedToId) {
-      // Only staff can filter by assignee — for customers/vendors the scope
+      // Only staff can filter by assignee - for customers/vendors the scope
       // above already restricts results to "their" disputes, so an
       // assignedToId filter would either be redundant or empty.
       where.assignedToId = dto.assignedToId;
@@ -105,7 +105,7 @@ export class DisputesService {
       },
     });
     // `vendorRespondedAt` and `resolvedAt` are scalar columns on Dispute and
-    // come through automatically — explicitly mentioned here so the admin
+    // come through automatically - explicitly mentioned here so the admin
     // SLA indicator (D15) keeps working if anyone narrows this to a `select`.
     const nextCursor = rows.length === limit ? this.encodeCursor(rows[rows.length - 1]!) : null;
     return { data: rows, nextCursor };
@@ -144,7 +144,7 @@ export class DisputesService {
       throw new ForbiddenException({ code: 'NOT_ORDER_OWNER', message: 'You did not place this order' });
     }
     // Customers can only dispute orders that have actually shipped or been
-    // delivered — no point disputing a pending order they can simply cancel.
+    // delivered - no point disputing a pending order they can simply cancel.
     const disputable: OrderStatus[] = [OrderStatus.dispatched, OrderStatus.delivered];
     if (!disputable.includes(order.status)) {
       throw new BadRequestException({
@@ -288,7 +288,7 @@ export class DisputesService {
     }
 
     // Issue refund FIRST. If Stripe fails, we never mark the dispute resolved
-    // — better to retry than to lie about the state of the customer's money.
+    // - better to retry than to lie about the state of the customer's money.
     // Deterministic idempotency key: any retry of "close this dispute with
     // this resolution + amount" yields the same Stripe refund (no double-pay).
     if (REFUND_RESOLUTIONS.has(dto.resolution)) {

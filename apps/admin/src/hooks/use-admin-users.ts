@@ -143,7 +143,7 @@ export function useOverrideOrderStatus(opts: MutateOpts = {}) {
 }
 
 /**
- * DSAR / GDPR export — fetches the JSON via authenticated fetch (so the
+ * DSAR / GDPR export - fetches the JSON via authenticated fetch (so the
  * bearer token is attached) and triggers a browser download. Bypasses the
  * apiRequest helper because we want the raw blob, not a parsed object.
  */

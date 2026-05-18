@@ -72,7 +72,7 @@ export default function NewEventEnquiryPage() {
           Catering for every occasion
         </h1>
         <p className="mt-1.5 text-sm font-medium text-charcoal-mid">
-          Tell us about your event — vendors will quote within 24 hours.
+          Tell us about your event - vendors will quote within 24 hours.
         </p>
       </header>
 

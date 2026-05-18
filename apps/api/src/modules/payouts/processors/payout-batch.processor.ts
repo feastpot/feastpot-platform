@@ -32,10 +32,10 @@ export class PayoutBatchProcessor implements OnApplicationBootstrap {
     // Skip cron registration entirely when Redis is unavailable. Without
     // this guard, queue.add() retries against a dead/misconfigured Redis
     // for the cap window (~5 attempts) before logging a `Failed to
-    // register payout cron` warning — noisy and misleading because in
+    // register payout cron` warning - noisy and misleading because in
     // practice the cron will never fire anyway without Bull's Redis.
     if (!this.cache.available) {
-      this.logger.warn('Redis unavailable — skipping payout cron registration');
+      this.logger.warn('Redis unavailable - skipping payout cron registration');
       return;
     }
     // Fire-and-forget: queue.add() blocks until Redis accepts the command, which
@@ -48,7 +48,7 @@ export class PayoutBatchProcessor implements OnApplicationBootstrap {
   }
 
   /**
-   * Concurrency MUST stay at 1 — payout jobs move money via Stripe transfers
+   * Concurrency MUST stay at 1 - payout jobs move money via Stripe transfers
    * and the batch's idempotency relies on exactly one runner advancing
    * each vendor's payout window at a time. Two parallel workers could
    * race the same vendor row and double-transfer.
@@ -64,7 +64,7 @@ export class PayoutBatchProcessor implements OnApplicationBootstrap {
 
   @OnQueueFailed()
   onFailed(job: Job | undefined, err: Error): void {
-    // Only alert on final attempt — see notification.processor for rationale.
+    // Only alert on final attempt - see notification.processor for rationale.
     const exhausted = !job || job.attemptsMade >= ((job.opts?.attempts ?? 1) as number);
     if (exhausted) {
       Sentry.captureException(err, {

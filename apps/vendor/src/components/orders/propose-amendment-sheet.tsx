@@ -15,7 +15,7 @@ export interface ProposeAmendmentSheetProps {
 /**
  * Vendor-side UI for FR-AMD-001. Captures a short free-text description of
  * the change ("swap rice for chips", "30 min late", etc.) plus an optional
- * refund amount in pounds — the customer must accept inside 30 min or it
+ * refund amount in pounds - the customer must accept inside 30 min or it
  * auto-declines server-side.
  *
  * Refund is captured as a positive £ amount in the input but transmitted as a

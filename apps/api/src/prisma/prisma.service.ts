@@ -41,7 +41,7 @@ const datasourceUrl = encodeDbUrl(process.env.SUPABASE_DB_URL);
  *
  * The pool size + transaction pooling MUST be set in DATABASE_URL via env:
  *   DATABASE_URL=postgresql://…?pgbouncer=true&connection_limit=5&pool_timeout=20&connect_timeout=10
- * We deliberately do NOT mutate the env var here — it's a shared platform
+ * We deliberately do NOT mutate the env var here - it's a shared platform
  * secret and should be edited once in Replit Secrets, not per-process.
  */
 @Injectable()
@@ -65,7 +65,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     try {
       await this.$connect();
       this.logger.log('Prisma connected');
-      // Best-effort connection-count probe — useful in production to confirm
+      // Best-effort connection-count probe - useful in production to confirm
       // the pool is sized as expected and that we aren't accidentally
       // running without PgBouncer. Failure here is non-fatal.
       try {
@@ -77,7 +77,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
           this.logger.log(`Prisma active connections (this DB): ${Number(n)}`);
         }
       } catch {
-        /* metrics-only — ignore on managed pools that block pg_stat_activity */
+        /* metrics-only - ignore on managed pools that block pg_stat_activity */
       }
     } catch (err) {
       this.logger.warn(`Prisma connect failed (continuing): ${(err as Error).message}`);

@@ -33,8 +33,8 @@ export function ReviewsSection({
     useVendorReviews(vendorId);
 
   if (isLoading) {
-    // Skeleton mirrors the live review card layout — warm cream
-    // surface, teal-gradient avatar slot, two-line quote — so the
+    // Skeleton mirrors the live review card layout - warm cream
+    // surface, teal-gradient avatar slot, two-line quote - so the
     // section doesn't pop/reflow when data lands. 3 placeholders is
     // the same number we render at `limit={3}` from the vendor
     // profile, the only place this section currently mounts.
@@ -81,10 +81,10 @@ export function ReviewsSection({
     );
   }
   if (error) {
-    // Friendlier than "Failed to load reviews." — tells the user what
+    // Friendlier than "Failed to load reviews." - tells the user what
     // to do (refresh) rather than just announcing the failure.
     return (
-      <p className="text-sm text-charcoal-mid">Reviews unavailable — try refreshing the page.</p>
+      <p className="text-sm text-charcoal-mid">Reviews unavailable - try refreshing the page.</p>
     );
   }
 
@@ -95,7 +95,7 @@ export function ReviewsSection({
   if (reviews.length === 0) {
     return (
       <p className="text-sm text-charcoal-mid">
-        No reviews yet — be the first to order and share what you think.
+        No reviews yet - be the first to order and share what you think.
       </p>
     );
   }
@@ -154,7 +154,7 @@ export function ReviewsSection({
                     <span style={{ fontSize: '12px', fontWeight: 600, color: '#1C1C1A' }}>
                       {r.customerInitials || 'Customer'}
                     </span>
-                    {/* Always Verified — Feastpot reviews are tied to a
+                    {/* Always Verified - Feastpot reviews are tied to a
                         delivered order at the API layer. */}
                     <span
                       style={{

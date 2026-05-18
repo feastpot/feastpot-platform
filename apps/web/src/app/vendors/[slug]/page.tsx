@@ -27,7 +27,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
     // Fallback description (used when the vendor hasn't written their own bio
     // yet). Includes cuisine + city + a few menu items so every vendor page
-    // ships a unique og:description string — Kwame's Jollof was flagged in
+    // ships a unique og:description string - Kwame's Jollof was flagged in
     // the live SEO audit for serving an empty description here.
     const cuisines = vendor.cuisines?.filter(Boolean).join(' & ');
     const city = vendor.address?.city ?? 'London';
@@ -105,11 +105,11 @@ function groupByCategory(items: VendorMenuItem[]) {
  *   2. Vendor info card: name, rating (anchor to reviews), FSA badge,
  *      cuisine pills, min order, delivery summary.
  *   3. Sticky horizontal-scroll category tabs (MenuCategoryTabs).
- *   4. Menu sections grouped by category — each section anchored with
+ *   4. Menu sections grouped by category - each section anchored with
  *      `id="menu-cat-<key>"` and `scroll-margin-top` so tab clicks land
  *      below the topnav + tab strip rather than behind them.
  *   5. FloatingBasketBar (only visible when basket holds items for this
- *      vendor) — fixed above the bottom-nav.
+ *      vendor) - fixed above the bottom-nav.
  *   6. ReviewsSection (anchored as `#reviews` so the rating row scrolls
  *      to it).
  *
@@ -123,7 +123,7 @@ export default async function VendorProfilePage({ params }: PageProps) {
 
   // Pull the customer's coverage postcode (the same one the homepage gate
   // stores) straight off the cookie so the profile can surface "X.X mi away"
-  // — matching the badge already shown on the search list. Server-readable
+  // - matching the badge already shown on the search list. Server-readable
   // cookie keeps this a single round-trip with no client hydration flicker.
   // Cookie value is URL-encoded by writeCoverageCookie; decode here.
   const cookieStore = await cookies();
@@ -140,7 +140,7 @@ export default async function VendorProfilePage({ params }: PageProps) {
 
   let vendor;
   try {
-    // Skip the 60s revalidate cache when we have a postcode — the response
+    // Skip the 60s revalidate cache when we have a postcode - the response
     // is per-customer (distanceKm depends on their postcode) and Next would
     // otherwise serve a stale distance to other visitors.
     vendor = await getVendorBySlug(slug, {
@@ -170,7 +170,7 @@ export default async function VendorProfilePage({ params }: PageProps) {
 
   return (
     <div className="px-4 pb-6">
-      {/* Breadcrumb — gives deep-linked visitors (Google / shared SMS)
+      {/* Breadcrumb - gives deep-linked visitors (Google / shared SMS)
           a visible Home → Browse → {vendor} trail before the visual
           chrome takes over. The TopNav back chevron handles single-step
           back; the breadcrumb covers the "where am I in the site" gap
@@ -200,19 +200,19 @@ export default async function VendorProfilePage({ params }: PageProps) {
         </ol>
       </nav>
 
-      {/* HERO — bleeds edge-to-edge inside max-w-lg.
+      {/* HERO - bleeds edge-to-edge inside max-w-lg.
           Brand-DNA fallback: when no cover photo is uploaded (most early
           vendors), we render a rich scotch→pot→terracotta gradient with the
           tribal weave overlay and a single floating stew-pot glyph instead
           of the previous grey placeholder. The cover photo, when present,
-          renders ON TOP of the gradient so the gradient is invisible — that
+          renders ON TOP of the gradient so the gradient is invisible - that
           way mature vendors with photography are unaffected, and brand-new
           vendors don't look like a missing-image error. */}
       <header className="relative -mx-4">
         <div
           className="relative h-52 w-full overflow-hidden"
           style={{
-            // Wireframe palette — brand green deepens into the darker
+            // Wireframe palette - brand green deepens into the darker
             // forest with a gold radial accent in the top-right so empty
             // covers read as "Feastpot" rather than "missing image".
             background:
@@ -240,7 +240,7 @@ export default async function VendorProfilePage({ params }: PageProps) {
         </div>
 
         {/* The hero-overlay back arrow that previously sat here was
-            removed — TopNav now ships a global back chevron on every
+            removed - TopNav now ships a global back chevron on every
             inner page, and the breadcrumb above gives a textual
             fallback. Two visible back affordances on the same view
             invite confusion (Deliveroo / UberEats both ship one). */}
@@ -258,7 +258,7 @@ export default async function VendorProfilePage({ params }: PageProps) {
       {/* VENDOR INFO CARD.
           The teal "Hygiene N/5" badge that used to sit next to the name is
           REPLACED by the more prominent Yam-Green FSA pill below the cook-
-          identity card — the audit asked us to elevate the trust signal,
+          identity card - the audit asked us to elevate the trust signal,
           not duplicate it. */}
       <section className="mt-9 space-y-3">
         <h1 className="font-display text-[24px] font-black leading-tight text-charcoal">
@@ -289,7 +289,7 @@ export default async function VendorProfilePage({ params }: PageProps) {
           </ul>
         )}
 
-        {/* Cook identity row — humanises the home cook (audit headline
+        {/* Cook identity row - humanises the home cook (audit headline
             rec). Wireframe palette: green-gradient avatar on cream-warm
             card. "Cooking on Feastpot since {Month YYYY}" turns the
             createdAt into a community-tenure signal. */}
@@ -320,13 +320,13 @@ export default async function VendorProfilePage({ params }: PageProps) {
           </div>
         </div>
 
-        {/* Prominent FSA Hygiene pill — wireframe brand-green palette,
+        {/* Prominent FSA Hygiene pill - wireframe brand-green palette,
             sits as its own row so it isn't lost in the metrics
             chip-strip below. Lucide shield replaces emoji. */}
         {typeof vendor.fsaRating === 'number' && vendor.fsaRating >= 4 && (
           <div className="inline-flex items-center gap-1.5 rounded-full border border-brand bg-brand-light px-3 py-1 text-[11px] font-bold text-brand-dark">
             <ShieldCheck className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden />
-            FSA Hygiene {vendor.fsaRating}/5 — Verified
+            FSA Hygiene {vendor.fsaRating}/5 - Verified
           </div>
         )}
 
@@ -364,7 +364,7 @@ export default async function VendorProfilePage({ params }: PageProps) {
         </div>
       </section>
 
-      {/* RATING BREAKDOWN — sits below the vendor info card so the trust
+      {/* RATING BREAKDOWN - sits below the vendor info card so the trust
           signal is visible before the customer dives into the menu. The
           per-bucket counts aren't yet exposed by the API, so the component
           derives a deterministic visual estimate from `rating` + `ratingCount`
@@ -431,7 +431,7 @@ export default async function VendorProfilePage({ params }: PageProps) {
         <ReviewsSection vendorId={vendor.id} limit={3} />
       </section>
 
-      {/* FLOATING BAR — fixed, only renders when basket has items for this vendor */}
+      {/* FLOATING BAR - fixed, only renders when basket has items for this vendor */}
       <FloatingBasketBar vendorId={vendor.id} />
     </div>
   );

@@ -43,7 +43,7 @@ export function SWUpdatePrompt() {
           newWorker.addEventListener('statechange', () => {
             // `installed` + an existing controller == a new SW is sitting in
             // the wings waiting to take over. (No controller would mean this
-            // is the FIRST SW install — nothing to "update" from.)
+            // is the FIRST SW install - nothing to "update" from.)
             if (
               newWorker.state === 'installed' &&
               navigator.serviceWorker.controller
@@ -57,7 +57,7 @@ export function SWUpdatePrompt() {
           registration.removeEventListener('updatefound', handleUpdateFound);
       })
       .catch(() => {
-        /* SW registration failed — nothing to prompt about */
+        /* SW registration failed - nothing to prompt about */
       });
 
     return () => {

@@ -121,7 +121,7 @@ export class StripeService {
 
   /**
    * Generate a one-shot onboarding URL for an Express account. Stripe handles
-   * KYC, tax, bank details collection. We always pass `account_onboarding` —
+   * KYC, tax, bank details collection. We always pass `account_onboarding` -
    * for a returning vendor whose link expired, the same call is safe.
    */
   /**
@@ -155,7 +155,7 @@ export const stripeClientFactory = {
       // Fail loudly at boot rather than carrying a fake fallback secret in the
       // source tree (which trips secret scanners and risks accidental use).
       throw new Error(
-        'STRIPE_SECRET_KEY is not configured — set it in Replit Secrets before starting the API.',
+        'STRIPE_SECRET_KEY is not configured - set it in Replit Secrets before starting the API.',
       );
     }
     return new Stripe(key, { apiVersion: '2024-11-20.acacia' as Stripe.LatestApiVersion });

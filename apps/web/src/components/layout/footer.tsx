@@ -12,10 +12,10 @@ import { LEGAL } from '@/lib/legal-constants';
  * Replaces the previous dark charcoal footer with the wireframe's light
  * variant: a thin BenefitsStrip on top (4 icons + brand promises) followed
  * by a compact legal/links band on warm cream. The vendor recruitment
- * card and ICO + copyright lines are retained — legal requires the latter
+ * card and ICO + copyright lines are retained - legal requires the latter
  * to be persistently discoverable on every page.
  *
- * Hidden on /checkout only — the conversion surface there deliberately
+ * Hidden on /checkout only - the conversion surface there deliberately
  * strips persistent chrome. Auth routes (/sign-in, /register,
  * /forgot-password) now keep the footer so the ICO + legal links stay
  * discoverable on every page (legal requirement) and so users have a
@@ -33,7 +33,7 @@ export function Footer() {
       <BenefitsStrip />
 
       <div className="mx-auto max-w-5xl px-4 pt-6">
-        {/* Vendor recruitment card — subtle green-tinted panel; this is
+        {/* Vendor recruitment card - subtle green-tinted panel; this is
             the customer PWA's only outbound link to the vendor portal,
             so the recruitment ask stays visible without overpowering
             the legal copy below. */}

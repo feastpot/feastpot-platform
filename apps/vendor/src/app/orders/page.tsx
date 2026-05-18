@@ -17,7 +17,7 @@ interface VendorMe {
 
 /**
  * Server-side gate: confirm the user has the `vendor` role and a vendor
- * profile in (live | probation). Anything else bounces them — auth handled
+ * profile in (live | probation). Anything else bounces them - auth handled
  * at the edge in middleware.ts so we know `user` is non-null here.
  */
 export default async function OrdersPage() {
@@ -33,7 +33,7 @@ export default async function OrdersPage() {
   try {
     vendor = await apiRequest<VendorMe>('/vendors/me', {
       accessToken: session.access_token,
-      // No client cache for the gate — it MUST reflect the latest status.
+      // No client cache for the gate - it MUST reflect the latest status.
       next: { revalidate: 0 },
     });
   } catch (err) {

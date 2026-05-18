@@ -13,7 +13,7 @@ import { createClient } from '@/lib/supabase/middleware';
  *
  * Cookie attributes: we use the same `createClient` helper as middleware so
  * `Set-Cookie` headers carry the full security attributes (HttpOnly, Secure,
- * SameSite) — see the writeup in lib/supabase/middleware.ts.
+ * SameSite) - see the writeup in lib/supabase/middleware.ts.
  */
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
   const next = url.searchParams.get('next') ?? '/';
   const errorParam = url.searchParams.get('error');
 
-  // Provider returned an error before the code exchange — bounce to sign-in
+  // Provider returned an error before the code exchange - bounce to sign-in
   // with the message so the user knows what happened.
   if (errorParam) {
     const back = new URL(`/sign-in?error=${encodeURIComponent(errorParam)}`, url.origin);
@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
   }
 
   if (!code) {
-    // No code, no error — landing page hit directly. Send home.
+    // No code, no error - landing page hit directly. Send home.
     return NextResponse.redirect(new URL('/', url.origin));
   }
 
@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
   }
 
   // Best-effort mirror to public.users + referral processing. The endpoint
-  // reads user_metadata server-side, so an empty body is enough — the
+  // reads user_metadata server-side, so an empty body is enough - the
   // backend pulls firstName/lastName/phone/referralCode out of the Supabase
   // user record we just confirmed. Failure is non-blocking: a missing
   // mirror won't trap the user on /auth/callback.
@@ -64,10 +64,10 @@ export async function GET(request: NextRequest) {
       }).catch(() => undefined);
     }
   } catch {
-    /* ignore — sync is best-effort */
+    /* ignore - sync is best-effort */
   }
 
-  // Success — redirect to `next`, preserving the freshly-set session cookies.
+  // Success - redirect to `next`, preserving the freshly-set session cookies.
   // The previous guard only checked `startsWith('/')`, which still let
   // `//evil.example` (protocol-relative) through. `safeRedirect` blocks
   // that plus `..` traversal and backslash normalisation tricks.

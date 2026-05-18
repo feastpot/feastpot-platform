@@ -662,7 +662,7 @@ const RIGHTS_DATA = [
   {
     right: 'Right to be informed',
     icon: '📢',
-    desc: 'Know how and why we process your personal data — provided at the point of collection.',
+    desc: 'Know how and why we process your personal data - provided at the point of collection.',
     how: 'This page, our cookie banner, and our sign-up flow',
   },
   { right: 'Right of access', icon: '👁️', desc: 'Request a copy of all data we hold', how: 'Email privacy@feastpot.co.uk' },

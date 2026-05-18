@@ -8,7 +8,7 @@ import { DiscountCodesService } from './discount-codes.service';
 
 /**
  * @Global so OrdersService can inject DiscountCodesService without each
- * order-related module importing this one — mirrors the LoyaltyModule
+ * order-related module importing this one - mirrors the LoyaltyModule
  * pattern already in use across the codebase.
  */
 @Global()

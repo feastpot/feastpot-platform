@@ -55,7 +55,7 @@ export class ReviewsService {
       });
     }
 
-    // Proactive duplicate check — gives a clean 409 without attempting an
+    // Proactive duplicate check - gives a clean 409 without attempting an
     // INSERT. The unique-constraint catch below is still kept as the
     // race-condition backstop (two concurrent submits → only one wins).
     const existing = await this.prisma.review.findFirst({
@@ -150,13 +150,13 @@ export class ReviewsService {
         moderatedById: user.id,
         moderatedAt: new Date(),
         // Anything other than `approved` is hidden from the public profile.
-        // 'held' must be hidden too — otherwise an auto-approved review the
+        // 'held' must be hidden too - otherwise an auto-approved review the
         // admin pushes to held would still show up on the vendor page.
         isHidden: dto.status !== ModerationStatus.approved,
       },
     });
     // Recalc on every transition that can move a row in or out of the
-    // PUBLISHED_STATUSES pool — that's all three allowed transitions.
+    // PUBLISHED_STATUSES pool - that's all three allowed transitions.
     await this.recalculateVendorRating(review.vendorId);
     return updated;
   }

@@ -4,7 +4,7 @@ import { Type } from 'class-transformer';
 import { IsEnum, IsInt, IsOptional, IsString, MaxLength, Min, MinLength } from 'class-validator';
 
 export class IssueCreditDto {
-  @ApiProperty({ minimum: 1, description: 'Credit in pence — added 1:1 to the customer loyalty balance' })
+  @ApiProperty({ minimum: 1, description: 'Credit in pence - added 1:1 to the customer loyalty balance' })
   @Type(() => Number)
   @IsInt()
   @Min(1)

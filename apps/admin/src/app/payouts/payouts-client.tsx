@@ -68,7 +68,7 @@ export function PayoutsClient({ role }: PayoutsClientProps) {
 
   // D13: manual out-of-cycle payout batch trigger. Spec called for finance
   // visibility too on the API, but the UI button is admin-only because
-  // accidental clicks affect every vendor — finance can still trigger via
+  // accidental clicks affect every vendor - finance can still trigger via
   // the API directly if needed.
   async function handleManualRun() {
     const confirmed = window.confirm(
@@ -142,7 +142,7 @@ export function PayoutsClient({ role }: PayoutsClientProps) {
     setSelected(new Set());
     toast({
       title: `Approved ${ok} payout${ok === 1 ? '' : 's'}`,
-      description: failed > 0 ? `${failed} failed — check logs.` : undefined,
+      description: failed > 0 ? `${failed} failed - check logs.` : undefined,
       variant: failed > 0 ? 'destructive' : 'default',
     });
   }
@@ -256,11 +256,11 @@ export function PayoutsClient({ role }: PayoutsClientProps) {
                     </TableCell>
                   )}
                   <TableCell className="font-medium">{p.vendor?.businessName ?? p.vendorId.slice(0, 8)}</TableCell>
-                  <TableCell className="text-sm">{p.periodStart ? formatDate(p.periodStart) : '—'} → {p.periodEnd ? formatDate(p.periodEnd) : '—'}</TableCell>
+                  <TableCell className="text-sm">{p.periodStart ? formatDate(p.periodStart) : '-'} → {p.periodEnd ? formatDate(p.periodEnd) : '-'}</TableCell>
                   <TableCell><PayoutStatusPill status={p.status} /></TableCell>
                   <TableCell className="text-right">{formatPence(p.amountPence)}</TableCell>
                   <TableCell className="text-right text-muted-foreground">{formatPence(p.commissionPence)}</TableCell>
-                  <TableCell className="text-right font-mono text-xs">{p.stripeTransferId ?? '—'}</TableCell>
+                  <TableCell className="text-right font-mono text-xs">{p.stripeTransferId ?? '-'}</TableCell>
                   <TableCell>
                     <div className="flex items-center justify-end gap-2">
                       {p.status === 'draft' && (
@@ -294,7 +294,7 @@ export function PayoutsClient({ role }: PayoutsClientProps) {
       <Dialog open={Boolean(holdTarget)} onOpenChange={(open) => !open && setHoldTarget(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Hold payout — {holdTarget?.vendor}</DialogTitle>
+            <DialogTitle>Hold payout - {holdTarget?.vendor}</DialogTitle>
           </DialogHeader>
           <div className="space-y-2 py-2">
             <label className="text-sm font-medium">Reason</label>
@@ -315,14 +315,14 @@ export function PayoutsClient({ role }: PayoutsClientProps) {
           {reconcileResult && (
             <dl className="space-y-2 py-2 text-sm">
               <ReconRow label="Status" value={<Badge>{reconcileResult.status}</Badge>} />
-              <ReconRow label="Stripe transfer" value={<span className="font-mono text-xs">{reconcileResult.stripeTransferId ?? '—'}</span>} />
+              <ReconRow label="Stripe transfer" value={<span className="font-mono text-xs">{reconcileResult.stripeTransferId ?? '-'}</span>} />
               <ReconRow label="Our amount" value={formatPence(reconcileResult.ourAmountPence)} />
-              <ReconRow label="Stripe amount" value={reconcileResult.stripeAmountPence !== null ? formatPence(reconcileResult.stripeAmountPence) : '—'} />
+              <ReconRow label="Stripe amount" value={reconcileResult.stripeAmountPence !== null ? formatPence(reconcileResult.stripeAmountPence) : '-'} />
               <ReconRow
                 label="Discrepancy"
                 value={
                   reconcileResult.discrepancyPence === null
-                    ? '—'
+                    ? '-'
                     : reconcileResult.discrepancyPence === 0
                       ? '✅ Match'
                       : `⚠ ${formatPence(reconcileResult.discrepancyPence)}`

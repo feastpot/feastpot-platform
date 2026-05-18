@@ -41,7 +41,7 @@ export class PushProvider {
     const publicKey = config.get<string>('VAPID_PUBLIC_KEY');
     const privateKey = config.get<string>('VAPID_PRIVATE_KEY');
     if (!publicKey || !privateKey) {
-      this.logger.warn('VAPID keys not set — web push will be logged only.');
+      this.logger.warn('VAPID keys not set - web push will be logged only.');
       this.enabled = false;
     } else {
       webpush.setVapidDetails(subject, publicKey, privateKey);
@@ -71,7 +71,7 @@ export class PushProvider {
         delivered++;
       } catch (e: unknown) {
         failed++;
-        // 404/410 means the subscription is dead — clean it up so we don't keep
+        // 404/410 means the subscription is dead - clean it up so we don't keep
         // hammering it (and exhausting BullMQ attempts) on every event.
         const status = (e as { statusCode?: number }).statusCode;
         if (status === 404 || status === 410) {
@@ -101,7 +101,7 @@ export class PushProvider {
    *                  given cuisine (lowercase comparison)
    *
    * Dead subscriptions (404/410) are pruned in the same loop so a broadcast
-   * implicitly cleans up. We do not enqueue per-recipient jobs here — that
+   * implicitly cleans up. We do not enqueue per-recipient jobs here - that
    * would add ~N rows to BullMQ for what's typically a one-shot operator
    * action; if a future broadcast targets >10k recipients we'll move this
    * onto the notifications queue.
@@ -167,7 +167,7 @@ export class PushProvider {
       });
       return rows.map((r) => r.userId);
     }
-    // by_cuisine — users with a recent order from a matching vendor.
+    // by_cuisine - users with a recent order from a matching vendor.
     const cuisine = filter.cuisine.toLowerCase();
     const rows = await this.prisma.$queryRaw<Array<{ user_id: string }>>`
       SELECT DISTINCT o.customer_id AS user_id

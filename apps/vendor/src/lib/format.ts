@@ -5,7 +5,7 @@
 const GBP = new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' });
 
 export function formatPence(pence: number | null | undefined): string {
-  if (pence === null || pence === undefined) return '—';
+  if (pence === null || pence === undefined) return '-';
   return GBP.format(pence / 100);
 }
 
@@ -19,13 +19,13 @@ export function poundsFromPence(pence: number): number {
 }
 
 export function formatDate(value: string | Date | null | undefined): string {
-  if (!value) return '—';
+  if (!value) return '-';
   const d = typeof value === 'string' ? new Date(value) : value;
   return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 export function formatDateTime(value: string | Date | null | undefined): string {
-  if (!value) return '—';
+  if (!value) return '-';
   const d = typeof value === 'string' ? new Date(value) : value;
   return d.toLocaleString('en-GB', {
     day: '2-digit',

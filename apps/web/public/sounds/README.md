@@ -11,4 +11,4 @@ Recommended:
 The tracking page (`apps/web/src/app/orders/[id]/tracking/page.tsx`) calls
 `new Audio('/sounds/status-update.mp3').play().catch(() => {})` whenever the
 order status changes after the first load. If the file is missing the catch
-swallows the error so the page still works — you'll just get a silent change.
+swallows the error so the page still works - you'll just get a silent change.

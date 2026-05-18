@@ -1,4 +1,4 @@
-# Feastpot — Editorial Status Report
+# Feastpot - Editorial Status Report
 
 _Last reviewed: 13 May 2026_
 
@@ -11,8 +11,8 @@ top of each section tells you the verdict, the prose underneath explains it.
 
 ## TL;DR
 
-Feastpot is in **late-beta shape**. The four apps — customer PWA, vendor
-portal, admin panel, and the NestJS API behind them — are all wired
+Feastpot is in **late-beta shape**. The four apps - customer PWA, vendor
+portal, admin panel, and the NestJS API behind them - are all wired
 together end-to-end. A real customer can land on `feastpot.co.uk`, find a
 vendor by postcode, fill a basket, pay with a real card, and watch the
 order move through the vendor's kitchen on their phone. A real vendor can
@@ -21,10 +21,10 @@ out via Stripe Connect. A real admin can moderate vendors, resolve
 disputes, and watch background jobs.
 
 What is **not yet ready** falls into three buckets: (1) customer
-experience polish — most notably live map tracking, loyalty/referrals,
-and discount codes; (2) operational tooling — admin "power user"
+experience polish - most notably live map tracking, loyalty/referrals,
+and discount codes; (2) operational tooling - admin "power user"
 shortcuts and richer vendor analytics; and (3) the last mile of
-production hardening — `api.feastpot.co.uk` DNS, notification provider
+production hardening - `api.feastpot.co.uk` DNS, notification provider
 credentials, and uptime monitoring.
 
 Nothing structural is missing. The remaining work is almost entirely
@@ -34,11 +34,11 @@ Nothing structural is missing. The remaining work is almost entirely
 
 ## What's done, app by app
 
-### The API (`apps/api`) — the engine room
+### The API (`apps/api`) - the engine room
 
 This is the most mature part of the platform and deserves to be. The
-**order lifecycle** is a real state machine — pending → accepted →
-preparing → dispatched → delivered — with atomic compare-and-swap guards
+**order lifecycle** is a real state machine - pending → accepted →
+preparing → dispatched → delivered - with atomic compare-and-swap guards
 so two requests can't move the same order twice. The **payment flow**
 authorises the card when the order is placed, captures on delivery, and
 refunds automatically when a dispute is upheld. The **catalogue** supports
@@ -56,11 +56,11 @@ and the service layer in place, but the actual SMS/email providers
 (Twilio, Resend) are stubbed out and need credentials before they'll
 send anything to a real phone. What's _missing_: **order amendments**
 (the controller literally throws `NotImplementedException` because it
-needs a new database table), and the **loyalty / referral** logic — the
+needs a new database table), and the **loyalty / referral** logic - the
 Prisma models are sitting there waiting, but no service consumes them
 yet.
 
-### The customer PWA (`apps/web`) — the storefront
+### The customer PWA (`apps/web`) - the storefront
 
 The end-to-end purchase path works. **Postcode-driven discovery**,
 cuisine-specific landing pages (Nigerian, Ghanaian, Caribbean) for SEO,
@@ -76,24 +76,24 @@ but doesn't yet receive driver coordinates. **Reviews** post and display,
 but the "verified purchase" badge depends on backend wiring that hasn't
 been completed.
 
-### The vendor portal (`apps/vendor`) — the kitchen
+### The vendor portal (`apps/vendor`) - the kitchen
 
 Vendor onboarding is one of the more complete journeys in the codebase:
 multi-step Stripe Connect, document upload, profile completion. Once
 live, vendors get a **real-time order dashboard** with audible alerts,
 full **menu CRUD** including image management, and a working
 **payouts** view. The **analytics** page shows real revenue and order
-counts pulled from the API — what's not yet real is the "insights"
+counts pulled from the API - what's not yet real is the "insights"
 panel, which today is mostly placeholder copy where business
 intelligence is meant to go.
 
-### The admin panel (`apps/admin`) — the back office
+### The admin panel (`apps/admin`) - the back office
 
 Admins can run the platform with what's here. **Vendor moderation**
 (approve, reject, request changes), **dispute resolution** with
 evidence review and one-click refunds, **payouts**, and **BullBoard**
 embedded for live job-queue inspection are all functional. The honest
-gap is "power user" tooling — there's no quick way for support to edit
+gap is "power user" tooling - there's no quick way for support to edit
 a single user record or surgically correct an order without going
 through the API. Day-to-day work is fine; emergency repair work isn't.
 
@@ -101,17 +101,17 @@ through the API. Day-to-day work is fine; emergency repair work isn't.
 
 ## The platform underneath
 
-**The Prisma schema** has 21 models and is doing real work — every
+**The Prisma schema** has 21 models and is doing real work - every
 service-layer feature above maps to actual tables and migrations.
 Two models (`LoyaltyPoint`, `Referral`) sit unused waiting for the
 features above to be built. Two ideas (`OrderAmendment`, `DiscountCode`)
-are referenced in API DTOs but **not yet in the schema** — they'll
+are referenced in API DTOs but **not yet in the schema** - they'll
 need a migration before either feature can ship.
 
 **The shared packages** are healthy. `@feastpot/types` distributes Zod
 schemas and TypeScript interfaces so the API and the frontends can't
 drift apart on a contract. `@feastpot/ui` is a real shadcn/Radix
-component library used by all three frontends — no app re-implements
+component library used by all three frontends - no app re-implements
 its own buttons or dialogs. `@feastpot/config` keeps tsconfig and
 ESLint consistent.
 
@@ -144,7 +144,7 @@ needs to be pointed at the four production hostnames once DNS lands.
 **Secrets and providers.** Stripe is on test keys; production keys
 need rotation in Vercel and Replit. Supabase credentials are fine for
 staging but should be reviewed before launch. Twilio (SMS) and Resend
-(email) credentials need to be added — the notification queue is
+(email) credentials need to be added - the notification queue is
 already wired and waiting for them.
 
 **Customer-facing gaps.** Live driver tracking on the order page,
@@ -168,7 +168,7 @@ instead of an owner PAT, and require signed commits on `main`.
 ## How to read this in one sentence
 
 If a customer landed on the site tomorrow and tried to order dinner,
-**they would succeed** — and the vendor would get the order, cook it,
+**they would succeed** - and the vendor would get the order, cook it,
 deliver it, and get paid. What we still owe them is a map showing
 where the driver is, a loyalty card to bring them back, and a
 production phone number that texts them when food is on the way.

@@ -48,7 +48,7 @@ const USERS: SeedUser[] = [
   { email: 'chef.kwame@feastpot.co.uk', role: UserRole.vendor, firstName: 'Kwame', lastName: 'Asante', password: 'Feastpot!Vendor2' },
   { email: 'grace@example.com', role: UserRole.customer, firstName: 'Grace', lastName: 'Okafor', password: 'Feastpot!Cust1' },
   { email: 'david@example.com', role: UserRole.customer, firstName: 'David', lastName: 'Campbell', password: 'Feastpot!Cust2' },
-  // Diaspora vendor pool (18 — brings total live vendors to 20). Each gets
+  // Diaspora vendor pool (18 - brings total live vendors to 20). Each gets
   // a Supabase auth user + a vendor row + 5–7 menu items + delivery config
   // via the EXTRA_VENDORS spec block further down. Passwords follow the
   // same Feastpot!VendorN pattern so QA can sign in as any of them.
@@ -204,7 +204,7 @@ async function main() {
     create: { vendorId: maman.id, name: 'Frozen Packs', isActive: true, sortOrder: 1 },
   });
 
-  // 4. Menu items (12) — replace-then-create for idempotency
+  // 4. Menu items (12) - replace-then-create for idempotency
   await prisma.menuItem.deleteMany({ where: { vendorId: maman.id } });
   const items = await prisma.$transaction([
     prisma.menuItem.create({ data: { vendorId: maman.id, menuId: mainMenu.id, name: 'Egusi Soup (Full Pot)', description: 'Slow-cooked egusi with goat meat, smoked fish & spinach. Serves 6–8.', category: ItemCategory.soup, pricePence: 3200, servingsCount: 7, allergens: ['tree_nuts', 'sesame'], tags: ['halal'], moderationStatus: ModerationStatus.auto_approved } }),
@@ -218,7 +218,7 @@ async function main() {
     prisma.menuItem.create({ data: { vendorId: maman.id, menuId: mainMenu.id, name: 'Jerk Chicken (Full Tray)', description: 'Marinated 24h, grilled over pimento wood. Serves 10.', category: ItemCategory.tray, pricePence: 3800, servingsCount: 10, allergens: [], tags: ['spice:2'] } }),
     prisma.menuItem.create({ data: { vendorId: maman.id, menuId: mainMenu.id, name: 'Rice and Peas (Full Tray)', description: 'Coconut rice with red kidney beans. Serves 10.', category: ItemCategory.tray, pricePence: 2400, servingsCount: 10, allergens: [], tags: ['vegan'] } }),
     prisma.menuItem.create({ data: { vendorId: maman.id, menuId: mainMenu.id, name: 'Oxtail Stew (Full Pot)', description: 'Slow-braised oxtail with butter beans. Serves 6–8.', category: ItemCategory.soup, pricePence: 4500, servingsCount: 7, allergens: [], tags: [] } }),
-    prisma.menuItem.create({ data: { vendorId: maman.id, menuId: mainMenu.id, name: 'Festival Bread (24 pieces)', description: 'Sweet fried dough — perfect with jerk chicken.', category: ItemCategory.snack, pricePence: 1600, servingsCount: 12, allergens: ['gluten'], tags: ['vegan'] } }),
+    prisma.menuItem.create({ data: { vendorId: maman.id, menuId: mainMenu.id, name: 'Festival Bread (24 pieces)', description: 'Sweet fried dough - perfect with jerk chicken.', category: ItemCategory.snack, pricePence: 1600, servingsCount: 12, allergens: ['gluten'], tags: ['vegan'] } }),
   ]);
   console.info(`[seed] menu items: ${items.length}`);
 
@@ -236,7 +236,7 @@ async function main() {
     data: { vendorId: kwame.id, menuId: kwameMenu.id, name: 'Waakye (Full Tray)', description: 'Rice-and-beans with shito, gari & boiled egg. Serves 10.', category: ItemCategory.tray, pricePence: 2800, servingsCount: 10, allergens: ['egg'], tags: ['halal'] },
   });
 
-  // 4b. Extra diaspora vendors (18 — total = 20 live vendors).
+  // 4b. Extra diaspora vendors (18 - total = 20 live vendors).
   //
   // Defined as a data-driven list so the loop below stays readable. Each
   // entry must include enough items to cover the kanban surfaces (5–7).
@@ -274,7 +274,7 @@ async function main() {
       slug: 'punjab-tandoor-southall',
       businessName: 'Punjab Tandoor',
       description:
-        'Punjabi home cooking from a Southall family kitchen — slow-cooked dals, smoky tandoori platters, and party-size biryani trays.',
+        'Punjabi home cooking from a Southall family kitchen - slow-cooked dals, smoky tandoori platters, and party-size biryani trays.',
       cuisines: ['Indian', 'Punjabi'],
       rating: 4.7, ratingCount: 18,
       collectionAddress: '88 The Broadway, Southall, London UB1 1QF',
@@ -283,7 +283,7 @@ async function main() {
       items: [
         { name: 'Chicken Tikka Biryani (Full Tray)', description: 'Basmati rice layered with marinated chicken tikka and saffron. Serves 10.', category: ItemCategory.tray, pricePence: 3400, servingsCount: 10, tags: ['halal'] },
         { name: 'Dal Makhani (Family Pot)', description: 'Black urad dal slow-simmered overnight with cream and butter. Serves 6.', category: ItemCategory.soup, pricePence: 2200, servingsCount: 6, allergens: ['dairy'], tags: ['vegetarian'] },
-        { name: 'Tandoori Mixed Grill (20 skewers)', description: 'Chicken tikka, seekh kebab, lamb chops — straight from the clay oven.', category: ItemCategory.protein, pricePence: 4200, servingsCount: 8, tags: ['halal', 'spice:2'] },
+        { name: 'Tandoori Mixed Grill (20 skewers)', description: 'Chicken tikka, seekh kebab, lamb chops - straight from the clay oven.', category: ItemCategory.protein, pricePence: 4200, servingsCount: 8, tags: ['halal', 'spice:2'] },
         { name: 'Garlic Naan (12 pieces)', description: 'Fresh tandoor-baked naan brushed with garlic butter.', category: ItemCategory.snack, pricePence: 1200, servingsCount: 6, allergens: ['gluten', 'dairy'], tags: ['vegetarian'] },
         { name: 'Punjabi Chole (Full Pot)', description: 'Chickpeas in a tomato-onion masala. Serves 6–8.', category: ItemCategory.soup, pricePence: 1800, servingsCount: 7, tags: ['vegan'] },
         { name: 'Mango Lassi (2L jug)', description: 'Sweet alphonso mango with house-set yoghurt.', category: ItemCategory.snack, pricePence: 900, servingsCount: 8, allergens: ['dairy'], tags: ['vegetarian'] },
@@ -303,9 +303,9 @@ async function main() {
       items: [
         { name: 'Sindhi Mutton Biryani (Full Tray)', description: 'Spice-forward Sindhi biryani with bone-in mutton. Serves 10.', category: ItemCategory.tray, pricePence: 4200, servingsCount: 10, tags: ['halal', 'spice:3'] },
         { name: 'Beef Nihari (Full Pot)', description: 'Slow-cooked overnight nihari with bone marrow. Serves 6.', category: ItemCategory.soup, pricePence: 3600, servingsCount: 6, allergens: ['gluten'], tags: ['halal', 'spice:2'] },
-        { name: 'Chicken Haleem (Family Pot)', description: 'Lentils, wheat, and shredded chicken — the Karachi way.', category: ItemCategory.soup, pricePence: 2800, servingsCount: 8, allergens: ['gluten'], tags: ['halal'] },
+        { name: 'Chicken Haleem (Family Pot)', description: 'Lentils, wheat, and shredded chicken - the Karachi way.', category: ItemCategory.soup, pricePence: 2800, servingsCount: 8, allergens: ['gluten'], tags: ['halal'] },
         { name: 'Seekh Kebab (24 sticks)', description: 'Mince beef seekh on charcoal. Bring your own naan.', category: ItemCategory.protein, pricePence: 2400, servingsCount: 12, tags: ['halal', 'spice:2'] },
-        { name: 'Aloo Paratha (10 pieces)', description: 'Stuffed potato paratha — pan-fried in ghee.', category: ItemCategory.snack, pricePence: 1500, servingsCount: 5, allergens: ['gluten', 'dairy'], tags: ['vegetarian'] },
+        { name: 'Aloo Paratha (10 pieces)', description: 'Stuffed potato paratha - pan-fried in ghee.', category: ItemCategory.snack, pricePence: 1500, servingsCount: 5, allergens: ['gluten', 'dairy'], tags: ['vegetarian'] },
       ],
     },
     {
@@ -313,7 +313,7 @@ async function main() {
       slug: 'sylhet-kitchen-tower-hamlets',
       businessName: 'Sylhet Kitchen',
       description:
-        'Bangladeshi home cooking from Brick Lane — bhuna, shatkora curries, and fish from the Surma valley. Bulk orders for community events.',
+        'Bangladeshi home cooking from Brick Lane - bhuna, shatkora curries, and fish from the Surma valley. Bulk orders for community events.',
       cuisines: ['Bangladeshi'],
       rating: 4.7, ratingCount: 9,
       collectionAddress: '102 Brick Lane, London E1 6RL',
@@ -332,7 +332,7 @@ async function main() {
       slug: 'jaffna-amma-tooting',
       businessName: "Jaffna Amma's Kitchen",
       description:
-        'Sri Lankan Tamil home cooking from Tooting — kothu roti, crab curry, and string-hopper trays for big family weekends.',
+        'Sri Lankan Tamil home cooking from Tooting - kothu roti, crab curry, and string-hopper trays for big family weekends.',
       cuisines: ['Sri Lankan', 'Tamil'],
       rating: 4.8, ratingCount: 21,
       collectionAddress: '14 Upper Tooting Road, London SW17 7PG',
@@ -341,7 +341,7 @@ async function main() {
       items: [
         { name: 'Chicken Kothu Roti (Full Tray)', description: 'Chopped godhamba roti stir-fried with chicken curry. Serves 8.', category: ItemCategory.tray, pricePence: 3000, servingsCount: 8, allergens: ['gluten', 'egg'], tags: [] },
         { name: 'Jaffna Crab Curry (Full Pot)', description: 'Whole blue crab in a fiery roasted-curry-powder gravy. Serves 4.', category: ItemCategory.soup, pricePence: 4800, servingsCount: 4, allergens: ['crustaceans'], tags: ['spice:3'] },
-        { name: 'String Hoppers (50 pieces)', description: 'Steamed rice-flour idiyappam — pair with sothi or dal.', category: ItemCategory.swallow, pricePence: 1800, servingsCount: 8, tags: ['vegan'] },
+        { name: 'String Hoppers (50 pieces)', description: 'Steamed rice-flour idiyappam - pair with sothi or dal.', category: ItemCategory.swallow, pricePence: 1800, servingsCount: 8, tags: ['vegan'] },
         { name: 'Coconut Sambol & Pol Roti (Bundle)', description: 'Coconut roti with fresh pol sambol and seeni sambal.', category: ItemCategory.bundle, pricePence: 1400, servingsCount: 6, tags: ['vegan', 'spice:2'] },
         { name: 'Devilled Prawns (Family Tray)', description: 'Wok-tossed prawns with onion, capsicum, and chilli. Serves 6.', category: ItemCategory.protein, pricePence: 3400, servingsCount: 6, allergens: ['crustaceans'], tags: ['spice:3'] },
       ],
@@ -360,10 +360,10 @@ async function main() {
       items: [
         { name: 'Pimento-Wood Jerk Chicken (Full Tray)', description: '24-hour-marinated jerk chicken, smoked over real pimento wood. Serves 10.', category: ItemCategory.tray, pricePence: 3800, servingsCount: 10, tags: ['spice:2'] },
         { name: 'Curry Goat (Full Pot)', description: 'Bone-in goat in Scotch-bonnet curry. Serves 8.', category: ItemCategory.soup, pricePence: 4400, servingsCount: 8, tags: ['spice:2'] },
-        { name: 'Ackee & Saltfish Tray', description: 'National dish — ackee, salt cod, peppers and onions. Serves 6.', category: ItemCategory.tray, pricePence: 3200, servingsCount: 6, allergens: ['fish'], tags: [] },
+        { name: 'Ackee & Saltfish Tray', description: 'National dish - ackee, salt cod, peppers and onions. Serves 6.', category: ItemCategory.tray, pricePence: 3200, servingsCount: 6, allergens: ['fish'], tags: [] },
         { name: 'Rice & Peas (Full Tray)', description: 'Coconut rice with red kidney beans and thyme. Serves 10.', category: ItemCategory.tray, pricePence: 2200, servingsCount: 10, tags: ['vegan'] },
         { name: 'Beef Patties (24 pieces)', description: 'Flaky golden patties with seasoned mince filling.', category: ItemCategory.snack, pricePence: 2400, servingsCount: 12, allergens: ['gluten'], tags: [] },
-        { name: 'Festival (20 pieces)', description: 'Sweet Jamaican fried dough — the perfect side for jerk.', category: ItemCategory.snack, pricePence: 1200, servingsCount: 10, allergens: ['gluten'], tags: ['vegan'] },
+        { name: 'Festival (20 pieces)', description: 'Sweet Jamaican fried dough - the perfect side for jerk.', category: ItemCategory.snack, pricePence: 1200, servingsCount: 10, allergens: ['gluten'], tags: ['vegan'] },
       ],
     },
     {
@@ -371,7 +371,7 @@ async function main() {
       slug: 'trini-doubles-stand-finsbury-park',
       businessName: 'Trini Doubles Stand',
       description:
-        'Trinidadian street-food specialists — doubles, roti, pelau and pholourie packs for office lunches and weekend lime sessions.',
+        'Trinidadian street-food specialists - doubles, roti, pelau and pholourie packs for office lunches and weekend lime sessions.',
       cuisines: ['Trinidadian', 'Caribbean'],
       rating: 4.6, ratingCount: 12,
       collectionAddress: '7 Stroud Green Road, London N4 2DQ',
@@ -390,7 +390,7 @@ async function main() {
       slug: 'addis-injera-house-old-kent-road',
       businessName: 'Addis Injera House',
       description:
-        'Authentic Ethiopian wots, kitfo and injera platters — communal dining made for a crowd, prepped in our Old Kent Road kitchen.',
+        'Authentic Ethiopian wots, kitfo and injera platters - communal dining made for a crowd, prepped in our Old Kent Road kitchen.',
       cuisines: ['Ethiopian'],
       rating: 4.8, ratingCount: 17,
       collectionAddress: '300 Old Kent Road, London SE1 5UE',
@@ -419,7 +419,7 @@ async function main() {
         { name: 'Bariis Iskukaris (Full Tray)', description: 'Spiced rice with goat shoulder, sultanas and pine nuts. Serves 10.', category: ItemCategory.tray, pricePence: 3600, servingsCount: 10, allergens: ['tree_nuts'], tags: ['halal'] },
         { name: 'Suqaar (Full Pot)', description: 'Cubed beef sautéed with peppers, onions and xawaash spice. Serves 6.', category: ItemCategory.soup, pricePence: 2800, servingsCount: 6, tags: ['halal', 'spice:2'] },
         { name: 'Sambusa (30 pieces)', description: 'Crisp triangular pastries with spiced beef filling.', category: ItemCategory.snack, pricePence: 1800, servingsCount: 15, allergens: ['gluten'], tags: ['halal'] },
-        { name: 'Canjeero Pancakes (20 pieces)', description: 'Light fermented pancakes — eat with honey or suqaar.', category: ItemCategory.snack, pricePence: 1200, servingsCount: 10, allergens: ['gluten'], tags: ['halal', 'vegetarian'] },
+        { name: 'Canjeero Pancakes (20 pieces)', description: 'Light fermented pancakes - eat with honey or suqaar.', category: ItemCategory.snack, pricePence: 1200, servingsCount: 10, allergens: ['gluten'], tags: ['halal', 'vegetarian'] },
         { name: 'Maraq (Family Pot)', description: 'Hearty Somali soup with lamb, vegetables and lemon. Serves 8.', category: ItemCategory.soup, pricePence: 2600, servingsCount: 8, tags: ['halal'] },
       ],
     },
@@ -439,7 +439,7 @@ async function main() {
         { name: 'Bobotie (Family Bake)', description: 'Cape-Malay spiced beef bake with egg custard topping. Serves 8.', category: ItemCategory.tray, pricePence: 3000, servingsCount: 8, allergens: ['egg', 'dairy', 'tree_nuts'], tags: [] },
         { name: 'Bunny Chow (6 boxes)', description: 'Hollowed-out half loaves filled with mutton curry. Durban classic.', category: ItemCategory.bundle, pricePence: 3600, servingsCount: 6, allergens: ['gluten'], tags: ['spice:2'] },
         { name: 'Chakalaka & Pap (Family Pot)', description: 'Spicy vegetable relish with white maize porridge. Serves 8.', category: ItemCategory.soup, pricePence: 1800, servingsCount: 8, tags: ['vegan'] },
-        { name: 'Biltong Box (500g)', description: 'Air-dried beef biltong — a mix of sliced and stick cuts.', category: ItemCategory.snack, pricePence: 2200, servingsCount: 8, tags: [] },
+        { name: 'Biltong Box (500g)', description: 'Air-dried beef biltong - a mix of sliced and stick cuts.', category: ItemCategory.snack, pricePence: 2200, servingsCount: 8, tags: [] },
       ],
     },
     {
@@ -466,7 +466,7 @@ async function main() {
       slug: 'istanbul-ocakbasi-dalston',
       businessName: 'Istanbul Ocakbasi',
       description:
-        'Turkish ocakbasi (charcoal grill) catering — adana, lahmacun, pide and lahmajun trays from a Dalston kitchen.',
+        'Turkish ocakbasi (charcoal grill) catering - adana, lahmacun, pide and lahmajun trays from a Dalston kitchen.',
       cuisines: ['Turkish'],
       rating: 4.7, ratingCount: 19,
       collectionAddress: '74 Kingsland High Street, London E8 2NS',
@@ -504,7 +504,7 @@ async function main() {
       slug: 'manila-lutong-bahay-earls-court',
       businessName: 'Manila Lutong Bahay',
       description:
-        'Filipino home cooking — adobo, sinigang, lechon kawali, and pancit trays for parties. Delivered from Earls Court.',
+        'Filipino home cooking - adobo, sinigang, lechon kawali, and pancit trays for parties. Delivered from Earls Court.',
       cuisines: ['Filipino'],
       rating: 4.7, ratingCount: 13,
       collectionAddress: '92 Earls Court Road, London SW5 9RA',
@@ -542,7 +542,7 @@ async function main() {
       slug: 'bangkok-krua-khao-camden',
       businessName: 'Bangkok Krua Khao',
       description:
-        'Thai street-food trays — pad krapow, green curry, som tam and khao soi from a Camden kitchen run by Bangkok-trained cooks.',
+        'Thai street-food trays - pad krapow, green curry, som tam and khao soi from a Camden kitchen run by Bangkok-trained cooks.',
       cuisines: ['Thai'],
       rating: 4.7, ratingCount: 18,
       collectionAddress: '188 Camden High Street, London NW1 8QP',
@@ -561,7 +561,7 @@ async function main() {
       slug: 'warsaw-pierogi-bar-ealing',
       businessName: 'Warsaw Pierogi Bar',
       description:
-        'Polish home cooking — handmade pierogi, bigos and golabki from an Ealing kitchen. Family trays and frozen packs for the working week.',
+        'Polish home cooking - handmade pierogi, bigos and golabki from an Ealing kitchen. Family trays and frozen packs for the working week.',
       cuisines: ['Polish'],
       rating: 4.6, ratingCount: 10,
       collectionAddress: '52 The Broadway, Ealing, London W5 2NU',
@@ -572,7 +572,7 @@ async function main() {
         { name: 'Pierogi z Mięsem (50 pieces)', description: 'Beef-and-pork pierogi pan-fried in butter.', category: ItemCategory.tray, pricePence: 3200, servingsCount: 10, allergens: ['gluten', 'dairy'], tags: [] },
         { name: 'Bigos (Family Pot)', description: 'Hunter\'s stew with sauerkraut, pork, and Polish sausage. Serves 8.', category: ItemCategory.soup, pricePence: 2800, servingsCount: 8, tags: [] },
         { name: 'Golabki (12 cabbage rolls)', description: 'Cabbage rolls stuffed with rice and minced pork in tomato sauce.', category: ItemCategory.tray, pricePence: 3000, servingsCount: 6, tags: [] },
-        { name: 'Żurek Frozen Pack (4 portions)', description: 'Sour rye soup with sausage and egg — reheat from frozen.', category: ItemCategory.frozen, pricePence: 1600, servingsCount: 4, allergens: ['gluten', 'egg'], tags: [] },
+        { name: 'Żurek Frozen Pack (4 portions)', description: 'Sour rye soup with sausage and egg - reheat from frozen.', category: ItemCategory.frozen, pricePence: 1600, servingsCount: 4, allergens: ['gluten', 'egg'], tags: [] },
       ],
     },
     {
@@ -589,7 +589,7 @@ async function main() {
       items: [
         { name: 'Feijoada Completa (Family Pot)', description: 'Black-bean stew with pork ribs, smoked sausage and bacon. Serves 8.', category: ItemCategory.soup, pricePence: 3800, servingsCount: 8, tags: [] },
         { name: 'Picanha Tray (Serves 8)', description: 'Wood-fire-grilled rump cap with farofa and vinaigrette.', category: ItemCategory.tray, pricePence: 4800, servingsCount: 8, tags: [] },
-        { name: 'Pão de Queijo (40 pieces)', description: 'Cheesy tapioca-flour bread balls — addictive when warm.', category: ItemCategory.snack, pricePence: 2000, servingsCount: 20, allergens: ['dairy'], tags: ['vegetarian'] },
+        { name: 'Pão de Queijo (40 pieces)', description: 'Cheesy tapioca-flour bread balls - addictive when warm.', category: ItemCategory.snack, pricePence: 2000, servingsCount: 20, allergens: ['dairy'], tags: ['vegetarian'] },
         { name: 'Moqueca (Family Pot)', description: 'Coconut-and-palm-oil fish stew from Bahia. Serves 6.', category: ItemCategory.soup, pricePence: 3600, servingsCount: 6, allergens: ['fish'], tags: [] },
         { name: 'Coxinha (30 pieces)', description: 'Teardrop-shaped chicken croquettes with catupiry cheese.', category: ItemCategory.snack, pricePence: 2200, servingsCount: 15, allergens: ['gluten', 'dairy'], tags: [] },
       ],
@@ -599,7 +599,7 @@ async function main() {
       slug: 'marrakech-tagine-house-notting-hill',
       businessName: 'Marrakech Tagine House',
       description:
-        'Moroccan tagines, couscous royale and pastilla — slow-cooked in clay pots from a Notting Hill kitchen. Catering for weekends and weddings.',
+        'Moroccan tagines, couscous royale and pastilla - slow-cooked in clay pots from a Notting Hill kitchen. Catering for weekends and weddings.',
       cuisines: ['Moroccan'],
       rating: 4.8, ratingCount: 17,
       collectionAddress: '40 Portobello Road, London W11 3DB',
@@ -648,7 +648,7 @@ async function main() {
 
     // Find-or-create the single 'Main Menu' for this vendor. Schema has no
     // unique index on (vendorId, name) so we look it up first then create
-    // — same pattern Maman + Kwame use above.
+    // - same pattern Maman + Kwame use above.
     const existingMenu = await prisma.menu.findFirst({
       where: { vendorId: vendor.id, name: 'Main Menu' },
       select: { id: true },
@@ -743,7 +743,7 @@ async function main() {
     },
   });
 
-  // Best-effort backfill for the EXTRA_VENDORS — their delivery configs are
+  // Best-effort backfill for the EXTRA_VENDORS - their delivery configs are
   // upserted further up without coords. Geocode the first servicing
   // postcode of each so the customer-facing search returns them on a real
   // radius match. Best-effort: postcodes.io misses leave the row untouched.
@@ -788,7 +788,7 @@ async function main() {
     create: { userId: davidId, label: 'Home', line1: '8 Coldharbour Lane', city: 'London', postcode: 'SW9 8LF', isDefault: true },
   });
 
-  // 7. Orders — order graph already wiped at section 2b for idempotency.
+  // 7. Orders - order graph already wiped at section 2b for idempotency.
   const itemBy = (name: string) => items.find((i) => i.name === name)!;
   const egusi = itemBy('Egusi Soup (Full Pot)');
   const jollof = itemBy('Jollof Rice (Full Tray)');
@@ -917,7 +917,7 @@ async function main() {
   await prisma.review.create({
     data: { orderId: o5.id, vendorId: maman.id, customerId: graceId, rating: 5, body: 'Frozen packs are a lifesaver during the week. Reheats perfectly.', isVerified: true, isHidden: false },
   });
-  // David's review attached to his cancelled Kwame order — flagged as hidden pending moderation
+  // David's review attached to his cancelled Kwame order - flagged as hidden pending moderation
   const davidOrder = await prisma.order.findFirst({ where: { customerId: davidId, vendorId: kwame.id } });
   if (davidOrder) {
     await prisma.review.create({

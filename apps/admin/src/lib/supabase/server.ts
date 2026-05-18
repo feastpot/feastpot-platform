@@ -4,7 +4,7 @@ import { cookies } from 'next/headers';
 /**
  * Server-side Supabase client used in Server Components / Route Handlers.
  * Mirrors apps/vendor's implementation. The `cookies()` API is async in
- * Next 15 — keep the `await` even when only reading.
+ * Next 15 - keep the `await` even when only reading.
  */
 export async function createClient() {
   const cookieStore = await cookies();
@@ -13,7 +13,7 @@ export async function createClient() {
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !anonKey) {
     throw new Error(
-      'Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY — set them in apps/admin/.env.local',
+      'Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY - set them in apps/admin/.env.local',
     );
   }
 

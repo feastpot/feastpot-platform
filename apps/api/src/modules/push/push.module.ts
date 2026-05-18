@@ -7,7 +7,7 @@ import { PushController } from './push.controller';
 /**
  * Lightweight module exposing the customer-facing subscribe/unsubscribe
  * endpoints. Outbound delivery (turning a server-side event into a push
- * payload) lives in `NotificationsModule#PushProvider` — that module is
+ * payload) lives in `NotificationsModule#PushProvider` - that module is
  * `@Global()`, so it doesn't need to be imported here.
  */
 @Module({

@@ -113,7 +113,7 @@ export class MenuItemsService {
       throw new NotFoundException({ code: 'MENU_ITEM_NOT_FOUND', message: 'Menu item not found' });
     }
     // Drafts must not leak to customers via direct id lookup. Owner / admin /
-    // compliance bypass the gate; everyone else gets a 404 (NOT 403 — we
+    // compliance bypass the gate; everyone else gets a 404 (NOT 403 - we
     // refuse to confirm the item exists at all).
     if (!item.isAvailable) {
       const canSeeDrafts = await this.callerOwnsVendor(vendorId, caller);

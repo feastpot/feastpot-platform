@@ -50,7 +50,7 @@ export default async function MenuItemsPage({ params }: { params: Promise<{ menu
     });
     menuName = menus.find((m) => m.id === menuId)?.name ?? menuName;
   } catch {
-    // Non-fatal — the items grid will surface its own load error.
+    // Non-fatal - the items grid will surface its own load error.
   }
 
   return (

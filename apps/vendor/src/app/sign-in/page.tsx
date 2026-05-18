@@ -118,7 +118,7 @@ function SignInForm() {
 
   return (
     <div className="flex min-h-screen items-stretch bg-cream-warm">
-      {/* LEFT — brand-green rail (hidden under lg) */}
+      {/* LEFT - brand-green rail (hidden under lg) */}
       <aside className="relative hidden w-[42%] flex-col justify-between overflow-hidden bg-brand p-10 text-white lg:flex xl:p-12">
         <div className="relative z-10">
           <Link
@@ -168,7 +168,7 @@ function SignInForm() {
           </ul>
         </div>
 
-        {/* Food/spice photo at bottom — asymmetric leaf-shaped crop. */}
+        {/* Food/spice photo at bottom - asymmetric leaf-shaped crop. */}
         <div className="relative z-10 mt-8 self-center">
           <div
             className="relative h-[200px] w-[260px] overflow-hidden bg-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.25)]"
@@ -190,7 +190,7 @@ function SignInForm() {
         />
       </aside>
 
-      {/* RIGHT — sign in form */}
+      {/* RIGHT - sign in form */}
       <main className="flex flex-1 items-center justify-center px-5 py-10 sm:px-8">
         <div className="w-full max-w-[400px]">
           <div className="mb-7 lg:hidden">

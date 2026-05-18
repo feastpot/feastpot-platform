@@ -5,11 +5,11 @@ import { CuisineLanding } from '@/components/seo/cuisine-landing';
 export const metadata: Metadata = {
   title: 'Caribbean Food Delivery London | Jerk Chicken, Oxtail, Curry Goat',
   description:
-    'Order authentic Caribbean food delivered across London — jerk chicken, oxtail, rice and peas, curry goat and festival bread. Independent vendors, FSA-rated kitchens.',
+    'Order authentic Caribbean food delivered across London - jerk chicken, oxtail, rice and peas, curry goat and festival bread. Independent vendors, FSA-rated kitchens.',
   alternates: { canonical: '/caribbean-food-delivery-london' },
   openGraph: {
     title: 'Caribbean Food Delivery London | Feastpot',
-    description: 'Jerk, oxtail, curry goat, rice and peas, festival — delivered across London by independent Caribbean cooks.',
+    description: 'Jerk, oxtail, curry goat, rice and peas, festival - delivered across London by independent Caribbean cooks.',
     url: '/caribbean-food-delivery-london',
     type: 'website',
   },
@@ -20,13 +20,13 @@ export default function Page() {
     <CuisineLanding
       cuisine="Caribbean"
       heading="Authentic Caribbean Food Delivered in London"
-      intro="Brixton, Hackney, Lewisham — wherever you are in London, Feastpot connects you with Caribbean cooks who do the slow-cooked classics properly. Trays for the cookout, family Sundays, or just because it&rsquo;s Friday."
+      intro="Brixton, Hackney, Lewisham - wherever you are in London, Feastpot connects you with Caribbean cooks who do the slow-cooked classics properly. Trays for the cookout, family Sundays, or just because it&rsquo;s Friday."
       highlights={[
         { name: 'Jerk Chicken', description: 'Marinated overnight, charcoal-finished where possible. Mild to scotch-bonnet hot.' },
         { name: 'Oxtail', description: 'Slow-braised with butter beans and thyme. Comes with rice and peas as standard.' },
-        { name: 'Rice and Peas', description: 'Coconut milk, kidney beans, scotch bonnet whole — never chopped.' },
+        { name: 'Rice and Peas', description: 'Coconut milk, kidney beans, scotch bonnet whole - never chopped.' },
         { name: 'Curry Goat', description: 'Bone-in goat, properly browned and stewed with Caribbean curry powder.' },
-        { name: 'Festival Bread', description: 'Sweet fried dumplings — the right side for jerk and saltfish.' },
+        { name: 'Festival Bread', description: 'Sweet fried dumplings - the right side for jerk and saltfish.' },
         { name: 'Ackee & Saltfish', description: 'The Jamaican national dish, served with breadfruit, dumplings or fried plantain.' },
       ]}
       apiCuisines={['Caribbean', 'Jamaican', 'Trinidadian']}
@@ -44,7 +44,7 @@ export default function Page() {
         {
           question: 'Can I order for an event or street party?',
           answer:
-            'Yes — many vendors offer pan-sized portions for events. Add guest count and event time in the order notes so the vendor can confirm timings with you directly.',
+            'Yes - many vendors offer pan-sized portions for events. Add guest count and event time in the order notes so the vendor can confirm timings with you directly.',
         },
         {
           question: 'What if my order arrives late or wrong?',

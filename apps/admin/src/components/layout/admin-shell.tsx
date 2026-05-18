@@ -56,18 +56,18 @@ const NAV: ReadonlyArray<NavItem> = [
 ];
 
 // Operations links live in their own grouped block at the bottom of the
-// sidebar — they point at out-of-app tools (Bull Board) rather than admin
+// sidebar - they point at out-of-app tools (Bull Board) rather than admin
 // pages, so they render as external <a target="_blank"> with an external-
 // link affordance and are gated to admin-only.
 const OPS_NAV: ReadonlyArray<NavItem> = [
   {
     // Bull Board is mounted on the API host (Basic-Auth gated by the API),
-    // not on the admin Next app — hence absolute URL via API_URL.
+    // not on the admin Next app - hence absolute URL via API_URL.
     href: `${API_URL}/admin/queues`,
     label: 'Job queues',
     icon: Layers,
     external: true,
-    description: 'Bull Board — inspect failed jobs and DLQ',
+    description: 'Bull Board - inspect failed jobs and DLQ',
     roles: ['admin'],
   },
 ];

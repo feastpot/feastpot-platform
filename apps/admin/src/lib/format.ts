@@ -5,23 +5,23 @@
 const GBP = new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' });
 
 export function formatPence(pence: number | null | undefined): string {
-  if (pence === null || pence === undefined) return '—';
+  if (pence === null || pence === undefined) return '-';
   return GBP.format(pence / 100);
 }
 
 export function formatPercent(value: number | null | undefined, fractionDigits = 1): string {
-  if (value === null || value === undefined) return '—';
+  if (value === null || value === undefined) return '-';
   return `${value.toFixed(fractionDigits)}%`;
 }
 
 export function formatDate(value: string | Date | null | undefined): string {
-  if (!value) return '—';
+  if (!value) return '-';
   const d = typeof value === 'string' ? new Date(value) : value;
   return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 export function formatDateTime(value: string | Date | null | undefined): string {
-  if (!value) return '—';
+  if (!value) return '-';
   const d = typeof value === 'string' ? new Date(value) : value;
   return d.toLocaleString('en-GB', {
     day: '2-digit',
@@ -33,7 +33,7 @@ export function formatDateTime(value: string | Date | null | undefined): string 
 }
 
 export function relativeTime(value: string | Date | null | undefined): string {
-  if (!value) return '—';
+  if (!value) return '-';
   const d = typeof value === 'string' ? new Date(value) : value;
   const diffMs = Date.now() - d.getTime();
   const seconds = Math.floor(diffMs / 1000);

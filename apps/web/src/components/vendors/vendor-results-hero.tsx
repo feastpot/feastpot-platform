@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { writeCoverageCookie, writeStoredPostcode } from '@/lib/postcode';
 
 /**
- * Wireframe hero banner for /vendors — a soft cream/green plate carrying the
+ * Wireframe hero banner for /vendors - a soft cream/green plate carrying the
  * "Delivering to {postcode}" pill, the page title, the gate-reassurance
  * subtitle, and a "Change postcode" CTA on the right.
  *

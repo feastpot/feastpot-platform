@@ -51,7 +51,7 @@ function slugifyForVendor(input: string): string {
 }
 
 /**
- * Order statuses that count as "real revenue" — same set used by the vendor
+ * Order statuses that count as "real revenue" - same set used by the vendor
  * analytics service. Pending/cancelled/refunded are excluded.
  */
 const REVENUE_STATUSES: OrderStatus[] = [
@@ -250,7 +250,7 @@ export class AdminService {
    * customer email substring, optionally filter by status + date range.
    *
    * When `withPiStatus` is set we enrich the FIRST 50 rows with the live
-   * Stripe PaymentIntent status. The cap is deliberate — Stripe rate-limits
+   * Stripe PaymentIntent status. The cap is deliberate - Stripe rate-limits
    * are per-account and a careless 200-row enrichment would torch the
    * checkout-flow budget. Stripe failures degrade to `pi_status: null` so
    * the table still renders.
@@ -338,7 +338,7 @@ export class AdminService {
             const pi = await this.stripe.retrieve(r.stripePaymentIntentId);
             return pi.status;
           } catch {
-            // Stripe lookup failed — fall through with null so the row
+            // Stripe lookup failed - fall through with null so the row
             // still renders. This is a read-only admin view, never block.
             return null;
           }
@@ -535,7 +535,7 @@ export class AdminService {
 
   /**
    * Vendor application queue. Defaults to status=pending so the admin's
-   * "what's new" tab is one click away. Limited to 100 rows — applications
+   * "what's new" tab is one click away. Limited to 100 rows - applications
    * are low-volume (handful per week) so cursor pagination is overkill.
    */
   async listVendorApplications(status?: VendorApplicationStatus) {
@@ -599,7 +599,7 @@ export class AdminService {
    * Concurrency: every branch uses an atomic updateMany gated on the
    * application still being in an in-flight status. The strong guarantee
    * this gives is that two concurrent transitions to a TERMINAL status
-   * (approved/rejected) cannot both succeed — last writer is rejected
+   * (approved/rejected) cannot both succeed - last writer is rejected
    * with VENDOR_APPLICATION_ALREADY_REVIEWED. Weaker case: two admins
    * working from stale UI could sequentially flip pending→under_review
    * then under_review→information_requested; we accept that as low-stakes
@@ -613,7 +613,7 @@ export class AdminService {
     reviewerId: string,
     dto: UpdateVendorApplicationDto,
   ) {
-    // Per-branch input guards — class-validator can't express "required
+    // Per-branch input guards - class-validator can't express "required
     // when status=X", so we check here.
     if (dto.status === 'rejected' && !dto.rejectionReason?.trim()) {
       throw new BadRequestException({
@@ -624,7 +624,7 @@ export class AdminService {
     if (dto.status === 'information_requested' && !dto.adminNotes?.trim()) {
       throw new BadRequestException({
         code: 'ADMIN_NOTES_REQUIRED',
-        message: 'adminNotes is required when status="information_requested" — they are surfaced to the applicant verbatim',
+        message: 'adminNotes is required when status="information_requested" - they are surfaced to the applicant verbatim',
       });
     }
 
@@ -701,7 +701,7 @@ export class AdminService {
       });
       await this.sendAdminEmail(tmpl, app.email, `info-requested email for application ${id}`);
     }
-    // under_review: no email — purely internal signal.
+    // under_review: no email - purely internal signal.
 
     return this.getVendorApplication(id);
   }
@@ -719,7 +719,7 @@ export class AdminService {
    *      Commit.
    *   4. If tx throws → compensate by deleting the Supabase auth user
    *   5. Generate magic link + send portal invite (best effort; failures
-   *      logged but don't unwind — the admin can re-send manually).
+   *      logged but don't unwind - the admin can re-send manually).
    */
   private async approveVendorApplication(
     app: Prisma.VendorApplicationGetPayload<{}>,
@@ -733,7 +733,7 @@ export class AdminService {
     const lastName = rest.join(' ').trim() || null;
 
     if (!shouldProvision) {
-      // "Mark approved without provisioning" path — used when a previous
+      // "Mark approved without provisioning" path - used when a previous
       // approval partially failed and the operator just wants to flip the
       // status without re-creating duplicate auth/vendor rows.
       const claim = await this.prisma.vendorApplication.updateMany({
@@ -759,7 +759,7 @@ export class AdminService {
           entityId: app.id,
           metadata: {
             previousState: { status: app.status },
-            note: 'sendInvite=false — admin will provision manually',
+            note: 'sendInvite=false - admin will provision manually',
           } as Prisma.JsonObject,
         },
       });
@@ -776,7 +776,7 @@ export class AdminService {
     if (emailCollision) {
       throw new ConflictException({
         code: 'EMAIL_ALREADY_REGISTERED',
-        message: `A user with email ${normalisedEmail} already exists — link the existing user manually or have them change their email before approving.`,
+        message: `A user with email ${normalisedEmail} already exists - link the existing user manually or have them change their email before approving.`,
       });
     }
 
@@ -787,7 +787,7 @@ export class AdminService {
     const supabaseAdmin = this.supabase.getClient().auth.admin;
     const { data: created, error: createErr } = await supabaseAdmin.createUser({
       email: normalisedEmail,
-      email_confirm: true, // skip the click-to-confirm — the magic link is the confirmation
+      email_confirm: true, // skip the click-to-confirm - the magic link is the confirmation
       user_metadata: {
         role: 'vendor',
         source: 'vendor_application',
@@ -831,7 +831,7 @@ export class AdminService {
 
         await tx.user.create({
           data: {
-            id: supabaseUserId, // pin to Supabase uid — same convention as users.service.sync
+            id: supabaseUserId, // pin to Supabase uid - same convention as users.service.sync
             email: normalisedEmail,
             firstName,
             lastName,
@@ -847,7 +847,7 @@ export class AdminService {
             slug,
             description: app.foodStory,
             cuisines: [app.cuisineType],
-            status: VendorStatus.approved, // approved (not yet `live`) — vendor still has menu/Stripe setup ahead
+            status: VendorStatus.approved, // approved (not yet `live`) - vendor still has menu/Stripe setup ahead
             commissionBps: 1200,
             approvedAt: new Date(),
           },
@@ -884,7 +884,7 @@ export class AdminService {
         await this.supabase.getClient().auth.admin.deleteUser(supabaseUserId);
       } catch (delErr) {
         this.logger.error(
-          `COMPENSATION FAILED: could not delete orphaned Supabase user ${supabaseUserId} after approval-tx failure for application ${app.id} — manual cleanup required: ${(delErr as Error).message}`,
+          `COMPENSATION FAILED: could not delete orphaned Supabase user ${supabaseUserId} after approval-tx failure for application ${app.id} - manual cleanup required: ${(delErr as Error).message}`,
         );
       }
       throw err;
@@ -908,7 +908,7 @@ export class AdminService {
       const magicLinkUrl = linkData?.properties?.action_link;
       if (linkErr || !magicLinkUrl) {
         this.logger.error(
-          `Magic link generation failed for vendor application ${app.id}: ${linkErr?.message ?? 'no action_link in response'} — vendor was provisioned but did NOT receive an invite email; resend manually.`,
+          `Magic link generation failed for vendor application ${app.id}: ${linkErr?.message ?? 'no action_link in response'} - vendor was provisioned but did NOT receive an invite email; resend manually.`,
         );
       } else {
         const tmpl = vendorPortalInviteTemplate({
@@ -996,7 +996,7 @@ export class AdminService {
     });
     // Send synchronously here (vs the fire-and-forget pattern in
     // updateVendorApplication) because the operator explicitly asked to
-    // resend — they need to know if it failed.
+    // resend - they need to know if it failed.
     try {
       await Promise.race([
         this.email.send({ to: normalisedEmail, subject: tmpl.subject, html: tmpl.html }),
@@ -1028,7 +1028,7 @@ export class AdminService {
   }
 
   /**
-   * Slug uniqueness probe. Same algorithm as VendorsService.uniqueSlug —
+   * Slug uniqueness probe. Same algorithm as VendorsService.uniqueSlug -
    * intentionally duplicated rather than crossing module boundaries
    * because the Vendors module doesn't currently export its repository.
    */
@@ -1102,7 +1102,7 @@ export class AdminService {
     const data = rows.map((v) => {
       const documentStatusByType: Record<string, DocumentStatus> = {};
       for (const d of v.documents) {
-        // Prefer "worst" status if multiple exist for the same type — rejected
+        // Prefer "worst" status if multiple exist for the same type - rejected
         // beats expired beats pending beats verified for the queue summary.
         const cur = documentStatusByType[d.type];
         documentStatusByType[d.type] = pickWorstStatus(cur, d.status);
@@ -1152,7 +1152,7 @@ export class AdminService {
   /**
    * Pull the Stripe transfer for a payout and report any pence-level
    * discrepancy between Stripe's recorded amount and our DB. This is a
-   * read-only diagnostic — it never mutates the payout.
+   * read-only diagnostic - it never mutates the payout.
    */
   async reconcilePayoutWithStripe(payoutId: string, role: UserRole) {
     if (role !== UserRole.admin && role !== UserRole.finance) {

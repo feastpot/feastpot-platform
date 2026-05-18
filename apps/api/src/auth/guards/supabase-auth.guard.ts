@@ -86,7 +86,7 @@ export class SupabaseAuthGuard implements CanActivate {
    * Look up `public.users.status` with a small in-memory cache. If the row
    * doesn't exist (never-seen Supabase user), we treat them as `active` so
    * onboarding flows that create the local row on first call continue to
-   * work — they'll be re-checked on the next request anyway.
+   * work - they'll be re-checked on the next request anyway.
    */
   private async getUserStatus(userId: string): Promise<UserStatus> {
     const cached = this.statusCache.get(userId);
@@ -132,16 +132,16 @@ export function decodeJwtClaims(token: string): Record<string, unknown> | null {
 
 export function mapUser(user: User, verifiedToken: string): AuthUser {
   // Trust ONLY two sources, in order:
-  //  1. Top-level `role` claim from the verified JWT — but ONLY if it parses
+  //  1. Top-level `role` claim from the verified JWT - but ONLY if it parses
   //     to one of our app roles. Supabase ALWAYS sets a top-level `role`
-  //     claim (default value `"authenticated"` — its auth-level role). When
+  //     claim (default value `"authenticated"` - its auth-level role). When
   //     the `custom_access_token_hook` is registered it overwrites that with
   //     our app role; when the hook is NOT registered we'd see "authenticated"
   //     here and must fall through, otherwise everyone collapses to customer.
-  //  2. `app_metadata.role` — server-managed, written via
+  //  2. `app_metadata.role` - server-managed, written via
   //     `supabase.auth.admin.updateUserById({ app_metadata })`. Safe to trust.
   //
-  // NEVER trust `user_metadata.role` — that field is user-writable and would
+  // NEVER trust `user_metadata.role` - that field is user-writable and would
   // allow privilege escalation.
   const claims = decodeJwtClaims(verifiedToken);
   const jwtRole = claims && typeof claims.role === 'string' ? claims.role : null;

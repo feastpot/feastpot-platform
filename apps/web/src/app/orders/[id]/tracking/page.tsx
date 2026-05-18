@@ -25,7 +25,7 @@ const formatPounds = (p: number) => `£${(p / 100).toFixed(2)}`;
  *
  * We surface a `connected` flag from the channel's subscribe callback so the
  * UI can tell the customer whether they're on live updates or 30-second
- * polling — useful in corporate / hotel networks that block WebSockets.
+ * polling - useful in corporate / hotel networks that block WebSockets.
  *
  * Visual layout:
  *   1. Vendor cover header (h-32, blurred logo backdrop, brand fallback)
@@ -33,7 +33,7 @@ const formatPounds = (p: number) => `£${(p / 100).toFixed(2)}`;
  *   3. StatusTimeline (vertical stepper)
  *   4. Order details (collapsible card)
  *   5. Context-sensitive action buttons (cancel while pending, contact vendor)
- *   6. Review prompt (shown once delivered — see comment below for timing)
+ *   6. Review prompt (shown once delivered - see comment below for timing)
  */
 export default function OrderTrackingPage() {
   const params = useParams<{ id: string }>();
@@ -60,7 +60,7 @@ export default function OrderTrackingPage() {
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'orders', filter: `id=eq.${orderId}` },
         () => {
-          // Cheaper than parsing payload.new — refetch keeps types aligned.
+          // Cheaper than parsing payload.new - refetch keeps types aligned.
           void refetch();
         },
       )
@@ -85,7 +85,7 @@ export default function OrderTrackingPage() {
       if (typeof window !== 'undefined') {
         try {
           new Audio(STATUS_SOUND_URL).play().catch(() => {
-            // Autoplay blocked or asset missing — silently ignore.
+            // Autoplay blocked or asset missing - silently ignore.
           });
         } catch {
           // Audio unavailable in this environment.
@@ -128,14 +128,14 @@ export default function OrderTrackingPage() {
       } else if (e instanceof Error) {
         setCancelMsg(e.message);
       } else {
-        setCancelMsg('Could not cancel — please contact support@feastpot.co.uk');
+        setCancelMsg('Could not cancel - please contact support@feastpot.co.uk');
       }
     }
   };
 
   return (
     <div className="space-y-5 pb-8">
-      {/* HEADER STRIP — h-32 brand backdrop with the vendor logo as a blurred
+      {/* HEADER STRIP - h-32 brand backdrop with the vendor logo as a blurred
           watermark. We don't have a dedicated cover image on Vendor, so the
           logo (or a brand gradient fallback) does double duty. */}
       <header className="relative -mx-0 h-32 overflow-hidden bg-gradient-to-br from-brand via-brand-dark to-brand-dark">
@@ -150,12 +150,12 @@ export default function OrderTrackingPage() {
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/10 to-transparent" />
 
-        {/* Connection pill — top-right */}
+        {/* Connection pill - top-right */}
         <div className="absolute right-3 top-3 z-10">
           <ConnectionPill connected={connected} />
         </div>
 
-        {/* Vendor + order number — bottom-left */}
+        {/* Vendor + order number - bottom-left */}
         <div className="absolute bottom-3 left-4 right-4 z-10 text-white drop-shadow">
           <p className="text-[11px] font-bold uppercase tracking-wide opacity-80">
             Order #{order.orderNumber}
@@ -180,7 +180,7 @@ export default function OrderTrackingPage() {
       </header>
 
       <div className="px-4 space-y-5">
-        {/* Cancelled banner — we don't show the timeline at all once the
+        {/* Cancelled banner - we don't show the timeline at all once the
             order is in a terminal failure state, just a clear notice. */}
         {isCancelled && (
           <div className="flex items-center gap-3 rounded-2xl border border-scotch/40 bg-scotch/5 p-4">
@@ -208,7 +208,7 @@ export default function OrderTrackingPage() {
           />
         )}
 
-        {/* ETA CARD (FR-TRK-001) — only when dispatched + vendor supplied an ETA. */}
+        {/* ETA CARD (FR-TRK-001) - only when dispatched + vendor supplied an ETA. */}
         {order.status === 'dispatched' && order.etaAt && <EtaCard etaAt={order.etaAt} />}
 
         {/* TIMELINE */}
@@ -218,7 +218,7 @@ export default function OrderTrackingPage() {
           </section>
         )}
 
-        {/* ACTIONS — context-sensitive */}
+        {/* ACTIONS - context-sensitive */}
         <section className="space-y-2">
           {order.vendor?.user?.phone && (
             <a
@@ -296,7 +296,7 @@ export default function OrderTrackingPage() {
           )}
         </section>
 
-        {/* ORDER DETAILS — collapsible */}
+        {/* ORDER DETAILS - collapsible */}
         <section className="overflow-hidden rounded-2xl border border-cream-deep bg-white">
           <button
             type="button"
@@ -349,7 +349,7 @@ export default function OrderTrackingPage() {
           )}
         </section>
 
-        {/* REVIEW PROMPT — shown immediately on delivery while the meal is in
+        {/* REVIEW PROMPT - shown immediately on delivery while the meal is in
             front of the customer. The brief specs a 2-hour delay; we
             deliberately diverge because every conversion-research source we
             have argues "ask while the experience is fresh" produces better
@@ -370,7 +370,7 @@ export default function OrderTrackingPage() {
 }
 
 function EtaCard({ etaAt }: { etaAt: string }) {
-  // Live countdown — re-renders every 30s. Cheaper than 1s ticks and the
+  // Live countdown - re-renders every 30s. Cheaper than 1s ticks and the
   // user-visible precision is already minute-level.
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -526,7 +526,7 @@ function ReviewPrompt({
         How was your order from {vendorName}?
       </h3>
       <p className="mt-1 text-xs font-medium text-charcoal-mid">
-        Tap a star to leave a quick review — your rating helps your community find great cooks.
+        Tap a star to leave a quick review - your rating helps your community find great cooks.
       </p>
       <div role="radiogroup" aria-label="Rate your order" className="mt-3 inline-flex items-center gap-1">
         {[1, 2, 3, 4, 5].map((n) => {

@@ -52,7 +52,7 @@ describe('OrderSlotsService.validateSlot', () => {
 
   it('respects an explicit higher lead-time override (from menu item prep hours)', async () => {
     findUnique.mockResolvedValue({ vendorId: 'v-1' });
-    // Want 5 hours from now at 14:00 — but we override lead to 24h, so it should fail.
+    // Want 5 hours from now at 14:00 - but we override lead to 24h, so it should fail.
     const target = futureHour(5, 14);
     await expect(svc.validateSlot('v-1', target, 24)).rejects.toMatchObject({ response: { code: 'SLOT_TOO_SOON' } });
   });

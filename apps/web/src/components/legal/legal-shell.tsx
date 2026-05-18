@@ -2,15 +2,15 @@ import type { CSSProperties, ReactNode } from 'react';
 
 /**
  * Shared brand-DNA primitives for the /legal/* pages (2026-05-16
- * trust-pages redesign). Uses FeastPot brand tokens — green #00843D,
- * plantain gold #F6B400, cream + charcoal — and the same eyebrow +
+ * trust-pages redesign). Uses FeastPot brand tokens - green #00843D,
+ * plantain gold #F6B400, cream + charcoal - and the same eyebrow +
  * font-display headings used across the rest of the customer site
  * (see components/ui/wireframe.tsx). Tailwind first; inline `style`
  * only where the legal pages need exact pixel control (badge chips,
  * the dark contact CTA).
  *
  * The privacy page keeps its own inlined hero (canonical reference,
- * verbatim copy) — every other legal page composes
+ * verbatim copy) - every other legal page composes
  * `LegalHero` + `LegalQuickNav` + `LegalSection`s + `LegalContact`.
  */
 

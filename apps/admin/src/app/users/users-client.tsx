@@ -281,7 +281,7 @@ function OrderRow({
         <TableCell className="text-xs">{formatDateTime(order.createdAt)}</TableCell>
         <TableCell>{order.vendor.businessName}</TableCell>
         <TableCell className="max-w-xs truncate text-xs text-muted-foreground" title={itemSummary}>
-          {itemSummary || '—'}
+          {itemSummary || '-'}
         </TableCell>
         <TableCell className="text-right">{formatPence(order.totalPence)}</TableCell>
         <TableCell>
@@ -393,7 +393,7 @@ function IssueCreditDialog({
             <Input
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder="Goodwill — late delivery"
+              placeholder="Goodwill - late delivery"
             />
           </label>
           {mutation.error && (

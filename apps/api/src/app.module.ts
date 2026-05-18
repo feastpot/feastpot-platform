@@ -88,8 +88,8 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
       },
     }),
     // Two-tier rate limiting:
-    //   short — 10 req/sec per tracker (burst protection against scrapers).
-    //   long  — 600 req/min CEILING; RoleThrottlerGuard then takes
+    //   short - 10 req/sec per tracker (burst protection against scrapers).
+    //   long  - 600 req/min CEILING; RoleThrottlerGuard then takes
     //           min(roleCap, routeLimit) so it tightens per role
     //           (anon 30 / customer 120 / vendor 300 / admin-tier 600)
     //           AND so route-level @Throttle({ long: { limit: N } }) wins
@@ -103,7 +103,7 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
     // doesn't explicitly opt into a looser @Throttle.
     // Redis-backed throttler storage. Critical for Autoscale: the default
     // in-process Map counts requests per-instance, so with N instances the
-    // effective rate limit is N× the configured value — discount-code
+    // effective rate limit is N× the configured value - discount-code
     // validation could be brute-forced at 30× the intended 10/min cap.
     // Falls back to the in-memory storage (forRoot) when REDIS_URL is not
     // set so local dev without Redis still boots.
@@ -117,13 +117,13 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
           { name: 'long', ttl: 60_000, limit: 600 },
         ];
         if (!url) {
-          // No Redis configured — fall back to per-instance memory storage.
+          // No Redis configured - fall back to per-instance memory storage.
           return { throttlers };
         }
         // Mirror the ioredis settings used by Bull / RedisCacheService: cap
         // reconnection attempts so a misconfigured REDIS_URL doesn't spam
         // the log stream at 1 Hz forever. Without these the rate-limit
-        // INCR adds ~2ms per request — well inside the 400ms read SLA.
+        // INCR adds ~2ms per request - well inside the 400ms read SLA.
         const parsed = new URL(url);
         const isTls = parsed.protocol === 'rediss:';
         const redis = new IORedis({
@@ -140,7 +140,7 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
         });
         // Attach an error listener so ioredis doesn't crash the process
         // on transient connection failures (WRONGPASS, ECONNREFUSED, etc.).
-        // We deliberately keep the log at warn level — a Redis outage on
+        // We deliberately keep the log at warn level - a Redis outage on
         // the rate-limit path is bad, but it shouldn't 500 every request;
         // we degrade to fail-open (see the wrapper below).
         //
@@ -168,7 +168,7 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
         // Fail-open wrapper: if the Redis INCR fails for any reason
         // (auth, connectivity, script load), allow the request rather
         // than 500'ing every caller. Throttling is best-effort under a
-        // Redis outage — the global `short` window (10 req/sec) is
+        // Redis outage - the global `short` window (10 req/sec) is
         // still enforced upstream by Cloudflare / Replit's L7 LB on
         // the deployed path.
         //
@@ -184,7 +184,7 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
               if (now - lastDegradedLog > THROTTLE_MS) {
                 lastDegradedLog = now;
                 log.warn(
-                  `Throttler storage degraded — allowing requests: ${(err as Error).message} (further degradation logs suppressed for 60s)`,
+                  `Throttler storage degraded - allowing requests: ${(err as Error).message} (further degradation logs suppressed for 60s)`,
                 );
               }
               return {
@@ -206,7 +206,7 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
       useFactory: (cfg: ConfigService) => {
         const url = cfg.get<string>('REDIS_URL');
         // Cap reconnection attempts at the Bull layer too (mirrors
-        // RedisCacheService) — without this, a misconfigured REDIS_URL
+        // RedisCacheService) - without this, a misconfigured REDIS_URL
         // (WRONGPASS, dead host) causes ioredis to retry forever and
         // spam the log stream at 1 Hz, AND blocks Bull's `queue.add()`
         // calls indefinitely so the cron-registration callsites never
@@ -216,7 +216,7 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
         if (url) {
           // Bull's `redis` option accepts an ioredis RedisOptions OBJECT
           // (not a `{ url }` shape), so we must parse the URL into
-          // host/port/password/tls ourselves — otherwise ioredis silently
+          // host/port/password/tls ourselves - otherwise ioredis silently
           // falls back to 127.0.0.1:6379, which on Replit is unreachable
           // and produces an unhandled `ECONNREFUSED` that crashes the
           // process. `rediss://` (TLS) is mapped to `tls: {}`; ioredis
@@ -239,7 +239,7 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
             settings: { stalledInterval: 30_000 },
           };
         }
-        // No REDIS_URL set — there is no source of truth for Redis, so
+        // No REDIS_URL set - there is no source of truth for Redis, so
         // Bull is effectively disabled. We still have to return a valid
         // BullModule config (Queue instances are constructed at module
         // load), so we hand back a connection that:
@@ -250,7 +250,7 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
         // Processors check `cache.available` before registering crons /
         // calling queue.add(), so under this config Bull simply sits idle.
         // The host/port are placeholders that should never actually be
-        // dialled — kept on the loopback so any accidental connect attempt
+        // dialled - kept on the loopback so any accidental connect attempt
         // fails fast locally instead of hitting an external service.
         return {
           redis: {

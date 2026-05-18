@@ -44,7 +44,7 @@ export function SectionHeader({
 }
 
 /**
- * Numbered panel title — black circle + bold heading. Used for ordered
+ * Numbered panel title - black circle + bold heading. Used for ordered
  * sections (checkout steps, vendor menu categories) where a sequence
  * helps the user track progress through a flow.
  */

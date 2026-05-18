@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/server';
  *
  * Why this exists alongside `useOrder` (which already polls every 30s via
  * TanStack Query against the NestJS API): this hits Postgres directly through
- * Supabase RLS and returns a tiny `{ status, updatedAt }` payload — useful for
+ * Supabase RLS and returns a tiny `{ status, updatedAt }` payload - useful for
  * environments where WebSockets are blocked AND we want to minimise mobile
  * data (compared to the full Order DTO from the API). RLS on `orders` ensures
  * a customer can only read their own row.
@@ -32,7 +32,7 @@ export async function GET(
     return NextResponse.json({ error: 'FETCH_FAILED', message: error.message }, { status: 502 });
   }
   if (!data) {
-    // RLS may legitimately hide a row that exists — same response as a
+    // RLS may legitimately hide a row that exists - same response as a
     // genuine 404 to avoid leaking existence.
     return NextResponse.json({ error: 'NOT_FOUND' }, { status: 404 });
   }

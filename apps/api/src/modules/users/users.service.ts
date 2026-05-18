@@ -49,7 +49,7 @@ export class UsersService {
    * is one-per-user.
    */
   async sync(userId: string, dto: SyncUserDto) {
-    // Pull the Supabase user so we have the canonical email — the public.users
+    // Pull the Supabase user so we have the canonical email - the public.users
     // row is keyed on the same UUID as Supabase auth.users.id. We also
     // read user_metadata for fields the email-confirmation callback flow
     // doesn't get a chance to repost (the auth/callback route calls this

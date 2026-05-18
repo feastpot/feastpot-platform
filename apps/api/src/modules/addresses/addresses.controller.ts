@@ -24,7 +24,7 @@ import { UpdateAddressDto } from './dto/update-address.dto';
  * Saved-address CRUD for authenticated users.
  *
  * All routes are gated to authenticated customers (and staff impersonating
- * one — vendors/admins never need their own delivery address but the
+ * one - vendors/admins never need their own delivery address but the
  * decorator stays narrow so role drift can't accidentally leak access).
  * Ownership is enforced inside the service: every mutation re-checks
  * `userId === request.user.id` against the row.

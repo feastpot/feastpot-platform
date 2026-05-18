@@ -1,12 +1,12 @@
 -- Extend enum with new statuses.
 -- Postgres requires ALTER TYPE ADD VALUE statements outside any tx that uses
--- them in the same statement — they are auto-committed before the rest of
+-- them in the same statement - they are auto-committed before the rest of
 -- the migration runs.
 ALTER TYPE "VendorApplicationStatus" ADD VALUE IF NOT EXISTS 'under_review';
 ALTER TYPE "VendorApplicationStatus" ADD VALUE IF NOT EXISTS 'information_requested';
 
 -- Split review_note into admin_notes + rejection_reason. We MOVE existing
--- data into admin_notes (which is the strict superset semantically — any
+-- data into admin_notes (which is the strict superset semantically - any
 -- existing note was an internal admin scratchpad). Approved-after-this rows
 -- will populate rejection_reason as needed.
 ALTER TABLE "vendor_applications"

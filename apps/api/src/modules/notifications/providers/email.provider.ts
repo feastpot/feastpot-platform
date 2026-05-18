@@ -18,7 +18,7 @@ export class EmailProvider {
     const key = config.get<string>('RESEND_API_KEY');
     this.from = config.get<string>('EMAIL_FROM') ?? 'Feastpot <noreply@feastpot.co.uk>';
     if (!key) {
-      this.logger.warn('RESEND_API_KEY not set — emails will be logged only, never delivered.');
+      this.logger.warn('RESEND_API_KEY not set - emails will be logged only, never delivered.');
       this.client = null;
     } else {
       this.client = new Resend(key);

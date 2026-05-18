@@ -15,7 +15,7 @@ export interface VendorPortalInviteData {
  * lets the vendor set their password and access the vendor portal for the
  * first time.
  *
- * IMPORTANT: this is distinct from a generic "vendor approved" email — it
+ * IMPORTANT: this is distinct from a generic "vendor approved" email - it
  * MUST contain the magic link, otherwise the vendor has no way in.
  */
 export function vendorPortalInviteTemplate(data: VendorPortalInviteData): {
@@ -30,14 +30,14 @@ export function vendorPortalInviteTemplate(data: VendorPortalInviteData): {
   const stepsHtml = `
     <ol style="margin:8px 0 16px 20px;padding:0;font-size:15px;color:#5F5E5A;line-height:1.7">
       <li><strong>Click the button below</strong> to set your password and sign in.</li>
-      <li><strong>Complete your menu</strong> — dishes, prices, allergens, photos.</li>
+      <li><strong>Complete your menu</strong> - dishes, prices, allergens, photos.</li>
       <li><strong>Connect Stripe</strong> so we can pay out your earnings.</li>
-      <li><strong>Go live</strong> — we'll review your menu and switch you on.</li>
+      <li><strong>Go live</strong> - we'll review your menu and switch you on.</li>
     </ol>
   `;
 
   return {
-    subject: `You're in — welcome to Feastpot, ${data.firstName}!`,
+    subject: `You're in - welcome to Feastpot, ${data.firstName}!`,
     html: baseLayout(
       'Welcome to Feastpot',
       h2(`Congratulations, ${firstName}!`) +
@@ -46,16 +46,16 @@ export function vendorPortalInviteTemplate(data: VendorPortalInviteData): {
         ) +
         h2('Set up your vendor account') +
         p(
-          `Click the button below to set your password and access your vendor portal. <strong>This link expires in ${expiresInDays} days</strong> — if it lapses, reply to this email and we'll send a fresh one.`,
+          `Click the button below to set your password and access your vendor portal. <strong>This link expires in ${expiresInDays} days</strong> - if it lapses, reply to this email and we'll send a fresh one.`,
         ) +
         brandButton('Set my password & sign in', data.magicLinkUrl, 'vendorBlue') +
         h2('What happens next') +
         stepsHtml +
         p(
-          `Need a hand? Email <a href="mailto:${escapeHtml(support)}" style="color:#E8520A">${escapeHtml(support)}</a> — we typically reply within 1 business day.`,
+          `Need a hand? Email <a href="mailto:${escapeHtml(support)}" style="color:#E8520A">${escapeHtml(support)}</a> - we typically reply within 1 business day.`,
           '#888780',
         ),
-      `Welcome ${firstName} — set your password to access your vendor portal`,
+      `Welcome ${firstName} - set your password to access your vendor portal`,
     ),
   };
 }

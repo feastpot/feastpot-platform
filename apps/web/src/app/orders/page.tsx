@@ -9,7 +9,7 @@ import { useAccessToken } from '@/lib/auth/use-access-token';
 
 /**
  * `/orders` is the URL real users guess from the address bar (Vercel
- * logs confirm this) — and it's also the destination of the bottom-nav
+ * logs confirm this) - and it's also the destination of the bottom-nav
  * "Orders" tab, which curious first-time visitors tap before they've
  * signed up. Behaviour:
  *
@@ -30,7 +30,7 @@ export default function OrdersIndexPage() {
 
   if (loading || token) {
     // Skeleton placeholder for the redirect frame. Kept intentionally
-    // bland — three muted cards are enough to communicate "loading"
+    // bland - three muted cards are enough to communicate "loading"
     // without us having to import the real OrdersList skeleton.
     return (
       <div className="space-y-3 px-4 py-6" aria-hidden>

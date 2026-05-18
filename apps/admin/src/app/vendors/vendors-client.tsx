@@ -103,10 +103,10 @@ export function VendorsClient() {
                 <TableRow key={v.id}>
                   <TableCell>
                     <div className="font-medium">{v.businessName}</div>
-                    <div className="text-xs text-muted-foreground">{v.cuisines.join(', ') || '—'}</div>
+                    <div className="text-xs text-muted-foreground">{v.cuisines.join(', ') || '-'}</div>
                   </TableCell>
                   <TableCell>
-                    <div className="text-sm">{`${v.owner.firstName ?? ''} ${v.owner.lastName ?? ''}`.trim() || '—'}</div>
+                    <div className="text-sm">{`${v.owner.firstName ?? ''} ${v.owner.lastName ?? ''}`.trim() || '-'}</div>
                     <div className="text-xs text-muted-foreground">{v.owner.email}</div>
                   </TableCell>
                   <TableCell className="text-sm">{formatDate(v.createdAt)}</TableCell>

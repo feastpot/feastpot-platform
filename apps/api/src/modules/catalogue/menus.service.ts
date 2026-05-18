@@ -104,7 +104,7 @@ export class MenusService {
     if (itemCount > 0) {
       throw new ConflictException({
         code: 'MENU_NOT_EMPTY',
-        message: `Cannot delete menu — it still contains ${itemCount} item(s). Remove or move them first.`,
+        message: `Cannot delete menu - it still contains ${itemCount} item(s). Remove or move them first.`,
       });
     }
     await this.prisma.menu.delete({ where: { id: menuId } });

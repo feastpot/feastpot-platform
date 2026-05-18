@@ -3,7 +3,7 @@ import Link from 'next/link';
 /**
  * "Cook from home? Join FeastPot." Soft green-tinted recruitment bar
  * sitting just above the footer. Routes prospective cooks to the
- * public acquisition page on the customer site — the vendor portal
+ * public acquisition page on the customer site - the vendor portal
  * URL is intentionally absent from all public chrome.
  */
 export function JoinFeastpotCta() {

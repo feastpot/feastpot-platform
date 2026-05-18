@@ -2,7 +2,7 @@ import { Gift } from 'lucide-react';
 import Link from 'next/link';
 
 /**
- * Closing dual-panel CTA — FeastPass green panel on the left and
+ * Closing dual-panel CTA - FeastPass green panel on the left and
  * "Give £5, get £5" referral panel on the right, matching the
  * wireframe. Both CTAs intentionally route back to the hero so the
  * user enters their postcode first: FeastPass eligibility is
@@ -16,7 +16,7 @@ export function FeastPassStrip() {
       className="mx-auto max-w-6xl px-4 pt-14 sm:px-6 lg:px-8 lg:pt-20"
     >
       <div className="grid overflow-hidden rounded-3xl shadow-card md:grid-cols-2">
-        {/* LEFT — FeastPass */}
+        {/* LEFT - FeastPass */}
         <div className="bg-brand p-7 text-white md:p-9">
           <span className="inline-flex items-center rounded-full bg-white/15 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-white">
             FeastPass
@@ -36,7 +36,7 @@ export function FeastPassStrip() {
           </a>
         </div>
 
-        {/* RIGHT — referral */}
+        {/* RIGHT - referral */}
         <div className="bg-plantain p-7 text-charcoal md:p-9">
           <Gift className="h-9 w-9 text-scotch" aria-hidden />
           <h3 className="mt-3 font-display text-2xl font-black leading-tight md:text-[28px]">

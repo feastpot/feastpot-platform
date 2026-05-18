@@ -9,7 +9,7 @@ import { useAddresses, useUpdateAddress } from '@/hooks/use-addresses';
 
 /**
  * We hydrate the form from the cached `useAddresses()` list rather than
- * adding a `GET /v1/addresses/:id` round-trip — the list lands during the
+ * adding a `GET /v1/addresses/:id` round-trip - the list lands during the
  * normal account browse anyway and is shared via TanStack Query.
  */
 export default function EditAddressPage() {

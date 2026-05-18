@@ -41,7 +41,7 @@ export class PushController {
    * collision is implausible in practice, but if one ever leaked (logs,
    * error reports) a malicious authed user could otherwise hijack delivery
    * of push messages intended for the original owner. We surface a 409
-   * instead — the client can prompt the user to unsubscribe + resubscribe
+   * instead - the client can prompt the user to unsubscribe + resubscribe
    * locally if they really intend to switch accounts on a shared device.
    */
   @Post('subscribe')
@@ -72,7 +72,7 @@ export class PushController {
         userAgent: dto.userAgent ?? null,
       },
       update: {
-        // userId intentionally NOT updated here — the ownership check above
+        // userId intentionally NOT updated here - the ownership check above
         // already enforced that `existing.userId === user.id` when present.
         p256dh: dto.keys.p256dh,
         auth: dto.keys.auth,
@@ -85,7 +85,7 @@ export class PushController {
 
   /**
    * Unsubscribe by endpoint (the only opaque ID the browser knows about).
-   * Scoped to `userId` so a user can only delete their own subscriptions —
+   * Scoped to `userId` so a user can only delete their own subscriptions -
    * even if the endpoint string somehow leaked. Returns 204 whether or not
    * the row existed; both states are "no longer subscribed".
    */

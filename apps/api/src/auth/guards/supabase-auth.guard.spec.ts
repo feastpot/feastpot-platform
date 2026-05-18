@@ -72,7 +72,7 @@ describe('mapUser', () => {
   it('REGRESSION: skips JWT top-level "authenticated" and uses app_metadata.role', () => {
     // Without the custom_access_token_hook installed, Supabase sets
     // top-level role="authenticated" by default. The guard must not treat
-    // that as our app role — it has to fall through to app_metadata.role,
+    // that as our app role - it has to fall through to app_metadata.role,
     // otherwise every authenticated user collapses to "customer" and
     // privileged endpoints become unreachable.
     const user = {

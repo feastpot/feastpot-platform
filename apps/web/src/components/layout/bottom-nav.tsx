@@ -29,7 +29,7 @@ const ITEMS: NavItem[] = [
  * active state survives client-side route changes without a re-render hack.
  *
  * The basket count overlays the Orders icon (not a separate slot) because the
- * basket sheet itself lives in TopNav — duplicating the trigger here would be
+ * basket sheet itself lives in TopNav - duplicating the trigger here would be
  * confusing UX. The badge instead surfaces "you have items in flight".
  *
  * Selector reads only the count so this nav doesn't re-render on every basket
@@ -48,7 +48,7 @@ export function BottomNav() {
   const isGuest = !authLoading && !token;
 
   // /sign-in keeps the bottom nav so the auth page stays consistent
-  // with the rest of the app — it's now a primary destination, not a
+  // with the rest of the app - it's now a primary destination, not a
   // modal. Subroutes like /sign-in/otp still hide via startsWith below.
   // /register and /forgot-password keep their own conversion-first
   // chrome where the bottom-nav would compete with the page's CTAs.
@@ -67,7 +67,7 @@ export function BottomNav() {
       aria-label="Primary"
       // Warm cream top-border matches the rebrand chrome (top-nav uses
       // the same divider colour). Active states already render in
-      // text-brand / bg-brand below — so the nav inherits the new
+      // text-brand / bg-brand below - so the nav inherits the new
       // terracotta accents automatically once the palette is in place.
       className="fixed inset-x-0 bottom-0 z-50 border-t border-cream-warm bg-white shadow-sticky"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
@@ -78,7 +78,7 @@ export function BottomNav() {
           const isOrders = href === '/orders';
           const isAccount = href === '/account';
           const displayLabel = isAccount && isGuest ? 'Sign in' : label;
-          // Skip the `/account` guest hub for signed-out users — when
+          // Skip the `/account` guest hub for signed-out users - when
           // the tab already says "Sign in", going via the benefits
           // welcome (which itself has another "Sign in" button) reads
           // as two sign-in pages in a row. Send guests straight to the

@@ -20,7 +20,7 @@ export interface DispatchEtaSheetProps {
  * countdown instead of the vague "soon". Quick-pick chips cover the common
  * cases; a custom field handles the long tail (1–240 minutes per the API).
  *
- * "Skip" still lets the vendor dispatch with no ETA — back-compat with the
+ * "Skip" still lets the vendor dispatch with no ETA - back-compat with the
  * existing flow for vendors who don't want to commit to a time.
  */
 export function DispatchEtaSheet({

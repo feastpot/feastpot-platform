@@ -6,7 +6,7 @@ import withPWAInit from '@ducanh2912/next-pwa';
  * - `transpilePackages` is required so Next compiles our workspace TS source
  *   directly (we ship `@feastpot/ui` and `@feastpot/types` as raw .ts files
  *   pointed at by tsconfig `paths`, not pre-built dist bundles).
- * - PWA: powered by `@ducanh2912/next-pwa` (the maintained fork — `next-pwa`
+ * - PWA: powered by `@ducanh2912/next-pwa` (the maintained fork - `next-pwa`
  *   is unmaintained and breaks on Next 15). Disabled in dev so HMR + RSC keep
  *   working; enabled for production builds.
  * - Custom service worker logic for push notifications lives in
@@ -35,7 +35,7 @@ const withPWA = withPWAInit({
     importScripts: ['/sw-custom.js'],
     runtimeCaching: [
       {
-        // API JSON for vendor discovery — fresh-first with a 5-min fallback.
+        // API JSON for vendor discovery - fresh-first with a 5-min fallback.
         urlPattern: /^https:\/\/api\.feastpot\.co\.uk\/v1\/vendors\//,
         handler: 'NetworkFirst',
         options: {
@@ -44,7 +44,7 @@ const withPWA = withPWAInit({
         },
       },
       {
-        // Supabase Storage images — heavy, immutable. Cache aggressively.
+        // Supabase Storage images - heavy, immutable. Cache aggressively.
         urlPattern: /^https:\/\/.*supabase.*\/storage\//,
         handler: 'CacheFirst',
         options: {
@@ -54,7 +54,7 @@ const withPWA = withPWAInit({
         },
       },
       {
-        // Next's content-hashed static assets — safe to cache forever.
+        // Next's content-hashed static assets - safe to cache forever.
         urlPattern: /\/_next\/static\//,
         handler: 'CacheFirst',
         options: {
@@ -63,14 +63,14 @@ const withPWA = withPWAInit({
         },
       },
       {
-        // Top-level page navigations — try the network first (so users see
+        // Top-level page navigations - try the network first (so users see
         // fresh menus/prices), then fall back to the cached HTML, and only
         // then to the precached /offline shell via `fallbacks.document`.
         //
         // We use a regex (not a `({request}) => request.mode === 'navigate'`
         // callback) because @ducanh2912/next-pwa serialises the runtime
         // config through workbox-build, which silently drops function-typed
-        // urlPatterns — leaving navigations completely unrouted in the
+        // urlPatterns - leaving navigations completely unrouted in the
         // generated `public/sw.js`. The regex matches "extension-less"
         // same-origin URLs (i.e. document requests) and explicitly excludes
         // paths that must always go to the network and never be served from
@@ -104,7 +104,7 @@ const withPWA = withPWAInit({
 });
 
 /**
- * Supabase Storage public bucket — derived from NEXT_PUBLIC_SUPABASE_URL so
+ * Supabase Storage public bucket - derived from NEXT_PUBLIC_SUPABASE_URL so
  * the same image domain works in dev (project-ref.supabase.co) and prod
  * without a hardcode. Falls back to the wildcard pattern below.
  */
@@ -146,7 +146,7 @@ const nextConfig = {
    * never hits the Next origin. If we left this rewrite enabled in
    * production and someone forgot to set NEXT_PUBLIC_API_URL on Vercel,
    * the browser's relative `/v1/vendors` fetch would be rewritten to
-   * `http://localhost:3001/v1/vendors` on the Vercel edge — Vercel can't
+   * `http://localhost:3001/v1/vendors` on the Vercel edge - Vercel can't
    * reach localhost, the request hangs / 502s, the service worker caches
    * the bad response, and the page locks into a permanent skeleton loop.
    * Far better to fail loudly with a 404 on `/v1/*` than to silently
@@ -173,7 +173,7 @@ const nextConfig = {
       { protocol: 'https', hostname: '*.supabase.co', pathname: '/storage/v1/object/public/**' },
     ],
     formats: ['image/avif', 'image/webp'],
-    minimumCacheTTL: 86_400, // 24 h — Supabase URLs are immutable per upload
+    minimumCacheTTL: 86_400, // 24 h - Supabase URLs are immutable per upload
     // Mobile-first viewport widths so Next emits the right srcset breakpoints
     // for the customer PWA's `max-w-lg` layout (no desktop hero images yet).
     deviceSizes: [375, 640, 750, 828, 1080],
@@ -181,7 +181,7 @@ const nextConfig = {
   },
 };
 
-// Optional bundle analyser — only loaded when ANALYZE=true so the dependency
+// Optional bundle analyser - only loaded when ANALYZE=true so the dependency
 // stays a devDep that doesn't bloat the runtime image. Run with:
 //   ANALYZE=true npm run build --workspace=@feastpot/web
 let withBundleAnalyzer = (cfg) => cfg;

@@ -23,7 +23,7 @@ type State =
  * later in the signup flow.
  *
  * The localStorage key (`feastpot.referral.v1`) MUST stay in sync with the
- * register page — it pre-populates the referral input from the same key.
+ * register page - it pre-populates the referral input from the same key.
  *
  * Next 15 requires `useSearchParams()` to live inside a `<Suspense>` boundary
  * so the static prerender for `/join` can bail out cleanly to client render.
@@ -57,14 +57,14 @@ function JoinFlow() {
           try {
             window.localStorage.setItem(REFERRAL_KEY, code.toUpperCase());
           } catch {
-            /* private-mode — best effort, signup still works without bonus */
+            /* private-mode - best effort, signup still works without bonus */
           }
           setState({
             kind: 'valid',
             referrerFirstName: body.referrerFirstName ?? 'a Feastpot member',
             bonusPence: body.bonusPence ?? 500,
           });
-          // Brief celebration window then forward — long enough to register
+          // Brief celebration window then forward - long enough to register
           // the bonus copy, short enough not to feel stalled.
           setTimeout(() => {
             if (!cancelled) router.replace('/register');

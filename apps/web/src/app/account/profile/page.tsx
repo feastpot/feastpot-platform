@@ -25,7 +25,7 @@ const inputCls =
  *   (RLS on the bucket gates writes to authenticated users + their own
  *   `avatars/{userId}/...` prefix). We then PATCH the resulting public URL
  *   into our own users table so the API stays the single source of truth.
- * - Email is read-only — Supabase email changes require re-auth, which is
+ * - Email is read-only - Supabase email changes require re-auth, which is
  *   out of scope for this screen.
  * - Phone is validated against the same E.164 regex the API uses so failures
  *   surface client-side without a round-trip.
@@ -227,7 +227,7 @@ export default function ProfilePage() {
           <Field label="Email">
             <input value={me.email} disabled className={inputCls} autoComplete="email" />
             <p className="mt-1 text-xs text-charcoal-mid">
-              To change your email, contact support — we have to re-verify it.
+              To change your email, contact support - we have to re-verify it.
             </p>
           </Field>
 

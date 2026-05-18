@@ -36,7 +36,7 @@ export async function requireStaff(
   allowedRoles?: ReadonlyArray<StaffRole>,
 ): Promise<StaffUser> {
   const supabase = await createServerSupabase();
-  // Validate the JWT against Supabase Auth (server-side) — getUser() re-checks
+  // Validate the JWT against Supabase Auth (server-side) - getUser() re-checks
   // the signature and revocation list, getSession() only reads the cookie.
   const {
     data: { user },

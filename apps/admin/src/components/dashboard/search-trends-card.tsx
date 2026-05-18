@@ -7,9 +7,9 @@ import { useSearchAnalytics, type SearchAnalyticsRow } from '@/hooks/use-search-
 
 /**
  * Colour-codes a search row by how well-served it was:
- *   green  ≥ 3 results on average — healthy supply
- *   amber  1–2 results            — thin supply, watchlist
- *   red    0 results              — recruitment opportunity
+ *   green  ≥ 3 results on average - healthy supply
+ *   amber  1–2 results            - thin supply, watchlist
+ *   red    0 results              - recruitment opportunity
  */
 function barColour(avgResults: number): string {
   if (avgResults >= 3) return '#1D9E75'; // teal (brand)
@@ -22,7 +22,7 @@ function barColour(avgResults: number): string {
  *   1. Horizontal bar chart of the top 10 searches in the last 30 days,
  *      coloured by average results returned.
  *   2. A "recruitment opportunity" callout listing queries that returned
- *      zero results more than 3 times — high-signal demand that the
+ *      zero results more than 3 times - high-signal demand that the
  *      catalog can't yet meet.
  */
 export function SearchTrendsCard() {

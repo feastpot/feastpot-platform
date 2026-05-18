@@ -145,7 +145,7 @@ export class PayoutsService {
    *
    * Defence-in-depth: re-checks the actor role in the service so an internal
    * caller (cron, webhook handler, etc.) can never approve a payout without an
-   * explicit finance/admin actor — `@Roles` on the controller alone isn't
+   * explicit finance/admin actor - `@Roles` on the controller alone isn't
    * enough once code outside HTTP starts invoking this method.
    */
   async approvePayout(payoutId: string, actor: AuthUser) {

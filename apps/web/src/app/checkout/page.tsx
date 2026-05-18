@@ -28,7 +28,7 @@ const formatPounds = (p: number) => `£${(p / 100).toFixed(2)}`;
  *
  * Stripe Elements MUST be mounted under <Elements>. We initialise the Stripe
  * promise once via `getStripe()` (returns null if NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
- * isn't set — the page then renders a clear "Stripe not configured" notice
+ * isn't set - the page then renders a clear "Stripe not configured" notice
  * rather than a broken card form).
  */
 export default function CheckoutPage() {
@@ -99,7 +99,7 @@ function CheckoutInner() {
     return () => clearTimeout(t);
   }, []);
 
-  // Sticky bottom bar visibility — appears once the payment section enters
+  // Sticky bottom bar visibility - appears once the payment section enters
   // the viewport so the customer always has a "place order" affordance no
   // matter where they've scrolled past it.
   const paymentSectionRef = useRef<HTMLElement | null>(null);
@@ -120,7 +120,7 @@ function CheckoutInner() {
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
 
-  // Loyalty redemption (FR-LOY-001). Cap by balance only — backend caps
+  // Loyalty redemption (FR-LOY-001). Cap by balance only - backend caps
   // the redemption against (subtotal + delivery − promo) and we don't
   // know the server-side delivery fee here, so capping by subtotal alone
   // would under-state the true max. Floor to a multiple of 100 so the
@@ -135,7 +135,7 @@ function CheckoutInner() {
 
   // Tracks an order whose Stripe PaymentIntent has already been authorised.
   // If a post-payment step (confirmOrder) fails, we MUST NOT call createOrder
-  // again — that would mint a second order + second PaymentIntent and risk a
+  // again - that would mint a second order + second PaymentIntent and risk a
   // duplicate charge. Retries only re-run confirmOrder; if even that keeps
   // failing the user is offered a direct link to their tracking page.
   const paidOrderIdRef = useRef<string | null>(null);
@@ -169,11 +169,11 @@ function CheckoutInner() {
     setSubmitting(true);
     try {
       // FAST PATH: Stripe already authorised payment on a previous attempt
-      // that failed during confirmOrder. Don't create another order — just
+      // that failed during confirmOrder. Don't create another order - just
       // retry the confirm step against the existing one. Side effects must
       // mirror the main success branch exactly (clear basket, drop the
       // discount session key, set has-ordered so the global push prompt
-      // surfaces, then redirect) — otherwise a customer who recovered via
+      // surfaces, then redirect) - otherwise a customer who recovered via
       // retry never sees the post-order push opt-in.
       if (paidOrderIdRef.current) {
         await confirmOrder.mutateAsync(paidOrderIdRef.current);
@@ -182,7 +182,7 @@ function CheckoutInner() {
         try {
           localStorage.setItem('feastpot.has-ordered.v1', '1');
         } catch {
-          /* ignore — private mode */
+          /* ignore - private mode */
         }
         clearBasket();
         router.push(`/orders/${id}/confirmation`);
@@ -191,7 +191,7 @@ function CheckoutInner() {
 
       // AddressSelector saves new addresses inline and surfaces the id via
       // onChange, so by the time we get here `selectedAddressId` is either
-      // a real saved address or null (mid-edit) — we block in the latter case.
+      // a real saved address or null (mid-edit) - we block in the latter case.
       if (!selectedAddressId) {
         setServerError('Please choose or save a delivery address before placing the order.');
         setSubmitting(false);
@@ -229,7 +229,7 @@ function CheckoutInner() {
       });
 
       if (stripeErr) {
-        // Card declined / user cancelled / 3DS failed — no money moved, the
+        // Card declined / user cancelled / 3DS failed - no money moved, the
         // existing order can be re-confirmed against on a retry (createOrder
         // is idempotent in spirit because the user hasn't moved on yet).
         // We DO record the orderId so a follow-up doesn't double-create.
@@ -258,7 +258,7 @@ function CheckoutInner() {
 
       // 4. Clear basket + go to confirmation page (which links to tracking).
       //    Mark "has ordered" so the global push-permission prompt can finally
-      //    surface — we deliberately wait until the user has real reason to
+      //    surface - we deliberately wait until the user has real reason to
       //    want order notifications.
       sessionStorage.removeItem('feastpot.discount.v1');
       try {
@@ -296,7 +296,7 @@ function CheckoutInner() {
         </p>
       </header>
 
-      {/* SECTION 1 — ORDER SUMMARY (collapsible) */}
+      {/* SECTION 1 - ORDER SUMMARY (collapsible) */}
       <Section num={1} title="Order summary">
         <div className="overflow-hidden rounded-2xl border border-cream-deep bg-white">
           <button
@@ -346,7 +346,7 @@ function CheckoutInner() {
         </div>
       </Section>
 
-      {/* SECTION 1b — LOYALTY POINTS REDEMPTION */}
+      {/* SECTION 1b - LOYALTY POINTS REDEMPTION */}
       {(loyalty?.balance ?? 0) >= 200 && (
         <Section num={2} title="Loyalty points">
           <div className="rounded-2xl border border-plantain/40 bg-plantain/10 p-4">
@@ -420,16 +420,16 @@ function CheckoutInner() {
         </Section>
       )}
 
-      {/* SECTION 2 — DELIVERY ADDRESS */}
+      {/* SECTION 2 - DELIVERY ADDRESS */}
       <Section num={3} title="Delivery address">
         <AddressSelector value={selectedAddressId} onChange={setSelectedAddressId} />
       </Section>
 
-      {/* SECTION 3 — DELIVERY SLOT */}
+      {/* SECTION 3 - DELIVERY SLOT */}
       <Section num={4} title="Delivery slot">
         <SlotPicker
           // The vendor DeliveryConfig schema does NOT yet expose the
-          // open/close hours, lead time, or weekly availability per vendor —
+          // open/close hours, lead time, or weekly availability per vendor -
           // until it does, we hand SlotPicker app-wide defaults. The
           // component is shaped against the future per-vendor API so we
           // only need to update this call site when the fields land.
@@ -454,7 +454,7 @@ function CheckoutInner() {
         )}
       </Section>
 
-      {/* SECTION 4 — ORDER NOTES */}
+      {/* SECTION 4 - ORDER NOTES */}
       <Section num={5} title="Order notes">
         <textarea
           value={notes}
@@ -469,7 +469,7 @@ function CheckoutInner() {
         </p>
       </Section>
 
-      {/* SECTION 5 — PAYMENT */}
+      {/* SECTION 5 - PAYMENT */}
       <section ref={paymentSectionRef} className="space-y-3">
         <h2 className="font-display text-base font-black text-charcoal">Payment</h2>
 
@@ -481,7 +481,7 @@ function CheckoutInner() {
           className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-charcoal text-sm font-bold text-white opacity-60"
           title="Apple/Google Pay coming soon"
         >
-          Apple Pay / Google Pay — coming soon
+          Apple Pay / Google Pay - coming soon
         </button>
 
         <div className="flex items-center gap-3">
@@ -520,7 +520,7 @@ function CheckoutInner() {
         <div className="space-y-2 rounded-2xl border border-plantain bg-plantain/15 p-3 text-sm text-charcoal">
           <p className="font-display font-black">Your payment was authorised.</p>
           <p className="font-medium text-charcoal-mid">
-            We had trouble finalising the order with the kitchen. Tap retry — we&rsquo;ll only
+            We had trouble finalising the order with the kitchen. Tap retry - we&rsquo;ll only
             re-confirm the existing order, never charge you again.
           </p>
           <button
@@ -548,7 +548,7 @@ function CheckoutInner() {
             : `Place order · ${formatPounds(subtotal)}`}
       </button>
 
-      {/* STICKY BOTTOM — appears once the payment section is in view. */}
+      {/* STICKY BOTTOM - appears once the payment section is in view. */}
       {showStickyBar && (
         <div
           className="fixed inset-x-0 z-30 border-t border-cream-deep bg-white/95 px-4 py-3 backdrop-blur"

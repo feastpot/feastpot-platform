@@ -8,8 +8,8 @@ import { createJSONStorage, persist } from 'zustand/middleware';
  * Prisma schema (we never store currency as a float in the client either).
  *
  * `lineId` is the canonical identity for a line and is derived from
- * (menuItemId, customisationNotes). Two orders of "Jollof rice" — one plain,
- * one "extra spicy" — are TWO lines, so all mutating ops MUST key by lineId
+ * (menuItemId, customisationNotes). Two orders of "Jollof rice" - one plain,
+ * one "extra spicy" - are TWO lines, so all mutating ops MUST key by lineId
  * (not menuItemId) or they'd accidentally splat both lines.
  */
 export interface BasketItem {
@@ -51,7 +51,7 @@ export interface BasketState {
   updateLineNotes(lineId: string, notes: string): void;
   clearBasket(): void;
 
-  /** Convenience selectors — kept inside the store so consumers don't recompute. */
+  /** Convenience selectors - kept inside the store so consumers don't recompute. */
   getItemCount(): number;
   getSubtotalPence(): number;
 }
@@ -152,7 +152,7 @@ export const useBasketStore = create<BasketState>()(
         const newNotes = trimmed.length > 0 ? trimmed : undefined;
         const newLineId = makeLineId(target.menuItemId, newNotes);
         if (newLineId === lineId) {
-          // Same identity — only the (undefined↔'') normalisation can land
+          // Same identity - only the (undefined↔'') normalisation can land
           // here; just persist the cleaned value without any merge work.
           set({
             items: state.items.map((i) =>

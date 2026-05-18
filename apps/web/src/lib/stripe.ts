@@ -9,7 +9,7 @@ const PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
  * calling it multiple times still triggers multiple <script> injections, so
  * we cache the promise here.
  *
- * Returns `null` when the publishable key is not configured — the checkout
+ * Returns `null` when the publishable key is not configured - the checkout
  * page surfaces this as a clear "Stripe not configured" notice rather than
  * silently rendering a broken card form.
  */

@@ -38,7 +38,7 @@ export function TopNav({ businessName }: { businessName?: string }) {
           </Link>
           <nav className="flex items-center gap-1">
             {NAV_ITEMS.map((item) => {
-              // Dashboard ("/") needs an exact match — otherwise EVERY route
+              // Dashboard ("/") needs an exact match - otherwise EVERY route
               // would highlight it because every path starts with "/".
               const active =
                 item.href === '/'

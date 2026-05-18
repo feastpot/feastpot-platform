@@ -2,13 +2,13 @@
  * Browser notification chime, generated on the fly via the Web Audio API.
  *
  * We avoid shipping an mp3 + the `use-sound` dep because:
- *  - It's a single ~50ms tone — pulling Howler.js for that is overkill.
+ *  - It's a single ~50ms tone - pulling Howler.js for that is overkill.
  *  - Audio assets need bundler/static-asset wiring; an oscillator avoids it.
  *  - `use-sound` is loosely maintained.
  *
  * Browsers block AudioContext until the page has had a user gesture, so the
  * first chime after page load may be silent until the vendor clicks anywhere
- * — that's acceptable for a tab they actively work in.
+ * - that's acceptable for a tab they actively work in.
  */
 let cachedCtx: AudioContext | null = null;
 

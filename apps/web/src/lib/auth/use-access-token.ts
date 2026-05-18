@@ -10,7 +10,7 @@ import { createClient } from '@/lib/supabase/client';
  * its `Authorization: Bearer …` header for every protected route.
  *
  * Subscribes to `onAuthStateChange` so the value stays fresh across sign in /
- * out / token refresh in another tab — important because the customer can
+ * out / token refresh in another tab - important because the customer can
  * leave the checkout page open while their access token quietly rotates.
  */
 export function useAccessToken(): { token: string | null; loading: boolean } {

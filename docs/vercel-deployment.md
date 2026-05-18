@@ -1,4 +1,4 @@
-# Vercel Deployment — Feastpot Frontends
+# Vercel Deployment - Feastpot Frontends
 
 Deploy `apps/web`, `apps/vendor`, `apps/admin` from the `feastpot-platform`
 monorepo to Vercel. The API stays on Replit Autoscale at
@@ -77,7 +77,7 @@ Repeat these steps for each of `apps/web`, `apps/vendor`, `apps/admin`.
 8. **Deploy**.
 
 > Note on the build command. The brief uses `npm run build --filter=…`,
-> which is Turborepo syntax — that only works if the install step has
+> which is Turborepo syntax - that only works if the install step has
 > already pulled Turborepo. The `npm run build` script in the repo root
 > already runs `turbo build`, so the safer form is
 > `npm run build --workspace=@feastpot/<app>` (npm-native), which is
@@ -96,7 +96,7 @@ After the first successful deploy, in **Project → Settings → Domains**:
 | `apps/admin` | `admin.feastpot.co.uk` |
 
 Vercel will show the CNAME (or A record) value for each. Copy them
-exactly — the trailing dot matters.
+exactly - the trailing dot matters.
 
 ---
 
@@ -126,7 +126,7 @@ and update it once DNS is live.
 
 ---
 
-## 5. Supabase Auth — redirect URLs
+## 5. Supabase Auth - redirect URLs
 
 **Supabase dashboard → Authentication → URL Configuration**:
 
@@ -156,11 +156,11 @@ add it to `ALLOWED_ORIGINS` and re-deploy the API.
 
 ## 7. Post-deployment verification
 
-1. `https://feastpot.co.uk` — homepage loads, no console errors,
+1. `https://feastpot.co.uk` - homepage loads, no console errors,
    `/legal/{terms,privacy,allergens}` reachable, cookie banner shows on
    first visit.
-2. `https://vendor.feastpot.co.uk/sign-in` — sign-in page renders.
-3. `https://admin.feastpot.co.uk/sign-in` — sign-in page renders.
+2. `https://vendor.feastpot.co.uk/sign-in` - sign-in page renders.
+3. `https://admin.feastpot.co.uk/sign-in` - sign-in page renders.
 4. Sign in on each with the seeded users
    (`prisma/seed.ts`):
    - customer `grace@example.com` / `Feastpot!Cust1`

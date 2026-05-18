@@ -6,15 +6,15 @@ import { useEffect, useState } from 'react';
 export interface StatCardProps {
   label: string;
   value: string | number;
-  /** e.g. "£" — rendered before the animated number. */
+  /** e.g. "£" - rendered before the animated number. */
   prefix?: string;
-  /** e.g. " orders" — rendered after the animated number. */
+  /** e.g. " orders" - rendered after the animated number. */
   suffix?: string;
   /** % vs last week. Positive = good (teal), negative = bad (red). */
   change?: number;
   /** Emoji label rendered top-left. */
   icon: string;
-  /** Visual treatment — picks the soft-tinted surface + accent text. */
+  /** Visual treatment - picks the soft-tinted surface + accent text. */
   color: 'brand' | 'teal' | 'vendor' | 'gray' | 'amber';
   /** Pulse the icon (used for pending-orders attention). */
   pulse?: boolean;

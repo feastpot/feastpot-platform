@@ -21,7 +21,7 @@ export class UpdateOrderStatusDto {
 
   /**
    * Vendor-supplied ETA (minutes from now) when transitioning to dispatched.
-   * Bound to a generous 4-hour ceiling — anything longer is almost certainly
+   * Bound to a generous 4-hour ceiling - anything longer is almost certainly
    * a typo.
    */
   @ApiPropertyOptional({ description: 'ETA minutes from now (only meaningful on dispatched)', minimum: 1, maximum: 240 })

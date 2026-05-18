@@ -12,7 +12,7 @@ import { VendorsService } from './vendors.service';
  * Why this spec exists: `debug` is a literal segment that must be
  * declared on the controller BEFORE the UUID-validated `@Get(':id')`
  * route, otherwise Nest matches "debug" against `/:id` and the global
- * ParseUUIDPipe 400s with "Validation failed (uuid is expected)" — the
+ * ParseUUIDPipe 400s with "Validation failed (uuid is expected)" - the
  * exact regression that prompted adding /vendors/debug. A re-order of
  * the decorators in vendors.controller.ts would silently bring that bug
  * back without this spec.
@@ -42,7 +42,7 @@ const mockDebugResult = {
   nextPublicApiUrl: 'https://api.example.com',
 };
 
-describe('VendorsController (HTTP) — debug endpoint + route ordering', () => {
+describe('VendorsController (HTTP) - debug endpoint + route ordering', () => {
   let app: INestApplication;
   let getDebugInfo: jest.Mock;
   const originalNodeEnv = process.env.NODE_ENV;
@@ -140,7 +140,7 @@ describe('VendorsController (HTTP) — debug endpoint + route ordering', () => {
   it('GET /v1/vendors/debug returns 404 when NODE_ENV === "production"', async () => {
     process.env.NODE_ENV = 'production';
     await request(app.getHttpServer()).get('/v1/vendors/debug').expect(404);
-    // Service must NOT be reached — the controller short-circuits before
+    // Service must NOT be reached - the controller short-circuits before
     // even attempting the diagnostic read in prod.
     expect(getDebugInfo).not.toHaveBeenCalled();
   });

@@ -7,7 +7,7 @@ import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 
 @Module({
-  // AuthModule re-exports SupabaseService — we need the service-role client
+  // AuthModule re-exports SupabaseService - we need the service-role client
   // to mirror profile changes (phone updates, account deletes) into Supabase
   // Auth on top of the public.users row.
   imports: [PrismaModule, AuthModule],

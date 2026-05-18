@@ -8,7 +8,7 @@ import { cookies } from 'next/headers';
  * Why `cookies()` is awaited: in Next 15 the cookies API became async. Calling
  * it eagerly here lets us pass a stable `CookieStore` reference into
  * `createServerClient`'s adapter. The setter is wrapped in try/catch because
- * Server Components are not allowed to mutate cookies — only Server Actions
+ * Server Components are not allowed to mutate cookies - only Server Actions
  * and Route Handlers are. The `getUser()` middleware path is the canonical
  * place where session refresh writes happen.
  */
@@ -17,7 +17,7 @@ export async function createClient(): Promise<SupabaseClient> {
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !anonKey) {
     throw new Error(
-      'Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY — set them in apps/web/.env.local',
+      'Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY - set them in apps/web/.env.local',
     );
   }
   const cookieStore = await cookies();
@@ -33,7 +33,7 @@ export async function createClient(): Promise<SupabaseClient> {
             cookieStore.set(name, value, options);
           });
         } catch {
-          // Called from a Server Component — Next.js disallows cookie writes
+          // Called from a Server Component - Next.js disallows cookie writes
           // here. Safe to ignore: the session is refreshed in middleware
           // (where writes ARE allowed) on every request.
         }

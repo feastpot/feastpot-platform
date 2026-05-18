@@ -11,14 +11,14 @@ interface Props {
 /**
  * Horizontal-scroll "Community Favourites" rail used on the homepage.
  *
- * Server component — relies on `VendorCard` also being a server component
+ * Server component - relies on `VendorCard` also being a server component
  * (no `'use client'` in the card source). Returns null when empty rather
  * than rendering an empty rail; the parent decides whether to show a
  * fallback message.
  *
  * Scrollbar-hiding uses the project's arbitrary-variant pattern
  * (`[scrollbar-width:none] [&::-webkit-scrollbar]:hidden`) instead of a
- * `scrollbar-hide` plugin class — keeps zero extra dependencies and matches
+ * `scrollbar-hide` plugin class - keeps zero extra dependencies and matches
  * `app/page.tsx`'s existing CarouselRow.
  */
 export function CommunityFavourites({ vendors }: Props) {

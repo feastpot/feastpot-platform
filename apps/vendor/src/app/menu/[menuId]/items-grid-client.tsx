@@ -46,7 +46,7 @@ export function MenuItemsGridClient({
           </Link>
           <h1 className="text-2xl font-semibold">{menuName}</h1>
           <p className="text-sm text-muted-foreground">
-            Reorder is coming soon — items are sorted by category, then name.
+            Reorder is coming soon - items are sorted by category, then name.
           </p>
         </div>
         <Link href={`/menu/${menuId}/items/new`}>

@@ -233,7 +233,7 @@ function OrdersTableRow({
         </TableCell>
         <TableCell className="text-xs">{order.vendor.businessName}</TableCell>
         <TableCell className="max-w-xs truncate text-xs text-muted-foreground" title={items}>
-          {items || '—'}
+          {items || '-'}
         </TableCell>
         <TableCell className="text-right">{formatPence(order.totalPence)}</TableCell>
         <TableCell>
@@ -308,7 +308,7 @@ function OrdersTableRow({
 }
 
 function PiBadge({ status }: { status: PiStatus }) {
-  if (!status) return <span className="text-xs text-muted-foreground">—</span>;
+  if (!status) return <span className="text-xs text-muted-foreground">-</span>;
   const variant: 'secondary' | 'destructive' | 'outline' =
     status === 'succeeded' || status === 'requires_capture'
       ? 'secondary'
@@ -338,7 +338,7 @@ function RefundDialog({
         <DialogHeader>
           <DialogTitle>Trigger refund</DialogTitle>
           <DialogDescription>
-            Order {order.orderNumber} — total {formatPence(order.totalPence)}.
+            Order {order.orderNumber} - total {formatPence(order.totalPence)}.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">

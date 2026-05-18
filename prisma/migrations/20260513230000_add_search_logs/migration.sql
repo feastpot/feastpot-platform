@@ -1,4 +1,4 @@
--- Anonymous search analytics. No user_id / IP — stays out of DSAR scope.
+-- Anonymous search analytics. No user_id / IP - stays out of DSAR scope.
 
 CREATE TABLE "search_logs" (
   "id" UUID NOT NULL DEFAULT gen_random_uuid(),

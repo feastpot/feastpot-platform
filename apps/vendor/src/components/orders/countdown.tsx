@@ -17,9 +17,9 @@ export interface CountdownProps {
  * Three urgency tiers driven by the seconds-remaining value (re-uses the
  * shared `useCountdown` hook so we get the once-per-second tick + onExpire
  * edge-trigger for free):
- *   - green / muted (`bg-surface`)             — > 3 minutes left
- *   - amber (`bg-amber-100 text-amber-700`)    — < 3 minutes left
- *   - red, pulsing (`bg-red-100 text-red-600`) — < 1 minute left
+ *   - green / muted (`bg-surface`)             - > 3 minutes left
+ *   - amber (`bg-amber-100 text-amber-700`)    - < 3 minutes left
+ *   - red, pulsing (`bg-red-100 text-red-600`) - < 1 minute left
  */
 export function Countdown({ expiresAt, onExpire }: CountdownProps) {
   const remaining = useCountdown(

@@ -5,7 +5,7 @@ import { cn } from '@feastpot/ui';
 /**
  * Featured customer testimonials. 3-column on desktop, 1-column on mobile.
  *
- * Same backend gap as ReviewsMarquee — there's no "featured testimonials"
+ * Same backend gap as ReviewsMarquee - there's no "featured testimonials"
  * endpoint today, so this is hand-curated copy. The visual treatment is
  * production-ready; only the data source needs swapping when the API lands.
  */
@@ -16,7 +16,7 @@ const TESTIMONIALS = [
     rating: 5,
     dish: 'Egusi Soup (Full Pot)',
     quote:
-      "I ordered the full egusi pot for my mum's birthday and she said it tasted exactly like back home. The portion was enormous — fed 8 people with leftovers. Will be ordering every Sunday.",
+      "I ordered the full egusi pot for my mum's birthday and she said it tasted exactly like back home. The portion was enormous - fed 8 people with leftovers. Will be ordering every Sunday.",
     initials: 'GO',
     color: 'bg-brand',
   },
@@ -26,7 +26,7 @@ const TESTIMONIALS = [
     rating: 5,
     dish: 'Jerk Chicken Tray',
     quote:
-      'Finally a platform that understands Caribbean food. The jerk chicken was properly seasoned — not the watered-down stuff you get from generic delivery apps. Feastpot is now my go-to.',
+      'Finally a platform that understands Caribbean food. The jerk chicken was properly seasoned - not the watered-down stuff you get from generic delivery apps. Feastpot is now my go-to.',
     initials: 'DC',
     color: 'bg-scotch',
   },
@@ -36,7 +36,7 @@ const TESTIMONIALS = [
     rating: 5,
     dish: 'Small Chops Party Pack',
     quote:
-      "Ordered 100 pieces for my sister's baby shower. Arrived on time, everything was fresh and hot. The puff puff especially — absolute perfection. Highly recommend for any event.",
+      "Ordered 100 pieces for my sister's baby shower. Arrived on time, everything was fresh and hot. The puff puff especially - absolute perfection. Highly recommend for any event.",
     initials: 'AD',
     color: 'bg-plantain text-charcoal',
   },

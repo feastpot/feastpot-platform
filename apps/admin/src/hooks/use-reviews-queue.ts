@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useApi } from './use-api';
 
 // Mirrors prisma's ModerationStatus enum (auto_approved/held/approved/rejected).
-// Note: there is no 'pending' state in the schema — auto-moderate always
+// Note: there is no 'pending' state in the schema - auto-moderate always
 // returns either auto_approved or held on review create.
 export type ModerationStatus = 'approved' | 'auto_approved' | 'rejected' | 'held';
 export type ModerationQueueFilter = ModerationStatus | 'all';

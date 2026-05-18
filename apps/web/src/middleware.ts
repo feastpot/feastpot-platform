@@ -19,7 +19,7 @@ import { createClient } from './lib/supabase/middleware';
 export async function middleware(request: NextRequest) {
   const { supabase, response } = createClient(request);
 
-  // IMPORTANT: getUser() (NOT getSession()) — this contacts Supabase Auth and
+  // IMPORTANT: getUser() (NOT getSession()) - this contacts Supabase Auth and
   // forces a token refresh + revocation check. getSession() trusts the cookie
   // blindly and is unsafe for auth gates.
   const {
@@ -28,7 +28,7 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
   // `/account` (exact) is the public hub that shows a guest welcome /
-  // benefits CTA when the user isn't signed in — older / first-time
+  // benefits CTA when the user isn't signed in - older / first-time
   // visitors are far more likely to tap "Account" out of curiosity than
   // commit to sign-in cold, and a hard redirect on that exploratory tap
   // reads as punishing. Only the *sub*-routes (`/account/orders`,
@@ -64,7 +64,7 @@ export async function middleware(request: NextRequest) {
  * Supabase's session-refresh response.
  *
  * `NextResponse.cookies.set(name, value)` would only copy name+value and
- * silently drop the security attributes — turning short-lived HttpOnly auth
+ * silently drop the security attributes - turning short-lived HttpOnly auth
  * cookies into long-lived JS-readable ones, a real auth-cookie weakening
  * bug. Forwarding raw `Set-Cookie` headers preserves the originals exactly.
  */

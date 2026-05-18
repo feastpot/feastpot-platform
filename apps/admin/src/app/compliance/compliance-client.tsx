@@ -70,7 +70,7 @@ export function ComplianceClient() {
                   <TableCell><Badge>{d.status}</Badge></TableCell>
                   <TableCell className="text-sm">{formatDate(d.expiresAt)}</TableCell>
                   <TableCell className="text-right text-sm">
-                    {d.daysRemaining === null ? '—' : d.daysRemaining < 0 ? `Expired ${Math.abs(d.daysRemaining)}d ago` : `${d.daysRemaining}d`}
+                    {d.daysRemaining === null ? '-' : d.daysRemaining < 0 ? `Expired ${Math.abs(d.daysRemaining)}d ago` : `${d.daysRemaining}d`}
                   </TableCell>
                   <TableCell>
                     <Link href={`/vendors/${d.vendorId}`} className="text-sm font-medium text-vendor hover:underline">

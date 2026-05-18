@@ -20,7 +20,7 @@ export interface AddressSelectorProps {
  * - Renders saved addresses as a radio list, default first.
  * - Pre-selects the default (or the most-recent) address on mount.
  * - "Add a new address" expands an inline form that POSTs immediately on
- *   save and selects the new id — the customer never leaves /checkout.
+ *   save and selects the new id - the customer never leaves /checkout.
  * - Returns `null` from `value` when the user is mid-add; the parent
  *   should disable the "Place order" button in that state.
  */

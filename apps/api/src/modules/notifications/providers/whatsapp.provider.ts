@@ -18,7 +18,7 @@ export class WhatsappProvider {
     this.token = config.get<string>('WHATSAPP_ACCESS_TOKEN');
     this.phoneNumberId = config.get<string>('WHATSAPP_PHONE_NUMBER_ID');
     if (!this.token || !this.phoneNumberId) {
-      this.logger.warn('WHATSAPP_ACCESS_TOKEN / WHATSAPP_PHONE_NUMBER_ID not set — WhatsApp sends will be logged only.');
+      this.logger.warn('WHATSAPP_ACCESS_TOKEN / WHATSAPP_PHONE_NUMBER_ID not set - WhatsApp sends will be logged only.');
     }
   }
 

@@ -182,7 +182,7 @@ export class PaymentsService {
     // Stripe is now the source of truth. If the DB writes below fail and the
     // caller retries with the same `idempotencyKey`, Stripe will return this
     // same refund (no double-debit) and the DB writes will succeed on retry.
-    // If the caller retries WITHOUT a key — e.g. another endpoint — the
+    // If the caller retries WITHOUT a key - e.g. another endpoint - the
     // cumulative-refund guard above stops a duplicate refund being created.
 
     const isPartial = dto.amountPence < order.totalPence;

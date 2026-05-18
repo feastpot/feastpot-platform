@@ -126,7 +126,7 @@ export function OrderHistoryTable() {
                     <TableCell className="whitespace-nowrap">
                       {format(new Date(order.createdAt), 'd MMM yyyy')}
                     </TableCell>
-                    <TableCell>{order.customer?.firstName ?? '—'}</TableCell>
+                    <TableCell>{order.customer?.firstName ?? '-'}</TableCell>
                     <TableCell>{itemsCount} item{itemsCount === 1 ? '' : 's'}</TableCell>
                     <TableCell className="text-right">{pounds(order.totalPence)}</TableCell>
                     <TableCell>
@@ -165,7 +165,7 @@ export function OrderHistoryTable() {
             <div className="space-y-3 text-sm">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Customer</span>
-                <span>{selected.customer?.firstName ?? '—'}</span>
+                <span>{selected.customer?.firstName ?? '-'}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Placed</span>

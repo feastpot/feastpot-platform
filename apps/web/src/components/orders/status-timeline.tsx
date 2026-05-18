@@ -30,7 +30,7 @@ const STAGE_INDEX = new Map<OrderStatus, number>(STAGES.map((s, i) => [s.key, i]
  *   - current:    brand-green circle with the stage Lucide icon + pulsing ring + "In progress" pill
  *   - future:     cream circle with the stage Lucide icon + dashed connector
  *
- * Cancelled/refunded orders are NOT one of the timeline stages — the parent
+ * Cancelled/refunded orders are NOT one of the timeline stages - the parent
  * page renders a separate destructive banner for those terminal states. This
  * component just stops painting "current" once it sees a cancelled status.
  */
@@ -49,7 +49,7 @@ export function StatusTimeline({ order }: { order: Order }) {
 
         return (
           <li key={stage.key} className="relative flex gap-3 pb-5 last:pb-0">
-            {/* Connector line down to the next item — sits behind the circle */}
+            {/* Connector line down to the next item - sits behind the circle */}
             {!isLast && (
               <span
                 aria-hidden

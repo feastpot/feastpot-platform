@@ -182,7 +182,7 @@ async function geocodePostcode(raw: string, logger?: Logger): Promise<PostcodeLa
   const cached = GEOCODE_CACHE.get(key);
   if (cached) return cached;
   // Try the full-postcode endpoint first (handles "SE15 4ST"). If that
-  // misses — or the caller passed an outward-only code like "SE15" — fall
+  // misses - or the caller passed an outward-only code like "SE15" - fall
   // back to /outcodes/<outward> which returns the district centroid. The
   // centroid is plenty accurate for the customer-search "in your area" UX.
   let out = await fetchPostcodesIo(`/postcodes/${encodeURIComponent(key)}`, logger);
@@ -211,7 +211,7 @@ function extractPostcodeFromAddress(addr: string | null | undefined): string | n
  * Best-effort postcode for geocoding a vendor's local-delivery centre.
  * Prefers the first servicing postcode (those tend to be outward-only and
  * map cleanly), then falls back to anything we can dig out of the
- * collection address. Returns null if nothing usable is available — the
+ * collection address. Returns null if nothing usable is available - the
  * caller persists null lat/lng and the search just won't include this
  * vendor in radius results until a vendor edits their delivery config.
  */
@@ -242,7 +242,7 @@ export class VendorsService {
    * Public vendor application capture. Persists the row first (source of
    * truth for the admin queue), then fires admin + applicant emails as
    * best-effort side effects. Email failures are logged but NEVER fail
-   * the HTTP request — the row is already saved, so the lead is never lost.
+   * the HTTP request - the row is already saved, so the lead is never lost.
    *
    * No auth: this is a pre-account form. Anyone can POST. Length-bounded
    * DTO + Prisma column lengths cap abuse vectors; we deliberately don't
@@ -297,7 +297,7 @@ export class VendorsService {
     });
 
     // Persistence already succeeded above, so the lead is safe regardless
-    // of email outcomes — but we MUST log rejections so on-call sees provider
+    // of email outcomes - but we MUST log rejections so on-call sees provider
     // outages instead of silently swallowing them. Each send is timeboxed
     // at 10s to bound HTTP response latency if Resend hangs.
     const withTimeout = <T>(p: Promise<T>, label: string): Promise<T> =>
@@ -342,7 +342,7 @@ export class VendorsService {
     };
   }
 
-  // Cache TTLs are deliberately short — vendor data is not strictly
+  // Cache TTLs are deliberately short - vendor data is not strictly
   // immutable (statuses change, ratings recompute via badge-recalc cron),
   // so we trade a small staleness window for a large hit-rate win on
   // browse-heavy traffic.
@@ -350,7 +350,7 @@ export class VendorsService {
   private static readonly PROFILE_CACHE_TTL = 600; // 10 min
 
   // ------------------------------------------------------------------
-  // Analytics, delivery-config and Stripe Connect — all gated to the
+  // Analytics, delivery-config and Stripe Connect - all gated to the
   // authenticated vendor's own profile via VendorRepository.findByUserId.
   // None of these expose a vendorId path param; the vendor is always
   // resolved from the JWT, which prevents IDOR-style cross-vendor reads.
@@ -479,7 +479,7 @@ export class VendorsService {
     // search can match by real distance instead of relying on the legacy
     // outward-postcode-prefix proxy. Best-effort: if postcodes.io is down
     // or the postcode is unrecognised we still persist the rest of the
-    // config (lat/lng = NULL) — vendors must never be blocked from
+    // config (lat/lng = NULL) - vendors must never be blocked from
     // editing their delivery settings by a flaky third party.
     const existing = vendor.deliveryConfig;
     const postcodesForGeo = dto.postcodes ?? existing?.postcodes ?? [];
@@ -491,7 +491,7 @@ export class VendorsService {
     });
 
     // Decide whether the geo-driving fields actually changed in this PATCH.
-    // If they did, the new coords (even nulls) replace the old ones — the
+    // If they did, the new coords (even nulls) replace the old ones - the
     // vendor explicitly moved. If they didn't, we treat a geocode miss as a
     // transient postcodes.io failure and KEEP the existing coordinates so a
     // vendor toggling, say, `nationwideEnabled` during an outage can't
@@ -548,7 +548,7 @@ export class VendorsService {
       },
     });
 
-    // Search results embed delivery radius hits — invalidate so the next
+    // Search results embed delivery radius hits - invalidate so the next
     // search reflects the new coordinates immediately.
     await this.cache.delByPattern('vendors:search:*');
 
@@ -609,7 +609,7 @@ export class VendorsService {
       // link we re-read the account state from Stripe and persist
       // payoutsEnabled. This covers the "user finished onboarding and came
       // back" path without needing the full account.updated webhook (which
-      // is still the right long-term solution but is out of scope here —
+      // is still the right long-term solution but is out of scope here -
       // tracked in the summary).
       try {
         const account = await this.stripe.retrieveAccount(accountId);
@@ -625,7 +625,7 @@ export class VendorsService {
           await this.cache.del(`vendors:profile:${vendor.id}`);
         }
       } catch {
-        // Non-fatal — surface the onboarding URL even if status sync fails.
+        // Non-fatal - surface the onboarding URL even if status sync fails.
       }
     }
 
@@ -654,7 +654,7 @@ export class VendorsService {
    * parallel: today's bucket, this week's bucket, and a pending-now count.
    *
    * "Today" and "this week" are computed from server-local UTC midnight /
-   * Monday respectively — close enough for a vendor dashboard, and avoids
+   * Monday respectively - close enough for a vendor dashboard, and avoids
    * needing the vendor's TZ. We intentionally exclude cancelled/refunded
    * orders from revenue (a refunded order has zero net revenue for the
    * vendor) by filtering on a positive-status whitelist.
@@ -768,7 +768,7 @@ export class VendorsService {
   }
 
   /**
-   * FR-SRCH-001: log every free-text search anonymously. Fire-and-forget —
+   * FR-SRCH-001: log every free-text search anonymously. Fire-and-forget -
    * logging must never slow down the response or fail the request. Only
    * log when the user actually typed something (avoids polluting the
    * analytics table with empty pass-throughs from the cuisine carousel).
@@ -785,7 +785,7 @@ export class VendorsService {
         },
       })
       .catch(() => {
-        /* analytics is non-critical — swallow */
+        /* analytics is non-critical - swallow */
       });
   }
 
@@ -811,13 +811,13 @@ export class VendorsService {
    *
    * SECURITY: this is a public, unauthenticated route addressed by
    * human-readable slug, which is trivially guessable. We therefore return
-   * 404 for anything not in `live` status — pending/suspended/draft vendor
+   * 404 for anything not in `live` status - pending/suspended/draft vendor
    * profiles must NOT be enumerable from the customer-facing surface. Use
    * the UUID `:id` route (admin/vendor surfaces) for non-live access.
    *
    * `postcode` is an optional customer postcode used to attach a real
    * great-circle `distanceKm` to the response so the profile page can show
-   * "X.X mi away" — matching the surfacing already provided on the search
+   * "X.X mi away" - matching the surfacing already provided on the search
    * list. Distance is computed in JS off the (cached) findById payload, so
    * it never pollutes the profile cache and gracefully degrades to null
    * when either the postcode geocode misses or the vendor has no
@@ -1002,13 +1002,13 @@ export class VendorsService {
 
   /**
    * Diagnostic-only snapshot for /v1/vendors/debug. Gated to non-prod by
-   * the controller. Returns a fixed shape — see VendorsController.debug
+   * the controller. Returns a fixed shape - see VendorsController.debug
    * for the contract.
    *
    * The current Prisma schema has NO lat/lng on Vendor or DeliveryConfig
    * (only Address carries coordinates). So `hasCoordinates`,
    * `configsWithCoordinates`, and `vendorsInRadius` are intentionally
-   * always false / 0 — that is exactly the signal this endpoint exists
+   * always false / 0 - that is exactly the signal this endpoint exists
    * to surface: when `vendorsWithNoLocation === liveVendorCount` and
    * `vendorsInRadius === 0`, the root cause is missing vendor
    * coordinates, not a query bug or a missing env var.

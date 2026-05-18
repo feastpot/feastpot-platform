@@ -205,7 +205,7 @@ describe('VendorsService', () => {
 
     it('rejects when role cannot perform transition', async () => {
       // pending → approved is open to compliance OR admin (per the security
-      // spec) but never to support agents — they have no business changing
+      // spec) but never to support agents - they have no business changing
       // vendor status at any stage.
       const support: AuthUser = { id: 'u-supp', email: 's@x.io', role: UserRole.support };
       repo.findById.mockResolvedValue({ ...baseVendor, status: VendorStatus.pending } as never);

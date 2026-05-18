@@ -32,7 +32,7 @@ export function VendorResultsHeader({ count, postcode, loading }: Props) {
   // in the dropdown instead of falsely showing "Recommended".
   //
   // We also drop the "Recommended" (empty value) option from the menu while a
-  // postcode is set — selecting it would clear `?sort=`, which the page would
+  // postcode is set - selecting it would clear `?sort=`, which the page would
   // immediately reinterpret as the implicit distance default, leaving the
   // user with a sticky "selected but never applied" state.
   const sortParam = params?.get('sort') ?? '';

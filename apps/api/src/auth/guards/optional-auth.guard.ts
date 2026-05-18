@@ -27,7 +27,7 @@ export class OptionalAuthGuard implements CanActivate {
       const user = await this.supabase.verifyToken(token);
       request.user = mapUser(user, token);
     } catch (err) {
-      this.logger.debug(`Optional auth: token rejected — ${(err as Error).message}`);
+      this.logger.debug(`Optional auth: token rejected - ${(err as Error).message}`);
       request.user = null;
     }
     return true;

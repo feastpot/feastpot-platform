@@ -115,12 +115,12 @@ export function VendorDetailClient({ vendorId }: { vendorId: string }) {
               <>
                 <Field label="Status" value={<Badge>{vendor.status}</Badge>} />
                 <Field label="Slug" value={vendor.slug} />
-                <Field label="Cuisines" value={vendor.cuisines.join(', ') || '—'} />
+                <Field label="Cuisines" value={vendor.cuisines.join(', ') || '-'} />
                 <Field label="Rating" value={`${vendor.rating.toFixed(2)} (${vendor.ratingCount} reviews)`} />
                 <Field label="Commission" value={`${(vendor.commissionBps / 100).toFixed(2)}%`} />
                 <Field label="Payouts enabled" value={vendor.payoutsEnabled ? 'Yes' : 'No'} />
-                <Field label="Stripe account" value={vendor.stripeAccountId ?? '—'} />
-                <Field label="Approved" value={vendor.approvedAt ? formatDateTime(vendor.approvedAt) : '—'} />
+                <Field label="Stripe account" value={vendor.stripeAccountId ?? '-'} />
+                <Field label="Approved" value={vendor.approvedAt ? formatDateTime(vendor.approvedAt) : '-'} />
                 {vendor.suspendedAt && <Field label="Suspended" value={formatDateTime(vendor.suspendedAt)} />}
                 {vendor.description && (
                   <div>

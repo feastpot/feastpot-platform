@@ -65,7 +65,7 @@ export function vendorApplicationReceivedTemplate(
           'SLA: Respond within 1-2 business days. The applicant has been sent an acknowledgement.',
           '#888780',
         ),
-      'New vendor — action required',
+      'New vendor - action required',
     ),
   };
 }

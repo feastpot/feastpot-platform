@@ -2,14 +2,14 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Brand typography — Inter (body) + Playfair Display (display) are now
+/* Brand typography - Inter (body) + Playfair Display (display) are now
    self-hosted via next/font in apps/web/src/app/layout.tsx, exposing
    `--font-inter` and `--font-playfair` as CSS variables. The previous
    render-blocking @import has been removed (saved ~200–400 ms FCP). */
 
 /*
  * Theme tokens are inlined here (NOT @import-ed from @feastpot/ui/theme.css)
- * because @import in CSS is processed before Tailwind's @layer directives —
+ * because @import in CSS is processed before Tailwind's @layer directives -
  * cross-package @layer rules silently get dropped from the production build.
  * The tokens below mirror packages/ui/src/theme.css verbatim; if you change
  * one, change the other.
@@ -20,15 +20,15 @@
        Mirrors the Tailwind tokens in apps/web/tailwind.config.ts so raw
        CSS (kente patterns, gradients) can reference the same values
        without going through Tailwind's color object. */
-    /* 2026-05-16 PWA redesign — wireframe palette (Pan-African green
+    /* 2026-05-16 PWA redesign - wireframe palette (Pan-African green
        primary + gold + red accents on warm cream). Mirrors Tailwind
        tokens in apps/web/tailwind.config.ts. */
     --brand: #00843d;
-    --brand-primary: #00843d; /* legacy alias — retained */
+    --brand-primary: #00843d; /* legacy alias - retained */
     --brand-light: #e6f4ec;
     --brand-dark: #005c2b;
-    --scotch: #e30613; /* wireframe red — offers/urgent */
-    --plantain: #f6b400; /* wireframe gold — rewards/feastpass */
+    --scotch: #e30613; /* wireframe red - offers/urgent */
+    --plantain: #f6b400; /* wireframe gold - rewards/feastpass */
     --yam: #00843d;
     --yam-light: #e6f4ec;
     --pot: #5f5e5a;
@@ -44,7 +44,7 @@
     --brand-gray: #5f5e5a; /* legacy alias */
     --surface: #fffdf7; /* warm cream replaces the old greyish surface */
 
-    /* Layout chrome — used by .page-content + nav components below.
+    /* Layout chrome - used by .page-content + nav components below.
        Set as raw px so calc() can mix with env(safe-area-inset-*). */
     --bottom-nav-height: 64px;
     --top-nav-height: 56px;
@@ -107,7 +107,7 @@
      ordinary mouse / touch taps (which would feel noisy). The 2px
      terracotta outline meets WCAG 1.4.11 non-text-contrast (3:1)
      against both white and the warm-cream surface. Stripping the ring
-     for non-keyboard focus is the second half of the same pattern —
+     for non-keyboard focus is the second half of the same pattern -
      without the override, browsers like Safari paint a default outline
      that conflicts with our brand colour. */
   :focus-visible {
@@ -124,7 +124,7 @@
   }
 
   /* Warm off-white feels more premium than stark white for food brands.
-     Override the shadcn `bg-background` on the body specifically — individual
+     Override the shadcn `bg-background` on the body specifically - individual
      surfaces (cards, sheets) still pick up the white --card token. */
   body {
     @apply text-foreground;
@@ -178,10 +178,10 @@
 }
 
 @layer base {
-  /* Sentinel — re-open the @layer base block so subsequent rules added by
+  /* Sentinel - re-open the @layer base block so subsequent rules added by
      other globals stay in the right cascade. (Empty on purpose.) */
 
-  /* Card baseline — use when shadcn's `<Card>` is overkill (e.g. vendor tile,
+  /* Card baseline - use when shadcn's `<Card>` is overkill (e.g. vendor tile,
      order summary). Pure white surface on the warm body background. */
   .fp-card {
     background: #fff;
@@ -191,14 +191,14 @@
       0 4px 16px 0 rgba(28, 28, 26, 0.04);
   }
 
-  /* WCAG 2.5.5 minimum tappable area — apply to any interactive element that
+  /* WCAG 2.5.5 minimum tappable area - apply to any interactive element that
      would otherwise render below 44x44 (icon buttons, chip dismissers). */
   .touch-target {
     min-height: 44px;
     min-width: 44px;
   }
 
-  /* Skip-to-main-content link. WCAG 2.4.1 — keyboard users tabbing into
+  /* Skip-to-main-content link. WCAG 2.4.1 - keyboard users tabbing into
      the page should be able to bypass the top-nav, basket button, etc.
      and jump straight to the page content. Hidden off-screen until
      focused; on focus it slides into view. Brand-coloured so it reads
@@ -231,13 +231,13 @@
     background: linear-gradient(135deg, #00843d 0%, #005c2b 100%);
   }
 
-  /* Display face utility — opt-in for hero / large headings.
+  /* Display face utility - opt-in for hero / large headings.
      Body text stays Inter; Playfair only where editorial weight helps. */
   .font-display {
     font-family: var(--font-playfair), Georgia, serif;
   }
 
-  /* Food card — warm white surface lifted on a soft terracotta shadow
+  /* Food card - warm white surface lifted on a soft terracotta shadow
      so it reads as "warm" rather than "office product". Use in place of
      .fp-card when a piece of merchandising/imagery sits on the page
      (vendor hero, dish carousel). */
@@ -257,14 +257,14 @@
       0 12px 40px rgba(0, 132, 61, 0.1);
   }
 
-  /* Tribal kente diamond divider — hidden everywhere on the customer PWA
+  /* Tribal kente diamond divider - hidden everywhere on the customer PWA
      per design call (2026-05-15). Markup remains in place so the band can
      be restored by re-enabling the styles below. */
   .kente-divider {
     display: none;
   }
 
-  /* Tribal texture overlay — apply to a section background to add the
+  /* Tribal texture overlay - apply to a section background to add the
      faint "kente weave" hinted at by the logo. 12 % opacity keeps it
      beneath text contrast minimums. */
   .tribal-bg {

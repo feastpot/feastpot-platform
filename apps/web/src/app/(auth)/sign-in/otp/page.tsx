@@ -12,12 +12,12 @@ type Step = 'phone' | 'code';
  * Phone-based sign-in via Supabase OTP.
  *
  * Step 1: collect E.164-style phone, send the code.
- * Step 2: collect 6-digit OTP — auto-submits the moment the 6th digit lands
+ * Step 2: collect 6-digit OTP - auto-submits the moment the 6th digit lands
  *   so the user doesn't need to tap a button.
  *
  * We deliberately keep the phone format permissive on the client (Supabase
  * does the strict validation server-side) and surface its error message
- * verbatim — the operator sees it before the customer would.
+ * verbatim - the operator sees it before the customer would.
  */
 export default function OtpSignInPage() {
   const router = useRouter();

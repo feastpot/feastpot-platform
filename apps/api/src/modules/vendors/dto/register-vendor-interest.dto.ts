@@ -13,7 +13,7 @@ import {
  * Public vendor application form payload. Field shape mirrors the
  * become-a-vendor form on the vendor portal so the frontend doesn't
  * have to remap. Strings are validated for length but not normalised
- * server-side — the service trims & lowercases email before persisting.
+ * server-side - the service trims & lowercases email before persisting.
  */
 export class RegisterVendorInterestDto {
   @ApiProperty({ minLength: 2, maxLength: 255 })

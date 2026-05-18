@@ -14,7 +14,7 @@ import { createContext, useCallback, useContext, useState, type ReactNode } from
 /**
  * Tiny in-app toast system, built on Radix Toast primitives re-exported from
  * @feastpot/ui. We can't use a `useToast` from the shared UI package because
- * it doesn't expose one yet — and adding a stateful hook there would couple
+ * it doesn't expose one yet - and adding a stateful hook there would couple
  * every consumer to the same provider tree. A local Provider/hook keeps the
  * vendor portal self-contained and avoids cross-app changes.
  */

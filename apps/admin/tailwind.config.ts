@@ -2,7 +2,7 @@ import type { Config } from 'tailwindcss';
 import defaultTheme from 'tailwindcss/defaultTheme';
 
 /**
- * Tailwind config for @feastpot/admin. Mirrors apps/vendor — see that file
+ * Tailwind config for @feastpot/admin. Mirrors apps/vendor - see that file
  * for the rationale on duplicating brand tokens (so authors can write
  * `bg-vendor` directly without going through HSL CSS vars).
  */

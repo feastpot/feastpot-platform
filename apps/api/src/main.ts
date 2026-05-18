@@ -8,7 +8,7 @@ import express from 'express';
 import helmet from 'helmet';
 
 // Bull v3 spins up three ioredis connections per queue (client, subscriber,
-// bclient). When REDIS_URL has bad credentials, AUTH fails on all three —
+// bclient). When REDIS_URL has bad credentials, AUTH fails on all three -
 // but Bull only attaches an `error` listener to its main `client`, so the
 // AUTH failure on the bclient/subscriber bubbles up as an unhandled
 // `ReplyError: WRONGPASS` and crashes the entire process. We don't want a
@@ -20,7 +20,7 @@ import helmet from 'helmet';
 const isBenignRedisError = (err: unknown): boolean => {
   if (!err || typeof err !== 'object') return false;
   const message = String((err as { message?: unknown }).message ?? '');
-  // Redis-protocol auth errors are unambiguous — they only come from a
+  // Redis-protocol auth errors are unambiguous - they only come from a
   // Redis server and never from Postgres/HTTP/etc.
   if (/\b(WRONGPASS|NOAUTH|NOPERM|MOVED|CLUSTERDOWN|READONLY)\b/.test(message)) {
     return true;
@@ -34,7 +34,7 @@ const isBenignRedisError = (err: unknown): boolean => {
     return true;
   }
   // ECONNREFUSED to the standard Redis ports (6379 plain, 6380 TLS) is
-  // unambiguously a Redis connection — Postgres is 5432, SMTP is
+  // unambiguously a Redis connection - Postgres is 5432, SMTP is
   // 25/465/587, etc. Catching this means a dev env without REDIS_URL
   // doesn't crash from Bull's eager localhost-fallback connect attempt
   // (which otherwise produces an `uncaughtException` Node 22 surfaces).
@@ -47,7 +47,7 @@ const isBenignRedisError = (err: unknown): boolean => {
   }
   return false;
 };
-// Rate-limit the "suppressed Redis error" log itself — Bull's three
+// Rate-limit the "suppressed Redis error" log itself - Bull's three
 // connections per queue × four queues × N retries can produce dozens of
 // identical lines in the first second. Log the first few, then stay
 // quiet for the rest of the process lifetime so real errors stay visible.
@@ -121,9 +121,9 @@ async function bootstrap(): Promise<void> {
   // hook ourselves so req.rawBody is the EXACT bytes Stripe signed. If we let
   // Nest install its own parser, edge cases (charset, content-type quirks,
   // double-parse) have historically dropped rawBody and broken signature
-  // verification — every webhook then 400s and orders never confirm.
+  // verification - every webhook then 400s and orders never confirm.
   // bufferLogs: true so the early-bootstrap logs are buffered until pino
-  // takes over below — otherwise they'd be dropped by Nest's default logger
+  // takes over below - otherwise they'd be dropped by Nest's default logger
   // before useLogger() swaps it out.
   const app = await NestFactory.create(AppModule, {
     rawBody: true,
@@ -132,7 +132,7 @@ async function bootstrap(): Promise<void> {
   });
   app.useLogger(app.get(Logger));
 
-  // Manual body parsers — must be installed BEFORE any route runs. The verify
+  // Manual body parsers - must be installed BEFORE any route runs. The verify
   // callback stashes the raw Buffer on the request so Stripe's webhook
   // controller can call stripe.webhooks.constructEvent(req.rawBody, sig, secret).
   app.use(
@@ -170,12 +170,12 @@ async function bootstrap(): Promise<void> {
     new ValidationPipe({
       whitelist: true,
       // `forbidNonWhitelisted` was previously `true`, which 400'd ANY request
-      // carrying an unknown key — including harmless query-string passengers
+      // carrying an unknown key - including harmless query-string passengers
       // like `?utm_source=google` / `?fbclid=…` from ad deep-links and
       // `?status=live` diagnostic curls before the DTO declared `status`.
       // We keep `whitelist: true` so unknown keys are STRIPPED before they
       // reach handlers (no Prisma `where`-spread escape route), but stop
-      // throwing on their presence — matching what most production NestJS
+      // throwing on their presence - matching what most production NestJS
       // APIs ship with.
       forbidNonWhitelisted: false,
       transform: true,
@@ -186,7 +186,7 @@ async function bootstrap(): Promise<void> {
   // D22: Prisma filters are registered BEFORE HttpExceptionFilter. Nest
   // matches filters by their @Catch() decorator, so Prisma errors land on
   // the Prisma filters and HttpExceptions still land on HttpExceptionFilter
-  // — registration order only matters for filters that catch the same type.
+  // - registration order only matters for filters that catch the same type.
   app.useGlobalFilters(
     new PrismaExceptionFilter(),
     new PrismaValidationFilter(),
@@ -204,7 +204,7 @@ async function bootstrap(): Promise<void> {
     SwaggerModule.setup('api/docs', app, document);
   }
 
-  // Bind to 0.0.0.0 — required for Replit's container networking. Listening on
+  // Bind to 0.0.0.0 - required for Replit's container networking. Listening on
   // localhost only would make the service invisible to the platform's proxy.
   await app.listen(port, '0.0.0.0');
   // eslint-disable-next-line no-console

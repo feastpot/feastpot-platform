@@ -8,7 +8,7 @@ import { useEffect, useState } from 'react';
  * `onExpire` callback fires exactly once when the countdown crosses zero.
  *
  * Implemented with `setInterval` (not rAF) because we only need 1Hz updates
- * — rAF would burn 60× the wakeups for an identical UI.
+ * - rAF would burn 60× the wakeups for an identical UI.
  */
 export function useCountdown(deadline: Date | string | null, onExpire?: () => void) {
   const [remaining, setRemaining] = useState<number>(() => calcRemaining(deadline));

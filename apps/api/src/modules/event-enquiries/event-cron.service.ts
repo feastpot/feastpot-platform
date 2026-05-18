@@ -32,7 +32,7 @@ export class EventCronService {
   @Cron(CronExpression.EVERY_HOUR, { name: 'event-reminder-72h' })
   async eventReminder72h() {
     if (!this.cache.available) {
-      this.logger.warn('Redis unavailable — skipping event-reminder-72h tick');
+      this.logger.warn('Redis unavailable - skipping event-reminder-72h tick');
       return;
     }
     const now = Date.now();
@@ -62,20 +62,20 @@ export class EventCronService {
 
   /**
    * D16 (S2): expire enquiries that received no quote within the
-   * 48h SLA window. Runs every 6 hours — finer granularity isn't
+   * 48h SLA window. Runs every 6 hours - finer granularity isn't
    * useful because the SLA is measured in days. Status 'expired'
    * (vs 'cancelled') preserves the distinction in analytics between
    * "vendor unresponsive" and "customer/vendor changed their mind".
    *
    * Idempotency: the WHERE clause already filters out non-`open`
-   * enquiries, so re-running this cron after a Redis blip is safe —
+   * enquiries, so re-running this cron after a Redis blip is safe -
    * an already-expired row is no longer `open`, won't match again,
    * and the customer won't get a duplicate "expired" email.
    */
   @Cron(CronExpression.EVERY_6_HOURS, { name: 'enquiries-expire-stale' })
   async expireStaleEnquiries() {
     if (!this.cache.available) {
-      this.logger.warn('Redis unavailable — skipping enquiries-expire-stale tick');
+      this.logger.warn('Redis unavailable - skipping enquiries-expire-stale tick');
       return;
     }
     const SLA_HOURS = 48;
@@ -117,7 +117,7 @@ export class EventCronService {
   @Cron(CronExpression.EVERY_HOUR, { name: 'event-balance-48h' })
   async eventBalance48h() {
     if (!this.cache.available) {
-      this.logger.warn('Redis unavailable — skipping event-balance-48h tick');
+      this.logger.warn('Redis unavailable - skipping event-balance-48h tick');
       return;
     }
     const now = Date.now();
@@ -155,7 +155,7 @@ export class EventCronService {
           metadata: { enquiryId: e.id, customerId: e.customerId, kind: 'event_balance' },
           idempotencyKey: `event_balance:${e.id}`,
         });
-        // Conditional claim — if confirmNumbers / a parallel cron beat us,
+        // Conditional claim - if confirmNumbers / a parallel cron beat us,
         // cancel the duplicate PI rather than orphaning two on Stripe.
         const claim = await this.prisma.eventEnquiry.updateMany({
           where: { id: e.id, balancePiId: null },

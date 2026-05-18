@@ -93,7 +93,7 @@ function AuthShell() {
   // source of truth and we push back into the URL via router.replace().
   const initialMode: Mode = useMemo(
     () => (params?.get('mode') === 'register' ? 'register' : 'signin'),
-    // Only consider URL state on first paint — switching the local tab
+    // Only consider URL state on first paint - switching the local tab
     // updates the URL itself, so re-deriving from params would loop.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
@@ -564,7 +564,7 @@ function RegisterPane({
         // Don't fail the signup if the mirror route is missing.
         if (e instanceof ApiError && e.status === 404) {
           console.warn(
-            '[register] /v1/users/sync not yet implemented — skipping mirror.',
+            '[register] /v1/users/sync not yet implemented - skipping mirror.',
           );
         } else {
           throw e;

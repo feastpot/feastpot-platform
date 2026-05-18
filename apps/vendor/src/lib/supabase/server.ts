@@ -13,7 +13,7 @@ export async function createClient(): Promise<SupabaseClient> {
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !anonKey) {
     throw new Error(
-      'Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY — set them in apps/vendor/.env.local',
+      'Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY - set them in apps/vendor/.env.local',
     );
   }
   const cookieStore = await cookies();
@@ -29,7 +29,7 @@ export async function createClient(): Promise<SupabaseClient> {
             cookieStore.set(name, value, options);
           });
         } catch {
-          // Server Components can't write cookies — that's middleware's job.
+          // Server Components can't write cookies - that's middleware's job.
         }
       },
     },

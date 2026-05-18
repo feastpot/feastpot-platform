@@ -1,5 +1,5 @@
 /**
- * Sentry instrumentation — MUST be imported before anything else in main.ts so
+ * Sentry instrumentation - MUST be imported before anything else in main.ts so
  * its OpenTelemetry hooks can patch http/express/nestjs at require-time.
  *
  * Reads SENTRY_DSN from the environment. When unset (e.g. local dev without a

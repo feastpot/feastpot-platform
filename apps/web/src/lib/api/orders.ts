@@ -60,7 +60,7 @@ export interface Order {
   cancelledAt: string | null;
   /** Vendor-provided ETA in minutes from dispatch. Null until dispatched. */
   etaMinutes: number | null;
-  /** Absolute ETA wall-clock — preferred over etaMinutes for display. */
+  /** Absolute ETA wall-clock - preferred over etaMinutes for display. */
   etaAt: string | null;
   createdAt: string;
   items?: OrderItem[];
@@ -94,7 +94,7 @@ export interface CreateOrderInput {
 
 export interface CreateOrderResult {
   order: Order;
-  /** Stripe PaymentIntent client secret — pass to `stripe.confirmCardPayment`. */
+  /** Stripe PaymentIntent client secret - pass to `stripe.confirmCardPayment`. */
   clientSecret: string;
 }
 
@@ -144,7 +144,7 @@ export interface ReorderInput {
   notes?: string;
 }
 
-/** Returns the same `{ order, clientSecret }` shape as `createOrder` — the
+/** Returns the same `{ order, clientSecret }` shape as `createOrder` - the
  * server actually delegates back to the create flow internally. */
 export function reorder(
   originalOrderId: string,
@@ -162,14 +162,14 @@ export function reorder(
  * Customer-initiated cancellation.
  *
  * BACKEND GAP: the API only exposes `PATCH /v1/orders/:id/status` with
- * `vendor`/`admin` roles — there's no customer-callable cancel endpoint
+ * `vendor`/`admin` roles - there's no customer-callable cancel endpoint
  * today. We attempt the call so cancellation works the moment the API team
  * adds the role; until then the FE surfaces a 403 with a helpful message
  * ("contact the vendor to cancel").
  */
 /**
  * Customer self-cancel (UK Consumer Contracts Regulations 2013).
- * Hits POST /v1/orders/:id/cancel — the legacy PATCH /status route is
+ * Hits POST /v1/orders/:id/cancel - the legacy PATCH /status route is
  * vendor/admin only and 403s for customers.
  */
 export function cancelOrder(

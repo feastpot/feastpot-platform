@@ -12,14 +12,14 @@ import { useBasketStore } from '@/store/basket.store';
  * Resolve an explicit back destination for the TopNav back button.
  *
  * We avoid `router.back()` as the primary path because users who land
- * deep-linked from Google or a shared SMS have no history entry — the
+ * deep-linked from Google or a shared SMS have no history entry - the
  * browser would either no-op or kick them off the site. Returning a
  * concrete URL guarantees the back affordance always works, and the
  * caller can still fall through to `router.back()` for cases where the
  * in-context history is the right destination (e.g. checkout, where
  * the previous vendor page is the natural return).
  *
- * Order matters — more specific paths must come before their parents.
+ * Order matters - more specific paths must come before their parents.
  */
 function resolveBackPath(
   pathname: string,
@@ -29,7 +29,7 @@ function resolveBackPath(
     return { href: '/account/orders' };
   }
   if (pathname.startsWith('/orders/')) return { href: '/account/orders' };
-  // Checkout — natural back is the vendor page the basket was built on,
+  // Checkout - natural back is the vendor page the basket was built on,
   // so we let the browser history walk one step back. Fallback to
   // /vendors when the user has no history (deep link from a saved
   // checkout URL, push notification, etc.) so the button never no-ops.
@@ -46,13 +46,13 @@ function resolveBackPath(
   // catch-all below).
   if (pathname.startsWith('/account/')) return { href: '/account' };
   // Catch-all for top-level inner pages (/vendors, /events, /account,
-  // /legal, /help, /offline) — back goes home.
+  // /legal, /help, /offline) - back goes home.
   return { href: '/' };
 }
 
 /**
  * Page titles mapped to route prefixes. The empty string for `/` means "show
- * the wordmark instead of a title" — homepage gets the brand, inner pages get
+ * the wordmark instead of a title" - homepage gets the brand, inner pages get
  * a contextual H1. Order matters: `/orders` must precede `/` in the lookup
  * loop so it's matched before the catch-all root.
  */
@@ -69,7 +69,7 @@ const PAGE_TITLES: Array<readonly [prefix: string, title: string]> = [
 
 /**
  * Derive a fallback title from the first path segment when no explicit mapping
- * matches — e.g. `/cuisines/jollof` → "Cuisines". Title-cases the segment so
+ * matches - e.g. `/cuisines/jollof` → "Cuisines". Title-cases the segment so
  * we never render an empty `<h1>` on inner pages. Returns null only for routes
  * we genuinely can't infer (e.g. `/`).
  */
@@ -84,13 +84,13 @@ function fallbackTitleFromPath(pathname: string): string | null {
  * notifications bell + basket-drawer trigger on the right.
  *
  * `BasketDrawer` is invoked with a button child because it uses a Radix Sheet
- * with `<SheetTrigger asChild>` internally — passing a self-closing element
+ * with `<SheetTrigger asChild>` internally - passing a self-closing element
  * would cause Radix to render its default (invisible) trigger and the basket
  * icon would never open the sheet. Selector reads only the count so the whole
  * nav doesn't re-render on every basket field change.
  *
  * `position: fixed` (not sticky) because the inner-page H1 lives here, not in
- * page content — keeping it pinned avoids it scrolling out of view. Layout's
+ * page content - keeping it pinned avoids it scrolling out of view. Layout's
  * `<main className="page-content">` reserves the chrome's height via the
  * `--top-nav-height` and `--bottom-nav-height` CSS vars.
  */
@@ -103,15 +103,15 @@ export function TopNav() {
   // on /register, centered logo on /register/create-account, brand rail
   // on /sign-in). Rendering the in-app TopNav on top of those produces
   // a duplicate "< Register" / "< Sign in" band stacked above the
-  // page's own header — so we suppress the TopNav for the (auth)
+  // page's own header - so we suppress the TopNav for the (auth)
   // route group. Footer self-shows on these routes via its own
   // pathname check so the legal copy is still discoverable.
   //
-  // Same story for `/` — the homepage now renders a wide MarketingNav
+  // Same story for `/` - the homepage now renders a wide MarketingNav
   // (with a postcode pill + Browse/How it works/Event catering/Become
   // a cook/Help links) inside the page itself, so this in-app chrome
   // would just be a second nav bar on top.
-  // /sign-in is intentionally NOT in this list — the consolidated auth page
+  // /sign-in is intentionally NOT in this list - the consolidated auth page
   // is meant to live inside the regular customer chrome so users can keep
   // navigating (Categories, Offers, basket) without losing the form.
   // Subroutes like /sign-in/otp stay hidden via the startsWith below.
@@ -137,7 +137,7 @@ export function TopNav() {
     const target = resolveBackPath(pathname);
     if ('history' in target) {
       // window.history.length === 1 means the current entry is the
-      // first in this tab — router.back() would be a no-op. Route to
+      // first in this tab - router.back() would be a no-op. Route to
       // the fallback so the button always advances the user somewhere
       // sensible. (length includes the current entry, hence <= 1.)
       if (typeof window !== 'undefined' && window.history.length <= 1) {
@@ -179,7 +179,7 @@ export function TopNav() {
                 which collapsed the visible logo to ~18px tall at h-8).
                 With trimmed art we can size the rendered logo to a
                 modern PWA chrome standard: 40px tall (h-10) inside a
-                56px (h-14) header — ~71% fill, the ratio used by Uber
+                56px (h-14) header - ~71% fill, the ratio used by Uber
                 Eats / Deliveroo / Just Eat. Width is intrinsic. */}
             <Image
               src="/images/feastpot-logo.png"
@@ -214,7 +214,7 @@ export function TopNav() {
         <div className="flex items-center gap-1">
           {/* Bell + basket bumped to 44×44 (h-11 w-11) so the entire
               top-bar control row meets WCAG 2.5.5 / Apple HIG mobile
-              minimums. Icon size unchanged — just the hit area grows. */}
+              minimums. Icon size unchanged - just the hit area grows. */}
           <button
             type="button"
             aria-label="Notifications"

@@ -70,7 +70,7 @@ export class HealthController {
 
   /**
    * Liveness probe: zero-IO, used by Replit Autoscale to verify the process
-   * is responsive. We deliberately do NOT touch the DB here — a Postgres
+   * is responsive. We deliberately do NOT touch the DB here - a Postgres
    * blip should not cause the orchestrator to kill an otherwise healthy
    * pod.
    */
@@ -89,7 +89,7 @@ export class HealthController {
    * Readiness probe: deep dependency check. Returns 503 if Postgres or
    * Redis is unreachable so a load balancer can drain the instance.
    * Queue depths are reported for visibility but do NOT contribute to the
-   * 200/503 verdict — a backed-up queue is a paging concern, not a
+   * 200/503 verdict - a backed-up queue is a paging concern, not a
    * "remove from rotation" concern (the API still serves reads fine).
    */
   @Public()
@@ -117,12 +117,12 @@ export class HealthController {
       ),
       withTimeout<QueueStatus>(
         this.collectQueueDepths(),
-        { error: 'timeout — Redis may be unhealthy' },
+        { error: 'timeout - Redis may be unhealthy' },
       ),
     ]);
 
     // D21: a missing required secret (e.g. STRIPE_WEBHOOK_SECRET) is a
-    // hard 503 — payment confirmations would be silently dropped, so the
+    // hard 503 - payment confirmations would be silently dropped, so the
     // load balancer should drain the instance. This is intentionally
     // stricter than D3 part 2's "Redis-only outages stay 200" rule
     // because a missing secret blocks revenue-critical work.
@@ -133,7 +133,7 @@ export class HealthController {
     //   - DB unreachable / timed out → "down" (503), uptime monitors page.
     //   - Required secret missing → "down" (503), config emergency.
     //   - Redis unreachable / queues unreachable → "degraded" (200),
-    //     so uptime monitors do NOT page — API still serves reads.
+    //     so uptime monitors do NOT page - API still serves reads.
     //   - Otherwise → "ok" (200).
     const dbDown = db !== 'ok';
     const secretsDown = missing.length > 0;

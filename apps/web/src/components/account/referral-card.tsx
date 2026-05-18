@@ -9,7 +9,7 @@ import { useReferrals } from '@/hooks/use-referrals';
 const formatPounds = (p: number) => `£${(p / 100).toFixed(2)}`;
 
 /**
- * "Give £5, Get £5" referral card — wireframe-spec green panel with a
+ * "Give £5, Get £5" referral card - wireframe-spec green panel with a
  * cream code input, gold Invite Now CTA, and a small rewarded/pending
  * status row. Uses the Web Share API where available, falls back to
  * copy-to-clipboard.
@@ -25,7 +25,7 @@ export function ReferralCard() {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
-      // clipboard blocked — fall through, button stays in idle state.
+      // clipboard blocked - fall through, button stays in idle state.
     }
   };
 
@@ -51,7 +51,7 @@ export function ReferralCard() {
 
   return (
     <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-brand to-brand-dark p-5 text-white shadow-card">
-      {/* Decorative gift glyph in the top-right corner — purely cosmetic. */}
+      {/* Decorative gift glyph in the top-right corner - purely cosmetic. */}
       <div
         aria-hidden
         className="pointer-events-none absolute -right-4 -top-4 grid h-24 w-24 rotate-12 place-items-center rounded-3xl bg-plantain/90 text-charcoal shadow-lg"
@@ -66,7 +66,7 @@ export function ReferralCard() {
         Give £5, Get £5
       </h2>
       <p className="mt-1.5 max-w-[22ch] text-sm font-medium text-white/85">
-        Share your code — friends get £5 off their first order over £20 and you get
+        Share your code - friends get £5 off their first order over £20 and you get
         500 feastpoints (£5).
       </p>
 
@@ -78,7 +78,7 @@ export function ReferralCard() {
         </p>
       ) : (
         <>
-          {/* Code chip + copy button — code lives in a cream pill so it's
+          {/* Code chip + copy button - code lives in a cream pill so it's
               easy to spot against the green panel. */}
           <div className="mt-4 flex items-stretch gap-2 rounded-2xl bg-white p-1.5 shadow-sm">
             <code className="flex flex-1 items-center px-3 text-base font-black tracking-[0.18em] text-brand">
@@ -102,7 +102,7 @@ export function ReferralCard() {
             </button>
           </div>
 
-          {/* Action row — Share / Invite Now in plantain gold. */}
+          {/* Action row - Share / Invite Now in plantain gold. */}
           <div className="mt-3 grid grid-cols-2 gap-2">
             <button
               type="button"

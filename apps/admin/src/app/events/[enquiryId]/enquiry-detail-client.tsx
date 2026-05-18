@@ -16,7 +16,7 @@ interface EnquiryDetailClientProps {
 /**
  * D17 (S3): admin-only detail view for a single event enquiry.
  *
- * Backed by the existing GET /v1/event-enquiries/:id — that endpoint
+ * Backed by the existing GET /v1/event-enquiries/:id - that endpoint
  * already returns the full enquiry (with all quotes + selectedVendor)
  * unfiltered for admin callers, so a separate /admin/event-enquiries/:id
  * route would just duplicate logic.
@@ -61,14 +61,14 @@ export function EnquiryDetailClient({ enquiryId }: EnquiryDetailClientProps) {
   });
 
   // The most recent submitted quote is the most useful single number to
-  // surface — full thread is rendered in the Quotes section below.
+  // surface - full thread is rendered in the Quotes section below.
   const acceptedQuote = enquiry.quotes.find((q) => q.status === 'accepted');
   const headlineQuote = acceptedQuote ?? enquiry.quotes[0] ?? null;
 
   return (
     <>
       <PageHeader
-        title={`Event enquiry — ${customerName}`}
+        title={`Event enquiry - ${customerName}`}
         description="Full enquiry brief, all vendor quotes, and the matched vendor."
         actions={
           <div className="flex items-center gap-2">
@@ -81,7 +81,7 @@ export function EnquiryDetailClient({ enquiryId }: EnquiryDetailClientProps) {
         }
       />
 
-      {/* Core details — 2-column grid on md+, single column on mobile. */}
+      {/* Core details - 2-column grid on md+, single column on mobile. */}
       <div className="mb-6 grid grid-cols-1 gap-3 md:grid-cols-2">
         <Field label="Customer" value={customerName} />
         <Field label="Email" value={enquiry.customer.email} />
@@ -100,11 +100,11 @@ export function EnquiryDetailClient({ enquiryId }: EnquiryDetailClientProps) {
         />
         <Field
           label="Cuisines"
-          value={enquiry.cuisines.length > 0 ? enquiry.cuisines.join(', ') : '—'}
+          value={enquiry.cuisines.length > 0 ? enquiry.cuisines.join(', ') : '-'}
         />
         <Field
           label="Dietary"
-          value={enquiry.dietary.length > 0 ? enquiry.dietary.join(', ') : '—'}
+          value={enquiry.dietary.length > 0 ? enquiry.dietary.join(', ') : '-'}
         />
         <Field label="Postcode" value={enquiry.postcode.toUpperCase()} mono />
         <Field
@@ -113,7 +113,7 @@ export function EnquiryDetailClient({ enquiryId }: EnquiryDetailClientProps) {
         />
         <Field
           label="Quote deadline"
-          value={enquiry.quoteDeadline ? formatDate(enquiry.quoteDeadline) : '—'}
+          value={enquiry.quoteDeadline ? formatDate(enquiry.quoteDeadline) : '-'}
         />
         <Field label="Submitted" value={formatDate(enquiry.createdAt)} />
         <Field label="Last updated" value={formatDate(enquiry.updatedAt)} />
@@ -166,7 +166,7 @@ export function EnquiryDetailClient({ enquiryId }: EnquiryDetailClientProps) {
                     </span>
                   </div>
                   <div className="text-right font-medium">
-                    {q.totalPence !== null ? formatPence(q.totalPence) : '—'}
+                    {q.totalPence !== null ? formatPence(q.totalPence) : '-'}
                   </div>
                 </div>
               ))}
@@ -175,7 +175,7 @@ export function EnquiryDetailClient({ enquiryId }: EnquiryDetailClientProps) {
         </CardContent>
       </Card>
 
-      {/* Customer requirements / notes — nullable field on the schema. */}
+      {/* Customer requirements / notes - nullable field on the schema. */}
       {('notes' in enquiry && (enquiry as { notes?: string | null }).notes) ? (
         <Card className="mb-6 border-amber-200 bg-amber-50/40">
           <CardContent className="py-4">

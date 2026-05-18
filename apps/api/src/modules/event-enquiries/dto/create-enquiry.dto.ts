@@ -24,7 +24,7 @@ export class CreateEventEnquiryDto {
   @Min(10)
   guestCount!: number;
 
-  @ApiProperty({ description: 'ISO date — must be at least 7 days from now' })
+  @ApiProperty({ description: 'ISO date - must be at least 7 days from now' })
   @IsDateString()
   eventDate!: string;
 

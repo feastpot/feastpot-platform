@@ -3,7 +3,7 @@ import { baseLayout, escapeHtml, h2, p } from './base-layout';
 export interface VendorApplicationInfoRequestedData {
   firstName: string;
   kitchenName: string;
-  /** Free-form ask from the admin — surfaced verbatim to the applicant. */
+  /** Free-form ask from the admin - surfaced verbatim to the applicant. */
   question: string;
   supportEmail?: string;
 }
@@ -37,7 +37,7 @@ export function vendorApplicationInfoRequestedTemplate(
         ) +
         questionBlock +
         p(
-          `Just reply to this email — or write to <a href="mailto:${escapeHtml(support)}" style="color:#E8520A">${escapeHtml(support)}</a> — and we'll pick up your application as soon as we hear back.`,
+          `Just reply to this email - or write to <a href="mailto:${escapeHtml(support)}" style="color:#E8520A">${escapeHtml(support)}</a> - and we'll pick up your application as soon as we hear back.`,
         ) +
         p(`We typically respond within 1 business day.`, '#888780'),
       `A quick question about your application for ${kitchenName}`,

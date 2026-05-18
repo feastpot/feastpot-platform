@@ -5,9 +5,9 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 
 /**
- * Pill search bar for /vendors. Visually matches the wireframe — large
+ * Pill search bar for /vendors. Visually matches the wireframe - large
  * rounded white field with a prominent green "Search" button glued to the
- * right edge — but functionally identical to the older VendorSearchInput it
+ * right edge - but functionally identical to the older VendorSearchInput it
  * replaces: keystrokes are debounced (300 ms) into `?q=` so the back button
  * and shareable URLs both keep working. The submit button just flushes the
  * pending value immediately for users who prefer to commit explicitly.
@@ -38,7 +38,7 @@ export function VendorSearchBar() {
     const params = new URLSearchParams(sp?.toString() ?? '');
     if (trimmed) {
       params.set('q', trimmed);
-      // Free-text search overrides the merchandising chip — keeping both
+      // Free-text search overrides the merchandising chip - keeping both
       // would create a confusing implicit AND ("Party trays AND jollof")
       // that doesn't match either UI affordance.
       params.delete('category');

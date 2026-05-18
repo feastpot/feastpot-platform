@@ -7,12 +7,12 @@ export type CoverageResult =
   | { status: 'error'; message: string };
 
 /**
- * Coverage check — does Feastpot have at least one live vendor delivering to
+ * Coverage check - does Feastpot have at least one live vendor delivering to
  * this postcode? Powers the postcode gate on the homepage: covered postcodes
  * unlock the vendor rails; uncovered ones route to /waitlist.
  *
  * Tri-state result: a transient network error must NOT silently grant
- * coverage (and burn a 30-day cookie) — callers surface a retry prompt
+ * coverage (and burn a 30-day cookie) - callers surface a retry prompt
  * instead. Implemented as a `limit=1` search against the existing public
  * vendor endpoint to avoid forking a second source of truth.
  */

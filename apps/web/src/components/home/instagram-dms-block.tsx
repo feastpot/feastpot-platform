@@ -1,7 +1,7 @@
 import { Lock, MapPin, ShieldCheck, Utensils } from 'lucide-react';
 
 /**
- * "HIGHER VALUE, LOWER FRICTION — No more chasing Instagram DMs or
+ * "HIGHER VALUE, LOWER FRICTION - No more chasing Instagram DMs or
  * uncertain bank transfers." Two-up section: long-form copy block on
  * the left, 2×2 grid of credibility cards on the right.
  */

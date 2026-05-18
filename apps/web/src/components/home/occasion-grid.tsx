@@ -12,7 +12,7 @@ import {
 import Link from 'next/link';
 
 /**
- * "What are you ordering for?" — 8-tile occasion grid from the
+ * "What are you ordering for?" - 8-tile occasion grid from the
  * wireframe. Each tile is a soft-tinted card with an icon, label,
  * one-line description and an "Enter postcode →" link that anchors
  * back to the hero (so the user lands on the form with intent

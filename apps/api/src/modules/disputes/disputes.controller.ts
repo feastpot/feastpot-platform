@@ -39,7 +39,7 @@ export class DisputesController {
   constructor(private readonly disputes: DisputesService) {}
 
   @Get()
-  // Finance / compliance staff have their own dedicated tools — they don't
+  // Finance / compliance staff have their own dedicated tools - they don't
   // need raw dispute access. The service still scopes results: customers see
   // their own, vendors see disputes on their orders, support/admin see all.
   @Roles(UserRole.customer, UserRole.vendor, UserRole.support, UserRole.admin)

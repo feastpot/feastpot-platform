@@ -40,7 +40,7 @@ const STATUSES: ReadonlyArray<EnquiryStatus | 'all'> = [
 ];
 
 /**
- * Admin event-enquiry queue. Hits GET /v1/event-enquiries — that endpoint
+ * Admin event-enquiry queue. Hits GET /v1/event-enquiries - that endpoint
  * already returns ALL enquiries unscoped when the caller has the admin
  * role, so a separate /admin/event-enquiries route is unnecessary.
  *
@@ -140,12 +140,12 @@ function EnquiryRowView({ row: e, onOpen }: { row: EnquiryRow; onOpen: () => voi
   const customerName =
     `${e.customer.firstName ?? ''} ${e.customer.lastName ?? ''}`.trim() || e.customer.email;
   const guests = e.finalGuestCount ?? e.guestCount;
-  const cuisines = e.cuisines.length > 0 ? e.cuisines.join(', ') : '—';
+  const cuisines = e.cuisines.length > 0 ? e.cuisines.join(', ') : '-';
   return (
     <TableRow
       className="cursor-pointer hover:bg-muted/50"
       onClick={onOpen}
-      // Keyboard parity for the click handler — `<TableRow>` renders a
+      // Keyboard parity for the click handler - `<TableRow>` renders a
       // <tr> which isn't focusable by default, so we make it tab-stoppable.
       tabIndex={0}
       onKeyDown={(ev) => {
@@ -167,10 +167,10 @@ function EnquiryRowView({ row: e, onOpen }: { row: EnquiryRow; onOpen: () => voi
       <TableCell className="font-mono text-xs uppercase">{e.postcode}</TableCell>
       <TableCell className="text-sm text-muted-foreground">{cuisines}</TableCell>
       <TableCell className="text-right text-sm">
-        {e.budgetPence !== null ? formatPence(e.budgetPence) : '—'}
+        {e.budgetPence !== null ? formatPence(e.budgetPence) : '-'}
       </TableCell>
       <TableCell className="text-right text-sm">{e.quotes.length}</TableCell>
-      <TableCell className="text-sm">{e.selectedVendor?.businessName ?? '—'}</TableCell>
+      <TableCell className="text-sm">{e.selectedVendor?.businessName ?? '-'}</TableCell>
       <TableCell>
         <StatusPill status={e.status} />
       </TableCell>
@@ -186,7 +186,7 @@ function StatusPill({ status }: { status: EnquiryStatus }) {
     completed: 'bg-teal-light text-teal-dark',
     cancelled: 'bg-red-100 text-red-900',
     // Neutral grey to visually separate operational expiry from the red
-    // 'cancelled' state — matches the spec's #444441/#F1EFE8 intent.
+    // 'cancelled' state - matches the spec's #444441/#F1EFE8 intent.
     expired: 'bg-stone-200 text-stone-800',
   };
   return <Badge className={styles[status]}>{status}</Badge>;

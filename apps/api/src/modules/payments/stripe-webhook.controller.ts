@@ -44,22 +44,22 @@ export class StripeWebhookController {
   ): Promise<{ received: true }> {
     // Hard guard: if rawBody is undefined, NestFactory.create is misconfigured
     // (rawBody:true / bodyParser:false / express.json verify hook). Every
-    // webhook would 400 silently and orders would never confirm — log loudly.
+    // webhook would 400 silently and orders would never confirm - log loudly.
     const rawBody = req.rawBody;
     if (!rawBody) {
-      this.logger.error('[Stripe Webhook] rawBody is undefined — check NestFactory.create options');
+      this.logger.error('[Stripe Webhook] rawBody is undefined - check NestFactory.create options');
       throw new BadRequestException({ code: 'MISSING_RAW_BODY', message: 'Webhook payload missing' });
     }
 
     const secret = this.config.get<string>('STRIPE_WEBHOOK_SECRET');
     if (!secret) {
-      // D21: 503 (not 400) — this is an ops/config failure on our side, not
+      // D21: 503 (not 400) - this is an ops/config failure on our side, not
       // a malformed request from Stripe. A 503 also makes Stripe retry with
       // backoff so events aren't lost once the secret is set.
       this.logger.error('[Stripe Webhook] STRIPE_WEBHOOK_SECRET not configured');
       throw new ServiceUnavailableException({
         code: 'WEBHOOK_NOT_CONFIGURED',
-        message: 'Webhook processing not available — contact ops',
+        message: 'Webhook processing not available - contact ops',
       });
     }
     if (!signature) {
@@ -75,14 +75,14 @@ export class StripeWebhookController {
     }
 
     // Idempotency: stripeEventId has a unique constraint. Check first to short-
-    // circuit retries, but we ENQUEUE BEFORE we mark processed — otherwise an
+    // circuit retries, but we ENQUEUE BEFORE we mark processed - otherwise an
     // enqueue failure would be permanently swallowed by the next retry.
     const already = await this.prisma.processedWebhookEvent.findUnique({
       where: { stripeEventId: event.id },
       select: { id: true },
     });
     if (already) {
-      this.logger.debug(`Duplicate webhook ${event.id} (${event.type}) — already processed`);
+      this.logger.debug(`Duplicate webhook ${event.id} (${event.type}) - already processed`);
       return { received: true };
     }
 

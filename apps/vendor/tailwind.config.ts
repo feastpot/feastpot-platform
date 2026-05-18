@@ -8,7 +8,7 @@ import defaultTheme from 'tailwindcss/defaultTheme';
  * apply across the customer PWA and the vendor portal:
  *   - `bg-brand` / `bg-teal` / `bg-vendor` resolve to literal hex via the
  *     `brand` / `teal` / `vendor` colour scales below (don't go through
- *     the shadcn HSL var layer for these — those are reserved for neutral
+ *     the shadcn HSL var layer for these - those are reserved for neutral
  *     semantic tokens).
  *   - `text-dark` / `text-mid` / `bg-surface` are mobile-only utility
  *     neutrals that match the customer app's tokens.
@@ -23,7 +23,7 @@ const config: Config = {
     container: { center: true, padding: '1rem' },
     extend: {
       colors: {
-        // Feastpot brand palette — full scales for variants. Brand orange
+        // Feastpot brand palette - full scales for variants. Brand orange
         // remains available for revenue/critical-accept actions.
         brand: {
           DEFAULT: '#E8520A',
@@ -54,13 +54,13 @@ const config: Config = {
           700: '#0F4373',
         },
 
-        // Mobile-only neutrals — same set as the customer app so cross-app
+        // Mobile-only neutrals - same set as the customer app so cross-app
         // copy/paste of components is safe.
         dark: '#1C1C1A',
         mid: '#5F5E5A',
         surface: '#F8F7F5',
 
-        // shadcn/ui semantic tokens — bound to CSS vars in globals.css.
+        // shadcn/ui semantic tokens - bound to CSS vars in globals.css.
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
         card: { DEFAULT: 'hsl(var(--card))', foreground: 'hsl(var(--card-foreground))' },

@@ -67,7 +67,7 @@ export class CatalogueController {
     @Req() req?: AuthedRequest,
   ) {
     // Treat `?includeInactive=1|true` as truthy, anything else as false. We do
-    // NOT trust this flag from anonymous callers — only an authed vendor-owner
+    // NOT trust this flag from anonymous callers - only an authed vendor-owner
     // or admin/compliance role may see inactive menus. That gate lives in the
     // service so this controller stays declarative.
     const wants = includeInactive === 'true' || includeInactive === '1';

@@ -10,12 +10,12 @@ export const metadata: Metadata = {
 };
 
 /**
- * Customer registration CTA landing — the "panel 1" wireframe.
+ * Customer registration CTA landing - the "panel 1" wireframe.
  *
  * This is a conversion page, not the actual sign-up form. The real form
  * lives at `/register/create-account` (it was the page that previously
  * sat at /register; we moved it down a level so this CTA can take the
- * top slot without disrupting any existing deep links — both Supabase
+ * top slot without disrupting any existing deep links - both Supabase
  * email-confirmation callbacks and the existing /sign-in "Create an
  * account" link go through here first).
  *
@@ -42,7 +42,7 @@ export default function RegisterCtaPage() {
               <span className="text-brand">African &amp; Caribbean</span> food
             </h1>
 
-            {/* Plantain underline accent — matches the wireframe's gold rule */}
+            {/* Plantain underline accent - matches the wireframe's gold rule */}
             <div
               className="mt-4 h-[3px] w-16 rounded-full bg-plantain"
               aria-hidden
@@ -80,14 +80,14 @@ export default function RegisterCtaPage() {
               <div className="absolute inset-2 overflow-hidden rounded-full bg-plantain/15 shadow-[0_8px_40px_rgba(0,0,0,0.12)]">
                 <Image
                   src="/images/auth-hero-food.png"
-                  alt="A spread of African and Caribbean dishes — jollof rice, jerk chicken, plantain curry"
+                  alt="A spread of African and Caribbean dishes - jollof rice, jerk chicken, plantain curry"
                   fill
                   sizes="(max-width: 1024px) 360px, 420px"
                   className="object-cover"
                   priority
                 />
               </div>
-              {/* Decorative scotch-bonnet accents — pure CSS so we don't
+              {/* Decorative scotch-bonnet accents - pure CSS so we don't
                   ship another asset just for three little dots. */}
               <ChilliAccent className="absolute -left-1 top-6 h-7 w-7 -rotate-[28deg]" />
               <ChilliAccent className="absolute right-0 top-16 h-6 w-6 rotate-[42deg]" />
@@ -199,7 +199,7 @@ export default function RegisterCtaPage() {
 /**
  * Marketing top nav for the CTA surface. Deliberately separate from the
  * customer PWA's TopNav (which assumes an in-app context with back
- * chevrons and basket state) — this nav is conversion-first and only
+ * chevrons and basket state) - this nav is conversion-first and only
  * surfaces the Sign in button + a handful of marketing links.
  */
 function MarketingNav() {
@@ -284,7 +284,7 @@ function ProofItem({
 }
 
 /**
- * Tiny inline SVG scotch-bonnet chilli — three of these are scattered
+ * Tiny inline SVG scotch-bonnet chilli - three of these are scattered
  * around the food photo as decorative accents. Inline avoids a network
  * round-trip for a 1KB shape and keeps the colour theme-controllable
  * via `text-scotch` on the parent.

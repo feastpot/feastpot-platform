@@ -9,7 +9,7 @@ export interface VendorApplicationRejectedData {
 
 /**
  * Sent when an admin rejects a VendorApplication. The `reason` is admin-
- * authored and surfaced to the applicant verbatim — admins must write it
+ * authored and surfaced to the applicant verbatim - admins must write it
  * with that in mind. Tone is supportive: many rejections are "not yet"
  * (e.g. waiting on FSA registration) rather than "no, ever".
  */

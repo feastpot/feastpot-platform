@@ -133,7 +133,7 @@ export class VendorsController {
   // to the UUID-validated `/:id` route (which is what produced the
   // "Validation failed (uuid is expected)" 400s in production logs).
   // Gated to non-prod so we never accidentally leak internals from a
-  // real deploy — returns 404 in production.
+  // real deploy - returns 404 in production.
   @Public()
   @Get('debug')
   @ApiOperation({
@@ -148,7 +148,7 @@ export class VendorsController {
 
   @Public()
   @Get('by-slug/:slug')
-  @ApiOperation({ summary: 'Get vendor by slug (public) — used by customer PWA' })
+  @ApiOperation({ summary: 'Get vendor by slug (public) - used by customer PWA' })
   findBySlug(@Param('slug') slug: string, @Query('postcode') postcode?: string) {
     return this.vendors.findBySlug(slug, postcode);
   }

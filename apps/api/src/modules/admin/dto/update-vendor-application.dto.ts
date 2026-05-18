@@ -11,7 +11,7 @@ import { IsBoolean, IsIn, IsOptional, IsString, MaxLength, MinLength } from 'cla
  *   - rejected                : emails applicant with `rejectionReason`
  *
  * `adminNotes` is internal-only EXCEPT in the information_requested path,
- * where it's surfaced verbatim to the applicant — so admins should write
+ * where it's surfaced verbatim to the applicant - so admins should write
  * it as if the applicant will read it when choosing that status.
  *
  * `sendInvite` (default true on approve) lets a reviewer approve without
@@ -22,7 +22,7 @@ export class UpdateVendorApplicationDto {
   @ApiProperty({
     enum: ['under_review', 'information_requested', 'approved', 'rejected'],
     description:
-      'Target status. "pending" is intentionally not allowed — applications cannot be moved back to pending after triage.',
+      'Target status. "pending" is intentionally not allowed - applications cannot be moved back to pending after triage.',
   })
   @IsIn(['under_review', 'information_requested', 'approved', 'rejected'])
   status!: 'under_review' | 'information_requested' | 'approved' | 'rejected';

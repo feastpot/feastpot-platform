@@ -34,13 +34,13 @@ export function EventsDashboard({ accessToken }: { accessToken: string }) {
             <li key={e.id}>
               <Link href={`/events/${e.id}/quote`} className="block rounded-lg border bg-card p-4 hover:border-foreground/30">
                 <div className="flex items-center justify-between">
-                  <h2 className="font-medium capitalize">{e.eventType} — {e.guestCount} guests</h2>
+                  <h2 className="font-medium capitalize">{e.eventType} - {e.guestCount} guests</h2>
                   <span className="rounded-full bg-muted px-2 py-0.5 text-xs">{label}</span>
                 </div>
                 <dl className="mt-2 grid grid-cols-3 gap-1 text-xs text-muted-foreground">
                   <div>{new Date(e.eventDate).toLocaleDateString('en-GB')}</div>
                   <div>{e.postcode}</div>
-                  <div>{e.cuisines.join(', ') || '—'}</div>
+                  <div>{e.cuisines.join(', ') || '-'}</div>
                 </dl>
               </Link>
             </li>

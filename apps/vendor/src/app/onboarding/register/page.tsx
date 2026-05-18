@@ -8,13 +8,13 @@ import { useState, type FormEvent } from 'react';
 import { ApiError, apiRequest } from '@/lib/api/client';
 
 /**
- * Vendor self-serve "Register interest" form — Image 2, panel 2.
+ * Vendor self-serve "Register interest" form - Image 2, panel 2.
  *
  * Per the solutions-architect note in the spec: this is a real signup,
  * not a manual invite list. On submit we POST to
  * `/v1/vendors/register-interest` which is expected to create a Vendor
  * with status:'pending' (or a VendorApplication row) for admin review.
- * The endpoint may not be live in every environment yet — we treat a
+ * The endpoint may not be live in every environment yet - we treat a
  * 404 as a graceful "we got it, we'll be in touch" so the marketing
  * funnel doesn't break before backend wiring lands.
  */
@@ -120,7 +120,7 @@ export default function VendorRegisterInterestPage() {
     } catch (e) {
       // BACKEND GAP: /v1/vendors/register-interest may not be live in every
       // env yet. Architect review (correctly) flagged silent soft-success
-      // as data-loss — show an honest error with a mailto fallback so the
+      // as data-loss - show an honest error with a mailto fallback so the
       // lead actually reaches us. Also stash to localStorage so support
       // can recover the payload from the user's browser if needed.
       if (e instanceof ApiError && e.status === 404) {
@@ -128,7 +128,7 @@ export default function VendorRegisterInterestPage() {
           const key = `feastpot.vendor-application.${Date.now()}`;
           window.localStorage.setItem(key, JSON.stringify(form));
         } catch {
-          /* localStorage unavailable — nothing more we can do */
+          /* localStorage unavailable - nothing more we can do */
         }
         setServerError(
           "We're not quite ready to take applications online yet. Please email your details to hello@feastpot.co.uk and we'll get straight back to you.",
@@ -154,7 +154,7 @@ export default function VendorRegisterInterestPage() {
             <Check className="h-7 w-7 text-brand" strokeWidth={3} />
           </div>
           <h1 className="font-display text-2xl font-black tracking-tight text-charcoal">
-            Thanks — we&rsquo;ve got it
+            Thanks - we&rsquo;ve got it
           </h1>
           <p className="mt-2 text-sm text-charcoal-mid">
             Our team will review your details and get back to you within 1–2
@@ -182,7 +182,7 @@ export default function VendorRegisterInterestPage() {
   return (
     <Shell>
       <div className="mx-auto w-full max-w-5xl overflow-hidden rounded-3xl bg-white shadow-card lg:grid lg:grid-cols-[360px_1fr]">
-        {/* LEFT — value prop + 4-step diagram */}
+        {/* LEFT - value prop + 4-step diagram */}
         <aside className="border-b border-cream-deep p-8 lg:border-b-0 lg:border-r">
           <p className="mb-2 text-[11px] font-black uppercase tracking-[0.18em] text-brand">
             Vendor onboarding
@@ -216,7 +216,7 @@ export default function VendorRegisterInterestPage() {
             ))}
           </ul>
 
-          {/* Step diagram: hidden on mobile to keep the aside compact —
+          {/* Step diagram: hidden on mobile to keep the aside compact -
               the bullet list above already conveys the value prop. */}
           <div className="mt-8 hidden lg:block">
             <p className="font-display text-sm font-black text-charcoal">
@@ -245,7 +245,7 @@ export default function VendorRegisterInterestPage() {
           </div>
         </aside>
 
-        {/* RIGHT — form */}
+        {/* RIGHT - form */}
         <form onSubmit={handleSubmit} className="p-7 sm:p-9" noValidate>
           <p className="mb-1.5 text-[11px] font-black uppercase tracking-[0.18em] text-brand">
             Step 1 of 4 · Apply
@@ -254,7 +254,7 @@ export default function VendorRegisterInterestPage() {
             Register your interest
           </h1>
           <p className="mt-1 text-sm text-charcoal-mid">
-            Fill in the basics — you can polish your menu later.
+            Fill in the basics - you can polish your menu later.
           </p>
 
           {serverError && (
@@ -351,7 +351,7 @@ export default function VendorRegisterInterestPage() {
               </div>
             </div>
 
-            {/* Kitchen type — segmented control */}
+            {/* Kitchen type - segmented control */}
             <div>
               <span className="mb-1.5 block text-[13px] font-semibold text-charcoal">
                 Kitchen type

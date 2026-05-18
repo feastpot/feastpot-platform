@@ -114,7 +114,7 @@ export function PayoutsClient() {
               <TableRow><TableCell colSpan={7} className="py-6 text-center text-muted-foreground">Loading…</TableCell></TableRow>
             )}
             {!isLoading && payouts.length === 0 && (
-              <TableRow><TableCell colSpan={7} className="py-6 text-center text-muted-foreground">No payouts yet — your first will land next Monday.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} className="py-6 text-center text-muted-foreground">No payouts yet - your first will land next Monday.</TableCell></TableRow>
             )}
             {payouts.map((p) => {
               const badge = STATUS_BADGE[p.status];

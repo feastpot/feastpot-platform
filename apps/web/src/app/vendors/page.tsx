@@ -17,7 +17,7 @@ import type { SearchVendorsParams, VendorSortBy } from '@/lib/api/vendors';
 import { readStoredPostcode, writeCoverageCookie, writeStoredPostcode } from '@/lib/postcode';
 
 /**
- * Vendor search page — wireframe layout:
+ * Vendor search page - wireframe layout:
  *   • Green/cream delivery banner with "Change postcode" CTA
  *   • Pill search bar + category chip rail
  *   • Two-column on lg+: left filter sidebar / right results
@@ -41,7 +41,7 @@ function VendorSearch() {
   const postcode = params?.get('postcode') ?? undefined;
   const cuisineParam = params?.get('cuisine');
 
-  // Postcode persistence — two-way sync between the URL (which is the
+  // Postcode persistence - two-way sync between the URL (which is the
   // source of truth for filters so links stay shareable) and localStorage
   // (so a returning user who lands on /vendors directly, e.g. via the
   // bottom-nav "Browse" tab, sees vendors for their remembered location
@@ -86,7 +86,7 @@ function VendorSearch() {
   const sortBy: VendorSortBy | undefined = sortParam ?? (postcode ? 'distance' : undefined);
 
   // Radius cap (miles in URL, km on the wire). Only honoured when the user
-  // has a postcode set — without one we have no origin to measure from, so a
+  // has a postcode set - without one we have no origin to measure from, so a
   // radius value would be meaningless. Validated against the same option set
   // the sidebar offers so a hand-rolled `?radius=999` URL doesn't sneak past.
   const RADIUS_OPTIONS_MI = [1, 3, 5, 10] as const;
@@ -114,7 +114,7 @@ function VendorSearch() {
 
   // Scroll-position restoration. Next 15's App Router doesn't restore
   // scroll on client-side back navigation, so tapping a vendor card and
-  // pressing back drops the user at the top of the list — disorienting
+  // pressing back drops the user at the top of the list - disorienting
   // when they were 20 cards deep.
   const searchKey = params?.toString() ?? '';
   const scrollKey = `feastpot.vendors-scroll:${pathname}?${searchKey}`;
@@ -282,7 +282,7 @@ function VendorSearch() {
                   No kitchens{postcode ? ` near ${postcode.toUpperCase()}` : ''} yet
                 </h2>
                 <p className="mt-2 text-sm font-medium text-charcoal-mid">
-                  Try a different cuisine or check back soon — new cooks join Feastpot every week.
+                  Try a different cuisine or check back soon - new cooks join Feastpot every week.
                 </p>
               </div>
             )}

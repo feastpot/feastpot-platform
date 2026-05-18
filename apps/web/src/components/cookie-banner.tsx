@@ -9,7 +9,7 @@ import { Button } from '@feastpot/ui';
  * UK GDPR / PECR cookie notice.
  *
  * Feastpot only sets strictly-necessary cookies (auth session, basket,
- * CSRF). Under PECR these do NOT require prior opt-in — only a clear
+ * CSRF). Under PECR these do NOT require prior opt-in - only a clear
  * notice. We therefore use a dismissable banner rather than a blocking
  * consent gate. State lives in localStorage so the banner doesn't reappear
  * on every navigation.
@@ -25,7 +25,7 @@ export function CookieBanner() {
     try {
       setAccepted(localStorage.getItem(STORAGE_KEY) === 'accepted');
     } catch {
-      // Private mode / blocked storage — show the banner anyway, dismissing
+      // Private mode / blocked storage - show the banner anyway, dismissing
       // becomes a no-op which is acceptable behaviour.
       setAccepted(false);
     }

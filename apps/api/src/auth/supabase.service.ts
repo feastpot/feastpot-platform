@@ -22,12 +22,12 @@ export class SupabaseService {
 
     if (!rawUrl || !serviceRoleKey) {
       this.logger.warn(
-        'SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not configured — auth verification will fail at runtime',
+        'SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not configured - auth verification will fail at runtime',
       );
     }
 
     // Normalize: accept either the bare project URL or a full REST URL with
-    // /rest/v1/ appended — the JS client expects only the project root.
+    // /rest/v1/ appended - the JS client expects only the project root.
     const url = rawUrl
       ? rawUrl.replace(/\/rest\/v1\/?$/, '').replace(/\/+$/, '')
       : 'http://placeholder.local';

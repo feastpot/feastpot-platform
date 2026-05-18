@@ -16,7 +16,7 @@ import { QueryProvider } from '@/providers/query-provider';
 
 import './globals.css';
 
-// Self-hosted via next/font — eliminates the render-blocking Google Fonts
+// Self-hosted via next/font - eliminates the render-blocking Google Fonts
 // stylesheet request that previously sat at the top of globals.css and shaved
 // ~200–400 ms off FCP on cold mobile loads. `display: 'swap'` keeps body text
 // readable while the woff2 streams; `preload: true` is the next/font default
@@ -37,7 +37,7 @@ const playfair = Playfair_Display({
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'https://feastpot.co.uk'),
   title: {
-    default: 'Feastpot — African & Caribbean Food Delivered',
+    default: 'Feastpot - African & Caribbean Food Delivered',
     template: '%s | Feastpot',
   },
   description:
@@ -67,7 +67,7 @@ export const metadata: Metadata = {
     type: 'website',
     siteName: 'Feastpot',
     locale: 'en_GB',
-    // OG image is generated dynamically by app/opengraph-image.tsx — Next 15
+    // OG image is generated dynamically by app/opengraph-image.tsx - Next 15
     // auto-injects the correct <meta og:image> tag for every route. Per-vendor
     // pages override it with their own app/vendors/[slug]/opengraph-image.tsx.
   },
@@ -90,7 +90,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en-GB" className={`${inter.variable} ${playfair.variable}`}>
       <body className="min-h-screen bg-surface font-sans text-foreground antialiased">
-        {/* WCAG 2.4.1 skip link — first focusable element on every page
+        {/* WCAG 2.4.1 skip link - first focusable element on every page
             so AT/keyboard users can bypass the persistent top-nav and
             jump straight into the route's content. Visually hidden by
             default, slides into view on focus (see .skip-link in
@@ -118,7 +118,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             <ToastViewport />
           </ToastProvider>
         </QueryProvider>
-        {/* Vercel Analytics + Web Vitals — free on the Hobby plan, gives us
+        {/* Vercel Analytics + Web Vitals - free on the Hobby plan, gives us
             per-page Core Web Vitals + traffic by referrer. Both components
             no-op outside the Vercel runtime so local `npm run dev` is
             unaffected. */}

@@ -5,7 +5,7 @@
 /*
  * Theme tokens are inlined here (NOT @import-ed from @feastpot/ui/theme.css)
  * because cross-package @layer rules silently get dropped from the production
- * build — same rationale as apps/web and apps/vendor globals.css.
+ * build - same rationale as apps/web and apps/vendor globals.css.
  */
 @layer base {
   :root {

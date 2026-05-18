@@ -15,7 +15,7 @@ import type { Request, Response } from 'express';
  * (`meta`, `clientVersion`, table & constraint names) in the 500 body.
  *
  * Service-level try/catch translations (e.g. `discount-codes.adminCreate`
- * mapping P2002 → `DISCOUNT_CODE_EXISTS`) still take precedence — those
+ * mapping P2002 → `DISCOUNT_CODE_EXISTS`) still take precedence - those
  * blocks throw an HttpException, which never reaches this filter.
  */
 @Catch(Prisma.PrismaClientKnownRequestError)
@@ -80,7 +80,7 @@ export class PrismaExceptionFilter implements ExceptionFilter {
 /**
  * `PrismaClientValidationError` is thrown when a query is malformed
  * (e.g. unknown field, wrong scalar type). It carries the full schema
- * shape in its message — must never be exposed.
+ * shape in its message - must never be exposed.
  */
 @Catch(Prisma.PrismaClientValidationError)
 export class PrismaValidationFilter implements ExceptionFilter {

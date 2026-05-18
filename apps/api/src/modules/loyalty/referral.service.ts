@@ -15,7 +15,7 @@ const REWARD_POINTS = 500; // = £5
  *
  * Schema realities: there is no `User.referralCode` column. We model a
  * user's stable share code as a pending Referral row with refereeId=null
- * — `ensureCode` is a find-or-create on that row. When a friend signs up
+ * - `ensureCode` is a find-or-create on that row. When a friend signs up
  * with the code we create a NEW Referral row (because `code` is @unique
  * we suffix with a short random) so each referral is its own ledger
  * entry while the user's public share code stays stable.
@@ -44,11 +44,11 @@ export class ReferralService {
     // Serialise concurrent calls per-user via a Postgres advisory lock
     // so two parallel "ensure" calls (e.g. account page + checkout
     // share-sheet loaded simultaneously) can't both create a stable
-    // share-code row — the schema has no unique index on
+    // share-code row - the schema has no unique index on
     // (referrerId, refereeId IS NULL) so we enforce it in app code.
     return this.prisma.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`referral:ensure:${userId}`}, 0))`;
-      // Re-check inside the lock — the loser of the race finds the
+      // Re-check inside the lock - the loser of the race finds the
       // row written by the winner and returns it instead of creating.
       const row = await tx.referral.findFirst({
         where: { referrerId: userId, refereeId: null },
@@ -94,12 +94,12 @@ export class ReferralService {
       where: { code: { equals: normalised, mode: 'insensitive' } },
       select: { referrerId: true },
     });
-    if (!owner) return; // unknown code — silently ignore
+    if (!owner) return; // unknown code - silently ignore
     if (owner.referrerId === newUserId) return; // self-referral
 
     // Serialise per-referee so concurrent /v1/users/sync calls (e.g.
     // an email-confirmation roundtrip + a manual retry) can't both
-    // create a referee row before either sees the other's write —
+    // create a referee row before either sees the other's write -
     // we have no unique index on `referee_id`.
     await this.prisma.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`referral:process:${newUserId}`}, 0))`;
@@ -135,7 +135,7 @@ export class ReferralService {
    * Atomic + idempotent: a single `$transaction` first does a conditional
    * `updateMany` that only succeeds if the row is still `pending`. If the
    * count is 0 someone else (a parallel delivered transition, a re-run)
-   * already claimed the reward — we bail before crediting anyone, so
+   * already claimed the reward - we bail before crediting anyone, so
    * neither side can be paid twice.
    */
   async rewardReferral(newUserId: string): Promise<void> {
@@ -177,7 +177,7 @@ export class ReferralService {
           userId: referral.referrerId,
           type: 'adjusted',
           points: REWARD_POINTS,
-          reason: 'Referral reward — friend placed first order',
+          reason: 'Referral reward - friend placed first order',
         },
       });
       await tx.loyaltyPoint.create({
@@ -185,7 +185,7 @@ export class ReferralService {
           userId: newUserId,
           type: 'adjusted',
           points: REWARD_POINTS,
-          reason: 'Welcome bonus — joined via referral',
+          reason: 'Welcome bonus - joined via referral',
         },
       });
       return true;

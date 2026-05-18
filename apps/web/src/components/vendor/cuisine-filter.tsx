@@ -8,12 +8,12 @@ import { cn } from '@feastpot/ui';
  * Cuisine browse list.
  *
  * Two render modes:
- *  - `variant="cards"`  — visual scroll-snap carousel of 88×76px tiles with a
+ *  - `variant="cards"`  - visual scroll-snap carousel of 88×76px tiles with a
  *                         country flag/emoji and a one-line dish hint. Used
  *                         on the homepage; the audit specifically called for
  *                         this so each row evokes the cuisine, not just labels
  *                         it.
- *  - `variant="pills"`  — compact pill row (the original behaviour). Still
+ *  - `variant="pills"`  - compact pill row (the original behaviour). Still
  *                         used inside the /vendors search page where vertical
  *                         space is tight and the filter is one of many.
  *
@@ -46,7 +46,7 @@ interface Props {
   onSelect?: (cuisine: string | null) => void;
   /** Optional postcode to preserve when navigating from the homepage pills. */
   postcode?: string | null;
-  /** Visual mode — defaults to compact pills for back-compat with /vendors. */
+  /** Visual mode - defaults to compact pills for back-compat with /vendors. */
   variant?: 'pills' | 'cards';
 }
 
@@ -125,7 +125,7 @@ export function CuisineFilter({ active, href = true, onSelect, postcode, variant
     );
   }
 
-  // Pills variant — preserves the original /vendors search-page behaviour.
+  // Pills variant - preserves the original /vendors search-page behaviour.
   return (
     <nav aria-label="Cuisine filter">
       <ul className="-mx-4 flex snap-x gap-2 overflow-x-auto px-4 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">

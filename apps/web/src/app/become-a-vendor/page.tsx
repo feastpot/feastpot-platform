@@ -22,17 +22,17 @@ import { forwardRef, useRef, useState } from 'react';
 import { apiRequest, ApiError } from '@/lib/api/client';
 
 /**
- * Vendor acquisition landing — feastpot.co.uk/become-a-vendor.
+ * Vendor acquisition landing - feastpot.co.uk/become-a-vendor.
  *
  * Lives entirely on the customer PWA. Anyone can find it; submitting the
  * interest form hits POST /v1/vendors/register-interest and writes to
  * `vendor_applications`. No redirect to the vendor portal ever happens
- * from this page — the portal URL only exists in the approval email sent
+ * from this page - the portal URL only exists in the approval email sent
  * after admin review.
  *
  * Two states render at the same URL: a marketing landing (default) and an
  * inline interest form (revealed when any "Register interest" CTA is
- * clicked). No client routing — `showForm` is local state and we smooth-
+ * clicked). No client routing - `showForm` is local state and we smooth-
  * scroll the form into view so the marketing copy stays as context above it.
  */
 
@@ -185,7 +185,7 @@ export default function BecomeAVendorPage() {
 
   const openForm = () => {
     setShowForm(true);
-    // Wait for the form to mount before scrolling — `requestAnimationFrame`
+    // Wait for the form to mount before scrolling - `requestAnimationFrame`
     // gives React a paint cycle. `setTimeout` fallback covers slow paints.
     requestAnimationFrame(() => {
       setTimeout(() => {
@@ -248,7 +248,7 @@ export default function BecomeAVendorPage() {
       const msg =
         err instanceof ApiError
           ? err.message || 'Something went wrong. Please try again.'
-          : 'Could not submit — check your connection and try again.';
+          : 'Could not submit - check your connection and try again.';
       setServerError(msg);
     } finally {
       setSubmitting(false);
@@ -261,7 +261,7 @@ export default function BecomeAVendorPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Marketing top-nav (lightweight — the customer site's persistent nav
+      {/* Marketing top-nav (lightweight - the customer site's persistent nav
           is hidden on this route to give the acquisition page its own air). */}
       <nav className="sticky top-0 z-40 border-b border-cream-deep bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-3.5 sm:px-8 lg:px-12">
@@ -447,7 +447,7 @@ export default function BecomeAVendorPage() {
         ))}
       </section>
 
-      {/* Final CTA — opens the form rather than linking out. */}
+      {/* Final CTA - opens the form rather than linking out. */}
       {!showForm && (
         <section className="mx-auto max-w-6xl px-5 pb-16 pt-2 text-center sm:px-8 lg:px-12">
           <button
@@ -821,7 +821,7 @@ function SuccessPanel({ snapshot }: { snapshot: FormState }) {
   const nextSteps = [
     'We review your application (1–2 business days)',
     'You receive an email with the outcome',
-    'If approved — we send you a link to set up your menu and payouts',
+    'If approved - we send you a link to set up your menu and payouts',
     'Go live and start receiving orders',
   ];
   return (

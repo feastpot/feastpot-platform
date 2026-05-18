@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from 'react';
 /**
  * Free-text search input for /vendors. URL is the source of truth: `value`
  * is local for snappy typing, but a 300 ms debounced effect mirrors it into
- * `?q=`. We deliberately do NOT push history entries — `replace` keeps the
+ * `?q=`. We deliberately do NOT push history entries - `replace` keeps the
  * back button useful (it returns to the previous *page*, not the previous
  * keystroke).
  */

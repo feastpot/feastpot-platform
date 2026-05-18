@@ -27,7 +27,7 @@ function customerFirstName(order: VendorOrder): string {
 }
 
 function formatItemName(item: VendorOrder['items'][number]): string {
-  // The API returns one of these keys depending on shape — try them in
+  // The API returns one of these keys depending on shape - try them in
   // order before giving up so we don't need to chase every server change.
   const candidates = ['itemName', 'name', 'productName', 'title'];
   for (const k of candidates) {
@@ -52,12 +52,12 @@ interface Props {
  * Redesigned active-order card used in the kanban tabs.
  *
  * Sections (top-to-bottom):
- *   1. Header — first name + slot prominence on top, order ref smaller
- *   2. Item list — quantities up front, dish name to the right
- *   3. Total + payout strip — gross total on top, "you receive" net below
- *   4. Notes (amber background) — only when present
- *   5. Countdown — only on pending orders, fires onExpire to auto-reject
- *   6. Action buttons — context-specific per status
+ *   1. Header - first name + slot prominence on top, order ref smaller
+ *   2. Item list - quantities up front, dish name to the right
+ *   3. Total + payout strip - gross total on top, "you receive" net below
+ *   4. Notes (amber background) - only when present
+ *   5. Countdown - only on pending orders, fires onExpire to auto-reject
+ *   6. Action buttons - context-specific per status
  *
  * Logic preserved from the legacy OrderCard: 15-minute pending auto-reject,
  * optimistic updateOrderStatus mutation, structured-reason RejectSheet for
@@ -71,7 +71,7 @@ export function VendorOrderCard({ order }: Props) {
   const [amendOpen, setAmendOpen] = useState(false);
 
   // Vendor can propose a change once the order is accepted and until it's
-  // delivered — same window the API enforces. Keep the button hidden outside
+  // delivered - same window the API enforces. Keep the button hidden outside
   // that range so the affordance only shows when it'll work.
   const canPropose: VendorOrderStatus[] = ['accepted', 'preparing', 'dispatched'];
   const showProposeButton = canPropose.includes(order.status);
@@ -210,7 +210,7 @@ export function VendorOrderCard({ order }: Props) {
           )}
         </footer>
 
-        {/* Secondary action — propose a change (FR-AMD-001). Lives outside the
+        {/* Secondary action - propose a change (FR-AMD-001). Lives outside the
             primary footer so the main CTA stays the obvious next step. */}
         {showProposeButton && (
           <div className="border-t border-border bg-white px-4 py-2 text-right">

@@ -20,7 +20,7 @@ const MAX_REVIEW_CHARS = 500;
  *  - Food-quality rating: surfaced as a UX field but NOT transmitted (no
  *    matching API column). Once the schema adds `foodRating`, wire it up.
  *  - Photo upload: surfaced with previews + 3-file cap so the UX is honest,
- *    but the API has no upload endpoint — uploads are client-side only and
+ *    but the API has no upload endpoint - uploads are client-side only and
  *    discarded on submit, with an inline "Photo uploads aren't saved yet"
  *    notice so the customer isn't misled.
  */
@@ -196,7 +196,7 @@ export default function ReviewPage() {
           />
         </div>
         <p className="mt-2 text-[11px] text-mid">
-          Not yet stored separately — for now this counts toward your overall rating.
+          Not yet stored separately - for now this counts toward your overall rating.
         </p>
       </fieldset>
 
@@ -254,7 +254,7 @@ export default function ReviewPage() {
           )}
         </div>
         <p className="mt-1 text-[11px] text-mid">
-          Photo uploads aren&rsquo;t saved yet — coming soon.
+          Photo uploads aren&rsquo;t saved yet - coming soon.
         </p>
       </fieldset>
 

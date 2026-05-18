@@ -9,7 +9,7 @@ import { apiRequest, type ApiRequestOptions } from './client';
  * NOTE: the backend search response does not yet include `logoUrl`,
  * `coverImageUrl`, `fsaRating`, or `minOrderPence`. The card UI degrades
  * gracefully when these are absent. When the API adds them, just widen this
- * interface — the card will start rendering them automatically.
+ * interface - the card will start rendering them automatically.
  */
 export interface VendorListItem {
   id: string;
@@ -45,7 +45,7 @@ export interface VendorListResponse {
 export type VendorSortBy = 'rating' | 'distance' | 'reorderRate';
 
 export interface SearchVendorsParams {
-  /** Free-text query — vendor name, description, cuisine, or dish name. */
+  /** Free-text query - vendor name, description, cuisine, or dish name. */
   q?: string;
   postcode?: string;
   cuisine?: string[];
@@ -71,7 +71,7 @@ export function searchVendors(
  *
  * Backend gap: the API only exposes GET /v1/vendors/:id (UUID). The customer
  * PWA uses slugs in URLs, so this hits a `by-slug` route that the API team
- * must add. Until then, calls will 404 — exposed plainly so the bug is
+ * must add. Until then, calls will 404 - exposed plainly so the bug is
  * obvious rather than silently masked by a fallback.
  */
 export interface VendorProfile extends VendorListItem {

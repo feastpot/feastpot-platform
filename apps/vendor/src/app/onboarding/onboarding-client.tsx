@@ -32,7 +32,7 @@ interface VendorSummary {
  * Spec asked for an additional "Food Business Registration" doc and richer
  * per-doc guidance (why it's needed, what the document must show, max size,
  * etc.). The new document type would require a `VendorDocumentType` enum
- * change in the API + DB migration — out of scope for this UI pass — so
+ * change in the API + DB migration - out of scope for this UI pass - so
  * we keep the existing three doc slots and enrich each with `why`,
  * `mustShow`, and `acceptedFiles` copy. Once the API exposes a
  * `food_business_registration` type we can add a fourth row here without
@@ -67,14 +67,14 @@ const REQUIRED_DOCS: Array<{
   {
     type: 'photo_id',
     label: 'Photo ID',
-    why: 'Passport or driving licence — used for identity verification only.',
+    why: 'Passport or driving licence - used for identity verification only.',
     mustShow: ['Clear photo of the document', 'Name matches your account', 'Document not expired'],
     acceptedFiles: 'PDF, JPG or PNG · max 10 MB',
   },
   {
     type: 'kitchen_reg',
     label: 'Food business registration',
-    why: 'Required under the Food Safety Act 1990. Register for free at your local council — usually takes 1–2 weeks, so apply early. Guidance: https://www.food.gov.uk/business-guidance/register-a-food-business',
+    why: 'Required under the Food Safety Act 1990. Register for free at your local council - usually takes 1–2 weeks, so apply early. Guidance: https://www.food.gov.uk/business-guidance/register-a-food-business',
     mustShow: ['Your name or business name', 'Issuing council', 'Registration date'],
     acceptedFiles: 'PDF, JPG or PNG · max 10 MB',
   },
@@ -82,7 +82,7 @@ const REQUIRED_DOCS: Array<{
 
 /**
  * 4-step wizard indicator. We render all four step cards on the page (the
- * vendor can work on them in parallel — Stripe in one tab, doc upload in
+ * vendor can work on them in parallel - Stripe in one tab, doc upload in
  * another) so `currentStep` is "the first step that isn't done yet"
  * rather than a strict wizard cursor. Once everything's done, the
  * indicator settles on step 4 with all checks lit.
@@ -106,7 +106,7 @@ export function OnboardingClient({ vendor }: { vendor: VendorSummary }) {
   const allDocsUploaded = REQUIRED_DOCS.every((d) => docByType.has(d.type));
   const stripeReady = !!vendor.stripeAccountId && vendor.payoutsEnabled;
   const profileDone = !!vendor.description && vendor.cuisines.length > 0;
-  // canGoLive previously ignored profile completion — meaning the "All set!"
+  // canGoLive previously ignored profile completion - meaning the "All set!"
   // banner could appear while the vendor's description/cuisines were still
   // empty. Include profileDone so compliance never reviews a vendor whose
   // public profile is half-built.
@@ -132,7 +132,7 @@ export function OnboardingClient({ vendor }: { vendor: VendorSummary }) {
         {stripeReturned && (
           <Card className="mt-3 border-teal/40 bg-teal/5">
             <CardContent className="p-3 text-sm">
-              You&apos;re back from Stripe — give it a moment to update, then refresh this page.
+              You&apos;re back from Stripe - give it a moment to update, then refresh this page.
             </CardContent>
           </Card>
         )}
@@ -148,14 +148,14 @@ export function OnboardingClient({ vendor }: { vendor: VendorSummary }) {
           <>
             <p className="text-sm text-muted-foreground">
               {profileDone
-                ? 'Looks good — your description and cuisines are set.'
+                ? 'Looks good - your description and cuisines are set.'
                 : 'Add a short description and at least one cuisine type from your profile.'}
             </p>
             <Link href="/settings/delivery" className="mt-2 inline-block">
               <Button variant="outline" size="sm">Open delivery settings</Button>
             </Link>
             <p className="mt-2 text-xs text-muted-foreground">
-              Profile editing UI is on the roadmap — for now this lives in the admin app.
+              Profile editing UI is on the roadmap - for now this lives in the admin app.
             </p>
           </>
         }
@@ -288,9 +288,9 @@ export function OnboardingClient({ vendor }: { vendor: VendorSummary }) {
  * - Connector line between circles fills brand orange once a step is
  *   passed, giving the same visual "progress bar" cue Stripe and
  *   Deliveroo use on their partner onboarding flows.
- * - The whole strip is decorative for AT users — the underlying step
+ * - The whole strip is decorative for AT users - the underlying step
  *   cards already announce their done/active state via the existing
- *   `<Step>` heading and badge — so we mark it `aria-hidden`.
+ *   `<Step>` heading and badge - so we mark it `aria-hidden`.
  */
 function StepIndicator({ currentStep }: { currentStep: 1 | 2 | 3 | 4 }) {
   return (
@@ -367,7 +367,7 @@ function StepIndicator({ currentStep }: { currentStep: 1 | 2 | 3 | 4 }) {
                 style={{
                   fontSize: '10px',
                   // #5F5E5A (charcoal-mid) on white is ~7.5:1, well above
-                  // WCAG AA — the spec's #9B9894 was 3.2:1 and would have
+                  // WCAG AA - the spec's #9B9894 was 3.2:1 and would have
                   // failed at this size.
                   color: isDone || isCurrent ? '#1C1C1A' : '#5F5E5A',
                   marginTop: '6px',
@@ -442,7 +442,7 @@ function DocumentRow({
           <p className="mt-0.5 text-xs text-muted-foreground">{why}</p>
           {/* Checklist of what the document must show + accepted file
               types. Surfacing this inline (instead of behind a tooltip)
-              cuts the support volume on "is this the right doc?" — the
+              cuts the support volume on "is this the right doc?" - the
               vendor can verify their photo of a hygiene cert against
               the bullets before they upload. */}
           <details className="mt-2 text-xs text-muted-foreground">

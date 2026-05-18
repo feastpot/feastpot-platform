@@ -13,23 +13,23 @@
  *   3. Name + rating row + cuisine pill row
  *   4. Cook-identity card on the warm `#FBF6EF` background
  *   5. Sticky category tab strip (5 pills)
- *   6. First menu category — section heading + 6 menu-item rows
+ *   6. First menu category - section heading + 6 menu-item rows
  *
- * Pure markup, no client JS — keeps the loading boundary itself a
+ * Pure markup, no client JS - keeps the loading boundary itself a
  * server component so it streams immediately.
  */
 export default function VendorProfileLoading() {
   return (
     <div className="px-4 pb-6" role="status" aria-live="polite">
       <span className="sr-only">Loading vendor profile</span>
-      {/* Visual skeleton subtree is decorative — hidden from screen
+      {/* Visual skeleton subtree is decorative - hidden from screen
           readers so SR users get the single sr-only announcement above
           rather than traversing every empty list/listitem placeholder. */}
       <div aria-hidden="true">
       {/* HERO */}
       <header className="relative -mx-4">
         <div className="animate-shimmer relative h-52 w-full overflow-hidden" />
-        {/* Logo chip overlap — matches the live profile page. */}
+        {/* Logo chip overlap - matches the live profile page. */}
         <div
           className="animate-shimmer absolute -bottom-6 left-4 h-16 w-16 rounded-2xl border-4 border-white shadow-card"
           aria-hidden="true"
@@ -103,7 +103,7 @@ export default function VendorProfileLoading() {
           ))}
         </div>
 
-        {/* MENU ITEMS — first category */}
+        {/* MENU ITEMS - first category */}
         <div className="mt-4 space-y-2">
           <div
             className="animate-shimmer"

@@ -8,7 +8,7 @@ import { writeStoredPostcode } from '@/lib/postcode';
 /**
  * Sticky confirmation chip shown above the vendor results that reminds the
  * customer which postcode they are searching from. Reads `?postcode=` from
- * the URL — the page already treats the URL as the source of truth for
+ * the URL - the page already treats the URL as the source of truth for
  * filters, so we just mirror that here. Renders nothing when the param is
  * absent so direct visits to /vendors stay clean.
  *

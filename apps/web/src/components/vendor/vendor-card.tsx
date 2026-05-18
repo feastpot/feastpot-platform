@@ -21,7 +21,7 @@ const formatPoundsRound = (pence: number) => `£${Math.round(pence / 100)}`;
  * as a rounded white-bordered chip in the bottom-left of the cover.
  *
  * The prop API is intentionally preserved (`variant: 'list' | 'carousel'`)
- * because three other surfaces import this — homepage rails, /vendors grid,
+ * because three other surfaces import this - homepage rails, /vendors grid,
  * and any future "you might also like" carousel.
  */
 interface Props {
@@ -64,14 +64,14 @@ export function VendorCard({ vendor, variant = 'list' }: Props) {
         {/* Legibility scrim for any overlaid chips. */}
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-dark/60 via-transparent to-transparent" />
 
-        {/* Badges (top-right, stacked) — colours pulled from the brand DNA
+        {/* Badges (top-right, stacked) - colours pulled from the brand DNA
             tokens so they sit correctly against the dark→transparent scrim
             without resorting to pure white plates. */}
         <div className="absolute right-2 top-2 flex flex-col items-end gap-1">
           {vendor.communityFavourite && (
             <span
               className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold shadow-sm"
-              // Wireframe gold #F6B400 with near-black text — 9.6:1 contrast,
+              // Wireframe gold #F6B400 with near-black text - 9.6:1 contrast,
               // WCAG AAA. The crown emoji is replaced with a star glyph to
               // match the wireframe's cleaner badge language.
               style={{ background: '#F6B400', color: '#070707' }}
@@ -160,7 +160,7 @@ export function VendorCard({ vendor, variant = 'list' }: Props) {
           </div>
         )}
 
-        {/* Cook identity row — the audit's headline recommendation. People
+        {/* Cook identity row - the audit's headline recommendation. People
             buy into the cook as much as the dish, so we surface initials
             in a terracotta avatar plus a city/area line and a short
             review-style snippet. The snippet is intentionally evergreen
@@ -189,10 +189,10 @@ export function VendorCard({ vendor, variant = 'list' }: Props) {
           </div>
         </div>
 
-        {/* Scarcity ribbon — only renders when the API has surfaced a real
+        {/* Scarcity ribbon - only renders when the API has surfaced a real
             `availableSlots` count of 3 or fewer. Slot scarcity on Feastpot
             is genuine (cooks pre-commit a fixed weekend tray count), so
-            this isn't a dark pattern — it reflects the actual marketplace.
+            this isn't a dark pattern - it reflects the actual marketplace.
             Uses wireframe red #E30613 (scotch) for urgency. */}
         {typeof vendor.availableSlots === 'number' && vendor.availableSlots <= 3 && vendor.availableSlots > 0 && (
           <p className="mt-1.5 text-[10px] font-semibold text-scotch">

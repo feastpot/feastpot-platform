@@ -9,7 +9,7 @@ import defaultTheme from 'tailwindcss/defaultTheme';
  * shadcn HSL CSS-variable layer (which is reserved for the neutral/semantic
  * tokens defined in `globals.css` and `@feastpot/ui/theme.css`).
  *
- * `content` covers BOTH this app's source AND the shared UI package — Tailwind
+ * `content` covers BOTH this app's source AND the shared UI package - Tailwind
  * needs to scan @feastpot/ui's components or their utility classes get purged
  * from the production build.
  *
@@ -33,17 +33,17 @@ const config: Config = {
         // "Logo DNA" tokens: terracotta + scotch-bonnet + plantain +
         // yam + pot/kente accents. The brand brief replaced the entire
         // colours block, but we keep shadcn's HSL semantic tokens
-        // (background/foreground/card/...) intact below — those are the
+        // (background/foreground/card/...) intact below - those are the
         // mechanism the rest of the app + @feastpot/ui consume, so
         // wholesale replacement would break unrelated components.
         brand: {
-          // 2026-05-16 PWA redesign — wireframe palette. Brand green is
+          // 2026-05-16 PWA redesign - wireframe palette. Brand green is
           // the new primary CTA (was terracotta orange). Cascades to
           // every `bg-brand` / `text-brand` / `border-brand` consumer
-          // across apps/web — no per-file edit needed.
-          DEFAULT: '#00843D', // Pan-African green — primary CTAs
+          // across apps/web - no per-file edit needed.
+          DEFAULT: '#00843D', // Pan-African green - primary CTAs
           light: '#E6F4EC',
-          dark: '#005C2B', // Deep forest — hover state
+          dark: '#005C2B', // Deep forest - hover state
           50: '#E6F4EC',
           100: '#C2E5D0',
           500: '#00843D',
@@ -51,12 +51,12 @@ const config: Config = {
           700: '#005C2B',
           900: '#003318',
         },
-        scotch: '#E30613', // wireframe red — offers, discounts, urgent
-        plantain: '#F6B400', // wireframe gold — rewards, FeastPass, highlights
-        yam: '#00843D', // FSA, halal, verified — collapses to brand green
+        scotch: '#E30613', // wireframe red - offers, discounts, urgent
+        plantain: '#F6B400', // wireframe gold - rewards, FeastPass, highlights
+        yam: '#00843D', // FSA, halal, verified - collapses to brand green
         pot: '#5F5E5A', // neutral decorative
         cream: {
-          DEFAULT: '#FFFDF7', // wireframe cream — main background
+          DEFAULT: '#FFFDF7', // wireframe cream - main background
           warm: '#FFF8E8', // section dividers, card bg
           deep: '#F2EAD3', // stronger contrast for borders
         },
@@ -75,10 +75,10 @@ const config: Config = {
           700: '#0F6E56',
         },
         // Vendor-portal accent (used for vendor-related chips/badges in the
-        // customer app — e.g. "View vendor" links).
+        // customer app - e.g. "View vendor" links).
         vendor: '#185FA5',
 
-        // Legacy neutral aliases retained for back-compat — many existing
+        // Legacy neutral aliases retained for back-compat - many existing
         // components use bg-surface/text-mid/text-dark. We rewire them to
         // the new cream + charcoal scale so the rebrand cascades without
         // touching every consumer file.
@@ -86,7 +86,7 @@ const config: Config = {
         mid: '#5F5E5A',
         surface: '#FBF6EF',
 
-        // shadcn/ui semantic tokens — bound to CSS vars in globals.css.
+        // shadcn/ui semantic tokens - bound to CSS vars in globals.css.
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
         card: {

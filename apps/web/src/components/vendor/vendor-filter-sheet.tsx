@@ -25,7 +25,7 @@ const SORTS: { value: VendorSortBy; label: string }[] = [
  * Bottom-sheet filter panel for the vendor search page. The form is
  * uncontrolled-ish: state lives locally while the sheet is open, then on
  * "Apply" we push the new filter set as URL search params (the source of
- * truth — TanStack Query re-runs `useVendors` because the queryKey changes).
+ * truth - TanStack Query re-runs `useVendors` because the queryKey changes).
  *
  * Putting filters in the URL means a customer can share a filtered search,
  * the back button works correctly, and we don't need an extra Zustand slice.

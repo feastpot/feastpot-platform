@@ -49,7 +49,7 @@ export function DeliveryForm() {
   const [seeded, setSeeded] = useState(false);
 
   useEffect(() => {
-    // The endpoint returns null when no config exists yet — show defaults.
+    // The endpoint returns null when no config exists yet - show defaults.
     if (data && !seeded) {
       setForm({
         types: {
@@ -170,7 +170,7 @@ export function DeliveryForm() {
                 placeholder="SW1, SW3, SW10, M14…"
               />
               <p className="mt-1 text-xs text-muted-foreground">
-                Map preview is on the roadmap — postcode list is what the customer search uses today.
+                Map preview is on the roadmap - postcode list is what the customer search uses today.
               </p>
             </div>
           </CardContent>
@@ -227,7 +227,7 @@ export function DeliveryForm() {
             />
           </div>
           <p className="text-xs text-muted-foreground">
-            Lead time, available days and slot windows aren&apos;t configurable yet — they ship with the
+            Lead time, available days and slot windows aren&apos;t configurable yet - they ship with the
             scheduled-orders update.
           </p>
         </CardContent>

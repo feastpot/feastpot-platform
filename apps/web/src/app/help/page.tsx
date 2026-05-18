@@ -29,7 +29,7 @@ const SECTIONS: FaqSection[] = [
       {
         question: 'Can I order from more than one vendor in the same basket?',
         answer:
-          'No — to keep delivery promises realistic, each basket is for a single vendor. You can place multiple orders in a session if you want food from several kitchens.',
+          'No - to keep delivery promises realistic, each basket is for a single vendor. You can place multiple orders in a session if you want food from several kitchens.',
       },
       {
         question: 'How do I change or cancel an order?',
@@ -55,7 +55,7 @@ const SECTIONS: FaqSection[] = [
       {
         question: 'What if my driver is late?',
         answer:
-          'Open the order page and tap "Contact vendor" — they can give you a live update. If you do not get a reply within 15 minutes, raise a dispute and our support team will step in.',
+          'Open the order page and tap "Contact vendor" - they can give you a live update. If you do not get a reply within 15 minutes, raise a dispute and our support team will step in.',
       },
     ],
   },
@@ -71,7 +71,7 @@ const SECTIONS: FaqSection[] = [
       {
         question: 'Will I be charged if I cancel?',
         answer:
-          'No — cancellations made before the vendor accepts the order are refunded in full and immediately released by Stripe. Cancellations after acceptance are case-by-case depending on prep stage.',
+          'No - cancellations made before the vendor accepts the order are refunded in full and immediately released by Stripe. Cancellations after acceptance are case-by-case depending on prep stage.',
       },
     ],
   },

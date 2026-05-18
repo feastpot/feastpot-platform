@@ -48,7 +48,7 @@ export function dismissPrompt(): void {
   try {
     localStorage.setItem(PROMPT_DISMISSED_KEY, '1');
   } catch {
-    /* private mode — ignore */
+    /* private mode - ignore */
   }
 }
 
@@ -59,7 +59,7 @@ export function dismissPrompt(): void {
  * Throws on:
  *  - missing VAPID key (env misconfig)
  *  - user denying permission
- *  - SW not registered (next-pwa is disabled in dev — push only works in prod)
+ *  - SW not registered (next-pwa is disabled in dev - push only works in prod)
  *
  * Returns the `PushSubscription` so callers can persist its endpoint locally
  * if they want to support an explicit "Disable notifications" toggle later.
@@ -78,7 +78,7 @@ export async function registerPushSubscription(accessToken: string): Promise<Pus
   }
 
   const reg = await navigator.serviceWorker.ready;
-  // Reuse existing subscription where possible — re-subscribing rotates the
+  // Reuse existing subscription where possible - re-subscribing rotates the
   // endpoint and would orphan the previous server-side row until it 410s.
   let sub = await reg.pushManager.getSubscription();
   if (!sub) {
@@ -111,7 +111,7 @@ export async function registerPushSubscription(accessToken: string): Promise<Pus
   return sub;
 }
 
-/** Best-effort unsubscribe — runs both client-side and server-side cleanup. */
+/** Best-effort unsubscribe - runs both client-side and server-side cleanup. */
 export async function unregisterPushSubscription(accessToken: string): Promise<void> {
   if (!('serviceWorker' in navigator)) return;
   const reg = await navigator.serviceWorker.ready;
@@ -127,7 +127,7 @@ export async function unregisterPushSubscription(accessToken: string): Promise<v
       accessToken,
     });
   } catch {
-    // Silent — the local unsubscribe already happened, server row will time
+    // Silent - the local unsubscribe already happened, server row will time
     // out on next push attempt with a 410.
   }
 }

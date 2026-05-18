@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 
 /**
- * Five-icon trust strip — sits between the hero and the occasion grid,
+ * Five-icon trust strip - sits between the hero and the occasion grid,
  * matching the wireframe's "Verified kitchens · Secure checkout ·
  * Allergen info · Scheduled delivery · Real reviews" row. Each item is
  * an icon + tight two-line copy block on a flat white pill.

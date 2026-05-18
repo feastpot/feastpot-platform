@@ -31,7 +31,7 @@ import { formatDate } from '@/lib/format';
 
 // D18: filter tabs across the moderation lifecycle. 'all' is first +
 // the default, matching the spec.
-// No 'pending' — the prisma ModerationStatus enum only has auto_approved /
+// No 'pending' - the prisma ModerationStatus enum only has auto_approved /
 // held / approved / rejected. Auto-moderate writes one of the first two on
 // review creation; pending isn't a state in this schema.
 const FILTER_TABS: ReadonlyArray<ModerationQueueFilter> = [
@@ -48,7 +48,7 @@ const REJECT_REASON_MAX = 500;
 /**
  * Reviews moderation queue.
  *
- * D18: queue endpoint now accepts a `status` filter — UI exposes one tab
+ * D18: queue endpoint now accepts a `status` filter - UI exposes one tab
  * per status plus 'all'. Server defaults to `held` if status is omitted,
  * so this client always passes the filter explicitly.
  *
@@ -56,7 +56,7 @@ const REJECT_REASON_MAX = 500;
  * the moderation queue). Released reviews show Approve/Reject as before.
  *
  * D20: rejection reason captured via shadcn Dialog (not window.prompt).
- * Reason is required — min 10 chars — because it lands in the audit log.
+ * Reason is required - min 10 chars - because it lands in the audit log.
  */
 export function ReviewsQueueClient() {
   const [filter, setFilter] = useState<ModerationQueueFilter>('all');
@@ -220,7 +220,7 @@ export function ReviewsQueueClient() {
                             Reject
                           </Button>
                         )}
-                        {/* D19: Hold — only meaningful for non-held rows.
+                        {/* D19: Hold - only meaningful for non-held rows.
                             Lets an admin re-queue a published review. */}
                         {!isHeld && (
                           <Button

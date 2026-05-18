@@ -36,7 +36,7 @@ export class ComplianceController {
 
   @Get()
   // Customers must not be able to enumerate vendor documents. The service
-  // additionally enforces vendor-self ownership via assertCanManageVendor —
+  // additionally enforces vendor-self ownership via assertCanManageVendor -
   // a vendor user can only list their own vendor's docs.
   @Roles(UserRole.vendor, UserRole.compliance, UserRole.admin)
   @ApiOperation({ summary: 'List vendor documents (vendor-owner / compliance / admin)' })

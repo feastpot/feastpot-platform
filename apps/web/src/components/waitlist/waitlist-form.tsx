@@ -194,7 +194,7 @@ export function WaitlistForm() {
                 className="mt-0.5 h-4 w-4 shrink-0 accent-brand"
               />
               <span>
-                Send me the occasional Feastpot update — new vendors, launches in
+                Send me the occasional Feastpot update - new vendors, launches in
                 my area and recipe tips. Unsubscribe any time.
               </span>
             </label>

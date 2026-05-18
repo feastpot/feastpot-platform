@@ -6,17 +6,17 @@ const KEY = 'feastpot.postcode.v1';
 /**
  * Server-readable mirror of the user's confirmed coverage. Set as a cookie
  * (not just localStorage) so the homepage server component can render the
- * post-postcode layout — vendor rails, popular kitchens, featured cooks —
+ * post-postcode layout - vendor rails, popular kitchens, featured cooks -
  * without a client roundtrip. Format: `"<POSTCODE>"` once coverage is
  * verified; absent means "not yet entered or not covered".
  *
- * `Max-Age=2592000` = 30 days. `SameSite=Lax` is enough — this is a
+ * `Max-Age=2592000` = 30 days. `SameSite=Lax` is enough - this is a
  * UX preference, not an auth credential.
  */
 export const COVERAGE_COOKIE = 'feastpot.coverage.v1';
 
 /**
- * Quick localStorage-backed postcode preference. Lives client-only — the
+ * Quick localStorage-backed postcode preference. Lives client-only - the
  * homepage hero writes here and the vendor search page reads it as a default.
  *
  * Postcode is stored as upper-cased + space-stripped to keep cache keys
@@ -33,7 +33,7 @@ export function normalisePostcode(input: string): string {
  * reject obvious garbage like "asdf" before we route the user into the
  * vendor search and waste an API round-trip.
  *
- * Note: this is a SHAPE check — it does not verify the postcode actually
+ * Note: this is a SHAPE check - it does not verify the postcode actually
  * exists (Royal Mail's PAF database is paywalled). Real existence is
  * checked downstream by the geocode/vendor-search call.
  */
@@ -60,13 +60,13 @@ export function writeStoredPostcode(value: string | null): void {
     if (value) window.localStorage.setItem(KEY, value);
     else window.localStorage.removeItem(KEY);
   } catch {
-    // Quota / privacy mode — best-effort, ignore.
+    // Quota / privacy mode - best-effort, ignore.
   }
 }
 
 export function writeCoverageCookie(postcode: string | null): void {
   if (typeof document === 'undefined') return;
-  // Only set Secure over HTTPS — local dev runs on http://localhost so the
+  // Only set Secure over HTTPS - local dev runs on http://localhost so the
   // browser would silently drop a Secure cookie there.
   const secure = window.location.protocol === 'https:' ? '; Secure' : '';
   if (postcode) {

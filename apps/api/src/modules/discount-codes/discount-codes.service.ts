@@ -12,7 +12,7 @@ export interface ValidatedDiscount {
 }
 
 /**
- * FR-DISC-001 — discount code lifecycle.
+ * FR-DISC-001 - discount code lifecycle.
  *
  * The service deliberately splits validation (called both from the
  * customer-facing /validate endpoint AND from OrdersService.createOrder so
@@ -34,7 +34,7 @@ export class DiscountCodesService {
    * usable for this basket, or throws BadRequest with a customer-friendly
    * message that the checkout UI surfaces verbatim.
    *
-   * Lookup is case-insensitive — store as the user typed but accept any
+   * Lookup is case-insensitive - store as the user typed but accept any
    * casing. Discounts can never reduce the order below £0.
    */
   async validate(code: string, vendorId: string, subtotalPence: number): Promise<ValidatedDiscount> {
@@ -82,7 +82,7 @@ export class DiscountCodesService {
         ? dc.value
         : Math.round((subtotalPence * dc.value) / 10_000);
 
-    // Cap so the discount can never exceed the subtotal — shipping/service
+    // Cap so the discount can never exceed the subtotal - shipping/service
     // are excluded from the cap because basket pricing already separates
     // them. The caller (orders.service) re-clamps against the full total
     // for safety.
@@ -101,7 +101,7 @@ export class DiscountCodesService {
    *
    * The single UPDATE with the `(max_uses IS NULL OR used_count < max_uses)`
    * predicate guarantees we never exceed the cap even under concurrent
-   * confirms — Prisma's `update` would do a read-then-write, opening a
+   * confirms - Prisma's `update` would do a read-then-write, opening a
    * race window. Returns true iff a row was actually incremented; the
    * caller logs but does NOT fail the order if we were already at cap
    * (the customer already paid the discounted price).

@@ -7,7 +7,7 @@ import { LoyaltyService } from '../loyalty/loyalty.service';
 import { NotificationsService } from '../notifications/notifications.service';
 
 /**
- * FR-ADM-002 — admin power tools for user + order management.
+ * FR-ADM-002 - admin power tools for user + order management.
  *
  * All mutations write to AuditLog. The schema only has a `metadata` JSON
  * column on AuditLog (no dedicated previousState/newState), so we bundle
@@ -84,7 +84,7 @@ export class AdminUsersService {
   }
 
   /**
-   * Issue goodwill credit as loyalty points (1 pence = 1 point — same
+   * Issue goodwill credit as loyalty points (1 pence = 1 point - same
    * conversion the customer-facing redemption stepper uses). Audited via
    * LoyaltyService.adjustPoints which writes its own AuditLog row, plus
    * we also notify the customer.
@@ -114,7 +114,7 @@ export class AdminUsersService {
    * stop working immediately) and revokes all Supabase auth sessions
    * globally so refresh tokens can't issue a new JWT.
    *
-   * Self-suspension is blocked — admins should never be able to lock
+   * Self-suspension is blocked - admins should never be able to lock
    * themselves out by accident.
    */
   async suspendUser(userId: string, reason: string, adminUserId: string): Promise<void> {
@@ -130,7 +130,7 @@ export class AdminUsersService {
     await this.prisma.user.update({ where: { id: userId }, data: { status: UserStatus.suspended } });
 
     // Global sign-out: revokes ALL refresh tokens across devices. We log
-    // failures but don't throw — the DB-side status flip is the real
+    // failures but don't throw - the DB-side status flip is the real
     // enforcement (re-checked on every request); Supabase global sign-out
     // is a defence-in-depth that shortens the window where an existing
     // JWT could keep working.
@@ -183,7 +183,7 @@ export class AdminUsersService {
   }
 
   /**
-   * Force an order into any status — for emergency repair work (e.g. a
+   * Force an order into any status - for emergency repair work (e.g. a
    * vendor confirmed delivery in person but their app crashed before they
    * could mark it delivered). Bypasses the normal state machine in
    * OrdersService; that's intentional and the reason is audited.
@@ -225,7 +225,7 @@ export class AdminUsersService {
    *
    * SECURITY: explicit `select` excludes `passwordHash` and any other
    * credential material. Never spread `findUnique({ where })` here without
-   * a whitelist — the User row carries auth secrets.
+   * a whitelist - the User row carries auth secrets.
    *
    * The export action itself writes an AuditLog row (action
    * `admin.user_exported`) so we have a tamper-evident record of who

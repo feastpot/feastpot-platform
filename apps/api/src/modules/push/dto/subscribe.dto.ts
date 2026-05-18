@@ -38,7 +38,7 @@ export class SubscribePushDto {
   @MaxLength(500)
   endpoint!: string;
 
-  // `@IsObject` alone wouldn't validate nested fields — a missing/blank
+  // `@IsObject` alone wouldn't validate nested fields - a missing/blank
   // `p256dh` would slip through global ValidationPipe and explode at Prisma.
   // `@ValidateNested` + `@Type` plumbs class-validator into the nested DTO.
   @ApiProperty({ type: PushSubscriptionKeysDto })

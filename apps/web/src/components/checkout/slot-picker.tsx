@@ -6,13 +6,13 @@ import { useState } from 'react';
 import { cn } from '@feastpot/ui';
 
 export interface SlotPickerProps {
-  /** Days of week the vendor delivers — 0=Sun … 6=Sat. */
+  /** Days of week the vendor delivers - 0=Sun … 6=Sat. */
   availableDays: number[];
   /** Open of delivery window, "HH:mm". */
   slotOpenTime: string;
   /** Close of delivery window, "HH:mm" (exclusive). */
   slotCloseTime: string;
-  /** Hours of notice the vendor needs — slots within this window are hidden. */
+  /** Hours of notice the vendor needs - slots within this window are hidden. */
   leadTimeHours: number;
   /** How many days into the future the picker offers. */
   maxAdvanceDays: number;
@@ -22,7 +22,7 @@ export interface SlotPickerProps {
 }
 
 /**
- * Visual delivery-slot picker — horizontal date strip + time-pill grid.
+ * Visual delivery-slot picker - horizontal date strip + time-pill grid.
  *
  * Why these props instead of reading vendor config directly:
  *   The vendor `DeliveryConfig` Prisma model does NOT yet expose
@@ -51,14 +51,14 @@ export function SlotPicker({
   for (let i = 0; i <= maxAdvanceDays; i++) {
     const d = addDays(today, i);
     if (!availableDays.includes(d.getDay())) continue;
-    // For "today" we still want the chip visible — generateSlots filters
+    // For "today" we still want the chip visible - generateSlots filters
     // individual times against the lead-time cutoff.
     if (i === 0 || d > cutoff) dates.push(d);
   }
 
   // Build hourly pills like "11:00–12:00" between open and close.
   const generateSlots = (date: Date) => {
-    // Defensive parsing — if a caller ever passes a malformed time string we
+    // Defensive parsing - if a caller ever passes a malformed time string we
     // fall back to a no-op range rather than throwing.
     const openH = Number(slotOpenTime.split(':')[0] ?? '0');
     const closeH = Number(slotCloseTime.split(':')[0] ?? '0');
@@ -83,7 +83,7 @@ export function SlotPicker({
       {/* Date strip */}
       {dates.length === 0 ? (
         <p className="rounded-xl border border-dashed border-cream-deep bg-cream/50 px-3 py-3 text-sm font-medium text-charcoal-mid">
-          No available slots — this vendor needs {leadTimeHours}h notice and isn&rsquo;t open
+          No available slots - this vendor needs {leadTimeHours}h notice and isn&rsquo;t open
           on the next {maxAdvanceDays + 1} days.
         </p>
       ) : (
@@ -117,7 +117,7 @@ export function SlotPicker({
         <div className="mt-3">
           {slots.length === 0 ? (
             <p className="text-xs text-mid">
-              No remaining slots on this day — try the next available date.
+              No remaining slots on this day - try the next available date.
             </p>
           ) : (
             <div className="flex flex-wrap gap-2">

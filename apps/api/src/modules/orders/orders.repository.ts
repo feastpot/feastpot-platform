@@ -85,7 +85,7 @@ export class OrdersRepository {
       take,
       include: {
         items: true,
-        // Same rationale as findByIdWithItems — vendor dashboard needs first name
+        // Same rationale as findByIdWithItems - vendor dashboard needs first name
         // per row to address customers by name.
         customer: { select: { id: true, firstName: true, email: true } },
       },
@@ -107,7 +107,7 @@ export class OrdersRepository {
   }
 
   /**
-   * Order schema has no stripe_payment_intent_id column — Stripe identifiers live
+   * Order schema has no stripe_payment_intent_id column - Stripe identifiers live
    * on the related Payment row. We create a pending Payment row at order creation
    * time so the PI can be looked up later for capture/cancel/refund.
    */
@@ -178,7 +178,7 @@ export class OrdersRepository {
       include: {
         items: true,
         // Vendor businessName is needed for the confirmation notification
-        // payload — selecting just the one field keeps the row size small.
+        // payload - selecting just the one field keeps the row size small.
         vendor: { select: { businessName: true } },
       },
     });

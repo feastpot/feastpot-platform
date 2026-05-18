@@ -60,7 +60,7 @@ export interface CommissionBreakdown {
 }
 
 /**
- * Commission is charged on the vendor's food revenue (subtotalPence) only —
+ * Commission is charged on the vendor's food revenue (subtotalPence) only -
  * NOT on delivery fees (which are vendor reimbursement, not vendor income)
  * and NOT on the platform service fee (which is platform revenue, not the
  * vendor's). The vendor's payout is the customer-paid total minus the
@@ -195,7 +195,7 @@ export class OrdersService {
     // Loyalty redemption: cap to never exceed (subtotal + delivery) so the
     // order total can't go negative. We pre-validate the balance here
     // (read-only) and write the redeem ledger row AFTER the order row
-    // exists, with the real orderId — that removes the need to patch a
+    // exists, with the real orderId - that removes the need to patch a
     // freshly-orphaned row and eliminates a "wrong row picked under
     // concurrency" hazard. The window between assert + write is narrow
     // (single request) and the ledger write is itself idempotent per
@@ -230,14 +230,14 @@ export class OrdersService {
     const orderNumber = this.generateOrderNumber();
     // Generate the order id client-side so the Stripe PI (created BEFORE the
     // DB transaction, for idempotency) can carry the real orderId in its
-    // metadata — matches the value the order row will be inserted with.
+    // metadata - matches the value the order row will be inserted with.
     const orderId = randomUUID();
 
     // Stripe PI is created BEFORE the DB transaction so we have a single
     // outbound side-effect to compensate for if the DB tx fails (cancel the
     // PI). orderNumber is unique-per-attempt and stable across SDK-level
     // retries, making it a safe Stripe idempotency key. Tracked as its own
-    // Sentry span — Stripe is the dominant external dependency in createOrder.
+    // Sentry span - Stripe is the dominant external dependency in createOrder.
     const intent = await Sentry.startSpan(
       { name: 'stripe.paymentIntents.create', op: 'http.client', attributes: { orderId } },
       () =>
@@ -253,7 +253,7 @@ export class OrdersService {
     try {
       // ATOMIC: order row + line items + payment row + loyalty debit are all
       // committed in a single Prisma interactive transaction. If any step
-      // throws, every write rolls back together — no half-created order, no
+      // throws, every write rolls back together - no half-created order, no
       // orphaned loyalty debit, no payment row pointing at a non-existent
       // order. The compensating action for the already-created Stripe PI
       // happens in the catch block below.
@@ -295,7 +295,7 @@ export class OrdersService {
         });
 
         // Payment row holds the Stripe PI ID (the Order model has no
-        // stripePaymentIntentId column — PI lives on the related Payment row).
+        // stripePaymentIntentId column - PI lives on the related Payment row).
         await tx.payment.create({
           data: {
             orderId: created.id,
@@ -310,13 +310,13 @@ export class OrdersService {
         // (pg_advisory_xact_lock with the same key shape) so concurrent
         // checkouts for the same user serialize on the balance read+write
         // and cannot overdraw the ledger. Cannot reuse redeemPoints() here
-        // because it opens its own interactive transaction — Prisma doesn't
+        // because it opens its own interactive transaction - Prisma doesn't
         // support nesting interactive txs on a single connection.
         if (loyaltyToRedeem > 0) {
           const lockKey = `loyalty:user:${customerId}`;
           await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`;
 
-          // Idempotency per (userId, orderId) — same guard as redeemPoints.
+          // Idempotency per (userId, orderId) - same guard as redeemPoints.
           const existing = await tx.loyaltyPoint.findFirst({
             where: { userId: customerId, orderId: created.id, type: LoyaltyTxType.redeemed },
             select: { id: true },
@@ -350,7 +350,7 @@ export class OrdersService {
 
       return { order, clientSecret: intent.client_secret };
     } catch (err) {
-      // DB tx rolled back — release the Stripe authorization so the
+      // DB tx rolled back - release the Stripe authorization so the
       // customer's card isn't held against an order that doesn't exist.
       // Swallow the cancel failure (log only) so the original DB error
       // surfaces to the caller; PI cleanup is best-effort.
@@ -397,7 +397,7 @@ export class OrdersService {
     // Stripe authorisation succeeds. We use a per-order CAS on
     // `discount_applied_at` so concurrent confirmOrder calls (e.g. customer
     // double-clicks "Pay" while the order row is still `pending`) can never
-    // double-increment. Best-effort — a transient failure here must not
+    // double-increment. Best-effort - a transient failure here must not
     // block the customer from being told the order is confirmed.
     if (order.discountCodeId) {
       try {
@@ -427,7 +427,7 @@ export class OrdersService {
     // Customer-facing order_confirmation: registered template, dispatched on
     // email + sms + whatsapp + push by the processor based on the user's
     // contactable channels. `userId` is what the processor uses to look up
-    // the recipient's email/phone — passing customerId fills that role.
+    // the recipient's email/phone - passing customerId fills that role.
     await this.notifications.add(
       'order_confirmation',
       {
@@ -474,7 +474,7 @@ export class OrdersService {
   }
 
   private async applyVendorTransition(orderId: string, from: OrderStatus, dto: UpdateOrderStatusDto) {
-    // Snapshot the immutable order fields once — used below to enqueue
+    // Snapshot the immutable order fields once - used below to enqueue
     // customer-facing notifications without re-fetching after the CAS.
     const snap = await this.repo.findByIdWithItems(orderId);
     const data: Prisma.OrderUncheckedUpdateInput = { status: dto.status };
@@ -508,7 +508,7 @@ export class OrdersService {
       });
     }
 
-    // Side-effects only run after the CAS succeeded — guaranteeing exactly-once semantics.
+    // Side-effects only run after the CAS succeeded - guaranteeing exactly-once semantics.
     if (dto.status === OrderStatus.accepted) {
       try {
         const job = await this.notifications.getJob(`auto_cancel:${orderId}`);
@@ -593,7 +593,7 @@ export class OrdersService {
       if (snap) {
         // FR-LOY-001: credit loyalty points (idempotent per orderId) +
         // FR-REF-001: reward referrer if this is the customer's first
-        // delivered order. Both are best-effort — a transient failure
+        // delivered order. Both are best-effort - a transient failure
         // here must not roll back the delivered transition itself.
         let pointsEarned = 0;
         try {
@@ -642,7 +642,7 @@ export class OrdersService {
       });
     }
 
-    // Admin terminal cancel/refund — refund any loyalty redemption.
+    // Admin terminal cancel/refund - refund any loyalty redemption.
     const snap = await this.repo.findByIdWithItems(orderId);
     if (snap?.customerId) {
       try {
@@ -657,7 +657,7 @@ export class OrdersService {
       if (dto.status === OrderStatus.refunded) {
         try {
           await this.stripe.refund(pi);
-          // NB: payment row stays "succeeded" — refunds are tracked separately by Stripe;
+          // NB: payment row stays "succeeded" - refunds are tracked separately by Stripe;
           // a future Refund table would record the negative ledger entry.
         } catch {
           await this.stripe.cancel(pi);
@@ -677,13 +677,13 @@ export class OrdersService {
 
   /**
    * Customer self-cancellation. Permitted only while the order is still in a
-   * pre-prep state (pending or accepted) — once the vendor moves to
+   * pre-prep state (pending or accepted) - once the vendor moves to
    * `preparing`, ingredients are committed and refunds become a dispute
    * (handled separately).
    *
    * NB on Stripe: this codebase uses MANUAL CAPTURE (capture happens on
    * `delivered`). For BOTH `pending` and `accepted` the PaymentIntent is
-   * still in `requires_capture` — `refunds.create` would 400 with
+   * still in `requires_capture` - `refunds.create` would 400 with
    * "charge has not been captured yet". So we always `paymentIntents.cancel`
    * here regardless of status; the customer is never charged in the first
    * place. (The spec literally says refund-on-accepted; we deliberately
@@ -702,7 +702,7 @@ export class OrdersService {
     if (!cancellable.includes(order.status)) {
       const message =
         order.status === OrderStatus.preparing
-          ? 'Your order is already being prepared — please contact the vendor'
+          ? 'Your order is already being prepared - please contact the vendor'
           : order.status === OrderStatus.dispatched
             ? 'Your order is already on the way'
             : order.status === OrderStatus.delivered
@@ -726,11 +726,11 @@ export class OrdersService {
     if (!ok) {
       throw new BadRequestException({
         code: 'STATUS_CHANGED_CONCURRENTLY',
-        message: 'Order status changed while you were cancelling — please reload and retry',
+        message: 'Order status changed while you were cancelling - please reload and retry',
       });
     }
 
-    // Audit trail — schema uses actorId + metadata (not actorUserId/newState).
+    // Audit trail - schema uses actorId + metadata (not actorUserId/newState).
     await this.prisma.auditLog
       .create({
         data: {
@@ -760,7 +760,7 @@ export class OrdersService {
         await this.stripe.cancel(pi);
         await this.repo.markPaymentStatus(pi, 'cancelled');
       } catch (e) {
-        // Stripe failure must not block the cancel — the customer's intent
+        // Stripe failure must not block the cancel - the customer's intent
         // is already recorded; ops can reconcile from the audit log + Stripe
         // dashboard. Log loudly so on-call sees it.
         this.logger.error(
@@ -885,7 +885,7 @@ export class OrdersService {
       });
     }
 
-    // Upcharges silently break captured-payment flows — block them up front.
+    // Upcharges silently break captured-payment flows - block them up front.
     const priceDeltaPence = dto.priceDeltaPence ?? 0;
     if (priceDeltaPence > 0) {
       throw new BadRequestException({
@@ -973,7 +973,7 @@ export class OrdersService {
       });
     }
     if (amendment.expiresAt.getTime() < Date.now()) {
-      // Race with the expire job — treat as already resolved.
+      // Race with the expire job - treat as already resolved.
       throw new BadRequestException({
         code: 'AMENDMENT_EXPIRED',
         message: 'Amendment has already expired',
@@ -981,7 +981,7 @@ export class OrdersService {
     }
 
     // Issue the refund FIRST (before flipping state). If Stripe fails the
-    // amendment stays pending so the customer can retry — much better than
+    // amendment stays pending so the customer can retry - much better than
     // claiming "accepted" with no refund issued. Idempotency key makes the
     // retry safe.
     if (dto.accepted && amendment.priceDeltaPence < 0) {
@@ -999,7 +999,7 @@ export class OrdersService {
     }
 
     // Conditional update: only flip if still pending. updateMany returns the
-    // number of rows changed — if 0 we lost a race (expire job, double-tap)
+    // number of rows changed - if 0 we lost a race (expire job, double-tap)
     // and must surface that rather than send a stale notification.
     const newStatus = dto.accepted ? AmendmentStatus.accepted : AmendmentStatus.declined;
     const result = await this.prisma.orderAmendment.updateMany({

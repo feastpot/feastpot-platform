@@ -15,7 +15,7 @@ interface Props {
   /**
    * The component is mounted everywhere but only renders itself once an
    * order has been placed. Pages that finish a checkout can flip this via
-   * `localStorage.setItem('feastpot.has-ordered.v1', '1')` — the prompt
+   * `localStorage.setItem('feastpot.has-ordered.v1', '1')` - the prompt
    * picks it up on next render. Default: read from localStorage.
    */
   forceShow?: boolean;
@@ -24,7 +24,7 @@ interface Props {
 /**
  * Tiny floating prompt asking the customer for notification permission. We
  * deliberately gate on "user has placed at least one order" instead of
- * showing it on first visit — most browsers permanently block our origin
+ * showing it on first visit - most browsers permanently block our origin
  * after a single decline, so we only ask when the value is highest.
  *
  * Dismissal is sticky (localStorage) so the user isn't pestered.
@@ -102,7 +102,7 @@ export function PushPermissionPrompt({ forceShow = false }: Props) {
           <div className="min-w-0 flex-1">
             <h3 className="font-display text-sm font-black text-charcoal">Get notified when your order is ready?</h3>
             <p className="mt-0.5 text-xs font-medium text-charcoal-mid">
-              We&rsquo;ll only ping you about your order — no marketing.
+              We&rsquo;ll only ping you about your order - no marketing.
             </p>
             {error && <p className="mt-2 text-xs font-medium text-scotch">{error}</p>}
             <div className="mt-3 flex gap-2">

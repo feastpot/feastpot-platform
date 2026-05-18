@@ -40,7 +40,7 @@ export default async function OnboardingPage() {
     });
   } catch (err) {
     if (err instanceof ApiError && err.status === 404) {
-      // Not a vendor yet — would need /vendors POST. Out of scope here.
+      // Not a vendor yet - would need /vendors POST. Out of scope here.
       redirect('/unauthorized');
     }
     if (err instanceof ApiError && err.status === 403) redirect('/unauthorized');
