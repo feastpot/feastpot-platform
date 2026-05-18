@@ -2,6 +2,12 @@ import { BadRequestException, ConflictException, ForbiddenException, NotFoundExc
 import { UserRole, VendorStatus } from '@prisma/client';
 
 import type { AuthUser } from '../../auth/types';
+import type { RedisCacheService } from '../../common/cache/redis-cache.service';
+import type { NotificationsService } from '../notifications/notifications.service';
+import type { EmailProvider } from '../notifications/providers/email.provider';
+import type { PrismaService } from '../../prisma/prisma.service';
+import type { StripeService } from '../../stripe/stripe.service';
+import type { ConfigService } from '@nestjs/config';
 import { VendorsService } from './vendors.service';
 import type { VendorRepository } from './vendors.repository';
 
@@ -53,7 +59,26 @@ describe('VendorsService', () => {
 
   beforeEach(() => {
     repo = makeRepo();
-    service = new VendorsService(repo as unknown as VendorRepository);
+    const prisma = {} as unknown as PrismaService;
+    const stripe = {} as unknown as StripeService;
+    const config = { get: jest.fn().mockReturnValue(undefined) } as unknown as ConfigService;
+    const cache = {
+      get: jest.fn().mockResolvedValue(null),
+      set: jest.fn().mockResolvedValue(undefined),
+      del: jest.fn().mockResolvedValue(undefined),
+      delByPattern: jest.fn().mockResolvedValue(undefined),
+    } as unknown as RedisCacheService;
+    const notifications = { enqueue: jest.fn().mockResolvedValue(undefined) } as unknown as NotificationsService;
+    const email = { send: jest.fn().mockResolvedValue(undefined) } as unknown as EmailProvider;
+    service = new VendorsService(
+      repo as unknown as VendorRepository,
+      prisma,
+      stripe,
+      config,
+      cache,
+      notifications,
+      email,
+    );
   });
 
   describe('search', () => {
