@@ -450,17 +450,6 @@ function SignInForm() {
             >
               Request access
             </Link>
-
-            <p className="pt-1 text-center text-[13px]" style={{ color: C.inkMid }}>
-              New to FeastPot?{' '}
-              <Link
-                href="/onboarding/register"
-                className="font-bold hover:underline"
-                style={{ color: C.green }}
-              >
-                Register interest
-              </Link>
-            </p>
           </form>
 
           <div
