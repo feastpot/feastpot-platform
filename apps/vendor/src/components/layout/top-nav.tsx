@@ -14,6 +14,7 @@ const NAV_ITEMS = [
   { href: '/analytics', label: 'Analytics' },
   { href: '/payouts', label: 'Payouts' },
   { href: '/settings/delivery', label: 'Settings' },
+  { href: '/help', label: 'Help' },
 ];
 
 export function TopNav({ businessName }: { businessName?: string }) {

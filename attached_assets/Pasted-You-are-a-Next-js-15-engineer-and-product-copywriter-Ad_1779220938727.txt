@@ -1,0 +1,80 @@
+You are a Next.js 15 engineer and product copywriter.
+Add payout cadence information to the vendor portal and update
+the vendor FAQ with real operational details.
+
+CONTEXT:
+Vendors have no visibility of when they get paid, what the cut-off is,
+or how to query a payout. The agent's audit flags "publish payout cadence
+to vendors" as a Week 2 requirement. This is 30 minutes of copy and
+one new portal page.
+
+STEP 1 — Payouts info page in vendor portal
+File: apps/vendor/src/app/payouts/page.tsx
+Add an information panel at the top of the existing payouts page:
+
+<div style={{ background: '#E8F5EC', borderRadius: '14px', padding: '20px', marginBottom: '24px' }}>
+  <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#1A1A1A', marginBottom: '12px' }}>
+    How Feastpot payouts work
+  </h3>
+  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+    {[
+      { icon: '📅', title: 'Weekly every Monday',
+        detail: 'Your payout is calculated at midnight on Sunday and transferred Monday morning.' },
+      { icon: '💷', title: 'You keep 88%',
+        detail: 'Feastpot charges 12% commission on the order subtotal. Delivery fees are separate.' },
+      { icon: '⏱️', title: '3–5 working days to your bank',
+        detail: 'Stripe Transfer typically arrives within 3–5 working days of Monday.' },
+      { icon: '❓', title: 'Query a payout',
+        detail: 'Email vendors@feastpot.co.uk with your kitchen name and the week in question.' },
+    ].map(item => (
+      <div key={item.title} style={{ display: 'flex', gap: '12px' }}>
+        <span style={{ fontSize: '20px', flexShrink: 0 }}>{item.icon}</span>
+        <div>
+          <span style={{ fontSize: '13px', fontWeight: 600, color: '#1A1A1A' }}>{item.title}. </span>
+          <span style={{ fontSize: '13px', color: '#666666' }}>{item.detail}</span>
+        </div>
+      </div>
+    ))}
+  </div>
+</div>
+
+STEP 2 — Vendor portal FAQ page
+File: apps/vendor/src/app/help/page.tsx (create if not exists)
+
+Add a dedicated help page for vendors with these sections:
+1. Getting paid — cadence, commission, Stripe Connect, bank transfer timing
+2. Managing orders — how to accept/reject, the 15-minute window, penalties for rejection
+3. Your menu — draft vs live, editing prices, allergen requirements
+4. Delivery — how your radius works, changing service days
+5. Compliance — document renewal, what happens when a cert expires
+6. Disputes — what triggers a refund, how to respond, SLA
+
+KEY CONTENT for "Managing orders" section:
+  "You have 15 minutes to accept or reject each new order.
+   If you do not respond within 15 minutes, the order is automatically
+   cancelled and the customer is refunded in full.
+   Three consecutive missed orders may result in a review of your account."
+
+KEY CONTENT for "Compliance" section:
+  "Your food hygiene certificate and insurance must be renewed annually.
+   Feastpot will email you 30 days before expiry.
+   If a document expires, your kitchen will be automatically paused
+   until the updated document is uploaded and verified."
+
+KEY CONTENT for "Disputes" section:
+  "If a customer raises a dispute, you have 48 hours to respond.
+   After 48 hours without a response, Feastpot may issue a full refund
+   to the customer. Always respond to disputes promptly."
+
+STEP 3 — Add help link to vendor portal sidebar
+File: apps/vendor/src/components/layout/vendor-top-nav.tsx (or sidebar)
+
+Add to the bottom of the navigation:
+{
+  href: '/help',
+  label: 'Help & FAQ',
+  icon: HelpCircle,
+}
+
+Run: npm run typecheck --filter=@feastpot/vendor
+Output all new and changed files.
