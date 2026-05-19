@@ -197,7 +197,7 @@ function SignInForm() {
               alt="Feastpot"
               width={317}
               height={100}
-              className="h-10 w-auto brightness-0 invert"
+              className="h-10 w-auto"
               priority
             />
           </Link>
