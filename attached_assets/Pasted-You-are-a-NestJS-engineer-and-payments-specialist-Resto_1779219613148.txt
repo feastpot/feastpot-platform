@@ -1,0 +1,95 @@
+You are a NestJS engineer and payments specialist. Restore the payment
+refund test coverage and confirm the Stripe refund path works end-to-end.
+
+CONTEXT:
+The pre-existing payment refund test is broken (Task #24 was cancelled).
+Refund regressions could ship undetected. Before real money moves,
+this path must be tested and the test must be green.
+
+STEP 1 — Find and assess the broken test
+Run: npm run test:api 2>&1 | grep -A 5 "refund\|FAIL\|failed"
+
+Identify which test file and which specific assertion is failing.
+Report: file path, test name, error message.
+
+STEP 2 — Fix the broken test
+Common causes of broken refund tests:
+  a) Mock setup for stripe.refunds.create changed signature
+  b) Order status precondition changed (must be in delivered state for refund)
+  c) Prisma mock not returning the expected payment record
+
+The fix must be in the test file, not in the service.
+Do not change production code to make a test pass — fix the test to
+match the actual service behaviour.
+
+File most likely: apps/api/src/modules/payments/payments.service.spec.ts
+Or: apps/api/src/modules/orders/orders.service.spec.ts
+
+STEP 3 — Add a refund smoke test if one does not exist
+
+If there is no test for the full refund path, create one:
+
+describe('Refund flow', () => {
+  it('issues a Stripe refund when customer cancels a pending order', async () => {
+    // Arrange
+    const mockOrder = {
+      id: 'order-123',
+      status: 'pending',
+      customerId: 'customer-123',
+      payment: { stripePaymentIntentId: 'pi_test_123' },
+    }
+    mockPrisma.order.findUnique.mockResolvedValue(mockOrder)
+    mockStripe.paymentIntents.cancel.mockResolvedValue({ status: 'canceled' })
+
+    // Act
+    await ordersService.customerCancel('order-123', 'customer-123', 'Changed my mind')
+
+    // Assert
+    expect(mockStripe.paymentIntents.cancel).toHaveBeenCalledWith('pi_test_123')
+    expect(mockPrisma.order.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: 'cancelled' }),
+      })
+    )
+  })
+
+  it('issues a Stripe refund (not cancel) when customer cancels an accepted order', async () => {
+    const mockOrder = {
+      id: 'order-456',
+      status: 'accepted',
+      customerId: 'customer-123',
+      payment: { stripePaymentIntentId: 'pi_test_456' },
+    }
+    mockPrisma.order.findUnique.mockResolvedValue(mockOrder)
+    mockStripe.refunds.create.mockResolvedValue({ id: 're_test_123', status: 'succeeded' })
+
+    await ordersService.customerCancel('order-456', 'customer-123', 'Changed my mind')
+
+    expect(mockStripe.refunds.create).toHaveBeenCalledWith(
+      expect.objectContaining({ payment_intent: 'pi_test_456' })
+    )
+  })
+
+  it('blocks refund when order is already preparing', async () => {
+    const mockOrder = { id: 'order-789', status: 'preparing', customerId: 'customer-123' }
+    mockPrisma.order.findUnique.mockResolvedValue(mockOrder)
+
+    await expect(
+      ordersService.customerCancel('order-789', 'customer-123', 'Changed my mind')
+    ).rejects.toThrow('already being prepared')
+  })
+})
+
+STEP 4 — Confirm STRIPE_WEBHOOK_SECRET is in production secrets
+Run: curl https://feastpot-platform.replit.app/v1/healthz
+Assert: checks.secrets does not contain 'STRIPE_WEBHOOK_SECRET' in the missing list
+
+If STRIPE_WEBHOOK_SECRET is missing:
+1. Go to dashboard.stripe.com → Developers → Webhooks
+2. Select your webhook endpoint
+3. Copy the signing secret (whsec_...)
+4. Add to Replit deployment secrets: STRIPE_WEBHOOK_SECRET = whsec_...
+
+Run: npm run test:api -- --testPathPattern=payment
+Assert: all tests pass (green)
+Output: test file changes and a summary of what was fixed.

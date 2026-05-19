@@ -133,6 +133,7 @@ describe('OrdersService.updateStatus authorization', () => {
       creditPoints: jest.fn().mockResolvedValue(0),
       redeemPoints: jest.fn().mockResolvedValue(0),
       linkRedemptionToOrder: jest.fn().mockResolvedValue(undefined),
+      refundRedemption: jest.fn().mockResolvedValue(undefined),
     };
     const referrals = { rewardReferral: jest.fn().mockResolvedValue(undefined) };
     const discountCodes = {
@@ -286,6 +287,7 @@ describe('OrdersService.confirmOrder', () => {
       creditPoints: jest.fn().mockResolvedValue(0),
       redeemPoints: jest.fn().mockResolvedValue(0),
       linkRedemptionToOrder: jest.fn().mockResolvedValue(undefined),
+      refundRedemption: jest.fn().mockResolvedValue(undefined),
     };
     const referrals = { rewardReferral: jest.fn().mockResolvedValue(undefined) };
     const discountCodes = {

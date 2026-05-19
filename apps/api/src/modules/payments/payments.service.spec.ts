@@ -101,7 +101,7 @@ describe('PaymentsService.createRefund', () => {
 
     const out = await svc.createRefund({ orderId: 'o-1', amountPence: 1000 }, finance);
 
-    expect(stripe.refund).toHaveBeenCalledWith('pi_1', 1000);
+    expect(stripe.refund).toHaveBeenCalledWith('pi_1', 1000, undefined);
     expect(out.reversal).toEqual({ refundedCommissionPence: 150, vendorRefundDeductionPence: 850 });
     // First create: negative refund row of full amount → type = refund
     expect(prisma.payment.create.mock.calls[0][0].data).toMatchObject({
