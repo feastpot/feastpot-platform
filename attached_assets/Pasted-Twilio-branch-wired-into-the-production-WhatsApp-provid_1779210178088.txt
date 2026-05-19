@@ -1,0 +1,37 @@
+Twilio branch wired into the production WhatsApp provider. Typecheck clean.
+
+What the new provider does
+The provider auto-selects its backend at boot based on which credentials are present, in priority order:
+
+Twilio (active now, since you have TWILIO_WHATSAPP_FROM + SID + token)
+Meta Cloud API (would activate if Twilio creds were absent and WHATSAPP_ACCESS_TOKEN + WHATSAPP_PHONE_NUMBER_ID were set)
+Stub (logs only — graceful no-op)
+On boot you'll see in the API logs: WhatsApp provider: Twilio (from=whatsapp:+14155238866).
+
+One important caveat — Content SIDs are required for the processor flow
+WhatsApp Business does not allow business-initiated free-text messages outside the 24-hour customer-service window. Both Twilio and Meta enforce this with pre-approved templates. The provider does the right thing:
+
+When the processor enqueues order_confirmation (or any WhatsApp event), the provider looks up TWILIO_CONTENT_SID_order_confirmation in env
+If set → sends via Twilio Content Template with your params mapped to {"1":…,"2":…} variables
+If not set → logs a warning, returns delivered:false, processor moves on (no crash)
+So WhatsApp events will gracefully no-op until you create the templates. Here's the list of internal event names you'll want to map (one Content SID per event):
+
+Internal event	Used for
+order_confirmation	Customer order placed
+order_accepted	Vendor accepted
+order_dispatched	Out for delivery
+delivery_confirmed	Delivered + review request
+order_amendment_proposed	Vendor proposed a change
+review_request	Post-delivery review nudge
+event_quote_received	Vendor quoted on event enquiry
+event_reminder_72h	Confirm guest count
+event_balance_link	Balance payment due
+payout_statement	Weekly vendor payout
+Recommended next step (when you're ready)
+In Twilio Console → Content Template Builder → create one template per event name above. Twilio sends each for Meta WABA pre-approval (a few hours to a day).
+For each approved template, copy the Content SID (HXxxxx…) and add to Secrets as TWILIO_CONTENT_SID_<event> — e.g. TWILIO_CONTENT_SID_order_confirmation=HX…
+As each gets approved + secret-added, that event automatically starts flowing through real WhatsApp on the next order — no code change needed.
+What's working right now
+Email (Resend) — production-ready, you've tested it
+WhatsApp credentials wired and verified end-to-end via the sandbox test
+The provider safely no-ops on un-mapped templates instead of crashing
