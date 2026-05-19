@@ -429,27 +429,6 @@ function SignInForm() {
               {!busy && <ArrowRight className="h-4 w-4" aria-hidden />}
             </button>
 
-            {/* "or" divider with rules either side. */}
-            <div className="flex items-center gap-3 py-1">
-              <span className="h-px flex-1" style={{ background: C.border }} />
-              <span className="text-[12px] font-medium" style={{ color: C.inkMid }}>
-                or
-              </span>
-              <span className="h-px flex-1" style={{ background: C.border }} />
-            </div>
-
-            <Link
-              href="/onboarding/register"
-              className="flex min-h-12 w-full items-center justify-center rounded-xl border bg-white py-3 text-sm font-semibold hover:bg-[color:var(--fp-cream,#F8F4EB)]"
-              style={{
-                borderColor: C.border,
-                color: C.ink,
-                // @ts-expect-error - CSS var for hover
-                '--fp-cream': C.cream,
-              }}
-            >
-              Request access
-            </Link>
           </form>
 
           <div
