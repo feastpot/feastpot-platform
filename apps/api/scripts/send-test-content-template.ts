@@ -13,15 +13,18 @@ import { WhatsappProvider } from '../src/modules/notifications/providers/whatsap
 async function main() {
   const to = process.argv[2];
   const template = process.argv[3] ?? 'order_confirmation';
+  const paramsArg = process.argv[4];
   if (!to) {
-    console.error('Usage: tsx scripts/send-test-content-template.ts <+E164> [templateName]');
+    console.error('Usage: tsx scripts/send-test-content-template.ts <+E164> [templateName] [paramsJson]');
     process.exit(1);
   }
 
   const config = new ConfigService(process.env);
   const wa = new WhatsappProvider(config);
 
-  const params = ['Sarah', 'FP-2026-00042', '£24.50'];
+  const params: Array<string | number> = paramsArg
+    ? (JSON.parse(paramsArg) as Array<string | number>)
+    : ['Sarah', 'FP-2026-00042', '£24.50'];
   console.log(`Sending template=${template} to=${to} params=${JSON.stringify(params)}`);
   const r = await wa.send({ to, template, params });
   console.log('Result:', r);
