@@ -22,6 +22,8 @@ export const BRAND = {
   orange: '#E8520A',
   teal: '#1D9E75',
   vendorBlue: '#185FA5',
+  green: '#00843D',
+  gold: '#FCD116',
   ink: '#1C1C1A',
   mute: '#5F5E5A',
   muteSoft: '#888780',
@@ -30,6 +32,14 @@ export const BRAND = {
   amberBg: '#FEF6E7',
   amberBorder: '#F5C36C',
 } as const;
+
+/**
+ * Public URL for the brand logo used in transactional email headers.
+ * Hosted by the customer web app (apps/web/public/images/feastpot-logo.png).
+ * Override at runtime by setting EMAIL_LOGO_URL.
+ */
+const LOGO_URL =
+  process.env.EMAIL_LOGO_URL ?? 'https://feastpot.co.uk/images/feastpot-logo.png';
 
 const FONT_STACK = `Inter,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif`;
 
@@ -43,9 +53,13 @@ ${preheader ? `<div style="display:none;max-height:0;overflow:hidden;color:trans
 </head>
 <body style="margin:0;padding:0;background:${BRAND.paper};font-family:${FONT_STACK};-webkit-font-smoothing:antialiased">
 <div style="max-width:600px;margin:24px auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(28,28,26,.08)">
-  <div style="background:${BRAND.orange};padding:20px 28px">
-    <span style="color:#ffffff;font-size:26px;font-weight:900;letter-spacing:-1.5px">feast</span><span style="color:rgba(255,255,255,.75);font-size:26px;font-weight:900;letter-spacing:-1.5px">pot</span>
+  <div style="background:${BRAND.green};height:8px;line-height:8px;font-size:0">&nbsp;</div>
+  <div style="background:${BRAND.gold};height:6px;line-height:6px;font-size:0">&nbsp;</div>
+  <div style="background:#ffffff;padding:20px 28px;text-align:center">
+    <img src="${LOGO_URL}" alt="Feastpot" height="48" style="display:inline-block;height:48px;width:auto;border:0;outline:none;text-decoration:none">
   </div>
+  <div style="background:${BRAND.gold};height:6px;line-height:6px;font-size:0">&nbsp;</div>
+  <div style="background:${BRAND.green};height:8px;line-height:8px;font-size:0">&nbsp;</div>
   <div style="padding:28px 28px 24px">${body}</div>
   <div style="background:${BRAND.paper};padding:16px 28px;border-top:1px solid ${BRAND.hairline}">
     <p style="margin:0 0 4px;font-size:12px;color:${BRAND.muteSoft}">Feastpot · feastpot.co.uk · ${LEGAL.SUPPORT_EMAIL}</p>
@@ -55,8 +69,12 @@ ${preheader ? `<div style="display:none;max-height:0;overflow:hidden;color:trans
 </body></html>`;
 }
 
-/** Primary CTA button (brand orange). Pass `color: 'teal'` for the alt accent. */
-export function brandButton(text: string, url: string, color: 'orange' | 'teal' | 'vendorBlue' = 'orange'): string {
+/** Primary CTA button (brand orange). Pass `color: 'teal' | 'vendorBlue' | 'green'` for alts. */
+export function brandButton(
+  text: string,
+  url: string,
+  color: 'orange' | 'teal' | 'vendorBlue' | 'green' = 'orange',
+): string {
   const bg = BRAND[color];
   return `<div style="margin:20px 0"><a href="${escapeAttr(url)}" style="display:inline-block;background:${bg};color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:10px;font-weight:700;font-size:15px">${escapeHtml(text)}</a></div>`;
 }

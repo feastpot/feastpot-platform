@@ -20,7 +20,7 @@ async function main() {
     vendorFirstName: 'Soul',
     businessName: 'Test Kitchen',
     portalUrl: `${process.env.VENDOR_PORTAL_URL ?? 'https://vendor.feastpot.co.uk'}/onboarding`,
-    supportEmail: 'hello@feastpot.co.uk',
+    supportEmail: 'info@feastpot.co.uk',
   };
 
   const subject = tpl.subject(data);

@@ -25,7 +25,7 @@ export function vendorPortalInviteTemplate(data: VendorPortalInviteData): {
   const firstName = escapeHtml(data.firstName);
   const kitchenName = escapeHtml(data.kitchenName);
   const expiresInDays = data.expiresInDays ?? 7;
-  const support = data.supportEmail ?? 'hello@feastpot.co.uk';
+  const support = data.supportEmail ?? 'info@feastpot.co.uk';
 
   const stepsHtml = `
     <ol style="margin:8px 0 16px 20px;padding:0;font-size:15px;color:#5F5E5A;line-height:1.7">
@@ -48,11 +48,11 @@ export function vendorPortalInviteTemplate(data: VendorPortalInviteData): {
         p(
           `Click the button below to set your password and access your vendor portal. <strong>This link expires in ${expiresInDays} days</strong> - if it lapses, reply to this email and we'll send a fresh one.`,
         ) +
-        brandButton('Set my password & sign in', data.magicLinkUrl, 'vendorBlue') +
+        brandButton('Set my password & sign in', data.magicLinkUrl, 'green') +
         h2('What happens next') +
         stepsHtml +
         p(
-          `Need a hand? Email <a href="mailto:${escapeHtml(support)}" style="color:#E8520A">${escapeHtml(support)}</a> - we typically reply within 1 business day.`,
+          `Need a hand? Email <a href="mailto:${escapeHtml(support)}" style="color:#00843D">${escapeHtml(support)}</a> - we typically reply within 1 business day.`,
           '#888780',
         ),
       `Welcome ${firstName} - set your password to access your vendor portal`,

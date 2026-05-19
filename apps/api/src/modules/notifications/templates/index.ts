@@ -448,10 +448,10 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
           brandButton(
             'Go to your dashboard',
             str(d.portalUrl, 'https://vendor.feastpot.co.uk'),
-            'vendorBlue',
+            'green',
           ) +
           p(
-            `Questions? Email us at <a href="mailto:${esc(d.supportEmail, 'support@feastpot.co.uk')}" style="color:#E8520A">${esc(d.supportEmail, 'support@feastpot.co.uk')}</a> - we reply within 1 business day.`,
+            `Questions? Email us at <a href="mailto:${esc(d.supportEmail, 'info@feastpot.co.uk')}" style="color:#00843D">${esc(d.supportEmail, 'info@feastpot.co.uk')}</a> - we reply within 1 business day.`,
             '#5F5E5A',
           ),
         "Your Feastpot kitchen is open - let's get cooking",
