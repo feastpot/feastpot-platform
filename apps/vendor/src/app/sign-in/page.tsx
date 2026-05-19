@@ -12,7 +12,6 @@ import {
   Mail,
   Pencil,
   ShieldCheck,
-  TrendingUp,
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -233,11 +232,8 @@ function SignInForm() {
             ))}
           </ul>
 
-          {/* Food photo + floating stat card. The asymmetric "leaf"
-              crop of the previous design is replaced with a clean
-              rounded-2xl rectangle to match the mockup. The mini
-              card uses an absolute position with -bottom/right
-              offsets so it overlaps the photo's lower-right edge. */}
+          {/* Food photo - clean rounded rectangle anchored to the
+              bottom of the rail. */}
           <div className="relative mt-auto self-start">
             <div
               className="relative h-[210px] w-[320px] overflow-hidden rounded-2xl shadow-[0_12px_40px_rgba(0,0,0,0.30)]"
@@ -249,25 +245,6 @@ function SignInForm() {
                 sizes="320px"
                 className="object-cover"
               />
-            </div>
-            <div className="absolute -bottom-5 right-[-24px] flex items-center gap-3 rounded-xl bg-white px-3.5 py-2.5 shadow-[0_8px_24px_rgba(0,0,0,0.18)]">
-              <span
-                className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full"
-                style={{ background: C.yellow }}
-                aria-hidden
-              >
-                <TrendingUp className="h-4 w-4" style={{ color: C.ink }} />
-              </span>
-              <div className="leading-tight">
-                <div className="text-[12px] font-bold" style={{ color: C.ink }}>
-                  Powering food
-                  <br />
-                  business growth
-                </div>
-                <div className="text-[10px]" style={{ color: C.inkMid }}>
-                  One order at a time.
-                </div>
-              </div>
             </div>
           </div>
         </div>
