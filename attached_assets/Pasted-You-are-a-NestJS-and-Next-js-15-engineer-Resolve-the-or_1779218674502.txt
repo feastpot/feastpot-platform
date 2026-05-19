@@ -1,0 +1,62 @@
+You are a NestJS and Next.js 15 engineer. Resolve the order amendment
+NotImplemented (501) error before any vendor goes live.
+
+CONTEXT:
+The order amendments controller throws NotImplementedError for all amendment
+requests. When a customer tries to change an order — reduce quantity, add a
+note, or request a different delivery slot — they receive a 501 error.
+This is documented in the codebase as "do not ship" and must be resolved
+before a real customer can place a real order.
+
+OPTION A — Ship a minimal amendment flow (recommended if effort < 4 hours)
+OPTION B — Remove the amendment CTA from the customer UI entirely
+
+ASSESS FIRST: Read the amendment controller and determine which option
+is faster and safer.
+
+Run: cat apps/api/src/modules/orders/orders.controller.ts | grep -A 20 "amendment\|amend"
+Run: cat apps/web/src/app/orders/\[id\]/tracking/page.tsx | grep -A 5 "amend\|Request amendment"
+
+IF the amendment feature is used only as a "contact vendor" convenience
+(not as a formal order modification with Stripe recapture):
+
+OPTION B — Remove the CTA:
+In apps/web/src/app/orders/[id]/tracking/page.tsx:
+Find: "Request amendment" button or link
+Remove it entirely.
+Add instead: a "Contact vendor" link that opens WhatsApp or email.
+
+Example replacement:
+
+  href={`https://wa.me/${vendor.whatsappNumber}?text=Hi, I have a question about order ${order.reference}`}
+  style={{
+    display: 'block', width: '100%', padding: '13px', marginTop: '10px',
+    borderRadius: '10px', border: '1.5px solid #E8E8E8',
+    background: 'white', color: '#1A1A1A', fontSize: '14px',
+    fontWeight: 500, textDecoration: 'none', textAlign: 'center',
+  }}
+>
+  💬 Message vendor about this order
+</a>
+
+IF the amendment feature is partially implemented and can be shipped:
+
+OPTION A — Minimal amendment endpoint:
+The amendment should support only:
+  1. Adding an allergy note or order note (no price change, no Stripe recapture)
+  2. Requesting a slot change (vendor confirms or rejects — no auto-apply)
+
+POST /v1/orders/:id/amendments
+Body: { type: 'note' | 'slot_request', note?: string, requestedSlot?: string }
+Returns: { id, status: 'pending_vendor', createdAt }
+
+This gives customers a documented paper trail without the complexity of
+Stripe payment modification.
+
+WHICHEVER OPTION IS CHOSEN:
+[ ] The 501 error must never reach a real customer
+[ ] The customer must have a clear path to contact the vendor about their order
+[ ] The fix must be documented in a code comment explaining the decision
+
+Run: npm run typecheck in apps/api and apps/web
+Output all changed files and a one-line comment in the code explaining the decision.
