@@ -33,6 +33,35 @@ const CHANNEL_TO_DB: Record<Channel, NotificationChannel> = {
 };
 
 /**
+ * Per-event WhatsApp Content Template parameter builders.
+ *
+ * The default builder (see `dispatch`) sends a 3-slot generic shape
+ * `[firstName, orderNumber, amount]` that fits every order-related
+ * event. Templates whose data shape doesn't match (e.g. payouts have
+ * no orderNumber but DO have an amount) need a bespoke builder so the
+ * Twilio Content Template variables `{{1}}`, `{{2}}`, ... line up with
+ * the right values.
+ *
+ * Each builder returns a positional array; index 0 becomes `{{1}}`,
+ * index 1 becomes `{{2}}`, and so on. Keep the body of the matching
+ * Twilio template in sync with the returned positions or the customer
+ * sees blank variables.
+ */
+const formatPounds = (pence: unknown): string =>
+  typeof pence === 'number' ? `£${(pence / 100).toFixed(2)}` : '';
+
+const WHATSAPP_PARAMS: Record<
+  string,
+  (firstName: string, data: Record<string, unknown>) => Array<string | number>
+> = {
+  // {{1}} = firstName, {{2}} = formatted £ net payout
+  payout_batch_ready: (firstName, data) => [
+    firstName,
+    formatPounds(data.amountPence ?? data.netPence),
+  ],
+};
+
+/**
  * Notifications queue processor.
  *
  * Concurrency=10 set via `@Process({ concurrency: 10 })` per channel handler.
@@ -109,6 +138,7 @@ export class NotificationProcessor {
     for (const channel of template.channels) {
       try {
         const ok = await this.dispatch(channel, {
+          eventName,
           user,
           subject,
           html,
@@ -210,6 +240,7 @@ export class NotificationProcessor {
   private async dispatch(
     channel: Channel,
     ctx: {
+      eventName: string;
       user: { id: string; email: string; phone: string | null; firstName: string | null };
       subject: string;
       html: string;
@@ -224,13 +255,17 @@ export class NotificationProcessor {
     }
     if (channel === 'whatsapp') {
       if (!ctx.user.phone || !ctx.template) return false;
-      // WhatsApp template params: pull stringified values from data in declared order.
-      // For now we send 3 generic slots (recipient, headline, detail) - extend per template.
-      const params = [
-        ctx.user.firstName ?? 'there',
-        String(ctx.data.orderNumber ?? ctx.data.title ?? ''),
-        String(ctx.data.amountPence ? `£${(ctx.data.amountPence as number) / 100}` : ''),
-      ];
+      // Per-event override wins; default is the 3-slot generic shape
+      // [firstName, orderNumber, amount] that fits every order event.
+      const firstName = ctx.user.firstName ?? 'there';
+      const builder = WHATSAPP_PARAMS[ctx.eventName];
+      const params = builder
+        ? builder(firstName, ctx.data)
+        : [
+            firstName,
+            String(ctx.data.orderNumber ?? ctx.data.title ?? ''),
+            String(ctx.data.amountPence ? `£${(ctx.data.amountPence as number) / 100}` : ''),
+          ];
       const r = await this.whatsapp.send({ to: ctx.user.phone, template: ctx.template, params });
       return r.delivered;
     }
