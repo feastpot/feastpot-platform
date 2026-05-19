@@ -1,0 +1,87 @@
+You are a NestJS DevOps engineer. Confirm that Resend and Twilio/WhatsApp
+production credentials are correctly wired and fire a live test through
+the vendor-portal-invite email template.
+
+CONTEXT:
+PROJECT_STATUS.md flags Resend and Twilio as "needs production credentials."
+If these are not set, the vendor approval email — the email that gives a
+vendor access to the portal — silently fails. This is the single highest-risk
+gap before onboarding any vendor.
+
+STEP 1 — Confirm Resend credentials in Replit Secrets
+In the Replit deployment secrets (not workspace secrets), confirm:
+  RESEND_API_KEY = re_... (production key, not test key)
+  RESEND_FROM_EMAIL = hello@feastpot.co.uk (or noreply@feastpot.co.uk)
+  RESEND_FROM_NAME = Feastpot
+
+If RESEND_API_KEY starts with re_test_ — it is a test key.
+Replace it with the live production key from resend.com/api-keys.
+
+STEP 2 — Confirm Resend domain is verified
+Log in to resend.com → Domains.
+feastpot.co.uk must show status: Verified (green).
+If it shows Pending or Unverified:
+  Add the required DNS TXT and MX records to your DNS provider.
+  Without domain verification, Resend will reject all outbound emails
+  from @feastpot.co.uk addresses.
+
+STEP 3 — Fire a live test of the vendor portal invite template
+Add a temporary test endpoint to the API:
+
+File: apps/api/src/modules/admin/admin.controller.ts
+
+@Post('admin/test/vendor-invite-email')
+@Roles('admin')
+async testVendorInviteEmail(@Body() dto: { email: string; name: string }) {
+  if (process.env.NODE_ENV === 'production') {
+    // Allow in production but require admin role — this is ops tooling
+  }
+  const { subject, html } = vendorApprovedTemplate({
+    vendorFirstName: dto.name,
+    businessName:    'Test Kitchen',
+    portalUrl:       `${process.env.VENDOR_PORTAL_URL}/onboarding`,
+    supportEmail:    'support@feastpot.co.uk',
+  })
+  await this.notificationsService.sendEmail({
+    to:      dto.email,
+    subject,
+    html,
+  })
+  return { sent: true, to: dto.email, subject }
+}
+
+Run: curl -X POST https://feastpot-platform.replit.app/v1/admin/test/vendor-invite-email \
+  -H "Authorization: Bearer {admin_token}" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"soul@feastpot.co.uk","name":"Soul"}'
+
+Check your inbox within 2 minutes.
+Assert:
+[ ] Email received (not in spam)
+[ ] From: address shows @feastpot.co.uk (not @resend.dev)
+[ ] Subject: "You're approved! Test Kitchen is now live on Feastpot 🎉"
+[ ] Portal link is present and points to vendor.feastpot.co.uk/onboarding
+
+STEP 4 — Confirm Twilio/WhatsApp credentials
+Check Replit Secrets for:
+  TWILIO_ACCOUNT_SID or META_WHATSAPP_ACCESS_TOKEN
+  TWILIO_AUTH_TOKEN or META_WHATSAPP_PHONE_NUMBER_ID
+  WHATSAPP_FROM_NUMBER
+
+If using Meta Cloud API (the migrated version):
+  META_WHATSAPP_ACCESS_TOKEN = EAAxx...
+  META_WHATSAPP_PHONE_NUMBER_ID = 12345...
+  META_WHATSAPP_WABA_ID = 67890...
+
+Send a test WhatsApp notification to your own number:
+curl -X POST https://feastpot-platform.replit.app/v1/admin/test/whatsapp \
+  -H "Authorization: Bearer {admin_token}" \
+  -H "Content-Type: application/json" \
+  -d '{"to":"447XXXXXXXXX","message":"Feastpot test notification - if received, WhatsApp is working."}'
+
+STEP 5 — Remove the test endpoints after confirming
+Once both channels are confirmed working, delete or disable the test endpoints.
+They have served their purpose.
+
+Run: npm run build:api — zero errors
+Output: confirmation of what credentials are set and what test results were.
