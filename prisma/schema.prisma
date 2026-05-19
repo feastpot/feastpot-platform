@@ -353,6 +353,13 @@ model VendorApplication {
   // ON DELETE SET NULL so removing a vendor (rare, GDPR) doesn't erase the
   // permanent application record.
   vendorId         String?                 @unique @map("vendor_id") @db.Uuid
+  // Vendor T&Cs acceptance audit. Nullable because pre-existing
+  // applications were captured before the explicit-consent contract was
+  // introduced; new submissions always populate both fields. Version is
+  // a free-form tag (e.g. "2026-05") so legal can bump it without a
+  // schema migration when terms change.
+  acceptedTermsAt       DateTime? @map("accepted_terms_at") @db.Timestamptz
+  acceptedTermsVersion  String?   @map("accepted_terms_version") @db.VarChar(32)
   createdAt        DateTime                @default(now()) @map("created_at") @db.Timestamptz
   updatedAt        DateTime                @updatedAt @map("updated_at") @db.Timestamptz
 

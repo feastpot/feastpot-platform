@@ -1,0 +1,144 @@
+You are a NestJS and Next.js 15 engineer. Add a vendor pause ordering toggle.
+
+CONTEXT:
+The agent's audit identifies the absence of a "switch off ordering for today"
+control. A vendor at a family event, unwell, or out of stock needs to pause
+new orders without toggling every menu item individually.
+This is a Week 2 item but is fast to build and prevents vendor churn.
+
+STEP 1 — Add acceptingOrders to Vendor schema
+File: prisma/schema.prisma
+
+Add to Vendor model:
+  acceptingOrders   Boolean   @default(true) @map("accepting_orders")
+  pausedUntil       DateTime? @map("paused_until") @db.Timestamptz
+  pauseReason       String?   @map("pause_reason")
+
+Run: npx prisma migrate dev --name add_vendor_accepting_orders
+
+STEP 2 — API endpoint
+File: apps/api/src/modules/vendors/vendors.controller.ts
+
+@Patch('me/accepting-orders')
+@Roles('vendor')
+async setAcceptingOrders(
+  @Body() dto: SetAcceptingOrdersDto,
+  @CurrentUser() user: JwtUser,
+) {
+  return this.vendorsService.setAcceptingOrders(user.id, dto)
+}
+
+File: apps/api/src/modules/vendors/dto/set-accepting-orders.dto.ts
+
+import { IsBoolean, IsOptional, IsString, IsDateString } from 'class-validator'
+
+export class SetAcceptingOrdersDto {
+  @IsBoolean()
+  acceptingOrders: boolean
+
+  @IsOptional() @IsDateString()
+  pausedUntil?: string  // ISO timestamp — auto-resume
+
+  @IsOptional() @IsString()
+  pauseReason?: string
+}
+
+File: apps/api/src/modules/vendors/vendors.service.ts
+
+async setAcceptingOrders(userId: string, dto: SetAcceptingOrdersDto) {
+  const vendor = await this.prisma.vendor.findFirst({ where: { userId } })
+  if (!vendor) throw new NotFoundException()
+
+  return this.prisma.vendor.update({
+    where: { id: vendor.id },
+    data: {
+      acceptingOrders: dto.acceptingOrders,
+      pausedUntil:     dto.pausedUntil ? new Date(dto.pausedUntil) : null,
+      pauseReason:     dto.pauseReason ?? null,
+    },
+  })
+}
+
+STEP 3 — Cron to auto-resume paused vendors
+File: apps/api/src/modules/vendors/vendors-cron.service.ts
+
+@Cron('*/15 * * * *')  // every 15 minutes
+async autoResumeVendors() {
+  const expired = await this.prisma.vendor.findMany({
+    where: {
+      acceptingOrders: false,
+      pausedUntil:     { lte: new Date() },
+    },
+  })
+  for (const vendor of expired) {
+    await this.prisma.vendor.update({
+      where: { id: vendor.id },
+      data: { acceptingOrders: true, pausedUntil: null, pauseReason: null },
+    })
+    this.logger.log(`[VendorCron] Auto-resumed ${vendor.businessName}`)
+  }
+}
+
+STEP 4 — Vendor portal UI toggle
+File: apps/vendor/src/app/settings/page.tsx (or a new pause-orders section)
+
+<div style={{ background: vendor.acceptingOrders ? '#E8F5EC' : '#FAEEDA',
+  borderRadius: '14px', padding: '20px', marginBottom: '16px' }}>
+  <div style={{ display: 'flex', alignItems: 'center',
+    justifyContent: 'space-between', marginBottom: vendor.acceptingOrders ? 0 : '14px' }}>
+    <div>
+      <p style={{ fontWeight: 700, fontSize: '15px', color: '#1A1A1A', marginBottom: '3px' }}>
+        {vendor.acceptingOrders ? 'Accepting orders' : 'Orders paused'}
+      </p>
+      <p style={{ fontSize: '13px', color: '#666666' }}>
+        {vendor.acceptingOrders
+          ? 'New orders will appear in your dashboard'
+          : `Paused${vendor.pausedUntil ? ` until ${new Date(vendor.pausedUntil).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}` : ''}`}
+      </p>
+    </div>
+    <button
+      onClick={() => toggleAcceptingOrders()}
+      style={{
+        padding: '9px 18px', borderRadius: '8px', border: 'none', cursor: 'pointer',
+        background: vendor.acceptingOrders ? '#E8220A' : '#1E7B34',
+        color: 'white', fontSize: '13px', fontWeight: 700,
+        fontFamily: 'DM Sans, sans-serif',
+      }}>
+      {vendor.acceptingOrders ? 'Pause orders' : 'Resume orders'}
+    </button>
+  </div>
+
+  {vendor.acceptingOrders && (
+    <div style={{ marginTop: '12px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+      {['2 hours', '4 hours', 'Until tomorrow', 'Rest of today'].map(label => (
+        <button key={label}
+          onClick={() => pauseFor(label)}
+          style={{ padding: '6px 12px', borderRadius: '100px', border: '1.5px solid #E8E8E8',
+            background: 'white', fontSize: '12px', cursor: 'pointer', color: '#666666' }}>
+          Pause for {label}
+        </button>
+      ))}
+    </div>
+  )}
+</div>
+
+STEP 5 — Block new orders on paused vendors
+File: apps/api/src/modules/orders/orders.service.ts
+
+In createOrder(), after fetching the vendor, add:
+if (!vendor.acceptingOrders) {
+  throw new BadRequestException(
+    `${vendor.businessName} is not currently accepting orders. Please try again later.`
+  )
+}
+
+STEP 6 — Show paused state on customer vendor card
+File: apps/web/src/components/vendor/vendor-card.tsx
+
+When vendor.acceptingOrders === false:
+Show a grey "Temporarily closed" banner over the card image.
+The card is still visible and tappable (to view menu) but the
++ button is hidden and replaced with "Notify me when open" (future feature — for now just disable).
+
+Run: npm run typecheck in apps/api, apps/vendor, apps/web
+Output all changed files.

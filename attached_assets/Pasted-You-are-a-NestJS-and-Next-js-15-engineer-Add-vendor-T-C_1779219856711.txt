@@ -1,0 +1,69 @@
+You are a NestJS and Next.js 15 engineer. Add vendor T&Cs acceptance
+to the interest form and store it on the VendorApplication record.
+
+CONTEXT:
+The agent's audit correctly flags the absence of a formal vendor merchant
+agreement acceptance. Before a vendor is approved and begins taking orders,
+there must be a documented record that they accepted the vendor terms.
+This is both a legal requirement and a practical dispute-resolution tool.
+
+STEP 1 — Add acceptedTermsAt to VendorApplication schema
+File: prisma/schema.prisma
+
+Add to VendorApplication model:
+  acceptedTermsAt       DateTime?  @map("accepted_terms_at") @db.Timestamptz
+  acceptedTermsVersion  String?    @map("accepted_terms_version")
+
+Run: npx prisma migrate dev --name add_vendor_application_terms_acceptance
+
+STEP 2 — Capture on form submission
+File: apps/web/src/app/become-a-vendor/page.tsx
+
+The form already has a T&C checkbox (terms: false in state).
+Update the form to also record the timestamp of acceptance.
+
+In handleSubmit, when terms is true, add to the payload:
+  acceptedTermsAt:      new Date().toISOString(),
+  acceptedTermsVersion: '2026-05',
+
+Update the fetch body:
+body: JSON.stringify({
+  ...form,
+  acceptedTermsAt:      new Date().toISOString(),
+  acceptedTermsVersion: '2026-05',
+})
+
+STEP 3 — Persist on the API
+File: apps/api/src/modules/vendors/dto/register-vendor-interest.dto.ts
+
+Add:
+  @IsOptional() @IsString() acceptedTermsAt?:      string
+  @IsOptional() @IsString() acceptedTermsVersion?: string
+
+File: apps/api/src/modules/vendors/vendors.service.ts
+In registerInterest(), save to the VendorApplication row:
+  acceptedTermsAt:      dto.acceptedTermsAt ? new Date(dto.acceptedTermsAt) : new Date(),
+  acceptedTermsVersion: dto.acceptedTermsVersion ?? '2026-05',
+
+STEP 4 — Show acceptance record in admin panel
+File: apps/admin/src/app/vendors/[id]/page.tsx (vendor detail)
+
+Add a "Terms acceptance" row to the compliance section:
+<div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0',
+  borderBottom: '1px solid #E8E8E8' }}>
+  <span style={{ fontSize: '13px', color: '#666666' }}>Vendor T&Cs accepted</span>
+  <span style={{ fontSize: '13px', fontWeight: 500, color: '#1A1A1A' }}>
+    {application.acceptedTermsAt
+      ? `${new Date(application.acceptedTermsAt).toLocaleDateString('en-GB')} (v${application.acceptedTermsVersion})`
+      : 'Not recorded'}
+  </span>
+</div>
+
+STEP 5 — Update the vendor T&Cs link in the form
+The checkbox currently links to /legal/vendor-terms.
+Confirm that page exists and contains the current vendor agreement.
+If it does not: add a note to complete this before onboarding real vendors.
+
+Run: npm run typecheck in apps/api, apps/web, apps/admin
+Run: npx prisma validate
+Output all changed files.

@@ -264,6 +264,15 @@ export class VendorsService {
         foodStory: dto.foodStory.trim(),
         instagram: dto.instagram?.trim().replace(/^@/, '') || null,
         marketingConsent: dto.marketingConsent ?? true,
+        // Vendor T&Cs acceptance audit. Server timestamp the moment the
+        // payload arrived as a fallback for older clients that omit the
+        // field, so we never persist a row with NULL accepted_terms_at
+        // for a NEW application going forward.
+        acceptedTermsAt: dto.acceptedTermsAt ? new Date(dto.acceptedTermsAt) : new Date(),
+        // Trim then fall back: a malformed client sending "" or "   " must
+        // not persist a blank version string - we want the current default
+        // so legal can correlate the row against the right T&Cs revision.
+        acceptedTermsVersion: dto.acceptedTermsVersion?.trim() || '2026-05',
       },
       select: { id: true, kitchenName: true, createdAt: true, status: true },
     });

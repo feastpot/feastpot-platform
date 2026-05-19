@@ -155,6 +155,14 @@ const INITIAL_FORM: FormState = {
   terms: false,
 };
 
+/**
+ * Current vendor T&Cs version. Bump when legal materially updates
+ * /legal/vendor-terms. Server falls back to its own default if omitted,
+ * but we always send it explicitly so the audit row records what the
+ * applicant actually SAW on this client at submission time.
+ */
+const VENDOR_TERMS_VERSION = '2026-05';
+
 // API DTO shape (mirrors apps/api/src/modules/vendors/dto/register-vendor-interest.dto.ts).
 interface RegisterInterestPayload {
   fullName: string;
@@ -168,6 +176,8 @@ interface RegisterInterestPayload {
   foodStory: string;
   instagram?: string;
   marketingConsent?: boolean;
+  acceptedTermsAt: string;
+  acceptedTermsVersion: string;
 }
 
 // ── Page ────────────────────────────────────────────────────────────────
@@ -236,6 +246,11 @@ export default function BecomeAVendorPage() {
       foodStory: form.foodStory.trim(),
       ...(form.instagram.trim() ? { instagram: form.instagram.trim() } : {}),
       marketingConsent: form.marketingConsent,
+      // Captured client-side at submission so the audit row records the
+      // exact moment the applicant ticked the box on THIS device (validate()
+      // has already enforced form.terms === true above).
+      acceptedTermsAt: new Date().toISOString(),
+      acceptedTermsVersion: VENDOR_TERMS_VERSION,
     };
 
     setSubmitting(true);

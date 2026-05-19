@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsBoolean,
+  IsDateString,
   IsEmail,
   IsIn,
   IsOptional,
@@ -74,4 +75,26 @@ export class RegisterVendorInterestDto {
   @IsOptional()
   @IsBoolean()
   marketingConsent?: boolean;
+
+  /**
+   * ISO-8601 timestamp captured client-side at the moment the applicant
+   * ticked the "I accept the Vendor Terms" checkbox. Optional on the wire
+   * for backwards compatibility with older clients; service falls back to
+   * now() when omitted so we never have a missing audit row.
+   */
+  @ApiPropertyOptional({ format: 'date-time' })
+  @IsOptional()
+  @IsDateString()
+  acceptedTermsAt?: string;
+
+  /**
+   * Version tag of the vendor T&Cs the applicant accepted (e.g. "2026-05").
+   * Legal bumps the tag when terms materially change, no schema migration
+   * needed. Service falls back to the current default when omitted.
+   */
+  @ApiPropertyOptional({ maxLength: 32 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(32)
+  acceptedTermsVersion?: string;
 }
