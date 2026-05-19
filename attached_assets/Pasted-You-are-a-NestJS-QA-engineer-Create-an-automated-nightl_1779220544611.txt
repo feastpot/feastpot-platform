@@ -1,0 +1,138 @@
+You are a NestJS QA engineer. Create an automated nightly smoke test
+that runs the full vendor signup → first order path.
+
+CONTEXT:
+The agent's audit correctly identifies the absence of automated end-to-end
+coverage. The critical path — vendor signs up, admin approves, vendor gets
+invite, vendor logs in, vendor publishes menu, customer orders, vendor sees
+order — is tested manually. This must run automatically.
+
+FILE: apps/api/src/e2e/vendor-onboarding-smoke.spec.ts (create)
+
+This runs as part of the nightly CI job (not on every push — too slow).
+It uses real Supabase test credentials and the staging database.
+It cleans up after itself.
+
+import { Test } from '@nestjs/testing'
+import * as request from 'supertest'
+
+const TEST_VENDOR_EMAIL = `smoke-vendor-${Date.now()}@test.feastpot.co.uk`
+const TEST_CUSTOMER_EMAIL = `smoke-customer-${Date.now()}@test.feastpot.co.uk`
+
+describe('Vendor onboarding smoke test (nightly)', () => {
+  let app: any
+  let adminToken: string
+  let vendorId: string
+  let applicationId: string
+
+  beforeAll(async () => {
+    // Boot the NestJS app in test mode
+    const moduleRef = await Test.createTestingModule({
+      imports: [AppModule],
+    }).compile()
+    app = moduleRef.createNestApplication()
+    await app.init()
+
+    // Get admin token
+    const authRes = await request(app.getHttpServer())
+      .post('/v1/auth/sign-in')
+      .send({ email: process.env.TEST_ADMIN_EMAIL, password: process.env.TEST_ADMIN_PASSWORD })
+    adminToken = authRes.body.accessToken
+  })
+
+  afterAll(async () => {
+    // Cleanup: remove test vendor application and user
+    if (vendorId) {
+      await request(app.getHttpServer())
+        .delete(`/v1/admin/vendors/${vendorId}/test-cleanup`)
+        .set('Authorization', `Bearer ${adminToken}`)
+    }
+    await app.close()
+  })
+
+  it('T1: Vendor submits interest form', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/v1/vendors/register-interest')
+      .send({
+        fullName:     'Smoke Test Cook',
+        kitchenName:  'Smoke Kitchen',
+        email:        TEST_VENDOR_EMAIL,
+        phone:        '07700900001',
+        postcode:     'SE15 4ST',
+        cuisineType:  'Nigerian',
+        kitchenType:  'Home cook',
+        foodStory:    'Automated smoke test vendor. Safe to delete.',
+        hasFSA:       'Yes',
+        terms:        true,
+      })
+    expect(res.status).toBe(201)
+    applicationId = res.body.applicationId
+  })
+
+  it('T2: Application appears in admin queue', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/v1/admin/vendor-applications?status=pending')
+      .set('Authorization', `Bearer ${adminToken}`)
+    const found = res.body.data?.find((a: any) => a.email === TEST_VENDOR_EMAIL)
+    expect(found).toBeDefined()
+    applicationId = found.id
+  })
+
+  it('T3: Admin approves application', async () => {
+    const res = await request(app.getHttpServer())
+      .patch(`/v1/admin/vendor-applications/${applicationId}/status`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ status: 'approved' })
+    expect(res.status).toBe(200)
+    vendorId = res.body.vendorId
+    expect(vendorId).toBeDefined()
+  })
+
+  it('T4: Vendor record created with status live', async () => {
+    const res = await request(app.getHttpServer())
+      .get(`/v1/admin/vendors/${vendorId}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+    expect(res.body.status).toBe('live')
+  })
+
+  it('T5: Vendor search returns new vendor by postcode', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/v1/vendors?postcode=SE15')
+    expect(res.status).toBe(200)
+    const found = (res.body.data ?? res.body).find((v: any) => v.id === vendorId)
+    expect(found).toBeDefined()
+  })
+})
+
+FILE: .github/workflows/nightly-smoke.yml (create or update)
+
+name: Nightly smoke test
+on:
+  schedule:
+    - cron: '0 3 * * *'  # 03:00 UTC every night
+  workflow_dispatch:       # allow manual trigger
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - run: npm ci
+      - run: npm run test:e2e --filter=@feastpot/api
+        env:
+          DATABASE_URL:          ${{ secrets.TEST_DATABASE_URL }}
+          SUPABASE_URL:          ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY:  ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          TEST_ADMIN_EMAIL:      ${{ secrets.TEST_ADMIN_EMAIL }}
+          TEST_ADMIN_PASSWORD:   ${{ secrets.TEST_ADMIN_PASSWORD }}
+          NODE_ENV:              test
+
+Add the required secrets to your GitHub repository:
+  Settings → Secrets → Actions → New repository secret
+  TEST_ADMIN_EMAIL, TEST_ADMIN_PASSWORD (a real admin account on staging)
+  TEST_DATABASE_URL (staging DB, not production)
+
+Run: npm run test:api -- vendor-onboarding-smoke --passWithNoTests
+Output all new files.
