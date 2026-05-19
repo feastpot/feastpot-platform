@@ -202,10 +202,21 @@ export class VendorRepository {
         : Prisma.sql`NULL::float AS distance_km`;
 
     // Radius filter: when the user gave us a postcode AND we successfully
-    // geocoded it, restrict to vendors whose delivery centre is within their
-    // own `local_radius_miles` of the user (1 mile ≈ 1.609344 km). Vendors
-    // without coordinates fall back to the outward-prefix proxy so they
-    // still surface until the backfill catches them.
+    // geocoded it, include a vendor if EITHER:
+    //   (a) their delivery centre's haversine distance is within their own
+    //       `local_radius_miles` of the user (1 mile ≈ 1.609344 km), OR
+    //   (b) the user's outward postcode prefix appears in the vendor's
+    //       declared delivery postcodes (or in any address attached to the
+    //       vendor's owning user).
+    // (b) is honoured even when the vendor HAS coordinates - a vendor who
+    // explicitly lists an outward code in their delivery config has opted
+    // in to that area, so we must surface them there regardless of how the
+    // straight-line distance from their geocoded centre compares to the
+    // radius (the radius is a soft default, the explicit list is the
+    // contract). Without this, e.g. a Tooting (SW17) vendor who lists
+    // "SW1" as a deliverable outcode would be filtered out because the
+    // ~6 mile centroid-to-centroid distance exceeds a 3-mile radius
+    // default.
     const postcodeFilter = hasUserCoords
       ? Prisma.sql`AND (
           EXISTS (
@@ -226,7 +237,6 @@ export class VendorRepository {
               EXISTS (
                 SELECT 1 FROM delivery_configs dc2
                 WHERE dc2.vendor_id = v.id
-                  AND (dc2.latitude IS NULL OR dc2.longitude IS NULL)
                   AND EXISTS (
                     SELECT 1 FROM unnest(dc2.postcodes) AS pc
                     WHERE UPPER(REPLACE(pc, ' ', '')) LIKE ${postcodePrefix + '%'}
