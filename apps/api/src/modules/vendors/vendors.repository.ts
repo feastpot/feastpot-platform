@@ -250,7 +250,7 @@ export class VendorRepository {
             )` : Prisma.sql`FALSE`}
           )
         )`
-      : postcodePrefix && sortBy === VendorSortBy.distance
+      : postcodePrefix
         ? Prisma.sql`AND (
             EXISTS (
               SELECT 1 FROM delivery_configs dc
