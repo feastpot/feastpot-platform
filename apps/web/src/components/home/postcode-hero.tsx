@@ -45,7 +45,7 @@ export function PostcodeHero() {
 
   const goCovered = (pc: string) => {
     writeCoverageCookie(pc);
-    window.location.assign(`/?pc=${encodeURIComponent(pc)}`);
+    window.location.assign(`/vendors?postcode=${encodeURIComponent(pc)}`);
   };
 
   const runCoverage = async (pc: string) => {
