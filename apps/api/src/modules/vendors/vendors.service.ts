@@ -18,6 +18,14 @@ import { vendorApplicationReceivedTemplate } from '../notifications/templates/ve
 import { PrismaService } from '../../prisma/prisma.service';
 import { StripeService } from '../../stripe/stripe.service';
 import { SupabaseStorageService } from '../catalogue/supabase-storage.service';
+import {
+  VENDOR_AVAILABILITY_ROLES,
+  VENDOR_PAYOUT_ROLES,
+  VENDOR_PROFILE_WRITE_ROLES,
+  VENDOR_READ_ROLES,
+  VendorMembersService,
+} from '../vendor-members/vendor-members.service';
+import type { VendorMemberRole } from '@prisma/client';
 
 import { AddBlackoutDto } from './dto/add-blackout.dto';
 import { CreateVendorDto } from './dto/create-vendor.dto';
@@ -253,7 +261,29 @@ export class VendorsService {
     // T005: identity image uploads (logo/cover). SupabaseStorageService is
     // provided by CatalogueModule, which VendorsModule now imports.
     private readonly storage: SupabaseStorageService,
+    // T010: server-side RBAC. Every "me" endpoint resolves the caller's
+    // vendor through this so team members (kitchen manager, finance,
+    // staff, delivery coordinator) can act on their team's vendor as
+    // their role allows, not just the original owner.
+    private readonly members: VendorMembersService,
   ) {}
+
+  /**
+   * T010: resolve the caller's vendor row and assert their effective
+   * role is in `allowed`. Owner of a vendor always passes implicitly;
+   * active VendorMembers pass iff their role is in the allow-list.
+   * Throws ForbiddenException (NOT_VENDOR_MEMBER / VENDOR_ROLE_FORBIDDEN)
+   * if not. Replaces the older `repo.findByUserId(userId)` pattern that
+   * silently 404'd for team members.
+   */
+  private async resolveMyVendor(userId: string, allowed: VendorMemberRole[]) {
+    const { vendorId } = await this.members.resolveVendorIdByUserId(userId, allowed);
+    const vendor = await this.repo.findById(vendorId);
+    if (!vendor) {
+      throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'No vendor profile' });
+    }
+    return vendor;
+  }
 
   /**
    * Public vendor application capture. Persists the row first (source of
@@ -383,10 +413,7 @@ export class VendorsService {
   // ------------------------------------------------------------------
 
   async getMyAnalytics(userId: string): Promise<VendorAnalyticsResponseDto> {
-    const vendor = await this.repo.findByUserId(userId);
-    if (!vendor) {
-      throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'No vendor profile' });
-    }
+    const vendor = await this.resolveMyVendor(userId, VENDOR_PAYOUT_ROLES);
     const vendorId = vendor.id;
 
     const now = new Date();
@@ -488,18 +515,12 @@ export class VendorsService {
   }
 
   async getMyDeliveryConfig(userId: string) {
-    const vendor = await this.repo.findByUserId(userId);
-    if (!vendor) {
-      throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'No vendor profile' });
-    }
+    const vendor = await this.resolveMyVendor(userId, VENDOR_READ_ROLES);
     return this.prisma.deliveryConfig.findUnique({ where: { vendorId: vendor.id } });
   }
 
   async upsertMyDeliveryConfig(userId: string, dto: UpsertDeliveryConfigDto) {
-    const vendor = await this.repo.findByUserId(userId);
-    if (!vendor) {
-      throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'No vendor profile' });
-    }
+    const vendor = await this.resolveMyVendor(userId, VENDOR_PROFILE_WRITE_ROLES);
 
     // Geocode the vendor's local-delivery centre so the customer-facing
     // search can match by real distance instead of relying on the legacy
@@ -593,10 +614,7 @@ export class VendorsService {
    *     message (no retry; the vendor can re-click the button).
    */
   async createStripeConnectLink(userId: string): Promise<StripeConnectLinkResponseDto> {
-    const vendor = await this.repo.findByUserId(userId);
-    if (!vendor) {
-      throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'No vendor profile' });
-    }
+    const vendor = await this.resolveMyVendor(userId, VENDOR_PROFILE_WRITE_ROLES);
     if (!this.config.get<string>('STRIPE_SECRET_KEY')) {
       throw new BadRequestException({
         code: 'STRIPE_NOT_CONFIGURED',
@@ -686,10 +704,7 @@ export class VendorsService {
    * vendor) by filtering on a positive-status whitelist.
    */
   async getMyStats(userId: string): Promise<VendorStatsResponseDto> {
-    const vendor = await this.repo.findByUserId(userId);
-    if (!vendor) {
-      throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'No vendor profile for this user' });
-    }
+    const vendor = await this.resolveMyVendor(userId, VENDOR_READ_ROLES);
     const vendorId = vendor.id;
 
     const now = new Date();
@@ -749,10 +764,7 @@ export class VendorsService {
    * because most rows are small and several change as the vendor works.
    */
   async getMyDashboardSummary(userId: string): Promise<VendorDashboardResponseDto> {
-    const vendor = await this.repo.findByUserId(userId);
-    if (!vendor) {
-      throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'No vendor profile for this user' });
-    }
+    const vendor = await this.resolveMyVendor(userId, VENDOR_READ_ROLES);
     const vendorId = vendor.id;
 
     const now = new Date();
@@ -1035,11 +1047,7 @@ export class VendorsService {
   }
 
   async findMyVendor(userId: string) {
-    const vendor = await this.repo.findByUserId(userId);
-    if (!vendor) {
-      throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'No vendor profile for this user' });
-    }
-    return vendor;
+    return this.resolveMyVendor(userId, VENDOR_READ_ROLES);
   }
 
   async create(user: AuthUser, dto: CreateVendorDto) {
@@ -1065,8 +1073,15 @@ export class VendorsService {
   async update(vendorId: string, user: AuthUser, dto: UpdateVendorDto) {
     const vendor = await this.repo.findById(vendorId);
     if (!vendor) throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'Vendor not found' });
-    if (vendor.userId !== user.id && user.role !== UserRole.admin) {
-      throw new ForbiddenException({ code: 'FORBIDDEN', message: 'Cannot edit another vendor' });
+    if (user.role !== UserRole.admin) {
+      const allowed = await this.members.canActOnVendor(
+        user.id,
+        vendorId,
+        VENDOR_PROFILE_WRITE_ROLES,
+      );
+      if (!allowed) {
+        throw new ForbiddenException({ code: 'FORBIDDEN', message: 'Cannot edit another vendor' });
+      }
     }
 
     const data: Record<string, unknown> = {};
@@ -1410,10 +1425,7 @@ export class VendorsService {
    * Used by the vendor portal's /availability page.
    */
   async getMyAvailability(userId: string) {
-    const vendor = await this.repo.findByUserId(userId);
-    if (!vendor) {
-      throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'No vendor profile' });
-    }
+    const vendor = await this.resolveMyVendor(userId, VENDOR_AVAILABILITY_ROLES);
     return this.getAvailabilityById(vendor.id);
   }
 
@@ -1451,10 +1463,7 @@ export class VendorsService {
   }
 
   async updateMyAvailability(userId: string, dto: UpdateAvailabilityDto) {
-    const vendor = await this.repo.findByUserId(userId);
-    if (!vendor) {
-      throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'No vendor profile' });
-    }
+    const vendor = await this.resolveMyVendor(userId, VENDOR_AVAILABILITY_ROLES);
     if (
       dto.slotOpenHour !== undefined &&
       dto.slotCloseHour !== undefined &&
@@ -1512,10 +1521,7 @@ export class VendorsService {
   }
 
   async addMyBlackout(userId: string, dto: AddBlackoutDto) {
-    const vendor = await this.repo.findByUserId(userId);
-    if (!vendor) {
-      throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'No vendor profile' });
-    }
+    const vendor = await this.resolveMyVendor(userId, VENDOR_AVAILABILITY_ROLES);
     const day = parseIsoCalendarDate(dto.date);
     if (!day) {
       throw new BadRequestException({
@@ -1533,10 +1539,7 @@ export class VendorsService {
   }
 
   async removeMyBlackout(userId: string, blackoutId: string) {
-    const vendor = await this.repo.findByUserId(userId);
-    if (!vendor) {
-      throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'No vendor profile' });
-    }
+    const vendor = await this.resolveMyVendor(userId, VENDOR_AVAILABILITY_ROLES);
     // Scope the delete by vendorId so a malicious id can't take out
     // another vendor's blackout row.
     const res = await this.prisma.blackoutDate.deleteMany({

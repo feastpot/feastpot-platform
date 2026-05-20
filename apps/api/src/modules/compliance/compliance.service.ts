@@ -11,6 +11,10 @@ import type { AuthUser } from '../../auth/types';
 import { SupabaseService } from '../../auth/supabase.service';
 import { InboxService } from '../inbox/inbox.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import {
+  VENDOR_COMPLIANCE_ROLES,
+  VendorMembersService,
+} from '../vendor-members/vendor-members.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
 import type { UploadDocumentDto } from './dto/upload-document.dto';
@@ -36,6 +40,8 @@ export class ComplianceService {
     private readonly supabase: SupabaseService,
     // T007: in-app inbox for vendor expiry alerts.
     private readonly inbox: InboxService,
+    // T010: server-side RBAC across vendor team members.
+    private readonly members: VendorMembersService,
   ) {}
 
   // -------------------- vendor documents --------------------
@@ -300,9 +306,10 @@ export class ComplianceService {
   private async assertCanManageVendor(vendorId: string, user: AuthUser): Promise<void> {
     const staffRoles: UserRole[] = [UserRole.admin, UserRole.compliance];
     if (staffRoles.includes(user.role)) return;
-    const vendor = await this.prisma.vendor.findUnique({ where: { id: vendorId }, select: { userId: true } });
+    const vendor = await this.prisma.vendor.findUnique({ where: { id: vendorId }, select: { id: true } });
     if (!vendor) throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'Vendor not found' });
-    if (user.role === UserRole.vendor && vendor.userId === user.id) return;
+    const allowed = await this.members.canActOnVendor(user.id, vendorId, VENDOR_COMPLIANCE_ROLES);
+    if (allowed) return;
     throw new ForbiddenException({ code: 'FORBIDDEN', message: 'You may not manage this vendor' });
   }
 }

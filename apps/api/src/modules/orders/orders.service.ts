@@ -21,6 +21,10 @@ import { InboxService } from '../inbox/inbox.service';
 import { LoyaltyService } from '../loyalty/loyalty.service';
 import { ReferralService } from '../loyalty/referral.service';
 import { PaymentsService } from '../payments/payments.service';
+import {
+  VENDOR_ORDER_ROLES,
+  VendorMembersService,
+} from '../vendor-members/vendor-members.service';
 
 import { ProposeAmendmentDto, RespondAmendmentDto } from './dto/amendment.dto';
 
@@ -122,6 +126,8 @@ export class OrdersService {
     // T007: in-app inbox emitter. InboxModule is @Global() so no module
     // import is needed; failures are swallowed by the service.
     private readonly inbox: InboxService,
+    // T010: server-side RBAC across vendor team members (orders surface).
+    private readonly members: VendorMembersService,
   ) {}
 
   // Window during which a vendor-proposed amendment auto-expires if the
@@ -508,12 +514,16 @@ export class OrdersService {
     }
 
     const isAdmin = user.role === UserRole.admin;
-    const isVendorOwner = user.role === UserRole.vendor && order.vendor.userId === user.id;
+    const canVendorAct = await this.members.canActOnVendor(
+      user.id,
+      order.vendorId,
+      VENDOR_ORDER_ROLES,
+    );
 
     if (isAdmin && ADMIN_TRANSITIONS.has(dto.status)) {
       return this.applyAdminTerminal(order.id, order.status, dto);
     }
-    if (!isVendorOwner) {
+    if (!canVendorAct) {
       throw new ForbiddenException({ code: 'NOT_ORDER_VENDOR', message: 'Only the owning vendor (or admin) may update this order' });
     }
     if (!isVendorTransitionAllowed(order.status, dto.status)) {
@@ -905,12 +915,28 @@ export class OrdersService {
 
     if (user.role === UserRole.admin) {
       if (dto.vendorId) where.vendorId = dto.vendorId;
-    } else if (user.role === UserRole.vendor) {
-      const vendor = await this.prisma.vendor.findUnique({ where: { userId: user.id }, select: { id: true } });
-      if (!vendor) return { data: [], nextCursor: null };
-      where.vendorId = vendor.id;
     } else {
-      where.customerId = user.id;
+      // T010: prefer vendor-team membership so any active member (owner,
+      // kitchen manager, staff, delivery coordinator) sees the team's
+      // orders. Fall back to the customer view if the caller is not on
+      // any vendor team.
+      const owned = await this.prisma.vendor.findUnique({
+        where: { userId: user.id },
+        select: { id: true },
+      });
+      let vendorId: string | null = owned?.id ?? null;
+      if (!vendorId) {
+        const member = await this.prisma.vendorMember.findFirst({
+          where: { userId: user.id, status: 'active', role: { in: VENDOR_ORDER_ROLES } },
+          select: { vendorId: true },
+        });
+        vendorId = member?.vendorId ?? null;
+      }
+      if (vendorId) {
+        where.vendorId = vendorId;
+      } else {
+        where.customerId = user.id;
+      }
     }
 
     const cursor = dto.cursor ? this.decodeCursor(dto.cursor) : undefined;
@@ -924,7 +950,11 @@ export class OrdersService {
     if (!order) throw new NotFoundException({ code: 'ORDER_NOT_FOUND', message: 'Order not found' });
     const isAdmin = user.role === UserRole.admin;
     const isCustomer = order.customerId === user.id;
-    const isVendor = user.role === UserRole.vendor && order.vendor.userId === user.id;
+    const isVendor = await this.members.canActOnVendor(
+      user.id,
+      order.vendorId,
+      VENDOR_ORDER_ROLES,
+    );
     if (!isAdmin && !isCustomer && !isVendor) {
       throw new ForbiddenException({ code: 'ORDER_FORBIDDEN', message: 'You may not view this order' });
     }
@@ -945,12 +975,17 @@ export class OrdersService {
     const order = await this.repo.findByIdWithItems(orderId);
     if (!order) throw new NotFoundException({ code: 'ORDER_NOT_FOUND', message: 'Order not found' });
 
-    if (user.role === UserRole.vendor) {
-      if (order.vendor?.userId !== user.id) {
+    if (user.role !== UserRole.admin) {
+      // T010: any active vendor-team member with order permissions can
+      // propose an amendment, not only the original owner.
+      const allowed = await this.members.canActOnVendor(
+        user.id,
+        order.vendorId,
+        VENDOR_ORDER_ROLES,
+      );
+      if (!allowed) {
         throw new ForbiddenException({ code: 'NOT_ORDER_VENDOR', message: 'Not your order' });
       }
-    } else if (user.role !== UserRole.admin) {
-      throw new ForbiddenException({ code: 'INSUFFICIENT_ROLE', message: 'Vendor or admin only' });
     }
 
     const PROPOSABLE: OrderStatus[] = [OrderStatus.accepted, OrderStatus.preparing, OrderStatus.dispatched];

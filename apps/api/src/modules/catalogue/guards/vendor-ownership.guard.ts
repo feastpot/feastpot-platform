@@ -10,6 +10,10 @@ import { UserRole } from '@prisma/client';
 
 import type { AuthUser } from '../../../auth/types';
 import { PrismaService } from '../../../prisma/prisma.service';
+import {
+  VENDOR_MENU_ROLES,
+  VendorMembersService,
+} from '../../vendor-members/vendor-members.service';
 
 interface RequestWithUser {
   user?: AuthUser | null;
@@ -17,12 +21,17 @@ interface RequestWithUser {
 }
 
 /**
- * Verifies the authenticated user owns the vendor referenced by :vendorId in the URL.
- * Admins always pass. Anonymous users always fail.
+ * Verifies the authenticated user can act on the vendor referenced by
+ * :vendorId in the URL with menu-management permissions. Owner of the
+ * vendor or an active VendorMember with role `owner` or `kitchen_manager`
+ * pass. Platform admins always pass. Anonymous users always fail.
  */
 @Injectable()
 export class VendorOwnershipGuard implements CanActivate {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly members: VendorMembersService,
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const req = context.switchToHttp().getRequest<RequestWithUser>();
@@ -39,15 +48,16 @@ export class VendorOwnershipGuard implements CanActivate {
 
     const vendor = await this.prisma.vendor.findUnique({
       where: { id: vendorId },
-      select: { id: true, userId: true },
+      select: { id: true },
     });
     if (!vendor) {
       throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'Vendor not found' });
     }
-    if (vendor.userId !== user.id) {
+    const allowed = await this.members.canActOnVendor(user.id, vendorId, VENDOR_MENU_ROLES);
+    if (!allowed) {
       throw new ForbiddenException({
         code: 'NOT_VENDOR_OWNER',
-        message: 'You do not own this vendor',
+        message: 'Your role on this vendor team does not include menu management',
       });
     }
     return true;
