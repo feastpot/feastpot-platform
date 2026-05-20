@@ -2,18 +2,14 @@
 
 import { useEffect, useState } from 'react';
 
+import { COVERAGE_COOKIE } from './coverage-cookie';
+
 const KEY = 'feastpot.postcode.v1';
-/**
- * Server-readable mirror of the user's confirmed coverage. Set as a cookie
- * (not just localStorage) so the homepage server component can render the
- * post-postcode layout - vendor rails, popular kitchens, featured cooks -
- * without a client roundtrip. Format: `"<POSTCODE>"` once coverage is
- * verified; absent means "not yet entered or not covered".
- *
- * `Max-Age=2592000` = 30 days. `SameSite=Lax` is enough - this is a
- * UX preference, not an auth credential.
- */
-export const COVERAGE_COOKIE = 'feastpot.coverage.v1';
+// Re-export so existing client-side importers keep working. The canonical
+// definition lives in `./coverage-cookie.ts` (no `'use client'`) so server
+// components can read it without the client-module boundary turning the
+// constant into `undefined`.
+export { COVERAGE_COOKIE };
 
 /**
  * Quick localStorage-backed postcode preference. Lives client-only - the

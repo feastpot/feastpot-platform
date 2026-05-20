@@ -13,7 +13,7 @@ import { PostcodeHero } from '@/components/home/postcode-hero';
 import { TrustIconStrip } from '@/components/home/trust-icon-strip';
 import { VendorCard } from '@/components/vendor/vendor-card';
 import { searchVendors, type VendorListItem } from '@/lib/api/vendors';
-import { COVERAGE_COOKIE } from '@/lib/postcode';
+import { COVERAGE_COOKIE } from '@/lib/coverage-cookie';
 
 /**
  * Customer homepage - 2026-05-17 wireframe redesign.
