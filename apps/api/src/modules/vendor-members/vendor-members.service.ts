@@ -5,13 +5,28 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Prisma, VendorMemberRole, VendorMemberStatus } from '@prisma/client';
 
+import { SupabaseService } from '../../auth/supabase.service';
 import type { AuthUser } from '../../auth/types';
 import { PrismaService } from '../../prisma/prisma.service';
-import { InboxService } from '../inbox/inbox.service';
+import { EmailProvider } from '../notifications/providers/email.provider';
 
 import type { InviteMemberDto, UpdateMemberRoleDto } from './dto/invite-member.dto';
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function formatRole(role: VendorMemberRole): string {
+  return role.replace(/_/g, ' ');
+}
 
 /**
  * T010: per-surface role allow-lists, single source of truth for the
@@ -68,8 +83,98 @@ export class VendorMembersService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly inbox: InboxService,
+    // NotificationsModule is @Global() so EmailProvider needs no module import.
+    // SupabaseService comes from AuthModule (imported in VendorMembersModule)
+    // and is used to mint a magic-link the invitee can click to either
+    // create their account or sign in if it already exists.
+    private readonly email: EmailProvider,
+    private readonly config: ConfigService,
+    private readonly supabase: SupabaseService,
   ) {}
+
+  /**
+   * Best-effort invite email. Wrapped so a Supabase/Resend outage never
+   * undoes the invite row that's already committed.
+   *
+   * Always uses a single template and a Supabase magic-link CTA. The
+   * magic-link works for both branches:
+   *   - new email: Supabase provisions an auth user and signs them in
+   *   - existing email: passwordless sign-in
+   * On the invitee's first authenticated request, `UsersService.sync`
+   * sees their User row land and flips the `pending` VendorMember row to
+   * `active` (matching on lowercased `invitedEmail`).
+   *
+   * Using a single code path also means a vendor owner cannot infer
+   * whether an arbitrary email already has a FeastPot account from the
+   * shape, timing, or side-effects of this method.
+   */
+  private async sendInviteEmail(args: {
+    to: string;
+    vendorId: string;
+    role: VendorMemberRole;
+    inviterName: string | null;
+  }): Promise<void> {
+    try {
+      const portalBase =
+        this.config.get<string>('VENDOR_PORTAL_URL') ?? 'https://vendor.feastpot.co.uk';
+      const vendor = await this.prisma.vendor.findUnique({
+        where: { id: args.vendorId },
+        select: { businessName: true },
+      });
+      const teamName = vendor?.businessName || 'a FeastPot vendor';
+      const roleLabel = formatRole(args.role);
+      const inviter = args.inviterName?.trim() || 'The vendor owner';
+
+      // Mint a Supabase magic-link. This is the only point where we touch
+      // Supabase Auth from this method, and it works the same for new and
+      // existing emails — Supabase auto-creates the auth user if needed.
+      // If it fails, fall back to the plain sign-in URL so the email is
+      // still useful for existing users; new users will need a fresh
+      // invite once the upstream issue is fixed.
+      let cta = `${portalBase}/sign-in?invited=1`;
+      try {
+        const { data, error } = await this.supabase.getClient().auth.admin.generateLink({
+          type: 'magiclink',
+          email: args.to,
+          options: { redirectTo: `${portalBase}/sign-in?invited=1` },
+        });
+        const link = data?.properties?.action_link;
+        if (error || !link) {
+          this.logger.warn(
+            `[vendor-members.invite] magic-link generation failed for ${args.to}: ${error?.message ?? 'no action_link'} — falling back to plain sign-in URL`,
+          );
+        } else {
+          cta = link;
+        }
+      } catch (err) {
+        this.logger.warn(
+          `[vendor-members.invite] magic-link generation threw for ${args.to}: ${(err as Error).message} — falling back to plain sign-in URL`,
+        );
+      }
+
+      const subject = `You've been invited to join ${teamName} on FeastPot`;
+      const intro = `${escapeHtml(inviter)} has invited you to join <strong>${escapeHtml(teamName)}</strong> on FeastPot as <strong>${escapeHtml(roleLabel)}</strong>. Click the button below to access the vendor portal. If you don't have a FeastPot account yet, one will be created automatically for this email address.`;
+      const html = `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 560px; margin: 0 auto; color: #111;">
+          <h2 style="color: #E8520A; margin-bottom: 8px;">FeastPot Vendor Invite</h2>
+          <p style="font-size: 15px; line-height: 1.5;">${intro}</p>
+          <p style="margin: 28px 0;">
+            <a href="${cta}" style="background: #185FA5; color: #fff; padding: 12px 20px; border-radius: 6px; text-decoration: none; font-weight: 600; display: inline-block;">Open the vendor portal</a>
+          </p>
+          <p style="font-size: 13px; color: #555; line-height: 1.5;">
+            If you weren't expecting this invite, you can ignore this email safely.
+          </p>
+          <p style="font-size: 12px; color: #888; margin-top: 32px;">FeastPot</p>
+        </div>
+      `;
+
+      await this.email.send({ to: args.to, subject, html });
+    } catch (err) {
+      this.logger.error(
+        `[vendor-members.invite] email delivery failed for ${args.to}: ${(err as Error).message}`,
+      );
+    }
+  }
 
   // ---------------- role resolution ----------------
 
@@ -226,37 +331,44 @@ export class VendorMembersService {
     }
     const email = dto.email.trim().toLowerCase();
 
-    // If the invitee already has a User row, link straight away so they
-    // see the vendor on their next sign-in without a "claim invite" hop.
-    const existingUser = await this.prisma.user.findUnique({
-      where: { email },
-      select: { id: true },
-    });
-
     try {
+      // Always create as pending with userId=null. The auto-link to an
+      // existing User row used to happen here, but that branched the
+      // method's shape (status, userId, response, inbox side-effect) on
+      // whether the invited email already had a FeastPot account,
+      // letting any vendor owner enumerate account existence for
+      // arbitrary emails. Now we keep the path identical for every
+      // invite and let `UsersService.sync` flip the row to `active`
+      // (matching by lowercased `invitedEmail`) on the invitee's first
+      // authenticated request after they click the magic-link below.
       const created = await this.prisma.vendorMember.create({
         data: {
           vendorId,
           invitedEmail: email,
           role: dto.role,
           invitedById: user.id,
-          userId: existingUser?.id ?? null,
-          status: existingUser ? VendorMemberStatus.active : VendorMemberStatus.pending,
-          acceptedAt: existingUser ? new Date() : null,
+          userId: null,
+          status: VendorMemberStatus.pending,
+          acceptedAt: null,
         },
-        include: { user: { select: { id: true, email: true, firstName: true, lastName: true } } },
       });
-      if (existingUser) {
-        await this.inbox.notify({
-          userId: existingUser.id,
-          type: 'generic',
-          title: 'Added to a vendor team',
-          body: `You have been added as ${dto.role.replace(/_/g, ' ')} on a FeastPot vendor account.`,
-          link: '/',
-          metadata: { vendorId, vendorMemberId: created.id },
-        });
-      }
-      return { ...created, isOwner: false as const };
+
+      // Email the invitee with a Supabase magic-link CTA. Fire-and-
+      // forget: a Supabase/Resend outage must not undo the row we just
+      // committed, and an awaited side-effect would re-introduce the
+      // timing-based enumeration leak.
+      const inviterUser = await this.prisma.user.findUnique({
+        where: { id: user.id },
+        select: { firstName: true, lastName: true, email: true },
+      });
+      const inviterName =
+        [inviterUser?.firstName, inviterUser?.lastName].filter(Boolean).join(' ').trim() ||
+        inviterUser?.email ||
+        user.email ||
+        null;
+      void this.sendInviteEmail({ to: email, vendorId, role: dto.role, inviterName });
+
+      return { ...created, user: null, isOwner: false as const };
     } catch (e) {
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
         throw new BadRequestException({
