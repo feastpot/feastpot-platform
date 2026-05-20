@@ -8,7 +8,9 @@ import { useAccessToken } from '@/lib/auth/use-access-token';
 export type VendorOrderStatus =
   | 'pending'
   | 'accepted'
+  | 'needs_clarification'
   | 'preparing'
+  | 'ready'
   | 'dispatched'
   | 'delivered'
   | 'cancelled'
@@ -50,7 +52,14 @@ interface OrdersResponse {
   nextCursor: string | null;
 }
 
-const ACTIVE_STATUSES: VendorOrderStatus[] = ['pending', 'accepted', 'preparing', 'dispatched'];
+const ACTIVE_STATUSES: VendorOrderStatus[] = [
+  'pending',
+  'accepted',
+  'needs_clarification',
+  'preparing',
+  'ready',
+  'dispatched',
+];
 
 /**
  * Active orders: fetched per-status because the API's `ListOrdersDto` accepts

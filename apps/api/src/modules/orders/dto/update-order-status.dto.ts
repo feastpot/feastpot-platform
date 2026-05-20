@@ -7,17 +7,27 @@ export class UpdateOrderStatusDto {
   @IsEnum(OrderStatus)
   status!: OrderStatus;
 
-  @ApiPropertyOptional({ description: 'Required when status is cancelled or rejected' })
+  @ApiPropertyOptional({ description: 'Required when status is cancelled' })
   @ValidateIf((o: UpdateOrderStatusDto) => o.status === OrderStatus.cancelled)
   @IsString()
   @MaxLength(500)
   cancellationReason?: string;
 
-  @ApiPropertyOptional()
-  @IsOptional()
+  @ApiPropertyOptional({ description: 'Required when status is rejected' })
+  @ValidateIf((o: UpdateOrderStatusDto) => o.status === OrderStatus.rejected)
   @IsString()
   @MaxLength(500)
   rejectionReason?: string;
+
+  /**
+   * Required when status is `needs_clarification`. The question is shown to
+   * the customer so they can reply (and the vendor can then accept or reject).
+   */
+  @ApiPropertyOptional({ description: 'Required when status is needs_clarification' })
+  @ValidateIf((o: UpdateOrderStatusDto) => o.status === OrderStatus.needs_clarification)
+  @IsString()
+  @MaxLength(500)
+  clarificationNote?: string;
 
   /**
    * Vendor-supplied ETA (minutes from now) when transitioning to dispatched.

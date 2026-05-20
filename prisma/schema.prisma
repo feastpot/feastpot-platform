@@ -49,10 +49,13 @@ enum OrderType {
 enum OrderStatus {
   pending
   accepted
+  needs_clarification
   preparing
+  ready
   dispatched
   delivered
   cancelled
+  rejected
   refunded
 }
 

@@ -150,12 +150,17 @@ export function OrdersDashboard({ vendorId }: Props) {
   }, [vendorId, qc, toast]);
 
   const buckets = useMemo(() => {
-    const pending = active.filter((o) => o.status === 'pending');
+    // Pending bucket also includes `needs_clarification` because both demand
+    // vendor attention before the order moves into the kitchen.
+    const pending = active.filter(
+      (o) => o.status === 'pending' || o.status === 'needs_clarification',
+    );
     // Folder: "accepted" rolls into the Preparing tab so the vendor sees a
     // single "in your kitchen" pile rather than splitting hairs over the
-    // accepted-but-not-yet-marked-preparing edge case.
+    // accepted-but-not-yet-marked-preparing edge case. `ready` belongs here
+    // too: the food is done but still in your kitchen waiting on dispatch.
     const preparing = active.filter(
-      (o) => o.status === 'preparing' || o.status === 'accepted',
+      (o) => o.status === 'preparing' || o.status === 'accepted' || o.status === 'ready',
     );
     const dispatched = active.filter((o) => o.status === 'dispatched');
     return { pending, preparing, dispatched };
@@ -166,7 +171,9 @@ export function OrdersDashboard({ vendorId }: Props) {
   const counts: Record<VendorOrderStatus, number> = {
     pending: buckets.pending.length,
     accepted: 0,
+    needs_clarification: 0,
     preparing: buckets.preparing.length,
+    ready: 0,
     dispatched: buckets.dispatched.length,
     delivered: delivered.length,
     cancelled: 0,

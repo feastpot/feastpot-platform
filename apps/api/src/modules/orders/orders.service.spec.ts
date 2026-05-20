@@ -227,19 +227,23 @@ describe('OrdersService.updateStatus authorization', () => {
     );
   });
 
-  it('vendor rejection (pending → cancelled) cancels the Stripe PI and stamps reason', async () => {
+  it('vendor rejection (pending → rejected) cancels the Stripe PI and stamps reason', async () => {
     repo.findByIdWithItems.mockResolvedValue(order({ status: OrderStatus.pending }));
     repo.findStripePaymentIntent.mockResolvedValue('pi_999');
     await service.updateStatus(
       'o-1',
-      { status: OrderStatus.cancelled, rejectionReason: 'Out of ingredients' },
+      { status: OrderStatus.rejected, rejectionReason: 'Out of ingredients' },
       vendorUser(),
     );
     expect(stripe.cancel).toHaveBeenCalledWith('pi_999');
     expect(repo.transitionStatus).toHaveBeenCalledWith(
       'o-1',
       OrderStatus.pending,
-      expect.objectContaining({ status: OrderStatus.cancelled, notes: '[REJECTED] Out of ingredients' }),
+      expect.objectContaining({
+        status: OrderStatus.rejected,
+        cancellationReason: 'Out of ingredients',
+        cancelledBy: 'vendor',
+      }),
     );
   });
 

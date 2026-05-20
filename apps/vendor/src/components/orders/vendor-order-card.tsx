@@ -2,6 +2,7 @@
 
 import { cn } from '@feastpot/ui';
 import { format } from 'date-fns';
+import Link from 'next/link';
 import { useMemo, useState } from 'react';
 
 import { useProposeAmendment } from '@/hooks/use-propose-amendment';
@@ -210,10 +211,17 @@ export function VendorOrderCard({ order }: Props) {
           )}
         </footer>
 
-        {/* Secondary action - propose a change (FR-AMD-001). Lives outside the
-            primary footer so the main CTA stays the obvious next step. */}
-        {showProposeButton && (
-          <div className="border-t border-border bg-white px-4 py-2 text-right">
+        {/* Secondary actions - open detail page + propose a change. Lives
+            outside the primary footer so the main CTA stays the obvious next
+            step. */}
+        <div className="flex items-center justify-between border-t border-border bg-white px-4 py-2">
+          <Link
+            href={`/orders/${order.id}`}
+            className="text-xs font-semibold text-vendor underline-offset-2 hover:underline"
+          >
+            Open order →
+          </Link>
+          {showProposeButton && (
             <button
               type="button"
               onClick={() => setAmendOpen(true)}
@@ -221,8 +229,8 @@ export function VendorOrderCard({ order }: Props) {
             >
               Propose a change
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </article>
 
       <RejectSheet

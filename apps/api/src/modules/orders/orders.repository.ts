@@ -11,7 +11,14 @@ export class OrdersRepository {
     return this.prisma.order.findUnique({
       where: { id },
       include: {
-        items: true,
+        // Vendor order-detail page surfaces per-line notes and pulls allergens
+        // off the parent MenuItem for the allergy summary. Cheap join: one row
+        // per order item, allergens is a small string[] column.
+        items: {
+          include: {
+            menuItem: { select: { allergens: true, category: true } },
+          },
+        },
         // Nested `user.phone` powers the customer-facing tracking page
         // WhatsApp / call CTAs (Vendor itself has no phone column).
         vendor: {
@@ -22,16 +29,32 @@ export class OrdersRepository {
             user: { select: { phone: true } },
           },
         },
-        // Vendor portal renders customer first name on every order card. Selecting
-        // only firstName + email keeps the row size small and avoids leaking
-        // unrelated PII (passwordHash, phone, etc.) over the API.
-        customer: { select: { id: true, firstName: true, email: true } },
+        // Vendor order-detail page needs phone for the call/WhatsApp CTA.
+        // Still selective: no passwordHash, no profile flags, just contact.
+        customer: {
+          select: { id: true, firstName: true, lastName: true, email: true, phone: true },
+        },
+        address: true,
         // Tracking page renders any pending amendment as a banner. Filtering
         // server-side keeps the response small and means the UI doesn't need
         // to know the AmendmentStatus enum values.
         amendments: {
           where: { status: 'pending' },
           orderBy: { createdAt: 'desc' },
+        },
+        // Vendor needs to know if a dispute is open against an order so the
+        // detail page can surface a banner and redirect actions appropriately.
+        disputes: {
+          where: { status: { in: ['open', 'vendor_contacted', 'escalated'] } },
+          orderBy: { createdAt: 'desc' },
+          select: {
+            id: true,
+            status: true,
+            issueType: true,
+            severity: true,
+            description: true,
+            createdAt: true,
+          },
         },
       },
     });

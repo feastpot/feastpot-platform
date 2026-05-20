@@ -44,9 +44,32 @@ export const VENDOR_TRANSITIONS: ReadonlyMap<OrderStatus, ReadonlySet<OrderStatu
   OrderStatus,
   ReadonlySet<OrderStatus>
 >([
-  [OrderStatus.pending, new Set<OrderStatus>([OrderStatus.accepted, OrderStatus.cancelled])], // 'rejected' uses cancelled with reason
-  [OrderStatus.accepted, new Set<OrderStatus>([OrderStatus.preparing])],
-  [OrderStatus.preparing, new Set<OrderStatus>([OrderStatus.dispatched])],
+  [
+    OrderStatus.pending,
+    new Set<OrderStatus>([
+      OrderStatus.accepted,
+      OrderStatus.rejected,
+      OrderStatus.needs_clarification,
+      OrderStatus.cancelled,
+    ]),
+  ],
+  [
+    OrderStatus.accepted,
+    new Set<OrderStatus>([OrderStatus.preparing, OrderStatus.needs_clarification]),
+  ],
+  [
+    OrderStatus.needs_clarification,
+    new Set<OrderStatus>([
+      OrderStatus.accepted,
+      OrderStatus.rejected,
+      OrderStatus.cancelled,
+    ]),
+  ],
+  [
+    OrderStatus.preparing,
+    new Set<OrderStatus>([OrderStatus.ready, OrderStatus.dispatched]),
+  ],
+  [OrderStatus.ready, new Set<OrderStatus>([OrderStatus.dispatched, OrderStatus.delivered])],
   [OrderStatus.dispatched, new Set<OrderStatus>([OrderStatus.delivered])],
 ]);
 export const ADMIN_TRANSITIONS: ReadonlySet<OrderStatus> = new Set([
@@ -504,11 +527,26 @@ export class OrdersService {
       }
     }
     if (dto.status === OrderStatus.delivered) data.deliveredAt = now;
-    if (dto.status === OrderStatus.cancelled && from === OrderStatus.pending) {
+    if (dto.status === OrderStatus.cancelled) {
       data.cancelledAt = now;
-      data.notes = dto.rejectionReason
-        ? `[REJECTED] ${dto.rejectionReason}`
-        : '[REJECTED] Vendor declined order';
+      if (dto.cancellationReason) {
+        data.cancellationReason = dto.cancellationReason;
+        data.cancelledBy = 'vendor';
+      }
+    }
+    if (dto.status === OrderStatus.rejected) {
+      // Rejection is a terminal pre-acceptance state. We stamp cancelledAt
+      // so reporting / payout sweeps that key off "is this order over?" keep
+      // working without learning a new column.
+      data.cancelledAt = now;
+      data.cancellationReason = dto.rejectionReason ?? 'Vendor declined order';
+      data.cancelledBy = 'vendor';
+    }
+    if (dto.status === OrderStatus.needs_clarification && dto.clarificationNote) {
+      // Append the question to notes so the existing notes-banner surfaces it
+      // on the customer tracking page without a new column.
+      const prefix = snap?.notes ? `${snap.notes}\n\n` : '';
+      data.notes = `${prefix}[VENDOR QUESTION] ${dto.clarificationNote}`;
     }
 
     // Atomic CAS guard: refuses to write if another request already moved the row.
@@ -573,7 +611,16 @@ export class OrdersService {
       }
     }
 
-    if (dto.status === OrderStatus.cancelled && from === OrderStatus.pending) {
+    // Vendor-driven terminal pre-prep exits: pending → cancelled (legacy
+     // path) and the new pending|needs_clarification → rejected path. Both
+     // need to release the Stripe authorisation and refund any loyalty
+     // points that were redeemed against the order.
+    const isVendorReject =
+      dto.status === OrderStatus.rejected &&
+      (from === OrderStatus.pending || from === OrderStatus.needs_clarification);
+    const isVendorPendingCancel =
+      dto.status === OrderStatus.cancelled && from === OrderStatus.pending;
+    if (isVendorReject || isVendorPendingCancel) {
       const pi = await this.repo.findStripePaymentIntent(orderId);
       if (pi) {
         await this.stripe.cancel(pi);

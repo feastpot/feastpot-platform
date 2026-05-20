@@ -13,6 +13,8 @@ export interface UpdateStatusInput {
   status: VendorOrderStatus;
   cancellationReason?: string;
   rejectionReason?: string;
+  /** Question for the customer; required when status is needs_clarification. */
+  clarificationNote?: string;
   /** Vendor-supplied ETA (minutes) - only meaningful on dispatched. */
   etaMinutes?: number;
 }
@@ -35,6 +37,7 @@ export function useUpdateOrderStatus() {
     onSuccess: (order) => {
       // Active and history queries both move when status changes.
       qc.invalidateQueries({ queryKey: ['vendor', 'orders'] });
+      qc.invalidateQueries({ queryKey: ['vendor', 'order', order.id] });
       qc.invalidateQueries({ queryKey: ['vendor', 'stats'] });
       toast({
         title: 'Order updated',
