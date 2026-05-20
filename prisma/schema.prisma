@@ -432,6 +432,26 @@ model Vendor {
   largeOrderTrayThreshold  Int?    @map("large_order_tray_threshold")
   eventCateringManualQuote Boolean @default(false) @map("event_catering_manual_quote")
 
+  // Business profile additions (T005). All optional/additive so existing
+  // vendors keep working untouched.
+  // - logoUrl / coverImageUrl: previously implicit; promoted to first-class
+  //   columns so the profile editor can write to them via PATCH.
+  // - specialities: short tags surfaced as pills on the customer page,
+  //   distinct from cuisines (which are coarse categories).
+  // - vendorStory: long-form bio rendered below the description.
+  // - featuredDishes: free-text names highlighted at the top of the menu;
+  //   not a foreign key to MenuItem so vendors can call out off-menu /
+  //   seasonal favourites without a publishing round-trip.
+  // - socialLinks: JSON blob keyed by network (instagram / tiktok / web /
+  //   facebook / youtube). JSON keeps the schema flexible while the
+  //   editor settles on which networks matter.
+  logoUrl         String?  @map("logo_url")
+  coverImageUrl   String?  @map("cover_image_url")
+  specialities    String[] @default([]) @db.VarChar(64)
+  vendorStory     String?  @map("vendor_story")
+  featuredDishes  String[] @default([]) @map("featured_dishes") @db.VarChar(120)
+  socialLinks     Json?    @map("social_links")
+
   createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz
   updatedAt       DateTime     @updatedAt @map("updated_at") @db.Timestamptz
 

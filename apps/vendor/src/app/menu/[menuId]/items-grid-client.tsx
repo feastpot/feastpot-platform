@@ -1,18 +1,21 @@
 'use client';
 
 import { Badge, Button, Card, CardContent } from '@feastpot/ui';
-import { ImageOff, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Copy, ExternalLink, ImageOff, Pencil, Plus, Trash2 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/components/ui/toaster';
 import {
+  useCreateMenuItem,
   useDeleteMenuItem,
   useMenuItems,
   useToggleItemAvailability,
   type MenuItem,
+  type MenuItemUpsertInput,
 } from '@/hooks/use-menu-items';
+import { WEB_URL } from '@/lib/env';
 import { formatPence } from '@/lib/format';
 
 const CATEGORY_LABEL: Record<MenuItem['category'], string> = {
@@ -28,14 +31,17 @@ const CATEGORY_LABEL: Record<MenuItem['category'], string> = {
 
 export function MenuItemsGridClient({
   vendorId,
+  vendorSlug,
   menuId,
   menuName,
 }: {
   vendorId: string;
+  vendorSlug: string;
   menuId: string;
   menuName: string;
 }) {
   const { data: items, isLoading, error } = useMenuItems(vendorId, menuId);
+  const previewHref = `${WEB_URL}/vendors/${vendorSlug}`;
 
   return (
     <div className="space-y-4">
@@ -49,11 +55,23 @@ export function MenuItemsGridClient({
             Reorder is coming soon - items are sorted by category, then name.
           </p>
         </div>
-        <Link href={`/menu/${menuId}/items/new`}>
-          <Button className="gap-2">
-            <Plus className="h-4 w-4" /> Add item
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <a
+            href={previewHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Preview your menu on the customer site"
+          >
+            <Button variant="outline" className="gap-2">
+              <ExternalLink className="h-4 w-4" /> Preview as customer
+            </Button>
+          </a>
+          <Link href={`/menu/${menuId}/items/new`}>
+            <Button className="gap-2">
+              <Plus className="h-4 w-4" /> Add item
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {error && (
@@ -87,6 +105,46 @@ export function MenuItemsGridClient({
   );
 }
 
+/**
+ * Map a fetched MenuItem back into the create DTO. The service stores tags
+ * in a flattened form, so we split them back out: `spice:N` -> spiceLevel,
+ * `portion:LABEL` -> portionLabel, `halal` -> isHalal, anything else is a
+ * dietary flag. Price is in pence both directions; preparationHours is
+ * stored in hours and the DTO wants minutes, so multiply by 60.
+ */
+function toUpsertInput(item: MenuItem): MenuItemUpsertInput {
+  let portionLabel: string | undefined;
+  let spiceLevel: number | undefined;
+  let isHalal = false;
+  const dietaryFlags: string[] = [];
+  for (const t of item.tags) {
+    if (t === 'halal') isHalal = true;
+    else if (t.startsWith('spice:')) {
+      const n = Number.parseInt(t.slice(6), 10);
+      if (!Number.isNaN(n)) spiceLevel = n;
+    } else if (t.startsWith('portion:')) {
+      portionLabel = t.slice(8);
+    } else {
+      dietaryFlags.push(t);
+    }
+  }
+  return {
+    name: `${item.name} (copy)`,
+    description: item.description ?? undefined,
+    category: item.category,
+    basePricePence: item.pricePence,
+    prepTimeMinutes: Math.max(item.preparationHours * 60, 15),
+    portionLabel,
+    spiceLevel,
+    isHalal,
+    dietaryFlags,
+    allergens: item.allergens,
+    images: item.imageUrls,
+    servingsCount: item.servingsCount ?? undefined,
+    isAvailable: false,
+  };
+}
+
 function ItemCard({
   vendorId,
   menuId,
@@ -98,8 +156,26 @@ function ItemCard({
 }) {
   const toggle = useToggleItemAvailability(vendorId, menuId);
   const del = useDeleteMenuItem(vendorId, menuId);
+  const dup = useCreateMenuItem(vendorId, menuId);
   const { toast } = useToast();
   const cover = item.imageUrls[0];
+
+  const handleDuplicate = () => {
+    const input = toUpsertInput(item);
+    dup.mutate(input, {
+      onSuccess: () =>
+        toast({
+          title: 'Item duplicated',
+          description: `"${input.name}" saved as a draft. Update and publish when ready.`,
+        }),
+      onError: (err) =>
+        toast({
+          title: 'Could not duplicate item',
+          description: err instanceof Error ? err.message : '',
+          variant: 'destructive',
+        }),
+    });
+  };
 
   return (
     <Card className="overflow-hidden">
@@ -153,6 +229,17 @@ function ItemCard({
                 <Pencil className="h-3.5 w-3.5" /> Edit
               </Button>
             </Link>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-1"
+              disabled={dup.isPending}
+              onClick={handleDuplicate}
+              aria-label={`Duplicate ${item.name}`}
+              title="Duplicate as draft"
+            >
+              <Copy className="h-3.5 w-3.5" />
+            </Button>
             <Button
               variant="ghost"
               size="sm"

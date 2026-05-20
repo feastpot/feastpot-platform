@@ -1,8 +1,12 @@
 'use client';
 
 import { ComplianceAlerts } from '@/components/dashboard/compliance-alerts';
+import { OperationsTiles } from '@/components/dashboard/operations-tiles';
+import { OrdersDueToday } from '@/components/dashboard/orders-due-today';
 import { QuickActions } from '@/components/dashboard/quick-actions';
 import { StatCard } from '@/components/dashboard/stat-card';
+import { UpcomingOrders } from '@/components/dashboard/upcoming-orders';
+import { useVendorDashboard } from '@/hooks/use-vendor-dashboard';
 import { useVendorStats } from '@/hooks/use-vendor-stats';
 
 interface Props {
@@ -24,6 +28,7 @@ interface Props {
  */
 export function DashboardClient({ vendorId, greetingName, businessName, rating }: Props) {
   const { data: stats, isLoading } = useVendorStats();
+  const { data: dashboard } = useVendorDashboard();
   const greeting = greetingFor(new Date());
 
   const todayRevenuePounds = stats ? stats.today.revenuePence / 100 : 0;
@@ -78,6 +83,41 @@ export function DashboardClient({ vendorId, greetingName, businessName, rating }
           suffix={rating === null ? '' : `.${Math.round((rating % 1) * 10)}`}
           color="vendor"
         />
+      </section>
+
+      <section aria-label="Orders due today">
+        <div className="mb-2 flex items-baseline justify-between">
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-mid">
+            Due today
+          </h2>
+          {dashboard && dashboard.ordersDueToday.length > 0 && (
+            <span className="text-xs font-medium text-mid">
+              {dashboard.ordersDueToday.length} order
+              {dashboard.ordersDueToday.length === 1 ? '' : 's'}
+            </span>
+          )}
+        </div>
+        <OrdersDueToday orders={dashboard?.ordersDueToday ?? []} />
+      </section>
+
+      <section aria-label="Operations summary">
+        <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-mid">
+          At a glance
+        </h2>
+        <OperationsTiles
+          eventEnquiries={dashboard?.eventEnquiries ?? { pending: 0, nextEventDate: null }}
+          nextPayout={dashboard?.nextPayout ?? null}
+          menuHealth={
+            dashboard?.menuHealth ?? { missingImages: 0, missingAllergens: 0, items: [] }
+          }
+        />
+      </section>
+
+      <section aria-label="Upcoming orders">
+        <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-mid">
+          Next 7 days
+        </h2>
+        <UpcomingOrders orders={dashboard?.upcomingOrders ?? []} />
       </section>
 
       <section aria-label="Compliance status">

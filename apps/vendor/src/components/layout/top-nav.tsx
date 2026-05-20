@@ -15,7 +15,7 @@ const NAV_ITEMS = [
   { href: '/analytics', label: 'Analytics' },
   { href: '/payouts', label: 'Payouts' },
   { href: '/compliance', label: 'Compliance' },
-  { href: '/settings/delivery', label: 'Settings' },
+  { href: '/settings/profile', label: 'Settings' },
   { href: '/help', label: 'Help' },
 ];
 

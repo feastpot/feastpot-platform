@@ -87,6 +87,12 @@ export interface VendorProfile extends VendorListItem {
     postcodes: string[];
   } | null;
   menus?: VendorMenuGroup[];
+  /** T005: business profile editor fields. All optional / nullable so older
+   *  vendor records (pre-migration) and the storefront degrade gracefully. */
+  specialities?: string[] | null;
+  vendorStory?: string | null;
+  featuredDishes?: string[] | null;
+  socialLinks?: Record<string, string> | null;
 }
 
 export interface VendorMenuGroup {

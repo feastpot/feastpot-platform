@@ -347,6 +347,19 @@ export class VendorRepository {
     return this.prisma.vendor.findUnique({ where: { slug } });
   }
 
+  /**
+   * T005 review: case-insensitive lookup used by the profile editor when
+   * checking slug collisions before write. The unique index on `slug` is
+   * exact-match, but slugs are user-typed copy and we must reject e.g.
+   * "Mamans-Kitchen" colliding with an existing "mamans-kitchen".
+   */
+  findBySlugInsensitive(slug: string) {
+    return this.prisma.vendor.findFirst({
+      where: { slug: { equals: slug, mode: 'insensitive' } },
+      select: { id: true, slug: true },
+    });
+  }
+
   create(data: Prisma.VendorCreateInput) {
     return this.prisma.vendor.create({ data });
   }

@@ -28,6 +28,27 @@ export class SupabaseStorageService {
     file: { originalname: string; mimetype: string; size: number; buffer: Buffer };
   }): Promise<UploadedImage> {
     const { vendorId, itemId, file } = params;
+    return this.uploadAt(`vendors/${vendorId}/menu/${itemId}`, file);
+  }
+
+  /**
+   * T005: logo + cover uploads for the vendor business profile editor.
+   * The path includes a millisecond timestamp so re-uploads don't collide and
+   * old URLs keep resolving while the new one is rolled out.
+   */
+  async uploadVendorImage(params: {
+    vendorId: string;
+    kind: 'logo' | 'cover';
+    file: { originalname: string; mimetype: string; size: number; buffer: Buffer };
+  }): Promise<UploadedImage> {
+    const { vendorId, kind, file } = params;
+    return this.uploadAt(`vendors/${vendorId}/identity/${kind}`, file);
+  }
+
+  private async uploadAt(
+    folder: string,
+    file: { originalname: string; mimetype: string; size: number; buffer: Buffer },
+  ): Promise<UploadedImage> {
     if (!ALLOWED_MIME.has(file.mimetype)) {
       throw new BadRequestException({
         code: 'INVALID_IMAGE_TYPE',
@@ -43,7 +64,7 @@ export class SupabaseStorageService {
 
     const safeName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 120);
     const filename = `${Date.now()}-${safeName}`;
-    const path = `vendors/${vendorId}/menu/${itemId}/${filename}`;
+    const path = `${folder}/${filename}`;
 
     const storage = this.supabase.getClient().storage.from(STORAGE_BUCKET);
     const { error } = await storage.upload(path, file.buffer, {

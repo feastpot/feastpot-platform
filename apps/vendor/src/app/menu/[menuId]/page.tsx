@@ -13,6 +13,7 @@ interface VendorMe {
   id: string;
   businessName: string;
   status: string;
+  slug: string;
 }
 
 interface MenuLite {
@@ -57,7 +58,12 @@ export default async function MenuItemsPage({ params }: { params: Promise<{ menu
     <>
       <TopNav businessName={vendor.businessName} />
       <main className="container py-6">
-        <MenuItemsGridClient vendorId={vendor.id} menuId={menuId} menuName={menuName} />
+        <MenuItemsGridClient
+          vendorId={vendor.id}
+          vendorSlug={vendor.slug}
+          menuId={menuId}
+          menuName={menuName}
+        />
       </main>
     </>
   );

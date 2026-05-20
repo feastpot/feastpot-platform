@@ -1,6 +1,18 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query, Req } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+  Req,
+  Res,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
+import type { Response } from 'express';
 
 import { Roles } from '../../auth/decorators/roles.decorator';
 import type { AuthedRequest, AuthUser } from '../../auth/types';
@@ -25,6 +37,28 @@ export class PayoutsController {
   @ApiOperation({ summary: 'List payouts (scoped: vendors see their own, finance/admin see all)' })
   list(@Req() req: AuthedRequest, @Query() dto: ListPayoutsDto) {
     return this.payouts.list(requireUser(req), dto);
+  }
+
+  @Get('export.csv')
+  @Roles(UserRole.vendor, UserRole.finance, UserRole.admin)
+  @ApiOperation({
+    summary: 'CSV export of the actor’s payout history (T006). Capped at 5 000 rows.',
+  })
+  async exportCsv(
+    @Req() req: AuthedRequest,
+    @Res() res: Response,
+    @Query('vendorId') vendorId?: string,
+  ) {
+    // Headers set explicitly: when a route opts into manual @Res() handling,
+    // Nest's @Header() decorators are not guaranteed to apply, so we own
+    // both response headers and the body.
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="feastpot-payouts.csv"');
+    res.flushHeaders?.();
+    await this.payouts.exportCsv(requireUser(req), (chunk) => res.write(chunk), {
+      vendorId,
+    });
+    res.end();
   }
 
   @Get(':id')

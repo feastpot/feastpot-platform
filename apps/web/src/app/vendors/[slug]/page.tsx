@@ -336,6 +336,67 @@ export default async function VendorProfilePage({ params }: PageProps) {
           </p>
         )}
 
+        {/* T005: specialities surface as pills below the cuisine row so
+            customers can scan what this kitchen is known for at a glance. */}
+        {vendor.specialities && vendor.specialities.length > 0 && (
+          <ul className="flex flex-wrap gap-1.5 pt-1">
+            {vendor.specialities.map((s) => (
+              <li
+                key={s}
+                className="rounded-full border border-brand/30 bg-brand/5 px-2.5 py-1 text-xs font-bold text-brand-dark"
+              >
+                {s}
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {/* T005: featured dishes - vendor-curated highlights independent
+            of the menu items below (covers seasonal / off-menu shouts). */}
+        {vendor.featuredDishes && vendor.featuredDishes.length > 0 && (
+          <div className="rounded-2xl bg-cream-warm p-3">
+            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-brand">
+              Featured dishes
+            </p>
+            <ul className="mt-1.5 space-y-1 text-sm font-medium text-charcoal">
+              {vendor.featuredDishes.map((d) => (
+                <li key={d}>· {d}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* T005: long-form vendor story. */}
+        {vendor.vendorStory && (
+          <details className="rounded-2xl border border-cream-deep bg-white p-3">
+            <summary className="cursor-pointer text-sm font-bold text-charcoal">
+              About this kitchen
+            </summary>
+            <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-charcoal-mid">
+              {vendor.vendorStory}
+            </p>
+          </details>
+        )}
+
+        {/* T005: social links. Rendered as a compact link strip, opening in
+            a new tab with noopener/noreferrer for safety. */}
+        {vendor.socialLinks && Object.keys(vendor.socialLinks).length > 0 && (
+          <ul className="flex flex-wrap gap-2 pt-1 text-xs font-bold">
+            {Object.entries(vendor.socialLinks).map(([k, v]) => (
+              <li key={k}>
+                <a
+                  href={v}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-full border border-charcoal/15 px-2.5 py-1 text-charcoal transition-colors hover:bg-cream-warm"
+                >
+                  {k}
+                </a>
+              </li>
+            ))}
+          </ul>
+        )}
+
         <div className="flex flex-wrap gap-x-4 gap-y-1 pt-1 text-[11px] font-medium text-charcoal-mid">
           {distanceMiles != null && (
             <span className="inline-flex items-center gap-1">

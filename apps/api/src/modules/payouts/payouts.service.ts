@@ -24,6 +24,81 @@ import { ListPayoutsDto } from './dto/list-payouts.dto';
 
 export const NOTIFICATIONS_QUEUE = 'notifications';
 
+const PAYOUT_CSV_HEADER = [
+  'payout_id',
+  'payout_date',
+  'period_start',
+  'period_end',
+  'gross_pence',
+  'commission_pence',
+  'fees_pence',
+  'refunds_pence',
+  'adjustments_pence',
+  'net_pence',
+  'currency',
+  'status',
+  'order_count',
+  'stripe_transfer_id',
+].join(',');
+
+function csvCell(value: string | number | null | undefined): string {
+  if (value === null || value === undefined) return '';
+  let safe = String(value);
+  // CSV-injection guard: Excel / Numbers run cells starting with =, +, -, @
+  // as formulas. Prefix a single quote so the cell renders verbatim.
+  if (/^[=+\-@\t\r]/.test(safe)) safe = `'${safe}`;
+  // RFC 4180: quote when the cell has a comma, quote, or newline.
+  if (/[",\n\r]/.test(safe)) return `"${safe.replace(/"/g, '""')}"`;
+  return safe;
+}
+
+function isoDateOnly(d: Date | null): string {
+  if (!d) return '';
+  return d.toISOString().slice(0, 10);
+}
+
+interface PayoutCsvRow {
+  id: string;
+  status: string;
+  amountPence: number;
+  grossPence: number;
+  commissionPence: number;
+  refundsPence: number;
+  orderCount: number;
+  currency: string;
+  periodStart: Date | null;
+  periodEnd: Date | null;
+  transferredAt: Date | null;
+  approvedAt: Date | null;
+  createdAt: Date;
+  stripeTransferId: string | null;
+}
+
+function payoutCsvRow(p: PayoutCsvRow): string {
+  // payout_date = the date money actually moved if available, otherwise the
+  // approval date, otherwise creation date. Keeps the column non-empty for
+  // draft/held rows without lying about transfer status.
+  const payoutDate = p.transferredAt ?? p.approvedAt ?? p.createdAt;
+  return [
+    p.id,
+    isoDateOnly(payoutDate),
+    isoDateOnly(p.periodStart),
+    isoDateOnly(p.periodEnd),
+    p.grossPence,
+    p.commissionPence,
+    0,
+    p.refundsPence,
+    0,
+    p.amountPence,
+    p.currency,
+    p.status,
+    p.orderCount,
+    p.stripeTransferId ?? '',
+  ]
+    .map((c) => csvCell(c))
+    .join(',');
+}
+
 export interface VendorBatchInput {
   vendorId: string;
   vendorUserId: string;
@@ -118,6 +193,66 @@ export class PayoutsService {
     });
     const nextCursor = rows.length === limit ? this.encodeCursor(rows[rows.length - 1]!) : null;
     return { data: rows, nextCursor };
+  }
+
+  /**
+   * Streams the full payout history for the actor as CSV. Vendors see only
+   * their own rows; finance/admin see all (optionally narrowed by vendorId).
+   * Capped at 5 000 rows to match the audit-log export.
+   *
+   * Columns are chosen to match accountancy templates (Xero / QuickBooks
+   * import-ready). `fees` and `adjustments` are placeholder zero columns
+   * for now: Stripe transfer fees aren't broken out in our schema, and
+   * manual adjustments are tracked separately via dispute resolutions.
+   */
+  async exportCsv(
+    user: AuthUser,
+    write: (chunk: string) => void,
+    opts: { vendorId?: string } = {},
+  ): Promise<void> {
+    const where: Prisma.PayoutWhereInput = {};
+    if (user.role === UserRole.vendor) {
+      const vendor = await this.prisma.vendor.findUnique({
+        where: { userId: user.id },
+        select: { id: true },
+      });
+      if (!vendor) {
+        write(PAYOUT_CSV_HEADER + '\n');
+        return;
+      }
+      where.vendorId = vendor.id;
+    } else if (user.role === UserRole.finance || user.role === UserRole.admin) {
+      if (opts.vendorId) where.vendorId = opts.vendorId;
+    } else {
+      throw new ForbiddenException({
+        code: 'PAYOUTS_FORBIDDEN',
+        message: 'You may not export payouts',
+      });
+    }
+
+    write(PAYOUT_CSV_HEADER + '\n');
+
+    const PAGE = 500;
+    const MAX = 5_000;
+    let cursorId: string | undefined;
+    let written = 0;
+
+    for (let i = 0; i < Math.ceil(MAX / PAGE); i++) {
+      const rows = await this.prisma.payout.findMany({
+        where,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: PAGE,
+        ...(cursorId ? { cursor: { id: cursorId }, skip: 1 } : {}),
+      });
+      if (rows.length === 0) break;
+      for (const r of rows) {
+        write(payoutCsvRow(r) + '\n');
+        written += 1;
+        if (written >= MAX) return;
+      }
+      cursorId = rows[rows.length - 1]!.id;
+      if (rows.length < PAGE) break;
+    }
   }
 
   async getById(id: string, user: AuthUser) {

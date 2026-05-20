@@ -17,6 +17,7 @@ import { vendorApplicationAcknowledgedTemplate } from '../notifications/template
 import { vendorApplicationReceivedTemplate } from '../notifications/templates/vendor-application-received.template';
 import { PrismaService } from '../../prisma/prisma.service';
 import { StripeService } from '../../stripe/stripe.service';
+import { SupabaseStorageService } from '../catalogue/supabase-storage.service';
 
 import { AddBlackoutDto } from './dto/add-blackout.dto';
 import { CreateVendorDto } from './dto/create-vendor.dto';
@@ -35,6 +36,7 @@ import {
   WeeklyRevenueBucketDto,
 } from './dto/vendor-analytics.dto';
 import { VendorStatsResponseDto } from './dto/vendor-stats.dto';
+import { VendorDashboardResponseDto } from './dto/vendor-dashboard.dto';
 import { VendorRepository, type DecodedCursor, type SearchedVendorRow } from './vendors.repository';
 
 const REVENUE_STATUSES_LIST: OrderStatus[] = [
@@ -43,6 +45,16 @@ const REVENUE_STATUSES_LIST: OrderStatus[] = [
   OrderStatus.dispatched,
   OrderStatus.delivered,
 ];
+
+function formatCustomerName(
+  c: { firstName: string | null; lastName: string | null } | null,
+): string {
+  if (!c) return 'Customer';
+  const first = (c.firstName ?? '').trim();
+  const last = (c.lastName ?? '').trim();
+  const full = `${first} ${last}`.trim();
+  return full.length > 0 ? full : 'Customer';
+}
 
 function utcWeekStart(d: Date): Date {
   const day = (d.getUTCDay() + 6) % 7; // Mon=0..Sun=6
@@ -238,6 +250,9 @@ export class VendorsService {
     // NotificationsModule is @Global() so no module import needed here.
     private readonly notifications: NotificationsService,
     private readonly email: EmailProvider,
+    // T005: identity image uploads (logo/cover). SupabaseStorageService is
+    // provided by CatalogueModule, which VendorsModule now imports.
+    private readonly storage: SupabaseStorageService,
   ) {}
 
   /**
@@ -727,6 +742,175 @@ export class VendorsService {
     };
   }
 
+  /**
+   * Single aggregated payload backing the dashboard's "what needs my attention
+   * today" panels (T004). One round-trip so the home screen paints in one
+   * shot instead of fanning out four parallel hooks. Pure read; no caching
+   * because most rows are small and several change as the vendor works.
+   */
+  async getMyDashboardSummary(userId: string): Promise<VendorDashboardResponseDto> {
+    const vendor = await this.repo.findByUserId(userId);
+    if (!vendor) {
+      throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'No vendor profile for this user' });
+    }
+    const vendorId = vendor.id;
+
+    const now = new Date();
+    const todayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    const tomorrowStart = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
+    // Upcoming window = 7 full days starting tomorrow (excludes today, which
+    // is rendered in ordersDueToday). End-bound is exclusive.
+    const weekEnd = new Date(tomorrowStart.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+    const ACTIVE_FULFILMENT: OrderStatus[] = [
+      OrderStatus.accepted,
+      OrderStatus.needs_clarification,
+      OrderStatus.preparing,
+      OrderStatus.ready,
+      OrderStatus.dispatched,
+    ];
+
+    const [
+      todayOrders,
+      upcomingOrders,
+      pendingEnquiriesCount,
+      nextEnquiry,
+      nextPayout,
+      menuItemsAll,
+    ] = await Promise.all([
+      this.prisma.order.findMany({
+        where: {
+          vendorId,
+          status: { in: ACTIVE_FULFILMENT },
+          scheduledFor: { gte: todayStart, lt: tomorrowStart },
+        },
+        orderBy: { scheduledFor: 'asc' },
+        select: {
+          id: true,
+          orderNumber: true,
+          status: true,
+          deliveryType: true,
+          scheduledFor: true,
+          totalPence: true,
+          customer: { select: { firstName: true, lastName: true } },
+          _count: { select: { items: true } },
+        },
+      }),
+      this.prisma.order.findMany({
+        where: {
+          vendorId,
+          status: { in: ACTIVE_FULFILMENT },
+          scheduledFor: { gte: tomorrowStart, lt: weekEnd },
+        },
+        orderBy: { scheduledFor: 'asc' },
+        take: 6,
+        select: {
+          id: true,
+          orderNumber: true,
+          status: true,
+          scheduledFor: true,
+          totalPence: true,
+          customer: { select: { firstName: true, lastName: true } },
+        },
+      }),
+      this.prisma.eventEnquiry.count({
+        where: {
+          status: 'open',
+          matchedVendorIds: { has: vendorId },
+          quotes: { none: { vendorId } },
+        },
+      }),
+      this.prisma.eventEnquiry.findFirst({
+        where: {
+          status: 'open',
+          matchedVendorIds: { has: vendorId },
+          quotes: { none: { vendorId } },
+          eventDate: { gte: now },
+        },
+        orderBy: { eventDate: 'asc' },
+        select: { eventDate: true },
+      }),
+      this.prisma.payout.findFirst({
+        where: {
+          vendorId,
+          status: { in: ['draft', 'held', 'approved'] },
+        },
+        orderBy: [{ status: 'desc' }, { periodEnd: 'asc' }, { createdAt: 'asc' }],
+        select: {
+          status: true,
+          amountPence: true,
+          periodEnd: true,
+          orderCount: true,
+        },
+      }),
+      this.prisma.menuItem.findMany({
+        where: { vendorId, isAvailable: true },
+        select: { id: true, name: true, imageUrls: true, allergens: true },
+      }),
+    ]);
+
+    const ordersDueToday = todayOrders.map((o) => ({
+      id: o.id,
+      code: o.orderNumber,
+      customerName: formatCustomerName(o.customer),
+      status: o.status,
+      deliveryType: o.deliveryType,
+      scheduledFor: o.scheduledFor ? o.scheduledFor.toISOString() : null,
+      itemCount: o._count.items,
+      totalPence: o.totalPence,
+    }));
+
+    const upcomingOrdersDto = upcomingOrders.map((o) => ({
+      id: o.id,
+      code: o.orderNumber,
+      customerName: formatCustomerName(o.customer),
+      status: o.status,
+      scheduledFor: o.scheduledFor ? o.scheduledFor.toISOString() : null,
+      totalPence: o.totalPence,
+    }));
+
+    const warningItems = menuItemsAll
+      .map((m) => {
+        const issues: Array<'no_image' | 'no_allergens'> = [];
+        if (!m.imageUrls || m.imageUrls.length === 0) issues.push('no_image');
+        if (!m.allergens || m.allergens.length === 0) issues.push('no_allergens');
+        return issues.length ? { id: m.id, name: m.name, issues } : null;
+      })
+      .filter((x): x is { id: string; name: string; issues: Array<'no_image' | 'no_allergens'> } => x !== null);
+
+    const missingImages = warningItems.filter((i) => i.issues.includes('no_image')).length;
+    const missingAllergens = warningItems.filter((i) => i.issues.includes('no_allergens')).length;
+
+    const payoutDto = nextPayout
+      ? {
+          expectedDate: nextPayout.periodEnd ? nextPayout.periodEnd.toISOString() : null,
+          amountPence: nextPayout.amountPence,
+          state:
+            nextPayout.status === 'approved'
+              ? ('approved' as const)
+              : nextPayout.status === 'held'
+                ? ('pending_approval' as const)
+                : ('accruing' as const),
+          orderCount: nextPayout.orderCount,
+        }
+      : null;
+
+    return {
+      ordersDueToday,
+      upcomingOrders: upcomingOrdersDto,
+      eventEnquiries: {
+        pending: pendingEnquiriesCount,
+        nextEventDate: nextEnquiry?.eventDate ? nextEnquiry.eventDate.toISOString() : null,
+      },
+      nextPayout: payoutDto,
+      menuHealth: {
+        missingImages,
+        missingAllergens,
+        items: warningItems.slice(0, 5),
+      },
+    };
+  }
+
   async search(dto: SearchVendorsDto) {
     const limit = dto.limit ?? 20;
     // Cache key includes the entire DTO so each filter combo is its own
@@ -890,6 +1074,67 @@ export class VendorsService {
     if (dto.description !== undefined) data.description = dto.description;
     if (dto.cuisineTypes !== undefined) data.cuisines = dto.cuisineTypes;
 
+    // T005 business-profile fields.
+    if (dto.logoUrl !== undefined) data.logoUrl = dto.logoUrl;
+    if (dto.coverImageUrl !== undefined) data.coverImageUrl = dto.coverImageUrl;
+    if (dto.specialities !== undefined) data.specialities = dto.specialities;
+    if (dto.vendorStory !== undefined) data.vendorStory = dto.vendorStory;
+    if (dto.featuredDishes !== undefined) data.featuredDishes = dto.featuredDishes;
+    if (dto.socialLinks !== undefined) {
+      // Validate every value is an http(s) URL before persisting, so the
+      // customer page can render the entries directly without re-checking.
+      // Use the WHATWG URL parser (not just a regex prefix) so malformed
+      // values like "https://" or "http://?" are rejected.
+      for (const [k, v] of Object.entries(dto.socialLinks)) {
+        if (typeof v !== 'string') {
+          throw new BadRequestException({
+            code: 'INVALID_SOCIAL_LINK',
+            message: `socialLinks.${k} must be a string`,
+          });
+        }
+        let parsed: URL;
+        try {
+          parsed = new URL(v);
+        } catch {
+          throw new BadRequestException({
+            code: 'INVALID_SOCIAL_LINK',
+            message: `socialLinks.${k} must be a valid URL`,
+          });
+        }
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+          throw new BadRequestException({
+            code: 'INVALID_SOCIAL_LINK',
+            message: `socialLinks.${k} must use http(s)`,
+          });
+        }
+        if (!parsed.hostname || !parsed.hostname.includes('.')) {
+          throw new BadRequestException({
+            code: 'INVALID_SOCIAL_LINK',
+            message: `socialLinks.${k} must have a valid hostname`,
+          });
+        }
+      }
+      data.socialLinks = dto.socialLinks;
+    }
+
+    // Slug change: must be unique (case-insensitive). Normalise to lowercase
+    // before persisting so the unique DB index remains the authoritative
+    // collision guard. Skip the check when unchanged so vendors can re-save
+    // the form without colliding with themselves.
+    if (dto.slug !== undefined) {
+      const normalisedSlug = dto.slug.toLowerCase();
+      if (normalisedSlug !== vendor.slug.toLowerCase()) {
+        const existing = await this.repo.findBySlugInsensitive(normalisedSlug);
+        if (existing && existing.id !== vendorId) {
+          throw new ConflictException({
+            code: 'SLUG_TAKEN',
+            message: `Slug "${normalisedSlug}" is already in use`,
+          });
+        }
+        data.slug = normalisedSlug;
+      }
+    }
+
     const updated = Object.keys(data).length
       ? await this.repo.update(vendorId, data)
       : vendor;
@@ -906,6 +1151,29 @@ export class VendorsService {
     await this.cache.delByPattern('vendors:search:*');
 
     return updated;
+  }
+
+  /**
+   * T005: persist a freshly-uploaded logo or cover URL straight back onto
+   * the vendor row so the storefront re-renders without the client needing
+   * a second PATCH. Re-uses the same ownership/admin guard as `update`.
+   */
+  async uploadIdentityImage(
+    vendorId: string,
+    user: AuthUser,
+    kind: 'logo' | 'cover',
+    file: { originalname: string; mimetype: string; size: number; buffer: Buffer },
+  ) {
+    const vendor = await this.repo.findById(vendorId);
+    if (!vendor) throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'Vendor not found' });
+    if (vendor.userId !== user.id && user.role !== UserRole.admin) {
+      throw new ForbiddenException({ code: 'FORBIDDEN', message: 'Cannot edit another vendor' });
+    }
+    const uploaded = await this.storage.uploadVendorImage({ vendorId, kind, file });
+    await this.repo.update(vendorId, kind === 'logo' ? { logoUrl: uploaded.publicUrl } : { coverImageUrl: uploaded.publicUrl });
+    await this.cache.del(`vendors:profile:${vendorId}`);
+    await this.cache.delByPattern('vendors:search:*');
+    return uploaded;
   }
 
   async updateStatus(vendorId: string, dto: UpdateVendorStatusDto, actor: AuthUser) {

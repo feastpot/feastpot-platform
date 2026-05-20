@@ -1,25 +1,33 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
+  FileTypeValidator,
   Get,
   HttpCode,
+  MaxFileSizeValidator,
   NotFoundException,
   Param,
+  ParseFilePipe,
   ParseUUIDPipe,
   Patch,
   Post,
   Put,
   Query,
   UnauthorizedException,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { Public } from '../../auth/decorators/public.decorator';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import type { AuthUser } from '../../auth/types';
+import { SupabaseStorageService } from '../catalogue/supabase-storage.service';
 
 import { AddBlackoutDto } from './dto/add-blackout.dto';
 import { CreateVendorDto } from './dto/create-vendor.dto';
@@ -45,7 +53,10 @@ function requireUser(user: AuthUser | null): AuthUser {
 @ApiTags('Vendors')
 @Controller({ path: 'vendors', version: '1' })
 export class VendorsController {
-  constructor(private readonly vendors: VendorsService) {}
+  constructor(
+    private readonly vendors: VendorsService,
+    private readonly storage: SupabaseStorageService,
+  ) {}
 
   @Public()
   @Get()
@@ -87,6 +98,17 @@ export class VendorsController {
   })
   myStats(@CurrentUser() user: AuthUser | null): Promise<VendorStatsResponseDto> {
     return this.vendors.getMyStats(requireUser(user).id);
+  }
+
+  @Get('me/dashboard')
+  @ApiBearerAuth()
+  @Roles(UserRole.vendor, UserRole.admin)
+  @ApiOperation({
+    summary:
+      'Dashboard summary (T004): orders due today, upcoming, pending event enquiries, next payout, menu warnings',
+  })
+  myDashboard(@CurrentUser() user: AuthUser | null) {
+    return this.vendors.getMyDashboardSummary(requireUser(user).id);
   }
 
   @Get('me/analytics')
@@ -223,6 +245,47 @@ export class VendorsController {
     @Body() dto: UpdateVendorDto,
   ) {
     return this.vendors.update(id, requireUser(user), dto);
+  }
+
+  /**
+   * T005: identity image uploads (logo + cover). Mirrors the menu-item
+   * image upload contract (multipart `file`, 5MB, jpeg/png/webp). The
+   * service writes the public URL straight back onto the vendor row so
+   * the caller does not need a separate PATCH round-trip.
+   */
+  @Post(':id/images')
+  @ApiBearerAuth()
+  @Roles(UserRole.vendor, UserRole.admin)
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } } },
+  })
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024, files: 1 } }))
+  @ApiOperation({ summary: 'Upload vendor logo or cover image (kind=logo|cover; max 5MB; jpeg/png/webp)' })
+  async uploadIdentityImage(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Query('kind') kind: string | undefined,
+    @CurrentUser() user: AuthUser | null,
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: 5 * 1024 * 1024 }),
+          new FileTypeValidator({ fileType: /^image\/(jpeg|png|webp)$/ }),
+        ],
+      }),
+    )
+    file: { originalname: string; mimetype: string; size: number; buffer: Buffer } | undefined,
+  ) {
+    if (!file) {
+      throw new BadRequestException({ code: 'FILE_REQUIRED', message: 'multipart field "file" is required' });
+    }
+    if (kind !== 'logo' && kind !== 'cover') {
+      throw new BadRequestException({
+        code: 'INVALID_KIND',
+        message: 'kind query param must be "logo" or "cover"',
+      });
+    }
+    return this.vendors.uploadIdentityImage(id, requireUser(user), kind, file);
   }
 
   @Patch(':id/status')

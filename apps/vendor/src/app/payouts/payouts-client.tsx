@@ -12,11 +12,13 @@ import {
   TableHeader,
   TableRow,
 } from '@feastpot/ui';
-import { Download, Info } from 'lucide-react';
+import { Info } from 'lucide-react';
 import { useMemo } from 'react';
 
 import { usePayouts, type PayoutStatus, type VendorPayout } from '@/hooks/use-payouts';
 import { formatDate, formatPence } from '@/lib/format';
+
+import { DownloadCsvButton } from './download-csv-button';
 
 const STATUS_BADGE: Record<PayoutStatus, { label: string; variant: 'default' | 'secondary' | 'destructive' }> = {
   draft: { label: 'Draft', variant: 'secondary' },
@@ -85,9 +87,7 @@ export function PayoutsClient() {
 
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">History</h2>
-        <Button variant="outline" disabled className="gap-2" title="Coming soon">
-          <Download className="h-4 w-4" /> Download statement
-        </Button>
+        <DownloadCsvButton />
       </div>
 
       {error && (
