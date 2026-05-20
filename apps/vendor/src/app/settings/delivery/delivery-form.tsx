@@ -227,8 +227,11 @@ export function DeliveryForm() {
             />
           </div>
           <p className="text-xs text-muted-foreground">
-            Lead time, available days and slot windows aren&apos;t configurable yet - they ship with the
-            scheduled-orders update.
+            Opening days, slot windows, prep lead time and daily caps live on the{' '}
+            <a className="font-semibold text-vendor underline-offset-2 hover:underline" href="/availability">
+              Availability
+            </a>{' '}
+            page.
           </p>
         </CardContent>
       </Card>

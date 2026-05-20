@@ -2,6 +2,7 @@
 
 import { CardElement, Elements, useElements, useStripe } from '@stripe/react-stripe-js';
 import type { StripeCardElementOptions } from '@stripe/stripe-js';
+import { useQuery } from '@tanstack/react-query';
 import { isAfter } from 'date-fns';
 import { ChevronDown, Lock, ShieldCheck, Sparkles } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -14,12 +15,13 @@ import { SlotPicker } from '@/components/checkout/slot-picker';
 import { PanelTitle } from '@/components/ui/wireframe';
 import { useLoyalty } from '@/hooks/use-loyalty';
 import { useConfirmOrder, useCreateOrder } from '@/hooks/use-orders';
-import { ApiError } from '@/lib/api/client';
+import { ApiError, apiRequest } from '@/lib/api/client';
 import { useAccessToken } from '@/lib/auth/use-access-token';
 import { STRIPE_CONFIGURED, getStripe } from '@/lib/stripe';
 import { useBasketStore } from '@/store/basket.store';
 
 const formatPounds = (p: number) => `£${(p / 100).toFixed(2)}`;
+const pad2 = (n: number): string => n.toString().padStart(2, '0');
 
 /**
  * Auth-gated checkout. Middleware already redirects `/account/*` but the
@@ -88,6 +90,26 @@ function CheckoutInner() {
   // Visual slot-picker state. We store the chosen slot as a single Date so
   // the existing scheduledFor build path stays trivial.
   const [scheduledFor, setScheduledFor] = useState<Date | null>(null);
+
+  // Vendor availability snapshot (T002) drives the SlotPicker:
+  // opening days, hours, prep lead, blackouts, same-day toggle. Falls
+  // back to sensible defaults while loading so the picker is never
+  // empty - the API re-validates on submit regardless, so a stale
+  // local guess can't take an unavailable order through.
+  const { data: availability } = useQuery({
+    queryKey: ['vendor', 'availability', vendor?.id],
+    enabled: !!vendor?.id,
+    staleTime: 60_000,
+    queryFn: () =>
+      apiRequest<{
+        openingDays: number[];
+        slotOpenHour: number;
+        slotCloseHour: number;
+        prepLeadHours: number;
+        sameDayOrders: boolean;
+        blackoutDates: { id: string; date: string; reason: string | null }[];
+      }>(`/vendors/${vendor!.id}/availability`),
+  });
   const [notes, setNotes] = useState<string>('');
 
   // Order-summary collapse state. We START open so the customer can verify
@@ -428,16 +450,13 @@ function CheckoutInner() {
       {/* SECTION 3 - DELIVERY SLOT */}
       <Section num={4} title="Delivery slot">
         <SlotPicker
-          // The vendor DeliveryConfig schema does NOT yet expose the
-          // open/close hours, lead time, or weekly availability per vendor -
-          // until it does, we hand SlotPicker app-wide defaults. The
-          // component is shaped against the future per-vendor API so we
-          // only need to update this call site when the fields land.
-          availableDays={[0, 1, 2, 3, 4, 5, 6]}
-          slotOpenTime="11:00"
-          slotCloseTime="20:00"
-          leadTimeHours={2}
-          maxAdvanceDays={6}
+          availableDays={availability?.openingDays ?? [0, 1, 2, 3, 4, 5, 6]}
+          slotOpenTime={`${pad2(availability?.slotOpenHour ?? 11)}:00`}
+          slotCloseTime={`${pad2(availability?.slotCloseHour ?? 20)}:00`}
+          leadTimeHours={availability?.prepLeadHours ?? 2}
+          maxAdvanceDays={13}
+          blackoutDates={availability?.blackoutDates.map((b) => b.date) ?? []}
+          allowSameDay={availability?.sameDayOrders ?? true}
           value={scheduledFor}
           onChange={setScheduledFor}
         />

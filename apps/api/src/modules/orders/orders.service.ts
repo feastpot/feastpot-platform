@@ -8,7 +8,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { AmendmentStatus, DeliveryType, LoyaltyTxType, OrderStatus, Prisma, UserRole } from '@prisma/client';
+import { AmendmentStatus, DeliveryType, ItemCategory, LoyaltyTxType, OrderStatus, OrderType, Prisma, UserRole } from '@prisma/client';
 import * as Sentry from '@sentry/nestjs';
 import { Queue } from 'bull';
 import { randomBytes, randomUUID } from 'node:crypto';
@@ -27,8 +27,8 @@ import { CreateOrderDto } from './dto/create-order.dto';
 import { ListOrdersDto } from './dto/list-orders.dto';
 import { ReorderDto } from './dto/reorder.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
-import { OrdersRepository } from './orders.repository';
 import { OrderSlotsService } from './order-slots.service';
+import { OrdersRepository } from './orders.repository';
 
 export const NOTIFICATIONS_QUEUE = 'notifications';
 const AUTO_CANCEL_DELAY_MS = 15 * 60 * 1000;
@@ -151,7 +151,19 @@ export class OrdersService {
 
     const scheduledFor = new Date(dto.scheduledFor);
     const requiredLeadHours = items.reduce((max, i) => Math.max(max, i.preparationHours), 0);
-    await this.slots.validateSlot(dto.vendorId, scheduledFor, requiredLeadHours);
+    // Sum cart tray quantity for the daily-tray cap + large-order lead
+    // checks. Done by ID lookup so a cart line for a non-existent item
+    // doesn't sneak past the per-input loop above (which has already
+    // validated it).
+    const trayCount = dto.items.reduce((sum, input) => {
+      const mi = byId.get(input.menuItemId);
+      return mi?.category === ItemCategory.tray ? sum + input.quantity : sum;
+    }, 0);
+    await this.slots.validateSlot(dto.vendorId, scheduledFor, {
+      requiredLeadHours,
+      trayCount,
+      orderType: OrderType.standard,
+    });
 
     // Pricing
     const subtotalPence = dto.items.reduce((sum, input) => {

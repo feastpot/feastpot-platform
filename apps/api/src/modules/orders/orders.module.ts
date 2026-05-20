@@ -5,9 +5,9 @@ import { PrismaModule } from '../../prisma/prisma.module';
 import { StripeModule } from '../../stripe/stripe.module';
 import { PaymentsModule } from '../payments/payments.module';
 
+import { OrderSlotsService } from './order-slots.service';
 import { OrdersController } from './orders.controller';
 import { OrdersRepository } from './orders.repository';
-import { OrderSlotsService } from './order-slots.service';
 import { OrdersService } from './orders.service';
 
 @Module({

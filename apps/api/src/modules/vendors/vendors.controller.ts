@@ -1,7 +1,9 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
   NotFoundException,
   Param,
   ParseUUIDPipe,
@@ -19,10 +21,12 @@ import { Public } from '../../auth/decorators/public.decorator';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import type { AuthUser } from '../../auth/types';
 
+import { AddBlackoutDto } from './dto/add-blackout.dto';
 import { CreateVendorDto } from './dto/create-vendor.dto';
 import { CursorPaginationDto } from './dto/pagination.dto';
 import { RegisterVendorInterestDto } from './dto/register-vendor-interest.dto';
 import { SearchVendorsDto } from './dto/search-vendors.dto';
+import { UpdateAvailabilityDto } from './dto/update-availability.dto';
 import { UpdateVendorStatusDto } from './dto/update-vendor-status.dto';
 import { UpdateVendorDto } from './dto/update-vendor.dto';
 import { UpsertDeliveryConfigDto } from './dto/upsert-delivery-config.dto';
@@ -115,6 +119,45 @@ export class VendorsController {
     return this.vendors.upsertMyDeliveryConfig(requireUser(user).id, dto);
   }
 
+  @Get('me/availability')
+  @ApiBearerAuth()
+  @Roles(UserRole.vendor, UserRole.admin)
+  @ApiOperation({ summary: 'Get the authed vendor’s availability + blackout dates (T002)' })
+  getMyAvailability(@CurrentUser() user: AuthUser | null) {
+    return this.vendors.getMyAvailability(requireUser(user).id);
+  }
+
+  @Patch('me/availability')
+  @ApiBearerAuth()
+  @Roles(UserRole.vendor, UserRole.admin)
+  @ApiOperation({ summary: 'Update the authed vendor’s scheduling fields (T002)' })
+  updateMyAvailability(
+    @CurrentUser() user: AuthUser | null,
+    @Body() dto: UpdateAvailabilityDto,
+  ) {
+    return this.vendors.updateMyAvailability(requireUser(user).id, dto);
+  }
+
+  @Post('me/blackouts')
+  @ApiBearerAuth()
+  @Roles(UserRole.vendor, UserRole.admin)
+  @ApiOperation({ summary: 'Add (or upsert) a blackout date for the authed vendor (T002)' })
+  addMyBlackout(@CurrentUser() user: AuthUser | null, @Body() dto: AddBlackoutDto) {
+    return this.vendors.addMyBlackout(requireUser(user).id, dto);
+  }
+
+  @Delete('me/blackouts/:id')
+  @ApiBearerAuth()
+  @Roles(UserRole.vendor, UserRole.admin)
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Remove a blackout date for the authed vendor (T002)' })
+  removeMyBlackout(
+    @CurrentUser() user: AuthUser | null,
+    @Param('id', new ParseUUIDPipe()) blackoutId: string,
+  ) {
+    return this.vendors.removeMyBlackout(requireUser(user).id, blackoutId);
+  }
+
   @Post('me/stripe-connect-link')
   @ApiBearerAuth()
   @Roles(UserRole.vendor, UserRole.admin)
@@ -158,6 +201,16 @@ export class VendorsController {
   @ApiOperation({ summary: 'Get vendor by id (public)' })
   findOne(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.vendors.findById(id);
+  }
+
+  @Public()
+  @Get(':id/availability')
+  @ApiOperation({
+    summary:
+      'Public availability snapshot (opening days, hours, lead, blackouts) for the customer checkout date picker.',
+  })
+  getAvailability(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.vendors.getAvailabilityById(id);
   }
 
   @Patch(':id')

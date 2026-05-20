@@ -16,6 +16,13 @@ export interface SlotPickerProps {
   leadTimeHours: number;
   /** How many days into the future the picker offers. */
   maxAdvanceDays: number;
+  /**
+   * Calendar dates (YYYY-MM-DD) the vendor has blocked off (T002).
+   * Optional - omit when no availability data is loaded yet.
+   */
+  blackoutDates?: string[];
+  /** If false, today's date is excluded from the strip. */
+  allowSameDay?: boolean;
   /** Currently chosen slot start, or `null` for "not chosen yet". */
   value: Date | null;
   onChange: (date: Date) => void;
@@ -38,6 +45,8 @@ export function SlotPicker({
   slotCloseTime,
   leadTimeHours,
   maxAdvanceDays,
+  blackoutDates,
+  allowSameDay = true,
   value,
   onChange,
 }: SlotPickerProps) {
@@ -45,12 +54,19 @@ export function SlotPicker({
   // it so re-renders don't visually "lose" the user's pick.
   const [selectedDate, setSelectedDate] = useState<Date | null>(value);
 
+  // Set lookup is O(1) per day vs Array#includes; matters when a vendor
+  // has booked out months at a time. Dates are pre-formatted to the same
+  // YYYY-MM-DD form we emit from the API to avoid timezone drift.
+  const blackoutSet = new Set(blackoutDates ?? []);
+
   const today = new Date();
   const cutoff = new Date(today.getTime() + leadTimeHours * 60 * 60 * 1000);
   const dates: Date[] = [];
   for (let i = 0; i <= maxAdvanceDays; i++) {
     const d = addDays(today, i);
+    if (i === 0 && !allowSameDay) continue;
     if (!availableDays.includes(d.getDay())) continue;
+    if (blackoutSet.has(toIsoDay(d))) continue;
     // For "today" we still want the chip visible - generateSlots filters
     // individual times against the lead-time cutoff.
     if (i === 0 || d > cutoff) dates.push(d);
@@ -150,6 +166,14 @@ export function SlotPicker({
 
 function pad(n: number): string {
   return n.toString().padStart(2, '0');
+}
+
+function toIsoDay(d: Date): string {
+  // Local-day formatting matches what the date strip shows the user.
+  // The API serialises blackouts as UTC YYYY-MM-DD - for the GB
+  // launch geo this matches local calendar dates 100% of the time;
+  // when we expand to non-UTC markets we'll reconcile here.
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
 function labelTop(d: Date): string {

@@ -411,6 +411,24 @@ model Vendor {
   payoutsEnabled  Boolean      @default(false) @map("payouts_enabled")
   approvedAt      DateTime?    @map("approved_at") @db.Timestamptz
   suspendedAt     DateTime?    @map("suspended_at") @db.Timestamptz
+
+  // Availability & scheduling (T002).
+  // openingDays uses 0=Sun … 6=Sat to match JavaScript Date#getDay(),
+  // which is what both the customer checkout SlotPicker and the order
+  // intake validator already use. Defaults keep behaviour identical to
+  // the pre-T002 hardcoded OrderSlotsService defaults so unmigrated
+  // vendors continue to work.
+  openingDays              Int[]   @default([0, 1, 2, 3, 4, 5, 6]) @map("opening_days")
+  slotOpenHour             Int     @default(9)  @map("slot_open_hour")
+  slotCloseHour            Int     @default(21) @map("slot_close_hour")
+  prepLeadHours            Int     @default(24) @map("prep_lead_hours")
+  maxOrdersPerDay          Int?    @map("max_orders_per_day")
+  maxTraysPerDay           Int?    @map("max_trays_per_day")
+  sameDayOrders            Boolean @default(false) @map("same_day_orders")
+  largeOrderLeadHours      Int?    @map("large_order_lead_hours")
+  largeOrderTrayThreshold  Int?    @map("large_order_tray_threshold")
+  eventCateringManualQuote Boolean @default(false) @map("event_catering_manual_quote")
+
   createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz
   updatedAt       DateTime     @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -419,6 +437,7 @@ model Vendor {
   menuItems      MenuItem[]
   deliveryConfig DeliveryConfig?
   documents      VendorDocument[]
+  blackoutDates  BlackoutDate[]
   orders         Order[]
   payouts        Payout[]
   reviews        Review[]
@@ -433,6 +452,24 @@ model Vendor {
   @@index([rating])
   @@index([communityFavourite])
   @@map("vendors")
+}
+
+// Dates a vendor is closed: holidays, personal time, fully booked, etc.
+// One row per (vendor, calendar date) - the unique index lets us upsert
+// idempotently from the vendor UI and lets the order-slot validator do a
+// fast lookup by (vendorId, date).
+model BlackoutDate {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  vendorId  String   @map("vendor_id") @db.Uuid
+  date      DateTime @db.Date
+  reason    String?  @db.VarChar(255)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@unique([vendorId, date])
+  @@index([vendorId, date])
+  @@map("blackout_dates")
 }
 
 model Menu {

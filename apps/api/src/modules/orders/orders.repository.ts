@@ -44,6 +44,7 @@ export class OrdersRepository {
         id: true,
         vendorId: true,
         name: true,
+        category: true,
         pricePence: true,
         isAvailable: true,
         preparationHours: true,

@@ -18,10 +18,12 @@ import { vendorApplicationReceivedTemplate } from '../notifications/templates/ve
 import { PrismaService } from '../../prisma/prisma.service';
 import { StripeService } from '../../stripe/stripe.service';
 
+import { AddBlackoutDto } from './dto/add-blackout.dto';
 import { CreateVendorDto } from './dto/create-vendor.dto';
-import { RegisterVendorInterestDto } from './dto/register-vendor-interest.dto';
 import { CursorPaginationDto } from './dto/pagination.dto';
+import { RegisterVendorInterestDto } from './dto/register-vendor-interest.dto';
 import { SearchVendorsDto } from './dto/search-vendors.dto';
+import { UpdateAvailabilityDto } from './dto/update-availability.dto';
 import { UpdateVendorStatusDto } from './dto/update-vendor-status.dto';
 import { UpdateVendorDto } from './dto/update-vendor.dto';
 import { UpsertDeliveryConfigDto } from './dto/upsert-delivery-config.dto';
@@ -1115,4 +1117,181 @@ export class VendorsService {
       vendorsWithNoLocation,
     };
   }
+
+  // ------------------------------------------------------------------
+  // Availability & scheduling (T002)
+  // ------------------------------------------------------------------
+
+  /** The Vendor scheduling columns we expose through the availability API. */
+  private static readonly AVAILABILITY_SELECT = {
+    id: true,
+    openingDays: true,
+    slotOpenHour: true,
+    slotCloseHour: true,
+    prepLeadHours: true,
+    maxOrdersPerDay: true,
+    maxTraysPerDay: true,
+    sameDayOrders: true,
+    largeOrderLeadHours: true,
+    largeOrderTrayThreshold: true,
+    eventCateringManualQuote: true,
+  } as const;
+
+  /**
+   * Authed-vendor view of their own scheduling + blackout dates.
+   * Used by the vendor portal's /availability page.
+   */
+  async getMyAvailability(userId: string) {
+    const vendor = await this.repo.findByUserId(userId);
+    if (!vendor) {
+      throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'No vendor profile' });
+    }
+    return this.getAvailabilityById(vendor.id);
+  }
+
+  /**
+   * Public availability snapshot for the customer checkout date picker.
+   * Returns scheduling fields + the list of blackout dates from today
+   * forward (we don't need history, and trimming keeps the payload
+   * small even for vendors who've been around for years).
+   */
+  async getAvailabilityById(vendorId: string) {
+    const vendor = await this.prisma.vendor.findUnique({
+      where: { id: vendorId },
+      select: VendorsService.AVAILABILITY_SELECT,
+    });
+    if (!vendor) {
+      throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'Vendor not found' });
+    }
+    const today = new Date();
+    const todayStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+    const blackoutRows = await this.prisma.blackoutDate.findMany({
+      where: { vendorId, date: { gte: todayStart } },
+      orderBy: { date: 'asc' },
+      select: { id: true, date: true, reason: true },
+    });
+    return {
+      ...vendor,
+      // Serialise the DATE column as YYYY-MM-DD so timezone drift
+      // can't move it across midnight on the client.
+      blackoutDates: blackoutRows.map((b) => ({
+        id: b.id,
+        date: formatIsoDate(b.date),
+        reason: b.reason,
+      })),
+    };
+  }
+
+  async updateMyAvailability(userId: string, dto: UpdateAvailabilityDto) {
+    const vendor = await this.repo.findByUserId(userId);
+    if (!vendor) {
+      throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'No vendor profile' });
+    }
+    if (
+      dto.slotOpenHour !== undefined &&
+      dto.slotCloseHour !== undefined &&
+      dto.slotCloseHour <= dto.slotOpenHour
+    ) {
+      throw new BadRequestException({
+        code: 'INVALID_SLOT_WINDOW',
+        message: 'Slot close hour must be after slot open hour',
+      });
+    }
+    if (dto.openingDays && dto.openingDays.length === 0) {
+      throw new BadRequestException({
+        code: 'NO_OPENING_DAYS',
+        message: 'Pick at least one day of the week the kitchen is open',
+      });
+    }
+    // Large-order lead time only makes sense paired with a threshold and
+    // vice-versa - either both null or both set, never one without the
+    // other (otherwise the validator silently no-ops one of them).
+    const nextLargeLead =
+      dto.largeOrderLeadHours !== undefined ? dto.largeOrderLeadHours : vendor.largeOrderLeadHours;
+    const nextLargeThreshold =
+      dto.largeOrderTrayThreshold !== undefined
+        ? dto.largeOrderTrayThreshold
+        : vendor.largeOrderTrayThreshold;
+    if ((nextLargeLead === null) !== (nextLargeThreshold === null)) {
+      throw new BadRequestException({
+        code: 'LARGE_ORDER_FIELDS_MUST_PAIR',
+        message: 'Large-order lead time and tray threshold must be set together or both cleared',
+      });
+    }
+
+    await this.prisma.vendor.update({
+      where: { id: vendor.id },
+      data: {
+        ...(dto.openingDays !== undefined ? { openingDays: dto.openingDays } : {}),
+        ...(dto.slotOpenHour !== undefined ? { slotOpenHour: dto.slotOpenHour } : {}),
+        ...(dto.slotCloseHour !== undefined ? { slotCloseHour: dto.slotCloseHour } : {}),
+        ...(dto.prepLeadHours !== undefined ? { prepLeadHours: dto.prepLeadHours } : {}),
+        ...(dto.maxOrdersPerDay !== undefined ? { maxOrdersPerDay: dto.maxOrdersPerDay } : {}),
+        ...(dto.maxTraysPerDay !== undefined ? { maxTraysPerDay: dto.maxTraysPerDay } : {}),
+        ...(dto.sameDayOrders !== undefined ? { sameDayOrders: dto.sameDayOrders } : {}),
+        ...(dto.largeOrderLeadHours !== undefined
+          ? { largeOrderLeadHours: dto.largeOrderLeadHours }
+          : {}),
+        ...(dto.largeOrderTrayThreshold !== undefined
+          ? { largeOrderTrayThreshold: dto.largeOrderTrayThreshold }
+          : {}),
+        ...(dto.eventCateringManualQuote !== undefined
+          ? { eventCateringManualQuote: dto.eventCateringManualQuote }
+          : {}),
+      },
+    });
+    return this.getAvailabilityById(vendor.id);
+  }
+
+  async addMyBlackout(userId: string, dto: AddBlackoutDto) {
+    const vendor = await this.repo.findByUserId(userId);
+    if (!vendor) {
+      throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'No vendor profile' });
+    }
+    const day = parseIsoCalendarDate(dto.date);
+    if (!day) {
+      throw new BadRequestException({
+        code: 'INVALID_BLACKOUT_DATE',
+        message: 'Blackout date is not a valid calendar date',
+      });
+    }
+    // Upsert so a vendor double-clicking "Add" doesn't get a 409.
+    await this.prisma.blackoutDate.upsert({
+      where: { vendorId_date: { vendorId: vendor.id, date: day } },
+      create: { vendorId: vendor.id, date: day, reason: dto.reason ?? null },
+      update: { reason: dto.reason ?? null },
+    });
+    return this.getAvailabilityById(vendor.id);
+  }
+
+  async removeMyBlackout(userId: string, blackoutId: string) {
+    const vendor = await this.repo.findByUserId(userId);
+    if (!vendor) {
+      throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'No vendor profile' });
+    }
+    // Scope the delete by vendorId so a malicious id can't take out
+    // another vendor's blackout row.
+    const res = await this.prisma.blackoutDate.deleteMany({
+      where: { id: blackoutId, vendorId: vendor.id },
+    });
+    if (res.count === 0) {
+      throw new NotFoundException({ code: 'BLACKOUT_NOT_FOUND', message: 'Blackout not found' });
+    }
+    return this.getAvailabilityById(vendor.id);
+  }
+}
+
+function formatIsoDate(d: Date): string {
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function parseIsoCalendarDate(s: string): Date | null {
+  // Accepts YYYY-MM-DD or full ISO 8601; we only ever persist the
+  // calendar-day midnight-UTC value (the column is DATE).
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return null;
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
 }
