@@ -215,12 +215,25 @@ export function VendorOrderCard({ order }: Props) {
             outside the primary footer so the main CTA stays the obvious next
             step. */}
         <div className="flex items-center justify-between border-t border-border bg-white px-4 py-2">
-          <Link
-            href={`/orders/${order.id}`}
-            className="text-xs font-semibold text-vendor underline-offset-2 hover:underline"
-          >
-            Open order →
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link
+              href={`/orders/${order.id}`}
+              className="text-xs font-semibold text-vendor underline-offset-2 hover:underline"
+            >
+              Open order →
+            </Link>
+            {/* T009: jump straight to the printable order on the detail
+                page. We open in a new tab and auto-trigger the print
+                dialog there so the user can keep the kanban in view. */}
+            <Link
+              href={`/orders/${order.id}?print=1`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs font-semibold text-mid underline-offset-2 hover:text-dark hover:underline"
+            >
+              Print
+            </Link>
+          </div>
           {showProposeButton && (
             <button
               type="button"

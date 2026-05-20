@@ -9,6 +9,7 @@ import { DocumentStatus, ModerationStatus, OrderStatus, UserRole } from '@prisma
 
 import type { AuthUser } from '../../auth/types';
 import { SupabaseService } from '../../auth/supabase.service';
+import { InboxService } from '../inbox/inbox.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -33,6 +34,8 @@ export class ComplianceService {
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
     private readonly supabase: SupabaseService,
+    // T007: in-app inbox for vendor expiry alerts.
+    private readonly inbox: InboxService,
   ) {}
 
   // -------------------- vendor documents --------------------
@@ -120,6 +123,16 @@ export class ComplianceService {
         documentType: d.type,
         expiresAt: d.expiresAt,
         daysUntilExpiry: days,
+      });
+      // T007: also drop an inbox row so it lives in the vendor's
+      // notifications list, not just the outbound email queue.
+      await this.inbox.notify({
+        userId: d.vendor.userId,
+        type: 'compliance_expiring',
+        title: `Document expiring in ${days} day${days === 1 ? '' : 's'}`,
+        body: `Your ${d.type} document expires on ${d.expiresAt!.toISOString().slice(0, 10)}. Upload a renewed copy to stay live.`,
+        link: '/compliance',
+        metadata: { documentId: d.id, documentType: d.type },
       });
     }
 

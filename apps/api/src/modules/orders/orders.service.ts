@@ -17,6 +17,7 @@ import type { AuthUser } from '../../auth/types';
 import { PrismaService } from '../../prisma/prisma.service';
 import { StripeService } from '../../stripe/stripe.service';
 import { DiscountCodesService } from '../discount-codes/discount-codes.service';
+import { InboxService } from '../inbox/inbox.service';
 import { LoyaltyService } from '../loyalty/loyalty.service';
 import { ReferralService } from '../loyalty/referral.service';
 import { PaymentsService } from '../payments/payments.service';
@@ -118,6 +119,9 @@ export class OrdersService {
     private readonly discountCodes: DiscountCodesService,
     @Inject(forwardRef(() => PaymentsService))
     private readonly payments: PaymentsService,
+    // T007: in-app inbox emitter. InboxModule is @Global() so no module
+    // import is needed; failures are swallowed by the service.
+    private readonly inbox: InboxService,
   ) {}
 
   // Window during which a vendor-proposed amendment auto-expires if the
@@ -454,6 +458,19 @@ export class OrdersService {
     }
 
     await this.notifications.add('notify_vendor', { vendorId: order.vendorId, orderId });
+    // T007: vendor inbox - new paid order. Resolve vendor.userId via the
+    // include already loaded above. Best-effort: failure is swallowed by
+    // InboxService and must NOT block order confirmation.
+    if (order.vendor?.userId) {
+      await this.inbox.notify({
+        userId: order.vendor.userId,
+        type: 'order_created',
+        title: `New order ${order.orderNumber}`,
+        body: `${order.items.length} item${order.items.length === 1 ? '' : 's'}, £${(order.totalPence / 100).toFixed(2)} total. Tap to review.`,
+        link: `/orders/${orderId}`,
+        metadata: { orderId, orderNumber: order.orderNumber },
+      });
+    }
     await this.notifications.add(
       'auto_cancel',
       { orderId },

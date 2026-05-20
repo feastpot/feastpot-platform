@@ -78,6 +78,29 @@ export class UsersService {
       },
     });
 
+    // T010: claim any pending vendor-team invitations that were sent to
+    // this email before the User row existed. Idempotent: only flips
+    // rows still in `pending` with a null userId.
+    try {
+      const claimed = await this.prisma.vendorMember.updateMany({
+        where: {
+          invitedEmail: email.toLowerCase(),
+          userId: null,
+          status: 'pending',
+        },
+        data: {
+          userId,
+          status: 'active',
+          acceptedAt: new Date(),
+        },
+      });
+      if (claimed.count > 0) {
+        this.logger.log(`Claimed ${claimed.count} pending vendor invite(s) for ${email}`);
+      }
+    } catch (e) {
+      this.logger.warn(`Vendor invite claim failed for ${userId}: ${(e as Error).message}`);
+    }
+
     if (referralCode) {
       try {
         await this.referrals.processReferral(userId, referralCode);

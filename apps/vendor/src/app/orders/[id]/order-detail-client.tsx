@@ -3,7 +3,7 @@
 import { cn } from '@feastpot/ui';
 import { format } from 'date-fns';
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { DispatchEtaSheet } from '@/components/orders/dispatch-eta-sheet';
 import { NeedsClarificationSheet } from '@/components/orders/needs-clarification-sheet';
@@ -152,6 +152,17 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
   const hasOpenDispute = (order.disputes?.length ?? 0) > 0;
   const pendingAmendment = order.amendments?.[0];
 
+  // T009: when arrived from a kanban "Print" link we auto-open the
+  // browser print dialog once the page has painted. Behind a query flag so
+  // direct navigation doesn't surprise the user with a print prompt.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('print') !== '1') return;
+    const t = window.setTimeout(() => window.print(), 350);
+    return () => window.clearTimeout(t);
+  }, []);
+
   return (
     <div className="space-y-4 print:space-y-3">
       {/* Top bar with back + print, hidden on print */}
@@ -169,6 +180,16 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
             className="touch-target rounded-2xl border border-border bg-white px-4 text-sm font-semibold text-dark hover:bg-surface"
           >
             Print
+          </button>
+          {/* T009: download as PDF. The browser print dialog has a built-in
+              "Save as PDF" destination on every major browser, so we route
+              that through window.print() rather than ship a PDF renderer. */}
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="touch-target rounded-2xl border border-border bg-white px-4 text-sm font-semibold text-dark hover:bg-surface"
+          >
+            Download PDF
           </button>
           <a
             href="mailto:support@feastpot.co.uk?subject=Order%20support"

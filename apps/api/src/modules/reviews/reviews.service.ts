@@ -13,6 +13,7 @@ import BadWordsFilter from 'bad-words';
 
 import type { AuthUser } from '../../auth/types';
 import { PrismaService } from '../../prisma/prisma.service';
+import { InboxService } from '../inbox/inbox.service';
 
 import type { CreateReviewDto } from './dto/create-review.dto';
 import type { ListModerationQueueDto } from './dto/list-moderation.dto';
@@ -29,7 +30,11 @@ export class ReviewsService {
   private readonly logger = new Logger(ReviewsService.name);
   private readonly filter: InstanceType<typeof BadWordsFilter>;
 
-  constructor(private readonly prisma: PrismaService) {
+  constructor(
+    private readonly prisma: PrismaService,
+    // T007: in-app vendor notifications when a new review is left.
+    private readonly inbox: InboxService,
+  ) {
     this.filter = new BadWordsFilter();
     this.filter.addWords(...UK_EXTRA_BADWORDS);
   }
@@ -97,6 +102,26 @@ export class ReviewsService {
 
     if (moderationStatus === ModerationStatus.auto_approved) {
       await this.recalculateVendorRating(order.vendorId);
+    }
+    // T007: notify the vendor in their inbox when a published review lands.
+    // Held reviews are intentionally NOT notified - they may be retracted
+    // by moderation and we don't want to spike vendor anxiety on a row
+    // that may never go live.
+    if (moderationStatus === ModerationStatus.auto_approved) {
+      const vendor = await this.prisma.vendor.findUnique({
+        where: { id: order.vendorId },
+        select: { userId: true },
+      });
+      if (vendor) {
+        await this.inbox.notify({
+          userId: vendor.userId,
+          type: 'review_received',
+          title: `New ${dto.rating}-star review`,
+          body: dto.title ?? dto.body ?? 'A customer left you a new review.',
+          link: '/analytics',
+          metadata: { reviewId: review.id, orderId: order.id, rating: dto.rating },
+        });
+      }
     }
     return review;
   }

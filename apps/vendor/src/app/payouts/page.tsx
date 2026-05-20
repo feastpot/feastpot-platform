@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 
+import { RoleGate } from '@/components/auth/role-gate';
 import { TopNav } from '@/components/layout/top-nav';
 import { apiRequest, ApiError } from '@/lib/api/client';
 import { createClient as createServerSupabase } from '@/lib/supabase/server';
@@ -32,72 +33,55 @@ export default async function PayoutsPage() {
     <>
       <TopNav businessName={vendor.businessName} />
       <main className="container py-6">
-        {/* Payout cadence panel - addresses the audit finding that vendors
-            have no visibility of when they get paid, what the cut-off is,
-            or who to contact about a missing transfer. Inline styles per
-            the cadence-panel spec keep this self-contained and immune to
-            shadcn token drift. Mint background (#E8F5EC) signals
-            "informational, not an alert." */}
-        <div
-          style={{
-            background: '#E8F5EC',
-            borderRadius: '14px',
-            padding: '20px',
-            marginBottom: '24px',
-          }}
-        >
-          <h3
-            style={{
-              fontSize: '16px',
-              fontWeight: 700,
-              color: '#1A1A1A',
-              marginBottom: '12px',
-            }}
-          >
-            How Feastpot payouts work
-          </h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {[
-              {
-                icon: '📅',
-                title: 'Weekly every Monday',
-                detail:
-                  'Your payout is calculated at midnight on Sunday and transferred Monday morning.',
-              },
-              {
-                icon: '💷',
-                title: 'You keep 88%',
-                detail:
-                  'Feastpot charges 12% commission on the order subtotal. Delivery fees are separate.',
-              },
-              {
-                icon: '⏱️',
-                title: '3-5 working days to your bank',
-                detail:
-                  'Stripe Transfer typically arrives within 3-5 working days of Monday.',
-              },
-              {
-                icon: '❓',
-                title: 'Query a payout',
-                detail:
-                  'Email vendors@feastpot.co.uk with your kitchen name and the week in question.',
-              },
-            ].map((item) => (
-              <div key={item.title} style={{ display: 'flex', gap: '12px' }}>
-                <span style={{ fontSize: '20px', flexShrink: 0 }} aria-hidden>
-                  {item.icon}
-                </span>
-                <div>
-                  <span style={{ fontSize: '13px', fontWeight: 600, color: '#1A1A1A' }}>
-                    {item.title}.{' '}
+        <RoleGate path="/payouts">
+          {/* Payout cadence panel - informational, not an alert. Uses teal
+              brand token so it reads as guidance rather than a money
+              callout (brand orange) or a warning (amber). */}
+          <div className="mb-6 rounded-xl bg-teal/10 p-5">
+            <h3 className="mb-3 text-base font-bold text-foreground">
+              How Feastpot payouts work
+            </h3>
+            <div className="flex flex-col gap-2.5">
+              {[
+                {
+                  icon: '📅',
+                  title: 'Weekly every Monday',
+                  detail:
+                    'Your payout is calculated at midnight on Sunday and transferred Monday morning.',
+                },
+                {
+                  icon: '💷',
+                  title: 'You keep 88%',
+                  detail:
+                    'Feastpot charges 12% commission on the order subtotal. Delivery fees are separate.',
+                },
+                {
+                  icon: '⏱️',
+                  title: '3-5 working days to your bank',
+                  detail:
+                    'Stripe Transfer typically arrives within 3-5 working days of Monday.',
+                },
+                {
+                  icon: '❓',
+                  title: 'Query a payout',
+                  detail:
+                    'Email vendors@feastpot.co.uk with your kitchen name and the week in question.',
+                },
+              ].map((item) => (
+                <div key={item.title} className="flex gap-3">
+                  <span className="shrink-0 text-xl" aria-hidden>
+                    {item.icon}
                   </span>
-                  <span style={{ fontSize: '13px', color: '#666666' }}>{item.detail}</span>
+                  <div className="text-[13px]">
+                    <span className="font-semibold text-foreground">{item.title}. </span>
+                    <span className="text-muted-foreground">{item.detail}</span>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
-        <PayoutsClient />
+          <PayoutsClient />
+        </RoleGate>
       </main>
     </>
   );

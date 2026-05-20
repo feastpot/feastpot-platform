@@ -19,6 +19,7 @@ import type { Queue } from 'bull';
 import type { AuthUser } from '../../auth/types';
 import { PrismaService } from '../../prisma/prisma.service';
 import { StripeService } from '../../stripe/stripe.service';
+import { InboxService } from '../inbox/inbox.service';
 
 import { ListPayoutsDto } from './dto/list-payouts.dto';
 
@@ -163,6 +164,8 @@ export class PayoutsService {
     private readonly prisma: PrismaService,
     private readonly stripe: StripeService,
     @InjectQueue(NOTIFICATIONS_QUEUE) private readonly notifications: Queue,
+    // T007: in-app vendor inbox when a payout transfers.
+    private readonly inbox: InboxService,
   ) {}
 
   // ---------------- list/get ----------------
@@ -341,6 +344,15 @@ export class PayoutsService {
         vendorUserId: payout.vendor.userId,
         payoutId: payout.id,
         amountPence: payout.amountPence,
+      });
+      // T007: in-app inbox row alongside the outbound email.
+      await this.inbox.notify({
+        userId: payout.vendor.userId,
+        type: 'payout_processed',
+        title: `Payout sent: £${(payout.amountPence / 100).toFixed(2)}`,
+        body: 'Your weekly payout has been transferred to your linked bank account.',
+        link: '/payouts',
+        metadata: { payoutId: payout.id, amountPence: payout.amountPence },
       });
       return updated;
     } catch (e) {

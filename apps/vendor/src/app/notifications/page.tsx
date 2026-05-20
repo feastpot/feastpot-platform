@@ -1,30 +1,20 @@
 import { redirect } from 'next/navigation';
 
-import { RoleGate } from '@/components/auth/role-gate';
 import { TopNav } from '@/components/layout/top-nav';
 import { apiRequest, ApiError } from '@/lib/api/client';
 import { createClient as createServerSupabase } from '@/lib/supabase/server';
 
-import { MenuListClient } from './menu-list-client';
+import { NotificationsClient } from './notifications-client';
 
-// Reads cookies via Supabase server client → must be dynamic at runtime.
+// Server-rendered cookie reads → must be dynamic at runtime.
 export const dynamic = 'force-dynamic';
 
-interface VendorMe {
-  id: string;
-  businessName: string;
-  status: string;
-}
+interface VendorMe { businessName: string; status: string }
 
-/**
- * Server-side gate identical to /orders. Repeated rather than abstracted
- * because Next 15's segment-level layouts can't read the session before
- * rendering, and we want a single round-trip per page load.
- */
-export default async function MenuListPage() {
+export default async function NotificationsPage() {
   const supabase = await createServerSupabase();
   const { data: { session } } = await supabase.auth.getSession();
-  if (!session) redirect('/sign-in?next=/menu');
+  if (!session) redirect('/sign-in?next=/notifications');
 
   let vendor: VendorMe;
   try {
@@ -36,15 +26,12 @@ export default async function MenuListPage() {
     if (err instanceof ApiError && (err.status === 403 || err.status === 404)) redirect('/unauthorized');
     throw err;
   }
-  if (vendor.status !== 'live' && vendor.status !== 'probation') redirect('/onboarding');
 
   return (
     <>
       <TopNav businessName={vendor.businessName} />
       <main className="container py-6">
-        <RoleGate path="/menu">
-          <MenuListClient vendorId={vendor.id} />
-        </RoleGate>
+        <NotificationsClient />
       </main>
     </>
   );

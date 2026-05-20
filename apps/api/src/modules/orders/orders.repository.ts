@@ -203,7 +203,9 @@ export class OrdersRepository {
         items: true,
         // Vendor businessName is needed for the confirmation notification
         // payload - selecting just the one field keeps the row size small.
-        vendor: { select: { businessName: true } },
+        // T007: also need userId so we can drop an inbox row for the vendor
+        // when the order confirms.
+        vendor: { select: { businessName: true, userId: true } },
       },
     });
   }

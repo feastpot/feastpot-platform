@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  ForbiddenException,
   Get,
   Param,
   ParseUUIDPipe,
@@ -11,11 +12,12 @@ import {
   Res,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { UserRole } from '@prisma/client';
+import { UserRole, VendorMemberRole } from '@prisma/client';
 import type { Response } from 'express';
 
 import { Roles } from '../../auth/decorators/roles.decorator';
 import type { AuthedRequest, AuthUser } from '../../auth/types';
+import { VendorMembersService } from '../vendor-members/vendor-members.service';
 
 import { HoldPayoutDto } from './dto/hold-payout.dto';
 import { ListPayoutsDto } from './dto/list-payouts.dto';
@@ -26,17 +28,41 @@ function requireUser(req: AuthedRequest): AuthUser {
   return req.user;
 }
 
+// T010: roles allowed to see vendor payouts.  Mirrors the client-side
+// ROLE_PERMISSIONS table in apps/vendor so the UI gate and the server
+// gate agree.  Platform finance/admin (UserRole) always pass.
+const PAYOUTS_VENDOR_ROLES: ReadonlySet<VendorMemberRole> = new Set([
+  VendorMemberRole.owner,
+  VendorMemberRole.finance,
+]);
+
 @ApiTags('Payouts')
 @ApiBearerAuth()
 @Controller({ path: 'payouts', version: '1' })
 export class PayoutsController {
-  constructor(private readonly payouts: PayoutsService) {}
+  constructor(
+    private readonly payouts: PayoutsService,
+    private readonly vendorMembers: VendorMembersService,
+  ) {}
+
+  private async ensureVendorRoleCanReadPayouts(user: AuthUser): Promise<void> {
+    if (user.role === UserRole.finance || user.role === UserRole.admin) return;
+    const eff = await this.vendorMembers.getEffectiveRole(user);
+    if (!eff || !PAYOUTS_VENDOR_ROLES.has(eff.role)) {
+      throw new ForbiddenException({
+        code: 'VENDOR_ROLE_FORBIDDEN',
+        message: 'Your role on this vendor team does not include payouts',
+      });
+    }
+  }
 
   @Get()
   @Roles(UserRole.vendor, UserRole.finance, UserRole.admin)
   @ApiOperation({ summary: 'List payouts (scoped: vendors see their own, finance/admin see all)' })
-  list(@Req() req: AuthedRequest, @Query() dto: ListPayoutsDto) {
-    return this.payouts.list(requireUser(req), dto);
+  async list(@Req() req: AuthedRequest, @Query() dto: ListPayoutsDto) {
+    const user = requireUser(req);
+    await this.ensureVendorRoleCanReadPayouts(user);
+    return this.payouts.list(user, dto);
   }
 
   @Get('export.csv')
@@ -49,13 +75,15 @@ export class PayoutsController {
     @Res() res: Response,
     @Query('vendorId') vendorId?: string,
   ) {
+    const user = requireUser(req);
+    await this.ensureVendorRoleCanReadPayouts(user);
     // Headers set explicitly: when a route opts into manual @Res() handling,
     // Nest's @Header() decorators are not guaranteed to apply, so we own
     // both response headers and the body.
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', 'attachment; filename="feastpot-payouts.csv"');
     res.flushHeaders?.();
-    await this.payouts.exportCsv(requireUser(req), (chunk) => res.write(chunk), {
+    await this.payouts.exportCsv(user, (chunk) => res.write(chunk), {
       vendorId,
     });
     res.end();
@@ -64,8 +92,10 @@ export class PayoutsController {
   @Get(':id')
   @Roles(UserRole.vendor, UserRole.finance, UserRole.admin)
   @ApiOperation({ summary: 'Get a payout by id' })
-  get(@Req() req: AuthedRequest, @Param('id', new ParseUUIDPipe()) id: string) {
-    return this.payouts.getById(id, requireUser(req));
+  async get(@Req() req: AuthedRequest, @Param('id', new ParseUUIDPipe()) id: string) {
+    const user = requireUser(req);
+    await this.ensureVendorRoleCanReadPayouts(user);
+    return this.payouts.getById(id, user);
   }
 
   @Post(':id/approve')

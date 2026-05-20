@@ -19,6 +19,7 @@ import {
 
 import type { AuthUser } from '../../auth/types';
 import { SupabaseService } from '../../auth/supabase.service';
+import { InboxService } from '../inbox/inbox.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PaymentsService } from '../payments/payments.service';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -59,6 +60,8 @@ export class DisputesService {
     private readonly payments: PaymentsService,
     private readonly notifications: NotificationsService,
     private readonly supabase: SupabaseService,
+    // T007: vendor inbox emitter; @Global() module so no import needed.
+    private readonly inbox: InboxService,
   ) {}
 
   // -------------------- list --------------------
@@ -137,7 +140,17 @@ export class DisputesService {
   async create(dto: CreateDisputeDto, user: AuthUser) {
     const order = await this.prisma.order.findUnique({
       where: { id: dto.orderId },
-      select: { id: true, customerId: true, vendorId: true, orderNumber: true, status: true, deliveredAt: true },
+      select: {
+        id: true,
+        customerId: true,
+        vendorId: true,
+        orderNumber: true,
+        status: true,
+        deliveredAt: true,
+        // T007: vendor.userId so we can drop an inbox row for the vendor
+        // when a dispute is raised against them.
+        vendor: { select: { userId: true } },
+      },
     });
     if (!order) throw new NotFoundException({ code: 'ORDER_NOT_FOUND', message: 'Order not found' });
     if (order.customerId !== user.id) {
@@ -178,6 +191,18 @@ export class DisputesService {
           disputeId: dispute.id,
           orderNumber: order.orderNumber,
           issueType: dto.issueType,
+        });
+      }
+      // T007: also drop an inbox row for the vendor on the order, so they
+      // see disputes raised against them without polling the dispute list.
+      if (order.vendor?.userId) {
+        await this.inbox.notify({
+          userId: order.vendor.userId,
+          type: 'dispute_raised',
+          title: `Dispute opened on order ${order.orderNumber}`,
+          body: `Issue: ${dto.issueType}. Please respond as soon as possible.`,
+          link: `/orders/${order.id}`,
+          metadata: { disputeId: dispute.id, orderId: order.id },
         });
       }
       return dispute;

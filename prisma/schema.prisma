@@ -195,6 +195,93 @@ enum NotificationStatus {
   failed
 }
 
+/// T007: in-app notification inbox. Distinct from the existing `Notification`
+/// model (which is a per-channel delivery log for email/sms/push). Inbox
+/// rows are user-facing: they appear in /notifications, have a read state,
+/// and optionally deep-link into a relevant page.
+// T010: vendor team membership roles. `owner` is the primary user that
+// signed the vendor up (and has the User.vendor 1:1 record). Additional
+// members are layered on top via VendorMember rows.
+//   - owner               : everything
+//   - kitchen_manager     : menu + availability + orders, no money/team
+//   - finance             : payouts + analytics + profile, no menu/orders
+//   - staff               : orders read/progress only
+//   - delivery_coordinator: orders dispatch/delivery only
+enum VendorMemberRole {
+  owner
+  kitchen_manager
+  finance
+  staff
+  delivery_coordinator
+}
+
+enum VendorMemberStatus {
+  pending
+  active
+  removed
+}
+
+model VendorMember {
+  id           String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  vendorId     String             @map("vendor_id") @db.Uuid
+  // userId is null while the invite is pending (the invitee may not yet
+  // have a User row). It's set the first time the invitee signs in with
+  // the matching email.
+  userId       String?            @map("user_id") @db.Uuid
+  invitedEmail String             @map("invited_email") @db.VarChar(255)
+  role         VendorMemberRole
+  status       VendorMemberStatus @default(pending)
+  invitedById  String?            @map("invited_by_id") @db.Uuid
+  acceptedAt   DateTime?          @map("accepted_at") @db.Timestamptz
+  removedAt    DateTime?          @map("removed_at") @db.Timestamptz
+  createdAt    DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime           @updatedAt @map("updated_at") @db.Timestamptz
+
+  vendor    Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  user      User?  @relation("VendorMemberUser", fields: [userId], references: [id], onDelete: SetNull)
+  invitedBy User?  @relation("VendorMemberInviter", fields: [invitedById], references: [id], onDelete: SetNull)
+
+  @@unique([vendorId, invitedEmail])
+  @@index([vendorId, status])
+  @@index([userId])
+  @@map("vendor_members")
+}
+
+enum InboxNotificationType {
+  order_created
+  order_status_changed
+  event_enquiry_matched
+  event_enquiry_quote_accepted
+  payout_processed
+  review_received
+  compliance_expiring
+  compliance_expired
+  menu_item_rejected
+  dispute_raised
+  dispute_resolved
+  account_credit_issued
+  account_suspended
+  generic
+}
+
+model InboxNotification {
+  id        String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String                @map("user_id") @db.Uuid
+  type      InboxNotificationType
+  title     String                @db.VarChar(255)
+  body      String
+  link      String?               @db.VarChar(500)
+  metadata  Json?
+  readAt    DateTime?             @map("read_at") @db.Timestamptz
+  createdAt DateTime              @default(now()) @map("created_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@index([userId, createdAt])
+  @@map("inbox_notifications")
+}
+
 enum EvidenceType {
   photo
   document
@@ -229,6 +316,9 @@ model User {
   sessions       Session[]
   addresses      Address[]
   notifications  Notification[]
+  inboxNotifications InboxNotification[]
+  vendorMemberships  VendorMember[]    @relation("VendorMemberUser")
+  vendorInvitesSent  VendorMember[]    @relation("VendorMemberInviter")
   vendor         Vendor?
   orders         Order[]
   disputes       Dispute[]
@@ -469,6 +559,7 @@ model Vendor {
   discountCodes  DiscountCode[]
   amendments     OrderAmendment[]
   application    VendorApplication? @relation("VendorApplicationVendor")
+  members        VendorMember[]
 
   @@index([status])
   @@index([slug])
