@@ -13,6 +13,7 @@ const NAV_ITEMS = [
   { href: '/menu', label: 'Menu' },
   { href: '/analytics', label: 'Analytics' },
   { href: '/payouts', label: 'Payouts' },
+  { href: '/compliance', label: 'Compliance' },
   { href: '/settings/delivery', label: 'Settings' },
   { href: '/help', label: 'Help' },
 ];

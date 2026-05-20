@@ -1,20 +1,14 @@
 'use client';
 
 import { Badge, Button, Card, CardContent } from '@feastpot/ui';
-import { Check, Clock, ExternalLink, Upload } from 'lucide-react';
+import { Check, ExternalLink, Upload } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { useRef, useState } from 'react';
 
-import { Label } from '@/components/ui/label';
+import { DocumentRow, REQUIRED_DOCS } from '@/components/compliance/compliance-docs';
 import { useToast } from '@/components/ui/toaster';
 import { useCreateStripeConnectLink } from '@/hooks/use-stripe-connect';
-import {
-  useUploadDocument,
-  useVendorDocuments,
-  type VendorDocumentType,
-} from '@/hooks/use-vendor-documents';
-import { formatDate } from '@/lib/format';
+import { useUploadDocument, useVendorDocuments } from '@/hooks/use-vendor-documents';
 
 interface VendorSummary {
   id: string;
@@ -25,60 +19,6 @@ interface VendorSummary {
   stripeAccountId: string | null;
   payoutsEnabled: boolean;
 }
-
-/**
- * Required compliance documents shown in Step 2.
- *
- * Spec asked for an additional "Food Business Registration" doc and richer
- * per-doc guidance (why it's needed, what the document must show, max size,
- * etc.). The new document type would require a `VendorDocumentType` enum
- * change in the API + DB migration - out of scope for this UI pass - so
- * we keep the existing three doc slots and enrich each with `why`,
- * `mustShow`, and `acceptedFiles` copy. Once the API exposes a
- * `food_business_registration` type we can add a fourth row here without
- * other changes.
- *
- * Copy follows the spec's structure: one-sentence justification + a
- * checklist of what the document must show. Verifiable URLs (food.gov.uk)
- * are surfaced for the registration step inside the Step 1 hint instead of
- * being lost in the document list.
- */
-const REQUIRED_DOCS: Array<{
-  type: VendorDocumentType;
-  label: string;
-  why: string;
-  mustShow: string[];
-  acceptedFiles: string;
-}> = [
-  {
-    type: 'hygiene_cert',
-    label: 'Food hygiene certificate (Level 2+)',
-    why: 'Proves you have completed food safety training to the FSA standard.',
-    mustShow: ['Your full name', 'The awarding body', 'Date of completion'],
-    acceptedFiles: 'PDF, JPG or PNG · max 10 MB',
-  },
-  {
-    type: 'insurance',
-    label: 'Public liability insurance',
-    why: 'Protects you and your customers. Minimum £5m cover required.',
-    mustShow: ['Your name or business name', 'Policy number', 'Coverage amount', 'Expiry date'],
-    acceptedFiles: 'PDF, JPG or PNG · max 10 MB',
-  },
-  {
-    type: 'photo_id',
-    label: 'Photo ID',
-    why: 'Passport or driving licence - used for identity verification only.',
-    mustShow: ['Clear photo of the document', 'Name matches your account', 'Document not expired'],
-    acceptedFiles: 'PDF, JPG or PNG · max 10 MB',
-  },
-  {
-    type: 'kitchen_reg',
-    label: 'Food business registration',
-    why: 'Required under the Food Safety Act 1990. Register for free at your local council - usually takes 1–2 weeks, so apply early. Guidance: https://www.food.gov.uk/business-guidance/register-a-food-business',
-    mustShow: ['Your name or business name', 'Issuing council', 'Registration date'],
-    acceptedFiles: 'PDF, JPG or PNG · max 10 MB',
-  },
-];
 
 /**
  * 4-step wizard indicator. We render all four step cards on the page (the
@@ -102,7 +42,11 @@ export function OnboardingClient({ vendor }: { vendor: VendorSummary }) {
   const stripe = useCreateStripeConnectLink();
   const { toast } = useToast();
 
-  const docByType = new Map(docs.data?.map((d) => [d.type, d]) ?? []);
+  // Newest-first: keep the first occurrence per type so re-uploads surface
+  // immediately. `new Map(arr)` would keep the LAST (oldest) value on key
+  // collision — see compliance-client.tsx for full rationale.
+  const docByType = new Map<string, (typeof docs.data extends (infer U)[] | undefined ? U : never)>();
+  for (const d of docs.data ?? []) if (!docByType.has(d.type)) docByType.set(d.type, d);
   const allDocsUploaded = REQUIRED_DOCS.every((d) => docByType.has(d.type));
   const stripeReady = !!vendor.stripeAccountId && vendor.payoutsEnabled;
   const profileDone = !!vendor.description && vendor.cuisines.length > 0;
@@ -176,15 +120,7 @@ export function OnboardingClient({ vendor }: { vendor: VendorSummary }) {
                   why={d.why}
                   mustShow={d.mustShow}
                   acceptedFiles={d.acceptedFiles}
-                  state={
-                    doc
-                      ? {
-                          status: doc.status,
-                          fileName: doc.fileName ?? '(file)',
-                          expiresAt: doc.expiresAt,
-                        }
-                      : null
-                  }
+                  doc={doc ?? null}
                   uploading={upload.isPending}
                   onPick={(file, expiresAt) => {
                     upload.mutate(
@@ -414,96 +350,3 @@ function Step({
   );
 }
 
-function DocumentRow({
-  label,
-  why,
-  mustShow,
-  acceptedFiles,
-  state,
-  uploading,
-  onPick,
-}: {
-  label: string;
-  why: string;
-  mustShow: string[];
-  acceptedFiles: string;
-  state: { status: string; fileName: string; expiresAt: string | null } | null;
-  uploading: boolean;
-  onPick: (file: File, expiresAt?: string) => void;
-}) {
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [expiresAt, setExpiresAt] = useState('');
-
-  return (
-    <div className="rounded-md border border-input p-3">
-      <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium">{label}</p>
-          <p className="mt-0.5 text-xs text-muted-foreground">{why}</p>
-          {/* Checklist of what the document must show + accepted file
-              types. Surfacing this inline (instead of behind a tooltip)
-              cuts the support volume on "is this the right doc?" - the
-              vendor can verify their photo of a hygiene cert against
-              the bullets before they upload. */}
-          <details className="mt-2 text-xs text-muted-foreground">
-            <summary className="cursor-pointer select-none font-medium text-foreground/80 hover:text-foreground">
-              What this document must show
-            </summary>
-            <ul className="mt-1.5 list-disc space-y-0.5 pl-5">
-              {mustShow.map((m) => (
-                <li key={m}>{m}</li>
-              ))}
-            </ul>
-            <p className="mt-2 italic">{acceptedFiles}</p>
-          </details>
-        </div>
-        {state ? (
-          <Badge variant={state.status === 'verified' ? 'default' : 'secondary'} className="capitalize">
-            {state.status === 'pending' && <Clock className="mr-1 h-3 w-3" />}
-            {state.status}
-          </Badge>
-        ) : (
-          <Badge variant="secondary">Missing</Badge>
-        )}
-      </div>
-      {state && (
-        <p className="mt-1 text-xs text-muted-foreground">
-          {state.fileName} · {state.expiresAt ? `expires ${formatDate(state.expiresAt)}` : 'no expiry set'}
-        </p>
-      )}
-      <div className="mt-3 flex flex-wrap items-end gap-2">
-        <div className="space-y-1">
-          <Label className="text-xs">Expires (optional)</Label>
-          <input
-            type="date"
-            value={expiresAt}
-            onChange={(e) => setExpiresAt(e.target.value)}
-            className="h-9 rounded-md border border-input bg-background px-2 text-sm"
-          />
-        </div>
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          disabled={uploading}
-          onClick={() => fileRef.current?.click()}
-          className="gap-2"
-        >
-          <Upload className="h-3.5 w-3.5" />
-          {state ? 'Replace' : 'Upload'}
-        </Button>
-        <input
-          ref={fileRef}
-          type="file"
-          accept="application/pdf,image/jpeg,image/png"
-          className="hidden"
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) onPick(f, expiresAt ? new Date(expiresAt).toISOString() : undefined);
-            e.target.value = '';
-          }}
-        />
-      </div>
-    </div>
-  );
-}

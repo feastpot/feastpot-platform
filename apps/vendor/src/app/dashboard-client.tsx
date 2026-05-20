@@ -1,14 +1,17 @@
 'use client';
 
+import { ComplianceAlerts } from '@/components/dashboard/compliance-alerts';
 import { QuickActions } from '@/components/dashboard/quick-actions';
 import { StatCard } from '@/components/dashboard/stat-card';
 import { useVendorStats } from '@/hooks/use-vendor-stats';
 
 interface Props {
-  /** Friendly greeting name - usually the first word of businessName. */
+  /** Vendor id, used by widgets that fetch vendor-scoped data (e.g. docs). */
+  vendorId: string;
+  /** Friendly greeting name, usually the first word of businessName. */
   greetingName: string;
   businessName: string;
-  /** Average rating from /vendors/me - null if the API didn't return one. */
+  /** Average rating from /vendors/me, null if the API didn't return one. */
   rating: number | null;
 }
 
@@ -19,7 +22,7 @@ interface Props {
  * gate so the first paint always has a name + greeting without flashing
  * placeholder strings.
  */
-export function DashboardClient({ greetingName, businessName, rating }: Props) {
+export function DashboardClient({ vendorId, greetingName, businessName, rating }: Props) {
   const { data: stats, isLoading } = useVendorStats();
   const greeting = greetingFor(new Date());
 
@@ -75,6 +78,13 @@ export function DashboardClient({ greetingName, businessName, rating }: Props) {
           suffix={rating === null ? '' : `.${Math.round((rating % 1) * 10)}`}
           color="vendor"
         />
+      </section>
+
+      <section aria-label="Compliance status">
+        <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-mid">
+          Compliance
+        </h2>
+        <ComplianceAlerts vendorId={vendorId} />
       </section>
 
       <section aria-label="Quick actions">

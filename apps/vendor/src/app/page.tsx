@@ -64,6 +64,7 @@ export default async function DashboardPage() {
       <TopNav businessName={vendor.businessName} />
       <main className="container py-6">
         <DashboardClient
+          vendorId={vendor.id}
           greetingName={greetingName}
           businessName={vendor.businessName}
           rating={typeof vendor.rating === 'number' ? vendor.rating : null}
