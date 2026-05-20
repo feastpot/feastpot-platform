@@ -37,7 +37,10 @@ const GRID_GREY = '#F0EDE8';
 export function AnalyticsClient() {
   const { data, isLoading, error } = useAnalytics();
 
-  const weekly = data?.weeklyRevenue ?? [];
+  // Wrapped in useMemo so the array identity is stable across renders -
+  // otherwise the downstream useMemo on `weekly` re-runs every render,
+  // which both wastes work and breaks the exhaustive-deps lint check.
+  const weekly = useMemo(() => data?.weeklyRevenue ?? [], [data?.weeklyRevenue]);
   const hourly = data?.hourlyDistribution ?? [];
   const top = data?.topDishes ?? [];
 

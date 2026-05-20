@@ -123,6 +123,18 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
 
   const allergens = useMemo(() => (order ? allAllergens(order) : []), [order]);
 
+  // T009: when arrived from a kanban "Print" link we auto-open the
+  // browser print dialog once the page has painted. Behind a query flag so
+  // direct navigation doesn't surprise the user with a print prompt.
+  // Declared before early returns to satisfy rules-of-hooks.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('print') !== '1') return;
+    const t = window.setTimeout(() => window.print(), 350);
+    return () => window.clearTimeout(t);
+  }, []);
+
   if (isLoading) {
     return <div className="fp-card p-6 text-sm text-mid">Loading order…</div>;
   }
@@ -151,17 +163,6 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
   const isAmendable: VendorOrderStatus[] = ['accepted', 'preparing', 'ready', 'dispatched'];
   const hasOpenDispute = (order.disputes?.length ?? 0) > 0;
   const pendingAmendment = order.amendments?.[0];
-
-  // T009: when arrived from a kanban "Print" link we auto-open the
-  // browser print dialog once the page has painted. Behind a query flag so
-  // direct navigation doesn't surprise the user with a print prompt.
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('print') !== '1') return;
-    const t = window.setTimeout(() => window.print(), 350);
-    return () => window.clearTimeout(t);
-  }, []);
 
   return (
     <div className="space-y-4 print:space-y-3">
