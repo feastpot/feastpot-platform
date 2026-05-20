@@ -1,0 +1,216 @@
+You are an expert full-stack engineer and product-minded UX developer.
+
+Build the FeastPot Vendor Portal as a production-ready, mobile-first web application using the existing FeastPot branding, logo and colour palette.
+
+The vendor portal must allow approved African & Caribbean food vendors, caterers, home cooks, restaurants and meal-prep sellers to manage orders, menus, availability, delivery zones, earnings, payouts, compliance and profile information.
+
+Use UK English throughout.
+
+BRAND REQUIREMENTS
+Use the FeastPot brand colours:
+- Green for primary actions and success states
+- Gold/yellow for highlights and warning states
+- Red for critical alerts and destructive actions
+- Black for primary text
+- White/warm ivory for backgrounds
+
+The UI must feel premium, trustworthy and operationally serious. Do not use a generic admin template.
+
+CORE MODULES TO BUILD
+1. Vendor login
+2. Vendor dashboard
+3. Orders
+4. Order detail
+5. Menu management
+6. Menu item editor
+7. Allergen and dietary declaration
+8. Availability and scheduling
+9. Delivery zones and fulfilment settings
+10. Earnings and payout dashboard
+11. Compliance and documents
+12. Business profile
+13. Notifications
+14. Vendor support
+
+DASHBOARD
+Show:
+- new orders requiring action
+- orders due today
+- upcoming orders
+- pending event enquiries
+- weekly revenue
+- next payout
+- average rating
+- compliance alerts
+- menu items missing images/allergen data
+
+ORDERS
+Support statuses:
+New, Accepted, Rejected, Needs clarification, Preparing, Ready, Out for delivery, Delivered, Completed, Cancelled, Refunded, Disputed.
+
+Vendor can:
+- accept order
+- reject with reason
+- suggest alternative date/time
+- mark preparing
+- mark ready
+- mark out for delivery
+- mark delivered
+- view allergy notes
+- view delivery instructions
+- contact support
+- download/print order summary
+
+MENU MANAGEMENT
+Vendor can:
+- add item
+- edit item
+- duplicate item
+- deactivate item
+- mark sold out
+- upload images
+- set price
+- set serving size
+- set prep notice
+- set availability days
+- add variants
+- add add-ons
+- declare allergens
+- add dietary tags
+- preview customer-facing menu
+
+Vendor cannot publish an item without:
+- name
+- price
+- serving size
+- prep notice
+- allergen declaration
+- category
+- image warning if no image is present
+
+ALLERGENS
+Support the 14 major allergens:
+gluten, crustaceans, eggs, fish, peanuts, soya, milk, nuts, celery, mustard, sesame, sulphites, lupin, molluscs.
+
+AVAILABILITY
+Vendor can set:
+- opening days
+- prep lead time
+- blackout dates
+- holiday closure
+- maximum orders per day
+- maximum trays per day
+- same-day availability on/off
+- large order lead time
+- event catering manual quote requirement
+
+DELIVERY
+Vendor can set:
+- delivery radius
+- postcode areas served
+- delivery fee
+- free delivery threshold
+- minimum order
+- collection availability
+- collection address
+- delivery slots
+
+EARNINGS
+Show:
+- gross sales
+- FeastPot commission
+- service/delivery fees
+- refund deductions
+- adjustments
+- net earnings
+- pending payout
+- paid payouts
+- next payout date
+- payout history
+- CSV export
+
+COMPLIANCE
+Vendor can upload/manage:
+- business information
+- kitchen address
+- local authority/FSA registration status
+- food hygiene rating/certificate if available
+- public liability insurance if required
+- ID if required
+- allergen policy acknowledgement
+- bank account details
+- food safety declaration
+
+Compliance statuses:
+Not started, Submitted, Approved, Needs changes, Expiring soon, Expired, Suspended.
+
+BUSINESS PROFILE
+Vendor can manage:
+- vendor name
+- logo
+- cover image
+- description
+- cuisine types
+- specialities
+- service area
+- minimum order
+- delivery radius
+- prep lead time
+- social links
+- vendor story
+- featured dishes
+
+NOTIFICATIONS
+Trigger alerts for:
+- new order
+- response deadline approaching
+- customer cancellation
+- new event enquiry
+- payout processed
+- payout failed
+- compliance expiring
+- review received
+- menu item rejected
+- support message
+
+SECURITY
+Implement:
+- secure vendor login
+- role-based permissions
+- vendor data isolation
+- audit logging for sensitive actions
+- password reset
+- optional 2FA-ready structure
+
+ROLES
+Support:
+- vendor owner
+- kitchen manager
+- finance user
+- staff user
+- delivery coordinator
+
+MOBILE REQUIREMENTS
+The portal must be fully usable on mobile.
+Vendors must be able to:
+- accept/reject orders
+- update order status
+- pause orders
+- mark items sold out
+- view allergy notes
+- view payout summary
+- contact support
+
+ACCEPTANCE CRITERIA
+- Vendor can log in and see dashboard.
+- Vendor can accept/reject orders.
+- Vendor can update order statuses.
+- Vendor can add and edit menu items.
+- Vendor cannot publish items without required allergen information.
+- Vendor can configure availability and delivery zones.
+- Vendor can see earnings and payout breakdown.
+- Vendor can upload compliance documents.
+- Vendor can update public profile.
+- Vendor can use the portal on mobile.
+- Admin review hooks exist for compliance, bank details, menu risk and vendor profile updates.
+- UI uses FeastPot colours and does not look like a generic admin template.
