@@ -20,4 +20,22 @@ npx prisma migrate resolve --rolled-back "$STUCK_MIGRATION" --schema="$SCHEMA" |
   echo "[db-deploy] resolve --rolled-back returned non-zero (expected when migration is not in failed state)."
 
 echo "[db-deploy] Running prisma migrate deploy..."
-exec npx prisma migrate deploy --schema="$SCHEMA"
+npx prisma migrate deploy --schema="$SCHEMA"
+MIGRATE_EXIT=$?
+if [ $MIGRATE_EXIT -ne 0 ]; then
+  echo "[db-deploy] prisma migrate deploy failed with exit $MIGRATE_EXIT"
+  exit $MIGRATE_EXIT
+fi
+
+# Lock down any newly-created public tables. Prisma creates tables with
+# RLS disabled by default, which exposes them through Supabase's
+# auto-generated PostgREST API to anyone holding the anon key. Our
+# backend uses a role that bypasses RLS, so enabling RLS with no
+# policies = deny-by-default for anon/authenticated, safely.
+DB_URL="${DIRECT_URL:-${SUPABASE_DIRECT_URL:-${DATABASE_URL:-}}}"
+if [ -n "$DB_URL" ]; then
+  echo "[db-deploy] Enabling RLS on any public tables that don't have it..."
+  psql "$DB_URL" -v ON_ERROR_STOP=1 -f scripts/enable-rls-on-public-tables.sql
+else
+  echo "[db-deploy] Skipping RLS hardening: no DIRECT_URL / SUPABASE_DIRECT_URL / DATABASE_URL set."
+fi
