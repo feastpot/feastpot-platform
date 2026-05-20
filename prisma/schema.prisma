@@ -332,11 +332,32 @@ model User {
   pushSubscriptions PushSubscription[]
   createdDiscountCodes DiscountCode[] @relation("CreatedDiscountCodes")
   reviewedVendorApplications VendorApplication[] @relation("VendorApplicationReviewer")
+  mfaRecoveryCodes MfaRecoveryCode[]
 
   @@index([role])
   @@index([status])
   @@index([createdAt])
   @@map("users")
+}
+
+// MfaRecoveryCode: single-use TOTP recovery codes for self-serve 2FA
+// recovery. We store HMAC-SHA256(code, server pepper) - never the
+// plaintext. A successful consume marks `usedAt` and the API then calls
+// supabase.auth.admin.mfa.deleteFactor() so the user can sign in with
+// just their password and re-enrol if they wish. Regenerating codes
+// hard-deletes any prior unused rows so old codes cannot resurrect.
+model MfaRecoveryCode {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  codeHash  String    @map("code_hash") @db.VarChar(128)
+  usedAt    DateTime? @map("used_at") @db.Timestamptz
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([codeHash])
+  @@map("mfa_recovery_codes")
 }
 
 model Session {

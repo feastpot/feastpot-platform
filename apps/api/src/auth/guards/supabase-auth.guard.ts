@@ -162,5 +162,12 @@ export function mapUser(user: User, verifiedToken: string): AuthUser {
     });
   }
 
-  return { id: user.id, email: user.email, role };
+  // Supabase mints the `aal` claim as part of the JWT payload after a
+  // successful mfa.verify(); we treat anything other than literal "aal2"
+  // as aal1. The token was already signature-verified by supabase.getUser
+  // upstream, so trusting these claims is sound.
+  const aalClaim = claims && typeof claims.aal === 'string' ? claims.aal : null;
+  const aal: 'aal1' | 'aal2' = aalClaim === 'aal2' ? 'aal2' : 'aal1';
+
+  return { id: user.id, email: user.email, role, aal };
 }

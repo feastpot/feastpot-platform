@@ -18,6 +18,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useState, type FormEvent } from 'react';
 
+import { API_URL } from '@/lib/env';
 import { createClient } from '@/lib/supabase/client';
 
 /**
@@ -92,6 +93,40 @@ function SignInForm() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // MFA challenge state. Populated when the signed-in user has a verified
+  // TOTP factor and Supabase tells us their next required AAL is `aal2`.
+  // We hold on to the resolved role so the post-challenge redirect re-uses
+  // the same role gate as the password-only path.
+  const [mfa, setMfa] = useState<{
+    factorId: string;
+    role: 'vendor' | 'admin';
+  } | null>(null);
+  const [mfaCode, setMfaCode] = useState('');
+  const [mfaBusy, setMfaBusy] = useState(false);
+  const [showRecovery, setShowRecovery] = useState(false);
+  const [recoveryCode, setRecoveryCode] = useState('');
+  const [recoveryEmail, setRecoveryEmail] = useState('');
+  const [recoveryPassword, setRecoveryPassword] = useState('');
+
+  /**
+   * Common post-sign-in tail: gate on role, persist "remember me" pref,
+   * then redirect to `next`. Used by both the password-only and the
+   * post-MFA paths so the two stay in sync.
+   */
+  async function finishSignIn(role: 'vendor' | 'admin') {
+    try {
+      window.localStorage.setItem(
+        'feastpot.vendor.session.persist',
+        rememberMe ? '1' : '0',
+      );
+    } catch {
+      /* localStorage unavailable */
+    }
+    void role;
+    router.replace(next);
+    router.refresh();
+  }
+
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (!email || !password) {
@@ -123,19 +158,120 @@ function SignInForm() {
         return;
       }
 
-      try {
-        window.localStorage.setItem(
-          'feastpot.vendor.session.persist',
-          rememberMe ? '1' : '0',
-        );
-      } catch {
-        /* localStorage unavailable */
+      // If 2FA is enrolled, Supabase returns an aal1 session and tells us
+      // the next required level is aal2. Switch to the challenge view
+      // instead of redirecting; the user is technically signed in but
+      // protected routes will reject aal1.
+      const aal = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      const nextLevel = aal.data?.nextLevel;
+      const currentLevel = aal.data?.currentLevel;
+      if (nextLevel === 'aal2' && currentLevel !== 'aal2') {
+        const factors = await supabase.auth.mfa.listFactors();
+        const totp = factors.data?.totp?.find((f) => f.status === 'verified');
+        if (totp) {
+          setMfa({ factorId: totp.id, role: role as 'vendor' | 'admin' });
+          // Pre-fill recovery form so the user doesn't retype.
+          setRecoveryEmail(email);
+          setRecoveryPassword(password);
+          return;
+        }
       }
 
-      router.replace(next);
-      router.refresh();
+      await finishSignIn(role as 'vendor' | 'admin');
     } finally {
       setBusy(false);
+    }
+  }
+
+  /**
+   * Submit the 6-digit TOTP. On success the session is upgraded to aal2
+   * and we run the same finishSignIn tail as the password-only path.
+   */
+  async function submitMfa(e: FormEvent) {
+    e.preventDefault();
+    if (!mfa || mfaCode.length !== 6) return;
+    setMfaBusy(true);
+    setError(null);
+    const supabase = createClient();
+    try {
+      const challenge = await supabase.auth.mfa.challenge({ factorId: mfa.factorId });
+      if (challenge.error || !challenge.data) {
+        setError('Could not start the 2FA challenge. Please try again.');
+        return;
+      }
+      const verify = await supabase.auth.mfa.verify({
+        factorId: mfa.factorId,
+        challengeId: challenge.data.id,
+        code: mfaCode.trim(),
+      });
+      if (verify.error) {
+        setError('Wrong code. Try again with a fresh 6-digit code from your authenticator app.');
+        return;
+      }
+      await finishSignIn(mfa.role);
+    } finally {
+      setMfaBusy(false);
+    }
+  }
+
+  /**
+   * Recovery path. We POST the code to the API using the current
+   * (aal1) session token. The server verifies the hash, deletes every
+   * TOTP factor on the user, and returns 200. We then re-run password
+   * sign-in so the resulting session has no MFA prompt.
+   */
+  async function submitRecovery(e: FormEvent) {
+    e.preventDefault();
+    if (!recoveryCode || recoveryCode.replace(/[^a-zA-Z0-9]/g, '').length < 8) {
+      setError('Enter a full recovery code.');
+      return;
+    }
+    setMfaBusy(true);
+    setError(null);
+    const supabase = createClient();
+    try {
+      // Re-sign-in with password to make sure we have a fresh aal1
+      // session bound to the credentials the user just typed - the
+      // existing session might be stale if they idled on the page.
+      const reAuth = await supabase.auth.signInWithPassword({
+        email: recoveryEmail,
+        password: recoveryPassword,
+      });
+      if (reAuth.error || !reAuth.data.session) {
+        setError('Email or password is incorrect.');
+        return;
+      }
+      const token = reAuth.data.session.access_token;
+      const res = await fetch(`${API_URL}/v1/mfa/recovery-codes/consume`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ code: recoveryCode }),
+      });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { message?: string } | null;
+        setError(
+          body?.message ??
+            'That recovery code is not recognised or has already been used.',
+        );
+        return;
+      }
+      // Factor removed. Re-sign-in once more; this time getAuthenticatorAssuranceLevel
+      // will report aal1/aal1 and we go straight through.
+      await supabase.auth.signOut();
+      const finalAuth = await supabase.auth.signInWithPassword({
+        email: recoveryEmail,
+        password: recoveryPassword,
+      });
+      if (finalAuth.error) {
+        setError('Sign-in failed after recovery. Please try signing in again.');
+        return;
+      }
+      await finishSignIn(mfa?.role ?? 'vendor');
+    } finally {
+      setMfaBusy(false);
     }
   }
 
@@ -298,7 +434,11 @@ function SignInForm() {
             className="text-center text-[22px] font-black tracking-tight"
             style={{ color: C.ink }}
           >
-            Sign in to your vendor account
+            {mfa
+              ? showRecovery
+                ? 'Use a recovery code'
+                : 'Two-factor authentication'
+              : 'Sign in to your vendor account'}
           </h2>
 
           {error && (
@@ -311,6 +451,122 @@ function SignInForm() {
             </div>
           )}
 
+          {mfa && !showRecovery && (
+            <form onSubmit={submitMfa} className="mt-6 space-y-4" noValidate>
+              <p className="text-center text-sm" style={{ color: C.inkMid }}>
+                Enter the 6-digit code from your authenticator app.
+              </p>
+              <div>
+                <label
+                  htmlFor="mfa-code"
+                  className="mb-1.5 block text-[13px] font-semibold"
+                  style={{ color: C.ink }}
+                >
+                  Authentication code
+                </label>
+                <input
+                  id="mfa-code"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={6}
+                  autoFocus
+                  autoComplete="one-time-code"
+                  value={mfaCode}
+                  onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, ''))}
+                  className="w-full rounded-xl border bg-white px-4 py-3 text-center text-2xl font-bold tracking-[0.5em] outline-none"
+                  style={{ borderColor: C.border, color: C.ink }}
+                  placeholder="000000"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={mfaBusy || mfaCode.length !== 6}
+                className="mt-2 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl px-4 py-3.5 text-sm font-bold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+                style={{ background: C.green }}
+              >
+                <span>{mfaBusy ? 'Verifying…' : 'Verify'}</span>
+                {!mfaBusy && <ArrowRight className="h-4 w-4" aria-hidden />}
+              </button>
+              <div className="flex flex-col items-center gap-2 pt-2">
+                <button
+                  type="button"
+                  className="text-[13px] font-semibold hover:underline"
+                  style={{ color: C.green }}
+                  onClick={() => {
+                    setError(null);
+                    setShowRecovery(true);
+                  }}
+                >
+                  Use a recovery code instead
+                </button>
+                <button
+                  type="button"
+                  className="text-[12px] hover:underline"
+                  style={{ color: C.inkMid }}
+                  onClick={async () => {
+                    const supabase = createClient();
+                    await supabase.auth.signOut();
+                    setMfa(null);
+                    setMfaCode('');
+                    setError(null);
+                  }}
+                >
+                  Cancel and sign in as a different user
+                </button>
+              </div>
+            </form>
+          )}
+
+          {mfa && showRecovery && (
+            <form onSubmit={submitRecovery} className="mt-6 space-y-4" noValidate>
+              <p className="text-sm" style={{ color: C.inkMid }}>
+                Enter one of the recovery codes you saved when you enabled 2FA. Using a recovery
+                code will remove 2FA from your account; you can re-enrol from the security page
+                once you are signed in.
+              </p>
+              <div>
+                <label
+                  htmlFor="recovery-code"
+                  className="mb-1.5 block text-[13px] font-semibold"
+                  style={{ color: C.ink }}
+                >
+                  Recovery code
+                </label>
+                <input
+                  id="recovery-code"
+                  autoFocus
+                  autoComplete="off"
+                  value={recoveryCode}
+                  onChange={(e) => setRecoveryCode(e.target.value)}
+                  className="w-full rounded-xl border bg-white px-4 py-3 text-center font-mono text-base tracking-widest outline-none"
+                  style={{ borderColor: C.border, color: C.ink }}
+                  placeholder="xxxxx-xxxxx"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={mfaBusy}
+                className="mt-2 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl px-4 py-3.5 text-sm font-bold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+                style={{ background: C.green }}
+              >
+                <span>{mfaBusy ? 'Verifying…' : 'Use recovery code'}</span>
+                {!mfaBusy && <ArrowRight className="h-4 w-4" aria-hidden />}
+              </button>
+              <button
+                type="button"
+                className="block w-full text-center text-[13px] font-semibold hover:underline"
+                style={{ color: C.green }}
+                onClick={() => {
+                  setError(null);
+                  setShowRecovery(false);
+                }}
+              >
+                Back to authenticator code
+              </button>
+            </form>
+          )}
+
+          {!mfa && (
           <form onSubmit={submit} className="mt-6 space-y-4" noValidate>
             <div>
               <label
@@ -430,6 +686,7 @@ function SignInForm() {
             </button>
 
           </form>
+          )}
 
           <div
             className="mt-6 border-t pt-4 text-center"

@@ -41,6 +41,7 @@ import { DisputesModule } from './modules/disputes/disputes.module';
 import { EventEnquiriesModule } from './modules/event-enquiries/event-enquiries.module';
 import { LoyaltyModule } from './modules/loyalty/loyalty.module';
 import { InboxModule } from './modules/inbox/inbox.module';
+import { MfaModule } from './modules/mfa/mfa.module';
 import { VendorMembersModule } from './modules/vendor-members/vendor-members.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { OrdersModule } from './modules/orders/orders.module';
@@ -301,6 +302,7 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
     ReviewsModule,
     NotificationsModule,
     InboxModule,
+    MfaModule,
     VendorMembersModule,
     LoyaltyModule,
     DiscountCodesModule,
