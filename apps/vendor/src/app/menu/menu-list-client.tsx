@@ -10,11 +10,14 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
+  cn,
 } from '@feastpot/ui';
-import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { ChevronDown, Pencil, Plus, Search, Trash2, UtensilsCrossed } from 'lucide-react';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
+import { MenuStatCards } from '@/components/menu/menu-stat-cards';
+import { MenuSummaryRail } from '@/components/menu/menu-summary-rail';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/components/ui/toaster';
 import {
@@ -25,21 +28,106 @@ import {
   type VendorMenu,
 } from '@/hooks/use-menus';
 
+type SortKey = 'name_asc' | 'name_desc' | 'items_desc' | 'updated_desc';
+
+const SORT_LABEL: Record<SortKey, string> = {
+  name_asc: 'Name (A–Z)',
+  name_desc: 'Name (Z–A)',
+  items_desc: 'Most items',
+  updated_desc: 'Recently updated',
+};
+
+/**
+ * Menu list — redesigned to match the Vendor6 mockup while keeping
+ * the original CRUD behaviour intact (create / rename / toggle
+ * active / delete via the same hooks). The drag handle is rendered
+ * for visual parity but reorder is not wired up yet — `useUpdateMenu`
+ * already accepts `displayOrder` so add it in a future turn.
+ *
+ * Layout:
+ *   [header — title + Add menu]
+ *   [stat cards row]
+ *   [search + sort toolbar]
+ *   ┌────────────────────────────┬──────────────────────┐
+ *   │ menu rows                  │ summary + tips rail  │
+ *   └────────────────────────────┴──────────────────────┘
+ *   [autosave footer note]
+ */
 export function MenuListClient({ vendorId }: { vendorId: string }) {
   const { data: menus, isLoading, error } = useMenus(vendorId);
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<VendorMenu | null>(null);
+  const [search, setSearch] = useState('');
+  const [sort, setSort] = useState<SortKey>('name_asc');
+
+  const list = useMemo(() => {
+    const all = menus ?? [];
+    const needle = search.trim().toLowerCase();
+    const filtered = needle ? all.filter((m) => m.name.toLowerCase().includes(needle)) : all.slice();
+    filtered.sort((a, b) => {
+      switch (sort) {
+        case 'name_asc':
+          return a.name.localeCompare(b.name);
+        case 'name_desc':
+          return b.name.localeCompare(a.name);
+        case 'items_desc':
+          return (b._count?.items ?? 0) - (a._count?.items ?? 0);
+        case 'updated_desc':
+          return +new Date(b.updatedAt) - +new Date(a.updatedAt);
+      }
+    });
+    return filtered;
+  }, [menus, search, sort]);
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
+    <div className="space-y-5">
+      <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">Menus</h1>
-          <p className="text-sm text-muted-foreground">Group your dishes into menus customers can browse.</p>
+          <h1 className="text-2xl font-extrabold tracking-tight text-dark">Menus</h1>
+          <p className="mt-1 text-sm text-mid">Group your dishes into menus customers can browse.</p>
         </div>
-        <Button onClick={() => setCreateOpen(true)} className="gap-2">
+        <Button onClick={() => setCreateOpen(true)} className="gap-2 bg-vendor hover:bg-vendor-dark">
           <Plus className="h-4 w-4" /> Add menu
         </Button>
+      </header>
+
+      <MenuStatCards menus={menus ?? []} />
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative max-w-sm flex-1">
+          <Search
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-mid"
+            aria-hidden
+          />
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search menus"
+            aria-label="Search menus"
+            className="h-10 w-full rounded-lg border border-border bg-white pl-9 pr-3 text-sm text-dark placeholder:text-mid focus:border-teal focus:outline-none focus:ring-2 focus:ring-teal/30"
+          />
+        </div>
+        <label className="flex items-center gap-2 text-xs text-mid">
+          <span>Sort by</span>
+          <span className="relative">
+            <select
+              value={sort}
+              onChange={(e) => setSort(e.target.value as SortKey)}
+              className="h-10 appearance-none rounded-lg border border-border bg-white pl-3 pr-8 text-sm font-semibold text-dark focus:border-teal focus:outline-none focus:ring-2 focus:ring-teal/30"
+            >
+              {(Object.keys(SORT_LABEL) as SortKey[]).map((k) => (
+                <option key={k} value={k}>
+                  {SORT_LABEL[k]}
+                </option>
+              ))}
+            </select>
+            <ChevronDown
+              className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-mid"
+              aria-hidden
+            />
+          </span>
+        </label>
       </div>
 
       {error && (
@@ -50,28 +138,46 @@ export function MenuListClient({ vendorId }: { vendorId: string }) {
         </Card>
       )}
 
-      {isLoading && <p className="text-sm text-muted-foreground">Loading menus…</p>}
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_280px]">
+        <div className="min-w-0 space-y-3">
+          {isLoading && (
+            <div className="fp-card border border-border bg-white p-6 text-center text-sm text-mid">
+              Loading menus…
+            </div>
+          )}
 
-      {!isLoading && menus && menus.length === 0 && (
-        <Card>
-          <CardContent className="flex flex-col items-center gap-3 py-10 text-center">
-            <p className="text-muted-foreground">You don&apos;t have any menus yet.</p>
-            <Button onClick={() => setCreateOpen(true)} className="gap-2">
-              <Plus className="h-4 w-4" /> Create your first menu
-            </Button>
-          </CardContent>
-        </Card>
-      )}
+          {!isLoading && menus && menus.length === 0 && (
+            <div className="fp-card border border-border bg-white p-10 text-center">
+              <p className="text-base font-semibold text-dark">You don&apos;t have any menus yet</p>
+              <p className="mt-1 text-xs text-mid">Group your dishes into menus customers can browse.</p>
+              <Button onClick={() => setCreateOpen(true)} className="mt-4 gap-2 bg-vendor hover:bg-vendor-dark">
+                <Plus className="h-4 w-4" /> Create your first menu
+              </Button>
+            </div>
+          )}
 
-      <div className="grid gap-3">
-        {menus?.map((m) => (
-          <MenuRow key={m.id} vendorId={vendorId} menu={m} onEdit={() => setEditing(m)} />
-        ))}
+          {!isLoading && menus && menus.length > 0 && list.length === 0 && (
+            <div className="fp-card border border-border bg-white p-8 text-center">
+              <p className="text-sm font-semibold text-dark">No menus match your search</p>
+              <p className="mt-1 text-xs text-mid">Try a different keyword or clear the search.</p>
+            </div>
+          )}
+
+          {list.map((m) => (
+            <MenuRow key={m.id} vendorId={vendorId} menu={m} onEdit={() => setEditing(m)} />
+          ))}
+        </div>
+
+        <aside aria-label="Menu summary and tips">
+          <MenuSummaryRail menus={menus ?? []} />
+        </aside>
       </div>
 
-      {createOpen && (
-        <CreateMenuDialog vendorId={vendorId} onClose={() => setCreateOpen(false)} />
-      )}
+      <div className="fp-card border border-border bg-surface px-4 py-3 text-center text-xs text-mid">
+        Changes are saved automatically. Customers will only see published items.
+      </div>
+
+      {createOpen && <CreateMenuDialog vendorId={vendorId} onClose={() => setCreateOpen(false)} />}
       {editing && (
         <EditMenuDialog vendorId={vendorId} menu={editing} onClose={() => setEditing(null)} />
       )}
@@ -92,24 +198,53 @@ function MenuRow({
   const del = useDeleteMenu(vendorId);
   const { toast } = useToast();
   const itemCount = menu._count?.items ?? 0;
+  const lastUpdated = new Date(menu.updatedAt);
 
   return (
-    <Card>
-      <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
-        <div className="flex items-center gap-3">
-          <Link href={`/menu/${menu.id}`} className="font-medium hover:underline">
-            {menu.name}
-          </Link>
-          <Badge variant={menu.isActive ? 'default' : 'secondary'}>
-            {menu.isActive ? 'Active' : 'Inactive'}
-          </Badge>
-          <span className="text-sm text-muted-foreground">
-            {itemCount} {itemCount === 1 ? 'item' : 'items'}
-          </span>
+    <article className="fp-card border border-border bg-white p-4">
+      <div className="flex flex-wrap items-start gap-4">
+        {/* Thumbnail placeholder — the VendorMenu payload doesn't expose
+            a cover image. Use a tinted tile with the dish icon so the
+            row still has visual weight per the mockup. */}
+        <span
+          aria-hidden
+          className="grid h-16 w-16 shrink-0 place-items-center rounded-xl bg-teal-light text-teal"
+        >
+          <UtensilsCrossed className="h-7 w-7" />
+        </span>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href={`/menu/${menu.id}`}
+              className="text-base font-bold text-dark hover:underline"
+            >
+              {menu.name}
+            </Link>
+            <Badge
+              variant={menu.isActive ? 'default' : 'secondary'}
+              className={cn(
+                'rounded-full px-2 py-0.5 text-[10px] font-semibold',
+                menu.isActive ? 'bg-teal-light text-teal-dark' : 'bg-surface text-mid',
+              )}
+            >
+              {menu.isActive ? 'Active' : 'Inactive'}
+            </Badge>
+          </div>
+          <p className="mt-1 text-xs text-mid">
+            <span className="font-semibold tabular-nums text-dark">{itemCount}</span>{' '}
+            {itemCount === 1 ? 'item' : 'items'}
+            <span className="mx-1.5 text-border">•</span>
+            Last updated {lastUpdated.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+          </p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">Active</span>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {/* The status badge above already shows Active/Inactive,
+              so the switch gets a static "Visible" label to describe
+              what flipping it does rather than restating the state. */}
+          <label className="flex items-center gap-2 text-xs text-mid">
+            <span className="font-semibold text-dark">Visible</span>
             <Switch
               checked={menu.isActive}
               disabled={update.isPending}
@@ -127,9 +262,14 @@ function MenuRow({
                 )
               }
             />
-          </div>
-          <Button variant="ghost" size="sm" onClick={onEdit} className="gap-2">
-            <Pencil className="h-4 w-4" /> Rename
+          </label>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onEdit}
+            className="gap-1.5 text-vendor hover:bg-vendor-light/40 hover:text-vendor-dark"
+          >
+            <Pencil className="h-3.5 w-3.5" /> Rename
           </Button>
           <Button
             variant="ghost"
@@ -147,13 +287,13 @@ function MenuRow({
                   }),
               });
             }}
-            className="gap-2 text-destructive hover:text-destructive"
+            className="gap-1.5 text-red-600 hover:bg-red-50 hover:text-red-700"
           >
-            <Trash2 className="h-4 w-4" /> Delete
+            <Trash2 className="h-3.5 w-3.5" /> Delete
           </Button>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </article>
   );
 }
 
