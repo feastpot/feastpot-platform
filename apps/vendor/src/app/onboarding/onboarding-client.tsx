@@ -116,6 +116,7 @@ export function OnboardingClient({ vendor }: { vendor: VendorSummary }) {
               return (
                 <DocumentRow
                   key={d.type}
+                  type={d.type}
                   label={d.label}
                   why={d.why}
                   mustShow={d.mustShow}
