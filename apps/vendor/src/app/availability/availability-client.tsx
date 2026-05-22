@@ -1,11 +1,10 @@
 'use client';
 
-import { Button, Card, CardContent, CardHeader, CardTitle, Input } from '@feastpot/ui';
+import { cn } from '@feastpot/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CalendarX, Plus, Trash2 } from 'lucide-react';
+import { CalendarDays, CalendarX, Clock, PackageOpen, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
-import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { ApiError, apiRequest } from '@/lib/api/client';
 import { useAccessToken } from '@/lib/auth/use-access-token';
@@ -76,6 +75,23 @@ function snapshotToForm(s: AvailabilitySnapshot): FormState {
   };
 }
 
+/**
+ * Availability screen — redesigned to match the Vendor5 mockup
+ * while keeping every existing behaviour intact:
+ *   - SSR-hydrated snapshot via useQuery initialData
+ *   - Background refetch reseeds the form only when key fields
+ *     haven't been edited locally (avoids wiping in-flight edits)
+ *   - Same PATCH /vendors/me/availability mutation
+ *   - Same POST / DELETE blackout endpoints
+ *   - Same client-side validation (open day required, close > open,
+ *     large-order lead + threshold must be set together)
+ *
+ * Visual changes only: card frames now use the shared `fp-card`
+ * + border-border design language, day pills use the teal active
+ * state from the mockup, hour inputs get a clock icon decoration,
+ * blackout list rendered as fp-card rows, and the Save button is
+ * pinned bottom-right with the teal CTA colour.
+ */
 export function AvailabilityClient({ initial }: { initial: AvailabilitySnapshot }) {
   const { token } = useAccessToken();
   const qc = useQueryClient();
@@ -221,280 +237,234 @@ export function AvailabilityClient({ initial }: { initial: AvailabilitySnapshot 
   };
 
   return (
-    <div className="space-y-6">
-      <header className="space-y-1">
-        <h1 className="font-display text-2xl font-black text-charcoal">Availability</h1>
-        <p className="text-sm text-muted-foreground">
+    <div className="space-y-5">
+      <header>
+        <h1 className="text-2xl font-extrabold tracking-tight text-dark">Availability</h1>
+        <p className="mt-1 text-sm text-mid">
           Control when customers can place orders, how much notice you need, and any one-off days
           the kitchen is closed.
         </p>
       </header>
 
       {serverError && (
-        <div className="rounded-md border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm font-medium text-destructive">
+        <div className="fp-card border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
           {serverError}
         </div>
       )}
       {savedNote && (
-        <div className="rounded-md border border-teal/40 bg-teal/5 px-4 py-3 text-sm font-medium text-teal">
+        <div className="fp-card border border-teal/40 bg-teal-light px-4 py-3 text-sm font-medium text-teal-dark">
           Saved.
         </div>
       )}
 
-      <form onSubmit={onSubmit} className="space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Opening days &amp; slot window</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>Days the kitchen is open</Label>
-              <div className="flex flex-wrap gap-2">
-                {DAY_LABELS.map((d) => {
-                  const active = form.openingDays.includes(d.value);
-                  return (
-                    <button
-                      key={d.value}
-                      type="button"
-                      onClick={() => toggleDay(d.value)}
-                      className={
-                        'rounded-full border px-3 py-1.5 text-sm font-semibold transition ' +
-                        (active
-                          ? 'border-vendor bg-vendor text-white'
-                          : 'border-border bg-background text-foreground hover:border-vendor/40')
-                      }
-                      aria-pressed={active}
-                    >
-                      {d.label}
-                    </button>
-                  );
-                })}
-              </div>
+      <form onSubmit={onSubmit} className="space-y-5">
+        <Section icon={CalendarDays} title="Opening days & slot window">
+          <div className="space-y-2">
+            <FieldLabel>Days the kitchen is open</FieldLabel>
+            <div className="flex flex-wrap gap-2">
+              {DAY_LABELS.map((d) => {
+                const active = form.openingDays.includes(d.value);
+                return (
+                  <button
+                    key={d.value}
+                    type="button"
+                    onClick={() => toggleDay(d.value)}
+                    aria-pressed={active}
+                    className={cn(
+                      'rounded-full border px-4 py-1.5 text-sm font-semibold transition-colors',
+                      active
+                        ? 'border-teal bg-teal text-white shadow-sm'
+                        : 'border-border bg-white text-mid hover:bg-surface hover:text-dark',
+                    )}
+                  >
+                    {d.label}
+                  </button>
+                );
+              })}
             </div>
+          </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <div className="space-y-1">
-                <Label htmlFor="open">Slot open hour</Label>
-                <Input
-                  id="open"
-                  type="number"
-                  min={0}
-                  max={23}
-                  value={form.slotOpenHour}
-                  onChange={(e) =>
-                    setForm((s) => ({ ...s, slotOpenHour: Number(e.target.value || 0) }))
-                  }
-                />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="close">Slot close hour</Label>
-                <Input
-                  id="close"
-                  type="number"
-                  min={1}
-                  max={24}
-                  value={form.slotCloseHour}
-                  onChange={(e) =>
-                    setForm((s) => ({ ...s, slotCloseHour: Number(e.target.value || 0) }))
-                  }
-                />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="lead">Prep lead time (hours)</Label>
-                <Input
-                  id="lead"
-                  type="number"
-                  min={0}
-                  max={336}
-                  value={form.prepLeadHours}
-                  onChange={(e) =>
-                    setForm((s) => ({ ...s, prepLeadHours: Number(e.target.value || 0) }))
-                  }
-                />
-              </div>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Customers can pick any hour slot inside this window. Hours use the 24h clock (e.g. 11
-              to 20 means 11:00 to 19:00 last slot).
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Daily caps &amp; same-day orders</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="space-y-1">
-                <Label htmlFor="cap-orders">Max orders per day</Label>
-                <Input
-                  id="cap-orders"
-                  type="number"
-                  min={1}
-                  inputMode="numeric"
-                  placeholder="No cap"
-                  value={form.maxOrdersPerDay}
-                  onChange={(e) => setForm((s) => ({ ...s, maxOrdersPerDay: e.target.value }))}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="cap-trays">Max trays per day</Label>
-                <Input
-                  id="cap-trays"
-                  type="number"
-                  min={1}
-                  inputMode="numeric"
-                  placeholder="No cap"
-                  value={form.maxTraysPerDay}
-                  onChange={(e) => setForm((s) => ({ ...s, maxTraysPerDay: e.target.value }))}
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between rounded-md border border-border bg-background px-3 py-2">
-              <div>
-                <p className="text-sm font-semibold text-foreground">Allow same-day orders</p>
-                <p className="text-xs text-muted-foreground">
-                  Off blocks customers from picking today, even if your lead time would allow it.
-                </p>
-              </div>
-              <Switch
-                checked={form.sameDayOrders}
-                onCheckedChange={(v) => setForm((s) => ({ ...s, sameDayOrders: v }))}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <HourField
+              id="open"
+              label="Slot open hour"
+              min={0}
+              max={23}
+              value={form.slotOpenHour}
+              onChange={(n) => setForm((s) => ({ ...s, slotOpenHour: n }))}
+            />
+            <HourField
+              id="close"
+              label="Slot close hour"
+              min={1}
+              max={24}
+              value={form.slotCloseHour}
+              onChange={(n) => setForm((s) => ({ ...s, slotCloseHour: n }))}
+            />
+            <div className="space-y-1">
+              <FieldLabel htmlFor="lead">Prep lead time (hours)</FieldLabel>
+              <TextInput
+                id="lead"
+                type="number"
+                min={0}
+                max={336}
+                value={String(form.prepLeadHours)}
+                onChange={(v) => setForm((s) => ({ ...s, prepLeadHours: Number(v || 0) }))}
               />
+              <p className="text-[11px] text-mid">Hours of notice required before accepting orders</p>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+          <p className="text-xs text-mid">
+            Customers can pick any hour slot inside this window. Hours use the 24h clock (e.g. 11
+            to 20 means 11:00 to 19:00 last slot).
+          </p>
+        </Section>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Large &amp; event orders</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="space-y-1">
-                <Label htmlFor="lol">Large-order lead time (hours)</Label>
-                <Input
-                  id="lol"
-                  type="number"
-                  min={0}
-                  inputMode="numeric"
-                  placeholder="No special lead"
-                  value={form.largeOrderLeadHours}
-                  onChange={(e) =>
-                    setForm((s) => ({ ...s, largeOrderLeadHours: e.target.value }))
-                  }
-                />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="lot">Tray threshold</Label>
-                <Input
-                  id="lot"
-                  type="number"
-                  min={1}
-                  inputMode="numeric"
-                  placeholder="Trays per order to trigger"
-                  value={form.largeOrderTrayThreshold}
-                  onChange={(e) =>
-                    setForm((s) => ({ ...s, largeOrderTrayThreshold: e.target.value }))
-                  }
-                />
-              </div>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Set both, or leave both blank. Orders meeting the tray threshold will require the
-              long lead time instead of your standard prep lead.
-            </p>
-
-            <div className="flex items-center justify-between rounded-md border border-border bg-background px-3 py-2">
-              <div>
-                <p className="text-sm font-semibold text-foreground">
-                  Event catering needs a manual quote
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Stops event orders being placed instantly. Customers will see a quote-request
-                  flow instead.
-                </p>
-              </div>
-              <Switch
-                checked={form.eventCateringManualQuote}
-                onCheckedChange={(v) =>
-                  setForm((s) => ({ ...s, eventCateringManualQuote: v }))
-                }
+        <Section icon={PackageOpen} title="Daily caps & same-day orders">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="space-y-1">
+              <FieldLabel htmlFor="cap-orders">Max orders per day</FieldLabel>
+              <TextInput
+                id="cap-orders"
+                type="number"
+                min={1}
+                inputMode="numeric"
+                placeholder="No cap"
+                value={form.maxOrdersPerDay}
+                onChange={(v) => setForm((s) => ({ ...s, maxOrdersPerDay: v }))}
               />
+              <p className="text-[11px] text-mid">Leave blank for unlimited</p>
             </div>
-          </CardContent>
-        </Card>
+            <div className="space-y-1">
+              <FieldLabel htmlFor="cap-trays">Max trays per day</FieldLabel>
+              <TextInput
+                id="cap-trays"
+                type="number"
+                min={1}
+                inputMode="numeric"
+                placeholder="No cap"
+                value={form.maxTraysPerDay}
+                onChange={(v) => setForm((s) => ({ ...s, maxTraysPerDay: v }))}
+              />
+              <p className="text-[11px] text-mid">Leave blank for unlimited</p>
+            </div>
+          </div>
 
-        <div className="flex justify-end">
-          <Button type="submit" disabled={saveMutation.isPending}>
-            {saveMutation.isPending ? 'Saving…' : 'Save availability'}
-          </Button>
-        </div>
-      </form>
+          <ToggleRow
+            title="Allow same-day orders"
+            body="Off blocks customers from picking today, even if your lead time would allow it."
+            checked={form.sameDayOrders}
+            onChange={(v) => setForm((s) => ({ ...s, sameDayOrders: v }))}
+          />
+        </Section>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <CalendarX className="h-5 w-5 text-vendor" />
-            Blackout dates
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <form
-            onSubmit={submitBlackout}
-            className="grid grid-cols-1 gap-3 sm:grid-cols-[180px_1fr_auto]"
+        <Section icon={PackageOpen} title="Large & event orders">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="space-y-1">
+              <FieldLabel htmlFor="lol">Large-order lead time (hours)</FieldLabel>
+              <TextInput
+                id="lol"
+                type="number"
+                min={0}
+                inputMode="numeric"
+                placeholder="No special lead"
+                value={form.largeOrderLeadHours}
+                onChange={(v) => setForm((s) => ({ ...s, largeOrderLeadHours: v }))}
+              />
+              <p className="text-[11px] text-mid">Set both, or leave both blank.</p>
+            </div>
+            <div className="space-y-1">
+              <FieldLabel htmlFor="lot">Tray threshold</FieldLabel>
+              <TextInput
+                id="lot"
+                type="number"
+                min={1}
+                inputMode="numeric"
+                placeholder="Trays per order to trigger"
+                value={form.largeOrderTrayThreshold}
+                onChange={(v) => setForm((s) => ({ ...s, largeOrderTrayThreshold: v }))}
+              />
+              <p className="text-[11px] text-mid">Number of trays that classifies an order as large</p>
+            </div>
+          </div>
+
+          <ToggleRow
+            title="Event catering needs a manual quote"
+            body="Stops event orders being placed instantly. Customers will see a quote-request flow instead."
+            checked={form.eventCateringManualQuote}
+            onChange={(v) => setForm((s) => ({ ...s, eventCateringManualQuote: v }))}
+          />
+        </Section>
+
+        <Section icon={CalendarX} title="Blackout dates">
+          {/* Blackout add is a sibling form action that lives inside
+              the outer availability <form> (HTML forbids form
+              nesting). Two consequences this block guards against:
+                1. `required` would trigger native validation on the
+                   outer Save submit, blocking unrelated saves —
+                   instead requirement is enforced in submitBlackout.
+                2. Pressing Enter in either input would otherwise
+                   submit the outer Save form. onKeyDown intercepts
+                   Enter and routes to submitBlackout instead. */}
+          <div
+            className="grid grid-cols-1 gap-3 sm:grid-cols-[180px_1fr_auto] sm:items-end"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                e.stopPropagation();
+                submitBlackout(e);
+              }
+            }}
           >
             <div className="space-y-1">
-              <Label htmlFor="bdate">Date</Label>
-              <Input
+              <FieldLabel htmlFor="bdate">Date</FieldLabel>
+              <TextInput
                 id="bdate"
                 type="date"
                 value={newBlackoutDate}
-                onChange={(e) => setNewBlackoutDate(e.target.value)}
-                required
+                onChange={setNewBlackoutDate}
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="breason">Reason (optional)</Label>
-              <Input
+              <FieldLabel htmlFor="breason">Reason (optional)</FieldLabel>
+              <TextInput
                 id="breason"
                 type="text"
                 maxLength={200}
                 placeholder="e.g. Closed for Eid"
                 value={newBlackoutReason}
-                onChange={(e) => setNewBlackoutReason(e.target.value)}
+                onChange={setNewBlackoutReason}
               />
             </div>
-            <div className="flex items-end">
-              <Button type="submit" disabled={!newBlackoutDate || addBlackout.isPending}>
-                <Plus className="mr-1 h-4 w-4" />
-                {addBlackout.isPending ? 'Adding…' : 'Add'}
-              </Button>
-            </div>
-          </form>
+            <button
+              type="button"
+              onClick={(e) => submitBlackout(e)}
+              disabled={!newBlackoutDate || addBlackout.isPending}
+              className="inline-flex h-10 items-center justify-center gap-1.5 rounded-lg bg-vendor px-3 text-sm font-semibold text-white transition-colors hover:bg-vendor-dark disabled:opacity-60"
+            >
+              <Plus className="h-4 w-4" aria-hidden />
+              {addBlackout.isPending ? 'Adding…' : 'Add'}
+            </button>
+          </div>
 
           {snap && snap.blackoutDates.length === 0 && (
-            <p className="rounded-md border border-dashed border-border bg-background px-3 py-6 text-center text-sm text-muted-foreground">
+            <p className="rounded-lg border border-dashed border-border bg-surface px-3 py-6 text-center text-sm text-mid">
               No blackout dates. Add one above to close the kitchen for a single day.
             </p>
           )}
 
           {snap && snap.blackoutDates.length > 0 && (
-            <ul className="divide-y divide-border rounded-md border border-border">
+            <ul className="divide-y divide-border rounded-lg border border-border bg-white">
               {snap.blackoutDates.map((b) => (
                 <li key={b.id} className="flex items-center justify-between px-3 py-2">
                   <div>
-                    <p className="text-sm font-semibold text-foreground">{formatHumanDate(b.date)}</p>
-                    {b.reason && (
-                      <p className="text-xs text-muted-foreground">{b.reason}</p>
-                    )}
+                    <p className="text-sm font-semibold text-dark">{formatHumanDate(b.date)}</p>
+                    {b.reason && <p className="text-xs text-mid">{b.reason}</p>}
                   </div>
                   <button
                     type="button"
                     onClick={() => removeBlackout.mutate(b.id)}
-                    className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-destructive hover:bg-destructive/10"
+                    className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50"
                     aria-label={`Remove ${b.date}`}
                   >
                     <Trash2 className="h-4 w-4" /> Remove
@@ -503,9 +473,152 @@ export function AvailabilityClient({ initial }: { initial: AvailabilitySnapshot 
               ))}
             </ul>
           )}
-        </CardContent>
-      </Card>
+        </Section>
 
+        <div className="flex justify-end">
+          <button
+            type="submit"
+            disabled={saveMutation.isPending}
+            className="inline-flex h-10 items-center justify-center rounded-lg bg-teal px-5 text-sm font-semibold text-white transition-colors hover:bg-teal-dark disabled:opacity-60"
+          >
+            {saveMutation.isPending ? 'Saving…' : 'Save availability'}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+// ── Local UI primitives ──────────────────────────────────────────────
+// Inline rather than promoted to the shared package because they're
+// only used on this screen and tightly coupled to the section layout.
+
+function Section({
+  icon: Icon,
+  title,
+  children,
+}: {
+  icon: typeof CalendarDays;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="fp-card border border-border bg-white">
+      <header className="flex items-center gap-2 border-b border-border px-4 py-3">
+        <Icon className="h-4 w-4 text-vendor" aria-hidden />
+        <h2 className="text-sm font-bold text-dark">{title}</h2>
+      </header>
+      <div className="space-y-4 p-4">{children}</div>
+    </section>
+  );
+}
+
+function FieldLabel({
+  htmlFor,
+  children,
+}: {
+  htmlFor?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <label htmlFor={htmlFor} className="block text-xs font-semibold text-dark">
+      {children}
+    </label>
+  );
+}
+
+function TextInput({
+  id,
+  type,
+  value,
+  onChange,
+  placeholder,
+  min,
+  max,
+  maxLength,
+  inputMode,
+  required,
+}: {
+  id: string;
+  type: 'text' | 'number' | 'date';
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  min?: number;
+  max?: number;
+  maxLength?: number;
+  inputMode?: 'numeric' | 'text';
+  required?: boolean;
+}) {
+  return (
+    <input
+      id={id}
+      type={type}
+      value={value}
+      min={min}
+      max={max}
+      maxLength={maxLength}
+      inputMode={inputMode}
+      required={required}
+      placeholder={placeholder}
+      onChange={(e) => onChange(e.target.value)}
+      className="h-10 w-full rounded-lg border border-border bg-white px-3 text-sm text-dark placeholder:text-mid focus:border-teal focus:outline-none focus:ring-2 focus:ring-teal/30"
+    />
+  );
+}
+
+function HourField({
+  id,
+  label,
+  min,
+  max,
+  value,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  min: number;
+  max: number;
+  value: number;
+  onChange: (n: number) => void;
+}) {
+  return (
+    <div className="space-y-1">
+      <FieldLabel htmlFor={id}>{label}</FieldLabel>
+      <div className="relative">
+        <input
+          id={id}
+          type="number"
+          min={min}
+          max={max}
+          value={value}
+          onChange={(e) => onChange(Number(e.target.value || 0))}
+          className="h-10 w-full rounded-lg border border-border bg-white pl-3 pr-9 text-sm text-dark focus:border-teal focus:outline-none focus:ring-2 focus:ring-teal/30"
+        />
+        <Clock className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-mid" aria-hidden />
+      </div>
+    </div>
+  );
+}
+
+function ToggleRow({
+  title,
+  body,
+  checked,
+  onChange,
+}: {
+  title: string;
+  body: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-surface px-3 py-2.5">
+      <div className="min-w-0">
+        <p className="text-sm font-semibold text-dark">{title}</p>
+        <p className="text-xs text-mid">{body}</p>
+      </div>
+      <Switch checked={checked} onCheckedChange={onChange} />
     </div>
   );
 }

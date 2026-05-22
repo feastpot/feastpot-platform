@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 
+import { SideNav } from '@/components/layout/side-nav';
 import { TopNav } from '@/components/layout/top-nav';
 import { apiRequest, ApiError } from '@/lib/api/client';
 import { createClient as createServerSupabase } from '@/lib/supabase/server';
@@ -15,10 +16,14 @@ interface VendorMe {
 }
 
 /**
- * Availability & scheduling page (T002). Mirrors the /compliance gate:
- * pending / approved (pre-live) vendors get bounced to onboarding so
- * they finish the wizard first - scheduling is meaningless until the
- * vendor is live or in probation.
+ * Availability & scheduling page. Mirrors the /compliance gate:
+ * pending / approved (pre-live) vendors get bounced to onboarding
+ * so they finish the wizard first — scheduling is meaningless
+ * until the vendor is live or in probation.
+ *
+ * Screen 4 of the vendor redesign — migrated to the SideNav shell
+ * (with TopNav as a md:hidden mobile fallback, matching the
+ * Dashboard / Orders / Menu pattern).
  */
 export default async function AvailabilityPage() {
   const supabase = await createServerSupabase();
@@ -53,10 +58,15 @@ export default async function AvailabilityPage() {
 
   return (
     <>
-      <TopNav businessName={vendor.businessName} />
-      <main className="container py-6">
-        <AvailabilityClient initial={initial} />
-      </main>
+      <div className="md:hidden">
+        <TopNav businessName={vendor.businessName} />
+      </div>
+      <div className="flex min-h-screen bg-surface">
+        <SideNav businessName={vendor.businessName} />
+        <main className="min-w-0 flex-1 px-4 py-6 md:px-6">
+          <AvailabilityClient initial={initial} />
+        </main>
+      </div>
     </>
   );
 }
