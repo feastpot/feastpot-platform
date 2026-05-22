@@ -17,3 +17,9 @@ id = "RV22FpBzAijGIdOG4YTLv"
 uri = "file://docs/QA_DEFECT_REPORT_2026-05-15.md"
 type = "text"
 title = "Feastpot UAT Defect Report — 2026-05-15"
+
+[[outputs]]
+id = "e1lRkPJ63MTirPVjXul7H"
+uri = "file://STATUS.md"
+type = "text"
+title = "FeastPot — Build Status"
