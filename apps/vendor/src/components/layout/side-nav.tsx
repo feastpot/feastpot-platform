@@ -75,15 +75,15 @@ export function SideNav({ businessName }: SideNavProps) {
       aria-label="Vendor portal navigation"
       className="hidden w-60 shrink-0 flex-col border-r border-border bg-white md:flex"
     >
-      <div className="flex h-24 items-center border-b border-border px-5">
+      <div className="flex h-48 items-center border-b border-border px-5">
         <Link href="/" className="flex items-center" aria-label="FeastPot vendor portal">
           <Image
             src="/feastpot-logo.png"
             alt="FeastPot"
-            width={280}
-            height={80}
+            width={560}
+            height={160}
             priority
-            className="h-[72px] w-auto object-contain"
+            className="h-[144px] w-auto object-contain"
           />
         </Link>
       </div>
