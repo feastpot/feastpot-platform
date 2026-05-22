@@ -114,6 +114,7 @@ const ROLE_PERMISSIONS: Record<VendorMemberRole, ReadonlyArray<RegExp>> = {
     /^\/compliance/,
     /^\/notifications/,
     /^\/help/,
+    /^\/user-guide/,
     /^\/settings\/profile/,
   ],
   finance: [
@@ -124,14 +125,16 @@ const ROLE_PERMISSIONS: Record<VendorMemberRole, ReadonlyArray<RegExp>> = {
     /^\/notifications/,
     /^\/settings\/profile/,
     /^\/help/,
+    /^\/user-guide/,
   ],
-  staff: [/^\/$/, /^\/orders/, /^\/notifications/, /^\/help/],
+  staff: [/^\/$/, /^\/orders/, /^\/notifications/, /^\/help/, /^\/user-guide/],
   delivery_coordinator: [
     /^\/$/,
     /^\/orders/,
     /^\/availability/,
     /^\/notifications/,
     /^\/help/,
+    /^\/user-guide/,
   ],
 };
 

@@ -21,6 +21,7 @@ const NAV_ITEMS = [
   { href: '/settings/profile', label: 'Profile' },
   { href: '/settings/team', label: 'Team' },
   { href: '/settings/security', label: 'Security' },
+  { href: '/user-guide', label: 'User Guide' },
   { href: '/help', label: 'Help' },
 ];
 

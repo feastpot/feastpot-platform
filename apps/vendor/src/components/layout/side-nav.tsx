@@ -3,6 +3,7 @@
 import { cn } from '@feastpot/ui';
 import {
   BarChart3,
+  BookOpen,
   Calendar,
   ChevronDown,
   ChevronUp,
@@ -42,6 +43,7 @@ const NAV_ITEMS: ReadonlyArray<NavItem> = [
   { href: '/settings/profile', label: 'Profile', Icon: UserCircle2 },
   { href: '/settings/team', label: 'Team', Icon: UsersRound },
   { href: '/settings/security', label: 'Security', Icon: ShieldCheck },
+  { href: '/user-guide', label: 'User Guide', Icon: BookOpen },
 ];
 
 interface SideNavProps {
