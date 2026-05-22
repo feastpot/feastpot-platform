@@ -95,7 +95,7 @@ const STATE_TEXT: Record<ComplianceState, string> = {
 
 const STATE_BADGE: Record<ComplianceState, string> = {
   not_started: 'border-red-200 bg-red-50 text-red-700',
-  submitted: 'border-vendor-light bg-vendor-light text-vendor-dark',
+  submitted: 'border-teal-light bg-teal-light text-teal-dark',
   approved: 'border-teal/40 bg-teal-light text-teal-dark',
   needs_changes: 'border-red-300 bg-red-50 text-red-700',
   expiring_soon: 'border-amber-300 bg-amber-50 text-amber-700',
@@ -104,7 +104,7 @@ const STATE_BADGE: Record<ComplianceState, string> = {
 
 const STATE_LEFT_BAR: Record<ComplianceState, string> = {
   not_started: 'bg-red-400',
-  submitted: 'bg-vendor',
+  submitted: 'bg-teal',
   approved: 'bg-teal',
   needs_changes: 'bg-red-500',
   expiring_soon: 'bg-amber-500',
@@ -217,7 +217,7 @@ export function DocumentRow({
             <p className="text-sm font-bold text-dark">{label}</p>
             <p className="mt-0.5 text-xs text-mid">{why}</p>
             <details className="mt-1.5 text-xs">
-              <summary className="cursor-pointer select-none font-semibold text-vendor hover:text-vendor-dark">
+              <summary className="cursor-pointer select-none font-semibold text-teal hover:text-teal-dark">
                 What this document must show
               </summary>
               <ul className="mt-1.5 list-disc space-y-0.5 pl-5 text-mid">
@@ -263,7 +263,7 @@ export function DocumentRow({
               type="date"
               value={expiresAt}
               onChange={(e) => setExpiresAt(e.target.value)}
-              className="h-9 w-full rounded-lg border border-border bg-white px-2 text-sm text-dark focus:border-vendor focus:outline-none focus:ring-2 focus:ring-vendor/30"
+              className="h-9 w-full rounded-lg border border-border bg-white px-2 text-sm text-dark focus:border-teal focus:outline-none focus:ring-2 focus:ring-teal/30"
             />
           </div>
           <button

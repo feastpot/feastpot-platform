@@ -119,7 +119,7 @@ export default async function HelpPage() {
         <p className="mb-6 text-sm text-muted-foreground">
           Operational rules and policies for Feastpot vendors. Can&rsquo;t find your answer?
           Email{' '}
-          <a className="font-medium text-vendor-dark underline" href="mailto:vendors@feastpot.co.uk">
+          <a className="font-medium text-teal-dark underline" href="mailto:vendors@feastpot.co.uk">
             vendors@feastpot.co.uk
           </a>
           .
@@ -134,7 +134,7 @@ export default async function HelpPage() {
           <ul className="grid grid-cols-1 gap-1 text-sm sm:grid-cols-2">
             {SECTIONS.map((s) => (
               <li key={s.id}>
-                <a href={`#${s.id}`} className="text-vendor-dark hover:underline">
+                <a href={`#${s.id}`} className="text-teal-dark hover:underline">
                   {s.title}
                 </a>
               </li>

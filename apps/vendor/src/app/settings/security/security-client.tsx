@@ -238,7 +238,7 @@ export function SecurityClient() {
             <div className="flex items-center gap-2.5">
               <span
                 aria-hidden
-                className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-vendor-light text-vendor-dark"
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-teal-light text-teal-dark"
               >
                 <KeyRound className="h-4 w-4" />
               </span>
@@ -346,7 +346,7 @@ export function SecurityClient() {
                 maxLength={6}
                 value={code}
                 onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-                className="mt-2 h-11 w-44 rounded-lg border border-border bg-white px-3 text-center text-lg font-bold tracking-[0.4em] text-dark placeholder:text-mid focus:border-vendor focus:outline-none focus:ring-2 focus:ring-vendor/30"
+                className="mt-2 h-11 w-44 rounded-lg border border-border bg-white px-3 text-center text-lg font-bold tracking-[0.4em] text-dark placeholder:text-mid focus:border-teal focus:outline-none focus:ring-2 focus:ring-teal/30"
                 placeholder="000000"
               />
             </div>

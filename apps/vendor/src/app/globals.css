@@ -8,9 +8,10 @@
  * build - same rationale as apps/web/src/app/globals.css.
  *
  * Vendor portal differs from the customer app in ONE place: the shadcn
- * `--primary` is wired to vendor blue (#185FA5 -> 211 74% 37%) instead of
- * brand orange. Every other token mirrors the customer app so shared shadcn
- * primitives and `@feastpot/ui` components look identical across surfaces.
+ * `--primary` is wired to FeastPot teal-green (#1D9E75 -> 161 70% 37%)
+ * instead of brand orange, matching the green-dominant CTA palette in
+ * the vendor mockups (Add menu item, Invite, Save, etc.). Brand orange
+ * remains reserved for revenue / accept actions on order rows.
  */
 @layer base {
   :root {
@@ -27,21 +28,24 @@
     --card-foreground: 60 4% 11%;
     --popover: 0 0% 100%;
     --popover-foreground: 60 4% 11%;
-    /* Vendor blue is the dominant accent - primary buttons, focus rings,
-       active nav state. Brand orange is reserved for revenue/accept CTAs. */
-    --primary: 211 74% 37%;
+    /* Teal-green is the dominant accent - primary buttons (Add menu item,
+       Invite, Save), focus rings, active nav state. Brand orange is
+       reserved for revenue/accept CTAs on order rows. Vendor blue is
+       kept available via `bg-teal` utilities for the few places that
+       use it (support tile, owner avatar). */
+    --primary: 161 70% 37%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 161 70% 37%;
+    --secondary: 211 74% 37%;
     --secondary-foreground: 0 0% 100%;
     --muted: 40 8% 94%;
     --muted-foreground: 60 4% 41%;
-    --accent: 211 74% 95%;
-    --accent-foreground: 211 74% 23%;
+    --accent: 161 70% 95%;
+    --accent-foreground: 161 70% 22%;
     --destructive: 0 78% 50%;
     --destructive-foreground: 0 0% 100%;
     --border: 40 8% 88%;
     --input: 40 8% 88%;
-    --ring: 211 74% 37%;
+    --ring: 161 70% 37%;
     --radius: 0.625rem;
   }
 

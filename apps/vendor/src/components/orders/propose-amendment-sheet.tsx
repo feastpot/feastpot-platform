@@ -70,7 +70,7 @@ export function ProposeAmendmentSheet({
               maxLength={500}
               rows={3}
               placeholder="e.g. We're 20 minutes late, OR swapping rice for chips"
-              className="block w-full rounded-2xl border border-border bg-white px-3 py-2 text-sm focus:border-vendor focus:outline-none"
+              className="block w-full rounded-2xl border border-border bg-white px-3 py-2 text-sm focus:border-teal focus:outline-none"
             />
             <span className="mt-1 block text-right text-[11px] text-mid">{trimmed.length}/500</span>
           </label>
@@ -85,7 +85,7 @@ export function ProposeAmendmentSheet({
               value={refundPounds}
               onChange={(e) => setRefundPounds(e.target.value)}
               placeholder="0.00"
-              className="block w-full rounded-2xl border border-border bg-white px-3 py-2 text-sm focus:border-vendor focus:outline-none"
+              className="block w-full rounded-2xl border border-border bg-white px-3 py-2 text-sm focus:border-teal focus:outline-none"
             />
             <span className="mt-1 block text-[11px] text-mid">
               Optional partial refund issued automatically if accepted.
@@ -107,7 +107,7 @@ export function ProposeAmendmentSheet({
             type="button"
             disabled={!canSubmit}
             onClick={() => onConfirm(trimmed, -(refundPence ?? 0))}
-            className="flex-[1.6] bg-vendor text-white hover:bg-vendor-dark"
+            className="flex-[1.6] bg-teal text-white hover:bg-teal-dark"
           >
             {busy ? 'Sending…' : 'Send to customer'}
           </Button>

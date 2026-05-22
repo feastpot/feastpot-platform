@@ -98,7 +98,7 @@ export function VendorOrderCard({ order }: Props) {
               {customerFirstName(order)}
             </p>
             {slot && (
-              <p className="text-xs font-semibold text-vendor">{slot}</p>
+              <p className="text-xs font-semibold text-teal">{slot}</p>
             )}
             <p className="mt-0.5 text-[11px] text-mid">#{order.orderNumber}</p>
           </div>
@@ -184,7 +184,7 @@ export function VendorOrderCard({ order }: Props) {
               type="button"
               onClick={() => advance('preparing')}
               disabled={updateStatus.isPending}
-              className="touch-target w-full rounded-2xl bg-vendor text-sm font-bold text-white hover:bg-vendor-dark disabled:opacity-50"
+              className="touch-target w-full rounded-2xl bg-teal text-sm font-bold text-white hover:bg-teal-dark disabled:opacity-50"
             >
               Mark preparing →
             </button>
@@ -194,7 +194,7 @@ export function VendorOrderCard({ order }: Props) {
               type="button"
               onClick={() => setEtaOpen(true)}
               disabled={updateStatus.isPending}
-              className="touch-target w-full rounded-2xl bg-vendor text-sm font-bold text-white hover:bg-vendor-dark disabled:opacity-50"
+              className="touch-target w-full rounded-2xl bg-teal text-sm font-bold text-white hover:bg-teal-dark disabled:opacity-50"
             >
               Mark dispatched →
             </button>
@@ -218,7 +218,7 @@ export function VendorOrderCard({ order }: Props) {
           <div className="flex items-center gap-3">
             <Link
               href={`/orders/${order.id}`}
-              className="text-xs font-semibold text-vendor underline-offset-2 hover:underline"
+              className="text-xs font-semibold text-teal underline-offset-2 hover:underline"
             >
               Open order →
             </Link>
@@ -238,7 +238,7 @@ export function VendorOrderCard({ order }: Props) {
             <button
               type="button"
               onClick={() => setAmendOpen(true)}
-              className="text-xs font-semibold text-vendor underline-offset-2 hover:underline"
+              className="text-xs font-semibold text-teal underline-offset-2 hover:underline"
             >
               Propose a change
             </button>

@@ -37,7 +37,7 @@ export function OperationsTiles({ eventEnquiries, nextPayout, menuHealth }: Prop
   const totalWarnings = menuHealth.missingImages + menuHealth.missingAllergens;
 
   const enquiriesTone = eventEnquiries.pending > 0
-    ? 'border-vendor/40 bg-vendor-light'
+    ? 'border-teal/40 bg-teal-light'
     : 'border-border bg-surface';
   const menuTone = totalWarnings > 0
     ? 'border-amber-300 bg-amber-50'
@@ -51,7 +51,7 @@ export function OperationsTiles({ eventEnquiries, nextPayout, menuHealth }: Prop
       <Tile
         href="/events"
         className={enquiriesTone}
-        icon={<CalendarHeart className="h-5 w-5 text-vendor" aria-hidden />}
+        icon={<CalendarHeart className="h-5 w-5 text-teal" aria-hidden />}
         label="Event enquiries"
         primary={
           eventEnquiries.pending === 0
@@ -154,7 +154,7 @@ function Tile({
     <Link
       href={href}
       className={cn(
-        'fp-card border p-3 transition hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-vendor',
+        'fp-card border p-3 transition hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-teal',
         className,
       )}
     >

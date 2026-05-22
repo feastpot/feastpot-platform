@@ -78,7 +78,7 @@ function ActionTile({
   const tintBg: Record<typeof tint, string> = {
     teal: 'bg-teal-light text-teal',
     brand: 'bg-brand-light text-brand',
-    vendor: 'bg-vendor-light text-vendor',
+    vendor: 'bg-teal-light text-teal',
   };
 
   return (

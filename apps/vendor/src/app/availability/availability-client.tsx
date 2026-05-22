@@ -440,7 +440,7 @@ export function AvailabilityClient({ initial }: { initial: AvailabilitySnapshot 
               type="button"
               onClick={(e) => submitBlackout(e)}
               disabled={!newBlackoutDate || addBlackout.isPending}
-              className="inline-flex h-10 items-center justify-center gap-1.5 rounded-lg bg-vendor px-3 text-sm font-semibold text-white transition-colors hover:bg-vendor-dark disabled:opacity-60"
+              className="inline-flex h-10 items-center justify-center gap-1.5 rounded-lg bg-teal px-3 text-sm font-semibold text-white transition-colors hover:bg-teal-dark disabled:opacity-60"
             >
               <Plus className="h-4 w-4" aria-hidden />
               {addBlackout.isPending ? 'Adding…' : 'Add'}
@@ -505,7 +505,7 @@ function Section({
   return (
     <section className="fp-card border border-border bg-white">
       <header className="flex items-center gap-2 border-b border-border px-4 py-3">
-        <Icon className="h-4 w-4 text-vendor" aria-hidden />
+        <Icon className="h-4 w-4 text-teal" aria-hidden />
         <h2 className="text-sm font-bold text-dark">{title}</h2>
       </header>
       <div className="space-y-4 p-4">{children}</div>

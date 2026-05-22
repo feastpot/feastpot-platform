@@ -60,7 +60,7 @@ const ROLE_BLURB: Record<VendorMemberRole, string> = {
  */
 const ROLE_TONE: Record<VendorMemberRole, string> = {
   owner: 'bg-teal-light text-teal-dark',
-  kitchen_manager: 'bg-vendor-light text-vendor-dark',
+  kitchen_manager: 'bg-teal-light text-teal-dark',
   finance: 'bg-amber-100 text-amber-800',
   staff: 'bg-surface text-mid border border-border',
   delivery_coordinator: 'bg-surface text-mid border border-border',
@@ -78,9 +78,9 @@ interface PermSection {
 
 const ALL_SECTIONS: PermSection[] = [
   { label: 'Dashboard', Icon: LayoutDashboard, path: '/', tone: 'bg-teal-light text-teal-dark' },
-  { label: 'Orders', Icon: ClipboardList, path: '/orders', tone: 'bg-vendor-light text-vendor-dark' },
-  { label: 'Menu', Icon: UtensilsCrossed, path: '/menu', tone: 'bg-vendor-light text-vendor-dark' },
-  { label: 'Availability', Icon: Calendar, path: '/availability', tone: 'bg-vendor-light text-vendor-dark' },
+  { label: 'Orders', Icon: ClipboardList, path: '/orders', tone: 'bg-teal-light text-teal-dark' },
+  { label: 'Menu', Icon: UtensilsCrossed, path: '/menu', tone: 'bg-teal-light text-teal-dark' },
+  { label: 'Availability', Icon: Calendar, path: '/availability', tone: 'bg-teal-light text-teal-dark' },
   { label: 'Analytics', Icon: BarChart3, path: '/analytics', tone: 'bg-amber-100 text-amber-800' },
   { label: 'Payouts', Icon: PoundSterling, path: '/payouts', tone: 'bg-amber-100 text-amber-800' },
   { label: 'Compliance', Icon: FileCheck2, path: '/compliance', tone: 'bg-amber-100 text-amber-800' },
@@ -267,7 +267,7 @@ function InviteCard({
                 placeholder="teamname@example.com"
                 value={email}
                 onChange={(e) => onEmail(e.target.value)}
-                className="mt-1 h-10 w-full rounded-lg border border-border bg-white px-3 text-sm text-dark placeholder:text-mid focus:border-vendor focus:outline-none focus:ring-2 focus:ring-vendor/30"
+                className="mt-1 h-10 w-full rounded-lg border border-border bg-white px-3 text-sm text-dark placeholder:text-mid focus:border-teal focus:outline-none focus:ring-2 focus:ring-teal/30"
               />
             </div>
             <div>
@@ -278,7 +278,7 @@ function InviteCard({
                 id="invite-role"
                 value={role}
                 onChange={(e) => onRole(e.target.value as VendorMemberRole)}
-                className="mt-1 h-10 w-full rounded-lg border border-border bg-white px-2 text-sm text-dark focus:border-vendor focus:outline-none focus:ring-2 focus:ring-vendor/30"
+                className="mt-1 h-10 w-full rounded-lg border border-border bg-white px-2 text-sm text-dark focus:border-teal focus:outline-none focus:ring-2 focus:ring-teal/30"
               >
                 {INVITABLE_ROLES.map((r) => (
                   <option key={r} value={r}>
@@ -354,7 +354,7 @@ function MemberRow({
       <div className="flex items-center gap-3 min-w-0">
         <span
           aria-hidden
-          className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-vendor-light text-sm font-bold text-vendor-dark"
+          className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-teal-light text-sm font-bold text-teal-dark"
         >
           {initials}
         </span>
@@ -415,7 +415,7 @@ function MemberRow({
             aria-label={`Role for ${member.invitedEmail}`}
             value={member.role}
             onChange={(e) => onRoleChange(e.target.value as VendorMemberRole)}
-            className="h-9 rounded-lg border border-border bg-white px-2 text-xs text-dark focus:border-vendor focus:outline-none focus:ring-2 focus:ring-vendor/30"
+            className="h-9 rounded-lg border border-border bg-white px-2 text-xs text-dark focus:border-teal focus:outline-none focus:ring-2 focus:ring-teal/30"
           >
             {INVITABLE_ROLES.map((r) => (
               <option key={r} value={r}>

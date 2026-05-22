@@ -222,7 +222,7 @@ function StatusBanner({
         ? 'border-red-200 bg-red-50'
         : tone === 'attention'
           ? 'border-amber-200 bg-amber-50'
-          : 'border-vendor-light bg-vendor-light/40';
+          : 'border-teal-light bg-teal-light/40';
   const iconClass =
     tone === 'good'
       ? 'text-teal'
@@ -230,7 +230,7 @@ function StatusBanner({
         ? 'text-red-600'
         : tone === 'attention'
           ? 'text-amber-600'
-          : 'text-vendor';
+          : 'text-teal';
   const pctClass =
     tone === 'good'
       ? 'text-teal-dark'
@@ -238,7 +238,7 @@ function StatusBanner({
         ? 'text-red-700'
         : tone === 'attention'
           ? 'text-amber-700'
-          : 'text-vendor-dark';
+          : 'text-teal-dark';
   const barFill =
     tone === 'good'
       ? 'bg-teal'
@@ -246,7 +246,7 @@ function StatusBanner({
         ? 'bg-red-500'
         : tone === 'attention'
           ? 'bg-amber-500'
-          : 'bg-vendor';
+          : 'bg-teal';
   const Icon = tone === 'good' ? ShieldCheck : AlertTriangle;
 
   return (

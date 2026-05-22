@@ -60,7 +60,7 @@ export function NeedsClarificationSheet({
             maxLength={500}
             rows={4}
             placeholder="e.g. We are out of jollof rice. Would basmati work, or shall we refund?"
-            className="w-full rounded-2xl border border-border bg-white px-3 py-2 text-sm placeholder:text-mid focus:border-vendor focus:outline-none focus:ring-2 focus:ring-vendor/20"
+            className="w-full rounded-2xl border border-border bg-white px-3 py-2 text-sm placeholder:text-mid focus:border-teal focus:outline-none focus:ring-2 focus:ring-teal/20"
             autoFocus
           />
           <p className="mt-1 text-right text-[11px] text-mid">{text.length}/500</p>
@@ -76,7 +76,7 @@ export function NeedsClarificationSheet({
             Cancel
           </Button>
           <Button
-            className="flex-1 bg-vendor text-white hover:bg-vendor-dark"
+            className="flex-1 bg-teal text-white hover:bg-teal-dark"
             disabled={!canConfirm}
             onClick={() => onConfirm(trimmed)}
           >

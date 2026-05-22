@@ -108,7 +108,7 @@ export function NotificationsClient() {
             <span
               className={cn(
                 'ml-1.5 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1 text-[10px] font-bold tabular-nums',
-                unreadOnly ? 'bg-white text-vendor-dark' : 'bg-vendor text-white',
+                unreadOnly ? 'bg-white text-teal-dark' : 'bg-teal text-white',
               )}
             >
               {unreadCount}
@@ -180,7 +180,7 @@ function TabPill({
       className={cn(
         'inline-flex h-8 items-center rounded-full px-3 text-xs font-semibold transition-colors',
         active
-          ? 'bg-vendor text-white shadow-sm'
+          ? 'bg-teal text-white shadow-sm'
           : 'bg-white text-dark border border-border hover:bg-surface',
       )}
     >
@@ -273,20 +273,20 @@ function metaForType(type: string): TypeMeta {
     return {
       Icon: Star,
       pill: 'Review',
-      bar: 'bg-vendor',
-      tile: 'bg-vendor-light',
-      iconFg: 'text-vendor-dark',
-      badge: 'bg-vendor-light text-vendor-dark',
+      bar: 'bg-teal',
+      tile: 'bg-teal-light',
+      iconFg: 'text-teal-dark',
+      badge: 'bg-teal-light text-teal-dark',
     };
   }
   if (type.startsWith('support_')) {
     return {
       Icon: MessageSquare,
       pill: 'Support',
-      bar: 'bg-vendor',
-      tile: 'bg-vendor-light',
-      iconFg: 'text-vendor-dark',
-      badge: 'bg-vendor-light text-vendor-dark',
+      bar: 'bg-teal',
+      tile: 'bg-teal-light',
+      iconFg: 'text-teal-dark',
+      badge: 'bg-teal-light text-teal-dark',
     };
   }
   return {

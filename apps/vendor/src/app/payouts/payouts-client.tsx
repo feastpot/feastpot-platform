@@ -274,7 +274,7 @@ function StatusBadge({ status }: { status: PayoutStatus }) {
       className={cn(
         'inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold',
         pill.tone === 'paid' && 'bg-teal-light text-teal-dark',
-        pill.tone === 'processing' && 'bg-vendor-light text-vendor-dark',
+        pill.tone === 'processing' && 'bg-teal-light text-teal-dark',
         pill.tone === 'pending' && 'bg-amber-50 text-amber-700',
         pill.tone === 'failed' && 'bg-red-50 text-red-700',
       )}

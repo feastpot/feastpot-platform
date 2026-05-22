@@ -674,7 +674,7 @@ export function ItemEditorClient({
             type="submit"
             form="item-editor-form"
             disabled={!canSubmit || create.isPending || update.isPending}
-            className="bg-vendor px-6 font-bold text-white hover:bg-vendor-dark"
+            className="bg-teal px-6 font-bold text-white hover:bg-teal-dark"
           >
             {create.isPending || update.isPending
               ? 'Saving…'

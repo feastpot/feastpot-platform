@@ -68,7 +68,7 @@ export function DispatchEtaSheet({
               className={cn(
                 'touch-target rounded-2xl border text-sm font-semibold transition',
                 picked === m
-                  ? 'border-vendor bg-vendor text-white'
+                  ? 'border-teal bg-teal text-white'
                   : 'border-border bg-white text-dark hover:bg-surface',
               )}
             >
@@ -84,7 +84,7 @@ export function DispatchEtaSheet({
             className={cn(
               'flex w-full items-center justify-between rounded-2xl border px-3 py-2 text-sm font-medium',
               picked === 'custom'
-                ? 'border-vendor bg-vendor/5 text-vendor'
+                ? 'border-teal bg-teal/5 text-teal'
                 : 'border-border bg-white text-dark hover:bg-surface',
             )}
           >
@@ -100,7 +100,7 @@ export function DispatchEtaSheet({
               value={customText}
               onChange={(e) => setCustomText(e.target.value)}
               placeholder="e.g. 25"
-              className="block w-full rounded-2xl border border-border bg-white px-3 py-2 text-sm focus:border-vendor focus:outline-none"
+              className="block w-full rounded-2xl border border-border bg-white px-3 py-2 text-sm focus:border-teal focus:outline-none"
             />
           )}
         </div>
@@ -122,7 +122,7 @@ export function DispatchEtaSheet({
               const eta = picked === 'custom' ? customMinutes : (picked as number);
               onConfirm(eta);
             }}
-            className="flex-[1.6] bg-vendor text-white hover:bg-vendor-dark"
+            className="flex-[1.6] bg-teal text-white hover:bg-teal-dark"
           >
             {busy ? 'Dispatching…' : 'Dispatch'}
           </Button>

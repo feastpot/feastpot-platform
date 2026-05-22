@@ -50,7 +50,7 @@ export function AtAGlance({ eventEnquiries, nextPayout, menuHealth }: Props) {
         <Row
           href="/events"
           tint="vendor"
-          icon={<MessageSquare className="h-[18px] w-[18px] text-vendor" aria-hidden />}
+          icon={<MessageSquare className="h-[18px] w-[18px] text-teal" aria-hidden />}
           label="Event enquiries"
           primary={
             eventEnquiries.pending === 0
@@ -147,7 +147,7 @@ function Row({
   secondary: string;
 }) {
   const tintBg: Record<typeof tint, string> = {
-    vendor: 'bg-vendor-light',
+    vendor: 'bg-teal-light',
     brand: 'bg-brand-light',
     amber: 'bg-amber-50',
     surface: 'bg-surface',

@@ -280,7 +280,7 @@ export function ProfileForm() {
                 onChange={(e) => setForm((s) => ({ ...s, description: e.target.value }))}
                 placeholder="Authentic Nigerian and Caribbean home cooking from Peckham. Family recipes, party trays, and frozen packs for the week."
                 rows={3}
-                className="resize-none rounded-lg border-border bg-white text-sm text-dark focus-visible:ring-vendor/30"
+                className="resize-none rounded-lg border-border bg-white text-sm text-dark focus-visible:ring-teal/30"
               />
             </Field>
           </Section>
@@ -301,7 +301,7 @@ export function ProfileForm() {
                 rows={8}
                 onChange={(e) => setForm((s) => ({ ...s, vendorStory: e.target.value }))}
                 placeholder="Where the recipes come from, who cooks, what makes your kitchen special."
-                className="resize-none rounded-lg border-border bg-white text-sm text-dark focus-visible:ring-vendor/30"
+                className="resize-none rounded-lg border-border bg-white text-sm text-dark focus-visible:ring-teal/30"
               />
               <Hint>Rendered as a long-form section below your short description.</Hint>
             </Field>
@@ -359,19 +359,19 @@ export function ProfileForm() {
         </div>
       </Section>
 
-      <div className="fp-card flex items-start gap-3 border border-vendor-light bg-vendor-light/30 px-4 py-3 text-xs text-dark">
-        <Info className="mt-0.5 h-4 w-4 shrink-0 text-vendor" aria-hidden />
+      <div className="fp-card flex items-start gap-3 border border-teal-light bg-teal-light/30 px-4 py-3 text-xs text-dark">
+        <Info className="mt-0.5 h-4 w-4 shrink-0 text-teal" aria-hidden />
         <p>
           Service area, delivery radius, fees and minimum order live on the{' '}
           <a
-            className="font-semibold text-vendor underline-offset-2 hover:underline"
+            className="font-semibold text-teal underline-offset-2 hover:underline"
             href="/settings/delivery"
           >
             Delivery
           </a>{' '}
           page. Opening days, prep lead time and daily caps live on the{' '}
           <a
-            className="font-semibold text-vendor underline-offset-2 hover:underline"
+            className="font-semibold text-teal underline-offset-2 hover:underline"
             href="/availability"
           >
             Availability
@@ -384,7 +384,7 @@ export function ProfileForm() {
         <button
           type="submit"
           disabled={update.isPending}
-          className="inline-flex h-10 items-center justify-center rounded-lg bg-vendor px-5 text-sm font-semibold text-white transition-colors hover:bg-vendor-dark disabled:opacity-60"
+          className="inline-flex h-10 items-center justify-center rounded-lg bg-teal px-5 text-sm font-semibold text-white transition-colors hover:bg-teal-dark disabled:opacity-60"
         >
           {update.isPending ? 'Saving…' : 'Save profile'}
         </button>
@@ -491,7 +491,7 @@ function TextInput({
       maxLength={maxLength}
       inputMode={inputMode}
       onChange={(e) => onChange(e.target.value)}
-      className="h-10 w-full rounded-lg border border-border bg-white px-3 text-sm text-dark placeholder:text-mid focus:border-vendor focus:outline-none focus:ring-2 focus:ring-vendor/30"
+      className="h-10 w-full rounded-lg border border-border bg-white px-3 text-sm text-dark placeholder:text-mid focus:border-teal focus:outline-none focus:ring-2 focus:ring-teal/30"
     />
   );
 }

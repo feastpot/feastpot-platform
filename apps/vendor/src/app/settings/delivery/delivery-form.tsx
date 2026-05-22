@@ -228,7 +228,7 @@ export function DeliveryForm() {
           </div>
           <p className="text-xs text-muted-foreground">
             Opening days, slot windows, prep lead time and daily caps live on the{' '}
-            <a className="font-semibold text-vendor underline-offset-2 hover:underline" href="/availability">
+            <a className="font-semibold text-teal underline-offset-2 hover:underline" href="/availability">
               Availability
             </a>{' '}
             page.

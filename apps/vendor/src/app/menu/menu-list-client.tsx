@@ -86,7 +86,7 @@ export function MenuListClient({ vendorId }: { vendorId: string }) {
           <h1 className="text-2xl font-extrabold tracking-tight text-dark">Menus</h1>
           <p className="mt-1 text-sm text-mid">Group your dishes into menus customers can browse.</p>
         </div>
-        <Button onClick={() => setCreateOpen(true)} className="gap-2 bg-vendor hover:bg-vendor-dark">
+        <Button onClick={() => setCreateOpen(true)} className="gap-2 bg-teal hover:bg-teal-dark">
           <Plus className="h-4 w-4" /> Add menu
         </Button>
       </header>
@@ -150,7 +150,7 @@ export function MenuListClient({ vendorId }: { vendorId: string }) {
             <div className="fp-card border border-border bg-white p-10 text-center">
               <p className="text-base font-semibold text-dark">You don&apos;t have any menus yet</p>
               <p className="mt-1 text-xs text-mid">Group your dishes into menus customers can browse.</p>
-              <Button onClick={() => setCreateOpen(true)} className="mt-4 gap-2 bg-vendor hover:bg-vendor-dark">
+              <Button onClick={() => setCreateOpen(true)} className="mt-4 gap-2 bg-teal hover:bg-teal-dark">
                 <Plus className="h-4 w-4" /> Create your first menu
               </Button>
             </div>
@@ -267,7 +267,7 @@ function MenuRow({
             variant="ghost"
             size="sm"
             onClick={onEdit}
-            className="gap-1.5 text-vendor hover:bg-vendor-light/40 hover:text-vendor-dark"
+            className="gap-1.5 text-teal hover:bg-teal-light/40 hover:text-teal-dark"
           >
             <Pencil className="h-3.5 w-3.5" /> Rename
           </Button>

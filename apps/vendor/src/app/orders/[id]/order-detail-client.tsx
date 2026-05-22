@@ -52,11 +52,11 @@ const STATUS_LABELS: Record<VendorOrderStatus, string> = {
 function StatusBadge({ status }: BadgeProps) {
   const tone: Record<VendorOrderStatus, string> = {
     pending: 'bg-amber-100 text-amber-900',
-    accepted: 'bg-vendor/10 text-vendor',
+    accepted: 'bg-teal/10 text-teal',
     needs_clarification: 'bg-amber-100 text-amber-900',
-    preparing: 'bg-vendor/10 text-vendor',
+    preparing: 'bg-teal/10 text-teal',
     ready: 'bg-teal/10 text-teal-dark',
-    dispatched: 'bg-vendor/10 text-vendor',
+    dispatched: 'bg-teal/10 text-teal',
     delivered: 'bg-emerald-100 text-emerald-800',
     cancelled: 'bg-mid/10 text-mid',
     rejected: 'bg-red-100 text-red-700',
@@ -147,7 +147,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
         </p>
         <Link
           href="/orders"
-          className="mt-3 inline-block text-sm font-semibold text-vendor underline-offset-2 hover:underline"
+          className="mt-3 inline-block text-sm font-semibold text-teal underline-offset-2 hover:underline"
         >
           Back to orders
         </Link>
@@ -170,7 +170,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
       <div className="flex items-center justify-between print:hidden">
         <Link
           href="/orders"
-          className="text-sm font-semibold text-vendor underline-offset-2 hover:underline"
+          className="text-sm font-semibold text-teal underline-offset-2 hover:underline"
         >
           ← Back to orders
         </Link>
@@ -208,7 +208,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
             <p className="text-xs uppercase tracking-wide text-mid">Order</p>
             <h1 className="text-2xl font-bold text-dark">#{order.orderNumber}</h1>
             {slot && (
-              <p className="mt-1 text-sm font-semibold text-vendor">{slot}</p>
+              <p className="mt-1 text-sm font-semibold text-teal">{slot}</p>
             )}
             <p className="text-xs text-mid">
               Placed {format(new Date(order.createdAt), 'EEE d MMM, HH:mm')}
@@ -217,7 +217,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
           <StatusBadge status={order.status} />
         </div>
         {order.type !== 'standard' && (
-          <p className="text-xs font-semibold uppercase tracking-wide text-vendor">
+          <p className="text-xs font-semibold uppercase tracking-wide text-teal">
             {order.type === 'event' ? 'Event order' : 'Subscription order'}
           </p>
         )}
@@ -365,7 +365,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
               <p className="mt-1 text-sm">
                 <a
                   href={`tel:${order.customer.phone}`}
-                  className="text-vendor underline-offset-2 hover:underline"
+                  className="text-teal underline-offset-2 hover:underline"
                 >
                   {order.customer.phone}
                 </a>
@@ -375,7 +375,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
               <p className="mt-1 text-sm">
                 <a
                   href={`mailto:${order.customer.email}`}
-                  className="text-vendor underline-offset-2 hover:underline"
+                  className="text-teal underline-offset-2 hover:underline"
                 >
                   {order.customer.email}
                 </a>
@@ -389,7 +389,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
             <p className="mt-2 text-xs uppercase tracking-wide text-mid">
               {order.deliveryType.replace(/_/g, ' ')}
             </p>
-            {slot && <p className="mt-1 text-sm font-semibold text-vendor">{slot}</p>}
+            {slot && <p className="mt-1 text-sm font-semibold text-teal">{slot}</p>}
             {order.address ? (
               <address className="mt-2 not-italic text-sm text-dark">
                 {order.address.line1}
@@ -482,7 +482,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
                 type="button"
                 onClick={() => advance('preparing')}
                 disabled={updateStatus.isPending}
-                className="touch-target rounded-2xl bg-vendor px-5 text-sm font-bold text-white hover:bg-vendor-dark disabled:opacity-50"
+                className="touch-target rounded-2xl bg-teal px-5 text-sm font-bold text-white hover:bg-teal-dark disabled:opacity-50"
               >
                 Mark preparing
               </button>
@@ -511,7 +511,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
                 type="button"
                 onClick={() => setEtaOpen(true)}
                 disabled={updateStatus.isPending}
-                className="touch-target rounded-2xl bg-vendor px-5 text-sm font-bold text-white hover:bg-vendor-dark disabled:opacity-50"
+                className="touch-target rounded-2xl bg-teal px-5 text-sm font-bold text-white hover:bg-teal-dark disabled:opacity-50"
               >
                 Mark dispatched
               </button>
@@ -524,7 +524,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
                 type="button"
                 onClick={() => setEtaOpen(true)}
                 disabled={updateStatus.isPending}
-                className="touch-target rounded-2xl bg-vendor px-5 text-sm font-bold text-white hover:bg-vendor-dark disabled:opacity-50"
+                className="touch-target rounded-2xl bg-teal px-5 text-sm font-bold text-white hover:bg-teal-dark disabled:opacity-50"
               >
                 Mark dispatched
               </button>
@@ -555,7 +555,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
               type="button"
               onClick={() => setAmendOpen(true)}
               disabled={proposeAmendment.isPending}
-              className="touch-target rounded-2xl border border-border bg-white px-5 text-sm font-semibold text-vendor hover:bg-surface"
+              className="touch-target rounded-2xl border border-border bg-white px-5 text-sm font-semibold text-teal hover:bg-surface"
             >
               Suggest a change
             </button>

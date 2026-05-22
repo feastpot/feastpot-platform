@@ -31,7 +31,7 @@ const SUMMARY_ROWS: Array<{ status: VendorOrderStatus; label: string; tone: 'pen
 const DOT_TONE: Record<'pending' | 'preparing' | 'dispatched' | 'delivered', string> = {
   pending: 'bg-brand',
   preparing: 'bg-amber-500',
-  dispatched: 'bg-vendor',
+  dispatched: 'bg-teal',
   delivered: 'bg-teal',
 };
 
@@ -181,12 +181,12 @@ function FilterRow({
         className={cn(
           'flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm transition-colors',
           active
-            ? 'bg-vendor-light text-vendor-dark'
+            ? 'bg-teal-light text-teal-dark'
             : 'text-mid hover:bg-surface hover:text-dark',
         )}
       >
         <span className="flex min-w-0 items-center gap-2">
-          <Icon className={cn('h-3.5 w-3.5 shrink-0', active ? 'text-vendor' : 'text-mid')} aria-hidden />
+          <Icon className={cn('h-3.5 w-3.5 shrink-0', active ? 'text-teal' : 'text-mid')} aria-hidden />
           <span className="truncate">{label}</span>
         </span>
         <span className="text-xs font-semibold tabular-nums">{count}</span>

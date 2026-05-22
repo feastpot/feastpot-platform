@@ -102,7 +102,7 @@ export function StatCard({
   const tileTone: Record<NonNullable<StatCardProps['color']>, string> = {
     brand: 'bg-brand-light text-brand',
     teal: 'bg-teal-light text-teal',
-    vendor: 'bg-vendor-light text-vendor',
+    vendor: 'bg-teal-light text-teal',
     amber: 'bg-amber-50 text-amber-600',
   };
 

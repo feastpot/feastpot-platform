@@ -17,6 +17,7 @@ import {
   UsersRound,
   UtensilsCrossed,
 } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -74,14 +75,17 @@ export function SideNav({ businessName }: SideNavProps) {
       aria-label="Vendor portal navigation"
       className="hidden w-60 shrink-0 flex-col border-r border-border bg-white md:flex"
     >
-      <div className="flex h-16 items-center gap-2 border-b border-border px-5">
-        <span
-          aria-hidden
-          className="grid h-8 w-8 place-items-center rounded-md bg-brand text-xs font-black text-white"
-        >
-          FP
-        </span>
-        <span className="text-base font-extrabold tracking-tight text-dark">FeastPot</span>
+      <div className="flex h-16 items-center border-b border-border px-5">
+        <Link href="/" className="flex items-center" aria-label="FeastPot vendor portal">
+          <Image
+            src="/feastpot-logo.png"
+            alt="FeastPot"
+            width={140}
+            height={40}
+            priority
+            className="h-9 w-auto object-contain"
+          />
+        </Link>
       </div>
 
       <div className="px-3 py-3">
@@ -158,7 +162,7 @@ function SupportCard() {
       <div className="flex items-center gap-2.5">
         <span
           aria-hidden
-          className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-vendor-light text-vendor"
+          className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-teal-light text-teal"
         >
           <Headphones className="h-4 w-4" />
         </span>
@@ -209,7 +213,7 @@ function OwnerProfilePill({ onSignOut }: { onSignOut: () => void }) {
       >
         <span
           aria-hidden
-          className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-vendor text-xs font-bold text-white"
+          className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-teal text-xs font-bold text-white"
         >
           {initials}
         </span>

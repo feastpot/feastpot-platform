@@ -75,7 +75,7 @@ export function OrdersDueToday({ orders }: { orders: DashboardOrderDue[] }) {
             className="flex items-center justify-between gap-3 p-3 transition hover:bg-surface"
           >
             <div className="flex min-w-0 items-center gap-3">
-              <div className="flex h-10 w-10 flex-none items-center justify-center rounded-full bg-vendor-light text-vendor">
+              <div className="flex h-10 w-10 flex-none items-center justify-center rounded-full bg-teal-light text-teal">
                 {o.deliveryType === 'delivery' ? (
                   <Bike className="h-5 w-5" aria-hidden />
                 ) : (

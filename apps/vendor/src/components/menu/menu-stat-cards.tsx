@@ -75,7 +75,7 @@ const TONES: Record<'teal' | 'amber' | 'brand' | 'vendor', { iconBg: string; ico
   teal: { iconBg: 'bg-teal-light', iconFg: 'text-teal' },
   amber: { iconBg: 'bg-amber-100', iconFg: 'text-amber-600' },
   brand: { iconBg: 'bg-brand/10', iconFg: 'text-brand' },
-  vendor: { iconBg: 'bg-vendor-light', iconFg: 'text-vendor' },
+  vendor: { iconBg: 'bg-teal-light', iconFg: 'text-teal' },
 };
 
 function StatCard({
