@@ -1,6 +1,5 @@
 'use client';
 
-import { Button } from '@feastpot/ui';
 import { Download, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -48,19 +47,19 @@ export function DownloadCsvButton() {
 
   return (
     <div className="flex flex-col items-end gap-1">
-      <Button
-        variant="outline"
-        className="gap-2"
+      <button
+        type="button"
         onClick={handleClick}
         disabled={busy || !token}
+        className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-border bg-white px-3 text-xs font-semibold text-dark transition-colors hover:bg-surface disabled:opacity-60"
       >
         {busy ? (
-          <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+          <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
         ) : (
-          <Download className="h-4 w-4" aria-hidden />
+          <Download className="h-3.5 w-3.5" aria-hidden />
         )}
         {busy ? 'Preparing…' : 'Download statement'}
-      </Button>
+      </button>
       {error && <p className="text-xs text-red-600">{error}</p>}
     </div>
   );
