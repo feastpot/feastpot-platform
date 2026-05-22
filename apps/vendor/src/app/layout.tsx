@@ -3,6 +3,7 @@ import { SpeedInsights } from '@vercel/speed-insights/next';
 import type { Metadata, Viewport } from 'next';
 
 import { Toaster } from '@/components/ui/toaster';
+import { AuthProvider } from '@/lib/auth/auth-provider';
 import { QueryProvider } from '@/providers/query-provider';
 
 import './globals.css';
@@ -23,7 +24,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body className="min-h-screen bg-background font-sans antialiased">
         <QueryProvider>
-          <Toaster>{children}</Toaster>
+          <AuthProvider>
+            <Toaster>{children}</Toaster>
+          </AuthProvider>
         </QueryProvider>
         {/* Vercel Analytics + Web Vitals (free on Hobby). No-op outside the
             Vercel runtime so local dev is unaffected. */}

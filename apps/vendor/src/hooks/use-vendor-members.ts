@@ -53,7 +53,11 @@ export function useMyVendorRole() {
         '/vendor/members/me/role',
         { accessToken: token! },
       ),
-    staleTime: 60_000,
+    // Role changes are rare and the auth-state listener will invalidate
+    // (via a refresh) on sign-in/out. Treat as session-stable so we
+    // don't refetch on every page navigation.
+    staleTime: Infinity,
+    gcTime: Infinity,
   });
 }
 

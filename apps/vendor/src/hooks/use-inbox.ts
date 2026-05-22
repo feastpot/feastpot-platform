@@ -48,7 +48,10 @@ export function useInboxUnreadCount() {
     enabled: !!token && !loading,
     queryFn: () => apiRequest<{ count: number }>('/inbox/unread-count', { accessToken: token! }),
     refetchInterval: 60_000,
-    staleTime: 30_000,
+    // Align staleTime with the poll interval so a fresh component
+    // mount within the polling window doesn't trigger an extra fetch
+    // on top of the already-scheduled refetch.
+    staleTime: 60_000,
   });
 }
 
