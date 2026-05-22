@@ -73,16 +73,16 @@ export function TopNav({ businessName }: { businessName?: string }) {
 
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
-      <div className="container flex h-14 items-center justify-between gap-4">
+      <div className="container flex h-20 items-center justify-between gap-4">
         <div className="flex items-center gap-6">
           <Link href="/" className="flex items-center gap-3 font-semibold" aria-label="FeastPot vendor portal">
             <Image
               src="/feastpot-logo.png"
               alt="FeastPot"
-              width={120}
-              height={32}
+              width={240}
+              height={64}
               priority
-              className="h-7 w-auto object-contain"
+              className="h-14 w-auto object-contain"
             />
             {businessName && (
               <span className="hidden text-sm text-muted-foreground sm:inline">· {businessName}</span>
