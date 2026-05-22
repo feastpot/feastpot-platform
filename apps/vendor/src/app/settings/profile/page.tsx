@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 
+import { SideNav } from '@/components/layout/side-nav';
 import { TopNav } from '@/components/layout/top-nav';
 import { apiRequest, ApiError } from '@/lib/api/client';
 import { createClient as createServerSupabase } from '@/lib/supabase/server';
@@ -11,6 +12,11 @@ export const dynamic = 'force-dynamic';
 
 interface VendorMe { id: string; businessName: string; status: string }
 
+/**
+ * Business profile page. Screen 5 of the vendor redesign — migrated
+ * to the SideNav shell (with TopNav as a md:hidden mobile fallback),
+ * matching the Dashboard / Orders / Menu / Availability pattern.
+ */
 export default async function ProfileSettingsPage() {
   const supabase = await createServerSupabase();
   const { data: { session } } = await supabase.auth.getSession();
@@ -30,10 +36,15 @@ export default async function ProfileSettingsPage() {
 
   return (
     <>
-      <TopNav businessName={vendor.businessName} />
-      <main className="container py-6">
-        <ProfileForm />
-      </main>
+      <div className="md:hidden">
+        <TopNav businessName={vendor.businessName} />
+      </div>
+      <div className="flex min-h-screen bg-surface">
+        <SideNav businessName={vendor.businessName} />
+        <main className="min-w-0 flex-1 px-4 py-6 md:px-6">
+          <ProfileForm />
+        </main>
+      </div>
     </>
   );
 }
