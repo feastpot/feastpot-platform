@@ -88,7 +88,7 @@ export function AnalyticsClient() {
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          icon="💰"
+          iconKey="revenue"
           label="Revenue this week"
           value={Math.round(revenuePounds)}
           prefix="£"
@@ -96,26 +96,26 @@ export function AnalyticsClient() {
           change={revenueDelta}
         />
         <StatCard
-          icon="📦"
+          iconKey="orders"
           label="Orders this week"
           value={ordersThisWeek}
           color="teal"
           change={ordersDelta}
         />
         <StatCard
-          icon="🧾"
+          iconKey="revenue"
           label="Avg basket size"
           value={Math.round(aov / 100)}
           prefix="£"
           color="vendor"
         />
         <StatCard
-          icon="🔁"
+          iconKey="pending"
           label="Return rate"
           // Render the percent as an integer count-up plus the % suffix.
           value={Math.round(reorderPct)}
           suffix="%"
-          color="gray"
+          color="amber"
         />
       </div>
 

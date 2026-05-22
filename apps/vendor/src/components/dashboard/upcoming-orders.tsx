@@ -1,7 +1,7 @@
 'use client';
 
 import { Card, CardContent } from '@feastpot/ui';
-import { CalendarDays } from 'lucide-react';
+import { CalendarDays, ClipboardCheck } from 'lucide-react';
 import Link from 'next/link';
 
 import type { DashboardUpcomingOrder } from '@/hooks/use-vendor-dashboard';
@@ -29,22 +29,34 @@ function formatMoney(pence: number): string {
 
 /**
  * Forward-looking panel: next 7 days, excluding today (today lives in
- * OrdersDueToday). Helps a vendor plan prep without having to open the
- * orders board.
+ * OrdersDueToday). Helps a vendor plan prep without having to open
+ * the orders board. Empty state mirrors `OrdersDueToday` so the two
+ * stacked cards read as a pair on the mockup.
  */
 export function UpcomingOrders({ orders }: { orders: DashboardUpcomingOrder[] }) {
   if (orders.length === 0) {
     return (
-      <Card className="border-dashed">
-        <CardContent className="py-6 text-center">
-          <p className="text-sm text-mid">Nothing booked for the week ahead.</p>
+      <Card className="border border-border bg-white">
+        <CardContent className="flex flex-col items-center justify-center gap-3 py-10 text-center">
+          <span
+            aria-hidden
+            className="grid h-16 w-16 place-items-center rounded-full bg-teal-light text-teal"
+          >
+            <ClipboardCheck className="h-7 w-7" />
+          </span>
+          <div>
+            <p className="text-sm font-semibold text-dark">
+              Nothing booked for the week ahead.
+            </p>
+            <p className="mt-1 text-xs text-mid">You&rsquo;re all clear!</p>
+          </div>
         </CardContent>
       </Card>
     );
   }
 
   return (
-    <Card>
+    <Card className="border border-border bg-white">
       <CardContent className="divide-y divide-border p-0">
         {orders.map((o) => (
           <Link

@@ -1,7 +1,7 @@
 'use client';
 
 import { Card, CardContent } from '@feastpot/ui';
-import { Bike, Clock, Package } from 'lucide-react';
+import { Bike, CalendarCheck2, Clock, Package } from 'lucide-react';
 import Link from 'next/link';
 
 import type { DashboardOrderDue } from '@/hooks/use-vendor-dashboard';
@@ -37,25 +37,36 @@ function statusLabel(status: string): string {
 
 /**
  * Compact "orders due today" panel: scheduled-for window in the next
- * 24h, status badge, customer + delivery type at a glance. Empty state
- * is intentionally cheerful so a quiet morning doesn't read as a bug.
+ * 24h, status badge, customer + delivery type at a glance. Empty
+ * state matches the dashboard mockup — a soft circle holding a
+ * calendar-check icon, with cheerful explanatory copy below.
  */
 export function OrdersDueToday({ orders }: { orders: DashboardOrderDue[] }) {
   if (orders.length === 0) {
     return (
-      <Card className="border-dashed">
-        <CardContent className="py-6 text-center">
-          <p className="text-sm text-mid">No orders scheduled for today.</p>
-          <p className="mt-1 text-xs text-mid">
-            New orders will appear here as soon as they come in.
-          </p>
+      <Card className="border border-border bg-white">
+        <CardContent className="flex flex-col items-center justify-center gap-3 py-10 text-center">
+          <span
+            aria-hidden
+            className="grid h-16 w-16 place-items-center rounded-full bg-teal-light text-teal"
+          >
+            <CalendarCheck2 className="h-7 w-7" />
+          </span>
+          <div>
+            <p className="text-sm font-semibold text-dark">
+              No orders scheduled for today.
+            </p>
+            <p className="mt-1 text-xs text-mid">
+              New orders will appear here as soon as they come in.
+            </p>
+          </div>
         </CardContent>
       </Card>
     );
   }
 
   return (
-    <Card>
+    <Card className="border border-border bg-white">
       <CardContent className="divide-y divide-border p-0">
         {orders.map((o) => (
           <Link

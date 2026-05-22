@@ -1,7 +1,8 @@
 'use client';
 
+import { AtAGlance } from '@/components/dashboard/at-a-glance';
 import { ComplianceAlerts } from '@/components/dashboard/compliance-alerts';
-import { OperationsTiles } from '@/components/dashboard/operations-tiles';
+import { DashboardTopBar } from '@/components/dashboard/dashboard-top-bar';
 import { OrdersDueToday } from '@/components/dashboard/orders-due-today';
 import { QuickActions } from '@/components/dashboard/quick-actions';
 import { StatCard } from '@/components/dashboard/stat-card';
@@ -20,11 +21,22 @@ interface Props {
 }
 
 /**
- * Dashboard home body. Reads stats live from `/vendors/me/stats` (already
- * polled at 60s by the hook + invalidated by the realtime channel on the
- * orders page). The rating + business identity come down from the server
- * gate so the first paint always has a name + greeting without flashing
- * placeholder strings.
+ * Vendor dashboard body. Reads stats live from `/vendors/me/stats`
+ * (polled at 60s by the hook + invalidated by the realtime channel on
+ * the orders page). The rating + business identity come down from the
+ * server gate so the first paint always has a name + greeting without
+ * flashing placeholder strings.
+ *
+ * Layout (matches the mockup):
+ *   [top action bar — Add menu item / bell / help]
+ *   [greeting header]
+ *   [4 stat cards in a row]
+ *   ┌────────────────────────┬─────────────────┐
+ *   │ Due today              │ At a glance     │
+ *   │ Next 7 days            │ (3 rows)        │
+ *   └────────────────────────┴─────────────────┘
+ *   [compliance banner]
+ *   [quick actions row]
  */
 export function DashboardClient({ vendorId, greetingName, businessName, rating }: Props) {
   const { data: stats, isLoading } = useVendorStats();
@@ -37,106 +49,101 @@ export function DashboardClient({ vendorId, greetingName, businessName, rating }
 
   return (
     <div className="space-y-6">
+      <DashboardTopBar />
+
       <header>
-        <h1 className="text-[22px] font-extrabold tracking-tight text-dark">
+        <h1 className="text-[24px] font-extrabold tracking-tight text-dark">
           {greeting}, {greetingName} <span aria-hidden>👋</span>
         </h1>
-        <p className="text-sm text-mid">
+        <p className="mt-1 text-sm text-mid">
           Here&rsquo;s how {businessName} is doing today.
         </p>
       </header>
 
       <section
         aria-label="Today at a glance"
-        className="grid grid-cols-2 gap-3"
+        className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4"
       >
         <StatCard
-          icon="💰"
+          iconKey="revenue"
           label="Today's revenue"
           value={todayRevenuePounds}
           prefix="£"
-          color="brand"
+          color="teal"
+          hint={todayRevenuePounds === 0 ? 'No sales yet today' : undefined}
         />
         <StatCard
-          icon="📦"
+          iconKey="orders"
           label="Orders today"
           value={todayOrders}
-          color="teal"
+          color="amber"
+          hint={todayOrders === 0 ? 'No orders yet' : undefined}
         />
         <StatCard
-          icon="⏳"
-          label="Pending"
+          iconKey="pending"
+          label="Pending orders"
           value={pending}
-          color={pending > 0 ? 'amber' : 'gray'}
+          color="brand"
           pulse={pending > 0}
+          hint={pending === 0 ? 'Awaiting action' : `${pending} need${pending === 1 ? 's' : ''} a decision`}
         />
         <StatCard
-          icon="⭐"
-          label={rating === null ? 'No rating yet' : 'Rating'}
+          iconKey="rating"
+          label={rating === null ? 'Rating' : 'Rating'}
           // The animated counter only handles whole numbers, so for the
-          // rating we render the formatted number directly via `suffix` -
-          // the component shows `0.0` while animating, which is fine for
-          // < 1s but feels off for a static metric. For ratings we pass
-          // the integer part and a fractional suffix so the count-up still
-          // runs on the integer portion (4.8 → animates 0..4, then "4.8").
+          // rating we render the integer part and a fractional suffix
+          // so the count-up still runs on the integer portion
+          // (4.8 → animates 0..4, then "4.8").
           value={rating === null ? 0 : Math.floor(rating)}
-          suffix={rating === null ? '' : `.${Math.round((rating % 1) * 10)}`}
+          suffix={rating === null ? '.0' : `.${Math.round((rating % 1) * 10)}`}
           color="vendor"
+          hint={rating === null ? 'No ratings yet' : undefined}
         />
       </section>
 
-      <section aria-label="Orders due today">
-        <div className="mb-2 flex items-baseline justify-between">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-mid">
-            Due today
-          </h2>
-          {dashboard && dashboard.ordersDueToday.length > 0 && (
-            <span className="text-xs font-medium text-mid">
-              {dashboard.ordersDueToday.length} order
-              {dashboard.ordersDueToday.length === 1 ? '' : 's'}
-            </span>
-          )}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <div className="space-y-4 lg:col-span-2">
+          <section aria-label="Orders due today">
+            <PanelHeader title="Due today" />
+            <OrdersDueToday orders={dashboard?.ordersDueToday ?? []} />
+          </section>
+
+          <section aria-label="Upcoming orders">
+            <PanelHeader title="Next 7 days" />
+            <UpcomingOrders orders={dashboard?.upcomingOrders ?? []} />
+          </section>
         </div>
-        <OrdersDueToday orders={dashboard?.ordersDueToday ?? []} />
-      </section>
 
-      <section aria-label="Operations summary">
-        <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-mid">
-          At a glance
-        </h2>
-        <OperationsTiles
-          eventEnquiries={dashboard?.eventEnquiries ?? { pending: 0, nextEventDate: null }}
-          nextPayout={dashboard?.nextPayout ?? null}
-          menuHealth={
-            dashboard?.menuHealth ?? { missingImages: 0, missingAllergens: 0, items: [] }
-          }
-        />
-      </section>
-
-      <section aria-label="Upcoming orders">
-        <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-mid">
-          Next 7 days
-        </h2>
-        <UpcomingOrders orders={dashboard?.upcomingOrders ?? []} />
-      </section>
+        <aside aria-label="Operations summary" className="lg:col-span-1">
+          <AtAGlance
+            eventEnquiries={dashboard?.eventEnquiries ?? { pending: 0, nextEventDate: null }}
+            nextPayout={dashboard?.nextPayout ?? null}
+            menuHealth={
+              dashboard?.menuHealth ?? { missingImages: 0, missingAllergens: 0, items: [] }
+            }
+          />
+        </aside>
+      </div>
 
       <section aria-label="Compliance status">
-        <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-mid">
-          Compliance
-        </h2>
         <ComplianceAlerts vendorId={vendorId} />
       </section>
 
       <section aria-label="Quick actions">
-        <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-mid">
-          Quick actions
-        </h2>
         <QuickActions />
       </section>
 
       {isLoading && (
         <p className="text-xs text-mid">Loading the latest numbers…</p>
       )}
+    </div>
+  );
+}
+
+function PanelHeader({ title }: { title: string }) {
+  return (
+    <div className="mb-2 flex items-baseline justify-between">
+      <h2 className="text-sm font-bold text-dark">{title}</h2>
     </div>
   );
 }

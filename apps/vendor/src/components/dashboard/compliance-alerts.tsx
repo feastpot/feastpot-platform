@@ -1,6 +1,6 @@
 'use client';
 
-import { Card, CardContent } from '@feastpot/ui';
+import { cn } from '@feastpot/ui';
 import { AlertTriangle, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 
@@ -22,9 +22,14 @@ const NEEDS_ATTENTION: ReadonlyArray<ComplianceState> = [
 ];
 
 /**
- * Dashboard widget. Stays muted/quiet when everything is approved, and
- * escalates colour/copy when something needs attention. Always links to
- * the full `/compliance` tab.
+ * Dashboard compliance banner.
+ *
+ * Mirrors the mockup's "4 documents still to upload" callout: a
+ * prominent left-icon block with the headline + an inline list of
+ * doc names, plus two CTAs on the right ("View all" outlined,
+ * "Take action" filled red when there's something to do). When
+ * everything is approved the block is muted/quiet but still shows so
+ * the vendor gets the green-light reassurance.
  */
 export function ComplianceAlerts({ vendorId }: { vendorId: string }) {
   const docs = useVendorDocuments(vendorId);
@@ -34,74 +39,86 @@ export function ComplianceAlerts({ vendorId }: { vendorId: string }) {
   const allGood = summary.worst === 'approved';
   const meta = COMPLIANCE_STATE_META[summary.worst];
 
-  const tone =
+  const containerTone =
     meta.tone === 'red'
-      ? 'border-red-300 bg-red-50'
+      ? 'border-brand/30 bg-brand-light/50'
       : meta.tone === 'amber'
-      ? 'border-amber-300 bg-amber-50'
-      : meta.tone === 'teal'
-      ? 'border-teal/40 bg-teal/5'
-      : 'border-border bg-card';
+        ? 'border-amber-300 bg-amber-50'
+        : meta.tone === 'teal'
+          ? 'border-teal/30 bg-teal-light/40'
+          : 'border-border bg-white';
 
   const headline = allGood
     ? 'Compliance is up to date'
     : summary.expired > 0
-    ? `${summary.expired} document${summary.expired === 1 ? '' : 's'} expired`
-    : summary.needsChanges > 0
-    ? `${summary.needsChanges} document${summary.needsChanges === 1 ? '' : 's'} need changes`
-    : summary.expiringSoon > 0
-    ? `${summary.expiringSoon} document${summary.expiringSoon === 1 ? '' : 's'} expiring within 30 days`
-    : summary.notStarted > 0
-    ? `${summary.notStarted} document${summary.notStarted === 1 ? '' : 's'} still to upload`
-    : 'Compliance status';
+      ? `${summary.expired} document${summary.expired === 1 ? '' : 's'} expired`
+      : summary.needsChanges > 0
+        ? `${summary.needsChanges} document${summary.needsChanges === 1 ? '' : 's'} need changes`
+        : summary.expiringSoon > 0
+          ? `${summary.expiringSoon} document${summary.expiringSoon === 1 ? '' : 's'} expiring within 30 days`
+          : summary.notStarted > 0
+            ? `${summary.notStarted} document${summary.notStarted === 1 ? '' : 's'} still to upload`
+            : 'Compliance status';
 
-  const items = summary.byType
+  const itemsList = summary.byType
     .filter((r) => NEEDS_ATTENTION.includes(r.state))
-    .slice(0, 3);
+    .slice(0, 4)
+    .map((it) => DOC_LABELS.get(it.type) ?? it.type)
+    .join(' · ');
+
+  const statusPill = allGood ? null : meta.label.toLowerCase();
 
   return (
-    <Card className={tone}>
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-start gap-2">
-            {allGood ? (
-              <ShieldCheck className="mt-0.5 h-4 w-4 text-teal" />
-            ) : (
-              <AlertTriangle
-                className={`mt-0.5 h-4 w-4 ${
-                  meta.tone === 'red' ? 'text-red-700' : 'text-amber-700'
-                }`}
-              />
+    <div className={cn('fp-card border p-4', containerTone)}>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-start gap-3">
+          <span
+            aria-hidden
+            className={cn(
+              'grid h-10 w-10 shrink-0 place-items-center rounded-lg',
+              allGood ? 'bg-teal-light text-teal' : 'bg-white text-brand',
             )}
-            <div>
-              <p className="text-sm font-medium text-dark">{headline}</p>
-              {!allGood && items.length > 0 && (
-                <ul className="mt-1.5 space-y-0.5 text-xs text-muted-foreground">
-                  {items.map((it) => (
-                    <li key={it.type}>
-                      {DOC_LABELS.get(it.type) ?? it.type}
-                      <span className="ml-1 text-foreground/70">
-                        ({COMPLIANCE_STATE_META[it.state].label.toLowerCase()})
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {allGood && (
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  All {summary.totalRequired} required documents are approved.
-                </p>
-              )}
-            </div>
+          >
+            {allGood ? (
+              <ShieldCheck className="h-5 w-5" />
+            ) : (
+              <AlertTriangle className="h-5 w-5" />
+            )}
+          </span>
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-dark">{headline}</p>
+            {!allGood && itemsList.length > 0 ? (
+              <p className="mt-1 truncate text-xs text-mid">{itemsList}</p>
+            ) : null}
+            {allGood && (
+              <p className="mt-0.5 text-xs text-mid">
+                All {summary.totalRequired} required documents are approved.
+              </p>
+            )}
           </div>
+        </div>
+        <div className="flex shrink-0 items-center gap-2 sm:self-center">
+          {statusPill && (
+            <span className="hidden text-[11px] font-medium uppercase tracking-wide text-mid sm:inline">
+              ({statusPill})
+            </span>
+          )}
           <Link
             href="/compliance"
-            className="self-start whitespace-nowrap text-xs font-medium text-vendor hover:underline"
+            className="rounded-md border border-border bg-white px-3 py-1.5 text-xs font-semibold text-dark transition-colors hover:bg-surface"
           >
-            {allGood ? 'View documents' : 'Take action'}
+            View all
           </Link>
+          {!allGood && (
+            <Link
+              href="/compliance"
+              className="rounded-md bg-brand px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-brand-dark"
+            >
+              Take action
+            </Link>
+          )}
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

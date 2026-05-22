@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 
+import { SideNav } from '@/components/layout/side-nav';
 import { TopNav } from '@/components/layout/top-nav';
 import { apiRequest, ApiError } from '@/lib/api/client';
 import { createClient as createServerSupabase } from '@/lib/supabase/server';
@@ -10,10 +11,10 @@ import { DashboardClient } from './dashboard-client';
 export const dynamic = 'force-dynamic';
 
 /**
- * Vendor /me payload - widened from the orders/menu pages to also pull
- * `rating` so the dashboard rating card has a real value on first paint.
- * Both rating fields are typed as optional because the API may omit them
- * for brand-new vendors.
+ * Vendor /me payload — widened from the orders/menu pages to also
+ * pull `rating` so the dashboard rating card has a real value on
+ * first paint. Both rating fields are typed as optional because the
+ * API may omit them for brand-new vendors.
  */
 interface VendorMe {
   id: string;
@@ -24,11 +25,12 @@ interface VendorMe {
 }
 
 /**
- * Vendor dashboard home. Replaces the previous redirect-to-/orders so
- * vendors land on a personalised greeting + today's metrics + quick links.
- * Auth gate mirrors /orders, /menu, /analytics - they all do the same
- * `/vendors/me` round-trip because Next 15 segment layouts can't read the
- * session before render.
+ * Vendor dashboard home. First screen migrated to the new side-rail
+ * shell — the other authed pages still render the legacy `TopNav`
+ * (per the screen-by-screen redesign plan); they'll move over as
+ * each one is redesigned. Auth gate mirrors the other authed pages:
+ * a `/vendors/me` round-trip because Next 15 segment layouts can't
+ * read the session before render.
  */
 export default async function DashboardPage() {
   const supabase = await createServerSupabase();
@@ -54,22 +56,30 @@ export default async function DashboardPage() {
     redirect('/onboarding');
   }
 
-  // Friendly first name: take the first word of the business name. The
-  // API doesn't expose the owner's first name on /vendors/me today; if
-  // it ever does, swap this to vendor.ownerFirstName.
+  // Friendly first name: take the first word of the business name.
+  // The API doesn't expose the owner's first name on /vendors/me
+  // today; if it ever does, swap this to vendor.ownerFirstName.
   const greetingName = vendor.businessName.split(/\s+/)[0] ?? 'there';
 
   return (
     <>
-      <TopNav businessName={vendor.businessName} />
-      <main className="container py-6">
-        <DashboardClient
-          vendorId={vendor.id}
-          greetingName={greetingName}
-          businessName={vendor.businessName}
-          rating={typeof vendor.rating === 'number' ? vendor.rating : null}
-        />
-      </main>
+      {/* Mobile-only top bar (sidebar is desktop-only via `hidden md:flex`).
+          Keeps all routes + sign-out reachable on small viewports while
+          the redesign migrates each screen to the sidebar shell. */}
+      <div className="md:hidden">
+        <TopNav businessName={vendor.businessName} />
+      </div>
+      <div className="flex min-h-screen bg-surface">
+        <SideNav businessName={vendor.businessName} />
+        <main className="min-w-0 flex-1 px-4 py-6 md:px-6">
+          <DashboardClient
+            vendorId={vendor.id}
+            greetingName={greetingName}
+            businessName={vendor.businessName}
+            rating={typeof vendor.rating === 'number' ? vendor.rating : null}
+          />
+        </main>
+      </div>
     </>
   );
 }

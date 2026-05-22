@@ -1,43 +1,75 @@
 'use client';
 
 import { cn } from '@feastpot/ui';
+import {
+  HourglassIcon,
+  PoundSterling,
+  ShoppingBag,
+  Star,
+  type LucideIcon,
+} from 'lucide-react';
 import { useEffect, useState } from 'react';
+
+export type StatCardIconKey = 'revenue' | 'orders' | 'pending' | 'rating';
 
 export interface StatCardProps {
   label: string;
   value: string | number;
-  /** e.g. "£" - rendered before the animated number. */
+  /** Optional small line under the value (e.g. "No sales yet today"). */
+  hint?: string;
+  /** e.g. "£" — rendered before the animated number. */
   prefix?: string;
-  /** e.g. " orders" - rendered after the animated number. */
+  /** e.g. " orders" — rendered after the animated number. */
   suffix?: string;
   /** % vs last week. Positive = good (teal), negative = bad (red). */
   change?: number;
-  /** Emoji label rendered top-left. */
-  icon: string;
-  /** Visual treatment - picks the soft-tinted surface + accent text. */
-  color: 'brand' | 'teal' | 'vendor' | 'gray' | 'amber';
+  /** Which icon to show in the top-left tinted square. */
+  iconKey: StatCardIconKey;
+  /** Visual treatment — picks the icon-tile colour. */
+  color: 'brand' | 'teal' | 'vendor' | 'amber';
   /** Pulse the icon (used for pending-orders attention). */
   pulse?: boolean;
 }
 
+const ICONS: Record<StatCardIconKey, LucideIcon> = {
+  revenue: PoundSterling,
+  orders: ShoppingBag,
+  pending: HourglassIcon,
+  rating: Star,
+};
+
 /**
  * Animated count-up stat card used across the vendor dashboard and
- * analytics page. Counts from 0 → final on mount over 800ms with an
- * ease-out cubic. Non-numeric prefix/suffix wrap the number unchanged so
- * the same component renders both "£127" and "12 orders" naturally.
+ * analytics page.
  *
- * NOTE on numeric parsing: when `value` is a string we strip everything
- * except digits and `.`, so e.g. "£87.50" yields 87.50. Callers that pass
- * pre-formatted strings should split the prefix off and pass it via the
- * `prefix` prop instead so the animation is on the bare number.
+ * Visual layout (matches the mockup):
+ *   ┌──────────────────────────────┐
+ *   │ [icon] LABEL                 │
+ *   │                              │
+ *   │ £127                         │   ← big value
+ *   │ Hint copy                    │   ← optional secondary line
+ *   └──────────────────────────────┘
+ *
+ * The icon sits in a soft-tinted rounded square in the top-left,
+ * coloured by the `color` prop. Labels go ABOVE the value (not below
+ * as in the earlier version) so the user reads label-then-number.
+ *
+ * Count-up runs over 800ms with an ease-out cubic. Non-numeric
+ * prefix/suffix wrap the number unchanged so the same component
+ * renders both "£127" and "12 orders" naturally. When `value` is a
+ * string we strip everything except digits and `.`, so "£87.50"
+ * yields 87.50; callers that pass pre-formatted strings should split
+ * the prefix off via the `prefix` prop so the animation runs on the
+ * bare number.
  */
 export function StatCard({
   label,
   value,
+  hint,
   prefix,
   suffix,
   change,
-  icon,
+  iconKey,
   color,
   pulse,
 }: StatCardProps) {
@@ -62,42 +94,52 @@ export function StatCard({
     return () => cancelAnimationFrame(raf);
   }, [numValue]);
 
-  // Round-trip currency-style values so we keep up to 2 decimal places when
-  // the input had any (£87.50 → animates as integer pounds, then settles at
-  // the formatted final). For pure ints (orders, ratings) this is a no-op.
   const hasFraction = numValue % 1 !== 0;
   const display = hasFraction && displayed === Math.round(numValue)
     ? numValue.toFixed(numValue.toString().split('.')[1]?.length === 1 ? 1 : 2)
     : displayed.toString();
 
-  const colorMap: Record<NonNullable<StatCardProps['color']>, string> = {
-    brand: 'bg-brand-light border-brand/20',
-    teal: 'bg-teal-light border-teal/20',
-    vendor: 'bg-vendor-light border-vendor/20',
-    amber: 'bg-amber-50 border-amber-200',
-    gray: 'bg-surface border-border',
+  const tileTone: Record<NonNullable<StatCardProps['color']>, string> = {
+    brand: 'bg-brand-light text-brand',
+    teal: 'bg-teal-light text-teal',
+    vendor: 'bg-vendor-light text-vendor',
+    amber: 'bg-amber-50 text-amber-600',
   };
 
+  const Icon = ICONS[iconKey];
+
   return (
-    <div className={cn('fp-card border p-4 animate-fade-up', colorMap[color])}>
-      <div className={cn('mb-1 text-2xl', pulse && 'animate-pulse')} aria-hidden>
-        {icon}
+    <div className="fp-card animate-fade-up border border-border bg-white p-4">
+      <div className="flex items-center gap-2.5">
+        <span
+          aria-hidden
+          className={cn(
+            'grid h-9 w-9 shrink-0 place-items-center rounded-lg',
+            tileTone[color],
+            pulse && 'animate-pulse',
+          )}
+        >
+          <Icon className="h-[18px] w-[18px]" />
+        </span>
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-mid">
+          {label}
+        </p>
       </div>
-      <div className="text-[22px] font-black leading-none text-dark">
+      <p className="mt-3 text-[28px] font-black leading-none text-dark">
         {prefix}
         {display}
         {suffix}
-      </div>
-      <div className="mt-1 text-xs text-mid">{label}</div>
+      </p>
+      {hint && <p className="mt-1.5 text-xs text-mid">{hint}</p>}
       {change !== undefined && (
-        <div
+        <p
           className={cn(
             'mt-1.5 text-[11px] font-medium',
             change >= 0 ? 'text-teal' : 'text-red-500',
           )}
         >
           {change >= 0 ? '↑' : '↓'} {Math.abs(change).toFixed(1)}% vs last week
-        </div>
+        </p>
       )}
     </div>
   );
