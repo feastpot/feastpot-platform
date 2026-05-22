@@ -23,3 +23,9 @@ id = "e1lRkPJ63MTirPVjXul7H"
 uri = "file://STATUS.md"
 type = "text"
 title = "FeastPot — Build Status"
+
+[[outputs]]
+id = "ydIJZFc3V6-YllAIbmvtX"
+uri = "file://INTEGRATION_TEST_REPORT.md"
+type = "text"
+title = "FeastPot Integration Test Report"
