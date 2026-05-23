@@ -31,6 +31,8 @@ import { apiRequest } from '@/lib/api/client';
 import type { StaffRole, StaffUser } from '@/lib/auth/server-gate';
 import { API_URL } from '@/lib/env';
 
+import { SecuritySection } from './security-section';
+
 interface SettingsClientProps {
   user: StaffUser;
 }
@@ -146,6 +148,9 @@ export function SettingsClient({ user }: SettingsClientProps) {
             </div>
           </CardContent>
         </Card>
+
+        {/* ─── Security & 2FA ─────────────────────────────────────────── */}
+        <SecuritySection />
 
         {/* ─── Platform defaults (read-only) ──────────────────────────── */}
         <Card>
