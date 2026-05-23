@@ -7,7 +7,7 @@ import {
   Banknote,
   Bell,
   CalendarHeart,
-  ClipboardList,
+  ChevronUp,
   ExternalLink,
   Layers,
   LayoutDashboard,
@@ -20,6 +20,7 @@ import {
   Tag,
   Users,
 } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import type { ReactNode } from 'react';
@@ -27,19 +28,21 @@ import type { ReactNode } from 'react';
 import { API_URL } from '@/lib/env';
 import { createClient } from '@/lib/supabase/client';
 
+type StaffRole = 'admin' | 'support' | 'finance' | 'compliance';
+
 interface NavItem {
   href: string;
   label: string;
   icon: typeof LayoutDashboard;
   /** Roles that should see this item. Empty array = visible to all staff roles. */
-  roles?: ReadonlyArray<'admin' | 'support' | 'finance' | 'compliance'>;
+  roles?: ReadonlyArray<StaffRole>;
   /** When true, render as an <a target="_blank"> instead of a <Link>. */
   external?: boolean;
   /** Optional tooltip / description, currently surfaced via the title attribute. */
   description?: string;
 }
 
-const NAV: ReadonlyArray<NavItem> = [
+const MAIN_NAV: ReadonlyArray<NavItem> = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/orders', label: 'Orders', icon: Receipt, roles: ['admin', 'support', 'finance'] },
   { href: '/users', label: 'Users', icon: Users, roles: ['admin', 'support', 'finance', 'compliance'] },
@@ -55,14 +58,8 @@ const NAV: ReadonlyArray<NavItem> = [
   { href: '/settings', label: 'Settings', icon: Settings, roles: ['admin'] },
 ];
 
-// Operations links live in their own grouped block at the bottom of the
-// sidebar - they point at out-of-app tools (Bull Board) rather than admin
-// pages, so they render as external <a target="_blank"> with an external-
-// link affordance and are gated to admin-only.
 const OPS_NAV: ReadonlyArray<NavItem> = [
   {
-    // Bull Board is mounted on the API host (Basic-Auth gated by the API),
-    // not on the admin Next app - hence absolute URL via API_URL.
     href: `${API_URL}/admin/queues`,
     label: 'Job queues',
     icon: Layers,
@@ -76,15 +73,33 @@ interface AdminShellProps {
   user: {
     name: string;
     email: string;
-    role: 'admin' | 'support' | 'finance' | 'compliance';
+    role: StaffRole;
   };
   children: ReactNode;
 }
 
+function initialsFor(name: string, email: string): string {
+  const source = (name || email).trim();
+  if (!source) return 'SA';
+  const parts = source.split(/\s+/).filter(Boolean);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
 /**
- * Desktop-first shell: fixed sidebar (240 px) + scrollable main pane. Items
- * are filtered by the current user's role so support agents don't see the
- * vendor approval queue, etc.
+ * Desktop-first shell for the FeastPot admin console.
+ *
+ * Redesign notes (vs previous version):
+ *   - Real FeastPot logo + "Admin console" subtitle in the top-left.
+ *   - Nav split into MAIN / OPERATIONS sections matching the mockups.
+ *   - Active item uses the deep-teal --primary token (white text on
+ *     hsl(161 76% 18%)) instead of the old vendor-blue tint.
+ *   - User pill at the bottom shows initials avatar + name + role, with
+ *     a chevron affordance and a divided Sign out row.
+ *
+ * Functionality preserved verbatim: role-filtered nav, external Bull
+ * Board link with rel="noopener noreferrer", sign-out via Supabase
+ * client + router.refresh().
  */
 export function AdminShell({ user, children }: AdminShellProps) {
   const pathname = usePathname();
@@ -97,85 +112,122 @@ export function AdminShell({ user, children }: AdminShellProps) {
     router.refresh();
   }
 
-  const visibleNav = NAV.filter((n) => !n.roles || n.roles.includes(user.role));
-  const visibleOpsNav = OPS_NAV.filter((n) => !n.roles || n.roles.includes(user.role));
+  const visibleMain = MAIN_NAV.filter((n) => !n.roles || n.roles.includes(user.role));
+  const visibleOps = OPS_NAV.filter((n) => !n.roles || n.roles.includes(user.role));
+  const initials = initialsFor(user.name, user.email);
 
   return (
-    <div className="flex min-h-screen bg-muted/20">
-      <aside className="sticky top-0 flex h-screen w-60 flex-col border-r border-border bg-card">
-        <div className="flex items-center gap-2 px-5 py-4">
-          <span className="grid h-8 w-8 place-items-center rounded-md bg-vendor text-white text-sm font-bold">
-            FP
-          </span>
-          <div>
-            <div className="text-sm font-semibold leading-tight">Feastpot</div>
-            <div className="text-xs text-muted-foreground">Admin console</div>
-          </div>
+    <div className="flex min-h-screen bg-muted/30">
+      <aside
+        aria-label="Admin console navigation"
+        className="sticky top-0 flex h-screen w-64 shrink-0 flex-col border-r border-border bg-card"
+      >
+        {/* Brand */}
+        <div className="flex items-center gap-3 px-5 py-5">
+          <Link href="/" className="flex items-center gap-3" aria-label="FeastPot admin console">
+            <Image
+              src="/feastpot-logo.png"
+              alt="FeastPot"
+              width={140}
+              height={40}
+              priority
+              className="h-9 w-auto object-contain"
+            />
+            <span className="sr-only">Admin console</span>
+          </Link>
         </div>
-        <nav className="mt-2 flex-1 space-y-0.5 px-2">
-          {visibleNav.map((item) => {
-            const active = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
-            const Icon = item.icon;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={
-                  'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors ' +
-                  (active
-                    ? 'bg-vendor-light text-vendor-dark'
-                    : 'text-muted-foreground hover:bg-muted hover:text-foreground')
-                }
-              >
-                <Icon className="h-4 w-4" />
-                {item.label}
-              </Link>
-            );
-          })}
-          {visibleOpsNav.length > 0 && (
-            <div className="pt-3">
-              <div className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+        <div className="px-5 pb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/70">
+          Admin console
+        </div>
+
+        {/* Nav */}
+        <nav className="flex-1 overflow-y-auto px-3 pb-3">
+          <div className="px-2 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/60">
+            Main
+          </div>
+          <ul className="space-y-0.5">
+            {visibleMain.map((item) => {
+              const active =
+                item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
+              const Icon = item.icon;
+              return (
+                <li key={item.href}>
+                  <Link
+                    href={item.href}
+                    aria-current={active ? 'page' : undefined}
+                    className={
+                      'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors ' +
+                      (active
+                        ? 'bg-primary text-primary-foreground shadow-sm'
+                        : 'text-muted-foreground hover:bg-muted hover:text-foreground')
+                    }
+                  >
+                    <Icon className="h-4 w-4 shrink-0" />
+                    <span className="truncate">{item.label}</span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+
+          {visibleOps.length > 0 && (
+            <>
+              <div className="px-2 pb-1 pt-5 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/60">
                 Operations
               </div>
-              {visibleOpsNav.map((item) => {
-                const Icon = item.icon;
-                // External links bypass <Link> (Next prefetch + client routing
-                // would try to treat the absolute API URL as an internal route)
-                // and use rel="noopener noreferrer" to prevent the popup window
-                // from gaining a window.opener handle back into the admin app.
-                return (
-                  <a
-                    key={item.href}
-                    href={item.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    title={item.description}
-                    className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                  >
-                    <Icon className="h-4 w-4" />
-                    <span className="flex-1">{item.label}</span>
-                    <ExternalLink className="h-3 w-3 opacity-50" aria-hidden="true" />
-                  </a>
-                );
-              })}
-            </div>
+              <ul className="space-y-0.5">
+                {visibleOps.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <li key={item.href}>
+                      <a
+                        href={item.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title={item.description}
+                        className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                      >
+                        <Icon className="h-4 w-4 shrink-0" />
+                        <span className="flex-1 truncate">{item.label}</span>
+                        <ExternalLink className="h-3 w-3 opacity-50" aria-hidden="true" />
+                      </a>
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
           )}
         </nav>
+
+        {/* User pill */}
         <div className="border-t border-border p-3">
-          <div className="flex items-center gap-2 rounded-md px-2 py-1.5">
-            <ClipboardList className="h-4 w-4 text-muted-foreground" />
+          <div className="flex items-center gap-3 rounded-md px-2 py-2">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-teal text-sm font-bold text-white">
+              {initials}
+            </span>
             <div className="min-w-0 flex-1">
-              <div className="truncate text-sm font-medium">{user.name || user.email}</div>
-              <div className="truncate text-xs text-muted-foreground capitalize">{user.role}</div>
+              <div className="truncate text-sm font-semibold text-foreground">
+                {user.name || user.email}
+              </div>
+              <div className="truncate text-xs capitalize text-muted-foreground">
+                {user.role}
+              </div>
             </div>
+            <ChevronUp className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
           </div>
-          <Button variant="ghost" size="sm" onClick={signOut} className="mt-1 w-full justify-start gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={signOut}
+            className="mt-1 w-full justify-start gap-2 text-muted-foreground hover:text-foreground"
+          >
             <LogOut className="h-4 w-4" />
             Sign out
           </Button>
         </div>
       </aside>
-      <main className="flex-1 overflow-x-hidden">
+
+      <main className="min-w-0 flex-1 overflow-x-hidden">
         <div className="mx-auto max-w-[1400px] p-6 lg:p-8">{children}</div>
       </main>
     </div>
