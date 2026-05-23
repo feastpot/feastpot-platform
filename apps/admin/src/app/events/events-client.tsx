@@ -195,8 +195,8 @@ export function EventsClient() {
 
       {/* Filter row */}
       <Card className="mb-4">
-        <CardContent className="grid grid-cols-1 gap-3 py-4 md:grid-cols-6">
-          <FilterField label="View">
+        <CardContent className="grid grid-cols-1 gap-3 py-4 md:grid-cols-12">
+          <FilterField label="View" className="md:col-span-2">
             <Select value="all" disabled>
               <SelectTrigger>
                 <SelectValue placeholder="All enquiries" />
@@ -207,7 +207,7 @@ export function EventsClient() {
             </Select>
           </FilterField>
 
-          <FilterField label="Status">
+          <FilterField label="Status" className="md:col-span-2">
             <Select
               value={filters.status}
               onValueChange={(v) => update('status', v as EnquiryStatus | 'all')}
@@ -225,7 +225,7 @@ export function EventsClient() {
             </Select>
           </FilterField>
 
-          <FilterField label="Event date">
+          <FilterField label="Event date" className="md:col-span-3">
             <DateRangeInputs
               from={filters.eventFrom}
               to={filters.eventTo}
@@ -234,7 +234,7 @@ export function EventsClient() {
             />
           </FilterField>
 
-          <FilterField label="Created date">
+          <FilterField label="Created date" className="md:col-span-3">
             <DateRangeInputs
               from={filters.createdFrom}
               to={filters.createdTo}
@@ -243,7 +243,7 @@ export function EventsClient() {
             />
           </FilterField>
 
-          <FilterField label="Budget">
+          <FilterField label="Budget" className="md:col-span-2">
             <Select value={filters.budget} onValueChange={(v) => update('budget', v)}>
               <SelectTrigger>
                 <SelectValue />
@@ -258,7 +258,7 @@ export function EventsClient() {
             </Select>
           </FilterField>
 
-          <FilterField label=" ">
+          <FilterField label=" " className="md:col-span-12">
             <div className="flex items-center gap-2">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -425,9 +425,17 @@ export function EventsClient() {
   );
 }
 
-function FilterField({ label, children }: { label: string; children: React.ReactNode }) {
+function FilterField({
+  label,
+  children,
+  className,
+}: {
+  label: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
   return (
-    <div className="flex min-w-0 flex-col gap-1.5">
+    <div className={`flex min-w-0 flex-col gap-1.5 ${className ?? ''}`}>
       <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         {label === ' ' ? '\u00A0' : label}
       </label>
@@ -448,21 +456,21 @@ function DateRangeInputs({
   onTo: (v: string) => void;
 }) {
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex min-w-0 items-center gap-1">
       <Input
         type="date"
         value={from}
         onChange={(e) => onFrom(e.target.value)}
         aria-label="From"
-        className="text-xs"
+        className="min-w-0 flex-1 px-2 text-xs"
       />
-      <span className="text-xs text-muted-foreground">–</span>
+      <span className="shrink-0 text-xs text-muted-foreground">–</span>
       <Input
         type="date"
         value={to}
         onChange={(e) => onTo(e.target.value)}
         aria-label="To"
-        className="text-xs"
+        className="min-w-0 flex-1 px-2 text-xs"
       />
     </div>
   );
