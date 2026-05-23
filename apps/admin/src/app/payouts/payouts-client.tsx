@@ -22,10 +22,13 @@ import {
   TableHeader,
   TableRow,
 } from '@feastpot/ui';
-import { Play } from 'lucide-react';
+import { AlertTriangle, Banknote, CheckCircle2, Clock, Percent, Play } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 import { PageHeader } from '@/components/layout/page-header';
+import { EmptyState } from '@/components/ui/empty-state';
+import { StatCard } from '@/components/ui/stat-card';
+import { StatusPill, type StatusTone } from '@/components/ui/status-pill';
 import { useToast } from '@/components/ui/toaster';
 import {
   useApprovePayout,
@@ -109,6 +112,24 @@ export function PayoutsClient({ role }: PayoutsClientProps) {
     () => draftRows.filter((r) => selected.has(r.id)).reduce((sum, r) => sum + r.amountPence, 0),
     [draftRows, selected],
   );
+
+  const summary = useMemo(() => {
+    const rows = data?.data ?? [];
+    let amount = 0;
+    let commission = 0;
+    let successful = 0;
+    let pending = 0;
+    let failedOrHeld = 0;
+    for (const r of rows) {
+      amount += r.amountPence;
+      commission += r.commissionPence;
+      if (r.status === 'transferred') successful += 1;
+      else if (r.status === 'draft' || r.status === 'approved') pending += 1;
+      else if (r.status === 'failed' || r.status === 'held') failedOrHeld += 1;
+    }
+    const commissionPct = amount > 0 ? (commission / amount) * 100 : 0;
+    return { amount, commission, commissionPct, successful, pending, failedOrHeld, count: rows.length };
+  }, [data]);
 
   function toggleAll(checked: boolean) {
     if (checked) {
@@ -205,6 +226,44 @@ export function PayoutsClient({ role }: PayoutsClientProps) {
         </Select>
       </div>
 
+      <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
+        <StatCard
+          icon={Banknote}
+          tone="brand"
+          label="Total payout amount"
+          value={formatPence(summary.amount)}
+          caption={`Across ${summary.count} payout${summary.count === 1 ? '' : 's'}`}
+        />
+        <StatCard
+          icon={Percent}
+          tone="brand"
+          label="Total commission"
+          value={formatPence(summary.commission)}
+          caption={`${summary.commissionPct.toFixed(1)}% of payout amount`}
+        />
+        <StatCard
+          icon={CheckCircle2}
+          tone="teal"
+          label="Successful"
+          value={summary.successful.toString()}
+          caption="Transferred to Stripe"
+        />
+        <StatCard
+          icon={Clock}
+          tone="amber"
+          label="Pending"
+          value={summary.pending.toString()}
+          caption="Awaiting approval or transfer"
+        />
+        <StatCard
+          icon={AlertTriangle}
+          tone="red"
+          label="Failed / Held"
+          value={summary.failedOrHeld.toString()}
+          caption="Needs review"
+        />
+      </div>
+
       {error && (
         <Card className="mb-4 border-destructive/40 bg-destructive/5">
           <CardContent className="py-3 text-sm text-destructive">
@@ -241,7 +300,16 @@ export function PayoutsClient({ role }: PayoutsClientProps) {
                 <TableRow><TableCell colSpan={8} className="py-6 text-center text-sm text-muted-foreground">Loading…</TableCell></TableRow>
               )}
               {!isLoading && draftRows.length === 0 && (
-                <TableRow><TableCell colSpan={8} className="py-6 text-center text-sm text-muted-foreground">No payouts in this state.</TableCell></TableRow>
+                <TableRow>
+                  <TableCell colSpan={8} className="p-0">
+                    <EmptyState
+                      icon={Banknote}
+                      title="No payouts in this state"
+                      description="Try a different status filter or run a payout batch."
+                      bordered={false}
+                    />
+                  </TableCell>
+                </TableRow>
               )}
               {draftRows.map((p) => (
                 <TableRow key={p.id}>
@@ -338,14 +406,14 @@ export function PayoutsClient({ role }: PayoutsClientProps) {
 }
 
 function PayoutStatusPill({ status }: { status: PayoutStatus }) {
-  const styles: Record<PayoutStatus, string> = {
-    draft: 'bg-muted text-muted-foreground',
-    approved: 'bg-blue-100 text-blue-900',
-    held: 'bg-amber-100 text-amber-900',
-    transferred: 'bg-teal-light text-teal-dark',
-    failed: 'bg-red-100 text-red-900',
+  const tone: Record<PayoutStatus, StatusTone> = {
+    draft: 'neutral',
+    approved: 'info',
+    held: 'warning',
+    transferred: 'success',
+    failed: 'danger',
   };
-  return <Badge className={styles[status]}>{status}</Badge>;
+  return <StatusPill tone={tone[status]}>{status === 'transferred' ? 'Paid' : status}</StatusPill>;
 }
 
 function ReconRow({ label, value }: { label: string; value: React.ReactNode }) {

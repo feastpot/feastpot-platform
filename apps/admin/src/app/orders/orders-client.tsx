@@ -23,10 +23,14 @@ import {
   TableHeader,
   TableRow,
 } from '@feastpot/ui';
+import { Receipt } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 
 import { PageHeader } from '@/components/layout/page-header';
+import { EmptyState } from '@/components/ui/empty-state';
+import { FilterCard, FilterField } from '@/components/ui/filter-card';
+import { StatusPill, type StatusTone } from '@/components/ui/status-pill';
 import {
   useAdminOrders,
   useTriggerRefund,
@@ -81,26 +85,35 @@ export function OrdersClient({ role }: OrdersClientProps) {
         description="Search, filter, and repair orders. PI status is enriched from Stripe on demand."
       />
 
-      <Card className="mb-4">
-        <CardContent className="flex flex-wrap items-end gap-3 py-4">
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              setSubmittedQ(search.trim());
-            }}
-            className="flex flex-1 items-center gap-2"
+      <FilterCard
+        className="mb-4"
+        actions={
+          <Button
+            type="button"
+            onClick={() => setSubmittedQ(search.trim())}
           >
-            <Input
-              placeholder="Order ID, order number, or customer email"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="max-w-md"
-            />
-            <Button type="submit" variant="outline">
-              Search
-            </Button>
-          </form>
-          <div className="w-40">
+            Apply
+          </Button>
+        }
+      >
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+          <div className="md:col-span-2">
+            <FilterField label="Search">
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  setSubmittedQ(search.trim());
+                }}
+              >
+                <Input
+                  placeholder="Order ID, order number, or customer email"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </form>
+            </FilterField>
+          </div>
+          <FilterField label="Status">
             <Select value={status} onValueChange={(v) => setStatus(v as OrderStatus | 'all')}>
               <SelectTrigger>
                 <SelectValue />
@@ -113,8 +126,8 @@ export function OrdersClient({ role }: OrdersClientProps) {
                 ))}
               </SelectContent>
             </Select>
-          </div>
-          <div className="w-32">
+          </FilterField>
+          <FilterField label="Date range">
             <Select value={range} onValueChange={(v) => setRange(v as DateRange | 'all')}>
               <SelectTrigger>
                 <SelectValue />
@@ -127,17 +140,17 @@ export function OrdersClient({ role }: OrdersClientProps) {
                 ))}
               </SelectContent>
             </Select>
-          </div>
-          <label className="flex items-center gap-2 text-xs text-muted-foreground">
+          </FilterField>
+          <label className="mt-1 flex items-center gap-2 text-xs text-muted-foreground md:col-span-4">
             <input
               type="checkbox"
               checked={withPi}
               onChange={(e) => setWithPi(e.target.checked)}
             />
-            Stripe PI status (first 50)
+            Enrich first 50 rows with Stripe PaymentIntent status
           </label>
-        </CardContent>
-      </Card>
+        </div>
+      </FilterCard>
 
       {error && (
         <Card className="mb-4 border-destructive/40 bg-destructive/5">
@@ -172,8 +185,13 @@ export function OrdersClient({ role }: OrdersClientProps) {
               )}
               {!isLoading && (data?.length ?? 0) === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-sm text-muted-foreground">
-                    No orders match these filters.
+                  <TableCell colSpan={8} className="p-0">
+                    <EmptyState
+                      icon={Receipt}
+                      title="No orders match these filters"
+                      description="Try widening the date range or clearing the search box."
+                      bordered={false}
+                    />
                   </TableCell>
                 </TableRow>
               )}
@@ -237,7 +255,7 @@ function OrdersTableRow({
         </TableCell>
         <TableCell className="text-right">{formatPence(order.totalPence)}</TableCell>
         <TableCell>
-          <Badge variant="outline">{order.status}</Badge>
+          <StatusPill tone={orderStatusTone(order.status)}>{order.status}</StatusPill>
         </TableCell>
         <TableCell>
           <PiBadge status={order.piStatus} />
@@ -305,6 +323,24 @@ function OrdersTableRow({
       )}
     </>
   );
+}
+
+function orderStatusTone(status: OrderStatus): StatusTone {
+  switch (status) {
+    case 'delivered':
+      return 'success';
+    case 'dispatched':
+    case 'preparing':
+    case 'accepted':
+      return 'info';
+    case 'pending':
+      return 'warning';
+    case 'cancelled':
+    case 'refunded':
+      return 'danger';
+    default:
+      return 'neutral';
+  }
 }
 
 function PiBadge({ status }: { status: PiStatus }) {

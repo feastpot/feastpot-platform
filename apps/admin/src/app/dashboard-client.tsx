@@ -1,11 +1,33 @@
 'use client';
 
-import { Card, CardContent, CardHeader, CardTitle, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@feastpot/ui';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@feastpot/ui';
+import {
+  Banknote,
+  CalendarRange,
+  PoundSterling,
+  Receipt,
+  Store,
+  TrendingUp,
+  Users,
+} from 'lucide-react';
 import Link from 'next/link';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
 import { SearchTrendsCard } from '@/components/dashboard/search-trends-card';
 import { PageHeader } from '@/components/layout/page-header';
+import { EmptyState } from '@/components/ui/empty-state';
+import { StatCard } from '@/components/ui/stat-card';
 import { useAdminDashboard } from '@/hooks/use-admin-dashboard';
 import { formatPence, formatPercent } from '@/lib/format';
 
@@ -25,12 +47,48 @@ export function DashboardClient() {
       )}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3 lg:grid-cols-6">
-        <Metric label="GMV today" value={formatPence(data?.gmvTodayPence)} loading={isLoading} />
-        <Metric label="GMV this week" value={formatPence(data?.gmvWeekPence)} loading={isLoading} />
-        <Metric label="GMV this month" value={formatPence(data?.gmvMonthPence)} loading={isLoading} />
-        <Metric label="Orders today" value={data?.ordersToday?.toString() ?? '-'} loading={isLoading} />
-        <Metric label="Active vendors" value={data?.activeVendors?.toString() ?? '-'} loading={isLoading} />
-        <Metric label="Avg basket (30 d)" value={formatPence(data?.avgBasketPence)} loading={isLoading} />
+        <StatCard
+          icon={PoundSterling}
+          tone="brand"
+          label="GMV today"
+          value={isLoading ? '…' : formatPence(data?.gmvTodayPence)}
+          caption="vs yesterday"
+        />
+        <StatCard
+          icon={CalendarRange}
+          tone="brand"
+          label="GMV this week"
+          value={isLoading ? '…' : formatPence(data?.gmvWeekPence)}
+          caption="vs last week"
+        />
+        <StatCard
+          icon={Banknote}
+          tone="brand"
+          label="GMV this month"
+          value={isLoading ? '…' : formatPence(data?.gmvMonthPence)}
+          caption="vs last month"
+        />
+        <StatCard
+          icon={Receipt}
+          tone="amber"
+          label="Orders today"
+          value={isLoading ? '…' : data?.ordersToday?.toString() ?? '-'}
+          caption="vs yesterday"
+        />
+        <StatCard
+          icon={Store}
+          tone="teal"
+          label="Active vendors"
+          value={isLoading ? '…' : data?.activeVendors?.toString() ?? '-'}
+          caption="vs last month"
+        />
+        <StatCard
+          icon={TrendingUp}
+          tone="teal"
+          label="Avg basket (30 d)"
+          value={isLoading ? '…' : formatPence(data?.avgBasketPence)}
+          caption="vs last 30 days"
+        />
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -56,7 +114,7 @@ export function DashboardClient() {
                     formatter={(value: number) => [formatPence(value), 'GMV']}
                     labelFormatter={(d: string) => d}
                   />
-                  <Line type="monotone" dataKey="gmvPence" stroke="#185FA5" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="gmvPence" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -64,12 +122,20 @@ export function DashboardClient() {
         </Card>
 
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <CardTitle className="text-base">Repeat customers</CardTitle>
+            <span
+              aria-hidden="true"
+              className="grid h-10 w-10 place-items-center rounded-full bg-teal-light text-teal-dark"
+            >
+              <Users className="h-5 w-5" />
+            </span>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-semibold">{formatPercent(data?.repeatOrderRatePct)}</div>
-            <p className="mt-1 text-xs text-muted-foreground">
+            <div className="text-4xl font-extrabold tracking-tight text-foreground">
+              {formatPercent(data?.repeatOrderRatePct)}
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">
               Share of customers in the last 90 days with ≥2 delivered orders.
             </p>
           </CardContent>
@@ -109,7 +175,7 @@ export function DashboardClient() {
                   <TableCell className="text-right">
                     <Link
                       href={`/vendors/${v.vendorId}`}
-                      className="text-xs text-vendor underline-offset-2 hover:underline"
+                      className="text-xs font-medium text-primary underline-offset-2 hover:underline"
                     >
                       View
                     </Link>
@@ -118,8 +184,13 @@ export function DashboardClient() {
               ))}
               {(!data || data.topVendors.length === 0) && !isLoading && (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-sm text-muted-foreground">
-                    No vendor revenue this month yet.
+                  <TableCell colSpan={8} className="p-0">
+                    <EmptyState
+                      icon={Store}
+                      title="No vendor revenue this month yet"
+                      description="As soon as vendors start trading, their performance will rank here."
+                      bordered={false}
+                    />
                   </TableCell>
                 </TableRow>
               )}
@@ -138,15 +209,4 @@ function disputeColor(pct: number): string {
   if (pct > 5) return 'text-destructive font-semibold';
   if (pct >= 2) return 'text-amber-600';
   return 'text-emerald-600';
-}
-
-function Metric({ label, value, loading }: { label: string; value: string; loading: boolean }) {
-  return (
-    <Card>
-      <CardContent className="py-4">
-        <div className="text-xs uppercase tracking-wide text-muted-foreground">{label}</div>
-        <div className="mt-1 text-xl font-semibold">{loading ? '…' : value}</div>
-      </CardContent>
-    </Card>
-  );
 }

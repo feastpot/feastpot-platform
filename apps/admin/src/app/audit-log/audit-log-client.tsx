@@ -12,10 +12,12 @@ import {
   TableHeader,
   TableRow,
 } from '@feastpot/ui';
-import { Download } from 'lucide-react';
+import { Download, Inbox } from 'lucide-react';
 import { useState } from 'react';
 
 import { PageHeader } from '@/components/layout/page-header';
+import { EmptyState } from '@/components/ui/empty-state';
+import { FilterCard, FilterField } from '@/components/ui/filter-card';
 import { useToast } from '@/components/ui/toaster';
 import { useApi } from '@/hooks/use-api';
 import { useAuditLog, type AuditFilters } from '@/hooks/use-audit-log';
@@ -66,7 +68,7 @@ export function AuditLogClient() {
     <>
       <PageHeader
         title="Audit log"
-        description="Server-side record of staff and system actions."
+        description="Track changes and actions performed across the platform."
         actions={
           <Button variant="outline" onClick={downloadCsv} className="gap-2">
             <Download className="h-4 w-4" />
@@ -75,24 +77,71 @@ export function AuditLogClient() {
         }
       />
 
-      <Card className="mb-4">
-        <CardContent className="grid grid-cols-2 gap-3 p-4 md:grid-cols-6">
-          <FilterInput label="Entity type" value={draft.entityType} onChange={(v) => setDraft({ ...draft, entityType: v })} placeholder="vendors" />
-          <FilterInput label="Entity id" value={draft.entityId} onChange={(v) => setDraft({ ...draft, entityId: v })} placeholder="uuid" />
-          <FilterInput label="Actor id" value={draft.actorId} onChange={(v) => setDraft({ ...draft, actorId: v })} placeholder="uuid" />
-          <FilterInput label="Action" value={draft.action} onChange={(v) => setDraft({ ...draft, action: v })} placeholder="vendor.live" />
-          <FilterInput label="From" type="date" value={draft.dateFrom} onChange={(v) => setDraft({ ...draft, dateFrom: v })} />
-          <div className="space-y-1">
-            <FilterInput label="To" type="date" value={draft.dateTo} onChange={(v) => setDraft({ ...draft, dateTo: v })} />
-          </div>
-          <div className="md:col-span-6">
-            <Button onClick={applyFilters} size="sm">Apply</Button>
-            <Button onClick={() => { setDraft({}); setFilters({}); }} size="sm" variant="ghost" className="ml-2">
+      <FilterCard
+        className="mb-4"
+        actions={
+          <>
+            <Button
+              onClick={() => {
+                setDraft({});
+                setFilters({});
+              }}
+              size="sm"
+              variant="outline"
+            >
               Clear
             </Button>
-          </div>
-        </CardContent>
-      </Card>
+            <Button onClick={applyFilters} size="sm">
+              Apply
+            </Button>
+          </>
+        }
+      >
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+          <FilterField label="Entity type">
+            <Input
+              value={draft.entityType ?? ''}
+              onChange={(e) => setDraft({ ...draft, entityType: e.target.value || undefined })}
+              placeholder="vendors"
+            />
+          </FilterField>
+          <FilterField label="Entity id">
+            <Input
+              value={draft.entityId ?? ''}
+              onChange={(e) => setDraft({ ...draft, entityId: e.target.value || undefined })}
+              placeholder="uuid"
+            />
+          </FilterField>
+          <FilterField label="Actor id">
+            <Input
+              value={draft.actorId ?? ''}
+              onChange={(e) => setDraft({ ...draft, actorId: e.target.value || undefined })}
+              placeholder="uuid"
+            />
+          </FilterField>
+          <FilterField label="Action">
+            <Input
+              value={draft.action ?? ''}
+              onChange={(e) => setDraft({ ...draft, action: e.target.value || undefined })}
+              placeholder="vendor.live"
+            />
+          </FilterField>
+          <FilterField label="From">
+            <Input
+              type="date"
+              value={draft.dateFrom ?? ''}
+              onChange={(e) => setDraft({ ...draft, dateFrom: e.target.value || undefined })}
+            />
+          </FilterField>
+          <FilterField label="To">
+            <Input
+              type="date"
+              value={draft.dateTo ?? ''}
+              onChange={(e) => setDraft({ ...draft, dateTo: e.target.value || undefined })}
+            />
+          </FilterField>
+        </div>
+      </FilterCard>
 
       {error && (
         <Card className="mb-4 border-destructive/40 bg-destructive/5">
@@ -117,10 +166,23 @@ export function AuditLogClient() {
             </TableHeader>
             <TableBody>
               {isLoading && (
-                <TableRow><TableCell colSpan={6} className="py-6 text-center text-sm text-muted-foreground">Loading…</TableCell></TableRow>
+                <TableRow>
+                  <TableCell colSpan={6} className="py-6 text-center text-sm text-muted-foreground">
+                    Loading…
+                  </TableCell>
+                </TableRow>
               )}
               {!isLoading && (data?.data ?? []).length === 0 && (
-                <TableRow><TableCell colSpan={6} className="py-6 text-center text-sm text-muted-foreground">No matching log entries.</TableCell></TableRow>
+                <TableRow>
+                  <TableCell colSpan={6} className="p-0">
+                    <EmptyState
+                      icon={Inbox}
+                      title="No matching log entries"
+                      description="Try widening your filter set, or clear filters to view recent activity."
+                      bordered={false}
+                    />
+                  </TableCell>
+                </TableRow>
               )}
               {(data?.data ?? []).map((row) => (
                 <TableRow key={row.id}>
@@ -151,31 +213,5 @@ export function AuditLogClient() {
         </CardContent>
       </Card>
     </>
-  );
-}
-
-function FilterInput({
-  label,
-  value,
-  onChange,
-  placeholder,
-  type,
-}: {
-  label: string;
-  value: string | undefined;
-  onChange: (v: string | undefined) => void;
-  placeholder?: string;
-  type?: string;
-}) {
-  return (
-    <div className="space-y-1">
-      <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</label>
-      <Input
-        type={type}
-        value={value ?? ''}
-        onChange={(e) => onChange(e.target.value || undefined)}
-        placeholder={placeholder}
-      />
-    </div>
   );
 }

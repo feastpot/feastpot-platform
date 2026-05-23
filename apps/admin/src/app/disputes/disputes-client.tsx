@@ -16,10 +16,14 @@ import {
   TableHeader,
   TableRow,
 } from '@feastpot/ui';
+import { AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 
 import { PageHeader } from '@/components/layout/page-header';
+import { EmptyState } from '@/components/ui/empty-state';
+import { FilterCard, FilterField } from '@/components/ui/filter-card';
+import { StatusPill, type StatusTone } from '@/components/ui/status-pill';
 import {
   useDisputes,
   type DisputeStatus,
@@ -37,6 +41,20 @@ const STATUSES: ReadonlyArray<DisputeStatus | 'all'> = [
   'closed',
 ];
 const SEVERITIES: ReadonlyArray<Severity | 'all'> = ['all', 'low', 'medium', 'high'];
+
+const STATUS_TONE: Record<DisputeStatus, StatusTone> = {
+  open: 'info',
+  vendor_contacted: 'info',
+  escalated: 'danger',
+  resolved: 'success',
+  closed: 'neutral',
+};
+
+const SEVERITY_TONE: Record<Severity, StatusTone> = {
+  low: 'neutral',
+  medium: 'warning',
+  high: 'danger',
+};
 
 export function DisputesClient() {
   const [status, setStatus] = useState<DisputeStatus | 'all'>('open');
@@ -60,24 +78,38 @@ export function DisputesClient() {
     <>
       <PageHeader title="Disputes" description="Customer-raised issues that require staff resolution." />
 
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        <div className="w-48">
-          <Select value={status} onValueChange={(v) => setStatus(v as DisputeStatus | 'all')}>
-            <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
-            <SelectContent>
-              {STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-            </SelectContent>
-          </Select>
+      <FilterCard className="mb-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:max-w-md">
+          <FilterField label="Status">
+            <Select value={status} onValueChange={(v) => setStatus(v as DisputeStatus | 'all')}>
+              <SelectTrigger>
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                {STATUSES.map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {s.replace('_', ' ')}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </FilterField>
+          <FilterField label="Severity">
+            <Select value={severity} onValueChange={(v) => setSeverity(v as Severity | 'all')}>
+              <SelectTrigger>
+                <SelectValue placeholder="Severity" />
+              </SelectTrigger>
+              <SelectContent>
+                {SEVERITIES.map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {s}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </FilterField>
         </div>
-        <div className="w-40">
-          <Select value={severity} onValueChange={(v) => setSeverity(v as Severity | 'all')}>
-            <SelectTrigger><SelectValue placeholder="Severity" /></SelectTrigger>
-            <SelectContent>
-              {SEVERITIES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
+      </FilterCard>
 
       {error && (
         <Card className="mb-4 border-destructive/40 bg-destructive/5">
@@ -106,10 +138,23 @@ export function DisputesClient() {
             </TableHeader>
             <TableBody>
               {isLoading && (
-                <TableRow><TableCell colSpan={10} className="py-6 text-center text-sm text-muted-foreground">Loading…</TableCell></TableRow>
+                <TableRow>
+                  <TableCell colSpan={10} className="py-6 text-center text-sm text-muted-foreground">
+                    Loading…
+                  </TableCell>
+                </TableRow>
               )}
               {!isLoading && rows.length === 0 && (
-                <TableRow><TableCell colSpan={10} className="py-6 text-center text-sm text-muted-foreground">No disputes match these filters.</TableCell></TableRow>
+                <TableRow>
+                  <TableCell colSpan={10} className="p-0">
+                    <EmptyState
+                      icon={AlertTriangle}
+                      title="No disputes match these filters"
+                      description="All quiet on this front — try widening filters to see resolved cases."
+                      bordered={false}
+                    />
+                  </TableCell>
+                </TableRow>
               )}
               {rows.map(({ d, sla }) => {
                 const customerName = `${d.order.customer.firstName ?? ''} ${d.order.customer.lastName ?? ''}`.trim();
@@ -121,11 +166,15 @@ export function DisputesClient() {
                     <TableCell className="text-sm">{d.order.vendor.businessName}</TableCell>
                     <TableCell className="text-sm">{customerName || d.order.customer.email}</TableCell>
                     <TableCell className="text-sm">{d.issueType}</TableCell>
-                    <TableCell><SeverityPill severity={d.severity} /></TableCell>
-                    <TableCell><StatusPill status={d.status} /></TableCell>
+                    <TableCell>
+                      <StatusPill tone={SEVERITY_TONE[d.severity]}>{d.severity}</StatusPill>
+                    </TableCell>
+                    <TableCell>
+                      <StatusPill tone={STATUS_TONE[d.status]}>{d.status.replace('_', ' ')}</StatusPill>
+                    </TableCell>
                     <TableCell className="text-right text-sm">{formatPence(d.order.totalPence)}</TableCell>
                     <TableCell>
-                      <Link href={`/disputes/${d.id}`} className="text-sm font-medium text-vendor hover:underline">
+                      <Link href={`/disputes/${d.id}`} className="text-sm font-medium text-primary hover:underline">
                         Open
                       </Link>
                     </TableCell>
@@ -140,29 +189,9 @@ export function DisputesClient() {
   );
 }
 
-function SeverityPill({ severity }: { severity: Severity }) {
-  const styles: Record<Severity, string> = {
-    low: 'bg-muted text-muted-foreground',
-    medium: 'bg-amber-100 text-amber-900',
-    high: 'bg-red-100 text-red-900',
-  };
-  return <Badge className={styles[severity]}>{severity}</Badge>;
-}
-
 function SLAPill({ sla }: { sla: SLAStatus }) {
   const tone = SLA_TONE_CLASSES[sla.tone];
   const weight = sla.urgent ? 'font-semibold' : 'font-medium';
   const pulse = sla.urgent ? 'animate-pulse' : '';
   return <Badge className={`${tone} ${weight} ${pulse}`.trim()}>{sla.label}</Badge>;
-}
-
-function StatusPill({ status }: { status: DisputeStatus }) {
-  const styles: Record<DisputeStatus, string> = {
-    open: 'bg-blue-100 text-blue-900',
-    vendor_contacted: 'bg-purple-100 text-purple-900',
-    escalated: 'bg-red-100 text-red-900',
-    resolved: 'bg-teal-light text-teal-dark',
-    closed: 'bg-muted text-muted-foreground',
-  };
-  return <Badge className={styles[status]}>{status.replace('_', ' ')}</Badge>;
 }

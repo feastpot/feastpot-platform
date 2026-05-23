@@ -23,11 +23,13 @@ import {
   TableHeader,
   TableRow,
 } from '@feastpot/ui';
-import { Download, Pencil, Search } from 'lucide-react';
+import { Download, Pencil, Search, UserSearch } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 
 import { PageHeader } from '@/components/layout/page-header';
+import { EmptyState } from '@/components/ui/empty-state';
+import { StatusPill, type StatusTone } from '@/components/ui/status-pill';
 import {
   useAdminUserSearch,
   useExportUser,
@@ -112,6 +114,14 @@ export function UsersClient({ currentUserId, role }: UsersClientProps) {
           onChange={() => search.refetch()}
         />
       )}
+
+      {!search.data && !search.error && !search.isFetching && (
+        <EmptyState
+          icon={UserSearch}
+          title="Search for a customer"
+          description="Enter a customer email above to see their profile, recent orders, and account actions."
+        />
+      )}
     </>
   );
 }
@@ -136,6 +146,7 @@ function UserDetailCard({
     `${(user.firstName ?? '?')[0] ?? '?'}${(user.lastName ?? '')[0] ?? ''}`.toUpperCase();
   const fullName = `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.email;
   const isSelf = user.id === currentUserId;
+  const statusTone: StatusTone = user.status === 'active' ? 'success' : 'danger';
 
   const canCredit = role === 'admin' || role === 'finance';
   const canSuspend = role === 'admin';
@@ -145,16 +156,14 @@ function UserDetailCard({
     <Card>
       <CardContent className="py-5">
         <div className="flex flex-wrap items-start gap-4">
-          <div className="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-vendor-light text-lg font-semibold text-vendor-dark">
+          <div className="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-teal-light text-lg font-bold text-teal-dark">
             {initials}
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-lg font-semibold">{fullName}</h2>
-              <Badge variant="outline">{user.role}</Badge>
-              <Badge variant={user.status === 'active' ? 'secondary' : 'destructive'}>
-                {user.status}
-              </Badge>
+              <StatusPill tone="info" withDot={false}>{user.role}</StatusPill>
+              <StatusPill tone={statusTone}>{user.status}</StatusPill>
             </div>
             <div className="text-sm text-muted-foreground">{user.email}</div>
             <div className="mt-1 text-xs text-muted-foreground">
@@ -165,7 +174,7 @@ function UserDetailCard({
               <div className="mt-2 text-xs">
                 <Link
                   href={`/vendors/${user.vendor.id}`}
-                  className="text-vendor underline-offset-2 hover:underline"
+                  className="text-primary underline-offset-2 hover:underline"
                 >
                   Also a vendor: {user.vendor.businessName} ({user.vendor.status})
                 </Link>
@@ -220,8 +229,8 @@ function UserDetailCard({
             <TableBody>
               {user.orders.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-sm text-muted-foreground">
-                    No orders yet.
+                  <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
+                    No orders yet for this customer.
                   </TableCell>
                 </TableRow>
               )}

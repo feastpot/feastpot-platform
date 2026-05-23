@@ -1,7 +1,6 @@
 'use client';
 
 import {
-  Badge,
   Button,
   Card,
   CardContent,
@@ -22,9 +21,12 @@ import {
   TableHeader,
   TableRow,
 } from '@feastpot/ui';
+import { Tag } from 'lucide-react';
 import { useState } from 'react';
 
 import { PageHeader } from '@/components/layout/page-header';
+import { EmptyState } from '@/components/ui/empty-state';
+import { StatusPill } from '@/components/ui/status-pill';
 import { useToast } from '@/components/ui/toaster';
 import {
   useCreateDiscountCode,
@@ -139,8 +141,22 @@ export function DiscountCodesClient({ canCreate }: Props) {
                 </TableRow>
               ) : rows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={canCreate ? 9 : 8} className="py-8 text-center text-sm text-muted-foreground">
-                    No discount codes yet.
+                  <TableCell colSpan={canCreate ? 9 : 8} className="p-0">
+                    <EmptyState
+                      icon={Tag}
+                      title="No discount codes yet"
+                      description={
+                        canCreate
+                          ? 'Mint your first promotional code to drive trial and reorders.'
+                          : 'When admins mint promotional codes, they will appear here.'
+                      }
+                      action={
+                        canCreate ? (
+                          <Button onClick={() => setOpen(true)}>New code</Button>
+                        ) : undefined
+                      }
+                      bordered={false}
+                    />
                   </TableCell>
                 </TableRow>
               ) : (
@@ -159,9 +175,9 @@ export function DiscountCodesClient({ canCreate }: Props) {
                     <TableCell>{r.expiresAt ? formatDate(r.expiresAt) : '-'}</TableCell>
                     <TableCell>{r.vendor?.businessName ?? 'All vendors'}</TableCell>
                     <TableCell>
-                      <Badge variant={r.isActive ? 'default' : 'secondary'}>
+                      <StatusPill tone={r.isActive ? 'success' : 'neutral'}>
                         {r.isActive ? 'Active' : 'Disabled'}
-                      </Badge>
+                      </StatusPill>
                     </TableCell>
                     {canCreate ? (
                       <TableCell>

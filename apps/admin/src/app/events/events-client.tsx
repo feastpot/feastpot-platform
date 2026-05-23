@@ -1,7 +1,6 @@
 'use client';
 
 import {
-  Badge,
   Card,
   CardContent,
   Select,
@@ -16,10 +15,14 @@ import {
   TableHeader,
   TableRow,
 } from '@feastpot/ui';
+import { CalendarHeart } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 import { PageHeader } from '@/components/layout/page-header';
+import { EmptyState } from '@/components/ui/empty-state';
+import { FilterCard, FilterField } from '@/components/ui/filter-card';
+import { StatusPill, type StatusTone } from '@/components/ui/status-pill';
 import {
   useEventEnquiries,
   type EnquiryRow,
@@ -38,6 +41,15 @@ const STATUSES: ReadonlyArray<EnquiryStatus | 'all'> = [
   // 'cancelled' so support can spot vendor-responsiveness issues at a glance.
   'expired',
 ];
+
+const STATUS_TONE: Record<EnquiryStatus, StatusTone> = {
+  open: 'warning',
+  quoted: 'info',
+  confirmed: 'success',
+  completed: 'success',
+  cancelled: 'danger',
+  expired: 'neutral',
+};
 
 /**
  * Admin event-enquiry queue. Hits GET /v1/event-enquiries - that endpoint
@@ -64,22 +76,24 @@ export function EventsClient() {
         description="Customer-submitted event briefs and the vendor quotes against them."
       />
 
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        <div className="w-48">
-          <Select value={status} onValueChange={(v) => setStatus(v as EnquiryStatus | 'all')}>
-            <SelectTrigger>
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              {STATUSES.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {s}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      <FilterCard className="mb-4">
+        <div className="grid grid-cols-1 gap-3 sm:max-w-xs">
+          <FilterField label="Status">
+            <Select value={status} onValueChange={(v) => setStatus(v as EnquiryStatus | 'all')}>
+              <SelectTrigger>
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                {STATUSES.map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {s}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </FilterField>
         </div>
-      </div>
+      </FilterCard>
 
       {error && (
         <Card className="mb-4 border-destructive/40 bg-destructive/5">
@@ -116,8 +130,13 @@ export function EventsClient() {
               )}
               {!isLoading && rows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={10} className="py-6 text-center text-sm text-muted-foreground">
-                    No enquiries match these filters.
+                  <TableCell colSpan={10} className="p-0">
+                    <EmptyState
+                      icon={CalendarHeart}
+                      title="No enquiries match these filters"
+                      description="When customers submit catering briefs, they show up here."
+                      bordered={false}
+                    />
                   </TableCell>
                 </TableRow>
               )}
@@ -172,22 +191,8 @@ function EnquiryRowView({ row: e, onOpen }: { row: EnquiryRow; onOpen: () => voi
       <TableCell className="text-right text-sm">{e.quotes.length}</TableCell>
       <TableCell className="text-sm">{e.selectedVendor?.businessName ?? '-'}</TableCell>
       <TableCell>
-        <StatusPill status={e.status} />
+        <StatusPill tone={STATUS_TONE[e.status]}>{e.status}</StatusPill>
       </TableCell>
     </TableRow>
   );
-}
-
-function StatusPill({ status }: { status: EnquiryStatus }) {
-  const styles: Record<EnquiryStatus, string> = {
-    open: 'bg-amber-100 text-amber-900',
-    quoted: 'bg-blue-100 text-blue-900',
-    confirmed: 'bg-emerald-100 text-emerald-900',
-    completed: 'bg-teal-light text-teal-dark',
-    cancelled: 'bg-red-100 text-red-900',
-    // Neutral grey to visually separate operational expiry from the red
-    // 'cancelled' state - matches the spec's #444441/#F1EFE8 intent.
-    expired: 'bg-stone-200 text-stone-800',
-  };
-  return <Badge className={styles[status]}>{status}</Badge>;
 }

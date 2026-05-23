@@ -1,7 +1,6 @@
 'use client';
 
 import {
-  Badge,
   Card,
   CardContent,
   Table,
@@ -10,15 +9,15 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-  Tabs,
-  TabsList,
-  TabsTrigger,
 } from '@feastpot/ui';
-import { Check, Circle, Minus, X } from 'lucide-react';
+import { Check, Circle, Minus, Store, X } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 
 import { PageHeader } from '@/components/layout/page-header';
+import { EmptyState } from '@/components/ui/empty-state';
+import { StatusPill, type StatusTone } from '@/components/ui/status-pill';
+import { TabPills, type TabPillItem } from '@/components/ui/tab-pills';
 import {
   useAdminVendors,
   type DocumentStatus,
@@ -27,13 +26,15 @@ import {
 } from '@/hooks/use-admin-vendors';
 import { formatDate } from '@/lib/format';
 
-const TABS: { value: VendorStatus | 'all'; label: string }[] = [
-  { value: 'pending', label: 'Pending' },
-  { value: 'live', label: 'Live' },
-  { value: 'probation', label: 'Probation' },
-  { value: 'suspended', label: 'Suspended' },
-  { value: 'removed', label: 'Removed' },
-  { value: 'all', label: 'All' },
+type TabValue = VendorStatus | 'all';
+
+const TABS: ReadonlyArray<{ value: TabValue; label: string; tone: TabPillItem<TabValue>['countTone'] }> = [
+  { value: 'pending', label: 'Pending', tone: 'warning' },
+  { value: 'live', label: 'Live', tone: 'success' },
+  { value: 'probation', label: 'Probation', tone: 'warning' },
+  { value: 'suspended', label: 'Suspended', tone: 'danger' },
+  { value: 'removed', label: 'Removed', tone: 'neutral' },
+  { value: 'all', label: 'All', tone: 'neutral' },
 ];
 
 const DOC_TYPES: DocumentType[] = ['hygiene_cert', 'insurance', 'photo_id', 'bank_details', 'kitchen_reg'];
@@ -45,23 +46,44 @@ const DOC_LABELS: Record<DocumentType, string> = {
   kitchen_reg: 'Kitchen reg.',
 };
 
+const STATUS_TONE: Record<VendorStatus, StatusTone> = {
+  pending: 'warning',
+  approved: 'info',
+  live: 'success',
+  probation: 'warning',
+  suspended: 'danger',
+  removed: 'neutral',
+};
+
 export function VendorsClient() {
-  const [tab, setTab] = useState<VendorStatus | 'all'>('pending');
+  const [tab, setTab] = useState<TabValue>('pending');
   // Public list endpoint is hard-locked to `live`, so the "all" tab still hits
   // /admin/vendors and just doesn't pass a status filter (server falls back).
   const { data, isLoading, error } = useAdminVendors(tab === 'all' ? 'all' : tab);
+
+  const rows = data?.data ?? [];
+
+  const tabItems: ReadonlyArray<TabPillItem<TabValue>> = TABS.map((t) => ({
+    value: t.value,
+    label: t.label,
+    // Count reflects the *currently loaded* slice (we don't fetch all states
+    // up-front to keep payloads small) so it only shows on the active tab.
+    count: t.value === tab ? rows.length : undefined,
+    countTone: t.tone,
+  }));
 
   return (
     <>
       <PageHeader title="Vendors" description="Approval queue and lifecycle management." />
 
-      <Tabs value={tab} onValueChange={(v) => setTab(v as VendorStatus | 'all')} className="mb-4">
-        <TabsList>
-          {TABS.map((t) => (
-            <TabsTrigger key={t.value} value={t.value}>{t.label}</TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
+      <div className="mb-4">
+        <TabPills<TabValue>
+          items={tabItems}
+          value={tab}
+          onChange={setTab}
+          ariaLabel="Vendor status filter"
+        />
+      </div>
 
       {error && (
         <Card className="mb-4 border-destructive/40 bg-destructive/5">
@@ -92,14 +114,19 @@ export function VendorsClient() {
                   </TableCell>
                 </TableRow>
               )}
-              {!isLoading && (data?.data ?? []).length === 0 && (
+              {!isLoading && rows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="py-6 text-center text-sm text-muted-foreground">
-                    No vendors in this state.
+                  <TableCell colSpan={6} className="p-0">
+                    <EmptyState
+                      icon={Store}
+                      title="No vendors in this state"
+                      description="When vendors are added or updated, they will appear here for review and approval."
+                      bordered={false}
+                    />
                   </TableCell>
                 </TableRow>
               )}
-              {(data?.data ?? []).map((v) => (
+              {rows.map((v) => (
                 <TableRow key={v.id}>
                   <TableCell>
                     <div className="font-medium">{v.businessName}</div>
@@ -110,7 +137,9 @@ export function VendorsClient() {
                     <div className="text-xs text-muted-foreground">{v.owner.email}</div>
                   </TableCell>
                   <TableCell className="text-sm">{formatDate(v.createdAt)}</TableCell>
-                  <TableCell><StatusBadge status={v.status} /></TableCell>
+                  <TableCell>
+                    <StatusPill tone={STATUS_TONE[v.status]}>{v.status}</StatusPill>
+                  </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
                       {DOC_TYPES.map((t) => (
@@ -119,7 +148,7 @@ export function VendorsClient() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Link href={`/vendors/${v.id}`} className="text-sm font-medium text-vendor hover:underline">
+                    <Link href={`/vendors/${v.id}`} className="text-sm font-medium text-primary hover:underline">
                       Review
                     </Link>
                   </TableCell>
@@ -131,18 +160,6 @@ export function VendorsClient() {
       </Card>
     </>
   );
-}
-
-function StatusBadge({ status }: { status: VendorStatus }) {
-  const styles: Record<VendorStatus, string> = {
-    pending: 'bg-amber-100 text-amber-900',
-    approved: 'bg-blue-100 text-blue-900',
-    live: 'bg-teal-light text-teal-dark',
-    probation: 'bg-orange-100 text-orange-900',
-    suspended: 'bg-red-100 text-red-900',
-    removed: 'bg-muted text-muted-foreground',
-  };
-  return <Badge className={styles[status]}>{status}</Badge>;
 }
 
 function DocIcon({ type, status }: { type: DocumentType; status: DocumentStatus | undefined }) {

@@ -1,7 +1,6 @@
 'use client';
 
 import {
-  Badge,
   Button,
   Card,
   CardContent,
@@ -17,9 +16,13 @@ import {
   TableHeader,
   TableRow,
 } from '@feastpot/ui';
+import { MessageSquare } from 'lucide-react';
 import { useState } from 'react';
 
 import { PageHeader } from '@/components/layout/page-header';
+import { EmptyState } from '@/components/ui/empty-state';
+import { StatusPill, type StatusTone } from '@/components/ui/status-pill';
+import { TabPills, type TabPillItem } from '@/components/ui/tab-pills';
 import {
   useModerateReview,
   useReviewsQueue,
@@ -34,12 +37,16 @@ import { formatDate } from '@/lib/format';
 // No 'pending' - the prisma ModerationStatus enum only has auto_approved /
 // held / approved / rejected. Auto-moderate writes one of the first two on
 // review creation; pending isn't a state in this schema.
-const FILTER_TABS: ReadonlyArray<ModerationQueueFilter> = [
-  'all',
-  'auto_approved',
-  'held',
-  'approved',
-  'rejected',
+const FILTER_TABS: ReadonlyArray<{
+  value: ModerationQueueFilter;
+  label: string;
+  tone: TabPillItem<ModerationQueueFilter>['countTone'];
+}> = [
+  { value: 'all', label: 'All', tone: 'neutral' },
+  { value: 'auto_approved', label: 'Auto approved', tone: 'success' },
+  { value: 'held', label: 'Held', tone: 'warning' },
+  { value: 'approved', label: 'Approved', tone: 'success' },
+  { value: 'rejected', label: 'Rejected', tone: 'danger' },
 ];
 
 const REJECT_REASON_MIN = 10;
@@ -118,21 +125,22 @@ export function ReviewsQueueClient() {
     <>
       <PageHeader
         title="Reviews moderation"
-        description="Approve to publish, reject to hide, or hold to flag for a second look."
+        description="Review and manage customer feedback to maintain trust and quality."
       />
 
-      {/* Filter tabs (D18) */}
-      <div className="mb-4 flex flex-wrap gap-2">
-        {FILTER_TABS.map((tab) => (
-          <Button
-            key={tab}
-            size="sm"
-            variant={filter === tab ? 'default' : 'outline'}
-            onClick={() => setFilter(tab)}
-          >
-            {tab.replace('_', ' ')}
-          </Button>
-        ))}
+      {/* Filter tabs (D18). Counts reflect the currently loaded slice. */}
+      <div className="mb-4">
+        <TabPills<ModerationQueueFilter>
+          items={FILTER_TABS.map((t) => ({
+            value: t.value,
+            label: t.label,
+            count: t.value === filter ? reviews.length : undefined,
+            countTone: t.tone,
+          }))}
+          value={filter}
+          onChange={setFilter}
+          ariaLabel="Review moderation filter"
+        />
       </div>
 
       {error && (
@@ -166,8 +174,13 @@ export function ReviewsQueueClient() {
               )}
               {!isLoading && reviews.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="py-6 text-center text-sm text-muted-foreground">
-                    No reviews match this filter.
+                  <TableCell colSpan={6} className="p-0">
+                    <EmptyState
+                      icon={MessageSquare}
+                      title="No reviews match this filter"
+                      description="Try another tab — reviews flow into Held when auto-moderation isn't sure."
+                      bordered={false}
+                    />
                   </TableCell>
                 </TableRow>
               )}
@@ -193,7 +206,7 @@ export function ReviewsQueueClient() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <StatusPill status={r.moderationStatus} />
+                      <ModerationPill status={r.moderationStatus} />
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
@@ -305,12 +318,12 @@ export function ReviewsQueueClient() {
   );
 }
 
-function StatusPill({ status }: { status: ModerationStatus }) {
-  const styles: Record<ModerationStatus, string> = {
-    approved: 'bg-emerald-100 text-emerald-900',
-    auto_approved: 'bg-teal-light text-teal-dark',
-    rejected: 'bg-red-100 text-red-900',
-    held: 'bg-indigo-100 text-indigo-900',
+function ModerationPill({ status }: { status: ModerationStatus }) {
+  const tone: Record<ModerationStatus, StatusTone> = {
+    approved: 'success',
+    auto_approved: 'success',
+    rejected: 'danger',
+    held: 'warning',
   };
-  return <Badge className={styles[status]}>{status.replace('_', ' ')}</Badge>;
+  return <StatusPill tone={tone[status]}>{status.replace('_', ' ')}</StatusPill>;
 }
