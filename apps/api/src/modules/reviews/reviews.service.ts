@@ -134,20 +134,97 @@ export class ReviewsService {
     const cursorWhere: Prisma.ReviewWhereInput = cursor
       ? { OR: [{ createdAt: { lt: cursor.createdAt } }, { createdAt: cursor.createdAt, id: { lt: cursor.id } }] }
       : {};
+    const baseWhere = this.buildModerationFilters(dto);
+    const rows = await this.prisma.review.findMany({
+      where: { AND: [baseWhere, cursorWhere] },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      // Take limit+1 so we can detect whether another page exists even when
+      // the current page is exactly `limit` rows long (the old check was
+      // off-by-one for that case).
+      take: limit + 1,
+      include: {
+        vendor: {
+          select: { id: true, businessName: true, slug: true, logoUrl: true, cuisines: true },
+        },
+        customer: { select: { id: true, firstName: true, lastName: true, email: true } },
+      },
+    });
+    // Total respects all current filters EXCEPT cursor (so the footer
+    // "Showing N to M of T" stays stable across pages).
+    const total = await this.prisma.review.count({ where: baseWhere });
+    const hasMore = rows.length > limit;
+    const page = hasMore ? rows.slice(0, limit) : rows;
+    const last = page[page.length - 1];
+    return {
+      data: page,
+      total,
+      nextCursor: hasMore && last ? this.encodeCursor(last) : null,
+    };
+  }
+
+  /**
+   * Counts per moderation status, honouring all non-status filters (q,
+   * vendor, rating, date range). Used to drive the quick-filter chip
+   * counters in the admin UI.
+   */
+  async moderationQueueCounts(dto: ListModerationQueueDto) {
+    // Strip status from the input — counts are always grouped by status.
+    const { status: _status, ...rest } = dto;
+    const baseWhere = this.buildModerationFilters({ ...rest, status: 'all' });
+    const grouped = await this.prisma.review.groupBy({
+      by: ['moderationStatus'],
+      where: baseWhere,
+      _count: { _all: true },
+    });
+    const counts: Record<ModerationStatus, number> & { all: number } = {
+      auto_approved: 0,
+      held: 0,
+      approved: 0,
+      rejected: 0,
+      all: 0,
+    };
+    for (const g of grouped) {
+      counts[g.moderationStatus] = g._count._all;
+      counts.all += g._count._all;
+    }
+    return counts;
+  }
+
+  private buildModerationFilters(dto: ListModerationQueueDto): Prisma.ReviewWhereInput {
     // D18: explicit status filter. Omitted defaults to 'held' (preserves
     // legacy behaviour for any caller that wasn't updated). 'all' drops
     // the status predicate entirely. Any other value pins to that status.
     const filterStatus = dto.status ?? ModerationStatus.held;
-    const statusWhere: Prisma.ReviewWhereInput =
-      filterStatus === 'all' ? {} : { moderationStatus: filterStatus };
-    const rows = await this.prisma.review.findMany({
-      where: { AND: [statusWhere, cursorWhere] },
-      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-      take: limit,
-      include: { vendor: { select: { id: true, businessName: true } } },
-    });
-    const nextCursor = rows.length === limit ? this.encodeCursor(rows[rows.length - 1]!) : null;
-    return { data: rows, nextCursor };
+    const where: Prisma.ReviewWhereInput = {};
+    if (filterStatus !== 'all') {
+      where.moderationStatus = filterStatus as ModerationStatus;
+    }
+    if (dto.vendorId) where.vendorId = dto.vendorId;
+    if (dto.rating !== undefined) where.rating = dto.rating;
+    if (dto.submittedFrom || dto.submittedTo) {
+      const range: { gte?: Date; lte?: Date } = {};
+      if (dto.submittedFrom) {
+        const d = new Date(dto.submittedFrom);
+        range.gte = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 0, 0, 0, 0));
+      }
+      if (dto.submittedTo) {
+        const d = new Date(dto.submittedTo);
+        range.lte = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 23, 59, 59, 999));
+      }
+      where.createdAt = range;
+    }
+    if (dto.q && dto.q.trim().length > 0) {
+      const q = dto.q.trim();
+      where.OR = [
+        { title: { contains: q, mode: 'insensitive' } },
+        { body: { contains: q, mode: 'insensitive' } },
+        { vendor: { businessName: { contains: q, mode: 'insensitive' } } },
+        { customer: { firstName: { contains: q, mode: 'insensitive' } } },
+        { customer: { lastName: { contains: q, mode: 'insensitive' } } },
+        { customer: { email: { contains: q, mode: 'insensitive' } } },
+      ];
+    }
+    return where;
   }
 
   async moderate(id: string, dto: ModerateReviewDto, user: AuthUser) {

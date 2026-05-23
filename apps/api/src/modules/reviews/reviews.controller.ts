@@ -46,6 +46,13 @@ export class ReviewsController {
     return this.reviews.listModerationQueue(dto);
   }
 
+  @Get('moderation-queue/counts')
+  @Roles(UserRole.admin, UserRole.support)
+  @ApiOperation({ summary: 'Counts per moderation status honouring current filters (admin/support)' })
+  queueCounts(@Query() dto: ListModerationQueueDto) {
+    return this.reviews.moderationQueueCounts(dto);
+  }
+
   @Patch(':id/moderation')
   @Roles(UserRole.admin)
   @ApiOperation({ summary: 'Approve or reject a held review (admin)' })
