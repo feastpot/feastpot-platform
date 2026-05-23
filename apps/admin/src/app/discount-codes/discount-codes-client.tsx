@@ -8,6 +8,10 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
   Input,
   Select,
   SelectContent,
@@ -21,7 +25,14 @@ import {
   TableHeader,
   TableRow,
 } from '@feastpot/ui';
-import { Tag } from 'lucide-react';
+import {
+  CalendarClock,
+  MoreHorizontal,
+  Percent,
+  Plus,
+  Store,
+  Tag,
+} from 'lucide-react';
 import { useState } from 'react';
 
 import { PageHeader } from '@/components/layout/page-header';
@@ -33,10 +44,11 @@ import {
   useDiscountCodes,
   useToggleDiscountCode,
   type CreateDiscountCodeInput,
+  type DiscountCodeRow,
   type DiscountType,
 } from '@/hooks/use-discount-codes';
 import { ApiError } from '@/lib/api/client';
-import { formatDate, formatPence } from '@/lib/format';
+import { formatPence } from '@/lib/format';
 
 interface Props {
   canCreate: boolean;
@@ -97,6 +109,7 @@ export function DiscountCodesClient({ canCreate }: Props) {
   }
 
   const rows = data?.data ?? [];
+  const colSpan = canCreate ? 9 : 8;
 
   return (
     <div className="space-y-6">
@@ -104,7 +117,12 @@ export function DiscountCodesClient({ canCreate }: Props) {
         title="Discount codes"
         description="Promotional codes redeemed at customer checkout."
         actions={
-          canCreate ? <Button onClick={() => setOpen(true)}>New code</Button> : undefined
+          canCreate ? (
+            <Button onClick={() => setOpen(true)} className="bg-emerald-700 hover:bg-emerald-800">
+              <Plus className="mr-1.5 h-4 w-4" />
+              New code
+            </Button>
+          ) : undefined
         }
       />
 
@@ -121,38 +139,44 @@ export function DiscountCodesClient({ canCreate }: Props) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Code</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Value</TableHead>
-                <TableHead>Min order</TableHead>
-                <TableHead>Used</TableHead>
-                <TableHead>Expires</TableHead>
-                <TableHead>Vendor</TableHead>
-                <TableHead>Status</TableHead>
-                {canCreate ? <TableHead className="w-32" /> : null}
+                <TableHead className="uppercase tracking-wide text-xs">Code</TableHead>
+                <TableHead className="uppercase tracking-wide text-xs">Type</TableHead>
+                <TableHead className="uppercase tracking-wide text-xs">Value</TableHead>
+                <TableHead className="uppercase tracking-wide text-xs">Min order</TableHead>
+                <TableHead className="uppercase tracking-wide text-xs">Used</TableHead>
+                <TableHead className="uppercase tracking-wide text-xs">Expires</TableHead>
+                <TableHead className="uppercase tracking-wide text-xs">Vendor</TableHead>
+                <TableHead className="uppercase tracking-wide text-xs">Status</TableHead>
+                {canCreate ? <TableHead className="w-12" /> : null}
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={canCreate ? 9 : 8} className="py-8 text-center text-sm text-muted-foreground">
+                  <TableCell colSpan={colSpan} className="py-8 text-center text-sm text-muted-foreground">
                     Loading…
                   </TableCell>
                 </TableRow>
               ) : rows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={canCreate ? 9 : 8} className="p-0">
+                  <TableCell colSpan={colSpan} className="p-0">
                     <EmptyState
                       icon={Tag}
                       title="No discount codes yet"
                       description={
                         canCreate
-                          ? 'Mint your first promotional code to drive trial and reorders.'
+                          ? 'Create your first promotional code to offer discounts and boost customer engagement.'
                           : 'When admins mint promotional codes, they will appear here.'
                       }
                       action={
                         canCreate ? (
-                          <Button onClick={() => setOpen(true)}>New code</Button>
+                          <Button
+                            onClick={() => setOpen(true)}
+                            className="bg-emerald-700 hover:bg-emerald-800"
+                          >
+                            <Plus className="mr-1.5 h-4 w-4" />
+                            Create your first code
+                          </Button>
                         ) : undefined
                       }
                       bordered={false}
@@ -161,37 +185,13 @@ export function DiscountCodesClient({ canCreate }: Props) {
                 </TableRow>
               ) : (
                 rows.map((r) => (
-                  <TableRow key={r.id}>
-                    <TableCell className="font-mono">{r.code}</TableCell>
-                    <TableCell>{r.type}</TableCell>
-                    <TableCell>
-                      {r.type === 'flat' ? formatPence(r.value) : `${(r.value / 100).toFixed(2)}%`}
-                    </TableCell>
-                    <TableCell>{r.minOrderPence ? formatPence(r.minOrderPence) : '-'}</TableCell>
-                    <TableCell>
-                      {r.usedCount}
-                      {r.maxUses ? ` / ${r.maxUses}` : ''}
-                    </TableCell>
-                    <TableCell>{r.expiresAt ? formatDate(r.expiresAt) : '-'}</TableCell>
-                    <TableCell>{r.vendor?.businessName ?? 'All vendors'}</TableCell>
-                    <TableCell>
-                      <StatusPill tone={r.isActive ? 'success' : 'neutral'}>
-                        {r.isActive ? 'Active' : 'Disabled'}
-                      </StatusPill>
-                    </TableCell>
-                    {canCreate ? (
-                      <TableCell>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={toggle.isPending}
-                          onClick={() => onToggle(r.id, !r.isActive)}
-                        >
-                          {r.isActive ? 'Disable' : 'Enable'}
-                        </Button>
-                      </TableCell>
-                    ) : null}
-                  </TableRow>
+                  <DiscountRow
+                    key={r.id}
+                    row={r}
+                    canCreate={canCreate}
+                    toggling={toggle.isPending}
+                    onToggle={onToggle}
+                  />
                 ))
               )}
             </TableBody>
@@ -293,6 +293,142 @@ export function DiscountCodesClient({ canCreate }: Props) {
   );
 }
 
+function DiscountRow({
+  row: r,
+  canCreate,
+  toggling,
+  onToggle,
+}: {
+  row: DiscountCodeRow;
+  canCreate: boolean;
+  toggling: boolean;
+  onToggle: (id: string, isActive: boolean) => void;
+}) {
+  // Friendlier value formatting than the raw DB units (pence / basis
+  // points). The wireframe shows "15% off" rather than the engineering
+  // representation, so we humanise it here at the leaf.
+  const valueLabel =
+    r.type === 'flat'
+      ? `${formatPence(r.value)} off`
+      : `${stripTrailingZeros(r.value / 100)}% off`;
+
+  const usedPct =
+    r.maxUses && r.maxUses > 0 ? Math.min(100, Math.round((r.usedCount / r.maxUses) * 100)) : null;
+
+  return (
+    <TableRow>
+      <TableCell>
+        <div className="font-mono text-sm font-semibold tracking-wide">{r.code}</div>
+        <div className="text-xs text-muted-foreground">
+          {r.vendor ? `${r.vendor.businessName} offer` : 'Platform offer'}
+        </div>
+      </TableCell>
+
+      <TableCell>
+        <span
+          className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium ${
+            r.type === 'percentage'
+              ? 'bg-amber-100 text-amber-800'
+              : 'bg-sky-100 text-sky-800'
+          }`}
+        >
+          {r.type === 'percentage' ? <Percent className="h-3 w-3" /> : null}
+          {r.type === 'percentage' ? 'Percentage' : 'Flat'}
+        </span>
+      </TableCell>
+
+      <TableCell className="text-sm font-medium">{valueLabel}</TableCell>
+
+      <TableCell className="text-sm">
+        {r.minOrderPence ? formatPence(r.minOrderPence) : '—'}
+      </TableCell>
+
+      <TableCell>
+        <div className="text-sm font-medium">
+          {r.usedCount}
+          {r.maxUses ? ` / ${r.maxUses}` : ''}
+        </div>
+        {usedPct !== null ? (
+          <div
+            className="mt-1 h-1 w-20 overflow-hidden rounded-full bg-muted"
+            role="progressbar"
+            aria-valuenow={r.usedCount}
+            aria-valuemin={0}
+            aria-valuemax={r.maxUses ?? undefined}
+            aria-label={`${r.usedCount} of ${r.maxUses} redemptions used`}
+          >
+            <div
+              className="h-full rounded-full bg-emerald-600"
+              style={{ width: `${usedPct}%` }}
+            />
+          </div>
+        ) : null}
+      </TableCell>
+
+      <TableCell>
+        {r.expiresAt ? (
+          <div className="flex items-start gap-1.5">
+            <CalendarClock className="mt-0.5 h-3.5 w-3.5 text-muted-foreground" />
+            <div className="leading-tight">
+              <div className="text-sm">{formatExpiryDate(r.expiresAt)}</div>
+              <div className="text-xs text-muted-foreground">{formatExpiryTime(r.expiresAt)}</div>
+            </div>
+          </div>
+        ) : (
+          <span className="text-sm text-muted-foreground">Never</span>
+        )}
+      </TableCell>
+
+      <TableCell>
+        <div className="flex items-start gap-1.5">
+          <Store className="mt-0.5 h-3.5 w-3.5 text-muted-foreground" />
+          <div className="leading-tight">
+            <div className="text-sm">{r.vendor?.businessName ?? 'FeastPot'}</div>
+            <div className="text-xs text-muted-foreground">
+              {r.vendor ? 'Vendor' : 'Platform'}
+            </div>
+          </div>
+        </div>
+      </TableCell>
+
+      <TableCell>
+        <StatusPill tone={r.isActive ? 'success' : 'neutral'}>
+          {r.isActive ? 'Active' : 'Disabled'}
+        </StatusPill>
+      </TableCell>
+
+      {canCreate ? (
+        <TableCell className="text-right">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                size="icon"
+                variant="ghost"
+                aria-label="Row actions"
+                disabled={toggling}
+              >
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={() => onToggle(r.id, !r.isActive)}>
+                {r.isActive ? 'Disable code' : 'Enable code'}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={() => {
+                  void navigator.clipboard?.writeText(r.code);
+                }}
+              >
+                Copy code
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </TableCell>
+      ) : null}
+    </TableRow>
+  );
+}
+
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1">
@@ -301,4 +437,25 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
       {hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
     </div>
   );
+}
+
+function stripTrailingZeros(n: number): string {
+  // 15 → "15", 12.5 → "12.5". Avoids "15.0% off" looking clunky.
+  return Number.isInteger(n) ? n.toString() : n.toFixed(2).replace(/\.?0+$/, '');
+}
+
+function formatExpiryDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
+function formatExpiryTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString('en-GB', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
 }
