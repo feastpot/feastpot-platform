@@ -40,9 +40,9 @@ function SignInChrome({ children }: { children: React.ReactNode }) {
             <Image
               src="/feastpot-logo.png"
               alt="FeastPot"
-              width={56}
-              height={56}
-              className="h-14 w-14"
+              width={168}
+              height={168}
+              className="h-[5.25rem] w-[5.25rem]"
               priority
             />
             <h1 className="mt-3 text-2xl font-semibold tracking-tight text-foreground">
