@@ -10,37 +10,49 @@ import { Button } from '@feastpot/ui';
  *
  * Feastpot only sets strictly-necessary cookies (auth session, basket,
  * CSRF). Under PECR these do NOT require prior opt-in - only a clear
- * notice. We therefore use a dismissable banner rather than a blocking
- * consent gate. State lives in localStorage so the banner doesn't reappear
- * on every navigation.
+ * notice. We still give the user an explicit choice between
+ * "Essential only" and "Accept all" so the recorded preference is
+ * unambiguous and future-proof if non-essential cookies are ever added.
+ *
+ * Stored values in localStorage:
+ *   'essential' — user picked essential-only
+ *   'all'       — user accepted everything
+ *   'accepted'  — legacy value (treated as 'all')
  */
 const STORAGE_KEY = 'feastpot.cookie-consent.v1';
 
+type Consent = 'essential' | 'all';
+
+function readConsent(): Consent | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw === 'essential') return 'essential';
+    if (raw === 'all' || raw === 'accepted') return 'all';
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export function CookieBanner() {
-  // `null` = pre-hydration (don't render yet to avoid SSR mismatch);
-  // `true`/`false` once we've read localStorage.
-  const [accepted, setAccepted] = useState<boolean | null>(null);
+  // `undefined` = pre-hydration (don't render yet to avoid SSR mismatch);
+  // `null` = no choice yet (show banner); otherwise the stored choice.
+  const [consent, setConsent] = useState<Consent | null | undefined>(undefined);
 
   useEffect(() => {
-    try {
-      setAccepted(localStorage.getItem(STORAGE_KEY) === 'accepted');
-    } catch {
-      // Private mode / blocked storage - show the banner anyway, dismissing
-      // becomes a no-op which is acceptable behaviour.
-      setAccepted(false);
-    }
+    setConsent(readConsent());
   }, []);
 
-  const handleAccept = () => {
+  const choose = (value: Consent) => () => {
     try {
-      localStorage.setItem(STORAGE_KEY, 'accepted');
+      localStorage.setItem(STORAGE_KEY, value);
     } catch {
       /* ignore */
     }
-    setAccepted(true);
+    setConsent(value);
   };
 
-  if (accepted !== false) return null;
+  if (consent === undefined || consent !== null) return null;
 
   return (
     <div
@@ -52,14 +64,31 @@ export function CookieBanner() {
       <div className="mx-auto flex max-w-4xl flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <p className="text-sm font-medium text-charcoal">
           We use cookies for essential platform functionality. No advertising cookies.{' '}
-          <Link href="/legal/privacy" className="font-bold text-brand-dark underline underline-offset-2 hover:text-brand">
+          <Link
+            href="/legal/privacy"
+            className="font-bold text-brand-dark underline underline-offset-2 hover:text-brand"
+          >
             Read our privacy policy
           </Link>
           .
         </p>
-        <Button onClick={handleAccept} className="self-end rounded-xl bg-brand font-bold text-white hover:bg-brand-dark md:self-auto" size="sm">
-          Accept
-        </Button>
+        <div className="flex flex-wrap justify-end gap-2 self-end md:self-auto">
+          <Button
+            onClick={choose('essential')}
+            variant="outline"
+            size="sm"
+            className="rounded-xl border-cream-deep font-bold text-charcoal hover:bg-cream"
+          >
+            Essential only
+          </Button>
+          <Button
+            onClick={choose('all')}
+            size="sm"
+            className="rounded-xl bg-brand font-bold text-white hover:bg-brand-dark"
+          >
+            Accept all
+          </Button>
+        </div>
       </div>
     </div>
   );
