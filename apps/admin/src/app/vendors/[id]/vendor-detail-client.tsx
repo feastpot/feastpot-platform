@@ -1,7 +1,6 @@
 'use client';
 
 import {
-  Badge,
   Button,
   Card,
   CardContent,
@@ -18,6 +17,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 import { PageHeader } from '@/components/layout/page-header';
+import { StatusPill, type StatusTone } from '@/components/ui/status-pill';
 import { useToast } from '@/components/ui/toaster';
 import {
   useAdminVendors,
@@ -39,6 +39,22 @@ const DOC_LABELS: Record<DocumentType, string> = {
   photo_id: 'Photo ID',
   bank_details: 'Bank details',
   kitchen_reg: 'Kitchen registration',
+};
+
+const VENDOR_STATUS_TONE: Record<VendorStatus, StatusTone> = {
+  pending: 'warning',
+  approved: 'info',
+  live: 'success',
+  probation: 'warning',
+  suspended: 'danger',
+  removed: 'neutral',
+};
+
+const DOC_STATUS_TONE: Record<DocumentStatus, StatusTone> = {
+  verified: 'success',
+  rejected: 'danger',
+  expired: 'warning',
+  pending: 'warning',
 };
 
 export function VendorDetailClient({ vendorId }: { vendorId: string }) {
@@ -113,7 +129,14 @@ export function VendorDetailClient({ vendorId }: { vendorId: string }) {
             {isLoading && <div className="text-muted-foreground">Loading…</div>}
             {vendor && (
               <>
-                <Field label="Status" value={<Badge>{vendor.status}</Badge>} />
+                <Field
+                  label="Status"
+                  value={
+                    <StatusPill tone={VENDOR_STATUS_TONE[vendor.status]}>
+                      {vendor.status}
+                    </StatusPill>
+                  }
+                />
                 <Field label="Slug" value={vendor.slug} />
                 <Field label="Cuisines" value={vendor.cuisines.join(', ') || '-'} />
                 <Field label="Rating" value={`${vendor.rating.toFixed(2)} (${vendor.ratingCount} reviews)`} />
@@ -190,7 +213,7 @@ export function VendorDetailClient({ vendorId }: { vendorId: string }) {
                     href={d.fileUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="text-xs font-medium text-vendor hover:underline"
+                    className="text-xs font-medium text-primary hover:underline"
                   >
                     Open
                   </a>
@@ -249,11 +272,5 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
 }
 
 function DocStatusPill({ status }: { status: DocumentStatus }) {
-  const styles: Record<DocumentStatus, string> = {
-    verified: 'bg-teal-light text-teal-dark',
-    rejected: 'bg-red-100 text-red-900',
-    expired: 'bg-orange-100 text-orange-900',
-    pending: 'bg-amber-100 text-amber-900',
-  };
-  return <Badge className={styles[status]}>{status}</Badge>;
+  return <StatusPill tone={DOC_STATUS_TONE[status]}>{status}</StatusPill>;
 }
