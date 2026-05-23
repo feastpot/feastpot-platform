@@ -175,8 +175,18 @@ export function VendorDetailClient({ vendorId }: { vendorId: string }) {
                         </Button>
                       </>
                     )}
-                    {(vendor.status === 'probation' || vendor.status === 'suspended') && (
-                      <Button size="sm" onClick={() => changeStatus('live', 'reinstated')}>Reinstate</Button>
+                    {vendor.status === 'probation' && (
+                      <Button size="sm" onClick={() => changeStatus('live', 'reinstated')}>
+                        Reinstate
+                      </Button>
+                    )}
+                    {vendor.status === 'suspended' && (
+                      <Button
+                        size="sm"
+                        onClick={() => changeStatus('probation', 'reinstated_to_probation')}
+                      >
+                        Move to probation
+                      </Button>
                     )}
                   </div>
                 </div>
