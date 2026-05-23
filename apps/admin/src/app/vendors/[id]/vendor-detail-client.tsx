@@ -166,14 +166,13 @@ export function VendorDetailClient({ vendorId }: { vendorId: string }) {
                       <Button size="sm" onClick={() => changeStatus('live')}>Go live</Button>
                     )}
                     {vendor.status === 'live' && (
-                      <>
-                        <Button size="sm" variant="outline" onClick={() => changeStatus('probation', 'manual_probation')}>
-                          Probation
-                        </Button>
-                        <Button size="sm" variant="destructive" onClick={() => changeStatus('suspended', 'manual_suspend')}>
-                          Suspend
-                        </Button>
-                      </>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => changeStatus('suspended', 'manual_suspend')}
+                      >
+                        Suspend
+                      </Button>
                     )}
                     {vendor.status === 'probation' && (
                       <Button size="sm" onClick={() => changeStatus('live', 'reinstated')}>
