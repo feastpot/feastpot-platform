@@ -286,7 +286,7 @@ export default function BecomeAVendorPage() {
               alt="Feastpot"
               width={317}
               height={100}
-              className="h-8 w-auto sm:h-9"
+              className="h-12 w-auto sm:h-[3.375rem]"
               priority
             />
           </Link>
