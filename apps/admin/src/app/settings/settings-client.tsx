@@ -295,7 +295,7 @@ export function SettingsClient({ user }: SettingsClientProps) {
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Staff are regular users promoted to one of four roles. Promoting a customer to a staff role is currently a database operation — contact engineering with the user's email to request a role change.
+              Staff are regular users promoted to one of four roles. Promoting a customer to a staff role is currently a database operation. Contact engineering with the user's email to request a role change.
             </p>
 
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">

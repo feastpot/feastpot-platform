@@ -150,7 +150,7 @@ export function DisputesClient() {
                     <EmptyState
                       icon={AlertTriangle}
                       title="No disputes match these filters"
-                      description="All quiet on this front — try widening filters to see resolved cases."
+                      description="All quiet on this front. Try widening filters to see resolved cases."
                       bordered={false}
                     />
                   </TableCell>

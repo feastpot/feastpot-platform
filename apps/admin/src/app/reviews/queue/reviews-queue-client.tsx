@@ -178,7 +178,7 @@ export function ReviewsQueueClient() {
                     <EmptyState
                       icon={MessageSquare}
                       title="No reviews match this filter"
-                      description="Try another tab — reviews flow into Held when auto-moderation isn't sure."
+                      description="Try another tab. Reviews flow into Held when auto-moderation isn't sure."
                       bordered={false}
                     />
                   </TableCell>
