@@ -19,6 +19,19 @@ import { ListEventEnquiriesDto } from './dto/list-enquiries.dto';
 import { SelectVendorDto } from './dto/select-vendor.dto';
 import { SubmitQuoteDto } from './dto/submit-quote.dto';
 
+function startOfDayUtc(iso: string): Date {
+  // Accepts `YYYY-MM-DD` (from <input type="date">) OR a full ISO timestamp.
+  // We deliberately anchor to UTC so the admin filter is timezone-stable
+  // across operator locales (everything in the DB is timestamptz).
+  const d = new Date(iso);
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 0, 0, 0, 0));
+}
+
+function endOfDayUtc(iso: string): Date {
+  const d = new Date(iso);
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 23, 59, 59, 999));
+}
+
 const MIN_LEAD_DAYS = 7;
 const QUOTE_WINDOW_HOURS = 24;
 const DEFAULT_DEPOSIT_PCT = 30;
@@ -53,6 +66,8 @@ export class EventEnquiriesService {
     const where: Record<string, unknown> = {};
     if (dto.status) where.status = dto.status;
 
+    const isAdmin = user.role === UserRole.admin || user.role === UserRole.support;
+
     if (user.role === UserRole.customer) {
       where.customerId = user.id;
     } else if (user.role === UserRole.vendor) {
@@ -63,8 +78,98 @@ export class EventEnquiriesService {
         { matchedVendorIds: { has: vendor.id } },
         { quotes: { some: { vendorId: vendor.id } } },
       ];
+    } else if (isAdmin) {
+      // Cheap cross-field sanity check — surfaces typos in the UI rather
+      // than silently returning an empty page.
+      if (dto.eventFrom && dto.eventTo && dto.eventFrom > dto.eventTo) {
+        throw new BadRequestException('eventFrom must be on or before eventTo');
+      }
+      if (dto.createdFrom && dto.createdTo && dto.createdFrom > dto.createdTo) {
+        throw new BadRequestException('createdFrom must be on or before createdTo');
+      }
+      if (
+        dto.budgetMin !== undefined &&
+        dto.budgetMax !== undefined &&
+        dto.budgetMin > dto.budgetMax
+      ) {
+        throw new BadRequestException('budgetMin must be less than or equal to budgetMax');
+      }
+      // Admin-only filters — silently ignored on customer/vendor scopes so
+      // we can't accidentally widen visibility through a filter param.
+      if (dto.q && dto.q.trim().length > 0) {
+        const q = dto.q.trim();
+        where.OR = [
+          { customer: { email: { contains: q, mode: 'insensitive' } } },
+          { customer: { firstName: { contains: q, mode: 'insensitive' } } },
+          { customer: { lastName: { contains: q, mode: 'insensitive' } } },
+          { postcode: { contains: q, mode: 'insensitive' } },
+        ];
+      }
+      if (dto.eventFrom || dto.eventTo) {
+        const range: Record<string, Date> = {};
+        if (dto.eventFrom) range.gte = startOfDayUtc(dto.eventFrom);
+        // `lte` on the raw `YYYY-MM-DD` would collapse to 00:00 and exclude
+        // the rest of the day. Use end-of-day UTC so the picker is inclusive.
+        if (dto.eventTo) range.lte = endOfDayUtc(dto.eventTo);
+        where.eventDate = range;
+      }
+      if (dto.createdFrom || dto.createdTo) {
+        const range: Record<string, Date> = {};
+        if (dto.createdFrom) range.gte = startOfDayUtc(dto.createdFrom);
+        if (dto.createdTo) range.lte = endOfDayUtc(dto.createdTo);
+        where.createdAt = range;
+      }
+      if (dto.budgetMin !== undefined || dto.budgetMax !== undefined) {
+        const range: Record<string, number> = {};
+        if (dto.budgetMin !== undefined) range.gte = dto.budgetMin;
+        if (dto.budgetMax !== undefined) range.lte = dto.budgetMax;
+        where.budgetPence = range;
+      }
     }
-    // admin: no further filter.
+
+    // Admin/support uses keyset pagination on (createdAt, id) DESC so paging
+    // is stable when seeds land on the same tick. Customer/vendor stay on the
+    // legacy "take 200, array response" shape so the web/vendor apps don't
+    // need to migrate.
+    if (isAdmin) {
+      const limit = dto.limit ?? 25;
+      const cursor = dto.cursor ? this.decodeEnquiryCursor(dto.cursor) : null;
+      const cursorWhere = cursor
+        ? {
+            OR: [
+              { createdAt: { lt: cursor.createdAt } },
+              { AND: [{ createdAt: cursor.createdAt }, { id: { lt: cursor.id } }] },
+            ],
+          }
+        : {};
+
+      const [rows, total] = await Promise.all([
+        this.prisma.eventEnquiry.findMany({
+          where: { AND: [where, cursorWhere] },
+          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+          take: limit + 1,
+          include: {
+            quotes: {
+              include: {
+                vendor: { select: { id: true, businessName: true, slug: true, rating: true } },
+              },
+            },
+            selectedVendor: { select: { id: true, businessName: true, slug: true } },
+            customer: { select: { id: true, firstName: true, lastName: true, email: true } },
+          },
+        }),
+        this.prisma.eventEnquiry.count({ where }),
+      ]);
+
+      const hasMore = rows.length > limit;
+      const page = hasMore ? rows.slice(0, limit) : rows;
+      const last = page[page.length - 1];
+      return {
+        data: page,
+        total,
+        nextCursor: hasMore && last ? this.encodeEnquiryCursor(last.createdAt, last.id) : null,
+      };
+    }
 
     const rows = await this.prisma.eventEnquiry.findMany({
       where,
@@ -72,7 +177,7 @@ export class EventEnquiriesService {
       include: {
         quotes: { include: { vendor: { select: { id: true, businessName: true, slug: true, rating: true } } } },
         selectedVendor: { select: { id: true, businessName: true, slug: true } },
-        // Customer PII included so admin/customer surfaces can render a
+        // Customer PII included so customer surfaces can render a
         // human-readable enquirer name. Vendors must NOT receive this - we
         // strip it below before returning to vendor callers.
         customer: { select: { id: true, firstName: true, lastName: true, email: true } },
@@ -92,6 +197,22 @@ export class EventEnquiriesService {
       }));
     }
     return rows;
+  }
+
+  private encodeEnquiryCursor(createdAt: Date, id: string): string {
+    return Buffer.from(`${createdAt.toISOString()}|${id}`, 'utf8').toString('base64url');
+  }
+
+  private decodeEnquiryCursor(cursor: string): { createdAt: Date; id: string } | null {
+    try {
+      const [iso, id] = Buffer.from(cursor, 'base64url').toString('utf8').split('|');
+      if (!iso || !id) return null;
+      const d = new Date(iso);
+      if (Number.isNaN(d.getTime())) return null;
+      return { createdAt: d, id };
+    } catch {
+      return null;
+    }
   }
 
   async getById(id: string, user: AuthUser) {

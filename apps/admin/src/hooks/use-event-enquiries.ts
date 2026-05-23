@@ -41,17 +41,52 @@ export interface EnquiryRow {
   quotes: EnquiryQuoteRow[];
 }
 
-export function useEventEnquiries(filter: { status?: EnquiryStatus }) {
+export interface EnquiryListResponse {
+  data: EnquiryRow[];
+  total: number;
+  nextCursor: string | null;
+}
+
+export interface EnquiryListFilters {
+  status?: EnquiryStatus | 'all';
+  q?: string;
+  eventFrom?: string;
+  eventTo?: string;
+  createdFrom?: string;
+  createdTo?: string;
+  budgetMin?: number;
+  budgetMax?: number;
+  cursor?: string | null;
+  limit?: number;
+}
+
+/**
+ * Admin-scoped paginated list. Backed by GET /v1/event-enquiries (admin
+ * branch returns {data,total,nextCursor}; customer/vendor still get an
+ * array). Filters beyond `status` only apply to admin/support callers
+ * — silently ignored elsewhere so we can never widen visibility via a
+ * stray filter param.
+ */
+export function useEventEnquiries(filters: EnquiryListFilters) {
   const { request, ready } = useApi();
   return useQuery({
-    queryKey: ['admin', 'event-enquiries', filter],
+    queryKey: ['admin', 'event-enquiries', filters],
     enabled: ready,
     refetchInterval: 60_000,
+    placeholderData: (prev) => prev,
     queryFn: () => {
       const params = new URLSearchParams();
-      if (filter.status) params.set('status', filter.status);
-      const qs = params.toString();
-      return request<EnquiryRow[]>(`/event-enquiries${qs ? `?${qs}` : ''}`);
+      if (filters.status && filters.status !== 'all') params.set('status', filters.status);
+      if (filters.q?.trim()) params.set('q', filters.q.trim());
+      if (filters.eventFrom) params.set('eventFrom', filters.eventFrom);
+      if (filters.eventTo) params.set('eventTo', filters.eventTo);
+      if (filters.createdFrom) params.set('createdFrom', filters.createdFrom);
+      if (filters.createdTo) params.set('createdTo', filters.createdTo);
+      if (filters.budgetMin !== undefined) params.set('budgetMin', String(filters.budgetMin));
+      if (filters.budgetMax !== undefined) params.set('budgetMax', String(filters.budgetMax));
+      if (filters.cursor) params.set('cursor', filters.cursor);
+      params.set('limit', String(filters.limit ?? 25));
+      return request<EnquiryListResponse>(`/event-enquiries?${params.toString()}`);
     },
   });
 }
