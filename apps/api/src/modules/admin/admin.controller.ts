@@ -346,16 +346,57 @@ export class AdminController {
   @Roles(UserRole.admin, UserRole.support, UserRole.finance)
   @ApiOperation({
     summary:
-      'Admin order browser: filter by status / date range / search. Pass withPiStatus=1 to enrich first 50 rows with live Stripe PaymentIntent status.',
+      'Admin order browser: filter by status / date range / payment status / search. Pass withPiStatus=1 to enrich first 50 rows with live Stripe PaymentIntent status.',
   })
   listOrders(@Query() dto: ListAdminOrdersDto) {
     return this.admin.listAdminOrders({
       status: dto.status,
       q: dto.q,
       range: dto.range,
+      createdFrom: dto.createdFrom,
+      createdTo: dto.createdTo,
+      paymentStatus: dto.paymentStatus,
       withPiStatus: dto.withPiStatus === '1' || dto.withPiStatus === 'true',
       limit: dto.limit,
+      page: dto.page,
     });
+  }
+
+  @Get('orders/stats')
+  @Roles(UserRole.admin, UserRole.support, UserRole.finance)
+  @ApiOperation({
+    summary:
+      'KPI tiles for the admin Orders page (total / today / completed / exceptions / success rate). Honours the same filters as the list.',
+  })
+  orderStats(@Query() dto: ListAdminOrdersDto) {
+    return this.admin.adminOrdersStats({
+      status: dto.status,
+      q: dto.q,
+      range: dto.range,
+      createdFrom: dto.createdFrom,
+      createdTo: dto.createdTo,
+      paymentStatus: dto.paymentStatus,
+    });
+  }
+
+  @Get('orders.csv')
+  @Roles(UserRole.admin, UserRole.support, UserRole.finance)
+  @ApiOperation({
+    summary: 'CSV export of the admin order browser using the same filters as /admin/orders.',
+  })
+  async ordersCsv(@Query() dto: ListAdminOrdersDto, @Res() res: Response) {
+    const csv = await this.admin.adminOrdersCsv({
+      status: dto.status,
+      q: dto.q,
+      range: dto.range,
+      createdFrom: dto.createdFrom,
+      createdTo: dto.createdTo,
+      paymentStatus: dto.paymentStatus,
+    });
+    const stamp = new Date().toISOString().slice(0, 10);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="feastpot-orders-${stamp}.csv"`);
+    res.send(csv);
   }
 
   // ============================================================

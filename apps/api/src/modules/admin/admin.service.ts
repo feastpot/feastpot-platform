@@ -259,66 +259,62 @@ export class AdminService {
     status?: OrderStatus;
     q?: string;
     range?: 'today' | 'week' | 'month';
+    createdFrom?: string;
+    createdTo?: string;
+    paymentStatus?: 'pending' | 'succeeded' | 'failed' | 'cancelled';
     withPiStatus?: boolean;
     limit?: number;
+    page?: number;
   }) {
-    const limit = Math.min(Math.max(opts.limit ?? 50, 1), 100);
-    const where: Prisma.OrderWhereInput = {};
-    if (opts.status) where.status = opts.status;
+    const limit = Math.min(Math.max(opts.limit ?? 25, 1), 100);
+    const page = Math.max(opts.page ?? 1, 1);
+    const where = await this.buildAdminOrdersWhere(opts);
 
-    if (opts.range) {
-      const now = new Date();
-      const since =
-        opts.range === 'today'
-          ? startOfUtcDay(now)
-          : opts.range === 'week'
-            ? startOfUtcWeek(now)
-            : startOfUtcMonth(now);
-      where.createdAt = { gte: since };
-    }
-
-    const q = opts.q?.trim();
-    if (q) {
-      const uuidLike = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(q);
-      where.OR = [
-        ...(uuidLike ? [{ id: q }] : []),
-        { orderNumber: { contains: q, mode: 'insensitive' as const } },
-        { customer: { email: { contains: q, mode: 'insensitive' as const } } },
-      ];
-    }
-
-    const rows = await this.prisma.order.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-      take: limit,
-      select: {
-        id: true,
-        orderNumber: true,
-        status: true,
-        totalPence: true,
-        createdAt: true,
-        // Stripe PI lives on the Payment row, not Order. Pick the most
-        // recent capture-type payment that has a PI id (manual-capture
-        // flows have at most one capture per order).
-        payments: {
-          where: { stripePaymentIntentId: { not: null } },
-          orderBy: { createdAt: 'desc' },
-          take: 1,
-          select: { stripePaymentIntentId: true },
+    const [rows, total] = await this.prisma.$transaction([
+      this.prisma.order.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+        select: {
+          id: true,
+          orderNumber: true,
+          status: true,
+          totalPence: true,
+          createdAt: true,
+          // Stripe PI lives on the Payment row, not Order. Pick the most
+          // recent capture-type payment that has a PI id (manual-capture
+          // flows have at most one capture per order). We also pull the
+          // latest payment status (any type) for the new "Payment" column.
+          payments: {
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+            select: { stripePaymentIntentId: true, status: true },
+          },
+          items: { select: { nameSnapshot: true, quantity: true } },
+          customer: { select: { id: true, email: true, firstName: true, lastName: true } },
+          vendor: { select: { id: true, businessName: true } },
         },
-        items: { select: { nameSnapshot: true, quantity: true } },
-        customer: { select: { id: true, email: true, firstName: true, lastName: true } },
-        vendor: { select: { id: true, businessName: true } },
-      },
-    });
+      }),
+      this.prisma.order.count({ where }),
+    ]);
 
     const flattened = rows.map((r) => {
       const { payments, ...rest } = r;
-      return { ...rest, stripePaymentIntentId: payments[0]?.stripePaymentIntentId ?? null };
+      return {
+        ...rest,
+        stripePaymentIntentId: payments[0]?.stripePaymentIntentId ?? null,
+        paymentStatus: payments[0]?.status ?? null,
+      };
     });
 
     if (!opts.withPiStatus) {
-      return flattened.map((r) => ({ ...r, piStatus: null as string | null }));
+      return {
+        data: flattened.map((r) => ({ ...r, piStatus: null as string | null })),
+        total,
+        page,
+        limit,
+      };
     }
 
     // Cap PI lookups at 50 *and* throttle to 5 concurrent in-flight reads.
@@ -347,7 +343,197 @@ export class AdminService {
       enrich.push(...results);
     }
 
-    return flattened.map((r, i) => ({ ...r, piStatus: i < enrich.length ? enrich[i] : null }));
+    return {
+      data: flattened.map((r, i) => ({ ...r, piStatus: i < enrich.length ? enrich[i] : null })),
+      total,
+      page,
+      limit,
+    };
+  }
+
+  /**
+   * Filter envelope shared by `listAdminOrders` and `adminOrdersStats` so
+   * the KPI tiles always reflect the same scope as the table view above.
+   */
+  private async buildAdminOrdersWhere(opts: {
+    status?: OrderStatus;
+    q?: string;
+    range?: 'today' | 'week' | 'month';
+    createdFrom?: string;
+    createdTo?: string;
+    paymentStatus?: 'pending' | 'succeeded' | 'failed' | 'cancelled';
+  }): Promise<Prisma.OrderWhereInput> {
+    const where: Prisma.OrderWhereInput = {};
+    if (opts.status) where.status = opts.status;
+
+    // Explicit createdFrom/To takes precedence over the `range` preset so
+    // a custom date picker in the UI doesn't get silently overridden.
+    if (opts.createdFrom || opts.createdTo) {
+      const createdAt: Prisma.DateTimeFilter = {};
+      if (opts.createdFrom) createdAt.gte = new Date(opts.createdFrom);
+      if (opts.createdTo) {
+        const d = new Date(opts.createdTo);
+        createdAt.lte = new Date(
+          Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 23, 59, 59, 999),
+        );
+      }
+      where.createdAt = createdAt;
+    } else if (opts.range) {
+      const now = new Date();
+      const since =
+        opts.range === 'today'
+          ? startOfUtcDay(now)
+          : opts.range === 'week'
+            ? startOfUtcWeek(now)
+            : startOfUtcMonth(now);
+      where.createdAt = { gte: since };
+    }
+
+    if (opts.paymentStatus) {
+      // Filter must match the *latest* payment row per order so the
+      // returned set is consistent with the "Payment" column (which
+      // also reads `payments[0]` after `orderBy createdAt desc`).
+      // A naive `payments: { some: { status } }` would match stale
+      // intermediate rows (e.g. failed -> succeeded) and the UI would
+      // show a different status than the filter implied.
+      const latestMatching = await this.prisma.$queryRaw<Array<{ order_id: string }>>(
+        Prisma.sql`
+          SELECT order_id FROM (
+            SELECT DISTINCT ON (p.order_id) p.order_id, p.status
+            FROM payments p
+            ORDER BY p.order_id, p.created_at DESC
+          ) latest
+          WHERE latest.status = ${opts.paymentStatus}::"PaymentStatus"
+        `,
+      );
+      const ids = latestMatching.map((r) => r.order_id);
+      // Empty match -> impossible filter; short-circuit with a sentinel
+      // that returns no rows without breaking other filter clauses.
+      where.id = ids.length === 0 ? { in: [] } : { in: ids };
+    }
+
+    const q = opts.q?.trim();
+    if (q) {
+      const uuidLike = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(q);
+      where.OR = [
+        ...(uuidLike ? [{ id: q }] : []),
+        { orderNumber: { contains: q, mode: 'insensitive' as const } },
+        { customer: { email: { contains: q, mode: 'insensitive' as const } } },
+      ];
+    }
+
+    return where;
+  }
+
+  /**
+   * Footer/header KPI tiles for the admin Orders page: total orders matching
+   * the current filter, today's orders, completed (delivered), exceptions
+   * (cancelled + refunded) and success rate (delivered / non-pending total).
+   */
+  async adminOrdersStats(opts: {
+    status?: OrderStatus;
+    q?: string;
+    range?: 'today' | 'week' | 'month';
+    createdFrom?: string;
+    createdTo?: string;
+    paymentStatus?: 'pending' | 'succeeded' | 'failed' | 'cancelled';
+  }) {
+    const scope = await this.buildAdminOrdersWhere(opts);
+    const startOfToday = startOfUtcDay(new Date());
+    const [total, today, completed, exceptions, finalised] = await this.prisma.$transaction([
+      this.prisma.order.count({ where: scope }),
+      this.prisma.order.count({
+        where: { AND: [scope, { createdAt: { gte: startOfToday } }] },
+      }),
+      this.prisma.order.count({
+        where: { AND: [scope, { status: OrderStatus.delivered }] },
+      }),
+      this.prisma.order.count({
+        where: {
+          AND: [scope, { status: { in: [OrderStatus.cancelled, OrderStatus.refunded] } }],
+        },
+      }),
+      // Denominator for success rate: orders that have left "pending" — i.e.
+      // the merchant has acted on them. Excludes still-pending orders so a
+      // fresh queue doesn't dilute the rate.
+      this.prisma.order.count({
+        where: { AND: [scope, { status: { not: OrderStatus.pending } }] },
+      }),
+    ]);
+    const successRatePct = finalised === 0 ? null : Math.round((completed / finalised) * 100);
+    return { total, today, completed, exceptions, successRatePct };
+  }
+
+  /**
+   * CSV export of the admin order browser using the same filter envelope as
+   * `listAdminOrders`. Bounded at 5,000 rows — large enough for any
+   * reasonable single-day audit, small enough to stream without blowing the
+   * Node heap.
+   */
+  async adminOrdersCsv(opts: {
+    status?: OrderStatus;
+    q?: string;
+    range?: 'today' | 'week' | 'month';
+    createdFrom?: string;
+    createdTo?: string;
+    paymentStatus?: 'pending' | 'succeeded' | 'failed' | 'cancelled';
+  }): Promise<string> {
+    const where = await this.buildAdminOrdersWhere(opts);
+    const rows = await this.prisma.order.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      take: 5000,
+      select: {
+        id: true,
+        orderNumber: true,
+        status: true,
+        totalPence: true,
+        createdAt: true,
+        customer: { select: { email: true, firstName: true, lastName: true } },
+        vendor: { select: { businessName: true } },
+        payments: { orderBy: { createdAt: 'desc' }, take: 1, select: { status: true } },
+        items: { select: { nameSnapshot: true, quantity: true } },
+      },
+    });
+    const header = [
+      'Created (UTC)',
+      'Order ID',
+      'Order Number',
+      'Customer Name',
+      'Customer Email',
+      'Vendor',
+      'Items',
+      'Total (GBP)',
+      'Status',
+      'Payment',
+    ];
+    const esc = (s: string): string => {
+      // Defuse spreadsheet formula injection on user-controlled text.
+      let v = s;
+      if (/^[=+\-@\t\r]/.test(v)) v = `'${v}`;
+      if (/[",\n]/.test(v)) return `"${v.replace(/"/g, '""')}"`;
+      return v;
+    };
+    const lines = [header.join(',')];
+    for (const r of rows) {
+      const name = `${r.customer.firstName ?? ''} ${r.customer.lastName ?? ''}`.trim() || r.customer.email;
+      const items = r.items.map((i) => `${i.quantity}× ${i.nameSnapshot}`).join('; ');
+      lines.push(
+        [
+          esc(r.createdAt.toISOString()),
+          esc(r.id),
+          esc(r.orderNumber),
+          esc(name),
+          esc(r.customer.email),
+          esc(r.vendor.businessName),
+          esc(items),
+          (r.totalPence / 100).toFixed(2),
+          esc(r.status),
+          esc(r.payments[0]?.status ?? ''),
+        ].join(','),
+      );
+    }
+    return lines.join('\n');
   }
 
   // ---------------------------------------------------------------- audit log
