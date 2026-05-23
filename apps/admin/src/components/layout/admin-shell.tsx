@@ -82,8 +82,10 @@ function initialsFor(name: string, email: string): string {
   const source = (name || email).trim();
   if (!source) return 'SA';
   const parts = source.split(/\s+/).filter(Boolean);
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  const first = parts[0] ?? source;
+  if (parts.length === 1) return first.slice(0, 2).toUpperCase();
+  const last = parts[parts.length - 1] ?? first;
+  return ((first[0] ?? '') + (last[0] ?? '')).toUpperCase() || 'SA';
 }
 
 /**
