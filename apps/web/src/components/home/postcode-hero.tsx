@@ -1,6 +1,7 @@
 'use client';
 
 import { Loader2, MapPin, Search, ShieldCheck, X } from 'lucide-react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 
@@ -279,34 +280,24 @@ export function PostcodeHero() {
           </p>
         </div>
 
-        {/* RIGHT - gradient hero card with cuisine caption */}
+        {/* RIGHT - food photo hero with cuisine caption */}
         <div className="relative hidden min-h-[360px] lg:block">
-          <div
-            className="absolute inset-0 overflow-hidden rounded-[40px] shadow-card-lg"
-            style={{
-              background:
-                'radial-gradient(circle at 30% 30%, #F6B400 0%, transparent 45%), radial-gradient(circle at 75% 65%, #E30613 0%, transparent 50%), linear-gradient(135deg, #00843D 0%, #005C2B 100%)',
-            }}
-            aria-hidden
-          />
-          <div
-            aria-hidden
-            className="absolute right-10 top-12 h-40 w-40 rounded-full bg-white/10"
-          />
-          <div
-            aria-hidden
-            className="absolute right-24 top-32 h-24 w-24 rounded-full bg-white/15"
-          />
-          <div
-            aria-hidden
-            className="absolute bottom-16 left-16 h-32 w-32 rounded-full bg-white/10"
-          />
+          <div className="absolute inset-0 overflow-hidden rounded-[40px] shadow-card-lg">
+            <Image
+              src="/hero/hero-spread.png"
+              alt="A spread of West African and Caribbean dishes: jollof rice, jerk chicken, stews and plantain"
+              fill
+              priority
+              sizes="(min-width: 1024px) 45vw, 100vw"
+              className="object-cover"
+            />
+          </div>
           <div className="absolute bottom-6 left-6 right-6 rounded-2xl bg-white/95 px-4 py-3 text-charcoal shadow-card backdrop-blur">
             <p className="text-[13px] font-bold leading-tight">
               Jollof trays · Egusi pots · Jerk chicken · Small chops
             </p>
             <p className="mt-0.5 text-[11px] font-medium text-charcoal-mid">
-              Food-led visual placeholder using FeastPot colours
+              Authentic dishes from trusted local cooks across London
             </p>
           </div>
         </div>
