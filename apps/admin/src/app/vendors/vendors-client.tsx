@@ -19,6 +19,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { StatusPill, type StatusTone } from '@/components/ui/status-pill';
 import { TabPills, type TabPillItem } from '@/components/ui/tab-pills';
 import {
+  useAdminVendorCounts,
   useAdminVendors,
   type DocumentStatus,
   type DocumentType,
@@ -60,15 +61,16 @@ export function VendorsClient() {
   // Public list endpoint is hard-locked to `live`, so the "all" tab still hits
   // /admin/vendors and just doesn't pass a status filter (server falls back).
   const { data, isLoading, error } = useAdminVendors(tab === 'all' ? 'all' : tab);
+  const counts = useAdminVendorCounts();
 
   const rows = data?.data ?? [];
 
   const tabItems: ReadonlyArray<TabPillItem<TabValue>> = TABS.map((t) => ({
     value: t.value,
     label: t.label,
-    // Count reflects the *currently loaded* slice (we don't fetch all states
-    // up-front to keep payloads small) so it only shows on the active tab.
-    count: t.value === tab ? rows.length : undefined,
+    // Counters come from a dedicated /admin/vendors/counts endpoint so every
+    // pill shows a number, not just the active tab.
+    count: counts.data ? counts.data[t.value] : undefined,
     countTone: t.tone,
   }));
 

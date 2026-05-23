@@ -43,6 +43,17 @@ export function useAdminVendors(status: VendorStatus | 'all') {
   });
 }
 
+export type AdminVendorCounts = Record<VendorStatus | 'all', number>;
+
+export function useAdminVendorCounts() {
+  const { request, ready } = useApi();
+  return useQuery({
+    queryKey: ['admin', 'vendors', 'counts'],
+    enabled: ready,
+    queryFn: () => request<AdminVendorCounts>(`/admin/vendors/counts`),
+  });
+}
+
 export function useUpdateVendorStatus(vendorId: string) {
   const { request } = useApi();
   const qc = useQueryClient();
@@ -50,6 +61,7 @@ export function useUpdateVendorStatus(vendorId: string) {
     mutationFn: (body: { status: VendorStatus; reasonCode?: string; notes?: string }) =>
       request(`/vendors/${vendorId}/status`, { method: 'PATCH', body }),
     onSuccess: () => {
+      // Invalidates both the list queries and the counts query (same prefix).
       qc.invalidateQueries({ queryKey: ['admin', 'vendors'] });
       qc.invalidateQueries({ queryKey: ['admin', 'vendor', vendorId] });
     },

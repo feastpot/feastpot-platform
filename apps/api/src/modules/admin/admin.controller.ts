@@ -129,6 +129,13 @@ export class AdminController {
     return this.admin.listAdminVendors(dto);
   }
 
+  @Get('vendors/counts')
+  @Roles(UserRole.admin, UserRole.compliance, UserRole.support)
+  @ApiOperation({ summary: 'Vendor lifecycle counts grouped by status (drives admin tab pill counters)' })
+  vendorCounts() {
+    return this.admin.getVendorStatusCounts();
+  }
+
   @Get('vendor-applications')
   @Roles(UserRole.admin, UserRole.compliance, UserRole.support)
   @ApiOperation({

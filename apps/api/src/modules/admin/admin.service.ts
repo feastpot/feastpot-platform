@@ -1130,6 +1130,32 @@ export class AdminService {
     return { data, nextCursor };
   }
 
+  /**
+   * Lifecycle-state counters for the admin Vendors page tab strip.
+   * Returns every VendorStatus key (even when zero) so the UI can render a
+   * stable set of pills without nullish checks, plus an `all` total.
+   */
+  async getVendorStatusCounts(): Promise<Record<VendorStatus | 'all', number>> {
+    const grouped = await this.prisma.vendor.groupBy({
+      by: ['status'],
+      _count: { _all: true },
+    });
+    const out: Record<VendorStatus | 'all', number> = {
+      pending: 0,
+      approved: 0,
+      live: 0,
+      probation: 0,
+      suspended: 0,
+      removed: 0,
+      all: 0,
+    };
+    for (const row of grouped) {
+      out[row.status] = row._count._all;
+      out.all += row._count._all;
+    }
+    return out;
+  }
+
   private encodeVendorCursor(c: { createdAt: Date; id: string }): string {
     return Buffer.from(JSON.stringify({ createdAt: c.createdAt.toISOString(), id: c.id })).toString('base64url');
   }
