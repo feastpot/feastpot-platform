@@ -25,18 +25,21 @@ export interface ModerationQueueRow {
   moderatedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  // vendor/customer fields beyond id+businessName/email are only present on
+  // API versions ≥ the moderation-queue rebuild — keep them optional so an
+  // older deployed API doesn't crash the client.
   vendor: {
     id: string;
     businessName: string;
-    slug: string;
-    logoUrl: string | null;
-    cuisines: string[];
+    slug?: string;
+    logoUrl?: string | null;
+    cuisines?: string[];
   };
   customer: {
     id: string;
-    firstName: string | null;
-    lastName: string | null;
-    email: string;
+    firstName?: string | null;
+    lastName?: string | null;
+    email?: string;
   };
 }
 

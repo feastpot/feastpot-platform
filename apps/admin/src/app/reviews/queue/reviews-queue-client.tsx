@@ -541,16 +541,19 @@ function ReviewRowView({
   onReject: () => void;
   onHold: () => void;
 }) {
+  const customer = r.customer ?? { firstName: null, lastName: null, email: '' };
   const customerName =
-    `${r.customer.firstName ?? ''} ${r.customer.lastName?.[0] ?? ''}`.trim() || r.customer.email;
-  const vendorInitials = r.vendor.businessName
+    `${customer.firstName ?? ''} ${customer.lastName?.[0] ?? ''}`.trim() ||
+    customer.email ||
+    'Customer';
+  const vendorInitials = (r.vendor?.businessName ?? '?')
     .split(' ')
     .map((w) => w[0])
     .slice(0, 2)
     .join('')
     .toUpperCase();
   const submitted = new Date(r.createdAt);
-  const cuisine = r.vendor.cuisines[0] ?? null;
+  const cuisine = r.vendor?.cuisines?.[0] ?? null;
   const isHeld = r.moderationStatus === 'held';
   const isApproved =
     r.moderationStatus === 'approved' || r.moderationStatus === 'auto_approved';
