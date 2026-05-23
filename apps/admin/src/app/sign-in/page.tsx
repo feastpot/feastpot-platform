@@ -38,11 +38,11 @@ function SignInChrome({ children }: { children: React.ReactNode }) {
         <CardContent className="p-8">
           <div className="mb-6 flex flex-col items-center text-center">
             <Image
-              src="/feastpot-logo-hires.png"
+              src="/feastpot-logo-mark.png"
               alt="FeastPot"
-              width={336}
-              height={336}
-              className="h-[5.25rem] w-[5.25rem] rounded-full object-cover"
+              width={504}
+              height={504}
+              className="h-[7.875rem] w-[7.875rem] object-contain"
               priority
             />
             <h1 className="mt-3 text-2xl font-semibold tracking-tight text-foreground">
