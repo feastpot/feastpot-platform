@@ -48,6 +48,13 @@ export class DisputesController {
     return this.disputes.list(requireUser(user), dto);
   }
 
+  @Get('stats')
+  @Roles(UserRole.support, UserRole.admin)
+  @ApiOperation({ summary: 'Footer KPI tiles (totals, overdue, breaching, in-progress, total value, 30d delta) — honours the same filters as list' })
+  stats(@CurrentUser() user: AuthUser | null, @Query() dto: ListDisputesDto) {
+    return this.disputes.stats(requireUser(user), dto);
+  }
+
   @Post()
   @Roles(UserRole.customer)
   @ApiOperation({ summary: 'Raise a new dispute (customer)' })

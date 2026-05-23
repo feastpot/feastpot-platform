@@ -68,50 +68,239 @@ export class DisputesService {
 
   async list(user: AuthUser, dto: ListDisputesDto) {
     const limit = dto.limit ?? 20;
-    const where: Prisma.DisputeWhereInput = {};
-    if (dto.status) where.status = dto.status;
-    if (dto.severity) where.severity = dto.severity;
-
-    // Customers see their own only; vendors see disputes on their orders;
-    // support/admin/compliance see everything.
-    if (user.role === UserRole.customer) {
-      where.raisedById = user.id;
-    } else if (user.role === UserRole.vendor) {
-      where.order = { vendor: { userId: user.id } };
-    } else if (dto.assignedToId) {
-      // Only staff can filter by assignee - for customers/vendors the scope
-      // above already restricts results to "their" disputes, so an
-      // assignedToId filter would either be redundant or empty.
-      where.assignedToId = dto.assignedToId;
-    }
+    const where = this.buildListWhere(user, dto);
 
     const cursor = dto.cursor ? this.decodeCursor(dto.cursor) : undefined;
     const cursorWhere: Prisma.DisputeWhereInput = cursor
       ? { OR: [{ createdAt: { lt: cursor.createdAt } }, { createdAt: cursor.createdAt, id: { lt: cursor.id } }] }
       : {};
 
-    const rows = await this.prisma.dispute.findMany({
-      where: { AND: [where, cursorWhere] },
-      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-      take: limit,
-      include: {
-        order: {
-          select: {
-            id: true,
-            orderNumber: true,
-            totalPence: true,
-            vendorId: true,
-            vendor: { select: { id: true, businessName: true } },
-            customer: { select: { id: true, firstName: true, lastName: true, email: true } },
+    // `take: limit + 1` so we can tell "is there another page?" without an
+    // extra count query. Combined with a separate `count` we surface the
+    // total for the "Showing 1-N of M" pagination footer.
+    const [rowsPlusOne, total] = await this.prisma.$transaction([
+      this.prisma.dispute.findMany({
+        where: { AND: [where, cursorWhere] },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: limit + 1,
+        include: {
+          order: {
+            select: {
+              id: true,
+              orderNumber: true,
+              totalPence: true,
+              vendorId: true,
+              vendor: { select: { id: true, businessName: true } },
+              customer: { select: { id: true, firstName: true, lastName: true, email: true } },
+            },
           },
         },
-      },
-    });
+      }),
+      this.prisma.dispute.count({ where }),
+    ]);
+    const data = rowsPlusOne.slice(0, limit);
+    const nextCursor =
+      rowsPlusOne.length > limit ? this.encodeCursor(data[data.length - 1]!) : null;
     // `vendorRespondedAt` and `resolvedAt` are scalar columns on Dispute and
-    // come through automatically - explicitly mentioned here so the admin
-    // SLA indicator (D15) keeps working if anyone narrows this to a `select`.
-    const nextCursor = rows.length === limit ? this.encodeCursor(rows[rows.length - 1]!) : null;
-    return { data: rows, nextCursor };
+    // come through automatically - the admin SLA indicator depends on them.
+    return { data, total, nextCursor };
+  }
+
+  /**
+   * Filter envelope shared by `list` and `stats` so the footer summary
+   * tiles always reflect the same scope as the current table view.
+   */
+  private buildListWhere(user: AuthUser, dto: ListDisputesDto): Prisma.DisputeWhereInput {
+    const where: Prisma.DisputeWhereInput = {};
+    if (dto.status) where.status = dto.status;
+
+    // `severities` (multi) takes precedence over the legacy single `severity`.
+    if (dto.severities?.length) {
+      where.severity = { in: dto.severities };
+    } else if (dto.severity) {
+      where.severity = dto.severity;
+    }
+
+    if (dto.createdFrom || dto.createdTo) {
+      const createdAt: Prisma.DateTimeFilter = {};
+      if (dto.createdFrom) createdAt.gte = new Date(dto.createdFrom);
+      if (dto.createdTo) {
+        const d = new Date(dto.createdTo);
+        createdAt.lte = new Date(
+          Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 23, 59, 59, 999),
+        );
+      }
+      where.createdAt = createdAt;
+    }
+
+    // SLA bucket — derived from createdAt / vendorRespondedAt / resolvedAt.
+    // Definitions (D15): ack SLA = 24h, resolve SLA = 120h, breaching = 96h.
+    if (dto.sla && dto.sla !== 'all') {
+      const now = new Date();
+      const HOUR = 60 * 60 * 1000;
+      const ackBreach = new Date(now.getTime() - 24 * HOUR);
+      const resolveBreach = new Date(now.getTime() - 120 * HOUR);
+      const breachingSoon = new Date(now.getTime() - 96 * HOUR);
+      const openStatuses: DisputeStatus[] = [
+        DisputeStatus.open,
+        DisputeStatus.vendor_contacted,
+        DisputeStatus.escalated,
+      ];
+
+      if (dto.sla === 'overdue') {
+        where.AND = [
+          ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+          { status: { in: openStatuses } },
+          {
+            OR: [
+              { vendorRespondedAt: null, createdAt: { lt: ackBreach } },
+              { createdAt: { lt: resolveBreach } },
+            ],
+          },
+        ];
+      } else if (dto.sla === 'breaching_soon') {
+        where.AND = [
+          ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+          { status: { in: openStatuses } },
+          { createdAt: { lt: breachingSoon, gte: resolveBreach } },
+          { vendorRespondedAt: { not: null } },
+        ];
+      } else if (dto.sla === 'on_track') {
+        where.AND = [
+          ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+          { status: { in: openStatuses } },
+          { createdAt: { gte: breachingSoon } },
+        ];
+      } else if (dto.sla === 'resolved') {
+        // Intersect with any existing `where.status` (set earlier from
+        // `dto.status`) rather than overwrite it - otherwise picking SLA
+        // "Resolved" silently wipes out a status filter the user chose.
+        const slaSet: DisputeStatus[] = [DisputeStatus.resolved, DisputeStatus.closed];
+        if (typeof where.status === 'string') {
+          where.status = slaSet.includes(where.status) ? where.status : { in: [] };
+        } else if (where.status && typeof where.status === 'object' && 'in' in where.status && Array.isArray(where.status.in)) {
+          where.status = { in: where.status.in.filter((s) => slaSet.includes(s as DisputeStatus)) };
+        } else {
+          where.status = { in: slaSet };
+        }
+      }
+    }
+
+    if (dto.q?.trim()) {
+      const q = dto.q.trim();
+      where.OR = [
+        { order: { is: { orderNumber: { contains: q, mode: 'insensitive' } } } },
+        { order: { is: { vendor: { is: { businessName: { contains: q, mode: 'insensitive' } } } } } },
+        { order: { is: { customer: { is: { firstName: { contains: q, mode: 'insensitive' } } } } } },
+        { order: { is: { customer: { is: { lastName: { contains: q, mode: 'insensitive' } } } } } },
+        { order: { is: { customer: { is: { email: { contains: q, mode: 'insensitive' } } } } } },
+      ];
+    }
+
+    // Role scoping — customers see their own; vendors see disputes on their
+    // orders; support/admin see everything (optional assignee filter).
+    if (user.role === UserRole.customer) {
+      where.raisedById = user.id;
+    } else if (user.role === UserRole.vendor) {
+      where.order = { vendor: { userId: user.id } };
+    } else if (dto.assignedToId) {
+      where.assignedToId = dto.assignedToId;
+    }
+
+    return where;
+  }
+
+  /**
+   * Footer KPI tiles for the admin Disputes page. Returns totals for the
+   * current filter scope plus a percentage delta vs the prior 30 days
+   * (using `createdAt`).
+   */
+  async stats(user: AuthUser, dto: ListDisputesDto) {
+    if (user.role !== UserRole.admin && user.role !== UserRole.support) {
+      throw new ForbiddenException({ code: 'DISPUTE_STATS_FORBIDDEN', message: 'Admin/support only' });
+    }
+    const scope = this.buildListWhere(user, dto);
+    const now = new Date();
+    const HOUR = 60 * 60 * 1000;
+    const ackBreach = new Date(now.getTime() - 24 * HOUR);
+    const resolveBreach = new Date(now.getTime() - 120 * HOUR);
+    const breachingSoon = new Date(now.getTime() - 96 * HOUR);
+    const openStatuses: DisputeStatus[] = [
+      DisputeStatus.open,
+      DisputeStatus.vendor_contacted,
+      DisputeStatus.escalated,
+    ];
+    const last30 = new Date(now.getTime() - 30 * 24 * HOUR);
+    const prior30Start = new Date(now.getTime() - 60 * 24 * HOUR);
+
+    const [
+      total,
+      overdue,
+      breaching,
+      inProgress,
+      totalValue,
+      last30Count,
+      prior30Count,
+    ] = await this.prisma.$transaction([
+      this.prisma.dispute.count({ where: scope }),
+      this.prisma.dispute.count({
+        where: {
+          AND: [
+            scope,
+            { status: { in: openStatuses } },
+            {
+              OR: [
+                { vendorRespondedAt: null, createdAt: { lt: ackBreach } },
+                { createdAt: { lt: resolveBreach } },
+              ],
+            },
+          ],
+        },
+      }),
+      this.prisma.dispute.count({
+        where: {
+          AND: [
+            scope,
+            { status: { in: openStatuses } },
+            { createdAt: { lt: breachingSoon, gte: resolveBreach } },
+            { vendorRespondedAt: { not: null } },
+          ],
+        },
+      }),
+      this.prisma.dispute.count({
+        where: { AND: [scope, { status: { in: openStatuses } }] },
+      }),
+      this.prisma.dispute.findMany({
+        where: scope,
+        select: { order: { select: { totalPence: true } } },
+      }),
+      this.prisma.dispute.count({
+        where: { AND: [scope, { createdAt: { gte: last30 } }] },
+      }),
+      this.prisma.dispute.count({
+        where: { AND: [scope, { createdAt: { gte: prior30Start, lt: last30 } }] },
+      }),
+    ]);
+
+    const totalDisputedValuePence = totalValue.reduce(
+      (sum, d) => sum + (d.order?.totalPence ?? 0),
+      0,
+    );
+    const deltaPct =
+      prior30Count === 0
+        ? last30Count === 0
+          ? 0
+          : 100
+        : Math.round(((last30Count - prior30Count) / prior30Count) * 100);
+
+    return {
+      total,
+      overdue,
+      breachingSoon: breaching,
+      inProgress,
+      totalDisputedValuePence,
+      deltaPct,
+    };
   }
 
   // -------------------- get --------------------
