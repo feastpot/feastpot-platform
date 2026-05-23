@@ -190,8 +190,8 @@ async function main() {
     // Wipe + recreate Kwame's items so this script converges to the same end
     // state as the full seed.ts every run (not only when the table is empty).
     await prisma.menuItem.deleteMany({ where: { vendorId: kwame.id } });
-    await prisma.menuItem.create({ data: { vendorId: kwame.id, menuId: kwameMenu.id, name: 'Ghana Jollof (Full Tray)', description: 'Long-grain jollof with shito on the side. Serves 10.', category: ItemCategory.tray, pricePence: 3000, servingsCount: 10, allergens: [], tags: ['halal'] } });
-    await prisma.menuItem.create({ data: { vendorId: kwame.id, menuId: kwameMenu.id, name: 'Waakye (Full Tray)', description: 'Rice-and-beans with shito, gari & boiled egg. Serves 10.', category: ItemCategory.tray, pricePence: 2800, servingsCount: 10, allergens: ['egg'], tags: ['halal'] } });
+    await prisma.menuItem.create({ data: { isAvailable: true, vendorId: kwame.id, menuId: kwameMenu.id, name: 'Ghana Jollof (Full Tray)', description: 'Long-grain jollof with shito on the side. Serves 10.', category: ItemCategory.tray, pricePence: 3000, servingsCount: 10, allergens: [], tags: ['halal'] } });
+    await prisma.menuItem.create({ data: { isAvailable: true, vendorId: kwame.id, menuId: kwameMenu.id, name: 'Waakye (Full Tray)', description: 'Rice-and-beans with shito, gari & boiled egg. Serves 10.', category: ItemCategory.tray, pricePence: 2800, servingsCount: 10, allergens: ['egg'], tags: ['halal'] } });
     console.info('[seed-vendors] kwame items refreshed');
     await prisma.deliveryConfig.upsert({
       where: { vendorId: kwame.id },
@@ -243,7 +243,7 @@ async function main() {
     await prisma.$transaction(
       spec.items.map((it) =>
         prisma.menuItem.create({
-          data: {
+          data: { isAvailable: true,
             vendorId: vendor.id,
             menuId: menu!.id,
             name: it.name,

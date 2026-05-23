@@ -82,19 +82,38 @@ function getSupabaseAdmin(): SupabaseClient {
   return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
 }
 
+async function listAllAuthUsers(admin: SupabaseClient): Promise<Map<string, string>> {
+  // Cache all auth users into an email → id map up front. Previously we
+  // called listUsers() once per seeded user, which on Supabase Auth's hosted
+  // tier (50+ users) was slow enough to silently terminate the seed before
+  // it finished — the loop now runs in O(1) lookups instead of O(N).
+  const map = new Map<string, string>();
+  let page = 1;
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
+    if (error) throw error;
+    for (const u of data.users) {
+      if (u.email) map.set(u.email.toLowerCase(), u.id);
+    }
+    if (data.users.length < 1000) break;
+    page += 1;
+  }
+  return map;
+}
+
 async function ensureAuthUser(
   admin: SupabaseClient,
   user: SeedUser,
+  cache: Map<string, string>,
 ): Promise<string> {
-  const { data: list, error: listErr } = await admin.auth.admin.listUsers({ page: 1, perPage: 200 });
-  if (listErr) throw listErr;
-  const existing = list.users.find((u) => u.email?.toLowerCase() === user.email.toLowerCase());
-  if (existing) {
-    await admin.auth.admin.updateUserById(existing.id, {
+  const existingId = cache.get(user.email.toLowerCase());
+  if (existingId) {
+    await admin.auth.admin.updateUserById(existingId, {
       app_metadata: { role: user.role, provider: 'email' },
       user_metadata: { first_name: user.firstName, last_name: user.lastName },
     });
-    return existing.id;
+    return existingId;
   }
   const { data, error } = await admin.auth.admin.createUser({
     email: user.email,
@@ -104,6 +123,7 @@ async function ensureAuthUser(
     user_metadata: { first_name: user.firstName, last_name: user.lastName },
   });
   if (error || !data.user) throw error ?? new Error(`createUser failed for ${user.email}`);
+  cache.set(user.email.toLowerCase(), data.user.id);
   return data.user.id;
 }
 
@@ -132,9 +152,12 @@ async function main() {
 
   // 1. Auth users + public.users
   const admin = getSupabaseAdmin();
+  console.info('[seed] caching existing auth users…');
+  const authCache = await listAllAuthUsers(admin);
+  console.info(`[seed] cached ${authCache.size} existing auth users`);
   const userMap = new Map<string, string>(); // email → id
   for (const u of USERS) {
-    const id = await ensureAuthUser(admin, u);
+    const id = await ensureAuthUser(admin, u, authCache);
     const row = await upsertPublicUser(id, u);
     userMap.set(u.email, row.id);
     console.info(`[seed] user ${u.email} (${u.role}) → ${row.id}`);
@@ -207,18 +230,18 @@ async function main() {
   // 4. Menu items (12) - replace-then-create for idempotency
   await prisma.menuItem.deleteMany({ where: { vendorId: maman.id } });
   const items = await prisma.$transaction([
-    prisma.menuItem.create({ data: { vendorId: maman.id, menuId: mainMenu.id, name: 'Egusi Soup (Full Pot)', description: 'Slow-cooked egusi with goat meat, smoked fish & spinach. Serves 6–8.', category: ItemCategory.soup, pricePence: 3200, servingsCount: 7, allergens: ['tree_nuts', 'sesame'], tags: ['halal'], moderationStatus: ModerationStatus.auto_approved } }),
-    prisma.menuItem.create({ data: { vendorId: maman.id, menuId: mainMenu.id, name: 'Jollof Rice (Full Tray)', description: 'Smoky party jollof with chicken stock base. Serves 10–12.', category: ItemCategory.tray, pricePence: 2800, servingsCount: 11, allergens: [], tags: ['halal'] } }),
-    prisma.menuItem.create({ data: { vendorId: maman.id, menuId: mainMenu.id, name: 'Pounded Yam (6 portions)', description: 'Hand-pounded yam, vacuum-sealed.', category: ItemCategory.swallow, pricePence: 1800, servingsCount: 6, allergens: [], tags: ['halal'] } }),
-    prisma.menuItem.create({ data: { vendorId: maman.id, menuId: mainMenu.id, name: 'Pepper Soup (Full Pot)', description: 'Catfish pepper soup with calabash nutmeg. Serves 8.', category: ItemCategory.soup, pricePence: 3500, servingsCount: 8, allergens: ['fish'], tags: ['halal', 'spice:2'] } }),
-    prisma.menuItem.create({ data: { vendorId: maman.id, menuId: mainMenu.id, name: 'Suya Skewers (20 sticks)', description: 'Beef suya with ground peanut yaji.', category: ItemCategory.protein, pricePence: 2200, servingsCount: 10, allergens: ['peanuts'], tags: ['halal', 'spice:2'] } }),
-    prisma.menuItem.create({ data: { vendorId: maman.id, menuId: mainMenu.id, name: 'Fried Plantain (Large)', description: 'Sweet ripe plantain, fried in vegetable oil.', category: ItemCategory.snack, pricePence: 800, servingsCount: 4, allergens: [], tags: ['halal', 'vegan'] } }),
-    prisma.menuItem.create({ data: { vendorId: maman.id, menuId: mainMenu.id, name: 'Small Chops Party Pack (100pcs)', description: 'Puff-puff, samosa, spring roll, peppered chicken.', category: ItemCategory.bundle, pricePence: 5500, servingsCount: 20, allergens: ['gluten', 'egg'], tags: ['halal'] } }),
-    prisma.menuItem.create({ data: { vendorId: maman.id, menuId: frozenMenu.id, name: 'Egusi Soup Frozen Pack (2 portions)', description: 'Reheat-from-frozen egusi, vacuum sealed.', category: ItemCategory.frozen, pricePence: 1400, servingsCount: 2, allergens: ['tree_nuts', 'sesame'], tags: ['halal'] } }),
-    prisma.menuItem.create({ data: { vendorId: maman.id, menuId: mainMenu.id, name: 'Jerk Chicken (Full Tray)', description: 'Marinated 24h, grilled over pimento wood. Serves 10.', category: ItemCategory.tray, pricePence: 3800, servingsCount: 10, allergens: [], tags: ['spice:2'] } }),
-    prisma.menuItem.create({ data: { vendorId: maman.id, menuId: mainMenu.id, name: 'Rice and Peas (Full Tray)', description: 'Coconut rice with red kidney beans. Serves 10.', category: ItemCategory.tray, pricePence: 2400, servingsCount: 10, allergens: [], tags: ['vegan'] } }),
-    prisma.menuItem.create({ data: { vendorId: maman.id, menuId: mainMenu.id, name: 'Oxtail Stew (Full Pot)', description: 'Slow-braised oxtail with butter beans. Serves 6–8.', category: ItemCategory.soup, pricePence: 4500, servingsCount: 7, allergens: [], tags: [] } }),
-    prisma.menuItem.create({ data: { vendorId: maman.id, menuId: mainMenu.id, name: 'Festival Bread (24 pieces)', description: 'Sweet fried dough - perfect with jerk chicken.', category: ItemCategory.snack, pricePence: 1600, servingsCount: 12, allergens: ['gluten'], tags: ['vegan'] } }),
+    prisma.menuItem.create({ data: { isAvailable: true, vendorId: maman.id, menuId: mainMenu.id, name: 'Egusi Soup (Full Pot)', description: 'Slow-cooked egusi with goat meat, smoked fish & spinach. Serves 6–8.', category: ItemCategory.soup, pricePence: 3200, servingsCount: 7, allergens: ['tree_nuts', 'sesame'], tags: ['halal'], moderationStatus: ModerationStatus.auto_approved } }),
+    prisma.menuItem.create({ data: { isAvailable: true, vendorId: maman.id, menuId: mainMenu.id, name: 'Jollof Rice (Full Tray)', description: 'Smoky party jollof with chicken stock base. Serves 10–12.', category: ItemCategory.tray, pricePence: 2800, servingsCount: 11, allergens: [], tags: ['halal'] } }),
+    prisma.menuItem.create({ data: { isAvailable: true, vendorId: maman.id, menuId: mainMenu.id, name: 'Pounded Yam (6 portions)', description: 'Hand-pounded yam, vacuum-sealed.', category: ItemCategory.swallow, pricePence: 1800, servingsCount: 6, allergens: [], tags: ['halal'] } }),
+    prisma.menuItem.create({ data: { isAvailable: true, vendorId: maman.id, menuId: mainMenu.id, name: 'Pepper Soup (Full Pot)', description: 'Catfish pepper soup with calabash nutmeg. Serves 8.', category: ItemCategory.soup, pricePence: 3500, servingsCount: 8, allergens: ['fish'], tags: ['halal', 'spice:2'] } }),
+    prisma.menuItem.create({ data: { isAvailable: true, vendorId: maman.id, menuId: mainMenu.id, name: 'Suya Skewers (20 sticks)', description: 'Beef suya with ground peanut yaji.', category: ItemCategory.protein, pricePence: 2200, servingsCount: 10, allergens: ['peanuts'], tags: ['halal', 'spice:2'] } }),
+    prisma.menuItem.create({ data: { isAvailable: true, vendorId: maman.id, menuId: mainMenu.id, name: 'Fried Plantain (Large)', description: 'Sweet ripe plantain, fried in vegetable oil.', category: ItemCategory.snack, pricePence: 800, servingsCount: 4, allergens: [], tags: ['halal', 'vegan'] } }),
+    prisma.menuItem.create({ data: { isAvailable: true, vendorId: maman.id, menuId: mainMenu.id, name: 'Small Chops Party Pack (100pcs)', description: 'Puff-puff, samosa, spring roll, peppered chicken.', category: ItemCategory.bundle, pricePence: 5500, servingsCount: 20, allergens: ['gluten', 'egg'], tags: ['halal'] } }),
+    prisma.menuItem.create({ data: { isAvailable: true, vendorId: maman.id, menuId: frozenMenu.id, name: 'Egusi Soup Frozen Pack (2 portions)', description: 'Reheat-from-frozen egusi, vacuum sealed.', category: ItemCategory.frozen, pricePence: 1400, servingsCount: 2, allergens: ['tree_nuts', 'sesame'], tags: ['halal'] } }),
+    prisma.menuItem.create({ data: { isAvailable: true, vendorId: maman.id, menuId: mainMenu.id, name: 'Jerk Chicken (Full Tray)', description: 'Marinated 24h, grilled over pimento wood. Serves 10.', category: ItemCategory.tray, pricePence: 3800, servingsCount: 10, allergens: [], tags: ['spice:2'] } }),
+    prisma.menuItem.create({ data: { isAvailable: true, vendorId: maman.id, menuId: mainMenu.id, name: 'Rice and Peas (Full Tray)', description: 'Coconut rice with red kidney beans. Serves 10.', category: ItemCategory.tray, pricePence: 2400, servingsCount: 10, allergens: [], tags: ['vegan'] } }),
+    prisma.menuItem.create({ data: { isAvailable: true, vendorId: maman.id, menuId: mainMenu.id, name: 'Oxtail Stew (Full Pot)', description: 'Slow-braised oxtail with butter beans. Serves 6–8.', category: ItemCategory.soup, pricePence: 4500, servingsCount: 7, allergens: [], tags: [] } }),
+    prisma.menuItem.create({ data: { isAvailable: true, vendorId: maman.id, menuId: mainMenu.id, name: 'Festival Bread (24 pieces)', description: 'Sweet fried dough - perfect with jerk chicken.', category: ItemCategory.snack, pricePence: 1600, servingsCount: 12, allergens: ['gluten'], tags: ['vegan'] } }),
   ]);
   console.info(`[seed] menu items: ${items.length}`);
 
@@ -230,10 +253,10 @@ async function main() {
   });
   await prisma.menuItem.deleteMany({ where: { vendorId: kwame.id } });
   const kwameJollof = await prisma.menuItem.create({
-    data: { vendorId: kwame.id, menuId: kwameMenu.id, name: 'Ghana Jollof (Full Tray)', description: 'Long-grain jollof with shito on the side. Serves 10.', category: ItemCategory.tray, pricePence: 3000, servingsCount: 10, allergens: [], tags: ['halal'] },
+    data: { isAvailable: true, vendorId: kwame.id, menuId: kwameMenu.id, name: 'Ghana Jollof (Full Tray)', description: 'Long-grain jollof with shito on the side. Serves 10.', category: ItemCategory.tray, pricePence: 3000, servingsCount: 10, allergens: [], tags: ['halal'] },
   });
   await prisma.menuItem.create({
-    data: { vendorId: kwame.id, menuId: kwameMenu.id, name: 'Waakye (Full Tray)', description: 'Rice-and-beans with shito, gari & boiled egg. Serves 10.', category: ItemCategory.tray, pricePence: 2800, servingsCount: 10, allergens: ['egg'], tags: ['halal'] },
+    data: { isAvailable: true, vendorId: kwame.id, menuId: kwameMenu.id, name: 'Waakye (Full Tray)', description: 'Rice-and-beans with shito, gari & boiled egg. Serves 10.', category: ItemCategory.tray, pricePence: 2800, servingsCount: 10, allergens: ['egg'], tags: ['halal'] },
   });
 
   // 4b. Extra diaspora vendors (18 - total = 20 live vendors).
@@ -667,7 +690,7 @@ async function main() {
     await prisma.$transaction(
       spec.items.map((it) =>
         prisma.menuItem.create({
-          data: {
+          data: { isAvailable: true,
             vendorId: vendor.id,
             menuId: menu.id,
             name: it.name,

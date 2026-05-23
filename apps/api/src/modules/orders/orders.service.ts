@@ -130,6 +130,33 @@ export class OrdersService {
     private readonly members: VendorMembersService,
   ) {}
 
+  // Best-effort BullMQ wrappers. When REDIS_URL is unset (dev/CI), the
+  // injected Queue uses lazyConnect + enableOfflineQueue:false, so the very
+  // first add()/getJob() throws "Connection is closed." and 500s the whole
+  // request (e.g. POST /orders/:id/confirm). Enqueue failures must NEVER
+  // block the synchronous user-facing flow - jobs are observability/comms,
+  // not source-of-truth. We log and swallow.
+  private async safeEnqueue(
+    name: string,
+    data: Record<string, unknown>,
+    opts?: Parameters<Queue['add']>[2],
+  ): Promise<void> {
+    try {
+      await this.notifications.add(name, data, opts);
+    } catch (e) {
+      this.logger.warn(`safeEnqueue(${name}) failed: ${(e as Error).message}`);
+    }
+  }
+
+  private async safeGetJob(jobId: string): Promise<Awaited<ReturnType<Queue['getJob']>> | null> {
+    try {
+      return await this.notifications.getJob(jobId);
+    } catch (e) {
+      this.logger.warn(`safeGetJob(${jobId}) failed: ${(e as Error).message}`);
+      return null;
+    }
+  }
+
   // Window during which a vendor-proposed amendment auto-expires if the
   // customer doesn't respond. Kept short so we don't sit on the order.
   private static readonly AMENDMENT_TTL_MS = 30 * 60 * 1000;
@@ -463,7 +490,7 @@ export class OrdersService {
       }
     }
 
-    await this.notifications.add('notify_vendor', { vendorId: order.vendorId, orderId });
+    await this.safeEnqueue('notify_vendor', { vendorId: order.vendorId, orderId });
     // T007: vendor inbox - new paid order. Resolve vendor.userId via the
     // include already loaded above. Best-effort: failure is swallowed by
     // InboxService and must NOT block order confirmation.
@@ -477,7 +504,7 @@ export class OrdersService {
         metadata: { orderId, orderNumber: order.orderNumber },
       });
     }
-    await this.notifications.add(
+    await this.safeEnqueue(
       'auto_cancel',
       { orderId },
       { delay: AUTO_CANCEL_DELAY_MS, jobId: `auto_cancel:${orderId}` },
@@ -486,7 +513,7 @@ export class OrdersService {
     // email + sms + whatsapp + push by the processor based on the user's
     // contactable channels. `userId` is what the processor uses to look up
     // the recipient's email/phone - passing customerId fills that role.
-    await this.notifications.add(
+    await this.safeEnqueue(
       'order_confirmation',
       {
         userId: order.customerId,
@@ -588,13 +615,13 @@ export class OrdersService {
     // Side-effects only run after the CAS succeeded - guaranteeing exactly-once semantics.
     if (dto.status === OrderStatus.accepted) {
       try {
-        const job = await this.notifications.getJob(`auto_cancel:${orderId}`);
+        const job = await this.safeGetJob(`auto_cancel:${orderId}`);
         if (job) await job.remove();
       } catch (e) {
         this.logger.warn(`Could not remove auto_cancel job for ${orderId}: ${(e as Error).message}`);
       }
       if (snap) {
-        await this.notifications.add(
+        await this.safeEnqueue(
           'order_accepted',
           {
             userId: snap.customerId,
@@ -615,7 +642,7 @@ export class OrdersService {
         : snap.scheduledFor
           ? snap.scheduledFor.toISOString()
           : undefined;
-      await this.notifications.add(
+      await this.safeEnqueue(
         'order_dispatched',
         {
           userId: snap.customerId,
@@ -630,7 +657,7 @@ export class OrdersService {
       // Job name doubles as the dispatch type the processor branches on.
       if (etaAt) {
         const delay = etaAt.getTime() - now.getTime() + OrdersService.ETA_OVERDUE_GRACE_MS;
-        await this.notifications.add(
+        await this.safeEnqueue(
           'eta_overdue',
           { orderId, customerId: snap.customerId },
           { jobId: `eta_overdue:${orderId}`, delay: Math.max(delay, 60_000) },
@@ -671,7 +698,7 @@ export class OrdersService {
         await this.stripe.capture(pi);
         await this.repo.markPaymentStatus(pi, 'succeeded');
       }
-      await this.notifications.add(
+      await this.safeEnqueue(
         'review_trigger',
         { orderId },
         { delay: REVIEW_DELAY_MS, jobId: `review_trigger:${orderId}` },
@@ -697,7 +724,7 @@ export class OrdersService {
           this.logger.error(`rewardReferral failed for ${orderId}: ${(e as Error).message}`);
         }
 
-        await this.notifications.add(
+        await this.safeEnqueue(
           'delivery_confirmed',
           {
             userId: snap.customerId,
@@ -833,7 +860,7 @@ export class OrdersService {
 
     // Release the auto-cancel job so it doesn't fire after the row is already terminal.
     try {
-      const job = await this.notifications.getJob(`auto_cancel:${orderId}`);
+      const job = await this.safeGetJob(`auto_cancel:${orderId}`);
       if (job) await job.remove();
     } catch (e) {
       this.logger.warn(`Could not remove auto_cancel job for ${orderId}: ${(e as Error).message}`);
@@ -867,7 +894,7 @@ export class OrdersService {
 
     // Notify the vendor a customer cancelled. Reuses the generic notifications
     // queue; the processor branches on job name to pick the right template.
-    await this.notifications.add(
+    await this.safeEnqueue(
       'order_cancelled_by_customer',
       {
         vendorId: order.vendorId,
@@ -1032,7 +1059,7 @@ export class OrdersService {
       throw e;
     }
 
-    await this.notifications.add(
+    await this.safeEnqueue(
       'order_amendment_proposed',
       {
         userId: order.customerId,
@@ -1048,7 +1075,7 @@ export class OrdersService {
 
     // Auto-expire poke. Job name routes to the special-case branch in
     // NotificationProcessor.
-    await this.notifications.add(
+    await this.safeEnqueue(
       'expire_amendment',
       { amendmentId: amendment.id },
       {
@@ -1129,13 +1156,13 @@ export class OrdersService {
 
     // Cancel the pending expire job so it doesn't double-resolve. Best-effort.
     try {
-      const job = await this.notifications.getJob(`expire_amendment:${amendment.id}`);
+      const job = await this.safeGetJob(`expire_amendment:${amendment.id}`);
       if (job) await job.remove();
     } catch (e) {
       this.logger.warn(`Could not remove expire_amendment job for ${amendment.id}: ${(e as Error).message}`);
     }
 
-    await this.notifications.add(
+    await this.safeEnqueue(
       'order_amendment_resolved',
       {
         userId: order.customerId,

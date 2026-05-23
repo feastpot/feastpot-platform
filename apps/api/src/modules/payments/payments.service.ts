@@ -221,7 +221,13 @@ export class PaymentsService {
       },
     });
 
-    await Promise.all([
+    // Best-effort enqueue: when REDIS_URL is unset the BullMQ Queue's
+    // lazyConnect+enableOfflineQueue:false combo throws "Connection is closed."
+    // on the very first add(). The refund row + commission reversal are
+    // already committed above — failing the whole request because we can't
+    // notify would leave the system in a confusing state (money moved,
+    // 500 returned to admin). Log and swallow.
+    await Promise.allSettled([
       this.notifications.add('refund_issued_customer', {
         orderId: dto.orderId,
         customerId: order.customerId,
@@ -233,7 +239,13 @@ export class PaymentsService {
         vendorUserId: order.vendor.userId,
         deductionPence: reversal.vendorRefundDeductionPence,
       }),
-    ]);
+    ]).then((results) => {
+      for (const r of results) {
+        if (r.status === 'rejected') {
+          this.logger.warn(`refund notification enqueue failed: ${(r.reason as Error)?.message ?? r.reason}`);
+        }
+      }
+    });
 
     return { refund: refundRow, reversal };
   }

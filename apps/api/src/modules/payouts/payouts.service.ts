@@ -325,13 +325,20 @@ export class PayoutsService {
       });
     }
 
+    // CRITICAL: only Stripe + the payout-row update belong inside the
+    // STRIPE_TRANSFER_FAILED try/catch. A broader catch here is a latent bug —
+    // if Redis is unavailable, `notifications.add()` throws "Connection is
+    // closed.", we'd flip a SUCCESSFULLY transferred payout to `failed`
+    // (with failureReason='Connection is closed.') AND throw 400 back to
+    // finance — corrupting state and double-paying after manual re-approval.
+    let updated;
     try {
       const transfer = await this.stripe.createTransfer({
         amountPence: payout.amountPence,
         destinationAccountId: payout.vendor.stripeAccountId,
         payoutId: payout.id,
       });
-      const updated = await this.prisma.payout.update({
+      updated = await this.prisma.payout.update({
         where: { id: payoutId },
         data: {
           status: PayoutStatus.transferred,
@@ -339,12 +346,27 @@ export class PayoutsService {
           transferredAt: new Date(),
         },
       });
+    } catch (e) {
+      this.logger.error(`Stripe transfer failed for payout ${payoutId}: ${(e as Error).message}`);
+      await this.prisma.payout.update({
+        where: { id: payoutId },
+        data: { status: PayoutStatus.failed, failureReason: (e as Error).message },
+      });
+      throw new BadRequestException({ code: 'STRIPE_TRANSFER_FAILED', message: (e as Error).message });
+    }
+    // Best-effort side-effects: money has moved + DB committed. Failures
+    // here must NOT mark the payout failed or 500 the controller.
+    try {
       await this.notifications.add('payout_transferred', {
         vendorId: payout.vendorId,
         vendorUserId: payout.vendor.userId,
         payoutId: payout.id,
         amountPence: payout.amountPence,
       });
+    } catch (e) {
+      this.logger.warn(`payout_transferred notify failed for ${payoutId}: ${(e as Error).message}`);
+    }
+    try {
       // T007: in-app inbox row alongside the outbound email.
       await this.inbox.notify({
         userId: payout.vendor.userId,
@@ -354,15 +376,10 @@ export class PayoutsService {
         link: '/payouts',
         metadata: { payoutId: payout.id, amountPence: payout.amountPence },
       });
-      return updated;
     } catch (e) {
-      this.logger.error(`Stripe transfer failed for payout ${payoutId}: ${(e as Error).message}`);
-      await this.prisma.payout.update({
-        where: { id: payoutId },
-        data: { status: PayoutStatus.failed, failureReason: (e as Error).message },
-      });
-      throw new BadRequestException({ code: 'STRIPE_TRANSFER_FAILED', message: (e as Error).message });
+      this.logger.warn(`payout inbox notify failed for ${payoutId}: ${(e as Error).message}`);
     }
+    return updated;
   }
 
   async holdPayout(payoutId: string, holdReason: string, actor: AuthUser) {
@@ -387,13 +404,17 @@ export class PayoutsService {
     if (cas.count !== 1) {
       throw new BadRequestException({ code: 'PAYOUT_CHANGED_CONCURRENTLY', message: 'Payout changed concurrently' });
     }
-    await this.notifications.add('payout_held', {
-      vendorId: payout.vendorId,
-      vendorUserId: payout.vendor.userId,
-      payoutId,
-      reason: holdReason,
-      heldByUserId: actor.id,
-    });
+    try {
+      await this.notifications.add('payout_held', {
+        vendorId: payout.vendorId,
+        vendorUserId: payout.vendor.userId,
+        payoutId,
+        reason: holdReason,
+        heldByUserId: actor.id,
+      });
+    } catch (e) {
+      this.logger.warn(`payout_held notify failed for ${payoutId}: ${(e as Error).message}`);
+    }
     return this.prisma.payout.findUnique({ where: { id: payoutId } });
   }
 
@@ -505,11 +526,15 @@ export class PayoutsService {
     }
 
     if (created.length > 0) {
-      await this.notifications.add('payout_batch_ready', {
-        periodStart: start.toISOString(),
-        periodEnd: end.toISOString(),
-        createdCount: created.length,
-      });
+      try {
+        await this.notifications.add('payout_batch_ready', {
+          periodStart: start.toISOString(),
+          periodEnd: end.toISOString(),
+          createdCount: created.length,
+        });
+      } catch (e) {
+        this.logger.warn(`payout_batch_ready notify failed: ${(e as Error).message}`);
+      }
     }
     return { periodStart: start, periodEnd: end, created, skippedVendorIds: skipped };
   }

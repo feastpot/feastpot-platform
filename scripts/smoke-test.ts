@@ -145,10 +145,17 @@ async function main(): Promise<void> {
   const customerToken = await supabaseLogin(CUSTOMER_EMAIL, CUSTOMER_PASSWORD);
   log(!!customerToken, 'Customer login (Supabase)');
 
-  // STEP 3 — Fetch vendors (use a live vendor; default API filter is status=live)
-  const vendorsRes = await api<VendorListResp>('GET', '/v1/vendors?limit=1', undefined, customerToken);
-  const vendor = vendorsRes.body?.data?.[0];
-  log(vendorsRes.status === 200 && !!vendor, 'Fetch vendors list', vendorsRes);
+  // STEP 3 — Resolve the vendor we'll be ordering FROM by logging in as the
+  // VENDOR_EMAIL up-front and reading /v1/vendors/me. Picking "first live
+  // vendor" off the public list is wrong: the smoke test later needs the
+  // logged-in vendor to accept the order, so the order MUST belong to a
+  // vendor whose userId == VENDOR_EMAIL's user id. Otherwise PATCH
+  // /orders/:id/status 403s with NOT_ORDER_VENDOR.
+  const vendorToken = await supabaseLogin(VENDOR_EMAIL, VENDOR_PASSWORD);
+  log(!!vendorToken, 'Vendor login (Supabase, early — for vendor resolution)');
+  const vendorMeRes = await api<Vendor>('GET', '/v1/vendors/me', undefined, vendorToken);
+  const vendor = vendorMeRes.body;
+  log(vendorMeRes.status === 200 && !!vendor?.id, 'Resolve vendor via /vendors/me', vendorMeRes);
   console.log('   Vendor:', vendor!.businessName);
 
   // STEP 4 — Pick a menu + an available item
@@ -242,10 +249,7 @@ async function main(): Promise<void> {
   const confirmRes = await api('POST', `/v1/orders/${order.id}/confirm`, undefined, customerToken);
   log(confirmRes.status === 200 || confirmRes.status === 201, 'Order confirmed via API', confirmRes);
 
-  // STEP 9 — Vendor login + accept
-  const vendorToken = await supabaseLogin(VENDOR_EMAIL, VENDOR_PASSWORD);
-  log(!!vendorToken, 'Vendor login (Supabase)');
-
+  // STEP 9 — Vendor accept (vendorToken acquired up-front in STEP 3)
   const acceptRes = await api(
     'PATCH',
     `/v1/orders/${order.id}/status`,

@@ -28,6 +28,18 @@ export class NotificationsService {
     data: Record<string, unknown>,
     opts?: { jobId?: string },
   ): Promise<void> {
-    await this.queue.add(eventName, data, opts?.jobId ? { jobId: opts.jobId } : undefined);
+    // Best-effort: when REDIS_URL is unset the injected BullMQ Queue is
+    // configured with lazyConnect+enableOfflineQueue:false (see app.module.ts),
+    // so the very first add() throws "Connection is closed." and 500s the
+    // controller. Notifications are observability/comms, never source of
+    // truth — the row that triggered the notification is already committed
+    // by the time we get here. Log and swallow so a Redis outage can't take
+    // down the synchronous user-facing flow (dispute create, review create,
+    // payout transfer, etc.).
+    try {
+      await this.queue.add(eventName, data, opts?.jobId ? { jobId: opts.jobId } : undefined);
+    } catch (e) {
+      this.logger.warn(`enqueue(${eventName}) failed: ${(e as Error).message}`);
+    }
   }
 }

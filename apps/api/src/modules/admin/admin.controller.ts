@@ -15,6 +15,7 @@ import {
   Query,
   Req,
   Res,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
@@ -450,16 +451,30 @@ export class AdminController {
     // repeating job (jobId: 'weekly-payout'). Without this, a manual click
     // shortly after the cron tick would silently no-op.
     const jobId = `manual-payout-${Date.now()}`;
-    await this.payoutBatchQueue.add(
-      WEEKLY_BATCH_JOB,
-      { triggeredBy: 'admin', adminUserId },
-      { jobId },
-    );
-
-    return {
-      message: 'Payout batch job enqueued. Check Job queues to monitor progress.',
-      queue: PAYOUTS_QUEUE,
-      jobId,
-    };
+    try {
+      await this.payoutBatchQueue.add(
+        WEEKLY_BATCH_JOB,
+        { triggeredBy: 'admin', adminUserId },
+        { jobId },
+      );
+      return {
+        message: 'Payout batch job enqueued. Check Job queues to monitor progress.',
+        queue: PAYOUTS_QUEUE,
+        jobId,
+      };
+    } catch (e) {
+      // Same Redis-fragility class as orders.service.confirmOrder. The audit
+      // log was already written above, so we have an immutable record of the
+      // attempt — return 503 with a clear message rather than a generic 500
+      // so finance ops know to retry once Redis is restored (or fall back
+      // to the weekly cron, which will pick up the same work).
+      this.logger.error(`payout batch enqueue failed (Redis unavailable?): ${(e as Error).message}`);
+      // Don't echo the upstream ioredis error verbatim — it's logged
+      // server-side above; the client gets a generic, actionable message.
+      throw new ServiceUnavailableException({
+        code: 'QUEUE_UNAVAILABLE',
+        message: 'Payout job queue is unavailable; the weekly cron will retry on its next tick.',
+      });
+    }
   }
 }
