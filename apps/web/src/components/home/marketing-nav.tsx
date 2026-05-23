@@ -65,7 +65,7 @@ export function MarketingNav() {
             alt="Feastpot"
             width={317}
             height={100}
-            className="h-9 w-auto"
+            className="h-[3.375rem] w-auto"
             priority
           />
         </Link>

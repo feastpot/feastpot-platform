@@ -187,7 +187,7 @@ export function TopNav() {
               width={317}
               height={100}
               priority
-              className="h-10 w-auto"
+              className="h-[3.75rem] w-auto"
             />
           </Link>
         ) : (
