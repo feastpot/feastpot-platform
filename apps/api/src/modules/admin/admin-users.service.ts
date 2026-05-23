@@ -1,6 +1,8 @@
 import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { OrderStatus, Prisma, UserStatus } from '@prisma/client';
 
+import type { JoinedRange, ListAdminUsersDto } from './dto/list-admin-users.dto';
+
 import { SupabaseService } from '../../auth/supabase.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { LoyaltyService } from '../loyalty/loyalty.service';
@@ -23,6 +25,136 @@ export class AdminUsersService {
     private readonly loyalty: LoyaltyService,
     private readonly notifications: NotificationsService,
   ) {}
+
+  /**
+   * Paginated, filterable list of users for the admin Users table view.
+   * Returns lightweight rows (no per-user N+1) — orders count + lifetime
+   * spend are computed in two batched aggregates for the page slice.
+   *
+   * Cursor uses `(createdAt, id)` so ties are stable (createdAt has ms
+   * precision but multiple seed rows can land on the same tick).
+   */
+  async listUsers(dto: ListAdminUsersDto) {
+    const limit = dto.limit ?? 25;
+    const cursor = dto.cursor ? this.decodeUserCursor(dto.cursor) : null;
+
+    const where: Prisma.UserWhereInput = {};
+    if (dto.role) where.role = dto.role;
+    if (dto.status) where.status = dto.status;
+    if (dto.joined) where.createdAt = { gte: this.joinedRangeStart(dto.joined) };
+    if (dto.q) {
+      const q = dto.q.trim();
+      if (q.length > 0) {
+        where.OR = [
+          { email: { contains: q, mode: 'insensitive' } },
+          { firstName: { contains: q, mode: 'insensitive' } },
+          { lastName: { contains: q, mode: 'insensitive' } },
+        ];
+      }
+    }
+
+    const cursorWhere: Prisma.UserWhereInput = cursor
+      ? {
+          OR: [
+            { createdAt: { lt: cursor.createdAt } },
+            { createdAt: cursor.createdAt, id: { lt: cursor.id } },
+          ],
+        }
+      : {};
+
+    const [rows, total] = await Promise.all([
+      this.prisma.user.findMany({
+        where: { AND: [where, cursorWhere] },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: limit + 1, // fetch one extra to know if there's a next page
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          role: true,
+          status: true,
+          avatarUrl: true,
+          createdAt: true,
+          _count: { select: { orders: true } },
+        },
+      }),
+      this.prisma.user.count({ where }),
+    ]);
+
+    const hasMore = rows.length > limit;
+    const page = hasMore ? rows.slice(0, limit) : rows;
+
+    // One aggregate query for lifetime spend across the page slice rather
+    // than N round-trips; result is grouped by customerId.
+    const userIds = page.map((u) => u.id);
+    const spendByUser = new Map<string, number>();
+    if (userIds.length > 0) {
+      const spendRows = await this.prisma.order.groupBy({
+        by: ['customerId'],
+        where: { customerId: { in: userIds }, status: OrderStatus.delivered },
+        _sum: { totalPence: true },
+      });
+      for (const r of spendRows) {
+        spendByUser.set(r.customerId, r._sum.totalPence ?? 0);
+      }
+    }
+
+    const data = page.map((u) => ({
+      id: u.id,
+      email: u.email,
+      firstName: u.firstName,
+      lastName: u.lastName,
+      role: u.role,
+      status: u.status,
+      avatarUrl: u.avatarUrl,
+      createdAt: u.createdAt,
+      orderCount: u._count.orders,
+      lifetimeSpendPence: spendByUser.get(u.id) ?? 0,
+    }));
+
+    const last = page[page.length - 1];
+    return {
+      data,
+      total,
+      nextCursor: hasMore && last ? this.encodeUserCursor(last.createdAt, last.id) : null,
+    };
+  }
+
+  private joinedRangeStart(range: JoinedRange): Date {
+    const now = new Date();
+    const start = new Date(now);
+    switch (range) {
+      case 'today':
+        start.setHours(0, 0, 0, 0);
+        return start;
+      case 'week':
+        start.setDate(start.getDate() - 7);
+        return start;
+      case 'month':
+        start.setMonth(start.getMonth() - 1);
+        return start;
+      case 'year':
+        start.setFullYear(start.getFullYear() - 1);
+        return start;
+    }
+  }
+
+  private encodeUserCursor(createdAt: Date, id: string): string {
+    return Buffer.from(`${createdAt.toISOString()}|${id}`, 'utf8').toString('base64url');
+  }
+
+  private decodeUserCursor(cursor: string): { createdAt: Date; id: string } | null {
+    try {
+      const [iso, id] = Buffer.from(cursor, 'base64url').toString('utf8').split('|');
+      if (!iso || !id) return null;
+      const d = new Date(iso);
+      if (Number.isNaN(d.getTime())) return null;
+      return { createdAt: d, id };
+    } catch {
+      return null;
+    }
+  }
 
   /**
    * Look up a user by email (case-insensitive) and decorate with loyalty

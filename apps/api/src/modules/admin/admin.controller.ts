@@ -41,6 +41,7 @@ import {
   SuspendUserDto,
 } from './dto/admin-user-actions.dto';
 import { BroadcastAudience, BroadcastPushDto } from './dto/broadcast-push.dto';
+import { ListAdminUsersDto } from './dto/list-admin-users.dto';
 import { ListAdminVendorsDto } from './dto/list-admin-vendors.dto';
 import { ListAuditLogDto } from './dto/list-audit-log.dto';
 import { UpdateVendorApplicationDto } from './dto/update-vendor-application.dto';
@@ -204,6 +205,16 @@ export class AdminController {
   // ============================================================
   // FR-ADM-002 - User power tools
   // ============================================================
+
+  @Get('users')
+  @Roles(UserRole.admin, UserRole.support, UserRole.finance, UserRole.compliance)
+  @ApiOperation({
+    summary:
+      'Paginated user list with filters (q, role, status, joined) for the admin Users table view',
+  })
+  listUsers(@Query() dto: ListAdminUsersDto) {
+    return this.adminUsers.listUsers(dto);
+  }
 
   @Get('users/search')
   @Roles(UserRole.admin, UserRole.support)

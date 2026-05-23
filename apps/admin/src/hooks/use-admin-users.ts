@@ -50,6 +50,60 @@ export interface AdminUserDetail {
   orders: AdminUserOrderRow[];
 }
 
+export type JoinedRange = 'today' | 'week' | 'month' | 'year';
+
+export interface AdminUserRow {
+  id: string;
+  email: string;
+  firstName: string | null;
+  lastName: string | null;
+  role: AdminUserRole;
+  status: AdminUserStatus;
+  avatarUrl: string | null;
+  createdAt: string;
+  orderCount: number;
+  lifetimeSpendPence: number;
+}
+
+export interface AdminUserListResponse {
+  data: AdminUserRow[];
+  total: number;
+  nextCursor: string | null;
+}
+
+export interface AdminUserListFilters {
+  q?: string;
+  role?: AdminUserRole | 'all';
+  status?: AdminUserStatus | 'all';
+  joined?: JoinedRange | 'all';
+  cursor?: string | null;
+  limit?: number;
+}
+
+/**
+ * Paginated user list for the admin Users table. Backed by
+ * GET /v1/admin/users. Cursor + total returned; UI shows
+ * "Showing N of T users" and prev/next paging.
+ */
+export function useAdminUsersList(filters: AdminUserListFilters) {
+  const { request, ready } = useApi();
+  return useQuery({
+    queryKey: ['admin', 'users', 'list', filters],
+    enabled: ready,
+    queryFn: () => {
+      const params = new URLSearchParams();
+      if (filters.q?.trim()) params.set('q', filters.q.trim());
+      if (filters.role && filters.role !== 'all') params.set('role', filters.role);
+      if (filters.status && filters.status !== 'all') params.set('status', filters.status);
+      if (filters.joined && filters.joined !== 'all') params.set('joined', filters.joined);
+      if (filters.cursor) params.set('cursor', filters.cursor);
+      params.set('limit', String(filters.limit ?? 25));
+      return request<AdminUserListResponse>(`/admin/users?${params.toString()}`);
+    },
+    placeholderData: (prev) => prev,
+  });
+}
+
 /**
  * Email lookup is `enabled: false` until the user submits the form so we
  * don't hammer the API as they type. Caller calls `refetch()` on submit.
@@ -81,7 +135,7 @@ export function useIssueCredit(userId: string, opts: MutateOpts = {}) {
         body,
       }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['admin', 'users', 'search'] });
+      qc.invalidateQueries({ queryKey: ['admin', 'users'] });
       opts.onSuccess?.();
     },
     networkMode: 'always',
@@ -98,7 +152,7 @@ export function useSuspendUser(userId: string, opts: MutateOpts = {}) {
         body,
       }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['admin', 'users', 'search'] });
+      qc.invalidateQueries({ queryKey: ['admin', 'users'] });
       opts.onSuccess?.();
     },
   });
@@ -111,7 +165,7 @@ export function useReinstateUser(userId: string, opts: MutateOpts = {}) {
     mutationFn: () =>
       request<{ success: true }>(`/admin/users/${userId}/reinstate`, { method: 'POST' }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['admin', 'users', 'search'] });
+      qc.invalidateQueries({ queryKey: ['admin', 'users'] });
       opts.onSuccess?.();
     },
   });
@@ -135,7 +189,7 @@ export function useOverrideOrderStatus(opts: MutateOpts = {}) {
         body: { status, reason },
       }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['admin', 'users', 'search'] });
+      qc.invalidateQueries({ queryKey: ['admin', 'users'] });
       qc.invalidateQueries({ queryKey: ['admin', 'orders'] });
       opts.onSuccess?.();
     },

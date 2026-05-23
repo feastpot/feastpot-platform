@@ -1,7 +1,6 @@
 'use client';
 
 import {
-  Badge,
   Button,
   Card,
   CardContent,
@@ -10,6 +9,11 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
   Input,
   Select,
   SelectContent,
@@ -23,36 +27,83 @@ import {
   TableHeader,
   TableRow,
 } from '@feastpot/ui';
-import { Download, Pencil, Search, UserSearch } from 'lucide-react';
-import Link from 'next/link';
-import { useState } from 'react';
+import {
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  Filter,
+  MoreHorizontal,
+  Plus,
+  RefreshCw,
+  Search,
+  UserSearch,
+} from 'lucide-react';
+import { useMemo, useState } from 'react';
 
 import { PageHeader } from '@/components/layout/page-header';
 import { EmptyState } from '@/components/ui/empty-state';
 import { StatusPill, type StatusTone } from '@/components/ui/status-pill';
 import {
-  useAdminUserSearch,
+  useAdminUsersList,
   useExportUser,
   useIssueCredit,
-  useOverrideOrderStatus,
   useReinstateUser,
   useSuspendUser,
-  type AdminUserDetail,
-  type AdminUserOrderRow,
-  type OrderStatus,
+  type AdminUserRole,
+  type AdminUserRow,
+  type AdminUserStatus,
+  type JoinedRange,
 } from '@/hooks/use-admin-users';
-import { ApiError } from '@/lib/api/client';
-import { formatDate, formatDateTime, formatPence } from '@/lib/format';
+import { formatDate, formatPence } from '@/lib/format';
 
-const ORDER_STATUSES: ReadonlyArray<OrderStatus> = [
-  'pending',
-  'accepted',
-  'preparing',
-  'dispatched',
-  'delivered',
-  'cancelled',
-  'refunded',
+const PAGE_LIMIT = 25;
+
+const ROLE_OPTIONS: ReadonlyArray<{ value: AdminUserRole | 'all'; label: string }> = [
+  { value: 'all', label: 'All roles' },
+  { value: 'customer', label: 'Customer' },
+  { value: 'vendor', label: 'Vendor' },
+  { value: 'admin', label: 'Admin' },
+  { value: 'support', label: 'Support' },
+  { value: 'finance', label: 'Finance' },
+  { value: 'compliance', label: 'Compliance' },
 ];
+
+const STATUS_OPTIONS: ReadonlyArray<{ value: AdminUserStatus | 'all'; label: string }> = [
+  { value: 'all', label: 'All statuses' },
+  { value: 'active', label: 'Active' },
+  { value: 'suspended', label: 'Suspended' },
+  { value: 'deleted', label: 'Deleted' },
+];
+
+const JOINED_OPTIONS: ReadonlyArray<{ value: JoinedRange | 'all'; label: string }> = [
+  { value: 'all', label: 'Any time' },
+  { value: 'today', label: 'Today' },
+  { value: 'week', label: 'Past week' },
+  { value: 'month', label: 'Past month' },
+  { value: 'year', label: 'Past year' },
+];
+
+const ROLE_TONE: Record<AdminUserRole, StatusTone> = {
+  customer: 'brand',
+  vendor: 'info',
+  admin: 'neutral',
+  support: 'neutral',
+  finance: 'neutral',
+  compliance: 'neutral',
+};
+
+const STATUS_TONE: Record<AdminUserStatus, StatusTone> = {
+  active: 'success',
+  suspended: 'danger',
+  deleted: 'neutral',
+};
+
+const DEFAULT_FILTERS = {
+  q: '',
+  role: 'all' as AdminUserRole | 'all',
+  status: 'all' as AdminUserStatus | 'all',
+  joined: 'all' as JoinedRange | 'all',
+};
 
 interface UsersClientProps {
   currentUserId: string;
@@ -60,81 +111,282 @@ interface UsersClientProps {
 }
 
 export function UsersClient({ currentUserId, role }: UsersClientProps) {
-  const [email, setEmail] = useState('');
-  const [submitted, setSubmitted] = useState('');
-  const search = useAdminUserSearch(submitted);
+  const [filters, setFilters] = useState(DEFAULT_FILTERS);
+  // Track cursor history so prev-page is just a pop. We don't refetch
+  // count between pages — total comes back unchanged with each query.
+  const [cursorStack, setCursorStack] = useState<Array<string | null>>([null]);
+  const cursor = cursorStack[cursorStack.length - 1] ?? null;
+  const pageIndex = cursorStack.length - 1;
 
-  function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!email.trim()) return;
-    setSubmitted(email.trim());
-    setTimeout(() => search.refetch(), 0);
+  const list = useAdminUsersList({ ...filters, cursor, limit: PAGE_LIMIT });
+  const rows = list.data?.data ?? [];
+  // Total recomputed by the server on every page (cheap COUNT). If rows are
+  // inserted/deleted between fetches the displayed range may drift by a few
+  // — acceptable for an admin tool, and clamped below so we never show
+  // "showingTo > total".
+  const total = list.data?.total ?? 0;
+  const nextCursor = list.data?.nextCursor ?? null;
+
+  const hasActiveFilters = useMemo(
+    () =>
+      filters.q.trim().length > 0 ||
+      filters.role !== 'all' ||
+      filters.status !== 'all' ||
+      filters.joined !== 'all',
+    [filters],
+  );
+
+  function updateFilter<K extends keyof typeof filters>(key: K, value: (typeof filters)[K]) {
+    setFilters((f) => ({ ...f, [key]: value }));
+    setCursorStack([null]);
   }
+
+  function clearFilters() {
+    setFilters(DEFAULT_FILTERS);
+    setCursorStack([null]);
+  }
+
+  function nextPage() {
+    if (!nextCursor) return;
+    setCursorStack((s) => [...s, nextCursor]);
+  }
+
+  function prevPage() {
+    if (cursorStack.length <= 1) return;
+    setCursorStack((s) => s.slice(0, -1));
+  }
+
+  const showingFrom = rows.length === 0 ? 0 : pageIndex * PAGE_LIMIT + 1;
+  const showingTo = rows.length === 0 ? 0 : Math.min(pageIndex * PAGE_LIMIT + rows.length, total);
+  const rangeLabel = showingFrom === showingTo ? `${showingTo}` : `${showingFrom}–${showingTo}`;
 
   return (
     <>
       <PageHeader
         title="Users"
         description="Look up a customer, issue credit, suspend or export their data."
+        actions={
+          <Button disabled title="User creation lives in Supabase Auth — wire-up pending">
+            <Plus className="mr-2 h-4 w-4" />
+            Add user
+          </Button>
+        }
       />
 
-      <Card className="mb-6">
-        <CardContent className="py-4">
-          <form onSubmit={onSubmit} className="flex items-center gap-2">
+      {/* Search row */}
+      <Card className="mb-4">
+        <CardContent className="flex flex-wrap items-center gap-2 py-3">
+          <div className="relative flex-1 min-w-[240px]">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              type="email"
-              placeholder="customer@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="max-w-md"
+              type="search"
+              placeholder="Search by email or name…"
+              value={filters.q}
+              onChange={(e) => updateFilter('q', e.target.value)}
+              className="pl-9"
             />
-            <Button type="submit" disabled={!email.trim() || search.isFetching}>
-              <Search className="mr-2 h-4 w-4" />
-              {search.isFetching ? 'Searching…' : 'Search'}
-            </Button>
-          </form>
+          </div>
+          <Button variant="outline" disabled title="Filters are inline below">
+            <Filter className="mr-2 h-4 w-4" />
+            Filters
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={clearFilters}
+            disabled={!hasActiveFilters}
+            className="text-muted-foreground"
+          >
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Clear
+          </Button>
         </CardContent>
       </Card>
 
-      {search.error && (
-        <Card className="border-destructive/40 bg-destructive/5">
+      {/* Filter row */}
+      <Card className="mb-4">
+        <CardContent className="flex flex-wrap items-center gap-4 py-3">
+          <FilterControl label="Role">
+            <Select value={filters.role} onValueChange={(v) => updateFilter('role', v as AdminUserRole | 'all')}>
+              <SelectTrigger className="w-[160px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {ROLE_OPTIONS.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>
+                    {o.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </FilterControl>
+
+          <FilterControl label="Status">
+            <Select value={filters.status} onValueChange={(v) => updateFilter('status', v as AdminUserStatus | 'all')}>
+              <SelectTrigger className="w-[160px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {STATUS_OPTIONS.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>
+                    {o.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </FilterControl>
+
+          <FilterControl label="Joined">
+            <Select value={filters.joined} onValueChange={(v) => updateFilter('joined', v as JoinedRange | 'all')}>
+              <SelectTrigger className="w-[160px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {JOINED_OPTIONS.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>
+                    {o.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </FilterControl>
+
+          <div className="ml-auto flex items-center gap-2">
+            <Button
+              variant="outline"
+              disabled={total === 0}
+              title={total === 0 ? 'No users to export' : 'Export current filter as CSV (coming soon)'}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Export
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => list.refetch()}
+              disabled={list.isFetching}
+              aria-label="Refresh"
+              title="Refresh"
+            >
+              <RefreshCw className={`h-4 w-4 ${list.isFetching ? 'animate-spin' : ''}`} />
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Error banner */}
+      {list.error && (
+        <Card className="mb-4 border-destructive/40 bg-destructive/5">
           <CardContent className="py-3 text-sm text-destructive">
-            {search.error instanceof ApiError && search.error.status === 404
-              ? 'No user found with that email.'
-              : `Search failed: ${(search.error as Error).message}`}
+            Failed to load users: {(list.error as Error).message}
           </CardContent>
         </Card>
       )}
 
-      {search.data && (
-        <UserDetailCard
-          user={search.data}
-          currentUserId={currentUserId}
-          role={role}
-          onChange={() => search.refetch()}
-        />
-      )}
+      {/* Table */}
+      <Card>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>User</TableHead>
+                <TableHead>Role</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Joined</TableHead>
+                <TableHead className="text-right">Orders</TableHead>
+                <TableHead className="text-right">Total spent</TableHead>
+                <TableHead className="w-12 text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {list.isLoading && (
+                <TableRow>
+                  <TableCell colSpan={7} className="py-6 text-center text-sm text-muted-foreground">
+                    Loading…
+                  </TableCell>
+                </TableRow>
+              )}
+              {!list.isLoading && rows.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={7} className="p-0">
+                    <EmptyState
+                      icon={UserSearch}
+                      title="No users found"
+                      description="Try adjusting your search or filters to find what you're looking for."
+                      action={
+                        hasActiveFilters ? (
+                          <Button onClick={clearFilters}>Clear filters</Button>
+                        ) : null
+                      }
+                      bordered={false}
+                    />
+                  </TableCell>
+                </TableRow>
+              )}
+              {rows.map((u) => (
+                <UserRow
+                  key={u.id}
+                  user={u}
+                  currentUserId={currentUserId}
+                  viewerRole={role}
+                  onChange={() => list.refetch()}
+                />
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
 
-      {!search.data && !search.error && !search.isFetching && (
-        <EmptyState
-          icon={UserSearch}
-          title="Search for a customer"
-          description="Enter a customer email above to see their profile, recent orders, and account actions."
-        />
-      )}
+        {/* Footer pagination */}
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border px-4 py-3 text-sm">
+          <span className="text-muted-foreground">
+            Showing {total === 0 ? 0 : rangeLabel} of {total} {total === 1 ? 'user' : 'users'}
+          </span>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={prevPage}
+              disabled={pageIndex === 0 || list.isFetching}
+              aria-label="Previous page"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span className="grid h-8 min-w-8 place-items-center rounded-md bg-brand px-2 text-xs font-semibold text-brand-foreground">
+              {pageIndex + 1}
+            </span>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={nextPage}
+              disabled={!nextCursor || list.isFetching}
+              aria-label="Next page"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </Card>
     </>
   );
 }
 
-function UserDetailCard({
+function FilterControl({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-sm font-medium text-muted-foreground">{label}</span>
+      {children}
+    </div>
+  );
+}
+
+function UserRow({
   user,
   currentUserId,
-  role,
+  viewerRole,
   onChange,
 }: {
-  user: AdminUserDetail;
+  user: AdminUserRow;
   currentUserId: string;
-  role: 'admin' | 'support' | 'finance' | 'compliance';
+  viewerRole: 'admin' | 'support' | 'finance' | 'compliance';
   onChange: () => void;
 }) {
   const [creditOpen, setCreditOpen] = useState(false);
@@ -143,104 +395,78 @@ function UserDetailCard({
   const reinstate = useReinstateUser(user.id, { onSuccess: onChange });
 
   const initials =
-    `${(user.firstName ?? '?')[0] ?? '?'}${(user.lastName ?? '')[0] ?? ''}`.toUpperCase();
+    `${(user.firstName ?? user.email)[0] ?? '?'}${(user.lastName ?? '')[0] ?? ''}`.toUpperCase();
   const fullName = `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.email;
   const isSelf = user.id === currentUserId;
-  const statusTone: StatusTone = user.status === 'active' ? 'success' : 'danger';
 
-  const canCredit = role === 'admin' || role === 'finance';
-  const canSuspend = role === 'admin';
-  const canExport = role === 'admin' || role === 'compliance';
+  const canCredit = viewerRole === 'admin' || viewerRole === 'finance';
+  const canSuspend = viewerRole === 'admin';
+  const canExport = viewerRole === 'admin' || viewerRole === 'compliance';
 
   return (
-    <Card>
-      <CardContent className="py-5">
-        <div className="flex flex-wrap items-start gap-4">
-          <div className="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-teal-light text-lg font-bold text-teal-dark">
-            {initials}
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-lg font-semibold">{fullName}</h2>
-              <StatusPill tone="info" withDot={false}>{user.role}</StatusPill>
-              <StatusPill tone={statusTone}>{user.status}</StatusPill>
+    <>
+      <TableRow>
+        <TableCell>
+          <div className="flex items-center gap-3">
+            <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-teal-light text-xs font-bold text-teal-dark">
+              {initials}
             </div>
-            <div className="text-sm text-muted-foreground">{user.email}</div>
-            <div className="mt-1 text-xs text-muted-foreground">
-              Member since {formatDate(user.createdAt)} · {user.orderCount} orders ·{' '}
-              {formatPence(user.lifetimeSpendPence)} lifetime · ⭐ {user.loyaltyBalance.toLocaleString()} pts
+            <div className="min-w-0">
+              <div className="font-medium leading-tight">{fullName}</div>
+              <div className="text-xs text-muted-foreground">{user.email}</div>
             </div>
-            {user.vendor && (
-              <div className="mt-2 text-xs">
-                <Link
-                  href={`/vendors/${user.vendor.id}`}
-                  className="text-primary underline-offset-2 hover:underline"
-                >
-                  Also a vendor: {user.vendor.businessName} ({user.vendor.status})
-                </Link>
-              </div>
-            )}
           </div>
-        </div>
-
-        <div className="mt-4 flex flex-wrap gap-2">
-          {canCredit && (
-            <Button size="sm" onClick={() => setCreditOpen(true)}>
-              Issue credit
-            </Button>
-          )}
-          {canSuspend && user.status === 'active' && (
-            <Button
-              size="sm"
-              variant="destructive"
-              onClick={() => setSuspendOpen(true)}
-              disabled={isSelf}
-              title={isSelf ? "You can't suspend yourself" : undefined}
-            >
-              Suspend
-            </Button>
-          )}
-          {canSuspend && user.status === 'suspended' && (
-            <Button size="sm" variant="outline" onClick={() => reinstate.mutate()} disabled={reinstate.isPending}>
-              {reinstate.isPending ? 'Reinstating…' : 'Reinstate'}
-            </Button>
-          )}
-          {canExport && (
-            <Button size="sm" variant="outline" onClick={() => exportUser(user.id)}>
-              <Download className="mr-2 h-4 w-4" />
-              Export DSAR
-            </Button>
-          )}
-        </div>
-
-        <h3 className="mt-6 text-sm font-semibold">Recent orders</h3>
-        <div className="mt-2 overflow-hidden rounded-md border border-border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead>Vendor</TableHead>
-                <TableHead>Items</TableHead>
-                <TableHead className="text-right">Total</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Override</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {user.orders.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
-                    No orders yet for this customer.
-                  </TableCell>
-                </TableRow>
+        </TableCell>
+        <TableCell>
+          <StatusPill tone={ROLE_TONE[user.role]} withDot={false}>
+            {user.role}
+          </StatusPill>
+        </TableCell>
+        <TableCell>
+          <StatusPill tone={STATUS_TONE[user.status]}>{user.status}</StatusPill>
+        </TableCell>
+        <TableCell className="text-sm">{formatDate(user.createdAt)}</TableCell>
+        <TableCell className="text-right tabular-nums">{user.orderCount}</TableCell>
+        <TableCell className="text-right tabular-nums">{formatPence(user.lifetimeSpendPence)}</TableCell>
+        <TableCell className="text-right">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" aria-label="User actions">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              {canCredit && (
+                <DropdownMenuItem onSelect={() => setCreditOpen(true)}>
+                  Issue credit
+                </DropdownMenuItem>
               )}
-              {user.orders.map((o) => (
-                <OrderRow key={o.id} order={o} canOverride={role === 'admin' || role === 'support'} onChange={onChange} />
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      </CardContent>
+              {canSuspend && user.status === 'active' && (
+                <DropdownMenuItem
+                  onSelect={() => setSuspendOpen(true)}
+                  disabled={isSelf}
+                  className="text-destructive focus:text-destructive"
+                >
+                  Suspend
+                </DropdownMenuItem>
+              )}
+              {canSuspend && user.status === 'suspended' && (
+                <DropdownMenuItem onSelect={() => reinstate.mutate()} disabled={reinstate.isPending}>
+                  {reinstate.isPending ? 'Reinstating…' : 'Reinstate'}
+                </DropdownMenuItem>
+              )}
+              {canExport && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onSelect={() => void exportUser(user.id)}>
+                    Export data (DSAR)
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </TableCell>
+      </TableRow>
 
       {canCredit && (
         <IssueCreditDialog
@@ -257,95 +483,6 @@ function UserDetailCard({
           onOpenChange={setSuspendOpen}
           onSuccess={onChange}
         />
-      )}
-    </Card>
-  );
-}
-
-function OrderRow({
-  order,
-  canOverride,
-  onChange,
-}: {
-  order: AdminUserOrderRow;
-  canOverride: boolean;
-  onChange: () => void;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [status, setStatus] = useState<OrderStatus>(order.status);
-  const [reason, setReason] = useState('');
-  const override = useOverrideOrderStatus({
-    onSuccess: () => {
-      setEditing(false);
-      setReason('');
-      onChange();
-    },
-  });
-
-  const itemSummary = order.items.map((i) => `${i.quantity}× ${i.nameSnapshot}`).join(', ');
-
-  return (
-    <>
-      <TableRow>
-        <TableCell className="text-xs">{formatDateTime(order.createdAt)}</TableCell>
-        <TableCell>{order.vendor.businessName}</TableCell>
-        <TableCell className="max-w-xs truncate text-xs text-muted-foreground" title={itemSummary}>
-          {itemSummary || '-'}
-        </TableCell>
-        <TableCell className="text-right">{formatPence(order.totalPence)}</TableCell>
-        <TableCell>
-          <Badge variant="outline">{order.status}</Badge>
-        </TableCell>
-        <TableCell className="text-right">
-          {canOverride && (
-            <Button size="sm" variant="ghost" onClick={() => setEditing((v) => !v)}>
-              <Pencil className="h-3.5 w-3.5" />
-            </Button>
-          )}
-        </TableCell>
-      </TableRow>
-      {editing && canOverride && (
-        <TableRow>
-          <TableCell colSpan={6} className="bg-muted/30">
-            <div className="flex flex-wrap items-center gap-2 py-2">
-              <Select value={status} onValueChange={(v) => setStatus(v as OrderStatus)}>
-                <SelectTrigger className="w-40">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {ORDER_STATUSES.map((s) => (
-                    <SelectItem key={s} value={s}>
-                      {s}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Input
-                placeholder="Reason for override (audited)"
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                className="max-w-md"
-              />
-              <Button
-                size="sm"
-                disabled={!reason.trim() || status === order.status || override.isPending}
-                onClick={() =>
-                  override.mutate({ orderId: order.id, status, reason: reason.trim() })
-                }
-              >
-                {override.isPending ? 'Saving…' : 'Apply'}
-              </Button>
-              <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>
-                Cancel
-              </Button>
-              {override.error && (
-                <span className="text-xs text-destructive">
-                  {(override.error as Error).message}
-                </span>
-              )}
-            </div>
-          </TableCell>
-        </TableRow>
       )}
     </>
   );
@@ -382,7 +519,7 @@ function IssueCreditDialog({
         <DialogHeader>
           <DialogTitle>Issue credit</DialogTitle>
           <DialogDescription>
-            Credit is added 1:1 to the customer's loyalty balance and applied at checkout.
+            Credit is added 1:1 to the customer&apos;s loyalty balance and applied at checkout.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
@@ -417,7 +554,7 @@ function IssueCreditDialog({
             disabled={!valid || mutation.isPending}
             onClick={() => mutation.mutate({ amountPence, reason: reason.trim() })}
           >
-            {mutation.isPending ? 'Issuing…' : `Issue ${formatPence(amountPence)}`}
+            {mutation.isPending ? 'Issuing…' : `Issue ${formatPence(amountPence || 0)}`}
           </Button>
         </div>
       </DialogContent>
