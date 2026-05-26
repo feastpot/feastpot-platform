@@ -90,6 +90,13 @@ function SignInForm() {
   const [password, setPassword] = useState('');
   const [showPwd, setShowPwd] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
+  // Browsers (Chrome/Safari especially) aggressively autofill saved
+  // credentials on /sign-in regardless of `autocomplete` hints. Holding
+  // the inputs readOnly until they receive focus defeats the silent
+  // prefill while still letting the user (and password managers
+  // triggered by an explicit user gesture) populate them normally.
+  const [emailReady, setEmailReady] = useState(false);
+  const [pwdReady, setPwdReady] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -567,7 +574,15 @@ function SignInForm() {
           )}
 
           {!mfa && (
-          <form onSubmit={submit} className="mt-6 space-y-4" noValidate>
+          <form onSubmit={submit} className="mt-6 space-y-4" noValidate autoComplete="off">
+            {/* Honeypot pair: most autofill engines target the first
+                email + password they see in document order. We offer
+                them these throwaway fields (visually hidden, never
+                read by us) so the real fields stay empty. */}
+            <div aria-hidden className="pointer-events-none absolute -left-[9999px] h-0 w-0 overflow-hidden">
+              <input type="text" name="fakeusernameremembered" tabIndex={-1} autoComplete="username" />
+              <input type="password" name="fakepasswordremembered" tabIndex={-1} autoComplete="current-password" />
+            </div>
             <div>
               <label
                 htmlFor="email"
@@ -584,8 +599,13 @@ function SignInForm() {
                 />
                 <input
                   id="email"
+                  name="vendor-email"
                   type="email"
-                  autoComplete="email"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  readOnly={!emailReady}
+                  onFocus={() => setEmailReady(true)}
                   placeholder="you@domain.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -617,8 +637,13 @@ function SignInForm() {
                 />
                 <input
                   id="password"
+                  name="vendor-password"
                   type={showPwd ? 'text' : 'password'}
-                  autoComplete="current-password"
+                  autoComplete="new-password"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  readOnly={!pwdReady}
+                  onFocus={() => setPwdReady(true)}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full rounded-xl border bg-white py-3 pl-10 pr-11 text-sm font-medium outline-none"
