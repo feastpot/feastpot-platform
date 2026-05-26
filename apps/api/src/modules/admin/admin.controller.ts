@@ -34,11 +34,13 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { AdminService } from './admin.service';
 import { AdminUsersService } from './admin-users.service';
 import {
+  CreateStaffUserDto,
   IssueCreditDto,
   ListAdminOrdersDto,
   OverrideOrderStatusDto,
   ReinstateUserDto,
   SuspendUserDto,
+  UpdateUserRoleDto,
 } from './dto/admin-user-actions.dto';
 import { BroadcastAudience, BroadcastPushDto } from './dto/broadcast-push.dto';
 import { ListAdminUsersDto } from './dto/list-admin-users.dto';
@@ -251,6 +253,31 @@ export class AdminController {
     @Body() dto: SuspendUserDto,
   ) {
     await this.adminUsers.suspendUser(userId, dto.reason, req.user!.id);
+    return { success: true };
+  }
+
+  @Post('users')
+  @Roles(UserRole.admin)
+  @ApiOperation({
+    summary:
+      'Create a new staff user (admin/support/finance/compliance) and send them a magic-link invite. Audited.',
+  })
+  createStaffUser(@Req() req: AuthedRequest, @Body() dto: CreateStaffUserDto) {
+    return this.adminUsers.createStaffUser(dto, req.user!.id);
+  }
+
+  @Patch('users/:userId/role')
+  @Roles(UserRole.admin)
+  @ApiOperation({
+    summary:
+      "Change a user's role (staff roles only). Blocks self-demote and demoting the last active admin. Audited.",
+  })
+  async updateUserRole(
+    @Req() req: AuthedRequest,
+    @Param('userId', new ParseUUIDPipe()) userId: string,
+    @Body() dto: UpdateUserRoleDto,
+  ) {
+    await this.adminUsers.updateUserRole(userId, dto.role, dto.reason, req.user!.id);
     return { success: true };
   }
 

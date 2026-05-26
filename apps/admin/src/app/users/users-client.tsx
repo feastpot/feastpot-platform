@@ -45,14 +45,17 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { StatusPill, type StatusTone } from '@/components/ui/status-pill';
 import {
   useAdminUsersList,
+  useCreateStaffUser,
   useExportUser,
   useIssueCredit,
   useReinstateUser,
   useSuspendUser,
+  useUpdateUserRole,
   type AdminUserRole,
   type AdminUserRow,
   type AdminUserStatus,
   type JoinedRange,
+  type StaffRoleValue,
 } from '@/hooks/use-admin-users';
 import { formatDate, formatPence } from '@/lib/format';
 
@@ -66,6 +69,16 @@ const ROLE_OPTIONS: ReadonlyArray<{ value: AdminUserRole | 'all'; label: string 
   { value: 'support', label: 'Support' },
   { value: 'finance', label: 'Finance' },
   { value: 'compliance', label: 'Compliance' },
+];
+
+// Staff-only roles the admin Users page can create or assign. Customer/
+// vendor accounts are provisioned by other flows and intentionally
+// excluded so we don't fabricate a dangling Vendor row.
+const STAFF_ROLE_OPTIONS: ReadonlyArray<{ value: StaffRoleValue; label: string; description: string }> = [
+  { value: 'admin', label: 'Admin', description: 'Full access including user management and audit log.' },
+  { value: 'support', label: 'Support', description: 'View users + orders, issue order overrides.' },
+  { value: 'finance', label: 'Finance', description: 'View orders + payouts, issue goodwill credit.' },
+  { value: 'compliance', label: 'Compliance', description: 'Review vendor documents, run DSAR exports.' },
 ];
 
 const STATUS_OPTIONS: ReadonlyArray<{ value: AdminUserStatus | 'all'; label: string }> = [
@@ -112,6 +125,8 @@ interface UsersClientProps {
 
 export function UsersClient({ currentUserId, role }: UsersClientProps) {
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
+  const [createOpen, setCreateOpen] = useState(false);
+  const canManageUsers = role === 'admin';
   // Track cursor history so prev-page is just a pop. We don't refetch
   // count between pages — total comes back unchanged with each query.
   const [cursorStack, setCursorStack] = useState<Array<string | null>>([null]);
@@ -166,12 +181,24 @@ export function UsersClient({ currentUserId, role }: UsersClientProps) {
         title="Users"
         description="Look up a customer, issue credit, suspend or export their data."
         actions={
-          <Button disabled title="User creation lives in Supabase Auth — wire-up pending">
+          <Button
+            onClick={() => setCreateOpen(true)}
+            disabled={!canManageUsers}
+            title={canManageUsers ? 'Invite a new staff user' : 'Only admins can create users'}
+          >
             <Plus className="mr-2 h-4 w-4" />
             Add user
           </Button>
         }
       />
+
+      {canManageUsers && (
+        <CreateUserDialog
+          open={createOpen}
+          onOpenChange={setCreateOpen}
+          onSuccess={() => list.refetch()}
+        />
+      )}
 
       {/* Search row */}
       <Card className="mb-4">
@@ -391,6 +418,7 @@ function UserRow({
 }) {
   const [creditOpen, setCreditOpen] = useState(false);
   const [suspendOpen, setSuspendOpen] = useState(false);
+  const [roleOpen, setRoleOpen] = useState(false);
   const exportUser = useExportUser();
   const reinstate = useReinstateUser(user.id, { onSuccess: onChange });
 
@@ -402,6 +430,9 @@ function UserRow({
   const canCredit = viewerRole === 'admin' || viewerRole === 'finance';
   const canSuspend = viewerRole === 'admin';
   const canExport = viewerRole === 'admin' || viewerRole === 'compliance';
+  // Role changes are admin-only, never on yourself, and never on vendor
+  // accounts (their Vendor row would dangle — backend also rejects this).
+  const canChangeRole = viewerRole === 'admin' && !isSelf && user.role !== 'vendor';
 
   return (
     <>
@@ -436,6 +467,11 @@ function UserRow({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
+              {canChangeRole && (
+                <DropdownMenuItem onSelect={() => setRoleOpen(true)}>
+                  Change role…
+                </DropdownMenuItem>
+              )}
               {canCredit && (
                 <DropdownMenuItem onSelect={() => setCreditOpen(true)}>
                   Issue credit
@@ -484,7 +520,242 @@ function UserRow({
           onSuccess={onChange}
         />
       )}
+      {canChangeRole && (
+        <ChangeRoleDialog
+          userId={user.id}
+          currentRole={user.role}
+          displayName={fullName}
+          open={roleOpen}
+          onOpenChange={setRoleOpen}
+          onSuccess={onChange}
+        />
+      )}
     </>
+  );
+}
+
+function CreateUserDialog({
+  open,
+  onOpenChange,
+  onSuccess,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  onSuccess: () => void;
+}) {
+  const [email, setEmail] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [staffRole, setStaffRole] = useState<StaffRoleValue>('support');
+  const [sendInvite, setSendInvite] = useState(true);
+
+  const mutation = useCreateStaffUser({
+    onSuccess: () => {
+      setEmail('');
+      setFirstName('');
+      setLastName('');
+      setStaffRole('support');
+      setSendInvite(true);
+      onOpenChange(false);
+      onSuccess();
+    },
+  });
+
+  const emailValid = /\S+@\S+\.\S+/.test(email.trim());
+  const valid = emailValid && firstName.trim().length > 0 && lastName.trim().length > 0;
+  const roleMeta = STAFF_ROLE_OPTIONS.find((o) => o.value === staffRole);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Invite a staff user</DialogTitle>
+          <DialogDescription>
+            Creates a Supabase account and emails a magic link so they can set a password and sign in.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block text-sm">
+              <span className="mb-1 block text-muted-foreground">First name</span>
+              <Input
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                placeholder="Ada"
+                autoComplete="off"
+              />
+            </label>
+            <label className="block text-sm">
+              <span className="mb-1 block text-muted-foreground">Last name</span>
+              <Input
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                placeholder="Lovelace"
+                autoComplete="off"
+              />
+            </label>
+          </div>
+          <label className="block text-sm">
+            <span className="mb-1 block text-muted-foreground">Work email</span>
+            <Input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="ada@feastpot.co.uk"
+              autoComplete="off"
+            />
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block text-muted-foreground">Role</span>
+            <Select value={staffRole} onValueChange={(v) => setStaffRole(v as StaffRoleValue)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {STAFF_ROLE_OPTIONS.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>
+                    {o.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {roleMeta && (
+              <span className="mt-1 block text-xs text-muted-foreground">{roleMeta.description}</span>
+            )}
+          </label>
+          <label className="flex items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={sendInvite}
+              onChange={(e) => setSendInvite(e.target.checked)}
+              className="mt-1"
+            />
+            <span>
+              <span className="font-medium">Email a magic-link invite now</span>
+              <span className="mt-0.5 block text-xs text-muted-foreground">
+                Uncheck if you&apos;ll share the link manually — the account is still created either way.
+              </span>
+            </span>
+          </label>
+          {mutation.error && (
+            <p className="text-xs text-destructive">{(mutation.error as Error).message}</p>
+          )}
+        </div>
+        <div className="mt-4 flex justify-end gap-2">
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button
+            disabled={!valid || mutation.isPending}
+            onClick={() =>
+              mutation.mutate({
+                email: email.trim(),
+                firstName: firstName.trim(),
+                lastName: lastName.trim(),
+                role: staffRole,
+                sendInvite,
+              })
+            }
+          >
+            {mutation.isPending ? 'Creating…' : 'Create user'}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ChangeRoleDialog({
+  userId,
+  currentRole,
+  displayName,
+  open,
+  onOpenChange,
+  onSuccess,
+}: {
+  userId: string;
+  currentRole: AdminUserRole;
+  displayName: string;
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  onSuccess: () => void;
+}) {
+  // Default to current role only if it's a staff role; otherwise default
+  // to 'support' so the Select doesn't show "customer" (not in the list).
+  const initialRole: StaffRoleValue =
+    currentRole === 'admin' || currentRole === 'support' || currentRole === 'finance' || currentRole === 'compliance'
+      ? currentRole
+      : 'support';
+  const [newRole, setNewRole] = useState<StaffRoleValue>(initialRole);
+  const [reason, setReason] = useState('');
+
+  const mutation = useUpdateUserRole(userId, {
+    onSuccess: () => {
+      setReason('');
+      onOpenChange(false);
+      onSuccess();
+    },
+  });
+
+  const unchanged = newRole === currentRole;
+  const reasonValid = reason.trim().length >= 10;
+  const valid = !unchanged && reasonValid;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Change role</DialogTitle>
+          <DialogDescription>
+            Update {displayName}&apos;s role. The change is audited and they&apos;ll be signed out everywhere so the new permissions take effect on next sign-in.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="rounded-md bg-muted/50 px-3 py-2 text-sm">
+            <span className="text-muted-foreground">Current role:</span>{' '}
+            <span className="font-medium capitalize">{currentRole}</span>
+          </div>
+          <label className="block text-sm">
+            <span className="mb-1 block text-muted-foreground">New role</span>
+            <Select value={newRole} onValueChange={(v) => setNewRole(v as StaffRoleValue)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {STAFF_ROLE_OPTIONS.map((o) => (
+                  <SelectItem key={o.value} value={o.value} disabled={o.value === currentRole}>
+                    {o.label}
+                    {o.value === currentRole ? ' (current)' : ''}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block text-muted-foreground">Reason (audited, min 10 chars)</span>
+            <Input
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Promoted to finance team lead"
+            />
+          </label>
+          {mutation.error && (
+            <p className="text-xs text-destructive">{(mutation.error as Error).message}</p>
+          )}
+        </div>
+        <div className="mt-4 flex justify-end gap-2">
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button
+            disabled={!valid || mutation.isPending}
+            onClick={() => mutation.mutate({ role: newRole, reason: reason.trim() })}
+          >
+            {mutation.isPending ? 'Saving…' : 'Change role'}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

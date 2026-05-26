@@ -1,12 +1,31 @@
-import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { OrderStatus, Prisma, UserStatus } from '@prisma/client';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { OrderStatus, Prisma, UserRole, UserStatus } from '@prisma/client';
 
 import type { JoinedRange, ListAdminUsersDto } from './dto/list-admin-users.dto';
+import type { StaffRoleValue } from './dto/admin-user-actions.dto';
 
 import { SupabaseService } from '../../auth/supabase.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { LoyaltyService } from '../loyalty/loyalty.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { EmailProvider } from '../notifications/providers/email.provider';
+import { staffPortalInviteTemplate } from '../notifications/templates/staff-portal-invite.template';
+
+const STAFF_ROLE_LABELS: Record<StaffRoleValue, string> = {
+  admin: 'Admin',
+  support: 'Support',
+  finance: 'Finance',
+  compliance: 'Compliance',
+};
 
 /**
  * FR-ADM-002 - admin power tools for user + order management.
@@ -24,7 +43,298 @@ export class AdminUsersService {
     private readonly supabase: SupabaseService,
     private readonly loyalty: LoyaltyService,
     private readonly notifications: NotificationsService,
+    private readonly config: ConfigService,
+    private readonly email: EmailProvider,
   ) {}
+
+  /**
+   * Provision a new staff user (admin/support/finance/compliance).
+   *
+   * Mirrors the vendor-application approval flow:
+   *   1. Pre-flight: email collision check against Prisma User table.
+   *   2. Create Supabase auth user (email_confirm: true so the magic link
+   *      is itself the confirmation step).
+   *   3. Insert Prisma User row pinned to the Supabase uid (same convention
+   *      as users.service.sync) — wrapped in a try/catch that compensates by
+   *      deleting the orphan Supabase user on failure.
+   *   4. Audit-log the creation.
+   *   5. Best-effort magic-link invite email (does NOT unwind on failure;
+   *      the admin can resend by changing nothing and re-saving, or via
+   *      the existing "Add user" → same email flow once a resend route is
+   *      added).
+   *
+   * SECURITY: the caller's role is checked at the controller layer
+   * (`@Roles(UserRole.admin)`). This method assumes the caller IS an
+   * admin — it does not re-verify.
+   */
+  async createStaffUser(
+    dto: {
+      email: string;
+      firstName: string;
+      lastName: string;
+      role: StaffRoleValue;
+      sendInvite?: boolean;
+    },
+    actorId: string,
+  ): Promise<{ id: string; email: string; role: UserRole; inviteEmailSent: boolean }> {
+    const normalisedEmail = dto.email.trim().toLowerCase();
+    const firstName = dto.firstName.trim();
+    const lastName = dto.lastName.trim();
+
+    // Pre-flight: avoid hitting a unique-constraint blow-up inside the
+    // post-Supabase compensation window.
+    const existing = await this.prisma.user.findFirst({
+      where: { email: { equals: normalisedEmail, mode: 'insensitive' } },
+      select: { id: true },
+    });
+    if (existing) {
+      throw new ConflictException({
+        code: 'EMAIL_ALREADY_REGISTERED',
+        message: `A user with email ${normalisedEmail} already exists.`,
+      });
+    }
+
+    const supabaseAdmin = this.supabase.getClient().auth.admin;
+    const { data: created, error: createErr } = await supabaseAdmin.createUser({
+      email: normalisedEmail,
+      email_confirm: true,
+      // `app_metadata` is server-managed and is what SupabaseAuthGuard
+      // trusts for role (along with the top-level JWT claim). NEVER put
+      // role in `user_metadata` — that field is user-writable in client
+      // SDKs and would be a privilege-escalation vector.
+      app_metadata: { role: dto.role },
+      user_metadata: {
+        source: 'admin_console_invite',
+        invitedBy: actorId,
+        fullName: `${firstName} ${lastName}`.trim(),
+      },
+    });
+    if (createErr || !created?.user?.id) {
+      this.logger.error(
+        `Supabase createUser failed for staff invite ${normalisedEmail}: ${createErr?.message ?? 'no user returned'}`,
+      );
+      throw new InternalServerErrorException({
+        code: 'SUPABASE_CREATE_USER_FAILED',
+        message: createErr?.message ?? 'Supabase did not return a user',
+      });
+    }
+    const supabaseUserId = created.user.id;
+
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        await tx.user.create({
+          data: {
+            id: supabaseUserId,
+            email: normalisedEmail,
+            firstName,
+            lastName,
+            role: dto.role,
+          },
+        });
+        await tx.auditLog.create({
+          data: {
+            actorId,
+            entityType: 'users',
+            entityId: supabaseUserId,
+            action: 'admin.user_created',
+            metadata: {
+              previousState: null,
+              newState: {
+                email: normalisedEmail,
+                firstName,
+                lastName,
+                role: dto.role,
+              },
+            } as Prisma.JsonObject,
+          },
+        });
+      });
+    } catch (err) {
+      // Compensate — orphan auth user blocks email re-use forever.
+      try {
+        await this.supabase.getClient().auth.admin.deleteUser(supabaseUserId);
+      } catch (delErr) {
+        this.logger.error(
+          `COMPENSATION FAILED: could not delete orphaned Supabase user ${supabaseUserId} after staff-create tx failure: ${(delErr as Error).message} — manual cleanup required.`,
+        );
+      }
+      throw err;
+    }
+
+    // Best-effort magic-link invite.
+    let inviteEmailSent = false;
+    if (dto.sendInvite !== false) {
+      const adminPortalUrl =
+        this.config.get<string>('ADMIN_URL') ?? 'https://admin.feastpot.co.uk';
+      try {
+        const { data: linkData, error: linkErr } = await this.supabase
+          .getClient()
+          .auth.admin.generateLink({
+            type: 'magiclink',
+            email: normalisedEmail,
+            options: { redirectTo: `${adminPortalUrl}/sign-in` },
+          });
+        const magicLinkUrl = linkData?.properties?.action_link;
+        if (linkErr || !magicLinkUrl) {
+          this.logger.error(
+            `Magic link generation failed for staff invite ${supabaseUserId}: ${linkErr?.message ?? 'no action_link'} — user was provisioned but did NOT receive an invite email.`,
+          );
+        } else {
+          const tmpl = staffPortalInviteTemplate({
+            firstName,
+            roleLabel: STAFF_ROLE_LABELS[dto.role],
+            magicLinkUrl,
+            expiresInDays: 7,
+          });
+          await this.email.send({
+            to: normalisedEmail,
+            subject: tmpl.subject,
+            html: tmpl.html,
+          });
+          inviteEmailSent = true;
+        }
+      } catch (err) {
+        this.logger.error(
+          `Staff invite email pipeline threw for ${supabaseUserId}: ${(err as Error).message}`,
+        );
+      }
+    }
+
+    return {
+      id: supabaseUserId,
+      email: normalisedEmail,
+      role: dto.role,
+      inviteEmailSent,
+    };
+  }
+
+  /**
+   * Change a user's role. Admin-only at the controller layer.
+   *
+   * Guard-rails:
+   *   - You cannot change your own role (prevents accidental self-demotion).
+   *   - You cannot demote the last remaining active admin (prevents bricking
+   *     the admin console entirely).
+   *   - Customer/vendor roles can only be REASSIGNED to a staff role here;
+   *     promoting a customer to staff is allowed but a vendor cannot be
+   *     converted to staff (their Vendor row would dangle) — block that.
+   *
+   * On success:
+   *   - Update Prisma User.role (source of truth read by /users/me).
+   *   - Sync the new role into Supabase user_metadata so any downstream
+   *     consumers reading the JWT see it too. Best-effort.
+   *   - Global Supabase sign-out so any in-flight JWT carrying stale
+   *     metadata gets refreshed. Best-effort.
+   *   - Audit-log the change.
+   */
+  async updateUserRole(
+    userId: string,
+    newRole: StaffRoleValue,
+    reason: string,
+    actorId: string,
+  ): Promise<void> {
+    if (userId === actorId) {
+      throw new ForbiddenException({
+        code: 'CANNOT_CHANGE_OWN_ROLE',
+        message: 'You cannot change your own role.',
+      });
+    }
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, role: true, status: true, email: true, vendor: { select: { id: true } } },
+    });
+    if (!user) {
+      throw new NotFoundException({ code: 'USER_NOT_FOUND', message: 'User not found' });
+    }
+    if (user.role === newRole) {
+      throw new BadRequestException({
+        code: 'ROLE_UNCHANGED',
+        message: 'User already has that role.',
+      });
+    }
+    if (user.role === UserRole.vendor || user.vendor) {
+      throw new ForbiddenException({
+        code: 'CANNOT_CONVERT_VENDOR',
+        message:
+          'This user is a vendor — converting them to staff would orphan their Vendor record. Suspend the vendor and create a separate staff account instead.',
+      });
+    }
+
+    // Atomic last-admin guard + role update under Serializable isolation
+    // so two concurrent demotions can't both see count > 1 and commit,
+    // leaving zero active admins. If they race, Postgres will fail one
+    // tx with a serialization error which Prisma surfaces as P2034.
+    const isDemotingAdmin = user.role === UserRole.admin && newRole !== UserRole.admin;
+    try {
+      await this.prisma.$transaction(
+        async (tx) => {
+          if (isDemotingAdmin) {
+            // Re-fetch inside the tx to make the read part of the snapshot.
+            const activeAdminCount = await tx.user.count({
+              where: { role: UserRole.admin, status: UserStatus.active },
+            });
+            if (activeAdminCount <= 1) {
+              throw new ForbiddenException({
+                code: 'LAST_ADMIN',
+                message:
+                  'Cannot demote the last active admin — promote another user to admin first.',
+              });
+            }
+          }
+          await tx.user.update({ where: { id: userId }, data: { role: newRole } });
+          await tx.auditLog.create({
+            data: {
+              actorId,
+              entityType: 'users',
+              entityId: userId,
+              action: 'admin.user_role_changed',
+              metadata: {
+                reason,
+                previousState: { role: user.role },
+                newState: { role: newRole },
+              } as Prisma.JsonObject,
+            },
+          });
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      );
+    } catch (err) {
+      // P2034 = "Transaction failed due to a write conflict or a deadlock"
+      // — the canonical Serializable retry signal. Surface as 409 so the
+      // admin retries rather than seeing a generic 500.
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === 'P2034'
+      ) {
+        throw new ConflictException({
+          code: 'CONCURRENT_ROLE_CHANGE',
+          message: 'Another role change was committed at the same time — please retry.',
+        });
+      }
+      throw err;
+    }
+
+    // Propagate the role into Supabase `app_metadata` so freshly-issued
+    // JWTs carry the new role. (Existing in-flight access tokens still
+    // expire on their own — Supabase access tokens are not revocable
+    // individually; global signOut below kills refresh tokens.)
+    try {
+      await this.supabase.getClient().auth.admin.updateUserById(userId, {
+        app_metadata: { role: newRole },
+      });
+    } catch (err) {
+      this.logger.warn(
+        `Supabase updateUserById(app_metadata) failed for ${userId} during role change: ${(err as Error).message}`,
+      );
+    }
+    try {
+      await this.supabase.getClient().auth.admin.signOut(userId, 'global');
+    } catch (err) {
+      this.logger.warn(
+        `Supabase global signOut failed for ${userId} during role change: ${(err as Error).message}`,
+      );
+    }
+  }
 
   /**
    * Paginated, filterable list of users for the admin Users table view.

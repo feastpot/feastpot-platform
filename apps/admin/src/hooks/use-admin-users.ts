@@ -158,6 +158,61 @@ export function useSuspendUser(userId: string, opts: MutateOpts = {}) {
   });
 }
 
+export type StaffRoleValue = 'admin' | 'support' | 'finance' | 'compliance';
+
+export interface CreateStaffUserInput {
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: StaffRoleValue;
+  sendInvite?: boolean;
+}
+
+export interface CreateStaffUserResult {
+  id: string;
+  email: string;
+  role: AdminUserRole;
+  inviteEmailSent: boolean;
+}
+
+/**
+ * POST /v1/admin/users — admin-only. Creates a Supabase auth user +
+ * Prisma User row pinned to the same uid, optionally emails a magic-link
+ * invite. Invalidates the users list on success.
+ */
+export function useCreateStaffUser(opts: MutateOpts = {}) {
+  const { request } = useApi();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: CreateStaffUserInput) =>
+      request<CreateStaffUserResult>(`/admin/users`, { method: 'POST', body }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'users'] });
+      opts.onSuccess?.();
+    },
+  });
+}
+
+/**
+ * PATCH /v1/admin/users/:userId/role — admin-only. Reason is required
+ * (10–500 chars) and audited.
+ */
+export function useUpdateUserRole(userId: string, opts: MutateOpts = {}) {
+  const { request } = useApi();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { role: StaffRoleValue; reason: string }) =>
+      request<{ success: true }>(`/admin/users/${userId}/role`, {
+        method: 'PATCH',
+        body,
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'users'] });
+      opts.onSuccess?.();
+    },
+  });
+}
+
 export function useReinstateUser(userId: string, opts: MutateOpts = {}) {
   const { request } = useApi();
   const qc = useQueryClient();
