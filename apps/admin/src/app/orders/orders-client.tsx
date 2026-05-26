@@ -252,7 +252,7 @@ export function OrdersClient({ role }: OrdersClientProps) {
             </Select>
           </FilterField>
 
-          <FilterField label="\u00a0">
+          <FilterField label={'\u00a0'}>
             <Button
               type="button"
               variant="outline"
@@ -506,7 +506,9 @@ function DateRangePopover({
           <CalendarClock className="h-4 w-4 text-muted-foreground" />
           <span className="flex flex-col items-start leading-tight">
             <span className="font-medium">{labelTopLine(from, to)}</span>
-            <span className="text-xs text-muted-foreground">{label}</span>
+            {label && labelTopLine(from, to) !== label ? (
+              <span className="text-xs text-muted-foreground">{label}</span>
+            ) : null}
           </span>
         </span>
       </button>
@@ -582,13 +584,16 @@ function labelTopLine(from: string, to: string): string {
 }
 
 function formatDateRangeLabel(from: string, to: string): string {
-  if (!from && !to) return 'Any time';
+  if (!from && !to) return '';
   const fmt = (iso: string): string => {
     if (!iso) return '…';
     const d = new Date(iso + 'T00:00:00Z');
     return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
   };
-  if (from && to) return `${fmt(from)} - ${fmt(to)}`;
+  // Collapse a same-day range to a single date so the trigger doesn't
+  // read "Today / 26 May 2026 - 26 May 2026".
+  if (from && to && from === to) return fmt(from);
+  if (from && to) return `${fmt(from)} – ${fmt(to)}`;
   return fmt(from || to);
 }
 
