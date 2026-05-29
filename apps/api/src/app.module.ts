@@ -208,14 +208,25 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
       inject: [ConfigService],
       useFactory: (cfg: ConfigService) => {
         const url = cfg.get<string>('REDIS_URL');
-        // Cap reconnection attempts at the Bull layer too (mirrors
-        // RedisCacheService) - without this, a misconfigured REDIS_URL
-        // (WRONGPASS, dead host) causes ioredis to retry forever and
-        // spam the log stream at 1 Hz, AND blocks Bull's `queue.add()`
-        // calls indefinitely so the cron-registration callsites never
-        // resolve. After 5 failures we give up.
-        const cappedRetry = (times: number): number | null =>
-          times > 5 ? null : Math.min(times * 500, 3000);
+        // Keep Bull reconnecting indefinitely with a capped backoff so the
+        // queues SELF-HEAL after a transient Redis blip at deploy / cold
+        // start. This genuinely mirrors RedisCacheService, which also never
+        // gives up permanently (after ioredis exhausts its budget it runs a
+        // 60s reconnect probe). The previous "return null after 5 attempts"
+        // did NOT mirror the cache: it left Bull's client dead forever while
+        // the cache recovered, producing the exact `redis: ok` + `queues:
+        // error` symptom seen in /health.
+        //
+        // Safe re: the 2026-05-17 incident (an un-throttled 1Hz log loop on
+        // the THROTTLER client that starved the event loop): a 30s cap is at
+        // most ~2 reconnect attempts/min, and Bull attaches its own `error`
+        // listeners to its clients (plus main.ts swallows benign Redis errors
+        // at the process boundary), so a permanent outage can neither spam
+        // the logs nor crash the process. Genuine auth failures (WRONGPASS)
+        // are still fatal and bounded: RedisCacheService process.exit(1)s in
+        // production at boot, so we never sit here retrying bad credentials.
+        const cappedRetry = (times: number): number =>
+          Math.min(times * 500, 30_000);
         if (url) {
           // Bull's `redis` option accepts an ioredis RedisOptions OBJECT
           // (not a `{ url }` shape), so we must parse the URL into
