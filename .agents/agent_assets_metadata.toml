@@ -29,3 +29,9 @@ id = "ydIJZFc3V6-YllAIbmvtX"
 uri = "file://INTEGRATION_TEST_REPORT.md"
 type = "text"
 title = "FeastPot Integration Test Report"
+
+[[outputs]]
+id = "W3tRw0E62AC5JrL60NNLY"
+uri = "file://docs/GO_LIVE_GAPS.md"
+type = "text"
+title = "Go-Live Gaps — Onboarding Vendors & Taking Orders"
