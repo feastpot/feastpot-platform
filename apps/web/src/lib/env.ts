@@ -1,20 +1,29 @@
 /**
- * Centralised env access. Throw early if a required public var is missing
- * - better than a confusing CORS / 404 storm later.
+ * Centralised API origin resolution for the customer PWA.
  *
- * Default behaviour when NEXT_PUBLIC_API_URL is unset:
- *  - Browser: empty string → fetches go to `/v1/...` (relative, same-origin).
- *    The Next.js dev server rewrites `/v1/*` to `http://localhost:3001/v1/*`
- *    (see `next.config.mjs > rewrites()`), so the API container is reachable
- *    even when the user's browser cannot resolve `localhost:3001` directly
- *    (e.g. Replit preview iframe, mobile device on LAN).
- *  - Server (RSC, route handlers): falls back to `http://localhost:3001`
- *    because Node-side fetch can't resolve relative URLs and the API does
- *    live on localhost from the Next process's perspective.
+ * Resolution order:
+ *  1. NEXT_PUBLIC_API_URL (the canonical config — set per-project in Vercel).
+ *     Used verbatim, with any trailing slash stripped.
+ *  2. Production with the var unset → the stable public API origin. This is a
+ *     safety net: it keeps the app working instead of falling through to a
+ *     relative `/v1` that Vercel cannot route (the dev proxy in
+ *     `next.config.mjs > rewrites()` is gated to non-production on purpose).
+ *  3. Development with the var unset:
+ *       • Browser: empty string → relative `/v1/...`, which the Next dev
+ *         server rewrites to http://localhost:3001 (reachable from inside the
+ *         Replit preview iframe / a LAN device).
+ *       • Server (RSC, route handlers): http://localhost:3001, because Node
+ *         fetch needs an absolute URL.
  *
- * Production should set NEXT_PUBLIC_API_URL explicitly to the public API
- * origin (e.g. `https://api.feastpot.co.uk`).
+ * Always prefer setting NEXT_PUBLIC_API_URL explicitly per environment.
  */
-export const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ??
-  (typeof window !== 'undefined' ? '' : 'http://localhost:3001');
+const PRODUCTION_API_URL = 'https://api.feastpot.co.uk';
+
+function resolveApiUrl(): string {
+  const explicit = process.env.NEXT_PUBLIC_API_URL?.trim();
+  if (explicit) return explicit.replace(/\/+$/, '');
+  if (process.env.NODE_ENV === 'production') return PRODUCTION_API_URL;
+  return typeof window !== 'undefined' ? '' : 'http://localhost:3001';
+}
+
+export const API_URL = resolveApiUrl();

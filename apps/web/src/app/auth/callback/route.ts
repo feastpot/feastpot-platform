@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
+import { API_URL } from '@/lib/env';
 import { safeRedirect } from '@/lib/safe-redirect';
 import { createClient } from '@/lib/supabase/middleware';
 
@@ -53,8 +54,7 @@ export async function GET(request: NextRequest) {
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token;
     if (token) {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
-      await fetch(`${apiUrl.replace(/\/$/, '')}/v1/users/sync`, {
+      await fetch(`${API_URL}/v1/users/sync`, {
         method: 'POST',
         headers: {
           'content-type': 'application/json',
