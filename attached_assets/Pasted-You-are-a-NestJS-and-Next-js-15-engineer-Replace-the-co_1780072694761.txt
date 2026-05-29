@@ -1,0 +1,233 @@
+You are a NestJS and Next.js 15 engineer. Replace the coverage stub
+with real boundary logic.
+
+CONTEXT FROM REPORT:
+"Coverage checking (apps/web/src/lib/api/coverage.ts) is currently a
+basic stub. It needs to be replaced with real boundary logic so customers
+aren't told a vendor delivers to them when they don't (or vice versa).
+This directly affects whether the very first orders are deliverable."
+
+════════════════════════════════════════════════════════
+STEP 1 — Audit the current stub
+════════════════════════════════════════════════════════
+
+Run: cat apps/web/src/lib/api/coverage.ts
+
+Read what the stub currently does. It likely returns true for all postcodes
+or has a hardcoded list. Report exactly what it does.
+
+════════════════════════════════════════════════════════
+STEP 2 — Replace stub with real haversine distance check
+File: apps/web/src/lib/api/coverage.ts
+════════════════════════════════════════════════════════
+
+The coverage check must:
+1. Geocode the customer postcode via postcodes.io (client-callable endpoint)
+2. Compare against each vendor's lat/lng + deliveryRadiusMiles
+3. Return a clear result with distance for UX display
+
+Replace the entire file:
+
+export interface CoverageResult {
+  covered:       boolean
+  distanceMiles: number | null
+  radiusMiles:   number
+  message:       string
+}
+
+export async function checkDeliveryCoverage(
+  customerPostcode: string,
+  vendor: {
+    deliveryConfig?: {
+      latitude?:            number | null
+      longitude?:           number | null
+      deliveryRadiusMiles?: number | null
+    } | null
+  }
+): Promise<CoverageResult> {
+  const config = vendor.deliveryConfig
+
+  // No delivery config: assume vendor delivers everywhere (early-stage default)
+  if (!config || !config.latitude || !config.longitude) {
+    return {
+      covered:       true,
+      distanceMiles: null,
+      radiusMiles:   0,
+      message:       'Delivery area not yet configured',
+    }
+  }
+
+  const radiusMiles = Number(config.deliveryRadiusMiles ?? 5)
+
+  // Geocode customer postcode
+  let customerCoords: { lat: number; lng: number } | null = null
+  try {
+    const clean  = customerPostcode.replace(/\s+/g, '').toUpperCase()
+    const cached = sessionStorage.getItem(`geocode:${clean}`)
+    if (cached) {
+      customerCoords = JSON.parse(cached)
+    } else {
+      const res  = await fetch(`https://api.postcodes.io/postcodes/${clean}`)
+      if (res.ok) {
+        const data = await res.json()
+        if (data.result) {
+          customerCoords = { lat: data.result.latitude, lng: data.result.longitude }
+          sessionStorage.setItem(`geocode:${clean}`, JSON.stringify(customerCoords))
+        }
+      }
+    }
+  } catch {
+    // Geocode failure: fail open (show vendor) rather than fail closed (hide vendor)
+    return {
+      covered:       true,
+      distanceMiles: null,
+      radiusMiles,
+      message:       'Could not verify coverage — delivery availability shown at checkout',
+    }
+  }
+
+  if (!customerCoords) {
+    return {
+      covered:       false,
+      distanceMiles: null,
+      radiusMiles,
+      message:       'Enter a valid UK postcode to check delivery availability',
+    }
+  }
+
+  // Haversine distance
+  const R      = 3958.8
+  const toRad  = (d: number) => (d * Math.PI) / 180
+  const dLat   = toRad(Number(config.latitude) - customerCoords.lat)
+  const dLng   = toRad(Number(config.longitude) - customerCoords.lng)
+  const a      = Math.sin(dLat/2)**2 +
+    Math.cos(toRad(customerCoords.lat)) *
+    Math.cos(toRad(Number(config.latitude))) *
+    Math.sin(dLng/2)**2
+  const distanceMiles = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))
+
+  const covered = distanceMiles <= radiusMiles
+
+  return {
+    covered,
+    distanceMiles: Math.round(distanceMiles * 10) / 10,
+    radiusMiles,
+    message: covered
+      ? `${(Math.round(distanceMiles * 10) / 10).toFixed(1)} miles away · Delivers to you`
+      : `${(Math.round(distanceMiles * 10) / 10).toFixed(1)} miles away · Outside delivery area`,
+  }
+}
+
+════════════════════════════════════════════════════════
+STEP 3 — Use coverage result in vendor card and checkout
+File: apps/web/src/components/vendor/vendor-card.tsx
+════════════════════════════════════════════════════════
+
+The vendor card already receives deliversToPostcode from the API.
+But for the case where the customer is browsing without a postcode,
+the card should call checkDeliveryCoverage client-side when a postcode
+is later entered.
+
+The vendor card delivery badge must show three states:
+  covered:  "✓ Delivers to {postcode}" — green #E8F5EC
+  not covered: "{X.X} mi away · Outside area" — amber #FFF8EC
+  unknown:  "Enter postcode to check" — grey #F4F4F4
+
+{postcode && vendor.deliveryConfig && (
+  <CoverageBadge
+    postcode={postcode}
+    vendor={vendor}
+  />
+)}
+
+File: apps/web/src/components/vendor/coverage-badge.tsx (create)
+
+'use client'
+import { useEffect, useState } from 'react'
+import { checkDeliveryCoverage, type CoverageResult } from '@/lib/api/coverage'
+
+export function CoverageBadge({
+  postcode, vendor,
+}: {
+  postcode: string
+  vendor: any
+}) {
+  const [result, setResult] = useState<CoverageResult | null>(null)
+
+  useEffect(() => {
+    if (!postcode) return
+    checkDeliveryCoverage(postcode, vendor).then(setResult)
+  }, [postcode, vendor.id])
+
+  if (!result) return null
+
+  return (
+    <span style={{
+      display:   'inline-flex',
+      alignItems: 'center',
+      gap:        '4px',
+      fontSize:   '11px',
+      fontWeight: 600,
+      padding:    '3px 8px',
+      borderRadius: '6px',
+      background: result.covered ? '#E8F5EC' : '#FFF8EC',
+      color:      result.covered ? '#1E7B34' : '#B87B00',
+    }}>
+      {result.covered ? '✓' : '⚠'} {result.message}
+    </span>
+  )
+}
+
+════════════════════════════════════════════════════════
+STEP 4 — Block checkout for out-of-area vendors
+File: apps/web/src/app/checkout/page.tsx
+════════════════════════════════════════════════════════
+
+At checkout, perform a server-side coverage check before allowing
+payment. The client-side check in Step 3 is UX feedback only —
+the API must enforce it.
+
+In the checkout page, before rendering the payment form:
+const coverage = await checkDeliveryCoverage(
+  savedPostcode,
+  vendor,
+)
+
+if (!coverage.covered && vendor.deliveryConfig?.latitude) {
+  return (
+    <div style={{ textAlign: 'center', padding: '48px 24px' }}>
+      <span style={{ fontSize: '48px', display: 'block', marginBottom: '12px' }}>📍</span>
+      <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#1A1A1A', marginBottom: '8px' }}>
+        Outside delivery area
+      </h2>
+      <p style={{ fontSize: '14px', color: '#666666', lineHeight: 1.6, marginBottom: '20px' }}>
+        {vendor.businessName} delivers up to {coverage.radiusMiles} miles.
+        You are {coverage.distanceMiles} miles away.
+      </p>
+      <a href="/vendors" style={{ color: '#1E7B34', fontWeight: 600 }}>
+        Find kitchens near you →
+      </a>
+    </div>
+  )
+}
+
+Also enforce on the API side:
+File: apps/api/src/modules/orders/orders.service.ts
+
+In createOrder(), after fetching the vendor's deliveryConfig:
+if (deliveryConfig?.latitude && dto.customerPostcode) {
+  const distance = this.haversineDistance(
+    customerCoords.lat, customerCoords.lng,
+    Number(deliveryConfig.latitude), Number(deliveryConfig.longitude),
+  )
+  const radius = Number(deliveryConfig.deliveryRadiusMiles ?? 5)
+  if (distance > radius) {
+    throw new BadRequestException(
+      `${vendor.businessName} does not deliver to ${dto.customerPostcode}. ` +
+      `Distance: ${distance.toFixed(1)} miles, radius: ${radius} miles.`
+    )
+  }
+}
+
+Run: npm run typecheck --filter=@feastpot/web and --filter=@feastpot/api
+Output all new and changed files.
