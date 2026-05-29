@@ -249,8 +249,29 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
               reconnectOnError: () => false,
               enableReadyCheck: false,
             },
-            // Bull's blocking BRPOPLPUSH/etc. require these on managed Redis.
-            settings: { stalledInterval: 30_000 },
+            // Idle-polling tuning to stay under Upstash's per-command quota.
+            // Bull hits Redis on TIMERS even with zero jobs: the worker's
+            // blocking BRPOPLPUSH loop (drainDelay), the delayed-job promotion
+            // scan (guardInterval), and the stalled-job check (stalledInterval).
+            // At the defaults (5s / 5s / 30s) four idle queues alone burn
+            // millions of commands/month - enough to exhaust the free tier on
+            // their own. These are Upstash's own recommended values for Bull
+            // (https://upstash.com/examples/usingbullwithupstash):
+            //   - drainDelay 300 -> idle BRPOPLPUSH blocks ~5min instead of 5s
+            //     (Upstash bills a blocking command as ONE request regardless
+            //     of how long it blocks). NOTE: this is classic Bull, where
+            //     drainDelay is the brpoplpush timeout in SECONDS.
+            //   - guardInterval/stalledInterval 5min -> 60x / 10x fewer scans.
+            // Normal job pickup is UNAFFECTED: enqueuing LPUSHes to the wait
+            // list, which wakes the blocking pop immediately. The only trade-off
+            // is that DELAYED jobs (incl. exponential-backoff RETRIES) and
+            // stalled-job recovery are promoted within up to ~5min rather than
+            // seconds - acceptable for these non-latency-critical queues.
+            settings: {
+              stalledInterval: 300_000,
+              guardInterval: 300_000,
+              drainDelay: 300,
+            },
           };
         }
         // No REDIS_URL set - there is no source of truth for Redis, so

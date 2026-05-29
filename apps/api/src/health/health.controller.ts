@@ -1,5 +1,6 @@
 import { InjectQueue } from '@nestjs/bull';
 import { Controller, Get, Res } from '@nestjs/common';
+import { SkipThrottle } from '@nestjs/throttler';
 import { ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import type { Queue } from 'bull';
@@ -98,8 +99,25 @@ function withTimeout<T>(promise: Promise<T>, fallback: T, ms = CHECK_TIMEOUT_MS)
 }
 
 @ApiTags('health')
+// Skip rate-limiting: this readiness probe is public and polled frequently by
+// the load balancer / external monitors. Throttling it only wastes Redis INCRs
+// (see RootController note) and risks 429'ing a health check during a traffic
+// spike, which would make a healthy instance look unhealthy.
+@SkipThrottle()
 @Controller('health')
 export class HealthController {
+  // Short in-memory cache of the Redis-touching portion of the deep check.
+  // The readiness probe is polled frequently (LB + external monitors), and
+  // each fresh run costs ~13 Redis commands (1 PING + 3 counts x 4 queues).
+  // Without this, high-frequency probing alone can exhaust Upstash's quota.
+  // Caching for a few seconds caps that amplification: no matter how often
+  // we're hit, the Redis checks fire at most once per TTL. The DB check stays
+  // live on every call (it's cheap Postgres, not quota-billed Redis, and is
+  // the real liveness signal). Trade-off: redis/queue status can lag reality
+  // by up to REDIS_CHECK_TTL_MS - fine, since it never affects the 503 verdict.
+  private static readonly REDIS_CHECK_TTL_MS = 15_000;
+  private redisCheckCache: { at: number; redis: RedisStatus; queues: QueueStatus } | null = null;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly cache: RedisCacheService,
@@ -108,6 +126,36 @@ export class HealthController {
     @InjectQueue(PAYOUTS_QUEUE) private readonly payouts: Queue,
     @InjectQueue(COMPLIANCE_QUEUE) private readonly compliance: Queue,
   ) {}
+
+  /**
+   * Redis PING + queue-depth collection, memoized for REDIS_CHECK_TTL_MS so
+   * frequent probes don't each fire ~13 Redis commands. Returns the cached
+   * result while fresh; otherwise re-runs the checks (each with its own 2s
+   * timeout) and refreshes the cache.
+   */
+  private async getRedisAndQueueStatus(): Promise<{ redis: RedisStatus; queues: QueueStatus }> {
+    const now = Date.now();
+    const cached = this.redisCheckCache;
+    if (cached && now - cached.at < HealthController.REDIS_CHECK_TTL_MS) {
+      return { redis: cached.redis, queues: cached.queues };
+    }
+    const [redis, queues] = await Promise.all([
+      withTimeout<RedisStatus>(
+        this.cache.isEnabled()
+          ? this.cache
+              .ping()
+              .then<RedisStatus>((r) => (r === 'PONG' ? 'ok' : 'error'))
+              .catch<RedisStatus>(() => 'error')
+          : Promise.resolve<RedisStatus>('disabled'),
+        'timeout',
+      ),
+      withTimeout<QueueStatus>(this.collectQueueDepths(), {
+        error: 'timeout - Redis may be unhealthy',
+      }),
+    ]);
+    this.redisCheckCache = { at: now, redis, queues };
+    return { redis, queues };
+  }
 
   /**
    * Liveness probe: zero-IO, used by Replit Autoscale to verify the process
@@ -139,7 +187,7 @@ export class HealthController {
     // D3 part 2: each check has its own 2s timeout via withTimeout so a
     // dead Redis (Bull's blocking ioredis commands) can never hang this
     // endpoint past ~2s. Previously a P1-blocking 30s wait was possible.
-    const [db, redis, queues] = await Promise.all([
+    const [db, redisAndQueues] = await Promise.all([
       withTimeout<DbStatus>(
         this.prisma
           .$queryRaw`SELECT 1 as ok`
@@ -147,20 +195,11 @@ export class HealthController {
           .catch<DbStatus>(() => 'error'),
         'timeout',
       ),
-      withTimeout<RedisStatus>(
-        this.cache.isEnabled()
-          ? this.cache
-              .ping()
-              .then<RedisStatus>((r) => (r === 'PONG' ? 'ok' : 'error'))
-              .catch<RedisStatus>(() => 'error')
-          : Promise.resolve<RedisStatus>('disabled'),
-        'timeout',
-      ),
-      withTimeout<QueueStatus>(
-        this.collectQueueDepths(),
-        { error: 'timeout - Redis may be unhealthy' },
-      ),
+      // Memoized (REDIS_CHECK_TTL_MS) so frequent probes don't amplify Redis
+      // command usage. The DB check above always runs live.
+      this.getRedisAndQueueStatus(),
     ]);
+    const { redis, queues } = redisAndQueues;
 
     // D21: a missing required secret (e.g. STRIPE_WEBHOOK_SECRET) is a
     // hard 503 - payment confirmations would be silently dropped, so the

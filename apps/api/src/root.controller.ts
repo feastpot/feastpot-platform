@@ -4,6 +4,7 @@ import {
   ServiceUnavailableException,
   VERSION_NEUTRAL,
 } from '@nestjs/common';
+import { SkipThrottle } from '@nestjs/throttler';
 import { ApiExcludeController } from '@nestjs/swagger';
 
 import { Public } from './auth/decorators/public.decorator';
@@ -23,6 +24,13 @@ import { PrismaService } from './prisma/prisma.service';
  * monitoring (BetterStack, UptimeRobot, etc.) should hit this so a hung DB
  * connection actually pages us instead of silently looking healthy.
  */
+// Probe routes (`/`, `/healthz`, `/livez`) are pinged continuously by the
+// Autoscale load balancer. Rate-limiting them is pointless (they're public,
+// fixed-cost liveness checks) and each throttled request costs 2 Redis INCRs
+// (short + long window) - across N instances that burns through the Upstash
+// request quota fast. Skipping the throttler here removes the single largest
+// source of Redis traffic without weakening any real abuse protection.
+@SkipThrottle()
 @ApiExcludeController()
 @Controller({ path: '', version: VERSION_NEUTRAL })
 export class RootController {

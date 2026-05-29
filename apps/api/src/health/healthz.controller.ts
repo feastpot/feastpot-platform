@@ -1,5 +1,6 @@
 import { InjectQueue } from '@nestjs/bull';
 import { Controller, Get, Res, VERSION_NEUTRAL } from '@nestjs/common';
+import { SkipThrottle } from '@nestjs/throttler';
 import { ApiTags } from '@nestjs/swagger';
 import type { Queue } from 'bull';
 import type { Response } from 'express';
@@ -25,6 +26,10 @@ import { HealthController } from './health.controller';
  * Versioning trick: passing `[VERSION_NEUTRAL, '1']` mounts the same handler
  * at both paths so we don't have to maintain two controllers.
  */
+// Skip rate-limiting for the same reason as RootController/HealthController:
+// `/healthz` + `/v1/healthz` are continuously probed; throttling them only
+// burns Redis quota and risks 429'ing a liveness check.
+@SkipThrottle()
 @ApiTags('health')
 @Controller({ path: 'healthz', version: [VERSION_NEUTRAL, '1'] })
 export class HealthzController {
