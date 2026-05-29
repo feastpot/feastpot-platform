@@ -637,6 +637,7 @@ model MenuItem {
   imageUrls        String[]         @map("image_urls") @db.VarChar(500)
   allergens        String[]         @db.VarChar(64)
   tags             String[]         @db.VarChar(64)
+  sortOrder        Int              @default(0) @map("sort_order")
   isAvailable      Boolean          @default(false) @map("is_available")
   stockCount       Int?             @map("stock_count")
   moderationStatus ModerationStatus @default(auto_approved) @map("moderation_status")
@@ -649,6 +650,7 @@ model MenuItem {
 
   @@index([vendorId])
   @@index([menuId])
+  @@index([menuId, sortOrder])
   @@index([category])
   @@index([isAvailable])
   @@index([moderationStatus])

@@ -22,6 +22,8 @@ export interface MenuItem {
   allergens: string[];
   /** Tag-encoded extras: dietary flags + 'spice:N' + 'portion:LABEL' + 'halal' */
   tags: string[];
+  /** Manual display order within the menu (1-based); drag-to-reorder writes this. */
+  sortOrder: number;
   isAvailable: boolean;
   createdAt: string;
   updatedAt: string;
@@ -113,6 +115,46 @@ export function useDeleteMenuItem(vendorId: string, menuId: string) {
         accessToken: token!,
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ITEMS_KEY(vendorId, menuId) }),
+  });
+}
+
+/**
+ * Persist a drag-to-reorder. `itemIds` is the full ordered list of the menu's
+ * items. We optimistically rewrite the cached list so the grid stays put while
+ * the request is in flight, snapshot the previous order to roll back on error,
+ * and re-sync from the server on settle.
+ */
+export function useReorderMenuItems(vendorId: string, menuId: string) {
+  const { token } = useAccessToken();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (itemIds: string[]) =>
+      apiRequest<MenuItem[]>(`/vendors/${vendorId}/menus/${menuId}/items/reorder`, {
+        method: 'PATCH',
+        accessToken: token!,
+        body: { itemIds },
+      }),
+    onMutate: async (itemIds: string[]) => {
+      await qc.cancelQueries({ queryKey: ITEMS_KEY(vendorId, menuId) });
+      const previous = qc.getQueryData<MenuItem[]>(ITEMS_KEY(vendorId, menuId));
+      if (previous) {
+        const byId = new Map(previous.map((it) => [it.id, it]));
+        const reordered = itemIds
+          .map((id, index) => {
+            const it = byId.get(id);
+            return it ? { ...it, sortOrder: index + 1 } : undefined;
+          })
+          .filter((it): it is MenuItem => it !== undefined);
+        qc.setQueryData<MenuItem[]>(ITEMS_KEY(vendorId, menuId), reordered);
+      }
+      return { previous };
+    },
+    onError: (_err, _itemIds, context) => {
+      if (context?.previous) {
+        qc.setQueryData(ITEMS_KEY(vendorId, menuId), context.previous);
+      }
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ITEMS_KEY(vendorId, menuId) }),
   });
 }
 

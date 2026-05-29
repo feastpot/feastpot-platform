@@ -317,9 +317,10 @@ export class VendorRepository {
         deliveryConfig: true,
         _count: { select: { menus: { where: { isActive: true } } } },
         // Active menus + their items so the customer PWA's profile page can
-        // render the menu without an extra round-trip. Items are returned
-        // in the order vendors define on the menu (createdAt asc) - the
-        // client groups them by `category` for display.
+        // render the menu without an extra round-trip. Items are returned in
+        // the order the vendor sets via drag-to-reorder (sortOrder asc, then
+        // createdAt as a stable tie-break) - the client groups them by
+        // `category` for display, so order is preserved within each group.
         menus: {
           where: { isActive: true },
           orderBy: { createdAt: 'asc' },
@@ -328,7 +329,7 @@ export class VendorRepository {
             // vendor drafts (isAvailable=false) never leak to the PWA.
             items: {
               where: { isAvailable: true },
-              orderBy: { createdAt: 'asc' },
+              orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
             },
           },
         },

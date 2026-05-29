@@ -37,6 +37,7 @@ import type { AuthedRequest } from '../../auth/types';
 import { CreateMenuItemDto } from './dto/create-menu-item.dto';
 import { CreateMenuDto } from './dto/create-menu.dto';
 import { ListMenuItemsDto } from './dto/list-menu-items.dto';
+import { ReorderMenuItemsDto } from './dto/reorder-menu-items.dto';
 import { ToggleAvailabilityDto } from './dto/toggle-availability.dto';
 import { UpdateMenuItemDto } from './dto/update-menu-item.dto';
 import { UpdateMenuDto } from './dto/update-menu.dto';
@@ -157,6 +158,21 @@ export class CatalogueController {
     @Req() req?: AuthedRequest,
   ) {
     return this.items.findOne(vendorId, menuId, itemId, req?.user ?? null);
+  }
+
+  // Declared BEFORE `items/:itemId` so the literal `reorder` segment is matched
+  // by this route and never captured as an `:itemId` UUID param.
+  @Patch('menus/:menuId/items/reorder')
+  @ApiBearerAuth()
+  @Roles(UserRole.vendor, UserRole.admin)
+  @UseGuards(VendorOwnershipGuard)
+  @ApiOperation({ summary: 'Reorder a menu\'s items (vendor owner / admin)' })
+  reorderItems(
+    @Param('vendorId', new ParseUUIDPipe()) vendorId: string,
+    @Param('menuId', new ParseUUIDPipe()) menuId: string,
+    @Body() dto: ReorderMenuItemsDto,
+  ) {
+    return this.items.reorder(vendorId, menuId, dto.itemIds);
   }
 
   @Patch('menus/:menuId/items/:itemId')

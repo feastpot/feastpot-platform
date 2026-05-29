@@ -1,7 +1,24 @@
 'use client';
 
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  arrayMove,
+  rectSortingStrategy,
+  sortableKeyboardCoordinates,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { Badge, Button, Card, CardContent } from '@feastpot/ui';
-import { Copy, ExternalLink, ImageOff, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Copy, ExternalLink, GripVertical, ImageOff, Pencil, Plus, Trash2 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 
@@ -11,6 +28,7 @@ import {
   useCreateMenuItem,
   useDeleteMenuItem,
   useMenuItems,
+  useReorderMenuItems,
   useToggleItemAvailability,
   type MenuItem,
   type MenuItemUpsertInput,
@@ -41,7 +59,37 @@ export function MenuItemsGridClient({
   menuName: string;
 }) {
   const { data: items, isLoading, error } = useMenuItems(vendorId, menuId);
+  const reorder = useReorderMenuItems(vendorId, menuId);
+  const { toast } = useToast();
   const previewHref = `${WEB_URL}/vendors/${vendorSlug}`;
+
+  // Require a small drag before activating so taps on the card's buttons /
+  // switch are never swallowed by the sortable. Keyboard users get an
+  // accessible alternative via the handle.
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id || !items) return;
+    const oldIndex = items.findIndex((it) => it.id === active.id);
+    const newIndex = items.findIndex((it) => it.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+    const nextOrder = arrayMove(items, oldIndex, newIndex);
+    reorder.mutate(
+      nextOrder.map((it) => it.id),
+      {
+        onError: (err) =>
+          toast({
+            title: 'Could not save the new order',
+            description: err instanceof Error ? err.message : '',
+            variant: 'destructive',
+          }),
+      },
+    );
+  };
 
   return (
     <div className="space-y-4">
@@ -52,7 +100,8 @@ export function MenuItemsGridClient({
           </Link>
           <h1 className="text-2xl font-semibold">{menuName}</h1>
           <p className="text-sm text-muted-foreground">
-            Reorder is coming soon - items are sorted by category, then name.
+            Drag the handle on each item to set the order. Customers see your
+            order within each category.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -96,11 +145,17 @@ export function MenuItemsGridClient({
         </Card>
       )}
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {items?.map((it) => (
-          <ItemCard key={it.id} vendorId={vendorId} menuId={menuId} item={it} />
-        ))}
-      </div>
+      {items && items.length > 0 && (
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={items.map((it) => it.id)} strategy={rectSortingStrategy}>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {items.map((it) => (
+                <SortableItemCard key={it.id} vendorId={vendorId} menuId={menuId} item={it} />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
+      )}
     </div>
   );
 }
@@ -145,7 +200,7 @@ function toUpsertInput(item: MenuItem): MenuItemUpsertInput {
   };
 }
 
-function ItemCard({
+function SortableItemCard({
   vendorId,
   menuId,
   item,
@@ -153,6 +208,38 @@ function ItemCard({
   vendorId: string;
   menuId: string;
   item: MenuItem;
+}) {
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
+    useSortable({ id: item.id });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 10 : undefined,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} className={isDragging ? 'opacity-70' : undefined}>
+      <ItemCard
+        vendorId={vendorId}
+        menuId={menuId}
+        item={item}
+        handleProps={{ ...attributes, ...listeners, ref: setActivatorNodeRef }}
+      />
+    </div>
+  );
+}
+
+function ItemCard({
+  vendorId,
+  menuId,
+  item,
+  handleProps,
+}: {
+  vendorId: string;
+  menuId: string;
+  item: MenuItem;
+  handleProps: React.HTMLAttributes<HTMLButtonElement> & { ref: (node: HTMLElement | null) => void };
 }) {
   const toggle = useToggleItemAvailability(vendorId, menuId);
   const del = useDeleteMenuItem(vendorId, menuId);
@@ -188,6 +275,15 @@ function ItemCard({
             <ImageOff className="h-8 w-8" />
           </div>
         )}
+        <button
+          type="button"
+          {...handleProps}
+          aria-label={`Drag to reorder ${item.name}`}
+          title="Drag to reorder"
+          className="absolute left-2 top-2 flex h-8 w-8 cursor-grab touch-none items-center justify-center rounded-full bg-white/90 text-foreground shadow-sm active:cursor-grabbing"
+        >
+          <GripVertical className="h-4 w-4" />
+        </button>
         {!item.isAvailable && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/40">
             <span className="rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-foreground">Unavailable</span>

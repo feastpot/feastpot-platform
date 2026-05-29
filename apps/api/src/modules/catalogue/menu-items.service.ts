@@ -98,7 +98,49 @@ export class MenuItemsService {
 
     return this.prisma.menuItem.findMany({
       where,
-      orderBy: [{ category: 'asc' }, { name: 'asc' }],
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+    });
+  }
+
+  /**
+   * Persist a vendor's drag-to-reorder. `itemIds` is the full ordered list of
+   * the menu's items; index 0 becomes sortOrder 1. We require the provided set
+   * to match the menu's current items exactly so a partial/foreign payload can
+   * never leave duplicate orders or touch another menu's rows. All updates run
+   * in one transaction, then the cache is busted so the customer PWA reflects
+   * the new order within seconds.
+   */
+  async reorder(vendorId: string, menuId: string, itemIds: string[]) {
+    await this.assertMenuBelongs(vendorId, menuId);
+
+    const existing = await this.prisma.menuItem.findMany({
+      where: { menuId },
+      select: { id: true },
+    });
+    const existingIds = new Set(existing.map((i) => i.id));
+    const providedIds = new Set(itemIds);
+    const sameSize = existingIds.size === providedIds.size;
+    const sameMembers = itemIds.every((id) => existingIds.has(id));
+    if (itemIds.length !== providedIds.size || !sameSize || !sameMembers) {
+      throw new BadRequestException({
+        code: 'INVALID_REORDER',
+        message: 'itemIds must contain each of this menu\'s items exactly once.',
+      });
+    }
+
+    await this.prisma.$transaction(
+      itemIds.map((id, index) =>
+        this.prisma.menuItem.update({
+          where: { id },
+          data: { sortOrder: index + 1 },
+        }),
+      ),
+    );
+    await this.invalidateVendorCache(vendorId);
+
+    return this.prisma.menuItem.findMany({
+      where: { menuId },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     });
   }
 
@@ -152,6 +194,14 @@ export class MenuItemsService {
     });
     const preparationHours = Math.max(1, Math.ceil(dto.prepTimeMinutes / 60));
 
+    // New items go to the end of the menu's current order so drag-to-reorder
+    // starts from a sensible, gap-free position.
+    const maxOrder = await this.prisma.menuItem.aggregate({
+      where: { menuId },
+      _max: { sortOrder: true },
+    });
+    const sortOrder = (maxOrder._max.sortOrder ?? 0) + 1;
+
     const created = await this.prisma.menuItem.create({
       data: {
         vendorId,
@@ -165,6 +215,7 @@ export class MenuItemsService {
         imageUrls: dto.images ?? [],
         allergens,
         tags,
+        sortOrder,
         // Honour the explicit publish state from the DTO so vendors can save
         // drafts. Falls back to the schema default (false) when omitted.
         ...(dto.isAvailable !== undefined ? { isAvailable: dto.isAvailable } : {}),
