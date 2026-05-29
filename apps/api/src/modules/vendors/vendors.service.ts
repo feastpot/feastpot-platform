@@ -11,6 +11,7 @@ import { OrderStatus, UserRole, VendorStatus } from '@prisma/client';
 
 import type { AuthUser } from '../../auth/types';
 import { RedisCacheService } from '../../common/cache/redis-cache.service';
+import { getServiceFeeBps } from '../../common/config/service-fee';
 import { NotificationsService } from '../notifications/notifications.service';
 import { EmailProvider } from '../notifications/providers/email.provider';
 import { vendorApplicationAcknowledgedTemplate } from '../notifications/templates/vendor-application-acknowledged.template';
@@ -1036,14 +1037,18 @@ export class VendorsService {
       throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'Vendor not found' });
     }
     const vendor = await this.findById(lite.id);
+    // Platform service fee (bps) is global and read from env at REQUEST time,
+    // not from the cached profile, so the customer PWA's express-checkout total
+    // stays in lockstep with what orders.service charges if the fee changes.
+    const platformServiceFeeBps = getServiceFeeBps();
     const trimmed = postcode?.trim();
-    if (!trimmed) return vendor;
+    if (!trimmed) return { ...vendor, platformServiceFeeBps };
     const dc = vendor.deliveryConfig;
-    if (!dc || dc.latitude == null || dc.longitude == null) return vendor;
+    if (!dc || dc.latitude == null || dc.longitude == null) return { ...vendor, platformServiceFeeBps };
     const coords = await geocodePostcode(trimmed, this.logger);
-    if (coords.latitude == null || coords.longitude == null) return vendor;
+    if (coords.latitude == null || coords.longitude == null) return { ...vendor, platformServiceFeeBps };
     const distanceKm = haversineKm(coords.latitude, coords.longitude, dc.latitude, dc.longitude);
-    return { ...vendor, distanceKm };
+    return { ...vendor, platformServiceFeeBps, distanceKm };
   }
 
   async findMyVendor(userId: string) {

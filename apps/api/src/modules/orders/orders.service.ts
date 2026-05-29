@@ -14,6 +14,7 @@ import { Queue } from 'bull';
 import { randomBytes, randomUUID } from 'node:crypto';
 
 import type { AuthUser } from '../../auth/types';
+import { getServiceFeePence } from '../../common/config/service-fee';
 import { PrismaService } from '../../prisma/prisma.service';
 import { StripeService } from '../../stripe/stripe.service';
 import { DiscountCodesService } from '../discount-codes/discount-codes.service';
@@ -38,7 +39,6 @@ import { OrdersRepository } from './orders.repository';
 export const NOTIFICATIONS_QUEUE = 'notifications';
 const AUTO_CANCEL_DELAY_MS = 15 * 60 * 1000;
 const REVIEW_DELAY_MS = 2 * 60 * 60 * 1000;
-const SERVICE_FEE_BPS = 0;
 
 /**
  * Allowed status transitions and the role permitted to perform each.
@@ -341,7 +341,7 @@ export class OrdersService {
     // Combine loyalty + promo discounts. Final clamp ensures total never
     // dips below £0 even if the two stack to more than the order value.
     const discountPence = loyaltyToRedeem + promoDiscountPence;
-    const serviceFeePence = Math.round((subtotalPence * SERVICE_FEE_BPS) / 10_000);
+    const serviceFeePence = getServiceFeePence(subtotalPence);
     const totalPence = Math.max(0, subtotalPence + deliveryFeePence + serviceFeePence - discountPence);
 
     const { commissionPence, vendorPayoutPence } = computeCommission(

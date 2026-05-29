@@ -1,0 +1,202 @@
+You are a NestJS and Next.js 15 engineer. Implement the service fee
+configuration and enable Apple Pay / Google Pay in checkout.
+
+CONTEXT FROM REPORT:
+"Service fee is currently 0. SERVICE_FEE_BPS is set to 0. If that's intended
+for launch, fine — but it's a revenue decision someone should make deliberately."
+
+"Apple Pay / Google Pay buttons exist in checkout but are disabled
+('coming soon'). Card checkout works without them; treat this as a
+conversion optimisation, not a blocker."
+
+════════════════════════════════════════════════════════
+STEP 1 — Service fee: make it a conscious decision
+File: apps/api/src/modules/orders/orders.service.ts
+════════════════════════════════════════════════════════
+
+BUSINESS DECISION REQUIRED BEFORE RUNNING THIS PROMPT:
+What should the service fee be at launch?
+  Option A: 0% — no service fee (vendor takes 88%, Feastpot takes 12% commission only)
+  Option B: 50p flat — small fixed service fee per order
+  Option C: 5% of order subtotal — percentage-based
+
+This prompt implements Option A (0%) as the default launch configuration
+with the infrastructure to change it without a code deploy.
+
+Confirm SERVICE_FEE_BPS is set in Replit secrets:
+  SERVICE_FEE_BPS = 0    (for Option A — 0% at launch)
+
+If it is not set, the calculation must default to 0 (not throw or use
+a fallback that charges an unintended fee):
+
+private getServiceFeePence(subtotalPence: number): number {
+  const bps = parseInt(process.env.SERVICE_FEE_BPS ?? '0', 10)
+  if (isNaN(bps) || bps < 0) return 0
+  return Math.round(subtotalPence * bps / 10_000)
+}
+
+Make this visible in the order total breakdown:
+// In order creation response and checkout display:
+{
+  subtotalPence,
+  deliveryFeePence,
+  serviceFeePence: this.getServiceFeePence(subtotalPence),  // 0 at launch
+  discountPence,
+  totalPence: subtotalPence + deliveryFeePence + serviceFeePence - discountPence,
+}
+
+In the checkout UI, only show the service fee line if serviceFeePence > 0:
+{serviceFeePence > 0 && (
+  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', color: '#666666' }}>
+    <span>Service fee</span>
+    <span>£{(serviceFeePence / 100).toFixed(2)}</span>
+  </div>
+)}
+
+This means the checkout shows a clean receipt at launch (no service fee line)
+but the infrastructure is ready to enable a fee without a code deploy.
+
+════════════════════════════════════════════════════════
+STEP 2 — Enable Apple Pay and Google Pay in checkout
+File: apps/web/src/app/checkout/page.tsx
+════════════════════════════════════════════════════════
+
+The report says buttons "exist but are disabled." Enable them.
+Stripe Payment Request Button handles both Apple Pay and Google Pay
+from a single component.
+
+PREREQUISITES (confirm before enabling):
+1. Your Stripe account must have Apple Pay enabled:
+   dashboard.stripe.com → Settings → Payment methods → Apple Pay → Enable
+2. Your domain must be verified with Apple:
+   dashboard.stripe.com → Settings → Payment methods → Apple Pay → Add domain → feastpot.co.uk
+3. Apple Pay only works on HTTPS with a verified domain (not localhost)
+
+File: apps/web/src/components/checkout/payment-request-button.tsx
+
+'use client'
+import { useEffect, useState } from 'react'
+import {
+  useStripe,
+  PaymentRequestButtonElement,
+} from '@stripe/react-stripe-js'
+
+export function AppleGooglePayButton({
+  totalPence,
+  onPaymentMethod,
+}: {
+  totalPence: number
+  onPaymentMethod: (paymentMethodId: string) => void
+}) {
+  const stripe = useStripe()
+  const [paymentRequest, setPaymentRequest] = useState<any>(null)
+  const [available, setAvailable] = useState(false)
+
+  useEffect(() => {
+    if (!stripe || totalPence <= 0) return
+
+    const pr = stripe.paymentRequest({
+      country:  'GB',
+      currency: 'gbp',
+      total: {
+        label:  'Feastpot order',
+        amount: totalPence,
+      },
+      requestPayerName:  true,
+      requestPayerEmail: true,
+    })
+
+    pr.canMakePayment().then(result => {
+      if (result) {
+        setPaymentRequest(pr)
+        setAvailable(true)
+      }
+    })
+
+    pr.on('paymentmethod', async (e) => {
+      onPaymentMethod(e.paymentMethod.id)
+      e.complete('success')
+    })
+  }, [stripe, totalPence])
+
+  if (!available) return null
+
+  return (
+    <div style={{ marginBottom: '12px' }}>
+      <PaymentRequestButtonElement
+        options={{
+          paymentRequest,
+          style: {
+            paymentRequestButton: {
+              type:   'default',
+              theme:  'dark',
+              height: '48px',
+            },
+          },
+        }}
+      />
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: '10px', margin: '12px 0',
+      }}>
+        <div style={{ flex: 1, height: '1px', background: '#E8E8E8' }} />
+        <span style={{ fontSize: '12px', color: '#999999' }}>or pay by card</span>
+        <div style={{ flex: 1, height: '1px', background: '#E8E8E8' }} />
+      </div>
+    </div>
+  )
+}
+
+In apps/web/src/app/checkout/page.tsx:
+Remove the "coming soon" disabled state and render the component:
+
+<AppleGooglePayButton
+  totalPence={totalPence}
+  onPaymentMethod={async (paymentMethodId) => {
+    // Confirm the existing PaymentIntent with the Apple/Google Pay payment method
+    const { error } = await stripe.confirmCardPayment(clientSecret, {
+      payment_method: paymentMethodId,
+    })
+    if (error) { toast.error(error.message ?? 'Payment failed'); return }
+    router.push(`/orders/${orderId}/confirmation`)
+  }}
+/>
+
+NOTE: Apple Pay and Google Pay only appear on supported devices and browsers.
+On non-supported browsers, the component renders null and card payment shows instead.
+This is correct behaviour — do not show a "not supported" message.
+
+════════════════════════════════════════════════════════
+STEP 3 — Verify service fee in checkout display
+════════════════════════════════════════════════════════
+
+At https://www.feastpot.co.uk/checkout:
+With SERVICE_FEE_BPS=0:
+[ ] No "Service fee" line in the order summary
+[ ] Total = subtotal + delivery - discount only
+
+With SERVICE_FEE_BPS=50 (test — set temporarily):
+[ ] "Service fee  £0.50" line appears in order summary
+[ ] Total includes the service fee
+
+Reset to SERVICE_FEE_BPS=0 after testing.
+
+════════════════════════════════════════════════════════
+STEP 4 — Verify Apple Pay in checkout
+════════════════════════════════════════════════════════
+
+On an iPhone or Mac with Safari (Apple Pay enrolled):
+[ ] Apple Pay button appears above the card form
+[ ] Card form still visible below (fallback for non-Apple-Pay users)
+[ ] Tapping Apple Pay button triggers Face ID / Touch ID
+[ ] Payment completes and redirects to confirmation page
+
+On Chrome on Android (Google Pay enrolled):
+[ ] Google Pay button appears above the card form
+[ ] Payment completes and redirects to confirmation page
+
+On non-supported browser (Chrome desktop):
+[ ] Neither button appears
+[ ] Card form is the only payment option (correct)
+
+Run: npm run typecheck --filter=@feastpot/web and --filter=@feastpot/api
+Output all changed files.

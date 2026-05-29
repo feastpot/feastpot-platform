@@ -76,6 +76,9 @@ export function searchVendors(
  */
 export interface VendorProfile extends VendorListItem {
   // The full GET /v1/vendors/:id payload; widen as the API stabilises.
+  /** Platform service fee in basis points (global, server-sourced at request
+   *  time). Drives the exact express-checkout (Apple/Google Pay) total. */
+  platformServiceFeeBps?: number;
   reorderRatePct?: number;
   approvedAt?: string | null;
   delivery?: {

@@ -11,6 +11,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '@feastpot/ui';
 
 import { AddressSelector } from '@/components/address/address-selector';
+import {
+  AppleGooglePayButton,
+  type ExpressPayComplete,
+} from '@/components/checkout/payment-request-button';
 import { SlotPicker } from '@/components/checkout/slot-picker';
 import { PanelTitle } from '@/components/ui/wireframe';
 import { CoverageBadge } from '@/components/vendor/coverage-badge';
@@ -192,6 +196,60 @@ function CheckoutInner() {
   const paidOrderIdRef = useRef<string | null>(null);
   const [paidButUnconfirmed, setPaidButUnconfirmed] = useState<string | null>(null);
 
+  // A discount code's value is computed server-side and never reaches the
+  // client, so we cannot show an exact total for express checkout when one is
+  // applied - those orders fall back to the card form (which lets the server
+  // own the discount maths). Captured at mount; the code is set in the basket
+  // drawer before checkout loads, so it's stable for this session.
+  const [discountCodeApplied] = useState(() =>
+    typeof window !== 'undefined' ? Boolean(sessionStorage.getItem('feastpot.discount.v1')) : false,
+  );
+
+  // Express checkout (Apple/Google Pay) total. The native wallet sheet shows
+  // this figure BEFORE the customer authorises, so it MUST equal the amount we
+  // charge. We can derive it on the client: delivery pricing is exposed via
+  // coverageVendor, the service fee mirrors the server's bps, and loyalty is
+  // local state. The order on the server is: subtotal + delivery + service −
+  // discount, clamped at 0, with loyalty capped against (subtotal + delivery).
+  const expressDelivery = coverageVendor?.delivery ?? null;
+  const expressDeliveryType = expressDelivery?.types?.[0] ?? 'local';
+  const expressDeliveryFeePence =
+    !expressDelivery || expressDeliveryType !== 'local'
+      ? null // nationwide fee isn't exposed client-side → can't show express pay safely
+      : expressDelivery.freeDeliveryOverPence != null &&
+          subtotal >= expressDelivery.freeDeliveryOverPence
+        ? 0
+        : expressDelivery.localFeePence;
+  // Service-fee bps comes from the vendor profile response, which the API reads
+  // from SERVICE_FEE_BPS at REQUEST time - the same runtime source the order
+  // charge uses. This keeps the wallet-sheet total in lockstep with the charge
+  // (no build-time env mirror to drift). `undefined` means an API that predates
+  // the field, in which case we withhold express pay below rather than guess.
+  const platformServiceFeeBps = coverageVendor?.platformServiceFeeBps;
+  const expressServiceFeePence = Math.round((subtotal * (platformServiceFeeBps ?? 0)) / 10_000);
+  const expressLoyaltyPence =
+    expressDeliveryFeePence == null
+      ? 0
+      : Math.min(loyaltyPoints >= 200 ? loyaltyPoints : 0, subtotal + expressDeliveryFeePence);
+  const expressTotalPence =
+    expressDeliveryFeePence == null
+      ? 0
+      : Math.max(
+          0,
+          subtotal + expressDeliveryFeePence + expressServiceFeePence - expressLoyaltyPence,
+        );
+  // Only offer express pay once the order is actually placeable and the exact
+  // total is knowable (delivery pricing loaded, no opaque discount code).
+  const expressPayReady =
+    !discountCodeApplied &&
+    !paidButUnconfirmed &&
+    expressDeliveryFeePence != null &&
+    platformServiceFeeBps != null &&
+    expressTotalPence > 0 &&
+    Boolean(selectedAddressId) &&
+    Boolean(scheduledFor) &&
+    !outsideDeliveryArea;
+
   if (tokenLoading || !token || items.length === 0 || !vendor) {
     return (
       <p className="px-4 py-12 text-center text-sm font-medium text-charcoal-mid">
@@ -199,6 +257,143 @@ function CheckoutInner() {
       </p>
     );
   }
+
+  // Shared post-confirmation side effects. Clearing the discount key, setting
+  // the has-ordered flag (so the global push-permission prompt can surface),
+  // emptying the basket, and redirecting must happen identically for card and
+  // express-pay success - factoring it here keeps the two flows from drifting.
+  const finalizeOrderSuccess = (orderId: string) => {
+    sessionStorage.removeItem('feastpot.discount.v1');
+    try {
+      localStorage.setItem('feastpot.has-ordered.v1', '1');
+    } catch {
+      /* ignore - private mode */
+    }
+    clearBasket();
+    router.push(`/orders/${orderId}/confirmation`);
+  };
+
+  // Apple Pay / Google Pay express checkout. Mirrors the card flow's order →
+  // PaymentIntent → confirm → finalize sequence, but the payment method comes
+  // from the wallet sheet. We confirm with handleActions:false so we can
+  // dismiss the native sheet (via `complete`) BEFORE running any 3DS step,
+  // which Stripe requires.
+  const handleExpressPay = async (paymentMethodId: string, complete: ExpressPayComplete) => {
+    setServerError(null);
+
+    // Fast path: a previous attempt already authorised payment but the confirm
+    // step failed. NEVER create a second order/charge - just retry the confirm
+    // and dismiss the wallet sheet. The express button is normally hidden in
+    // this state (expressPayReady gates on !paidButUnconfirmed); this guard is
+    // belt-and-suspenders in case the sheet was already open.
+    if (paidOrderIdRef.current) {
+      try {
+        await confirmOrder.mutateAsync(paidOrderIdRef.current);
+        complete('success');
+        finalizeOrderSuccess(paidOrderIdRef.current);
+      } catch (err) {
+        complete('fail');
+        setPaidButUnconfirmed(paidOrderIdRef.current);
+        setServerError(err instanceof Error ? err.message : 'Could not finalise your order.');
+      }
+      return;
+    }
+
+    if (!stripe) {
+      complete('fail');
+      setServerError('Payment system not ready. Please refresh and try again.');
+      return;
+    }
+    if (!selectedAddressId) {
+      complete('fail');
+      setServerError('Please choose or save a delivery address before paying.');
+      return;
+    }
+    if (!scheduledFor || !isAfter(scheduledFor, new Date())) {
+      complete('fail');
+      setServerError('Please choose a delivery slot in the future.');
+      return;
+    }
+    if (outsideDeliveryArea) {
+      complete('fail');
+      setServerError(`${vendor.name} doesn't deliver to this address. Please choose a closer one.`);
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const discountCode =
+        typeof sessionStorage !== 'undefined'
+          ? sessionStorage.getItem('feastpot.discount.v1') ?? undefined
+          : undefined;
+
+      const { order, clientSecret } = await createOrder.mutateAsync({
+        vendorId: vendor.id,
+        items: items.map((i) => ({
+          menuItemId: i.menuItemId,
+          quantity: i.quantity,
+          customisationNotes: i.customisationNotes,
+        })),
+        deliveryAddressId: selectedAddressId,
+        scheduledFor: scheduledFor.toISOString(),
+        notes: notes || undefined,
+        discountCode,
+        loyaltyPointsToRedeem: loyaltyPoints >= 200 ? loyaltyPoints : undefined,
+      });
+
+      const { error: stripeErr, paymentIntent } = await stripe.confirmCardPayment(
+        clientSecret,
+        { payment_method: paymentMethodId },
+        { handleActions: false },
+      );
+
+      if (stripeErr) {
+        // No money moved - dismiss the sheet and let the customer retry. We do
+        // NOT set paidOrderIdRef so a retry can re-create cleanly.
+        complete('fail');
+        paidOrderIdRef.current = null;
+        setServerError(stripeErr.message ?? 'Payment failed.');
+        setSubmitting(false);
+        return;
+      }
+
+      // Dismiss the wallet sheet, THEN handle any required 3DS step.
+      complete('success');
+
+      let pi = paymentIntent;
+      if (pi && pi.status === 'requires_action') {
+        // Past this point the card may have been authorised on the retry, so
+        // mark the order as paid-but-unconfirmed if anything downstream fails.
+        paidOrderIdRef.current = order.id;
+        const next = await stripe.confirmCardPayment(clientSecret);
+        if (next.error) {
+          setPaidButUnconfirmed(order.id);
+          setServerError(next.error.message ?? 'Payment authentication failed.');
+          setSubmitting(false);
+          return;
+        }
+        pi = next.paymentIntent;
+      }
+
+      if (!pi || (pi.status !== 'requires_capture' && pi.status !== 'succeeded')) {
+        setServerError(`Unexpected payment status: ${pi?.status ?? 'unknown'}`);
+        setSubmitting(false);
+        return;
+      }
+
+      // ⚠️ Card authorised - never call createOrder again for this attempt.
+      paidOrderIdRef.current = order.id;
+      await confirmOrder.mutateAsync(order.id);
+      finalizeOrderSuccess(order.id);
+    } catch (err) {
+      complete('fail'); // no-op if the sheet was already dismissed
+      if (paidOrderIdRef.current) setPaidButUnconfirmed(paidOrderIdRef.current);
+      if (err instanceof ApiError) setServerError(err.message);
+      else if (err instanceof Error) setServerError(err.message);
+      else setServerError('Checkout failed. Please try again.');
+      setSubmitting(false);
+    }
+  };
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -228,15 +423,7 @@ function CheckoutInner() {
       // retry never sees the post-order push opt-in.
       if (paidOrderIdRef.current) {
         await confirmOrder.mutateAsync(paidOrderIdRef.current);
-        const id = paidOrderIdRef.current;
-        sessionStorage.removeItem('feastpot.discount.v1');
-        try {
-          localStorage.setItem('feastpot.has-ordered.v1', '1');
-        } catch {
-          /* ignore - private mode */
-        }
-        clearBasket();
-        router.push(`/orders/${id}/confirmation`);
+        finalizeOrderSuccess(paidOrderIdRef.current);
         return;
       }
 
@@ -322,14 +509,7 @@ function CheckoutInner() {
       //    Mark "has ordered" so the global push-permission prompt can finally
       //    surface - we deliberately wait until the user has real reason to
       //    want order notifications.
-      sessionStorage.removeItem('feastpot.discount.v1');
-      try {
-        localStorage.setItem('feastpot.has-ordered.v1', '1');
-      } catch {
-        /* ignore */
-      }
-      clearBasket();
-      router.push(`/orders/${order.id}/confirmation`);
+      finalizeOrderSuccess(order.id);
     } catch (err) {
       // If we already authorised the card, surface a recovery CTA instead of
       // letting the customer hit "Place order" again.
@@ -555,24 +735,19 @@ function CheckoutInner() {
       <section ref={paymentSectionRef} className="space-y-3">
         <h2 className="font-display text-base font-black text-charcoal">Payment</h2>
 
-        {/* Apple/Google Pay placeholder. */}
-        <button
-          type="button"
-          disabled
-          aria-disabled
-          className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-charcoal text-sm font-bold text-white opacity-60"
-          title="Apple/Google Pay coming soon"
-        >
-          Apple Pay / Google Pay - coming soon
-        </button>
-
-        <div className="flex items-center gap-3">
-          <span className="h-px flex-1 bg-cream-deep" />
-          <span className="text-[11px] font-bold uppercase tracking-wider text-charcoal-mid">
-            or pay by card
-          </span>
-          <span className="h-px flex-1 bg-cream-deep" />
-        </div>
+        {/* Apple Pay / Google Pay express checkout. Renders only on devices
+            with an enrolled wallet AND once the exact total is knowable; the
+            component itself returns null otherwise, leaving the card form as
+            the sole option (the correct fallback - no "not supported" notice).
+            Includes its own "or pay by card" divider when shown. */}
+        {expressPayReady && (
+          <AppleGooglePayButton
+            totalPence={expressTotalPence}
+            label={`Feastpot · ${vendor.name}`}
+            disabled={submitting}
+            onPaymentMethod={handleExpressPay}
+          />
+        )}
 
         <div className="rounded-2xl border border-cream-deep bg-white p-3">
           <CardElement options={CARD_ELEMENT_OPTIONS} />
