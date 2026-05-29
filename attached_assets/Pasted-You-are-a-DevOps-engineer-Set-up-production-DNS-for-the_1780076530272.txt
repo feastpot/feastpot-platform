@@ -1,0 +1,125 @@
+You are a DevOps engineer. Set up production DNS for the API and
+confirm all four domains are resolving correctly.
+
+CONTEXT FROM REPORT:
+"The API needs a stable production home (api.feastpot.co.uk → Replit Autoscale,
+DNS-only/grey-cloud) and the three frontends need their domains verified."
+
+CURRENT STATE:
+  feastpot.co.uk          → Vercel (apps/web)         — likely live
+  vendor.feastpot.co.uk   → Vercel (apps/vendor)       — likely live
+  admin.feastpot.co.uk    → Vercel (apps/admin)        — likely live
+  api.feastpot.co.uk      → Replit Autoscale (apps/api) — needs DNS setup
+
+════════════════════════════════════════════════════════
+STEP 1 — Confirm existing frontend domains are verified
+════════════════════════════════════════════════════════
+
+For each Vercel project:
+  feastpot.co.uk project    → Settings → Domains → confirm green ✓
+  vendor.feastpot.co.uk     → Settings → Domains → confirm green ✓
+  admin.feastpot.co.uk      → Settings → Domains → confirm green ✓
+
+If any show yellow/red, follow the Vercel-provided DNS instructions.
+
+════════════════════════════════════════════════════════
+STEP 2 — Add api.feastpot.co.uk DNS record
+════════════════════════════════════════════════════════
+
+OPERATIONAL (in your DNS provider — Cloudflare, GoDaddy, etc.):
+
+Add a CNAME record:
+  TYPE:  CNAME
+  NAME:  api
+  VALUE: {your-repl-name}.replit.app
+  TTL:   300 (5 minutes for now — increase to 3600 after confirmed working)
+  Proxy: DNS-only (grey cloud) — do NOT proxy through Cloudflare
+         Cloudflare orange-cloud rewrites host headers and breaks Replit
+
+If Replit provides an IP rather than a hostname, use an A record instead:
+  TYPE:  A
+  NAME:  api
+  VALUE: {replit-ip}
+
+════════════════════════════════════════════════════════
+STEP 3 — Add custom domain in Replit deployment
+════════════════════════════════════════════════════════
+
+OPERATIONAL:
+1. In Replit → your API deployment → Settings → Custom domains
+2. Add: api.feastpot.co.uk
+3. Replit will verify the DNS record and provision an SSL certificate
+4. Wait for status: Active ✓
+
+════════════════════════════════════════════════════════
+STEP 4 — Update API URL environment variables
+════════════════════════════════════════════════════════
+
+Once api.feastpot.co.uk is live, update these environment variables:
+
+In Vercel → feastpot.co.uk project → Environment Variables:
+  NEXT_PUBLIC_API_URL = https://api.feastpot.co.uk
+  (was: https://feastpot-platform.replit.app)
+
+In Vercel → vendor.feastpot.co.uk project:
+  NEXT_PUBLIC_API_URL = https://api.feastpot.co.uk
+
+In Vercel → admin.feastpot.co.uk project:
+  NEXT_PUBLIC_API_URL = https://api.feastpot.co.uk
+
+In Replit API deployment secrets:
+  API_URL            = https://api.feastpot.co.uk
+  VENDOR_PORTAL_URL  = https://vendor.feastpot.co.uk
+  ADMIN_URL          = https://admin.feastpot.co.uk
+  WEB_URL            = https://feastpot.co.uk
+
+Trigger a Vercel redeploy on all three frontend projects after updating.
+
+════════════════════════════════════════════════════════
+STEP 5 — Update CORS allowlist with final production URLs
+File: apps/api/src/main.ts
+════════════════════════════════════════════════════════
+
+Confirm the CORS origin list includes all production URLs:
+
+app.enableCors({
+  origin: [
+    'https://feastpot.co.uk',
+    'https://www.feastpot.co.uk',
+    'https://vendor.feastpot.co.uk',
+    'https://admin.feastpot.co.uk',
+    // Keep dev origins for local development
+    'http://localhost:3000',
+    'http://localhost:3002',
+    'http://localhost:3003',
+  ],
+  credentials:    true,
+  methods:        ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
+  allowedHeaders: ['Content-Type','Authorization','x-request-id'],
+})
+
+════════════════════════════════════════════════════════
+STEP 6 — Smoke test all four domains
+════════════════════════════════════════════════════════
+
+Run these after DNS propagates (allow 10-30 minutes):
+
+curl -I https://feastpot.co.uk
+Assert: HTTP 200, Server: Vercel
+
+curl -I https://vendor.feastpot.co.uk
+Assert: HTTP 200, Server: Vercel
+
+curl -I https://admin.feastpot.co.uk
+Assert: HTTP 200, Server: Vercel
+
+curl -s https://api.feastpot.co.uk/health
+Assert: HTTP 200, { "status": "ok" }
+
+curl -s "https://api.feastpot.co.uk/v1/vendors?postcode=SE15"
+Assert: HTTP 200, returns vendor array (not CORS error, not 404)
+
+All four must pass before declaring DNS live.
+
+Run: npm run build:api — zero errors
+Output: main.ts CORS update. All other steps are operational.
