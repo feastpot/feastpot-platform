@@ -93,7 +93,7 @@ externalPort = 3003
 
 [deployment]
 deploymentTarget = "autoscale"
-run = ["bash", "-c", "npm run db:deploy && npm run start:api"]
+run = ["bash", "-c", "npm run db:deploy && PORT=3002 npm run start:api"]
 build = ["bash", "-c", "npm ci && npm run db:generate && npm run build:api"]
 
 [userenv]
