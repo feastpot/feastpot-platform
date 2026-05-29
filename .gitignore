@@ -16,7 +16,12 @@ dist
 out
 
 # tests / coverage
-coverage
+# Scope to Jest's coverage OUTPUT dirs (package roots) so this rule never
+# swallows source dirs that happen to be named "coverage"
+# (e.g. apps/api/src/modules/coverage).
+/coverage
+/apps/*/coverage
+/packages/*/coverage
 
 # logs
 *.log
