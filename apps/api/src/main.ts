@@ -148,6 +148,34 @@ async function bootstrap(): Promise<void> {
   const env = config.get<string>('NODE_ENV') ?? 'development';
   const port = Number(config.get<string>('PORT') ?? process.env.PORT ?? 3001);
 
+  // Stripe live/test mode guard. A test key running in production would
+  // silently fail to move real money (and never error visibly); a live
+  // key in a non-prod environment could charge real cards. Fail closed in
+  // production, warn loudly in dev. The logger is already swapped to pino
+  // above so these lines land in structured logs.
+  const logger = app.get(Logger);
+  const stripeKey = process.env.STRIPE_SECRET_KEY ?? '';
+  if (env === 'production' && stripeKey.startsWith('sk_test_')) {
+    logger.error(
+      '[STARTUP] CRITICAL: STRIPE_SECRET_KEY is a test key in production. ' +
+        'Update STRIPE_SECRET_KEY in Replit deployment secrets to the live key. ' +
+        'Refusing to start.',
+    );
+    process.exit(1);
+  }
+  if (env !== 'production' && stripeKey.startsWith('sk_live_')) {
+    logger.warn(
+      '[STARTUP] WARNING: STRIPE_SECRET_KEY is a live key in a non-production ' +
+        'environment. Real money could be charged. This is allowed but be careful.',
+    );
+  }
+  const stripeMode = stripeKey.startsWith('sk_live_')
+    ? 'LIVE'
+    : stripeKey.startsWith('sk_test_')
+      ? 'TEST'
+      : 'MISSING/UNKNOWN';
+  logger.log(`[Stripe] Mode: ${stripeMode}`);
+
   // Replit Autoscale (and most cloud platforms) front the container with a
   // reverse proxy. Trusting it lets Express read the real client IP from
   // X-Forwarded-For for rate-limit + audit purposes.

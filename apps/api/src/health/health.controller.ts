@@ -36,7 +36,20 @@ interface HealthzResponse {
     redis: RedisStatus;
     queues: QueueStatus;
     secrets: 'ok' | string;
+    stripe: StripeMode;
   };
+}
+
+type StripeMode = 'live' | 'test' | 'missing';
+
+// Derive Stripe mode from the secret key prefix so ops can confirm at a
+// glance (`curl .../healthz | jq .checks.stripe`) that production is in
+// live mode. Purely informational — it does NOT affect the 200/503 verdict.
+function stripeMode(): StripeMode {
+  const key = process.env.STRIPE_SECRET_KEY ?? '';
+  if (key.startsWith('sk_live_')) return 'live';
+  if (key.startsWith('sk_test_')) return 'test';
+  return 'missing';
 }
 
 // D3 part 2: every dependency check is wrapped in a 2s timeout so a hung
@@ -153,7 +166,7 @@ export class HealthController {
       timestamp: new Date().toISOString(),
       uptime: Math.floor(process.uptime()),
       environment: process.env.NODE_ENV,
-      checks: { database: db, redis, queues, secrets },
+      checks: { database: db, redis, queues, secrets, stripe: stripeMode() },
     };
   }
 

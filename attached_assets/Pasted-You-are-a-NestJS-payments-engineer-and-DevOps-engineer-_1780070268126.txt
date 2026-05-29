@@ -1,0 +1,135 @@
+You are a NestJS payments engineer and DevOps engineer.
+Switch Stripe from test mode to live mode and register the webhook.
+
+CONTEXT FROM REPORT:
+"Stripe is running on test keys. Going live needs the live secret key in
+production, the live Stripe Connect platform enabled, and the webhook
+endpoint registered with STRIPE_WEBHOOK_SECRET for payment_intent.succeeded,
+payment_intent.payment_failed, transfer.created, and refund.updated."
+
+════════════════════════════════════════════════════════
+STEP 1 — Operational: rotate Stripe secrets in Replit
+════════════════════════════════════════════════════════
+
+In the Replit deployment secrets panel, update:
+
+  STRIPE_SECRET_KEY
+    FROM: sk_test_...
+    TO:   sk_live_...  (from dashboard.stripe.com → Developers → API keys)
+
+  STRIPE_PUBLISHABLE_KEY (in Vercel env vars for apps/web)
+    FROM: pk_test_...
+    TO:   pk_live_...
+
+  STRIPE_CONNECT_CLIENT_ID (if separate from secret key)
+    FROM: ca_test_...
+    TO:   ca_live_...
+
+CRITICAL: Do this in the DEPLOYMENT secrets, not workspace secrets.
+Workspace secrets do not propagate to the running deployment.
+
+════════════════════════════════════════════════════════
+STEP 2 — Operational: register the webhook in Stripe dashboard
+════════════════════════════════════════════════════════
+
+1. Go to dashboard.stripe.com → Developers → Webhooks → Add endpoint
+2. Endpoint URL: https://api.feastpot.co.uk/v1/stripe/webhook
+   (or https://feastpot-platform.replit.app/v1/stripe/webhook if DNS not live yet)
+3. Select events:
+   - payment_intent.succeeded
+   - payment_intent.payment_failed
+   - payment_intent.canceled
+   - transfer.created
+   - transfer.failed
+   - refund.updated
+   - account.updated          (for Stripe Connect vendor onboarding status)
+   - account.application.deauthorized
+4. Copy the Signing secret (whsec_live_...)
+5. Add to Replit deployment secrets:
+   STRIPE_WEBHOOK_SECRET = whsec_live_...
+
+════════════════════════════════════════════════════════
+STEP 3 — Code: startup validation of live vs test keys
+File: apps/api/src/main.ts
+════════════════════════════════════════════════════════
+
+Add a Stripe mode check at startup so a test key can never
+accidentally run in production:
+
+const stripeKey = process.env.STRIPE_SECRET_KEY ?? ''
+
+if (process.env.NODE_ENV === 'production' && stripeKey.startsWith('sk_test_')) {
+  logger.error(
+    '[STARTUP] CRITICAL: STRIPE_SECRET_KEY is a test key in production. ' +
+    'Update STRIPE_SECRET_KEY in Replit deployment secrets to the live key. ' +
+    'Refusing to start.'
+  )
+  process.exit(1)
+}
+
+if (process.env.NODE_ENV !== 'production' && stripeKey.startsWith('sk_live_')) {
+  logger.warn(
+    '[STARTUP] WARNING: STRIPE_SECRET_KEY is a live key in a non-production ' +
+    'environment. Real money could be charged. This is allowed but be careful.'
+  )
+}
+
+logger.log(
+  `[Stripe] Mode: ${stripeKey.startsWith('sk_live_') ? 'LIVE' : 'TEST'}`
+)
+
+════════════════════════════════════════════════════════
+STEP 4 — Code: enable Stripe Connect live mode
+File: apps/api/src/modules/payments/stripe.service.ts (or stripe init file)
+════════════════════════════════════════════════════════
+
+Confirm the Stripe client is initialised from the environment variable
+and NOT hardcoded to a test key anywhere:
+
+Run: grep -rn "sk_test_\|sk_live_" apps/api/src --include="*.ts"
+Assert: ZERO hardcoded key strings. All usage must be process.env.STRIPE_SECRET_KEY.
+
+Confirm Stripe Connect is enabled on the live account:
+The Stripe Connect platform must be activated on your live Stripe account
+at dashboard.stripe.com → Connect → Get started.
+Vendors connect via Express accounts (fastest onboarding, Stripe handles KYC).
+
+════════════════════════════════════════════════════════
+STEP 5 — Code: add Stripe mode to /healthz
+File: apps/api/src/health/health.controller.ts
+════════════════════════════════════════════════════════
+
+Add Stripe mode to the health check so ops can confirm live mode at a glance:
+
+const stripeKey = process.env.STRIPE_SECRET_KEY ?? ''
+checks: {
+  ...existingChecks,
+  stripe: stripeKey.startsWith('sk_live_') ? 'live'
+        : stripeKey.startsWith('sk_test_') ? 'test'
+        : 'missing',
+}
+
+════════════════════════════════════════════════════════
+STEP 6 — Operational: payout dry-run with real money
+════════════════════════════════════════════════════════
+
+Before opening to the public, run one complete payout cycle:
+1. Create a test vendor with a real bank account via Stripe Connect Express
+2. Place a real order for £1.00 using a real card (not test card)
+3. Accept and deliver the order in the vendor portal
+4. Manually trigger the payout batch: POST /v1/admin/payouts/run-batch
+5. Wait 3-5 working days and confirm funds arrive in the test vendor bank account
+6. Confirm the finance view in the admin panel shows zero discrepancy
+
+This dry-run cannot be automated. It must be done manually before public launch.
+Document the result in a "payout dry-run confirmed" note in the admin audit log.
+
+════════════════════════════════════════════════════════
+VERIFICATION
+════════════════════════════════════════════════════════
+
+Run: curl https://api.feastpot.co.uk/v1/healthz
+Assert: checks.stripe = "live"
+
+Run: npm run build:api — zero errors
+Output main.ts changes only. Operational steps are manual.
