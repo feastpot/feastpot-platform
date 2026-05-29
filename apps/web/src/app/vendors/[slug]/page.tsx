@@ -7,6 +7,7 @@ import { notFound } from 'next/navigation';
 import { FloatingBasketBar } from '@/components/basket/floating-basket-bar';
 import { MenuCategoryTabs } from '@/components/menu/menu-category-tabs';
 import { MenuItemCard } from '@/components/menu/menu-item-card';
+import { CoverageBadge } from '@/components/vendor/coverage-badge';
 import { RatingBreakdown } from '@/components/vendor/rating-breakdown';
 import { ReviewsSection } from '@/components/vendor/reviews-section';
 import { ApiError } from '@/lib/api/client';
@@ -422,6 +423,18 @@ export default async function VendorProfilePage({ params }: PageProps) {
               Free delivery over {formatPounds(vendor.delivery.freeDeliveryOverPence)}
             </span>
           )}
+        </div>
+
+        {/* Delivery coverage badge - uses the server-computed distance (set
+            only when the customer has a saved coverage postcode) against the
+            vendor's local delivery radius, so customers see up-front whether
+            this kitchen actually delivers to them. */}
+        <div>
+          <CoverageBadge
+            distanceMiles={distanceMiles}
+            radiusMiles={vendor.delivery?.localRadiusMiles ?? null}
+            hasPostcode={Boolean(customerPostcode)}
+          />
         </div>
       </section>
 

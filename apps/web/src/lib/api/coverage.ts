@@ -34,6 +34,47 @@ export async function checkCoverage(
   }
 }
 
+/**
+ * Per-vendor delivery coverage verdict. Distinct from the homepage `CoverageResult`
+ * (which answers "does ANY vendor serve this postcode?"). This answers "does
+ * THIS vendor deliver to a customer whose address is `distanceMiles` away?".
+ *
+ * We deliberately work from a pre-computed distance (the API already returns a
+ * haversine `distanceKm` for the profile + checkout flows) rather than
+ * geocoding on the client: it avoids exposing a home cook's exact coordinates
+ * to the browser and keeps the distance number identical to the server's.
+ */
+export type DeliveryCoverageVerdict =
+  | { state: 'unknown' }
+  | { state: 'covered'; distanceMiles: number; radiusMiles: number }
+  | { state: 'outside'; distanceMiles: number; radiusMiles: number };
+
+/**
+ * Decide whether a vendor delivers to an address, given the distance to it and
+ * the vendor's local delivery radius (both in miles). Returns `unknown` when we
+ * can't tell - no postcode entered yet, the vendor hasn't set a service area,
+ * or geocoding failed upstream - so callers can show a neutral prompt instead
+ * of a false "outside area" warning.
+ */
+export function evaluateDeliveryCoverage(
+  distanceMiles: number | null | undefined,
+  radiusMiles: number | null | undefined,
+): DeliveryCoverageVerdict {
+  if (
+    typeof distanceMiles !== 'number' ||
+    !Number.isFinite(distanceMiles) ||
+    distanceMiles < 0 ||
+    typeof radiusMiles !== 'number' ||
+    !Number.isFinite(radiusMiles) ||
+    radiusMiles <= 0
+  ) {
+    return { state: 'unknown' };
+  }
+  return distanceMiles <= radiusMiles
+    ? { state: 'covered', distanceMiles, radiusMiles }
+    : { state: 'outside', distanceMiles, radiusMiles };
+}
+
 export interface RegisterCoverageInterestInput {
   email: string;
   postcode: string;

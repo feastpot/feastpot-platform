@@ -163,6 +163,42 @@ export class OrdersService {
   // Grace window after vendor's stated ETA before we ping the customer.
   private static readonly ETA_OVERDUE_GRACE_MS = 10 * 60 * 1000;
 
+  /**
+   * Reject orders whose delivery address falls outside the vendor's local
+   * delivery radius. Fails OPEN (allows the order) when we genuinely can't
+   * tell - vendor hasn't geocoded their location, no delivery address is
+   * attached (collection), or postcode geocoding is unavailable - so a
+   * transient postcodes.io outage never blocks legitimate checkout.
+   */
+  private async assertWithinDeliveryArea(
+    vendor: { businessName: string | null; deliveryConfig: { latitude: number | null; longitude: number | null; localRadiusMiles: number } | null },
+    address: { postcode: string; latitude: number | null; longitude: number | null } | null,
+  ): Promise<void> {
+    const dc = vendor.deliveryConfig;
+    if (!dc || dc.latitude == null || dc.longitude == null) return;
+    if (!address) return;
+
+    // Prefer the address's cached coordinates; geocode the postcode only when
+    // they're missing (older address rows pre-date coordinate capture).
+    let lat = address.latitude;
+    let lng = address.longitude;
+    if (lat == null || lng == null) {
+      const geo = await geocodeOrderPostcode(address.postcode, this.logger);
+      lat = geo.latitude;
+      lng = geo.longitude;
+    }
+    if (lat == null || lng == null) return; // geocode failed - fail open
+
+    const distanceMiles = haversineMiles({ lat, lng }, { lat: dc.latitude, lng: dc.longitude });
+    const radiusMiles = dc.localRadiusMiles ?? 5;
+    if (distanceMiles > radiusMiles) {
+      throw new BadRequestException({
+        code: 'OUTSIDE_DELIVERY_AREA',
+        message: `${vendor.businessName ?? 'This kitchen'} delivers within ${radiusMiles} miles, but this address is ${distanceMiles.toFixed(1)} miles away. Please choose an address inside the delivery area.`,
+      });
+    }
+  }
+
   // ------------------------------------------------------------------
   // CREATE
   // ------------------------------------------------------------------
@@ -186,6 +222,12 @@ export class OrdersService {
     const items = await this.repo.findMenuItems(menuItemIds);
     const byId = new Map(items.map((i) => [i.id, i]));
 
+    let deliveryAddress: {
+      id: string;
+      postcode: string;
+      latitude: number | null;
+      longitude: number | null;
+    } | null = null;
     if (dto.deliveryAddressId) {
       const owned = await this.repo.addressOwnedBy(dto.deliveryAddressId, customerId);
       if (!owned) {
@@ -194,7 +236,15 @@ export class OrdersService {
           message: 'Delivery address does not belong to this customer',
         });
       }
+      deliveryAddress = owned;
     }
+
+    // Delivery-radius enforcement (source of truth). The client surfaces a
+    // coverage badge, but the server is the real guard so an out-of-area
+    // order can never be created (and never reaches Stripe). We run this
+    // BEFORE slot validation / pricing / PaymentIntent creation so a rejected
+    // address fails fast with no side effects.
+    await this.assertWithinDeliveryArea(vendor, deliveryAddress);
 
     for (const input of dto.items) {
       const mi = byId.get(input.menuItemId);
@@ -1204,4 +1254,63 @@ export class OrdersService {
       return undefined;
     }
   }
+}
+
+// ---------------------------------------------------------------------------
+// Delivery-radius geofencing helpers
+// ---------------------------------------------------------------------------
+
+interface OrderPostcodeLatLng {
+  latitude: number | null;
+  longitude: number | null;
+}
+
+/**
+ * Process-lifetime cache for postcodes.io lookups in the order path. Mirrors
+ * the cache used by VendorsService so repeated checkout attempts for the same
+ * postcode don't re-hit the network. Misses are cached too.
+ */
+const ORDER_GEOCODE_CACHE = new Map<string, OrderPostcodeLatLng>();
+
+async function geocodeOrderPostcode(raw: string, logger?: Logger): Promise<OrderPostcodeLatLng> {
+  const key = raw.replace(/\s+/g, '').toUpperCase();
+  if (!key) return { latitude: null, longitude: null };
+  const cached = ORDER_GEOCODE_CACHE.get(key);
+  if (cached) return cached;
+  try {
+    const res = await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(key)}`, {
+      signal: AbortSignal.timeout(2_500),
+    });
+    if (!res.ok) {
+      const miss: OrderPostcodeLatLng = { latitude: null, longitude: null };
+      ORDER_GEOCODE_CACHE.set(key, miss);
+      return miss;
+    }
+    const json = (await res.json()) as { result?: { latitude?: number; longitude?: number } };
+    const lat = json.result?.latitude;
+    const lng = json.result?.longitude;
+    const out: OrderPostcodeLatLng = {
+      latitude: typeof lat === 'number' ? lat : null,
+      longitude: typeof lng === 'number' ? lng : null,
+    };
+    ORDER_GEOCODE_CACHE.set(key, out);
+    return out;
+  } catch (e) {
+    logger?.warn(`geocodeOrderPostcode failed for ${raw}: ${(e as Error).message}`);
+    const miss: OrderPostcodeLatLng = { latitude: null, longitude: null };
+    ORDER_GEOCODE_CACHE.set(key, miss);
+    return miss;
+  }
+}
+
+/** Great-circle distance in miles between two WGS-84 points (Earth radius 3958.8mi). */
+function haversineMiles(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+  const R = 3958.8;
+  const toRad = (n: number) => (n * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const sa =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(sa));
 }

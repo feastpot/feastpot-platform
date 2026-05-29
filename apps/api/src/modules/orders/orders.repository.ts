@@ -81,6 +81,7 @@ export class OrdersRepository {
       select: {
         id: true,
         userId: true,
+        businessName: true,
         commissionBps: true,
         status: true,
         deliveryConfig: true,
@@ -193,7 +194,13 @@ export class OrdersRepository {
   }
 
   addressOwnedBy(addressId: string, userId: string) {
-    return this.prisma.address.findFirst({ where: { id: addressId, userId }, select: { id: true } });
+    return this.prisma.address.findFirst({
+      where: { id: addressId, userId },
+      // postcode + cached coords power the delivery-radius enforcement in
+      // OrdersService.createOrderInner - returning them here avoids a second
+      // round-trip just to geofence the order.
+      select: { id: true, postcode: true, latitude: true, longitude: true },
+    });
   }
 
   byCustomer(orderId: string, customerId: string) {

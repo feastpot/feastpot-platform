@@ -13,12 +13,18 @@ import { cn } from '@feastpot/ui';
 import { AddressSelector } from '@/components/address/address-selector';
 import { SlotPicker } from '@/components/checkout/slot-picker';
 import { PanelTitle } from '@/components/ui/wireframe';
+import { CoverageBadge } from '@/components/vendor/coverage-badge';
+import { useAddresses } from '@/hooks/use-addresses';
 import { useLoyalty } from '@/hooks/use-loyalty';
 import { useConfirmOrder, useCreateOrder } from '@/hooks/use-orders';
 import { ApiError, apiRequest } from '@/lib/api/client';
+import { evaluateDeliveryCoverage } from '@/lib/api/coverage';
+import { getVendorBySlug } from '@/lib/api/vendors';
 import { useAccessToken } from '@/lib/auth/use-access-token';
 import { STRIPE_CONFIGURED, getStripe } from '@/lib/stripe';
 import { useBasketStore } from '@/store/basket.store';
+
+const KM_PER_MILE = 0.621371;
 
 const formatPounds = (p: number) => `£${(p / 100).toFixed(2)}`;
 const pad2 = (n: number): string => n.toString().padStart(2, '0');
@@ -111,6 +117,29 @@ function CheckoutInner() {
       }>(`/vendors/${vendor!.id}/availability`),
   });
   const [notes, setNotes] = useState<string>('');
+
+  // Delivery coverage (proactive UX guard). The server is the source of truth
+  // and will reject an out-of-area order before any charge, but we also check
+  // up-front so the customer isn't surprised at submit time. We resolve the
+  // selected address's postcode, then ask the public vendor endpoint for the
+  // server-computed haversine distance to it - no client geocoding, and no
+  // home-cook coordinates ever reach the browser.
+  const { data: addresses } = useAddresses();
+  const selectedAddress = addresses?.find((a) => a.id === selectedAddressId) ?? null;
+  const selectedPostcode = selectedAddress?.postcode ?? null;
+
+  const { data: coverageVendor } = useQuery({
+    queryKey: ['vendor', 'coverage', vendor?.slug, selectedPostcode],
+    enabled: Boolean(vendor?.slug && selectedPostcode),
+    staleTime: 60_000,
+    queryFn: () => getVendorBySlug(vendor!.slug, { postcode: selectedPostcode! }),
+  });
+
+  const coverageRadiusMiles = coverageVendor?.delivery?.localRadiusMiles ?? null;
+  const coverageDistanceMiles =
+    typeof coverageVendor?.distanceKm === 'number' ? coverageVendor.distanceKm * KM_PER_MILE : null;
+  const coverageVerdict = evaluateDeliveryCoverage(coverageDistanceMiles, coverageRadiusMiles);
+  const outsideDeliveryArea = coverageVerdict.state === 'outside';
 
   // Order-summary collapse state. We START open so the customer can verify
   // the items, then they can collapse it once they've reviewed. Auto-collapse
@@ -220,6 +249,17 @@ function CheckoutInner() {
         return;
       }
       const deliveryAddressId: string = selectedAddressId;
+
+      // Out-of-area guard. The server enforces this too (and rejects before
+      // any charge), but blocking here avoids a pointless round-trip and gives
+      // an instant, specific message.
+      if (outsideDeliveryArea) {
+        setServerError(
+          `${vendor.name} delivers within ${coverageRadiusMiles} miles, but this address is ${coverageDistanceMiles?.toFixed(1)} miles away. Please choose a closer address.`,
+        );
+        setSubmitting(false);
+        return;
+      }
 
       // Discount code from basket drawer (sessionStorage).
       const discountCode =
@@ -445,6 +485,29 @@ function CheckoutInner() {
       {/* SECTION 2 - DELIVERY ADDRESS */}
       <Section num={3} title="Delivery address">
         <AddressSelector value={selectedAddressId} onChange={setSelectedAddressId} />
+
+        {/* Coverage status for the chosen address. Server stays the source of
+            truth; this is a fast, friendly heads-up. */}
+        {selectedPostcode && coverageVerdict.state !== 'unknown' && (
+          <div>
+            <CoverageBadge
+              distanceMiles={coverageDistanceMiles}
+              radiusMiles={coverageRadiusMiles}
+              hasPostcode
+            />
+          </div>
+        )}
+
+        {outsideDeliveryArea && (
+          <div className="rounded-2xl border border-plantain bg-plantain/15 p-3 text-sm text-charcoal">
+            <p className="font-display font-black">Outside {vendor.name}&rsquo;s delivery area</p>
+            <p className="mt-1 font-medium text-charcoal-mid">
+              This kitchen delivers within {coverageRadiusMiles} miles, but this address is{' '}
+              {coverageDistanceMiles?.toFixed(1)} miles away. Choose a closer saved address to
+              continue.
+            </p>
+          </div>
+        )}
       </Section>
 
       {/* SECTION 3 - DELIVERY SLOT */}
@@ -556,7 +619,7 @@ function CheckoutInner() {
           they've scrolled to reveal the sticky bar). */}
       <button
         type="submit"
-        disabled={submitting || !stripe || !selectedAddressId || !scheduledFor}
+        disabled={submitting || !stripe || !selectedAddressId || !scheduledFor || outsideDeliveryArea}
         className="flex w-full items-center justify-center rounded-2xl bg-brand text-base font-bold text-white shadow-card transition-colors hover:bg-brand-dark disabled:opacity-50"
         style={{ height: 52 }}
       >
@@ -582,7 +645,7 @@ function CheckoutInner() {
             </div>
             <button
               type="submit"
-              disabled={submitting || !stripe || !selectedAddressId || !scheduledFor}
+              disabled={submitting || !stripe || !selectedAddressId || !scheduledFor || outsideDeliveryArea}
               className="flex h-12 flex-1 items-center justify-center rounded-2xl bg-brand text-sm font-semibold text-white hover:bg-brand-dark disabled:opacity-50"
             >
               {submitting ? 'Placing…' : 'Place order →'}
