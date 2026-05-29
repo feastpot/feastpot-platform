@@ -1,0 +1,145 @@
+You are a NestJS and Next.js 15 engineer. Wire the drag-to-reorder
+UI in the vendor menu editor to the API.
+
+CONTEXT FROM REPORT:
+"Menu/item drag-to-reorder shows handles in the UI but isn't wired to
+the API yet — items save in creation order."
+
+The UI drag handles exist. The position field exists on MenuItemImage
+and likely on MenuItem. This is a wiring task, not a build task.
+
+════════════════════════════════════════════════════════
+STEP 1 — Confirm the API endpoint exists
+════════════════════════════════════════════════════════
+
+Run: grep -rn "reorder\|position\|sortOrder" \
+  apps/api/src/modules/catalogue --include="*.ts"
+
+If a PATCH /v1/menus/:menuId/items/reorder endpoint exists:
+  Proceed to Step 3 (just wire the frontend).
+
+If it does not exist:
+  Create it in Step 2.
+
+════════════════════════════════════════════════════════
+STEP 2 — API: reorder endpoint (if missing)
+File: apps/api/src/modules/catalogue/catalogue.controller.ts
+════════════════════════════════════════════════════════
+
+@Patch('menus/:menuId/items/reorder')
+@Roles('vendor')
+async reorderMenuItems(
+  @Param('menuId', ParseUUIDPipe) menuId: string,
+  @Body() dto: ReorderMenuItemsDto,
+  @CurrentUser() user: JwtUser,
+) {
+  await this.catalogueService.verifyMenuOwnership(menuId, user.id)
+  return this.catalogueService.reorderMenuItems(menuId, dto.itemIds)
+}
+
+File: apps/api/src/modules/catalogue/dto/reorder-menu-items.dto.ts
+
+import { IsArray, IsUUID } from 'class-validator'
+
+export class ReorderMenuItemsDto {
+  @IsArray()
+  @IsUUID('4', { each: true })
+  itemIds: string[]  // ordered array of item IDs — first = position 1
+}
+
+File: apps/api/src/modules/catalogue/catalogue.service.ts
+
+async reorderMenuItems(menuId: string, itemIds: string[]) {
+  await this.prisma.$transaction(
+    itemIds.map((id, index) =>
+      this.prisma.menuItem.update({
+        where: { id },
+        data:  { position: index + 1 },
+      })
+    )
+  )
+  return this.prisma.menuItem.findMany({
+    where:   { menuId },
+    orderBy: { position: 'asc' },
+  })
+}
+
+════════════════════════════════════════════════════════
+STEP 3 — Frontend: wire drag end to API call
+File: apps/vendor/src/app/menu/[menuId]/page.tsx (or items list component)
+════════════════════════════════════════════════════════
+
+Find the drag-and-drop handler (likely using @dnd-kit/sortable or
+react-beautiful-dnd based on the handles already in the UI).
+
+The onDragEnd handler currently updates local state only.
+Add the API call:
+
+const onDragEnd = async (event: DragEndEvent) => {
+  const { active, over } = event
+  if (!over || active.id === over.id) return
+
+  // 1. Optimistic: reorder in local state immediately
+  const oldIndex = items.findIndex(i => i.id === active.id)
+  const newIndex = items.findIndex(i => i.id === over.id)
+  const reordered = arrayMove(items, oldIndex, newIndex)
+  setItems(reordered)
+
+  // 2. Persist to API (non-blocking — failure rolls back)
+  try {
+    await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/v1/menus/${menuId}/items/reorder`,
+      {
+        method:  'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization:  `Bearer ${vendorToken}`,
+        },
+        body: JSON.stringify({ itemIds: reordered.map(i => i.id) }),
+      }
+    )
+  } catch {
+    // Rollback optimistic update on failure
+    setItems(items)
+    toast.error('Could not save order — please try again')
+  }
+}
+
+════════════════════════════════════════════════════════
+STEP 4 — Ensure items are fetched in position order
+File: apps/api/src/modules/catalogue/catalogue.service.ts
+════════════════════════════════════════════════════════
+
+In getMenuItems(), ensure orderBy uses position:
+orderBy: [
+  { position: { sort: 'asc', nulls: 'last' } },
+  { createdAt: 'asc' },  // fallback for items with no position set
+]
+
+Also ensure that newly created items get the next available position:
+async createMenuItem(menuId: string, dto: CreateMenuItemDto) {
+  const maxPos = await this.prisma.menuItem.aggregate({
+    where:  { menuId },
+    _max:   { position: true },
+  })
+  return this.prisma.menuItem.create({
+    data: {
+      ...dto,
+      menuId,
+      position: (maxPos._max.position ?? 0) + 1,
+    },
+  })
+}
+
+════════════════════════════════════════════════════════
+STEP 5 — Verify
+════════════════════════════════════════════════════════
+
+In the vendor portal (localhost:3002):
+[ ] Menu items list shows drag handles on each item
+[ ] Dragging item 1 below item 3 reorders the list immediately
+[ ] Refreshing the page shows the new order (persisted to DB)
+[ ] Customer-facing vendor menu shows items in the new order
+
+Run: npm run typecheck in apps/api and apps/vendor
+Output all changed files.
