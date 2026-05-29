@@ -8,7 +8,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { AmendmentStatus, DeliveryType, ItemCategory, LoyaltyTxType, OrderStatus, OrderType, Prisma, UserRole } from '@prisma/client';
+import { AmendmentStatus, DeliveryType, ItemCategory, LoyaltyTxType, ModerationStatus, OrderStatus, OrderType, Prisma, UserRole } from '@prisma/client';
 import * as Sentry from '@sentry/nestjs';
 import { Queue } from 'bull';
 import { randomBytes, randomUUID } from 'node:crypto';
@@ -255,6 +255,14 @@ export class OrdersService {
         throw new BadRequestException({ code: 'MENU_ITEM_WRONG_VENDOR', message: `Menu item ${mi.id} does not belong to vendor` });
       }
       if (!mi.isAvailable) {
+        throw new BadRequestException({ code: 'MENU_ITEM_UNAVAILABLE', message: `Menu item "${mi.name}" is not available` });
+      }
+      // Moderation gate: held / rejected items can never be purchased, even if
+      // the vendor flipped them to available or the client holds a stale id.
+      if (
+        mi.moderationStatus !== ModerationStatus.auto_approved &&
+        mi.moderationStatus !== ModerationStatus.approved
+      ) {
         throw new BadRequestException({ code: 'MENU_ITEM_UNAVAILABLE', message: `Menu item "${mi.name}" is not available` });
       }
     }

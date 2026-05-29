@@ -70,6 +70,7 @@ export class OrdersRepository {
         category: true,
         pricePence: true,
         isAvailable: true,
+        moderationStatus: true,
         preparationHours: true,
       },
     });

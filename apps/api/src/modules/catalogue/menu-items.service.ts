@@ -4,11 +4,13 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, UserRole } from '@prisma/client';
+import { ConfigService } from '@nestjs/config';
+import { InboxNotificationType, ModerationStatus, Prisma, UserRole } from '@prisma/client';
 
 import type { AuthUser } from '../../auth/types';
 import { RedisCacheService } from '../../common/cache/redis-cache.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { InboxService } from '../inbox/inbox.service';
 
 import {
   DIETARY_FLAG_SET,
@@ -19,8 +21,19 @@ import {
 } from './catalogue.constants';
 import { CreateMenuItemDto } from './dto/create-menu-item.dto';
 import { ListMenuItemsDto } from './dto/list-menu-items.dto';
+import { ListMenuModerationDto } from './dto/list-menu-moderation.dto';
+import { ModerateMenuItemDto } from './dto/moderate-menu-item.dto';
 import { UpdateMenuItemDto } from './dto/update-menu-item.dto';
 import { SupabaseStorageService, type UploadedImage } from './supabase-storage.service';
+
+/**
+ * Moderation states a customer is allowed to see. `held` (awaiting review) and
+ * `rejected` are hidden from the public PWA even when isAvailable=true.
+ */
+const PUBLIC_MODERATION_STATUSES: ModerationStatus[] = [
+  ModerationStatus.auto_approved,
+  ModerationStatus.approved,
+];
 
 /**
  * Schema deviations:
@@ -35,6 +48,8 @@ export class MenuItemsService {
     private readonly prisma: PrismaService,
     private readonly storage: SupabaseStorageService,
     private readonly cache: RedisCacheService,
+    private readonly config: ConfigService,
+    private readonly inbox: InboxService,
   ) {}
 
   static validateAllergens(allergens: string[] | undefined): string[] {
@@ -89,6 +104,9 @@ export class MenuItemsService {
       if (filters.isAvailable !== undefined) where.isAvailable = filters.isAvailable;
     } else {
       where.isAvailable = true;
+      // Approval gate: customers never see items still held for moderation or
+      // rejected, even if the vendor has flipped them to available.
+      where.moderationStatus = { in: PUBLIC_MODERATION_STATUSES };
     }
 
     const tagFilters: string[] = [];
@@ -154,10 +172,13 @@ export class MenuItemsService {
     if (!item || item.menuId !== menuId || item.vendorId !== vendorId) {
       throw new NotFoundException({ code: 'MENU_ITEM_NOT_FOUND', message: 'Menu item not found' });
     }
-    // Drafts must not leak to customers via direct id lookup. Owner / admin /
-    // compliance bypass the gate; everyone else gets a 404 (NOT 403 - we
-    // refuse to confirm the item exists at all).
-    if (!item.isAvailable) {
+    // Drafts AND items still awaiting moderation (held / rejected) must not
+    // leak to customers via direct id lookup. Owner / admin / compliance
+    // bypass the gate; everyone else gets a 404 (NOT 403 - we refuse to
+    // confirm the item exists at all).
+    const publiclyVisible =
+      item.isAvailable && PUBLIC_MODERATION_STATUSES.includes(item.moderationStatus);
+    if (!publiclyVisible) {
       const canSeeDrafts = await this.callerOwnsVendor(vendorId, caller);
       if (!canSeeDrafts) {
         throw new NotFoundException({ code: 'MENU_ITEM_NOT_FOUND', message: 'Menu item not found' });
@@ -202,6 +223,15 @@ export class MenuItemsService {
     });
     const sortOrder = (maxOrder._max.sortOrder ?? 0) + 1;
 
+    // Approval gate. Default (MENU_AUTO_APPROVE unset or anything but the
+    // literal string 'false') auto-approves uploads - safe for a vetted
+    // founding cohort. Set MENU_AUTO_APPROVE=false before opening self-serve
+    // signup so new items land as `held` and require admin approval first.
+    const autoApprove = this.config.get<string>('MENU_AUTO_APPROVE') !== 'false';
+    const moderationStatus = autoApprove
+      ? ModerationStatus.auto_approved
+      : ModerationStatus.held;
+
     const created = await this.prisma.menuItem.create({
       data: {
         vendorId,
@@ -216,13 +246,188 @@ export class MenuItemsService {
         allergens,
         tags,
         sortOrder,
+        moderationStatus,
         // Honour the explicit publish state from the DTO so vendors can save
         // drafts. Falls back to the schema default (false) when omitted.
         ...(dto.isAvailable !== undefined ? { isAvailable: dto.isAvailable } : {}),
       },
     });
     await this.invalidateVendorCache(vendorId);
+    // Held items need a human - ping admins so the moderation queue doesn't
+    // rely on polling. Fire-and-forget: notify failures never block creation.
+    if (created.moderationStatus === ModerationStatus.held) {
+      await this.notifyAdminsOfPendingItem(created.id, created.name, vendorId);
+    }
     return created;
+  }
+
+  // -------------------- moderation (admin) --------------------
+
+  /**
+   * Paginated moderation queue for the admin panel. Mirrors the reviews queue:
+   * cursor pagination (createdAt desc, id desc tie-break), filtered total for
+   * the footer, vendor relation embedded so the table can show who uploaded it.
+   * Omitted status defaults to `held` (the items actually awaiting a decision).
+   */
+  async listModerationQueue(dto: ListMenuModerationDto) {
+    const limit = dto.limit ?? 20;
+    const cursor = dto.cursor ? this.decodeCursor(dto.cursor) : undefined;
+    const cursorWhere: Prisma.MenuItemWhereInput = cursor
+      ? { OR: [{ createdAt: { lt: cursor.createdAt } }, { createdAt: cursor.createdAt, id: { lt: cursor.id } }] }
+      : {};
+    const baseWhere = this.buildModerationFilters(dto);
+    const rows = await this.prisma.menuItem.findMany({
+      where: { AND: [baseWhere, cursorWhere] },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: limit + 1,
+      include: {
+        vendor: { select: { id: true, businessName: true, slug: true, logoUrl: true } },
+      },
+    });
+    const total = await this.prisma.menuItem.count({ where: baseWhere });
+    const hasMore = rows.length > limit;
+    const page = hasMore ? rows.slice(0, limit) : rows;
+    const last = page[page.length - 1];
+    return {
+      data: page,
+      total,
+      nextCursor: hasMore && last ? this.encodeCursor(last) : null,
+    };
+  }
+
+  /** Counts per moderation status, honouring all non-status filters. */
+  async moderationQueueCounts(dto: ListMenuModerationDto) {
+    const { status: _status, ...rest } = dto;
+    const baseWhere = this.buildModerationFilters({ ...rest, status: 'all' });
+    const grouped = await this.prisma.menuItem.groupBy({
+      by: ['moderationStatus'],
+      where: baseWhere,
+      _count: { _all: true },
+    });
+    const counts: Record<ModerationStatus, number> & { all: number } = {
+      auto_approved: 0,
+      held: 0,
+      approved: 0,
+      rejected: 0,
+      all: 0,
+    };
+    for (const g of grouped) {
+      counts[g.moderationStatus] = g._count._all;
+      counts.all += g._count._all;
+    }
+    return counts;
+  }
+
+  private buildModerationFilters(dto: ListMenuModerationDto): Prisma.MenuItemWhereInput {
+    const filterStatus = dto.status ?? ModerationStatus.held;
+    const where: Prisma.MenuItemWhereInput = {};
+    if (filterStatus !== 'all') {
+      where.moderationStatus = filterStatus as ModerationStatus;
+    }
+    if (dto.vendorId) where.vendorId = dto.vendorId;
+    if (dto.q && dto.q.trim().length > 0) {
+      const q = dto.q.trim();
+      where.OR = [
+        { name: { contains: q, mode: 'insensitive' } },
+        { description: { contains: q, mode: 'insensitive' } },
+        { vendor: { businessName: { contains: q, mode: 'insensitive' } } },
+      ];
+    }
+    return where;
+  }
+
+  /**
+   * Approve or reject (or re-hold) a menu item. Approval makes the item
+   * eligible for the public PWA (subject to isAvailable); rejection / hold
+   * keep it hidden. Cache is busted so the customer site reflects the change.
+   */
+  async moderate(itemId: string, dto: ModerateMenuItemDto, user: AuthUser) {
+    const allowed: ModerationStatus[] = [
+      ModerationStatus.approved,
+      ModerationStatus.rejected,
+      ModerationStatus.held,
+    ];
+    if (!allowed.includes(dto.status)) {
+      throw new BadRequestException({
+        code: 'INVALID_MODERATION_STATUS',
+        message: 'status must be approved, rejected, or held',
+      });
+    }
+    const item = await this.prisma.menuItem.findUnique({
+      where: { id: itemId },
+      select: { id: true, vendorId: true, name: true },
+    });
+    if (!item) {
+      throw new NotFoundException({ code: 'MENU_ITEM_NOT_FOUND', message: 'Menu item not found' });
+    }
+
+    const updated = await this.prisma.menuItem.update({
+      where: { id: itemId },
+      data: { moderationStatus: dto.status },
+    });
+    await this.invalidateVendorCache(item.vendorId);
+
+    // Tell the vendor when their item is rejected so they can fix and resubmit.
+    if (dto.status === ModerationStatus.rejected) {
+      const vendor = await this.prisma.vendor.findUnique({
+        where: { id: item.vendorId },
+        select: { userId: true },
+      });
+      if (vendor) {
+        await this.inbox.notify({
+          userId: vendor.userId,
+          type: InboxNotificationType.menu_item_rejected,
+          title: 'Menu item rejected',
+          body: dto.reason
+            ? `"${item.name}" was not approved: ${dto.reason}`
+            : `"${item.name}" was not approved by moderation.`,
+          link: '/menu',
+          metadata: { menuItemId: item.id, moderatedById: user.id },
+        });
+      }
+    }
+    return updated;
+  }
+
+  /** Notify every admin that a freshly-uploaded item is waiting for review. */
+  private async notifyAdminsOfPendingItem(
+    itemId: string,
+    itemName: string,
+    vendorId: string,
+  ): Promise<void> {
+    const [admins, vendor] = await Promise.all([
+      this.prisma.user.findMany({ where: { role: UserRole.admin }, select: { id: true } }),
+      this.prisma.vendor.findUnique({ where: { id: vendorId }, select: { businessName: true } }),
+    ]);
+    const vendorName = vendor?.businessName ?? 'A vendor';
+    await Promise.all(
+      admins.map((a) =>
+        this.inbox.notify({
+          userId: a.id,
+          type: InboxNotificationType.generic,
+          title: 'Menu item awaiting approval',
+          body: `${vendorName} added "${itemName}", which needs moderation before it goes live.`,
+          link: '/menus/queue',
+          metadata: { menuItemId: itemId, vendorId },
+        }),
+      ),
+    );
+  }
+
+  // ----- cursor helpers (createdAt + id, base64url JSON) -----
+  private encodeCursor(row: { createdAt: Date; id: string }): string {
+    return Buffer.from(
+      JSON.stringify({ c: row.createdAt.toISOString(), id: row.id }),
+      'utf8',
+    ).toString('base64url');
+  }
+  private decodeCursor(s: string): { createdAt: Date; id: string } | undefined {
+    try {
+      const obj = JSON.parse(Buffer.from(s, 'base64url').toString('utf8')) as { c: string; id: string };
+      return { createdAt: new Date(obj.c), id: obj.id };
+    } catch {
+      return undefined;
+    }
   }
 
   /**

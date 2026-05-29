@@ -19,6 +19,7 @@ import {
   Store,
   Tag,
   Users,
+  UtensilsCrossed,
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -49,6 +50,7 @@ const MAIN_NAV: ReadonlyArray<NavItem> = [
   { href: '/vendors', label: 'Vendors', icon: Store, roles: ['admin', 'compliance', 'support'] },
   { href: '/disputes', label: 'Disputes', icon: AlertTriangle, roles: ['admin', 'support'] },
   { href: '/events', label: 'Events', icon: CalendarHeart, roles: ['admin', 'support'] },
+  { href: '/menus/queue', label: 'Menu moderation', icon: UtensilsCrossed, roles: ['admin'] },
   { href: '/reviews/queue', label: 'Reviews', icon: MessageSquare, roles: ['admin'] },
   { href: '/payouts', label: 'Payouts', icon: Banknote, roles: ['admin', 'finance'] },
   { href: '/discount-codes', label: 'Discount Codes', icon: Tag, roles: ['admin', 'finance'] },

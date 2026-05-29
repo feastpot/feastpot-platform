@@ -289,6 +289,16 @@ function ItemCard({
             <span className="rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-foreground">Unavailable</span>
           </div>
         )}
+        {item.moderationStatus === 'held' && (
+          <span className="absolute right-2 top-2 rounded-full bg-amber-500 px-2 py-0.5 text-xs font-medium text-white shadow-sm">
+            Pending approval
+          </span>
+        )}
+        {item.moderationStatus === 'rejected' && (
+          <span className="absolute right-2 top-2 rounded-full bg-destructive px-2 py-0.5 text-xs font-medium text-destructive-foreground shadow-sm">
+            Rejected
+          </span>
+        )}
       </div>
       <CardContent className="space-y-2 p-3">
         <div className="flex items-start justify-between gap-2">

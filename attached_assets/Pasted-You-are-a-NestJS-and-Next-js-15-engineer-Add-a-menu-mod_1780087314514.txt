@@ -1,0 +1,64 @@
+You are a NestJS and Next.js 15 engineer. Add a menu moderation flag
+to the admin panel and a simple approval gate for vendor menu items.
+
+CONTEXT FROM REPORT:
+"Menu moderation — the schema supports a review/approve status, but the
+current UI treats vendor uploads as auto-approved. Fine for a trusted
+launch cohort; revisit if you open self-serve signup widely."
+
+This prompt is for AFTER the initial cohort — implement it before
+opening self-serve signup to the public.
+
+════════════════════════════════════════════════════════
+STEP 1 — Confirm schema status field on MenuItem
+════════════════════════════════════════════════════════
+
+Run: grep -n "moderationStatus\|menu_status\|itemStatus" prisma/schema.prisma
+
+If moderationStatus exists on MenuItem:
+  Proceed to Step 2.
+
+If it does not exist, add it:
+  moderationStatus  String  @default("auto_approved")  @map("moderation_status")
+  Run: npx prisma migrate dev --name add_menu_item_moderation_status
+
+════════════════════════════════════════════════════════
+STEP 2 — Admin menu moderation queue page
+File: apps/admin/src/app/menus/queue/page.tsx (create)
+════════════════════════════════════════════════════════
+
+Simple page showing menu items pending moderation:
+- Item name, vendor name, price, description, image thumbnail
+- Approve / Reject buttons (same pattern as reviews queue)
+- Filter: pending / approved / rejected
+
+This page is LOW priority. It only becomes necessary if you open
+self-serve signup to unknown vendors. For a hand-picked founding cohort
+of 5-10 trusted vendors, auto_approved is fine.
+
+════════════════════════════════════════════════════════
+STEP 3 — Admin setting: toggle auto-approval on/off
+════════════════════════════════════════════════════════
+
+Add an environment variable:
+  MENU_AUTO_APPROVE = true  (default — safe for trusted cohort)
+
+In createMenuItem():
+const moderationStatus = process.env.MENU_AUTO_APPROVE === 'false'
+  ? 'pending'
+  : 'auto_approved'
+
+When MENU_AUTO_APPROVE=false:
+- New menu items require admin approval before appearing to customers
+- Vendor portal shows "Pending approval" badge on unapproved items
+- Admin receives a notification to review new items
+
+When MENU_AUTO_APPROVE=true (default):
+- Items are immediately live once isAvailable=true
+- No admin review required
+- Suitable for vetted founding vendor cohort
+
+Set MENU_AUTO_APPROVE=false before opening public self-serve signup.
+
+Run: npm run typecheck in apps/api and apps/admin
+Output all changed files.

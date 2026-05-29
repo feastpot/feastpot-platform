@@ -25,6 +25,12 @@ export interface MenuItem {
   /** Manual display order within the menu (1-based); drag-to-reorder writes this. */
   sortOrder: number;
   isAvailable: boolean;
+  /**
+   * Moderation state mirrored from the API. `held` = waiting for admin review,
+   * `rejected` = blocked; both stay hidden from customers regardless of
+   * isAvailable. `auto_approved` / `approved` are live.
+   */
+  moderationStatus: 'auto_approved' | 'held' | 'approved' | 'rejected';
   createdAt: string;
   updatedAt: string;
 }

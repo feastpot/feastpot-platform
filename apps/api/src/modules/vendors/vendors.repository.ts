@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, VendorStatus } from '@prisma/client';
+import { ModerationStatus, Prisma, VendorStatus } from '@prisma/client';
 
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -119,6 +119,7 @@ export class VendorRepository {
           SELECT 1 FROM menu_items mi
           WHERE mi.vendor_id = v.id
             AND mi.is_available = true
+            AND mi.moderation_status IN ('auto_approved', 'approved')
             AND 'halal' = ANY(mi.tags)
         )`
       : Prisma.empty;
@@ -140,6 +141,7 @@ export class VendorRepository {
             JOIN menus m ON m.id = mi.menu_id
             WHERE mi.vendor_id = v.id
               AND mi.is_available = true
+              AND mi.moderation_status IN ('auto_approved', 'approved')
               AND m.is_active = true
               AND (mi.name ILIKE ${qLike} OR mi.description ILIKE ${qLike})
           )
@@ -157,6 +159,7 @@ export class VendorRepository {
             JOIN menus m ON m.id = mi.menu_id
             WHERE mi.vendor_id = v.id
               AND mi.is_available = true
+              AND mi.moderation_status IN ('auto_approved', 'approved')
               AND m.is_active = true
               AND (mi.name ILIKE ${qLike} OR mi.description ILIKE ${qLike})
             ORDER BY mi.name
@@ -326,9 +329,14 @@ export class VendorRepository {
           orderBy: { createdAt: 'asc' },
           include: {
             // Customer-facing payload: only include published items so
-            // vendor drafts (isAvailable=false) never leak to the PWA.
+            // vendor drafts (isAvailable=false) never leak to the PWA, and
+            // only items that cleared moderation (auto_approved / approved) -
+            // items held for review or rejected stay hidden from customers.
             items: {
-              where: { isAvailable: true },
+              where: {
+                isAvailable: true,
+                moderationStatus: { in: [ModerationStatus.auto_approved, ModerationStatus.approved] },
+              },
               orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
             },
           },
