@@ -37,10 +37,38 @@ interface HealthzResponse {
     queues: QueueStatus;
     secrets: 'ok' | string;
     stripe: StripeMode;
+    notifications: NotificationChannels;
   };
 }
 
 type StripeMode = 'live' | 'test' | 'missing';
+
+type ChannelStatus = 'configured' | 'missing_credentials';
+
+interface NotificationChannels {
+  email: ChannelStatus;
+  whatsapp: ChannelStatus;
+}
+
+// Report notification-channel availability so ops can see at a glance whether
+// vendors/customers will actually be alerted. Informational only — does NOT
+// affect the 200/503 verdict (a degraded comms channel must not drain the
+// instance). We mirror the exact env vars the providers read so this can never
+// disagree with what actually delivers: EmailProvider → RESEND_API_KEY +
+// EMAIL_FROM; WhatsappProvider → Twilio backend OR Meta Cloud backend.
+function notificationChannels(): NotificationChannels {
+  const emailConfigured = !!(process.env.RESEND_API_KEY && process.env.EMAIL_FROM);
+  const whatsappConfigured =
+    !!(
+      process.env.TWILIO_WHATSAPP_FROM &&
+      process.env.TWILIO_ACCOUNT_SID &&
+      process.env.TWILIO_AUTH_TOKEN
+    ) || !!(process.env.WHATSAPP_ACCESS_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID);
+  return {
+    email: emailConfigured ? 'configured' : 'missing_credentials',
+    whatsapp: whatsappConfigured ? 'configured' : 'missing_credentials',
+  };
+}
 
 // Derive Stripe mode from the secret key prefix so ops can confirm at a
 // glance (`curl .../healthz | jq .checks.stripe`) that production is in
@@ -166,7 +194,14 @@ export class HealthController {
       timestamp: new Date().toISOString(),
       uptime: Math.floor(process.uptime()),
       environment: process.env.NODE_ENV,
-      checks: { database: db, redis, queues, secrets, stripe: stripeMode() },
+      checks: {
+        database: db,
+        redis,
+        queues,
+        secrets,
+        stripe: stripeMode(),
+        notifications: notificationChannels(),
+      },
     };
   }
 

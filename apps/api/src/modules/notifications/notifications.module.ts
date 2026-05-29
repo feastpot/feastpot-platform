@@ -25,6 +25,6 @@ import { WhatsappProvider } from './providers/whatsapp.provider';
     PushProvider,
     SmsProvider,
   ],
-  exports: [NotificationsService, PushProvider, EmailProvider],
+  exports: [NotificationsService, PushProvider, EmailProvider, WhatsappProvider],
 })
 export class NotificationsModule {}

@@ -176,6 +176,36 @@ async function bootstrap(): Promise<void> {
       : 'MISSING/UNKNOWN';
   logger.log(`[Stripe] Mode: ${stripeMode}`);
 
+  // Notification credentials check. Unlike the Stripe guard above, missing
+  // notification creds are NON-fatal: a degraded platform (orders still flow,
+  // comms get logged-only) beats no platform at all. But warn loudly so ops
+  // knows vendors/customers aren't being alerted. We check the env vars the
+  // providers actually read (EmailProvider → RESEND_API_KEY + EMAIL_FROM;
+  // WhatsappProvider → Twilio OR Meta Cloud backend), not a fixed list, so the
+  // warning can never disagree with what actually delivers.
+  const emailConfigured = !!(process.env.RESEND_API_KEY && process.env.EMAIL_FROM);
+  const whatsappConfigured =
+    !!(
+      process.env.TWILIO_WHATSAPP_FROM &&
+      process.env.TWILIO_ACCOUNT_SID &&
+      process.env.TWILIO_AUTH_TOKEN
+    ) || !!(process.env.WHATSAPP_ACCESS_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID);
+  const missingChannels: string[] = [];
+  if (!emailConfigured) {
+    missingChannels.push('email (needs RESEND_API_KEY + EMAIL_FROM)');
+  }
+  if (!whatsappConfigured) {
+    missingChannels.push(
+      'whatsapp (needs TWILIO_WHATSAPP_FROM + TWILIO_ACCOUNT_SID/AUTH_TOKEN, or WHATSAPP_ACCESS_TOKEN + WHATSAPP_PHONE_NUMBER_ID)',
+    );
+  }
+  if (missingChannels.length > 0) {
+    logger.warn(
+      `[STARTUP] Notification channels not configured: ${missingChannels.join('; ')}. ` +
+        'Those channels will be logged-only (silently dropped) until set.',
+    );
+  }
+
   // Replit Autoscale (and most cloud platforms) front the container with a
   // reverse proxy. Trusting it lets Express read the real client IP from
   // X-Forwarded-For for rate-limit + audit purposes.

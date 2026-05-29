@@ -25,7 +25,9 @@ import type { Queue } from 'bull';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import type { AuthedRequest } from '../../auth/types';
 import { NotificationsService } from '../notifications/notifications.service';
+import { EmailProvider } from '../notifications/providers/email.provider';
 import { PushProvider } from '../notifications/providers/push.provider';
+import { WhatsappProvider } from '../notifications/providers/whatsapp.provider';
 import { TEMPLATES } from '../notifications/templates';
 import { PAYOUTS_QUEUE, WEEKLY_BATCH_JOB } from '../payouts/processors/payout-batch.processor';
 
@@ -74,6 +76,8 @@ export class AdminController {
     private readonly admin: AdminService,
     private readonly adminUsers: AdminUsersService,
     private readonly notifications: NotificationsService,
+    private readonly email: EmailProvider,
+    private readonly whatsapp: WhatsappProvider,
     private readonly push: PushProvider,
     private readonly prisma: PrismaService,
     // PAYOUTS_QUEUE is registered globally in app.module.ts (BullModule.registerQueue),
@@ -486,6 +490,82 @@ export class AdminController {
     };
     await this.notifications.enqueue(dto.event, sample, { jobId: `test:${dto.event}:${Date.now()}` });
     return { queued: true, event: dto.event, recipientUserId: userId };
+  }
+
+  /**
+   * DEV/STAGING ONLY: send a notification through each channel SYNCHRONOUSLY
+   * and report per-channel sent/failed. Unlike `test-notification` (which
+   * enqueues an event and relies on the worker), this calls the providers
+   * directly so you get immediate pass/fail — the fastest way to confirm
+   * RESEND / Twilio / Meta credentials actually deliver before going live.
+   *
+   * Deviation from the original spec: the providers expose `send()` (not
+   * `sendEmail`/`sendWhatsApp`), and the WhatsApp backend is template-based
+   * (Twilio Content SID / Meta pre-approved template) — free-text body is not
+   * viable for business-initiated messages. So `whatsappTemplate` defaults to
+   * `order_confirmation`; the matching Content SID / Meta template must exist.
+   */
+  @Post('test/notifications')
+  @Roles(UserRole.admin)
+  @ApiOperation({
+    summary:
+      'DEV/STAGING ONLY: send a real email + WhatsApp synchronously and report per-channel delivery. Disabled in production.',
+  })
+  async testNotifications(
+    @Body()
+    dto: {
+      email: string;
+      phone?: string;
+      whatsappTemplate?: string;
+      whatsappParams?: Array<string | number>;
+    },
+  ): Promise<Record<string, string>> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new ForbiddenException({
+        code: 'NOT_AVAILABLE_IN_PROD',
+        message: 'Use staging for notification tests',
+      });
+    }
+    if (!dto?.email) {
+      throw new BadRequestException({
+        code: 'EMAIL_REQUIRED',
+        message: 'Provide an "email" to test the email channel.',
+      });
+    }
+
+    const results: Record<string, string> = {};
+
+    try {
+      const { delivered, id } = await this.email.send({
+        to: dto.email,
+        subject: 'Feastpot notification test',
+        html: '<p>If you received this, Resend is working correctly.</p>',
+      });
+      results.email = delivered
+        ? `sent${id ? ` (${id})` : ''}`
+        : 'logged_only: RESEND_API_KEY not set, email was not delivered';
+    } catch (e) {
+      results.email = `failed: ${(e as Error).message}`;
+    }
+
+    if (dto.phone) {
+      try {
+        const { delivered, id } = await this.whatsapp.send({
+          to: dto.phone,
+          template: dto.whatsappTemplate ?? 'order_confirmation',
+          params: dto.whatsappParams ?? [],
+        });
+        results.whatsapp = delivered
+          ? `sent${id ? ` (${id})` : ''}`
+          : 'logged_only: no WhatsApp backend configured (or no Content SID/template for this template name)';
+      } catch (e) {
+        results.whatsapp = `failed: ${(e as Error).message}`;
+      }
+    } else {
+      results.whatsapp = 'skipped_no_phone';
+    }
+
+    return results;
   }
 
   @Post('payouts/:id/reconcile-stripe')

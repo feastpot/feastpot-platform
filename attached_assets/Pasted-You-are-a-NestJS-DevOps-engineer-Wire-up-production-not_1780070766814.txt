@@ -1,0 +1,154 @@
+You are a NestJS DevOps engineer. Wire up production notification
+credentials so vendors receive order alerts and customers receive
+order confirmations.
+
+CONTEXT FROM REPORT:
+"The notification engine (email via Resend, SMS/WhatsApp via Twilio) is
+fully built and queued, but the credentials are missing — specifically
+TWILIO_FROM_NUMBER, WHATSAPP_ACCESS_TOKEN, and WHATSAPP_PHONE_NUMBER_ID,
+plus a verified Resend sending domain. Until at least one channel is live,
+a vendor gets no alert that an order came in."
+
+════════════════════════════════════════════════════════
+STEP 1 — Resend: verify the sending domain
+════════════════════════════════════════════════════════
+
+OPERATIONAL (do in DNS provider and Resend dashboard):
+1. Log in to resend.com → Domains → Add domain → feastpot.co.uk
+2. Add the following DNS records at your DNS provider:
+   TYPE  NAME                          VALUE
+   TXT   resend._domainkey.feastpot.co.uk  (value from Resend dashboard)
+   MX    send.feastpot.co.uk              feedback-smtp.eu-west-1.amazonses.com (or as shown)
+
+3. Wait for verification (5-30 minutes)
+4. Status must show: Verified ✓
+
+5. Add to Replit deployment secrets:
+   RESEND_API_KEY    = re_live_...   (from resend.com/api-keys)
+   RESEND_FROM_EMAIL = hello@feastpot.co.uk
+   RESEND_FROM_NAME  = Feastpot
+
+CRITICAL CHECK: The API key must start re_live_ not re_test_.
+If it starts re_test_, emails deliver but show as "Sent from Resend test"
+and may land in spam.
+
+════════════════════════════════════════════════════════
+STEP 2 — WhatsApp Business API credentials
+════════════════════════════════════════════════════════
+
+Based on the platform migration to Meta Cloud API:
+
+OPERATIONAL:
+1. Log in to developers.facebook.com → Your App → WhatsApp → API Setup
+2. Copy:
+   - Access Token (permanent token, not temporary)
+   - Phone Number ID (the number registered for business messaging)
+   - WhatsApp Business Account ID (WABA ID)
+
+3. Add to Replit deployment secrets:
+   WHATSAPP_ACCESS_TOKEN    = EAAxx...
+   WHATSAPP_PHONE_NUMBER_ID = 1234567890
+   WHATSAPP_WABA_ID         = 0987654321
+
+4. In Meta developer console → Webhooks → configure:
+   Callback URL: https://api.feastpot.co.uk/v1/webhooks/whatsapp
+   Verify token:  (generate a random string, add as WHATSAPP_VERIFY_TOKEN in secrets)
+   Subscribe to: messages, message_deliveries, message_reads
+
+════════════════════════════════════════════════════════
+STEP 3 — Code: startup validation of notification credentials
+File: apps/api/src/main.ts
+════════════════════════════════════════════════════════
+
+Add to the existing required env vars check:
+
+const NOTIFICATION_VARS = [
+  'RESEND_API_KEY',
+  'RESEND_FROM_EMAIL',
+  'WHATSAPP_ACCESS_TOKEN',
+  'WHATSAPP_PHONE_NUMBER_ID',
+]
+
+const missingNotifications = NOTIFICATION_VARS.filter(k => !process.env[k])
+if (missingNotifications.length > 0) {
+  logger.warn(
+    `[STARTUP] Notification credentials missing: ${missingNotifications.join(', ')}. ` +
+    'Notifications will be silently dropped until these are set.'
+  )
+  // Do NOT exit — degraded notifications are better than no platform
+  // But log clearly so ops knows notifications are broken
+}
+
+════════════════════════════════════════════════════════
+STEP 4 — Code: notification channel health in /healthz
+File: apps/api/src/health/health.controller.ts
+════════════════════════════════════════════════════════
+
+Add notification channel availability to the health response:
+
+const resendConfigured    = !!(process.env.RESEND_API_KEY && process.env.RESEND_FROM_EMAIL)
+const whatsappConfigured  = !!(process.env.WHATSAPP_ACCESS_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID)
+
+checks: {
+  ...existingChecks,
+  notifications: {
+    email:    resendConfigured    ? 'configured' : 'missing_credentials',
+    whatsapp: whatsappConfigured  ? 'configured' : 'missing_credentials',
+  },
+}
+
+════════════════════════════════════════════════════════
+STEP 5 — Test both channels end-to-end before going live
+════════════════════════════════════════════════════════
+
+Add a temporary test endpoint (admin-only, dev + staging only):
+
+File: apps/api/src/modules/admin/admin.controller.ts
+
+@Post('admin/test/notifications')
+@Roles('admin')
+async testNotifications(@Body() dto: { email: string; phone?: string }) {
+  if (process.env.NODE_ENV === 'production') {
+    throw new ForbiddenException('Use staging for notification tests')
+  }
+
+  const results: Record<string, any> = {}
+
+  // Test email
+  try {
+    await this.notificationsService.sendEmail({
+      to:      dto.email,
+      subject: 'Feastpot notification test ✅',
+      html:    '<p>If you received this, Resend is working correctly.</p>',
+    })
+    results.email = 'sent'
+  } catch (e) {
+    results.email = `failed: ${e.message}`
+  }
+
+  // Test WhatsApp (if phone provided)
+  if (dto.phone) {
+    try {
+      await this.notificationsService.sendWhatsApp({
+        to:      dto.phone,
+        message: 'Feastpot test — if you received this, WhatsApp is working. 🎉',
+      })
+      results.whatsapp = 'sent'
+    } catch (e) {
+      results.whatsapp = `failed: ${e.message}`
+    }
+  }
+
+  return results
+}
+
+Test: curl -X POST https://api.feastpot.co.uk/v1/admin/test/notifications \
+  -H "Authorization: Bearer {admin_token}" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"soul@feastpot.co.uk","phone":"447XXXXXXXXX"}'
+
+Both results must show "sent".
+Check your inbox AND WhatsApp before proceeding.
+
+Run: npm run build:api — zero errors
+Output main.ts and health controller changes.
