@@ -128,6 +128,31 @@ export class AdminController {
     return this.admin.getDashboard();
   }
 
+  @Get('coverage-interest/count')
+  @Roles(UserRole.admin, UserRole.support)
+  @ApiOperation({
+    summary:
+      'Coverage waitlist size (people who registered interest for an uncovered postcode) plus the top 10 most-requested postcodes.',
+  })
+  async coverageInterestCount() {
+    const [total, byPostcode] = await Promise.all([
+      this.prisma.coverageInterest.count(),
+      this.prisma.coverageInterest.groupBy({
+        by: ['postcode'],
+        _count: { postcode: true },
+        orderBy: { _count: { postcode: 'desc' } },
+        take: 10,
+      }),
+    ]);
+    return {
+      total,
+      topPostcodes: byPostcode.map((row) => ({
+        postcode: row.postcode,
+        count: row._count.postcode,
+      })),
+    };
+  }
+
   @Get('vendors')
   @Roles(UserRole.admin, UserRole.compliance, UserRole.support)
   @ApiOperation({ summary: 'Vendor approval queue (filter by status, doc-status icon map per vendor)' })

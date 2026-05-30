@@ -15,6 +15,7 @@ import {
 import {
   Banknote,
   CalendarRange,
+  MapPin,
   PoundSterling,
   Receipt,
   Store,
@@ -29,10 +30,13 @@ import { PageHeader } from '@/components/layout/page-header';
 import { EmptyState } from '@/components/ui/empty-state';
 import { StatCard } from '@/components/ui/stat-card';
 import { useAdminDashboard } from '@/hooks/use-admin-dashboard';
+import { useCoverageWaitlist } from '@/hooks/use-coverage-waitlist';
 import { formatPence, formatPercent } from '@/lib/format';
 
 export function DashboardClient() {
   const { data, isLoading, error } = useAdminDashboard();
+  const { data: coverage, isLoading: coverageLoading } = useCoverageWaitlist();
+  const topWaitlistPostcode = coverage?.topPostcodes?.[0];
 
   return (
     <>
@@ -46,7 +50,7 @@ export function DashboardClient() {
         </Card>
       )}
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3 lg:grid-cols-6">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3 lg:grid-cols-7">
         <StatCard
           icon={PoundSterling}
           tone="brand"
@@ -88,6 +92,17 @@ export function DashboardClient() {
           label="Avg basket (30 d)"
           value={isLoading ? '…' : formatPence(data?.avgBasketPence)}
           caption="vs last 30 days"
+        />
+        <StatCard
+          icon={MapPin}
+          tone="blue"
+          label="Coverage waitlist"
+          value={coverageLoading ? '…' : coverage?.total?.toString() ?? '-'}
+          caption={
+            topWaitlistPostcode
+              ? `Top: ${topWaitlistPostcode.postcode} (${topWaitlistPostcode.count})`
+              : 'Uncovered-postcode sign-ups'
+          }
         />
       </div>
 

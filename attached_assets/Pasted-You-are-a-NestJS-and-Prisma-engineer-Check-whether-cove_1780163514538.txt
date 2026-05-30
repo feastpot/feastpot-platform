@@ -1,0 +1,103 @@
+You are a NestJS and Prisma engineer. Check whether coverage interest
+sign-ups are persisted before making any changes.
+
+════════════════════════════════════════════════════════
+CHECK FIRST
+════════════════════════════════════════════════════════
+
+Run:
+1. grep -n "CoverageInterest\|coverage_interest\|coverageInterest" \
+     prisma/schema.prisma
+
+2. grep -n "CoverageInterest\|coverage_interest\|coverageInterest" \
+     apps/api/src/modules/coverage -r --include="*.ts"
+
+3. cat apps/api/src/modules/coverage/coverage.service.ts
+
+Report:
+  a) Does the CoverageInterest model exist in schema.prisma?
+  b) Does coverage.service.ts persist to the database or just log?
+  c) How many sign-ups have been lost (if any can be counted from logs)?
+
+If CoverageInterest model exists AND service persists to DB →
+  report ALREADY IMPLEMENTED and stop.
+
+If sign-ups are being logged but not persisted → proceed below.
+
+════════════════════════════════════════════════════════
+IMPLEMENTATION (only if check confirms data is lost)
+════════════════════════════════════════════════════════
+
+STEP 1 — Add model to schema
+File: prisma/schema.prisma
+
+model CoverageInterest {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email     String
+  postcode  String
+  source    String?  @default("coverage-check")
+  notified  Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([postcode])
+  @@index([email])
+  @@map("coverage_interests")
+}
+
+Run: npx prisma migrate dev --name add_coverage_interest_table
+
+STEP 2 — Persist in service
+File: apps/api/src/modules/coverage/coverage.service.ts
+
+async registerInterest(dto: { email: string; postcode: string; source?: string }) {
+  // Check for duplicate before inserting
+  const existing = await this.prisma.coverageInterest.findFirst({
+    where: { email: dto.email, postcode: dto.postcode.toUpperCase().trim() },
+  })
+  if (existing) {
+    this.logger.log(`[coverage-interest] duplicate: ${dto.email} / ${dto.postcode}`)
+    return { registered: true, duplicate: true }
+  }
+
+  await this.prisma.coverageInterest.create({
+    data: {
+      email:   dto.email,
+      postcode: dto.postcode.toUpperCase().trim(),
+      source:  dto.source ?? 'coverage-check',
+    },
+  })
+
+  this.logger.log(`[coverage-interest] saved: ${dto.email} / ${dto.postcode}`)
+  return { registered: true, duplicate: false }
+}
+
+STEP 3 — Admin: view waitlist count on dashboard
+File: apps/admin/src/app/page.tsx (dashboard stats)
+
+Add a "Coverage waitlist" stat card showing the count of people
+waiting for Feastpot in their area:
+
+const { data: coverageCount } = useQuery({
+  queryKey: ['admin-coverage-waitlist'],
+  queryFn: () => fetch(`${API}/v1/admin/coverage-interest/count`,
+    { headers: { Authorization: `Bearer ${adminToken}` } }
+  ).then(r => r.json()),
+})
+
+Add API endpoint:
+@Get('admin/coverage-interest/count')
+@Roles('admin', 'support')
+async getCoverageInterestCount() {
+  const count = await this.prisma.coverageInterest.count()
+  const byPostcode = await this.prisma.coverageInterest.groupBy({
+    by: ['postcode'],
+    _count: { postcode: true },
+    orderBy: { _count: { postcode: 'desc' } },
+    take: 10,
+  })
+  return { total: count, topPostcodes: byPostcode }
+}
+
+Run: npx prisma generate
+Run: npm run typecheck in apps/api and apps/admin
+Output all new and changed files.

@@ -1,1 +1,1 @@
-- [Service fee](service-fee.md) — fee math lives in API config/service-fee.ts + web lib/service-fee.ts; clamp bounds duplicated, keep in lockstep; FeastPass waiver unbuilt (no data model).
+- [Prisma migrations on Supabase](prisma-migrations-supabase.md) — `migrate dev` fails (non-interactive); use `migrate diff` + hand-written migration + `migrate deploy`, and RLS-enable every new table.

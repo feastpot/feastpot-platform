@@ -1093,3 +1093,23 @@ model DiscountCode {
   @@index([isActive, expiresAt])
   @@map("discount_codes")
 }
+
+/// Customer waitlist capture for uncovered postcodes. Populated by the public
+/// POST /coverage-interest endpoint when someone enters a postcode Feastpot
+/// doesn't serve yet. Read-only from the admin console (waitlist size +
+/// demand-by-postcode). `notified` flips true once ops emails the lead that a
+/// vendor has gone live in their area.
+model CoverageInterest {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email            String
+  postcode         String
+  name             String?
+  marketingConsent Boolean? @map("marketing_consent")
+  source           String?  @default("coverage-check")
+  notified         Boolean  @default(false)
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@unique([email, postcode])
+  @@index([postcode])
+  @@map("coverage_interests")
+}
