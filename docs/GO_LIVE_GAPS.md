@@ -1,149 +1,197 @@
-# Feastpot — What's Left to Implement Before Go-Live
+# Feastpot — Go-Live Audit: What's Left to Implement
 
-_Last reviewed: 30 May 2026 — written against the code as it stands today, not the roadmap._
-
-This is a plain-English inventory of **what still needs doing** before real
-vendors onboard and real customers pay. It separates the work into three
-buckets:
-
-1. **Operational blockers** — config and credentials, not code. These stop the
-   first real order.
-2. **Features still to implement** — actual code gaps. Most are quality-of-life,
-   not launch-blocking.
-3. **Decisions to confirm** — business calls someone needs to make on purpose.
-
-If you read one thing, read the **TL;DR** and **Operational blockers**.
+_Last audited: 30 May 2026. This is a code-verified inventory — every item below
+was confirmed against the source as it stands today (grep + file review), not the
+roadmap or memory. File references are included so each item is traceable._
 
 ---
 
-## TL;DR
+## How to read this
 
-The product is **functionally built and wired end-to-end**. Vendors can apply,
-be approved, set up menus (with drag-to-reorder and an admin moderation queue),
-connect Stripe, set hours and delivery areas, and go live. Customers can search
-by postcode against real distance/coverage logic, fill a basket, pay by card
-(or Apple/Google Pay), and track the order. Payments, refunds, internal
-disputes, and weekly payouts all exist and run.
+Work is grouped by **where it lives**, and every item carries a severity:
 
-What's left is mostly **operational plumbing**: live Stripe credentials + the
-webhook registered, at least one live notification channel, and production
-hosting/DNS. Beyond that there's a tidy list of **half-finished features** —
-none of which block the first order — plus one or two **business decisions**.
+- 🔴 **Blocker** — the first real order cannot happen until this is done.
+- 🟠 **Pre-launch** — should be done before opening to real customers, but a
+  controlled pilot can run without it.
+- 🟡 **Polish** — visible gap or "coming soon" stub; safe to ship after launch.
+
+Most blockers are **operational config**, not missing code. The code gaps that
+remain are mostly 🟡.
 
 ---
 
-## 1. Operational blockers (must be done first)
+## 1. Operational blockers (config & external setup, not code)
 
-These are configuration and external setup, not missing code.
+These are 🔴 and are about credentials/hosting, not writing features.
 
-1. **Live Stripe credentials + webhook registration.** The webhook handler is
-   built and processes `payment_intent.succeeded`,
-   `payment_intent.payment_failed`, `transfer.created`, and `refund.updated`.
-   `STRIPE_WEBHOOK_SECRET` is a hard-required env var (the API refuses to start
-   without it). Going live needs: the **live** `STRIPE_SECRET_KEY` in
-   production, Stripe Connect enabled on the live platform, and the live
-   webhook endpoint registered so its signing secret matches. Until then,
-   payments run on test keys.
+1. 🔴 **Live Stripe credentials + webhook registration.** The webhook handler
+   is built and processes `payment_intent.succeeded`,
+   `payment_intent.payment_failed`, `transfer.created`, and `refund.updated`
+   (`apps/api/src/modules/payments/stripe-webhook.processor.ts`).
+   `STRIPE_WEBHOOK_SECRET` is a hard-required env var — the API won't boot
+   without it (`apps/api/src/common/config/required-env.ts`). Going live needs:
+   the **live** `STRIPE_SECRET_KEY`, Stripe Connect enabled on the live
+   platform, and the live webhook endpoint registered so its signing secret
+   matches. Today it runs on test keys.
 
-2. **At least one live notification channel.** The notification engine is
-   complete — 20+ real templates, BullMQ queue, and providers for email
-   (Resend), SMS (Twilio), and WhatsApp (Twilio Content API or Meta Cloud).
-   Every provider currently runs in **stub mode** (logs `[stub-email]` /
-   `[stub-sms]` / `[stub-wa]`) because credentials are missing. To switch one
-   on, supply:
-   - **Email:** `RESEND_API_KEY` + a verified sending domain for `EMAIL_FROM`.
-   - **SMS:** `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER`.
+2. 🔴 **At least one live notification channel.** The engine is complete — 20+
+   real templates, a BullMQ queue, and providers for email, SMS, WhatsApp, and
+   web push. Every provider is currently in **stub mode** (logs only) because
+   credentials are missing:
+   - **Email (Resend):** `RESEND_API_KEY` + verified sending domain for
+     `EMAIL_FROM` — else `[stub-email]`
+     (`.../notifications/providers/email.provider.ts`).
+   - **SMS (Twilio):** `TWILIO_FROM_NUMBER` (account SID/auth already set) —
+     else `[stub-sms]` (`.../providers/sms.provider.ts`).
    - **WhatsApp:** `TWILIO_WHATSAPP_FROM` + per-template Content SIDs, **or**
-     `WHATSAPP_ACCESS_TOKEN` + `WHATSAPP_PHONE_NUMBER_ID` (Meta).
+     `WHATSAPP_ACCESS_TOKEN` + `WHATSAPP_PHONE_NUMBER_ID` (Meta) — else
+     `[stub-wa]` (`.../providers/whatsapp.provider.ts`).
 
-   Without at least one channel live, vendors get no order alert and customers
+   Without at least one live channel, vendors get no order alert and customers
    get no confirmation — non-negotiable for a kitchen.
 
-3. **Production hosting + DNS.** The API needs a stable home
+3. 🔴 **Production hosting + DNS.** The API needs a stable home
    (`api.feastpot.co.uk` → Replit Autoscale, DNS-only) and the three frontends
-   need their domains verified. Until this lands the apps only run on fallback
-   URLs.
+   need their domains verified. Until this lands the apps run on fallback URLs.
 
-4. **A real payout dry-run.** The weekly batch processor is built and scheduled
-   (cron, Mondays 02:00 UTC). Before trusting it with real money, run one full
-   cycle against a test vendor in live mode and confirm funds settle and the
-   finance view shows zero discrepancy.
+4. 🔴 **A real payout dry-run.** The weekly batch processor is built and
+   scheduled — cron `0 2 * * 1`, Mondays 02:00 UTC
+   (`.../payouts/processors/payout-batch.processor.ts`). Before trusting it with
+   real money, run one full cycle against a test vendor in live mode and confirm
+   funds settle with zero discrepancy in the finance view.
+
+5. 🟠 **Web push VAPID keys.** Web push is wired but disabled until
+   `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` are set — otherwise it logs
+   `[stub-push]` and delivers nothing (`.../providers/push.provider.ts`).
+   Optional if email/SMS covers launch comms.
 
 ---
 
-## 2. Features still to implement (code gaps, non-blocking)
+## 2. Backend / API gaps (real code, not config)
 
-None of these stop onboarding or the first order. They're listed so nobody
-assumes they're finished.
+- 🟠 **`/v1/users/sync` route is missing.** On customer signup the web app tries
+  to mirror the new user's profile (first/last name, phone, marketing opt-in,
+  referral code) to the API, but the route doesn't exist — the call 404s and is
+  silently skipped (`apps/web/src/app/(auth)/sign-in/page.tsx` ~L563-572). Means
+  these fields aren't persisted server-side at registration. Needs the endpoint
+  built before relying on that profile data (e.g. referral attribution).
 
-**Backend / data**
-- **Waitlist interest is not persisted.** The `/waitlist` "register interest"
-  endpoint (`coverage.service.ts`) only logs `[coverage-interest]` to the
-  console — there's no `CoverageInterest` model, so sign-ups are lost. Needs a
-  table + write before any marketing drives traffic to it.
-- **Per-user notification preferences don't exist.** The processor delivers on
-  every channel a template declares (if the user has a phone/email). There's no
-  `NotificationPreference` table or "SMS only / unsubscribe" logic. Fine for
-  launch; needed before high volume to avoid over-messaging.
-- **Stripe-native chargeback/dispute webhooks are not handled.** The internal
+- 🟠 **Waitlist interest is not persisted.** The `/waitlist` "register interest"
+  endpoint only logs `[coverage-interest]` to the console — there's no
+  `CoverageInterest` model, so sign-ups are lost
+  (`apps/api/src/modules/coverage/coverage.service.ts`, persistence
+  "intentionally deferred"). Needs a table + write before any marketing drives
+  traffic there.
+
+- 🟠 **No per-user notification preferences.** The processor delivers on every
+  channel a template declares (if the user has phone/email). There's no
+  `NotificationPreference` table or "SMS only / unsubscribe" logic. Fine for a
+  pilot; needed before volume to avoid over-messaging and to honour opt-outs.
+
+- 🟡 **Stripe-native chargeback/dispute webhooks aren't handled.** The internal
   marketplace dispute flow (customer-vs-vendor) is complete and can trigger
-  refunds, but bank-initiated chargebacks (`charge.dispute.*`) have no webhook
-  handler — finance must manage those manually in the Stripe Dashboard.
-- **Payout "fees" and "adjustments" are placeholder zero columns** in
-  `payouts.service.ts` — the figures show as £0 until real fee/adjustment logic
-  is wired.
+  refunds (`apps/api/src/modules/disputes/disputes.service.ts`), but
+  bank-initiated chargebacks (`charge.dispute.*`) have no webhook handler —
+  finance manages those manually in the Stripe Dashboard.
 
-**Admin portal**
-- **CSV exports are stubbed** ("coming soon") on Orders, Users, and Event
-  Enquiries lists.
-- **Order bulk actions** — the multi-select checkbox in the orders table is
-  disabled.
-- **Search Trends card** depends on a search-analytics aggregator that
-  currently returns little/no data.
+- 🟡 **Payout "fees" and "adjustments" are placeholder £0 columns**
+  (`apps/api/src/modules/payouts/payouts.service.ts` ~L207) — Stripe transfer
+  fees aren't broken out in the schema yet, so statements show zero there.
 
-**Vendor portal**
-- **Delivery map preview** is still a text list of postcode prefixes; an actual
-  map is on the roadmap.
-- **"Download statement"** button is disabled (marked future).
-- **Analytics deltas / "missing allergens"** cards use light-touch calculations
-  and return blank when there's < 2 weeks of history; not a full analytics
-  engine.
+- 🟡 **Per-star rating buckets aren't real.** The vendor API exposes only
+  `rating` + `ratingCount`; the customer breakdown bars are generated by a
+  deterministic estimator (`estimateBreakdown`,
+  `apps/web/src/components/vendor/rating-breakdown.tsx`). Once the API returns
+  per-bucket counts, swap the estimate out.
 
-**Customer web app**
-- **Review photo uploads** are accepted in the UI but not saved ("coming soon").
-- **Loyalty redemption edge cases** (e.g. max-redeemable caps) have some
-  disabled states rather than full automation.
+- 🟡 **"Food quality" sub-rating isn't stored separately.** The review form
+  collects it but it folds into the overall rating
+  (`apps/web/src/app/orders/[id]/review/page.tsx` ~L199). Needs a column +
+  aggregation to surface it.
+
+- 🟡 **Review photo uploads aren't saved.** The UI accepts photos then discards
+  them on submit ("Photo uploads aren't saved yet — coming soon",
+  review page ~L257). Needs storage + a join model.
 
 ---
 
-## 3. Decisions to confirm (not code)
+## 3. Admin portal gaps
 
-- **Service fee is 0.** `SERVICE_FEE_BPS` defaults to `0`, so the platform takes
-  no per-order service fee today. It's runtime-configurable (no redeploy). If
-  zero is intended for launch, fine — but it's a revenue call someone should
-  make deliberately.
+- 🟡 **CSV exports are stubbed** ("coming soon") on every list: Orders
+  (`orders-client.tsx`), Users (`users-client.tsx`), Event Enquiries
+  (`events-client.tsx`), and Reviews queue (`reviews-queue-client.tsx`).
+- 🟡 **Order bulk actions** — the select-all and per-row checkboxes in the
+  orders table are `disabled` ("coming soon", `orders-client.tsx` L337/L662).
+- 🟡 **"More filters" buttons** are disabled placeholders on the Events and
+  Reviews queues.
+- 🟡 **Search Trends card** depends on a search-analytics aggregator that
+  currently returns little/no data (`dashboard-client.tsx` +
+  `components/dashboard/search-trends-card.tsx`).
 
 ---
 
-## Recently completed (don't re-do these)
+## 4. Vendor portal gaps
 
-Things the old version of this doc flagged as gaps that are now **done and
-wired**:
+- 🟡 **Menu drag-to-reorder is NOT wired.** The drag handle renders for visual
+  parity but reordering doesn't persist — `useUpdateMenu` already accepts
+  `displayOrder`, it just isn't hooked up (`menu/menu-list-client.tsx` ~L44).
+- 🟡 **Menu-item photo reorder is NOT wired.** No drag-reorder for item photos
+  because the schema has no sortable image-order field
+  (`menu/[menuId]/items/[itemId]/item-editor-client.tsx` ~L587, TODO).
+- 🟡 **Delivery map preview** is still a text list of postcode prefixes; an
+  actual map is on the roadmap (`settings/delivery/delivery-form.tsx` L173).
+- 🟡 **Vendor profile editing UI** isn't in the portal yet — it currently lives
+  in the admin app only (`onboarding/onboarding-client.tsx` L102).
+- 🟡 **"Download statement"** is disabled (marked future).
+- 🟡 **Analytics deltas / "missing allergens"** cards use light-touch
+  calculations and go blank with < 2 weeks of history; not a full analytics
+  engine (`analytics/analytics-client.tsx`, `components/menu/menu-stat-cards.tsx`).
 
-- **Apple Pay / Google Pay** — fully implemented via Stripe's Payment Request
-  API; renders when the device has a wallet, falls back to the card form
-  otherwise.
+---
+
+## 5. Customer web gaps
+
+- 🟡 **Review photos** and the **food sub-rating** — see §2 (UI present, storage
+  missing).
+- 🟡 **Rating breakdown bars are estimated** until the API ships per-bucket
+  counts — see §2.
+- 🟡 **Order-confirmation copy-pill** shows a "preparing your order number" state
+  while the ID is in-flight rather than a fake `FP-XXXXXX`
+  (`orders/[id]/confirmation/page.tsx`). Cosmetic; works as intended.
+
+---
+
+## 6. Decisions to confirm (business, not code)
+
+- 🟠 **Service fee is 0.** `SERVICE_FEE_BPS` defaults to `0`
+  (`apps/api/src/common/config/service-fee.ts`), so the platform takes no
+  per-order service fee today. It's runtime-configurable (no redeploy). If zero
+  is intended for launch, fine — but it's a revenue call to make deliberately.
+
+---
+
+## 7. Already done — do NOT re-implement
+
+Verified complete in the current code (some were previously assumed missing):
+
+- **Apple Pay / Google Pay** — fully implemented and enabled via Stripe's
+  Payment Request API; renders when the device has a wallet, falls back to the
+  card form otherwise (`apps/web/src/components/checkout/payment-request-button.tsx`).
 - **Delivery-area / postcode checking** — real haversine distance logic in SQL
-  plus a postcode-prefix fallback; the web coverage check queries live vendors.
-  (The only remaining coverage gap is waitlist persistence, above.)
-- **Menu moderation** — env-gated approval flow (`MENU_AUTO_APPROVE`) plus an
-  admin moderation queue; held/rejected items are hidden from listings, search,
-  and checkout.
-- **Menu/item drag-to-reorder** — wired end-to-end; order persists via the API.
+  plus a postcode-prefix fallback; the web coverage check queries live vendors
+  (`apps/api/src/modules/vendors/vendors.repository.ts`,
+  `apps/web/src/lib/api/coverage.ts`). The only related gap is waitlist
+  persistence (§2).
+- **Menu moderation** — env-gated approval (`MENU_AUTO_APPROVE`) + an admin
+  moderation queue; held/rejected items are hidden from listings, search, and
+  checkout.
+- **Stripe Connect onboarding, refunds, internal disputes, weekly payout batch,
+  order state machine, basket, checkout, loyalty, promo codes** — all built and
+  wired.
 
 ---
 
-## What's genuinely not built (and isn't needed to start)
+## 8. Genuinely not built (and not needed to start)
 
 Real gaps, but none block launch — listed so nobody assumes they exist.
 
@@ -158,7 +206,8 @@ Real gaps, but none block launch — listed so nobody assumes they exist.
 
 ## In one sentence
 
-The kitchen is built and the till works — what's left is plugging in the live
-card machine (Stripe keys + registered webhook), switching on the line that
-tells vendors an order arrived (one set of notification credentials), and
-putting the whole thing on its production address; everything else is polish.
+The product is built and wired; what's left to *go live* is almost entirely
+plugging in the outside world — live Stripe keys + registered webhook, one set
+of notification credentials, and production DNS — after which the remaining work
+is a tidy list of 🟡 polish items (CSV exports, drag-reorder, review photos,
+real rating buckets) and one revenue decision (the £0 service fee).
