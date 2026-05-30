@@ -8,6 +8,7 @@ import type { Queue } from 'bull';
 import { Public } from '../auth/decorators/public.decorator';
 import { RedisCacheService } from '../common/cache/redis-cache.service';
 import { missingRequiredEnv } from '../common/config/required-env';
+import { getServiceFeeBps } from '../common/config/service-fee';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   COMPLIANCE_QUEUE,
@@ -39,6 +40,7 @@ interface HealthzResponse {
     secrets: 'ok' | string;
     stripe: StripeMode;
     notifications: NotificationChannels;
+    serviceFeeBps: number;
   };
 }
 
@@ -240,6 +242,7 @@ export class HealthController {
         secrets,
         stripe: stripeMode(),
         notifications: notificationChannels(),
+        serviceFeeBps: getServiceFeeBps(),
       },
     };
   }

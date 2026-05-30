@@ -1,0 +1,1 @@
+- [Service fee](service-fee.md) — fee math lives in API config/service-fee.ts + web lib/service-fee.ts; clamp bounds duplicated, keep in lockstep; FeastPass waiver unbuilt (no data model).

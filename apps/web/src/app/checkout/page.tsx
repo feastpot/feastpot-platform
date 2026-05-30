@@ -25,6 +25,7 @@ import { ApiError, apiRequest } from '@/lib/api/client';
 import { evaluateDeliveryCoverage } from '@/lib/api/coverage';
 import { getVendorBySlug } from '@/lib/api/vendors';
 import { useAccessToken } from '@/lib/auth/use-access-token';
+import { calcServiceFeePence } from '@/lib/service-fee';
 import { STRIPE_CONFIGURED, getStripe } from '@/lib/stripe';
 import { useBasketStore } from '@/store/basket.store';
 
@@ -139,6 +140,18 @@ function CheckoutInner() {
     queryFn: () => getVendorBySlug(vendor!.slug, { postcode: selectedPostcode! }),
   });
 
+  // Base vendor profile WITHOUT a postcode. The service-fee bps is attached to
+  // the profile regardless of address, so fetching it here lets us show the
+  // "Service fee" line as soon as checkout loads - the customer never has to
+  // enter an address first to learn a fee they'll be charged. The coverage
+  // query (above) returns the same bps once a postcode is chosen.
+  const { data: baseVendor } = useQuery({
+    queryKey: ['vendor', 'profile', vendor?.slug],
+    enabled: Boolean(vendor?.slug),
+    staleTime: 60_000,
+    queryFn: () => getVendorBySlug(vendor!.slug),
+  });
+
   const coverageRadiusMiles = coverageVendor?.delivery?.localRadiusMiles ?? null;
   const coverageDistanceMiles =
     typeof coverageVendor?.distanceKm === 'number' ? coverageVendor.distanceKm * KM_PER_MILE : null;
@@ -225,8 +238,14 @@ function CheckoutInner() {
   // charge uses. This keeps the wallet-sheet total in lockstep with the charge
   // (no build-time env mirror to drift). `undefined` means an API that predates
   // the field, in which case we withhold express pay below rather than guess.
-  const platformServiceFeeBps = coverageVendor?.platformServiceFeeBps;
-  const expressServiceFeePence = Math.round((subtotal * (platformServiceFeeBps ?? 0)) / 10_000);
+  const platformServiceFeeBps =
+    coverageVendor?.platformServiceFeeBps ?? baseVendor?.platformServiceFeeBps;
+  // Service fee depends only on the subtotal (clamped to [min, max]), so it's
+  // knowable as soon as the bps is loaded — independent of delivery/slot. This
+  // same figure drives both the visible summary line and the express-pay total,
+  // and mirrors the server's `calculateServiceFee` so the charge can't drift.
+  const serviceFeePence = calcServiceFeePence(subtotal, platformServiceFeeBps);
+  const expressServiceFeePence = serviceFeePence;
   const expressLoyaltyPence =
     expressDeliveryFeePence == null
       ? 0
@@ -580,8 +599,14 @@ function CheckoutInner() {
                 <span className="text-charcoal-mid">Subtotal</span>
                 <span className="font-bold tabular-nums text-charcoal">{formatPounds(subtotal)}</span>
               </div>
+              {serviceFeePence > 0 && (
+                <div className="mt-1.5 flex justify-between text-sm">
+                  <span className="text-charcoal-mid">Service fee</span>
+                  <span className="font-medium tabular-nums text-charcoal">{formatPounds(serviceFeePence)}</span>
+                </div>
+              )}
               <p className="mt-1 text-[11px] font-medium text-charcoal-mid">
-                Delivery, service fees and any discounts are calculated at order placement.
+                Delivery and any discounts are calculated at order placement.
               </p>
             </div>
           )}
