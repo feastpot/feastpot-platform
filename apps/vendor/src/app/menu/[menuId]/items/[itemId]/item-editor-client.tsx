@@ -686,7 +686,7 @@ export function ItemEditorClient({
                     key={url}
                     url={url}
                     isCover={i === 0}
-                    canDrag={form.images.length > 1}
+                    canDrag={form.images.length > 1 && !update.isPending}
                     onRemove={() => removeImage(url)}
                   />
                 ))}
