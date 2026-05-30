@@ -1,0 +1,167 @@
+You are a NestJS and Next.js 15 engineer implementing a service fee.
+
+DECISION (confirmed by product owner):
+  SERVICE_FEE_BPS = 500  (5%)
+  Minimum:          50p  (50 pence)
+  Maximum:          £2.99
+  Display:          Visible line item at checkout, labelled "Service fee"
+  FeastPass:        Service fee waived for active FeastPass subscribers
+
+════════════════════════════════════════════════════════
+CHECK FIRST
+════════════════════════════════════════════════════════
+
+Before changing anything, run:
+
+1. grep -n "SERVICE_FEE_BPS\|serviceFeeBps\|service_fee_bps" \
+     apps/api/src --include="*.ts" -r
+
+2. grep -n "SERVICE_FEE_BPS\|serviceFeeBps\|service_fee" \
+     apps/web/src --include="*.tsx" --include="*.ts" -r
+
+3. echo "SERVICE_FEE_BPS env value: ${SERVICE_FEE_BPS:-NOT SET}"
+
+Report exactly:
+  a) Is SERVICE_FEE_BPS already implemented in the order creation logic?
+  b) Is a service fee line already shown at checkout?
+  c) What is the current env value?
+
+If SERVICE_FEE_BPS is already wired AND the checkout already shows a
+service fee line AND the env is already set to 500 → report ALREADY
+IMPLEMENTED and stop. Do not change anything.
+
+If any of the above are missing or incorrect → proceed with the
+implementation below.
+
+════════════════════════════════════════════════════════
+IMPLEMENTATION (only if check reveals gaps)
+════════════════════════════════════════════════════════
+
+STEP 1 — Set the environment variable
+Add to Replit deployment secrets:
+  SERVICE_FEE_BPS = 500
+
+STEP 2 — Service fee calculation utility
+File: apps/api/src/common/utils/service-fee.ts
+
+export const SERVICE_FEE_CONFIG = {
+  bps:       500,   // 5%
+  minPence:  50,    // £0.50
+  maxPence:  299,   // £2.99
+} as const
+
+export function calculateServiceFee(subtotalPence: number): number {
+  const bps = parseInt(process.env.SERVICE_FEE_BPS ?? '500', 10)
+  if (isNaN(bps) || bps <= 0) return 0
+
+  const raw = Math.round(subtotalPence * bps / 10_000)
+  return Math.max(
+    SERVICE_FEE_CONFIG.minPence,
+    Math.min(SERVICE_FEE_CONFIG.maxPence, raw)
+  )
+}
+
+// Examples:
+// £10.00 order → 5% = 50p → min 50p → 50p ✓
+// £25.00 order → 5% = 125p → 125p ✓
+// £60.00 order → 5% = 300p → capped at 299p → £2.99 ✓
+// £150.00 order → 5% = 750p → capped at 299p → £2.99 ✓
+
+STEP 3 — Wire into order creation
+File: apps/api/src/modules/orders/orders.service.ts
+
+In createOrder(), replace any hardcoded 0 service fee with:
+
+import { calculateServiceFee } from '../../common/utils/service-fee'
+
+const serviceFeePence = subscriber?.hasFeastPass
+  ? 0  // FeastPass subscribers pay no service fee
+  : calculateServiceFee(subtotalPence)
+
+const totalPence = subtotalPence
+  + deliveryFeePence
+  + serviceFeePence
+  - discountPence
+
+Persist on the Order row:
+  serviceFeePence  (already on schema — confirm field exists)
+
+If serviceFeePence field is missing from schema:
+  Add to prisma/schema.prisma Order model:
+    serviceFeePence  Int  @default(0)  @map("service_fee_pence")
+  Run: npx prisma migrate dev --name add_order_service_fee_pence
+
+STEP 4 — Checkout UI: visible service fee line
+File: apps/web/src/app/checkout/page.tsx
+
+In the order summary section, add the service fee line
+ONLY when serviceFeePence > 0:
+
+{serviceFeePence > 0 && (
+  <div style={{
+    display: 'flex', justifyContent: 'space-between',
+    padding: '8px 0', fontSize: '14px', color: '#666666',
+    borderTop: '1px solid #E8E8E8',
+  }}>
+    <span>Service fee</span>
+    <span>£{(serviceFeePence / 100).toFixed(2)}</span>
+  </div>
+)}
+
+The complete order summary must show in this order:
+  Subtotal          £XX.XX
+  Delivery fee      £X.XX
+  Service fee       £X.XX   ← only if > 0
+  Discount          −£X.XX  ← only if applied
+  ──────────────────────────
+  Total             £XX.XX
+
+STEP 5 — FeastPass service fee waiver
+File: apps/web/src/app/checkout/page.tsx
+
+When the customer is an active FeastPass subscriber, show:
+  Service fee     FREE (with FeastPass)
+
+styled in green with a strikethrough of the calculated amount:
+{hasFeastPass ? (
+  <div style={{
+    display: 'flex', justifyContent: 'space-between',
+    padding: '8px 0', fontSize: '14px',
+    borderTop: '1px solid #E8E8E8',
+  }}>
+    <span style={{ color: '#666666' }}>Service fee</span>
+    <span>
+      <span style={{ textDecoration: 'line-through', color: '#999999',
+        fontSize: '12px', marginRight: '6px' }}>
+        £{(serviceFeePence / 100).toFixed(2)}
+      </span>
+      <span style={{ color: '#1E7B34', fontWeight: 600 }}>FREE</span>
+    </span>
+  </div>
+) : serviceFeePence > 0 ? (
+  // standard service fee line
+) : null}
+
+STEP 6 — Add to /healthz checks
+File: apps/api/src/health/health.controller.ts
+
+Add to checks:
+  serviceFeeBps: parseInt(process.env.SERVICE_FEE_BPS ?? '0', 10),
+
+STEP 7 — Unit test
+File: apps/api/src/common/utils/service-fee.spec.ts
+
+describe('calculateServiceFee', () => {
+  it('applies minimum on small orders',   () => expect(calculateServiceFee(500)).toBe(50))
+  it('applies 5% on mid-range orders',    () => expect(calculateServiceFee(2500)).toBe(125))
+  it('applies maximum on large orders',   () => expect(calculateServiceFee(15000)).toBe(299))
+  it('returns 0 when bps env is 0', () => {
+    process.env.SERVICE_FEE_BPS = '0'
+    expect(calculateServiceFee(2500)).toBe(0)
+    process.env.SERVICE_FEE_BPS = '500'
+  })
+})
+
+Run: npm run test:api -- --testPathPattern=service-fee
+Run: npm run typecheck in apps/api and apps/web
+Output all new and changed files.
