@@ -1,1 +1,2 @@
 - [Prisma migrations on Supabase](prisma-migrations-supabase.md) — `migrate dev` fails (non-interactive); use `migrate diff` + hand-written migration + `migrate deploy`, and RLS-enable every new table.
+- [NestJS filter ordering](nestjs-filter-ordering.md) — global filters resolve in REVERSE registration order; register specific filters AFTER the catch-all. Also @nestjs/throttler v6 Retry-After quirk.

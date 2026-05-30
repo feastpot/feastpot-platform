@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -96,6 +97,45 @@ export class MenusService {
     });
     await this.invalidateVendorCache(vendorId);
     return menu;
+  }
+
+  /**
+   * Persist a vendor's drag-to-reorder of whole menus. `menuIds` is the full
+   * ordered list of the vendor's menus; mirrors MenuItemsService.reorder. We
+   * validate it contains each menu exactly once (no partial / foreign IDs)
+   * before rewriting sortOrder in a single transaction, then bust the cache.
+   */
+  async reorder(vendorId: string, menuIds: string[]) {
+    const existing = await this.prisma.menu.findMany({
+      where: { vendorId },
+      select: { id: true },
+    });
+    const existingIds = new Set(existing.map((m) => m.id));
+    const providedIds = new Set(menuIds);
+    const sameSize = existingIds.size === providedIds.size;
+    const sameMembers = menuIds.every((id) => existingIds.has(id));
+    if (menuIds.length !== providedIds.size || !sameSize || !sameMembers) {
+      throw new BadRequestException({
+        code: 'INVALID_REORDER',
+        message: 'menuIds must contain each of this vendor\'s menus exactly once.',
+      });
+    }
+
+    await this.prisma.$transaction(
+      menuIds.map((id, index) =>
+        this.prisma.menu.update({
+          where: { id },
+          data: { sortOrder: index + 1 },
+        }),
+      ),
+    );
+    await this.invalidateVendorCache(vendorId);
+
+    return this.prisma.menu.findMany({
+      where: { vendorId },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+      include: { _count: { select: { items: true } } },
+    });
   }
 
   async delete(vendorId: string, menuId: string) {

@@ -38,6 +38,7 @@ import { CreateMenuItemDto } from './dto/create-menu-item.dto';
 import { CreateMenuDto } from './dto/create-menu.dto';
 import { ListMenuItemsDto } from './dto/list-menu-items.dto';
 import { ReorderMenuItemsDto } from './dto/reorder-menu-items.dto';
+import { ReorderMenusDto } from './dto/reorder-menus.dto';
 import { ToggleAvailabilityDto } from './dto/toggle-availability.dto';
 import { UpdateMenuItemDto } from './dto/update-menu-item.dto';
 import { UpdateMenuDto } from './dto/update-menu.dto';
@@ -85,6 +86,20 @@ export class CatalogueController {
     @Body() dto: CreateMenuDto,
   ) {
     return this.menus.create(vendorId, dto);
+  }
+
+  // Declared BEFORE `menus/:menuId` so the literal `reorder` segment is matched
+  // by this route and never captured as a `:menuId` UUID param.
+  @Patch('menus/reorder')
+  @ApiBearerAuth()
+  @Roles(UserRole.vendor, UserRole.admin)
+  @UseGuards(VendorOwnershipGuard)
+  @ApiOperation({ summary: 'Reorder a vendor\'s menus (vendor owner / admin)' })
+  reorderMenus(
+    @Param('vendorId', new ParseUUIDPipe()) vendorId: string,
+    @Body() dto: ReorderMenusDto,
+  ) {
+    return this.menus.reorder(vendorId, dto.menuIds);
   }
 
   @Patch('menus/:menuId')

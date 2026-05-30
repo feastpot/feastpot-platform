@@ -1,6 +1,23 @@
 'use client';
 
 import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import {
   Badge,
   Button,
   Card,
@@ -12,7 +29,7 @@ import {
   Input,
   cn,
 } from '@feastpot/ui';
-import { ChevronDown, Pencil, Plus, Search, Trash2, UtensilsCrossed } from 'lucide-react';
+import { ChevronDown, GripVertical, Pencil, Plus, Search, Trash2, UtensilsCrossed } from 'lucide-react';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 
@@ -24,13 +41,15 @@ import {
   useCreateMenu,
   useDeleteMenu,
   useMenus,
+  useReorderMenus,
   useUpdateMenu,
   type VendorMenu,
 } from '@/hooks/use-menus';
 
-type SortKey = 'name_asc' | 'name_desc' | 'items_desc' | 'updated_desc';
+type SortKey = 'manual' | 'name_asc' | 'name_desc' | 'items_desc' | 'updated_desc';
 
 const SORT_LABEL: Record<SortKey, string> = {
+  manual: 'Custom order',
   name_asc: 'Name (A–Z)',
   name_desc: 'Name (Z–A)',
   items_desc: 'Most items',
@@ -55,29 +74,65 @@ const SORT_LABEL: Record<SortKey, string> = {
  */
 export function MenuListClient({ vendorId }: { vendorId: string }) {
   const { data: menus, isLoading, error } = useMenus(vendorId);
+  const reorder = useReorderMenus(vendorId);
+  const { toast } = useToast();
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<VendorMenu | null>(null);
   const [search, setSearch] = useState('');
-  const [sort, setSort] = useState<SortKey>('name_asc');
+  const [sort, setSort] = useState<SortKey>('manual');
 
   const list = useMemo(() => {
     const all = menus ?? [];
     const needle = search.trim().toLowerCase();
     const filtered = needle ? all.filter((m) => m.name.toLowerCase().includes(needle)) : all.slice();
-    filtered.sort((a, b) => {
-      switch (sort) {
-        case 'name_asc':
-          return a.name.localeCompare(b.name);
-        case 'name_desc':
-          return b.name.localeCompare(a.name);
-        case 'items_desc':
-          return (b._count?.items ?? 0) - (a._count?.items ?? 0);
-        case 'updated_desc':
-          return +new Date(b.updatedAt) - +new Date(a.updatedAt);
-      }
-    });
+    // `manual` keeps the server's sortOrder (the array already arrives ordered),
+    // so it's the only mode where drag-to-reorder maps cleanly back to the API.
+    if (sort !== 'manual') {
+      filtered.sort((a, b) => {
+        switch (sort) {
+          case 'name_asc':
+            return a.name.localeCompare(b.name);
+          case 'name_desc':
+            return b.name.localeCompare(a.name);
+          case 'items_desc':
+            return (b._count?.items ?? 0) - (a._count?.items ?? 0);
+          case 'updated_desc':
+            return +new Date(b.updatedAt) - +new Date(a.updatedAt);
+        }
+      });
+    }
     return filtered;
   }, [menus, search, sort]);
+
+  // Dragging only makes sense over the FULL, unfiltered, custom-order list:
+  // the reorder API requires every menu ID exactly once, so a searched or
+  // re-sorted subset can't be persisted. Outside that mode rows aren't draggable.
+  const canDrag = sort === 'manual' && search.trim() === '' && list.length > 1;
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = list.findIndex((m) => m.id === active.id);
+    const newIndex = list.findIndex((m) => m.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+    const nextOrder = arrayMove(list, oldIndex, newIndex);
+    reorder.mutate(
+      nextOrder.map((m) => m.id),
+      {
+        onError: (err) =>
+          toast({
+            title: 'Could not save the new order',
+            description: err instanceof Error ? err.message : '',
+            variant: 'destructive',
+          }),
+      },
+    );
+  };
 
   return (
     <div className="space-y-5">
@@ -163,9 +218,24 @@ export function MenuListClient({ vendorId }: { vendorId: string }) {
             </div>
           )}
 
-          {list.map((m) => (
-            <MenuRow key={m.id} vendorId={vendorId} menu={m} onEdit={() => setEditing(m)} />
-          ))}
+          {canDrag ? (
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <SortableContext items={list.map((m) => m.id)} strategy={verticalListSortingStrategy}>
+                {list.map((m) => (
+                  <SortableMenuRow
+                    key={m.id}
+                    vendorId={vendorId}
+                    menu={m}
+                    onEdit={() => setEditing(m)}
+                  />
+                ))}
+              </SortableContext>
+            </DndContext>
+          ) : (
+            list.map((m) => (
+              <MenuRow key={m.id} vendorId={vendorId} menu={m} onEdit={() => setEditing(m)} />
+            ))
+          )}
         </div>
 
         <aside aria-label="Menu summary and tips">
@@ -185,7 +255,7 @@ export function MenuListClient({ vendorId }: { vendorId: string }) {
   );
 }
 
-function MenuRow({
+function SortableMenuRow({
   vendorId,
   menu,
   onEdit,
@@ -193,6 +263,40 @@ function MenuRow({
   vendorId: string;
   menu: VendorMenu;
   onEdit: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
+    useSortable({ id: menu.id });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 10 : undefined,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} className={isDragging ? 'opacity-70' : undefined}>
+      <MenuRow
+        vendorId={vendorId}
+        menu={menu}
+        onEdit={onEdit}
+        handleProps={{ ...attributes, ...listeners, ref: setActivatorNodeRef }}
+      />
+    </div>
+  );
+}
+
+function MenuRow({
+  vendorId,
+  menu,
+  onEdit,
+  handleProps,
+}: {
+  vendorId: string;
+  menu: VendorMenu;
+  onEdit: () => void;
+  handleProps?: React.HTMLAttributes<HTMLButtonElement> & {
+    ref: (node: HTMLElement | null) => void;
+  };
 }) {
   const update = useUpdateMenu(vendorId);
   const del = useDeleteMenu(vendorId);
@@ -203,6 +307,17 @@ function MenuRow({
   return (
     <article className="fp-card border border-border bg-white p-4">
       <div className="flex flex-wrap items-start gap-4">
+        {handleProps && (
+          <button
+            type="button"
+            {...handleProps}
+            aria-label={`Drag to reorder ${menu.name}`}
+            title="Drag to reorder"
+            className="grid h-16 w-8 shrink-0 cursor-grab touch-none place-items-center rounded-lg text-mid hover:bg-surface active:cursor-grabbing"
+          >
+            <GripVertical className="h-5 w-5" />
+          </button>
+        )}
         {/* Thumbnail placeholder — the VendorMenu payload doesn't expose
             a cover image. Use a tinted tile with the dish icon so the
             row still has visual weight per the mockup. */}

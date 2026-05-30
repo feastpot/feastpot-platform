@@ -1,0 +1,95 @@
+You are a NestJS and Next.js 15 engineer. Check whether menu-list
+(whole menu) drag reorder is wired to the API before implementing.
+
+════════════════════════════════════════════════════════
+CHECK FIRST
+════════════════════════════════════════════════════════
+
+Run:
+1. grep -n "reorder\|sortOrder\|displayOrder\|dragEnd\|DragEnd" \
+     apps/vendor/src/app/menu/menu-list-client.tsx
+
+2. grep -n "reorder\|displayOrder" \
+     apps/api/src/modules/catalogue/catalogue.controller.ts
+
+3. grep -n "reorder\|displayOrder" \
+     apps/api/src/modules/catalogue/catalogue.service.ts
+
+Report:
+  a) Is there a reorder API endpoint for whole menus (not menu items)?
+  b) Does the drag handler in menu-list-client.tsx call an API or
+     only update local state?
+  c) Is displayOrder/sortOrder persisted on the Menu model?
+
+NOTE: The audit confirmed items within a menu CAN be reordered
+(wired). This prompt is only for reordering whole menus.
+
+If menu reorder IS wired to the API → report ALREADY IMPLEMENTED
+and stop.
+
+════════════════════════════════════════════════════════
+IMPLEMENTATION (only if menu reorder is visual-only)
+════════════════════════════════════════════════════════
+
+STEP 1 — Confirm displayOrder field on Menu model
+Run: grep -n "sortOrder\|displayOrder\|sort_order\|display_order" \
+  prisma/schema.prisma
+
+If missing, add to Menu model:
+  displayOrder  Int  @default(0)  @map("display_order")
+  Run: npx prisma migrate dev --name add_menu_display_order
+
+STEP 2 — API endpoint
+File: apps/api/src/modules/catalogue/catalogue.controller.ts
+
+Add ABOVE any /:menuId route:
+@Patch(':vendorId/menus/reorder')
+@Roles('vendor', 'admin')
+async reorderMenus(
+  @Param('vendorId', ParseUUIDPipe) vendorId: string,
+  @Body() dto: { menuIds: string[] },
+  @CurrentUser() user: JwtUser,
+) {
+  await this.catalogueService.verifyVendorOwnership(vendorId, user.id)
+  return this.catalogueService.reorderMenus(vendorId, dto.menuIds)
+}
+
+File: apps/api/src/modules/catalogue/catalogue.service.ts
+
+async reorderMenus(vendorId: string, menuIds: string[]) {
+  await this.prisma.$transaction(
+    menuIds.map((id, index) =>
+      this.prisma.menu.update({
+        where: { id, vendorId },
+        data:  { displayOrder: index },
+      })
+    )
+  )
+  return this.prisma.menu.findMany({
+    where:   { vendorId },
+    orderBy: { displayOrder: 'asc' },
+  })
+}
+
+STEP 3 — Wire drag handler in vendor portal
+File: apps/vendor/src/app/menu/menu-list-client.tsx
+
+In the onDragEnd handler, after updating local state, add:
+
+try {
+  await fetch(
+    `${process.env.NEXT_PUBLIC_API_URL}/v1/vendors/${vendorId}/menus/reorder`,
+    {
+      method:  'PATCH',
+      headers: { 'Content-Type': 'application/json',
+                 Authorization: `Bearer ${token}` },
+      body:    JSON.stringify({ menuIds: reordered.map(m => m.id) }),
+    }
+  )
+} catch {
+  setMenus(menus)  // rollback optimistic update
+  toast.error('Could not save menu order')
+}
+
+Run: npm run typecheck in apps/api and apps/vendor
+Output all changed files.
