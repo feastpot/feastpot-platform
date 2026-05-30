@@ -1,0 +1,115 @@
+You are a NestJS engineer. Check whether an order cancellation
+email template exists before creating one.
+
+════════════════════════════════════════════════════════
+CHECK FIRST
+════════════════════════════════════════════════════════
+
+Run:
+1. grep -rn "order_cancelled\|orderCancelled\|order-cancelled\|cancell" \
+     apps/api/src/modules/notifications/templates --include="*.ts"
+
+2. grep -rn "order_cancelled\|cancel.*template\|template.*cancel" \
+     apps/api/src/modules/notifications --include="*.ts"
+
+3. grep -rn "notify.*cancel\|cancel.*notify\|send.*cancel" \
+     apps/api/src/modules/orders/orders.service.ts
+
+Report:
+  a) Does an order_cancelled_by_customer template exist?
+  b) Is a notification enqueued when a customer cancels?
+  c) What does the customer currently receive when they cancel?
+
+If template exists AND notification is enqueued → report
+ALREADY IMPLEMENTED and stop.
+
+════════════════════════════════════════════════════════
+IMPLEMENTATION (only if template is missing)
+════════════════════════════════════════════════════════
+
+STEP 1 — Create the template
+File: apps/api/src/modules/notifications/templates/
+      order-cancelled-customer.template.ts
+
+import { baseLayout, h2, p, brandButton } from './base-layout'
+
+interface OrderCancelledCustomerData {
+  customerFirstName:  string
+  orderNumber:        string
+  vendorName:         string
+  refundAmountPence:  number
+  refundEta:          string  // e.g. "3–5 working days"
+  orderHistoryUrl:    string
+  supportEmail:       string
+}
+
+export function orderCancelledCustomerTemplate(
+  data: OrderCancelledCustomerData
+): { subject: string; html: string } {
+  const refundAmount = `£${(data.refundAmountPence / 100).toFixed(2)}`
+
+  return {
+    subject: `Your order from ${data.vendorName} has been cancelled`,
+    html: baseLayout(
+      'Order cancelled',
+      `
+      ${h2(`Hi ${data.customerFirstName},`)}
+      ${p(`Your order #${data.orderNumber} from
+           <strong>${data.vendorName}</strong> has been cancelled.`)}
+      ${p(`A full refund of <strong>${refundAmount}</strong> has been
+           issued to your original payment method.
+           It should appear within <strong>${data.refundEta}</strong>.`)}
+      ${p(`If you did not cancel this order or have any questions,
+           please contact us at
+           <a href="mailto:${data.supportEmail}"
+              style="color:#1E7B34">${data.supportEmail}</a>`)}
+      ${brandButton('View order history', data.orderHistoryUrl)}
+      `,
+      `Refund of ${refundAmount} on its way`
+    ),
+  }
+}
+
+STEP 2 — Register template key
+File: apps/api/src/modules/notifications/templates/index.ts
+
+Add to the registry:
+  order_cancelled_by_customer: {
+    channels: ['email', 'push'],
+    template: orderCancelledCustomerTemplate,
+  }
+
+STEP 3 — Enqueue in order cancellation service
+File: apps/api/src/modules/orders/orders.service.ts
+
+In the customerCancel() method, after the DB transaction commits,
+add the notification enqueue:
+
+await this.notificationsQueue.add('send', {
+  key:    'order_cancelled_by_customer',
+  userId: customerId,
+  data: {
+    customerFirstName:  customer.firstName,
+    orderNumber:        order.orderNumber,
+    vendorName:         vendor.businessName,
+    refundAmountPence:  order.totalPence,
+    refundEta:          '3–5 working days',
+    orderHistoryUrl:    `${process.env.WEB_URL}/account/orders`,
+    supportEmail:       'support@feastpot.co.uk',
+  },
+})
+
+STEP 4 — Notify vendor of the cancellation too
+Also enqueue a vendor notification (WhatsApp/push) in the same method:
+
+await this.notificationsQueue.add('send', {
+  key:    'order_cancelled_vendor_alert',
+  userId: vendor.userId,
+  data: {
+    orderNumber: order.orderNumber,
+    reason:      cancellationReason,
+  },
+})
+
+Run: npm run typecheck --filter=@feastpot/api
+Output all new and changed files.
