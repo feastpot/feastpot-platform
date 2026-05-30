@@ -111,6 +111,16 @@ export class VendorsController {
     return this.vendors.getMyDashboardSummary(requireUser(user).id);
   }
 
+  @Get('me/onboarding-progress')
+  @ApiBearerAuth()
+  @Roles(UserRole.vendor, UserRole.admin)
+  @ApiOperation({
+    summary: 'Onboarding checklist progress (5 setup steps) for the authed vendor',
+  })
+  getMyOnboardingProgress(@CurrentUser() user: AuthUser | null) {
+    return this.vendors.getOnboardingProgress(requireUser(user).id);
+  }
+
   @Get('me/analytics')
   @ApiBearerAuth()
   @Roles(UserRole.vendor, UserRole.admin)

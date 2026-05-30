@@ -53,7 +53,7 @@ export default async function DashboardPage() {
   }
 
   if (vendor.status !== 'live' && vendor.status !== 'probation') {
-    redirect('/onboarding');
+    redirect('/onboarding/welcome');
   }
 
   // Friendly first name: take the first word of the business name.

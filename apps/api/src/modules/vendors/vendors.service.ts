@@ -1055,6 +1055,53 @@ export class VendorsService {
     return this.resolveMyVendor(userId, VENDOR_READ_ROLES);
   }
 
+  /**
+   * Onboarding checklist progress for the authed vendor. Drives the
+   * /onboarding/welcome screen: five setup steps the vendor must finish
+   * before compliance puts the kitchen live. Each flag is derived from
+   * existing profile/relation state — there is no separate
+   * `onboardingCompletedAt` column; completion is otherwise tracked via
+   * `Vendor.status` (pending → live), which is what gates the welcome
+   * screen redirect.
+   */
+  async getOnboardingProgress(userId: string) {
+    // Resolve membership-aware (a user may be a team member, not the owner)
+    // so this matches /vendors/me — querying by userId alone would 404 for
+    // non-owner members who can still reach the dashboard + welcome screen.
+    const { id: vendorId } = await this.resolveMyVendor(userId, VENDOR_READ_ROLES);
+    const vendor = await this.prisma.vendor.findUnique({
+      where: { id: vendorId },
+      include: {
+        documents: true,
+        deliveryConfig: true,
+        menus: {
+          include: {
+            items: { where: { isAvailable: true }, take: 1 },
+          },
+        },
+      },
+    });
+
+    if (!vendor) {
+      throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'Vendor not found' });
+    }
+
+    const steps = {
+      profileComplete: !!(vendor.description && vendor.logoUrl),
+      documentsComplete: vendor.documents.length >= 4,
+      stripeComplete: !!vendor.stripeAccountId && vendor.payoutsEnabled,
+      menuComplete: vendor.menus.some((m) => m.items.length > 0),
+      deliveryComplete: !!vendor.deliveryConfig?.latitude,
+    };
+
+    return {
+      ...steps,
+      allComplete: Object.values(steps).every(Boolean),
+      completedCount: Object.values(steps).filter(Boolean).length,
+      totalSteps: 5,
+    };
+  }
+
   async create(user: AuthUser, dto: CreateVendorDto) {
     const existing = await this.repo.findByUserId(user.id);
     if (existing) {
