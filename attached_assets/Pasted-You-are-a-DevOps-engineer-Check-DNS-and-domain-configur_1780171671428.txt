@@ -1,0 +1,68 @@
+You are a DevOps engineer. Check DNS and domain configuration before
+making any changes.
+
+════════════════════════════════════════════════════════
+CHECK FIRST
+════════════════════════════════════════════════════════
+
+Run each check and report:
+
+1. API domain resolution:
+   curl -s https://api.feastpot.co.uk/health 2>&1
+   Expected: {"status":"ok",...}
+   Fail: connection refused, SSL error, or 404
+
+2. CORS allowlist in main.ts:
+   grep -n "ALLOWED_ORIGINS\|allowedOrigins\|enableCors" \
+     apps/api/src/main.ts
+   Report all origins listed.
+
+3. API URL in code:
+   grep -rn "feastpot-platform\.replit\.app\|api\.feastpot\.co\.uk" \
+     apps/web/src apps/vendor/src apps/admin/src --include="*.tsx" \
+     --include="*.ts" | grep -v ".spec."
+   Report: is the old Replit URL still hardcoded anywhere?
+
+4. Frontend domain check:
+   curl -s -o /dev/null -w "%{http_code}" https://feastpot.co.uk
+   curl -s -o /dev/null -w "%{http_code}" https://vendor.feastpot.co.uk
+   curl -s -o /dev/null -w "%{http_code}" https://admin.feastpot.co.uk
+   Expected: all three return 200
+
+Report:
+  a) Is api.feastpot.co.uk resolving correctly?
+  b) Are all three frontends returning 200?
+  c) Is the old Replit URL hardcoded anywhere that should use
+     api.feastpot.co.uk or NEXT_PUBLIC_API_URL?
+
+If api.feastpot.co.uk resolves AND all frontends return 200 AND
+no hardcoded Replit URLs remain → report ALREADY COMPLETE and stop.
+
+════════════════════════════════════════════════════════
+IMPLEMENTATION (only for confirmed gaps)
+════════════════════════════════════════════════════════
+
+GAP A — Old Replit URL hardcoded in source
+For every hardcoded feastpot-platform.replit.app found in the source:
+Replace with: process.env.NEXT_PUBLIC_API_URL
+              or process.env.API_PUBLIC_URL (in API-side code)
+
+GAP B — CORS allowlist needs updating
+File: apps/api/src/main.ts
+Ensure ALLOWED_ORIGINS contains all four production domains:
+  'https://feastpot.co.uk',
+  'https://www.feastpot.co.uk',
+  'https://vendor.feastpot.co.uk',
+  'https://admin.feastpot.co.uk',
+
+GAP C — api.feastpot.co.uk not resolving (operational steps)
+These cannot be done in code — document what is needed:
+  1. Add CNAME record: api → feastpot-platform.replit.app
+     (DNS-only / grey cloud — do NOT proxy through Cloudflare)
+  2. In Replit deployment: Settings → Custom domains → add api.feastpot.co.uk
+  3. Wait for Replit to provision SSL (5-30 minutes)
+  4. Update Vercel env vars: NEXT_PUBLIC_API_URL = https://api.feastpot.co.uk
+  5. Redeploy all three Vercel projects
+
+Run: npm run build:api — zero errors
+Output all changed source files. Operational steps listed separately.
