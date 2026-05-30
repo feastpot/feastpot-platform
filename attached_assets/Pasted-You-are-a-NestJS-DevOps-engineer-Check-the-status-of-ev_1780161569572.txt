@@ -1,0 +1,79 @@
+You are a NestJS DevOps engineer. Check the status of every critical
+production secret before any implementation work.
+
+════════════════════════════════════════════════════════
+CHECK — Run every command below and report results
+════════════════════════════════════════════════════════
+
+Run each check and report PRESENT / MISSING / UNKNOWN for each:
+
+CHECK 1 — Stripe live key
+echo "STRIPE_SECRET_KEY prefix: ${STRIPE_SECRET_KEY:0:7}"
+Expected: sk_live_ (LIVE mode)
+Fail if: sk_test_ (test mode) or empty
+
+CHECK 2 — Stripe webhook secret
+echo "STRIPE_WEBHOOK_SECRET prefix: ${STRIPE_WEBHOOK_SECRET:0:8}"
+Expected: whsec_li (live webhook secret)
+Fail if: whsec_te (test webhook secret) or empty
+
+CHECK 3 — Stripe publishable key in web env
+# This must be set in Vercel, not Replit — check code reference
+grep -n "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY" apps/web/src -r --include="*.tsx"
+Report: is it referenced? Is it pk_live_ or pk_test_?
+
+CHECK 4 — Redis URL
+echo "REDIS_URL set: $([ -n \"$REDIS_URL\" ] && echo YES || echo NO)"
+# Also test connectivity:
+node -e "
+const Redis = require('ioredis');
+const r = new Redis(process.env.REDIS_URL, { lazyConnect: true, connectTimeout: 3000 });
+r.connect()
+  .then(() => r.ping())
+  .then(p => { console.log('Redis PING:', p); r.disconnect(); process.exit(0); })
+  .catch(e => { console.error('Redis ERROR:', e.message); process.exit(1); });
+"
+Expected: Redis PING: PONG
+
+CHECK 5 — Resend credentials
+echo "RESEND_API_KEY prefix: ${RESEND_API_KEY:0:8}"
+Expected: re_live_ (NOT re_test_)
+echo "EMAIL_FROM: $EMAIL_FROM"
+Expected: non-empty, should be @feastpot.co.uk address
+
+CHECK 6 — WhatsApp / notification credentials
+echo "WHATSAPP_ACCESS_TOKEN set: $([ -n \"$WHATSAPP_ACCESS_TOKEN\" ] && echo YES || echo NO)"
+echo "WHATSAPP_PHONE_NUMBER_ID set: $([ -n \"$WHATSAPP_PHONE_NUMBER_ID\" ] && echo YES || echo NO)"
+echo "TWILIO_FROM_NUMBER set: $([ -n \"$TWILIO_FROM_NUMBER\" ] && echo YES || echo NO)"
+
+CHECK 7 — VAPID keys (push notifications)
+echo "VAPID_PUBLIC_KEY set: $([ -n \"$VAPID_PUBLIC_KEY\" ] && echo YES || echo NO)"
+echo "VAPID_PRIVATE_KEY set: $([ -n \"$VAPID_PRIVATE_KEY\" ] && echo YES || echo NO)"
+
+CHECK 8 — API health confirms Stripe mode
+curl -s http://localhost:3001/health | python3 -m json.tool
+curl -s http://localhost:3001/healthz | python3 -m json.tool
+Report: what does checks.stripe show?
+
+════════════════════════════════════════════════════════
+REPORT FORMAT
+════════════════════════════════════════════════════════
+
+Produce a table:
+
+  Secret                          Status    Value (prefix only)   Action needed
+  ──────────────────────────────────────────────────────────────────────────────
+  STRIPE_SECRET_KEY               LIVE/TEST  sk_live_/sk_test_    None / ROTATE
+  STRIPE_WEBHOOK_SECRET           SET/MISSING  whsec_...          None / ADD
+  NEXT_PUBLIC_STRIPE_PUBLISHABLE  SET/MISSING  pk_live_/pk_test_  None / UPDATE VERCEL
+  REDIS_URL                       CONNECTED/FAIL  rediss://...    None / FIX
+  RESEND_API_KEY                  LIVE/TEST  re_live_/re_test_    None / ROTATE
+  WHATSAPP_ACCESS_TOKEN           SET/MISSING  EAAxx...           None / ADD
+  TWILIO_FROM_NUMBER              SET/MISSING  +44...             None / ADD
+  VAPID_PUBLIC_KEY                SET/MISSING  BPxx...            None / GENERATE
+
+For every row showing MISSING or TEST or FAIL:
+List the exact Replit Secrets panel action needed (key name + expected value format).
+
+Do not change any code. This is a diagnostic prompt only.
+Report and stop.
