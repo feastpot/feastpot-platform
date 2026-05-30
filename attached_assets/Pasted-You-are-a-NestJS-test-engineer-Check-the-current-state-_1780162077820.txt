@@ -1,0 +1,68 @@
+You are a NestJS test engineer. Check the current state of the
+failing test suites before touching anything.
+
+════════════════════════════════════════════════════════
+CHECK FIRST
+════════════════════════════════════════════════════════
+
+Run: npx jest --passWithNoTests 2>&1 | tail -40
+
+Report:
+  a) Current pass / fail / skip counts
+  b) Which suites are still failing
+  c) For each failing test, the exact error message (first 3 lines only)
+
+If ALL 159 tests now pass → report ALREADY FIXED and stop.
+If any tests still fail → proceed with fixes below.
+
+════════════════════════════════════════════════════════
+IMPLEMENTATION (only if failures confirmed)
+════════════════════════════════════════════════════════
+
+For each failing suite, apply the minimum fix:
+
+SUITE A — supabase-auth.guard.spec.ts
+Check current mapUser implementation:
+  grep -A 10 "mapUser\|user_metadata\|app_metadata" \
+    apps/api/src/auth/guards/supabase-auth.guard.ts
+
+Update the mock JWT payload in the spec to match:
+  user_metadata: { role: 'customer' }
+  (not top-level role claim — it moved to user_metadata)
+
+SUITE B — orders.service.spec.ts
+Check the current queue.add call signature:
+  grep -n "queue\.add\|ordersQueue\.add\|notif" \
+    apps/api/src/modules/orders/orders.service.ts | head -20
+
+Update stale assertions to match current call signature.
+If the service now passes a 3rd options argument to queue.add:
+  expect(mockQueue.add).toHaveBeenCalledWith(
+    'notify_vendor',
+    expect.objectContaining({ orderId: 'order-123' }),
+    expect.anything()  // ← accept any options object
+  )
+
+SUITE C — vendors.service.spec.ts
+Run: grep -n "constructor\|@Inject\|VendorMember\|MembersService" \
+  apps/api/src/modules/vendors/vendors.service.ts | head -15
+Add any missing provider mocks to the test bed.
+
+SUITE D — vendors.controller.spec.ts
+Run: npm run test:api -- --testPathPattern=vendors.controller 2>&1 | head -20
+Read the compilation error. Add missing providers.
+Verify /v1/vendors/debug route is declared before /:id in the controller.
+
+SUITE E — vendor-ownership.guard.spec.ts
+Run: grep -A 10 "constructor\|canActivate" \
+  apps/api/src/modules/catalogue/guards/vendor-ownership.guard.ts
+Update test to match current guard construction and canActivate signature.
+
+════════════════════════════════════════════════════════
+VERIFICATION
+════════════════════════════════════════════════════════
+
+Run: npx jest --passWithNoTests 2>&1 | tail -10
+Assert: 0 failing suites, 159 pass (or improved pass count with 0 fail).
+
+Output only the changed spec files.

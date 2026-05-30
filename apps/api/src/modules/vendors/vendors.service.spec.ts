@@ -10,6 +10,8 @@ import type { StripeService } from '../../stripe/stripe.service';
 import type { ConfigService } from '@nestjs/config';
 import { VendorsService } from './vendors.service';
 import type { VendorRepository } from './vendors.repository';
+import type { SupabaseStorageService } from '../catalogue/supabase-storage.service';
+import type { VendorMembersService } from '../vendor-members/vendor-members.service';
 
 type RepoMock = jest.Mocked<Pick<
   VendorRepository,
@@ -56,6 +58,7 @@ const baseVendor = {
 describe('VendorsService', () => {
   let repo: RepoMock;
   let service: VendorsService;
+  let members: { canActOnVendor: jest.Mock; resolveVendorIdByUserId: jest.Mock };
 
   beforeEach(() => {
     repo = makeRepo();
@@ -70,6 +73,11 @@ describe('VendorsService', () => {
     } as unknown as RedisCacheService;
     const notifications = { enqueue: jest.fn().mockResolvedValue(undefined) } as unknown as NotificationsService;
     const email = { send: jest.fn().mockResolvedValue(undefined) } as unknown as EmailProvider;
+    const storage = { uploadVendorImage: jest.fn() } as unknown as SupabaseStorageService;
+    members = {
+      canActOnVendor: jest.fn().mockResolvedValue(true),
+      resolveVendorIdByUserId: jest.fn().mockResolvedValue({ vendorId: 'v-1' }),
+    };
     service = new VendorsService(
       repo as unknown as VendorRepository,
       prisma,
@@ -78,6 +86,8 @@ describe('VendorsService', () => {
       cache,
       notifications,
       email,
+      storage,
+      members as unknown as VendorMembersService,
     );
   });
 
@@ -125,9 +135,21 @@ describe('VendorsService', () => {
       await expect(service.findById('v-x')).rejects.toBeInstanceOf(NotFoundException);
     });
 
-    it('throws NotFound when user has no vendor', async () => {
-      repo.findByUserId.mockResolvedValue(null as never);
+    it('throws NotFound when the membership-resolved vendor row is missing', async () => {
+      // findMyVendor now resolves the caller's vendor via team membership
+      // (members.resolveVendorIdByUserId) and then loads it by id. NotFound
+      // is the resolved-but-deleted case, NOT the repo.findByUserId path.
+      members.resolveVendorIdByUserId.mockResolvedValue({ vendorId: 'v-1' });
+      repo.findById.mockResolvedValue(null as never);
       await expect(service.findMyVendor('u-x')).rejects.toBeInstanceOf(NotFoundException);
+      expect(members.resolveVendorIdByUserId).toHaveBeenCalledWith('u-x', expect.any(Array));
+    });
+
+    it('resolves the caller vendor through team membership', async () => {
+      members.resolveVendorIdByUserId.mockResolvedValue({ vendorId: 'v-1' });
+      repo.findById.mockResolvedValue(baseVendor as never);
+      await expect(service.findMyVendor('u-member')).resolves.toEqual(baseVendor);
+      expect(members.resolveVendorIdByUserId).toHaveBeenCalledWith('u-member', expect.any(Array));
     });
   });
 
@@ -167,6 +189,7 @@ describe('VendorsService', () => {
   describe('update', () => {
     it('forbids editing another vendor', async () => {
       repo.findById.mockResolvedValue({ ...baseVendor, userId: 'someone-else' } as never);
+      members.canActOnVendor.mockResolvedValue(false);
       await expect(
         service.update('v-1', vendorOwner, { businessName: 'X' }),
       ).rejects.toBeInstanceOf(ForbiddenException);

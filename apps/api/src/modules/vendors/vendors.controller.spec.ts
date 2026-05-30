@@ -2,6 +2,8 @@ import { INestApplication, ValidationPipe, VersioningType } from '@nestjs/common
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 
+import { SupabaseStorageService } from '../catalogue/supabase-storage.service';
+
 import { VendorsController } from './vendors.controller';
 import { VendorsService } from './vendors.service';
 
@@ -64,6 +66,7 @@ describe('VendorsController (HTTP) - debug endpoint + route ordering', () => {
             findBySlug: jest.fn(),
           },
         },
+        { provide: SupabaseStorageService, useValue: {} },
       ],
     }).compile();
 

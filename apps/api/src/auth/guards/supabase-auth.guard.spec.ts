@@ -44,7 +44,7 @@ describe('mapUser', () => {
       user_metadata: {},
     } as unknown as User;
     const token = makeJwt({ sub: user.id, role: 'admin' });
-    expect(mapUser(user, token)).toEqual({ id: user.id, email: user.email, role: UserRole.admin });
+    expect(mapUser(user, token)).toEqual({ id: user.id, email: user.email, role: UserRole.admin, aal: 'aal1' });
   });
 
   it('falls back to app_metadata.role when JWT claim missing', () => {
@@ -164,7 +164,7 @@ describe('SupabaseAuthGuard', () => {
     const goodToken = `${Buffer.from(JSON.stringify({ alg: 'HS256' })).toString('base64url')}.${Buffer.from(JSON.stringify({ sub: 'u1', role: 'vendor' })).toString('base64url')}.sig`;
     const ok = await guard.canActivate(ctxWith({ authorization: `Bearer ${goodToken}` }, holder));
     expect(ok).toBe(true);
-    expect(holder.user).toEqual({ id: 'u1', email: 'u1@x.com', role: UserRole.vendor });
+    expect(holder.user).toEqual({ id: 'u1', email: 'u1@x.com', role: UserRole.vendor, aal: 'aal1' });
   });
 
   it('uses IS_PUBLIC_KEY to detect public', () => {

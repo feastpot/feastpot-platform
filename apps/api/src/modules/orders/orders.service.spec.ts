@@ -110,6 +110,7 @@ describe('OrdersService.updateStatus authorization', () => {
     retrieve: (pi: string) => Promise<{ status: string }>;
   }>;
   let queue: Mocked<{ add: (name: string, data: unknown, opts?: unknown) => Promise<unknown>; getJob: (id: string) => Promise<unknown> }>;
+  let members: { canActOnVendor: jest.Mock };
   let service: OrdersService;
 
   beforeEach(() => {
@@ -140,6 +141,8 @@ describe('OrdersService.updateStatus authorization', () => {
       validate: jest.fn(),
       applyToOrder: jest.fn().mockResolvedValue(undefined),
     };
+    const inbox = { notify: jest.fn().mockResolvedValue(undefined) };
+    members = { canActOnVendor: jest.fn().mockResolvedValue(true) };
     service = new OrdersService(
       {} as never,
       repo as never,
@@ -150,6 +153,8 @@ describe('OrdersService.updateStatus authorization', () => {
       referrals as never,
       discountCodes as never,
       {} as never,
+      inbox as never,
+      members as never,
     );
   });
 
@@ -178,6 +183,7 @@ describe('OrdersService.updateStatus authorization', () => {
 
   it('forbids a non-owning vendor', async () => {
     repo.findByIdWithItems.mockResolvedValue(order({ status: OrderStatus.pending, vendorUserId: 'someone-else' }));
+    members.canActOnVendor.mockResolvedValue(false);
     await expect(
       service.updateStatus('o-1', { status: OrderStatus.accepted }, vendorUser('u-vend')),
     ).rejects.toBeInstanceOf(ForbiddenException);
@@ -185,6 +191,7 @@ describe('OrdersService.updateStatus authorization', () => {
 
   it('forbids customers from updating status', async () => {
     repo.findByIdWithItems.mockResolvedValue(order({ status: OrderStatus.pending }));
+    members.canActOnVendor.mockResolvedValue(false);
     await expect(
       service.updateStatus('o-1', { status: OrderStatus.accepted }, customerUser()),
     ).rejects.toBeInstanceOf(ForbiddenException);
@@ -298,6 +305,8 @@ describe('OrdersService.confirmOrder', () => {
       validate: jest.fn(),
       applyToOrder: jest.fn().mockResolvedValue(undefined),
     };
+    const inbox = { notify: jest.fn().mockResolvedValue(undefined) };
+    const members = { canActOnVendor: jest.fn().mockResolvedValue(true) };
     const svc = new OrdersService(
       {} as never,
       repo as never,
@@ -308,6 +317,8 @@ describe('OrdersService.confirmOrder', () => {
       referrals as never,
       discountCodes as never,
       {} as never,
+      inbox as never,
+      members as never,
     );
     return { svc, repo, stripe, queue };
   };
@@ -354,7 +365,7 @@ describe('OrdersService.confirmOrder', () => {
     repo.findStripePaymentIntent.mockResolvedValue('pi_ok');
     stripe.retrieve.mockResolvedValue({ status: 'requires_capture' });
     await svc.confirmOrder('o-1', 'cust-1');
-    expect(queue.add).toHaveBeenNthCalledWith(1, 'notify_vendor', { vendorId: 'v-1', orderId: 'o-1' });
+    expect(queue.add).toHaveBeenNthCalledWith(1, 'notify_vendor', { vendorId: 'v-1', orderId: 'o-1' }, undefined);
     expect(queue.add).toHaveBeenNthCalledWith(
       2,
       'auto_cancel',
