@@ -18,7 +18,7 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { UserRole } from '@prisma/client';
+import { Prisma, UserRole } from '@prisma/client';
 import type { Response } from 'express';
 import type { Queue } from 'bull';
 
@@ -66,6 +66,13 @@ interface SearchAnalyticsResponse {
   lastSearched: string;
 }
 
+interface SearchAnalyticsPage {
+  data: SearchAnalyticsResponse[];
+  hasMore: boolean;
+  nextCursor: string | null;
+  limit: number;
+}
+
 @ApiTags('Admin')
 @ApiBearerAuth()
 @Controller({ path: 'admin', version: '1' })
@@ -98,8 +105,25 @@ export class AdminController {
   @Get('search-analytics')
   @Roles(UserRole.admin, UserRole.support)
   @ApiOperation({ summary: 'Top customer searches over the last 30 days (count, avg results, zero-result count)' })
-  async searchAnalytics(): Promise<SearchAnalyticsResponse[]> {
-    const rows = await this.prisma.$queryRaw<SearchAnalyticsRow[]>`
+  async searchAnalytics(
+    @Query('limit') limitStr = '25',
+    @Query('cursor') cursor?: string,
+  ): Promise<SearchAnalyticsPage> {
+    const limit = Math.min(Math.max(parseInt(limitStr, 10) || 25, 1), 100);
+    const decoded = cursor ? this.decodeSearchCursor(cursor) : null;
+
+    // Keyset pagination over an aggregate. The stable total order is
+    // (search_count DESC, query ASC) - `query` is the GROUP BY key so it is
+    // unique and breaks count ties deterministically. The cursor carries the
+    // last row's (count, query); the HAVING clause selects everything strictly
+    // after it in that order. We keep the raw SQL (not Prisma groupBy) because
+    // avg_results / zero_result_count need AVG + COUNT FILTER, which groupBy
+    // cannot express.
+    const havingClause = decoded
+      ? Prisma.sql`HAVING (COUNT(*) < ${decoded.count}) OR (COUNT(*) = ${decoded.count} AND query > ${decoded.query})`
+      : Prisma.empty;
+
+    const rows = await this.prisma.$queryRaw<SearchAnalyticsRow[]>(Prisma.sql`
       SELECT
         query,
         COUNT(*)                                      AS search_count,
@@ -109,16 +133,43 @@ export class AdminController {
       FROM search_logs
       WHERE searched_at > NOW() - INTERVAL '30 days'
       GROUP BY query
-      ORDER BY search_count DESC
-      LIMIT 25
-    `;
-    return rows.map((r) => ({
+      ${havingClause}
+      ORDER BY search_count DESC, query ASC
+      LIMIT ${limit + 1}
+    `);
+
+    const hasMore = rows.length > limit;
+    const pageRows = hasMore ? rows.slice(0, limit) : rows;
+    const data = pageRows.map((r) => ({
       query: r.query,
       searchCount: Number(r.search_count),
       avgResults: r.avg_results,
       zeroResultCount: Number(r.zero_result_count),
       lastSearched: r.last_searched.toISOString(),
     }));
+    const last = data[data.length - 1];
+    const nextCursor =
+      hasMore && last ? this.encodeSearchCursor({ count: last.searchCount, query: last.query }) : null;
+
+    return { data, hasMore, nextCursor, limit };
+  }
+
+  /** Cursor for the search-analytics keyset: base64url-encoded {count, query}. */
+  private encodeSearchCursor(c: { count: number; query: string }): string {
+    return Buffer.from(JSON.stringify(c), 'utf8').toString('base64url');
+  }
+
+  private decodeSearchCursor(s: string): { count: number; query: string } | null {
+    try {
+      const obj = JSON.parse(Buffer.from(s, 'base64url').toString('utf8')) as {
+        count: number;
+        query: string;
+      };
+      if (typeof obj.count !== 'number' || typeof obj.query !== 'string') return null;
+      return obj;
+    } catch {
+      return null;
+    }
   }
 
   @Get('dashboard')

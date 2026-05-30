@@ -1,0 +1,59 @@
+You are a Next.js 15 engineer. Check whether admin vendor application
+management pages exist before building them.
+
+════════════════════════════════════════════════════════
+CHECK FIRST
+════════════════════════════════════════════════════════
+
+Run:
+1. find apps/admin/src/app -name "*.tsx" | grep -i "application\|vendor-app"
+2. grep -rn "vendor-applications\|vendorApplications\|vendor_applications" \
+     apps/admin/src --include="*.tsx" | head -10
+3. ls apps/admin/src/app/vendor-applications 2>/dev/null || \
+   echo "NO vendor-applications route"
+
+Report:
+  a) Does /admin/vendor-applications list page exist?
+  b) Does /admin/vendor-applications/[id] detail page exist?
+  c) Is the approve/reject flow accessible from any existing admin page?
+
+If both list and detail pages exist with approve/reject → report
+ALREADY IMPLEMENTED and stop.
+
+════════════════════════════════════════════════════════
+IMPLEMENTATION (only for confirmed missing pages)
+════════════════════════════════════════════════════════
+
+File: apps/admin/src/app/vendor-applications/page.tsx (create)
+
+List page showing all applications with filter tabs:
+  All | Pending | Under Review | Information Requested | Approved | Rejected
+
+Each row shows:
+  Kitchen name, applicant name, email, cuisine type, kitchen type,
+  submitted date, current status badge, FSA: Yes/No
+
+Row is clickable → navigates to /vendor-applications/[id]
+
+File: apps/admin/src/app/vendor-applications/[id]/page.tsx (create)
+
+Detail page showing:
+  Full application data (all fields from VendorApplication)
+  Terms acceptance: date and version
+  Action buttons:
+    Approve → calls PATCH /v1/admin/vendor-applications/:id { status: 'approved' }
+    Reject → opens dialog requiring rejection reason (min 20 chars)
+    Request info → opens dialog for admin notes
+    Resend invite (if approved) → calls POST .../resend-invite
+
+Approval confirmation dialog:
+  "Approving this vendor will:
+   ✓ Create their Supabase auth account
+   ✓ Create their Vendor record (status: live)
+   ✓ Send them a portal invite email with a 7-day magic link
+   Are you sure?"
+
+Add "Applications" to the admin sidebar under OPERATIONS group.
+
+Run: npm run typecheck --filter=@feastpot/admin
+Output all new files.

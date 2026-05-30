@@ -1,0 +1,75 @@
+You are a NestJS and Next.js 15 engineer. Check whether admin
+analytics has proper pagination before implementing it.
+
+════════════════════════════════════════════════════════
+CHECK FIRST
+════════════════════════════════════════════════════════
+
+Run:
+1. grep -n "search.*analytics\|searchAnalytics\|LIMIT\|limit\|take" \
+     apps/api/src/modules/admin/admin.controller.ts | head -15
+2. grep -n "pagination\|cursor\|page\|limit" \
+     apps/admin/src/app --include="*.tsx" -r | grep -i "analytics\|search"
+3. curl -s "http://localhost:3001/v1/admin/search-analytics?limit=5" \
+     -H "Authorization: Bearer {admin_token}"
+   (If admin token not available, inspect the controller source directly)
+
+Report:
+  a) Is there a hardcoded LIMIT 25 in searchAnalytics?
+  b) Does the endpoint accept a cursor or limit param?
+  c) Is there pagination UI in the admin analytics view?
+
+If cursor pagination exists AND UI shows more/less → report
+ALREADY IMPLEMENTED and stop.
+
+════════════════════════════════════════════════════════
+IMPLEMENTATION (only if hardcoded or missing)
+════════════════════════════════════════════════════════
+
+File: apps/api/src/modules/admin/admin.controller.ts
+
+Update searchAnalytics to accept limit and cursor:
+
+@Get('admin/search-analytics')
+@Roles('admin', 'support')
+async searchAnalytics(
+  @Query('limit') limitStr = '25',
+  @Query('cursor') cursor?: string,
+) {
+  const limit = Math.min(Math.max(parseInt(limitStr, 10) || 25, 1), 100)
+  return this.adminService.searchAnalytics(limit, cursor)
+}
+
+File: apps/api/src/modules/admin/admin.service.ts
+
+async searchAnalytics(limit: number, cursor?: string) {
+  const results = await this.prisma.searchLog.groupBy({
+    by:      ['query'],
+    _count:  { query: true },
+    _max:    { searchedAt: true },
+    orderBy: { _count: { query: 'desc' } },
+    take:    limit + 1,
+    ...(cursor ? { cursor: { query: cursor }, skip: 1 } : {}),
+  })
+
+  const hasMore   = results.length > limit
+  const data      = hasMore ? results.slice(0, limit) : results
+  const nextCursor = hasMore ? data[data.length - 1].query : null
+
+  return {
+    data: data.map(r => ({
+      query:       r.query,
+      count:       r._count.query,
+      lastSearched: r._max.searchedAt,
+    })),
+    hasMore,
+    nextCursor,
+    limit,
+  }
+}
+
+In the admin dashboard search trends card, add a "Load more" button
+when hasMore is true.
+
+Run: npm run typecheck in apps/api and apps/admin
+Output all changed files.

@@ -26,10 +26,11 @@ function barColour(avgResults: number): string {
  *      catalog can't yet meet.
  */
 export function SearchTrendsCard() {
-  const { data, isLoading, error } = useSearchAnalytics();
+  const { rows, isLoading, error, fetchNextPage, hasNextPage, isFetchingNextPage } =
+    useSearchAnalytics();
 
-  const top10 = (data ?? []).slice(0, 10);
-  const opportunities = (data ?? []).filter(
+  const top10 = rows.slice(0, 10);
+  const opportunities = rows.filter(
     (r) => r.avgResults === 0 && r.searchCount > 3,
   );
 
@@ -111,6 +112,19 @@ export function SearchTrendsCard() {
                 </li>
               ))}
             </ul>
+          </div>
+        )}
+
+        {hasNextPage && (
+          <div className="mt-4 flex justify-center">
+            <button
+              type="button"
+              onClick={() => void fetchNextPage()}
+              disabled={isFetchingNextPage}
+              className="rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium hover:bg-accent disabled:opacity-50"
+            >
+              {isFetchingNextPage ? 'Loading…' : 'Load more'}
+            </button>
           </div>
         )}
       </CardContent>
