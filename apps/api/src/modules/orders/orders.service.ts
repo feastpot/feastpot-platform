@@ -104,6 +104,22 @@ export function computeCommission(
   return { commissionPence, vendorPayoutPence: totalPence - commissionPence };
 }
 
+/**
+ * Decide whether a delivery address is outside the vendor's serviceable area.
+ * The local radius ONLY constrains `local` delivery - a vendor whose effective
+ * delivery mode is `nationwide` (or collection) serves any distance, so they're
+ * never "outside". Returns false (in-area / not applicable) for non-local modes
+ * regardless of distance. Pure so the geofence rule can be unit-tested directly.
+ */
+export function isOutsideLocalDeliveryArea(
+  deliveryType: DeliveryType,
+  distanceMiles: number,
+  radiusMiles: number,
+): boolean {
+  if (deliveryType !== DeliveryType.local) return false;
+  return distanceMiles > radiusMiles;
+}
+
 export function isVendorTransitionAllowed(from: OrderStatus, to: OrderStatus): boolean {
   return VENDOR_TRANSITIONS.get(from)?.has(to) ?? false;
 }
@@ -171,12 +187,20 @@ export class OrdersService {
    * transient postcodes.io outage never blocks legitimate checkout.
    */
   private async assertWithinDeliveryArea(
-    vendor: { businessName: string | null; deliveryConfig: { latitude: number | null; longitude: number | null; localRadiusMiles: number } | null },
+    vendor: { businessName: string | null; deliveryConfig: { latitude: number | null; longitude: number | null; localRadiusMiles: number; types: DeliveryType[] } | null },
     address: { postcode: string; latitude: number | null; longitude: number | null } | null,
   ): Promise<void> {
     const dc = vendor.deliveryConfig;
     if (!dc || dc.latitude == null || dc.longitude == null) return;
     if (!address) return;
+
+    // The local radius ONLY constrains local delivery. A vendor whose effective
+    // delivery mode is nationwide (or collection) serves addresses any distance
+    // away, so the geofence must not apply - else a valid nationwide order is
+    // wrongly rejected. Mirror the effective-type selection used for delivery-fee
+    // pricing below (types[0], defaulting to local).
+    const effectiveType = dc.types?.[0] ?? DeliveryType.local;
+    if (effectiveType !== DeliveryType.local) return;
 
     // Prefer the address's cached coordinates; geocode the postcode only when
     // they're missing (older address rows pre-date coordinate capture).
@@ -191,7 +215,7 @@ export class OrdersService {
 
     const distanceMiles = haversineMiles({ lat, lng }, { lat: dc.latitude, lng: dc.longitude });
     const radiusMiles = dc.localRadiusMiles ?? 5;
-    if (distanceMiles > radiusMiles) {
+    if (isOutsideLocalDeliveryArea(effectiveType, distanceMiles, radiusMiles)) {
       throw new BadRequestException({
         code: 'OUTSIDE_DELIVERY_AREA',
         message: `${vendor.businessName ?? 'This kitchen'} delivers within ${radiusMiles} miles, but this address is ${distanceMiles.toFixed(1)} miles away. Please choose an address inside the delivery area.`,

@@ -19,11 +19,17 @@ interface Props {
   distanceMiles: number | null | undefined;
   radiusMiles: number | null | undefined;
   hasPostcode: boolean;
+  /**
+   * Vendor's effective delivery mode. The local radius only constrains `local`
+   * delivery - for `nationwide` (or collection) the badge stays neutral rather
+   * than falsely warning "outside delivery area". Defaults to local when omitted.
+   */
+  deliveryType?: string | null;
   className?: string;
 }
 
-export function CoverageBadge({ distanceMiles, radiusMiles, hasPostcode, className }: Props) {
-  const verdict = evaluateDeliveryCoverage(distanceMiles, radiusMiles);
+export function CoverageBadge({ distanceMiles, radiusMiles, hasPostcode, deliveryType, className }: Props) {
+  const verdict = evaluateDeliveryCoverage(distanceMiles, radiusMiles, deliveryType);
 
   if (verdict.state === 'unknown') {
     if (hasPostcode) return null;

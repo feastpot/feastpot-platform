@@ -1,11 +1,12 @@
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
-import { OrderStatus, UserRole } from '@prisma/client';
+import { DeliveryType, OrderStatus, UserRole } from '@prisma/client';
 
 import type { AuthUser } from '../../auth/types';
 
 import {
   ADMIN_TRANSITIONS,
   computeCommission,
+  isOutsideLocalDeliveryArea,
   isVendorTransitionAllowed,
   OrdersService,
   VENDOR_TRANSITIONS,
@@ -62,6 +63,27 @@ describe('OrdersService - pure helpers', () => {
         commissionPence: 5000,
         vendorPayoutPence: 500,
       });
+    });
+  });
+
+  describe('isOutsideLocalDeliveryArea (geofence gate)', () => {
+    // The local radius ONLY constrains local delivery. Nationwide/collection
+    // vendors serve any distance, so they must never be flagged "outside" -
+    // otherwise valid non-local orders are wrongly rejected.
+    it('local vendor outside radius → outside (rejected)', () => {
+      expect(isOutsideLocalDeliveryArea(DeliveryType.local, 8, 5)).toBe(true);
+    });
+    it('local vendor inside radius → in-area (allowed)', () => {
+      expect(isOutsideLocalDeliveryArea(DeliveryType.local, 3, 5)).toBe(false);
+    });
+    it('local vendor exactly at radius → in-area (allowed)', () => {
+      expect(isOutsideLocalDeliveryArea(DeliveryType.local, 5, 5)).toBe(false);
+    });
+    it('nationwide vendor beyond local radius → allowed (radius does not apply)', () => {
+      expect(isOutsideLocalDeliveryArea(DeliveryType.nationwide, 250, 5)).toBe(false);
+    });
+    it('collection vendor beyond local radius → allowed (radius does not apply)', () => {
+      expect(isOutsideLocalDeliveryArea(DeliveryType.collection, 250, 5)).toBe(false);
     });
   });
 

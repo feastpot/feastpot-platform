@@ -155,7 +155,15 @@ function CheckoutInner() {
   const coverageRadiusMiles = coverageVendor?.delivery?.localRadiusMiles ?? null;
   const coverageDistanceMiles =
     typeof coverageVendor?.distanceKm === 'number' ? coverageVendor.distanceKm * KM_PER_MILE : null;
-  const coverageVerdict = evaluateDeliveryCoverage(coverageDistanceMiles, coverageRadiusMiles);
+  // Effective delivery mode (types[0], defaulting to local) - mirrors the
+  // server's fee + geofence selection. The local radius only constrains local
+  // delivery, so a nationwide vendor must never be flagged "outside area".
+  const coverageDeliveryType = coverageVendor?.delivery?.types?.[0] ?? 'local';
+  const coverageVerdict = evaluateDeliveryCoverage(
+    coverageDistanceMiles,
+    coverageRadiusMiles,
+    coverageDeliveryType,
+  );
   const outsideDeliveryArea = coverageVerdict.state === 'outside';
 
   // Order-summary collapse state. We START open so the customer can verify
@@ -225,7 +233,7 @@ function CheckoutInner() {
   // local state. The order on the server is: subtotal + delivery + service −
   // discount, clamped at 0, with loyalty capped against (subtotal + delivery).
   const expressDelivery = coverageVendor?.delivery ?? null;
-  const expressDeliveryType = expressDelivery?.types?.[0] ?? 'local';
+  const expressDeliveryType = coverageDeliveryType;
   const expressDeliveryFeePence =
     !expressDelivery || expressDeliveryType !== 'local'
       ? null // nationwide fee isn't exposed client-side → can't show express pay safely
@@ -698,6 +706,7 @@ function CheckoutInner() {
             <CoverageBadge
               distanceMiles={coverageDistanceMiles}
               radiusMiles={coverageRadiusMiles}
+              deliveryType={coverageDeliveryType}
               hasPostcode
             />
           </div>

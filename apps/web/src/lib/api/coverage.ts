@@ -55,11 +55,23 @@ export type DeliveryCoverageVerdict =
  * can't tell - no postcode entered yet, the vendor hasn't set a service area,
  * or geocoding failed upstream - so callers can show a neutral prompt instead
  * of a false "outside area" warning.
+ *
+ * The local radius ONLY constrains `local` delivery. A vendor whose effective
+ * delivery mode is `nationwide` (or collection) serves addresses any distance
+ * away, so when `deliveryType` is supplied and is not `local` we return
+ * `unknown` - the radius is irrelevant and applying it would wrongly flag a
+ * valid order as "outside area". Mirrors the server-side geofence gate. When
+ * `deliveryType` is omitted we assume local (the historical default).
  */
 export function evaluateDeliveryCoverage(
   distanceMiles: number | null | undefined,
   radiusMiles: number | null | undefined,
+  deliveryType?: string | null,
 ): DeliveryCoverageVerdict {
+  // Radius only applies to local delivery; non-local modes are never "outside".
+  if (deliveryType != null && deliveryType !== 'local') {
+    return { state: 'unknown' };
+  }
   if (
     typeof distanceMiles !== 'number' ||
     !Number.isFinite(distanceMiles) ||

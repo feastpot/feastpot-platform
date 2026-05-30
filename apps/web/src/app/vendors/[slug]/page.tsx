@@ -433,6 +433,7 @@ export default async function VendorProfilePage({ params }: PageProps) {
           <CoverageBadge
             distanceMiles={distanceMiles}
             radiusMiles={vendor.delivery?.localRadiusMiles ?? null}
+            deliveryType={vendor.delivery?.types?.[0] ?? 'local'}
             hasPostcode={Boolean(customerPostcode)}
           />
         </div>
