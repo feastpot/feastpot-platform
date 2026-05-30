@@ -1,0 +1,79 @@
+You are a NestJS and Prisma engineer. Check whether notification
+preferences exist before creating them.
+
+════════════════════════════════════════════════════════
+CHECK FIRST
+════════════════════════════════════════════════════════
+
+Run:
+1. grep -n "NotificationPreference\|notification_preference" \
+     prisma/schema.prisma
+2. grep -rn "NotificationPreference\|notificationPreference\|notif.*pref" \
+     apps/api/src --include="*.ts" | head -10
+3. grep -rn "notification.*settings\|notif.*settings" \
+     apps/web/src apps/vendor/src --include="*.tsx" | head -10
+
+Report:
+  a) Does a NotificationPreference model exist in the schema?
+  b) Can users currently control which notifications they receive?
+  c) Is there a notification settings UI in the customer or vendor app?
+
+If model exists AND UI allows control → report ALREADY IMPLEMENTED
+and stop.
+
+════════════════════════════════════════════════════════
+IMPLEMENTATION (only if missing)
+════════════════════════════════════════════════════════
+
+STEP 1 — Schema
+File: prisma/schema.prisma
+
+model NotificationPreference {
+  id       String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId   String  @db.Uuid @map("user_id")
+  channel  String  // email, sms, whatsapp, push
+  key      String  // order_confirmation, order_dispatched, marketing, etc.
+  enabled  Boolean @default(true)
+
+  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, channel, key])
+  @@index([userId])
+  @@map("notification_preferences")
+}
+
+Run: npx prisma migrate dev --name add_notification_preferences
+
+STEP 2 — API endpoints
+File: apps/api/src/modules/notifications/notification-preferences.controller.ts
+
+@Controller({ version: '1', path: 'notification-preferences' })
+@UseGuards(JwtAuthGuard)
+export class NotificationPreferencesController {
+  @Get()
+  async getPreferences(@CurrentUser() user: JwtUser) {
+    return this.prefsService.getPreferences(user.id)
+  }
+
+  @Patch()
+  async updatePreferences(
+    @CurrentUser() user: JwtUser,
+    @Body() dto: UpdatePreferencesDto,
+  ) {
+    return this.prefsService.updatePreferences(user.id, dto)
+  }
+}
+
+STEP 3 — Customer account UI
+File: apps/web/src/app/account/notifications/page.tsx (create)
+
+Simple toggle list:
+  Email: Order confirmation, Order dispatched, Review reminder, Marketing
+  WhatsApp: Order accepted, Order dispatched
+  Push: New offers, Order updates
+
+Each toggle calls PATCH /v1/notification-preferences.
+
+Run: npx prisma generate
+Run: npm run typecheck in apps/api and apps/web
+Output all new and changed files.
