@@ -1,6 +1,23 @@
 'use client';
 
 import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  arrayMove,
+  rectSortingStrategy,
+  sortableKeyboardCoordinates,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import {
   Button,
   Card,
   CardContent,
@@ -12,7 +29,7 @@ import {
   SelectValue,
   cn,
 } from '@feastpot/ui';
-import { ArrowLeft, Trash2, Upload } from 'lucide-react';
+import { ArrowLeft, GripVertical, Trash2, Upload } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -284,6 +301,42 @@ export function ItemEditorClient({
       });
     }
   }
+
+  // Drag-reorder the photos. Array position IS the order: index 0 is always
+  // the cover image. We rewrite the whole array and persist via the existing
+  // update endpoint (same path removeImage uses), rolling back on failure.
+  async function reorderImages(activeUrl: string, overUrl: string) {
+    const prev = form.images;
+    const oldIndex = prev.indexOf(activeUrl);
+    const newIndex = prev.indexOf(overUrl);
+    if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return;
+    const next = arrayMove(prev, oldIndex, newIndex);
+    setForm((s) => ({ ...s, images: next }));
+    // A brand-new item has no id yet, so there is nothing to persist - the
+    // reordered array is sent with the create call on save.
+    if (isNew) return;
+    try {
+      await update.mutateAsync({ itemId, images: next });
+    } catch (err) {
+      setForm((s) => ({ ...s, images: prev }));
+      toast({
+        title: 'Could not save photo order',
+        description: err instanceof Error ? err.message : '',
+        variant: 'destructive',
+      });
+    }
+  }
+
+  const photoSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const handlePhotoDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    void reorderImages(String(active.id), String(over.id));
+  };
 
   if (!isNew && isLoading) {
     return <p className="text-sm text-mid">Loading item…</p>;
@@ -584,14 +637,15 @@ export function ItemEditorClient({
         </SectionCard>
 
         {/* CARD 6 - Photos. 5 slots; existing slots show the image, empty
-            slots show the upload affordance. (No drag-reorder yet - the
-            brief asks for it but the API doesn't expose an image-order
-            field, so reordering wouldn't persist. TODO: wire up once the
-            schema adds a sortable images array.) */}
+            slots show the upload affordance. Drag a photo by its handle to
+            reorder - array position IS the order, so the first photo is the
+            cover. Reordering persists through the same update endpoint
+            removeImage uses (no separate image-order field needed). */}
         <SectionCard title="Photos">
           <div className="flex items-center justify-between">
             <p className="text-xs text-mid">
-              Up to 5. JPEG / PNG / WebP, 5 MB max each.
+              Up to 5. JPEG / PNG / WebP, 5 MB max each. Drag to reorder — the
+              first photo is the cover.
             </p>
             <Button
               type="button"
@@ -620,38 +674,34 @@ export function ItemEditorClient({
               Save the item first, then come back here to upload photos.
             </p>
           )}
-          <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
-            {Array.from({ length: 5 }).map((_, i) => {
-              const url = form.images[i];
-              if (url) {
-                return (
-                  <div
+          <DndContext
+            sensors={photoSensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handlePhotoDragEnd}
+          >
+            <SortableContext items={form.images} strategy={rectSortingStrategy}>
+              <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+                {form.images.map((url, i) => (
+                  <SortablePhoto
                     key={url}
-                    className="group relative aspect-square overflow-hidden rounded-xl border border-border"
+                    url={url}
+                    isCover={i === 0}
+                    canDrag={form.images.length > 1}
+                    onRemove={() => removeImage(url)}
+                  />
+                ))}
+                {Array.from({ length: Math.max(0, 5 - form.images.length) }).map((_, i) => (
+                  <div
+                    key={`empty-${i}`}
+                    className="flex aspect-square items-center justify-center rounded-xl border border-dashed border-border bg-surface text-xs text-mid"
+                    aria-hidden
                   >
-                    <Image src={url} alt="" fill sizes="120px" className="object-cover" />
-                    <button
-                      type="button"
-                      onClick={() => removeImage(url)}
-                      className="absolute right-1 top-1 rounded-full bg-black/70 p-1 text-white opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100"
-                      aria-label="Remove photo"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </button>
+                    Slot {form.images.length + i + 1}
                   </div>
-                );
-              }
-              return (
-                <div
-                  key={`empty-${i}`}
-                  className="flex aspect-square items-center justify-center rounded-xl border border-dashed border-border bg-surface text-xs text-mid"
-                  aria-hidden
-                >
-                  Slot {i + 1}
-                </div>
-              );
-            })}
-          </div>
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
         </SectionCard>
       </form>
 
@@ -684,6 +734,73 @@ export function ItemEditorClient({
           </Button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function SortablePhoto({
+  url,
+  isCover,
+  canDrag,
+  onRemove,
+}: {
+  url: string;
+  isCover: boolean;
+  canDrag: boolean;
+  onRemove: () => void;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    setActivatorNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: url, disabled: !canDrag });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 10 : undefined,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        'group relative aspect-square overflow-hidden rounded-xl border border-border',
+        isDragging && 'opacity-70',
+      )}
+    >
+      <Image src={url} alt="" fill sizes="120px" className="object-cover" />
+      {isCover && (
+        <span className="absolute left-1 top-1 rounded bg-[#1E7B34] px-1.5 py-0.5 text-[10px] font-bold uppercase text-white">
+          Cover
+        </span>
+      )}
+      {canDrag && (
+        <button
+          type="button"
+          ref={setActivatorNodeRef}
+          {...attributes}
+          {...listeners}
+          aria-label="Drag to reorder photo"
+          title="Drag to reorder"
+          className="absolute bottom-1 left-1 flex h-7 w-7 cursor-grab touch-none items-center justify-center rounded-full bg-black/70 text-white opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100 active:cursor-grabbing"
+        >
+          <GripVertical className="h-3.5 w-3.5" />
+        </button>
+      )}
+      <button
+        type="button"
+        onClick={onRemove}
+        className="absolute right-1 top-1 rounded-full bg-black/70 p-1 text-white opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100"
+        aria-label="Remove photo"
+      >
+        <Trash2 className="h-3 w-3" />
+      </button>
     </div>
   );
 }

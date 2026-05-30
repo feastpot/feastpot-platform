@@ -1,0 +1,87 @@
+You are a NestJS and Prisma engineer. Check whether item photo
+ordering is supported before implementing it.
+
+════════════════════════════════════════════════════════
+CHECK FIRST
+════════════════════════════════════════════════════════
+
+Run:
+1. grep -n "imageUrls\|image_urls\|MenuItemImage" prisma/schema.prisma
+2. grep -n "imageUrls\|photoOrder\|imageOrder" \
+     apps/vendor/src/app/menu/\[menuId\]/items/\[itemId\]/item-editor-client.tsx
+3. grep -n "images\|imageUrls\|reorder.*image\|image.*reorder" \
+     apps/api/src/modules/catalogue/catalogue.service.ts
+
+Report:
+  a) Are images stored as String[] on MenuItem (flat array)?
+  b) Is there a drag handler for photo reordering in the editor?
+  c) Does the API support reordering images?
+
+If images have a sortable structure AND drag reorder is wired →
+report ALREADY IMPLEMENTED and stop.
+
+════════════════════════════════════════════════════════
+IMPLEMENTATION (only if photo ordering is not wired)
+════════════════════════════════════════════════════════
+
+IMPORTANT: The audit confirmed imageUrls is a flat String[] with no
+sort field. This means the cleanest fix without a schema migration
+is to treat array position as sort order — the first image is always
+the cover. Drag reorder simply rewrites the array in the new order.
+
+STEP 1 — API: PATCH image order endpoint
+File: apps/api/src/modules/catalogue/catalogue.controller.ts
+
+@Patch(':vendorId/menus/:menuId/items/:itemId/images/reorder')
+@Roles('vendor', 'admin')
+async reorderItemImages(
+  @Param('itemId', ParseUUIDPipe) itemId: string,
+  @Body() dto: { imageUrls: string[] },
+  @CurrentUser() user: JwtUser,
+) {
+  return this.catalogueService.reorderItemImages(itemId, dto.imageUrls)
+}
+
+File: apps/api/src/modules/catalogue/catalogue.service.ts
+
+async reorderItemImages(itemId: string, imageUrls: string[]) {
+  return this.prisma.menuItem.update({
+    where: { id: itemId },
+    data:  { imageUrls },
+  })
+}
+
+STEP 2 — Vendor portal: wire drag handler
+File: apps/vendor/src/app/menu/[menuId]/items/[itemId]/item-editor-client.tsx
+
+Find the photo drag-reorder handler (currently updating local state only).
+After local state update, add:
+
+await fetch(
+  `${API}/v1/vendors/${vendorId}/menus/${menuId}/items/${itemId}/images/reorder`,
+  {
+    method:  'PATCH',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body:    JSON.stringify({ imageUrls: reorderedUrls }),
+  }
+).catch(() => {
+  setImages(images)  // rollback
+  toast.error('Could not save photo order')
+})
+
+STEP 3 — Show "Cover photo" label on first image
+In the photo grid, add a "Cover" badge on the first image:
+
+{index === 0 && (
+  <span style={{
+    position: 'absolute', top: '6px', left: '6px',
+    background: '#1E7B34', color: 'white',
+    fontSize: '10px', fontWeight: 700, padding: '2px 6px',
+    borderRadius: '4px',
+  }}>
+    Cover
+  </span>
+)}
+
+Run: npm run typecheck in apps/api and apps/vendor
+Output all changed files.
