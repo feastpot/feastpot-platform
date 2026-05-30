@@ -1,6 +1,6 @@
 import { ExecutionContext, Injectable } from '@nestjs/common';
 import { ThrottlerGuard, ThrottlerLimitDetail, ThrottlerRequest } from '@nestjs/throttler';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 
 import type { AuthUser } from '../../auth/types';
 
@@ -75,12 +75,18 @@ export class RoleThrottlerGuard extends ThrottlerGuard {
   }
 
   /**
-   * Standard 429 response; preserve any custom error wiring downstream.
+   * @nestjs/throttler v6 sets per-throttler `Retry-After-{name}` headers (e.g.
+   * `Retry-After-short`) but never the canonical `Retry-After`. Set it here from
+   * the real seconds-until-unblock so HTTP clients get a standard header and
+   * ThrottlerExceptionFilter can echo an accurate `retryAfter` into the JSON
+   * body instead of guessing.
    */
   protected throwThrottlingException(
     context: ExecutionContext,
     throttlerLimitDetail: ThrottlerLimitDetail,
   ): Promise<void> {
+    const res = context.switchToHttp().getResponse<Response>();
+    res.header('Retry-After', `${throttlerLimitDetail.timeToBlockExpire}`);
     return super.throwThrottlingException(context, throttlerLimitDetail);
   }
 }

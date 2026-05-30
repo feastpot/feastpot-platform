@@ -1,0 +1,68 @@
+You are a NestJS engineer. Check whether a ThrottlerExceptionFilter
+exists before creating one.
+
+════════════════════════════════════════════════════════
+CHECK FIRST
+════════════════════════════════════════════════════════
+
+Run:
+1. find apps/api/src -name "*throttler*" -o -name "*rate-limit*" 2>/dev/null
+2. grep -rn "ThrottlerExceptionFilter\|ThrottlerException" \
+     apps/api/src --include="*.ts"
+3. grep -n "useGlobalFilters\|ThrottlerExceptionFilter" \
+     apps/api/src/main.ts
+
+Report:
+  a) Does a ThrottlerExceptionFilter exist?
+  b) Is it registered in main.ts via useGlobalFilters?
+  c) What shape does a 429 response currently return?
+     Test: curl -s -o /dev/null -w "%{http_code}" \
+       http://localhost:3001/v1/discount-codes/validate \
+       -X POST -H "Content-Type: application/json" \
+       -d '{"code":"test"}' (repeat 11 times rapidly to trigger 429)
+
+If ThrottlerExceptionFilter exists AND is registered AND returns a
+consistent error envelope → report ALREADY IMPLEMENTED and stop.
+
+════════════════════════════════════════════════════════
+IMPLEMENTATION (only if filter is missing or unregistered)
+════════════════════════════════════════════════════════
+
+File: apps/api/src/common/filters/throttler-exception.filter.ts
+
+import {
+  ExceptionFilter, Catch, ArgumentsHost, HttpStatus,
+} from '@nestjs/common'
+import { ThrottlerException } from '@nestjs/throttler'
+import { Response } from 'express'
+
+@Catch(ThrottlerException)
+export class ThrottlerExceptionFilter implements ExceptionFilter {
+  catch(exception: ThrottlerException, host: ArgumentsHost) {
+    const res = host.switchToHttp().getResponse<Response>()
+    const ttl = (exception as any).ttl ?? 60_000
+    const retryAfterSeconds = Math.ceil(ttl / 1000)
+
+    res
+      .status(HttpStatus.TOO_MANY_REQUESTS)
+      .setHeader('Retry-After', retryAfterSeconds.toString())
+      .json({
+        statusCode: 429,
+        error:      'Too Many Requests',
+        message:    'You have made too many requests. Please wait before trying again.',
+        retryAfter: retryAfterSeconds,
+      })
+  }
+}
+
+Register in main.ts alongside existing global filters:
+  import { ThrottlerExceptionFilter } from './common/filters/throttler-exception.filter'
+
+  app.useGlobalFilters(
+    new ThrottlerExceptionFilter(),
+    new PrismaExceptionFilter(),
+    new PrismaValidationFilter(),
+  )
+
+Run: npm run build:api — zero errors
+Output the new filter file and updated main.ts.

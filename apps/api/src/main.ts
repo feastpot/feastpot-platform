@@ -100,6 +100,7 @@ import {
   PrismaExceptionFilter,
   PrismaValidationFilter,
 } from './common/filters/prisma-exception.filter';
+import { ThrottlerExceptionFilter } from './common/filters/throttler-exception.filter';
 
 const ALLOWED_ORIGINS = [
   'https://feastpot.co.uk',
@@ -241,11 +242,13 @@ async function bootstrap(): Promise<void> {
     }),
   );
 
-  // D22: Prisma filters are registered BEFORE HttpExceptionFilter. Nest
-  // matches filters by their @Catch() decorator, so Prisma errors land on
-  // the Prisma filters and HttpExceptions still land on HttpExceptionFilter
-  // - registration order only matters for filters that catch the same type.
+  // D22: Specific filters are registered BEFORE the catch-all HttpExceptionFilter.
+  // Nest resolves filters by first match in registration order, so the typed
+  // filters (Prisma errors, ThrottlerException) win and only everything else
+  // falls through to HttpExceptionFilter. ThrottlerException extends HttpException,
+  // so it MUST sit ahead of the catch-all or it would never reach its own filter.
   app.useGlobalFilters(
+    new ThrottlerExceptionFilter(),
     new PrismaExceptionFilter(),
     new PrismaValidationFilter(),
     new HttpExceptionFilter(),
