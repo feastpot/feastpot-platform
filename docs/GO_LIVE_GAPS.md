@@ -1,6 +1,6 @@
 # Feastpot — What's Left Before Onboarding Vendors & Taking Orders
 
-_Last reviewed: 29 May 2026 — written against the code as it stands today, not the roadmap._
+_Last reviewed: 30 May 2026 — written against the code as it stands today, not the roadmap._
 
 This is a plain-English read on the gap between "the software is built" and
 "a real vendor can sign up and a real customer can pay for dinner." Each
@@ -82,13 +82,18 @@ configuration (local/collection/nationwide, radius, fees, minimum order), and
 compliance document upload/verification are all implemented and functional.
 
 **Small unfinished edges (none block onboarding):**
-- **Menu/item drag-to-reorder** shows handles in the UI but isn't wired to
-  the API yet — items save in creation order.
 - **Map preview** in delivery settings is still a text list of postcode
   prefixes; an actual map is on the roadmap.
-- **Menu moderation** — the schema supports a review/approve status, but the
-  current UI treats vendor uploads as auto-approved. Fine for a trusted
-  launch cohort; revisit if you open self-serve signup widely.
+
+**Recently closed:**
+- **Menu/item drag-to-reorder** is now wired end-to-end — vendors reorder
+  items by dragging and the order persists via the API.
+- **Menu moderation** now has an env-gated approval flow plus an admin
+  moderation queue. By default (`MENU_AUTO_APPROVE` unset) vendor uploads are
+  auto-approved — fine for a trusted launch cohort. Set
+  `MENU_AUTO_APPROVE=false` before opening self-serve signup so new items land
+  as "pending" and require admin approval before customers can see or order
+  them; held/rejected items are hidden from listings, search, and checkout.
 
 ---
 
