@@ -1,0 +1,94 @@
+You are a Next.js 15 engineer. Check whether a vendor onboarding
+welcome screen exists before building one.
+
+════════════════════════════════════════════════════════
+CHECK FIRST
+════════════════════════════════════════════════════════
+
+Run:
+1. find apps/vendor/src/app -name "*.tsx" | grep -i "welcome"
+2. grep -rn "onboarding.*complete\|welcome.*vendor\|founding.*cook" \
+     apps/vendor/src --include="*.tsx" | head -10
+3. grep -n "onboardingCompletedAt\|onboarding_completed" \
+     prisma/schema.prisma
+
+Report:
+  a) Does an /onboarding/welcome page exist?
+  b) Is there any onboarding completion tracking in the schema?
+  c) What does a vendor see immediately after their first login?
+
+If welcome page exists with progress checklist → report
+ALREADY IMPLEMENTED and stop.
+
+════════════════════════════════════════════════════════
+IMPLEMENTATION (only if missing)
+════════════════════════════════════════════════════════
+
+STEP 1 — Add onboarding progress API endpoint
+File: apps/api/src/modules/vendors/vendors.controller.ts
+
+@Get('me/onboarding-progress')
+@Roles('vendor')
+async getOnboardingProgress(@CurrentUser() user: JwtUser) {
+  return this.vendorsService.getOnboardingProgress(user.id)
+}
+
+File: apps/api/src/modules/vendors/vendors.service.ts
+
+async getOnboardingProgress(userId: string) {
+  const vendor = await this.prisma.vendor.findFirst({
+    where:   { userId },
+    include: {
+      documents:      true,
+      deliveryConfig: true,
+      menus: {
+        include: {
+          items: { where: { isAvailable: true }, take: 1 },
+        },
+      },
+    },
+  })
+
+  if (!vendor) throw new NotFoundException()
+
+  const steps = {
+    profileComplete:   !!(vendor.description && vendor.logoUrl),
+    documentsComplete: vendor.documents.length >= 4,
+    stripeComplete:    !!vendor.stripeAccountId && vendor.payoutsEnabled,
+    menuComplete:      vendor.menus.some(m => m.items.length > 0),
+    deliveryComplete:  !!(vendor.deliveryConfig?.latitude),
+  }
+
+  return {
+    ...steps,
+    allComplete: Object.values(steps).every(Boolean),
+    completedCount: Object.values(steps).filter(Boolean).length,
+    totalSteps: 5,
+  }
+}
+
+STEP 2 — Onboarding welcome page
+File: apps/vendor/src/app/onboarding/welcome/page.tsx (create)
+
+Shown to vendors whose allComplete === false on first login.
+
+5-step checklist with progress bar:
+  1. Complete your profile (bio, photo, kitchen story)
+  2. Upload compliance documents (4 required)
+  3. Connect Stripe for payouts
+  4. Build your menu (add at least 1 available item)
+  5. Set your delivery area and hours
+
+Each step:
+  - Pending: grey circle number, grey text, CTA button
+  - Complete: green tick circle, green text, no CTA
+
+Bottom:
+  "Your kitchen goes live once all steps are complete."
+  "Need help? Email vendors@feastpot.co.uk"
+
+Show this page when vendor.onboardingCompletedAt is null
+by adding a redirect check to the vendor dashboard layout.
+
+Run: npm run typecheck in apps/api and apps/vendor
+Output all new and changed files.

@@ -1,2 +1,2 @@
-- [Prisma migrations on Supabase](prisma-migrations-supabase.md) — `migrate dev` fails (non-interactive); use `migrate diff` + hand-written migration + `migrate deploy`, and RLS-enable every new table.
-- [NestJS filter ordering](nestjs-filter-ordering.md) — global filters resolve in REVERSE registration order; register specific filters AFTER the catch-all. Also @nestjs/throttler v6 Retry-After quirk.
+- [Admin UI conventions](admin-ui-conventions.md) — server page (requireStaff) → client component; gate mutating UI to match backend @Roles, not the broader page-view roles.
+- [Monorepo commands](monorepo-commands.md) — repo is npm workspaces + Turborepo; attached CHECK-FIRST prompts say `--filter=` (turbo) but per-app scripts run via `npm run X --workspace=@feastpot/<app>`.
