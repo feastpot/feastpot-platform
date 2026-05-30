@@ -5,9 +5,10 @@ import type { Request, Response } from 'express';
 /**
  * Dedicated 429 filter. ThrottlerException extends HttpException, so without
  * this it falls through to the catch-all HttpExceptionFilter and surfaces the
- * library's raw "ThrottlerException: Too Many Requests" message. This catches
- * it first (registered ahead of HttpExceptionFilter in main.ts) to return a
- * friendly message in the SAME error envelope the rest of the API uses
+ * library's raw "ThrottlerException: Too Many Requests" message. Nest reverses
+ * global filters and picks the first @Catch() match, so this is registered AFTER
+ * the catch-all HttpExceptionFilter in main.ts to be evaluated first; it returns
+ * a friendly message in the SAME error envelope the rest of the API uses
  * ({ code, message, statusCode, timestamp, path }).
  *
  * RoleThrottlerGuard (via @nestjs/throttler v6) already sets the `Retry-After`

@@ -242,16 +242,17 @@ async function bootstrap(): Promise<void> {
     }),
   );
 
-  // D22: Specific filters are registered BEFORE the catch-all HttpExceptionFilter.
-  // Nest resolves filters by first match in registration order, so the typed
-  // filters (Prisma errors, ThrottlerException) win and only everything else
-  // falls through to HttpExceptionFilter. ThrottlerException extends HttpException,
-  // so it MUST sit ahead of the catch-all or it would never reach its own filter.
+  // Nest REVERSES global filters during resolution and picks the first whose
+  // @Catch() matches (a catch-all matches everything), so the LAST-registered
+  // filter is checked FIRST. ThrottlerException extends HttpException, so the
+  // dedicated ThrottlerExceptionFilter must be registered AFTER the catch-all
+  // HttpExceptionFilter - otherwise the catch-all wins and the 429 never reaches
+  // its own filter. Everything else still falls through to HttpExceptionFilter.
   app.useGlobalFilters(
-    new ThrottlerExceptionFilter(),
     new PrismaExceptionFilter(),
     new PrismaValidationFilter(),
     new HttpExceptionFilter(),
+    new ThrottlerExceptionFilter(),
   );
 
   if (env !== 'production') {
