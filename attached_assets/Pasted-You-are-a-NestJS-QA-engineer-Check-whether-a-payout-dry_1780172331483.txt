@@ -1,0 +1,98 @@
+You are a NestJS QA engineer. Check whether a payout dry-run has
+been completed and whether the verification tooling exists.
+
+════════════════════════════════════════════════════════
+CHECK FIRST
+════════════════════════════════════════════════════════
+
+Run:
+1. find scripts -name "*payout*" -o -name "*reconcil*" 2>/dev/null
+2. grep -rn "payout.*dry\|dry.*run\|reconcil" \
+     apps/api/src --include="*.ts" | grep -v ".spec." | head -10
+3. grep -n "run-batch\|runBatch\|payoutBatch" \
+     apps/api/src/modules/admin/admin.controller.ts
+
+Report:
+  a) Does a payout verification or reconciliation script exist?
+  b) Is the manual payout trigger endpoint (POST /admin/payouts/run-batch)
+     present and functional?
+  c) Has any real-money payout ever been processed
+     (check for stripeTransferId values in the DB)?
+
+If reconciliation tooling exists AND a live payout has been confirmed →
+report ALREADY COMPLETE and stop.
+
+════════════════════════════════════════════════════════
+IMPLEMENTATION (only if tooling is missing)
+════════════════════════════════════════════════════════
+
+Create a payout reconciliation check script for ops use:
+
+File: scripts/verify-payout-reconciliation.ts
+
+This script connects to the database and Stripe and confirms:
+1. Every payout with status 'transferred' has a real Stripe transfer
+2. Every Stripe transfer amount matches the DB payout amount
+3. No vendor is owed money that has not been paid
+
+import { PrismaClient } from '@prisma/client'
+import Stripe from 'stripe'
+
+const prisma = new PrismaClient()
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2024-06-20' })
+
+async function verifyPayoutReconciliation() {
+  console.log('\n════════ PAYOUT RECONCILIATION CHECK ════════')
+
+  const payouts = await prisma.payout.findMany({
+    where:   { status: 'transferred' },
+    include: { vendor: { select: { businessName: true } } },
+    orderBy: { transferredAt: 'desc' },
+    take:    50,
+  })
+
+  console.log(`\nChecking ${payouts.length} transferred payouts...\n`)
+
+  let discrepancies = 0
+  for (const payout of payouts) {
+    if (!payout.stripeTransferId) {
+      console.error(`❌ ${payout.vendor.businessName}: status=transferred but no stripeTransferId`)
+      discrepancies++
+      continue
+    }
+    try {
+      const transfer = await stripe.transfers.retrieve(payout.stripeTransferId)
+      if (transfer.amount !== payout.amountPence) {
+        console.error(
+          `❌ ${payout.vendor.businessName}: DB amount=${payout.amountPence}p ` +
+          `Stripe amount=${transfer.amount}p — DISCREPANCY`
+        )
+        discrepancies++
+      } else {
+        console.log(`✅ ${payout.vendor.businessName}: £${(payout.amountPence/100).toFixed(2)} confirmed`)
+      }
+    } catch (e) {
+      console.error(`❌ ${payout.vendor.businessName}: Stripe lookup failed — ${e.message}`)
+      discrepancies++
+    }
+  }
+
+  console.log(`\n════════ RESULT: ${discrepancies === 0 ? '✅ ZERO DISCREPANCIES' : `❌ ${discrepancies} DISCREPANCIES FOUND`} ════════\n`)
+  await prisma.$disconnect()
+  process.exit(discrepancies > 0 ? 1 : 0)
+}
+
+verifyPayoutReconciliation().catch(e => {
+  console.error(e)
+  process.exit(1)
+})
+
+Add to package.json scripts (root):
+  "verify:payouts": "ts-node scripts/verify-payout-reconciliation.ts"
+
+Usage after each weekly payout run:
+  npm run verify:payouts
+
+Run: npm run typecheck (scripts are excluded from main tsconfig — use
+  ts-node directly for verification)
+Output the new script file.
