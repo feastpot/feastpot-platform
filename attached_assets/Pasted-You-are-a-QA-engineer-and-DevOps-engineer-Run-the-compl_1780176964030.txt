@@ -1,0 +1,82 @@
+You are a QA engineer and DevOps engineer. Run the complete test suite
+and smoke test, then produce a go-live readiness report.
+
+════════════════════════════════════════════════════════
+STEP 1 — Run all tests
+════════════════════════════════════════════════════════
+
+Run: npx jest --passWithNoTests 2>&1 | tail -20
+Report: exact pass / fail / skip counts.
+
+Run: npm run smoke-test 2>&1
+Report: every step result (pass / fail) and the exact error on any failure.
+
+════════════════════════════════════════════════════════
+STEP 2 — Run health checks
+════════════════════════════════════════════════════════
+
+Run: curl -s http://localhost:3001/health | python3 -m json.tool
+Run: curl -s http://localhost:3001/healthz | python3 -m json.tool
+
+Report the complete JSON from both.
+
+════════════════════════════════════════════════════════
+STEP 3 — Check service fee is wired
+════════════════════════════════════════════════════════
+
+Run: curl -s http://localhost:3001/healthz | python3 -c \
+  "import sys,json; h=json.load(sys.stdin); print('serviceFeeBps:', h.get('checks',{}).get('serviceFeeBps','NOT IN HEALTH CHECK'))"
+
+Run: node -e "
+const { calculateServiceFee } = require('./apps/api/dist/common/utils/service-fee');
+console.log('£10 order fee:', calculateServiceFee(1000), 'pence (expected: 50)');
+console.log('£25 order fee:', calculateServiceFee(2500), 'pence (expected: 125)');
+console.log('£60 order fee:', calculateServiceFee(6000), 'pence (expected: 299)');
+"
+
+════════════════════════════════════════════════════════
+STEP 4 — Produce go-live readiness report
+════════════════════════════════════════════════════════
+
+Based on all results above, write a plain-text readiness report
+to: docs/GO_LIVE_READINESS.txt
+
+The report must include:
+
+  FEASTPOT — GO-LIVE READINESS REPORT
+  Generated: [date]
+
+  TEST RESULTS
+  ────────────
+  Unit tests:   [N] pass / [N] fail / [N] skip
+  Smoke test:   PASS / FAIL (list any failing steps)
+
+  INFRASTRUCTURE CHECKS
+  ──────────────────────
+  API health:          ok / degraded / down
+  Redis:               connected / degraded / missing
+  Stripe mode:         live / test / missing
+  Service fee:         [bps] bps = [%]%  min [Xp]  max £[X.XX]
+  Notifications:       email [configured/missing], whatsapp [configured/missing]
+
+  BLOCKER STATUS
+  ──────────────
+  For each of the 6 original blockers, state: RESOLVED / OUTSTANDING
+  1. Stripe live credentials + webhook
+  2. Notification channel (Resend/Twilio/WhatsApp)
+  3. Redis in production
+  4. DNS and custom domains
+  5. Failing unit tests
+  6. Payout dry-run
+
+  AUDIT GAP STATUS
+  ─────────────────
+  For each prompt 1-16 in this session, state: DONE / SKIPPED (already existed) / OUTSTANDING
+
+  VERDICT
+  ────────
+  READY FOR FIRST VENDOR ONBOARDING: YES / NO
+  READY FOR FIRST REAL ORDER: YES / NO
+  REMAINING BLOCKERS: [list any outstanding items]
+
+Print the report path and also print the VERDICT section to the console.
