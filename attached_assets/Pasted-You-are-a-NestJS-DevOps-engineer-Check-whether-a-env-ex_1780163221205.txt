@@ -1,0 +1,139 @@
+You are a NestJS DevOps engineer. Check whether a .env.example
+file exists before generating one.
+
+════════════════════════════════════════════════════════
+CHECK FIRST
+════════════════════════════════════════════════════════
+
+Run:
+  ls -la .env.example .env.local .env 2>/dev/null || echo "NO ENV TEMPLATE FOUND"
+  ls -la apps/api/.env.example apps/web/.env.example 2>/dev/null
+
+If a .env.example exists at the root or in any app directory:
+  cat the file and report its contents.
+  If it contains all 35+ variables from the audit → report
+  ALREADY COMPLETE and stop.
+  If it is missing variables → proceed with adding the missing ones.
+
+If no .env.example exists anywhere → generate one as below.
+
+════════════════════════════════════════════════════════
+IMPLEMENTATION (only if missing or incomplete)
+════════════════════════════════════════════════════════
+
+File: .env.example (root — applies to apps/api)
+
+# ═══════════════════════════════════════════════════════
+# FEASTPOT — Environment Variables Reference
+# Generated: 30 May 2026
+# Copy this file to .env and fill in real values.
+# NEVER commit .env to version control.
+# ═══════════════════════════════════════════════════════
+
+# ── Supabase ────────────────────────────────────────────
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=eyJh...
+SUPABASE_SERVICE_ROLE_KEY=eyJh...
+SUPABASE_DB_URL=postgresql://postgres:password@db.your-project.supabase.co:5432/postgres
+
+# ── Stripe ──────────────────────────────────────────────
+# Use sk_test_ for development, sk_live_ for production
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+# Set in Vercel env vars for web app (not Replit):
+# NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
+
+# ── Redis (Upstash) ─────────────────────────────────────
+REDIS_URL=rediss://default:password@your-host.upstash.io:6380
+
+# ── Email (Resend) ──────────────────────────────────────
+# Use re_test_ for development, re_live_ for production
+RESEND_API_KEY=re_test_...
+EMAIL_FROM=hello@feastpot.co.uk
+EMAIL_LOGO_URL=https://feastpot.co.uk/images/feastpot-logo.png
+
+# ── SMS (Twilio) ─────────────────────────────────────────
+TWILIO_ACCOUNT_SID=ACxx...
+TWILIO_AUTH_TOKEN=...
+TWILIO_FROM_NUMBER=+447700000000
+TWILIO_WHATSAPP_FROM=whatsapp:+447700000000
+
+# ── WhatsApp (Meta Cloud API) ────────────────────────────
+WHATSAPP_ACCESS_TOKEN=EAAxx...
+WHATSAPP_PHONE_NUMBER_ID=1234567890
+WHATSAPP_WABA_ID=0987654321
+WHATSAPP_VERIFY_TOKEN=your-random-verify-token
+
+# ── Push Notifications (Web Push / VAPID) ────────────────
+VAPID_PUBLIC_KEY=BPxx...
+VAPID_PRIVATE_KEY=...
+VAPID_SUBJECT=mailto:push@feastpot.co.uk
+# Set in Vercel env vars for web app:
+# NEXT_PUBLIC_VAPID_PUBLIC_KEY=BPxx...
+
+# ── Platform config ──────────────────────────────────────
+# Service fee in basis points (500 = 5%)
+SERVICE_FEE_BPS=500
+# Menu auto-approve (true for trusted cohort, false for self-serve)
+MENU_AUTO_APPROVE=true
+# MFA recovery code pepper (generate with: openssl rand -hex 32)
+MFA_RECOVERY_PEPPER=...
+
+# ── URLs ─────────────────────────────────────────────────
+VENDOR_PORTAL_URL=https://vendor.feastpot.co.uk
+ADMIN_URL=https://admin.feastpot.co.uk
+API_PUBLIC_URL=https://api.feastpot.co.uk
+# Set in Vercel env vars for each frontend:
+# NEXT_PUBLIC_API_URL=https://api.feastpot.co.uk
+# NEXT_PUBLIC_SITE_URL=https://feastpot.co.uk
+# NEXT_PUBLIC_SUPPORT_EMAIL=support@feastpot.co.uk
+# NEXT_PUBLIC_SUPPORT_WHATSAPP=+447700000000
+
+# ── Bull Board (queue monitor) ───────────────────────────
+BULL_BOARD_USERNAME=admin
+BULL_BOARD_PASSWORD=change-me-in-production
+
+# ── Ops / Alerts ─────────────────────────────────────────
+DLQ_ALERT_EMAIL=ops@feastpot.co.uk
+VENDOR_APPLICATIONS_ADMIN_EMAIL=vendors@feastpot.co.uk
+SENTRY_DSN=https://xxx@sentry.io/yyy
+
+# ── Runtime ──────────────────────────────────────────────
+NODE_ENV=development
+PORT=3001
+
+# ── Test credentials (CI / smoke tests only) ─────────────
+TEST_ADMIN_EMAIL=soul@feastpot.co.uk
+TEST_ADMIN_PASSWORD=...
+
+File: apps/web/.env.example
+
+# Feastpot Web App (apps/web) — set these in Vercel Environment Variables
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJh...
+NEXT_PUBLIC_API_URL=https://api.feastpot.co.uk
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_...
+NEXT_PUBLIC_VAPID_PUBLIC_KEY=BPxx...
+NEXT_PUBLIC_SITE_URL=https://feastpot.co.uk
+NEXT_PUBLIC_SUPPORT_EMAIL=support@feastpot.co.uk
+NEXT_PUBLIC_SUPPORT_WHATSAPP=+447700000000
+
+File: apps/vendor/.env.example
+
+# Feastpot Vendor Portal (apps/vendor) — set these in Vercel
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJh...
+NEXT_PUBLIC_API_URL=https://api.feastpot.co.uk
+
+File: apps/admin/.env.example
+
+# Feastpot Admin Panel (apps/admin) — set these in Vercel
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJh...
+NEXT_PUBLIC_API_URL=https://api.feastpot.co.uk
+
+Also add .env to .gitignore if not already there:
+  grep -q "^\.env$" .gitignore || echo ".env" >> .gitignore
+  grep -q "^\.env\.local$" .gitignore || echo ".env.local" >> .gitignore
+
+Output all new files. Report what was created.
