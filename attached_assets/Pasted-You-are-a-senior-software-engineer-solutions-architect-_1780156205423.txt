@@ -1,0 +1,478 @@
+You are a senior software engineer, solutions architect, and technical writer.
+Perform a comprehensive audit of the entire Feastpot codebase as it stands
+today and produce a single editorial text file.
+
+The file must reflect ONLY what is actually in the code right now —
+not what was planned, not what prompts were written for, not what the
+roadmap says. Every item must be verified by reading the source.
+
+════════════════════════════════════════════════════════
+AUDIT INSTRUCTIONS
+════════════════════════════════════════════════════════
+
+Read every file in these directories before writing anything:
+
+  apps/api/src/modules/          — every module folder
+  apps/api/src/common/           — guards, filters, pipes, middleware
+  apps/api/src/health/           — health controller
+  apps/api/src/main.ts           — bootstrap, CORS, guards, filters
+  prisma/schema.prisma           — full data model
+  apps/web/src/app/              — every route and page
+  apps/web/src/components/       — every component
+  apps/web/src/hooks/            — every hook
+  apps/web/src/lib/              — utilities and API clients
+  apps/vendor/src/app/           — every vendor portal route
+  apps/vendor/src/components/    — vendor components
+  apps/admin/src/app/            — every admin panel route
+  apps/admin/src/components/     — admin components
+  scripts/                       — smoke test, seed, migrations
+  .env.example or .env.local     — environment variable list
+  PROJECT_STATUS.md              — if it exists
+  docs/                          — any documentation files
+
+For each item in the output file, cite the exact file path that
+confirms it is implemented (or absent).
+
+DO NOT infer. DO NOT assume. DO NOT include anything you cannot
+confirm by reading a file.
+
+If a feature is partially implemented, say so precisely:
+  PARTIAL — describe exactly what exists and exactly what is missing.
+
+════════════════════════════════════════════════════════
+OUTPUT FILE FORMAT
+════════════════════════════════════════════════════════
+
+Write the output to: docs/PLATFORM_AUDIT.txt
+
+Use plain text only. No markdown. No bullet symbols beyond dashes.
+Use uppercase section headers. Use consistent indentation.
+The file must be readable when pasted into a plain text chat window.
+
+Use this exact structure:
+
+════════════════════════════════════════════════════════
+FEASTPOT PLATFORM AUDIT
+Generated: [date and time]
+Audited by: Replit Agent (full codebase read)
+Scope: apps/api, apps/web, apps/vendor, apps/admin, prisma, scripts
+════════════════════════════════════════════════════════
+
+
+SECTION 1 — INFRASTRUCTURE AND DEPLOYMENT
+------------------------------------------
+For each item below, state: IMPLEMENTED / NOT IMPLEMENTED / PARTIAL
+followed by the confirming file path and one sentence of detail.
+
+  1.01  Monorepo structure (Turborepo / npm workspaces)
+  1.02  NestJS API application
+  1.03  Next.js 15 customer PWA (apps/web)
+  1.04  Next.js 15 vendor portal (apps/vendor)
+  1.05  Next.js 15 admin panel (apps/admin)
+  1.06  Prisma ORM with PostgreSQL
+  1.07  Supabase auth integration
+  1.08  Redis (Upstash) cache service
+  1.09  BullMQ job queues
+  1.10  Bull Board queue monitor
+  1.11  Stripe payments integration
+  1.12  Stripe Connect vendor payouts
+  1.13  Resend email service
+  1.14  Twilio / WhatsApp / Meta Cloud API notifications
+  1.15  nestjs-pino structured logging
+  1.16  @ducanh2912/next-pwa service worker
+  1.17  Global PrismaExceptionFilter
+  1.18  Global ThrottlerExceptionFilter
+  1.19  Redis-backed rate limiter (multi-instance safe)
+  1.20  /health liveness endpoint
+  1.21  /healthz readiness endpoint with degraded mode
+  1.22  Redis boot PING fast-fail
+  1.23  Stripe mode check at startup (test vs live)
+  1.24  Notification credential check at startup
+  1.25  NEXT_PUBLIC_API_URL confirmed in Vercel env
+  1.26  Custom domain api.feastpot.co.uk
+  1.27  CORS allowlist (all four production domains)
+  1.28  Safe redirect utility (open redirect fix)
+
+
+SECTION 2 — DATABASE SCHEMA
+-----------------------------
+For each model, state: EXISTS / MISSING
+List every field that exists.
+Note any fields referenced in code but absent from the schema.
+
+  2.01  User
+  2.02  Profile
+  2.03  Vendor
+  2.04  VendorApplication
+  2.05  VendorDocument
+  2.06  DeliveryConfig
+  2.07  Menu
+  2.08  MenuItem
+  2.09  MenuItemImage
+  2.10  Order
+  2.11  OrderItem
+  2.12  Payment
+  2.13  Review
+  2.14  Dispute
+  2.15  LoyaltyPoint
+  2.16  Referral
+  2.17  DiscountCode
+  2.18  Payout
+  2.19  Refund
+  2.20  EventEnquiry
+  2.21  AuditLog
+  2.22  Address
+  2.23  Notification (push subscription)
+  2.24  SearchLog
+
+  For DeliveryConfig specifically, confirm:
+    - latitude and longitude fields exist
+    - deliveryRadiusMiles field exists
+    - serviceDays array field exists
+    - serviceWindows JSON field exists
+    - leadTimeHours field exists
+
+  For Vendor specifically, confirm:
+    - status enum and all valid values
+    - commissionBps field and its default value
+    - acceptingOrders field exists
+    - pausedUntil field exists
+
+  For VendorApplication specifically, confirm:
+    - all status values
+    - vendor_id FK field
+    - acceptedTermsAt field
+    - acceptedTermsVersion field
+
+
+SECTION 3 — API ENDPOINTS
+---------------------------
+For each module, list every route that exists in the controller.
+State the HTTP method, path, and auth requirement (Public / Roles).
+Note any route that is stubbed (returns NotImplemented or TODO).
+
+  3.01  Auth module
+  3.02  Vendors module (public routes)
+  3.03  Vendors module (vendor-authenticated routes)
+  3.04  Vendor applications
+  3.05  Vendor documents
+  3.06  Delivery config
+  3.07  Catalogue (menus and menu items)
+  3.08  Orders (customer routes)
+  3.09  Orders (vendor routes)
+  3.10  Order amendments
+  3.11  Order slots
+  3.12  Payments / Stripe webhook
+  3.13  Loyalty points
+  3.14  Referrals
+  3.15  Reviews
+  3.16  Disputes
+  3.17  Discount codes
+  3.18  Payouts
+  3.19  Event enquiries
+  3.20  Admin — vendors
+  3.21  Admin — vendor applications
+  3.22  Admin — users
+  3.23  Admin — orders
+  3.24  Admin — disputes
+  3.25  Admin — reviews queue
+  3.26  Admin — payouts
+  3.27  Admin — analytics
+  3.28  Admin — push notifications
+  3.29  Admin — event enquiries
+  3.30  Push notifications (subscribe / unsubscribe)
+  3.31  Health (all mounted paths)
+  3.32  Debug endpoint (vendors/debug)
+
+  For each stubbed route, write:
+    STUBBED — [file:line] — [what it returns instead of real logic]
+
+
+SECTION 4 — CUSTOMER PWA (apps/web)
+-------------------------------------
+For each page, state: EXISTS / MISSING / PARTIAL
+Confirm the file path. Note any placeholder content or broken state.
+
+  4.01  Homepage (/)
+  4.02  /vendors browse page
+  4.03  /vendors/[slug] vendor profile
+  4.04  /vendors/[slug]/items/[itemId] dish detail
+  4.05  /sign-in unified auth page (both tabs)
+  4.06  /forgot-password
+  4.07  /auth/callback route handler
+  4.08  /register redirect
+  4.09  /become-a-vendor (marketing + inline form)
+  4.10  /catering event enquiry form
+  4.11  /trust trust and safety page
+  4.12  /help FAQ page
+  4.13  /offers page
+  4.14  /checkout
+  4.15  /orders/[id]/confirmation
+  4.16  /orders/[id]/tracking
+  4.17  /orders/[id]/review
+  4.18  /account
+  4.19  /account/orders
+  4.20  /account/addresses
+  4.21  /account/profile
+  4.22  /account/loyalty (FeastPoints card)
+  4.23  /account/referrals
+  4.24  /legal/privacy
+  4.25  /legal/terms
+  4.26  /legal/vendor-terms
+  4.27  /legal/cookies
+  4.28  /offline fallback page
+  4.29  /not-found (404 page)
+  4.30  Error boundary (error.tsx)
+  4.31  [cuisine]-catering-[location] SEO pages
+
+  For /sign-in specifically, confirm:
+    - 'use client' directive present at top of file
+    - Tab switcher renders both Sign in and Create account
+    - URL updates to ?mode=register on tab switch
+    - Both Supabase signInWithPassword and signUp are wired
+    - Magic link (signInWithOtp) is wired
+    - Google SSO is wired
+    - Apple SSO is wired
+
+  For /vendors specifically, confirm:
+    - export const dynamic = 'force-dynamic' is present
+    - Vendor list renders (not permanently loading)
+    - Cuisine filter pills are present
+    - Postcode prompt appears when no postcode is set
+    - Shimmer skeleton shows during loading
+    - Error state with retry button exists
+    - Empty state exists
+
+  For /checkout specifically, confirm:
+    - Stripe CardElement is present
+    - Apple Pay / Google Pay button component exists and is enabled or disabled
+    - SERVICE_FEE_BPS is read from environment
+    - Service fee line only renders if serviceFeePence > 0
+    - Delivery slot picker is present
+    - Coverage check blocks out-of-area orders
+
+  For /become-a-vendor, confirm:
+    - No link to vendor.feastpot.co.uk anywhere on the page
+    - Interest form is inline (not a redirect)
+    - Form submits to POST /v1/vendors/register-interest
+
+
+SECTION 5 — VENDOR PORTAL (apps/vendor)
+-----------------------------------------
+For each page, state: EXISTS / MISSING / PARTIAL
+
+  5.01  /sign-in (vendor auth)
+  5.02  /forgot-password
+  5.03  /onboarding (multi-step wizard)
+  5.04  /onboarding/register (interest form / self-serve registration)
+  5.05  /onboarding/welcome (founding vendor welcome screen)
+  5.06  /dashboard
+  5.07  /orders (order management)
+  5.08  /menu (menu list)
+  5.09  /menu/[menuId]/items/[itemId] (item editor)
+  5.10  /analytics
+  5.11  /payouts
+  5.12  /settings/profile
+  5.13  /settings/delivery
+  5.14  /settings/accepting-orders (pause toggle)
+  5.15  /help (vendor FAQ)
+  5.16  Error boundary (error.tsx)
+
+  For /orders specifically, confirm:
+    - Realtime INSERT subscription exists (new orders)
+    - Realtime UPDATE subscription exists (cancellations, overrides)
+    - Optimistic UI on accept (card moves before API responds)
+    - 15-minute countdown timer on pending orders
+    - Connection status indicator exists
+
+  For /settings/delivery specifically, confirm:
+    - Lead time selector exists
+    - Service days toggle buttons exist
+    - Per-day time range pickers exist
+    - NOT showing "not configurable yet" placeholder
+
+  For /menu/[menuId]/items/[itemId] specifically, confirm:
+    - isAvailable toggle is enabled (not disabled)
+    - Draft banner shows when isAvailable is false
+    - Drag-to-reorder is wired to API (not local state only)
+
+  For /payouts specifically, confirm:
+    - Payout cadence information panel exists
+    - Commission rate shown as 12% (not 15%)
+
+
+SECTION 6 — ADMIN PANEL (apps/admin)
+--------------------------------------
+For each page, state: EXISTS / MISSING / PARTIAL
+
+  6.01  /sign-in (admin auth)
+  6.02  /dashboard (stats, health strip, vendor league)
+  6.03  /vendors (vendor list + pending queue)
+  6.04  /vendors/[id] (vendor detail + compliance docs)
+  6.05  /vendor-applications (application queue)
+  6.06  /vendor-applications/[id] (application detail + approve/reject)
+  6.07  /users (user search)
+  6.08  /users/[id] (user profile + quick actions)
+  6.09  /orders (order list)
+  6.10  /orders/[id] (order detail + status override)
+  6.11  /disputes (dispute list with SLA indicator)
+  6.12  /disputes/[id] (dispute detail + resolve)
+  6.13  /reviews/queue (moderation queue)
+  6.14  /payouts (payout list + approve/manual trigger)
+  6.15  /events (event enquiry list)
+  6.16  /events/[id] (event enquiry detail)
+  6.17  /push/compose (broadcast composer)
+  6.18  /analytics (search trends + pagination)
+  6.19  /settings (global config)
+  6.20  Sidebar "Job queues" link to Bull Board
+
+  For /reviews/queue specifically, confirm:
+    - "All" filter tab is the default
+    - Hold button exists on pending review rows
+    - Reject uses a dialog (not window.prompt)
+
+  For vendor approval flow, confirm:
+    - Approval creates Supabase auth user
+    - Approval creates User DB row
+    - Approval creates Vendor DB row
+    - Approval sends portal invite email with magic link
+    - Approval sets 7-day expiry on invite link
+    - VendorApplication.vendor_id is set on approval
+    - Rejection sends rejection email with reason
+    - Information requested sends email to applicant
+
+
+SECTION 7 — EMAIL NOTIFICATION TEMPLATES
+------------------------------------------
+For each template, state: EXISTS / MISSING
+Confirm the file path.
+
+  7.01  Order confirmation (customer)
+  7.02  Order accepted by vendor
+  7.03  Order dispatched with ETA
+  7.04  Order delivered
+  7.05  Order cancelled by customer
+  7.06  Vendor application received (admin notification)
+  7.07  Vendor application acknowledged (to applicant)
+  7.08  Vendor approved — portal invite email
+  7.09  Vendor rejected — rejection email
+  7.10  Vendor information requested
+  7.11  Dispute opened
+  7.12  Refund issued
+  7.13  Review prompt (post-delivery)
+  7.14  Enquiry expired
+  7.15  Document expiry warning
+
+
+SECTION 8 — SECURITY AND COMPLIANCE
+-------------------------------------
+For each item, state: IMPLEMENTED / NOT IMPLEMENTED / PARTIAL
+with confirming file path.
+
+  8.01  Open redirect fix on /sign-in?next= (safeRedirect utility)
+  8.02  Rate limit on POST /v1/discount-codes/validate
+  8.03  Stripe webhook rawBody + signature verification
+  8.04  Stripe live vs test key startup check
+  8.05  Customer order cancel endpoint (UK CCR compliance)
+  8.06  Loyalty redemption inside order transaction (atomic)
+  8.07  Review gate — only delivered orders
+  8.08  LoyaltyController class-level auth guards (no manual requireUser)
+  8.09  Global PrismaExceptionFilter registered in main.ts
+  8.10  STRIPE_WEBHOOK_SECRET in required env var check
+  8.11  ICO registration number ZC146267 on all legal pages
+  8.12  Cookie consent banner
+  8.13  All 8 UK GDPR rights on privacy page
+  8.14  VendorApplication terms acceptance stored (acceptedTermsAt)
+  8.15  Vendor.acceptingOrders field and pause toggle
+  8.16  Coverage check blocks out-of-area orders at checkout
+  8.17  vendor.feastpot.co.uk URL absent from all public pages
+
+
+SECTION 9 — TEST COVERAGE
+---------------------------
+For each suite, state: EXISTS / MISSING / PARTIAL / FAILING
+Note the number of tests and pass/fail state from the most recent run.
+
+  9.01  auth/guards/roles.guard.spec.ts
+  9.02  auth/guards/supabase-auth.guard.spec.ts
+  9.03  modules/orders/orders.service.spec.ts
+  9.04  modules/orders/order-slots.service.spec.ts
+  9.05  modules/vendors/vendors.service.spec.ts
+  9.06  modules/vendors/vendors.controller.spec.ts
+  9.07  modules/catalogue/menu-items.service.spec.ts
+  9.08  modules/catalogue/guards/vendor-ownership.guard.spec.ts
+  9.09  modules/payments/payments.service.spec.ts
+  9.10  modules/payouts/payouts.service.spec.ts
+  9.11  modules/admin/admin.controller.spec.ts
+  9.12  e2e/vendor-onboarding-smoke.spec.ts
+  9.13  scripts/smoke-test.ts (npm run smoke-test)
+
+  Run: npm run test:api 2>&1 | tail -20
+  Include the exact pass/fail/skip counts in the output.
+
+  Run: npm run smoke-test 2>&1 | tail -30
+  Include every step result (pass/fail) and the exact error on any failure.
+
+
+SECTION 10 — KNOWN ISSUES AND GAPS
+-------------------------------------
+List every item you found during the audit that is:
+  - A TODO or FIXME comment in the source code
+  - A NotImplementedException or stub response
+  - Placeholder copy in the UI (e.g. "Coming soon", "Not configurable yet")
+  - An environment variable referenced in code but not in .env.example
+  - A hardcoded value that should come from configuration
+  - A feature flag or condition that disables something at runtime
+
+For each item:
+  LOCATION: [file:line]
+  TYPE: [TODO / STUB / PLACEHOLDER / MISSING_ENV / HARDCODED / DISABLED]
+  DESCRIPTION: [exactly what it says and what it affects]
+
+
+SECTION 11 — ENVIRONMENT VARIABLES
+-------------------------------------
+List every environment variable referenced anywhere in the codebase.
+
+Run: grep -rn "process\.env\." apps/api/src apps/web/src apps/vendor/src \
+  apps/admin/src --include="*.ts" --include="*.tsx" \
+  | grep -oP "process\.env\.[A-Z_]+" | sort -u
+
+For each variable, state:
+  NAME: [variable name]
+  USED_IN: [which app(s)]
+  PRESENT_IN_SECRETS: YES / NO / UNKNOWN
+  REQUIRED: YES / NO (based on whether a missing value would break something)
+
+
+SECTION 12 — SUMMARY SCORECARD
+---------------------------------
+Count totals across all sections:
+
+  Total items audited:        [N]
+  Fully implemented:          [N]  ([%])
+  Partially implemented:      [N]  ([%])
+  Not implemented:            [N]  ([%])
+  Failing / broken:           [N]  ([%])
+
+  Critical blockers (must fix before first real order):
+    List each one with a one-line description.
+
+  Vendor onboarding readiness:
+    State YES or NO with a one-sentence justification.
+
+  Customer ordering readiness:
+    State YES or NO with a one-sentence justification.
+
+  Estimated remaining work to first real order:
+    State a number of hours and a confidence level (high/medium/low).
+
+
+════════════════════════════════════════════════════════
+END OF AUDIT
+════════════════════════════════════════════════════════
+
+Save the completed file to: docs/PLATFORM_AUDIT.txt
+Print the full file path after saving.
+Also print Sections 10, 11, and 12 directly to the console so they
+are immediately visible without opening the file.

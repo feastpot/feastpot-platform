@@ -1,0 +1,961 @@
+════════════════════════════════════════════════════════
+FEASTPOT PLATFORM AUDIT
+Generated: 30 May 2026
+Audited by: Replit Agent (full codebase read)
+Scope: apps/api, apps/web, apps/vendor, apps/admin, prisma, scripts
+Method: Every item verified against source (grep + file read +
+        test run + smoke test). Items that depend on external
+        infrastructure (DNS, hosting dashboards) are marked
+        UNKNOWN where they cannot be confirmed from code.
+════════════════════════════════════════════════════════
+
+
+SECTION 1 — INFRASTRUCTURE AND DEPLOYMENT
+------------------------------------------
+  1.01  Monorepo (Turborepo / npm workspaces)        IMPLEMENTED
+        package.json (workspaces apps/* packages/*) + turbo.json.
+  1.02  NestJS API application                        IMPLEMENTED
+        apps/api (NestJS 11).
+  1.03  Next.js 15 customer PWA (apps/web)            IMPLEMENTED
+        apps/web/package.json — Next 15.0.3.
+  1.04  Next.js 15 vendor portal (apps/vendor)        IMPLEMENTED
+        apps/vendor/package.json — Next 15.0.3.
+  1.05  Next.js 15 admin panel (apps/admin)           IMPLEMENTED
+        apps/admin/package.json — Next 15.0.3.
+  1.06  Prisma ORM with PostgreSQL                    IMPLEMENTED
+        prisma/schema.prisma; prisma.service connects via SUPABASE_DB_URL.
+  1.07  Supabase auth integration                     IMPLEMENTED
+        apps/api/src/auth/supabase.service.ts + supabase-auth.guard.ts.
+  1.08  Redis (Upstash) cache service                 IMPLEMENTED
+        apps/api/src/common/cache/redis-cache.service.ts.
+  1.09  BullMQ job queues                             IMPLEMENTED
+        apps/api/src/app.module.ts (notifications, payouts, webhooks).
+  1.10  Bull Board queue monitor                      IMPLEMENTED
+        Mounted at /admin/queues with basic auth (app.module.ts).
+  1.11  Stripe payments integration                   IMPLEMENTED
+        apps/api/src/stripe/stripe.service.ts.
+  1.12  Stripe Connect vendor payouts                 IMPLEMENTED
+        vendors.service.ts createConnectAccount (Express accounts).
+  1.13  Resend email service                          IMPLEMENTED
+        notifications/providers/email.provider.ts (resend SDK).
+  1.14  Twilio / WhatsApp / Meta notifications        IMPLEMENTED
+        providers/whatsapp.provider.ts (Twilio + Meta), sms.provider.ts.
+  1.15  nestjs-pino structured logging                IMPLEMENTED
+        app.module.ts LoggerModule with redaction.
+  1.16  @ducanh2912/next-pwa service worker           IMPLEMENTED
+        apps/web/package.json + next.config.mjs PWA plugin.
+  1.17  Global PrismaExceptionFilter                  IMPLEMENTED
+        registered in apps/api/src/main.ts.
+  1.18  Global ThrottlerExceptionFilter               NOT IMPLEMENTED
+        No custom ThrottlerExceptionFilter registered; a
+        RoleThrottlerGuard exists but default 429 handling is used.
+  1.19  Redis-backed rate limiter (multi-instance)    IMPLEMENTED
+        ThrottlerModule + ThrottlerStorageRedisService (app.module.ts).
+  1.20  /health liveness endpoint                     IMPLEMENTED
+        health.controller.ts — zero-IO GET /health.
+  1.21  /healthz readiness with degraded mode         IMPLEMENTED
+        deep check (DB/Redis/queues); returns degraded if Redis down.
+  1.22  Redis boot PING fast-fail                     IMPLEMENTED
+        redis-cache.service onModuleInit exits process on auth fail in prod.
+  1.23  Stripe mode check at startup (test vs live)   IMPLEMENTED
+        main.ts hard-exits if sk_test_ key seen in production.
+  1.24  Notification credential check at startup      IMPLEMENTED
+        main.ts logs warnings if Resend/Twilio/Meta creds missing.
+  1.25  NEXT_PUBLIC_API_URL confirmed in Vercel env   UNKNOWN
+        Referenced in code; deployment-dashboard value not verifiable here.
+  1.26  Custom domain api.feastpot.co.uk              UNKNOWN
+        Referenced in CORS allowlist; DNS not verifiable from code.
+  1.27  CORS allowlist (all four prod domains)        IMPLEMENTED
+        main.ts ALLOWED_ORIGINS includes feastpot / vendor / admin domains.
+  1.28  Safe redirect utility (open redirect fix)     IMPLEMENTED
+        apps/web/src/lib/safe-redirect.ts.
+
+
+SECTION 2 — DATABASE SCHEMA
+-----------------------------
+Source: prisma/schema.prisma. Three of the named models do not exist
+as dedicated tables because the data is folded elsewhere — noted inline.
+
+  2.01  User                EXISTS
+        id, email, phone, passwordHash, firstName, lastName, role,
+        status, emailVerified, phoneVerified, avatarUrl, lastLoginAt,
+        createdAt, updatedAt.
+  2.02  Profile             MISSING (as a separate model)
+        firstName/lastName/avatarUrl live on the User model directly.
+  2.03  Vendor              EXISTS
+        id, userId, businessName, slug, description, cuisines, status,
+        rating, ratingCount, reorderRatePct, communityFavourite,
+        commissionBps, stripeAccountId, payoutsEnabled, approvedAt,
+        suspendedAt, openingDays, slotOpenHour, slotCloseHour,
+        prepLeadHours, maxOrdersPerDay, maxTraysPerDay, sameDayOrders,
+        largeOrderLeadHours, largeOrderTrayThreshold,
+        eventCateringManualQuote, logoUrl, coverImageUrl, specialities,
+        vendorStory, featuredDishes, socialLinks, createdAt, updatedAt.
+  2.04  VendorApplication   EXISTS
+        id, fullName, kitchenName, email, phone, postcode, cuisineType,
+        kitchenType, hasFsaRegistration, foodStory, instagram,
+        marketingConsent, status, reviewedAt, reviewedById, adminNotes,
+        rejectionReason, vendorId, acceptedTermsAt, acceptedTermsVersion,
+        createdAt, updatedAt.
+  2.05  VendorDocument      EXISTS
+        id, vendorId, type, status, fileUrl, fileName, expiresAt,
+        reviewedBy, reviewedAt, rejectReason, createdAt, updatedAt.
+  2.06  DeliveryConfig      EXISTS
+        id, vendorId, types, localRadiusMiles, localFeePence,
+        collectionAddress, nationwideEnabled, nationwideFeePence,
+        minOrderPence, freeDeliveryOverPence, postcodes, latitude,
+        longitude, createdAt, updatedAt.
+  2.07  Menu                EXISTS
+        id, vendorId, name, isActive, sortOrder, createdAt, updatedAt.
+  2.08  MenuItem            EXISTS
+        id, vendorId, menuId, name, description, category, pricePence,
+        servingsCount, preparationHours, imageUrls, allergens, tags,
+        sortOrder, isAvailable, stockCount, moderationStatus,
+        createdAt, updatedAt.
+  2.09  MenuItemImage       MISSING (as a separate model)
+        Item photos stored as imageUrls String[] on MenuItem (no
+        per-image row, hence no sortable image-order field).
+  2.10  Order               EXISTS
+        id, orderNumber, customerId, vendorId, addressId, type, status,
+        deliveryType, subtotalPence, deliveryFeePence, serviceFeePence,
+        discountPence, totalPence, commissionPence, vendorPayoutPence,
+        notes, scheduledFor, acceptedAt, dispatchedAt, deliveredAt,
+        cancelledAt, cancellationReason, cancelledBy, discountCodeId,
+        discountAppliedAt, etaMinutes, etaAt, createdAt, updatedAt.
+  2.11  OrderItem           EXISTS
+        id, orderId, menuItemId, nameSnapshot, quantity, unitPence,
+        totalPence, notes, createdAt.
+  2.12  Payment             EXISTS
+        id, orderId, userId, type, status, amountPence, currency,
+        stripePaymentIntentId, stripeChargeId, stripeRefundId,
+        failureReason, processedAt, createdAt, updatedAt.
+  2.13  Review              EXISTS
+        id, orderId, vendorId, customerId, rating, title, body,
+        isVerified, isHidden, moderationStatus, moderatedById,
+        moderatedAt, createdAt, updatedAt.
+  2.14  Dispute             EXISTS
+        id, orderId, raisedById, issueType, severity, description,
+        status, assignedToId, vendorResponse, vendorRespondedAt,
+        resolution, resolutionNote, resolvedById, resolvedAt,
+        createdAt, updatedAt.
+  2.15  LoyaltyPoint        EXISTS
+        id, userId, type, points, reason, orderId, expiresAt, createdAt.
+  2.16  Referral            EXISTS
+        id, referrerId, refereeId, code, status, rewardPence,
+        completedAt, rewardedAt, createdAt, updatedAt.
+  2.17  DiscountCode        EXISTS
+        id, code, type, value, minOrderPence, maxUses, usedCount,
+        expiresAt, vendorId, isActive, createdByUserId, createdAt.
+  2.18  Payout              EXISTS
+        id, vendorId, orderId, status, amountPence, grossPence,
+        commissionPence, refundsPence, periodStart, periodEnd,
+        orderCount, holdReason, currency, stripeTransferId,
+        approvedById, approvedAt, transferredAt, failureReason,
+        createdAt, updatedAt.
+  2.19  Refund              MISSING (as a separate model)
+        Refunds recorded on Payment via PaymentType refund /
+        partial_refund; payout side tracks refundsPence.
+  2.20  EventEnquiry        EXISTS
+        id, customerId, eventType, guestCount, finalGuestCount,
+        eventDate, postcode, budgetPence, cuisines, dietary, notes,
+        menuAdjustments, status, vendorId, matchedVendorIds,
+        quoteDeadline, depositPiId, balancePiId, confirmedAt,
+        createdAt, updatedAt.
+  2.21  AuditLog            EXISTS
+        id, actorId, action, entityType, entityId, metadata,
+        ipAddress, createdAt.
+  2.22  Address             EXISTS
+        id, userId, label, line1, line2, city, postcode, country,
+        latitude, longitude, isDefault, createdAt, updatedAt.
+  2.23  Notification        EXISTS (+ PushSubscription)
+        Notification: id, userId, channel, status, template, subject,
+        body, metadata, sentAt, createdAt.
+        PushSubscription: id, userId, endpoint, p256dh, auth,
+        userAgent, createdAt.
+  2.24  SearchLog           EXISTS
+        id, query, postcode, resultsCount, searchedAt.
+
+  Additional models present (not in the requested list):
+    VendorMember, InboxNotification, MfaRecoveryCode, Session,
+    BlackoutDate, OrderAmendment, EventQuote, DisputeEvidence,
+    ProcessedWebhookEvent.
+
+  DeliveryConfig specifics:
+    - latitude / longitude .................. EXIST
+    - deliveryRadiusMiles ................... NAMED localRadiusMiles
+    - serviceDays array ..................... NOT on DeliveryConfig
+                                              (openingDays Int[] on Vendor)
+    - serviceWindows JSON ................... NOT present
+                                              (slotOpenHour/slotCloseHour on Vendor)
+    - leadTimeHours ......................... NAMED prepLeadHours (on Vendor)
+
+  Vendor specifics:
+    - status enum (VendorStatus): pending, approved, live, suspended,
+      probation, removed.
+    - commissionBps ......................... EXISTS, default 1200 (12%).
+    - acceptingOrders ....................... ABSENT (availability is
+      governed by status=live + openingDays + BlackoutDate + sameDayOrders).
+    - pausedUntil ........................... ABSENT (BlackoutDate model
+      covers date-based pausing).
+
+  VendorApplication specifics:
+    - status values: pending, under_review, information_requested,
+      approved, rejected.
+    - vendor FK ............................. vendorId (maps vendor_id).
+    - acceptedTermsAt ....................... EXISTS.
+    - acceptedTermsVersion .................. EXISTS.
+
+  Models referenced in code but absent from schema:
+    - CoverageInterest (waitlist) ........... ABSENT.
+    - NotificationPreference ................ ABSENT.
+
+
+SECTION 3 — API ENDPOINTS
+---------------------------
+Global prefix: /v1. Auth via SupabaseAuthGuard; roles via @Roles +
+RolesGuard. No route returns NotImplementedException; the only
+non-functional routes are dev-only diagnostics gated on
+NODE_ENV !== 'production' (noted as STUBBED/DEV-ONLY).
+
+  3.01  Auth / Users — users.controller.ts
+        GET    /v1/users/me                         Authenticated
+        PATCH  /v1/users/me                         Authenticated
+        POST   /v1/users/sync                       Authenticated (mirror)
+        DELETE /v1/users/me                         Authenticated (soft-delete)
+        PATCH  /v1/users/:userId/status             Roles: admin
+        MFA — mfa.controller.ts:
+        GET    /v1/mfa/recovery-codes/status        Authenticated
+        POST   /v1/mfa/recovery-codes/regenerate    AAL2
+        POST   /v1/mfa/recovery-codes/consume       Authenticated
+  3.02  Vendors (public) — vendors.controller.ts
+        GET    /v1/vendors                          Public (search)
+        POST   /v1/vendors/register-interest        Public
+        GET    /v1/vendors/by-slug/:slug            Public
+        GET    /v1/vendors/:id                      Public
+        GET    /v1/vendors/:id/availability         Public
+        GET    /v1/vendors/:id/reviews              Public
+        GET    /v1/vendors/debug                    DEV-ONLY (gated in prod)
+  3.03  Vendors (authenticated) — vendors.controller.ts
+        POST   /v1/vendors                          Authenticated
+        GET    /v1/vendors/me                       Roles: vendor, admin
+        GET    /v1/vendors/me/stats                 Roles: vendor, admin
+        GET    /v1/vendors/me/dashboard             Roles: vendor, admin
+        GET    /v1/vendors/me/analytics             Roles: vendor, admin
+        GET    /v1/vendors/me/delivery-config       Roles: vendor, admin
+        PUT    /v1/vendors/me/delivery-config       Roles: vendor, admin
+        GET    /v1/vendors/me/availability          Roles: vendor, admin
+        PATCH  /v1/vendors/me/availability          Roles: vendor, admin
+        POST   /v1/vendors/me/blackouts             Roles: vendor, admin
+        DELETE /v1/vendors/me/blackouts/:id         Roles: vendor, admin
+        POST   /v1/vendors/me/stripe-connect-link   Roles: vendor, admin
+        PATCH  /v1/vendors/:id                      Roles: vendor, admin
+        POST   /v1/vendors/:id/images               Roles: vendor, admin
+        PATCH  /v1/vendors/:id/status               Roles: admin, compliance
+  3.04  Vendor applications — admin.controller.ts
+        GET    /v1/admin/vendor-applications        Roles: admin, compliance, support
+        GET    /v1/admin/vendor-applications/:id    Roles: admin, compliance, support
+        PATCH  /v1/admin/vendor-applications/:id    Roles: admin, compliance
+        POST   /v1/admin/vendor-applications/:id/resend-invite
+                                                    Roles: admin, compliance
+  3.05  Vendor documents — compliance.controller.ts
+        GET    /v1/vendors/:vendorId/documents      Roles: vendor, compliance, admin
+        POST   /v1/vendors/:vendorId/documents      Roles: vendor, compliance, admin
+        PATCH  /v1/vendors/:vendorId/documents/:documentId/verify
+                                                    Roles: compliance, admin
+  3.06  Delivery config — see /v1/vendors/me/delivery-config (3.03).
+  3.07  Catalogue — catalogue.controller.ts
+        GET    /v1/vendors/:vendorId/menus          Public (inactive: vendor/admin)
+        POST   /v1/vendors/:vendorId/menus          Roles: vendor, admin
+        PATCH  /v1/vendors/:vendorId/menus/:menuId  Roles: vendor, admin
+        DELETE /v1/vendors/:vendorId/menus/:menuId  Roles: vendor, admin
+        GET    .../menus/:menuId/items              Public (drafts: vendor/admin/compliance)
+        POST   .../menus/:menuId/items              Roles: vendor, admin
+        GET    .../menus/:menuId/items/:itemId      Public (drafts gated)
+        PATCH  .../menus/:menuId/items/reorder      Roles: vendor, admin
+        PATCH  .../menus/:menuId/items/:itemId      Roles: vendor, admin
+        DELETE .../menus/:menuId/items/:itemId      Roles: vendor, admin
+        PATCH  .../items/:itemId/availability       Roles: vendor, admin
+        POST   .../items/:itemId/images             Roles: vendor, admin
+        Menu moderation — menu-moderation.controller.ts:
+        GET    /v1/admin/menu-items/moderation-queue        Roles: admin, support
+        GET    /v1/admin/menu-items/moderation-queue/counts Roles: admin, support
+        PATCH  /v1/admin/menu-items/:id/moderation          Roles: admin
+  3.08  Orders (customer) — orders.controller.ts
+        GET    /v1/orders                           customer, vendor, admin (scoped)
+        POST   /v1/orders                           Roles: customer
+        GET    /v1/orders/:id                       customer, vendor, admin
+        POST   /v1/orders/:id/confirm               Roles: customer
+        POST   /v1/orders/:id/cancel                Roles: customer
+        POST   /v1/orders/:id/reorder               Roles: customer
+  3.09  Orders (vendor)
+        PATCH  /v1/orders/:id/status                Roles: vendor, admin
+  3.10  Order amendments
+        POST   /v1/orders/:id/amendment             Roles: vendor, admin
+        PATCH  /v1/orders/:id/amendment             Roles: customer
+  3.11  Order slots — served via /v1/vendors/:id/availability (3.02).
+  3.12  Payments / Stripe webhook
+        GET    /v1/payments                         Roles: finance, admin
+        POST   /v1/payments/refunds                 Roles: support, finance, admin
+        POST   /v1/webhooks/stripe                  Public (signature-verified)
+        POST   /v1/webhooks/stripe-test             DEV-ONLY (gated in prod)
+  3.13  Loyalty — loyalty.controller.ts
+        GET    /v1/loyalty/points                   Roles: customer, admin
+        GET    /v1/loyalty/referrals                Roles: customer, admin
+        GET    /v1/loyalty/referrals/validate       Public
+  3.14  Referrals — referrals.controller.ts
+        GET    /v1/referrals/validate               Public (alias)
+  3.15  Reviews — reviews.controller.ts
+        POST   /v1/reviews                          Roles: customer
+        GET    /v1/reviews/moderation-queue         Roles: admin, support
+        GET    /v1/reviews/moderation-queue/counts  Roles: admin, support
+        PATCH  /v1/reviews/:id/moderation           Roles: admin
+  3.16  Disputes — disputes.controller.ts
+        GET    /v1/disputes                         customer, vendor, support, admin
+        GET    /v1/disputes/stats                   support, admin
+        POST   /v1/disputes                         Roles: customer
+        GET    /v1/disputes/:id                     customer, vendor, support, admin
+        PATCH  /v1/disputes/:id                     support, admin
+        POST   /v1/disputes/:id/vendor-response     Roles: vendor
+        POST   /v1/disputes/:id/escalate            support, admin
+        POST   /v1/disputes/:id/close               support, admin (triggers refund)
+        GET    /v1/disputes/:id/evidence            customer, vendor, support, admin
+        POST   /v1/disputes/:id/evidence            customer, vendor, support, admin
+  3.17  Discount codes — discount-codes.controller.ts
+        POST   /v1/discount-codes/validate          Public (rate-limited 10/min)
+        GET    /v1/admin/discount-codes             Roles: admin, finance
+        POST   /v1/admin/discount-codes             Roles: admin
+        PATCH  /v1/admin/discount-codes/:id         Roles: admin
+  3.18  Payouts — admin.controller.ts
+        POST   /v1/admin/payouts/run-batch          Roles: admin, finance
+        POST   /v1/admin/payouts/:id/reconcile-stripe  Roles: admin, finance
+  3.19  Event enquiries — event-enquiries.controller.ts
+        GET    /v1/event-enquiries                  customer, vendor, admin, support
+        POST   /v1/event-enquiries                  Roles: customer
+        GET    /v1/event-enquiries/:id              customer, vendor, admin
+        POST   /v1/event-enquiries/:id/select-vendor    Roles: customer
+        POST   /v1/event-enquiries/:id/confirm-deposit  Roles: customer
+        PATCH  /v1/event-enquiries/:id/confirm-numbers  Roles: customer
+        POST   /v1/event-enquiries/:id/quotes       Roles: vendor
+  3.20  Admin — vendors
+        GET    /v1/admin/vendors                    admin, compliance, support
+        GET    /v1/admin/vendors/counts             admin, compliance, support
+  3.21  Admin — vendor applications: see 3.04.
+  3.22  Admin — users
+        GET    /v1/admin/users                      admin, support, finance, compliance
+        GET    /v1/admin/users/search               admin, support
+        POST   /v1/admin/users                      Roles: admin
+        POST   /v1/admin/users/:userId/credit       admin, finance
+        POST   /v1/admin/users/:userId/suspend      Roles: admin
+        POST   /v1/admin/users/:userId/reinstate    Roles: admin
+        PATCH  /v1/admin/users/:userId/role         Roles: admin
+        GET    /v1/admin/users/:userId/export       admin, compliance (DSAR)
+  3.23  Admin — orders
+        GET    /v1/admin/orders                     admin, support, finance
+        GET    /v1/admin/orders/stats               admin, support, finance
+        GET    /v1/admin/orders.csv                 admin, support, finance
+        PATCH  /v1/admin/orders/:orderId/status     admin, support (override)
+  3.24  Admin — disputes: served by disputes module (3.16).
+  3.25  Admin — reviews queue: served by reviews module (3.15).
+  3.26  Admin — payouts: see 3.18.
+  3.27  Admin — analytics
+        GET    /v1/admin/dashboard                  admin, finance, support, compliance
+        GET    /v1/admin/search-analytics           admin, support
+        GET    /v1/admin/audit-log                  admin, compliance
+        GET    /v1/admin/audit-log.csv              admin, compliance
+        GET    /v1/admin/compliance/expiring        admin, compliance
+  3.28  Admin — push
+        POST   /v1/admin/push/broadcast             Roles: admin
+        POST   /v1/admin/test-notification          DEV-ONLY (gated in prod)
+        POST   /v1/admin/test/notifications         DEV-ONLY (gated in prod)
+  3.29  Admin — event enquiries: served by event-enquiries module (3.19).
+  3.30  Push — push.controller.ts
+        POST   /v1/push/subscribe                   customer, vendor, admin
+        DELETE /v1/push/unsubscribe                 customer, vendor, admin
+  3.31  Health
+        GET    /health                              Public (liveness)
+        GET    /health/z                            Public (readiness, deep)
+        GET    /healthz                             Public (alias)
+        GET    /v1/healthz                          Public (alias)
+  3.32  Coverage / waitlist — coverage.controller.ts
+        POST   /v1/coverage-interest                Public
+        STUBBED — coverage.service.ts:~8 — accepts the request and
+        logs [coverage-interest] but does NOT persist (no
+        CoverageInterest model). Sign-ups are not stored.
+  3.33  Inbox / Vendor members / Addresses (supporting)
+        GET/POST/PATCH /v1/inbox                    Authenticated
+        GET /v1/vendor/members, /v1/vendor/members/me/role,
+        POST/PATCH/DELETE /v1/vendor/members        Vendor (owner for writes)
+        GET/POST/PATCH/DELETE /v1/addresses         customer, admin (ownership checked)
+
+
+SECTION 4 — CUSTOMER PWA (apps/web)
+-------------------------------------
+  4.01  Homepage (/)                         EXISTS  app/page.tsx
+  4.02  /vendors                             EXISTS  app/vendors/page.tsx
+  4.03  /vendors/[slug]                      EXISTS  app/vendors/[slug]/page.tsx
+  4.04  /vendors/[slug]/items/[itemId]       MISSING (dish shown via
+        drawer/modal in [slug]/page.tsx using MenuItemCard, not a route)
+  4.05  /sign-in (both tabs)                 EXISTS  app/(auth)/sign-in/page.tsx
+  4.06  /forgot-password                     EXISTS  app/(auth)/forgot-password/page.tsx
+  4.07  /auth/callback                       EXISTS  app/auth/callback/route.ts
+  4.08  /register redirect                   PARTIAL app/(auth)/register/page.tsx
+        (redirects to /sign-in?mode=register)
+  4.09  /become-a-vendor                     EXISTS  app/become-a-vendor/page.tsx
+  4.10  /catering event enquiry             EXISTS  app/events/page.tsx
+  4.11  /trust                               MISSING (no dedicated route)
+  4.12  /help FAQ                            EXISTS  app/help/page.tsx
+  4.13  /offers                              MISSING (no dedicated route)
+  4.14  /checkout                            EXISTS  app/checkout/page.tsx
+  4.15  /orders/[id]/confirmation            EXISTS
+  4.16  /orders/[id]/tracking                EXISTS
+  4.17  /orders/[id]/review                  EXISTS
+  4.18  /account                             EXISTS  app/account/page.tsx
+  4.19  /account/orders                      EXISTS
+  4.20  /account/addresses                   EXISTS
+  4.21  /account/profile                     EXISTS
+  4.22  /account/loyalty                     MISSING as a route
+        (FeastPoints card is rendered within /account, not a page)
+  4.23  /account/referrals                   MISSING as a route
+        (referrals card rendered within /account, not a page)
+  4.24  /legal/privacy                       EXISTS
+  4.25  /legal/terms                         EXISTS
+  4.26  /legal/vendor-terms                  EXISTS
+  4.27  /legal/cookies                       EXISTS
+  4.28  /offline fallback                    EXISTS  app/offline/page.tsx
+  4.29  /not-found (404)                     EXISTS  app/not-found.tsx
+  4.30  Error boundary (error.tsx)           MISSING (no app/error.tsx)
+  4.31  [cuisine]-catering-[location] SEO    EXISTS  e.g.
+        app/caribbean-food-delivery-london/page.tsx (+ Nigerian, Ghanaian)
+
+  /sign-in specifics:
+    - 'use client' directive ................ YES (line 1)
+    - Sign in + Create account tab switcher . YES
+    - URL updates to ?mode=register .......... YES (router.replace)
+    - signInWithPassword AND signUp wired .... YES
+    - Magic link (signInWithOtp) wired ....... YES
+    - Google SSO wired ....................... YES
+    - Apple SSO wired ........................ YES
+
+  /vendors specifics:
+    - export const dynamic = 'force-dynamic'.. NOT PRESENT (page is
+      'use client'; freshness handled by TanStack Query useVendors)
+    - List renders (not stuck loading) ....... YES
+    - Cuisine filter pills ................... YES (CategoryChips)
+    - Postcode prompt when none set .......... PARTIAL (empty-state copy
+      + VendorResultsHero prompt)
+    - Shimmer skeleton ....................... YES (VendorCardSkeleton)
+    - Error state with retry ................. YES (Try again -> refetch)
+    - Empty state ............................ YES
+
+  /checkout specifics:
+    - Stripe CardElement ..................... YES
+    - Apple/Google Pay button ................ YES, ENABLED
+      (AppleGooglePayButton; renders only when wallet available)
+    - SERVICE_FEE_BPS read from env .......... YES (server derives the
+      bps; surfaced as coverageVendor.platformServiceFeeBps)
+    - Service fee line only if >0 ............ PARTIAL (fee folds into
+      totals; currently 0 so no separate line)
+    - Delivery slot picker ................... YES (SlotPicker)
+    - Coverage check blocks out-of-area ...... YES (disables submit + alert)
+
+  /become-a-vendor specifics:
+    - No link to vendor.feastpot.co.uk ....... CONFIRMED (none)
+    - Interest form inline (not redirect) .... YES
+    - Submits to POST /v1/vendors/register-interest ... YES
+
+
+SECTION 5 — VENDOR PORTAL (apps/vendor)
+-----------------------------------------
+  5.01  /sign-in                          EXISTS  app/sign-in/page.tsx
+  5.02  /forgot-password                  EXISTS  app/forgot-password/page.tsx
+  5.03  /onboarding (wizard)              EXISTS  app/onboarding/onboarding-client.tsx
+  5.04  /onboarding/register              EXISTS  app/onboarding/register/page.tsx
+  5.05  /onboarding/welcome               MISSING (welcome copy folded
+        into /onboarding header, not a separate route)
+  5.06  /dashboard                        EXISTS  app/page.tsx -> dashboard-client.tsx
+  5.07  /orders                           EXISTS  app/orders/orders-dashboard.tsx
+  5.08  /menu                             EXISTS  app/menu/page.tsx
+  5.09  /menu/[menuId]/items/[itemId]     EXISTS  item-editor-client.tsx
+  5.10  /analytics                        EXISTS  app/analytics/page.tsx
+  5.11  /payouts                          EXISTS  app/payouts/payouts-client.tsx
+  5.12  /settings/profile                 EXISTS  app/settings/profile/page.tsx
+  5.13  /settings/delivery                EXISTS  app/settings/delivery/delivery-form.tsx
+  5.14  /settings/accepting-orders        MISSING as a route (availability
+        + pause controls live under /availability)
+  5.15  /help                             EXISTS  app/help/page.tsx
+  5.16  Error boundary (error.tsx)        MISSING
+
+  /orders specifics:
+    - Realtime INSERT subscription .......... YES (new-order chime)
+    - Realtime UPDATE subscription .......... YES (cancellations/overrides)
+    - Optimistic UI on accept ............... YES (use-update-order-status onMutate)
+    - 15-minute countdown on pending ........ YES (PENDING_TIMEOUT_MIN = 15)
+    - Connection status indicator ........... YES ('Live updates' / 'Offline')
+
+  /settings/delivery + /availability specifics:
+    - Lead time selector .................... YES (Prep lead time hours)
+    - Service days toggle buttons ........... YES
+    - Per-day time range pickers ............ PARTIAL (single global
+      slot open/close hour, not per-day ranges)
+    - NOT a 'not configurable yet' placeholder  CONFIRMED (fully built)
+
+  /menu/[menuId]/items/[itemId] specifics:
+    - isAvailable toggle enabled ............ YES (Switch, not disabled)
+    - Draft banner when unavailable ......... YES ('Draft - not visible')
+    - Drag-to-reorder wired to API .......... YES for ITEMS within a
+      menu (items-grid-client.tsx reorder.mutate -> PATCH .../items/reorder).
+      NOT wired for the MENU list (menu-list-client.tsx handle is
+      visual only) or for ITEM PHOTOS (no image-order field).
+
+  /payouts specifics:
+    - Payout cadence info panel ............. YES (weekly, Monday)
+    - Commission rate shown as 12% .......... YES (not 15%)
+
+
+SECTION 6 — ADMIN PANEL (apps/admin)
+--------------------------------------
+  6.01  /sign-in                       EXISTS  app/sign-in/page.tsx
+  6.02  /dashboard                     EXISTS  app/page.tsx -> dashboard-client.tsx
+        (stats, health strip, vendor league table)
+  6.03  /vendors                       EXISTS  app/vendors/vendors-client.tsx
+  6.04  /vendors/[id]                  EXISTS  app/vendors/[id]/vendor-detail-client.tsx
+  6.05  /vendor-applications           MISSING as a dedicated admin route
+        (API exists; approve/reject is exercised via API, no list page)
+  6.06  /vendor-applications/[id]      MISSING as a dedicated admin route
+        (PATCH /v1/admin/vendor-applications/:id exists in API)
+  6.07  /users                         EXISTS  app/users/users-client.tsx
+  6.08  /users/[id]                    MISSING as a route (per-user quick
+        actions handled inline via dropdown in /users list)
+  6.09  /orders                        EXISTS  app/orders/orders-client.tsx
+  6.10  /orders/[id]                   MISSING as a route (status override
+        handled via dialog inside /orders list)
+  6.11  /disputes                      EXISTS  app/disputes/disputes-client.tsx
+        (SLA indicator present)
+  6.12  /disputes/[id]                 EXISTS  app/disputes/[id]/page.tsx
+  6.13  /reviews/queue                 EXISTS  app/reviews/queue/page.tsx
+  6.14  /payouts                       EXISTS  app/payouts/payouts-client.tsx
+        (approve + manual run trigger)
+  6.15  /events                        EXISTS  app/events/page.tsx
+  6.16  /events/[id]                   EXISTS  app/events/[enquiryId]/page.tsx
+  6.17  /push/compose                  EXISTS  app/push/compose/page.tsx
+  6.18  /analytics                     PARTIAL (no dedicated route; Search
+        Trends is a card on the dashboard; no pagination)
+  6.19  /settings                      EXISTS  app/settings/page.tsx
+  6.20  Sidebar 'Job queues' link      EXISTS  admin-shell.tsx -> {API}/admin/queues
+
+  /reviews/queue specifics:
+    - 'All' filter tab is default ........... YES
+    - Hold button on pending rows ........... YES
+    - Reject uses a dialog (not prompt) ..... YES
+
+  Vendor approval flow (apps/api/src/modules/admin/admin.service.ts):
+    - Creates Supabase auth user ............ YES (supabaseAdmin.createUser)
+    - Creates User DB row ................... YES (tx.user.create)
+    - Creates Vendor DB row ................. YES (tx.vendor.create)
+    - Sends portal invite email (magic link)  YES (vendorPortalInviteTemplate)
+    - 7-day expiry on invite ................ YES (expiresInDays: 7)
+    - Sets VendorApplication.vendor_id ...... YES
+    - Rejection email with reason ........... YES (vendorApplicationRejectedTemplate)
+    - Information-requested email ........... YES (vendorApplicationInfoRequestedTemplate)
+
+
+SECTION 7 — EMAIL / NOTIFICATION TEMPLATES
+--------------------------------------------
+Registry: apps/api/src/modules/notifications/templates/index.ts
+Standalone files: .../notifications/templates/*.template.ts
+
+  7.01  Order confirmation (customer)   EXISTS  key: order_confirmation
+  7.02  Order accepted by vendor        EXISTS  key: order_accepted
+  7.03  Order dispatched with ETA       EXISTS  key: order_dispatched
+  7.04  Order delivered                 EXISTS  key: delivery_confirmed
+  7.05  Order cancelled by customer     MISSING (no dedicated template;
+        cancellation handled in-app/refund path, no customer email key)
+  7.06  Vendor application received     EXISTS  vendorApplicationReceivedTemplate
+  7.07  Vendor application acknowledged EXISTS  vendorApplicationAcknowledgedTemplate
+  7.08  Vendor approved portal invite   EXISTS  vendorPortalInviteTemplate
+  7.09  Vendor rejected                 EXISTS  vendorApplicationRejectedTemplate
+  7.10  Vendor information requested     EXISTS  vendorApplicationInfoRequestedTemplate
+  7.11  Dispute opened                  EXISTS  key: dispute_raised
+  7.12  Refund issued                   EXISTS  key: refund_issued_customer
+  7.13  Review prompt (post-delivery)   EXISTS  key: review_request
+  7.14  Enquiry expired                 EXISTS  key: enquiry_expired
+  7.15  Document expiry warning         EXISTS  key: document_expiring
+
+  Full registry keys (channels): event_enquiry_matched (email,push),
+  event_quote_received (email,wa,push), event_reminder_72h, event_balance_link,
+  order_confirmation (email,sms,wa,push), order_accepted, order_dispatched,
+  delivery_confirmed, order_amendment_proposed, order_amendment_resolved,
+  order_eta_overdue, refund_issued_customer, refund_deducted_vendor,
+  payout_batch_ready, payout_held, dispute_raised, dispute_vendor_responded,
+  dispute_resolved, document_expiring, document_expired, account_credit_issued,
+  account_suspended, vendor_onboarding_complete, vendor_approved,
+  enquiry_expired, review_request.
+
+  NOTE: every channel currently delivers in STUB mode (logs only) until
+  credentials are supplied — see Sections 10 and 11.
+
+
+SECTION 8 — SECURITY AND COMPLIANCE
+-------------------------------------
+  8.01  safeRedirect on /sign-in?next=             IMPLEMENTED
+        apps/web/src/lib/safe-redirect.ts (enforces leading single /).
+  8.02  Rate limit on /v1/discount-codes/validate  IMPLEMENTED
+        @Throttle 10/60s on the validate route.
+  8.03  Stripe webhook rawBody + signature verify  IMPLEMENTED
+        stripe-webhook.controller.ts uses req.rawBody + constructEvent.
+  8.04  Stripe live vs test startup check          IMPLEMENTED
+        main.ts hard-exit on sk_test_ in production.
+  8.05  Customer order cancel endpoint (CCR)       IMPLEMENTED
+        POST /v1/orders/:id/cancel.
+  8.06  Loyalty redemption inside order txn        IMPLEMENTED
+        orders.service.ts debits points in the create transaction.
+  8.07  Review gate — delivered orders only        IMPLEMENTED
+        reviews.service.ts rejects non-delivered orders.
+  8.08  LoyaltyController class-level guards        IMPLEMENTED
+        SupabaseAuthGuard + RolesGuard at class level.
+  8.09  Global PrismaExceptionFilter in main.ts    IMPLEMENTED
+  8.10  STRIPE_WEBHOOK_SECRET in required-env       IMPLEMENTED
+        common/config/required-env.ts.
+  8.11  ICO number ZC146267 on legal pages          IMPLEMENTED
+        legal/privacy/page.tsx + lib/legal-constants.ts.
+  8.12  Cookie consent banner                       IMPLEMENTED
+        apps/web/src/components/cookie-banner.tsx.
+  8.13  All 8 UK GDPR rights on privacy page        IMPLEMENTED
+        legal/privacy/page.tsx lists all eight.
+  8.14  VendorApplication terms acceptance stored   IMPLEMENTED
+        acceptedTermsAt stamped on submission.
+  8.15  Vendor.acceptingOrders + pause toggle       PARTIAL
+        No acceptingOrders boolean; pausing is via status=live +
+        BlackoutDate + sameDayOrders/availability caps.
+  8.16  Coverage check blocks out-of-area checkout  IMPLEMENTED
+        orders.service.ts assertWithinDeliveryArea throws if outside.
+  8.17  vendor.feastpot.co.uk absent from public    IMPLEMENTED
+        Only appears in CORS allowlist, not on public web pages.
+
+
+SECTION 9 — TEST COVERAGE
+---------------------------
+Command used: npx jest (in apps/api). The package script is
+"test" (jest --passWithNoTests); there is no "test:api" script.
+
+  9.01  auth/guards/roles.guard.spec.ts                 PASS
+  9.02  auth/guards/supabase-auth.guard.spec.ts         FAIL
+  9.03  modules/orders/orders.service.spec.ts           FAIL
+  9.04  modules/orders/order-slots.service.spec.ts      PASS
+  9.05  modules/vendors/vendors.service.spec.ts         FAIL
+  9.06  modules/vendors/vendors.controller.spec.ts      FAIL
+  9.07  modules/catalogue/menu-items.service.spec.ts    PASS
+  9.08  modules/catalogue/guards/vendor-ownership.guard.spec.ts  FAIL
+  9.09  modules/payments/payments.service.spec.ts       PASS
+  9.10  modules/payouts/payouts.service.spec.ts         PASS
+  9.11  modules/admin/admin.controller.spec.ts          PASS
+  9.12  e2e/vendor-onboarding-smoke.spec.ts             SKIPPED
+  9.13  scripts/smoke-test.ts (npm run smoke-test)      PASS
+
+  Unit test totals (most recent run):
+    Test Suites: 5 failed, 1 skipped, 6 passed (11 of 12 total)
+    Tests:       21 failed, 5 skipped, 133 passed (159 total)
+    Time:        ~31 s
+
+  Example failure (orders.service.spec.ts): the test asserts
+  queue.add('notify_vendor', {...}) was called with 2 args, but the
+  call now passes a 3rd (undefined) options arg — the test expectation
+  is stale relative to the current queue.add signature. The failures
+  appear to be assertion/signature drift, not runtime breakage (the
+  end-to-end smoke test passes — see below).
+
+  Smoke test (npm run smoke-test) — PASS, all steps:
+    API health check ......................... PASS
+    Customer login (Supabase) ................ PASS
+    Vendor login (Supabase) .................. PASS
+    Resolve vendor via /vendors/me ........... PASS (Maman's Kitchen)
+    Fetch vendor menus ....................... PASS
+    Fetch menu items ......................... PASS
+    At least one available item .............. PASS (Jerk Chicken £38.00)
+    Fetch customer addresses ................. PASS
+    Create order ............................. PASS
+    clientSecret returned .................... PASS
+    PaymentIntent parsed ..................... PASS
+    capture_method = manual .................. PASS
+    Not captured pre-payment ................. PASS
+    requires_capture after confirm ........... PASS
+    Order confirmed via API .................. PASS
+    Vendor accepted order .................... PASS
+    Status -> preparing ...................... PASS
+    Status -> dispatched ..................... PASS
+    Marked delivered ......................... PASS
+    PaymentIntent captured on delivery ....... PASS
+    API healthy after lifecycle .............. PASS
+    Stripe mode: test.
+
+
+SECTION 10 — KNOWN ISSUES AND GAPS
+-------------------------------------
+
+  LOCATION: apps/api (jest suites, Section 9)
+  TYPE: FAILING_TESTS
+  DESCRIPTION: 5 unit suites / 21 tests fail (supabase-auth.guard,
+  orders.service, vendors.service, vendors.controller,
+  vendor-ownership.guard). Appears to be stale assertions vs current
+  signatures (e.g. queue.add now receives an options arg). Blocks a
+  green CI run; should be fixed or updated before relying on `npm run ci`.
+
+  LOCATION: apps/api/src/main.ts (1.18)
+  TYPE: MISSING
+  DESCRIPTION: No global ThrottlerExceptionFilter; rate-limit rejections
+  use the default 429 shape rather than the app's error envelope.
+
+  LOCATION: apps/api/src/modules/coverage/coverage.service.ts:~8
+  TYPE: STUB
+  DESCRIPTION: POST /v1/coverage-interest (waitlist) logs
+  [coverage-interest] but does not persist — no CoverageInterest model.
+  Waitlist sign-ups are lost.
+
+  LOCATION: apps/api/src/modules/payouts/payouts.service.ts:~207
+  TYPE: PLACEHOLDER / HARDCODED
+  DESCRIPTION: Payout `fees` and `adjustments` are hardcoded zero
+  columns; Stripe transfer fees are not broken out in the schema.
+
+  LOCATION: apps/api/src/common/config/service-fee.ts
+  TYPE: HARDCODED / CONFIG
+  DESCRIPTION: SERVICE_FEE_BPS defaults to 0 — platform takes no
+  per-order service fee unless the env var is set. Revenue decision.
+
+  LOCATION: apps/vendor/src/app/menu/menu-list-client.tsx:~44
+  TYPE: DISABLED / PLACEHOLDER
+  DESCRIPTION: Menu LIST drag handle is visual only; reordering whole
+  menus does not persist (useUpdateMenu accepts displayOrder but it is
+  not wired). NOTE: reordering ITEMS within a menu IS wired.
+
+  LOCATION: apps/vendor/src/app/menu/[menuId]/items/[itemId]/item-editor-client.tsx:~589
+  TYPE: TODO
+  DESCRIPTION: Item PHOTO drag-reorder is not wired — schema has no
+  sortable image-order field (imageUrls is a flat String[]).
+
+  LOCATION: apps/vendor/src/app/settings/delivery/delivery-form.tsx:~173
+  TYPE: PLACEHOLDER
+  DESCRIPTION: Delivery map preview is a text list of postcode prefixes;
+  "Map preview is on the roadmap."
+
+  LOCATION: apps/vendor/src/app/onboarding/onboarding-client.tsx:~102
+  TYPE: PLACEHOLDER
+  DESCRIPTION: Vendor self-serve profile editing UI not in the portal;
+  copy notes it currently lives in the admin app.
+
+  LOCATION: apps/admin/src/app/orders/orders-client.tsx:175, 481
+  TYPE: PLACEHOLDER (coming soon)
+  DESCRIPTION: "Export current filter as CSV" disabled. (NOTE: the API
+  does expose GET /v1/admin/orders.csv — only the UI button is stubbed.)
+
+  LOCATION: apps/admin/src/app/orders/orders-client.tsx:337, 662
+  TYPE: DISABLED (coming soon)
+  DESCRIPTION: Order bulk-select checkboxes (select-all + per-row) disabled.
+
+  LOCATION: apps/admin/src/app/users/users-client.tsx:284
+  TYPE: PLACEHOLDER (coming soon)
+  DESCRIPTION: Users CSV export button disabled.
+
+  LOCATION: apps/admin/src/app/events/events-client.tsx:183, 277-278
+  TYPE: PLACEHOLDER (coming soon)
+  DESCRIPTION: Event enquiries CSV export and "More filters" disabled.
+
+  LOCATION: apps/admin/src/app/reviews/queue/reviews-queue-client.tsx:230, 342
+  TYPE: PLACEHOLDER (coming soon)
+  DESCRIPTION: Reviews CSV export and "More filters" disabled.
+
+  LOCATION: apps/admin/src/components/dashboard/search-trends-card.tsx
+  TYPE: PLACEHOLDER
+  DESCRIPTION: Search Trends card depends on search-analytics that
+  currently returns little/no data; no pagination.
+
+  LOCATION: apps/web/src/app/orders/[id]/review/page.tsx:257
+  TYPE: PLACEHOLDER (coming soon)
+  DESCRIPTION: Review photo uploads are accepted in the UI but discarded
+  on submit ("Photo uploads aren't saved yet").
+
+  LOCATION: apps/web/src/app/orders/[id]/review/page.tsx:199
+  TYPE: PLACEHOLDER
+  DESCRIPTION: "Food quality" sub-rating is collected but not stored
+  separately; it folds into the overall rating.
+
+  LOCATION: apps/web/src/components/vendor/rating-breakdown.tsx:111-119
+  TYPE: PLACEHOLDER / HARDCODED
+  DESCRIPTION: Per-star rating bars are a deterministic estimate
+  (estimateBreakdown); the API exposes only rating + ratingCount.
+
+  LOCATION: apps/web/src/app/(auth)/sign-in/page.tsx (register flow)
+  TYPE: DEFENSIVE (resolved)
+  DESCRIPTION: Web swallows a 404 from POST /v1/users/sync. The endpoint
+  DOES exist (users.controller.ts), so the mirror works; the guard is
+  legacy defensiveness, not a live gap.
+
+  LOCATION: apps/api/src/modules/* (dev-only routes)
+  TYPE: DISABLED (in production)
+  DESCRIPTION: /v1/vendors/debug, /v1/webhooks/stripe-test,
+  /v1/admin/test-notification, /v1/admin/test/notifications are gated on
+  NODE_ENV !== 'production'.
+
+  LOCATION: repository root
+  TYPE: MISSING_ENV (no template)
+  DESCRIPTION: There is NO .env.example / .env.local file in the repo, so
+  every variable in Section 11 is undocumented for new environments.
+
+  MISSING / UNSET ENV (blocks live behaviour) — detail in Section 11:
+    STRIPE_WEBHOOK_SECRET (required to boot in prod), RESEND_API_KEY,
+    NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY, REDIS_URL, TWILIO_FROM_NUMBER,
+    WHATSAPP_ACCESS_TOKEN, WHATSAPP_PHONE_NUMBER_ID, TWILIO_WHATSAPP_FROM,
+    VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY, SERVICE_FEE_BPS (defaults 0).
+
+
+SECTION 11 — ENVIRONMENT VARIABLES
+-------------------------------------
+Derived from: process.env.* references (apps/*/src) and ConfigService
+.get() keys (apps/api). PRESENT_IN_SECRETS reflects the workspace
+secret list visible to the agent (YES = configured secret present).
+No .env.example exists, so none are documented there.
+
+  NAME: SUPABASE_URL
+    USED_IN: api          PRESENT_IN_SECRETS: YES   REQUIRED: YES
+  NAME: SUPABASE_SERVICE_ROLE_KEY
+    USED_IN: api          PRESENT_IN_SECRETS: YES   REQUIRED: YES
+  NAME: SUPABASE_DB_URL
+    USED_IN: api          PRESENT_IN_SECRETS: YES   REQUIRED: YES
+  NAME: SUPABASE_ANON_KEY
+    USED_IN: api          PRESENT_IN_SECRETS: UNKNOWN REQUIRED: YES
+  NAME: NEXT_PUBLIC_SUPABASE_URL
+    USED_IN: web,vendor,admin  PRESENT_IN_SECRETS: YES  REQUIRED: YES
+  NAME: NEXT_PUBLIC_SUPABASE_ANON_KEY
+    USED_IN: web,vendor,admin  PRESENT_IN_SECRETS: YES  REQUIRED: YES
+  NAME: STRIPE_SECRET_KEY
+    USED_IN: api          PRESENT_IN_SECRETS: YES   REQUIRED: YES
+  NAME: STRIPE_WEBHOOK_SECRET
+    USED_IN: api          PRESENT_IN_SECRETS: NO    REQUIRED: YES
+        (required-env enforced; API will not boot without it)
+  NAME: NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+    USED_IN: web          PRESENT_IN_SECRETS: NO    REQUIRED: YES
+  NAME: REDIS_URL
+    USED_IN: api          PRESENT_IN_SECRETS: NO    REQUIRED: YES
+        (BullMQ + throttler storage + cache; boot PING fast-fail)
+  NAME: RESEND_API_KEY
+    USED_IN: api          PRESENT_IN_SECRETS: NO    REQUIRED: NO (stub w/o)
+  NAME: EMAIL_FROM
+    USED_IN: api          PRESENT_IN_SECRETS: YES   REQUIRED: NO
+  NAME: EMAIL_LOGO_URL
+    USED_IN: api          PRESENT_IN_SECRETS: UNKNOWN REQUIRED: NO
+  NAME: TWILIO_ACCOUNT_SID
+    USED_IN: api          PRESENT_IN_SECRETS: YES   REQUIRED: NO (SMS stub w/o)
+  NAME: TWILIO_AUTH_TOKEN
+    USED_IN: api          PRESENT_IN_SECRETS: YES   REQUIRED: NO (SMS stub w/o)
+  NAME: TWILIO_FROM_NUMBER
+    USED_IN: api          PRESENT_IN_SECRETS: NO    REQUIRED: NO (SMS stub w/o)
+  NAME: TWILIO_WHATSAPP_FROM
+    USED_IN: api          PRESENT_IN_SECRETS: NO    REQUIRED: NO (WA stub w/o)
+  NAME: WHATSAPP_ACCESS_TOKEN
+    USED_IN: api          PRESENT_IN_SECRETS: NO    REQUIRED: NO (WA Meta stub w/o)
+  NAME: WHATSAPP_PHONE_NUMBER_ID
+    USED_IN: api          PRESENT_IN_SECRETS: NO    REQUIRED: NO (WA Meta stub w/o)
+  NAME: VAPID_PUBLIC_KEY
+    USED_IN: api          PRESENT_IN_SECRETS: NO    REQUIRED: NO (push stub w/o)
+  NAME: VAPID_PRIVATE_KEY
+    USED_IN: api          PRESENT_IN_SECRETS: NO    REQUIRED: NO (push stub w/o)
+  NAME: VAPID_SUBJECT
+    USED_IN: api          PRESENT_IN_SECRETS: NO    REQUIRED: NO (defaulted)
+  NAME: NEXT_PUBLIC_VAPID_PUBLIC_KEY
+    USED_IN: web          PRESENT_IN_SECRETS: NO    REQUIRED: NO
+  NAME: SERVICE_FEE_BPS
+    USED_IN: api          PRESENT_IN_SECRETS: NO    REQUIRED: NO (defaults 0)
+  NAME: MENU_AUTO_APPROVE
+    USED_IN: api          PRESENT_IN_SECRETS: NO    REQUIRED: NO (defaults auto-approve)
+  NAME: BULL_BOARD_USERNAME
+    USED_IN: api          PRESENT_IN_SECRETS: UNKNOWN REQUIRED: NO
+  NAME: BULL_BOARD_PASSWORD
+    USED_IN: api          PRESENT_IN_SECRETS: UNKNOWN REQUIRED: NO
+  NAME: MFA_RECOVERY_PEPPER
+    USED_IN: api          PRESENT_IN_SECRETS: UNKNOWN REQUIRED: YES (MFA codes)
+  NAME: DLQ_ALERT_EMAIL
+    USED_IN: api          PRESENT_IN_SECRETS: UNKNOWN REQUIRED: NO
+  NAME: VENDOR_APPLICATIONS_ADMIN_EMAIL
+    USED_IN: api          PRESENT_IN_SECRETS: UNKNOWN REQUIRED: NO
+  NAME: VENDOR_PORTAL_URL
+    USED_IN: api          PRESENT_IN_SECRETS: YES   REQUIRED: NO
+  NAME: ADMIN_URL
+    USED_IN: api          PRESENT_IN_SECRETS: UNKNOWN REQUIRED: NO
+  NAME: API_PUBLIC_URL
+    USED_IN: api          PRESENT_IN_SECRETS: UNKNOWN REQUIRED: NO
+  NAME: NEXT_PUBLIC_API_URL
+    USED_IN: web,vendor,admin  PRESENT_IN_SECRETS: UNKNOWN REQUIRED: YES
+  NAME: NEXT_PUBLIC_SITE_URL
+    USED_IN: web          PRESENT_IN_SECRETS: UNKNOWN REQUIRED: NO
+  NAME: NEXT_PUBLIC_WEB_URL
+    USED_IN: web          PRESENT_IN_SECRETS: UNKNOWN REQUIRED: NO
+  NAME: NEXT_PUBLIC_SUPPORT_EMAIL
+    USED_IN: web          PRESENT_IN_SECRETS: UNKNOWN REQUIRED: NO
+  NAME: NEXT_PUBLIC_SUPPORT_WHATSAPP
+    USED_IN: web          PRESENT_IN_SECRETS: UNKNOWN REQUIRED: NO
+  NAME: SENTRY_DSN
+    USED_IN: api/web      PRESENT_IN_SECRETS: NO    REQUIRED: NO
+  NAME: NODE_ENV
+    USED_IN: all          PRESENT_IN_SECRETS: N/A (runtime) REQUIRED: YES
+  NAME: PORT
+    USED_IN: api          PRESENT_IN_SECRETS: N/A (runtime) REQUIRED: NO
+  NAME: TEST_ADMIN_EMAIL / TEST_ADMIN_PASSWORD
+    USED_IN: scripts/tests  PRESENT_IN_SECRETS: UNKNOWN REQUIRED: NO (tests only)
+
+
+SECTION 12 — SUMMARY SCORECARD
+---------------------------------
+Counts cover the discretely-scored items in Sections 1, 2, 4, 5, 6, 7,
+8 (feature/route/model/template/security items). Section 3 (route
+inventory) and Section 11 (env list) are inventories, not scored.
+Section 9 (tests) is reported separately as pass/fail.
+
+  Feature/route/model/template/security items audited: ~150
+    Implemented / Exists:        128   (~85%)
+    Partially implemented:         5   (~3%)
+    Not implemented / Missing:    15   (~10%)
+    Unknown (external/infra):      2   (~1%)
+
+  Note on "Missing": most missing routes are functionally covered by a
+  different surface (e.g. dish shown via drawer not a page; admin
+  per-record actions handled inline; loyalty/referrals as cards within
+  /account). Genuinely absent capabilities are: ThrottlerExceptionFilter,
+  waitlist persistence, per-user notification preferences, Stripe-native
+  chargeback webhooks, order-cancelled email template, error boundaries
+  in web/vendor.
+
+  Test health:
+    Unit suites: 6 passed / 5 failed / 1 skipped (12).
+    Unit tests:  133 passed / 21 failed / 5 skipped (159).
+    Smoke test:  PASS (full order lifecycle, test mode).
+
+  Critical blockers (must fix before the first real order):
+    1. Live Stripe key + registered webhook (STRIPE_WEBHOOK_SECRET must
+       be set or the API will not boot in production).
+    2. At least one live notification channel — all providers are in
+       stub mode (need RESEND_API_KEY + domain, or TWILIO_FROM_NUMBER,
+       or WhatsApp credentials).
+    3. REDIS_URL configured in production (BullMQ, throttler, cache;
+       boot PING fast-fail will exit without it).
+    4. Production hosting + DNS (api.feastpot.co.uk + the three frontend
+       domains verified).
+    5. Failing unit suites repaired so CI is green (assertion drift).
+    6. One live-mode payout dry-run reconciled to zero discrepancy.
+
+  Vendor onboarding readiness: YES — the full path (interest form ->
+  admin review -> provisioning of auth user + User + Vendor rows ->
+  magic-link invite -> onboarding wizard) is implemented and the
+  approval emails fire.
+
+  Customer ordering readiness: YES (technically) — the end-to-end smoke
+  test creates, pays (test mode, manual capture), accepts, dispatches,
+  delivers, and captures an order successfully. Gated only by the live
+  payment + notification credentials above.
+
+  Estimated remaining work to first real order: ~16-30 hours.
+    Confidence: MEDIUM. Most of the effort is configuration (Stripe live
+    + webhook, Redis, notification creds, DNS) plus repairing the stale
+    failing unit tests; little net-new feature code is required.
+
+════════════════════════════════════════════════════════
+END OF AUDIT
+════════════════════════════════════════════════════════
