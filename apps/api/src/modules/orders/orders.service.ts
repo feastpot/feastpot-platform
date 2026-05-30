@@ -950,17 +950,35 @@ export class OrdersService {
       );
     }
 
-    // Notify the vendor a customer cancelled. Reuses the generic notifications
-    // queue; the processor branches on job name to pick the right template.
+    // Confirm the cancellation to the customer AND alert the vendor. The
+    // notifications processor resolves the recipient from the data keys
+    // (customerId → the customer; vendorUserId → the vendor's user) and routes
+    // each job name to its template. (The previous single enqueue passed
+    // `vendorId`, which resolveUserId does not recognise, and there was no
+    // matching template - so nobody was ever notified on a customer cancel.)
+    // jobIds keep both enqueues idempotent if customerCancel is retried.
     await this.safeEnqueue(
       'order_cancelled_by_customer',
       {
-        vendorId: order.vendorId,
+        customerId: order.customerId,
+        customerFirstName: order.customer?.firstName ?? undefined,
+        orderId,
+        orderNumber: order.orderNumber,
+        vendorName: order.vendor?.businessName,
+        totalPence: order.totalPence,
+        reason,
+      },
+      { jobId: `cancelled_by_customer:${orderId}` },
+    );
+    await this.safeEnqueue(
+      'order_cancelled_vendor_alert',
+      {
+        vendorUserId: order.vendor?.userId,
         orderId,
         orderNumber: order.orderNumber,
         reason,
       },
-      { jobId: `cancelled_by_customer:${orderId}` },
+      { jobId: `cancelled_vendor_alert:${orderId}` },
     );
 
     return this.repo.findByIdWithItems(orderId);

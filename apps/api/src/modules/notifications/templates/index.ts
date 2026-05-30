@@ -183,6 +183,46 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
     channels: ['email', 'whatsapp', 'push'],
     whatsappTemplate: 'delivery_confirmed',
   },
+  // Customer self-cancellation confirmation. NB: this codebase uses Stripe
+  // MANUAL CAPTURE and cancels the PaymentIntent on customer-cancel, so the
+  // customer was never charged - we tell them the authorisation is released,
+  // NOT that a refund was issued (a refund email here would be inaccurate).
+  order_cancelled_by_customer: {
+    subject: (d) => `Your order from ${str(d.vendorName, 'your vendor')} has been cancelled`,
+    render: (d) =>
+      baseLayout(
+        'Order cancelled',
+        h2(`Hi${d.customerFirstName ? ' ' + str(d.customerFirstName) : ''},`) +
+          p(
+            `Your order <strong>${esc(d.orderNumber)}</strong> from <strong>${esc(d.vendorName, 'your vendor')}</strong> has been cancelled.`,
+          ) +
+          p(
+            `You have not been charged — the payment authorisation of <strong>${formatMoney(d.totalPence)}</strong> has been released and any pending hold will drop off your statement within a few working days.`,
+          ) +
+          p(
+            `If you didn't cancel this order or have any questions, contact us at <a href="mailto:support@feastpot.co.uk" style="color:#1D9E75">support@feastpot.co.uk</a>.`,
+          ) +
+          brandButton('View order history', 'https://feastpot.co.uk/account/orders', 'teal'),
+        `Order ${str(d.orderNumber)} cancelled — you haven't been charged`,
+      ),
+    channels: ['email', 'push'],
+  },
+  // Vendor alert when a customer cancels a still-cancellable (pending/accepted)
+  // order, so the kitchen knows not to prep it.
+  order_cancelled_vendor_alert: {
+    subject: (d) => `Order ${str(d.orderNumber)} was cancelled by the customer`,
+    render: (d) =>
+      baseLayout(
+        'Order cancelled',
+        h2('A customer cancelled their order') +
+          p(
+            `Order <strong>${esc(d.orderNumber)}</strong> has been cancelled by the customer, so there's no need to prepare it.`,
+          ) +
+          (d.reason ? p(`Reason given: <em>${esc(d.reason)}</em>`) : '') +
+          brandButton('Open vendor portal', 'https://vendor.feastpot.co.uk/orders', 'vendorBlue'),
+      ),
+    channels: ['email', 'push'],
+  },
 
   // ---------- Amendments + ETA (FR-AMD-001 / FR-TRK-001) ----------
   order_amendment_proposed: {
