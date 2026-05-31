@@ -92,8 +92,8 @@ localPort = 3003
 externalPort = 3003
 
 [deployment]
-deploymentTarget = "autoscale"
-run = ["bash", "-c", "npm run db:deploy && PORT=3002 npm run start:api"]
+deploymentTarget = "vm"
+run = ["bash", "-c", "npm run db:deploy && npm run start:api"]
 build = ["bash", "-c", "npm ci && npm run db:generate && npm run build:api"]
 
 [userenv]
@@ -103,6 +103,9 @@ SERVICE_FEE_BPS = "500"
 VAPID_PUBLIC_KEY = "BIJ-jbBNoPraRvpDNcvfbY3R6sP3gno66-FkUOeWcaIKqXNFcatMR0bTo2eRza9Ovy7mKfStBPoGskT8aGFjo3Y"
 NEXT_PUBLIC_VAPID_PUBLIC_KEY = "BIJ-jbBNoPraRvpDNcvfbY3R6sP3gno66-FkUOeWcaIKqXNFcatMR0bTo2eRza9Ovy7mKfStBPoGskT8aGFjo3Y"
 VAPID_PRIVATE_KEY = "YoYlUPIGqS-6hQA0AgAp7oGoTUy0CzhzaUz26qZ7AEA"
+
+[userenv.production]
+STRIPE_WEBHOOK_SECRET = "whsec_placeholder_pending_webhook_registration"
 
 [postMerge]
 path = "scripts/post-merge.sh"

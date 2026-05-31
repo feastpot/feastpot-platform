@@ -37,6 +37,12 @@ These are 🔴 and are about credentials/hosting, not writing features.
    Going live needs: the **live** `STRIPE_SECRET_KEY` (today runs on test keys),
    Stripe Connect enabled on the live platform, and the live webhook endpoint
    registered so its signing secret matches.
+   NOTE (31 May 2026): a **temporary placeholder** `STRIPE_WEBHOOK_SECRET` is set
+   in the *production* env so the API can boot after first publish (the boot gate
+   in `required-env.ts` hard-exits without it). Once the API is live, register the
+   webhook at `https://api.feastpot.co.uk/v1/webhooks/stripe`, copy the real
+   signing secret, and replace the placeholder. Until then signature verification
+   rejects events — fine pre-launch.
 
 2. ✅ **Redis (`REDIS_URL`) — RESOLVED (31 May 2026).** Upstash `feastpot-prod`
    (TLS, `rediss://`, Ireland) wired up and on a pay-as-you-go plan (the free
@@ -58,9 +64,18 @@ These are 🔴 and are about credentials/hosting, not writing features.
    - **WhatsApp (optional, still stub):** has Twilio creds but needs per-template
      Content SIDs in Twilio Content Builder before it will actually send.
 
-4. 🔴 **Production hosting + DNS.** The API needs a stable home
-   (`api.feastpot.co.uk` → Replit Autoscale, DNS-only) and the three frontends
-   need their domains verified. Until this lands the apps run on fallback URLs.
+4. 🟠 **Production hosting + DNS — API config done (31 May 2026), publish pending.**
+   Replit publishes one service per repl, so this repl deploys the **API**; the
+   three frontends will deploy separately (their own repls). The API deploy is
+   configured as a **VM (always-on)** — NOT autoscale — because the BullMQ queue
+   workers and `@Cron` jobs (Monday 02:00 payout batch, hourly event reminders,
+   daily loyalty/DLQ) run inside the API process and must not scale to zero.
+   `build = npm ci && db:generate && build:api`; `run = db:deploy && start:api`
+   (db:deploy = `prisma migrate deploy` + RLS lockdown, production-safe). Verified
+   the prod build compiles to `apps/api/dist/main.js`.
+   STILL USER-SIDE: click Publish (pick UK/Europe geography — permanent), add the
+   `api.feastpot.co.uk` custom domain in the Publishing UI, and create the DNS
+   records Replit shows. Then deploy the 3 frontends.
 
 5. 🔴 **A real payout dry-run.** The weekly batch processor is built and
    scheduled — cron `0 2 * * 1`, Mondays 02:00 UTC

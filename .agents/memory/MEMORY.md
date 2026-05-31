@@ -1,3 +1,4 @@
 - [Admin UI conventions](admin-ui-conventions.md) — server page (requireStaff) → client component; gate mutating UI to match backend @Roles, not the broader page-view roles.
 - [Monorepo commands](monorepo-commands.md) — repo is npm workspaces + Turborepo; attached CHECK-FIRST prompts say `--filter=` (turbo) but per-app scripts run via `npm run X --workspace=@feastpot/<app>`.
 - [Redis / Upstash for BullMQ](redis-upstash.md) — must be paid Upstash (free 500K cmd/mo cap fails); `rediss://` TLS; queues tuned to 5-min polls — don't revert.
+- [Deployment](deployment.md) — 1 service/repl so this repl deploys the API; API MUST be VM (workers+crons in-process); placeholder STRIPE_WEBHOOK_SECRET to break webhook chicken-and-egg.
