@@ -100,6 +100,9 @@ build = ["bash", "-c", "npm ci && npm run db:generate && npm run build:api"]
 
 [userenv.shared]
 SERVICE_FEE_BPS = "500"
+VAPID_PUBLIC_KEY = "BIJ-jbBNoPraRvpDNcvfbY3R6sP3gno66-FkUOeWcaIKqXNFcatMR0bTo2eRza9Ovy7mKfStBPoGskT8aGFjo3Y"
+NEXT_PUBLIC_VAPID_PUBLIC_KEY = "BIJ-jbBNoPraRvpDNcvfbY3R6sP3gno66-FkUOeWcaIKqXNFcatMR0bTo2eRza9Ovy7mKfStBPoGskT8aGFjo3Y"
+VAPID_PRIVATE_KEY = "YoYlUPIGqS-6hQA0AgAp7oGoTUy0CzhzaUz26qZ7AEA"
 
 [postMerge]
 path = "scripts/post-merge.sh"
