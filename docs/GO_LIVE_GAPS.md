@@ -1,8 +1,10 @@
 # Feastpot — Go-Live Audit: What's Left to Implement
 
-_Last audited: 30 May 2026. This is a code-verified inventory — every item below
-was confirmed against the source as it stands today (grep + file review), not the
-roadmap or memory. File references are included so each item is traceable._
+_Last audited: 31 May 2026. Code-verified inventory — every item below was
+confirmed against the source as it stands today (grep + file review + a fresh
+codebase sweep), not the roadmap or memory. File references are included so each
+item is traceable. This refresh supersedes the 30 May edition; several items
+previously listed as gaps are now resolved (see §7)._
 
 ---
 
@@ -24,43 +26,48 @@ remain are mostly 🟡.
 
 These are 🔴 and are about credentials/hosting, not writing features.
 
-1. 🔴 **Live Stripe credentials + webhook registration.** The webhook handler
-   is built and processes `payment_intent.succeeded`,
+1. 🔴 **Live Stripe credentials + webhook registration.** The webhook handler is
+   built and processes `payment_intent.succeeded`,
    `payment_intent.payment_failed`, `transfer.created`, and `refund.updated`
    (`apps/api/src/modules/payments/stripe-webhook.processor.ts`).
    `STRIPE_WEBHOOK_SECRET` is a hard-required env var — the API won't boot
-   without it (`apps/api/src/common/config/required-env.ts`). Going live needs:
-   the **live** `STRIPE_SECRET_KEY`, Stripe Connect enabled on the live
-   platform, and the live webhook endpoint registered so its signing secret
-   matches. Today it runs on test keys.
+   without it in prod (`apps/api/src/common/config/required-env.ts`), and it's
+   currently **unset** (`/v1/healthz` reports `secrets: missing
+   STRIPE_WEBHOOK_SECRET`). `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` is also unset.
+   Going live needs: the **live** `STRIPE_SECRET_KEY` (today runs on test keys),
+   Stripe Connect enabled on the live platform, and the live webhook endpoint
+   registered so its signing secret matches.
 
-2. 🔴 **At least one live notification channel.** The engine is complete — 20+
+2. 🔴 **Redis (`REDIS_URL`) is unset.** BullMQ queues, the throttler store, and
+   the cache all depend on it; `/v1/healthz` currently reports `redis: disabled`.
+   Without it the notification queue and the weekly payout batch have nowhere to
+   run. Required before any real order flow.
+
+3. 🔴 **At least one live notification channel.** The engine is complete — 20+
    real templates, a BullMQ queue, and providers for email, SMS, WhatsApp, and
-   web push. Every provider is currently in **stub mode** (logs only) because
-   credentials are missing:
-   - **Email (Resend):** `RESEND_API_KEY` + verified sending domain for
-     `EMAIL_FROM` — else `[stub-email]`
-     (`.../notifications/providers/email.provider.ts`).
+   web push. Email (Resend) is now configured; the others are still in **stub
+   mode** (logs only) because credentials are missing:
    - **SMS (Twilio):** `TWILIO_FROM_NUMBER` (account SID/auth already set) —
-     else `[stub-sms]` (`.../providers/sms.provider.ts`).
+     else `[stub-sms]` (`.../notifications/providers/sms.provider.ts`).
    - **WhatsApp:** `TWILIO_WHATSAPP_FROM` + per-template Content SIDs, **or**
      `WHATSAPP_ACCESS_TOKEN` + `WHATSAPP_PHONE_NUMBER_ID` (Meta) — else
      `[stub-wa]` (`.../providers/whatsapp.provider.ts`).
+   - **Web push:** see item 6.
 
-   Without at least one live channel, vendors get no order alert and customers
-   get no confirmation — non-negotiable for a kitchen.
+   Email alone can cover a pilot, but a kitchen needs a fast vendor order alert
+   (SMS/WhatsApp) before real volume.
 
-3. 🔴 **Production hosting + DNS.** The API needs a stable home
+4. 🔴 **Production hosting + DNS.** The API needs a stable home
    (`api.feastpot.co.uk` → Replit Autoscale, DNS-only) and the three frontends
    need their domains verified. Until this lands the apps run on fallback URLs.
 
-4. 🔴 **A real payout dry-run.** The weekly batch processor is built and
+5. 🔴 **A real payout dry-run.** The weekly batch processor is built and
    scheduled — cron `0 2 * * 1`, Mondays 02:00 UTC
    (`.../payouts/processors/payout-batch.processor.ts`). Before trusting it with
    real money, run one full cycle against a test vendor in live mode and confirm
    funds settle with zero discrepancy in the finance view.
 
-5. 🟠 **Web push VAPID keys.** Web push is wired but disabled until
+6. 🟠 **Web push VAPID keys.** Web push is wired but disabled until
    `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` are set — otherwise it logs
    `[stub-push]` and delivers nothing (`.../providers/push.provider.ts`).
    Optional if email/SMS covers launch comms.
@@ -68,20 +75,6 @@ These are 🔴 and are about credentials/hosting, not writing features.
 ---
 
 ## 2. Backend / API gaps (real code, not config)
-
-- 🟠 **`/v1/users/sync` route is missing.** On customer signup the web app tries
-  to mirror the new user's profile (first/last name, phone, marketing opt-in,
-  referral code) to the API, but the route doesn't exist — the call 404s and is
-  silently skipped (`apps/web/src/app/(auth)/sign-in/page.tsx` ~L563-572). Means
-  these fields aren't persisted server-side at registration. Needs the endpoint
-  built before relying on that profile data (e.g. referral attribution).
-
-- 🟠 **Waitlist interest is not persisted.** The `/waitlist` "register interest"
-  endpoint only logs `[coverage-interest]` to the console — there's no
-  `CoverageInterest` model, so sign-ups are lost
-  (`apps/api/src/modules/coverage/coverage.service.ts`, persistence
-  "intentionally deferred"). Needs a table + write before any marketing drives
-  traffic there.
 
 - 🟠 **No per-user notification preferences.** The processor delivers on every
   channel a template declares (if the user has phone/email). There's no
@@ -91,8 +84,9 @@ These are 🔴 and are about credentials/hosting, not writing features.
 - 🟡 **Stripe-native chargeback/dispute webhooks aren't handled.** The internal
   marketplace dispute flow (customer-vs-vendor) is complete and can trigger
   refunds (`apps/api/src/modules/disputes/disputes.service.ts`), but
-  bank-initiated chargebacks (`charge.dispute.*`) have no webhook handler —
-  finance manages those manually in the Stripe Dashboard.
+  bank-initiated chargebacks (`charge.dispute.*`) have no webhook handler
+  (verified: no listener in `stripe-webhook.processor.ts`) — finance manages
+  those manually in the Stripe Dashboard.
 
 - 🟡 **Payout "fees" and "adjustments" are placeholder £0 columns**
   (`apps/api/src/modules/payouts/payouts.service.ts` ~L207) — Stripe transfer
@@ -101,8 +95,8 @@ These are 🔴 and are about credentials/hosting, not writing features.
 - 🟡 **Per-star rating buckets aren't real.** The vendor API exposes only
   `rating` + `ratingCount`; the customer breakdown bars are generated by a
   deterministic estimator (`estimateBreakdown`,
-  `apps/web/src/components/vendor/rating-breakdown.tsx`). Once the API returns
-  per-bucket counts, swap the estimate out.
+  `apps/web/src/components/vendor/rating-breakdown.tsx` ~L111). Once the API
+  returns per-bucket counts, swap the estimate out.
 
 - 🟡 **"Food quality" sub-rating isn't stored separately.** The review form
   collects it but it folds into the overall rating
@@ -110,42 +104,59 @@ These are 🔴 and are about credentials/hosting, not writing features.
   aggregation to surface it.
 
 - 🟡 **Review photo uploads aren't saved.** The UI accepts photos then discards
-  them on submit ("Photo uploads aren't saved yet — coming soon",
-  review page ~L257). Needs storage + a join model.
+  them on submit ("Photo uploads aren't saved yet — coming soon", review page
+  ~L257). Needs storage + a join model.
+
+- 🟡 **No global ThrottlerExceptionFilter** (`apps/api/src/main.ts`). Rate-limit
+  rejections return the default 429 shape rather than the app's error envelope.
+
+- 🟡 **Community-reviews sort is placeholder ordering.** The homepage notes a
+  TODO to switch to a true `createdAt` sort once the backend supports it
+  (`apps/web/src/app/page.tsx` ~L28).
 
 ---
 
 ## 3. Admin portal gaps
 
 - 🟡 **CSV exports are stubbed** ("coming soon") on every list: Orders
-  (`orders-client.tsx`), Users (`users-client.tsx`), Event Enquiries
-  (`events-client.tsx`), and Reviews queue (`reviews-queue-client.tsx`).
+  (`orders-client.tsx` L175/L481), Users (`users-client.tsx` L284), Event
+  Enquiries (`events-client.tsx` L183), and Reviews queue
+  (`reviews-queue-client.tsx` L230). NOTE: the API *does* expose
+  `GET /v1/admin/orders.csv` — only the UI button is stubbed.
 - 🟡 **Order bulk actions** — the select-all and per-row checkboxes in the
   orders table are `disabled` ("coming soon", `orders-client.tsx` L337/L662).
-- 🟡 **"More filters" buttons** are disabled placeholders on the Events and
-  Reviews queues.
+- 🟡 **"More filters" buttons** are disabled placeholders on the Events
+  (L277-278) and Reviews (L342) queues.
 - 🟡 **Search Trends card** depends on a search-analytics aggregator that
-  currently returns little/no data (`dashboard-client.tsx` +
-  `components/dashboard/search-trends-card.tsx`).
+  currently returns little/no data
+  (`components/dashboard/search-trends-card.tsx`); no pagination.
+
+_(Verified NOT a gap: the admin Settings page is functional — profile, security
+section, and run-payout-batch action all work; it is not a "coming soon" stub.)_
 
 ---
 
 ## 4. Vendor portal gaps
 
 - 🟡 **Menu drag-to-reorder is NOT wired.** The drag handle renders for visual
-  parity but reordering doesn't persist — `useUpdateMenu` already accepts
-  `displayOrder`, it just isn't hooked up (`menu/menu-list-client.tsx` ~L44).
+  parity but reordering whole menus doesn't persist — `useUpdateMenu` already
+  accepts `displayOrder`, it just isn't hooked up (`menu/menu-list-client.tsx`
+  ~L44). NOTE: reordering items *within* a menu IS wired.
 - 🟡 **Menu-item photo reorder is NOT wired.** No drag-reorder for item photos
-  because the schema has no sortable image-order field
-  (`menu/[menuId]/items/[itemId]/item-editor-client.tsx` ~L587, TODO).
+  because the schema has no sortable image-order field (`imageUrls` is a flat
+  `String[]`) (`menu/[menuId]/items/[itemId]/item-editor-client.tsx` ~L589).
 - 🟡 **Delivery map preview** is still a text list of postcode prefixes; an
-  actual map is on the roadmap (`settings/delivery/delivery-form.tsx` L173).
-- 🟡 **Vendor profile editing UI** isn't in the portal yet — it currently lives
-  in the admin app only (`onboarding/onboarding-client.tsx` L102).
-- 🟡 **"Download statement"** is disabled (marked future).
-- 🟡 **Analytics deltas / "missing allergens"** cards use light-touch
-  calculations and go blank with < 2 weeks of history; not a full analytics
-  engine (`analytics/analytics-client.tsx`, `components/menu/menu-stat-cards.tsx`).
+  actual map / polygon-zone tool is on the roadmap
+  (`settings/delivery/delivery-form.tsx` ~L173).
+- 🟡 **Vendor self-serve profile editing UI** isn't in the portal yet — it
+  currently lives in the admin app only (`onboarding/onboarding-client.tsx`
+  ~L102).
+- 🟡 **"Download statement"** is disabled (marked future,
+  `payouts/payouts-client.tsx`).
+- 🟡 **Analytics deltas / advanced charts** (repeat-customer rate, heatmaps,
+  "missing allergens") use light-touch calculations and go blank with < 2 weeks
+  of history; not a full analytics engine (`analytics/analytics-client.tsx`,
+  `components/menu/menu-stat-cards.tsx`).
 
 ---
 
@@ -155,43 +166,73 @@ These are 🔴 and are about credentials/hosting, not writing features.
   missing).
 - 🟡 **Rating breakdown bars are estimated** until the API ships per-bucket
   counts — see §2.
+- 🟡 **Loyalty / referrals** account sections surface some placeholder values
+  (`apps/web/src/app/account/profile/page.tsx` and related components).
 - 🟡 **Order-confirmation copy-pill** shows a "preparing your order number" state
   while the ID is in-flight rather than a fake `FP-XXXXXX`
   (`orders/[id]/confirmation/page.tsx`). Cosmetic; works as intended.
 
----
-
-## 6. Decisions to confirm (business, not code)
-
-- 🟠 **Service fee is 0.** `SERVICE_FEE_BPS` defaults to `0`
-  (`apps/api/src/common/config/service-fee.ts`), so the platform takes no
-  per-order service fee today. It's runtime-configurable (no redeploy). If zero
-  is intended for launch, fine — but it's a revenue call to make deliberately.
+_(Cleanup, not a gap: the register flow still swallows a 404 from
+`POST /v1/users/sync` with a "not yet implemented" comment
+(`(auth)/sign-in/page.tsx` ~L552-567), but that endpoint now exists
+(`users.controller.ts`) and the mirror works — the guard is dead defensiveness
+worth removing.)_
 
 ---
 
-## 7. Already done — do NOT re-implement
+## 6. Tests
 
-Verified complete in the current code (some were previously assumed missing):
+- 🟡 **One flaky time-dependent test.** V1's 5 failing suites / 21 failing tests
+  are resolved; one remains — the same-day-orders slot test is time-of-day
+  dependent (clamped target slot can land in the past late in the day, tripping
+  a different rejection code). Pin it to a fixed clock (jest fake timers) for a
+  deterministic green CI run
+  (`apps/api/src/modules/orders/order-slots.service.spec.ts` ~L105).
 
+---
+
+## 7. Decisions to confirm (business, not code)
+
+- 🟠 **Service fee.** `SERVICE_FEE_BPS` defaults to `0` in code (failsafe,
+  `apps/api/src/common/config/service-fee.ts`) but is currently **set to 500
+  (5%)** in this environment, clamped to [£0.50, £2.99] per order. It's
+  runtime-configurable (no redeploy). Confirm the intended live value before
+  go-live.
+
+---
+
+## 8. Already done — do NOT re-implement
+
+Verified complete in the current code (some were previously assumed missing or
+were gaps in the prior audit):
+
+- **Waitlist / coverage interest is now persisted.** `POST /v1/coverage-interest`
+  writes to the `CoverageInterest` table with duplicate handling — sign-ups are
+  no longer lost (was a stub in the prior audit).
+- **`.env.example` exists** (~4.3 KB) and documents the Section 11 variables
+  (incl. `MENU_AUTO_APPROVE`, `SERVICE_FEE_BPS`) — was reported missing before.
+- **`POST /v1/users/sync` endpoint exists** (`users.controller.ts`); the profile
+  mirror on signup works (the web 404-guard is legacy, see §5).
+- **Email channel (Resend)** is configured (`RESEND_API_KEY` + `EMAIL_FROM`
+  present).
 - **Apple Pay / Google Pay** — fully implemented and enabled via Stripe's
   Payment Request API; renders when the device has a wallet, falls back to the
   card form otherwise (`apps/web/src/components/checkout/payment-request-button.tsx`).
 - **Delivery-area / postcode checking** — real haversine distance logic in SQL
   plus a postcode-prefix fallback; the web coverage check queries live vendors
   (`apps/api/src/modules/vendors/vendors.repository.ts`,
-  `apps/web/src/lib/api/coverage.ts`). The only related gap is waitlist
-  persistence (§2).
+  `apps/web/src/lib/api/coverage.ts`).
 - **Menu moderation** — env-gated approval (`MENU_AUTO_APPROVE`) + an admin
   moderation queue; held/rejected items are hidden from listings, search, and
   checkout.
+- **Admin Settings page** — functional (profile, security, run-payout-batch).
 - **Stripe Connect onboarding, refunds, internal disputes, weekly payout batch,
   order state machine, basket, checkout, loyalty, promo codes** — all built and
   wired.
 
 ---
 
-## 8. Genuinely not built (and not needed to start)
+## 9. Genuinely not built (and not needed to start)
 
 Real gaps, but none block launch — listed so nobody assumes they exist.
 
@@ -207,7 +248,7 @@ Real gaps, but none block launch — listed so nobody assumes they exist.
 ## In one sentence
 
 The product is built and wired; what's left to *go live* is almost entirely
-plugging in the outside world — live Stripe keys + registered webhook, one set
-of notification credentials, and production DNS — after which the remaining work
-is a tidy list of 🟡 polish items (CSV exports, drag-reorder, review photos,
-real rating buckets) and one revenue decision (the £0 service fee).
+plugging in the outside world — live Stripe keys + registered webhook, a Redis
+URL, one live notification channel, and production DNS — after which the
+remaining work is a tidy list of 🟡 polish items (CSV exports, drag-reorder,
+review photos, real rating buckets) and one revenue decision (the service fee).
