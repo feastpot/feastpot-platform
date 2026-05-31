@@ -38,24 +38,25 @@ These are 🔴 and are about credentials/hosting, not writing features.
    Stripe Connect enabled on the live platform, and the live webhook endpoint
    registered so its signing secret matches.
 
-2. 🔴 **Redis (`REDIS_URL`) is unset.** BullMQ queues, the throttler store, and
-   the cache all depend on it; `/v1/healthz` currently reports `redis: disabled`.
-   Without it the notification queue and the weekly payout batch have nowhere to
-   run. Required before any real order flow.
+2. ✅ **Redis (`REDIS_URL`) — RESOLVED (31 May 2026).** Upstash `feastpot-prod`
+   (TLS, `rediss://`, Ireland) wired up and on a pay-as-you-go plan (the free
+   500K-commands/month cap is too low for always-on BullMQ). Verified live:
+   `PING → PONG`, and all four queues (`notifications`, `stripe-webhooks`,
+   `payouts`, `compliance`) plus their repeatable/cron jobs register in Redis.
+   The throttler store and cache now have a backend. Note: queues are tuned for
+   low command volume (5-min blocking polls, `drainDelay: 300`).
 
-3. 🔴 **At least one live notification channel.** The engine is complete — 20+
-   real templates, a BullMQ queue, and providers for email, SMS, WhatsApp, and
-   web push. Email (Resend) is now configured; the others are still in **stub
-   mode** (logs only) because credentials are missing:
-   - **SMS (Twilio):** `TWILIO_FROM_NUMBER` (account SID/auth already set) —
-     else `[stub-sms]` (`.../notifications/providers/sms.provider.ts`).
-   - **WhatsApp:** `TWILIO_WHATSAPP_FROM` + per-template Content SIDs, **or**
-     `WHATSAPP_ACCESS_TOKEN` + `WHATSAPP_PHONE_NUMBER_ID` (Meta) — else
-     `[stub-wa]` (`.../providers/whatsapp.provider.ts`).
-   - **Web push:** see item 6.
-
-   Email alone can cover a pilot, but a kitchen needs a fast vendor order alert
-   (SMS/WhatsApp) before real volume.
+3. ✅ **Live notification channel(s) — RESOLVED (31 May 2026).** Three channels
+   are live (only one was required):
+   - **Email (Resend):** configured.
+   - **Web push (VAPID):** keypair generated; `VAPID_PUBLIC_KEY`,
+     `VAPID_PRIVATE_KEY`, `NEXT_PUBLIC_VAPID_PUBLIC_KEY` set — no longer stub.
+   - **SMS (Twilio):** `TWILIO_FROM_NUMBER` set to a US number (`+1…`); the
+     "SMS sends will be logged only" warning is gone. NOTE: on a Twilio trial
+     it only delivers to Verified Caller IDs; A2P 10DLC needed for US prod
+     volume.
+   - **WhatsApp (optional, still stub):** has Twilio creds but needs per-template
+     Content SIDs in Twilio Content Builder before it will actually send.
 
 4. 🔴 **Production hosting + DNS.** The API needs a stable home
    (`api.feastpot.co.uk` → Replit Autoscale, DNS-only) and the three frontends
@@ -247,8 +248,9 @@ Real gaps, but none block launch — listed so nobody assumes they exist.
 
 ## In one sentence
 
-The product is built and wired; what's left to *go live* is almost entirely
-plugging in the outside world — live Stripe keys + registered webhook, a Redis
-URL, one live notification channel, and production DNS — after which the
-remaining work is a tidy list of 🟡 polish items (CSV exports, drag-reorder,
-review photos, real rating buckets) and one revenue decision (the service fee).
+The product is built and wired; Redis and live notification channels are now
+done. What's left to *go live* is the remaining outside-world plumbing — live
+Stripe keys + registered webhook, production hosting + DNS, and a payout
+dry-run — after which the remaining work is a tidy list of 🟡 polish items (CSV
+exports, drag-reorder, review photos, real rating buckets) and one revenue
+decision (the service fee).
