@@ -1,13 +1,12 @@
 'use client';
 
-import { MapPin, ShoppingBasket, User } from 'lucide-react';
+import { ShoppingBasket, User } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 
 import { BasketDrawer } from '@/components/basket/basket-drawer';
 import { useAccessToken } from '@/lib/auth/use-access-token';
 import { useBasketStore } from '@/store/basket.store';
-import { useStoredPostcode } from '@/lib/postcode';
 
 /**
  * Desktop-first marketing nav for the homepage redesign (2026-05-17
@@ -16,12 +15,7 @@ import { useStoredPostcode } from '@/lib/postcode';
  *
  * Layout:
  *   logo · Browse / How it works / Event catering / Become a cook / Help
- *                                       · postcode-pill · user · basket
- *
- * The postcode pill is a soft entry-point: clicking it scrolls to the
- * hero so the user can run the real coverage check. We surface the
- * saved postcode (from localStorage) if one exists so returning users
- * see "Delivering to SE15" instead of a generic prompt.
+ *                                                      · user · basket
  */
 // "Become a cook" deep-links to the public acquisition page on the
 // customer site. The vendor portal URL is never exposed from public
@@ -37,7 +31,6 @@ const NAV_LINKS = [
 ] as const;
 
 export function MarketingNav() {
-  const [stored] = useStoredPostcode();
   const itemCount = useBasketStore((s) =>
     s.items.reduce((acc, i) => acc + i.quantity, 0),
   );
@@ -84,20 +77,6 @@ export function MarketingNav() {
         </ul>
 
         <div className="ml-auto flex items-center gap-2 sm:gap-3">
-          <a
-            href="#hero-headline"
-            className="hidden items-center gap-1.5 rounded-full border border-cream-deep bg-cream-warm px-3.5 py-2 text-[13px] font-semibold text-charcoal transition-colors hover:bg-cream sm:inline-flex"
-          >
-            <MapPin className="h-4 w-4 text-brand" aria-hidden />
-            {stored ? (
-              <span>
-                Delivering to <strong className="font-bold">{stored}</strong>
-              </span>
-            ) : (
-              <span>Set delivery postcode</span>
-            )}
-          </a>
-
           <Link
             href={accountHref}
             aria-label={accountHref === '/sign-in' ? 'Sign in' : 'Account'}
