@@ -28,44 +28,47 @@ STUCK_MIGRATION="20260516120000_add_scale_indexes"
 # ---------------------------------------------------------------------------
 # 1. Pre-flight: pick + verify the DB URL used for the RLS step.
 # ---------------------------------------------------------------------------
-# Resolve the URL and ALSO record which variable name we picked, so a future
-# Supabase host rotation is obvious in the deploy logs (no more guessing
-# which of three env vars is stale).
-if [ -n "${DIRECT_URL:-}" ]; then
-  DB_URL="$DIRECT_URL"; DB_URL_SOURCE="DIRECT_URL"
-elif [ -n "${SUPABASE_DIRECT_URL:-}" ]; then
-  DB_URL="$SUPABASE_DIRECT_URL"; DB_URL_SOURCE="SUPABASE_DIRECT_URL"
-elif [ -n "${DATABASE_URL:-}" ]; then
-  DB_URL="$DATABASE_URL"; DB_URL_SOURCE="DATABASE_URL"
-else
-  DB_URL=""; DB_URL_SOURCE=""
+# Supabase rotates/deprecates the legacy direct-connection host
+# (db.<ref>.supabase.co), which can leave a previously-good DIRECT_URL pointing
+# at a host that no longer resolves. Rather than trust a fixed priority and
+# abort on the first stale var, we PROBE each candidate and use the FIRST that
+# psql can actually connect to. This self-heals across Supabase host rotations
+# instead of crash-looping the deploy.
+#
+# Candidate order favours SUPABASE_DIRECT_URL because that is exactly the var
+# Prisma uses for `directUrl` in schema.prisma, so the RLS step and
+# `prisma migrate deploy` stay on the same connection.
+#
+# DATABASE_URL is intentionally NOT a candidate: in this project it points at
+# the Replit built-in 'helium' database, NOT Supabase, so running the RLS
+# lockdown through it would target the wrong database.
+if ! command -v psql >/dev/null 2>&1; then
+  echo "[db-deploy] FATAL: psql not found on PATH. Cannot run RLS lockdown."
+  echo "[db-deploy] Aborting before migrations to avoid a migrated-but-locked-out state."
+  exit 127
 fi
 
+DB_URL=""; DB_URL_SOURCE=""
+for _candidate in SUPABASE_DIRECT_URL DIRECT_URL; do
+  _val="${!_candidate:-}"
+  [ -z "$_val" ] && continue
+  _host="$(printf '%s' "$_val" | sed -E 's#^[a-z]+://[^@]*@([^:/?]+).*#\1#')"
+  echo "[db-deploy] Pre-flight: trying \$$_candidate -> host '$_host'..."
+  if psql "$_val" -v ON_ERROR_STOP=1 -c 'SELECT 1' >/dev/null 2>&1; then
+    DB_URL="$_val"; DB_URL_SOURCE="$_candidate"
+    echo "[db-deploy] Pre-flight OK: using \$$_candidate (host '$_host')."
+    break
+  fi
+  echo "[db-deploy] \$$_candidate host '$_host' did not connect - trying next candidate."
+done
+
 if [ -z "$DB_URL" ]; then
-  echo "[db-deploy] WARNING: no DIRECT_URL / SUPABASE_DIRECT_URL / DATABASE_URL set."
-  echo "[db-deploy] RLS lockdown step will be SKIPPED at the end."
-  echo "[db-deploy] (Prisma still uses its own DATABASE_URL from schema.prisma.)"
-else
-  # Extract just the hostname so we never echo the password.
-  DB_HOST="$(printf '%s' "$DB_URL" | sed -E 's#^[a-z]+://[^@]*@([^:/?]+).*#\1#')"
-  echo "[db-deploy] RLS step will use \$$DB_URL_SOURCE -> host '$DB_HOST'."
-
-  if ! command -v psql >/dev/null 2>&1; then
-    echo "[db-deploy] FATAL: psql not found on PATH. Cannot run RLS lockdown."
-    echo "[db-deploy] Aborting before migrations to avoid a migrated-but-locked-out state."
-    exit 127
-  fi
-
-  echo "[db-deploy] Pre-flight: verifying psql can reach '$DB_HOST'..."
-  if ! psql "$DB_URL" -v ON_ERROR_STOP=1 -c 'SELECT 1' >/dev/null 2>&1; then
-    echo "[db-deploy] FATAL: psql cannot connect using \$$DB_URL_SOURCE."
-    echo "[db-deploy] Most likely the host '$DB_HOST' no longer resolves"
-    echo "[db-deploy] (Supabase rotates direct-connection hostnames; pooler URLs work fine for psql too)."
-    echo "[db-deploy] Update \$$DB_URL_SOURCE in the Deployments secrets and redeploy."
-    echo "[db-deploy] Aborting before migrations to avoid a migrated-but-API-down state."
-    exit 2
-  fi
-  echo "[db-deploy] Pre-flight OK."
+  echo "[db-deploy] FATAL: no usable direct/session DB URL among SUPABASE_DIRECT_URL / DIRECT_URL."
+  echo "[db-deploy] (Supabase rotates direct-connection hostnames; the session pooler URL"
+  echo "[db-deploy]  'aws-<n>-<region>.pooler.supabase.com:5432' works for psql + migrations.)"
+  echo "[db-deploy] Update SUPABASE_DIRECT_URL in the Deployments secrets and redeploy."
+  echo "[db-deploy] Aborting before migrations to avoid a migrated-but-API-down state."
+  exit 2
 fi
 
 # ---------------------------------------------------------------------------
