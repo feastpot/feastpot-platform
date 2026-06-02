@@ -105,7 +105,8 @@ NEXT_PUBLIC_VAPID_PUBLIC_KEY = "BIJ-jbBNoPraRvpDNcvfbY3R6sP3gno66-FkUOeWcaIKqXNF
 VAPID_PRIVATE_KEY = "YoYlUPIGqS-6hQA0AgAp7oGoTUy0CzhzaUz26qZ7AEA"
 
 [userenv.production]
-STRIPE_WEBHOOK_SECRET = "whsec_GvZmFUmiYf1LL704T6fD2B1lsLoH3ztr"
+
+[userenv.development]
 
 [postMerge]
 path = "scripts/post-merge.sh"

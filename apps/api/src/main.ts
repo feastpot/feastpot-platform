@@ -95,6 +95,7 @@ import { Logger } from 'nestjs-pino';
 
 import { AppModule } from './app.module';
 import { assertRequiredEnvOrExit } from './common/config/required-env';
+import { resolveStripeEnv } from './common/config/resolve-stripe-env';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import {
   PrismaExceptionFilter,
@@ -113,6 +114,13 @@ const ALLOWED_ORIGINS = [
 ];
 
 async function bootstrap(): Promise<void> {
+  // Organisational standard: resolve the environment-specific Stripe secrets
+  // (STRIPE_*_LIVE / STRIPE_*_TEST, stored as encrypted Replit Secrets) into the
+  // canonical STRIPE_SECRET_KEY / STRIPE_WEBHOOK_SECRET vars based on NODE_ENV.
+  // MUST run before the required-env gate below and before NestFactory.create()
+  // snapshots process.env into ConfigModule.
+  resolveStripeEnv();
+
   // D21: fail loudly at startup if a critical secret is missing.
   // In production we hard-exit (1); in dev we just log so contributors can
   // run a partial stack without every secret set.

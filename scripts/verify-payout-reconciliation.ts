@@ -16,6 +16,12 @@
 import { PrismaClient } from '@prisma/client';
 import Stripe from 'stripe';
 
+import { resolveStripeEnv } from '../apps/api/src/common/config/resolve-stripe-env';
+
+// Populate canonical STRIPE_SECRET_KEY from the env-specific encrypted secret
+// (NODE_ENV: production -> _LIVE, otherwise -> _TEST) before we read it.
+resolveStripeEnv();
+
 const prisma = new PrismaClient();
 
 const stripeKey = process.env.STRIPE_SECRET_KEY;
