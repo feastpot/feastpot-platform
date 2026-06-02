@@ -43,3 +43,16 @@ values simultaneously — which a single scoped env var can't do on Replit.
 **Edge case:** make the resolver NOT overwrite an already-set canonical var, but then ensure no
 stale canonical `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET` lingers in deployment env settings, or
 it silently overrides the mapping.
+
+## Deployment secrets are a SEPARATE snapshot from workspace App Secrets
+A VM deployment carries its own copy of each secret, captured in the Publishing/Deployments config.
+Editing a secret in the workspace Secrets tab and re-publishing does NOT overwrite a value the
+deployment already holds for that key — the deployment keeps its stored value.
+**Symptom seen:** workspace `STRIPE_SECRET_KEY_LIVE` was a real `sk_live_` key (verified at runtime
+in dev), yet prod crash-looped `[STARTUP] CRITICAL: STRIPE_SECRET_KEY is a test key in production`
+through multiple republishes — because the deployment's own `STRIPE_SECRET_KEY_LIVE` copy was still a
+`sk_test_` value from an earlier publish.
+**How to apply:** when prod env/secret behavior disagrees with the workspace value, don't keep
+re-publishing — update the secret in the deployment's OWN secrets pane (Publish dialog → secrets),
+then redeploy. Diagnose key mode without leaking the value: `node -e` printing only
+`startsWith('sk_live_')`/`startsWith('sk_test_')` booleans + length.
