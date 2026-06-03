@@ -337,6 +337,11 @@ export class PayoutsService {
         amountPence: payout.amountPence,
         destinationAccountId: payout.vendor.stripeAccountId,
         payoutId: payout.id,
+        // Deterministic key (one per payout): if a prior approval's transfer
+        // actually landed at Stripe but the response timed out (flipping us to
+        // `failed`), a re-approval returns that SAME transfer instead of
+        // creating a second one and double-paying the vendor.
+        idempotencyKey: `payout-transfer-${payout.id}`,
       });
       updated = await this.prisma.payout.update({
         where: { id: payoutId },

@@ -82,6 +82,16 @@ These are 🔴 and are about credentials/hosting, not writing features.
    (`.../payouts/processors/payout-batch.processor.ts`). Before trusting it with
    real money, run one full cycle against a test vendor in live mode and confirm
    funds settle with zero discrepancy in the finance view.
+   NOTE (3 Jun 2026): step-by-step procedure now documented in
+   `docs/runbooks/payout-dry-run.md`. This step is **human-operated** (live
+   Stripe keys + a real connected vendor + bank settlement verification) and is
+   still outstanding. Code hardening landed alongside the runbook:
+   `StripeService.createTransfer` now takes an `idempotencyKey` and
+   `approvePayout` passes `payout-transfer-<payoutId>` — previously transfers had
+   **no** idempotency key (the only money-moving Stripe call without one), so a
+   timed-out-but-succeeded transfer that flipped the payout to `failed` would
+   **double-pay** the vendor if it was ever re-approved. Stripe now returns the
+   original transfer instead.
 
 6. 🟠 **Web push VAPID keys.** Web push is wired but disabled until
    `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` are set — otherwise it logs

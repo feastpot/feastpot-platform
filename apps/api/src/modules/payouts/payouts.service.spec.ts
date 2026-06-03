@@ -169,7 +169,12 @@ describe('PayoutsService.approvePayout', () => {
 
     const out = await svc.approvePayout('p1', finance);
 
-    expect(stripe.createTransfer).toHaveBeenCalledWith({ amountPence: 2450, destinationAccountId: 'acct_1', payoutId: 'p1' });
+    expect(stripe.createTransfer).toHaveBeenCalledWith({
+      amountPence: 2450,
+      destinationAccountId: 'acct_1',
+      payoutId: 'p1',
+      idempotencyKey: 'payout-transfer-p1',
+    });
     expect(prisma.payout.update.mock.calls[0][0].data).toMatchObject({
       status: PayoutStatus.transferred, stripeTransferId: 'tr_1',
     });

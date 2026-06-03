@@ -79,13 +79,27 @@ export class StripeService {
     );
   }
 
-  createTransfer(args: { amountPence: number; destinationAccountId: string; payoutId: string }): Promise<Stripe.Transfer> {
-    return this.stripe.transfers.create({
-      amount: args.amountPence,
-      currency: 'gbp',
-      destination: args.destinationAccountId,
-      metadata: { payoutId: args.payoutId },
-    });
+  /**
+   * Transfer marketplace funds to a vendor's connected account. Pass
+   * `idempotencyKey` (keyed on the payout id) so a network/retry storm — or a
+   * re-approval after a timed-out-but-succeeded transfer — returns the original
+   * transfer instead of creating a second one and double-paying the vendor.
+   */
+  createTransfer(args: {
+    amountPence: number;
+    destinationAccountId: string;
+    payoutId: string;
+    idempotencyKey?: string;
+  }): Promise<Stripe.Transfer> {
+    return this.stripe.transfers.create(
+      {
+        amount: args.amountPence,
+        currency: 'gbp',
+        destination: args.destinationAccountId,
+        metadata: { payoutId: args.payoutId },
+      },
+      args.idempotencyKey ? { idempotencyKey: args.idempotencyKey } : undefined,
+    );
   }
 
   constructEvent(payload: Buffer | string, signature: string, secret: string): Stripe.Event {
