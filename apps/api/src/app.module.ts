@@ -29,6 +29,7 @@ import { RootController } from './root.controller';
 // NotificationsModule is @Global(), so feature modules can inject NotificationsService
 // without re-importing it everywhere.
 import { PrismaModule } from './prisma/prisma.module';
+import { QueueMonitorModule } from './queues/queue-monitor.module';
 import { QueuesModule } from './queues/queues.module';
 
 import { AuthModule } from './auth/auth.module';
@@ -328,6 +329,7 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
     }),
     PrismaModule,
     QueuesModule,
+    QueueMonitorModule,
     CacheModule,
     BullBoardModule.forRootAsync({
       imports: [ConfigModule],

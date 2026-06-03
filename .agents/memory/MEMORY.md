@@ -7,3 +7,4 @@
 - [Deployment](deployment.md) — 1 service/repl so this repl deploys the API; API MUST be VM (workers+crons in-process); placeholder STRIPE_WEBHOOK_SECRET to break webhook chicken-and-egg.
 - [Stripe webhook routing](stripe-webhook-event-routing.md) — controller enqueues by raw event.type = Bull job name; no catch-all, so unhandled types drop silently; handle refund.updated AND charge.refund.updated.
 - [Stripe money idempotency](stripe-idempotency.md) — every money-moving Stripe call must pass a deterministic idempotencyKey keyed on the business id; createTransfer lacked one → double-pay on re-approval.
+- [Queue-infra crons](queue-module-crons.md) — host @InjectQueue cron services in a separate module, NOT queues.module (circular import → queue-name const resolves undefined).
