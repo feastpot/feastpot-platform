@@ -761,6 +761,7 @@ model Order {
   payments   Payment[]
   payouts    Payout[]
   disputes   Dispute[]
+  chargebacks Chargeback[]
   reviews    Review[]
   amendments OrderAmendment[]
 
@@ -946,6 +947,7 @@ model Payment {
 
   order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
   user  User  @relation(fields: [userId], references: [id])
+  chargebacks Chargeback[]
 
   @@index([orderId])
   @@index([userId])
@@ -953,7 +955,41 @@ model Payment {
   @@index([type])
   @@index([createdAt])
   @@index([stripePaymentIntentId])
+  @@index([stripeChargeId])
   @@map("payments")
+}
+
+/// Bank-initiated card chargebacks (Stripe `charge.dispute.*` events). Distinct
+/// from the internal customer-vs-vendor `Dispute` model: this records the
+/// Stripe Dispute object so finance has status + amount visibility without
+/// opening the Stripe Dashboard. `status`/`reason` are stored as raw Stripe
+/// strings to stay forward-compatible with new Stripe states. order/payment are
+/// nullable so we still capture a chargeback even when no local row matches.
+model Chargeback {
+  id                    String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderId               String?   @map("order_id") @db.Uuid
+  paymentId             String?   @map("payment_id") @db.Uuid
+  stripeDisputeId       String    @unique @map("stripe_dispute_id") @db.VarChar(100)
+  stripeChargeId        String?   @map("stripe_charge_id") @db.VarChar(100)
+  stripePaymentIntentId String?   @map("stripe_payment_intent_id") @db.VarChar(100)
+  amountPence           Int       @map("amount_pence")
+  currency              String    @default("GBP") @db.VarChar(3)
+  status                String    @db.VarChar(50)
+  reason                String?   @db.VarChar(100)
+  evidenceDueBy         DateTime? @map("evidence_due_by") @db.Timestamptz
+  openedAt              DateTime? @map("opened_at") @db.Timestamptz
+  closedAt              DateTime? @map("closed_at") @db.Timestamptz
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  order   Order?   @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  payment Payment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+
+  @@index([orderId])
+  @@index([paymentId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("chargebacks")
 }
 
 model Payout {

@@ -6,6 +6,7 @@ import { Roles } from '../../auth/decorators/roles.decorator';
 import type { AuthedRequest, AuthUser } from '../../auth/types';
 
 import { CreateRefundDto } from './dto/create-refund.dto';
+import { ListChargebacksDto } from './dto/list-chargebacks.dto';
 import { ListPaymentsDto } from './dto/list-payments.dto';
 import { PaymentsService } from './payments.service';
 
@@ -25,6 +26,13 @@ export class PaymentsController {
   @ApiOperation({ summary: 'List payment events (finance/admin only)' })
   list(@Query() dto: ListPaymentsDto) {
     return this.payments.list(dto);
+  }
+
+  @Get('chargebacks')
+  @Roles(UserRole.finance, UserRole.admin)
+  @ApiOperation({ summary: 'List bank-initiated card chargebacks from Stripe (finance/admin only)' })
+  listChargebacks(@Query() dto: ListChargebacksDto) {
+    return this.payments.listChargebacks(dto);
   }
 
   @Post('refunds')

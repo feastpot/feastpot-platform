@@ -13,6 +13,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { StripeService } from '../../stripe/stripe.service';
 
 import { CreateRefundDto } from './dto/create-refund.dto';
+import { ListChargebacksDto } from './dto/list-chargebacks.dto';
 import { ListPaymentsDto } from './dto/list-payments.dto';
 
 export const NOTIFICATIONS_QUEUE = 'notifications';
@@ -65,6 +66,40 @@ export class PaymentsService {
       where: { AND: [where, cursorWhere] },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: limit,
+    });
+    const nextCursor = rows.length === limit ? this.encodeCursor(rows[rows.length - 1]!) : null;
+    return { data: rows, nextCursor };
+  }
+
+  // -------------------- chargebacks (finance visibility) --------------------
+
+  /**
+   * Lists bank-initiated card chargebacks recorded from Stripe `charge.dispute.*`
+   * webhooks. Gives finance status + amount visibility without the Stripe
+   * Dashboard. Cursor-paginated like `list`, newest first.
+   */
+  async listChargebacks(dto: ListChargebacksDto) {
+    const limit = dto.limit ?? 20;
+    const where: Prisma.ChargebackWhereInput = {};
+    if (dto.status) where.status = dto.status;
+    if (dto.orderId) where.orderId = dto.orderId;
+
+    const cursor = dto.cursor ? this.decodeCursor(dto.cursor) : undefined;
+    const cursorWhere: Prisma.ChargebackWhereInput = cursor
+      ? {
+          OR: [
+            { createdAt: { lt: cursor.createdAt } },
+            { createdAt: cursor.createdAt, id: { lt: cursor.id } },
+          ],
+        }
+      : {};
+    const rows = await this.prisma.chargeback.findMany({
+      where: { AND: [where, cursorWhere] },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: limit,
+      include: {
+        order: { select: { id: true, orderNumber: true, totalPence: true } },
+      },
     });
     const nextCursor = rows.length === limit ? this.encodeCursor(rows[rows.length - 1]!) : null;
     return { data: rows, nextCursor };

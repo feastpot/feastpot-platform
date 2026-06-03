@@ -1,6 +1,6 @@
 import { OnQueueFailed, Process, Processor } from '@nestjs/bull';
 import { Logger } from '@nestjs/common';
-import { OrderStatus, PaymentStatus, PayoutStatus } from '@prisma/client';
+import { OrderStatus, PaymentStatus, PayoutStatus, Prisma } from '@prisma/client';
 import * as Sentry from '@sentry/nestjs';
 import type { Job } from 'bull';
 import type Stripe from 'stripe';
@@ -140,6 +140,104 @@ export class StripeWebhookProcessor {
       where: { stripeRefundId: refund.id },
       data: { status, processedAt: new Date() },
     });
+  }
+
+  // Bank-initiated card chargebacks. Stripe emits `charge.dispute.created` when
+  // a cardholder's bank raises a dispute, `charge.dispute.updated` as it moves
+  // through Stripe's lifecycle (evidence submitted, under review), and
+  // `charge.dispute.closed` once it is won/lost. All three carry a Stripe.Dispute
+  // as `data.object`. We upsert a single Chargeback row keyed on the Stripe
+  // dispute id so finance sees status + amount without the Stripe Dashboard.
+  // This is entirely separate from the internal customer-vs-vendor Dispute flow.
+  @Process({ name: 'charge.dispute.created', concurrency: 10 })
+  async onDisputeCreated(job: Job<WebhookJob>): Promise<void> {
+    await this.handleChargeDispute(job);
+  }
+
+  @Process({ name: 'charge.dispute.updated', concurrency: 10 })
+  async onDisputeUpdated(job: Job<WebhookJob>): Promise<void> {
+    await this.handleChargeDispute(job);
+  }
+
+  @Process({ name: 'charge.dispute.closed', concurrency: 10 })
+  async onDisputeClosed(job: Job<WebhookJob>): Promise<void> {
+    await this.handleChargeDispute(job);
+  }
+
+  private async handleChargeDispute(job: Job<WebhookJob>): Promise<void> {
+    const dispute = job.data.data as Stripe.Dispute;
+    if (!dispute.id) return;
+
+    const chargeId =
+      typeof dispute.charge === 'string' ? dispute.charge : dispute.charge?.id ?? null;
+    const piId =
+      typeof dispute.payment_intent === 'string'
+        ? dispute.payment_intent
+        : dispute.payment_intent?.id ?? null;
+
+    // Match by Stripe charge id first (the dispute is always against a charge),
+    // falling back to the payment intent id. Either column may be the natural
+    // key on our Payment rows depending on whether capture/refund stamped it.
+    const matchers: Prisma.PaymentWhereInput[] = [];
+    if (chargeId) matchers.push({ stripeChargeId: chargeId });
+    if (piId) matchers.push({ stripePaymentIntentId: piId });
+    const payment = matchers.length
+      ? await this.prisma.payment.findFirst({
+          where: { OR: matchers },
+          orderBy: { createdAt: 'asc' },
+          select: { id: true, orderId: true },
+        })
+      : null;
+
+    const evidenceDueBy = dispute.evidence_details?.due_by
+      ? new Date(dispute.evidence_details.due_by * 1000)
+      : null;
+    const openedAt = dispute.created ? new Date(dispute.created * 1000) : null;
+    // `charge.dispute.closed` is the authoritative close signal, but `won`/`lost`
+    // can also surface on an `updated` event - treat either as closed.
+    const isClosed =
+      job.data.type === 'charge.dispute.closed' ||
+      dispute.status === 'won' ||
+      dispute.status === 'lost';
+
+    // Upsert on the unique stripeDisputeId so created/updated/closed events for
+    // the same dispute converge on one row, and out-of-order delivery or BullMQ
+    // retries stay idempotent. `?? undefined` on update preserves any link we
+    // already established if a later event arrives without (or before) a match.
+    await this.prisma.chargeback.upsert({
+      where: { stripeDisputeId: dispute.id },
+      create: {
+        stripeDisputeId: dispute.id,
+        orderId: payment?.orderId ?? null,
+        paymentId: payment?.id ?? null,
+        stripeChargeId: chargeId,
+        stripePaymentIntentId: piId,
+        amountPence: dispute.amount,
+        currency: (dispute.currency ?? 'gbp').toUpperCase(),
+        status: dispute.status,
+        reason: dispute.reason ?? null,
+        evidenceDueBy,
+        openedAt,
+        closedAt: isClosed ? new Date() : null,
+      },
+      update: {
+        orderId: payment?.orderId ?? undefined,
+        paymentId: payment?.id ?? undefined,
+        stripeChargeId: chargeId ?? undefined,
+        stripePaymentIntentId: piId ?? undefined,
+        amountPence: dispute.amount,
+        status: dispute.status,
+        reason: dispute.reason ?? null,
+        evidenceDueBy,
+        closedAt: isClosed ? new Date() : undefined,
+      },
+    });
+
+    const target = payment?.orderId ? `order ${payment.orderId}` : 'no matching order';
+    this.logger.warn(
+      `Chargeback ${dispute.id} (${dispute.status}, ${dispute.reason ?? 'no reason'}) ` +
+        `${(dispute.amount / 100).toFixed(2)} ${(dispute.currency ?? 'gbp').toUpperCase()} - ${target}`,
+    );
   }
 
   // Note: legacy Bull does not allow a catch-all `@Process()` alongside named
