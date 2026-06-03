@@ -35,3 +35,9 @@ id = "W3tRw0E62AC5JrL60NNLY"
 uri = "file://docs/GO_LIVE_GAPS.md"
 type = "text"
 title = "Go-Live Gaps — Onboarding Vendors & Taking Orders"
+
+[[outputs]]
+id = "z1qGw4rY24YRDQBpBcUa_"
+uri = "file://docs/OUTSTANDING.md"
+type = "text"
+title = "Feastpot — What's Left to Build (03 Jun 2026)"
