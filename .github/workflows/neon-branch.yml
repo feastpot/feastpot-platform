@@ -80,8 +80,11 @@ jobs:
 
       - name: Run migrations against PR branch
         env:
-          DATABASE_URL: ${{ env.DATABASE_URL }}
-          DIRECT_URL: ${{ env.DATABASE_URL }}
+          # Prisma datasource reads SUPABASE_DB_URL / SUPABASE_DIRECT_URL (see
+          # prisma/schema.prisma). The Neon ephemeral-branch URI was stored in
+          # DATABASE_URL above; map it onto both Prisma vars here.
+          SUPABASE_DB_URL: ${{ env.DATABASE_URL }}
+          SUPABASE_DIRECT_URL: ${{ env.DATABASE_URL }}
         run: npx prisma migrate deploy --schema=./prisma/schema.prisma
 
       - name: Comment on PR

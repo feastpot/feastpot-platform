@@ -18,3 +18,10 @@ Four DB URL secrets exist; they are NOT interchangeable:
 **Why:** db-deploy.sh preflights a DB URL with `psql SELECT 1` and aborts before migrating. When it trusted a fixed priority that put the stale `DIRECT_URL` first, a Supabase direct-host rotation took the whole API down even though `SUPABASE_DIRECT_URL` was fine.
 
 **How to apply:** the preflight now PROBES `[SUPABASE_DIRECT_URL, DIRECT_URL]` and uses the first that actually connects (DATABASE_URL excluded — wrong DB). If a future deploy crash-loops with "[db-deploy] FATAL ... no usable direct/session DB URL", fix `SUPABASE_DIRECT_URL` to the current Supabase **session pooler** string (port 5432) and redeploy. Prod env/secret changes require a redeploy to take effect.
+
+## GitHub Actions: env var NAMES must match the schema
+`prisma/schema.prisma` datasource reads `env("SUPABASE_DB_URL")` (url) and `env("SUPABASE_DIRECT_URL")` (directUrl). **Rule:** any CI/CD job that runs `prisma migrate deploy` (or otherwise resolves the datasource) MUST export those exact names — map whatever secret holds the connection string (e.g. `PROD_DATABASE_URL`→`SUPABASE_DB_URL`, `PROD_DIRECT_URL`→`SUPABASE_DIRECT_URL`) onto them.
+
+**Why:** exporting `DATABASE_URL`/`DIRECT_URL` (even with valid connection strings) makes Prisma abort at **P1012 "Environment variable not found: SUPABASE_DIRECT_URL"** during schema validation, *before* it ever connects. Symptom: the migrate job fails instantly with exit 1 and all downstream deploy jobs skip, yet the DB is reachable and the pending migration may already be applied from an older run — so the prod schema looks fine while every deploy stays red.
+
+**How to apply:** if a deploy/CI run dies with P1012 on a `*_URL` var, grep the workflow's `env:` block and rename the keys to the `SUPABASE_*` names the schema reads; pooled URL → `url`, direct/session URL → `directUrl` (migrate uses `directUrl`). `nightly-smoke.yml` is the reference template.

@@ -29,8 +29,11 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     env:
-      DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
-      DIRECT_URL: ${{ secrets.PROD_DIRECT_URL }}
+      # Prisma datasource reads SUPABASE_DB_URL / SUPABASE_DIRECT_URL (see
+      # prisma/schema.prisma), NOT DATABASE_URL / DIRECT_URL. The existing
+      # PROD_* secrets hold the pooled + direct connection strings.
+      SUPABASE_DB_URL: ${{ secrets.PROD_DATABASE_URL }}
+      SUPABASE_DIRECT_URL: ${{ secrets.PROD_DIRECT_URL }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5

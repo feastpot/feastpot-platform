@@ -130,8 +130,10 @@ jobs:
     runs-on: ubuntu-latest
     env:
       NODE_ENV: test
-      DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
-      DIRECT_URL: ${{ secrets.TEST_DIRECT_URL }}
+      # Prisma datasource reads SUPABASE_DB_URL / SUPABASE_DIRECT_URL (see
+      # prisma/schema.prisma), NOT DATABASE_URL / DIRECT_URL.
+      SUPABASE_DB_URL: ${{ secrets.TEST_DATABASE_URL }}
+      SUPABASE_DIRECT_URL: ${{ secrets.TEST_DIRECT_URL }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
