@@ -108,8 +108,22 @@ export class StripeWebhookProcessor {
     });
   }
 
+  // Stripe emits the refund-status event under one of two type names depending
+  // on the endpoint's API version: modern accounts send `refund.updated`, while
+  // older API versions send `charge.refund.updated`. Both carry a Refund object
+  // as `data.object`. The controller enqueues jobs keyed by `event.type`, so we
+  // register a named handler for BOTH to avoid silently dropping refund events.
   @Process({ name: 'refund.updated', concurrency: 10 })
   async onRefundUpdated(job: Job<WebhookJob>): Promise<void> {
+    await this.handleRefundUpdated(job);
+  }
+
+  @Process({ name: 'charge.refund.updated', concurrency: 10 })
+  async onChargeRefundUpdated(job: Job<WebhookJob>): Promise<void> {
+    await this.handleRefundUpdated(job);
+  }
+
+  private async handleRefundUpdated(job: Job<WebhookJob>): Promise<void> {
     const refund = job.data.data as Stripe.Refund;
     if (!refund.id) return;
     const status =
