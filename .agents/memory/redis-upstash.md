@@ -38,3 +38,14 @@ lingering `active` means latency, not a routing bug.
 Verify Redis from the app env (secret not in the code_execution sandbox):
 `cd apps/api && node -e '...ioredis ping...'`. Confirm queues registered by SCANning
 `bull:*` keys — expect queues `notifications`, `stripe-webhooks`, `payouts`, `compliance`.
+
+**Dev and prod share ONE Upstash instance.** `REDIS_URL` is a single global secret —
+there is no `PROD_REDIS_URL`, and Bull keys are namespaced only by queue name. So any Bull
+queue operation run from the dev env (e.g. a maintenance/cleanup script) acts directly on
+the SAME queues the production deployment reads. Treat queue mutations from dev as production
+changes. (Contrast: Postgres is split — `DATABASE_URL`/`SUPABASE_*` for dev vs `PROD_*`.)
+**How to apply:** a one-off failed-job cleanup script lives at
+`apps/api/scripts/clean-failed-jobs.ts` — dry-run by default, `--apply` to drain, writes a
+PII-bearing audit report to gitignored `.local/`. Run it with
+`TS_NODE_COMPILER_OPTIONS='{"module":"commonjs","moduleResolution":"node","esModuleInterop":true,"target":"es2021","skipLibCheck":true}' npx ts-node --skip-project --transpile-only`
+(the repo tsconfig extends an unresolvable path under plain ts-node).
