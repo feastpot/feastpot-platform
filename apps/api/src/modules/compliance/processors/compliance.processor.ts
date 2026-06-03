@@ -4,6 +4,7 @@ import * as Sentry from '@sentry/nestjs';
 import type { Job, Queue } from 'bull';
 
 import { RedisCacheService } from '../../../common/cache/redis-cache.service';
+import { shouldReportQueueFailure } from '../../../queues/queue-failure';
 import { COMPLIANCE_QUEUE } from '../../../queues/queues.module';
 import { ComplianceService } from '../compliance.service';
 
@@ -78,8 +79,7 @@ export class ComplianceProcessor implements OnApplicationBootstrap {
 
   @OnQueueFailed()
   onFailed(job: Job | undefined, err: Error): void {
-    const exhausted = !job || job.attemptsMade >= ((job.opts?.attempts ?? 1) as number);
-    if (exhausted) {
+    if (shouldReportQueueFailure(job, err)) {
       Sentry.captureException(err, {
         tags: { queue: COMPLIANCE_QUEUE, jobName: job?.name ?? 'unknown' },
         extra: { jobId: job?.id, attemptsMade: job?.attemptsMade },

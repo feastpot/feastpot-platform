@@ -3,5 +3,6 @@
 - [Replit deploy env gotchas](replit-deploy-env.md) — NODE_ENV isn't auto-prod (set runtime-only via start:api, NOT a prod env var → breaks npm ci); env-scoped secrets land in plaintext git-tracked .replit.
 - [Supabase DB URLs](supabase-db-urls.md) — use SUPABASE_DIRECT_URL (session pooler:5432) for migrations/psql; stale DIRECT_URL direct-host rotation crash-loops deploys; DATABASE_URL = wrong DB (helium).
 - [Redis / Upstash for BullMQ](redis-upstash.md) — must be paid Upstash (free 500K cmd/mo cap fails); `rediss://` TLS; queues tuned to 5-min polls — don't revert.
+- [Bull lock vs stalled invariant](bull-lock-vs-stalled.md) — 5-min stalledInterval needs lockDuration>stalledInterval or jobs falsely fail "stalled"; stalled failures bypass the attempts-based Sentry gate.
 - [Deployment](deployment.md) — 1 service/repl so this repl deploys the API; API MUST be VM (workers+crons in-process); placeholder STRIPE_WEBHOOK_SECRET to break webhook chicken-and-egg.
 - [Stripe webhook routing](stripe-webhook-event-routing.md) — controller enqueues by raw event.type = Bull job name; no catch-all, so unhandled types drop silently; handle refund.updated AND charge.refund.updated.

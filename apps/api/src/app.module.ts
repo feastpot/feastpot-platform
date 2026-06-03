@@ -271,6 +271,31 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
               stalledInterval: 300_000,
               guardInterval: 300_000,
               drainDelay: 300,
+              // CRITICAL: lockDuration must exceed stalledInterval. The default
+              // lockDuration is 30s, but stalledInterval was lengthened to 5min
+              // for Upstash quota (above). With a 30s lock and a 5min stalled
+              // sweep, a job's lock expires ~4.5min BEFORE the sweep that's
+              // meant to protect it. So if Upstash drops a single
+              // moveToCompleted / extendLock command (normal for a remote,
+              // quota-limited Redis with maxRetriesPerRequest:3), the job is
+              // left in 'active' with no lock and the next sweep force-fails it
+              // with "job stalled more than allowable limit" — even though the
+              // handler already succeeded. This silently grew the `failed`
+              // count on every queue (compliance review-trigger, stripe
+              // webhooks, ...). Making the lock outlive a full sweep window
+              // means a normally-processing job is never falsely flagged.
+              lockDuration: 600_000,
+              // Renew comfortably within each sweep and stay more frequent than
+              // the stalled check (Bull's own requirement — see queue.js case 2).
+              // Only fires for jobs running >2.5min, which these queues never
+              // hit, so it adds ~zero Upstash commands.
+              lockRenewTime: 150_000,
+              // Tolerate transient stalls: recover (reprocess) up to 3x before
+              // failing. All handlers here are idempotent (review-trigger
+              // dedupes by jobId, webhook handlers key off the Stripe event id),
+              // so a reprocess is safe and a one-off Upstash hiccup no longer
+              // turns into a permanent failed job.
+              maxStalledCount: 3,
             },
           };
         }

@@ -5,6 +5,7 @@ import * as Sentry from '@sentry/nestjs';
 import type { Job, Queue } from 'bull';
 
 import { RedisCacheService } from '../../../common/cache/redis-cache.service';
+import { shouldReportQueueFailure } from '../../../queues/queue-failure';
 import { PayoutsService } from '../payouts.service';
 
 export const PAYOUTS_QUEUE = 'payouts';
@@ -65,8 +66,7 @@ export class PayoutBatchProcessor implements OnApplicationBootstrap {
   @OnQueueFailed()
   onFailed(job: Job | undefined, err: Error): void {
     // Only alert on final attempt - see notification.processor for rationale.
-    const exhausted = !job || job.attemptsMade >= ((job.opts?.attempts ?? 1) as number);
-    if (exhausted) {
+    if (shouldReportQueueFailure(job, err)) {
       Sentry.captureException(err, {
         tags: { queue: PAYOUTS_QUEUE, jobName: job?.name ?? 'unknown' },
         extra: { jobId: job?.id, attemptsMade: job?.attemptsMade },

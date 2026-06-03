@@ -6,6 +6,7 @@ import type { Job } from 'bull';
 import type Stripe from 'stripe';
 
 import { PrismaService } from '../../prisma/prisma.service';
+import { shouldReportQueueFailure } from '../../queues/queue-failure';
 import { LoyaltyService } from '../loyalty/loyalty.service';
 
 import { STRIPE_WEBHOOK_QUEUE } from './stripe-webhook.controller';
@@ -147,8 +148,7 @@ export class StripeWebhookProcessor {
 
   @OnQueueFailed()
   onFailed(job: Job<WebhookJob> | undefined, err: Error): void {
-    const exhausted = !job || job.attemptsMade >= ((job.opts?.attempts ?? 1) as number);
-    if (exhausted) {
+    if (shouldReportQueueFailure(job, err)) {
       Sentry.captureException(err, {
         tags: { queue: STRIPE_WEBHOOK_QUEUE, jobName: job?.name ?? 'unknown' },
         extra: { jobId: job?.id, attemptsMade: job?.attemptsMade, eventId: job?.data?.id },

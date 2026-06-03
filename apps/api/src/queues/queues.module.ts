@@ -6,11 +6,17 @@ export const STRIPE_WEBHOOK_QUEUE = 'stripe-webhooks';
 export const PAYOUTS_QUEUE = 'payouts';
 export const COMPLIANCE_QUEUE = 'compliance';
 
+// Bound every queue's completed/failed retention so Redis (Upstash) usage stays
+// flat. Without removeOnFail the failed ZSET grows forever — the production
+// symptom on the compliance queue (failed count creeping 26 → 28 → ...). Keep
+// the last 500 failures for debugging/Bull-Board, then trim.
+const RETENTION = { removeOnComplete: 1000, removeOnFail: 500 } as const;
+
 const queues = BullModule.registerQueue(
-  { name: NOTIFICATIONS_QUEUE, defaultJobOptions: { attempts: 3, backoff: { type: 'exponential', delay: 5_000 }, removeOnComplete: 1000, removeOnFail: 500 } },
-  { name: STRIPE_WEBHOOK_QUEUE },
-  { name: PAYOUTS_QUEUE },
-  { name: COMPLIANCE_QUEUE },
+  { name: NOTIFICATIONS_QUEUE, defaultJobOptions: { attempts: 3, backoff: { type: 'exponential', delay: 5_000 }, ...RETENTION } },
+  { name: STRIPE_WEBHOOK_QUEUE, defaultJobOptions: { ...RETENTION } },
+  { name: PAYOUTS_QUEUE, defaultJobOptions: { ...RETENTION } },
+  { name: COMPLIANCE_QUEUE, defaultJobOptions: { ...RETENTION } },
 );
 
 /**

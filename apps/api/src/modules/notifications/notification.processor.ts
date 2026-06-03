@@ -5,6 +5,7 @@ import * as Sentry from '@sentry/nestjs';
 import type { Job, Queue } from 'bull';
 
 import { PrismaService } from '../../prisma/prisma.service';
+import { shouldReportQueueFailure } from '../../queues/queue-failure';
 import { NOTIFICATIONS_QUEUE } from '../../queues/queues.module';
 
 import { EmailProvider } from './providers/email.provider';
@@ -218,11 +219,10 @@ export class NotificationProcessor {
   @OnQueueFailed()
   onFailed(job: Job<NotificationJobData> | undefined, err: Error): void {
     // Bull v4 fires this on EVERY attempt failure. Only escalate to Sentry
-    // once retries are exhausted - otherwise a flaky downstream (e.g.
-    // Twilio) creates 3× the alert volume during incidents.
-    const exhausted =
-      !job || job.attemptsMade >= ((job.opts?.attempts ?? 1) as number);
-    if (exhausted) {
+    // once retries are exhausted (or the job was force-failed as stalled) -
+    // otherwise a flaky downstream (e.g. Twilio) creates 3× the alert volume
+    // during incidents.
+    if (shouldReportQueueFailure(job, err)) {
       Sentry.captureException(err, {
         tags: { queue: NOTIFICATIONS_QUEUE, jobName: job?.name ?? 'unknown' },
         extra: { jobId: job?.id, attemptsMade: job?.attemptsMade, data: job?.data },
