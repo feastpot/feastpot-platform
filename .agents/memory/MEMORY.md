@@ -5,6 +5,7 @@
 - [Redis / Upstash for BullMQ](redis-upstash.md) — must be paid Upstash (free 500K cmd/mo cap fails); `rediss://` TLS; queues tuned to 5-min polls — don't revert.
 - [Bull lock vs stalled invariant](bull-lock-vs-stalled.md) — 5-min stalledInterval needs lockDuration>stalledInterval or jobs falsely fail "stalled"; stalled failures bypass the attempts-based Sentry gate.
 - [Deployment](deployment.md) — 1 service/repl so this repl deploys the API; API MUST be VM (workers+crons in-process); placeholder STRIPE_WEBHOOK_SECRET to break webhook chicken-and-egg.
+- [Service fee & payout](service-fee-payout.md) — service fee is platform revenue, never paid out; payout = total − serviceFee − commission (delivery stays w/ vendor); fix BOTH per-order calc AND weekly batch (batch recomputed from total, didn't use stored vendorPayoutPence).
 - [Stripe webhook routing](stripe-webhook-event-routing.md) — controller enqueues by raw event.type = Bull job name; no catch-all, so unhandled types drop silently; handle refund.updated AND charge.refund.updated.
 - [Stripe money idempotency](stripe-idempotency.md) — every money-moving Stripe call must pass a deterministic idempotencyKey keyed on the business id; createTransfer lacked one → double-pay on re-approval.
 - [Queue-infra crons](queue-module-crons.md) — host @InjectQueue cron services in a separate module, NOT queues.module (circular import → queue-name const resolves undefined).

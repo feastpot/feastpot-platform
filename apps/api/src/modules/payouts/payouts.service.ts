@@ -126,8 +126,14 @@ export interface BatchTotals {
 export function aggregateVendorBatch(input: VendorBatchInput): BatchTotals {
   const grossPence = input.orders.reduce((s, o) => s + o.totalPence, 0);
   const commissionPence = input.orders.reduce((s, o) => s + o.commissionPence, 0);
+  // Vendor net is the sum of each order's STORED vendorPayoutPence
+  // (= subtotal + delivery − discount − commission), which already EXCLUDES the
+  // platform service fee Feastpot retains. Do NOT recompute as
+  // gross − commission: that re-introduces the service-fee leak this batch
+  // exists to prevent (gross/totalPence includes serviceFeePence).
+  const payoutBeforeRefundsPence = input.orders.reduce((s, o) => s + o.vendorPayoutPence, 0);
   const refundsPence = Math.max(0, input.refundDeductionsPence);
-  const netPence = Math.max(0, grossPence - commissionPence - refundsPence);
+  const netPence = Math.max(0, payoutBeforeRefundsPence - refundsPence);
   return {
     vendorId: input.vendorId,
     grossPence,

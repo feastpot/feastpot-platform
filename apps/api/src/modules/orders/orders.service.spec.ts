@@ -18,48 +18,78 @@ const customerUser = (id = 'u-cust'): AuthUser => ({ id, email: 'c@x', role: Use
 
 describe('OrdersService - pure helpers', () => {
   describe('computeCommission', () => {
-    // Signature: computeCommission(subtotalPence, totalPence, commissionBps)
-    // Commission is on subtotal (food revenue); vendor payout is total
-    // (customer-paid amount) minus commission so the delivery-fee
-    // reimbursement still flows back to the vendor.
+    // Signature: computeCommission(subtotalPence, totalPence, commissionBps, serviceFeePence)
+    // Commission is on subtotal (food revenue). Vendor payout =
+    //   total − serviceFee − commission
+    //   = subtotal + delivery − discount − commission
+    // The platform service fee is Feastpot revenue and is NEVER paid to the
+    // vendor; the delivery fee IS (vendor-set, vendor-fulfilled).
 
-    it('12% (1200 bps) on £100.00 subtotal with no extras → £12 commission, £88 payout', () => {
-      expect(computeCommission(10_000, 10_000, 1200)).toEqual({
+    it('12% (1200 bps) on £100.00 subtotal, no fees → £12 commission, £88 payout', () => {
+      expect(computeCommission(10_000, 10_000, 1200, 0)).toEqual({
         commissionPence: 1200,
         vendorPayoutPence: 8800,
       });
     });
     it('12% (1200 bps) on £37.50 subtotal → £4.50 commission, £33 payout', () => {
-      expect(computeCommission(3750, 3750, 1200)).toEqual({
+      expect(computeCommission(3750, 3750, 1200, 0)).toEqual({
         commissionPence: 450,
         vendorPayoutPence: 3300,
       });
     });
     it('does NOT charge commission on delivery fee - vendor keeps the £3 reimbursement', () => {
-      // £20 food + £3 delivery = £23 total. 12% of £20 = £2.40 commission.
-      // Vendor payout = total (£23) - commission (£2.40) = £20.60.
-      expect(computeCommission(2000, 2300, 1200)).toEqual({
+      // £20 food + £3 delivery = £23 total, no service fee. 12% of £20 = £2.40.
+      // Vendor payout = total (£23) − serviceFee (£0) − commission (£2.40) = £20.60.
+      expect(computeCommission(2000, 2300, 1200, 0)).toEqual({
         commissionPence: 240,
         vendorPayoutPence: 2060,
       });
     });
+    it('EXCLUDES the platform service fee from the vendor payout (revenue-leak guard)', () => {
+      // £40 food + £2.49 delivery + £2.00 service fee = £44.49 total.
+      // commission = 12% of £40 = £4.80.
+      // CORRECT payout = subtotal + delivery − discount − commission
+      //                = 4000 + 249 − 0 − 480 = 3769 (£37.69).
+      const subtotal = 4000;
+      const delivery = 249;
+      const serviceFee = 200;
+      const total = subtotal + delivery + serviceFee; // 4449
+      const result = computeCommission(subtotal, total, 1200, serviceFee);
+      expect(result).toEqual({ commissionPence: 480, vendorPayoutPence: 3769 });
+      expect(result.vendorPayoutPence).toBe(subtotal + delivery - 480);
+      // The vendor must NOT receive the £2.00 service fee (old leaking formula).
+      expect(result.vendorPayoutPence).not.toBe(total - 480); // 3969 was the leak
+      expect(total - result.vendorPayoutPence - result.commissionPence).toBe(serviceFee);
+    });
+    it('service fee + delivery + discount all handled: payout = subtotal + delivery − discount − commission', () => {
+      // £40 food + £2.49 delivery + £2.00 service fee − £5.00 discount = £39.49 total.
+      // commission = £4.80. payout = 4000 + 249 − 500 − 480 = 3269 (£32.69).
+      const subtotal = 4000;
+      const delivery = 249;
+      const serviceFee = 200;
+      const discount = 500;
+      const total = subtotal + delivery + serviceFee - discount; // 3949
+      const result = computeCommission(subtotal, total, 1200, serviceFee);
+      expect(result).toEqual({ commissionPence: 480, vendorPayoutPence: 3269 });
+      expect(result.vendorPayoutPence).toBe(subtotal + delivery - discount - 480);
+    });
     it('rounds commission to nearest pence (Math.round)', () => {
       // 12345 * 1234 / 10000 = 1523.3...  → round = 1523
-      expect(computeCommission(12_345, 12_345, 1234)).toEqual({
+      expect(computeCommission(12_345, 12_345, 1234, 0)).toEqual({
         commissionPence: 1523,
         vendorPayoutPence: 12_345 - 1523,
       });
     });
-    it('zero commission yields full payout', () => {
-      expect(computeCommission(5000, 5000, 0)).toEqual({
+    it('zero commission yields full payout (no service fee)', () => {
+      expect(computeCommission(5000, 5000, 0, 0)).toEqual({
         commissionPence: 0,
         vendorPayoutPence: 5000,
       });
     });
     it('100% (10000 bps) on subtotal still pays back delivery component', () => {
-      // £50 food + £5 delivery = £55 total at 100% commission on subtotal.
+      // £50 food + £5 delivery = £55 total at 100% commission on subtotal, no service fee.
       // Commission = £50; vendor still gets the £5 delivery reimbursement.
-      expect(computeCommission(5000, 5500, 10_000)).toEqual({
+      expect(computeCommission(5000, 5500, 10_000, 0)).toEqual({
         commissionPence: 5000,
         vendorPayoutPence: 500,
       });

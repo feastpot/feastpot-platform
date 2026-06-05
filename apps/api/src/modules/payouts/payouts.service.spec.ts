@@ -94,6 +94,22 @@ describe('aggregateVendorBatch', () => {
     });
     expect(totals.netPence).toBe(0);
   });
+
+  it('nets from stored vendorPayoutPence so the service fee is NEVER paid out (revenue-leak guard)', () => {
+    // £40 food + £2.49 delivery + £2.00 service fee = £44.49 total.
+    // commission = 12% of £40 = £4.80; vendorPayoutPence = 4449 − 200 − 480 = 3769.
+    // The OLD batch formula (gross − commission) would pay 4449 − 480 = 3969,
+    // handing the vendor the £2.00 service fee. Net must use vendorPayoutPence.
+    const totals = aggregateVendorBatch({
+      vendorId: 'v1', vendorUserId: 'u1', commissionBps: 1200, hasOpenDispute: false,
+      orders: [{ id: 'o1', totalPence: 4449, vendorPayoutPence: 3769, commissionPence: 480 }],
+      refundDeductionsPence: 0,
+    });
+    expect(totals.netPence).toBe(3769);
+    expect(totals.netPence).not.toBe(4449 - 480); // 3969 was the leak
+    expect(totals.grossPence).toBe(4449);
+    expect(totals.commissionPence).toBe(480);
+  });
 });
 
 describe('PayoutsService.approvePayout', () => {

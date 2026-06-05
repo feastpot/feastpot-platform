@@ -87,21 +87,37 @@ export interface CommissionBreakdown {
   vendorPayoutPence: number;
 }
 
+// ─────────────────────────────────────────────────────────────
+// PAYOUT FORMULA — DO NOT CHANGE WITHOUT FINANCE SIGN-OFF
+//   vendorPayout = subtotal + delivery − discount − commission
+//                = total − serviceFee − commission
+// Feastpot RETAINS:  serviceFeePence (platform revenue, 5% / SERVICE_FEE_BPS)
+//                    commissionPence (12% of food subtotal, commissionBps=1200)
+// Vendor RECEIVES:   food subtotal + delivery-fee reimbursement, minus the
+//                    above and any customer discount.
+// The service fee is NEVER part of the vendor payout. The delivery fee IS,
+// because vendors set their own delivery fee and fulfil delivery themselves.
+// ─────────────────────────────────────────────────────────────
 /**
  * Commission is charged on the vendor's food revenue (subtotalPence) only -
  * NOT on delivery fees (which are vendor reimbursement, not vendor income)
  * and NOT on the platform service fee (which is platform revenue, not the
- * vendor's). The vendor's payout is the customer-paid total minus the
- * platform commission, so the vendor still receives their delivery-fee
- * reimbursement and any service-fee that flowed to the order in full.
+ * vendor's). The vendor's payout is the customer-paid total minus the platform
+ * service fee (Feastpot keeps it) minus the platform commission, so the vendor
+ * still receives their delivery-fee reimbursement in full but never the
+ * service fee.
  */
 export function computeCommission(
   subtotalPence: number,
   totalPence: number,
   commissionBps: number,
+  serviceFeePence: number,
 ): CommissionBreakdown {
   const commissionPence = Math.round((subtotalPence * commissionBps) / 10_000);
-  return { commissionPence, vendorPayoutPence: totalPence - commissionPence };
+  return {
+    commissionPence,
+    vendorPayoutPence: totalPence - serviceFeePence - commissionPence,
+  };
 }
 
 /**
@@ -380,6 +396,7 @@ export class OrdersService {
       subtotalPence,
       totalPence,
       vendor.commissionBps,
+      serviceFeePence,
     );
     const orderNumber = this.generateOrderNumber();
     // Generate the order id client-side so the Stripe PI (created BEFORE the
