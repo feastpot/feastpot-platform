@@ -1,0 +1,161 @@
+You are a NestJS payments engineer. Fix a revenue leak where the
+5% customer service fee is incorrectly flowing into vendor payouts
+instead of being retained by Feastpot.
+
+CONFIRMED BUG (orders.service.ts lines 90–104):
+  CURRENT (wrong):
+    vendorPayout = total − commission
+    where total = subtotal + serviceFeePence + deliveryFeePence − discountPence
+
+  This means the service fee is included in the payout base,
+  so Feastpot hands its own fee back to the vendor on every order.
+
+  CORRECT:
+    vendorPayout = subtotal − commission
+    where subtotal = food items only (excludes service fee, delivery fee, discounts)
+
+  At £45 AOV: current leak = £2.25/order. At 100 orders/day = £225/day lost.
+
+════════════════════════════════════════════════════════
+CHECK FIRST
+════════════════════════════════════════════════════════
+
+Run:
+  grep -n "vendorPayout\|vendor_payout\|payout.*pence\|commission.*pence" \
+    apps/api/src/modules/orders/orders.service.ts
+
+Read lines 85–120 of orders.service.ts in full.
+
+Report exactly:
+  a) What formula is currently used for vendorPayoutPence?
+  b) Does it include serviceFeePence in the base?
+  c) Does it include deliveryFeePence in the base?
+  d) What is the current value of SERVICE_FEE_BPS env var?
+
+If vendorPayout is already calculated as subtotal − commission
+with serviceFeePence excluded → report ALREADY CORRECT and stop.
+
+════════════════════════════════════════════════════════
+IMPLEMENTATION (only if formula is confirmed wrong)
+════════════════════════════════════════════════════════
+
+STEP 1 — Fix the payout calculation
+File: apps/api/src/modules/orders/orders.service.ts
+
+Find the block that calculates vendorPayoutPence.
+Replace with the correct formula:
+
+// Commission is charged on food subtotal only
+const commissionPence = Math.round(
+  subtotalPence * vendor.commissionBps / 10_000
+)
+
+// Vendor receives the food subtotal minus Feastpot's commission.
+// Service fee and delivery fee are NOT part of the vendor payout.
+// Service fee is Feastpot platform revenue.
+// Delivery fee is either Feastpot revenue or passed through — confirm below.
+const vendorPayoutPence = subtotalPence - commissionPence
+
+// Feastpot retains:
+//   commissionPence  — platform commission (12% of food subtotal)
+//   serviceFeePence  — platform service fee (5%, min 50p, max £2.99)
+// Feastpot passes through:
+//   deliveryFeePence — goes to the vendor or courier depending on model
+
+Add an explicit comment above the calculation so this is never
+accidentally changed:
+
+// ─────────────────────────────────────────────────────────────
+// PAYOUT FORMULA — DO NOT CHANGE WITHOUT FINANCE SIGN-OFF
+// vendorPayout = subtotal − commission
+// serviceFeePence is Feastpot platform revenue, NOT vendor revenue
+// commissionBps default = 1200 (12%)
+// serviceFeeBps default = 500 (5%, from SERVICE_FEE_BPS env var)
+// ─────────────────────────────────────────────────────────────
+
+STEP 2 — Verify the Order schema stores all components separately
+File: prisma/schema.prisma
+
+Confirm these fields exist on the Order model:
+  subtotalPence     — food items total (no fees, no discounts)
+  serviceFeePence   — platform service fee
+  deliveryFeePence  — delivery fee
+  discountPence     — discount applied
+  commissionPence   — Feastpot commission (calculated)
+  vendorPayoutPence — what the vendor receives
+
+Run: grep -n "subtotalPence\|serviceFeePence\|deliveryFeePence\|discountPence\|commissionPence\|vendorPayoutPence" \
+  prisma/schema.prisma
+
+If any field is missing, add it and run:
+  npx prisma migrate dev --name fix_order_payout_fields
+
+STEP 3 — Fix the payout batch to use the corrected vendorPayoutPence
+File: apps/api/src/modules/payouts/payouts.service.ts
+
+Find where the payout batch sums vendorPayoutPence across orders.
+Confirm it reads from the stored Order.vendorPayoutPence field
+and does NOT recalculate from total.
+
+Run: grep -n "vendorPayoutPence\|payout.*sum\|sum.*payout" \
+  apps/api/src/modules/payouts/payouts.service.ts
+
+If the batch recalculates rather than reading from the order:
+Replace with: SUM(vendor_payout_pence) FROM orders WHERE vendor_id = ?
+
+STEP 4 — Update the order confirmation response
+The order confirmation returned to the customer must show the
+correct breakdown so they can see what they paid:
+
+{
+  subtotalPence:    2000,  // food items
+  serviceFeePence:  100,   // Feastpot fee (shown at checkout)
+  deliveryFeePence: 249,   // delivery
+  discountPence:    0,     // discount applied
+  totalPence:       2349,  // what the customer pays
+  // vendorPayoutPence is NOT returned to the customer
+}
+
+The vendor-facing order detail must show:
+{
+  subtotalPence:    2000,  // food items
+  commissionPence:  240,   // 12% of subtotal
+  vendorPayoutPence:1760,  // what the vendor receives
+  // serviceFeePence is NOT shown to vendor
+}
+
+STEP 5 — Unit tests
+File: apps/api/src/modules/orders/orders.service.spec.ts
+
+Add:
+describe('vendorPayoutPence calculation', () => {
+  it('excludes service fee from vendor payout', () => {
+    const subtotal     = 4000  // £40.00
+    const serviceFee   = 200   // £2.00 (5%)
+    const delivery     = 249   // £2.49
+    const commission   = Math.round(4000 * 1200 / 10_000)  // 480 = £4.80
+    const vendorPayout = subtotal - commission              // 3520 = £35.20
+    const total        = subtotal + serviceFee + delivery   // 4449 = £44.49
+
+    // Service fee must NOT appear in vendor payout
+    expect(vendorPayout).toBe(3520)
+    expect(vendorPayout).not.toBe(total - commission)  // old wrong formula
+  })
+
+  it('commission is calculated on subtotal only, not total', () => {
+    const subtotal   = 4000
+    const commission = Math.round(subtotal * 1200 / 10_000)
+    expect(commission).toBe(480)  // 12% of £40.00, not of £44.49
+  })
+})
+
+STEP 6 — Confirm SERVICE_FEE_BPS is set correctly
+Run: echo "SERVICE_FEE_BPS: ${SERVICE_FEE_BPS:-NOT SET}"
+
+If NOT SET or 0 → set to 500 in Replit deployment secrets.
+This must be confirmed before any live order is processed.
+
+Run: npm run test:api -- --testPathPattern=orders.service
+Run: npm run typecheck --filter=@feastpot/api
+Assert: all tests pass, zero TypeScript errors.
+Output all changed files with a summary of the formula change.
