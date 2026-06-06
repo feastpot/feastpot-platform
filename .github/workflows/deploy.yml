@@ -30,8 +30,15 @@ jobs:
     environment: production
     env:
       # Prisma datasource reads SUPABASE_DB_URL / SUPABASE_DIRECT_URL (see
-      # prisma/schema.prisma), NOT DATABASE_URL / DIRECT_URL. The existing
-      # PROD_* secrets hold the pooled + direct connection strings.
+      # prisma/schema.prisma), NOT DATABASE_URL / DIRECT_URL.
+      #
+      # IMPORTANT: both PROD_* secrets MUST use the Supabase *pooler* host
+      # (aws-<n>-<region>.pooler.supabase.com, user `postgres.<project-ref>`),
+      # NOT the direct host `db.<project-ref>.supabase.co`. The direct host is
+      # IPv6-only and GitHub-hosted runners are IPv4-only, so direct-host URLs
+      # fail here with `P1001: Can't reach database server`. Use the Session
+      # pooler (port 5432) for PROD_DIRECT_URL — migrations need session mode —
+      # and the Transaction pooler (port 6543) for PROD_DATABASE_URL.
       SUPABASE_DB_URL: ${{ secrets.PROD_DATABASE_URL }}
       SUPABASE_DIRECT_URL: ${{ secrets.PROD_DIRECT_URL }}
     steps:
