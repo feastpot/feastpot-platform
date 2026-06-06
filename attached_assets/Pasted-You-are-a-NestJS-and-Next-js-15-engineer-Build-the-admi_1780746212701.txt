@@ -1,0 +1,319 @@
+You are a NestJS and Next.js 15 engineer. Build the admin chargeback
+surface: a banner in the admin panel and an email alert to a
+designated admin when a new chargeback arrives.
+
+CONTEXT FROM AUDIT:
+"The hard part is done — Stripe charge.dispute.* events are captured
+into a Chargeback table and there's a GET /v1/payments/chargebacks API.
+But there is no admin UI to see or work them (zero 'chargeback'
+references in apps/admin/src), nothing reconciles an order's finances
+when a chargeback is lost, and nobody is warned before the
+evidence-submission deadline passes."
+
+Stripe gives 7 days to submit evidence. Missing the deadline means
+an automatic loss and the customer's money is not recovered.
+
+════════════════════════════════════════════════════════
+CHECK FIRST
+════════════════════════════════════════════════════════
+
+Run:
+1. grep -rn "chargeback\|Chargeback\|charge\.dispute" \
+     apps/admin/src --include="*.tsx" --include="*.ts"
+
+2. grep -rn "chargeback\|Chargeback" \
+     apps/api/src/modules/payments --include="*.ts" | head -20
+
+3. cat apps/api/src/modules/payments/chargebacks.controller.ts 2>/dev/null || \
+   grep -rn "chargebacks\|GET.*chargeback" \
+     apps/api/src --include="*.ts" | head -10
+
+4. grep -n "Chargeback\|chargeback" prisma/schema.prisma | head -20
+
+Report exactly:
+  a) Does the Chargeback model exist in the schema?
+  b) Does GET /v1/payments/chargebacks exist and return data?
+  c) Is there any admin UI for chargebacks?
+  d) Is there a chargeback notification in the notification templates?
+
+If admin UI exists with a banner AND email alert is wired →
+report ALREADY IMPLEMENTED and stop.
+
+════════════════════════════════════════════════════════
+IMPLEMENTATION
+════════════════════════════════════════════════════════
+
+STEP 1 — Confirm Chargeback schema fields
+Run: grep -A 20 "model Chargeback" prisma/schema.prisma
+
+Confirm these fields exist (add any missing ones):
+  id                String    @id
+  orderId           String    @db.Uuid
+  stripeDisputeId   String    @unique
+  status            String    // warning_needs_response, needs_response, under_review, won, lost
+  amountPence       Int
+  currency          String    @default("gbp")
+  reason            String?   // fraudulent, duplicate, product_unacceptable, etc.
+  evidenceDueBy     DateTime  @db.Timestamptz
+  submittedAt       DateTime? @db.Timestamptz
+  resolvedAt        DateTime? @db.Timestamptz
+  outcome           String?   // won, lost
+  adminNotes        String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+If fields are missing: add them and run:
+  npx prisma migrate dev --name add_chargeback_fields
+
+STEP 2 — Admin panel: chargeback banner on dashboard
+File: apps/admin/src/app/page.tsx (dashboard)
+
+Add a chargeback alert banner that appears ABOVE the stat cards
+when there are open chargebacks requiring action:
+
+Query:
+const { data: chargebacks } = useQuery({
+  queryKey: ['admin-chargebacks-urgent'],
+  queryFn: () => fetch(
+    `${API}/v1/payments/chargebacks?status=needs_response`,
+    { headers: { Authorization: `Bearer ${adminToken}` } }
+  ).then(r => r.json()),
+  refetchInterval: 5 * 60 * 1000,  // refresh every 5 minutes
+})
+
+const urgentChargebacks = chargebacks?.data ?? []
+const overdueCount = urgentChargebacks.filter(
+  (c: any) => new Date(c.evidenceDueBy) < new Date(Date.now() + 24 * 60 * 60 * 1000)
+).length  // due within 24 hours
+
+Banner (shown when urgentChargebacks.length > 0):
+<div style={{
+  background: overdueCount > 0 ? '#FDECEA' : '#FFF8EC',
+  border: `1.5px solid ${overdueCount > 0 ? '#E8220A' : '#F5A623'}`,
+  borderRadius: '12px',
+  padding: '14px 20px',
+  marginBottom: '20px',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: '12px',
+}}>
+  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+    <span style={{ fontSize: '22px' }}>
+      {overdueCount > 0 ? '🚨' : '⚠️'}
+    </span>
+    <div>
+      <p style={{
+        fontSize: '14px', fontWeight: 700,
+        color: overdueCount > 0 ? '#E8220A' : '#B87B00',
+        marginBottom: '2px',
+      }}>
+        {urgentChargebacks.length} chargeback{urgentChargebacks.length !== 1 ? 's' : ''}
+        {' '}requiring evidence
+        {overdueCount > 0 && ` — ${overdueCount} due within 24 hours`}
+      </p>
+      <p style={{ fontSize: '12px', color: '#666666' }}>
+        Stripe requires evidence within 7 days. Missing the deadline
+        results in an automatic loss.
+      </p>
+    </div>
+  </div>
+  <a
+    href="/chargebacks"
+    style={{
+      padding: '9px 18px', borderRadius: '8px', border: 'none',
+      background: overdueCount > 0 ? '#E8220A' : '#F5A623',
+      color: 'white', fontSize: '13px', fontWeight: 700,
+      textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0,
+    }}
+  >
+    Review now
+  </a>
+</div>
+
+STEP 3 — Admin chargebacks list page
+File: apps/admin/src/app/chargebacks/page.tsx (create)
+
+List page with filter tabs:
+  Needs Response | Under Review | Won | Lost | All
+
+Each row shows:
+  Order #, customer name, vendor name, amount, reason,
+  evidence deadline (with red countdown if < 48 hours),
+  status badge, "View in Stripe" link
+
+Clicking a row opens a detail panel showing:
+  Order details, payment info, dispute timeline,
+  admin notes textarea, "Mark evidence submitted" button,
+  "View in Stripe Dashboard" button (opens stripe.com/dispute/:id)
+
+Add "Chargebacks" to admin sidebar under FINANCE group with a red
+count badge when needs_response > 0.
+
+STEP 4 — Email alert when new chargeback arrives
+File: apps/api/src/modules/notifications/templates/
+      chargeback-alert.template.ts (create)
+
+import { baseLayout, h2, p, brandButton } from './base-layout'
+
+interface ChargebackAlertData {
+  orderNumber:       string
+  vendorName:        string
+  customerEmail:     string
+  amountPence:       number
+  reason:            string
+  evidenceDueBy:     string  // formatted date string
+  daysRemaining:     number
+  stripeDisputeUrl:  string
+  adminChargebackUrl: string
+}
+
+export function chargebackAlertTemplate(
+  data: ChargebackAlertData
+): { subject: string; html: string } {
+  const amount = `£${(data.amountPence / 100).toFixed(2)}`
+  const urgency = data.daysRemaining <= 2 ? '🚨 URGENT: ' : '⚠️ '
+
+  return {
+    subject: `${urgency}New chargeback — Order #${data.orderNumber} — ${amount} — ${data.daysRemaining} days to respond`,
+    html: baseLayout(
+      'Chargeback alert',
+      `
+      ${h2(`New chargeback received`)}
+      ${p(`A customer has raised a chargeback on order
+           <strong>#${data.orderNumber}</strong> from
+           <strong>${data.vendorName}</strong>.`)}
+
+      <table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:14px">
+        ${[
+          ['Order',           `#${data.orderNumber}`],
+          ['Vendor',          data.vendorName],
+          ['Customer',        data.customerEmail],
+          ['Amount disputed', amount],
+          ['Reason',          data.reason],
+          ['Evidence due',    `${data.evidenceDueBy} (${data.daysRemaining} days remaining)`],
+        ].map(([label, value]) => `
+          <tr>
+            <td style="padding:8px 12px;background:#F4F4F4;font-weight:600;color:#1A1A1A;width:40%">${label}</td>
+            <td style="padding:8px 12px;color:#666666">${value}</td>
+          </tr>
+        `).join('')}
+      </table>
+
+      ${data.daysRemaining <= 2
+        ? p(`<strong style="color:#E8220A">⚠️ Evidence must be submitted within
+             ${data.daysRemaining} days. Missing this deadline results in an
+             automatic loss.</strong>`)
+        : p(`You have ${data.daysRemaining} days to submit evidence.`)}
+
+      ${brandButton('Review chargeback in admin', data.adminChargebackUrl)}
+      ${p(`<a href="${data.stripeDisputeUrl}" style="color:#666666;font-size:13px">
+           View in Stripe Dashboard →</a>`)}
+      `,
+      `${amount} chargeback — ${data.daysRemaining} days to respond`
+    ),
+  }
+}
+
+STEP 5 — Wire email alert into webhook handler
+File: apps/api/src/stripe/stripe-webhook.handler.ts (or equivalent)
+
+In the handler for charge.dispute.created:
+
+case 'charge.dispute.created': {
+  const dispute = event.data.object as Stripe.Dispute
+  // ... existing chargeback creation logic ...
+
+  // Send alert email to admin
+  const evidenceDueBy = new Date(dispute.evidence_details.due_by * 1000)
+  const daysRemaining = Math.ceil(
+    (evidenceDueBy.getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+  )
+
+  await this.notificationsQueue.add('send', {
+    key: 'chargeback_alert',
+    // Send to configured admin email, not a user ID
+    adminEmail: process.env.CHARGEBACK_ALERT_EMAIL
+      ?? process.env.VENDOR_APPLICATIONS_ADMIN_EMAIL
+      ?? 'soul@feastpot.co.uk',
+    data: {
+      orderNumber:        order.orderNumber,
+      vendorName:         vendor.businessName,
+      customerEmail:      customer.email,
+      amountPence:        dispute.amount,
+      reason:             dispute.reason,
+      evidenceDueBy:      evidenceDueBy.toLocaleDateString('en-GB', {
+        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+      }),
+      daysRemaining,
+      stripeDisputeUrl:   `https://dashboard.stripe.com/disputes/${dispute.id}`,
+      adminChargebackUrl: `${process.env.ADMIN_URL}/chargebacks`,
+    },
+  })
+  break
+}
+
+STEP 6 — Add CHARGEBACK_ALERT_EMAIL to env
+Add to .env.example:
+  CHARGEBACK_ALERT_EMAIL=soul@feastpot.co.uk
+
+Add to Replit deployment secrets:
+  CHARGEBACK_ALERT_EMAIL=soul@feastpot.co.uk (or designated finance email)
+
+STEP 7 — Reconcile order finances when chargeback is lost
+File: apps/api/src/stripe/stripe-webhook.handler.ts
+
+In the handler for charge.dispute.lost:
+
+case 'charge.dispute.lost': {
+  // Mark the chargeback as lost
+  await this.prisma.chargeback.update({
+    where:  { stripeDisputeId: dispute.id },
+    data: {
+      status:     'lost',
+      outcome:    'lost',
+      resolvedAt: new Date(),
+    },
+  })
+
+  // Record the financial impact on the order
+  await this.prisma.order.update({
+    where: { id: chargeback.orderId },
+    data: {
+      chargebackLost:       true,
+      chargebackAmountPence: dispute.amount,
+    },
+  })
+
+  // Write audit log entry
+  await this.prisma.auditLog.create({
+    data: {
+      action:     'chargeback_lost',
+      entityType: 'Order',
+      entityId:   chargeback.orderId,
+      metadata: {
+        stripeDisputeId: dispute.id,
+        amountPence:     dispute.amount,
+        reason:          dispute.reason,
+      },
+    },
+  })
+
+  // Alert admin of the loss
+  await this.notificationsQueue.add('send', {
+    key:        'chargeback_lost_alert',
+    adminEmail: process.env.CHARGEBACK_ALERT_EMAIL ?? 'soul@feastpot.co.uk',
+    data: {
+      orderNumber: order.orderNumber,
+      amountPence: dispute.amount,
+    },
+  })
+  break
+}
+
+If Order model is missing chargebackLost and chargebackAmountPence:
+  Add to schema and run: npx prisma migrate dev --name add_order_chargeback_fields
+
+Run: npm run typecheck in apps/api and apps/admin
+Run: npm run build --filter=@feastpot/admin
+Output all new and changed files.
