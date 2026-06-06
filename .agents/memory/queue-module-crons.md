@@ -21,6 +21,6 @@ the half-loaded `queues.module`, so the queue name resolves to `undefined`.
 without re-importing anything. `ScheduleModule.forRoot()` in app.module discovers
 `@Cron` methods on any instantiated provider, so no extra wiring is needed.
 
-**Why:** This is how Task #39's QueueDepthMonitorService is wired. Two monitors
+**Why:** This is how the QueueDepthMonitorService is wired. Two monitors
 now read the same queues: daily email digest (`DlqMonitorService`, admin module)
 and the 5-min Sentry depth alarm (`QueueDepthMonitorService`).
