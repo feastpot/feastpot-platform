@@ -1,0 +1,304 @@
+You are a NestJS and Next.js 15 engineer. Build per-user notification
+preferences with opt-out support.
+
+CONTEXT FROM AUDIT:
+"The processor fires on every channel a template declares; there's no
+NotificationPreference table and no 'SMS-only / unsubscribe / opt-out'
+path. Fine for a pilot, but you need it before volume to honour
+opt-outs and avoid over-messaging."
+
+════════════════════════════════════════════════════════
+CHECK FIRST
+════════════════════════════════════════════════════════
+
+Run:
+1. grep -n "NotificationPreference\|notification_preference" \
+     prisma/schema.prisma
+2. grep -rn "NotificationPreference\|notificationPreference" \
+     apps/api/src --include="*.ts" | head -10
+3. grep -rn "notification.*settings\|unsubscribe\|opt.out" \
+     apps/web/src apps/vendor/src --include="*.tsx" | head -10
+
+Report:
+  a) Does the NotificationPreference model exist in the schema?
+  b) Does the notification processor check preferences before sending?
+  c) Is there a notification settings UI anywhere?
+
+If model exists AND processor checks preferences AND UI exists →
+report ALREADY IMPLEMENTED and stop.
+
+════════════════════════════════════════════════════════
+IMPLEMENTATION
+════════════════════════════════════════════════════════
+
+STEP 1 — Schema
+File: prisma/schema.prisma
+
+model NotificationPreference {
+  id       String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId   String  @db.Uuid   @map("user_id")
+  channel  String  // email | sms | whatsapp | push
+  key      String  // notification key e.g. order_confirmation, marketing
+  enabled  Boolean @default(true)
+
+  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, channel, key])
+  @@index([userId])
+  @@map("notification_preferences")
+}
+
+Run: npx prisma migrate dev --name add_notification_preferences
+
+STEP 2 — Default preferences (all enabled on account creation)
+File: apps/api/src/modules/users/users.service.ts
+
+In createUser() or the Supabase sync handler, seed default preferences:
+
+const DEFAULT_PREFERENCES = [
+  // Transactional — cannot be disabled (legal / order fulfilment)
+  { channel: 'email',    key: 'order_confirmation',    enabled: true },
+  { channel: 'email',    key: 'order_dispatched',       enabled: true },
+  { channel: 'email',    key: 'order_cancelled',        enabled: true },
+  { channel: 'email',    key: 'refund_issued',          enabled: true },
+  { channel: 'push',     key: 'order_accepted',         enabled: true },
+  { channel: 'push',     key: 'order_dispatched',       enabled: true },
+  // Optional — can be disabled
+  { channel: 'email',    key: 'marketing',              enabled: true },
+  { channel: 'email',    key: 'review_request',         enabled: true },
+  { channel: 'whatsapp', key: 'order_dispatched',       enabled: false },
+  { channel: 'sms',      key: 'order_accepted',         enabled: false },
+]
+
+// Seed these on new user creation:
+await prisma.notificationPreference.createMany({
+  data: DEFAULT_PREFERENCES.map(p => ({ ...p, userId: user.id })),
+  skipDuplicates: true,
+})
+
+STEP 3 — API endpoints
+File: apps/api/src/modules/notifications/
+      notification-preferences.controller.ts (create)
+
+import { Controller, Get, Patch, Body, UseGuards } from '@nestjs/common'
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard'
+import { CurrentUser } from '../../auth/decorators/current-user.decorator'
+import { JwtUser } from '../../auth/types/jwt-user.type'
+import { NotificationPreferencesService } from './notification-preferences.service'
+
+@Controller({ version: '1', path: 'notification-preferences' })
+@UseGuards(JwtAuthGuard)
+export class NotificationPreferencesController {
+
+  constructor(private readonly prefsService: NotificationPreferencesService) {}
+
+  @Get()
+  async getPreferences(@CurrentUser() user: JwtUser) {
+    return this.prefsService.getPreferences(user.id)
+  }
+
+  @Patch()
+  async updatePreferences(
+    @CurrentUser() user: JwtUser,
+    @Body() dto: UpdatePreferencesDto,
+  ) {
+    return this.prefsService.updatePreferences(user.id, dto)
+  }
+}
+
+File: apps/api/src/modules/notifications/
+      notification-preferences.service.ts (create)
+
+const TRANSACTIONAL_KEYS = [
+  'order_confirmation', 'order_dispatched', 'order_cancelled',
+  'refund_issued', 'dispute_raised',
+]
+
+async getPreferences(userId: string) {
+  const prefs = await this.prisma.notificationPreference.findMany({
+    where:   { userId },
+    orderBy: [{ channel: 'asc' }, { key: 'asc' }],
+  })
+  return prefs.map(p => ({
+    ...p,
+    canDisable: !TRANSACTIONAL_KEYS.includes(p.key),
+  }))
+}
+
+async updatePreferences(userId: string, dto: UpdatePreferencesDto) {
+  const updates = dto.preferences.filter(p => {
+    // Silently skip attempts to disable transactional notifications
+    if (TRANSACTIONAL_KEYS.includes(p.key) && !p.enabled) return false
+    return true
+  })
+
+  await this.prisma.$transaction(
+    updates.map(update =>
+      this.prisma.notificationPreference.upsert({
+        where:  { userId_channel_key: { userId, channel: update.channel, key: update.key } },
+        create: { userId, channel: update.channel, key: update.key, enabled: update.enabled },
+        update: { enabled: update.enabled },
+      })
+    )
+  )
+  return this.getPreferences(userId)
+}
+
+STEP 4 — Notification processor: check preferences before sending
+File: apps/api/src/modules/notifications/notification.processor.ts
+
+In the send handler, before dispatching to any channel:
+
+private async isChannelEnabled(
+  userId: string | undefined,
+  channel: string,
+  key: string
+): Promise<boolean> {
+  if (!userId) return true  // admin emails have no user pref — always send
+
+  const pref = await this.prisma.notificationPreference.findUnique({
+    where: { userId_channel_key: { userId, channel, key } },
+  })
+
+  // If no preference stored yet, default to enabled
+  return pref?.enabled ?? true
+}
+
+// In the send handler, before each channel dispatch:
+const [emailEnabled, smsEnabled, whatsappEnabled, pushEnabled] = await Promise.all([
+  this.isChannelEnabled(job.data.userId, 'email',    job.data.key),
+  this.isChannelEnabled(job.data.userId, 'sms',      job.data.key),
+  this.isChannelEnabled(job.data.userId, 'whatsapp', job.data.key),
+  this.isChannelEnabled(job.data.userId, 'push',     job.data.key),
+])
+
+// Only dispatch to enabled channels:
+if (emailEnabled && template.channels.includes('email')) {
+  await this.emailProvider.send(...)
+}
+if (smsEnabled && template.channels.includes('sms')) {
+  await this.smsProvider.send(...)
+}
+// etc.
+
+STEP 5 — Customer account: notification settings page
+File: apps/web/src/app/account/notifications/page.tsx (create)
+
+'use client'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+
+const CHANNEL_LABELS: Record<string, string> = {
+  email:    '📧 Email',
+  sms:      '💬 SMS',
+  whatsapp: '📱 WhatsApp',
+  push:     '🔔 Push',
+}
+
+const KEY_LABELS: Record<string, string> = {
+  order_confirmation: 'Order confirmation',
+  order_dispatched:   'Order dispatched',
+  order_cancelled:    'Order cancelled',
+  refund_issued:      'Refund issued',
+  marketing:          'Offers and promotions',
+  review_request:     'Review reminders',
+}
+
+export default function NotificationSettingsPage() {
+  const queryClient = useQueryClient()
+  const { data: preferences } = useQuery({
+    queryKey: ['notification-preferences'],
+    queryFn:  () => fetch(`${API}/v1/notification-preferences`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    ).then(r => r.json()),
+  })
+
+  const { mutate: updatePref } = useMutation({
+    mutationFn: (updates: { channel: string; key: string; enabled: boolean }[]) =>
+      fetch(`${API}/v1/notification-preferences`, {
+        method:  'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body:    JSON.stringify({ preferences: updates }),
+      }).then(r => r.json()),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notification-preferences'] }),
+  })
+
+  // Group preferences by notification key for display
+  const grouped = (preferences ?? []).reduce((acc: any, pref: any) => {
+    if (!acc[pref.key]) acc[pref.key] = []
+    acc[pref.key].push(pref)
+    return acc
+  }, {})
+
+  return (
+    <div style={{ padding: '0 16px', fontFamily: 'DM Sans, sans-serif' }}>
+      <h2 style={{ fontSize: '20px', fontWeight: 800, marginBottom: '6px', color: '#1A1A1A' }}>
+        Notification settings
+      </h2>
+      <p style={{ fontSize: '14px', color: '#666666', marginBottom: '24px', lineHeight: 1.6 }}>
+        Choose how you'd like to be notified. Order confirmations and
+        refund emails cannot be disabled — they're required for your orders.
+      </p>
+
+      {Object.entries(grouped).map(([key, prefs]: [string, any]) => (
+        <div key={key} style={{
+          background: 'white', borderRadius: '14px',
+          boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+          padding: '16px', marginBottom: '12px',
+        }}>
+          <p style={{ fontSize: '14px', fontWeight: 700, color: '#1A1A1A', marginBottom: '12px' }}>
+            {KEY_LABELS[key] ?? key}
+          </p>
+          {prefs.map((pref: any) => (
+            <div key={`${pref.channel}-${pref.key}`} style={{
+              display: 'flex', alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '8px 0',
+              borderTop: '1px solid #E8E8E8',
+            }}>
+              <span style={{ fontSize: '14px', color: '#666666' }}>
+                {CHANNEL_LABELS[pref.channel] ?? pref.channel}
+              </span>
+              {pref.canDisable ? (
+                <label style={{
+                  position: 'relative', display: 'inline-block',
+                  width: '44px', height: '24px', cursor: 'pointer',
+                }}>
+                  <input type="checkbox" checked={pref.enabled}
+                    onChange={e => updatePref([{
+                      channel: pref.channel, key: pref.key,
+                      enabled: e.target.checked,
+                    }])}
+                    style={{ opacity: 0, width: 0, height: 0 }} />
+                  <span style={{
+                    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+                    background: pref.enabled ? '#1E7B34' : '#E8E8E8',
+                    borderRadius: '100px', transition: 'background .2s',
+                  }}>
+                    <span style={{
+                      position: 'absolute', left: pref.enabled ? '22px' : '2px',
+                      top: '2px', width: '20px', height: '20px',
+                      background: 'white', borderRadius: '50%',
+                      transition: 'left .2s',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                    }} />
+                  </span>
+                </label>
+              ) : (
+                <span style={{
+                  fontSize: '11px', color: '#1E7B34', fontWeight: 600,
+                  background: '#E8F5EC', padding: '3px 8px', borderRadius: '6px',
+                }}>Required</span>
+              )}
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+Add "Notifications" to the account menu in apps/web/src/app/account/page.tsx.
+
+Run: npx prisma generate
+Run: npm run typecheck in apps/api and apps/web
+Output all new and changed files.

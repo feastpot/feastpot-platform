@@ -1,0 +1,110 @@
+You are a NestJS QA engineer. Query the audit log to confirm none of
+the 35 historical failed jobs that were drained this week touched a
+real customer payment or refund.
+
+CONTEXT FROM AUDIT:
+"The 35 historical failed jobs that were drained this week were all
+false-failures by inspection, but a quick confirmation that no real
+customer notification or refund was among them is worth doing before
+trusting the new normal."
+
+════════════════════════════════════════════════════════
+CHECK FIRST — run these queries before anything else
+════════════════════════════════════════════════════════
+
+Run:
+1. node -e "
+const { PrismaClient } = require('@prisma/client')
+const p = new PrismaClient()
+// Find any payment or refund records created in the window
+// when the 35 jobs were drained (this week, approximately)
+const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)  // last 7 days
+Promise.all([
+  p.payment.count({ where: {
+    type:       { in: ['refund','partial_refund'] },
+    createdAt:  { gte: since },
+  }}),
+  p.order.count({ where: {
+    status:    { in: ['cancelled'] },
+    updatedAt: { gte: since },
+  }}),
+  p.auditLog.count({ where: {
+    action:    { contains: 'refund' },
+    createdAt: { gte: since },
+  }}),
+]).then(([refunds, cancelled, auditEntries]) => {
+  console.log('Refunds issued this week:',       refunds)
+  console.log('Orders cancelled this week:',     cancelled)
+  console.log('Refund audit entries this week:',  auditEntries)
+  p.\$disconnect()
+})
+"
+
+2. node -e "
+const { PrismaClient } = require('@prisma/client')
+const p = new PrismaClient()
+const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+// Find any notification failures in the audit log
+p.auditLog.findMany({
+  where: {
+    action:    { in: ['notification_failed', 'job_failed', 'refund_failed'] },
+    createdAt: { gte: since },
+  },
+  orderBy: { createdAt: 'desc' },
+  take: 50,
+}).then(entries => {
+  console.log('Failure audit entries this week:', entries.length)
+  if (entries.length > 0) {
+    console.log('First 10 entries:')
+    entries.slice(0, 10).forEach(e => console.log(
+      ' -', e.action, '|', e.entityType, e.entityId, '|', e.createdAt.toISOString()
+    ))
+  }
+  p.\$disconnect()
+})
+"
+
+3. node -e "
+const { PrismaClient } = require('@prisma/client')
+const p = new PrismaClient()
+// Check for any orders where the customer was not notified
+// (order status = confirmed or delivered but no notification record)
+const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+p.notification.count({
+  where: {
+    template:   'order_confirmation',
+    status:     { in: ['failed', 'bounced'] },
+    createdAt:  { gte: since },
+  }
+}).then(n => {
+  console.log('Failed order confirmations this week:', n)
+  p.\$disconnect()
+})
+"
+
+════════════════════════════════════════════════════════
+REPORT
+════════════════════════════════════════════════════════
+
+Produce a plain-text report:
+
+  FAILED JOB DRAIN VERIFICATION
+  ──────────────────────────────
+  Window:                      [last 7 days]
+  Refunds issued:              [N]
+  Orders cancelled:            [N]
+  Refund audit log entries:    [N]
+  Notification failures:       [N]
+  Failed order confirmations:  [N]
+
+  VERDICT:
+  If all counts are consistent with expected operations (i.e. the
+  cancelled orders all have corresponding refund records, and no
+  notification failure audit entries exist for payment-critical
+  templates) → CLEAN — no real customer data was affected by the drain.
+
+  If any counts are unexpected → LIST THE SPECIFIC ORDER IDs and
+  escalate before proceeding.
+
+If all checks pass and verdict is CLEAN → report and stop.
+No code changes are made by this prompt.

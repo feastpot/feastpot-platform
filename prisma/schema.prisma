@@ -316,6 +316,7 @@ model User {
   sessions       Session[]
   addresses      Address[]
   notifications  Notification[]
+  notificationPreferences NotificationPreference[]
   inboxNotifications InboxNotification[]
   vendorMemberships  VendorMember[]    @relation("VendorMemberUser")
   vendorInvitesSent  VendorMember[]    @relation("VendorMemberInviter")
@@ -990,6 +991,29 @@ model Chargeback {
   @@index([status])
   @@index([createdAt])
   @@map("chargebacks")
+}
+
+/// Per-user, per-(channel, event) notification opt-outs. Rows are SPARSE: a
+/// user only gets a row once they change a default. The canonical default +
+/// "transactional / cannot disable" rules live in code
+/// (notification-preferences.constants.ts), so a missing row falls back to the
+/// coded default and pre-existing users need no backfill. `key` is the
+/// notification EVENT name (== the BullMQ job name the processor dispatches on,
+/// e.g. `order_confirmation`), `channel` is email|sms|whatsapp|push.
+model NotificationPreference {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  channel   String   @db.VarChar(20)
+  key       String   @db.VarChar(64)
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, channel, key])
+  @@index([userId])
+  @@map("notification_preferences")
 }
 
 model Payout {

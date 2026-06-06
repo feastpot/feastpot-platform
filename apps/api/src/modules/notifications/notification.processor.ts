@@ -12,6 +12,7 @@ import { EmailProvider } from './providers/email.provider';
 import { PushProvider } from './providers/push.provider';
 import { SmsProvider } from './providers/sms.provider';
 import { WhatsappProvider } from './providers/whatsapp.provider';
+import { findPreferenceDefinition } from './notification-preferences.constants';
 import { getTemplate, type Channel } from './templates';
 
 /**
@@ -136,7 +137,14 @@ export class NotificationProcessor {
     const sent: Channel[] = [];
     const skipped: Channel[] = [];
 
+    const enabledChannels = await this.filterEnabledChannels(user.id, eventName, template.channels);
+
     for (const channel of template.channels) {
+      if (!enabledChannels.includes(channel)) {
+        // Recipient has opted this (event, channel) out - not an error, skip it.
+        skipped.push(channel);
+        continue;
+      }
       try {
         const ok = await this.dispatch(channel, {
           eventName,
@@ -235,6 +243,35 @@ export class NotificationProcessor {
 
   private resolveUserId(data: NotificationJobData): string | undefined {
     return (data.userId ?? data.customerId ?? data.vendorUserId ?? data.recipientUserId) as string | undefined;
+  }
+
+  /**
+   * Narrow a template's channels to the ones the recipient still wants for this
+   * event:
+   *   - transactional (event, channel) pairs are always delivered (legal / order
+   *     fulfilment) and ignore any stored row;
+   *   - a pair the user has explicitly toggled uses that stored value;
+   *   - otherwise the coded default applies, and an event NOT in the preference
+   *     registry at all (admin / vendor ops alerts, payouts, etc.) always sends.
+   * One query covers every channel for the event.
+   */
+  private async filterEnabledChannels(
+    userId: string,
+    eventName: string,
+    channels: readonly Channel[],
+  ): Promise<Channel[]> {
+    const rows = await this.prisma.notificationPreference.findMany({
+      where: { userId, key: eventName },
+      select: { channel: true, enabled: true },
+    });
+    const stored = new Map(rows.map((r) => [r.channel, r.enabled]));
+
+    return channels.filter((channel) => {
+      const def = findPreferenceDefinition(eventName, channel);
+      if (!def) return true;
+      if (def.transactional) return true;
+      return stored.get(channel) ?? def.defaultEnabled;
+    });
   }
 
   private async dispatch(

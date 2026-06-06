@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  Bell,
   Gift,
   HelpCircle,
   LogOut,
@@ -118,6 +119,12 @@ export default function AccountHubPage() {
           title="Profile"
           subtitle="Photo, name, contact"
           Icon={UserCircle}
+        />
+        <NavCard
+          href="/account/notifications"
+          title="Notifications"
+          subtitle="Email, SMS & push opt-outs"
+          Icon={Bell}
         />
         <NavCard
           href="/help"
