@@ -215,6 +215,42 @@ describe('PayoutsService.approvePayout', () => {
   });
 });
 
+describe('PayoutsService.runWeeklyBatch (refund netting)', () => {
+  function build() {
+    const prisma = makePrisma();
+    const svc = new PayoutsService(prisma as any, makeStripe() as any, makeQueue() as any);
+    return { svc, prisma };
+  }
+
+  it('deducts only the vendor clawback, netting the Feastpot-absorbed credit', async () => {
+    const { svc, prisma } = build();
+    // One delivered order, fully refunded: customer got £44.49 back; the vendor
+    // should be clawed back only their £37.69 earnings, NOT the £6.80 Feastpot
+    // absorbed (service fee + commission).
+    prisma.order.findMany.mockResolvedValueOnce([
+      {
+        id: 'o1', vendorId: 'v1', totalPence: 4449, vendorPayoutPence: 3769, commissionPence: 480,
+        vendor: { id: 'v1', userId: 'u1', commissionBps: 1200, payoutsEnabled: true },
+      },
+    ]);
+    prisma.payout.findFirst.mockResolvedValueOnce(null);
+    // First aggregate = refund rows (negative); second = credit rows (positive).
+    prisma.payment.aggregate
+      .mockResolvedValueOnce({ _sum: { amountPence: -4449 } })
+      .mockResolvedValueOnce({ _sum: { amountPence: 680 } });
+    prisma.dispute.count.mockResolvedValueOnce(0);
+    prisma.payout.create.mockResolvedValueOnce({ id: 'p1' });
+
+    await svc.runWeeklyBatch(new Date('2025-11-04T12:00:00Z'));
+
+    const data = prisma.payout.create.mock.calls[0][0].data;
+    // refundsPence = 4449 − 680 = 3769 (the clawback), NOT 4449 (the full refund).
+    expect(data.refundsPence).toBe(3769);
+    // net = vendorPayout 3769 − clawback 3769 = 0 (vendor neither paid nor over-charged).
+    expect(data.amountPence).toBe(0);
+  });
+});
+
 describe('PayoutsService.holdPayout', () => {
   function build() {
     const prisma = makePrisma();

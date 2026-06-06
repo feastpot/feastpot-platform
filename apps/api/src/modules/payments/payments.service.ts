@@ -20,17 +20,64 @@ export const NOTIFICATIONS_QUEUE = 'notifications';
 /** Refunds at or above this threshold require role=finance or role=admin. */
 export const LARGE_REFUND_THRESHOLD_PENCE = 5000_00;
 
-export interface CommissionReversal {
-  refundedCommissionPence: number;
-  vendorRefundDeductionPence: number;
+export interface RefundOrderEconomics {
+  subtotalPence: number;
+  serviceFeePence: number;
+  deliveryFeePence: number;
+  discountPence: number;
+  commissionPence: number;
 }
 
-/** Computes how much commission Feastpot must "give back" when refunding a customer. */
-export function computeCommissionReversal(refundPence: number, commissionBps: number): CommissionReversal {
-  const refundedCommissionPence = Math.round((refundPence * commissionBps) / 10_000);
+export interface RefundSplit {
+  /** Refund size relative to the food subtotal; 1 for a full refund. */
+  refundFraction: number;
+  /** Clawed back from the vendor's payout — what they actually EARNED on the refunded portion. */
+  vendorClawbackPence: number;
+  /** Refund money Feastpot absorbs (its service-fee + commission share); netted against payouts via a credit row. */
+  feastpotAbsorbedPence: number;
+  /** Commission Feastpot gives back on this refund (audit/breakdown only). */
+  commissionRefundedPence: number;
+  /** Service fee Feastpot absorbs on this refund (audit/breakdown only). */
+  serviceFeeAbsorbedPence: number;
+}
+
+/**
+ * Split a customer refund into the vendor clawback vs. the portion Feastpot absorbs.
+ *
+ * REFUND CLAWBACK FORMULA — DO NOT CHANGE WITHOUT FINANCE SIGN-OFF
+ *   vendorClawback = (subtotal + delivery − discount − commission) × refundFraction
+ *
+ * The base is what the vendor was PAID (== Order.vendorPayoutPence for a full
+ * refund). It deliberately EXCLUDES serviceFee — that is Feastpot platform
+ * revenue the vendor never received, so clawing it back would over-deduct them.
+ * Feastpot absorbs the remainder of the customer refund (its service-fee +
+ * commission share) so the customer is always made whole.
+ *
+ * Full refund → refundFraction = 1. Partial → min(refundPence / subtotal, 1).
+ */
+export function computeRefundSplit(
+  refundPence: number,
+  econ: RefundOrderEconomics,
+  isFull: boolean,
+): RefundSplit {
+  const vendorEarnedPence =
+    econ.subtotalPence + econ.deliveryFeePence - econ.discountPence - econ.commissionPence;
+  const refundFraction = isFull
+    ? 1
+    : econ.subtotalPence > 0
+      ? Math.min(refundPence / econ.subtotalPence, 1)
+      : 0;
+  // Clamp: never claw back more than the customer was refunded, never negative.
+  const vendorClawbackPence = Math.max(
+    0,
+    Math.min(Math.round(refundFraction * vendorEarnedPence), refundPence),
+  );
   return {
-    refundedCommissionPence,
-    vendorRefundDeductionPence: refundPence - refundedCommissionPence,
+    refundFraction,
+    vendorClawbackPence,
+    feastpotAbsorbedPence: refundPence - vendorClawbackPence,
+    commissionRefundedPence: Math.round(refundFraction * econ.commissionPence),
+    serviceFeeAbsorbedPence: Math.round(refundFraction * econ.serviceFeePence),
   };
 }
 
@@ -176,8 +223,13 @@ export class PaymentsService {
         id: true,
         customerId: true,
         vendorId: true,
+        subtotalPence: true,
+        serviceFeePence: true,
+        deliveryFeePence: true,
+        discountPence: true,
+        commissionPence: true,
         totalPence: true,
-        vendor: { select: { commissionBps: true, userId: true } },
+        vendor: { select: { userId: true } },
       },
     });
     if (!order) throw new NotFoundException({ code: 'ORDER_NOT_FOUND', message: 'Order not found' });
@@ -221,40 +273,84 @@ export class PaymentsService {
     // cumulative-refund guard above stops a duplicate refund being created.
 
     const isPartial = dto.amountPence < order.totalPence;
-    const reversal = computeCommissionReversal(dto.amountPence, order.vendor.commissionBps);
-
-    // Negative-amount Payment row represents the cash leaving Feastpot's books.
-    // stripeRefundId is the natural key for webhook reconciliation (refund.updated).
-    const refundRow = await this.prisma.payment.create({
-      data: {
-        orderId: dto.orderId,
-        userId: authorisedBy.id,
-        type: isPartial ? PaymentType.partial_refund : PaymentType.refund,
-        status: PaymentStatus.succeeded,
-        amountPence: -dto.amountPence,
-        currency: 'GBP',
-        stripePaymentIntentId: lastPi.stripePaymentIntentId,
-        stripeChargeId: typeof stripeRefund.charge === 'string' ? stripeRefund.charge : null,
-        stripeRefundId: stripeRefund.id,
-        failureReason: dto.reason ?? null,
-        processedAt: new Date(),
+    // Vendor clawback excludes the platform service fee (Feastpot revenue the
+    // vendor never received). Feastpot absorbs that share of the customer refund.
+    const split = computeRefundSplit(
+      dto.amountPence,
+      {
+        subtotalPence: order.subtotalPence,
+        serviceFeePence: order.serviceFeePence,
+        deliveryFeePence: order.deliveryFeePence,
+        discountPence: order.discountPence,
+        commissionPence: order.commissionPence,
       },
+      !isPartial,
+    );
+
+    // The refund row and its companion credit row MUST be written atomically.
+    // The weekly payout batch derives the vendor clawback by netting credit rows
+    // against refund rows; if the refund row committed but the credit row did
+    // not, the batch would claw back the FULL customer refund (service fee +
+    // commission included) from the vendor — the exact over-deduction this fix
+    // removes. A retry can't repair it either: stripeRefundId is unique and the
+    // cumulative-refund guard would block re-entry. So commit both or neither.
+    //
+    // - Refund row: negative amount = cash leaving Feastpot's books;
+    //   stripeRefundId is the natural key for webhook reconciliation.
+    // - Credit row: the part of the refund the vendor is NOT liable for (its
+    //   service-fee share plus the commission Feastpot gives back).
+    const refundRow = await this.prisma.$transaction(async (tx) => {
+      const row = await tx.payment.create({
+        data: {
+          orderId: dto.orderId,
+          userId: authorisedBy.id,
+          type: isPartial ? PaymentType.partial_refund : PaymentType.refund,
+          status: PaymentStatus.succeeded,
+          amountPence: -dto.amountPence,
+          currency: 'GBP',
+          stripePaymentIntentId: lastPi.stripePaymentIntentId,
+          stripeChargeId: typeof stripeRefund.charge === 'string' ? stripeRefund.charge : null,
+          stripeRefundId: stripeRefund.id,
+          failureReason: dto.reason ?? null,
+          processedAt: new Date(),
+        },
+      });
+      await tx.payment.create({
+        data: {
+          orderId: dto.orderId,
+          userId: authorisedBy.id,
+          type: PaymentType.credit,
+          status: PaymentStatus.succeeded,
+          amountPence: split.feastpotAbsorbedPence,
+          currency: 'GBP',
+          failureReason: `Feastpot-absorbed portion of refund ${row.id}`,
+          processedAt: new Date(),
+        },
+      });
+      return row;
     });
 
-    // Commission-reversal Payment row (positive credit back to Feastpot's commission line).
-    // Stored as type=credit so it can be netted against payouts in the next batch.
-    await this.prisma.payment.create({
-      data: {
-        orderId: dto.orderId,
-        userId: authorisedBy.id,
-        type: PaymentType.credit,
-        status: PaymentStatus.succeeded,
-        amountPence: reversal.refundedCommissionPence,
-        currency: 'GBP',
-        failureReason: `Commission reversal for refund ${refundRow.id}`,
-        processedAt: new Date(),
-      },
-    });
+    // Audit the refund split so finance can reconcile who bore what.
+    await this.prisma.auditLog
+      .create({
+        data: {
+          actorId: authorisedBy.id,
+          action: 'refund_issued',
+          entityType: 'orders',
+          entityId: order.id,
+          metadata: {
+            customerRefundPence: dto.amountPence,
+            vendorClawbackPence: split.vendorClawbackPence,
+            feastpotAbsorbedPence: split.feastpotAbsorbedPence,
+            serviceFeePenceAbsorbed: split.serviceFeeAbsorbedPence,
+            commissionRefundedPence: split.commissionRefundedPence,
+            partial: isPartial,
+          } as Prisma.JsonObject,
+        },
+      })
+      .catch((e: unknown) => {
+        this.logger.warn(`refund audit log write failed: ${(e as Error)?.message ?? e}`);
+      });
 
     // Best-effort enqueue: when REDIS_URL is unset the BullMQ Queue's
     // lazyConnect+enableOfflineQueue:false combo throws "Connection is closed."
@@ -272,7 +368,7 @@ export class PaymentsService {
         orderId: dto.orderId,
         vendorId: order.vendorId,
         vendorUserId: order.vendor.userId,
-        deductionPence: reversal.vendorRefundDeductionPence,
+        deductionPence: split.vendorClawbackPence,
       }),
     ]).then((results) => {
       for (const r of results) {
@@ -282,7 +378,7 @@ export class PaymentsService {
       }
     });
 
-    return { refund: refundRow, reversal };
+    return { refund: refundRow, split };
   }
 
   // -------------------- helpers --------------------

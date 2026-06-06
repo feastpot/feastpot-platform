@@ -476,14 +476,24 @@ export class PayoutsService {
         continue;
       }
 
-      // Refund deductions: sum of credit-type Payment amounts for this vendor's orders in window.
+      // Refund deductions for this vendor's orders in the window.
       const orderIds = group.orders.map((o) => o.id);
       const refundDeductions = await this.prisma.payment.aggregate({
         where: { orderId: { in: orderIds }, type: { in: [PaymentType.refund, PaymentType.partial_refund] } },
         _sum: { amountPence: true },
       });
-      // amount on refund rows is negative; convert to positive deduction.
-      const refundsPence = Math.max(0, -(refundDeductions._sum.amountPence ?? 0));
+      // Credit rows hold the portion of each refund Feastpot absorbs (service-fee
+      // + commission share) — that money must NOT be clawed back from the vendor.
+      const refundCredits = await this.prisma.payment.aggregate({
+        where: { orderId: { in: orderIds }, type: PaymentType.credit },
+        _sum: { amountPence: true },
+      });
+      // Refund rows are negative (cash out); credit rows positive (absorbed).
+      // Net vendor deduction = customer refunds − Feastpot-absorbed portion
+      // = vendorClawbackPence, which EXCLUDES the platform service fee.
+      const customerRefundsPence = -(refundDeductions._sum.amountPence ?? 0);
+      const feastpotAbsorbedPence = refundCredits._sum.amountPence ?? 0;
+      const refundsPence = Math.max(0, customerRefundsPence - feastpotAbsorbedPence);
 
       // Open-dispute hold check.
       const openDisputes = await this.prisma.dispute.count({
