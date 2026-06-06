@@ -519,7 +519,9 @@ export class OrdersService {
         return created;
       });
 
-      return { order, clientSecret: intent.client_secret };
+      // createOrder is only ever reached by customer-role routes (POST /v1/orders
+      // and reorder), so the returned order must not leak internal financials.
+      return { order: this.stripInternalFinancials(order), clientSecret: intent.client_secret };
     } catch (err) {
       // DB tx rolled back - release the Stripe authorization so the
       // customer's card isn't held against an order that doesn't exist.
@@ -1022,7 +1024,9 @@ export class OrdersService {
       { jobId: `cancelled_vendor_alert:${orderId}` },
     );
 
-    return this.repo.findByIdWithItems(orderId);
+    // Customer-initiated cancel: strip internal financials before returning.
+    const cancelled = await this.repo.findByIdWithItems(orderId);
+    return cancelled ? this.stripInternalFinancials(cancelled) : cancelled;
   }
 
   // ------------------------------------------------------------------
@@ -1057,6 +1061,10 @@ export class OrdersService {
     const where: Prisma.OrderWhereInput = {};
     if (dto.status) where.status = dto.status;
 
+    // When the caller is served their own customer orders (not acting as a
+    // vendor-team member or admin) we must strip internal financials below.
+    let servingAsCustomer = false;
+
     if (user.role === UserRole.admin) {
       if (dto.vendorId) where.vendorId = dto.vendorId;
     } else {
@@ -1080,13 +1088,15 @@ export class OrdersService {
         where.vendorId = vendorId;
       } else {
         where.customerId = user.id;
+        servingAsCustomer = true;
       }
     }
 
     const cursor = dto.cursor ? this.decodeCursor(dto.cursor) : undefined;
     const rows = await this.repo.list({ where, take: limit, cursor });
     const nextCursor = rows.length === limit ? this.encodeCursor(rows[rows.length - 1]!) : null;
-    return { data: rows, nextCursor };
+    const data = servingAsCustomer ? rows.map((row) => this.stripInternalFinancials(row)) : rows;
+    return { data, nextCursor };
   }
 
   async getById(id: string, user: AuthUser) {
@@ -1102,7 +1112,26 @@ export class OrdersService {
     if (!isAdmin && !isCustomer && !isVendor) {
       throw new ForbiddenException({ code: 'ORDER_FORBIDDEN', message: 'You may not view this order' });
     }
+    // Customers must never see the internal financial breakdown (vendor payout
+    // and platform commission). Vendor-team members and admins legitimately
+    // need these figures, so only strip them for a pure-customer viewer.
+    if (!isAdmin && !isVendor) {
+      return this.stripInternalFinancials(order);
+    }
     return order;
+  }
+
+  /**
+   * Remove internal financial fields (vendor payout + platform commission)
+   * from an order before it is returned to a customer. Vendor and admin
+   * responses keep them. Centralised so customer-facing routes cannot
+   * accidentally leak these values.
+   */
+  private stripInternalFinancials<
+    T extends { vendorPayoutPence: number; commissionPence: number },
+  >(order: T): Omit<T, 'vendorPayoutPence' | 'commissionPence'> {
+    const { vendorPayoutPence: _payout, commissionPence: _commission, ...rest } = order;
+    return rest;
   }
 
   // ------------------------------------------------------------------

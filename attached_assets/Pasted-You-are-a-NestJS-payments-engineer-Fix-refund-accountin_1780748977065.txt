@@ -1,0 +1,327 @@
+You are a NestJS payments engineer. Fix refund accounting that can
+over-deduct a vendor's payout by the service fee portion.
+
+CONTEXT:
+When a full refund is issued, the current refund logic calculates
+the vendor clawback as a percentage of the total refund amount.
+The order total includes the service fee (which the vendor never
+received — it is Feastpot platform revenue). If the clawback is
+based on total, the vendor is deducted for money they never had.
+
+Example of the bug:
+  Order subtotal:       £40.00
+  Service fee (5%):     £2.00  ← Feastpot keeps this
+  Delivery fee:         £2.49  ← Vendor keeps this
+  Total:                £44.49
+
+  Full refund issued:   £44.49 (customer gets all their money back — correct)
+
+  WRONG clawback:  £44.49 × 88% = £39.15 deducted from vendor
+  CORRECT clawback: £40.00 − commission + £2.49 delivery = £38.29
+                    (vendor loses what they earned, not what the customer paid)
+
+  Over-deduction: £39.15 − £38.29 = £0.86 per order
+  At 100 orders/week with full refunds: ~£86/week wrongly deducted from vendors
+
+NOTE: The RED-001 payout formula fix does not make this worse —
+it was a latent issue before. But it must be resolved before
+refunds are issued at any volume.
+
+════════════════════════════════════════════════════════
+CHECK FIRST
+════════════════════════════════════════════════════════
+
+Run:
+1. grep -n "refund\|clawback\|claw_back\|deduct\|vendorDeduction" \
+     apps/api/src/modules/payments/payments.service.ts | head -20
+
+2. grep -n "refund\|clawback\|serviceFeePence\|totalPence\|subtotalPence" \
+     apps/api/src/modules/payouts/payouts.service.ts | head -20
+
+3. Read the full refund handling block:
+   grep -n -A 30 "issueRefund\|createRefund\|refundOrder" \
+     apps/api/src/modules/payments/payments.service.ts | head -60
+
+Report:
+  a) What is the current clawback formula when a full refund is issued?
+  b) Does it use totalPence or subtotalPence as the base?
+  c) Is the service fee included in the clawback base?
+  d) How are partial refunds handled — is there a proportional
+     calculation that also uses the wrong base?
+
+If clawback is already based on subtotalPence + deliveryFeePence
+with serviceFeePence excluded → report ALREADY CORRECT and stop.
+
+════════════════════════════════════════════════════════
+IMPLEMENTATION (only if over-deduction is confirmed)
+════════════════════════════════════════════════════════
+
+STEP 1 — Fix full refund clawback formula
+File: apps/api/src/modules/payments/payments.service.ts
+
+The correct clawback when a full refund is issued:
+
+// ─────────────────────────────────────────────────────────────────
+// REFUND CLAWBACK FORMULA — DO NOT CHANGE WITHOUT FINANCE SIGN-OFF
+//
+// When a customer receives a full refund:
+//   - Customer gets back: subtotal + serviceFee + delivery - discount
+//   - Vendor loses:       subtotal + delivery - discount - commission
+//   - Feastpot loses:     commission (it already kept the serviceFee
+//                         when the order was placed, so it refunds
+//                         the serviceFee from its own pocket to the
+//                         customer — Feastpot absorbs the serviceFee
+//                         on refunds, this is standard platform practice)
+//
+// The key rule: vendorClawbackPence must be based on
+// (subtotalPence + deliveryFeePence - discountPence - commissionPence)
+// NOT on (totalPence × some percentage)
+// ─────────────────────────────────────────────────────────────────
+
+async issueFullRefund(orderId: string, initiatedBy: string) {
+  const order = await this.prisma.order.findUnique({
+    where:   { id: orderId },
+    include: { payment: true, vendor: true },
+  })
+
+  if (!order) throw new NotFoundException('Order not found')
+
+  // 1. Issue full refund to customer via Stripe
+  const refund = await this.stripe.refunds.create({
+    payment_intent: order.payment.stripePaymentIntentId,
+    // Refunds the full captured amount (subtotal + serviceFee + delivery - discount)
+  })
+
+  // 2. Calculate correct vendor clawback
+  // Vendor clawback = what they were paid = subtotal + delivery - discounts - commission
+  // Do NOT include serviceFeePence — vendor never received it
+  const vendorClawbackPence =
+    order.subtotalPence
+    + order.deliveryFeePence
+    - order.discountPence
+    - order.commissionPence
+
+  // 3. Deduct from next vendor payout
+  await this.prisma.payout.updateMany({
+    where: {
+      vendorId: order.vendorId,
+      status:   { in: ['draft', 'pending'] },
+    },
+    data: {
+      refundsPence: { increment: vendorClawbackPence },
+      // The payout batch will subtract refundsPence from the gross
+    },
+  })
+
+  // 4. Record the refund
+  await this.prisma.payment.create({
+    data: {
+      orderId:               order.id,
+      userId:                order.customerId,
+      type:                  'refund',
+      status:                'succeeded',
+      amountPence:           order.totalPence,  // full customer refund amount
+      stripeRefundId:        refund.id,
+      processedAt:           new Date(),
+    },
+  })
+
+  // 5. Write audit log
+  await this.prisma.auditLog.create({
+    data: {
+      actorId:    initiatedBy,
+      action:     'refund_issued',
+      entityType: 'Order',
+      entityId:   order.id,
+      metadata: {
+        customerRefundPence: order.totalPence,
+        vendorClawbackPence,
+        serviceFeePenceAbsorbed: order.serviceFeePence,
+        commissionRefunded:      order.commissionPence,
+      },
+    },
+  })
+
+  return { refund, vendorClawbackPence }
+}
+
+STEP 2 — Fix partial refund clawback formula
+File: apps/api/src/modules/payments/payments.service.ts
+
+For partial refunds, the clawback must be proportional to the
+food subtotal only, not to the total:
+
+async issuePartialRefund(
+  orderId:      string,
+  refundPence:  number,
+  initiatedBy:  string,
+  reason:       string,
+) {
+  const order = await this.prisma.order.findUnique({
+    where: { id: orderId },
+  })
+
+  // For a partial refund, calculate what fraction of the food
+  // subtotal is being refunded — then apply that fraction to
+  // the vendor clawback (not the total)
+  //
+  // Example: customer paid £44.49, refunding £20.00
+  // That refund covers ~50% of the food subtotal (£20/£40)
+  // Vendor clawback = 50% × (subtotal + delivery - discounts - commission)
+
+  const refundFraction = Math.min(
+    refundPence / order.subtotalPence,
+    1  // cap at 100%
+  )
+
+  const vendorClawbackPence = Math.round(
+    refundFraction * (
+      order.subtotalPence
+      + order.deliveryFeePence
+      - order.discountPence
+      - order.commissionPence
+    )
+  )
+
+  // Issue Stripe partial refund
+  const refund = await this.stripe.refunds.create({
+    payment_intent: order.payment.stripePaymentIntentId,
+    amount:         refundPence,
+  })
+
+  // Deduct from next payout
+  await this.prisma.payout.updateMany({
+    where: {
+      vendorId: order.vendorId,
+      status:   { in: ['draft', 'pending'] },
+    },
+    data: { refundsPence: { increment: vendorClawbackPence } },
+  })
+
+  // Record
+  await this.prisma.payment.create({
+    data: {
+      orderId:        order.id,
+      userId:         order.customerId,
+      type:           'partial_refund',
+      status:         'succeeded',
+      amountPence:    refundPence,
+      stripeRefundId: refund.id,
+      processedAt:    new Date(),
+    },
+  })
+
+  return { refund, vendorClawbackPence }
+}
+
+STEP 3 — Unit tests for both refund types
+File: apps/api/src/modules/payments/payments.service.spec.ts
+
+describe('refund clawback calculation', () => {
+
+  const mockOrder = {
+    id:               'order-123',
+    subtotalPence:    4000,  // £40.00 food
+    serviceFeePence:  200,   // £2.00 service fee (Feastpot keeps)
+    deliveryFeePence: 249,   // £2.49 delivery (vendor keeps)
+    discountPence:    0,
+    commissionPence:  480,   // 12% of £40.00
+    vendorPayoutPence:3769,  // 4000 + 249 - 0 - 480
+    totalPence:       4449,  // 4000 + 200 + 249
+    vendorId:         'vendor-123',
+    customerId:       'customer-123',
+    payment: { stripePaymentIntentId: 'pi_test_123' },
+  }
+
+  it('full refund: clawback excludes service fee', async () => {
+    // Vendor clawback = subtotal + delivery - discounts - commission
+    const expectedClawback = 4000 + 249 - 0 - 480  // 3769
+
+    mockPrisma.order.findUnique.mockResolvedValue(mockOrder)
+    mockStripe.refunds.create.mockResolvedValue({ id: 're_test_123' })
+
+    const result = await paymentsService.issueFullRefund(
+      'order-123', 'admin-123'
+    )
+
+    expect(result.vendorClawbackPence).toBe(3769)
+    // Must NOT be totalPence × 88% = 3915 (wrong formula)
+    expect(result.vendorClawbackPence).not.toBe(
+      Math.round(mockOrder.totalPence * 0.88)
+    )
+  })
+
+  it('full refund: customer receives full total including service fee', async () => {
+    mockPrisma.order.findUnique.mockResolvedValue(mockOrder)
+    mockStripe.refunds.create.mockResolvedValue({ id: 're_test_123' })
+
+    await paymentsService.issueFullRefund('order-123', 'admin-123')
+
+    // Customer refund = full total (Feastpot absorbs the service fee)
+    expect(mockStripe.refunds.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payment_intent: 'pi_test_123',
+        // No amount specified = full refund
+      })
+    )
+  })
+
+  it('partial refund: clawback is proportional to subtotal', async () => {
+    // Refunding £20 = 50% of £40 subtotal
+    const refundPence = 2000
+    const expectedFraction = 2000 / 4000  // 0.5
+    const expectedClawback = Math.round(0.5 * (4000 + 249 - 0 - 480))  // 1884
+
+    mockPrisma.order.findUnique.mockResolvedValue(mockOrder)
+    mockStripe.refunds.create.mockResolvedValue({ id: 're_test_456', amount: 2000 })
+
+    const result = await paymentsService.issuePartialRefund(
+      'order-123', refundPence, 'admin-123', 'Wrong items'
+    )
+
+    expect(result.vendorClawbackPence).toBe(1884)
+  })
+
+  it('audit log records service fee absorbed by Feastpot', async () => {
+    mockPrisma.order.findUnique.mockResolvedValue(mockOrder)
+    mockStripe.refunds.create.mockResolvedValue({ id: 're_test_123' })
+
+    await paymentsService.issueFullRefund('order-123', 'admin-123')
+
+    expect(mockPrisma.auditLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          metadata: expect.objectContaining({
+            serviceFeePenceAbsorbed: 200,  // Feastpot absorbs its own fee on refund
+          }),
+        }),
+      })
+    )
+  })
+})
+
+STEP 4 — Confirm payout batch handles refundsPence correctly
+File: apps/api/src/modules/payouts/payouts.service.ts
+
+The payout batch builds drafts as:
+  grossPence = SUM(vendorPayoutPence) for delivered orders in period
+  refundsPence = SUM(refundsPence) for refunded orders in period
+  amountPence = grossPence - refundsPence
+
+Confirm the refundsPence column accumulates the VENDOR clawback
+(not the full customer refund amount):
+
+Run: grep -n "refundsPence\|refunds_pence" \
+  apps/api/src/modules/payouts/payouts.service.ts
+
+The value stored in payout.refundsPence must be vendorClawbackPence
+(what the vendor was paid for the order), not totalPence
+(what the customer paid including the service fee).
+
+If the batch is summing the wrong value, correct it now.
+
+Run: npm run test:api -- --testPathPattern=payments
+Run: npm run typecheck --filter=@feastpot/api
+Assert: all new tests pass, no regressions.
+Output all changed files with a clear summary of the before/after
+clawback formula for both full and partial refunds.

@@ -439,3 +439,146 @@ describe('OrdersService.confirmOrder', () => {
     );
   });
 });
+
+describe('OrdersService internal financial field exclusion', () => {
+  let repo: { findByIdWithItems: jest.Mock; list: jest.Mock };
+  let prisma: {
+    vendor: { findUnique: jest.Mock };
+    vendorMember: { findFirst: jest.Mock };
+  };
+  let members: { canActOnVendor: jest.Mock };
+  let service: OrdersService;
+
+  const orderRow = () => ({
+    id: 'order-123',
+    orderNumber: 'FP-123',
+    status: OrderStatus.accepted,
+    vendorId: 'v-1',
+    customerId: 'cust-1',
+    subtotalPence: 4000,
+    serviceFeePence: 200,
+    deliveryFeePence: 300,
+    totalPence: 4500,
+    commissionPence: 480,
+    vendorPayoutPence: 3820,
+    items: [],
+    createdAt: new Date('2026-01-01T00:00:00Z'),
+  });
+
+  beforeEach(() => {
+    repo = {
+      findByIdWithItems: jest.fn().mockResolvedValue(orderRow()),
+      list: jest.fn().mockResolvedValue([orderRow()]),
+    };
+    prisma = {
+      vendor: { findUnique: jest.fn().mockResolvedValue(null) },
+      vendorMember: { findFirst: jest.fn().mockResolvedValue(null) },
+    };
+    members = { canActOnVendor: jest.fn().mockResolvedValue(false) };
+    service = new OrdersService(
+      prisma as never,
+      repo as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      members as never,
+    );
+  });
+
+  it('getById: customer response omits vendorPayoutPence and commissionPence', async () => {
+    const response = await service.getById('order-123', customerUser('cust-1'));
+    expect(response).not.toHaveProperty('vendorPayoutPence');
+    expect(response).not.toHaveProperty('commissionPence');
+    // Public fields the customer still needs are preserved.
+    expect(response).toHaveProperty('totalPence', 4500);
+  });
+
+  it('getById: vendor response still includes both internal fields', async () => {
+    members.canActOnVendor.mockResolvedValue(true);
+    const response = await service.getById('order-123', vendorUser('u-vend'));
+    expect(response).toHaveProperty('vendorPayoutPence', 3820);
+    expect(response).toHaveProperty('commissionPence', 480);
+  });
+
+  it('getById: admin response still includes both internal fields', async () => {
+    const response = await service.getById('order-123', adminUser());
+    expect(response).toHaveProperty('vendorPayoutPence', 3820);
+    expect(response).toHaveProperty('commissionPence', 480);
+  });
+
+  it('list: customer rows omit vendorPayoutPence and commissionPence', async () => {
+    const { data } = await service.list(customerUser('cust-1'), {});
+    expect(data).toHaveLength(1);
+    expect(data[0]).not.toHaveProperty('vendorPayoutPence');
+    expect(data[0]).not.toHaveProperty('commissionPence');
+  });
+
+  it('list: vendor rows still include both internal fields', async () => {
+    prisma.vendor.findUnique.mockResolvedValue({ id: 'v-1' });
+    const { data } = await service.list(vendorUser('u-vend'), {});
+    expect(data[0]).toHaveProperty('vendorPayoutPence', 3820);
+    expect(data[0]).toHaveProperty('commissionPence', 480);
+  });
+
+  it('list: admin rows still include both internal fields', async () => {
+    const { data } = await service.list(adminUser(), {});
+    expect(data[0]).toHaveProperty('vendorPayoutPence', 3820);
+    expect(data[0]).toHaveProperty('commissionPence', 480);
+  });
+});
+
+describe('OrdersService.customerCancel financial exclusion', () => {
+  const cancelOrder = () => ({
+    id: 'order-123',
+    orderNumber: 'FP-123',
+    status: OrderStatus.pending,
+    vendorId: 'v-1',
+    customerId: 'cust-1',
+    totalPence: 4500,
+    commissionPence: 480,
+    vendorPayoutPence: 3820,
+    items: [],
+    customer: { firstName: 'Ada' },
+    vendor: { businessName: "Maman's Kitchen", userId: 'u-vend' },
+  });
+
+  const make = () => {
+    const repo = {
+      findByIdWithItems: jest.fn().mockResolvedValue(cancelOrder()),
+      transitionStatus: jest.fn().mockResolvedValue(true),
+      findStripePaymentIntent: jest.fn().mockResolvedValue(null),
+      markPaymentStatus: jest.fn().mockResolvedValue({}),
+    };
+    const prisma = { auditLog: { create: jest.fn().mockResolvedValue({}) } };
+    const stripe = { cancel: jest.fn().mockResolvedValue({}) };
+    const queue = { add: jest.fn().mockResolvedValue({}), getJob: jest.fn().mockResolvedValue(null) };
+    const loyalty = { refundRedemption: jest.fn().mockResolvedValue(undefined) };
+    const svc = new OrdersService(
+      prisma as never,
+      repo as never,
+      {} as never,
+      stripe as never,
+      queue as never,
+      loyalty as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+    );
+    return { svc };
+  };
+
+  it('customer cancel response omits vendorPayoutPence and commissionPence', async () => {
+    const { svc } = make();
+    const response = await svc.customerCancel('order-123', 'cust-1', 'Changed my mind');
+    expect(response).not.toHaveProperty('vendorPayoutPence');
+    expect(response).not.toHaveProperty('commissionPence');
+    expect(response).toHaveProperty('totalPence', 4500);
+  });
+});

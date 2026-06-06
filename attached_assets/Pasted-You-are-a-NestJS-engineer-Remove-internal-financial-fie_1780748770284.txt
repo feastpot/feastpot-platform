@@ -1,0 +1,133 @@
+You are a NestJS engineer. Remove internal financial fields from
+customer-facing API responses.
+
+CONTEXT:
+The order response returned to customers currently includes
+vendorPayoutPence — how much the vendor receives. This is internal
+financial data that has no business being visible to a customer.
+It is an information disclosure issue, not a revenue issue.
+The payout formula fix (RED-001) is already correct and deployed.
+This prompt is about what the API serialises back to the caller.
+
+════════════════════════════════════════════════════════
+CHECK FIRST
+════════════════════════════════════════════════════════
+
+Run:
+1. grep -rn "vendorPayoutPence\|vendor_payout_pence\|commissionPence\|commission_pence" \
+     apps/api/src/modules/orders --include="*.ts" | grep -v "spec\|service\|\.spec\."
+
+2. grep -rn "vendorPayoutPence\|commissionPence" \
+     apps/api/src/modules/orders/dto --include="*.ts" 2>/dev/null || \
+   grep -rn "vendorPayoutPence\|commissionPence" \
+     apps/api/src/modules/orders --include="*.dto.ts" 2>/dev/null || \
+   echo "No DTO files found — check serialiser/transformer"
+
+3. curl -s "http://localhost:3001/v1/orders/{any-order-id}" \
+     -H "Authorization: Bearer {customer_token}" | \
+     python3 -c "import sys,json; o=json.load(sys.stdin); \
+     print('vendorPayoutPence in response:', 'vendorPayoutPence' in o); \
+     print('commissionPence in response:', 'commissionPence' in o)"
+
+Report:
+  a) Is vendorPayoutPence present in the customer-facing order response?
+  b) Is commissionPence present in the customer-facing order response?
+  c) Where is the response shaped — a DTO, a serialiser, a Prisma
+     select, or a class-transformer @Exclude decorator?
+
+If neither field appears in customer-facing responses → report
+ALREADY EXCLUDED and stop.
+
+════════════════════════════════════════════════════════
+IMPLEMENTATION (only if fields are confirmed exposed)
+════════════════════════════════════════════════════════
+
+STEP 1 — Identify the response shaping mechanism
+
+The correct fix depends on how responses are shaped:
+
+OPTION A — If using class-transformer / @Expose():
+Add @Exclude() to the fields on the Order response class:
+
+import { Exclude } from 'class-transformer'
+
+export class OrderResponseDto {
+  // ... public fields ...
+
+  @Exclude()
+  vendorPayoutPence: number
+
+  @Exclude()
+  commissionPence: number
+}
+
+OPTION B — If using Prisma select objects to shape responses:
+In the orders query for customer-facing routes, add an explicit
+select that omits these fields:
+
+select: {
+  id:               true,
+  orderNumber:      true,
+  status:           true,
+  subtotalPence:    true,
+  serviceFeePence:  true,
+  deliveryFeePence: true,
+  discountPence:    true,
+  totalPence:       true,
+  // vendorPayoutPence: false  ← omit entirely
+  // commissionPence:   false  ← omit entirely
+  items:            { select: { ... } },
+  vendor:           { select: { businessName: true, logoUrl: true } },
+}
+
+OPTION C — If using a plain object spread with manual omit:
+In the controller or service return, omit the fields explicitly:
+
+const { vendorPayoutPence, commissionPence, ...customerFields } = order
+return customerFields
+
+STEP 2 — Confirm vendor-facing responses STILL include the fields
+
+The vendor portal and admin panel legitimately need these figures.
+Confirm that vendor-scoped routes (GET /v1/orders with vendor role,
+GET /v1/vendors/me/... order routes) still return:
+  vendorPayoutPence — vendor needs this to understand their earnings
+  commissionPence   — vendor needs this to understand the deduction
+
+If using role-based response shaping:
+  customer role → omit vendorPayoutPence, commissionPence
+  vendor role   → include both
+  admin role    → include both + all other internal fields
+
+STEP 3 — Confirm admin panel is unaffected
+
+Run: grep -rn "vendorPayoutPence\|commissionPence" \
+  apps/admin/src --include="*.tsx" | head -5
+
+If the admin panel reads these fields, confirm they still render
+correctly after this change.
+
+STEP 4 — Add a test to lock in the exclusion
+
+File: apps/api/src/modules/orders/orders.controller.spec.ts
+(or orders.service.spec.ts depending on where serialisation is tested)
+
+it('customer order response does not include vendorPayoutPence', async () => {
+  const response = await ordersService.getOrderForCustomer(
+    'order-123', 'customer-user-123'
+  )
+  expect(response).not.toHaveProperty('vendorPayoutPence')
+  expect(response).not.toHaveProperty('commissionPence')
+})
+
+it('vendor order response includes vendorPayoutPence', async () => {
+  const response = await ordersService.getOrderForVendor(
+    'order-123', 'vendor-user-123'
+  )
+  expect(response).toHaveProperty('vendorPayoutPence')
+})
+
+Run: npm run test:api -- --testPathPattern=orders
+Run: npm run typecheck --filter=@feastpot/api
+Assert: all tests pass, no new TypeScript errors.
+Output all changed files.
