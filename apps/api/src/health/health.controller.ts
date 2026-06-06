@@ -9,6 +9,7 @@ import { Public } from '../auth/decorators/public.decorator';
 import { RedisCacheService } from '../common/cache/redis-cache.service';
 import { missingRequiredEnv } from '../common/config/required-env';
 import { getServiceFeeBps } from '../common/config/service-fee';
+import { TEMPLATES } from '../modules/notifications/templates';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   COMPLIANCE_QUEUE,
@@ -51,7 +52,27 @@ type ChannelStatus = 'configured' | 'missing_credentials';
 interface NotificationChannels {
   email: ChannelStatus;
   whatsapp: ChannelStatus;
+  // Per-template Twilio Content SID presence (whatsappTemplate name → whether
+  // TWILIO_CONTENT_SID_<name> is set). Only meaningful for the Twilio backend:
+  // a `false` here means that template silently skips WhatsApp on the Twilio
+  // path even when backend creds are present. The Meta Cloud backend sends by
+  // template name and needs no Content SID, so this is `null` in Meta/stub mode.
+  whatsappContentSids: Record<string, boolean> | null;
 }
+
+// WhatsApp Content-SID names the provider actually looks up. The processor
+// dispatches WhatsApp with `template: def.whatsappTemplate` (NOT the registry
+// key), and the provider reads `TWILIO_CONTENT_SID_<that name>`. Derive the
+// list the same way (whatsappTemplate of every whatsapp-enabled template, deduped
+// + sorted) so this can never drift from what actually gets sent.
+const WHATSAPP_CONTENT_SID_NAMES = Array.from(
+  new Set(
+    Object.values(TEMPLATES)
+      .filter((def) => def.channels.includes('whatsapp'))
+      .map((def) => def.whatsappTemplate)
+      .filter((name): name is string => !!name),
+  ),
+).sort();
 
 // Report notification-channel availability so ops can see at a glance whether
 // vendors/customers will actually be alerted. Informational only — does NOT
@@ -61,15 +82,29 @@ interface NotificationChannels {
 // EMAIL_FROM; WhatsappProvider → Twilio backend OR Meta Cloud backend.
 function notificationChannels(): NotificationChannels {
   const emailConfigured = !!(process.env.RESEND_API_KEY && process.env.EMAIL_FROM);
-  const whatsappConfigured =
-    !!(
-      process.env.TWILIO_WHATSAPP_FROM &&
-      process.env.TWILIO_ACCOUNT_SID &&
-      process.env.TWILIO_AUTH_TOKEN
-    ) || !!(process.env.WHATSAPP_ACCESS_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID);
+  const twilioConfigured = !!(
+    process.env.TWILIO_WHATSAPP_FROM &&
+    process.env.TWILIO_ACCOUNT_SID &&
+    process.env.TWILIO_AUTH_TOKEN
+  );
+  const metaConfigured = !!(
+    process.env.WHATSAPP_ACCESS_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID
+  );
+  const whatsappConfigured = twilioConfigured || metaConfigured;
+  // Content SIDs only apply to the Twilio backend; report null otherwise so the
+  // field can't be mistaken for "all templates broken" on Meta/stub.
+  const whatsappContentSids = twilioConfigured
+    ? Object.fromEntries(
+        WHATSAPP_CONTENT_SID_NAMES.map((name) => [
+          name,
+          !!process.env[`TWILIO_CONTENT_SID_${name}`],
+        ]),
+      )
+    : null;
   return {
     email: emailConfigured ? 'configured' : 'missing_credentials',
     whatsapp: whatsappConfigured ? 'configured' : 'missing_credentials',
+    whatsappContentSids,
   };
 }
 

@@ -1,0 +1,101 @@
+You are a NestJS DevOps engineer. Check whether WhatsApp templates
+have Content SIDs configured, then document what is needed.
+
+CONTEXT FROM AUDIT:
+"WhatsApp is built but unconfigured. The provider supports both Twilio
+and Meta Cloud API and falls back to a stub when unconfigured. It needs
+per-template Content SIDs set in env before it will actually send."
+
+════════════════════════════════════════════════════════
+CHECK FIRST
+════════════════════════════════════════════════════════
+
+Run:
+1. cat apps/api/src/modules/notifications/providers/whatsapp.provider.ts
+
+2. grep -rn "contentSid\|content_sid\|WHATSAPP.*SID\|templateSid" \
+     apps/api/src --include="*.ts" | head -20
+
+3. grep -rn "WHATSAPP_CONTENT_SID\|WA_TEMPLATE" \
+     .env.example 2>/dev/null || echo "Not in .env.example"
+
+Report:
+  a) Does the WhatsApp provider read Content SIDs from env vars?
+  b) Which notification keys need a Content SID?
+  c) What env var names does the provider expect?
+  d) Is WhatsApp currently falling back to stub mode on every send?
+
+════════════════════════════════════════════════════════
+IMPLEMENTATION
+════════════════════════════════════════════════════════
+
+Based on what the audit reveals, the minimum configuration needed is:
+
+STEP 1 — Identify required Content SIDs
+The WhatsApp provider needs a Content SID for each notification
+template that sends via WhatsApp. Typically these are:
+  order_confirmation
+  order_accepted
+  order_dispatched
+  delivery_confirmed
+
+In Meta Business Manager (business.facebook.com):
+1. Go to WhatsApp → Message Templates
+2. For each template, find the Content SID (format: HXxx...)
+3. Add to Replit deployment secrets:
+
+  WA_CONTENT_SID_ORDER_CONFIRMATION = HXxx...
+  WA_CONTENT_SID_ORDER_ACCEPTED     = HXxx...
+  WA_CONTENT_SID_ORDER_DISPATCHED   = HXxx...
+  WA_CONTENT_SID_DELIVERY_CONFIRMED = HXxx...
+
+STEP 2 — Wire Content SIDs in the provider
+File: apps/api/src/modules/notifications/providers/whatsapp.provider.ts
+
+If the provider does not already read these from env, add a mapping:
+
+private readonly contentSidMap: Record<string, string | undefined> = {
+  order_confirmation: process.env.WA_CONTENT_SID_ORDER_CONFIRMATION,
+  order_accepted:     process.env.WA_CONTENT_SID_ORDER_ACCEPTED,
+  order_dispatched:   process.env.WA_CONTENT_SID_ORDER_DISPATCHED,
+  delivery_confirmed: process.env.WA_CONTENT_SID_DELIVERY_CONFIRMED,
+}
+
+async send(to: string, key: string, data: Record<string, any>) {
+  const contentSid = this.contentSidMap[key]
+  if (!contentSid) {
+    this.logger.warn(
+      `[WhatsApp] No Content SID configured for template '${key}'. ` +
+      'Message not sent. Add WA_CONTENT_SID_* to deployment secrets.'
+    )
+    return { stub: true, reason: 'no_content_sid' }
+  }
+  // ... existing send logic with contentSid ...
+}
+
+STEP 3 — Add Content SIDs to .env.example
+File: .env.example
+
+Add under WhatsApp section:
+  # WhatsApp Content SIDs (from Meta Business Manager → Message Templates)
+  WA_CONTENT_SID_ORDER_CONFIRMATION=HXxx...
+  WA_CONTENT_SID_ORDER_ACCEPTED=HXxx...
+  WA_CONTENT_SID_ORDER_DISPATCHED=HXxx...
+  WA_CONTENT_SID_DELIVERY_CONFIRMED=HXxx...
+
+STEP 4 — Add to /healthz
+In the notification checks block, add:
+
+whatsappContentSids: {
+  order_confirmation: !!process.env.WA_CONTENT_SID_ORDER_CONFIRMATION,
+  order_accepted:     !!process.env.WA_CONTENT_SID_ORDER_ACCEPTED,
+  order_dispatched:   !!process.env.WA_CONTENT_SID_ORDER_DISPATCHED,
+  delivery_confirmed: !!process.env.WA_CONTENT_SID_DELIVERY_CONFIRMED,
+}
+
+This makes it immediately visible in the health check whether
+WhatsApp is actually configured or silently stubbing.
+
+Run: npm run typecheck --filter=@feastpot/api
+Output all changed files and a list of Content SIDs still needed
+from Meta Business Manager.
