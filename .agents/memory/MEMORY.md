@@ -7,6 +7,7 @@
 - [Redis / Upstash for BullMQ](redis-upstash.md) — must be paid Upstash (free 500K cmd/mo cap fails); `rediss://` TLS; queues tuned to 5-min polls — don't revert.
 - [Bull lock vs stalled invariant](bull-lock-vs-stalled.md) — 5-min stalledInterval needs lockDuration>stalledInterval or jobs falsely fail "stalled"; stalled failures bypass the attempts-based Sentry gate.
 - [Deployment](deployment.md) — 1 service/repl so this repl deploys the API; API MUST be VM (workers+crons in-process); placeholder STRIPE_WEBHOOK_SECRET to break webhook chicken-and-egg.
+- [Prisma baseline / P3005](prisma-baseline-p3005.md) — `db push` on the shared Supabase DB leaves no migration history → prod `migrate deploy` P3005 crash-loop; recover by baselining (resolve --applied + sha256 psql insert).
 - [Order responses have no DTO](order-response-shaping.md) — orders are raw Prisma rows returned untouched across getById/list/createOrder/customerCancel/reorder; any new Order column leaks to customers; sanitize every customer return path.
 - [Service fee & payout](service-fee-payout.md) — service fee is platform revenue, never paid out; payout = total − serviceFee − commission (delivery stays w/ vendor); fix BOTH per-order calc AND weekly batch (batch recomputed from total, didn't use stored vendorPayoutPence).
 - [Stripe webhook routing](stripe-webhook-event-routing.md) — controller enqueues by raw event.type = Bull job name; no catch-all, so unhandled types drop silently; handle refund.updated AND charge.refund.updated.
