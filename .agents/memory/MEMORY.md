@@ -12,3 +12,5 @@
 - [Stripe webhook routing](stripe-webhook-event-routing.md) — controller enqueues by raw event.type = Bull job name; no catch-all, so unhandled types drop silently; handle refund.updated AND charge.refund.updated.
 - [Stripe money idempotency](stripe-idempotency.md) — every money-moving Stripe call must pass a deterministic idempotencyKey keyed on the business id; createTransfer lacked one → double-pay on re-approval.
 - [Queue-infra crons](queue-module-crons.md) — host @InjectQueue cron services in a separate module, NOT queues.module (circular import → queue-name const resolves undefined).
+- [Supabase auth hook](supabase-auth-hook.md) — login depends on custom_access_token_hook fn + RLS policy (auth_admin SELECT public.users); missing fn → all logins HTTP 500; missing policy → JWT role=customer for everyone.
+- [DB reset recovery](db-reset-recovery.md) — empty/drifted app DB w/ auth.users intact: migrate diff → db push --accept-data-loss → db:seed (bg, idempotent) → re-apply auth hook+policy.
