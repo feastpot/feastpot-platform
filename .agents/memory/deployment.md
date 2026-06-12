@@ -28,3 +28,21 @@ secret. Signature verification rejects events until then — acceptable pre-laun
 
 `db:deploy` (`scripts/db-deploy.sh`) is production-safe: psql pre-flight, `prisma
 migrate deploy`, then RLS lockdown. It runs on every VM start.
+
+**A failing `db:deploy` crash-loops the VM and surfaces as a 502, not a build error.**
+**Why:** the VM run command is `db:deploy && start:api`, so if `db:deploy` exits
+non-zero (e.g. P3005 before the prod DB was baselined) `start:api` never runs, the
+required port (3002) never opens, healthchecks fail, and Replit suspends the
+deployment. `getDeploymentInfo()` still shows `isDeployed:true, hasSuccessfulBuild:true`
+because the *build* was fine — the failure is purely runtime. **How to apply:** if
+`api.feastpot.co.uk` returns 502 "deployment could not be reached", read deployment
+logs for the `db:deploy` failure, fix the DB, then **Redeploy** (republish) — the VM
+won't self-recover from a suspended state.
+
+**The GitHub Actions `deploy-api` job cannot actually deploy the Replit API.**
+**Why:** it POSTs to `https://api.replit.com/v0/deployments` with a `deployment_key`,
+but that host/endpoint returns 404 for everything — there is no public Replit API to
+trigger a deployment from external CI. Replit deploys are user-initiated (Publish) or
+via `suggestDeploy()`. **How to apply:** the real API deploy happens on Replit, not in
+the pipeline. To make deploy.yml green, the `deploy-api` job must be reworked (build-
+check only, or removed) and the Vercel front-end jobs re-gated off `deploy-database`.
