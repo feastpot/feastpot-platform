@@ -302,7 +302,12 @@ These are credentials/hosting/monitoring, not features.
 - 🟠 **Stripe live webhook subscriptions** for `payment_intent.*`,
   `transfer.created`, `refund.updated`.
 - 🟡 **Marketing/legal assets:** `apps/web/public/og-image.png` (1200×630) missing;
-  ICO number `ZA000000` and WhatsApp `+44 7000 000000` are placeholders.
+  WhatsApp support number may still be a placeholder. _(The ICO number is now real
+  — `ZC146267` in `src/lib/legal-constants.ts` — no longer the old `ZA000000`
+  placeholder.)_
+- 🟡 **`/legal` index page** was missing (the top-nav "Legal" link and footer
+  resolved to a 404); a `/legal` hub page now lists every legal document. _(Fixed
+  16 June 2026.)_
 - 🟡 **DPAs / DPIA / vendor T&Cs** — legal-team deliverables.
 
 ---
