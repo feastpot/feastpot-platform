@@ -18,7 +18,11 @@ import { ListInboxDto } from './dto/list-inbox.dto';
 import { InboxService } from './inbox.service';
 
 function requireUser(user: AuthUser | null): AuthUser {
-  if (!user) throw new UnauthorizedException({ code: 'UNAUTHENTICATED', message: 'Authentication required' });
+  if (!user)
+    throw new UnauthorizedException({
+      code: 'UNAUTHENTICATED',
+      message: 'Authentication required',
+    });
   return user;
 }
 
@@ -36,7 +40,9 @@ export class InboxController {
   constructor(private readonly inbox: InboxService) {}
 
   @Get()
-  @ApiOperation({ summary: 'List notifications for the current user (cursor paginated, newest first)' })
+  @ApiOperation({
+    summary: 'List notifications for the current user (cursor paginated, newest first)',
+  })
   list(@CurrentUser() user: AuthUser | null, @Query() dto: ListInboxDto) {
     return this.inbox.list(requireUser(user).id, dto);
   }

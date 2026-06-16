@@ -1,12 +1,6 @@
 import type { ReactNode } from 'react';
 
-export type StatusTone =
-  | 'success'
-  | 'warning'
-  | 'danger'
-  | 'info'
-  | 'neutral'
-  | 'brand';
+export type StatusTone = 'success' | 'warning' | 'danger' | 'info' | 'neutral' | 'brand';
 
 const TONE_CLASSES: Record<StatusTone, { wrap: string; dot: string }> = {
   success: { wrap: 'bg-teal-light text-teal-dark', dot: 'bg-teal' },
@@ -36,9 +30,7 @@ export function StatusPill({ tone = 'neutral', children, withDot = true }: Statu
     <span
       className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium ${t.wrap}`}
     >
-      {withDot && (
-        <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${t.dot}`} />
-      )}
+      {withDot && <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${t.dot}`} />}
       {children}
     </span>
   );

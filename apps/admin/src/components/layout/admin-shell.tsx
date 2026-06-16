@@ -47,7 +47,12 @@ interface NavItem {
 const MAIN_NAV: ReadonlyArray<NavItem> = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/orders', label: 'Orders', icon: Receipt, roles: ['admin', 'support', 'finance'] },
-  { href: '/users', label: 'Users', icon: Users, roles: ['admin', 'support', 'finance', 'compliance'] },
+  {
+    href: '/users',
+    label: 'Users',
+    icon: Users,
+    roles: ['admin', 'support', 'finance', 'compliance'],
+  },
   { href: '/vendors', label: 'Vendors', icon: Store, roles: ['admin', 'compliance', 'support'] },
   {
     href: '/vendor-applications',
@@ -158,8 +163,7 @@ export function AdminShell({ user, children }: AdminShellProps) {
           </div>
           <ul className="space-y-0.5">
             {visibleMain.map((item) => {
-              const active =
-                item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
+              const active = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
               const Icon = item.icon;
               return (
                 <li key={item.href}>
@@ -220,9 +224,7 @@ export function AdminShell({ user, children }: AdminShellProps) {
               <div className="truncate text-sm font-semibold text-foreground">
                 {user.name || user.email}
               </div>
-              <div className="truncate text-xs capitalize text-muted-foreground">
-                {user.role}
-              </div>
+              <div className="truncate text-xs capitalize text-muted-foreground">{user.role}</div>
             </div>
             <ChevronUp className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
           </div>

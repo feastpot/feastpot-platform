@@ -169,7 +169,15 @@ export function AddressForm({
   );
 }
 
-function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
+function Field({
+  label,
+  required,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  children: React.ReactNode;
+}) {
   return (
     <label className="block text-sm">
       <span className="mb-1 block font-bold text-charcoal">

@@ -56,10 +56,7 @@ import {
   type PaymentStatus,
   type PiStatus,
 } from '@/hooks/use-admin-orders';
-import {
-  useOverrideOrderStatus,
-  type OrderStatus,
-} from '@/hooks/use-admin-users';
+import { useOverrideOrderStatus, type OrderStatus } from '@/hooks/use-admin-users';
 import { formatDateTime, formatPence } from '@/lib/format';
 
 const STATUSES: ReadonlyArray<OrderStatus | 'all'> = [
@@ -183,7 +180,11 @@ export function OrdersClient({ role }: OrdersClientProps) {
               <RotateCcw className="mr-1 h-3.5 w-3.5" />
               Clear all filters
             </Button>
-            <Button type="button" className="bg-emerald-600 hover:bg-emerald-700" onClick={applyFilters}>
+            <Button
+              type="button"
+              className="bg-emerald-600 hover:bg-emerald-700"
+              onClick={applyFilters}
+            >
               Apply filters
             </Button>
           </>
@@ -559,12 +560,7 @@ function DateRangePopover({
                 {lbl}
               </Button>
             ))}
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => onChange('', '')}
-              className="ml-auto"
-            >
+            <Button size="sm" variant="ghost" onClick={() => onChange('', '')} className="ml-auto">
               Clear
             </Button>
           </div>
@@ -618,7 +614,9 @@ function KpiTile({
   return (
     <Card>
       <CardContent className="flex items-center gap-3 py-4">
-        <div className={`flex h-10 w-10 items-center justify-center rounded-full ${toneClass[tone]}`}>
+        <div
+          className={`flex h-10 w-10 items-center justify-center rounded-full ${toneClass[tone]}`}
+        >
           <Icon className="h-5 w-5" />
         </div>
         <div className="min-w-0">
@@ -744,9 +742,7 @@ function OrdersTableRow({
           </TableCell>
         </TableRow>
       )}
-      {canRefund && (
-        <RefundDialog order={order} open={refundOpen} onOpenChange={setRefundOpen} />
-      )}
+      {canRefund && <RefundDialog order={order} open={refundOpen} onOpenChange={setRefundOpen} />}
     </>
   );
 }
@@ -772,11 +768,7 @@ function orderStatusTone(status: OrderStatus): StatusTone {
 function PaymentBadge({ status }: { status: PaymentStatus | null }) {
   if (!status) return <span className="text-xs text-muted-foreground">-</span>;
   const tone: StatusTone =
-    status === 'succeeded'
-      ? 'success'
-      : status === 'pending'
-        ? 'warning'
-        : 'danger';
+    status === 'succeeded' ? 'success' : status === 'pending' ? 'warning' : 'danger';
   return <StatusPill tone={tone}>{status}</StatusPill>;
 }
 

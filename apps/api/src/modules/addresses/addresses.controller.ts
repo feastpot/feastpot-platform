@@ -65,7 +65,9 @@ export class AddressesController {
 
   @Delete(':id')
   @Roles(UserRole.customer, UserRole.admin)
-  @ApiOperation({ summary: 'Delete one of the calling user’s addresses (blocked if used by an active order)' })
+  @ApiOperation({
+    summary: 'Delete one of the calling user’s addresses (blocked if used by an active order)',
+  })
   remove(@CurrentUser() user: AuthUser | null, @Param('id', new ParseUUIDPipe()) id: string) {
     const u = this.requireUser(user);
     return this.addresses.delete(id, u.id);
@@ -73,7 +75,10 @@ export class AddressesController {
 
   private requireUser(user: AuthUser | null): AuthUser {
     if (!user) {
-      throw new UnauthorizedException({ code: 'UNAUTHENTICATED', message: 'Authentication required' });
+      throw new UnauthorizedException({
+        code: 'UNAUTHENTICATED',
+        message: 'Authentication required',
+      });
     }
     return user;
   }

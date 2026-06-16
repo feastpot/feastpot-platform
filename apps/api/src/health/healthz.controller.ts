@@ -1,7 +1,7 @@
 import { InjectQueue } from '@nestjs/bull';
 import { Controller, Get, Res, VERSION_NEUTRAL } from '@nestjs/common';
-import { SkipThrottle } from '@nestjs/throttler';
 import { ApiTags } from '@nestjs/swagger';
+import { SkipThrottle } from '@nestjs/throttler';
 import type { Queue } from 'bull';
 import type { Response } from 'express';
 
@@ -43,7 +43,14 @@ export class HealthzController {
     @InjectQueue(PAYOUTS_QUEUE) payouts: Queue,
     @InjectQueue(COMPLIANCE_QUEUE) compliance: Queue,
   ) {
-    this.delegate = new HealthController(prisma, cache, notifications, stripeWebhooks, payouts, compliance);
+    this.delegate = new HealthController(
+      prisma,
+      cache,
+      notifications,
+      stripeWebhooks,
+      payouts,
+      compliance,
+    );
   }
 
   @Public()

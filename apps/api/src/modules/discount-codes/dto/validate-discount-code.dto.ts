@@ -8,11 +8,16 @@ export class ValidateDiscountCodeDto {
   @MaxLength(30)
   code!: string;
 
-  @ApiProperty({ description: 'Vendor the basket is being placed against (used for vendor-scoped codes).' })
+  @ApiProperty({
+    description: 'Vendor the basket is being placed against (used for vendor-scoped codes).',
+  })
   @IsUUID()
   vendorId!: string;
 
-  @ApiProperty({ minimum: 1, description: 'Subtotal in pence - used for min-order validation + percentage maths.' })
+  @ApiProperty({
+    minimum: 1,
+    description: 'Subtotal in pence - used for min-order validation + percentage maths.',
+  })
   @Type(() => Number)
   @IsInt()
   @Min(1)

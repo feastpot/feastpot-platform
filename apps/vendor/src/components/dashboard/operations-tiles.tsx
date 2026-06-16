@@ -36,15 +36,10 @@ interface Props {
 export function OperationsTiles({ eventEnquiries, nextPayout, menuHealth }: Props) {
   const totalWarnings = menuHealth.missingImages + menuHealth.missingAllergens;
 
-  const enquiriesTone = eventEnquiries.pending > 0
-    ? 'border-teal/40 bg-teal-light'
-    : 'border-border bg-surface';
-  const menuTone = totalWarnings > 0
-    ? 'border-amber-300 bg-amber-50'
-    : 'border-border bg-surface';
-  const payoutTone = nextPayout
-    ? 'border-brand/30 bg-brand-light'
-    : 'border-border bg-surface';
+  const enquiriesTone =
+    eventEnquiries.pending > 0 ? 'border-teal/40 bg-teal-light' : 'border-border bg-surface';
+  const menuTone = totalWarnings > 0 ? 'border-amber-300 bg-amber-50' : 'border-border bg-surface';
+  const payoutTone = nextPayout ? 'border-brand/30 bg-brand-light' : 'border-border bg-surface';
 
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -54,9 +49,7 @@ export function OperationsTiles({ eventEnquiries, nextPayout, menuHealth }: Prop
         icon={<CalendarHeart className="h-5 w-5 text-teal" aria-hidden />}
         label="Event enquiries"
         primary={
-          eventEnquiries.pending === 0
-            ? 'None to quote'
-            : `${eventEnquiries.pending} to quote`
+          eventEnquiries.pending === 0 ? 'None to quote' : `${eventEnquiries.pending} to quote`
         }
         secondary={
           eventEnquiries.nextEventDate
@@ -70,11 +63,7 @@ export function OperationsTiles({ eventEnquiries, nextPayout, menuHealth }: Prop
         className={payoutTone}
         icon={<Banknote className="h-5 w-5 text-brand" aria-hidden />}
         label="Next payout"
-        primary={
-          nextPayout
-            ? formatMoney(nextPayout.amountPence)
-            : 'Nothing accruing'
-        }
+        primary={nextPayout ? formatMoney(nextPayout.amountPence) : 'Nothing accruing'}
         secondary={
           nextPayout
             ? `${payoutStateLabel(nextPayout.state)} · ${nextPayout.orderCount} order${
@@ -94,11 +83,7 @@ export function OperationsTiles({ eventEnquiries, nextPayout, menuHealth }: Prop
           />
         }
         label="Menu warnings"
-        primary={
-          totalWarnings === 0
-            ? 'All set'
-            : `${totalWarnings} to fix`
-        }
+        primary={totalWarnings === 0 ? 'All set' : `${totalWarnings} to fix`}
         secondary={
           totalWarnings === 0
             ? 'Live items have images and allergens'
@@ -128,9 +113,7 @@ function describeMenuWarnings(h: DashboardMenuHealth): string {
     parts.push(`${h.missingImages} missing image${h.missingImages === 1 ? '' : 's'}`);
   }
   if (h.missingAllergens > 0) {
-    parts.push(
-      `${h.missingAllergens} missing allergen${h.missingAllergens === 1 ? '' : 's'}`,
-    );
+    parts.push(`${h.missingAllergens} missing allergen${h.missingAllergens === 1 ? '' : 's'}`);
   }
   return parts.join(' · ');
 }
@@ -160,9 +143,7 @@ function Tile({
     >
       <div className="mb-2 flex items-center gap-2">
         {icon}
-        <span className="text-xs font-medium uppercase tracking-wide text-mid">
-          {label}
-        </span>
+        <span className="text-xs font-medium uppercase tracking-wide text-mid">{label}</span>
       </div>
       <p className="text-base font-bold text-dark">{primary}</p>
       <p className="mt-1 text-xs text-mid">{secondary}</p>

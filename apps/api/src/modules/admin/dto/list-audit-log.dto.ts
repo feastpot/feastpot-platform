@@ -13,7 +13,9 @@ import {
 } from 'class-validator';
 
 export class ListAuditLogDto {
-  @ApiPropertyOptional({ description: 'Filter by entity type (e.g. vendors, orders, disputes, payouts)' })
+  @ApiPropertyOptional({
+    description: 'Filter by entity type (e.g. vendors, orders, disputes, payouts)',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(64)

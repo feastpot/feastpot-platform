@@ -55,7 +55,7 @@ function def(
     channel,
     groupLabel,
     channelLabel: CHANNEL_LABEL[channel],
-    defaultEnabled: opts.transactional ? true : opts.default ?? true,
+    defaultEnabled: opts.transactional ? true : (opts.default ?? true),
     transactional: opts.transactional ?? false,
   };
 }

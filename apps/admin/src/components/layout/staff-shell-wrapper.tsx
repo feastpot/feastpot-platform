@@ -8,9 +8,7 @@ import { staffDisplayName } from '@/lib/auth/server-gate';
  */
 export function StaffShell({ user, children }: { user: StaffUser; children: React.ReactNode }) {
   return (
-    <AdminShell
-      user={{ name: staffDisplayName(user), email: user.email, role: user.role }}
-    >
+    <AdminShell user={{ name: staffDisplayName(user), email: user.email, role: user.role }}>
       {children}
     </AdminShell>
   );

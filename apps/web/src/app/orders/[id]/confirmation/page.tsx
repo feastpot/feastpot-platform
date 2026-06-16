@@ -63,8 +63,7 @@ export default function OrderConfirmationPage() {
       <header className="text-center space-y-1">
         <h1 className="font-display text-2xl font-black text-charcoal">Order placed!</h1>
         <p className="text-sm font-medium text-charcoal-mid">
-          Reference{' '}
-          <span className="font-mono font-bold text-charcoal">#{order.orderNumber}</span>
+          Reference <span className="font-mono font-bold text-charcoal">#{order.orderNumber}</span>
         </p>
       </header>
 
@@ -167,9 +166,7 @@ export default function OrderConfirmationPage() {
       {/* Referral - only render once the API has returned the user's real
           share code (D-104). Hides cleanly for guests and while the request
           is in-flight, instead of rendering a fake `FP-XXXXXX` placeholder. */}
-      {referralData?.referralCode ? (
-        <ReferralCard code={referralData.referralCode} />
-      ) : null}
+      {referralData?.referralCode ? <ReferralCard code={referralData.referralCode} /> : null}
     </div>
   );
 }
@@ -200,9 +197,18 @@ function SuccessHero() {
       </span>
       <style jsx>{`
         @keyframes fp-pop {
-          0% { transform: scale(0); opacity: 0; }
-          60% { transform: scale(1.15); opacity: 1; }
-          100% { transform: scale(1); opacity: 1; }
+          0% {
+            transform: scale(0);
+            opacity: 0;
+          }
+          60% {
+            transform: scale(1.15);
+            opacity: 1;
+          }
+          100% {
+            transform: scale(1);
+            opacity: 1;
+          }
         }
       `}</style>
     </div>
@@ -267,9 +273,7 @@ function ReferralCard({ code }: { code: string }) {
       <div className="flex items-start gap-3">
         <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-plantain" aria-hidden />
         <div className="min-w-0 flex-1 text-sm">
-          <p className="font-display font-black text-charcoal">
-            Love Feastpot? Earn £5 credit
-          </p>
+          <p className="font-display font-black text-charcoal">Love Feastpot? Earn £5 credit</p>
           <p className="mt-0.5 text-xs font-medium text-charcoal-mid">
             Share your code with friends - when they place their first order you both get £5 off.
           </p>

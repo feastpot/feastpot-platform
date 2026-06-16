@@ -1,13 +1,6 @@
 'use client';
 
-import {
-  Button,
-  DialogDescription,
-  DialogTitle,
-  Sheet,
-  SheetContent,
-  cn,
-} from '@feastpot/ui';
+import { Button, DialogDescription, DialogTitle, Sheet, SheetContent, cn } from '@feastpot/ui';
 import { useEffect, useState } from 'react';
 
 // Sheet + Dialog are both backed by `@radix-ui/react-dialog` in @feastpot/ui,
@@ -60,7 +53,7 @@ export function RejectSheet({
   }, [open]);
 
   const isOther = picked === 'Other';
-  const finalReason = isOther ? otherText.trim() : picked ?? '';
+  const finalReason = isOther ? otherText.trim() : (picked ?? '');
   const canConfirm = finalReason.length >= 3 && finalReason.length <= 500 && !busy;
 
   return (
@@ -71,8 +64,7 @@ export function RejectSheet({
             Reject order {orderNumber}?
           </DialogTitle>
           <DialogDescription className="text-sm text-mid">
-            The customer will be refunded automatically. Tell them why so we
-            can pass it on.
+            The customer will be refunded automatically. Tell them why so we can pass it on.
           </DialogDescription>
         </div>
 

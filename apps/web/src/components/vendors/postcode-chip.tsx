@@ -36,9 +36,7 @@ export function PostcodeChip() {
         <div className="flex min-w-0 items-center gap-2 text-sm">
           <MapPin className="h-4 w-4 shrink-0 text-brand" aria-hidden />
           <span className="font-medium text-charcoal-mid">Delivering to</span>
-          <span className="truncate font-bold text-charcoal">
-            {postcode.toUpperCase()}
-          </span>
+          <span className="truncate font-bold text-charcoal">{postcode.toUpperCase()}</span>
         </div>
         <button
           type="button"

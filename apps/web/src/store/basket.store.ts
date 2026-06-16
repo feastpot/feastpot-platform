@@ -103,7 +103,11 @@ export const useBasketStore = create<BasketState>()(
             vendor,
             items: state.items.map((i) =>
               i.lineId === lineId
-                ? { ...i, quantity: newQty, lineTotalPence: calcLineTotal(i.unitPricePence, newQty) }
+                ? {
+                    ...i,
+                    quantity: newQty,
+                    lineTotalPence: calcLineTotal(i.unitPricePence, newQty),
+                  }
                 : i,
             ),
           });
@@ -185,9 +189,7 @@ export const useBasketStore = create<BasketState>()(
         // No collision: rekey the line with new notes + new lineId.
         set({
           items: state.items.map((i) =>
-            i.lineId === lineId
-              ? { ...i, lineId: newLineId, customisationNotes: newNotes }
-              : i,
+            i.lineId === lineId ? { ...i, lineId: newLineId, customisationNotes: newNotes } : i,
           ),
         });
       },

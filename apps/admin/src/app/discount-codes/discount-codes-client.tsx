@@ -25,14 +25,7 @@ import {
   TableHeader,
   TableRow,
 } from '@feastpot/ui';
-import {
-  CalendarClock,
-  MoreHorizontal,
-  Percent,
-  Plus,
-  Store,
-  Tag,
-} from 'lucide-react';
+import { CalendarClock, MoreHorizontal, Percent, Plus, Store, Tag } from 'lucide-react';
 import { useState } from 'react';
 
 import { PageHeader } from '@/components/layout/page-header';
@@ -76,7 +69,10 @@ export function DiscountCodesClient({ canCreate }: Props) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<CreateDiscountCodeInput>(EMPTY_FORM);
 
-  function update<K extends keyof CreateDiscountCodeInput>(key: K, value: CreateDiscountCodeInput[K]) {
+  function update<K extends keyof CreateDiscountCodeInput>(
+    key: K,
+    value: CreateDiscountCodeInput[K],
+  ) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
@@ -153,7 +149,10 @@ export function DiscountCodesClient({ canCreate }: Props) {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={colSpan} className="py-8 text-center text-sm text-muted-foreground">
+                  <TableCell
+                    colSpan={colSpan}
+                    className="py-8 text-center text-sm text-muted-foreground"
+                  >
                     Loading…
                   </TableCell>
                 </TableRow>
@@ -256,7 +255,9 @@ export function DiscountCodesClient({ canCreate }: Props) {
                 type="number"
                 min={1}
                 value={form.maxUses || ''}
-                onChange={(e) => update('maxUses', e.target.value ? Number(e.target.value) : undefined)}
+                onChange={(e) =>
+                  update('maxUses', e.target.value ? Number(e.target.value) : undefined)
+                }
               />
             </Field>
 
@@ -265,7 +266,10 @@ export function DiscountCodesClient({ canCreate }: Props) {
                 type="datetime-local"
                 value={form.expiresAt ?? ''}
                 onChange={(e) =>
-                  update('expiresAt', e.target.value ? new Date(e.target.value).toISOString() : undefined)
+                  update(
+                    'expiresAt',
+                    e.target.value ? new Date(e.target.value).toISOString() : undefined,
+                  )
                 }
               />
             </Field>
@@ -282,7 +286,10 @@ export function DiscountCodesClient({ canCreate }: Props) {
               <Button variant="outline" onClick={() => setOpen(false)} disabled={create.isPending}>
                 Cancel
               </Button>
-              <Button onClick={submit} disabled={create.isPending || !form.code.trim() || !form.value}>
+              <Button
+                onClick={submit}
+                disabled={create.isPending || !form.code.trim() || !form.value}
+              >
                 {create.isPending ? 'Creating…' : 'Create code'}
               </Button>
             </div>
@@ -308,9 +315,7 @@ function DiscountRow({
   // points). The wireframe shows "15% off" rather than the engineering
   // representation, so we humanise it here at the leaf.
   const valueLabel =
-    r.type === 'flat'
-      ? `${formatPence(r.value)} off`
-      : `${stripTrailingZeros(r.value / 100)}% off`;
+    r.type === 'flat' ? `${formatPence(r.value)} off` : `${stripTrailingZeros(r.value / 100)}% off`;
 
   const usedPct =
     r.maxUses && r.maxUses > 0 ? Math.min(100, Math.round((r.usedCount / r.maxUses) * 100)) : null;
@@ -327,9 +332,7 @@ function DiscountRow({
       <TableCell>
         <span
           className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium ${
-            r.type === 'percentage'
-              ? 'bg-amber-100 text-amber-800'
-              : 'bg-sky-100 text-sky-800'
+            r.type === 'percentage' ? 'bg-amber-100 text-amber-800' : 'bg-sky-100 text-sky-800'
           }`}
         >
           {r.type === 'percentage' ? <Percent className="h-3 w-3" /> : null}
@@ -357,10 +360,7 @@ function DiscountRow({
             aria-valuemax={r.maxUses ?? undefined}
             aria-label={`${r.usedCount} of ${r.maxUses} redemptions used`}
           >
-            <div
-              className="h-full rounded-full bg-emerald-600"
-              style={{ width: `${usedPct}%` }}
-            />
+            <div className="h-full rounded-full bg-emerald-600" style={{ width: `${usedPct}%` }} />
           </div>
         ) : null}
       </TableCell>
@@ -384,9 +384,7 @@ function DiscountRow({
           <Store className="mt-0.5 h-3.5 w-3.5 text-muted-foreground" />
           <div className="leading-tight">
             <div className="text-sm">{r.vendor?.businessName ?? 'FeastPot'}</div>
-            <div className="text-xs text-muted-foreground">
-              {r.vendor ? 'Vendor' : 'Platform'}
-            </div>
+            <div className="text-xs text-muted-foreground">{r.vendor ? 'Vendor' : 'Platform'}</div>
           </div>
         </div>
       </TableCell>
@@ -401,12 +399,7 @@ function DiscountRow({
         <TableCell className="text-right">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button
-                size="icon"
-                variant="ghost"
-                aria-label="Row actions"
-                disabled={toggling}
-              >
+              <Button size="icon" variant="ghost" aria-label="Row actions" disabled={toggling}>
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -429,7 +422,15 @@ function DiscountRow({
   );
 }
 
-function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+function Field({
+  label,
+  hint,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className="space-y-1">
       <label className="text-xs font-medium text-muted-foreground">{label}</label>

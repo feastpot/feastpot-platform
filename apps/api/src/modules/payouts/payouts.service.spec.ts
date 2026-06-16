@@ -3,15 +3,26 @@ import { PayoutStatus, UserRole } from '@prisma/client';
 
 import type { AuthUser } from '../../auth/types';
 
-import {
-  aggregateVendorBatch,
-  lastCompletedWeekUtc,
-  PayoutsService,
-} from './payouts.service';
+import { aggregateVendorBatch, lastCompletedWeekUtc, PayoutsService } from './payouts.service';
 
-const finance: AuthUser = { id: 'finance-1', email: 'f@x.io', role: UserRole.finance, token: 't' } as AuthUser;
-const support: AuthUser = { id: 'support-1', email: 's@x.io', role: UserRole.support, token: 't' } as AuthUser;
-const adminUser: AuthUser = { id: 'admin-1', email: 'a@x.io', role: UserRole.admin, token: 't' } as AuthUser;
+const finance: AuthUser = {
+  id: 'finance-1',
+  email: 'f@x.io',
+  role: UserRole.finance,
+  token: 't',
+} as AuthUser;
+const support: AuthUser = {
+  id: 'support-1',
+  email: 's@x.io',
+  role: UserRole.support,
+  token: 't',
+} as AuthUser;
+const adminUser: AuthUser = {
+  id: 'admin-1',
+  email: 'a@x.io',
+  role: UserRole.admin,
+  token: 't',
+} as AuthUser;
 
 type Mock<T = unknown> = jest.Mock<T>;
 
@@ -63,8 +74,12 @@ describe('aggregateVendorBatch', () => {
 
   it('sums and produces draft when no dispute', () => {
     const totals = aggregateVendorBatch({
-      vendorId: 'v1', vendorUserId: 'u1', commissionBps: 1500, hasOpenDispute: false,
-      orders, refundDeductionsPence: 100,
+      vendorId: 'v1',
+      vendorUserId: 'u1',
+      commissionBps: 1500,
+      hasOpenDispute: false,
+      orders,
+      refundDeductionsPence: 100,
     });
     expect(totals).toMatchObject({
       vendorId: 'v1',
@@ -80,8 +95,12 @@ describe('aggregateVendorBatch', () => {
 
   it('flags held when vendor has open dispute', () => {
     const totals = aggregateVendorBatch({
-      vendorId: 'v1', vendorUserId: 'u1', commissionBps: 1500, hasOpenDispute: true,
-      orders, refundDeductionsPence: 0,
+      vendorId: 'v1',
+      vendorUserId: 'u1',
+      commissionBps: 1500,
+      hasOpenDispute: true,
+      orders,
+      refundDeductionsPence: 0,
     });
     expect(totals.status).toBe(PayoutStatus.held);
     expect(totals.holdReason).toMatch(/dispute/i);
@@ -89,8 +108,12 @@ describe('aggregateVendorBatch', () => {
 
   it('clamps net at zero when refunds exceed gross-commission', () => {
     const totals = aggregateVendorBatch({
-      vendorId: 'v1', vendorUserId: 'u1', commissionBps: 1500, hasOpenDispute: false,
-      orders, refundDeductionsPence: 999_999,
+      vendorId: 'v1',
+      vendorUserId: 'u1',
+      commissionBps: 1500,
+      hasOpenDispute: false,
+      orders,
+      refundDeductionsPence: 999_999,
     });
     expect(totals.netPence).toBe(0);
   });
@@ -101,7 +124,10 @@ describe('aggregateVendorBatch', () => {
     // The OLD batch formula (gross − commission) would pay 4449 − 480 = 3969,
     // handing the vendor the £2.00 service fee. Net must use vendorPayoutPence.
     const totals = aggregateVendorBatch({
-      vendorId: 'v1', vendorUserId: 'u1', commissionBps: 1200, hasOpenDispute: false,
+      vendorId: 'v1',
+      vendorUserId: 'u1',
+      commissionBps: 1200,
+      hasOpenDispute: false,
       orders: [{ id: 'o1', totalPence: 4449, vendorPayoutPence: 3769, commissionPence: 480 }],
       refundDeductionsPence: 0,
     });
@@ -129,7 +155,10 @@ describe('PayoutsService.approvePayout', () => {
   it('allows admin actor in addition to finance', async () => {
     const { svc, prisma, stripe } = build();
     prisma.payout.findUnique.mockResolvedValueOnce({
-      id: 'p1', vendorId: 'v1', amountPence: 1000, status: PayoutStatus.draft,
+      id: 'p1',
+      vendorId: 'v1',
+      amountPence: 1000,
+      status: PayoutStatus.draft,
       vendor: { stripeAccountId: 'acct', payoutsEnabled: true, userId: 'vu' },
     });
     prisma.payout.updateMany.mockResolvedValueOnce({ count: 1 });
@@ -148,7 +177,8 @@ describe('PayoutsService.approvePayout', () => {
   it('throws if not draft', async () => {
     const { svc, prisma } = build();
     prisma.payout.findUnique.mockResolvedValueOnce({
-      status: PayoutStatus.held, vendor: { stripeAccountId: 'acct', payoutsEnabled: true, userId: 'vu' },
+      status: PayoutStatus.held,
+      vendor: { stripeAccountId: 'acct', payoutsEnabled: true, userId: 'vu' },
       amountPence: 1000,
     });
     await expect(svc.approvePayout('p1', finance)).rejects.toBeInstanceOf(BadRequestException);
@@ -157,7 +187,8 @@ describe('PayoutsService.approvePayout', () => {
   it('throws if vendor payouts disabled', async () => {
     const { svc, prisma } = build();
     prisma.payout.findUnique.mockResolvedValueOnce({
-      status: PayoutStatus.draft, vendor: { stripeAccountId: null, payoutsEnabled: false, userId: 'vu' },
+      status: PayoutStatus.draft,
+      vendor: { stripeAccountId: null, payoutsEnabled: false, userId: 'vu' },
       amountPence: 1000,
     });
     await expect(svc.approvePayout('p1', finance)).rejects.toBeInstanceOf(BadRequestException);
@@ -166,7 +197,8 @@ describe('PayoutsService.approvePayout', () => {
   it('CAS guard: refuses when status changed concurrently', async () => {
     const { svc, prisma } = build();
     prisma.payout.findUnique.mockResolvedValueOnce({
-      status: PayoutStatus.draft, vendor: { stripeAccountId: 'acct', payoutsEnabled: true, userId: 'vu' },
+      status: PayoutStatus.draft,
+      vendor: { stripeAccountId: 'acct', payoutsEnabled: true, userId: 'vu' },
       amountPence: 1000,
     });
     prisma.payout.updateMany.mockResolvedValueOnce({ count: 0 });
@@ -176,7 +208,10 @@ describe('PayoutsService.approvePayout', () => {
   it('happy path: transfers, marks transferred, notifies vendor', async () => {
     const { svc, prisma, stripe, queue } = build();
     prisma.payout.findUnique.mockResolvedValueOnce({
-      id: 'p1', vendorId: 'v1', amountPence: 2450, status: PayoutStatus.draft,
+      id: 'p1',
+      vendorId: 'v1',
+      amountPence: 2450,
+      status: PayoutStatus.draft,
       vendor: { stripeAccountId: 'acct_1', payoutsEnabled: true, userId: 'vu1' },
     });
     prisma.payout.updateMany.mockResolvedValueOnce({ count: 1 });
@@ -192,16 +227,23 @@ describe('PayoutsService.approvePayout', () => {
       idempotencyKey: 'payout-transfer-p1',
     });
     expect(prisma.payout.update.mock.calls[0][0].data).toMatchObject({
-      status: PayoutStatus.transferred, stripeTransferId: 'tr_1',
+      status: PayoutStatus.transferred,
+      stripeTransferId: 'tr_1',
     });
-    expect(queue.add).toHaveBeenCalledWith('payout_transferred', expect.objectContaining({ payoutId: 'p1' }));
+    expect(queue.add).toHaveBeenCalledWith(
+      'payout_transferred',
+      expect.objectContaining({ payoutId: 'p1' }),
+    );
     expect(out).toBeDefined();
   });
 
   it('marks failed when stripe throws', async () => {
     const { svc, prisma, stripe } = build();
     prisma.payout.findUnique.mockResolvedValueOnce({
-      id: 'p1', vendorId: 'v1', amountPence: 1000, status: PayoutStatus.draft,
+      id: 'p1',
+      vendorId: 'v1',
+      amountPence: 1000,
+      status: PayoutStatus.draft,
       vendor: { stripeAccountId: 'acct', payoutsEnabled: true, userId: 'vu' },
     });
     prisma.payout.updateMany.mockResolvedValueOnce({ count: 1 });
@@ -210,7 +252,8 @@ describe('PayoutsService.approvePayout', () => {
 
     await expect(svc.approvePayout('p1', finance)).rejects.toBeInstanceOf(BadRequestException);
     expect(prisma.payout.update.mock.calls[0][0].data).toMatchObject({
-      status: PayoutStatus.failed, failureReason: 'bank down',
+      status: PayoutStatus.failed,
+      failureReason: 'bank down',
     });
   });
 });
@@ -229,7 +272,11 @@ describe('PayoutsService.runWeeklyBatch (refund netting)', () => {
     // absorbed (service fee + commission).
     prisma.order.findMany.mockResolvedValueOnce([
       {
-        id: 'o1', vendorId: 'v1', totalPence: 4449, vendorPayoutPence: 3769, commissionPence: 480,
+        id: 'o1',
+        vendorId: 'v1',
+        totalPence: 4449,
+        vendorPayoutPence: 3769,
+        commissionPence: 480,
         vendor: { id: 'v1', userId: 'u1', commissionBps: 1200, payoutsEnabled: true },
       },
     ]);
@@ -260,21 +307,29 @@ describe('PayoutsService.holdPayout', () => {
 
   it('rejects non-finance/admin actors at the service layer (defence in depth)', async () => {
     const { svc } = build();
-    await expect(svc.holdPayout('p1', 'reason', support)).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(svc.holdPayout('p1', 'reason', support)).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
   });
 
   it('refuses to hold a transferred payout', async () => {
     const { svc, prisma } = build();
     prisma.payout.findUnique.mockResolvedValueOnce({
-      status: PayoutStatus.transferred, vendorId: 'v1', vendor: { userId: 'u' },
+      status: PayoutStatus.transferred,
+      vendorId: 'v1',
+      vendor: { userId: 'u' },
     });
-    await expect(svc.holdPayout('p1', 'reason', finance)).rejects.toBeInstanceOf(BadRequestException);
+    await expect(svc.holdPayout('p1', 'reason', finance)).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
   });
 
   it('CAS guard rejects when status changed concurrently', async () => {
     const { svc, prisma } = build();
     prisma.payout.findUnique.mockResolvedValueOnce({
-      status: PayoutStatus.draft, vendorId: 'v1', vendor: { userId: 'u' },
+      status: PayoutStatus.draft,
+      vendorId: 'v1',
+      vendor: { userId: 'u' },
     });
     prisma.payout.updateMany.mockResolvedValueOnce({ count: 0 });
     await expect(svc.holdPayout('p1', 'reason', finance)).rejects.toThrow(/concurrently/i);
@@ -283,7 +338,11 @@ describe('PayoutsService.holdPayout', () => {
   it('happy path holds + notifies', async () => {
     const { svc, prisma } = build();
     prisma.payout.findUnique
-      .mockResolvedValueOnce({ status: PayoutStatus.draft, vendorId: 'v1', vendor: { userId: 'vu' } })
+      .mockResolvedValueOnce({
+        status: PayoutStatus.draft,
+        vendorId: 'v1',
+        vendor: { userId: 'vu' },
+      })
       .mockResolvedValueOnce({ id: 'p1', status: PayoutStatus.held });
     prisma.payout.updateMany.mockResolvedValueOnce({ count: 1 });
     const out = await svc.holdPayout('p1', 'too risky', finance);
@@ -304,7 +363,10 @@ describe('PayoutsService.list (vendor scoping)', () => {
     const prisma = makePrisma();
     prisma.vendor.findUnique.mockResolvedValueOnce(null);
     const svc = new PayoutsService(prisma as any, makeStripe() as any, makeQueue() as any);
-    const out = await svc.list({ id: 'u', role: UserRole.vendor, email: 'x', token: 't' } as any, {} as any);
+    const out = await svc.list(
+      { id: 'u', role: UserRole.vendor, email: 'x', token: 't' } as any,
+      {} as any,
+    );
     expect(out).toEqual({ data: [], nextCursor: null });
   });
 });

@@ -1,49 +1,37 @@
-import { BullModule } from '@nestjs/bull';
-import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
-import { APP_FILTER, APP_GUARD } from '@nestjs/core';
-import { ScheduleModule } from '@nestjs/schedule';
-import { Logger } from '@nestjs/common';
-import { ThrottlerModule, ThrottlerStorage } from '@nestjs/throttler';
-import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis';
-import { SentryGlobalFilter, SentryModule } from '@sentry/nestjs/setup';
-import IORedis from 'ioredis';
 import { BullAdapter } from '@bull-board/api/bullAdapter';
 import { ExpressAdapter } from '@bull-board/express';
 import { BullBoardModule } from '@bull-board/nestjs';
+import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis';
+import { BullModule } from '@nestjs/bull';
+import { Logger, Module } from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { APP_FILTER, APP_GUARD } from '@nestjs/core';
+import { ScheduleModule } from '@nestjs/schedule';
+import { ThrottlerModule, ThrottlerStorage } from '@nestjs/throttler';
+import { SentryGlobalFilter, SentryModule } from '@sentry/nestjs/setup';
+import IORedis from 'ioredis';
 import { LoggerModule } from 'nestjs-pino';
 
-import {
-  COMPLIANCE_QUEUE,
-  NOTIFICATIONS_QUEUE,
-  PAYOUTS_QUEUE,
-  STRIPE_WEBHOOK_QUEUE,
-} from './queues/queues.module';
-import { bullBoardBasicAuth } from './modules/admin/bull-board.middleware';
+// NotificationsModule is @Global(), so feature modules can inject NotificationsService
+// without re-importing it everywhere.
 
+import { AuthModule } from './auth/auth.module';
 import { CacheModule } from './common/cache/cache.module';
 import { RoleThrottlerGuard } from './common/guards/role-throttler.guard';
 import { HealthController } from './health/health.controller';
 import { HealthzController } from './health/healthz.controller';
-import { RootController } from './root.controller';
-// NotificationsModule is @Global(), so feature modules can inject NotificationsService
-// without re-importing it everywhere.
-import { PrismaModule } from './prisma/prisma.module';
-import { QueueMonitorModule } from './queues/queue-monitor.module';
-import { QueuesModule } from './queues/queues.module';
-
-import { AuthModule } from './auth/auth.module';
 import { AddressesModule } from './modules/addresses/addresses.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { bullBoardBasicAuth } from './modules/admin/bull-board.middleware';
 import { CatalogueModule } from './modules/catalogue/catalogue.module';
 import { ComplianceModule } from './modules/compliance/compliance.module';
+import { CoverageModule } from './modules/coverage/coverage.module';
 import { DiscountCodesModule } from './modules/discount-codes/discount-codes.module';
 import { DisputesModule } from './modules/disputes/disputes.module';
 import { EventEnquiriesModule } from './modules/event-enquiries/event-enquiries.module';
-import { LoyaltyModule } from './modules/loyalty/loyalty.module';
 import { InboxModule } from './modules/inbox/inbox.module';
+import { LoyaltyModule } from './modules/loyalty/loyalty.module';
 import { MfaModule } from './modules/mfa/mfa.module';
-import { VendorMembersModule } from './modules/vendor-members/vendor-members.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { PaymentsModule } from './modules/payments/payments.module';
@@ -51,9 +39,19 @@ import { PayoutsModule } from './modules/payouts/payouts.module';
 import { PushModule } from './modules/push/push.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
 import { UsersModule } from './modules/users/users.module';
-import { CoverageModule } from './modules/coverage/coverage.module';
+import { VendorMembersModule } from './modules/vendor-members/vendor-members.module';
 import { VendorsModule } from './modules/vendors/vendors.module';
 import { WebhooksModule } from './modules/webhooks/webhooks.module';
+import { PrismaModule } from './prisma/prisma.module';
+import { QueueMonitorModule } from './queues/queue-monitor.module';
+import {
+  QueuesModule,
+  COMPLIANCE_QUEUE,
+  NOTIFICATIONS_QUEUE,
+  PAYOUTS_QUEUE,
+  STRIPE_WEBHOOK_QUEUE,
+} from './queues/queues.module';
+import { RootController } from './root.controller';
 
 @Module({
   imports: [
@@ -226,8 +224,7 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
         // the logs nor crash the process. Genuine auth failures (WRONGPASS)
         // are still fatal and bounded: RedisCacheService process.exit(1)s in
         // production at boot, so we never sit here retrying bad credentials.
-        const cappedRetry = (times: number): number =>
-          Math.min(times * 500, 30_000);
+        const cappedRetry = (times: number): number => Math.min(times * 500, 30_000);
         if (url) {
           // Bull's `redis` option accepts an ioredis RedisOptions OBJECT
           // (not a `{ url }` shape), so we must parse the URL into

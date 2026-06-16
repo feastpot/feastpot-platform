@@ -57,9 +57,7 @@ export function StatCard({
           </div>
           {trailing}
         </div>
-        {caption && (
-          <div className="mt-1 text-xs text-muted-foreground">{caption}</div>
-        )}
+        {caption && <div className="mt-1 text-xs text-muted-foreground">{caption}</div>}
       </div>
     </div>
   );

@@ -20,7 +20,11 @@ import { ModerateMenuItemDto } from './dto/moderate-menu-item.dto';
 import { MenuItemsService } from './menu-items.service';
 
 function requireUser(user: AuthUser | null): AuthUser {
-  if (!user) throw new UnauthorizedException({ code: 'UNAUTHENTICATED', message: 'Authentication required' });
+  if (!user)
+    throw new UnauthorizedException({
+      code: 'UNAUTHENTICATED',
+      message: 'Authentication required',
+    });
   return user;
 }
 
@@ -45,7 +49,9 @@ export class MenuModerationController {
 
   @Get('moderation-queue/counts')
   @Roles(UserRole.admin, UserRole.support)
-  @ApiOperation({ summary: 'Counts per moderation status honouring current filters (admin/support)' })
+  @ApiOperation({
+    summary: 'Counts per moderation status honouring current filters (admin/support)',
+  })
   queueCounts(@Query() dto: ListMenuModerationDto) {
     return this.items.moderationQueueCounts(dto);
   }

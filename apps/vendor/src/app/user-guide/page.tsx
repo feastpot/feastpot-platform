@@ -116,7 +116,8 @@ const CHAPTERS: GuideChapter[] = [
   {
     id: 'managing-team',
     title: '4. Managing your team',
-    intro: 'Give kitchen staff, finance, and delivery coordinators access without sharing your owner login.',
+    intro:
+      'Give kitchen staff, finance, and delivery coordinators access without sharing your owner login.',
     steps: [
       {
         title: 'Invite a team member',
@@ -237,18 +238,15 @@ export default async function UserGuidePage() {
               Vendor user guide
             </h1>
             <p className="mb-6 text-sm text-muted-foreground">
-              A step-by-step walkthrough of the Feastpot vendor portal. For policy
-              questions and rules, see the{' '}
+              A step-by-step walkthrough of the Feastpot vendor portal. For policy questions and
+              rules, see the{' '}
               <a href="/help" className="font-medium text-teal-dark underline">
                 Help &amp; FAQ
               </a>
               .
             </p>
 
-            <nav
-              aria-label="On this page"
-              className="mb-6 rounded-xl bg-muted/50 p-4"
-            >
+            <nav aria-label="On this page" className="mb-6 rounded-xl bg-muted/50 p-4">
               <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 On this page
               </p>
@@ -270,9 +268,7 @@ export default async function UserGuidePage() {
                   id={chapter.id}
                   className="scroll-mt-20 rounded-xl border border-border bg-card p-5"
                 >
-                  <h2 className="mb-1 text-lg font-bold text-foreground">
-                    {chapter.title}
-                  </h2>
+                  <h2 className="mb-1 text-lg font-bold text-foreground">{chapter.title}</h2>
                   <p className="mb-4 text-sm text-muted-foreground">{chapter.intro}</p>
                   <ol className="flex flex-col gap-3 text-sm leading-relaxed text-foreground/90">
                     {chapter.steps.map((step, i) => (

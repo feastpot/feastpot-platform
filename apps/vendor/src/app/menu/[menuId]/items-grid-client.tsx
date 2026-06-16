@@ -100,8 +100,8 @@ export function MenuItemsGridClient({
           </Link>
           <h1 className="text-2xl font-semibold">{menuName}</h1>
           <p className="text-sm text-muted-foreground">
-            Drag the handle on each item to set the order. Customers see your
-            order within each category.
+            Drag the handle on each item to set the order. Customers see your order within each
+            category.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -209,8 +209,15 @@ function SortableItemCard({
   menuId: string;
   item: MenuItem;
 }) {
-  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
-    useSortable({ id: item.id });
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    setActivatorNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: item.id });
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -239,7 +246,9 @@ function ItemCard({
   vendorId: string;
   menuId: string;
   item: MenuItem;
-  handleProps: React.HTMLAttributes<HTMLButtonElement> & { ref: (node: HTMLElement | null) => void };
+  handleProps: React.HTMLAttributes<HTMLButtonElement> & {
+    ref: (node: HTMLElement | null) => void;
+  };
 }) {
   const toggle = useToggleItemAvailability(vendorId, menuId);
   const del = useDeleteMenuItem(vendorId, menuId);
@@ -269,7 +278,13 @@ function ItemCard({
       <div className="relative aspect-[4/3] w-full bg-muted">
         {cover ? (
           // next/image needs explicit width/height OR fill+sizes on a positioned parent.
-          <Image src={cover} alt={item.name} fill sizes="(max-width: 640px) 100vw, 33vw" className="object-cover" />
+          <Image
+            src={cover}
+            alt={item.name}
+            fill
+            sizes="(max-width: 640px) 100vw, 33vw"
+            className="object-cover"
+          />
         ) : (
           <div className="flex h-full items-center justify-center text-muted-foreground">
             <ImageOff className="h-8 w-8" />
@@ -286,7 +301,9 @@ function ItemCard({
         </button>
         {!item.isAvailable && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-            <span className="rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-foreground">Unavailable</span>
+            <span className="rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-foreground">
+              Unavailable
+            </span>
           </div>
         )}
         {item.moderationStatus === 'held' && (

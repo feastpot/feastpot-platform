@@ -45,8 +45,12 @@ export default function AddressesListPage() {
       <div className="space-y-5 py-4">
         <header className="flex items-center justify-between gap-3">
           <div>
-            <h1 className="font-display text-2xl font-black tracking-tight text-charcoal">Saved addresses</h1>
-            <p className="text-sm text-charcoal-mid">Manage delivery addresses to speed up checkout.</p>
+            <h1 className="font-display text-2xl font-black tracking-tight text-charcoal">
+              Saved addresses
+            </h1>
+            <p className="text-sm text-charcoal-mid">
+              Manage delivery addresses to speed up checkout.
+            </p>
           </div>
           <Link
             href="/account/addresses/new"
@@ -80,7 +84,10 @@ export default function AddressesListPage() {
         {data && data.length > 0 && (
           <ul className="space-y-3">
             {data.map((a) => (
-              <li key={a.id} className="rounded-2xl border border-cream-deep bg-white p-4 shadow-sm">
+              <li
+                key={a.id}
+                className="rounded-2xl border border-cream-deep bg-white p-4 shadow-sm"
+              >
                 <AddressRow
                   address={a}
                   pendingDefault={setDefault.isPending && setDefault.variables === a.id}
@@ -109,9 +116,12 @@ export default function AddressesListPage() {
               className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-lg"
               onClick={(e) => e.stopPropagation()}
             >
-              <h2 className="font-display text-lg font-black text-charcoal">Delete this address?</h2>
+              <h2 className="font-display text-lg font-black text-charcoal">
+                Delete this address?
+              </h2>
               <p className="mt-2 text-sm text-charcoal-mid">
-                This can&rsquo;t be undone. We won&rsquo;t let you delete it if it&rsquo;s used by an in-flight order.
+                This can&rsquo;t be undone. We won&rsquo;t let you delete it if it&rsquo;s used by
+                an in-flight order.
               </p>
               <div className="mt-4 flex justify-end gap-2">
                 <button

@@ -41,7 +41,7 @@ git push -u origin feat/<short-name>  # opens a PR via GitHub
 
 Use Conventional Commits-style prefixes when convenient
 (`feat:`, `fix:`, `chore:`, `docs:`). Keep the first line ≤ 72 chars,
-and explain *why* in the body if it isn't obvious from the diff.
+and explain _why_ in the body if it isn't obvious from the diff.
 
 ---
 
@@ -158,10 +158,10 @@ a PR like normal once your branch is up there.
 
 ## 5. Why two parallel auth paths?
 
-| Path | Used by | Auth | Failure mode |
-| --- | --- | --- | --- |
-| Replit Git UI | Humans clicking Pull/Push | OAuth via `Connections → GitHub` | Token goes stale → `UNAUTHENTICATED`. Re-authorize in Settings. |
-| `scripts/git-sync.sh` | Agents, CI, recovery | PAT in `GITHUB_TOKEN` secret | Token revoked / wrong scope. Issue a new PAT and update the secret. |
+| Path                  | Used by                   | Auth                             | Failure mode                                                        |
+| --------------------- | ------------------------- | -------------------------------- | ------------------------------------------------------------------- |
+| Replit Git UI         | Humans clicking Pull/Push | OAuth via `Connections → GitHub` | Token goes stale → `UNAUTHENTICATED`. Re-authorize in Settings.     |
+| `scripts/git-sync.sh` | Agents, CI, recovery      | PAT in `GITHUB_TOKEN` secret     | Token revoked / wrong scope. Issue a new PAT and update the secret. |
 
 Keep both working. Never delete the secret without a replacement; the
 UI is enough for humans, but agent sessions can't use it.

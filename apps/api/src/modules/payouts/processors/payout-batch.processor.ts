@@ -1,6 +1,5 @@
-import { OnQueueFailed, Process, Processor } from '@nestjs/bull';
+import { OnQueueFailed, Process, Processor, InjectQueue } from '@nestjs/bull';
 import { Logger, OnApplicationBootstrap } from '@nestjs/common';
-import { InjectQueue } from '@nestjs/bull';
 import * as Sentry from '@sentry/nestjs';
 import type { Job, Queue } from 'bull';
 

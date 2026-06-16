@@ -45,9 +45,7 @@ export function UpcomingOrders({ orders }: { orders: DashboardUpcomingOrder[] })
             <ClipboardCheck className="h-7 w-7" />
           </span>
           <div>
-            <p className="text-sm font-semibold text-dark">
-              Nothing booked for the week ahead.
-            </p>
+            <p className="text-sm font-semibold text-dark">Nothing booked for the week ahead.</p>
             <p className="mt-1 text-xs text-mid">You&rsquo;re all clear!</p>
           </div>
         </CardContent>
@@ -77,9 +75,7 @@ export function UpcomingOrders({ orders }: { orders: DashboardUpcomingOrder[] })
                 </p>
               </div>
             </div>
-            <span className="text-sm font-bold text-brand">
-              {formatMoney(o.totalPence)}
-            </span>
+            <span className="text-sm font-bold text-brand">{formatMoney(o.totalPence)}</span>
           </Link>
         ))}
       </CardContent>

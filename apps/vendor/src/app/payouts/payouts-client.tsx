@@ -45,10 +45,7 @@ import { DownloadCsvButton } from './download-csv-button';
 export function PayoutsClient() {
   const { data, isLoading, error, fetchNextPage, hasNextPage, isFetchingNextPage } = usePayouts();
 
-  const payouts: VendorPayout[] = useMemo(
-    () => data?.pages.flatMap((p) => p.data) ?? [],
-    [data],
-  );
+  const payouts: VendorPayout[] = useMemo(() => data?.pages.flatMap((p) => p.data) ?? [], [data]);
 
   // "Current week" pending = the most recent draft + held (those are
   // not yet transferred). Sum gives the vendor a quick "what's coming"
@@ -152,14 +149,12 @@ const EXPLAINER_ITEMS = [
   {
     Icon: Calendar,
     title: 'Weekly every Monday.',
-    detail:
-      'Your payout is calculated at midnight on Sunday and transferred Monday morning.',
+    detail: 'Your payout is calculated at midnight on Sunday and transferred Monday morning.',
   },
   {
     Icon: PoundSterling,
     title: 'You keep 88%.',
-    detail:
-      'Feastpot charges 12% commission on the order subtotal. Delivery fees are separate.',
+    detail: 'Feastpot charges 12% commission on the order subtotal. Delivery fees are separate.',
   },
   {
     Icon: Clock,
@@ -169,8 +164,7 @@ const EXPLAINER_ITEMS = [
   {
     Icon: HelpCircle,
     title: 'Query a payout.',
-    detail:
-      'Email vendors@feastpot.co.uk with your kitchen name and the week in question.',
+    detail: 'Email vendors@feastpot.co.uk with your kitchen name and the week in question.',
   },
 ];
 

@@ -57,8 +57,8 @@ export default function ProfilePage() {
   // mutations succeed (which also updates the cache via setQueryData).
   useEffect(() => {
     if (!me) return;
-    setFullName((current) => (current ? current : me.fullName ?? ''));
-    setPhone((current) => (current ? current : me.phone ?? ''));
+    setFullName((current) => (current ? current : (me.fullName ?? '')));
+    setPhone((current) => (current ? current : (me.phone ?? '')));
   }, [me]);
 
   // Auto-dismiss success toasts after 3 seconds.
@@ -211,7 +211,11 @@ export default function ProfilePage() {
         </section>
 
         {/* Profile form */}
-        <form onSubmit={onSubmit} className="space-y-4 rounded-2xl border border-cream-deep bg-white p-5 shadow-sm" noValidate>
+        <form
+          onSubmit={onSubmit}
+          className="space-y-4 rounded-2xl border border-cream-deep bg-white p-5 shadow-sm"
+          noValidate
+        >
           <Field label="Full name" required>
             <input
               value={fullName}
@@ -272,8 +276,8 @@ export default function ProfilePage() {
           {showDangerZone && (
             <div className="mt-3 space-y-3 text-sm">
               <p className="text-charcoal-mid">
-                Deleting your account removes your profile, addresses, and saved payment methods. Past order
-                records are kept for tax and dispute reasons.
+                Deleting your account removes your profile, addresses, and saved payment methods.
+                Past order records are kept for tax and dispute reasons.
               </p>
               <button
                 type="button"
@@ -318,7 +322,11 @@ export default function ProfilePage() {
               </p>
               <label className="block text-sm">
                 <span className="mb-1 block font-bold text-charcoal">
-                  Type <code className="rounded bg-cream px-1 py-0.5 text-xs font-bold text-scotch">DELETE</code> to confirm.
+                  Type{' '}
+                  <code className="rounded bg-cream px-1 py-0.5 text-xs font-bold text-scotch">
+                    DELETE
+                  </code>{' '}
+                  to confirm.
                 </span>
                 <input
                   value={deleteText}
@@ -357,7 +365,15 @@ export default function ProfilePage() {
   );
 }
 
-function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
+function Field({
+  label,
+  required,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  children: React.ReactNode;
+}) {
   return (
     <label className="block text-sm">
       <span className="mb-1 block font-bold text-charcoal">

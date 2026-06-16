@@ -67,7 +67,9 @@ export class EventEnquiriesController {
 
   @Post(':id/confirm-deposit')
   @Roles(UserRole.customer)
-  @ApiOperation({ summary: 'Finalize booking after Stripe deposit succeeded (verifies PI server-side)' })
+  @ApiOperation({
+    summary: 'Finalize booking after Stripe deposit succeeded (verifies PI server-side)',
+  })
   confirmDeposit(@Req() req: AuthedRequest, @Param('id', new ParseUUIDPipe()) id: string) {
     return this.enquiries.confirmDeposit(id, requireUser(req).id);
   }

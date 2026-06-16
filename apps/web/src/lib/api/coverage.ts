@@ -94,7 +94,9 @@ export interface RegisterCoverageInterestInput {
   marketingConsent?: boolean;
 }
 
-export function registerCoverageInterest(input: RegisterCoverageInterestInput): Promise<{ ok: true }> {
+export function registerCoverageInterest(
+  input: RegisterCoverageInterestInput,
+): Promise<{ ok: true }> {
   return apiRequest<{ ok: true }>('/coverage-interest', {
     method: 'POST',
     body: input,

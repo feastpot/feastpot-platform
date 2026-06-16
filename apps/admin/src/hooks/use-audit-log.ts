@@ -22,7 +22,13 @@ export interface AuditLogRow {
   metadata: unknown;
   ipAddress: string | null;
   createdAt: string;
-  actor: { id: string; firstName: string | null; lastName: string | null; email: string; role: string } | null;
+  actor: {
+    id: string;
+    firstName: string | null;
+    lastName: string | null;
+    email: string;
+    role: string;
+  } | null;
 }
 
 export interface AuditLogPage {

@@ -126,8 +126,12 @@ export function useUpdateDispute(id: string) {
   const { request } = useApi();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (body: { status?: DisputeStatus; severity?: Severity; assignedToId?: string; resolutionNote?: string }) =>
-      request(`/disputes/${id}`, { method: 'PATCH', body }),
+    mutationFn: (body: {
+      status?: DisputeStatus;
+      severity?: Severity;
+      assignedToId?: string;
+      resolutionNote?: string;
+    }) => request(`/disputes/${id}`, { method: 'PATCH', body }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'dispute', id] });
       qc.invalidateQueries({ queryKey: ['admin', 'disputes'] });
@@ -139,8 +143,11 @@ export function useCloseDispute(id: string) {
   const { request } = useApi();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (body: { resolution: ResolutionType; resolutionNote?: string; refundAmountPence?: number }) =>
-      request(`/disputes/${id}/close`, { method: 'POST', body }),
+    mutationFn: (body: {
+      resolution: ResolutionType;
+      resolutionNote?: string;
+      refundAmountPence?: number;
+    }) => request(`/disputes/${id}/close`, { method: 'POST', body }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'dispute', id] });
       qc.invalidateQueries({ queryKey: ['admin', 'disputes'] });

@@ -33,12 +33,12 @@ These are 🔴 and are about credentials/hosting, not writing features.
    `STRIPE_WEBHOOK_SECRET` is a hard-required env var — the API won't boot
    without it in prod (`apps/api/src/common/config/required-env.ts`), and it's
    currently **unset** (`/v1/healthz` reports `secrets: missing
-   STRIPE_WEBHOOK_SECRET`). `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` is also unset.
+STRIPE_WEBHOOK_SECRET`). `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` is also unset.
    Going live needs: the **live** `STRIPE_SECRET_KEY` (today runs on test keys),
    Stripe Connect enabled on the live platform, and the live webhook endpoint
    registered so its signing secret matches.
    NOTE (31 May 2026): a **temporary placeholder** `STRIPE_WEBHOOK_SECRET` is set
-   in the *production* env so the API can boot after first publish (the boot gate
+   in the _production_ env so the API can boot after first publish (the boot gate
    in `required-env.ts` hard-exits without it). Once the API is live, register the
    webhook at `https://api.feastpot.co.uk/v1/webhooks/stripe`, copy the real
    signing secret, and replace the placeholder. Until then signature verification
@@ -147,7 +147,7 @@ These are 🔴 and are about credentials/hosting, not writing features.
 - 🟡 **CSV exports are stubbed** ("coming soon") on every list: Orders
   (`orders-client.tsx` L175/L481), Users (`users-client.tsx` L284), Event
   Enquiries (`events-client.tsx` L183), and Reviews queue
-  (`reviews-queue-client.tsx` L230). NOTE: the API *does* expose
+  (`reviews-queue-client.tsx` L230). NOTE: the API _does_ expose
   `GET /v1/admin/orders.csv` — only the UI button is stubbed.
 - 🟡 **Order bulk actions** — the select-all and per-row checkboxes in the
   orders table are `disabled` ("coming soon", `orders-client.tsx` L337/L662).
@@ -167,7 +167,7 @@ section, and run-payout-batch action all work; it is not a "coming soon" stub.)_
 - 🟡 **Menu drag-to-reorder is NOT wired.** The drag handle renders for visual
   parity but reordering whole menus doesn't persist — `useUpdateMenu` already
   accepts `displayOrder`, it just isn't hooked up (`menu/menu-list-client.tsx`
-  ~L44). NOTE: reordering items *within* a menu IS wired.
+  ~L44). NOTE: reordering items _within_ a menu IS wired.
 - 🟡 **Menu-item photo reorder is NOT wired.** No drag-reorder for item photos
   because the schema has no sortable image-order field (`imageUrls` is a flat
   `String[]`) (`menu/[menuId]/items/[itemId]/item-editor-client.tsx` ~L589).
@@ -274,7 +274,7 @@ Real gaps, but none block launch — listed so nobody assumes they exist.
 ## In one sentence
 
 The product is built and wired; Redis and live notification channels are now
-done. What's left to *go live* is the remaining outside-world plumbing — live
+done. What's left to _go live_ is the remaining outside-world plumbing — live
 Stripe keys + registered webhook, production hosting + DNS, and a payout
 dry-run — after which the remaining work is a tidy list of 🟡 polish items (CSV
 exports, drag-reorder, review photos, real rating buckets) and one revenue

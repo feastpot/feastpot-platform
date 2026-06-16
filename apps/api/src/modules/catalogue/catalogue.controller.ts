@@ -17,16 +17,10 @@ import {
   UploadedFile,
   UseGuards,
   UseInterceptors,
+  Req,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import {
-  ApiBearerAuth,
-  ApiBody,
-  ApiConsumes,
-  ApiOperation,
-  ApiTags,
-} from '@nestjs/swagger';
-import { Req } from '@nestjs/common';
+import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 
 import { Public } from '../../auth/decorators/public.decorator';
@@ -81,10 +75,7 @@ export class CatalogueController {
   @Roles(UserRole.vendor, UserRole.admin)
   @UseGuards(VendorOwnershipGuard)
   @ApiOperation({ summary: 'Create a menu (vendor owner / admin)' })
-  createMenu(
-    @Param('vendorId', new ParseUUIDPipe()) vendorId: string,
-    @Body() dto: CreateMenuDto,
-  ) {
+  createMenu(@Param('vendorId', new ParseUUIDPipe()) vendorId: string, @Body() dto: CreateMenuDto) {
     return this.menus.create(vendorId, dto);
   }
 
@@ -94,7 +85,7 @@ export class CatalogueController {
   @ApiBearerAuth()
   @Roles(UserRole.vendor, UserRole.admin)
   @UseGuards(VendorOwnershipGuard)
-  @ApiOperation({ summary: 'Reorder a vendor\'s menus (vendor owner / admin)' })
+  @ApiOperation({ summary: "Reorder a vendor's menus (vendor owner / admin)" })
   reorderMenus(
     @Param('vendorId', new ParseUUIDPipe()) vendorId: string,
     @Body() dto: ReorderMenusDto,
@@ -181,7 +172,7 @@ export class CatalogueController {
   @ApiBearerAuth()
   @Roles(UserRole.vendor, UserRole.admin)
   @UseGuards(VendorOwnershipGuard)
-  @ApiOperation({ summary: 'Reorder a menu\'s items (vendor owner / admin)' })
+  @ApiOperation({ summary: "Reorder a menu's items (vendor owner / admin)" })
   reorderItems(
     @Param('vendorId', new ParseUUIDPipe()) vendorId: string,
     @Param('menuId', new ParseUUIDPipe()) menuId: string,
@@ -241,7 +232,9 @@ export class CatalogueController {
     schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } } },
   })
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024, files: 1 } }))
-  @ApiOperation({ summary: 'Upload a menu item image to Supabase Storage (max 5MB, jpeg/png/webp)' })
+  @ApiOperation({
+    summary: 'Upload a menu item image to Supabase Storage (max 5MB, jpeg/png/webp)',
+  })
   uploadItemImage(
     @Param('vendorId', new ParseUUIDPipe()) vendorId: string,
     @Param('menuId', new ParseUUIDPipe()) menuId: string,
@@ -257,7 +250,10 @@ export class CatalogueController {
     file: { originalname: string; mimetype: string; size: number; buffer: Buffer } | undefined,
   ) {
     if (!file) {
-      throw new BadRequestException({ code: 'FILE_REQUIRED', message: 'multipart field "file" is required' });
+      throw new BadRequestException({
+        code: 'FILE_REQUIRED',
+        message: 'multipart field "file" is required',
+      });
     }
     return this.items.uploadImage({ vendorId, menuId, itemId, file });
   }

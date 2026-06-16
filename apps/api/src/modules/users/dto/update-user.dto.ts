@@ -1,7 +1,15 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Transform } from 'class-transformer';
-import { IsEnum, IsOptional, IsString, IsUrl, Matches, MaxLength, MinLength } from 'class-validator';
 import { UserStatus } from '@prisma/client';
+import { Transform } from 'class-transformer';
+import {
+  IsEnum,
+  IsOptional,
+  IsString,
+  IsUrl,
+  Matches,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 
 /**
  * E.164 international phone format. Identical to the regex Supabase uses,
@@ -21,9 +29,7 @@ export class UpdateUserDto {
 
   @ApiPropertyOptional({ description: 'E.164 phone, e.g. +447700900000' })
   @IsOptional()
-  @Transform(({ value }) =>
-    typeof value === 'string' ? value.replace(/\s+/g, '') : value,
-  )
+  @Transform(({ value }) => (typeof value === 'string' ? value.replace(/\s+/g, '') : value))
   @IsString()
   @Matches(E164_PHONE_REGEX, { message: 'phone must be in E.164 format (e.g. +447700900000)' })
   phone?: string;

@@ -103,9 +103,7 @@ export default function OrderTrackingPage() {
   }
   if (error || !order) {
     return (
-      <p className="px-4 py-12 text-center text-sm text-scotch">
-        Couldn&rsquo;t load this order.
-      </p>
+      <p className="px-4 py-12 text-center text-sm text-scotch">Couldn&rsquo;t load this order.</p>
     );
   }
 
@@ -167,7 +165,8 @@ export default function OrderTrackingPage() {
           )}
           {order.scheduledFor && (
             <p className="text-xs opacity-90">
-              Scheduled {new Date(order.scheduledFor).toLocaleString(undefined, {
+              Scheduled{' '}
+              {new Date(order.scheduledFor).toLocaleString(undefined, {
                 weekday: 'short',
                 day: 'numeric',
                 month: 'short',
@@ -291,9 +290,7 @@ export default function OrderTrackingPage() {
               )}
             </div>
           )}
-          {!showCancelConfirm && cancelMsg && (
-            <p className="text-xs text-scotch">{cancelMsg}</p>
-          )}
+          {!showCancelConfirm && cancelMsg && <p className="text-xs text-scotch">{cancelMsg}</p>}
         </section>
 
         {/* ORDER DETAILS - collapsible */}
@@ -435,9 +432,10 @@ function AmendmentBanner({
     return () => clearInterval(t);
   }, []);
   const minsLeft = Math.max(0, Math.ceil((new Date(amendment.expiresAt).getTime() - now) / 60_000));
-  const refundPounds = amendment.priceDeltaPence < 0
-    ? `£${(Math.abs(amendment.priceDeltaPence) / 100).toFixed(2)}`
-    : null;
+  const refundPounds =
+    amendment.priceDeltaPence < 0
+      ? `£${(Math.abs(amendment.priceDeltaPence) / 100).toFixed(2)}`
+      : null;
 
   return (
     <section className="space-y-3 rounded-2xl border border-plantain/60 bg-plantain/10 p-4">
@@ -447,9 +445,7 @@ function AmendmentBanner({
         </p>
         <p className="mt-1 text-sm font-medium text-charcoal">{amendment.proposedChange}</p>
         {refundPounds && (
-          <p className="mt-1 text-xs font-bold text-brand-dark">
-            Includes {refundPounds} refund
-          </p>
+          <p className="mt-1 text-xs font-bold text-brand-dark">Includes {refundPounds} refund</p>
         )}
         <p className="mt-2 text-[11px] font-medium text-charcoal-mid">
           {minsLeft > 0 ? `Auto-declines in ${minsLeft} min` : 'Expiring now…'}
@@ -505,9 +501,7 @@ function ConnectionPill({ connected }: { connected: boolean }) {
           aria-hidden
         />
       </span>
-      <span className="text-charcoal-mid">
-        {connected ? 'Live updates' : 'Updates every 30s'}
-      </span>
+      <span className="text-charcoal-mid">{connected ? 'Live updates' : 'Updates every 30s'}</span>
     </div>
   );
 }
@@ -528,7 +522,11 @@ function ReviewPrompt({
       <p className="mt-1 text-xs font-medium text-charcoal-mid">
         Tap a star to leave a quick review - your rating helps your community find great cooks.
       </p>
-      <div role="radiogroup" aria-label="Rate your order" className="mt-3 inline-flex items-center gap-1">
+      <div
+        role="radiogroup"
+        aria-label="Rate your order"
+        className="mt-3 inline-flex items-center gap-1"
+      >
         {[1, 2, 3, 4, 5].map((n) => {
           const active = n <= hover;
           return (

@@ -37,11 +37,13 @@ const CUSTOMER_REVIEWS = [
     name: 'Adaeze, Peckham',
   },
   {
-    quote: 'Ordered for a christening of 40 people. Showed up early, vendor called to confirm. Saved my Sunday.',
+    quote:
+      'Ordered for a christening of 40 people. Showed up early, vendor called to confirm. Saved my Sunday.',
     name: 'Marcus, Stratford',
   },
   {
-    quote: 'Allergy info was clear, prices were honest, and the kelewele alone has me ordering again next week.',
+    quote:
+      'Allergy info was clear, prices were honest, and the kelewele alone has me ordering again next week.',
     name: 'Priya, Tottenham',
   },
 ];
@@ -88,18 +90,28 @@ export async function CuisineLanding({
   return (
     <article className="mx-auto w-full max-w-4xl space-y-12 px-4 py-8 md:py-12">
       <header className="space-y-3">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-brand-dark">London delivery</p>
-        <h1 className="font-display text-3xl font-black leading-tight tracking-tight text-charcoal md:text-5xl">{heading}</h1>
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-brand-dark">
+          London delivery
+        </p>
+        <h1 className="font-display text-3xl font-black leading-tight tracking-tight text-charcoal md:text-5xl">
+          {heading}
+        </h1>
         <p className="text-base font-medium text-charcoal-mid md:text-lg">{intro}</p>
       </header>
 
       <section aria-labelledby="cuisine-highlights">
-        <h2 id="cuisine-highlights" className="mb-4 font-display text-2xl font-black tracking-tight text-charcoal">
+        <h2
+          id="cuisine-highlights"
+          className="mb-4 font-display text-2xl font-black tracking-tight text-charcoal"
+        >
           What to order
         </h2>
         <div className="grid gap-4 md:grid-cols-2">
           {highlights.map((h) => (
-            <div key={h.name} className="rounded-2xl border border-cream-deep bg-white p-4 shadow-sm">
+            <div
+              key={h.name}
+              className="rounded-2xl border border-cream-deep bg-white p-4 shadow-sm"
+            >
               <h3 className="font-display text-lg font-black text-charcoal">{h.name}</h3>
               <p className="mt-1 text-sm font-medium text-charcoal-mid">{h.description}</p>
             </div>
@@ -107,34 +119,50 @@ export async function CuisineLanding({
         </div>
       </section>
 
-      <section aria-labelledby="how-it-works" className="rounded-2xl border border-cream-deep bg-cream p-6">
-        <h2 id="how-it-works" className="mb-3 font-display text-2xl font-black tracking-tight text-charcoal">
+      <section
+        aria-labelledby="how-it-works"
+        className="rounded-2xl border border-cream-deep bg-cream p-6"
+      >
+        <h2
+          id="how-it-works"
+          className="mb-3 font-display text-2xl font-black tracking-tight text-charcoal"
+        >
           How Feastpot works
         </h2>
         <ol className="space-y-2 text-sm font-medium text-charcoal md:text-base">
           <li>
-            <strong className="font-bold text-charcoal">1. Enter your postcode</strong> - we show the {cuisine} vendors covering your area.
+            <strong className="font-bold text-charcoal">1. Enter your postcode</strong> - we show
+            the {cuisine} vendors covering your area.
           </li>
           <li>
-            <strong className="font-bold text-charcoal">2. Pick a tray or family portion</strong> - most vendors take orders 24–72 hours ahead.
+            <strong className="font-bold text-charcoal">2. Pick a tray or family portion</strong> -
+            most vendors take orders 24–72 hours ahead.
           </li>
           <li>
-            <strong className="font-bold text-charcoal">3. Pay securely with Stripe</strong> - we hold the funds until your order is fulfilled.
+            <strong className="font-bold text-charcoal">3. Pay securely with Stripe</strong> - we
+            hold the funds until your order is fulfilled.
           </li>
           <li>
-            <strong className="font-bold text-charcoal">4. Track delivery</strong> - get push and WhatsApp updates from the vendor.
+            <strong className="font-bold text-charcoal">4. Track delivery</strong> - get push and
+            WhatsApp updates from the vendor.
           </li>
         </ol>
       </section>
 
       <section aria-labelledby="vendors">
-        <h2 id="vendors" className="mb-4 font-display text-2xl font-black tracking-tight text-charcoal">
+        <h2
+          id="vendors"
+          className="mb-4 font-display text-2xl font-black tracking-tight text-charcoal"
+        >
           {cuisine} vendors in London
         </h2>
         {vendors.length === 0 ? (
           <p className="text-sm font-medium text-charcoal-mid">
             We&apos;re onboarding new {cuisine} vendors right now.{' '}
-            <Link href="/" className="font-bold text-brand-dark underline underline-offset-2 hover:text-brand">
+            <Link
+              href="/"
+              className="font-bold text-brand-dark underline underline-offset-2 hover:text-brand"
+            >
               Browse the full directory
             </Link>{' '}
             or check back next week.
@@ -142,14 +170,22 @@ export async function CuisineLanding({
         ) : (
           <ul className="grid gap-3 md:grid-cols-2">
             {vendors.map((v) => (
-              <li key={v.id} className="rounded-2xl border border-cream-deep bg-white p-4 shadow-sm transition hover:border-brand hover:shadow-md">
+              <li
+                key={v.id}
+                className="rounded-2xl border border-cream-deep bg-white p-4 shadow-sm transition hover:border-brand hover:shadow-md"
+              >
                 <Link href={`/vendors/${v.slug}`} className="block">
-                  <p className="font-display text-base font-black text-charcoal">{v.businessName}</p>
+                  <p className="font-display text-base font-black text-charcoal">
+                    {v.businessName}
+                  </p>
                   {v.description ? (
-                    <p className="mt-1 line-clamp-2 text-sm font-medium text-charcoal-mid">{v.description}</p>
+                    <p className="mt-1 line-clamp-2 text-sm font-medium text-charcoal-mid">
+                      {v.description}
+                    </p>
                   ) : null}
                   <p className="mt-2 text-xs font-bold text-charcoal-mid">
-                    <span className="text-plantain">★</span> {v.rating.toFixed(1)} ({v.ratingCount} reviews) · {v.cuisines.join(' · ')}
+                    <span className="text-plantain">★</span> {v.rating.toFixed(1)} ({v.ratingCount}{' '}
+                    reviews) · {v.cuisines.join(' · ')}
                   </p>
                 </Link>
               </li>
@@ -159,7 +195,10 @@ export async function CuisineLanding({
       </section>
 
       <section aria-labelledby="reviews">
-        <h2 id="reviews" className="mb-4 font-display text-2xl font-black tracking-tight text-charcoal">
+        <h2
+          id="reviews"
+          className="mb-4 font-display text-2xl font-black tracking-tight text-charcoal"
+        >
           What customers say
         </h2>
         <div className="grid gap-4 md:grid-cols-3">
@@ -191,7 +230,8 @@ export async function CuisineLanding({
           Ready to order?
         </h2>
         <p className="mt-1 text-sm font-medium text-white/90">
-          Enter your postcode on the homepage to see {cuisine} vendors delivering near you tonight or this weekend.
+          Enter your postcode on the homepage to see {cuisine} vendors delivering near you tonight
+          or this weekend.
         </p>
         <Link
           href="/"

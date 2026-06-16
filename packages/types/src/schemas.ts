@@ -10,12 +10,12 @@ const ukPostcode = () =>
     .string()
     .trim()
     .toUpperCase()
-    .regex(
-      /^([A-Z]{1,2}\d[A-Z\d]?) ?(\d[A-Z]{2})$/,
-      'Invalid UK postcode',
-    );
+    .regex(/^([A-Z]{1,2}\d[A-Z\d]?) ?(\d[A-Z]{2})$/, 'Invalid UK postcode');
 const phone = () =>
-  z.string().trim().regex(/^\+?[0-9 ()-]{7,20}$/, 'Invalid phone number');
+  z
+    .string()
+    .trim()
+    .regex(/^\+?[0-9 ()-]{7,20}$/, 'Invalid phone number');
 const pricePence = () => z.number().int().nonnegative();
 const ratingStars = () => z.number().int().min(1).max(5);
 
@@ -31,13 +31,7 @@ const ItemCategoryEnum = z.enum([
 ]);
 const DeliveryTypeEnum = z.enum(['local', 'collection', 'nationwide']);
 const OrderTypeEnum = z.enum(['standard', 'event', 'subscription']);
-const IssueTypeEnum = z.enum([
-  'missing_items',
-  'wrong_order',
-  'quality',
-  'not_delivered',
-  'other',
-]);
+const IssueTypeEnum = z.enum(['missing_items', 'wrong_order', 'quality', 'not_delivered', 'other']);
 const SeverityEnum = z.enum(['low', 'medium', 'high']);
 
 // ============================================================
@@ -132,9 +126,7 @@ export const CreateMenuItemSchema = z.object({
 });
 export type CreateMenuItemDto = z.infer<typeof CreateMenuItemSchema>;
 
-export const UpdateMenuItemSchema = CreateMenuItemSchema.partial()
-  .omit({ menuId: true })
-  .strict();
+export const UpdateMenuItemSchema = CreateMenuItemSchema.partial().omit({ menuId: true }).strict();
 export type UpdateMenuItemDto = z.infer<typeof UpdateMenuItemSchema>;
 
 // ============================================================

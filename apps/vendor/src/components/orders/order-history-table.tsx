@@ -26,7 +26,11 @@ import {
 import { format } from 'date-fns';
 import { useState } from 'react';
 
-import { useOrderHistory, type VendorOrder, type VendorOrderStatus } from '@/hooks/use-vendor-orders';
+import {
+  useOrderHistory,
+  type VendorOrder,
+  type VendorOrderStatus,
+} from '@/hooks/use-vendor-orders';
 
 const HISTORY_STATUSES: VendorOrderStatus[] = ['delivered', 'cancelled', 'refunded', 'rejected'];
 
@@ -127,7 +131,9 @@ export function OrderHistoryTable() {
                       {format(new Date(order.createdAt), 'd MMM yyyy')}
                     </TableCell>
                     <TableCell>{order.customer?.firstName ?? '-'}</TableCell>
-                    <TableCell>{itemsCount} item{itemsCount === 1 ? '' : 's'}</TableCell>
+                    <TableCell>
+                      {itemsCount} item{itemsCount === 1 ? '' : 's'}
+                    </TableCell>
                     <TableCell className="text-right">{pounds(order.totalPence)}</TableCell>
                     <TableCell>
                       <Badge variant="outline">{order.status}</Badge>
@@ -176,7 +182,10 @@ export function OrderHistoryTable() {
                 <ul className="space-y-1">
                   {selected.items.map((it) => (
                     <li key={it.id} className="flex justify-between">
-                      <span>{it.quantity}× {(it as Record<string, unknown>).itemName as string ?? 'Item'}</span>
+                      <span>
+                        {it.quantity}×{' '}
+                        {((it as Record<string, unknown>).itemName as string) ?? 'Item'}
+                      </span>
                     </li>
                   ))}
                 </ul>

@@ -100,7 +100,9 @@ export function useReviewsQueue(filters: ModerationQueueFilters) {
  * the list (so chips re-count after search / vendor / rating filters).
  * Server strips the `status` param itself before grouping.
  */
-export function useReviewsQueueCounts(filters: Omit<ModerationQueueFilters, 'status' | 'cursor' | 'limit'>) {
+export function useReviewsQueueCounts(
+  filters: Omit<ModerationQueueFilters, 'status' | 'cursor' | 'limit'>,
+) {
   const { request, ready } = useApi();
   return useQuery({
     queryKey: ['admin', 'reviews', 'queue', 'counts', filters],
@@ -121,7 +123,11 @@ export function useModerateReview() {
   const qc = useQueryClient();
   return useMutation({
     // D19: 'held' is a valid transition now (admin can re-flag a released review).
-    mutationFn: (input: { id: string; status: 'approved' | 'rejected' | 'held'; reason?: string }) =>
+    mutationFn: (input: {
+      id: string;
+      status: 'approved' | 'rejected' | 'held';
+      reason?: string;
+    }) =>
       request<ModerationQueueRow>(`/reviews/${input.id}/moderation`, {
         method: 'PATCH',
         body: { status: input.status, reason: input.reason },

@@ -41,3 +41,9 @@ id = "z1qGw4rY24YRDQBpBcUa_"
 uri = "file://docs/OUTSTANDING.md"
 type = "text"
 title = "Feastpot — What's Left to Build (03 Jun 2026)"
+
+[[outputs]]
+id = "bSU6A4jqDnKr5WGGzQfWc"
+uri = "file://docs/CODE_AUDIT.md"
+type = "text"
+title = "Feastpot — Code Audit & Feature Inventory (16 June 2026)"

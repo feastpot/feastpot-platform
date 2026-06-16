@@ -14,7 +14,10 @@ export class CloseDisputeDto {
   resolutionNote?: string;
 
   /** Required when resolution=full_refund or partial_refund. */
-  @ApiPropertyOptional({ minimum: 1, description: 'Refund amount in pence (required for *_refund resolutions).' })
+  @ApiPropertyOptional({
+    minimum: 1,
+    description: 'Refund amount in pence (required for *_refund resolutions).',
+  })
   @IsOptional()
   @IsInt()
   @Min(1)

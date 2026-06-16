@@ -13,7 +13,13 @@ import { OrdersService } from './orders.service';
 
 @Module({
   // forwardRef on Payments because future webhook flows may inject OrdersService.
-  imports: [PrismaModule, AuthModule, StripeModule, VendorMembersModule, forwardRef(() => PaymentsModule)],
+  imports: [
+    PrismaModule,
+    AuthModule,
+    StripeModule,
+    VendorMembersModule,
+    forwardRef(() => PaymentsModule),
+  ],
   controllers: [OrdersController],
   providers: [OrdersService, OrdersRepository, OrderSlotsService],
   exports: [OrdersService],

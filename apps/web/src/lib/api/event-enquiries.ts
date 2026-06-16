@@ -67,7 +67,10 @@ export function getEventEnquiry(id: string, accessToken: string): Promise<EventE
   return apiRequest<EventEnquiry>(`/event-enquiries/${id}`, { accessToken });
 }
 
-export function createEventEnquiry(input: CreateEventEnquiryInput, accessToken: string): Promise<EventEnquiry> {
+export function createEventEnquiry(
+  input: CreateEventEnquiryInput,
+  accessToken: string,
+): Promise<EventEnquiry> {
   return apiRequest<EventEnquiry>('/event-enquiries', { method: 'POST', body: input, accessToken });
 }
 

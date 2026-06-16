@@ -21,9 +21,7 @@ import { useBasketStore } from '@/store/basket.store';
  *
  * Order matters - more specific paths must come before their parents.
  */
-function resolveBackPath(
-  pathname: string,
-): { href: string } | { history: true; fallback: string } {
+function resolveBackPath(pathname: string): { href: string } | { history: true; fallback: string } {
   // Order/account sub-pages return to the relevant list, not the root.
   if (pathname.startsWith('/orders/') && /\/(tracking|review|confirmation)$/.test(pathname)) {
     return { href: '/account/orders' };

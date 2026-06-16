@@ -41,8 +41,12 @@ export function VendorCardSkeleton() {
         />
         {/* Rating + meta row */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <div style={{ height: '12px', width: '80px', background: '#EDE4D4', borderRadius: '4px' }} />
-          <div style={{ height: '12px', width: '50px', background: '#F5EDE0', borderRadius: '4px' }} />
+          <div
+            style={{ height: '12px', width: '80px', background: '#EDE4D4', borderRadius: '4px' }}
+          />
+          <div
+            style={{ height: '12px', width: '50px', background: '#F5EDE0', borderRadius: '4px' }}
+          />
         </div>
         {/* Cook identity row - same divider treatment as the live card. */}
         <div

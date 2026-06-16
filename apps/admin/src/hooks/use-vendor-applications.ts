@@ -95,9 +95,7 @@ export function useVendorApplications(status: VendorApplicationStatus | 'all') {
       const params = new URLSearchParams();
       if (status !== 'all') params.set('status', status);
       const qs = params.toString();
-      return request<VendorApplicationRow[]>(
-        `/admin/vendor-applications${qs ? `?${qs}` : ''}`,
-      );
+      return request<VendorApplicationRow[]>(`/admin/vendor-applications${qs ? `?${qs}` : ''}`);
     },
   });
 }
@@ -130,7 +128,6 @@ export function useUpdateVendorApplication(id: string) {
 export function useResendVendorApplicationInvite(id: string) {
   const { request } = useApi();
   return useMutation({
-    mutationFn: () =>
-      request(`/admin/vendor-applications/${id}/resend-invite`, { method: 'POST' }),
+    mutationFn: () => request(`/admin/vendor-applications/${id}/resend-invite`, { method: 'POST' }),
   });
 }

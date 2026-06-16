@@ -13,9 +13,10 @@ export interface VendorApplicationRejectedData {
  * with that in mind. Tone is supportive: many rejections are "not yet"
  * (e.g. waiting on FSA registration) rather than "no, ever".
  */
-export function vendorApplicationRejectedTemplate(
-  data: VendorApplicationRejectedData,
-): { subject: string; html: string } {
+export function vendorApplicationRejectedTemplate(data: VendorApplicationRejectedData): {
+  subject: string;
+  html: string;
+} {
   const firstName = escapeHtml(data.firstName);
   const kitchenName = escapeHtml(data.kitchenName);
   const reason = escapeHtml(data.reason);

@@ -7,13 +7,7 @@ import { API_URL } from '@/lib/env';
 import { useApi } from './use-api';
 
 export type AdminUserStatus = 'active' | 'suspended' | 'deleted';
-export type AdminUserRole =
-  | 'customer'
-  | 'vendor'
-  | 'admin'
-  | 'support'
-  | 'finance'
-  | 'compliance';
+export type AdminUserRole = 'customer' | 'vendor' | 'admin' | 'support' | 'finance' | 'compliance';
 
 export type OrderStatus =
   | 'pending'
@@ -115,9 +109,7 @@ export function useAdminUserSearch(email: string) {
     enabled: false,
     retry: false,
     queryFn: () =>
-      request<AdminUserDetail>(
-        `/admin/users/search?email=${encodeURIComponent(email.trim())}`,
-      ),
+      request<AdminUserDetail>(`/admin/users/search?email=${encodeURIComponent(email.trim())}`),
   });
 }
 

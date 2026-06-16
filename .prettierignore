@@ -1,0 +1,30 @@
+# Mirrors .gitignore + tooling/agent dirs that are not part of the codebase.
+# Without this, `prettier --check "**/*.{ts,tsx,js,jsx,json,md}"` scans hundreds
+# of generated/vendored files (Replit agent skills, memory, lockfiles, build
+# output) and the lint job can never pass.
+
+# deps & lockfiles
+node_modules
+package-lock.json
+
+# build output
+dist
+.next
+.turbo
+out
+build
+
+# coverage
+coverage
+**/coverage
+
+# Replit agent / tooling (auto-generated, not source)
+.local
+.agents
+.cache
+.config
+attached_assets
+
+# generated
+apps/web/public/sw*.js
+apps/web/public/workbox-*.js

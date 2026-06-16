@@ -74,11 +74,31 @@ const ROLE_OPTIONS: ReadonlyArray<{ value: AdminUserRole | 'all'; label: string 
 // Staff-only roles the admin Users page can create or assign. Customer/
 // vendor accounts are provisioned by other flows and intentionally
 // excluded so we don't fabricate a dangling Vendor row.
-const STAFF_ROLE_OPTIONS: ReadonlyArray<{ value: StaffRoleValue; label: string; description: string }> = [
-  { value: 'admin', label: 'Admin', description: 'Full access including user management and audit log.' },
-  { value: 'support', label: 'Support', description: 'View users + orders, issue order overrides.' },
-  { value: 'finance', label: 'Finance', description: 'View orders + payouts, issue goodwill credit.' },
-  { value: 'compliance', label: 'Compliance', description: 'Review vendor documents, run DSAR exports.' },
+const STAFF_ROLE_OPTIONS: ReadonlyArray<{
+  value: StaffRoleValue;
+  label: string;
+  description: string;
+}> = [
+  {
+    value: 'admin',
+    label: 'Admin',
+    description: 'Full access including user management and audit log.',
+  },
+  {
+    value: 'support',
+    label: 'Support',
+    description: 'View users + orders, issue order overrides.',
+  },
+  {
+    value: 'finance',
+    label: 'Finance',
+    description: 'View orders + payouts, issue goodwill credit.',
+  },
+  {
+    value: 'compliance',
+    label: 'Compliance',
+    description: 'Review vendor documents, run DSAR exports.',
+  },
 ];
 
 const STATUS_OPTIONS: ReadonlyArray<{ value: AdminUserStatus | 'all'; label: string }> = [
@@ -233,7 +253,10 @@ export function UsersClient({ currentUserId, role }: UsersClientProps) {
       <Card className="mb-4">
         <CardContent className="flex flex-wrap items-center gap-4 py-3">
           <FilterControl label="Role">
-            <Select value={filters.role} onValueChange={(v) => updateFilter('role', v as AdminUserRole | 'all')}>
+            <Select
+              value={filters.role}
+              onValueChange={(v) => updateFilter('role', v as AdminUserRole | 'all')}
+            >
               <SelectTrigger className="w-[160px]">
                 <SelectValue />
               </SelectTrigger>
@@ -248,7 +271,10 @@ export function UsersClient({ currentUserId, role }: UsersClientProps) {
           </FilterControl>
 
           <FilterControl label="Status">
-            <Select value={filters.status} onValueChange={(v) => updateFilter('status', v as AdminUserStatus | 'all')}>
+            <Select
+              value={filters.status}
+              onValueChange={(v) => updateFilter('status', v as AdminUserStatus | 'all')}
+            >
               <SelectTrigger className="w-[160px]">
                 <SelectValue />
               </SelectTrigger>
@@ -263,7 +289,10 @@ export function UsersClient({ currentUserId, role }: UsersClientProps) {
           </FilterControl>
 
           <FilterControl label="Joined">
-            <Select value={filters.joined} onValueChange={(v) => updateFilter('joined', v as JoinedRange | 'all')}>
+            <Select
+              value={filters.joined}
+              onValueChange={(v) => updateFilter('joined', v as JoinedRange | 'all')}
+            >
               <SelectTrigger className="w-[160px]">
                 <SelectValue />
               </SelectTrigger>
@@ -281,7 +310,9 @@ export function UsersClient({ currentUserId, role }: UsersClientProps) {
             <Button
               variant="outline"
               disabled={total === 0}
-              title={total === 0 ? 'No users to export' : 'Export current filter as CSV (coming soon)'}
+              title={
+                total === 0 ? 'No users to export' : 'Export current filter as CSV (coming soon)'
+              }
             >
               <Download className="mr-2 h-4 w-4" />
               Export
@@ -458,7 +489,9 @@ function UserRow({
         </TableCell>
         <TableCell className="text-sm">{formatDate(user.createdAt)}</TableCell>
         <TableCell className="text-right tabular-nums">{user.orderCount}</TableCell>
-        <TableCell className="text-right tabular-nums">{formatPence(user.lifetimeSpendPence)}</TableCell>
+        <TableCell className="text-right tabular-nums">
+          {formatPence(user.lifetimeSpendPence)}
+        </TableCell>
         <TableCell className="text-right">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -468,9 +501,7 @@ function UserRow({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
               {canChangeRole && (
-                <DropdownMenuItem onSelect={() => setRoleOpen(true)}>
-                  Change role…
-                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => setRoleOpen(true)}>Change role…</DropdownMenuItem>
               )}
               {canCredit && (
                 <DropdownMenuItem onSelect={() => setCreditOpen(true)}>
@@ -487,7 +518,10 @@ function UserRow({
                 </DropdownMenuItem>
               )}
               {canSuspend && user.status === 'suspended' && (
-                <DropdownMenuItem onSelect={() => reinstate.mutate()} disabled={reinstate.isPending}>
+                <DropdownMenuItem
+                  onSelect={() => reinstate.mutate()}
+                  disabled={reinstate.isPending}
+                >
                   {reinstate.isPending ? 'Reinstating…' : 'Reinstate'}
                 </DropdownMenuItem>
               )}
@@ -571,7 +605,8 @@ function CreateUserDialog({
         <DialogHeader>
           <DialogTitle>Invite a staff user</DialogTitle>
           <DialogDescription>
-            Creates a Supabase account and emails a magic link so they can set a password and sign in.
+            Creates a Supabase account and emails a magic link so they can set a password and sign
+            in.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
@@ -620,7 +655,9 @@ function CreateUserDialog({
               </SelectContent>
             </Select>
             {roleMeta && (
-              <span className="mt-1 block text-xs text-muted-foreground">{roleMeta.description}</span>
+              <span className="mt-1 block text-xs text-muted-foreground">
+                {roleMeta.description}
+              </span>
             )}
           </label>
           <label className="flex items-start gap-2 text-sm">
@@ -633,7 +670,8 @@ function CreateUserDialog({
             <span>
               <span className="font-medium">Email a magic-link invite now</span>
               <span className="mt-0.5 block text-xs text-muted-foreground">
-                Uncheck if you&apos;ll share the link manually — the account is still created either way.
+                Uncheck if you&apos;ll share the link manually — the account is still created either
+                way.
               </span>
             </span>
           </label>
@@ -683,7 +721,10 @@ function ChangeRoleDialog({
   // Default to current role only if it's a staff role; otherwise default
   // to 'support' so the Select doesn't show "customer" (not in the list).
   const initialRole: StaffRoleValue =
-    currentRole === 'admin' || currentRole === 'support' || currentRole === 'finance' || currentRole === 'compliance'
+    currentRole === 'admin' ||
+    currentRole === 'support' ||
+    currentRole === 'finance' ||
+    currentRole === 'compliance'
       ? currentRole
       : 'support';
   const [newRole, setNewRole] = useState<StaffRoleValue>(initialRole);
@@ -707,7 +748,8 @@ function ChangeRoleDialog({
         <DialogHeader>
           <DialogTitle>Change role</DialogTitle>
           <DialogDescription>
-            Update {displayName}&apos;s role. The change is audited and they&apos;ll be signed out everywhere so the new permissions take effect on next sign-in.
+            Update {displayName}&apos;s role. The change is audited and they&apos;ll be signed out
+            everywhere so the new permissions take effect on next sign-in.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">

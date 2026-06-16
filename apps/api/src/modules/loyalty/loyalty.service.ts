@@ -79,7 +79,9 @@ export class LoyaltyService {
         select: { id: true, points: true },
       });
       if (existing) {
-        this.logger.log(`creditPoints skipped - already credited ${existing.points}pt for order ${orderId}`);
+        this.logger.log(
+          `creditPoints skipped - already credited ${existing.points}pt for order ${orderId}`,
+        );
         return existing.points;
       }
       const points = Math.floor(orderTotalPence / POINTS_PER_PENCE);
@@ -127,11 +129,7 @@ export class LoyaltyService {
    * against double-debiting on a checkout retry that re-runs createOrder
    * for an order that was actually committed.
    */
-  async redeemPoints(
-    userId: string,
-    pointsToRedeem: number,
-    orderId: string,
-  ): Promise<number> {
+  async redeemPoints(userId: string, pointsToRedeem: number, orderId: string): Promise<number> {
     // Lock by USER (not by orderId) so two concurrent checkouts for the
     // same user - each on a different orderId - can't both pass the
     // balance check on stale reads and overdraw the ledger. Idempotency

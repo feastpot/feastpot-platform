@@ -15,6 +15,7 @@ of half-finished branches.
 ## 1. What is implemented
 
 ### API (`apps/api`)
+
 - **Auth & access control.** Supabase JWT validation, `@Roles` guards across every
   controller, MFA recovery-code generation and consumption.
 - **Discovery.** Postcode + radius search (Haversine), cuisine filters, vendor
@@ -33,6 +34,7 @@ of half-finished branches.
   dead-letter-queue monitoring.
 
 ### Customer PWA (`apps/web`)
+
 - **Discovery.** Postcode hero, horizontal cuisine filters, SEO landing pages
   (e.g. `/nigerian-food-delivery-london`), search results.
 - **Storefront.** Category-tabbed menus, vendor-locked basket (cross-vendor
@@ -43,6 +45,7 @@ of half-finished branches.
   via `getUser()` (not `getSession()`); TanStack Query with 60 s staleTime.
 
 ### Vendor portal (`apps/vendor`)
+
 - **Dashboard.** Real-time order intake with audible alerts, today's prep list,
   "At a Glance" stats.
 - **Menu management.** Full CRUD for menus / items, availability toggles, image
@@ -54,15 +57,18 @@ of half-finished branches.
   to teal-green and bulk-renamed across 32 files (zero `vendor-blue` refs remain).
 
 ### Admin panel (`apps/admin`)
+
 - **Queue monitoring.** Embedded BullBoard for job inspection.
 - **Triage.** Vendor application review, document verification, dispute evidence.
 
 ### Shared packages
+
 - `@feastpot/types` — Prisma client re-export + Zod schemas.
 - `@feastpot/ui` — shadcn component library with HSL theme tokens.
 - `@feastpot/config` — shared tsconfig + ESLint config.
 
 ### Infrastructure
+
 - **Database.** 21+ Prisma models; migrations current through `mfa_recovery_codes`
   and `discount_idempotency`.
 - **Stripe.** End-to-end Connect (Standard / Express); webhook handler for
@@ -77,15 +83,15 @@ of half-finished branches.
 
 ## 2. What is partially implemented
 
-| Area | Where | State |
-| --- | --- | --- |
-| Notifications (SMS / email) | `apps/api` notifications module | BullMQ queue + templates wired; Twilio + Resend providers are stubs awaiting prod credentials (`TWILIO_FROM_NUMBER`, `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID` still missing). |
-| Order amendments | `OrdersController.proposeAmendment` / `respondToAmendment` | Controllers throw `NotImplementedException` on some branches; `OrderAmendment` table migrated but business logic mid-refactor. |
-| Loyalty / referrals | `LoyaltyService`, `ReferralService` | Ledger logic and `LoyaltyPoint` / `Referral` models exist; no order-lifecycle hooks earn points yet and referral codes are not validated at registration. |
-| Live tracking (customer) | `apps/web` order detail | Static status timeline ships; map component is a placeholder shell, no real-time coordinate stream. |
-| Customer account extras | `apps/web/src/app/account/*` | Profile + order history complete; "Feast Pass" and "Referral Card" are UI stubs. |
-| Vendor analytics | `apps/vendor/src/app/insights` | Basic revenue charts render; "Business Insights" panel is placeholder copy. |
-| Audit logging coverage | `MenuItem` and related entities | Loyalty has full audit (`adjustPoints`); menu mutations don't yet. |
+| Area                        | Where                                                      | State                                                                                                                                                                                    |
+| --------------------------- | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Notifications (SMS / email) | `apps/api` notifications module                            | BullMQ queue + templates wired; Twilio + Resend providers are stubs awaiting prod credentials (`TWILIO_FROM_NUMBER`, `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID` still missing). |
+| Order amendments            | `OrdersController.proposeAmendment` / `respondToAmendment` | Controllers throw `NotImplementedException` on some branches; `OrderAmendment` table migrated but business logic mid-refactor.                                                           |
+| Loyalty / referrals         | `LoyaltyService`, `ReferralService`                        | Ledger logic and `LoyaltyPoint` / `Referral` models exist; no order-lifecycle hooks earn points yet and referral codes are not validated at registration.                                |
+| Live tracking (customer)    | `apps/web` order detail                                    | Static status timeline ships; map component is a placeholder shell, no real-time coordinate stream.                                                                                      |
+| Customer account extras     | `apps/web/src/app/account/*`                               | Profile + order history complete; "Feast Pass" and "Referral Card" are UI stubs.                                                                                                         |
+| Vendor analytics            | `apps/vendor/src/app/insights`                             | Basic revenue charts render; "Business Insights" panel is placeholder copy.                                                                                                              |
+| Audit logging coverage      | `MenuItem` and related entities                            | Loyalty has full audit (`adjustPoints`); menu mutations don't yet.                                                                                                                       |
 
 ---
 

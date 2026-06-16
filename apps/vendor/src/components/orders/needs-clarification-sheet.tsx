@@ -1,12 +1,6 @@
 'use client';
 
-import {
-  Button,
-  DialogDescription,
-  DialogTitle,
-  Sheet,
-  SheetContent,
-} from '@feastpot/ui';
+import { Button, DialogDescription, DialogTitle, Sheet, SheetContent } from '@feastpot/ui';
 import { useEffect, useState } from 'react';
 
 export interface NeedsClarificationSheetProps {
@@ -48,8 +42,8 @@ export function NeedsClarificationSheet({
             Ask the customer about {orderNumber}
           </DialogTitle>
           <DialogDescription className="text-sm text-mid">
-            The order pauses and the customer is asked your question. You can
-            accept or reject once they reply.
+            The order pauses and the customer is asked your question. You can accept or reject once
+            they reply.
           </DialogDescription>
         </div>
 

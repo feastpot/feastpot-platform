@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ItemCategory } from '@prisma/client';
 import { Transform, Type } from 'class-transformer';
 import {
   ArrayMaxSize,
@@ -14,8 +15,6 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
-
-import { ItemCategory } from '@prisma/client';
 
 import { DIETARY_FLAGS, FSA_14_ALLERGENS, MAX_IMAGES_PER_ITEM } from '../catalogue.constants';
 
@@ -54,14 +53,23 @@ export class CreateMenuItemDto {
   @IsString({ each: true })
   dietaryFlags?: string[];
 
-  @ApiPropertyOptional({ enum: FSA_14_ALLERGENS, isArray: true, description: 'Must be from FSA 14 allergens list' })
+  @ApiPropertyOptional({
+    enum: FSA_14_ALLERGENS,
+    isArray: true,
+    description: 'Must be from FSA 14 allergens list',
+  })
   @IsOptional()
   @IsArray()
   @ArrayUnique()
   @IsString({ each: true })
   allergens?: string[];
 
-  @ApiPropertyOptional({ minimum: 0, maximum: 3, default: 0, description: 'Defaults to 0 on create' })
+  @ApiPropertyOptional({
+    minimum: 0,
+    maximum: 3,
+    default: 0,
+    description: 'Defaults to 0 on create',
+  })
   @IsOptional()
   @Type(() => Number)
   @IsInt()

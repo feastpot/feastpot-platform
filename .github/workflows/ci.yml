@@ -107,6 +107,11 @@ jobs:
     name: Prisma validate
     needs: [setup]
     runs-on: ubuntu-latest
+    # `prisma validate`/`format` parse the schema, which references these env vars
+    # via env(). They never connect, so dummy non-secret values are sufficient.
+    env:
+      SUPABASE_DB_URL: postgresql://user:pass@localhost:5432/feastpot?schema=public
+      SUPABASE_DIRECT_URL: postgresql://user:pass@localhost:5432/feastpot?schema=public
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5

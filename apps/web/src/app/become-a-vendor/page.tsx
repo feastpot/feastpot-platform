@@ -324,8 +324,8 @@ export default function BecomeAVendorPage() {
           </h1>
           <div className="mt-4 h-[3px] w-16 rounded-full bg-plantain" aria-hidden />
           <p className="mt-5 max-w-xl text-base leading-relaxed text-charcoal-mid">
-            Get paid to cook from home without building a website, chasing customers, or
-            dealing with admin. We bring the orders, you focus on the food.
+            Get paid to cook from home without building a website, chasing customers, or dealing
+            with admin. We bring the orders, you focus on the food.
           </p>
           <div className="mt-7 flex flex-col gap-3 sm:flex-row">
             <button
@@ -362,9 +362,7 @@ export default function BecomeAVendorPage() {
               <ChefHat className="h-4 w-4 text-brand" />
             </span>
             <div>
-              <div className="text-[13px] font-black text-charcoal">
-                You cook. We do the rest.
-              </div>
+              <div className="text-[13px] font-black text-charcoal">You cook. We do the rest.</div>
               <div className="text-[11px] font-medium text-charcoal-mid">
                 Orders, payments, support
               </div>
@@ -413,9 +411,7 @@ export default function BecomeAVendorPage() {
                 >
                   {s.n}
                 </div>
-                <div className="font-display text-[15px] font-black text-charcoal">
-                  {s.label}
-                </div>
+                <div className="font-display text-[15px] font-black text-charcoal">{s.label}</div>
                 <p className="mt-1.5 text-[13px] leading-snug text-charcoal-mid">{s.sub}</p>
               </div>
             ))}
@@ -426,10 +422,7 @@ export default function BecomeAVendorPage() {
       {/* Trust strips */}
       <section className="mx-auto grid max-w-6xl gap-4 px-5 pt-12 sm:grid-cols-3 sm:px-8 lg:px-12">
         {TRUST.map(({ Icon, label, sub }) => (
-          <div
-            key={label}
-            className="flex items-start gap-3.5 rounded-2xl bg-cream-warm p-5"
-          >
+          <div key={label} className="flex items-start gap-3.5 rounded-2xl bg-cream-warm p-5">
             <span
               className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-brand-light"
               aria-hidden
@@ -588,7 +581,10 @@ const InterestForm = forwardRef<HTMLElement, InterestFormProps>(function Interes
           </div>
 
           <div>
-            <span id="kitchenType-label" className="mb-2 block text-[13px] font-semibold text-charcoal">
+            <span
+              id="kitchenType-label"
+              className="mb-2 block text-[13px] font-semibold text-charcoal"
+            >
               Kitchen type
             </span>
             <div
@@ -763,9 +759,7 @@ function Field({
     <div>
       <label htmlFor={id} className="mb-2 block text-[13px] font-semibold text-charcoal">
         {label}
-        {optional && (
-          <span className="ml-1 font-normal text-charcoal-light">(optional)</span>
-        )}
+        {optional && <span className="ml-1 font-normal text-charcoal-light">(optional)</span>}
       </label>
       <input
         id={id}
@@ -794,15 +788,7 @@ interface SelectFieldProps {
   err?: string;
 }
 
-function SelectField({
-  id,
-  label,
-  value,
-  onChange,
-  options,
-  placeholder,
-  err,
-}: SelectFieldProps) {
+function SelectField({ id, label, value, onChange, options, placeholder, err }: SelectFieldProps) {
   return (
     <div>
       <label htmlFor={id} className="mb-2 block text-[13px] font-semibold text-charcoal">
@@ -852,8 +838,8 @@ function SuccessPanel({ snapshot }: { snapshot: FormState }) {
           Application received
         </h2>
         <p className="mt-3 text-sm leading-relaxed text-charcoal-mid">
-          Thanks, <strong className="text-charcoal">{firstName}</strong>. We&rsquo;ve received
-          your application for <strong className="text-charcoal">{snapshot.kitchenName}</strong>.
+          Thanks, <strong className="text-charcoal">{firstName}</strong>. We&rsquo;ve received your
+          application for <strong className="text-charcoal">{snapshot.kitchenName}</strong>.
         </p>
         <p className="mt-1 text-sm leading-relaxed text-charcoal-mid">
           We&rsquo;ll review your details and be in touch at{' '}
@@ -881,10 +867,7 @@ function SuccessPanel({ snapshot }: { snapshot: FormState }) {
 
         <p className="mt-6 text-[12px] font-medium text-charcoal-light">
           Questions? Email{' '}
-          <a
-            href="mailto:vendors@feastpot.co.uk"
-            className="font-bold text-brand hover:underline"
-          >
+          <a href="mailto:vendors@feastpot.co.uk" className="font-bold text-brand hover:underline">
             vendors@feastpot.co.uk
           </a>
         </p>

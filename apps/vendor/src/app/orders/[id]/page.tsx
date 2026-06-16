@@ -24,11 +24,7 @@ interface VendorMe {
  * Hitting the API twice (SSR + CSR) would just churn cache without buying
  * any LCP benefit on this gated, signed-in surface.
  */
-export default async function OrderDetailPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export default async function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
   const supabase = await createServerSupabase();

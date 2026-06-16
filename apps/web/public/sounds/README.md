@@ -3,6 +3,7 @@
 Drop a short notification sound here as `status-update.mp3`.
 
 Recommended:
+
 - 0.5–1.0 seconds long
 - Soft / pleasant tone (not a harsh beep)
 - Free / royalty-free source: search "soft chime notification" or

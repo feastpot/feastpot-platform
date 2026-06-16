@@ -37,7 +37,7 @@ export function CategoryChips() {
     if (next) sp.set('category', next);
     else sp.delete('category');
     const qs = sp.toString();
-    router.replace(qs ? `${pathname}?${qs}` : pathname ?? '/vendors', { scroll: false });
+    router.replace(qs ? `${pathname}?${qs}` : (pathname ?? '/vendors'), { scroll: false });
   };
 
   return (

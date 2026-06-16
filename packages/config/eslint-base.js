@@ -34,7 +34,10 @@ module.exports = {
     '@typescript-eslint/explicit-module-boundary-types': 'off',
     '@typescript-eslint/no-empty-function': 'off',
     'no-console': ['warn', { allow: ['warn', 'error', 'info'] }],
-    eqeqeq: ['error', 'always'],
+    // Enforce strict equality everywhere EXCEPT the `x == null` /  `x != null`
+    // idiom, which intentionally matches both null and undefined in one check.
+    // Rewriting those to `===` would change behaviour, so allow them.
+    eqeqeq: ['error', 'always', { null: 'ignore' }],
     'import/order': [
       'error',
       {

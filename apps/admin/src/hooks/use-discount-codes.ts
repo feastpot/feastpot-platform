@@ -45,8 +45,7 @@ export function useDiscountCodes(page = 1) {
   return useQuery({
     queryKey: ['admin', 'discount-codes', page],
     enabled: ready,
-    queryFn: () =>
-      request<DiscountCodesPage>(`/admin/discount-codes?page=${page}&limit=50`),
+    queryFn: () => request<DiscountCodesPage>(`/admin/discount-codes?page=${page}&limit=50`),
   });
 }
 
@@ -65,7 +64,10 @@ export function useToggleDiscountCode() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
-      request<DiscountCodeRow>(`/admin/discount-codes/${id}`, { method: 'PATCH', body: { isActive } }),
+      request<DiscountCodeRow>(`/admin/discount-codes/${id}`, {
+        method: 'PATCH',
+        body: { isActive },
+      }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'discount-codes'] }),
   });
 }

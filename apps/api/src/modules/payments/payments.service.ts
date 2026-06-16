@@ -164,7 +164,8 @@ export class PaymentsService {
       where: { id: orderId },
       select: { id: true, customerId: true, totalPence: true },
     });
-    if (!order) throw new NotFoundException({ code: 'ORDER_NOT_FOUND', message: 'Order not found' });
+    if (!order)
+      throw new NotFoundException({ code: 'ORDER_NOT_FOUND', message: 'Order not found' });
 
     const existing = await this.prisma.payment.findFirst({
       where: { orderId, stripePaymentIntentId: { not: null } },
@@ -210,7 +211,11 @@ export class PaymentsService {
      */
     idempotencyKey?: string,
   ) {
-    if (dto.amountPence >= LARGE_REFUND_THRESHOLD_PENCE && authorisedBy.role !== UserRole.finance && authorisedBy.role !== UserRole.admin) {
+    if (
+      dto.amountPence >= LARGE_REFUND_THRESHOLD_PENCE &&
+      authorisedBy.role !== UserRole.finance &&
+      authorisedBy.role !== UserRole.admin
+    ) {
       throw new ForbiddenException({
         code: 'LARGE_REFUND_REQUIRES_FINANCE',
         message: `Refunds ≥ £${LARGE_REFUND_THRESHOLD_PENCE / 100} require role=finance or admin`,
@@ -232,7 +237,8 @@ export class PaymentsService {
         vendor: { select: { userId: true } },
       },
     });
-    if (!order) throw new NotFoundException({ code: 'ORDER_NOT_FOUND', message: 'Order not found' });
+    if (!order)
+      throw new NotFoundException({ code: 'ORDER_NOT_FOUND', message: 'Order not found' });
     if (dto.amountPence > order.totalPence) {
       throw new BadRequestException({
         code: 'REFUND_EXCEEDS_TOTAL',
@@ -246,12 +252,18 @@ export class PaymentsService {
       select: { stripePaymentIntentId: true },
     });
     if (!lastPi?.stripePaymentIntentId) {
-      throw new BadRequestException({ code: 'NO_PAYMENT_INTENT', message: 'No Stripe PI to refund against' });
+      throw new BadRequestException({
+        code: 'NO_PAYMENT_INTENT',
+        message: 'No Stripe PI to refund against',
+      });
     }
 
     // Cumulative-refund guard: total prior refunds + this refund cannot exceed total.
     const priorRefunds = await this.prisma.payment.aggregate({
-      where: { orderId: dto.orderId, type: { in: [PaymentType.refund, PaymentType.partial_refund] } },
+      where: {
+        orderId: dto.orderId,
+        type: { in: [PaymentType.refund, PaymentType.partial_refund] },
+      },
       _sum: { amountPence: true },
     });
     const alreadyRefundedPence = -(priorRefunds._sum.amountPence ?? 0);
@@ -264,7 +276,11 @@ export class PaymentsService {
 
     // Pass `amount` so Stripe refunds the requested amount, not the full PI.
     // Idempotency key (when provided) makes the Stripe call safe to retry.
-    const stripeRefund = await this.stripe.refund(lastPi.stripePaymentIntentId, dto.amountPence, idempotencyKey);
+    const stripeRefund = await this.stripe.refund(
+      lastPi.stripePaymentIntentId,
+      dto.amountPence,
+      idempotencyKey,
+    );
 
     // Stripe is now the source of truth. If the DB writes below fail and the
     // caller retries with the same `idempotencyKey`, Stripe will return this
@@ -373,7 +389,9 @@ export class PaymentsService {
     ]).then((results) => {
       for (const r of results) {
         if (r.status === 'rejected') {
-          this.logger.warn(`refund notification enqueue failed: ${(r.reason as Error)?.message ?? r.reason}`);
+          this.logger.warn(
+            `refund notification enqueue failed: ${(r.reason as Error)?.message ?? r.reason}`,
+          );
         }
       }
     });
@@ -384,11 +402,17 @@ export class PaymentsService {
   // -------------------- helpers --------------------
 
   private encodeCursor(row: { createdAt: Date; id: string }): string {
-    return Buffer.from(JSON.stringify({ c: row.createdAt.toISOString(), id: row.id }), 'utf8').toString('base64url');
+    return Buffer.from(
+      JSON.stringify({ c: row.createdAt.toISOString(), id: row.id }),
+      'utf8',
+    ).toString('base64url');
   }
   private decodeCursor(s: string): { createdAt: Date; id: string } | undefined {
     try {
-      const obj = JSON.parse(Buffer.from(s, 'base64url').toString('utf8')) as { c: string; id: string };
+      const obj = JSON.parse(Buffer.from(s, 'base64url').toString('utf8')) as {
+        c: string;
+        id: string;
+      };
       return { createdAt: new Date(obj.c), id: obj.id };
     } catch {
       return undefined;

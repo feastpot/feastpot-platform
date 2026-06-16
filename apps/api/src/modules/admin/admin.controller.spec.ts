@@ -4,11 +4,11 @@ import { UserRole } from '@prisma/client';
 
 import { ROLES_KEY } from '../../auth/decorators/roles.decorator';
 import { RolesGuard } from '../../auth/guards/roles.guard';
-
-import { AdminController } from './admin.controller';
-import { PayoutsController } from '../payouts/payouts.controller';
 import { ComplianceController } from '../compliance/compliance.controller';
 import { DisputesController } from '../disputes/disputes.controller';
+import { PayoutsController } from '../payouts/payouts.controller';
+
+import { AdminController } from './admin.controller';
 
 /**
  * Per-route role enforcement tests (Step 6 of the security audit).
@@ -36,20 +36,34 @@ function rolesOn(controller: new (...args: never[]) => unknown, method: string):
   return Reflect.getMetadata(ROLES_KEY, handler) as UserRole[];
 }
 
-function ctxFor(controller: new (...args: never[]) => unknown, method: string, role: UserRole | null): ExecutionContext {
+function ctxFor(
+  controller: new (...args: never[]) => unknown,
+  method: string,
+  role: UserRole | null,
+): ExecutionContext {
   const proto = controller.prototype as Record<string, (...args: never[]) => unknown>;
   const handler = proto[method];
   return {
-    switchToHttp: () => ({ getRequest: () => ({ user: role ? { id: 'u', email: 'u@e', role } : null }) }),
+    switchToHttp: () => ({
+      getRequest: () => ({ user: role ? { id: 'u', email: 'u@e', role } : null }),
+    }),
     getHandler: () => handler,
     getClass: () => controller,
   } as unknown as ExecutionContext;
 }
 
-function expectAllowed(controller: new (...args: never[]) => unknown, method: string, role: UserRole) {
+function expectAllowed(
+  controller: new (...args: never[]) => unknown,
+  method: string,
+  role: UserRole,
+) {
   expect(guard.canActivate(ctxFor(controller, method, role))).toBe(true);
 }
-function expectDenied(controller: new (...args: never[]) => unknown, method: string, role: UserRole) {
+function expectDenied(
+  controller: new (...args: never[]) => unknown,
+  method: string,
+  role: UserRole,
+) {
   expect(() => guard.canActivate(ctxFor(controller, method, role))).toThrow(ForbiddenException);
 }
 

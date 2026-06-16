@@ -21,7 +21,10 @@ export class ListEventEnquiriesDto {
 
   // ---- admin-only filters (ignored for customer/vendor scopes) ----------
 
-  @ApiPropertyOptional({ description: 'Free-text search on customer email / name / postcode (ILIKE contains). Admin only.' })
+  @ApiPropertyOptional({
+    description:
+      'Free-text search on customer email / name / postcode (ILIKE contains). Admin only.',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(120)
@@ -47,14 +50,18 @@ export class ListEventEnquiriesDto {
   @IsDateString()
   createdTo?: string;
 
-  @ApiPropertyOptional({ description: 'Budget lower bound (pence). Filters enquiries whose budgetPence >= this.' })
+  @ApiPropertyOptional({
+    description: 'Budget lower bound (pence). Filters enquiries whose budgetPence >= this.',
+  })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(0)
   budgetMin?: number;
 
-  @ApiPropertyOptional({ description: 'Budget upper bound (pence). Filters enquiries whose budgetPence <= this.' })
+  @ApiPropertyOptional({
+    description: 'Budget upper bound (pence). Filters enquiries whose budgetPence <= this.',
+  })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
@@ -71,7 +78,9 @@ export class ListEventEnquiriesDto {
   @Max(100)
   limit?: number = 25;
 
-  @ApiPropertyOptional({ description: 'Opaque base64url keyset cursor returned in the previous response' })
+  @ApiPropertyOptional({
+    description: 'Opaque base64url keyset cursor returned in the previous response',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(512)

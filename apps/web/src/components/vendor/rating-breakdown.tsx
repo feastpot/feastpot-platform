@@ -24,13 +24,8 @@ export interface RatingBreakdownProps {
  * star bucket on the right. Bars animate in on mount (width 0 → final
  * width) with a staggered 0.3s-per-row delay so the eye traces top → bottom.
  */
-export function RatingBreakdown({
-  avgRating,
-  reviewCount,
-  breakdown,
-}: RatingBreakdownProps) {
-  const buckets =
-    breakdown ?? estimateBreakdown(avgRating, reviewCount);
+export function RatingBreakdown({ avgRating, reviewCount, breakdown }: RatingBreakdownProps) {
+  const buckets = breakdown ?? estimateBreakdown(avgRating, reviewCount);
 
   // Drive the width animation off a `mounted` flag - we deliberately render
   // at width 0 on first paint, then flip to the real width via state so the
@@ -85,10 +80,7 @@ export function RatingBreakdown({
             return (
               <li key={star} className="flex items-center gap-2 text-xs text-mid">
                 <span className="w-3 text-right tabular-nums">{star}</span>
-                <Star
-                  className="h-3 w-3 shrink-0 fill-amber-400 text-amber-400"
-                  aria-hidden
-                />
+                <Star className="h-3 w-3 shrink-0 fill-amber-400 text-amber-400" aria-hidden />
                 <div className="flex-1 overflow-hidden rounded-full bg-surface" aria-hidden>
                   <div
                     className="h-1.5 rounded-full bg-brand transition-[width] duration-700 ease-out"

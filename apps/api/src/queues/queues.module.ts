@@ -13,7 +13,14 @@ export const COMPLIANCE_QUEUE = 'compliance';
 const RETENTION = { removeOnComplete: 1000, removeOnFail: 500 } as const;
 
 const queues = BullModule.registerQueue(
-  { name: NOTIFICATIONS_QUEUE, defaultJobOptions: { attempts: 3, backoff: { type: 'exponential', delay: 5_000 }, ...RETENTION } },
+  {
+    name: NOTIFICATIONS_QUEUE,
+    defaultJobOptions: {
+      attempts: 3,
+      backoff: { type: 'exponential', delay: 5_000 },
+      ...RETENTION,
+    },
+  },
   { name: STRIPE_WEBHOOK_QUEUE, defaultJobOptions: { ...RETENTION } },
   { name: PAYOUTS_QUEUE, defaultJobOptions: { ...RETENTION } },
   { name: COMPLIANCE_QUEUE, defaultJobOptions: { ...RETENTION } },

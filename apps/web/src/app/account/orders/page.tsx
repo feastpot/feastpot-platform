@@ -43,10 +43,14 @@ export default function OrderHistoryPage() {
   const [reorderId, setReorderId] = useState<string | null>(null);
 
   if (isLoading) {
-    return <p className="px-4 py-12 text-center text-sm text-charcoal-mid">Loading orders&hellip;</p>;
+    return (
+      <p className="px-4 py-12 text-center text-sm text-charcoal-mid">Loading orders&hellip;</p>
+    );
   }
   if (error) {
-    return <p className="px-4 py-12 text-center text-sm text-scotch">Couldn&rsquo;t load orders.</p>;
+    return (
+      <p className="px-4 py-12 text-center text-sm text-scotch">Couldn&rsquo;t load orders.</p>
+    );
   }
 
   const orders = data?.pages.flatMap((p) => p.data) ?? [];
@@ -92,9 +96,7 @@ export default function OrderHistoryPage() {
       // vendor, ask before clobbering - single-vendor basket is enforced by
       // the store and silently dropping items would feel hostile.
       if (store.items.length > 0 && store.vendor && store.vendor.id !== order.vendorId) {
-        const ok = window.confirm(
-          'This will replace items currently in your basket. Continue?',
-        );
+        const ok = window.confirm('This will replace items currently in your basket. Continue?');
         if (!ok) return;
         store.clearBasket();
       } else if (store.items.length > 0 && store.vendor?.id === order.vendorId) {
@@ -148,11 +150,15 @@ export default function OrderHistoryPage() {
       <ul className="space-y-3">
         {orders.map((order) => {
           const itemSummary = order.items
-            ? order.items.slice(0, 2).map((i) => `${i.quantity}× ${i.nameSnapshot}`).join(', ') +
-              (order.items.length > 2 ? ` +${order.items.length - 2} more` : '')
+            ? order.items
+                .slice(0, 2)
+                .map((i) => `${i.quantity}× ${i.nameSnapshot}`)
+                .join(', ') + (order.items.length > 2 ? ` +${order.items.length - 2} more` : '')
             : '';
           const isDelivered = order.status === 'delivered';
-          const isActive = ['pending', 'accepted', 'preparing', 'dispatched'].includes(order.status);
+          const isActive = ['pending', 'accepted', 'preparing', 'dispatched'].includes(
+            order.status,
+          );
           const badge = STATUS_BADGE[order.status];
           return (
             <li

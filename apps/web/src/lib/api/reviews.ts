@@ -23,7 +23,10 @@ export interface ReviewResponse {
  *   endpoint. The review form may still surface those inputs (per UI spec)
  *   but they are NOT transmitted; an inline notice tells the customer.
  */
-export function createReview(input: CreateReviewInput, accessToken: string): Promise<ReviewResponse> {
+export function createReview(
+  input: CreateReviewInput,
+  accessToken: string,
+): Promise<ReviewResponse> {
   return apiRequest<ReviewResponse>('/reviews', {
     method: 'POST',
     body: input,

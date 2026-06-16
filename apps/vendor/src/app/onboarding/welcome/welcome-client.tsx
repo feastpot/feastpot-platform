@@ -97,7 +97,10 @@ export function WelcomeClient({
             aria-valuemin={0}
             aria-valuemax={100}
           >
-            <div className="h-full rounded-full bg-teal transition-all" style={{ width: `${pct}%` }} />
+            <div
+              className="h-full rounded-full bg-teal transition-all"
+              style={{ width: `${pct}%` }}
+            />
           </div>
         </CardContent>
       </Card>

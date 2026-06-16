@@ -27,13 +27,7 @@ export const FSA_14_ALLERGEN_SET: ReadonlySet<string> = new Set(FSA_14_ALLERGENS
 
 export const ITEM_CATEGORIES = Object.values(ItemCategory);
 
-export const DIETARY_FLAGS = [
-  'halal',
-  'vegan',
-  'vegetarian',
-  'gluten_free',
-  'dairy_free',
-] as const;
+export const DIETARY_FLAGS = ['halal', 'vegan', 'vegetarian', 'gluten_free', 'dairy_free'] as const;
 
 export type DietaryFlag = (typeof DIETARY_FLAGS)[number];
 

@@ -43,9 +43,15 @@ export function ReviewsMarquee() {
             // Hide duplicates from screen readers so the list isn't read twice.
             aria-hidden={i >= REVIEWS.length || undefined}
           >
-            <span className="text-plantain" aria-hidden>★★★★★</span>
-            <span className="text-xs font-medium italic text-charcoal">&ldquo;{r.quote}&rdquo;</span>
-            <span className="text-[10px] font-medium text-charcoal-mid">- {r.name}, {r.area}</span>
+            <span className="text-plantain" aria-hidden>
+              ★★★★★
+            </span>
+            <span className="text-xs font-medium italic text-charcoal">
+              &ldquo;{r.quote}&rdquo;
+            </span>
+            <span className="text-[10px] font-medium text-charcoal-mid">
+              - {r.name}, {r.area}
+            </span>
           </div>
         ))}
       </div>

@@ -35,7 +35,6 @@ export function useAnalytics() {
     queryKey: ['vendor', 'analytics'] as const,
     enabled: !!token && !loading,
     staleTime: 5 * 60_000,
-    queryFn: () =>
-      apiRequest<VendorAnalytics>('/vendors/me/analytics', { accessToken: token! }),
+    queryFn: () => apiRequest<VendorAnalytics>('/vendors/me/analytics', { accessToken: token! }),
   });
 }

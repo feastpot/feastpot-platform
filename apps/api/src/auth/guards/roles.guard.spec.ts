@@ -24,7 +24,9 @@ describe('RolesGuard', () => {
   });
 
   it('allows when user role is in required list', () => {
-    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValueOnce([UserRole.admin, UserRole.finance]);
+    jest
+      .spyOn(reflector, 'getAllAndOverride')
+      .mockReturnValueOnce([UserRole.admin, UserRole.finance]);
     expect(guard.canActivate(ctxWith({ role: UserRole.finance }))).toBe(true);
   });
 
@@ -35,6 +37,8 @@ describe('RolesGuard', () => {
 
   it('forbids when user role not in required list', () => {
     jest.spyOn(reflector, 'getAllAndOverride').mockReturnValueOnce([UserRole.admin]);
-    expect(() => guard.canActivate(ctxWith({ role: UserRole.customer }))).toThrow(ForbiddenException);
+    expect(() => guard.canActivate(ctxWith({ role: UserRole.customer }))).toThrow(
+      ForbiddenException,
+    );
   });
 });

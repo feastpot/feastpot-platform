@@ -1,10 +1,4 @@
-import {
-  ArgumentsHost,
-  Catch,
-  ExceptionFilter,
-  HttpStatus,
-  Logger,
-} from '@nestjs/common';
+import { ArgumentsHost, Catch, ExceptionFilter, HttpStatus, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import type { Request, Response } from 'express';
 
@@ -60,10 +54,9 @@ export class PrismaExceptionFilter implements ExceptionFilter {
       default:
         // Log the full Prisma payload server-side (meta, target, etc.) so
         // engineers can debug, but never include it in the response body.
-        this.logger.error(
-          `[Prisma] Unhandled error ${exception.code}: ${exception.message}`,
-          { meta: exception.meta },
-        );
+        this.logger.error(`[Prisma] Unhandled error ${exception.code}: ${exception.message}`, {
+          meta: exception.meta,
+        });
     }
 
     res.status(status).json({

@@ -15,9 +15,10 @@ export interface VendorApplicationInfoRequestedData {
  * to reply to the support inbox; the admin then re-reviews based on the
  * answer (no inbound webhook needed for v1).
  */
-export function vendorApplicationInfoRequestedTemplate(
-  data: VendorApplicationInfoRequestedData,
-): { subject: string; html: string } {
+export function vendorApplicationInfoRequestedTemplate(data: VendorApplicationInfoRequestedData): {
+  subject: string;
+  html: string;
+} {
   const firstName = escapeHtml(data.firstName);
   const kitchenName = escapeHtml(data.kitchenName);
   const question = escapeHtml(data.question);

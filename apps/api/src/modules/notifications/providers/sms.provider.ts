@@ -44,7 +44,9 @@ export class SmsProvider {
     }
   }
 
-  async send(msg: SmsMessage): Promise<{ sid: string | null; delivered: boolean; reason?: string }> {
+  async send(
+    msg: SmsMessage,
+  ): Promise<{ sid: string | null; delivered: boolean; reason?: string }> {
     if (!msg.to) {
       this.logger.debug('[skip-sms] recipient phone empty');
       return { sid: null, delivered: false, reason: 'no_recipient_phone' };

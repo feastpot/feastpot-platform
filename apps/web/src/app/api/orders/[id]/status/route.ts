@@ -12,10 +12,7 @@ import { createClient } from '@/lib/supabase/server';
  * data (compared to the full Order DTO from the API). RLS on `orders` ensures
  * a customer can only read their own row.
  */
-export async function GET(
-  _req: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   if (!id || !/^[0-9a-f-]{36}$/i.test(id)) {
     return NextResponse.json({ error: 'INVALID_ID' }, { status: 400 });

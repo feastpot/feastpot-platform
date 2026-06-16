@@ -113,7 +113,8 @@ export function DeliveryForm() {
     }
   }
 
-  if (isLoading && !seeded) return <p className="text-sm text-muted-foreground">Loading settings…</p>;
+  if (isLoading && !seeded)
+    return <p className="text-sm text-muted-foreground">Loading settings…</p>;
 
   return (
     <form onSubmit={onSubmit} className="mx-auto max-w-2xl space-y-4">
@@ -129,10 +130,15 @@ export function DeliveryForm() {
           <Label>Delivery types</Label>
           <div className="grid gap-2 sm:grid-cols-3">
             {(['local', 'collection', 'nationwide'] as DeliveryType[]).map((t) => (
-              <label key={t} className="flex cursor-pointer items-center gap-2 rounded-md border border-input p-3 hover:bg-muted">
+              <label
+                key={t}
+                className="flex cursor-pointer items-center gap-2 rounded-md border border-input p-3 hover:bg-muted"
+              >
                 <Checkbox
                   checked={form.types[t]}
-                  onCheckedChange={(c) => setForm((s) => ({ ...s, types: { ...s.types, [t]: c === true } }))}
+                  onCheckedChange={(c) =>
+                    setForm((s) => ({ ...s, types: { ...s.types, [t]: c === true } }))
+                  }
                 />
                 <span className="text-sm capitalize">{t}</span>
               </label>
@@ -170,7 +176,8 @@ export function DeliveryForm() {
                 placeholder="SW1, SW3, SW10, M14…"
               />
               <p className="mt-1 text-xs text-muted-foreground">
-                Map preview is on the roadmap - postcode list is what the customer search uses today.
+                Map preview is on the roadmap - postcode list is what the customer search uses
+                today.
               </p>
             </div>
           </CardContent>
@@ -228,7 +235,10 @@ export function DeliveryForm() {
           </div>
           <p className="text-xs text-muted-foreground">
             Opening days, slot windows, prep lead time and daily caps live on the{' '}
-            <a className="font-semibold text-teal underline-offset-2 hover:underline" href="/availability">
+            <a
+              className="font-semibold text-teal underline-offset-2 hover:underline"
+              href="/availability"
+            >
               Availability
             </a>{' '}
             page.

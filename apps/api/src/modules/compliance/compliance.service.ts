@@ -7,15 +7,15 @@ import {
 } from '@nestjs/common';
 import { DocumentStatus, ModerationStatus, OrderStatus, UserRole } from '@prisma/client';
 
-import type { AuthUser } from '../../auth/types';
 import { SupabaseService } from '../../auth/supabase.service';
+import type { AuthUser } from '../../auth/types';
+import { PrismaService } from '../../prisma/prisma.service';
 import { InboxService } from '../inbox/inbox.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import {
   VENDOR_COMPLIANCE_ROLES,
   VendorMembersService,
 } from '../vendor-members/vendor-members.service';
-import { PrismaService } from '../../prisma/prisma.service';
 
 import type { UploadDocumentDto } from './dto/upload-document.dto';
 import type { VerifyDocumentDto } from './dto/verify-document.dto';
@@ -48,7 +48,10 @@ export class ComplianceService {
 
   async listDocuments(vendorId: string, user: AuthUser) {
     await this.assertCanManageVendor(vendorId, user);
-    return this.prisma.vendorDocument.findMany({ where: { vendorId }, orderBy: { createdAt: 'desc' } });
+    return this.prisma.vendorDocument.findMany({
+      where: { vendorId },
+      orderBy: { createdAt: 'desc' },
+    });
   }
 
   async uploadDocument(
@@ -65,7 +68,10 @@ export class ComplianceService {
     const safeName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 100);
     const path = `vendors/${vendorId}/${dto.type}/${Date.now()}-${safeName}`;
     const storage = this.supabase.getClient().storage.from(SUPABASE_DOCS_BUCKET);
-    const { error } = await storage.upload(path, file.buffer, { contentType: file.mimetype, upsert: false });
+    const { error } = await storage.upload(path, file.buffer, {
+      contentType: file.mimetype,
+      upsert: false,
+    });
     if (error) throw new BadRequestException({ code: 'UPLOAD_FAILED', message: error.message });
     const { data } = storage.getPublicUrl(path);
 
@@ -81,10 +87,18 @@ export class ComplianceService {
     });
   }
 
-  async verifyDocument(vendorId: string, documentId: string, dto: VerifyDocumentDto, user: AuthUser) {
+  async verifyDocument(
+    vendorId: string,
+    documentId: string,
+    dto: VerifyDocumentDto,
+    user: AuthUser,
+  ) {
     const complianceRoles: UserRole[] = [UserRole.compliance, UserRole.admin];
     if (!complianceRoles.includes(user.role)) {
-      throw new ForbiddenException({ code: 'FORBIDDEN', message: 'Only compliance/admin may verify documents' });
+      throw new ForbiddenException({
+        code: 'FORBIDDEN',
+        message: 'Only compliance/admin may verify documents',
+      });
     }
     const validStatuses: DocumentStatus[] = [DocumentStatus.verified, DocumentStatus.rejected];
     if (!validStatuses.includes(dto.status)) {
@@ -95,13 +109,16 @@ export class ComplianceService {
     }
     const doc = await this.prisma.vendorDocument.findUnique({ where: { id: documentId } });
     if (!doc || doc.vendorId !== vendorId) {
-      throw new NotFoundException({ code: 'DOCUMENT_NOT_FOUND', message: 'Document not found for this vendor' });
+      throw new NotFoundException({
+        code: 'DOCUMENT_NOT_FOUND',
+        message: 'Document not found for this vendor',
+      });
     }
     return this.prisma.vendorDocument.update({
       where: { id: documentId },
       data: {
         status: dto.status,
-        rejectReason: dto.status === DocumentStatus.rejected ? dto.rejectReason ?? null : null,
+        rejectReason: dto.status === DocumentStatus.rejected ? (dto.rejectReason ?? null) : null,
         reviewedBy: user.id,
         reviewedAt: new Date(),
       },
@@ -123,7 +140,10 @@ export class ComplianceService {
       include: { vendor: { select: { id: true, userId: true, businessName: true } } },
     });
     for (const d of expiring) {
-      const days = Math.max(0, Math.ceil((d.expiresAt!.getTime() - now.getTime()) / (24 * 60 * 60 * 1000)));
+      const days = Math.max(
+        0,
+        Math.ceil((d.expiresAt!.getTime() - now.getTime()) / (24 * 60 * 60 * 1000)),
+      );
       await this.notifications.enqueue('document_expiring', {
         userId: d.vendor.userId,
         documentType: d.type,
@@ -282,10 +302,12 @@ export class ComplianceService {
       for (const d of delivered) counts.set(d.customerId, (counts.get(d.customerId) ?? 0) + 1);
       const totalCustomers = counts.size;
       const repeatCustomers = Array.from(counts.values()).filter((n) => n >= 2).length;
-      const reorderRatePct = totalCustomers === 0 ? 0 : Number(((repeatCustomers / totalCustomers) * 100).toFixed(2));
+      const reorderRatePct =
+        totalCustomers === 0 ? 0 : Number(((repeatCustomers / totalCustomers) * 100).toFixed(2));
 
       const communityFavourite =
-        avgRating >= FAVOURITE_RATING_THRESHOLD && reorderRatePct >= FAVOURITE_REORDER_PCT_THRESHOLD;
+        avgRating >= FAVOURITE_RATING_THRESHOLD &&
+        reorderRatePct >= FAVOURITE_REORDER_PCT_THRESHOLD;
 
       await this.prisma.vendor.update({
         where: { id: v.id },
@@ -306,8 +328,12 @@ export class ComplianceService {
   private async assertCanManageVendor(vendorId: string, user: AuthUser): Promise<void> {
     const staffRoles: UserRole[] = [UserRole.admin, UserRole.compliance];
     if (staffRoles.includes(user.role)) return;
-    const vendor = await this.prisma.vendor.findUnique({ where: { id: vendorId }, select: { id: true } });
-    if (!vendor) throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'Vendor not found' });
+    const vendor = await this.prisma.vendor.findUnique({
+      where: { id: vendorId },
+      select: { id: true },
+    });
+    if (!vendor)
+      throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'Vendor not found' });
     const allowed = await this.members.canActOnVendor(user.id, vendorId, VENDOR_COMPLIANCE_ROLES);
     if (allowed) return;
     throw new ForbiddenException({ code: 'FORBIDDEN', message: 'You may not manage this vendor' });

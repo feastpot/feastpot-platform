@@ -1,3 +1,4 @@
+import { InjectQueue } from '@nestjs/bull';
 import {
   BadRequestException,
   Controller,
@@ -10,11 +11,10 @@ import {
   Req,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import { ApiExcludeController } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
-import { InjectQueue } from '@nestjs/bull';
-import type { Request } from 'express';
+import { ApiExcludeController } from '@nestjs/swagger';
 import type { Queue } from 'bull';
+import type { Request } from 'express';
 import type Stripe from 'stripe';
 
 import { Public } from '../../auth/decorators/public.decorator';
@@ -48,7 +48,10 @@ export class StripeWebhookController {
     const rawBody = req.rawBody;
     if (!rawBody) {
       this.logger.error('[Stripe Webhook] rawBody is undefined - check NestFactory.create options');
-      throw new BadRequestException({ code: 'MISSING_RAW_BODY', message: 'Webhook payload missing' });
+      throw new BadRequestException({
+        code: 'MISSING_RAW_BODY',
+        message: 'Webhook payload missing',
+      });
     }
 
     const secret = this.config.get<string>('STRIPE_WEBHOOK_SECRET');
@@ -63,7 +66,10 @@ export class StripeWebhookController {
       });
     }
     if (!signature) {
-      throw new BadRequestException({ code: 'MISSING_SIGNATURE', message: 'Missing stripe-signature header' });
+      throw new BadRequestException({
+        code: 'MISSING_SIGNATURE',
+        message: 'Missing stripe-signature header',
+      });
     }
 
     let event: Stripe.Event;
@@ -71,7 +77,10 @@ export class StripeWebhookController {
       event = this.stripe.constructEvent(rawBody, signature, secret);
     } catch (e) {
       this.logger.warn(`Stripe signature verification failed: ${(e as Error).message}`);
-      throw new BadRequestException({ code: 'INVALID_SIGNATURE', message: 'Stripe signature invalid' });
+      throw new BadRequestException({
+        code: 'INVALID_SIGNATURE',
+        message: 'Stripe signature invalid',
+      });
     }
 
     // Idempotency: stripeEventId has a unique constraint. Check first to short-
@@ -87,12 +96,16 @@ export class StripeWebhookController {
     }
 
     // Enqueue first; if Redis is down this throws and Stripe will retry.
-    await this.queue.add(event.type, { id: event.id, type: event.type, data: event.data.object }, {
-      attempts: 5,
-      backoff: { type: 'exponential', delay: 10_000 },
-      removeOnComplete: 1000,
-      removeOnFail: 1000,
-    });
+    await this.queue.add(
+      event.type,
+      { id: event.id, type: event.type, data: event.data.object },
+      {
+        attempts: 5,
+        backoff: { type: 'exponential', delay: 10_000 },
+        removeOnComplete: 1000,
+        removeOnFail: 1000,
+      },
+    );
 
     // Now mark processed. If THIS fails (rare), Stripe retries → we'll try to
     // enqueue again. The processor handler must remain idempotent (which it is:

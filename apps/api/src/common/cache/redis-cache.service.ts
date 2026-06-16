@@ -109,9 +109,7 @@ export class RedisCacheService implements OnModuleInit, OnModuleDestroy {
       const now = Date.now();
       if (now - this.lastErrorLog > ERROR_LOG_THROTTLE_MS) {
         this.lastErrorLog = now;
-        this.logger.warn(
-          `[Redis] Cache client error: ${msg} (further errors suppressed for 60s)`,
-        );
+        this.logger.warn(`[Redis] Cache client error: ${msg} (further errors suppressed for 60s)`);
       }
     });
     this.client.on('end', () => {

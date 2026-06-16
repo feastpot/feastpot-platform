@@ -18,8 +18,8 @@ export function JoinFeastpotCta() {
             Cook from home? Join FeastPot
           </p>
           <p className="mt-1 max-w-xl text-[13px] font-medium leading-snug text-charcoal-mid sm:text-sm">
-            Sell party trays, family pots and weekly meals to customers near
-            you. Keep your food business moving without chasing DMs.
+            Sell party trays, family pots and weekly meals to customers near you. Keep your food
+            business moving without chasing DMs.
           </p>
         </div>
         <Link

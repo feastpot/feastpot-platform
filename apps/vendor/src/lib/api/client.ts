@@ -73,7 +73,12 @@ export async function apiRequest<T>(path: string, opts: ApiRequestOptions = {}):
       code?: string;
       message?: string;
     };
-    throw new ApiError(res.status, parsed.message ?? `Request failed: ${res.status}`, body, parsed.code);
+    throw new ApiError(
+      res.status,
+      parsed.message ?? `Request failed: ${res.status}`,
+      body,
+      parsed.code,
+    );
   }
   return body as T;
 }

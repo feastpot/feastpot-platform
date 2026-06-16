@@ -3,10 +3,6 @@
 import './instrument';
 import 'reflect-metadata';
 
-import compression from 'compression';
-import express from 'express';
-import helmet from 'helmet';
-
 // Bull v3 spins up three ioredis connections per queue (client, subscriber,
 // bclient). When REDIS_URL has bad credentials, AUTH fails on all three -
 // but Bull only attaches an `error` listener to its main `client`, so the
@@ -39,10 +35,7 @@ const isBenignRedisError = (err: unknown): boolean => {
   // doesn't crash from Bull's eager localhost-fallback connect attempt
   // (which otherwise produces an `uncaughtException` Node 22 surfaces).
   const net = err as { code?: unknown; port?: unknown };
-  if (
-    String(net.code ?? '') === 'ECONNREFUSED' &&
-    (net.port === 6379 || net.port === 6380)
-  ) {
+  if (String(net.code ?? '') === 'ECONNREFUSED' && (net.port === 6379 || net.port === 6380)) {
     return true;
   }
   return false;
@@ -91,6 +84,9 @@ import { ValidationPipe, VersioningType } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import compression from 'compression';
+import express from 'express';
+import helmet from 'helmet';
 import { Logger } from 'nestjs-pino';
 
 import { AppModule } from './app.module';

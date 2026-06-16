@@ -10,15 +10,15 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { OrderStatus, Prisma, UserRole, UserStatus } from '@prisma/client';
 
-import type { JoinedRange, ListAdminUsersDto } from './dto/list-admin-users.dto';
-import type { StaffRoleValue } from './dto/admin-user-actions.dto';
-
 import { SupabaseService } from '../../auth/supabase.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { LoyaltyService } from '../loyalty/loyalty.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { EmailProvider } from '../notifications/providers/email.provider';
 import { staffPortalInviteTemplate } from '../notifications/templates/staff-portal-invite.template';
+
+import type { StaffRoleValue } from './dto/admin-user-actions.dto';
+import type { JoinedRange, ListAdminUsersDto } from './dto/list-admin-users.dto';
 
 const STAFF_ROLE_LABELS: Record<StaffRoleValue, string> = {
   admin: 'Admin',
@@ -164,8 +164,7 @@ export class AdminUsersService {
     // Best-effort magic-link invite.
     let inviteEmailSent = false;
     if (dto.sendInvite !== false) {
-      const adminPortalUrl =
-        this.config.get<string>('ADMIN_URL') ?? 'https://admin.feastpot.co.uk';
+      const adminPortalUrl = this.config.get<string>('ADMIN_URL') ?? 'https://admin.feastpot.co.uk';
       try {
         const { data: linkData, error: linkErr } = await this.supabase
           .getClient()
@@ -302,10 +301,7 @@ export class AdminUsersService {
       // P2034 = "Transaction failed due to a write conflict or a deadlock"
       // — the canonical Serializable retry signal. Surface as 409 so the
       // admin retries rather than seeing a generic 500.
-      if (
-        err instanceof Prisma.PrismaClientKnownRequestError &&
-        err.code === 'P2034'
-      ) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2034') {
         throw new ConflictException({
           code: 'CONCURRENT_ROLE_CHANGE',
           message: 'Another role change was committed at the same time — please retry.',
@@ -473,7 +469,8 @@ export class AdminUsersService {
    */
   async findByEmail(email: string) {
     const trimmed = (email ?? '').trim();
-    if (!trimmed) throw new NotFoundException({ code: 'EMAIL_REQUIRED', message: 'Email is required' });
+    if (!trimmed)
+      throw new NotFoundException({ code: 'EMAIL_REQUIRED', message: 'Email is required' });
 
     // Prisma's `@unique` on User.email is case-sensitive at the DB layer; we
     // do a single-row lookup with `mode: 'insensitive'` to match e.g.
@@ -498,7 +495,11 @@ export class AdminUsersService {
         _count: { select: { orders: true } },
       },
     });
-    if (!user) throw new NotFoundException({ code: 'USER_NOT_FOUND', message: 'No user found with that email' });
+    if (!user)
+      throw new NotFoundException({
+        code: 'USER_NOT_FOUND',
+        message: 'No user found with that email',
+      });
 
     const [loyaltyBalance, lifetimeAgg] = await Promise.all([
       this.loyalty.getBalance(user.id),
@@ -531,9 +532,17 @@ export class AdminUsersService {
    * LoyaltyService.adjustPoints which writes its own AuditLog row, plus
    * we also notify the customer.
    */
-  async issueCredit(userId: string, amountPence: number, reason: string, adminUserId: string): Promise<void> {
+  async issueCredit(
+    userId: string,
+    amountPence: number,
+    reason: string,
+    adminUserId: string,
+  ): Promise<void> {
     if (!Number.isInteger(amountPence) || amountPence <= 0) {
-      throw new ForbiddenException({ code: 'INVALID_AMOUNT', message: 'amountPence must be a positive integer' });
+      throw new ForbiddenException({
+        code: 'INVALID_AMOUNT',
+        message: 'amountPence must be a positive integer',
+      });
     }
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -561,7 +570,10 @@ export class AdminUsersService {
    */
   async suspendUser(userId: string, reason: string, adminUserId: string): Promise<void> {
     if (userId === adminUserId) {
-      throw new ForbiddenException({ code: 'CANNOT_SUSPEND_SELF', message: 'You cannot suspend your own account' });
+      throw new ForbiddenException({
+        code: 'CANNOT_SUSPEND_SELF',
+        message: 'You cannot suspend your own account',
+      });
     }
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -569,7 +581,10 @@ export class AdminUsersService {
     });
     if (!user) throw new NotFoundException({ code: 'USER_NOT_FOUND', message: 'User not found' });
 
-    await this.prisma.user.update({ where: { id: userId }, data: { status: UserStatus.suspended } });
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { status: UserStatus.suspended },
+    });
 
     // Global sign-out: revokes ALL refresh tokens across devices. We log
     // failures but don't throw - the DB-side status flip is the real
@@ -637,7 +652,8 @@ export class AdminUsersService {
     adminUserId: string,
   ) {
     const order = await this.prisma.order.findUnique({ where: { id: orderId } });
-    if (!order) throw new NotFoundException({ code: 'ORDER_NOT_FOUND', message: 'Order not found' });
+    if (!order)
+      throw new NotFoundException({ code: 'ORDER_NOT_FOUND', message: 'Order not found' });
     if (order.status === status) return order;
 
     const updated = await this.prisma.order.update({
@@ -699,7 +715,10 @@ export class AdminUsersService {
         orderBy: { createdAt: 'desc' },
         include: { items: true },
       }),
-      this.prisma.review.findMany({ where: { customerId: userId }, orderBy: { createdAt: 'desc' } }),
+      this.prisma.review.findMany({
+        where: { customerId: userId },
+        orderBy: { createdAt: 'desc' },
+      }),
       this.prisma.dispute.findMany({
         where: { OR: [{ raisedById: userId }, { order: { customerId: userId } }] },
         orderBy: { createdAt: 'desc' },

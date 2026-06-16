@@ -36,7 +36,7 @@ export function VendorFiltersSidebar() {
     const sp = new URLSearchParams(params?.toString() ?? '');
     mutator(sp);
     const qs = sp.toString();
-    router.replace(qs ? `${pathname}?${qs}` : pathname ?? '/vendors', { scroll: false });
+    router.replace(qs ? `${pathname}?${qs}` : (pathname ?? '/vendors'), { scroll: false });
   };
 
   const cuisine = params?.get('cuisine') ?? '';

@@ -98,7 +98,10 @@ export interface CreateOrderResult {
   clientSecret: string;
 }
 
-export function createOrder(input: CreateOrderInput, accessToken: string): Promise<CreateOrderResult> {
+export function createOrder(
+  input: CreateOrderInput,
+  accessToken: string,
+): Promise<CreateOrderResult> {
   return apiRequest<CreateOrderResult>('/orders', {
     method: 'POST',
     body: input,
@@ -106,7 +109,10 @@ export function createOrder(input: CreateOrderInput, accessToken: string): Promi
   });
 }
 
-export function confirmOrder(orderId: string, accessToken: string): Promise<{ confirmed: boolean; orderId: string }> {
+export function confirmOrder(
+  orderId: string,
+  accessToken: string,
+): Promise<{ confirmed: boolean; orderId: string }> {
   return apiRequest(`/orders/${orderId}/confirm`, {
     method: 'POST',
     accessToken,
@@ -172,11 +178,7 @@ export function reorder(
  * Hits POST /v1/orders/:id/cancel - the legacy PATCH /status route is
  * vendor/admin only and 403s for customers.
  */
-export function cancelOrder(
-  orderId: string,
-  reason: string,
-  accessToken: string,
-): Promise<Order> {
+export function cancelOrder(orderId: string, reason: string, accessToken: string): Promise<Order> {
   return apiRequest<Order>(`/orders/${orderId}/cancel`, {
     method: 'POST',
     body: { reason },

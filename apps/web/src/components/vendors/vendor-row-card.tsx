@@ -97,7 +97,11 @@ export function VendorRowCard({ vendor }: Props) {
             <span>{vendor.rating > 0 ? vendor.rating.toFixed(1) : 'New'}</span>
             {vendor.ratingCount > 0 && (
               <span className="font-medium text-charcoal-mid">
-                ({vendor.ratingCount >= 1000 ? `${(vendor.ratingCount / 1000).toFixed(1)}k+` : vendor.ratingCount})
+                (
+                {vendor.ratingCount >= 1000
+                  ? `${(vendor.ratingCount / 1000).toFixed(1)}k+`
+                  : vendor.ratingCount}
+                )
               </span>
             )}
             <span className="mx-1 text-charcoal-mid">·</span>

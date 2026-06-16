@@ -29,7 +29,11 @@ import { formatDate } from '@/lib/format';
 
 type TabValue = VendorStatus | 'all';
 
-const TABS: ReadonlyArray<{ value: TabValue; label: string; tone: TabPillItem<TabValue>['countTone'] }> = [
+const TABS: ReadonlyArray<{
+  value: TabValue;
+  label: string;
+  tone: TabPillItem<TabValue>['countTone'];
+}> = [
   { value: 'pending', label: 'Pending', tone: 'warning' },
   { value: 'live', label: 'Live', tone: 'success' },
   { value: 'probation', label: 'Probation', tone: 'warning' },
@@ -38,7 +42,13 @@ const TABS: ReadonlyArray<{ value: TabValue; label: string; tone: TabPillItem<Ta
   { value: 'all', label: 'All', tone: 'neutral' },
 ];
 
-const DOC_TYPES: DocumentType[] = ['hygiene_cert', 'insurance', 'photo_id', 'bank_details', 'kitchen_reg'];
+const DOC_TYPES: DocumentType[] = [
+  'hygiene_cert',
+  'insurance',
+  'photo_id',
+  'bank_details',
+  'kitchen_reg',
+];
 const DOC_LABELS: Record<DocumentType, string> = {
   hygiene_cert: 'Hygiene',
   insurance: 'Insurance',
@@ -132,10 +142,14 @@ export function VendorsClient() {
                 <TableRow key={v.id}>
                   <TableCell>
                     <div className="font-medium">{v.businessName}</div>
-                    <div className="text-xs text-muted-foreground">{v.cuisines.join(', ') || '-'}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {v.cuisines.join(', ') || '-'}
+                    </div>
                   </TableCell>
                   <TableCell>
-                    <div className="text-sm">{`${v.owner.firstName ?? ''} ${v.owner.lastName ?? ''}`.trim() || '-'}</div>
+                    <div className="text-sm">
+                      {`${v.owner.firstName ?? ''} ${v.owner.lastName ?? ''}`.trim() || '-'}
+                    </div>
                     <div className="text-xs text-muted-foreground">{v.owner.email}</div>
                   </TableCell>
                   <TableCell className="text-sm">{formatDate(v.createdAt)}</TableCell>
@@ -150,7 +164,10 @@ export function VendorsClient() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Link href={`/vendors/${v.id}`} className="text-sm font-medium text-primary hover:underline">
+                    <Link
+                      href={`/vendors/${v.id}`}
+                      className="text-sm font-medium text-primary hover:underline"
+                    >
                       Review
                     </Link>
                   </TableCell>
@@ -175,13 +192,29 @@ function DocIcon({ type, status }: { type: DocumentType; status: DocumentStatus 
     );
   }
   if (status === 'verified') {
-    return <span title={`${label}: verified`} className={`${common} bg-teal-dark`}><Check className="h-3 w-3" /></span>;
+    return (
+      <span title={`${label}: verified`} className={`${common} bg-teal-dark`}>
+        <Check className="h-3 w-3" />
+      </span>
+    );
   }
   if (status === 'rejected') {
-    return <span title={`${label}: rejected`} className={`${common} bg-destructive`}><X className="h-3 w-3" /></span>;
+    return (
+      <span title={`${label}: rejected`} className={`${common} bg-destructive`}>
+        <X className="h-3 w-3" />
+      </span>
+    );
   }
   if (status === 'expired') {
-    return <span title={`${label}: expired`} className={`${common} bg-orange-500`}><Circle className="h-3 w-3 fill-current" /></span>;
+    return (
+      <span title={`${label}: expired`} className={`${common} bg-orange-500`}>
+        <Circle className="h-3 w-3 fill-current" />
+      </span>
+    );
   }
-  return <span title={`${label}: pending`} className={`${common} bg-amber-500`}><Circle className="h-3 w-3 fill-current" /></span>;
+  return (
+    <span title={`${label}: pending`} className={`${common} bg-amber-500`}>
+      <Circle className="h-3 w-3 fill-current" />
+    </span>
+  );
 }

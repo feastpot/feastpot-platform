@@ -279,7 +279,10 @@ export class VendorMembersService {
   async listForCaller(user: AuthUser) {
     const eff = await this.getEffectiveRole(user);
     if (!eff) {
-      throw new ForbiddenException({ code: 'NOT_VENDOR', message: 'Caller is not a vendor member' });
+      throw new ForbiddenException({
+        code: 'NOT_VENDOR',
+        message: 'Caller is not a vendor member',
+      });
     }
     const members = await this.prisma.vendorMember.findMany({
       where: { vendorId: eff.vendorId, status: { not: VendorMemberStatus.removed } },

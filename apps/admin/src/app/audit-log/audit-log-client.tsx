@@ -60,7 +60,11 @@ export function AuditLogClient() {
       a.remove();
       URL.revokeObjectURL(dl);
     } catch (err) {
-      toast({ title: 'CSV download failed', description: (err as Error).message, variant: 'destructive' });
+      toast({
+        title: 'CSV download failed',
+        description: (err as Error).message,
+        variant: 'destructive',
+      });
     }
   }
 
@@ -186,15 +190,21 @@ export function AuditLogClient() {
               )}
               {(data?.data ?? []).map((row) => (
                 <TableRow key={row.id}>
-                  <TableCell className="text-xs whitespace-nowrap">{formatDateTime(row.createdAt)}</TableCell>
+                  <TableCell className="text-xs whitespace-nowrap">
+                    {formatDateTime(row.createdAt)}
+                  </TableCell>
                   <TableCell className="text-sm">
                     <div>{row.actor?.email ?? row.actorId ?? 'system'}</div>
-                    <div className="text-xs text-muted-foreground capitalize">{row.actor?.role ?? '-'}</div>
+                    <div className="text-xs text-muted-foreground capitalize">
+                      {row.actor?.role ?? '-'}
+                    </div>
                   </TableCell>
                   <TableCell className="font-mono text-xs">{row.action}</TableCell>
                   <TableCell className="text-sm">
                     <div>{row.entityType}</div>
-                    <div className="font-mono text-xs text-muted-foreground">{row.entityId ?? '-'}</div>
+                    <div className="font-mono text-xs text-muted-foreground">
+                      {row.entityId ?? '-'}
+                    </div>
                   </TableCell>
                   <TableCell className="font-mono text-xs">{row.ipAddress ?? '-'}</TableCell>
                   <TableCell>

@@ -53,7 +53,9 @@ describe('OrderSlotsService.validateSlot', () => {
 
   it('rejects when the vendor does not exist', async () => {
     vendorFindUnique.mockResolvedValue(null);
-    await expect(svc.validateSlot('v-1', futureHour(48, 12))).rejects.toBeInstanceOf(BadRequestException);
+    await expect(svc.validateSlot('v-1', futureHour(48, 12))).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
   });
 
   it('rejects an obviously invalid date input', async () => {
@@ -74,9 +76,9 @@ describe('OrderSlotsService.validateSlot', () => {
   it('honours a cart-driven lead override above the vendor default', async () => {
     vendorFindUnique.mockResolvedValue(VENDOR_DEFAULTS);
     const target = futureHour(5, 14);
-    await expect(
-      svc.validateSlot('v-1', target, { requiredLeadHours: 24 }),
-    ).rejects.toMatchObject({ response: { code: 'SLOT_TOO_SOON' } });
+    await expect(svc.validateSlot('v-1', target, { requiredLeadHours: 24 })).rejects.toMatchObject({
+      response: { code: 'SLOT_TOO_SOON' },
+    });
   });
 
   it('rejects a day of the week the vendor is closed', async () => {
@@ -97,7 +99,11 @@ describe('OrderSlotsService.validateSlot', () => {
   });
 
   it('rejects same-day orders when sameDayOrders=false', async () => {
-    vendorFindUnique.mockResolvedValue({ ...VENDOR_DEFAULTS, sameDayOrders: false, prepLeadHours: 0 });
+    vendorFindUnique.mockResolvedValue({
+      ...VENDOR_DEFAULTS,
+      sameDayOrders: false,
+      prepLeadHours: 0,
+    });
     const target = new Date();
     target.setUTCHours(target.getUTCHours() + 1, 0, 0, 0);
     if (target.getUTCHours() < 9) target.setUTCHours(12, 0, 0, 0);
@@ -139,9 +145,9 @@ describe('OrderSlotsService.validateSlot', () => {
       largeOrderTrayThreshold: 20,
     });
     const target = futureHour(24, 12);
-    await expect(
-      svc.validateSlot('v-1', target, { trayCount: 25 }),
-    ).rejects.toMatchObject({ response: { code: 'SLOT_TOO_SOON' } });
+    await expect(svc.validateSlot('v-1', target, { trayCount: 25 })).rejects.toMatchObject({
+      response: { code: 'SLOT_TOO_SOON' },
+    });
   });
 
   it('rejects an instant event booking when the vendor flips on manual quote', async () => {

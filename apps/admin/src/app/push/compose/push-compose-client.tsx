@@ -150,7 +150,9 @@ export function PushComposeClient() {
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-dark">Click-through URL (optional)</label>
+            <label className="mb-1 block text-sm font-medium text-dark">
+              Click-through URL (optional)
+            </label>
             <input
               value={url}
               onChange={(e) => setUrl(e.target.value)}

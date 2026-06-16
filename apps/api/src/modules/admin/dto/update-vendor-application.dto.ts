@@ -39,7 +39,8 @@ export class UpdateVendorApplicationDto {
 
   @ApiPropertyOptional({
     maxLength: 2000,
-    description: 'Required when status="rejected". Surfaced to the applicant in the rejection email.',
+    description:
+      'Required when status="rejected". Surfaced to the applicant in the rejection email.',
   })
   @IsOptional()
   @IsString()

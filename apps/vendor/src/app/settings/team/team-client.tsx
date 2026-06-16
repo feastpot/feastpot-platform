@@ -80,13 +80,33 @@ const ALL_SECTIONS: PermSection[] = [
   { label: 'Dashboard', Icon: LayoutDashboard, path: '/', tone: 'bg-teal-light text-teal-dark' },
   { label: 'Orders', Icon: ClipboardList, path: '/orders', tone: 'bg-teal-light text-teal-dark' },
   { label: 'Menu', Icon: UtensilsCrossed, path: '/menu', tone: 'bg-teal-light text-teal-dark' },
-  { label: 'Availability', Icon: Calendar, path: '/availability', tone: 'bg-teal-light text-teal-dark' },
+  {
+    label: 'Availability',
+    Icon: Calendar,
+    path: '/availability',
+    tone: 'bg-teal-light text-teal-dark',
+  },
   { label: 'Analytics', Icon: BarChart3, path: '/analytics', tone: 'bg-amber-100 text-amber-800' },
   { label: 'Payouts', Icon: PoundSterling, path: '/payouts', tone: 'bg-amber-100 text-amber-800' },
-  { label: 'Compliance', Icon: FileCheck2, path: '/compliance', tone: 'bg-amber-100 text-amber-800' },
-  { label: 'Profile', Icon: UserCircle2, path: '/settings/profile', tone: 'bg-surface text-dark border border-border' },
+  {
+    label: 'Compliance',
+    Icon: FileCheck2,
+    path: '/compliance',
+    tone: 'bg-amber-100 text-amber-800',
+  },
+  {
+    label: 'Profile',
+    Icon: UserCircle2,
+    path: '/settings/profile',
+    tone: 'bg-surface text-dark border border-border',
+  },
   { label: 'Team', Icon: UsersRound, path: '/settings/team', tone: 'bg-teal-light text-teal-dark' },
-  { label: 'Security', Icon: ShieldCheck, path: '/settings/security', tone: 'bg-surface text-dark border border-border' },
+  {
+    label: 'Security',
+    Icon: ShieldCheck,
+    path: '/settings/security',
+    tone: 'bg-surface text-dark border border-border',
+  },
 ];
 
 /**
@@ -382,7 +402,12 @@ function MemberRow({
         {perms.map((p) => {
           if (p === 'Manage team') {
             return (
-              <PermPill key={p} Icon={Users} label="Manage team" tone="bg-teal-light text-teal-dark" />
+              <PermPill
+                key={p}
+                Icon={Users}
+                label="Manage team"
+                tone="bg-teal-light text-teal-dark"
+              />
             );
           }
           if (p === '/') {
@@ -397,9 +422,7 @@ function MemberRow({
           }
           const section = ALL_SECTIONS.find((s) => s.path === p);
           if (!section) return null;
-          return (
-            <PermPill key={p} Icon={section.Icon} label={section.label} tone={section.tone} />
-          );
+          return <PermPill key={p} Icon={section.Icon} label={section.label} tone={section.tone} />;
         })}
       </div>
 

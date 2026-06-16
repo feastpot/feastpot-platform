@@ -28,7 +28,9 @@ export function EnquiryDetailClient({ enquiryId }: EnquiryDetailClientProps) {
   if (isLoading) {
     return (
       <Card>
-        <CardContent className="py-10 text-center text-sm text-muted-foreground">Loading…</CardContent>
+        <CardContent className="py-10 text-center text-sm text-muted-foreground">
+          Loading…
+        </CardContent>
       </Card>
     );
   }
@@ -44,7 +46,9 @@ export function EnquiryDetailClient({ enquiryId }: EnquiryDetailClientProps) {
   if (!enquiry) {
     return (
       <Card>
-        <CardContent className="py-10 text-center text-sm text-muted-foreground">Enquiry not found.</CardContent>
+        <CardContent className="py-10 text-center text-sm text-muted-foreground">
+          Enquiry not found.
+        </CardContent>
       </Card>
     );
   }
@@ -96,7 +100,11 @@ export function EnquiryDetailClient({ enquiryId }: EnquiryDetailClientProps) {
         />
         <Field
           label="Budget"
-          value={enquiry.budgetPence !== null ? `${formatPence(enquiry.budgetPence)} total` : 'Not specified'}
+          value={
+            enquiry.budgetPence !== null
+              ? `${formatPence(enquiry.budgetPence)} total`
+              : 'Not specified'
+          }
         />
         <Field
           label="Cuisines"
@@ -176,7 +184,7 @@ export function EnquiryDetailClient({ enquiryId }: EnquiryDetailClientProps) {
       </Card>
 
       {/* Customer requirements / notes - nullable field on the schema. */}
-      {('notes' in enquiry && (enquiry as { notes?: string | null }).notes) ? (
+      {'notes' in enquiry && (enquiry as { notes?: string | null }).notes ? (
         <Card className="mb-6 border-amber-200 bg-amber-50/40">
           <CardContent className="py-4">
             <p className="mb-2 text-xs font-medium uppercase tracking-wide text-amber-900">

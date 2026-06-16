@@ -8,17 +8,18 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { OrderStatus, UserRole, VendorStatus } from '@prisma/client';
+import type { VendorMemberRole } from '@prisma/client';
 
 import type { AuthUser } from '../../auth/types';
 import { RedisCacheService } from '../../common/cache/redis-cache.service';
 import { getServiceFeeBps } from '../../common/config/service-fee';
+import { PrismaService } from '../../prisma/prisma.service';
+import { StripeService } from '../../stripe/stripe.service';
+import { SupabaseStorageService } from '../catalogue/supabase-storage.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { EmailProvider } from '../notifications/providers/email.provider';
 import { vendorApplicationAcknowledgedTemplate } from '../notifications/templates/vendor-application-acknowledged.template';
 import { vendorApplicationReceivedTemplate } from '../notifications/templates/vendor-application-received.template';
-import { PrismaService } from '../../prisma/prisma.service';
-import { StripeService } from '../../stripe/stripe.service';
-import { SupabaseStorageService } from '../catalogue/supabase-storage.service';
 import {
   VENDOR_AVAILABILITY_ROLES,
   VENDOR_PAYOUT_ROLES,
@@ -26,7 +27,6 @@ import {
   VENDOR_READ_ROLES,
   VendorMembersService,
 } from '../vendor-members/vendor-members.service';
-import type { VendorMemberRole } from '@prisma/client';
 
 import { AddBlackoutDto } from './dto/add-blackout.dto';
 import { CreateVendorDto } from './dto/create-vendor.dto';
@@ -44,8 +44,8 @@ import {
   VendorAnalyticsResponseDto,
   WeeklyRevenueBucketDto,
 } from './dto/vendor-analytics.dto';
-import { VendorStatsResponseDto } from './dto/vendor-stats.dto';
 import { VendorDashboardResponseDto } from './dto/vendor-dashboard.dto';
+import { VendorStatsResponseDto } from './dto/vendor-stats.dto';
 import { VendorRepository, type DecodedCursor, type SearchedVendorRow } from './vendors.repository';
 
 const REVENUE_STATUSES_LIST: OrderStatus[] = [
@@ -160,10 +160,7 @@ interface PostcodeLatLng {
  */
 const GEOCODE_CACHE = new Map<string, PostcodeLatLng>();
 
-async function fetchPostcodesIo(
-  path: string,
-  logger?: Logger,
-): Promise<PostcodeLatLng> {
+async function fetchPostcodesIo(path: string, logger?: Logger): Promise<PostcodeLatLng> {
   try {
     const res = await fetch(`https://api.postcodes.io${path}`, {
       signal: AbortSignal.timeout(2_500),
@@ -330,8 +327,7 @@ export class VendorsService {
     // logger; persistence already succeeded so the lead is safe.
     const adminEmail =
       this.config.get<string>('VENDOR_APPLICATIONS_ADMIN_EMAIL') ?? 'soul@feastpot.co.uk';
-    const adminBase =
-      this.config.get<string>('ADMIN_URL') ?? 'https://admin.feastpot.co.uk';
+    const adminBase = this.config.get<string>('ADMIN_URL') ?? 'https://admin.feastpot.co.uk';
     const firstName = dto.fullName.trim().split(/\s+/)[0] ?? 'there';
 
     const adminMsg = vendorApplicationReceivedTemplate({
@@ -468,7 +464,11 @@ export class VendorsService {
     for (let i = 0; i < 8; i += 1) {
       const ws = new Date(eightWeekStart);
       ws.setUTCDate(ws.getUTCDate() + i * 7);
-      weeklyMap.set(ws.toISOString(), { weekStart: ws.toISOString(), ordersCount: 0, revenuePence: 0 });
+      weeklyMap.set(ws.toISOString(), {
+        weekStart: ws.toISOString(),
+        ordersCount: 0,
+        revenuePence: 0,
+      });
     }
     for (const o of weeklyOrders) {
       const key = utcWeekStart(o.createdAt).toISOString();
@@ -580,9 +580,15 @@ export class VendorsService {
         types: dto.types,
         ...(dto.localRadiusMiles !== undefined ? { localRadiusMiles: dto.localRadiusMiles } : {}),
         ...(dto.localFeePence !== undefined ? { localFeePence: dto.localFeePence } : {}),
-        ...(dto.collectionAddress !== undefined ? { collectionAddress: dto.collectionAddress } : {}),
-        ...(dto.nationwideEnabled !== undefined ? { nationwideEnabled: dto.nationwideEnabled } : {}),
-        ...(dto.nationwideFeePence !== undefined ? { nationwideFeePence: dto.nationwideFeePence } : {}),
+        ...(dto.collectionAddress !== undefined
+          ? { collectionAddress: dto.collectionAddress }
+          : {}),
+        ...(dto.nationwideEnabled !== undefined
+          ? { nationwideEnabled: dto.nationwideEnabled }
+          : {}),
+        ...(dto.nationwideFeePence !== undefined
+          ? { nationwideFeePence: dto.nationwideFeePence }
+          : {}),
         ...(dto.minOrderPence !== undefined ? { minOrderPence: dto.minOrderPence } : {}),
         ...(dto.freeDeliveryOverPence !== undefined
           ? { freeDeliveryOverPence: dto.freeDeliveryOverPence }
@@ -628,7 +634,10 @@ export class VendorsService {
       select: { email: true },
     });
     if (!user?.email) {
-      throw new BadRequestException({ code: 'USER_EMAIL_MISSING', message: 'User has no email on file' });
+      throw new BadRequestException({
+        code: 'USER_EMAIL_MISSING',
+        message: 'User has no email on file',
+      });
     }
 
     let accountId = vendor.stripeAccountId;
@@ -658,8 +667,7 @@ export class VendorsService {
       // tracked in the summary).
       try {
         const account = await this.stripe.retrieveAccount(accountId);
-        const enabled =
-          (account.payouts_enabled ?? false) && (account.charges_enabled ?? false);
+        const enabled = (account.payouts_enabled ?? false) && (account.charges_enabled ?? false);
         if (enabled !== vendor.payoutsEnabled) {
           await this.prisma.vendor.update({
             where: { id: vendor.id },
@@ -677,8 +685,7 @@ export class VendorsService {
     // Use the vendor portal URL the request came from. We can't rely on the
     // Origin header here (this runs server-side); fall back to a configured
     // env var, then a sensible localhost default for dev.
-    const portalBase =
-      this.config.get<string>('VENDOR_PORTAL_URL') ?? 'http://localhost:3002';
+    const portalBase = this.config.get<string>('VENDOR_PORTAL_URL') ?? 'http://localhost:3002';
     try {
       const link = await this.stripe.createOnboardingLink({
         accountId,
@@ -709,7 +716,9 @@ export class VendorsService {
     const vendorId = vendor.id;
 
     const now = new Date();
-    const todayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    const todayStart = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+    );
     // ISO week starts Monday. getUTCDay(): Sun=0..Sat=6 → shift to Mon=0..Sun=6.
     const dow = (now.getUTCDay() + 6) % 7;
     const weekStart = new Date(todayStart.getTime() - dow * 24 * 60 * 60 * 1000);
@@ -769,7 +778,9 @@ export class VendorsService {
     const vendorId = vendor.id;
 
     const now = new Date();
-    const todayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    const todayStart = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+    );
     const tomorrowStart = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
     // Upcoming window = 7 full days starting tomorrow (excludes today, which
     // is rendered in ordersDueToday). End-bound is exclusive.
@@ -889,7 +900,10 @@ export class VendorsService {
         if (!m.allergens || m.allergens.length === 0) issues.push('no_allergens');
         return issues.length ? { id: m.id, name: m.name, issues } : null;
       })
-      .filter((x): x is { id: string; name: string; issues: Array<'no_image' | 'no_allergens'> } => x !== null);
+      .filter(
+        (x): x is { id: string; name: string; issues: Array<'no_image' | 'no_allergens'> } =>
+          x !== null,
+      );
 
     const missingImages = warningItems.filter((i) => i.issues.includes('no_image')).length;
     const missingAllergens = warningItems.filter((i) => i.issues.includes('no_allergens')).length;
@@ -999,13 +1013,13 @@ export class VendorsService {
 
   async findById(id: string) {
     const cacheKey = `vendors:profile:${id}`;
-    const cached = await this.cache.get<Awaited<ReturnType<VendorRepository['findById']>>>(
-      cacheKey,
-    );
+    const cached =
+      await this.cache.get<Awaited<ReturnType<VendorRepository['findById']>>>(cacheKey);
     if (cached) return cached;
 
     const vendor = await this.repo.findById(id);
-    if (!vendor) throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'Vendor not found' });
+    if (!vendor)
+      throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'Vendor not found' });
     await this.cache.set(cacheKey, vendor, VendorsService.PROFILE_CACHE_TTL);
     return vendor;
   }
@@ -1044,9 +1058,11 @@ export class VendorsService {
     const trimmed = postcode?.trim();
     if (!trimmed) return { ...vendor, platformServiceFeeBps };
     const dc = vendor.deliveryConfig;
-    if (!dc || dc.latitude == null || dc.longitude == null) return { ...vendor, platformServiceFeeBps };
+    if (!dc || dc.latitude == null || dc.longitude == null)
+      return { ...vendor, platformServiceFeeBps };
     const coords = await geocodePostcode(trimmed, this.logger);
-    if (coords.latitude == null || coords.longitude == null) return { ...vendor, platformServiceFeeBps };
+    if (coords.latitude == null || coords.longitude == null)
+      return { ...vendor, platformServiceFeeBps };
     const distanceKm = haversineKm(coords.latitude, coords.longitude, dc.latitude, dc.longitude);
     return { ...vendor, platformServiceFeeBps, distanceKm };
   }
@@ -1124,7 +1140,8 @@ export class VendorsService {
 
   async update(vendorId: string, user: AuthUser, dto: UpdateVendorDto) {
     const vendor = await this.repo.findById(vendorId);
-    if (!vendor) throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'Vendor not found' });
+    if (!vendor)
+      throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'Vendor not found' });
     if (user.role !== UserRole.admin) {
       const allowed = await this.members.canActOnVendor(
         user.id,
@@ -1202,9 +1219,7 @@ export class VendorsService {
       }
     }
 
-    const updated = Object.keys(data).length
-      ? await this.repo.update(vendorId, data)
-      : vendor;
+    const updated = Object.keys(data).length ? await this.repo.update(vendorId, data) : vendor;
 
     if (dto.minOrderPence !== undefined) {
       await this.repo.upsertDeliveryConfigMinOrder(vendorId, dto.minOrderPence);
@@ -1232,12 +1247,16 @@ export class VendorsService {
     file: { originalname: string; mimetype: string; size: number; buffer: Buffer },
   ) {
     const vendor = await this.repo.findById(vendorId);
-    if (!vendor) throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'Vendor not found' });
+    if (!vendor)
+      throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'Vendor not found' });
     if (vendor.userId !== user.id && user.role !== UserRole.admin) {
       throw new ForbiddenException({ code: 'FORBIDDEN', message: 'Cannot edit another vendor' });
     }
     const uploaded = await this.storage.uploadVendorImage({ vendorId, kind, file });
-    await this.repo.update(vendorId, kind === 'logo' ? { logoUrl: uploaded.publicUrl } : { coverImageUrl: uploaded.publicUrl });
+    await this.repo.update(
+      vendorId,
+      kind === 'logo' ? { logoUrl: uploaded.publicUrl } : { coverImageUrl: uploaded.publicUrl },
+    );
     await this.cache.del(`vendors:profile:${vendorId}`);
     await this.cache.delByPattern('vendors:search:*');
     return uploaded;
@@ -1245,7 +1264,8 @@ export class VendorsService {
 
   async updateStatus(vendorId: string, dto: UpdateVendorStatusDto, actor: AuthUser) {
     const vendor = await this.repo.findById(vendorId);
-    if (!vendor) throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'Vendor not found' });
+    if (!vendor)
+      throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'Vendor not found' });
 
     if (vendor.status === dto.status) {
       throw new BadRequestException({
@@ -1387,15 +1407,13 @@ export class VendorsService {
       businessName: v.businessName,
       status: v.status,
       hasDeliveryConfig: v.deliveryConfig !== null,
-      hasCoordinates:
-        v.deliveryConfig?.latitude != null && v.deliveryConfig?.longitude != null,
+      hasCoordinates: v.deliveryConfig?.latitude != null && v.deliveryConfig?.longitude != null,
       deliveryRadiusMiles: v.deliveryConfig?.localRadiusMiles ?? null,
     }));
 
     const postcodeTest = postcode ? await this.runPostcodeTest(postcode) : null;
 
-    const nextPublicApiUrl =
-      process.env.NEXT_PUBLIC_API_URL ?? process.env.API_PUBLIC_URL ?? null;
+    const nextPublicApiUrl = process.env.NEXT_PUBLIC_API_URL ?? process.env.API_PUBLIC_URL ?? null;
 
     return {
       liveVendorCount,
@@ -1496,7 +1514,9 @@ export class VendorsService {
       throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'Vendor not found' });
     }
     const today = new Date();
-    const todayStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+    const todayStart = new Date(
+      Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()),
+    );
     const blackoutRows = await this.prisma.blackoutDate.findMany({
       where: { vendorId, date: { gte: todayStart } },
       orderBy: { date: 'asc' },

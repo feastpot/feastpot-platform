@@ -153,16 +153,14 @@ export function PostcodeHero() {
             id="hero-headline"
             className="mt-6 font-display text-[40px] font-black leading-[1.04] tracking-tight text-charcoal sm:text-[48px] lg:text-[60px]"
           >
-            The best of{' '}
-            <span className="text-brand">African</span> &amp;{' '}
+            The best of <span className="text-brand">African</span> &amp;{' '}
             <span className="text-scotch">Caribbean</span> food,
             <br className="hidden md:block" /> delivered to you
           </h1>
 
           <p className="mt-5 max-w-xl text-[15px] font-medium leading-relaxed text-charcoal-mid lg:text-base">
-            Party trays, family pots, weekly meals and event catering from
-            trusted local cooks. Enter your postcode to see what delivers to
-            your area.
+            Party trays, family pots, weekly meals and event catering from trusted local cooks.
+            Enter your postcode to see what delivers to your area.
           </p>
 
           {showResumeBanner ? (
@@ -275,8 +273,7 @@ export function PostcodeHero() {
 
           <p className="mt-5 flex items-center gap-2 text-[12px] font-medium text-charcoal-mid">
             <ShieldCheck className="h-4 w-4 text-brand" aria-hidden />
-            Trusted by London communities · Secure checkout · No guessing who
-            delivers
+            Trusted by London communities · Secure checkout · No guessing who delivers
           </p>
         </div>
 
@@ -302,7 +299,6 @@ export function PostcodeHero() {
           </div>
         </div>
       </div>
-
     </section>
   );
 }
@@ -328,4 +324,3 @@ function EyebrowTag({
     </span>
   );
 }
-

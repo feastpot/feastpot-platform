@@ -313,27 +313,27 @@ model User {
   createdAt     DateTime   @default(now()) @map("created_at") @db.Timestamptz
   updatedAt     DateTime   @updatedAt @map("updated_at") @db.Timestamptz
 
-  sessions       Session[]
-  addresses      Address[]
-  notifications  Notification[]
-  notificationPreferences NotificationPreference[]
-  inboxNotifications InboxNotification[]
-  vendorMemberships  VendorMember[]    @relation("VendorMemberUser")
-  vendorInvitesSent  VendorMember[]    @relation("VendorMemberInviter")
-  vendor         Vendor?
-  orders         Order[]
-  disputes       Dispute[]
-  payments       Payment[]
-  reviews        Review[]
-  loyaltyPoints  LoyaltyPoint[]
-  referralsMade  Referral[]      @relation("ReferralReferrer")
-  referralsGot   Referral[]      @relation("ReferralReferee")
-  auditLogs      AuditLog[]
-  eventEnquiries EventEnquiry[]
-  pushSubscriptions PushSubscription[]
-  createdDiscountCodes DiscountCode[] @relation("CreatedDiscountCodes")
-  reviewedVendorApplications VendorApplication[] @relation("VendorApplicationReviewer")
-  mfaRecoveryCodes MfaRecoveryCode[]
+  sessions                   Session[]
+  addresses                  Address[]
+  notifications              Notification[]
+  notificationPreferences    NotificationPreference[]
+  inboxNotifications         InboxNotification[]
+  vendorMemberships          VendorMember[]           @relation("VendorMemberUser")
+  vendorInvitesSent          VendorMember[]           @relation("VendorMemberInviter")
+  vendor                     Vendor?
+  orders                     Order[]
+  disputes                   Dispute[]
+  payments                   Payment[]
+  reviews                    Review[]
+  loyaltyPoints              LoyaltyPoint[]
+  referralsMade              Referral[]               @relation("ReferralReferrer")
+  referralsGot               Referral[]               @relation("ReferralReferee")
+  auditLogs                  AuditLog[]
+  eventEnquiries             EventEnquiry[]
+  pushSubscriptions          PushSubscription[]
+  createdDiscountCodes       DiscountCode[]           @relation("CreatedDiscountCodes")
+  reviewedVendorApplications VendorApplication[]      @relation("VendorApplicationReviewer")
+  mfaRecoveryCodes           MfaRecoveryCode[]
 
   @@index([role])
   @@index([status])
@@ -362,14 +362,14 @@ model MfaRecoveryCode {
 }
 
 model Session {
-  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId       String   @map("user_id") @db.Uuid
-  refreshToken String   @unique @map("refresh_token") @db.VarChar(255)
-  userAgent    String?  @map("user_agent") @db.VarChar(500)
-  ipAddress    String?  @map("ip_address") @db.VarChar(64)
-  expiresAt    DateTime @map("expires_at") @db.Timestamptz
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String    @map("user_id") @db.Uuid
+  refreshToken String    @unique @map("refresh_token") @db.VarChar(255)
+  userAgent    String?   @map("user_agent") @db.VarChar(500)
+  ipAddress    String?   @map("ip_address") @db.VarChar(64)
+  expiresAt    DateTime  @map("expires_at") @db.Timestamptz
   revokedAt    DateTime? @map("revoked_at") @db.Timestamptz
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -379,19 +379,19 @@ model Session {
 }
 
 model Address {
-  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId     String   @map("user_id") @db.Uuid
-  label      String?  @db.VarChar(100)
-  line1      String   @db.VarChar(255)
-  line2      String?  @db.VarChar(255)
-  city       String   @db.VarChar(100)
-  postcode   String   @db.VarChar(16)
-  country    String   @default("GB") @db.VarChar(2)
-  latitude   Float?
-  longitude  Float?
-  isDefault  Boolean  @default(false) @map("is_default")
-  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  label     String?  @db.VarChar(100)
+  line1     String   @db.VarChar(255)
+  line2     String?  @db.VarChar(255)
+  city      String   @db.VarChar(100)
+  postcode  String   @db.VarChar(16)
+  country   String   @default("GB") @db.VarChar(2)
+  latitude  Float?
+  longitude Float?
+  isDefault Boolean  @default(false) @map("is_default")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
   user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   orders Order[]
@@ -442,41 +442,41 @@ model Notification {
 /// don't have accounts yet. Admin review converts an approved application
 /// into a full Vendor + User pair.
 model VendorApplication {
-  id               String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  fullName         String                  @map("full_name") @db.VarChar(255)
-  kitchenName      String                  @map("kitchen_name") @db.VarChar(255)
-  email            String                  @db.VarChar(255)
-  phone            String                  @db.VarChar(40)
-  postcode         String                  @db.VarChar(16)
-  cuisineType      String                  @map("cuisine_type") @db.VarChar(64)
-  kitchenType      String                  @map("kitchen_type") @db.VarChar(40)
-  hasFsaRegistration Boolean               @map("has_fsa_registration")
-  foodStory        String
-  instagram        String?                 @db.VarChar(255)
-  marketingConsent Boolean                 @default(true) @map("marketing_consent")
-  status           VendorApplicationStatus @default(pending)
-  reviewedAt       DateTime?               @map("reviewed_at") @db.Timestamptz
-  reviewedById     String?                 @map("reviewed_by_id") @db.Uuid
+  id                   String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fullName             String                  @map("full_name") @db.VarChar(255)
+  kitchenName          String                  @map("kitchen_name") @db.VarChar(255)
+  email                String                  @db.VarChar(255)
+  phone                String                  @db.VarChar(40)
+  postcode             String                  @db.VarChar(16)
+  cuisineType          String                  @map("cuisine_type") @db.VarChar(64)
+  kitchenType          String                  @map("kitchen_type") @db.VarChar(40)
+  hasFsaRegistration   Boolean                 @map("has_fsa_registration")
+  foodStory            String
+  instagram            String?                 @db.VarChar(255)
+  marketingConsent     Boolean                 @default(true) @map("marketing_consent")
+  status               VendorApplicationStatus @default(pending)
+  reviewedAt           DateTime?               @map("reviewed_at") @db.Timestamptz
+  reviewedById         String?                 @map("reviewed_by_id") @db.Uuid
   // adminNotes: free-form internal notes (visible to admins, never to the
   // applicant). Also doubles as the body of an "information_requested"
   // message - the email template surfaces it to the applicant verbatim.
-  adminNotes       String?                 @map("admin_notes")
+  adminNotes           String?                 @map("admin_notes")
   // rejectionReason: surfaced to the applicant in the rejection email.
   // Separate from adminNotes so we never leak internal triage commentary.
-  rejectionReason  String?                 @map("rejection_reason")
+  rejectionReason      String?                 @map("rejection_reason")
   // Populated by the approval flow when we provision the real Vendor row.
   // ON DELETE SET NULL so removing a vendor (rare, GDPR) doesn't erase the
   // permanent application record.
-  vendorId         String?                 @unique @map("vendor_id") @db.Uuid
+  vendorId             String?                 @unique @map("vendor_id") @db.Uuid
   // Vendor T&Cs acceptance audit. Nullable because pre-existing
   // applications were captured before the explicit-consent contract was
   // introduced; new submissions always populate both fields. Version is
   // a free-form tag (e.g. "2026-05") so legal can bump it without a
   // schema migration when terms change.
-  acceptedTermsAt       DateTime? @map("accepted_terms_at") @db.Timestamptz
-  acceptedTermsVersion  String?   @map("accepted_terms_version") @db.VarChar(32)
-  createdAt        DateTime                @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt        DateTime                @updatedAt @map("updated_at") @db.Timestamptz
+  acceptedTermsAt      DateTime?               @map("accepted_terms_at") @db.Timestamptz
+  acceptedTermsVersion String?                 @map("accepted_terms_version") @db.VarChar(32)
+  createdAt            DateTime                @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime                @updatedAt @map("updated_at") @db.Timestamptz
 
   reviewedBy User?   @relation("VendorApplicationReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
   vendor     Vendor? @relation("VendorApplicationVendor", fields: [vendorId], references: [id], onDelete: SetNull)
@@ -510,22 +510,22 @@ model SearchLog {
 }
 
 model Vendor {
-  id              String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId          String       @unique @map("user_id") @db.Uuid
-  businessName    String       @map("business_name") @db.VarChar(255)
-  slug            String       @unique @db.VarChar(255)
-  description     String?
-  cuisines        String[]     @db.VarChar(64)
-  status          VendorStatus @default(pending)
-  rating          Float        @default(0)
-  ratingCount     Int          @default(0) @map("rating_count")
-  reorderRatePct  Float        @default(0) @map("reorder_rate_pct")
-  communityFavourite Boolean   @default(false) @map("community_favourite")
-  commissionBps   Int          @default(1200) @map("commission_bps")
-  stripeAccountId String?      @map("stripe_account_id") @db.VarChar(100)
-  payoutsEnabled  Boolean      @default(false) @map("payouts_enabled")
-  approvedAt      DateTime?    @map("approved_at") @db.Timestamptz
-  suspendedAt     DateTime?    @map("suspended_at") @db.Timestamptz
+  id                 String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId             String       @unique @map("user_id") @db.Uuid
+  businessName       String       @map("business_name") @db.VarChar(255)
+  slug               String       @unique @db.VarChar(255)
+  description        String?
+  cuisines           String[]     @db.VarChar(64)
+  status             VendorStatus @default(pending)
+  rating             Float        @default(0)
+  ratingCount        Int          @default(0) @map("rating_count")
+  reorderRatePct     Float        @default(0) @map("reorder_rate_pct")
+  communityFavourite Boolean      @default(false) @map("community_favourite")
+  commissionBps      Int          @default(1200) @map("commission_bps")
+  stripeAccountId    String?      @map("stripe_account_id") @db.VarChar(100)
+  payoutsEnabled     Boolean      @default(false) @map("payouts_enabled")
+  approvedAt         DateTime?    @map("approved_at") @db.Timestamptz
+  suspendedAt        DateTime?    @map("suspended_at") @db.Timestamptz
 
   // Availability & scheduling (T002).
   // openingDays uses 0=Sun … 6=Sat to match JavaScript Date#getDay(),
@@ -534,7 +534,7 @@ model Vendor {
   // the pre-T002 hardcoded OrderSlotsService defaults so unmigrated
   // vendors continue to work.
   openingDays              Int[]   @default([0, 1, 2, 3, 4, 5, 6]) @map("opening_days")
-  slotOpenHour             Int     @default(9)  @map("slot_open_hour")
+  slotOpenHour             Int     @default(9) @map("slot_open_hour")
   slotCloseHour            Int     @default(21) @map("slot_close_hour")
   prepLeadHours            Int     @default(24) @map("prep_lead_hours")
   maxOrdersPerDay          Int?    @map("max_orders_per_day")
@@ -557,31 +557,31 @@ model Vendor {
   // - socialLinks: JSON blob keyed by network (instagram / tiktok / web /
   //   facebook / youtube). JSON keeps the schema flexible while the
   //   editor settles on which networks matter.
-  logoUrl         String?  @map("logo_url")
-  coverImageUrl   String?  @map("cover_image_url")
-  specialities    String[] @default([]) @db.VarChar(64)
-  vendorStory     String?  @map("vendor_story")
-  featuredDishes  String[] @default([]) @map("featured_dishes") @db.VarChar(120)
-  socialLinks     Json?    @map("social_links")
+  logoUrl        String?  @map("logo_url")
+  coverImageUrl  String?  @map("cover_image_url")
+  specialities   String[] @default([]) @db.VarChar(64)
+  vendorStory    String?  @map("vendor_story")
+  featuredDishes String[] @default([]) @map("featured_dishes") @db.VarChar(120)
+  socialLinks    Json?    @map("social_links")
 
-  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt       DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
-  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  menus          Menu[]
-  menuItems      MenuItem[]
-  deliveryConfig DeliveryConfig?
-  documents      VendorDocument[]
-  blackoutDates  BlackoutDate[]
-  orders         Order[]
-  payouts        Payout[]
-  reviews        Review[]
-  eventQuotes    EventQuote[]
-  selectedForEnquiries EventEnquiry[] @relation("EventEnquirySelectedVendor")
-  discountCodes  DiscountCode[]
-  amendments     OrderAmendment[]
-  application    VendorApplication? @relation("VendorApplicationVendor")
-  members        VendorMember[]
+  user                 User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  menus                Menu[]
+  menuItems            MenuItem[]
+  deliveryConfig       DeliveryConfig?
+  documents            VendorDocument[]
+  blackoutDates        BlackoutDate[]
+  orders               Order[]
+  payouts              Payout[]
+  reviews              Review[]
+  eventQuotes          EventQuote[]
+  selectedForEnquiries EventEnquiry[]     @relation("EventEnquirySelectedVendor")
+  discountCodes        DiscountCode[]
+  amendments           OrderAmendment[]
+  application          VendorApplication? @relation("VendorApplicationVendor")
+  members              VendorMember[]
 
   @@index([status])
   @@index([slug])
@@ -659,21 +659,21 @@ model MenuItem {
 }
 
 model DeliveryConfig {
-  id                   String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  vendorId             String         @unique @map("vendor_id") @db.Uuid
-  types                DeliveryType[]
-  localRadiusMiles     Int            @default(5) @map("local_radius_miles")
-  localFeePence        Int            @default(0) @map("local_fee_pence")
-  collectionAddress    String?        @map("collection_address") @db.VarChar(500)
-  nationwideEnabled    Boolean        @default(false) @map("nationwide_enabled")
-  nationwideFeePence   Int            @default(0) @map("nationwide_fee_pence")
-  minOrderPence        Int            @default(0) @map("min_order_pence")
-  freeDeliveryOverPence Int?          @map("free_delivery_over_pence")
-  postcodes            String[]       @db.VarChar(16)
-  latitude             Float?
-  longitude            Float?
-  createdAt            DateTime       @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt            DateTime       @updatedAt @map("updated_at") @db.Timestamptz
+  id                    String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  vendorId              String         @unique @map("vendor_id") @db.Uuid
+  types                 DeliveryType[]
+  localRadiusMiles      Int            @default(5) @map("local_radius_miles")
+  localFeePence         Int            @default(0) @map("local_fee_pence")
+  collectionAddress     String?        @map("collection_address") @db.VarChar(500)
+  nationwideEnabled     Boolean        @default(false) @map("nationwide_enabled")
+  nationwideFeePence    Int            @default(0) @map("nationwide_fee_pence")
+  minOrderPence         Int            @default(0) @map("min_order_pence")
+  freeDeliveryOverPence Int?           @map("free_delivery_over_pence")
+  postcodes             String[]       @db.VarChar(16)
+  latitude              Float?
+  longitude             Float?
+  createdAt             DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime       @updatedAt @map("updated_at") @db.Timestamptz
 
   vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
 
@@ -682,18 +682,18 @@ model DeliveryConfig {
 }
 
 model VendorDocument {
-  id          String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  vendorId    String         @map("vendor_id") @db.Uuid
-  type        DocumentType
-  status      DocumentStatus @default(pending)
-  fileUrl     String         @map("file_url") @db.VarChar(500)
-  fileName    String?        @map("file_name") @db.VarChar(255)
-  expiresAt   DateTime?      @map("expires_at") @db.Timestamptz
-  reviewedBy  String?        @map("reviewed_by") @db.Uuid
-  reviewedAt  DateTime?      @map("reviewed_at") @db.Timestamptz
-  rejectReason String?       @map("reject_reason")
-  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt   DateTime       @updatedAt @map("updated_at") @db.Timestamptz
+  id           String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  vendorId     String         @map("vendor_id") @db.Uuid
+  type         DocumentType
+  status       DocumentStatus @default(pending)
+  fileUrl      String         @map("file_url") @db.VarChar(500)
+  fileName     String?        @map("file_name") @db.VarChar(255)
+  expiresAt    DateTime?      @map("expires_at") @db.Timestamptz
+  reviewedBy   String?        @map("reviewed_by") @db.Uuid
+  reviewedAt   DateTime?      @map("reviewed_at") @db.Timestamptz
+  rejectReason String?        @map("reject_reason")
+  createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime       @updatedAt @map("updated_at") @db.Timestamptz
 
   vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
 
@@ -724,47 +724,47 @@ model AuditLog {
 }
 
 model Order {
-  id                String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  orderNumber       String      @unique @map("order_number") @db.VarChar(32)
-  customerId        String      @map("customer_id") @db.Uuid
-  vendorId          String      @map("vendor_id") @db.Uuid
-  addressId         String?     @map("address_id") @db.Uuid
-  type              OrderType   @default(standard)
-  status            OrderStatus @default(pending)
-  deliveryType      DeliveryType @map("delivery_type")
-  subtotalPence     Int         @map("subtotal_pence")
-  deliveryFeePence  Int         @default(0) @map("delivery_fee_pence")
-  serviceFeePence   Int         @default(0) @map("service_fee_pence")
-  discountPence     Int         @default(0) @map("discount_pence")
-  totalPence        Int         @map("total_pence")
-  commissionPence   Int         @default(0) @map("commission_pence")
-  vendorPayoutPence Int         @default(0) @map("vendor_payout_pence")
-  notes             String?
-  scheduledFor      DateTime?   @map("scheduled_for") @db.Timestamptz
-  acceptedAt        DateTime?   @map("accepted_at") @db.Timestamptz
-  dispatchedAt      DateTime?   @map("dispatched_at") @db.Timestamptz
-  deliveredAt       DateTime?   @map("delivered_at") @db.Timestamptz
-  cancelledAt       DateTime?   @map("cancelled_at") @db.Timestamptz
-  cancellationReason String?    @map("cancellation_reason")
-  cancelledBy       String?     @map("cancelled_by") @db.VarChar(32)
-  discountCodeId    String?     @map("discount_code_id") @db.Uuid
-  discountAppliedAt DateTime?   @map("discount_applied_at") @db.Timestamptz(6)
-  etaMinutes        Int?        @map("eta_minutes")
-  etaAt             DateTime?   @map("eta_at") @db.Timestamptz
-  createdAt         DateTime    @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt         DateTime    @updatedAt @map("updated_at") @db.Timestamptz
+  id                 String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderNumber        String       @unique @map("order_number") @db.VarChar(32)
+  customerId         String       @map("customer_id") @db.Uuid
+  vendorId           String       @map("vendor_id") @db.Uuid
+  addressId          String?      @map("address_id") @db.Uuid
+  type               OrderType    @default(standard)
+  status             OrderStatus  @default(pending)
+  deliveryType       DeliveryType @map("delivery_type")
+  subtotalPence      Int          @map("subtotal_pence")
+  deliveryFeePence   Int          @default(0) @map("delivery_fee_pence")
+  serviceFeePence    Int          @default(0) @map("service_fee_pence")
+  discountPence      Int          @default(0) @map("discount_pence")
+  totalPence         Int          @map("total_pence")
+  commissionPence    Int          @default(0) @map("commission_pence")
+  vendorPayoutPence  Int          @default(0) @map("vendor_payout_pence")
+  notes              String?
+  scheduledFor       DateTime?    @map("scheduled_for") @db.Timestamptz
+  acceptedAt         DateTime?    @map("accepted_at") @db.Timestamptz
+  dispatchedAt       DateTime?    @map("dispatched_at") @db.Timestamptz
+  deliveredAt        DateTime?    @map("delivered_at") @db.Timestamptz
+  cancelledAt        DateTime?    @map("cancelled_at") @db.Timestamptz
+  cancellationReason String?      @map("cancellation_reason")
+  cancelledBy        String?      @map("cancelled_by") @db.VarChar(32)
+  discountCodeId     String?      @map("discount_code_id") @db.Uuid
+  discountAppliedAt  DateTime?    @map("discount_applied_at") @db.Timestamptz(6)
+  etaMinutes         Int?         @map("eta_minutes")
+  etaAt              DateTime?    @map("eta_at") @db.Timestamptz
+  createdAt          DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime     @updatedAt @map("updated_at") @db.Timestamptz
 
-  customer     User          @relation(fields: [customerId], references: [id])
-  vendor       Vendor        @relation(fields: [vendorId], references: [id])
-  address      Address?      @relation(fields: [addressId], references: [id])
-  discountCode DiscountCode? @relation("DiscountCodeOrders", fields: [discountCodeId], references: [id])
-  items      OrderItem[]
-  payments   Payment[]
-  payouts    Payout[]
-  disputes   Dispute[]
-  chargebacks Chargeback[]
-  reviews    Review[]
-  amendments OrderAmendment[]
+  customer     User             @relation(fields: [customerId], references: [id])
+  vendor       Vendor           @relation(fields: [vendorId], references: [id])
+  address      Address?         @relation(fields: [addressId], references: [id])
+  discountCode DiscountCode?    @relation("DiscountCodeOrders", fields: [discountCodeId], references: [id])
+  items        OrderItem[]
+  payments     Payment[]
+  payouts      Payout[]
+  disputes     Dispute[]
+  chargebacks  Chargeback[]
+  reviews      Review[]
+  amendments   OrderAmendment[]
 
   @@index([customerId])
   @@index([vendorId])
@@ -820,27 +820,27 @@ model OrderItem {
 }
 
 model EventEnquiry {
-  id                String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  customerId        String        @map("customer_id") @db.Uuid
-  eventType         String        @map("event_type") @db.VarChar(100)
-  guestCount        Int           @map("guest_count")
-  finalGuestCount   Int?          @map("final_guest_count")
-  eventDate         DateTime      @map("event_date") @db.Timestamptz
-  postcode          String        @db.VarChar(16)
-  budgetPence       Int?          @map("budget_pence")
-  cuisines          String[]      @db.VarChar(64)
-  dietary           String[]      @db.VarChar(32)
-  notes             String?
-  menuAdjustments   String?       @map("menu_adjustments")
-  status            EnquiryStatus @default(open)
-  vendorId          String?       @map("vendor_id") @db.Uuid
-  matchedVendorIds  String[]      @map("matched_vendor_ids") @db.Uuid
-  quoteDeadline     DateTime?     @map("quote_deadline") @db.Timestamptz
-  depositPiId       String?       @map("deposit_pi_id") @db.VarChar(100)
-  balancePiId       String?       @map("balance_pi_id") @db.VarChar(100)
-  confirmedAt       DateTime?     @map("confirmed_at") @db.Timestamptz
-  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt         DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+  id               String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  customerId       String        @map("customer_id") @db.Uuid
+  eventType        String        @map("event_type") @db.VarChar(100)
+  guestCount       Int           @map("guest_count")
+  finalGuestCount  Int?          @map("final_guest_count")
+  eventDate        DateTime      @map("event_date") @db.Timestamptz
+  postcode         String        @db.VarChar(16)
+  budgetPence      Int?          @map("budget_pence")
+  cuisines         String[]      @db.VarChar(64)
+  dietary          String[]      @db.VarChar(32)
+  notes            String?
+  menuAdjustments  String?       @map("menu_adjustments")
+  status           EnquiryStatus @default(open)
+  vendorId         String?       @map("vendor_id") @db.Uuid
+  matchedVendorIds String[]      @map("matched_vendor_ids") @db.Uuid
+  quoteDeadline    DateTime?     @map("quote_deadline") @db.Timestamptz
+  depositPiId      String?       @map("deposit_pi_id") @db.VarChar(100)
+  balancePiId      String?       @map("balance_pi_id") @db.VarChar(100)
+  confirmedAt      DateTime?     @map("confirmed_at") @db.Timestamptz
+  createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime      @updatedAt @map("updated_at") @db.Timestamptz
 
   customer       User         @relation(fields: [customerId], references: [id], onDelete: Cascade)
   selectedVendor Vendor?      @relation("EventEnquirySelectedVendor", fields: [vendorId], references: [id], onDelete: SetNull)
@@ -883,25 +883,25 @@ model EventQuote {
 }
 
 model Dispute {
-  id             String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  orderId        String          @map("order_id") @db.Uuid
-  raisedById     String          @map("raised_by_id") @db.Uuid
-  issueType      IssueType       @map("issue_type")
-  severity       Severity        @default(low)
-  description    String
-  status         DisputeStatus   @default(open)
-  assignedToId   String?         @map("assigned_to_id") @db.Uuid
-  vendorResponse String?         @map("vendor_response")
-  vendorRespondedAt DateTime?    @map("vendor_responded_at") @db.Timestamptz
-  resolution     ResolutionType?
-  resolutionNote String?         @map("resolution_note")
-  resolvedById   String?         @map("resolved_by_id") @db.Uuid
-  resolvedAt     DateTime?       @map("resolved_at") @db.Timestamptz
-  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt      DateTime        @updatedAt @map("updated_at") @db.Timestamptz
+  id                String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderId           String          @map("order_id") @db.Uuid
+  raisedById        String          @map("raised_by_id") @db.Uuid
+  issueType         IssueType       @map("issue_type")
+  severity          Severity        @default(low)
+  description       String
+  status            DisputeStatus   @default(open)
+  assignedToId      String?         @map("assigned_to_id") @db.Uuid
+  vendorResponse    String?         @map("vendor_response")
+  vendorRespondedAt DateTime?       @map("vendor_responded_at") @db.Timestamptz
+  resolution        ResolutionType?
+  resolutionNote    String?         @map("resolution_note")
+  resolvedById      String?         @map("resolved_by_id") @db.Uuid
+  resolvedAt        DateTime?       @map("resolved_at") @db.Timestamptz
+  createdAt         DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime        @updatedAt @map("updated_at") @db.Timestamptz
 
-  order    Order              @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  raisedBy User               @relation(fields: [raisedById], references: [id])
+  order    Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  raisedBy User              @relation(fields: [raisedById], references: [id])
   evidence DisputeEvidence[]
 
   @@unique([orderId])
@@ -946,8 +946,8 @@ model Payment {
   createdAt             DateTime      @default(now()) @map("created_at") @db.Timestamptz
   updatedAt             DateTime      @updatedAt @map("updated_at") @db.Timestamptz
 
-  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  user  User  @relation(fields: [userId], references: [id])
+  order       Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  user        User         @relation(fields: [userId], references: [id])
   chargebacks Chargeback[]
 
   @@index([orderId])
@@ -1017,54 +1017,54 @@ model NotificationPreference {
 }
 
 model Payout {
-  id                String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  vendorId          String       @map("vendor_id") @db.Uuid
-  orderId           String?      @map("order_id") @db.Uuid
-  status            PayoutStatus @default(draft)
-  amountPence       Int          @map("amount_pence")
-  grossPence        Int          @default(0) @map("gross_pence")
-  commissionPence   Int          @default(0) @map("commission_pence")
-  refundsPence      Int          @default(0) @map("refunds_pence")
-  periodStart       DateTime?    @map("period_start") @db.Timestamptz
-  periodEnd         DateTime?    @map("period_end") @db.Timestamptz
-  orderCount        Int          @default(0) @map("order_count")
-  holdReason        String?      @map("hold_reason")
-  currency          String       @default("GBP") @db.VarChar(3)
-  stripeTransferId  String?      @map("stripe_transfer_id") @db.VarChar(100)
-  approvedById      String?      @map("approved_by_id") @db.Uuid
-  approvedAt        DateTime?    @map("approved_at") @db.Timestamptz
-  transferredAt     DateTime?    @map("transferred_at") @db.Timestamptz
-  failureReason     String?      @map("failure_reason")
-  createdAt         DateTime     @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt         DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+  id               String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  vendorId         String       @map("vendor_id") @db.Uuid
+  orderId          String?      @map("order_id") @db.Uuid
+  status           PayoutStatus @default(draft)
+  amountPence      Int          @map("amount_pence")
+  grossPence       Int          @default(0) @map("gross_pence")
+  commissionPence  Int          @default(0) @map("commission_pence")
+  refundsPence     Int          @default(0) @map("refunds_pence")
+  periodStart      DateTime?    @map("period_start") @db.Timestamptz
+  periodEnd        DateTime?    @map("period_end") @db.Timestamptz
+  orderCount       Int          @default(0) @map("order_count")
+  holdReason       String?      @map("hold_reason")
+  currency         String       @default("GBP") @db.VarChar(3)
+  stripeTransferId String?      @map("stripe_transfer_id") @db.VarChar(100)
+  approvedById     String?      @map("approved_by_id") @db.Uuid
+  approvedAt       DateTime?    @map("approved_at") @db.Timestamptz
+  transferredAt    DateTime?    @map("transferred_at") @db.Timestamptz
+  failureReason    String?      @map("failure_reason")
+  createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime     @updatedAt @map("updated_at") @db.Timestamptz
 
   vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
   order  Order? @relation(fields: [orderId], references: [id])
 
+  @@unique([vendorId, periodEnd], name: "payouts_vendor_period_unique")
   @@index([vendorId])
   @@index([orderId])
   @@index([status])
   @@index([createdAt])
   @@index([vendorId, periodEnd])
-  @@unique([vendorId, periodEnd], name: "payouts_vendor_period_unique")
   @@map("payouts")
 }
 
 model ProcessedWebhookEvent {
-  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  stripeEventId   String   @unique @map("stripe_event_id") @db.VarChar(100)
-  eventType       String   @map("event_type") @db.VarChar(100)
-  processedAt     DateTime @default(now()) @map("processed_at") @db.Timestamptz
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  stripeEventId String   @unique @map("stripe_event_id") @db.VarChar(100)
+  eventType     String   @map("event_type") @db.VarChar(100)
+  processedAt   DateTime @default(now()) @map("processed_at") @db.Timestamptz
 
   @@index([eventType])
   @@map("processed_webhook_events")
 }
 
 model Review {
-  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  orderId    String   @map("order_id") @db.Uuid
-  vendorId   String   @map("vendor_id") @db.Uuid
-  customerId String   @map("customer_id") @db.Uuid
+  id               String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderId          String           @map("order_id") @db.Uuid
+  vendorId         String           @map("vendor_id") @db.Uuid
+  customerId       String           @map("customer_id") @db.Uuid
   rating           Int
   title            String?          @db.VarChar(255)
   body             String?
@@ -1091,14 +1091,14 @@ model Review {
 }
 
 model LoyaltyPoint {
-  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId      String        @map("user_id") @db.Uuid
-  type        LoyaltyTxType
-  points      Int
-  reason      String?       @db.VarChar(255)
-  orderId     String?       @map("order_id") @db.Uuid
-  expiresAt   DateTime?     @map("expires_at") @db.Timestamptz
-  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  id        String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String        @map("user_id") @db.Uuid
+  type      LoyaltyTxType
+  points    Int
+  reason    String?       @db.VarChar(255)
+  orderId   String?       @map("order_id") @db.Uuid
+  expiresAt DateTime?     @map("expires_at") @db.Timestamptz
+  createdAt DateTime      @default(now()) @map("created_at") @db.Timestamptz
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -1110,16 +1110,16 @@ model LoyaltyPoint {
 }
 
 model Referral {
-  id           String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  referrerId   String         @map("referrer_id") @db.Uuid
-  refereeId    String?        @map("referee_id") @db.Uuid
-  code         String         @unique @db.VarChar(32)
-  status       ReferralStatus @default(pending)
-  rewardPence  Int            @default(0) @map("reward_pence")
-  completedAt  DateTime?      @map("completed_at") @db.Timestamptz
-  rewardedAt   DateTime?      @map("rewarded_at") @db.Timestamptz
-  createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt    DateTime       @updatedAt @map("updated_at") @db.Timestamptz
+  id          String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  referrerId  String         @map("referrer_id") @db.Uuid
+  refereeId   String?        @map("referee_id") @db.Uuid
+  code        String         @unique @db.VarChar(32)
+  status      ReferralStatus @default(pending)
+  rewardPence Int            @default(0) @map("reward_pence")
+  completedAt DateTime?      @map("completed_at") @db.Timestamptz
+  rewardedAt  DateTime?      @map("rewarded_at") @db.Timestamptz
+  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime       @updatedAt @map("updated_at") @db.Timestamptz
 
   referrer User  @relation("ReferralReferrer", fields: [referrerId], references: [id], onDelete: Cascade)
   referee  User? @relation("ReferralReferee", fields: [refereeId], references: [id])

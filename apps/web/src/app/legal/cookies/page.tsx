@@ -54,8 +54,8 @@ export default function CookiesPage() {
         title="Cookie Policy"
         lede={
           <>
-            Strictly necessary cookies only. No advertising. No tracking. No third-party
-            analytics. None. Ever.
+            Strictly necessary cookies only. No advertising. No tracking. No third-party analytics.
+            None. Ever.
           </>
         }
         badge={
@@ -66,11 +66,7 @@ export default function CookiesPage() {
             body={<>Authentication &middot; session refresh &middot; basket persistence</>}
           />
         }
-        footnote={
-          <>
-            Last updated: May 2026 &middot; PECR &amp; UK GDPR compliant
-          </>
-        }
+        footnote={<>Last updated: May 2026 &middot; PECR &amp; UK GDPR compliant</>}
       />
 
       <LegalQuickNav ariaLabel="Cookie policy sections" items={QUICK_NAV} />
@@ -88,19 +84,12 @@ export default function CookiesPage() {
           <p>Feastpot uses strictly necessary storage only:</p>
           <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
             {COOKIES.map((c) => (
-              <div
-                key={c.name}
-                className="rounded-2xl border border-cream-deep bg-cream-warm p-3"
-              >
+              <div key={c.name} className="rounded-2xl border border-cream-deep bg-cream-warm p-3">
                 <p className="mb-1.5 break-all font-mono text-xs font-black text-charcoal">
                   {c.name}
                 </p>
-                <p className="mb-1.5 text-xs leading-snug text-charcoal-mid">
-                  {c.purpose}
-                </p>
-                <p className="mb-1 text-[11px] font-black text-brand">
-                  {c.duration}
-                </p>
+                <p className="mb-1.5 text-xs leading-snug text-charcoal-mid">{c.purpose}</p>
+                <p className="mb-1 text-[11px] font-black text-brand">{c.duration}</p>
                 <span className="inline-block rounded-md bg-brand-light px-1.5 py-0.5 text-[10px] font-bold text-brand-dark">
                   Strictly necessary
                 </span>
@@ -119,8 +108,8 @@ export default function CookiesPage() {
 
         <LegalSection id="choices" icon="⚙️" title="4. Your choices">
           <p>
-            You can clear cookies via your browser settings, this will sign you out.
-            Because we don&rsquo;t use any non-essential cookies, there is nothing to opt out of.
+            You can clear cookies via your browser settings, this will sign you out. Because we
+            don&rsquo;t use any non-essential cookies, there is nothing to opt out of.
           </p>
         </LegalSection>
 

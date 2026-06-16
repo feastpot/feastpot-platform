@@ -37,7 +37,11 @@ export function getSLAStatus(
     return { label: `${Math.floor(ageHours)}h - ACK overdue`, tone: 'breach', urgent: true };
   }
   if (ageHours > 120) {
-    return { label: `${Math.floor(ageHours / 24)}d - resolution overdue`, tone: 'breach', urgent: true };
+    return {
+      label: `${Math.floor(ageHours / 24)}d - resolution overdue`,
+      tone: 'breach',
+      urgent: true,
+    };
   }
   if (ageHours > 96) {
     return { label: `${Math.floor(ageHours / 24)}d - closing SLA`, tone: 'warn', urgent: true };

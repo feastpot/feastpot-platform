@@ -1,3 +1,4 @@
+import { InjectQueue } from '@nestjs/bull';
 import {
   BadRequestException,
   ForbiddenException,
@@ -5,7 +6,6 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { InjectQueue } from '@nestjs/bull';
 import {
   DisputeStatus,
   OrderStatus,
@@ -105,7 +105,12 @@ export interface VendorBatchInput {
   vendorUserId: string;
   commissionBps: number;
   hasOpenDispute: boolean;
-  orders: Array<{ id: string; totalPence: number; vendorPayoutPence: number; commissionPence: number }>;
+  orders: Array<{
+    id: string;
+    totalPence: number;
+    vendorPayoutPence: number;
+    commissionPence: number;
+  }>;
   refundDeductionsPence: number;
 }
 
@@ -182,18 +187,29 @@ export class PayoutsService {
     if (dto.status) where.status = dto.status;
 
     if (user.role === UserRole.vendor) {
-      const vendor = await this.prisma.vendor.findUnique({ where: { userId: user.id }, select: { id: true } });
+      const vendor = await this.prisma.vendor.findUnique({
+        where: { userId: user.id },
+        select: { id: true },
+      });
       if (!vendor) return { data: [], nextCursor: null };
       where.vendorId = vendor.id;
     } else if (user.role === UserRole.finance || user.role === UserRole.admin) {
       if (dto.vendorId) where.vendorId = dto.vendorId;
     } else {
-      throw new ForbiddenException({ code: 'PAYOUTS_FORBIDDEN', message: 'You may not view payouts' });
+      throw new ForbiddenException({
+        code: 'PAYOUTS_FORBIDDEN',
+        message: 'You may not view payouts',
+      });
     }
 
     const cursor = dto.cursor ? this.decodeCursor(dto.cursor) : undefined;
     const cursorWhere: Prisma.PayoutWhereInput = cursor
-      ? { OR: [{ createdAt: { lt: cursor.createdAt } }, { createdAt: cursor.createdAt, id: { lt: cursor.id } }] }
+      ? {
+          OR: [
+            { createdAt: { lt: cursor.createdAt } },
+            { createdAt: cursor.createdAt, id: { lt: cursor.id } },
+          ],
+        }
       : {};
     const rows = await this.prisma.payout.findMany({
       where: { AND: [where, cursorWhere] },
@@ -267,15 +283,21 @@ export class PayoutsService {
   async getById(id: string, user: AuthUser) {
     const payout = await this.prisma.payout.findUnique({
       where: { id },
-      include: { vendor: { select: { id: true, userId: true, businessName: true, stripeAccountId: true } } },
+      include: {
+        vendor: { select: { id: true, userId: true, businessName: true, stripeAccountId: true } },
+      },
     });
-    if (!payout) throw new NotFoundException({ code: 'PAYOUT_NOT_FOUND', message: 'Payout not found' });
+    if (!payout)
+      throw new NotFoundException({ code: 'PAYOUT_NOT_FOUND', message: 'Payout not found' });
     if (
       user.role !== UserRole.admin &&
       user.role !== UserRole.finance &&
       !(user.role === UserRole.vendor && payout.vendor.userId === user.id)
     ) {
-      throw new ForbiddenException({ code: 'PAYOUT_FORBIDDEN', message: 'You may not view this payout' });
+      throw new ForbiddenException({
+        code: 'PAYOUT_FORBIDDEN',
+        message: 'You may not view this payout',
+      });
     }
     return payout;
   }
@@ -301,9 +323,12 @@ export class PayoutsService {
     }
     const payout = await this.prisma.payout.findUnique({
       where: { id: payoutId },
-      include: { vendor: { select: { stripeAccountId: true, payoutsEnabled: true, userId: true } } },
+      include: {
+        vendor: { select: { stripeAccountId: true, payoutsEnabled: true, userId: true } },
+      },
     });
-    if (!payout) throw new NotFoundException({ code: 'PAYOUT_NOT_FOUND', message: 'Payout not found' });
+    if (!payout)
+      throw new NotFoundException({ code: 'PAYOUT_NOT_FOUND', message: 'Payout not found' });
     if (payout.status !== PayoutStatus.draft) {
       throw new BadRequestException({
         code: 'PAYOUT_NOT_DRAFT',
@@ -317,7 +342,10 @@ export class PayoutsService {
       });
     }
     if (payout.amountPence <= 0) {
-      throw new BadRequestException({ code: 'PAYOUT_ZERO_OR_NEGATIVE', message: 'Payout net is zero or negative' });
+      throw new BadRequestException({
+        code: 'PAYOUT_ZERO_OR_NEGATIVE',
+        message: 'Payout net is zero or negative',
+      });
     }
 
     const cas = await this.prisma.payout.updateMany({
@@ -363,7 +391,10 @@ export class PayoutsService {
         where: { id: payoutId },
         data: { status: PayoutStatus.failed, failureReason: (e as Error).message },
       });
-      throw new BadRequestException({ code: 'STRIPE_TRANSFER_FAILED', message: (e as Error).message });
+      throw new BadRequestException({
+        code: 'STRIPE_TRANSFER_FAILED',
+        message: (e as Error).message,
+      });
     }
     // Best-effort side-effects: money has moved + DB committed. Failures
     // here must NOT mark the payout failed or 500 the controller.
@@ -400,8 +431,12 @@ export class PayoutsService {
         message: 'Only finance or admin may hold payouts',
       });
     }
-    const payout = await this.prisma.payout.findUnique({ where: { id: payoutId }, select: { status: true, vendorId: true, vendor: { select: { userId: true } } } });
-    if (!payout) throw new NotFoundException({ code: 'PAYOUT_NOT_FOUND', message: 'Payout not found' });
+    const payout = await this.prisma.payout.findUnique({
+      where: { id: payoutId },
+      select: { status: true, vendorId: true, vendor: { select: { userId: true } } },
+    });
+    if (!payout)
+      throw new NotFoundException({ code: 'PAYOUT_NOT_FOUND', message: 'Payout not found' });
     if (payout.status === PayoutStatus.transferred || payout.status === PayoutStatus.failed) {
       throw new BadRequestException({
         code: 'PAYOUT_TERMINAL',
@@ -413,7 +448,10 @@ export class PayoutsService {
       data: { status: PayoutStatus.held, holdReason },
     });
     if (cas.count !== 1) {
-      throw new BadRequestException({ code: 'PAYOUT_CHANGED_CONCURRENTLY', message: 'Payout changed concurrently' });
+      throw new BadRequestException({
+        code: 'PAYOUT_CHANGED_CONCURRENTLY',
+        message: 'Payout changed concurrently',
+      });
     }
     try {
       await this.notifications.add('payout_held', {
@@ -438,7 +476,9 @@ export class PayoutsService {
    */
   async runWeeklyBatch(now: Date = new Date()) {
     const { start, end } = lastCompletedWeekUtc(now);
-    this.logger.log(`Running weekly payout batch for ${start.toISOString()} → ${end.toISOString()}`);
+    this.logger.log(
+      `Running weekly payout batch for ${start.toISOString()} → ${end.toISOString()}`,
+    );
 
     // Pull all delivered orders in the window with vendor info.
     const orders = await this.prisma.order.findMany({
@@ -454,7 +494,7 @@ export class PayoutsService {
     });
 
     // Group by vendor.
-    type Group = { vendor: typeof orders[number]['vendor']; orders: typeof orders };
+    type Group = { vendor: (typeof orders)[number]['vendor']; orders: typeof orders };
     const byVendor = new Map<string, Group>();
     for (const o of orders) {
       const g = byVendor.get(o.vendorId) ?? { vendor: o.vendor, orders: [] };
@@ -479,7 +519,10 @@ export class PayoutsService {
       // Refund deductions for this vendor's orders in the window.
       const orderIds = group.orders.map((o) => o.id);
       const refundDeductions = await this.prisma.payment.aggregate({
-        where: { orderId: { in: orderIds }, type: { in: [PaymentType.refund, PaymentType.partial_refund] } },
+        where: {
+          orderId: { in: orderIds },
+          type: { in: [PaymentType.refund, PaymentType.partial_refund] },
+        },
         _sum: { amountPence: true },
       });
       // Credit rows hold the portion of each refund Feastpot absorbs (service-fee
@@ -499,7 +542,9 @@ export class PayoutsService {
       const openDisputes = await this.prisma.dispute.count({
         where: {
           orderId: { in: orderIds },
-          status: { in: [DisputeStatus.open, DisputeStatus.vendor_contacted, DisputeStatus.escalated] },
+          status: {
+            in: [DisputeStatus.open, DisputeStatus.vendor_contacted, DisputeStatus.escalated],
+          },
         },
       });
 
@@ -563,11 +608,17 @@ export class PayoutsService {
   // ---------------- helpers ----------------
 
   private encodeCursor(row: { createdAt: Date; id: string }): string {
-    return Buffer.from(JSON.stringify({ c: row.createdAt.toISOString(), id: row.id }), 'utf8').toString('base64url');
+    return Buffer.from(
+      JSON.stringify({ c: row.createdAt.toISOString(), id: row.id }),
+      'utf8',
+    ).toString('base64url');
   }
   private decodeCursor(s: string): { createdAt: Date; id: string } | undefined {
     try {
-      const obj = JSON.parse(Buffer.from(s, 'base64url').toString('utf8')) as { c: string; id: string };
+      const obj = JSON.parse(Buffer.from(s, 'base64url').toString('utf8')) as {
+        c: string;
+        id: string;
+      };
       return { createdAt: new Date(obj.c), id: obj.id };
     } catch {
       return undefined;

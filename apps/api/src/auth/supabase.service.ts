@@ -1,7 +1,6 @@
-import { createClient, type SupabaseClient, type User } from '@supabase/supabase-js';
-
 import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { createClient, type SupabaseClient, type User } from '@supabase/supabase-js';
 
 interface CacheEntry {
   user: User;

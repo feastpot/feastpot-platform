@@ -6,11 +6,7 @@ import { useRef, useState } from 'react';
 import { cn, Sheet, SheetContent } from '@feastpot/ui';
 
 import type { VendorMenuItem } from '@/lib/api/vendors';
-import {
-  CrossVendorBasketError,
-  useBasketStore,
-  type BasketVendor,
-} from '@/store/basket.store';
+import { CrossVendorBasketError, useBasketStore, type BasketVendor } from '@/store/basket.store';
 
 const formatPounds = (p: number) => `£${(p / 100).toFixed(2)}`;
 
@@ -130,10 +126,7 @@ function SpiceDisplay({ level }: { level: number }) {
           🌶️
         </span>
       ))}
-      <span
-        aria-hidden
-        className="ml-1 text-[10px] font-bold text-scotch"
-      >
+      <span aria-hidden className="ml-1 text-[10px] font-bold text-scotch">
         {SPICE_LABELS[Math.min(level, 4)]}
       </span>
     </div>
@@ -189,7 +182,7 @@ export function MenuItemCard({ item, vendor }: Props) {
   // separate orders from the user's perspective and shown in the drawer.
   const lineId = inlineLineId(item.id);
   const sameVendor = basketVendorId === null || basketVendorId === vendor.id;
-  const qty = sameVendor ? items.find((i) => i.lineId === lineId)?.quantity ?? 0 : 0;
+  const qty = sameVendor ? (items.find((i) => i.lineId === lineId)?.quantity ?? 0) : 0;
 
   const { spiceLevel, portionLabel, dietary, isHalal } = decodeTags(item.tags);
   const cover = item.imageUrls[0];
@@ -266,7 +259,11 @@ export function MenuItemCard({ item, vendor }: Props) {
       <div className="fp-card flex gap-3 p-3 opacity-50">
         {cover ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={cover} alt="" className="h-20 w-20 shrink-0 rounded-xl object-cover grayscale" />
+          <img
+            src={cover}
+            alt=""
+            className="h-20 w-20 shrink-0 rounded-xl object-cover grayscale"
+          />
         ) : (
           <div
             className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl text-2xl grayscale"
@@ -287,10 +284,7 @@ export function MenuItemCard({ item, vendor }: Props) {
 
   return (
     <article
-      className={cn(
-        'fp-card p-3 transition-transform duration-200',
-        pulse && 'scale-[1.01]',
-      )}
+      className={cn('fp-card p-3 transition-transform duration-200', pulse && 'scale-[1.01]')}
     >
       <div className="flex gap-3">
         {cover ? (
@@ -400,34 +394,34 @@ export function MenuItemCard({ item, vendor }: Props) {
                     pulse && 'scale-110',
                   )}
                 >
-                {/* +/- pill buttons bumped from 28×28 → 44×44 so each
+                  {/* +/- pill buttons bumped from 28×28 → 44×44 so each
                     individual control meets WCAG 2.5.5 / Apple HIG.
                     Older / less-precise users (the core demo) were
                     routinely double-tapping the wrong button on the
                     smaller pill. Visible icon size is unchanged
                     (h-4 w-4) - only the hit area grows. */}
-                <button
-                  type="button"
-                  onClick={handleMinus}
-                  aria-label={`Decrease ${item.name} quantity`}
-                  className="flex h-11 w-11 items-center justify-center rounded-full text-white transition-transform active:scale-90"
-                >
-                  <Minus className="h-4 w-4" aria-hidden />
-                </button>
-                <span
-                  className="min-w-5 text-center text-sm font-bold tabular-nums text-white"
-                  aria-live="polite"
-                >
-                  {qty}
-                </span>
-                <button
-                  type="button"
-                  onClick={tryAdd}
-                  aria-label={`Increase ${item.name} quantity`}
-                  className="flex h-11 w-11 items-center justify-center rounded-full text-white transition-transform active:scale-90"
-                >
-                  <Plus className="h-4 w-4" aria-hidden />
-                </button>
+                  <button
+                    type="button"
+                    onClick={handleMinus}
+                    aria-label={`Decrease ${item.name} quantity`}
+                    className="flex h-11 w-11 items-center justify-center rounded-full text-white transition-transform active:scale-90"
+                  >
+                    <Minus className="h-4 w-4" aria-hidden />
+                  </button>
+                  <span
+                    className="min-w-5 text-center text-sm font-bold tabular-nums text-white"
+                    aria-live="polite"
+                  >
+                    {qty}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={tryAdd}
+                    aria-label={`Increase ${item.name} quantity`}
+                    className="flex h-11 w-11 items-center justify-center rounded-full text-white transition-transform active:scale-90"
+                  >
+                    <Plus className="h-4 w-4" aria-hidden />
+                  </button>
                 </div>
               )}
             </div>
@@ -491,9 +485,8 @@ export function MenuItemCard({ item, vendor }: Props) {
               <strong className="font-bold text-charcoal">
                 {basketVendor?.name ?? 'another kitchen'}
               </strong>
-              . Adding from{' '}
-              <strong className="font-bold text-charcoal">{vendor.name}</strong> will clear your
-              current basket.
+              . Adding from <strong className="font-bold text-charcoal">{vendor.name}</strong> will
+              clear your current basket.
             </p>
             <div className="mt-4 flex gap-2">
               <button

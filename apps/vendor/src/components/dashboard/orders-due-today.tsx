@@ -53,9 +53,7 @@ export function OrdersDueToday({ orders }: { orders: DashboardOrderDue[] }) {
             <CalendarCheck2 className="h-7 w-7" />
           </span>
           <div>
-            <p className="text-sm font-semibold text-dark">
-              No orders scheduled for today.
-            </p>
+            <p className="text-sm font-semibold text-dark">No orders scheduled for today.</p>
             <p className="mt-1 text-xs text-mid">
               New orders will appear here as soon as they come in.
             </p>
@@ -83,9 +81,7 @@ export function OrdersDueToday({ orders }: { orders: DashboardOrderDue[] }) {
                 )}
               </div>
               <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-dark">
-                  {o.customerName}
-                </p>
+                <p className="truncate text-sm font-semibold text-dark">{o.customerName}</p>
                 <p className="flex items-center gap-1.5 text-xs text-mid">
                   <Clock className="h-3 w-3" aria-hidden />
                   {formatTime(o.scheduledFor)} · {o.itemCount} item
@@ -94,9 +90,7 @@ export function OrdersDueToday({ orders }: { orders: DashboardOrderDue[] }) {
               </div>
             </div>
             <div className="flex flex-col items-end gap-0.5">
-              <span className="text-sm font-bold text-brand">
-                {formatMoney(o.totalPence)}
-              </span>
+              <span className="text-sm font-bold text-brand">{formatMoney(o.totalPence)}</span>
               <span className="text-[10px] font-medium uppercase tracking-wide text-mid">
                 {statusLabel(o.status)}
               </span>

@@ -28,7 +28,13 @@ interface Props {
   className?: string;
 }
 
-export function CoverageBadge({ distanceMiles, radiusMiles, hasPostcode, deliveryType, className }: Props) {
+export function CoverageBadge({
+  distanceMiles,
+  radiusMiles,
+  hasPostcode,
+  deliveryType,
+  className,
+}: Props) {
   const verdict = evaluateDeliveryCoverage(distanceMiles, radiusMiles, deliveryType);
 
   if (verdict.state === 'unknown') {

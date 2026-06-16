@@ -4,8 +4,8 @@ import { AuthModule } from '../../auth/auth.module';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { StripeModule } from '../../stripe/stripe.module';
 
-import { PaymentsService } from './payments.service';
 import { PaymentsController } from './payments.controller';
+import { PaymentsService } from './payments.service';
 import { StripeWebhookController } from './stripe-webhook.controller';
 import { StripeWebhookProcessor } from './stripe-webhook.processor';
 

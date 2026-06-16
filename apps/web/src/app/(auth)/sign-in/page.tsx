@@ -1,11 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import {
-  LoginSchema,
-  RegisterSchema,
-  type LoginDto,
-} from '@feastpot/types';
+import { LoginSchema, RegisterSchema, type LoginDto } from '@feastpot/types';
 import {
   Check,
   CheckCircle2,
@@ -62,15 +58,10 @@ const RegisterFormSchema = RegisterSchema.omit({
         return firstName.length <= 100 && lastName.length <= 100;
       }, 'First and last name must each be 100 characters or fewer'),
     confirmPassword: z.string().min(1, 'Please confirm your password'),
-    postcode: z
-      .string()
-      .min(1, 'Enter your postcode or service area')
-      .max(20),
-    termsAccepted: z
-      .boolean()
-      .refine((v) => v === true, {
-        message: 'You must accept the Terms and Privacy Policy',
-      }),
+    postcode: z.string().min(1, 'Enter your postcode or service area').max(20),
+    termsAccepted: z.boolean().refine((v) => v === true, {
+      message: 'You must accept the Terms and Privacy Policy',
+    }),
     referralCode: z.string().optional(),
   })
   .refine((v) => v.password === v.confirmPassword, {
@@ -148,15 +139,13 @@ function WelcomePanel() {
       </h1>
 
       <p className="mt-4 max-w-md text-[15px] leading-relaxed text-charcoal-mid">
-        Sign in or create your account without leaving the page. The URL stays
-        the same and only the relevant form fields are rendered.
+        Sign in or create your account without leaving the page. The URL stays the same and only the
+        relevant form fields are rendered.
       </p>
 
       {/* Order-faster-next-time card */}
       <div className="mt-7 rounded-2xl bg-brand p-6 text-white shadow-card">
-        <p className="font-display text-[22px] font-black leading-tight">
-          Order faster next time
-        </p>
+        <p className="font-display text-[22px] font-black leading-tight">Order faster next time</p>
         <ul className="mt-4 grid grid-cols-1 gap-x-6 gap-y-2 text-[13.5px] font-medium sm:grid-cols-2">
           {[
             'Save delivery addresses',
@@ -167,11 +156,7 @@ function WelcomePanel() {
             'Refer friends',
           ].map((line) => (
             <li key={line} className="flex items-start gap-2">
-              <Check
-                className="mt-0.5 h-4 w-4 flex-shrink-0"
-                strokeWidth={3}
-                aria-hidden
-              />
+              <Check className="mt-0.5 h-4 w-4 flex-shrink-0" strokeWidth={3} aria-hidden />
               <span>{line}</span>
             </li>
           ))}
@@ -182,11 +167,7 @@ function WelcomePanel() {
       <div className="mt-4 grid grid-cols-3 gap-3">
         <MiniCard Icon={ShieldCheck} label="Secure login" tone="brand" />
         <MiniCard Icon={Gift} label="Rewards ready" tone="plantain" />
-        <MiniCard
-          Icon={TriangleAlert}
-          label="Allergen profile"
-          tone="scotch"
-        />
+        <MiniCard Icon={TriangleAlert} label="Allergen profile" tone="scotch" />
       </div>
     </aside>
   );
@@ -202,29 +183,17 @@ function MiniCard({
   tone: 'brand' | 'plantain' | 'scotch';
 }) {
   const toneClass =
-    tone === 'brand'
-      ? 'text-brand'
-      : tone === 'plantain'
-        ? 'text-plantain'
-        : 'text-scotch';
+    tone === 'brand' ? 'text-brand' : tone === 'plantain' ? 'text-plantain' : 'text-scotch';
   return (
     <div className="flex flex-col items-start gap-2 rounded-2xl border border-cream-deep bg-white p-4 shadow-card">
       <Icon className={`h-5 w-5 ${toneClass}`} aria-hidden strokeWidth={2.25} />
-      <p className="text-[12.5px] font-bold leading-snug text-charcoal">
-        {label}
-      </p>
+      <p className="text-[12.5px] font-bold leading-snug text-charcoal">{label}</p>
     </div>
   );
 }
 
 // ── Tab control ─────────────────────────────────────────────────────────
-function TabSwitcher({
-  mode,
-  onChange,
-}: {
-  mode: Mode;
-  onChange: (next: Mode) => void;
-}) {
+function TabSwitcher({ mode, onChange }: { mode: Mode; onChange: (next: Mode) => void }) {
   return (
     <div
       role="tablist"
@@ -243,9 +212,7 @@ function TabSwitcher({
             aria-controls={`auth-pane-${m}`}
             onClick={() => onChange(m)}
             className={`min-h-11 rounded-lg px-4 text-sm font-bold transition-colors ${
-              active
-                ? 'bg-brand text-white shadow-card'
-                : 'text-charcoal-mid hover:text-charcoal'
+              active ? 'bg-brand text-white shadow-card' : 'text-charcoal-mid hover:text-charcoal'
             }`}
           >
             {label}
@@ -257,15 +224,10 @@ function TabSwitcher({
 }
 
 // ── SIGN-IN pane ────────────────────────────────────────────────────────
-function SignInPane({
-  onSwitchToRegister,
-}: {
-  onSwitchToRegister: () => void;
-}) {
+function SignInPane({ onSwitchToRegister }: { onSwitchToRegister: () => void }) {
   const router = useRouter();
   const params = useSearchParams();
-  const rawRedirect =
-    params?.get('next') ?? params?.get('redirect') ?? null;
+  const rawRedirect = params?.get('next') ?? params?.get('redirect') ?? null;
   const redirect = safeRedirect(rawRedirect, '/');
   const errorParam = params?.get('error') ?? null;
 
@@ -292,10 +254,7 @@ function SignInPane({
       return;
     }
     try {
-      window.localStorage.setItem(
-        'feastpot.session.persist',
-        rememberMe ? '1' : '0',
-      );
+      window.localStorage.setItem('feastpot.session.persist', rememberMe ? '1' : '0');
     } catch {
       /* localStorage unavailable */
     }
@@ -334,21 +293,14 @@ function SignInPane({
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(
-          redirect,
-        )}`,
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirect)}`,
       },
     });
     if (error) setServerError(error.message);
   };
 
   return (
-    <div
-      id="auth-pane-signin"
-      role="tabpanel"
-      aria-labelledby="signin-heading"
-      className="mt-6"
-    >
+    <div id="auth-pane-signin" role="tabpanel" aria-labelledby="signin-heading" className="mt-6">
       <h2
         id="signin-heading"
         className="font-display text-2xl font-black tracking-tight text-charcoal"
@@ -373,23 +325,15 @@ function SignInPane({
           role="status"
           className="mt-4 flex items-start gap-2 rounded-lg bg-brand-light px-3 py-2.5 text-sm font-medium text-brand-dark"
         >
-          <CheckCircle2
-            className="mt-0.5 h-4 w-4 flex-shrink-0"
-            aria-hidden
-          />
+          <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0" aria-hidden />
           <span className="min-w-0 break-words">
-            Magic link sent to{' '}
-            <strong className="font-bold break-all">{magicSentTo}</strong>.
-            Check your inbox.
+            Magic link sent to <strong className="font-bold break-all">{magicSentTo}</strong>. Check
+            your inbox.
           </span>
         </div>
       )}
 
-      <form
-        onSubmit={form.handleSubmit(onSubmit)}
-        className="mt-5 space-y-3.5"
-        noValidate
-      >
+      <form onSubmit={form.handleSubmit(onSubmit)} className="mt-5 space-y-3.5" noValidate>
         <TextField
           id="signin-email"
           type="email"
@@ -471,10 +415,7 @@ function SignInPane({
           </button>
         </p>
         <p className="text-center text-sm text-charcoal-mid">
-          <Link
-            href="/sign-in/otp"
-            className="underline-offset-2 hover:underline"
-          >
+          <Link href="/sign-in/otp" className="underline-offset-2 hover:underline">
             Sign in with phone instead
           </Link>
         </p>
@@ -484,11 +425,7 @@ function SignInPane({
 }
 
 // ── REGISTER pane ───────────────────────────────────────────────────────
-function RegisterPane({
-  onSwitchToSignIn,
-}: {
-  onSwitchToSignIn: () => void;
-}) {
+function RegisterPane({ onSwitchToSignIn }: { onSwitchToSignIn: () => void }) {
   const [submitted, setSubmitted] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   const [showPwd, setShowPwd] = useState(false);
@@ -563,9 +500,7 @@ function RegisterPane({
       } catch (e) {
         // Don't fail the signup if the mirror route is missing.
         if (e instanceof ApiError && e.status === 404) {
-          console.warn(
-            '[register] /v1/users/sync not yet implemented - skipping mirror.',
-          );
+          console.warn('[register] /v1/users/sync not yet implemented - skipping mirror.');
         } else {
           throw e;
         }
@@ -600,10 +535,8 @@ function RegisterPane({
         </h2>
         <p className="mt-2 text-sm text-charcoal-mid">
           We&rsquo;ve sent a confirmation link to{' '}
-          <strong className="text-charcoal break-all">
-            {form.getValues('email')}
-          </strong>
-          . Open it on this device to finish creating your account.
+          <strong className="text-charcoal break-all">{form.getValues('email')}</strong>. Open it on
+          this device to finish creating your account.
         </p>
         <button
           type="button"
@@ -642,11 +575,7 @@ function RegisterPane({
         </div>
       )}
 
-      <form
-        onSubmit={form.handleSubmit(onSubmit)}
-        className="mt-5 space-y-3.5"
-        noValidate
-      >
+      <form onSubmit={form.handleSubmit(onSubmit)} className="mt-5 space-y-3.5" noValidate>
         <TextField
           id="reg-fullName"
           label="Full name"
@@ -721,25 +650,17 @@ function RegisterPane({
           />
           <span className="text-[13px] leading-snug text-charcoal-mid">
             I agree to the{' '}
-            <Link
-              href="/legal/terms"
-              className="font-semibold text-brand hover:underline"
-            >
+            <Link href="/legal/terms" className="font-semibold text-brand hover:underline">
               Terms of Service
             </Link>{' '}
             and{' '}
-            <Link
-              href="/legal/privacy"
-              className="font-semibold text-brand hover:underline"
-            >
+            <Link href="/legal/privacy" className="font-semibold text-brand hover:underline">
               Privacy Policy
             </Link>
           </span>
         </label>
         {fieldError('termsAccepted') && (
-          <p className="text-xs font-medium text-scotch">
-            {fieldError('termsAccepted')}
-          </p>
+          <p className="text-xs font-medium text-scotch">{fieldError('termsAccepted')}</p>
         )}
 
         <button
@@ -747,16 +668,12 @@ function RegisterPane({
           disabled={form.formState.isSubmitting}
           className="mt-2 flex min-h-12 w-full items-center justify-center rounded-xl bg-brand px-4 py-3.5 text-sm font-bold text-white shadow-card transition-colors hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {form.formState.isSubmitting
-            ? 'Creating account…'
-            : 'Create account'}
+          {form.formState.isSubmitting ? 'Creating account…' : 'Create account'}
         </button>
 
         <div className="flex items-center gap-3 pt-2">
           <span className="h-px flex-1 bg-cream-deep" />
-          <span className="text-xs font-medium text-charcoal-mid">
-            or sign up with
-          </span>
+          <span className="text-xs font-medium text-charcoal-mid">or sign up with</span>
           <span className="h-px flex-1 bg-cream-deep" />
         </div>
 
@@ -802,33 +719,20 @@ type TextFieldProps = React.InputHTMLAttributes<HTMLInputElement> & {
   error?: string;
 };
 
-const TextField = function TextFieldImpl({
-  id,
-  label,
-  error,
-  className,
-  ...rest
-}: TextFieldProps) {
+const TextField = function TextFieldImpl({ id, label, error, className, ...rest }: TextFieldProps) {
   return (
     <div>
-      <label
-        htmlFor={id}
-        className="mb-1.5 block text-[13px] font-semibold text-charcoal"
-      >
+      <label htmlFor={id} className="mb-1.5 block text-[13px] font-semibold text-charcoal">
         {label}
       </label>
       <input
         id={id}
         className={`w-full rounded-lg border bg-white px-3.5 py-3 text-sm font-medium text-charcoal placeholder:text-charcoal-mid/60 focus:outline-none focus:ring-2 focus:ring-brand/20 ${
-          error
-            ? 'border-scotch focus:border-scotch'
-            : 'border-cream-deep focus:border-brand'
+          error ? 'border-scotch focus:border-scotch' : 'border-cream-deep focus:border-brand'
         } ${className ?? ''}`}
         {...rest}
       />
-      {error && (
-        <p className="mt-1 text-xs font-medium text-scotch">{error}</p>
-      )}
+      {error && <p className="mt-1 text-xs font-medium text-scotch">{error}</p>}
     </div>
   );
 };
@@ -848,10 +752,7 @@ function PasswordField({
 }: PasswordFieldProps) {
   return (
     <div>
-      <label
-        htmlFor={id}
-        className="mb-1.5 block text-[13px] font-semibold text-charcoal"
-      >
+      <label htmlFor={id} className="mb-1.5 block text-[13px] font-semibold text-charcoal">
         {label}
       </label>
       <div className="relative">
@@ -859,9 +760,7 @@ function PasswordField({
           id={id}
           type={show ? 'text' : 'password'}
           className={`w-full rounded-lg border bg-white px-3.5 py-3 pr-11 text-sm font-medium text-charcoal placeholder:text-charcoal-mid/60 focus:outline-none focus:ring-2 focus:ring-brand/20 ${
-            error
-              ? 'border-scotch focus:border-scotch'
-              : 'border-cream-deep focus:border-brand'
+            error ? 'border-scotch focus:border-scotch' : 'border-cream-deep focus:border-brand'
           } ${className ?? ''}`}
           {...rest}
         />
@@ -874,9 +773,7 @@ function PasswordField({
           {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
         </button>
       </div>
-      {error && (
-        <p className="mt-1 text-xs font-medium text-scotch">{error}</p>
-      )}
+      {error && <p className="mt-1 text-xs font-medium text-scotch">{error}</p>}
     </div>
   );
 }

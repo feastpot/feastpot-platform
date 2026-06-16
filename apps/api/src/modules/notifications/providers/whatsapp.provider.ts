@@ -98,7 +98,9 @@ export class WhatsappProvider {
     return this.sendMeta(msg);
   }
 
-  private async sendTwilio(msg: WhatsappMessage): Promise<{ id: string | null; delivered: boolean }> {
+  private async sendTwilio(
+    msg: WhatsappMessage,
+  ): Promise<{ id: string | null; delivered: boolean }> {
     if (!this.twilioClient) {
       // Defensive - mode==='twilio' guarantees this is set
       return { id: null, delivered: false };
@@ -116,9 +118,7 @@ export class WhatsappProvider {
     }
 
     const contentVariables = msg.params.length
-      ? JSON.stringify(
-          Object.fromEntries(msg.params.map((v, i) => [String(i + 1), String(v)])),
-        )
+      ? JSON.stringify(Object.fromEntries(msg.params.map((v, i) => [String(i + 1), String(v)])))
       : undefined;
 
     const res = await this.twilioClient.messages.create({
@@ -139,7 +139,12 @@ export class WhatsappProvider {
         name: msg.template,
         language: { code: 'en_GB' },
         components: msg.params.length
-          ? [{ type: 'body', parameters: msg.params.map((text) => ({ type: 'text', text: String(text) })) }]
+          ? [
+              {
+                type: 'body',
+                parameters: msg.params.map((text) => ({ type: 'text', text: String(text) })),
+              },
+            ]
           : undefined,
       },
     };

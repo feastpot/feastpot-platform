@@ -16,7 +16,10 @@ class ConsumeRecoveryCodeDto {
 
 function requireUser(user: AuthUser | null): AuthUser {
   if (!user)
-    throw new UnauthorizedException({ code: 'UNAUTHENTICATED', message: 'Authentication required' });
+    throw new UnauthorizedException({
+      code: 'UNAUTHENTICATED',
+      message: 'Authentication required',
+    });
   return user;
 }
 

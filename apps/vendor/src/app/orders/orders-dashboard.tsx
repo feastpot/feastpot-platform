@@ -9,7 +9,12 @@ import { OrdersSummaryRail, type QuickFilter } from '@/components/orders/orders-
 import { OrdersTopBar } from '@/components/orders/orders-top-bar';
 import { VendorOrderCard } from '@/components/orders/vendor-order-card';
 import { useToast } from '@/components/ui/toaster';
-import { useActiveOrders, useOrderHistory, type VendorOrder, type VendorOrderStatus } from '@/hooks/use-vendor-orders';
+import {
+  useActiveOrders,
+  useOrderHistory,
+  type VendorOrder,
+  type VendorOrderStatus,
+} from '@/hooks/use-vendor-orders';
 import { playOrderChime } from '@/lib/notify-beep';
 import { createClient } from '@/lib/supabase/client';
 
@@ -47,8 +52,16 @@ const TABS: { value: VendorOrderStatus; label: string }[] = [
  * for new orders are kept verbatim from the previous implementation.
  */
 export function OrdersDashboard({ vendorId }: Props) {
-  const { data: active = [], isLoading: isLoadingActive, isFetching: isFetchingActive } = useActiveOrders();
-  const { data: deliveredPage, isLoading: isLoadingDelivered, isFetching: isFetchingDelivered } = useOrderHistory({
+  const {
+    data: active = [],
+    isLoading: isLoadingActive,
+    isFetching: isFetchingActive,
+  } = useActiveOrders();
+  const {
+    data: deliveredPage,
+    isLoading: isLoadingDelivered,
+    isFetching: isFetchingDelivered,
+  } = useOrderHistory({
     status: 'delivered',
   });
   const qc = useQueryClient();
@@ -214,7 +227,8 @@ export function OrdersDashboard({ vendorId }: Props) {
     const needle = search.trim().toLowerCase();
     return base.filter((o) => {
       if (needle.length > 0) {
-        const hay = `${o.orderNumber} ${o.customer?.name ?? ''} ${o.customer?.firstName ?? ''}`.toLowerCase();
+        const hay =
+          `${o.orderNumber} ${o.customer?.name ?? ''} ${o.customer?.firstName ?? ''}`.toLowerCase();
         if (!hay.includes(needle)) return false;
       }
       if (quickFilter === 'high_value' && o.totalPence < 15000) return false;
@@ -223,10 +237,8 @@ export function OrdersDashboard({ vendorId }: Props) {
     });
   }, [activeTab, buckets, delivered, search, quickFilter]);
 
-  const isLoading =
-    activeTab === 'delivered' ? isLoadingDelivered : isLoadingActive;
-  const isFetching =
-    activeTab === 'delivered' ? isFetchingDelivered : isFetchingActive;
+  const isLoading = activeTab === 'delivered' ? isLoadingDelivered : isLoadingActive;
+  const isFetching = activeTab === 'delivered' ? isFetchingDelivered : isFetchingActive;
 
   // ── Actions ─────────────────────────────────────────────────────────
   const onRefresh = useCallback(() => {
@@ -278,9 +290,7 @@ export function OrdersDashboard({ vendorId }: Props) {
           aria-hidden
         />
         <span>
-          {realtimeStatus === 'connected'
-            ? 'Live updates'
-            : 'Offline — refresh to update'}
+          {realtimeStatus === 'connected' ? 'Live updates' : 'Offline — refresh to update'}
         </span>
       </div>
 
@@ -345,7 +355,11 @@ export function OrdersDashboard({ vendorId }: Props) {
             orders={visibleOrders}
             isLoading={isLoading}
             tab={activeTab}
-            hasAnyActive={activeTab === 'delivered' ? delivered.length > 0 : (buckets[activeTab as 'pending' | 'preparing' | 'dispatched']?.length ?? 0) > 0}
+            hasAnyActive={
+              activeTab === 'delivered'
+                ? delivered.length > 0
+                : (buckets[activeTab as 'pending' | 'preparing' | 'dispatched']?.length ?? 0) > 0
+            }
             search={search}
             quickFilter={quickFilter}
           />
@@ -353,7 +367,10 @@ export function OrdersDashboard({ vendorId }: Props) {
       </div>
 
       <div className="fp-card flex items-start gap-3 border border-border bg-white p-4">
-        <span aria-hidden className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-teal-light text-teal">
+        <span
+          aria-hidden
+          className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-teal-light text-teal"
+        >
           <Bell className="h-5 w-5" />
         </span>
         <div className="min-w-0 flex-1">
@@ -383,7 +400,11 @@ function BucketList({
   quickFilter: QuickFilter;
 }) {
   if (isLoading) {
-    return <div className="fp-card border border-border bg-white p-6 text-center text-sm text-mid">Loading orders…</div>;
+    return (
+      <div className="fp-card border border-border bg-white p-6 text-center text-sm text-mid">
+        Loading orders…
+      </div>
+    );
   }
 
   if (!orders || orders.length === 0) {
@@ -394,9 +415,7 @@ function BucketList({
           {filteredOut ? 'No matching orders' : emptyTitleFor(tab)}
         </p>
         <p className="mt-1 text-xs text-mid">
-          {filteredOut
-            ? 'Try clearing the search or quick filter on the left.'
-            : emptyHintFor(tab)}
+          {filteredOut ? 'Try clearing the search or quick filter on the left.' : emptyHintFor(tab)}
         </p>
       </div>
     );
@@ -448,7 +467,15 @@ function emptyHintFor(tab: VendorOrderStatus): string {
  * server-side /payouts export.
  */
 function ordersToCsv(orders: VendorOrder[]): string {
-  const header = ['order_number', 'status', 'customer', 'scheduled_for', 'total_gbp', 'payout_gbp', 'notes'];
+  const header = [
+    'order_number',
+    'status',
+    'customer',
+    'scheduled_for',
+    'total_gbp',
+    'payout_gbp',
+    'notes',
+  ];
   const rows = orders.map((o) => [
     o.orderNumber,
     o.status,

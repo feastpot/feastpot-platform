@@ -52,8 +52,11 @@ export default function CheckoutPage() {
       <div className="px-4 py-12 text-center space-y-3">
         <h1 className="font-display text-xl font-black text-charcoal">Checkout unavailable</h1>
         <p className="text-sm font-medium text-charcoal-mid">
-          Payments aren&rsquo;t configured for this environment yet
-          (<code className="rounded bg-cream px-1 py-0.5 text-xs">NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY</code> is missing).
+          Payments aren&rsquo;t configured for this environment yet (
+          <code className="rounded bg-cream px-1 py-0.5 text-xs">
+            NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+          </code>{' '}
+          is missing).
         </p>
       </div>
     );
@@ -351,7 +354,7 @@ function CheckoutInner() {
     try {
       const discountCode =
         typeof sessionStorage !== 'undefined'
-          ? sessionStorage.getItem('feastpot.discount.v1') ?? undefined
+          ? (sessionStorage.getItem('feastpot.discount.v1') ?? undefined)
           : undefined;
 
       const { order, clientSecret } = await createOrder.mutateAsync({
@@ -478,7 +481,7 @@ function CheckoutInner() {
       // Discount code from basket drawer (sessionStorage).
       const discountCode =
         typeof sessionStorage !== 'undefined'
-          ? sessionStorage.getItem('feastpot.discount.v1') ?? undefined
+          ? (sessionStorage.getItem('feastpot.discount.v1') ?? undefined)
           : undefined;
 
       // 1. POST /v1/orders → returns { order, clientSecret }
@@ -557,9 +560,7 @@ function CheckoutInner() {
   return (
     <form onSubmit={onSubmit} className="px-4 py-4 pb-32 space-y-5" noValidate>
       <header className="space-y-1">
-        <h1 className="font-display text-2xl font-black tracking-tight text-charcoal">
-          Checkout
-        </h1>
+        <h1 className="font-display text-2xl font-black tracking-tight text-charcoal">Checkout</h1>
         <p className="text-sm font-medium text-charcoal-mid">
           Ordering from <span className="font-bold text-brand">{vendor.name}</span>
         </p>
@@ -575,14 +576,19 @@ function CheckoutInner() {
             className="flex w-full items-center justify-between gap-3 bg-cream px-4 py-3 text-left text-sm"
           >
             <span className="min-w-0 flex-1 truncate text-charcoal-mid">
-              <span className="font-bold text-charcoal">{itemCount} item{itemCount === 1 ? '' : 's'}</span>
+              <span className="font-bold text-charcoal">
+                {itemCount} item{itemCount === 1 ? '' : 's'}
+              </span>
               {' · '}
               <span className="truncate">{vendor.name}</span>
               {' · '}
               <span className="font-bold text-charcoal">{formatPounds(subtotal)}</span>
             </span>
             <ChevronDown
-              className={cn('h-4 w-4 shrink-0 text-charcoal-mid transition-transform', summaryOpen && 'rotate-180')}
+              className={cn(
+                'h-4 w-4 shrink-0 text-charcoal-mid transition-transform',
+                summaryOpen && 'rotate-180',
+              )}
               aria-hidden
             />
           </button>
@@ -592,25 +598,33 @@ function CheckoutInner() {
                 {items.map((i) => (
                   <li key={i.lineId} className="flex justify-between gap-2 text-charcoal-mid">
                     <span className="min-w-0">
-                      <span className="font-medium text-charcoal">{i.quantity}× {i.menuItemName}</span>
+                      <span className="font-medium text-charcoal">
+                        {i.quantity}× {i.menuItemName}
+                      </span>
                       {i.customisationNotes && (
                         <span className="block truncate text-[11px] italic text-charcoal-mid">
                           &ldquo;{i.customisationNotes}&rdquo;
                         </span>
                       )}
                     </span>
-                    <span className="shrink-0 tabular-nums font-medium text-charcoal">{formatPounds(i.lineTotalPence)}</span>
+                    <span className="shrink-0 tabular-nums font-medium text-charcoal">
+                      {formatPounds(i.lineTotalPence)}
+                    </span>
                   </li>
                 ))}
               </ul>
               <div className="mt-3 flex justify-between border-t border-cream-deep pt-2 text-sm">
                 <span className="text-charcoal-mid">Subtotal</span>
-                <span className="font-bold tabular-nums text-charcoal">{formatPounds(subtotal)}</span>
+                <span className="font-bold tabular-nums text-charcoal">
+                  {formatPounds(subtotal)}
+                </span>
               </div>
               {serviceFeePence > 0 && (
                 <div className="mt-1.5 flex justify-between text-sm">
                   <span className="text-charcoal-mid">Service fee</span>
-                  <span className="font-medium tabular-nums text-charcoal">{formatPounds(serviceFeePence)}</span>
+                  <span className="font-medium tabular-nums text-charcoal">
+                    {formatPounds(serviceFeePence)}
+                  </span>
                 </div>
               )}
               <p className="mt-1 text-[11px] font-medium text-charcoal-mid">
@@ -658,7 +672,10 @@ function CheckoutInner() {
                 max={maxRedeemable}
                 value={loyaltyPoints}
                 onChange={(e) => {
-                  const n = Math.max(0, Math.min(maxRedeemable, Math.floor(Number(e.target.value) / 100) * 100));
+                  const n = Math.max(
+                    0,
+                    Math.min(maxRedeemable, Math.floor(Number(e.target.value) / 100) * 100),
+                  );
                   setLoyaltyPoints(Number.isFinite(n) ? n : 0);
                 }}
                 className="h-10 flex-1 rounded-xl border border-cream-deep bg-white px-3 text-center text-base font-bold tabular-nums text-charcoal focus:border-brand focus:outline-none"
@@ -828,7 +845,9 @@ function CheckoutInner() {
           they've scrolled to reveal the sticky bar). */}
       <button
         type="submit"
-        disabled={submitting || !stripe || !selectedAddressId || !scheduledFor || outsideDeliveryArea}
+        disabled={
+          submitting || !stripe || !selectedAddressId || !scheduledFor || outsideDeliveryArea
+        }
         className="flex w-full items-center justify-center rounded-2xl bg-brand text-base font-bold text-white shadow-card transition-colors hover:bg-brand-dark disabled:opacity-50"
         style={{ height: 52 }}
       >
@@ -847,14 +866,18 @@ function CheckoutInner() {
         >
           <div className="mx-auto flex max-w-lg items-center gap-3">
             <div className="min-w-0 flex-1">
-              <p className="text-[11px] font-bold uppercase tracking-wide text-charcoal-mid">Total</p>
+              <p className="text-[11px] font-bold uppercase tracking-wide text-charcoal-mid">
+                Total
+              </p>
               <p className="font-display text-lg font-black tabular-nums text-charcoal">
                 {formatPounds(subtotal)}
               </p>
             </div>
             <button
               type="submit"
-              disabled={submitting || !stripe || !selectedAddressId || !scheduledFor || outsideDeliveryArea}
+              disabled={
+                submitting || !stripe || !selectedAddressId || !scheduledFor || outsideDeliveryArea
+              }
               className="flex h-12 flex-1 items-center justify-center rounded-2xl bg-brand text-sm font-semibold text-white hover:bg-brand-dark disabled:opacity-50"
             >
               {submitting ? 'Placing…' : 'Place order →'}

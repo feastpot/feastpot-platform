@@ -24,7 +24,11 @@ import { UploadDocumentDto } from './dto/upload-document.dto';
 import { VerifyDocumentDto } from './dto/verify-document.dto';
 
 function requireUser(user: AuthUser | null): AuthUser {
-  if (!user) throw new UnauthorizedException({ code: 'UNAUTHENTICATED', message: 'Authentication required' });
+  if (!user)
+    throw new UnauthorizedException({
+      code: 'UNAUTHENTICATED',
+      message: 'Authentication required',
+    });
   return user;
 }
 
@@ -40,7 +44,10 @@ export class ComplianceController {
   // a vendor user can only list their own vendor's docs.
   @Roles(UserRole.vendor, UserRole.compliance, UserRole.admin)
   @ApiOperation({ summary: 'List vendor documents (vendor-owner / compliance / admin)' })
-  list(@Param('vendorId', new ParseUUIDPipe()) vendorId: string, @CurrentUser() user: AuthUser | null) {
+  list(
+    @Param('vendorId', new ParseUUIDPipe()) vendorId: string,
+    @CurrentUser() user: AuthUser | null,
+  ) {
     return this.compliance.listDocuments(vendorId, requireUser(user));
   }
 
@@ -52,7 +59,10 @@ export class ComplianceController {
       type: 'object',
       properties: {
         file: { type: 'string', format: 'binary' },
-        type: { type: 'string', enum: ['hygiene_cert', 'insurance', 'photo_id', 'bank_details', 'kitchen_reg'] },
+        type: {
+          type: 'string',
+          enum: ['hygiene_cert', 'insurance', 'photo_id', 'bank_details', 'kitchen_reg'],
+        },
         expiresAt: { type: 'string', format: 'date-time' },
       },
     },
@@ -65,7 +75,11 @@ export class ComplianceController {
     @UploadedFile() file: Express.Multer.File,
     @Body() dto: UploadDocumentDto,
   ) {
-    if (!file) throw new BadRequestException({ code: 'FILE_REQUIRED', message: 'Multipart field "file" is required' });
+    if (!file)
+      throw new BadRequestException({
+        code: 'FILE_REQUIRED',
+        message: 'Multipart field "file" is required',
+      });
     return this.compliance.uploadDocument(vendorId, file, dto, requireUser(user));
   }
 

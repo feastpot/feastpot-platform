@@ -30,14 +30,18 @@ export class PaymentsController {
 
   @Get('chargebacks')
   @Roles(UserRole.finance, UserRole.admin)
-  @ApiOperation({ summary: 'List bank-initiated card chargebacks from Stripe (finance/admin only)' })
+  @ApiOperation({
+    summary: 'List bank-initiated card chargebacks from Stripe (finance/admin only)',
+  })
   listChargebacks(@Query() dto: ListChargebacksDto) {
     return this.payments.listChargebacks(dto);
   }
 
   @Post('refunds')
   @Roles(UserRole.support, UserRole.finance, UserRole.admin)
-  @ApiOperation({ summary: 'Initiate refund (support/finance/admin); large refunds restricted to finance/admin)' })
+  @ApiOperation({
+    summary: 'Initiate refund (support/finance/admin); large refunds restricted to finance/admin)',
+  })
   refund(@Req() req: AuthedRequest, @Body() dto: CreateRefundDto) {
     const u = requireUser(req);
     return this.payments.createRefund(dto, { id: u.id, role: u.role });

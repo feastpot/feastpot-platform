@@ -1,7 +1,17 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { ModerationStatus } from '@prisma/client';
 import { Type } from 'class-transformer';
-import { IsIn, IsInt, IsOptional, IsString, IsUUID, Matches, Max, MaxLength, Min } from 'class-validator';
+import {
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Matches,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
 
 // Admin filters the moderation page by any status (or 'all'). Service treats an
 // omitted status as 'held' (the items actually awaiting a decision).

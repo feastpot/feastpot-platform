@@ -37,42 +37,65 @@ export default async function VendorOgImage({ params }: Props) {
   }
 
   return new ImageResponse(
-    (
+    <div
+      style={{
+        background: '#E8520A',
+        width: '100%',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+        padding: '64px 80px',
+        fontFamily: 'sans-serif',
+      }}
+    >
       <div
         style={{
-          background: '#E8520A',
-          width: '100%',
-          height: '100%',
           display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'space-between',
-          padding: '64px 80px',
-          fontFamily: 'sans-serif',
+          fontSize: 28,
+          fontWeight: 700,
+          color: 'rgba(255,255,255,0.85)',
+          letterSpacing: '-1px',
         }}
       >
-        <div style={{ display: 'flex', fontSize: 28, fontWeight: 700, color: 'rgba(255,255,255,0.85)', letterSpacing: '-1px' }}>
-          feastpot
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <div style={{ fontSize: 84, fontWeight: 800, color: 'white', letterSpacing: '-2px', lineHeight: 1.05 }}>
-            {businessName}
-          </div>
-          {cuisines.length > 0 && (
-            <div style={{ display: 'flex', marginTop: 24, fontSize: 32, color: 'rgba(255,255,255,0.85)' }}>
-              {cuisines.slice(0, 3).join(' · ')}
-            </div>
-          )}
-          {rating !== null && (
-            <div style={{ display: 'flex', marginTop: 16, fontSize: 28, color: 'rgba(255,255,255,0.7)' }}>
-              ★ {rating.toFixed(1)} ({ratingCount} reviews)
-            </div>
-          )}
-        </div>
-        <div style={{ display: 'flex', fontSize: 24, color: 'rgba(255,255,255,0.6)' }}>
-          Order on feastpot.co.uk
-        </div>
+        feastpot
       </div>
-    ),
+      <div style={{ display: 'flex', flexDirection: 'column' }}>
+        <div
+          style={{
+            fontSize: 84,
+            fontWeight: 800,
+            color: 'white',
+            letterSpacing: '-2px',
+            lineHeight: 1.05,
+          }}
+        >
+          {businessName}
+        </div>
+        {cuisines.length > 0 && (
+          <div
+            style={{
+              display: 'flex',
+              marginTop: 24,
+              fontSize: 32,
+              color: 'rgba(255,255,255,0.85)',
+            }}
+          >
+            {cuisines.slice(0, 3).join(' · ')}
+          </div>
+        )}
+        {rating !== null && (
+          <div
+            style={{ display: 'flex', marginTop: 16, fontSize: 28, color: 'rgba(255,255,255,0.7)' }}
+          >
+            ★ {rating.toFixed(1)} ({ratingCount} reviews)
+          </div>
+        )}
+      </div>
+      <div style={{ display: 'flex', fontSize: 24, color: 'rgba(255,255,255,0.6)' }}>
+        Order on feastpot.co.uk
+      </div>
+    </div>,
     { ...size },
   );
 }

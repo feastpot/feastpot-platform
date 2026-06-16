@@ -1,13 +1,24 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { OrderStatus, UserRole } from '@prisma/client';
 import { Transform, Type } from 'class-transformer';
-import { IsBoolean, IsEmail, IsEnum, IsIn, IsInt, IsISO8601, IsOptional, IsString, MaxLength, Min, MinLength } from 'class-validator';
+import {
+  IsBoolean,
+  IsEmail,
+  IsEnum,
+  IsIn,
+  IsInt,
+  IsISO8601,
+  IsOptional,
+  IsString,
+  MaxLength,
+  Min,
+  MinLength,
+} from 'class-validator';
 // IsEnum is still used by OverrideOrderStatusDto / ListAdminOrdersDto below.
 
 // Trim incoming strings so a "   " value fails MinLength rather than
 // silently persisting as whitespace.
-const trim = ({ value }: { value: unknown }) =>
-  typeof value === 'string' ? value.trim() : value;
+const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
 
 /**
  * Staff-only role set the admin Users page can assign. Customer/vendor
@@ -74,7 +85,10 @@ export class UpdateUserRoleDto {
 }
 
 export class IssueCreditDto {
-  @ApiProperty({ minimum: 1, description: 'Credit in pence - added 1:1 to the customer loyalty balance' })
+  @ApiProperty({
+    minimum: 1,
+    description: 'Credit in pence - added 1:1 to the customer loyalty balance',
+  })
   @Type(() => Number)
   @IsInt()
   @Min(1)
@@ -119,13 +133,17 @@ export class ListAdminOrdersDto {
   @IsEnum(OrderStatus)
   status?: OrderStatus;
 
-  @ApiPropertyOptional({ description: 'Order ID (UUID), order number, or customer email substring' })
+  @ApiPropertyOptional({
+    description: 'Order ID (UUID), order number, or customer email substring',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(255)
   q?: string;
 
-  @ApiPropertyOptional({ description: 'today | week | month — convenience preset (use createdFrom/To for custom)' })
+  @ApiPropertyOptional({
+    description: 'today | week | month — convenience preset (use createdFrom/To for custom)',
+  })
   @IsOptional()
   @IsString()
   range?: 'today' | 'week' | 'month';
@@ -135,7 +153,9 @@ export class ListAdminOrdersDto {
   @IsISO8601()
   createdFrom?: string;
 
-  @ApiPropertyOptional({ description: 'ISO date - include only orders created on/before this date (end of day UTC)' })
+  @ApiPropertyOptional({
+    description: 'ISO date - include only orders created on/before this date (end of day UTC)',
+  })
   @IsOptional()
   @IsISO8601()
   createdTo?: string;

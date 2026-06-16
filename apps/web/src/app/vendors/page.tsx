@@ -50,8 +50,8 @@ function VendorSearch() {
   // `postcodeSyncResolved` gates the vendor query so we don't fire an
   // initial postcode-less national fetch + then a second filtered fetch a
   // tick later when the storage rehydrate replaces the URL.
-  const [postcodeSyncResolved, setPostcodeSyncResolved] = useState<boolean>(() =>
-    typeof postcode === 'string' && postcode.length > 0,
+  const [postcodeSyncResolved, setPostcodeSyncResolved] = useState<boolean>(
+    () => typeof postcode === 'string' && postcode.length > 0,
   );
   useEffect(() => {
     if (postcode) {
@@ -234,7 +234,10 @@ function VendorSearch() {
                 role="alert"
                 className="flex flex-col items-center rounded-3xl border border-cream-deep bg-white px-6 py-12 text-center shadow-card"
               >
-                <span className="mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-scotch/10 text-scotch" aria-hidden>
+                <span
+                  className="mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-scotch/10 text-scotch"
+                  aria-hidden
+                >
                   <WifiOff className="h-7 w-7" strokeWidth={2.25} />
                 </span>
                 <h3 className="mb-2 font-display text-xl font-black text-charcoal">
@@ -255,7 +258,10 @@ function VendorSearch() {
 
             {empty && q && (
               <div className="flex flex-col items-center justify-center rounded-3xl border border-cream-deep bg-white px-6 py-16 text-center shadow-card">
-                <span className="mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-brand-light text-brand" aria-hidden>
+                <span
+                  className="mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-brand-light text-brand"
+                  aria-hidden
+                >
                   <Search className="h-7 w-7" strokeWidth={2.25} />
                 </span>
                 <h2 className="mb-2 font-display text-xl font-black text-charcoal">

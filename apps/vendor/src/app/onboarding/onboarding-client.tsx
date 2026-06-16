@@ -45,7 +45,7 @@ export function OnboardingClient({ vendor }: { vendor: VendorSummary }) {
   // Newest-first: keep the first occurrence per type so re-uploads surface
   // immediately. `new Map(arr)` would keep the LAST (oldest) value on key
   // collision — see compliance-client.tsx for full rationale.
-  const docByType = new Map<string, (typeof docs.data extends (infer U)[] | undefined ? U : never)>();
+  const docByType = new Map<string, typeof docs.data extends (infer U)[] | undefined ? U : never>();
   for (const d of docs.data ?? []) if (!docByType.has(d.type)) docByType.set(d.type, d);
   const allDocsUploaded = REQUIRED_DOCS.every((d) => docByType.has(d.type));
   const stripeReady = !!vendor.stripeAccountId && vendor.payoutsEnabled;
@@ -71,7 +71,9 @@ export function OnboardingClient({ vendor }: { vendor: VendorSummary }) {
         <p className="text-sm text-muted-foreground">
           Finish these four steps and our compliance team will approve you to start taking orders.
           Status:{' '}
-          <Badge variant={vendor.status === 'live' ? 'default' : 'secondary'}>{vendor.status}</Badge>
+          <Badge variant={vendor.status === 'live' ? 'default' : 'secondary'}>
+            {vendor.status}
+          </Badge>
         </p>
         {stripeReturned && (
           <Card className="mt-3 border-teal/40 bg-teal/5">
@@ -96,7 +98,9 @@ export function OnboardingClient({ vendor }: { vendor: VendorSummary }) {
                 : 'Add a short description and at least one cuisine type from your profile.'}
             </p>
             <Link href="/settings/delivery" className="mt-2 inline-block">
-              <Button variant="outline" size="sm">Open delivery settings</Button>
+              <Button variant="outline" size="sm">
+                Open delivery settings
+              </Button>
             </Link>
             <p className="mt-2 text-xs text-muted-foreground">
               Profile editing UI is on the roadmap - for now this lives in the admin app.
@@ -189,11 +193,13 @@ export function OnboardingClient({ vendor }: { vendor: VendorSummary }) {
         body={
           <>
             <p className="text-sm text-muted-foreground">
-              You need at least 3 items live before compliance can approve you. The full editor
-              is in the menu section.
+              You need at least 3 items live before compliance can approve you. The full editor is
+              in the menu section.
             </p>
             <Link href="/menu" className="mt-2 inline-block">
-              <Button variant="outline" size="sm" className="gap-2"><Upload className="h-4 w-4" /> Open menu builder</Button>
+              <Button variant="outline" size="sm" className="gap-2">
+                <Upload className="h-4 w-4" /> Open menu builder
+              </Button>
             </Link>
           </>
         }
@@ -350,4 +356,3 @@ function Step({
     </Card>
   );
 }
-

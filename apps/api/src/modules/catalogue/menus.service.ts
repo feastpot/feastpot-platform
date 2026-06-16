@@ -117,7 +117,7 @@ export class MenusService {
     if (menuIds.length !== providedIds.size || !sameSize || !sameMembers) {
       throw new BadRequestException({
         code: 'INVALID_REORDER',
-        message: 'menuIds must contain each of this vendor\'s menus exactly once.',
+        message: "menuIds must contain each of this vendor's menus exactly once.",
       });
     }
 
@@ -153,7 +153,10 @@ export class MenusService {
   }
 
   private async assertBelongs(vendorId: string, menuId: string): Promise<void> {
-    const menu = await this.prisma.menu.findUnique({ where: { id: menuId }, select: { vendorId: true } });
+    const menu = await this.prisma.menu.findUnique({
+      where: { id: menuId },
+      select: { vendorId: true },
+    });
     if (!menu) {
       throw new NotFoundException({ code: 'MENU_NOT_FOUND', message: 'Menu not found' });
     }

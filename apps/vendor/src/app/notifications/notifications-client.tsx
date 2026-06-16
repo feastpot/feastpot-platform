@@ -338,7 +338,10 @@ function NotificationCard({
 
   const body = (
     <div className="flex items-start gap-3">
-      <span aria-hidden className={cn('grid h-12 w-12 shrink-0 place-items-center rounded-xl', meta.tile)}>
+      <span
+        aria-hidden
+        className={cn('grid h-12 w-12 shrink-0 place-items-center rounded-xl', meta.tile)}
+      >
         <Icon className={cn('h-5 w-5', meta.iconFg)} />
       </span>
 
@@ -359,7 +362,9 @@ function NotificationCard({
       </div>
 
       <div className="flex flex-col items-end gap-2 self-stretch">
-        <span className="whitespace-nowrap text-xs text-mid">{formatRelative(notif.createdAt)}</span>
+        <span className="whitespace-nowrap text-xs text-mid">
+          {formatRelative(notif.createdAt)}
+        </span>
         <span
           aria-hidden
           className={cn(
@@ -385,7 +390,11 @@ function NotificationCard({
           {inner}
         </Link>
       ) : (
-        <button type="button" onClick={onMarkRead} className="block w-full text-left focus:outline-none">
+        <button
+          type="button"
+          onClick={onMarkRead}
+          className="block w-full text-left focus:outline-none"
+        >
           {inner}
         </button>
       )}

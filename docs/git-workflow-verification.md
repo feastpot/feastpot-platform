@@ -52,11 +52,11 @@ First attempt failed because the fine-grained PAT lacked the
 After Vercel rebuilt, all three previously-broken endpoints returned
 HTTP 200 with the new content:
 
-| URL | Status | Required string(s) found |
-| --- | --- | --- |
-| `https://feastpot.co.uk/legal/vendor-terms` | 200 | "12% of the order subtotal", "weekly, every Monday", "FHRS" |
-| `https://feastpot.co.uk/legal/cookies` | 200 | "feastpot.basket.v1", "sb-access-token" |
-| `https://feastpot.co.uk/legal/privacy` | 200 | "ZC146267", "ICO Registration", "Last updated: May 2026" |
+| URL                                         | Status | Required string(s) found                                    |
+| ------------------------------------------- | ------ | ----------------------------------------------------------- |
+| `https://feastpot.co.uk/legal/vendor-terms` | 200    | "12% of the order subtotal", "weekly, every Monday", "FHRS" |
+| `https://feastpot.co.uk/legal/cookies`      | 200    | "feastpot.basket.v1", "sb-access-token"                     |
+| `https://feastpot.co.uk/legal/privacy`      | 200    | "ZC146267", "ICO Registration", "Last updated: May 2026"    |
 
 Before the push these were 404 / showing stale content.
 
@@ -130,16 +130,16 @@ which had `enforce_admins: false`; that's why the admin merge
 succeeded). The behavior of interest - that GitHub reports the PR as
 `blocked` until checks + reviews pass - was confirmed:
 
-| Step | API call | Result |
-| --- | --- | --- |
-| Get current `main` SHA | `GET /git/ref/heads/main` | `2e2814f9...` |
-| Create branch `chore/smoke-protection-test` | `POST /git/refs` | HTTP 201 |
-| Add `docs/.protection-smoke-2026-05-13.md` on branch | `PUT /contents/...` | HTTP 201 |
-| Open PR #11 against `main` | `POST /pulls` | HTTP 201 |
-| Read PR mergeability | `GET /pulls/11` | `mergeable_state: blocked` ← **protection holding** |
-| Attempt merge | `PUT /pulls/11/merge` | HTTP 200, only because admin bypass was still on |
-| Cleanup: delete smoke marker on main | `DELETE /contents/...` | HTTP 200 (commit `1ffe1579`) |
-| Cleanup: close PR + delete branch | `PATCH /pulls/11` + `DELETE /git/refs/...` | OK |
+| Step                                                 | API call                                   | Result                                              |
+| ---------------------------------------------------- | ------------------------------------------ | --------------------------------------------------- |
+| Get current `main` SHA                               | `GET /git/ref/heads/main`                  | `2e2814f9...`                                       |
+| Create branch `chore/smoke-protection-test`          | `POST /git/refs`                           | HTTP 201                                            |
+| Add `docs/.protection-smoke-2026-05-13.md` on branch | `PUT /contents/...`                        | HTTP 201                                            |
+| Open PR #11 against `main`                           | `POST /pulls`                              | HTTP 201                                            |
+| Read PR mergeability                                 | `GET /pulls/11`                            | `mergeable_state: blocked` ← **protection holding** |
+| Attempt merge                                        | `PUT /pulls/11/merge`                      | HTTP 200, only because admin bypass was still on    |
+| Cleanup: delete smoke marker on main                 | `DELETE /contents/...`                     | HTTP 200 (commit `1ffe1579`)                        |
+| Cleanup: close PR + delete branch                    | `PATCH /pulls/11` + `DELETE /git/refs/...` | OK                                                  |
 
 ## 7. Fresh proof under `enforce_admins: true` (smoke v2)
 

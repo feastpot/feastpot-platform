@@ -27,10 +27,31 @@ BEGIN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION public.custom_access_token_hook TO supabase_auth_admin;
+-- The hook executes as the `supabase_auth_admin` role, so it needs to reach
+-- public.users. EXECUTE alone is NOT enough:
+GRANT USAGE ON SCHEMA public TO supabase_auth_admin;
+GRANT EXECUTE ON FUNCTION public.custom_access_token_hook(jsonb) TO supabase_auth_admin;
+GRANT SELECT (id, role) ON public.users TO supabase_auth_admin;
+
+-- public.users has RLS enabled (and forced), so supabase_auth_admin would read
+-- ZERO rows without an explicit policy. Without this the hook silently falls
+-- back to '"customer"' for EVERYONE, and vendors/admins get a customer JWT.
+DROP POLICY IF EXISTS "Allow auth admin to read user roles" ON public.users;
+CREATE POLICY "Allow auth admin to read user roles"
+  ON public.users
+  AS PERMISSIVE FOR SELECT
+  TO supabase_auth_admin
+  USING (true);
 ```
 
 After creating the function, register it: **Auth → Hooks → Custom Access Token Hook → public.custom_access_token_hook**. Newly issued JWTs will then carry a top-level `role` claim, which `SupabaseAuthGuard.mapUser` reads from the verified bearer token.
+
+> **Important — this hook is not managed by Prisma.** The function, its grants,
+> and the RLS policy above live only in the database. A schema reset / fresh
+> `prisma db push` against a new database drops them. When that happens **every**
+> sign-in returns HTTP 500 (`Error running hook URI: pg-functions://postgres/public/custom_access_token_hook`),
+> or — if only the policy is missing — logins succeed but every JWT carries
+> `role: customer`. Re-run the full SQL block above after any DB reset.
 
 ## Trust model
 

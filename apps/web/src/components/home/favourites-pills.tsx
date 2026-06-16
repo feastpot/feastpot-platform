@@ -30,9 +30,7 @@ export function FavouritesPills() {
       aria-labelledby="favourites-heading"
       className="mx-auto max-w-6xl px-4 pt-14 sm:px-6 lg:px-8 lg:pt-20"
     >
-      <p className="text-[11px] font-black uppercase tracking-[0.18em] text-brand">
-        Popular food
-      </p>
+      <p className="text-[11px] font-black uppercase tracking-[0.18em] text-brand">Popular food</p>
       <h2
         id="favourites-heading"
         className="mt-1 font-display text-[26px] font-black leading-tight text-charcoal sm:text-3xl"
@@ -49,8 +47,8 @@ export function FavouritesPills() {
         <span className="text-charcoal">Pot</span>
       </h2>
       <p className="mt-1 text-[14px] font-medium text-charcoal-mid">
-        These cards are teasers only. Clicking one asks for postcode before
-        showing delivery availability.
+        These cards are teasers only. Clicking one asks for postcode before showing delivery
+        availability.
       </p>
 
       <ul className="mt-5 flex flex-wrap gap-2.5">

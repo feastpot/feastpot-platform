@@ -32,15 +32,13 @@ export default function NotificationSettingsPage() {
         </span>
         <div>
           <h1 className="font-display text-lg font-black text-charcoal">Notifications</h1>
-          <p className="text-xs font-medium text-charcoal-mid">
-            Choose how we keep you posted
-          </p>
+          <p className="text-xs font-medium text-charcoal-mid">Choose how we keep you posted</p>
         </div>
       </header>
 
       <p className="rounded-2xl border border-cream-deep bg-cream-warm/60 p-3 text-[13px] font-medium leading-relaxed text-charcoal-mid">
-        Order confirmations, cancellations and refund emails can&rsquo;t be turned
-        off &mdash; they&rsquo;re required for your orders.
+        Order confirmations, cancellations and refund emails can&rsquo;t be turned off &mdash;
+        they&rsquo;re required for your orders.
       </p>
 
       {isLoading && (

@@ -53,10 +53,9 @@ export default function TermsPage() {
         <LegalSection id="about" icon="🏢" title="1. About Feastpot">
           <p>
             Feastpot is an online marketplace operated by Feastpot Ltd (England and Wales). We
-            connect customers with independent food vendors. Feastpot is <strong>not</strong> a
-            food business, caterer or restaurant. We are a marketplace operator and are not
-            responsible for the preparation, quality or safety of food ordered through the
-            platform.
+            connect customers with independent food vendors. Feastpot is <strong>not</strong> a food
+            business, caterer or restaurant. We are a marketplace operator and are not responsible
+            for the preparation, quality or safety of food ordered through the platform.
           </p>
           <p>
             Feastpot is registered as a data controller with the ICO: <strong>{ICO_NUMBER}</strong>.
@@ -65,9 +64,8 @@ export default function TermsPage() {
 
         <LegalSection id="accept" icon="✍️" title="2. Accepting these terms">
           <p>
-            By creating an account or placing an order, you agree to these terms. You must be 18
-            or over to create an account. These terms are governed by the laws of England and
-            Wales.
+            By creating an account or placing an order, you agree to these terms. You must be 18 or
+            over to create an account. These terms are governed by the laws of England and Wales.
           </p>
         </LegalSection>
 
@@ -82,15 +80,15 @@ export default function TermsPage() {
 
         <LegalSection id="orders" icon="🛒" title="4. Placing orders">
           <p>
-            Orders are a contract between you (the customer) and the vendor, not Feastpot.
-            Feastpot facilitates payment and provides the platform; we are not a party to the
-            food supply contract.
+            Orders are a contract between you (the customer) and the vendor, not Feastpot. Feastpot
+            facilitates payment and provides the platform; we are not a party to the food supply
+            contract.
           </p>
           <p>
             Orders are confirmed when the vendor accepts. Pending orders are held in escrow via
-            Stripe and only captured when the vendor accepts. If a vendor does not accept within
-            15 minutes, your order is automatically cancelled and a full refund is issued within
-            5 business days.
+            Stripe and only captured when the vendor accepts. If a vendor does not accept within 15
+            minutes, your order is automatically cancelled and a full refund is issued within 5
+            business days.
           </p>
         </LegalSection>
 
@@ -104,19 +102,19 @@ export default function TermsPage() {
             <li>Stripe may apply transaction fees subject to their terms.</li>
           </ul>
           <p>
-            Feastpot operates as a marketplace and charges food vendors a platform commission
-            of <strong>{LEGAL.PLATFORM_COMMISSION_PCT}%</strong> on each completed order subtotal.
-            This commission is deducted from the vendor &mdash; customers are not charged any
-            additional platform fee beyond the prices shown at checkout.
+            Feastpot operates as a marketplace and charges food vendors a platform commission of{' '}
+            <strong>{LEGAL.PLATFORM_COMMISSION_PCT}%</strong> on each completed order subtotal. This
+            commission is deducted from the vendor &mdash; customers are not charged any additional
+            platform fee beyond the prices shown at checkout.
           </p>
         </LegalSection>
 
         <LegalSection id="delivery" icon="🛵" title="6. Delivery">
           <p>
             Delivery is performed by the vendor or a vendor-arranged courier, not by Feastpot.
-            Delivery times are estimates. Feastpot is not liable for late deliveries caused by
-            the vendor or by circumstances outside our control. You are responsible for providing
-            an accurate delivery address.
+            Delivery times are estimates. Feastpot is not liable for late deliveries caused by the
+            vendor or by circumstances outside our control. You are responsible for providing an
+            accurate delivery address.
           </p>
         </LegalSection>
 
@@ -132,8 +130,8 @@ export default function TermsPage() {
               within 1 hour of acceptance.
             </li>
             <li>
-              <strong>After delivery:</strong> if food is missing, wrong, or unfit for
-              consumption, raise a dispute within 24 hours via the app or at{' '}
+              <strong>After delivery:</strong> if food is missing, wrong, or unfit for consumption,
+              raise a dispute within 24 hours via the app or at{' '}
               <LegalLink href="mailto:support@feastpot.co.uk">support@feastpot.co.uk</LegalLink>.
             </li>
           </ul>
@@ -148,9 +146,9 @@ export default function TermsPage() {
         <LegalSection id="allergens" icon="⚠️" title="8. Allergens and dietary requirements">
           <p>
             Allergen information is provided by vendors and is{' '}
-            <strong>not independently verified</strong> by Feastpot. If you have a severe
-            allergy, contact the vendor directly before ordering. Feastpot cannot guarantee that
-            any dish is allergen-free.
+            <strong>not independently verified</strong> by Feastpot. If you have a severe allergy,
+            contact the vendor directly before ordering. Feastpot cannot guarantee that any dish is
+            allergen-free.
           </p>
           <p>
             In the event of a severe allergic reaction, call <strong>999</strong> immediately. The
@@ -158,8 +156,8 @@ export default function TermsPage() {
             <LegalLink href="/legal/allergens">feastpot.co.uk/legal/allergens</LegalLink>.
           </p>
           <p>
-            Vendors are required under the Food Information Regulations 2014 and Natasha&rsquo;s
-            Law (PPDS Regulation 2021) to declare all 14 major allergens.
+            Vendors are required under the Food Information Regulations 2014 and Natasha&rsquo;s Law
+            (PPDS Regulation 2021) to declare all 14 major allergens.
           </p>
         </LegalSection>
 
@@ -185,23 +183,22 @@ export default function TermsPage() {
 
         <LegalSection id="liability" icon="⚖️" title="11. Feastpot's role and liability">
           <p>
-            Feastpot is a marketplace platform operator, not a food business. We are not liable
-            for: the quality or safety of food; delivery delays; vendor non-performance; or
-            events outside our reasonable control.
+            Feastpot is a marketplace platform operator, not a food business. We are not liable for:
+            the quality or safety of food; delivery delays; vendor non-performance; or events
+            outside our reasonable control.
           </p>
           <p>
-            Our maximum liability to you in any 12-month period is limited to the total fees paid
-            by you to Feastpot in that period. Nothing in these terms limits our liability for
-            death or personal injury caused by our negligence, for fraud, or for any liability
-            that cannot be excluded by law (including your statutory rights under the Consumer
-            Rights Act 2015).
+            Our maximum liability to you in any 12-month period is limited to the total fees paid by
+            you to Feastpot in that period. Nothing in these terms limits our liability for death or
+            personal injury caused by our negligence, for fraud, or for any liability that cannot be
+            excluded by law (including your statutory rights under the Consumer Rights Act 2015).
           </p>
         </LegalSection>
 
         <LegalSection id="changes" icon="📢" title="12. Changes to these terms">
           <p>
-            We will give 14 days&rsquo; notice of material changes via email. Continued use of
-            the platform after the effective date constitutes acceptance.
+            We will give 14 days&rsquo; notice of material changes via email. Continued use of the
+            platform after the effective date constitutes acceptance.
           </p>
         </LegalSection>
 
@@ -209,8 +206,8 @@ export default function TermsPage() {
           <p>
             These terms are governed by the laws of <strong>England and Wales</strong>. Disputes
             shall be subject to the exclusive jurisdiction of the courts of England and Wales,
-            unless you are a consumer in Scotland or Northern Ireland, in which case you may
-            bring proceedings in your local court.
+            unless you are a consumer in Scotland or Northern Ireland, in which case you may bring
+            proceedings in your local court.
           </p>
         </LegalSection>
 

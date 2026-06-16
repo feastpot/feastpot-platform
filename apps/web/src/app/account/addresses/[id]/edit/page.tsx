@@ -52,7 +52,9 @@ export default function EditAddressPage() {
     <PageShell>
       <div className="space-y-4 py-4">
         <header>
-          <h1 className="font-display text-2xl font-black tracking-tight text-charcoal">Edit address</h1>
+          <h1 className="font-display text-2xl font-black tracking-tight text-charcoal">
+            Edit address
+          </h1>
         </header>
 
         <AddressForm

@@ -46,9 +46,7 @@ export function AnalyticsClient() {
           ? undefined
           : ((t.revenuePence - l.revenuePence) / l.revenuePence) * 100,
       ordersDelta:
-        l.ordersCount === 0
-          ? undefined
-          : ((t.ordersCount - l.ordersCount) / l.ordersCount) * 100,
+        l.ordersCount === 0 ? undefined : ((t.ordersCount - l.ordersCount) / l.ordersCount) * 100,
     };
   }, [weekly]);
 
@@ -69,9 +67,7 @@ export function AnalyticsClient() {
     <div className="space-y-5">
       <header>
         <h1 className="text-2xl font-extrabold tracking-tight text-dark">Analytics</h1>
-        <p className="mt-1 text-sm text-mid">
-          Last 8 weeks · top dishes from last 90 days
-        </p>
+        <p className="mt-1 text-sm text-mid">Last 8 weeks · top dishes from last 90 days</p>
       </header>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

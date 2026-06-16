@@ -29,7 +29,15 @@ import {
   Input,
   cn,
 } from '@feastpot/ui';
-import { ChevronDown, GripVertical, Pencil, Plus, Search, Trash2, UtensilsCrossed } from 'lucide-react';
+import {
+  ChevronDown,
+  GripVertical,
+  Pencil,
+  Plus,
+  Search,
+  Trash2,
+  UtensilsCrossed,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 
@@ -84,7 +92,9 @@ export function MenuListClient({ vendorId }: { vendorId: string }) {
   const list = useMemo(() => {
     const all = menus ?? [];
     const needle = search.trim().toLowerCase();
-    const filtered = needle ? all.filter((m) => m.name.toLowerCase().includes(needle)) : all.slice();
+    const filtered = needle
+      ? all.filter((m) => m.name.toLowerCase().includes(needle))
+      : all.slice();
     // `manual` keeps the server's sortOrder (the array already arrives ordered),
     // so it's the only mode where drag-to-reorder maps cleanly back to the API.
     if (sort !== 'manual') {
@@ -139,7 +149,9 @@ export function MenuListClient({ vendorId }: { vendorId: string }) {
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-extrabold tracking-tight text-dark">Menus</h1>
-          <p className="mt-1 text-sm text-mid">Group your dishes into menus customers can browse.</p>
+          <p className="mt-1 text-sm text-mid">
+            Group your dishes into menus customers can browse.
+          </p>
         </div>
         <Button onClick={() => setCreateOpen(true)} className="gap-2 bg-teal hover:bg-teal-dark">
           <Plus className="h-4 w-4" /> Add menu
@@ -204,8 +216,13 @@ export function MenuListClient({ vendorId }: { vendorId: string }) {
           {!isLoading && menus && menus.length === 0 && (
             <div className="fp-card border border-border bg-white p-10 text-center">
               <p className="text-base font-semibold text-dark">You don&apos;t have any menus yet</p>
-              <p className="mt-1 text-xs text-mid">Group your dishes into menus customers can browse.</p>
-              <Button onClick={() => setCreateOpen(true)} className="mt-4 gap-2 bg-teal hover:bg-teal-dark">
+              <p className="mt-1 text-xs text-mid">
+                Group your dishes into menus customers can browse.
+              </p>
+              <Button
+                onClick={() => setCreateOpen(true)}
+                className="mt-4 gap-2 bg-teal hover:bg-teal-dark"
+              >
                 <Plus className="h-4 w-4" /> Create your first menu
               </Button>
             </div>
@@ -219,7 +236,11 @@ export function MenuListClient({ vendorId }: { vendorId: string }) {
           )}
 
           {canDrag ? (
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
               <SortableContext items={list.map((m) => m.id)} strategy={verticalListSortingStrategy}>
                 {list.map((m) => (
                   <SortableMenuRow
@@ -264,8 +285,15 @@ function SortableMenuRow({
   menu: VendorMenu;
   onEdit: () => void;
 }) {
-  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
-    useSortable({ id: menu.id });
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    setActivatorNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: menu.id });
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -350,7 +378,12 @@ function MenuRow({
             <span className="font-semibold tabular-nums text-dark">{itemCount}</span>{' '}
             {itemCount === 1 ? 'item' : 'items'}
             <span className="mx-1.5 text-border">•</span>
-            Last updated {lastUpdated.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+            Last updated{' '}
+            {lastUpdated.toLocaleDateString('en-GB', {
+              day: 'numeric',
+              month: 'short',
+              year: 'numeric',
+            })}
           </p>
         </div>
 
@@ -506,7 +539,12 @@ function EditMenuDialog({
             );
           }}
         >
-          <Input value={name} minLength={2} maxLength={255} onChange={(e) => setName(e.target.value)} />
+          <Input
+            value={name}
+            minLength={2}
+            maxLength={255}
+            onChange={(e) => setName(e.target.value)}
+          />
           <div className="flex justify-end gap-2">
             <Button type="button" variant="ghost" onClick={onClose}>
               Cancel

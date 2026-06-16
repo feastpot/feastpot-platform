@@ -1,13 +1,7 @@
 'use client';
 
 import { cn } from '@feastpot/ui';
-import {
-  HourglassIcon,
-  PoundSterling,
-  ShoppingBag,
-  Star,
-  type LucideIcon,
-} from 'lucide-react';
+import { HourglassIcon, PoundSterling, ShoppingBag, Star, type LucideIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 export type StatCardIconKey = 'revenue' | 'orders' | 'pending' | 'rating';
@@ -74,9 +68,7 @@ export function StatCard({
   pulse,
 }: StatCardProps) {
   const numValue =
-    typeof value === 'number'
-      ? value
-      : parseFloat(value.toString().replace(/[^0-9.]/g, '')) || 0;
+    typeof value === 'number' ? value : parseFloat(value.toString().replace(/[^0-9.]/g, '')) || 0;
 
   const [displayed, setDisplayed] = useState(0);
 
@@ -95,9 +87,10 @@ export function StatCard({
   }, [numValue]);
 
   const hasFraction = numValue % 1 !== 0;
-  const display = hasFraction && displayed === Math.round(numValue)
-    ? numValue.toFixed(numValue.toString().split('.')[1]?.length === 1 ? 1 : 2)
-    : displayed.toString();
+  const display =
+    hasFraction && displayed === Math.round(numValue)
+      ? numValue.toFixed(numValue.toString().split('.')[1]?.length === 1 ? 1 : 2)
+      : displayed.toString();
 
   const tileTone: Record<NonNullable<StatCardProps['color']>, string> = {
     brand: 'bg-brand-light text-brand',
@@ -121,9 +114,7 @@ export function StatCard({
         >
           <Icon className="h-[18px] w-[18px]" />
         </span>
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-mid">
-          {label}
-        </p>
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-mid">{label}</p>
       </div>
       <p className="mt-3 text-[28px] font-black leading-none text-dark">
         {prefix}

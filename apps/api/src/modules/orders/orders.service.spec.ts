@@ -146,7 +146,9 @@ describe('OrdersService - pure helpers', () => {
 });
 
 describe('OrdersService.updateStatus authorization', () => {
-  type Mocked<T> = { [K in keyof T]: T[K] extends (...a: infer A) => infer R ? jest.Mock<R, A> : T[K] };
+  type Mocked<T> = {
+    [K in keyof T]: T[K] extends (...a: infer A) => infer R ? jest.Mock<R, A> : T[K];
+  };
   let repo: Mocked<{
     findByIdWithItems: (id: string) => Promise<unknown>;
     transitionStatus: (id: string, from: OrderStatus, data: unknown) => Promise<boolean>;
@@ -161,7 +163,10 @@ describe('OrdersService.updateStatus authorization', () => {
     refund: (pi: string) => Promise<unknown>;
     retrieve: (pi: string) => Promise<{ status: string }>;
   }>;
-  let queue: Mocked<{ add: (name: string, data: unknown, opts?: unknown) => Promise<unknown>; getJob: (id: string) => Promise<unknown> }>;
+  let queue: Mocked<{
+    add: (name: string, data: unknown, opts?: unknown) => Promise<unknown>;
+    getJob: (id: string) => Promise<unknown>;
+  }>;
   let members: { canActOnVendor: jest.Mock };
   let service: OrdersService;
 
@@ -234,7 +239,9 @@ describe('OrdersService.updateStatus authorization', () => {
   });
 
   it('forbids a non-owning vendor', async () => {
-    repo.findByIdWithItems.mockResolvedValue(order({ status: OrderStatus.pending, vendorUserId: 'someone-else' }));
+    repo.findByIdWithItems.mockResolvedValue(
+      order({ status: OrderStatus.pending, vendorUserId: 'someone-else' }),
+    );
     members.canActOnVendor.mockResolvedValue(false);
     await expect(
       service.updateStatus('o-1', { status: OrderStatus.accepted }, vendorUser('u-vend')),
@@ -318,7 +325,10 @@ describe('OrdersService.updateStatus authorization', () => {
     expect(repo.transitionStatus).toHaveBeenCalledWith(
       'o-1',
       OrderStatus.preparing,
-      expect.objectContaining({ status: OrderStatus.cancelled, notes: '[CANCELLED] Customer escalation' }),
+      expect.objectContaining({
+        status: OrderStatus.cancelled,
+        notes: '[CANCELLED] Customer escalation',
+      }),
     );
   });
 
@@ -342,7 +352,11 @@ describe('OrdersService.confirmOrder', () => {
   const baseStripe = () => ({ retrieve: jest.fn() });
   const baseQueue = () => ({ add: jest.fn().mockResolvedValue({}) });
 
-  const make = (overrides?: { repo?: ReturnType<typeof baseRepo>; stripe?: ReturnType<typeof baseStripe>; queue?: ReturnType<typeof baseQueue> }) => {
+  const make = (overrides?: {
+    repo?: ReturnType<typeof baseRepo>;
+    stripe?: ReturnType<typeof baseStripe>;
+    queue?: ReturnType<typeof baseQueue>;
+  }) => {
     const repo = overrides?.repo ?? baseRepo();
     const stripe = overrides?.stripe ?? baseStripe();
     const queue = overrides?.queue ?? baseQueue();
@@ -417,7 +431,12 @@ describe('OrdersService.confirmOrder', () => {
     repo.findStripePaymentIntent.mockResolvedValue('pi_ok');
     stripe.retrieve.mockResolvedValue({ status: 'requires_capture' });
     await svc.confirmOrder('o-1', 'cust-1');
-    expect(queue.add).toHaveBeenNthCalledWith(1, 'notify_vendor', { vendorId: 'v-1', orderId: 'o-1' }, undefined);
+    expect(queue.add).toHaveBeenNthCalledWith(
+      1,
+      'notify_vendor',
+      { vendorId: 'v-1', orderId: 'o-1' },
+      undefined,
+    );
     expect(queue.add).toHaveBeenNthCalledWith(
       2,
       'auto_cancel',
@@ -556,7 +575,10 @@ describe('OrdersService.customerCancel financial exclusion', () => {
     };
     const prisma = { auditLog: { create: jest.fn().mockResolvedValue({}) } };
     const stripe = { cancel: jest.fn().mockResolvedValue({}) };
-    const queue = { add: jest.fn().mockResolvedValue({}), getJob: jest.fn().mockResolvedValue(null) };
+    const queue = {
+      add: jest.fn().mockResolvedValue({}),
+      getJob: jest.fn().mockResolvedValue(null),
+    };
     const loyalty = { refundRedemption: jest.fn().mockResolvedValue(undefined) };
     const svc = new OrdersService(
       prisma as never,

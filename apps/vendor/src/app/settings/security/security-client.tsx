@@ -13,10 +13,7 @@ import {
 import { useEffect, useState } from 'react';
 
 import { useToast } from '@/components/ui/toaster';
-import {
-  useRecoveryCodeStatus,
-  useRegenerateRecoveryCodes,
-} from '@/hooks/use-mfa-recovery-codes';
+import { useRecoveryCodeStatus, useRegenerateRecoveryCodes } from '@/hooks/use-mfa-recovery-codes';
 import { createClient } from '@/lib/supabase/client';
 
 /**
@@ -137,9 +134,7 @@ export function SecurityClient() {
       toast({
         title: 'Recovery codes not generated',
         description:
-          e instanceof Error
-            ? e.message
-            : 'You can generate them manually from this page.',
+          e instanceof Error ? e.message : 'You can generate them manually from this page.',
         variant: 'destructive',
       });
     }
@@ -311,7 +306,9 @@ export function SecurityClient() {
         <section className="fp-card border border-border bg-white p-5">
           <div className="space-y-5">
             <div>
-              <p className="text-sm font-bold text-dark">Step 1. Scan the QR with your authenticator</p>
+              <p className="text-sm font-bold text-dark">
+                Step 1. Scan the QR with your authenticator
+              </p>
               <p className="mt-1 text-xs text-mid">
                 Or paste this secret if you cannot scan:{' '}
                 <code className="rounded bg-surface px-1.5 py-0.5 font-mono text-[11px] text-dark">

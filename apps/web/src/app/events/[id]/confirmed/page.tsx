@@ -26,8 +26,18 @@ export default function ConfirmedPage() {
   const [menuAdjustments, setMenuAdjustments] = useState('');
   const [feedback, setFeedback] = useState<string | null>(null);
 
-  if (isLoading) return <PageShell><p className="py-8 text-center text-sm font-medium text-charcoal-mid">Loading…</p></PageShell>;
-  if (!enquiry) return <PageShell><p className="py-8 text-center text-sm font-medium text-scotch">Not found.</p></PageShell>;
+  if (isLoading)
+    return (
+      <PageShell>
+        <p className="py-8 text-center text-sm font-medium text-charcoal-mid">Loading…</p>
+      </PageShell>
+    );
+  if (!enquiry)
+    return (
+      <PageShell>
+        <p className="py-8 text-center text-sm font-medium text-scotch">Not found.</p>
+      </PageShell>
+    );
 
   const accepted = enquiry.quotes?.find((q) => q.status === 'accepted');
   const balanceDueAt = new Date(new Date(enquiry.eventDate).getTime() - 48 * 60 * 60 * 1000);
@@ -36,8 +46,11 @@ export default function ConfirmedPage() {
     e.preventDefault();
     setFeedback(null);
     try {
-      await confirm.mutateAsync({ guestCount: Number(guestCount), menuAdjustments: menuAdjustments || undefined });
-      setFeedback('Numbers confirmed. We\'ll prompt you 48h before the event for the balance.');
+      await confirm.mutateAsync({
+        guestCount: Number(guestCount),
+        menuAdjustments: menuAdjustments || undefined,
+      });
+      setFeedback("Numbers confirmed. We'll prompt you 48h before the event for the balance.");
       setOpen(false);
     } catch (err) {
       setFeedback(`Failed to update: ${(err as Error).message}`);
@@ -46,38 +59,84 @@ export default function ConfirmedPage() {
 
   return (
     <PageShell>
-      <Link href="/events" className="text-xs font-bold text-charcoal-mid hover:text-brand-dark hover:underline">← My events</Link>
+      <Link
+        href="/events"
+        className="text-xs font-bold text-charcoal-mid hover:text-brand-dark hover:underline"
+      >
+        ← My events
+      </Link>
       <header className="py-4">
-        <h1 className="font-display text-2xl font-black tracking-tight text-charcoal">Booking confirmed</h1>
-        <p className="text-sm font-medium text-charcoal-mid">{enquiry.selectedVendor?.businessName ?? 'Your vendor'} is on it.</p>
+        <h1 className="font-display text-2xl font-black tracking-tight text-charcoal">
+          Booking confirmed
+        </h1>
+        <p className="text-sm font-medium text-charcoal-mid">
+          {enquiry.selectedVendor?.businessName ?? 'Your vendor'} is on it.
+        </p>
       </header>
 
       <section className="space-y-2 rounded-2xl border border-cream-deep bg-white p-4 text-sm font-medium text-charcoal shadow-sm">
-        <div className="flex justify-between"><span className="text-charcoal-mid">Event date</span><span>{new Date(enquiry.eventDate).toLocaleString('en-GB')}</span></div>
-        <div className="flex justify-between"><span className="text-charcoal-mid">Final guests</span><span>{enquiry.finalGuestCount ?? enquiry.guestCount}</span></div>
+        <div className="flex justify-between">
+          <span className="text-charcoal-mid">Event date</span>
+          <span>{new Date(enquiry.eventDate).toLocaleString('en-GB')}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-charcoal-mid">Final guests</span>
+          <span>{enquiry.finalGuestCount ?? enquiry.guestCount}</span>
+        </div>
         {accepted && (
           <>
-            <div className="flex justify-between"><span className="text-charcoal-mid">Per head</span><span>{formatPounds(accepted.perHeadPence)}</span></div>
-            <div className="flex justify-between"><span className="text-charcoal-mid">Delivery</span><span>{formatPounds(accepted.deliveryFeePence)}</span></div>
-            <div className="flex justify-between border-t border-cream-deep pt-2 font-bold"><span>Total</span><span>{formatPounds(accepted.perHeadPence * (enquiry.finalGuestCount ?? enquiry.guestCount) + accepted.deliveryFeePence)}</span></div>
+            <div className="flex justify-between">
+              <span className="text-charcoal-mid">Per head</span>
+              <span>{formatPounds(accepted.perHeadPence)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-charcoal-mid">Delivery</span>
+              <span>{formatPounds(accepted.deliveryFeePence)}</span>
+            </div>
+            <div className="flex justify-between border-t border-cream-deep pt-2 font-bold">
+              <span>Total</span>
+              <span>
+                {formatPounds(
+                  accepted.perHeadPence * (enquiry.finalGuestCount ?? enquiry.guestCount) +
+                    accepted.deliveryFeePence,
+                )}
+              </span>
+            </div>
           </>
         )}
-        <div className="flex justify-between"><span className="text-charcoal-mid">Balance due</span><span>{balanceDueAt.toLocaleString('en-GB')}</span></div>
+        <div className="flex justify-between">
+          <span className="text-charcoal-mid">Balance due</span>
+          <span>{balanceDueAt.toLocaleString('en-GB')}</span>
+        </div>
       </section>
 
       {feedback && (
-        <p className="mt-3 rounded-xl border border-brand/30 bg-brand/10 p-3 text-sm font-medium text-brand-dark">{feedback}</p>
+        <p className="mt-3 rounded-xl border border-brand/30 bg-brand/10 p-3 text-sm font-medium text-brand-dark">
+          {feedback}
+        </p>
       )}
 
-      <Button className="mt-4 w-full rounded-xl bg-brand py-3 font-bold text-white hover:bg-brand-dark" onClick={() => setOpen((v) => !v)}>
+      <Button
+        className="mt-4 w-full rounded-xl bg-brand py-3 font-bold text-white hover:bg-brand-dark"
+        onClick={() => setOpen((v) => !v)}
+      >
         {open ? 'Cancel' : 'Confirm final numbers'}
       </Button>
 
       {open && (
-        <form onSubmit={onSubmit} className="mt-3 space-y-3 rounded-2xl border border-cream-deep bg-white p-4 shadow-sm">
+        <form
+          onSubmit={onSubmit}
+          className="mt-3 space-y-3 rounded-2xl border border-cream-deep bg-white p-4 shadow-sm"
+        >
           <label className="block">
             <span className={fieldLabel}>Final guest count</span>
-            <Input type="number" min={10} value={guestCount} onChange={(e) => setGuestCount(Number(e.target.value))} required />
+            <Input
+              type="number"
+              min={10}
+              value={guestCount}
+              onChange={(e) => setGuestCount(Number(e.target.value))}
+              required
+            />
           </label>
           <label className="block">
             <span className={fieldLabel}>Menu adjustments</span>
@@ -89,7 +148,11 @@ export default function ConfirmedPage() {
               placeholder="Any last-minute changes…"
             />
           </label>
-          <Button type="submit" className="w-full rounded-xl bg-brand py-3 font-bold text-white hover:bg-brand-dark" disabled={confirm.isPending}>
+          <Button
+            type="submit"
+            className="w-full rounded-xl bg-brand py-3 font-bold text-white hover:bg-brand-dark"
+            disabled={confirm.isPending}
+          >
             {confirm.isPending ? 'Saving…' : 'Save'}
           </Button>
         </form>

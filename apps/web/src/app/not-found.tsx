@@ -17,8 +17,8 @@ export default function NotFound() {
             We couldn&rsquo;t find that page
           </h1>
           <p className="mx-auto max-w-sm text-sm font-medium text-charcoal-mid">
-            The link may have moved, or the kitchen you were looking for is no longer on
-            Feastpot. Try one of these instead.
+            The link may have moved, or the kitchen you were looking for is no longer on Feastpot.
+            Try one of these instead.
           </p>
         </div>
 

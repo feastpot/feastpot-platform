@@ -31,9 +31,12 @@ export default function ForgotPasswordPage() {
     return (
       <PageShell>
         <section className="space-y-3 py-10 text-center">
-          <h1 className="font-display text-2xl font-black tracking-tight text-charcoal">Check your email</h1>
+          <h1 className="font-display text-2xl font-black tracking-tight text-charcoal">
+            Check your email
+          </h1>
           <p className="text-sm text-charcoal-mid">
-            If an account exists for <strong className="break-all">{email}</strong>, you&rsquo;ll get a reset link shortly.
+            If an account exists for <strong className="break-all">{email}</strong>, you&rsquo;ll
+            get a reset link shortly.
           </p>
         </section>
       </PageShell>
@@ -44,7 +47,9 @@ export default function ForgotPasswordPage() {
     <PageShell>
       <section className="space-y-4 py-6">
         <header className="space-y-1">
-          <h1 className="font-display text-2xl font-black tracking-tight text-charcoal">Reset your password</h1>
+          <h1 className="font-display text-2xl font-black tracking-tight text-charcoal">
+            Reset your password
+          </h1>
           <p className="text-sm text-charcoal-mid">
             Enter your account email and we&rsquo;ll send a reset link.
           </p>

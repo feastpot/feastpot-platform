@@ -12,13 +12,7 @@ import { canVendorRoleAccess, useMyVendorRole } from '@/hooks/use-vendor-members
  * endpoints reject mismatched callers) - this is the UX layer so a
  * `staff` user doesn't load a screen they cannot use.
  */
-export function RoleGate({
-  path,
-  children,
-}: {
-  path: string;
-  children: React.ReactNode;
-}) {
+export function RoleGate({ path, children }: { path: string; children: React.ReactNode }) {
   const { data, isLoading } = useMyVendorRole();
 
   // Tell the top-nav to re-evaluate visible links when the role lands.
@@ -36,7 +30,8 @@ export function RoleGate({
         <ShieldAlert className="mx-auto h-10 w-10 text-amber-500" />
         <h2 className="mt-3 text-lg font-semibold">No access to this section</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Your role on this team does not include this page. Ask the vendor owner if you need access.
+          Your role on this team does not include this page. Ask the vendor owner if you need
+          access.
         </p>
       </div>
     );

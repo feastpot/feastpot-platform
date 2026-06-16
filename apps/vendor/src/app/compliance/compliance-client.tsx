@@ -54,15 +54,12 @@ export function ComplianceClient({ vendor }: { vendor: VendorSummary }) {
   for (const d of docs.data ?? []) if (!docByType.has(d.type)) docByType.set(d.type, d);
 
   const approvedPct =
-    summary.totalRequired === 0
-      ? 0
-      : Math.round((summary.approved / summary.totalRequired) * 100);
+    summary.totalRequired === 0 ? 0 : Math.round((summary.approved / summary.totalRequired) * 100);
 
   // Scroll the first non-approved doc into view when the vendor clicks
   // "View missing". Anchors are per-doc-type so the link works even
   // after re-orderings or deletions further down the list.
-  const firstMissingType =
-    summary.byType.find((b) => b.state !== 'approved')?.type ?? null;
+  const firstMissingType = summary.byType.find((b) => b.state !== 'approved')?.type ?? null;
   const handleViewMissing = () => {
     if (!firstMissingType) return;
     const el = document.getElementById(`doc-${firstMissingType}`);
@@ -77,7 +74,9 @@ export function ComplianceClient({ vendor }: { vendor: VendorSummary }) {
     <div className="space-y-5">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-extrabold tracking-tight text-dark">Compliance & documents</h1>
+          <h1 className="text-2xl font-extrabold tracking-tight text-dark">
+            Compliance & documents
+          </h1>
           <p className="mt-1 text-sm text-mid">
             Keep your certificates current to stay live on FeastPot. We send you a reminder 30 days
             before anything expires.
@@ -104,8 +103,8 @@ export function ComplianceClient({ vendor }: { vendor: VendorSummary }) {
           <div>
             <p className="font-semibold">Your account is currently suspended.</p>
             <p className="text-red-800">
-              New orders are paused while compliance reviews your documents. Reply to the email
-              you received, or contact support if you need help.
+              New orders are paused while compliance reviews your documents. Reply to the email you
+              received, or contact support if you need help.
             </p>
           </div>
         </div>
@@ -269,7 +268,10 @@ function StatusBanner({
             aria-valuemax={100}
             aria-label="Approval progress"
           >
-            <div className={cn('h-full rounded-full transition-all', barFill)} style={{ width: `${approvedPct}%` }} />
+            <div
+              className={cn('h-full rounded-full transition-all', barFill)}
+              style={{ width: `${approvedPct}%` }}
+            />
           </div>
           <span className={cn('text-sm font-bold tabular-nums', pctClass)}>{approvedPct}%</span>
         </div>

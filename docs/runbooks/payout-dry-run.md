@@ -11,6 +11,7 @@ Stripe access and a real connected vendor account. The code path it exercises
 is built and unit-tested; this runbook is the manual go-live verification.
 
 ## Pre-conditions
+
 - Live `STRIPE_SECRET_KEY` set (not a test key) and Stripe Connect enabled on the
   live platform. The webhook endpoint registered with the real signing secret in
   `STRIPE_WEBHOOK_SECRET` (see §1.1) so `transfer.created` reconciles.
@@ -23,6 +24,7 @@ is built and unit-tested; this runbook is the manual go-live verification.
 - Float available on the platform Stripe balance to cover the transfer.
 
 ## Procedure
+
 1. **Create the batch.** Trigger an out-of-cycle run from the admin Settings
    page ("run payout batch") or `POST /v1/admin/payouts/run-batch`. This enqueues
    a one-shot job (jobId `manual-payout-<ts>`) that calls `runWeeklyBatch` for the
@@ -44,6 +46,7 @@ is built and unit-tested; this runbook is the manual go-live verification.
    payout `transferred` with zero discrepancy.
 
 ## Safety notes
+
 - Transfers are **idempotent per payout** (key `payout-transfer-<payoutId>`): a
   timed-out-but-succeeded transfer that flips the payout to `failed` will **not**
   double-pay if it is later re-approved — Stripe returns the original transfer.
@@ -53,6 +56,7 @@ is built and unit-tested; this runbook is the manual go-live verification.
   approved until the dispute resolves.
 
 ## Rollback / cleanup
+
 - A draft you do not want to pay can be **held** (`POST /v1/payouts/:id/hold`).
 - A transfer cannot be un-sent; reverse it in the Stripe Dashboard if needed and
   reconcile manually. Keep the test amount small so this is cheap.

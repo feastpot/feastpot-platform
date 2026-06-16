@@ -29,7 +29,9 @@ interface VendorMe {
  */
 export default async function MenuListPage() {
   const supabase = await createServerSupabase();
-  const { data: { session } } = await supabase.auth.getSession();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
   if (!session) redirect('/sign-in?next=/menu');
 
   let vendor: VendorMe;
@@ -39,7 +41,8 @@ export default async function MenuListPage() {
       next: { revalidate: 0 },
     });
   } catch (err) {
-    if (err instanceof ApiError && (err.status === 403 || err.status === 404)) redirect('/unauthorized');
+    if (err instanceof ApiError && (err.status === 403 || err.status === 404))
+      redirect('/unauthorized');
     throw err;
   }
   if (vendor.status !== 'live' && vendor.status !== 'probation') redirect('/onboarding');

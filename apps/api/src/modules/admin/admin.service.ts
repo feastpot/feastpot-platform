@@ -113,44 +113,52 @@ export class AdminService {
     const thirtyDaysAgo = new Date(todayStart.getTime() - 29 * 24 * 60 * 60 * 1000);
 
     // Pulled in parallel; everything below is read-only aggregation.
-    const [todayAgg, weekAgg, monthAgg, activeVendors, ordersToday, monthOrders, repeatStats, last30] =
-      await Promise.all([
-        this.prisma.order.aggregate({
-          where: { status: { in: REVENUE_STATUSES }, createdAt: { gte: todayStart } },
-          _sum: { totalPence: true },
-          _count: { _all: true },
-        }),
-        this.prisma.order.aggregate({
-          where: { status: { in: REVENUE_STATUSES }, createdAt: { gte: weekStart } },
-          _sum: { totalPence: true },
-        }),
-        this.prisma.order.aggregate({
-          where: { status: { in: REVENUE_STATUSES }, createdAt: { gte: monthStart } },
-          _sum: { totalPence: true, subtotalPence: true },
-          _avg: { totalPence: true },
-          _count: { _all: true },
-        }),
-        this.prisma.vendor.count({
-          where: { status: { in: [VendorStatus.live, VendorStatus.probation] } },
-        }),
-        this.prisma.order.count({ where: { createdAt: { gte: todayStart } } }),
-        this.prisma.order.findMany({
-          where: { status: { in: REVENUE_STATUSES }, createdAt: { gte: monthStart } },
-          select: { vendorId: true, totalPence: true },
-        }),
-        // Repeat-order rate over the last 90 days: % of customers with ≥2 delivered orders.
-        this.prisma.order.findMany({
-          where: {
-            status: OrderStatus.delivered,
-            createdAt: { gte: new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000) },
-          },
-          select: { customerId: true },
-        }),
-        this.prisma.order.findMany({
-          where: { status: { in: REVENUE_STATUSES }, createdAt: { gte: thirtyDaysAgo } },
-          select: { totalPence: true, createdAt: true },
-        }),
-      ]);
+    const [
+      todayAgg,
+      weekAgg,
+      monthAgg,
+      activeVendors,
+      ordersToday,
+      monthOrders,
+      repeatStats,
+      last30,
+    ] = await Promise.all([
+      this.prisma.order.aggregate({
+        where: { status: { in: REVENUE_STATUSES }, createdAt: { gte: todayStart } },
+        _sum: { totalPence: true },
+        _count: { _all: true },
+      }),
+      this.prisma.order.aggregate({
+        where: { status: { in: REVENUE_STATUSES }, createdAt: { gte: weekStart } },
+        _sum: { totalPence: true },
+      }),
+      this.prisma.order.aggregate({
+        where: { status: { in: REVENUE_STATUSES }, createdAt: { gte: monthStart } },
+        _sum: { totalPence: true, subtotalPence: true },
+        _avg: { totalPence: true },
+        _count: { _all: true },
+      }),
+      this.prisma.vendor.count({
+        where: { status: { in: [VendorStatus.live, VendorStatus.probation] } },
+      }),
+      this.prisma.order.count({ where: { createdAt: { gte: todayStart } } }),
+      this.prisma.order.findMany({
+        where: { status: { in: REVENUE_STATUSES }, createdAt: { gte: monthStart } },
+        select: { vendorId: true, totalPence: true },
+      }),
+      // Repeat-order rate over the last 90 days: % of customers with ≥2 delivered orders.
+      this.prisma.order.findMany({
+        where: {
+          status: OrderStatus.delivered,
+          createdAt: { gte: new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000) },
+        },
+        select: { customerId: true },
+      }),
+      this.prisma.order.findMany({
+        where: { status: { in: REVENUE_STATUSES }, createdAt: { gte: thirtyDaysAgo } },
+        select: { totalPence: true, createdAt: true },
+      }),
+    ]);
 
     // ---- daily revenue (30 day window, oldest → newest, gap-filled) ----
     const dailyMap = new Map<string, DailyBucket>();
@@ -214,7 +222,8 @@ export class AdminService {
           ordersCount: totals.orders,
           rating: v?.rating ?? 0,
           reorderRatePct: v?.reorderRatePct ?? 0,
-          disputeRatePct: totals.orders === 0 ? 0 : Number(((disputes / totals.orders) * 100).toFixed(2)),
+          disputeRatePct:
+            totals.orders === 0 ? 0 : Number(((disputes / totals.orders) * 100).toFixed(2)),
         };
       });
     }
@@ -516,7 +525,8 @@ export class AdminService {
     };
     const lines = [header.join(',')];
     for (const r of rows) {
-      const name = `${r.customer.firstName ?? ''} ${r.customer.lastName ?? ''}`.trim() || r.customer.email;
+      const name =
+        `${r.customer.firstName ?? ''} ${r.customer.lastName ?? ''}`.trim() || r.customer.email;
       const items = r.items.map((i) => `${i.quantity}× ${i.nameSnapshot}`).join('; ');
       lines.push(
         [
@@ -561,7 +571,10 @@ export class AdminService {
     });
     const nextCursor =
       rows.length === limit
-        ? this.encodeAuditCursor({ createdAt: rows[rows.length - 1]!.createdAt, id: rows[rows.length - 1]!.id })
+        ? this.encodeAuditCursor({
+            createdAt: rows[rows.length - 1]!.createdAt,
+            id: rows[rows.length - 1]!.id,
+          })
         : null;
     return { data: rows, nextCursor };
   }
@@ -573,10 +586,7 @@ export class AdminService {
    * in memory. The 5 000 hard cap protects the endpoint from runaway scans;
    * exporters who need more rows must narrow filters.
    */
-  async exportAuditLogCsv(
-    dto: ListAuditLogDto,
-    write: (chunk: string) => void,
-  ): Promise<void> {
+  async exportAuditLogCsv(dto: ListAuditLogDto, write: (chunk: string) => void): Promise<void> {
     const HARD_CAP = 5000;
     const PAGE = 500;
     const where = this.buildAuditWhere(dto);
@@ -654,7 +664,9 @@ export class AdminService {
   }
 
   private encodeAuditCursor(c: { createdAt: Date; id: string }): string {
-    return Buffer.from(JSON.stringify({ createdAt: c.createdAt.toISOString(), id: c.id })).toString('base64url');
+    return Buffer.from(JSON.stringify({ createdAt: c.createdAt.toISOString(), id: c.id })).toString(
+      'base64url',
+    );
   }
 
   private decodeAuditCursor(s: string): { createdAt: Date; id: string } | null {
@@ -794,11 +806,7 @@ export class AdminService {
    * wraps the DB writes in a Prisma transaction with compensating
    * supabase.deleteUser if the tx fails after the auth user was created.
    */
-  async updateVendorApplication(
-    id: string,
-    reviewerId: string,
-    dto: UpdateVendorApplicationDto,
-  ) {
+  async updateVendorApplication(id: string, reviewerId: string, dto: UpdateVendorApplicationDto) {
     // Per-branch input guards - class-validator can't express "required
     // when status=X", so we check here.
     if (dto.status === 'rejected' && !dto.rejectionReason?.trim()) {
@@ -810,7 +818,8 @@ export class AdminService {
     if (dto.status === 'information_requested' && !dto.adminNotes?.trim()) {
       throw new BadRequestException({
         code: 'ADMIN_NOTES_REQUIRED',
-        message: 'adminNotes is required when status="information_requested" - they are surfaced to the applicant verbatim',
+        message:
+          'adminNotes is required when status="information_requested" - they are surfaced to the applicant verbatim',
       });
     }
 
@@ -908,7 +917,7 @@ export class AdminService {
    *      logged but don't unwind - the admin can re-send manually).
    */
   private async approveVendorApplication(
-    app: Prisma.VendorApplicationGetPayload<{}>,
+    app: Prisma.VendorApplicationGetPayload<Record<string, never>>,
     reviewerId: string,
     dto: UpdateVendorApplicationDto,
   ) {
@@ -1311,7 +1320,10 @@ export class AdminService {
     });
     const nextCursor =
       rows.length === limit
-        ? this.encodeVendorCursor({ createdAt: rows[rows.length - 1]!.createdAt, id: rows[rows.length - 1]!.id })
+        ? this.encodeVendorCursor({
+            createdAt: rows[rows.length - 1]!.createdAt,
+            id: rows[rows.length - 1]!.id,
+          })
         : null;
     return { data, nextCursor };
   }
@@ -1343,7 +1355,9 @@ export class AdminService {
   }
 
   private encodeVendorCursor(c: { createdAt: Date; id: string }): string {
-    return Buffer.from(JSON.stringify({ createdAt: c.createdAt.toISOString(), id: c.id })).toString('base64url');
+    return Buffer.from(JSON.stringify({ createdAt: c.createdAt.toISOString(), id: c.id })).toString(
+      'base64url',
+    );
   }
 
   private decodeVendorCursor(s: string): { createdAt: Date; id: string } | null {
@@ -1396,7 +1410,8 @@ export class AdminService {
         ourAmountPence: payout.amountPence,
         stripeAmountPence,
         discrepancyPence: payout.amountPence - stripeAmountPence,
-        status: payout.amountPence === stripeAmountPence ? ('match' as const) : ('mismatch' as const),
+        status:
+          payout.amountPence === stripeAmountPence ? ('match' as const) : ('mismatch' as const),
       };
     } catch (err) {
       return {

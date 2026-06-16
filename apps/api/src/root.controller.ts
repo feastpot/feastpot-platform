@@ -1,11 +1,6 @@
-import {
-  Controller,
-  Get,
-  ServiceUnavailableException,
-  VERSION_NEUTRAL,
-} from '@nestjs/common';
-import { SkipThrottle } from '@nestjs/throttler';
+import { Controller, Get, ServiceUnavailableException, VERSION_NEUTRAL } from '@nestjs/common';
 import { ApiExcludeController } from '@nestjs/swagger';
+import { SkipThrottle } from '@nestjs/throttler';
 
 import { Public } from './auth/decorators/public.decorator';
 import { PrismaService } from './prisma/prisma.service';

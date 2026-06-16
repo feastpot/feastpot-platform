@@ -104,8 +104,8 @@ export function OccasionGrid() {
             What are you ordering for?
           </h2>
           <p className="mt-1 text-[14px] font-medium text-charcoal-mid">
-            Choose the occasion first. We&apos;ll ask for your postcode before
-            showing available cooks.
+            Choose the occasion first. We&apos;ll ask for your postcode before showing available
+            cooks.
           </p>
         </div>
       </header>
@@ -124,9 +124,7 @@ export function OccasionGrid() {
                 <Icon className="h-5 w-5" strokeWidth={2} />
               </span>
               <div>
-                <p className="font-display text-[15px] font-black text-charcoal">
-                  {title}
-                </p>
+                <p className="font-display text-[15px] font-black text-charcoal">{title}</p>
                 <p className="mt-1 text-[12.5px] font-medium leading-snug text-charcoal-mid">
                   {sub}
                 </p>

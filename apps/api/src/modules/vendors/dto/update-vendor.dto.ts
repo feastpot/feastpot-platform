@@ -1,5 +1,4 @@
-import { PartialType } from '@nestjs/swagger';
-import { ApiPropertyOptional } from '@nestjs/swagger';
+import { PartialType, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
@@ -28,7 +27,9 @@ import { CreateVendorDto } from './create-vendor.dto';
  * a URL at the service level; here we only require the wrapper is an object.
  */
 export class UpdateVendorDto extends PartialType(CreateVendorDto) {
-  @ApiPropertyOptional({ description: 'Minimum order in pence; persisted on the vendor delivery config' })
+  @ApiPropertyOptional({
+    description: 'Minimum order in pence; persisted on the vendor delivery config',
+  })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
@@ -45,19 +46,27 @@ export class UpdateVendorDto extends PartialType(CreateVendorDto) {
   })
   slug?: string;
 
-  @ApiPropertyOptional({ description: 'Public logo image URL (use POST /vendors/:id/images?kind=logo to upload).' })
+  @ApiPropertyOptional({
+    description: 'Public logo image URL (use POST /vendors/:id/images?kind=logo to upload).',
+  })
   @IsOptional()
   @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
   @MaxLength(2048)
   logoUrl?: string;
 
-  @ApiPropertyOptional({ description: 'Public cover image URL (use POST /vendors/:id/images?kind=cover to upload).' })
+  @ApiPropertyOptional({
+    description: 'Public cover image URL (use POST /vendors/:id/images?kind=cover to upload).',
+  })
   @IsOptional()
   @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
   @MaxLength(2048)
   coverImageUrl?: string;
 
-  @ApiPropertyOptional({ type: [String], maxItems: 12, description: 'Short specialities surfaced as pills.' })
+  @ApiPropertyOptional({
+    type: [String],
+    maxItems: 12,
+    description: 'Short specialities surfaced as pills.',
+  })
   @IsOptional()
   @IsArray()
   @ArrayMaxSize(12)
@@ -71,7 +80,11 @@ export class UpdateVendorDto extends PartialType(CreateVendorDto) {
   @MaxLength(4000)
   vendorStory?: string;
 
-  @ApiPropertyOptional({ type: [String], maxItems: 6, description: 'Featured dish names highlighted on the storefront.' })
+  @ApiPropertyOptional({
+    type: [String],
+    maxItems: 6,
+    description: 'Featured dish names highlighted on the storefront.',
+  })
   @IsOptional()
   @IsArray()
   @ArrayMaxSize(6)
@@ -80,7 +93,8 @@ export class UpdateVendorDto extends PartialType(CreateVendorDto) {
   featuredDishes?: string[];
 
   @ApiPropertyOptional({
-    description: 'Social handles keyed by network (instagram/tiktok/facebook/youtube/website). Values must be URLs.',
+    description:
+      'Social handles keyed by network (instagram/tiktok/facebook/youtube/website). Values must be URLs.',
     example: { instagram: 'https://instagram.com/maman', website: 'https://maman.example' },
   })
   @IsOptional()

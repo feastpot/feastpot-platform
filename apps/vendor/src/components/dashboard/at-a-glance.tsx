@@ -53,9 +53,7 @@ export function AtAGlance({ eventEnquiries, nextPayout, menuHealth }: Props) {
           icon={<MessageSquare className="h-[18px] w-[18px] text-teal" aria-hidden />}
           label="Event enquiries"
           primary={
-            eventEnquiries.pending === 0
-              ? 'None to quote'
-              : `${eventEnquiries.pending} to quote`
+            eventEnquiries.pending === 0 ? 'None to quote' : `${eventEnquiries.pending} to quote`
           }
           secondary={
             eventEnquiries.nextEventDate
@@ -87,10 +85,7 @@ export function AtAGlance({ eventEnquiries, nextPayout, menuHealth }: Props) {
           tint={totalWarnings > 0 ? 'amber' : 'surface'}
           icon={
             <AlertTriangle
-              className={cn(
-                'h-[18px] w-[18px]',
-                totalWarnings > 0 ? 'text-amber-600' : 'text-mid',
-              )}
+              className={cn('h-[18px] w-[18px]', totalWarnings > 0 ? 'text-amber-600' : 'text-mid')}
               aria-hidden
             />
           }
@@ -161,10 +156,7 @@ function Row({
       >
         <span
           aria-hidden
-          className={cn(
-            'grid h-10 w-10 shrink-0 place-items-center rounded-lg',
-            tintBg[tint],
-          )}
+          className={cn('grid h-10 w-10 shrink-0 place-items-center rounded-lg', tintBg[tint])}
         >
           {icon}
         </span>

@@ -9,7 +9,8 @@ export const metadata: Metadata = {
   alternates: { canonical: '/ghanaian-food-delivery-london' },
   openGraph: {
     title: 'Ghanaian Food Delivery London | Feastpot',
-    description: 'Waakye, banku, fufu, kelewele and Ghanaian jollof - delivered across London by independent home cooks.',
+    description:
+      'Waakye, banku, fufu, kelewele and Ghanaian jollof - delivered across London by independent home cooks.',
     url: '/ghanaian-food-delivery-london',
     type: 'website',
   },
@@ -22,12 +23,34 @@ export default function Page() {
       heading="Authentic Ghanaian Food Delivered in London"
       intro="From Tottenham to Croydon, Feastpot brings you trusted Ghanaian cooks making waakye, fufu, banku and the kind of jollof worth arguing about. Order a single bowl or a tray that feeds your whole compound."
       highlights={[
-        { name: 'Waakye', description: 'Rice and beans cooked with sorghum leaves, served with shito, gari, fish or wele.' },
-        { name: 'Banku & Tilapia', description: 'Fermented corn-and-cassava dough with grilled tilapia and fresh pepper.' },
-        { name: 'Fufu & Light Soup', description: 'Pounded plantain or cassava in a clear, fiery soup with goat or chicken.' },
-        { name: 'Kelewele', description: 'Spiced fried plantain - the snack everyone underestimates until they try it.' },
-        { name: 'Ghanaian Jollof', description: 'Long-grain, smoky and tomato-forward. Yes, it is different from Nigerian jollof. Yes, both are great.' },
-        { name: 'Red Red & Plantain', description: 'Bean stew with palm oil, served with sweet ripe plantain. The midweek favourite.' },
+        {
+          name: 'Waakye',
+          description:
+            'Rice and beans cooked with sorghum leaves, served with shito, gari, fish or wele.',
+        },
+        {
+          name: 'Banku & Tilapia',
+          description: 'Fermented corn-and-cassava dough with grilled tilapia and fresh pepper.',
+        },
+        {
+          name: 'Fufu & Light Soup',
+          description: 'Pounded plantain or cassava in a clear, fiery soup with goat or chicken.',
+        },
+        {
+          name: 'Kelewele',
+          description:
+            'Spiced fried plantain - the snack everyone underestimates until they try it.',
+        },
+        {
+          name: 'Ghanaian Jollof',
+          description:
+            'Long-grain, smoky and tomato-forward. Yes, it is different from Nigerian jollof. Yes, both are great.',
+        },
+        {
+          name: 'Red Red & Plantain',
+          description:
+            'Bean stew with palm oil, served with sweet ripe plantain. The midweek favourite.',
+        },
       ]}
       faqs={[
         {

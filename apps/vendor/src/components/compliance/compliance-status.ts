@@ -1,4 +1,8 @@
-import type { DocumentStatus, VendorDocument, VendorDocumentType } from '@/hooks/use-vendor-documents';
+import type {
+  DocumentStatus,
+  VendorDocument,
+  VendorDocumentType,
+} from '@/hooks/use-vendor-documents';
 
 /**
  * Spec-level compliance statuses surfaced to the vendor. These extend the raw

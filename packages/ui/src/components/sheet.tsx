@@ -17,8 +17,9 @@ const sideClasses = {
   right: 'inset-y-0 right-0 h-full w-3/4 max-w-sm border-l',
 } as const;
 
-export interface SheetContentProps
-  extends React.ComponentPropsWithoutRef<typeof SheetPrimitive.Content> {
+export interface SheetContentProps extends React.ComponentPropsWithoutRef<
+  typeof SheetPrimitive.Content
+> {
   side?: keyof typeof sideClasses;
 }
 

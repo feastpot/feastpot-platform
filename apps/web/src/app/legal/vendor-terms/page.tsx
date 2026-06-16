@@ -39,8 +39,8 @@ export default function VendorTermsPage() {
         title="Vendor Terms"
         lede={
           <>
-            Your commercial agreement with Feastpot Ltd when you list and sell food on the
-            platform, weekly payouts, plain rules.
+            Your commercial agreement with Feastpot Ltd when you list and sell food on the platform,
+            weekly payouts, plain rules.
           </>
         }
         footnote={<>Last updated: May 2026 &middot; England &amp; Wales</>}
@@ -52,8 +52,8 @@ export default function VendorTermsPage() {
         <LegalSection id="relationship" icon="🤝" title="1. The vendor relationship">
           <p>
             By registering as a vendor on Feastpot, you enter into a commercial agreement with
-            Feastpot Ltd. You are an independent business, not an employee or agent of Feastpot.
-            You are solely responsible for your food, your kitchen, and your compliance with all
+            Feastpot Ltd. You are an independent business, not an employee or agent of Feastpot. You
+            are solely responsible for your food, your kitchen, and your compliance with all
             applicable food law.
           </p>
         </LegalSection>
@@ -63,12 +63,12 @@ export default function VendorTermsPage() {
           <ul style={legalListStyle}>
             <li>Be registered as a business or sole trader in the UK;</li>
             <li>
-              Hold a valid Food Business Registration under the Food Safety Act 1990 (register
-              with your local authority, it is free and mandatory);
+              Hold a valid Food Business Registration under the Food Safety Act 1990 (register with
+              your local authority, it is free and mandatory);
             </li>
             <li>
-              Have a minimum Food Hygiene Rating Scheme (FHRS) rating of 3/5 (Feastpot recommends
-              a minimum of 4/5 for listing on the platform);
+              Have a minimum Food Hygiene Rating Scheme (FHRS) rating of 3/5 (Feastpot recommends a
+              minimum of 4/5 for listing on the platform);
             </li>
             <li>Hold valid public liability insurance (minimum &pound;1&nbsp;million cover);</li>
             <li>Comply with the Food Information Regulations 2014 (allergen labelling);</li>
@@ -83,8 +83,8 @@ export default function VendorTermsPage() {
             Commission is deducted from your weekly payout &mdash; it is not charged separately.
           </p>
           <p>
-            Payouts are processed <strong>weekly, every Monday</strong>, for all orders delivered
-            in the prior Monday&ndash;Sunday window. Payouts are made via Stripe Connect to your
+            Payouts are processed <strong>weekly, every Monday</strong>, for all orders delivered in
+            the prior Monday&ndash;Sunday window. Payouts are made via Stripe Connect to your
             registered UK bank account.
           </p>
           <p>A payout will be held if:</p>
@@ -98,11 +98,11 @@ export default function VendorTermsPage() {
 
         <LegalSection id="disputes" icon="⚖️" title="4. Refunds and disputes">
           <p>
-            If a customer dispute results in a full or partial refund, the refunded amount will
-            be deducted from your next payout. Vendors are
-            expected to respond to dispute enquiries within 24 hours. Failure to respond will be
-            treated as non-engagement and may result in a full refund to the customer at the
-            vendor&rsquo;s cost. Feastpot&rsquo;s decision on disputes is final.
+            If a customer dispute results in a full or partial refund, the refunded amount will be
+            deducted from your next payout. Vendors are expected to respond to dispute enquiries
+            within 24 hours. Failure to respond will be treated as non-engagement and may result in
+            a full refund to the customer at the vendor&rsquo;s cost. Feastpot&rsquo;s decision on
+            disputes is final.
           </p>
         </LegalSection>
 
@@ -164,20 +164,17 @@ export default function VendorTermsPage() {
             <li>Your Stripe Connect account is flagged by Stripe.</li>
           </ul>
           <p>
-            We will notify you of any suspension and the reason for it. Appeals must be submitted
-            to{' '}
-            <LegalLink href="mailto:compliance@feastpot.co.uk">
-              compliance@feastpot.co.uk
-            </LegalLink>{' '}
+            We will notify you of any suspension and the reason for it. Appeals must be submitted to{' '}
+            <LegalLink href="mailto:compliance@feastpot.co.uk">compliance@feastpot.co.uk</LegalLink>{' '}
             within 7 days.
           </p>
         </LegalSection>
 
         <LegalSection id="ip" icon="📸" title="10. Intellectual property">
           <p>
-            By uploading photos or content to Feastpot, you grant us a non-exclusive,
-            royalty-free licence to use that content to promote the platform and your listing.
-            You retain ownership of your content.
+            By uploading photos or content to Feastpot, you grant us a non-exclusive, royalty-free
+            licence to use that content to promote the platform and your listing. You retain
+            ownership of your content.
           </p>
         </LegalSection>
 

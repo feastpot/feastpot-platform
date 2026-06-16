@@ -18,7 +18,6 @@ export function useVendorStats() {
     queryKey: ['vendor', 'stats'],
     enabled: !!token && !authLoading,
     refetchInterval: 60_000,
-    queryFn: () =>
-      apiRequest<VendorStats>('/vendors/me/stats', { accessToken: token! }),
+    queryFn: () => apiRequest<VendorStats>('/vendors/me/stats', { accessToken: token! }),
   });
 }

@@ -1,4 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
+import { OrderType, VendorStatus } from '@prisma/client';
 import { Transform, Type } from 'class-transformer';
 import {
   IsArray,
@@ -13,8 +14,6 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
-
-import { OrderType, VendorStatus } from '@prisma/client';
 
 export enum VendorSortBy {
   rating = 'rating',
@@ -36,7 +35,10 @@ const toArray = ({ value }: { value: unknown }): unknown => {
 };
 
 export class SearchVendorsDto {
-  @ApiPropertyOptional({ description: 'Free-text query - matches business name, description, cuisine list, AND active menu-item names/descriptions' })
+  @ApiPropertyOptional({
+    description:
+      'Free-text query - matches business name, description, cuisine list, AND active menu-item names/descriptions',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(200)

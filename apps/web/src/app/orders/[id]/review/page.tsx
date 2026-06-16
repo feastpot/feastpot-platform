@@ -124,9 +124,7 @@ export default function ReviewPage() {
           <Check className="h-10 w-10" strokeWidth={3} aria-hidden />
         </span>
         <h1 className="text-2xl font-bold tracking-tight text-dark">Thanks for your review!</h1>
-        <p className="text-sm text-mid">
-          It helps your community find great cooks.
-        </p>
+        <p className="text-sm text-mid">It helps your community find great cooks.</p>
         <button
           type="button"
           onClick={() => router.push('/account/orders')}
@@ -136,9 +134,18 @@ export default function ReviewPage() {
         </button>
         <style jsx>{`
           @keyframes fp-pop {
-            0% { transform: scale(0); opacity: 0; }
-            60% { transform: scale(1.15); opacity: 1; }
-            100% { transform: scale(1); opacity: 1; }
+            0% {
+              transform: scale(0);
+              opacity: 0;
+            }
+            60% {
+              transform: scale(1.15);
+              opacity: 1;
+            }
+            100% {
+              transform: scale(1);
+              opacity: 1;
+            }
           }
         `}</style>
       </section>

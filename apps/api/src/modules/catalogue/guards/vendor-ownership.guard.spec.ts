@@ -1,4 +1,9 @@
-import { ExecutionContext, ForbiddenException, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import {
+  ExecutionContext,
+  ForbiddenException,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { UserRole } from '@prisma/client';
 
 import type { AuthUser } from '../../../auth/types';
@@ -33,7 +38,9 @@ describe('VendorOwnershipGuard', () => {
   });
 
   it('throws Unauthorized for anonymous requests', async () => {
-    await expect(guard.canActivate(makeContext(null, 'v-1'))).rejects.toBeInstanceOf(UnauthorizedException);
+    await expect(guard.canActivate(makeContext(null, 'v-1'))).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
   });
 
   it('admin always passes regardless of vendor ownership', async () => {
@@ -46,14 +53,18 @@ describe('VendorOwnershipGuard', () => {
   it('throws NotFound when vendor does not exist', async () => {
     findUnique.mockResolvedValue(null);
     const vendor: AuthUser = { id: 'u-vend', email: 'v@x', role: UserRole.vendor };
-    await expect(guard.canActivate(makeContext(vendor, 'v-1'))).rejects.toBeInstanceOf(NotFoundException);
+    await expect(guard.canActivate(makeContext(vendor, 'v-1'))).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
   });
 
   it('throws Forbidden when the user has no menu-management role on the vendor team', async () => {
     findUnique.mockResolvedValue({ id: 'v-1' });
     canActOnVendor.mockResolvedValue(false);
     const vendor: AuthUser = { id: 'u-vend', email: 'v@x', role: UserRole.vendor };
-    await expect(guard.canActivate(makeContext(vendor, 'v-1'))).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(guard.canActivate(makeContext(vendor, 'v-1'))).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
   });
 
   it('passes when the user can act on the vendor team', async () => {

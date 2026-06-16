@@ -37,7 +37,11 @@ export class DiscountCodesService {
    * Lookup is case-insensitive - store as the user typed but accept any
    * casing. Discounts can never reduce the order below £0.
    */
-  async validate(code: string, vendorId: string, subtotalPence: number): Promise<ValidatedDiscount> {
+  async validate(
+    code: string,
+    vendorId: string,
+    subtotalPence: number,
+  ): Promise<ValidatedDiscount> {
     const normalised = code.trim().toUpperCase();
     if (!normalised) {
       throw new BadRequestException({ code: 'DISCOUNT_INVALID', message: 'Invalid discount code' });
@@ -52,10 +56,16 @@ export class DiscountCodesService {
       throw new BadRequestException({ code: 'DISCOUNT_INVALID', message: 'Invalid discount code' });
     }
     if (!dc.isActive) {
-      throw new BadRequestException({ code: 'DISCOUNT_INACTIVE', message: 'This code is no longer active' });
+      throw new BadRequestException({
+        code: 'DISCOUNT_INACTIVE',
+        message: 'This code is no longer active',
+      });
     }
     if (dc.expiresAt && dc.expiresAt < new Date()) {
-      throw new BadRequestException({ code: 'DISCOUNT_EXPIRED', message: 'This discount code has expired' });
+      throw new BadRequestException({
+        code: 'DISCOUNT_EXPIRED',
+        message: 'This discount code has expired',
+      });
     }
     if (dc.maxUses !== null && dc.usedCount >= dc.maxUses) {
       throw new BadRequestException({
@@ -78,9 +88,7 @@ export class DiscountCodesService {
     }
 
     const rawDiscount =
-      dc.type === DiscountType.flat
-        ? dc.value
-        : Math.round((subtotalPence * dc.value) / 10_000);
+      dc.type === DiscountType.flat ? dc.value : Math.round((subtotalPence * dc.value) / 10_000);
 
     // Cap so the discount can never exceed the subtotal - shipping/service
     // are excluded from the cap because basket pricing already separates

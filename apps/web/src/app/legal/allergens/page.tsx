@@ -55,9 +55,8 @@ export default function AllergensPage() {
         title="Allergen information"
         lede={
           <>
-            Every dish on Feastpot displays its allergens. If in doubt, contact the vendor
-            directly before ordering, their phone and message link is on the vendor
-            profile page.
+            Every dish on Feastpot displays its allergens. If in doubt, contact the vendor directly
+            before ordering, their phone and message link is on the vendor profile page.
           </>
         }
         badge={
@@ -67,13 +66,14 @@ export default function AllergensPage() {
             title="Severe allergic reaction?"
             body={
               <>
-                Use your auto-injector if prescribed and call <strong>999</strong>{' '}
-                immediately.
+                Use your auto-injector if prescribed and call <strong>999</strong> immediately.
               </>
             }
           />
         }
-        footnote={<>Last updated: May 2026 &middot; FIR 2014 &amp; Natasha&rsquo;s Law (PPDS 2021)</>}
+        footnote={
+          <>Last updated: May 2026 &middot; FIR 2014 &amp; Natasha&rsquo;s Law (PPDS 2021)</>
+        }
       />
 
       <LegalQuickNav ariaLabel="Allergen information sections" items={QUICK_NAV} />
@@ -81,9 +81,9 @@ export default function AllergensPage() {
       <LegalContentWrapper>
         <LegalSection id="fourteen" icon="📋" title="1. The 14 major allergens">
           <p>
-            UK food law (the Food Information Regulations 2014, with Natasha&rsquo;s Law
-            amendments) requires every prepared food to declare these 14 allergens. Each menu
-            item on Feastpot lists which of these it contains.
+            UK food law (the Food Information Regulations 2014, with Natasha&rsquo;s Law amendments)
+            requires every prepared food to declare these 14 allergens. Each menu item on Feastpot
+            lists which of these it contains.
           </p>
           <ul className="mt-3 grid list-none grid-cols-2 gap-2 p-0 sm:grid-cols-3 md:grid-cols-4">
             {ALLERGENS.map((a) => (
@@ -103,9 +103,9 @@ export default function AllergensPage() {
         <LegalSection id="disclaimer" icon="⚠️" title="2. Important disclaimer">
           <p>
             Allergen information on Feastpot is provided by the vendor and is{' '}
-            <strong>not independently verified</strong> by Feastpot. We require vendors to keep
-            this information accurate and up to date, but if you have a severe allergy please
-            always confirm with the vendor before ordering.
+            <strong>not independently verified</strong> by Feastpot. We require vendors to keep this
+            information accurate and up to date, but if you have a severe allergy please always
+            confirm with the vendor before ordering.
           </p>
         </LegalSection>
 
@@ -115,8 +115,8 @@ export default function AllergensPage() {
               Open the search bar on the homepage and tap <strong>Filters</strong>.
             </li>
             <li>
-              Toggle the allergens you want to <em>exclude</em>, only menu items free of
-              those allergens will be shown.
+              Toggle the allergens you want to <em>exclude</em>, only menu items free of those
+              allergens will be shown.
             </li>
             <li>
               You can also set a default allergen profile in{' '}
@@ -136,8 +136,8 @@ export default function AllergensPage() {
             </li>
             <li>
               Once safe, please report the incident to us at{' '}
-              <LegalLink href="mailto:safety@feastpot.co.uk">safety@feastpot.co.uk</LegalLink> so
-              we can investigate with the vendor.
+              <LegalLink href="mailto:safety@feastpot.co.uk">safety@feastpot.co.uk</LegalLink> so we
+              can investigate with the vendor.
             </li>
           </ul>
         </LegalSection>

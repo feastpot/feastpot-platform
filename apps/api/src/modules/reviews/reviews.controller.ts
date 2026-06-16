@@ -22,7 +22,11 @@ import { ModerateReviewDto } from './dto/moderate-review.dto';
 import { ReviewsService } from './reviews.service';
 
 function requireUser(user: AuthUser | null): AuthUser {
-  if (!user) throw new UnauthorizedException({ code: 'UNAUTHENTICATED', message: 'Authentication required' });
+  if (!user)
+    throw new UnauthorizedException({
+      code: 'UNAUTHENTICATED',
+      message: 'Authentication required',
+    });
   return user;
 }
 
@@ -48,7 +52,9 @@ export class ReviewsController {
 
   @Get('moderation-queue/counts')
   @Roles(UserRole.admin, UserRole.support)
-  @ApiOperation({ summary: 'Counts per moderation status honouring current filters (admin/support)' })
+  @ApiOperation({
+    summary: 'Counts per moderation status honouring current filters (admin/support)',
+  })
   queueCounts(@Query() dto: ListModerationQueueDto) {
     return this.reviews.moderationQueueCounts(dto);
   }

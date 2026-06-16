@@ -75,7 +75,11 @@ export class DiscountCodesController {
   @Roles(UserRole.admin)
   @ApiOperation({ summary: 'Create a new discount code (admin only).' })
   adminCreate(@Body() dto: CreateDiscountCodeDto, @CurrentUser() user: AuthUser | null) {
-    if (!user) throw new UnauthorizedException({ code: 'UNAUTHENTICATED', message: 'Authentication required' });
+    if (!user)
+      throw new UnauthorizedException({
+        code: 'UNAUTHENTICATED',
+        message: 'Authentication required',
+      });
     return this.discountCodes.adminCreate(dto, user.id);
   }
 

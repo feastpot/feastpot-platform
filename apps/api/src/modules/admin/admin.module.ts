@@ -1,12 +1,13 @@
-import { ConfigModule } from '@nestjs/config';
 import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
 
 import { AuthModule } from '../../auth/auth.module';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { StripeModule } from '../../stripe/stripe.module';
+
+import { AdminUsersService } from './admin-users.service';
 import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
-import { AdminUsersService } from './admin-users.service';
 import { DlqMonitorService } from './dlq-monitor.service';
 
 /**

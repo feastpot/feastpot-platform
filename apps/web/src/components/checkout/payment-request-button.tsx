@@ -27,10 +27,7 @@ export function AppleGooglePayButton({
   totalPence: number;
   label: string;
   disabled?: boolean;
-  onPaymentMethod: (
-    paymentMethodId: string,
-    complete: ExpressPayComplete,
-  ) => void | Promise<void>;
+  onPaymentMethod: (paymentMethodId: string, complete: ExpressPayComplete) => void | Promise<void>;
 }) {
   const stripe = useStripe();
   const [paymentRequest, setPaymentRequest] = useState<PaymentRequest | null>(null);

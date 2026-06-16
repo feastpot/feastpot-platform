@@ -90,7 +90,13 @@ describe('computeRefundSplit', () => {
     // delivery-heavy order: vendorEarned (4000) could exceed a small refund.
     const split = computeRefundSplit(
       100,
-      { subtotalPence: 100, serviceFeePence: 5, deliveryFeePence: 4000, discountPence: 0, commissionPence: 12 },
+      {
+        subtotalPence: 100,
+        serviceFeePence: 5,
+        deliveryFeePence: 4000,
+        discountPence: 0,
+        commissionPence: 12,
+      },
       true,
     );
     expect(split.vendorClawbackPence).toBe(100);
@@ -100,7 +106,13 @@ describe('computeRefundSplit', () => {
   it('handles a zero subtotal without dividing by zero', () => {
     const split = computeRefundSplit(
       200,
-      { subtotalPence: 0, serviceFeePence: 200, deliveryFeePence: 0, discountPence: 0, commissionPence: 0 },
+      {
+        subtotalPence: 0,
+        serviceFeePence: 200,
+        deliveryFeePence: 0,
+        discountPence: 0,
+        commissionPence: 0,
+      },
       false,
     );
     expect(split.refundFraction).toBe(0);
@@ -131,27 +143,36 @@ describe('PaymentsService.createRefund', () => {
   it('throws NotFound when order missing', async () => {
     const { svc, prisma } = build();
     prisma.order.findUnique.mockResolvedValueOnce(null);
-    await expect(svc.createRefund({ orderId: 'o-1', amountPence: 100 }, finance)).rejects.toBeInstanceOf(
-      NotFoundException,
-    );
+    await expect(
+      svc.createRefund({ orderId: 'o-1', amountPence: 100 }, finance),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it('rejects refund > order total', async () => {
     const { svc, prisma } = build();
     prisma.order.findUnique.mockResolvedValueOnce({
-      id: 'o-1', customerId: 'c-1', vendorId: 'v-1', totalPence: 500,
+      id: 'o-1',
+      customerId: 'c-1',
+      vendorId: 'v-1',
+      totalPence: 500,
       vendor: { commissionBps: 1500, userId: 'vu-1' },
     });
-    await expect(svc.createRefund({ orderId: 'o-1', amountPence: 1000 }, finance)).rejects.toBeInstanceOf(
-      BadRequestException,
-    );
+    await expect(
+      svc.createRefund({ orderId: 'o-1', amountPence: 1000 }, finance),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   // £40 food + £2.49 delivery + £2.00 service fee = £44.49 total; commission £4.80.
   const fullOrder = {
-    id: 'o-1', customerId: 'c-1', vendorId: 'v-1',
-    subtotalPence: 4000, serviceFeePence: 200, deliveryFeePence: 249,
-    discountPence: 0, commissionPence: 480, totalPence: 4449,
+    id: 'o-1',
+    customerId: 'c-1',
+    vendorId: 'v-1',
+    subtotalPence: 4000,
+    serviceFeePence: 200,
+    deliveryFeePence: 249,
+    discountPence: 0,
+    commissionPence: 480,
+    totalPence: 4449,
     vendor: { userId: 'vu-1' },
   };
 
@@ -197,9 +218,15 @@ describe('PaymentsService.createRefund', () => {
       }),
     );
     expect(queue.add).toHaveBeenCalledTimes(2);
-    expect(queue.add).toHaveBeenCalledWith('refund_issued_customer', expect.objectContaining({ amountPence: 4449 }));
+    expect(queue.add).toHaveBeenCalledWith(
+      'refund_issued_customer',
+      expect.objectContaining({ amountPence: 4449 }),
+    );
     // Vendor is deducted only what they earned, NOT the full refund.
-    expect(queue.add).toHaveBeenCalledWith('refund_deducted_vendor', expect.objectContaining({ deductionPence: 3769 }));
+    expect(queue.add).toHaveBeenCalledWith(
+      'refund_deducted_vendor',
+      expect.objectContaining({ deductionPence: 3769 }),
+    );
   });
 
   it('partial refund: partial_refund type + clawback proportional to subtotal', async () => {

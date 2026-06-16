@@ -48,7 +48,9 @@ export class ListModerationQueueDto {
 
   // ---- additional admin filters (D21) ---------------------------------
 
-  @ApiPropertyOptional({ description: 'Free-text search on review title/body, customer name/email, vendor name.' })
+  @ApiPropertyOptional({
+    description: 'Free-text search on review title/body, customer name/email, vendor name.',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(120)

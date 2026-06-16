@@ -83,9 +83,7 @@ export function AnimatedHeadline() {
           aria-live="polite"
           className={cn(
             'inline-block transition-all',
-            visible
-              ? 'translate-y-0 opacity-100'
-              : '-translate-y-[6px] opacity-0',
+            visible ? 'translate-y-0 opacity-100' : '-translate-y-[6px] opacity-0',
           )}
           style={{ transitionDuration: `${FADE_OUT_MS}ms` }}
         >
