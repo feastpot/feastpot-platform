@@ -15,7 +15,9 @@ async function main() {
   const template = process.argv[3] ?? 'order_confirmation';
   const paramsArg = process.argv[4];
   if (!to) {
-    console.error('Usage: tsx scripts/send-test-content-template.ts <+E164> [templateName] [paramsJson]');
+    console.error(
+      'Usage: tsx scripts/send-test-content-template.ts <+E164> [templateName] [paramsJson]',
+    );
     process.exit(1);
   }
 

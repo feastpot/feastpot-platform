@@ -29,12 +29,21 @@ export function EventsDashboard({ accessToken }: { accessToken: string }) {
         {data?.map((e) => {
           const youQuoted = (e.quotes ?? []).length > 0;
           const won = e.status === 'confirmed' && e.vendorId !== null;
-          const label = won ? 'Won' : youQuoted && e.status === 'quoted' ? 'Quoted' : STATUS_LABEL[e.status] ?? e.status;
+          const label = won
+            ? 'Won'
+            : youQuoted && e.status === 'quoted'
+              ? 'Quoted'
+              : (STATUS_LABEL[e.status] ?? e.status);
           return (
             <li key={e.id}>
-              <Link href={`/events/${e.id}/quote`} className="block rounded-lg border bg-card p-4 hover:border-foreground/30">
+              <Link
+                href={`/events/${e.id}/quote`}
+                className="block rounded-lg border bg-card p-4 hover:border-foreground/30"
+              >
                 <div className="flex items-center justify-between">
-                  <h2 className="font-medium capitalize">{e.eventType} - {e.guestCount} guests</h2>
+                  <h2 className="font-medium capitalize">
+                    {e.eventType} - {e.guestCount} guests
+                  </h2>
                   <span className="rounded-full bg-muted px-2 py-0.5 text-xs">{label}</span>
                 </div>
                 <dl className="mt-2 grid grid-cols-3 gap-1 text-xs text-muted-foreground">

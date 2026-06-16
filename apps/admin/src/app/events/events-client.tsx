@@ -180,7 +180,9 @@ export function EventsClient() {
             <Button
               variant="outline"
               disabled={total === 0}
-              title={total === 0 ? 'Nothing to export' : 'Export current filter as CSV (coming soon)'}
+              title={
+                total === 0 ? 'Nothing to export' : 'Export current filter as CSV (coming soon)'
+              }
             >
               <Download className="mr-2 h-4 w-4" />
               Export
@@ -349,7 +351,10 @@ export function EventsClient() {
             <TableBody>
               {list.isLoading && (
                 <TableRow>
-                  <TableCell colSpan={11} className="py-6 text-center text-sm text-muted-foreground">
+                  <TableCell
+                    colSpan={11}
+                    className="py-6 text-center text-sm text-muted-foreground"
+                  >
                     Loading…
                   </TableCell>
                 </TableRow>
@@ -370,11 +375,7 @@ export function EventsClient() {
                 </TableRow>
               )}
               {rows.map((e) => (
-                <EnquiryRowView
-                  key={e.id}
-                  row={e}
-                  onOpen={() => router.push(`/events/${e.id}`)}
-                />
+                <EnquiryRowView key={e.id} row={e} onOpen={() => router.push(`/events/${e.id}`)} />
               ))}
             </TableBody>
           </Table>
@@ -383,7 +384,8 @@ export function EventsClient() {
         {/* Footer */}
         <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border px-4 py-3 text-sm">
           <span className="text-muted-foreground">
-            Showing {total === 0 ? 0 : rangeLabel} of {total} {total === 1 ? 'enquiry' : 'enquiries'}
+            Showing {total === 0 ? 0 : rangeLabel} of {total}{' '}
+            {total === 1 ? 'enquiry' : 'enquiries'}
           </span>
           <div className="flex items-center gap-1">
             <Button

@@ -18,7 +18,11 @@ import { InviteMemberDto, UpdateMemberRoleDto } from './dto/invite-member.dto';
 import { VendorMembersService } from './vendor-members.service';
 
 function requireUser(user: AuthUser | null): AuthUser {
-  if (!user) throw new UnauthorizedException({ code: 'UNAUTHENTICATED', message: 'Authentication required' });
+  if (!user)
+    throw new UnauthorizedException({
+      code: 'UNAUTHENTICATED',
+      message: 'Authentication required',
+    });
   return user;
 }
 

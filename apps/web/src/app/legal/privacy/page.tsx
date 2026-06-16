@@ -50,9 +50,8 @@ export default function PrivacyPage() {
         title="Your privacy"
         lede={
           <>
-            We built Feastpot for your community. We handle your data with the same
-            care you&rsquo;d expect from a trusted neighbour, not a faceless
-            corporation.
+            We built Feastpot for your community. We handle your data with the same care you&rsquo;d
+            expect from a trusted neighbour, not a faceless corporation.
           </>
         }
         badge={
@@ -62,9 +61,7 @@ export default function PrivacyPage() {
             title="ICO Registered Data Controller"
             body={
               <>
-                Registration:{' '}
-                <span className="font-mono font-black">{ICO_NUMBER}</span>{' '}
-                &middot;{' '}
+                Registration: <span className="font-mono font-black">{ICO_NUMBER}</span> &middot;{' '}
                 <a
                   href={LEGAL.ICO_VERIFY_URL}
                   target="_blank"
@@ -79,16 +76,13 @@ export default function PrivacyPage() {
         }
         footnote={
           <>
-            Last updated: May 2026 &middot; UK GDPR, Data Protection Act 2018, Data
-            (Use and Access) Act 2025
+            Last updated: May 2026 &middot; UK GDPR, Data Protection Act 2018, Data (Use and Access)
+            Act 2025
           </>
         }
       />
 
-      <LegalQuickNav
-        ariaLabel="Privacy policy sections"
-        items={PRIVACY_QUICK_NAV}
-      />
+      <LegalQuickNav ariaLabel="Privacy policy sections" items={PRIVACY_QUICK_NAV} />
 
       {/* MAIN CONTENT, every section wrapped in a card.
           The original `prose` styles are dropped intentionally: each
@@ -97,13 +91,14 @@ export default function PrivacyPage() {
       <div style={{ maxWidth: '640px', margin: '0 auto', padding: '20px 16px 0' }}>
         <PrivacySection id="about" icon="🏢" title="1. Who we are">
           <p>
-            Feastpot is operated by Feastpot Ltd, a UK company. We are registered with the Information
-            Commissioner&rsquo;s Office (ICO) as a data controller.
+            Feastpot is operated by Feastpot Ltd, a UK company. We are registered with the
+            Information Commissioner&rsquo;s Office (ICO) as a data controller.
           </p>
           <p>
             ICO Registration Reference: <strong>{ICO_NUMBER}</strong>
             <br />
-            Contact: <PrivacyLink href="mailto:privacy@feastpot.co.uk">privacy@feastpot.co.uk</PrivacyLink>
+            Contact:{' '}
+            <PrivacyLink href="mailto:privacy@feastpot.co.uk">privacy@feastpot.co.uk</PrivacyLink>
           </p>
           <p>
             We process personal data in accordance with the UK General Data Protection Regulation
@@ -122,12 +117,13 @@ export default function PrivacyPage() {
           <p>Delivery addresses, postcodes, and geocoded coordinates.</p>
           <h3 style={subHeading}>C. Order data</h3>
           <p>
-            Order history, basket contents, delivery slot selections, order notes, and reorder history.
+            Order history, basket contents, delivery slot selections, order notes, and reorder
+            history.
           </p>
           <h3 style={subHeading}>D. Payment data</h3>
           <p>
-            Stripe payment reference IDs, last 4 digits of your card (held by Stripe, not by Feastpot),
-            and payout bank details for vendors (held by Stripe Connect).
+            Stripe payment reference IDs, last 4 digits of your card (held by Stripe, not by
+            Feastpot), and payout bank details for vendors (held by Stripe Connect).
           </p>
           <h3 style={subHeading}>E. Vendor data</h3>
           <p>
@@ -136,18 +132,18 @@ export default function PrivacyPage() {
           </p>
           <h3 style={subHeading}>F. Communications</h3>
           <p>
-            Email and WhatsApp message history, support ticket content, and dispute evidence (photos,
-            documents).
+            Email and WhatsApp message history, support ticket content, and dispute evidence
+            (photos, documents).
           </p>
           <h3 style={subHeading}>G. Technical data</h3>
           <p>
-            IP address, device type, browser type, session tokens, and push notification subscription
-            tokens.
+            IP address, device type, browser type, session tokens, and push notification
+            subscription tokens.
           </p>
           <h3 style={subHeading}>H. Usage data</h3>
           <p>
-            Pages visited, search queries, filter selections and click patterns. Used only for platform
-            improvement, never sold or shared with advertisers.
+            Pages visited, search queries, filter selections and click patterns. Used only for
+            platform improvement, never sold or shared with advertisers.
           </p>
         </PrivacySection>
 
@@ -156,7 +152,8 @@ export default function PrivacyPage() {
           <p>
             <strong>Basis:</strong> Contract performance (Article 6(1)(b) UK&nbsp;GDPR).
             <br />
-            <strong>Retention:</strong> Until account deletion or 24 months of inactivity, then purged.
+            <strong>Retention:</strong> Until account deletion or 24 months of inactivity, then
+            purged.
           </p>
 
           <h3 style={subHeading}>Order placement and fulfilment</h3>
@@ -182,7 +179,9 @@ export default function PrivacyPage() {
             <strong>Retention:</strong> Duration of vendor relationship + 6 years.
           </p>
 
-          <h3 style={subHeading}>Sending transactional notifications (order updates, delivery status)</h3>
+          <h3 style={subHeading}>
+            Sending transactional notifications (order updates, delivery status)
+          </h3>
           <p>
             <strong>Basis:</strong> Contract performance (Article 6(1)(b)) and legitimate interests
             (Article 6(1)(f)), the legitimate interest is ensuring customers and vendors receive
@@ -198,8 +197,8 @@ export default function PrivacyPage() {
 
           <h3 style={subHeading}>Fraud prevention, security, and abuse detection</h3>
           <p>
-            <strong>Basis:</strong> Legitimate interests (Article 6(1)(f)), recognised under the Data
-            (Use and Access) Act 2025 Schedule 1 legitimate interests list.
+            <strong>Basis:</strong> Legitimate interests (Article 6(1)(f)), recognised under the
+            Data (Use and Access) Act 2025 Schedule 1 legitimate interests list.
             <br />
             <strong>Retention:</strong> 6 years (audit log retention).
           </p>
@@ -215,16 +214,16 @@ export default function PrivacyPage() {
           <p>
             <strong>Basis:</strong> Legitimate interests (Article 6(1)(f)).
             <br />
-            Individual user data is never sold to third parties or shared with advertisers. We do not
-            use advertising cookies.
+            Individual user data is never sold to third parties or shared with advertisers. We do
+            not use advertising cookies.
           </p>
         </PrivacySection>
 
         <PrivacySection id="share" icon="🤝" title="4. Who we share your data with">
           <ul style={listStyle}>
             <li>
-              <strong>Stripe Inc</strong> (USA), payment processing and vendor payouts. Protected
-              by the UK International Data Transfer Agreement (UK&nbsp;IDTA) and Stripe&rsquo;s SCCs.
+              <strong>Stripe Inc</strong> (USA), payment processing and vendor payouts. Protected by
+              the UK International Data Transfer Agreement (UK&nbsp;IDTA) and Stripe&rsquo;s SCCs.
             </li>
             <li>
               <strong>Supabase Inc</strong> (USA, EU infrastructure), database and authentication
@@ -236,19 +235,20 @@ export default function PrivacyPage() {
               UK&nbsp;IDTA.
             </li>
             <li>
-              <strong>Twilio Inc</strong> (USA), SMS and OTP delivery. Protected by the UK&nbsp;IDTA.
+              <strong>Twilio Inc</strong> (USA), SMS and OTP delivery. Protected by the
+              UK&nbsp;IDTA.
             </li>
             <li>
-              <strong>Meta Platforms Ireland Ltd</strong> (Ireland / USA), WhatsApp Business API
-              for order notifications. Protected by the EU-UK adequacy decision and SCCs.
+              <strong>Meta Platforms Ireland Ltd</strong> (Ireland / USA), WhatsApp Business API for
+              order notifications. Protected by the EU-UK adequacy decision and SCCs.
             </li>
             <li>
               <strong>Cloudflare Inc</strong> (USA), CDN, security and media storage. Protected by
               the UK&nbsp;IDTA.
             </li>
             <li>
-              <strong>Sentry Inc</strong> (USA), error monitoring (anonymised stack traces only;
-              no personal data in error reports by design). Protected by the UK&nbsp;IDTA.
+              <strong>Sentry Inc</strong> (USA), error monitoring (anonymised stack traces only; no
+              personal data in error reports by design). Protected by the UK&nbsp;IDTA.
             </li>
             <li>
               <strong>HMRC (UK)</strong>, tax records as legally required.
@@ -266,15 +266,17 @@ export default function PrivacyPage() {
 
         <PrivacySection id="transfers" icon="✈️" title="5. International transfers">
           <p>
-            Some of our service providers are based outside the UK. Where this is the case, we ensure
-            transfers are protected by one of the following safeguards:
+            Some of our service providers are based outside the UK. Where this is the case, we
+            ensure transfers are protected by one of the following safeguards:
           </p>
           <ul style={listStyle}>
             <li>UK International Data Transfer Agreement (UK&nbsp;IDTA);</li>
             <li>EU Standard Contractual Clauses (SCCs) under the EU-UK adequacy decision;</li>
             <li>Adequacy regulations made under section 17A of the Data Protection Act 2018.</li>
           </ul>
-          <p>Transfers to the EU/EEA are covered by the UK&rsquo;s adequacy decision for the EEA.</p>
+          <p>
+            Transfers to the EU/EEA are covered by the UK&rsquo;s adequacy decision for the EEA.
+          </p>
         </PrivacySection>
 
         <PrivacySection id="retention" icon="📅" title="6. How long we keep your data">
@@ -283,10 +285,7 @@ export default function PrivacyPage() {
               table so the legal specificity isn't softened. */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             {RETENTION_DATA.map((r) => (
-              <div
-                key={r.type}
-                style={{ padding: '10px', borderRadius: '10px', background: r.bg }}
-              >
+              <div key={r.type} style={{ padding: '10px', borderRadius: '10px', background: r.bg }}>
                 <div
                   style={{
                     display: 'flex',
@@ -326,7 +325,8 @@ export default function PrivacyPage() {
           <ol style={{ ...listStyle, listStyleType: 'decimal', marginBottom: '14px' }}>
             <li>
               <strong>Right of access</strong> (Subject Access Request), email{' '}
-              <PrivacyLink href="mailto:privacy@feastpot.co.uk">privacy@feastpot.co.uk</PrivacyLink>.
+              <PrivacyLink href="mailto:privacy@feastpot.co.uk">privacy@feastpot.co.uk</PrivacyLink>
+              .
             </li>
             <li>
               <strong>Right to rectification</strong>, update in account settings or email us.
@@ -377,7 +377,9 @@ export default function PrivacyPage() {
                 >
                   {r.right}
                 </p>
-                <p style={{ fontSize: '11px', color: '#5F5E5A', margin: '0 0 5px', lineHeight: 1.5 }}>
+                <p
+                  style={{ fontSize: '11px', color: '#5F5E5A', margin: '0 0 5px', lineHeight: 1.5 }}
+                >
                   {r.desc}
                 </p>
                 <span
@@ -397,9 +399,9 @@ export default function PrivacyPage() {
             ))}
           </div>
           <p>
-            Some rights are subject to exemptions under the Data Protection Act 2018 and the Data (Use
-            and Access) Act 2025, particularly where processing is required for legal compliance, fraud
-            prevention, or public interest.
+            Some rights are subject to exemptions under the Data Protection Act 2018 and the Data
+            (Use and Access) Act 2025, particularly where processing is required for legal
+            compliance, fraud prevention, or public interest.
           </p>
           <p>
             To exercise any right, email{' '}
@@ -426,15 +428,16 @@ export default function PrivacyPage() {
           </ul>
           <p>
             Under the Privacy and Electronic Communications Regulations (PECR), strictly necessary
-            cookies do not require prior consent. We do not use advertising cookies, tracking pixels,
-            or third-party analytics cookies. Our cookie banner is informational only for this reason.
+            cookies do not require prior consent. We do not use advertising cookies, tracking
+            pixels, or third-party analytics cookies. Our cookie banner is informational only for
+            this reason.
           </p>
         </PrivacySection>
 
         <PrivacySection id="changes" icon="📢" title="9. Changes to this policy">
           <p>
-            We will notify registered users by email of material changes at least 14 days before they
-            take effect. Minor changes (grammar, clarifications) take effect immediately. The
+            We will notify registered users by email of material changes at least 14 days before
+            they take effect. Minor changes (grammar, clarifications) take effect immediately. The
             &ldquo;last updated&rdquo; date at the top of this page will always reflect the most
             recent version.
           </p>
@@ -625,7 +628,13 @@ const listStyle: React.CSSProperties = {
 // Periods + reasons reproduce the ORIGINAL retention table verbatim
 //, only the visual presentation (cards) changes.
 const RETENTION_DATA = [
-  { type: 'Orders and payments', period: '6 years from order date', icon: '🧾', bg: '#FEF0E9', reason: 'HMRC / VAT obligation' },
+  {
+    type: 'Orders and payments',
+    period: '6 years from order date',
+    icon: '🧾',
+    bg: '#FEF0E9',
+    reason: 'HMRC / VAT obligation',
+  },
   { type: 'Audit logs', period: '6 years', icon: '📋', bg: '#FEF0E9', reason: 'Legal obligation' },
   {
     type: 'Account data',
@@ -655,7 +664,13 @@ const RETENTION_DATA = [
     bg: '#E1F5EE',
     reason: 'Legitimate interest',
   },
-  { type: 'Technical / session data', period: '90 days', icon: '🔒', bg: '#E1F5EE', reason: 'Security' },
+  {
+    type: 'Technical / session data',
+    period: '90 days',
+    icon: '🔒',
+    bg: '#E1F5EE',
+    reason: 'Security',
+  },
 ] as const;
 
 const RIGHTS_DATA = [
@@ -665,11 +680,46 @@ const RIGHTS_DATA = [
     desc: 'Know how and why we process your personal data - provided at the point of collection.',
     how: 'This page, our cookie banner, and our sign-up flow',
   },
-  { right: 'Right of access', icon: '👁️', desc: 'Request a copy of all data we hold', how: 'Email privacy@feastpot.co.uk' },
-  { right: 'Right to rectification', icon: '✏️', desc: 'Fix inaccurate or incomplete information', how: 'Account settings or email us' },
-  { right: 'Right to erasure', icon: '🗑️', desc: 'Deletion, subject to legal obligations', how: 'Account settings or email' },
-  { right: 'Right to restrict processing', icon: '⏸️', desc: 'Limit how we use your data', how: 'Email us' },
-  { right: 'Right to data portability', icon: '📦', desc: 'Your data in machine-readable format', how: 'Email with your request' },
-  { right: 'Right to object', icon: '🚫', desc: 'Object to marketing, always honoured', how: 'Unsubscribe or email us' },
-  { right: 'Rights related to automated decision-making', icon: '🤖', desc: 'Not subject to automated-only decisions', how: 'Always applies' },
+  {
+    right: 'Right of access',
+    icon: '👁️',
+    desc: 'Request a copy of all data we hold',
+    how: 'Email privacy@feastpot.co.uk',
+  },
+  {
+    right: 'Right to rectification',
+    icon: '✏️',
+    desc: 'Fix inaccurate or incomplete information',
+    how: 'Account settings or email us',
+  },
+  {
+    right: 'Right to erasure',
+    icon: '🗑️',
+    desc: 'Deletion, subject to legal obligations',
+    how: 'Account settings or email',
+  },
+  {
+    right: 'Right to restrict processing',
+    icon: '⏸️',
+    desc: 'Limit how we use your data',
+    how: 'Email us',
+  },
+  {
+    right: 'Right to data portability',
+    icon: '📦',
+    desc: 'Your data in machine-readable format',
+    how: 'Email with your request',
+  },
+  {
+    right: 'Right to object',
+    icon: '🚫',
+    desc: 'Object to marketing, always honoured',
+    how: 'Unsubscribe or email us',
+  },
+  {
+    right: 'Rights related to automated decision-making',
+    icon: '🤖',
+    desc: 'Not subject to automated-only decisions',
+    how: 'Always applies',
+  },
 ] as const;

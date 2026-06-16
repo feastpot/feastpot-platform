@@ -223,7 +223,10 @@ function OwnerProfilePill({ onSignOut }: { onSignOut: () => void }) {
           <p className="truncate text-sm font-semibold capitalize text-dark">{displayName}</p>
           <p className="text-[11px] font-medium uppercase tracking-wide text-mid">{roleLabel}</p>
         </div>
-        <ChevronUp className={cn('h-4 w-4 text-mid transition-transform', !open && 'rotate-180')} aria-hidden />
+        <ChevronUp
+          className={cn('h-4 w-4 text-mid transition-transform', !open && 'rotate-180')}
+          aria-hidden
+        />
       </button>
       {open && (
         <div className="absolute bottom-full left-0 right-0 mb-1 overflow-hidden rounded-lg border border-border bg-white shadow-lg">
@@ -271,4 +274,3 @@ function formatRole(role: string): string {
       return role;
   }
 }
-

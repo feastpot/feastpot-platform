@@ -27,11 +27,12 @@ export const TableBody = React.forwardRef<
 ));
 TableBody.displayName = 'TableBody';
 
-export const TableRow = React.forwardRef<HTMLTableRowElement, React.HTMLAttributes<HTMLTableRowElement>>(
-  ({ className, ...props }, ref) => (
-    <tr ref={ref} className={cn('border-b hover:bg-muted/50', className)} {...props} />
-  ),
-);
+export const TableRow = React.forwardRef<
+  HTMLTableRowElement,
+  React.HTMLAttributes<HTMLTableRowElement>
+>(({ className, ...props }, ref) => (
+  <tr ref={ref} className={cn('border-b hover:bg-muted/50', className)} {...props} />
+));
 TableRow.displayName = 'TableRow';
 
 export const TableHead = React.forwardRef<

@@ -45,9 +45,7 @@ export function LoyaltyCard() {
       {/* Header strip - feastpoints wordmark + tier pill. */}
       <header className="flex items-center justify-between gap-2 px-4 py-3">
         <div className="flex items-baseline gap-1">
-          <span className="font-display text-xl font-black tracking-tight text-brand">
-            feast
-          </span>
+          <span className="font-display text-xl font-black tracking-tight text-brand">feast</span>
           <span className="font-display text-xl font-black tracking-tight text-charcoal">
             points
           </span>
@@ -102,12 +100,14 @@ export function LoyaltyCard() {
         {[
           { Icon: Star, title: 'Earn points', body: 'With every order', tone: 'text-plantain' },
           { Icon: Gift, title: 'Exclusive offers', body: 'Members only', tone: 'text-brand' },
-          { Icon: Calendar, title: 'Birthday treats', body: 'Something special', tone: 'text-scotch' },
+          {
+            Icon: Calendar,
+            title: 'Birthday treats',
+            body: 'Something special',
+            tone: 'text-scotch',
+          },
         ].map(({ Icon, title, body, tone }) => (
-          <li
-            key={title}
-            className="rounded-2xl bg-white p-2.5 text-center shadow-card"
-          >
+          <li key={title} className="rounded-2xl bg-white p-2.5 text-center shadow-card">
             <Icon className={`mx-auto h-4 w-4 ${tone}`} aria-hidden />
             <p className="mt-1 text-[11px] font-black leading-tight text-charcoal">{title}</p>
             <p className="text-[10px] font-medium leading-tight text-charcoal-mid">{body}</p>
@@ -123,10 +123,7 @@ export function LoyaltyCard() {
           </p>
           <ul className="space-y-1.5">
             {data.history.slice(0, 4).map((h) => (
-              <li
-                key={h.id}
-                className="flex items-center justify-between gap-2 text-sm"
-              >
+              <li key={h.id} className="flex items-center justify-between gap-2 text-sm">
                 <div className="min-w-0">
                   <p className="truncate font-medium text-charcoal">
                     {h.reason ?? TX_LABEL[h.type] ?? h.type}

@@ -3,8 +3,8 @@ import { Reflector } from '@nestjs/core';
 import { UserRole } from '@prisma/client';
 import type { User } from '@supabase/supabase-js';
 
-import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import type { PrismaService } from '../../prisma/prisma.service';
+import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import type { SupabaseService } from '../supabase.service';
 
 import { SupabaseAuthGuard, extractBearerToken, mapUser } from './supabase-auth.guard';
@@ -44,7 +44,12 @@ describe('mapUser', () => {
       user_metadata: {},
     } as unknown as User;
     const token = makeJwt({ sub: user.id, role: 'admin' });
-    expect(mapUser(user, token)).toEqual({ id: user.id, email: user.email, role: UserRole.admin, aal: 'aal1' });
+    expect(mapUser(user, token)).toEqual({
+      id: user.id,
+      email: user.email,
+      role: UserRole.admin,
+      aal: 'aal1',
+    });
   });
 
   it('falls back to app_metadata.role when JWT claim missing', () => {
@@ -87,23 +92,28 @@ describe('mapUser', () => {
 
   it('EDGE: empty-string JWT role falls through to app_metadata.role', () => {
     const user = {
-      id: 'x', email: 'a@b.com',
-      app_metadata: { role: 'admin' }, user_metadata: {},
+      id: 'x',
+      email: 'a@b.com',
+      app_metadata: { role: 'admin' },
+      user_metadata: {},
     } as unknown as User;
     expect(mapUser(user, makeJwt({ sub: 'x', role: '' })).role).toBe(UserRole.admin);
   });
 
   it('EDGE: non-string JWT role (number) falls through to app_metadata.role', () => {
     const user = {
-      id: 'x', email: 'a@b.com',
-      app_metadata: { role: 'finance' }, user_metadata: {},
+      id: 'x',
+      email: 'a@b.com',
+      app_metadata: { role: 'finance' },
+      user_metadata: {},
     } as unknown as User;
     expect(mapUser(user, makeJwt({ sub: 'x', role: 42 })).role).toBe(UserRole.finance);
   });
 
   it('EDGE: null app_metadata defaults to customer when no JWT role', () => {
     const user = {
-      id: 'x', email: 'a@b.com',
+      id: 'x',
+      email: 'a@b.com',
       app_metadata: null as unknown as Record<string, unknown>,
       user_metadata: {},
     } as unknown as User;
@@ -164,7 +174,12 @@ describe('SupabaseAuthGuard', () => {
     const goodToken = `${Buffer.from(JSON.stringify({ alg: 'HS256' })).toString('base64url')}.${Buffer.from(JSON.stringify({ sub: 'u1', role: 'vendor' })).toString('base64url')}.sig`;
     const ok = await guard.canActivate(ctxWith({ authorization: `Bearer ${goodToken}` }, holder));
     expect(ok).toBe(true);
-    expect(holder.user).toEqual({ id: 'u1', email: 'u1@x.com', role: UserRole.vendor, aal: 'aal1' });
+    expect(holder.user).toEqual({
+      id: 'u1',
+      email: 'u1@x.com',
+      role: UserRole.vendor,
+      aal: 'aal1',
+    });
   });
 
   it('uses IS_PUBLIC_KEY to detect public', () => {

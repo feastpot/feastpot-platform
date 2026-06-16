@@ -35,9 +35,7 @@ export function SectionHeader({
         {title}
       </h2>
       {body && (
-        <p className="mt-2 text-sm font-medium leading-6 text-charcoal-mid md:text-base">
-          {body}
-        </p>
+        <p className="mt-2 text-sm font-medium leading-6 text-charcoal-mid md:text-base">{body}</p>
       )}
     </div>
   );
@@ -60,8 +58,7 @@ export function PanelTitle({
   size?: 'sm' | 'md';
 }) {
   const dot = size === 'sm' ? 'h-6 w-6 text-[11px]' : 'h-7 w-7 text-xs';
-  const heading =
-    size === 'sm' ? 'text-base font-black' : 'text-lg font-black md:text-xl';
+  const heading = size === 'sm' ? 'text-base font-black' : 'text-lg font-black md:text-xl';
   return (
     <div className={cn('mb-3 flex items-center gap-2.5', className)}>
       <span
@@ -74,9 +71,7 @@ export function PanelTitle({
       >
         {num}
       </span>
-      <h2 className={cn('font-display tracking-tight text-charcoal', heading)}>
-        {title}
-      </h2>
+      <h2 className={cn('font-display tracking-tight text-charcoal', heading)}>{title}</h2>
     </div>
   );
 }

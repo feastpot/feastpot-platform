@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { DeliveryType } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
@@ -13,7 +14,6 @@ import {
   Min,
   ValidateIf,
 } from 'class-validator';
-import { DeliveryType } from '@prisma/client';
 
 /**
  * Upsert payload for a vendor's delivery configuration.
@@ -74,7 +74,11 @@ export class UpsertDeliveryConfigDto {
   // rather than @Type(() => Number) here because class-transformer would
   // coerce a literal `null` → 0 and silently turn "no threshold" into "free
   // for any order ≥ £0.00".
-  @ApiPropertyOptional({ minimum: 0, nullable: true, description: 'Free delivery threshold in pence; null/omitted disables' })
+  @ApiPropertyOptional({
+    minimum: 0,
+    nullable: true,
+    description: 'Free delivery threshold in pence; null/omitted disables',
+  })
   @IsOptional()
   @ValidateIf((_, v) => v !== null)
   @Type(() => Number)

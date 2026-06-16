@@ -79,11 +79,7 @@ export function ComplianceAlerts({ vendorId }: { vendorId: string }) {
               allGood ? 'bg-teal-light text-teal' : 'bg-white text-brand',
             )}
           >
-            {allGood ? (
-              <ShieldCheck className="h-5 w-5" />
-            ) : (
-              <AlertTriangle className="h-5 w-5" />
-            )}
+            {allGood ? <ShieldCheck className="h-5 w-5" /> : <AlertTriangle className="h-5 w-5" />}
           </span>
           <div className="min-w-0">
             <p className="text-sm font-bold text-dark">{headline}</p>

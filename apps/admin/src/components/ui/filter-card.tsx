@@ -17,16 +17,10 @@ export interface FilterCardProps {
  */
 export function FilterCard({ children, actions, className }: FilterCardProps) {
   return (
-    <div
-      className={
-        'rounded-xl border border-border bg-card p-4 shadow-sm ' + (className ?? '')
-      }
-    >
+    <div className={'rounded-xl border border-border bg-card p-4 shadow-sm ' + (className ?? '')}>
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div className="flex-1">{children}</div>
-        {actions && (
-          <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>
-        )}
+        {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
       </div>
     </div>
   );

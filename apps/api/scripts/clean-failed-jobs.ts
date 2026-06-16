@@ -103,7 +103,12 @@ async function main(): Promise<void> {
   console.log(`Queues: ${targets.join(', ')}\n`);
 
   const allNotes: FailedJobNote[] = [];
-  const summary: Array<{ queue: string; failedBefore: number; removed: number; failedAfter: number }> = [];
+  const summary: Array<{
+    queue: string;
+    failedBefore: number;
+    removed: number;
+    failedAfter: number;
+  }> = [];
 
   for (const name of targets) {
     const q = new Queue(name, { redis: conn as QueueOptions['redis'] });
@@ -147,7 +152,12 @@ async function main(): Promise<void> {
   writeFileSync(
     reportPath,
     JSON.stringify(
-      { generatedAt: new Date().toISOString(), mode: apply ? 'apply' : 'dry-run', summary, jobs: allNotes },
+      {
+        generatedAt: new Date().toISOString(),
+        mode: apply ? 'apply' : 'dry-run',
+        summary,
+        jobs: allNotes,
+      },
       null,
       2,
     ),
@@ -155,9 +165,7 @@ async function main(): Promise<void> {
 
   console.log('=== Summary ===');
   for (const s of summary) {
-    console.log(
-      `${s.queue}: before=${s.failedBefore} removed=${s.removed} after=${s.failedAfter}`,
-    );
+    console.log(`${s.queue}: before=${s.failedBefore} removed=${s.removed} after=${s.failedAfter}`);
   }
   console.log(`\nFull report (${allNotes.length} failed jobs noted) written to:\n  ${reportPath}`);
   if (!apply) {

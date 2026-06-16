@@ -47,11 +47,7 @@ export function StarPicker({
 
   return (
     <div>
-      <div
-        role="radiogroup"
-        aria-label={ariaLabel}
-        className="inline-flex items-center gap-1"
-      >
+      <div role="radiogroup" aria-label={ariaLabel} className="inline-flex items-center gap-1">
         {[1, 2, 3, 4, 5].map((n) => {
           const active = n <= value;
           const isPopped = popped === n;

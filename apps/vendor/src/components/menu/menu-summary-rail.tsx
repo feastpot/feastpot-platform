@@ -54,7 +54,11 @@ export function MenuSummaryRail({ menus }: Props) {
             title="List allergens"
             body="Helps customers make safe choices."
           />
-          <Tip Icon={Tags} title="Use tags and categories" body="Make it easier to discover dishes." />
+          <Tip
+            Icon={Tags}
+            title="Use tags and categories"
+            body="Make it easier to discover dishes."
+          />
         </ul>
         {/* The mockup includes a "Visit Menu best practices" CTA; the
             destination guide doesn't exist yet so the button is
@@ -77,7 +81,10 @@ function Row({ label, value }: { label: string; value: string }) {
 function Tip({ Icon, title, body }: { Icon: typeof ImageIcon; title: string; body: string }) {
   return (
     <li className="flex items-start gap-2 rounded-lg border border-border bg-surface p-2.5">
-      <span aria-hidden className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-white text-mid">
+      <span
+        aria-hidden
+        className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-white text-mid"
+      >
         <Icon className="h-3.5 w-3.5" />
       </span>
       <div className="min-w-0">

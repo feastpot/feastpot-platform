@@ -40,7 +40,9 @@ function InboxBadge() {
       aria-label={count > 0 ? `${count} unread notifications` : 'Notifications'}
       className={
         'relative inline-flex h-8 items-center gap-2 rounded-md px-2 text-sm transition-colors ' +
-        (active ? 'bg-teal-light text-teal-dark' : 'text-muted-foreground hover:bg-muted hover:text-foreground')
+        (active
+          ? 'bg-teal-light text-teal-dark'
+          : 'text-muted-foreground hover:bg-muted hover:text-foreground')
       }
     >
       <Bell className="h-4 w-4" />
@@ -76,7 +78,11 @@ export function TopNav({ businessName }: { businessName?: string }) {
     <header className="sticky top-0 z-30 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
       <div className="container flex h-36 items-center justify-between gap-4">
         <div className="flex items-center gap-6">
-          <Link href="/" className="flex items-center gap-3 font-semibold" aria-label="FeastPot vendor portal">
+          <Link
+            href="/"
+            className="flex items-center gap-3 font-semibold"
+            aria-label="FeastPot vendor portal"
+          >
             <Image
               src="/feastpot-logo.png"
               alt="FeastPot"
@@ -86,7 +92,9 @@ export function TopNav({ businessName }: { businessName?: string }) {
               className="h-28 w-auto object-contain"
             />
             {businessName && (
-              <span className="hidden text-sm text-muted-foreground sm:inline">· {businessName}</span>
+              <span className="hidden text-sm text-muted-foreground sm:inline">
+                · {businessName}
+              </span>
             )}
           </Link>
           <nav className="flex items-center gap-1">
@@ -103,7 +111,9 @@ export function TopNav({ businessName }: { businessName?: string }) {
                   href={item.href}
                   className={
                     'rounded-md px-3 py-1.5 text-sm font-medium transition-colors ' +
-                    (active ? 'bg-teal-light text-teal-dark' : 'text-muted-foreground hover:bg-muted hover:text-foreground')
+                    (active
+                      ? 'bg-teal-light text-teal-dark'
+                      : 'text-muted-foreground hover:bg-muted hover:text-foreground')
                   }
                 >
                   {item.label}

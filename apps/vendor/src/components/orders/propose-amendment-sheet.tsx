@@ -46,8 +46,7 @@ export function ProposeAmendmentSheet({
     if (!Number.isFinite(n) || n < 0) return null;
     return Math.round(n * 100);
   })();
-  const canSubmit =
-    !busy && trimmed.length >= 3 && trimmed.length <= 500 && refundPence !== null;
+  const canSubmit = !busy && trimmed.length >= 3 && trimmed.length <= 500 && refundPence !== null;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>

@@ -11,9 +11,10 @@ export interface VendorApplicationAcknowledgedData {
  * they submit the become-a-vendor form. Reinforces the 1-2 business day SLA
  * and gives them productive things to do while they wait.
  */
-export function vendorApplicationAcknowledgedTemplate(
-  data: VendorApplicationAcknowledgedData,
-): { subject: string; html: string } {
+export function vendorApplicationAcknowledgedTemplate(data: VendorApplicationAcknowledgedData): {
+  subject: string;
+  html: string;
+} {
   const support = data.supportEmail ?? 'hello@feastpot.co.uk';
   const firstName = escapeHtml(data.firstName);
   const kitchenName = escapeHtml(data.kitchenName);

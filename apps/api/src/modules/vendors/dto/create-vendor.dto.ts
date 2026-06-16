@@ -8,7 +8,11 @@ export class CreateVendorDto {
   @MaxLength(255)
   businessName!: string;
 
-  @ApiProperty({ type: [String], minItems: 1, description: 'Cuisine tags (maps to vendors.cuisines)' })
+  @ApiProperty({
+    type: [String],
+    minItems: 1,
+    description: 'Cuisine tags (maps to vendors.cuisines)',
+  })
   @IsArray()
   @ArrayMinSize(1)
   @IsString({ each: true })

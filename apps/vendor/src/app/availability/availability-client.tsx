@@ -311,12 +311,14 @@ export function AvailabilityClient({ initial }: { initial: AvailabilitySnapshot 
                 value={String(form.prepLeadHours)}
                 onChange={(v) => setForm((s) => ({ ...s, prepLeadHours: Number(v || 0) }))}
               />
-              <p className="text-[11px] text-mid">Hours of notice required before accepting orders</p>
+              <p className="text-[11px] text-mid">
+                Hours of notice required before accepting orders
+              </p>
             </div>
           </div>
           <p className="text-xs text-mid">
-            Customers can pick any hour slot inside this window. Hours use the 24h clock (e.g. 11
-            to 20 means 11:00 to 19:00 last slot).
+            Customers can pick any hour slot inside this window. Hours use the 24h clock (e.g. 11 to
+            20 means 11:00 to 19:00 last slot).
           </p>
         </Section>
 
@@ -384,7 +386,9 @@ export function AvailabilityClient({ initial }: { initial: AvailabilitySnapshot 
                 value={form.largeOrderTrayThreshold}
                 onChange={(v) => setForm((s) => ({ ...s, largeOrderTrayThreshold: v }))}
               />
-              <p className="text-[11px] text-mid">Number of trays that classifies an order as large</p>
+              <p className="text-[11px] text-mid">
+                Number of trays that classifies an order as large
+              </p>
             </div>
           </div>
 
@@ -513,13 +517,7 @@ function Section({
   );
 }
 
-function FieldLabel({
-  htmlFor,
-  children,
-}: {
-  htmlFor?: string;
-  children: React.ReactNode;
-}) {
+function FieldLabel({ htmlFor, children }: { htmlFor?: string; children: React.ReactNode }) {
   return (
     <label htmlFor={htmlFor} className="block text-xs font-semibold text-dark">
       {children}
@@ -595,7 +593,10 @@ function HourField({
           onChange={(e) => onChange(Number(e.target.value || 0))}
           className="h-10 w-full rounded-lg border border-border bg-white pl-3 pr-9 text-sm text-dark focus:border-teal focus:outline-none focus:ring-2 focus:ring-teal/30"
         />
-        <Clock className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-mid" aria-hidden />
+        <Clock
+          className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-mid"
+          aria-hidden
+        />
       </div>
     </div>
   );

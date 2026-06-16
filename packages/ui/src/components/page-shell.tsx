@@ -25,7 +25,10 @@ export function PageShell({
   ...props
 }: PageShellProps): React.ReactElement {
   return (
-    <div className={cn('flex min-h-screen flex-col bg-background text-foreground', className)} {...props}>
+    <div
+      className={cn('flex min-h-screen flex-col bg-background text-foreground', className)}
+      {...props}
+    >
       {header}
       <main className={cn('mx-auto w-full flex-1 px-4 py-6 sm:px-6 lg:px-8', widthMap[maxWidth])}>
         {children}

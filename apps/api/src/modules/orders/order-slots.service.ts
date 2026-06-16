@@ -102,7 +102,8 @@ export class OrderSlotsService {
     if (orderType === OrderType.event && vendor.eventCateringManualQuote) {
       throw new BadRequestException({
         code: 'EVENT_MANUAL_QUOTE_REQUIRED',
-        message: 'This vendor takes event catering by manual quote. Please request an enquiry instead.',
+        message:
+          'This vendor takes event catering by manual quote. Please request an enquiry instead.',
       });
     }
 
@@ -114,7 +115,7 @@ export class OrderSlotsService {
     const leadHours = Math.max(
       opts.requiredLeadHours ?? 0,
       vendor.prepLeadHours,
-      isLargeOrder ? vendor.largeOrderLeadHours ?? 0 : 0,
+      isLargeOrder ? (vendor.largeOrderLeadHours ?? 0) : 0,
     );
     const earliest = new Date(now.getTime() + leadHours * 3600_000);
     if (scheduledFor.getTime() < earliest.getTime()) {
@@ -160,7 +161,9 @@ export class OrderSlotsService {
     if (blackout) {
       throw new BadRequestException({
         code: 'SLOT_BLACKED_OUT',
-        message: blackout.reason ? `Vendor is closed: ${blackout.reason}` : 'Vendor is closed on this date',
+        message: blackout.reason
+          ? `Vendor is closed: ${blackout.reason}`
+          : 'Vendor is closed on this date',
       });
     }
 

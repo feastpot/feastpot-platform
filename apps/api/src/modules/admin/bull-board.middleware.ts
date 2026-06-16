@@ -20,16 +20,10 @@ export function bullBoardBasicAuth(config: ConfigService) {
   const realm = 'Feastpot Bull Board';
 
   if (!password) {
-    logger.warn(
-      'BULL_BOARD_PASSWORD is not set - /admin/queues will return 503 until configured.',
-    );
+    logger.warn('BULL_BOARD_PASSWORD is not set - /admin/queues will return 503 until configured.');
   }
 
-  return function bullBoardAuthMiddleware(
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ): void {
+  return function bullBoardAuthMiddleware(req: Request, res: Response, next: NextFunction): void {
     if (!password) {
       res.status(503).send('Bull Board disabled: BULL_BOARD_PASSWORD not set on the server.');
       return;

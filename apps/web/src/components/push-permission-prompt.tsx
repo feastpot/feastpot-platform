@@ -100,7 +100,9 @@ export function PushPermissionPrompt({ forceShow = false }: Props) {
             <Bell className="h-4 w-4" aria-hidden />
           </span>
           <div className="min-w-0 flex-1">
-            <h3 className="font-display text-sm font-black text-charcoal">Get notified when your order is ready?</h3>
+            <h3 className="font-display text-sm font-black text-charcoal">
+              Get notified when your order is ready?
+            </h3>
             <p className="mt-0.5 text-xs font-medium text-charcoal-mid">
               We&rsquo;ll only ping you about your order - no marketing.
             </p>

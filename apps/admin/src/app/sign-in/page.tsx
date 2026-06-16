@@ -106,8 +106,20 @@ function SignInForm() {
         {/* Honeypot fields - some browsers will autofill the first
             email/password pair they see; sacrificing hidden ones here
             keeps the real inputs clean. */}
-        <input type="text" name="fakeusernameremembered" className="hidden" tabIndex={-1} aria-hidden />
-        <input type="password" name="fakepasswordremembered" className="hidden" tabIndex={-1} aria-hidden />
+        <input
+          type="text"
+          name="fakeusernameremembered"
+          className="hidden"
+          tabIndex={-1}
+          aria-hidden
+        />
+        <input
+          type="password"
+          name="fakepasswordremembered"
+          className="hidden"
+          tabIndex={-1}
+          aria-hidden
+        />
 
         <div className="space-y-1.5">
           <label htmlFor="email" className="text-sm font-medium">
@@ -169,7 +181,10 @@ function SignInForm() {
         </div>
 
         {error ? (
-          <p role="alert" className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <p
+            role="alert"
+            className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive"
+          >
             {error}
           </p>
         ) : null}

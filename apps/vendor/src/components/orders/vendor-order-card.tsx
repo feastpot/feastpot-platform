@@ -94,12 +94,8 @@ export function VendorOrderCard({ order }: Props) {
         {/* HEADER */}
         <header className="flex items-start justify-between gap-3 px-4 pt-4">
           <div className="min-w-0">
-            <p className="truncate text-base font-bold text-dark">
-              {customerFirstName(order)}
-            </p>
-            {slot && (
-              <p className="text-xs font-semibold text-teal">{slot}</p>
-            )}
+            <p className="truncate text-base font-bold text-dark">{customerFirstName(order)}</p>
+            {slot && <p className="text-xs font-semibold text-teal">{slot}</p>}
             <p className="mt-0.5 text-[11px] text-mid">#{order.orderNumber}</p>
           </div>
           {order.status === 'pending' && deadline && (

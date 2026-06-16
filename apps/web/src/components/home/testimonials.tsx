@@ -50,7 +50,8 @@ export function Testimonials() {
           Loved by communities across the UK
         </h2>
         <p className="text-xs font-medium text-charcoal-mid">
-          Real reviews from customers who&rsquo;ve cooked at, fed, and celebrated with Feastpot vendors.
+          Real reviews from customers who&rsquo;ve cooked at, fed, and celebrated with Feastpot
+          vendors.
         </p>
       </header>
 
@@ -96,7 +97,9 @@ export function Testimonials() {
               {t.dish}
             </span>
 
-            <p className="text-sm italic leading-relaxed text-charcoal-mid">&ldquo;{t.quote}&rdquo;</p>
+            <p className="text-sm italic leading-relaxed text-charcoal-mid">
+              &ldquo;{t.quote}&rdquo;
+            </p>
           </li>
         ))}
       </ul>

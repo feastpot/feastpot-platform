@@ -44,17 +44,13 @@ export function SWUpdatePrompt() {
             // `installed` + an existing controller == a new SW is sitting in
             // the wings waiting to take over. (No controller would mean this
             // is the FIRST SW install - nothing to "update" from.)
-            if (
-              newWorker.state === 'installed' &&
-              navigator.serviceWorker.controller
-            ) {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
               setUpdateAvailable(true);
             }
           });
         };
         registration.addEventListener('updatefound', handleUpdateFound);
-        cleanup = () =>
-          registration.removeEventListener('updatefound', handleUpdateFound);
+        cleanup = () => registration.removeEventListener('updatefound', handleUpdateFound);
       })
       .catch(() => {
         /* SW registration failed - nothing to prompt about */

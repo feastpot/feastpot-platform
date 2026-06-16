@@ -50,7 +50,9 @@ export default function EventsListPage() {
       </header>
 
       {isLoading && <p className="py-8 text-center text-sm text-charcoal-mid">Loading…</p>}
-      {error && <p className="py-8 text-center text-sm text-scotch">Couldn&apos;t load enquiries.</p>}
+      {error && (
+        <p className="py-8 text-center text-sm text-scotch">Couldn&apos;t load enquiries.</p>
+      )}
 
       {data && data.length === 0 && (
         <div className="space-y-3 rounded-3xl border border-dashed border-cream-deep bg-white p-8 text-center shadow-card">
@@ -62,8 +64,7 @@ export default function EventsListPage() {
           </div>
           <p className="font-display text-lg font-black text-charcoal">No events yet</p>
           <p className="mx-auto max-w-xs text-sm font-medium text-charcoal-mid">
-            Plan a wedding, birthday, or corporate event - vendors will quote
-            within 24 hours.
+            Plan a wedding, birthday, or corporate event - vendors will quote within 24 hours.
           </p>
           <Link href="/events/new">
             <Button className="rounded-2xl bg-brand font-black text-white hover:bg-brand-dark">
@@ -82,18 +83,34 @@ export default function EventsListPage() {
             >
               <div className="flex items-center justify-between">
                 <h2 className="font-bold capitalize text-charcoal">{e.eventType}</h2>
-                <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${STATUS_COLOUR[e.status] ?? ''}`}>
+                <span
+                  className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${STATUS_COLOUR[e.status] ?? ''}`}
+                >
                   {STATUS_LABEL[e.status] ?? e.status}
                 </span>
               </div>
               <dl className="mt-2 grid grid-cols-2 gap-1 text-xs text-charcoal-mid">
-                <div><dt className="inline">Date: </dt><dd className="inline">{new Date(e.eventDate).toLocaleDateString('en-GB')}</dd></div>
-                <div><dt className="inline">Guests: </dt><dd className="inline">{e.finalGuestCount ?? e.guestCount}</dd></div>
-                <div><dt className="inline">Postcode: </dt><dd className="inline">{e.postcode}</dd></div>
-                <div><dt className="inline">Budget: </dt><dd className="inline">{formatPounds(e.budgetPence)}</dd></div>
+                <div>
+                  <dt className="inline">Date: </dt>
+                  <dd className="inline">{new Date(e.eventDate).toLocaleDateString('en-GB')}</dd>
+                </div>
+                <div>
+                  <dt className="inline">Guests: </dt>
+                  <dd className="inline">{e.finalGuestCount ?? e.guestCount}</dd>
+                </div>
+                <div>
+                  <dt className="inline">Postcode: </dt>
+                  <dd className="inline">{e.postcode}</dd>
+                </div>
+                <div>
+                  <dt className="inline">Budget: </dt>
+                  <dd className="inline">{formatPounds(e.budgetPence)}</dd>
+                </div>
               </dl>
               {e.quotes && e.quotes.length > 0 && (
-                <p className="mt-2 text-xs font-bold text-brand">{e.quotes.length} quote{e.quotes.length === 1 ? '' : 's'} received</p>
+                <p className="mt-2 text-xs font-bold text-brand">
+                  {e.quotes.length} quote{e.quotes.length === 1 ? '' : 's'} received
+                </p>
               )}
             </Link>
           </li>

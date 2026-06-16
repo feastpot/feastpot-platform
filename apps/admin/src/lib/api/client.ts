@@ -44,9 +44,11 @@ export async function apiRequest<T>(path: string, init: ApiRequestInit = {}): Pr
   const contentType = res.headers.get('content-type') ?? '';
   if (!res.ok) {
     if (contentType.includes('application/json')) {
-      const payload = (await res.json().catch(() => null)) as
-        | { code?: string; message?: string; details?: unknown }
-        | null;
+      const payload = (await res.json().catch(() => null)) as {
+        code?: string;
+        message?: string;
+        details?: unknown;
+      } | null;
       throw new ApiError(
         res.status,
         payload?.code ?? `HTTP_${res.status}`,

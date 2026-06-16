@@ -96,7 +96,10 @@ export function BottomNav() {
               >
                 <span className="relative inline-flex">
                   <Icon
-                    className={cn('h-6 w-6 transition-transform duration-200', active && 'scale-110')}
+                    className={cn(
+                      'h-6 w-6 transition-transform duration-200',
+                      active && 'scale-110',
+                    )}
                     strokeWidth={active ? 2.5 : 1.75}
                     aria-hidden
                   />
@@ -109,7 +112,12 @@ export function BottomNav() {
                     </span>
                   )}
                 </span>
-                <span className={cn('text-[10px] font-bold', active ? 'text-brand' : 'text-charcoal-mid')}>
+                <span
+                  className={cn(
+                    'text-[10px] font-bold',
+                    active ? 'text-brand' : 'text-charcoal-mid',
+                  )}
+                >
                   {displayLabel}
                 </span>
                 {active && (

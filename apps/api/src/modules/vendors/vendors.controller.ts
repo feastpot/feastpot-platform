@@ -46,7 +46,11 @@ import { VendorStatsResponseDto } from './dto/vendor-stats.dto';
 import { VendorsService } from './vendors.service';
 
 function requireUser(user: AuthUser | null): AuthUser {
-  if (!user) throw new UnauthorizedException({ code: 'UNAUTHENTICATED', message: 'Authentication required' });
+  if (!user)
+    throw new UnauthorizedException({
+      code: 'UNAUTHENTICATED',
+      message: 'Authentication required',
+    });
   return user;
 }
 
@@ -163,10 +167,7 @@ export class VendorsController {
   @ApiBearerAuth()
   @Roles(UserRole.vendor, UserRole.admin)
   @ApiOperation({ summary: 'Update the authed vendor’s scheduling fields (T002)' })
-  updateMyAvailability(
-    @CurrentUser() user: AuthUser | null,
-    @Body() dto: UpdateAvailabilityDto,
-  ) {
+  updateMyAvailability(@CurrentUser() user: AuthUser | null, @Body() dto: UpdateAvailabilityDto) {
     return this.vendors.updateMyAvailability(requireUser(user).id, dto);
   }
 
@@ -271,7 +272,9 @@ export class VendorsController {
     schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } } },
   })
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024, files: 1 } }))
-  @ApiOperation({ summary: 'Upload vendor logo or cover image (kind=logo|cover; max 5MB; jpeg/png/webp)' })
+  @ApiOperation({
+    summary: 'Upload vendor logo or cover image (kind=logo|cover; max 5MB; jpeg/png/webp)',
+  })
   async uploadIdentityImage(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Query('kind') kind: string | undefined,
@@ -287,7 +290,10 @@ export class VendorsController {
     file: { originalname: string; mimetype: string; size: number; buffer: Buffer } | undefined,
   ) {
     if (!file) {
-      throw new BadRequestException({ code: 'FILE_REQUIRED', message: 'multipart field "file" is required' });
+      throw new BadRequestException({
+        code: 'FILE_REQUIRED',
+        message: 'multipart field "file" is required',
+      });
     }
     if (kind !== 'logo' && kind !== 'cover') {
       throw new BadRequestException({

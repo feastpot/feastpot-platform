@@ -71,7 +71,9 @@ export const REQUIRED_DOCS: ReadonlyArray<{
 ];
 
 /** Lookup of just the required document types, for the dashboard summariser. */
-export const REQUIRED_DOC_TYPES: ReadonlyArray<VendorDocumentType> = REQUIRED_DOCS.map((d) => d.type);
+export const REQUIRED_DOC_TYPES: ReadonlyArray<VendorDocumentType> = REQUIRED_DOCS.map(
+  (d) => d.type,
+);
 
 /** Decorative icon tile per doc type — matches the Vendor4 mockup. */
 const DOC_ICON: Record<VendorDocumentType, { Icon: typeof FileText; bg: string; fg: string }> = {
@@ -210,7 +212,10 @@ export function DocumentRow({
       <div className="grid grid-cols-1 gap-4 p-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_auto_minmax(0,1fr)] lg:items-center">
         {/* Left: icon + name + description + expandable details */}
         <div className="flex items-start gap-3">
-          <span aria-hidden className={cn('grid h-12 w-12 shrink-0 place-items-center rounded-xl', iconMeta.bg)}>
+          <span
+            aria-hidden
+            className={cn('grid h-12 w-12 shrink-0 place-items-center rounded-xl', iconMeta.bg)}
+          >
             <Icon className={cn('h-6 w-6', iconMeta.fg)} />
           </span>
           <div className="min-w-0">
@@ -298,9 +303,7 @@ export function DocumentRow({
 
         {/* Far right: requirements checklist */}
         <div className="rounded-lg border border-border bg-surface px-3 py-2.5 text-xs">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-mid">
-            All required
-          </p>
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-mid">All required</p>
           <p className="text-[11px] font-semibold text-dark">{STATE_TEXT[state]}</p>
           <ul className="mt-2 space-y-1.5">
             {checklist.map((c) => (

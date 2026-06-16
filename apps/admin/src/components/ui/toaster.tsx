@@ -65,7 +65,8 @@ export function Toaster({ children }: { children: ReactNode }) {
               if (!open) remove(t.id);
             }}
             className={cn(
-              t.variant === 'destructive' && 'border-destructive bg-destructive text-destructive-foreground',
+              t.variant === 'destructive' &&
+                'border-destructive bg-destructive text-destructive-foreground',
             )}
           >
             <div className="flex-1">

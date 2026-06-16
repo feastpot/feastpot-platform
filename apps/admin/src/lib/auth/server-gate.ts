@@ -59,7 +59,10 @@ export async function requireStaff(
       next: { revalidate: 0 },
     });
   } catch (err) {
-    if (err instanceof ApiError && (err.status === 401 || err.status === 403 || err.status === 404)) {
+    if (
+      err instanceof ApiError &&
+      (err.status === 401 || err.status === 403 || err.status === 404)
+    ) {
       redirect('/unauthorized');
     }
     throw err;

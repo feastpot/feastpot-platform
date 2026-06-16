@@ -1,9 +1,4 @@
-import {
-  ConflictException,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 
 import { AddressesRepository } from './addresses.repository';
 import type { CreateAddressDto } from './dto/create-address.dto';
@@ -127,7 +122,9 @@ export class AddressesService {
    * any failure we log and return nulls so the caller can still persist
    * the address - the user's experience trumps a perfect lat/lng.
    */
-  private async geocodePostcode(postcode: string): Promise<{ latitude: number | null; longitude: number | null }> {
+  private async geocodePostcode(
+    postcode: string,
+  ): Promise<{ latitude: number | null; longitude: number | null }> {
     try {
       const url = `https://api.postcodes.io/postcodes/${encodeURIComponent(postcode)}`;
       const res = await fetch(url, { signal: AbortSignal.timeout(2_500) });
@@ -137,7 +134,10 @@ export class AddressesService {
       const json = (await res.json()) as PostcodesIoResult;
       const lat = json.result?.latitude ?? null;
       const lng = json.result?.longitude ?? null;
-      return { latitude: typeof lat === 'number' ? lat : null, longitude: typeof lng === 'number' ? lng : null };
+      return {
+        latitude: typeof lat === 'number' ? lat : null,
+        longitude: typeof lng === 'number' ? lng : null,
+      };
     } catch (err) {
       this.logger.warn(`postcodes.io geocode failed for ${postcode}: ${(err as Error).message}`);
       return { latitude: null, longitude: null };

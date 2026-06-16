@@ -194,11 +194,14 @@ export function VendorCard({ vendor, variant = 'list' }: Props) {
             is genuine (cooks pre-commit a fixed weekend tray count), so
             this isn't a dark pattern - it reflects the actual marketplace.
             Uses wireframe red #E30613 (scotch) for urgency. */}
-        {typeof vendor.availableSlots === 'number' && vendor.availableSlots <= 3 && vendor.availableSlots > 0 && (
-          <p className="mt-1.5 text-[10px] font-semibold text-scotch">
-            Only {vendor.availableSlots} {vendor.availableSlots === 1 ? 'slot' : 'slots'} left this weekend
-          </p>
-        )}
+        {typeof vendor.availableSlots === 'number' &&
+          vendor.availableSlots <= 3 &&
+          vendor.availableSlots > 0 && (
+            <p className="mt-1.5 text-[10px] font-semibold text-scotch">
+              Only {vendor.availableSlots} {vendor.availableSlots === 1 ? 'slot' : 'slots'} left
+              this weekend
+            </p>
+          )}
       </div>
     </Link>
   );

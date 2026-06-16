@@ -39,7 +39,11 @@ export function createAddress(input: CreateAddressInput, accessToken: string): P
   return apiRequest<Address>('/addresses', { method: 'POST', body: input, accessToken });
 }
 
-export function updateAddress(id: string, input: UpdateAddressInput, accessToken: string): Promise<Address> {
+export function updateAddress(
+  id: string,
+  input: UpdateAddressInput,
+  accessToken: string,
+): Promise<Address> {
   return apiRequest<Address>(`/addresses/${id}`, { method: 'PATCH', body: input, accessToken });
 }
 

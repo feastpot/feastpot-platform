@@ -113,18 +113,38 @@ async function supabaseLogin(email: string, password: string): Promise<string> {
 
 // ─────────────────────────── Types ───────────────────────────
 
-interface Vendor { id: string; businessName: string }
-interface VendorListResp { data: Vendor[]; nextCursor: string | null }
-interface Menu { id: string; name: string; isActive?: boolean }
-interface MenuItem { id: string; name: string; pricePence: number; isAvailable: boolean }
-interface Address { id: string }
+interface Vendor {
+  id: string;
+  businessName: string;
+}
+interface VendorListResp {
+  data: Vendor[];
+  nextCursor: string | null;
+}
+interface Menu {
+  id: string;
+  name: string;
+  isActive?: boolean;
+}
+interface MenuItem {
+  id: string;
+  name: string;
+  pricePence: number;
+  isAvailable: boolean;
+}
+interface Address {
+  id: string;
+}
 interface OrderRecord {
   id: string;
   commissionPence: number;
   vendorPayoutPence: number;
   totalPence: number;
 }
-interface CreateOrderResponse { order: OrderRecord; clientSecret: string }
+interface CreateOrderResponse {
+  order: OrderRecord;
+  clientSecret: string;
+}
 
 /** Stripe client_secret format: `pi_XXXXX_secret_YYYYY`. Strip the suffix. */
 function piIdFromClientSecret(secret: string): string {
@@ -165,9 +185,17 @@ async function main(): Promise<void> {
   console.log('   Vendor:', vendor!.businessName);
 
   // STEP 4 — Pick a menu + an available item
-  const menusRes = await api<Menu[]>('GET', `/v1/vendors/${vendor!.id}/menus`, undefined, customerToken);
-  log(menusRes.status === 200 && Array.isArray(menusRes.body) && menusRes.body.length > 0,
-    'Fetch vendor menus', menusRes);
+  const menusRes = await api<Menu[]>(
+    'GET',
+    `/v1/vendors/${vendor!.id}/menus`,
+    undefined,
+    customerToken,
+  );
+  log(
+    menusRes.status === 200 && Array.isArray(menusRes.body) && menusRes.body.length > 0,
+    'Fetch vendor menus',
+    menusRes,
+  );
   const menu = menusRes.body[0];
 
   const itemsRes = await api<MenuItem[]>(
@@ -223,15 +251,17 @@ async function main(): Promise<void> {
   const { order, clientSecret } = orderRes.body;
   log(!!clientSecret, 'clientSecret returned in order response');
   const stripePaymentIntentId = piIdFromClientSecret(clientSecret);
-  log(stripePaymentIntentId.startsWith('pi_'),
-    'PaymentIntent id parsed from clientSecret', { stripePaymentIntentId });
+  log(stripePaymentIntentId.startsWith('pi_'), 'PaymentIntent id parsed from clientSecret', {
+    stripePaymentIntentId,
+  });
   console.log('   Order ID :', order.id);
   console.log('   Stripe PI:', stripePaymentIntentId);
 
   // STEP 7 — PI is in manual capture, not yet captured
   const pi = await stripe.paymentIntents.retrieve(stripePaymentIntentId);
-  log(pi.capture_method === 'manual', 'PaymentIntent capture_method = manual',
-    { capture_method: pi.capture_method });
+  log(pi.capture_method === 'manual', 'PaymentIntent capture_method = manual', {
+    capture_method: pi.capture_method,
+  });
   log(
     pi.status === 'requires_payment_method' ||
       pi.status === 'requires_confirmation' ||
@@ -249,11 +279,18 @@ async function main(): Promise<void> {
     payment_method: 'pm_card_visa',
     return_url: 'https://feastpot.co.uk/checkout/return',
   });
-  log(confirmedPi.status === 'requires_capture',
-    'PaymentIntent → requires_capture after Stripe confirm', { status: confirmedPi.status });
+  log(
+    confirmedPi.status === 'requires_capture',
+    'PaymentIntent → requires_capture after Stripe confirm',
+    { status: confirmedPi.status },
+  );
 
   const confirmRes = await api('POST', `/v1/orders/${order.id}/confirm`, undefined, customerToken);
-  log(confirmRes.status === 200 || confirmRes.status === 201, 'Order confirmed via API', confirmRes);
+  log(
+    confirmRes.status === 200 || confirmRes.status === 201,
+    'Order confirmed via API',
+    confirmRes,
+  );
 
   // STEP 9 — Vendor accept (vendorToken acquired up-front in STEP 3)
   const acceptRes = await api(
@@ -284,8 +321,9 @@ async function main(): Promise<void> {
   await new Promise((r) => setTimeout(r, 2000));
 
   const capturedPi = await stripe.paymentIntents.retrieve(stripePaymentIntentId);
-  log(capturedPi.status === 'succeeded', 'Stripe PaymentIntent captured on delivery',
-    { status: capturedPi.status });
+  log(capturedPi.status === 'succeeded', 'Stripe PaymentIntent captured on delivery', {
+    status: capturedPi.status,
+  });
 
   // STEP 12 — Sanity: API still healthy after the lifecycle
   const finalHealth = await api('GET', '/healthz');

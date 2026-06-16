@@ -117,8 +117,7 @@ export default async function HelpPage() {
       <main className="container max-w-3xl py-6">
         <h1 className="mb-2 text-2xl font-bold text-foreground">Help & FAQ</h1>
         <p className="mb-6 text-sm text-muted-foreground">
-          Operational rules and policies for Feastpot vendors. Can&rsquo;t find your answer?
-          Email{' '}
+          Operational rules and policies for Feastpot vendors. Can&rsquo;t find your answer? Email{' '}
           <a className="font-medium text-teal-dark underline" href="mailto:vendors@feastpot.co.uk">
             vendors@feastpot.co.uk
           </a>

@@ -54,7 +54,15 @@ export function useUpdateMenu(vendorId: string) {
   const { token } = useAccessToken();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ menuId, ...input }: { menuId: string; name?: string; isActive?: boolean; displayOrder?: number }) =>
+    mutationFn: ({
+      menuId,
+      ...input
+    }: {
+      menuId: string;
+      name?: string;
+      isActive?: boolean;
+      displayOrder?: number;
+    }) =>
       apiRequest<VendorMenu>(`/vendors/${vendorId}/menus/${menuId}`, {
         method: 'PATCH',
         accessToken: token!,

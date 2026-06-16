@@ -1,6 +1,17 @@
 'use client';
 
-import { Button, Card, CardContent, Input, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@feastpot/ui';
+import {
+  Button,
+  Card,
+  CardContent,
+  Input,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@feastpot/ui';
 import {
   Check,
   ChevronLeft,
@@ -55,7 +66,11 @@ const QUICK_FILTERS: ReadonlyArray<QuickFilter> = [
   { value: 'held', label: 'Pending', toneClasses: 'bg-brand text-brand-foreground' },
   { value: 'approved', label: 'Approved', toneClasses: 'bg-teal text-white' },
   { value: 'auto_approved', label: 'Auto approved', toneClasses: 'bg-teal text-white' },
-  { value: 'rejected', label: 'Rejected', toneClasses: 'bg-destructive text-destructive-foreground' },
+  {
+    value: 'rejected',
+    label: 'Rejected',
+    toneClasses: 'bg-destructive text-destructive-foreground',
+  },
 ];
 
 interface QueueFiltersState {
@@ -216,7 +231,9 @@ export function MenusQueueClient() {
                       icon={UtensilsCrossed}
                       title="No menu items match these filters"
                       description="Try a different status tab or clear the search."
-                      action={hasActiveFilters ? <Button onClick={clearAll}>Clear filters</Button> : null}
+                      action={
+                        hasActiveFilters ? <Button onClick={clearAll}>Clear filters</Button> : null
+                      }
                       bordered={false}
                     />
                   </TableCell>

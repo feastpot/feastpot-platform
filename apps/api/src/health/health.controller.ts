@@ -1,9 +1,9 @@
 import { InjectQueue } from '@nestjs/bull';
 import { Controller, Get, Res } from '@nestjs/common';
-import { SkipThrottle } from '@nestjs/throttler';
 import { ApiTags } from '@nestjs/swagger';
-import type { Response } from 'express';
+import { SkipThrottle } from '@nestjs/throttler';
 import type { Queue } from 'bull';
+import type { Response } from 'express';
 
 import { Public } from '../auth/decorators/public.decorator';
 import { RedisCacheService } from '../common/cache/redis-cache.service';
@@ -202,7 +202,12 @@ export class HealthController {
    */
   @Public()
   @Get()
-  check(): { status: string; version: string | undefined; timestamp: string; environment: string | undefined } {
+  check(): {
+    status: string;
+    version: string | undefined;
+    timestamp: string;
+    environment: string | undefined;
+  } {
     return {
       status: 'ok',
       version: process.env.npm_package_version,
@@ -226,8 +231,7 @@ export class HealthController {
     // endpoint past ~2s. Previously a P1-blocking 30s wait was possible.
     const [db, redisAndQueues] = await Promise.all([
       withTimeout<DbStatus>(
-        this.prisma
-          .$queryRaw`SELECT 1 as ok`
+        this.prisma.$queryRaw`SELECT 1 as ok`
           .then<DbStatus>(() => 'ok')
           .catch<DbStatus>(() => 'error'),
         'timeout',

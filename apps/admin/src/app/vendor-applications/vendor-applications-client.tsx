@@ -145,9 +145,7 @@ export function VendorApplicationsClient() {
                   <TableCell className="text-sm">{formatDate(a.createdAt)}</TableCell>
                   <TableCell className="text-sm">{a.hasFsaRegistration ? 'Yes' : 'No'}</TableCell>
                   <TableCell>
-                    <StatusPill tone={STATUS_TONE[a.status]}>
-                      {STATUS_LABEL[a.status]}
-                    </StatusPill>
+                    <StatusPill tone={STATUS_TONE[a.status]}>{STATUS_LABEL[a.status]}</StatusPill>
                   </TableCell>
                   <TableCell>
                     <Link

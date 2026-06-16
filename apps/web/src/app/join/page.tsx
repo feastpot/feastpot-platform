@@ -47,9 +47,11 @@ function JoinFlow() {
           `${API_URL}/v1/loyalty/referrals/validate?code=${encodeURIComponent(code)}`,
           { cache: 'no-store' },
         );
-        const body = (await res.json().catch(() => null)) as
-          | { valid?: boolean; referrerFirstName?: string; bonusPence?: number }
-          | null;
+        const body = (await res.json().catch(() => null)) as {
+          valid?: boolean;
+          referrerFirstName?: string;
+          bonusPence?: number;
+        } | null;
         if (cancelled) return;
         if (res.ok && body?.valid) {
           // Persist as upper-case so the register-form pre-fill matches the
@@ -96,7 +98,10 @@ function JoinFlow() {
     const pounds = (state.bonusPence / 100).toFixed(0);
     return (
       <div className="text-center">
-        <span className="mx-auto mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-plantain/20 text-plantain-dark" aria-hidden>
+        <span
+          className="mx-auto mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-plantain/20 text-plantain-dark"
+          aria-hidden
+        >
           <PartyPopper className="h-8 w-8" />
         </span>
         <h2 className="font-display text-xl font-black text-charcoal">
@@ -111,10 +116,15 @@ function JoinFlow() {
 
   return (
     <div className="text-center">
-      <span className="mx-auto mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-cream-deep text-charcoal-mid" aria-hidden>
+      <span
+        className="mx-auto mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-cream-deep text-charcoal-mid"
+        aria-hidden
+      >
         <HelpCircle className="h-8 w-8" />
       </span>
-      <h2 className="font-display text-xl font-black text-charcoal">That referral code wasn’t found</h2>
+      <h2 className="font-display text-xl font-black text-charcoal">
+        That referral code wasn’t found
+      </h2>
       <p className="mt-2 text-sm font-medium text-charcoal-mid">
         It may have expired. You can still create a free account.
       </p>

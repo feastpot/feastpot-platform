@@ -2,6 +2,7 @@ import * as Sentry from '@sentry/nestjs';
 import type { Queue } from 'bull';
 
 import type { RedisCacheService } from '../common/cache/redis-cache.service';
+
 import { QueueDepthMonitorService } from './queue-depth-monitor.service';
 
 jest.mock('@sentry/nestjs', () => ({ captureMessage: jest.fn() }));

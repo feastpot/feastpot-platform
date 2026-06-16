@@ -30,8 +30,7 @@ export function CommunityReviews() {
         Loved by communities across the UK
       </h2>
       <p className="mt-1 text-[14px] font-medium text-charcoal-mid">
-        Review teasers build confidence without showing vendors before postcode
-        search.
+        Review teasers build confidence without showing vendors before postcode search.
       </p>
 
       <ul className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -42,19 +41,13 @@ export function CommunityReviews() {
           >
             <div className="flex gap-0.5" aria-label="Five stars">
               {Array.from({ length: 5 }).map((_, i) => (
-                <Star
-                  key={i}
-                  className="h-4 w-4 fill-plantain text-plantain"
-                  aria-hidden
-                />
+                <Star key={i} className="h-4 w-4 fill-plantain text-plantain" aria-hidden />
               ))}
             </div>
             <p className="font-display text-[15px] font-black leading-snug text-charcoal">
               &ldquo;{quote}&rdquo;
             </p>
-            <p className="text-[12.5px] font-medium text-charcoal-mid">
-              - {author}
-            </p>
+            <p className="text-[12.5px] font-medium text-charcoal-mid">- {author}</p>
           </li>
         ))}
       </ul>

@@ -2,11 +2,11 @@ import { Injectable } from '@nestjs/common';
 
 import { PrismaService } from '../../prisma/prisma.service';
 
+import { UpdatePreferencesDto } from './dto/update-preferences.dto';
 import {
   findPreferenceDefinition,
   PREFERENCE_DEFINITIONS,
 } from './notification-preferences.constants';
-import { UpdatePreferencesDto } from './dto/update-preferences.dto';
 
 export interface ResolvedPreference {
   key: string;
@@ -41,7 +41,7 @@ export class NotificationPreferencesService {
       groupLabel: d.groupLabel,
       channelLabel: d.channelLabel,
       // Transactional channels are always on regardless of any stale row.
-      enabled: d.transactional ? true : stored.get(`${d.key}:${d.channel}`) ?? d.defaultEnabled,
+      enabled: d.transactional ? true : (stored.get(`${d.key}:${d.channel}`) ?? d.defaultEnabled),
       canDisable: !d.transactional,
     }));
   }
@@ -53,7 +53,10 @@ export class NotificationPreferencesService {
    * Enabling is always allowed. Upserts run in a single transaction so a
    * partial failure doesn't leave a half-applied set.
    */
-  async updatePreferences(userId: string, dto: UpdatePreferencesDto): Promise<ResolvedPreference[]> {
+  async updatePreferences(
+    userId: string,
+    dto: UpdatePreferencesDto,
+  ): Promise<ResolvedPreference[]> {
     const valid = dto.preferences.filter((p) => {
       const def = findPreferenceDefinition(p.key, p.channel);
       if (!def) return false;

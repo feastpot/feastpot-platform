@@ -76,7 +76,9 @@ export class MenuItemsService {
     return list;
   }
 
-  static buildTags(dto: Pick<CreateMenuItemDto, 'dietaryFlags' | 'isHalal' | 'spiceLevel' | 'portionLabel'>): string[] {
+  static buildTags(
+    dto: Pick<CreateMenuItemDto, 'dietaryFlags' | 'isHalal' | 'spiceLevel' | 'portionLabel'>,
+  ): string[] {
     const out = new Set<string>();
     for (const f of MenuItemsService.validateDietaryFlags(dto.dietaryFlags)) out.add(f);
     if (dto.isHalal) out.add('halal');
@@ -142,7 +144,7 @@ export class MenuItemsService {
     if (itemIds.length !== providedIds.size || !sameSize || !sameMembers) {
       throw new BadRequestException({
         code: 'INVALID_REORDER',
-        message: 'itemIds must contain each of this menu\'s items exactly once.',
+        message: "itemIds must contain each of this menu's items exactly once.",
       });
     }
 
@@ -162,12 +164,7 @@ export class MenuItemsService {
     });
   }
 
-  async findOne(
-    vendorId: string,
-    menuId: string,
-    itemId: string,
-    caller: AuthUser | null = null,
-  ) {
+  async findOne(vendorId: string, menuId: string, itemId: string, caller: AuthUser | null = null) {
     const item = await this.prisma.menuItem.findUnique({ where: { id: itemId } });
     if (!item || item.menuId !== menuId || item.vendorId !== vendorId) {
       throw new NotFoundException({ code: 'MENU_ITEM_NOT_FOUND', message: 'Menu item not found' });
@@ -181,7 +178,10 @@ export class MenuItemsService {
     if (!publiclyVisible) {
       const canSeeDrafts = await this.callerOwnsVendor(vendorId, caller);
       if (!canSeeDrafts) {
-        throw new NotFoundException({ code: 'MENU_ITEM_NOT_FOUND', message: 'Menu item not found' });
+        throw new NotFoundException({
+          code: 'MENU_ITEM_NOT_FOUND',
+          message: 'Menu item not found',
+        });
       }
     }
     return item;
@@ -228,9 +228,7 @@ export class MenuItemsService {
     // founding cohort. Set MENU_AUTO_APPROVE=false before opening self-serve
     // signup so new items land as `held` and require admin approval first.
     const autoApprove = this.config.get<string>('MENU_AUTO_APPROVE') !== 'false';
-    const moderationStatus = autoApprove
-      ? ModerationStatus.auto_approved
-      : ModerationStatus.held;
+    const moderationStatus = autoApprove ? ModerationStatus.auto_approved : ModerationStatus.held;
 
     const created = await this.prisma.menuItem.create({
       data: {
@@ -273,7 +271,12 @@ export class MenuItemsService {
     const limit = dto.limit ?? 20;
     const cursor = dto.cursor ? this.decodeCursor(dto.cursor) : undefined;
     const cursorWhere: Prisma.MenuItemWhereInput = cursor
-      ? { OR: [{ createdAt: { lt: cursor.createdAt } }, { createdAt: cursor.createdAt, id: { lt: cursor.id } }] }
+      ? {
+          OR: [
+            { createdAt: { lt: cursor.createdAt } },
+            { createdAt: cursor.createdAt, id: { lt: cursor.id } },
+          ],
+        }
       : {};
     const baseWhere = this.buildModerationFilters(dto);
     const rows = await this.prisma.menuItem.findMany({
@@ -423,7 +426,10 @@ export class MenuItemsService {
   }
   private decodeCursor(s: string): { createdAt: Date; id: string } | undefined {
     try {
-      const obj = JSON.parse(Buffer.from(s, 'base64url').toString('utf8')) as { c: string; id: string };
+      const obj = JSON.parse(Buffer.from(s, 'base64url').toString('utf8')) as {
+        c: string;
+        id: string;
+      };
       return { createdAt: new Date(obj.c), id: obj.id };
     } catch {
       return undefined;
@@ -450,7 +456,8 @@ export class MenuItemsService {
     if (dto.basePricePence !== undefined) data.pricePence = dto.basePricePence;
     if (dto.servingsCount !== undefined) data.servingsCount = dto.servingsCount;
     if (dto.images !== undefined) data.imageUrls = dto.images;
-    if (dto.allergens !== undefined) data.allergens = MenuItemsService.validateAllergens(dto.allergens);
+    if (dto.allergens !== undefined)
+      data.allergens = MenuItemsService.validateAllergens(dto.allergens);
     if (dto.prepTimeMinutes !== undefined) {
       data.preparationHours = Math.max(1, Math.ceil(dto.prepTimeMinutes / 60));
     }
@@ -468,8 +475,12 @@ export class MenuItemsService {
       dto.portionLabel !== undefined;
     if (tagFieldsTouched) {
       const prevTags = existing.tags;
-      const prevSpice = prevTags.find((t) => t.startsWith(SPICE_TAG_PREFIX))?.slice(SPICE_TAG_PREFIX.length);
-      const prevPortion = prevTags.find((t) => t.startsWith(PORTION_TAG_PREFIX))?.slice(PORTION_TAG_PREFIX.length);
+      const prevSpice = prevTags
+        .find((t) => t.startsWith(SPICE_TAG_PREFIX))
+        ?.slice(SPICE_TAG_PREFIX.length);
+      const prevPortion = prevTags
+        .find((t) => t.startsWith(PORTION_TAG_PREFIX))
+        ?.slice(PORTION_TAG_PREFIX.length);
       const prevDiet = prevTags.filter((t) => DIETARY_FLAG_SET.has(t));
       const prevHalal = prevTags.includes('halal');
       data.tags = MenuItemsService.buildTags({
@@ -525,7 +536,10 @@ export class MenuItemsService {
   }
 
   private async assertMenuBelongs(vendorId: string, menuId: string): Promise<void> {
-    const menu = await this.prisma.menu.findUnique({ where: { id: menuId }, select: { vendorId: true } });
+    const menu = await this.prisma.menu.findUnique({
+      where: { id: menuId },
+      select: { vendorId: true },
+    });
     if (!menu) throw new NotFoundException({ code: 'MENU_NOT_FOUND', message: 'Menu not found' });
     if (menu.vendorId !== vendorId) {
       throw new ForbiddenException({

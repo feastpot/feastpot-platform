@@ -39,12 +39,10 @@ export function Footer() {
             the legal copy below. */}
         <div className="mb-5 flex flex-col items-start justify-between gap-3 rounded-2xl border border-brand-100 bg-brand-light p-4 md:flex-row md:items-center">
           <div className="min-w-0">
-            <p className="text-[14px] font-bold text-charcoal">
-              Cook from home? Join FeastPot
-            </p>
+            <p className="text-[14px] font-bold text-charcoal">Cook from home? Join FeastPot</p>
             <p className="mt-0.5 text-[12px] font-medium text-charcoal-mid">
-              Sell party trays, family pots and weekly meals to customers near
-              you. Keep your food business moving without chasing DMs.
+              Sell party trays, family pots and weekly meals to customers near you. Keep your food
+              business moving without chasing DMs.
             </p>
           </div>
           <Link
@@ -75,10 +73,7 @@ export function Footer() {
           </p>
           <p className="mt-1 text-[11px] font-medium text-charcoal-light">
             ICO Registration {LEGAL.ICO_NUMBER} ·{' '}
-            <a
-              href={`mailto:${LEGAL.SUPPORT_EMAIL}`}
-              className="hover:text-charcoal-mid"
-            >
+            <a href={`mailto:${LEGAL.SUPPORT_EMAIL}`} className="hover:text-charcoal-mid">
               {LEGAL.SUPPORT_EMAIL}
             </a>
           </p>

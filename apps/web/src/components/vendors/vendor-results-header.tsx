@@ -45,7 +45,7 @@ export function VendorResultsHeader({ count, postcode, loading }: Props) {
     if (value) sp.set('sort', value);
     else sp.delete('sort');
     const qs = sp.toString();
-    router.replace(qs ? `${pathname}?${qs}` : pathname ?? '/vendors', { scroll: false });
+    router.replace(qs ? `${pathname}?${qs}` : (pathname ?? '/vendors'), { scroll: false });
   };
 
   const label = loading

@@ -32,5 +32,7 @@ export async function middleware(request: NextRequest) {
 export const config = {
   // Skip the middleware for static assets, image optimisation, and the favicon -
   // they don't need a Supabase round-trip.
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)'],
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
+  ],
 };

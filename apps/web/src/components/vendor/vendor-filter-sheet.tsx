@@ -93,11 +93,19 @@ export function VendorFilterSheet() {
           <fieldset className="space-y-2">
             <legend className="text-sm font-bold text-charcoal">Dietary</legend>
             <label className="flex items-center gap-3 text-sm font-medium text-charcoal">
-              <input type="checkbox" name="halal" defaultChecked={initial.halal} className="h-4 w-4 rounded border-cream-deep accent-brand" />
+              <input
+                type="checkbox"
+                name="halal"
+                defaultChecked={initial.halal}
+                className="h-4 w-4 rounded border-cream-deep accent-brand"
+              />
               <span>Halal-certified only</span>
             </label>
             {DIETARY_FLAGS.map((flag) => (
-              <label key={flag} className="flex items-center gap-3 text-sm font-medium text-charcoal">
+              <label
+                key={flag}
+                className="flex items-center gap-3 text-sm font-medium text-charcoal"
+              >
                 <input
                   type="checkbox"
                   name="dietary"

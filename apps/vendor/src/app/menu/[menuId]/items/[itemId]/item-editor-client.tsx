@@ -146,9 +146,7 @@ function fromMenuItem(item: MenuItem): FormState {
   const tags = item.tags ?? [];
   const spiceTag = tags.find((t) => t.startsWith(SPICE_PREFIX));
   const portionTag = tags.find((t) => t.startsWith(PORTION_PREFIX));
-  const dietary = tags.filter(
-    (t) => DIETARY_FLAGS.some((d) => d.value === t) && t !== 'halal',
-  );
+  const dietary = tags.filter((t) => DIETARY_FLAGS.some((d) => d.value === t) && t !== 'halal');
   return {
     name: item.name,
     description: item.description ?? '',
@@ -157,8 +155,7 @@ function fromMenuItem(item: MenuItem): FormState {
     portionLabel: portionTag ? portionTag.slice(PORTION_PREFIX.length) : '',
     // The API stores `preparationHours` (rounded up). Best-effort reverse to
     // the closest dropdown option so the UI doesn't show a blank.
-    prepTimeMinutes:
-      PREP_OPTIONS.find((p) => p.value === item.preparationHours * 60)?.value ?? 240,
+    prepTimeMinutes: PREP_OPTIONS.find((p) => p.value === item.preparationHours * 60)?.value ?? 240,
     spiceLevel: spiceTag ? Number(spiceTag.slice(SPICE_PREFIX.length)) || 0 : 0,
     isHalal: tags.includes('halal'),
     dietaryFlags: dietary,
@@ -591,9 +588,7 @@ export function ItemEditorClient({
 
         {/* CARD 5 - FSA 14 allergens, 2-col grid w/ green-on-checked */}
         <SectionCard title="Allergens (FSA 14)">
-          <p className="text-xs text-mid">
-            Required by law for any allergen present in the dish.
-          </p>
+          <p className="text-xs text-mid">Required by law for any allergen present in the dish.</p>
           <div className="grid grid-cols-2 gap-2">
             {FSA_ALLERGENS.map((a) => {
               const active = form.allergens.includes(a.value);
@@ -623,9 +618,7 @@ export function ItemEditorClient({
                     aria-hidden
                     className={cn(
                       'flex h-5 w-5 items-center justify-center rounded border text-xs',
-                      active
-                        ? 'border-emerald-500 bg-emerald-500 text-white'
-                        : 'border-border',
+                      active ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-border',
                     )}
                   >
                     {active ? '✓' : ''}
@@ -644,8 +637,8 @@ export function ItemEditorClient({
         <SectionCard title="Photos">
           <div className="flex items-center justify-between">
             <p className="text-xs text-mid">
-              Up to 5. JPEG / PNG / WebP, 5 MB max each. Drag to reorder — the
-              first photo is the cover.
+              Up to 5. JPEG / PNG / WebP, 5 MB max each. Drag to reorder — the first photo is the
+              cover.
             </p>
             <Button
               type="button"
@@ -805,19 +798,11 @@ function SortablePhoto({
   );
 }
 
-function SectionCard({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
+function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <Card className="border-border shadow-sm">
       <CardContent className="space-y-3 p-4">
-        <h2 className="text-sm font-bold uppercase tracking-wide text-mid">
-          {title}
-        </h2>
+        <h2 className="text-sm font-bold uppercase tracking-wide text-mid">{title}</h2>
         <div className="space-y-3">{children}</div>
       </CardContent>
     </Card>

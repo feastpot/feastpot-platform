@@ -85,7 +85,13 @@ export function useUploadVendorImage(vendorId: string | undefined) {
   const { token } = useAccessToken();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ kind, file }: { kind: 'logo' | 'cover'; file: File }): Promise<UploadedImage> => {
+    mutationFn: async ({
+      kind,
+      file,
+    }: {
+      kind: 'logo' | 'cover';
+      file: File;
+    }): Promise<UploadedImage> => {
       if (!ALLOWED.has(file.type)) {
         throw new Error(`Unsupported image type ${file.type}; use JPEG/PNG/WebP`);
       }

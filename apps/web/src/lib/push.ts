@@ -19,17 +19,16 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   return out;
 }
 
-export type PushSupport =
-  | 'unsupported'
-  | 'denied'
-  | 'granted'
-  | 'default'
-  | 'no-vapid-key';
+export type PushSupport = 'unsupported' | 'denied' | 'granted' | 'default' | 'no-vapid-key';
 
 /** Probes (no side effects) what the browser will allow us to do. */
 export function getPushSupport(): PushSupport {
   if (typeof window === 'undefined') return 'unsupported';
-  if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
+  if (
+    !('serviceWorker' in navigator) ||
+    !('PushManager' in window) ||
+    !('Notification' in window)
+  ) {
     return 'unsupported';
   }
   if (!VAPID_PUBLIC_KEY) return 'no-vapid-key';

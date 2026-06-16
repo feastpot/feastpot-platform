@@ -94,9 +94,7 @@ function Timeline({ order }: { order: VendorOrderDetail }) {
       {events.map((e) => (
         <li key={e.label} className="flex items-baseline justify-between gap-3 text-sm">
           <span className="font-medium text-dark">{e.label}</span>
-          <span className="tabular-nums text-mid">
-            {format(new Date(e.at!), 'd MMM, HH:mm')}
-          </span>
+          <span className="tabular-nums text-mid">{format(new Date(e.at!), 'd MMM, HH:mm')}</span>
         </li>
       ))}
     </ol>
@@ -142,9 +140,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
     return (
       <div className="fp-card p-6">
         <p className="text-sm font-semibold text-red-600">Could not load this order.</p>
-        <p className="mt-1 text-xs text-mid">
-          It may not exist, or you may not have access to it.
-        </p>
+        <p className="mt-1 text-xs text-mid">It may not exist, or you may not have access to it.</p>
         <Link
           href="/orders"
           className="mt-3 inline-block text-sm font-semibold text-teal underline-offset-2 hover:underline"
@@ -207,9 +203,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
           <div className="min-w-0">
             <p className="text-xs uppercase tracking-wide text-mid">Order</p>
             <h1 className="text-2xl font-bold text-dark">#{order.orderNumber}</h1>
-            {slot && (
-              <p className="mt-1 text-sm font-semibold text-teal">{slot}</p>
-            )}
+            {slot && <p className="mt-1 text-sm font-semibold text-teal">{slot}</p>}
             <p className="text-xs text-mid">
               Placed {format(new Date(order.createdAt), 'EEE d MMM, HH:mm')}
             </p>
@@ -288,8 +282,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
             <section className="fp-card border-2 border-amber-300 p-5">
               <h2 className="text-base font-bold text-amber-900">Allergen summary</h2>
               <p className="mt-1 text-xs text-amber-900">
-                Combined from all items in this order. Always cross-check the customer
-                note below.
+                Combined from all items in this order. Always cross-check the customer note below.
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 {allergens.map((a) => (
@@ -326,17 +319,10 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
                 <Row label="Service fee" value={poundsFromPence(order.serviceFeePence)} />
               )}
               {order.discountPence > 0 && (
-                <Row
-                  label="Discount"
-                  value={`- ${poundsFromPence(order.discountPence)}`}
-                />
+                <Row label="Discount" value={`- ${poundsFromPence(order.discountPence)}`} />
               )}
               <div className="mt-2 border-t border-border pt-2">
-                <Row
-                  label="Customer paid"
-                  value={poundsFromPence(order.totalPence)}
-                  bold
-                />
+                <Row label="Customer paid" value={poundsFromPence(order.totalPence)} bold />
               </div>
               <Row
                 label="Platform commission"
@@ -565,9 +551,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
             order.status === 'rejected' ||
             order.status === 'refunded' ||
             order.status === 'delivered') && (
-            <p className="text-sm text-mid">
-              This order is closed. No further actions available.
-            </p>
+            <p className="text-sm text-mid">This order is closed. No further actions available.</p>
           )}
         </div>
       </section>

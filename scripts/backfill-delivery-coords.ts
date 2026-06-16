@@ -26,7 +26,10 @@ function extractPostcodeFromAddress(addr: string | null): string | null {
   return m ? `${m[1]} ${m[2]}` : null;
 }
 
-function pickPostcode(input: { postcodes: string[]; collectionAddress: string | null }): string | null {
+function pickPostcode(input: {
+  postcodes: string[];
+  collectionAddress: string | null;
+}): string | null {
   const first = input.postcodes.find((p) => p && p.trim().length > 0);
   if (first) return first.trim();
   return extractPostcodeFromAddress(input.collectionAddress);
@@ -34,9 +37,7 @@ function pickPostcode(input: { postcodes: string[]; collectionAddress: string | 
 
 const cache = new Map<string, { lat: number | null; lng: number | null }>();
 
-async function fetchPostcodesIo(
-  path: string,
-): Promise<{ lat: number | null; lng: number | null }> {
+async function fetchPostcodesIo(path: string): Promise<{ lat: number | null; lng: number | null }> {
   try {
     const res = await fetch(`https://api.postcodes.io${path}`);
     if (!res.ok) return { lat: null, lng: null };

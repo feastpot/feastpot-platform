@@ -17,12 +17,12 @@ import {
   UserRole,
 } from '@prisma/client';
 
-import type { AuthUser } from '../../auth/types';
 import { SupabaseService } from '../../auth/supabase.service';
+import type { AuthUser } from '../../auth/types';
+import { PrismaService } from '../../prisma/prisma.service';
 import { InboxService } from '../inbox/inbox.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PaymentsService } from '../payments/payments.service';
-import { PrismaService } from '../../prisma/prisma.service';
 
 import type { CloseDisputeDto } from './dto/close-dispute.dto';
 import type { CreateDisputeDto } from './dto/create-dispute.dto';
@@ -34,8 +34,17 @@ const SUPABASE_DOCS_BUCKET = 'feastpot-documents';
 
 /** Allowed transitions from each status. open is reachable from itself for idempotent updates. */
 const STATUS_TRANSITIONS: Record<DisputeStatus, DisputeStatus[]> = {
-  [DisputeStatus.open]: [DisputeStatus.vendor_contacted, DisputeStatus.escalated, DisputeStatus.resolved, DisputeStatus.closed],
-  [DisputeStatus.vendor_contacted]: [DisputeStatus.resolved, DisputeStatus.escalated, DisputeStatus.closed],
+  [DisputeStatus.open]: [
+    DisputeStatus.vendor_contacted,
+    DisputeStatus.escalated,
+    DisputeStatus.resolved,
+    DisputeStatus.closed,
+  ],
+  [DisputeStatus.vendor_contacted]: [
+    DisputeStatus.resolved,
+    DisputeStatus.escalated,
+    DisputeStatus.closed,
+  ],
   [DisputeStatus.escalated]: [DisputeStatus.resolved, DisputeStatus.closed],
   [DisputeStatus.resolved]: [DisputeStatus.closed],
   [DisputeStatus.closed]: [], // terminal
@@ -49,7 +58,10 @@ const SEVERITY_BY_ISSUE: Record<IssueType, Severity> = {
   [IssueType.other]: Severity.low,
 };
 
-const REFUND_RESOLUTIONS = new Set<ResolutionType>([ResolutionType.full_refund, ResolutionType.partial_refund]);
+const REFUND_RESOLUTIONS = new Set<ResolutionType>([
+  ResolutionType.full_refund,
+  ResolutionType.partial_refund,
+]);
 
 @Injectable()
 export class DisputesService {
@@ -72,7 +84,12 @@ export class DisputesService {
 
     const cursor = dto.cursor ? this.decodeCursor(dto.cursor) : undefined;
     const cursorWhere: Prisma.DisputeWhereInput = cursor
-      ? { OR: [{ createdAt: { lt: cursor.createdAt } }, { createdAt: cursor.createdAt, id: { lt: cursor.id } }] }
+      ? {
+          OR: [
+            { createdAt: { lt: cursor.createdAt } },
+            { createdAt: cursor.createdAt, id: { lt: cursor.id } },
+          ],
+        }
       : {};
 
     // `take: limit + 1` so we can tell "is there another page?" without an
@@ -178,7 +195,12 @@ export class DisputesService {
         const slaSet: DisputeStatus[] = [DisputeStatus.resolved, DisputeStatus.closed];
         if (typeof where.status === 'string') {
           where.status = slaSet.includes(where.status) ? where.status : { in: [] };
-        } else if (where.status && typeof where.status === 'object' && 'in' in where.status && Array.isArray(where.status.in)) {
+        } else if (
+          where.status &&
+          typeof where.status === 'object' &&
+          'in' in where.status &&
+          Array.isArray(where.status.in)
+        ) {
           where.status = { in: where.status.in.filter((s) => slaSet.includes(s as DisputeStatus)) };
         } else {
           where.status = { in: slaSet };
@@ -190,8 +212,12 @@ export class DisputesService {
       const q = dto.q.trim();
       where.OR = [
         { order: { is: { orderNumber: { contains: q, mode: 'insensitive' } } } },
-        { order: { is: { vendor: { is: { businessName: { contains: q, mode: 'insensitive' } } } } } },
-        { order: { is: { customer: { is: { firstName: { contains: q, mode: 'insensitive' } } } } } },
+        {
+          order: { is: { vendor: { is: { businessName: { contains: q, mode: 'insensitive' } } } } },
+        },
+        {
+          order: { is: { customer: { is: { firstName: { contains: q, mode: 'insensitive' } } } } },
+        },
         { order: { is: { customer: { is: { lastName: { contains: q, mode: 'insensitive' } } } } } },
         { order: { is: { customer: { is: { email: { contains: q, mode: 'insensitive' } } } } } },
       ];
@@ -217,7 +243,10 @@ export class DisputesService {
    */
   async stats(user: AuthUser, dto: ListDisputesDto) {
     if (user.role !== UserRole.admin && user.role !== UserRole.support) {
-      throw new ForbiddenException({ code: 'DISPUTE_STATS_FORBIDDEN', message: 'Admin/support only' });
+      throw new ForbiddenException({
+        code: 'DISPUTE_STATS_FORBIDDEN',
+        message: 'Admin/support only',
+      });
     }
     const scope = this.buildListWhere(user, dto);
     const now = new Date();
@@ -233,54 +262,47 @@ export class DisputesService {
     const last30 = new Date(now.getTime() - 30 * 24 * HOUR);
     const prior30Start = new Date(now.getTime() - 60 * 24 * HOUR);
 
-    const [
-      total,
-      overdue,
-      breaching,
-      inProgress,
-      totalValue,
-      last30Count,
-      prior30Count,
-    ] = await this.prisma.$transaction([
-      this.prisma.dispute.count({ where: scope }),
-      this.prisma.dispute.count({
-        where: {
-          AND: [
-            scope,
-            { status: { in: openStatuses } },
-            {
-              OR: [
-                { vendorRespondedAt: null, createdAt: { lt: ackBreach } },
-                { createdAt: { lt: resolveBreach } },
-              ],
-            },
-          ],
-        },
-      }),
-      this.prisma.dispute.count({
-        where: {
-          AND: [
-            scope,
-            { status: { in: openStatuses } },
-            { createdAt: { lt: breachingSoon, gte: resolveBreach } },
-            { vendorRespondedAt: { not: null } },
-          ],
-        },
-      }),
-      this.prisma.dispute.count({
-        where: { AND: [scope, { status: { in: openStatuses } }] },
-      }),
-      this.prisma.dispute.findMany({
-        where: scope,
-        select: { order: { select: { totalPence: true } } },
-      }),
-      this.prisma.dispute.count({
-        where: { AND: [scope, { createdAt: { gte: last30 } }] },
-      }),
-      this.prisma.dispute.count({
-        where: { AND: [scope, { createdAt: { gte: prior30Start, lt: last30 } }] },
-      }),
-    ]);
+    const [total, overdue, breaching, inProgress, totalValue, last30Count, prior30Count] =
+      await this.prisma.$transaction([
+        this.prisma.dispute.count({ where: scope }),
+        this.prisma.dispute.count({
+          where: {
+            AND: [
+              scope,
+              { status: { in: openStatuses } },
+              {
+                OR: [
+                  { vendorRespondedAt: null, createdAt: { lt: ackBreach } },
+                  { createdAt: { lt: resolveBreach } },
+                ],
+              },
+            ],
+          },
+        }),
+        this.prisma.dispute.count({
+          where: {
+            AND: [
+              scope,
+              { status: { in: openStatuses } },
+              { createdAt: { lt: breachingSoon, gte: resolveBreach } },
+              { vendorRespondedAt: { not: null } },
+            ],
+          },
+        }),
+        this.prisma.dispute.count({
+          where: { AND: [scope, { status: { in: openStatuses } }] },
+        }),
+        this.prisma.dispute.findMany({
+          where: scope,
+          select: { order: { select: { totalPence: true } } },
+        }),
+        this.prisma.dispute.count({
+          where: { AND: [scope, { createdAt: { gte: last30 } }] },
+        }),
+        this.prisma.dispute.count({
+          where: { AND: [scope, { createdAt: { gte: prior30Start, lt: last30 } }] },
+        }),
+      ]);
 
     const totalDisputedValuePence = totalValue.reduce(
       (sum, d) => sum + (d.order?.totalPence ?? 0),
@@ -319,7 +341,8 @@ export class DisputesService {
         raisedBy: { select: { id: true, firstName: true, lastName: true, email: true } },
       },
     });
-    if (!dispute) throw new NotFoundException({ code: 'DISPUTE_NOT_FOUND', message: 'Dispute not found' });
+    if (!dispute)
+      throw new NotFoundException({ code: 'DISPUTE_NOT_FOUND', message: 'Dispute not found' });
     this.assertCanView(dispute, user);
     return dispute;
   }
@@ -341,9 +364,13 @@ export class DisputesService {
         vendor: { select: { userId: true } },
       },
     });
-    if (!order) throw new NotFoundException({ code: 'ORDER_NOT_FOUND', message: 'Order not found' });
+    if (!order)
+      throw new NotFoundException({ code: 'ORDER_NOT_FOUND', message: 'Order not found' });
     if (order.customerId !== user.id) {
-      throw new ForbiddenException({ code: 'NOT_ORDER_OWNER', message: 'You did not place this order' });
+      throw new ForbiddenException({
+        code: 'NOT_ORDER_OWNER',
+        message: 'You did not place this order',
+      });
     }
     // Customers can only dispute orders that have actually shipped or been
     // delivered - no point disputing a pending order they can simply cancel.
@@ -371,7 +398,10 @@ export class DisputesService {
         },
       });
 
-      await this.audit(user.id, 'dispute.created', dispute.id, { issueType: dto.issueType, severity });
+      await this.audit(user.id, 'dispute.created', dispute.id, {
+        issueType: dto.issueType,
+        severity,
+      });
 
       // Notify the assigned support agent so they pick it up promptly.
       if (assignedToId) {
@@ -397,7 +427,10 @@ export class DisputesService {
       return dispute;
     } catch (e) {
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
-        throw new ConflictException({ code: 'DISPUTE_EXISTS', message: 'A dispute already exists for this order' });
+        throw new ConflictException({
+          code: 'DISPUTE_EXISTS',
+          message: 'A dispute already exists for this order',
+        });
       }
       throw e;
     }
@@ -406,8 +439,12 @@ export class DisputesService {
   // -------------------- update (support/admin) --------------------
 
   async update(id: string, dto: UpdateDisputeDto, user: AuthUser) {
-    const dispute = await this.prisma.dispute.findUnique({ where: { id }, select: { id: true, status: true } });
-    if (!dispute) throw new NotFoundException({ code: 'DISPUTE_NOT_FOUND', message: 'Dispute not found' });
+    const dispute = await this.prisma.dispute.findUnique({
+      where: { id },
+      select: { id: true, status: true },
+    });
+    if (!dispute)
+      throw new NotFoundException({ code: 'DISPUTE_NOT_FOUND', message: 'Dispute not found' });
 
     if (dto.status) this.assertTransition(dispute.status, dto.status);
 
@@ -431,16 +468,24 @@ export class DisputesService {
       where: { id },
       include: { order: { select: { vendorId: true, vendor: { select: { userId: true } } } } },
     });
-    if (!dispute) throw new NotFoundException({ code: 'DISPUTE_NOT_FOUND', message: 'Dispute not found' });
+    if (!dispute)
+      throw new NotFoundException({ code: 'DISPUTE_NOT_FOUND', message: 'Dispute not found' });
     if (user.role !== UserRole.vendor || dispute.order.vendor.userId !== user.id) {
-      throw new ForbiddenException({ code: 'NOT_VENDOR', message: 'Only the vendor on this order may respond' });
+      throw new ForbiddenException({
+        code: 'NOT_VENDOR',
+        message: 'Only the vendor on this order may respond',
+      });
     }
     if (dispute.status === DisputeStatus.closed) {
-      throw new BadRequestException({ code: 'DISPUTE_CLOSED', message: 'Cannot respond on a closed dispute' });
+      throw new BadRequestException({
+        code: 'DISPUTE_CLOSED',
+        message: 'Cannot respond on a closed dispute',
+      });
     }
 
     // Submitting a response auto-advances open → vendor_contacted (no-op if already past).
-    const nextStatus = dispute.status === DisputeStatus.open ? DisputeStatus.vendor_contacted : dispute.status;
+    const nextStatus =
+      dispute.status === DisputeStatus.open ? DisputeStatus.vendor_contacted : dispute.status;
 
     const updated = await this.prisma.dispute.update({
       where: { id },
@@ -464,8 +509,12 @@ export class DisputesService {
   // -------------------- escalate (support → admin) --------------------
 
   async escalate(id: string, user: AuthUser) {
-    const dispute = await this.prisma.dispute.findUnique({ where: { id }, select: { id: true, status: true } });
-    if (!dispute) throw new NotFoundException({ code: 'DISPUTE_NOT_FOUND', message: 'Dispute not found' });
+    const dispute = await this.prisma.dispute.findUnique({
+      where: { id },
+      select: { id: true, status: true },
+    });
+    if (!dispute)
+      throw new NotFoundException({ code: 'DISPUTE_NOT_FOUND', message: 'Dispute not found' });
     this.assertTransition(dispute.status, DisputeStatus.escalated);
 
     const updated = await this.prisma.dispute.update({
@@ -483,18 +532,25 @@ export class DisputesService {
       where: { id },
       include: { order: { select: { id: true, totalPence: true, customerId: true } } },
     });
-    if (!dispute) throw new NotFoundException({ code: 'DISPUTE_NOT_FOUND', message: 'Dispute not found' });
+    if (!dispute)
+      throw new NotFoundException({ code: 'DISPUTE_NOT_FOUND', message: 'Dispute not found' });
     if (dispute.status === DisputeStatus.closed) {
       throw new BadRequestException({ code: 'ALREADY_CLOSED', message: 'Dispute already closed' });
     }
 
-    if (REFUND_RESOLUTIONS.has(dto.resolution) && (!dto.refundAmountPence || dto.refundAmountPence < 1)) {
+    if (
+      REFUND_RESOLUTIONS.has(dto.resolution) &&
+      (!dto.refundAmountPence || dto.refundAmountPence < 1)
+    ) {
       throw new BadRequestException({
         code: 'REFUND_AMOUNT_REQUIRED',
         message: `resolution=${dto.resolution} requires refundAmountPence`,
       });
     }
-    if (dto.resolution === ResolutionType.full_refund && dto.refundAmountPence !== dispute.order.totalPence) {
+    if (
+      dto.resolution === ResolutionType.full_refund &&
+      dto.refundAmountPence !== dispute.order.totalPence
+    ) {
       throw new BadRequestException({
         code: 'FULL_REFUND_AMOUNT_MISMATCH',
         message: `full_refund must equal order total ${dispute.order.totalPence}p`,
@@ -508,7 +564,11 @@ export class DisputesService {
     if (REFUND_RESOLUTIONS.has(dto.resolution)) {
       const idempotencyKey = `dispute:${id}:refund:${dto.refundAmountPence}`;
       await this.payments.createRefund(
-        { orderId: dispute.order.id, amountPence: dto.refundAmountPence!, reason: `Dispute ${id}: ${dto.resolution}` },
+        {
+          orderId: dispute.order.id,
+          amountPence: dto.refundAmountPence!,
+          reason: `Dispute ${id}: ${dto.resolution}`,
+        },
         { id: user.id, role: user.role },
         idempotencyKey,
       );
@@ -525,7 +585,10 @@ export class DisputesService {
       },
     });
 
-    await this.audit(user.id, 'dispute.closed', id, { resolution: dto.resolution, refundAmountPence: dto.refundAmountPence });
+    await this.audit(user.id, 'dispute.closed', id, {
+      resolution: dto.resolution,
+      refundAmountPence: dto.refundAmountPence,
+    });
 
     await this.notifications.enqueue('dispute_resolved', {
       userId: dispute.order.customerId,
@@ -544,9 +607,13 @@ export class DisputesService {
       where: { id },
       include: { order: { select: { customerId: true, vendor: { select: { userId: true } } } } },
     });
-    if (!dispute) throw new NotFoundException({ code: 'DISPUTE_NOT_FOUND', message: 'Dispute not found' });
+    if (!dispute)
+      throw new NotFoundException({ code: 'DISPUTE_NOT_FOUND', message: 'Dispute not found' });
     this.assertCanView(dispute, user);
-    return this.prisma.disputeEvidence.findMany({ where: { disputeId: id }, orderBy: { createdAt: 'asc' } });
+    return this.prisma.disputeEvidence.findMany({
+      where: { disputeId: id },
+      orderBy: { createdAt: 'asc' },
+    });
   }
 
   async uploadEvidence(
@@ -559,18 +626,25 @@ export class DisputesService {
       where: { id },
       include: { order: { select: { customerId: true, vendor: { select: { userId: true } } } } },
     });
-    if (!dispute) throw new NotFoundException({ code: 'DISPUTE_NOT_FOUND', message: 'Dispute not found' });
+    if (!dispute)
+      throw new NotFoundException({ code: 'DISPUTE_NOT_FOUND', message: 'Dispute not found' });
     this.assertCanView(dispute, user);
 
     if (file.size > 10 * 1024 * 1024) {
-      throw new BadRequestException({ code: 'FILE_TOO_LARGE', message: 'Max 10 MB per evidence file' });
+      throw new BadRequestException({
+        code: 'FILE_TOO_LARGE',
+        message: 'Max 10 MB per evidence file',
+      });
     }
 
     const safeName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 100);
     const path = `disputes/${id}/${Date.now()}-${safeName}`;
     const storage = this.supabase.getClient().storage.from(SUPABASE_DOCS_BUCKET);
 
-    const { error } = await storage.upload(path, file.buffer, { contentType: file.mimetype, upsert: false });
+    const { error } = await storage.upload(path, file.buffer, {
+      contentType: file.mimetype,
+      upsert: false,
+    });
     if (error) {
       throw new BadRequestException({ code: 'UPLOAD_FAILED', message: error.message });
     }
@@ -606,7 +680,12 @@ export class DisputesService {
     dispute: { raisedById: string; order: { customerId?: string; vendor: { userId: string } } },
     user: AuthUser,
   ): void {
-    const staffRoles: UserRole[] = [UserRole.admin, UserRole.support, UserRole.compliance, UserRole.finance];
+    const staffRoles: UserRole[] = [
+      UserRole.admin,
+      UserRole.support,
+      UserRole.compliance,
+      UserRole.finance,
+    ];
     if (staffRoles.includes(user.role)) return;
     if (user.role === UserRole.customer && dispute.raisedById === user.id) return;
     if (user.role === UserRole.vendor && dispute.order.vendor.userId === user.id) return;
@@ -623,25 +702,49 @@ export class DisputesService {
 
     const counts = await this.prisma.dispute.groupBy({
       by: ['assignedToId'],
-      where: { assignedToId: { in: agents.map((a) => a.id) }, status: { not: DisputeStatus.closed } },
+      where: {
+        assignedToId: { in: agents.map((a) => a.id) },
+        status: { not: DisputeStatus.closed },
+      },
       _count: { _all: true },
     });
     const countMap = new Map(counts.map((c) => [c.assignedToId, c._count._all]));
     return agents.sort((a, b) => (countMap.get(a.id) ?? 0) - (countMap.get(b.id) ?? 0))[0]!.id;
   }
 
-  private async audit(actorId: string, action: string, entityId: string, metadata: Record<string, unknown>) {
+  private async audit(
+    actorId: string,
+    action: string,
+    entityId: string,
+    metadata: Record<string, unknown>,
+  ) {
     await this.prisma.auditLog
-      .create({ data: { actorId, action, entityType: 'dispute', entityId, metadata: metadata as Prisma.JsonObject } })
-      .catch((e: Error) => this.logger.warn(`Audit log failed for ${action} ${entityId}: ${e.message}`));
+      .create({
+        data: {
+          actorId,
+          action,
+          entityType: 'dispute',
+          entityId,
+          metadata: metadata as Prisma.JsonObject,
+        },
+      })
+      .catch((e: Error) =>
+        this.logger.warn(`Audit log failed for ${action} ${entityId}: ${e.message}`),
+      );
   }
 
   private encodeCursor(row: { createdAt: Date; id: string }): string {
-    return Buffer.from(JSON.stringify({ c: row.createdAt.toISOString(), id: row.id }), 'utf8').toString('base64url');
+    return Buffer.from(
+      JSON.stringify({ c: row.createdAt.toISOString(), id: row.id }),
+      'utf8',
+    ).toString('base64url');
   }
   private decodeCursor(s: string): { createdAt: Date; id: string } | undefined {
     try {
-      const obj = JSON.parse(Buffer.from(s, 'base64url').toString('utf8')) as { c: string; id: string };
+      const obj = JSON.parse(Buffer.from(s, 'base64url').toString('utf8')) as {
+        c: string;
+        id: string;
+      };
       return { createdAt: new Date(obj.c), id: obj.id };
     } catch {
       return undefined;

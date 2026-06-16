@@ -3,7 +3,9 @@ import { Type } from 'class-transformer';
 import { IsInt, IsOptional, IsString, IsUUID, MaxLength, Min } from 'class-validator';
 
 export class CreateRefundDto {
-  @ApiProperty({ description: 'Order to refund (the latest succeeded Stripe PI on the order is used)' })
+  @ApiProperty({
+    description: 'Order to refund (the latest succeeded Stripe PI on the order is used)',
+  })
   @IsUUID()
   orderId!: string;
 

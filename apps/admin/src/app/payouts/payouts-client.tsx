@@ -46,7 +46,14 @@ function DialogFooter({ children }: { children: React.ReactNode }) {
   return <div className="mt-4 flex justify-end gap-2">{children}</div>;
 }
 
-const STATUSES: ReadonlyArray<PayoutStatus | 'all'> = ['draft', 'approved', 'held', 'transferred', 'failed', 'all'];
+const STATUSES: ReadonlyArray<PayoutStatus | 'all'> = [
+  'draft',
+  'approved',
+  'held',
+  'transferred',
+  'failed',
+  'all',
+];
 
 interface PayoutsClientProps {
   role: 'admin' | 'support' | 'finance' | 'compliance';
@@ -128,7 +135,15 @@ export function PayoutsClient({ role }: PayoutsClientProps) {
       else if (r.status === 'failed' || r.status === 'held') failedOrHeld += 1;
     }
     const commissionPct = amount > 0 ? (commission / amount) * 100 : 0;
-    return { amount, commission, commissionPct, successful, pending, failedOrHeld, count: rows.length };
+    return {
+      amount,
+      commission,
+      commissionPct,
+      successful,
+      pending,
+      failedOrHeld,
+      count: rows.length,
+    };
   }, [data]);
 
   function toggleAll(checked: boolean) {
@@ -178,7 +193,12 @@ export function PayoutsClient({ role }: PayoutsClientProps) {
           setHoldTarget(null);
           setHoldReason('');
         },
-        onError: (err) => toast({ title: 'Hold failed', description: (err as Error).message, variant: 'destructive' }),
+        onError: (err) =>
+          toast({
+            title: 'Hold failed',
+            description: (err as Error).message,
+            variant: 'destructive',
+          }),
       },
     );
   }
@@ -186,7 +206,12 @@ export function PayoutsClient({ role }: PayoutsClientProps) {
   function reconcile(id: string) {
     reconcileMutation.mutate(id, {
       onSuccess: (res) => setReconcileResult(res),
-      onError: (err) => toast({ title: 'Reconcile failed', description: (err as Error).message, variant: 'destructive' }),
+      onError: (err) =>
+        toast({
+          title: 'Reconcile failed',
+          description: (err as Error).message,
+          variant: 'destructive',
+        }),
     });
   }
 
@@ -218,10 +243,22 @@ export function PayoutsClient({ role }: PayoutsClientProps) {
       />
 
       <div className="mb-4 w-48">
-        <Select value={status} onValueChange={(v) => { setStatus(v as PayoutStatus | 'all'); setSelected(new Set()); }}>
-          <SelectTrigger><SelectValue /></SelectTrigger>
+        <Select
+          value={status}
+          onValueChange={(v) => {
+            setStatus(v as PayoutStatus | 'all');
+            setSelected(new Set());
+          }}
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
           <SelectContent>
-            {STATUSES.map((s) => <SelectItem key={s} value={s}>{s.replace('_', ' ')}</SelectItem>)}
+            {STATUSES.map((s) => (
+              <SelectItem key={s} value={s}>
+                {s.replace('_', ' ')}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
@@ -282,7 +319,10 @@ export function PayoutsClient({ role }: PayoutsClientProps) {
                     <input
                       type="checkbox"
                       onChange={(e) => toggleAll(e.target.checked)}
-                      checked={selected.size > 0 && selected.size === draftRows.filter((r) => r.status === 'draft').length}
+                      checked={
+                        selected.size > 0 &&
+                        selected.size === draftRows.filter((r) => r.status === 'draft').length
+                      }
                     />
                   </TableHead>
                 )}
@@ -297,7 +337,11 @@ export function PayoutsClient({ role }: PayoutsClientProps) {
             </TableHeader>
             <TableBody>
               {isLoading && (
-                <TableRow><TableCell colSpan={8} className="py-6 text-center text-sm text-muted-foreground">Loading…</TableCell></TableRow>
+                <TableRow>
+                  <TableCell colSpan={8} className="py-6 text-center text-sm text-muted-foreground">
+                    Loading…
+                  </TableCell>
+                </TableRow>
               )}
               {!isLoading && draftRows.length === 0 && (
                 <TableRow>
@@ -323,16 +367,34 @@ export function PayoutsClient({ role }: PayoutsClientProps) {
                       />
                     </TableCell>
                   )}
-                  <TableCell className="font-medium">{p.vendor?.businessName ?? p.vendorId.slice(0, 8)}</TableCell>
-                  <TableCell className="text-sm">{p.periodStart ? formatDate(p.periodStart) : '-'} → {p.periodEnd ? formatDate(p.periodEnd) : '-'}</TableCell>
-                  <TableCell><PayoutStatusPill status={p.status} /></TableCell>
+                  <TableCell className="font-medium">
+                    {p.vendor?.businessName ?? p.vendorId.slice(0, 8)}
+                  </TableCell>
+                  <TableCell className="text-sm">
+                    {p.periodStart ? formatDate(p.periodStart) : '-'} →{' '}
+                    {p.periodEnd ? formatDate(p.periodEnd) : '-'}
+                  </TableCell>
+                  <TableCell>
+                    <PayoutStatusPill status={p.status} />
+                  </TableCell>
                   <TableCell className="text-right">{formatPence(p.amountPence)}</TableCell>
-                  <TableCell className="text-right text-muted-foreground">{formatPence(p.commissionPence)}</TableCell>
-                  <TableCell className="text-right font-mono text-xs">{p.stripeTransferId ?? '-'}</TableCell>
+                  <TableCell className="text-right text-muted-foreground">
+                    {formatPence(p.commissionPence)}
+                  </TableCell>
+                  <TableCell className="text-right font-mono text-xs">
+                    {p.stripeTransferId ?? '-'}
+                  </TableCell>
                   <TableCell>
                     <div className="flex items-center justify-end gap-2">
                       {p.status === 'draft' && (
-                        <Button size="sm" onClick={() => approveMutation.mutate(p.id, { onSuccess: () => toast({ title: 'Approved' }) })}>
+                        <Button
+                          size="sm"
+                          onClick={() =>
+                            approveMutation.mutate(p.id, {
+                              onSuccess: () => toast({ title: 'Approved' }),
+                            })
+                          }
+                        >
                           Approve
                         </Button>
                       )}
@@ -340,7 +402,10 @@ export function PayoutsClient({ role }: PayoutsClientProps) {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => { setHoldTarget({ id: p.id, vendor: p.vendor?.businessName ?? '' }); setHoldReason(''); }}
+                          onClick={() => {
+                            setHoldTarget({ id: p.id, vendor: p.vendor?.businessName ?? '' });
+                            setHoldReason('');
+                          }}
                         >
                           Hold
                         </Button>
@@ -366,16 +431,27 @@ export function PayoutsClient({ role }: PayoutsClientProps) {
           </DialogHeader>
           <div className="space-y-2 py-2">
             <label className="text-sm font-medium">Reason</label>
-            <Input value={holdReason} onChange={(e) => setHoldReason(e.target.value)} placeholder="Awaiting compliance review" />
+            <Input
+              value={holdReason}
+              onChange={(e) => setHoldReason(e.target.value)}
+              placeholder="Awaiting compliance review"
+            />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setHoldTarget(null)}>Cancel</Button>
-            <Button onClick={confirmHold} disabled={!holdReason.trim() || holdMutation.isPending}>Place hold</Button>
+            <Button variant="outline" onClick={() => setHoldTarget(null)}>
+              Cancel
+            </Button>
+            <Button onClick={confirmHold} disabled={!holdReason.trim() || holdMutation.isPending}>
+              Place hold
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <Dialog open={Boolean(reconcileResult)} onOpenChange={(open) => !open && setReconcileResult(null)}>
+      <Dialog
+        open={Boolean(reconcileResult)}
+        onOpenChange={(open) => !open && setReconcileResult(null)}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Stripe reconciliation</DialogTitle>
@@ -383,9 +459,23 @@ export function PayoutsClient({ role }: PayoutsClientProps) {
           {reconcileResult && (
             <dl className="space-y-2 py-2 text-sm">
               <ReconRow label="Status" value={<Badge>{reconcileResult.status}</Badge>} />
-              <ReconRow label="Stripe transfer" value={<span className="font-mono text-xs">{reconcileResult.stripeTransferId ?? '-'}</span>} />
+              <ReconRow
+                label="Stripe transfer"
+                value={
+                  <span className="font-mono text-xs">
+                    {reconcileResult.stripeTransferId ?? '-'}
+                  </span>
+                }
+              />
               <ReconRow label="Our amount" value={formatPence(reconcileResult.ourAmountPence)} />
-              <ReconRow label="Stripe amount" value={reconcileResult.stripeAmountPence !== null ? formatPence(reconcileResult.stripeAmountPence) : '-'} />
+              <ReconRow
+                label="Stripe amount"
+                value={
+                  reconcileResult.stripeAmountPence !== null
+                    ? formatPence(reconcileResult.stripeAmountPence)
+                    : '-'
+                }
+              />
               <ReconRow
                 label="Discrepancy"
                 value={
@@ -396,7 +486,9 @@ export function PayoutsClient({ role }: PayoutsClientProps) {
                       : `⚠ ${formatPence(reconcileResult.discrepancyPence)}`
                 }
               />
-              {reconcileResult.error && <p className="text-sm text-destructive">{reconcileResult.error}</p>}
+              {reconcileResult.error && (
+                <p className="text-sm text-destructive">{reconcileResult.error}</p>
+              )}
             </dl>
           )}
         </DialogContent>

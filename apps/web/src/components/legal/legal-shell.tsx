@@ -44,9 +44,7 @@ export function LegalHero({
           </p>
           {badge && <div className="mt-5">{badge}</div>}
           {footnote && (
-            <p className="mt-4 text-[11px] font-medium text-charcoal-mid/80">
-              {footnote}
-            </p>
+            <p className="mt-4 text-[11px] font-medium text-charcoal-mid/80">{footnote}</p>
           )}
         </div>
       </div>
@@ -74,10 +72,11 @@ export function LegalBadge({
     scotch: 'border-scotch/30 bg-scotch/10 text-scotch',
   } as const;
   return (
-    <div
-      className={`flex items-center gap-3 rounded-2xl border px-3.5 py-3 ${TONE[tone]}`}
-    >
-      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white text-lg shadow-sm" aria-hidden>
+    <div className={`flex items-center gap-3 rounded-2xl border px-3.5 py-3 ${TONE[tone]}`}>
+      <span
+        className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white text-lg shadow-sm"
+        aria-hidden
+      >
         {icon}
       </span>
       <div className="min-w-0">
@@ -204,9 +203,7 @@ export function LegalContact({
       <h2 className="m-0 font-display text-2xl font-black tracking-tight">
         {number ? `${number}. ${title}` : title}
       </h2>
-      <p className="mb-5 mt-2 text-sm leading-relaxed text-white/85">
-        {body}
-      </p>
+      <p className="mb-5 mt-2 text-sm leading-relaxed text-white/85">{body}</p>
       <a
         href={`mailto:${email}?subject=${encodeURIComponent(subject)}`}
         className="inline-flex items-center gap-2 rounded-2xl bg-plantain px-5 py-2.5 text-sm font-black text-charcoal shadow-sm transition hover:bg-plantain/90"
@@ -214,9 +211,7 @@ export function LegalContact({
         <span aria-hidden>✉️</span> {email}
       </a>
       {meta && (
-        <div className="mt-5 flex flex-wrap gap-3 border-t border-white/15 pt-4">
-          {meta}
-        </div>
+        <div className="mt-5 flex flex-wrap gap-3 border-t border-white/15 pt-4">{meta}</div>
       )}
     </section>
   );
@@ -239,12 +234,17 @@ export function LegalTrustStrip() {
     >
       {TRUST_ITEMS.map((t) => (
         <div key={t.title} className="flex items-start gap-2.5">
-          <span aria-hidden className="grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-white text-lg shadow-sm">
+          <span
+            aria-hidden
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-white text-lg shadow-sm"
+          >
             {t.icon}
           </span>
           <div className="min-w-0">
             <p className="text-[12px] font-black leading-tight text-charcoal">{t.title}</p>
-            <p className="mt-0.5 text-[11px] font-medium leading-tight text-charcoal-mid">{t.body}</p>
+            <p className="mt-0.5 text-[11px] font-medium leading-tight text-charcoal-mid">
+              {t.body}
+            </p>
           </div>
         </div>
       ))}
@@ -279,7 +279,5 @@ export function LegalPageShell({ children }: { children: ReactNode }) {
 }
 
 export function LegalContentWrapper({ children }: { children: ReactNode }) {
-  return (
-    <div className="mx-auto max-w-[640px] px-4 pt-5 md:px-0">{children}</div>
-  );
+  return <div className="mx-auto max-w-[640px] px-4 pt-5 md:px-0">{children}</div>;
 }

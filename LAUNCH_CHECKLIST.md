@@ -10,6 +10,7 @@ meeting notes.
 ## 1. Technical
 
 ### Infrastructure & deployment
+
 - [ ] Production Supabase project provisioned (UK/EU region) with daily PITR backup enabled.
 - [ ] Production database has all migrations applied (`prisma migrate deploy`) and seed data sanity-checked.
 - [ ] Replit Autoscale deployment for `@feastpot/api` is healthy (`/healthz` returns 200) on `api.feastpot.co.uk`.
@@ -20,12 +21,14 @@ meeting notes.
 - [ ] Redis (queues) provisioned, accessible from API only, and BullMQ dashboard credentials rotated.
 
 ### Codebase quality
+
 - [ ] `npm run ci` passes on `main` (lint, typecheck, test, build).
 - [ ] Test coverage ≥ 70% for `@feastpot/api` (enforced in CI).
 - [ ] Architect review completed for admin panel, payments and dispute flows; all critical findings closed.
 - [ ] All `TODO/FIXME` comments triaged into the launch backlog or removed.
 
 ### Performance & PWA
+
 - [ ] Lighthouse mobile run on `feastpot.co.uk` scores ≥ 90 Performance, 100 Accessibility, 100 Best Practices, 100 SEO.
 - [ ] PWA installable on iOS Safari and Android Chrome; offline page reachable.
 - [ ] Service worker `skipWaiting`/`clientsClaim` confirmed working with a forced re-deploy.
@@ -33,6 +36,7 @@ meeting notes.
 - [ ] `robots.txt` is correct (no inadvertent `Disallow: /`).
 
 ### Security
+
 - [ ] HoundDog / SAST scan green; dependency audit shows no Critical or unresolved High issues.
 - [ ] Stripe live keys in production only; test keys cannot reach prod.
 - [ ] CORS allow-list locked to production origins (`feastpot.co.uk`, `vendor.feastpot.co.uk`, `admin.feastpot.co.uk`).

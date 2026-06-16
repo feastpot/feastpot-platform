@@ -55,9 +55,7 @@ export function DashboardClient({ vendorId, greetingName, businessName, rating }
         <h1 className="text-[24px] font-extrabold tracking-tight text-dark">
           {greeting}, {greetingName} <span aria-hidden>👋</span>
         </h1>
-        <p className="mt-1 text-sm text-mid">
-          Here&rsquo;s how {businessName} is doing today.
-        </p>
+        <p className="mt-1 text-sm text-mid">Here&rsquo;s how {businessName} is doing today.</p>
       </header>
 
       <section
@@ -85,7 +83,11 @@ export function DashboardClient({ vendorId, greetingName, businessName, rating }
           value={pending}
           color="brand"
           pulse={pending > 0}
-          hint={pending === 0 ? 'Awaiting action' : `${pending} need${pending === 1 ? 's' : ''} a decision`}
+          hint={
+            pending === 0
+              ? 'Awaiting action'
+              : `${pending} need${pending === 1 ? 's' : ''} a decision`
+          }
         />
         <StatCard
           iconKey="rating"
@@ -133,9 +135,7 @@ export function DashboardClient({ vendorId, greetingName, businessName, rating }
         <QuickActions />
       </section>
 
-      {isLoading && (
-        <p className="text-xs text-mid">Loading the latest numbers…</p>
-      )}
+      {isLoading && <p className="text-xs text-mid">Loading the latest numbers…</p>}
     </div>
   );
 }

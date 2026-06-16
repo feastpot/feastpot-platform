@@ -41,7 +41,8 @@ export class UsersController {
 
   @Post('sync')
   @ApiOperation({
-    summary: 'Mirror Supabase signup data into public.users (idempotent) + process referral code if present',
+    summary:
+      'Mirror Supabase signup data into public.users (idempotent) + process referral code if present',
   })
   sync(@CurrentUser() user: AuthUser | null, @Body() dto: SyncUserDto) {
     return this.users.sync(this.requireUser(user).id, dto);
@@ -49,7 +50,9 @@ export class UsersController {
 
   @Delete('me')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Soft-delete the calling user’s account and revoke their Supabase session' })
+  @ApiOperation({
+    summary: 'Soft-delete the calling user’s account and revoke their Supabase session',
+  })
   async deleteMe(@CurrentUser() user: AuthUser | null) {
     await this.users.deleteMe(this.requireUser(user).id);
   }
@@ -67,7 +70,10 @@ export class UsersController {
 
   private requireUser(user: AuthUser | null): AuthUser {
     if (!user) {
-      throw new UnauthorizedException({ code: 'UNAUTHENTICATED', message: 'Authentication required' });
+      throw new UnauthorizedException({
+        code: 'UNAUTHENTICATED',
+        message: 'Authentication required',
+      });
     }
     return user;
   }

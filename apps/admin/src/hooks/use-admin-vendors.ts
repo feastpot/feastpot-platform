@@ -6,7 +6,12 @@ import { useApi } from './use-api';
 
 export type VendorStatus = 'pending' | 'approved' | 'live' | 'suspended' | 'probation' | 'removed';
 export type DocumentStatus = 'pending' | 'verified' | 'rejected' | 'expired';
-export type DocumentType = 'hygiene_cert' | 'insurance' | 'photo_id' | 'bank_details' | 'kitchen_reg';
+export type DocumentType =
+  | 'hygiene_cert'
+  | 'insurance'
+  | 'photo_id'
+  | 'bank_details'
+  | 'kitchen_reg';
 
 export interface AdminVendorRow {
   id: string;

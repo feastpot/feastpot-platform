@@ -1,8 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
+import { ItemCategory } from '@prisma/client';
 import { Transform } from 'class-transformer';
 import { IsBoolean, IsEnum, IsOptional, IsString } from 'class-validator';
-
-import { ItemCategory } from '@prisma/client';
 
 const toBool = ({ value }: { value: unknown }): unknown => {
   if (typeof value === 'boolean') return value;

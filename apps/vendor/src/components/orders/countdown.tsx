@@ -22,10 +22,7 @@ export interface CountdownProps {
  *   - red, pulsing (`bg-red-100 text-red-600`) - < 1 minute left
  */
 export function Countdown({ expiresAt, onExpire }: CountdownProps) {
-  const remaining = useCountdown(
-    typeof expiresAt === 'string' ? expiresAt : expiresAt,
-    onExpire,
-  );
+  const remaining = useCountdown(typeof expiresAt === 'string' ? expiresAt : expiresAt, onExpire);
 
   const isUrgent = remaining > 0 && remaining < 180;
   const isAlmostExpired = remaining > 0 && remaining < 60;
@@ -44,9 +41,7 @@ export function Countdown({ expiresAt, onExpire }: CountdownProps) {
     >
       <span aria-hidden>⏱️</span>
       <span className="tabular-nums">{formatMmSs(remaining)}</span>
-      {isUrgent && remaining > 0 && (
-        <span className="text-[10px] font-medium">Accept now</span>
-      )}
+      {isUrgent && remaining > 0 && <span className="text-[10px] font-medium">Accept now</span>}
     </div>
   );
 }

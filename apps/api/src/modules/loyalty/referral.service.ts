@@ -31,7 +31,11 @@ export class ReferralService {
   ) {}
 
   private generateCode(len = 8): string {
-    return randomBytes(8).toString('base64url').replace(/[^A-Z0-9]/gi, '').slice(0, len).toUpperCase();
+    return randomBytes(8)
+      .toString('base64url')
+      .replace(/[^A-Z0-9]/gi, '')
+      .slice(0, len)
+      .toUpperCase();
   }
 
   async ensureCode(userId: string): Promise<string> {

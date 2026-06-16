@@ -23,7 +23,15 @@ import {
   Users,
 } from 'lucide-react';
 import Link from 'next/link';
-import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import {
+  CartesianGrid,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 
 import { SearchTrendsCard } from '@/components/dashboard/search-trends-card';
 import { PageHeader } from '@/components/layout/page-header';
@@ -76,14 +84,14 @@ export function DashboardClient() {
           icon={Receipt}
           tone="amber"
           label="Orders today"
-          value={isLoading ? '…' : data?.ordersToday?.toString() ?? '-'}
+          value={isLoading ? '…' : (data?.ordersToday?.toString() ?? '-')}
           caption="vs yesterday"
         />
         <StatCard
           icon={Store}
           tone="teal"
           label="Active vendors"
-          value={isLoading ? '…' : data?.activeVendors?.toString() ?? '-'}
+          value={isLoading ? '…' : (data?.activeVendors?.toString() ?? '-')}
           caption="vs last month"
         />
         <StatCard
@@ -97,7 +105,7 @@ export function DashboardClient() {
           icon={MapPin}
           tone="blue"
           label="Coverage waitlist"
-          value={coverageLoading ? '…' : coverage?.total?.toString() ?? '-'}
+          value={coverageLoading ? '…' : (coverage?.total?.toString() ?? '-')}
           caption={
             topWaitlistPostcode
               ? `Top: ${topWaitlistPostcode.postcode} (${topWaitlistPostcode.count})`
@@ -129,7 +137,13 @@ export function DashboardClient() {
                     formatter={(value: number) => [formatPence(value), 'GMV']}
                     labelFormatter={(d: string) => d}
                   />
-                  <Line type="monotone" dataKey="gmvPence" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
+                  <Line
+                    type="monotone"
+                    dataKey="gmvPence"
+                    stroke="hsl(var(--primary))"
+                    strokeWidth={2}
+                    dot={false}
+                  />
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -178,7 +192,9 @@ export function DashboardClient() {
             <TableBody>
               {(data?.topVendors ?? []).map((v, i) => (
                 <TableRow key={v.vendorId}>
-                  <TableCell className="text-right text-xs text-muted-foreground">{i + 1}</TableCell>
+                  <TableCell className="text-right text-xs text-muted-foreground">
+                    {i + 1}
+                  </TableCell>
                   <TableCell className="font-medium">{v.businessName}</TableCell>
                   <TableCell className="text-right">{formatPence(v.gmvPence)}</TableCell>
                   <TableCell className="text-right">{v.ordersCount}</TableCell>

@@ -1,6 +1,14 @@
 'use client';
 
-import { Bike, Check, ChefHat, PackageCheck, ShoppingBag, Soup, type LucideIcon } from 'lucide-react';
+import {
+  Bike,
+  Check,
+  ChefHat,
+  PackageCheck,
+  ShoppingBag,
+  Soup,
+  type LucideIcon,
+} from 'lucide-react';
 
 import { cn } from '@feastpot/ui';
 
@@ -36,7 +44,7 @@ const STAGE_INDEX = new Map<OrderStatus, number>(STAGES.map((s, i) => [s.key, i]
  */
 export function StatusTimeline({ order }: { order: Order }) {
   const isCancelled = order.status === 'cancelled' || order.status === 'refunded';
-  const currentIdx = isCancelled ? -1 : STAGE_INDEX.get(order.status) ?? -1;
+  const currentIdx = isCancelled ? -1 : (STAGE_INDEX.get(order.status) ?? -1);
 
   return (
     <ol className="space-y-0">
@@ -74,7 +82,11 @@ export function StatusTimeline({ order }: { order: Order }) {
                 <span className="absolute inset-0 animate-ping rounded-full bg-brand opacity-40" />
               )}
               <span className="relative flex">
-                {isDone ? <Check className="h-4 w-4" aria-hidden /> : <stage.Icon className="h-4 w-4" aria-hidden />}
+                {isDone ? (
+                  <Check className="h-4 w-4" aria-hidden />
+                ) : (
+                  <stage.Icon className="h-4 w-4" aria-hidden />
+                )}
               </span>
             </span>
 

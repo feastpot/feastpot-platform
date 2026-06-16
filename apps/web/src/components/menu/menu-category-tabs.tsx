@@ -36,9 +36,7 @@ export function MenuCategoryTabs({ categories }: Props) {
   return (
     <nav
       aria-label="Menu categories"
-      className={cn(
-        'sticky z-20 -mx-4 border-b border-cream-deep bg-cream/90 backdrop-blur',
-      )}
+      className={cn('sticky z-20 -mx-4 border-b border-cream-deep bg-cream/90 backdrop-blur')}
       style={{ top: 'var(--page-safe-top)' }}
     >
       <ul className="flex gap-1.5 overflow-x-auto px-4 py-2.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">

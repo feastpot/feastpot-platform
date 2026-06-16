@@ -62,20 +62,16 @@ export function ReferralCard() {
       <p className="text-[11px] font-black uppercase tracking-[0.18em] text-plantain">
         Refer a friend
       </p>
-      <h2 className="mt-1 font-display text-2xl font-black tracking-tight">
-        Give £5, Get £5
-      </h2>
+      <h2 className="mt-1 font-display text-2xl font-black tracking-tight">Give £5, Get £5</h2>
       <p className="mt-1.5 max-w-[22ch] text-sm font-medium text-white/85">
-        Share your code - friends get £5 off their first order over £20 and you get
-        500 feastpoints (£5).
+        Share your code - friends get £5 off their first order over £20 and you get 500 feastpoints
+        (£5).
       </p>
 
       {isLoading ? (
         <p className="mt-4 text-sm font-bold text-white/85">Loading your code…</p>
       ) : isError || !data ? (
-        <p className="mt-4 text-sm font-bold text-white/85">
-          Sign in to grab your referral code.
-        </p>
+        <p className="mt-4 text-sm font-bold text-white/85">Sign in to grab your referral code.</p>
       ) : (
         <>
           {/* Code chip + copy button - code lives in a cream pill so it's

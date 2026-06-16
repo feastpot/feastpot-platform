@@ -56,9 +56,8 @@ export function InstagramDmsBlock() {
             No more chasing Instagram DMs or uncertain bank transfers.
           </h2>
           <p className="mt-4 max-w-md text-[14px] font-medium leading-relaxed text-charcoal-mid">
-            FeastPot makes cultural food ordering feel safer, faster and
-            clearer. See only cooks that can deliver to your postcode, then
-            order through secure checkout.
+            FeastPot makes cultural food ordering feel safer, faster and clearer. See only cooks
+            that can deliver to your postcode, then order through secure checkout.
           </p>
           <a
             href="#hero-headline"
@@ -80,12 +79,8 @@ export function InstagramDmsBlock() {
               >
                 <Icon className="h-5 w-5" strokeWidth={2} />
               </span>
-              <p className="font-display text-[15px] font-black text-charcoal">
-                {title}
-              </p>
-              <p className="text-[12.5px] font-medium leading-snug text-charcoal-mid">
-                {sub}
-              </p>
+              <p className="font-display text-[15px] font-black text-charcoal">{title}</p>
+              <p className="text-[12.5px] font-medium leading-snug text-charcoal-mid">{sub}</p>
             </li>
           ))}
         </ul>

@@ -75,7 +75,12 @@ export function VendorDetailClient({ vendorId }: { vendorId: string }) {
       { documentId, status: 'verified' },
       {
         onSuccess: () => toast({ title: 'Document verified' }),
-        onError: (err) => toast({ title: 'Verify failed', description: (err as Error).message, variant: 'destructive' }),
+        onError: (err) =>
+          toast({
+            title: 'Verify failed',
+            description: (err as Error).message,
+            variant: 'destructive',
+          }),
       },
     );
   }
@@ -90,7 +95,12 @@ export function VendorDetailClient({ vendorId }: { vendorId: string }) {
           setRejectReason('');
           toast({ title: 'Document rejected' });
         },
-        onError: (err) => toast({ title: 'Reject failed', description: (err as Error).message, variant: 'destructive' }),
+        onError: (err) =>
+          toast({
+            title: 'Reject failed',
+            description: (err as Error).message,
+            variant: 'destructive',
+          }),
       },
     );
   }
@@ -103,7 +113,12 @@ export function VendorDetailClient({ vendorId }: { vendorId: string }) {
           toast({ title: `Vendor → ${status}` });
           router.refresh();
         },
-        onError: (err) => toast({ title: 'Status update failed', description: (err as Error).message, variant: 'destructive' }),
+        onError: (err) =>
+          toast({
+            title: 'Status update failed',
+            description: (err as Error).message,
+            variant: 'destructive',
+          }),
       },
     );
   }
@@ -139,31 +154,51 @@ export function VendorDetailClient({ vendorId }: { vendorId: string }) {
                 />
                 <Field label="Slug" value={vendor.slug} />
                 <Field label="Cuisines" value={vendor.cuisines.join(', ') || '-'} />
-                <Field label="Rating" value={`${vendor.rating.toFixed(2)} (${vendor.ratingCount} reviews)`} />
+                <Field
+                  label="Rating"
+                  value={`${vendor.rating.toFixed(2)} (${vendor.ratingCount} reviews)`}
+                />
                 <Field label="Commission" value={`${(vendor.commissionBps / 100).toFixed(2)}%`} />
                 <Field label="Payouts enabled" value={vendor.payoutsEnabled ? 'Yes' : 'No'} />
                 <Field label="Stripe account" value={vendor.stripeAccountId ?? '-'} />
-                <Field label="Approved" value={vendor.approvedAt ? formatDateTime(vendor.approvedAt) : '-'} />
-                {vendor.suspendedAt && <Field label="Suspended" value={formatDateTime(vendor.suspendedAt)} />}
+                <Field
+                  label="Approved"
+                  value={vendor.approvedAt ? formatDateTime(vendor.approvedAt) : '-'}
+                />
+                {vendor.suspendedAt && (
+                  <Field label="Suspended" value={formatDateTime(vendor.suspendedAt)} />
+                )}
                 {vendor.description && (
                   <div>
-                    <div className="text-xs uppercase tracking-wide text-muted-foreground">Description</div>
+                    <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                      Description
+                    </div>
                     <p className="mt-1 whitespace-pre-wrap text-sm">{vendor.description}</p>
                   </div>
                 )}
                 <div className="pt-2">
-                  <div className="mb-2 text-xs uppercase tracking-wide text-muted-foreground">Lifecycle</div>
+                  <div className="mb-2 text-xs uppercase tracking-wide text-muted-foreground">
+                    Lifecycle
+                  </div>
                   <div className="flex flex-wrap gap-2">
                     {vendor.status === 'pending' && (
                       <>
-                        <Button size="sm" onClick={() => changeStatus('approved')}>Approve</Button>
-                        <Button size="sm" variant="outline" onClick={() => changeStatus('removed', 'pending_rejected')}>
+                        <Button size="sm" onClick={() => changeStatus('approved')}>
+                          Approve
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => changeStatus('removed', 'pending_rejected')}
+                        >
                           Reject
                         </Button>
                       </>
                     )}
                     {vendor.status === 'approved' && (
-                      <Button size="sm" onClick={() => changeStatus('live')}>Go live</Button>
+                      <Button size="sm" onClick={() => changeStatus('live')}>
+                        Go live
+                      </Button>
                     )}
                     {vendor.status === 'live' && (
                       <Button
@@ -203,7 +238,10 @@ export function VendorDetailClient({ vendorId }: { vendorId: string }) {
               <p className="text-sm text-muted-foreground">No documents uploaded yet.</p>
             )}
             {(docs ?? []).map((d) => (
-              <div key={d.id} className="flex items-start justify-between gap-4 rounded-md border border-border p-3">
+              <div
+                key={d.id}
+                className="flex items-start justify-between gap-4 rounded-md border border-border p-3"
+              >
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <span className="font-medium">{DOC_LABELS[d.type] ?? d.type}</span>
@@ -211,7 +249,9 @@ export function VendorDetailClient({ vendorId }: { vendorId: string }) {
                   </div>
                   <div className="mt-1 truncate text-xs text-muted-foreground">{d.fileName}</div>
                   {d.expiresAt && (
-                    <div className="mt-0.5 text-xs text-muted-foreground">Expires {formatDate(d.expiresAt)}</div>
+                    <div className="mt-0.5 text-xs text-muted-foreground">
+                      Expires {formatDate(d.expiresAt)}
+                    </div>
                   )}
                   {d.rejectReason && (
                     <div className="mt-1 text-xs text-destructive">Rejected: {d.rejectReason}</div>
@@ -227,7 +267,11 @@ export function VendorDetailClient({ vendorId }: { vendorId: string }) {
                     Open
                   </a>
                   {d.status !== 'verified' && (
-                    <Button size="sm" onClick={() => approve(d.id)} disabled={verifyMutation.isPending}>
+                    <Button
+                      size="sm"
+                      onClick={() => approve(d.id)}
+                      disabled={verifyMutation.isPending}
+                    >
                       Verify
                     </Button>
                   )}
@@ -257,11 +301,20 @@ export function VendorDetailClient({ vendorId }: { vendorId: string }) {
           </DialogHeader>
           <div className="space-y-2 py-2">
             <label className="text-sm font-medium">Reason</label>
-            <Input value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} placeholder="Document is unreadable…" />
+            <Input
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder="Document is unreadable…"
+            />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setRejecting(null)}>Cancel</Button>
-            <Button onClick={confirmReject} disabled={!rejectReason.trim() || verifyMutation.isPending}>
+            <Button variant="outline" onClick={() => setRejecting(null)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={confirmReject}
+              disabled={!rejectReason.trim() || verifyMutation.isPending}
+            >
               Reject
             </Button>
           </DialogFooter>

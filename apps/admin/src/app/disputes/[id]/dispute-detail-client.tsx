@@ -35,7 +35,13 @@ import {
 } from '@/hooks/use-disputes';
 import { formatDateTime, formatPence } from '@/lib/format';
 
-const RESOLUTIONS: ResolutionType[] = ['full_refund', 'partial_refund', 'credit', 'rejected', 'escalated'];
+const RESOLUTIONS: ResolutionType[] = [
+  'full_refund',
+  'partial_refund',
+  'credit',
+  'rejected',
+  'escalated',
+];
 const SEVERITIES: Severity[] = ['low', 'medium', 'high'];
 
 export function DisputeDetailClient({ disputeId }: { disputeId: string }) {
@@ -59,7 +65,8 @@ export function DisputeDetailClient({ disputeId }: { disputeId: string }) {
 
   function close() {
     const requiresAmount = resolution === 'full_refund' || resolution === 'partial_refund';
-    const refundAmountPence = requiresAmount && refundPounds ? Math.round(parseFloat(refundPounds) * 100) : undefined;
+    const refundAmountPence =
+      requiresAmount && refundPounds ? Math.round(parseFloat(refundPounds) * 100) : undefined;
     if (requiresAmount && (!refundAmountPence || refundAmountPence <= 0)) {
       toast({ title: 'Refund amount required', variant: 'destructive' });
       return;
@@ -68,7 +75,12 @@ export function DisputeDetailClient({ disputeId }: { disputeId: string }) {
       { resolution, resolutionNote: resolutionNote || undefined, refundAmountPence },
       {
         onSuccess: () => toast({ title: 'Dispute closed' }),
-        onError: (err) => toast({ title: 'Close failed', description: (err as Error).message, variant: 'destructive' }),
+        onError: (err) =>
+          toast({
+            title: 'Close failed',
+            description: (err as Error).message,
+            variant: 'destructive',
+          }),
       },
     );
   }
@@ -77,7 +89,9 @@ export function DisputeDetailClient({ disputeId }: { disputeId: string }) {
     <>
       <PageHeader
         title="Dispute"
-        description={dispute ? `Filed ${formatDateTime(dispute.createdAt)} · ${dispute.issueType}` : 'Loading…'}
+        description={
+          dispute ? `Filed ${formatDateTime(dispute.createdAt)} · ${dispute.issueType}` : 'Loading…'
+        }
         actions={
           <Link href="/disputes" className="text-sm text-muted-foreground hover:underline">
             ← Back
@@ -89,19 +103,27 @@ export function DisputeDetailClient({ disputeId }: { disputeId: string }) {
         {/* Order summary */}
         <div className="lg:col-span-3">
           <Card>
-            <CardHeader><CardTitle className="text-base">Order</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle className="text-base">Order</CardTitle>
+            </CardHeader>
             <CardContent className="space-y-3 text-sm">
               {dispute && (
                 <>
-                  <Field label="Order" value={<span className="font-mono">{dispute.order.orderNumber}</span>} />
+                  <Field
+                    label="Order"
+                    value={<span className="font-mono">{dispute.order.orderNumber}</span>}
+                  />
                   <Field label="Total" value={formatPence(dispute.order.totalPence)} />
                   <Field label="Vendor" value={dispute.order.vendor.businessName} />
                   <Field
                     label="Customer"
                     value={
                       <>
-                        {`${dispute.order.customer.firstName ?? ''} ${dispute.order.customer.lastName ?? ''}`.trim() || '-'}
-                        <div className="text-xs text-muted-foreground">{dispute.order.customer.email}</div>
+                        {`${dispute.order.customer.firstName ?? ''} ${dispute.order.customer.lastName ?? ''}`.trim() ||
+                          '-'}
+                        <div className="text-xs text-muted-foreground">
+                          {dispute.order.customer.email}
+                        </div>
                       </>
                     }
                   />
@@ -116,12 +138,16 @@ export function DisputeDetailClient({ disputeId }: { disputeId: string }) {
         {/* Description + evidence */}
         <div className="lg:col-span-6 space-y-4">
           <Card>
-            <CardHeader><CardTitle className="text-base">Description</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle className="text-base">Description</CardTitle>
+            </CardHeader>
             <CardContent>
               <p className="whitespace-pre-wrap text-sm">{dispute?.description ?? '-'}</p>
               {dispute?.resolutionNote && (
                 <div className="mt-4">
-                  <div className="text-xs uppercase tracking-wide text-muted-foreground">Resolution note</div>
+                  <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                    Resolution note
+                  </div>
                   <p className="mt-1 whitespace-pre-wrap text-sm">{dispute.resolutionNote}</p>
                 </div>
               )}
@@ -129,7 +155,9 @@ export function DisputeDetailClient({ disputeId }: { disputeId: string }) {
           </Card>
 
           <Card>
-            <CardHeader><CardTitle className="text-base">Evidence ({evidence?.length ?? 0})</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle className="text-base">Evidence ({evidence?.length ?? 0})</CardTitle>
+            </CardHeader>
             <CardContent>
               {(evidence ?? []).length === 0 && (
                 <p className="text-sm text-muted-foreground">No evidence attached.</p>
@@ -144,14 +172,20 @@ export function DisputeDetailClient({ disputeId }: { disputeId: string }) {
                   >
                     <div className="grid h-24 w-full place-items-center rounded bg-muted">
                       {e.type === 'image' ? (
-                        <img src={e.fileUrl} alt={e.caption ?? ''} className="h-full w-full rounded object-cover" />
+                        <img
+                          src={e.fileUrl}
+                          alt={e.caption ?? ''}
+                          className="h-full w-full rounded object-cover"
+                        />
                       ) : e.type === 'video' ? (
                         <Video className="h-8 w-8 text-muted-foreground" />
                       ) : (
                         <FileText className="h-8 w-8 text-muted-foreground" />
                       )}
                     </div>
-                    <div className="truncate text-xs text-muted-foreground">{e.caption ?? e.type}</div>
+                    <div className="truncate text-xs text-muted-foreground">
+                      {e.caption ?? e.type}
+                    </div>
                   </button>
                 ))}
               </div>
@@ -162,7 +196,9 @@ export function DisputeDetailClient({ disputeId }: { disputeId: string }) {
         {/* Resolution panel */}
         <div className="lg:col-span-3">
           <Card>
-            <CardHeader><CardTitle className="text-base">Resolve</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle className="text-base">Resolve</CardTitle>
+            </CardHeader>
             <CardContent className="space-y-3 text-sm">
               <div>
                 <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -187,10 +223,19 @@ export function DisputeDetailClient({ disputeId }: { disputeId: string }) {
                 <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   Resolution
                 </label>
-                <Select value={resolution} onValueChange={(v) => setResolution(v as ResolutionType)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                <Select
+                  value={resolution}
+                  onValueChange={(v) => setResolution(v as ResolutionType)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
-                    {RESOLUTIONS.map((r) => <SelectItem key={r} value={r}>{r.replace('_', ' ')}</SelectItem>)}
+                    {RESOLUTIONS.map((r) => (
+                      <SelectItem key={r} value={r}>
+                        {r.replace('_', ' ')}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -215,7 +260,11 @@ export function DisputeDetailClient({ disputeId }: { disputeId: string }) {
                 <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   Notes
                 </label>
-                <Input value={resolutionNote} onChange={(e) => setResolutionNote(e.target.value)} placeholder="Internal note" />
+                <Input
+                  value={resolutionNote}
+                  onChange={(e) => setResolutionNote(e.target.value)}
+                  placeholder="Internal note"
+                />
               </div>
 
               <Button
@@ -236,12 +285,25 @@ export function DisputeDetailClient({ disputeId }: { disputeId: string }) {
             <DialogTitle>{viewing?.caption ?? 'Evidence'}</DialogTitle>
           </DialogHeader>
           {viewing?.type === 'image' && (
-            <img src={viewing.fileUrl} alt={viewing.caption ?? ''} className="max-h-[70vh] w-full rounded object-contain" />
+            <img
+              src={viewing.fileUrl}
+              alt={viewing.caption ?? ''}
+              className="max-h-[70vh] w-full rounded object-contain"
+            />
           )}
           {viewing && viewing.type !== 'image' && (
             <div className="flex flex-col items-center gap-3 py-6">
-              {viewing.type === 'video' ? <Video className="h-12 w-12" /> : <ImageIcon className="h-12 w-12" />}
-              <a href={viewing.fileUrl} target="_blank" rel="noreferrer" className="text-sm text-vendor underline">
+              {viewing.type === 'video' ? (
+                <Video className="h-12 w-12" />
+              ) : (
+                <ImageIcon className="h-12 w-12" />
+              )}
+              <a
+                href={viewing.fileUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="text-sm text-vendor underline"
+              >
                 Open original
               </a>
             </div>

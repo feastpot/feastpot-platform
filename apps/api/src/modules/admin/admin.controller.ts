@@ -19,11 +19,12 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Prisma, UserRole } from '@prisma/client';
-import type { Response } from 'express';
 import type { Queue } from 'bull';
+import type { Response } from 'express';
 
 import { Roles } from '../../auth/decorators/roles.decorator';
 import type { AuthedRequest } from '../../auth/types';
+import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { EmailProvider } from '../notifications/providers/email.provider';
 import { PushProvider } from '../notifications/providers/push.provider';
@@ -31,10 +32,8 @@ import { WhatsappProvider } from '../notifications/providers/whatsapp.provider';
 import { TEMPLATES } from '../notifications/templates';
 import { PAYOUTS_QUEUE, WEEKLY_BATCH_JOB } from '../payouts/processors/payout-batch.processor';
 
-import { PrismaService } from '../../prisma/prisma.service';
-
-import { AdminService } from './admin.service';
 import { AdminUsersService } from './admin-users.service';
+import { AdminService } from './admin.service';
 import {
   CreateStaffUserDto,
   IssueCreditDto,
@@ -104,7 +103,9 @@ export class AdminController {
    */
   @Get('search-analytics')
   @Roles(UserRole.admin, UserRole.support)
-  @ApiOperation({ summary: 'Top customer searches over the last 30 days (count, avg results, zero-result count)' })
+  @ApiOperation({
+    summary: 'Top customer searches over the last 30 days (count, avg results, zero-result count)',
+  })
   async searchAnalytics(
     @Query('limit') limitStr = '25',
     @Query('cursor') cursor?: string,
@@ -149,7 +150,9 @@ export class AdminController {
     }));
     const last = data[data.length - 1];
     const nextCursor =
-      hasMore && last ? this.encodeSearchCursor({ count: last.searchCount, query: last.query }) : null;
+      hasMore && last
+        ? this.encodeSearchCursor({ count: last.searchCount, query: last.query })
+        : null;
 
     return { data, hasMore, nextCursor, limit };
   }
@@ -174,7 +177,9 @@ export class AdminController {
 
   @Get('dashboard')
   @Roles(UserRole.admin, UserRole.finance, UserRole.support, UserRole.compliance)
-  @ApiOperation({ summary: 'Admin dashboard metrics: GMV, orders, repeat rate, top vendors, daily revenue' })
+  @ApiOperation({
+    summary: 'Admin dashboard metrics: GMV, orders, repeat rate, top vendors, daily revenue',
+  })
   dashboard() {
     return this.admin.getDashboard();
   }
@@ -206,14 +211,18 @@ export class AdminController {
 
   @Get('vendors')
   @Roles(UserRole.admin, UserRole.compliance, UserRole.support)
-  @ApiOperation({ summary: 'Vendor approval queue (filter by status, doc-status icon map per vendor)' })
+  @ApiOperation({
+    summary: 'Vendor approval queue (filter by status, doc-status icon map per vendor)',
+  })
   listVendors(@Query() dto: ListAdminVendorsDto) {
     return this.admin.listAdminVendors(dto);
   }
 
   @Get('vendors/counts')
   @Roles(UserRole.admin, UserRole.compliance, UserRole.support)
-  @ApiOperation({ summary: 'Vendor lifecycle counts grouped by status (drives admin tab pill counters)' })
+  @ApiOperation({
+    summary: 'Vendor lifecycle counts grouped by status (drives admin tab pill counters)',
+  })
   vendorCounts() {
     return this.admin.getVendorStatusCounts();
   }
@@ -521,7 +530,10 @@ export class AdminController {
     @Body() dto: { event: string; userId?: string; overrideEmail?: string; overridePhone?: string },
   ) {
     if (process.env.NODE_ENV === 'production') {
-      throw new ForbiddenException({ code: 'NOT_AVAILABLE_IN_PROD', message: 'Test endpoint disabled in production' });
+      throw new ForbiddenException({
+        code: 'NOT_AVAILABLE_IN_PROD',
+        message: 'Test endpoint disabled in production',
+      });
     }
     if (!dto?.event || !TEMPLATES[dto.event]) {
       throw new BadRequestException({
@@ -564,7 +576,9 @@ export class AdminController {
       daysUntilExpiry: 14,
       reason: 'Goodwill - late delivery',
     };
-    await this.notifications.enqueue(dto.event, sample, { jobId: `test:${dto.event}:${Date.now()}` });
+    await this.notifications.enqueue(dto.event, sample, {
+      jobId: `test:${dto.event}:${Date.now()}`,
+    });
     return { queued: true, event: dto.event, recipientUserId: userId };
   }
 
@@ -710,7 +724,9 @@ export class AdminController {
       // attempt — return 503 with a clear message rather than a generic 500
       // so finance ops know to retry once Redis is restored (or fall back
       // to the weekly cron, which will pick up the same work).
-      this.logger.error(`payout batch enqueue failed (Redis unavailable?): ${(e as Error).message}`);
+      this.logger.error(
+        `payout batch enqueue failed (Redis unavailable?): ${(e as Error).message}`,
+      );
       // Don't echo the upstream ioredis error verbatim — it's logged
       // server-side above; the client gets a generic, actionable message.
       throw new ServiceUnavailableException({

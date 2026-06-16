@@ -23,12 +23,35 @@ export default function Page() {
       heading="Authentic Nigerian Food Delivered in London"
       intro="From Peckham to Stratford, Feastpot connects you with home cooks and small kitchens making the Nigerian food you actually grew up eating. Trays for parties, family-size portions, or weekly meal prep - all from vetted vendors with FSA hygiene ratings."
       highlights={[
-        { name: 'Jollof Rice', description: 'Smoky party jollof, cooked with stockfish or chicken. Tray sizes for 4–40.' },
-        { name: 'Egusi Soup', description: 'Melon-seed soup with spinach and assorted meat. Pairs with pounded yam or eba.' },
-        { name: 'Pepper Soup', description: 'Light, peppery broth with goat, catfish or assorted. Comfort food for cold London nights.' },
-        { name: 'Suya', description: 'Charcoal-grilled beef skewers dusted with yaji spice. Order by the bundle for sharing.' },
-        { name: 'Pounded Yam', description: 'Hand-pounded or instant - vendors will tell you which. Always served fresh.' },
-        { name: 'Small Chops', description: 'Puff-puff, samosas, spring rolls, peppered gizzard. The classic party platter.' },
+        {
+          name: 'Jollof Rice',
+          description: 'Smoky party jollof, cooked with stockfish or chicken. Tray sizes for 4–40.',
+        },
+        {
+          name: 'Egusi Soup',
+          description:
+            'Melon-seed soup with spinach and assorted meat. Pairs with pounded yam or eba.',
+        },
+        {
+          name: 'Pepper Soup',
+          description:
+            'Light, peppery broth with goat, catfish or assorted. Comfort food for cold London nights.',
+        },
+        {
+          name: 'Suya',
+          description:
+            'Charcoal-grilled beef skewers dusted with yaji spice. Order by the bundle for sharing.',
+        },
+        {
+          name: 'Pounded Yam',
+          description:
+            'Hand-pounded or instant - vendors will tell you which. Always served fresh.',
+        },
+        {
+          name: 'Small Chops',
+          description:
+            'Puff-puff, samosas, spring rolls, peppered gizzard. The classic party platter.',
+        },
       ]}
       faqs={[
         {

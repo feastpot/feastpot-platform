@@ -29,7 +29,9 @@ interface VendorMe {
  */
 export default async function OnboardingPage() {
   const supabase = await createServerSupabase();
-  const { data: { session } } = await supabase.auth.getSession();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
   if (!session) redirect('/sign-in?next=/onboarding');
 
   let vendor: VendorMe;

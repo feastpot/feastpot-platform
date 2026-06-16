@@ -17,13 +17,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@feastpot/ui';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@feastpot/ui';
 
 import { Avatar } from '@/components/account/avatar';
 import { LoyaltyCard } from '@/components/account/loyalty-card';
@@ -71,16 +65,10 @@ export default function AccountHubPage() {
           green "Edit Profile" link. The waving emoji + first-name greeting
           mirror the wireframe's "Hi Alex! 👋" treatment. */}
       <header className="flex items-center gap-4 rounded-3xl border border-cream-deep bg-white p-4 shadow-card">
-        <Avatar
-          url={me?.avatarUrl ?? null}
-          name={me?.fullName ?? me?.email ?? null}
-          size={72}
-        />
+        <Avatar url={me?.avatarUrl ?? null} name={me?.fullName ?? me?.email ?? null} size={72} />
         <div className="min-w-0 flex-1">
           <p className="truncate font-display text-lg font-black text-charcoal">
-            {isLoading
-              ? '…'
-              : `Hi ${(me?.fullName || me?.email || 'there').split(' ')[0]}! 👋`}
+            {isLoading ? '…' : `Hi ${(me?.fullName || me?.email || 'there').split(' ')[0]}! 👋`}
           </p>
           {me?.email && (
             <p className="truncate text-xs font-medium text-charcoal-mid">{me.email}</p>
@@ -126,12 +114,7 @@ export default function AccountHubPage() {
           subtitle="Email, SMS & push opt-outs"
           Icon={Bell}
         />
-        <NavCard
-          href="/help"
-          title="Help"
-          subtitle="FAQs and support"
-          Icon={HelpCircle}
-        />
+        <NavCard href="/help" title="Help" subtitle="FAQs and support" Icon={HelpCircle} />
       </ul>
 
       {/* Sign-out - opens a branded confirm dialog instead of the
@@ -162,8 +145,8 @@ export default function AccountHubPage() {
                 Sign out of Feastpot?
               </DialogTitle>
               <DialogDescription className="text-sm font-medium text-charcoal-mid">
-                You'll need to sign in again to track orders, redeem points, or
-                reorder your favourites.
+                You'll need to sign in again to track orders, redeem points, or reorder your
+                favourites.
               </DialogDescription>
             </DialogHeader>
           </div>

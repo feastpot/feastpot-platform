@@ -111,7 +111,9 @@ export class EventCronService {
         { jobId: `enquiry_expired:${e.id}` },
       );
     }
-    this.logger.log(`enquiries-expire-stale: expired ${expired} of ${stale.length} candidate enquiries`);
+    this.logger.log(
+      `enquiries-expire-stale: expired ${expired} of ${stale.length} candidate enquiries`,
+    );
   }
 
   @Cron(CronExpression.EVERY_HOUR, { name: 'event-balance-48h' })
@@ -141,7 +143,7 @@ export class EventCronService {
       const finalTotal = accepted.perHeadPence * guestCount + accepted.deliveryFeePence;
       const depositPct = accepted.minDepositPct || 30;
       const depositPaid = Math.round(
-        (accepted.perHeadPence * e.guestCount + accepted.deliveryFeePence) * depositPct / 100,
+        ((accepted.perHeadPence * e.guestCount + accepted.deliveryFeePence) * depositPct) / 100,
       );
       const balance = Math.max(0, finalTotal - depositPaid);
       if (balance <= 0) continue;
@@ -162,9 +164,13 @@ export class EventCronService {
           data: { balancePiId: pi.id },
         });
         if (claim.count === 0) {
-          await this.stripe.cancel(pi.id).catch((err2) =>
-            this.logger.warn(`event-balance-48h: failed to cancel orphan PI ${pi.id}: ${(err2 as Error).message}`),
-          );
+          await this.stripe
+            .cancel(pi.id)
+            .catch((err2) =>
+              this.logger.warn(
+                `event-balance-48h: failed to cancel orphan PI ${pi.id}: ${(err2 as Error).message}`,
+              ),
+            );
           continue;
         }
         await this.notifications.enqueue(

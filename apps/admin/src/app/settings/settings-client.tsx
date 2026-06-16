@@ -1,12 +1,6 @@
 'use client';
 
-import {
-  Button,
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@feastpot/ui';
+import { Button, Card, CardContent, CardHeader, CardTitle } from '@feastpot/ui';
 import {
   Bell,
   ClipboardList,
@@ -162,7 +156,8 @@ export function SettingsClient({ user }: SettingsClientProps) {
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              These values are baked into the platform. Per-vendor overrides for commission live on each vendor's profile page.
+              These values are baked into the platform. Per-vendor overrides for commission live on
+              each vendor's profile page.
             </p>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <StatCard
@@ -185,7 +180,8 @@ export function SettingsClient({ user }: SettingsClientProps) {
               />
             </div>
             <div className="rounded-md border border-dashed border-border bg-muted/30 p-3 text-xs text-muted-foreground">
-              Editing these defaults requires a backend release. Open an engineering ticket if a change is needed.
+              Editing these defaults requires a backend release. Open an engineering ticket if a
+              change is needed.
             </div>
           </CardContent>
         </Card>
@@ -201,7 +197,8 @@ export function SettingsClient({ user }: SettingsClientProps) {
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                The weekly batch runs automatically on Monday at 02:00 UTC. Use the manual trigger only when an out-of-cycle run is required (e.g. catching up after an outage).
+                The weekly batch runs automatically on Monday at 02:00 UTC. Use the manual trigger
+                only when an out-of-cycle run is required (e.g. catching up after an outage).
               </p>
               <div className="flex flex-wrap items-center gap-3">
                 <Button onClick={runPayoutBatch} disabled={isRunningBatch}>
@@ -300,17 +297,16 @@ export function SettingsClient({ user }: SettingsClientProps) {
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Staff are regular users promoted to one of four roles. Promoting a customer to a staff role is currently a database operation. Contact engineering with the user's email to request a role change.
+              Staff are regular users promoted to one of four roles. Promoting a customer to a staff
+              role is currently a database operation. Contact engineering with the user's email to
+              request a role change.
             </p>
 
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               {(Object.keys(ROLE_DESCRIPTIONS) as StaffRole[]).map((role) => {
                 const meta = ROLE_DESCRIPTIONS[role];
                 return (
-                  <div
-                    key={role}
-                    className="rounded-lg border border-border bg-card p-4"
-                  >
+                  <div key={role} className="rounded-lg border border-border bg-card p-4">
                     <div className="mb-2 flex items-center gap-2">
                       <StatusPill tone={ROLE_TONE[role]}>{role}</StatusPill>
                       <span className="text-sm text-muted-foreground">{meta.summary}</span>

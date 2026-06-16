@@ -68,7 +68,11 @@ export class StripeWebhookProcessor {
       // Atomic CAS-style: only cancel if still pending - never override a vendor decision.
       const cancelled = await this.prisma.order.updateMany({
         where: { id: payment.orderId, status: OrderStatus.pending },
-        data: { status: OrderStatus.cancelled, cancelledAt: new Date(), notes: '[CANCELLED] Stripe payment failed' },
+        data: {
+          status: OrderStatus.cancelled,
+          cancelledAt: new Date(),
+          notes: '[CANCELLED] Stripe payment failed',
+        },
       });
       // Only refund the loyalty redemption if WE were the one that
       // cancelled the order on this run (`cancelled.count === 1`). The
@@ -105,7 +109,11 @@ export class StripeWebhookProcessor {
     }
     await this.prisma.payout.updateMany({
       where: { id: payoutId },
-      data: { stripeTransferId: transfer.id, status: PayoutStatus.transferred, transferredAt: new Date() },
+      data: {
+        stripeTransferId: transfer.id,
+        status: PayoutStatus.transferred,
+        transferredAt: new Date(),
+      },
     });
   }
 
@@ -169,11 +177,11 @@ export class StripeWebhookProcessor {
     if (!dispute.id) return;
 
     const chargeId =
-      typeof dispute.charge === 'string' ? dispute.charge : dispute.charge?.id ?? null;
+      typeof dispute.charge === 'string' ? dispute.charge : (dispute.charge?.id ?? null);
     const piId =
       typeof dispute.payment_intent === 'string'
         ? dispute.payment_intent
-        : dispute.payment_intent?.id ?? null;
+        : (dispute.payment_intent?.id ?? null);
 
     // Match by Stripe charge id first (the dispute is always against a charge),
     // falling back to the payment intent id. Either column may be the natural

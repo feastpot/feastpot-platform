@@ -6,11 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import { useEffect, useState, type FormEvent } from 'react';
 
 import { registerCoverageInterest } from '@/lib/api/coverage';
-import {
-  isValidUKPostcode,
-  normalisePostcode,
-  readStoredPostcode,
-} from '@/lib/postcode';
+import { isValidUKPostcode, normalisePostcode, readStoredPostcode } from '@/lib/postcode';
 
 /**
  * Uncovered-postcode waitlist capture. Renders inside a Suspense boundary
@@ -91,9 +87,8 @@ export function WaitlistForm() {
           <span className="text-brand">{postcode || 'your postcode'}</span> yet
         </h1>
         <p className="mx-auto mt-3 max-w-md text-sm font-medium leading-relaxed text-charcoal-mid md:text-base">
-          We&rsquo;re onboarding new kitchens across the UK every week. Leave
-          your details and we&rsquo;ll email you the moment a cook goes live in
-          your area.
+          We&rsquo;re onboarding new kitchens across the UK every week. Leave your details and
+          we&rsquo;ll email you the moment a cook goes live in your area.
         </p>
       </header>
 
@@ -103,22 +98,14 @@ export function WaitlistForm() {
           aria-labelledby="thanks-heading"
           className="mt-6 rounded-3xl border border-brand bg-brand-light p-6 text-center md:p-10"
         >
-          <CheckCircle2
-            className="mx-auto h-12 w-12 text-brand"
-            aria-hidden
-          />
-          <h2
-            id="thanks-heading"
-            className="mt-3 font-display text-2xl font-black text-charcoal"
-          >
+          <CheckCircle2 className="mx-auto h-12 w-12 text-brand" aria-hidden />
+          <h2 id="thanks-heading" className="mt-3 font-display text-2xl font-black text-charcoal">
             You&rsquo;re on the list
           </h2>
           <p className="mx-auto mt-2 max-w-md text-sm font-medium text-charcoal-mid">
-            We&rsquo;ll email{' '}
-            <strong className="font-semibold text-charcoal">{email}</strong> as
+            We&rsquo;ll email <strong className="font-semibold text-charcoal">{email}</strong> as
             soon as a kitchen near{' '}
-            <strong className="font-semibold text-charcoal">{postcode}</strong>{' '}
-            is taking orders.
+            <strong className="font-semibold text-charcoal">{postcode}</strong> is taking orders.
           </p>
           <Link
             href="/"
@@ -194,8 +181,8 @@ export function WaitlistForm() {
                 className="mt-0.5 h-4 w-4 shrink-0 accent-brand"
               />
               <span>
-                Send me the occasional Feastpot update - new vendors, launches in
-                my area and recipe tips. Unsubscribe any time.
+                Send me the occasional Feastpot update - new vendors, launches in my area and recipe
+                tips. Unsubscribe any time.
               </span>
             </label>
 

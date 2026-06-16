@@ -76,14 +76,21 @@ export async function apiRequest<T>(path: string, opts: ApiRequestOptions = {}):
   if (res.status === 204) return undefined as T;
 
   const contentType = res.headers.get('content-type') ?? '';
-  const body: unknown = contentType.includes('application/json') ? await res.json().catch(() => null) : await res.text();
+  const body: unknown = contentType.includes('application/json')
+    ? await res.json().catch(() => null)
+    : await res.text();
 
   if (!res.ok) {
     const parsed = (body && typeof body === 'object' ? body : {}) as {
       code?: string;
       message?: string;
     };
-    throw new ApiError(res.status, parsed.message ?? `Request failed: ${res.status}`, body, parsed.code);
+    throw new ApiError(
+      res.status,
+      parsed.message ?? `Request failed: ${res.status}`,
+      body,
+      parsed.code,
+    );
   }
   return body as T;
 }

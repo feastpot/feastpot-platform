@@ -1,30 +1,38 @@
-import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
+import type { ConfigService } from '@nestjs/config';
 import { UserRole, VendorStatus } from '@prisma/client';
 
 import type { AuthUser } from '../../auth/types';
 import type { RedisCacheService } from '../../common/cache/redis-cache.service';
-import type { NotificationsService } from '../notifications/notifications.service';
-import type { EmailProvider } from '../notifications/providers/email.provider';
 import type { PrismaService } from '../../prisma/prisma.service';
 import type { StripeService } from '../../stripe/stripe.service';
-import type { ConfigService } from '@nestjs/config';
-import { VendorsService } from './vendors.service';
-import type { VendorRepository } from './vendors.repository';
 import type { SupabaseStorageService } from '../catalogue/supabase-storage.service';
+import type { NotificationsService } from '../notifications/notifications.service';
+import type { EmailProvider } from '../notifications/providers/email.provider';
 import type { VendorMembersService } from '../vendor-members/vendor-members.service';
 
-type RepoMock = jest.Mocked<Pick<
-  VendorRepository,
-  | 'search'
-  | 'findById'
-  | 'findByUserId'
-  | 'findBySlug'
-  | 'create'
-  | 'update'
-  | 'upsertDeliveryConfigMinOrder'
-  | 'transitionStatus'
-  | 'listPublishedReviews'
->>;
+import type { VendorRepository } from './vendors.repository';
+import { VendorsService } from './vendors.service';
+
+type RepoMock = jest.Mocked<
+  Pick<
+    VendorRepository,
+    | 'search'
+    | 'findById'
+    | 'findByUserId'
+    | 'findBySlug'
+    | 'create'
+    | 'update'
+    | 'upsertDeliveryConfigMinOrder'
+    | 'transitionStatus'
+    | 'listPublishedReviews'
+  >
+>;
 
 const makeRepo = (): RepoMock => ({
   search: jest.fn(),
@@ -71,7 +79,9 @@ describe('VendorsService', () => {
       del: jest.fn().mockResolvedValue(undefined),
       delByPattern: jest.fn().mockResolvedValue(undefined),
     } as unknown as RedisCacheService;
-    const notifications = { enqueue: jest.fn().mockResolvedValue(undefined) } as unknown as NotificationsService;
+    const notifications = {
+      enqueue: jest.fn().mockResolvedValue(undefined),
+    } as unknown as NotificationsService;
     const email = { send: jest.fn().mockResolvedValue(undefined) } as unknown as EmailProvider;
     const storage = { uploadVendorImage: jest.fn() } as unknown as SupabaseStorageService;
     members = {
@@ -94,7 +104,18 @@ describe('VendorsService', () => {
   describe('search', () => {
     it('returns nextCursor null when fewer rows than limit', async () => {
       repo.search.mockResolvedValue([
-        { id: 'v1', business_name: 'A', slug: 'a', description: null, cuisines: [], status: VendorStatus.live, rating: 4.5, rating_count: 10, created_at: new Date(), distance_km: 0 },
+        {
+          id: 'v1',
+          business_name: 'A',
+          slug: 'a',
+          description: null,
+          cuisines: [],
+          status: VendorStatus.live,
+          rating: 4.5,
+          rating_count: 10,
+          created_at: new Date(),
+          distance_km: 0,
+        },
       ] as never);
       const res = await service.search({ limit: 20 });
       expect(res.nextCursor).toBeNull();
@@ -105,14 +126,24 @@ describe('VendorsService', () => {
     it('returns an opaque base64url nextCursor when page is full and decodes back to last row', async () => {
       const rows = Array.from({ length: 2 }, (_, i) => ({
         id: `00000000-0000-0000-0000-00000000000${i}`,
-        business_name: `V${i}`, slug: `v${i}`, description: null, cuisines: [],
-        status: VendorStatus.live, rating: 4.2, rating_count: i + 1, created_at: new Date(), distance_km: null,
+        business_name: `V${i}`,
+        slug: `v${i}`,
+        description: null,
+        cuisines: [],
+        status: VendorStatus.live,
+        rating: 4.2,
+        rating_count: i + 1,
+        created_at: new Date(),
+        distance_km: null,
       }));
       repo.search.mockResolvedValue(rows as never);
       const res = await service.search({ limit: 2 });
       expect(typeof res.nextCursor).toBe('string');
       expect(res.nextCursor).toMatch(/^[A-Za-z0-9_\-=]+$/);
-      const decoded = JSON.parse(Buffer.from(res.nextCursor!, 'base64url').toString('utf8')) as { id: string; rating: number };
+      const decoded = JSON.parse(Buffer.from(res.nextCursor!, 'base64url').toString('utf8')) as {
+        id: string;
+        rating: number;
+      };
       expect(decoded.id).toBe(rows[1]!.id);
       expect(decoded.rating).toBe(4.2);
     });
@@ -120,12 +151,23 @@ describe('VendorsService', () => {
     it('decodes inbound cursor and forwards it to the repository', async () => {
       repo.search.mockResolvedValue([] as never);
       const cursor = Buffer.from(
-        JSON.stringify({ rating: 4.5, ratingCount: 10, distance: null, id: '00000000-0000-0000-0000-000000000099' }),
+        JSON.stringify({
+          rating: 4.5,
+          ratingCount: 10,
+          distance: null,
+          id: '00000000-0000-0000-0000-000000000099',
+        }),
         'utf8',
       ).toString('base64url');
       await service.search({ limit: 5, cursor });
       const arg = repo.search.mock.calls[0]![1];
-      expect(arg).toEqual(expect.objectContaining({ rating: 4.5, ratingCount: 10, id: '00000000-0000-0000-0000-000000000099' }));
+      expect(arg).toEqual(
+        expect.objectContaining({
+          rating: 4.5,
+          ratingCount: 10,
+          id: '00000000-0000-0000-0000-000000000099',
+        }),
+      );
     });
   });
 
@@ -158,8 +200,15 @@ describe('VendorsService', () => {
       repo.findByUserId.mockResolvedValue(null as never);
       repo.findBySlug.mockResolvedValue(null as never);
       repo.create.mockImplementation(async (data) => ({ id: 'new', ...data }) as never);
-      const res = await service.create(customer, { businessName: "Maman's Kitchen!", cuisineTypes: ['cameroonian'] });
-      const callArg = (repo.create.mock.calls[0]![0] as unknown) as { slug: string; status: VendorStatus; cuisines: string[] };
+      const res = await service.create(customer, {
+        businessName: "Maman's Kitchen!",
+        cuisineTypes: ['cameroonian'],
+      });
+      const callArg = repo.create.mock.calls[0]![0] as unknown as {
+        slug: string;
+        status: VendorStatus;
+        cuisines: string[];
+      };
       expect(callArg.slug).toBe('maman-s-kitchen');
       expect(callArg.status).toBe(VendorStatus.pending);
       expect(callArg.cuisines).toEqual(['cameroonian']);
@@ -181,7 +230,7 @@ describe('VendorsService', () => {
         .mockResolvedValueOnce(null as never);
       repo.create.mockImplementation(async (data) => data as never);
       await service.create(customer, { businessName: 'Test', cuisineTypes: ['x'] });
-      const callArg = (repo.create.mock.calls[0]![0] as unknown) as { slug: string };
+      const callArg = repo.create.mock.calls[0]![0] as unknown as { slug: string };
       expect(callArg.slug).toBe('test-2');
     });
   });
@@ -198,9 +247,7 @@ describe('VendorsService', () => {
     it('admins can edit any vendor', async () => {
       repo.findById.mockResolvedValue({ ...baseVendor, userId: 'someone-else' } as never);
       repo.update.mockResolvedValue(baseVendor as never);
-      await expect(
-        service.update('v-1', admin, { businessName: 'X' }),
-      ).resolves.toBeDefined();
+      await expect(service.update('v-1', admin, { businessName: 'X' })).resolves.toBeDefined();
     });
 
     it('updates DeliveryConfig minOrderPence separately', async () => {
@@ -239,7 +286,10 @@ describe('VendorsService', () => {
 
     it('admin can also approve a pending vendor (per Step 5 of the security spec)', async () => {
       repo.findById.mockResolvedValue({ ...baseVendor, status: VendorStatus.pending } as never);
-      repo.transitionStatus.mockResolvedValue({ ...baseVendor, status: VendorStatus.approved } as never);
+      repo.transitionStatus.mockResolvedValue({
+        ...baseVendor,
+        status: VendorStatus.approved,
+      } as never);
       await service.updateStatus('v-1', { status: VendorStatus.approved }, admin);
       expect(repo.transitionStatus).toHaveBeenCalledWith(
         expect.objectContaining({ actorUserId: admin.id, toStatus: VendorStatus.approved }),
@@ -248,32 +298,43 @@ describe('VendorsService', () => {
 
     it('compliance can approve a pending vendor', async () => {
       repo.findById.mockResolvedValue({ ...baseVendor, status: VendorStatus.pending } as never);
-      repo.transitionStatus.mockResolvedValue({ ...baseVendor, status: VendorStatus.approved } as never);
+      repo.transitionStatus.mockResolvedValue({
+        ...baseVendor,
+        status: VendorStatus.approved,
+      } as never);
       const res = await service.updateStatus(
         'v-1',
         { status: VendorStatus.approved, reasonCode: 'docs_ok' },
         compliance,
       );
-      expect(repo.transitionStatus).toHaveBeenCalledWith(expect.objectContaining({
-        vendorId: 'v-1',
-        fromStatus: VendorStatus.pending,
-        toStatus: VendorStatus.approved,
-        actorUserId: compliance.id,
-        reasonCode: 'docs_ok',
-      }));
+      expect(repo.transitionStatus).toHaveBeenCalledWith(
+        expect.objectContaining({
+          vendorId: 'v-1',
+          fromStatus: VendorStatus.pending,
+          toStatus: VendorStatus.approved,
+          actorUserId: compliance.id,
+          reasonCode: 'docs_ok',
+        }),
+      );
       expect((res as { status: VendorStatus }).status).toBe(VendorStatus.approved);
     });
 
     it('admin can transition live → suspended', async () => {
       repo.findById.mockResolvedValue({ ...baseVendor, status: VendorStatus.live } as never);
-      repo.transitionStatus.mockResolvedValue({ ...baseVendor, status: VendorStatus.suspended } as never);
+      repo.transitionStatus.mockResolvedValue({
+        ...baseVendor,
+        status: VendorStatus.suspended,
+      } as never);
       await service.updateStatus('v-1', { status: VendorStatus.suspended }, admin);
       expect(repo.transitionStatus).toHaveBeenCalled();
     });
 
     it('admin can remove from any state except removed', async () => {
       repo.findById.mockResolvedValue({ ...baseVendor, status: VendorStatus.live } as never);
-      repo.transitionStatus.mockResolvedValue({ ...baseVendor, status: VendorStatus.removed } as never);
+      repo.transitionStatus.mockResolvedValue({
+        ...baseVendor,
+        status: VendorStatus.removed,
+      } as never);
       await service.updateStatus('v-1', { status: VendorStatus.removed }, admin);
       expect(repo.transitionStatus).toHaveBeenCalled();
     });

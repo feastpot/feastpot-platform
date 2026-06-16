@@ -28,7 +28,11 @@ export class StripeService {
         amount: params.amountPence,
         currency: 'gbp',
         capture_method: 'manual',
-        metadata: { orderId: params.orderId, customerId: params.customerId, vendorId: params.vendorId },
+        metadata: {
+          orderId: params.orderId,
+          customerId: params.customerId,
+          vendorId: params.vendorId,
+        },
       },
       params.idempotencyKey ? { idempotencyKey: params.idempotencyKey } : undefined,
     );
@@ -61,7 +65,10 @@ export class StripeService {
   }
 
   cancel(paymentIntentId: string, reason?: Stripe.PaymentIntentCancelParams.CancellationReason) {
-    return this.stripe.paymentIntents.cancel(paymentIntentId, reason ? { cancellation_reason: reason } : undefined);
+    return this.stripe.paymentIntents.cancel(
+      paymentIntentId,
+      reason ? { cancellation_reason: reason } : undefined,
+    );
   }
 
   /**
@@ -69,7 +76,11 @@ export class StripeService {
    * a deterministic business event (dispute close, webhook replay, retry) so
    * that a network/retry storm cannot double-refund the customer.
    */
-  refund(paymentIntentId: string, amountPence?: number, idempotencyKey?: string): Promise<Stripe.Refund> {
+  refund(
+    paymentIntentId: string,
+    amountPence?: number,
+    idempotencyKey?: string,
+  ): Promise<Stripe.Refund> {
     return this.stripe.refunds.create(
       {
         payment_intent: paymentIntentId,

@@ -77,7 +77,9 @@ export function useMenuModerationQueue(filters: MenuModerationFilters) {
   });
 }
 
-export function useMenuModerationCounts(filters: Omit<MenuModerationFilters, 'status' | 'cursor' | 'limit'>) {
+export function useMenuModerationCounts(
+  filters: Omit<MenuModerationFilters, 'status' | 'cursor' | 'limit'>,
+) {
   const { request, ready } = useApi();
   return useQuery({
     queryKey: ['admin', 'menu-items', 'queue', 'counts', filters],
@@ -97,7 +99,11 @@ export function useModerateMenuItem() {
   const { request } = useApi();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: { id: string; status: 'approved' | 'rejected' | 'held'; reason?: string }) =>
+    mutationFn: (input: {
+      id: string;
+      status: 'approved' | 'rejected' | 'held';
+      reason?: string;
+    }) =>
       request<MenuModerationRow>(`/admin/menu-items/${input.id}/moderation`, {
         method: 'PATCH',
         body: { status: input.status, reason: input.reason },

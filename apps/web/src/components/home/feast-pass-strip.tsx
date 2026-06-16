@@ -25,8 +25,8 @@ export function FeastPassStrip() {
             Unlimited free delivery where available
           </h3>
           <p className="mt-3 max-w-md text-[14px] font-medium leading-relaxed text-white/85">
-            Enter your postcode first so FeastPot can check if FeastPass
-            applies to kitchens near you.
+            Enter your postcode first so FeastPot can check if FeastPass applies to kitchens near
+            you.
           </p>
           <a
             href="#hero-headline"
@@ -43,8 +43,8 @@ export function FeastPassStrip() {
             Give £5, get £5
           </h3>
           <p className="mt-3 max-w-md text-[14px] font-medium leading-relaxed text-charcoal/85">
-            Invite friends after your first order. Referral rewards unlock when
-            delivery is available.
+            Invite friends after your first order. Referral rewards unlock when delivery is
+            available.
           </p>
           <Link
             href="/account"

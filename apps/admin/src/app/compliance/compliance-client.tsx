@@ -82,7 +82,11 @@ export function ComplianceClient() {
           icon={CheckCircle2}
           tone="teal"
           label="Approved"
-          value={isLoading ? '…' : Math.max(0, stats.total - stats.expired - stats.critical - stats.warning).toString()}
+          value={
+            isLoading
+              ? '…'
+              : Math.max(0, stats.total - stats.expired - stats.critical - stats.warning).toString()
+          }
           caption="Healthy and not expiring soon"
         />
         <StatCard
@@ -150,7 +154,10 @@ export function ComplianceClient() {
                         : `${d.daysRemaining}d`}
                   </TableCell>
                   <TableCell>
-                    <Link href={`/vendors/${d.vendorId}`} className="text-sm font-medium text-primary hover:underline">
+                    <Link
+                      href={`/vendors/${d.vendorId}`}
+                      className="text-sm font-medium text-primary hover:underline"
+                    >
                       Open
                     </Link>
                   </TableCell>

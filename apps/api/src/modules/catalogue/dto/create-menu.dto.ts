@@ -14,7 +14,10 @@ export class CreateMenuDto {
   @IsBoolean()
   isActive?: boolean;
 
-  @ApiPropertyOptional({ default: 0, description: 'Sort order (maps to menus.sort_order). Defaults to 0 on create.' })
+  @ApiPropertyOptional({
+    default: 0,
+    description: 'Sort order (maps to menus.sort_order). Defaults to 0 on create.',
+  })
   @IsOptional()
   @Type(() => Number)
   @IsInt()

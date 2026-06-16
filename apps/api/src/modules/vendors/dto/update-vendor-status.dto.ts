@@ -1,8 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { VendorStatus } from '@prisma/client';
 import { Type } from 'class-transformer';
 import { IsEnum, IsInt, IsOptional, IsString, MaxLength, Min } from 'class-validator';
-
-import { VendorStatus } from '@prisma/client';
 
 export class UpdateVendorStatusDto {
   @ApiProperty({ enum: VendorStatus })
@@ -21,7 +20,9 @@ export class UpdateVendorStatusDto {
   @MaxLength(2000)
   notes?: string;
 
-  @ApiPropertyOptional({ description: 'Optional weekly order cap (informational metadata only - no schema column)' })
+  @ApiPropertyOptional({
+    description: 'Optional weekly order cap (informational metadata only - no schema column)',
+  })
   @IsOptional()
   @Type(() => Number)
   @IsInt()

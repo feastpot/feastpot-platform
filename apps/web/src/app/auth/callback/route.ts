@@ -51,7 +51,9 @@ export async function GET(request: NextRequest) {
   // user record we just confirmed. Failure is non-blocking: a missing
   // mirror won't trap the user on /auth/callback.
   try {
-    const { data: { session } } = await supabase.auth.getSession();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
     const token = session?.access_token;
     if (token) {
       await fetch(`${API_URL}/v1/users/sync`, {

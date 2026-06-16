@@ -59,7 +59,9 @@ export class VendorRepository {
       userCoords && typeof userCoords.longitude === 'number' ? userCoords.longitude : null;
     const hasUserCoords = userLat !== null && userLng !== null;
     const maxDistanceKm =
-      typeof dto.maxDistanceKm === 'number' && Number.isFinite(dto.maxDistanceKm) && dto.maxDistanceKm > 0
+      typeof dto.maxDistanceKm === 'number' &&
+      Number.isFinite(dto.maxDistanceKm) &&
+      dto.maxDistanceKm > 0
         ? dto.maxDistanceKm
         : null;
     const cuisines = dto.cuisine && dto.cuisine.length ? dto.cuisine : null;
@@ -236,7 +238,9 @@ export class VendorRepository {
               ) <= (dc.local_radius_miles * 1.609344)
           )
           OR (
-            ${postcodePrefix ? Prisma.sql`(
+            ${
+              postcodePrefix
+                ? Prisma.sql`(
               EXISTS (
                 SELECT 1 FROM delivery_configs dc2
                 WHERE dc2.vendor_id = v.id
@@ -250,7 +254,9 @@ export class VendorRepository {
                 WHERE a.user_id = v.user_id
                   AND UPPER(REPLACE(a.postcode, ' ', '')) LIKE ${postcodePrefix + '%'}
               )
-            )` : Prisma.sql`FALSE`}
+            )`
+                : Prisma.sql`FALSE`
+            }
           )
         )`
       : postcodePrefix
@@ -335,7 +341,9 @@ export class VendorRepository {
             items: {
               where: {
                 isAvailable: true,
-                moderationStatus: { in: [ModerationStatus.auto_approved, ModerationStatus.approved] },
+                moderationStatus: {
+                  in: [ModerationStatus.auto_approved, ModerationStatus.approved],
+                },
               },
               orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
             },

@@ -37,13 +37,19 @@ export class VendorOwnershipGuard implements CanActivate {
     const req = context.switchToHttp().getRequest<RequestWithUser>();
     const user = req.user ?? null;
     if (!user) {
-      throw new UnauthorizedException({ code: 'UNAUTHENTICATED', message: 'Authentication required' });
+      throw new UnauthorizedException({
+        code: 'UNAUTHENTICATED',
+        message: 'Authentication required',
+      });
     }
     if (user.role === UserRole.admin) return true;
 
     const vendorId = req.params.vendorId;
     if (!vendorId) {
-      throw new ForbiddenException({ code: 'VENDOR_ID_MISSING', message: 'vendorId path param missing' });
+      throw new ForbiddenException({
+        code: 'VENDOR_ID_MISSING',
+        message: 'vendorId path param missing',
+      });
     }
 
     const vendor = await this.prisma.vendor.findUnique({

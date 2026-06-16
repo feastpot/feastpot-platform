@@ -1,4 +1,13 @@
-import { ChevronRight, Clock, MapPin, ShieldCheck, ShoppingBag, Soup, Star, Truck } from 'lucide-react';
+import {
+  ChevronRight,
+  Clock,
+  MapPin,
+  ShieldCheck,
+  ShoppingBag,
+  Soup,
+  Star,
+  Truck,
+} from 'lucide-react';
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import Link from 'next/link';
@@ -178,19 +187,20 @@ export default async function VendorProfilePage({ params }: PageProps) {
           and provides per-segment links to either parent. -mx-4 lets it
           bleed edge-to-edge so the warm cream strip reads as a chrome
           band rather than a card. */}
-      <nav
-        aria-label="Breadcrumb"
-        className="-mx-4 border-b border-cream-deep bg-cream px-4 py-2"
-      >
+      <nav aria-label="Breadcrumb" className="-mx-4 border-b border-cream-deep bg-cream px-4 py-2">
         <ol className="flex items-center gap-1 text-[12px] font-medium text-charcoal-mid">
           <li>
-            <Link href="/" className="transition-colors hover:text-brand">Home</Link>
+            <Link href="/" className="transition-colors hover:text-brand">
+              Home
+            </Link>
           </li>
           <li aria-hidden="true" className="flex items-center">
             <ChevronRight className="h-3 w-3" aria-hidden />
           </li>
           <li>
-            <Link href="/vendors" className="transition-colors hover:text-brand">Browse</Link>
+            <Link href="/vendors" className="transition-colors hover:text-brand">
+              Browse
+            </Link>
           </li>
           <li aria-hidden="true" className="flex items-center">
             <ChevronRight className="h-3 w-3" aria-hidden />

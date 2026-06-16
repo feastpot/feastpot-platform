@@ -76,7 +76,11 @@ describe('VendorsController (HTTP) - debug endpoint + route ordering', () => {
     // same as production.
     app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
     app.useGlobalPipes(
-      new ValidationPipe({ whitelist: true, transform: true, transformOptions: { enableImplicitConversion: true } }),
+      new ValidationPipe({
+        whitelist: true,
+        transform: true,
+        transformOptions: { enableImplicitConversion: true },
+      }),
     );
     await app.init();
   });

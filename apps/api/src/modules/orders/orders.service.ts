@@ -1,3 +1,5 @@
+import { randomBytes, randomUUID } from 'node:crypto';
+
 import { InjectQueue } from '@nestjs/bull';
 import {
   BadRequestException,
@@ -8,10 +10,19 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { AmendmentStatus, DeliveryType, ItemCategory, LoyaltyTxType, ModerationStatus, OrderStatus, OrderType, Prisma, UserRole } from '@prisma/client';
+import {
+  AmendmentStatus,
+  DeliveryType,
+  ItemCategory,
+  LoyaltyTxType,
+  ModerationStatus,
+  OrderStatus,
+  OrderType,
+  Prisma,
+  UserRole,
+} from '@prisma/client';
 import * as Sentry from '@sentry/nestjs';
 import { Queue } from 'bull';
-import { randomBytes, randomUUID } from 'node:crypto';
 
 import type { AuthUser } from '../../auth/types';
 import { getServiceFeePence } from '../../common/config/service-fee';
@@ -22,13 +33,9 @@ import { InboxService } from '../inbox/inbox.service';
 import { LoyaltyService } from '../loyalty/loyalty.service';
 import { ReferralService } from '../loyalty/referral.service';
 import { PaymentsService } from '../payments/payments.service';
-import {
-  VENDOR_ORDER_ROLES,
-  VendorMembersService,
-} from '../vendor-members/vendor-members.service';
+import { VENDOR_ORDER_ROLES, VendorMembersService } from '../vendor-members/vendor-members.service';
 
 import { ProposeAmendmentDto, RespondAmendmentDto } from './dto/amendment.dto';
-
 import { CreateOrderDto } from './dto/create-order.dto';
 import { ListOrdersDto } from './dto/list-orders.dto';
 import { ReorderDto } from './dto/reorder.dto';
@@ -64,16 +71,9 @@ export const VENDOR_TRANSITIONS: ReadonlyMap<OrderStatus, ReadonlySet<OrderStatu
   ],
   [
     OrderStatus.needs_clarification,
-    new Set<OrderStatus>([
-      OrderStatus.accepted,
-      OrderStatus.rejected,
-      OrderStatus.cancelled,
-    ]),
+    new Set<OrderStatus>([OrderStatus.accepted, OrderStatus.rejected, OrderStatus.cancelled]),
   ],
-  [
-    OrderStatus.preparing,
-    new Set<OrderStatus>([OrderStatus.ready, OrderStatus.dispatched]),
-  ],
+  [OrderStatus.preparing, new Set<OrderStatus>([OrderStatus.ready, OrderStatus.dispatched])],
   [OrderStatus.ready, new Set<OrderStatus>([OrderStatus.dispatched, OrderStatus.delivered])],
   [OrderStatus.dispatched, new Set<OrderStatus>([OrderStatus.delivered])],
 ]);
@@ -203,7 +203,15 @@ export class OrdersService {
    * transient postcodes.io outage never blocks legitimate checkout.
    */
   private async assertWithinDeliveryArea(
-    vendor: { businessName: string | null; deliveryConfig: { latitude: number | null; longitude: number | null; localRadiusMiles: number; types: DeliveryType[] } | null },
+    vendor: {
+      businessName: string | null;
+      deliveryConfig: {
+        latitude: number | null;
+        longitude: number | null;
+        localRadiusMiles: number;
+        types: DeliveryType[];
+      } | null;
+    },
     address: { postcode: string; latitude: number | null; longitude: number | null } | null,
   ): Promise<void> {
     const dc = vendor.deliveryConfig;
@@ -256,7 +264,8 @@ export class OrdersService {
 
   private async createOrderInner(customerId: string, dto: CreateOrderDto) {
     const vendor = await this.repo.vendorWithDelivery(dto.vendorId);
-    if (!vendor) throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'Vendor not found' });
+    if (!vendor)
+      throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'Vendor not found' });
 
     const menuItemIds = dto.items.map((i) => i.menuItemId);
     const items = await this.repo.findMenuItems(menuItemIds);
@@ -289,13 +298,22 @@ export class OrdersService {
     for (const input of dto.items) {
       const mi = byId.get(input.menuItemId);
       if (!mi) {
-        throw new BadRequestException({ code: 'MENU_ITEM_NOT_FOUND', message: `Menu item ${input.menuItemId} not found` });
+        throw new BadRequestException({
+          code: 'MENU_ITEM_NOT_FOUND',
+          message: `Menu item ${input.menuItemId} not found`,
+        });
       }
       if (mi.vendorId !== dto.vendorId) {
-        throw new BadRequestException({ code: 'MENU_ITEM_WRONG_VENDOR', message: `Menu item ${mi.id} does not belong to vendor` });
+        throw new BadRequestException({
+          code: 'MENU_ITEM_WRONG_VENDOR',
+          message: `Menu item ${mi.id} does not belong to vendor`,
+        });
       }
       if (!mi.isAvailable) {
-        throw new BadRequestException({ code: 'MENU_ITEM_UNAVAILABLE', message: `Menu item "${mi.name}" is not available` });
+        throw new BadRequestException({
+          code: 'MENU_ITEM_UNAVAILABLE',
+          message: `Menu item "${mi.name}" is not available`,
+        });
       }
       // Moderation gate: held / rejected items can never be purchased, even if
       // the vendor flipped them to available or the client holds a stale id.
@@ -303,7 +321,10 @@ export class OrdersService {
         mi.moderationStatus !== ModerationStatus.auto_approved &&
         mi.moderationStatus !== ModerationStatus.approved
       ) {
-        throw new BadRequestException({ code: 'MENU_ITEM_UNAVAILABLE', message: `Menu item "${mi.name}" is not available` });
+        throw new BadRequestException({
+          code: 'MENU_ITEM_UNAVAILABLE',
+          message: `Menu item "${mi.name}" is not available`,
+        });
       }
     }
 
@@ -339,9 +360,12 @@ export class OrdersService {
           message: `Order must be at least ${dc.minOrderPence}p (vendor minimum)`,
         });
       }
-      const baseFee = deliveryType === DeliveryType.nationwide ? dc.nationwideFeePence : dc.localFeePence;
+      const baseFee =
+        deliveryType === DeliveryType.nationwide ? dc.nationwideFeePence : dc.localFeePence;
       deliveryFeePence =
-        dc.freeDeliveryOverPence !== null && dc.freeDeliveryOverPence !== undefined && subtotalPence >= dc.freeDeliveryOverPence
+        dc.freeDeliveryOverPence !== null &&
+        dc.freeDeliveryOverPence !== undefined &&
+        subtotalPence >= dc.freeDeliveryOverPence
           ? 0
           : baseFee;
     }
@@ -390,7 +414,10 @@ export class OrdersService {
     // dips below £0 even if the two stack to more than the order value.
     const discountPence = loyaltyToRedeem + promoDiscountPence;
     const serviceFeePence = getServiceFeePence(subtotalPence);
-    const totalPence = Math.max(0, subtotalPence + deliveryFeePence + serviceFeePence - discountPence);
+    const totalPence = Math.max(
+      0,
+      subtotalPence + deliveryFeePence + serviceFeePence - discountPence,
+    );
 
     const { commissionPence, vendorPayoutPence } = computeCommission(
       subtotalPence,
@@ -542,7 +569,8 @@ export class OrdersService {
 
   async confirmOrder(orderId: string, customerId: string) {
     const order = await this.repo.byCustomer(orderId, customerId);
-    if (!order) throw new NotFoundException({ code: 'ORDER_NOT_FOUND', message: 'Order not found' });
+    if (!order)
+      throw new NotFoundException({ code: 'ORDER_NOT_FOUND', message: 'Order not found' });
 
     // Idempotent: already-confirmed orders return success without re-enqueuing.
     if (order.status !== OrderStatus.pending) {
@@ -623,7 +651,11 @@ export class OrdersService {
         vendorName: order.vendor?.businessName,
         totalPence: order.totalPence,
         scheduledFor: order.scheduledFor?.toISOString() ?? null,
-        items: order.items.map((it) => ({ name: it.nameSnapshot, qty: it.quantity, pricePence: it.unitPence })),
+        items: order.items.map((it) => ({
+          name: it.nameSnapshot,
+          qty: it.quantity,
+          pricePence: it.unitPence,
+        })),
       },
       { jobId: `order_confirmation:${orderId}` },
     );
@@ -636,9 +668,13 @@ export class OrdersService {
 
   async updateStatus(orderId: string, dto: UpdateOrderStatusDto, user: AuthUser) {
     const order = await this.repo.findByIdWithItems(orderId);
-    if (!order) throw new NotFoundException({ code: 'ORDER_NOT_FOUND', message: 'Order not found' });
+    if (!order)
+      throw new NotFoundException({ code: 'ORDER_NOT_FOUND', message: 'Order not found' });
     if (dto.status === order.status) {
-      throw new BadRequestException({ code: 'NO_STATUS_CHANGE', message: `Order already ${order.status}` });
+      throw new BadRequestException({
+        code: 'NO_STATUS_CHANGE',
+        message: `Order already ${order.status}`,
+      });
     }
 
     const isAdmin = user.role === UserRole.admin;
@@ -652,7 +688,10 @@ export class OrdersService {
       return this.applyAdminTerminal(order.id, order.status, dto);
     }
     if (!canVendorAct) {
-      throw new ForbiddenException({ code: 'NOT_ORDER_VENDOR', message: 'Only the owning vendor (or admin) may update this order' });
+      throw new ForbiddenException({
+        code: 'NOT_ORDER_VENDOR',
+        message: 'Only the owning vendor (or admin) may update this order',
+      });
     }
     if (!isVendorTransitionAllowed(order.status, dto.status)) {
       throw new BadRequestException({
@@ -663,7 +702,11 @@ export class OrdersService {
     return this.applyVendorTransition(order.id, order.status, dto);
   }
 
-  private async applyVendorTransition(orderId: string, from: OrderStatus, dto: UpdateOrderStatusDto) {
+  private async applyVendorTransition(
+    orderId: string,
+    from: OrderStatus,
+    dto: UpdateOrderStatusDto,
+  ) {
     // Snapshot the immutable order fields once - used below to enqueue
     // customer-facing notifications without re-fetching after the CAS.
     const snap = await this.repo.findByIdWithItems(orderId);
@@ -719,7 +762,9 @@ export class OrdersService {
         const job = await this.safeGetJob(`auto_cancel:${orderId}`);
         if (job) await job.remove();
       } catch (e) {
-        this.logger.warn(`Could not remove auto_cancel job for ${orderId}: ${(e as Error).message}`);
+        this.logger.warn(
+          `Could not remove auto_cancel job for ${orderId}: ${(e as Error).message}`,
+        );
       }
       if (snap) {
         await this.safeEnqueue(
@@ -737,7 +782,8 @@ export class OrdersService {
     }
 
     if (dto.status === OrderStatus.dispatched && snap) {
-      const etaAt = dto.etaMinutes != null ? new Date(now.getTime() + dto.etaMinutes * 60_000) : null;
+      const etaAt =
+        dto.etaMinutes != null ? new Date(now.getTime() + dto.etaMinutes * 60_000) : null;
       const etaText = etaAt
         ? etaAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
         : snap.scheduledFor
@@ -767,9 +813,9 @@ export class OrdersService {
     }
 
     // Vendor-driven terminal pre-prep exits: pending → cancelled (legacy
-     // path) and the new pending|needs_clarification → rejected path. Both
-     // need to release the Stripe authorisation and refund any loyalty
-     // points that were redeemed against the order.
+    // path) and the new pending|needs_clarification → rejected path. Both
+    // need to release the Stripe authorisation and refund any loyalty
+    // points that were redeemed against the order.
     const isVendorReject =
       dto.status === OrderStatus.rejected &&
       (from === OrderStatus.pending || from === OrderStatus.needs_clarification);
@@ -811,11 +857,7 @@ export class OrdersService {
         // here must not roll back the delivered transition itself.
         let pointsEarned = 0;
         try {
-          pointsEarned = await this.loyalty.creditPoints(
-            snap.customerId,
-            orderId,
-            snap.totalPence,
-          );
+          pointsEarned = await this.loyalty.creditPoints(snap.customerId, orderId, snap.totalPence);
         } catch (e) {
           this.logger.error(`creditPoints failed for ${orderId}: ${(e as Error).message}`);
         }
@@ -846,7 +888,8 @@ export class OrdersService {
     const now = new Date();
     const data: Prisma.OrderUncheckedUpdateInput = { status: dto.status, cancelledAt: now };
     const reason = dto.cancellationReason ?? 'Admin action';
-    data.notes = dto.status === OrderStatus.refunded ? `[REFUNDED] ${reason}` : `[CANCELLED] ${reason}`;
+    data.notes =
+      dto.status === OrderStatus.refunded ? `[REFUNDED] ${reason}` : `[CANCELLED] ${reason}`;
 
     const ok = await this.repo.transitionStatus(orderId, from, data);
     if (!ok) {
@@ -862,7 +905,9 @@ export class OrdersService {
       try {
         await this.loyalty.refundRedemption(snap.customerId, orderId);
       } catch (e) {
-        this.logger.error(`refundRedemption (admin) failed for ${orderId}: ${(e as Error).message}`);
+        this.logger.error(
+          `refundRedemption (admin) failed for ${orderId}: ${(e as Error).message}`,
+        );
       }
     }
 
@@ -1035,7 +1080,8 @@ export class OrdersService {
 
   async reorder(originalOrderId: string, customerId: string, overrides: ReorderDto) {
     const original = await this.repo.byCustomer(originalOrderId, customerId);
-    if (!original) throw new NotFoundException({ code: 'ORDER_NOT_FOUND', message: 'Original order not found' });
+    if (!original)
+      throw new NotFoundException({ code: 'ORDER_NOT_FOUND', message: 'Original order not found' });
 
     // Address ownership is re-validated inside createOrder(), so passing through is safe.
     const dto: CreateOrderDto = {
@@ -1101,16 +1147,16 @@ export class OrdersService {
 
   async getById(id: string, user: AuthUser) {
     const order = await this.repo.findByIdWithItems(id);
-    if (!order) throw new NotFoundException({ code: 'ORDER_NOT_FOUND', message: 'Order not found' });
+    if (!order)
+      throw new NotFoundException({ code: 'ORDER_NOT_FOUND', message: 'Order not found' });
     const isAdmin = user.role === UserRole.admin;
     const isCustomer = order.customerId === user.id;
-    const isVendor = await this.members.canActOnVendor(
-      user.id,
-      order.vendorId,
-      VENDOR_ORDER_ROLES,
-    );
+    const isVendor = await this.members.canActOnVendor(user.id, order.vendorId, VENDOR_ORDER_ROLES);
     if (!isAdmin && !isCustomer && !isVendor) {
-      throw new ForbiddenException({ code: 'ORDER_FORBIDDEN', message: 'You may not view this order' });
+      throw new ForbiddenException({
+        code: 'ORDER_FORBIDDEN',
+        message: 'You may not view this order',
+      });
     }
     // Customers must never see the internal financial breakdown (vendor payout
     // and platform commission). Vendor-team members and admins legitimately
@@ -1127,9 +1173,9 @@ export class OrdersService {
    * responses keep them. Centralised so customer-facing routes cannot
    * accidentally leak these values.
    */
-  private stripInternalFinancials<
-    T extends { vendorPayoutPence: number; commissionPence: number },
-  >(order: T): Omit<T, 'vendorPayoutPence' | 'commissionPence'> {
+  private stripInternalFinancials<T extends { vendorPayoutPence: number; commissionPence: number }>(
+    order: T,
+  ): Omit<T, 'vendorPayoutPence' | 'commissionPence'> {
     const { vendorPayoutPence: _payout, commissionPence: _commission, ...rest } = order;
     return rest;
   }
@@ -1146,7 +1192,8 @@ export class OrdersService {
    */
   async proposeAmendment(orderId: string, dto: ProposeAmendmentDto, user: AuthUser) {
     const order = await this.repo.findByIdWithItems(orderId);
-    if (!order) throw new NotFoundException({ code: 'ORDER_NOT_FOUND', message: 'Order not found' });
+    if (!order)
+      throw new NotFoundException({ code: 'ORDER_NOT_FOUND', message: 'Order not found' });
 
     if (user.role !== UserRole.admin) {
       // T010: any active vendor-team member with order permissions can
@@ -1161,7 +1208,11 @@ export class OrdersService {
       }
     }
 
-    const PROPOSABLE: OrderStatus[] = [OrderStatus.accepted, OrderStatus.preparing, OrderStatus.dispatched];
+    const PROPOSABLE: OrderStatus[] = [
+      OrderStatus.accepted,
+      OrderStatus.preparing,
+      OrderStatus.dispatched,
+    ];
     if (!PROPOSABLE.includes(order.status)) {
       throw new BadRequestException({
         code: 'AMENDMENT_NOT_ALLOWED_IN_STATUS',
@@ -1242,7 +1293,8 @@ export class OrdersService {
       where: { id: orderId },
       select: { id: true, customerId: true, vendor: { select: { businessName: true } } },
     });
-    if (!order) throw new NotFoundException({ code: 'ORDER_NOT_FOUND', message: 'Order not found' });
+    if (!order)
+      throw new NotFoundException({ code: 'ORDER_NOT_FOUND', message: 'Order not found' });
     if (order.customerId !== user.id && user.role !== UserRole.admin) {
       throw new ForbiddenException({ code: 'NOT_ORDER_CUSTOMER', message: 'Not your order' });
     }
@@ -1305,7 +1357,9 @@ export class OrdersService {
       const job = await this.safeGetJob(`expire_amendment:${amendment.id}`);
       if (job) await job.remove();
     } catch (e) {
-      this.logger.warn(`Could not remove expire_amendment job for ${amendment.id}: ${(e as Error).message}`);
+      this.logger.warn(
+        `Could not remove expire_amendment job for ${amendment.id}: ${(e as Error).message}`,
+      );
     }
 
     await this.safeEnqueue(
@@ -1340,11 +1394,17 @@ export class OrdersService {
   }
 
   private encodeCursor(row: { createdAt: Date; id: string }): string {
-    return Buffer.from(JSON.stringify({ c: row.createdAt.toISOString(), id: row.id }), 'utf8').toString('base64url');
+    return Buffer.from(
+      JSON.stringify({ c: row.createdAt.toISOString(), id: row.id }),
+      'utf8',
+    ).toString('base64url');
   }
   private decodeCursor(s: string): { createdAt: Date; id: string } | undefined {
     try {
-      const obj = JSON.parse(Buffer.from(s, 'base64url').toString('utf8')) as { c: string; id: string };
+      const obj = JSON.parse(Buffer.from(s, 'base64url').toString('utf8')) as {
+        c: string;
+        id: string;
+      };
       return { createdAt: new Date(obj.c), id: obj.id };
     } catch {
       return undefined;

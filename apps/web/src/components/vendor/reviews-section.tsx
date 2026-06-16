@@ -22,13 +22,7 @@ import { useVendorReviews } from '@/hooks/use-vendors';
  * passing no limit keeps the original full-pagination behaviour for
  * standalone uses.
  */
-export function ReviewsSection({
-  vendorId,
-  limit,
-}: {
-  vendorId: string;
-  limit?: number;
-}) {
+export function ReviewsSection({ vendorId, limit }: { vendorId: string; limit?: number }) {
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, error } =
     useVendorReviews(vendorId);
 
@@ -171,7 +165,12 @@ export function ReviewsSection({
                   </div>
                   <div
                     aria-label={`${safeRating} out of 5 stars`}
-                    style={{ color: '#F6B400', fontSize: '12px', margin: '2px 0', letterSpacing: '1px' }}
+                    style={{
+                      color: '#F6B400',
+                      fontSize: '12px',
+                      margin: '2px 0',
+                      letterSpacing: '1px',
+                    }}
                   >
                     {'★'.repeat(safeRating)}
                     <span style={{ opacity: 0.3 }}>{'★'.repeat(5 - safeRating)}</span>

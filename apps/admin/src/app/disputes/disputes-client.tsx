@@ -187,11 +187,22 @@ export function DisputesClient() {
   function handleExport() {
     // CSV export is a single-page snapshot of what's currently rendered so
     // the user gets the same rows they're looking at, no surprise re-query.
-    const header = ['Created', 'Order', 'Vendor', 'Customer', 'Issue', 'Severity', 'Status', 'Order total (£)'];
+    const header = [
+      'Created',
+      'Order',
+      'Vendor',
+      'Customer',
+      'Issue',
+      'Severity',
+      'Status',
+      'Order total (£)',
+    ];
     const lines = [
       header.join(','),
       ...rows.map(({ d }) => {
-        const customerName = `${d.order.customer.firstName ?? ''} ${d.order.customer.lastName ?? ''}`.trim() || d.order.customer.email;
+        const customerName =
+          `${d.order.customer.firstName ?? ''} ${d.order.customer.lastName ?? ''}`.trim() ||
+          d.order.customer.email;
         // Pass every text cell through escapeCsv — order numbers, issue types
         // and statuses are platform-controlled today but cheap to harden.
         return [
@@ -373,7 +384,10 @@ export function DisputesClient() {
             <TableBody>
               {isLoading && (
                 <TableRow>
-                  <TableCell colSpan={10} className="py-6 text-center text-sm text-muted-foreground">
+                  <TableCell
+                    colSpan={10}
+                    className="py-6 text-center text-sm text-muted-foreground"
+                  >
                     Loading…
                   </TableCell>
                 </TableRow>
@@ -458,7 +472,8 @@ export function DisputesClient() {
 // -- helpers -----------------------------------------------------------------
 
 function DisputeTableRow({ d, sla }: { d: DisputeRow; sla: SLAStatus }) {
-  const customerName = `${d.order.customer.firstName ?? ''} ${d.order.customer.lastName ?? ''}`.trim();
+  const customerName =
+    `${d.order.customer.firstName ?? ''} ${d.order.customer.lastName ?? ''}`.trim();
   return (
     <TableRow>
       <TableCell className="text-sm">{formatDate(d.createdAt)}</TableCell>
@@ -501,12 +516,13 @@ function SLAPill({ sla }: { sla: SLAStatus }) {
 }
 
 function NameWithAvatar({ name, accent }: { name: string; accent: 'brand' | 'teal' }) {
-  const initials = name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((p) => p[0]!.toUpperCase())
-    .join('') || '?';
+  const initials =
+    name
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((p) => p[0]!.toUpperCase())
+      .join('') || '?';
   const cls = accent === 'brand' ? 'bg-brand/10 text-brand' : 'bg-teal-light text-teal-dark';
   return (
     <div className="flex items-center gap-2">
@@ -536,15 +552,30 @@ function DisputeStatsTiles({
     | undefined;
 }) {
   const tiles = [
-    { label: 'Total disputes', value: stats?.total ?? 0, format: 'number' as const, showDelta: true },
-    { label: 'Overdue', value: stats?.overdue ?? 0, format: 'number' as const, tone: 'danger' as const },
+    {
+      label: 'Total disputes',
+      value: stats?.total ?? 0,
+      format: 'number' as const,
+      showDelta: true,
+    },
+    {
+      label: 'Overdue',
+      value: stats?.overdue ?? 0,
+      format: 'number' as const,
+      tone: 'danger' as const,
+    },
     {
       label: 'Breaching soon',
       value: stats?.breachingSoon ?? 0,
       format: 'number' as const,
       tone: 'warning' as const,
     },
-    { label: 'In progress', value: stats?.inProgress ?? 0, format: 'number' as const, tone: 'info' as const },
+    {
+      label: 'In progress',
+      value: stats?.inProgress ?? 0,
+      format: 'number' as const,
+      tone: 'info' as const,
+    },
     {
       label: 'Total disputed value',
       value: stats?.totalDisputedValuePence ?? 0,
@@ -578,11 +609,7 @@ function DisputeStatsTiles({
 function DeltaBadge({ pct }: { pct: number }) {
   const up = pct > 0;
   const flat = pct === 0;
-  const cls = flat
-    ? 'text-muted-foreground'
-    : up
-      ? 'text-red-700'
-      : 'text-teal-dark';
+  const cls = flat ? 'text-muted-foreground' : up ? 'text-red-700' : 'text-teal-dark';
   const Icon = flat ? null : up ? TrendingUp : TrendingDown;
   return (
     <div className={`mt-2 inline-flex items-center gap-1 text-xs font-medium ${cls}`}>

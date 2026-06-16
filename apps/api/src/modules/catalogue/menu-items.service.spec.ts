@@ -12,8 +12,20 @@ describe('MenuItemsService allergen + tag helpers', () => {
     it('accepts all 14 FSA allergens', () => {
       expect(() =>
         MenuItemsService.validateAllergens([
-          'celery', 'gluten', 'crustaceans', 'eggs', 'fish', 'lupin', 'milk',
-          'molluscs', 'mustard', 'peanuts', 'sesame', 'soybeans', 'sulphites', 'tree_nuts',
+          'celery',
+          'gluten',
+          'crustaceans',
+          'eggs',
+          'fish',
+          'lupin',
+          'milk',
+          'molluscs',
+          'mustard',
+          'peanuts',
+          'sesame',
+          'soybeans',
+          'sulphites',
+          'tree_nuts',
         ]),
       ).not.toThrow();
     });
@@ -24,7 +36,10 @@ describe('MenuItemsService allergen + tag helpers', () => {
         fail('expected throw');
       } catch (err) {
         expect(err).toBeInstanceOf(BadRequestException);
-        const body = (err as BadRequestException).getResponse() as { code: string; message: string };
+        const body = (err as BadRequestException).getResponse() as {
+          code: string;
+          message: string;
+        };
         expect(body.code).toBe('INVALID_ALLERGEN');
         expect(body.message).toContain('unicorn-tears');
       }
@@ -33,11 +48,16 @@ describe('MenuItemsService allergen + tag helpers', () => {
 
   describe('validateDietaryFlags', () => {
     it('rejects unknown flag', () => {
-      expect(() => MenuItemsService.validateDietaryFlags(['vegan', 'paleo'])).toThrow(BadRequestException);
+      expect(() => MenuItemsService.validateDietaryFlags(['vegan', 'paleo'])).toThrow(
+        BadRequestException,
+      );
     });
 
     it('accepts known flags', () => {
-      expect(MenuItemsService.validateDietaryFlags(['vegan', 'gluten_free'])).toEqual(['vegan', 'gluten_free']);
+      expect(MenuItemsService.validateDietaryFlags(['vegan', 'gluten_free'])).toEqual([
+        'vegan',
+        'gluten_free',
+      ]);
     });
   });
 
@@ -49,7 +69,9 @@ describe('MenuItemsService allergen + tag helpers', () => {
         spiceLevel: 2,
         portionLabel: 'family',
       });
-      expect(tags).toEqual(expect.arrayContaining(['vegan', 'gluten_free', 'halal', 'spice:2', 'portion:family']));
+      expect(tags).toEqual(
+        expect.arrayContaining(['vegan', 'gluten_free', 'halal', 'spice:2', 'portion:family']),
+      );
     });
 
     it('omits absent fields cleanly', () => {

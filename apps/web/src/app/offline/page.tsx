@@ -91,9 +91,7 @@ export default function OfflinePage() {
       {vendors.length > 0 && (
         <section className="w-full space-y-2 rounded-2xl border border-cream-deep bg-white p-4 text-left shadow-sm">
           <h2 className="text-sm font-bold text-charcoal">Last seen vendors</h2>
-          <p className="text-[11px] text-charcoal-mid">
-            From your last visit - may be outdated.
-          </p>
+          <p className="text-[11px] text-charcoal-mid">From your last visit - may be outdated.</p>
           <ul className="divide-y divide-cream-deep">
             {vendors.map((v) => (
               <li key={v.id} className="py-2 text-sm">
@@ -119,7 +117,11 @@ export default function OfflinePage() {
                 <Link href={`/orders/${o.id}/tracking`} className="block hover:underline">
                   <strong>#{o.orderNumber}</strong>
                   {o.vendorName && <span className="text-charcoal-mid"> - {o.vendorName}</span>}
-                  {o.status && <span className="ml-2 rounded-full bg-brand-light px-2 py-0.5 text-[11px] font-bold capitalize text-brand-dark">{o.status}</span>}
+                  {o.status && (
+                    <span className="ml-2 rounded-full bg-brand-light px-2 py-0.5 text-[11px] font-bold capitalize text-brand-dark">
+                      {o.status}
+                    </span>
+                  )}
                 </Link>
               </li>
             ))}

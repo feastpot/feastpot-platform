@@ -6,7 +6,15 @@ import { apiRequest } from '@/lib/api/client';
 import { useAccessToken } from '@/lib/auth/use-access-token';
 import { API_URL } from '@/lib/env';
 
-export type ItemCategory = 'tray' | 'soup' | 'protein' | 'swallow' | 'snack' | 'frozen' | 'bundle' | 'event';
+export type ItemCategory =
+  | 'tray'
+  | 'soup'
+  | 'protein'
+  | 'swallow'
+  | 'snack'
+  | 'frozen'
+  | 'bundle'
+  | 'event';
 
 export interface MenuItem {
   id: string;
@@ -195,7 +203,13 @@ export function useUploadItemImage(vendorId: string, menuId: string) {
   const { token } = useAccessToken();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ itemId, file }: { itemId: string; file: File }): Promise<UploadedImage> => {
+    mutationFn: async ({
+      itemId,
+      file,
+    }: {
+      itemId: string;
+      file: File;
+    }): Promise<UploadedImage> => {
       if (!ALLOWED.has(file.type)) {
         throw new Error(`Unsupported image type ${file.type}; use JPEG/PNG/WebP`);
       }

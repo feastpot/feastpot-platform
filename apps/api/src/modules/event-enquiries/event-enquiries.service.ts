@@ -72,7 +72,10 @@ export class EventEnquiriesService {
       where.customerId = user.id;
     } else if (user.role === UserRole.vendor) {
       // Vendor sees enquiries where they were matched OR they submitted a quote.
-      const vendor = await this.prisma.vendor.findUnique({ where: { userId: user.id }, select: { id: true } });
+      const vendor = await this.prisma.vendor.findUnique({
+        where: { userId: user.id },
+        select: { id: true },
+      });
       if (!vendor) return [];
       where.OR = [
         { matchedVendorIds: { has: vendor.id } },
@@ -175,7 +178,11 @@ export class EventEnquiriesService {
       where,
       orderBy: { createdAt: 'desc' },
       include: {
-        quotes: { include: { vendor: { select: { id: true, businessName: true, slug: true, rating: true } } } },
+        quotes: {
+          include: {
+            vendor: { select: { id: true, businessName: true, slug: true, rating: true } },
+          },
+        },
         selectedVendor: { select: { id: true, businessName: true, slug: true } },
         // Customer PII included so customer surfaces can render a
         // human-readable enquirer name. Vendors must NOT receive this - we
@@ -189,7 +196,10 @@ export class EventEnquiriesService {
     // competitors' pricing or vendor identity. Strip customer PII too so the
     // marketplace stays neutral pre-booking.
     if (user.role === UserRole.vendor) {
-      const vendor = await this.prisma.vendor.findUnique({ where: { userId: user.id }, select: { id: true } });
+      const vendor = await this.prisma.vendor.findUnique({
+        where: { userId: user.id },
+        select: { id: true },
+      });
       const vid = vendor?.id;
       return rows.map(({ customer: _customer, ...r }) => ({
         ...r,
@@ -220,7 +230,11 @@ export class EventEnquiriesService {
       where: { id },
       include: {
         quotes: {
-          include: { vendor: { select: { id: true, businessName: true, slug: true, rating: true, ratingCount: true } } },
+          include: {
+            vendor: {
+              select: { id: true, businessName: true, slug: true, rating: true, ratingCount: true },
+            },
+          },
         },
         selectedVendor: { select: { id: true, businessName: true, slug: true } },
       },
@@ -232,7 +246,10 @@ export class EventEnquiriesService {
       return enquiry;
     }
     if (user.role === UserRole.vendor) {
-      const vendor = await this.prisma.vendor.findUnique({ where: { userId: user.id }, select: { id: true } });
+      const vendor = await this.prisma.vendor.findUnique({
+        where: { userId: user.id },
+        select: { id: true },
+      });
       if (!vendor) throw new ForbiddenException();
       const matched = enquiry.matchedVendorIds.includes(vendor.id);
       const quoted = enquiry.quotes.some((q) => q.vendorId === vendor.id);
@@ -306,7 +323,8 @@ export class EventEnquiriesService {
     for (const v of vendors) {
       const cfg = v.deliveryConfig;
       const radiusMiles = cfg?.localRadiusMiles ?? 5;
-      const vendorPostcode = (cfg?.postcodes?.[0] ?? this.parsePostcodeFromAddress(cfg?.collectionAddress ?? null));
+      const vendorPostcode =
+        cfg?.postcodes?.[0] ?? this.parsePostcodeFromAddress(cfg?.collectionAddress ?? null);
       if (!vendorPostcode || enquiryGeo.latitude == null || enquiryGeo.longitude == null) {
         // If we can't compute distance, fall back to "matched" so we don't
         // accidentally exclude every vendor when geocoding fails.
@@ -360,7 +378,10 @@ export class EventEnquiriesService {
   // ---------------------------------------------------------------------------
 
   async submitQuote(enquiryId: string, user: AuthUser, dto: SubmitQuoteDto) {
-    const vendor = await this.prisma.vendor.findUnique({ where: { userId: user.id }, select: { id: true } });
+    const vendor = await this.prisma.vendor.findUnique({
+      where: { userId: user.id },
+      select: { id: true },
+    });
     if (!vendor) throw new ForbiddenException('No vendor profile');
 
     const enquiry = await this.prisma.eventEnquiry.findUnique({ where: { id: enquiryId } });
@@ -447,7 +468,9 @@ export class EventEnquiriesService {
       throw new BadRequestException('Enquiry already confirmed');
     }
 
-    const quote = enquiry.quotes.find((q) => q.vendorId === dto.vendorId && q.status === QuoteStatus.submitted);
+    const quote = enquiry.quotes.find(
+      (q) => q.vendorId === dto.vendorId && q.status === QuoteStatus.submitted,
+    );
     if (!quote) throw new BadRequestException('No submitted quote from that vendor');
 
     const baseTotal = quote.perHeadPence * enquiry.guestCount + quote.deliveryFeePence;
@@ -462,7 +485,9 @@ export class EventEnquiriesService {
     // Already reserved with a *different* vendor - caller must explicitly
     // release before switching (no automatic flip during pending payment).
     if (enquiry.depositPiId && enquiry.vendorId && enquiry.vendorId !== dto.vendorId) {
-      throw new BadRequestException('A deposit is already pending for another vendor on this enquiry');
+      throw new BadRequestException(
+        'A deposit is already pending for another vendor on this enquiry',
+      );
     }
 
     // Stripe idempotency key prevents duplicate PIs on network retry.
@@ -487,10 +512,14 @@ export class EventEnquiriesService {
         const winner = await this.stripe.retrieve(fresh.depositPiId);
         return { enquiry: fresh, clientSecret: winner.client_secret, depositPence };
       }
-      await this.stripe.cancel(pi.id).catch((e) =>
-        this.logger.warn(`failed to cancel orphan deposit PI ${pi.id}: ${(e as Error).message}`),
+      await this.stripe
+        .cancel(pi.id)
+        .catch((e) =>
+          this.logger.warn(`failed to cancel orphan deposit PI ${pi.id}: ${(e as Error).message}`),
+        );
+      throw new BadRequestException(
+        'A deposit is already pending for another vendor on this enquiry',
       );
-      throw new BadRequestException('A deposit is already pending for another vendor on this enquiry');
     }
 
     const updated = await this.prisma.eventEnquiry.findUnique({
@@ -568,7 +597,9 @@ export class EventEnquiriesService {
 
     const finalTotal = accepted.perHeadPence * dto.guestCount + accepted.deliveryFeePence;
     const depositPct = accepted.minDepositPct || DEFAULT_DEPOSIT_PCT;
-    const depositPaid = Math.round((accepted.perHeadPence * enquiry.guestCount + accepted.deliveryFeePence) * depositPct / 100);
+    const depositPaid = Math.round(
+      ((accepted.perHeadPence * enquiry.guestCount + accepted.deliveryFeePence) * depositPct) / 100,
+    );
     const balancePence = Math.max(0, finalTotal - depositPaid);
 
     let balancePiId = enquiry.balancePiId;
@@ -585,10 +616,17 @@ export class EventEnquiriesService {
         data: { balancePiId: pi.id },
       });
       if (claim.count === 0) {
-        await this.stripe.cancel(pi.id).catch((e) =>
-          this.logger.warn(`failed to cancel orphaned balance PI ${pi.id}: ${(e as Error).message}`),
-        );
-        const fresh = await this.prisma.eventEnquiry.findUnique({ where: { id: enquiryId }, select: { balancePiId: true } });
+        await this.stripe
+          .cancel(pi.id)
+          .catch((e) =>
+            this.logger.warn(
+              `failed to cancel orphaned balance PI ${pi.id}: ${(e as Error).message}`,
+            ),
+          );
+        const fresh = await this.prisma.eventEnquiry.findUnique({
+          where: { id: enquiryId },
+          select: { balancePiId: true },
+        });
         balancePiId = fresh?.balancePiId ?? null;
       } else {
         balancePiId = pi.id;
@@ -650,6 +688,8 @@ function haversineMiles(a: { lat: number; lng: number }, b: { lat: number; lng: 
   const toRad = (n: number) => (n * Math.PI) / 180;
   const dLat = toRad(b.lat - a.lat);
   const dLng = toRad(b.lng - a.lng);
-  const sa = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  const sa =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(sa));
 }

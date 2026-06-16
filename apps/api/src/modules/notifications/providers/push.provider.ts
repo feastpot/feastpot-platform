@@ -36,7 +36,10 @@ export class PushProvider {
   private readonly logger = new Logger(PushProvider.name);
   private readonly enabled: boolean;
 
-  constructor(private readonly prisma: PrismaService, config: ConfigService) {
+  constructor(
+    private readonly prisma: PrismaService,
+    config: ConfigService,
+  ) {
     const subject = config.get<string>('VAPID_SUBJECT') ?? 'mailto:hello@feastpot.co.uk';
     const publicKey = config.get<string>('VAPID_PUBLIC_KEY');
     const privateKey = config.get<string>('VAPID_PRIVATE_KEY');
@@ -57,7 +60,12 @@ export class PushProvider {
       return { delivered: 0, failed: 0 };
     }
 
-    const payload = JSON.stringify({ title: msg.title, body: msg.body, url: msg.url, icon: msg.icon });
+    const payload = JSON.stringify({
+      title: msg.title,
+      body: msg.body,
+      url: msg.url,
+      icon: msg.icon,
+    });
     let delivered = 0;
     let failed = 0;
     const stale: string[] = [];
@@ -77,7 +85,9 @@ export class PushProvider {
         if (status === 404 || status === 410) {
           stale.push(sub.id);
         } else {
-          this.logger.warn(`Push failed (status=${status ?? '?'}) endpoint=${sub.endpoint.slice(0, 50)}…`);
+          this.logger.warn(
+            `Push failed (status=${status ?? '?'}) endpoint=${sub.endpoint.slice(0, 50)}…`,
+          );
         }
       }
     }

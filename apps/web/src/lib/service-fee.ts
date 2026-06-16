@@ -8,10 +8,7 @@
 export const SERVICE_FEE_MIN_PENCE = 50;
 export const SERVICE_FEE_MAX_PENCE = 299;
 
-export function calcServiceFeePence(
-  subtotalPence: number,
-  bps: number | null | undefined,
-): number {
+export function calcServiceFeePence(subtotalPence: number, bps: number | null | undefined): number {
   if (!bps || bps <= 0) return 0;
   const raw = Math.round((subtotalPence * bps) / 10_000);
   return Math.max(SERVICE_FEE_MIN_PENCE, Math.min(SERVICE_FEE_MAX_PENCE, raw));

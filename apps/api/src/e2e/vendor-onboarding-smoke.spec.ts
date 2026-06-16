@@ -38,8 +38,7 @@ const REQUIRED_ENV = [
   'TEST_ADMIN_EMAIL',
   'TEST_ADMIN_PASSWORD',
 ] as const;
-const ANON_KEY =
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY;
+const ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY;
 const missing = [
   ...REQUIRED_ENV.filter((k) => !process.env[k]),
   ...(ANON_KEY ? [] : ['NEXT_PUBLIC_SUPABASE_ANON_KEY']),
@@ -47,9 +46,7 @@ const missing = [
 const d = missing.length > 0 ? describe.skip : describe;
 if (missing.length > 0) {
   // eslint-disable-next-line no-console
-  console.warn(
-    `[vendor-onboarding-smoke] skipping: missing env ${missing.join(', ')}`,
-  );
+  console.warn(`[vendor-onboarding-smoke] skipping: missing env ${missing.join(', ')}`);
 }
 
 const TEST_VENDOR_EMAIL = `smoke-vendor-${Date.now()}@test.feastpot.co.uk`;

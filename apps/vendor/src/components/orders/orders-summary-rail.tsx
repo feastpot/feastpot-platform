@@ -21,7 +21,11 @@ interface Props {
   onQuickFilterChange: (filter: QuickFilter) => void;
 }
 
-const SUMMARY_ROWS: Array<{ status: VendorOrderStatus; label: string; tone: 'pending' | 'preparing' | 'dispatched' | 'delivered' }> = [
+const SUMMARY_ROWS: Array<{
+  status: VendorOrderStatus;
+  label: string;
+  tone: 'pending' | 'preparing' | 'dispatched' | 'delivered';
+}> = [
   { status: 'pending', label: 'Pending', tone: 'pending' },
   { status: 'preparing', label: 'Preparing', tone: 'preparing' },
   { status: 'dispatched', label: 'Dispatched', tone: 'dispatched' },
@@ -97,7 +101,10 @@ export function OrdersSummaryRail({
                   )}
                 >
                   <span className="flex min-w-0 items-center gap-2">
-                    <span aria-hidden className={cn('h-1.5 w-1.5 rounded-full', DOT_TONE[row.tone])} />
+                    <span
+                      aria-hidden
+                      className={cn('h-1.5 w-1.5 rounded-full', DOT_TONE[row.tone])}
+                    />
                     <span className="truncate">{row.label}</span>
                   </span>
                   <span className="text-xs font-semibold tabular-nums">{count}</span>
@@ -112,8 +119,16 @@ export function OrdersSummaryRail({
         <h2 className="text-sm font-bold text-dark">Today at a glance</h2>
         <dl className="mt-3 space-y-2.5">
           <StatRow Icon={ClipboardList} label="Orders today" value={String(ordersToday)} />
-          <StatRow Icon={PoundSterling} label="Scheduled value" value={formatMoney(scheduledValuePence)} />
-          <StatRow Icon={Sparkles} label="Avg order value" value={formatMoney(avgOrderValuePence)} />
+          <StatRow
+            Icon={PoundSterling}
+            label="Scheduled value"
+            value={formatMoney(scheduledValuePence)}
+          />
+          <StatRow
+            Icon={Sparkles}
+            label="Avg order value"
+            value={formatMoney(avgOrderValuePence)}
+          />
         </dl>
       </section>
 
@@ -147,7 +162,15 @@ export function OrdersSummaryRail({
   );
 }
 
-function StatRow({ Icon, label, value }: { Icon: typeof PoundSterling; label: string; value: string }) {
+function StatRow({
+  Icon,
+  label,
+  value,
+}: {
+  Icon: typeof PoundSterling;
+  label: string;
+  value: string;
+}) {
   return (
     <div className="flex items-center justify-between gap-2">
       <dt className="flex items-center gap-2 text-xs text-mid">
@@ -180,13 +203,14 @@ function FilterRow({
         aria-pressed={active}
         className={cn(
           'flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm transition-colors',
-          active
-            ? 'bg-teal-light text-teal-dark'
-            : 'text-mid hover:bg-surface hover:text-dark',
+          active ? 'bg-teal-light text-teal-dark' : 'text-mid hover:bg-surface hover:text-dark',
         )}
       >
         <span className="flex min-w-0 items-center gap-2">
-          <Icon className={cn('h-3.5 w-3.5 shrink-0', active ? 'text-teal' : 'text-mid')} aria-hidden />
+          <Icon
+            className={cn('h-3.5 w-3.5 shrink-0', active ? 'text-teal' : 'text-mid')}
+            aria-hidden
+          />
           <span className="truncate">{label}</span>
         </span>
         <span className="text-xs font-semibold tabular-nums">{count}</span>

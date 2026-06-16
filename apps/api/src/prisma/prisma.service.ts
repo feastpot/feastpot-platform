@@ -54,10 +54,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
       // Quiet in production: only warnings + errors are emitted to stdout.
       // Dev keeps `query` so slow-query work stays visible without extra
       // tooling.
-      log:
-        process.env.NODE_ENV === 'production'
-          ? ['warn', 'error']
-          : ['query', 'warn', 'error'],
+      log: process.env.NODE_ENV === 'production' ? ['warn', 'error'] : ['query', 'warn', 'error'],
     });
   }
 

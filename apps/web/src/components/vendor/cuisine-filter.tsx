@@ -50,7 +50,13 @@ interface Props {
   variant?: 'pills' | 'cards';
 }
 
-export function CuisineFilter({ active, href = true, onSelect, postcode, variant = 'pills' }: Props) {
+export function CuisineFilter({
+  active,
+  href = true,
+  onSelect,
+  postcode,
+  variant = 'pills',
+}: Props) {
   const current = active ?? 'All';
 
   if (variant === 'cards') {

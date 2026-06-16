@@ -38,8 +38,7 @@ export const BRAND = {
  * Hosted by the customer web app (apps/web/public/images/feastpot-logo.png).
  * Override at runtime by setting EMAIL_LOGO_URL.
  */
-const LOGO_URL =
-  process.env.EMAIL_LOGO_URL ?? 'https://feastpot.co.uk/images/feastpot-logo.png';
+const LOGO_URL = process.env.EMAIL_LOGO_URL ?? 'https://feastpot.co.uk/images/feastpot-logo.png';
 
 const FONT_STACK = `Inter,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif`;
 
@@ -107,13 +106,17 @@ export function keyValueRow(key: string, value: string, opts?: { bold?: boolean 
 }
 
 /** Itemised line table used in order-confirmation. */
-export function itemsTable(items: Array<{ name: string; qty: number; pricePence: number }>): string {
+export function itemsTable(
+  items: Array<{ name: string; qty: number; pricePence: number }>,
+): string {
   const rows = items
-    .map((it) => `<tr>
+    .map(
+      (it) => `<tr>
       <td style="padding:8px 0;border-bottom:1px solid ${BRAND.hairline};font-size:14px;color:${BRAND.ink}">${escapeHtml(it.name)}</td>
       <td style="padding:8px 0;border-bottom:1px solid ${BRAND.hairline};font-size:14px;color:${BRAND.mute};text-align:center;width:50px">×${it.qty}</td>
       <td style="padding:8px 0;border-bottom:1px solid ${BRAND.hairline};font-size:14px;color:${BRAND.ink};text-align:right;width:80px">${formatMoney(it.pricePence * it.qty)}</td>
-    </tr>`)
+    </tr>`,
+    )
     .join('');
   return `<table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;margin:12px 0">${rows}</table>`;
 }
@@ -133,7 +136,10 @@ export function formatMoney(pence: unknown): string {
  * their loose typing so callers can still embed `<strong>` etc.
  */
 export function escapeHtml(s: unknown): string {
-  return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string);
+  return String(s ?? '').replace(
+    /[&<>"']/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string,
+  );
 }
 
 function escapeAttr(s: string): string {

@@ -5,8 +5,7 @@ import { LegalTrustStrip } from '@/components/legal/legal-shell';
 
 export const metadata: Metadata = {
   title: 'Help &amp; FAQ',
-  description:
-    'Help, FAQ and contact information for Feastpot customers and vendors.',
+  description: 'Help, FAQ and contact information for Feastpot customers and vendors.',
   alternates: { canonical: '/help' },
 };
 
@@ -118,8 +117,7 @@ export default function HelpPage() {
   // Surfaced via env so support routing can change (rota handover, new number,
   // a different inbox per market) without a code deploy.
   const whatsapp = process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP ?? '+447000000000';
-  const supportEmail =
-    process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? 'support@feastpot.co.uk';
+  const supportEmail = process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? 'support@feastpot.co.uk';
   // wa.me requires the digits-only form (no +, no spaces).
   const whatsappDigits = whatsapp.replace(/\D/g, '');
 
@@ -134,8 +132,8 @@ export default function HelpPage() {
           How can we help?
         </h1>
         <p className="mt-3 text-sm font-medium leading-relaxed text-charcoal-mid md:text-base">
-          Most answers are below. If you can&rsquo;t find what you need, our
-          support team is happy to help.
+          Most answers are below. If you can&rsquo;t find what you need, our support team is happy
+          to help.
         </p>
       </header>
 
@@ -234,8 +232,8 @@ export default function HelpPage() {
           Raise a dispute
         </h2>
         <p className="mt-2 text-sm leading-relaxed text-white/90">
-          Open the order page and tap &ldquo;Raise a dispute&rdquo;. We resolve
-          disputes within one working day.
+          Open the order page and tap &ldquo;Raise a dispute&rdquo;. We resolve disputes within one
+          working day.
         </p>
         <Link
           href="/orders"

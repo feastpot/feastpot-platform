@@ -13,10 +13,7 @@ import {
 import { useEffect, useState } from 'react';
 
 import { useToast } from '@/components/ui/toaster';
-import {
-  useRecoveryCodeStatus,
-  useRegenerateRecoveryCodes,
-} from '@/hooks/use-mfa-recovery-codes';
+import { useRecoveryCodeStatus, useRegenerateRecoveryCodes } from '@/hooks/use-mfa-recovery-codes';
 import { createClient } from '@/lib/supabase/client';
 
 /**
@@ -145,9 +142,7 @@ export function SecuritySection() {
       toast({
         title: 'Recovery codes not generated',
         description:
-          e instanceof Error
-            ? e.message
-            : 'You can generate them manually from this card.',
+          e instanceof Error ? e.message : 'You can generate them manually from this card.',
         variant: 'destructive',
       });
     }
@@ -219,9 +214,8 @@ export function SecuritySection() {
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Two-factor authentication adds a one-time code (TOTP) on top of your
-            password. Use Google Authenticator, 1Password, Authy or any compatible
-            app.
+            Two-factor authentication adds a one-time code (TOTP) on top of your password. Use
+            Google Authenticator, 1Password, Authy or any compatible app.
           </p>
 
           {loading ? (
@@ -270,8 +264,8 @@ function OffState({ enrolling, onEnable }: { enrolling: boolean; onEnable: () =>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-amber-900">2FA is off</p>
           <p className="mt-1 text-sm text-amber-900/80">
-            Anyone with your email and password can sign in. Enable 2FA so a stolen
-            password is not enough on its own.
+            Anyone with your email and password can sign in. Enable 2FA so a stolen password is not
+            enough on its own.
           </p>
           <div className="mt-3">
             <Button
@@ -334,8 +328,8 @@ function ActiveState({
           <h3 className="text-sm font-semibold">Recovery codes</h3>
         </div>
         <p className="mt-2 text-sm text-muted-foreground">
-          If you lose your authenticator, a recovery code lets you sign in and
-          remove 2FA. Each code works exactly once.
+          If you lose your authenticator, a recovery code lets you sign in and remove 2FA. Each code
+          works exactly once.
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <span className="text-sm">
@@ -352,8 +346,7 @@ function ActiveState({
         {lowCodes ? (
           <div className="mt-3 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
             <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-            You are running low on recovery codes. Generate a new set so you do
-            not get locked out.
+            You are running low on recovery codes. Generate a new set so you do not get locked out.
           </div>
         ) : null}
       </div>
@@ -398,9 +391,8 @@ function PendingState({
 
       <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
         <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-        After you verify the code below, we will show you 10 single-use recovery
-        codes. Save them somewhere safe — they are the only way back in without
-        contacting engineering.
+        After you verify the code below, we will show you 10 single-use recovery codes. Save them
+        somewhere safe — they are the only way back in without contacting engineering.
       </div>
 
       <div>
@@ -487,8 +479,7 @@ function RecoveryCodesModal({ codes, onClose }: { codes: string[]; onClose: () =
           Your recovery codes
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Save these somewhere safe. We will not show them again. Each code works
-          exactly once.
+          Save these somewhere safe. We will not show them again. Each code works exactly once.
         </p>
 
         <ul className="mt-4 grid grid-cols-2 gap-2 rounded-md border border-border bg-muted/40 p-3 font-mono text-sm tracking-wider">

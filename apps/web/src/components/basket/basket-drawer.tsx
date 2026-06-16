@@ -199,11 +199,7 @@ function BasketLine({
     <li className="flex gap-3 px-4 py-3">
       {item.imageUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={item.imageUrl}
-          alt=""
-          className="h-16 w-16 shrink-0 rounded-xl object-cover"
-        />
+        <img src={item.imageUrl} alt="" className="h-16 w-16 shrink-0 rounded-xl object-cover" />
       ) : (
         <div className="h-16 w-16 shrink-0 rounded-xl bg-cream" aria-hidden />
       )}
@@ -316,9 +312,7 @@ function EmptyState({ onClose }: { onClose: () => void }) {
         <ShoppingBasket className="h-8 w-8 text-brand" aria-hidden />
       </span>
       <h3 className="font-display text-lg font-black text-charcoal">Your basket is empty</h3>
-      <p className="text-sm font-medium text-charcoal-mid">
-        Find a local cook to get started.
-      </p>
+      <p className="text-sm font-medium text-charcoal-mid">Find a local cook to get started.</p>
       <Link
         href="/vendors"
         onClick={onClose}

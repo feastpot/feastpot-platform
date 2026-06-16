@@ -38,25 +38,21 @@ export function HowFeastpotWorks() {
       aria-labelledby="how-it-works-heading"
       className="mx-auto max-w-6xl scroll-mt-24 px-4 pt-14 sm:px-6 lg:px-8 lg:pt-20"
     >
-      <p className="text-[11px] font-black uppercase tracking-[0.18em] text-brand">
-        Reduce effort
-      </p>
+      <p className="text-[11px] font-black uppercase tracking-[0.18em] text-brand">Reduce effort</p>
       <h2
         id="how-it-works-heading"
         className="mt-1 font-display text-[26px] font-black leading-tight text-charcoal sm:text-3xl"
       >
-        How{' '}
-        <span className="text-brand">F</span>
+        How <span className="text-brand">F</span>
         <span className="text-plantain">e</span>
         <span className="text-scotch">a</span>
         <span className="text-brand">s</span>
         <span className="text-plantain">t</span>
-        <span className="text-charcoal">Pot</span>{' '}
-        works
+        <span className="text-charcoal">Pot</span> works
       </h2>
       <p className="mt-1 max-w-2xl text-[14px] font-medium text-charcoal-mid">
-        No guessing who delivers to you. Enter your postcode first, then browse
-        cooks available in your area.
+        No guessing who delivers to you. Enter your postcode first, then browse cooks available in
+        your area.
       </p>
 
       <ol className="mt-7 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5 lg:gap-4">
@@ -75,9 +71,7 @@ export function HowFeastpotWorks() {
               <p className="font-display text-[14px] font-black leading-snug text-charcoal">
                 {title}
               </p>
-              <p className="mt-1 text-[12.5px] font-medium leading-snug text-charcoal-mid">
-                {sub}
-              </p>
+              <p className="mt-1 text-[12.5px] font-medium leading-snug text-charcoal-mid">{sub}</p>
             </div>
           </li>
         ))}

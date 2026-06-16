@@ -31,9 +31,7 @@ const NAV_LINKS = [
 ] as const;
 
 export function MarketingNav() {
-  const itemCount = useBasketStore((s) =>
-    s.items.reduce((acc, i) => acc + i.quantity, 0),
-  );
+  const itemCount = useBasketStore((s) => s.items.reduce((acc, i) => acc + i.quantity, 0));
   // Guests get sent straight to `/sign-in` instead of the `/account`
   // guest hub - the hub itself is just a benefits welcome with another
   // big "Sign in" button, so reusing it here makes the flow feel like
@@ -48,11 +46,7 @@ export function MarketingNav() {
       className="sticky top-0 z-50 border-b border-cream-deep bg-white/95 backdrop-blur"
     >
       <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3 sm:px-6 lg:px-8">
-        <Link
-          href="/"
-          aria-label="Feastpot home"
-          className="flex shrink-0 items-center"
-        >
+        <Link href="/" aria-label="Feastpot home" className="flex shrink-0 items-center">
           <Image
             src="/images/feastpot-logo.png"
             alt="Feastpot"

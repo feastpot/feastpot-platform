@@ -34,11 +34,7 @@ const CUISINES = [
 const KITCHEN_TYPES = ['Home cook', 'Caterer', 'Restaurant'] as const;
 type KitchenType = (typeof KITCHEN_TYPES)[number];
 
-const BENEFITS = [
-  'Reach customers near you',
-  'Set your delivery radius',
-  'Get paid every week',
-];
+const BENEFITS = ['Reach customers near you', 'Set your delivery radius', 'Get paid every week'];
 
 const STEPS = [
   { n: 1, label: 'Apply', sub: 'Tell us about you and your kitchen' },
@@ -81,15 +77,12 @@ export default function VendorRegisterInterestPage() {
     if (!form.fullName.trim()) e.fullName = 'Required';
     if (!form.kitchenName.trim()) e.kitchenName = 'Required';
     if (!form.email.includes('@')) e.email = 'Enter a valid email';
-    if (form.phone.replace(/\D/g, '').length < 10)
-      e.phone = 'Enter a valid phone number';
+    if (form.phone.replace(/\D/g, '').length < 10) e.phone = 'Enter a valid phone number';
     if (!form.postcode.trim()) e.postcode = 'Required';
     if (!form.cuisineType) e.cuisineType = 'Select a cuisine';
-    if (!form.foodStory.trim())
-      e.foodStory = 'Tell us a little about your food';
+    if (!form.foodStory.trim()) e.foodStory = 'Tell us a little about your food';
     if (!form.hasFSA) e.hasFSA = 'Please answer this question';
-    if (!form.termsAccepted)
-      e.termsAccepted = 'You must accept the Terms and Privacy Policy';
+    if (!form.termsAccepted) e.termsAccepted = 'You must accept the Terms and Privacy Policy';
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -157,8 +150,7 @@ export default function VendorRegisterInterestPage() {
             Thanks - we&rsquo;ve got it
           </h1>
           <p className="mt-2 text-sm text-charcoal-mid">
-            Our team will review your details and get back to you within 1–2
-            business days at{' '}
+            Our team will review your details and get back to you within 1–2 business days at{' '}
             <strong className="text-charcoal">{form.email}</strong>.
           </p>
           <Link
@@ -174,9 +166,7 @@ export default function VendorRegisterInterestPage() {
 
   const inputClass = (key: string) =>
     `w-full rounded-lg border bg-white px-3.5 py-3 text-sm font-medium text-charcoal placeholder:text-charcoal-mid/60 focus:outline-none focus:ring-2 focus:ring-brand/20 ${
-      errors[key]
-        ? 'border-scotch focus:border-scotch'
-        : 'border-cream-deep focus:border-brand'
+      errors[key] ? 'border-scotch focus:border-scotch' : 'border-cream-deep focus:border-brand'
     }`;
 
   return (
@@ -193,8 +183,7 @@ export default function VendorRegisterInterestPage() {
             <span className="text-brand">and grow your business</span>
           </h2>
           <p className="mt-2 text-sm leading-relaxed text-charcoal-mid">
-            Apply in a few minutes. Our team reviews every application and
-            comes back to you fast.
+            Apply in a few minutes. Our team reviews every application and comes back to you fast.
           </p>
 
           <ul className="mt-6 space-y-2.5">
@@ -204,14 +193,9 @@ export default function VendorRegisterInterestPage() {
                   className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-brand-light"
                   aria-hidden
                 >
-                  <Check
-                    className="h-3 w-3 text-brand"
-                    strokeWidth={3}
-                  />
+                  <Check className="h-3 w-3 text-brand" strokeWidth={3} />
                 </span>
-                <span className="text-[13px] leading-snug text-charcoal">
-                  {b}
-                </span>
+                <span className="text-[13px] leading-snug text-charcoal">{b}</span>
               </li>
             ))}
           </ul>
@@ -219,9 +203,7 @@ export default function VendorRegisterInterestPage() {
           {/* Step diagram: hidden on mobile to keep the aside compact -
               the bullet list above already conveys the value prop. */}
           <div className="mt-8 hidden lg:block">
-            <p className="font-display text-sm font-black text-charcoal">
-              Your onboarding journey
-            </p>
+            <p className="font-display text-sm font-black text-charcoal">Your onboarding journey</p>
             <ol className="mt-3 space-y-3">
               {STEPS.map((s) => (
                 <li key={s.n} className="flex items-start gap-3">
@@ -232,12 +214,8 @@ export default function VendorRegisterInterestPage() {
                     {s.n}
                   </span>
                   <div>
-                    <div className="text-[13px] font-bold text-charcoal">
-                      {s.label}
-                    </div>
-                    <div className="text-[12px] text-charcoal-mid">
-                      {s.sub}
-                    </div>
+                    <div className="text-[13px] font-bold text-charcoal">{s.label}</div>
+                    <div className="text-[12px] text-charcoal-mid">{s.sub}</div>
                   </div>
                 </li>
               ))}
@@ -331,9 +309,7 @@ export default function VendorRegisterInterestPage() {
                 <select
                   id="cuisineType"
                   value={form.cuisineType}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, cuisineType: e.target.value }))
-                  }
+                  onChange={(e) => setForm((f) => ({ ...f, cuisineType: e.target.value }))}
                   className={inputClass('cuisineType')}
                 >
                   <option value="">Select cuisine</option>
@@ -344,9 +320,7 @@ export default function VendorRegisterInterestPage() {
                   ))}
                 </select>
                 {errors.cuisineType && (
-                  <p className="mt-1 text-xs font-medium text-scotch">
-                    {errors.cuisineType}
-                  </p>
+                  <p className="mt-1 text-xs font-medium text-scotch">{errors.cuisineType}</p>
                 )}
               </div>
             </div>
@@ -369,9 +343,7 @@ export default function VendorRegisterInterestPage() {
                       type="button"
                       role="radio"
                       aria-checked={active}
-                      onClick={() =>
-                        setForm((f) => ({ ...f, kitchenType: k }))
-                      }
+                      onClick={() => setForm((f) => ({ ...f, kitchenType: k }))}
                       className={`min-h-11 rounded-md px-2 py-2 text-[13px] font-semibold transition-colors ${
                         active
                           ? 'bg-white text-brand shadow-card'
@@ -405,16 +377,12 @@ export default function VendorRegisterInterestPage() {
                 id="foodStory"
                 rows={4}
                 value={form.foodStory}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, foodStory: e.target.value }))
-                }
+                onChange={(e) => setForm((f) => ({ ...f, foodStory: e.target.value }))}
                 placeholder="What do you cook? What makes it special?"
                 className={inputClass('foodStory')}
               />
               {errors.foodStory && (
-                <p className="mt-1 text-xs font-medium text-scotch">
-                  {errors.foodStory}
-                </p>
+                <p className="mt-1 text-xs font-medium text-scotch">{errors.foodStory}</p>
               )}
             </div>
 
@@ -449,9 +417,7 @@ export default function VendorRegisterInterestPage() {
                 })}
               </div>
               {errors.hasFSA && (
-                <p className="mt-1 text-xs font-medium text-scotch">
-                  {errors.hasFSA}
-                </p>
+                <p className="mt-1 text-xs font-medium text-scotch">{errors.hasFSA}</p>
               )}
             </fieldset>
 
@@ -460,32 +426,22 @@ export default function VendorRegisterInterestPage() {
               <input
                 type="checkbox"
                 checked={form.termsAccepted}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, termsAccepted: e.target.checked }))
-                }
+                onChange={(e) => setForm((f) => ({ ...f, termsAccepted: e.target.checked }))}
                 className="mt-0.5 h-4 w-4 flex-shrink-0 rounded border-cream-deep accent-brand"
               />
               <span className="text-[13px] leading-snug text-charcoal-mid">
                 I agree to the{' '}
-                <Link
-                  href="/legal/terms"
-                  className="font-semibold text-brand hover:underline"
-                >
+                <Link href="/legal/terms" className="font-semibold text-brand hover:underline">
                   Terms of Service
                 </Link>{' '}
                 and{' '}
-                <Link
-                  href="/legal/privacy"
-                  className="font-semibold text-brand hover:underline"
-                >
+                <Link href="/legal/privacy" className="font-semibold text-brand hover:underline">
                   Privacy Policy
                 </Link>
               </span>
             </label>
             {errors.termsAccepted && (
-              <p className="text-xs font-medium text-scotch">
-                {errors.termsAccepted}
-              </p>
+              <p className="text-xs font-medium text-scotch">{errors.termsAccepted}</p>
             )}
 
             <button
@@ -503,10 +459,7 @@ export default function VendorRegisterInterestPage() {
 
             <p className="pt-2 text-center text-sm text-charcoal-mid">
               Already a vendor?{' '}
-              <Link
-                href="/sign-in"
-                className="font-bold text-brand hover:underline"
-              >
+              <Link href="/sign-in" className="font-bold text-brand hover:underline">
                 Sign in
               </Link>
             </p>
@@ -520,11 +473,7 @@ export default function VendorRegisterInterestPage() {
 function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen flex-col items-center bg-cream-warm px-4 py-10 sm:px-6">
-      <Link
-        href="/"
-        aria-label="Feastpot vendor home"
-        className="mb-8 inline-flex"
-      >
+      <Link href="/" aria-label="Feastpot vendor home" className="mb-8 inline-flex">
         <Image
           src="/images/feastpot-logo.png"
           alt="Feastpot"
@@ -563,10 +512,7 @@ function Field({
 }: FieldProps) {
   return (
     <div>
-      <label
-        htmlFor={id}
-        className="mb-1.5 block text-[13px] font-semibold text-charcoal"
-      >
+      <label htmlFor={id} className="mb-1.5 block text-[13px] font-semibold text-charcoal">
         {label}
       </label>
       <input
@@ -578,9 +524,7 @@ function Field({
         onChange={(e) => onChange(e.target.value)}
         className={className}
       />
-      {error && (
-        <p className="mt-1 text-xs font-medium text-scotch">{error}</p>
-      )}
+      {error && <p className="mt-1 text-xs font-medium text-scotch">{error}</p>}
     </div>
   );
 }

@@ -60,17 +60,23 @@ export class ListDisputesDto {
   @IsIn(SLA_FILTERS as readonly string[])
   sla?: SlaFilter;
 
-  @ApiPropertyOptional({ description: 'Free-text search across order number, vendor and customer name' })
+  @ApiPropertyOptional({
+    description: 'Free-text search across order number, vendor and customer name',
+  })
   @IsOptional()
   @IsString()
   q?: string;
 
-  @ApiPropertyOptional({ description: 'ISO date - include only disputes created on/after this date' })
+  @ApiPropertyOptional({
+    description: 'ISO date - include only disputes created on/after this date',
+  })
   @IsOptional()
   @IsISO8601()
   createdFrom?: string;
 
-  @ApiPropertyOptional({ description: 'ISO date - include only disputes created on/before this date (end of day UTC)' })
+  @ApiPropertyOptional({
+    description: 'ISO date - include only disputes created on/before this date (end of day UTC)',
+  })
   @IsOptional()
   @IsISO8601()
   createdTo?: string;

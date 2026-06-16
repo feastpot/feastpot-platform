@@ -1,6 +1,12 @@
 import { InjectQueue, OnQueueFailed, Process, Processor } from '@nestjs/bull';
 import { Injectable, Logger } from '@nestjs/common';
-import { AmendmentStatus, NotificationChannel, NotificationStatus, OrderStatus, Prisma } from '@prisma/client';
+import {
+  AmendmentStatus,
+  NotificationChannel,
+  NotificationStatus,
+  OrderStatus,
+  Prisma,
+} from '@prisma/client';
 import * as Sentry from '@sentry/nestjs';
 import type { Job, Queue } from 'bull';
 
@@ -8,11 +14,11 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { shouldReportQueueFailure } from '../../queues/queue-failure';
 import { NOTIFICATIONS_QUEUE } from '../../queues/queues.module';
 
+import { findPreferenceDefinition } from './notification-preferences.constants';
 import { EmailProvider } from './providers/email.provider';
 import { PushProvider } from './providers/push.provider';
 import { SmsProvider } from './providers/sms.provider';
 import { WhatsappProvider } from './providers/whatsapp.provider';
-import { findPreferenceDefinition } from './notification-preferences.constants';
 import { getTemplate, type Channel } from './templates';
 
 /**
@@ -157,13 +163,31 @@ export class NotificationProcessor {
         });
         if (ok) {
           sent.push(channel);
-          await this.recordNotification(user.id, channel, eventName, subject, html, NotificationStatus.sent, data);
+          await this.recordNotification(
+            user.id,
+            channel,
+            eventName,
+            subject,
+            html,
+            NotificationStatus.sent,
+            data,
+          );
         } else {
           skipped.push(channel);
         }
       } catch (e) {
-        this.logger.error(`Channel ${channel} failed for event "${eventName}": ${(e as Error).message}`);
-        await this.recordNotification(user.id, channel, eventName, subject, html, NotificationStatus.failed, data);
+        this.logger.error(
+          `Channel ${channel} failed for event "${eventName}": ${(e as Error).message}`,
+        );
+        await this.recordNotification(
+          user.id,
+          channel,
+          eventName,
+          subject,
+          html,
+          NotificationStatus.failed,
+          data,
+        );
         // Re-throw so BullMQ retries the WHOLE job (all channels). Acceptable
         // because each channel's send is itself idempotent on the provider side
         // (Stripe-style: same event, same content) - duplicates are tolerable
@@ -199,10 +223,21 @@ export class NotificationProcessor {
     if (!data.orderId) return;
     const order = await this.prisma.order.findUnique({
       where: { id: data.orderId },
-      select: { id: true, status: true, customerId: true, orderNumber: true, etaAt: true, vendor: { select: { businessName: true } } },
+      select: {
+        id: true,
+        status: true,
+        customerId: true,
+        orderNumber: true,
+        etaAt: true,
+        vendor: { select: { businessName: true } },
+      },
     });
     if (!order) return;
-    if (order.status === OrderStatus.delivered || order.status === OrderStatus.cancelled || order.status === OrderStatus.refunded) {
+    if (
+      order.status === OrderStatus.delivered ||
+      order.status === OrderStatus.cancelled ||
+      order.status === OrderStatus.refunded
+    ) {
       return;
     }
     await this.notifications.add(
@@ -242,7 +277,9 @@ export class NotificationProcessor {
   }
 
   private resolveUserId(data: NotificationJobData): string | undefined {
-    return (data.userId ?? data.customerId ?? data.vendorUserId ?? data.recipientUserId) as string | undefined;
+    return (data.userId ?? data.customerId ?? data.vendorUserId ?? data.recipientUserId) as
+      | string
+      | undefined;
   }
 
   /**

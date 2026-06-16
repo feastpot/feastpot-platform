@@ -82,7 +82,11 @@ const QUICK_FILTERS: ReadonlyArray<QuickFilter> = [
   { value: 'auto_approved', label: 'Auto approved', toneClasses: 'bg-teal text-white' },
   { value: 'held', label: 'Held', toneClasses: 'bg-brand text-brand-foreground' },
   { value: 'approved', label: 'Approved', toneClasses: 'bg-teal text-white' },
-  { value: 'rejected', label: 'Rejected', toneClasses: 'bg-destructive text-destructive-foreground' },
+  {
+    value: 'rejected',
+    label: 'Rejected',
+    toneClasses: 'bg-destructive text-destructive-foreground',
+  },
 ];
 
 const STATUS_OPTIONS: ReadonlyArray<{ value: ModerationQueueFilter; label: string }> = [
@@ -555,8 +559,7 @@ function ReviewRowView({
   const submitted = new Date(r.createdAt);
   const cuisine = r.vendor?.cuisines?.[0] ?? null;
   const isHeld = r.moderationStatus === 'held';
-  const isApproved =
-    r.moderationStatus === 'approved' || r.moderationStatus === 'auto_approved';
+  const isApproved = r.moderationStatus === 'approved' || r.moderationStatus === 'auto_approved';
   const isRejected = r.moderationStatus === 'rejected';
 
   return (
@@ -572,11 +575,7 @@ function ReviewRowView({
           <div className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full bg-brand-light text-xs font-bold text-brand-dark">
             {r.vendor.logoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={r.vendor.logoUrl}
-                alt=""
-                className="h-full w-full object-cover"
-              />
+              <img src={r.vendor.logoUrl} alt="" className="h-full w-full object-cover" />
             ) : (
               vendorInitials
             )}
@@ -588,19 +587,13 @@ function ReviewRowView({
             >
               {r.vendor.businessName}
             </Link>
-            {cuisine && (
-              <div className="text-xs text-muted-foreground">{cuisine}</div>
-            )}
+            {cuisine && <div className="text-xs text-muted-foreground">{cuisine}</div>}
           </div>
         </div>
       </TableCell>
       <TableCell>
         <div className="flex items-center gap-1">
-          <span
-            className="text-amber-500"
-            aria-label={`${r.rating} out of 5`}
-            role="img"
-          >
+          <span className="text-amber-500" aria-label={`${r.rating} out of 5`} role="img">
             {'★'.repeat(r.rating)}
             <span className="text-muted-foreground/30">
               {'★'.repeat(Math.max(0, 5 - r.rating))}

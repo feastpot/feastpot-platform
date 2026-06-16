@@ -307,16 +307,17 @@ export function ProfileForm() {
             </Field>
           </Section>
 
-          <Section title="Social links" subtitle="Full https:// URLs only. Leave blank to hide a network.">
+          <Section
+            title="Social links"
+            subtitle="Full https:// URLs only. Leave blank to hide a network."
+          >
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {SOCIAL_KEYS.map((k) => (
                 <Field key={k} id={`social-${k}`} label={SOCIAL_LABELS[k]}>
                   <TextInput
                     id={`social-${k}`}
                     value={form.social[k]}
-                    onChange={(v) =>
-                      setForm((s) => ({ ...s, social: { ...s.social, [k]: v } }))
-                    }
+                    onChange={(v) => setForm((s) => ({ ...s, social: { ...s.social, [k]: v } }))}
                     placeholder={SOCIAL_PLACEHOLDERS[k]}
                     inputMode="url"
                   />
@@ -522,7 +523,13 @@ function ImageSlot({
         )}
       >
         {url ? (
-          <Image src={url} alt={label} fill sizes="(max-width: 640px) 100vw, 33vw" className="object-cover" />
+          <Image
+            src={url}
+            alt={label}
+            fill
+            sizes="(max-width: 640px) 100vw, 33vw"
+            className="object-cover"
+          />
         ) : (
           <ImageOff className="h-8 w-8 text-mid" aria-hidden />
         )}

@@ -37,11 +37,7 @@ export default function VendorForgotPasswordPage() {
 
   return (
     <div className="flex min-h-screen flex-col items-center bg-cream-warm px-4 py-10 sm:px-6">
-      <Link
-        href="/sign-in"
-        aria-label="Feastpot vendor home"
-        className="mb-8 inline-flex"
-      >
+      <Link href="/sign-in" aria-label="Feastpot vendor home" className="mb-8 inline-flex">
         <Image
           src="/images/feastpot-logo.png"
           alt="Feastpot"
@@ -60,9 +56,8 @@ export default function VendorForgotPasswordPage() {
             </h1>
             <p className="mt-2 text-sm text-charcoal-mid">
               If a vendor account exists for{' '}
-              <strong className="break-all text-charcoal">{email}</strong>,
-              we&rsquo;ll
-              send a link to reset your password.
+              <strong className="break-all text-charcoal">{email}</strong>, we&rsquo;ll send a link
+              to reset your password.
             </p>
             <Link
               href="/sign-in"
@@ -110,10 +105,7 @@ export default function VendorForgotPasswordPage() {
 
             <p className="mt-4 text-center text-sm text-charcoal-mid">
               Remembered it?{' '}
-              <Link
-                href="/sign-in"
-                className="font-bold text-brand hover:underline"
-              >
+              <Link href="/sign-in" className="font-bold text-brand hover:underline">
                 Back to sign in
               </Link>
             </p>

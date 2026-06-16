@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 
 import { RedisCacheService } from '../../common/cache/redis-cache.service';
+
 import { LoyaltyService } from './loyalty.service';
 
 /**

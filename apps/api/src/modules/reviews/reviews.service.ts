@@ -7,7 +7,7 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { ModerationStatus, OrderStatus, Prisma, UserRole } from '@prisma/client';
+import { ModerationStatus, OrderStatus, Prisma } from '@prisma/client';
 // Pinned to bad-words v3 (CJS). v4 is ESM-only and breaks under Nest's CJS runtime.
 import BadWordsFilter from 'bad-words';
 
@@ -23,7 +23,10 @@ import type { ModerateReviewDto } from './dto/moderate-review.dto';
 const UK_EXTRA_BADWORDS = ['wanker', 'tosser', 'twat', 'minger', 'slag'];
 
 /** A review is "published" (counts toward vendor rating) when moderation is approved/auto_approved. */
-const PUBLISHED_STATUSES: ModerationStatus[] = [ModerationStatus.auto_approved, ModerationStatus.approved];
+const PUBLISHED_STATUSES: ModerationStatus[] = [
+  ModerationStatus.auto_approved,
+  ModerationStatus.approved,
+];
 
 @Injectable()
 export class ReviewsService {
@@ -46,9 +49,13 @@ export class ReviewsService {
       where: { id: dto.orderId },
       select: { id: true, customerId: true, vendorId: true, status: true, deliveredAt: true },
     });
-    if (!order) throw new NotFoundException({ code: 'ORDER_NOT_FOUND', message: 'Order not found' });
+    if (!order)
+      throw new NotFoundException({ code: 'ORDER_NOT_FOUND', message: 'Order not found' });
     if (order.customerId !== user.id) {
-      throw new ForbiddenException({ code: 'NOT_ORDER_OWNER', message: 'You did not place this order' });
+      throw new ForbiddenException({
+        code: 'NOT_ORDER_OWNER',
+        message: 'You did not place this order',
+      });
     }
     if (order.status !== OrderStatus.delivered) {
       // 422 (not 400): the request is well-formed but the order's current
@@ -132,7 +139,12 @@ export class ReviewsService {
     const limit = dto.limit ?? 20;
     const cursor = dto.cursor ? this.decodeCursor(dto.cursor) : undefined;
     const cursorWhere: Prisma.ReviewWhereInput = cursor
-      ? { OR: [{ createdAt: { lt: cursor.createdAt } }, { createdAt: cursor.createdAt, id: { lt: cursor.id } }] }
+      ? {
+          OR: [
+            { createdAt: { lt: cursor.createdAt } },
+            { createdAt: cursor.createdAt, id: { lt: cursor.id } },
+          ],
+        }
       : {};
     const baseWhere = this.buildModerationFilters(dto);
     const rows = await this.prisma.review.findMany({
@@ -205,11 +217,15 @@ export class ReviewsService {
       const range: { gte?: Date; lte?: Date } = {};
       if (dto.submittedFrom) {
         const d = new Date(dto.submittedFrom);
-        range.gte = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 0, 0, 0, 0));
+        range.gte = new Date(
+          Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 0, 0, 0, 0),
+        );
       }
       if (dto.submittedTo) {
         const d = new Date(dto.submittedTo);
-        range.lte = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 23, 59, 59, 999));
+        range.lte = new Date(
+          Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 23, 59, 59, 999),
+        );
       }
       where.createdAt = range;
     }
@@ -242,8 +258,12 @@ export class ReviewsService {
         message: 'status must be approved, rejected, or held',
       });
     }
-    const review = await this.prisma.review.findUnique({ where: { id }, select: { id: true, vendorId: true, moderationStatus: true } });
-    if (!review) throw new NotFoundException({ code: 'REVIEW_NOT_FOUND', message: 'Review not found' });
+    const review = await this.prisma.review.findUnique({
+      where: { id },
+      select: { id: true, vendorId: true, moderationStatus: true },
+    });
+    if (!review)
+      throw new NotFoundException({ code: 'REVIEW_NOT_FOUND', message: 'Review not found' });
 
     const updated = await this.prisma.review.update({
       where: { id },
@@ -270,7 +290,9 @@ export class ReviewsService {
    * (Held / rejected reviews must never affect the public rating.)
    * Stored on Vendor.rating + Vendor.ratingCount (the existing columns).
    */
-  async recalculateVendorRating(vendorId: string): Promise<{ rating: number; ratingCount: number }> {
+  async recalculateVendorRating(
+    vendorId: string,
+  ): Promise<{ rating: number; ratingCount: number }> {
     const agg = await this.prisma.review.aggregate({
       where: { vendorId, moderationStatus: { in: PUBLISHED_STATUSES }, isHidden: false },
       _avg: { rating: true },
@@ -297,11 +319,17 @@ export class ReviewsService {
   }
 
   private encodeCursor(row: { createdAt: Date; id: string }): string {
-    return Buffer.from(JSON.stringify({ c: row.createdAt.toISOString(), id: row.id }), 'utf8').toString('base64url');
+    return Buffer.from(
+      JSON.stringify({ c: row.createdAt.toISOString(), id: row.id }),
+      'utf8',
+    ).toString('base64url');
   }
   private decodeCursor(s: string): { createdAt: Date; id: string } | undefined {
     try {
-      const obj = JSON.parse(Buffer.from(s, 'base64url').toString('utf8')) as { c: string; id: string };
+      const obj = JSON.parse(Buffer.from(s, 'base64url').toString('utf8')) as {
+        c: string;
+        id: string;
+      };
       return { createdAt: new Date(obj.c), id: obj.id };
     } catch {
       return undefined;

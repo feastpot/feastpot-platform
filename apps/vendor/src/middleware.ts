@@ -35,15 +35,11 @@ export async function middleware(request: NextRequest) {
   // that's the post-sign-up dashboard for already-registered vendors
   // setting up Stripe, menus, etc.
   const isOnboardingRegister =
-    pathname === '/onboarding/register' ||
-    pathname.startsWith('/onboarding/register/');
+    pathname === '/onboarding/register' || pathname.startsWith('/onboarding/register/');
   const isForgotPassword =
     pathname === '/forgot-password' || pathname.startsWith('/forgot-password/');
   const isPublic =
-    isSignIn ||
-    pathname === '/unauthorized' ||
-    isOnboardingRegister ||
-    isForgotPassword;
+    isSignIn || pathname === '/unauthorized' || isOnboardingRegister || isForgotPassword;
 
   if (!isPublic && !user) {
     const signInUrl = request.nextUrl.clone();

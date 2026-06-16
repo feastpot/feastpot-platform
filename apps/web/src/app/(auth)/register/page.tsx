@@ -43,14 +43,11 @@ export default function RegisterCtaPage() {
             </h1>
 
             {/* Plantain underline accent - matches the wireframe's gold rule */}
-            <div
-              className="mt-4 h-[3px] w-16 rounded-full bg-plantain"
-              aria-hidden
-            />
+            <div className="mt-4 h-[3px] w-16 rounded-full bg-plantain" aria-hidden />
 
             <p className="mt-5 max-w-xl text-base font-medium leading-relaxed text-charcoal-mid">
-              Faster checkout, saved addresses, order tracking, exclusive
-              offers, loyalty rewards and referral benefits.
+              Faster checkout, saved addresses, order tracking, exclusive offers, loyalty rewards
+              and referral benefits.
             </p>
 
             <div className="mt-7 flex flex-col gap-3 sm:flex-row">
@@ -130,12 +127,8 @@ export default function RegisterCtaPage() {
               >
                 <Icon className="h-5 w-5 text-brand" />
               </span>
-              <p className="font-display text-[15px] font-black text-charcoal">
-                {label}
-              </p>
-              <p className="text-[13px] font-medium leading-snug text-charcoal-mid">
-                {sub}
-              </p>
+              <p className="font-display text-[15px] font-black text-charcoal">{label}</p>
+              <p className="text-[13px] font-medium leading-snug text-charcoal-mid">{sub}</p>
             </div>
           ))}
         </section>
@@ -145,17 +138,15 @@ export default function RegisterCtaPage() {
           <ProofItem
             visual={
               <div className="flex">
-                {['bg-brand', 'bg-plantain', 'bg-scotch', 'bg-charcoal'].map(
-                  (c, i) => (
-                    <span
-                      key={c}
-                      className={`h-8 w-8 rounded-full border-2 border-white ${c} ${
-                        i > 0 ? '-ml-2' : ''
-                      }`}
-                      aria-hidden
-                    />
-                  ),
-                )}
+                {['bg-brand', 'bg-plantain', 'bg-scotch', 'bg-charcoal'].map((c, i) => (
+                  <span
+                    key={c}
+                    className={`h-8 w-8 rounded-full border-2 border-white ${c} ${
+                      i > 0 ? '-ml-2' : ''
+                    }`}
+                    aria-hidden
+                  />
+                ))}
               </div>
             }
             title="50,000+"
@@ -168,7 +159,9 @@ export default function RegisterCtaPage() {
               </span>
             }
             title={
-              <span className="text-plantain">★★★★★ <span className="text-charcoal">4.8/5</span></span>
+              <span className="text-plantain">
+                ★★★★★ <span className="text-charcoal">4.8/5</span>
+              </span>
             }
             subtitle="App Store rating"
           />
@@ -225,10 +218,7 @@ function MarketingNav() {
         <ul className="hidden items-center gap-7 lg:flex">
           {links.map((l) => (
             <li key={l.href}>
-              <Link
-                href={l.href}
-                className="text-sm font-semibold text-charcoal hover:text-brand"
-              >
+              <Link href={l.href} className="text-sm font-semibold text-charcoal hover:text-brand">
                 {l.label}
               </Link>
             </li>
@@ -274,9 +264,7 @@ function ProofItem({
     <div className="flex items-center gap-3">
       {visual}
       <div className="min-w-0">
-        <div className="font-display text-[15px] font-black text-charcoal">
-          {title}
-        </div>
+        <div className="font-display text-[15px] font-black text-charcoal">{title}</div>
         <div className="text-xs font-medium text-charcoal-mid">{subtitle}</div>
       </div>
     </div>
@@ -291,12 +279,7 @@ function ProofItem({
  */
 function ChilliAccent({ className }: { className?: string }) {
   return (
-    <svg
-      viewBox="0 0 24 24"
-      className={className}
-      aria-hidden
-      role="presentation"
-    >
+    <svg viewBox="0 0 24 24" className={className} aria-hidden role="presentation">
       <path
         d="M14 3c1.2.6 2 1.8 2 3 0 .6-.2 1-.4 1.4 2.4 1.4 4.4 4.2 4.4 7.6 0 4-3 7-7 7s-7-3-7-7c0-4.6 4-8 8-9 0-1.2-.6-2.4-.8-3 .2 0 .5 0 .8 0z"
         className="fill-scotch"

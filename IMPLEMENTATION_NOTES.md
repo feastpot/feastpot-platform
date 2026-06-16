@@ -38,7 +38,7 @@ The first publish attempt after the event-enquiry work failed at the
 **promote** step with:
 
 > `a port configuration was specified but the required port was never
-> opened, expected port 3002`
+opened, expected port 3002`
 
 Replit Autoscale probes the local port mapped to `externalPort = 80`. In
 `.replit` that mapping was `localPort = 3002` (the vendor dev server),
@@ -63,6 +63,7 @@ A separate journey from the on-demand basket flow, for orders ≥ 25 guests
 booked ≥ 7 days ahead.
 
 **Schema** (`event_enquiries_extended` migration):
+
 - `EventEnquiry` — customer-side request (cuisine, guest count, date,
   postcode, notes, status).
 - `EventQuote` — vendor-side response per enquiry (price, deposit
@@ -72,6 +73,7 @@ booked ≥ 7 days ahead.
   is collected later (cron) once final numbers are confirmed.
 
 **API** — `apps/api/src/modules/event-enquiries/`:
+
 - `POST   /v1/event-enquiries` — create enquiry, fan out to matching
   vendors (notification side-effect via `NotificationsModule`).
 - `GET    /v1/event-enquiries` — customer or vendor scoped (vendors only
@@ -90,6 +92,7 @@ booked ≥ 7 days ahead.
   for balance calculation.
 
 **Cron** — `event-cron.service.ts`:
+
 - `event-reminder-72h` (hourly) — nudges the customer to confirm final
   numbers 72 h before the event.
 - `event-balance-48h` (hourly) — captures the balance `PaymentIntent`
@@ -97,6 +100,7 @@ booked ≥ 7 days ahead.
   `updateMany` to avoid double-capture across pods.
 
 **Frontend**:
+
 - `apps/web/src/app/events/page.tsx`, `events/new/page.tsx`,
   `events/[id]/page.tsx` — customer enquiry list, create form, detail
   page with quote comparison + select.
@@ -116,6 +120,7 @@ Public/marketing surface for UK launch. Auth, basket, vendor browse and
 checkout shipped in earlier phases (see §6).
 
 ### 2.1 Sitemap & robots
+
 - `next-sitemap` runs as a `postbuild` step.
 - `apps/web/next-sitemap.config.js` excludes the authenticated surface
   (`/account/*`, `/checkout`, `/orders/*`, `/auth/*`, `/(auth)/*`,
@@ -125,9 +130,10 @@ checkout shipped in earlier phases (see §6).
   15 s `AbortSignal.timeout` fallback to the static route list.
 
 ### 2.2 Global metadata (`apps/web/src/app/layout.tsx`)
+
 - `metadataBase` ← `NEXT_PUBLIC_SITE_URL` (default `https://feastpot.co.uk`).
 - Title template `%s | Feastpot`; default
-  *Feastpot — African & Caribbean Food Delivered*.
+  _Feastpot — African & Caribbean Food Delivered_.
 - OG `type=website`, `siteName=Feastpot`, `locale=en_GB`,
   `og-image.png` (1200×630 — file not yet present in `public/`).
 - Twitter `summary_large_image`, handle `@feastpot`.
@@ -135,6 +141,7 @@ checkout shipped in earlier phases (see §6).
 - PWA manifest, app icons, themeColor and viewport preserved.
 
 ### 2.3 Cookie banner
+
 - `apps/web/src/components/cookie-banner.tsx` mounted in the root layout.
 - Persists acceptance under `feastpot.cookie-consent.v1` — bump the key
   if the cookie set ever changes materially.
@@ -144,6 +151,7 @@ checkout shipped in earlier phases (see §6).
   prior opt-in.
 
 ### 2.4 Cuisine SEO landing pages
+
 Three diaspora-cuisine pages sharing
 `apps/web/src/components/seo/cuisine-landing.tsx`:
 
@@ -177,12 +185,14 @@ and a brand CTA. Falls back gracefully if the API call fails.
   walk-through, 999 escalation guidance, FSA outbound link.
 
 ### 2.6 Help centre
+
 - `apps/web/src/app/help/page.tsx` — single FAQ page. Five sections
   (Ordering, Delivery, Refunds, Allergens, Vendor accounts) rendered
   as `dl/dt/dd` for accessibility. Contact card:
   `support@feastpot.co.uk` and placeholder WhatsApp `+44 7000 000000`.
 
 ### 2.7 Known launch blockers (flagged, not fixed)
+
 - ICO registration number on the privacy page is `ZA000000`.
 - WhatsApp support number on the help page is `+44 7000 000000`.
 - `apps/web/public/og-image.png` (1200×630) is referenced in metadata
@@ -197,23 +207,23 @@ Supabase JWT verified by `SupabaseAuthGuard`; per-route role narrowing
 via `@Roles(...)` and `RolesGuard`. `StripeModule` and
 `NotificationsModule` are `@Global()`.
 
-| Module | Surface | Notes |
-| --- | --- | --- |
-| `users` | `GET/PATCH/DELETE /me`, `PATCH /:userId/status` | Self-serve + admin status changes. |
-| `addresses` | CRUD `/addresses` | Customer delivery addresses. |
-| `vendors` | List/create, `me`, `me/stats`, `me/analytics`, `me/delivery-config` (GET/PUT), `me/stripe-connect-link`, `:id` GET/PATCH, `:id/status`, `:id/reviews` | Stripe Connect onboarding link generation included. |
-| `catalogue` | Menus + items CRUD, image upload, availability toggle | Vendor-scoped via `VendorOwnershipGuard` (unit tested). |
-| `orders` | List/create, detail, `confirm`, `status`, `reorder`, `amendment` GET/PATCH | Includes `OrderSlotsService` for delivery-slot capacity. |
-| `payments` | List, `refunds`, `stripe-webhook` (raw-body) | Webhook is processed via BullMQ for retries (`stripe-webhook.processor.ts`). Idempotent via `ProcessedWebhookEvent`. |
-| `payouts` | List/get, `:id/approve`, `:id/hold` | Weekly Monday batch via processor in `payouts/processors`. |
-| `disputes` | List/create, detail, vendor-response, escalate, close, evidence GET/POST | Evidence stored with type tags. |
-| `compliance` | List, create, `:documentId/verify` | Vendor document lifecycle (FHRS, insurance, allergen training). Has its own queue processor. |
-| `reviews` | Create, `moderation-queue`, `:id/moderation` | Moderation status enum gates publication. |
-| `notifications` | n/a (no routes) | Email (Resend), SMS (Twilio), push (web-push). Templates under `templates/`. Provider abstraction in `providers/`. |
-| `push` | `subscribe`, `unsubscribe` | Stores `PushSubscription` rows. |
-| `event-enquiries` | See §1.2 | New in this milestone. |
-| `admin` | `dashboard`, `vendors`, `audit-log`, `audit-log.csv`, `compliance/expiring`, `payouts/:id/reconcile-stripe` | Role-gated to `admin | support | finance | compliance` with per-route narrowing. |
-| `webhooks` | n/a (Stripe handled inside `payments`) | Module exists for future provider webhooks. |
+| Module            | Surface                                                                                                                                               | Notes                                                                                                                |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ------- | ------- | ------------------------------------- |
+| `users`           | `GET/PATCH/DELETE /me`, `PATCH /:userId/status`                                                                                                       | Self-serve + admin status changes.                                                                                   |
+| `addresses`       | CRUD `/addresses`                                                                                                                                     | Customer delivery addresses.                                                                                         |
+| `vendors`         | List/create, `me`, `me/stats`, `me/analytics`, `me/delivery-config` (GET/PUT), `me/stripe-connect-link`, `:id` GET/PATCH, `:id/status`, `:id/reviews` | Stripe Connect onboarding link generation included.                                                                  |
+| `catalogue`       | Menus + items CRUD, image upload, availability toggle                                                                                                 | Vendor-scoped via `VendorOwnershipGuard` (unit tested).                                                              |
+| `orders`          | List/create, detail, `confirm`, `status`, `reorder`, `amendment` GET/PATCH                                                                            | Includes `OrderSlotsService` for delivery-slot capacity.                                                             |
+| `payments`        | List, `refunds`, `stripe-webhook` (raw-body)                                                                                                          | Webhook is processed via BullMQ for retries (`stripe-webhook.processor.ts`). Idempotent via `ProcessedWebhookEvent`. |
+| `payouts`         | List/get, `:id/approve`, `:id/hold`                                                                                                                   | Weekly Monday batch via processor in `payouts/processors`.                                                           |
+| `disputes`        | List/create, detail, vendor-response, escalate, close, evidence GET/POST                                                                              | Evidence stored with type tags.                                                                                      |
+| `compliance`      | List, create, `:documentId/verify`                                                                                                                    | Vendor document lifecycle (FHRS, insurance, allergen training). Has its own queue processor.                         |
+| `reviews`         | Create, `moderation-queue`, `:id/moderation`                                                                                                          | Moderation status enum gates publication.                                                                            |
+| `notifications`   | n/a (no routes)                                                                                                                                       | Email (Resend), SMS (Twilio), push (web-push). Templates under `templates/`. Provider abstraction in `providers/`.   |
+| `push`            | `subscribe`, `unsubscribe`                                                                                                                            | Stores `PushSubscription` rows.                                                                                      |
+| `event-enquiries` | See §1.2                                                                                                                                              | New in this milestone.                                                                                               |
+| `admin`           | `dashboard`, `vendors`, `audit-log`, `audit-log.csv`, `compliance/expiring`, `payouts/:id/reconcile-stripe`                                           | Role-gated to `admin                                                                                                 | support | finance | compliance` with per-route narrowing. |
+| `webhooks`        | n/a (Stripe handled inside `payments`)                                                                                                                | Module exists for future provider webhooks.                                                                          |
 
 Tests present today: `vendors.service`, `catalogue/guards/vendor-ownership`,
 `catalogue/menu-items.service`, `orders/order-slots`, `orders.service`,
@@ -226,6 +236,7 @@ gate from the launch checklist.
 ## 4. Frontend apps — what exists today
 
 ### 4.1 `apps/web` (customer PWA, port 3000)
+
 Routes shipped: `/` (postcode hero), `/auth/*`, `/(auth)/*`, `/account`,
 `/vendors`, `/checkout`, `/orders`, `/events` (+ `new`, `[id]`), `/help`,
 `/legal/{terms,privacy,allergens}`, the three cuisine SEO pages,
@@ -234,12 +245,14 @@ Routes shipped: `/` (postcode hero), `/auth/*`, `/(auth)/*`, `/account`,
 re-init shadcn locally.
 
 ### 4.2 `apps/vendor` (vendor portal, port 3002)
+
 Routes: `sign-in`, `unauthorized`, dashboard (`/`), `onboarding`,
 `menu`, `orders`, `events` (+ `[id]`), `payouts`, `analytics`,
 `settings`. Stripe Connect link button surfaces via the API
 `me/stripe-connect-link` endpoint.
 
 ### 4.3 `apps/admin` (admin panel, port 3003)
+
 Routes: `sign-in`, `unauthorized`, dashboard with
 `dashboard-client.tsx`, `vendors` (list + detail + document review),
 `disputes` (list + 3-column detail), `payouts` (batch approve, per-row
@@ -259,6 +272,7 @@ hold, Stripe reconcile), `compliance` (expiry table), `audit-log`
 - **`packages/config`** — shared `tsconfig` and `eslint` configs.
 
 ### 5.1 `.replit` ports (current)
+
 - `localPort 3000 → externalPort 3000` (web)
 - `localPort 3001 → externalPort 3001` (API dev)
 - `localPort 3002 → externalPort 80` (vendor dev — also the port
@@ -269,6 +283,7 @@ hold, Stripe reconcile), `compliance` (expiry table), `audit-log`
   publicly exposed; cleanup tracked in §7)
 
 ### 5.2 Production deployment
+
 - Target: `autoscale`, target = `@feastpot/api` only.
 - `build = ["bash","-c","npm ci && npm run db:generate && npm run build:api"]`
 - `run   = ["bash","-c","PORT=3002 npm run db:deploy && PORT=3002 npm run start:api"]`
@@ -276,6 +291,7 @@ hold, Stripe reconcile), `compliance` (expiry table), `audit-log`
   `GET /healthz` for external uptime monitors.
 
 ### 5.3 CI / CD
+
 - `.github/workflows/ci.yml` — lint + typecheck + test + build per PR.
 - `.github/workflows/deploy.yml` and `neon-branch.yml` present.
 - Dependabot configured.
@@ -308,6 +324,7 @@ Anything below is either missing entirely or only stubbed. Items also
 appear in `LAUNCH_CHECKLIST.md` where they’re launch-blocking.
 
 ### 7.1 Platform / ops
+
 - **Frontend hosting**. `apps/web`, `apps/vendor`, `apps/admin` are not
   yet deployed to Vercel; only the API is live on Autoscale. DNS for
   `feastpot.co.uk`, `vendor.feastpot.co.uk`, `admin.feastpot.co.uk` is
@@ -329,6 +346,7 @@ appear in `LAUNCH_CHECKLIST.md` where they’re launch-blocking.
   go-live).
 
 ### 7.2 Code / product
+
 - **`apps/web/public/og-image.png`** (1200×630) — referenced in metadata
   but missing.
 - **ICO registration number** on `/legal/privacy` — placeholder
@@ -351,12 +369,14 @@ appear in `LAUNCH_CHECKLIST.md` where they’re launch-blocking.
   `Referral`) but have no API surface or UI yet.
 
 ### 7.3 Legal / compliance
+
 - DPAs with Stripe, Supabase, Twilio, Resend, Cloudflare R2 — to be
   signed by the legal team.
 - DPIA (Data Protection Impact Assessment).
 - Vendor T&Cs as a separate document from customer T&Cs.
 
 ### 7.4 Known footguns / cleanups
+
 - The `localPort 6379 → externalPort 3002` mapping in `.replit` exposes
   Redis publicly in dev. It should be removed once the canvas/dev URLs
   no longer depend on it.

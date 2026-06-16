@@ -72,7 +72,9 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
       baseLayout(
         'New event enquiry',
         h2('New event enquiry') +
-          p(`You've been matched to a new event: <strong>${esc(d.eventType, 'event')}</strong> for ${esc(d.guestCount, '?')} guests on ${esc(d.eventDate)} (${esc(d.postcode)}).`) +
+          p(
+            `You've been matched to a new event: <strong>${esc(d.eventType, 'event')}</strong> for ${esc(d.guestCount, '?')} guests on ${esc(d.eventDate)} (${esc(d.postcode)}).`,
+          ) +
           p('Submit your quote in the vendor portal within 24 hours.') +
           brandButton('Open vendor portal', 'https://vendor.feastpot.co.uk/events', 'vendorBlue'),
       ),
@@ -84,7 +86,9 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
       baseLayout(
         'A vendor responded',
         h2('A vendor responded') +
-          p(`A vendor has submitted a quote for <strong>${formatMoney(d.totalPence)}</strong>. Review and choose in the app.`) +
+          p(
+            `A vendor has submitted a quote for <strong>${formatMoney(d.totalPence)}</strong>. Review and choose in the app.`,
+          ) +
           brandButton('Review quote', 'https://feastpot.co.uk/account/events'),
       ),
     channels: ['email', 'whatsapp', 'push'],
@@ -96,7 +100,9 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
       baseLayout(
         'Event in 72 hours',
         h2('Event in 72 hours') +
-          p(`Your event is on ${esc(d.eventDate)}. Please confirm your final guest count (currently ${esc(d.guestCount, '?')}).`) +
+          p(
+            `Your event is on ${esc(d.eventDate)}. Please confirm your final guest count (currently ${esc(d.guestCount, '?')}).`,
+          ) +
           brandButton('Confirm guest count', 'https://feastpot.co.uk/account/events'),
       ),
     channels: ['email', 'whatsapp', 'push'],
@@ -119,12 +125,16 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
   order_confirmation: {
     subject: (d) => `Order confirmed with ${str(d.vendorName, 'your vendor')} 🍽️`,
     render: (d) => {
-      const items = Array.isArray(d.items) ? (d.items as Array<{ name: string; qty: number; pricePence: number }>) : [];
+      const items = Array.isArray(d.items)
+        ? (d.items as Array<{ name: string; qty: number; pricePence: number }>)
+        : [];
       const orderNumber = str(d.orderNumber);
       return baseLayout(
         'Order confirmed',
         h2(`Thanks${d.customerName ? ', ' + str(d.customerName) : ''} - your order is confirmed!`) +
-          p(`<strong>${esc(d.vendorName, 'Your vendor')}</strong> has received order <strong>${esc(orderNumber)}</strong> and will accept it shortly.`) +
+          p(
+            `<strong>${esc(d.vendorName, 'Your vendor')}</strong> has received order <strong>${esc(orderNumber)}</strong> and will accept it shortly.`,
+          ) +
           (items.length ? itemsTable(items) : '') +
           keyValueRow('Total', formatMoney(d.totalPence), { bold: true }) +
           (d.scheduledFor ? keyValueRow('Scheduled for', str(d.scheduledFor)) : '') +
@@ -158,7 +168,9 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
       baseLayout(
         'Out for delivery',
         h2('Your order is on the way') +
-          p(`Order <strong>${esc(d.orderNumber)}</strong> from ${esc(d.vendorName, 'your vendor')} just left the kitchen.`) +
+          p(
+            `Order <strong>${esc(d.orderNumber)}</strong> from ${esc(d.vendorName, 'your vendor')} just left the kitchen.`,
+          ) +
           (d.etaText ? keyValueRow('ETA', str(d.etaText), { bold: true }) : '') +
           brandButton('Track your order', trackingUrl(d.orderId), 'teal') +
           p('Need to reach the vendor? Use the contact button on the tracking page.', '#888780'),
@@ -171,12 +183,17 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
   delivery_confirmed: {
     subject: () => `Order delivered - leave a review ⭐`,
     render: (d) => {
-      const points = typeof d.loyaltyPointsEarned === 'number' ? (d.loyaltyPointsEarned as number) : 0;
+      const points =
+        typeof d.loyaltyPointsEarned === 'number' ? (d.loyaltyPointsEarned as number) : 0;
       return baseLayout(
         'Delivered',
         h2('Enjoy!') +
-          p(`We hope order <strong>${esc(d.orderNumber, 'your order')}</strong> from ${esc(d.vendorName, 'your vendor')} hit the spot.`) +
-          (points > 0 ? `<div style="margin:14px 0">${tealPill(`+${points} loyalty points earned`)}</div>` : '') +
+          p(
+            `We hope order <strong>${esc(d.orderNumber, 'your order')}</strong> from ${esc(d.vendorName, 'your vendor')} hit the spot.`,
+          ) +
+          (points > 0
+            ? `<div style="margin:14px 0">${tealPill(`+${points} loyalty points earned`)}</div>`
+            : '') +
           brandButton('Leave a review', reviewUrl(d.orderId), 'teal'),
       );
     },
@@ -226,7 +243,8 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
 
   // ---------- Amendments + ETA (FR-AMD-001 / FR-TRK-001) ----------
   order_amendment_proposed: {
-    subject: (d) => `${str(d.vendorName, 'Your vendor')} proposed a change to order #${str(d.orderNumber)}`,
+    subject: (d) =>
+      `${str(d.vendorName, 'Your vendor')} proposed a change to order #${str(d.orderNumber)}`,
     render: (d) => {
       const delta = typeof d.priceDeltaPence === 'number' ? (d.priceDeltaPence as number) : 0;
       const deltaLine = delta < 0 ? p(`<strong>Refund:</strong> ${formatMoney(-delta)}`) : '';
@@ -252,7 +270,9 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
         h2(d.accepted ? 'Change accepted' : 'Change declined') +
           p(`<em>${esc(d.proposedChange, '')}</em>`) +
           (d.accepted && typeof d.priceDeltaPence === 'number' && (d.priceDeltaPence as number) < 0
-            ? p(`A refund of <strong>${formatMoney(-(d.priceDeltaPence as number))}</strong> is on its way.`)
+            ? p(
+                `A refund of <strong>${formatMoney(-(d.priceDeltaPence as number))}</strong> is on its way.`,
+              )
             : ''),
       ),
     channels: ['email', 'push'],
@@ -263,7 +283,9 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
       baseLayout(
         'Order running late',
         h2('Your order is running late') +
-          p(`Order <strong>${esc(d.orderNumber)}</strong> from ${esc(d.vendorName, 'your vendor')} is past the vendor's stated ETA.`) +
+          p(
+            `Order <strong>${esc(d.orderNumber)}</strong> from ${esc(d.vendorName, 'your vendor')} is past the vendor's stated ETA.`,
+          ) +
           p('Use the contact button on the tracking page if you need to reach them.') +
           brandButton('Open tracking', trackingUrl(d.orderId), 'teal'),
       ),
@@ -279,7 +301,9 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
       baseLayout(
         'Refund issued',
         h2('Refund issued') +
-          p(`We've issued a refund of <strong>${formatMoney(d.amountPence)}</strong> for order ${esc(d.orderId)}. It should appear within 5–10 working days.`),
+          p(
+            `We've issued a refund of <strong>${formatMoney(d.amountPence)}</strong> for order ${esc(d.orderId)}. It should appear within 5–10 working days.`,
+          ),
       ),
     channels: ['email', 'push'],
   },
@@ -289,7 +313,9 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
       baseLayout(
         'Refund deducted',
         h2('Refund deducted from next payout') +
-          p(`<strong>${formatMoney(d.deductionPence)}</strong> has been deducted from your next weekly payout (order ${esc(d.orderId)}).`),
+          p(
+            `<strong>${formatMoney(d.deductionPence)}</strong> has been deducted from your next weekly payout (order ${esc(d.orderId)}).`,
+          ),
       ),
     channels: ['email'],
   },
@@ -301,8 +327,12 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
       baseLayout(
         'Payout ready',
         h2('Your weekly payout is ready') +
-          (d.grossPence !== undefined ? keyValueRow('Gross sales', formatMoney(d.grossPence)) : '') +
-          (d.commissionPence !== undefined ? keyValueRow('Commission deducted', `– ${formatMoney(d.commissionPence)}`) : '') +
+          (d.grossPence !== undefined
+            ? keyValueRow('Gross sales', formatMoney(d.grossPence))
+            : '') +
+          (d.commissionPence !== undefined
+            ? keyValueRow('Commission deducted', `– ${formatMoney(d.commissionPence)}`)
+            : '') +
           keyValueRow('Net payable', formatMoney(d.amountPence ?? d.netPence), { bold: true }) +
           (d.payoutDate ? keyValueRow('Payout date', str(d.payoutDate)) : '') +
           brandButton('View statement', 'https://vendor.feastpot.co.uk/payouts', 'vendorBlue'),
@@ -316,7 +346,9 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
       baseLayout(
         'Payout held',
         h2('Payout held') +
-          amberCallout(`Reason: <strong>${esc(d.holdReason, 'review required')}</strong>. Our team will be in touch shortly.`),
+          amberCallout(
+            `Reason: <strong>${esc(d.holdReason, 'review required')}</strong>. Our team will be in touch shortly.`,
+          ),
       ),
     channels: ['email'],
   },
@@ -328,9 +360,17 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
       baseLayout(
         'Dispute raised',
         h2(`Dispute on order ${str(d.orderNumber)}`) +
-          p(`A customer has raised a dispute (<strong>${esc(d.issueType, 'issue')}</strong>) on this order.`) +
-          amberCallout('You have <strong>24 hours</strong> to respond before this is escalated to Feastpot support.') +
-          brandButton('Respond to dispute', `https://vendor.feastpot.co.uk/disputes/${str(d.disputeId, '')}`, 'vendorBlue'),
+          p(
+            `A customer has raised a dispute (<strong>${esc(d.issueType, 'issue')}</strong>) on this order.`,
+          ) +
+          amberCallout(
+            'You have <strong>24 hours</strong> to respond before this is escalated to Feastpot support.',
+          ) +
+          brandButton(
+            'Respond to dispute',
+            `https://vendor.feastpot.co.uk/disputes/${str(d.disputeId, '')}`,
+            'vendorBlue',
+          ),
       ),
     sms: (d) =>
       `Feastpot: Dispute opened on order ${str(d.orderNumber)}. Respond within 24h: https://vendor.feastpot.co.uk/disputes/${str(d.disputeId, '')}`,
@@ -364,7 +404,8 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
 
   // ---------- Compliance ----------
   document_expiring: {
-    subject: (d) => `⚠️ Action required - ${str(d.documentType, 'document')} expires in ${str(d.daysUntilExpiry, '?')} days`,
+    subject: (d) =>
+      `⚠️ Action required - ${str(d.documentType, 'document')} expires in ${str(d.daysUntilExpiry, '?')} days`,
     render: (d) =>
       baseLayout(
         'Document expiring',
@@ -383,7 +424,9 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
       baseLayout(
         'Document expired',
         h2('Document expired') +
-          amberCallout(`Vendor ${esc(d.vendorName, str(d.vendorId))} has an expired <strong>${esc(d.documentType)}</strong> with no renewal on file.`),
+          amberCallout(
+            `Vendor ${esc(d.vendorName, str(d.vendorId))} has an expired <strong>${esc(d.documentType)}</strong> with no renewal on file.`,
+          ),
       ),
     channels: ['email'],
   },
@@ -394,7 +437,9 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
       baseLayout(
         'Credit added to your account',
         h2('Credit added to your account') +
-          p(`Hi${d.customerName ? ` ${esc(d.customerName)}` : ''}, our team has added <strong>${formatMoney(d.amountPence)}</strong> in credit to your Feastpot account.`) +
+          p(
+            `Hi${d.customerName ? ` ${esc(d.customerName)}` : ''}, our team has added <strong>${formatMoney(d.amountPence)}</strong> in credit to your Feastpot account.`,
+          ) +
           (d.reason ? p(`Reason: <em>${esc(d.reason)}</em>`) : '') +
           p('It will be applied automatically at checkout on your next order.') +
           brandButton('Open Feastpot', 'https://feastpot.co.uk/account'),
@@ -409,7 +454,9 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
         h2('Account suspended') +
           p('Your Feastpot account has been temporarily suspended.') +
           (d.reason ? amberCallout(`Reason: ${esc(d.reason)}`) : '') +
-          p('If you believe this was made in error, reply to this email or contact <a href="mailto:support@feastpot.co.uk">support@feastpot.co.uk</a>.'),
+          p(
+            'If you believe this was made in error, reply to this email or contact <a href="mailto:support@feastpot.co.uk">support@feastpot.co.uk</a>.',
+          ),
       ),
     channels: ['email'],
   },
@@ -446,17 +493,21 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
           // emit <p><ol>…</ol></p>, which is invalid HTML and renders
           // inconsistently across Outlook / Gmail / Apple Mail.
           '<ol style="margin:0 0 14px 20px;padding:0;color:#1C1C1A;font-size:14px;line-height:1.6">' +
-            '<li>Your documents are reviewed within <strong>2 business days</strong>.</li>' +
-            "<li>We'll email you the moment you're approved.</li>" +
-            '<li>Once approved, your menu goes live and customers can find you in search.</li>' +
-            '</ol>' +
+          '<li>Your documents are reviewed within <strong>2 business days</strong>.</li>' +
+          "<li>We'll email you the moment you're approved.</li>" +
+          '<li>Once approved, your menu goes live and customers can find you in search.</li>' +
+          '</ol>' +
           h2('While you wait - set yourself up to win') +
           '<ul style="margin:0 0 14px 20px;padding:0;color:#1C1C1A;font-size:14px;line-height:1.6">' +
-            '<li>Add more menu items - <strong>3 minimum, 8+ recommended</strong>.</li>' +
-            '<li>Upload real food photos. This is the single biggest driver of orders.</li>' +
-            '<li>Set clear delivery days and times so customers know when to expect you.</li>' +
-            '</ul>' +
-          brandButton('Open vendor portal', 'https://vendor.feastpot.co.uk/onboarding', 'vendorBlue') +
+          '<li>Add more menu items - <strong>3 minimum, 8+ recommended</strong>.</li>' +
+          '<li>Upload real food photos. This is the single biggest driver of orders.</li>' +
+          '<li>Set clear delivery days and times so customers know when to expect you.</li>' +
+          '</ul>' +
+          brandButton(
+            'Open vendor portal',
+            'https://vendor.feastpot.co.uk/onboarding',
+            'vendorBlue',
+          ) +
           p(
             'Questions? Email <a href="mailto:support@feastpot.co.uk">support@feastpot.co.uk</a> or message us on WhatsApp.',
             '#5F5E5A',
@@ -480,11 +531,11 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
           // <p><ol>…</ol></p>, which is invalid HTML and renders
           // inconsistently across Outlook / Gmail / Apple Mail.
           '<ol style="margin:0 0 16px 20px;padding:0;color:#5F5E5A;font-size:14px;line-height:1.8">' +
-            '<li>Add your food photos to every menu item - vendors with photos get 3× more orders.</li>' +
-            '<li>Set your delivery days and hours in <strong>Settings → Delivery</strong>.</li>' +
-            '<li>Share your vendor profile link with your community.</li>' +
-            '<li>Check your vendor dashboard daily for new orders.</li>' +
-            '</ol>' +
+          '<li>Add your food photos to every menu item - vendors with photos get 3× more orders.</li>' +
+          '<li>Set your delivery days and hours in <strong>Settings → Delivery</strong>.</li>' +
+          '<li>Share your vendor profile link with your community.</li>' +
+          '<li>Check your vendor dashboard daily for new orders.</li>' +
+          '</ol>' +
           brandButton(
             'Go to your dashboard',
             str(d.portalUrl, 'https://vendor.feastpot.co.uk'),
@@ -504,20 +555,16 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
     render: (d) =>
       baseLayout(
         'Enquiry expired',
-        h2('We didn\'t hear back from any vendors in time') +
+        h2("We didn't hear back from any vendors in time") +
           p(
-            'Your event enquiry stayed open for 48 hours without a quote, so we\'ve closed it as expired. We\'re sorry - vendor responsiveness during peak weeks isn\'t always what we\'d like.',
+            "Your event enquiry stayed open for 48 hours without a quote, so we've closed it as expired. We're sorry - vendor responsiveness during peak weeks isn't always what we'd like.",
           ) +
           p(
             'If you still want to host this event, the easiest next step is to submit a fresh enquiry - that puts you back in front of every vendor in your area, including any that have just opened up new availability.',
           ) +
-          brandButton(
-            'Submit a new enquiry',
-            'https://feastpot.co.uk/events/new',
-            'orange',
-          ) +
+          brandButton('Submit a new enquiry', 'https://feastpot.co.uk/events/new', 'orange') +
           p(
-            `Questions or want help finding a vendor directly? Email <a href="mailto:support@feastpot.co.uk" style="color:#E8520A">support@feastpot.co.uk</a> with your enquiry reference (${esc(d.enquiryId)}) and we\'ll see what we can do.`,
+            `Questions or want help finding a vendor directly? Email <a href="mailto:support@feastpot.co.uk" style="color:#E8520A">support@feastpot.co.uk</a> with your enquiry reference (${esc(d.enquiryId)}) and we'll see what we can do.`,
             '#5F5E5A',
           ),
         'No quote within 48h - enquiry closed',
@@ -531,7 +578,9 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
       baseLayout(
         'Leave a review',
         h2('★★★★★') +
-          p(`How was your food from <strong>${esc(d.vendorName, 'your vendor')}</strong>? Order ${esc(d.orderNumber)} arrived a couple of hours ago - would you mind leaving a quick review?`) +
+          p(
+            `How was your food from <strong>${esc(d.vendorName, 'your vendor')}</strong>? Order ${esc(d.orderNumber)} arrived a couple of hours ago - would you mind leaving a quick review?`,
+          ) +
           brandButton('Leave a review', reviewUrl(d.orderId), 'teal'),
       ),
     channels: ['email', 'whatsapp', 'push'],

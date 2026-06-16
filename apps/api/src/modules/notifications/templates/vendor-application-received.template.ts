@@ -20,9 +20,10 @@ export interface VendorApplicationReceivedData {
  * application lands. Includes the full application payload so the reviewer
  * can triage from email without opening the admin panel.
  */
-export function vendorApplicationReceivedTemplate(
-  data: VendorApplicationReceivedData,
-): { subject: string; html: string } {
+export function vendorApplicationReceivedTemplate(data: VendorApplicationReceivedData): {
+  subject: string;
+  html: string;
+} {
   const rows: Array<[string, string]> = [
     ['Kitchen name', data.kitchenName],
     ['Contact name', data.fullName],

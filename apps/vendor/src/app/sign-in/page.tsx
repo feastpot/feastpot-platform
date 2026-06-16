@@ -122,10 +122,7 @@ function SignInForm() {
    */
   async function finishSignIn(role: 'vendor' | 'admin') {
     try {
-      window.localStorage.setItem(
-        'feastpot.vendor.session.persist',
-        rememberMe ? '1' : '0',
-      );
+      window.localStorage.setItem('feastpot.vendor.session.persist', rememberMe ? '1' : '0');
     } catch {
       /* localStorage unavailable */
     }
@@ -144,8 +141,10 @@ function SignInForm() {
     setError(null);
     const supabase = createClient();
     try {
-      const { data, error: signInError } =
-        await supabase.auth.signInWithPassword({ email, password });
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
       if (signInError) {
         setError('Invalid email or password.');
         return;
@@ -159,9 +158,7 @@ function SignInForm() {
         | undefined;
       if (role !== 'vendor' && role !== 'admin') {
         await supabase.auth.signOut();
-        setError(
-          'This account does not have vendor access. Please use the customer sign-in.',
-        );
+        setError('This account does not have vendor access. Please use the customer sign-in.');
         return;
       }
 
@@ -259,10 +256,7 @@ function SignInForm() {
       });
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as { message?: string } | null;
-        setError(
-          body?.message ??
-            'That recovery code is not recognised or has already been used.',
-        );
+        setError(body?.message ?? 'That recovery code is not recognised or has already been used.');
         return;
       }
       // Factor removed. Re-sign-in once more; this time getAuthenticatorAssuranceLevel
@@ -302,10 +296,7 @@ function SignInForm() {
             fill={C.yellow}
           />
           {/* Red sliver tucked into the bottom-left corner. */}
-          <path
-            d="M0,720 L0,800 L160,800 C90,790 30,760 0,720 Z"
-            fill={C.red}
-          />
+          <path d="M0,720 L0,800 L160,800 C90,790 30,760 0,720 Z" fill={C.red} />
           {/* Faint outline doodles - decorative kitchen marks, ~6% alpha
               white so they read as embossed texture rather than content. */}
           <g stroke="rgba(255,255,255,0.10)" strokeWidth="1.5" fill="none">
@@ -330,11 +321,7 @@ function SignInForm() {
           {/* Logo cluster - the pot mark from /images/feastpot-logo.png
               and the wordmark are baked into the same PNG, so we render
               the asset as-is rather than recompositing it. */}
-          <Link
-            href="/sign-in"
-            aria-label="Feastpot vendor home"
-            className="inline-block"
-          >
+          <Link href="/sign-in" aria-label="Feastpot vendor home" className="inline-block">
             <Image
               src="/images/feastpot-logo.png"
               alt="Feastpot"
@@ -378,9 +365,7 @@ function SignInForm() {
           {/* Food photo - clean rounded rectangle anchored to the
               bottom of the rail. */}
           <div className="relative mt-auto self-start">
-            <div
-              className="relative h-[210px] w-[320px] overflow-hidden rounded-2xl shadow-[0_12px_40px_rgba(0,0,0,0.30)]"
-            >
+            <div className="relative h-[210px] w-[320px] overflow-hidden rounded-2xl shadow-[0_12px_40px_rgba(0,0,0,0.30)]">
               <Image
                 src="/images/auth-hero-food.png"
                 alt=""
@@ -405,16 +390,10 @@ function SignInForm() {
           }}
         />
 
-        <div
-          className="relative z-10 w-full max-w-[440px] rounded-3xl bg-white p-8 shadow-[0_8px_40px_rgba(0,0,0,0.08)] sm:p-10"
-        >
+        <div className="relative z-10 w-full max-w-[440px] rounded-3xl bg-white p-8 shadow-[0_8px_40px_rgba(0,0,0,0.08)] sm:p-10">
           {/* Mobile logo - shown only when the left rail is collapsed. */}
           <div className="mb-5 lg:hidden">
-            <Link
-              href="/sign-in"
-              aria-label="Feastpot vendor home"
-              className="inline-block"
-            >
+            <Link href="/sign-in" aria-label="Feastpot vendor home" className="inline-block">
               <Image
                 src="/images/feastpot-logo.png"
                 alt="Feastpot"
@@ -528,8 +507,8 @@ function SignInForm() {
             <form onSubmit={submitRecovery} className="mt-6 space-y-4" noValidate>
               <p className="text-sm" style={{ color: C.inkMid }}>
                 Enter one of the recovery codes you saved when you enabled 2FA. Using a recovery
-                code will remove 2FA from your account; you can re-enrol from the security page
-                once you are signed in.
+                code will remove 2FA from your account; you can re-enrol from the security page once
+                you are signed in.
               </p>
               <div>
                 <label
@@ -574,149 +553,158 @@ function SignInForm() {
           )}
 
           {!mfa && (
-          <form onSubmit={submit} className="mt-6 space-y-4" noValidate autoComplete="off">
-            {/* Honeypot pair: most autofill engines target the first
+            <form onSubmit={submit} className="mt-6 space-y-4" noValidate autoComplete="off">
+              {/* Honeypot pair: most autofill engines target the first
                 email + password they see in document order. We offer
                 them these throwaway fields (visually hidden, never
                 read by us) so the real fields stay empty. */}
-            <div aria-hidden className="pointer-events-none absolute -left-[9999px] h-0 w-0 overflow-hidden">
-              <input type="text" name="fakeusernameremembered" tabIndex={-1} autoComplete="username" />
-              <input type="password" name="fakepasswordremembered" tabIndex={-1} autoComplete="current-password" />
-            </div>
-            <div>
-              <label
-                htmlFor="email"
-                className="mb-1.5 block text-[13px] font-semibold"
-                style={{ color: C.ink }}
+              <div
+                aria-hidden
+                className="pointer-events-none absolute -left-[9999px] h-0 w-0 overflow-hidden"
               >
-                Email
-              </label>
-              <div className="relative">
-                <Mail
-                  className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2"
-                  style={{ color: C.inkMid }}
-                  aria-hidden
+                <input
+                  type="text"
+                  name="fakeusernameremembered"
+                  tabIndex={-1}
+                  autoComplete="username"
                 />
                 <input
-                  id="email"
-                  name="vendor-email"
-                  type="email"
-                  autoComplete="off"
-                  autoCorrect="off"
-                  spellCheck={false}
-                  readOnly={!emailReady}
-                  onFocus={() => setEmailReady(true)}
-                  placeholder="you@domain.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full rounded-xl border bg-white py-3 pl-10 pr-3.5 text-sm font-medium outline-none transition-colors focus:border-[color:var(--fp-green,#00843D)] focus:ring-2"
-                  style={{
-                    borderColor: C.border,
-                    color: C.ink,
-                    // @ts-expect-error - CSS var passed through for focus colour
-                    '--fp-green': C.green,
-                    boxShadow: 'none',
-                  }}
+                  type="password"
+                  name="fakepasswordremembered"
+                  tabIndex={-1}
+                  autoComplete="current-password"
                 />
               </div>
-            </div>
-
-            <div>
-              <label
-                htmlFor="password"
-                className="mb-1.5 block text-[13px] font-semibold"
-                style={{ color: C.ink }}
-              >
-                Password
-              </label>
-              <div className="relative">
-                <Lock
-                  className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2"
-                  style={{ color: C.inkMid }}
-                  aria-hidden
-                />
-                <input
-                  id="password"
-                  name="vendor-password"
-                  type={showPwd ? 'text' : 'password'}
-                  autoComplete="new-password"
-                  autoCorrect="off"
-                  spellCheck={false}
-                  readOnly={!pwdReady}
-                  onFocus={() => setPwdReady(true)}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full rounded-xl border bg-white py-3 pl-10 pr-11 text-sm font-medium outline-none"
-                  style={{ borderColor: C.border, color: C.ink }}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPwd((v) => !v)}
-                  aria-label={showPwd ? 'Hide password' : 'Show password'}
-                  className="absolute inset-y-0 right-0 flex w-11 items-center justify-center"
-                  style={{ color: C.inkMid }}
+              <div>
+                <label
+                  htmlFor="email"
+                  className="mb-1.5 block text-[13px] font-semibold"
+                  style={{ color: C.ink }}
                 >
-                  {showPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
+                  Email
+                </label>
+                <div className="relative">
+                  <Mail
+                    className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2"
+                    style={{ color: C.inkMid }}
+                    aria-hidden
+                  />
+                  <input
+                    id="email"
+                    name="vendor-email"
+                    type="email"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    readOnly={!emailReady}
+                    onFocus={() => setEmailReady(true)}
+                    placeholder="you@domain.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full rounded-xl border bg-white py-3 pl-10 pr-3.5 text-sm font-medium outline-none transition-colors focus:border-[color:var(--fp-green,#00843D)] focus:ring-2"
+                    style={{
+                      borderColor: C.border,
+                      color: C.ink,
+                      // @ts-expect-error - CSS var passed through for focus colour
+                      '--fp-green': C.green,
+                      boxShadow: 'none',
+                    }}
+                  />
+                </div>
               </div>
-            </div>
 
-            <div className="flex items-center justify-between pt-1">
-              <label className="flex cursor-pointer select-none items-center gap-2">
-                {/* Custom green-filled checkbox - styled to match the
+              <div>
+                <label
+                  htmlFor="password"
+                  className="mb-1.5 block text-[13px] font-semibold"
+                  style={{ color: C.ink }}
+                >
+                  Password
+                </label>
+                <div className="relative">
+                  <Lock
+                    className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2"
+                    style={{ color: C.inkMid }}
+                    aria-hidden
+                  />
+                  <input
+                    id="password"
+                    name="vendor-password"
+                    type={showPwd ? 'text' : 'password'}
+                    autoComplete="new-password"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    readOnly={!pwdReady}
+                    onFocus={() => setPwdReady(true)}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full rounded-xl border bg-white py-3 pl-10 pr-11 text-sm font-medium outline-none"
+                    style={{ borderColor: C.border, color: C.ink }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPwd((v) => !v)}
+                    aria-label={showPwd ? 'Hide password' : 'Show password'}
+                    className="absolute inset-y-0 right-0 flex w-11 items-center justify-center"
+                    style={{ color: C.inkMid }}
+                  >
+                    {showPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-1">
+                <label className="flex cursor-pointer select-none items-center gap-2">
+                  {/* Custom green-filled checkbox - styled to match the
                     mockup exactly. Visually hidden native input keeps
                     keyboard + a11y semantics intact. */}
-                <span className="relative inline-flex h-5 w-5 items-center justify-center">
-                  <input
-                    type="checkbox"
-                    checked={rememberMe}
-                    onChange={(e) => setRememberMe(e.target.checked)}
-                    className="peer h-5 w-5 cursor-pointer appearance-none rounded-md border"
-                    style={{ borderColor: C.border, accentColor: C.green }}
-                  />
-                  <span
-                    className="pointer-events-none absolute inset-0 hidden items-center justify-center rounded-md peer-checked:flex"
-                    style={{ background: C.green }}
-                  >
-                    <Check className="h-3.5 w-3.5 text-white" strokeWidth={3} />
+                  <span className="relative inline-flex h-5 w-5 items-center justify-center">
+                    <input
+                      type="checkbox"
+                      checked={rememberMe}
+                      onChange={(e) => setRememberMe(e.target.checked)}
+                      className="peer h-5 w-5 cursor-pointer appearance-none rounded-md border"
+                      style={{ borderColor: C.border, accentColor: C.green }}
+                    />
+                    <span
+                      className="pointer-events-none absolute inset-0 hidden items-center justify-center rounded-md peer-checked:flex"
+                      style={{ background: C.green }}
+                    >
+                      <Check className="h-3.5 w-3.5 text-white" strokeWidth={3} />
+                    </span>
                   </span>
-                </span>
-                <span className="text-[13px]" style={{ color: C.ink }}>
-                  Remember me
-                </span>
-              </label>
-              <Link
-                href="/forgot-password"
-                className="-mr-2 inline-flex min-h-11 items-center px-2 text-[13px] font-semibold hover:underline"
-                style={{ color: C.green }}
+                  <span className="text-[13px]" style={{ color: C.ink }}>
+                    Remember me
+                  </span>
+                </label>
+                <Link
+                  href="/forgot-password"
+                  className="-mr-2 inline-flex min-h-11 items-center px-2 text-[13px] font-semibold hover:underline"
+                  style={{ color: C.green }}
+                >
+                  Forgot password?
+                </Link>
+              </div>
+
+              <button
+                type="submit"
+                disabled={busy}
+                className="mt-2 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl px-4 py-3.5 text-sm font-bold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+                style={{ background: C.green }}
+                onMouseEnter={(e) => {
+                  if (!busy) e.currentTarget.style.background = C.greenDark;
+                }}
+                onMouseLeave={(e) => {
+                  if (!busy) e.currentTarget.style.background = C.green;
+                }}
               >
-                Forgot password?
-              </Link>
-            </div>
-
-            <button
-              type="submit"
-              disabled={busy}
-              className="mt-2 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl px-4 py-3.5 text-sm font-bold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-60"
-              style={{ background: C.green }}
-              onMouseEnter={(e) => {
-                if (!busy) e.currentTarget.style.background = C.greenDark;
-              }}
-              onMouseLeave={(e) => {
-                if (!busy) e.currentTarget.style.background = C.green;
-              }}
-            >
-              <span>{busy ? 'Signing in…' : 'Sign in'}</span>
-              {!busy && <ArrowRight className="h-4 w-4" aria-hidden />}
-            </button>
-
-          </form>
+                <span>{busy ? 'Signing in…' : 'Sign in'}</span>
+                {!busy && <ArrowRight className="h-4 w-4" aria-hidden />}
+              </button>
+            </form>
           )}
 
-          <div
-            className="mt-6 border-t pt-4 text-center"
-            style={{ borderColor: C.border }}
-          >
+          <div className="mt-6 border-t pt-4 text-center" style={{ borderColor: C.border }}>
             <a
               href="mailto:vendors@feastpot.co.uk"
               className="inline-flex items-center justify-center gap-1.5 text-[13px] font-semibold hover:underline"

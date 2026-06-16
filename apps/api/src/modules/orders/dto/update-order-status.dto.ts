@@ -1,6 +1,15 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsInt, IsOptional, IsString, Max, MaxLength, Min, ValidateIf } from 'class-validator';
 import { OrderStatus } from '@prisma/client';
+import {
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+  ValidateIf,
+} from 'class-validator';
 
 export class UpdateOrderStatusDto {
   @ApiProperty({ enum: OrderStatus })
@@ -34,7 +43,11 @@ export class UpdateOrderStatusDto {
    * Bound to a generous 4-hour ceiling - anything longer is almost certainly
    * a typo.
    */
-  @ApiPropertyOptional({ description: 'ETA minutes from now (only meaningful on dispatched)', minimum: 1, maximum: 240 })
+  @ApiPropertyOptional({
+    description: 'ETA minutes from now (only meaningful on dispatched)',
+    minimum: 1,
+    maximum: 240,
+  })
   @IsOptional()
   @IsInt()
   @Min(1)

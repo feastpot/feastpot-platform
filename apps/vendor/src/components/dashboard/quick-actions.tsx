@@ -86,14 +86,20 @@ function ActionTile({
       href={href}
       className="group flex items-center gap-3 rounded-xl border border-border bg-white p-3 transition-colors hover:border-teal/40 hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-teal"
     >
-      <span aria-hidden className={cn('grid h-10 w-10 shrink-0 place-items-center rounded-lg', tintBg[tint])}>
+      <span
+        aria-hidden
+        className={cn('grid h-10 w-10 shrink-0 place-items-center rounded-lg', tintBg[tint])}
+      >
         <Icon className="h-[18px] w-[18px]" />
       </span>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-semibold text-dark">{label}</p>
         <p className="truncate text-[11px] text-mid">{hint}</p>
       </div>
-      <ChevronRight className="h-4 w-4 shrink-0 text-mid transition-transform group-hover:translate-x-0.5" aria-hidden />
+      <ChevronRight
+        className="h-4 w-4 shrink-0 text-mid transition-transform group-hover:translate-x-0.5"
+        aria-hidden
+      />
     </Link>
   );
 }

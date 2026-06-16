@@ -61,7 +61,10 @@ export function VendorApplicationDetailClient({
       {
         onSuccess: () => {
           setConfirmingApprove(false);
-          toast({ title: 'Application approved', description: 'Vendor provisioned and invite sent.' });
+          toast({
+            title: 'Application approved',
+            description: 'Vendor provisioned and invite sent.',
+          });
           router.refresh();
         },
         onError: (err) =>
@@ -118,7 +121,8 @@ export function VendorApplicationDetailClient({
 
   function resendInvite() {
     resendMutation.mutate(undefined, {
-      onSuccess: () => toast({ title: 'Invite resent', description: 'A fresh 7-day magic link is on its way.' }),
+      onSuccess: () =>
+        toast({ title: 'Invite resent', description: 'A fresh 7-day magic link is on its way.' }),
       onError: (err) =>
         toast({
           title: 'Resend failed',
@@ -136,7 +140,10 @@ export function VendorApplicationDetailClient({
         title={app?.kitchenName ?? 'Application'}
         description={app ? `Submitted ${formatDate(app.createdAt)}` : undefined}
         actions={
-          <Link href="/vendor-applications" className="text-sm text-muted-foreground hover:underline">
+          <Link
+            href="/vendor-applications"
+            className="text-sm text-muted-foreground hover:underline"
+          >
             ← Back to applications
           </Link>
         }
@@ -152,7 +159,12 @@ export function VendorApplicationDetailClient({
               <CardTitle className="text-base">Application</CardTitle>
             </CardHeader>
             <CardContent className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
-              <Field label="Status" value={<StatusPill tone={STATUS_TONE[app.status]}>{STATUS_LABEL[app.status]}</StatusPill>} />
+              <Field
+                label="Status"
+                value={
+                  <StatusPill tone={STATUS_TONE[app.status]}>{STATUS_LABEL[app.status]}</StatusPill>
+                }
+              />
               <Field label="FSA registration" value={app.hasFsaRegistration ? 'Yes' : 'No'} />
               <Field label="Applicant" value={app.fullName} />
               <Field label="Email" value={app.email} />
@@ -160,17 +172,18 @@ export function VendorApplicationDetailClient({
               <Field label="Postcode" value={app.postcode} />
               <Field label="Cuisine type" value={app.cuisineType} />
               <Field label="Kitchen type" value={app.kitchenType} />
-              <Field
-                label="Instagram"
-                value={app.instagram ? app.instagram : '-'}
-              />
+              <Field label="Instagram" value={app.instagram ? app.instagram : '-'} />
               <Field label="Marketing consent" value={app.marketingConsent ? 'Yes' : 'No'} />
               <div className="sm:col-span-2">
-                <div className="text-xs uppercase tracking-wide text-muted-foreground">Food story</div>
+                <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Food story
+                </div>
                 <p className="mt-1 whitespace-pre-wrap text-sm">{app.foodStory}</p>
               </div>
               <div className="sm:col-span-2">
-                <div className="text-xs uppercase tracking-wide text-muted-foreground">Terms acceptance</div>
+                <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Terms acceptance
+                </div>
                 <p className="mt-1 text-sm">
                   {app.acceptedTermsAt
                     ? `Accepted ${formatDateTime(app.acceptedTermsAt)}${
@@ -196,24 +209,36 @@ export function VendorApplicationDetailClient({
                     : '-'
                 }
               />
-              <Field label="Reviewed at" value={app.reviewedAt ? formatDateTime(app.reviewedAt) : '-'} />
+              <Field
+                label="Reviewed at"
+                value={app.reviewedAt ? formatDateTime(app.reviewedAt) : '-'}
+              />
               {app.adminNotes && (
                 <div>
-                  <div className="text-xs uppercase tracking-wide text-muted-foreground">Admin notes</div>
+                  <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                    Admin notes
+                  </div>
                   <p className="mt-1 whitespace-pre-wrap text-sm">{app.adminNotes}</p>
                 </div>
               )}
               {app.rejectionReason && (
                 <div>
-                  <div className="text-xs uppercase tracking-wide text-muted-foreground">Rejection reason</div>
-                  <p className="mt-1 whitespace-pre-wrap text-sm text-destructive">{app.rejectionReason}</p>
+                  <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                    Rejection reason
+                  </div>
+                  <p className="mt-1 whitespace-pre-wrap text-sm text-destructive">
+                    {app.rejectionReason}
+                  </p>
                 </div>
               )}
               {app.vendor && (
                 <Field
                   label="Provisioned vendor"
                   value={
-                    <Link href={`/vendors/${app.vendor.id}`} className="text-primary hover:underline">
+                    <Link
+                      href={`/vendors/${app.vendor.id}`}
+                      className="text-primary hover:underline"
+                    >
                       {app.vendor.businessName}
                     </Link>
                   }
@@ -222,11 +247,17 @@ export function VendorApplicationDetailClient({
 
               {canModerate ? (
                 <div className="pt-2">
-                  <div className="mb-2 text-xs uppercase tracking-wide text-muted-foreground">Actions</div>
+                  <div className="mb-2 text-xs uppercase tracking-wide text-muted-foreground">
+                    Actions
+                  </div>
                   <div className="flex flex-wrap gap-2">
                     {isInFlight && (
                       <>
-                        <Button size="sm" onClick={() => setConfirmingApprove(true)} disabled={busy}>
+                        <Button
+                          size="sm"
+                          onClick={() => setConfirmingApprove(true)}
+                          disabled={busy}
+                        >
                           Approve
                         </Button>
                         <Button
@@ -265,7 +296,8 @@ export function VendorApplicationDetailClient({
                     )}
                     {!isInFlight && app.status !== 'approved' && (
                       <span className="text-xs text-muted-foreground">
-                        This application is {STATUS_LABEL[app.status].toLowerCase()} — no further actions.
+                        This application is {STATUS_LABEL[app.status].toLowerCase()} — no further
+                        actions.
                       </span>
                     )}
                   </div>
@@ -283,7 +315,10 @@ export function VendorApplicationDetailClient({
       )}
 
       {/* Approve confirmation */}
-      <Dialog open={confirmingApprove} onOpenChange={(open) => !open && setConfirmingApprove(false)}>
+      <Dialog
+        open={confirmingApprove}
+        onOpenChange={(open) => !open && setConfirmingApprove(false)}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Approve this vendor?</DialogTitle>

@@ -71,7 +71,9 @@ export default function OtpSignInPage() {
     <PageShell>
       <section className="space-y-4 py-6">
         <header className="space-y-1">
-          <h1 className="font-display text-2xl font-black tracking-tight text-charcoal">Sign in with phone</h1>
+          <h1 className="font-display text-2xl font-black tracking-tight text-charcoal">
+            Sign in with phone
+          </h1>
           <p className="text-sm text-charcoal-mid">
             {step === 'phone'
               ? 'We&rsquo;ll text you a one-time code.'
@@ -81,7 +83,9 @@ export default function OtpSignInPage() {
 
         {step === 'phone' && (
           <form onSubmit={requestCode} className="space-y-3" noValidate>
-            <label htmlFor="phone" className="mb-1 block text-sm font-bold text-charcoal">Phone number</label>
+            <label htmlFor="phone" className="mb-1 block text-sm font-bold text-charcoal">
+              Phone number
+            </label>
             <input
               id="phone"
               type="tel"
@@ -113,7 +117,9 @@ export default function OtpSignInPage() {
             className="space-y-3"
             noValidate
           >
-            <label htmlFor="otp" className="mb-1 block text-sm font-bold text-charcoal">6-digit code</label>
+            <label htmlFor="otp" className="mb-1 block text-sm font-bold text-charcoal">
+              6-digit code
+            </label>
             <input
               id="otp"
               ref={codeInputRef}

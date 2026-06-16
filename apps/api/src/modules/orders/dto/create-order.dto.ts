@@ -60,7 +60,9 @@ export class CreateOrderDto {
   @MaxLength(1000)
   notes?: string;
 
-  @ApiPropertyOptional({ description: 'Optional discount code (no-op until DiscountCode model added)' })
+  @ApiPropertyOptional({
+    description: 'Optional discount code (no-op until DiscountCode model added)',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(64)

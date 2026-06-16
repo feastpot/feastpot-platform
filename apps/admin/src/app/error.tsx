@@ -27,9 +27,7 @@ export default function Error({
         <div className="mb-4 text-5xl" aria-hidden>
           ⚠️
         </div>
-        <h1 className="text-2xl font-black tracking-tight text-foreground">
-          Something went wrong
-        </h1>
+        <h1 className="text-2xl font-black tracking-tight text-foreground">Something went wrong</h1>
         <p className="mx-auto mt-2 max-w-sm text-sm font-medium text-muted-foreground">
           We hit an unexpected error. It&rsquo;s been logged and we&rsquo;ll look into it.
         </p>

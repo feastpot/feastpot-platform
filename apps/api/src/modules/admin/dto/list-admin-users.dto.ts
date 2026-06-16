@@ -1,12 +1,24 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { UserRole, UserStatus } from '@prisma/client';
 import { Type } from 'class-transformer';
-import { IsEnum, IsIn, IsInt, IsOptional, IsString, Matches, Max, MaxLength, Min } from 'class-validator';
+import {
+  IsEnum,
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  Matches,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
 
 export type JoinedRange = 'today' | 'week' | 'month' | 'year';
 
 export class ListAdminUsersDto {
-  @ApiPropertyOptional({ description: 'Free-text search on email / firstName / lastName (ILIKE contains)' })
+  @ApiPropertyOptional({
+    description: 'Free-text search on email / firstName / lastName (ILIKE contains)',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(120)

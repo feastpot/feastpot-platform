@@ -66,6 +66,7 @@ cover launch comms.
 ## 🟡 Polish — safe to ship after launch
 
 **Reviews are still partly faked.**
+
 - The homepage "community reviews" are **hardcoded sample strings**
   (`components/home/community-reviews.tsx`), not real reviews sorted by date.
 - The vendor **rating-breakdown bars are estimated** client-side
@@ -82,6 +83,7 @@ transfer-fee breakout, so statements understate the detail even though the net i
 correct.
 
 **Admin "coming soon" stubs.**
+
 - CSV export is still disabled on **Users**, **Event Enquiries**, and the
   **Reviews queue** (Orders export is wired; Disputes has its own).
 - **Order bulk actions** (select-all / per-row checkboxes) are disabled.
@@ -90,6 +92,7 @@ correct.
   threshold and no real pagination.
 
 **Vendor portal.**
+
 - **Delivery area** is a postcode-prefix textarea; the map / polygon-zone tool is
   still on the roadmap.
 - **Analytics deltas and advanced charts** (repeat-customer rate, heatmaps,
@@ -97,6 +100,7 @@ correct.
   history — a real analytics engine isn't built.
 
 **Customer web loose ends.**
+
 - The **order-confirmation copy-pill / referral nudge** is a static placeholder.
 - A **dead 404-guard** around `POST /v1/users/sync` lingers in the register flow
   even though that endpoint now exists — harmless, worth deleting.

@@ -42,8 +42,14 @@ export default function NewEventEnquiryPage() {
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setServerError(null);
-    if (!postcode.trim()) { setServerError('Postcode is required'); return; }
-    if (guestCount < 10) { setServerError('Minimum 10 guests'); return; }
+    if (!postcode.trim()) {
+      setServerError('Postcode is required');
+      return;
+    }
+    if (guestCount < 10) {
+      setServerError('Minimum 10 guests');
+      return;
+    }
     try {
       const created = await create.mutateAsync({
         eventType,
@@ -90,19 +96,37 @@ export default function NewEventEnquiryPage() {
             value={eventType}
             onChange={(e) => setEventType(e.target.value)}
           >
-            {EVENT_TYPES.map((t) => <option key={t} value={t} className="capitalize">{t}</option>)}
+            {EVENT_TYPES.map((t) => (
+              <option key={t} value={t} className="capitalize">
+                {t}
+              </option>
+            ))}
           </select>
         </label>
 
         <label className="block">
           <span className={fieldLabel}>Event date</span>
-          <Input type="date" min={minDate} value={eventDate} onChange={(e) => setEventDate(e.target.value)} required />
-          <span className="mt-1 block text-xs font-medium text-charcoal-mid">Minimum 7 days from today.</span>
+          <Input
+            type="date"
+            min={minDate}
+            value={eventDate}
+            onChange={(e) => setEventDate(e.target.value)}
+            required
+          />
+          <span className="mt-1 block text-xs font-medium text-charcoal-mid">
+            Minimum 7 days from today.
+          </span>
         </label>
 
         <label className="block">
           <span className={fieldLabel}>Estimated guest count</span>
-          <Input type="number" min={10} value={guestCount} onChange={(e) => setGuestCount(Number(e.target.value))} required />
+          <Input
+            type="number"
+            min={10}
+            value={guestCount}
+            onChange={(e) => setGuestCount(Number(e.target.value))}
+            required
+          />
         </label>
 
         <fieldset>
@@ -139,12 +163,23 @@ export default function NewEventEnquiryPage() {
 
         <label className="block">
           <span className={fieldLabel}>Delivery postcode</span>
-          <Input value={postcode} onChange={(e) => setPostcode(e.target.value)} placeholder="e.g. SW1A 1AA" required />
+          <Input
+            value={postcode}
+            onChange={(e) => setPostcode(e.target.value)}
+            placeholder="e.g. SW1A 1AA"
+            required
+          />
         </label>
 
         <label className="block">
           <span className={fieldLabel}>Approximate budget (£, optional)</span>
-          <Input type="number" step="0.01" min="0" value={budgetPounds} onChange={(e) => setBudgetPounds(e.target.value)} />
+          <Input
+            type="number"
+            step="0.01"
+            min="0"
+            value={budgetPounds}
+            onChange={(e) => setBudgetPounds(e.target.value)}
+          />
         </label>
 
         <label className="block">
@@ -164,7 +199,11 @@ export default function NewEventEnquiryPage() {
           </p>
         )}
 
-        <Button type="submit" className="w-full rounded-xl bg-brand py-3 font-bold text-white hover:bg-brand-dark" disabled={create.isPending}>
+        <Button
+          type="submit"
+          className="w-full rounded-xl bg-brand py-3 font-bold text-white hover:bg-brand-dark"
+          disabled={create.isPending}
+        >
           {create.isPending ? 'Sending…' : 'Send enquiry'}
         </Button>
       </form>

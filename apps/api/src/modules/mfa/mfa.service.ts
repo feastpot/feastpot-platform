@@ -69,7 +69,10 @@ function generateOneCode(): string {
  * all hash to the same digest.
  */
 function normaliseCode(input: string): string {
-  return input.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+  return input
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
 }
 
 @Injectable()
@@ -153,7 +156,10 @@ export class MfaService {
   async consumeRecoveryCode(userId: string, rawCode: string): Promise<{ ok: true }> {
     const normalised = normaliseCode(rawCode);
     if (normalised.length < 8) {
-      throw new BadRequestException({ code: 'INVALID_CODE', message: 'Recovery code is too short.' });
+      throw new BadRequestException({
+        code: 'INVALID_CODE',
+        message: 'Recovery code is too short.',
+      });
     }
 
     const targetHash = this.hash(rawCode);
@@ -168,8 +174,7 @@ export class MfaService {
     let matchId: string | null = null;
     for (const row of candidates) {
       const rowBuf = Buffer.from(row.codeHash, 'hex');
-      const eq =
-        rowBuf.length === targetBuf.length && timingSafeEqual(rowBuf, targetBuf);
+      const eq = rowBuf.length === targetBuf.length && timingSafeEqual(rowBuf, targetBuf);
       if (eq && !matchId) matchId = row.id;
     }
     if (!matchId) {

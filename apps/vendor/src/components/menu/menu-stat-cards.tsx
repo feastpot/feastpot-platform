@@ -37,7 +37,9 @@ export function MenuStatCards({ menus }: Props) {
         tone="teal"
         Icon={CheckCircle2}
         label="Publishing health"
-        value={health === 'good' ? 'Good' : health === 'attention' ? 'Needs attention' : 'Set up menus'}
+        value={
+          health === 'good' ? 'Good' : health === 'attention' ? 'Needs attention' : 'Set up menus'
+        }
         hint={
           health === 'good'
             ? 'All active menus have items'
@@ -95,7 +97,10 @@ function StatCard({
   return (
     <div className="fp-card border border-border bg-white p-4">
       <div className="flex items-start gap-3">
-        <span aria-hidden className={cn('grid h-10 w-10 shrink-0 place-items-center rounded-lg', t.iconBg)}>
+        <span
+          aria-hidden
+          className={cn('grid h-10 w-10 shrink-0 place-items-center rounded-lg', t.iconBg)}
+        >
           <Icon className={cn('h-5 w-5', t.iconFg)} />
         </span>
         <div className="min-w-0">

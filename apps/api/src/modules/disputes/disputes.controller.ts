@@ -28,7 +28,11 @@ import { UpdateDisputeDto } from './dto/update-dispute.dto';
 import { VendorResponseDto } from './dto/vendor-response.dto';
 
 function requireUser(user: AuthUser | null): AuthUser {
-  if (!user) throw new UnauthorizedException({ code: 'UNAUTHENTICATED', message: 'Authentication required' });
+  if (!user)
+    throw new UnauthorizedException({
+      code: 'UNAUTHENTICATED',
+      message: 'Authentication required',
+    });
   return user;
 }
 
@@ -43,14 +47,19 @@ export class DisputesController {
   // need raw dispute access. The service still scopes results: customers see
   // their own, vendors see disputes on their orders, support/admin see all.
   @Roles(UserRole.customer, UserRole.vendor, UserRole.support, UserRole.admin)
-  @ApiOperation({ summary: 'List disputes (customer: own; vendor: own orders; support/admin: all)' })
+  @ApiOperation({
+    summary: 'List disputes (customer: own; vendor: own orders; support/admin: all)',
+  })
   list(@CurrentUser() user: AuthUser | null, @Query() dto: ListDisputesDto) {
     return this.disputes.list(requireUser(user), dto);
   }
 
   @Get('stats')
   @Roles(UserRole.support, UserRole.admin)
-  @ApiOperation({ summary: 'Footer KPI tiles (totals, overdue, breaching, in-progress, total value, 30d delta) — honours the same filters as list' })
+  @ApiOperation({
+    summary:
+      'Footer KPI tiles (totals, overdue, breaching, in-progress, total value, 30d delta) — honours the same filters as list',
+  })
   stats(@CurrentUser() user: AuthUser | null, @Query() dto: ListDisputesDto) {
     return this.disputes.stats(requireUser(user), dto);
   }
@@ -119,7 +128,12 @@ export class DisputesController {
   @Post(':id/evidence')
   @Roles(UserRole.customer, UserRole.vendor, UserRole.support, UserRole.admin)
   @ApiConsumes('multipart/form-data')
-  @ApiBody({ schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' }, caption: { type: 'string' } } } })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: { file: { type: 'string', format: 'binary' }, caption: { type: 'string' } },
+    },
+  })
   @ApiOperation({ summary: 'Upload an evidence file (multipart)' })
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 10 * 1024 * 1024 } }))
   uploadEvidence(
@@ -129,7 +143,10 @@ export class DisputesController {
     @Body('caption') caption?: string,
   ) {
     if (!file) {
-      throw new BadRequestException({ code: 'FILE_REQUIRED', message: 'Multipart field "file" is required' });
+      throw new BadRequestException({
+        code: 'FILE_REQUIRED',
+        message: 'Multipart field "file" is required',
+      });
     }
     return this.disputes.uploadEvidence(id, file, caption, requireUser(user));
   }

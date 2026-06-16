@@ -1,5 +1,3 @@
-import type { User } from '@supabase/supabase-js';
-
 import {
   CanActivate,
   ExecutionContext,
@@ -9,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { UserRole, UserStatus } from '@prisma/client';
+import type { User } from '@supabase/supabase-js';
 
 import { PrismaService } from '../../prisma/prisma.service';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
@@ -72,7 +71,10 @@ export class SupabaseAuthGuard implements CanActivate {
     // (or an admin's status flip) until it naturally expires.
     const status = await this.getUserStatus(mapped.id);
     if (status === UserStatus.deleted) {
-      throw new UnauthorizedException({ code: 'ACCOUNT_DELETED', message: 'Account has been deleted' });
+      throw new UnauthorizedException({
+        code: 'ACCOUNT_DELETED',
+        message: 'Account has been deleted',
+      });
     }
     if (status === UserStatus.suspended) {
       throw new ForbiddenException({ code: 'ACCOUNT_SUSPENDED', message: 'Account is suspended' });
@@ -122,9 +124,13 @@ export function decodeJwtClaims(token: string): Record<string, unknown> | null {
   const parts = token.split('.');
   if (parts.length !== 3) return null;
   try {
-    const payload = Buffer.from(parts[1].replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8');
+    const payload = Buffer.from(parts[1].replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString(
+      'utf8',
+    );
     const parsed = JSON.parse(payload) as unknown;
-    return typeof parsed === 'object' && parsed !== null ? (parsed as Record<string, unknown>) : null;
+    return typeof parsed === 'object' && parsed !== null
+      ? (parsed as Record<string, unknown>)
+      : null;
   } catch {
     return null;
   }
