@@ -39,6 +39,19 @@ because the *build* was fine — the failure is purely runtime. **How to apply:*
 logs for the `db:deploy` failure, fix the DB, then **Redeploy** (republish) — the VM
 won't self-recover from a suspended state.
 
+**Merges to `main` don't reach the prod front-ends if the Vercel deploy-hook secrets are unset.**
+**Why:** deploy.yml's `deploy-web`/`deploy-vendor`/`deploy-admin` jobs are just
+`curl -fsS -X POST "${{ secrets.VERCEL_DEPLOY_HOOK_<APP> }}"`. When those GitHub
+`production`-environment secrets are empty, the URL is `""` → `curl: (3) URL rejected:
+Malformed input` → the front-end jobs fail while `deploy-database`+`build-api` pass, so
+production keeps serving the *old* Vercel deployment (look for a huge `age:` +
+`x-vercel-cache: HIT` on the live site — that's a stale deployment, not edge cache).
+**How to apply:** the user must set `VERCEL_DEPLOY_HOOK_WEB/VENDOR/ADMIN` (from each
+Vercel project's Settings → Git → Deploy Hooks) as GitHub Actions secrets in the
+`production` environment. Quick one-off fix without the secrets: manually Redeploy the
+project from the Vercel dashboard (uses latest `main`). Note: prod web is served at
+the `www.` apex (`feastpot.co.uk` 307-redirects to `www.feastpot.co.uk`).
+
 **The GitHub Actions `deploy-api` job cannot actually deploy the Replit API.**
 **Why:** it POSTs to `https://api.replit.com/v0/deployments` with a `deployment_key`,
 but that host/endpoint returns 404 for everything — there is no public Replit API to
