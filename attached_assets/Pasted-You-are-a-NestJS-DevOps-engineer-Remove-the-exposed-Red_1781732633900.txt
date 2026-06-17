@@ -1,0 +1,188 @@
+You are a NestJS DevOps engineer. Remove the exposed Redis dev port
+from the Replit configuration and wire the production Redis instance.
+
+CONFIRMED FROM AUDIT:
+"Production Redis (BullMQ) provisioned and wired into the deploy env;
+remove the dev localPort 6379 → externalPort 3002 mapping that
+exposes Redis."
+
+An exposed Redis port accessible from the internet is a critical
+security vulnerability — it allows unauthenticated access to the
+queue system and cache from any external IP.
+
+════════════════════════════════════════════════════════
+CHECK FIRST
+════════════════════════════════════════════════════════
+
+Run:
+1. cat .replit 2>/dev/null || cat replit.nix 2>/dev/null || \
+   find . -name "*.replit" -o -name "replit.toml" 2>/dev/null | head -5
+
+2. grep -rn "localPort.*6379\|externalPort.*3002\|6379\|redis.*port\|port.*redis" \
+     . --include="*.toml" --include="*.json" --include="*.yaml" \
+     --include="*.yml" --include=".replit" \
+     2>/dev/null | grep -v "node_modules"
+
+3. echo "REDIS_URL prefix: ${REDIS_URL:0:12}"
+   # Expected: rediss:// (TLS Upstash)
+   # Bad:      redis://localhost or redis://127.0.0.1
+
+4. node -e "
+const Redis = require('ioredis')
+const r = new Redis(process.env.REDIS_URL, {
+  lazyConnect: true, connectTimeout: 3000, maxRetriesPerRequest: 1
+})
+r.connect()
+  .then(() => r.ping())
+  .then(p => { console.log('Redis PING:', p); r.disconnect(); process.exit(0) })
+  .catch(e => { console.error('Redis ERROR:', e.message); process.exit(1) })
+" 2>&1
+
+Report:
+  a) Does the .replit config expose localPort 6379 to externalPort 3002?
+  b) Is REDIS_URL set to a localhost address (insecure)?
+  c) Does the Redis PING succeed with the current REDIS_URL?
+  d) Is there a separate Upstash Redis instance for production vs dev?
+
+If the port mapping is already removed AND REDIS_URL is a secure
+rediss:// Upstash URL AND the PING succeeds → report
+ALREADY SECURE and stop.
+
+════════════════════════════════════════════════════════
+MANUAL STEPS — YOUR HANDS REQUIRED
+Do these before running the agent steps below.
+════════════════════════════════════════════════════════
+
+MANUAL STEP 1 — Create a dedicated production Redis on Upstash
+1. Go to: console.upstash.com → Create database
+2. Name: feastpot-production-redis
+3. Type: Redis
+4. Region: EU-West-1 (Ireland) — matches the Supabase production region
+5. TLS: Enabled (required — this is what gives you rediss:// not redis://)
+6. Eviction: No eviction (queues must not lose jobs)
+7. Click "Create"
+
+After creation, copy:
+  - Endpoint (format: xxxx.upstash.io)
+  - Password
+  - Full Redis URL (format: rediss://default:[password]@xxxx.upstash.io:6380)
+
+MANUAL STEP 2 — Set production Redis secret in Replit
+In Replit deployment secrets (NOT workspace secrets):
+  REDIS_URL = rediss://default:[password]@[endpoint].upstash.io:6380
+
+Delete any REDIS_URL from the workspace secrets panel.
+The deployment secret takes precedence, but having both creates
+the same drift that caused the May 2026 WRONGPASS incident.
+
+MANUAL STEP 3 — Verify in Upstash console
+In the Upstash console for the new database:
+  Data Browser → check it is empty (new database)
+  Metrics → confirm "Connected Clients" goes to 0 when idle
+
+════════════════════════════════════════════════════════
+AGENT STEPS — CODE CHANGES
+════════════════════════════════════════════════════════
+
+STEP 1 — Remove the exposed Redis port from .replit config
+
+Read the current .replit file:
+  cat .replit
+
+Find and remove any block that looks like this:
+  [[ports]]
+  localPort = 6379
+  externalPort = 3002
+
+Or any equivalent that maps port 6379 to an external port.
+
+If the .replit file uses TOML format, remove the entire [[ports]]
+stanza for localPort 6379.
+
+If the .replit file uses another format, remove the equivalent mapping.
+
+After removing: verify no other port mapping exposes 6379:
+  grep -n "6379" .replit
+Assert: no results.
+
+STEP 2 — Add Redis environment guard in main.ts
+File: apps/api/src/main.ts
+
+After the existing Redis boot PING (which already handles WRONGPASS),
+add an explicit check that the URL is not a localhost address:
+
+const redisUrl = process.env.REDIS_URL ?? ''
+
+if (process.env.NODE_ENV === 'production') {
+  if (!redisUrl) {
+    logger.error(
+      '[STARTUP] CRITICAL: REDIS_URL is not set. ' +
+      'BullMQ, throttler, and cache will fail. Refusing to start.'
+    )
+    process.exit(1)
+  }
+
+  if (redisUrl.includes('localhost') || redisUrl.includes('127.0.0.1')) {
+    logger.error(
+      '[STARTUP] CRITICAL: REDIS_URL points to localhost in production. ' +
+      'Set REDIS_URL in Replit deployment secrets to the Upstash rediss:// URL. ' +
+      'Refusing to start.'
+    )
+    process.exit(1)
+  }
+
+  if (!redisUrl.startsWith('rediss://')) {
+    logger.warn(
+      '[STARTUP] WARNING: REDIS_URL does not use TLS (rediss://). ' +
+      'All Redis traffic is unencrypted. Use an Upstash rediss:// URL in production.'
+    )
+    // Warn but do not exit — some valid Redis setups use redis:// with network-level security
+  }
+}
+
+logger.log(
+  `[Redis] URL scheme: ${redisUrl.split('://')[0] ?? 'unknown'} ` +
+  `| Host: ${redisUrl.split('@')[1]?.split(':')[0] ?? 'unknown'}`
+)
+
+STEP 3 — Add Redis security status to /healthz
+File: apps/api/src/health/health.controller.ts
+
+In the checks object:
+
+const redisUrl        = process.env.REDIS_URL ?? ''
+const redisTls        = redisUrl.startsWith('rediss://')
+const redisIsLocal    = redisUrl.includes('localhost') || redisUrl.includes('127.0.0.1')
+
+checks: {
+  ...existingChecks,
+  redis: {
+    ...existingRedisCheck,
+    tls:      redisTls,
+    isLocal:  redisIsLocal,
+    warning:  redisIsLocal ? 'LOCALHOST_REDIS_IN_PRODUCTION' : null,
+  },
+}
+
+STEP 4 — Update .env.example with production Redis guidance
+File: .env.example
+
+Under the Redis section:
+
+# ── Redis (Upstash) ──────────────────────────────────────────────
+# DEV: use a local Redis or a dev Upstash database
+# PRODUCTION: use a dedicated Upstash production database with TLS
+#
+# Format: rediss://default:[password]@[endpoint].upstash.io:6380
+# IMPORTANT: rediss:// (with double s) = TLS enabled
+# DO NOT use redis://localhost or redis://127.0.0.1 in production
+REDIS_URL=rediss://default:[password]@[endpoint].upstash.io:6380
+
+STEP 5 — Verify
+Run: npm run build:api — zero errors
+Run: npm run typecheck --filter=@feastpot/api — zero errors
+
+Confirm the port removal:
+  grep -n "6379" .replit 2>/dev/null || echo "No 6379 references in .replit — CLEAN"
+
+Output the changed .replit file and main.ts.
