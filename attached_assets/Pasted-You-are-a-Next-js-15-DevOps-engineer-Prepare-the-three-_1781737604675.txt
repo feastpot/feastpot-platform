@@ -1,0 +1,346 @@
+You are a Next.js 15 DevOps engineer. Prepare the three frontend
+applications for Vercel deployment and document the DNS configuration
+required.
+
+CONFIRMED FROM AUDIT:
+"Frontend hosting — web/vendor/admin are not deployed (Vercel intended);
+only the API is live on Replit Autoscale. DNS for the three subdomains
+not configured."
+
+Target domains:
+  feastpot.co.uk          → apps/web    (customer PWA)
+  vendor.feastpot.co.uk   → apps/vendor (vendor portal)
+  admin.feastpot.co.uk    → apps/admin  (admin panel)
+
+════════════════════════════════════════════════════════
+CHECK FIRST
+════════════════════════════════════════════════════════
+
+Run:
+1. find . -name "vercel.json" 2>/dev/null | grep -v node_modules
+2. cat apps/web/vercel.json 2>/dev/null    || echo "MISSING: apps/web/vercel.json"
+3. cat apps/vendor/vercel.json 2>/dev/null || echo "MISSING: apps/vendor/vercel.json"
+4. cat apps/admin/vercel.json 2>/dev/null  || echo "MISSING: apps/admin/vercel.json"
+
+5. # Check if Vercel CLI is available
+   npx vercel --version 2>/dev/null || echo "Vercel CLI not installed"
+
+6. # Check Next.js build for each app
+   npm run build --filter=@feastpot/web    2>&1 | tail -5
+   npm run build --filter=@feastpot/vendor 2>&1 | tail -5
+   npm run build --filter=@feastpot/admin  2>&1 | tail -5
+
+Report:
+  a) Do vercel.json files already exist for any of the three apps?
+  b) Do all three apps build successfully right now?
+  c) Are there any build errors that would prevent Vercel deployment?
+
+If all three have vercel.json AND all three build clean → report
+CONFIG READY and list only the manual DNS steps remaining.
+
+════════════════════════════════════════════════════════
+AGENT STEPS — CODE CHANGES
+Do these first, then follow the manual steps.
+════════════════════════════════════════════════════════
+
+STEP 1 — Create vercel.json for customer PWA
+File: apps/web/vercel.json
+
+{
+  "buildCommand":   "cd ../.. && npm run build --filter=@feastpot/web",
+  "outputDirectory": ".next",
+  "installCommand": "cd ../.. && npm install",
+  "framework":      "nextjs",
+  "regions":        ["lhr1"],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options",    "value": "nosniff" },
+        { "key": "X-Frame-Options",           "value": "DENY" },
+        { "key": "X-XSS-Protection",          "value": "1; mode=block" },
+        { "key": "Referrer-Policy",           "value": "strict-origin-when-cross-origin" },
+        { "key": "Permissions-Policy",        "value": "camera=(), microphone=(), geolocation=(self)" }
+      ]
+    },
+    {
+      "source": "/sw.js",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" },
+        { "key": "Service-Worker-Allowed", "value": "/" }
+      ]
+    },
+    {
+      "source": "/_next/static/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/sitemap.xml",
+      "destination": "/api/sitemap"
+    }
+  ]
+}
+
+STEP 2 — Create vercel.json for vendor portal
+File: apps/vendor/vercel.json
+
+{
+  "buildCommand":   "cd ../.. && npm run build --filter=@feastpot/vendor",
+  "outputDirectory": ".next",
+  "installCommand": "cd ../.. && npm install",
+  "framework":      "nextjs",
+  "regions":        ["lhr1"],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options",    "value": "nosniff" },
+        { "key": "X-Frame-Options",           "value": "DENY" },
+        { "key": "X-XSS-Protection",          "value": "1; mode=block" },
+        { "key": "Referrer-Policy",           "value": "strict-origin-when-cross-origin" }
+      ]
+    }
+  ],
+  "redirects": [
+    {
+      "source":      "/",
+      "destination": "/dashboard",
+      "permanent":   false,
+      "has": [{ "type": "cookie", "key": "sb-access-token" }]
+    }
+  ]
+}
+
+STEP 3 — Create vercel.json for admin panel
+File: apps/admin/vercel.json
+
+{
+  "buildCommand":   "cd ../.. && npm run build --filter=@feastpot/admin",
+  "outputDirectory": ".next",
+  "installCommand": "cd ../.. && npm install",
+  "framework":      "nextjs",
+  "regions":        ["lhr1"],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options",    "value": "nosniff" },
+        { "key": "X-Frame-Options",           "value": "DENY" },
+        { "key": "X-XSS-Protection",          "value": "1; mode=block" },
+        { "key": "Referrer-Policy",           "value": "strict-origin-when-cross-origin" },
+        { "key": "X-Robots-Tag",              "value": "noindex, nofollow" }
+      ]
+    }
+  ]
+}
+
+Note on X-Robots-Tag for admin: the admin panel must never be
+indexed by search engines. This header enforces that at the CDN level.
+
+STEP 4 — Confirm all three apps produce a clean build
+Run each and confirm zero errors:
+
+npm run build --filter=@feastpot/web 2>&1 | tail -10
+npm run build --filter=@feastpot/vendor 2>&1 | tail -10
+npm run build --filter=@feastpot/admin 2>&1 | tail -10
+
+If any build fails, read the error and fix it before proceeding.
+Common causes:
+  - Missing environment variables referenced at build time
+    (add NEXT_PUBLIC_* vars with placeholder values to vercel.json env)
+  - Type errors that were not caught in dev mode
+    (fix the TypeScript error — do not suppress it)
+  - Missing imports after recent refactors
+    (fix the import)
+
+STEP 5 — Ensure dynamic routes are correctly marked
+Run:
+  grep -rn "generateStaticParams\|export const dynamic" \
+    apps/web/src/app --include="*.tsx" --include="*.ts" | \
+    grep -v "force-dynamic\|error.tsx\|loading.tsx"
+
+Any page that fetches from the API at render time must have:
+  export const dynamic = 'force-dynamic'
+
+Pages confirmed to need this (from previous Vercel timeout incident):
+  apps/web/src/app/page.tsx (homepage)
+  apps/web/src/app/vendors/page.tsx
+
+Verify both have the directive. Add if missing.
+
+STEP 6 — Add OG image placeholder
+File: apps/web/public/og-image.png
+
+The audit confirms this file is missing. Create a placeholder now
+so the Vercel build does not fail on any OG image reference:
+
+Run: node -e "
+// Check if og-image.png exists
+const fs = require('fs')
+if (!fs.existsSync('apps/web/public/og-image.png')) {
+  console.log('MISSING: apps/web/public/og-image.png')
+  console.log('ACTION: Add a 1200x630 PNG before launch.')
+  console.log('For now, copy the logo as a placeholder:')
+  console.log('  cp apps/web/public/images/feastpot-logo.png apps/web/public/og-image.png')
+  console.log('  (replace with proper 1200x630 food photography before any social sharing)')
+} else {
+  console.log('EXISTS: apps/web/public/og-image.png')
+}
+"
+
+If missing: copy the logo as a temporary placeholder.
+Flag this with a TODO comment in apps/web/src/app/layout.tsx
+near the metadata.openGraph definition.
+
+════════════════════════════════════════════════════════
+MANUAL STEPS — YOUR HANDS REQUIRED
+Do these after agent steps produce clean builds.
+════════════════════════════════════════════════════════
+
+MANUAL STEP 1 — Create three Vercel projects
+For each of the three apps, create a separate Vercel project.
+Go to: vercel.com → Add New → Project → Import Git Repository
+
+Project 1 — Customer PWA:
+  Name:           feastpot-web
+  Root directory: apps/web
+  Framework:      Next.js (auto-detected)
+  Build command:  (uses vercel.json)
+
+Project 2 — Vendor Portal:
+  Name:           feastpot-vendor
+  Root directory: apps/vendor
+  Framework:      Next.js (auto-detected)
+
+Project 3 — Admin Panel:
+  Name:           feastpot-admin
+  Root directory: apps/admin
+  Framework:      Next.js (auto-detected)
+
+MANUAL STEP 2 — Set environment variables in each Vercel project
+For each project, go to: Project → Settings → Environment Variables
+Set for Environment: Production (not Preview or Development)
+
+For feastpot-web:
+  NEXT_PUBLIC_SUPABASE_URL         = https://[prod-ref].supabase.co
+  NEXT_PUBLIC_SUPABASE_ANON_KEY    = [prod anon key]
+  NEXT_PUBLIC_API_URL              = https://api.feastpot.co.uk
+  NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY = pk_live_...
+  NEXT_PUBLIC_VAPID_PUBLIC_KEY     = [VAPID public key]
+  NEXT_PUBLIC_SITE_URL             = https://feastpot.co.uk
+  NEXT_PUBLIC_SUPPORT_EMAIL        = support@feastpot.co.uk
+  NEXT_PUBLIC_SUPPORT_WHATSAPP     = +447XXXXXXXXX
+
+For feastpot-vendor:
+  NEXT_PUBLIC_SUPABASE_URL         = https://[prod-ref].supabase.co
+  NEXT_PUBLIC_SUPABASE_ANON_KEY    = [prod anon key]
+  NEXT_PUBLIC_API_URL              = https://api.feastpot.co.uk
+
+For feastpot-admin:
+  NEXT_PUBLIC_SUPABASE_URL         = https://[prod-ref].supabase.co
+  NEXT_PUBLIC_SUPABASE_ANON_KEY    = [prod anon key]
+  NEXT_PUBLIC_API_URL              = https://api.feastpot.co.uk
+
+MANUAL STEP 3 — Add custom domains in Vercel
+For each project: Project → Settings → Domains → Add
+
+  feastpot-web:    feastpot.co.uk  AND  www.feastpot.co.uk
+  feastpot-vendor: vendor.feastpot.co.uk
+  feastpot-admin:  admin.feastpot.co.uk
+
+Vercel will show you the DNS records to add. Leave this screen open.
+
+MANUAL STEP 4 — Add DNS records at your DNS provider
+Go to your DNS provider for feastpot.co.uk.
+
+For the apex domain (feastpot.co.uk) — Vercel requires one of:
+  Option A (if your DNS provider supports ANAME/ALIAS records):
+    ANAME/ALIAS  @  cname.vercel-dns.com
+
+  Option B (A records — use if ANAME not supported):
+    A  @  76.76.21.21
+
+For www:
+    CNAME  www  cname.vercel-dns.com
+
+For subdomains:
+    CNAME  vendor  cname.vercel-dns.com
+    CNAME  admin   cname.vercel-dns.com
+
+For the API (already live — confirm this is still correct):
+    CNAME  api     [your-repl-name].replit.app
+    (DNS-only / grey cloud if using Cloudflare — do NOT proxy)
+
+TTL: 300 seconds initially (5 minutes).
+After confirming all domains are verified: increase to 3600.
+
+MANUAL STEP 5 — Wait for DNS propagation and SSL provisioning
+Vercel provisions SSL certificates automatically via Let's Encrypt.
+After adding DNS records:
+  - Allow 5–30 minutes for propagation
+  - Check each domain shows: Status → Valid Configuration ✓ in Vercel
+
+MANUAL STEP 6 — Trigger production deployments
+In each Vercel project:
+  Deployments → Redeploy → select the latest commit → Deploy
+
+Or push a commit to main — Vercel will auto-deploy if the
+Git integration is connected.
+
+MANUAL STEP 7 — Smoke test all three domains
+Run these after deployments are live:
+
+curl -s -o /dev/null -w "feastpot.co.uk: %{http_code}\n" \
+  https://feastpot.co.uk
+
+curl -s -o /dev/null -w "vendor.feastpot.co.uk: %{http_code}\n" \
+  https://vendor.feastpot.co.uk
+
+curl -s -o /dev/null -w "admin.feastpot.co.uk: %{http_code}\n" \
+  https://admin.feastpot.co.uk
+
+curl -s -o /dev/null -w "api.feastpot.co.uk/health: %{http_code}\n" \
+  https://api.feastpot.co.uk/health
+
+All four must return HTTP 200.
+
+════════════════════════════════════════════════════════
+FINAL VERIFICATION — run after all manual steps complete
+════════════════════════════════════════════════════════
+
+Run: npm run typecheck in apps/web, apps/vendor, apps/admin
+Assert: zero errors in all three.
+
+Run the build one final time for each:
+npm run build --filter=@feastpot/web    2>&1 | tail -3
+npm run build --filter=@feastpot/vendor 2>&1 | tail -3
+npm run build --filter=@feastpot/admin  2>&1 | tail -3
+
+Assert: all three show "✓ Compiled successfully" with no errors.
+
+Output: all new vercel.json files and any changed source files.
+Produce a summary table:
+
+  DEPLOYMENT READINESS
+  ────────────────────
+  apps/web build:    PASS / FAIL
+  apps/vendor build: PASS / FAIL
+  apps/admin build:  PASS / FAIL
+  vercel.json files: CREATED / EXISTED
+  OG image:          PRESENT / PLACEHOLDER / MISSING
+  force-dynamic on homepage: CONFIRMED / ADDED / MISSING
+
+  MANUAL STEPS REMAINING:
+  [ ] Supabase production project created
+  [ ] PITR backups enabled
+  [ ] Vercel projects created (3)
+  [ ] Env vars set in Vercel (3 projects)
+  [ ] Custom domains added in Vercel (4 domains)
+  [ ] DNS records added at DNS provider
+  [ ] DNS verified in Vercel (all green)
+  [ ] Production deployments triggered
+  [ ] All four domains return HTTP 200
