@@ -42,12 +42,40 @@ interface HealthzResponse {
   checks: {
     database: DbStatus;
     redis: RedisStatus;
+    redisSecurity: RedisSecurity;
     queues: QueueStatus;
     secrets: 'ok' | string;
     stripe: StripeMode;
     supabase: SupabaseInfo;
     notifications: NotificationChannels;
     serviceFeeBps: number;
+  };
+}
+
+interface RedisSecurity {
+  // rediss:// (TLS) vs redis:// (plaintext). Upstash production must be TLS.
+  tls: boolean;
+  // True when REDIS_URL points at localhost/127.0.0.1 — never valid in prod
+  // since the dev Redis port is intentionally not exposed.
+  isLocal: boolean;
+  // Loud, machine-readable flag for ops dashboards when a localhost Redis is
+  // backing a production deployment. The startup guard in main.ts already
+  // refuses to boot in that case, so seeing this live means it was bypassed.
+  warning: 'LOCALHOST_REDIS_IN_PRODUCTION' | null;
+}
+
+// Informational: surface Redis transport security so ops can confirm at a
+// glance (`curl .../healthz | jq .checks.redisSecurity`) that production uses a
+// TLS Upstash URL and isn't pointed at a local Redis. Purely advisory — does
+// NOT affect the 200/503 verdict (that is driven by the live `redis` PING).
+function redisSecurity(): RedisSecurity {
+  const url = process.env.REDIS_URL ?? '';
+  const isLocal = url.includes('localhost') || url.includes('127.0.0.1');
+  return {
+    tls: url.startsWith('rediss://'),
+    isLocal,
+    warning:
+      isLocal && process.env.NODE_ENV === 'production' ? 'LOCALHOST_REDIS_IN_PRODUCTION' : null,
   };
 }
 
@@ -307,6 +335,7 @@ export class HealthController {
       checks: {
         database: db,
         redis,
+        redisSecurity: redisSecurity(),
         queues,
         secrets,
         stripe: stripeMode(),
