@@ -9,6 +9,11 @@ import { Public } from '../auth/decorators/public.decorator';
 import { RedisCacheService } from '../common/cache/redis-cache.service';
 import { missingRequiredEnv } from '../common/config/required-env';
 import { getServiceFeeBps } from '../common/config/service-fee';
+import {
+  getSupabaseEnvironment,
+  getSupabaseRef,
+  isDevSupabaseRef,
+} from '../common/config/supabase-env';
 import { TEMPLATES } from '../modules/notifications/templates';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -40,8 +45,33 @@ interface HealthzResponse {
     queues: QueueStatus;
     secrets: 'ok' | string;
     stripe: StripeMode;
+    supabase: SupabaseInfo;
     notifications: NotificationChannels;
     serviceFeeBps: number;
+  };
+}
+
+interface SupabaseInfo {
+  ref: string;
+  environment: 'development' | 'production';
+  // Set when the DEV Supabase project is backing a production deployment — a
+  // loud, machine-readable flag for uptime monitors / ops dashboards. The
+  // startup guard in main.ts already refuses to boot in that case, so seeing
+  // this in a live prod response means the guard was bypassed (e.g. NODE_ENV
+  // not actually 'production').
+  warning: 'DEV_REF_IN_PRODUCTION' | null;
+}
+
+// Informational: identify which Supabase project this instance is wired to so
+// ops can confirm at a glance (`curl .../healthz | jq .checks.supabase`) that
+// production isn't accidentally pointing at the dev database. Purely advisory —
+// does NOT affect the 200/503 verdict.
+function supabaseInfo(): SupabaseInfo {
+  return {
+    ref: getSupabaseRef(),
+    environment: getSupabaseEnvironment(),
+    warning:
+      isDevSupabaseRef() && process.env.NODE_ENV === 'production' ? 'DEV_REF_IN_PRODUCTION' : null,
   };
 }
 
@@ -280,6 +310,7 @@ export class HealthController {
         queues,
         secrets,
         stripe: stripeMode(),
+        supabase: supabaseInfo(),
         notifications: notificationChannels(),
         serviceFeeBps: getServiceFeeBps(),
       },

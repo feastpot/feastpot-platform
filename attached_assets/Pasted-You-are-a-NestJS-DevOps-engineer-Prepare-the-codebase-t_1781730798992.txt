@@ -1,0 +1,195 @@
+You are a NestJS DevOps engineer. Prepare the codebase to support
+a separate production Supabase project distinct from the dev project.
+
+CONFIRMED FROM AUDIT:
+"Production Supabase (UK/EU region, PITR backups) confirmed distinct
+from dev — the project currently shares one Supabase ref across
+dev/prod."
+
+The current shared ref is: zibmwuzxgydlvapiddhf
+This ref must ONLY be used for development going forward.
+A new production project will be created manually (see MANUAL STEPS).
+
+════════════════════════════════════════════════════════
+CHECK FIRST
+════════════════════════════════════════════════════════
+
+Run:
+1. grep -rn "zibmwuzxgydlvapiddhf" . --include="*.ts" \
+     --include="*.tsx" --include="*.env*" --include="*.json" \
+     --include="*.toml" --include="*.yaml" --include="*.yml" \
+     2>/dev/null | grep -v "node_modules\|.git"
+
+2. echo "SUPABASE_URL: $SUPABASE_URL"
+   echo "NEXT_PUBLIC_SUPABASE_URL (web): check Vercel env vars manually"
+
+3. grep -rn "SUPABASE_URL\|SUPABASE_DB_URL\|SUPABASE_SERVICE_ROLE" \
+     apps/api/src/common/config --include="*.ts"
+
+Report:
+  a) How many files reference the dev Supabase ref directly?
+  b) Is SUPABASE_URL set as a deployment secret in Replit
+     (not workspace secret)?
+  c) Is there any environment guard that prevents the dev Supabase
+     ref from being used in production?
+
+If a separate production Supabase URL is already set in deployment
+secrets AND no code hardcodes the dev ref → report
+ALREADY SEPARATED and stop.
+
+════════════════════════════════════════════════════════
+MANUAL STEPS — YOUR HANDS REQUIRED
+Do these before running the agent steps below.
+════════════════════════════════════════════════════════
+
+MANUAL STEP 1 — Create production Supabase project
+1. Go to: app.supabase.com → New project
+2. Organisation: your Feastpot org
+3. Project name: feastpot-production
+4. Database password: generate a strong password (save it securely)
+5. Region: West EU (Ireland) — closest UK-compliant region with PITR
+   Note: UK (London) region availability — check the Supabase dashboard
+   at the time you do this. If UK is available, choose it over Ireland.
+6. Pricing plan: Pro (required for PITR backups)
+7. Click "Create new project" and wait for provisioning (~2 minutes)
+
+MANUAL STEP 2 — Enable PITR backups on production project
+1. In the new production project: Settings → Database
+2. Under "Database Backups" → enable "Point in Time Recovery"
+3. Set retention: 7 days minimum (30 days recommended)
+4. Confirm PITR is shown as Active
+
+MANUAL STEP 3 — Collect production credentials
+From the production project, go to Settings → API and copy:
+  - Project URL (format: https://xxxxxxxxxxxx.supabase.co)
+  - anon/public key
+  - service_role key (keep this secret — never in frontend code)
+
+From Settings → Database → Connection string → URI:
+  - Copy the "Transaction pooler" URI (for the API — Prisma)
+  - Copy the "Session pooler" URI (for migrations)
+  - Copy the "Direct connection" URI (for Prisma migrate in CI)
+
+MANUAL STEP 4 — Run the schema migration on production
+On your local machine with the production DB connection:
+
+  DATABASE_URL="postgres://postgres.xxxx:[password]@aws-0-eu-west-1.pooler.supabase.com:6543/postgres" \
+  DIRECT_URL="postgres://postgres.xxxx:[password]@aws-0-eu-west-1.pooler.supabase.com:5432/postgres" \
+  npx prisma migrate deploy
+
+This applies all existing migrations to the production database.
+Confirm: "All migrations have been applied successfully."
+
+MANUAL STEP 5 — Set production secrets in Replit
+In the Replit deployment panel (not workspace secrets):
+  SUPABASE_URL              = https://[prod-ref].supabase.co
+  SUPABASE_SERVICE_ROLE_KEY = [prod service role key]
+  SUPABASE_DB_URL           = [prod transaction pooler URI]
+  SUPABASE_DIRECT_URL       = [prod direct connection URI]
+  SUPABASE_ANON_KEY         = [prod anon key]
+
+MANUAL STEP 6 — Set Vercel env vars for each frontend project
+In each of the three Vercel projects (web, vendor, admin):
+  NEXT_PUBLIC_SUPABASE_URL      = https://[prod-ref].supabase.co
+  NEXT_PUBLIC_SUPABASE_ANON_KEY = [prod anon key]
+
+════════════════════════════════════════════════════════
+AGENT STEPS — CODE CHANGES
+Run after manual steps are complete.
+════════════════════════════════════════════════════════
+
+STEP 1 — Add environment guard in main.ts
+File: apps/api/src/main.ts
+
+After the existing required-env checks, add a Supabase environment
+safety check that prevents the dev project from being used in production:
+
+const supabaseUrl = process.env.SUPABASE_URL ?? ''
+const DEV_REF     = 'zibmwuzxgydlvapiddhf'
+
+if (process.env.NODE_ENV === 'production' && supabaseUrl.includes(DEV_REF)) {
+  logger.error(
+    '[STARTUP] CRITICAL: SUPABASE_URL points to the DEVELOPMENT project ' +
+    `(ref: ${DEV_REF}) but NODE_ENV is production. ` +
+    'Set SUPABASE_URL in Replit deployment secrets to the production project URL. ' +
+    'Refusing to start to protect production data.'
+  )
+  process.exit(1)
+}
+
+logger.log(
+  `[Supabase] Project: ${supabaseUrl.split('.supabase.co')[0].split('https://')[1] ?? 'unknown'}`
+)
+
+STEP 2 — Add Supabase project to /healthz
+File: apps/api/src/health/health.controller.ts
+
+In the checks object, add Supabase project identification:
+
+const supabaseUrl   = process.env.SUPABASE_URL ?? ''
+const supabaseRef   = supabaseUrl.match(/https:\/\/([^.]+)\.supabase\.co/)?.[1] ?? 'unknown'
+const isDevRef      = supabaseRef === 'zibmwuzxgydlvapiddhf'
+const supabaseEnv   = isDevRef ? 'development' : 'production'
+
+checks: {
+  ...existingChecks,
+  supabase: {
+    ref:         supabaseRef,
+    environment: supabaseEnv,
+    warning:     isDevRef && process.env.NODE_ENV === 'production'
+                   ? 'DEV_REF_IN_PRODUCTION'
+                   : null,
+  },
+}
+
+STEP 3 — Confirm prisma.schema has both DATABASE_URL and DIRECT_URL
+File: prisma/schema.prisma
+
+The datasource block must use both URLs for correct Supabase pooling:
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("SUPABASE_DB_URL")
+  directUrl = env("SUPABASE_DIRECT_URL")
+}
+
+If directUrl is missing, add it and update the required-env list:
+File: apps/api/src/common/config/required-env.ts
+
+Add: 'SUPABASE_DIRECT_URL'
+
+STEP 4 — Update .env.example with production Supabase vars
+File: .env.example
+
+Under the Supabase section, clarify dev vs prod:
+
+# ── Supabase ────────────────────────────────────────────────────
+# DEV (local development only — NEVER use this ref in production):
+# SUPABASE_URL=https://zibmwuzxgydlvapiddhf.supabase.co
+#
+# PRODUCTION (set these in Replit deployment secrets):
+SUPABASE_URL=https://[prod-ref].supabase.co
+SUPABASE_ANON_KEY=eyJh...
+SUPABASE_SERVICE_ROLE_KEY=eyJh...
+SUPABASE_DB_URL=postgres://postgres.[prod-ref]:[password]@aws-0-eu-west-1.pooler.supabase.com:6543/postgres
+SUPABASE_DIRECT_URL=postgres://postgres.[prod-ref]:[password]@aws-0-eu-west-1.pooler.supabase.com:5432/postgres
+
+# Vercel env vars (set per-project in Vercel dashboard, not here):
+# NEXT_PUBLIC_SUPABASE_URL=https://[prod-ref].supabase.co
+# NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJh...
+
+STEP 5 — Verify the guard works
+Run: NODE_ENV=production SUPABASE_URL=https://zibmwuzxgydlvapiddhf.supabase.co \
+  npx ts-node -e "
+  const url = process.env.SUPABASE_URL
+  const DEV_REF = 'zibmwuzxgydlvapiddhf'
+  if (process.env.NODE_ENV === 'production' && url?.includes(DEV_REF)) {
+    console.error('GUARD WORKS: would exit(1)')
+  } else {
+    console.log('Guard did not trigger')
+  }
+  "
+Assert: "GUARD WORKS: would exit(1)" is printed.
+
+Run: npm run typecheck --filter=@feastpot/api
+Output all changed files.
