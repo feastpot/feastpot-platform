@@ -1,5 +1,6 @@
 - [Admin UI conventions](admin-ui-conventions.md) — server page (requireStaff) → client component; gate mutating UI to match backend @Roles, not the broader page-view roles.
 - [Monorepo commands](monorepo-commands.md) — repo is npm workspaces + Turborepo; attached CHECK-FIRST prompts say `--filter=` (turbo) but per-app scripts run via `npm run X --workspace=@feastpot/<app>`.
+- [npm overrides clean reinstall](npm-overrides-clean-reinstall.md) — overrides need EXACT pins + full clean reinstall (rm node_modules+lock); partial removal corrupts tree; verify via require(), not audit alone.
 - [Replit deploy env gotchas](replit-deploy-env.md) — NODE_ENV isn't auto-prod (set runtime-only via start:api, NOT a prod env var → breaks npm ci); env-scoped secrets land in plaintext git-tracked .replit.
 - [Supabase DB URLs](supabase-db-urls.md) — use SUPABASE_DIRECT_URL (session pooler:5432) for migrations/psql; stale DIRECT_URL direct-host rotation crash-loops deploys; DATABASE_URL = wrong DB (helium).
 - [Prisma migrations (dev)](prisma-migrations-dev.md) — dev DB isn't baselined (migrate dev/deploy fail P3005); hand-write minimal migration.sql + `db execute` + run enable-rls script; RLS is central, not per-migration.
