@@ -43,7 +43,11 @@ jobs:
 
       - name: Install workspace dependencies
         # `npm ci` honours workspaces declared in the root package.json.
-        run: npm ci
+        run: npm ci --no-audit --no-fund
+
+      - name: Dump npm debug log on failure
+        if: failure()
+        run: tail -n 200 /home/runner/.npm/_logs/*.log || true
 
       - name: Cache Turbo build artefacts
         uses: actions/cache@v4
