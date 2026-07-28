@@ -48,7 +48,8 @@ function makeStripe() {
   return { capture: jest.fn() as Mock, refund: jest.fn() as Mock };
 }
 function makeQueue() {
-  return { add: jest.fn().mockResolvedValue({ id: '1' }) as Mock };
+  // Shape of NotificationsService: durable enqueue (never throws, never drops).
+  return { enqueue: jest.fn().mockResolvedValue(undefined) as Mock };
 }
 
 describe('computeRefundSplit', () => {
@@ -226,13 +227,13 @@ describe('PaymentsService.createRefund', () => {
         }),
       }),
     );
-    expect(queue.add).toHaveBeenCalledTimes(2);
-    expect(queue.add).toHaveBeenCalledWith(
+    expect(queue.enqueue).toHaveBeenCalledTimes(2);
+    expect(queue.enqueue).toHaveBeenCalledWith(
       'refund_issued_customer',
       expect.objectContaining({ amountPence: 4449 }),
     );
     // Vendor is deducted only what they earned, NOT the full refund.
-    expect(queue.add).toHaveBeenCalledWith(
+    expect(queue.enqueue).toHaveBeenCalledWith(
       'refund_deducted_vendor',
       expect.objectContaining({ deductionPence: 3769 }),
     );

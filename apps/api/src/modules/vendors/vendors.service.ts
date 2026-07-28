@@ -9,6 +9,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { OrderStatus, UserRole, VendorStatus } from '@prisma/client';
 import type { VendorMemberRole } from '@prisma/client';
+import * as Sentry from '@sentry/nestjs';
 
 import type { AuthUser } from '../../auth/types';
 import { RedisCacheService } from '../../common/cache/redis-cache.service';
@@ -377,13 +378,17 @@ export class VendorsService {
     const labels = ['admin', 'applicant'] as const;
     results.forEach((r, i) => {
       if (r.status === 'rejected') {
-        // Logger.error so it shows in stdout AND is captured by the nest
-        // exception filter / Sentry transport (when configured).
-        // Application id included so the row can be re-emailed manually.
-        // eslint-disable-next-line no-console
-        console.error(
-          `[VendorsService.registerInterest] ${labels[i]} email failed for application ${application.id}: ${(r.reason as Error).message}`,
+        // The application row is committed but INVISIBLE to this party until
+        // someone re-sends the email — that's an ops incident, not a debug
+        // line. Log loudly AND page via Sentry with the application id so the
+        // row can be re-emailed.
+        this.logger.error(
+          `registerInterest: ${labels[i]} email failed for application ${application.id}: ${(r.reason as Error).message}`,
         );
+        Sentry.captureException(r.reason, {
+          tags: { area: 'vendor-application-email', recipient: labels[i] },
+          extra: { applicationId: application.id, kitchenName: application.kitchenName },
+        });
       }
     });
 

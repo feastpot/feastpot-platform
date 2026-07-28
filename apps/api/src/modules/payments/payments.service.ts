@@ -1,4 +1,4 @@
-import { InjectQueue } from '@nestjs/bull';
+import { NotificationsService } from '../notifications/notifications.service';
 import {
   BadRequestException,
   ForbiddenException,
@@ -7,7 +7,6 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PaymentStatus, PaymentType, Prisma, UserRole } from '@prisma/client';
-import { Queue } from 'bull';
 
 import { PrismaService } from '../../prisma/prisma.service';
 import { StripeService } from '../../stripe/stripe.service';
@@ -88,7 +87,7 @@ export class PaymentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly stripe: StripeService,
-    @InjectQueue(NOTIFICATIONS_QUEUE) private readonly notifications: Queue,
+    private readonly notifications: NotificationsService,
   ) {}
 
   // -------------------- list --------------------
@@ -421,33 +420,23 @@ export class PaymentsService {
       return row;
     });
 
-    // Best-effort enqueue: when REDIS_URL is unset the BullMQ Queue's
-    // lazyConnect+enableOfflineQueue:false combo throws "Connection is closed."
-    // on the very first add(). The refund row + commission reversal are
-    // already committed above — failing the whole request because we can't
-    // notify would leave the system in a confusing state (money moved,
-    // 500 returned to admin). Log and swallow.
-    await Promise.allSettled([
-      this.notifications.add('refund_issued_customer', {
+    // Durable enqueue: NotificationsService never throws AND never drops —
+    // if the queue is down the events are persisted to notification_outbox
+    // and retried by the outbox drainer until they reach the queue. Money
+    // moved above; both parties WILL be told, eventually.
+    await Promise.all([
+      this.notifications.enqueue('refund_issued_customer', {
         orderId: dto.orderId,
         customerId: order.customerId,
         amountPence: dto.amountPence,
       }),
-      this.notifications.add('refund_deducted_vendor', {
+      this.notifications.enqueue('refund_deducted_vendor', {
         orderId: dto.orderId,
         vendorId: order.vendorId,
         vendorUserId: order.vendor.userId,
         deductionPence: split.vendorClawbackPence,
       }),
-    ]).then((results) => {
-      for (const r of results) {
-        if (r.status === 'rejected') {
-          this.logger.warn(
-            `refund notification enqueue failed: ${(r.reason as Error)?.message ?? r.reason}`,
-          );
-        }
-      }
-    });
+    ]);
 
     return { refund: refundRow, split };
   }

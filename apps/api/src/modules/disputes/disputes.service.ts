@@ -17,6 +17,8 @@ import {
   UserRole,
 } from '@prisma/client';
 
+import * as Sentry from '@sentry/nestjs';
+
 import { SupabaseService } from '../../auth/supabase.service';
 import type { AuthUser } from '../../auth/types';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -718,8 +720,8 @@ export class DisputesService {
     entityId: string,
     metadata: Record<string, unknown>,
   ) {
-    await this.prisma.auditLog
-      .create({
+    try {
+      await this.prisma.auditLog.create({
         data: {
           actorId,
           action,
@@ -727,10 +729,17 @@ export class DisputesService {
           entityId,
           metadata: metadata as Prisma.JsonObject,
         },
-      })
-      .catch((e: Error) =>
-        this.logger.warn(`Audit log failed for ${action} ${entityId}: ${e.message}`),
-      );
+      });
+    } catch (e) {
+      // The dispute mutation already committed, so we don't fail the request —
+      // but a missing audit row for a dispute action is an incident, not a
+      // warning: page ops with everything needed to reconstruct the row.
+      this.logger.error(`Audit log failed for ${action} ${entityId}: ${(e as Error).message}`);
+      Sentry.captureException(e, {
+        tags: { area: 'audit-log', entity: 'dispute' },
+        extra: { actorId, action, entityId, metadata },
+      });
+    }
   }
 
   private encodeCursor(row: { createdAt: Date; id: string }): string {

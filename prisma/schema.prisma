@@ -437,6 +437,23 @@ model Notification {
   @@map("notifications")
 }
 
+/// Durable fallback for notification enqueues: when Redis/Bull is down, the
+/// event is persisted here instead of being dropped, and a cron retries the
+/// enqueue until it succeeds. Rows are deleted on successful enqueue.
+model NotificationOutbox {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  eventName     String   @map("event_name") @db.VarChar(100)
+  payload       Json
+  jobId         String?  @map("job_id") @db.VarChar(255)
+  attempts      Int      @default(0)
+  lastError     String?  @map("last_error")
+  nextAttemptAt DateTime @default(now()) @map("next_attempt_at") @db.Timestamptz
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([nextAttemptAt])
+  @@map("notification_outbox")
+}
+
 /// Vendor registration leads captured from the public become-a-vendor form.
 /// Distinct from `Vendor` (which requires an authenticated User) - applicants
 /// don't have accounts yet. Admin review converts an approved application
