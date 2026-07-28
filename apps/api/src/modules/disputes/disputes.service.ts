@@ -18,7 +18,6 @@ import {
   UserRole,
   UserStatus,
 } from '@prisma/client';
-
 import * as Sentry from '@sentry/nestjs';
 
 import { SupabaseService } from '../../auth/supabase.service';

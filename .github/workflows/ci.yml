@@ -143,12 +143,29 @@ jobs:
     name: Test (coverage ≥ 70%)
     needs: [setup]
     runs-on: ubuntu-latest
+    # Throwaway Postgres service — no external secrets needed. DB-gated
+    # integration tests skip themselves when they detect a non-seeded DB;
+    # the nightly workflow covers those against a real database.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: feastpot
+          POSTGRES_PASSWORD: feastpot
+          POSTGRES_DB: feastpot_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U feastpot"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     env:
       NODE_ENV: test
       # Prisma datasource reads SUPABASE_DB_URL / SUPABASE_DIRECT_URL (see
       # prisma/schema.prisma), NOT DATABASE_URL / DIRECT_URL.
-      SUPABASE_DB_URL: ${{ secrets.TEST_DATABASE_URL }}
-      SUPABASE_DIRECT_URL: ${{ secrets.TEST_DIRECT_URL }}
+      SUPABASE_DB_URL: postgresql://feastpot:feastpot@localhost:5432/feastpot_test
+      SUPABASE_DIRECT_URL: postgresql://feastpot:feastpot@localhost:5432/feastpot_test
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5

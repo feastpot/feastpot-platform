@@ -10,7 +10,6 @@ import { shouldReportQueueFailure } from '../../queues/queue-failure';
 import { LoyaltyService } from '../loyalty/loyalty.service';
 
 import { computeRefundSplit } from './payments.service';
-
 import { STRIPE_WEBHOOK_QUEUE } from './stripe-webhook.controller';
 import type { HandledStripeEventType } from './stripe-webhook.events';
 

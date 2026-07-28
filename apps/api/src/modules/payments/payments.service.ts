@@ -1,4 +1,3 @@
-import { NotificationsService } from '../notifications/notifications.service';
 import {
   BadRequestException,
   ForbiddenException,
@@ -10,6 +9,7 @@ import { PaymentStatus, PaymentType, Prisma, UserRole } from '@prisma/client';
 
 import { PrismaService } from '../../prisma/prisma.service';
 import { StripeService } from '../../stripe/stripe.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 import { CreateRefundDto } from './dto/create-refund.dto';
 import { ListChargebacksDto } from './dto/list-chargebacks.dto';

@@ -13,11 +13,11 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ApiExcludeController } from '@nestjs/swagger';
+import * as Sentry from '@sentry/nestjs';
 import type { Queue } from 'bull';
 import type { Request } from 'express';
 import type Stripe from 'stripe';
 
-import * as Sentry from '@sentry/nestjs';
 
 import { Public } from '../../auth/decorators/public.decorator';
 import { PrismaService } from '../../prisma/prisma.service';
