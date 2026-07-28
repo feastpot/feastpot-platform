@@ -9,12 +9,14 @@ import {
 import {
   DisputeStatus,
   EvidenceType,
+  InboxNotificationType,
   IssueType,
   OrderStatus,
   Prisma,
   ResolutionType,
   Severity,
   UserRole,
+  UserStatus,
 } from '@prisma/client';
 
 import * as Sentry from '@sentry/nestjs';
@@ -264,8 +266,26 @@ export class DisputesService {
     const last30 = new Date(now.getTime() - 30 * 24 * HOUR);
     const prior30Start = new Date(now.getTime() - 60 * 24 * HOUR);
 
-    const [total, overdue, breaching, inProgress, totalValue, last30Count, prior30Count] =
-      await this.prisma.$transaction([
+    const in72h = new Date(now.getTime() + 72 * HOUR);
+    const OPEN_CHARGEBACK_STATUSES = [
+      'needs_response',
+      'warning_needs_response',
+      'warning_under_review',
+      'under_review',
+    ];
+    const [
+      total,
+      overdue,
+      breaching,
+      inProgress,
+      totalValue,
+      last30Count,
+      prior30Count,
+      escalated,
+      openChargebacks,
+      chargebacksDueSoon,
+      lostUnreconciled,
+    ] = await this.prisma.$transaction([
         this.prisma.dispute.count({ where: scope }),
         this.prisma.dispute.count({
           where: {
@@ -304,6 +324,23 @@ export class DisputesService {
         this.prisma.dispute.count({
           where: { AND: [scope, { createdAt: { gte: prior30Start, lt: last30 } }] },
         }),
+        this.prisma.dispute.count({
+          where: { AND: [scope, { status: DisputeStatus.escalated }] },
+        }),
+        // Chargeback KPIs are global (not customer/vendor scoped) - stats is
+        // staff-only so that's the right lens for finance.
+        this.prisma.chargeback.count({
+          where: { status: { in: OPEN_CHARGEBACK_STATUSES } },
+        }),
+        this.prisma.chargeback.count({
+          where: {
+            status: { in: ['needs_response', 'warning_needs_response'] },
+            evidenceDueBy: { gte: now, lte: in72h },
+          },
+        }),
+        this.prisma.chargeback.count({
+          where: { status: 'lost', reconciledAt: null },
+        }),
       ]);
 
     const totalDisputedValuePence = totalValue.reduce(
@@ -322,8 +359,14 @@ export class DisputesService {
       overdue,
       breachingSoon: breaching,
       inProgress,
+      escalated,
       totalDisputedValuePence,
       deltaPct,
+      chargebacks: {
+        open: openChargebacks,
+        evidenceDueWithin72h: chargebacksDueSoon,
+        lostUnreconciled,
+      },
     };
   }
 
@@ -484,6 +527,14 @@ export class DisputesService {
         message: 'Cannot respond on a closed dispute',
       });
     }
+    // Response lock: once escalated the case belongs to Feastpot admins; the
+    // vendor's window to influence the record is over.
+    if (dispute.status === DisputeStatus.escalated) {
+      throw new BadRequestException({
+        code: 'DISPUTE_ESCALATED',
+        message: 'Dispute has been escalated - vendor responses are locked',
+      });
+    }
 
     // Submitting a response auto-advances open → vendor_contacted (no-op if already past).
     const nextStatus =
@@ -513,7 +564,11 @@ export class DisputesService {
   async escalate(id: string, user: AuthUser) {
     const dispute = await this.prisma.dispute.findUnique({
       where: { id },
-      select: { id: true, status: true },
+      include: {
+        order: {
+          select: { id: true, orderNumber: true, customerId: true, totalPence: true },
+        },
+      },
     });
     if (!dispute)
       throw new NotFoundException({ code: 'DISPUTE_NOT_FOUND', message: 'Dispute not found' });
@@ -523,7 +578,33 @@ export class DisputesService {
       where: { id },
       data: { status: DisputeStatus.escalated, severity: Severity.high },
     });
-    await this.audit(user.id, 'dispute.escalated', id, {});
+    await this.audit(user.id, 'dispute.escalated', id, { from: dispute.status });
+
+    // Real escalation, not just a status flip:
+    // 1. Vendor responses are now locked (enforced in vendorResponse()).
+    // 2. Every active admin gets an inbox item so it lands on a desk.
+    const admins = await this.prisma.user.findMany({
+      where: { role: UserRole.admin, status: UserStatus.active },
+      select: { id: true },
+    });
+    await Promise.all(
+      admins.map((a) =>
+        this.inbox.notify({
+          userId: a.id,
+          type: InboxNotificationType.generic,
+          title: `Dispute escalated - order ${dispute.order.orderNumber}`,
+          body: `Dispute ${id} (${dispute.issueType}, £${(dispute.order.totalPence / 100).toFixed(2)}) was escalated by ${user.role}. Vendor responses are locked; admin resolution required.`,
+          link: `/disputes/${id}`,
+          metadata: { disputeId: id, orderId: dispute.order.id },
+        }),
+      ),
+    );
+    // 3. The customer is told their case moved up.
+    await this.notifications.enqueue('dispute_escalated', {
+      userId: dispute.order.customerId,
+      disputeId: id,
+      orderNumber: dispute.order.orderNumber,
+    });
     return updated;
   }
 
@@ -540,6 +621,33 @@ export class DisputesService {
       throw new BadRequestException({ code: 'ALREADY_CLOSED', message: 'Dispute already closed' });
     }
 
+    // `escalated` is a STATUS, not a terminal outcome — closing a dispute
+    // with it would leave the record claiming it was both finished and still
+    // in flight. Use escalate() instead.
+    if (dto.resolution === ResolutionType.escalated) {
+      throw new BadRequestException({
+        code: 'INVALID_RESOLUTION',
+        message: 'escalated is not a terminal resolution - use POST /disputes/:id/escalate',
+      });
+    }
+    if (
+      dto.resolution === ResolutionType.credit &&
+      (!dto.creditAmountPence || dto.creditAmountPence < 1)
+    ) {
+      throw new BadRequestException({
+        code: 'CREDIT_AMOUNT_REQUIRED',
+        message: 'resolution=credit requires creditAmountPence',
+      });
+    }
+    if (
+      dto.resolution === ResolutionType.credit &&
+      dto.creditAmountPence! > dispute.order.totalPence
+    ) {
+      throw new BadRequestException({
+        code: 'CREDIT_EXCEEDS_TOTAL',
+        message: `Goodwill credit cannot exceed order total ${dispute.order.totalPence}p`,
+      });
+    }
     if (
       REFUND_RESOLUTIONS.has(dto.resolution) &&
       (!dto.refundAmountPence || dto.refundAmountPence < 1)
@@ -576,6 +684,51 @@ export class DisputesService {
       );
     }
 
+    // resolution=credit: goodwill loyalty credit instead of moving money back
+    // through Stripe (1p = 1 point, same rate as admin credits). Idempotent
+    // per dispute: a retry of close() must not double-credit.
+    if (dto.resolution === ResolutionType.credit) {
+      const creditReason = `dispute:${id}:credit`;
+      await this.prisma.$transaction(async (tx) => {
+        // Serialize competing close() calls on this dispute, then re-check
+        // inside the tx: without the lock two overlapping closes both see
+        // "not credited" and double-award points.
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${id}))`;
+        const alreadyCredited = await tx.auditLog.findFirst({
+          where: {
+            action: 'loyalty.adjusted',
+            entityType: 'users',
+            entityId: dispute.order.customerId,
+            metadata: { path: ['reason'], equals: creditReason },
+          },
+          select: { id: true },
+        });
+        if (alreadyCredited) return;
+        // Same writes as LoyaltyService.adjustPoints (1p = 1 point), inlined
+        // so the check + credit + audit are one atomic unit under the lock.
+        await tx.loyaltyPoint.create({
+          data: {
+            userId: dispute.order.customerId,
+            type: 'adjusted',
+            points: dto.creditAmountPence!,
+            reason: creditReason,
+          },
+        });
+        await tx.auditLog.create({
+          data: {
+            actorId: user.id,
+            entityType: 'users',
+            entityId: dispute.order.customerId,
+            action: 'loyalty.adjusted',
+            metadata: {
+              points: dto.creditAmountPence!,
+              reason: creditReason,
+            } as Prisma.JsonObject,
+          },
+        });
+      });
+    }
+
     const closed = await this.prisma.dispute.update({
       where: { id },
       data: {
@@ -590,6 +743,7 @@ export class DisputesService {
     await this.audit(user.id, 'dispute.closed', id, {
       resolution: dto.resolution,
       refundAmountPence: dto.refundAmountPence,
+      creditAmountPence: dto.creditAmountPence,
     });
 
     await this.notifications.enqueue('dispute_resolved', {
@@ -623,6 +777,7 @@ export class DisputesService {
     file: { originalname: string; buffer: Buffer; mimetype: string; size: number },
     caption: string | undefined,
     user: AuthUser,
+    declaredType?: EvidenceType,
   ) {
     const dispute = await this.prisma.dispute.findUnique({
       where: { id },
@@ -652,7 +807,21 @@ export class DisputesService {
     }
     const { data } = storage.getPublicUrl(path);
 
-    const type = file.mimetype.startsWith('image/') ? EvidenceType.photo : EvidenceType.document;
+    // Caller may declare the evidence kind (photo vs screenshot are both
+    // image/*; only the uploader knows which). Guard against nonsense like
+    // declaring a PDF a photo — image types require an image mimetype.
+    const isImage = file.mimetype.startsWith('image/');
+    if (
+      declaredType &&
+      (declaredType === EvidenceType.photo || declaredType === EvidenceType.screenshot) &&
+      !isImage
+    ) {
+      throw new BadRequestException({
+        code: 'EVIDENCE_TYPE_MISMATCH',
+        message: `type=${declaredType} requires an image file (got ${file.mimetype})`,
+      });
+    }
+    const type = declaredType ?? (isImage ? EvidenceType.photo : EvidenceType.document);
     const evidence = await this.prisma.disputeEvidence.create({
       data: {
         disputeId: id,

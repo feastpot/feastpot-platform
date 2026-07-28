@@ -151,6 +151,38 @@ export class PaymentsService {
     return { data: rows, nextCursor };
   }
 
+  /** Finance KPI tiles for the admin chargebacks screen. */
+  async chargebackStats() {
+    const now = new Date();
+    const in72h = new Date(now.getTime() + 72 * 60 * 60 * 1000);
+    const OPEN_STATUSES = [
+      'needs_response',
+      'warning_needs_response',
+      'warning_under_review',
+      'under_review',
+    ];
+    const [open, dueSoon, lostUnreconciled, openAmount] = await this.prisma.$transaction([
+      this.prisma.chargeback.count({ where: { status: { in: OPEN_STATUSES } } }),
+      this.prisma.chargeback.count({
+        where: {
+          status: { in: ['needs_response', 'warning_needs_response'] },
+          evidenceDueBy: { gte: now, lte: in72h },
+        },
+      }),
+      this.prisma.chargeback.count({ where: { status: 'lost', reconciledAt: null } }),
+      this.prisma.chargeback.aggregate({
+        where: { status: { in: OPEN_STATUSES } },
+        _sum: { amountPence: true },
+      }),
+    ]);
+    return {
+      open,
+      evidenceDueWithin72h: dueSoon,
+      lostUnreconciled,
+      openAmountPence: openAmount._sum.amountPence ?? 0,
+    };
+  }
+
   // -------------------- capture --------------------
 
   /**

@@ -12,6 +12,7 @@ import {
   Headphones,
   LayoutDashboard,
   LogOut,
+  MessageSquareWarning,
   PoundSterling,
   ShieldCheck,
   UserCircle2,
@@ -35,6 +36,7 @@ type NavItem = {
 const NAV_ITEMS: ReadonlyArray<NavItem> = [
   { href: '/', label: 'Dashboard', Icon: LayoutDashboard },
   { href: '/orders', label: 'Orders', Icon: ClipboardList },
+  { href: '/disputes', label: 'Disputes', Icon: MessageSquareWarning },
   { href: '/menu', label: 'Menu', Icon: UtensilsCrossed },
   { href: '/availability', label: 'Availability', Icon: Calendar },
   { href: '/analytics', label: 'Analytics', Icon: BarChart3 },

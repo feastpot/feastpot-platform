@@ -390,6 +390,19 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
       ),
     channels: ['email', 'push'],
   },
+  dispute_escalated: {
+    subject: (d) => `Your dispute on order #${str(d.orderNumber)} has been escalated`,
+    render: (d) =>
+      baseLayout(
+        'Dispute escalated',
+        h2('Your dispute has been escalated') +
+          p(
+            `Your dispute on order <strong>${esc(d.orderNumber)}</strong> has been escalated to Feastpot's admin team for review.`,
+          ) +
+          p('A senior member of our team will resolve this case and let you know the outcome.'),
+      ),
+    channels: ['email', 'push'],
+  },
   dispute_resolved: {
     subject: () => 'Your dispute has been resolved',
     render: (d) =>
