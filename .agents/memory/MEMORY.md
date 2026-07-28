@@ -18,4 +18,5 @@
 - [Queue-infra crons](queue-module-crons.md) — host @InjectQueue cron services in a separate module, NOT queues.module (circular import → queue-name const resolves undefined).
 - [Supabase auth hook](supabase-auth-hook.md) — login depends on custom_access_token_hook fn + RLS policy (auth_admin SELECT public.users); missing fn → all logins HTTP 500; missing policy → JWT role=customer for everyone.
 - [DB reset recovery](db-reset-recovery.md) — empty/drifted app DB w/ auth.users intact: migrate diff → db push --accept-data-loss → db:seed (bg, idempotent) → re-apply auth hook+policy.
+- [GitHub push workflow scope](github-push-workflow-scope.md) — PUSH_REJECTED when commits touch .github/workflows/: OAuth token lacks `workflow` scope; user must push via PAT (repo+workflow) or SSH.
 - [CI required checks](ci-required-checks.md) — the 5 required PR checks were never green: format:check needs .prettierignore (scanned .local/.agents); prisma jobs need SUPABASE_*_URL env; test needs unset TEST_DATABASE_URL/TEST_DIRECT_URL secrets; eqeqeq is intentional == null.
