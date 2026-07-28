@@ -31,6 +31,7 @@ export const STRIPE_WEBHOOK_QUEUE = 'stripe-webhooks';
 @Controller({ path: 'webhooks', version: '1' })
 export class StripeWebhookController {
   private readonly logger = new Logger(StripeWebhookController.name);
+
   /** Sentry dedupe: alert once per unhandled event type per process. */
   private readonly alertedUnhandledTypes = new Set<string>();
 

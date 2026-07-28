@@ -8,10 +8,11 @@
  * without a controller <-> processor import cycle (the processor imports
  * STRIPE_WEBHOOK_QUEUE from the controller).
  *
- * KEEP IN SYNC with the @Process({ name: ... }) decorators in
- * stripe-webhook.processor.ts.
+ * The processor derives its @Process handler names from HandledStripeEventType
+ * via its eventName() helper, so adding a handler without registering the
+ * event type here is a compile-time error rather than a silent drop.
  */
-export const HANDLED_STRIPE_EVENT_TYPES: ReadonlySet<string> = new Set([
+const HANDLED_STRIPE_EVENT_TYPE_LIST = [
   'payment_intent.succeeded',
   'payment_intent.payment_failed',
   'transfer.created',
@@ -20,4 +21,10 @@ export const HANDLED_STRIPE_EVENT_TYPES: ReadonlySet<string> = new Set([
   'charge.dispute.created',
   'charge.dispute.updated',
   'charge.dispute.closed',
-]);
+] as const;
+
+export type HandledStripeEventType = (typeof HANDLED_STRIPE_EVENT_TYPE_LIST)[number];
+
+export const HANDLED_STRIPE_EVENT_TYPES: ReadonlySet<string> = new Set(
+  HANDLED_STRIPE_EVENT_TYPE_LIST,
+);

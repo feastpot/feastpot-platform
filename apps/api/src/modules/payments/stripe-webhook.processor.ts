@@ -12,6 +12,14 @@ import { LoyaltyService } from '../loyalty/loyalty.service';
 import { computeRefundSplit } from './payments.service';
 
 import { STRIPE_WEBHOOK_QUEUE } from './stripe-webhook.controller';
+import type { HandledStripeEventType } from './stripe-webhook.events';
+
+// Compile-time link to the shared registry in stripe-webhook.events.ts:
+// every @Process name below is checked against HandledStripeEventType via
+// the eventName() helper, so adding a handler without registering its event
+// type in HANDLED_STRIPE_EVENT_TYPES fails typechecking instead of the
+// controller alerting on (and skipping) a type we actually handle.
+const eventName = <T extends HandledStripeEventType>(name: T): T => name;
 
 interface WebhookJob {
   id: string;
@@ -39,7 +47,7 @@ export class StripeWebhookProcessor {
   // Concurrency=5 on each handler: Stripe bursts during busy periods (peak
   // Friday evening), and these handlers are idempotent (updateMany on the
   // PI/refund id) so concurrent processing is safe.
-  @Process({ name: 'payment_intent.succeeded', concurrency: 10 })
+  @Process({ name: eventName('payment_intent.succeeded'), concurrency: 10 })
   async onIntentSucceeded(job: Job<WebhookJob>): Promise<void> {
     const pi = job.data.data as Stripe.PaymentIntent;
     await this.prisma.payment.updateMany({
@@ -51,7 +59,7 @@ export class StripeWebhookProcessor {
     this.logger.log(`PI ${pi.id} succeeded`);
   }
 
-  @Process({ name: 'payment_intent.payment_failed', concurrency: 10 })
+  @Process({ name: eventName('payment_intent.payment_failed'), concurrency: 10 })
   async onIntentFailed(job: Job<WebhookJob>): Promise<void> {
     const pi = job.data.data as Stripe.PaymentIntent;
     const payment = await this.prisma.payment.findFirst({
@@ -100,7 +108,7 @@ export class StripeWebhookProcessor {
     this.logger.warn(`PI ${pi.id} failed`);
   }
 
-  @Process({ name: 'transfer.created', concurrency: 10 })
+  @Process({ name: eventName('transfer.created'), concurrency: 10 })
   async onTransferCreated(job: Job<WebhookJob>): Promise<void> {
     const transfer = job.data.data as Stripe.Transfer;
     // Match by metadata.payoutId if our service set it; otherwise no-op.
@@ -124,12 +132,12 @@ export class StripeWebhookProcessor {
   // older API versions send `charge.refund.updated`. Both carry a Refund object
   // as `data.object`. The controller enqueues jobs keyed by `event.type`, so we
   // register a named handler for BOTH to avoid silently dropping refund events.
-  @Process({ name: 'refund.updated', concurrency: 10 })
+  @Process({ name: eventName('refund.updated'), concurrency: 10 })
   async onRefundUpdated(job: Job<WebhookJob>): Promise<void> {
     await this.handleRefundUpdated(job);
   }
 
-  @Process({ name: 'charge.refund.updated', concurrency: 10 })
+  @Process({ name: eventName('charge.refund.updated'), concurrency: 10 })
   async onChargeRefundUpdated(job: Job<WebhookJob>): Promise<void> {
     await this.handleRefundUpdated(job);
   }
@@ -159,17 +167,17 @@ export class StripeWebhookProcessor {
   // as `data.object`. We upsert a single Chargeback row keyed on the Stripe
   // dispute id so finance sees status + amount without the Stripe Dashboard.
   // This is entirely separate from the internal customer-vs-vendor Dispute flow.
-  @Process({ name: 'charge.dispute.created', concurrency: 10 })
+  @Process({ name: eventName('charge.dispute.created'), concurrency: 10 })
   async onDisputeCreated(job: Job<WebhookJob>): Promise<void> {
     await this.handleChargeDispute(job);
   }
 
-  @Process({ name: 'charge.dispute.updated', concurrency: 10 })
+  @Process({ name: eventName('charge.dispute.updated'), concurrency: 10 })
   async onDisputeUpdated(job: Job<WebhookJob>): Promise<void> {
     await this.handleChargeDispute(job);
   }
 
-  @Process({ name: 'charge.dispute.closed', concurrency: 10 })
+  @Process({ name: eventName('charge.dispute.closed'), concurrency: 10 })
   async onDisputeClosed(job: Job<WebhookJob>): Promise<void> {
     await this.handleChargeDispute(job);
   }
@@ -427,8 +435,9 @@ export class StripeWebhookProcessor {
   }
 
   // Note: legacy Bull does not allow a catch-all `@Process()` alongside named
-  // handlers. Unhandled event types are silently dropped after the controller
-  // already recorded them in processed_webhook_events for audit.
+  // handlers. Unhandled event types are detected in the controller (via
+  // HANDLED_STRIPE_EVENT_TYPES) and alerted through Sentry + warn log instead
+  // of being enqueued; they are still recorded in processed_webhook_events.
 
   @OnQueueFailed()
   onFailed(job: Job<WebhookJob> | undefined, err: Error): void {
