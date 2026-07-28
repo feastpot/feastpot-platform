@@ -25,6 +25,7 @@ import { SupabaseService } from '../../auth/supabase.service';
 import type { AuthUser } from '../../auth/types';
 import { PrismaService } from '../../prisma/prisma.service';
 import { InboxService } from '../inbox/inbox.service';
+import { LoyaltyService } from '../loyalty/loyalty.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PaymentsService } from '../payments/payments.service';
 
@@ -78,6 +79,8 @@ export class DisputesService {
     private readonly supabase: SupabaseService,
     // T007: vendor inbox emitter; @Global() module so no import needed.
     private readonly inbox: InboxService,
+    // @Global() LoyaltyModule - used for resolution=credit (goodwill points).
+    private readonly loyalty: LoyaltyService,
   ) {}
 
   // -------------------- list --------------------
@@ -917,6 +920,7 @@ export class DisputesService {
       'utf8',
     ).toString('base64url');
   }
+
   private decodeCursor(s: string): { createdAt: Date; id: string } | undefined {
     try {
       const obj = JSON.parse(Buffer.from(s, 'base64url').toString('utf8')) as {

@@ -24,6 +24,7 @@ jobs:
         run: npm run db:generate
 
       - name: Run vendor onboarding smoke
+        id: vendor-smoke
         run: npm run test --workspace=@feastpot/api -- vendor-onboarding-smoke
         env:
           NODE_ENV: test
@@ -37,3 +38,32 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           TEST_ADMIN_EMAIL: ${{ secrets.TEST_ADMIN_EMAIL }}
           TEST_ADMIN_PASSWORD: ${{ secrets.TEST_ADMIN_PASSWORD }}
+
+      - name: Run refund/chargeback over-refund safety test
+        # Run even when the vendor smoke fails: these are independent safety
+        # signals and we want both results every night.
+        if: always() && steps.vendor-smoke.outcome != 'skipped'
+        run: npm run test --workspace=@feastpot/api -- refund-chargeback-concurrency
+        env:
+          NODE_ENV: test
+          # The spec skips itself without SUPABASE_DB_URL; providing the TEST
+          # database URLs here makes it execute against the safe test DB.
+          SUPABASE_DB_URL: ${{ secrets.TEST_SUPABASE_DB_URL }}
+          SUPABASE_DIRECT_URL: ${{ secrets.TEST_SUPABASE_DIRECT_URL }}
+
+  notify:
+    name: Notify Slack on failure
+    needs: [smoke]
+    runs-on: ubuntu-latest
+    if: always() && needs.smoke.result != 'success'
+    steps:
+      - name: Failure notification
+        # Slack delivery must never mask the red run: a missing/malformed
+        # SLACK_WEBHOOK_URL is a notification problem, not a test problem.
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          [ -z "${SLACK_WEBHOOK_URL}" ] && { echo "::warning::SLACK_WEBHOOK_URL not set — skipping Slack notify"; exit 0; }
+          curl -fsS -X POST -H 'Content-type: application/json' \
+            --data "{\"text\":\":x: Nightly smoke FAILED (vendor onboarding / over-refund safety) — run: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\"}" \
+            "${SLACK_WEBHOOK_URL}" || echo "::warning::Slack notify failed (check SLACK_WEBHOOK_URL)"

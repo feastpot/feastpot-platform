@@ -42,24 +42,10 @@ function requireUser(user: AuthUser | null): AuthUser {
 export class DisputesController {
   constructor(private readonly disputes: DisputesService) {}
 
-  @Get()
-  // Finance / compliance staff have their own dedicated tools - they don't
-  // need raw dispute access. The service still scopes results: customers see
-  // their own, vendors see disputes on their orders, support/admin see all.
-  @Roles(UserRole.customer, UserRole.vendor, UserRole.support, UserRole.admin)
-  @ApiOperation({
-    summary: 'List disputes (customer: own; vendor: own orders; support/admin: all)',
-  })
   list(@CurrentUser() user: AuthUser | null, @Query() dto: ListDisputesDto) {
     return this.disputes.list(requireUser(user), dto);
   }
 
-  @Get('stats')
-  @Roles(UserRole.support, UserRole.admin)
-  @ApiOperation({
-    summary:
-      'Footer KPI tiles (totals, overdue, breaching, in-progress, total value, 30d delta) — honours the same filters as list',
-  })
   stats(@CurrentUser() user: AuthUser | null, @Query() dto: ListDisputesDto) {
     return this.disputes.stats(requireUser(user), dto);
   }
