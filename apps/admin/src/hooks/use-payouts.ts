@@ -61,6 +61,22 @@ export function useHoldPayout() {
   });
 }
 
+export interface LedgerReconcileResult {
+  status: 'match' | 'mismatch' | 'not_applicable';
+  expected?: {
+    grossPence: number;
+    commissionPence: number;
+    refundsPence: number;
+    netPence: number;
+    orderCount: number;
+  };
+  grossDeltaPence?: number;
+  commissionDeltaPence?: number;
+  refundsDeltaPence?: number;
+  netDeltaPence?: number;
+  orderCountDelta?: number;
+}
+
 export interface ReconcileResult {
   payoutId: string;
   stripeTransferId: string | null;
@@ -69,6 +85,7 @@ export interface ReconcileResult {
   discrepancyPence: number | null;
   status: 'match' | 'mismatch' | 'no_transfer' | 'stripe_error';
   error?: string;
+  ledger?: LedgerReconcileResult;
 }
 
 export function useReconcilePayout() {

@@ -316,6 +316,31 @@ export class PaymentsService {
     // - Credit row: the part of the refund the vendor is NOT liable for (its
     //   service-fee share plus the commission Feastpot gives back).
     const refundRow = await this.prisma.$transaction(async (tx) => {
+      // Per-order advisory lock: serialises against a concurrent lost-chargeback
+      // reconciliation (which takes the same lock) so the cumulative-refund
+      // ceiling cannot be raced past by two writers whose pre-checks both read
+      // stale totals.
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${dto.orderId}))`;
+      // Re-check the ceiling INSIDE the lock scope. The pre-check above ran
+      // before the Stripe call; a chargeback ledger write may have landed in
+      // between. Throwing here rolls back cleanly — the Stripe refund already
+      // exists, but the deterministic idempotencyKey means a retry returns the
+      // SAME Stripe refund, and the thrown error surfaces the conflict to the
+      // caller instead of silently over-refunding the ledger.
+      const priorInTx = await tx.payment.aggregate({
+        where: {
+          orderId: dto.orderId,
+          type: { in: [PaymentType.refund, PaymentType.partial_refund] },
+        },
+        _sum: { amountPence: true },
+      });
+      const refundedInTxPence = -(priorInTx._sum.amountPence ?? 0);
+      if (refundedInTxPence + dto.amountPence > order.totalPence) {
+        throw new BadRequestException({
+          code: 'CUMULATIVE_REFUND_EXCEEDS_TOTAL',
+          message: `Refunds total (${refundedInTxPence + dto.amountPence}p) exceeds order total (${order.totalPence}p) — a concurrent refund/chargeback landed first`,
+        });
+      }
       const row = await tx.payment.create({
         data: {
           orderId: dto.orderId,
@@ -331,24 +356,52 @@ export class PaymentsService {
           processedAt: new Date(),
         },
       });
-      await tx.payment.create({
-        data: {
-          orderId: dto.orderId,
-          userId: authorisedBy.id,
-          type: PaymentType.credit,
-          status: PaymentStatus.succeeded,
-          amountPence: split.feastpotAbsorbedPence,
-          currency: 'GBP',
-          failureReason: `Feastpot-absorbed portion of refund ${row.id}`,
-          processedAt: new Date(),
-        },
-      });
-      return row;
-    });
-
-    // Audit the refund split so finance can reconcile who bore what.
-    await this.prisma.auditLog
-      .create({
+      // The Feastpot-absorbed portion is written as TWO explicit credit rows so
+      // the ledger itself records that the platform RETAINED the service fee
+      // (previously only visible in a best-effort audit-log blob):
+      //   1. service-fee share — platform revenue Feastpot keeps but absorbs
+      //      against this refund (the vendor never received it),
+      //   2. commission share — commission Feastpot gives back on the refund.
+      // The weekly payout batch nets ALL credit rows against refund rows, so
+      // splitting one credit into two with the same sum leaves the vendor
+      // clawback arithmetic unchanged. Clamp so the rows always sum EXACTLY to
+      // feastpotAbsorbedPence even under rounding on partial refunds.
+      const serviceFeeCreditPence = Math.min(
+        split.serviceFeeAbsorbedPence,
+        split.feastpotAbsorbedPence,
+      );
+      const commissionCreditPence = split.feastpotAbsorbedPence - serviceFeeCreditPence;
+      if (serviceFeeCreditPence > 0) {
+        await tx.payment.create({
+          data: {
+            orderId: dto.orderId,
+            userId: authorisedBy.id,
+            type: PaymentType.credit,
+            status: PaymentStatus.succeeded,
+            amountPence: serviceFeeCreditPence,
+            currency: 'GBP',
+            failureReason: `service_fee_retained: platform service fee absorbed on refund ${row.id}`,
+            processedAt: new Date(),
+          },
+        });
+      }
+      if (commissionCreditPence > 0) {
+        await tx.payment.create({
+          data: {
+            orderId: dto.orderId,
+            userId: authorisedBy.id,
+            type: PaymentType.credit,
+            status: PaymentStatus.succeeded,
+            amountPence: commissionCreditPence,
+            currency: 'GBP',
+            failureReason: `commission_refunded: Feastpot commission share absorbed on refund ${row.id}`,
+            processedAt: new Date(),
+          },
+        });
+      }
+      // Audit record is atomic with the money rows: a refund can no longer
+      // commit without its permanent reconciliation trail.
+      await tx.auditLog.create({
         data: {
           actorId: authorisedBy.id,
           action: 'refund_issued',
@@ -358,15 +411,15 @@ export class PaymentsService {
             customerRefundPence: dto.amountPence,
             vendorClawbackPence: split.vendorClawbackPence,
             feastpotAbsorbedPence: split.feastpotAbsorbedPence,
+            serviceFeeRetainedPence: serviceFeeCreditPence,
             serviceFeePenceAbsorbed: split.serviceFeeAbsorbedPence,
             commissionRefundedPence: split.commissionRefundedPence,
             partial: isPartial,
           } as Prisma.JsonObject,
         },
-      })
-      .catch((e: unknown) => {
-        this.logger.warn(`refund audit log write failed: ${(e as Error)?.message ?? e}`);
       });
+      return row;
+    });
 
     // Best-effort enqueue: when REDIS_URL is unset the BullMQ Queue's
     // lazyConnect+enableOfflineQueue:false combo throws "Connection is closed."

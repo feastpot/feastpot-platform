@@ -19,6 +19,8 @@ function makePrisma() {
       aggregate: jest.fn().mockResolvedValue({ _sum: { amountPence: 0 } }) as Mock,
     },
     auditLog: { create: jest.fn().mockResolvedValue({}) as Mock },
+    // pg_advisory_xact_lock inside the refund transaction.
+    $executeRaw: jest.fn().mockResolvedValue(1) as Mock,
   };
   // Interactive $transaction: run the callback with the same prisma mock so the
   // payment.create calls inside the txn are recorded on the same spy.
@@ -183,7 +185,8 @@ describe('PaymentsService.createRefund', () => {
     stripe.refund.mockResolvedValueOnce({ id: 're_1', charge: 'ch_1' });
     prisma.payment.create
       .mockResolvedValueOnce({ id: 'pay-refund' })
-      .mockResolvedValueOnce({ id: 'pay-credit' });
+      .mockResolvedValueOnce({ id: 'pay-credit-fee' })
+      .mockResolvedValueOnce({ id: 'pay-credit-commission' });
 
     const out = await svc.createRefund({ orderId: 'o-1', amountPence: 4449 }, finance);
 
@@ -199,10 +202,16 @@ describe('PaymentsService.createRefund', () => {
       stripePaymentIntentId: 'pi_1',
       stripeRefundId: 're_1',
     });
-    // Credit row carries the Feastpot-absorbed portion (netted in the payout batch).
+    // The Feastpot-absorbed portion is split into TWO explicit credit rows —
+    // service fee retained + commission given back — that sum to 680 so the
+    // payout batch netting (Σ credit rows) is unchanged.
     expect(prisma.payment.create.mock.calls[1][0].data).toMatchObject({
       type: PaymentType.credit,
-      amountPence: 680,
+      amountPence: 200, // service fee retained
+    });
+    expect(prisma.payment.create.mock.calls[2][0].data).toMatchObject({
+      type: PaymentType.credit,
+      amountPence: 480, // commission share absorbed
     });
     // Audit log records who bore what, including the absorbed service fee.
     expect(prisma.auditLog.create).toHaveBeenCalledWith(
@@ -241,9 +250,15 @@ describe('PaymentsService.createRefund', () => {
     expect(prisma.payment.create.mock.calls[0][0].data.type).toBe(PaymentType.partial_refund);
     expect(prisma.payment.create.mock.calls[0][0].data.amountPence).toBe(-2000);
     expect(out.split.vendorClawbackPence).toBe(1885);
+    // Absorbed = 115p. Service-fee share = 50% × 200 = 100p; remainder 15p is
+    // the commission share. Two credit rows must sum to the absorbed total.
     expect(prisma.payment.create.mock.calls[1][0].data).toMatchObject({
       type: PaymentType.credit,
-      amountPence: 2000 - 1885,
+      amountPence: 100,
+    });
+    expect(prisma.payment.create.mock.calls[2][0].data).toMatchObject({
+      type: PaymentType.credit,
+      amountPence: 15,
     });
   });
 });

@@ -980,6 +980,12 @@ model Chargeback {
   evidenceDueBy         DateTime? @map("evidence_due_by") @db.Timestamptz
   openedAt              DateTime? @map("opened_at") @db.Timestamptz
   closedAt              DateTime? @map("closed_at") @db.Timestamptz
+  /// Set once when a LOST chargeback's order finances have been reconciled
+  /// (refund + credit Payment rows written). CAS guard against double-writes.
+  reconciledAt          DateTime? @map("reconciled_at") @db.Timestamptz
+  /// Set once when the evidence-deadline warning has been sent to finance,
+  /// so the hourly monitor never re-alerts for the same dispute.
+  evidenceWarnedAt      DateTime? @map("evidence_warned_at") @db.Timestamptz
   createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz
 

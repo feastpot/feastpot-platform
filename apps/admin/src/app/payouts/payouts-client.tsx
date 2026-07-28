@@ -489,6 +489,57 @@ export function PayoutsClient({ role }: PayoutsClientProps) {
               {reconcileResult.error && (
                 <p className="text-sm text-destructive">{reconcileResult.error}</p>
               )}
+              {reconcileResult.ledger && reconcileResult.ledger.status !== 'not_applicable' && (
+                <>
+                  <div className="pt-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Ledger reconciliation
+                    </p>
+                  </div>
+                  <ReconRow
+                    label="Ledger status"
+                    value={
+                      reconcileResult.ledger.status === 'match' ? (
+                        <Badge>match</Badge>
+                      ) : (
+                        <Badge variant="destructive">mismatch</Badge>
+                      )
+                    }
+                  />
+                  {reconcileResult.ledger.expected && (
+                    <>
+                      <LedgerDeltaRow
+                        label="Gross"
+                        expected={reconcileResult.ledger.expected.grossPence}
+                        delta={reconcileResult.ledger.grossDeltaPence}
+                      />
+                      <LedgerDeltaRow
+                        label="Commission"
+                        expected={reconcileResult.ledger.expected.commissionPence}
+                        delta={reconcileResult.ledger.commissionDeltaPence}
+                      />
+                      <LedgerDeltaRow
+                        label="Refund clawback"
+                        expected={reconcileResult.ledger.expected.refundsPence}
+                        delta={reconcileResult.ledger.refundsDeltaPence}
+                      />
+                      <LedgerDeltaRow
+                        label="Net payout"
+                        expected={reconcileResult.ledger.expected.netPence}
+                        delta={reconcileResult.ledger.netDeltaPence}
+                      />
+                      <ReconRow
+                        label="Orders"
+                        value={
+                          (reconcileResult.ledger.orderCountDelta ?? 0) === 0
+                            ? `${reconcileResult.ledger.expected.orderCount} ✅`
+                            : `expected ${reconcileResult.ledger.expected.orderCount} (Δ ${reconcileResult.ledger.orderCountDelta})`
+                        }
+                      />
+                    </>
+                  )}
+                </>
+              )}
             </dl>
           )}
         </DialogContent>
@@ -506,6 +557,24 @@ function PayoutStatusPill({ status }: { status: PayoutStatus }) {
     failed: 'danger',
   };
   return <StatusPill tone={tone[status]}>{status === 'transferred' ? 'Paid' : status}</StatusPill>;
+}
+
+function LedgerDeltaRow({
+  label,
+  expected,
+  delta,
+}: {
+  label: string;
+  expected: number;
+  delta: number | undefined;
+}) {
+  const d = delta ?? 0;
+  return (
+    <ReconRow
+      label={label}
+      value={d === 0 ? `${formatPence(expected)} ✅` : `expected ${formatPence(expected)} (Δ ${formatPence(d)})`}
+    />
+  );
 }
 
 function ReconRow({ label, value }: { label: string; value: React.ReactNode }) {
