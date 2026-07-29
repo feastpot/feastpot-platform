@@ -374,7 +374,10 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
       ),
     sms: (d) =>
       `Feastpot: Dispute opened on order ${str(d.orderNumber)}. Respond within 24h: https://vendor.feastpot.co.uk/disputes/${str(d.disputeId, '')}`,
-    channels: ['email', 'push'],
+    // SMS included: disputes carry a hard 24h response window, so vendors away
+    // from email/push must still get the deadline on their phone. Not in the
+    // preference registry (vendor ops alert) - always delivered.
+    channels: ['email', 'sms', 'push'],
   },
   dispute_vendor_responded: {
     subject: () => 'Vendor responded to your dispute',
