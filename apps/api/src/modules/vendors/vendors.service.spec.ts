@@ -342,11 +342,19 @@ describe('VendorsService', () => {
 
   describe('getVendorReviews', () => {
     it('paginates reviews and returns nextCursor when full page', async () => {
-      const reviews = [{ id: 'r1' }, { id: 'r2' }];
+      const reviews = [
+        { id: 'r1', customer: { firstName: 'Ada', lastName: 'Obi' } },
+        { id: 'r2', customer: null },
+      ];
       repo.listPublishedReviews.mockResolvedValue(reviews as never);
       const res = await service.getVendorReviews('v-1', { limit: 2 });
       expect(res.nextCursor).toBe('r2');
-      expect(res.data).toEqual(reviews);
+      // Raw customer name fields must NOT leak; initials are derived, with
+      // 'FP' as the fallback when no name is available.
+      expect(res.data).toEqual([
+        { id: 'r1', customerInitials: 'AO' },
+        { id: 'r2', customerInitials: 'FP' },
+      ]);
     });
   });
 });

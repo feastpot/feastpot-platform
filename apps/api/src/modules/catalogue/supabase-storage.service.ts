@@ -12,6 +12,23 @@ import { STORAGE_BUCKET } from './catalogue.constants';
 const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const MAX_BYTES = 5 * 1024 * 1024;
 
+/** Magic-byte sniff for the three formats we accept. */
+function looksLikeImage(buf: Buffer): boolean {
+  if (buf.length < 12) return false;
+  // JPEG: FF D8 FF
+  if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return true;
+  // PNG: 89 50 4E 47 0D 0A 1A 0A
+  if (buf.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])))
+    return true;
+  // WebP: "RIFF" .... "WEBP"
+  if (
+    buf.subarray(0, 4).toString('ascii') === 'RIFF' &&
+    buf.subarray(8, 12).toString('ascii') === 'WEBP'
+  )
+    return true;
+  return false;
+}
+
 export interface UploadedImage {
   path: string;
   publicUrl: string;
@@ -50,6 +67,19 @@ export class SupabaseStorageService {
     return this.uploadAt(`vendors/${vendorId}/identity/${kind}`, file);
   }
 
+  /**
+   * Customer review photos. Stored under the vendor's folder so vendor
+   * deletion tooling can sweep everything vendor-related in one prefix.
+   */
+  async uploadReviewPhoto(params: {
+    vendorId: string;
+    reviewId: string;
+    file: { originalname: string; mimetype: string; size: number; buffer: Buffer };
+  }): Promise<UploadedImage> {
+    const { vendorId, reviewId, file } = params;
+    return this.uploadAt(`vendors/${vendorId}/reviews/${reviewId}`, file);
+  }
+
   private async uploadAt(
     folder: string,
     file: { originalname: string; mimetype: string; size: number; buffer: Buffer },
@@ -58,6 +88,15 @@ export class SupabaseStorageService {
       throw new BadRequestException({
         code: 'INVALID_IMAGE_TYPE',
         message: `Unsupported image type ${file.mimetype}; allowed: ${Array.from(ALLOWED_MIME).join(', ')}`,
+      });
+    }
+    // The declared MIME type is client-controlled, so also sniff the magic
+    // bytes - a non-image payload with a spoofed image/* header must not land
+    // in public storage.
+    if (!looksLikeImage(file.buffer)) {
+      throw new BadRequestException({
+        code: 'INVALID_IMAGE_CONTENT',
+        message: 'File content is not a valid JPEG, PNG, or WebP image',
       });
     }
     if (file.size > MAX_BYTES) {

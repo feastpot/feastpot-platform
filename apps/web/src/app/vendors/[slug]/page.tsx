@@ -450,13 +450,17 @@ export default async function VendorProfilePage({ params }: PageProps) {
       </section>
 
       {/* RATING BREAKDOWN - sits below the vendor info card so the trust
-          signal is visible before the customer dives into the menu. The
-          per-bucket counts aren't yet exposed by the API, so the component
-          derives a deterministic visual estimate from `rating` + `ratingCount`
-          and shows a small "estimated" footnote. */}
+          signal is visible before the customer dives into the menu. Bars use
+          the REAL per-star counts from the profile API (`ratingBreakdown`);
+          the component only falls back to its labelled estimate if the field
+          is ever absent. */}
       {vendor.ratingCount > 0 && (
         <section className="mt-6">
-          <RatingBreakdown avgRating={vendor.rating} reviewCount={vendor.ratingCount} />
+          <RatingBreakdown
+            avgRating={vendor.rating}
+            reviewCount={vendor.ratingCount}
+            breakdown={vendor.ratingBreakdown}
+          />
         </section>
       )}
 

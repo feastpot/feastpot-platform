@@ -3,6 +3,8 @@ import { ConfigService } from '@nestjs/config';
 import twilio from 'twilio';
 import type { Twilio } from 'twilio';
 
+import { alertIfStubInProduction } from './stub-alert';
+
 export interface SmsMessage {
   to: string;
   body: string;
@@ -35,10 +37,12 @@ export class SmsProvider {
     const token = config.get<string>('TWILIO_AUTH_TOKEN');
     this.from = config.get<string>('TWILIO_FROM_NUMBER') ?? '';
     if (!sid || !token || !this.from) {
-      this.logger.warn(
-        'TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN / TWILIO_FROM_NUMBER not all set - SMS sends will be logged only.',
-      );
       this.client = null;
+      alertIfStubInProduction(
+        this.logger,
+        'SMS (Twilio)',
+        'TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN / TWILIO_FROM_NUMBER not all set',
+      );
     } else {
       this.client = twilio(sid, token);
     }

@@ -434,7 +434,7 @@ describe('OrdersService.confirmOrder', () => {
     expect(queue.add).toHaveBeenNthCalledWith(
       1,
       'notify_vendor',
-      { vendorId: 'v-1', orderId: 'o-1' },
+      expect.objectContaining({ vendorId: 'v-1', orderId: 'o-1' }),
       undefined,
     );
     expect(queue.add).toHaveBeenNthCalledWith(

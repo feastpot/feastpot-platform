@@ -116,7 +116,7 @@ const SECTIONS: FaqSection[] = [
 export default function HelpPage() {
   // Surfaced via env so support routing can change (rota handover, new number,
   // a different inbox per market) without a code deploy.
-  const whatsapp = process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP ?? '+447000000000';
+  const whatsapp = process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP ?? '+447459774818';
   const supportEmail = process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? 'support@feastpot.co.uk';
   // wa.me requires the digits-only form (no +, no spaces).
   const whatsappDigits = whatsapp.replace(/\D/g, '');

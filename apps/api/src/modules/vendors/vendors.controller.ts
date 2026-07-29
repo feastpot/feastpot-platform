@@ -211,6 +211,20 @@ export class VendorsController {
   // Gated to non-prod so we never accidentally leak internals from a
   // real deploy - returns 404 in production.
   @Public()
+  @Public()
+  @Get('coverage')
+  @ApiOperation({
+    summary:
+      'Aggregated live-vendor delivery coverage (postcode districts), optionally filtered by cuisine. Feeds the SEO landing pages.',
+  })
+  coverage(@Query('cuisine') cuisine?: string) {
+    const cuisines = cuisine
+      ?.split(',')
+      .map((c) => c.trim())
+      .filter(Boolean);
+    return this.vendors.getCoverage(cuisines);
+  }
+
   @Get('debug')
   @ApiOperation({
     summary: 'Diagnostic snapshot of live vendors + delivery configs (non-prod only).',

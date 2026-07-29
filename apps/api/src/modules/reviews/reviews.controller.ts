@@ -8,8 +8,11 @@ import {
   Post,
   Query,
   UnauthorizedException,
+  UploadedFiles,
+  UseInterceptors,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { FilesInterceptor } from '@nestjs/platform-express';
+import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
@@ -41,6 +44,27 @@ export class ReviewsController {
   @ApiOperation({ summary: 'Submit a review (customer; order must be delivered)' })
   create(@CurrentUser() user: AuthUser | null, @Body() dto: CreateReviewDto) {
     return this.reviews.create(dto, requireUser(user));
+  }
+
+  @Post(':id/photos')
+  @Roles(UserRole.customer)
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        photos: { type: 'array', items: { type: 'string', format: 'binary' } },
+      },
+    },
+  })
+  @UseInterceptors(FilesInterceptor('photos', 3, { limits: { fileSize: 5 * 1024 * 1024 } }))
+  @ApiOperation({ summary: 'Attach up to 3 photos to your review (max 5MB each; jpeg/png/webp)' })
+  addPhotos(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: AuthUser | null,
+    @UploadedFiles() photos: Express.Multer.File[] | undefined,
+  ) {
+    return this.reviews.addPhotos(id, photos ?? [], requireUser(user));
   }
 
   @Get('moderation-queue')

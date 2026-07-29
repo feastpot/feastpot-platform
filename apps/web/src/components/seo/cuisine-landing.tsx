@@ -1,6 +1,11 @@
 import Link from 'next/link';
 
-import { searchVendors, type VendorListItem } from '@/lib/api/vendors';
+import {
+  getVendorCoverage,
+  searchVendors,
+  type VendorCoverage,
+  type VendorListItem,
+} from '@/lib/api/vendors';
 
 export interface CuisineHighlight {
   name: string;
@@ -71,6 +76,42 @@ async function safeFetchVendors(cuisines: string[]): Promise<VendorListItem[]> {
   }
 }
 
+async function safeFetchCoverage(cuisines: string[]): Promise<VendorCoverage | null> {
+  // Same static-gen safety pattern as safeFetchVendors: hard 3s timeout,
+  // fall back to null (→ generic coverage copy) rather than failing the build.
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 3000);
+  try {
+    return await getVendorCoverage(cuisines, {
+      next: { revalidate: 3600 },
+      signal: controller.signal,
+    });
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+/**
+ * Coverage FAQ answer built from LIVE vendor delivery configs (via
+ * /v1/vendors/coverage) so the page never claims areas we don't actually
+ * serve. Falls back to honest generic copy when no coverage data is
+ * available (no live vendors yet, or the API was unreachable at build time).
+ */
+function buildCoverageFaq(cuisine: string, coverage: VendorCoverage | null): FaqItem {
+  const districts = coverage?.postcodeDistricts ?? [];
+  const answer =
+    districts.length > 0
+      ? `${cuisine} vendors on Feastpot currently deliver across London postcodes including ${districts
+          .slice(0, 12)
+          .join(
+            ', ',
+          )}${districts.length > 12 ? ' and more' : ''}. Enter your postcode on the homepage to see exactly who covers your address.`
+      : `Coverage grows as we onboard new ${cuisine} vendors. Enter your postcode on the homepage to see who delivers to you today - and if no one covers you yet, leave your postcode and we'll let you know when a vendor comes online.`;
+  return { question: 'Which London areas do you cover?', answer };
+}
+
 /**
  * Shared template for the three diaspora-cuisine SEO landing pages
  * (Nigerian, Ghanaian, Caribbean). Server component - vendor list is
@@ -85,7 +126,14 @@ export async function CuisineLanding({
   faqs,
   apiCuisines,
 }: CuisineLandingProps) {
-  const vendors = await safeFetchVendors(apiCuisines ?? [cuisine]);
+  const cuisineFilters = apiCuisines ?? [cuisine];
+  const [vendors, coverage] = await Promise.all([
+    safeFetchVendors(cuisineFilters),
+    safeFetchCoverage(cuisineFilters),
+  ]);
+  // Coverage FAQ is generated from live data and always listed first;
+  // page-supplied FAQs follow.
+  const allFaqs = [buildCoverageFaq(cuisine, coverage), ...faqs];
 
   return (
     <article className="mx-auto w-full max-w-4xl space-y-12 px-4 py-8 md:py-12">
@@ -216,7 +264,7 @@ export async function CuisineLanding({
           Frequently asked questions
         </h2>
         <dl className="space-y-4">
-          {faqs.map((f) => (
+          {allFaqs.map((f) => (
             <div key={f.question} className="rounded-2xl border border-cream-deep bg-white p-4">
               <dt className="font-bold text-charcoal">{f.question}</dt>
               <dd className="mt-1 text-sm font-medium text-charcoal-mid">{f.answer}</dd>

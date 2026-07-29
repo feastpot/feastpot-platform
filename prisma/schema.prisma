@@ -36,6 +36,8 @@ enum VendorStatus {
   approved
   live
   suspended
+  // Admin-only status: set via the admin vendor status transition map;
+  // probation vendors keep full portal access and count as sellable.
   probation
   removed
 }
@@ -43,6 +45,9 @@ enum VendorStatus {
 enum OrderType {
   standard
   event
+  // Reserved for the planned meal-plan subscription product. No code path
+  // creates subscription orders yet; the customer filter UI already exposes
+  // the value. Do not remove without a coordinated enum migration.
   subscription
 }
 
@@ -1091,6 +1096,8 @@ model Review {
   rating           Int
   title            String?          @db.VarChar(255)
   body             String?
+  /// Public URLs of customer-uploaded review photos (max 3, Supabase Storage).
+  photoUrls        String[]         @default([]) @map("photo_urls")
   isVerified       Boolean          @default(true) @map("is_verified")
   isHidden         Boolean          @default(false) @map("is_hidden")
   moderationStatus ModerationStatus @default(auto_approved) @map("moderation_status")

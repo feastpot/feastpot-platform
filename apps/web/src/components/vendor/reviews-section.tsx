@@ -186,6 +186,26 @@ export function ReviewsSection({ vendorId, limit }: { vendorId: string; limit?: 
                   })}
                 </time>
               </div>
+              {r.photoUrls && r.photoUrls.length > 0 && (
+                <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
+                  {r.photoUrls.slice(0, 3).map((url, i) => (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      key={url}
+                      src={url}
+                      alt={`Customer photo ${i + 1}`}
+                      loading="lazy"
+                      style={{
+                        width: '72px',
+                        height: '72px',
+                        objectFit: 'cover',
+                        borderRadius: '10px',
+                        border: '1px solid #F5EDE0',
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
               {r.body && (
                 <p
                   style={{

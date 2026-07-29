@@ -47,6 +47,7 @@ import { BroadcastAudience, BroadcastPushDto } from './dto/broadcast-push.dto';
 import { ListAdminUsersDto } from './dto/list-admin-users.dto';
 import { ListAdminVendorsDto } from './dto/list-admin-vendors.dto';
 import { ListAuditLogDto } from './dto/list-audit-log.dto';
+import { ListCoverageInterestDto } from './dto/list-coverage-interest.dto';
 import { UpdateVendorApplicationDto } from './dto/update-vendor-application.dto';
 
 interface SearchAnalyticsRow {
@@ -207,6 +208,29 @@ export class AdminController {
         count: row._count.postcode,
       })),
     };
+  }
+
+  @Get('coverage-interest')
+  @Roles(UserRole.admin, UserRole.support)
+  @ApiOperation({
+    summary:
+      'Paginated coverage-waitlist rows (email, postcode, name, consent, notified) with postcode/notified filters.',
+  })
+  listCoverageInterest(@Query() dto: ListCoverageInterestDto) {
+    return this.admin.listCoverageInterest(dto);
+  }
+
+  @Get('coverage-interest.csv')
+  @Roles(UserRole.admin, UserRole.support)
+  @Header('Content-Type', 'text/csv; charset=utf-8')
+  @Header('Content-Disposition', 'attachment; filename="coverage-waitlist.csv"')
+  @ApiOperation({ summary: 'CSV export of the coverage waitlist (capped at 5 000 rows)' })
+  async exportCoverageInterestCsv(@Query() dto: ListCoverageInterestDto, @Res() res: Response) {
+    res.flushHeaders?.();
+    await this.admin.exportCoverageInterestCsv(dto, (chunk) => {
+      res.write(chunk);
+    });
+    res.end();
   }
 
   @Get('vendors')

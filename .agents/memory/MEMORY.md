@@ -4,6 +4,7 @@
 - [Replit deploy env gotchas](replit-deploy-env.md) — NODE_ENV isn't auto-prod (set runtime-only via start:api, NOT a prod env var → breaks npm ci); env-scoped secrets land in plaintext git-tracked .replit.
 - [Supabase DB URLs](supabase-db-urls.md) — use SUPABASE_DIRECT_URL (session pooler:5432) for migrations/psql; stale DIRECT_URL direct-host rotation crash-loops deploys; DATABASE_URL = wrong DB (helium).
 - [Prisma migrations (dev)](prisma-migrations-dev.md) — dev DB isn't baselined (migrate dev/deploy fail P3005); hand-write minimal migration.sql + `db execute` + run enable-rls script; RLS is central, not per-migration.
+- [WhatsApp template slots](whatsapp-template-slots.md) — approved templates have 1-2 slots (no order-total slot); Meta enforces exact counts; builders keyed by whatsappTemplate name.
 - [WhatsApp Content SID naming](whatsapp-content-sid-naming.md) — Twilio env var is `TWILIO_CONTENT_SID_<whatsappTemplate>`, NOT the registry key (they diverge, e.g. payout_batch_ready→payout_statement); enumerate by whatsappTemplate.
 - [Redis / Upstash for BullMQ](redis-upstash.md) — must be paid Upstash (free 500K cmd/mo cap fails); `rediss://` TLS; queues tuned to 5-min polls — don't revert.
 - [Bull lock vs stalled invariant](bull-lock-vs-stalled.md) — 5-min stalledInterval needs lockDuration>stalledInterval or jobs falsely fail "stalled"; stalled failures bypass the attempts-based Sentry gate.
@@ -19,4 +20,6 @@
 - [Supabase auth hook](supabase-auth-hook.md) — login depends on custom_access_token_hook fn + RLS policy (auth_admin SELECT public.users); missing fn → all logins HTTP 500; missing policy → JWT role=customer for everyone.
 - [DB reset recovery](db-reset-recovery.md) — empty/drifted app DB w/ auth.users intact: migrate diff → db push --accept-data-loss → db:seed (bg, idempotent) → re-apply auth hook+policy.
 - [GitHub push workflow scope](github-push-workflow-scope.md) — PUSH_REJECTED when commits touch .github/workflows/: OAuth token lacks `workflow` scope; user must push via PAT (repo+workflow) or SSH.
-- [CI required checks](ci-required-checks.md) — the 5 required PR checks were never green: format:check needs .prettierignore (scanned .local/.agents); prisma jobs need SUPABASE_*_URL env; test needs unset TEST_DATABASE_URL/TEST_DIRECT_URL secrets; eqeqeq is intentional == null.
+- [CI required checks](ci-required-checks.md) — all green as of Jul 2026: test job uses a throwaway postgres service (+ pre-created Supabase roles anon/authenticated/service_role), not TEST_* secrets; lint fails on import/order errors + prettier.
+- [Lockfile firewall URLs](lockfile-firewall-urls.md) — regenerating package-lock inside Replit leaks package-firewall.replit.local URLs → external CI/Vercel npm ci crashes with "Exit handler never called"; sed them back to registry.npmjs.org.
+- [Branch vs squash merges](branch-squash-merges.md) — long-lived work branch is squash-merged into main; after each merge, merge main back into the branch (MEMORY.md conflicts: keep ours) or the next PR shows "dirty".

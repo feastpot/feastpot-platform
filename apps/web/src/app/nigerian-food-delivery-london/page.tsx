@@ -54,11 +54,8 @@ export default function Page() {
         },
       ]}
       faqs={[
-        {
-          question: 'What areas of London do you deliver to?',
-          answer:
-            'Most of our Nigerian vendors cover Greater London, with the densest coverage in South East (Peckham, Lewisham, Catford), East (Stratford, Ilford, Romford) and North (Tottenham, Wood Green). Enter your postcode on the homepage to see who delivers to you.',
-        },
+        // Coverage FAQ is generated dynamically by CuisineLanding from live
+        // vendor delivery configs - don't hardcode area claims here.
         {
           question: 'How far in advance should I order?',
           answer:

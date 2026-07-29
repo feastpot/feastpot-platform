@@ -1,13 +1,16 @@
 import { Module } from '@nestjs/common';
 
 import { AuthModule } from '../../auth/auth.module';
+import { CacheModule } from '../../common/cache/cache.module';
 import { PrismaModule } from '../../prisma/prisma.module';
+import { CatalogueModule } from '../catalogue/catalogue.module';
 
 import { ReviewsController } from './reviews.controller';
 import { ReviewsService } from './reviews.service';
 
 @Module({
-  imports: [PrismaModule, AuthModule],
+  // CatalogueModule exports SupabaseStorageService (review photo uploads).
+  imports: [PrismaModule, AuthModule, CatalogueModule, CacheModule],
   controllers: [ReviewsController],
   providers: [ReviewsService],
   exports: [ReviewsService],

@@ -4,6 +4,8 @@ import webpush from 'web-push';
 
 import { PrismaService } from '../../../prisma/prisma.service';
 
+import { alertIfStubInProduction } from './stub-alert';
+
 export interface PushMessage {
   userId: string;
   title: string;
@@ -44,8 +46,8 @@ export class PushProvider {
     const publicKey = config.get<string>('VAPID_PUBLIC_KEY');
     const privateKey = config.get<string>('VAPID_PRIVATE_KEY');
     if (!publicKey || !privateKey) {
-      this.logger.warn('VAPID keys not set - web push will be logged only.');
       this.enabled = false;
+      alertIfStubInProduction(this.logger, 'Web push', 'VAPID keys not set');
     } else {
       webpush.setVapidDetails(subject, publicKey, privateKey);
       this.enabled = true;

@@ -53,11 +53,8 @@ export default function Page() {
         },
       ]}
       faqs={[
-        {
-          question: 'What areas of London do you deliver to?',
-          answer:
-            'Our Ghanaian vendors are concentrated in North London (Tottenham, Wood Green, Edmonton), East (Hackney, Stratford) and South (Croydon, Thornton Heath). Postcode coverage is shown on each vendor profile.',
-        },
+        // Coverage FAQ is generated dynamically by CuisineLanding from live
+        // vendor delivery configs - don't hardcode area claims here.
         {
           question: 'How far in advance do I need to order?',
           answer:

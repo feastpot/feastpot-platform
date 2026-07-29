@@ -58,15 +58,47 @@ const CHANNEL_TO_DB: Record<Channel, NotificationChannel> = {
 const formatPounds = (pence: unknown): string =>
   typeof pence === 'number' ? `£${(pence / 100).toFixed(2)}` : '';
 
-const WHATSAPP_PARAMS: Record<
+/** {{1}} = firstName, {{2}} = order number — the approved shape for all order-lifecycle templates. */
+const nameAndOrderNumber = (
+  firstName: string,
+  data: Record<string, unknown>,
+): Array<string | number> => [firstName, String(data.orderNumber ?? '')];
+
+/** {{1}} = firstName only — the approved shape for the event_* templates. */
+const nameOnly = (firstName: string): Array<string | number> => [firstName];
+
+/**
+ * Keyed by the Twilio Content Template name (`template.whatsappTemplate`,
+ * the same key used to resolve TWILIO_CONTENT_SID_<name>), NOT the internal
+ * event name — several events share one approved template and the two keys
+ * diverge (e.g. event `payout_batch_ready` sends template `payout_statement`).
+ *
+ * Verified against the approved Twilio Content Templates (Content API,
+ * Jul 2026). Meta enforces EXACT parameter counts, so each builder must
+ * return precisely as many values as the approved body has {{n}} slots —
+ * extra or missing variables make the send fail, not just render blank.
+ */
+export const WHATSAPP_PARAMS: Record<
   string,
   (firstName: string, data: Record<string, unknown>) => Array<string | number>
 > = {
-  // {{1}} = firstName, {{2}} = formatted £ net payout
-  payout_batch_ready: (firstName, data) => [
+  // 2 slots: {{1}} = firstName, {{2}} = formatted £ net payout
+  payout_statement: (firstName, data) => [
     firstName,
     formatPounds(data.amountPence ?? data.netPence),
   ],
+  // 2 slots: {{1}} = firstName, {{2}} = order number (approved bodies carry
+  // no amount slot — totals live in the email/SMS copies).
+  order_confirmation: nameAndOrderNumber,
+  order_accepted: nameAndOrderNumber,
+  order_dispatched: nameAndOrderNumber,
+  delivery_confirmed: nameAndOrderNumber,
+  order_amendment_proposed: nameAndOrderNumber,
+  review_request: nameAndOrderNumber,
+  // 1 slot: {{1}} = firstName
+  event_quote_received: nameOnly,
+  event_reminder_72h: nameOnly,
+  event_balance_link: nameOnly,
 };
 
 /**
@@ -329,10 +361,11 @@ export class NotificationProcessor {
     }
     if (channel === 'whatsapp') {
       if (!ctx.user.phone || !ctx.template) return false;
-      // Per-event override wins; default is the 3-slot generic shape
-      // [firstName, orderNumber, amount] that fits every order event.
+      // Per-template builder wins (keyed by the Twilio Content Template
+      // name so it matches the approved {{n}} slot layout exactly);
+      // unknown templates fall back to the 3-slot generic shape.
       const firstName = ctx.user.firstName ?? 'there';
-      const builder = WHATSAPP_PARAMS[ctx.eventName];
+      const builder = WHATSAPP_PARAMS[ctx.template];
       const params = builder
         ? builder(firstName, ctx.data)
         : [

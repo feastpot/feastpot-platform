@@ -619,7 +619,17 @@ export class OrdersService {
       }
     }
 
-    await this.safeEnqueue('notify_vendor', { vendorId: order.vendorId, orderId });
+    // Vendor-facing "new paid order" notification. `vendorUserId` is what the
+    // processor resolves as the recipient; without it (or a registered
+    // template) the job is silently dropped.
+    await this.safeEnqueue('notify_vendor', {
+      vendorId: order.vendorId,
+      vendorUserId: order.vendor?.userId,
+      orderId,
+      orderNumber: order.orderNumber,
+      totalPence: order.totalPence,
+      scheduledFor: order.scheduledFor?.toISOString() ?? null,
+    });
     // T007: vendor inbox - new paid order. Resolve vendor.userId via the
     // include already loaded above. Best-effort: failure is swallowed by
     // InboxService and must NOT block order confirmation.

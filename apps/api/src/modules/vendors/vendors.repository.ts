@@ -442,7 +442,13 @@ export class VendorRepository {
 
   listPublishedReviews(vendorId: string, limit: number, cursor?: string) {
     return this.prisma.review.findMany({
-      where: { vendorId, isHidden: false },
+      // Held/rejected reviews must never be public even when isHidden was
+      // left at its default (false) by auto-moderation - filter on both.
+      where: {
+        vendorId,
+        isHidden: false,
+        moderationStatus: { in: [ModerationStatus.auto_approved, ModerationStatus.approved] },
+      },
       orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
       take: limit,
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
@@ -452,8 +458,9 @@ export class VendorRepository {
         title: true,
         body: true,
         isVerified: true,
+        photoUrls: true,
         createdAt: true,
-        customer: { select: { firstName: true } },
+        customer: { select: { firstName: true, lastName: true } },
       },
     });
   }
