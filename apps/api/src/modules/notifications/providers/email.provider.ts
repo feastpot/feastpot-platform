@@ -2,6 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Resend } from 'resend';
 
+import { alertIfStubInProduction } from './stub-alert';
+
 export interface EmailMessage {
   to: string;
   subject: string;
@@ -18,8 +20,8 @@ export class EmailProvider {
     const key = config.get<string>('RESEND_API_KEY');
     this.from = config.get<string>('EMAIL_FROM') ?? 'Feastpot <noreply@feastpot.co.uk>';
     if (!key) {
-      this.logger.warn('RESEND_API_KEY not set - emails will be logged only, never delivered.');
       this.client = null;
+      alertIfStubInProduction(this.logger, 'Email (Resend)', 'RESEND_API_KEY not set');
     } else {
       this.client = new Resend(key);
     }

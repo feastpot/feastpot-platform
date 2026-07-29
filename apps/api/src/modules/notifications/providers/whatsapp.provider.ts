@@ -3,6 +3,8 @@ import { ConfigService } from '@nestjs/config';
 import twilio from 'twilio';
 import type { Twilio } from 'twilio';
 
+import { alertIfStubInProduction } from './stub-alert';
+
 export interface WhatsappMessage {
   to: string; // E.164 phone number (provider will add `whatsapp:` for Twilio)
   template: string; // internal template name (matches keys in templates/index.ts)
@@ -75,8 +77,10 @@ export class WhatsappProvider {
     }
 
     this.mode = 'stub';
-    this.logger.warn(
-      'WhatsApp provider: no credentials (set TWILIO_WHATSAPP_FROM + TWILIO_ACCOUNT_SID/AUTH_TOKEN, or WHATSAPP_ACCESS_TOKEN + WHATSAPP_PHONE_NUMBER_ID). Sends will be logged only.',
+    alertIfStubInProduction(
+      this.logger,
+      'WhatsApp',
+      'no credentials (set TWILIO_WHATSAPP_FROM + TWILIO_ACCOUNT_SID/AUTH_TOKEN, or WHATSAPP_ACCESS_TOKEN + WHATSAPP_PHONE_NUMBER_ID)',
     );
   }
 

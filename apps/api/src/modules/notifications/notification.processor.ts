@@ -67,6 +67,14 @@ const WHATSAPP_PARAMS: Record<
     firstName,
     formatPounds(data.amountPence ?? data.netPence),
   ],
+  // {{1}} = firstName, {{2}} = order number, {{3}} = formatted £ total.
+  // Dedicated builder because the payload carries `totalPence`, which the
+  // generic 3-slot fallback (reads `amountPence`) would render blank.
+  order_confirmation: (firstName, data) => [
+    firstName,
+    String(data.orderNumber ?? ''),
+    formatPounds(data.totalPence ?? data.amountPence),
+  ],
 };
 
 /**

@@ -473,6 +473,28 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
       ),
     channels: ['email'],
   },
+  // ---------- Vendor order alerts ----------
+  /**
+   * Vendor-facing "new paid order" alert, enqueued by
+   * OrdersService.confirmPayment as `notify_vendor`. The vendor also gets an
+   * inbox row; this covers email + push so they hear about it away from the
+   * portal. Recipient is resolved via `vendorUserId` in the payload.
+   */
+  notify_vendor: {
+    subject: (d) => `New order ${str(d.orderNumber)} 🛎️`,
+    render: (d) =>
+      baseLayout(
+        'New order received',
+        h2(`You have a new order${d.orderNumber ? `: ${esc(d.orderNumber)}` : ''}`) +
+          keyValueRow('Total', formatMoney(d.totalPence), { bold: true }) +
+          (d.scheduledFor ? keyValueRow('Scheduled for', str(d.scheduledFor)) : '') +
+          p('Please accept the order in your portal so the customer knows it is in the kitchen.') +
+          brandButton('View order', 'https://vendor.feastpot.co.uk/orders', 'vendorBlue'),
+        `New order ${str(d.orderNumber)}`,
+      ),
+    channels: ['email', 'push'],
+  },
+
   // ---------- Vendor onboarding ----------
   /**
    * Sent once a vendor has completed all four self-serve onboarding steps
