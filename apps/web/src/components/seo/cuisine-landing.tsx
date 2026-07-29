@@ -105,7 +105,9 @@ function buildCoverageFaq(cuisine: string, coverage: VendorCoverage | null): Faq
     districts.length > 0
       ? `${cuisine} vendors on Feastpot currently deliver across London postcodes including ${districts
           .slice(0, 12)
-          .join(', ')}${districts.length > 12 ? ' and more' : ''}. Enter your postcode on the homepage to see exactly who covers your address.`
+          .join(
+            ', ',
+          )}${districts.length > 12 ? ' and more' : ''}. Enter your postcode on the homepage to see exactly who covers your address.`
       : `Coverage grows as we onboard new ${cuisine} vendors. Enter your postcode on the homepage to see who delivers to you today - and if no one covers you yet, leave your postcode and we'll let you know when a vendor comes online.`;
   return { question: 'Which London areas do you cover?', answer };
 }

@@ -9,7 +9,6 @@ import { InboxService } from '../inbox/inbox.service';
 
 import { ReviewsService } from './reviews.service';
 
-
 const customer = { id: 'u-1', role: 'customer' } as AuthUser;
 
 describe('ReviewsService', () => {

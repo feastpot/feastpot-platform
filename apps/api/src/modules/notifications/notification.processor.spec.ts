@@ -130,30 +130,28 @@ describe('NotificationProcessor - WhatsApp order_confirmation params', () => {
     };
   }
 
-  it('uses totalPence for the amount slot ({{3}})', async () => {
+  // The approved Twilio/Meta body for order_confirmation has exactly TWO
+  // slots ({{1}} name, {{2}} order number) - no amount slot. Meta rejects
+  // sends whose param count doesn't match, so the builder must ignore any
+  // amount fields present on the job payload.
+  it('sends exactly the two approved slots: name and order number', async () => {
     const call = await runOrderConfirmation({ orderNumber: 'FP-9', totalPence: 4550 });
     expect(call.template).toBe('order_confirmation');
-    expect(call.params).toEqual(['Jo', 'FP-9', '£45.50']);
+    expect(call.params).toEqual(['Jo', 'FP-9']);
   });
 
-  it('falls back to amountPence when totalPence is absent', async () => {
-    const call = await runOrderConfirmation({ orderNumber: 'FP-9', amountPence: 1200 });
-    expect(call.params).toEqual(['Jo', 'FP-9', '£12.00']);
-  });
-
-  it('prefers totalPence over amountPence when both are present', async () => {
+  it('ignores amountPence too - param count stays at 2', async () => {
     const call = await runOrderConfirmation({
       orderNumber: 'FP-9',
       totalPence: 4550,
       amountPence: 1200,
     });
-    expect(call.params[2]).toBe('£45.50');
+    expect(call.params).toEqual(['Jo', 'FP-9']);
   });
 
-  it('never renders "undefined"/NaN when neither amount field is present', async () => {
+  it('never renders "undefined"/NaN in any slot', async () => {
     const call = await runOrderConfirmation({ orderNumber: 'FP-9' });
-    expect(call.params).toHaveLength(3);
-    expect(call.params[2]).toBe('');
+    expect(call.params).toHaveLength(2);
     for (const p of call.params) {
       expect(String(p)).not.toMatch(/undefined|null|NaN/);
     }
