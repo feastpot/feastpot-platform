@@ -37,6 +37,13 @@ export class PaymentsController {
     return this.payments.listChargebacks(dto);
   }
 
+  @Get('chargebacks/stats')
+  @Roles(UserRole.finance, UserRole.admin)
+  @ApiOperation({ summary: 'Chargeback KPI counts for the finance dashboard' })
+  chargebackStats() {
+    return this.payments.chargebackStats();
+  }
+
   @Post('refunds')
   @Roles(UserRole.support, UserRole.finance, UserRole.admin)
   @ApiOperation({

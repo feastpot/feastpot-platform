@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 
 import { PrismaModule } from '../../prisma/prisma.module';
 
+import { NotificationOutboxService } from './notification-outbox.service';
 import { NotificationPreferencesController } from './notification-preferences.controller';
 import { NotificationPreferencesService } from './notification-preferences.service';
 import { NotificationProcessor } from './notification.processor';
@@ -22,6 +23,7 @@ import { WhatsappProvider } from './providers/whatsapp.provider';
   controllers: [NotificationPreferencesController],
   providers: [
     NotificationsService,
+    NotificationOutboxService,
     NotificationPreferencesService,
     NotificationProcessor,
     EmailProvider,

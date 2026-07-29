@@ -437,6 +437,23 @@ model Notification {
   @@map("notifications")
 }
 
+/// Durable fallback for notification enqueues: when Redis/Bull is down, the
+/// event is persisted here instead of being dropped, and a cron retries the
+/// enqueue until it succeeds. Rows are deleted on successful enqueue.
+model NotificationOutbox {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  eventName     String   @map("event_name") @db.VarChar(100)
+  payload       Json
+  jobId         String?  @map("job_id") @db.VarChar(255)
+  attempts      Int      @default(0)
+  lastError     String?  @map("last_error")
+  nextAttemptAt DateTime @default(now()) @map("next_attempt_at") @db.Timestamptz
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([nextAttemptAt])
+  @@map("notification_outbox")
+}
+
 /// Vendor registration leads captured from the public become-a-vendor form.
 /// Distinct from `Vendor` (which requires an authenticated User) - applicants
 /// don't have accounts yet. Admin review converts an approved application
@@ -980,6 +997,12 @@ model Chargeback {
   evidenceDueBy         DateTime? @map("evidence_due_by") @db.Timestamptz
   openedAt              DateTime? @map("opened_at") @db.Timestamptz
   closedAt              DateTime? @map("closed_at") @db.Timestamptz
+  /// Set once when a LOST chargeback's order finances have been reconciled
+  /// (refund + credit Payment rows written). CAS guard against double-writes.
+  reconciledAt          DateTime? @map("reconciled_at") @db.Timestamptz
+  /// Set once when the evidence-deadline warning has been sent to finance,
+  /// so the hourly monitor never re-alerts for the same dispute.
+  evidenceWarnedAt      DateTime? @map("evidence_warned_at") @db.Timestamptz
   createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz
 

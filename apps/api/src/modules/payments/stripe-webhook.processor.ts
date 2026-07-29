@@ -1,6 +1,6 @@
 import { OnQueueFailed, Process, Processor } from '@nestjs/bull';
 import { Logger } from '@nestjs/common';
-import { OrderStatus, PaymentStatus, PayoutStatus, Prisma } from '@prisma/client';
+import { OrderStatus, PaymentStatus, PaymentType, PayoutStatus, Prisma } from '@prisma/client';
 import * as Sentry from '@sentry/nestjs';
 import type { Job } from 'bull';
 import type Stripe from 'stripe';
@@ -9,7 +9,16 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { shouldReportQueueFailure } from '../../queues/queue-failure';
 import { LoyaltyService } from '../loyalty/loyalty.service';
 
+import { computeRefundSplit } from './payments.service';
 import { STRIPE_WEBHOOK_QUEUE } from './stripe-webhook.controller';
+import type { HandledStripeEventType } from './stripe-webhook.events';
+
+// Compile-time link to the shared registry in stripe-webhook.events.ts:
+// every @Process name below is checked against HandledStripeEventType via
+// the eventName() helper, so adding a handler without registering its event
+// type in HANDLED_STRIPE_EVENT_TYPES fails typechecking instead of the
+// controller alerting on (and skipping) a type we actually handle.
+const eventName = <T extends HandledStripeEventType>(name: T): T => name;
 
 interface WebhookJob {
   id: string;
@@ -37,7 +46,7 @@ export class StripeWebhookProcessor {
   // Concurrency=5 on each handler: Stripe bursts during busy periods (peak
   // Friday evening), and these handlers are idempotent (updateMany on the
   // PI/refund id) so concurrent processing is safe.
-  @Process({ name: 'payment_intent.succeeded', concurrency: 10 })
+  @Process({ name: eventName('payment_intent.succeeded'), concurrency: 10 })
   async onIntentSucceeded(job: Job<WebhookJob>): Promise<void> {
     const pi = job.data.data as Stripe.PaymentIntent;
     await this.prisma.payment.updateMany({
@@ -49,7 +58,7 @@ export class StripeWebhookProcessor {
     this.logger.log(`PI ${pi.id} succeeded`);
   }
 
-  @Process({ name: 'payment_intent.payment_failed', concurrency: 10 })
+  @Process({ name: eventName('payment_intent.payment_failed'), concurrency: 10 })
   async onIntentFailed(job: Job<WebhookJob>): Promise<void> {
     const pi = job.data.data as Stripe.PaymentIntent;
     const payment = await this.prisma.payment.findFirst({
@@ -98,7 +107,7 @@ export class StripeWebhookProcessor {
     this.logger.warn(`PI ${pi.id} failed`);
   }
 
-  @Process({ name: 'transfer.created', concurrency: 10 })
+  @Process({ name: eventName('transfer.created'), concurrency: 10 })
   async onTransferCreated(job: Job<WebhookJob>): Promise<void> {
     const transfer = job.data.data as Stripe.Transfer;
     // Match by metadata.payoutId if our service set it; otherwise no-op.
@@ -122,12 +131,12 @@ export class StripeWebhookProcessor {
   // older API versions send `charge.refund.updated`. Both carry a Refund object
   // as `data.object`. The controller enqueues jobs keyed by `event.type`, so we
   // register a named handler for BOTH to avoid silently dropping refund events.
-  @Process({ name: 'refund.updated', concurrency: 10 })
+  @Process({ name: eventName('refund.updated'), concurrency: 10 })
   async onRefundUpdated(job: Job<WebhookJob>): Promise<void> {
     await this.handleRefundUpdated(job);
   }
 
-  @Process({ name: 'charge.refund.updated', concurrency: 10 })
+  @Process({ name: eventName('charge.refund.updated'), concurrency: 10 })
   async onChargeRefundUpdated(job: Job<WebhookJob>): Promise<void> {
     await this.handleRefundUpdated(job);
   }
@@ -157,17 +166,17 @@ export class StripeWebhookProcessor {
   // as `data.object`. We upsert a single Chargeback row keyed on the Stripe
   // dispute id so finance sees status + amount without the Stripe Dashboard.
   // This is entirely separate from the internal customer-vs-vendor Dispute flow.
-  @Process({ name: 'charge.dispute.created', concurrency: 10 })
+  @Process({ name: eventName('charge.dispute.created'), concurrency: 10 })
   async onDisputeCreated(job: Job<WebhookJob>): Promise<void> {
     await this.handleChargeDispute(job);
   }
 
-  @Process({ name: 'charge.dispute.updated', concurrency: 10 })
+  @Process({ name: eventName('charge.dispute.updated'), concurrency: 10 })
   async onDisputeUpdated(job: Job<WebhookJob>): Promise<void> {
     await this.handleChargeDispute(job);
   }
 
-  @Process({ name: 'charge.dispute.closed', concurrency: 10 })
+  @Process({ name: eventName('charge.dispute.closed'), concurrency: 10 })
   async onDisputeClosed(job: Job<WebhookJob>): Promise<void> {
     await this.handleChargeDispute(job);
   }
@@ -246,11 +255,188 @@ export class StripeWebhookProcessor {
       `Chargeback ${dispute.id} (${dispute.status}, ${dispute.reason ?? 'no reason'}) ` +
         `${(dispute.amount / 100).toFixed(2)} ${(dispute.currency ?? 'gbp').toUpperCase()} - ${target}`,
     );
+
+    // A LOST chargeback means the bank has already pulled the disputed amount
+    // from Feastpot's Stripe balance. Reconcile the order's finances so the
+    // weekly payout batch claws back the vendor's earned share (never the
+    // platform service fee) exactly like an internally-issued refund would.
+    if (dispute.status === 'lost') {
+      await this.reconcileLostChargeback(dispute.id);
+    }
+  }
+
+  /**
+   * Reconcile order finances after a chargeback is LOST.
+   *
+   * Mirrors PaymentsService.createRefund's ledger writes: one refund-type
+   * Payment row for the full customer-side amount (negative = cash out) plus
+   * one credit row for the portion Feastpot absorbs (its service-fee +
+   * commission share). The weekly payout batch nets these two rows into the
+   * vendor clawback, so the vendor is deducted only what they actually earned
+   * on the disputed portion — the platform service fee is never clawed back
+   * from them (see computeRefundSplit).
+   *
+   * Idempotency: a CAS on `Chargeback.reconciledAt IS NULL` inside the same
+   * transaction as the ledger writes guarantees exactly-once reconciliation
+   * even across BullMQ retries or duplicate `closed`/`updated` lost events.
+   */
+  private async reconcileLostChargeback(stripeDisputeId: string): Promise<void> {
+    const chargeback = await this.prisma.chargeback.findUnique({
+      where: { stripeDisputeId },
+      select: { id: true, orderId: true, amountPence: true, reconciledAt: true },
+    });
+    if (!chargeback || chargeback.reconciledAt) return;
+    if (!chargeback.orderId) {
+      // No local order matched — nothing to reconcile against. Loudly flag it:
+      // money left the Stripe balance with no ledger counterpart.
+      this.logger.error(
+        `Chargeback ${stripeDisputeId} LOST but has no matching order - manual reconciliation required`,
+      );
+      Sentry.captureMessage(`Chargeback lost with no matching order: ${stripeDisputeId}`, 'error');
+      return;
+    }
+
+    const order = await this.prisma.order.findUnique({
+      where: { id: chargeback.orderId },
+      select: {
+        id: true,
+        customerId: true,
+        totalPence: true,
+        subtotalPence: true,
+        serviceFeePence: true,
+        deliveryFeePence: true,
+        discountPence: true,
+        commissionPence: true,
+      },
+    });
+    if (!order) {
+      this.logger.error(
+        `Chargeback ${stripeDisputeId} LOST but order ${chargeback.orderId} not found`,
+      );
+      return;
+    }
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      // Per-order advisory lock: serialises this reconciliation against any
+      // concurrent manual refund on the same order (createRefund takes the
+      // same lock), so the cumulative-refund ceiling below cannot be raced
+      // past by two writers that each passed a stale pre-check.
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${order.id}))`;
+
+      // CAS inside the transaction: only the first winner writes ledger rows.
+      const cas = await tx.chargeback.updateMany({
+        where: { id: chargeback.id, reconciledAt: null },
+        data: { reconciledAt: new Date() },
+      });
+      if (cas.count !== 1) return { outcome: 'already_reconciled' as const };
+
+      // Cap at what is still refundable — computed INSIDE the lock scope so
+      // prior refunds/chargebacks can never push the cumulative amount past
+      // the order total, even under concurrency.
+      const prior = await tx.payment.aggregate({
+        where: {
+          orderId: order.id,
+          type: { in: [PaymentType.refund, PaymentType.partial_refund] },
+        },
+        _sum: { amountPence: true },
+      });
+      const alreadyRefundedPence = -(prior._sum.amountPence ?? 0);
+      const amountPence = Math.min(
+        chargeback.amountPence,
+        Math.max(0, order.totalPence - alreadyRefundedPence),
+      );
+      if (amountPence <= 0) {
+        // Fully refunded already (e.g. we refunded, customer also disputed).
+        // reconciledAt stays set (CAS above) so we never retry.
+        return { outcome: 'fully_refunded' as const };
+      }
+
+      const isFull = amountPence >= order.totalPence;
+      const split = computeRefundSplit(
+        amountPence,
+        {
+          subtotalPence: order.subtotalPence,
+          serviceFeePence: order.serviceFeePence,
+          deliveryFeePence: order.deliveryFeePence,
+          discountPence: order.discountPence,
+          commissionPence: order.commissionPence,
+        },
+        isFull,
+      );
+
+      // Refund row (negative = cash out of Feastpot's books). userId is the
+      // customer — the chargeback is customer-initiated via their bank; there
+      // is no internal actor.
+      const refundRow = await tx.payment.create({
+        data: {
+          orderId: order.id,
+          userId: order.customerId,
+          type: isFull ? PaymentType.refund : PaymentType.partial_refund,
+          status: PaymentStatus.succeeded,
+          amountPence: -amountPence,
+          currency: 'GBP',
+          failureReason: `Chargeback lost (Stripe dispute ${stripeDisputeId})`,
+          processedAt: new Date(),
+        },
+      });
+      // Credit row: the share Feastpot absorbs (service fee + commission) so
+      // the batch nets the vendor clawback correctly. MUST be atomic with the
+      // refund row (see service-fee/payout invariant).
+      await tx.payment.create({
+        data: {
+          orderId: order.id,
+          userId: order.customerId,
+          type: PaymentType.credit,
+          status: PaymentStatus.succeeded,
+          amountPence: split.feastpotAbsorbedPence,
+          currency: 'GBP',
+          failureReason: `Feastpot-absorbed portion of chargeback ${stripeDisputeId} (refund ${refundRow.id})`,
+          processedAt: new Date(),
+        },
+      });
+      // Permanent audit record, atomic with the money rows.
+      await tx.auditLog.create({
+        data: {
+          actorId: null,
+          action: 'chargeback_lost_reconciled',
+          entityType: 'orders',
+          entityId: order.id,
+          metadata: {
+            stripeDisputeId,
+            chargebackId: chargeback.id,
+            disputedAmountPence: chargeback.amountPence,
+            reconciledAmountPence: amountPence,
+            vendorClawbackPence: split.vendorClawbackPence,
+            feastpotAbsorbedPence: split.feastpotAbsorbedPence,
+            serviceFeeAbsorbedPence: split.serviceFeeAbsorbedPence,
+            commissionRefundedPence: split.commissionRefundedPence,
+          } as Prisma.JsonObject,
+        },
+      });
+      return { outcome: 'reconciled' as const, amountPence, split };
+    });
+
+    if (result.outcome === 'fully_refunded') {
+      this.logger.warn(
+        `Chargeback ${stripeDisputeId} lost but order ${order.id} already fully refunded - no ledger rows written`,
+      );
+      Sentry.captureMessage(
+        `Chargeback lost on already-refunded order ${order.id} (dispute ${stripeDisputeId}) - possible double loss`,
+        'warning',
+      );
+    } else if (result.outcome === 'reconciled') {
+      this.logger.warn(
+        `Chargeback ${stripeDisputeId} LOST - reconciled order ${order.id}: ` +
+          `${result.amountPence}p total, vendor clawback ${result.split.vendorClawbackPence}p, ` +
+          `Feastpot absorbed ${result.split.feastpotAbsorbedPence}p`,
+      );
+    }
   }
 
   // Note: legacy Bull does not allow a catch-all `@Process()` alongside named
-  // handlers. Unhandled event types are silently dropped after the controller
-  // already recorded them in processed_webhook_events for audit.
+  // handlers. Unhandled event types are detected in the controller (via
+  // HANDLED_STRIPE_EVENT_TYPES) and alerted through Sentry + warn log instead
+  // of being enqueued; they are still recorded in processed_webhook_events.
 
   @OnQueueFailed()
   onFailed(job: Job<WebhookJob> | undefined, err: Error): void {

@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ApiExcludeController } from '@nestjs/swagger';
+import * as Sentry from '@sentry/nestjs';
 import type { Queue } from 'bull';
 import type { Request } from 'express';
 import type Stripe from 'stripe';
@@ -21,12 +22,17 @@ import { Public } from '../../auth/decorators/public.decorator';
 import { PrismaService } from '../../prisma/prisma.service';
 import { StripeService } from '../../stripe/stripe.service';
 
+import { HANDLED_STRIPE_EVENT_TYPES } from './stripe-webhook.events';
+
 export const STRIPE_WEBHOOK_QUEUE = 'stripe-webhooks';
 
 @ApiExcludeController()
 @Controller({ path: 'webhooks', version: '1' })
 export class StripeWebhookController {
   private readonly logger = new Logger(StripeWebhookController.name);
+
+  /** Sentry dedupe: alert once per unhandled event type per process. */
+  private readonly alertedUnhandledTypes = new Set<string>();
 
   constructor(
     private readonly stripe: StripeService,
@@ -92,6 +98,31 @@ export class StripeWebhookController {
     });
     if (already) {
       this.logger.debug(`Duplicate webhook ${event.id} (${event.type}) - already processed`);
+      return { received: true };
+    }
+
+    // Unhandled event types: the processor only has named handlers (legacy
+    // Bull forbids a catch-all alongside them), so enqueueing anything else
+    // would silently rot in the queue. Record the event for audit, alert
+    // once per type per process, and ack so Stripe doesn't retry forever.
+    if (!HANDLED_STRIPE_EVENT_TYPES.has(event.type)) {
+      this.logger.warn(
+        `[Stripe Webhook] Unhandled event type ${event.type} (${event.id}) - recorded but NOT processed`,
+      );
+      if (!this.alertedUnhandledTypes.has(event.type)) {
+        this.alertedUnhandledTypes.add(event.type);
+        Sentry.captureMessage(
+          `Stripe sent unhandled webhook event type: ${event.type} - events of this type are being ignored`,
+          'warning',
+        );
+      }
+      try {
+        await this.prisma.processedWebhookEvent.create({
+          data: { stripeEventId: event.id, eventType: event.type },
+        });
+      } catch {
+        // Duplicate delivery race - already recorded.
+      }
       return { received: true };
     }
 

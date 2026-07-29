@@ -1,5 +1,6 @@
 - [Admin UI conventions](admin-ui-conventions.md) — server page (requireStaff) → client component; gate mutating UI to match backend @Roles, not the broader page-view roles.
 - [Monorepo commands](monorepo-commands.md) — repo is npm workspaces + Turborepo; attached CHECK-FIRST prompts say `--filter=` (turbo) but per-app scripts run via `npm run X --workspace=@feastpot/<app>`.
+- [npm overrides clean reinstall](npm-overrides-clean-reinstall.md) — overrides need EXACT pins + full clean reinstall (rm node_modules+lock); partial removal corrupts tree; verify via require(), not audit alone.
 - [Replit deploy env gotchas](replit-deploy-env.md) — NODE_ENV isn't auto-prod (set runtime-only via start:api, NOT a prod env var → breaks npm ci); env-scoped secrets land in plaintext git-tracked .replit.
 - [Supabase DB URLs](supabase-db-urls.md) — use SUPABASE_DIRECT_URL (session pooler:5432) for migrations/psql; stale DIRECT_URL direct-host rotation crash-loops deploys; DATABASE_URL = wrong DB (helium).
 - [Prisma migrations (dev)](prisma-migrations-dev.md) — dev DB isn't baselined (migrate dev/deploy fail P3005); hand-write minimal migration.sql + `db execute` + run enable-rls script; RLS is central, not per-migration.
@@ -10,9 +11,12 @@
 - [Prisma baseline / P3005](prisma-baseline-p3005.md) — `db push` on the shared Supabase DB leaves no migration history → prod `migrate deploy` P3005 crash-loop; recover by baselining (resolve --applied + sha256 psql insert).
 - [Order responses have no DTO](order-response-shaping.md) — orders are raw Prisma rows returned untouched across getById/list/createOrder/customerCancel/reorder; any new Order column leaks to customers; sanitize every customer return path.
 - [Service fee & payout](service-fee-payout.md) — service fee is platform revenue, never paid out; payout = total − serviceFee − commission (delivery stays w/ vendor); fix BOTH per-order calc AND weekly batch (batch recomputed from total, didn't use stored vendorPayoutPence).
-- [Stripe webhook routing](stripe-webhook-event-routing.md) — controller enqueues by raw event.type = Bull job name; no catch-all, so unhandled types drop silently; handle refund.updated AND charge.refund.updated.
+- [Stripe webhook routing](stripe-webhook-event-routing.md) — controller only enqueues types in HANDLED_STRIPE_EVENT_TYPES (keep in sync with @Process names); others recorded + Sentry-warned, never enqueued.
+- [Notification outbox](notification-outbox.md) — always send events via NotificationsService.enqueue (durable outbox fallback), never the raw queue; drainer dedupes via outbox:<rowId> jobId.
+- [Chargeback reconciliation](chargeback-reconciliation.md) — lost disputes write the refund+credit ledger pair; ALL refund writers must take the per-order advisory lock and re-check the ceiling in-tx.
 - [Stripe money idempotency](stripe-idempotency.md) — every money-moving Stripe call must pass a deterministic idempotencyKey keyed on the business id; createTransfer lacked one → double-pay on re-approval.
 - [Queue-infra crons](queue-module-crons.md) — host @InjectQueue cron services in a separate module, NOT queues.module (circular import → queue-name const resolves undefined).
 - [Supabase auth hook](supabase-auth-hook.md) — login depends on custom_access_token_hook fn + RLS policy (auth_admin SELECT public.users); missing fn → all logins HTTP 500; missing policy → JWT role=customer for everyone.
 - [DB reset recovery](db-reset-recovery.md) — empty/drifted app DB w/ auth.users intact: migrate diff → db push --accept-data-loss → db:seed (bg, idempotent) → re-apply auth hook+policy.
+- [GitHub push workflow scope](github-push-workflow-scope.md) — PUSH_REJECTED when commits touch .github/workflows/: OAuth token lacks `workflow` scope; user must push via PAT (repo+workflow) or SSH.
 - [CI required checks](ci-required-checks.md) — the 5 required PR checks were never green: format:check needs .prettierignore (scanned .local/.agents); prisma jobs need SUPABASE_*_URL env; test needs unset TEST_DATABASE_URL/TEST_DIRECT_URL secrets; eqeqeq is intentional == null.

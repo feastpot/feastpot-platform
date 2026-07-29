@@ -92,6 +92,12 @@ import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module';
 import { assertRequiredEnvOrExit } from './common/config/required-env';
 import { resolveStripeEnv } from './common/config/resolve-stripe-env';
+import {
+  DEV_SUPABASE_REF,
+  getSupabaseEnvironment,
+  getSupabaseRef,
+  isDevSupabaseRef,
+} from './common/config/supabase-env';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import {
   PrismaExceptionFilter,
@@ -121,6 +127,22 @@ async function bootstrap(): Promise<void> {
   // In production we hard-exit (1); in dev we just log so contributors can
   // run a partial stack without every secret set.
   assertRequiredEnvOrExit();
+
+  // Supabase project guard: the shared DEVELOPMENT ref must never back a
+  // production deployment. We refuse to start so the API can't read/write live
+  // traffic against the dev database. This runs pre-Nest (before NestFactory
+  // connects Prisma), so the pino logger isn't wired up yet — use console.error
+  // to match the required-env gate above.
+  if (process.env.NODE_ENV === 'production' && isDevSupabaseRef()) {
+    // eslint-disable-next-line no-console
+    console.error(
+      `[STARTUP] CRITICAL: SUPABASE_URL points to the DEVELOPMENT project ` +
+        `(ref: ${DEV_SUPABASE_REF}) but NODE_ENV is production. ` +
+        'Set SUPABASE_URL in Replit deployment secrets to the production project URL. ' +
+        'Refusing to start to protect production data.',
+    );
+    process.exit(1);
+  }
 
   // rawBody: true + bodyParser: false → we install express.json with a verify
   // hook ourselves so req.rawBody is the EXACT bytes Stripe signed. If we let
@@ -180,6 +202,42 @@ async function bootstrap(): Promise<void> {
       ? 'TEST'
       : 'MISSING/UNKNOWN';
   logger.log(`[Stripe] Mode: ${stripeMode}`);
+  logger.log(`[Supabase] Project: ${getSupabaseRef()} (${getSupabaseEnvironment()})`);
+
+  // Redis guard. BullMQ, the throttler and the cache all depend on REDIS_URL.
+  // In production an unset URL means those subsystems silently fail, and a
+  // localhost URL means they bind to a non-existent in-container Redis (the
+  // dev port is intentionally NOT exposed) - both are fail-closed conditions.
+  // A non-TLS (redis://) URL is allowed but warned: some valid setups rely on
+  // network-level security instead of rediss:// TLS, so we don't hard-exit.
+  const redisUrl = process.env.REDIS_URL ?? '';
+  if (env === 'production') {
+    if (!redisUrl) {
+      logger.error(
+        '[STARTUP] CRITICAL: REDIS_URL is not set. ' +
+          'BullMQ, throttler, and cache will fail. Refusing to start.',
+      );
+      process.exit(1);
+    }
+    if (redisUrl.includes('localhost') || redisUrl.includes('127.0.0.1')) {
+      logger.error(
+        '[STARTUP] CRITICAL: REDIS_URL points to localhost in production. ' +
+          'Set REDIS_URL in Replit deployment secrets to the Upstash rediss:// URL. ' +
+          'Refusing to start.',
+      );
+      process.exit(1);
+    }
+    if (!redisUrl.startsWith('rediss://')) {
+      logger.warn(
+        '[STARTUP] WARNING: REDIS_URL does not use TLS (rediss://). ' +
+          'All Redis traffic is unencrypted. Use an Upstash rediss:// URL in production.',
+      );
+    }
+  }
+  logger.log(
+    `[Redis] URL scheme: ${redisUrl.split('://')[0] ?? 'unknown'} | ` +
+      `Host: ${redisUrl.split('@')[1]?.split(':')[0] ?? 'unknown'}`,
+  );
 
   // Notification credentials check. Unlike the Stripe guard above, missing
   // notification creds are NON-fatal: a degraded platform (orders still flow,

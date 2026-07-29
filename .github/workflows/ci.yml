@@ -38,9 +38,16 @@ jobs:
           node-version: 22
           cache: npm
 
+      - name: Pin npm (10.9.8 on the runner crashes with "Exit handler never called" on this lockfile)
+        run: npm install -g npm@10.9.4
+
       - name: Install workspace dependencies
         # `npm ci` honours workspaces declared in the root package.json.
-        run: npm ci
+        run: npm ci --no-audit --no-fund
+
+      - name: Dump npm debug log on failure
+        if: failure()
+        run: tail -n 200 /home/runner/.npm/_logs/*.log || true
 
       - name: Cache Turbo build artefacts
         uses: actions/cache@v4
@@ -63,6 +70,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - run: npm install -g npm@10.9.4
       - run: npm ci
       - name: Restore Turbo cache
         uses: actions/cache@v4
@@ -88,6 +96,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - run: npm install -g npm@10.9.4
       - run: npm ci
       - name: Restore Turbo cache
         uses: actions/cache@v4
@@ -118,6 +127,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - run: npm install -g npm@10.9.4
       - run: npm ci
       - name: Validate schema
         run: npx prisma validate --schema=./prisma/schema.prisma
@@ -133,18 +143,36 @@ jobs:
     name: Test (coverage ≥ 70%)
     needs: [setup]
     runs-on: ubuntu-latest
+    # Throwaway Postgres service — no external secrets needed. DB-gated
+    # integration tests skip themselves when they detect a non-seeded DB;
+    # the nightly workflow covers those against a real database.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: feastpot
+          POSTGRES_PASSWORD: feastpot
+          POSTGRES_DB: feastpot_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U feastpot"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     env:
       NODE_ENV: test
       # Prisma datasource reads SUPABASE_DB_URL / SUPABASE_DIRECT_URL (see
       # prisma/schema.prisma), NOT DATABASE_URL / DIRECT_URL.
-      SUPABASE_DB_URL: ${{ secrets.TEST_DATABASE_URL }}
-      SUPABASE_DIRECT_URL: ${{ secrets.TEST_DIRECT_URL }}
+      SUPABASE_DB_URL: postgresql://feastpot:feastpot@localhost:5432/feastpot_test
+      SUPABASE_DIRECT_URL: postgresql://feastpot:feastpot@localhost:5432/feastpot_test
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
+      - run: npm install -g npm@10.9.4
       - run: npm ci
       - name: Restore Turbo cache
         uses: actions/cache@v4
@@ -154,6 +182,10 @@ jobs:
           restore-keys: turbo-${{ runner.os }}-
       - name: Generate Prisma client
         run: npm run db:generate
+      - name: Create Supabase roles (migrations GRANT to them; vanilla Postgres lacks them)
+        run: |
+          PGPASSWORD=feastpot psql -h localhost -U feastpot -d feastpot_test -v ON_ERROR_STOP=1 \
+            -c "CREATE ROLE anon NOLOGIN; CREATE ROLE authenticated NOLOGIN; CREATE ROLE service_role NOLOGIN; CREATE ROLE supabase_auth_admin NOLOGIN;"
       - name: Apply migrations to test DB
         run: npx prisma migrate deploy --schema=./prisma/schema.prisma
       - name: Run tests with coverage
@@ -181,6 +213,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - run: npm install -g npm@10.9.4
       - run: npm ci
       - name: Restore Turbo cache
         uses: actions/cache@v4

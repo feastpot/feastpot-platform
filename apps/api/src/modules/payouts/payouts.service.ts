@@ -80,6 +80,16 @@ function payoutCsvRow(p: PayoutCsvRow): string {
   // approval date, otherwise creation date. Keeps the column non-empty for
   // draft/held rows without lying about transfer status.
   const payoutDate = p.transferredAt ?? p.approvedAt ?? p.createdAt;
+  // fees_pence = the platform service fee Feastpot retained on this payout's
+  // orders, derived from the stored components so the row self-reconciles:
+  //   gross − commission − fees − refunds − adjustments = net   (always)
+  // gross (= Σ order totals) includes the service fee; net (= Σ stored
+  // vendorPayoutPence − refunds) excludes it, so the residual IS the retained
+  // service fee. adjustments_pence carries any negative residual — that should
+  // never happen and flags a ledger anomaly for finance instead of hiding it.
+  const residualPence = p.grossPence - p.commissionPence - p.refundsPence - p.amountPence;
+  const feesPence = Math.max(0, residualPence);
+  const adjustmentsPence = Math.min(0, residualPence);
   return [
     p.id,
     isoDateOnly(payoutDate),
@@ -87,9 +97,9 @@ function payoutCsvRow(p: PayoutCsvRow): string {
     isoDateOnly(p.periodEnd),
     p.grossPence,
     p.commissionPence,
-    0,
+    feesPence,
     p.refundsPence,
-    0,
+    adjustmentsPence,
     p.amountPence,
     p.currency,
     p.status,

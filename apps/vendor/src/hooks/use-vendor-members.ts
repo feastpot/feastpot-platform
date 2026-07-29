@@ -109,6 +109,7 @@ const ROLE_PERMISSIONS: Record<VendorMemberRole, ReadonlyArray<RegExp>> = {
   kitchen_manager: [
     /^\/$/, // dashboard
     /^\/orders/,
+    /^\/disputes/,
     /^\/menu/,
     /^\/availability/,
     /^\/compliance/,
@@ -127,7 +128,7 @@ const ROLE_PERMISSIONS: Record<VendorMemberRole, ReadonlyArray<RegExp>> = {
     /^\/help/,
     /^\/user-guide/,
   ],
-  staff: [/^\/$/, /^\/orders/, /^\/notifications/, /^\/help/, /^\/user-guide/],
+  staff: [/^\/$/, /^\/orders/, /^\/disputes/, /^\/notifications/, /^\/help/, /^\/user-guide/],
   delivery_coordinator: [
     /^\/$/,
     /^\/orders/,

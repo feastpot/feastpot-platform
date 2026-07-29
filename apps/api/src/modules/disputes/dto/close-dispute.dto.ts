@@ -22,4 +22,14 @@ export class CloseDisputeDto {
   @IsInt()
   @Min(1)
   refundAmountPence?: number;
+
+  /** Required when resolution=credit: goodwill loyalty credit (1p = 1 point). */
+  @ApiPropertyOptional({
+    minimum: 1,
+    description: 'Goodwill credit in pence (required for resolution=credit).',
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  creditAmountPence?: number;
 }

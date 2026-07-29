@@ -5,10 +5,25 @@ import { StripeWebhookProcessor } from './stripe-webhook.processor';
 type Mock<T = unknown> = jest.Mock<T>;
 
 function makePrisma() {
-  return {
-    payment: { findFirst: jest.fn() as Mock },
-    chargeback: { upsert: jest.fn().mockResolvedValue({}) as Mock },
+  const prisma: any = {
+    payment: {
+      findFirst: jest.fn() as Mock,
+      aggregate: jest.fn().mockResolvedValue({ _sum: { amountPence: null } }) as Mock,
+      create: jest.fn().mockResolvedValue({ id: 'pay-x' }) as Mock,
+    },
+    chargeback: {
+      upsert: jest.fn().mockResolvedValue({}) as Mock,
+      // Default: no chargeback row found → lost-reconciliation no-ops.
+      findUnique: jest.fn().mockResolvedValue(null) as Mock,
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }) as Mock,
+    },
+    order: { findUnique: jest.fn() as Mock },
+    auditLog: { create: jest.fn().mockResolvedValue({}) as Mock },
+    // pg_advisory_xact_lock inside the reconciliation transaction.
+    $executeRaw: jest.fn().mockResolvedValue(1) as Mock,
   };
+  prisma.$transaction = jest.fn(async (fn: (tx: unknown) => Promise<unknown>) => fn(prisma));
+  return prisma;
 }
 
 function build() {
@@ -118,5 +133,130 @@ describe('StripeWebhookProcessor chargebacks', () => {
     await proc.onDisputeCreated(disputeJob('charge.dispute.created', { id: undefined }));
     expect(prisma.payment.findFirst).not.toHaveBeenCalled();
     expect(prisma.chargeback.upsert).not.toHaveBeenCalled();
+  });
+
+  describe('lost-chargeback reconciliation', () => {
+    // £40 food + £2.49 delivery + £2 service fee = £44.49; commission £4.80.
+    const order = {
+      id: 'order-1',
+      customerId: 'cust-1',
+      totalPence: 4449,
+      subtotalPence: 4000,
+      serviceFeePence: 200,
+      deliveryFeePence: 249,
+      discountPence: 0,
+      commissionPence: 480,
+    };
+
+    function buildLost() {
+      const { proc, prisma } = build();
+      prisma.payment.findFirst.mockResolvedValue({ id: 'pay-1', orderId: 'order-1' });
+      prisma.chargeback.findUnique.mockResolvedValue({
+        id: 'cb-1',
+        orderId: 'order-1',
+        amountPence: 4449,
+        reconciledAt: null,
+      });
+      prisma.order.findUnique.mockResolvedValue(order);
+      return { proc, prisma };
+    }
+
+    it('writes refund + credit + audit rows when a dispute is lost', async () => {
+      const { proc, prisma } = buildLost();
+
+      await proc.onDisputeClosed(
+        disputeJob('charge.dispute.closed', { ...baseDispute, status: 'lost', amount: 4449 }),
+      );
+
+      // CAS marked the chargeback reconciled.
+      expect(prisma.chargeback.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'cb-1', reconciledAt: null } }),
+      );
+      // Refund row: full disputed amount, negative.
+      expect(prisma.payment.create.mock.calls[0]![0].data).toMatchObject({
+        orderId: 'order-1',
+        type: 'refund',
+        amountPence: -4449,
+      });
+      // Credit row: Feastpot-absorbed share (service fee 200 + commission 480).
+      expect(prisma.payment.create.mock.calls[1]![0].data).toMatchObject({
+        type: 'credit',
+        amountPence: 680,
+      });
+      expect(prisma.auditLog.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            action: 'chargeback_lost_reconciled',
+            metadata: expect.objectContaining({
+              vendorClawbackPence: 3769,
+              feastpotAbsorbedPence: 680,
+            }),
+          }),
+        }),
+      );
+    });
+
+    it('is idempotent: already-reconciled chargebacks write nothing', async () => {
+      const { proc, prisma } = buildLost();
+      prisma.chargeback.findUnique.mockResolvedValue({
+        id: 'cb-1',
+        orderId: 'order-1',
+        amountPence: 4449,
+        reconciledAt: new Date(),
+      });
+
+      await proc.onDisputeClosed(
+        disputeJob('charge.dispute.closed', { ...baseDispute, status: 'lost' }),
+      );
+
+      expect(prisma.payment.create).not.toHaveBeenCalled();
+    });
+
+    it('caps the ledger amount when the order was already partially refunded', async () => {
+      const { proc, prisma } = buildLost();
+      // £30 already refunded → only £14.49 still refundable.
+      prisma.payment.aggregate.mockResolvedValue({ _sum: { amountPence: -3000 } });
+
+      await proc.onDisputeClosed(
+        disputeJob('charge.dispute.closed', { ...baseDispute, status: 'lost', amount: 4449 }),
+      );
+
+      expect(prisma.payment.create.mock.calls[0]![0].data).toMatchObject({
+        type: 'partial_refund',
+        amountPence: -1449,
+      });
+    });
+
+    it('skips ledger writes but marks reconciled on a fully-refunded order', async () => {
+      const { proc, prisma } = buildLost();
+      prisma.payment.aggregate.mockResolvedValue({ _sum: { amountPence: -4449 } });
+
+      await proc.onDisputeClosed(
+        disputeJob('charge.dispute.closed', { ...baseDispute, status: 'lost' }),
+      );
+
+      expect(prisma.payment.create).not.toHaveBeenCalled();
+      expect(prisma.chargeback.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'cb-1', reconciledAt: null } }),
+      );
+    });
+
+    it('does not reconcile when the chargeback has no matched order', async () => {
+      const { proc, prisma } = build();
+      prisma.payment.findFirst.mockResolvedValue(null);
+      prisma.chargeback.findUnique.mockResolvedValue({
+        id: 'cb-1',
+        orderId: null,
+        amountPence: 4449,
+        reconciledAt: null,
+      });
+
+      await proc.onDisputeClosed(
+        disputeJob('charge.dispute.closed', { ...baseDispute, status: 'lost' }),
+      );
+
+      expect(prisma.payment.create).not.toHaveBeenCalled();
+      expect(prisma.chargeback.updateMany).not.toHaveBeenCalled();
+    });
   });
 });

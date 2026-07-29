@@ -14,7 +14,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { UserRole } from '@prisma/client';
+import { EvidenceType, UserRole } from '@prisma/client';
 
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { Roles } from '../../auth/decorators/roles.decorator';
@@ -131,7 +131,11 @@ export class DisputesController {
   @ApiBody({
     schema: {
       type: 'object',
-      properties: { file: { type: 'string', format: 'binary' }, caption: { type: 'string' } },
+      properties: {
+        file: { type: 'string', format: 'binary' },
+        caption: { type: 'string' },
+        type: { type: 'string', enum: Object.values(EvidenceType) },
+      },
     },
   })
   @ApiOperation({ summary: 'Upload an evidence file (multipart)' })
@@ -141,6 +145,7 @@ export class DisputesController {
     @CurrentUser() user: AuthUser | null,
     @UploadedFile() file: Express.Multer.File,
     @Body('caption') caption?: string,
+    @Body('type') type?: string,
   ) {
     if (!file) {
       throw new BadRequestException({
@@ -148,6 +153,18 @@ export class DisputesController {
         message: 'Multipart field "file" is required',
       });
     }
-    return this.disputes.uploadEvidence(id, file, caption, requireUser(user));
+    if (type !== undefined && !(Object.values(EvidenceType) as string[]).includes(type)) {
+      throw new BadRequestException({
+        code: 'INVALID_EVIDENCE_TYPE',
+        message: `type must be one of ${Object.values(EvidenceType).join(', ')}`,
+      });
+    }
+    return this.disputes.uploadEvidence(
+      id,
+      file,
+      caption,
+      requireUser(user),
+      type as EvidenceType | undefined,
+    );
   }
 }

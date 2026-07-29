@@ -12,6 +12,7 @@ import {
   DisputeStatus,
   DocumentStatus,
   OrderStatus,
+  PaymentType,
   Prisma,
   UserRole,
   VendorApplicationStatus,
@@ -1376,9 +1377,15 @@ export class AdminService {
   // ----------------------------------------------------- payout reconcile
 
   /**
-   * Pull the Stripe transfer for a payout and report any pence-level
-   * discrepancy between Stripe's recorded amount and our DB. This is a
-   * read-only diagnostic - it never mutates the payout.
+   * Reconcile a payout on two independent axes; read-only, never mutates.
+   *
+   * 1. STRIPE: pull the Stripe transfer and report any pence-level
+   *    discrepancy between Stripe's recorded amount and our DB.
+   * 2. LEDGER: recompute every stored component from source-of-truth rows —
+   *    gross/commission/net from the period's delivered orders (using each
+   *    order's STORED vendorPayoutPence, which excludes the platform service
+   *    fee) and refunds by netting refund rows against Feastpot-absorbed
+   *    credit rows — and diff against what the batch persisted.
    */
   async reconcilePayoutWithStripe(payoutId: string, role: UserRole) {
     if (role !== UserRole.admin && role !== UserRole.finance) {
@@ -1391,6 +1398,9 @@ export class AdminService {
     if (!payout) {
       throw new NotFoundException({ code: 'PAYOUT_NOT_FOUND', message: 'Payout not found' });
     }
+
+    const ledger = await this.reconcilePayoutLedger(payout);
+
     if (!payout.stripeTransferId) {
       return {
         payoutId,
@@ -1399,6 +1409,7 @@ export class AdminService {
         stripeAmountPence: null,
         discrepancyPence: null,
         status: 'no_transfer' as const,
+        ledger,
       };
     }
     try {
@@ -1412,6 +1423,7 @@ export class AdminService {
         discrepancyPence: payout.amountPence - stripeAmountPence,
         status:
           payout.amountPence === stripeAmountPence ? ('match' as const) : ('mismatch' as const),
+        ledger,
       };
     } catch (err) {
       return {
@@ -1422,8 +1434,90 @@ export class AdminService {
         discrepancyPence: null,
         status: 'stripe_error' as const,
         error: (err as Error).message,
+        ledger,
       };
     }
+  }
+
+  /**
+   * Recompute a payout's components from the same source rows the weekly
+   * batch reads (delivered orders in [periodStart, periodEnd) + payment
+   * refund/credit netting) and diff them against the stored payout. Any
+   * non-zero delta means either the underlying orders/payments changed after
+   * the batch ran (late refund, order edit) or a batch bug — both worth a
+   * finance look. Per-order payouts (orderId set, no period) skip the check.
+   */
+  private async reconcilePayoutLedger(payout: {
+    vendorId: string;
+    periodStart: Date | null;
+    periodEnd: Date | null;
+    grossPence: number;
+    commissionPence: number;
+    refundsPence: number;
+    amountPence: number;
+    orderCount: number;
+  }) {
+    if (!payout.periodStart || !payout.periodEnd) {
+      return { status: 'not_applicable' as const };
+    }
+    const orders = await this.prisma.order.findMany({
+      where: {
+        vendorId: payout.vendorId,
+        status: OrderStatus.delivered,
+        deliveredAt: { gte: payout.periodStart, lt: payout.periodEnd },
+      },
+      select: { id: true, totalPence: true, vendorPayoutPence: true, commissionPence: true },
+    });
+    const orderIds = orders.map((o) => o.id);
+    const [refundRows, creditRows] = await Promise.all([
+      this.prisma.payment.aggregate({
+        where: {
+          orderId: { in: orderIds },
+          type: { in: [PaymentType.refund, PaymentType.partial_refund] },
+        },
+        _sum: { amountPence: true },
+      }),
+      this.prisma.payment.aggregate({
+        where: { orderId: { in: orderIds }, type: PaymentType.credit },
+        _sum: { amountPence: true },
+      }),
+    ]);
+
+    const expectedGrossPence = orders.reduce((s, o) => s + o.totalPence, 0);
+    const expectedCommissionPence = orders.reduce((s, o) => s + o.commissionPence, 0);
+    // Vendor clawback = customer refunds (negative rows) net of the
+    // Feastpot-absorbed credit rows — mirrors aggregateVendorBatch exactly.
+    const expectedRefundsPence = Math.max(
+      0,
+      -(refundRows._sum.amountPence ?? 0) - (creditRows._sum.amountPence ?? 0),
+    );
+    // Zero-floor exactly like aggregateVendorBatch: a high-refund period
+    // stores netPence = 0, never negative — mirror that or we'd report false
+    // mismatches on such payouts.
+    const expectedNetPence = Math.max(
+      0,
+      orders.reduce((s, o) => s + o.vendorPayoutPence, 0) - expectedRefundsPence,
+    );
+
+    const deltas = {
+      grossDeltaPence: payout.grossPence - expectedGrossPence,
+      commissionDeltaPence: payout.commissionPence - expectedCommissionPence,
+      refundsDeltaPence: payout.refundsPence - expectedRefundsPence,
+      netDeltaPence: payout.amountPence - expectedNetPence,
+      orderCountDelta: payout.orderCount - orders.length,
+    };
+    const clean = Object.values(deltas).every((d) => d === 0);
+    return {
+      status: clean ? ('match' as const) : ('mismatch' as const),
+      expected: {
+        grossPence: expectedGrossPence,
+        commissionPence: expectedCommissionPence,
+        refundsPence: expectedRefundsPence,
+        netPence: expectedNetPence,
+        orderCount: orders.length,
+      },
+      ...deltas,
+    };
   }
 }
 
