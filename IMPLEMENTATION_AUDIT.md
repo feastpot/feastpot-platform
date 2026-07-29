@@ -8,7 +8,7 @@ Legend: 🔴 critical (money/data integrity) · 🟠 important (missing capabili
 
 ## 1. Money & Financial Integrity (Backend)
 
-- 🔴 **Chargeback loss reconciliation missing** — bank-initiated chargebacks are recorded (`apps/api/src/modules/payments/stripe-webhook.processor.ts:153`) but nothing reconciles order finances when a chargeback is *lost*. Matches proposed Task #45.
+- 🔴 **Chargeback loss reconciliation missing** — bank-initiated chargebacks are recorded (`apps/api/src/modules/payments/stripe-webhook.processor.ts:153`) but nothing reconciles order finances when a chargeback is _lost_. Matches proposed Task #45.
 - 🔴 **No chargeback evidence-deadline warnings** — no cron/alert exists for approaching `evidence_due_by` deadlines. Matches proposed Task #46.
 - 🔴 **Service-fee retention untracked on refunds** — `computeRefundSplit` (`payments.service.ts:58`) excludes the customer service fee from vendor clawbacks, but no revenue-adjustment/ledger row records that the platform retained it. Related to proposed Task #40.
 - 🟠 **Payout CSV placeholders** — `PayoutsService.exportCsv` (`payouts.service.ts:229`) hardcodes `fees` and `adjustments` columns to zero (Stripe transfer fees not in schema; manual adjustments tracked elsewhere).
@@ -19,7 +19,7 @@ Legend: 🔴 critical (money/data integrity) · 🟠 important (missing capabili
 - 🔴 **Refund notifications swallowed** — `payments.service.ts:377` uses `Promise.allSettled` + `warn`; if the queue is down, money moves but neither customer nor vendor is told, with no retry.
 - 🔴 **Audit-log writes can fail silently** — refund/dispute audit records are best-effort (`payments.service.ts:360`, `disputes.service.ts:731`); financial actions can proceed without a permanent audit trail.
 - 🟠 **Vendor application emails swallowed** — `vendors.service.ts:363`; on failure the application exists in DB but is invisible to both parties.
-- 🟠 **Unhandled Stripe events silently dropped** — the webhook controller enqueues *every* event type (`stripe-webhook.controller.ts:99`) but the processor handles only a subset; everything else (e.g. `charge.succeeded`, `payout.failed`) is dropped without a catch-all log/alert (`stripe-webhook.processor.ts:251`).
+- 🟠 **Unhandled Stripe events silently dropped** — the webhook controller enqueues _every_ event type (`stripe-webhook.controller.ts:99`) but the processor handles only a subset; everything else (e.g. `charge.succeeded`, `payout.failed`) is dropped without a catch-all log/alert (`stripe-webhook.processor.ts:251`).
 
 ## 3. Disputes & Chargebacks — Missing Capability
 

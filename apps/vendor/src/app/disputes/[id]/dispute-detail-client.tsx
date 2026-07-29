@@ -1,14 +1,7 @@
 'use client';
 
 import { cn } from '@feastpot/ui';
-import {
-  AlertTriangle,
-  ArrowLeft,
-  CheckCircle2,
-  FileText,
-  Lock,
-  Upload,
-} from 'lucide-react';
+import { AlertTriangle, ArrowLeft, CheckCircle2, FileText, Lock, Upload } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 
@@ -253,7 +246,8 @@ function VendorResponseSection({ dispute }: { dispute: DisputeDetail }) {
       {dispute.vendorResponse && (
         <div className="mt-3 rounded-lg border border-border bg-surface p-3">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-mid">
-            Submitted{dispute.vendorRespondedAt ? ` ${formatDateTime(dispute.vendorRespondedAt)}` : ''}
+            Submitted
+            {dispute.vendorRespondedAt ? ` ${formatDateTime(dispute.vendorRespondedAt)}` : ''}
           </p>
           <p className="mt-1 whitespace-pre-wrap text-sm text-dark">{dispute.vendorResponse}</p>
         </div>

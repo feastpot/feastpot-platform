@@ -288,62 +288,62 @@ export class DisputesService {
       chargebacksDueSoon,
       lostUnreconciled,
     ] = await this.prisma.$transaction([
-        this.prisma.dispute.count({ where: scope }),
-        this.prisma.dispute.count({
-          where: {
-            AND: [
-              scope,
-              { status: { in: openStatuses } },
-              {
-                OR: [
-                  { vendorRespondedAt: null, createdAt: { lt: ackBreach } },
-                  { createdAt: { lt: resolveBreach } },
-                ],
-              },
-            ],
-          },
-        }),
-        this.prisma.dispute.count({
-          where: {
-            AND: [
-              scope,
-              { status: { in: openStatuses } },
-              { createdAt: { lt: breachingSoon, gte: resolveBreach } },
-              { vendorRespondedAt: { not: null } },
-            ],
-          },
-        }),
-        this.prisma.dispute.count({
-          where: { AND: [scope, { status: { in: openStatuses } }] },
-        }),
-        this.prisma.dispute.findMany({
-          where: scope,
-          select: { order: { select: { totalPence: true } } },
-        }),
-        this.prisma.dispute.count({
-          where: { AND: [scope, { createdAt: { gte: last30 } }] },
-        }),
-        this.prisma.dispute.count({
-          where: { AND: [scope, { createdAt: { gte: prior30Start, lt: last30 } }] },
-        }),
-        this.prisma.dispute.count({
-          where: { AND: [scope, { status: DisputeStatus.escalated }] },
-        }),
-        // Chargeback KPIs are global (not customer/vendor scoped) - stats is
-        // staff-only so that's the right lens for finance.
-        this.prisma.chargeback.count({
-          where: { status: { in: OPEN_CHARGEBACK_STATUSES } },
-        }),
-        this.prisma.chargeback.count({
-          where: {
-            status: { in: ['needs_response', 'warning_needs_response'] },
-            evidenceDueBy: { gte: now, lte: in72h },
-          },
-        }),
-        this.prisma.chargeback.count({
-          where: { status: 'lost', reconciledAt: null },
-        }),
-      ]);
+      this.prisma.dispute.count({ where: scope }),
+      this.prisma.dispute.count({
+        where: {
+          AND: [
+            scope,
+            { status: { in: openStatuses } },
+            {
+              OR: [
+                { vendorRespondedAt: null, createdAt: { lt: ackBreach } },
+                { createdAt: { lt: resolveBreach } },
+              ],
+            },
+          ],
+        },
+      }),
+      this.prisma.dispute.count({
+        where: {
+          AND: [
+            scope,
+            { status: { in: openStatuses } },
+            { createdAt: { lt: breachingSoon, gte: resolveBreach } },
+            { vendorRespondedAt: { not: null } },
+          ],
+        },
+      }),
+      this.prisma.dispute.count({
+        where: { AND: [scope, { status: { in: openStatuses } }] },
+      }),
+      this.prisma.dispute.findMany({
+        where: scope,
+        select: { order: { select: { totalPence: true } } },
+      }),
+      this.prisma.dispute.count({
+        where: { AND: [scope, { createdAt: { gte: last30 } }] },
+      }),
+      this.prisma.dispute.count({
+        where: { AND: [scope, { createdAt: { gte: prior30Start, lt: last30 } }] },
+      }),
+      this.prisma.dispute.count({
+        where: { AND: [scope, { status: DisputeStatus.escalated }] },
+      }),
+      // Chargeback KPIs are global (not customer/vendor scoped) - stats is
+      // staff-only so that's the right lens for finance.
+      this.prisma.chargeback.count({
+        where: { status: { in: OPEN_CHARGEBACK_STATUSES } },
+      }),
+      this.prisma.chargeback.count({
+        where: {
+          status: { in: ['needs_response', 'warning_needs_response'] },
+          evidenceDueBy: { gte: now, lte: in72h },
+        },
+      }),
+      this.prisma.chargeback.count({
+        where: { status: 'lost', reconciledAt: null },
+      }),
+    ]);
 
     const totalDisputedValuePence = totalValue.reduce(
       (sum, d) => sum + (d.order?.totalPence ?? 0),

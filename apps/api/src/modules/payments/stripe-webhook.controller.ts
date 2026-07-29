@@ -18,7 +18,6 @@ import type { Queue } from 'bull';
 import type { Request } from 'express';
 import type Stripe from 'stripe';
 
-
 import { Public } from '../../auth/decorators/public.decorator';
 import { PrismaService } from '../../prisma/prisma.service';
 import { StripeService } from '../../stripe/stripe.service';

@@ -88,7 +88,10 @@ export class ChargebackDeadlineMonitorService {
         (cb.orderId ? ` on order ${cb.orderId}` : ' — no matched order') +
         `. Evidence due ${dueBy.toISOString()}. Submit evidence in the Stripe Dashboard before the deadline or the dispute is lost by default.`;
 
-      Sentry.captureMessage(`${title}: dispute ${cb.stripeDisputeId}`, overdue ? 'error' : 'warning');
+      Sentry.captureMessage(
+        `${title}: dispute ${cb.stripeDisputeId}`,
+        overdue ? 'error' : 'warning',
+      );
       this.logger.warn(`${title} - ${body}`);
 
       // InboxService.notify is internally best-effort (logs on failure).

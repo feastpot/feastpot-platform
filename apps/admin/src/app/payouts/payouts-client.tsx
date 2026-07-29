@@ -572,7 +572,11 @@ function LedgerDeltaRow({
   return (
     <ReconRow
       label={label}
-      value={d === 0 ? `${formatPence(expected)} ✅` : `expected ${formatPence(expected)} (Δ ${formatPence(d)})`}
+      value={
+        d === 0
+          ? `${formatPence(expected)} ✅`
+          : `expected ${formatPence(expected)} (Δ ${formatPence(d)})`
+      }
     />
   );
 }

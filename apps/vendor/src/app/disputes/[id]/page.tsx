@@ -23,11 +23,7 @@ interface VendorMe {
  * shell mirrors the Orders/Payouts pages exactly; the interactive body
  * (evidence, response form, uploads) lives in the client component.
  */
-export default async function DisputeDetailPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export default async function DisputeDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await createServerSupabase();
   const {

@@ -50,7 +50,7 @@ journeys are also complete: **event catering** (enquiry → vendor quotes →
 deposit + balance split) and **admin operations** (moderation, disputes,
 payout reconciliation, audit logging).
 
-What is *not* done splits cleanly:
+What is _not_ done splits cleanly:
 
 - **Operational blockers (🔴):** live Stripe keys + webhook registration,
   production Supabase/Redis provisioning, frontend hosting (Vercel), Sentry DSNs,
@@ -65,15 +65,15 @@ What is *not* done splits cleanly:
 
 ## 2. Architecture at a glance
 
-| Layer | Tech | Port (dev) | Notes |
-| --- | --- | --- | --- |
-| API | NestJS 11, URI versioning `/v1` | 3001 | Supabase JWT auth, `@Roles` guards, global `StripeModule` + `NotificationsModule` |
-| Customer PWA | Next.js 15 App Router, React 18.3, Tailwind 3.4 | 3000 | Supabase SSR, TanStack Query, zustand basket |
-| Vendor portal | Next.js 15 | 3002 | Shared `AuthProvider`, Stripe Connect onboarding |
-| Admin panel | Next.js 15 | 3003 | Server-gate role checks, embedded BullBoard |
-| Data | Prisma 5 / Supabase Postgres | — | ~45 models, integer-pence money, RLS-central |
-| Queues | BullMQ / Upstash Redis (`rediss://`) | — | 5-min poll cadence, DLQ monitoring |
-| Payments | Stripe Connect (Standard/Express) | — | auth-on-order, capture-on-delivery, Transfer payouts |
+| Layer         | Tech                                            | Port (dev) | Notes                                                                             |
+| ------------- | ----------------------------------------------- | ---------- | --------------------------------------------------------------------------------- |
+| API           | NestJS 11, URI versioning `/v1`                 | 3001       | Supabase JWT auth, `@Roles` guards, global `StripeModule` + `NotificationsModule` |
+| Customer PWA  | Next.js 15 App Router, React 18.3, Tailwind 3.4 | 3000       | Supabase SSR, TanStack Query, zustand basket                                      |
+| Vendor portal | Next.js 15                                      | 3002       | Shared `AuthProvider`, Stripe Connect onboarding                                  |
+| Admin panel   | Next.js 15                                      | 3003       | Server-gate role checks, embedded BullBoard                                       |
+| Data          | Prisma 5 / Supabase Postgres                    | —          | ~45 models, integer-pence money, RLS-central                                      |
+| Queues        | BullMQ / Upstash Redis (`rediss://`)            | —          | 5-min poll cadence, DLQ monitoring                                                |
+| Payments      | Stripe Connect (Standard/Express)               | —          | auth-on-order, capture-on-delivery, Transfer payouts                              |
 
 ---
 
@@ -92,29 +92,29 @@ per-route narrowing through `@Roles(...)` + `RolesGuard`.
 
 ### 3.2 Feature modules (`src/modules`) — 20 modules
 
-| Module | Purpose | Representative endpoints | Background work |
-| --- | --- | --- | --- |
-| `users` | Profile + admin status | `GET/PATCH /users/me`, `PATCH /:userId/status` | — |
-| `addresses` | Customer delivery addresses | CRUD `/addresses` | — |
-| `vendors` | Vendor profiles, search, availability, Connect | `GET /vendors/search`, `me/stats`, `me/analytics`, `me/delivery-config`, `me/stripe-connect-link`, `:id/reviews` | — |
-| `vendor-members` | Team / staff management | `POST /vendor-members/invite`, `GET /vendor-members` | — |
-| `catalogue` | Menus + items | CRUD, image upload, `PATCH /items/reorder`, availability toggle | — |
-| `orders` | Order lifecycle + slotting | `POST /orders`, `PATCH /:id/status`, `reorder`, amendment GET/PATCH | — |
-| `payments` | Stripe processing + webhooks | `GET /payments`, `refunds`, `POST /payments/webhook` (raw body) | `stripe-webhooks` processor |
-| `payouts` | Vendor fund transfers | `GET /payouts`, `:id/approve`, `:id/hold` | `payouts` queue + weekly batch |
-| `disputes` | Dispute lifecycle | `POST /disputes`, `:id/respond`, escalate, close, evidence GET/POST | — |
-| `compliance` | Vendor doc verification | `POST /compliance/upload`, `verify` | `compliance` queue + expiry cron |
-| `reviews` | Ratings + moderation | `POST /reviews`, `moderation-queue`, `:id/moderate` | — |
-| `event-enquiries` | Catering enquiries + quotes | create, quotes, select-vendor, confirm-deposit, confirm-numbers | `EventCronService` (72h/48h) |
-| `discount-codes` | Promo codes | `POST /discount-codes`, `validate` | — |
-| `loyalty` | Points + referrals | `GET /loyalty/balance`, `referrals/validate` | `LoyaltyCronService` |
-| `notifications` | Multi-channel messaging | `PATCH /notifications/preferences` (no public routes) | `NOTIFICATIONS_QUEUE` (email/SMS/push/WhatsApp) |
-| `inbox` | In-app notifications | `GET /inbox`, `PATCH /:id/read` | — |
-| `push` | Web-push subscriptions | `POST /push/subscribe`, `unsubscribe` | — |
-| `mfa` | Multi-factor auth | `POST /mfa/enroll`, `verify`; recovery codes | — |
-| `coverage` | Postcode interest / waitlist | `POST /coverage/interest` | — |
-| `admin` | Internal operations | `dashboard`, `vendor-applications`, `audit-log(.csv)`, `compliance/expiring`, `payouts/:id/reconcile-stripe`, `push/broadcast` | out-of-cycle payout trigger |
-| `webhooks` | Future provider webhooks | _empty `@Module({})`_ | — |
+| Module            | Purpose                                        | Representative endpoints                                                                                                       | Background work                                 |
+| ----------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------- |
+| `users`           | Profile + admin status                         | `GET/PATCH /users/me`, `PATCH /:userId/status`                                                                                 | —                                               |
+| `addresses`       | Customer delivery addresses                    | CRUD `/addresses`                                                                                                              | —                                               |
+| `vendors`         | Vendor profiles, search, availability, Connect | `GET /vendors/search`, `me/stats`, `me/analytics`, `me/delivery-config`, `me/stripe-connect-link`, `:id/reviews`               | —                                               |
+| `vendor-members`  | Team / staff management                        | `POST /vendor-members/invite`, `GET /vendor-members`                                                                           | —                                               |
+| `catalogue`       | Menus + items                                  | CRUD, image upload, `PATCH /items/reorder`, availability toggle                                                                | —                                               |
+| `orders`          | Order lifecycle + slotting                     | `POST /orders`, `PATCH /:id/status`, `reorder`, amendment GET/PATCH                                                            | —                                               |
+| `payments`        | Stripe processing + webhooks                   | `GET /payments`, `refunds`, `POST /payments/webhook` (raw body)                                                                | `stripe-webhooks` processor                     |
+| `payouts`         | Vendor fund transfers                          | `GET /payouts`, `:id/approve`, `:id/hold`                                                                                      | `payouts` queue + weekly batch                  |
+| `disputes`        | Dispute lifecycle                              | `POST /disputes`, `:id/respond`, escalate, close, evidence GET/POST                                                            | —                                               |
+| `compliance`      | Vendor doc verification                        | `POST /compliance/upload`, `verify`                                                                                            | `compliance` queue + expiry cron                |
+| `reviews`         | Ratings + moderation                           | `POST /reviews`, `moderation-queue`, `:id/moderate`                                                                            | —                                               |
+| `event-enquiries` | Catering enquiries + quotes                    | create, quotes, select-vendor, confirm-deposit, confirm-numbers                                                                | `EventCronService` (72h/48h)                    |
+| `discount-codes`  | Promo codes                                    | `POST /discount-codes`, `validate`                                                                                             | —                                               |
+| `loyalty`         | Points + referrals                             | `GET /loyalty/balance`, `referrals/validate`                                                                                   | `LoyaltyCronService`                            |
+| `notifications`   | Multi-channel messaging                        | `PATCH /notifications/preferences` (no public routes)                                                                          | `NOTIFICATIONS_QUEUE` (email/SMS/push/WhatsApp) |
+| `inbox`           | In-app notifications                           | `GET /inbox`, `PATCH /:id/read`                                                                                                | —                                               |
+| `push`            | Web-push subscriptions                         | `POST /push/subscribe`, `unsubscribe`                                                                                          | —                                               |
+| `mfa`             | Multi-factor auth                              | `POST /mfa/enroll`, `verify`; recovery codes                                                                                   | —                                               |
+| `coverage`        | Postcode interest / waitlist                   | `POST /coverage/interest`                                                                                                      | —                                               |
+| `admin`           | Internal operations                            | `dashboard`, `vendor-applications`, `audit-log(.csv)`, `compliance/expiring`, `payouts/:id/reconcile-stripe`, `push/broadcast` | out-of-cycle payout trigger                     |
+| `webhooks`        | Future provider webhooks                       | _empty `@Module({})`_                                                                                                          | —                                               |
 
 ### 3.3 Background jobs & crons
 
@@ -181,18 +181,21 @@ embedded BullBoard queue inspection.
 ## 5. Feature & function inventory — Shared packages & data layer
 
 ### 5.1 `packages/types`
+
 Prisma client re-export + Zod request/response schemas: auth (`Register`,
 `Login`), user/address, vendor create/update, catalogue (menu/item),
 delivery config, orders (`CreateOrder`, `CreateOrderItem`, `CreateRefund`),
 disputes, reviews, events (`CreateEventEnquiry`, `CreateEventQuote`).
 
 ### 5.2 `packages/ui`
+
 shadcn library + `theme.css` (HSL brand tokens `bg-brand` #E8520A / `bg-teal`
 #1D9E75 / `bg-vendor` #185FA5): badge, button, card, dialog, dropdown-menu,
 empty-state, form, input, loading-spinner, nav-bar, page-shell, select, sheet,
 skeleton, table, tabs, toast.
 
 ### 5.3 `packages/config`
+
 Shared `tsconfig` + ESLint base (`eqeqeq` intentionally allows the `== null`
 idiom).
 
@@ -231,7 +234,7 @@ These are real code gaps confirmed in source today.
    `apps/web/src/components/vendor/rating-breakdown.tsx`); the API only returns the
    aggregate average + count. Carries explicit "coming soon" copy.
 3. **Loyalty & referral earn-hooks.** `LoyaltyPoint` / `Referral` models and
-   ledger logic exist, but no order-lifecycle hook *earns* points and referral
+   ledger logic exist, but no order-lifecycle hook _earns_ points and referral
    codes aren't attributed at registration → first-order credit. Customer
    "Feast Pass" / "Referral Card" are UI stubs.
 4. **Menu & photo drag-reorder.** Vendor menu drag-to-reorder is not wired
@@ -271,6 +274,7 @@ These are real code gaps confirmed in source today.
     `MenuItem.tags` rather than first-class columns (per `prisma/seed.ts` header).
 
 ### Notification providers (run as stubs without credentials)
+
 Email (Resend), SMS (Twilio), push (web-push), and WhatsApp (Meta/Twilio)
 providers all run in a **stub mode** that logs `[stub-*]` and reports
 `delivered:false` when credentials are absent
@@ -285,8 +289,8 @@ change. Missing secrets today: `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_I
 These are credentials/hosting/monitoring, not features.
 
 - 🔴 **Live Stripe credentials + webhook registration.** Currently on test keys;
-  `STRIPE_WEBHOOK_SECRET` is a hard-required boot var, set to a *temporary
-  placeholder* in prod. Going live needs live `STRIPE_SECRET_KEY`, Connect enabled
+  `STRIPE_WEBHOOK_SECRET` is a hard-required boot var, set to a _temporary
+  placeholder_ in prod. Going live needs live `STRIPE_SECRET_KEY`, Connect enabled
   on the live platform, the live webhook endpoint registered, and
   `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` set.
 - 🔴 **Production Supabase** (UK/EU region, PITR backups) confirmed distinct from

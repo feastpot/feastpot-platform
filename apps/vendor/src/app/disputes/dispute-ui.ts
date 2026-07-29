@@ -1,8 +1,4 @@
-import type {
-  DisputeIssueType,
-  DisputeSeverity,
-  DisputeStatus,
-} from '@/hooks/use-disputes';
+import type { DisputeIssueType, DisputeSeverity, DisputeStatus } from '@/hooks/use-disputes';
 
 export const STATUS_LABEL: Record<DisputeStatus, string> = {
   open: 'Open',
