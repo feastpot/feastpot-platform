@@ -8,7 +8,7 @@ import { StarPicker } from '@/components/review/star-picker';
 import { useOrder } from '@/hooks/use-orders';
 import { useAccessToken } from '@/lib/auth/use-access-token';
 import { ApiError } from '@/lib/api/client';
-import { createReview } from '@/lib/api/reviews';
+import { createReview, uploadReviewPhotos } from '@/lib/api/reviews';
 
 const MAX_REVIEW_CHARS = 500;
 
@@ -19,10 +19,9 @@ const MAX_REVIEW_CHARS = 500;
  *  - The reviews API only accepts `{ orderId, rating, title?, body? }`.
  *  - Food-quality rating: surfaced as a UX field but NOT transmitted (no
  *    matching API column). Once the schema adds `foodRating`, wire it up.
- *  - Photo upload: surfaced with previews + 3-file cap so the UX is honest,
- *    but the API has no upload endpoint - uploads are client-side only and
- *    discarded on submit, with an inline "Photo uploads aren't saved yet"
- *    notice so the customer isn't misled.
+ *  - Photo upload: two-step - JSON create first, then a multipart upload to
+ *    POST /reviews/:id/photos (max 3 x 5MB). A photo-upload failure does NOT
+ *    fail the review (it's already saved); we surface a soft notice instead.
  */
 export default function ReviewPage() {
   const router = useRouter();
@@ -39,6 +38,7 @@ export default function ReviewPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [photoWarning, setPhotoWarning] = useState<string | null>(null);
 
   // Object URLs for thumbnail previews. Memoised against the files array so
   // we only mint new ones when the selection changes; the cleanup effect
@@ -71,7 +71,7 @@ export default function ReviewPage() {
     setError(null);
     setSubmitting(true);
     try {
-      await createReview(
+      const review = await createReview(
         {
           orderId,
           rating,
@@ -79,6 +79,17 @@ export default function ReviewPage() {
         },
         token,
       );
+      if (files.length > 0) {
+        try {
+          await uploadReviewPhotos(review.id, files, token);
+        } catch {
+          // The review itself saved - don't scare the customer with a hard
+          // error; let them know the photos specifically didn't make it.
+          setPhotoWarning(
+            'Your review was saved, but the photos could not be uploaded. You can try again later.',
+          );
+        }
+      }
       setSubmitted(true);
     } catch (e) {
       if (e instanceof ApiError) setError(e.message);
@@ -125,6 +136,7 @@ export default function ReviewPage() {
         </span>
         <h1 className="text-2xl font-bold tracking-tight text-dark">Thanks for your review!</h1>
         <p className="text-sm text-mid">It helps your community find great cooks.</p>
+        {photoWarning && <p className="max-w-xs text-xs font-medium text-scotch">{photoWarning}</p>}
         <button
           type="button"
           onClick={() => router.push('/account/orders')}
@@ -260,9 +272,7 @@ export default function ReviewPage() {
             </label>
           )}
         </div>
-        <p className="mt-1 text-[11px] text-mid">
-          Photo uploads aren&rsquo;t saved yet - coming soon.
-        </p>
+        <p className="mt-1 text-[11px] text-mid">JPEG, PNG or WebP - up to 5MB each.</p>
       </fieldset>
 
       {error && (

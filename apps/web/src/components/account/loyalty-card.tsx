@@ -97,13 +97,15 @@ export function LoyaltyCard() {
 
       {/* Perk row - three tonal cells echoing the wireframe. */}
       <ul className="grid grid-cols-3 gap-2 border-t border-cream-deep bg-cream-warm/40 p-3">
+        {/* Copy reflects the REAL loyalty mechanics only (1pt/£1, redeem from
+            200pts, refer-a-friend) - no aspirational perks we don't run. */}
         {[
-          { Icon: Star, title: 'Earn points', body: 'With every order', tone: 'text-plantain' },
-          { Icon: Gift, title: 'Exclusive offers', body: 'Members only', tone: 'text-brand' },
+          { Icon: Star, title: 'Earn points', body: '1 point per £1 spent', tone: 'text-plantain' },
+          { Icon: Gift, title: 'Redeem at checkout', body: 'From 200 points', tone: 'text-brand' },
           {
             Icon: Calendar,
-            title: 'Birthday treats',
-            body: 'Something special',
+            title: 'Refer friends',
+            body: '500 pts per referral',
             tone: 'text-scotch',
           },
         ].map(({ Icon, title, body, tone }) => (

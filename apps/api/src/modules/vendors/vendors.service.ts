@@ -7,7 +7,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { OrderStatus, UserRole, VendorStatus } from '@prisma/client';
+import { ModerationStatus, OrderStatus, UserRole, VendorStatus } from '@prisma/client';
 import type { VendorMemberRole } from '@prisma/client';
 import * as Sentry from '@sentry/nestjs';
 
@@ -1060,16 +1060,19 @@ export class VendorsService {
     // not from the cached profile, so the customer PWA's express-checkout total
     // stays in lockstep with what orders.service charges if the fee changes.
     const platformServiceFeeBps = getServiceFeeBps();
+    // Real per-star counts for the profile's rating bars. Computed fresh
+    // (not from the profile cache) so a just-published review moves the bars
+    // in lockstep with the recalculated headline rating.
+    const ratingBreakdown = await this.getRatingBreakdown(lite.id);
+    const base = { ...vendor, platformServiceFeeBps, ratingBreakdown };
     const trimmed = postcode?.trim();
-    if (!trimmed) return { ...vendor, platformServiceFeeBps };
+    if (!trimmed) return base;
     const dc = vendor.deliveryConfig;
-    if (!dc || dc.latitude == null || dc.longitude == null)
-      return { ...vendor, platformServiceFeeBps };
+    if (!dc || dc.latitude == null || dc.longitude == null) return base;
     const coords = await geocodePostcode(trimmed, this.logger);
-    if (coords.latitude == null || coords.longitude == null)
-      return { ...vendor, platformServiceFeeBps };
+    if (coords.latitude == null || coords.longitude == null) return base;
     const distanceKm = haversineKm(coords.latitude, coords.longitude, dc.latitude, dc.longitude);
-    return { ...vendor, platformServiceFeeBps, distanceKm };
+    return { ...base, distanceKm };
   }
 
   async findMyVendor(userId: string) {
@@ -1352,7 +1355,72 @@ export class VendorsService {
     const limit = pagination.limit ?? 20;
     const reviews = await this.repo.listPublishedReviews(vendorId, limit, pagination.cursor);
     const nextCursor = reviews.length === limit ? reviews[reviews.length - 1]!.id : null;
-    return { data: reviews, nextCursor };
+    // Shape for the public surface: expose reviewer INITIALS only (never the
+    // raw name fields) - matches the customer PWA's `VendorReview` contract.
+    const data = reviews.map(({ customer, ...r }) => ({
+      ...r,
+      customerInitials:
+        [customer?.firstName?.[0], customer?.lastName?.[0]]
+          .filter(Boolean)
+          .join('')
+          .toUpperCase() || 'FP',
+    }));
+    return { data, nextCursor };
+  }
+
+  /**
+   * Real per-star review counts for the public profile's rating-breakdown
+   * bars. Same published-only predicate as recalculateVendorRating so the
+   * bars always sum to the headline `ratingCount`.
+   */
+  private async getRatingBreakdown(
+    vendorId: string,
+  ): Promise<{ 1: number; 2: number; 3: number; 4: number; 5: number }> {
+    const grouped = await this.prisma.review.groupBy({
+      by: ['rating'],
+      where: {
+        vendorId,
+        isHidden: false,
+        moderationStatus: { in: [ModerationStatus.auto_approved, ModerationStatus.approved] },
+      },
+      _count: { _all: true },
+    });
+    const breakdown = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    for (const g of grouped) {
+      if (g.rating >= 1 && g.rating <= 5) {
+        breakdown[g.rating as 1 | 2 | 3 | 4 | 5] = g._count._all;
+      }
+    }
+    return breakdown;
+  }
+
+  /**
+   * Aggregated live-vendor delivery coverage (postcode districts) for the
+   * SEO landing pages, so marketing copy reflects actual coverage instead of
+   * a hardcoded area list. Public + cheap: distinct postcode prefixes from
+   * live vendors' delivery configs, optionally filtered by cuisine.
+   */
+  async getCoverage(cuisines?: string[]) {
+    const configs = await this.prisma.deliveryConfig.findMany({
+      where: {
+        vendor: {
+          status: VendorStatus.live,
+          ...(cuisines && cuisines.length > 0 ? { cuisines: { hasSome: cuisines } } : {}),
+        },
+      },
+      select: { postcodes: true },
+    });
+    const districts = new Set<string>();
+    for (const c of configs) {
+      for (const p of c.postcodes) {
+        const norm = p.trim().toUpperCase();
+        if (norm) districts.add(norm);
+      }
+    }
+    return {
+      vendorCount: configs.length,
+      postcodeDistricts: Array.from(districts).sort(),
+    };
   }
 
   private async uniqueSlug(base: string): Promise<string> {

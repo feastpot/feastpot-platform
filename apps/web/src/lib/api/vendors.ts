@@ -96,6 +96,8 @@ export interface VendorProfile extends VendorListItem {
   vendorStory?: string | null;
   featuredDishes?: string[] | null;
   socialLinks?: Record<string, string> | null;
+  /** Real per-star published-review counts; sums to `ratingCount`. */
+  ratingBreakdown?: { 1: number; 2: number; 3: number; 4: number; 5: number };
 }
 
 export interface VendorMenuGroup {
@@ -135,6 +137,25 @@ export interface VendorReview {
   body: string | null;
   customerInitials: string;
   createdAt: string;
+  /** Customer-uploaded photos (public URLs, max 3). */
+  photoUrls?: string[];
+}
+
+export interface VendorCoverage {
+  vendorCount: number;
+  /** Distinct postcode districts (e.g. "SW2", "E8") covered by live vendors. */
+  postcodeDistricts: string[];
+}
+
+/** Aggregated live-vendor coverage, optionally filtered by cuisine. */
+export function getVendorCoverage(
+  cuisines?: string[],
+  options?: Pick<ApiRequestOptions, 'next' | 'signal'>,
+): Promise<VendorCoverage> {
+  return apiRequest<VendorCoverage>('/vendors/coverage', {
+    query: cuisines && cuisines.length > 0 ? { cuisine: cuisines } : undefined,
+    ...options,
+  });
 }
 
 export interface VendorReviewsResponse {

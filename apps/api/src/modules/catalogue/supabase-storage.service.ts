@@ -50,6 +50,19 @@ export class SupabaseStorageService {
     return this.uploadAt(`vendors/${vendorId}/identity/${kind}`, file);
   }
 
+  /**
+   * Customer review photos. Stored under the vendor's folder so vendor
+   * deletion tooling can sweep everything vendor-related in one prefix.
+   */
+  async uploadReviewPhoto(params: {
+    vendorId: string;
+    reviewId: string;
+    file: { originalname: string; mimetype: string; size: number; buffer: Buffer };
+  }): Promise<UploadedImage> {
+    const { vendorId, reviewId, file } = params;
+    return this.uploadAt(`vendors/${vendorId}/reviews/${reviewId}`, file);
+  }
+
   private async uploadAt(
     folder: string,
     file: { originalname: string; mimetype: string; size: number; buffer: Buffer },

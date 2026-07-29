@@ -13,6 +13,7 @@ import BadWordsFilter from 'bad-words';
 
 import type { AuthUser } from '../../auth/types';
 import { PrismaService } from '../../prisma/prisma.service';
+import { SupabaseStorageService } from '../catalogue/supabase-storage.service';
 import { InboxService } from '../inbox/inbox.service';
 
 import type { CreateReviewDto } from './dto/create-review.dto';
@@ -37,6 +38,7 @@ export class ReviewsService {
     private readonly prisma: PrismaService,
     // T007: in-app vendor notifications when a new review is left.
     private readonly inbox: InboxService,
+    private readonly storage: SupabaseStorageService,
   ) {
     this.filter = new BadWordsFilter();
     this.filter.addWords(...UK_EXTRA_BADWORDS);
@@ -131,6 +133,60 @@ export class ReviewsService {
       }
     }
     return review;
+  }
+
+  // -------------------- photos --------------------
+
+  /** Max photos per review - mirrored by the customer PWA's picker cap. */
+  static readonly MAX_PHOTOS = 3;
+
+  /**
+   * Attach customer photos to an existing review. Called by the PWA right
+   * after POST /reviews succeeds (two-step: JSON create, then multipart
+   * upload). Photos are public once stored, so ownership + the 3-photo cap
+   * are enforced here regardless of what the client sends.
+   */
+  async addPhotos(
+    reviewId: string,
+    files: { originalname: string; mimetype: string; size: number; buffer: Buffer }[],
+    user: AuthUser,
+  ) {
+    if (files.length === 0) {
+      throw new BadRequestException({ code: 'NO_FILES', message: 'No photos provided' });
+    }
+    const review = await this.prisma.review.findUnique({
+      where: { id: reviewId },
+      select: { id: true, customerId: true, vendorId: true, photoUrls: true },
+    });
+    if (!review)
+      throw new NotFoundException({ code: 'REVIEW_NOT_FOUND', message: 'Review not found' });
+    if (review.customerId !== user.id) {
+      throw new ForbiddenException({
+        code: 'NOT_REVIEW_OWNER',
+        message: 'You did not write this review',
+      });
+    }
+    if (review.photoUrls.length + files.length > ReviewsService.MAX_PHOTOS) {
+      throw new BadRequestException({
+        code: 'TOO_MANY_PHOTOS',
+        message: `A review can have at most ${ReviewsService.MAX_PHOTOS} photos`,
+      });
+    }
+
+    const uploaded: string[] = [];
+    for (const file of files) {
+      const { publicUrl } = await this.storage.uploadReviewPhoto({
+        vendorId: review.vendorId,
+        reviewId: review.id,
+        file,
+      });
+      uploaded.push(publicUrl);
+    }
+    return this.prisma.review.update({
+      where: { id: review.id },
+      data: { photoUrls: [...review.photoUrls, ...uploaded] },
+      select: { id: true, photoUrls: true },
+    });
   }
 
   // -------------------- moderation --------------------

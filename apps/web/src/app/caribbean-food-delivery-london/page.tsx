@@ -53,11 +53,8 @@ export default function Page() {
       ]}
       apiCuisines={['Caribbean', 'Jamaican', 'Trinidadian']}
       faqs={[
-        {
-          question: 'Which London areas do you cover?',
-          answer:
-            'Caribbean vendors on Feastpot deliver across Greater London, with strongest coverage in South (Brixton, Streatham, Lewisham), East (Hackney, Stratford) and North (Harlesden, Tottenham).',
-        },
+        // Coverage FAQ is generated dynamically by CuisineLanding from live
+        // vendor delivery configs - don't hardcode area claims here.
         {
           question: 'How far in advance should I order?',
           answer:

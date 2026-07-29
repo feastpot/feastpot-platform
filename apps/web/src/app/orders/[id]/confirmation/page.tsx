@@ -23,9 +23,9 @@ const formatPounds = (p: number) => `£${(p / 100).toFixed(2)}`;
  * Three calls-to-action:
  *   1. "Track your order" → /orders/{id}/tracking (primary)
  *   2. Push notifications  → only if browser supports + permission not yet granted
- *   3. Referral nudge      → static today (no /me referral code in API yet);
- *                            renders a "coming soon" copy-pill so the layout
- *                            ships and we can wire the real code later.
+ *   3. Referral nudge      → real code from GET /v1/loyalty/referrals via
+ *                            useReferrals(); only rendered once the code has
+ *                            loaded (guests/loading see no placeholder).
  */
 export default function OrderConfirmationPage() {
   const params = useParams<{ id: string }>();
