@@ -78,7 +78,7 @@ const nameOnly = (firstName: string): Array<string | number> => [firstName];
  * return precisely as many values as the approved body has {{n}} slots —
  * extra or missing variables make the send fail, not just render blank.
  */
-const WHATSAPP_PARAMS: Record<
+export const WHATSAPP_PARAMS: Record<
   string,
   (firstName: string, data: Record<string, unknown>) => Array<string | number>
 > = {
