@@ -68,8 +68,16 @@ describe('WhatsApp template contract (WHATSAPP_PARAMS vs Twilio Content Template
     // Catches drift in the other direction: a renamed/removed template leaving
     // a stale builder or stale expectation behind.
     const declared = new Set(declaredWhatsappTemplates);
-    expect(Object.keys(WHATSAPP_PARAMS).filter((n) => !declared.has(n)).sort()).toEqual([]);
-    expect(Object.keys(EXPECTED_SLOT_COUNTS).filter((n) => !declared.has(n)).sort()).toEqual([]);
+    expect(
+      Object.keys(WHATSAPP_PARAMS)
+        .filter((n) => !declared.has(n))
+        .sort(),
+    ).toEqual([]);
+    expect(
+      Object.keys(EXPECTED_SLOT_COUNTS)
+        .filter((n) => !declared.has(n))
+        .sort(),
+    ).toEqual([]);
   });
 
   const sampleData: Record<string, unknown> = {
@@ -105,9 +113,7 @@ describe('WhatsApp template contract (WHATSAPP_PARAMS vs Twilio Content Template
       '£67.89',
     ]);
     // Never leaks the order number into the amount slot.
-    expect(builder('Amara', { amountPence: 100, orderNumber: 'FP-9999' })).not.toContain(
-      'FP-9999',
-    );
+    expect(builder('Amara', { amountPence: 100, orderNumber: 'FP-9999' })).not.toContain('FP-9999');
   });
 
   it('order-lifecycle builders put firstName in {{1}} and orderNumber in {{2}}', () => {
