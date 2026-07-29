@@ -12,6 +12,7 @@ import { ModerationStatus, OrderStatus, Prisma } from '@prisma/client';
 import BadWordsFilter from 'bad-words';
 
 import type { AuthUser } from '../../auth/types';
+import { RedisCacheService } from '../../common/cache/redis-cache.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { SupabaseStorageService } from '../catalogue/supabase-storage.service';
 import { InboxService } from '../inbox/inbox.service';
@@ -39,6 +40,7 @@ export class ReviewsService {
     // T007: in-app vendor notifications when a new review is left.
     private readonly inbox: InboxService,
     private readonly storage: SupabaseStorageService,
+    private readonly cache: RedisCacheService,
   ) {
     this.filter = new BadWordsFilter();
     this.filter.addWords(...UK_EXTRA_BADWORDS);
@@ -357,6 +359,10 @@ export class ReviewsService {
     const rating = Number((agg._avg.rating ?? 0).toFixed(2));
     const ratingCount = agg._count._all;
     await this.prisma.vendor.update({ where: { id: vendorId }, data: { rating, ratingCount } });
+    // Bust the cached public profile so the headline rating/count served by
+    // GET /vendors/by-slug stays in lockstep with the fresh per-star
+    // ratingBreakdown (which is computed uncached on every request).
+    await this.cache.del(`vendors:profile:${vendorId}`);
     return { rating, ratingCount };
   }
 
