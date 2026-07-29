@@ -29,6 +29,7 @@ import { vendorPortalInviteTemplate } from '../notifications/templates/vendor-po
 
 import { ListAdminVendorsDto } from './dto/list-admin-vendors.dto';
 import { ListAuditLogDto } from './dto/list-audit-log.dto';
+import { ListCoverageInterestDto } from './dto/list-coverage-interest.dto';
 import { UpdateVendorApplicationDto } from './dto/update-vendor-application.dto';
 
 /**
@@ -648,6 +649,93 @@ export class AdminService {
       cursor = { createdAt: last.createdAt, id: last.id };
       if (rows.length < take) break;
     }
+  }
+
+  // ------------------------------------------------------------------
+  // Coverage waitlist (ops read/export - capture is public via /coverage-interest)
+  // ------------------------------------------------------------------
+
+  async listCoverageInterest(dto: ListCoverageInterestDto) {
+    const limit = dto.limit ?? 50;
+    const where = this.buildCoverageInterestWhere(dto);
+    const [rows, total] = await Promise.all([
+      this.prisma.coverageInterest.findMany({
+        where,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: limit + 1,
+        ...(dto.cursor ? { cursor: { id: dto.cursor }, skip: 1 } : {}),
+      }),
+      this.prisma.coverageInterest.count({ where }),
+    ]);
+    const page = rows.slice(0, limit);
+    return {
+      data: page,
+      total,
+      nextCursor: rows.length > limit ? page[page.length - 1]!.id : null,
+    };
+  }
+
+  async exportCoverageInterestCsv(
+    dto: ListCoverageInterestDto,
+    write: (chunk: string) => void,
+  ): Promise<void> {
+    const HARD_CAP = 5000;
+    const PAGE = 500;
+    const where = this.buildCoverageInterestWhere(dto);
+
+    write(
+      ['created_at', 'email', 'postcode', 'name', 'marketing_consent', 'notified', 'source'].join(
+        ',',
+      ) + '\n',
+    );
+
+    let cursor: string | null = null;
+    let emitted = 0;
+    while (emitted < HARD_CAP) {
+      const take = Math.min(PAGE, HARD_CAP - emitted);
+      const rows: Array<{
+        id: string;
+        createdAt: Date;
+        email: string;
+        postcode: string;
+        name: string | null;
+        marketingConsent: boolean | null;
+        notified: boolean;
+        source: string | null;
+      }> = await this.prisma.coverageInterest.findMany({
+        where,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take,
+        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      });
+      if (rows.length === 0) break;
+      for (const r of rows) {
+        const fields = [
+          r.createdAt.toISOString(),
+          r.email,
+          r.postcode,
+          r.name ?? '',
+          r.marketingConsent == null ? '' : String(r.marketingConsent),
+          String(r.notified),
+          r.source ?? '',
+        ];
+        write(fields.map((f) => csvCell(f)).join(',') + '\n');
+      }
+      emitted += rows.length;
+      cursor = rows[rows.length - 1]!.id;
+      if (rows.length < take) break;
+    }
+  }
+
+  private buildCoverageInterestWhere(
+    dto: ListCoverageInterestDto,
+  ): Prisma.CoverageInterestWhereInput {
+    const where: Prisma.CoverageInterestWhereInput = {};
+    if (dto.postcode?.trim()) {
+      where.postcode = { startsWith: dto.postcode.trim(), mode: 'insensitive' };
+    }
+    if (dto.notified != null) where.notified = dto.notified === 'true';
+    return where;
   }
 
   private buildAuditWhere(dto: ListAuditLogDto): Prisma.AuditLogWhereInput {

@@ -36,6 +36,8 @@ enum VendorStatus {
   approved
   live
   suspended
+  // Admin-only status: set via the admin vendor status transition map;
+  // probation vendors keep full portal access and count as sellable.
   probation
   removed
 }
@@ -43,6 +45,9 @@ enum VendorStatus {
 enum OrderType {
   standard
   event
+  // Reserved for the planned meal-plan subscription product. No code path
+  // creates subscription orders yet; the customer filter UI already exposes
+  // the value. Do not remove without a coordinated enum migration.
   subscription
 }
 

@@ -14,6 +14,7 @@ import {
   Layers,
   LayoutDashboard,
   LogOut,
+  MapPin,
   MessageSquare,
   Receipt,
   Settings,
@@ -75,6 +76,7 @@ const MAIN_NAV: ReadonlyArray<NavItem> = [
   { href: '/discount-codes', label: 'Discount Codes', icon: Tag, roles: ['admin', 'finance'] },
   { href: '/push/compose', label: 'Push broadcast', icon: Bell, roles: ['admin'] },
   { href: '/compliance', label: 'Compliance', icon: ShieldCheck, roles: ['admin', 'compliance'] },
+  { href: '/coverage', label: 'Coverage waitlist', icon: MapPin, roles: ['admin', 'support'] },
   { href: '/audit-log', label: 'Audit log', icon: Activity, roles: ['admin', 'compliance'] },
   { href: '/settings', label: 'Settings', icon: Settings, roles: ['admin'] },
 ];
