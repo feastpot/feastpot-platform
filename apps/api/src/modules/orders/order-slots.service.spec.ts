@@ -104,13 +104,18 @@ describe('OrderSlotsService.validateSlot', () => {
       sameDayOrders: false,
       prepLeadHours: 0,
     });
-    const target = new Date();
-    target.setUTCHours(target.getUTCHours() + 1, 0, 0, 0);
-    if (target.getUTCHours() < 9) target.setUTCHours(12, 0, 0, 0);
-    if (target.getUTCHours() >= 21) target.setUTCHours(20, 0, 0, 0);
-    await expect(svc.validateSlot('v-1', target)).rejects.toMatchObject({
-      response: { code: 'SAME_DAY_ORDERS_DISABLED' },
-    });
+    // Freeze "now" at a fixed morning hour so the same-day check is what
+    // fires, not the lead-time check — otherwise this test is flaky when
+    // run late in the day (the target clamps into the lead-time window).
+    jest.useFakeTimers({ now: Date.UTC(2030, 5, 3, 8, 0, 0), doNotFake: ['nextTick'] });
+    try {
+      const target = new Date(Date.UTC(2030, 5, 3, 14, 0, 0)); // same day, 6h out
+      await expect(svc.validateSlot('v-1', target)).rejects.toMatchObject({
+        response: { code: 'SAME_DAY_ORDERS_DISABLED' },
+      });
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('rejects a blackout date with the reason in the message', async () => {
