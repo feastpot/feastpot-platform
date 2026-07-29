@@ -2,6 +2,9 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { OrderStatus, UserRole } from '@prisma/client';
 import { Transform, Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  IsArray,
   IsBoolean,
   IsEmail,
   IsEnum,
@@ -10,6 +13,7 @@ import {
   IsISO8601,
   IsOptional,
   IsString,
+  IsUUID,
   MaxLength,
   Min,
   MinLength,
@@ -127,7 +131,61 @@ export class OverrideOrderStatusDto {
   reason!: string;
 }
 
+export class BulkOrderStatusDto {
+  @ApiProperty({ type: [String], description: 'Order IDs (UUIDs), max 100 per call' })
+  @IsArray()
+  @ArrayMaxSize(100)
+  @ArrayMinSize(1)
+  @IsUUID('4', { each: true })
+  orderIds!: string[];
+
+  @ApiProperty({ enum: OrderStatus })
+  @IsEnum(OrderStatus)
+  status!: OrderStatus;
+
+  @ApiProperty({ maxLength: 500 })
+  @Transform(trim)
+  @IsString()
+  @MinLength(3)
+  @MaxLength(500)
+  reason!: string;
+}
+
+export class BulkOrderTagsDto {
+  @ApiProperty({ type: [String], description: 'Order IDs (UUIDs), max 100 per call' })
+  @IsArray()
+  @ArrayMaxSize(100)
+  @ArrayMinSize(1)
+  @IsUUID('4', { each: true })
+  orderIds!: string[];
+
+  @ApiPropertyOptional({ type: [String], description: 'Tags to add (max 10, 40 chars each)' })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(10)
+  @IsString({ each: true })
+  @MaxLength(40, { each: true })
+  add?: string[];
+
+  @ApiPropertyOptional({ type: [String], description: 'Tags to remove' })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(10)
+  @IsString({ each: true })
+  @MaxLength(40, { each: true })
+  remove?: string[];
+}
+
 export class ListAdminOrdersDto {
+  @ApiPropertyOptional({
+    description:
+      'CSV of order IDs (max 100) — restrict the list/CSV export to exactly these orders',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(4000)
+  ids?: string;
+
   @ApiPropertyOptional({ enum: OrderStatus })
   @IsOptional()
   @IsEnum(OrderStatus)

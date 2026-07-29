@@ -51,6 +51,8 @@ import {
   buildOrdersCsvQuery,
   useAdminOrderStats,
   useAdminOrders,
+  useBulkOrderStatus,
+  useBulkOrderTags,
   useTriggerRefund,
   type AdminOrderRow,
   type PaymentStatus,
@@ -79,6 +81,8 @@ const PAYMENT_STATUSES: ReadonlyArray<PaymentStatus | 'all'> = [
 ];
 
 const PAGE_SIZES = [10, 25, 50, 100] as const;
+// Server-side cap for bulk mutations and the `ids` CSV export filter.
+const BULK_LIMIT = 100;
 
 interface OrdersClientProps {
   role: 'admin' | 'support' | 'finance' | 'compliance';
@@ -138,8 +142,31 @@ export function OrdersClient({ role }: OrdersClientProps) {
 
   const canOverride = role === 'admin' || role === 'support';
   const canRefund = role === 'admin' || role === 'finance';
+  const canBulk = canOverride;
 
   const rows = data?.data ?? [];
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const pageIds = rows.map((r) => r.id);
+  const allOnPageSelected = pageIds.length > 0 && pageIds.every((id) => selected.has(id));
+
+  function toggleRow(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAllOnPage() {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (allOnPageSelected) pageIds.forEach((id) => next.delete(id));
+      else pageIds.forEach((id) => next.add(id));
+      return next;
+    });
+  }
+
   const total = data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const showingFrom = total === 0 ? 0 : (page - 1) * pageSize + 1;
@@ -321,6 +348,14 @@ export function OrdersClient({ role }: OrdersClientProps) {
         />
       </div>
 
+      {selected.size > 0 && (
+        <BulkActionsBar
+          selectedIds={[...selected]}
+          canBulk={canBulk}
+          onClear={() => setSelected(new Set())}
+        />
+      )}
+
       {error && (
         <Card className="mb-4 border-destructive/40 bg-destructive/5">
           <CardContent className="py-3 text-sm text-destructive">
@@ -335,7 +370,12 @@ export function OrdersClient({ role }: OrdersClientProps) {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-8">
-                  <input type="checkbox" disabled aria-label="Select all (coming soon)" />
+                  <input
+                    type="checkbox"
+                    checked={allOnPageSelected}
+                    onChange={toggleAllOnPage}
+                    aria-label="Select all on this page"
+                  />
                 </TableHead>
                 <TableHead>Order ID</TableHead>
                 <TableHead>Customer</TableHead>
@@ -385,6 +425,8 @@ export function OrdersClient({ role }: OrdersClientProps) {
                   order={o}
                   canOverride={canOverride}
                   canRefund={canRefund}
+                  selected={selected.has(o.id)}
+                  onToggleSelect={() => toggleRow(o.id)}
                 />
               ))}
             </TableBody>
@@ -628,14 +670,215 @@ function KpiTile({
   );
 }
 
+function BulkActionsBar({
+  selectedIds,
+  canBulk,
+  onClear,
+}: {
+  selectedIds: string[];
+  canBulk: boolean;
+  onClear: () => void;
+}) {
+  const token = useAccessToken();
+  const [busy, setBusy] = useState(false);
+  const [tagOpen, setTagOpen] = useState(false);
+  const [statusOpen, setStatusOpen] = useState(false);
+  const [tagsInput, setTagsInput] = useState('');
+  const [removeMode, setRemoveMode] = useState(false);
+  const [status, setStatus] = useState<OrderStatus>('cancelled');
+  const [reason, setReason] = useState('');
+  const bulkTags = useBulkOrderTags();
+  const bulkStatus = useBulkOrderStatus();
+
+  // Server-side bulk limit (mutations and the `ids` CSV filter). Rather than
+  // silently truncating, the action buttons disable past the cap.
+  const overCap = selectedIds.length > BULK_LIMIT;
+
+  // Selected-only CSV re-uses the existing orders.csv endpoint with an
+  // explicit `ids` filter (server caps at 100 ids).
+  async function exportSelected() {
+    if (!token) return;
+    setBusy(true);
+    try {
+      const res = await fetch(
+        `${API_URL}/v1/admin/orders.csv?ids=${encodeURIComponent(selectedIds.join(','))}`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      if (!res.ok) throw new Error(`Export failed (${res.status})`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `feastpot-orders-selected-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const parsedTags = tagsInput
+    .split(',')
+    .map((t) => t.trim())
+    .filter(Boolean)
+    .slice(0, 10);
+
+  function applyTags() {
+    bulkTags.mutate(
+      {
+        orderIds: selectedIds,
+        ...(removeMode ? { remove: parsedTags } : { add: parsedTags }),
+      },
+      {
+        onSuccess: () => {
+          setTagOpen(false);
+          setTagsInput('');
+        },
+      },
+    );
+  }
+
+  function applyStatus() {
+    bulkStatus.mutate(
+      { orderIds: selectedIds, status, reason: reason.trim() },
+      {
+        onSuccess: () => {
+          setStatusOpen(false);
+          setReason('');
+          onClear();
+        },
+      },
+    );
+  }
+
+  return (
+    <Card className="mb-4 border-brand/40 bg-brand/5">
+      <CardContent className="flex flex-wrap items-center gap-2 py-3 text-sm">
+        <strong className="font-semibold">{selectedIds.length} selected</strong>
+        {overCap && (
+          <span className="text-xs text-destructive">
+            Bulk actions work on up to {BULK_LIMIT} orders — deselect{' '}
+            {selectedIds.length - BULK_LIMIT} to continue.
+          </span>
+        )}
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={exportSelected}
+          disabled={busy || !token || overCap}
+        >
+          <Download className="mr-1 h-3.5 w-3.5" />
+          {busy ? 'Exporting…' : 'Export selected'}
+        </Button>
+        {canBulk && (
+          <>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setTagOpen((v) => !v)}
+              disabled={overCap}
+            >
+              Tag…
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setStatusOpen((v) => !v)}
+              disabled={overCap}
+            >
+              Change status…
+            </Button>
+          </>
+        )}
+        <Button size="sm" variant="ghost" onClick={onClear} className="ml-auto">
+          Clear selection
+        </Button>
+        {tagOpen && (
+          <div className="flex w-full flex-wrap items-center gap-2 border-t border-border pt-3">
+            <Input
+              placeholder="Tags, comma-separated (e.g. vip, follow-up)"
+              value={tagsInput}
+              onChange={(e) => setTagsInput(e.target.value)}
+              className="max-w-sm"
+            />
+            <label className="flex items-center gap-1 text-xs text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={removeMode}
+                onChange={(e) => setRemoveMode(e.target.checked)}
+              />
+              Remove instead of add
+            </label>
+            <Button
+              size="sm"
+              disabled={parsedTags.length === 0 || bulkTags.isPending}
+              onClick={applyTags}
+            >
+              {bulkTags.isPending ? 'Saving…' : removeMode ? 'Remove tags' : 'Add tags'}
+            </Button>
+            {bulkTags.error && (
+              <span className="text-xs text-destructive">{(bulkTags.error as Error).message}</span>
+            )}
+          </div>
+        )}
+        {statusOpen && (
+          <div className="flex w-full flex-wrap items-center gap-2 border-t border-border pt-3">
+            <Select value={status} onValueChange={(v) => setStatus(v as OrderStatus)}>
+              <SelectTrigger className="w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {STATUSES.filter((s) => s !== 'all').map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {s}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Input
+              placeholder="Reason (audited on every order)"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              className="max-w-md"
+            />
+            <Button
+              size="sm"
+              disabled={reason.trim().length < 3 || bulkStatus.isPending}
+              onClick={applyStatus}
+            >
+              {bulkStatus.isPending ? 'Applying…' : `Apply to ${selectedIds.length}`}
+            </Button>
+            {bulkStatus.data && bulkStatus.data.failed > 0 && (
+              <span className="text-xs text-destructive">
+                {bulkStatus.data.failed} failed, {bulkStatus.data.updated} updated
+              </span>
+            )}
+            {bulkStatus.error && (
+              <span className="text-xs text-destructive">
+                {(bulkStatus.error as Error).message}
+              </span>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function OrdersTableRow({
   order,
   canOverride,
   canRefund,
+  selected,
+  onToggleSelect,
 }: {
   order: AdminOrderRow;
   canOverride: boolean;
   canRefund: boolean;
+  selected: boolean;
+  onToggleSelect: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [refundOpen, setRefundOpen] = useState(false);
@@ -657,9 +900,28 @@ function OrdersTableRow({
     <>
       <TableRow>
         <TableCell>
-          <input type="checkbox" disabled aria-label="Select row (coming soon)" />
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={onToggleSelect}
+            aria-label={`Select order ${order.orderNumber}`}
+          />
         </TableCell>
-        <TableCell className="font-mono text-xs">{order.orderNumber}</TableCell>
+        <TableCell className="font-mono text-xs">
+          {order.orderNumber}
+          {order.adminTags.length > 0 && (
+            <div className="mt-1 flex flex-wrap gap-1">
+              {order.adminTags.map((t) => (
+                <span
+                  key={t}
+                  className="rounded-full bg-muted px-1.5 py-0.5 font-sans text-[10px] text-muted-foreground"
+                >
+                  {t}
+                </span>
+              ))}
+            </div>
+          )}
+        </TableCell>
         <TableCell>
           <Link
             href={`/users?email=${encodeURIComponent(order.customer.email)}`}

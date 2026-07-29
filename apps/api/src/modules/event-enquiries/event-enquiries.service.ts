@@ -9,6 +9,7 @@ import { EnquiryStatus, QuoteStatus, UserRole, VendorStatus } from '@prisma/clie
 import type { EventEnquiry } from '@prisma/client';
 
 import type { AuthUser } from '../../auth/types';
+import { CSV_EXPORT_HARD_CAP, CSV_EXPORT_PAGE, csvRow } from '../../common/csv';
 import { PrismaService } from '../../prisma/prisma.service';
 import { StripeService } from '../../stripe/stripe.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -62,6 +63,136 @@ export class EventEnquiriesService {
   // Read
   // ---------------------------------------------------------------------------
 
+  /**
+   * Admin-only filter application, shared by the paginated list and the CSV
+   * export. Mutates `where` in place. Throws on cross-field typos so the UI
+   * surfaces them instead of silently returning an empty page.
+   */
+  private applyAdminEnquiryFilters(
+    where: Record<string, unknown>,
+    dto: ListEventEnquiriesDto,
+  ): void {
+    if (dto.eventFrom && dto.eventTo && dto.eventFrom > dto.eventTo) {
+      throw new BadRequestException('eventFrom must be on or before eventTo');
+    }
+    if (dto.createdFrom && dto.createdTo && dto.createdFrom > dto.createdTo) {
+      throw new BadRequestException('createdFrom must be on or before createdTo');
+    }
+    if (
+      dto.budgetMin !== undefined &&
+      dto.budgetMax !== undefined &&
+      dto.budgetMin > dto.budgetMax
+    ) {
+      throw new BadRequestException('budgetMin must be less than or equal to budgetMax');
+    }
+    if (dto.q && dto.q.trim().length > 0) {
+      const q = dto.q.trim();
+      where.OR = [
+        { customer: { email: { contains: q, mode: 'insensitive' } } },
+        { customer: { firstName: { contains: q, mode: 'insensitive' } } },
+        { customer: { lastName: { contains: q, mode: 'insensitive' } } },
+        { postcode: { contains: q, mode: 'insensitive' } },
+      ];
+    }
+    if (dto.eventFrom || dto.eventTo) {
+      const range: Record<string, Date> = {};
+      if (dto.eventFrom) range.gte = startOfDayUtc(dto.eventFrom);
+      // `lte` on the raw `YYYY-MM-DD` would collapse to 00:00 and exclude
+      // the rest of the day. Use end-of-day UTC so the picker is inclusive.
+      if (dto.eventTo) range.lte = endOfDayUtc(dto.eventTo);
+      where.eventDate = range;
+    }
+    if (dto.createdFrom || dto.createdTo) {
+      const range: Record<string, Date> = {};
+      if (dto.createdFrom) range.gte = startOfDayUtc(dto.createdFrom);
+      if (dto.createdTo) range.lte = endOfDayUtc(dto.createdTo);
+      where.createdAt = range;
+    }
+    if (dto.budgetMin !== undefined || dto.budgetMax !== undefined) {
+      const range: Record<string, number> = {};
+      if (dto.budgetMin !== undefined) range.gte = dto.budgetMin;
+      if (dto.budgetMax !== undefined) range.lte = dto.budgetMax;
+      where.budgetPence = range;
+    }
+  }
+
+  /**
+   * Stream event enquiries (admin filters) as CSV. Staff-only - the
+   * controller gates to admin/support, so no per-role scoping here.
+   */
+  async exportAdminCsv(dto: ListEventEnquiriesDto, write: (chunk: string) => void): Promise<void> {
+    const where: Record<string, unknown> = {};
+    if (dto.status) where.status = dto.status;
+    this.applyAdminEnquiryFilters(where, dto);
+    write(
+      csvRow([
+        'created_at',
+        'event_date',
+        'event_type',
+        'status',
+        'guest_count',
+        'postcode',
+        'budget_pence',
+        'cuisines',
+        'customer_name',
+        'customer_email',
+        'selected_vendor',
+        'quotes',
+      ]),
+    );
+    let cursor: string | null = null;
+    let emitted = 0;
+    while (emitted < CSV_EXPORT_HARD_CAP) {
+      // Explicit annotation breaks the rows→cursor→rows inference cycle
+      // (TS7022) created by the conditional cursor spread.
+      const rows: Array<{
+        id: string;
+        createdAt: Date;
+        eventDate: Date;
+        eventType: string;
+        status: EnquiryStatus;
+        guestCount: number;
+        postcode: string;
+        budgetPence: number | null;
+        cuisines: string[];
+        customer: { firstName: string | null; lastName: string | null; email: string } | null;
+        selectedVendor: { businessName: string } | null;
+        _count: { quotes: number };
+      }> = await this.prisma.eventEnquiry.findMany({
+        where,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: Math.min(CSV_EXPORT_PAGE, CSV_EXPORT_HARD_CAP - emitted),
+        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+        include: {
+          customer: { select: { firstName: true, lastName: true, email: true } },
+          selectedVendor: { select: { businessName: true } },
+          _count: { select: { quotes: true } },
+        },
+      });
+      if (rows.length === 0) break;
+      for (const r of rows) {
+        write(
+          csvRow([
+            r.createdAt.toISOString(),
+            r.eventDate.toISOString(),
+            r.eventType,
+            r.status,
+            r.guestCount,
+            r.postcode,
+            r.budgetPence ?? '',
+            r.cuisines.join('; '),
+            `${r.customer?.firstName ?? ''} ${r.customer?.lastName ?? ''}`.trim(),
+            r.customer?.email ?? '',
+            r.selectedVendor?.businessName ?? '',
+            r._count.quotes,
+          ]),
+        );
+      }
+      emitted += rows.length;
+      cursor = rows[rows.length - 1]!.id;
+    }
+  }
+
   async list(user: AuthUser, dto: ListEventEnquiriesDto) {
     const where: Record<string, unknown> = {};
     if (dto.status) where.status = dto.status;
@@ -82,52 +213,9 @@ export class EventEnquiriesService {
         { quotes: { some: { vendorId: vendor.id } } },
       ];
     } else if (isAdmin) {
-      // Cheap cross-field sanity check — surfaces typos in the UI rather
-      // than silently returning an empty page.
-      if (dto.eventFrom && dto.eventTo && dto.eventFrom > dto.eventTo) {
-        throw new BadRequestException('eventFrom must be on or before eventTo');
-      }
-      if (dto.createdFrom && dto.createdTo && dto.createdFrom > dto.createdTo) {
-        throw new BadRequestException('createdFrom must be on or before createdTo');
-      }
-      if (
-        dto.budgetMin !== undefined &&
-        dto.budgetMax !== undefined &&
-        dto.budgetMin > dto.budgetMax
-      ) {
-        throw new BadRequestException('budgetMin must be less than or equal to budgetMax');
-      }
-      // Admin-only filters — silently ignored on customer/vendor scopes so
-      // we can't accidentally widen visibility through a filter param.
-      if (dto.q && dto.q.trim().length > 0) {
-        const q = dto.q.trim();
-        where.OR = [
-          { customer: { email: { contains: q, mode: 'insensitive' } } },
-          { customer: { firstName: { contains: q, mode: 'insensitive' } } },
-          { customer: { lastName: { contains: q, mode: 'insensitive' } } },
-          { postcode: { contains: q, mode: 'insensitive' } },
-        ];
-      }
-      if (dto.eventFrom || dto.eventTo) {
-        const range: Record<string, Date> = {};
-        if (dto.eventFrom) range.gte = startOfDayUtc(dto.eventFrom);
-        // `lte` on the raw `YYYY-MM-DD` would collapse to 00:00 and exclude
-        // the rest of the day. Use end-of-day UTC so the picker is inclusive.
-        if (dto.eventTo) range.lte = endOfDayUtc(dto.eventTo);
-        where.eventDate = range;
-      }
-      if (dto.createdFrom || dto.createdTo) {
-        const range: Record<string, Date> = {};
-        if (dto.createdFrom) range.gte = startOfDayUtc(dto.createdFrom);
-        if (dto.createdTo) range.lte = endOfDayUtc(dto.createdTo);
-        where.createdAt = range;
-      }
-      if (dto.budgetMin !== undefined || dto.budgetMax !== undefined) {
-        const range: Record<string, number> = {};
-        if (dto.budgetMin !== undefined) range.gte = dto.budgetMin;
-        if (dto.budgetMax !== undefined) range.lte = dto.budgetMax;
-        where.budgetPence = range;
-      }
+      // Admin-only filters — applied only on the staff scope so a filter
+      // param can't accidentally widen customer/vendor visibility.
+      this.applyAdminEnquiryFilters(where, dto);
     }
 
     // Admin/support uses keyset pagination on (createdAt, id) DESC so paging

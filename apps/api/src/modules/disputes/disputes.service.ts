@@ -578,7 +578,9 @@ export class DisputesService {
 
     const updated = await this.prisma.dispute.update({
       where: { id },
-      data: { status: DisputeStatus.escalated, severity: Severity.high },
+      // Escalation marks the dispute `critical` - distinct from `high`
+      // ("urgent by nature") so triage can see it blew past the SLA.
+      data: { status: DisputeStatus.escalated, severity: Severity.critical },
     });
     await this.audit(user.id, 'dispute.escalated', id, { from: dispute.status });
 

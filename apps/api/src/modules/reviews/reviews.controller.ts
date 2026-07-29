@@ -6,7 +6,9 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Header,
   Query,
+  Res,
   UnauthorizedException,
   UploadedFiles,
   UseInterceptors,
@@ -14,6 +16,7 @@ import {
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
+import type { Response } from 'express';
 
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { Roles } from '../../auth/decorators/roles.decorator';
@@ -72,6 +75,21 @@ export class ReviewsController {
   @ApiOperation({ summary: 'List reviews held for moderation (admin/support)' })
   queue(@Query() dto: ListModerationQueueDto) {
     return this.reviews.listModerationQueue(dto);
+  }
+
+  @Get('moderation-queue.csv')
+  @Roles(UserRole.admin, UserRole.support)
+  @Header('Content-Type', 'text/csv; charset=utf-8')
+  @Header('Content-Disposition', 'attachment; filename="reviews-moderation.csv"')
+  @ApiOperation({
+    summary: 'CSV export of the moderation queue (honours filters, capped at 5 000 rows)',
+  })
+  async exportQueueCsv(@Query() dto: ListModerationQueueDto, @Res() res: Response) {
+    res.flushHeaders?.();
+    await this.reviews.exportModerationCsv(dto, (chunk) => {
+      res.write(chunk);
+    });
+    res.end();
   }
 
   @Get('moderation-queue/counts')

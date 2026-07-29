@@ -57,6 +57,7 @@ import {
   type JoinedRange,
   type StaffRoleValue,
 } from '@/hooks/use-admin-users';
+import { useDownloadCsv } from '@/hooks/use-download-csv';
 import { formatDate, formatPence } from '@/lib/format';
 
 const PAGE_LIMIT = 25;
@@ -154,6 +155,17 @@ export function UsersClient({ currentUserId, role }: UsersClientProps) {
   const pageIndex = cursorStack.length - 1;
 
   const list = useAdminUsersList({ ...filters, cursor, limit: PAGE_LIMIT });
+  const downloadCsv = useDownloadCsv();
+
+  function exportCsv() {
+    const params = new URLSearchParams();
+    if (filters.q.trim()) params.set('q', filters.q.trim());
+    if (filters.role !== 'all') params.set('role', filters.role);
+    if (filters.status !== 'all') params.set('status', filters.status);
+    if (filters.joined !== 'all') params.set('joined', filters.joined);
+    const qs = params.toString();
+    void downloadCsv(`/admin/users.csv${qs ? `?${qs}` : ''}`, 'users');
+  }
   const rows = list.data?.data ?? [];
   // Total recomputed by the server on every page (cheap COUNT). If rows are
   // inserted/deleted between fetches the displayed range may drift by a few
@@ -310,9 +322,8 @@ export function UsersClient({ currentUserId, role }: UsersClientProps) {
             <Button
               variant="outline"
               disabled={total === 0}
-              title={
-                total === 0 ? 'No users to export' : 'Export current filter as CSV (coming soon)'
-              }
+              onClick={exportCsv}
+              title={total === 0 ? 'No users to export' : 'Export current filter as CSV'}
             >
               <Download className="mr-2 h-4 w-4" />
               Export

@@ -2,15 +2,18 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   Param,
   ParseUUIDPipe,
   Patch,
   Post,
   Query,
   Req,
+  Res,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
+import type { Response } from 'express';
 
 import { Roles } from '../../auth/decorators/roles.decorator';
 import type { AuthedRequest, AuthUser } from '../../auth/types';
@@ -38,6 +41,21 @@ export class EventEnquiriesController {
   @ApiOperation({ summary: 'List event enquiries scoped by role' })
   list(@Req() req: AuthedRequest, @Query() dto: ListEventEnquiriesDto) {
     return this.enquiries.list(requireUser(req), dto);
+  }
+
+  @Get('export.csv')
+  @Roles(UserRole.admin, UserRole.support)
+  @Header('Content-Type', 'text/csv; charset=utf-8')
+  @Header('Content-Disposition', 'attachment; filename="event-enquiries.csv"')
+  @ApiOperation({
+    summary: 'CSV export of event enquiries (honours admin filters, capped at 5 000 rows)',
+  })
+  async exportCsv(@Query() dto: ListEventEnquiriesDto, @Res() res: Response) {
+    res.flushHeaders?.();
+    await this.enquiries.exportAdminCsv(dto, (chunk) => {
+      res.write(chunk);
+    });
+    res.end();
   }
 
   @Post()

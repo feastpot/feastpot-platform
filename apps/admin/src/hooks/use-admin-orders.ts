@@ -29,6 +29,7 @@ export interface AdminOrderRow {
   customer: { id: string; email: string; firstName: string | null; lastName: string | null };
   vendor: { id: string; businessName: string };
   items: Array<{ nameSnapshot: string; quantity: number }>;
+  adminTags: string[];
 }
 
 export interface AdminOrdersPage {
@@ -102,6 +103,43 @@ export function buildOrdersCsvQuery(
   filters: Omit<AdminOrdersFilters, 'withPi' | 'page' | 'limit'>,
 ): string {
   return buildOrderParams({ ...filters, withPi: false }).toString();
+}
+
+export interface BulkStatusResult {
+  updated: number;
+  failed: number;
+  results: Array<{ orderId: string; ok: boolean; error?: string }>;
+}
+
+export function useBulkOrderStatus() {
+  const { request } = useApi();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { orderIds: string[]; status: OrderStatus; reason: string }) =>
+      request<BulkStatusResult>('/admin/orders/bulk/status', { method: 'POST', body }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'orders'] });
+    },
+  });
+}
+
+export interface BulkTagResult {
+  orders: number;
+  added: number;
+  removed: number;
+  missing: number;
+}
+
+export function useBulkOrderTags() {
+  const { request } = useApi();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { orderIds: string[]; add?: string[]; remove?: string[] }) =>
+      request<BulkTagResult>('/admin/orders/bulk/tags', { method: 'POST', body }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'orders'] });
+    },
+  });
 }
 
 export function useTriggerRefund() {

@@ -37,6 +37,8 @@ import { AdminService } from './admin.service';
 import {
   CreateStaffUserDto,
   IssueCreditDto,
+  BulkOrderStatusDto,
+  BulkOrderTagsDto,
   ListAdminOrdersDto,
   OverrideOrderStatusDto,
   ReinstateUserDto,
@@ -338,6 +340,19 @@ export class AdminController {
     return this.adminUsers.listUsers(dto);
   }
 
+  @Get('users.csv')
+  @Roles(UserRole.admin, UserRole.support, UserRole.finance, UserRole.compliance)
+  @Header('Content-Type', 'text/csv; charset=utf-8')
+  @Header('Content-Disposition', 'attachment; filename="users.csv"')
+  @ApiOperation({ summary: 'CSV export of the users list (honours filters, capped at 5 000 rows)' })
+  async exportUsersCsv(@Query() dto: ListAdminUsersDto, @Res() res: Response) {
+    res.flushHeaders?.();
+    await this.adminUsers.exportUsersCsv(dto, (chunk) => {
+      res.write(chunk);
+    });
+    res.end();
+  }
+
   @Get('users/search')
   @Roles(UserRole.admin, UserRole.support)
   @ApiOperation({ summary: 'Look up a user by email - returns profile, balance, last 10 orders' })
@@ -453,6 +468,32 @@ export class AdminController {
     return result;
   }
 
+  @Post('orders/bulk/status')
+  @Roles(UserRole.admin, UserRole.support)
+  @ApiOperation({
+    summary: 'Bulk order status override (max 100) - each change audited individually',
+  })
+  bulkOrderStatus(@Req() req: AuthedRequest, @Body() dto: BulkOrderStatusDto) {
+    return this.adminUsers.bulkOverrideOrderStatus(
+      dto.orderIds,
+      dto.status,
+      dto.reason,
+      req.user!.id,
+    );
+  }
+
+  @Post('orders/bulk/tags')
+  @Roles(UserRole.admin, UserRole.support)
+  @ApiOperation({ summary: 'Bulk add/remove staff-only tags on orders (max 100)' })
+  bulkOrderTags(@Req() req: AuthedRequest, @Body() dto: BulkOrderTagsDto) {
+    return this.adminUsers.bulkTagOrders(
+      dto.orderIds,
+      dto.add ?? [],
+      dto.remove ?? [],
+      req.user!.id,
+    );
+  }
+
   @Patch('orders/:orderId/status')
   @Roles(UserRole.admin, UserRole.support)
   @ApiOperation({ summary: 'Override order status - emergency repair only, audited' })
@@ -496,6 +537,7 @@ export class AdminController {
       createdFrom: dto.createdFrom,
       createdTo: dto.createdTo,
       paymentStatus: dto.paymentStatus,
+      ids: dto.ids,
       withPiStatus: dto.withPiStatus === '1' || dto.withPiStatus === 'true',
       limit: dto.limit,
       page: dto.page,
@@ -532,6 +574,7 @@ export class AdminController {
       createdFrom: dto.createdFrom,
       createdTo: dto.createdTo,
       paymentStatus: dto.paymentStatus,
+      ids: dto.ids,
     });
     const stamp = new Date().toISOString().slice(0, 10);
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');

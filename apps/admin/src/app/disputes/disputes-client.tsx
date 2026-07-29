@@ -47,11 +47,11 @@ import { getSLAStatus, SLA_TONE_CLASSES, type SLAStatus } from '@/lib/sla';
 
 // -- enums + label maps ------------------------------------------------------
 //
-// Honest deviation from the wireframe: the wireframe shows Status options
-// "Open / In Progress / Pending" and a Severity chip "Critical". Our Prisma
-// schema only models statuses `open|vendor_contacted|escalated|resolved|closed`
-// and severities `low|medium|high`. Rather than fake an enum value, we expose
-// the real ones with friendly labels and skip the Critical chip.
+// Statuses deviate from the wireframe on purpose: the wireframe shows
+// "Open / In Progress / Pending" but our schema models
+// `open|vendor_contacted|escalated|resolved|closed`, exposed here with
+// friendly labels. Severity now includes `critical` (set automatically on
+// escalation; can also be set manually on the detail page).
 
 const STATUSES: ReadonlyArray<DisputeStatus | 'all'> = [
   'all',
@@ -79,6 +79,7 @@ const STATUS_TONE: Record<DisputeStatus, StatusTone> = {
 
 const SEVERITY_CHIPS: ReadonlyArray<{ value: Severity | 'all'; label: string }> = [
   { value: 'all', label: 'All' },
+  { value: 'critical', label: 'Critical' },
   { value: 'high', label: 'High' },
   { value: 'medium', label: 'Medium' },
   { value: 'low', label: 'Low' },
@@ -87,6 +88,7 @@ const SEVERITY_TONE: Record<Severity, StatusTone> = {
   low: 'neutral',
   medium: 'warning',
   high: 'danger',
+  critical: 'danger',
 };
 
 const SLA_OPTIONS: ReadonlyArray<{ value: SlaFilter; label: string }> = [

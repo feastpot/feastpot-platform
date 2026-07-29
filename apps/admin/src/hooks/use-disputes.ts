@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useApi } from './use-api';
 
 export type DisputeStatus = 'open' | 'vendor_contacted' | 'resolved' | 'escalated' | 'closed';
-export type Severity = 'low' | 'medium' | 'high';
+export type Severity = 'low' | 'medium' | 'high' | 'critical';
 export type ResolutionType = 'full_refund' | 'partial_refund' | 'credit' | 'rejected' | 'escalated';
 export type SlaFilter = 'all' | 'overdue' | 'breaching_soon' | 'on_track' | 'resolved';
 

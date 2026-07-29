@@ -45,6 +45,7 @@ import {
   type EnquiryRow,
   type EnquiryStatus,
 } from '@/hooks/use-event-enquiries';
+import { useDownloadCsv } from '@/hooks/use-download-csv';
 import { formatDate, formatPence } from '@/lib/format';
 
 const PAGE_LIMIT = 25;
@@ -136,6 +137,22 @@ export function EventsClient() {
     limit: PAGE_LIMIT,
   });
 
+  const downloadCsv = useDownloadCsv();
+
+  function exportCsv() {
+    const params = new URLSearchParams();
+    if (filters.status !== 'all') params.set('status', filters.status);
+    if (filters.q.trim()) params.set('q', filters.q.trim());
+    if (filters.eventFrom) params.set('eventFrom', filters.eventFrom);
+    if (filters.eventTo) params.set('eventTo', filters.eventTo);
+    if (filters.createdFrom) params.set('createdFrom', filters.createdFrom);
+    if (filters.createdTo) params.set('createdTo', filters.createdTo);
+    if (budget?.min !== undefined) params.set('budgetMin', String(budget.min));
+    if (budget?.max !== undefined) params.set('budgetMax', String(budget.max));
+    const qs = params.toString();
+    void downloadCsv(`/event-enquiries/export.csv${qs ? `?${qs}` : ''}`, 'event-enquiries');
+  }
+
   const rows = list.data?.data ?? [];
   const total = list.data?.total ?? 0;
   const nextCursor = list.data?.nextCursor ?? null;
@@ -180,9 +197,8 @@ export function EventsClient() {
             <Button
               variant="outline"
               disabled={total === 0}
-              title={
-                total === 0 ? 'Nothing to export' : 'Export current filter as CSV (coming soon)'
-              }
+              onClick={exportCsv}
+              title={total === 0 ? 'Nothing to export' : 'Export current filter as CSV'}
             >
               <Download className="mr-2 h-4 w-4" />
               Export
@@ -272,15 +288,6 @@ export function EventsClient() {
                   className="pl-9"
                 />
               </div>
-              <Button
-                variant="outline"
-                size="icon"
-                disabled
-                aria-label="More filters (coming soon)"
-                title="More filters coming soon"
-              >
-                <Filter className="h-4 w-4" />
-              </Button>
             </div>
           </FilterField>
         </CardContent>
