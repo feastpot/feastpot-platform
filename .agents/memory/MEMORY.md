@@ -4,6 +4,7 @@
 - [Replit deploy env gotchas](replit-deploy-env.md) — NODE_ENV isn't auto-prod (set runtime-only via start:api, NOT a prod env var → breaks npm ci); env-scoped secrets land in plaintext git-tracked .replit.
 - [Supabase DB URLs](supabase-db-urls.md) — use SUPABASE_DIRECT_URL (session pooler:5432) for migrations/psql; stale DIRECT_URL direct-host rotation crash-loops deploys; DATABASE_URL = wrong DB (helium).
 - [Prisma migrations (dev)](prisma-migrations-dev.md) — dev DB isn't baselined (migrate dev/deploy fail P3005); hand-write minimal migration.sql + `db execute` + run enable-rls script; RLS is central, not per-migration.
+- [WhatsApp template slots](whatsapp-template-slots.md) — approved templates have 1-2 slots (no order-total slot); Meta enforces exact counts; builders keyed by whatsappTemplate name.
 - [WhatsApp Content SID naming](whatsapp-content-sid-naming.md) — Twilio env var is `TWILIO_CONTENT_SID_<whatsappTemplate>`, NOT the registry key (they diverge, e.g. payout_batch_ready→payout_statement); enumerate by whatsappTemplate.
 - [Redis / Upstash for BullMQ](redis-upstash.md) — must be paid Upstash (free 500K cmd/mo cap fails); `rediss://` TLS; queues tuned to 5-min polls — don't revert.
 - [Bull lock vs stalled invariant](bull-lock-vs-stalled.md) — 5-min stalledInterval needs lockDuration>stalledInterval or jobs falsely fail "stalled"; stalled failures bypass the attempts-based Sentry gate.
