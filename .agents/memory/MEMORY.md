@@ -22,3 +22,4 @@
 - [GitHub push workflow scope](github-push-workflow-scope.md) — PUSH_REJECTED when commits touch .github/workflows/: OAuth token lacks `workflow` scope; user must push via PAT (repo+workflow) or SSH.
 - [CI required checks](ci-required-checks.md) — all green as of Jul 2026: test job uses a throwaway postgres service (+ pre-created Supabase roles anon/authenticated/service_role), not TEST_* secrets; lint fails on import/order errors + prettier.
 - [Lockfile firewall URLs](lockfile-firewall-urls.md) — regenerating package-lock inside Replit leaks package-firewall.replit.local URLs → external CI/Vercel npm ci crashes with "Exit handler never called"; sed them back to registry.npmjs.org.
+- [Branch vs squash merges](branch-squash-merges.md) — long-lived work branch is squash-merged into main; after each merge, merge main back into the branch (MEMORY.md conflicts: keep ours) or the next PR shows "dirty".
