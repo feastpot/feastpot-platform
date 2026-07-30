@@ -138,6 +138,7 @@ enum Severity {
   low
   medium
   high
+  critical
 }
 
 enum ResolutionType {
@@ -787,6 +788,7 @@ model Order {
   chargebacks  Chargeback[]
   reviews      Review[]
   amendments   OrderAmendment[]
+  adminTags    OrderAdminTag[]
 
   @@index([customerId])
   @@index([vendorId])
@@ -795,6 +797,23 @@ model Order {
   @@index([createdAt])
   @@index([orderNumber])
   @@map("orders")
+}
+
+// Staff-only labels on orders (e.g. "vip", "follow-up"). Deliberately a
+// separate table rather than a column on Order: order rows are returned raw
+// to customers (no DTO layer), so a column would leak. A relation only
+// appears when explicitly `include`d, which customer paths never do.
+model OrderAdminTag {
+  orderId   String   @map("order_id") @db.Uuid
+  tag       String   @db.VarChar(40)
+  addedById String?  @map("added_by_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@id([orderId, tag])
+  @@index([tag])
+  @@map("order_admin_tags")
 }
 
 enum AmendmentStatus {

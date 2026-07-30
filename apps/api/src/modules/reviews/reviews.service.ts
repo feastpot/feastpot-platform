@@ -13,6 +13,7 @@ import BadWordsFilter from 'bad-words';
 
 import type { AuthUser } from '../../auth/types';
 import { RedisCacheService } from '../../common/cache/redis-cache.service';
+import { CSV_EXPORT_HARD_CAP, CSV_EXPORT_PAGE, csvRow } from '../../common/csv';
 import { PrismaService } from '../../prisma/prisma.service';
 import { SupabaseStorageService } from '../catalogue/supabase-storage.service';
 import { InboxService } from '../inbox/inbox.service';
@@ -230,6 +231,71 @@ export class ReviewsService {
       total,
       nextCursor: hasMore && last ? this.encodeCursor(last) : null,
     };
+  }
+
+  /**
+   * Stream the moderation queue (current filters) as CSV. Includes customer
+   * email - this is a staff-only endpoint gated at the controller.
+   */
+  async exportModerationCsv(
+    dto: ListModerationQueueDto,
+    write: (chunk: string) => void,
+  ): Promise<void> {
+    const where = this.buildModerationFilters(dto);
+    write(
+      csvRow([
+        'created_at',
+        'vendor',
+        'rating',
+        'moderation_status',
+        'hidden',
+        'customer_name',
+        'customer_email',
+        'body',
+      ]),
+    );
+    let cursor: string | null = null;
+    let emitted = 0;
+    while (emitted < CSV_EXPORT_HARD_CAP) {
+      // Explicit annotation breaks the rows→cursor→rows inference cycle
+      // (TS7022) created by the conditional cursor spread.
+      const rows: Array<{
+        id: string;
+        createdAt: Date;
+        rating: number;
+        moderationStatus: ModerationStatus;
+        isHidden: boolean;
+        body: string | null;
+        vendor: { businessName: string } | null;
+        customer: { firstName: string | null; lastName: string | null; email: string } | null;
+      }> = await this.prisma.review.findMany({
+        where,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: Math.min(CSV_EXPORT_PAGE, CSV_EXPORT_HARD_CAP - emitted),
+        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+        include: {
+          vendor: { select: { businessName: true } },
+          customer: { select: { firstName: true, lastName: true, email: true } },
+        },
+      });
+      if (rows.length === 0) break;
+      for (const r of rows) {
+        write(
+          csvRow([
+            r.createdAt.toISOString(),
+            r.vendor?.businessName ?? '',
+            r.rating,
+            r.moderationStatus,
+            r.isHidden,
+            `${r.customer?.firstName ?? ''} ${r.customer?.lastName ?? ''}`.trim(),
+            r.customer?.email ?? '',
+            r.body ?? '',
+          ]),
+        );
+      }
+      emitted += rows.length;
+      cursor = rows[rows.length - 1]!.id;
+    }
   }
 
   /**

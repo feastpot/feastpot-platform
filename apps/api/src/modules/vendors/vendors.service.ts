@@ -1098,11 +1098,6 @@ export class VendorsService {
       include: {
         documents: true,
         deliveryConfig: true,
-        menus: {
-          include: {
-            items: { where: { isAvailable: true }, take: 1 },
-          },
-        },
       },
     });
 
@@ -1110,16 +1105,24 @@ export class VendorsService {
       throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'Vendor not found' });
     }
 
+    // Onboarding copy promises compliance review once the vendor has at
+    // least 3 items live, so the menu step uses that same threshold (it
+    // previously passed with a single available item, contradicting the UI).
+    const menuItemCount = await this.prisma.menuItem.count({
+      where: { vendorId, isAvailable: true },
+    });
+
     const steps = {
       profileComplete: !!(vendor.description && vendor.logoUrl),
       documentsComplete: vendor.documents.length >= 4,
       stripeComplete: !!vendor.stripeAccountId && vendor.payoutsEnabled,
-      menuComplete: vendor.menus.some((m) => m.items.length > 0),
+      menuComplete: menuItemCount >= 3,
       deliveryComplete: !!vendor.deliveryConfig?.latitude,
     };
 
     return {
       ...steps,
+      menuItemCount,
       allComplete: Object.values(steps).every(Boolean),
       completedCount: Object.values(steps).filter(Boolean).length,
       totalSteps: 5,

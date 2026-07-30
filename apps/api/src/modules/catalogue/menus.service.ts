@@ -52,11 +52,39 @@ export class MenusService {
         allowInactive = owner?.userId === caller.id;
       }
     }
-    return this.prisma.menu.findMany({
+    const menus = await this.prisma.menu.findMany({
       where: { vendorId, ...(allowInactive ? {} : { isActive: true }) },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
       include: { _count: { select: { items: true } } },
     });
+
+    // Owner/admin view only: attach per-menu content-health counts (items
+    // missing photos / allergen info) so the vendor portal can surface
+    // "fix your menu" nudges without an N+1 per-item fetch. Two grouped
+    // counts instead of loading every item row. Public callers never get
+    // this - it's operational detail, not customer-facing data.
+    if (!allowInactive) return menus;
+    const [noImages, noAllergens] = await Promise.all([
+      this.prisma.menuItem.groupBy({
+        by: ['menuId'],
+        where: { vendorId, imageUrls: { isEmpty: true } },
+        _count: { _all: true },
+      }),
+      this.prisma.menuItem.groupBy({
+        by: ['menuId'],
+        where: { vendorId, allergens: { isEmpty: true } },
+        _count: { _all: true },
+      }),
+    ]);
+    const imgByMenu = new Map(noImages.map((g) => [g.menuId, g._count._all]));
+    const allergenByMenu = new Map(noAllergens.map((g) => [g.menuId, g._count._all]));
+    return menus.map((m) => ({
+      ...m,
+      itemHealth: {
+        missingImages: imgByMenu.get(m.id) ?? 0,
+        missingAllergens: allergenByMenu.get(m.id) ?? 0,
+      },
+    }));
   }
 
   async findOne(vendorId: string, menuId: string) {

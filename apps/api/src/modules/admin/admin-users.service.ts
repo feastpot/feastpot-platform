@@ -11,6 +11,7 @@ import { ConfigService } from '@nestjs/config';
 import { OrderStatus, Prisma, UserRole, UserStatus } from '@prisma/client';
 
 import { SupabaseService } from '../../auth/supabase.service';
+import { CSV_EXPORT_HARD_CAP, CSV_EXPORT_PAGE, csvRow } from '../../common/csv';
 import { PrismaService } from '../../prisma/prisma.service';
 import { LoyaltyService } from '../loyalty/loyalty.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -340,10 +341,8 @@ export class AdminUsersService {
    * Cursor uses `(createdAt, id)` so ties are stable (createdAt has ms
    * precision but multiple seed rows can land on the same tick).
    */
-  async listUsers(dto: ListAdminUsersDto) {
-    const limit = dto.limit ?? 25;
-    const cursor = dto.cursor ? this.decodeUserCursor(dto.cursor) : null;
-
+  /** Filter builder shared by the paginated list and the CSV export. */
+  private buildUsersWhere(dto: ListAdminUsersDto): Prisma.UserWhereInput {
     const where: Prisma.UserWhereInput = {};
     if (dto.role) where.role = dto.role;
     if (dto.status) where.status = dto.status;
@@ -358,6 +357,72 @@ export class AdminUsersService {
         ];
       }
     }
+    return where;
+  }
+
+  /**
+   * Stream the current users filter as CSV (same shape as the list view,
+   * capped at CSV_EXPORT_HARD_CAP rows). Lifetime spend is intentionally
+   * omitted - it needs a per-page aggregate that would double export cost;
+   * finance pulls spend from the orders export instead.
+   */
+  async exportUsersCsv(dto: ListAdminUsersDto, write: (chunk: string) => void): Promise<void> {
+    const where = this.buildUsersWhere(dto);
+    write(csvRow(['created_at', 'email', 'first_name', 'last_name', 'role', 'status', 'orders']));
+    let cursor: string | null = null;
+    let emitted = 0;
+    while (emitted < CSV_EXPORT_HARD_CAP) {
+      // Explicit annotation breaks the rows→cursor→rows inference cycle
+      // (TS7022) created by the conditional cursor spread.
+      const rows: Array<{
+        id: string;
+        email: string;
+        firstName: string | null;
+        lastName: string | null;
+        role: UserRole;
+        status: UserStatus;
+        createdAt: Date;
+        _count: { orders: number };
+      }> = await this.prisma.user.findMany({
+        where,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: Math.min(CSV_EXPORT_PAGE, CSV_EXPORT_HARD_CAP - emitted),
+        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          role: true,
+          status: true,
+          createdAt: true,
+          _count: { select: { orders: true } },
+        },
+      });
+      if (rows.length === 0) break;
+      for (const r of rows) {
+        write(
+          csvRow([
+            r.createdAt.toISOString(),
+            r.email,
+            r.firstName ?? '',
+            r.lastName ?? '',
+            r.role,
+            r.status,
+            r._count.orders,
+          ]),
+        );
+      }
+      emitted += rows.length;
+      cursor = rows[rows.length - 1]!.id;
+    }
+  }
+
+  async listUsers(dto: ListAdminUsersDto) {
+    const limit = dto.limit ?? 25;
+    const cursor = dto.cursor ? this.decodeUserCursor(dto.cursor) : null;
+
+    const where = this.buildUsersWhere(dto);
 
     const cursorWhere: Prisma.UserWhereInput = cursor
       ? {
@@ -674,6 +739,90 @@ export class AdminUsersService {
       },
     });
     return updated;
+  }
+
+  /**
+   * Bulk status override - runs the same audited single-order path per ID
+   * so every change gets its own audit row. Partial success is reported per
+   * order rather than failing the whole batch.
+   */
+  async bulkOverrideOrderStatus(
+    orderIds: string[],
+    status: OrderStatus,
+    reason: string,
+    adminUserId: string,
+  ) {
+    const results: Array<{ orderId: string; ok: boolean; error?: string }> = [];
+    for (const orderId of orderIds) {
+      try {
+        // eslint-disable-next-line no-await-in-loop -- intentional: serial, each write is audited
+        await this.overrideOrderStatus(orderId, status, reason, adminUserId);
+        results.push({ orderId, ok: true });
+      } catch (err) {
+        results.push({ orderId, ok: false, error: (err as Error).message });
+      }
+    }
+    return {
+      updated: results.filter((r) => r.ok).length,
+      failed: results.filter((r) => !r.ok).length,
+      results,
+    };
+  }
+
+  /**
+   * Bulk add/remove staff-only tags on orders. Tags live in a separate
+   * table (order_admin_tags) so they can never leak through raw order rows
+   * returned to customers. Adds are idempotent (skipDuplicates).
+   */
+  async bulkTagOrders(orderIds: string[], add: string[], remove: string[], adminUserId: string) {
+    const norm = (t: string) => t.trim().toLowerCase().slice(0, 40);
+    const addTags = [...new Set(add.map(norm).filter(Boolean))];
+    const removeTags = [...new Set(remove.map(norm).filter(Boolean))];
+
+    const found = await this.prisma.order.findMany({
+      where: { id: { in: orderIds } },
+      select: { id: true },
+    });
+    const ids = found.map((o) => o.id);
+    // Nothing matched: report it, and skip the audit write - entity_id is
+    // UUID-typed so a sentinel string would blow up the insert.
+    if (ids.length === 0) {
+      return { orders: 0, added: 0, removed: 0, missing: orderIds.length };
+    }
+
+    let added = 0;
+    let removed = 0;
+    if (addTags.length > 0 && ids.length > 0) {
+      const res = await this.prisma.orderAdminTag.createMany({
+        data: ids.flatMap((orderId) =>
+          addTags.map((tag) => ({ orderId, tag, addedById: adminUserId })),
+        ),
+        skipDuplicates: true,
+      });
+      added = res.count;
+    }
+    if (removeTags.length > 0 && ids.length > 0) {
+      const res = await this.prisma.orderAdminTag.deleteMany({
+        where: { orderId: { in: ids }, tag: { in: removeTags } },
+      });
+      removed = res.count;
+    }
+    await this.prisma.auditLog.create({
+      data: {
+        actorId: adminUserId,
+        entityType: 'orders',
+        entityId: ids[0],
+        action: 'admin.order_bulk_tag',
+        metadata: {
+          orderIds: ids,
+          add: addTags,
+          remove: removeTags,
+          added,
+          removed,
+        } as Prisma.JsonObject,
+      },
+    });
+    return { orders: ids.length, added, removed, missing: orderIds.length - ids.length };
   }
 
   /**

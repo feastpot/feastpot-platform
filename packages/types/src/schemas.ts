@@ -32,7 +32,7 @@ const ItemCategoryEnum = z.enum([
 const DeliveryTypeEnum = z.enum(['local', 'collection', 'nationwide']);
 const OrderTypeEnum = z.enum(['standard', 'event', 'subscription']);
 const IssueTypeEnum = z.enum(['missing_items', 'wrong_order', 'quality', 'not_delivered', 'other']);
-const SeverityEnum = z.enum(['low', 'medium', 'high']);
+const SeverityEnum = z.enum(['low', 'medium', 'high', 'critical']);
 
 // ============================================================
 // Auth

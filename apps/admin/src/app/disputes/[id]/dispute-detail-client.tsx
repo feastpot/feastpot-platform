@@ -42,7 +42,7 @@ const RESOLUTIONS: ResolutionType[] = [
   'rejected',
   'escalated',
 ];
-const SEVERITIES: Severity[] = ['low', 'medium', 'high'];
+const SEVERITIES: Severity[] = ['low', 'medium', 'high', 'critical'];
 
 export function DisputeDetailClient({ disputeId }: { disputeId: string }) {
   const { toast } = useToast();

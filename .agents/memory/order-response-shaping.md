@@ -24,3 +24,5 @@ customer-facing order return through the single sanitizer helper rather than
 adding ad-hoc omissions — and check ALL the return paths above, since there is
 no single chokepoint. Vendor/admin paths (e.g. `updateStatus` transitions)
 intentionally keep the fields.
+
+**Update (Jul 2026):** staff-only order labels live in a separate `order_admin_tags` table (not a column on orders) precisely because of this — relations only appear when explicitly `include`d, so customer paths can't leak them. Follow this pattern for any future staff-only order metadata.

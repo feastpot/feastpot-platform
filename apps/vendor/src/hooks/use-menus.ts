@@ -14,6 +14,9 @@ export interface VendorMenu {
   createdAt: string;
   updatedAt: string;
   _count?: { items: number };
+  /** Only present on the owner view (`includeInactive=true`): per-menu counts
+   *  of items missing photos / allergen info, for the menu-health cards. */
+  itemHealth?: { missingImages: number; missingAllergens: number } | null;
 }
 
 const KEY = (vendorId: string) => ['vendor', 'menus', vendorId] as const;

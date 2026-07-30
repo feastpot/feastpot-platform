@@ -50,6 +50,8 @@ import {
   type ModerationQueueRow,
   type ModerationStatus,
 } from '@/hooks/use-reviews-queue';
+import { useAdminVendors } from '@/hooks/use-admin-vendors';
+import { useDownloadCsv } from '@/hooks/use-download-csv';
 import { formatDate } from '@/lib/format';
 
 const PAGE_LIMIT = 25;
@@ -109,6 +111,7 @@ const RATING_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
 interface QueueFiltersState {
   status: ModerationQueueFilter;
   q: string;
+  vendorId: string;
   rating: string;
   submittedFrom: string;
   submittedTo: string;
@@ -117,6 +120,7 @@ interface QueueFiltersState {
 const DEFAULT_FILTERS: QueueFiltersState = {
   status: 'all',
   q: '',
+  vendorId: 'all',
   rating: 'all',
   submittedFrom: '',
   submittedTo: '',
@@ -132,6 +136,7 @@ export function ReviewsQueueClient() {
     () => ({
       status: filters.status,
       q: filters.q,
+      vendorId: filters.vendorId === 'all' ? undefined : filters.vendorId,
       rating: filters.rating === 'all' ? undefined : Number(filters.rating),
       submittedFrom: filters.submittedFrom || undefined,
       submittedTo: filters.submittedTo || undefined,
@@ -145,6 +150,23 @@ export function ReviewsQueueClient() {
   // narrowed set, matching the wireframe's chip behaviour.
   const counts = useReviewsQueueCounts(apiFilters);
 
+  // Live vendors only - held reviews for suspended/removed vendors still
+  // surface via search or the "all" default.
+  const vendors = useAdminVendors('live');
+  const downloadCsv = useDownloadCsv();
+
+  function exportCsv() {
+    const params = new URLSearchParams();
+    if (apiFilters.status) params.set('status', apiFilters.status);
+    if (apiFilters.q?.trim()) params.set('q', apiFilters.q.trim());
+    if (apiFilters.vendorId) params.set('vendorId', apiFilters.vendorId);
+    if (apiFilters.rating !== undefined) params.set('rating', String(apiFilters.rating));
+    if (apiFilters.submittedFrom) params.set('submittedFrom', apiFilters.submittedFrom);
+    if (apiFilters.submittedTo) params.set('submittedTo', apiFilters.submittedTo);
+    const qs = params.toString();
+    void downloadCsv(`/reviews/moderation-queue.csv${qs ? `?${qs}` : ''}`, 'reviews-moderation');
+  }
+
   const moderate = useModerateReview();
   const [inFlight, setInFlight] = useState<Set<string>>(new Set());
   const [rejectTarget, setRejectTarget] = useState<ModerationQueueRow | null>(null);
@@ -157,6 +179,7 @@ export function ReviewsQueueClient() {
   const hasActiveFilters =
     filters.status !== 'all' ||
     filters.q.trim().length > 0 ||
+    filters.vendorId !== 'all' ||
     filters.rating !== 'all' ||
     filters.submittedFrom.length > 0 ||
     filters.submittedTo.length > 0;
@@ -231,7 +254,8 @@ export function ReviewsQueueClient() {
           <Button
             variant="outline"
             disabled={total === 0}
-            title={total === 0 ? 'Nothing to export' : 'Export current filter as CSV (coming soon)'}
+            onClick={exportCsv}
+            title={total === 0 ? 'Nothing to export' : 'Export current filter as CSV'}
           >
             <Download className="mr-2 h-4 w-4" />
             Export
@@ -285,12 +309,17 @@ export function ReviewsQueueClient() {
             </div>
           </div>
 
-          <Select value="all" disabled>
-            <SelectTrigger title="Filter by vendor name via the search box on the left">
+          <Select value={filters.vendorId} onValueChange={(v) => update('vendorId', v)}>
+            <SelectTrigger aria-label="Filter by vendor">
               <SelectValue placeholder="All vendors" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All vendors</SelectItem>
+              {(vendors.data?.data ?? []).map((v) => (
+                <SelectItem key={v.id} value={v.id}>
+                  {v.businessName}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
 
@@ -339,15 +368,6 @@ export function ReviewsQueueClient() {
               aria-label="Submitted to"
               className="text-xs"
             />
-            <Button
-              variant="outline"
-              size="icon"
-              disabled
-              title="More filters coming soon"
-              aria-label="More filters"
-            >
-              <Filter className="h-4 w-4" />
-            </Button>
           </div>
         </CardContent>
         {hasActiveFilters && (

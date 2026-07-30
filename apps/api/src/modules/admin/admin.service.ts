@@ -20,6 +20,7 @@ import {
 } from '@prisma/client';
 
 import { SupabaseService } from '../../auth/supabase.service';
+import { csvCell } from '../../common/csv';
 import { PrismaService } from '../../prisma/prisma.service';
 import { StripeService } from '../../stripe/stripe.service';
 import { EmailProvider } from '../notifications/providers/email.provider';
@@ -273,6 +274,7 @@ export class AdminService {
     createdFrom?: string;
     createdTo?: string;
     paymentStatus?: 'pending' | 'succeeded' | 'failed' | 'cancelled';
+    ids?: string;
     withPiStatus?: boolean;
     limit?: number;
     page?: number;
@@ -305,15 +307,17 @@ export class AdminService {
           items: { select: { nameSnapshot: true, quantity: true } },
           customer: { select: { id: true, email: true, firstName: true, lastName: true } },
           vendor: { select: { id: true, businessName: true } },
+          adminTags: { select: { tag: true }, orderBy: { tag: 'asc' } },
         },
       }),
       this.prisma.order.count({ where }),
     ]);
 
     const flattened = rows.map((r) => {
-      const { payments, ...rest } = r;
+      const { payments, adminTags, ...rest } = r;
       return {
         ...rest,
+        adminTags: adminTags.map((t) => t.tag),
         stripePaymentIntentId: payments[0]?.stripePaymentIntentId ?? null,
         paymentStatus: payments[0]?.status ?? null,
       };
@@ -373,9 +377,22 @@ export class AdminService {
     createdFrom?: string;
     createdTo?: string;
     paymentStatus?: 'pending' | 'succeeded' | 'failed' | 'cancelled';
+    ids?: string;
   }): Promise<Prisma.OrderWhereInput> {
     const where: Prisma.OrderWhereInput = {};
     if (opts.status) where.status = opts.status;
+
+    // Explicit ID list (bulk "export selected"). Applied via AND so it can't
+    // be widened by the OR search clause below. Capped at 100 to match the
+    // bulk-action limit and the DTO's 4000-char query-string budget.
+    if (opts.ids) {
+      const ids = opts.ids
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .slice(0, 100);
+      where.id = { in: ids };
+    }
 
     // Explicit createdFrom/To takes precedence over the `range` preset so
     // a custom date picker in the UI doesn't get silently overridden.
@@ -488,6 +505,7 @@ export class AdminService {
     createdFrom?: string;
     createdTo?: string;
     paymentStatus?: 'pending' | 'succeeded' | 'failed' | 'cancelled';
+    ids?: string;
   }): Promise<string> {
     const where = await this.buildAdminOrdersWhere(opts);
     const rows = await this.prisma.order.findMany({
@@ -504,6 +522,7 @@ export class AdminService {
         vendor: { select: { businessName: true } },
         payments: { orderBy: { createdAt: 'desc' }, take: 1, select: { status: true } },
         items: { select: { nameSnapshot: true, quantity: true } },
+        adminTags: { select: { tag: true } },
       },
     });
     const header = [
@@ -517,6 +536,7 @@ export class AdminService {
       'Total (GBP)',
       'Status',
       'Payment',
+      'Tags',
     ];
     const esc = (s: string): string => {
       // Defuse spreadsheet formula injection on user-controlled text.
@@ -542,6 +562,7 @@ export class AdminService {
           (r.totalPence / 100).toFixed(2),
           esc(r.status),
           esc(r.payments[0]?.status ?? ''),
+          esc(r.adminTags.map((t) => t.tag).join('; ')),
         ].join(','),
       );
     }
@@ -1622,20 +1643,6 @@ const STATUS_PRIORITY: Record<DocumentStatus, number> = {
 function pickWorstStatus(a: DocumentStatus | undefined, b: DocumentStatus): DocumentStatus {
   if (!a) return b;
   return STATUS_PRIORITY[b] > STATUS_PRIORITY[a] ? b : a;
-}
-
-function csvCell(value: string): string {
-  // CSV-injection guard: spreadsheet apps execute cells starting with =, +, -, or @
-  // as formulas. Prefix a single quote so the value is shown verbatim.
-  let safe = value;
-  if (/^[=+\-@\t\r]/.test(safe)) {
-    safe = `'${safe}`;
-  }
-  // RFC 4180: quote when the cell contains a comma, quote, or newline; double up internal quotes.
-  if (/[",\n\r]/.test(safe)) {
-    return `"${safe.replace(/"/g, '""')}"`;
-  }
-  return safe;
 }
 
 // Ensures DisputeStatus import lint isn't dropped if we later add dispute helpers.

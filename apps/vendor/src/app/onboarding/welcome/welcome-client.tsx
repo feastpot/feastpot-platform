@@ -51,7 +51,7 @@ const STEPS: StepDef[] = [
   {
     key: 'menuComplete',
     title: 'Build your menu',
-    description: 'Add at least one available item to your menu.',
+    description: 'Add at least 3 available items to your menu.',
     href: '/menu',
     cta: 'Open menu builder',
   },
