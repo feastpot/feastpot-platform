@@ -1,10 +1,10 @@
 import type { ConfigService } from '@nestjs/config';
 
+import type { PrismaService } from '../../prisma/prisma.service';
+import type { SupabaseService } from '../../supabase/supabase.service';
 import type { LoyaltyService } from '../loyalty/loyalty.service';
 import type { NotificationsService } from '../notifications/notifications.service';
 import type { EmailProvider } from '../notifications/providers/email.provider';
-import type { PrismaService } from '../../prisma/prisma.service';
-import type { SupabaseService } from '../../supabase/supabase.service';
 
 import { AdminUsersService } from './admin-users.service';
 
