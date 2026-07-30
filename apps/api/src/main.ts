@@ -128,20 +128,28 @@ async function bootstrap(): Promise<void> {
   // run a partial stack without every secret set.
   assertRequiredEnvOrExit();
 
-  // Supabase project guard: the shared DEVELOPMENT ref must never back a
-  // production deployment. We refuse to start so the API can't read/write live
-  // traffic against the dev database. This runs pre-Nest (before NestFactory
-  // connects Prisma), so the pino logger isn't wired up yet — use console.error
-  // to match the required-env gate above.
+  // Supabase project guard: production SHOULD run on a dedicated Supabase
+  // project rather than the shared dev/prod ref. Today the platform still
+  // runs both environments on the shared project (ref zibmwuzxgydlvapiddhf) —
+  // production has served live traffic on it since launch — so a hard exit
+  // here caused a full outage on 30 Jul 2026. We therefore only refuse to
+  // start when REQUIRE_DEDICATED_SUPABASE=true is set (flip it on once a real
+  // production project exists); otherwise we log loudly and continue.
+  // Runs pre-Nest (before NestFactory connects Prisma), so the pino logger
+  // isn't wired up yet — use console.error to match the required-env gate.
   if (process.env.NODE_ENV === 'production' && isDevSupabaseRef()) {
+    const strict = process.env.REQUIRE_DEDICATED_SUPABASE === 'true';
     // eslint-disable-next-line no-console
     console.error(
-      `[STARTUP] CRITICAL: SUPABASE_URL points to the DEVELOPMENT project ` +
-        `(ref: ${DEV_SUPABASE_REF}) but NODE_ENV is production. ` +
-        'Set SUPABASE_URL in Replit deployment secrets to the production project URL. ' +
-        'Refusing to start to protect production data.',
+      `[STARTUP] WARNING: SUPABASE_URL points to the shared dev/prod project ` +
+        `(ref: ${DEV_SUPABASE_REF}) while NODE_ENV is production. ` +
+        'Provision a dedicated production Supabase project and update the ' +
+        'deployment secrets when possible. ' +
+        (strict
+          ? 'REQUIRE_DEDICATED_SUPABASE=true — refusing to start.'
+          : 'Continuing startup (set REQUIRE_DEDICATED_SUPABASE=true to make this fatal).'),
     );
-    process.exit(1);
+    if (strict) process.exit(1);
   }
 
   // rawBody: true + bodyParser: false → we install express.json with a verify
