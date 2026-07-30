@@ -36,19 +36,23 @@ real gaps, one deploy, and the human sign-off work.
 ## 1. 🔴 Blockers — do these before real customers order
 
 ### 1.1 Merge PR #28 and redeploy the API
+
 Sections 7–9 of the implementation audit (admin CSV exports, bulk order tools,
 critical dispute severity, vendor menu health, order-tag table, env hygiene) are
 **on the branch, not in production**. The running API is ~43 days old.
+
 - Merge `chore/sync-main-prod-restore` → `main` (CI is green).
 - Republish the API. `migrate deploy` will be a clean no-op — the schema changes
   already exist in prod and the history is baselined.
 - After merge: merge `main` back into the branch (standing workflow).
 
 ### 1.2 Financial integrity gaps (open tasks #40, #44, #45, #46)
+
 These are the audit's own top priority and remain unbuilt:
+
 - **#40 — Service fee retention**: the customer service fee is currently paid
   out to vendors instead of kept as platform revenue. This is live money leaking
-  on every order. *The single most valuable open item.*
+  on every order. _The single most valuable open item._
 - **#45 — Chargeback-loss reconciliation**: a lost bank chargeback doesn't write
   the refund/credit ledger pair, so order finances silently drift.
 - **#44 — Chargebacks visible in admin** and **#46 — evidence-deadline
@@ -56,12 +60,14 @@ These are the audit's own top priority and remain unbuilt:
   Dashboard only.
 
 ### 1.3 Clear the failed jobs sitting in production queues
+
 Healthz shows **4 failed notification jobs and 2 failed compliance jobs** in
 prod right now. Inspect them (Bull Board) and resend/discard before launch —
 they may be undelivered customer messages. (Related: open task "Confirm the
 cleared jobs didn't drop any real customer notifications or refunds".)
 
 ### 1.4 Live payout dry-run (human-operated)
+
 The Monday 02:00 payout batch is built, idempotent and scheduled — but has never
 been trusted with real money end-to-end. Run one full cycle against a real
 connected vendor and verify bank settlement. Procedure:
@@ -72,6 +78,7 @@ connected vendor and verify bank settlement. Procedure:
 ## 2. 🟠 Pre-launch — should land before public announcement
 
 Silent-failure hardening (all have open tasks; none block a controlled pilot):
+
 - **#56** Failed Stripe payouts only alert Sentry — no retry/recovery flow.
 - **#58** Notifications that exhaust retries vanish — no admin resend screen.
 - **#59** Vendor application emails alert instead of retrying.
@@ -80,6 +87,7 @@ Silent-failure hardening (all have open tasks; none block a controlled pilot):
   undetected (Meta rejects on parameter-count mismatch).
 
 Product-level:
+
 - **Per-user notification preferences / opt-out** — the processor sends on every
   channel a template declares. Legally and practically needed before volume
   (UK PECR: SMS/WhatsApp marketing needs consent; transactional is fine, but an
