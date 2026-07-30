@@ -1,6 +1,7 @@
 'use client';
 
-import { ImageIcon, ShieldCheck, Tags } from 'lucide-react';
+import { BookOpen, ImageIcon, ShieldCheck, Tags } from 'lucide-react';
+import Link from 'next/link';
 
 import type { VendorMenu } from '@/hooks/use-menus';
 
@@ -60,10 +61,13 @@ export function MenuSummaryRail({ menus }: Props) {
             body="Make it easier to discover dishes."
           />
         </ul>
-        {/* The mockup includes a "Visit Menu best practices" CTA; the
-            destination guide doesn't exist yet so the button is
-            omitted to avoid a dead link back to /menu. Re-add it
-            here once the guide route or external help URL ships. */}
+        <Link
+          href="/user-guide#building-menu"
+          className="mt-3 flex items-center justify-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-2 text-xs font-semibold text-teal-dark transition-colors hover:bg-teal-light"
+        >
+          <BookOpen className="h-3.5 w-3.5" aria-hidden />
+          Menu best practices
+        </Link>
       </section>
     </div>
   );

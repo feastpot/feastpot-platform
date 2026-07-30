@@ -8,6 +8,7 @@ import { useSearchParams } from 'next/navigation';
 import { DocumentRow, REQUIRED_DOCS } from '@/components/compliance/compliance-docs';
 import { useToast } from '@/components/ui/toaster';
 import { useCreateStripeConnectLink } from '@/hooks/use-stripe-connect';
+import { useOnboardingProgress } from '@/hooks/use-onboarding-progress';
 import { useUploadDocument, useVendorDocuments } from '@/hooks/use-vendor-documents';
 
 interface VendorSummary {
@@ -38,6 +39,7 @@ export function OnboardingClient({ vendor }: { vendor: VendorSummary }) {
   const search = useSearchParams();
   const stripeReturned = search?.get('stripe') === 'return';
   const docs = useVendorDocuments(vendor.id);
+  const progress = useOnboardingProgress();
   const upload = useUploadDocument(vendor.id);
   const stripe = useCreateStripeConnectLink();
   const { toast } = useToast();
@@ -50,16 +52,16 @@ export function OnboardingClient({ vendor }: { vendor: VendorSummary }) {
   const allDocsUploaded = REQUIRED_DOCS.every((d) => docByType.has(d.type));
   const stripeReady = !!vendor.stripeAccountId && vendor.payoutsEnabled;
   const profileDone = !!vendor.description && vendor.cuisines.length > 0;
+  // Menu step is driven by the onboarding-progress endpoint (>= 3 available
+  // items). While the query is loading we treat it as not-done so the
+  // indicator never flashes "complete" and then regresses.
+  const menuDone = progress.data?.menuComplete ?? false;
+  const menuItemCount = progress.data?.menuItemCount ?? 0;
   // canGoLive previously ignored profile completion - meaning the "All set!"
   // banner could appear while the vendor's description/cuisines were still
-  // empty. Include profileDone so compliance never reviews a vendor whose
-  // public profile is half-built.
-  const canGoLive = profileDone && allDocsUploaded && stripeReady;
-  // Menu-step done flag is unknown from the vendor summary today; treat the
-  // step as reached (active) once the previous three are complete so the
-  // indicator advances correctly. When the API surfaces `menuItemCount` we
-  // can swap this for `menuItemCount >= 3`.
-  const menuDone = false;
+  // empty. Include profileDone (and now the menu step, matching the copy's
+  // "3 items live" promise) so compliance never reviews a half-built vendor.
+  const canGoLive = profileDone && allDocsUploaded && stripeReady && menuDone;
   const stepFlags = [profileDone, allDocsUploaded, stripeReady, menuDone];
   const firstIncomplete = stepFlags.findIndex((f) => !f);
   const currentStep = (firstIncomplete === -1 ? 4 : firstIncomplete + 1) as 1 | 2 | 3 | 4;
@@ -189,12 +191,13 @@ export function OnboardingClient({ vendor }: { vendor: VendorSummary }) {
       <Step
         n={4}
         title="Add your first menu items"
-        done={false}
+        done={menuDone}
         body={
           <>
             <p className="text-sm text-muted-foreground">
-              You need at least 3 items live before compliance can approve you. The full editor is
-              in the menu section.
+              {menuDone
+                ? `You have ${menuItemCount} items live - nice work.`
+                : `You need at least 3 items live before compliance can approve you (${menuItemCount} so far). The full editor is in the menu section.`}
             </p>
             <Link href="/menu" className="mt-2 inline-block">
               <Button variant="outline" size="sm" className="gap-2">

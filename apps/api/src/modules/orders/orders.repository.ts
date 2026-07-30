@@ -110,7 +110,10 @@ export class OrdersRepository {
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take,
       include: {
-        items: true,
+        // Allergens ride along per line item so the vendor orders dashboard
+        // can flag orders containing allergen-tagged dishes without an extra
+        // fetch. Not sensitive - allergens are public menu data.
+        items: { include: { menuItem: { select: { allergens: true } } } },
         // Same rationale as findByIdWithItems - vendor dashboard needs first name
         // per row to address customers by name.
         customer: { select: { id: true, firstName: true, email: true } },

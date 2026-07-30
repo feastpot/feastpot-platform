@@ -5,7 +5,11 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Bell } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { OrdersSummaryRail, type QuickFilter } from '@/components/orders/orders-summary-rail';
+import {
+  OrdersSummaryRail,
+  orderHasAllergens,
+  type QuickFilter,
+} from '@/components/orders/orders-summary-rail';
 import { OrdersTopBar } from '@/components/orders/orders-top-bar';
 import { VendorOrderCard } from '@/components/orders/vendor-order-card';
 import { useToast } from '@/components/ui/toaster';
@@ -233,6 +237,9 @@ export function OrdersDashboard({ vendorId }: Props) {
       }
       if (quickFilter === 'high_value' && o.totalPence < 15000) return false;
       if (quickFilter === 'has_notes' && !(o.notes && o.notes.trim().length > 0)) return false;
+      if (quickFilter === 'delivery' && o.deliveryType === 'collection') return false;
+      if (quickFilter === 'collection' && o.deliveryType !== 'collection') return false;
+      if (quickFilter === 'has_allergens' && !orderHasAllergens(o)) return false;
       return true;
     });
   }, [activeTab, buckets, delivered, search, quickFilter]);

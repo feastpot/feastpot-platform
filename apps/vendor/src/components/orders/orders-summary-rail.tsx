@@ -1,13 +1,29 @@
 'use client';
 
 import { cn } from '@feastpot/ui';
-import { Bike, ClipboardList, PoundSterling, ShieldAlert, Sparkles, Users } from 'lucide-react';
+import {
+  Bike,
+  ClipboardList,
+  PoundSterling,
+  ShieldAlert,
+  ShoppingBag,
+  Sparkles,
+  StickyNote,
+  Truck,
+  Users,
+} from 'lucide-react';
 
 import type { VendorOrder, VendorOrderStatus } from '@/hooks/use-vendor-orders';
 import { useVendorDashboard } from '@/hooks/use-vendor-dashboard';
 import { useVendorStats } from '@/hooks/use-vendor-stats';
 
-export type QuickFilter = 'all' | 'high_value' | 'has_notes';
+export type QuickFilter =
+  | 'all'
+  | 'high_value'
+  | 'has_notes'
+  | 'delivery'
+  | 'collection'
+  | 'has_allergens';
 
 interface Props {
   counts: Record<VendorOrderStatus, number>;
@@ -39,6 +55,11 @@ const DOT_TONE: Record<'pending' | 'preparing' | 'dispatched' | 'delivered', str
   delivered: 'bg-teal',
 };
 
+/** True when any line item's dish lists at least one allergen. */
+export function orderHasAllergens(order: VendorOrder): boolean {
+  return order.items.some((i) => (i.menuItem?.allergens?.length ?? 0) > 0);
+}
+
 function formatMoney(pence: number): string {
   return `£${(pence / 100).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
@@ -51,11 +72,8 @@ function formatMoney(pence: number): string {
  *      Uses the same /vendors/me/stats + /vendors/me/dashboard endpoints
  *      already feeding the home dashboard so no new API surface required.
  *   3. Quick filters — client-side filters over the currently-visible
- *      orders. The mockup also shows Delivery/Collection and allergen
- *      filters; those are skipped because the VendorOrder shape doesn't
- *      expose deliveryType or allergens today. Wire them up when the API
- *      adds those fields (no UI changes needed beyond extending the
- *      `QuickFilter` union + filter logic in orders-dashboard.tsx).
+ *      orders, including Delivery/Collection (from `deliveryType`) and
+ *      allergen-flagged orders (any line item whose dish lists allergens).
  */
 export function OrdersSummaryRail({
   counts,
@@ -78,6 +96,9 @@ export function OrdersSummaryRail({
 
   const highValueCount = tabOrders.filter((o) => o.totalPence >= 15000).length;
   const hasNotesCount = tabOrders.filter((o) => !!o.notes && o.notes.trim().length > 0).length;
+  const deliveryCount = tabOrders.filter((o) => o.deliveryType !== 'collection').length;
+  const collectionCount = tabOrders.filter((o) => o.deliveryType === 'collection').length;
+  const allergenCount = tabOrders.filter((o) => orderHasAllergens(o)).length;
 
   return (
     <div className="space-y-4">
@@ -150,11 +171,32 @@ export function OrdersSummaryRail({
             onClick={() => onQuickFilterChange('high_value')}
           />
           <FilterRow
-            Icon={ShieldAlert}
+            Icon={StickyNote}
             label="With customer notes"
             count={hasNotesCount}
             active={quickFilter === 'has_notes'}
             onClick={() => onQuickFilterChange('has_notes')}
+          />
+          <FilterRow
+            Icon={Truck}
+            label="Delivery"
+            count={deliveryCount}
+            active={quickFilter === 'delivery'}
+            onClick={() => onQuickFilterChange('delivery')}
+          />
+          <FilterRow
+            Icon={ShoppingBag}
+            label="Collection"
+            count={collectionCount}
+            active={quickFilter === 'collection'}
+            onClick={() => onQuickFilterChange('collection')}
+          />
+          <FilterRow
+            Icon={ShieldAlert}
+            label="Contains allergens"
+            count={allergenCount}
+            active={quickFilter === 'has_allergens'}
+            onClick={() => onQuickFilterChange('has_allergens')}
           />
         </ul>
       </section>

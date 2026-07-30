@@ -21,6 +21,7 @@ export interface VendorOrderItem {
   id: string;
   quantity: number;
   itemName?: string | null;
+  menuItem?: { allergens?: string[] | null } | null;
   // The API returns full OrderItem rows; the dashboard only needs name +
   // quantity for the line list. Other fields (priceCents, modifiers) are
   // ignored here but typed loosely so we don't have to chase every change.
@@ -31,6 +32,7 @@ export interface VendorOrder {
   id: string;
   orderNumber: string;
   status: VendorOrderStatus;
+  deliveryType: 'local' | 'collection' | 'nationwide';
   customerId: string;
   vendorId: string;
   totalPence: number;

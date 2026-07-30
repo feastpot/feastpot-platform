@@ -1,7 +1,14 @@
 'use client';
 
 import { cn } from '@feastpot/ui';
-import { CheckCircle2, FolderOpen, ListChecks, Sparkles } from 'lucide-react';
+import {
+  CheckCircle2,
+  FolderOpen,
+  ImageIcon,
+  ListChecks,
+  ShieldCheck,
+  Sparkles,
+} from 'lucide-react';
 
 import type { VendorMenu } from '@/hooks/use-menus';
 
@@ -10,13 +17,10 @@ interface Props {
 }
 
 /**
- * Top stat row on the Menu screen. Mirrors the layout of the Vendor6
- * mockup but only surfaces metrics derivable from the existing
- * `/vendors/:id/menus` payload — the mockup's "Missing allergens"
- * and "Image completeness" cards need per-item data (an N+1 fetch
- * per menu today) so they're intentionally omitted until either an
- * aggregate endpoint exists or the menus payload starts returning
- * counts. Wire them up there when ready.
+ * Top stat row on the Menu screen, mirroring the Vendor6 mockup. The
+ * "Missing allergens" / "Missing photos" cards are fed by the per-menu
+ * `itemHealth` counts the menus payload now returns on the owner view
+ * (aggregated server-side - no N+1 per-item fetch).
  */
 export function MenuStatCards({ menus }: Props) {
   const total = menus.length;
@@ -24,6 +28,8 @@ export function MenuStatCards({ menus }: Props) {
   const totalItems = menus.reduce((acc, m) => acc + (m._count?.items ?? 0), 0);
   const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
   const updatedThisWeek = menus.filter((m) => new Date(m.updatedAt).getTime() >= weekAgo).length;
+  const missingAllergens = menus.reduce((acc, m) => acc + (m.itemHealth?.missingAllergens ?? 0), 0);
+  const missingImages = menus.reduce((acc, m) => acc + (m.itemHealth?.missingImages ?? 0), 0);
 
   // Publishing health is a quick at-a-glance signal: green if every
   // active menu has at least one item, amber if any active menu is
@@ -32,7 +38,7 @@ export function MenuStatCards({ menus }: Props) {
   const health = total === 0 ? 'neutral' : emptyActive === 0 ? 'good' : 'attention';
 
   return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
       <StatCard
         tone="teal"
         Icon={CheckCircle2}
@@ -68,6 +74,24 @@ export function MenuStatCards({ menus }: Props) {
         label="Active menus"
         value={`${active} / ${total}`}
         hint={total === 0 ? 'None yet' : `${total - active} inactive`}
+      />
+      <StatCard
+        tone="teal"
+        Icon={ShieldCheck}
+        label="Missing allergens"
+        value={String(missingAllergens)}
+        hint={
+          missingAllergens === 0
+            ? 'All items list allergen info'
+            : `Item${missingAllergens === 1 ? '' : 's'} without allergen info`
+        }
+      />
+      <StatCard
+        tone="amber"
+        Icon={ImageIcon}
+        label="Missing photos"
+        value={String(missingImages)}
+        hint={missingImages === 0 ? 'Every item has a photo' : 'Items with photos get more orders'}
       />
     </div>
   );

@@ -340,6 +340,44 @@ describe('VendorsService', () => {
     });
   });
 
+  describe('getOnboardingProgress', () => {
+    it('menu step requires >= 3 available items (matches onboarding copy)', async () => {
+      // Bypass membership resolution - we only care about the step maths.
+      jest
+        .spyOn(
+          service as unknown as { resolveMyVendor: (u: string, r: unknown) => Promise<unknown> },
+          'resolveMyVendor',
+        )
+        .mockResolvedValue({ id: 'v-1' });
+      const prismaMock = (
+        service as unknown as {
+          prisma: { vendor: { findUnique: jest.Mock }; menuItem: { count: jest.Mock } };
+        }
+      ).prisma;
+      prismaMock.vendor = {
+        findUnique: jest.fn().mockResolvedValue({
+          description: 'd',
+          logoUrl: 'l',
+          documents: [{}, {}, {}, {}],
+          stripeAccountId: 'acct_1',
+          payoutsEnabled: true,
+          deliveryConfig: { latitude: 51.5 },
+        }),
+      };
+      prismaMock.menuItem = { count: jest.fn().mockResolvedValue(2) };
+
+      const two = await service.getOnboardingProgress('u-1');
+      expect(two.menuComplete).toBe(false);
+      expect(two.menuItemCount).toBe(2);
+      expect(two.allComplete).toBe(false);
+
+      prismaMock.menuItem.count.mockResolvedValue(3);
+      const three = await service.getOnboardingProgress('u-1');
+      expect(three.menuComplete).toBe(true);
+      expect(three.allComplete).toBe(true);
+    });
+  });
+
   describe('getVendorReviews', () => {
     it('paginates reviews and returns nextCursor when full page', async () => {
       const reviews = [
