@@ -26,4 +26,4 @@ Four DB URL secrets exist; they are NOT interchangeable:
 
 **How to apply:** if a deploy/CI run dies with P1012 on a `*_URL` var, grep the workflow's `env:` block and rename the keys to the `SUPABASE_*` names the schema reads; pooled URL → `url`, direct/session URL → `directUrl` (migrate uses `directUrl`). `nightly-smoke.yml` is the reference template.
 
-**Prod access (Jul 2026):** `PROD_DIRECT_URL` has a stale password (auth fails). Use `PROD_DATABASE_URL` instead, stripping its query params (`pgbouncer`, `connection_limit`) for psql. `prisma migrate diff --from-url` hangs against the prod pooler — verify schema drift with targeted psql checks instead.
+**Prod access (Jul 2026):** `PROD_DIRECT_URL` fixed Jul 30 (was stale-password; user re-entered from PROD_DATABASE_URL's password). For psql on `PROD_DATABASE_URL`, strip its query params (`pgbouncer`, `connection_limit`). `prisma migrate diff --from-url` hangs against the prod pooler — verify schema drift with targeted psql checks instead. Pooler auth errors always say user "postgres" even when the URL user is `postgres.<ref>` — that means wrong password, not wrong username.
