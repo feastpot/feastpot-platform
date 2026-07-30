@@ -9,11 +9,15 @@
       "types": "./src/index.ts",
       "default": "./src/index.ts"
     },
-    "./theme.css": "./src/theme.css"
+    "./theme.css": "./src/theme.css",
+    "./brand": {
+      "types": "./src/brand.ts",
+      "default": "./src/brand.ts"
+    }
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src --ext .ts,.tsx",
+    "lint": "eslint src --ext .ts,.tsx && node scripts/check-brand-tokens.mjs",
     "clean": "rm -rf dist .turbo"
   },
   "dependencies": {

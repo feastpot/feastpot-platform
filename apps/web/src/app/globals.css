@@ -11,8 +11,11 @@
  * Theme tokens are inlined here (NOT @import-ed from @feastpot/ui/theme.css)
  * because @import in CSS is processed before Tailwind's @layer directives -
  * cross-package @layer rules silently get dropped from the production build.
- * The tokens below mirror packages/ui/src/theme.css verbatim; if you change
- * one, change the other.
+ * The hex values below mirror the shared token module in
+ * packages/ui/src/brand.ts (the single source of truth, consumed by every
+ * app's tailwind.config.ts). Drift is caught by
+ * packages/ui/scripts/check-brand-tokens.mjs, which fails @feastpot/ui's
+ * lint if any hex here diverges from brand.ts.
  */
 @layer base {
   :root {
@@ -38,7 +41,7 @@
     --cream: #fffdf7;
     --cream-warm: #fff8e8;
     --cream-deep: #f2ead3;
-    --charcoal: #070707;
+    --charcoal: #1c1c1a; /* was #070707 - drifted from the charcoal token */
     --charcoal-mid: #5f5e5a;
     --charcoal-light: #9b9894;
     --brand-gray: #5f5e5a; /* legacy alias */
@@ -151,8 +154,12 @@
    the loop seam is invisible. Component pauses under prefers-reduced-motion
    via Tailwind's `motion-reduce:animate-none`. */
 @keyframes marquee {
-  from { transform: translateX(0); }
-  to   { transform: translateX(-50%); }
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
 }
 
 /* Shimmer for skeleton placeholders. The gradient slides from -200% to
@@ -162,18 +169,22 @@
    #EDE4D4 highlight) so the placeholders look like temporarily-muted
    surfaces instead of grey holes. Honours prefers-reduced-motion. */
 @keyframes fp-shimmer {
-  0%   { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
 .animate-shimmer {
-  background: linear-gradient(90deg, #FFF8E8 25%, #F2EAD3 50%, #FFF8E8 75%);
+  background: linear-gradient(90deg, #fff8e8 25%, #f2ead3 50%, #fff8e8 75%);
   background-size: 200% 100%;
   animation: fp-shimmer 1.5s linear infinite;
 }
 @media (prefers-reduced-motion: reduce) {
   .animate-shimmer {
     animation: none;
-    background: #F2EAD3;
+    background: #f2ead3;
   }
 }
 
@@ -209,7 +220,7 @@
     left: 8px;
     z-index: 999;
     /* Charcoal (#1C1C1A) on white → ~17:1, well above WCAG AAA.
-       White-on-brand (#E8520A) was only ~3.1:1 and would have
+       White on the old terracotta brand was only ~3.1:1 and would have
        failed AA. A 2px brand outline keeps the link visually
        part of the Feastpot palette without sacrificing contrast. */
     background: var(--charcoal);
@@ -248,7 +259,9 @@
     box-shadow:
       0 2px 8px rgba(7, 7, 7, 0.06),
       0 8px 32px rgba(0, 132, 61, 0.06);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    transition:
+      transform 0.2s ease,
+      box-shadow 0.2s ease;
   }
   .food-card:hover {
     transform: translateY(-2px);

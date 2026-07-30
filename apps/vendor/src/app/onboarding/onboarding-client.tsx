@@ -1,6 +1,7 @@
 'use client';
 
 import { Badge, Button, Card, CardContent } from '@feastpot/ui';
+import { brandColors } from '@feastpot/ui/brand';
 import { Check, ExternalLink, Upload } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -245,7 +246,7 @@ function StepIndicator({ currentStep }: { currentStep: 1 | 2 | 3 | 4 }) {
       style={{
         padding: '16px',
         background: 'white',
-        border: '1px solid #EDE4D4',
+        border: `1px solid ${brandColors.cream.border}`,
         borderRadius: '12px',
       }}
     >
@@ -280,7 +281,7 @@ function StepIndicator({ currentStep }: { currentStep: 1 | 2 | 3 | 4 }) {
                     left: '50%',
                     right: '-50%',
                     height: '2px',
-                    background: isDone ? '#00843D' : '#EDE4D4',
+                    background: isDone ? brandColors.brand.DEFAULT : brandColors.cream.border,
                     zIndex: 0,
                   }}
                 />
@@ -291,13 +292,22 @@ function StepIndicator({ currentStep }: { currentStep: 1 | 2 | 3 | 4 }) {
                   height: '32px',
                   borderRadius: '50%',
                   border: '2px solid',
-                  borderColor: isDone || isCurrent ? '#00843D' : '#BDBBB7',
-                  background: isDone ? '#00843D' : isCurrent ? 'white' : '#F5EDE0',
+                  borderColor:
+                    isDone || isCurrent ? brandColors.brand.DEFAULT : brandColors.charcoal.soft,
+                  background: isDone
+                    ? brandColors.brand.DEFAULT
+                    : isCurrent
+                      ? 'white'
+                      : brandColors.cream.muted,
                   // Numeral colours kept WCAG AA at small sizes (green rebrand):
-                  //   future = #5F5E5A on #F5EDE0 → ~6:1
-                  //   current = #005C2B on white → ~8.6:1
-                  //   done = white on #00843D → ~4.9:1
-                  color: isDone ? 'white' : isCurrent ? '#005C2B' : '#5F5E5A',
+                  //   future = charcoal-mid on cream-muted → ~6:1
+                  //   current = brand-dark on white → ~8.6:1
+                  //   done = white on brand green → ~4.9:1
+                  color: isDone
+                    ? 'white'
+                    : isCurrent
+                      ? brandColors.brand.dark
+                      : brandColors.charcoal.mid,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -312,10 +322,11 @@ function StepIndicator({ currentStep }: { currentStep: 1 | 2 | 3 | 4 }) {
               <span
                 style={{
                   fontSize: '10px',
-                  // #5F5E5A (charcoal-mid) on white is ~7.5:1, well above
-                  // WCAG AA - the spec's #9B9894 was 3.2:1 and would have
-                  // failed at this size.
-                  color: isDone || isCurrent ? '#1C1C1A' : '#5F5E5A',
+                  // charcoal-mid on white is ~7.5:1, well above WCAG AA -
+                  // the spec's #9B9894 was 3.2:1 and would have failed at
+                  // this size.
+                  color:
+                    isDone || isCurrent ? brandColors.charcoal.DEFAULT : brandColors.charcoal.mid,
                   marginTop: '6px',
                   fontWeight: isCurrent ? 600 : 500,
                   textAlign: 'center',

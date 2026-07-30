@@ -11,7 +11,7 @@ Disallow: /(auth)
 Disallow: /api
 
 # Host
-Host: https://feastpot.co.uk
+Host: http://localhost:3000
 
 # Sitemaps
-Sitemap: https://feastpot.co.uk/sitemap.xml
+Sitemap: http://localhost:3000/sitemap.xml
