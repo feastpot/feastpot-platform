@@ -56,3 +56,5 @@ through multiple republishes — because the deployment's own `STRIPE_SECRET_KEY
 re-publishing — update the secret in the deployment's OWN secrets pane (Publish dialog → secrets),
 then redeploy. Diagnose key mode without leaking the value: `node -e` printing only
 `startsWith('sk_live_')`/`startsWith('sk_test_')` booleans + length.
+
+**Shared Supabase project (Jul 2026 outage):** prod and dev BOTH run on the shared Supabase ref `zibmwuzxgydlvapiddhf` — there is no dedicated prod project. A startup guard that hard-exited on "dev ref in production" took the live API down on republish. Guards about aspirational infra must be opt-in (`REQUIRE_DEDICATED_SUPABASE=true`), never fatal by default. Also: `PROD_DATABASE_URL`/`SUPABASE_DB_URL` point at the same DB.

@@ -9,7 +9,7 @@ export default async function OgImage() {
   return new ImageResponse(
     <div
       style={{
-        background: '#E8520A',
+        background: '#00843D',
         width: '100%',
         height: '100%',
         display: 'flex',
