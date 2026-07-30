@@ -13,7 +13,7 @@ const config: Config = {
     container: { center: true, padding: '1.5rem' },
     extend: {
       colors: {
-        brand: { DEFAULT: '#E8520A', light: '#FEF0E9', dark: '#B33D07' },
+        brand: { DEFAULT: '#00843D', light: '#E6F4EC', dark: '#005C2B' },
         teal: { DEFAULT: '#1D9E75', light: '#E1F5EE', dark: '#0F6E56' },
         vendor: { DEFAULT: '#185FA5', light: '#E5EEF7', dark: '#0F4373' },
         background: 'hsl(var(--background))',

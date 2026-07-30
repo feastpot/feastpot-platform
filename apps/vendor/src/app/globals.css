@@ -9,13 +9,13 @@
  *
  * Vendor portal differs from the customer app in ONE place: the shadcn
  * `--primary` is wired to FeastPot teal-green (#1D9E75 -> 161 70% 37%)
- * instead of brand orange, matching the green-dominant CTA palette in
- * the vendor mockups (Add menu item, Invite, Save, etc.). Brand orange
- * remains reserved for revenue / accept actions on order rows.
+ * matching the green-dominant CTA palette in
+ * the vendor mockups (Add menu item, Invite, Save, etc.). Brand green
+ * (#00843D) is reserved for revenue / accept actions on order rows.
  */
 @layer base {
   :root {
-    --brand-primary: #e8520a;
+    --brand-primary: #00843d;
     --brand-teal: #1d9e75;
     --brand-vendor: #185fa5;
     --brand-dark: #1c1c1a;
@@ -29,7 +29,7 @@
     --popover: 0 0% 100%;
     --popover-foreground: 60 4% 11%;
     /* Teal-green is the dominant accent - primary buttons (Add menu item,
-       Invite, Save), focus rings, active nav state. Brand orange is
+       Invite, Save), focus rings, active nav state. Brand green is
        reserved for revenue/accept CTAs on order rows. Vendor blue is
        kept available via `bg-teal` utilities for the few places that
        use it (support tile, owner avatar). */
@@ -87,7 +87,7 @@
   }
 
   .brand-gradient {
-    background: linear-gradient(135deg, #e8520a 0%, #b33d07 100%);
+    background: linear-gradient(135deg, #00843d 0%, #005c2b 100%);
   }
 
   .vendor-gradient {

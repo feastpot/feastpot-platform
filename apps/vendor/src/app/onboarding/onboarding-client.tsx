@@ -231,7 +231,7 @@ export function OnboardingClient({ vendor }: { vendor: VendorSummary }) {
  * - Circle border + fill colour shifts as the vendor advances:
  *   future steps = muted cream, current = white-on-brand outline,
  *   complete = solid brand with a check.
- * - Connector line between circles fills brand orange once a step is
+ * - Connector line between circles fills brand green once a step is
  *   passed, giving the same visual "progress bar" cue Stripe and
  *   Deliveroo use on their partner onboarding flows.
  * - The whole strip is decorative for AT users - the underlying step
@@ -280,7 +280,7 @@ function StepIndicator({ currentStep }: { currentStep: 1 | 2 | 3 | 4 }) {
                     left: '50%',
                     right: '-50%',
                     height: '2px',
-                    background: isDone ? '#E8520A' : '#EDE4D4',
+                    background: isDone ? '#00843D' : '#EDE4D4',
                     zIndex: 0,
                   }}
                 />
@@ -291,13 +291,13 @@ function StepIndicator({ currentStep }: { currentStep: 1 | 2 | 3 | 4 }) {
                   height: '32px',
                   borderRadius: '50%',
                   border: '2px solid',
-                  borderColor: isDone || isCurrent ? '#E8520A' : '#BDBBB7',
-                  background: isDone ? '#E8520A' : isCurrent ? 'white' : '#F5EDE0',
-                  // Numeral colours bumped for WCAG AA at small sizes:
-                  //   future = #5F5E5A on #F5EDE0 → ~6:1 (was #9B9894/#FBF6EF ≈ 2.7:1)
-                  //   current = #B8410A on white → ~5.6:1 (was #E8520A ≈ 3.4:1)
-                  //   done = white on #E8520A → ~4.8:1 (unchanged)
-                  color: isDone ? 'white' : isCurrent ? '#B8410A' : '#5F5E5A',
+                  borderColor: isDone || isCurrent ? '#00843D' : '#BDBBB7',
+                  background: isDone ? '#00843D' : isCurrent ? 'white' : '#F5EDE0',
+                  // Numeral colours kept WCAG AA at small sizes (green rebrand):
+                  //   future = #5F5E5A on #F5EDE0 → ~6:1
+                  //   current = #005C2B on white → ~8.6:1
+                  //   done = white on #00843D → ~4.9:1
+                  color: isDone ? 'white' : isCurrent ? '#005C2B' : '#5F5E5A',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',

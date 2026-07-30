@@ -14,7 +14,7 @@ import defaultTheme from 'tailwindcss/defaultTheme';
  *     neutrals that match the customer app's tokens.
  *
  * The shadcn HSL `--primary` is wired to vendor blue in globals.css since
- * the vendor portal's dominant accent is blue, NOT brand orange.
+ * the vendor portal's dominant accent is blue, NOT brand green.
  */
 const config: Config = {
   darkMode: 'class',
@@ -23,17 +23,19 @@ const config: Config = {
     container: { center: true, padding: '1rem' },
     extend: {
       colors: {
-        // Feastpot brand palette - full scales for variants. Brand orange
-        // remains available for revenue/critical-accept actions.
+        // Feastpot brand palette - full scales for variants. Rebranded
+        // 2026-07 to match the customer app's green (was terracotta
+        // orange). `bg-brand` remains reserved for revenue/critical-accept
+        // actions.
         brand: {
-          DEFAULT: '#E8520A',
-          light: '#FEF0E9',
-          dark: '#B33D07',
-          50: '#FEF0E9',
-          100: '#FDD8C4',
-          500: '#E8520A',
-          600: '#C94308',
-          700: '#B33D07',
+          DEFAULT: '#00843D',
+          light: '#E6F4EC',
+          dark: '#005C2B',
+          50: '#E6F4EC',
+          100: '#C2E5D0',
+          500: '#00843D',
+          600: '#006E32',
+          700: '#005C2B',
         },
         teal: {
           DEFAULT: '#1D9E75',
