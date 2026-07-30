@@ -25,3 +25,5 @@ Four DB URL secrets exist; they are NOT interchangeable:
 **Why:** exporting `DATABASE_URL`/`DIRECT_URL` (even with valid connection strings) makes Prisma abort at **P1012 "Environment variable not found: SUPABASE_DIRECT_URL"** during schema validation, *before* it ever connects. Symptom: the migrate job fails instantly with exit 1 and all downstream deploy jobs skip, yet the DB is reachable and the pending migration may already be applied from an older run — so the prod schema looks fine while every deploy stays red.
 
 **How to apply:** if a deploy/CI run dies with P1012 on a `*_URL` var, grep the workflow's `env:` block and rename the keys to the `SUPABASE_*` names the schema reads; pooled URL → `url`, direct/session URL → `directUrl` (migrate uses `directUrl`). `nightly-smoke.yml` is the reference template.
+
+**Prod access (Jul 2026):** `PROD_DIRECT_URL` has a stale password (auth fails). Use `PROD_DATABASE_URL` instead, stripping its query params (`pgbouncer`, `connection_limit`) for psql. `prisma migrate diff --from-url` hangs against the prod pooler — verify schema drift with targeted psql checks instead.
