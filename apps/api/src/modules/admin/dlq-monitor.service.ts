@@ -19,12 +19,21 @@ interface QueueFailureSummary {
   lastError: string | null;
 }
 
+interface QueueDepthSnapshot {
+  queue: string;
+  waiting: number;
+  failed: number;
+}
+
 @Injectable()
 export class DlqMonitorService {
   private readonly logger = new Logger(DlqMonitorService.name);
   private readonly resend: Resend | null;
   private readonly alertTo: string;
   private readonly from: string;
+  private readonly slackWebhookUrl: string | null;
+  private readonly failedThreshold: number;
+  private readonly waitingThreshold: number;
 
   constructor(
     @InjectQueue(NOTIFICATIONS_QUEUE) private readonly notifications: Queue,
@@ -38,6 +47,106 @@ export class DlqMonitorService {
     this.resend = key ? new Resend(key) : null;
     this.alertTo = config.get<string>('DLQ_ALERT_EMAIL') ?? 'info@feastpot.co.uk';
     this.from = config.get<string>('EMAIL_FROM') ?? 'Feastpot <noreply@feastpot.co.uk>';
+    // Real-time alerting (Slack incoming webhook). Optional - when unset we
+    // fall back to logging so the cron is still observable in deploy logs.
+    this.slackWebhookUrl = config.get<string>('QUEUE_ALERT_SLACK_WEBHOOK_URL') ?? null;
+    this.failedThreshold = Number(config.get<string>('QUEUE_ALERT_FAILED_THRESHOLD') ?? '1');
+    this.waitingThreshold = Number(config.get<string>('QUEUE_ALERT_WAITING_THRESHOLD') ?? '100');
+  }
+
+  /**
+   * Every 5 minutes: alert in (near) real time when a queue backs up.
+   *
+   * Two conditions per queue:
+   *  - failed jobs >= QUEUE_ALERT_FAILED_THRESHOLD (default 1)
+   *  - waiting jobs >= QUEUE_ALERT_WAITING_THRESHOLD (default 100)
+   *
+   * Deduped per queue+condition via a 60-min Redis key so a sustained backlog
+   * produces one alert per hour, not one every 5 minutes. Complements (does
+   * not replace) the 09:00 daily email digest below.
+   */
+  @Cron('*/5 * * * *')
+  async checkQueueDepths(): Promise<void> {
+    if (!this.cache.available) return;
+
+    const snapshots = await this.collectDepths();
+    const breaches: string[] = [];
+
+    for (const snap of snapshots) {
+      if (snap.failed >= this.failedThreshold) {
+        if (await this.shouldAlert(`${snap.queue}:failed`)) {
+          breaches.push(`\`${snap.queue}\`: *${snap.failed} failed* job(s)`);
+        }
+      }
+      if (snap.waiting >= this.waitingThreshold) {
+        if (await this.shouldAlert(`${snap.queue}:waiting`)) {
+          breaches.push(`\`${snap.queue}\`: *${snap.waiting} waiting* (backlog)`);
+        }
+      }
+    }
+
+    if (breaches.length === 0) return;
+
+    const text =
+      `:rotating_light: *Feastpot queue alert*\n${breaches.join('\n')}\n` +
+      `Inspect via Bull Board: https://api.feastpot.co.uk/admin/queues`;
+    await this.sendSlack(text);
+  }
+
+  /** True once per key per hour (Redis-deduped). Fails open to alerting. */
+  private async shouldAlert(key: string): Promise<boolean> {
+    const cacheKey = `queue-alert:${key}`;
+    try {
+      if (await this.cache.get(cacheKey)) return false;
+      await this.cache.set(cacheKey, 1, 60 * 60);
+      return true;
+    } catch {
+      return true;
+    }
+  }
+
+  private async sendSlack(text: string): Promise<void> {
+    if (!this.slackWebhookUrl) {
+      this.logger.warn(`Queue alert (no QUEUE_ALERT_SLACK_WEBHOOK_URL set): ${text}`);
+      return;
+    }
+    try {
+      const res = await fetch(this.slackWebhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (!res.ok) {
+        this.logger.error(`Slack queue alert failed: HTTP ${res.status}`);
+      } else {
+        this.logger.log('Slack queue alert sent.');
+      }
+    } catch (err) {
+      this.logger.error(`Slack queue alert failed: ${(err as Error).message}`);
+    }
+  }
+
+  private async collectDepths(): Promise<QueueDepthSnapshot[]> {
+    const queues: Array<[string, Queue]> = [
+      [NOTIFICATIONS_QUEUE, this.notifications],
+      [STRIPE_WEBHOOK_QUEUE, this.stripeWebhooks],
+      [PAYOUTS_QUEUE, this.payouts],
+      [COMPLIANCE_QUEUE, this.compliance],
+    ];
+    const results: QueueDepthSnapshot[] = [];
+    for (const [name, queue] of queues) {
+      try {
+        const [waiting, failed] = await Promise.all([
+          queue.getWaitingCount(),
+          queue.getFailedCount(),
+        ]);
+        results.push({ queue: name, waiting, failed });
+      } catch (err) {
+        this.logger.error(`Failed to inspect queue ${name}: ${(err as Error).message}`);
+      }
+    }
+    return results;
   }
 
   /** Daily at 09:00 UTC. */
