@@ -48,3 +48,7 @@ apps/web/public/fallback-*.js
 
 # TypeScript incremental build info
 *.tsbuildinfo
+
+# next-sitemap build artifacts (generated at build time; committed copies went stale)
+apps/web/public/sitemap*.xml
+apps/web/public/robots.txt

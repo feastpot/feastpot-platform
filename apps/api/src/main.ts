@@ -110,6 +110,9 @@ const ALLOWED_ORIGINS = [
   'https://www.feastpot.co.uk',
   'https://vendor.feastpot.co.uk',
   'https://admin.feastpot.co.uk',
+  // Status page (hosted on Vercel alongside apps/web) polls /v1/healthz
+  // from the browser, so its origin must be allowed for CORS.
+  'https://status.feastpot.co.uk',
   'http://localhost:3000',
   'http://localhost:3002',
   'http://localhost:3003',

@@ -1,9 +1,12 @@
-/* Feastpot brand theme - shadcn/ui compatible CSS variables */
+/* Feastpot brand theme - shadcn/ui compatible CSS variables.
+   Brand hexes mirror packages/ui/src/brand.ts (single source of truth);
+   drift is caught by packages/ui/scripts/check-brand-tokens.mjs. */
 @layer base {
   :root {
     /* Feastpot brand */
-    --brand-primary: #e8520a;
+    --brand-primary: #00843d;
     --brand-teal: #1d9e75;
+    --brand-vendor: #185fa5;
     --brand-dark: #1c1c1a;
     --brand-gray: #5f5e5a;
 
@@ -17,7 +20,8 @@
     --popover: 0 0% 100%;
     --popover-foreground: 60 4% 11%;
 
-    --primary: 19 92% 47%;
+    /* Primary = brand green #00843D (was terracotta orange pre-rebrand) */
+    --primary: 149 100% 26%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 161 70% 37%;
@@ -26,15 +30,15 @@
     --muted: 40 12% 94%;
     --muted-foreground: 60 4% 37%;
 
-    --accent: 19 92% 95%;
-    --accent-foreground: 19 92% 25%;
+    --accent: 149 60% 95%;
+    --accent-foreground: 149 100% 18%;
 
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
     --border: 40 10% 88%;
     --input: 40 10% 88%;
-    --ring: 19 92% 47%;
+    --ring: 149 100% 26%;
 
     --radius: 0.625rem;
   }

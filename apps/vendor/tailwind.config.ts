@@ -1,3 +1,4 @@
+import { brandColors } from '@feastpot/ui/brand';
 import type { Config } from 'tailwindcss';
 import defaultTheme from 'tailwindcss/defaultTheme';
 
@@ -14,7 +15,7 @@ import defaultTheme from 'tailwindcss/defaultTheme';
  *     neutrals that match the customer app's tokens.
  *
  * The shadcn HSL `--primary` is wired to vendor blue in globals.css since
- * the vendor portal's dominant accent is blue, NOT brand orange.
+ * the vendor portal's dominant accent is blue, NOT brand green.
  */
 const config: Config = {
   darkMode: 'class',
@@ -23,42 +24,19 @@ const config: Config = {
     container: { center: true, padding: '1rem' },
     extend: {
       colors: {
-        // Feastpot brand palette - full scales for variants. Brand orange
-        // remains available for revenue/critical-accept actions.
-        brand: {
-          DEFAULT: '#E8520A',
-          light: '#FEF0E9',
-          dark: '#B33D07',
-          50: '#FEF0E9',
-          100: '#FDD8C4',
-          500: '#E8520A',
-          600: '#C94308',
-          700: '#B33D07',
-        },
-        teal: {
-          DEFAULT: '#1D9E75',
-          light: '#E1F5EE',
-          dark: '#0F6E56',
-          50: '#E1F5EE',
-          500: '#1D9E75',
-          600: '#178A65',
-          700: '#0F6E56',
-        },
-        vendor: {
-          DEFAULT: '#185FA5',
-          light: '#E5EEF7',
-          dark: '#0F4373',
-          50: '#E5EEF7',
-          500: '#185FA5',
-          600: '#13518D',
-          700: '#0F4373',
-        },
+        // Feastpot brand palette - full scales for variants, sourced from
+        // the shared @feastpot/ui/brand module so all apps rebrand from one
+        // file. `bg-brand` remains reserved for revenue/critical-accept
+        // actions.
+        brand: { ...brandColors.brand },
+        teal: { ...brandColors.teal },
+        vendor: { ...brandColors.vendor },
 
         // Mobile-only neutrals - same set as the customer app so cross-app
         // copy/paste of components is safe.
-        dark: '#1C1C1A',
-        mid: '#5F5E5A',
-        surface: '#F8F7F5',
+        dark: brandColors.charcoal.DEFAULT,
+        mid: brandColors.charcoal.mid,
+        surface: brandColors.surface.vendor,
 
         // shadcn/ui semantic tokens - bound to CSS vars in globals.css.
         background: 'hsl(var(--background))',

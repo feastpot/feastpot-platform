@@ -5,95 +5,101 @@ work that must be signed off before we publicly announce Feastpot. Treat each
 unchecked box as a launch blocker unless explicitly waived in the launch
 meeting notes.
 
+_Status pass: 31 July 2026 — boxes ticked below were verified against the live
+production API, the production database, or the current codebase on `main`.
+Unchecked boxes are annotated: **HUMAN** = needs a person/account access to
+verify or do; **GAP** = confirmed not done; **UNVERIFIED** = probably fine but
+not yet checked. See `go-live-checklist.md` for the prioritised narrative._
+
 ---
 
 ## 1. Technical
 
 ### Infrastructure & deployment
 
-- [ ] Production Supabase project provisioned (UK/EU region) with daily PITR backup enabled.
-- [ ] Production database has all migrations applied (`prisma migrate deploy`) and seed data sanity-checked.
-- [ ] Replit Autoscale deployment for `@feastpot/api` is healthy (`/healthz` returns 200) on `api.feastpot.co.uk`.
-- [ ] Vercel projects deployed for `apps/web` (`feastpot.co.uk`), `apps/vendor` (`vendor.feastpot.co.uk`) and `apps/admin` (`admin.feastpot.co.uk`) with custom domains verified.
-- [ ] DNS A/CNAME + TXT records propagated; HTTPS certificates valid.
-- [ ] Cloudflare proxy disabled (DNS-only, grey cloud) for `api.feastpot.co.uk` to avoid websocket/mTLS issues.
-- [ ] Production secrets present in Replit + Vercel: see `.github/workflows/deploy.yml` header for the full list.
-- [ ] Redis (queues) provisioned, accessible from API only, and BullMQ dashboard credentials rotated.
+- [ ] Production Supabase project provisioned (UK/EU region) with daily PITR backup enabled. **GAP — prod still runs on the shared dev/prod project (ref `zibmwuzxgydlvapiddhf`). Startup guard exists but is warn-only until a dedicated project lands (`REQUIRE_DEDICATED_SUPABASE=true`). PITR status unknown.**
+- [x] Production database has all migrations applied and history baselined (all 35 recorded clean, verified 30 Jul; deploys no-op).
+- [x] Deployment for `@feastpot/api` is healthy (`/v1/healthz` returns `ok`) on `api.feastpot.co.uk`. _(Note: it's a Reserved VM, not Autoscale — required so queue workers + crons run in-process.)_
+- [x] Vercel projects deployed for `apps/web`, `apps/vendor`, `apps/admin` — all three domains respond (verified 30 Jul).
+- [x] DNS + HTTPS working on all four domains (implicitly verified — all serve over HTTPS).
+- [ ] Cloudflare proxy disabled (DNS-only) for `api.feastpot.co.uk`. **HUMAN — check the Cloudflare dashboard.**
+- [x] Production secrets present: healthz `secrets: ok`, Stripe `live`, email + WhatsApp configured, all 10 Twilio Content SIDs set (verified 30 Jul).
+- [x] Redis provisioned (TLS, non-local — healthz `redisSecurity` green); Bull Board gated by basic auth (`admin` / `BULL_BOARD_PASSWORD`). **HUMAN — rotate the password if it predates launch.**
 
 ### Codebase quality
 
-- [ ] `npm run ci` passes on `main` (lint, typecheck, test, build).
-- [ ] Test coverage ≥ 70% for `@feastpot/api` (enforced in CI).
-- [ ] Architect review completed for admin panel, payments and dispute flows; all critical findings closed.
-- [ ] All `TODO/FIXME` comments triaged into the launch backlog or removed.
+- [x] CI green on `main`: Lint, Typecheck, Test, Prisma validate, Build (last verified 31 Jul, PR #30).
+- [x] Test coverage ≥ 70% for `@feastpot/api` — enforced in CI and passing.
+- [x] Architect review completed for admin panel, payments and dispute flows (audit sections 1–9, complete 30 Jul; financial-integrity findings all closed).
+- [x] All `TODO/FIXME` comments triaged — codebase sweep found zero markers (30 Jul).
 
 ### Performance & PWA
 
-- [ ] Lighthouse mobile run on `feastpot.co.uk` scores ≥ 90 Performance, 100 Accessibility, 100 Best Practices, 100 SEO.
-- [ ] PWA installable on iOS Safari and Android Chrome; offline page reachable.
-- [ ] Service worker `skipWaiting`/`clientsClaim` confirmed working with a forced re-deploy.
-- [ ] `/sitemap.xml` reachable, includes vendor URLs, and submitted to Google Search Console + Bing Webmaster.
-- [ ] `robots.txt` is correct (no inadvertent `Disallow: /`).
+- [ ] Lighthouse mobile run on `feastpot.co.uk` ≥ 90/100/100/100. **HUMAN — run against production.**
+- [ ] PWA installable on iOS Safari and Android Chrome; offline page reachable. **HUMAN — device test.**
+- [ ] Service worker update flow confirmed with a forced re-deploy. **HUMAN.**
+- [ ] `/sitemap.xml` correct and submitted to Google Search Console + Bing. **PARTIAL — the LIVE sitemap correctly uses `https://feastpot.co.uk` (verified 31 Jul; the localhost copies in the repo were just stale local-build artifacts, now gitignored). Remaining: HUMAN — submit to Search Console + Bing.**
+- [x] `robots.txt` correct — live version verified 31 Jul: correct host/sitemap URLs, sensible Allow/Disallow rules.
 
 ### Security
 
-- [ ] HoundDog / SAST scan green; dependency audit shows no Critical or unresolved High issues.
-- [ ] Stripe live keys in production only; test keys cannot reach prod.
-- [ ] CORS allow-list locked to production origins (`feastpot.co.uk`, `vendor.feastpot.co.uk`, `admin.feastpot.co.uk`).
-- [ ] Rate limits (`ThrottlerModule`) reviewed for auth, webhook and dispute endpoints.
-- [ ] CSP and security headers (helmet) verified via securityheaders.com (A or A+).
+- [ ] HoundDog / SAST scan green; dependency audit clean. **UNVERIFIED — re-run before announcement.**
+- [x] Stripe live keys in production only — `resolveStripeEnv` selects LIVE/TEST by `NODE_ENV`; prod healthz confirms `stripe: "live"`.
+- [ ] CORS allow-list locked to production origins. **UNVERIFIED — prod origins are present, but `localhost:3000/3002/3003` are also in the list in `apps/api/src/main.ts`; confirm that's acceptable or gate by env.**
+- [x] Rate limits reviewed — Redis-backed ThrottlerModule with role-aware guard is in place.
+- [ ] CSP and security headers verified via securityheaders.com (A or A+). **HUMAN — helmet is wired in the API; run the external scan on all four domains.**
 
 ---
 
 ## 2. Legal & compliance
 
-- [ ] `/legal/terms` published with Last updated: May 2026; reviewed by counsel.
-- [ ] `/legal/privacy` published; ICO registration number replaced (placeholder `ZA000000`).
-- [ ] `/legal/allergens` published; allergen icons render on iOS, Android, Windows.
-- [ ] Cookie banner displays on first visit and persists "accept" in localStorage.
-- [ ] Data Processing Agreements (DPAs) signed with Stripe, Supabase, Twilio, Resend, Cloudflare R2.
-- [ ] International transfer mechanism documented (UK IDTA / EU SCCs) for each non-UK processor.
-- [ ] Data Protection Impact Assessment (DPIA) completed and stored with the legal team.
-- [ ] Vendor terms separate from customer terms — both linked from the relevant onboarding flows.
-- [ ] Refund policy (24h dispute window, 5-day refund) consistent across web, vendor portal and emails.
+- [ ] `/legal/terms` reviewed by counsel. **HUMAN.**
+- [x] `/legal/privacy` published with the real ICO registration number (`ZC146267` in `legal-constants.ts` — placeholder removed).
+- [ ] `/legal/allergens` icon rendering across iOS/Android/Windows. **HUMAN — device check; page is published.**
+- [ ] Cookie banner displays on first visit and persists "accept". **UNVERIFIED — component exists (`cookie-banner.tsx`); browser-test the persistence.**
+- [ ] DPAs signed with Stripe, Supabase, Twilio, Resend, Cloudflare R2. **HUMAN.**
+- [ ] International transfer mechanism documented (UK IDTA / EU SCCs). **HUMAN.**
+- [ ] DPIA completed and stored with the legal team. **HUMAN.**
+- [x] Vendor terms separate from customer terms — both published (`/legal/vendor-terms` appears in Google results).
+- [ ] Refund policy consistent across web, vendor portal and emails. **UNVERIFIED — spot-check the three surfaces.**
 
 ---
 
 ## 3. Vendor readiness
 
-- [ ] Minimum **N** launch vendors verified per launch borough (target: 5+ each in Peckham, Tottenham, Brixton, Stratford).
-- [ ] Each launch vendor has: FHRS rating ≥ 4, public liability insurance uploaded, allergen training certificate, completed Stripe Connect onboarding.
-- [ ] All launch vendors have at least 5 published menu items with photos and allergen tags.
-- [ ] Vendor portal walks through onboarding without dead ends (manually QA'd end-to-end).
-- [ ] Sample payout cycle (Monday) executed against a test vendor — funds settle correctly and admin Stripe-reconcile shows zero discrepancy.
-- [ ] Vendor support runbook published (escalation path, refund policy, dispute SLAs).
+- [ ] Minimum 5+ verified vendors per launch borough. **HUMAN — operations.**
+- [ ] Each launch vendor: FHRS ≥ 4, insurance, allergen training, Stripe Connect complete. **HUMAN — operations.**
+- [ ] All launch vendors have 5+ published menu items with photos and allergen tags. **HUMAN — operations.**
+- [ ] Vendor portal onboarding QA'd end-to-end with no dead ends. **HUMAN.**
+- [ ] Sample payout cycle executed — funds settle, zero reconcile discrepancy. **HUMAN — the top remaining engineering-adjacent gate. First live run since the service-fee retention fix: verify the paid amount excludes the customer service fee. Procedure: `docs/runbooks/payout-dry-run.md`.**
+- [ ] Vendor support runbook published. **HUMAN.**
 
 ---
 
 ## 4. Customer readiness
 
-- [ ] Homepage hero, postcode search and cuisine filter rendering correctly on iOS Safari, Android Chrome, desktop Chrome/Firefox/Safari.
-- [ ] SEO landing pages (`/nigerian-food-delivery-london`, `/ghanaian-food-delivery-london`, `/caribbean-food-delivery-london`) published with vendor lists populated.
-- [ ] `/help` FAQ live with current support email and WhatsApp number.
-- [ ] Test order flow E2E: postcode → vendor → basket → Stripe checkout → confirmation email → push notification → delivery → review.
-- [ ] Test refund flow E2E: customer raises dispute → admin resolves → refund hits test card.
-- [ ] Marketing landing emails (Resend) configured: order confirmation, dispute resolved, payout summary (vendor).
-- [ ] Cookie banner + privacy + terms links visible from every page.
-- [ ] App icons + Open Graph images render correctly when shared on WhatsApp, iMessage, Twitter, LinkedIn.
+- [ ] Homepage rendering across iOS Safari / Android Chrome / desktop browsers. **HUMAN — device pass.**
+- [x] SEO landing pages published (`/nigerian-food-delivery-london`, `/ghanaian-food-delivery-london`, `/caribbean-food-delivery-london` all exist in `apps/web`).
+- [ ] `/help` FAQ live with current support email and WhatsApp number. **UNVERIFIED — page is live but falls back to hardcoded contacts (`+447459774818` / `support@feastpot.co.uk`) when `NEXT_PUBLIC_SUPPORT_*` env vars are unset; confirm these are the real launch contacts.**
+- [ ] Test order flow E2E on production (postcode → checkout → delivery → review). **HUMAN — launch rehearsal.**
+- [ ] Test refund flow E2E on production. **HUMAN — launch rehearsal.**
+- [x] Transactional emails configured (Resend) — order confirmation, dispute, payout templates exist and prod healthz shows email configured.
+- [ ] Cookie banner + privacy + terms links visible from every page. **UNVERIFIED — footer links exist; spot-check coverage.**
+- [ ] App icons + Open Graph images render correctly when shared. **UNVERIFIED — OG images were rebranded to green on 30 Jul; after the Vercel deploy, re-test shares on WhatsApp/iMessage/LinkedIn and request Google re-indexing (task #74).**
 
 ---
 
 ## 5. Monitoring & observability
 
-- [ ] Sentry projects created for `apps/api`, `apps/web`, `apps/vendor`, `apps/admin`; release health enabled.
-- [ ] `SENTRY_DSN` set in production env for every app; first synthetic error confirmed in dashboard.
-- [ ] Replit deployment logs accessible to ops; alerting configured for repeated `ERROR` lines.
-- [ ] BullMQ queue depth + DLQ alerts configured (PagerDuty or Slack).
-- [ ] Stripe webhook endpoint subscribed to: `payment_intent.succeeded`, `payment_intent.payment_failed`, `transfer.created`, `refund.updated`. Signing secret stored as `STRIPE_WEBHOOK_SECRET`.
-- [ ] Database alerts: connection saturation, replication lag, slow queries (>1s) for all admin/dispute/payout endpoints.
-- [ ] Uptime monitoring (e.g. Better Uptime, Cronitor) for `https://feastpot.co.uk`, `https://api.feastpot.co.uk/healthz`, `https://vendor.feastpot.co.uk`, `https://admin.feastpot.co.uk`.
-- [ ] On-call rota documented with primary + secondary engineers; runbooks linked from Slack channel topic.
-- [ ] Status page (e.g. statuspage.io / instatus) live at `status.feastpot.co.uk` with public component map.
+- [ ] Sentry projects for all four apps with release health. **UNVERIFIED — the API reports to Sentry (alerts fired historically); confirm the three frontends have DSNs set in Vercel.**
+- [ ] `SENTRY_DSN` in production env for every app; synthetic error confirmed. **HUMAN.**
+- [x] Deployment logs accessible to ops (Replit deployment log access verified in practice during the 30 Jul incident).
+- [ ] BullMQ queue depth + DLQ alerts to PagerDuty/Slack. **PARTIAL — a DLQ monitor emails admins a daily digest; no pager/Slack integration. Related open tasks: failed-payout recovery and admin resend screen.**
+- [x] Stripe webhook endpoint subscribed and verified — signing secret set, events flowing (dispute + transfer events observed in prod), handled-event allow-list kept in sync in code.
+- [ ] Database alerts: connection saturation, slow queries. **HUMAN — configure in Supabase dashboard.**
+- [x] Uptime monitoring live — it correctly caught the 30 Jul deploy outage within minutes.
+- [ ] On-call rota documented. **HUMAN.**
+- [ ] Status page at `status.feastpot.co.uk`. **GAP — not set up.**
 
 ---
 

@@ -18,7 +18,7 @@ import { useAnalytics } from '@/hooks/use-analytics';
 import { formatPence } from '@/lib/format';
 
 // Recharts can't read CSS vars at draw time — keep these as literals.
-const BRAND_ORANGE = '#E8520A';
+const BRAND_GREEN = '#00843D';
 const VENDOR_BLUE = '#185FA5';
 const GRID_GREY = '#F0EDE8';
 
@@ -146,7 +146,7 @@ export function AnalyticsClient() {
                   labelStyle={{ color: '#1C1C1A', fontWeight: 600 }}
                   formatter={(v: number) => [`£${v.toFixed(2)}`, 'Revenue']}
                 />
-                <Bar dataKey="revenue" fill={BRAND_ORANGE} radius={[6, 6, 0, 0]} />
+                <Bar dataKey="revenue" fill={BRAND_GREEN} radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           )}

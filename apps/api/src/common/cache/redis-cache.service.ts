@@ -164,6 +164,22 @@ export class RedisCacheService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  /**
+   * Atomic SET-if-absent with TTL (`SET key value NX EX ttl`). Returns true
+   * when this caller won the key (it did not exist), false when it already
+   * existed or Redis is unavailable. Use for cross-invocation leases/dedupe
+   * where a get-then-set race would double-fire.
+   */
+  async setIfAbsent(key: string, value: unknown, ttlSeconds: number): Promise<boolean> {
+    if (!this.client) return false;
+    try {
+      const res = await this.client.set(key, JSON.stringify(value), 'EX', ttlSeconds, 'NX');
+      return res === 'OK';
+    } catch {
+      return false;
+    }
+  }
+
   async del(key: string): Promise<void> {
     if (!this.client) return;
     try {

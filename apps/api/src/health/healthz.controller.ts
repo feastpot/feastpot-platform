@@ -59,3 +59,75 @@ export class HealthzController {
     return this.delegate.healthz(res);
   }
 }
+
+type ComponentState = 'operational' | 'degraded' | 'down';
+
+/**
+ * Minimal PUBLIC status contract for the customer-facing status page.
+ *
+ * Deliberately narrow (review finding): unlike `/healthz` it exposes NO
+ * queue counts, dependency configuration, secret status, Supabase project
+ * identity or version info — only coarse per-component states. Anything a
+ * status page shows is world-readable, so keep this to what a customer
+ * legitimately needs to know.
+ */
+@SkipThrottle()
+@ApiTags('health')
+@Controller({ path: 'statusz', version: [VERSION_NEUTRAL, '1'] })
+export class StatuszController {
+  private readonly delegate: HealthController;
+
+  constructor(
+    prisma: PrismaService,
+    cache: RedisCacheService,
+    @InjectQueue(NOTIFICATIONS_QUEUE) notifications: Queue,
+    @InjectQueue(STRIPE_WEBHOOK_QUEUE) stripeWebhooks: Queue,
+    @InjectQueue(PAYOUTS_QUEUE) payouts: Queue,
+    @InjectQueue(COMPLIANCE_QUEUE) compliance: Queue,
+  ) {
+    this.delegate = new HealthController(
+      prisma,
+      cache,
+      notifications,
+      stripeWebhooks,
+      payouts,
+      compliance,
+    );
+  }
+
+  @Public()
+  @Get()
+  async statusz(@Res({ passthrough: true }) res: Response): Promise<{
+    status: 'ok' | 'degraded' | 'down';
+    timestamp: string;
+    components: Record<string, ComponentState>;
+  }> {
+    const full = await this.delegate.healthz(res);
+    const checks = full.checks;
+
+    const queues = checks.queues as Record<string, { failed?: number } | string>;
+    let failedJobs = 0;
+    let queuesBroken = false;
+    for (const value of Object.values(queues ?? {})) {
+      if (typeof value === 'string') queuesBroken = true;
+      else failedJobs += value.failed ?? 0;
+    }
+
+    const componentState = (ok: boolean, degraded = false): ComponentState =>
+      ok ? (degraded ? 'degraded' : 'operational') : 'down';
+
+    return {
+      status: full.status,
+      timestamp: full.timestamp,
+      components: {
+        api: componentState(full.status !== 'down', full.status === 'degraded'),
+        database: componentState(checks.database === 'ok'),
+        backgroundProcessing: componentState(
+          checks.redis === 'ok' && !queuesBroken,
+          failedJobs > 0,
+        ),
+        payments: componentState(checks.stripe === 'live' || checks.stripe === 'test'),
+      },
+    };
+  }
+}

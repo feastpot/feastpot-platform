@@ -19,7 +19,7 @@ import { AuthModule } from './auth/auth.module';
 import { CacheModule } from './common/cache/cache.module';
 import { RoleThrottlerGuard } from './common/guards/role-throttler.guard';
 import { HealthController } from './health/health.controller';
-import { HealthzController } from './health/healthz.controller';
+import { HealthzController, StatuszController } from './health/healthz.controller';
 import { AddressesModule } from './modules/addresses/addresses.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { bullBoardBasicAuth } from './modules/admin/bull-board.middleware';
@@ -366,7 +366,7 @@ import { RootController } from './root.controller';
     WebhooksModule,
     AdminModule,
   ],
-  controllers: [RootController, HealthController, HealthzController],
+  controllers: [RootController, HealthController, HealthzController, StatuszController],
   providers: [
     // Captures unhandled exceptions in HTTP/RPC/WS contexts and forwards them
     // to Sentry before delegating to Nest's default error handling.

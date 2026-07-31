@@ -8,7 +8,7 @@ interface PageHeaderProps {
 
 /**
  * Editorial page header used by every admin route. Renders a large,
- * extra-bold display title with a short brand-orange underline accent
+ * extra-bold display title with a short brand-green underline accent
  * (matches the FeastPot admin redesign), an optional sub-description,
  * and a right-aligned actions slot for primary CTAs (Export, New, etc.).
  *

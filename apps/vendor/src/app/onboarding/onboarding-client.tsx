@@ -1,6 +1,7 @@
 'use client';
 
 import { Badge, Button, Card, CardContent } from '@feastpot/ui';
+import { brandColors } from '@feastpot/ui/brand';
 import { Check, ExternalLink, Upload } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -231,7 +232,7 @@ export function OnboardingClient({ vendor }: { vendor: VendorSummary }) {
  * - Circle border + fill colour shifts as the vendor advances:
  *   future steps = muted cream, current = white-on-brand outline,
  *   complete = solid brand with a check.
- * - Connector line between circles fills brand orange once a step is
+ * - Connector line between circles fills brand green once a step is
  *   passed, giving the same visual "progress bar" cue Stripe and
  *   Deliveroo use on their partner onboarding flows.
  * - The whole strip is decorative for AT users - the underlying step
@@ -245,7 +246,7 @@ function StepIndicator({ currentStep }: { currentStep: 1 | 2 | 3 | 4 }) {
       style={{
         padding: '16px',
         background: 'white',
-        border: '1px solid #EDE4D4',
+        border: `1px solid ${brandColors.cream.border}`,
         borderRadius: '12px',
       }}
     >
@@ -280,7 +281,7 @@ function StepIndicator({ currentStep }: { currentStep: 1 | 2 | 3 | 4 }) {
                     left: '50%',
                     right: '-50%',
                     height: '2px',
-                    background: isDone ? '#E8520A' : '#EDE4D4',
+                    background: isDone ? brandColors.brand.DEFAULT : brandColors.cream.border,
                     zIndex: 0,
                   }}
                 />
@@ -291,13 +292,22 @@ function StepIndicator({ currentStep }: { currentStep: 1 | 2 | 3 | 4 }) {
                   height: '32px',
                   borderRadius: '50%',
                   border: '2px solid',
-                  borderColor: isDone || isCurrent ? '#E8520A' : '#BDBBB7',
-                  background: isDone ? '#E8520A' : isCurrent ? 'white' : '#F5EDE0',
-                  // Numeral colours bumped for WCAG AA at small sizes:
-                  //   future = #5F5E5A on #F5EDE0 → ~6:1 (was #9B9894/#FBF6EF ≈ 2.7:1)
-                  //   current = #B8410A on white → ~5.6:1 (was #E8520A ≈ 3.4:1)
-                  //   done = white on #E8520A → ~4.8:1 (unchanged)
-                  color: isDone ? 'white' : isCurrent ? '#B8410A' : '#5F5E5A',
+                  borderColor:
+                    isDone || isCurrent ? brandColors.brand.DEFAULT : brandColors.charcoal.soft,
+                  background: isDone
+                    ? brandColors.brand.DEFAULT
+                    : isCurrent
+                      ? 'white'
+                      : brandColors.cream.muted,
+                  // Numeral colours kept WCAG AA at small sizes (green rebrand):
+                  //   future = charcoal-mid on cream-muted → ~6:1
+                  //   current = brand-dark on white → ~8.6:1
+                  //   done = white on brand green → ~4.9:1
+                  color: isDone
+                    ? 'white'
+                    : isCurrent
+                      ? brandColors.brand.dark
+                      : brandColors.charcoal.mid,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -312,10 +322,11 @@ function StepIndicator({ currentStep }: { currentStep: 1 | 2 | 3 | 4 }) {
               <span
                 style={{
                   fontSize: '10px',
-                  // #5F5E5A (charcoal-mid) on white is ~7.5:1, well above
-                  // WCAG AA - the spec's #9B9894 was 3.2:1 and would have
-                  // failed at this size.
-                  color: isDone || isCurrent ? '#1C1C1A' : '#5F5E5A',
+                  // charcoal-mid on white is ~7.5:1, well above WCAG AA -
+                  // the spec's #9B9894 was 3.2:1 and would have failed at
+                  // this size.
+                  color:
+                    isDone || isCurrent ? brandColors.charcoal.DEFAULT : brandColors.charcoal.mid,
                   marginTop: '6px',
                   fontWeight: isCurrent ? 600 : 500,
                   textAlign: 'center',

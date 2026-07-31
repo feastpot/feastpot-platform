@@ -24,7 +24,7 @@ export default function SignInPage() {
 function SignInChrome({ children }: { children: React.ReactNode }) {
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-emerald-900 via-emerald-800 to-emerald-950 p-6">
-      {/* soft brand-orange glow in the background to echo the FeastPot palette */}
+      {/* soft brand-green glow in the background to echo the FeastPot palette */}
       <div
         aria-hidden
         className="pointer-events-none absolute -top-32 -left-32 h-96 w-96 rounded-full bg-brand/20 blur-3xl"
