@@ -7,13 +7,16 @@ import { useCallback, useEffect, useState } from 'react';
  * reachable when the API (Replit VM) is down — the checks run client-side
  * from the visitor's browser:
  *
- *  - API: real JSON fetch of /v1/healthz (its origin allow-list includes
- *    status.feastpot.co.uk and feastpot.co.uk).
- *  - Web / vendor / admin: `no-cors` pings — the response is opaque, but a
- *    resolved fetch means the host is reachable and serving.
+ *  - API: real JSON fetch of /v1/statusz — a deliberately MINIMAL public
+ *    status contract (coarse component states only; no queue counts, config
+ *    or infrastructure detail). The API's CORS allow-list includes
+ *    status.feastpot.co.uk and feastpot.co.uk.
+ *  - Web / vendor / admin: `no-cors` pings. The response is opaque, so these
+ *    only prove the host is REACHABLE (they're labelled as such), not that
+ *    the app is fully healthy.
  */
 
-const API_HEALTHZ = 'https://api.feastpot.co.uk/v1/healthz';
+const API_STATUSZ = 'https://api.feastpot.co.uk/v1/statusz';
 
 type ComponentState = 'operational' | 'degraded' | 'down' | 'checking';
 
@@ -24,19 +27,9 @@ interface ComponentStatus {
   detail?: string;
 }
 
-interface HealthzQueues {
-  [name: string]: { waiting: number; active: number; failed: number };
-}
-
-interface HealthzResponse {
-  status: string;
-  checks?: {
-    database?: string;
-    redis?: string;
-    queues?: HealthzQueues;
-    stripe?: string;
-    notifications?: { email?: string; whatsapp?: string };
-  };
+interface StatuszResponse {
+  status: 'ok' | 'degraded' | 'down';
+  components?: Record<string, 'operational' | 'degraded' | 'down'>;
 }
 
 async function pingOpaque(url: string): Promise<boolean> {
@@ -48,47 +41,27 @@ async function pingOpaque(url: string): Promise<boolean> {
   }
 }
 
+const COMPONENT_LABELS: Record<string, string> = {
+  api: 'Ordering API',
+  database: 'Database',
+  backgroundProcessing: 'Background processing',
+  payments: 'Payments',
+};
+
 async function checkApi(): Promise<ComponentStatus[]> {
   try {
-    const res = await fetch(API_HEALTHZ, {
+    const res = await fetch(API_STATUSZ, {
       cache: 'no-store',
       signal: AbortSignal.timeout(10_000),
     });
-    if (!res.ok) {
-      return [{ id: 'api', label: 'Ordering API', state: 'down', detail: `HTTP ${res.status}` }];
-    }
-    const body = (await res.json()) as HealthzResponse;
-    const checks = body.checks ?? {};
-    const queues = checks.queues ?? {};
-    const failedJobs = Object.values(queues).reduce((sum, q) => sum + (q.failed ?? 0), 0);
-
-    const apiState: ComponentState =
-      body.status === 'ok' ? 'operational' : body.status === 'degraded' ? 'degraded' : 'down';
-
-    return [
-      { id: 'api', label: 'Ordering API', state: apiState },
-      {
-        id: 'database',
-        label: 'Database',
-        state: checks.database === 'ok' ? 'operational' : 'down',
-      },
-      {
-        id: 'queues',
-        label: 'Background processing',
-        state: checks.redis === 'ok' ? (failedJobs > 0 ? 'degraded' : 'operational') : 'down',
-        detail: failedJobs > 0 ? `${failedJobs} failed job(s)` : undefined,
-      },
-      {
-        id: 'payments',
-        label: 'Payments (Stripe)',
-        state: checks.stripe === 'live' || checks.stripe === 'test' ? 'operational' : 'down',
-      },
-      {
-        id: 'notifications',
-        label: 'Notifications',
-        state: checks.notifications?.email === 'configured' ? 'operational' : ('degraded' as const),
-      },
-    ];
+    // /statusz returns 503 with a JSON body when status is "down" - still
+    // parse it so we can show per-component detail instead of a blanket Down.
+    const body = (await res.json()) as StatuszResponse;
+    return Object.entries(body.components ?? {}).map(([id, state]) => ({
+      id,
+      label: COMPONENT_LABELS[id] ?? id,
+      state: state === 'operational' ? 'operational' : state === 'degraded' ? 'degraded' : 'down',
+    }));
   } catch {
     return [{ id: 'api', label: 'Ordering API', state: 'down', detail: 'Unreachable' }];
   }
@@ -119,10 +92,13 @@ export function StatusClient() {
       pingOpaque('https://vendor.feastpot.co.uk/'),
       pingOpaque('https://admin.feastpot.co.uk/'),
     ]);
+    // Opaque no-cors pings only prove reachability, not app health — say so
+    // honestly in the label (review finding).
     const site = (id: string, label: string, up: boolean): ComponentStatus => ({
       id,
       label,
       state: up ? 'operational' : 'down',
+      detail: up ? 'Reachable' : 'Unreachable',
     });
     setComponents([
       site('web', 'Customer website', webUp),

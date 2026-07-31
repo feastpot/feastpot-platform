@@ -57,13 +57,17 @@ export class DlqMonitorService {
   /**
    * Every 5 minutes: alert in (near) real time when a queue backs up.
    *
-   * Two conditions per queue:
-   *  - failed jobs >= QUEUE_ALERT_FAILED_THRESHOLD (default 1)
-   *  - waiting jobs >= QUEUE_ALERT_WAITING_THRESHOLD (default 100)
+   * Alerting policy (designed against alert fatigue — review finding):
+   *  - Alert on a CHANGE, not a standing state: failed-count INCREASE at or
+   *    above QUEUE_ALERT_FAILED_THRESHOLD (default 1), or waiting crossing
+   *    UP through QUEUE_ALERT_WAITING_THRESHOLD (default 100). Retained
+   *    historical failures do not re-page forever.
+   *  - A sustained-but-unchanged breach sends at most one hourly reminder,
+   *    leased via atomic SET NX EX so concurrent runs can't double-fire.
+   *  - The suppression lease is RELEASED if Slack delivery fails, so a
+   *    delivery blip doesn't swallow the alert for an hour.
    *
-   * Deduped per queue+condition via a 60-min Redis key so a sustained backlog
-   * produces one alert per hour, not one every 5 minutes. Complements (does
-   * not replace) the 09:00 daily email digest below.
+   * Complements (does not replace) the 09:00 daily email digest below.
    */
   @Cron('*/5 * * * *')
   async checkQueueDepths(): Promise<void> {
@@ -71,17 +75,47 @@ export class DlqMonitorService {
 
     const snapshots = await this.collectDepths();
     const breaches: string[] = [];
+    const leases: string[] = [];
 
     for (const snap of snapshots) {
-      if (snap.failed >= this.failedThreshold) {
-        if (await this.shouldAlert(`${snap.queue}:failed`)) {
-          breaches.push(`\`${snap.queue}\`: *${snap.failed} failed* job(s)`);
-        }
+      const prev = (await this.cache.get<QueueDepthSnapshot>(`queue-alert:last:${snap.queue}`)) ?? {
+        queue: snap.queue,
+        waiting: 0,
+        failed: 0,
+      };
+      // Persist the latest observation regardless of alerting outcome (2h TTL
+      // so a long Redis outage resets the baseline instead of going stale).
+      await this.cache.set(`queue-alert:last:${snap.queue}`, snap, 2 * 60 * 60);
+
+      const failedRose = snap.failed >= this.failedThreshold && snap.failed > prev.failed;
+      const failedSustained = snap.failed >= this.failedThreshold && snap.failed <= prev.failed;
+      const waitingCrossed =
+        snap.waiting >= this.waitingThreshold && prev.waiting < this.waitingThreshold;
+      const waitingSustained =
+        snap.waiting >= this.waitingThreshold && prev.waiting >= this.waitingThreshold;
+
+      if (
+        failedRose ||
+        (failedSustained && (await this.acquireLease(`${snap.queue}:failed`, leases)))
+      ) {
+        breaches.push(
+          `\`${snap.queue}\`: *${snap.failed} failed* job(s)${failedRose ? ` (was ${prev.failed})` : ' (ongoing)'}`,
+        );
       }
-      if (snap.waiting >= this.waitingThreshold) {
-        if (await this.shouldAlert(`${snap.queue}:waiting`)) {
-          breaches.push(`\`${snap.queue}\`: *${snap.waiting} waiting* (backlog)`);
-        }
+      if (
+        waitingCrossed ||
+        (waitingSustained && (await this.acquireLease(`${snap.queue}:waiting`, leases)))
+      ) {
+        breaches.push(
+          `\`${snap.queue}\`: *${snap.waiting} waiting* (backlog${waitingCrossed ? '' : ', ongoing'})`,
+        );
+      }
+
+      // Recovery notice: failed queue drained back to zero after being alerted.
+      if (snap.failed === 0 && prev.failed >= this.failedThreshold) {
+        breaches.push(
+          `\`${snap.queue}\`: :white_check_mark: failed jobs cleared (was ${prev.failed})`,
+        );
       }
     }
 
@@ -90,25 +124,30 @@ export class DlqMonitorService {
     const text =
       `:rotating_light: *Feastpot queue alert*\n${breaches.join('\n')}\n` +
       `Inspect via Bull Board: https://api.feastpot.co.uk/admin/queues`;
-    await this.sendSlack(text);
-  }
-
-  /** True once per key per hour (Redis-deduped). Fails open to alerting. */
-  private async shouldAlert(key: string): Promise<boolean> {
-    const cacheKey = `queue-alert:${key}`;
-    try {
-      if (await this.cache.get(cacheKey)) return false;
-      await this.cache.set(cacheKey, 1, 60 * 60);
-      return true;
-    } catch {
-      return true;
+    const delivered = await this.sendSlack(text);
+    if (!delivered) {
+      // Release reminder leases so the next run retries instead of waiting
+      // out the hour with the alert lost.
+      await Promise.all(leases.map((k) => this.cache.del(k)));
     }
   }
 
-  private async sendSlack(text: string): Promise<void> {
+  /**
+   * Atomically acquire the hourly reminder lease for a sustained breach.
+   * Records acquired keys in `leases` so a failed delivery can release them.
+   */
+  private async acquireLease(key: string, leases: string[]): Promise<boolean> {
+    const cacheKey = `queue-alert:lease:${key}`;
+    const won = await this.cache.setIfAbsent(cacheKey, 1, 60 * 60);
+    if (won) leases.push(cacheKey);
+    return won;
+  }
+
+  /** Returns true when the alert was delivered (or intentionally logged). */
+  private async sendSlack(text: string): Promise<boolean> {
     if (!this.slackWebhookUrl) {
       this.logger.warn(`Queue alert (no QUEUE_ALERT_SLACK_WEBHOOK_URL set): ${text}`);
-      return;
+      return true; // logged = delivered as far as retry policy is concerned
     }
     try {
       const res = await fetch(this.slackWebhookUrl, {
@@ -119,11 +158,13 @@ export class DlqMonitorService {
       });
       if (!res.ok) {
         this.logger.error(`Slack queue alert failed: HTTP ${res.status}`);
-      } else {
-        this.logger.log('Slack queue alert sent.');
+        return false;
       }
+      this.logger.log('Slack queue alert sent.');
+      return true;
     } catch (err) {
       this.logger.error(`Slack queue alert failed: ${(err as Error).message}`);
+      return false;
     }
   }
 

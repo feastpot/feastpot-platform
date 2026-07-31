@@ -34,29 +34,45 @@ Add to the workspace (temporarily, for the migration) as Replit Secrets:
   → Session mode
 - `NEW_SUPABASE_ANON_KEY`, `NEW_SUPABASE_SERVICE_ROLE_KEY`
 
-## 3. Schema + data copy (agent-runnable)
+## 3. Write freeze + consistent copy (agent-runnable, INSIDE the window)
+
+**The copy must be a single consistent snapshot.** Two separate dumps taken at
+different moments (or a dump while writes continue) will produce `public` rows
+referencing `auth` users that don't exist, or silently drop orders placed
+mid-copy. Therefore:
+
+1. **Freeze writes first.** Stop the API (Replit deployment → Stop) for the
+   window, or put it in maintenance mode. Verify no connections are writing:
+   `select count(*) from pg_stat_activity where state <> 'idle';`
+2. **One dump run, both schemas, same command** so they share a consistent
+   snapshot point:
 
 ```bash
-# 3.1 Schema (includes prisma migrations table so history carries over):
-pg_dump "$SUPABASE_DIRECT_URL" --schema=public --no-owner --no-privileges \
-  --format=custom --file=/tmp/prod-public.dump
+pg_dump "$SUPABASE_DIRECT_URL" --schema=public --schema=auth \
+  --no-owner --no-privileges --format=custom --file=/tmp/prod-snapshot.dump
 
-# 3.2 Auth users (Supabase-managed schema; needed so logins survive):
-pg_dump "$SUPABASE_DIRECT_URL" --schema=auth --data-only --no-owner \
-  --format=custom --file=/tmp/prod-auth-data.dump
-
-# 3.3 Restore public schema+data into the new project:
-pg_restore --dbname="$NEW_SUPABASE_DB_URL" --no-owner --no-privileges /tmp/prod-public.dump
-
-# 3.4 Restore auth data (schema already exists in every Supabase project):
-pg_restore --dbname="$NEW_SUPABASE_DB_URL" --data-only --disable-triggers /tmp/prod-auth-data.dump
+# Restore public (schema + data), then auth data only (the auth schema
+# already exists in every Supabase project; exclude Supabase-managed
+# bookkeeping like auth.schema_migrations via a filtered list):
+pg_restore --dbname="$NEW_SUPABASE_DB_URL" --schema=public --no-owner --no-privileges /tmp/prod-snapshot.dump
+pg_restore -l /tmp/prod-snapshot.dump | grep 'auth\.' | grep -v schema_migrations > /tmp/auth-data.list
+pg_restore --dbname="$NEW_SUPABASE_DB_URL" --data-only --disable-triggers -L /tmp/auth-data.list /tmp/prod-snapshot.dump
 ```
+
+3. **Validate the restore before cutover** (step 6's row-count and login
+   checks) — the API stays stopped until validation passes.
 
 Notes:
 
 - `auth.users` restore preserves user ids, so all `public.users` FK links hold.
-- If `pg_restore` reports pre-existing Supabase-seeded rows in `auth.schema_migrations`,
-  exclude that table (`-L` listing) and re-run — it's Supabase-managed.
+- The freeze lasts from dump to cutover — budget ~15–30 min. Everything in
+  steps 1–2 (project creation, hook SQL prepared, secrets staged) must be done
+  BEFORE the freeze starts so the window stays short.
+
+**Rollback:** the old project is untouched throughout. If validation fails at
+any point, simply restart the API with the old secrets — zero data was moved
+or mutated on the old project. Delete the half-restored new project's data and
+retry another day.
 
 ## 4. Re-apply the pieces a dump does NOT carry (agent-runnable)
 
@@ -87,10 +103,9 @@ In the Replit **deployment** secrets for the API, replace:
 In **Vercel** (all three frontends): `NEXT_PUBLIC_SUPABASE_URL` and
 `NEXT_PUBLIC_SUPABASE_ANON_KEY` → new values; redeploy.
 
-Republish the API. Because the freeze window is short, any orders placed
-between the dump (step 3) and cutover would be missing — either freeze
-checkout for the window, or re-run step 3.2/3.3 as an incremental delta just
-before flipping secrets.
+Republish the API. The write freeze from step 3 stays in effect until this
+republish completes — no orders can be placed against the old database after
+the snapshot, so nothing is lost in the gap.
 
 ## 6. Verify
 
