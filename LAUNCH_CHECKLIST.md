@@ -38,8 +38,8 @@ not yet checked. See `go-live-checklist.md` for the prioritised narrative._
 - [ ] Lighthouse mobile run on `feastpot.co.uk` ≥ 90/100/100/100. **HUMAN — run against production.**
 - [ ] PWA installable on iOS Safari and Android Chrome; offline page reachable. **HUMAN — device test.**
 - [ ] Service worker update flow confirmed with a forced re-deploy. **HUMAN.**
-- [ ] `/sitemap.xml` correct and submitted to Google Search Console + Bing. **GAP — the committed `apps/web/public/sitemap.xml` points at `http://localhost:3000`; it was generated without the production site URL. Regenerate with the prod URL (and re-check after every build), then submit.**
-- [ ] `robots.txt` correct. **GAP — same problem: `Host:` and `Sitemap:` lines reference `http://localhost:3000`. The Allow/Disallow rules themselves are sensible.**
+- [ ] `/sitemap.xml` correct and submitted to Google Search Console + Bing. **PARTIAL — the LIVE sitemap correctly uses `https://feastpot.co.uk` (verified 31 Jul; the localhost copies in the repo were just stale local-build artifacts, now gitignored). Remaining: HUMAN — submit to Search Console + Bing.**
+- [x] `robots.txt` correct — live version verified 31 Jul: correct host/sitemap URLs, sensible Allow/Disallow rules.
 
 ### Security
 
