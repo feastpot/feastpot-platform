@@ -59,6 +59,23 @@ module.exports = {
    * back to production if NEXT_PUBLIC_API_URL is unset (e.g. CI builds).
    */
   additionalPaths: async () => {
+    // Static occasion landing pages (apps/web/src/lib/occasions.ts).
+    const occasionPaths = [
+      'sunday-family-meal',
+      'birthday-party-trays',
+      'wedding-and-events',
+      'office-catering',
+      'weekly-meal-prep',
+      'baby-shower-food',
+      'small-chops',
+      'frozen-soup-packs',
+    ].map((slug) => ({
+      loc: `/occasions/${slug}`,
+      lastmod: new Date().toISOString(),
+      changefreq: 'monthly',
+      priority: 0.7,
+    }));
+
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.feastpot.co.uk';
     try {
       const res = await fetch(`${apiUrl}/v1/vendors?limit=1000&status=live`, {
@@ -68,11 +85,11 @@ module.exports = {
       if (!res.ok) {
         // eslint-disable-next-line no-console
         console.warn(`[sitemap] vendor fetch returned ${res.status}; skipping vendor URLs`);
-        return [];
+        return occasionPaths;
       }
       const json = await res.json();
       const vendors = Array.isArray(json?.data) ? json.data : [];
-      return vendors
+      const vendorPaths = vendors
         .filter((v) => v && typeof v.slug === 'string')
         .map((v) => ({
           loc: `/vendors/${v.slug}`,
@@ -80,10 +97,11 @@ module.exports = {
           changefreq: 'weekly',
           priority: 0.8,
         }));
+      return [...occasionPaths, ...vendorPaths];
     } catch (err) {
       // eslint-disable-next-line no-console
       console.warn('[sitemap] vendor fetch failed; building without vendor URLs', err);
-      return [];
+      return occasionPaths;
     }
   },
 };
