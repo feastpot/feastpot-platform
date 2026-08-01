@@ -385,7 +385,9 @@ export function VendorDetailClient({
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="font-medium">{SIGNAL_LABELS[s.signalType] ?? s.signalType}</span>
+                    <span className="font-medium">
+                      {SIGNAL_LABELS[s.signalType] ?? s.signalType}
+                    </span>
                     <StatusPill tone={SIGNAL_STATUS_TONE[s.status]}>
                       {s.status.replace('_', ' ')}
                     </StatusPill>

@@ -12,7 +12,9 @@ export class UpdateTrustSignalDto {
   @IsIn([TrustSignalStatus.verified, TrustSignalStatus.expired])
   status!: typeof TrustSignalStatus.verified | typeof TrustSignalStatus.expired;
 
-  @ApiPropertyOptional({ description: 'Optional evidence reference to record alongside the review' })
+  @ApiPropertyOptional({
+    description: 'Optional evidence reference to record alongside the review',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(500)
