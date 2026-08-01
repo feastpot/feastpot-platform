@@ -56,20 +56,6 @@ export class CapacityNotConfiguredError extends Error {
   }
 }
 
-/** Upsert would set total_slots below the slots already booked. */
-export class CapacityBelowBookedError extends Error {
-  readonly code = 'CAPACITY_BELOW_BOOKED' as const;
-  constructor(
-    readonly slotsTaken: number,
-    readonly requestedTotal: number,
-  ) {
-    super(
-      `total_slots ${requestedTotal} is below the ${slotsTaken} slots already booked`,
-    );
-    this.name = 'CapacityBelowBookedError';
-  }
-}
-
 // ---------------------------------------------------------------------------
 // Feature flag (T6)
 // ---------------------------------------------------------------------------
@@ -174,68 +160,36 @@ export async function getVerifiedTrustSignalsForVendors(
   return out;
 }
 
-export interface CapacityUpsertEntry {
-  serviceDate: string; // YYYY-MM-DD
-  capacityType: CapacityType;
-  totalSlots: number;
-  preorderCutoffAt: string | null; // ISO timestamp or null to clear
-}
-
 /**
- * Vendor-dashboard write path: upsert capacity rows for the vendor. Each
- * entry is applied inside one transaction with the row locked, and lowering
- * total_slots below slots already booked is rejected with a typed error
- * (mirrors the DB CHECK, but with a friendly message before Postgres growls).
+ * Batch capacity lookup for customer search/rail cards: next `days` days
+ * for many vendors in one query. Same row shape as getVendorAvailability,
+ * keyed by vendorId; vendors with no rows are absent.
  */
-export async function upsertVendorCapacity(
-  prisma: PrismaClient,
-  vendorId: string,
-  entries: CapacityUpsertEntry[],
-): Promise<CapacityDay[]> {
-  return prisma.$transaction(async (tx) => {
-    const results: CapacityDay[] = [];
-    for (const entry of entries) {
-      const serviceDate = new Date(`${entry.serviceDate}T00:00:00.000Z`);
-      const locked = await tx.$queryRaw<LockedCapacityRow[]>`
-        SELECT "id", "total_slots", "slots_taken", "preorder_cutoff_at"
-        FROM "vendor_capacity"
-        WHERE "vendor_id" = ${vendorId}::uuid
-          AND "service_date" = ${entry.serviceDate}::date
-          AND "capacity_type" = ${entry.capacityType}::"vendor_capacity_type"
-        FOR UPDATE
-      `;
-      const existing = locked[0];
-      if (existing && existing.slots_taken > entry.totalSlots) {
-        throw new CapacityBelowBookedError(existing.slots_taken, entry.totalSlots);
-      }
-      const row = existing
-        ? await tx.vendorCapacity.update({
-            where: { id: existing.id },
-            data: {
-              totalSlots: entry.totalSlots,
-              preorderCutoffAt: entry.preorderCutoffAt ? new Date(entry.preorderCutoffAt) : null,
-            },
-          })
-        : await tx.vendorCapacity.create({
-            data: {
-              vendorId,
-              serviceDate,
-              capacityType: entry.capacityType,
-              totalSlots: entry.totalSlots,
-              preorderCutoffAt: entry.preorderCutoffAt ? new Date(entry.preorderCutoffAt) : null,
-            },
-          });
-      results.push({
-        serviceDate: entry.serviceDate,
-        capacityType: row.capacityType,
-        totalSlots: row.totalSlots,
-        slotsTaken: row.slotsTaken,
-        remainingSlots: row.totalSlots - row.slotsTaken,
-        preorderCutoffAt: row.preorderCutoffAt ? row.preorderCutoffAt.toISOString() : null,
-      });
-    }
-    return results;
+export async function getCapacityForVendors(
+  db: Db,
+  vendorIds: string[],
+  days = 7,
+): Promise<Record<string, CapacityDay[]>> {
+  if (vendorIds.length === 0) return {};
+  const now = new Date();
+  const startDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const end = new Date(startDay.getTime() + days * 24 * 60 * 60 * 1000);
+  const rows = await db.vendorCapacity.findMany({
+    where: { vendorId: { in: vendorIds }, serviceDate: { gte: startDay, lt: end } },
+    orderBy: [{ serviceDate: 'asc' }, { capacityType: 'asc' }],
   });
+  const out: Record<string, CapacityDay[]> = {};
+  for (const r of rows) {
+    (out[r.vendorId] ??= []).push({
+      serviceDate: toIsoDate(r.serviceDate),
+      capacityType: r.capacityType,
+      totalSlots: r.totalSlots,
+      slotsTaken: r.slotsTaken,
+      remainingSlots: r.totalSlots - r.slotsTaken,
+      preorderCutoffAt: r.preorderCutoffAt ? r.preorderCutoffAt.toISOString() : null,
+    });
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------------------

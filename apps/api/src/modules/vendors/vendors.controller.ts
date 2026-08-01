@@ -44,7 +44,12 @@ import {
   VendorAnalyticsResponseDto,
 } from './dto/vendor-analytics.dto';
 import { VendorStatsResponseDto } from './dto/vendor-stats.dto';
-import { getVendorAvailability } from './vendor-capacity';
+import {
+  getCapacityForVendors,
+  getVendorAvailability,
+  getVendorTrustSignals,
+  getVerifiedTrustSignalsForVendors,
+} from './vendor-capacity';
 import { VendorsService } from './vendors.service';
 
 function requireUser(user: AuthUser | null): AuthUser {
@@ -239,6 +244,28 @@ export class VendorsController {
     return this.vendors.getDebugInfo(postcode);
   }
 
+  // Batch card data for search/rail cards: verified trust signals + the
+  // next-7-days capacity rows for up to 50 vendors in one round trip.
+  // Declared before @Get(':id') so "card-extras" is matched literally.
+  @Public()
+  @Get('card-extras')
+  @ApiOperation({
+    summary:
+      'Batch verified trust signals + 7-day capacity for vendor cards (public, ?ids=comma-separated UUIDs, max 50).',
+  })
+  async cardExtras(@Query('ids') ids?: string) {
+    const vendorIds = (ids ?? '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter((s) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s))
+      .slice(0, 50);
+    const [trustSignals, capacity] = await Promise.all([
+      getVerifiedTrustSignalsForVendors(this.prisma, vendorIds),
+      getCapacityForVendors(this.prisma, vendorIds),
+    ]);
+    return { trustSignals, capacity };
+  }
+
   @Public()
   @Get('by-slug/:slug')
   @ApiOperation({ summary: 'Get vendor by slug (public) - used by customer PWA' })
@@ -268,6 +295,22 @@ export class VendorsController {
       getVendorAvailability(this.prisma, id),
     ]);
     return { ...snapshot, capacity };
+  }
+
+  @Public()
+  @Get(':id/trust-signals')
+  @ApiOperation({
+    summary:
+      'Verified trust signals for a vendor (public, customer profile). Never exposes unverified signals, evidence references or verifier ids.',
+  })
+  async getTrustSignals(@Param('id', new ParseUUIDPipe()) id: string) {
+    const signals = await getVendorTrustSignals(this.prisma, id);
+    return {
+      signals: signals.map((s) => ({
+        signalType: s.signalType,
+        verifiedAt: s.verifiedAt ? s.verifiedAt.toISOString() : null,
+      })),
+    };
   }
 
   @Patch(':id')

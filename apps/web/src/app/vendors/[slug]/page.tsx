@@ -16,11 +16,20 @@ import { notFound } from 'next/navigation';
 import { FloatingBasketBar } from '@/components/basket/floating-basket-bar';
 import { MenuCategoryTabs } from '@/components/menu/menu-category-tabs';
 import { MenuItemCard } from '@/components/menu/menu-item-card';
+import { CapacityBand } from '@/components/vendor/capacity-band';
 import { CoverageBadge } from '@/components/vendor/coverage-badge';
 import { RatingBreakdown } from '@/components/vendor/rating-breakdown';
 import { ReviewsSection } from '@/components/vendor/reviews-section';
+import { TrustSignalPanel } from '@/components/vendor/trust-signal-panel';
 import { ApiError } from '@/lib/api/client';
-import { getVendorBySlug, type VendorMenuItem } from '@/lib/api/vendors';
+import {
+  getVendorBySlug,
+  getVendorCapacity,
+  getVendorTrustSignals,
+  type CapacityDay,
+  type VendorMenuItem,
+  type VerifiedTrustSignal,
+} from '@/lib/api/vendors';
 import { COVERAGE_COOKIE } from '@/lib/postcode';
 
 interface PageProps {
@@ -167,6 +176,21 @@ export default async function VendorProfilePage({ params }: PageProps) {
       ? vendor.distanceKm * 0.621371
       : null;
 
+  // Trust signals + capacity are additive niceties — a failure on either
+  // must never take down the profile page, so both fall back to empty.
+  let trustSignals: VerifiedTrustSignal[] = [];
+  let capacity: CapacityDay[] = [];
+  try {
+    const [signalsRes, capacityRes] = await Promise.all([
+      getVendorTrustSignals(vendor.id, { next: { revalidate: 300 } }),
+      getVendorCapacity(vendor.id, { next: { revalidate: 60 } }),
+    ]);
+    trustSignals = signalsRes.signals;
+    capacity = capacityRes.capacity;
+  } catch {
+    // Additive data only - render the profile without it.
+  }
+
   const allItems: VendorMenuItem[] = (vendor.menus ?? []).flatMap((m) => m.items ?? []);
   const grouped = groupByCategory(allItems);
   const categories = grouped.map(([key, items]) => ({
@@ -265,6 +289,16 @@ export default async function VendorProfilePage({ params }: PageProps) {
           />
         ) : null}
       </header>
+
+      {/* Trust signals (T2) + this week's capacity (T4) — both render null
+          when the vendor has nothing verified / no partially-booked dates,
+          so most vendors see no change here. */}
+      {(trustSignals.length > 0 || capacity.length > 0) && (
+        <div className="mt-9 space-y-3">
+          <TrustSignalPanel signals={trustSignals} />
+          <CapacityBand capacity={capacity} />
+        </div>
+      )}
 
       {/* VENDOR INFO CARD.
           The teal "Hygiene N/5" badge that used to sit next to the name is

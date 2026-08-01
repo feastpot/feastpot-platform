@@ -131,6 +131,68 @@ export function getVendorBySlug(
   });
 }
 
+// ─── Trust signals + capacity (interface layer for the capacity data layer) ──
+
+export type TrustSignalType =
+  | 'food_business_registration'
+  | 'hygiene_rating'
+  | 'identity_check'
+  | 'allergen_information'
+  | 'delivery_coverage'
+  | 'event_catering_experience'
+  | 'reliable_orders';
+
+export interface VerifiedTrustSignal {
+  signalType: TrustSignalType;
+  verifiedAt: string | null;
+}
+
+export type CapacityType = 'family_pot' | 'party_tray' | 'event_catering' | 'meal_prep';
+
+export interface CapacityDay {
+  serviceDate: string; // YYYY-MM-DD
+  capacityType: CapacityType;
+  totalSlots: number;
+  slotsTaken: number;
+  remainingSlots: number;
+  preorderCutoffAt: string | null;
+}
+
+/** Verified-only trust signals for the public vendor profile. */
+export function getVendorTrustSignals(
+  vendorId: string,
+  options: ApiRequestOptions = {},
+): Promise<{ signals: VerifiedTrustSignal[] }> {
+  return apiRequest<{ signals: VerifiedTrustSignal[] }>(
+    `/vendors/${vendorId}/trust-signals`,
+    options,
+  );
+}
+
+/** Availability snapshot incl. the additive `capacity` array (21 days). */
+export function getVendorCapacity(
+  vendorId: string,
+  options: ApiRequestOptions = {},
+): Promise<{ capacity: CapacityDay[] }> {
+  return apiRequest<{ capacity: CapacityDay[] }>(`/vendors/${vendorId}/availability`, options);
+}
+
+export interface VendorCardExtras {
+  trustSignals: Record<string, VerifiedTrustSignal[]>;
+  capacity: Record<string, CapacityDay[]>;
+}
+
+/** Batch trust signals + 7-day capacity for search-result cards (max 50 ids). */
+export function getVendorCardExtras(
+  vendorIds: string[],
+  options: ApiRequestOptions = {},
+): Promise<VendorCardExtras> {
+  return apiRequest<VendorCardExtras>('/vendors/card-extras', {
+    query: { ids: vendorIds.slice(0, 50).join(',') },
+    ...options,
+  });
+}
+
 export interface VendorReview {
   id: string;
   rating: number;

@@ -1,5 +1,6 @@
 'use client';
 
+import { useQuery } from '@tanstack/react-query';
 import { Search, WifiOff } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useRef, useState } from 'react';
@@ -13,7 +14,11 @@ import { VendorResultsHero } from '@/components/vendors/vendor-results-hero';
 import { VendorRowCard } from '@/components/vendors/vendor-row-card';
 import { VendorSearchBar } from '@/components/vendors/vendor-search-bar';
 import { useVendors } from '@/hooks/use-vendors';
-import type { SearchVendorsParams, VendorSortBy } from '@/lib/api/vendors';
+import {
+  getVendorCardExtras,
+  type SearchVendorsParams,
+  type VendorSortBy,
+} from '@/lib/api/vendors';
 import { readStoredPostcode, writeCoverageCookie, writeStoredPostcode } from '@/lib/postcode';
 
 /**
@@ -111,6 +116,18 @@ function VendorSearch() {
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, error, refetch } =
     useVendors(search, { enabled: postcodeSyncResolved });
   const vendors = data?.pages.flatMap((p) => p.data) ?? [];
+
+  // Batch trust-signal + capacity extras for the visible cards - one round
+  // trip for the whole list, keyed on the id set so pagination refetches.
+  // Capped to the endpoint's 50-id limit BEFORE keying, so deep pagination
+  // doesn't churn the cache key while silently refetching the same ids.
+  const vendorIds = vendors.slice(0, 50).map((v) => v.id);
+  const { data: cardExtras } = useQuery({
+    queryKey: ['vendors', 'card-extras', vendorIds],
+    queryFn: ({ signal }) => getVendorCardExtras(vendorIds, { signal }),
+    enabled: vendorIds.length > 0,
+    staleTime: 60_000,
+  });
 
   // Scroll-position restoration. Next 15's App Router doesn't restore
   // scroll on client-side back navigation, so tapping a vendor card and
@@ -297,7 +314,11 @@ function VendorSearch() {
               <ul className="space-y-3">
                 {vendors.map((v) => (
                   <li key={v.id}>
-                    <VendorRowCard vendor={v} />
+                    <VendorRowCard
+                      vendor={v}
+                      trustSignals={cardExtras?.trustSignals[v.id]}
+                      capacity={cardExtras?.capacity[v.id]}
+                    />
                   </li>
                 ))}
               </ul>
