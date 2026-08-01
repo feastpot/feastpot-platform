@@ -11,7 +11,10 @@ export default async function VendorDetailPage({ params }: { params: Promise<{ i
   const user = await requireStaff(`/vendors/${id}`, ['admin', 'compliance', 'support']);
   return (
     <StaffShell user={user}>
-      <VendorDetailClient vendorId={id} />
+      <VendorDetailClient
+        vendorId={id}
+        canReviewSignals={user.role === 'admin' || user.role === 'compliance'}
+      />
     </StaffShell>
   );
 }

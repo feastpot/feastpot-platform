@@ -89,6 +89,90 @@ export async function getVendorTrustSignals(db: Db, vendorId: string, includeUnv
   });
 }
 
+/** All seven signal types, in the enum's declaration order. */
+export const ALL_TRUST_SIGNAL_TYPES: TrustSignalType[] = Object.values(TrustSignalType);
+
+export interface AdminTrustSignal {
+  id: string | null;
+  vendorId: string;
+  signalType: TrustSignalType;
+  status: TrustSignalStatus;
+  evidenceReference: string | null;
+  verifiedAt: Date | null;
+  verifiedBy: string | null;
+  updatedAt: Date | null;
+}
+
+/**
+ * Admin view: every one of the seven signal types is returned, merging DB
+ * rows with synthetic `not_provided` placeholders for types that have no
+ * row yet (id === null for placeholders).
+ */
+export async function listVendorTrustSignalsForAdmin(
+  db: Db,
+  vendorId: string,
+): Promise<AdminTrustSignal[]> {
+  const rows = await db.vendorTrustSignal.findMany({ where: { vendorId } });
+  const byType = new Map(rows.map((r) => [r.signalType, r]));
+  return ALL_TRUST_SIGNAL_TYPES.map((signalType) => {
+    const row = byType.get(signalType);
+    return row
+      ? {
+          id: row.id,
+          vendorId: row.vendorId,
+          signalType: row.signalType,
+          status: row.status,
+          evidenceReference: row.evidenceReference,
+          verifiedAt: row.verifiedAt,
+          verifiedBy: row.verifiedBy,
+          updatedAt: row.updatedAt,
+        }
+      : {
+          id: null,
+          vendorId,
+          signalType,
+          status: TrustSignalStatus.not_provided,
+          evidenceReference: null,
+          verifiedAt: null,
+          verifiedBy: null,
+          updatedAt: null,
+        };
+  });
+}
+
+/**
+ * Admin write path: mark a signal `verified` or `expired`, recording who
+ * acted and when (verified_by = users.id, verified_at = now). Upserts so a
+ * signal can be verified even before the vendor has a row for it.
+ */
+export async function setVendorTrustSignalStatus(
+  db: Db,
+  vendorId: string,
+  signalType: TrustSignalType,
+  status: typeof TrustSignalStatus.verified | typeof TrustSignalStatus.expired,
+  verifiedByUserId: string,
+  evidenceReference?: string | null,
+) {
+  const now = new Date();
+  return db.vendorTrustSignal.upsert({
+    where: { vendorId_signalType: { vendorId, signalType } },
+    create: {
+      vendorId,
+      signalType,
+      status,
+      evidenceReference: evidenceReference ?? null,
+      verifiedAt: now,
+      verifiedBy: verifiedByUserId,
+    },
+    update: {
+      status,
+      verifiedAt: now,
+      verifiedBy: verifiedByUserId,
+      ...(evidenceReference !== undefined ? { evidenceReference } : {}),
+    },
+  });
+}
+
 export interface CapacityDay {
   serviceDate: string; // YYYY-MM-DD
   capacityType: CapacityType;

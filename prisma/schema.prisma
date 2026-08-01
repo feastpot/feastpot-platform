@@ -668,7 +668,7 @@ model Vendor {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
-  user                 User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user                 User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   menus                Menu[]
   menuItems            MenuItem[]
   deliveryConfig       DeliveryConfig?
@@ -678,10 +678,10 @@ model Vendor {
   payouts              Payout[]
   reviews              Review[]
   eventQuotes          EventQuote[]
-  selectedForEnquiries EventEnquiry[]     @relation("EventEnquirySelectedVendor")
+  selectedForEnquiries EventEnquiry[]      @relation("EventEnquirySelectedVendor")
   discountCodes        DiscountCode[]
   amendments           OrderAmendment[]
-  application          VendorApplication? @relation("VendorApplicationVendor")
+  application          VendorApplication?  @relation("VendorApplicationVendor")
   members              VendorMember[]
   trustSignals         VendorTrustSignal[]
   capacity             VendorCapacity[]

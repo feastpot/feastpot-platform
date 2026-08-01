@@ -113,7 +113,7 @@ export function OccasionGrid() {
         {OCCASIONS.map(({ Icon, tone, title, sub, q }) => (
           <li key={q}>
             <Link
-              href={`/?q=${q}#hero-headline`}
+              href={`/occasions/${q}#occasion-postcode`}
               className="group flex h-full flex-col gap-3 rounded-2xl border border-cream-deep bg-white p-5 shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card-lg"
             >
               <span

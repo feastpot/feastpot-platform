@@ -52,6 +52,60 @@ export function useVendorDocuments(vendorId: string) {
   });
 }
 
+export type TrustSignalType =
+  | 'food_business_registration'
+  | 'hygiene_rating'
+  | 'identity_check'
+  | 'allergen_information'
+  | 'delivery_coverage'
+  | 'event_catering_experience'
+  | 'reliable_orders';
+
+export type TrustSignalStatus = 'not_provided' | 'submitted' | 'verified' | 'expired';
+
+export interface VendorTrustSignal {
+  id: string | null;
+  vendorId: string;
+  signalType: TrustSignalType;
+  status: TrustSignalStatus;
+  evidenceReference: string | null;
+  verifiedAt: string | null;
+  verifiedBy: string | null;
+  updatedAt: string | null;
+}
+
+export function useVendorTrustSignals(vendorId: string) {
+  const { request, ready } = useApi();
+  return useQuery({
+    queryKey: ['admin', 'vendor', vendorId, 'trust-signals'],
+    enabled: ready && Boolean(vendorId),
+    queryFn: () => request<VendorTrustSignal[]>(`/admin/vendors/${vendorId}/trust-signals`),
+  });
+}
+
+export function useUpdateTrustSignal(vendorId: string) {
+  const { request } = useApi();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      signalType,
+      status,
+      evidenceReference,
+    }: {
+      signalType: TrustSignalType;
+      status: 'verified' | 'expired';
+      evidenceReference?: string;
+    }) =>
+      request(`/admin/vendors/${vendorId}/trust-signals/${signalType}`, {
+        method: 'PATCH',
+        body: { status, ...(evidenceReference !== undefined ? { evidenceReference } : {}) },
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'vendor', vendorId, 'trust-signals'] });
+    },
+  });
+}
+
 export function useVerifyDocument(vendorId: string) {
   const { request } = useApi();
   const qc = useQueryClient();

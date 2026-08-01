@@ -97,14 +97,14 @@ describe('RegisterVendorInterestDto validation', () => {
 
   describe('deliveryRadiusMiles', () => {
     it.each([0, -5, 101, 1000])('rejects out-of-range radius %p', async (radius) => {
-      await expectRejected({ ...validPayload(), deliveryRadiusMiles: radius }, 'deliveryRadiusMiles');
+      await expectRejected(
+        { ...validPayload(), deliveryRadiusMiles: radius },
+        'deliveryRadiusMiles',
+      );
     });
 
     it('rejects a non-integer radius', async () => {
-      await expectRejected(
-        { ...validPayload(), deliveryRadiusMiles: 2.5 },
-        'deliveryRadiusMiles',
-      );
+      await expectRejected({ ...validPayload(), deliveryRadiusMiles: 2.5 }, 'deliveryRadiusMiles');
     });
 
     it('rejects a non-numeric radius', async () => {
@@ -115,7 +115,10 @@ describe('RegisterVendorInterestDto validation', () => {
     });
 
     it.each([1, 100])('accepts boundary radius %p', async (radius) => {
-      const dto = await pipe.transform({ ...validPayload(), deliveryRadiusMiles: radius }, metadata);
+      const dto = await pipe.transform(
+        { ...validPayload(), deliveryRadiusMiles: radius },
+        metadata,
+      );
       expect(dto.deliveryRadiusMiles).toBe(radius);
     });
 
@@ -140,7 +143,10 @@ describe('RegisterVendorInterestDto validation', () => {
 
     it('rejects arrays longer than the known set', async () => {
       await expectRejected(
-        { ...validPayload(), orderTypes: Array(APPLICATION_ORDER_TYPES.length + 1).fill('family_pots') },
+        {
+          ...validPayload(),
+          orderTypes: Array(APPLICATION_ORDER_TYPES.length + 1).fill('family_pots'),
+        },
         'orderTypes',
       );
     });

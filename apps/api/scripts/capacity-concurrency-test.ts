@@ -48,9 +48,7 @@ async function main() {
   console.log('final row:', row);
 
   const successes = results.filter((r) => r.outcome === 'SUCCESS').length;
-  console.log(
-    successes === 1 && row.slotsTaken === 1 ? 'PASS: exactly one succeeded' : 'FAIL',
-  );
+  console.log(successes === 1 && row.slotsTaken === 1 ? 'PASS: exactly one succeeded' : 'FAIL');
 
   // releaseCapacity check: back to zero, clamped.
   const rel = await releaseCapacity(prisma, vendor.id, serviceDate, CapacityType.family_pot, 5);

@@ -4,6 +4,7 @@ import { PrismaModule } from '../../prisma/prisma.module';
 import { CatalogueModule } from '../catalogue/catalogue.module';
 import { VendorMembersModule } from '../vendor-members/vendor-members.module';
 
+import { VendorTrustSignalsController } from './vendor-trust-signals.controller';
 import { VendorsController } from './vendors.controller';
 import { VendorRepository } from './vendors.repository';
 import { VendorsService } from './vendors.service';
@@ -13,7 +14,7 @@ import { VendorsService } from './vendors.service';
   // for vendor logo/cover uploads (T005). CatalogueModule does not depend on
   // VendorsModule, so this introduces no circular import.
   imports: [PrismaModule, CatalogueModule, VendorMembersModule],
-  controllers: [VendorsController],
+  controllers: [VendorsController, VendorTrustSignalsController],
   providers: [VendorsService, VendorRepository],
   // PrismaModule is @Global, so VendorsService can inject PrismaService for stats
   // without re-importing it here.

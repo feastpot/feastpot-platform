@@ -1,0 +1,49 @@
+ROLE
+This task has two halves. Complete PART A fully, run its acceptance checks, then complete PART B. Do not interleave them.
+
+STEP 0 PRE-FLIGHT
+Report the existing metadata pattern used by the app, the sitemap generation file, and the homepage occasion card component. List the files you intend to create or edit. If that list exceeds 15 files, stop and report.
+
+PART A, OCCASION LANDING PAGES
+
+SCOPE
+You may create one dynamic route and its content data file, and edit the sitemap file and the homepage occasion cards.
+
+DO NOT TOUCH
+Postcode gating, vendor data access, the availability API, trust or capacity components, checkout, the payout formula, the 12% commission, the 5% service fee capped at 2.99.
+
+T1 Create a dynamic route at the occasions path for exactly these eight slugs: sunday-family-meal, birthday-party-trays, wedding-and-events, office-catering, weekly-meal-prep, baby-shower-food, small-chops, frozen-soup-packs. Use static generation for all eight. Return a 404 for any other slug.
+
+T2 Each page renders, in this order: an occasion-specific H1 such as "African and Caribbean party trays for birthdays", supporting copy describing typical portion sizes and lead times for that occasion, the existing postcode search form, and a three-question FAQ block.
+
+T3 The postcode form remains the gate. No vendor name, menu item, price or availability may render on these pages before a postcode is entered. This is a hard requirement.
+
+T4 Per-page metadata: title, description, canonical URL, Open Graph title, description and image. Add FAQPage JSON-LD built from the three questions.
+
+T5 Add all eight routes to the sitemap. Update the homepage occasion cards to link to these routes instead of the query parameter, while preserving the existing return of focus to the postcode input when a user arrives from a card.
+
+PART A ACCEPTANCE
+Confirm all eight routes build and return 200, and a ninth invented slug returns 404.
+View source on two pages and confirm the canonical URL and valid FAQPage JSON-LD.
+Confirm no vendor data appears in the page source before a postcode is entered. Paste the relevant source extract.
+
+PART B, REGRESSION GATE
+Produce a report as a table with columns check, status of pass, fail or not applicable, and evidence. Do not fix anything you find. List it and stop.
+
+B1 Feature preservation, confirm each still works: postcode gating, geolocation, occasion card behaviour, sign in, account, vendor application submission, Stripe checkout end to end, order state transitions, WhatsApp notification, email notification, admin panel, FeastPass and referral entry points, all six legal pages, the ICO registration line, PWA install and offline shell.
+
+B2 Copy audit, a repository search for each of the following must return zero results: "Verified kitchens", "All kitchens checked", "24/7", "500+", "4.8 / 5", "delivered to you", "we do the rest", "we handle the boring stuff". Paste the output for each.
+
+B3 Capacity edge cases, with the CAPACITY_ENFORCEMENT flag both off and on: two concurrent orders on the last slot, order cancellation releasing capacity, pre-order cut-off passing between basket and payment, a vendor reducing totalSlots below slotsTaken, and a service date spanning the British Summer Time boundary.
+
+B4 Trust signals: a vendor with zero verified signals renders no panel, an expired signal is not publicly visible, and an admin revoking a signal removes the badge on next render.
+
+B5 Commercials unchanged. Take one completed order from before this programme of work began and confirm the food subtotal, the 12% commission, the 5% service fee capped at 2.99, and the net vendor payout are identical to the stored record. Paste both sets of figures side by side. If any figure differs, mark the release as blocked.
+
+B6 Accessibility and performance: colour contrast ratio on the amber scarcity states, keyboard path from the hero through to the occasions anchor, screen reader labels on all capacity text, and Lighthouse scores for the homepage, one vendor profile and one occasion page.
+
+FORBIDDEN
+No fixes during PART B. No refactoring. No new dependencies. No changes to any file outside PART A scope.
+
+REPORT
+PART A file list and acceptance outputs, then the PART B table, then a single go or no-go recommendation with reasons.

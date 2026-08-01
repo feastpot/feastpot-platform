@@ -691,10 +691,7 @@ function CapacitySection({ token }: { token: string | null }) {
       {rows && rows.length > 0 && (
         <ul className="divide-y divide-border rounded-lg border border-border bg-white">
           {rows.map((r) => (
-            <li
-              key={r.id}
-              className="flex flex-wrap items-center justify-between gap-2 px-3 py-2"
-            >
+            <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-dark">
                   {formatHumanDate(r.serviceDate)} · {CAPACITY_TYPE_LABELS[r.capacityType]}
