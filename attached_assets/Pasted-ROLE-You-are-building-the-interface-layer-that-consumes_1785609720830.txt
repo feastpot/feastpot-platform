@@ -1,0 +1,59 @@
+ROLE
+You are building the interface layer that consumes the data layer created in the previous task. You must not create or edit any migration, schema, server action or API route in this task.
+
+STEP 0 PRE-FLIGHT
+Confirm the following already exist and report their file paths: getVendorTrustSignals, getVendorAvailability, reserveCapacity, releaseCapacity, and the extended availability API route. If any is missing, stop and report. Do not create them.
+Then report the existing badge component, card component and vendor profile page paths, and list the files you intend to create or edit. If that list exceeds 12 files, stop and report.
+
+SCOPE
+You may create four components and edit three pages: the vendor profile page, the vendor search results card, and the vendor dashboard.
+
+DO NOT TOUCH
+Migrations, schema, server actions, API routes, the payout formula, the 12% commission, the 5% service fee capped at 2.99, checkout, the logo, the theme colour 00843D, Tailwind config.
+
+TASKS, all mandatory
+T1 TrustSignalBadge. Compact pill, 12px text, reuses the existing badge component styling, theme green for verified. Props are signalType and label only. It must render nothing when passed a signal that is not status 'verified'.
+Label map, exact strings:
+food_business_registration to "Food business registration checked"
+hygiene_rating to "Hygiene rating available"
+identity_check to "Identity checked"
+allergen_information to "Allergen information complete"
+delivery_coverage to "Delivery coverage confirmed"
+event_catering_experience to "Event catering experience"
+reliable_orders to "Reliable orders"
+
+T2 TrustSignalPanel. Heading "What we have checked". Two columns on desktop, one on mobile. Renders null when the vendor has zero verified signals. It must never render any sentence implying that all vendors are verified. Place it on the vendor profile directly below the vendor header.
+
+T3 Vendor search card. Render at most two TrustSignalBadge items, priority order reliable_orders then event_catering_experience then first verified alphabetically. Card width, height and grid breakpoints must not change. If two badges do not fit at the existing card size, render one, do not resize the card.
+
+T4 CapacityBand on the vendor profile. Heading "This week's capacity". Up to three items:
+remaining slots, format "8 of 20 Sunday pots left"
+pre-order cut-off, format "Pre-orders close Thursday at 8pm"
+event catering, format "2 catering slots left this month"
+Suppression rules, all enforced in code:
+if remainingSlots equals totalSlots, render nothing for that item
+if remainingSlots is zero, render "Fully booked for this date" in the muted style, not the accent style
+render a countdown only when preorderCutoffAt is within 72 hours, otherwise render the plain day and time
+never render a countdown that resets, loops or restarts
+never render a percentage that is not computed from totalSlots and slotsTaken
+Amber accent for scarcity states, theme green for available states, muted for sold out. Respect prefers-reduced-motion.
+
+T5 CapacityPill for vendor cards. Single line, same suppression rules, renders null when nothing qualifies.
+
+T6 Vendor dashboard capacity management screen. The vendor sets totalSlots per serviceDate per capacityType and a pre-order cut-off time, with a weekly repeat option covering the next eight weeks. Also surface the vendor's own trust signal statuses with outstanding items and what is required to complete each. Writes go through the existing server actions only.
+
+FORBIDDEN
+No fetch calls inside components, use the existing server helpers. No date arithmetic invented in the component, use the values returned by getVendorAvailability. No fabricated urgency of any kind. No new dependencies. No changes to card dimensions or grid breakpoints. No inline hex colours, use existing tokens.
+
+STOP CONDITIONS
+Stop and report rather than guessing if: a helper returns a shape different from the one specified in the previous task, the vendor card has no room for a badge without a layout change, or the dashboard has no existing pattern for a date-range editor.
+
+ACCEPTANCE CHECKS
+Render a vendor with zero verified signals and confirm no panel appears at all.
+Render a vendor with totalSlots equal to remainingSlots and confirm no scarcity item appears.
+Render a vendor with remainingSlots zero and confirm the muted sold-out state, not the amber state.
+Set preorderCutoffAt to 100 hours ahead and confirm a plain day and time appears, then to 10 hours ahead and confirm a countdown appears.
+Paste a screenshot or the rendered text for each of the four cases.
+
+REPORT
+Components created, pages edited, and the four acceptance outputs.
