@@ -50,6 +50,9 @@ export interface VendorApplicationDetail {
   cuisineType: string;
   kitchenType: string;
   hasFsaRegistration: boolean;
+  hygieneRegNumber: string | null;
+  deliveryRadiusMiles: number | null;
+  orderTypes: string[];
   foodStory: string;
   instagram: string | null;
   marketingConsent: boolean;

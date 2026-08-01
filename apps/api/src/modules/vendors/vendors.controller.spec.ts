@@ -2,6 +2,7 @@ import { INestApplication, ValidationPipe, VersioningType } from '@nestjs/common
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 
+import { PrismaService } from '../../prisma/prisma.service';
 import { SupabaseStorageService } from '../catalogue/supabase-storage.service';
 
 import { VendorsController } from './vendors.controller';
@@ -67,6 +68,9 @@ describe('VendorsController (HTTP) - debug endpoint + route ordering', () => {
           },
         },
         { provide: SupabaseStorageService, useValue: {} },
+        // Injected for the capacity data-layer merge on GET :id/availability;
+        // not exercised by these tests.
+        { provide: PrismaService, useValue: {} },
       ],
     }).compile();
 

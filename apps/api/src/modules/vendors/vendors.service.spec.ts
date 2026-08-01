@@ -68,9 +68,23 @@ describe('VendorsService', () => {
   let service: VendorsService;
   let members: { canActOnVendor: jest.Mock; resolveVendorIdByUserId: jest.Mock };
 
+  let prismaMock: { vendorApplication: { create: jest.Mock } };
+
   beforeEach(() => {
     repo = makeRepo();
-    const prisma = {} as unknown as PrismaService;
+    prismaMock = {
+      vendorApplication: {
+        create: jest.fn().mockImplementation(({ select: _select }) =>
+          Promise.resolve({
+            id: 'app-1',
+            kitchenName: 'K',
+            createdAt: new Date('2026-08-01T00:00:00Z'),
+            status: 'new',
+          }),
+        ),
+      },
+    };
+    const prisma = prismaMock as unknown as PrismaService;
     const stripe = {} as unknown as StripeService;
     const config = { get: jest.fn().mockReturnValue(undefined) } as unknown as ConfigService;
     const cache = {
@@ -99,6 +113,60 @@ describe('VendorsService', () => {
       storage,
       members as unknown as VendorMembersService,
     );
+  });
+
+  describe('registerInterest', () => {
+    // The service arms a real 10s timeout around each email send; with the
+    // email mock resolving instantly the timer would outlive the test run
+    // and trip jest's "worker failed to exit gracefully" warning. Fake
+    // timers keep the timers inert (promise resolution needs no timers).
+    beforeEach(() => jest.useFakeTimers());
+    afterEach(() => {
+      jest.clearAllTimers();
+      jest.useRealTimers();
+    });
+
+    it('persists hygiene number, delivery radius and order types', async () => {
+      await service.registerInterest({
+        fullName: 'Ada Balogun',
+        kitchenName: "Ada's Kitchen",
+        email: 'Ada@Example.com',
+        phone: '07123456789',
+        postcode: 'se15 4ab',
+        cuisineType: 'Nigerian',
+        kitchenType: 'home',
+        hasFoodHygieneRegistration: true,
+        hygieneRegNumber: '  FHRS-123456  ',
+        deliveryRadiusMiles: 15,
+        orderTypes: ['family_pots', 'event_catering'],
+        foodStory: 'Cooking jollof for my community for ten years.',
+      });
+
+      expect(prismaMock.vendorApplication.create).toHaveBeenCalledTimes(1);
+      const { data } = prismaMock.vendorApplication.create.mock.calls[0][0];
+      expect(data.hygieneRegNumber).toBe('FHRS-123456'); // trimmed
+      expect(data.deliveryRadiusMiles).toBe(15);
+      expect(data.orderTypes).toEqual(['family_pots', 'event_catering']);
+    });
+
+    it('defaults radius to null and orderTypes to [] when omitted', async () => {
+      await service.registerInterest({
+        fullName: 'Ada Balogun',
+        kitchenName: "Ada's Kitchen",
+        email: 'ada@example.com',
+        phone: '07123456789',
+        postcode: 'SE15 4AB',
+        cuisineType: 'Nigerian',
+        kitchenType: 'home',
+        hasFoodHygieneRegistration: true,
+        hygieneRegNumber: 'FHRS-123456',
+        foodStory: 'Cooking jollof for my community for ten years.',
+      });
+
+      const { data } = prismaMock.vendorApplication.create.mock.calls[0][0];
+      expect(data.deliveryRadiusMiles).toBeNull();
+      expect(data.orderTypes).toEqual([]);
+    });
   });
 
   describe('search', () => {
