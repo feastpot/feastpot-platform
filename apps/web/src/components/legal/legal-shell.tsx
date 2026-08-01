@@ -223,7 +223,7 @@ const TRUST_ITEMS = [
   { icon: '🏠', title: 'Local flavours', body: 'Support local kitchens' },
   { icon: '💷', title: 'Great value', body: 'Fair prices, every time' },
   { icon: '🧡', title: 'Made with care', body: 'Real food, real people' },
-  { icon: '💬', title: 'Always here', body: '24/7 customer support' },
+  { icon: '💬', title: 'Support that answers', body: 'Email support, Monday to Saturday' },
 ] as const;
 
 export function LegalTrustStrip() {

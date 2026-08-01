@@ -1,6 +1,6 @@
 'use client';
 
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 
 import { apiRequest } from '@/lib/api/client';
 import { useAccessToken } from '@/lib/auth/use-access-token';
@@ -36,6 +36,26 @@ interface PayoutsPage {
  * appends to a single accumulated list rather than swapping pages out (which
  * was previously breaking pending-totals computed from the on-screen rows).
  */
+export interface PayoutsSummary {
+  nextPayoutDate: string | null;
+  pendingPence: number;
+  paidToDatePence: number;
+}
+
+/**
+ * Read-only rollup from GET /v1/payouts/summary — next payout date, amount
+ * pending, amount paid to date. All figures are aggregated server-side from
+ * existing payout rows; the client only displays them.
+ */
+export function usePayoutsSummary() {
+  const { token, loading } = useAccessToken();
+  return useQuery({
+    queryKey: ['vendor', 'payouts', 'summary'] as const,
+    enabled: !!token && !loading,
+    queryFn: () => apiRequest<PayoutsSummary>('/payouts/summary', { accessToken: token! }),
+  });
+}
+
 export function usePayouts() {
   const { token, loading } = useAccessToken();
   return useInfiniteQuery({

@@ -41,7 +41,7 @@ export const metadata: Metadata = {
     template: '%s | Feastpot',
   },
   description:
-    'Order authentic African and Caribbean food in bulk. Party trays, family portions, weekly meal prep. Delivered in London.',
+    'Family pots, party trays, weekly meals and event catering from trusted African and Caribbean cooks serving your postcode. Order securely and schedule ahead.',
   manifest: '/manifest.json',
   applicationName: 'Feastpot',
   appleWebApp: {

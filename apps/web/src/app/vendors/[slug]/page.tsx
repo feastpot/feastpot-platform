@@ -507,6 +507,21 @@ export default async function VendorProfilePage({ params }: PageProps) {
         )}
       </section>
 
+      {/* DELIVERED BY THE VENDOR - fulfilment attribution below the menu */}
+      <section
+        aria-label="Delivery information"
+        className="mt-8 rounded-2xl border border-cream-deep bg-cream-warm/60 p-5"
+      >
+        <h2 className="flex items-center gap-2 font-display text-[16px] font-black text-charcoal">
+          <Truck className="h-4 w-4 text-brand" aria-hidden />
+          Delivered by the vendor
+        </h2>
+        <p className="mt-1.5 text-[13.5px] font-medium leading-relaxed text-charcoal-mid">
+          This vendor delivers your order directly. The delivery fee is set by the vendor and shown
+          before you pay.
+        </p>
+      </section>
+
       {/* REVIEWS */}
       <section
         id="reviews"

@@ -1,0 +1,49 @@
+ROLE
+You are making a scoped change to the vendor acquisition page and the vendor dashboard. Work through the sections in order. Do not write code until STEP 0 is complete.
+
+STEP 0 PRE-FLIGHT
+Locate and report the file path of: the become-a-vendor page, the vendor application form component, its validation schema, its submission handler, the vendor dashboard order list component, and the function that calculates vendor payout. List every file you intend to edit. If that list exceeds 12 files, stop and report instead of proceeding.
+
+SCOPE
+You may edit only: the become-a-vendor page and its child components, the vendor application form and its validation schema, the vendor application storage model, the vendor dashboard order list, and one new earnings breakdown component.
+
+DO NOT TOUCH
+The payout calculation function itself, the 12% commission, the 5% service fee capped at 2.99, Stripe, authentication, roles, dashboard navigation and routing, the customer-facing homepage, the logo, the theme colour 00843D.
+
+TASKS, all mandatory
+T1 Vendor hero.
+Eyebrow "For home cooks and caterers".
+H1 "Turn your food into more profitable local orders."
+Body "Reach customers looking for family meals, party trays and event catering in your area. Keep control of your menu, prices, availability and delivery while Feastpot supports discovery, ordering, payment and weekly payouts."
+Primary CTA "Apply to sell". Keep the existing hero image and the existing form anchor behaviour.
+Commercial strip "No upfront fee · No EPOS required · 12% on completed orders · Weekly payouts".
+
+T2 Replace the "You cook. We do the rest." block with two four-item grids, reusing the existing card component and spacing.
+"You stay in control": your menu and prices, your delivery area and fee, your lead times, your minimum order.
+"What Feastpot does": discovery in your area, secure checkout, order management, weekly payouts.
+
+T3 Add a "Transparent commercials" block immediately above the onboarding steps. Three cards: 12% commission on the food subtotal, no upfront or monthly fee, weekly payouts to your account.
+
+T4 Replace the removed vendor stats with three factual items: FSA-aligned onboarding, London launch, Stripe-backed payouts.
+
+T5 Application form. Add three fields: postcode and delivery radius, food hygiene registration number, typical order types. Extend the validation schema and the stored application record. Postcode is required, hygiene registration is required, order types is a multi-select and optional.
+
+T6 Dashboard earnings breakdown, read-only.
+On each order row add an expandable panel showing food subtotal, Feastpot commission at 12% of the food subtotal, vendor delivery fee retained in full by the vendor, and net payable to vendor.
+These four values must be read from the existing payout calculation output. If any value is not currently returned, expose it from the existing function without changing its arithmetic, and say so in your report.
+Add a payouts summary card: next payout date, amount pending, amount paid to date.
+Add the line "Feastpot charges 12% of the food subtotal on completed orders. Your delivery fee is yours in full."
+
+FORBIDDEN
+No arithmetic in the earnings component. No recalculating commission in the UI. No new dependencies. No changes to the order state machine. No refactoring of the payout function. No file renames.
+
+STOP CONDITIONS
+Stop and report rather than guessing if: the payout function does not expose the four values and cannot expose them without changing its logic, the application form writes to a schema you cannot extend without a migration, or the vendor stats block is shared with the customer-facing site.
+
+ACCEPTANCE CHECKS
+Confirm a repository search for "we do the rest" and "we handle the boring stuff" returns zero results.
+Submit a test vendor application including the three new fields and confirm it persists.
+Open one existing order in the dashboard and confirm the four displayed values sum correctly and match the payout record already in the database. Paste both sets of figures.
+
+REPORT
+A table of file, task reference, and what changed. Then the acceptance figures. Then any value you had to newly expose from the payout function.

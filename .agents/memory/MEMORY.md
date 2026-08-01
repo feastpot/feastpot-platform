@@ -2,6 +2,7 @@
 - [Monorepo commands](monorepo-commands.md) — repo is npm workspaces + Turborepo; attached CHECK-FIRST prompts say `--filter=` (turbo) but per-app scripts run via `npm run X --workspace=@feastpot/<app>`.
 - [npm overrides clean reinstall](npm-overrides-clean-reinstall.md) — overrides need EXACT pins + full clean reinstall (rm node_modules+lock); partial removal corrupts tree; verify via require(), not audit alone.
 - [Replit deploy env gotchas](replit-deploy-env.md) — NODE_ENV isn't auto-prod (set runtime-only via start:api, NOT a prod env var → breaks npm ci); env-scoped secrets land in plaintext git-tracked .replit.
+- [Supabase prod migration](supabase-prod-migration.md) — DONE 31 Jul 2026: prod on dedicated London project (yeklvh…); old zibmwu… is dev-only; mop-up list inside.
 - [Supabase DB URLs](supabase-db-urls.md) — use SUPABASE_DIRECT_URL (session pooler:5432) for migrations/psql; stale DIRECT_URL direct-host rotation crash-loops deploys; DATABASE_URL = wrong DB (helium).
 - [Prisma migrations (dev)](prisma-migrations-dev.md) — dev DB isn't baselined (migrate dev/deploy fail P3005); hand-write minimal migration.sql + `db execute` + run enable-rls script; RLS is central, not per-migration.
 - [WhatsApp template slots](whatsapp-template-slots.md) — approved templates have 1-2 slots (no order-total slot); Meta enforces exact counts; builders keyed by whatsappTemplate name.
@@ -22,4 +23,5 @@
 - [GitHub push workflow scope](github-push-workflow-scope.md) — PUSH_REJECTED when commits touch .github/workflows/: OAuth token lacks `workflow` scope; user must push via PAT (repo+workflow) or SSH.
 - [CI required checks](ci-required-checks.md) — all green as of Jul 2026: test job uses a throwaway postgres service (+ pre-created Supabase roles anon/authenticated/service_role), not TEST_* secrets; lint fails on import/order errors + prettier.
 - [Lockfile firewall URLs](lockfile-firewall-urls.md) — regenerating package-lock inside Replit leaks package-firewall.replit.local URLs → external CI/Vercel npm ci crashes with "Exit handler never called"; sed them back to registry.npmjs.org.
+- [Seed order fixtures](seed-order-fixtures.md) — seeded vendorPayoutPence must follow computeCommission (subtotal + delivery − commission); stale fixtures once made the earnings UI look wrong.
 - [Branch vs squash merges](branch-squash-merges.md) — long-lived work branch is squash-merged into main; after each merge, merge main back into the branch (MEMORY.md conflicts: keep ours) or the next PR shows "dirty".

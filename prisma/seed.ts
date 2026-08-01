@@ -1962,7 +1962,9 @@ async function main() {
       deliveryFeePence: 500,
       totalPence: 6500,
       commissionPence: commission(6000, maman.commissionBps),
-      vendorPayoutPence: 6000 - commission(6000, maman.commissionBps),
+      // Matches computeCommission: payout = total − serviceFee − commission
+      // (delivery fee stays with the vendor in full).
+      vendorPayoutPence: 6000 + 500 - commission(6000, maman.commissionBps),
       acceptedAt: new Date('2026-04-25T11:00:00Z'),
       dispatchedAt: new Date('2026-04-26T13:00:00Z'),
       deliveredAt: new Date('2026-04-26T15:30:00Z'),
@@ -2009,7 +2011,7 @@ async function main() {
       deliveryFeePence: 500,
       totalPence: 4300,
       commissionPence: commission(3800, maman.commissionBps),
-      vendorPayoutPence: 3800 - commission(3800, maman.commissionBps),
+      vendorPayoutPence: 3800 + 500 - commission(3800, maman.commissionBps),
       acceptedAt: new Date('2026-05-08T12:00:00Z'),
       items: {
         create: [
@@ -2047,7 +2049,7 @@ async function main() {
       deliveryFeePence: 500,
       totalPence: 6000,
       commissionPence: commission(5500, maman.commissionBps),
-      vendorPayoutPence: 5500 - commission(5500, maman.commissionBps),
+      vendorPayoutPence: 5500 + 500 - commission(5500, maman.commissionBps),
       items: {
         create: [
           {
@@ -2113,7 +2115,7 @@ async function main() {
       deliveryFeePence: 500,
       totalPence: 3300,
       commissionPence: commission(2800, maman.commissionBps),
-      vendorPayoutPence: 2800 - commission(2800, maman.commissionBps),
+      vendorPayoutPence: 2800 + 500 - commission(2800, maman.commissionBps),
       acceptedAt: new Date('2026-04-18T11:00:00Z'),
       deliveredAt: new Date('2026-04-19T14:00:00Z'),
       items: {

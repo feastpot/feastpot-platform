@@ -20,7 +20,7 @@ export default function Page() {
   return (
     <CuisineLanding
       cuisine="Nigerian"
-      heading="Authentic Nigerian Food Delivered in London"
+      heading="Authentic Nigerian Food from Local Cooks Across London"
       intro="From Peckham to Stratford, Feastpot connects you with home cooks and small kitchens making the Nigerian food you actually grew up eating. Trays for parties, family-size portions, or weekly meal prep - all from vetted vendors with FSA hygiene ratings."
       highlights={[
         {
