@@ -1,0 +1,57 @@
+ROLE
+You are making a scoped copy-only change to the Feastpot Next.js app. Work through the sections in order. Do not write any code until STEP 0 is complete.
+
+STEP 0 PRE-FLIGHT
+Search the repository for these strings and list every file and line number where each appears:
+"Verified kitchens", "All kitchens checked", "24/7", "500+", "4.8 / 5", "Trusted by London communities", "delivered to you", "Delivered in London", "The best of African"
+Then list every file you intend to edit. If that list exceeds 15 files, stop and report the list instead of proceeding.
+
+SCOPE
+You may edit only: the homepage and its hero component, the vendor profile page, the checkout page, the order confirmation and order status views, the help and FAQ page, shared footer or trust-badge content files, and route metadata exports.
+
+DO NOT TOUCH
+Postcode gating logic, geolocation, Stripe integration, the order state machine, WhatsApp or email notification code, the admin panel, authentication, the payout formula, the 12% commission, the 5% service fee capped at 2.99, the logo asset, the theme colour 00843D, package.json, any migration.
+
+TASKS, all mandatory
+T1 Hero copy.
+Eyebrow "Postcode first, vendor delivered".
+H1 "Proper African and Caribbean food for the moments that matter."
+Subheadline "Family pots, party trays, weekly meals and event catering from trusted local cooks serving your postcode. Order securely, schedule ahead and receive delivery directly from the vendor."
+Primary CTA label "Find food near me", keeping the existing submit handler unchanged.
+Secondary CTA label "Explore occasions", href "#occasions".
+Trust strip becomes exactly "Postcode-first discovery · Secure checkout · Scheduled orders · Trusted local vendors".
+
+T2 Claim replacements, one for one.
+"Verified kitchens" plus "All kitchens checked" becomes "Vendor checks shown" plus "Evidence on every profile".
+"Always here" plus "24/7 customer support" becomes "Support that answers" plus "Email support, Monday to Saturday".
+"500+ cooks joined" and "500+ cooks and caterers already joined" become "Onboarding cooks across London".
+"4.8 / 5 Vendor satisfaction" is deleted and its grid collapses to the remaining tiles.
+"Trusted by London communities" becomes "Postcode-first discovery".
+Leave the FSA wording and the ICO registration line exactly as they are.
+
+T3 Fulfilment attribution.
+Metadata and Open Graph description "Delivered in London" becomes "From local cooks across London".
+Homepage metadata description becomes "Family pots, party trays, weekly meals and event catering from trusted African and Caribbean cooks serving your postcode. Order securely and schedule ahead."
+Vendor profile, add a block below the menu: heading "Delivered by the vendor", body "This vendor delivers your order directly. The delivery fee is set by the vendor and shown before you pay."
+Checkout, add above the pay button "Delivery is fulfilled by the vendor on your chosen date."
+Order confirmation and order status, the delivering party is labelled with the vendor business name, never Feastpot.
+Help and FAQ, add "Who delivers my order?" with the same explanation.
+
+T4 Occasions section.
+Add id "occasions" and scroll-margin-top clearing the sticky header. Smooth scroll from the secondary CTA with a prefers-reduced-motion fallback.
+Heading "Explore occasions". Supporting line "Sunday dinner, birthdays, office lunches, weddings and weekly meal prep. Choose the occasion, then enter your postcode."
+Card order: Sunday family meal, Birthday party trays, Wedding and events, Office catering, Weekly meal prep, Baby shower food, Small chops, Frozen soup packs.
+The existing ?q=slug behaviour and return of focus to the postcode input must be unchanged.
+
+FORBIDDEN
+No refactoring. No file moves or renames. No new dependencies. No reformatting of lines you are not changing. No Tailwind config or token changes. No new components unless T3 requires one, in which case create exactly one.
+
+STOP CONDITIONS
+Stop and report rather than guessing if: a target string appears in a file outside SCOPE, a string appears more than five times, the hero is generated from a CMS or data file rather than JSX, or removing the 4.8 tile breaks a grid that has a hardcoded column count.
+
+ACCEPTANCE CHECKS
+Run and paste the output of a repository search for each of: "Verified kitchens", "All kitchens checked", "24/7", "500+", "4.8 / 5", "delivered to you". Every one must return zero results.
+Confirm the app builds, the homepage renders, entering a postcode still returns vendors, and clicking an occasion card still sets ?q=slug.
+
+REPORT
+A table of file, task reference, and what changed. Then the search output. Nothing else.
