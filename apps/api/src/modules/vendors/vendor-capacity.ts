@@ -1,5 +1,11 @@
 import { Logger } from '@nestjs/common';
-import { CapacityType, Prisma, PrismaClient, TrustSignalStatus } from '@prisma/client';
+import {
+  CapacityType,
+  Prisma,
+  PrismaClient,
+  TrustSignalStatus,
+  TrustSignalType,
+} from '@prisma/client';
 
 /**
  * Server-side data helpers for vendor trust signals and per-date capacity.
@@ -126,6 +132,64 @@ export async function getVendorAvailability(
     remainingSlots: r.totalSlots - r.slotsTaken,
     preorderCutoffAt: r.preorderCutoffAt ? r.preorderCutoffAt.toISOString() : null,
   }));
+}
+
+/**
+ * Verified trust signals for a batch of vendors (customer search cards).
+ * Returns a map keyed by vendorId; vendors with no verified signals are
+ * simply absent. Only exposes signalType + verifiedAt - evidence references
+ * and verifier ids never leave the admin/API surface.
+ */
+export async function getVerifiedTrustSignalsForVendors(
+  db: Db,
+  vendorIds: string[],
+): Promise<Record<string, { signalType: TrustSignalType; verifiedAt: string | null }[]>> {
+  if (vendorIds.length === 0) return {};
+  const rows = await db.vendorTrustSignal.findMany({
+    where: { vendorId: { in: vendorIds }, status: TrustSignalStatus.verified },
+    select: { vendorId: true, signalType: true, verifiedAt: true },
+    orderBy: { signalType: 'asc' },
+  });
+  const out: Record<string, { signalType: TrustSignalType; verifiedAt: string | null }[]> = {};
+  for (const r of rows) {
+    (out[r.vendorId] ??= []).push({
+      signalType: r.signalType,
+      verifiedAt: r.verifiedAt ? r.verifiedAt.toISOString() : null,
+    });
+  }
+  return out;
+}
+
+/**
+ * Batch capacity lookup for customer search/rail cards: next `days` days
+ * for many vendors in one query. Same row shape as getVendorAvailability,
+ * keyed by vendorId; vendors with no rows are absent.
+ */
+export async function getCapacityForVendors(
+  db: Db,
+  vendorIds: string[],
+  days = 7,
+): Promise<Record<string, CapacityDay[]>> {
+  if (vendorIds.length === 0) return {};
+  const now = new Date();
+  const startDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const end = new Date(startDay.getTime() + days * 24 * 60 * 60 * 1000);
+  const rows = await db.vendorCapacity.findMany({
+    where: { vendorId: { in: vendorIds }, serviceDate: { gte: startDay, lt: end } },
+    orderBy: [{ serviceDate: 'asc' }, { capacityType: 'asc' }],
+  });
+  const out: Record<string, CapacityDay[]> = {};
+  for (const r of rows) {
+    (out[r.vendorId] ??= []).push({
+      serviceDate: toIsoDate(r.serviceDate),
+      capacityType: r.capacityType,
+      totalSlots: r.totalSlots,
+      slotsTaken: r.slotsTaken,
+      remainingSlots: r.totalSlots - r.slotsTaken,
+      preorderCutoffAt: r.preorderCutoffAt ? r.preorderCutoffAt.toISOString() : null,
+    });
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------------------

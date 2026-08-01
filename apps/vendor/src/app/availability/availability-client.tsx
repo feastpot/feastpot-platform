@@ -2,7 +2,7 @@
 
 import { cn } from '@feastpot/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CalendarDays, CalendarX, Clock, PackageOpen, Plus, Trash2 } from 'lucide-react';
+import { CalendarDays, CalendarX, Clock, Gauge, PackageOpen, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { Switch } from '@/components/ui/switch';
@@ -30,7 +30,27 @@ export interface AvailabilitySnapshot {
   blackoutDates: BlackoutRow[];
 }
 
+export interface CapacityRow {
+  id: string;
+  serviceDate: string; // YYYY-MM-DD
+  capacityType: CapacityType;
+  totalSlots: number;
+  slotsTaken: number;
+  remainingSlots: number;
+  preorderCutoffAt: string | null; // ISO timestamp
+}
+
+type CapacityType = 'family_pot' | 'party_tray' | 'event_catering' | 'meal_prep';
+
+const CAPACITY_TYPE_LABELS: Record<CapacityType, string> = {
+  family_pot: 'Family pots',
+  party_tray: 'Party trays',
+  event_catering: 'Event catering',
+  meal_prep: 'Meal prep',
+};
+
 const QUERY_KEY = ['vendor', 'availability'] as const;
+const CAPACITY_QUERY_KEY = ['vendor', 'capacity'] as const;
 const DAY_LABELS = [
   { value: 1, label: 'Mon' },
   { value: 2, label: 'Tue' },
@@ -489,7 +509,220 @@ export function AvailabilityClient({ initial }: { initial: AvailabilitySnapshot 
           </button>
         </div>
       </form>
+
+      <CapacitySection token={token} />
     </div>
+  );
+}
+
+// ── Per-date capacity ────────────────────────────────────────────────
+
+/**
+ * Per-date order-slot capacity (vendor_capacity rows). Separate from the
+ * main availability form because it has its own CRUD lifecycle — each
+ * add/remove hits the API immediately rather than waiting for Save.
+ */
+function CapacitySection({ token }: { token: string | null }) {
+  const qc = useQueryClient();
+  const [error, setError] = useState<string | null>(null);
+
+  const { data: rows } = useQuery({
+    queryKey: CAPACITY_QUERY_KEY,
+    enabled: !!token,
+    queryFn: () => apiRequest<CapacityRow[]>('/vendors/me/capacity', { accessToken: token! }),
+  });
+
+  const [date, setDate] = useState('');
+  const [type, setType] = useState<CapacityType>('family_pot');
+  const [slots, setSlots] = useState('');
+  const [cutoff, setCutoff] = useState('');
+  const [repeatWeeks, setRepeatWeeks] = useState('0');
+
+  const upsert = useMutation({
+    mutationFn: async () =>
+      apiRequest<CapacityRow[]>('/vendors/me/capacity', {
+        method: 'PUT',
+        accessToken: token!,
+        body: {
+          serviceDate: date,
+          capacityType: type,
+          totalSlots: Number(slots),
+          preorderCutoffAt: cutoff ? new Date(cutoff).toISOString() : null,
+          repeatWeeks: Number(repeatWeeks),
+        },
+      }),
+    onSuccess: (next) => {
+      qc.setQueryData(CAPACITY_QUERY_KEY, next);
+      setError(null);
+      setDate('');
+      setSlots('');
+      setCutoff('');
+      setRepeatWeeks('0');
+    },
+    onError: (e) => {
+      setError(e instanceof ApiError ? e.message : 'Could not save that capacity');
+    },
+  });
+
+  const remove = useMutation({
+    mutationFn: async (id: string) =>
+      apiRequest<CapacityRow[]>(`/vendors/me/capacity/${id}`, {
+        method: 'DELETE',
+        accessToken: token!,
+      }),
+    onSuccess: (next) => qc.setQueryData(CAPACITY_QUERY_KEY, next),
+    onError: (e) => {
+      setError(e instanceof ApiError ? e.message : 'Could not remove that capacity');
+    },
+  });
+
+  const submit = () => {
+    setError(null);
+    if (!date) {
+      setError('Pick a service date for the capacity.');
+      return;
+    }
+    const n = Number(slots);
+    if (!Number.isInteger(n) || n < 1) {
+      setError('Total slots must be a whole number of 1 or more.');
+      return;
+    }
+    upsert.mutate();
+  };
+
+  const canSubmit = !!date && slots.trim() !== '' && !upsert.isPending;
+
+  return (
+    <Section icon={Gauge} title="Order slots per day">
+      <p className="text-xs text-mid">
+        Cap how many orders of each type you take on a given date. Once the slots are gone,
+        customers can’t book that date for that order type. Optionally set a pre-order cutoff and
+        repeat the same cap weekly.
+      </p>
+
+      {error && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+          {error}
+        </div>
+      )}
+
+      <div
+        className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[160px_1fr_110px_1fr_130px_auto] lg:items-end"
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            e.stopPropagation();
+            submit();
+          }
+        }}
+      >
+        <div className="space-y-1">
+          <FieldLabel htmlFor="cap-date">Service date</FieldLabel>
+          <TextInput id="cap-date" type="date" value={date} onChange={setDate} />
+        </div>
+        <div className="space-y-1">
+          <FieldLabel htmlFor="cap-type">Order type</FieldLabel>
+          <select
+            id="cap-type"
+            value={type}
+            onChange={(e) => setType(e.target.value as CapacityType)}
+            className="h-10 w-full rounded-lg border border-border bg-white px-3 text-sm text-dark focus:border-teal focus:outline-none focus:ring-2 focus:ring-teal/30"
+          >
+            {(Object.keys(CAPACITY_TYPE_LABELS) as CapacityType[]).map((t) => (
+              <option key={t} value={t}>
+                {CAPACITY_TYPE_LABELS[t]}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="space-y-1">
+          <FieldLabel htmlFor="cap-slots">Slots</FieldLabel>
+          <TextInput
+            id="cap-slots"
+            type="number"
+            min={1}
+            inputMode="numeric"
+            placeholder="e.g. 10"
+            value={slots}
+            onChange={setSlots}
+          />
+        </div>
+        <div className="space-y-1">
+          <FieldLabel htmlFor="cap-cutoff">Pre-order cutoff (optional)</FieldLabel>
+          <input
+            id="cap-cutoff"
+            type="datetime-local"
+            value={cutoff}
+            onChange={(e) => setCutoff(e.target.value)}
+            className="h-10 w-full rounded-lg border border-border bg-white px-3 text-sm text-dark focus:border-teal focus:outline-none focus:ring-2 focus:ring-teal/30"
+          />
+        </div>
+        <div className="space-y-1">
+          <FieldLabel htmlFor="cap-repeat">Repeat weekly</FieldLabel>
+          <select
+            id="cap-repeat"
+            value={repeatWeeks}
+            onChange={(e) => setRepeatWeeks(e.target.value)}
+            className="h-10 w-full rounded-lg border border-border bg-white px-3 text-sm text-dark focus:border-teal focus:outline-none focus:ring-2 focus:ring-teal/30"
+          >
+            <option value="0">Just this date</option>
+            <option value="4">Next 4 weeks</option>
+            <option value="8">Next 8 weeks</option>
+            <option value="12">Next 12 weeks</option>
+          </select>
+        </div>
+        <button
+          type="button"
+          onClick={submit}
+          disabled={!canSubmit}
+          className="inline-flex h-10 items-center justify-center gap-1.5 rounded-lg bg-teal px-3 text-sm font-semibold text-white transition-colors hover:bg-teal-dark disabled:opacity-60"
+        >
+          <Plus className="h-4 w-4" aria-hidden />
+          {upsert.isPending ? 'Saving…' : 'Set'}
+        </button>
+      </div>
+
+      {rows && rows.length === 0 && (
+        <p className="rounded-lg border border-dashed border-border bg-surface px-3 py-6 text-center text-sm text-mid">
+          No capacity limits set. Without limits, dates accept unlimited orders of every type.
+        </p>
+      )}
+
+      {rows && rows.length > 0 && (
+        <ul className="divide-y divide-border rounded-lg border border-border bg-white">
+          {rows.map((r) => (
+            <li
+              key={r.id}
+              className="flex flex-wrap items-center justify-between gap-2 px-3 py-2"
+            >
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-dark">
+                  {formatHumanDate(r.serviceDate)} · {CAPACITY_TYPE_LABELS[r.capacityType]}
+                </p>
+                <p className="text-xs text-mid">
+                  {r.slotsTaken}/{r.totalSlots} slots taken · {r.remainingSlots} remaining
+                  {r.preorderCutoffAt &&
+                    ` · cutoff ${new Date(r.preorderCutoffAt).toLocaleString(undefined, {
+                      day: 'numeric',
+                      month: 'short',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}`}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => remove.mutate(r.id)}
+                className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50"
+                aria-label={`Remove capacity for ${r.serviceDate} ${r.capacityType}`}
+              >
+                <Trash2 className="h-4 w-4" /> Remove
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Section>
   );
 }
 

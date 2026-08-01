@@ -1,7 +1,13 @@
 import { BadgeCheck, Plus, Star } from 'lucide-react';
 import Link from 'next/link';
 
-import type { VendorListItem } from '@/lib/api/vendors';
+import { CapacityPill } from '@/components/vendor/capacity-pill';
+import {
+  TRUST_SIGNAL_LABELS,
+  TrustSignalBadge,
+  orderTrustSignalsForCards,
+} from '@/components/vendor/trust-signal-badge';
+import type { CapacityDay, VendorListItem, VerifiedTrustSignal } from '@/lib/api/vendors';
 
 /**
  * Horizontal "row" vendor card matching the wireframe - gradient thumb on
@@ -43,12 +49,21 @@ const formatDistanceMiles = (km?: number | null): string | null => {
 
 interface Props {
   vendor: VendorListItem;
+  /** Verified trust signals from the batch card-extras endpoint (T3). */
+  trustSignals?: VerifiedTrustSignal[];
+  /** 7-day capacity rows from the batch card-extras endpoint (T5). */
+  capacity?: CapacityDay[];
 }
 
-export function VendorRowCard({ vendor }: Props) {
+export function VendorRowCard({ vendor, trustSignals, capacity }: Props) {
   const tags = (vendor.matchedDishes?.length ? vendor.matchedDishes : vendor.cuisines).slice(0, 2);
   const isPopular = vendor.communityFavourite === true;
   const distanceLabel = formatDistanceMiles(vendor.distanceKm);
+  // T3: at most two badges, priority reliable_orders → event_catering_experience
+  // → first verified alphabetically. Rendered on their own wrapping row inside
+  // the flexible body, so card width/height rules and grid breakpoints are
+  // untouched (the row simply doesn't exist for vendors with no signals).
+  const badgeTypes = orderTrustSignalsForCards(trustSignals).slice(0, 2);
 
   return (
     <article className="group relative overflow-hidden rounded-3xl border border-cream-deep bg-white shadow-sm transition hover:shadow-md">
@@ -111,6 +126,15 @@ export function VendorRowCard({ vendor }: Props) {
           <p className="mt-1 text-xs font-medium text-charcoal-mid">
             {deliveryEta(vendor.deliveryEtaMins)} · {deliveryFee(vendor.minOrderPence)}
           </p>
+
+          {(badgeTypes.length > 0 || capacity) && (
+            <p className="mt-1.5 flex flex-wrap items-center gap-1.5">
+              {badgeTypes.map((t) => (
+                <TrustSignalBadge key={t} signalType={t} label={TRUST_SIGNAL_LABELS[t]} />
+              ))}
+              <CapacityPill capacity={capacity} />
+            </p>
+          )}
 
           {distanceLabel && (
             <p className="mt-1.5">

@@ -24,4 +24,5 @@
 - [CI required checks](ci-required-checks.md) — all green as of Jul 2026: test job uses a throwaway postgres service (+ pre-created Supabase roles anon/authenticated/service_role), not TEST_* secrets; lint fails on import/order errors + prettier.
 - [Lockfile firewall URLs](lockfile-firewall-urls.md) — regenerating package-lock inside Replit leaks package-firewall.replit.local URLs → external CI/Vercel npm ci crashes with "Exit handler never called"; sed them back to registry.npmjs.org.
 - [Seed order fixtures](seed-order-fixtures.md) — seeded vendorPayoutPence must follow computeCommission (subtotal + delivery − commission); stale fixtures once made the earnings UI look wrong.
+- [Split apps — no server actions](split-apps-vs-server-actions.md) — Next frontends reach data only via NestJS HTTP endpoints; briefs assuming shared server helpers need an endpoint addendum first.
 - [Branch vs squash merges](branch-squash-merges.md) — long-lived work branch is squash-merged into main; after each merge, merge main back into the branch (MEMORY.md conflicts: keep ours) or the next PR shows "dirty".

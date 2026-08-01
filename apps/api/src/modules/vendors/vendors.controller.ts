@@ -38,13 +38,19 @@ import { SearchVendorsDto } from './dto/search-vendors.dto';
 import { UpdateAvailabilityDto } from './dto/update-availability.dto';
 import { UpdateVendorStatusDto } from './dto/update-vendor-status.dto';
 import { UpdateVendorDto } from './dto/update-vendor.dto';
+import { UpsertCapacityDto } from './dto/upsert-capacity.dto';
 import { UpsertDeliveryConfigDto } from './dto/upsert-delivery-config.dto';
 import {
   StripeConnectLinkResponseDto,
   VendorAnalyticsResponseDto,
 } from './dto/vendor-analytics.dto';
 import { VendorStatsResponseDto } from './dto/vendor-stats.dto';
-import { getVendorAvailability } from './vendor-capacity';
+import {
+  getCapacityForVendors,
+  getVendorAvailability,
+  getVendorTrustSignals,
+  getVerifiedTrustSignalsForVendors,
+} from './vendor-capacity';
 import { VendorsService } from './vendors.service';
 
 function requireUser(user: AuthUser | null): AuthUser {
@@ -194,6 +200,40 @@ export class VendorsController {
     return this.vendors.removeMyBlackout(requireUser(user).id, blackoutId);
   }
 
+  @Get('me/capacity')
+  @ApiBearerAuth()
+  @Roles(UserRole.vendor, UserRole.admin)
+  @ApiOperation({
+    summary:
+      'List the authed vendor’s per-date capacity rows (next 90 days), with slots taken/remaining',
+  })
+  getMyCapacity(@CurrentUser() user: AuthUser | null) {
+    return this.vendors.getMyCapacity(requireUser(user).id);
+  }
+
+  @Put('me/capacity')
+  @ApiBearerAuth()
+  @Roles(UserRole.vendor, UserRole.admin)
+  @ApiOperation({
+    summary:
+      'Upsert a capacity row (slots per date per order type, optional pre-order cutoff, optional weekly repeat) for the authed vendor',
+  })
+  upsertMyCapacity(@CurrentUser() user: AuthUser | null, @Body() dto: UpsertCapacityDto) {
+    return this.vendors.upsertMyCapacity(requireUser(user).id, dto);
+  }
+
+  @Delete('me/capacity/:id')
+  @ApiBearerAuth()
+  @Roles(UserRole.vendor, UserRole.admin)
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Delete a capacity row for the authed vendor' })
+  removeMyCapacity(
+    @CurrentUser() user: AuthUser | null,
+    @Param('id', new ParseUUIDPipe()) capacityId: string,
+  ) {
+    return this.vendors.removeMyCapacity(requireUser(user).id, capacityId);
+  }
+
   @Post('me/stripe-connect-link')
   @ApiBearerAuth()
   @Roles(UserRole.vendor, UserRole.admin)
@@ -239,6 +279,28 @@ export class VendorsController {
     return this.vendors.getDebugInfo(postcode);
   }
 
+  // Batch card data for search/rail cards: verified trust signals + the
+  // next-7-days capacity rows for up to 50 vendors in one round trip.
+  // Declared before @Get(':id') so "card-extras" is matched literally.
+  @Public()
+  @Get('card-extras')
+  @ApiOperation({
+    summary:
+      'Batch verified trust signals + 7-day capacity for vendor cards (public, ?ids=comma-separated UUIDs, max 50).',
+  })
+  async cardExtras(@Query('ids') ids?: string) {
+    const vendorIds = (ids ?? '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter((s) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s))
+      .slice(0, 50);
+    const [trustSignals, capacity] = await Promise.all([
+      getVerifiedTrustSignalsForVendors(this.prisma, vendorIds),
+      getCapacityForVendors(this.prisma, vendorIds),
+    ]);
+    return { trustSignals, capacity };
+  }
+
   @Public()
   @Get('by-slug/:slug')
   @ApiOperation({ summary: 'Get vendor by slug (public) - used by customer PWA' })
@@ -268,6 +330,22 @@ export class VendorsController {
       getVendorAvailability(this.prisma, id),
     ]);
     return { ...snapshot, capacity };
+  }
+
+  @Public()
+  @Get(':id/trust-signals')
+  @ApiOperation({
+    summary:
+      'Verified trust signals for a vendor (public, customer profile). Never exposes unverified signals, evidence references or verifier ids.',
+  })
+  async getTrustSignals(@Param('id', new ParseUUIDPipe()) id: string) {
+    const signals = await getVendorTrustSignals(this.prisma, id);
+    return {
+      signals: signals.map((s) => ({
+        signalType: s.signalType,
+        verifiedAt: s.verifiedAt ? s.verifiedAt.toISOString() : null,
+      })),
+    };
   }
 
   @Patch(':id')
