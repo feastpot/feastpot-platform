@@ -1,5 +1,11 @@
 import { Logger } from '@nestjs/common';
-import { CapacityType, Prisma, PrismaClient, TrustSignalStatus } from '@prisma/client';
+import {
+  CapacityType,
+  Prisma,
+  PrismaClient,
+  TrustSignalStatus,
+  TrustSignalType,
+} from '@prisma/client';
 
 /**
  * Server-side data helpers for vendor trust signals and per-date capacity.
@@ -47,6 +53,20 @@ export class CapacityNotConfiguredError extends Error {
   constructor() {
     super('No capacity row configured for this vendor/date/type');
     this.name = 'CapacityNotConfiguredError';
+  }
+}
+
+/** Upsert would set total_slots below the slots already booked. */
+export class CapacityBelowBookedError extends Error {
+  readonly code = 'CAPACITY_BELOW_BOOKED' as const;
+  constructor(
+    readonly slotsTaken: number,
+    readonly requestedTotal: number,
+  ) {
+    super(
+      `total_slots ${requestedTotal} is below the ${slotsTaken} slots already booked`,
+    );
+    this.name = 'CapacityBelowBookedError';
   }
 }
 
@@ -126,6 +146,96 @@ export async function getVendorAvailability(
     remainingSlots: r.totalSlots - r.slotsTaken,
     preorderCutoffAt: r.preorderCutoffAt ? r.preorderCutoffAt.toISOString() : null,
   }));
+}
+
+/**
+ * Verified trust signals for a batch of vendors (customer search cards).
+ * Returns a map keyed by vendorId; vendors with no verified signals are
+ * simply absent. Only exposes signalType + verifiedAt - evidence references
+ * and verifier ids never leave the admin/API surface.
+ */
+export async function getVerifiedTrustSignalsForVendors(
+  db: Db,
+  vendorIds: string[],
+): Promise<Record<string, { signalType: TrustSignalType; verifiedAt: string | null }[]>> {
+  if (vendorIds.length === 0) return {};
+  const rows = await db.vendorTrustSignal.findMany({
+    where: { vendorId: { in: vendorIds }, status: TrustSignalStatus.verified },
+    select: { vendorId: true, signalType: true, verifiedAt: true },
+    orderBy: { signalType: 'asc' },
+  });
+  const out: Record<string, { signalType: TrustSignalType; verifiedAt: string | null }[]> = {};
+  for (const r of rows) {
+    (out[r.vendorId] ??= []).push({
+      signalType: r.signalType,
+      verifiedAt: r.verifiedAt ? r.verifiedAt.toISOString() : null,
+    });
+  }
+  return out;
+}
+
+export interface CapacityUpsertEntry {
+  serviceDate: string; // YYYY-MM-DD
+  capacityType: CapacityType;
+  totalSlots: number;
+  preorderCutoffAt: string | null; // ISO timestamp or null to clear
+}
+
+/**
+ * Vendor-dashboard write path: upsert capacity rows for the vendor. Each
+ * entry is applied inside one transaction with the row locked, and lowering
+ * total_slots below slots already booked is rejected with a typed error
+ * (mirrors the DB CHECK, but with a friendly message before Postgres growls).
+ */
+export async function upsertVendorCapacity(
+  prisma: PrismaClient,
+  vendorId: string,
+  entries: CapacityUpsertEntry[],
+): Promise<CapacityDay[]> {
+  return prisma.$transaction(async (tx) => {
+    const results: CapacityDay[] = [];
+    for (const entry of entries) {
+      const serviceDate = new Date(`${entry.serviceDate}T00:00:00.000Z`);
+      const locked = await tx.$queryRaw<LockedCapacityRow[]>`
+        SELECT "id", "total_slots", "slots_taken", "preorder_cutoff_at"
+        FROM "vendor_capacity"
+        WHERE "vendor_id" = ${vendorId}::uuid
+          AND "service_date" = ${entry.serviceDate}::date
+          AND "capacity_type" = ${entry.capacityType}::"vendor_capacity_type"
+        FOR UPDATE
+      `;
+      const existing = locked[0];
+      if (existing && existing.slots_taken > entry.totalSlots) {
+        throw new CapacityBelowBookedError(existing.slots_taken, entry.totalSlots);
+      }
+      const row = existing
+        ? await tx.vendorCapacity.update({
+            where: { id: existing.id },
+            data: {
+              totalSlots: entry.totalSlots,
+              preorderCutoffAt: entry.preorderCutoffAt ? new Date(entry.preorderCutoffAt) : null,
+            },
+          })
+        : await tx.vendorCapacity.create({
+            data: {
+              vendorId,
+              serviceDate,
+              capacityType: entry.capacityType,
+              totalSlots: entry.totalSlots,
+              preorderCutoffAt: entry.preorderCutoffAt ? new Date(entry.preorderCutoffAt) : null,
+            },
+          });
+      results.push({
+        serviceDate: entry.serviceDate,
+        capacityType: row.capacityType,
+        totalSlots: row.totalSlots,
+        slotsTaken: row.slotsTaken,
+        remainingSlots: row.totalSlots - row.slotsTaken,
+        preorderCutoffAt: row.preorderCutoffAt ? row.preorderCutoffAt.toISOString() : null,
+      });
+    }
+    return results;
+  });
 }
 
 // ---------------------------------------------------------------------------
