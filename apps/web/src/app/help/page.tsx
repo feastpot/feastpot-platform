@@ -42,6 +42,11 @@ const SECTIONS: FaqSection[] = [
     icon: '🛵',
     items: [
       {
+        question: 'Who delivers my order?',
+        answer:
+          'Your vendor delivers your order directly. The delivery fee is set by the vendor and shown before you pay.',
+      },
+      {
         question: 'What areas do you deliver to?',
         answer:
           'Each vendor sets their own delivery zone. Enter your postcode on the homepage to see who covers you. We currently focus on Greater London with selected coverage in Birmingham and Manchester.',
@@ -157,7 +162,7 @@ export default function HelpPage() {
               {supportEmail}
             </p>
             <p className="mt-0.5 text-xs font-medium text-charcoal-mid">
-              Reply within 24 hours, 7 days a week.
+              Reply within 24 hours, Monday to Saturday.
             </p>
           </div>
         </a>

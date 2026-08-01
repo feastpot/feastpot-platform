@@ -25,7 +25,7 @@ import { useBasketStore } from '@/store/basket.store';
 const NAV_LINKS = [
   { label: 'Browse', href: '/vendors' },
   { label: 'How it works', href: '/#how-it-works' },
-  { label: 'Event catering', href: '/#what-are-you-ordering-for' },
+  { label: 'Event catering', href: '/#occasions' },
   { label: 'Become a cook', href: '/become-a-vendor' },
   { label: 'Help', href: '/help' },
 ] as const;

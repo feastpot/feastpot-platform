@@ -1,7 +1,6 @@
 import {
   Baby,
   Briefcase,
-  Building2,
   CakeSlice,
   CalendarHeart,
   ChefHat,
@@ -35,11 +34,11 @@ const OCCASIONS = [
     q: 'birthday-party-trays',
   },
   {
-    Icon: Baby,
+    Icon: CakeSlice,
     tone: 'plantain',
-    title: 'Baby shower food',
-    sub: 'Beautiful trays for family celebrations.',
-    q: 'baby-shower-food',
+    title: 'Wedding & events',
+    sub: 'For weddings, church, funerals and gatherings.',
+    q: 'wedding-and-events',
   },
   {
     Icon: Briefcase,
@@ -56,11 +55,11 @@ const OCCASIONS = [
     q: 'weekly-meal-prep',
   },
   {
-    Icon: CakeSlice,
+    Icon: Baby,
     tone: 'plantain',
-    title: 'Wedding & events',
-    sub: 'For weddings, church, funerals and gatherings.',
-    q: 'wedding-and-events',
+    title: 'Baby shower food',
+    sub: 'Beautiful trays for family celebrations.',
+    q: 'baby-shower-food',
   },
   {
     Icon: ChefHat,
@@ -88,7 +87,7 @@ const TONE: Record<(typeof OCCASIONS)[number]['tone'], string> = {
 export function OccasionGrid() {
   return (
     <section
-      id="what-are-you-ordering-for"
+      id="occasions"
       aria-labelledby="occasion-heading"
       className="mx-auto max-w-6xl scroll-mt-24 px-4 pt-14 sm:px-6 lg:px-8 lg:pt-20"
     >
@@ -101,11 +100,11 @@ export function OccasionGrid() {
             id="occasion-heading"
             className="mt-1 font-display text-[26px] font-black leading-tight text-charcoal sm:text-3xl"
           >
-            What are you ordering for?
+            Explore occasions
           </h2>
           <p className="mt-1 text-[14px] font-medium text-charcoal-mid">
-            Choose the occasion first. We&apos;ll ask for your postcode before showing available
-            cooks.
+            Sunday dinner, birthdays, office lunches, weddings and weekly meal prep. Choose the
+            occasion, then enter your postcode.
           </p>
         </div>
       </header>

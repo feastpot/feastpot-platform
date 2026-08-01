@@ -843,6 +843,9 @@ function CheckoutInner() {
 
       {/* Inline place-order button (the primary one customers tap before
           they've scrolled to reveal the sticky bar). */}
+      <p className="text-center text-[12px] font-medium text-charcoal-mid">
+        Delivery is fulfilled by the vendor on your chosen date.
+      </p>
       <button
         type="submit"
         disabled={

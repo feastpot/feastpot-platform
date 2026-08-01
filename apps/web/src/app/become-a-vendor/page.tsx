@@ -11,7 +11,6 @@ import {
   PoundSterling,
   Settings,
   ShieldCheck,
-  Star,
   TriangleAlert,
   Users,
 } from 'lucide-react';
@@ -106,7 +105,7 @@ const TRUST = [
   {
     Icon: Users,
     label: 'Growing network of cooks',
-    sub: '500+ cooks and caterers already joined.',
+    sub: 'Onboarding cooks across London.',
   },
   {
     Icon: BadgeCheck,
@@ -116,8 +115,7 @@ const TRUST = [
 ];
 
 const SOCIAL_PROOF = [
-  { Icon: Users, value: '500+', label: 'Cooks joined' },
-  { Icon: Star, value: '4.8 / 5', label: 'Vendor satisfaction' },
+  { Icon: Users, value: 'Onboarding cooks', label: 'Across London' },
   { Icon: CreditCard, value: 'Weekly payouts', label: 'On time, every time' },
 ];
 
@@ -438,7 +436,7 @@ export default function BecomeAVendorPage() {
       </section>
 
       {/* Social proof */}
-      <section className="mx-auto mt-8 grid max-w-6xl gap-6 border-t border-cream-deep px-5 py-8 sm:grid-cols-3 sm:px-8 lg:px-12">
+      <section className="mx-auto mt-8 grid max-w-6xl gap-6 border-t border-cream-deep px-5 py-8 sm:grid-cols-2 sm:px-8 lg:px-12">
         {SOCIAL_PROOF.map(({ Icon, value, label }) => (
           <div key={label} className="flex items-center gap-3">
             <span

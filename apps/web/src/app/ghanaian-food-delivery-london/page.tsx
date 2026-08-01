@@ -20,7 +20,7 @@ export default function Page() {
   return (
     <CuisineLanding
       cuisine="Ghanaian"
-      heading="Authentic Ghanaian Food Delivered in London"
+      heading="Authentic Ghanaian Food from Local Cooks Across London"
       intro="From Tottenham to Croydon, Feastpot brings you trusted Ghanaian cooks making waakye, fufu, banku and the kind of jollof worth arguing about. Order a single bowl or a tray that feeds your whole compound."
       highlights={[
         {

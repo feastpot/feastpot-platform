@@ -144,23 +144,22 @@ export function PostcodeHero() {
         <div>
           {/* Eyebrow tag row - three tonal pills surfacing the value props */}
           <div className="flex flex-wrap gap-2">
-            <EyebrowTag tone="brand">Location first</EyebrowTag>
-            <EyebrowTag tone="plantain">No unavailable vendors shown</EyebrowTag>
-            <EyebrowTag tone="scotch">African &amp; Caribbean food</EyebrowTag>
+            <EyebrowTag tone="brand">Postcode first, vendor delivered</EyebrowTag>
           </div>
 
           <h1
             id="hero-headline"
             className="mt-6 font-display text-[40px] font-black leading-[1.04] tracking-tight text-charcoal sm:text-[48px] lg:text-[60px]"
           >
-            The best of <span className="text-brand">African</span> &amp;{' '}
-            <span className="text-scotch">Caribbean</span> food,
-            <br className="hidden md:block" /> delivered to you
+            Proper <span className="text-brand">African</span> and{' '}
+            <span className="text-scotch">Caribbean</span> food
+            <br className="hidden md:block" /> for the moments that matter.
           </h1>
 
           <p className="mt-5 max-w-xl text-[15px] font-medium leading-relaxed text-charcoal-mid lg:text-base">
-            Party trays, family pots, weekly meals and event catering from trusted local cooks.
-            Enter your postcode to see what delivers to your area.
+            Family pots, party trays, weekly meals and event catering from trusted local cooks
+            serving your postcode. Order securely, schedule ahead and receive delivery directly from
+            the vendor.
           </p>
 
           {showResumeBanner ? (
@@ -269,11 +268,27 @@ export function PostcodeHero() {
             <a href="/sign-in" className="font-medium hover:text-charcoal">
               Sign in for saved addresses
             </a>
+            <span aria-hidden className="text-charcoal-light">
+              ·
+            </span>
+            <a
+              href="#occasions"
+              onClick={(e) => {
+                const el = document.getElementById('occasions');
+                if (!el) return; // fall through to default anchor jump
+                e.preventDefault();
+                const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                el.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth' });
+              }}
+              className="font-semibold text-brand hover:underline"
+            >
+              Explore occasions
+            </a>
           </div>
 
           <p className="mt-5 flex items-center gap-2 text-[12px] font-medium text-charcoal-mid">
             <ShieldCheck className="h-4 w-4 text-brand" aria-hidden />
-            Trusted by London communities · Secure checkout · No guessing who delivers
+            Postcode-first discovery · Secure checkout · Scheduled orders · Trusted local vendors
           </p>
         </div>
 

@@ -2,15 +2,15 @@ import { AlertCircle, CalendarClock, ShieldCheck, Star, Utensils } from 'lucide-
 
 /**
  * Five-icon trust strip - sits between the hero and the occasion grid,
- * matching the wireframe's "Verified kitchens · Secure checkout ·
+ * matching the wireframe's "Vendor checks shown · Secure checkout ·
  * Allergen info · Scheduled delivery · Real reviews" row. Each item is
  * an icon + tight two-line copy block on a flat white pill.
  */
 const TRUST_ITEMS = [
   {
     Icon: Utensils,
-    title: 'Verified kitchens',
-    sub: 'All kitchens checked',
+    title: 'Vendor checks shown',
+    sub: 'Evidence on every profile',
     tone: 'brand',
   },
   {

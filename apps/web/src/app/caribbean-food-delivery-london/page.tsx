@@ -20,7 +20,7 @@ export default function Page() {
   return (
     <CuisineLanding
       cuisine="Caribbean"
-      heading="Authentic Caribbean Food Delivered in London"
+      heading="Authentic Caribbean Food from Local Cooks Across London"
       intro="Brixton, Hackney, Lewisham - wherever you are in London, Feastpot connects you with Caribbean cooks who do the slow-cooked classics properly. Trays for the cookout, family Sundays, or just because it&rsquo;s Friday."
       highlights={[
         {
