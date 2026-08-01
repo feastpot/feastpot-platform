@@ -10,6 +10,9 @@ export interface VendorApplicationReceivedData {
   cuisineType: string;
   kitchenType: string;
   hasFsaRegistration: boolean;
+  hygieneRegNumber: string;
+  deliveryRadiusMiles?: number | null;
+  orderTypes?: string[] | null;
   foodStory: string;
   instagram?: string | null;
   adminUrl: string;
@@ -33,6 +36,17 @@ export function vendorApplicationReceivedTemplate(data: VendorApplicationReceive
     ['Cuisine type', data.cuisineType],
     ['Kitchen type', data.kitchenType],
     ['FSA registered', data.hasFsaRegistration ? 'Yes' : 'No'],
+    ['Hygiene registration number', data.hygieneRegNumber],
+    [
+      'Delivery radius',
+      data.deliveryRadiusMiles != null ? `${data.deliveryRadiusMiles} miles` : 'Not provided',
+    ],
+    [
+      'Order types',
+      data.orderTypes && data.orderTypes.length > 0
+        ? data.orderTypes.map((t) => t.replace(/_/g, ' ')).join(', ')
+        : 'Not provided',
+    ],
     ['Instagram', data.instagram ? `@${data.instagram}` : 'Not provided'],
   ];
 
