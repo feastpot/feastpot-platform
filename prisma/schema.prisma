@@ -498,6 +498,12 @@ model VendorApplication {
   // schema migration when terms change.
   acceptedTermsAt      DateTime?               @map("accepted_terms_at") @db.Timestamptz
   acceptedTermsVersion String?                 @map("accepted_terms_version") @db.VarChar(32)
+  // T5 (Aug 2026) acquisition-form additions. Nullable because rows
+  // predating the fields exist; new submissions are validated by the DTO
+  // (hygiene registration required, radius/order types optional).
+  deliveryRadiusMiles  Int?                    @map("delivery_radius_miles")
+  hygieneRegNumber     String?                 @map("hygiene_reg_number") @db.VarChar(64)
+  orderTypes           String[]                @default([]) @map("order_types")
   createdAt            DateTime                @default(now()) @map("created_at") @db.Timestamptz
   updatedAt            DateTime                @updatedAt @map("updated_at") @db.Timestamptz
 

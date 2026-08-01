@@ -231,6 +231,41 @@ export class PayoutsService {
   }
 
   /**
+   * Read-only rollup for the vendor payouts page summary card: next payout
+   * (most recent non-final payout's period end + amount), amount pending
+   * (sum of draft/held/approved) and amount paid to date (sum of
+   * transferred). Pure aggregation over existing rows - no new arithmetic,
+   * the amounts were computed by the weekly batch when each row was written.
+   */
+  async vendorSummary(vendorId: string | null) {
+    if (!vendorId) {
+      return { nextPayoutDate: null, pendingPence: 0, paidToDatePence: 0 };
+    }
+    const vendor = { id: vendorId };
+    const pendingStatuses = [PayoutStatus.draft, PayoutStatus.held, PayoutStatus.approved];
+    const [pending, paid, next] = await Promise.all([
+      this.prisma.payout.aggregate({
+        where: { vendorId: vendor.id, status: { in: pendingStatuses } },
+        _sum: { amountPence: true },
+      }),
+      this.prisma.payout.aggregate({
+        where: { vendorId: vendor.id, status: PayoutStatus.transferred },
+        _sum: { amountPence: true },
+      }),
+      this.prisma.payout.findFirst({
+        where: { vendorId: vendor.id, status: { in: pendingStatuses } },
+        orderBy: { createdAt: 'desc' },
+        select: { periodEnd: true, amountPence: true },
+      }),
+    ]);
+    return {
+      nextPayoutDate: next?.periodEnd ?? null,
+      pendingPence: pending._sum.amountPence ?? 0,
+      paidToDatePence: paid._sum.amountPence ?? 0,
+    };
+  }
+
+  /**
    * Streams the full payout history for the actor as CSV. Vendors see only
    * their own rows; finance/admin see all (optionally narrowed by vendorId).
    * Capped at 5 000 rows to match the audit-log export.

@@ -36,6 +36,8 @@ export interface VendorOrder {
   customerId: string;
   vendorId: string;
   totalPence: number;
+  subtotalPence: number;
+  deliveryFeePence: number;
   vendorPayoutPence: number;
   commissionPence: number;
   notes?: string | null;

@@ -15,7 +15,12 @@ import {
 } from 'lucide-react';
 import { useMemo } from 'react';
 
-import { usePayouts, type PayoutStatus, type VendorPayout } from '@/hooks/use-payouts';
+import {
+  usePayouts,
+  usePayoutsSummary,
+  type PayoutStatus,
+  type VendorPayout,
+} from '@/hooks/use-payouts';
 import { formatDate, formatPence } from '@/lib/format';
 
 import { DownloadCsvButton } from './download-csv-button';
@@ -44,6 +49,7 @@ import { DownloadCsvButton } from './download-csv-button';
  */
 export function PayoutsClient() {
   const { data, isLoading, error, fetchNextPage, hasNextPage, isFetchingNextPage } = usePayouts();
+  const { data: summary } = usePayoutsSummary();
 
   const payouts: VendorPayout[] = useMemo(() => data?.pages.flatMap((p) => p.data) ?? [], [data]);
 
@@ -72,6 +78,51 @@ export function PayoutsClient() {
       </header>
 
       <ExplainerCard />
+
+      {/* Payouts summary — read-only rollup from GET /payouts/summary. */}
+      {summary && (
+        <div className="fp-card p-4">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="flex items-center gap-3">
+              <CalendarCheck className="h-5 w-5 shrink-0 text-teal-700" aria-hidden />
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Next payout
+                </p>
+                <p className="text-sm font-bold text-dark">
+                  {summary.nextPayoutDate
+                    ? formatDate(summary.nextPayoutDate)
+                    : 'Nothing scheduled'}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <Clock className="h-5 w-5 shrink-0 text-teal-700" aria-hidden />
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Amount pending
+                </p>
+                <p className="text-sm font-bold text-dark">{formatPence(summary.pendingPence)}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <PoundSterling className="h-5 w-5 shrink-0 text-teal-700" aria-hidden />
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Paid to date
+                </p>
+                <p className="text-sm font-bold text-dark">
+                  {formatPence(summary.paidToDatePence)}
+                </p>
+              </div>
+            </div>
+          </div>
+          <p className="mt-3 border-t pt-3 text-xs text-muted-foreground">
+            Feastpot charges 12% of the food subtotal on completed orders. Your delivery fee is
+            yours in full.
+          </p>
+        </div>
+      )}
 
       {/* Hold-reason banner — kept distinct from the explainer because
           a held payout is an actionable issue, not informational. */}

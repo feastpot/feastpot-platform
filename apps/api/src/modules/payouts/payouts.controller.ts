@@ -65,6 +65,19 @@ export class PayoutsController {
     return this.payouts.list(user, dto);
   }
 
+  @Get('summary')
+  @Roles(UserRole.vendor)
+  @ApiOperation({ summary: 'Vendor payouts rollup: next payout date, pending, paid to date' })
+  async summary(@Req() req: AuthedRequest) {
+    const user = requireUser(req);
+    await this.ensureVendorRoleCanReadPayouts(user);
+    // Resolve the vendor through team membership (owner OR active member with
+    // a payout-reading role), so finance members of a vendor team see their
+    // team's aggregate rather than an empty summary.
+    const eff = await this.vendorMembers.getEffectiveRole(user);
+    return this.payouts.vendorSummary(eff?.vendorId ?? null);
+  }
+
   @Get('export.csv')
   @Roles(UserRole.vendor, UserRole.finance, UserRole.admin)
   @ApiOperation({

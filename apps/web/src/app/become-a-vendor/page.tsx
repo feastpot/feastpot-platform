@@ -58,26 +58,49 @@ const CUISINE_OPTIONS = [
   'Other',
 ];
 
-const BENEFITS = [
+const YOU_CONTROL = [
   {
-    Icon: PoundSterling,
-    label: 'No upfront cost',
-    sub: "Join free and start when you're ready.",
+    Icon: Settings,
+    label: 'Your menu and prices',
+    sub: 'You decide what you sell and what it costs.',
   },
   {
     Icon: MapPin,
-    label: 'Orders in your area',
-    sub: 'We connect you with hungry customers nearby.',
+    label: 'Your delivery area and fee',
+    sub: 'Set where you deliver and what you charge for it.',
   },
   {
     Icon: CalendarClock,
-    label: 'Paid weekly',
-    sub: 'Reliable weekly payouts direct to your account.',
+    label: 'Your lead times',
+    sub: 'Choose how much notice you need per dish.',
+  },
+  {
+    Icon: PoundSterling,
+    label: 'Your minimum order',
+    sub: 'Set the smallest order worth your time.',
+  },
+];
+
+const FEASTPOT_DOES = [
+  {
+    Icon: MapPin,
+    label: 'Discovery in your area',
+    sub: 'Customers searching your postcode find you.',
+  },
+  {
+    Icon: ShieldCheck,
+    label: 'Secure checkout',
+    sub: 'Card payments handled end to end.',
   },
   {
     Icon: Settings,
-    label: 'We handle the boring stuff',
-    sub: 'Marketing, payments and customer support.',
+    label: 'Order management',
+    sub: 'Accept, amend and track orders in one dashboard.',
+  },
+  {
+    Icon: CalendarClock,
+    label: 'Weekly payouts',
+    sub: 'Your earnings paid to your account every week.',
   },
 ];
 
@@ -115,8 +138,27 @@ const TRUST = [
 ];
 
 const SOCIAL_PROOF = [
-  { Icon: Users, value: 'Onboarding cooks', label: 'Across London' },
-  { Icon: CreditCard, value: 'Weekly payouts', label: 'On time, every time' },
+  { Icon: ShieldCheck, value: 'FSA-aligned onboarding', label: 'UK food safety standards' },
+  { Icon: BadgeCheck, value: 'London launch', label: 'Growing across the city' },
+  { Icon: CreditCard, value: 'Stripe-backed payouts', label: 'Weekly, to your account' },
+];
+
+const COMMERCIALS = [
+  {
+    Icon: PoundSterling,
+    label: '12% commission',
+    sub: 'Charged on the food subtotal of completed orders only.',
+  },
+  {
+    Icon: CreditCard,
+    label: 'No upfront or monthly fee',
+    sub: 'Joining and listing your kitchen is free.',
+  },
+  {
+    Icon: CalendarClock,
+    label: 'Weekly payouts',
+    sub: 'Your earnings transferred to your account every week.',
+  },
 ];
 
 // ── Form types ──────────────────────────────────────────────────────────
@@ -134,9 +176,22 @@ interface FormState {
   instagram: string;
   foodStory: string;
   hasFSA: '' | 'yes' | 'no';
+  deliveryRadiusMiles: string;
+  hygieneRegNumber: string;
+  orderTypes: string[];
   marketingConsent: boolean;
   terms: boolean;
 }
+
+// Mirrors APPLICATION_ORDER_TYPES in the API DTO.
+const ORDER_TYPE_OPTIONS: { value: string; label: string }[] = [
+  { value: 'family_pots', label: 'Family pots' },
+  { value: 'party_trays', label: 'Party trays' },
+  { value: 'weekly_meal_prep', label: 'Weekly meal prep' },
+  { value: 'event_catering', label: 'Event catering' },
+  { value: 'small_chops', label: 'Small chops' },
+  { value: 'frozen_packs', label: 'Frozen packs' },
+];
 
 const INITIAL_FORM: FormState = {
   fullName: '',
@@ -149,6 +204,9 @@ const INITIAL_FORM: FormState = {
   instagram: '',
   foodStory: '',
   hasFSA: '',
+  deliveryRadiusMiles: '',
+  hygieneRegNumber: '',
+  orderTypes: [],
   marketingConsent: true,
   terms: false,
 };
@@ -171,6 +229,9 @@ interface RegisterInterestPayload {
   cuisineType: string;
   kitchenType: KitchenType;
   hasFoodHygieneRegistration: boolean;
+  hygieneRegNumber: string;
+  deliveryRadiusMiles?: number;
+  orderTypes?: string[];
   foodStory: string;
   instagram?: string;
   marketingConsent?: boolean;
@@ -222,6 +283,15 @@ export default function BecomeAVendorPage() {
     if (form.foodStory.trim().length < 20)
       e.foodStory = 'Tell us a little more (min 20 characters)';
     if (!form.hasFSA) e.hasFSA = 'Please answer this question';
+    if (form.hygieneRegNumber.trim().length < 2)
+      e.hygieneRegNumber = 'Enter your food hygiene registration number';
+    else if (form.hygieneRegNumber.trim().length > 64)
+      e.hygieneRegNumber = 'Registration number is too long';
+    if (form.deliveryRadiusMiles.trim()) {
+      const radius = Number(form.deliveryRadiusMiles);
+      if (!Number.isInteger(radius) || radius < 1 || radius > 100)
+        e.deliveryRadiusMiles = 'Enter a whole number of miles between 1 and 100';
+    }
     if (!form.terms) e.terms = 'You must accept the terms to continue';
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -241,6 +311,11 @@ export default function BecomeAVendorPage() {
       cuisineType: form.cuisineType,
       kitchenType: form.kitchenType,
       hasFoodHygieneRegistration: form.hasFSA === 'yes',
+      hygieneRegNumber: form.hygieneRegNumber.trim(),
+      ...(form.deliveryRadiusMiles.trim()
+        ? { deliveryRadiusMiles: Number(form.deliveryRadiusMiles) }
+        : {}),
+      ...(form.orderTypes.length ? { orderTypes: form.orderTypes } : {}),
       foodStory: form.foodStory.trim(),
       ...(form.instagram.trim() ? { instagram: form.instagram.trim() } : {}),
       marketingConsent: form.marketingConsent,
@@ -313,17 +388,18 @@ export default function BecomeAVendorPage() {
       <section className="mx-auto grid max-w-6xl items-center gap-10 px-5 py-12 sm:px-8 lg:grid-cols-2 lg:gap-12 lg:px-12 lg:py-16">
         <div>
           <p className="mb-3 text-[11px] font-black uppercase tracking-[0.18em] text-brand">
-            Join FeastPot · For home cooks
+            For home cooks and caterers
           </p>
           <h1 className="font-display text-4xl font-black leading-[1.1] tracking-tight text-charcoal sm:text-5xl lg:text-[56px]">
-            Turn your cooking
+            Turn your food into
             <br />
-            <span className="text-brand">into weekly income</span>
+            <span className="text-brand">more profitable local orders.</span>
           </h1>
           <div className="mt-4 h-[3px] w-16 rounded-full bg-plantain" aria-hidden />
           <p className="mt-5 max-w-xl text-base leading-relaxed text-charcoal-mid">
-            Get paid to cook from home without building a website, chasing customers, or dealing
-            with admin. We bring the orders, you focus on the food.
+            Reach customers looking for family meals, party trays and event catering in your area.
+            Keep control of your menu, prices, availability and delivery while Feastpot supports
+            discovery, ordering, payment and weekly payouts.
           </p>
           <div className="mt-7 flex flex-col gap-3 sm:flex-row">
             <button
@@ -331,7 +407,7 @@ export default function BecomeAVendorPage() {
               onClick={openForm}
               className="inline-flex items-center justify-center rounded-xl bg-brand px-7 py-3.5 text-sm font-bold text-white shadow-card hover:bg-brand-dark"
             >
-              Register interest
+              Apply to sell
             </button>
             <a
               href="#how-it-works"
@@ -340,6 +416,9 @@ export default function BecomeAVendorPage() {
               See how it works
             </a>
           </div>
+          <p className="mt-5 text-[12.5px] font-semibold text-charcoal-mid">
+            No upfront fee · No EPOS required · 12% on completed orders · Weekly payouts
+          </p>
         </div>
 
         {/* Hero visual */}
@@ -360,32 +439,76 @@ export default function BecomeAVendorPage() {
               <ChefHat className="h-4 w-4 text-brand" />
             </span>
             <div>
-              <div className="text-[13px] font-black text-charcoal">You cook. We do the rest.</div>
+              <div className="text-[13px] font-black text-charcoal">You stay in control.</div>
               <div className="text-[11px] font-medium text-charcoal-mid">
-                Orders, payments, support
+                Your menu, prices and delivery
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Benefits */}
-      <section
-        id="benefits"
-        className="mx-auto grid max-w-6xl gap-4 px-5 pb-14 sm:px-8 lg:grid-cols-4 lg:px-12"
-      >
-        {BENEFITS.map(({ Icon, label, sub }) => (
-          <div key={label} className="rounded-2xl bg-cream-warm p-5">
-            <span
-              className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-brand-light"
-              aria-hidden
-            >
-              <Icon className="h-5 w-5 text-brand" />
-            </span>
-            <div className="font-display text-[15px] font-black text-charcoal">{label}</div>
-            <p className="mt-1.5 text-[13px] leading-snug text-charcoal-mid">{sub}</p>
-          </div>
-        ))}
+      {/* You stay in control */}
+      <section id="benefits" className="mx-auto max-w-6xl px-5 pb-10 sm:px-8 lg:px-12">
+        <h2 className="mb-4 font-display text-xl font-black tracking-tight text-charcoal">
+          You stay in control
+        </h2>
+        <div className="grid gap-4 lg:grid-cols-4">
+          {YOU_CONTROL.map(({ Icon, label, sub }) => (
+            <div key={label} className="rounded-2xl bg-cream-warm p-5">
+              <span
+                className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-brand-light"
+                aria-hidden
+              >
+                <Icon className="h-5 w-5 text-brand" />
+              </span>
+              <div className="font-display text-[15px] font-black text-charcoal">{label}</div>
+              <p className="mt-1.5 text-[13px] leading-snug text-charcoal-mid">{sub}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* What Feastpot does */}
+      <section className="mx-auto max-w-6xl px-5 pb-14 sm:px-8 lg:px-12">
+        <h2 className="mb-4 font-display text-xl font-black tracking-tight text-charcoal">
+          What Feastpot does
+        </h2>
+        <div className="grid gap-4 lg:grid-cols-4">
+          {FEASTPOT_DOES.map(({ Icon, label, sub }) => (
+            <div key={label} className="rounded-2xl bg-cream-warm p-5">
+              <span
+                className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-brand-light"
+                aria-hidden
+              >
+                <Icon className="h-5 w-5 text-brand" />
+              </span>
+              <div className="font-display text-[15px] font-black text-charcoal">{label}</div>
+              <p className="mt-1.5 text-[13px] leading-snug text-charcoal-mid">{sub}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Transparent commercials */}
+      <section className="mx-auto max-w-6xl px-5 pb-14 sm:px-8 lg:px-12">
+        <h2 className="mb-4 font-display text-xl font-black tracking-tight text-charcoal">
+          Transparent commercials
+        </h2>
+        <div className="grid gap-4 sm:grid-cols-3">
+          {COMMERCIALS.map(({ Icon, label, sub }) => (
+            <div key={label} className="rounded-2xl bg-cream-warm p-5">
+              <span
+                className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-brand-light"
+                aria-hidden
+              >
+                <Icon className="h-5 w-5 text-brand" />
+              </span>
+              <div className="font-display text-[15px] font-black text-charcoal">{label}</div>
+              <p className="mt-1.5 text-[13px] leading-snug text-charcoal-mid">{sub}</p>
+            </div>
+          ))}
+        </div>
       </section>
 
       {/* How it works */}
@@ -436,7 +559,7 @@ export default function BecomeAVendorPage() {
       </section>
 
       {/* Social proof */}
-      <section className="mx-auto mt-8 grid max-w-6xl gap-6 border-t border-cream-deep px-5 py-8 sm:grid-cols-2 sm:px-8 lg:px-12">
+      <section className="mx-auto mt-8 grid max-w-6xl gap-6 border-t border-cream-deep px-5 py-8 sm:grid-cols-3 sm:px-8 lg:px-12">
         {SOCIAL_PROOF.map(({ Icon, value, label }) => (
           <div key={label} className="flex items-center gap-3">
             <span
@@ -672,6 +795,67 @@ const InterestForm = forwardRef<HTMLElement, InterestFormProps>(function Interes
             {errors.hasFSA && <ErrorText>{errors.hasFSA}</ErrorText>}
           </div>
 
+          <div className="grid gap-5 sm:grid-cols-2">
+            <Field
+              label="Food hygiene registration number"
+              id="hygieneRegNumber"
+              value={form.hygieneRegNumber}
+              onChange={(v) => onUpdate('hygieneRegNumber', v)}
+              required
+              err={errors.hygieneRegNumber}
+              placeholder="e.g. your local-authority reference"
+            />
+            <Field
+              label="Delivery radius (miles)"
+              id="deliveryRadiusMiles"
+              type="number"
+              value={form.deliveryRadiusMiles}
+              onChange={(v) => onUpdate('deliveryRadiusMiles', v)}
+              err={errors.deliveryRadiusMiles}
+              optional
+              placeholder="e.g. 5"
+            />
+          </div>
+
+          <div>
+            <span
+              id="orderTypes-label"
+              className="mb-2 block text-[13px] font-semibold text-charcoal"
+            >
+              Typical order types{' '}
+              <span className="font-normal text-charcoal-light">(optional, select any)</span>
+            </span>
+            <div aria-labelledby="orderTypes-label" className="flex flex-wrap gap-2">
+              {ORDER_TYPE_OPTIONS.map((opt) => {
+                const active = form.orderTypes.includes(opt.value);
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    role="checkbox"
+                    aria-checked={active}
+                    onClick={() =>
+                      onUpdate(
+                        'orderTypes',
+                        active
+                          ? form.orderTypes.filter((v) => v !== opt.value)
+                          : [...form.orderTypes, opt.value],
+                      )
+                    }
+                    className={
+                      'rounded-xl border px-4 py-2 text-[13px] font-semibold transition-colors ' +
+                      (active
+                        ? 'border-brand bg-brand text-white'
+                        : 'border-cream-deep bg-white text-charcoal hover:border-brand/40')
+                    }
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           <label className="flex cursor-pointer items-start gap-3 rounded-xl bg-cream-warm p-3 text-[13px] font-medium text-charcoal-mid">
             <input
               type="checkbox"
@@ -726,8 +910,12 @@ const InterestForm = forwardRef<HTMLElement, InterestFormProps>(function Interes
 
 // ── Form helpers ────────────────────────────────────────────────────────
 
-function ErrorText({ children }: { children: React.ReactNode }) {
-  return <p className="mt-1.5 text-[12px] font-medium text-scotch">{children}</p>;
+function ErrorText({ children, id }: { children: React.ReactNode; id?: string }) {
+  return (
+    <p id={id} className="mt-1.5 text-[12px] font-medium text-scotch">
+      {children}
+    </p>
+  );
 }
 
 interface FieldProps {
@@ -739,6 +927,7 @@ interface FieldProps {
   placeholder?: string;
   autoComplete?: string;
   optional?: boolean;
+  required?: boolean;
   err?: string;
 }
 
@@ -751,6 +940,7 @@ function Field({
   placeholder,
   autoComplete,
   optional,
+  required,
   err,
 }: FieldProps) {
   return (
@@ -766,12 +956,15 @@ function Field({
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         autoComplete={autoComplete}
+        aria-required={required || undefined}
+        aria-invalid={err ? true : undefined}
+        aria-describedby={err ? `${id}-error` : undefined}
         className={
           'w-full rounded-xl border bg-white px-4 py-3 text-sm text-charcoal placeholder:text-charcoal-light focus:outline-none focus:ring-2 focus:ring-brand/40 ' +
           (err ? 'border-scotch' : 'border-cream-deep')
         }
       />
-      {err && <ErrorText>{err}</ErrorText>}
+      {err && <ErrorText id={`${id}-error`}>{err}</ErrorText>}
     </div>
   );
 }

@@ -24,13 +24,15 @@ import {
   TableRow,
 } from '@feastpot/ui';
 import { format } from 'date-fns';
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 
 import {
   useOrderHistory,
   type VendorOrder,
   type VendorOrderStatus,
 } from '@/hooks/use-vendor-orders';
+
+import { EarningsBreakdown } from './earnings-breakdown';
 
 const HISTORY_STATUSES: VendorOrderStatus[] = ['delivered', 'cancelled', 'refunded', 'rejected'];
 
@@ -43,6 +45,7 @@ export function OrderHistoryTable() {
   const [cursors, setCursors] = useState<(string | undefined)[]>([undefined]);
   const [page, setPage] = useState(0);
   const [selected, setSelected] = useState<VendorOrder | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const { data, isLoading, isError } = useOrderHistory({
     status,
@@ -125,25 +128,48 @@ export function OrderHistoryTable() {
               )}
               {data?.data.map((order) => {
                 const itemsCount = order.items.reduce((sum, i) => sum + (i.quantity ?? 0), 0);
+                const expanded = expandedId === order.id;
                 return (
-                  <TableRow key={order.id}>
-                    <TableCell className="whitespace-nowrap">
-                      {format(new Date(order.createdAt), 'd MMM yyyy')}
-                    </TableCell>
-                    <TableCell>{order.customer?.firstName ?? '-'}</TableCell>
-                    <TableCell>
-                      {itemsCount} item{itemsCount === 1 ? '' : 's'}
-                    </TableCell>
-                    <TableCell className="text-right">{pounds(order.totalPence)}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{order.status}</Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button size="sm" variant="ghost" onClick={() => setSelected(order)}>
-                        View
-                      </Button>
-                    </TableCell>
-                  </TableRow>
+                  <Fragment key={order.id}>
+                    <TableRow>
+                      <TableCell className="whitespace-nowrap">
+                        {format(new Date(order.createdAt), 'd MMM yyyy')}
+                      </TableCell>
+                      <TableCell>{order.customer?.firstName ?? '-'}</TableCell>
+                      <TableCell>
+                        {itemsCount} item{itemsCount === 1 ? '' : 's'}
+                      </TableCell>
+                      <TableCell className="text-right">{pounds(order.totalPence)}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{order.status}</Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          aria-expanded={expanded}
+                          onClick={() => setExpandedId(expanded ? null : order.id)}
+                        >
+                          Earnings
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => setSelected(order)}>
+                          View
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                    {expanded && (
+                      <TableRow>
+                        <TableCell colSpan={6} className="bg-muted/20">
+                          <EarningsBreakdown
+                            subtotal={pounds(order.subtotalPence)}
+                            commission={pounds(order.commissionPence)}
+                            deliveryFee={pounds(order.deliveryFeePence)}
+                            netPayable={pounds(order.vendorPayoutPence)}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </Fragment>
                 );
               })}
             </TableBody>

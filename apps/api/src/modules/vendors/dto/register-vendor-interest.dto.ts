@@ -1,14 +1,30 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  ArrayMaxSize,
+  IsArray,
   IsBoolean,
   IsDateString,
   IsEmail,
   IsIn,
+  IsInt,
   IsOptional,
   IsString,
+  Matches,
+  Max,
   MaxLength,
+  Min,
   MinLength,
 } from 'class-validator';
+
+/** Typical order types a cook can tick on the acquisition form. */
+export const APPLICATION_ORDER_TYPES = [
+  'family_pots',
+  'party_trays',
+  'weekly_meal_prep',
+  'event_catering',
+  'small_chops',
+  'frozen_packs',
+] as const;
 
 /**
  * Public vendor application form payload. Field shape mirrors the
@@ -58,6 +74,30 @@ export class RegisterVendorInterestDto {
   @ApiProperty()
   @IsBoolean()
   hasFoodHygieneRegistration!: boolean;
+
+  /** Local-authority food hygiene registration reference. Required. */
+  @ApiProperty({ minLength: 2, maxLength: 64 })
+  @IsString()
+  @MinLength(2)
+  @MaxLength(64)
+  @Matches(/\S/, { message: 'hygieneRegNumber must not be blank' })
+  hygieneRegNumber!: string;
+
+  /** How far (miles) the cook is willing to deliver from their postcode. */
+  @ApiPropertyOptional({ minimum: 1, maximum: 100 })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  deliveryRadiusMiles?: number;
+
+  /** Typical order types (multi-select, optional). */
+  @ApiPropertyOptional({ enum: APPLICATION_ORDER_TYPES, isArray: true })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(APPLICATION_ORDER_TYPES.length)
+  @IsIn(APPLICATION_ORDER_TYPES, { each: true })
+  orderTypes?: string[];
 
   @ApiProperty({ minLength: 10, maxLength: 4000 })
   @IsString()
