@@ -1,0 +1,68 @@
+ROLE
+You are adding a data layer only. You must not create, edit or delete any UI component, page or style in this task. A later task consumes what you build here.
+
+STEP 0 PRE-FLIGHT
+Report the ORM or query layer in use, the migration tool, the vendors table primary key type, the admin users table name, and the existing availability API route path. List the migrations and server files you intend to create. If you cannot identify the migration tool with certainty, stop and report.
+
+SCOPE
+You may create migrations, schema or model definitions, and server-side helper or action files. You may edit exactly one existing file, the availability API route.
+
+DO NOT TOUCH
+Any component, page, layout, style or asset. The vendors table. Existing migrations. The payout formula. The 12% commission. The 5% service fee capped at 2.99. Stripe. Authentication.
+
+TASKS, all mandatory
+T1 Table vendor_trust_signals.
+id uuid primary key
+vendor_id uuid not null references vendors(id) on delete cascade
+signal_type text not null
+status text not null default 'not_provided'
+evidence_reference text null
+verified_at timestamptz null
+verified_by uuid null references the admin users table
+created_at timestamptz not null default now()
+updated_at timestamptz not null default now()
+unique (vendor_id, signal_type)
+index on (vendor_id, status)
+signal_type allowed values: food_business_registration, hygiene_rating, identity_check, allergen_information, delivery_coverage, event_catering_experience, reliable_orders
+status allowed values: not_provided, submitted, verified, expired
+Enforce allowed values with a check constraint or a database enum, whichever matches existing repository convention. State which you chose and why.
+
+T2 Backfill migration. Insert one row per signal_type for every existing vendor at status 'not_provided'. The migration must be idempotent and must be reversible.
+
+T3 Table vendor_capacity.
+id uuid primary key
+vendor_id uuid not null references vendors(id) on delete cascade
+service_date date not null
+capacity_type text not null
+total_slots integer not null with a check that total_slots is greater than zero
+slots_taken integer not null default 0 with a check that slots_taken is not negative and not greater than total_slots
+preorder_cutoff_at timestamptz null
+created_at and updated_at timestamptz not null default now()
+unique (vendor_id, service_date, capacity_type)
+capacity_type allowed values: family_pot, party_tray, event_catering, meal_prep
+
+T4 Server helpers, no UI imports.
+getVendorTrustSignals(vendorId, includeUnverified) returns verified signals only when includeUnverified is false. Default false.
+getVendorAvailability(vendorId, fromDate, days) returns, per capacity_type per date, totalSlots, slotsTaken, remainingSlots and preorderCutoffAt for the next 21 days by default.
+
+T5 reserveCapacity(vendorId, serviceDate, capacityType, quantity).
+Runs in a single transaction. Selects the capacity row for update with a row-level lock. Rejects with a typed error when quantity would push slots_taken above total_slots. Rejects with a distinct typed error when now() is after preorder_cutoff_at. Otherwise increments slots_taken and returns the new remaining count.
+releaseCapacity(vendorId, serviceDate, capacityType, quantity) decrements slots_taken, never below zero, and is called on order cancellation and on vendor rejection of an order.
+
+T6 Feature flag CAPACITY_ENFORCEMENT with default false. When false, reserveCapacity logs the outcome and returns success without blocking. When true it blocks as specified. Wire the flag read only, do not wire it into checkout in this task.
+
+T7 Extend the availability API route to include remainingSlots and preorderCutoffAt per capacity_type. Existing response fields must remain unchanged and in the same shape.
+
+FORBIDDEN
+No UI. No component files. No styling. No changes to checkout. No new dependencies unless the migration tool requires one, in which case stop and ask first.
+
+STOP CONDITIONS
+Stop and report rather than guessing if: the vendors primary key is not uuid, there is no admin users table, the availability API response is consumed by a typed client contract you would break, or the ORM does not support row-level locking.
+
+ACCEPTANCE CHECKS
+Run the migration up, then down, then up again, and paste the output. It must succeed all three times.
+Write and run a concurrency test that calls reserveCapacity twice in parallel against a row with total_slots 1 and slots_taken 0. Exactly one must succeed. Paste the result.
+Confirm the availability API returns its previous fields unchanged for an existing vendor. Paste before and after responses.
+
+REPORT
+Migrations created, files created, the one file edited, the enum versus check-constraint decision, and the three acceptance outputs.

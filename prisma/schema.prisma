@@ -340,6 +340,7 @@ model User {
   createdDiscountCodes       DiscountCode[]           @relation("CreatedDiscountCodes")
   reviewedVendorApplications VendorApplication[]      @relation("VendorApplicationReviewer")
   mfaRecoveryCodes           MfaRecoveryCode[]
+  verifiedTrustSignals       VendorTrustSignal[]      @relation("TrustSignalVerifier")
 
   @@index([role])
   @@index([status])
@@ -538,6 +539,77 @@ model SearchLog {
   @@map("search_logs")
 }
 
+// Trust-signal + capacity data layer (Aug 2026). Native Postgres enums are
+// used (repo convention — see OrderStatus / PayoutStatus etc.) rather than
+// check constraints.
+enum TrustSignalType {
+  food_business_registration
+  hygiene_rating
+  identity_check
+  allergen_information
+  delivery_coverage
+  event_catering_experience
+  reliable_orders
+
+  @@map("vendor_trust_signal_type")
+}
+
+enum TrustSignalStatus {
+  not_provided
+  submitted
+  verified
+  expired
+
+  @@map("vendor_trust_signal_status")
+}
+
+enum CapacityType {
+  family_pot
+  party_tray
+  event_catering
+  meal_prep
+
+  @@map("vendor_capacity_type")
+}
+
+model VendorTrustSignal {
+  id                String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  vendorId          String            @map("vendor_id") @db.Uuid
+  signalType        TrustSignalType   @map("signal_type")
+  status            TrustSignalStatus @default(not_provided)
+  evidenceReference String?           @map("evidence_reference")
+  verifiedAt        DateTime?         @map("verified_at") @db.Timestamptz
+  verifiedBy        String?           @map("verified_by") @db.Uuid
+  createdAt         DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  vendor   Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  verifier User?  @relation("TrustSignalVerifier", fields: [verifiedBy], references: [id])
+
+  @@unique([vendorId, signalType])
+  @@index([vendorId, status])
+  @@map("vendor_trust_signals")
+}
+
+model VendorCapacity {
+  id               String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  vendorId         String       @map("vendor_id") @db.Uuid
+  serviceDate      DateTime     @map("service_date") @db.Date
+  capacityType     CapacityType @map("capacity_type")
+  // CHECK constraints (total_slots > 0; 0 <= slots_taken <= total_slots)
+  // live in the migration SQL — Prisma cannot express them.
+  totalSlots       Int          @map("total_slots")
+  slotsTaken       Int          @default(0) @map("slots_taken")
+  preorderCutoffAt DateTime?    @map("preorder_cutoff_at") @db.Timestamptz
+  createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@unique([vendorId, serviceDate, capacityType])
+  @@map("vendor_capacity")
+}
+
 model Vendor {
   id                 String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId             String       @unique @map("user_id") @db.Uuid
@@ -611,6 +683,8 @@ model Vendor {
   amendments           OrderAmendment[]
   application          VendorApplication? @relation("VendorApplicationVendor")
   members              VendorMember[]
+  trustSignals         VendorTrustSignal[]
+  capacity             VendorCapacity[]
 
   @@index([status])
   @@index([slug])

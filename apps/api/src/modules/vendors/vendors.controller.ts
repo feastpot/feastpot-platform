@@ -27,6 +27,7 @@ import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { Public } from '../../auth/decorators/public.decorator';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import type { AuthUser } from '../../auth/types';
+import { PrismaService } from '../../prisma/prisma.service';
 import { SupabaseStorageService } from '../catalogue/supabase-storage.service';
 
 import { AddBlackoutDto } from './dto/add-blackout.dto';
@@ -43,6 +44,7 @@ import {
   VendorAnalyticsResponseDto,
 } from './dto/vendor-analytics.dto';
 import { VendorStatsResponseDto } from './dto/vendor-stats.dto';
+import { getVendorAvailability } from './vendor-capacity';
 import { VendorsService } from './vendors.service';
 
 function requireUser(user: AuthUser | null): AuthUser {
@@ -60,6 +62,7 @@ export class VendorsController {
   constructor(
     private readonly vendors: VendorsService,
     private readonly storage: SupabaseStorageService,
+    private readonly prisma: PrismaService,
   ) {}
 
   @Public()
@@ -256,8 +259,15 @@ export class VendorsController {
     summary:
       'Public availability snapshot (opening days, hours, lead, blackouts) for the customer checkout date picker.',
   })
-  getAvailability(@Param('id', new ParseUUIDPipe()) id: string) {
-    return this.vendors.getAvailabilityById(id);
+  async getAvailability(@Param('id', new ParseUUIDPipe()) id: string) {
+    // Additive only: every pre-existing field keeps its name and shape.
+    // `capacity` lists remainingSlots + preorderCutoffAt per capacity_type
+    // per date for the next 21 days (empty until a vendor configures rows).
+    const [snapshot, capacity] = await Promise.all([
+      this.vendors.getAvailabilityById(id),
+      getVendorAvailability(this.prisma, id),
+    ]);
+    return { ...snapshot, capacity };
   }
 
   @Patch(':id')
