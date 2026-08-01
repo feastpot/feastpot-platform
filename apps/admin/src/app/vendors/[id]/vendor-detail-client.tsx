@@ -26,7 +26,15 @@ import {
   type DocumentType,
   type VendorStatus,
 } from '@/hooks/use-admin-vendors';
-import { useVendorDetail, useVendorDocuments, useVerifyDocument } from '@/hooks/use-vendor-detail';
+import {
+  useUpdateTrustSignal,
+  useVendorDetail,
+  useVendorDocuments,
+  useVendorTrustSignals,
+  useVerifyDocument,
+  type TrustSignalStatus,
+  type TrustSignalType,
+} from '@/hooks/use-vendor-detail';
 import { formatDate, formatDateTime } from '@/lib/format';
 
 function DialogFooter({ children }: { children: React.ReactNode }) {
@@ -57,11 +65,37 @@ const DOC_STATUS_TONE: Record<DocumentStatus, StatusTone> = {
   pending: 'warning',
 };
 
-export function VendorDetailClient({ vendorId }: { vendorId: string }) {
+const SIGNAL_LABELS: Record<TrustSignalType, string> = {
+  food_business_registration: 'Food business registration',
+  hygiene_rating: 'Hygiene rating',
+  identity_check: 'Identity check',
+  allergen_information: 'Allergen information',
+  delivery_coverage: 'Delivery coverage',
+  event_catering_experience: 'Event catering experience',
+  reliable_orders: 'Reliable orders',
+};
+
+const SIGNAL_STATUS_TONE: Record<TrustSignalStatus, StatusTone> = {
+  verified: 'success',
+  submitted: 'warning',
+  expired: 'warning',
+  not_provided: 'neutral',
+};
+
+export function VendorDetailClient({
+  vendorId,
+  canReviewSignals = false,
+}: {
+  vendorId: string;
+  /** Mirror backend @Roles: only admin/compliance may verify/expire signals. */
+  canReviewSignals?: boolean;
+}) {
   const router = useRouter();
   const { toast } = useToast();
   const { data: vendor, isLoading } = useVendorDetail(vendorId);
   const { data: docs } = useVendorDocuments(vendorId);
+  const { data: signals } = useVendorTrustSignals(vendorId);
+  const signalMutation = useUpdateTrustSignal(vendorId);
   const verifyMutation = useVerifyDocument(vendorId);
   const statusMutation = useUpdateVendorStatus(vendorId);
   // Trigger a re-fetch on the queue list when the user navigates back.
@@ -69,6 +103,51 @@ export function VendorDetailClient({ vendorId }: { vendorId: string }) {
 
   const [rejecting, setRejecting] = useState<{ id: string; label: string } | null>(null);
   const [rejectReason, setRejectReason] = useState('');
+  const [verifyingSignal, setVerifyingSignal] = useState<{
+    signalType: TrustSignalType;
+    label: string;
+  } | null>(null);
+  const [signalEvidence, setSignalEvidence] = useState('');
+
+  function confirmVerifySignal() {
+    if (!verifyingSignal) return;
+    const evidence = signalEvidence.trim();
+    signalMutation.mutate(
+      {
+        signalType: verifyingSignal.signalType,
+        status: 'verified',
+        ...(evidence ? { evidenceReference: evidence } : {}),
+      },
+      {
+        onSuccess: () => {
+          setVerifyingSignal(null);
+          setSignalEvidence('');
+          toast({ title: 'Trust signal verified' });
+        },
+        onError: (err) =>
+          toast({
+            title: 'Verify failed',
+            description: (err as Error).message,
+            variant: 'destructive',
+          }),
+      },
+    );
+  }
+
+  function expireSignal(signalType: TrustSignalType) {
+    signalMutation.mutate(
+      { signalType, status: 'expired' },
+      {
+        onSuccess: () => toast({ title: 'Trust signal expired' }),
+        onError: (err) =>
+          toast({
+            title: 'Expire failed',
+            description: (err as Error).message,
+            variant: 'destructive',
+          }),
+      },
+    );
+  }
 
   function approve(documentId: string) {
     verifyMutation.mutate(
@@ -292,7 +371,95 @@ export function VendorDetailClient({ vendorId }: { vendorId: string }) {
             ))}
           </CardContent>
         </Card>
+
+        <Card className="lg:col-span-3">
+          <CardHeader>
+            <CardTitle className="text-base">Trust signals</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {!signals && <p className="text-sm text-muted-foreground">Loading…</p>}
+            {(signals ?? []).map((s) => (
+              <div
+                key={s.signalType}
+                className="flex items-start justify-between gap-4 rounded-md border border-border p-3"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">{SIGNAL_LABELS[s.signalType] ?? s.signalType}</span>
+                    <StatusPill tone={SIGNAL_STATUS_TONE[s.status]}>
+                      {s.status.replace('_', ' ')}
+                    </StatusPill>
+                  </div>
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    Evidence: {s.evidenceReference ?? '-'}
+                  </div>
+                  {s.verifiedAt && (
+                    <div className="mt-0.5 text-xs text-muted-foreground">
+                      Reviewed {formatDateTime(s.verifiedAt)}
+                    </div>
+                  )}
+                </div>
+                {canReviewSignals && (
+                  <div className="flex shrink-0 items-center gap-2">
+                    {s.status !== 'verified' && (
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          setVerifyingSignal({
+                            signalType: s.signalType,
+                            label: SIGNAL_LABELS[s.signalType] ?? s.signalType,
+                          });
+                          setSignalEvidence(s.evidenceReference ?? '');
+                        }}
+                        disabled={signalMutation.isPending}
+                      >
+                        Verify
+                      </Button>
+                    )}
+                    {s.status === 'verified' && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => expireSignal(s.signalType)}
+                        disabled={signalMutation.isPending}
+                      >
+                        Expire
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </CardContent>
+        </Card>
       </div>
+
+      <Dialog
+        open={Boolean(verifyingSignal)}
+        onOpenChange={(open) => !open && setVerifyingSignal(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Verify {verifyingSignal?.label}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <label className="text-sm font-medium">Evidence reference (optional)</label>
+            <Input
+              value={signalEvidence}
+              onChange={(e) => setSignalEvidence(e.target.value)}
+              placeholder="e.g. FHRS ID, registration number, document link…"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setVerifyingSignal(null)}>
+              Cancel
+            </Button>
+            <Button onClick={confirmVerifySignal} disabled={signalMutation.isPending}>
+              Verify
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={Boolean(rejecting)} onOpenChange={(open) => !open && setRejecting(null)}>
         <DialogContent>
