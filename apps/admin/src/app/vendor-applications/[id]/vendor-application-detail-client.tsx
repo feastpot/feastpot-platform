@@ -28,6 +28,16 @@ import { formatDate, formatDateTime } from '@/lib/format';
 import { STATUS_LABEL, STATUS_TONE } from '../vendor-applications-client';
 
 const IN_FLIGHT: ReadonlyArray<string> = ['pending', 'under_review', 'information_requested'];
+
+// Mirrors APPLICATION_ORDER_TYPES labels in the become-a-vendor form.
+const ORDER_TYPE_LABEL: Record<string, string> = {
+  family_pots: 'Family pots',
+  party_trays: 'Party trays',
+  weekly_meal_prep: 'Weekly meal prep',
+  event_catering: 'Event catering',
+  small_chops: 'Small chops',
+  frozen_packs: 'Frozen packs',
+};
 const REJECTION_MIN = 20;
 
 function DialogFooter({ children }: { children: React.ReactNode }) {
@@ -166,6 +176,30 @@ export function VendorApplicationDetailClient({
                 }
               />
               <Field label="FSA registration" value={app.hasFsaRegistration ? 'Yes' : 'No'} />
+              <div className="sm:col-span-2 rounded-md border border-input bg-muted/40 px-3 py-2">
+                <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Food hygiene registration number
+                </div>
+                <div className="mt-0.5 text-base font-semibold">
+                  {app.hygieneRegNumber ? app.hygieneRegNumber : '—'}
+                </div>
+              </div>
+              <Field
+                label="Delivery radius"
+                value={
+                  app.deliveryRadiusMiles != null
+                    ? `${app.deliveryRadiusMiles} ${app.deliveryRadiusMiles === 1 ? 'mile' : 'miles'}`
+                    : '—'
+                }
+              />
+              <Field
+                label="Typical order types"
+                value={
+                  app.orderTypes && app.orderTypes.length > 0
+                    ? app.orderTypes.map((t) => ORDER_TYPE_LABEL[t] ?? t).join(', ')
+                    : '—'
+                }
+              />
               <Field label="Applicant" value={app.fullName} />
               <Field label="Email" value={app.email} />
               <Field label="Phone" value={app.phone} />
