@@ -446,6 +446,141 @@ describe('VendorsService', () => {
     });
   });
 
+  describe('capacity CRUD (vendor_capacity)', () => {
+    interface CapacityPrismaMock {
+      $transaction: jest.Mock;
+      $queryRaw: jest.Mock;
+      vendorCapacity: { findMany: jest.Mock; upsert: jest.Mock; deleteMany: jest.Mock };
+    }
+    let capPrisma: CapacityPrismaMock;
+
+    const futureIso = (daysAhead: number) => {
+      const d = new Date(Date.now() + daysAhead * 24 * 60 * 60 * 1000);
+      return d.toISOString().slice(0, 10);
+    };
+
+    beforeEach(() => {
+      jest
+        .spyOn(
+          service as unknown as { resolveMyVendor: (u: string, r: unknown) => Promise<unknown> },
+          'resolveMyVendor',
+        )
+        .mockResolvedValue({ id: 'v-1' });
+      capPrisma = (service as unknown as { prisma: CapacityPrismaMock }).prisma;
+      capPrisma.vendorCapacity = {
+        findMany: jest.fn().mockResolvedValue([]),
+        upsert: jest.fn().mockResolvedValue({}),
+        deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
+      };
+      capPrisma.$queryRaw = jest.fn().mockResolvedValue([]);
+      // Interactive-transaction mock: run the callback against the same
+      // mock client so we can assert what happened inside the tx.
+      capPrisma.$transaction = jest
+        .fn()
+        .mockImplementation((fn: (tx: CapacityPrismaMock) => Promise<unknown>) => fn(capPrisma));
+    });
+
+    it('rejects past service dates', async () => {
+      await expect(
+        service.upsertMyCapacity('u-1', {
+          serviceDate: '2020-01-01',
+          capacityType: 'family_pot',
+          totalSlots: 5,
+        } as never),
+      ).rejects.toMatchObject({ response: { code: 'SERVICE_DATE_IN_PAST' } });
+      expect(capPrisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('rejects a cutoff after the service date', async () => {
+      const date = futureIso(7);
+      const cutoff = new Date(new Date(`${date}T00:00:00Z`).getTime() + 3 * 86400000);
+      await expect(
+        service.upsertMyCapacity('u-1', {
+          serviceDate: date,
+          capacityType: 'family_pot',
+          totalSlots: 5,
+          preorderCutoffAt: cutoff.toISOString(),
+        } as never),
+      ).rejects.toMatchObject({ response: { code: 'CUTOFF_AFTER_SERVICE_DATE' } });
+    });
+
+    it('upserts one row per week for repeatWeeks inside one transaction', async () => {
+      await service.upsertMyCapacity('u-1', {
+        serviceDate: futureIso(3),
+        capacityType: 'party_tray',
+        totalSlots: 8,
+        repeatWeeks: 4,
+      } as never);
+      expect(capPrisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(capPrisma.vendorCapacity.upsert).toHaveBeenCalledTimes(5);
+      const dates = capPrisma.vendorCapacity.upsert.mock.calls.map(
+        (c) => c[0].where.vendorId_serviceDate_capacityType.serviceDate as Date,
+      );
+      // Each repeated date is exactly 7 days after the previous.
+      for (let i = 1; i < dates.length; i++) {
+        expect(dates[i].getTime() - dates[i - 1].getTime()).toBe(7 * 86400000);
+      }
+    });
+
+    it('aborts the whole batch when any locked row has more slots taken than the new cap', async () => {
+      capPrisma.$queryRaw.mockResolvedValue([
+        { service_date: new Date(`${futureIso(10)}T00:00:00Z`), slots_taken: 9 },
+      ]);
+      await expect(
+        service.upsertMyCapacity('u-1', {
+          serviceDate: futureIso(3),
+          capacityType: 'family_pot',
+          totalSlots: 5,
+          repeatWeeks: 2,
+        } as never),
+      ).rejects.toMatchObject({ response: { code: 'SLOTS_BELOW_TAKEN' } });
+      // The conflict check runs BEFORE any write - nothing is upserted.
+      expect(capPrisma.vendorCapacity.upsert).not.toHaveBeenCalled();
+    });
+
+    it('scopes deletes to the resolved vendor and 404s on foreign ids', async () => {
+      await service.removeMyCapacity('u-1', 'cap-1');
+      expect(capPrisma.vendorCapacity.deleteMany).toHaveBeenCalledWith({
+        where: { id: 'cap-1', vendorId: 'v-1' },
+      });
+
+      capPrisma.vendorCapacity.deleteMany.mockResolvedValue({ count: 0 });
+      await expect(service.removeMyCapacity('u-1', 'someone-elses')).rejects.toMatchObject({
+        response: { code: 'CAPACITY_NOT_FOUND' },
+      });
+    });
+
+    it('lists rows from today forward with derived remainingSlots', async () => {
+      const d = new Date(`${futureIso(2)}T00:00:00Z`);
+      capPrisma.vendorCapacity.findMany.mockResolvedValue([
+        {
+          id: 'c1',
+          serviceDate: d,
+          capacityType: 'family_pot',
+          totalSlots: 10,
+          slotsTaken: 4,
+          preorderCutoffAt: null,
+        },
+      ]);
+      const rows = await service.getMyCapacity('u-1');
+      expect(rows).toEqual([
+        {
+          id: 'c1',
+          serviceDate: futureIso(2),
+          capacityType: 'family_pot',
+          totalSlots: 10,
+          slotsTaken: 4,
+          remainingSlots: 6,
+          preorderCutoffAt: null,
+        },
+      ]);
+      const where = capPrisma.vendorCapacity.findMany.mock.calls[0][0].where;
+      // No upper bound: every future row must stay manageable.
+      expect(where.serviceDate.lt).toBeUndefined();
+      expect(where.serviceDate.gte).toBeInstanceOf(Date);
+    });
+  });
+
   describe('getVendorReviews', () => {
     it('paginates reviews and returns nextCursor when full page', async () => {
       const reviews = [

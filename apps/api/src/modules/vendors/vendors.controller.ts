@@ -38,6 +38,7 @@ import { SearchVendorsDto } from './dto/search-vendors.dto';
 import { UpdateAvailabilityDto } from './dto/update-availability.dto';
 import { UpdateVendorStatusDto } from './dto/update-vendor-status.dto';
 import { UpdateVendorDto } from './dto/update-vendor.dto';
+import { UpsertCapacityDto } from './dto/upsert-capacity.dto';
 import { UpsertDeliveryConfigDto } from './dto/upsert-delivery-config.dto';
 import {
   StripeConnectLinkResponseDto,
@@ -197,6 +198,40 @@ export class VendorsController {
     @Param('id', new ParseUUIDPipe()) blackoutId: string,
   ) {
     return this.vendors.removeMyBlackout(requireUser(user).id, blackoutId);
+  }
+
+  @Get('me/capacity')
+  @ApiBearerAuth()
+  @Roles(UserRole.vendor, UserRole.admin)
+  @ApiOperation({
+    summary:
+      'List the authed vendor’s per-date capacity rows (next 90 days), with slots taken/remaining',
+  })
+  getMyCapacity(@CurrentUser() user: AuthUser | null) {
+    return this.vendors.getMyCapacity(requireUser(user).id);
+  }
+
+  @Put('me/capacity')
+  @ApiBearerAuth()
+  @Roles(UserRole.vendor, UserRole.admin)
+  @ApiOperation({
+    summary:
+      'Upsert a capacity row (slots per date per order type, optional pre-order cutoff, optional weekly repeat) for the authed vendor',
+  })
+  upsertMyCapacity(@CurrentUser() user: AuthUser | null, @Body() dto: UpsertCapacityDto) {
+    return this.vendors.upsertMyCapacity(requireUser(user).id, dto);
+  }
+
+  @Delete('me/capacity/:id')
+  @ApiBearerAuth()
+  @Roles(UserRole.vendor, UserRole.admin)
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Delete a capacity row for the authed vendor' })
+  removeMyCapacity(
+    @CurrentUser() user: AuthUser | null,
+    @Param('id', new ParseUUIDPipe()) capacityId: string,
+  ) {
+    return this.vendors.removeMyCapacity(requireUser(user).id, capacityId);
   }
 
   @Post('me/stripe-connect-link')

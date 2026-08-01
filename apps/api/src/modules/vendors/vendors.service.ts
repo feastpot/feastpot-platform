@@ -37,6 +37,7 @@ import { SearchVendorsDto } from './dto/search-vendors.dto';
 import { UpdateAvailabilityDto } from './dto/update-availability.dto';
 import { UpdateVendorStatusDto } from './dto/update-vendor-status.dto';
 import { UpdateVendorDto } from './dto/update-vendor.dto';
+import { UpsertCapacityDto } from './dto/upsert-capacity.dto';
 import { UpsertDeliveryConfigDto } from './dto/upsert-delivery-config.dto';
 import {
   HourlyOrdersBucketDto,
@@ -1703,6 +1704,148 @@ export class VendorsService {
       throw new NotFoundException({ code: 'BLACKOUT_NOT_FOUND', message: 'Blackout not found' });
     }
     return this.getAvailabilityById(vendor.id);
+  }
+
+  // ── Per-date capacity (vendor_capacity) ────────────────────────────
+
+  /**
+   * Authed-vendor list of every configured capacity row from today
+   * forward (no upper bound — a vendor must be able to see and manage
+   * any future row they created, and the per-vendor row count is small).
+   * Includes row ids so the portal can edit/delete, unlike the public
+   * availability `capacity` array.
+   */
+  async getMyCapacity(userId: string) {
+    const vendor = await this.resolveMyVendor(userId, VENDOR_AVAILABILITY_ROLES);
+    const today = new Date();
+    const start = new Date(
+      Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()),
+    );
+    const rows = await this.prisma.vendorCapacity.findMany({
+      where: { vendorId: vendor.id, serviceDate: { gte: start } },
+      orderBy: [{ serviceDate: 'asc' }, { capacityType: 'asc' }],
+    });
+    return rows.map((r) => ({
+      id: r.id,
+      serviceDate: formatIsoDate(r.serviceDate),
+      capacityType: r.capacityType,
+      totalSlots: r.totalSlots,
+      slotsTaken: r.slotsTaken,
+      remainingSlots: r.totalSlots - r.slotsTaken,
+      preorderCutoffAt: r.preorderCutoffAt ? r.preorderCutoffAt.toISOString() : null,
+    }));
+  }
+
+  /**
+   * Upsert one (serviceDate, capacityType) capacity row for the authed
+   * vendor, optionally repeated weekly. Guards:
+   *   - date must be a valid calendar day, today or later
+   *   - totalSlots can never be set below slotsTaken already reserved
+   *   - preorderCutoffAt (when given) must not be after the service date's
+   *     end of day — a cutoff after the event is meaningless
+   * When repeating weekly, the cutoff is shifted by the same number of
+   * days for each following week so "cutoff 6pm the day before" stays
+   * true for every repeated date.
+   */
+  async upsertMyCapacity(userId: string, dto: UpsertCapacityDto) {
+    const vendor = await this.resolveMyVendor(userId, VENDOR_AVAILABILITY_ROLES);
+    const day = parseIsoCalendarDate(dto.serviceDate);
+    if (!day) {
+      throw new BadRequestException({
+        code: 'INVALID_SERVICE_DATE',
+        message: 'Service date is not a valid calendar date',
+      });
+    }
+    const today = new Date();
+    const todayStart = new Date(
+      Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()),
+    );
+    if (day < todayStart) {
+      throw new BadRequestException({
+        code: 'SERVICE_DATE_IN_PAST',
+        message: 'Service date cannot be in the past',
+      });
+    }
+    let cutoff: Date | null = null;
+    if (dto.preorderCutoffAt) {
+      cutoff = new Date(dto.preorderCutoffAt);
+      if (Number.isNaN(cutoff.getTime())) {
+        throw new BadRequestException({
+          code: 'INVALID_CUTOFF',
+          message: 'Pre-order cutoff is not a valid timestamp',
+        });
+      }
+      const dayEnd = new Date(day.getTime() + 24 * 60 * 60 * 1000);
+      if (cutoff > dayEnd) {
+        throw new BadRequestException({
+          code: 'CUTOFF_AFTER_SERVICE_DATE',
+          message: 'Pre-order cutoff must be on or before the service date',
+        });
+      }
+    }
+
+    const weeks = dto.repeatWeeks ?? 0;
+    const weekMs = 7 * 24 * 60 * 60 * 1000;
+    const targets = Array.from({ length: weeks + 1 }, (_, w) => ({
+      date: new Date(day.getTime() + w * weekMs),
+      cutoff: cutoff ? new Date(cutoff.getTime() + w * weekMs) : null,
+    }));
+
+    // All-or-nothing: every check + write runs in ONE transaction so a
+    // conflict on week 5 can't leave weeks 0-4 silently persisted. The
+    // existing rows are locked FOR UPDATE so a concurrent reservation
+    // can't bump slots_taken past the new cap between check and write
+    // (the DB CHECK constraint remains the final backstop).
+    await this.prisma.$transaction(async (tx) => {
+      const dateLiterals = targets.map((t) => formatIsoDate(t.date));
+      const locked = await tx.$queryRaw<{ service_date: Date; slots_taken: number }[]>`
+        SELECT "service_date", "slots_taken"
+        FROM "vendor_capacity"
+        WHERE "vendor_id" = ${vendor.id}::uuid
+          AND "capacity_type" = ${dto.capacityType}::"vendor_capacity_type"
+          AND "service_date" = ANY(${dateLiterals}::date[])
+        FOR UPDATE`;
+      for (const row of locked) {
+        if (row.slots_taken > dto.totalSlots) {
+          throw new ConflictException({
+            code: 'SLOTS_BELOW_TAKEN',
+            message: `Cannot set ${formatIsoDate(row.service_date)} to ${dto.totalSlots} slots: ${row.slots_taken} already taken`,
+          });
+        }
+      }
+      for (const t of targets) {
+        await tx.vendorCapacity.upsert({
+          where: {
+            vendorId_serviceDate_capacityType: {
+              vendorId: vendor.id,
+              serviceDate: t.date,
+              capacityType: dto.capacityType,
+            },
+          },
+          create: {
+            vendorId: vendor.id,
+            serviceDate: t.date,
+            capacityType: dto.capacityType,
+            totalSlots: dto.totalSlots,
+            preorderCutoffAt: t.cutoff,
+          },
+          update: { totalSlots: dto.totalSlots, preorderCutoffAt: t.cutoff },
+        });
+      }
+    });
+    return this.getMyCapacity(userId);
+  }
+
+  async removeMyCapacity(userId: string, capacityId: string) {
+    const vendor = await this.resolveMyVendor(userId, VENDOR_AVAILABILITY_ROLES);
+    // Scope by vendorId so a foreign id can't delete another vendor's row.
+    const res = await this.prisma.vendorCapacity.deleteMany({
+      where: { id: capacityId, vendorId: vendor.id },
+    });
+    if (res.count === 0) {
+      throw new NotFoundException({ code: 'CAPACITY_NOT_FOUND', message: 'Capacity not found' });
+    }
+    return this.getMyCapacity(userId);
   }
 }
 
