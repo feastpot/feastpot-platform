@@ -8,6 +8,11 @@ import type Stripe from 'stripe';
 import { PrismaService } from '../../prisma/prisma.service';
 import { shouldReportQueueFailure } from '../../queues/queue-failure';
 import { LoyaltyService } from '../loyalty/loyalty.service';
+import {
+  capacityTypeForItemCategories,
+  isCapacityEnforcementEnabled,
+  releaseCapacity,
+} from '../vendors/vendor-capacity';
 
 import { computeRefundSplit } from './payments.service';
 import { STRIPE_WEBHOOK_QUEUE } from './stripe-webhook.controller';
@@ -91,7 +96,12 @@ export class StripeWebhookProcessor {
       if (cancelled.count > 0) {
         const order = await this.prisma.order.findUnique({
           where: { id: payment.orderId },
-          select: { customerId: true },
+          select: {
+            customerId: true,
+            vendorId: true,
+            scheduledFor: true,
+            items: { select: { menuItem: { select: { category: true } } } },
+          },
         });
         if (order) {
           try {
@@ -100,6 +110,28 @@ export class StripeWebhookProcessor {
             this.logger.error(
               `refundRedemption (webhook) failed for ${payment.orderId}: ${(e as Error).message}`,
             );
+          }
+          // Hand the capacity slot back - payment failure is a terminal exit
+          // for a pending order, same as a cancellation. Gated on the flag
+          // (creation didn't increment while off) and only after our CAS won,
+          // so a vendor/customer cancellation can't double-release.
+          if (isCapacityEnforcementEnabled() && order.scheduledFor) {
+            const categories = order.items
+              .map((i) => i.menuItem?.category)
+              .filter((c): c is NonNullable<typeof c> => c != null);
+            try {
+              await releaseCapacity(
+                this.prisma,
+                order.vendorId,
+                order.scheduledFor,
+                capacityTypeForItemCategories(categories),
+                1,
+              );
+            } catch (e) {
+              this.logger.error(
+                `releaseCapacity (webhook) failed for ${payment.orderId}: ${(e as Error).message}`,
+              );
+            }
           }
         }
       }

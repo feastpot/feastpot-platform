@@ -1,6 +1,7 @@
 import { Logger } from '@nestjs/common';
 import {
   CapacityType,
+  ItemCategory,
   Prisma,
   PrismaClient,
   TrustSignalStatus,
@@ -274,6 +275,27 @@ export async function getCapacityForVendors(
     });
   }
   return out;
+}
+
+// ---------------------------------------------------------------------------
+// Order → capacity type mapping
+// ---------------------------------------------------------------------------
+
+/**
+ * Map a checkout cart's item categories to the single capacity_type the
+ * order consumes a slot from. Priority order reflects kitchen load:
+ *   - any `event` item → event_catering (whole-event jobs dominate the day)
+ *   - else any tray/bundle → party_tray
+ *   - else → family_pot (soups, proteins, swallow, frozen, snacks)
+ * `meal_prep` is never produced here - it is reserved for the future
+ * subscription flow (OrderType.subscription), which does not exist yet.
+ */
+export function capacityTypeForItemCategories(categories: ItemCategory[]): CapacityType {
+  if (categories.includes(ItemCategory.event)) return CapacityType.event_catering;
+  if (categories.includes(ItemCategory.tray) || categories.includes(ItemCategory.bundle)) {
+    return CapacityType.party_tray;
+  }
+  return CapacityType.family_pot;
 }
 
 // ---------------------------------------------------------------------------
