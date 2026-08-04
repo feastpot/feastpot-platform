@@ -17,7 +17,7 @@ not yet checked. See `go-live-checklist.md` for the prioritised narrative._
 
 ### Infrastructure & deployment
 
-- [ ] Production Supabase project provisioned (UK/EU region) with daily PITR backup enabled. **GAP — prod still runs on the shared dev/prod project (ref `zibmwuzxgydlvapiddhf`). Startup guard exists but is warn-only until a dedicated project lands (`REQUIRE_DEDICATED_SUPABASE=true`). PITR status unknown.**
+- [x] Production Supabase project provisioned (UK/EU region) — dedicated London project `yeklvhoqanxnogjnhkui` live since 31 Jul; old shared project is dev-only; prod healthz confirms the ref. **Remaining HUMAN: confirm daily PITR/backup is enabled in the Supabase dashboard, and optionally set `REQUIRE_DEDICATED_SUPABASE=true` (would now pass).**
 - [x] Production database has all migrations applied and history baselined (all 35 recorded clean, verified 30 Jul; deploys no-op).
 - [x] Deployment for `@feastpot/api` is healthy (`/v1/healthz` returns `ok`) on `api.feastpot.co.uk`. _(Note: it's a Reserved VM, not Autoscale — required so queue workers + crons run in-process.)_
 - [x] Vercel projects deployed for `apps/web`, `apps/vendor`, `apps/admin` — all three domains respond (verified 30 Jul).
@@ -99,7 +99,7 @@ not yet checked. See `go-live-checklist.md` for the prioritised narrative._
 - [ ] Database alerts: connection saturation, slow queries. **HUMAN — configure in Supabase dashboard.**
 - [x] Uptime monitoring live — it correctly caught the 30 Jul deploy outage within minutes.
 - [ ] On-call rota documented. **HUMAN.**
-- [ ] Status page at `status.feastpot.co.uk`. **GAP — not set up.**
+- [x] Status page at `status.feastpot.co.uk` — live 4 Aug; subdomain root lands directly on the status page (backed by `/v1/statusz`), other paths redirect to www.
 
 ---
 
