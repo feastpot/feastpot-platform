@@ -3,6 +3,7 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { InjectQueue } from '@nestjs/bull';
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   forwardRef,
   Inject,
@@ -34,6 +35,15 @@ import { LoyaltyService } from '../loyalty/loyalty.service';
 import { ReferralService } from '../loyalty/referral.service';
 import { PaymentsService } from '../payments/payments.service';
 import { VENDOR_ORDER_ROLES, VendorMembersService } from '../vendor-members/vendor-members.service';
+import {
+  CapacityExceededError,
+  CapacityNotConfiguredError,
+  capacityTypeForItemCategories,
+  isCapacityEnforcementEnabled,
+  PreorderCutoffPassedError,
+  releaseCapacity,
+  reserveCapacity,
+} from '../vendors/vendor-capacity';
 
 import { ProposeAmendmentDto, RespondAmendmentDto } from './dto/amendment.dto';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -430,6 +440,147 @@ export class OrdersService {
     // DB transaction, for idempotency) can carry the real orderId in its
     // metadata - matches the value the order row will be inserted with.
     const orderId = randomUUID();
+
+    // Per-date capacity reservation (1 slot per order). Runs BEFORE the
+    // Stripe PI so a full date fails fast with no side effects. With
+    // CAPACITY_ENFORCEMENT off this is a dry-run log only; with it on, a
+    // date the vendor never configured is treated as unlimited (capacity is
+    // opt-in per date) so flipping the flag cannot block every vendor.
+    const orderCapacityType = capacityTypeForItemCategories(
+      dto.items.map((input) => byId.get(input.menuItemId)!.category),
+    );
+    let capacityReserved = false;
+    try {
+      const reserved = await reserveCapacity(
+        this.prisma,
+        dto.vendorId,
+        scheduledFor,
+        orderCapacityType,
+        1,
+      );
+      capacityReserved = reserved.enforced;
+    } catch (err) {
+      if (err instanceof CapacityExceededError) {
+        throw new ConflictException({
+          code: 'CAPACITY_FULL',
+          message: 'This vendor is fully booked for that date - please pick another date',
+        });
+      }
+      if (err instanceof PreorderCutoffPassedError) {
+        throw new BadRequestException({
+          code: 'PREORDER_CUTOFF_PASSED',
+          message: 'The pre-order cutoff for that date has passed - please pick a later date',
+        });
+      }
+      if (err instanceof CapacityNotConfiguredError) {
+        // Vendor has not set capacity for this date/type: unlimited.
+        this.logger.log(
+          `No capacity row for vendor=${dto.vendorId} date=${scheduledFor.toISOString().slice(0, 10)} type=${orderCapacityType}; allowing order`,
+        );
+      } else {
+        throw err;
+      }
+    }
+
+    try {
+      return await this.finishCreateOrder({
+        customerId,
+        dto,
+        orderId,
+        orderNumber,
+        scheduledFor,
+        deliveryType,
+        byId,
+        subtotalPence,
+        deliveryFeePence,
+        serviceFeePence,
+        discountPence,
+        totalPence,
+        commissionPence,
+        vendorPayoutPence,
+        discountCodeId,
+        loyaltyToRedeem,
+      });
+    } catch (err) {
+      // Any downstream failure (Stripe PI or DB tx) must hand the slot back,
+      // otherwise abandoned attempts consume real capacity.
+      if (capacityReserved) {
+        await releaseCapacity(this.prisma, dto.vendorId, scheduledFor, orderCapacityType, 1).catch(
+          (releaseErr) =>
+            this.logger.error(
+              `Failed to release capacity after createOrder failure (vendor=${dto.vendorId}): ${(releaseErr as Error).message}`,
+            ),
+        );
+      }
+      throw err;
+    }
+  }
+
+  /**
+   * Best-effort release of the capacity slot an order reserved at creation.
+   * Gated on the flag: while CAPACITY_ENFORCEMENT is off, creation never
+   * incremented, so decrementing here would eat other orders' slots.
+   * releaseCapacity clamps at zero, so a flag flipped between create and
+   * cancel can never underflow. Failures log loudly but never block the
+   * cancellation itself.
+   */
+  private async releaseOrderCapacity(order: {
+    vendorId: string;
+    scheduledFor: Date | null;
+    items: { menuItem: { category: ItemCategory } | null }[];
+  }): Promise<void> {
+    if (!isCapacityEnforcementEnabled()) return;
+    if (!order.scheduledFor) return;
+    const categories = order.items
+      .map((i) => i.menuItem?.category)
+      .filter((c): c is ItemCategory => c != null);
+    const capacityType = capacityTypeForItemCategories(categories);
+    try {
+      await releaseCapacity(this.prisma, order.vendorId, order.scheduledFor, capacityType, 1);
+    } catch (e) {
+      this.logger.error(
+        `releaseCapacity failed for vendor=${order.vendorId} date=${order.scheduledFor.toISOString()}: ${(e as Error).message}`,
+      );
+    }
+  }
+
+  /** Stripe PI + atomic DB transaction tail of createOrderInner. */
+  private async finishCreateOrder(args: {
+    customerId: string;
+    dto: CreateOrderDto;
+    orderId: string;
+    orderNumber: string;
+    scheduledFor: Date;
+    deliveryType: DeliveryType;
+    byId: Map<string, Awaited<ReturnType<OrdersRepository['findMenuItems']>>[number]>;
+    subtotalPence: number;
+    deliveryFeePence: number;
+    serviceFeePence: number;
+    discountPence: number;
+    totalPence: number;
+    commissionPence: number;
+    vendorPayoutPence: number;
+    discountCodeId: string | null;
+    loyaltyToRedeem: number;
+  }) {
+    const {
+      customerId,
+      dto,
+      orderId,
+      orderNumber,
+      scheduledFor,
+      deliveryType,
+      byId,
+      subtotalPence,
+      deliveryFeePence,
+      serviceFeePence,
+      discountPence,
+      totalPence,
+      commissionPence,
+      vendorPayoutPence,
+      discountCodeId,
+      loyaltyToRedeem,
+    } = args;
 
     // Stripe PI is created BEFORE the DB transaction so we have a single
     // outbound side-effect to compensate for if the DB tx fails (cancel the
@@ -832,6 +983,7 @@ export class OrdersService {
     const isVendorPendingCancel =
       dto.status === OrderStatus.cancelled && from === OrderStatus.pending;
     if (isVendorReject || isVendorPendingCancel) {
+      if (snap) await this.releaseOrderCapacity(snap);
       const pi = await this.repo.findStripePaymentIntent(orderId);
       if (pi) {
         await this.stripe.cancel(pi);
@@ -911,6 +1063,9 @@ export class OrdersService {
 
     // Admin terminal cancel/refund - refund any loyalty redemption.
     const snap = await this.repo.findByIdWithItems(orderId);
+    // Hand the capacity slot back unless the food was already delivered
+    // (a post-delivery refund doesn't free up kitchen capacity).
+    if (snap && from !== OrderStatus.delivered) await this.releaseOrderCapacity(snap);
     if (snap?.customerId) {
       try {
         await this.loyalty.refundRedemption(snap.customerId, orderId);
@@ -1021,6 +1176,9 @@ export class OrdersService {
     } catch (e) {
       this.logger.warn(`Could not remove auto_cancel job for ${orderId}: ${(e as Error).message}`);
     }
+
+    // Hand the reserved capacity slot back to the vendor's date.
+    await this.releaseOrderCapacity(order);
 
     // Cancel the (still uncaptured) PaymentIntent so the auth is released.
     const pi = await this.repo.findStripePaymentIntent(orderId);
