@@ -17,6 +17,34 @@ import { createClient } from './lib/supabase/middleware';
  * the classic "user logs in, gets redirected, appears logged out" bug.
  */
 export async function middleware(request: NextRequest) {
+  // ------------------------------------------------------------------
+  // status.feastpot.co.uk: dedicated status host.
+  //  - `/` rewrites to the status page so customers checking an outage
+  //    land on it immediately.
+  //  - `/status` (and its sub-assets) serve normally.
+  //  - Every other path 308s to www so the whole site isn't duplicated
+  //    on this host (SEO duplicate-content + confusing UX).
+  // Handled BEFORE the Supabase session refresh: the status page must
+  // stay readable even if auth is the thing that's down.
+  // ------------------------------------------------------------------
+  const host = request.headers.get('host')?.toLowerCase() ?? '';
+  if (host === 'status.feastpot.co.uk') {
+    const { pathname } = request.nextUrl;
+    if (pathname === '/') {
+      const url = request.nextUrl.clone();
+      url.pathname = '/status';
+      return NextResponse.rewrite(url);
+    }
+    if (pathname === '/status' || pathname.startsWith('/status/')) {
+      return NextResponse.next();
+    }
+    const www = request.nextUrl.clone();
+    www.protocol = 'https:';
+    www.host = 'www.feastpot.co.uk';
+    www.port = '';
+    return NextResponse.redirect(www, 308);
+  }
+
   const { supabase, response } = createClient(request);
 
   // IMPORTANT: getUser() (NOT getSession()) - this contacts Supabase Auth and
