@@ -200,7 +200,6 @@ function MarketingNav() {
     { label: 'Explore', href: '/vendors' },
     { label: 'How it works', href: '/help' },
     { label: 'Become a cook', href: '/vendor/register-interest' },
-    { label: 'FeastPass', href: '/feastpass' },
   ];
   return (
     <nav className="sticky top-0 z-50 border-b border-cream-deep bg-white/95 backdrop-blur">
