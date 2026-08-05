@@ -2,7 +2,7 @@ import { ChevronRight } from 'lucide-react';
 import { cookies } from 'next/headers';
 import Link from 'next/link';
 
-import { CommunityReviews } from '@/components/home/community-reviews';
+import { CateringBand } from '@/components/home/catering-band';
 import { FavouritesPills } from '@/components/home/favourites-pills';
 import { FeastPassStrip } from '@/components/home/feast-pass-strip';
 import { HowFeastpotWorks } from '@/components/home/how-feastpot-works';
@@ -11,6 +11,9 @@ import { MarketingNav } from '@/components/home/marketing-nav';
 import { OccasionGrid } from '@/components/home/occasion-grid';
 import { PostcodeHero } from '@/components/home/postcode-hero';
 import { TrustIconStrip } from '@/components/home/trust-icon-strip';
+import { TrustStandard } from '@/components/home/trust-standard';
+import { VerifiedReviews } from '@/components/home/verified-reviews';
+import { WaitlistBlock } from '@/components/home/waitlist-block';
 import { VendorCard } from '@/components/vendor/vendor-card';
 import { searchVendors, type VendorListItem } from '@/lib/api/vendors';
 import { COVERAGE_COOKIE } from '@/lib/coverage-cookie';
@@ -25,14 +28,15 @@ export const dynamic = 'force-dynamic';
  *
  * Composition (top → bottom):
  *   MarketingNav · PostcodeHero · TrustIconStrip · OccasionGrid ·
- *   HowFeastpotWorks · InstagramDmsBlock · CommunityReviews ·
- *   FavouritesPills · FeastPassStrip
+ *   HowFeastpotWorks · CateringBand · InstagramDmsBlock ·
+ *   VerifiedReviews · FavouritesPills · TrustStandard ·
+ *   WaitlistBlock · [vendor rails when postcode cookie set] · FeastPassStrip
  *
  * The "no vendors before postcode" gate (per the wireframe copy) is
  * preserved: vendor rails only render once the `feastpot.coverage.v1`
  * cookie is present (set by PostcodeHero after a confirmed coverage
- * check). They land between the favourites pills and the FeastPass
- * promos so returning users see relevant kitchens without disrupting
+ * check). They land between the waitlist block and the FeastPass
+ * promo so returning users see relevant kitchens without disrupting
  * the marketing flow above for first-time visitors.
  *
  * The in-app TopNav self-hides on `/` (see top-nav.tsx) - MarketingNav
@@ -86,9 +90,12 @@ export default async function HomePage() {
       <TrustIconStrip />
       <OccasionGrid />
       <HowFeastpotWorks />
+      <CateringBand />
       <InstagramDmsBlock />
-      <CommunityReviews />
+      <VerifiedReviews />
       <FavouritesPills />
+      <TrustStandard />
+      <WaitlistBlock />
 
       {coveredPostcode && (
         <>

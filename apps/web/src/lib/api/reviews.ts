@@ -1,5 +1,33 @@
 import { apiRequest } from './client';
 
+// ─── Featured reviews (homepage) ────────────────────────────────────────────
+
+export interface FeaturedReview {
+  id: string;
+  rating: number;
+  title: string | null;
+  body: string;
+  createdAt: string;
+  customer: { firstName: string | null };
+  vendor: { businessName: string };
+}
+
+/**
+ * Fetches up to 4 recent published reviews for the homepage.
+ * Called from a server component — errors return an empty array so the
+ * page never breaks if the API is unavailable.
+ */
+export async function getFeaturedReviews(): Promise<FeaturedReview[]> {
+  try {
+    const data = await apiRequest<{ reviews: FeaturedReview[] }>('/reviews/featured', {
+      next: { revalidate: 300 },
+    });
+    return data.reviews;
+  } catch {
+    return [];
+  }
+}
+
 export interface CreateReviewInput {
   orderId: string;
   rating: number; // 1–5

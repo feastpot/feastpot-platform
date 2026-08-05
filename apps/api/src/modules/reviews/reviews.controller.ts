@@ -19,6 +19,7 @@ import { UserRole } from '@prisma/client';
 import type { Response } from 'express';
 
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
+import { Public } from '../../auth/decorators/public.decorator';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import type { AuthUser } from '../../auth/types';
 
@@ -41,6 +42,13 @@ function requireUser(user: AuthUser | null): AuthUser {
 @Controller({ path: 'reviews', version: '1' })
 export class ReviewsController {
   constructor(private readonly reviews: ReviewsService) {}
+
+  @Get('featured')
+  @Public()
+  @ApiOperation({ summary: 'Up to 4 recent published reviews for the homepage (public)' })
+  featured() {
+    return this.reviews.findFeatured(4);
+  }
 
   @Post()
   @Roles(UserRole.customer)

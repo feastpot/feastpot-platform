@@ -49,6 +49,22 @@ align the pill mapping table in `favourites-pills.tsx`.
 
 ---
 
+## DEF-006 — Hardcoded testimonials in CommunityReviews are not verified orders
+
+**Found during:** Task 3, Step 1 (review integrity fix)
+**Symptom:** `CommunityReviews` (apps/web/src/components/home/community-reviews.tsx)
+contained four hardcoded quotes attributed to named individuals with SE/SW/N
+postcodes (e.g. "The egusi tasted exactly like home." — Grace, SE15). None of
+these map to real orders in the database; the Review model was not queried.
+**Resolution:** Component replaced by `VerifiedReviews` (async server component)
+which fetches from `GET /v1/reviews/featured` (public endpoint, returns
+auto_approved/approved, non-hidden reviews with a body). If zero verified
+reviews exist the component renders nothing — `TrustStandard` immediately
+below covers the trust messaging. The old hardcoded quotes are gone and cannot
+silently reappear. `CommunityReviews` file retained but no longer imported.
+
+---
+
 ## DEF-005 — Mobile navigation has no disclosure/hamburger menu for extra links
 
 **Found during:** Task 1, Step 3 (primary navigation)
