@@ -142,11 +142,6 @@ export function PostcodeHero() {
       <div className="mx-auto grid max-w-6xl items-center gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-14">
         {/* LEFT - copy + form */}
         <div>
-          {/* Eyebrow tag row - three tonal pills surfacing the value props */}
-          <div className="flex flex-wrap gap-2">
-            <EyebrowTag tone="brand">Postcode first, vendor delivered</EyebrowTag>
-          </div>
-
           <h1
             id="hero-headline"
             className="mt-6 font-display text-[40px] font-black leading-[1.04] tracking-tight text-charcoal sm:text-[48px] lg:text-[60px]"
@@ -268,22 +263,6 @@ export function PostcodeHero() {
             <a href="/sign-in" className="font-medium hover:text-charcoal">
               Sign in for saved addresses
             </a>
-            <span aria-hidden className="text-charcoal-light">
-              ·
-            </span>
-            <a
-              href="#occasions"
-              onClick={(e) => {
-                const el = document.getElementById('occasions');
-                if (!el) return; // fall through to default anchor jump
-                e.preventDefault();
-                const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-                el.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth' });
-              }}
-              className="font-semibold text-brand hover:underline"
-            >
-              Explore occasions
-            </a>
           </div>
 
           <p className="mt-5 flex items-center gap-2 text-[12px] font-medium text-charcoal-mid">
@@ -315,27 +294,5 @@ export function PostcodeHero() {
         </div>
       </div>
     </section>
-  );
-}
-
-function EyebrowTag({
-  tone,
-  children,
-}: {
-  tone: 'brand' | 'plantain' | 'scotch';
-  children: React.ReactNode;
-}) {
-  const cls =
-    tone === 'brand'
-      ? 'bg-brand-light text-brand'
-      : tone === 'plantain'
-        ? 'bg-plantain/15 text-[#8a6a00]'
-        : 'bg-scotch/10 text-scotch';
-  return (
-    <span
-      className={`inline-flex items-center rounded-full px-3 py-1 text-[12px] font-bold ${cls}`}
-    >
-      {children}
-    </span>
   );
 }
