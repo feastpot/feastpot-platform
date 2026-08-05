@@ -1,0 +1,55 @@
+TASK 3 of 7: Homepage conversion sections and review integrity
+
+STANDING RULES
+1. CHECK FIRST. Read docs/IMPLEMENTATION-AUDIT.md and the current homepage before writing anything. Report ALREADY DONE and skip where relevant.
+2. Do not change the design system. Every new section must reuse existing section wrappers, card components, buttons, type scale and colour tokens. If you cannot build a section from existing components, tell me before inventing one.
+3. No new dependencies. Do not restructure or reorder existing homepage sections.
+4. UK English, no em dashes.
+5. Typecheck, lint and existing tests pass before complete. Two identical failures means stop.
+
+SCOPE: apps/web homepage and its section components only.
+
+STEP 1: REVIEW INTEGRITY FIX (do this first, it is a compliance defect)
+The homepage shows quoted testimonials attributed to named people and postcodes, for example "The egusi tasted exactly like home." attributed to Grace, SE15. Check whether these map to real verified orders in the database.
+  - If they do not, they are unsubstantiated testimonials and must not be presented as customer reviews. Replace that section with either a) the same layout populated from real verified reviews when they exist, with a graceful empty state, or b) if none exist, remove the quotes and replace the block with the Trust standard section from step 3.
+  - Implement it as a data driven component: reviews render only when verified reviews exist, otherwise the fallback renders. Never ship hard coded fake quotes.
+  - Log what you found in docs/DEFECT-LOG.md.
+
+STEP 2: CATERING ENTRY BAND
+Add a section between How FeastPot works and the popular food section:
+  Heading: "Planning food for 20 or more people?"
+  Body: "Tell us what you need and we will help you find suitable vendors for your event."
+  Primary action: "Request catering help" linking to /catering.
+  Build it with the existing full width band or card pattern already used on the page. No new visual motif.
+
+STEP 3: TRUST STANDARD SECTION
+Heading: "How we help you order with confidence".
+Six items, each one line, using the existing icon and card components:
+  Food business registration checked
+  Hygiene information shown where available
+  Allergen information on every dish
+  Verified reviews from real orders
+  Secure card payment through Stripe
+  Delivery coverage confirmed by postcode
+Rule: only claim what the platform actually stores and displays. If a claim is not backed by a field that exists in the schema, drop that item and log it. Do not write "every vendor is fully verified" or similar blanket claims anywhere.
+
+STEP 4: WAITLIST AND RECOMMEND A VENDOR BLOCK
+Add near the foot of the page, above the vendor CTA:
+  Heading: "No cooks in your postcode yet?"
+  Body: "We open postcode by postcode so you only see cooks who can actually deliver to you. Tell us where you are and who you want to see on Feastpot."
+  Form A, posting to POST /v1/waitlist with source 'homepage': postcode, email, optional WhatsApp number, optional favourite cuisine, hidden honeypot field. Button: "Notify me when cooks are available".
+  Form B, posting to POST /v1/vendor-recommendations: "Know a cook we should invite?" with a single field placeholder "Instagram handle, business name or phone number" plus optional postcode, and the honeypot. Button: "Recommend a cook".
+  Inline validation, disabled state while submitting, success message replacing the form in place, error message that says what to fix. No modal, no toast library.
+
+STEP 5: OCCASION CARD COMPLETENESS
+Confirm all eight occasion cards exist and each links to a live occasion page: Sunday family meal, birthday party trays, baby shower food, office catering, wedding and events, weekly meal prep, small chops, frozen soup packs. Fix any that route to a 404 or back to the hero.
+
+ACCEPTANCE TESTS
+  - Submit both forms in the running app. Confirm rows land in the database, confirmation emails send, and the duplicate email path shows the success state rather than an error.
+  - Submit with an invalid postcode and confirm the inline error appears and nothing is stored.
+  - Populate the honeypot via devtools and confirm nothing is stored.
+  - Mobile viewport at 375px wide: hero, postcode input, occasion cards and trust badges all render without horizontal scroll, and the new sections stack correctly.
+  - Screenshot the homepage before and after and confirm existing sections are visually unchanged.
+
+REPORT
+Sections added, testimonial finding and how it was resolved, test output, any trust claim you dropped and why.

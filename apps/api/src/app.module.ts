@@ -24,6 +24,7 @@ import { AddressesModule } from './modules/addresses/addresses.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { bullBoardBasicAuth } from './modules/admin/bull-board.middleware';
 import { CatalogueModule } from './modules/catalogue/catalogue.module';
+import { CateringEnquiriesModule } from './modules/catering-enquiries/catering-enquiries.module';
 import { ComplianceModule } from './modules/compliance/compliance.module';
 import { CoverageModule } from './modules/coverage/coverage.module';
 import { DiscountCodesModule } from './modules/discount-codes/discount-codes.module';
@@ -40,7 +41,9 @@ import { PushModule } from './modules/push/push.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
 import { UsersModule } from './modules/users/users.module';
 import { VendorMembersModule } from './modules/vendor-members/vendor-members.module';
+import { VendorRecommendationsModule } from './modules/vendor-recommendations/vendor-recommendations.module';
 import { VendorsModule } from './modules/vendors/vendors.module';
+import { WaitlistModule } from './modules/waitlist/waitlist.module';
 import { WebhooksModule } from './modules/webhooks/webhooks.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { QueueMonitorModule } from './queues/queue-monitor.module';
@@ -348,6 +351,9 @@ import { RootController } from './root.controller';
     AddressesModule,
     VendorsModule,
     CoverageModule,
+    WaitlistModule,
+    VendorRecommendationsModule,
+    CateringEnquiriesModule,
     CatalogueModule,
     OrdersModule,
     PaymentsModule,

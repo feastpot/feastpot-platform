@@ -23,11 +23,10 @@ import { useBasketStore } from '@/store/basket.store';
 // interest form there, and only receive a portal link in the approval
 // email after admin review.
 const NAV_LINKS = [
-  { label: 'Browse', href: '/vendors' },
-  { label: 'How it works', href: '/#how-it-works' },
-  { label: 'Event catering', href: '/#occasions' },
-  { label: 'Become a cook', href: '/become-a-vendor' },
-  { label: 'Help', href: '/help' },
+  { label: 'Order food', href: '/vendors' },
+  { label: 'Occasions', href: '/#occasions' },
+  { label: 'Catering', href: '/catering' },
+  { label: 'Become a vendor', href: '/become-a-vendor' },
 ] as const;
 
 export function MarketingNav() {

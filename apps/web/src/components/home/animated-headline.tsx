@@ -4,9 +4,11 @@ import { useEffect, useRef, useState } from 'react';
 
 import { cn } from '@feastpot/ui';
 
+import { LAUNCH_FOCUS } from '@/config/geography';
+
 const CITIES = [
   'Croydon',
-  'London',
+  LAUNCH_FOCUS.city,
   'Birmingham',
   'Manchester',
   'Leeds',
@@ -15,7 +17,7 @@ const CITIES = [
   'Leicester',
   'Luton',
   'Reading',
-] as const;
+];
 
 const SWAP_INTERVAL_MS = 2200;
 const FADE_OUT_MS = 280;
@@ -28,8 +30,8 @@ const FADE_OUT_MS = 280;
  *   Party trays • Family portions • Weekly meals • Event catering
  *
  * City rotation order starts with Croydon (largest African & Caribbean
- * population outside inner London), then descends through the next nine
- * UK metros with strongest diaspora density.
+ * population outside inner south-east England), then descends through
+ * the next nine UK metros with strongest diaspora density.
  *
  * The swap timeout is tracked in a ref so we can cancel it on unmount -
  * otherwise React warns "Can't perform a state update on an unmounted

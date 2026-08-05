@@ -1,0 +1,84 @@
+TASK 2 of 7: Backend data layer for waitlist, vendor recommendations and catering enquiries
+
+STANDING RULES
+1. CHECK FIRST. Read docs/IMPLEMENTATION-AUDIT.md and the existing Prisma schema and NestJS modules. If a model or endpoint already exists, extend it rather than creating a duplicate, and report "ALREADY DONE" for anything complete.
+2. Do not change the design system in apps/admin. Reuse existing table, form and badge components.
+3. No new npm dependencies without asking. Use the validation, throttling and Resend setup already in the repo.
+4. Do not touch order, payment, commission, service fee or payout code in this task.
+5. UK English, no em dashes.
+6. Typecheck, lint and existing tests must pass for apps/api and apps/admin before you report complete.
+7. Two identical failures means stop and report.
+
+SCOPE: apps/api, prisma/schema.prisma and migrations, apps/admin only. No changes to apps/web in this task.
+
+STEP 1: SCHEMA (one migration, not several)
+Add or extend:
+
+model PostcodeWaitlist {
+  id               String   @id @default(uuid())
+  postcode         String            // normalised, uppercase, single space
+  outwardCode      String            // e.g. SE15, indexed, this is the demand signal
+  email            String
+  whatsapp         String?
+  favouriteCuisine String?
+  source           String            // 'homepage' | 'search-empty' | 'occasion' | 'catering'
+  notifiedAt       DateTime?
+  createdAt        DateTime @default(now())
+  @@unique([email, outwardCode])
+  @@index([outwardCode])
+}
+
+model VendorRecommendation {
+  id                String   @id @default(uuid())
+  businessName      String?
+  instagramHandle   String?
+  phone             String?
+  outwardCode       String?
+  recommendedByEmail String?
+  status            String   @default("NEW")   // NEW | CONTACTED | JOINED | REJECTED
+  adminNotes        String?
+  createdAt         DateTime @default(now())
+  @@index([status])
+}
+
+CateringEnquiry: if a model already exists behind /catering, extend it. Otherwise create it with:
+  id, occasionType, guestCountBand, cuisineStyle, postcode, outwardCode, eventDate, preferredTime,
+  budgetBand, contactName, email, phone, notes, status (NEW | QUALIFIED | MATCHED | WON | LOST),
+  source, createdAt. Index on status and eventDate.
+
+At least one of businessName, instagramHandle or phone must be present on a VendorRecommendation. Enforce in the DTO, not only the database.
+
+STEP 2: PUBLIC ENDPOINTS
+  POST /v1/waitlist
+  POST /v1/vendor-recommendations
+  POST /v1/catering-enquiries  (extend the existing endpoint if one exists)
+For all three:
+  - class-validator DTOs. Reject invalid email, invalid UK postcode, oversized free text (cap notes at 1000 chars).
+  - Normalise postcode with the existing postcode utility if the repo has one, otherwise write one shared util and unit test it. Derive outwardCode from the normalised value.
+  - Honeypot field: if the hidden field is populated, return 201 without persisting.
+  - Rate limit per IP using the existing throttler: 5 requests per 10 minutes per endpoint.
+  - Return a 201 with { ok: true } only. Never echo stored records back to the public client.
+  - Duplicate waitlist signup for the same email and outward code returns 200 and does not error.
+
+STEP 3: NOTIFICATIONS (Resend, reuse existing service and templates)
+  - New catering enquiry: internal alert to the support inbox immediately, and a customer confirmation email reading "Your feast request has been received. We will use your postcode, date, guest count and food preferences to help match you with suitable vendors."
+  - New waitlist signup: customer confirmation only, plain and short. No internal alert, that noise is not worth the sends.
+  - New vendor recommendation: internal alert only.
+  - Every send must be wrapped so a Resend failure logs and does not fail the request.
+
+STEP 4: ADMIN
+In apps/admin, using existing list page patterns:
+  - Catering enquiries: table with date, occasion, guest band, budget band, outward code, event date, status. Row detail with status update and notes.
+  - Vendor recommendations: table with status update.
+  - Waitlist demand: table grouped by outwardCode with signup count, most recent signup, and total. Sort by count descending. This drives expansion decisions, so make the count the primary column.
+  - Guard all of these with the existing admin role guard. Confirm an analyst role can read but not mutate if that role already exists.
+
+ACCEPTANCE TESTS
+  - Unit tests: postcode normalisation and outward code extraction, DTO validation rejections, honeypot behaviour.
+  - e2e per endpoint: happy path 201, invalid postcode 400, invalid email 400, duplicate waitlist 200, throttle returns 429 on the sixth request.
+  - Migration applies cleanly to a fresh database and does not modify any existing table used by orders or payouts.
+  - Admin pages load with seeded rows and the status update persists.
+  - Report the actual test output, not a summary.
+
+REPORT
+Migration name, endpoints added, admin routes added, test output, anything already present that you left alone.

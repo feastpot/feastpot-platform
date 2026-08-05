@@ -1,16 +1,17 @@
 import type { Metadata } from 'next';
 
+import { LAUNCH_FOCUS } from '@/config/geography';
 import { CuisineLanding } from '@/components/seo/cuisine-landing';
 
+const city = LAUNCH_FOCUS.city;
+
 export const metadata: Metadata = {
-  title: 'Nigerian Food Delivery London | Jollof Rice, Egusi, Suya',
-  description:
-    'Order authentic Nigerian food delivered across London - jollof rice, egusi soup, pepper soup, suya, pounded yam and small chops. Trays for parties or family-size portions, delivered the same week.',
+  title: `Nigerian Food Delivery ${city} | Jollof Rice, Egusi, Suya`,
+  description: `Order authentic Nigerian food delivered across ${city} - jollof rice, egusi soup, pepper soup, suya, pounded yam and small chops. Trays for parties or family-size portions, delivered the same week.`,
   alternates: { canonical: '/nigerian-food-delivery-london' },
   openGraph: {
-    title: 'Nigerian Food Delivery London | Feastpot',
-    description:
-      'Jollof, egusi, suya, pepper soup and pounded yam - delivered across London by independent Nigerian cooks.',
+    title: `Nigerian Food Delivery ${city} | Feastpot`,
+    description: `Jollof, egusi, suya, pepper soup and pounded yam - delivered across ${city} by independent Nigerian cooks.`,
     url: '/nigerian-food-delivery-london',
     type: 'website',
   },
@@ -20,7 +21,7 @@ export default function Page() {
   return (
     <CuisineLanding
       cuisine="Nigerian"
-      heading="Authentic Nigerian Food from Local Cooks Across London"
+      heading={`Authentic Nigerian Food from Local Cooks Across ${city}`}
       intro="From Peckham to Stratford, Feastpot connects you with home cooks and small kitchens making the Nigerian food you actually grew up eating. Trays for parties, family-size portions, or weekly meal prep - all from vetted vendors with FSA hygiene ratings."
       highlights={[
         {
@@ -35,7 +36,7 @@ export default function Page() {
         {
           name: 'Pepper Soup',
           description:
-            'Light, peppery broth with goat, catfish or assorted. Comfort food for cold London nights.',
+            'Light, peppery broth with goat, catfish or assorted. Comfort food for cold nights.',
         },
         {
           name: 'Suya',

@@ -1,16 +1,17 @@
 import type { Metadata } from 'next';
 
+import { LAUNCH_FOCUS } from '@/config/geography';
 import { CuisineLanding } from '@/components/seo/cuisine-landing';
 
+const city = LAUNCH_FOCUS.city;
+
 export const metadata: Metadata = {
-  title: 'Ghanaian Food Delivery London | Waakye, Banku, Fufu, Jollof',
-  description:
-    'Order authentic Ghanaian food delivered in London - waakye, banku with tilapia, fufu and light soup, kelewele and jollof. Independent Ghanaian cooks, full FSA hygiene ratings.',
+  title: `Ghanaian Food Delivery ${city} | Waakye, Banku, Fufu, Jollof`,
+  description: `Order authentic Ghanaian food delivered in ${city} - waakye, banku with tilapia, fufu and light soup, kelewele and jollof. Independent Ghanaian cooks, full FSA hygiene ratings.`,
   alternates: { canonical: '/ghanaian-food-delivery-london' },
   openGraph: {
-    title: 'Ghanaian Food Delivery London | Feastpot',
-    description:
-      'Waakye, banku, fufu, kelewele and Ghanaian jollof - delivered across London by independent home cooks.',
+    title: `Ghanaian Food Delivery ${city} | Feastpot`,
+    description: `Waakye, banku, fufu, kelewele and Ghanaian jollof - delivered across ${city} by independent home cooks.`,
     url: '/ghanaian-food-delivery-london',
     type: 'website',
   },
@@ -20,7 +21,7 @@ export default function Page() {
   return (
     <CuisineLanding
       cuisine="Ghanaian"
-      heading="Authentic Ghanaian Food from Local Cooks Across London"
+      heading={`Authentic Ghanaian Food from Local Cooks Across ${city}`}
       intro="From Tottenham to Croydon, Feastpot brings you trusted Ghanaian cooks making waakye, fufu, banku and the kind of jollof worth arguing about. Order a single bowl or a tray that feeds your whole compound."
       highlights={[
         {

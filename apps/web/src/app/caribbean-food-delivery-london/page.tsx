@@ -1,16 +1,17 @@
 import type { Metadata } from 'next';
 
+import { LAUNCH_FOCUS } from '@/config/geography';
 import { CuisineLanding } from '@/components/seo/cuisine-landing';
 
+const city = LAUNCH_FOCUS.city;
+
 export const metadata: Metadata = {
-  title: 'Caribbean Food Delivery London | Jerk Chicken, Oxtail, Curry Goat',
-  description:
-    'Order authentic Caribbean food delivered across London - jerk chicken, oxtail, rice and peas, curry goat and festival bread. Independent vendors, FSA-rated kitchens.',
+  title: `Caribbean Food Delivery ${city} | Jerk Chicken, Oxtail, Curry Goat`,
+  description: `Order authentic Caribbean food delivered across ${city} - jerk chicken, oxtail, rice and peas, curry goat and festival bread. Independent vendors, FSA-rated kitchens.`,
   alternates: { canonical: '/caribbean-food-delivery-london' },
   openGraph: {
-    title: 'Caribbean Food Delivery London | Feastpot',
-    description:
-      'Jerk, oxtail, curry goat, rice and peas, festival - delivered across London by independent Caribbean cooks.',
+    title: `Caribbean Food Delivery ${city} | Feastpot`,
+    description: `Jerk, oxtail, curry goat, rice and peas, festival - delivered across ${city} by independent Caribbean cooks.`,
     url: '/caribbean-food-delivery-london',
     type: 'website',
   },
@@ -20,8 +21,8 @@ export default function Page() {
   return (
     <CuisineLanding
       cuisine="Caribbean"
-      heading="Authentic Caribbean Food from Local Cooks Across London"
-      intro="Brixton, Hackney, Lewisham - wherever you are in London, Feastpot connects you with Caribbean cooks who do the slow-cooked classics properly. Trays for the cookout, family Sundays, or just because it&rsquo;s Friday."
+      heading={`Authentic Caribbean Food from Local Cooks Across ${city}`}
+      intro={`Brixton, Hackney, Lewisham - wherever you are in ${city}, Feastpot connects you with Caribbean cooks who do the slow-cooked classics properly. Trays for the cookout, family Sundays, or just because it\u2019s Friday.`}
       highlights={[
         {
           name: 'Jerk Chicken',

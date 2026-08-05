@@ -85,6 +85,10 @@ export function Footer() {
 
 const FOOTER_LINKS: { label: string; href: string }[] = [
   { label: 'Help & FAQ', href: '/help' },
+  { label: 'Catering', href: '/catering' },
+  { label: 'Become a vendor', href: '/become-a-vendor' },
+  { label: 'Vendor readiness', href: '/vendor-readiness' },
+  { label: 'Trust and safety', href: '/trust' },
   { label: 'Privacy Policy', href: '/legal/privacy' },
   { label: 'Terms of Service', href: '/legal/terms' },
   { label: 'Cookie Policy', href: '/legal/cookies' },
