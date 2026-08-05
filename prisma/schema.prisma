@@ -1283,6 +1283,71 @@ model DiscountCode {
   @@map("discount_codes")
 }
 
+/// Public postcode waitlist. Posted by anonymous users when they want to be
+/// notified once Feastpot serves their area. Distinct from CoverageInterest
+/// (legacy) — this model captures richer demand signals and is the canonical
+/// source for expansion decisions.
+model PostcodeWaitlist {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  postcode         String    @db.VarChar(16)
+  outwardCode      String    @map("outward_code") @db.VarChar(8)
+  email            String    @db.VarChar(255)
+  whatsapp         String?   @db.VarChar(32)
+  favouriteCuisine String?   @map("favourite_cuisine") @db.VarChar(100)
+  source           String    @db.VarChar(64)
+  notifiedAt       DateTime? @map("notified_at") @db.Timestamptz
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  @@unique([email, outwardCode], map: "postcode_waitlist_email_outward_code_key")
+  @@index([outwardCode], map: "postcode_waitlist_outward_code_idx")
+  @@map("postcode_waitlist")
+}
+
+/// Vendor lead captured from the public "recommend a cook" form.
+/// At least one of businessName, instagramHandle, phone must be present (DTO
+/// enforces this; DB does not). Ops works through these to recruit new vendors.
+model VendorRecommendation {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  businessName       String?  @map("business_name") @db.VarChar(200)
+  instagramHandle    String?  @map("instagram_handle") @db.VarChar(120)
+  phone              String?  @db.VarChar(32)
+  outwardCode        String?  @map("outward_code") @db.VarChar(8)
+  recommendedByEmail String?  @map("recommended_by_email") @db.VarChar(255)
+  status             String   @default("NEW") @db.VarChar(32)
+  adminNotes         String?  @map("admin_notes")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([status], map: "vendor_recommendation_status_idx")
+  @@map("vendor_recommendations")
+}
+
+/// Public catering enquiry — unauthenticated, no deposit or quote flow.
+/// Ops qualifies these and may convert them into a full EventEnquiry or
+/// handle offline. Distinct from EventEnquiry which is customer-auth-gated.
+model CateringEnquiry {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  occasionType  String   @map("occasion_type") @db.VarChar(100)
+  guestCountBand String  @map("guest_count_band") @db.VarChar(32)
+  cuisineStyle  String?  @map("cuisine_style") @db.VarChar(200)
+  postcode      String   @db.VarChar(16)
+  outwardCode   String   @map("outward_code") @db.VarChar(8)
+  eventDate     String?  @map("event_date") @db.VarChar(32)
+  preferredTime String?  @map("preferred_time") @db.VarChar(64)
+  budgetBand    String?  @map("budget_band") @db.VarChar(32)
+  contactName   String   @map("contact_name") @db.VarChar(200)
+  email         String   @db.VarChar(255)
+  phone         String?  @db.VarChar(32)
+  notes         String?
+  status        String   @default("NEW") @db.VarChar(32)
+  source        String?  @db.VarChar(64)
+  adminNotes    String?  @map("admin_notes")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([status], map: "catering_enquiry_status_idx")
+  @@index([eventDate], map: "catering_enquiry_event_date_idx")
+  @@map("catering_enquiries")
+}
+
 /// Customer waitlist capture for uncovered postcodes. Populated by the public
 /// POST /coverage-interest endpoint when someone enters a postcode Feastpot
 /// doesn't serve yet. Read-only from the admin console (waitlist size +
