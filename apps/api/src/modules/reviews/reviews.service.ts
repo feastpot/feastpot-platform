@@ -47,6 +47,30 @@ export class ReviewsService {
     this.filter.addWords(...UK_EXTRA_BADWORDS);
   }
 
+  // -------------------- featured (public homepage) --------------------
+
+  async findFeatured(limit = 4) {
+    const reviews = await this.prisma.review.findMany({
+      where: {
+        isHidden: false,
+        moderationStatus: { in: PUBLISHED_STATUSES },
+        body: { not: null },
+      },
+      select: {
+        id: true,
+        rating: true,
+        title: true,
+        body: true,
+        createdAt: true,
+        customer: { select: { firstName: true } },
+        vendor: { select: { businessName: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    });
+    return { reviews };
+  }
+
   // -------------------- create --------------------
 
   async create(dto: CreateReviewDto, user: AuthUser) {
