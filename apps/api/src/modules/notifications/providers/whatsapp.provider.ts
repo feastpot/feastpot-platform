@@ -3,7 +3,23 @@ import { ConfigService } from '@nestjs/config';
 import twilio from 'twilio';
 import type { Twilio } from 'twilio';
 
+import { TEMPLATES } from '../templates';
 import { alertIfStubInProduction } from './stub-alert';
+
+/**
+ * Returns the list of TWILIO_CONTENT_SID_<name> env var names that must be
+ * set for every whatsappTemplate declared in the TEMPLATES registry.
+ * Exported so the contract test can assert the expected set is complete.
+ */
+export function getRequiredContentSidEnvVarNames(): string[] {
+  return [
+    ...new Set(
+      Object.values(TEMPLATES)
+        .map((t) => t.whatsappTemplate)
+        .filter((name): name is string => typeof name === 'string'),
+    ),
+  ].map((name) => `TWILIO_CONTENT_SID_${name}`);
+}
 
 export interface WhatsappMessage {
   to: string; // E.164 phone number (provider will add `whatsapp:` for Twilio)
@@ -65,6 +81,25 @@ export class WhatsappProvider {
       this.twilioClient = twilio(twilioSid, twilioToken);
       this.mode = 'twilio';
       this.logger.log(`WhatsApp provider: Twilio (from=${this.twilioFrom})`);
+
+      // Validate that every whatsappTemplate in the registry has a corresponding
+      // TWILIO_CONTENT_SID_<name> env var. Missing vars cause silent send failures
+      // at runtime, so we surface them immediately on startup.
+      const missingSids = getRequiredContentSidEnvVarNames().filter(
+        (varName) => !config.get<string>(varName),
+      );
+      if (missingSids.length > 0) {
+        const msg =
+          `WhatsApp (Twilio): missing Content SID env vars — ` +
+          `${missingSids.join(', ')}. ` +
+          `Sends for those templates will silently fail. ` +
+          `Create the template in Twilio Content Builder and set the env var.`;
+        if (process.env.NODE_ENV === 'production') {
+          throw new Error(msg);
+        }
+        this.logger.warn(msg);
+      }
+
       return;
     }
 
