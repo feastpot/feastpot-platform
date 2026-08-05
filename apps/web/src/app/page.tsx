@@ -2,6 +2,34 @@ import { ChevronRight } from 'lucide-react';
 import { cookies } from 'next/headers';
 import Link from 'next/link';
 
+const SITE_URL = 'https://feastpot.co.uk';
+
+const organizationJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Organization',
+  name: 'Feastpot',
+  url: SITE_URL,
+  logo: `${SITE_URL}/images/feastpot-logo.png`,
+  description:
+    'African and Caribbean food from trusted local cooks. Order family pots, party trays, weekly meals and event catering for delivery to your door.',
+  sameAs: ['https://instagram.com/feastpot'],
+};
+
+const websiteJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'WebSite',
+  name: 'Feastpot',
+  url: SITE_URL,
+  potentialAction: {
+    '@type': 'SearchAction',
+    target: {
+      '@type': 'EntryPoint',
+      urlTemplate: `${SITE_URL}/vendors?postcode={search_term_string}`,
+    },
+    'query-input': 'required name=search_term_string',
+  },
+};
+
 import { CateringBand } from '@/components/home/catering-band';
 import { FavouritesPills } from '@/components/home/favourites-pills';
 import { FeastPassStrip } from '@/components/home/feast-pass-strip';
@@ -85,6 +113,14 @@ export default async function HomePage() {
 
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
+      />
       <MarketingNav />
       <PostcodeHero />
       <TrustIconStrip />

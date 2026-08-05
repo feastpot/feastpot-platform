@@ -1,0 +1,53 @@
+TASK 6 of 7: Catering funnel and occasion page bundles
+
+STANDING RULES
+1. CHECK FIRST. Read the existing /catering route and the occasion page template before writing anything. If an enquiry form already exists, migrate it rather than deleting it, and preserve any existing submissions.
+2. Do not change the design system. Reuse existing form, card, progress and button components.
+3. No new dependencies. Do not add a form library or state manager.
+4. UK English, no em dashes. Typecheck, lint and tests pass before complete. Two identical failures means stop.
+
+SCOPE: apps/web /catering and /occasions/[slug] only.
+
+STEP 1: CATERING FUNNEL
+Convert /catering into a six step funnel. One question per step, existing components only, step index in the URL as ?step=n so back and forward work and the form is resumable.
+  Entry heading: "Planning food for 20 or more people?"
+  Entry subtext: "Tell us what you need and we will help you find suitable vendors for your event."
+  Step 1, "What are you planning?": Birthday party, Baby shower, Wedding, Church event, Office lunch, Funeral or memorial, Family gathering, Other.
+  Step 2, "How many people are you feeding?": 10 to 20, 20 to 40, 40 to 80, 80 plus.
+  Step 3, "What food style do you want?": Nigerian, Ghanaian, Jamaican, Caribbean, Mixed African and Caribbean, Vegetarian friendly, Not sure yet.
+  Step 4, "Where should the food go?": postcode, event date, preferred time.
+  Step 5, "What budget are you working with?": Under £100, £100 to £250, £250 to £500, £500 to £1,000, £1,000 plus.
+  Step 6, contact details: name, email, phone, optional notes, hidden honeypot.
+  Final action: "Request catering help".
+Rules:
+  - Validate per step. Do not let the user advance with an invalid postcode or a date in the past.
+  - Show a progress indicator using the existing progress component.
+  - Submit once to POST /v1/catering-enquiries from task 2. Disable the button while in flight and guard against double submission.
+  - Confirmation screen: "Your feast request has been received. We will use your postcode, date, guest count and food preferences to help match you with suitable vendors." Include a secondary action back to /vendors.
+  - Keyboard accessible: every option reachable by tab, visible focus, enter advances.
+
+STEP 2: OCCASION PAGES
+Each occasion page currently has a hero, an intro, a postcode search and FAQs. Add, using existing card components:
+  a. Bundle cards by serving band, worded for the occasion:
+       Small gathering, feeds 5 to 10
+       Family party, feeds 10 to 20
+       Big celebration, feeds 20 to 40
+       Full event, 40 plus, action "Request catering help" linking to /catering with the occasion pre-selected via query string.
+     Bands 1 to 3 link to /vendors with the occasion and serves filter applied after the postcode gate.
+  b. A recommended dishes strip for the occasion drawn from the existing cuisine list, each linking to /vendors?cuisine=<slug>.
+  c. A short trust strip reusing the homepage trust standard component.
+  d. Keep the existing hero, intro paragraph and FAQs exactly as they are.
+
+STEP 3: STRUCTURED DATA
+Add FAQPage JSON-LD to each occasion page generated from the FAQs already rendered on that page. Do not add JSON-LD for content that is not visible on the page. Validate the output parses.
+
+ACCEPTANCE TESTS
+  - Complete the funnel end to end. Confirm one row is stored with every field mapped correctly, the internal alert and customer confirmation both send, and a second click does not create a duplicate.
+  - Refresh mid funnel and confirm the step is preserved and prior answers are not lost, or that the user is returned to step 1 cleanly with a message rather than a blank screen.
+  - Invalid postcode and past event date are both blocked with a clear inline message.
+  - From an occasion page, the 40 plus card lands on /catering with the occasion pre-selected, and a serving band card lands on filtered results after postcode entry.
+  - JSON-LD validates and matches the visible FAQs on two different occasion pages.
+  - 375px viewport: the funnel is usable one handed with no horizontal scroll.
+
+REPORT
+Funnel routes and state approach, occasion pages updated, test output, any existing enquiry data migrated.

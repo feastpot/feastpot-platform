@@ -196,6 +196,7 @@ function CheckoutInner() {
     return () => io.disconnect();
   }, []);
 
+  const [allergenConfirmed, setAllergenConfirmed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
 
@@ -369,6 +370,7 @@ function CheckoutInner() {
         notes: notes || undefined,
         discountCode,
         loyaltyPointsToRedeem: loyaltyPoints >= 200 ? loyaltyPoints : undefined,
+        allergenConfirmed,
       });
 
       const { error: stripeErr, paymentIntent } = await stripe.confirmCardPayment(
@@ -497,6 +499,7 @@ function CheckoutInner() {
         notes: notes || undefined,
         discountCode,
         loyaltyPointsToRedeem: loyaltyPoints >= 200 ? loyaltyPoints : undefined,
+        allergenConfirmed,
       });
 
       // 2. Confirm the card payment with Stripe.
@@ -567,7 +570,7 @@ function CheckoutInner() {
       </header>
 
       {/* SECTION 1 - ORDER SUMMARY (collapsible) */}
-      <Section num={1} title="Order summary">
+      <Section num={1} title="Review your feast">
         <div className="overflow-hidden rounded-2xl border border-cream-deep bg-white">
           <button
             type="button"
@@ -621,7 +624,14 @@ function CheckoutInner() {
               </div>
               {serviceFeePence > 0 && (
                 <div className="mt-1.5 flex justify-between text-sm">
-                  <span className="text-charcoal-mid">Service fee</span>
+                  <span className="text-charcoal-mid">
+                    Service fee
+                    {platformServiceFeeBps && platformServiceFeeBps > 0 && (
+                      <span className="ml-1 text-[11px] font-medium text-charcoal-light">
+                        {Math.round(platformServiceFeeBps / 100)}% capped at £2.99
+                      </span>
+                    )}
+                  </span>
                   <span className="font-medium tabular-nums text-charcoal">
                     {formatPounds(serviceFeePence)}
                   </span>
@@ -742,7 +752,7 @@ function CheckoutInner() {
       </Section>
 
       {/* SECTION 3 - DELIVERY SLOT */}
-      <Section num={4} title="Delivery slot">
+      <Section num={4} title="When do you need the food?">
         <SlotPicker
           availableDays={availability?.openingDays ?? [0, 1, 2, 3, 4, 5, 6]}
           slotOpenTime={`${pad2(availability?.slotOpenHour ?? 11)}:00`}
@@ -781,6 +791,20 @@ function CheckoutInner() {
           {notes.length}/1000
         </p>
       </Section>
+
+      {/* ALLERGEN CONFIRMATION */}
+      <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-cream-deep bg-white p-4 transition-colors hover:bg-cream/50 has-[:checked]:border-brand has-[:checked]:bg-brand-light/30">
+        <input
+          type="checkbox"
+          checked={allergenConfirmed}
+          onChange={(e) => setAllergenConfirmed(e.target.checked)}
+          className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded accent-brand"
+        />
+        <span className="text-[13px] font-medium leading-relaxed text-charcoal">
+          I have reviewed the allergen information and understand I should contact the vendor before
+          ordering if I have a serious allergy.
+        </span>
+      </label>
 
       {/* SECTION 5 - PAYMENT */}
       <section ref={paymentSectionRef} className="space-y-3">
@@ -849,7 +873,12 @@ function CheckoutInner() {
       <button
         type="submit"
         disabled={
-          submitting || !stripe || !selectedAddressId || !scheduledFor || outsideDeliveryArea
+          submitting ||
+          !stripe ||
+          !selectedAddressId ||
+          !scheduledFor ||
+          outsideDeliveryArea ||
+          !allergenConfirmed
         }
         className="flex w-full items-center justify-center rounded-2xl bg-brand text-base font-bold text-white shadow-card transition-colors hover:bg-brand-dark disabled:opacity-50"
         style={{ height: 52 }}
@@ -858,8 +887,12 @@ function CheckoutInner() {
           ? 'Placing order…'
           : paidOrderIdRef.current
             ? 'Retry confirming order'
-            : `Place order · ${formatPounds(subtotal)}`}
+            : 'Place order securely'}
       </button>
+      <p className="text-center text-[11px] font-medium text-charcoal-light">
+        Your payment is processed securely. Your order details are shared with the vendor after
+        checkout.
+      </p>
 
       {/* STICKY BOTTOM - appears once the payment section is in view. */}
       {showStickyBar && (
@@ -879,11 +912,16 @@ function CheckoutInner() {
             <button
               type="submit"
               disabled={
-                submitting || !stripe || !selectedAddressId || !scheduledFor || outsideDeliveryArea
+                submitting ||
+                !stripe ||
+                !selectedAddressId ||
+                !scheduledFor ||
+                outsideDeliveryArea ||
+                !allergenConfirmed
               }
               className="flex h-12 flex-1 items-center justify-center rounded-2xl bg-brand text-sm font-semibold text-white hover:bg-brand-dark disabled:opacity-50"
             >
-              {submitting ? 'Placing…' : 'Place order →'}
+              {submitting ? 'Placing…' : 'Place order securely'}
             </button>
           </div>
         </div>

@@ -843,6 +843,7 @@ model Order {
   commissionPence    Int          @default(0) @map("commission_pence")
   vendorPayoutPence  Int          @default(0) @map("vendor_payout_pence")
   notes              String?
+  allergenConfirmed  Boolean      @default(false) @map("allergen_confirmed")
   scheduledFor       DateTime?    @map("scheduled_for") @db.Timestamptz
   acceptedAt         DateTime?    @map("accepted_at") @db.Timestamptz
   dispatchedAt       DateTime?    @map("dispatched_at") @db.Timestamptz

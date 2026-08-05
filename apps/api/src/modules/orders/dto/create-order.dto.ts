@@ -4,6 +4,7 @@ import {
   ArrayMaxSize,
   ArrayMinSize,
   IsArray,
+  IsBoolean,
   IsDateString,
   IsInt,
   IsOptional,
@@ -74,4 +75,12 @@ export class CreateOrderDto {
   @IsInt()
   @Min(200)
   loyaltyPointsToRedeem?: number;
+
+  @ApiPropertyOptional({
+    description:
+      'Customer has reviewed allergen information and confirmed they will contact the vendor if they have a serious allergy. Stored for audit purposes.',
+  })
+  @IsOptional()
+  @IsBoolean()
+  allergenConfirmed?: boolean;
 }

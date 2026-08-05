@@ -110,6 +110,9 @@ export default function OrderConfirmationPage() {
                     minute: '2-digit',
                   })}
                 </p>
+                <p className="mt-0.5 text-charcoal-light">
+                  Fulfilled by the vendor on your chosen date.
+                </p>
               </div>
             </div>
           )}
