@@ -90,6 +90,8 @@ export interface CreateOrderInput {
   discountCode?: string;
   /** Loyalty points to redeem at checkout (min 200, 1pt = 1p discount). */
   loyaltyPointsToRedeem?: number;
+  /** Customer has confirmed they have reviewed allergen information. Stored for audit. */
+  allergenConfirmed?: boolean;
 }
 
 export interface CreateOrderResult {

@@ -537,6 +537,17 @@ export default function BecomeAVendorPage() {
               </div>
             ))}
           </div>
+          <p className="mt-8 text-sm font-medium text-charcoal-mid">
+            Not sure if you are ready yet?{' '}
+            <a
+              href="/vendor-readiness"
+              className="font-bold text-brand underline-offset-2 hover:underline"
+            >
+              Read our vendor readiness guide
+            </a>{' '}
+            for a step-by-step checklist covering registration, hygiene training and allergen
+            information.
+          </p>
         </div>
       </section>
 

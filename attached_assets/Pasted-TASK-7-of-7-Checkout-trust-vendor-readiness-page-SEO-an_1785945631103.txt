@@ -1,0 +1,51 @@
+TASK 7 of 7: Checkout trust, vendor readiness page, SEO and full regression
+
+STANDING RULES
+1. CHECK FIRST. Read the checkout page, the fee calculation code and docs/DEFECT-LOG.md before writing anything.
+2. DO NOT change any pricing, commission, service fee, Stripe or payout logic. The payout formula stays vendorPayout = subtotal + delivery - discount - commission, with the service fee retained by Feastpot. This task is presentation only at checkout. If you believe a calculation is wrong, stop and report it to me instead of changing it.
+3. Do not change the design system. No new dependencies.
+4. UK English, no em dashes. Typecheck, lint and the full test suite must pass before complete. Two identical failures means stop.
+
+SCOPE: apps/web checkout and confirmation, a new /vendor-readiness route, sitemap and metadata files.
+
+STEP 1: CHECKOUT TRUST
+  a. Order summary heading: "Review your feast". Delivery time label: "When do you need the food?".
+  b. Add a required allergen confirmation checkbox above the payment action: "I have reviewed the allergen information and understand I should contact the vendor before ordering if I have a serious allergy." The place order action stays disabled until it is ticked. Persist the confirmation with the order record so it is auditable. Add the field to the order model only if it does not already exist.
+  c. Fee presentation: keep the existing line items and amounts exactly as calculated. Add a plain explanation on the service fee line only, for example "Service fee, 5 percent capped at £2.99". Never display vendor commission to the customer.
+  d. Payment action label: "Place order securely". Reassurance line beneath it: "Your payment is processed securely. Your order details are shared with the vendor after checkout."
+  e. Confirm delivery is described as fulfilled by the vendor, not by Feastpot, on both checkout and confirmation.
+
+STEP 2: VENDOR READINESS PAGE (/vendor-readiness)
+Build with existing components, same structure as other marketing pages.
+  Heading: "Get your food business ready for orders".
+  Subheading: "Feastpot helps African and Caribbean food vendors understand the steps to becoming order ready, from food business registration to allergen information and hygiene evidence."
+  Who it is for: home cooks, caterers, meal prep vendors, party tray sellers.
+  A seven step readiness checklist: register your food business with your local authority, prepare your kitchen and process evidence, complete food hygiene training, prepare allergen information, prepare your menu and labels, get inspection ready, upload your evidence to your Feastpot profile.
+  Disclaimer, prominent and not in small print: "Feastpot can guide vendors through readiness steps. Registration, inspection and ratings are handled by your local authority, not by Feastpot."
+  Action: "Start your vendor application" linking to /become-a-vendor.
+  Also add a link to this page from /become-a-vendor near the onboarding steps, and confirm the footer link added in task 1 now resolves.
+
+STEP 3: SEO
+  a. Regenerate sitemap.xml to include every public route including occasion pages, /catering, /vendor-readiness and /trust. Exclude account, checkout, order and admin routes.
+  b. Confirm every public page has a unique title, description and canonical, and that none of them still say London where the scope is national.
+  c. Structured data: Organization and WebSite with SearchAction on the homepage, FAQPage where FAQs are visible. Validate each block parses.
+  d. Confirm robots.txt allows the new routes and blocks vendor and admin subdomains.
+
+STEP 4: FULL REGRESSION (run this, do not assume)
+Walk and record the result of each path in the running app:
+  1. Homepage postcode search to results to vendor profile to dish to basket to checkout to paid order in Stripe test mode, then order confirmation and tracking.
+  2. Empty postcode search to waitlist submission to database row to confirmation email.
+  3. Recommend a cook submission to database row.
+  4. Catering funnel end to end to database row, internal alert and customer confirmation.
+  5. Vendor application from /become-a-vendor to the existing review queue.
+  6. Sign in, saved addresses, order history, reorder.
+  7. Admin: catering enquiries, vendor recommendations, waitlist demand, vendor approval.
+  8. PWA install and offline fallback page still work.
+  9. 375px mobile pass across homepage, results, vendor profile, checkout and the catering funnel.
+Then close out docs/DEFECT-LOG.md: mark each entry fixed, deferred with a reason, or needing a schema change I must approve.
+
+ACCEPTANCE
+Do not report complete until every path above has been run and its result recorded, the full test suite passes, and typecheck and lint are clean across the monorepo.
+
+REPORT
+A table of the nine regression paths with pass or fail, the checkout changes made, the readiness page route, SEO validation output, and the final defect log state.

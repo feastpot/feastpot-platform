@@ -624,6 +624,7 @@ export class OrdersService {
             commissionPence,
             vendorPayoutPence,
             notes: dto.notes ?? null,
+            allergenConfirmed: dto.allergenConfirmed ?? false,
             scheduledFor,
             discountCodeId,
             items: {

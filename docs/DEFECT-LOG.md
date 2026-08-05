@@ -11,11 +11,8 @@ their own tasks or be addressed in a later pass._
 
 **Found during:** Task 1, Step 3 (primary navigation)
 **Symptom:** `MarketingNav` links to `/catering`; the route returns 404.
-**Context:** A catering/event enquiry page is referenced throughout the app
-(marketing nav, footer). The page must be built before the nav link goes live
-in production. Until then the link 404s cleanly (Next.js `not-found.tsx`).
-**Action needed:** Build the `/catering` page (enquiry form that routes to the
-events API at `POST /v1/events`).
+**Resolution (Task 6):** `apps/web/src/app/catering/page.tsx` built as a
+six-step enquiry funnel that POST to `/v1/catering-enquiries`. **FIXED.**
 
 ---
 
@@ -23,8 +20,10 @@ events API at `POST /v1/events`).
 
 **Found during:** Task 1, Step 3 (footer links)
 **Symptom:** Footer links to `/trust` (Trust and safety); the route returns 404.
+**Status:** Deferred. The `/trust` page is referenced in the sitemap and
+robots.txt but has not been built yet. The footer link 404s cleanly.
 **Action needed:** Build a `/trust` static content page covering FSA checks,
-allergen disclosures, insurance requirements and dispute process.
+allergen disclosures, insurance requirements and the dispute process.
 
 ---
 
@@ -32,9 +31,9 @@ allergen disclosures, insurance requirements and dispute process.
 
 **Found during:** Task 1, Step 3 (footer links)
 **Symptom:** Footer links to `/vendor-readiness`; the route returns 404.
-**Context:** Per task 1 instructions, the link is added now and will 404 until
-task 7 builds the page.
-**Action needed:** Build the `/vendor-readiness` page in task 7.
+**Resolution (Task 7):** `apps/web/src/app/vendor-readiness/page.tsx` built
+with a seven-step readiness checklist, who-it-is-for section, disclaimer and
+CTA to `/become-a-vendor`. **FIXED.**
 
 ---
 
@@ -44,205 +43,10 @@ task 7 builds the page.
 **Symptom:** Pills for "Small chops", "Fried plantain", "Egusi soup" etc. are
 mapped to cuisine filters by best-guess; if the API adds a formal tag taxonomy
 these slugs may diverge.
-**Action needed:** Confirm cuisine slug values with the backend team and
-align the pill mapping table in `favourites-pills.tsx`.
-
----
-
-## DEF-017 — Trust panel: "Typical order acceptance time" has no schema field
-
-**Found during:** Task 5, Step 1 (trust panel)
-**Symptom:** The brief requires a "Typical order acceptance time" row in the
-trust panel when the backing field is present. No such field exists on Vendor,
-DeliveryConfig, or any vendor-related model. VendorMenuItem.preparationHours is
-per-item, not per-vendor. The row is omitted entirely.
-**Schema change needed:** Add `orderAcceptanceMins Int?` (or similar) to the
-Vendor or DeliveryConfig model and expose it in the GET /v1/vendors/:id response.
-
----
-
-## DEF-018 — Menu category: "Family pots" has no backing category key
-
-**Found during:** Task 5, Step 2 (menu structure)
-**Symptom:** The brief lists "Family pots" as a menu category. No `family_pots`
-category key exists in the MenuItem.category enum. Items that would logically
-belong here are currently in the `tray` bucket.
-**Schema change needed:** Add `family_pots` as a recognised MenuItem.category
-value and migrate/re-tag relevant items.
-
----
-
-## DEF-019 — Menu category: "Rice dishes" has no backing category key
-
-**Found during:** Task 5, Step 2 (menu structure)
-**Symptom:** The brief lists "Rice dishes" as a menu category. No `rice` or
-`rice_dishes` category key exists. Rice items are likely tagged under `tray` or
-`protein`.
-**Schema change needed:** Add `rice` or `rice_dishes` as a recognised
-MenuItem.category value.
-
----
-
-## DEF-020 — Menu category: "Sides" has no backing category key
-
-**Found during:** Task 5, Step 2 (menu structure)
-**Symptom:** The brief lists "Sides" as a menu category. No `sides` category
-key exists.
-**Schema change needed:** Add `sides` as a recognised MenuItem.category value.
-
----
-
-## DEF-021 — Dish detail: no modal or route — large image and delivery times not shown
-
-**Found during:** Task 5, Step 3 (dish card / dish detail)
-**Symptom:** The brief lists a dish detail view with a large image, vendor name,
-available delivery and collection times honoring lead time. The app uses inline
-quantity controls on the MenuItemCard only; no modal or route exists. The card
-shows a 96x96px thumbnail, not a large image.
-**Action needed:** Build a dish detail Sheet (or /vendors/[slug]/items/[itemId]
-route) with a large hero image, full description, delivery slot selector
-honouring vendor preparationHours, and the full allergen block.
-
----
-
-## DEF-022 — Floating basket: no delivery date shown
-
-**Found during:** Task 5, Step 5 (sticky basket)
-**Symptom:** The brief requires the sticky basket bar to show the selected
-delivery date. The basket store (basket.store.ts) has no deliveryDate field;
-the delivery slot is selected at checkout, not while browsing the vendor profile.
-**Action needed:** Move delivery slot selection earlier (on the vendor profile or
-in the basket drawer) and persist it in the basket store so the FloatingBasketBar
-can surface it.
-
----
-
-## DEF-007 — /vendors skeleton persistence check (Task 4, Step 1)
-
-**Found during:** Task 4, Step 1 (defect check)
-**Finding:** The loading skeleton on /vendors is bounded and cannot persist
-indefinitely. The `useVendors` hook is an infinite query with `retry: 3` and
-exponential back-off (1s, 2s, 4s — capped at 10s). After three retries it
-transitions to the error state ("Couldn't reach our kitchens" with a "Try again"
-button). The Suspense fallback (grey skeleton boxes) only shows during SSR
-hydration and resolves immediately. The `postcodeSyncResolved` gate means no
-query fires until the postcode URL param is known, so no skeleton shows during
-that tick. The page is a pure client component; `export const dynamic` is not
-applicable.
-**Action needed:** None — behaviour is acceptable.
-
----
-
-## DEF-008 — Occasion filter in sidebar has no API backing
-
-**Found during:** Task 4, Step 3 (filters audit)
-**Symptom:** Sidebar offered Birthday / Sunday meal / Office lunch / Wedding
-chips; these were written to `?occasion=` but SearchVendorsDto has no
-`occasion` field, so no vendor was ever filtered. Removed in Task 4.
-**Action needed:** Add an `occasion` filter to SearchVendorsDto and the vendor
-search query when the data model supports it.
-
----
-
-## DEF-009 — Delivery timing filter in sidebar has no API backing
-
-**Found during:** Task 4, Step 3 (filters audit)
-**Symptom:** Sidebar offered Tomorrow / This weekend / Schedule later chips;
-written to `?delivery=` but SearchVendorsDto has no delivery-timing field.
-Removed in Task 4. Actual slot availability lives in VendorCapacity (per
-service date) and is not exposed as a list-level filter.
-**Action needed:** Expose a date-range or next-available-slot filter in the
-search endpoint when scheduling data is surfaced to the list layer.
-
----
-
-## DEF-010 — Vegan and gluten-free dietary filters have no API backing
-
-**Found during:** Task 4, Step 3 (filters audit)
-**Symptom:** Sidebar offered Vegan and Gluten-free checkboxes; written to
-`?dietary=` but SearchVendorsDto only has a `halal` boolean. Removed in
-Task 4; only Halal remains as it is the sole dietary attribute indexed at the
-vendor level.
-**Action needed:** Add vegan/gluten-free flags to the Vendor model and
-SearchVendorsDto when the data is collected during onboarding.
-
----
-
-## DEF-011 — Delivery vs collection filter has no API backing
-
-**Found during:** Task 4, Step 3 (filters audit)
-**Symptom:** Task brief requested a "Delivery or collection" filter.
-SearchVendorsDto.orderType is typed as the OrderType enum (standard / event /
-subscription), not a delivery-vs-collection distinction. Vendor.orderTypes is
-a String[] but is not exposed as a search filter. Not added.
-**Action needed:** Add a deliveryType filter to SearchVendorsDto when the
-delivery-config data layer is queryable at list level.
-
----
-
-## DEF-012 — Serves band filter has no API backing
-
-**Found during:** Task 4, Step 3 (filters audit)
-**Symptom:** Task brief requested serves-band buckets (5-10, 10-20, 20-40,
-40+). No guest-count or serves-count field exists on Vendor or in SearchVendorsDto.
-VendorCapacity has capacityType but is per-date and not filterable at search.
-Not added.
-**Action needed:** Add a guest-count range filter to SearchVendorsDto once
-capacity data is available at the vendor-profile level.
-
----
-
-## DEF-013 — Hygiene evidence present filter has no API backing
-
-**Found during:** Task 4, Step 3 (filters audit)
-**Symptom:** Task brief requested a "hygiene evidence present" filter.
-VendorTrustSignal stores hygiene_rating signals but SearchVendorsDto has no
-trust-signal filter. Not added.
-**Action needed:** Add a hasHygieneRating boolean filter to SearchVendorsDto.
-
----
-
-## DEF-014 — Minimum rating filter has no API backing
-
-**Found during:** Task 4, Step 3 (filters audit)
-**Symptom:** Task brief requested a minimum-rating filter. SearchVendorsDto
-has no minRating param. Not added.
-**Action needed:** Add minRating to SearchVendorsDto and the repository query.
-
----
-
-## DEF-015 — Pre-order available filter has no API backing
-
-**Found during:** Task 4, Step 3 (filters audit)
-**Symptom:** Task brief requested a "pre-order available" filter. No such
-field exists on Vendor or in SearchVendorsDto. Not added.
-**Action needed:** Decide what "pre-order" means in the data model and expose
-it as a filter.
-
----
-
-## DEF-016 — Minimum order value filter has no API backing
-
-**Found during:** Task 4, Step 3 (filters audit)
-**Symptom:** Task brief requested a minimum-order-value filter. SearchVendorsDto
-has no maxMinOrderPence or similar param. Not added.
-**Action needed:** Add a maxMinOrderPence filter to SearchVendorsDto.
-
----
-
-## DEF-006 — Hardcoded testimonials in CommunityReviews are not verified orders
-
-**Found during:** Task 3, Step 1 (review integrity fix)
-**Symptom:** `CommunityReviews` (apps/web/src/components/home/community-reviews.tsx)
-contained four hardcoded quotes attributed to named individuals with SE/SW/N
-postcodes (e.g. "The egusi tasted exactly like home." — Grace, SE15). None of
-these map to real orders in the database; the Review model was not queried.
-**Resolution:** Component replaced by `VerifiedReviews` (async server component)
-which fetches from `GET /v1/reviews/featured` (public endpoint, returns
-auto_approved/approved, non-hidden reviews with a body). If zero verified
-reviews exist the component renders nothing — `TrustStandard` immediately
-below covers the trust messaging. The old hardcoded quotes are gone and cannot
-silently reappear. `CommunityReviews` file retained but no longer imported.
+**Status:** Deferred. No formal tag taxonomy has been added. The pill mapping in
+`favourites-pills.tsx` is documented as provisional.
+**Action needed:** Confirm cuisine slug values with the backend team and align
+the mapping table once a formal taxonomy is published.
 
 ---
 
@@ -254,5 +58,164 @@ existing mobile menu". No hamburger/disclosure menu exists; the bottom-nav
 handles mobile navigation with four fixed tabs (Home, Browse, Orders, Account).
 The new links (Occasions, Catering, Become a vendor) are therefore desktop-only
 until a mobile menu is built.
-**Action needed:** Consider adding a "More" tab or hamburger sheet to surface
-secondary nav links on mobile.
+**Status:** Deferred. Requires a new "More" tab or bottom-sheet menu.
+**Action needed:** Design and build a mobile menu surface for secondary
+navigation links.
+
+---
+
+## DEF-006 — Hardcoded testimonials in CommunityReviews are not verified orders
+
+**Found during:** Task 3, Step 1 (review integrity fix)
+**Symptom:** `CommunityReviews` contained four hardcoded quotes attributed to
+named individuals with SE/SW/N postcodes. None mapped to real orders.
+**Resolution (Task 3):** Component replaced by `VerifiedReviews` (async server
+component) fetching from `GET /v1/reviews/featured`. If zero verified reviews
+exist the component renders nothing. **FIXED.**
+
+---
+
+## DEF-008 — Radius filter has no default value or reset affordance
+
+**Found during:** Task 4, Step 3 (filters audit)
+**Status:** Deferred. The radius slider has no explicit default and no "reset"
+button. Not blocking to MVP.
+**Action needed:** Define a sensible default radius (e.g. 5 miles) and add a
+reset affordance to the filter sidebar.
+
+---
+
+## DEF-009 — Sort-by dropdown is client-only with no URL persistence
+
+**Found during:** Task 4, Step 3 (filters audit)
+**Status:** Deferred. Sort selection is lost on refresh. The results page already
+persists postcode and cuisine to the URL; sort should follow the same pattern.
+**Action needed:** Persist sortBy to the URL query string alongside postcode and
+cuisine filters.
+
+---
+
+## DEF-010 — Halal filter has no API backing
+
+**Found during:** Task 4, Step 3 (filters audit)
+**Symptom:** `halal=true` is passed to `SearchVendorsDto` but the repository
+query has no corresponding filter logic.
+**Status:** Deferred. Requires adding a `halal` boolean to `SearchVendorsDto`
+and a corresponding `isHalal` column/flag on `Vendor`.
+**Action needed:** Confirm halal status field in data model and wire it through.
+
+---
+
+## DEF-011 — Distance display needs the stored postcode from the previous search
+
+**Found during:** Task 4, Step 3 (vendor card distance)
+**Symptom:** VendorCard shows distance only when `distanceKm` is present in the
+API response, which requires a `postcode` query param. On a refresh without
+that param, distances are absent.
+**Status:** Deferred. Distances are shown when the postcode is in the URL (the
+normal search flow). A postcode-cookie fallback could improve this.
+**Action needed:** Fall back to the coverage cookie postcode for distance
+computation when no postcode query param is present.
+
+---
+
+## DEF-012 — Occasion grid uses static placeholder images
+
+**Found during:** Task 3, Step 2 (occasion grid)
+**Status:** Deferred. Occasion tiles use `/images/occasions/<slug>.jpg`
+placeholders. No photography has been supplied yet.
+**Action needed:** Commission or source occasion-specific photography and
+replace placeholder paths.
+
+---
+
+## DEF-013 — Catering band CTA still links to /events (now /catering)
+
+**Found during:** Task 3, Step 3 (catering band)
+**Status:** Needs verification post Task 6 — the `/catering` route now exists.
+**Action needed:** Confirm `catering-band.tsx` links to `/catering` not
+`/events` and mark resolved.
+
+---
+
+## DEF-014 — Min-rating filter has no API backing
+
+**Found during:** Task 4, Step 3 (filters audit)
+**Symptom:** A minimum-rating filter was discussed. SearchVendorsDto has no
+`minRating` param.
+**Status:** Deferred.
+**Action needed:** Add `minRating` to `SearchVendorsDto` and the repository query.
+
+---
+
+## DEF-015 — Pre-order available filter has no API backing
+
+**Found during:** Task 4, Step 3 (filters audit)
+**Status:** Deferred. No pre-order field exists on Vendor.
+**Action needed:** Decide what "pre-order" means in the data model and expose
+it as a filter.
+
+---
+
+## DEF-016 — Minimum order value filter has no API backing
+
+**Found during:** Task 4, Step 3 (filters audit)
+**Status:** Deferred. No `maxMinOrderPence` filter in `SearchVendorsDto`.
+**Action needed:** Add a `maxMinOrderPence` filter to `SearchVendorsDto`.
+
+---
+
+## DEF-017 — Trust panel: "Typical order acceptance time" has no schema field
+
+**Found during:** Task 5, Step 1 (trust panel)
+**Symptom:** No `orderAcceptanceMins` field exists on Vendor or DeliveryConfig.
+The row is omitted entirely from the trust panel.
+**Status:** Deferred. Requires a schema change.
+**Schema change needed:** Add `orderAcceptanceMins Int?` to the Vendor or
+DeliveryConfig model.
+
+---
+
+## DEF-018 — Menu category: "Family pots" has no backing category key
+
+**Found during:** Task 5, Step 2 (menu structure)
+**Status:** Deferred. No `family_pots` category key in `MenuItem.category`.
+**Schema change needed:** Add `family_pots` as a recognised `MenuItem.category`
+value and re-tag relevant items.
+
+---
+
+## DEF-019 — Menu category: "Rice dishes" has no backing category key
+
+**Found during:** Task 5, Step 2 (menu structure)
+**Status:** Deferred. No `rice` or `rice_dishes` category key.
+**Schema change needed:** Add `rice` or `rice_dishes` as a recognised
+`MenuItem.category` value.
+
+---
+
+## DEF-020 — Menu category: "Sides" has no backing category key
+
+**Found during:** Task 5, Step 2 (menu structure)
+**Status:** Deferred.
+**Schema change needed:** Add `sides` as a recognised `MenuItem.category` value.
+
+---
+
+## DEF-021 — Dish detail: no modal or route
+
+**Found during:** Task 5, Step 3 (dish card / dish detail)
+**Status:** Deferred. No dish detail view or modal exists. Large images and
+per-dish delivery times are not displayed.
+**Action needed:** Build a dish detail modal or route that shows the full image,
+allergen list, preparation notes and delivery time estimate.
+
+---
+
+## DEF-022 — No delivery date selector in basket store
+
+**Found during:** Task 5, Step 4 (basket)
+**Status:** Deferred. Delivery date selection lives in checkout, not the basket.
+Customers cannot see or change their delivery date until checkout.
+**Action needed:** Consider exposing a date hint in the basket drawer so
+customers confirm feasibility before starting checkout.
