@@ -14,7 +14,7 @@ import { useVendorReviews } from '@/hooks/use-vendors';
  * paper testimonials column rather than a tech-app review list.
  *
  * Verification: every review on Feastpot is created against a delivered
- * order (see Reviews API), so we always render the ✓ Verified badge.
+ * order (see Reviews API), so we always render the Verified badge.
  *
  * `limit` (optional): cap visible reviews to the N most recent and HIDE the
  * "Load more" pagination button. The vendor profile passes `limit={3}` to
@@ -27,11 +27,6 @@ export function ReviewsSection({ vendorId, limit }: { vendorId: string; limit?: 
     useVendorReviews(vendorId);
 
   if (isLoading) {
-    // Skeleton mirrors the live review card layout - warm cream
-    // surface, teal-gradient avatar slot, two-line quote - so the
-    // section doesn't pop/reflow when data lands. 3 placeholders is
-    // the same number we render at `limit={3}` from the vendor
-    // profile, the only place this section currently mounts.
     return (
       <div className="space-y-2.5" aria-busy="true" aria-label="Loading reviews">
         {Array.from({ length: 3 }).map((_, i) => (
@@ -74,9 +69,8 @@ export function ReviewsSection({ vendorId, limit }: { vendorId: string; limit?: 
       </div>
     );
   }
+
   if (error) {
-    // Friendlier than "Failed to load reviews." - tells the user what
-    // to do (refresh) rather than just announcing the failure.
     return (
       <p className="text-sm text-charcoal-mid">Reviews unavailable - try refreshing the page.</p>
     );
@@ -88,9 +82,7 @@ export function ReviewsSection({ vendorId, limit }: { vendorId: string; limit?: 
 
   if (reviews.length === 0) {
     return (
-      <p className="text-sm text-charcoal-mid">
-        No reviews yet - be the first to order and share what you think.
-      </p>
+      <p className="text-sm text-charcoal-mid">No reviews yet. This cook is new to Feastpot.</p>
     );
   }
 
