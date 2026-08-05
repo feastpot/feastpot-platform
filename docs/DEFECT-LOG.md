@@ -49,6 +49,74 @@ align the pill mapping table in `favourites-pills.tsx`.
 
 ---
 
+## DEF-017 — Trust panel: "Typical order acceptance time" has no schema field
+
+**Found during:** Task 5, Step 1 (trust panel)
+**Symptom:** The brief requires a "Typical order acceptance time" row in the
+trust panel when the backing field is present. No such field exists on Vendor,
+DeliveryConfig, or any vendor-related model. VendorMenuItem.preparationHours is
+per-item, not per-vendor. The row is omitted entirely.
+**Schema change needed:** Add `orderAcceptanceMins Int?` (or similar) to the
+Vendor or DeliveryConfig model and expose it in the GET /v1/vendors/:id response.
+
+---
+
+## DEF-018 — Menu category: "Family pots" has no backing category key
+
+**Found during:** Task 5, Step 2 (menu structure)
+**Symptom:** The brief lists "Family pots" as a menu category. No `family_pots`
+category key exists in the MenuItem.category enum. Items that would logically
+belong here are currently in the `tray` bucket.
+**Schema change needed:** Add `family_pots` as a recognised MenuItem.category
+value and migrate/re-tag relevant items.
+
+---
+
+## DEF-019 — Menu category: "Rice dishes" has no backing category key
+
+**Found during:** Task 5, Step 2 (menu structure)
+**Symptom:** The brief lists "Rice dishes" as a menu category. No `rice` or
+`rice_dishes` category key exists. Rice items are likely tagged under `tray` or
+`protein`.
+**Schema change needed:** Add `rice` or `rice_dishes` as a recognised
+MenuItem.category value.
+
+---
+
+## DEF-020 — Menu category: "Sides" has no backing category key
+
+**Found during:** Task 5, Step 2 (menu structure)
+**Symptom:** The brief lists "Sides" as a menu category. No `sides` category
+key exists.
+**Schema change needed:** Add `sides` as a recognised MenuItem.category value.
+
+---
+
+## DEF-021 — Dish detail: no modal or route — large image and delivery times not shown
+
+**Found during:** Task 5, Step 3 (dish card / dish detail)
+**Symptom:** The brief lists a dish detail view with a large image, vendor name,
+available delivery and collection times honoring lead time. The app uses inline
+quantity controls on the MenuItemCard only; no modal or route exists. The card
+shows a 96x96px thumbnail, not a large image.
+**Action needed:** Build a dish detail Sheet (or /vendors/[slug]/items/[itemId]
+route) with a large hero image, full description, delivery slot selector
+honouring vendor preparationHours, and the full allergen block.
+
+---
+
+## DEF-022 — Floating basket: no delivery date shown
+
+**Found during:** Task 5, Step 5 (sticky basket)
+**Symptom:** The brief requires the sticky basket bar to show the selected
+delivery date. The basket store (basket.store.ts) has no deliveryDate field;
+the delivery slot is selected at checkout, not while browsing the vendor profile.
+**Action needed:** Move delivery slot selection earlier (on the vendor profile or
+in the basket drawer) and persist it in the basket store so the FloatingBasketBar
+can surface it.
+
+---
+
 ## DEF-007 — /vendors skeleton persistence check (Task 4, Step 1)
 
 **Found during:** Task 4, Step 1 (defect check)

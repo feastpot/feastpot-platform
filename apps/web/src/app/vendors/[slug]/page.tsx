@@ -81,25 +81,35 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 }
 
+/**
+ * Category ordering matches the brief's prescribed sequence.
+ * Keys are the values stored in VendorMenuItem.category (server-side).
+ *
+ * Brief categories without a backing category key:
+ *   "Family pots"      → no `family_pots` key (DEF-018)
+ *   "Rice dishes"      → no `rice` / `rice_dishes` key (DEF-019)
+ *   "Sides"            → no `sides` key (DEF-020)
+ * These will show as empty groups and are suppressed by groupByCategory.
+ */
 const CATEGORY_ORDER = [
   'tray',
+  'snack',
   'soup',
   'protein',
   'swallow',
-  'snack',
   'frozen',
   'bundle',
   'event',
 ] as const;
 const CATEGORY_LABELS: Record<string, string> = {
-  tray: 'Trays',
-  soup: 'Soups',
-  protein: 'Proteins',
+  tray: 'Party trays',
+  snack: 'Small chops',
+  soup: 'Soups and stews',
+  protein: 'Meat and fish',
   swallow: 'Swallows',
-  snack: 'Snacks',
-  frozen: 'Frozen',
+  frozen: 'Weekly meal prep',
   bundle: 'Bundles',
-  event: 'Events',
+  event: 'Event catering',
 };
 
 function groupByCategory(items: VendorMenuItem[]) {
@@ -295,7 +305,11 @@ export default async function VendorProfilePage({ params }: PageProps) {
           so most vendors see no change here. */}
       {(trustSignals.length > 0 || capacity.length > 0) && (
         <div className="mt-9 space-y-3">
-          <TrustSignalPanel signals={trustSignals} />
+          <TrustSignalPanel
+            signals={trustSignals}
+            fsaRating={vendor.fsaRating}
+            ratingCount={vendor.ratingCount > 0 ? vendor.ratingCount : undefined}
+          />
           <CapacityBand capacity={capacity} />
         </div>
       )}
@@ -563,9 +577,9 @@ export default async function VendorProfilePage({ params }: PageProps) {
         className="mt-8 space-y-3"
       >
         <p className="text-[11px] font-black uppercase tracking-[0.18em] text-brand">
-          From the community
+          From verified orders
         </p>
-        <h2 className="font-display text-[20px] font-black text-charcoal">Reviews</h2>
+        <h2 className="font-display text-[20px] font-black text-charcoal">Verified reviews</h2>
         <ReviewsSection vendorId={vendor.id} limit={3} />
       </section>
 

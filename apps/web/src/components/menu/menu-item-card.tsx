@@ -427,6 +427,12 @@ export function MenuItemCard({ item, vendor }: Props) {
             </div>
           </div>
 
+          {/* Preparation notice — always shown; steers customers with large
+              orders (party trays, family pots) towards pre-ordering. */}
+          <p className="mt-2 text-[11px] font-medium text-charcoal-mid">
+            Made to order. Pre-order is recommended for party trays and large family pots.
+          </p>
+
           {item.allergens.length > 0 && (
             <button
               type="button"
@@ -439,12 +445,13 @@ export function MenuItemCard({ item, vendor }: Props) {
               className="touch-target mt-1 -ml-2 inline-flex items-center gap-1.5 rounded-md px-2 text-[12px] font-bold text-scotch transition-opacity hover:opacity-80"
             >
               <Info className="h-4 w-4" aria-hidden />
-              {showAllergens ? 'Hide allergens' : 'View allergens'}
+              {showAllergens ? 'Hide allergen information' : 'View allergen information'}
             </button>
           )}
           {showAllergens && (
             <p className="mt-1 rounded-lg border border-scotch/20 bg-scotch/10 p-2 text-[12px] font-medium leading-relaxed text-charcoal">
-              ⚠️ Contains: {item.allergens.join(', ')}
+              Contains or may contain: {item.allergens.join(', ')}. Please check with the vendor
+              before ordering if you have a serious allergy.
             </p>
           )}
         </div>
