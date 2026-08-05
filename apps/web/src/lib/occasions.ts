@@ -18,6 +18,12 @@ export interface OccasionContent {
   faqs: [OccasionFaq, OccasionFaq, OccasionFaq];
   metaTitle: string;
   metaDescription: string;
+  /**
+   * Cuisine names shown in the recommended dishes strip.
+   * Each links to /vendors?cuisine=<value>.
+   * Values must match the cuisine list used in VendorFiltersSidebar.
+   */
+  recommendedCuisines: string[];
 }
 
 export const OCCASION_SLUGS = [
@@ -61,6 +67,7 @@ export const OCCASIONS: Record<OccasionSlug, OccasionContent> = {
     metaTitle: 'Sunday Family Meals — African & Caribbean Food Delivered',
     metaDescription:
       'Order African and Caribbean Sunday family meals from trusted local cooks. Family pots that feed 4-6, scheduled delivery, order by Thursday or Friday for Sunday.',
+    recommendedCuisines: ['Nigerian', 'Ghanaian', 'Caribbean'],
   },
   'birthday-party-trays': {
     slug: 'birthday-party-trays',
@@ -89,6 +96,7 @@ export const OCCASIONS: Record<OccasionSlug, OccasionContent> = {
     metaTitle: 'Birthday Party Trays — African & Caribbean Catering',
     metaDescription:
       'Order African and Caribbean birthday party trays from local cooks. Trays serve 8-12 guests, 3-5 days notice, delivered ready to serve on your date.',
+    recommendedCuisines: ['Nigerian', 'Ghanaian', 'Jamaican', 'Caribbean'],
   },
   'wedding-and-events': {
     slug: 'wedding-and-events',
@@ -117,6 +125,7 @@ export const OCCASIONS: Record<OccasionSlug, OccasionContent> = {
     metaTitle: 'Wedding & Event Catering — African & Caribbean',
     metaDescription:
       'African and Caribbean catering for weddings, church programmes and gatherings. Local cooks, per-tray or per-head portions, quotes for large events.',
+    recommendedCuisines: ['Nigerian', 'Ghanaian', 'Caribbean'],
   },
   'office-catering': {
     slug: 'office-catering',
@@ -139,12 +148,13 @@ export const OCCASIONS: Record<OccasionSlug, OccasionContent> = {
       {
         question: 'Are vegetarian and halal options available?',
         answer:
-          'Many cooks offer vegetarian dishes and halal preparation. Enter your postcode to see which cooks near your office cater for your team’s requirements.',
+          "Many cooks offer vegetarian dishes and halal preparation. Enter your postcode to see which cooks near your office cater for your team's requirements.",
       },
     ],
     metaTitle: 'Office Catering — African & Caribbean Team Lunches',
     metaDescription:
       'African and Caribbean office catering from local cooks. Trays for 8-10 colleagues, vegetarian and halal options, 2-3 days notice for weekday delivery.',
+    recommendedCuisines: ['Nigerian', 'Ghanaian', 'Jamaican', 'Caribbean'],
   },
   'weekly-meal-prep': {
     slug: 'weekly-meal-prep',
@@ -173,6 +183,7 @@ export const OCCASIONS: Record<OccasionSlug, OccasionContent> = {
     metaTitle: 'Weekly Meal Prep — African & Caribbean Portions',
     metaDescription:
       'African and Caribbean weekly meal prep from local cooks. Single portions, fridge- and freezer-friendly, scheduled weekly delivery to your postcode.',
+    recommendedCuisines: ['Nigerian', 'Ghanaian'],
   },
   'baby-shower-food': {
     slug: 'baby-shower-food',
@@ -201,6 +212,7 @@ export const OCCASIONS: Record<OccasionSlug, OccasionContent> = {
     metaTitle: 'Baby Shower Food — African & Caribbean Trays',
     metaDescription:
       'Order African and Caribbean baby shower trays from local cooks. One tray per 10 guests, 3-5 days notice, delivered ready to serve.',
+    recommendedCuisines: ['Nigerian', 'Ghanaian', 'Caribbean'],
   },
   'small-chops': {
     slug: 'small-chops',
@@ -229,6 +241,7 @@ export const OCCASIONS: Record<OccasionSlug, OccasionContent> = {
     metaTitle: 'Small Chops Delivery — Puff Puff, Samosa & More',
     metaDescription:
       'Fresh small chops platters from local cooks: puff puff, samosa, spring rolls and more. Platters serve 6-8, order 2-4 days ahead.',
+    recommendedCuisines: ['Nigerian', 'Ghanaian', 'Jamaican', 'Caribbean'],
   },
   'frozen-soup-packs': {
     slug: 'frozen-soup-packs',
@@ -257,6 +270,7 @@ export const OCCASIONS: Record<OccasionSlug, OccasionContent> = {
     metaTitle: 'Frozen Soup Packs — Egusi, Ogbono & Pepper Soup',
     metaDescription:
       'Frozen African soup packs from local cooks: egusi, ogbono, okra and pepper soup. 1-litre packs serve 2-3, keep 3 months frozen, made to order.',
+    recommendedCuisines: ['Nigerian', 'Ghanaian'],
   },
 };
 
