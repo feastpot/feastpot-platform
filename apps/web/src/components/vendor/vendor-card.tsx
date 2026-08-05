@@ -181,7 +181,7 @@ export function VendorCard({ vendor, variant = 'list' }: Props) {
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-[10px] font-semibold text-charcoal">
-              Home cook · {vendor.address?.city || 'South London'}
+              Home cook · {vendor.address?.city || 'UK'}
             </p>
             <p className="truncate text-[11px] italic text-charcoal-mid">
               &ldquo;Just like my grandmother makes it.&rdquo;

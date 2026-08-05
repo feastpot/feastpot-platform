@@ -1,5 +1,6 @@
 import Link from 'next/link';
 
+import { LAUNCH_FOCUS } from '@/config/geography';
 import {
   getVendorCoverage,
   searchVendors,
@@ -38,7 +39,7 @@ export interface CuisineLandingProps {
 const CUSTOMER_REVIEWS = [
   {
     quote:
-      'Genuinely the best jollof I have had in London since moving here from Lagos. Tray turned up hot and the timing was spot on.',
+      'Genuinely the best jollof I have had since moving here from Lagos. Tray turned up hot and the timing was spot on.',
     name: 'Adaeze, Peckham',
   },
   {
@@ -103,20 +104,19 @@ function buildCoverageFaq(cuisine: string, coverage: VendorCoverage | null): Faq
   const districts = coverage?.postcodeDistricts ?? [];
   const answer =
     districts.length > 0
-      ? `${cuisine} vendors on Feastpot currently deliver across London postcodes including ${districts
+      ? `${cuisine} vendors on Feastpot currently deliver across postcodes including ${districts
           .slice(0, 12)
           .join(
             ', ',
           )}${districts.length > 12 ? ' and more' : ''}. Enter your postcode on the homepage to see exactly who covers your address.`
       : `Coverage grows as we onboard new ${cuisine} vendors. Enter your postcode on the homepage to see who delivers to you today - and if no one covers you yet, leave your postcode and we'll let you know when a vendor comes online.`;
-  return { question: 'Which London areas do you cover?', answer };
+  return { question: 'Which areas do you cover?', answer };
 }
 
 /**
  * Shared template for the three diaspora-cuisine SEO landing pages
  * (Nigerian, Ghanaian, Caribbean). Server component - vendor list is
- * fetched at request time and cached for an hour. The pages target London
- * postcodes, so copy and reviews are intentionally London-flavoured.
+ * fetched at request time and cached for an hour.
  */
 export async function CuisineLanding({
   cuisine,
@@ -139,7 +139,7 @@ export async function CuisineLanding({
     <article className="mx-auto w-full max-w-4xl space-y-12 px-4 py-8 md:py-12">
       <header className="space-y-3">
         <p className="text-xs font-black uppercase tracking-[0.18em] text-brand-dark">
-          London delivery
+          UK delivery
         </p>
         <h1 className="font-display text-3xl font-black leading-tight tracking-tight text-charcoal md:text-5xl">
           {heading}
@@ -202,7 +202,7 @@ export async function CuisineLanding({
           id="vendors"
           className="mb-4 font-display text-2xl font-black tracking-tight text-charcoal"
         >
-          {cuisine} vendors in London
+          {cuisine} vendors near you
         </h2>
         {vendors.length === 0 ? (
           <p className="text-sm font-medium text-charcoal-mid">

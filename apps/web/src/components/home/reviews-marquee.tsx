@@ -14,7 +14,7 @@
  * array for an SSR fetch with `revalidate: 600` and keep the doubling here.
  */
 const REVIEWS = [
-  { quote: 'Best Jollof in London 🔥', name: 'Grace', area: 'SE15' },
+  { quote: 'Best Jollof I have tasted 🔥', name: 'Grace', area: 'SE15' },
   { quote: 'Party tray fed 30 people - flawless delivery', name: 'David', area: 'SW9' },
   { quote: 'Finally! Authentic egusi that tastes like home', name: 'Amara', area: 'SE18' },
   { quote: "Ordered for my mum's birthday - she cried 😭❤️", name: 'Kofi', area: 'CR0' },

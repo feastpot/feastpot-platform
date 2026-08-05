@@ -1,21 +1,21 @@
 /**
  * "POPULAR FOOD - African & Caribbean favourites on FeastPot." A
- * tonal pill cloud of cuisine teasers. Tapping a pill anchors back
- * to the hero (so the user enters their postcode first) - per the
- * "no vendors before postcode" product rule called out in the
- * wireframe copy.
+ * tonal pill cloud of cuisine teasers. Tapping a pill navigates to
+ * /vendors?cuisine=<slug> so the cuisine filter is pre-applied.
+ * /vendors still requires a postcode before surfacing vendor results,
+ * preserving the postcode-first discovery rule.
  */
 const PILLS = [
-  { label: 'Nigerian jollof', tone: 'brand' },
-  { label: 'Ghanaian waakye', tone: 'plantain' },
-  { label: 'Jamaican jerk', tone: 'scotch' },
-  { label: 'Caribbean curry goat', tone: 'brand' },
-  { label: 'Egusi soup', tone: 'plantain' },
-  { label: 'Small chops', tone: 'scotch' },
-  { label: 'Rice and peas', tone: 'plantain' },
-  { label: 'Suya', tone: 'plantain' },
-  { label: 'Oxtail', tone: 'scotch' },
-  { label: 'Fried plantain', tone: 'brand' },
+  { label: 'Nigerian jollof', tone: 'brand', cuisine: 'Nigerian' },
+  { label: 'Ghanaian waakye', tone: 'plantain', cuisine: 'Ghanaian' },
+  { label: 'Jamaican jerk', tone: 'scotch', cuisine: 'Jamaican' },
+  { label: 'Caribbean curry goat', tone: 'brand', cuisine: 'Caribbean' },
+  { label: 'Egusi soup', tone: 'plantain', cuisine: 'Nigerian' },
+  { label: 'Small chops', tone: 'scotch', cuisine: 'Nigerian' },
+  { label: 'Rice and peas', tone: 'plantain', cuisine: 'Caribbean' },
+  { label: 'Suya', tone: 'plantain', cuisine: 'Nigerian' },
+  { label: 'Oxtail', tone: 'scotch', cuisine: 'Caribbean' },
+  { label: 'Fried plantain', tone: 'brand', cuisine: 'African' },
 ] as const;
 
 const TONE: Record<(typeof PILLS)[number]['tone'], string> = {
@@ -47,15 +47,15 @@ export function FavouritesPills() {
         <span className="text-charcoal">Pot</span>
       </h2>
       <p className="mt-1 text-[14px] font-medium text-charcoal-mid">
-        These cards are teasers only. Clicking one asks for postcode before showing delivery
-        availability.
+        Tap a dish to start browsing. You&rsquo;ll enter your postcode first so we can show who
+        delivers to you.
       </p>
 
       <ul className="mt-5 flex flex-wrap gap-2.5">
-        {PILLS.map(({ label, tone }) => (
+        {PILLS.map(({ label, tone, cuisine }) => (
           <li key={label}>
             <a
-              href="#hero-headline"
+              href={`/vendors?cuisine=${encodeURIComponent(cuisine)}`}
               className={`inline-flex items-center rounded-full px-4 py-2 text-[13px] font-bold transition-colors ${TONE[tone]}`}
             >
               {label}

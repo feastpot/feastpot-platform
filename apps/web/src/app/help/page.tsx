@@ -49,7 +49,7 @@ const SECTIONS: FaqSection[] = [
       {
         question: 'What areas do you deliver to?',
         answer:
-          'Each vendor sets their own delivery zone. Enter your postcode on the homepage to see who covers you. We currently focus on Greater London with selected coverage in Birmingham and Manchester.',
+          'Each vendor sets their own delivery zone. Enter your postcode on the homepage to see who covers you. Vendors operate across the UK, with new areas added as we onboard more cooks.',
       },
       {
         question: 'How do I track my order?',

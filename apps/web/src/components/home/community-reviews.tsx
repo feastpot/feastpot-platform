@@ -2,7 +2,7 @@ import { Star } from 'lucide-react';
 
 /**
  * "SOCIAL PROOF WITHOUT FAKE AVAILABILITY - Loved by communities
- * across London." Four customer review teasers. Quotes are
+ * across the UK." Four customer review teasers. Quotes are
  * intentionally short and area-coded (postcode prefixes) so the
  * social proof reads as genuinely local rather than generic
  * marketplace blurb.

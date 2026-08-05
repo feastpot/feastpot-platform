@@ -128,18 +128,18 @@ const TRUST = [
   {
     Icon: Users,
     label: 'Growing network of cooks',
-    sub: 'Onboarding cooks across London.',
+    sub: 'Onboarding cooks across the UK.',
   },
   {
     Icon: BadgeCheck,
-    label: 'London launch',
-    sub: 'Proudly launching across London.',
+    label: 'UK wide',
+    sub: 'Now onboarding cooks across the UK.',
   },
 ];
 
 const SOCIAL_PROOF = [
   { Icon: ShieldCheck, value: 'FSA-aligned onboarding', label: 'UK food safety standards' },
-  { Icon: BadgeCheck, value: 'London launch', label: 'Growing across the city' },
+  { Icon: BadgeCheck, value: 'UK wide', label: 'Growing across the UK' },
   { Icon: CreditCard, value: 'Stripe-backed payouts', label: 'Weekly, to your account' },
 ];
 

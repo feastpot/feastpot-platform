@@ -49,7 +49,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     // ships a unique og:description string - Kwame's Jollof was flagged in
     // the live SEO audit for serving an empty description here.
     const cuisines = vendor.cuisines?.filter(Boolean).join(' & ');
-    const city = vendor.address?.city ?? 'London';
+    const city = vendor.address?.city ?? 'UK';
     const topDishes = vendor.menus
       ?.flatMap((m) => m.items ?? [])
       .slice(0, 3)
@@ -353,7 +353,7 @@ export default async function VendorProfilePage({ params }: PageProps) {
           </div>
           <div className="min-w-0">
             <p className="text-[12px] font-bold text-charcoal">
-              Home cook · {vendor.address?.city || 'South London'}
+              Home cook · {vendor.address?.city || 'UK'}
             </p>
             <p className="text-[11px] font-medium text-charcoal-mid">
               Cooking on Feastpot since{' '}

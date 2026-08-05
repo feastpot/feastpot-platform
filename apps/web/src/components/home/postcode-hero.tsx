@@ -309,7 +309,7 @@ export function PostcodeHero() {
               Jollof trays · Egusi pots · Jerk chicken · Small chops
             </p>
             <p className="mt-0.5 text-[11px] font-medium text-charcoal-mid">
-              Authentic dishes from trusted local cooks across London
+              Authentic dishes from trusted local cooks across the UK
             </p>
           </div>
         </div>

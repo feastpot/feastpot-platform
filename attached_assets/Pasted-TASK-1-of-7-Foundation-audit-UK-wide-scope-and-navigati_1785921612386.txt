@@ -1,0 +1,60 @@
+TASK 1 of 7: Foundation audit, UK wide scope and navigation
+
+STANDING RULES (apply to every step)
+1. CHECK FIRST. Read the existing code before writing any. If something is already implemented, report "ALREADY DONE: <file>:<line>" and skip it. Do not rebuild working code.
+2. DO NOT change the visual design system. No new fonts, colours, spacing scale, radii, shadows or UI libraries. Reuse the existing tokens, Tailwind config and shared components. New UI must be assembled from components that already exist.
+3. No new npm dependencies without asking me first.
+4. Only touch files listed in SCOPE. If you find a defect outside scope, log it in docs/DEFECT-LOG.md and leave it.
+5. UK English in all user facing copy. Never use em dashes.
+6. Before reporting complete: typecheck, lint and the existing test suite must pass for affected packages.
+7. If the same failure happens twice, stop and report. Do not loop.
+
+STEP 1: AUDIT (read only, no code changes yet)
+Create docs/IMPLEMENTATION-AUDIT.md containing:
+  a. Every route under apps/web/src/app, one line each: what it renders, server or client rendered.
+  b. Shared UI components in apps/web with paths, and the exact design tokens in use (colours, fonts, radii, spacing) quoted from Tailwind config and globals.css. Do not invent tokens.
+  c. Relevant apps/api endpoints: vendor search by postcode, catering enquiry, vendor application, reviews, allergens, waitlist.
+  d. Confirm which of these exist today: /catering, /trust, /help, /vendors, /vendors/[slug], dish detail route, postcode waitlist capture, vendor recommendation capture, occasion pages.
+Print the audit summary in chat before continuing.
+
+STEP 2: GEOGRAPHY SCOPE FIX (defect)
+The marketplace accepts vendors UK wide. London is a marketing launch focus only. Customer facing copy currently hard codes London, for example:
+  - homepage: "Authentic dishes from trusted local cooks across London"
+  - /vendors metadata: "Delivered in London"
+  - /become-a-vendor: "Onboarding cooks across London", "London launch", "Proudly launching across London"
+Do this:
+  a. Create apps/web/src/config/geography.ts exporting:
+       export const MARKETPLACE_SCOPE = 'United Kingdom';
+       export const LAUNCH_FOCUS = { city: 'London', borough: 'Southwark', districts: ['SE15','SE5','SE22'] };
+       export const nationalCoverageLine = () => 'Trusted local cooks across the UK';
+       export const launchFocusLine = () => 'Now onboarding cooks across the UK, starting in south London';
+  b. Grep all of apps/web for 'London'. Replace every customer facing and metadata instance with UK wide wording sourced from this config. Keep the existing sentence rhythm and length so the layout does not shift. Suggested replacements:
+       "Authentic dishes from trusted local cooks across London" -> "Authentic dishes from trusted local cooks across the UK"
+       "Delivered in London" -> "Delivered by local cooks across the UK"
+       "Onboarding cooks across London" -> "Onboarding cooks across the UK"
+       "London launch" -> "UK wide"
+       "Proudly launching across London" -> "Now onboarding cooks across the UK"
+  c. London may remain only inside explicit campaign or launch marketing content, and only when read from LAUNCH_FOCUS.
+  d. Add a test that fails if the literal string 'London' appears anywhere in apps/web/src outside src/config/geography.ts.
+
+STEP 3: PRIMARY NAVIGATION
+The public header currently shows the logo and an account link only. Using the existing header component and existing tokens, add:
+  Desktop links: Order food (/vendors), Occasions (/#occasions), Catering (/catering), Become a vendor (/become-a-vendor), Sign in (/sign-in).
+  Signed in users see Account (/account) in place of Sign in.
+  Mobile: leave the existing bottom tab bar exactly as it is. Add the same links to the existing mobile menu if one exists, otherwise a disclosure built from existing button styles.
+  Footer: add Catering, Become a vendor, Vendor readiness (/vendor-readiness) and Trust and safety (/trust) to the existing link list, same layout.
+  Hard rule: vendor.feastpot.co.uk and admin.feastpot.co.uk must never appear on any public page.
+  Note: /vendor-readiness is built in task 7. Add the link now and confirm it 404s cleanly until then.
+
+STEP 4: DEAD LINK SWEEP
+  a. Homepage popular cuisine cards currently link to #hero-headline. Point each at /vendors?cuisine=<slug> instead. Do not weaken postcode first discovery: /vendors must still ask for a postcode before showing vendors, then apply the cuisine filter.
+  b. Check every internal href in apps/web resolves. Fix links pointing at existing routes. Log anything needing a page that does not exist yet in docs/DEFECT-LOG.md.
+
+ACCEPTANCE TESTS (must pass before you report complete)
+  - typecheck and lint clean for apps/web.
+  - The 'London' guard test passes.
+  - In the running app, load /, /vendors, /become-a-vendor and /occasions/birthday-party-trays. Header nav renders on each, every link navigates, no new console errors.
+  - Visual check: no change to any existing section beyond the copy edits.
+
+REPORT
+Changed files, ALREADY DONE items, test commands and their output, defects logged, anything deferred.
