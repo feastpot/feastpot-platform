@@ -1,0 +1,48 @@
+TASK 4 of 7: Postcode results page
+
+STANDING RULES
+1. CHECK FIRST. Read the existing /vendors page, its data fetching and the vendor search endpoint before writing anything. Report ALREADY DONE and skip where relevant.
+2. Do not change the design system. Reuse existing filter pill, card, skeleton and empty state components.
+3. No new dependencies. Do not replace the existing data fetching approach.
+4. UK English, no em dashes. 5. Typecheck, lint and tests pass before complete. Two identical failures means stop.
+
+SCOPE: apps/web /vendors route and its components, plus the vendor search endpoint in apps/api if filters need server support.
+
+STEP 1: DEFECT CHECK
+/vendors server renders a "Loading vendors" state. Confirm in the running app that the list resolves for a valid postcode, and that error and empty states both render rather than leaving the skeleton in place. If the skeleton can persist indefinitely, fix it: add a timeout with a retry action and confirm export const dynamic = 'force-dynamic' is set where the audit says it should be. Log the root cause in docs/DEFECT-LOG.md.
+
+STEP 2: RESULTS HEADER
+  Title: "Food vendors serving {POSTCODE}" using the normalised postcode.
+  Subtext: "Family pots, party trays, weekly meals and event food available from trusted local cooks."
+  A visible "Change postcode" control that reopens the postcode input without a full page reload.
+
+STEP 3: FILTERS
+Add filters as pills or a filter sheet using existing components. Include a filter ONLY where the underlying field already exists in the schema and is populated. For each one you cannot support, log it in docs/DEFECT-LOG.md and leave it out. Do not fabricate data.
+  Candidates: cuisine, occasion, serves band (5 to 10, 10 to 20, 20 to 40, 40 plus), delivery or collection, hygiene evidence present, minimum rating, pre-order available, minimum order value.
+Rules:
+  - Filter state syncs to the URL query string so results are shareable on WhatsApp, which is the main sharing channel.
+  - /vendors?cuisine=<slug> arriving from the homepage cards must pre-select that cuisine after the postcode gate.
+  - Filtering must happen server side if the search endpoint supports it. Only fall back to client side filtering on an already fetched page of results.
+  - A clear all control that resets to the postcode only view.
+
+STEP 4: VENDOR CARD
+Confirm each card shows: image, vendor name, cuisine tags, rating and review count, delivery area, minimum order, and up to three popular dishes. Add badges only when the backing field is true: hygiene evidence shown, allergen information available, pre-order available. Card action label: "View menu".
+
+STEP 5: EMPTY STATE
+When no vendors serve the postcode:
+  Heading: "Feastpot is not serving your postcode yet."
+  Body: "We open postcode by postcode so you only see cooks who can actually deliver to you. Join the waitlist and tell us who you want to see on Feastpot."
+  Two actions in place, not on another page: the waitlist form posting to POST /v1/waitlist with source 'search-empty' and the postcode pre-filled, and the recommend a cook form posting to POST /v1/vendor-recommendations. Reuse the exact form components built in task 3.
+
+STEP 6: MOBILE
+Sticky bottom bar on this route showing the active postcode and a "Change postcode" action. It must not overlap or duplicate the existing bottom tab bar. If the tab bar already occupies that space, place the control directly above it and test on a 375px viewport.
+
+ACCEPTANCE TESTS
+  - A postcode with vendors returns results, filters narrow them correctly, and reloading the filtered URL restores the same state.
+  - A postcode with no vendors shows the empty state, and both forms store rows with the correct source and postcode.
+  - Arriving from a homepage cuisine card applies the filter after postcode entry.
+  - Error state: kill the API temporarily and confirm the retry action appears and works.
+  - 375px viewport: no horizontal scroll, sticky bar does not cover the last card or the tab bar.
+
+REPORT
+Filters implemented and filters dropped with reasons, defect root cause, test output.
