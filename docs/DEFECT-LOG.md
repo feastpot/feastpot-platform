@@ -49,6 +49,119 @@ align the pill mapping table in `favourites-pills.tsx`.
 
 ---
 
+## DEF-007 — /vendors skeleton persistence check (Task 4, Step 1)
+
+**Found during:** Task 4, Step 1 (defect check)
+**Finding:** The loading skeleton on /vendors is bounded and cannot persist
+indefinitely. The `useVendors` hook is an infinite query with `retry: 3` and
+exponential back-off (1s, 2s, 4s — capped at 10s). After three retries it
+transitions to the error state ("Couldn't reach our kitchens" with a "Try again"
+button). The Suspense fallback (grey skeleton boxes) only shows during SSR
+hydration and resolves immediately. The `postcodeSyncResolved` gate means no
+query fires until the postcode URL param is known, so no skeleton shows during
+that tick. The page is a pure client component; `export const dynamic` is not
+applicable.
+**Action needed:** None — behaviour is acceptable.
+
+---
+
+## DEF-008 — Occasion filter in sidebar has no API backing
+
+**Found during:** Task 4, Step 3 (filters audit)
+**Symptom:** Sidebar offered Birthday / Sunday meal / Office lunch / Wedding
+chips; these were written to `?occasion=` but SearchVendorsDto has no
+`occasion` field, so no vendor was ever filtered. Removed in Task 4.
+**Action needed:** Add an `occasion` filter to SearchVendorsDto and the vendor
+search query when the data model supports it.
+
+---
+
+## DEF-009 — Delivery timing filter in sidebar has no API backing
+
+**Found during:** Task 4, Step 3 (filters audit)
+**Symptom:** Sidebar offered Tomorrow / This weekend / Schedule later chips;
+written to `?delivery=` but SearchVendorsDto has no delivery-timing field.
+Removed in Task 4. Actual slot availability lives in VendorCapacity (per
+service date) and is not exposed as a list-level filter.
+**Action needed:** Expose a date-range or next-available-slot filter in the
+search endpoint when scheduling data is surfaced to the list layer.
+
+---
+
+## DEF-010 — Vegan and gluten-free dietary filters have no API backing
+
+**Found during:** Task 4, Step 3 (filters audit)
+**Symptom:** Sidebar offered Vegan and Gluten-free checkboxes; written to
+`?dietary=` but SearchVendorsDto only has a `halal` boolean. Removed in
+Task 4; only Halal remains as it is the sole dietary attribute indexed at the
+vendor level.
+**Action needed:** Add vegan/gluten-free flags to the Vendor model and
+SearchVendorsDto when the data is collected during onboarding.
+
+---
+
+## DEF-011 — Delivery vs collection filter has no API backing
+
+**Found during:** Task 4, Step 3 (filters audit)
+**Symptom:** Task brief requested a "Delivery or collection" filter.
+SearchVendorsDto.orderType is typed as the OrderType enum (standard / event /
+subscription), not a delivery-vs-collection distinction. Vendor.orderTypes is
+a String[] but is not exposed as a search filter. Not added.
+**Action needed:** Add a deliveryType filter to SearchVendorsDto when the
+delivery-config data layer is queryable at list level.
+
+---
+
+## DEF-012 — Serves band filter has no API backing
+
+**Found during:** Task 4, Step 3 (filters audit)
+**Symptom:** Task brief requested serves-band buckets (5-10, 10-20, 20-40,
+40+). No guest-count or serves-count field exists on Vendor or in SearchVendorsDto.
+VendorCapacity has capacityType but is per-date and not filterable at search.
+Not added.
+**Action needed:** Add a guest-count range filter to SearchVendorsDto once
+capacity data is available at the vendor-profile level.
+
+---
+
+## DEF-013 — Hygiene evidence present filter has no API backing
+
+**Found during:** Task 4, Step 3 (filters audit)
+**Symptom:** Task brief requested a "hygiene evidence present" filter.
+VendorTrustSignal stores hygiene_rating signals but SearchVendorsDto has no
+trust-signal filter. Not added.
+**Action needed:** Add a hasHygieneRating boolean filter to SearchVendorsDto.
+
+---
+
+## DEF-014 — Minimum rating filter has no API backing
+
+**Found during:** Task 4, Step 3 (filters audit)
+**Symptom:** Task brief requested a minimum-rating filter. SearchVendorsDto
+has no minRating param. Not added.
+**Action needed:** Add minRating to SearchVendorsDto and the repository query.
+
+---
+
+## DEF-015 — Pre-order available filter has no API backing
+
+**Found during:** Task 4, Step 3 (filters audit)
+**Symptom:** Task brief requested a "pre-order available" filter. No such
+field exists on Vendor or in SearchVendorsDto. Not added.
+**Action needed:** Decide what "pre-order" means in the data model and expose
+it as a filter.
+
+---
+
+## DEF-016 — Minimum order value filter has no API backing
+
+**Found during:** Task 4, Step 3 (filters audit)
+**Symptom:** Task brief requested a minimum-order-value filter. SearchVendorsDto
+has no maxMinOrderPence or similar param. Not added.
+**Action needed:** Add a maxMinOrderPence filter to SearchVendorsDto.
+
+---
+
 ## DEF-006 — Hardcoded testimonials in CommunityReviews are not verified orders
 
 **Found during:** Task 3, Step 1 (review integrity fix)

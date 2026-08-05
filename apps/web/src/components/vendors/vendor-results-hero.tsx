@@ -6,15 +6,11 @@ import { useRouter } from 'next/navigation';
 import { writeCoverageCookie, writeStoredPostcode } from '@/lib/postcode';
 
 /**
- * Wireframe hero banner for /vendors - a soft cream/green plate carrying the
- * "Delivering to {postcode}" pill, the page title, the gate-reassurance
- * subtitle, and a "Change postcode" CTA on the right.
+ * Hero banner for /vendors.
  *
  * "Change postcode" clears both the stored postcode AND the coverage cookie
  * (so the homepage re-gates on the next visit) and routes back to the home
- * hero, which is the canonical postcode-entry point. Without the cookie
- * clear the home page would happily render its full layout off the stale
- * postcode the user just said they want to change.
+ * hero, which is the canonical postcode-entry point.
  */
 interface Props {
   postcode: string | null;
@@ -46,10 +42,13 @@ export function VendorResultsHero({ postcode }: Props) {
             id="vendor-results-title"
             className="mt-3 font-display text-3xl font-black tracking-tight text-charcoal md:text-4xl"
           >
-            Cooks available near you
+            {postcode
+              ? `Food vendors serving ${postcode.toUpperCase()}`
+              : 'Find food vendors near you'}
           </h1>
           <p className="mt-1.5 text-sm font-medium text-charcoal-mid md:text-[15px]">
-            Vendors are displayed only after postcode check.
+            Family pots, party trays, weekly meals and event food available from trusted local
+            cooks.
           </p>
         </div>
         {postcode && (

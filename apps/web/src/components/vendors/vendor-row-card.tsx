@@ -1,4 +1,4 @@
-import { BadgeCheck, Plus, Star } from 'lucide-react';
+import { Star } from 'lucide-react';
 import Link from 'next/link';
 
 import { CapacityPill } from '@/components/vendor/capacity-pill';
@@ -10,27 +10,21 @@ import {
 import type { CapacityDay, VendorListItem, VerifiedTrustSignal } from '@/lib/api/vendors';
 
 /**
- * Horizontal "row" vendor card matching the wireframe - gradient thumb on
- * the left, vendor identity in the middle, accent badge top-right (Popular
- * for community favourites), and a green circular `+` action bottom-right
- * that quick-jumps to the menu.
+ * Horizontal "row" vendor card for the /vendors results list.
  *
- * Pricing band (`£`/`££`/`£££`) is derived from `minOrderPence` because the
- * API doesn't expose a curated band; we bucket at £20/£40 which lines up
- * with how the wireframe uses the affordance.
+ * Shows: cover image · vendor name · cuisine tags · rating + review count ·
+ * delivery area (distance) · minimum order value · up to three dish/cuisine
+ * tags · trust signal badges · "View menu" action.
+ *
+ * "Popular dishes" uses matchedDishes (from free-text search) or cuisines as
+ * a proxy — the list endpoint does not return a dedicated popular-dishes field.
+ * Up to three tags are shown; the badge row renders only when trust signals or
+ * capacity data are available.
  */
-const priceBand = (minOrderPence?: number | null): string => {
-  if (typeof minOrderPence !== 'number' || minOrderPence <= 0) return '££';
-  if (minOrderPence < 2000) return '£';
-  if (minOrderPence < 4000) return '££';
-  return '£££';
-};
-
-const deliveryFee = (minOrderPence?: number | null): string => {
-  // The list payload doesn't carry a delivery fee yet; fall back to a
-  // representative number so the line doesn't go blank. Once the API
-  // surfaces it, just read it directly.
-  return '£2.49 delivery';
+const formatMinOrder = (minOrderPence?: number | null): string | null => {
+  if (typeof minOrderPence !== 'number' || minOrderPence <= 0) return null;
+  const pounds = minOrderPence / 100;
+  return `Min. order £${Number.isInteger(pounds) ? pounds : pounds.toFixed(2)}`;
 };
 
 const deliveryEta = (mins?: number | null): string => {
@@ -49,20 +43,22 @@ const formatDistanceMiles = (km?: number | null): string | null => {
 
 interface Props {
   vendor: VendorListItem;
-  /** Verified trust signals from the batch card-extras endpoint (T3). */
+  /** Verified trust signals from the batch card-extras endpoint. */
   trustSignals?: VerifiedTrustSignal[];
-  /** 7-day capacity rows from the batch card-extras endpoint (T5). */
+  /** 7-day capacity rows from the batch card-extras endpoint. */
   capacity?: CapacityDay[];
 }
 
 export function VendorRowCard({ vendor, trustSignals, capacity }: Props) {
-  const tags = (vendor.matchedDishes?.length ? vendor.matchedDishes : vendor.cuisines).slice(0, 2);
+  // Up to three dish/cuisine tags: prefer matched dishes from free-text search,
+  // fall back to the vendor's cuisine list.
+  const tags = (vendor.matchedDishes?.length ? vendor.matchedDishes : vendor.cuisines).slice(0, 3);
   const isPopular = vendor.communityFavourite === true;
   const distanceLabel = formatDistanceMiles(vendor.distanceKm);
-  // T3: at most two badges, priority reliable_orders → event_catering_experience
-  // → first verified alphabetically. Rendered on their own wrapping row inside
-  // the flexible body, so card width/height rules and grid breakpoints are
-  // untouched (the row simply doesn't exist for vendors with no signals).
+  const minOrderLabel = formatMinOrder(vendor.minOrderPence);
+
+  // At most two badges, priority reliable_orders → event_catering_experience
+  // → first verified alphabetically.
   const badgeTypes = orderTrustSignalsForCards(trustSignals).slice(0, 2);
 
   return (
@@ -92,12 +88,11 @@ export function VendorRowCard({ vendor, trustSignals, capacity }: Props) {
         </div>
 
         {/* Body */}
-        <div className="min-w-0 flex-1 pr-10">
+        <div className="min-w-0 flex-1 pb-1 pr-2">
           <header className="flex items-start justify-between gap-2">
             <div className="min-w-0">
-              <h3 className="inline-flex items-center gap-1.5 font-display text-base font-black text-charcoal sm:text-lg">
+              <h3 className="font-display text-base font-black text-charcoal sm:text-lg">
                 <span className="truncate">{vendor.businessName}</span>
-                <BadgeCheck className="h-4 w-4 shrink-0 text-brand" aria-label="Verified kitchen" />
               </h3>
               {vendor.cuisines.length > 0 && (
                 <p className="mt-0.5 truncate text-xs font-medium text-charcoal-mid">
@@ -107,6 +102,7 @@ export function VendorRowCard({ vendor, trustSignals, capacity }: Props) {
             </div>
           </header>
 
+          {/* Rating + price band */}
           <p className="mt-1.5 inline-flex items-center gap-1.5 text-xs font-bold text-charcoal">
             <Star className="h-3.5 w-3.5 fill-plantain text-plantain" aria-hidden />
             <span>{vendor.rating > 0 ? vendor.rating.toFixed(1) : 'New'}</span>
@@ -119,14 +115,20 @@ export function VendorRowCard({ vendor, trustSignals, capacity }: Props) {
                 )
               </span>
             )}
-            <span className="mx-1 text-charcoal-mid">·</span>
-            <span className="text-charcoal-mid">{priceBand(vendor.minOrderPence)}</span>
           </p>
 
+          {/* Delivery ETA + min order */}
           <p className="mt-1 text-xs font-medium text-charcoal-mid">
-            {deliveryEta(vendor.deliveryEtaMins)} · {deliveryFee(vendor.minOrderPence)}
+            {deliveryEta(vendor.deliveryEtaMins)}
+            {minOrderLabel && (
+              <>
+                <span className="mx-1">·</span>
+                {minOrderLabel}
+              </>
+            )}
           </p>
 
+          {/* Trust signal badges + capacity */}
           {(badgeTypes.length > 0 || capacity) && (
             <p className="mt-1.5 flex flex-wrap items-center gap-1.5">
               {badgeTypes.map((t) => (
@@ -136,6 +138,7 @@ export function VendorRowCard({ vendor, trustSignals, capacity }: Props) {
             </p>
           )}
 
+          {/* Distance */}
           {distanceLabel && (
             <p className="mt-1.5">
               <span className="inline-flex items-center rounded-full bg-teal/10 px-2 py-0.5 text-[11px] font-bold text-teal">
@@ -144,6 +147,7 @@ export function VendorRowCard({ vendor, trustSignals, capacity }: Props) {
             </p>
           )}
 
+          {/* Tags: up to 3 dish/cuisine labels */}
           {tags.length > 0 && (
             <ul className="mt-2 flex flex-wrap gap-1.5">
               {tags.map((t) => (
@@ -159,24 +163,23 @@ export function VendorRowCard({ vendor, trustSignals, capacity }: Props) {
         </div>
       </Link>
 
-      {/* Top-right accent - Popular badge only when the API has actually
-          flagged the vendor as a community favourite. We intentionally do
-          NOT fabricate "X% off" promo badges from card-side guesses; once
-          the API exposes a real promo field, render it here. */}
+      {/* Popular badge */}
       {isPopular && (
         <span className="pointer-events-none absolute right-4 top-4 text-xs font-black text-scotch">
           Popular
         </span>
       )}
 
-      {/* Bottom-right quick-add - links to the menu rather than committing
-          to a basket add (which would require a chosen item). */}
+      {/* "View menu" action — visible text on sm+, icon-only on narrowest screens */}
       <Link
         href={`/vendors/${vendor.slug}#menu`}
         aria-label={`View ${vendor.businessName} menu`}
-        className="absolute bottom-3 right-3 inline-flex h-10 w-10 items-center justify-center rounded-full bg-brand text-white shadow-md transition hover:bg-brand-dark"
+        className="absolute bottom-3 right-3 inline-flex items-center gap-1.5 rounded-full bg-brand px-3 py-2 text-[11px] font-bold text-white shadow-md transition hover:bg-brand-dark sm:px-4 sm:text-xs"
       >
-        <Plus className="h-5 w-5" aria-hidden />
+        <span aria-hidden className="text-sm font-black leading-none">
+          +
+        </span>
+        <span className="hidden sm:inline">View menu</span>
       </Link>
     </article>
   );
