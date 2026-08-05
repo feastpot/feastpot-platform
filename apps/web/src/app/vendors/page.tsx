@@ -1,10 +1,11 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { Search, WifiOff } from 'lucide-react';
+import { MapPin, Search, WifiOff } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useRef, useState } from 'react';
 
+import { RecommendForm, WaitlistForm } from '@/components/home/waitlist-block';
 import { PageShell } from '@/components/layout/page-shell';
 import { VendorCardSkeleton } from '@/components/vendor/vendor-card-skeleton';
 import { CategoryChips } from '@/components/vendors/category-chips';
@@ -22,18 +23,14 @@ import {
 import { readStoredPostcode, writeCoverageCookie, writeStoredPostcode } from '@/lib/postcode';
 
 /**
- * Vendor search page - wireframe layout:
- *   • Green/cream delivery banner with "Change postcode" CTA
- *   • Pill search bar + category chip rail
- *   • Two-column on lg+: left filter sidebar / right results
+ * Vendor search page.
  *
  * URL is the source of truth for every filter so:
  *   /vendors?q=jollof&postcode=SE15&cuisine=Nigerian&halal=true&sort=rating
  * is a shareable, refresh-safe permalink and the back button restores state.
  *
- * Category chips write `?category=`; when the user hasn't typed a free-text
- * query, that category is passed to the API as `q` (closest existing facet
- * until the backend ships a real category filter).
+ * A sticky mobile bar (above the fixed BottomNav) shows the active postcode
+ * so the user always knows their search context and can change it in one tap.
  */
 function VendorSearch() {
   const params = useSearchParams();
@@ -46,26 +43,13 @@ function VendorSearch() {
   const postcode = params?.get('postcode') ?? undefined;
   const cuisineParam = params?.get('cuisine');
 
-  // Postcode persistence - two-way sync between the URL (which is the
-  // source of truth for filters so links stay shareable) and localStorage
-  // (so a returning user who lands on /vendors directly, e.g. via the
-  // bottom-nav "Browse" tab, sees vendors for their remembered location
-  // instead of an unfiltered national list).
-  //
-  // `postcodeSyncResolved` gates the vendor query so we don't fire an
-  // initial postcode-less national fetch + then a second filtered fetch a
-  // tick later when the storage rehydrate replaces the URL.
+  // Postcode persistence — two-way sync between URL and localStorage.
   const [postcodeSyncResolved, setPostcodeSyncResolved] = useState<boolean>(
     () => typeof postcode === 'string' && postcode.length > 0,
   );
   useEffect(() => {
     if (postcode) {
       writeStoredPostcode(postcode);
-      // Mirror into the coverage cookie so the home server component can
-      // render the vendor rails on the next visit. Landing on /vendors with
-      // a postcode implies the user passed the gate (either from the hero
-      // coverage check, or via a shared link that already filters to a
-      // real area).
       writeCoverageCookie(postcode);
       setPostcodeSyncResolved(true);
       return;
@@ -82,18 +66,9 @@ function VendorSearch() {
   }, [postcode]);
 
   const halal = params?.get('halal') === 'true';
-  const dietary = (params?.get('dietary') ?? '').split(',').filter(Boolean);
-  // When the user has set a postcode we now have real distances for every
-  // vendor row, so default the sort to "distance" so the closest kitchens
-  // bubble to the top. An explicit `?sort=` in the URL always wins, so users
-  // who picked another order keep it on refresh / share.
   const sortParam = (params?.get('sort') as VendorSortBy | null) ?? undefined;
   const sortBy: VendorSortBy | undefined = sortParam ?? (postcode ? 'distance' : undefined);
 
-  // Radius cap (miles in URL, km on the wire). Only honoured when the user
-  // has a postcode set - without one we have no origin to measure from, so a
-  // radius value would be meaningless. Validated against the same option set
-  // the sidebar offers so a hand-rolled `?radius=999` URL doesn't sneak past.
   const RADIUS_OPTIONS_MI = [1, 3, 5, 10] as const;
   const radiusRaw = postcode ? params?.get('radius') : null;
   const radiusMiles = (() => {
@@ -108,7 +83,7 @@ function VendorSearch() {
     q,
     postcode,
     cuisine: cuisineParam ? [cuisineParam] : undefined,
-    halal: halal || dietary.includes('halal') || undefined,
+    halal: halal || undefined,
     maxDistanceKm,
     sortBy,
   };
@@ -117,10 +92,6 @@ function VendorSearch() {
     useVendors(search, { enabled: postcodeSyncResolved });
   const vendors = data?.pages.flatMap((p) => p.data) ?? [];
 
-  // Batch trust-signal + capacity extras for the visible cards - one round
-  // trip for the whole list, keyed on the id set so pagination refetches.
-  // Capped to the endpoint's 50-id limit BEFORE keying, so deep pagination
-  // doesn't churn the cache key while silently refetching the same ids.
   const vendorIds = vendors.slice(0, 50).map((v) => v.id);
   const { data: cardExtras } = useQuery({
     queryKey: ['vendors', 'card-extras', vendorIds],
@@ -129,10 +100,7 @@ function VendorSearch() {
     staleTime: 60_000,
   });
 
-  // Scroll-position restoration. Next 15's App Router doesn't restore
-  // scroll on client-side back navigation, so tapping a vendor card and
-  // pressing back drops the user at the top of the list - disorienting
-  // when they were 20 cards deep.
+  // Scroll-position restoration on back-navigation.
   const searchKey = params?.toString() ?? '';
   const scrollKey = `feastpot.vendors-scroll:${pathname}?${searchKey}`;
 
@@ -152,11 +120,6 @@ function VendorSearch() {
     };
   }, [scrollKey]);
 
-  // Hoist the rAF-driven scroll-restore dependencies into refs so the
-  // polling loop always reads the freshest TanStack Query state instead of
-  // a snapshot from when the effect first ran. Without this, repeated
-  // ticks could fire `fetchNextPage()` against a stale `isFetchingNextPage`
-  // flag and spam the queue under latency.
   const hasNextPageRef = useRef(hasNextPage);
   const isFetchingNextPageRef = useRef(isFetchingNextPage);
   const fetchNextPageRef = useRef(fetchNextPage);
@@ -173,7 +136,6 @@ function VendorSearch() {
       sessionStorage.removeItem(scrollKey);
       return;
     }
-
     let frames = 0;
     let cancelled = false;
     const tick = () => {
@@ -202,13 +164,17 @@ function VendorSearch() {
 
   const empty = !isLoading && !error && vendors.length === 0;
 
+  const handleChangePostcode = () => {
+    writeStoredPostcode(null);
+    writeCoverageCookie(null);
+    router.push('/');
+  };
+
   return (
     <PageShell>
       <div className="space-y-5 py-5">
         <VendorResultsHero postcode={postcode ?? null} />
-
         <VendorSearchBar />
-
         <CategoryChips />
 
         <div className="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)]">
@@ -223,7 +189,7 @@ function VendorSearch() {
               loading={isLoading}
             />
 
-            {/* Mobile: collapsed filter button that opens the sidebar inline. */}
+            {/* Mobile: collapsed filter button */}
             <details className="rounded-2xl border border-cream-deep bg-white shadow-sm lg:hidden">
               <summary className="cursor-pointer select-none px-4 py-3 text-sm font-bold text-charcoal">
                 Filters
@@ -273,6 +239,7 @@ function VendorSearch() {
               </div>
             )}
 
+            {/* No results for a specific search query */}
             {empty && q && (
               <div className="flex flex-col items-center justify-center rounded-3xl border border-cream-deep bg-white px-6 py-16 text-center shadow-card">
                 <span
@@ -299,14 +266,44 @@ function VendorSearch() {
               </div>
             )}
 
+            {/* No vendors serve this postcode — rich empty state with waitlist/recommend forms */}
             {empty && !q && (
-              <div className="rounded-3xl border border-cream-deep bg-white p-8 text-center shadow-card">
-                <h2 className="font-display text-lg font-black text-charcoal">
-                  No kitchens{postcode ? ` near ${postcode.toUpperCase()}` : ''} yet
+              <div className="rounded-3xl border border-cream-deep bg-white p-6 shadow-card sm:p-8">
+                <h2 className="font-display text-xl font-black text-charcoal sm:text-2xl">
+                  Feastpot is not serving your postcode yet.
                 </h2>
-                <p className="mt-2 text-sm font-medium text-charcoal-mid">
-                  Try a different cuisine or check back soon - new cooks join Feastpot every week.
+                <p className="mt-2 max-w-2xl text-sm font-medium leading-relaxed text-charcoal-mid">
+                  We open postcode by postcode so you only see cooks who can actually deliver to
+                  you. Join the waitlist and tell us who you want to see on Feastpot.
                 </p>
+
+                <div className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-2">
+                  {/* Waitlist */}
+                  <div className="rounded-2xl border border-cream-deep bg-cream/40 p-5">
+                    <p className="mb-1 font-display text-[15px] font-black text-charcoal">
+                      Notify me when cooks arrive
+                    </p>
+                    <p className="mb-4 text-[13px] font-medium text-charcoal-mid">
+                      We will message you when a cook starts delivering to your postcode.
+                    </p>
+                    <WaitlistForm
+                      initialPostcode={postcode ?? ''}
+                      source="search-empty"
+                      submitLabel="Join the waitlist"
+                    />
+                  </div>
+
+                  {/* Recommend a cook */}
+                  <div className="rounded-2xl border border-cream-deep bg-cream/40 p-5">
+                    <p className="mb-1 font-display text-[15px] font-black text-charcoal">
+                      Know a cook we should invite?
+                    </p>
+                    <p className="mb-4 text-[13px] font-medium text-charcoal-mid">
+                      Share their Instagram, business name or phone number.
+                    </p>
+                    <RecommendForm />
+                  </div>
+                </div>
               </div>
             )}
 
@@ -337,6 +334,31 @@ function VendorSearch() {
           </div>
         </div>
       </div>
+
+      {/*
+        Sticky mobile bar — shows the active postcode above the BottomNav (z-50,
+        bottom-0, 64px tall). Sits at bottom-16 (64px) so it does not overlap
+        the tab bar; hidden on lg+ where the hero already shows the postcode.
+      */}
+      {postcode && (
+        <div
+          aria-label="Current postcode"
+          className="fixed inset-x-0 bottom-16 z-40 flex items-center justify-between gap-3 border-t border-cream-warm bg-white/95 px-4 py-2.5 shadow-sticky backdrop-blur-sm lg:hidden"
+          style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+        >
+          <span className="inline-flex items-center gap-1.5 text-sm font-bold text-charcoal">
+            <MapPin className="h-4 w-4 shrink-0 text-brand" aria-hidden />
+            {postcode.toUpperCase()}
+          </span>
+          <button
+            type="button"
+            onClick={handleChangePostcode}
+            className="shrink-0 rounded-lg border border-cream-deep bg-white px-3 py-1.5 text-xs font-bold text-charcoal transition hover:bg-cream"
+          >
+            Change postcode
+          </button>
+        </div>
+      )}
     </PageShell>
   );
 }

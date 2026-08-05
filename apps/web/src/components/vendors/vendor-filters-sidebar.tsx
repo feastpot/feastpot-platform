@@ -2,31 +2,28 @@
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 
+/**
+ * Filters backed by real API fields in GET /v1/vendors.
+ *
+ * Cuisine   → `?cuisine=<value>`  → SearchVendorsDto.cuisine[]  ✅ server-side
+ * Halal     → `?halal=true`       → SearchVendorsDto.halal       ✅ server-side
+ * Distance  → `?radius=<miles>`   → SearchVendorsDto.maxDistanceKm ✅ server-side
+ * Sort      → `?sort=<value>`     → SearchVendorsDto.sortBy      ✅ server-side
+ *
+ * Dropped candidates (no API backing — logged in docs/DEFECT-LOG.md):
+ *   Occasion, Delivery timing, Vegan/Gluten-free dietary, Serves band,
+ *   Hygiene evidence, Minimum rating, Pre-order available, Min order value,
+ *   Delivery vs collection (SearchVendorsDto.orderType is standard/event/subscription,
+ *   not delivery vs collection).
+ */
+
 const CUISINES = ['Nigerian', 'Ghanaian', 'Jamaican', 'Caribbean', 'Somali'];
-const OCCASIONS = ['Birthday', 'Sunday meal', 'Office lunch', 'Wedding'];
-const DELIVERY = ['Tomorrow', 'This weekend', 'Schedule later'];
-const DIETARY = [
-  { value: 'halal', label: 'Halal' },
-  { value: 'vegan', label: 'Vegan' },
-  { value: 'gluten-free', label: 'Gluten-free' },
-] as const;
+
 // Keep in sync with RADIUS_OPTIONS_MI in apps/web/src/app/vendors/page.tsx -
 // the page-level URL parser only accepts these exact values so the sidebar
 // must offer the same set.
 const RADIUS_OPTIONS_MI = [1, 3, 5, 10] as const;
 
-/**
- * Desktop two-column sidebar matching the wireframe. URL is the source of
- * truth - every checkbox toggle does a `router.replace` so the search reruns
- * via TanStack Query's queryKey change, the back button works, and links
- * stay shareable.
- *
- * Coverage caveat: Cuisine and Dietary (halal / dietary list) hit real API
- * filters; Occasion and Delivery write to URL state but are no-ops at the
- * API layer until the backend ships those facets. Surfacing them now keeps
- * the UI honest to the wireframe and means swapping to a wired backend is a
- * one-line change in apps/web/src/app/vendors/page.tsx.
- */
 export function VendorFiltersSidebar() {
   const params = useSearchParams();
   const router = useRouter();
@@ -40,13 +37,9 @@ export function VendorFiltersSidebar() {
   };
 
   const cuisine = params?.get('cuisine') ?? '';
-  const occasion = (params?.get('occasion') ?? '').split(',').filter(Boolean);
-  const delivery = (params?.get('delivery') ?? '').split(',').filter(Boolean);
   const halal = params?.get('halal') === 'true';
-  const dietary = (params?.get('dietary') ?? '').split(',').filter(Boolean);
-  // Radius is only meaningful when a postcode is set - without an origin,
-  // "within 3 miles" of nothing is incoherent - so the Distance group hides
-  // entirely until the user enters a postcode.
+
+  // Radius is only meaningful when a postcode is set.
   const postcode = params?.get('postcode')?.trim() ?? '';
   const radiusRaw = params?.get('radius');
   const radiusMiles = (() => {
@@ -54,17 +47,6 @@ export function VendorFiltersSidebar() {
     const n = Number.parseFloat(radiusRaw);
     return Number.isFinite(n) && (RADIUS_OPTIONS_MI as readonly number[]).includes(n) ? n : null;
   })();
-
-  const toggleMulti = (key: 'occasion' | 'delivery' | 'dietary', value: string) => {
-    update((sp) => {
-      const current = (sp.get(key) ?? '').split(',').filter(Boolean);
-      const next = current.includes(value)
-        ? current.filter((v) => v !== value)
-        : [...current, value];
-      if (next.length) sp.set(key, next.join(','));
-      else sp.delete(key);
-    });
-  };
 
   const setCuisine = (value: string) => {
     update((sp) => {
@@ -80,16 +62,6 @@ export function VendorFiltersSidebar() {
     });
   };
 
-  const setDietary = (value: string) => {
-    update((sp) => {
-      const next = dietary.includes(value)
-        ? dietary.filter((v) => v !== value)
-        : [...dietary, value];
-      if (next.length) sp.set('dietary', next.join(','));
-      else sp.delete('dietary');
-    });
-  };
-
   const setRadius = (next: number | null) => {
     update((sp) => {
       if (next === null) sp.delete('radius');
@@ -100,21 +72,12 @@ export function VendorFiltersSidebar() {
   const clearAll = () => {
     update((sp) => {
       sp.delete('cuisine');
-      sp.delete('occasion');
-      sp.delete('delivery');
       sp.delete('halal');
-      sp.delete('dietary');
       sp.delete('radius');
     });
   };
 
-  const hasAny =
-    !!cuisine ||
-    occasion.length > 0 ||
-    delivery.length > 0 ||
-    halal ||
-    dietary.length > 0 ||
-    radiusMiles !== null;
+  const hasAny = !!cuisine || halal || radiusMiles !== null;
 
   return (
     <aside
@@ -135,9 +98,6 @@ export function VendorFiltersSidebar() {
 
       {postcode && (
         <FilterGroup title="Distance">
-          {/* Single-select pill row - radius is a single value, so a pill
-              picker reads more naturally than checkboxes and matches the
-              "1 / 3 / 5 / 10 mi" wireframe. "Any" clears the URL param. */}
           <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Maximum distance">
             <RadiusPill
               label="Any"
@@ -157,10 +117,6 @@ export function VendorFiltersSidebar() {
       )}
 
       <FilterGroup title="Cuisine">
-        {/* Single-select - rendered as native radios (with an "Any" option
-            so the user can clear without hunting for the chosen pill).
-            Checkboxes would announce as multi-select to screen readers
-            and mismatch the actual behaviour. */}
         <RadioRow
           name="cuisine"
           value=""
@@ -180,38 +136,8 @@ export function VendorFiltersSidebar() {
         ))}
       </FilterGroup>
 
-      <FilterGroup title="Occasion">
-        {OCCASIONS.map((o) => (
-          <CheckboxRow
-            key={o}
-            checked={occasion.includes(o)}
-            label={o}
-            onChange={() => toggleMulti('occasion', o)}
-          />
-        ))}
-      </FilterGroup>
-
-      <FilterGroup title="Delivery">
-        {DELIVERY.map((d) => (
-          <CheckboxRow
-            key={d}
-            checked={delivery.includes(d)}
-            label={d}
-            onChange={() => toggleMulti('delivery', d)}
-          />
-        ))}
-      </FilterGroup>
-
       <FilterGroup title="Dietary" last>
         <CheckboxRow checked={halal} label="Halal" onChange={() => setHalal(!halal)} />
-        {DIETARY.filter((d) => d.value !== 'halal').map((d) => (
-          <CheckboxRow
-            key={d.value}
-            checked={dietary.includes(d.value)}
-            label={d.label}
-            onChange={() => setDietary(d.value)}
-          />
-        ))}
       </FilterGroup>
     </aside>
   );
@@ -295,12 +221,6 @@ function RadioRow({
   label: string;
   onChange: () => void;
 }) {
-  // Custom radio: native `accent-color` rendering of the inner dot is
-  // unreliable when paired with a custom border colour (the dot ends up
-  // hidden behind the thicker border on some browsers). We render a
-  // visible 16px ring + 8px green inner dot ourselves and hide the
-  // native control via `peer sr-only` so the underlying form semantics
-  // (keyboard nav, screen readers, radio group exclusivity) still work.
   return (
     <label
       className={`flex cursor-pointer items-center gap-3 text-sm font-medium hover:text-charcoal ${

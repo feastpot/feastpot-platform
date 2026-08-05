@@ -4,6 +4,10 @@ import { type FormEvent, useState } from 'react';
 
 import { apiRequest } from '@/lib/api/client';
 
+// ─── Shared ───────────────────────────────────────────────────────────────────
+
+const UK_POSTCODE_RE = /^[A-Z]{1,2}[0-9][0-9A-Z]?(\s*[0-9][A-Z]{2})?$/i;
+
 // ─── Waitlist form ────────────────────────────────────────────────────────────
 
 interface WaitlistFields {
@@ -12,8 +16,6 @@ interface WaitlistFields {
   whatsapp: string;
   cuisine: string;
 }
-
-const UK_POSTCODE_RE = /^[A-Z]{1,2}[0-9][0-9A-Z]?(\s*[0-9][A-Z]{2})?$/i;
 
 function validateWaitlist(f: WaitlistFields): Partial<WaitlistFields> {
   const errs: Partial<WaitlistFields> = {};
@@ -26,9 +28,29 @@ function validateWaitlist(f: WaitlistFields): Partial<WaitlistFields> {
   return errs;
 }
 
-function WaitlistForm() {
+export interface WaitlistFormProps {
+  /** Pre-fill the postcode field (e.g. from the search page URL). */
+  initialPostcode?: string;
+  /**
+   * Waitlist source tag sent to the API.
+   * @default 'homepage'
+   */
+  source?: 'homepage' | 'search-empty' | 'occasion' | 'catering';
+  /** Label for the submit button. */
+  submitLabel?: string;
+}
+
+/**
+ * Waitlist sign-up form — POSTs to POST /v1/waitlist.
+ * Exported so it can be reused in the /vendors empty state.
+ */
+export function WaitlistForm({
+  initialPostcode = '',
+  source = 'homepage',
+  submitLabel = 'Notify me when cooks are available',
+}: WaitlistFormProps) {
   const [fields, setFields] = useState<WaitlistFields>({
-    postcode: '',
+    postcode: initialPostcode,
     email: '',
     whatsapp: '',
     cuisine: '',
@@ -60,14 +82,14 @@ function WaitlistForm() {
           email: fields.email.trim(),
           ...(fields.whatsapp.trim() && { whatsapp: fields.whatsapp.trim() }),
           ...(fields.cuisine.trim() && { cuisine: fields.cuisine.trim() }),
-          source: 'homepage',
+          source,
           website: '', // honeypot — bots fill this, humans leave it blank
         },
       });
       setSuccess(true);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Something went wrong. Please try again.';
-      // Treat 409 DUPLICATE_WAITLIST_ENTRY as success — user is already signed up.
+      // Treat 409 DUPLICATE as success — user is already signed up.
       if (msg.includes('already') || msg.includes('duplicate') || msg.includes('DUPLICATE')) {
         setSuccess(true);
       } else {
@@ -208,7 +230,7 @@ function WaitlistForm() {
         disabled={submitting}
         className="mt-4 inline-flex h-11 items-center justify-center rounded-xl bg-brand px-5 text-sm font-bold text-white shadow-card transition-colors hover:bg-brand-dark disabled:opacity-60"
       >
-        {submitting ? 'Sending…' : 'Notify me when cooks are available'}
+        {submitting ? 'Sending…' : submitLabel}
       </button>
     </form>
   );
@@ -242,7 +264,16 @@ function parseContactRef(raw: string): {
   return { businessName: s };
 }
 
-function RecommendForm() {
+export interface RecommendFormProps {
+  /** Submit button label. */
+  submitLabel?: string;
+}
+
+/**
+ * Vendor recommendation form — POSTs to POST /v1/vendor-recommendations.
+ * Exported so it can be reused in the /vendors empty state.
+ */
+export function RecommendForm({ submitLabel = 'Recommend a cook' }: RecommendFormProps) {
   const [fields, setFields] = useState<RecommendFields>({ contactRef: '', postcode: '' });
   const [errors, setErrors] = useState<Partial<RecommendFields>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -382,21 +413,18 @@ function RecommendForm() {
         disabled={submitting}
         className="mt-4 inline-flex h-11 items-center justify-center rounded-xl bg-charcoal px-5 text-sm font-bold text-white shadow-card transition-colors hover:bg-charcoal-mid disabled:opacity-60"
       >
-        {submitting ? 'Sending…' : 'Recommend a cook'}
+        {submitting ? 'Sending…' : submitLabel}
       </button>
     </form>
   );
 }
 
-// ─── Composite block ──────────────────────────────────────────────────────────
+// ─── Composite block (homepage) ───────────────────────────────────────────────
 
 /**
- * "No cooks in your postcode yet?" — two side-by-side cards:
- *   A. Postcode waitlist → POST /v1/waitlist
+ * "No cooks in your postcode yet?" — two side-by-side cards on the homepage:
+ *   A. Postcode waitlist → POST /v1/waitlist (source: homepage)
  *   B. Vendor recommendation → POST /v1/vendor-recommendations
- *
- * Client component; success messages replace each form in place with no
- * modal or toast library.
  */
 export function WaitlistBlock() {
   return (
@@ -428,7 +456,7 @@ export function WaitlistBlock() {
             Leave your details and we will message you the moment a cook starts delivering to your
             postcode.
           </p>
-          <WaitlistForm />
+          <WaitlistForm source="homepage" />
         </div>
 
         {/* Recommend a cook card */}
