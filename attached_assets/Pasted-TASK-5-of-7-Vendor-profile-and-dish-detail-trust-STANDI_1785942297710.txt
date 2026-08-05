@@ -1,0 +1,57 @@
+TASK 5 of 7: Vendor profile and dish detail trust
+
+STANDING RULES
+1. CHECK FIRST. Read the existing vendor profile and dish detail routes and the vendor and menu item Prisma models before writing anything. Report ALREADY DONE and skip where relevant.
+2. Do not change the design system. Reuse existing panel, badge, accordion and sticky basket components.
+3. No new dependencies. Do not change basket or pricing logic.
+4. Only display a trust signal when a real field backs it. If a field does not exist, do not render the badge and do not add fake data. Log the gap in docs/DEFECT-LOG.md with the schema change it would need.
+5. UK English, no em dashes. Typecheck, lint and tests pass before complete. Two identical failures means stop.
+
+SCOPE: apps/web vendor profile and dish detail, read only changes to apps/api if extra fields must be returned by the existing endpoints.
+
+STEP 1: TRUST PANEL
+Heading: "Why customers order with confidence".
+Render one row per signal, each only if the backing field is present and true:
+  Food business registration checked
+  Food hygiene rating {value} where the vendor has supplied it
+  Identity checked
+  Allergen information completed
+  Typical order acceptance time
+  Delivery coverage confirmed for your postcode
+  Verified reviews ({count})
+Below the rows, one line of honest framing: "This vendor displays profile checks, order information, allergen notes and food hygiene evidence where available."
+Do not write blanket claims such as "fully verified" anywhere on the page.
+
+STEP 2: MENU STRUCTURE
+Group menu items into these categories where the data supports it, hiding empty groups:
+  Family pots, Party trays, Small chops, Soups and stews, Rice dishes, Meat and fish, Sides, Weekly meal prep, Event catering.
+If menu items have no category field, map from existing tags and log the schema gap rather than inventing one.
+
+STEP 3: DISH CARD AND DISH DETAIL
+Dish card: image, name, short description, "Serves approximately X" where portion data exists, price, allergen indicator, add action.
+Dish detail (modal or route, keep whichever the app already uses):
+  Large image, dish name, vendor name, price, serves line.
+  Description.
+  Size or portion choice where variants exist. Do not create variants that do not exist in the data.
+  Options for spice level, protein and sides only where the item defines them.
+  Allergen block: "Contains or may contain: {allergens}. Please check with the vendor before ordering if you have a serious allergy."
+  Preparation notice: "Made to order. Pre-order is recommended for party trays and large family pots."
+  Available delivery and collection times honouring the vendor lead time already configured.
+  Quantity selector and "Add to basket".
+
+STEP 4: REVIEWS
+Show reviews from verified orders only. Label the section "Verified reviews". Empty state: "No reviews yet. This cook is new to Feastpot." Do not pad with placeholder reviews.
+
+STEP 5: STICKY BASKET
+Confirm the existing sticky basket shows item count, order total, selected delivery date and the checkout action, and that it does not obscure the add to basket control on a 375px viewport.
+
+ACCEPTANCE TESTS
+  - A vendor with partial data renders only the trust rows it can support, with no empty rows or broken icons.
+  - A vendor with no hygiene rating shows no hygiene row and no error.
+  - Adding a dish with options produces the correct basket line, price and options summary.
+  - Allergen text renders for a dish with allergens and the block is suppressed cleanly for a dish with none.
+  - Lead time enforcement still blocks a delivery slot earlier than the vendor allows.
+  - Existing checkout flow from this page still completes end to end in test mode.
+
+REPORT
+Trust rows implemented, rows suppressed and the schema fields they would need, test output.
