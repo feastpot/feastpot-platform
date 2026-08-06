@@ -4,6 +4,7 @@ import { Button } from '@feastpot/ui';
 import {
   Activity,
   AlertTriangle,
+  BarChart3,
   Banknote,
   Bell,
   CalendarHeart,
@@ -83,6 +84,7 @@ const MAIN_NAV: ReadonlyArray<NavItem> = [
   { href: '/discount-codes', label: 'Discount Codes', icon: Tag, roles: ['admin', 'finance'] },
   { href: '/push/compose', label: 'Push broadcast', icon: Bell, roles: ['admin'] },
   { href: '/notifications', label: 'Dead-letter notifications', icon: Bell, roles: ['admin'] },
+  { href: '/attribution', label: 'Attribution', icon: BarChart3, roles: ['admin', 'finance', 'support'] },
   { href: '/compliance', label: 'Compliance', icon: ShieldCheck, roles: ['admin', 'compliance'] },
   { href: '/coverage', label: 'Coverage waitlist', icon: MapPin, roles: ['admin', 'support'] },
   { href: '/audit-log', label: 'Audit log', icon: Activity, roles: ['admin', 'compliance'] },

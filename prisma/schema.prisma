@@ -540,7 +540,7 @@ model SearchLog {
 }
 
 // Trust-signal + capacity data layer (Aug 2026). Native Postgres enums are
-// used (repo convention — see OrderStatus / PayoutStatus etc.) rather than
+// used (repo convention - see OrderStatus / PayoutStatus etc.) rather than
 // check constraints.
 enum TrustSignalType {
   food_business_registration
@@ -597,7 +597,7 @@ model VendorCapacity {
   serviceDate      DateTime     @map("service_date") @db.Date
   capacityType     CapacityType @map("capacity_type")
   // CHECK constraints (total_slots > 0; 0 <= slots_taken <= total_slots)
-  // live in the migration SQL — Prisma cannot express them.
+  // live in the migration SQL - Prisma cannot express them.
   totalSlots       Int          @map("total_slots")
   slotsTaken       Int          @default(0) @map("slots_taken")
   preorderCutoffAt DateTime?    @map("preorder_cutoff_at") @db.Timestamptz
@@ -686,6 +686,7 @@ model Vendor {
   trustSignals         VendorTrustSignal[]
   capacity             VendorCapacity[]
   termsAcceptances     TermsAcceptance[]
+  referralLink         VendorReferralLink?
 
   @@index([status])
   @@index([slug])
@@ -871,6 +872,7 @@ model Order {
   reviews      Review[]
   amendments   OrderAmendment[]
   adminTags    OrderAdminTag[]
+  attribution  OrderAttribution?
 
   @@index([customerId])
   @@index([vendorId])
@@ -1287,7 +1289,7 @@ model DiscountCode {
 
 /// Public postcode waitlist. Posted by anonymous users when they want to be
 /// notified once Feastpot serves their area. Distinct from CoverageInterest
-/// (legacy) — this model captures richer demand signals and is the canonical
+/// (legacy) - this model captures richer demand signals and is the canonical
 /// source for expansion decisions.
 model PostcodeWaitlist {
   id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -1323,7 +1325,7 @@ model VendorRecommendation {
   @@map("vendor_recommendations")
 }
 
-/// Public catering enquiry — unauthenticated, no deposit or quote flow.
+/// Public catering enquiry - unauthenticated, no deposit or quote flow.
 /// Ops qualifies these and may convert them into a full EventEnquiry or
 /// handle offline. Distinct from EventEnquiry which is customer-auth-gated.
 model CateringEnquiry {
@@ -1349,6 +1351,65 @@ model CateringEnquiry {
   @@index([status], map: "catering_enquiry_status_idx")
   @@index([eventDate], map: "catering_enquiry_event_date_idx")
   @@map("catering_enquiries")
+}
+
+// ─── Order source attribution ─────────────────────────────────────────────────
+// Enables source-based commission split. Attribution is immutable once written;
+// all corrections require an admin compensating record. No update endpoint exists.
+
+enum OrderSource {
+  MARKETPLACE
+  VENDOR_REFERRED
+}
+
+/// A unique share/referral link for a vendor, used to attribute traffic.
+/// One per vendor (@@unique on vendorId). Slug is URL-safe and human-readable.
+model VendorReferralLink {
+  id         String   @id @default(cuid())
+  vendorId   String   @unique @map("vendor_id") @db.Uuid
+  slug       String   @unique @db.VarChar(80)
+  qrCodeUrl  String?  @map("qr_code_url")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  vendor Vendor         @relation(fields: [vendorId], references: [id])
+  clicks ReferralClick[]
+
+  @@map("vendor_referral_links")
+}
+
+/// One row per visit to /v/[slug]. Privacy: IP is stored as a salted SHA-256 hash.
+model ReferralClick {
+  id             String   @id @default(cuid())
+  referralLinkId String   @map("referral_link_id")
+  sessionId      String   @map("session_id") @db.VarChar(128)
+  userId         String?  @map("user_id") @db.Uuid
+  ipHash         String   @map("ip_hash") @db.VarChar(64)
+  userAgent      String?  @map("user_agent")
+  clickedAt      DateTime @default(now()) @map("clicked_at") @db.Timestamptz
+
+  referralLink VendorReferralLink @relation(fields: [referralLinkId], references: [id])
+
+  @@index([sessionId, clickedAt])
+  @@map("referral_clicks")
+}
+
+/// Immutable attribution record written inside the same DB transaction as order creation.
+/// referralLinkId / referralClickId are stored as plain strings (no FK) to keep the
+/// schema flexible and avoid hard deletes being blocked.
+model OrderAttribution {
+  id               String      @id @default(cuid())
+  orderId          String      @unique @map("order_id") @db.Uuid
+  source           OrderSource
+  referralLinkId   String?     @map("referral_link_id")
+  referralClickId  String?     @map("referral_click_id")
+  isFirstOrder     Boolean     @map("is_first_order")
+  attributedAt     DateTime    @default(now()) @map("attributed_at") @db.Timestamptz
+  attributionReason String     @map("attribution_reason") @db.VarChar(64)
+
+  order Order @relation(fields: [orderId], references: [id])
+
+  @@index([source, attributedAt])
+  @@map("order_attributions")
 }
 
 // ─── Terms Versioning (P2B Regulation compliance) ────────────────────────────

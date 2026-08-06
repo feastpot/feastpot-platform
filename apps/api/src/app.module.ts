@@ -22,6 +22,7 @@ import { HealthController } from './health/health.controller';
 import { HealthzController, StatuszController } from './health/healthz.controller';
 import { AddressesModule } from './modules/addresses/addresses.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { AttributionModule } from './modules/attribution/attribution.module';
 import { bullBoardBasicAuth } from './modules/admin/bull-board.middleware';
 import { CatalogueModule } from './modules/catalogue/catalogue.module';
 import { CateringEnquiriesModule } from './modules/catering-enquiries/catering-enquiries.module';
@@ -36,6 +37,7 @@ import { MfaModule } from './modules/mfa/mfa.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { PaymentsModule } from './modules/payments/payments.module';
+import { StripeWebhookProcessorModule } from './modules/payments/stripe-webhook-processor.module';
 import { PayoutsModule } from './modules/payouts/payouts.module';
 import { PushModule } from './modules/push/push.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
@@ -360,6 +362,7 @@ import { RootController } from './root.controller';
     CatalogueModule,
     OrdersModule,
     PaymentsModule,
+    StripeWebhookProcessorModule,
     DisputesModule,
     EventEnquiriesModule,
     ComplianceModule,
@@ -375,6 +378,7 @@ import { RootController } from './root.controller';
     WebhooksModule,
     AdminModule,
     TermsModule,
+    AttributionModule,
   ],
   controllers: [RootController, HealthController, HealthzController, StatuszController],
   providers: [

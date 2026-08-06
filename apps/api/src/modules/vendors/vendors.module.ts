@@ -1,8 +1,6 @@
-import { BullModule } from '@nestjs/bull';
 import { Module } from '@nestjs/common';
 
 import { PrismaModule } from '../../prisma/prisma.module';
-import { NOTIFICATIONS_QUEUE } from '../../queues/queues.module';
 import { CatalogueModule } from '../catalogue/catalogue.module';
 import { VendorMembersModule } from '../vendor-members/vendor-members.module';
 
@@ -15,11 +13,17 @@ import { VendorsService } from './vendors.service';
   // CatalogueModule is re-imported here purely to reuse SupabaseStorageService
   // for vendor logo/cover uploads (T005). CatalogueModule does not depend on
   // VendorsModule, so this introduces no circular import.
+  //
+  // QueuesModule is @Global() and exports all BullModule.registerQueue results,
+  // so BullQueue_notifications is resolvable globally - no BullModule.registerQueue
+  // needed here. Adding a second registerQueue() call creates a second
+  // BullModule.registerCore() instance (different object reference → different
+  // random token in ByReferenceModuleOpaqueKeyFactory) → second BullExplorer →
+  // "Cannot define the same handler twice" at boot.
   imports: [
     PrismaModule,
     CatalogueModule,
     VendorMembersModule,
-    BullModule.registerQueue({ name: NOTIFICATIONS_QUEUE }),
   ],
   controllers: [VendorsController, VendorTrustSignalsController],
   providers: [VendorsService, VendorRepository],

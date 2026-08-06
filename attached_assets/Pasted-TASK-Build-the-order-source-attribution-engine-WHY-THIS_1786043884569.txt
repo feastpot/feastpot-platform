@@ -1,0 +1,107 @@
+TASK: Build the order source attribution engine.
+
+WHY THIS SHIPS BEFORE PRICING
+Source-based commission is impossible without trustworthy
+attribution. Do not announce or implement rate changes until
+this is live and verified. This is enabling infrastructure.
+
+PRISMA SCHEMA
+model VendorReferralLink {
+  id          String   @id @default(cuid())
+  vendorId    String   @unique
+  slug        String   @unique
+  qrCodeUrl   String?
+  createdAt   DateTime @default(now())
+  clicks      ReferralClick[]
+  vendor      Vendor   @relation(fields: [vendorId], references: [id])
+}
+
+model ReferralClick {
+  id              String   @id @default(cuid())
+  referralLinkId  String
+  sessionId       String
+  userId          String?
+  ipHash          String
+  userAgent       String?
+  clickedAt       DateTime @default(now())
+  referralLink    VendorReferralLink @relation(fields: [referralLinkId], references: [id])
+  @@index([sessionId, clickedAt])
+}
+
+model OrderAttribution {
+  id                String   @id @default(cuid())
+  orderId           String   @unique
+  source            OrderSource
+  referralLinkId    String?
+  referralClickId   String?
+  isFirstOrder      Boolean
+  attributedAt      DateTime @default(now())
+  attributionReason String
+  order             Order    @relation(fields: [orderId], references: [id])
+  @@index([source, attributedAt])
+}
+
+enum OrderSource {
+  MARKETPLACE
+  VENDOR_REFERRED
+}
+
+Add to Order: no mutable source field. Attribution lives in
+its own immutable table with a reason string for audit.
+
+ATTRIBUTION RULES (implement exactly)
+1. A visit to /v/[slug] writes a ReferralClick and sets a
+   first-party cookie fp_ref containing the referral link id
+   and timestamp, with a 30-day expiry.
+2. At order creation, resolve source:
+   If a valid unexpired fp_ref cookie exists AND the referral
+   link belongs to the SAME vendor as the order, then
+   VENDOR_REFERRED.
+   Otherwise MARKETPLACE.
+3. Cross-vendor case: customer arrives via vendor A link but
+   orders from vendor B. Vendor B order is MARKETPLACE.
+   Record attributionReason as "cross_vendor_referral".
+4. isFirstOrder is true when this customer has no prior
+   COMPLETED order with this specific vendor. It is per
+   customer-vendor pair, not per customer.
+5. Attribution is written inside the same database
+   transaction as order creation and is never updated
+   afterwards. No update endpoint. Corrections require an
+   admin-only compensating record with a reason.
+6. Attribution must survive: PWA install, Stripe checkout
+   redirect, and sign-in mid-session. Persist the referral
+   reference server-side against the session id as well as
+   in the cookie so a cookie loss during redirect does not
+   lose attribution.
+
+VENDOR PORTAL
+Add a "Bring your own customers" page in apps/vendor:
+  Display the referral URL feastpot.co.uk/v/[slug]
+  Copy to clipboard button
+  Downloadable QR code, PNG and SVG, generated server-side
+  with the qrcode package and stored in Supabase Storage
+  Pre-written share text for Instagram bio and WhatsApp
+  A source split panel: orders and GMV by source, this week
+  and cumulative, with a simple bar visual
+
+CUSTOMER PWA
+Create apps/customer/app/v/[slug]/route.ts
+  Look up the referral link, write the click, set the cookie,
+  then redirect to the vendor profile page. Handle unknown
+  slugs with a graceful redirect to /vendors.
+
+ADMIN
+Attribution audit view: filter orders by source, inspect the
+attributionReason, and export CSV.
+
+ACCEPTANCE CRITERIA
+- A test order placed via a referral link is stamped
+  VENDOR_REFERRED. The same customer arriving via homepage
+  postcode search is stamped MARKETPLACE.
+- Attribution survives a full Stripe checkout redirect cycle.
+- Cross-vendor referral is correctly stamped MARKETPLACE
+  with the documented reason.
+- A vendor can reconcile their weekly payout against the
+  source split report with zero variance.
+- No API route exists that can mutate an existing
+  OrderAttribution row.

@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   HttpCode,
   Param,
   ParseUUIDPipe,
@@ -45,8 +46,13 @@ export class OrdersController {
   @Post()
   @Roles(UserRole.customer)
   @ApiOperation({ summary: 'Place a new order (customer)' })
-  create(@Req() req: AuthedRequest, @Body() dto: CreateOrderDto) {
-    return this.orders.createOrder(requireUser(req).id, dto);
+  create(
+    @Req() req: AuthedRequest,
+    @Body() dto: CreateOrderDto,
+    @Headers('x-fp-ref') fpRef?: string,
+    @Headers('x-fp-sid') sessionId?: string,
+  ) {
+    return this.orders.createOrder(requireUser(req).id, dto, fpRef, sessionId);
   }
 
   @Get(':id')

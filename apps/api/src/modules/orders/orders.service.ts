@@ -45,6 +45,8 @@ import {
   reserveCapacity,
 } from '../vendors/vendor-capacity';
 
+import { AttributionService } from '../attribution/attribution.service';
+
 import { ProposeAmendmentDto, RespondAmendmentDto } from './dto/amendment.dto';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { ListOrdersDto } from './dto/list-orders.dto';
@@ -170,6 +172,8 @@ export class OrdersService {
     private readonly inbox: InboxService,
     // T010: server-side RBAC across vendor team members (orders surface).
     private readonly members: VendorMembersService,
+    // Attribution: source attribution for each order (best-effort, never throws).
+    private readonly attribution: AttributionService,
   ) {}
 
   // Best-effort BullMQ wrappers. When REDIS_URL is unset (dev/CI), the
@@ -261,18 +265,18 @@ export class OrdersService {
   // CREATE
   // ------------------------------------------------------------------
 
-  async createOrder(customerId: string, dto: CreateOrderDto) {
+  async createOrder(customerId: string, dto: CreateOrderDto, fpRef?: string, sessionId?: string) {
     // Wrap the entire order creation path in a Sentry transaction so the
     // Performance dashboard breaks down P95 latency by sub-span (Prisma
     // round-trips, Stripe PI creation, BullMQ enqueues). Sentry no-ops
     // gracefully when SENTRY_DSN is unset.
     return Sentry.startSpan(
       { name: 'createOrder', op: 'order.create', attributes: { vendorId: dto.vendorId } },
-      () => this.createOrderInner(customerId, dto),
+      () => this.createOrderInner(customerId, dto, fpRef, sessionId),
     );
   }
 
-  private async createOrderInner(customerId: string, dto: CreateOrderDto) {
+  private async createOrderInner(customerId: string, dto: CreateOrderDto, fpRef?: string, sessionId?: string) {
     const vendor = await this.repo.vendorWithDelivery(dto.vendorId);
     if (!vendor)
       throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'Vendor not found' });
@@ -500,6 +504,8 @@ export class OrdersService {
         vendorPayoutPence,
         discountCodeId,
         loyaltyToRedeem,
+        fpRef,
+        sessionId,
       });
     } catch (err) {
       // Any downstream failure (Stripe PI or DB tx) must hand the slot back,
@@ -562,6 +568,10 @@ export class OrdersService {
     vendorPayoutPence: number;
     discountCodeId: string | null;
     loyaltyToRedeem: number;
+    /** fp_ref cookie value forwarded from the web app (X-Fp-Ref header). */
+    fpRef?: string;
+    /** fp_sid session-ID forwarded from the web app (X-Fp-Sid header). */
+    sessionId?: string;
   }) {
     const {
       customerId,
@@ -580,6 +590,8 @@ export class OrdersService {
       vendorPayoutPence,
       discountCodeId,
       loyaltyToRedeem,
+      fpRef,
+      sessionId,
     } = args;
 
     // Stripe PI is created BEFORE the DB transaction so we have a single
@@ -694,6 +706,17 @@ export class OrdersService {
             });
           }
         }
+
+        // Attribution: written inside the same tx so it rolls back with the
+        // order if anything above fails. resolveAndWriteInTx never throws.
+        await this.attribution.resolveAndWriteInTx(
+          tx,
+          created.id,
+          customerId,
+          dto.vendorId,
+          fpRef,
+          sessionId,
+        );
 
         return created;
       });
