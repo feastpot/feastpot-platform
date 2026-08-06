@@ -147,6 +147,30 @@ export class NotificationProcessor {
       return { sent: [], skipped: [] };
     }
 
+    // Raw email jobs (e.g. vendor-application emails) bypass the user-centric
+    // template system. They carry { to, subject, html } directly and are
+    // retried by Bull's normal backoff when they fail.
+    if (eventName === 'vendor_application_email_raw') {
+      const {
+        to,
+        subject: rawSubject,
+        html: rawHtml,
+      } = job.data as {
+        to?: string;
+        subject?: string;
+        html?: string;
+      };
+      if (!to || !rawSubject?.trim() || !rawHtml?.trim()) {
+        this.logger.warn(
+          `vendor_application_email_raw job ${job.id}: missing to/subject/html - dropping.`,
+        );
+        return { sent: [], skipped: [] };
+      }
+      const r = await this.email.send({ to, subject: rawSubject, html: rawHtml });
+      this.logger.log(`vendor_application_email_raw → ${to}: delivered=${r.delivered}`);
+      return { sent: r.delivered ? ['email' as Channel] : [], skipped: [] };
+    }
+
     const template = getTemplate(eventName);
     if (!template) {
       this.logger.warn(`No template for event "${eventName}" - dropping (no retry).`);
@@ -171,6 +195,20 @@ export class NotificationProcessor {
 
     const subject = template.subject(data);
     const html = template.render(data);
+
+    // Content validation: an empty subject or body indicates a broken template
+    // or missing data. Drop rather than send a blank email — it degrades trust
+    // more than silence. The dropped event is logged so ops can investigate.
+    if (!subject?.trim() || !html?.trim()) {
+      this.logger.warn(
+        `Event "${eventName}" produced empty subject or html for user ${userId} - dropping (template bug or missing data).`,
+      );
+      Sentry.captureMessage(
+        `Notification template "${eventName}" rendered empty content for user ${userId}`,
+        'warning',
+      );
+      return { sent: [], skipped: [] };
+    }
 
     const sent: Channel[] = [];
     const skipped: Channel[] = [];

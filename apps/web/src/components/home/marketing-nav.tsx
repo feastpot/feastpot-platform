@@ -1,27 +1,14 @@
 'use client';
 
-import { ShoppingBasket, User } from 'lucide-react';
+import { Menu, ShoppingBasket, User, X } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 
 import { BasketDrawer } from '@/components/basket/basket-drawer';
 import { useAccessToken } from '@/lib/auth/use-access-token';
 import { useBasketStore } from '@/store/basket.store';
 
-/**
- * Desktop-first marketing nav for the homepage redesign (2026-05-17
- * wireframe). Replaces the in-app TopNav on `/` only - the TopNav now
- * self-hides on `/` so this nav owns the chrome on the landing page.
- *
- * Layout:
- *   logo · Browse / How it works / Event catering / Become a cook / Help
- *                                                      · user · basket
- */
-// "Become a cook" deep-links to the public acquisition page on the
-// customer site. The vendor portal URL is never exposed from public
-// chrome - prospective cooks land on /become-a-vendor, submit the
-// interest form there, and only receive a portal link in the approval
-// email after admin review.
 const NAV_LINKS = [
   { label: 'Order food', href: '/vendors' },
   { label: 'Occasions', href: '/#occasions' },
@@ -31,13 +18,27 @@ const NAV_LINKS = [
 
 export function MarketingNav() {
   const itemCount = useBasketStore((s) => s.items.reduce((acc, i) => acc + i.quantity, 0));
-  // Guests get sent straight to `/sign-in` instead of the `/account`
-  // guest hub - the hub itself is just a benefits welcome with another
-  // big "Sign in" button, so reusing it here makes the flow feel like
-  // two sign-in pages in a row. Loading state keeps `/account` so we
-  // don't flicker the wrong destination at a returning signed-in user.
   const { token, loading: authLoading } = useAccessToken();
   const accountHref = !authLoading && !token ? '/sign-in' : '/account';
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Close on escape
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const handle = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMobileOpen(false);
+    };
+    document.addEventListener('keydown', handle);
+    return () => document.removeEventListener('keydown', handle);
+  }, [mobileOpen]);
+
+  // Prevent body scroll when menu is open
+  useEffect(() => {
+    document.body.style.overflow = mobileOpen ? 'hidden' : '';
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [mobileOpen]);
 
   return (
     <nav
@@ -56,6 +57,7 @@ export function MarketingNav() {
           />
         </Link>
 
+        {/* Desktop links */}
         <ul className="ml-6 hidden items-center gap-7 lg:flex">
           {NAV_LINKS.map((l) => (
             <li key={l.href}>
@@ -95,8 +97,52 @@ export function MarketingNav() {
               )}
             </button>
           </BasketDrawer>
+
+          {/* Hamburger – mobile only */}
+          <button
+            type="button"
+            aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
+            aria-expanded={mobileOpen}
+            aria-controls="mobile-nav-menu"
+            onClick={() => setMobileOpen((o) => !o)}
+            className="flex h-10 w-10 items-center justify-center rounded-full text-charcoal hover:bg-cream-warm hover:text-brand lg:hidden"
+          >
+            {mobileOpen ? (
+              <X className="h-5 w-5" strokeWidth={1.75} aria-hidden />
+            ) : (
+              <Menu className="h-5 w-5" strokeWidth={1.75} aria-hidden />
+            )}
+          </button>
         </div>
       </div>
+
+      {/* Mobile slide-down menu */}
+      {mobileOpen && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 top-[4.25rem] z-40 bg-charcoal/20 lg:hidden"
+            aria-hidden
+            onClick={() => setMobileOpen(false)}
+          />
+          <ul
+            id="mobile-nav-menu"
+            className="absolute left-0 right-0 z-50 border-b border-cream-deep bg-white px-4 pb-4 pt-2 shadow-lg lg:hidden"
+          >
+            {NAV_LINKS.map((l) => (
+              <li key={l.href}>
+                <Link
+                  href={l.href}
+                  onClick={() => setMobileOpen(false)}
+                  className="flex items-center rounded-xl px-3 py-3 text-[15px] font-semibold text-charcoal transition-colors hover:bg-cream-warm hover:text-brand"
+                >
+                  {l.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
     </nav>
   );
 }

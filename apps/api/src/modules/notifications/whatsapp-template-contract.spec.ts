@@ -20,6 +20,7 @@
  * here to match the newly approved body.
  */
 import { WHATSAPP_PARAMS } from './notification.processor';
+import { getRequiredContentSidEnvVarNames } from './providers/whatsapp.provider';
 import { TEMPLATES } from './templates';
 
 /**
@@ -133,5 +134,47 @@ describe('WhatsApp template contract (WHATSAPP_PARAMS vs Twilio Content Template
     for (const name of ['event_quote_received', 'event_reminder_72h', 'event_balance_link']) {
       expect(WHATSAPP_PARAMS[name]('Amara', sampleData)).toEqual(['Amara']);
     }
+  });
+});
+
+/**
+ * Startup SID env-var contract.
+ *
+ * getRequiredContentSidEnvVarNames() derives the required TWILIO_CONTENT_SID_*
+ * names from the live TEMPLATES registry. This test locks the expected set so
+ * that:
+ *  - adding a new whatsappTemplate forces a developer to also update this list,
+ *    which is the reminder to register the SID env var before deploying.
+ *  - removing a template surfaces stale entries that can be cleaned up.
+ *
+ * Update EXPECTED_CONTENT_SID_ENV_VARS whenever you add or remove a template
+ * that has a whatsappTemplate field.
+ */
+const EXPECTED_CONTENT_SID_ENV_VARS = [
+  'TWILIO_CONTENT_SID_delivery_confirmed',
+  'TWILIO_CONTENT_SID_event_balance_link',
+  'TWILIO_CONTENT_SID_event_quote_received',
+  'TWILIO_CONTENT_SID_event_reminder_72h',
+  'TWILIO_CONTENT_SID_order_accepted',
+  'TWILIO_CONTENT_SID_order_amendment_proposed',
+  'TWILIO_CONTENT_SID_order_confirmation',
+  'TWILIO_CONTENT_SID_order_dispatched',
+  'TWILIO_CONTENT_SID_payout_statement',
+  'TWILIO_CONTENT_SID_review_request',
+].sort();
+
+describe('WhatsApp Content SID env-var contract (getRequiredContentSidEnvVarNames)', () => {
+  it('required SID env var names match the expected documented set', () => {
+    // If this test fails you added or removed a whatsappTemplate.
+    // Update EXPECTED_CONTENT_SID_ENV_VARS above AND make sure the
+    // corresponding TWILIO_CONTENT_SID_<name> secret is set in the deployment
+    // env before merging.
+    expect(getRequiredContentSidEnvVarNames().sort()).toEqual(EXPECTED_CONTENT_SID_ENV_VARS);
+  });
+
+  it('every expected env var name corresponds to a template in the registry', () => {
+    const actual = new Set(getRequiredContentSidEnvVarNames());
+    const stale = EXPECTED_CONTENT_SID_ENV_VARS.filter((v) => !actual.has(v));
+    expect(stale).toEqual([]);
   });
 });

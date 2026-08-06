@@ -55,6 +55,40 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const { pathname } = request.nextUrl;
+
+  // Role-based portal routing: vendors and staff should never land on the
+  // customer site's auth-gated pages. Their role lives in app_metadata
+  // (server-managed, set by the Supabase auth hook + admin updateUserById).
+  // We redirect them to their own portal so they don't see a confusing
+  // customer-shaped UI — and so they can't accidentally browse account pages
+  // that are scoped to customer orders/addresses.
+  const role = (user?.app_metadata?.role as string | undefined) ?? null;
+  const isNonCustomer =
+    role === 'vendor' || role === 'admin' || role === 'finance' || role === 'support' || role === 'compliance';
+
+  if (isNonCustomer) {
+    const isAccountSubRoute = pathname.startsWith('/account/');
+    const isSignInRoute = pathname === '/sign-in' || pathname.startsWith('/sign-in/');
+
+    if (isAccountSubRoute || isSignInRoute) {
+      // Vendors go to the vendor portal; staff go to the admin portal.
+      // Fall back to a safe public URL if the env var is missing.
+      const vendorPortalUrl =
+        process.env.NEXT_PUBLIC_VENDOR_PORTAL_URL ??
+        process.env.VENDOR_PORTAL_URL ??
+        'https://vendor.feastpot.co.uk';
+      const adminPortalUrl = process.env.ADMIN_URL ?? 'https://admin.feastpot.co.uk';
+      const destination = role === 'vendor' ? vendorPortalUrl : adminPortalUrl;
+      return NextResponse.redirect(destination);
+    }
+
+    // Non-customers may still browse public pages (menu browsing, occasion
+    // pages, become-a-vendor, etc.) — only block the customer-specific routes.
+    return response;
+  }
+
+  // From here: user is either unauthenticated or has role=customer.
+
   // `/account` (exact) is the public hub that shows a guest welcome /
   // benefits CTA when the user isn't signed in - older / first-time
   // visitors are far more likely to tap "Account" out of curiosity than

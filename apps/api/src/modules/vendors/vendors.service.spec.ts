@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import type { ConfigService } from '@nestjs/config';
 import { UserRole, VendorStatus } from '@prisma/client';
+import type { Queue } from 'bull';
 
 import type { AuthUser } from '../../auth/types';
 import type { RedisCacheService } from '../../common/cache/redis-cache.service';
@@ -102,6 +103,7 @@ describe('VendorsService', () => {
       canActOnVendor: jest.fn().mockResolvedValue(true),
       resolveVendorIdByUserId: jest.fn().mockResolvedValue({ vendorId: 'v-1' }),
     };
+    const queue = { add: jest.fn().mockResolvedValue(undefined) } as unknown as Queue;
     service = new VendorsService(
       repo as unknown as VendorRepository,
       prisma,
@@ -112,6 +114,7 @@ describe('VendorsService', () => {
       email,
       storage,
       members as unknown as VendorMembersService,
+      queue,
     );
   });
 
