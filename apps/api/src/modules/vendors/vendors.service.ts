@@ -1,3 +1,4 @@
+import { InjectQueue } from '@nestjs/bull';
 import {
   BadRequestException,
   ConflictException,
@@ -9,12 +10,13 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { ModerationStatus, OrderStatus, UserRole, VendorStatus } from '@prisma/client';
 import type { VendorMemberRole } from '@prisma/client';
-import * as Sentry from '@sentry/nestjs';
+import type { Queue } from 'bull';
 
 import type { AuthUser } from '../../auth/types';
 import { RedisCacheService } from '../../common/cache/redis-cache.service';
 import { getServiceFeeBps } from '../../common/config/service-fee';
 import { PrismaService } from '../../prisma/prisma.service';
+import { NOTIFICATIONS_QUEUE } from '../../queues/queues.module';
 import { StripeService } from '../../stripe/stripe.service';
 import { SupabaseStorageService } from '../catalogue/supabase-storage.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -266,6 +268,8 @@ export class VendorsService {
     // staff, delivery coordinator) can act on their team's vendor as
     // their role allows, not just the original owner.
     private readonly members: VendorMembersService,
+    // Notifications queue for durable retry of vendor-application emails.
+    @InjectQueue(NOTIFICATIONS_QUEUE) private readonly queue: Queue,
   ) {}
 
   /**
@@ -327,9 +331,10 @@ export class VendorsService {
       select: { id: true, kitchenName: true, createdAt: true, status: true },
     });
 
-    // Fire-and-await both emails in parallel. Catch per-side so one failure
-    // doesn't suppress the other. Errors logged via the provider's own
-    // logger; persistence already succeeded so the lead is safe.
+    // Enqueue both emails as durable Bull jobs (3 attempts, exponential
+    // backoff starting at 30 s). If Resend is down the job retries up to
+    // 3 times before Sentry is paged by Bull's OnQueueFailed handler.
+    // The application row is already persisted so the lead is never lost.
     const adminEmail =
       this.config.get<string>('VENDOR_APPLICATIONS_ADMIN_EMAIL') ?? 'soul@feastpot.co.uk';
     const adminBase = this.config.get<string>('ADMIN_URL') ?? 'https://admin.feastpot.co.uk';
@@ -357,47 +362,23 @@ export class VendorsService {
       kitchenName: dto.kitchenName.trim(),
     });
 
-    // Persistence already succeeded above, so the lead is safe regardless
-    // of email outcomes - but we MUST log rejections so on-call sees provider
-    // outages instead of silently swallowing them. Each send is timeboxed
-    // at 10s to bound HTTP response latency if Resend hangs.
-    const withTimeout = <T>(p: Promise<T>, label: string): Promise<T> =>
-      Promise.race([
-        p,
-        new Promise<T>((_, reject) =>
-          setTimeout(() => reject(new Error(`${label} email timed out after 10s`)), 10_000),
-        ),
-      ]);
-    const results = await Promise.allSettled([
-      withTimeout(
-        this.email.send({ to: adminEmail, subject: adminMsg.subject, html: adminMsg.html }),
-        'admin',
+    const jobOpts = {
+      attempts: 3,
+      backoff: { type: 'exponential', delay: 30_000 } as const,
+      removeOnComplete: true,
+    };
+    await Promise.allSettled([
+      this.queue.add(
+        'vendor_application_email_raw',
+        { to: adminEmail, subject: adminMsg.subject, html: adminMsg.html },
+        { ...jobOpts, jobId: `vendor-app-admin-${application.id}` },
       ),
-      withTimeout(
-        this.email.send({
-          to: normalisedEmail,
-          subject: applicantMsg.subject,
-          html: applicantMsg.html,
-        }),
-        'applicant',
+      this.queue.add(
+        'vendor_application_email_raw',
+        { to: normalisedEmail, subject: applicantMsg.subject, html: applicantMsg.html },
+        { ...jobOpts, jobId: `vendor-app-applicant-${application.id}` },
       ),
     ]);
-    const labels = ['admin', 'applicant'] as const;
-    results.forEach((r, i) => {
-      if (r.status === 'rejected') {
-        // The application row is committed but INVISIBLE to this party until
-        // someone re-sends the email — that's an ops incident, not a debug
-        // line. Log loudly AND page via Sentry with the application id so the
-        // row can be re-emailed.
-        this.logger.error(
-          `registerInterest: ${labels[i]} email failed for application ${application.id}: ${(r.reason as Error).message}`,
-        );
-        Sentry.captureException(r.reason, {
-          tags: { area: 'vendor-application-email', recipient: labels[i] },
-          extra: { applicationId: application.id, kitchenName: application.kitchenName },
-        });
-      }
-    });
 
     return {
       id: application.id,

@@ -19,8 +19,8 @@
  * approved Twilio Content Template first, then update EXPECTED_SLOT_COUNTS
  * here to match the newly approved body.
  */
-import { getRequiredContentSidEnvVarNames } from './providers/whatsapp.provider';
 import { WHATSAPP_PARAMS } from './notification.processor';
+import { getRequiredContentSidEnvVarNames } from './providers/whatsapp.provider';
 import { TEMPLATES } from './templates';
 
 /**

@@ -6,6 +6,7 @@ import type { Queue } from 'bull';
 import { Resend } from 'resend';
 
 import { RedisCacheService } from '../../common/cache/redis-cache.service';
+import { PrismaService } from '../../prisma/prisma.service';
 import {
   COMPLIANCE_QUEUE,
   NOTIFICATIONS_QUEUE,
@@ -35,6 +36,11 @@ export class DlqMonitorService {
   private readonly failedThreshold: number;
   private readonly waitingThreshold: number;
 
+  // Alert when a pending order has been waiting for vendor acceptance
+  // longer than this threshold. 30 min is aggressive but safe — vendors
+  // are expected to accept within 15 min per their SLA.
+  private static readonly STUCK_ORDER_MINUTES = 30;
+
   constructor(
     @InjectQueue(NOTIFICATIONS_QUEUE) private readonly notifications: Queue,
     @InjectQueue(STRIPE_WEBHOOK_QUEUE) private readonly stripeWebhooks: Queue,
@@ -42,6 +48,7 @@ export class DlqMonitorService {
     @InjectQueue(COMPLIANCE_QUEUE) private readonly compliance: Queue,
     config: ConfigService,
     private readonly cache: RedisCacheService,
+    private readonly prisma: PrismaService,
   ) {
     const key = config.get<string>('RESEND_API_KEY');
     this.resend = key ? new Resend(key) : null;
@@ -188,6 +195,50 @@ export class DlqMonitorService {
       }
     }
     return results;
+  }
+
+  /**
+   * Every 5 minutes: alert via Slack when any order has been in `pending`
+   * status for more than STUCK_ORDER_MINUTES without vendor acceptance.
+   * Each stuck order fires at most one alert per hour (suppressed via Redis).
+   */
+  @Cron('*/5 * * * *')
+  async checkStuckOrders(): Promise<void> {
+    if (!this.cache.available) return;
+
+    const cutoff = new Date(Date.now() - DlqMonitorService.STUCK_ORDER_MINUTES * 60_000);
+    const stuck = await this.prisma.order
+      .findMany({
+        where: { status: 'pending', createdAt: { lte: cutoff } },
+        select: {
+          id: true,
+          orderNumber: true,
+          createdAt: true,
+          vendor: { select: { businessName: true } },
+        },
+        take: 20,
+      })
+      .catch(() => [] as never[]);
+
+    if (!stuck.length) return;
+
+    const freshAlerts: string[] = [];
+    for (const order of stuck) {
+      const key = `stuck-order-alert:${order.id}`;
+      const won = await this.cache.setIfAbsent(key, 1, 60 * 60);
+      if (won) {
+        const ageMin = Math.round((Date.now() - order.createdAt.getTime()) / 60_000);
+        freshAlerts.push(
+          `• \`${order.orderNumber}\` — *${order.vendor.businessName}* — pending ${ageMin} min`,
+        );
+      }
+    }
+
+    if (!freshAlerts.length) return;
+
+    await this.sendSlack(
+      `:alarm_clock: *Stuck orders* (pending >${DlqMonitorService.STUCK_ORDER_MINUTES} min, vendor not yet accepted)\n${freshAlerts.join('\n')}`,
+    );
   }
 
   /** Daily at 09:00 UTC. */

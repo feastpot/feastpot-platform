@@ -122,6 +122,7 @@ function CheckoutInner() {
         prepLeadHours: number;
         sameDayOrders: boolean;
         blackoutDates: { id: string; date: string; reason: string | null }[];
+        capacity?: { serviceDate: string; remainingSlots: number; totalSlots: number }[];
       }>(`/vendors/${vendor!.id}/availability`),
   });
   const [notes, setNotes] = useState<string>('');
@@ -775,6 +776,22 @@ function CheckoutInner() {
             })}
           </p>
         )}
+        {scheduledFor &&
+          (() => {
+            const dateStr = scheduledFor.toISOString().slice(0, 10);
+            const cap = availability?.capacity?.find((c) => c.serviceDate === dateStr);
+            if (!cap || cap.remainingSlots > 3) return null;
+            const isSoldOut = cap.remainingSlots === 0;
+            return (
+              <p
+                className={`mt-2 text-xs font-bold ${isSoldOut ? 'text-destructive' : 'text-scotch'}`}
+              >
+                {isSoldOut
+                  ? 'No slots remaining on this date — please choose another'
+                  : `Nearly sold out — only ${cap.remainingSlots} slot${cap.remainingSlots === 1 ? '' : 's'} left`}
+              </p>
+            );
+          })()}
       </Section>
 
       {/* SECTION 4 - ORDER NOTES */}

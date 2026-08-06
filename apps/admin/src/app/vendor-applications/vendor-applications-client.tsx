@@ -143,7 +143,13 @@ export function VendorApplicationsClient() {
                     <div className="text-xs text-muted-foreground">{a.kitchenType}</div>
                   </TableCell>
                   <TableCell className="text-sm">{formatDate(a.createdAt)}</TableCell>
-                  <TableCell className="text-sm">{a.hasFsaRegistration ? 'Yes' : 'No'}</TableCell>
+                  <TableCell className="text-sm">
+                    {a.hygieneRegNumber ? (
+                      <span className="font-mono text-xs">{a.hygieneRegNumber}</span>
+                    ) : (
+                      <span className="font-medium text-destructive">Missing</span>
+                    )}
+                  </TableCell>
                   <TableCell>
                     <StatusPill tone={STATUS_TONE[a.status]}>{STATUS_LABEL[a.status]}</StatusPill>
                   </TableCell>

@@ -369,7 +369,9 @@ export class PayoutsService {
     const payout = await this.prisma.payout.findUnique({
       where: { id: payoutId },
       include: {
-        vendor: { select: { stripeAccountId: true, payoutsEnabled: true, userId: true } },
+        vendor: {
+          select: { stripeAccountId: true, payoutsEnabled: true, userId: true, businessName: true },
+        },
       },
     });
     if (!payout)
@@ -436,6 +438,22 @@ export class PayoutsService {
         where: { id: payoutId },
         data: { status: PayoutStatus.failed, failureReason: (e as Error).message },
       });
+      // Alert finance immediately — a failed transfer means the vendor
+      // hasn't been paid. They must reset and re-approve (POST :id/reset).
+      const financeEmail =
+        process.env.FINANCE_ALERT_EMAIL ??
+        process.env.VENDOR_APPLICATIONS_ADMIN_EMAIL ??
+        'soul@feastpot.co.uk';
+      const adminBase = process.env.ADMIN_URL ?? 'https://admin.feastpot.co.uk';
+      await this.notifications.add('vendor_application_email_raw', {
+        to: financeEmail,
+        subject: `[ACTION REQUIRED] Payout failed — ${payout.vendor?.businessName ?? payoutId}`,
+        html: `<p>A Stripe transfer failed for payout <strong>${payoutId}</strong> (vendor: ${payout.vendor?.businessName ?? 'unknown'}).</p>
+<p><strong>Error:</strong> ${(e as Error).message}</p>
+<p>The payout status has been set to <code>failed</code>. To retry, reset it to draft and re-approve:</p>
+<p><a href="${adminBase}/payouts/${payoutId}">View payout in admin</a></p>
+<p>Or call <code>POST /v1/payouts/${payoutId}/reset</code> then <code>POST /v1/payouts/${payoutId}/approve</code>.</p>`,
+      });
       throw new BadRequestException({
         code: 'STRIPE_TRANSFER_FAILED',
         message: (e as Error).message,
@@ -467,6 +485,32 @@ export class PayoutsService {
       this.logger.warn(`payout inbox notify failed for ${payoutId}: ${(e as Error).message}`);
     }
     return updated;
+  }
+
+  /**
+   * Reset a failed payout back to draft so finance can re-approve it.
+   * Only valid when status=failed (terminal for Stripe transfers, but
+   * recoverable after the root cause is fixed).
+   */
+  async resetFailedPayout(payoutId: string, actor: AuthUser) {
+    if (actor.role !== UserRole.finance && actor.role !== UserRole.admin) {
+      throw new ForbiddenException({
+        code: 'PAYOUT_RESET_FORBIDDEN',
+        message: 'Only finance or admin may reset payouts',
+      });
+    }
+    const cas = await this.prisma.payout.updateMany({
+      where: { id: payoutId, status: PayoutStatus.failed },
+      data: { status: PayoutStatus.draft, failureReason: null },
+    });
+    if (cas.count !== 1) {
+      throw new BadRequestException({
+        code: 'PAYOUT_NOT_FAILED',
+        message: 'Payout is not in failed status — cannot reset',
+      });
+    }
+    this.logger.log(`Payout ${payoutId} reset to draft by ${actor.id}`);
+    return this.prisma.payout.findUnique({ where: { id: payoutId } });
   }
 
   async holdPayout(payoutId: string, holdReason: string, actor: AuthUser) {

@@ -118,6 +118,13 @@ export class PayoutsController {
     return this.payouts.approvePayout(id, requireUser(req));
   }
 
+  @Post(':id/reset')
+  @Roles(UserRole.finance, UserRole.admin)
+  @ApiOperation({ summary: 'Reset a failed payout to draft for re-approval (finance/admin)' })
+  resetFailed(@Req() req: AuthedRequest, @Param('id', new ParseUUIDPipe()) id: string) {
+    return this.payouts.resetFailedPayout(id, requireUser(req));
+  }
+
   @Patch(':id/hold')
   @Roles(UserRole.finance, UserRole.admin)
   @ApiOperation({ summary: 'Place a hold on a payout (finance/admin)' })

@@ -29,6 +29,7 @@ export interface VendorApplicationRow {
   cuisineType: string;
   kitchenType: string;
   hasFsaRegistration: boolean;
+  hygieneRegNumber: string | null;
   instagram: string | null;
   status: VendorApplicationStatus;
   reviewedAt: string | null;

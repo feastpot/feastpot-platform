@@ -1,6 +1,8 @@
+import { BullModule } from '@nestjs/bull';
 import { Module } from '@nestjs/common';
 
 import { PrismaModule } from '../../prisma/prisma.module';
+import { NOTIFICATIONS_QUEUE } from '../../queues/queues.module';
 import { CatalogueModule } from '../catalogue/catalogue.module';
 import { VendorMembersModule } from '../vendor-members/vendor-members.module';
 
@@ -13,7 +15,12 @@ import { VendorsService } from './vendors.service';
   // CatalogueModule is re-imported here purely to reuse SupabaseStorageService
   // for vendor logo/cover uploads (T005). CatalogueModule does not depend on
   // VendorsModule, so this introduces no circular import.
-  imports: [PrismaModule, CatalogueModule, VendorMembersModule],
+  imports: [
+    PrismaModule,
+    CatalogueModule,
+    VendorMembersModule,
+    BullModule.registerQueue({ name: NOTIFICATIONS_QUEUE }),
+  ],
   controllers: [VendorsController, VendorTrustSignalsController],
   providers: [VendorsService, VendorRepository],
   // PrismaModule is @Global, so VendorsService can inject PrismaService for stats

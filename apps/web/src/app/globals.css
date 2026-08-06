@@ -85,7 +85,7 @@
     --card-foreground: 40 33% 98%;
     --popover: 60 4% 14%;
     --popover-foreground: 40 33% 98%;
-    --primary: 19 92% 53%;
+    --primary: 148 70% 45%;
     --primary-foreground: 0 0% 100%;
     --secondary: 161 70% 42%;
     --secondary-foreground: 0 0% 100%;
@@ -97,7 +97,7 @@
     --destructive-foreground: 0 0% 100%;
     --border: 60 4% 22%;
     --input: 60 4% 22%;
-    --ring: 19 92% 53%;
+    --ring: 148 70% 45%;
   }
 
   /* Mobile-only: kill the iOS tap highlight. */

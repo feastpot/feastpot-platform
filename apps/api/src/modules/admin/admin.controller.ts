@@ -802,4 +802,40 @@ export class AdminController {
       });
     }
   }
+
+  // ---------- notification outbox dead-letters (#58) ----------
+
+  @Get('notification-outbox/dead-letters')
+  @Roles(UserRole.admin)
+  @ApiOperation({ summary: 'List notification outbox rows that exhausted all retries (admin)' })
+  async listDeadLetterOutbox() {
+    const MAX_ALERT_ATTEMPTS = 5;
+    const rows = await this.prisma.notificationOutbox.findMany({
+      where: { attempts: { gte: MAX_ALERT_ATTEMPTS } },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
+    return { data: rows, count: rows.length };
+  }
+
+  @Post('notification-outbox/:rowId/resend')
+  @Roles(UserRole.admin)
+  @ApiOperation({ summary: 'Re-enqueue an exhausted outbox row (admin)' })
+  async resendOutboxRow(
+    @Param('rowId', new ParseUUIDPipe()) rowId: string,
+    @Req() req: AuthedRequest,
+  ) {
+    const row = await this.prisma.notificationOutbox.findUnique({ where: { id: rowId } });
+    if (!row)
+      throw new BadRequestException({
+        code: 'OUTBOX_ROW_NOT_FOUND',
+        message: 'Outbox row not found',
+      });
+    await this.prisma.notificationOutbox.update({
+      where: { id: rowId },
+      data: { attempts: 0, nextAttemptAt: new Date(), lastError: null },
+    });
+    this.logger.log(`[Admin] Outbox row ${rowId} reset for resend by ${req.user?.id}`);
+    return { ok: true, id: rowId };
+  }
 }

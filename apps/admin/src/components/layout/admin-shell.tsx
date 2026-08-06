@@ -75,6 +75,7 @@ const MAIN_NAV: ReadonlyArray<NavItem> = [
   { href: '/payouts', label: 'Payouts', icon: Banknote, roles: ['admin', 'finance'] },
   { href: '/discount-codes', label: 'Discount Codes', icon: Tag, roles: ['admin', 'finance'] },
   { href: '/push/compose', label: 'Push broadcast', icon: Bell, roles: ['admin'] },
+  { href: '/notifications', label: 'Dead-letter notifications', icon: Bell, roles: ['admin'] },
   { href: '/compliance', label: 'Compliance', icon: ShieldCheck, roles: ['admin', 'compliance'] },
   { href: '/coverage', label: 'Coverage waitlist', icon: MapPin, roles: ['admin', 'support'] },
   { href: '/audit-log', label: 'Audit log', icon: Activity, roles: ['admin', 'compliance'] },
