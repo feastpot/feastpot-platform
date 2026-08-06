@@ -95,7 +95,7 @@ export class CreateCateringEnquiryDto {
   @MaxLength(64)
   source?: string;
 
-  /** Honeypot — must be empty. */
+  /** Honeypot - must be empty. */
   @ApiPropertyOptional({ description: 'Leave blank' })
   @IsOptional()
   @IsString()

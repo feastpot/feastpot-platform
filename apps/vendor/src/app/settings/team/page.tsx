@@ -18,7 +18,7 @@ interface VendorMe {
  * Team management page. Owners can invite, re-role, and remove
  * members; non-owners see a read-only roster.
  *
- * Screen 9 (final) of the vendor redesign — migrated to the SideNav
+ * Screen 9 (final) of the vendor redesign - migrated to the SideNav
  * shell (with TopNav as a md:hidden mobile fallback).
  */
 export default async function TeamSettingsPage() {

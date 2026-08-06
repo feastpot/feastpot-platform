@@ -17,13 +17,13 @@ import { StatCard } from '@/components/dashboard/stat-card';
 import { useAnalytics } from '@/hooks/use-analytics';
 import { formatPence } from '@/lib/format';
 
-// Recharts can't read CSS vars at draw time — keep these as literals.
+// Recharts can't read CSS vars at draw time - keep these as literals.
 const BRAND_GREEN = '#00843D';
 const VENDOR_BLUE = '#185FA5';
 const GRID_GREY = '#F0EDE8';
 
 /**
- * Vendor analytics. Data fetching unchanged — visual wrapper migrated
+ * Vendor analytics. Data fetching unchanged - visual wrapper migrated
  * to the SideNav shell + fp-card + tone tokens to match the rest of
  * the redesigned vendor portal.
  */

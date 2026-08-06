@@ -1,7 +1,7 @@
 import Link from 'next/link';
 
 /**
- * Catering entry band — sits between How FeastPot Works and the Instagram DMs
+ * Catering entry band - sits between How FeastPot Works and the Instagram DMs
  * section. Invites groups of 20+ to submit a catering enquiry rather than
  * trying to piece together a large order themselves.
  *

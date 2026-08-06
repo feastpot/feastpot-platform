@@ -23,7 +23,7 @@ const AuthContext = createContext<AuthState>({ token: null, loading: true });
  * auth listeners fanning out on every navigation.
  *
  * One provider, one subscription, one shared `{ token, loading }`
- * snapshot — every hook just reads from context.
+ * snapshot - every hook just reads from context.
  *
  * The provider also owns the **cross-session cache barrier**: when
  * Supabase reports a SIGNED_OUT or a SIGNED_IN to a different user id

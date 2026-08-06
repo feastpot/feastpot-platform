@@ -47,7 +47,7 @@ import { searchVendors, type VendorListItem } from '@/lib/api/vendors';
 import { COVERAGE_COOKIE } from '@/lib/coverage-cookie';
 
 // Fetches live vendor data from the API at request time (also reads cookies),
-// so it must never be statically prerendered at build — that caused a Vercel
+// so it must never be statically prerendered at build - that caused a Vercel
 // build timeout previously. Force dynamic rendering explicitly.
 export const dynamic = 'force-dynamic';
 

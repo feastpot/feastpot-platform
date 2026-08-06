@@ -2,7 +2,7 @@
  * Contract test: WHATSAPP_PARAMS builders vs approved Twilio Content Templates.
  *
  * Meta enforces EXACT {{n}} parameter counts on approved WhatsApp Content
- * Templates — a builder returning the wrong number of values makes live sends
+ * Templates - a builder returning the wrong number of values makes live sends
  * FAIL (not just render blank). There is no build-time link between the
  * template registry (templates/index.ts) and the builders in
  * notification.processor.ts, so this test is the guard rail:
@@ -12,7 +12,7 @@
  *     3-slot generic shape, which does NOT match any approved body).
  *  2. Each builder must return exactly the slot count of the approved Twilio
  *     Content Template (verified against the Content API, Jul 2026).
- *  3. payout_statement's {{2}} is the £ net amount (amountPence/netPence) —
+ *  3. payout_statement's {{2}} is the £ net amount (amountPence/netPence) -
  *     payouts have no orderNumber.
  *
  * If this test fails after you add/edit a template or builder: update the
@@ -95,7 +95,7 @@ describe('WhatsApp template contract (WHATSAPP_PARAMS vs Twilio Content Template
       expect(builder).toBeDefined();
       const params = builder('Amara', sampleData);
       expect(params).toHaveLength(expectedCount);
-      // Every slot must be filled — Meta rejects empty variables too.
+      // Every slot must be filled - Meta rejects empty variables too.
       for (const value of params) {
         expect(String(value).length).toBeGreaterThan(0);
       }

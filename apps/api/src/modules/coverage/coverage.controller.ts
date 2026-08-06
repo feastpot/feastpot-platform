@@ -7,7 +7,7 @@ import { CoverageInterestDto } from './dto/coverage-interest.dto';
 import { CoverageService } from './coverage.service';
 
 /**
- * Customer waitlist capture for uncovered postcodes. Public — the user
+ * Customer waitlist capture for uncovered postcodes. Public - the user
  * is anonymous at this point because they bounced off the homepage
  * coverage check before any account flow.
  */

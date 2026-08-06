@@ -126,7 +126,7 @@ describe('VendorTrustSignalsController (HTTP)', () => {
           vendorId: VENDOR_ID,
           signalType: TrustSignalType.hygiene_rating,
           status: TrustSignalStatus.verified,
-          evidenceReference: 'FHRS 5 — 12345',
+          evidenceReference: 'FHRS 5 - 12345',
           verifiedAt,
           verifiedBy: STAFF_ID,
           updatedAt: verifiedAt,
@@ -145,7 +145,7 @@ describe('VendorTrustSignalsController (HTTP)', () => {
         id: 'row-1',
         status: TrustSignalStatus.verified,
         verifiedBy: STAFF_ID,
-        evidenceReference: 'FHRS 5 — 12345',
+        evidenceReference: 'FHRS 5 - 12345',
       });
       // Everything else stays a placeholder.
       const others = res.body.filter(
@@ -191,7 +191,7 @@ describe('VendorTrustSignalsController (HTTP)', () => {
           signalType: TrustSignalType.hygiene_rating,
         },
       });
-      // Both branches of the upsert must stamp the audit fields — a
+      // Both branches of the upsert must stamp the audit fields - a
       // regression dropping verified_by on either path is exactly what
       // this test exists to catch.
       for (const branch of [args.create, args.update]) {
@@ -258,7 +258,7 @@ describe('VendorTrustSignalsController (HTTP)', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Role enforcement — same decorator-metadata + real-RolesGuard technique as
+// Role enforcement - same decorator-metadata + real-RolesGuard technique as
 // admin.controller.spec.ts, so widening @Roles in a future PR fails here.
 // ---------------------------------------------------------------------------
 
@@ -321,7 +321,7 @@ describe('VendorTrustSignalsController role matrix', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Public read layer — customers must never see non-verified signals.
+// Public read layer - customers must never see non-verified signals.
 // ---------------------------------------------------------------------------
 
 describe('getVendorTrustSignals (public read layer)', () => {

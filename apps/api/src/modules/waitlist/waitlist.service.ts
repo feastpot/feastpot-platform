@@ -20,7 +20,7 @@ export class WaitlistService {
   ) {}
 
   async register(dto: CreateWaitlistDto): Promise<{ ok: true }> {
-    // Honeypot check — return success immediately without persisting.
+    // Honeypot check - return success immediately without persisting.
     if (dto.website) {
       this.logger.log('[waitlist] honeypot triggered');
       return { ok: true };
@@ -50,7 +50,7 @@ export class WaitlistService {
       throw err;
     }
 
-    // Customer confirmation — fire-and-forget; failure must not 500 the request.
+    // Customer confirmation - fire-and-forget; failure must not 500 the request.
     try {
       const msg = waitlistConfirmationTemplate({ postcode, outwardCode });
       await this.email.send({ to: email, subject: msg.subject, html: msg.html });

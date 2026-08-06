@@ -149,7 +149,7 @@ export function UsersClient({ currentUserId, role }: UsersClientProps) {
   const [createOpen, setCreateOpen] = useState(false);
   const canManageUsers = role === 'admin';
   // Track cursor history so prev-page is just a pop. We don't refetch
-  // count between pages — total comes back unchanged with each query.
+  // count between pages - total comes back unchanged with each query.
   const [cursorStack, setCursorStack] = useState<Array<string | null>>([null]);
   const cursor = cursorStack[cursorStack.length - 1] ?? null;
   const pageIndex = cursorStack.length - 1;
@@ -169,7 +169,7 @@ export function UsersClient({ currentUserId, role }: UsersClientProps) {
   const rows = list.data?.data ?? [];
   // Total recomputed by the server on every page (cheap COUNT). If rows are
   // inserted/deleted between fetches the displayed range may drift by a few
-  // — acceptable for an admin tool, and clamped below so we never show
+  // - acceptable for an admin tool, and clamped below so we never show
   // "showingTo > total".
   const total = list.data?.total ?? 0;
   const nextCursor = list.data?.nextCursor ?? null;
@@ -473,7 +473,7 @@ function UserRow({
   const canSuspend = viewerRole === 'admin';
   const canExport = viewerRole === 'admin' || viewerRole === 'compliance';
   // Role changes are admin-only, never on yourself, and never on vendor
-  // accounts (their Vendor row would dangle — backend also rejects this).
+  // accounts (their Vendor row would dangle - backend also rejects this).
   const canChangeRole = viewerRole === 'admin' && !isSelf && user.role !== 'vendor';
 
   return (
@@ -681,7 +681,7 @@ function CreateUserDialog({
             <span>
               <span className="font-medium">Email a magic-link invite now</span>
               <span className="mt-0.5 block text-xs text-muted-foreground">
-                Uncheck if you&apos;ll share the link manually — the account is still created either
+                Uncheck if you&apos;ll share the link manually - the account is still created either
                 way.
               </span>
             </span>

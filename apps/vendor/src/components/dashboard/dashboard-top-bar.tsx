@@ -9,9 +9,9 @@ import { useInboxUnreadCount } from '@/hooks/use-inbox';
  * Action row pinned to the top of the dashboard's main column.
  *
  * Renders the primary "+ Add menu item" CTA, the inbox bell (with
- * unread badge — same hook as the old `TopNav`), and a help shortcut.
+ * unread badge - same hook as the old `TopNav`), and a help shortcut.
  *
- * NOTE on the "Add menu item" target: there is no `/menu/new` route —
+ * NOTE on the "Add menu item" target: there is no `/menu/new` route -
  * the vendor app's item editor lives under `/menu/[menuId]/items/[id]`
  * and a new item is minted via `/menu/[menuId]/items/new`. Without a
  * primary-menu id on `/vendors/me` we route to `/menu` so the vendor

@@ -4,10 +4,10 @@ import { useCallback, useEffect, useState } from 'react';
 
 /**
  * Public status page. Hosted on Vercel (apps/web) precisely so it stays
- * reachable when the API (Replit VM) is down — the checks run client-side
+ * reachable when the API (Replit VM) is down - the checks run client-side
  * from the visitor's browser:
  *
- *  - API: real JSON fetch of /v1/statusz — a deliberately MINIMAL public
+ *  - API: real JSON fetch of /v1/statusz - a deliberately MINIMAL public
  *    status contract (coarse component states only; no queue counts, config
  *    or infrastructure detail). The API's CORS allow-list includes
  *    status.feastpot.co.uk and feastpot.co.uk.
@@ -92,7 +92,7 @@ export function StatusClient() {
       pingOpaque('https://vendor.feastpot.co.uk/'),
       pingOpaque('https://admin.feastpot.co.uk/'),
     ]);
-    // Opaque no-cors pings only prove reachability, not app health — say so
+    // Opaque no-cors pings only prove reachability, not app health - say so
     // honestly in the label (review finding).
     const site = (id: string, label: string, up: boolean): ComponentStatus => ({
       id,
@@ -153,7 +153,7 @@ export function StatusClient() {
 
       <p className="mt-6 text-sm text-gray-500">
         {checkedAt
-          ? `Last checked ${checkedAt.toLocaleTimeString('en-GB')} — refreshes every minute.`
+          ? `Last checked ${checkedAt.toLocaleTimeString('en-GB')}. Refreshes every minute.`
           : 'Running checks…'}{' '}
         Checks run from your browser, so this page works even during an outage.
       </p>

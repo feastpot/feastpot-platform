@@ -43,7 +43,7 @@ export interface PayoutsSummary {
 }
 
 /**
- * Read-only rollup from GET /v1/payouts/summary — next payout date, amount
+ * Read-only rollup from GET /v1/payouts/summary - next payout date, amount
  * pending, amount paid to date. All figures are aggregated server-side from
  * existing payout rows; the client only displays them.
  */

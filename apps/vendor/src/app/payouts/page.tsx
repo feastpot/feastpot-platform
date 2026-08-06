@@ -22,7 +22,7 @@ interface VendorMe {
  * see their weekly transfer history, pending totals, and a payout-
  * cadence explainer.
  *
- * Screen 7 of the vendor redesign — migrated to the SideNav shell
+ * Screen 7 of the vendor redesign - migrated to the SideNav shell
  * (with TopNav as a md:hidden mobile fallback). All explainer copy
  * and the payouts table now live inside `<PayoutsClient />` so the
  * page shell stays a thin auth wrapper.

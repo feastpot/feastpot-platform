@@ -105,7 +105,7 @@ describe('OrderSlotsService.validateSlot', () => {
       prepLeadHours: 0,
     });
     // Freeze "now" at a fixed morning hour so the same-day check is what
-    // fires, not the lead-time check — otherwise this test is flaky when
+    // fires, not the lead-time check - otherwise this test is flaky when
     // run late in the day (the target clamps into the lead-time window).
     jest.useFakeTimers({ now: Date.UTC(2030, 5, 3, 8, 0, 0), doNotFake: ['nextTick'] });
     try {

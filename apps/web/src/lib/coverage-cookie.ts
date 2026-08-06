@@ -9,7 +9,7 @@
  * silently hiding the vendor rails.
  *
  * Format: `"<POSTCODE>"` once coverage is verified; absent means
- * "not yet entered or not covered". 30-day Max-Age, SameSite=Lax —
+ * "not yet entered or not covered". 30-day Max-Age, SameSite=Lax -
  * this is a UX preference, not an auth credential.
  */
 export const COVERAGE_COOKIE = 'feastpot.coverage.v1';

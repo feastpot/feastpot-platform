@@ -392,7 +392,7 @@ function PendingState({
       <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
         <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
         After you verify the code below, we will show you 10 single-use recovery codes. Save them
-        somewhere safe — they are the only way back in without contacting engineering.
+        somewhere safe - they are the only way back in without contacting engineering.
       </div>
 
       <div>

@@ -39,7 +39,7 @@ export function staffPortalInviteTemplate(data: StaffPortalInviteData): {
           `If you don\u2019t recognise this invite, ignore the email and let us know at <a href="mailto:${escapeHtml(support)}" style="color:#00843D">${escapeHtml(support)}</a>. The link is single-use and expires automatically.`,
           '#888780',
         ),
-      `${firstName} — set your password to access the Feastpot admin console.`,
+      `${firstName}, please set your password to access the Feastpot admin console.`,
     ),
   };
 }

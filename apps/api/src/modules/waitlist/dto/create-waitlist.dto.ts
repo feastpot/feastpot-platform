@@ -54,7 +54,7 @@ export class CreateWaitlistDto {
   @IsIn(VALID_SOURCES)
   source!: (typeof VALID_SOURCES)[number];
 
-  /** Honeypot — must be empty. Bots fill it; humans do not see it. */
+  /** Honeypot - must be empty. Bots fill it; humans do not see it. */
   @ApiPropertyOptional({ description: 'Leave blank' })
   @IsOptional()
   @IsString()

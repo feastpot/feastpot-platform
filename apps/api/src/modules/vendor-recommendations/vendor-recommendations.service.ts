@@ -48,7 +48,7 @@ export class VendorRecommendationsService {
 
     this.logger.log(`[vendor-rec] saved businessName=${dto.businessName ?? '–'}`);
 
-    // Internal alert — fire-and-forget.
+    // Internal alert - fire-and-forget.
     try {
       const adminEmail =
         this.config.get<string>('VENDOR_APPLICATIONS_ADMIN_EMAIL') ?? 'soul@feastpot.co.uk';

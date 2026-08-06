@@ -14,7 +14,7 @@ import { LEGAL } from '@/lib/legal-constants';
 export const metadata: Metadata = {
   title: 'Legal & Support Centre',
   description:
-    'Feastpot legal and support hub: terms of service, privacy policy, cookie policy, allergen information and vendor terms — all in one place.',
+    'Feastpot legal and support hub: terms of service, privacy policy, cookie policy, allergen information and vendor terms, all in one place.',
   alternates: { canonical: '/legal' },
 };
 
@@ -53,7 +53,7 @@ const LEGAL_PAGES = [
     href: '/help',
     icon: '💬',
     title: 'Help & FAQ',
-    body: 'Answers on ordering, delivery, refunds and accounts — plus how to reach our support team.',
+    body: 'Answers on ordering, delivery, refunds and accounts, plus how to reach our support team.',
   },
 ] as const;
 

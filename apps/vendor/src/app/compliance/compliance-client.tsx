@@ -24,7 +24,7 @@ interface VendorSummary {
 }
 
 /**
- * Vendor-facing compliance hub — redesigned to match the Vendor4
+ * Vendor-facing compliance hub - redesigned to match the Vendor4
  * mockup while preserving every existing behaviour:
  *   - same useVendorDocuments + useUploadDocument hooks
  *   - same REQUIRED_DOCS source of truth (shared with onboarding)
@@ -33,13 +33,13 @@ interface VendorSummary {
  *   - same suspended / probation account banners
  *
  * Layout (top → bottom):
- *   [header — title + subtitle]
+ *   [header - title + subtitle]
  *   [suspension banner (only if status === 'suspended')]
- *   [top status banner — message + counts + approval progress bar +
+ *   [top status banner - message + counts + approval progress bar +
  *    "View missing" CTA]
- *   [4 doc cards — icon tile + meta + Expires + Upload + state badge +
+ *   [4 doc cards - icon tile + meta + Expires + Upload + state badge +
  *    requirements checklist, left bar tinted by state]
- *   [footer info — review SLA + replace-reset copy]
+ *   [footer info - review SLA + replace-reset copy]
  */
 export function ComplianceClient({ vendor }: { vendor: VendorSummary }) {
   const docs = useVendorDocuments(vendor.id);
@@ -47,7 +47,7 @@ export function ComplianceClient({ vendor }: { vendor: VendorSummary }) {
   const { toast } = useToast();
 
   const summary = summarise(REQUIRED_DOC_TYPES, docs.data);
-  // Newest-first per type — API returns docs ordered by createdAt desc,
+  // Newest-first per type - API returns docs ordered by createdAt desc,
   // so the first occurrence wins. `new Map(arr)` would silently keep
   // the LAST (oldest) entry after a re-upload, so we iterate manually.
   const docByType = new Map<VendorDocumentType, VendorDocument>();
@@ -94,7 +94,7 @@ export function ComplianceClient({ vendor }: { vendor: VendorSummary }) {
         )}
       </header>
 
-      {/* Suspension banner — shown when an admin has paused the account.
+      {/* Suspension banner - shown when an admin has paused the account.
           Kept separate from the status banner below because suspension
           is a vendor-level state, not a per-doc state. */}
       {vendor.status === 'suspended' && (

@@ -58,7 +58,7 @@ export class DisputesController {
   @Roles(UserRole.support, UserRole.admin)
   @ApiOperation({
     summary:
-      'Footer KPI tiles (totals, overdue, breaching, in-progress, total value, 30d delta) — honours the same filters as list',
+      'Footer KPI tiles (totals, overdue, breaching, in-progress, total value, 30d delta), honours the same filters as list',
   })
   stats(@CurrentUser() user: AuthUser | null, @Query() dto: ListDisputesDto) {
     return this.disputes.stats(requireUser(user), dto);

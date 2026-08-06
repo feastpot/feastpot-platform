@@ -6,7 +6,7 @@ import { TrustStandard } from '@/components/home/trust-standard';
 export const metadata: Metadata = {
   title: 'Trust and Safety | Feastpot',
   description:
-    'How Feastpot verifies vendors, handles allergen disclosures, processes refunds and resolves disputes — so every meal is safe and every pound is protected.',
+    'How Feastpot verifies vendors, handles allergen disclosures, processes refunds and resolves disputes, so every meal is safe and every pound is protected.',
   alternates: {
     canonical: 'https://feastpot.co.uk/trust',
   },
@@ -37,7 +37,7 @@ If a vendor cancels your order after payment has been taken, your money is refun
   {
     id: 'refunds',
     heading: 'Refunds and disputes',
-    body: `If something goes wrong with your order — the food does not arrive, it arrives significantly different from what was described, or there is a safety concern — you can raise a dispute from your order page within 48 hours of the scheduled delivery time.
+    body: `If something goes wrong with your order (the food does not arrive, it arrives significantly different from what was described, or there is a safety concern), you can raise a dispute from your order page within 48 hours of the scheduled delivery time.
 
 We review every dispute and aim to respond within one business day. Where we uphold a dispute, a full or partial refund is issued to your original payment method. Feastpot covers the cost of refunds for vendor errors; vendors are not paid for orders that are legitimately disputed.`,
   },
@@ -61,7 +61,7 @@ const FAQS = [
   },
   {
     q: 'What if I have a serious allergy?',
-    a: 'Contact the vendor directly before placing your order. Their contact details are on their profile page. Do not rely solely on the allergen information displayed on the listing — ingredients and processes can change.',
+    a: 'Contact the vendor directly before placing your order. Their contact details are on their profile page. Do not rely solely on the allergen information displayed on the listing, as ingredients and processes can change.',
   },
   {
     q: 'Can I get a refund if the food was not what I expected?',

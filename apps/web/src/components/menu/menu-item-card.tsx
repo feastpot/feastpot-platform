@@ -427,7 +427,7 @@ export function MenuItemCard({ item, vendor }: Props) {
             </div>
           </div>
 
-          {/* Preparation notice — always shown; steers customers with large
+          {/* Preparation notice - always shown; steers customers with large
               orders (party trays, family pots) towards pre-ordering. */}
           <p className="mt-2 text-[11px] font-medium text-charcoal-mid">
             Made to order. Pre-order is recommended for party trays and large family pots.

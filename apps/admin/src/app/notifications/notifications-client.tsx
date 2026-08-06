@@ -89,7 +89,7 @@ export function NotificationsClient() {
                     {row.attempts}
                   </TableCell>
                   <TableCell className="max-w-xs truncate text-xs text-muted-foreground">
-                    {row.lastError ?? '—'}
+                    {row.lastError ?? '–'}
                   </TableCell>
                   <TableCell className="text-sm">{formatDate(row.createdAt)}</TableCell>
                   <TableCell>

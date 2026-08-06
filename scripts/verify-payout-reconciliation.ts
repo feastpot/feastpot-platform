@@ -3,7 +3,7 @@
  *
  * For every payout marked `transferred`, confirm it has a real Stripe
  * transfer and that Stripe's recorded amount matches our DB. This never
- * mutates anything — it only reads from the DB and Stripe and exits
+ * mutates anything - it only reads from the DB and Stripe and exits
  * non-zero if any discrepancy is found, so it is safe to wire into CI / a
  * cron after each weekly payout run.
  *
@@ -26,7 +26,7 @@ const prisma = new PrismaClient();
 
 const stripeKey = process.env.STRIPE_SECRET_KEY;
 if (!stripeKey) {
-  console.error('STRIPE_SECRET_KEY is not set — cannot reconcile against Stripe.');
+  console.error('STRIPE_SECRET_KEY is not set - cannot reconcile against Stripe.');
   process.exit(1);
 }
 
@@ -37,7 +37,7 @@ const stripe = new Stripe(stripeKey, {
 });
 
 // Page through ALL transferred payouts (id-cursor) so the "every transferred
-// payout" claim is real — a fixed cap could skip older rows and still exit 0.
+// payout" claim is real - a fixed cap could skip older rows and still exit 0.
 const BATCH = 100;
 
 async function verifyPayoutReconciliation(): Promise<void> {
@@ -71,14 +71,14 @@ async function verifyPayoutReconciliation(): Promise<void> {
         if (transfer.amount !== payout.amountPence) {
           console.error(
             `❌ ${name} [${payout.id}]: DB amount=${payout.amountPence}p ` +
-              `Stripe amount=${transfer.amount}p — DISCREPANCY`,
+              `Stripe amount=${transfer.amount}p - DISCREPANCY`,
           );
           discrepancies++;
         } else {
           console.log(`✅ ${name}: £${(payout.amountPence / 100).toFixed(2)} confirmed`);
         }
       } catch (e) {
-        console.error(`❌ ${name} [${payout.id}]: Stripe lookup failed — ${(e as Error).message}`);
+        console.error(`❌ ${name} [${payout.id}]: Stripe lookup failed - ${(e as Error).message}`);
         discrepancies++;
       }
     }

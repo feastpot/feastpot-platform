@@ -1,12 +1,12 @@
-# FeastPot — Build Status
+# FeastPot - Build Status
 
 _Last updated: 22 May 2026_
 
 FeastPot is a UK-focused diaspora bulk-food marketplace built as a Turborepo monorepo
 (NestJS API + three Next.js 15 apps + shared packages, with Prisma on Supabase Postgres
 and Stripe Connect for payments). The platform is in a **late-beta, pre-launch** state:
-the core transactional path — discovery, checkout, kitchen acceptance, delivery,
-capture, and payout — is complete and wired end-to-end. What remains is mostly
+the core transactional path - discovery, checkout, kitchen acceptance, delivery,
+capture, and payout - is complete and wired end-to-end. What remains is mostly
 engagement features (loyalty, referrals, live tracking) and tightening of a handful
 of half-finished branches.
 
@@ -63,9 +63,9 @@ of half-finished branches.
 
 ### Shared packages
 
-- `@feastpot/types` — Prisma client re-export + Zod schemas.
-- `@feastpot/ui` — shadcn component library with HSL theme tokens.
-- `@feastpot/config` — shared tsconfig + ESLint config.
+- `@feastpot/types` - Prisma client re-export + Zod schemas.
+- `@feastpot/ui` - shadcn component library with HSL theme tokens.
+- `@feastpot/config` - shared tsconfig + ESLint config.
 
 ### Infrastructure
 
@@ -98,11 +98,11 @@ of half-finished branches.
 ## 3. What is referenced but not yet built
 
 - **Referral redemption flow** end-to-end (signup attribution → first-order credit).
-- **Driver / live-location** integration — schema has `DeliveryConfig` coordinates,
+- **Driver / live-location** integration - schema has `DeliveryConfig` coordinates,
   but no Mapbox/Google Maps frontend integration to render a moving marker.
-- **Production Stripe keys** — several `.env.example` and dev configs still hold
+- **Production Stripe keys** - several `.env.example` and dev configs still hold
   test-only placeholders.
-- **PWA offline mode** — package choice decided (`@ducanh2912/next-pwa`) but
+- **PWA offline mode** - package choice decided (`@ducanh2912/next-pwa`) but
   install deferred; `next-pwa` is unmaintained and breaks on Next 15.
 
 ---
@@ -113,20 +113,20 @@ of half-finished branches.
   unfixable: the `glob` maintainer is deprecating every published version as a
   protest (including the current `latest`), and `workbox-build` (pulled in by
   `@ducanh2912/next-pwa`) hard-pins `glob@7` + `inflight@1`. Overrides were tried
-  and reverted — the only real fix is removing the PWA package, which is
+  and reverted - the only real fix is removing the PWA package, which is
   acceptable while the service worker is deferred but hasn't been decided.
 
 ---
 
 ## 5. Suggested next focus (engineering opinion, not committed)
 
-1. Finish `OrderAmendment` — unblocks "needs clarification" UX already present
+1. Finish `OrderAmendment` - unblocks "needs clarification" UX already present
    in the kitchen flow.
 2. Wire loyalty earn-hooks into the order lifecycle, then surface points in the
    customer account "Feast Pass" card.
 3. Land real Twilio + Resend providers behind the existing BullMQ queue (zero
    API surface change, just provider swaps + secrets).
-4. Decide on the PWA package — either install `@ducanh2912/next-pwa` and design
+4. Decide on the PWA package - either install `@ducanh2912/next-pwa` and design
    the offline scope, or drop the dependency entirely and clear the deprecation
    noise.
 5. Ship the live tracking map once the driver-app coordinate stream exists.

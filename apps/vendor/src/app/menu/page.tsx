@@ -23,7 +23,7 @@ interface VendorMe {
  * session before rendering, and we want a single round-trip per page
  * load.
  *
- * Screen 3 of the vendor redesign — migrated to the SideNav shell
+ * Screen 3 of the vendor redesign - migrated to the SideNav shell
  * (with TopNav as a md:hidden mobile fallback). The /menu/[menuId]
  * detail page is not part of this turn and still renders TopNav.
  */

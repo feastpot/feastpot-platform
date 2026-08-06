@@ -79,7 +79,7 @@ function noteJob(queueName: string, job: Job): FailedJobNote {
 async function main(): Promise<void> {
   const url = process.env.REDIS_URL;
   if (!url) {
-    console.error('REDIS_URL is not set — nothing to connect to. Aborting.');
+    console.error('REDIS_URL is not set: nothing to connect to. Aborting.');
     process.exit(1);
   }
 
@@ -169,7 +169,7 @@ async function main(): Promise<void> {
   }
   console.log(`\nFull report (${allNotes.length} failed jobs noted) written to:\n  ${reportPath}`);
   if (!apply) {
-    console.log('\nDRY-RUN only — re-run with --apply to actually drain these failed jobs.');
+    console.log('\nDRY-RUN only: re-run with --apply to actually drain these failed jobs.');
   }
 }
 

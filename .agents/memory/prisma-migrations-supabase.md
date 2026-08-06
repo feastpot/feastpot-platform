@@ -5,7 +5,7 @@ description: How to create & apply Prisma migrations in this repo's environment,
 
 # Creating a Prisma migration here
 
-`npx prisma migrate dev` does NOT work in this environment — it aborts with
+`npx prisma migrate dev` does NOT work in this environment - it aborts with
 "environment is non-interactive". `prisma migrate dev` also needs a shadow DB
 the Supabase pooler won't grant.
 
@@ -21,9 +21,9 @@ the Supabase pooler won't grant.
 **Why:** `migrate dev` is the documented path but is blocked here; `migrate deploy`
 is what `scripts/db-deploy.sh` uses in prod too, so this stays consistent.
 
-**Gotcha — drift in the diff:** `migrate diff` may surface UNRELATED pre-existing
+**Gotcha - drift in the diff:** `migrate diff` may surface UNRELATED pre-existing
 drift (e.g. a `vendors` array-default ALTER). Do NOT include unrelated statements
-in your migration — scope the SQL to only your change.
+in your migration - scope the SQL to only your change.
 
 # RLS is mandatory on every new table
 **Rule:** every new public table must `ALTER TABLE ... ENABLE ROW LEVEL SECURITY;`
@@ -36,4 +36,4 @@ re-applies it via `scripts/enable-rls-on-public-tables.sql` on deploy.
 
 # Datasource
 `url=env("SUPABASE_DB_URL")` (pooled), `directUrl=env("SUPABASE_DIRECT_URL")`.
-Never run `prisma migrate reset` — it's a shared/persistent DB.
+Never run `prisma migrate reset` - it's a shared/persistent DB.

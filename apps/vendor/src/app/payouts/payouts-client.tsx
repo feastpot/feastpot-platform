@@ -26,7 +26,7 @@ import { formatDate, formatPence } from '@/lib/format';
 import { DownloadCsvButton } from './download-csv-button';
 
 /**
- * Payouts dashboard — redesigned to match the Vendor8 mockup.
+ * Payouts dashboard - redesigned to match the Vendor8 mockup.
  *
  * Preserved verbatim:
  *   - usePayouts() infinite-query hook
@@ -38,14 +38,14 @@ import { DownloadCsvButton } from './download-csv-button';
  *
  * Layout (top → bottom):
  *   [page title]
- *   [How payouts work — teal-tinted explainer card with 4 rows +
+ *   [How payouts work - teal-tinted explainer card with 4 rows +
  *    decorative calendar icon]
- *   [hold-reason banner — only when there's a held payout]
- *   [4 KPI cards — Pending net / Pending gross / Commission /
+ *   [hold-reason banner - only when there's a held payout]
+ *   [4 KPI cards - Pending net / Pending gross / Commission /
  *    Refunds]
- *   [History — subtitle + Download statement CTA]
+ *   [History - subtitle + Download statement CTA]
  *   [Table]
- *   [Pagination footer — "Showing N of …" + Load more]
+ *   [Pagination footer - "Showing N of …" + Load more]
  */
 export function PayoutsClient() {
   const { data, isLoading, error, fetchNextPage, hasNextPage, isFetchingNextPage } = usePayouts();
@@ -79,7 +79,7 @@ export function PayoutsClient() {
 
       <ExplainerCard />
 
-      {/* Payouts summary — read-only rollup from GET /payouts/summary. */}
+      {/* Payouts summary - read-only rollup from GET /payouts/summary. */}
       {summary && (
         <div className="fp-card p-4">
           <div className="grid gap-3 sm:grid-cols-3">
@@ -124,7 +124,7 @@ export function PayoutsClient() {
         </div>
       )}
 
-      {/* Hold-reason banner — kept distinct from the explainer because
+      {/* Hold-reason banner - kept distinct from the explainer because
           a held payout is an actionable issue, not informational. */}
       {heldPayouts.length > 0 && (
         <div className="fp-card flex items-start gap-3 border border-red-200 bg-red-50 p-4 text-sm">
@@ -242,7 +242,7 @@ function ExplainerCard() {
             ))}
           </ul>
         </div>
-        {/* Decorative illustration — pure CSS so it stays sharp at any
+        {/* Decorative illustration - pure CSS so it stays sharp at any
             DPI and we don't need to ship an extra image asset. */}
         <div aria-hidden className="hidden md:block">
           <div className="relative h-32 w-40">
@@ -300,7 +300,7 @@ function StatCard({
  * via the hold-reason banner above the table). `approved` and
  * `transferred` are kept distinct: approved means the amount is
  * finalized but funds aren't in the bank yet, transferred means the
- * Stripe wire actually completed — collapsing the two into "Paid"
+ * Stripe wire actually completed - collapsing the two into "Paid"
  * would mislead the vendor about whether money is on its way.
  */
 type StatusPill = { label: string; tone: 'pending' | 'processing' | 'paid' | 'failed' };

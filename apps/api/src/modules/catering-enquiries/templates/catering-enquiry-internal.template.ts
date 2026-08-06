@@ -27,13 +27,13 @@ export function cateringEnquiryInternalTemplate(data: CateringEnquiryInternalDat
   const rows: Array<[string, string]> = [
     ['Contact', data.contactName],
     ['Email', data.email],
-    ['Phone', data.phone ?? '—'],
+    ['Phone', data.phone ?? '–'],
     ['Occasion', data.occasionType],
     ['Guests', data.guestCountBand],
-    ['Cuisine style', data.cuisineStyle ?? '—'],
+    ['Cuisine style', data.cuisineStyle ?? '–'],
     ['Postcode', data.postcode],
-    ['Event date', data.eventDate ?? '—'],
-    ['Budget', data.budgetBand ?? '—'],
+    ['Event date', data.eventDate ?? '–'],
+    ['Budget', data.budgetBand ?? '–'],
   ];
 
   const tableHtml = `

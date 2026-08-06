@@ -3,7 +3,7 @@
  *
  * URLs resolve in this order:
  *  1. The explicit `NEXT_PUBLIC_*` env var (set per-project in Vercel).
- *  2. Production fallback to the stable public origin — so a missing var never
+ *  2. Production fallback to the stable public origin - so a missing var never
  *     silently points the live portal at `localhost`.
  *  3. Development fallback to the local Next/Nest dev servers.
  *

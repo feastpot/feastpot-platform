@@ -65,14 +65,14 @@ const SORT_LABEL: Record<SortKey, string> = {
 };
 
 /**
- * Menu list — redesigned to match the Vendor6 mockup while keeping
+ * Menu list - redesigned to match the Vendor6 mockup while keeping
  * the original CRUD behaviour intact (create / rename / toggle
  * active / delete via the same hooks). The drag handle is rendered
- * for visual parity but reorder is not wired up yet — `useUpdateMenu`
+ * for visual parity but reorder is not wired up yet - `useUpdateMenu`
  * already accepts `displayOrder` so add it in a future turn.
  *
  * Layout:
- *   [header — title + Add menu]
+ *   [header - title + Add menu]
  *   [stat cards row]
  *   [search + sort toolbar]
  *   ┌────────────────────────────┬──────────────────────┐
@@ -346,7 +346,7 @@ function MenuRow({
             <GripVertical className="h-5 w-5" />
           </button>
         )}
-        {/* Thumbnail placeholder — the VendorMenu payload doesn't expose
+        {/* Thumbnail placeholder - the VendorMenu payload doesn't expose
             a cover image. Use a tinted tile with the dish icon so the
             row still has visual weight per the mockup. */}
         <span

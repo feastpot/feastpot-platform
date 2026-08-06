@@ -156,7 +156,7 @@ export class DisputesService {
       where.createdAt = createdAt;
     }
 
-    // SLA bucket — derived from createdAt / vendorRespondedAt / resolvedAt.
+    // SLA bucket - derived from createdAt / vendorRespondedAt / resolvedAt.
     // Definitions (D15): ack SLA = 24h, resolve SLA = 120h, breaching = 96h.
     if (dto.sla && dto.sla !== 'all') {
       const now = new Date();
@@ -229,7 +229,7 @@ export class DisputesService {
       ];
     }
 
-    // Role scoping — customers see their own; vendors see disputes on their
+    // Role scoping - customers see their own; vendors see disputes on their
     // orders; support/admin see everything (optional assignee filter).
     if (user.role === UserRole.customer) {
       where.raisedById = user.id;
@@ -625,7 +625,7 @@ export class DisputesService {
       throw new BadRequestException({ code: 'ALREADY_CLOSED', message: 'Dispute already closed' });
     }
 
-    // `escalated` is a STATUS, not a terminal outcome — closing a dispute
+    // `escalated` is a STATUS, not a terminal outcome - closing a dispute
     // with it would leave the record claiming it was both finished and still
     // in flight. Use escalate() instead.
     if (dto.resolution === ResolutionType.escalated) {
@@ -813,7 +813,7 @@ export class DisputesService {
 
     // Caller may declare the evidence kind (photo vs screenshot are both
     // image/*; only the uploader knows which). Guard against nonsense like
-    // declaring a PDF a photo — image types require an image mimetype.
+    // declaring a PDF a photo - image types require an image mimetype.
     const isImage = file.mimetype.startsWith('image/');
     if (
       declaredType &&
@@ -904,7 +904,7 @@ export class DisputesService {
         },
       });
     } catch (e) {
-      // The dispute mutation already committed, so we don't fail the request —
+      // The dispute mutation already committed, so we don't fail the request -
       // but a missing audit row for a dispute action is an incident, not a
       // warning: page ops with everything needed to reconstruct the row.
       this.logger.error(`Audit log failed for ${action} ${entityId}: ${(e as Error).message}`);

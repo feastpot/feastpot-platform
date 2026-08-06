@@ -47,6 +47,22 @@ module.exports = {
       },
     ],
     'import/no-unresolved': 'off',
+    // Em dash (U+2014) is banned from all Feastpot copy.
+    // Use a pipe for title separators, a comma/colon for prose asides.
+    // See CONTRIBUTING.md § "Typography rules".
+    'no-restricted-syntax': [
+      'error',
+      {
+        selector: 'Literal[value=/\u2014/]',
+        message:
+          'Em dash (\u2014) is not permitted in Feastpot copy. Use a comma, pipe, or restructure the sentence. See CONTRIBUTING.md.',
+      },
+      {
+        selector: 'TemplateElement[value.raw=/\u2014/]',
+        message:
+          'Em dash (\u2014) is not permitted in Feastpot copy. Use a comma, pipe, or restructure the sentence. See CONTRIBUTING.md.',
+      },
+    ],
   },
   ignorePatterns: [
     'node_modules',

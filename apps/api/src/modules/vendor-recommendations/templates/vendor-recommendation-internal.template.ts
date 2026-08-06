@@ -19,10 +19,10 @@ export function vendorRecommendationInternalTemplate(data: VendorRecommendationI
   html: string;
 } {
   const rows: Array<[string, string]> = [
-    ['Business / name', data.businessName ?? '—'],
-    ['Instagram handle', data.instagramHandle ? `@${data.instagramHandle}` : '—'],
-    ['Phone', data.phone ?? '—'],
-    ['Area', data.outwardCode ?? '—'],
+    ['Business / name', data.businessName ?? '–'],
+    ['Instagram handle', data.instagramHandle ? `@${data.instagramHandle}` : '–'],
+    ['Phone', data.phone ?? '–'],
+    ['Area', data.outwardCode ?? '–'],
     ['Recommended by', data.recommendedByEmail ?? 'Anonymous'],
   ];
 

@@ -168,7 +168,7 @@ export interface CreateStaffUserResult {
 }
 
 /**
- * POST /v1/admin/users — admin-only. Creates a Supabase auth user +
+ * POST /v1/admin/users - admin-only. Creates a Supabase auth user +
  * Prisma User row pinned to the same uid, optionally emails a magic-link
  * invite. Invalidates the users list on success.
  */
@@ -186,7 +186,7 @@ export function useCreateStaffUser(opts: MutateOpts = {}) {
 }
 
 /**
- * PATCH /v1/admin/users/:userId/role — admin-only. Reason is required
+ * PATCH /v1/admin/users/:userId/role - admin-only. Reason is required
  * (10–500 chars) and audited.
  */
 export function useUpdateUserRole(userId: string, opts: MutateOpts = {}) {

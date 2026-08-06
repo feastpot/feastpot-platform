@@ -7,7 +7,7 @@ export const PAYOUTS_QUEUE = 'payouts';
 export const COMPLIANCE_QUEUE = 'compliance';
 
 // Bound every queue's completed/failed retention so Redis (Upstash) usage stays
-// flat. Without removeOnFail the failed ZSET grows forever — the production
+// flat. Without removeOnFail the failed ZSET grows forever - the production
 // symptom on the compliance queue (failed count creeping 26 → 28 → ...). Keep
 // the last 500 failures for debugging/Bull-Board, then trim.
 const RETENTION = { removeOnComplete: 1000, removeOnFail: 500 } as const;

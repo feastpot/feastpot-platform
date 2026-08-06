@@ -18,11 +18,11 @@ interface VendorMe {
 
 /**
  * Server-side gate: confirm the user has the `vendor` role and a
- * vendor profile in (live | probation). Anything else bounces them —
+ * vendor profile in (live | probation). Anything else bounces them -
  * auth handled at the edge in middleware.ts so we know `user` is
  * non-null here.
  *
- * Screen 2 of the vendor redesign — migrated to the SideNav shell
+ * Screen 2 of the vendor redesign - migrated to the SideNav shell
  * (with TopNav kept as a mobile fallback below `md`, same pattern as
  * the Dashboard). Other authed pages still render the legacy TopNav
  * until their own turn.
@@ -40,7 +40,7 @@ export default async function OrdersPage() {
   try {
     vendor = await apiRequest<VendorMe>('/vendors/me', {
       accessToken: session.access_token,
-      // No client cache for the gate — it MUST reflect the latest status.
+      // No client cache for the gate - it MUST reflect the latest status.
       next: { revalidate: 0 },
     });
   } catch (err) {

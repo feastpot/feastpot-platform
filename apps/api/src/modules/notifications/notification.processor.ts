@@ -58,24 +58,24 @@ const CHANNEL_TO_DB: Record<Channel, NotificationChannel> = {
 const formatPounds = (pence: unknown): string =>
   typeof pence === 'number' ? `£${(pence / 100).toFixed(2)}` : '';
 
-/** {{1}} = firstName, {{2}} = order number — the approved shape for all order-lifecycle templates. */
+/** {{1}} = firstName, {{2}} = order number - the approved shape for all order-lifecycle templates. */
 const nameAndOrderNumber = (
   firstName: string,
   data: Record<string, unknown>,
 ): Array<string | number> => [firstName, String(data.orderNumber ?? '')];
 
-/** {{1}} = firstName only — the approved shape for the event_* templates. */
+/** {{1}} = firstName only - the approved shape for the event_* templates. */
 const nameOnly = (firstName: string): Array<string | number> => [firstName];
 
 /**
  * Keyed by the Twilio Content Template name (`template.whatsappTemplate`,
  * the same key used to resolve TWILIO_CONTENT_SID_<name>), NOT the internal
- * event name — several events share one approved template and the two keys
+ * event name - several events share one approved template and the two keys
  * diverge (e.g. event `payout_batch_ready` sends template `payout_statement`).
  *
  * Verified against the approved Twilio Content Templates (Content API,
  * Jul 2026). Meta enforces EXACT parameter counts, so each builder must
- * return precisely as many values as the approved body has {{n}} slots —
+ * return precisely as many values as the approved body has {{n}} slots -
  * extra or missing variables make the send fail, not just render blank.
  */
 export const WHATSAPP_PARAMS: Record<
@@ -88,7 +88,7 @@ export const WHATSAPP_PARAMS: Record<
     formatPounds(data.amountPence ?? data.netPence),
   ],
   // 2 slots: {{1}} = firstName, {{2}} = order number (approved bodies carry
-  // no amount slot — totals live in the email/SMS copies).
+  // no amount slot - totals live in the email/SMS copies).
   order_confirmation: nameAndOrderNumber,
   order_accepted: nameAndOrderNumber,
   order_dispatched: nameAndOrderNumber,
@@ -197,7 +197,7 @@ export class NotificationProcessor {
     const html = template.render(data);
 
     // Content validation: an empty subject or body indicates a broken template
-    // or missing data. Drop rather than send a blank email — it degrades trust
+    // or missing data. Drop rather than send a blank email - it degrades trust
     // more than silence. The dropped event is logged so ops can investigate.
     if (!subject?.trim() || !html?.trim()) {
       this.logger.warn(

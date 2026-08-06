@@ -91,7 +91,7 @@ export class WhatsappProvider {
       );
       if (missingSids.length > 0) {
         const msg =
-          `WhatsApp (Twilio): missing Content SID env vars — ` +
+          `WhatsApp (Twilio): missing Content SID env vars: ` +
           `${missingSids.join(', ')}. ` +
           `Sends for those templates will silently fail. ` +
           `Create the template in Twilio Content Builder and set the env var.`;

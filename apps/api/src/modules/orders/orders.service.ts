@@ -98,7 +98,7 @@ export interface CommissionBreakdown {
 }
 
 // ─────────────────────────────────────────────────────────────
-// PAYOUT FORMULA — DO NOT CHANGE WITHOUT FINANCE SIGN-OFF
+// PAYOUT FORMULA - DO NOT CHANGE WITHOUT FINANCE SIGN-OFF
 //   vendorPayout = subtotal + delivery − discount − commission
 //                = total − serviceFee − commission
 // Feastpot RETAINS:  serviceFeePence (platform revenue, 5% / SERVICE_FEE_BPS)

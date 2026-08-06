@@ -11,10 +11,10 @@ interface Props {
 
 /**
  * Right-rail summary used on the Menu screen. Two cards:
- *   1. Menu summary — counts derivable from the existing
+ *   1. Menu summary - counts derivable from the existing
  *      `/vendors/:id/menus` payload (total, active, inactive,
  *      total items, avg items/menu).
- *   2. Quick tips — static educational nudges pointing at the
+ *   2. Quick tips - static educational nudges pointing at the
  *      menu best-practices guide. Pure copy, no data.
  *
  * The mockup also shows "Out of stock items" and "Draft items"

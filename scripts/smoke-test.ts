@@ -95,7 +95,7 @@ async function api<T = unknown>(
 }
 
 /**
- * Authenticate against Supabase Auth directly (the API has no /auth/login —
+ * Authenticate against Supabase Auth directly (the API has no /auth/login -
  * it trusts Supabase-issued JWTs via SupabaseAuthGuard).
  */
 async function supabaseLogin(email: string, password: string): Promise<string> {
@@ -162,29 +162,29 @@ async function main(): Promise<void> {
   console.log('  Customer      :', CUSTOMER_EMAIL);
   console.log('  Vendor        :', VENDOR_EMAIL, '\n');
 
-  // STEP 1 — Health (use the version-neutral /healthz; /health lives under
+  // STEP 1 - Health (use the version-neutral /healthz; /health lives under
   // the URI versioning prefix as /v1/health).
   const health = await api('GET', '/healthz');
   log(health.status === 200, 'API health check', health);
 
-  // STEP 2 — Customer login (via Supabase, not /v1/auth/login)
+  // STEP 2 - Customer login (via Supabase, not /v1/auth/login)
   const customerToken = await supabaseLogin(CUSTOMER_EMAIL, CUSTOMER_PASSWORD);
   log(!!customerToken, 'Customer login (Supabase)');
 
-  // STEP 3 — Resolve the vendor we'll be ordering FROM by logging in as the
+  // STEP 3 - Resolve the vendor we'll be ordering FROM by logging in as the
   // VENDOR_EMAIL up-front and reading /v1/vendors/me. Picking "first live
   // vendor" off the public list is wrong: the smoke test later needs the
   // logged-in vendor to accept the order, so the order MUST belong to a
   // vendor whose userId == VENDOR_EMAIL's user id. Otherwise PATCH
   // /orders/:id/status 403s with NOT_ORDER_VENDOR.
   const vendorToken = await supabaseLogin(VENDOR_EMAIL, VENDOR_PASSWORD);
-  log(!!vendorToken, 'Vendor login (Supabase, early — for vendor resolution)');
+  log(!!vendorToken, 'Vendor login (Supabase, early - for vendor resolution)');
   const vendorMeRes = await api<Vendor>('GET', '/v1/vendors/me', undefined, vendorToken);
   const vendor = vendorMeRes.body;
   log(vendorMeRes.status === 200 && !!vendor?.id, 'Resolve vendor via /vendors/me', vendorMeRes);
   console.log('   Vendor:', vendor!.businessName);
 
-  // STEP 4 — Pick a menu + an available item
+  // STEP 4 - Pick a menu + an available item
   const menusRes = await api<Menu[]>(
     'GET',
     `/v1/vendors/${vendor!.id}/menus`,
@@ -209,7 +209,7 @@ async function main(): Promise<void> {
   log(!!item, 'At least one available menu item exists', itemsRes.body);
   console.log('   Item:', item!.name, '£' + (item!.pricePence / 100).toFixed(2));
 
-  // STEP 5 — Customer address (reuse first if present, else create)
+  // STEP 5 - Customer address (reuse first if present, else create)
   let addressId: string;
   const addressRes = await api<Address[]>('GET', '/v1/addresses', undefined, customerToken);
   log(addressRes.status === 200, 'Fetch customer addresses', addressRes);
@@ -228,7 +228,7 @@ async function main(): Promise<void> {
     console.log('   Created address:', addressId);
   }
 
-  // STEP 6 — Create order. Two server-side gates:
+  // STEP 6 - Create order. Two server-side gates:
   //  - per-item preparation_hours (default 24h) lead time
   //  - slot must fall inside the 09:00–21:00 UTC delivery window
   // Pick day-after-tomorrow at 12:00 UTC: comfortably >24h ahead AND mid-window.
@@ -257,7 +257,7 @@ async function main(): Promise<void> {
   console.log('   Order ID :', order.id);
   console.log('   Stripe PI:', stripePaymentIntentId);
 
-  // STEP 7 — PI is in manual capture, not yet captured
+  // STEP 7 - PI is in manual capture, not yet captured
   const pi = await stripe.paymentIntents.retrieve(stripePaymentIntentId);
   log(pi.capture_method === 'manual', 'PaymentIntent capture_method = manual', {
     capture_method: pi.capture_method,
@@ -270,9 +270,9 @@ async function main(): Promise<void> {
     { status: pi.status },
   );
 
-  // STEP 8 — Confirm payment via Stripe test PM, then call API confirm
+  // STEP 8 - Confirm payment via Stripe test PM, then call API confirm
   // The API creates PIs with default `automatic_payment_methods` enabled,
-  // which includes redirect-based methods — Stripe requires a `return_url`
+  // which includes redirect-based methods - Stripe requires a `return_url`
   // even for non-redirecting test cards. The URL is never actually visited
   // because pm_card_visa doesn't redirect.
   const confirmedPi = await stripe.paymentIntents.confirm(stripePaymentIntentId, {
@@ -292,7 +292,7 @@ async function main(): Promise<void> {
     confirmRes,
   );
 
-  // STEP 9 — Vendor accept (vendorToken acquired up-front in STEP 3)
+  // STEP 9 - Vendor accept (vendorToken acquired up-front in STEP 3)
   const acceptRes = await api(
     'PATCH',
     `/v1/orders/${order.id}/status`,
@@ -301,13 +301,13 @@ async function main(): Promise<void> {
   );
   log(acceptRes.status === 200, 'Vendor accepted order', acceptRes);
 
-  // STEP 10 — Progress: preparing → dispatched
+  // STEP 10 - Progress: preparing → dispatched
   for (const status of ['preparing', 'dispatched'] as const) {
     const r = await api('PATCH', `/v1/orders/${order.id}/status`, { status }, vendorToken);
     log(r.status === 200, `Order status → ${status}`, r);
   }
 
-  // STEP 11 — Mark delivered (this triggers stripe.capture in OrdersService)
+  // STEP 11 - Mark delivered (this triggers stripe.capture in OrdersService)
   const deliveredRes = await api(
     'PATCH',
     `/v1/orders/${order.id}/status`,
@@ -325,7 +325,7 @@ async function main(): Promise<void> {
     status: capturedPi.status,
   });
 
-  // STEP 12 — Sanity: API still healthy after the lifecycle
+  // STEP 12 - Sanity: API still healthy after the lifecycle
   const finalHealth = await api('GET', '/healthz');
   log(finalHealth.status === 200, 'API still healthy after full order lifecycle');
 

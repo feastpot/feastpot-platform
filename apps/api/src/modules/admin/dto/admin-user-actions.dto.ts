@@ -26,7 +26,7 @@ const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? val
 
 /**
  * Staff-only role set the admin Users page can assign. Customer/vendor
- * roles are intentionally excluded — those are provisioned by other flows
+ * roles are intentionally excluded - those are provisioned by other flows
  * (vendor-application approval, customer self-signup) which create the
  * matching Vendor / order-history rows we'd otherwise have to fabricate.
  */
@@ -179,7 +179,7 @@ export class BulkOrderTagsDto {
 export class ListAdminOrdersDto {
   @ApiPropertyOptional({
     description:
-      'CSV of order IDs (max 100) — restrict the list/CSV export to exactly these orders',
+      'CSV of order IDs (max 100): restricts the list/CSV export to exactly these orders',
   })
   @IsOptional()
   @IsString()
@@ -200,7 +200,7 @@ export class ListAdminOrdersDto {
   q?: string;
 
   @ApiPropertyOptional({
-    description: 'today | week | month — convenience preset (use createdFrom/To for custom)',
+    description: 'today | week | month: convenience preset (use createdFrom/To for custom)',
   })
   @IsOptional()
   @IsString()

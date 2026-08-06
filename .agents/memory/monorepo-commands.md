@@ -4,7 +4,7 @@ description: How to run per-app scripts in the FeastPot npm-workspace + Turborep
 ---
 
 The repo uses **npm workspaces** (root scripts use Turborepo for fan-out). Attached CHECK-FIRST
-task prompts frequently say things like `npm run typecheck --filter=@feastpot/admin` — that
+task prompts frequently say things like `npm run typecheck --filter=@feastpot/admin` - that
 `--filter=` form is Turborepo syntax and is NOT how a single app's script is run here.
 
 Run a single app's script with the workspace flag:

@@ -6,4 +6,4 @@ Running `npm install` inside the Replit workspace writes `resolved` URLs like `h
 
 **Why:** Replit routes npm through a local package-firewall proxy and npm records the proxy URL as the resolved source.
 
-**How to apply:** After any lockfile regeneration, before pushing: `grep -c package-firewall package-lock.json` — if nonzero, `sed -i 's|http://package-firewall.replit.local/npm|https://registry.npmjs.org|g' package-lock.json` (integrity hashes stay valid). If external CI fails at install with "Exit handler never called", check for these URLs first.
+**How to apply:** After any lockfile regeneration, before pushing: `grep -c package-firewall package-lock.json` - if nonzero, `sed -i 's|http://package-firewall.replit.local/npm|https://registry.npmjs.org|g' package-lock.json` (integrity hashes stay valid). If external CI fails at install with "Exit handler never called", check for these URLs first.

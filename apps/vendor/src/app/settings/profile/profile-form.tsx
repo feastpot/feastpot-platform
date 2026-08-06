@@ -32,7 +32,7 @@ const SOCIAL_PLACEHOLDERS: Record<SocialKey, string> = {
 
 // Character soft-limits surfaced in the UI (visible counters). The
 // underlying API still accepts the longer maxlengths kept on the
-// inputs below — these are display hints aligned with the Vendor3
+// inputs below - these are display hints aligned with the Vendor3
 // mockup rather than hard cuts.
 const DESC_SOFT_MAX = 160;
 const STORY_SOFT_MAX = 1000;
@@ -67,23 +67,23 @@ function splitCommaList(s: string): string[] {
 }
 
 /**
- * Business profile editor — redesigned to match the Vendor3 mockup
+ * Business profile editor - redesigned to match the Vendor3 mockup
  * while preserving every existing behaviour: same useVendorProfile
  * hook, same useUpdateVendorProfile mutation, same useUploadVendorImage
  * upload, same slug + social-URL validation, same seed-on-load logic.
  *
  * Mockup layout:
- *   [header — title + subtitle]
+ *   [header - title + subtitle]
  *   ┌─────────────────┬─────────────────┐
  *   │ Imagery         │ Your story      │
  *   │ Identity        │ Social links    │
  *   └─────────────────┴─────────────────┘
- *   [What you cook — full width, 3-col grid]
+ *   [What you cook - full width, 3-col grid]
  *   [Info banner pointing to Delivery + Availability]
- *   [Save profile — bottom right, vendor blue]
+ *   [Save profile - bottom right, vendor blue]
  *
  * Intentionally omitted from the mockup:
- *   - "Remove" image button — the update endpoint accepts logoUrl /
+ *   - "Remove" image button - the update endpoint accepts logoUrl /
  *     coverImageUrl as strings only and has no null clearing path,
  *     so the destructive action would silently no-op or 400. Add
  *     once the backend supports clearing.
@@ -429,7 +429,7 @@ function Field({
   /**
    * When true, the counter is past the recommended (soft) limit.
    * Shown in amber rather than red because the underlying API still
-   * accepts longer values (see DESC_SOFT_MAX / STORY_SOFT_MAX) — it's
+   * accepts longer values (see DESC_SOFT_MAX / STORY_SOFT_MAX) - it's
    * a guidance signal, not a validation error.
    */
   counterOver?: boolean;

@@ -11,7 +11,7 @@ import { NOTIFICATIONS_QUEUE } from '../../queues/queues.module';
  * failed (Redis down) so the event is not silently dropped. Every minute we
  * retry due rows; on success the row is deleted, on failure attempts++ with
  * exponential backoff. After MAX_ALERT_ATTEMPTS we page via Sentry (once per
- * threshold crossing) but keep retrying — the outbox is the source of truth
+ * threshold crossing) but keep retrying - the outbox is the source of truth
  * until the enqueue succeeds.
  *
  * Uses setInterval (not Bull) deliberately: this must work precisely when the
@@ -74,7 +74,7 @@ export class NotificationOutboxService implements OnModuleInit {
         } catch (e) {
           if (enqueued) {
             // Enqueue SUCCEEDED, only the delete failed. Do not treat as an
-            // enqueue failure — leave the row for the next drain, where the
+            // enqueue failure - leave the row for the next drain, where the
             // jobId dedupe above absorbs the duplicate add.
             this.logger.error(
               `Outbox row ${row.id} enqueued but delete failed: ${(e as Error).message} - will dedupe on next drain`,

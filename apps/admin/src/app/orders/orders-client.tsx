@@ -313,25 +313,25 @@ export function OrdersClient({ role }: OrdersClientProps) {
         <KpiTile
           icon={Package}
           label="Total orders"
-          value={stats.data ? String(stats.data.total) : '—'}
+          value={stats.data ? String(stats.data.total) : '–'}
           tone="brand"
         />
         <KpiTile
           icon={Clock}
           label="Today"
-          value={stats.data ? String(stats.data.today) : '—'}
+          value={stats.data ? String(stats.data.today) : '–'}
           tone="info"
         />
         <KpiTile
           icon={CheckCircle2}
           label="Completed"
-          value={stats.data ? String(stats.data.completed) : '—'}
+          value={stats.data ? String(stats.data.completed) : '–'}
           tone="success"
         />
         <KpiTile
           icon={AlertOctagon}
           label="Exceptions"
-          value={stats.data ? String(stats.data.exceptions) : '—'}
+          value={stats.data ? String(stats.data.exceptions) : '–'}
           tone="danger"
         />
         <KpiTile
@@ -340,9 +340,9 @@ export function OrdersClient({ role }: OrdersClientProps) {
           value={
             stats.data
               ? stats.data.successRatePct === null
-                ? '—'
+                ? '–'
                 : `${stats.data.successRatePct}%`
-              : '—'
+              : '–'
           }
           tone="neutral"
         />
@@ -759,7 +759,7 @@ function BulkActionsBar({
         <strong className="font-semibold">{selectedIds.length} selected</strong>
         {overCap && (
           <span className="text-xs text-destructive">
-            Bulk actions work on up to {BULK_LIMIT} orders — deselect{' '}
+            Bulk actions work on up to {BULK_LIMIT} orders - deselect{' '}
             {selectedIds.length - BULK_LIMIT} to continue.
           </span>
         )}

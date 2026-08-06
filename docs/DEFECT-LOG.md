@@ -7,7 +7,7 @@ their own tasks or be addressed in a later pass._
 
 ---
 
-## DEF-001 — /catering route does not exist
+## DEF-001 - /catering route does not exist
 
 **Found during:** Task 1, Step 3 (primary navigation)
 **Symptom:** `MarketingNav` links to `/catering`; the route returns 404.
@@ -16,7 +16,7 @@ six-step enquiry funnel that POST to `/v1/catering-enquiries`. **FIXED.**
 
 ---
 
-## DEF-002 — /trust route does not exist
+## DEF-002 - /trust route does not exist
 
 **Found during:** Task 1, Step 3 (footer links)
 **Symptom:** Footer links to `/trust` (Trust and safety); the route returns 404.
@@ -27,7 +27,7 @@ allergen disclosures, insurance requirements and the dispute process.
 
 ---
 
-## DEF-003 — /vendor-readiness route does not exist
+## DEF-003 - /vendor-readiness route does not exist
 
 **Found during:** Task 1, Step 3 (footer links)
 **Symptom:** Footer links to `/vendor-readiness`; the route returns 404.
@@ -37,7 +37,7 @@ CTA to `/become-a-vendor`. **FIXED.**
 
 ---
 
-## DEF-004 — Cuisine pill labels have no cuisine-slug mapping for generic dishes
+## DEF-004 - Cuisine pill labels have no cuisine-slug mapping for generic dishes
 
 **Found during:** Task 1, Step 4 (dead link sweep)
 **Symptom:** Pills for "Small chops", "Fried plantain", "Egusi soup" etc. are
@@ -50,7 +50,7 @@ the mapping table once a formal taxonomy is published.
 
 ---
 
-## DEF-005 — Mobile navigation has no disclosure/hamburger menu for extra links
+## DEF-005 - Mobile navigation has no disclosure/hamburger menu for extra links
 
 **Found during:** Task 1, Step 3 (primary navigation)
 **Symptom:** The task asks for the desktop nav links to also appear in "the
@@ -64,7 +64,7 @@ navigation links.
 
 ---
 
-## DEF-006 — Hardcoded testimonials in CommunityReviews are not verified orders
+## DEF-006 - Hardcoded testimonials in CommunityReviews are not verified orders
 
 **Found during:** Task 3, Step 1 (review integrity fix)
 **Symptom:** `CommunityReviews` contained four hardcoded quotes attributed to
@@ -75,7 +75,7 @@ exist the component renders nothing. **FIXED.**
 
 ---
 
-## DEF-008 — Radius filter has no default value or reset affordance
+## DEF-008 - Radius filter has no default value or reset affordance
 
 **Found during:** Task 4, Step 3 (filters audit)
 **Status:** Deferred. The radius slider has no explicit default and no "reset"
@@ -85,7 +85,7 @@ reset affordance to the filter sidebar.
 
 ---
 
-## DEF-009 — Sort-by dropdown is client-only with no URL persistence
+## DEF-009 - Sort-by dropdown is client-only with no URL persistence
 
 **Found during:** Task 4, Step 3 (filters audit)
 **Status:** Deferred. Sort selection is lost on refresh. The results page already
@@ -95,7 +95,7 @@ cuisine filters.
 
 ---
 
-## DEF-010 — Halal filter has no API backing
+## DEF-010 - Halal filter has no API backing
 
 **Found during:** Task 4, Step 3 (filters audit)
 **Symptom:** `halal=true` is passed to `SearchVendorsDto` but the repository
@@ -106,7 +106,7 @@ and a corresponding `isHalal` column/flag on `Vendor`.
 
 ---
 
-## DEF-011 — Distance display needs the stored postcode from the previous search
+## DEF-011 - Distance display needs the stored postcode from the previous search
 
 **Found during:** Task 4, Step 3 (vendor card distance)
 **Symptom:** VendorCard shows distance only when `distanceKm` is present in the
@@ -119,7 +119,7 @@ computation when no postcode query param is present.
 
 ---
 
-## DEF-012 — Occasion grid uses static placeholder images
+## DEF-012 - Occasion grid uses static placeholder images
 
 **Found during:** Task 3, Step 2 (occasion grid)
 **Status:** Deferred. Occasion tiles use `/images/occasions/<slug>.jpg`
@@ -129,16 +129,16 @@ replace placeholder paths.
 
 ---
 
-## DEF-013 — Catering band CTA still links to /events (now /catering)
+## DEF-013 - Catering band CTA still links to /events (now /catering)
 
 **Found during:** Task 3, Step 3 (catering band)
-**Status:** Needs verification post Task 6 — the `/catering` route now exists.
+**Status:** Needs verification post Task 6 - the `/catering` route now exists.
 **Action needed:** Confirm `catering-band.tsx` links to `/catering` not
 `/events` and mark resolved.
 
 ---
 
-## DEF-014 — Min-rating filter has no API backing
+## DEF-014 - Min-rating filter has no API backing
 
 **Found during:** Task 4, Step 3 (filters audit)
 **Symptom:** A minimum-rating filter was discussed. SearchVendorsDto has no
@@ -148,7 +148,7 @@ replace placeholder paths.
 
 ---
 
-## DEF-015 — Pre-order available filter has no API backing
+## DEF-015 - Pre-order available filter has no API backing
 
 **Found during:** Task 4, Step 3 (filters audit)
 **Status:** Deferred. No pre-order field exists on Vendor.
@@ -157,7 +157,7 @@ it as a filter.
 
 ---
 
-## DEF-016 — Minimum order value filter has no API backing
+## DEF-016 - Minimum order value filter has no API backing
 
 **Found during:** Task 4, Step 3 (filters audit)
 **Status:** Deferred. No `maxMinOrderPence` filter in `SearchVendorsDto`.
@@ -165,7 +165,7 @@ it as a filter.
 
 ---
 
-## DEF-017 — Trust panel: "Typical order acceptance time" has no schema field
+## DEF-017 - Trust panel: "Typical order acceptance time" has no schema field
 
 **Found during:** Task 5, Step 1 (trust panel)
 **Symptom:** No `orderAcceptanceMins` field exists on Vendor or DeliveryConfig.
@@ -176,7 +176,7 @@ DeliveryConfig model.
 
 ---
 
-## DEF-018 — Menu category: "Family pots" has no backing category key
+## DEF-018 - Menu category: "Family pots" has no backing category key
 
 **Found during:** Task 5, Step 2 (menu structure)
 **Status:** Deferred. No `family_pots` category key in `MenuItem.category`.
@@ -185,7 +185,7 @@ value and re-tag relevant items.
 
 ---
 
-## DEF-019 — Menu category: "Rice dishes" has no backing category key
+## DEF-019 - Menu category: "Rice dishes" has no backing category key
 
 **Found during:** Task 5, Step 2 (menu structure)
 **Status:** Deferred. No `rice` or `rice_dishes` category key.
@@ -194,7 +194,7 @@ value and re-tag relevant items.
 
 ---
 
-## DEF-020 — Menu category: "Sides" has no backing category key
+## DEF-020 - Menu category: "Sides" has no backing category key
 
 **Found during:** Task 5, Step 2 (menu structure)
 **Status:** Deferred.
@@ -202,7 +202,7 @@ value and re-tag relevant items.
 
 ---
 
-## DEF-021 — Dish detail: no modal or route
+## DEF-021 - Dish detail: no modal or route
 
 **Found during:** Task 5, Step 3 (dish card / dish detail)
 **Status:** Deferred. No dish detail view or modal exists. Large images and
@@ -212,7 +212,7 @@ allergen list, preparation notes and delivery time estimate.
 
 ---
 
-## DEF-022 — No delivery date selector in basket store
+## DEF-022 - No delivery date selector in basket store
 
 **Found during:** Task 5, Step 4 (basket)
 **Status:** Deferred. Delivery date selection lives in checkout, not the basket.

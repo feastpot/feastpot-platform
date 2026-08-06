@@ -1,8 +1,8 @@
-# Feastpot — What's Left to Build
+# Feastpot - What's Left to Build
 
 _Audited 03 June 2026. This is a fresh, code-verified pass (grep + file reads +
 subagent sweep) and supersedes the relevant parts of `GO_LIVE_GAPS.md`, which
-predates this week's work. It lists **only** what is still outstanding — anything
+predates this week's work. It lists **only** what is still outstanding - anything
 already shipped has been removed. Items merged this session (live Stripe key +
 webhook, live card payments on the customer site, the Bull "stalled job" fix,
 historical failed-job cleanup, the queue-depth alarm, bank-chargeback webhooks,
@@ -30,7 +30,7 @@ service fee flows straight into the vendor payout: commission is charged on food
 subtotal only, and `vendorPayout = total − commission` where `total` already
 includes the service fee (`orders.service.ts:90-104`). So every order quietly
 hands the platform's own fee back to the vendor. If the intent is for the service
-fee to be platform revenue, the payout math needs to subtract it — and either way
+fee to be platform revenue, the payout math needs to subtract it - and either way
 the live `SERVICE_FEE_BPS` value (currently 500 = 5%) should be confirmed before
 launch. This is a revenue leak, not cosmetics.
 
@@ -38,7 +38,7 @@ launch. This is a revenue leak, not cosmetics.
 
 ## 🟠 Do before opening to volume
 
-**Chargebacks have no human surface yet.** The hard part is done — Stripe
+**Chargebacks have no human surface yet.** The hard part is done - Stripe
 `charge.dispute.*` events are captured into a `Chargeback` table and there's a
 `GET /v1/payments/chargebacks` API. But there is **no admin UI** to see or work
 them (zero "chargeback" references in `apps/admin/src`), nothing **reconciles an
@@ -63,7 +63,7 @@ cover launch comms.
 
 ---
 
-## 🟡 Polish — safe to ship after launch
+## 🟡 Polish - safe to ship after launch
 
 **Reviews are still partly faked.**
 
@@ -73,8 +73,8 @@ cover launch comms.
   (`rating-breakdown.tsx` `estimateBreakdown()`) because the API doesn't return
   per-star bucket counts.
 - The **"food quality" sub-rating** is collected on the review form but folded
-  into the overall score — no column, no aggregation.
-- **Review photos** are accepted in the UI then discarded on submit — no storage
+  into the overall score - no column, no aggregation.
+- **Review photos** are accepted in the UI then discarded on submit - no storage
   and no join model.
 
 **Payout statements show £0 fees/adjustments.** The payout CSV hardcodes
@@ -97,13 +97,13 @@ correct.
   still on the roadmap.
 - **Analytics deltas and advanced charts** (repeat-customer rate, heatmaps,
   missing-allergen hints) are light-touch and go blank with under two weeks of
-  history — a real analytics engine isn't built.
+  history - a real analytics engine isn't built.
 
 **Customer web loose ends.**
 
 - The **order-confirmation copy-pill / referral nudge** is a static placeholder.
 - A **dead 404-guard** around `POST /v1/users/sync` lingers in the register flow
-  even though that endpoint now exists — harmless, worth deleting.
+  even though that endpoint now exists - harmless, worth deleting.
 
 ---
 
@@ -125,7 +125,7 @@ correct.
   independent Next.js apps; this repl only deploys the API. Each needs its own
   publish + domain.
 - **Apply the chargeback migration to production.** The new `Chargeback` table
-  migration is committed but applied out-of-band — it must land on the prod DB at
+  migration is committed but applied out-of-band - it must land on the prod DB at
   publish time, or the dispute webhooks will error on write.
 - **Confirm `SERVICE_FEE_BPS`** for live (ties into the 🔴 revenue item above).
 

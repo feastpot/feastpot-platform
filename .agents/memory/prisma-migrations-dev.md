@@ -1,13 +1,13 @@
 ---
 name: Prisma migrations against the dev Supabase DB
-description: How to add a schema migration in this repo — dev DB isn't baselined, RLS is applied centrally not per-migration.
+description: How to add a schema migration in this repo - dev DB isn't baselined, RLS is applied centrally not per-migration.
 ---
 
 # Applying a new Prisma migration in this repo
 
 **Why this is fiddly:** the DEV Supabase DB is NOT tracked in `_prisma_migrations`
 (it was evolved by direct SQL, not `migrate deploy`). So in dev:
-- `prisma migrate dev` fails — interactive command, the agent shell is non-interactive.
+- `prisma migrate dev` fails - interactive command, the agent shell is non-interactive.
 - `prisma migrate deploy` fails with **P3005** ("schema is not empty") because none
   of the ~30 migration folders are recorded as applied.
 - `prisma migrate diff --from-migrations` is misleading: the migration *history*

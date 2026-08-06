@@ -18,10 +18,10 @@ interface VendorMe {
 /**
  * Availability & scheduling page. Mirrors the /compliance gate:
  * pending / approved (pre-live) vendors get bounced to onboarding
- * so they finish the wizard first — scheduling is meaningless
+ * so they finish the wizard first - scheduling is meaningless
  * until the vendor is live or in probation.
  *
- * Screen 4 of the vendor redesign — migrated to the SideNav shell
+ * Screen 4 of the vendor redesign - migrated to the SideNav shell
  * (with TopNav as a md:hidden mobile fallback, matching the
  * Dashboard / Orders / Menu pattern).
  */

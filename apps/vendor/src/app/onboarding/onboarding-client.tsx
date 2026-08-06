@@ -47,7 +47,7 @@ export function OnboardingClient({ vendor }: { vendor: VendorSummary }) {
 
   // Newest-first: keep the first occurrence per type so re-uploads surface
   // immediately. `new Map(arr)` would keep the LAST (oldest) value on key
-  // collision — see compliance-client.tsx for full rationale.
+  // collision - see compliance-client.tsx for full rationale.
   const docByType = new Map<string, typeof docs.data extends (infer U)[] | undefined ? U : never>();
   for (const d of docs.data ?? []) if (!docByType.has(d.type)) docByType.set(d.type, d);
   const allDocsUploaded = REQUIRED_DOCS.every((d) => docByType.has(d.type));

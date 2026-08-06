@@ -280,14 +280,14 @@ import { RootController } from './root.controller';
               // moveToCompleted / extendLock command (normal for a remote,
               // quota-limited Redis with maxRetriesPerRequest:3), the job is
               // left in 'active' with no lock and the next sweep force-fails it
-              // with "job stalled more than allowable limit" — even though the
+              // with "job stalled more than allowable limit" - even though the
               // handler already succeeded. This silently grew the `failed`
               // count on every queue (compliance review-trigger, stripe
               // webhooks, ...). Making the lock outlive a full sweep window
               // means a normally-processing job is never falsely flagged.
               lockDuration: 600_000,
               // Renew comfortably within each sweep and stay more frequent than
-              // the stalled check (Bull's own requirement — see queue.js case 2).
+              // the stalled check (Bull's own requirement - see queue.js case 2).
               // Only fires for jobs running >2.5min, which these queues never
               // hit, so it adds ~zero Upstash commands.
               lockRenewTime: 150_000,

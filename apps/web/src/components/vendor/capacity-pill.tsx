@@ -14,7 +14,7 @@ interface Props {
 }
 
 /**
- * T5 — single-line capacity pill for vendor cards. Same suppression rules
+ * T5 - single-line capacity pill for vendor cards. Same suppression rules
  * as the profile band: untouched capacity (remaining === total) renders
  * nothing; zero remaining renders the muted sold-out state, never amber;
  * everything is computed from the stored slot figures. Renders null when

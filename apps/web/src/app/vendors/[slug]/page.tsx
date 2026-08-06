@@ -186,7 +186,7 @@ export default async function VendorProfilePage({ params }: PageProps) {
       ? vendor.distanceKm * 0.621371
       : null;
 
-  // Trust signals + capacity are additive niceties — a failure on either
+  // Trust signals + capacity are additive niceties - a failure on either
   // must never take down the profile page, so both fall back to empty.
   let trustSignals: VerifiedTrustSignal[] = [];
   let capacity: CapacityDay[] = [];
@@ -300,7 +300,7 @@ export default async function VendorProfilePage({ params }: PageProps) {
         ) : null}
       </header>
 
-      {/* Trust signals (T2) + this week's capacity (T4) — both render null
+      {/* Trust signals (T2) + this week's capacity (T4) - both render null
           when the vendor has nothing verified / no partially-booked dates,
           so most vendors see no change here. */}
       {(trustSignals.length > 0 || capacity.length > 0) && (

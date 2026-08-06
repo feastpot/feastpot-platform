@@ -13,7 +13,7 @@ interface Props {
   /**
    * Published review count from the vendor profile.
    * When > 0, adds a "Verified reviews ({count})" row that does not require
-   * a trust signal — the API already gates reviews on delivered orders.
+   * a trust signal - the API already gates reviews on delivered orders.
    */
   ratingCount?: number;
 }
@@ -32,7 +32,7 @@ type TrustSignalType =
  *
  * Renders one row per signal, strictly in the order the brief specifies.
  * Each row only appears when the backing field is both present AND truthy.
- * Makes no blanket claims ("fully verified") — the honest-framing line at
+ * Makes no blanket claims ("fully verified") - the honest-framing line at
  * the bottom scopes every row to what this vendor has actually supplied.
  */
 export function TrustSignalPanel({ signals, fsaRating, ratingCount }: Props) {
@@ -64,7 +64,7 @@ export function TrustSignalPanel({ signals, fsaRating, ratingCount }: Props) {
       label: 'Allergen information completed',
       show: hasSignal('allergen_information'),
     },
-    // "Typical order acceptance time" — no schema field exists yet.
+    // "Typical order acceptance time" - no schema field exists yet.
     // Logged in docs/DEFECT-LOG.md as DEF-017.
     {
       id: 'delivery_coverage',
@@ -74,7 +74,7 @@ export function TrustSignalPanel({ signals, fsaRating, ratingCount }: Props) {
     {
       id: 'verified_reviews',
       label: `Verified reviews (${ratingCount ?? 0})`,
-      // Not a trust-signal row — backed by the API-enforced delivered-order
+      // Not a trust-signal row - backed by the API-enforced delivered-order
       // gate on reviews. Shown only when at least one review exists.
       show: typeof ratingCount === 'number' && ratingCount > 0,
     },

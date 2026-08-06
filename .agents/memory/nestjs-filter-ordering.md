@@ -12,9 +12,9 @@ Nest reverses the global filter list during resolution (`router-exception-filter
 **How to apply:** a specific typed filter (e.g. `@Catch(ThrottlerException)`) must be registered AFTER a catch-all `@Catch()` filter, or the catch-all swallows it. Order specific-last:
 `useGlobalFilters(prismaFilters..., HttpExceptionFilter (catch-all), ThrottlerExceptionFilter (specific))`.
 
-**Why:** verified empirically — a `@Catch(ThrottlerException)` filter registered FIRST was beaten by the catch-all `HttpExceptionFilter` registered last; the 429 came out with the catch-all's envelope. Moving it last fixed it.
+**Why:** verified empirically - a `@Catch(ThrottlerException)` filter registered FIRST was beaten by the catch-all `HttpExceptionFilter` registered last; the 429 came out with the catch-all's envelope. Moving it last fixed it.
 
-**Gotcha discovered:** this means a catch-all registered before other specific filters silently shadows them. In this codebase the Prisma filters sit before the catch-all and so appear shadowed by it — flag if Prisma-specific envelopes ever matter.
+**Gotcha discovered:** this means a catch-all registered before other specific filters silently shadows them. In this codebase the Prisma filters sit before the catch-all and so appear shadowed by it - flag if Prisma-specific envelopes ever matter.
 
 # @nestjs/throttler v6 Retry-After
 

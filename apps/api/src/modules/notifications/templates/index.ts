@@ -214,13 +214,13 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
             `Your order <strong>${esc(d.orderNumber)}</strong> from <strong>${esc(d.vendorName, 'your vendor')}</strong> has been cancelled.`,
           ) +
           p(
-            `You have not been charged — the payment authorisation of <strong>${formatMoney(d.totalPence)}</strong> has been released and any pending hold will drop off your statement within a few working days.`,
+            `You have not been charged. The payment authorisation of <strong>${formatMoney(d.totalPence)}</strong> has been released and any pending hold will drop off your statement within a few working days.`,
           ) +
           p(
             `If you didn't cancel this order or have any questions, contact us at <a href="mailto:support@feastpot.co.uk" style="color:#1D9E75">support@feastpot.co.uk</a>.`,
           ) +
           brandButton('View order history', 'https://feastpot.co.uk/account/orders', 'teal'),
-        `Order ${str(d.orderNumber)} cancelled — you haven't been charged`,
+        `Order ${str(d.orderNumber)} cancelled: you have not been charged`,
       ),
     channels: ['email', 'push'],
   },

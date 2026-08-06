@@ -1,6 +1,6 @@
 import { calculateServiceFee } from './service-fee';
 
-// The platform default (in code) is 0 — a failsafe so a missing env can never
+// The platform default (in code) is 0 - a failsafe so a missing env can never
 // charge an unintended fee. The live value (500 bps = 5%) is supplied via env,
 // so we set it explicitly here to exercise the active-fee behaviour, then
 // restore the original value afterwards.

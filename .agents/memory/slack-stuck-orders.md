@@ -1,5 +1,5 @@
 ---
-name: Slack alerts — stuck orders and queue failures
+name: Slack alerts - stuck orders and queue failures
 description: How Slack alerting works and which env var to set
 ---
 
@@ -8,7 +8,7 @@ description: How Slack alerting works and which env var to set
 ## Rule
 All Slack alerts go through `DlqMonitorService.sendSlack()` in `admin/dlq-monitor.service.ts`.
 The webhook URL is `QUEUE_ALERT_SLACK_WEBHOOK_URL` (not `SLACK_WEBHOOK_URL`).
-If the var is unset, alerts are logged as warnings — no crash, no silent drop.
+If the var is unset, alerts are logged as warnings - no crash, no silent drop.
 
 **Why:** The DLQ monitor already had Slack for queue depth alerts; stuck-order alerting
 was wired into the same service to avoid a second webhook var and a second cron.

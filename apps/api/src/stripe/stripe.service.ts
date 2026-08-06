@@ -92,8 +92,8 @@ export class StripeService {
 
   /**
    * Transfer marketplace funds to a vendor's connected account. Pass
-   * `idempotencyKey` (keyed on the payout id) so a network/retry storm — or a
-   * re-approval after a timed-out-but-succeeded transfer — returns the original
+   * `idempotencyKey` (keyed on the payout id) so a network/retry storm - or a
+   * re-approval after a timed-out-but-succeeded transfer - returns the original
    * transfer instead of creating a second one and double-paying the vendor.
    */
   createTransfer(args: {

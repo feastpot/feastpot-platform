@@ -254,7 +254,7 @@ function CheckoutInner() {
   const platformServiceFeeBps =
     coverageVendor?.platformServiceFeeBps ?? baseVendor?.platformServiceFeeBps;
   // Service fee depends only on the subtotal (clamped to [min, max]), so it's
-  // knowable as soon as the bps is loaded — independent of delivery/slot. This
+  // knowable as soon as the bps is loaded - independent of delivery/slot. This
   // same figure drives both the visible summary line and the express-pay total,
   // and mirrors the server's `calculateServiceFee` so the charge can't drift.
   const serviceFeePence = calcServiceFeePence(subtotal, platformServiceFeeBps);
@@ -787,8 +787,8 @@ function CheckoutInner() {
                 className={`mt-2 text-xs font-bold ${isSoldOut ? 'text-destructive' : 'text-scotch'}`}
               >
                 {isSoldOut
-                  ? 'No slots remaining on this date — please choose another'
-                  : `Nearly sold out — only ${cap.remainingSlots} slot${cap.remainingSlots === 1 ? '' : 's'} left`}
+                  ? 'No slots remaining on this date. Please choose another.'
+                  : `Nearly sold out: only ${cap.remainingSlots} slot${cap.remainingSlots === 1 ? '' : 's'} left`}
               </p>
             );
           })()}

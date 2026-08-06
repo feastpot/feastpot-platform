@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 
 /**
  * Last-resort boundary for crashes in the ROOT layout itself. Next.js renders
- * this in place of the root layout, so global CSS / Tailwind is NOT loaded —
+ * this in place of the root layout, so global CSS / Tailwind is NOT loaded -
  * styles must be inline. Must render its own <html> and <body>.
  */
 export default function GlobalError({

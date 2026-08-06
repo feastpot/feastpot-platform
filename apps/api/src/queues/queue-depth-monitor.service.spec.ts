@@ -82,9 +82,9 @@ describe('QueueDepthMonitorService', () => {
 
   it('alerts once a breach is sustained across sustainedChecks polls', async () => {
     compliance.failed = 30;
-    await service.checkAndAlert(); // breach #1 — not yet sustained
+    await service.checkAndAlert(); // breach #1 - not yet sustained
     expect(captureMessage).not.toHaveBeenCalled();
-    await service.checkAndAlert(); // breach #2 — sustained → page
+    await service.checkAndAlert(); // breach #2 - sustained → page
     expect(captureMessage).toHaveBeenCalledTimes(1);
     const [message, ctx] = captureMessage.mock.calls[0];
     expect(message).toContain('compliance');

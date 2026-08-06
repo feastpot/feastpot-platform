@@ -61,7 +61,7 @@ export class CreateVendorRecommendationDto {
   @MaxLength(255)
   recommendedByEmail?: string;
 
-  /** Honeypot — must be empty. */
+  /** Honeypot - must be empty. */
   @ApiPropertyOptional({ description: 'Leave blank' })
   @IsOptional()
   @IsString()

@@ -85,7 +85,7 @@ function payoutCsvRow(p: PayoutCsvRow): string {
   //   gross − commission − fees − refunds − adjustments = net   (always)
   // gross (= Σ order totals) includes the service fee; net (= Σ stored
   // vendorPayoutPence − refunds) excludes it, so the residual IS the retained
-  // service fee. adjustments_pence carries any negative residual — that should
+  // service fee. adjustments_pence carries any negative residual - that should
   // never happen and flags a ledger anomaly for finance instead of hiding it.
   const residualPence = p.grossPence - p.commissionPence - p.refundsPence - p.amountPence;
   const feesPence = Math.max(0, residualPence);
@@ -407,11 +407,11 @@ export class PayoutsService {
     }
 
     // CRITICAL: only Stripe + the payout-row update belong inside the
-    // STRIPE_TRANSFER_FAILED try/catch. A broader catch here is a latent bug —
+    // STRIPE_TRANSFER_FAILED try/catch. A broader catch here is a latent bug -
     // if Redis is unavailable, `notifications.add()` throws "Connection is
     // closed.", we'd flip a SUCCESSFULLY transferred payout to `failed`
     // (with failureReason='Connection is closed.') AND throw 400 back to
-    // finance — corrupting state and double-paying after manual re-approval.
+    // finance - corrupting state and double-paying after manual re-approval.
     let updated;
     try {
       const transfer = await this.stripe.createTransfer({
@@ -438,7 +438,7 @@ export class PayoutsService {
         where: { id: payoutId },
         data: { status: PayoutStatus.failed, failureReason: (e as Error).message },
       });
-      // Alert finance immediately — a failed transfer means the vendor
+      // Alert finance immediately - a failed transfer means the vendor
       // hasn't been paid. They must reset and re-approve (POST :id/reset).
       const financeEmail =
         process.env.FINANCE_ALERT_EMAIL ??
@@ -447,7 +447,7 @@ export class PayoutsService {
       const adminBase = process.env.ADMIN_URL ?? 'https://admin.feastpot.co.uk';
       await this.notifications.add('vendor_application_email_raw', {
         to: financeEmail,
-        subject: `[ACTION REQUIRED] Payout failed — ${payout.vendor?.businessName ?? payoutId}`,
+        subject: `[ACTION REQUIRED] Payout failed for ${payout.vendor?.businessName ?? payoutId}`,
         html: `<p>A Stripe transfer failed for payout <strong>${payoutId}</strong> (vendor: ${payout.vendor?.businessName ?? 'unknown'}).</p>
 <p><strong>Error:</strong> ${(e as Error).message}</p>
 <p>The payout status has been set to <code>failed</code>. To retry, reset it to draft and re-approve:</p>
@@ -506,7 +506,7 @@ export class PayoutsService {
     if (cas.count !== 1) {
       throw new BadRequestException({
         code: 'PAYOUT_NOT_FAILED',
-        message: 'Payout is not in failed status — cannot reset',
+        message: 'Payout is not in failed status; cannot reset',
       });
     }
     this.logger.log(`Payout ${payoutId} reset to draft by ${actor.id}`);
@@ -615,7 +615,7 @@ export class PayoutsService {
         _sum: { amountPence: true },
       });
       // Credit rows hold the portion of each refund Feastpot absorbs (service-fee
-      // + commission share) — that money must NOT be clawed back from the vendor.
+      // + commission share) - that money must NOT be clawed back from the vendor.
       const refundCredits = await this.prisma.payment.aggregate({
         where: { orderId: { in: orderIds }, type: PaymentType.credit },
         _sum: { amountPence: true },

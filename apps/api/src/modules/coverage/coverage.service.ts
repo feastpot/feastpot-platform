@@ -9,7 +9,7 @@ import type { CoverageInterestDto } from './dto/coverage-interest.dto';
  * Canonicalise a UK-style postcode for storage so the same place always
  * collapses to one form: strip all whitespace, upper-case, then re-insert
  * the single space before the final three "inward" characters. This makes
- * "se1 7ty", "SE17TY" and "SE1  7TY" all become "SE1 7TY" — which keeps the
+ * "se1 7ty", "SE17TY" and "SE1  7TY" all become "SE1 7TY" - which keeps the
  * (email, postcode) dedupe accurate and the admin "top postcodes" readable.
  */
 function canonicalisePostcode(raw: string): string {
@@ -26,7 +26,7 @@ function canonicalisePostcode(raw: string): string {
  * Dedupe is enforced by a DB unique constraint on (email, postcode) rather
  * than a read-then-write check, so concurrent identical submissions can't
  * both insert and inflate the waitlist count. A duplicate insert raises
- * Prisma P2002, which we swallow and treat as success — the public form
+ * Prisma P2002, which we swallow and treat as success - the public form
  * should never surface a "you already signed up" error.
  *
  * The response stays `{ ok: true }` to preserve the contract the web client

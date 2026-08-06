@@ -52,7 +52,7 @@ export class CateringEnquiriesService {
 
     this.logger.log(`[catering-enquiry] saved id=${row.id} outwardCode=${outwardCode}`);
 
-    // Notifications — fire-and-forget; never fail the request.
+    // Notifications - fire-and-forget; never fail the request.
     const adminEmail =
       this.config.get<string>('VENDOR_APPLICATIONS_ADMIN_EMAIL') ?? 'soul@feastpot.co.uk';
 

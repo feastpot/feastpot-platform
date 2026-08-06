@@ -86,7 +86,7 @@ export default function VendorReadinessPage() {
         </p>
       </header>
 
-      {/* Disclaimer — prominent, not in small print */}
+      {/* Disclaimer - prominent, not in small print */}
       <div className="mb-10 rounded-2xl border-2 border-plantain/60 bg-plantain/10 p-5">
         <p className="text-[14px] font-bold leading-relaxed text-charcoal">
           Feastpot can guide vendors through readiness steps. Registration, inspection and ratings

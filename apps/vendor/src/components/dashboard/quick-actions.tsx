@@ -18,7 +18,7 @@ import Link from 'next/link';
  * create (menu) → respond (orders) → plan (availability) → learn
  * (analytics).
  *
- * NOTE on "Add menu item" target: see DashboardTopBar — same routing
+ * NOTE on "Add menu item" target: see DashboardTopBar - same routing
  * caveat. There's no `/menu/new` route; we route to `/menu` and let
  * the menu list surface the "+ New item" CTA. Update to
  * `/menu/{primaryMenuId}/items/new` once `/vendors/me` exposes a

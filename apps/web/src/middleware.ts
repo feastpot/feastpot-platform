@@ -60,7 +60,7 @@ export async function middleware(request: NextRequest) {
   // customer site's auth-gated pages. Their role lives in app_metadata
   // (server-managed, set by the Supabase auth hook + admin updateUserById).
   // We redirect them to their own portal so they don't see a confusing
-  // customer-shaped UI — and so they can't accidentally browse account pages
+  // customer-shaped UI - and so they can't accidentally browse account pages
   // that are scoped to customer orders/addresses.
   const role = (user?.app_metadata?.role as string | undefined) ?? null;
   const isNonCustomer =
@@ -83,7 +83,7 @@ export async function middleware(request: NextRequest) {
     }
 
     // Non-customers may still browse public pages (menu browsing, occasion
-    // pages, become-a-vendor, etc.) — only block the customer-specific routes.
+    // pages, become-a-vendor, etc.) - only block the customer-specific routes.
     return response;
   }
 

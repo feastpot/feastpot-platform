@@ -2,7 +2,7 @@
  * Backfill DeliveryConfig.latitude/longitude for every existing vendor.
  *
  * Idempotent: re-running only touches rows where lat/lng is NULL. Geocode
- * is best-effort via postcodes.io (free, no auth) — rows whose postcode
+ * is best-effort via postcodes.io (free, no auth) - rows whose postcode
  * we can't resolve stay NULL and surface in /v1/vendors/debug as
  * "configsWithCoordinates < deliveryConfigCount" until a vendor edits
  * their delivery config (which re-runs geocoding through the service).

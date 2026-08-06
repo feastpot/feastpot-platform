@@ -30,7 +30,7 @@ export interface RefundOrderEconomics {
 export interface RefundSplit {
   /** Refund size relative to the food subtotal; 1 for a full refund. */
   refundFraction: number;
-  /** Clawed back from the vendor's payout — what they actually EARNED on the refunded portion. */
+  /** Clawed back from the vendor's payout - what they actually EARNED on the refunded portion. */
   vendorClawbackPence: number;
   /** Refund money Feastpot absorbs (its service-fee + commission share); netted against payouts via a credit row. */
   feastpotAbsorbedPence: number;
@@ -43,11 +43,11 @@ export interface RefundSplit {
 /**
  * Split a customer refund into the vendor clawback vs. the portion Feastpot absorbs.
  *
- * REFUND CLAWBACK FORMULA — DO NOT CHANGE WITHOUT FINANCE SIGN-OFF
+ * REFUND CLAWBACK FORMULA - DO NOT CHANGE WITHOUT FINANCE SIGN-OFF
  *   vendorClawback = (subtotal + delivery − discount − commission) × refundFraction
  *
  * The base is what the vendor was PAID (== Order.vendorPayoutPence for a full
- * refund). It deliberately EXCLUDES serviceFee — that is Feastpot platform
+ * refund). It deliberately EXCLUDES serviceFee - that is Feastpot platform
  * revenue the vendor never received, so clawing it back would over-deduct them.
  * Feastpot absorbs the remainder of the customer refund (its service-fee +
  * commission share) so the customer is always made whole.
@@ -338,7 +338,7 @@ export class PaymentsService {
     // The weekly payout batch derives the vendor clawback by netting credit rows
     // against refund rows; if the refund row committed but the credit row did
     // not, the batch would claw back the FULL customer refund (service fee +
-    // commission included) from the vendor — the exact over-deduction this fix
+    // commission included) from the vendor - the exact over-deduction this fix
     // removes. A retry can't repair it either: stripeRefundId is unique and the
     // cumulative-refund guard would block re-entry. So commit both or neither.
     //
@@ -354,7 +354,7 @@ export class PaymentsService {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${dto.orderId}))`;
       // Re-check the ceiling INSIDE the lock scope. The pre-check above ran
       // before the Stripe call; a chargeback ledger write may have landed in
-      // between. Throwing here rolls back cleanly — the Stripe refund already
+      // between. Throwing here rolls back cleanly - the Stripe refund already
       // exists, but the deterministic idempotencyKey means a retry returns the
       // SAME Stripe refund, and the thrown error surfaces the conflict to the
       // caller instead of silently over-refunding the ledger.
@@ -369,7 +369,7 @@ export class PaymentsService {
       if (refundedInTxPence + dto.amountPence > order.totalPence) {
         throw new BadRequestException({
           code: 'CUMULATIVE_REFUND_EXCEEDS_TOTAL',
-          message: `Refunds total (${refundedInTxPence + dto.amountPence}p) exceeds order total (${order.totalPence}p) — a concurrent refund/chargeback landed first`,
+          message: `Refunds total (${refundedInTxPence + dto.amountPence}p) exceeds order total (${order.totalPence}p); a concurrent refund/chargeback landed first`,
         });
       }
       const row = await tx.payment.create({
@@ -390,9 +390,9 @@ export class PaymentsService {
       // The Feastpot-absorbed portion is written as TWO explicit credit rows so
       // the ledger itself records that the platform RETAINED the service fee
       // (previously only visible in a best-effort audit-log blob):
-      //   1. service-fee share — platform revenue Feastpot keeps but absorbs
+      //   1. service-fee share - platform revenue Feastpot keeps but absorbs
       //      against this refund (the vendor never received it),
-      //   2. commission share — commission Feastpot gives back on the refund.
+      //   2. commission share - commission Feastpot gives back on the refund.
       // The weekly payout batch nets ALL credit rows against refund rows, so
       // splitting one credit into two with the same sum leaves the vendor
       // clawback arithmetic unchanged. Clamp so the rows always sum EXACTLY to
@@ -452,7 +452,7 @@ export class PaymentsService {
       return row;
     });
 
-    // Durable enqueue: NotificationsService never throws AND never drops —
+    // Durable enqueue: NotificationsService never throws AND never drops -
     // if the queue is down the events are persisted to notification_outbox
     // and retried by the outbox drainer until they reach the queue. Money
     // moved above; both parties WILL be told, eventually.

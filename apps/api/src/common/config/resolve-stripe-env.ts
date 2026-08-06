@@ -2,7 +2,7 @@
  * Organisational standard for Stripe credential handling.
  *
  * Stripe keys are stored as ENCRYPTED Replit Secrets under environment-specific
- * names — never as plaintext, git-tracked `.replit` environment variables:
+ * names - never as plaintext, git-tracked `.replit` environment variables:
  *
  *   STRIPE_SECRET_KEY_LIVE      /  STRIPE_SECRET_KEY_TEST
  *   STRIPE_WEBHOOK_SECRET_LIVE  /  STRIPE_WEBHOOK_SECRET_TEST

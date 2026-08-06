@@ -17,7 +17,7 @@ import type { CapacityDay, VendorListItem, VerifiedTrustSignal } from '@/lib/api
  * tags · trust signal badges · "View menu" action.
  *
  * "Popular dishes" uses matchedDishes (from free-text search) or cuisines as
- * a proxy — the list endpoint does not return a dedicated popular-dishes field.
+ * a proxy - the list endpoint does not return a dedicated popular-dishes field.
  * Up to three tags are shown; the badge row renders only when trust signals or
  * capacity data are available.
  */
@@ -170,7 +170,7 @@ export function VendorRowCard({ vendor, trustSignals, capacity }: Props) {
         </span>
       )}
 
-      {/* "View menu" action — visible text on sm+, icon-only on narrowest screens */}
+      {/* "View menu" action - visible text on sm+, icon-only on narrowest screens */}
       <Link
         href={`/vendors/${vendor.slug}#menu`}
         aria-label={`View ${vendor.businessName} menu`}

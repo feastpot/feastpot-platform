@@ -1,10 +1,10 @@
-# Runbook — Live payout dry-run (GO_LIVE_GAPS §1.5)
+# Runbook - Live payout dry-run (GO_LIVE_GAPS §1.5)
 
 Run **one full payout cycle against a single test vendor in live mode** and
 confirm funds settle with zero discrepancy before trusting the weekly cron
 (`0 2 * * 1`, Mon 02:00 UTC) with real money.
 
-This is a **human-operated, live-environment** procedure — it moves real money
+This is a **human-operated, live-environment** procedure - it moves real money
 through the live Stripe platform and can only be performed by someone with live
 Stripe access and a real connected vendor account. The code path it exercises
 (`PayoutsService.runWeeklyBatch` → finance approval → `StripeService.createTransfer`)
@@ -28,7 +28,7 @@ is built and unit-tested; this runbook is the manual go-live verification.
 1. **Create the batch.** Trigger an out-of-cycle run from the admin Settings
    page ("run payout batch") or `POST /v1/admin/payouts/run-batch`. This enqueues
    a one-shot job (jobId `manual-payout-<ts>`) that calls `runWeeklyBatch` for the
-   prior Mon→Sun window. It creates **draft** payouts only — no money moves yet.
+   prior Mon→Sun window. It creates **draft** payouts only - no money moves yet.
 2. **Verify the draft.** In the finance/admin payouts view, confirm the test
    vendor has a `draft` payout with the expected `amountPence`
    (`gross − commission − refunds`), `orderCount`, and period. Confirm no other
@@ -49,7 +49,7 @@ is built and unit-tested; this runbook is the manual go-live verification.
 
 - Transfers are **idempotent per payout** (key `payout-transfer-<payoutId>`): a
   timed-out-but-succeeded transfer that flips the payout to `failed` will **not**
-  double-pay if it is later re-approved — Stripe returns the original transfer.
+  double-pay if it is later re-approved - Stripe returns the original transfer.
 - Batch creation is idempotent per `(vendorId, periodEnd)`; re-running the batch
   in the same week skips vendors that already have a payout for that window.
 - Vendors with an open dispute are created as `held`, not `draft`, and cannot be

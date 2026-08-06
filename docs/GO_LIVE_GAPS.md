@@ -1,6 +1,6 @@
-# Feastpot — Go-Live Audit: What's Left to Implement
+# Feastpot - Go-Live Audit: What's Left to Implement
 
-_Last audited: 31 May 2026. Code-verified inventory — every item below was
+_Last audited: 31 May 2026. Code-verified inventory - every item below was
 confirmed against the source as it stands today (grep + file review + a fresh
 codebase sweep), not the roadmap or memory. File references are included so each
 item is traceable. This refresh supersedes the 30 May edition; several items
@@ -12,10 +12,10 @@ previously listed as gaps are now resolved (see §7)._
 
 Work is grouped by **where it lives**, and every item carries a severity:
 
-- 🔴 **Blocker** — the first real order cannot happen until this is done.
-- 🟠 **Pre-launch** — should be done before opening to real customers, but a
+- 🔴 **Blocker** - the first real order cannot happen until this is done.
+- 🟠 **Pre-launch** - should be done before opening to real customers, but a
   controlled pilot can run without it.
-- 🟡 **Polish** — visible gap or "coming soon" stub; safe to ship after launch.
+- 🟡 **Polish** - visible gap or "coming soon" stub; safe to ship after launch.
 
 Most blockers are **operational config**, not missing code. The code gaps that
 remain are mostly 🟡.
@@ -30,7 +30,7 @@ These are 🔴 and are about credentials/hosting, not writing features.
    built and processes `payment_intent.succeeded`,
    `payment_intent.payment_failed`, `transfer.created`, and `refund.updated`
    (`apps/api/src/modules/payments/stripe-webhook.processor.ts`).
-   `STRIPE_WEBHOOK_SECRET` is a hard-required env var — the API won't boot
+   `STRIPE_WEBHOOK_SECRET` is a hard-required env var - the API won't boot
    without it in prod (`apps/api/src/common/config/required-env.ts`), and it's
    currently **unset** (`/v1/healthz` reports `secrets: missing
 STRIPE_WEBHOOK_SECRET`). `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` is also unset.
@@ -42,9 +42,9 @@ STRIPE_WEBHOOK_SECRET`). `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` is also unset.
    in `required-env.ts` hard-exits without it). Once the API is live, register the
    webhook at `https://api.feastpot.co.uk/v1/webhooks/stripe`, copy the real
    signing secret, and replace the placeholder. Until then signature verification
-   rejects events — fine pre-launch.
+   rejects events - fine pre-launch.
 
-2. ✅ **Redis (`REDIS_URL`) — RESOLVED (31 May 2026).** Upstash `feastpot-prod`
+2. ✅ **Redis (`REDIS_URL`) - RESOLVED (31 May 2026).** Upstash `feastpot-prod`
    (TLS, `rediss://`, Ireland) wired up and on a pay-as-you-go plan (the free
    500K-commands/month cap is too low for always-on BullMQ). Verified live:
    `PING → PONG`, and all four queues (`notifications`, `stripe-webhooks`,
@@ -52,11 +52,11 @@ STRIPE_WEBHOOK_SECRET`). `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` is also unset.
    The throttler store and cache now have a backend. Note: queues are tuned for
    low command volume (5-min blocking polls, `drainDelay: 300`).
 
-3. ✅ **Live notification channel(s) — RESOLVED (31 May 2026).** Three channels
+3. ✅ **Live notification channel(s) - RESOLVED (31 May 2026).** Three channels
    are live (only one was required):
    - **Email (Resend):** configured.
    - **Web push (VAPID):** keypair generated; `VAPID_PUBLIC_KEY`,
-     `VAPID_PRIVATE_KEY`, `NEXT_PUBLIC_VAPID_PUBLIC_KEY` set — no longer stub.
+     `VAPID_PRIVATE_KEY`, `NEXT_PUBLIC_VAPID_PUBLIC_KEY` set - no longer stub.
    - **SMS (Twilio):** `TWILIO_FROM_NUMBER` set to a US number (`+1…`); the
      "SMS sends will be logged only" warning is gone. NOTE: on a Twilio trial
      it only delivers to Verified Caller IDs; A2P 10DLC needed for US prod
@@ -64,21 +64,21 @@ STRIPE_WEBHOOK_SECRET`). `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` is also unset.
    - **WhatsApp (optional, still stub):** has Twilio creds but needs per-template
      Content SIDs in Twilio Content Builder before it will actually send.
 
-4. 🟠 **Production hosting + DNS — API config done (31 May 2026), publish pending.**
+4. 🟠 **Production hosting + DNS - API config done (31 May 2026), publish pending.**
    Replit publishes one service per repl, so this repl deploys the **API**; the
    three frontends will deploy separately (their own repls). The API deploy is
-   configured as a **VM (always-on)** — NOT autoscale — because the BullMQ queue
+   configured as a **VM (always-on)** - NOT autoscale - because the BullMQ queue
    workers and `@Cron` jobs (Monday 02:00 payout batch, hourly event reminders,
    daily loyalty/DLQ) run inside the API process and must not scale to zero.
    `build = npm ci && db:generate && build:api`; `run = db:deploy && start:api`
    (db:deploy = `prisma migrate deploy` + RLS lockdown, production-safe). Verified
    the prod build compiles to `apps/api/dist/main.js`.
-   STILL USER-SIDE: click Publish (pick UK/Europe geography — permanent), add the
+   STILL USER-SIDE: click Publish (pick UK/Europe geography - permanent), add the
    `api.feastpot.co.uk` custom domain in the Publishing UI, and create the DNS
    records Replit shows. Then deploy the 3 frontends.
 
 5. 🔴 **A real payout dry-run.** The weekly batch processor is built and
-   scheduled — cron `0 2 * * 1`, Mondays 02:00 UTC
+   scheduled - cron `0 2 * * 1`, Mondays 02:00 UTC
    (`.../payouts/processors/payout-batch.processor.ts`). Before trusting it with
    real money, run one full cycle against a test vendor in live mode and confirm
    funds settle with zero discrepancy in the finance view.
@@ -87,14 +87,14 @@ STRIPE_WEBHOOK_SECRET`). `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` is also unset.
    Stripe keys + a real connected vendor + bank settlement verification) and is
    still outstanding. Code hardening landed alongside the runbook:
    `StripeService.createTransfer` now takes an `idempotencyKey` and
-   `approvePayout` passes `payout-transfer-<payoutId>` — previously transfers had
+   `approvePayout` passes `payout-transfer-<payoutId>` - previously transfers had
    **no** idempotency key (the only money-moving Stripe call without one), so a
    timed-out-but-succeeded transfer that flipped the payout to `failed` would
    **double-pay** the vendor if it was ever re-approved. Stripe now returns the
    original transfer instead.
 
 6. 🟠 **Web push VAPID keys.** Web push is wired but disabled until
-   `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` are set — otherwise it logs
+   `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` are set - otherwise it logs
    `[stub-push]` and delivers nothing (`.../providers/push.provider.ts`).
    Optional if email/SMS covers launch comms.
 
@@ -111,11 +111,11 @@ STRIPE_WEBHOOK_SECRET`). `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` is also unset.
   marketplace dispute flow (customer-vs-vendor) is complete and can trigger
   refunds (`apps/api/src/modules/disputes/disputes.service.ts`), but
   bank-initiated chargebacks (`charge.dispute.*`) have no webhook handler
-  (verified: no listener in `stripe-webhook.processor.ts`) — finance manages
+  (verified: no listener in `stripe-webhook.processor.ts`) - finance manages
   those manually in the Stripe Dashboard.
 
 - 🟡 **Payout "fees" and "adjustments" are placeholder £0 columns**
-  (`apps/api/src/modules/payouts/payouts.service.ts` ~L207) — Stripe transfer
+  (`apps/api/src/modules/payouts/payouts.service.ts` ~L207) - Stripe transfer
   fees aren't broken out in the schema yet, so statements show zero there.
 
 - 🟡 **Per-star rating buckets aren't real.** The vendor API exposes only
@@ -130,7 +130,7 @@ STRIPE_WEBHOOK_SECRET`). `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` is also unset.
   aggregation to surface it.
 
 - 🟡 **Review photo uploads aren't saved.** The UI accepts photos then discards
-  them on submit ("Photo uploads aren't saved yet — coming soon", review page
+  them on submit ("Photo uploads aren't saved yet - coming soon", review page
   ~L257). Needs storage + a join model.
 
 - 🟡 **No global ThrottlerExceptionFilter** (`apps/api/src/main.ts`). Rate-limit
@@ -148,8 +148,8 @@ STRIPE_WEBHOOK_SECRET`). `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` is also unset.
   (`orders-client.tsx` L175/L481), Users (`users-client.tsx` L284), Event
   Enquiries (`events-client.tsx` L183), and Reviews queue
   (`reviews-queue-client.tsx` L230). NOTE: the API _does_ expose
-  `GET /v1/admin/orders.csv` — only the UI button is stubbed.
-- 🟡 **Order bulk actions** — the select-all and per-row checkboxes in the
+  `GET /v1/admin/orders.csv` - only the UI button is stubbed.
+- 🟡 **Order bulk actions** - the select-all and per-row checkboxes in the
   orders table are `disabled` ("coming soon", `orders-client.tsx` L337/L662).
 - 🟡 **"More filters" buttons** are disabled placeholders on the Events
   (L277-278) and Reviews (L342) queues.
@@ -157,7 +157,7 @@ STRIPE_WEBHOOK_SECRET`). `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` is also unset.
   currently returns little/no data
   (`components/dashboard/search-trends-card.tsx`); no pagination.
 
-_(Verified NOT a gap: the admin Settings page is functional — profile, security
+_(Verified NOT a gap: the admin Settings page is functional - profile, security
 section, and run-payout-batch action all work; it is not a "coming soon" stub.)_
 
 ---
@@ -165,7 +165,7 @@ section, and run-payout-batch action all work; it is not a "coming soon" stub.)_
 ## 4. Vendor portal gaps
 
 - 🟡 **Menu drag-to-reorder is NOT wired.** The drag handle renders for visual
-  parity but reordering whole menus doesn't persist — `useUpdateMenu` already
+  parity but reordering whole menus doesn't persist - `useUpdateMenu` already
   accepts `displayOrder`, it just isn't hooked up (`menu/menu-list-client.tsx`
   ~L44). NOTE: reordering items _within_ a menu IS wired.
 - 🟡 **Menu-item photo reorder is NOT wired.** No drag-reorder for item photos
@@ -174,7 +174,7 @@ section, and run-payout-batch action all work; it is not a "coming soon" stub.)_
 - 🟡 **Delivery map preview** is still a text list of postcode prefixes; an
   actual map / polygon-zone tool is on the roadmap
   (`settings/delivery/delivery-form.tsx` ~L173).
-- 🟡 **Vendor self-serve profile editing UI** isn't in the portal yet — it
+- 🟡 **Vendor self-serve profile editing UI** isn't in the portal yet - it
   currently lives in the admin app only (`onboarding/onboarding-client.tsx`
   ~L102).
 - 🟡 **"Download statement"** is disabled (marked future,
@@ -188,10 +188,10 @@ section, and run-payout-batch action all work; it is not a "coming soon" stub.)_
 
 ## 5. Customer web gaps
 
-- 🟡 **Review photos** and the **food sub-rating** — see §2 (UI present, storage
+- 🟡 **Review photos** and the **food sub-rating** - see §2 (UI present, storage
   missing).
 - 🟡 **Rating breakdown bars are estimated** until the API ships per-bucket
-  counts — see §2.
+  counts - see §2.
 - 🟡 **Loyalty / referrals** account sections surface some placeholder values
   (`apps/web/src/app/account/profile/page.tsx` and related components).
 - 🟡 **Order-confirmation copy-pill** shows a "preparing your order number" state
@@ -201,7 +201,7 @@ section, and run-payout-batch action all work; it is not a "coming soon" stub.)_
 _(Cleanup, not a gap: the register flow still swallows a 404 from
 `POST /v1/users/sync` with a "not yet implemented" comment
 (`(auth)/sign-in/page.tsx` ~L552-567), but that endpoint now exists
-(`users.controller.ts`) and the mirror works — the guard is dead defensiveness
+(`users.controller.ts`) and the mirror works - the guard is dead defensiveness
 worth removing.)_
 
 ---
@@ -209,7 +209,7 @@ worth removing.)_
 ## 6. Tests
 
 - 🟡 **One flaky time-dependent test.** V1's 5 failing suites / 21 failing tests
-  are resolved; one remains — the same-day-orders slot test is time-of-day
+  are resolved; one remains - the same-day-orders slot test is time-of-day
   dependent (clamped target slot can land in the past late in the day, tripping
   a different rejection code). Pin it to a fixed clock (jest fake timers) for a
   deterministic green CI run
@@ -227,40 +227,40 @@ worth removing.)_
 
 ---
 
-## 8. Already done — do NOT re-implement
+## 8. Already done - do NOT re-implement
 
 Verified complete in the current code (some were previously assumed missing or
 were gaps in the prior audit):
 
 - **Waitlist / coverage interest is now persisted.** `POST /v1/coverage-interest`
-  writes to the `CoverageInterest` table with duplicate handling — sign-ups are
+  writes to the `CoverageInterest` table with duplicate handling - sign-ups are
   no longer lost (was a stub in the prior audit).
 - **`.env.example` exists** (~4.3 KB) and documents the Section 11 variables
-  (incl. `MENU_AUTO_APPROVE`, `SERVICE_FEE_BPS`) — was reported missing before.
+  (incl. `MENU_AUTO_APPROVE`, `SERVICE_FEE_BPS`) - was reported missing before.
 - **`POST /v1/users/sync` endpoint exists** (`users.controller.ts`); the profile
   mirror on signup works (the web 404-guard is legacy, see §5).
 - **Email channel (Resend)** is configured (`RESEND_API_KEY` + `EMAIL_FROM`
   present).
-- **Apple Pay / Google Pay** — fully implemented and enabled via Stripe's
+- **Apple Pay / Google Pay** - fully implemented and enabled via Stripe's
   Payment Request API; renders when the device has a wallet, falls back to the
   card form otherwise (`apps/web/src/components/checkout/payment-request-button.tsx`).
-- **Delivery-area / postcode checking** — real haversine distance logic in SQL
+- **Delivery-area / postcode checking** - real haversine distance logic in SQL
   plus a postcode-prefix fallback; the web coverage check queries live vendors
   (`apps/api/src/modules/vendors/vendors.repository.ts`,
   `apps/web/src/lib/api/coverage.ts`).
-- **Menu moderation** — env-gated approval (`MENU_AUTO_APPROVE`) + an admin
+- **Menu moderation** - env-gated approval (`MENU_AUTO_APPROVE`) + an admin
   moderation queue; held/rejected items are hidden from listings, search, and
   checkout.
-- **Admin Settings page** — functional (profile, security, run-payout-batch).
+- **Admin Settings page** - functional (profile, security, run-payout-batch).
 - **Stripe Connect onboarding, refunds, internal disputes, weekly payout batch,
-  order state machine, basket, checkout, loyalty, promo codes** — all built and
+  order state machine, basket, checkout, loyalty, promo codes** - all built and
   wired.
 
 ---
 
 ## 9. Genuinely not built (and not needed to start)
 
-Real gaps, but none block launch — listed so nobody assumes they exist.
+Real gaps, but none block launch - listed so nobody assumes they exist.
 
 - **Third-party courier/logistics integration** (Deliveroo, Stuart, etc.).
   Delivery is vendor-managed by design.
@@ -274,8 +274,8 @@ Real gaps, but none block launch — listed so nobody assumes they exist.
 ## In one sentence
 
 The product is built and wired; Redis and live notification channels are now
-done. What's left to _go live_ is the remaining outside-world plumbing — live
+done. What's left to _go live_ is the remaining outside-world plumbing - live
 Stripe keys + registered webhook, production hosting + DNS, and a payout
-dry-run — after which the remaining work is a tidy list of 🟡 polish items (CSV
+dry-run - after which the remaining work is a tidy list of 🟡 polish items (CSV
 exports, drag-reorder, review photos, real rating buckets) and one revenue
 decision (the service fee).

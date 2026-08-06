@@ -9,7 +9,7 @@ import { getFeaturedReviews } from '@/lib/api/reviews';
  * Reviews must be linked to a completed order (is_verified = true by default)
  * and pass moderation (auto_approved or approved) before they appear here.
  *
- * If no published reviews exist yet the component renders nothing — the
+ * If no published reviews exist yet the component renders nothing - the
  * TrustStandard section immediately below this handles the fallback trust
  * messaging without duplicating the heading.
  */

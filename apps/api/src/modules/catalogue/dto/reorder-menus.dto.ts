@@ -5,7 +5,7 @@ export class ReorderMenusDto {
   @ApiProperty({
     type: [String],
     description:
-      "Ordered array of menu IDs — first element becomes sortOrder 1. Must contain exactly the vendor's current menu IDs.",
+      "Ordered array of menu IDs; first element becomes sortOrder 1. Must contain exactly the vendor's current menu IDs.",
   })
   @IsArray()
   @ArrayNotEmpty()

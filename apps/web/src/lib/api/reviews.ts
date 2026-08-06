@@ -14,7 +14,7 @@ export interface FeaturedReview {
 
 /**
  * Fetches up to 4 recent published reviews for the homepage.
- * Called from a server component — errors return an empty array so the
+ * Called from a server component - errors return an empty array so the
  * page never breaks if the API is unavailable.
  */
 export async function getFeaturedReviews(): Promise<FeaturedReview[]> {

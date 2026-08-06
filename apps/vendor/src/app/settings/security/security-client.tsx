@@ -17,7 +17,7 @@ import { useRecoveryCodeStatus, useRegenerateRecoveryCodes } from '@/hooks/use-m
 import { createClient } from '@/lib/supabase/client';
 
 /**
- * 2FA enrolment + recovery codes — Supabase MFA (TOTP) with a
+ * 2FA enrolment + recovery codes - Supabase MFA (TOTP) with a
  * self-serve recovery-codes layer on top via the Feastpot API.
  *
  * Visual shell migrated to the SideNav redesign: fp-card surfaces,

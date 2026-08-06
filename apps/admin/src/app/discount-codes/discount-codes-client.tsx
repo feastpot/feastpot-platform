@@ -343,7 +343,7 @@ function DiscountRow({
       <TableCell className="text-sm font-medium">{valueLabel}</TableCell>
 
       <TableCell className="text-sm">
-        {r.minOrderPence ? formatPence(r.minOrderPence) : '—'}
+        {r.minOrderPence ? formatPence(r.minOrderPence) : '-'}
       </TableCell>
 
       <TableCell>

@@ -30,12 +30,12 @@ take the same advisory lock and re-check inside the tx.
 # Refund credit rows are SPLIT
 
 `createRefund` writes TWO credit rows (service_fee_retained + commission share,
-tagged in `failureReason`) that must sum EXACTLY to `feastpotAbsorbedPence` —
+tagged in `failureReason`) that must sum EXACTLY to `feastpotAbsorbedPence` -
 batch netting sums all credit rows, so the sum invariant is what matters.
 The refund audit log is INSIDE the transaction (permanent trail, not best-effort).
 
 # Ledger reconcile mirrors the batch
 
 `reconcilePayoutLedger` (admin) must mirror `aggregateVendorBatch` exactly,
-including the `max(0, …)` zero-floor on net — omitting it reports false
+including the `max(0, …)` zero-floor on net - omitting it reports false
 mismatches on high-refund periods.

@@ -181,7 +181,7 @@ export function VendorApplicationDetailClient({
                   Food hygiene registration number
                 </div>
                 <div className="mt-0.5 text-base font-semibold">
-                  {app.hygieneRegNumber ? app.hygieneRegNumber : '—'}
+                  {app.hygieneRegNumber ? app.hygieneRegNumber : '–'}
                 </div>
               </div>
               <Field
@@ -189,7 +189,7 @@ export function VendorApplicationDetailClient({
                 value={
                   app.deliveryRadiusMiles != null
                     ? `${app.deliveryRadiusMiles} ${app.deliveryRadiusMiles === 1 ? 'mile' : 'miles'}`
-                    : '—'
+                    : '–'
                 }
               />
               <Field
@@ -197,7 +197,7 @@ export function VendorApplicationDetailClient({
                 value={
                   app.orderTypes && app.orderTypes.length > 0
                     ? app.orderTypes.map((t) => ORDER_TYPE_LABEL[t] ?? t).join(', ')
-                    : '—'
+                    : '–'
                 }
               />
               <Field label="Applicant" value={app.fullName} />
@@ -330,7 +330,7 @@ export function VendorApplicationDetailClient({
                     )}
                     {!isInFlight && app.status !== 'approved' && (
                       <span className="text-xs text-muted-foreground">
-                        This application is {STATUS_LABEL[app.status].toLowerCase()} — no further
+                        This application is {STATUS_LABEL[app.status].toLowerCase()}. No further
                         actions.
                       </span>
                     )}
@@ -339,7 +339,7 @@ export function VendorApplicationDetailClient({
               ) : (
                 <div className="pt-2">
                   <span className="text-xs text-muted-foreground">
-                    Read-only — review actions require admin or compliance access.
+                    Read-only: review actions require admin or compliance access.
                   </span>
                 </div>
               )}

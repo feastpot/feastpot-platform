@@ -56,7 +56,7 @@ interface SideNavProps {
  * Vertical left-rail navigation for the vendor portal. Replaces the
  * earlier horizontal `TopNav`. Renders as a normal flex item (NOT
  * fixed) so the host page can lay it out next to <main> in a flex row
- * without manual padding offsets — see apps/vendor/src/app/page.tsx
+ * without manual padding offsets - see apps/vendor/src/app/page.tsx
  * for the host-side flex wrapper.
  *
  * Role gating mirrors the old top-nav: while role data is loading we

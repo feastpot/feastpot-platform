@@ -66,12 +66,12 @@ function formatMoney(pence: number): string {
 
 /**
  * Left-rail summary used on the Orders dashboard. Three stacked cards:
- *   1. Order summary  — clickable status counts, doubles as a vertical tab
+ *   1. Order summary  - clickable status counts, doubles as a vertical tab
  *      switcher mirroring the horizontal tab pills above.
- *   2. Today at a glance — orders today, scheduled value, avg order value.
+ *   2. Today at a glance - orders today, scheduled value, avg order value.
  *      Uses the same /vendors/me/stats + /vendors/me/dashboard endpoints
  *      already feeding the home dashboard so no new API surface required.
- *   3. Quick filters — client-side filters over the currently-visible
+ *   3. Quick filters - client-side filters over the currently-visible
  *      orders, including Delivery/Collection (from `deliveryType`) and
  *      allergen-flagged orders (any line item whose dish lists allergens).
  */

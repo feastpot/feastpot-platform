@@ -18,7 +18,7 @@ import { StripeWebhookProcessor } from './stripe-webhook.processor';
  * Integration test (REAL Postgres, mocked Stripe): proves the per-order
  * pg_advisory_xact_lock + in-transaction ceiling re-check in both
  * PaymentsService.createRefund and StripeWebhookProcessor.reconcileLostChargeback
- * hold under true concurrency — a simultaneous manual refund and lost-chargeback
+ * hold under true concurrency - a simultaneous manual refund and lost-chargeback
  * reconciliation on the same order can never over-refund the order total.
  *
  * Both writers pass their OUT-of-transaction pre-checks (each reads a stale
@@ -136,7 +136,7 @@ d('Concurrent refund + lost-chargeback reconciliation (integration, real DB)', (
     });
     orderId = order.id;
 
-    // Original capture payment — createRefund resolves the Stripe PI from it.
+    // Original capture payment - createRefund resolves the Stripe PI from it.
     await prisma.payment.create({
       data: {
         orderId,
@@ -193,7 +193,7 @@ d('Concurrent refund + lost-chargeback reconciliation (integration, real DB)', (
       (processor as any).reconcileLostChargeback(disputeId) as Promise<void>,
     ]);
 
-    // The chargeback path never throws on the ceiling — it caps to the
+    // The chargeback path never throws on the ceiling - it caps to the
     // remaining refundable amount (possibly 0) inside the lock.
     expect(reconcileResult.status).toBe('fulfilled');
 
@@ -206,7 +206,7 @@ d('Concurrent refund + lost-chargeback reconciliation (integration, real DB)', (
     const totalRefundedPence = -(refunds._sum.amountPence ?? 0);
     expect(totalRefundedPence).toBeLessThanOrEqual(TOTAL);
 
-    // Exactly ONE full refund landed — whichever writer won the lock.
+    // Exactly ONE full refund landed - whichever writer won the lock.
     expect(totalRefundedPence).toBe(TOTAL);
     expect(refunds._count).toBe(1);
 
@@ -218,8 +218,8 @@ d('Concurrent refund + lost-chargeback reconciliation (integration, real DB)', (
       expect(JSON.stringify(resp)).toContain('CUMULATIVE_REFUND_EXCEEDS_TOTAL');
     } else {
       // Manual refund won: the chargeback reconciliation must have written
-      // nothing (fully_refunded outcome) — verified by the single-row count
-      // above — while still marking the chargeback reconciled below.
+      // nothing (fully_refunded outcome) - verified by the single-row count
+      // above - while still marking the chargeback reconciled below.
       expect(refundResult.value.refund.amountPence).toBe(-TOTAL);
     }
 
@@ -291,7 +291,7 @@ d('Concurrent refund + lost-chargeback reconciliation (integration, real DB)', (
     expect(batch.refundsPence).toBe(VENDOR_PAYOUT);
 
     // reconcilePayoutLedger recomputes from the same DB rows and must agree
-    // with the batch on every component — including the zero-floored net.
+    // with the batch on every component - including the zero-floored net.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = await (admin as any).reconcilePayoutLedger({
       vendorId,

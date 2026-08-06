@@ -61,7 +61,7 @@ function intEnv(name: string, fallback: number): number {
  *
  * Distinct from `DlqMonitorService` (admin module): that runs once daily and
  * emails a digest of *failed* jobs. This runs every 5 minutes, watches both
- * `waiting` and `failed`, and escalates to Sentry — the on-call paging path —
+ * `waiting` and `failed`, and escalates to Sentry - the on-call paging path -
  * so a recurrence is caught within minutes rather than at the next daily scan.
  *
  * False-alarm guard: an alert only fires once a queue has breached for
@@ -97,7 +97,7 @@ export class QueueDepthMonitorService {
   /** Every 5 minutes, aligned with the queues' 5-minute poll cadence. */
   @Cron('*/5 * * * *', { name: 'queue-depth-monitor' })
   async checkAndAlert(): Promise<void> {
-    // No point inspecting queues when Redis is permanently unreachable — the
+    // No point inspecting queues when Redis is permanently unreachable - the
     // depth reads would just throw. The Redis outage itself surfaces via
     // /health/z (degraded) and the processors' own error paths.
     if (!this.cache.available) {
@@ -168,7 +168,7 @@ export class QueueDepthMonitorService {
           return { queue: name, waiting, failed, breached: reasons.length > 0, reasons };
         } catch (err) {
           // A single queue read failing shouldn't blind the others. Log and
-          // skip — the broader Redis outage path handles total unavailability.
+          // skip - the broader Redis outage path handles total unavailability.
           this.logger.error(`Failed to inspect queue ${name}: ${(err as Error).message}`);
           return null;
         }

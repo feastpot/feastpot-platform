@@ -653,12 +653,12 @@ export class AdminController {
    * DEV/STAGING ONLY: send a notification through each channel SYNCHRONOUSLY
    * and report per-channel sent/failed. Unlike `test-notification` (which
    * enqueues an event and relies on the worker), this calls the providers
-   * directly so you get immediate pass/fail — the fastest way to confirm
+   * directly so you get immediate pass/fail - the fastest way to confirm
    * RESEND / Twilio / Meta credentials actually deliver before going live.
    *
    * Deviation from the original spec: the providers expose `send()` (not
    * `sendEmail`/`sendWhatsApp`), and the WhatsApp backend is template-based
-   * (Twilio Content SID / Meta pre-approved template) — free-text body is not
+   * (Twilio Content SID / Meta pre-approved template) - free-text body is not
    * viable for business-initiated messages. So `whatsappTemplate` defaults to
    * `order_confirmation`; the matching Content SID / Meta template must exist.
    */
@@ -788,13 +788,13 @@ export class AdminController {
     } catch (e) {
       // Same Redis-fragility class as orders.service.confirmOrder. The audit
       // log was already written above, so we have an immutable record of the
-      // attempt — return 503 with a clear message rather than a generic 500
+      // attempt - return 503 with a clear message rather than a generic 500
       // so finance ops know to retry once Redis is restored (or fall back
       // to the weekly cron, which will pick up the same work).
       this.logger.error(
         `payout batch enqueue failed (Redis unavailable?): ${(e as Error).message}`,
       );
-      // Don't echo the upstream ioredis error verbatim — it's logged
+      // Don't echo the upstream ioredis error verbatim - it's logged
       // server-side above; the client gets a generic, actionable message.
       throw new ServiceUnavailableException({
         code: 'QUEUE_UNAVAILABLE',

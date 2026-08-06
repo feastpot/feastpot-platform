@@ -6,17 +6,17 @@ import { useEffect, useState } from 'react';
 import type { CapacityDay } from '@/lib/api/vendors';
 
 /**
- * T4 — "This week's capacity" band on the vendor profile.
+ * T4 - "This week's capacity" band on the vendor profile.
  *
  * Every figure is computed from the API's totalSlots / slotsTaken /
- * remainingSlots / preorderCutoffAt — no invented urgency, no fabricated
+ * remainingSlots / preorderCutoffAt - no invented urgency, no fabricated
  * percentages. Suppression rules (enforced in code):
  *   - remainingSlots === totalSlots → the item renders nothing (untouched
  *     capacity is not "scarcity").
  *   - remainingSlots === 0 → muted "Fully booked for this date", never amber.
  *   - countdown only when the cutoff is within 72 hours; otherwise the plain
  *     day + time. The countdown only ever counts DOWN (recomputed from the
- *     fixed cutoff timestamp) and disappears once the cutoff passes — it can
+ *     fixed cutoff timestamp) and disappears once the cutoff passes - it can
  *     never reset, loop or restart.
  */
 
@@ -55,7 +55,7 @@ function formatCountdown(msLeft: number): string {
 
 /**
  * Live-updating (once a minute) cutoff line. With prefers-reduced-motion,
- * the value is computed once and left static — no ticking.
+ * the value is computed once and left static - no ticking.
  */
 function CutoffItem({ cutoffAt }: { cutoffAt: string }) {
   // Client-only: time-of-render and timezone-dependent text would differ
@@ -72,7 +72,7 @@ function CutoffItem({ cutoffAt }: { cutoffAt: string }) {
 
   const cutoffMs = new Date(cutoffAt).getTime();
   const msLeft = cutoffMs - now;
-  if (msLeft <= 0) return null; // cutoff passed — never restart a countdown
+  if (msLeft <= 0) return null; // cutoff passed - never restart a countdown
 
   const withinWindow = msLeft <= COUNTDOWN_WINDOW_MS;
   return (
@@ -90,7 +90,7 @@ interface Props {
 export function CapacityBand({ capacity }: Props) {
   const items: React.ReactNode[] = [];
 
-  // Item 1 — remaining slots: the earliest pot/tray/meal-prep date where
+  // Item 1 - remaining slots: the earliest pot/tray/meal-prep date where
   // someone has actually booked (remaining < total).
   const slotRow = capacity.find(
     (r) => r.capacityType !== 'event_catering' && r.remainingSlots < r.totalSlots,
@@ -125,7 +125,7 @@ export function CapacityBand({ capacity }: Props) {
     }
   }
 
-  // Item 2 — earliest future pre-order cut-off.
+  // Item 2 - earliest future pre-order cut-off.
   const cutoffRow = capacity
     .filter((r) => r.preorderCutoffAt && new Date(r.preorderCutoffAt).getTime() > Date.now())
     .sort(
@@ -137,10 +137,10 @@ export function CapacityBand({ capacity }: Props) {
     items.push(<CutoffItem key="cutoff" cutoffAt={cutoffRow.preorderCutoffAt} />);
   }
 
-  // Item 3 — event catering slots, only once bookings have started. "This
+  // Item 3 - event catering slots, only once bookings have started. "This
   // month" must be literally true, so we only count rows inside the current
   // calendar month AND only render when the data window (21 days from today)
-  // actually covers the rest of the month — otherwise a truthful count isn't
+  // actually covers the rest of the month - otherwise a truthful count isn't
   // possible and we render nothing rather than a misleading one.
   const today = new Date();
   const monthPrefix = `${today.getUTCFullYear()}-${String(today.getUTCMonth() + 1).padStart(2, '0')}`;

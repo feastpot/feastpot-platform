@@ -1,4 +1,4 @@
-# Runbook — Move production onto a dedicated Supabase project
+# Runbook - Move production onto a dedicated Supabase project
 
 Production currently shares ONE Supabase project with development
 (ref `zibmwuzxgydlvapiddhf`). This caused the 30 Jul 2026 deploy scare and
@@ -13,7 +13,7 @@ else can be run by the agent from the workspace once secrets are provided.**
 ## 0. Preconditions
 
 - Pick a low-traffic window (recommended: weekday 02:00–04:00 UK, avoiding
-  Monday 02:00 — that's the payout batch).
+  Monday 02:00 - that's the payout batch).
 - Announce a short maintenance window on the status page if available.
 
 ## 1. 🧑 Provision the new project
@@ -30,7 +30,7 @@ Add to the workspace (temporarily, for the migration) as Replit Secrets:
 
 - `NEW_SUPABASE_URL` = `https://<NEWREF>.supabase.co`
 - `NEW_SUPABASE_DB_URL` = session-pooler URL (port 5432,
-  `postgres.<NEWREF>@aws-…pooler.supabase.com`) — Database → Connection string
+  `postgres.<NEWREF>@aws-…pooler.supabase.com`) - Database → Connection string
   → Session mode
 - `NEW_SUPABASE_ANON_KEY`, `NEW_SUPABASE_SERVICE_ROLE_KEY`
 
@@ -60,17 +60,17 @@ pg_restore --dbname="$NEW_SUPABASE_DB_URL" --data-only --disable-triggers -L /tm
 ```
 
 3. **Validate the restore before cutover** (step 6's row-count and login
-   checks) — the API stays stopped until validation passes.
+   checks) - the API stays stopped until validation passes.
 
 Notes:
 
 - `auth.users` restore preserves user ids, so all `public.users` FK links hold.
-- The freeze lasts from dump to cutover — budget ~15–30 min. Everything in
+- The freeze lasts from dump to cutover - budget ~15–30 min. Everything in
   steps 1–2 (project creation, hook SQL prepared, secrets staged) must be done
   BEFORE the freeze starts so the window stays short.
 
 **Rollback:** the old project is untouched throughout. If validation fails at
-any point, simply restart the API with the old secrets — zero data was moved
+any point, simply restart the API with the old secrets - zero data was moved
 or mutated on the old project. Delete the half-restored new project's data and
 retry another day.
 
@@ -78,7 +78,7 @@ retry another day.
 
 These are project-level, not schema-level (see `.agents/memory/supabase-auth-hook.md`):
 
-1. **Custom access token hook** — create `public.custom_access_token_hook`
+1. **Custom access token hook** - create `public.custom_access_token_hook`
    and the RLS policy granting `supabase_auth_admin` SELECT on `public.users`.
    Full SQL + explanation: `docs/supabase-auth-hook.md`.
 2. 🧑 Supabase dashboard → Authentication → Hooks → enable the
@@ -104,7 +104,7 @@ In **Vercel** (all three frontends): `NEXT_PUBLIC_SUPABASE_URL` and
 `NEXT_PUBLIC_SUPABASE_ANON_KEY` → new values; redeploy.
 
 Republish the API. The write freeze from step 3 stays in effect until this
-republish completes — no orders can be placed against the old database after
+republish completes - no orders can be placed against the old database after
 the snapshot, so nothing is lost in the gap.
 
 ## 6. Verify
@@ -112,7 +112,7 @@ the snapshot, so nothing is lost in the gap.
 - `https://api.feastpot.co.uk/v1/healthz` → `supabase.ref` = `<NEWREF>`,
   `environment: "production"`, no `DEV_REF_IN_PRODUCTION` warning.
 - Log in as a customer, a vendor, and an admin (JWT role claims come from the
-  auth hook — if logins 500, revisit step 4.1/4.2).
+  auth hook - if logins 500, revisit step 4.1/4.2).
 - Place a test order end-to-end.
 - Row counts spot-check: `orders`, `users`, `vendors` match old vs new.
 

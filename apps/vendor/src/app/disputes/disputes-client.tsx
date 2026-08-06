@@ -27,7 +27,7 @@ const STATUS_FILTERS: { value: DisputeStatus | 'all'; label: string }[] = [
 ];
 
 /**
- * Disputes list — filter pills by status + a card per dispute showing the
+ * Disputes list - filter pills by status + a card per dispute showing the
  * order number, issue type, severity/status badges, raised date, and an
  * SLA hint ("respond within 24h") on open disputes that still need a reply.
  */

@@ -10,7 +10,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
  * Distance  → `?radius=<miles>`   → SearchVendorsDto.maxDistanceKm ✅ server-side
  * Sort      → `?sort=<value>`     → SearchVendorsDto.sortBy      ✅ server-side
  *
- * Dropped candidates (no API backing — logged in docs/DEFECT-LOG.md):
+ * Dropped candidates (no API backing - logged in docs/DEFECT-LOG.md):
  *   Occasion, Delivery timing, Vegan/Gluten-free dietary, Serves band,
  *   Hygiene evidence, Minimum rating, Pre-order available, Min order value,
  *   Delivery vs collection (SearchVendorsDto.orderType is standard/event/subscription,

@@ -1,5 +1,5 @@
 /**
- * Geography guard — ensures no literal 'London' string appears in
+ * Geography guard - ensures no literal 'London' string appears in
  * apps/web/src except in src/config/geography.ts (where LAUNCH_FOCUS.city
  * is the single source of truth).
  *

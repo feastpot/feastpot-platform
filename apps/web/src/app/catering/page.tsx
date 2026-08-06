@@ -9,11 +9,11 @@ import { apiRequest } from '@/lib/api/client';
 import { normalisePostcode } from '@/lib/postcode';
 
 /**
- * Six-step catering enquiry funnel — POST /v1/catering-enquiries.
+ * Six-step catering enquiry funnel - POST /v1/catering-enquiries.
  *
  * State layers:
- *   URL ?step=n     — browser back/forward work; page is bookmarkable.
- *   sessionStorage  — answers survive a tab refresh within the same session.
+ *   URL ?step=n     - browser back/forward work; page is bookmarkable.
+ *   sessionStorage  - answers survive a tab refresh within the same session.
  *
  * On refresh with step > 1 but empty storage, the user is returned to step 1
  * rather than a blank form.
@@ -363,7 +363,7 @@ function CateringFunnel() {
           ...(state.step6Phone?.trim() && { phone: state.step6Phone.trim() }),
           ...(notesLines.length && { notes: notesLines.join('\n\n') }),
           source: 'web',
-          website: '', // honeypot — must be blank
+          website: '', // honeypot - must be blank
         },
       });
       clearState();
@@ -423,7 +423,7 @@ function CateringFunnel() {
 
   return (
     <div className="mx-auto max-w-lg px-4 pb-16 pt-8 sm:px-6">
-      {/* Entry heading — only on step 1 */}
+      {/* Entry heading - only on step 1 */}
       {step === 1 && (
         <div className="mb-6">
           <p className="text-[11px] font-black uppercase tracking-[0.18em] text-brand">
@@ -441,12 +441,12 @@ function CateringFunnel() {
       {/* Progress */}
       <div className="mb-6 space-y-2">
         <span className="text-[12px] font-bold text-charcoal-mid">
-          Step {step} of {TOTAL_STEPS} — {STEP_LABELS[step - 1]}
+          Step {step} of {TOTAL_STEPS}: {STEP_LABELS[step - 1]}
         </span>
         <ProgressBar step={step} total={TOTAL_STEPS} />
       </div>
 
-      {/* ── Step 1 — Occasion ────────────────────────────────────────── */}
+      {/* ── Step 1 - Occasion ────────────────────────────────────────── */}
       {step === 1 && (
         <fieldset>
           <legend className="mb-4 font-display text-xl font-black text-charcoal sm:text-2xl">
@@ -472,7 +472,7 @@ function CateringFunnel() {
         </fieldset>
       )}
 
-      {/* ── Step 2 — Guest count ─────────────────────────────────────── */}
+      {/* ── Step 2 - Guest count ─────────────────────────────────────── */}
       {step === 2 && (
         <fieldset>
           <legend className="mb-4 font-display text-xl font-black text-charcoal sm:text-2xl">
@@ -498,7 +498,7 @@ function CateringFunnel() {
         </fieldset>
       )}
 
-      {/* ── Step 3 — Food style ──────────────────────────────────────── */}
+      {/* ── Step 3 - Food style ──────────────────────────────────────── */}
       {step === 3 && (
         <fieldset>
           <legend className="mb-4 font-display text-xl font-black text-charcoal sm:text-2xl">
@@ -524,7 +524,7 @@ function CateringFunnel() {
         </fieldset>
       )}
 
-      {/* ── Step 4 — Location and date ───────────────────────────────── */}
+      {/* ── Step 4 - Location and date ───────────────────────────────── */}
       {step === 4 && (
         <div>
           <h2 className="mb-5 font-display text-xl font-black text-charcoal sm:text-2xl">
@@ -610,7 +610,7 @@ function CateringFunnel() {
         </div>
       )}
 
-      {/* ── Step 5 — Budget ──────────────────────────────────────────── */}
+      {/* ── Step 5 - Budget ──────────────────────────────────────────── */}
       {step === 5 && (
         <fieldset>
           <legend className="mb-4 font-display text-xl font-black text-charcoal sm:text-2xl">
@@ -636,7 +636,7 @@ function CateringFunnel() {
         </fieldset>
       )}
 
-      {/* ── Step 6 — Contact details ─────────────────────────────────── */}
+      {/* ── Step 6 - Contact details ─────────────────────────────────── */}
       {step === 6 && (
         <div>
           <h2 className="mb-5 font-display text-xl font-black text-charcoal sm:text-2xl">

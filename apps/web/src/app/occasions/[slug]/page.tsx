@@ -85,7 +85,7 @@ export default async function OccasionPage({ params }: PageProps) {
   if (!isOccasionSlug(slug)) notFound();
   const occasion = OCCASIONS[slug];
 
-  // FAQPage JSON-LD — generated from the same FAQ data rendered below so
+  // FAQPage JSON-LD - generated from the same FAQ data rendered below so
   // the structured data always matches visible page content exactly.
   const faqJsonLd = {
     '@context': 'https://schema.org',

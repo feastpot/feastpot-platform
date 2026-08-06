@@ -2,7 +2,7 @@
  * UK postcode utilities shared across public intake endpoints.
  *
  * The loose format regex covers the full postcode standard (Annex C of the
- * Royal Mail PAF specification) and is intentionally permissive — validation
+ * Royal Mail PAF specification) and is intentionally permissive - validation
  * rejects malformed strings but accepts edge-case valid postcodes such as
  * single-letter outward codes (E1), BFPO codes, and GIR 0AA.
  *

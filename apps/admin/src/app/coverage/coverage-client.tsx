@@ -100,7 +100,7 @@ export function CoverageClient() {
       <PageHeader
         title="Coverage waitlist"
         description={`Customers who asked to be notified when Feastpot reaches their postcode${
-          summary ? ` — ${summary.total} total` : ''
+          summary ? ` (${summary.total} total)` : ''
         }.`}
       />
 
@@ -173,9 +173,9 @@ export function CoverageClient() {
                   <TableCell className="whitespace-nowrap">{formatDateTime(r.createdAt)}</TableCell>
                   <TableCell>{r.email}</TableCell>
                   <TableCell className="font-medium">{r.postcode}</TableCell>
-                  <TableCell>{r.name ?? '—'}</TableCell>
+                  <TableCell>{r.name ?? '–'}</TableCell>
                   <TableCell>
-                    {r.marketingConsent == null ? '—' : r.marketingConsent ? 'Yes' : 'No'}
+                    {r.marketingConsent == null ? '–' : r.marketingConsent ? 'Yes' : 'No'}
                   </TableCell>
                   <TableCell>
                     <StatusPill tone={r.notified ? 'success' : 'neutral'}>

@@ -27,7 +27,7 @@ export function cateringEnquiryConfirmationTemplate(data: CateringEnquiryConfirm
         ) +
         brandButton('Browse vendors while you wait', 'https://feastpot.co.uk/vendors') +
         p('If you did not make this request, you can safely ignore this email.', '#888780'),
-      'Your feast request is in — we will match you soon',
+      'Your feast request is in. We will match you soon.',
     ),
   };
 }

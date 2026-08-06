@@ -184,7 +184,7 @@ export function CateringEnquiriesClient() {
                     <TableCell className="text-sm tabular-nums">{enq.guestCountBand}</TableCell>
                     <TableCell className="font-mono text-sm">{enq.postcode}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {enq.eventDate ?? '—'}
+                      {enq.eventDate ?? '-'}
                     </TableCell>
                     <TableCell>
                       <StatusPill tone={STATUS_TONE[enq.status] ?? 'neutral'}>
@@ -232,7 +232,7 @@ export function CateringEnquiriesClient() {
         <div className="fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col border-l border-hairline bg-white shadow-xl">
           <div className="flex items-center justify-between border-b border-hairline px-6 py-4">
             <h2 className="text-lg font-semibold">
-              {selected.contactName} — {selected.occasionType}
+              {selected.contactName}, {selected.occasionType}
             </h2>
             <button
               className="text-muted-foreground hover:text-foreground"

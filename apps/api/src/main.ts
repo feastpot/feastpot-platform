@@ -133,13 +133,13 @@ async function bootstrap(): Promise<void> {
 
   // Supabase project guard: production SHOULD run on a dedicated Supabase
   // project rather than the shared dev/prod ref. Today the platform still
-  // runs both environments on the shared project (ref zibmwuzxgydlvapiddhf) —
-  // production has served live traffic on it since launch — so a hard exit
+  // runs both environments on the shared project (ref zibmwuzxgydlvapiddhf) -
+  // production has served live traffic on it since launch - so a hard exit
   // here caused a full outage on 30 Jul 2026. We therefore only refuse to
   // start when REQUIRE_DEDICATED_SUPABASE=true is set (flip it on once a real
   // production project exists); otherwise we log loudly and continue.
   // Runs pre-Nest (before NestFactory connects Prisma), so the pino logger
-  // isn't wired up yet — use console.error to match the required-env gate.
+  // isn't wired up yet - use console.error to match the required-env gate.
   if (process.env.NODE_ENV === 'production' && isDevSupabaseRef()) {
     const strict = process.env.REQUIRE_DEDICATED_SUPABASE === 'true';
     // eslint-disable-next-line no-console
@@ -149,7 +149,7 @@ async function bootstrap(): Promise<void> {
         'Provision a dedicated production Supabase project and update the ' +
         'deployment secrets when possible. ' +
         (strict
-          ? 'REQUIRE_DEDICATED_SUPABASE=true — refusing to start.'
+          ? 'REQUIRE_DEDICATED_SUPABASE=true: refusing to start.'
           : 'Continuing startup (set REQUIRE_DEDICATED_SUPABASE=true to make this fatal).'),
     );
     if (strict) process.exit(1);

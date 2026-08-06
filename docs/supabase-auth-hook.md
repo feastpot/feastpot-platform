@@ -46,11 +46,11 @@ CREATE POLICY "Allow auth admin to read user roles"
 
 After creating the function, register it: **Auth → Hooks → Custom Access Token Hook → public.custom_access_token_hook**. Newly issued JWTs will then carry a top-level `role` claim, which `SupabaseAuthGuard.mapUser` reads from the verified bearer token.
 
-> **Important — this hook is not managed by Prisma.** The function, its grants,
+> **Important - this hook is not managed by Prisma.** The function, its grants,
 > and the RLS policy above live only in the database. A schema reset / fresh
 > `prisma db push` against a new database drops them. When that happens **every**
 > sign-in returns HTTP 500 (`Error running hook URI: pg-functions://postgres/public/custom_access_token_hook`),
-> or — if only the policy is missing — logins succeed but every JWT carries
+> or - if only the policy is missing - logins succeed but every JWT carries
 > `role: customer`. Re-run the full SQL block above after any DB reset.
 
 ## Trust model

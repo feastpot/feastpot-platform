@@ -168,14 +168,14 @@ export function VendorRecommendationsClient() {
               <TableBody>
                 {(page?.data ?? []).map((rec) => (
                   <TableRow key={rec.id}>
-                    <TableCell className="font-medium">{rec.businessName ?? '—'}</TableCell>
+                    <TableCell className="font-medium">{rec.businessName ?? '–'}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {rec.instagramHandle ? `@${rec.instagramHandle}` : '—'}
+                      {rec.instagramHandle ? `@${rec.instagramHandle}` : '–'}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {rec.phone ?? '—'}
+                      {rec.phone ?? '–'}
                     </TableCell>
-                    <TableCell className="font-mono text-sm">{rec.outwardCode ?? '—'}</TableCell>
+                    <TableCell className="font-mono text-sm">{rec.outwardCode ?? '–'}</TableCell>
                     <TableCell>
                       <StatusPill tone={STATUS_TONE[rec.status] ?? 'neutral'}>
                         {rec.status}

@@ -119,7 +119,7 @@ export function ChargebacksClient() {
     <>
       <PageHeader
         title="Chargebacks"
-        description="Stripe disputes raised against FeastPot payments — track evidence deadlines and reconciliation."
+        description="Stripe disputes raised against FeastPot payments: track evidence deadlines and reconciliation."
       />
 
       <ChargebackStatsTiles stats={stats} />
@@ -312,7 +312,7 @@ function ChargebackTableRow({ cb }: { cb: ChargebackRow }) {
 function ReconcileCell({ cb }: { cb: ChargebackRow }) {
   // Reconciliation only matters for lost chargebacks: a lost dispute reverses
   // the payment, so finance must reconcile the order's ledger.
-  if (cb.status !== 'lost') return <span className="text-sm text-muted-foreground">—</span>;
+  if (cb.status !== 'lost') return <span className="text-sm text-muted-foreground">–</span>;
   if (cb.reconciledAt) {
     return <StatusPill tone="success">Reconciled</StatusPill>;
   }

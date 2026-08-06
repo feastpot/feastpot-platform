@@ -425,7 +425,7 @@ export default function BecomeAVendorPage() {
         <div className="relative mx-auto aspect-[10/9] w-full max-w-[440px] overflow-hidden rounded-3xl bg-cream-warm shadow-[0_12px_48px_rgba(0,0,0,0.15)] lg:max-w-none">
           <Image
             src="/images/vendor-hero-food.png"
-            alt="A bulk spread of jollof rice, grilled chicken, stew, plantain and sides — the kind of feast a Feastpot home cook prepares"
+            alt="A bulk spread of jollof rice, grilled chicken, stew, plantain and sides, the kind of feast a Feastpot home cook prepares"
             fill
             sizes="(max-width: 1024px) 440px, 540px"
             className="object-cover"

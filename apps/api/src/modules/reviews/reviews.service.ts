@@ -328,7 +328,7 @@ export class ReviewsService {
    * counters in the admin UI.
    */
   async moderationQueueCounts(dto: ListModerationQueueDto) {
-    // Strip status from the input — counts are always grouped by status.
+    // Strip status from the input - counts are always grouped by status.
     const { status: _status, ...rest } = dto;
     const baseWhere = this.buildModerationFilters({ ...rest, status: 'all' });
     const grouped = await this.prisma.review.groupBy({

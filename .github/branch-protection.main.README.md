@@ -1,4 +1,4 @@
-# `branch-protection.main.json` — what it is and how to apply it
+# `branch-protection.main.json` - what it is and how to apply it
 
 This is the source-of-truth GitHub branch-protection config for
 `main` on `feastpot/feastpot-platform`. The JSON file beside this
@@ -15,7 +15,7 @@ curl -X PUT \
   https://api.github.com/repos/feastpot/feastpot-platform/branches/main/protection
 ```
 
-Idempotent — safe to re-run after every change to the JSON.
+Idempotent - safe to re-run after every change to the JSON.
 
 ## Why these contexts and not deploy.yml jobs
 
@@ -32,7 +32,7 @@ report on a `pull_request`. The deploy gates
 `.github/workflows/deploy.yml`, which only triggers on `push` to
 `main`. Putting them in branch protection would leave every PR
 permanently `mergeable_state: blocked`. Those gates are still
-enforced — just inside `deploy.yml` itself via job-level `needs:`
+enforced - just inside `deploy.yml` itself via job-level `needs:`
 dependencies, which is the correct layer for them.
 
 ## Why `enforce_admins: true`

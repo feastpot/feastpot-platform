@@ -163,7 +163,7 @@ export function WaitlistClient() {
                           {row.source}
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">
-                          {row.favouriteCuisine ?? '—'}
+                          {row.favouriteCuisine ?? '–'}
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">
                           {formatDateTime(row.createdAt)}

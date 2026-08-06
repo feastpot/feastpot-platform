@@ -38,7 +38,7 @@ export class NotificationsService {
     // with lazyConnect+enableOfflineQueue:false (see app.module.ts), so the
     // very first add() throws "Connection is closed." and would 500 the
     // controller. Never fail the synchronous user-facing flow because of a
-    // notification — but never DROP the notification either: on enqueue
+    // notification - but never DROP the notification either: on enqueue
     // failure the event is persisted to notification_outbox and a cron
     // (NotificationOutboxService) retries until the queue is back.
     try {
@@ -60,7 +60,7 @@ export class NotificationsService {
           'warning',
         );
       } catch (dbErr) {
-        // Queue AND DB both failed — this notification is genuinely lost.
+        // Queue AND DB both failed - this notification is genuinely lost.
         // Loudest possible signal so ops can replay it manually.
         this.logger.error(
           `enqueue(${eventName}) failed AND outbox write failed: ${(dbErr as Error).message}`,

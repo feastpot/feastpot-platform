@@ -69,12 +69,12 @@ export class ListModerationQueueDto {
   @Max(5)
   rating?: number;
 
-  @ApiPropertyOptional({ description: 'Submitted at lower bound — ISO8601' })
+  @ApiPropertyOptional({ description: 'Submitted at lower bound (ISO8601)' })
   @IsOptional()
   @IsDateString()
   submittedFrom?: string;
 
-  @ApiPropertyOptional({ description: 'Submitted at upper bound — ISO8601' })
+  @ApiPropertyOptional({ description: 'Submitted at upper bound (ISO8601)' })
   @IsOptional()
   @IsDateString()
   submittedTo?: string;

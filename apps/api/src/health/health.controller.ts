@@ -55,7 +55,7 @@ interface HealthzResponse {
 interface RedisSecurity {
   // rediss:// (TLS) vs redis:// (plaintext). Upstash production must be TLS.
   tls: boolean;
-  // True when REDIS_URL points at localhost/127.0.0.1 — never valid in prod
+  // True when REDIS_URL points at localhost/127.0.0.1 - never valid in prod
   // since the dev Redis port is intentionally not exposed.
   isLocal: boolean;
   // Loud, machine-readable flag for ops dashboards when a localhost Redis is
@@ -66,7 +66,7 @@ interface RedisSecurity {
 
 // Informational: surface Redis transport security so ops can confirm at a
 // glance (`curl .../healthz | jq .checks.redisSecurity`) that production uses a
-// TLS Upstash URL and isn't pointed at a local Redis. Purely advisory — does
+// TLS Upstash URL and isn't pointed at a local Redis. Purely advisory - does
 // NOT affect the 200/503 verdict (that is driven by the live `redis` PING).
 function redisSecurity(): RedisSecurity {
   const url = process.env.REDIS_URL ?? '';
@@ -82,7 +82,7 @@ function redisSecurity(): RedisSecurity {
 interface SupabaseInfo {
   ref: string;
   environment: 'development' | 'production';
-  // Set when the DEV Supabase project is backing a production deployment — a
+  // Set when the DEV Supabase project is backing a production deployment - a
   // loud, machine-readable flag for uptime monitors / ops dashboards. The
   // startup guard in main.ts already refuses to boot in that case, so seeing
   // this in a live prod response means the guard was bypassed (e.g. NODE_ENV
@@ -92,7 +92,7 @@ interface SupabaseInfo {
 
 // Informational: identify which Supabase project this instance is wired to so
 // ops can confirm at a glance (`curl .../healthz | jq .checks.supabase`) that
-// production isn't accidentally pointing at the dev database. Purely advisory —
+// production isn't accidentally pointing at the dev database. Purely advisory -
 // does NOT affect the 200/503 verdict.
 function supabaseInfo(): SupabaseInfo {
   return {
@@ -133,7 +133,7 @@ const WHATSAPP_CONTENT_SID_NAMES = Array.from(
 ).sort();
 
 // Report notification-channel availability so ops can see at a glance whether
-// vendors/customers will actually be alerted. Informational only — does NOT
+// vendors/customers will actually be alerted. Informational only - does NOT
 // affect the 200/503 verdict (a degraded comms channel must not drain the
 // instance). We mirror the exact env vars the providers read so this can never
 // disagree with what actually delivers: EmailProvider → RESEND_API_KEY +
@@ -168,7 +168,7 @@ function notificationChannels(): NotificationChannels {
 
 // Derive Stripe mode from the secret key prefix so ops can confirm at a
 // glance (`curl .../healthz | jq .checks.stripe`) that production is in
-// live mode. Purely informational — it does NOT affect the 200/503 verdict.
+// live mode. Purely informational - it does NOT affect the 200/503 verdict.
 function stripeMode(): StripeMode {
   const key = process.env.STRIPE_SECRET_KEY ?? '';
   if (key.startsWith('sk_live_')) return 'live';

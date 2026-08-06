@@ -3,7 +3,7 @@
 /**
  * Read-only earnings breakdown for a single order.
  *
- * IMPORTANT: this component performs NO arithmetic whatsoever — not even
+ * IMPORTANT: this component performs NO arithmetic whatsoever - not even
  * pence→pounds formatting. It receives four already-formatted display
  * strings, produced by the parent from values the API stored at
  * order-creation time (the output of computeCommission):

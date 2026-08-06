@@ -1,0 +1,114 @@
+TASK: Remove every em dash from the Feastpot codebase and
+prevent reintroduction.
+
+CONTEXT
+Em dashes (U+2014) are banned across all Feastpot surfaces.
+Confirmed live instances found on production, including:
+  apps/customer /vendors page title metadata
+  apps/customer occasion page titles (og:title, twitter:title)
+Both currently render "Feastpot [em dash] African and
+Caribbean Food Delivered".
+
+SCOPE
+Sweep the entire Turborepo:
+  apps/customer   (Next.js 15 PWA)
+  apps/vendor     (Next.js 15 vendor portal)
+  apps/admin      (Next.js 15 admin panel)
+  apps/api        (NestJS 11)
+  packages/*      (shared UI, config, types)
+  prisma/seed.ts  (seed content)
+  Email templates (Resend)
+  WhatsApp message templates (Meta Cloud API)
+
+STEP 1: Audit
+Run a repo-wide scan for U+2014 and report every hit with
+file path and line number before changing anything:
+
+  grep -rn $'\u2014' . --include="*.ts" --include="*.tsx" \
+    --include="*.js" --include="*.jsx" --include="*.json" \
+    --include="*.md" --include="*.html" --include="*.css" \
+    --exclude-dir=node_modules --exclude-dir=.next \
+    --exclude-dir=dist --exclude-dir=.turbo
+
+Also scan for en dashes (U+2013) and report separately.
+En dashes are permitted in numeric ranges only (for example
+"4 to 6" is preferred, but "2021-2024" style ranges may use
+a hyphen). Do not auto-replace en dashes, list them for
+manual review.
+
+STEP 2: Replace
+For each em dash, choose the correct replacement by context.
+Do NOT blanket-replace with a hyphen:
+  Title separator      -> use a pipe or a comma
+    "Feastpot | African and Caribbean Food Delivered"
+  Parenthetical aside  -> use commas or brackets
+  Range                -> use "to"
+  Interruption         -> restructure the sentence
+
+Apply UK English throughout. Replacements must read as
+natural human copy, not as mechanical substitutions.
+
+STEP 3: Database content
+Query Supabase for any stored content containing U+2014:
+  Vendor bios, dish names, dish descriptions
+  Occasion page copy if CMS-driven
+  Legal page bodies if stored rather than hardcoded
+  Notification and email templates
+Produce a migration script that reports affected rows for
+manual review. Do NOT auto-update user-generated vendor
+content without flagging it in the admin panel first.
+
+STEP 4: Prevent regression
+Add a custom ESLint rule at packages/eslint-config/
+no-em-dash.js:
+
+  module.exports = {
+    create(context) {
+      return {
+        Literal(node) {
+          if (typeof node.value === "string" &&
+              node.value.includes("\u2014")) {
+            context.report({
+              node,
+              message: "Em dash is not permitted in Feastpot copy. Use a comma, pipe, or restructure the sentence."
+            });
+          }
+        },
+        TemplateElement(node) {
+          if (node.value.raw.includes("\u2014")) {
+            context.report({
+              node,
+              message: "Em dash is not permitted in Feastpot copy."
+            });
+          }
+        }
+      };
+    }
+  };
+
+Register the rule as an error (not a warning) in the shared
+ESLint config consumed by all three apps and the API.
+
+STEP 5: CI guard
+Add a pre-commit hook and a CI step that fails the build if
+U+2014 appears anywhere in tracked files:
+
+  #!/bin/sh
+  if git diff --cached -U0 | grep -P '^\+.*\x{2014}'; then
+    echo "ERROR: em dash detected in staged changes."
+    exit 1
+  fi
+
+STEP 6: Document
+Add a CONTRIBUTING.md section stating the rule, the reason,
+and the approved alternatives.
+
+ACCEPTANCE CRITERIA
+- The audit grep returns zero results across all apps.
+- Page titles on /vendors and all /occasions/* routes render
+  without an em dash, verified in the browser tab and in the
+  og:title meta tag.
+- ESLint fails on a test file containing an em dash.
+- The CI guard blocks a test commit containing an em dash.
+- No copy reads awkwardly after replacement. Print a diff of
+  every copy change for review.

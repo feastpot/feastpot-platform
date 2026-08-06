@@ -2,7 +2,7 @@
  * Centralised API origin resolution for the customer PWA.
  *
  * Resolution order:
- *  1. NEXT_PUBLIC_API_URL (the canonical config — set per-project in Vercel).
+ *  1. NEXT_PUBLIC_API_URL (the canonical config - set per-project in Vercel).
  *     Used verbatim, with any trailing slash stripped.
  *  2. Production with the var unset → the stable public API origin. This is a
  *     safety net: it keeps the app working instead of falling through to a

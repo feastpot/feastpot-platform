@@ -203,8 +203,8 @@ describe('PaymentsService.createRefund', () => {
       stripePaymentIntentId: 'pi_1',
       stripeRefundId: 're_1',
     });
-    // The Feastpot-absorbed portion is split into TWO explicit credit rows —
-    // service fee retained + commission given back — that sum to 680 so the
+    // The Feastpot-absorbed portion is split into TWO explicit credit rows -
+    // service fee retained + commission given back - that sum to 680 so the
     // payout batch netting (Σ credit rows) is unchanged.
     expect(prisma.payment.create.mock.calls[1][0].data).toMatchObject({
       type: PaymentType.credit,

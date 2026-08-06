@@ -37,7 +37,7 @@ export class DlqMonitorService {
   private readonly waitingThreshold: number;
 
   // Alert when a pending order has been waiting for vendor acceptance
-  // longer than this threshold. 30 min is aggressive but safe — vendors
+  // longer than this threshold. 30 min is aggressive but safe - vendors
   // are expected to accept within 15 min per their SLA.
   private static readonly STUCK_ORDER_MINUTES = 30;
 
@@ -64,7 +64,7 @@ export class DlqMonitorService {
   /**
    * Every 5 minutes: alert in (near) real time when a queue backs up.
    *
-   * Alerting policy (designed against alert fatigue — review finding):
+   * Alerting policy (designed against alert fatigue - review finding):
    *  - Alert on a CHANGE, not a standing state: failed-count INCREASE at or
    *    above QUEUE_ALERT_FAILED_THRESHOLD (default 1), or waiting crossing
    *    UP through QUEUE_ALERT_WAITING_THRESHOLD (default 100). Retained
@@ -229,7 +229,7 @@ export class DlqMonitorService {
       if (won) {
         const ageMin = Math.round((Date.now() - order.createdAt.getTime()) / 60_000);
         freshAlerts.push(
-          `• \`${order.orderNumber}\` — *${order.vendor.businessName}* — pending ${ageMin} min`,
+          `• \`${order.orderNumber}\` - *${order.vendor.businessName}* - pending ${ageMin} min`,
         );
       }
     }

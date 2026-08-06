@@ -28,7 +28,7 @@ interface Props {
  * flashing placeholder strings.
  *
  * Layout (matches the mockup):
- *   [top action bar — Add menu item / bell / help]
+ *   [top action bar - Add menu item / bell / help]
  *   [greeting header]
  *   [4 stat cards in a row]
  *   ┌────────────────────────┬─────────────────┐

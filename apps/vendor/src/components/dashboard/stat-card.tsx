@@ -11,15 +11,15 @@ export interface StatCardProps {
   value: string | number;
   /** Optional small line under the value (e.g. "No sales yet today"). */
   hint?: string;
-  /** e.g. "£" — rendered before the animated number. */
+  /** e.g. "£" - rendered before the animated number. */
   prefix?: string;
-  /** e.g. " orders" — rendered after the animated number. */
+  /** e.g. " orders" - rendered after the animated number. */
   suffix?: string;
   /** % vs last week. Positive = good (teal), negative = bad (red). */
   change?: number;
   /** Which icon to show in the top-left tinted square. */
   iconKey: StatCardIconKey;
-  /** Visual treatment — picks the icon-tile colour. */
+  /** Visual treatment - picks the icon-tile colour. */
   color: 'brand' | 'teal' | 'vendor' | 'amber';
   /** Pulse the icon (used for pending-orders attention). */
   pulse?: boolean;

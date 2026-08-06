@@ -242,7 +242,7 @@ async function listAllAuthUsers(admin: SupabaseClient): Promise<Map<string, stri
   // Cache all auth users into an email → id map up front. Previously we
   // called listUsers() once per seeded user, which on Supabase Auth's hosted
   // tier (50+ users) was slow enough to silently terminate the seed before
-  // it finished — the loop now runs in O(1) lookups instead of O(N).
+  // it finished - the loop now runs in O(1) lookups instead of O(N).
   const map = new Map<string, string>();
   let page = 1;
   // eslint-disable-next-line no-constant-condition

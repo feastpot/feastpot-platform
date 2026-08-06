@@ -481,7 +481,7 @@ export class AdminService {
           AND: [scope, { status: { in: [OrderStatus.cancelled, OrderStatus.refunded] } }],
         },
       }),
-      // Denominator for success rate: orders that have left "pending" — i.e.
+      // Denominator for success rate: orders that have left "pending" - i.e.
       // the merchant has acted on them. Excludes still-pending orders so a
       // fresh queue doesn't dilute the rate.
       this.prisma.order.count({
@@ -494,7 +494,7 @@ export class AdminService {
 
   /**
    * CSV export of the admin order browser using the same filter envelope as
-   * `listAdminOrders`. Bounded at 5,000 rows — large enough for any
+   * `listAdminOrders`. Bounded at 5,000 rows - large enough for any
    * reasonable single-day audit, small enough to stream without blowing the
    * Node heap.
    */
@@ -1490,11 +1490,11 @@ export class AdminService {
    *
    * 1. STRIPE: pull the Stripe transfer and report any pence-level
    *    discrepancy between Stripe's recorded amount and our DB.
-   * 2. LEDGER: recompute every stored component from source-of-truth rows —
+   * 2. LEDGER: recompute every stored component from source-of-truth rows -
    *    gross/commission/net from the period's delivered orders (using each
    *    order's STORED vendorPayoutPence, which excludes the platform service
    *    fee) and refunds by netting refund rows against Feastpot-absorbed
-   *    credit rows — and diff against what the batch persisted.
+   *    credit rows - and diff against what the batch persisted.
    */
   async reconcilePayoutWithStripe(payoutId: string, role: UserRole) {
     if (role !== UserRole.admin && role !== UserRole.finance) {
@@ -1553,7 +1553,7 @@ export class AdminService {
    * batch reads (delivered orders in [periodStart, periodEnd) + payment
    * refund/credit netting) and diff them against the stored payout. Any
    * non-zero delta means either the underlying orders/payments changed after
-   * the batch ran (late refund, order edit) or a batch bug — both worth a
+   * the batch ran (late refund, order edit) or a batch bug - both worth a
    * finance look. Per-order payouts (orderId set, no period) skip the check.
    */
   private async reconcilePayoutLedger(payout: {
@@ -1595,13 +1595,13 @@ export class AdminService {
     const expectedGrossPence = orders.reduce((s, o) => s + o.totalPence, 0);
     const expectedCommissionPence = orders.reduce((s, o) => s + o.commissionPence, 0);
     // Vendor clawback = customer refunds (negative rows) net of the
-    // Feastpot-absorbed credit rows — mirrors aggregateVendorBatch exactly.
+    // Feastpot-absorbed credit rows - mirrors aggregateVendorBatch exactly.
     const expectedRefundsPence = Math.max(
       0,
       -(refundRows._sum.amountPence ?? 0) - (creditRows._sum.amountPence ?? 0),
     );
     // Zero-floor exactly like aggregateVendorBatch: a high-refund period
-    // stores netPence = 0, never negative — mirror that or we'd report false
+    // stores netPence = 0, never negative - mirror that or we'd report false
     // mismatches on such payouts.
     const expectedNetPence = Math.max(
       0,

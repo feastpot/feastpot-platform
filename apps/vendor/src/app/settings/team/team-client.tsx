@@ -54,7 +54,7 @@ const ROLE_BLURB: Record<VendorMemberRole, string> = {
 };
 
 /**
- * Tone per role — drives the role pill on each member row. Owner
+ * Tone per role - drives the role pill on each member row. Owner
  * is teal (highest trust), Kitchen Manager vendor-blue, Finance amber
  * (money), Staff and Delivery neutral.
  */
@@ -206,7 +206,7 @@ export function TeamClient() {
 
         {!isLoading && members.length > 0 && (
           <>
-            {/* Desktop column headers — hidden on small screens where
+            {/* Desktop column headers - hidden on small screens where
                 the row layout stacks vertically. */}
             <div className="hidden grid-cols-[minmax(0,1.4fr)_minmax(0,1.3fr)_minmax(0,1.6fr)_auto_auto] gap-4 border-b border-border bg-surface px-5 py-2 text-[11px] font-semibold uppercase tracking-wide text-mid lg:grid">
               <span>Member</span>

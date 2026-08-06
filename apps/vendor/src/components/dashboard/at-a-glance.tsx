@@ -30,7 +30,7 @@ interface Props {
 
 /**
  * Right-column summary card used on the dashboard. Vertical 3-row
- * layout (event enquiries / next payout / menu warnings) — replaces
+ * layout (event enquiries / next payout / menu warnings) - replaces
  * the horizontal `OperationsTiles` for this surface only. Each row
  * shows a soft-tinted icon square + label + primary signal, and the
  * whole row is a link to the page where the vendor can act.

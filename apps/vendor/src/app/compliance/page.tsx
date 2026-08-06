@@ -22,7 +22,7 @@ interface VendorMe {
  * onboarding so they see the full wizard context (Stripe, profile,
  * menu) alongside docs.
  *
- * Screen 6 of the vendor redesign — migrated to the SideNav shell
+ * Screen 6 of the vendor redesign - migrated to the SideNav shell
  * (with TopNav as a md:hidden mobile fallback).
  */
 export default async function CompliancePage() {

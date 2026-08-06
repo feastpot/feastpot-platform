@@ -637,7 +637,7 @@ export function ItemEditorClient({
         <SectionCard title="Photos">
           <div className="flex items-center justify-between">
             <p className="text-xs text-mid">
-              Up to 5. JPEG / PNG / WebP, 5 MB max each. Drag to reorder — the first photo is the
+              Up to 5. JPEG / PNG / WebP, 5 MB max each. Drag to reorder; the first photo is the
               cover.
             </p>
             <Button

@@ -3,7 +3,7 @@
  *
  * The API origin resolves in this order:
  *  1. NEXT_PUBLIC_API_URL (set per-project in Vercel).
- *  2. Production fallback to the stable public API origin — so a missing var
+ *  2. Production fallback to the stable public API origin - so a missing var
  *     never silently points the live panel at `localhost`.
  *  3. Development fallback to the local Nest dev server on port 3001.
  *

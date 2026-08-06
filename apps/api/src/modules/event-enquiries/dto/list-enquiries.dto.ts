@@ -30,22 +30,22 @@ export class ListEventEnquiriesDto {
   @MaxLength(120)
   q?: string;
 
-  @ApiPropertyOptional({ description: 'Event date (inclusive) lower bound — ISO8601' })
+  @ApiPropertyOptional({ description: 'Event date (inclusive) lower bound (ISO8601)' })
   @IsOptional()
   @IsDateString()
   eventFrom?: string;
 
-  @ApiPropertyOptional({ description: 'Event date (inclusive) upper bound — ISO8601' })
+  @ApiPropertyOptional({ description: 'Event date (inclusive) upper bound (ISO8601)' })
   @IsOptional()
   @IsDateString()
   eventTo?: string;
 
-  @ApiPropertyOptional({ description: 'Created at (inclusive) lower bound — ISO8601' })
+  @ApiPropertyOptional({ description: 'Created at (inclusive) lower bound (ISO8601)' })
   @IsOptional()
   @IsDateString()
   createdFrom?: string;
 
-  @ApiPropertyOptional({ description: 'Created at (inclusive) upper bound — ISO8601' })
+  @ApiPropertyOptional({ description: 'Created at (inclusive) upper bound (ISO8601)' })
   @IsOptional()
   @IsDateString()
   createdTo?: string;
@@ -68,7 +68,7 @@ export class ListEventEnquiriesDto {
   @Min(0)
   budgetMax?: number;
 
-  // ---- pagination (admin/support only — others get the legacy array) ----
+  // ---- pagination (admin/support only - others get the legacy array) ----
 
   @ApiPropertyOptional({ minimum: 1, maximum: 100, default: 25 })
   @IsOptional()

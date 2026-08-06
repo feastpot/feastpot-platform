@@ -1071,14 +1071,14 @@ export class VendorsService {
    * Onboarding checklist progress for the authed vendor. Drives the
    * /onboarding/welcome screen: five setup steps the vendor must finish
    * before compliance puts the kitchen live. Each flag is derived from
-   * existing profile/relation state — there is no separate
+   * existing profile/relation state - there is no separate
    * `onboardingCompletedAt` column; completion is otherwise tracked via
    * `Vendor.status` (pending → live), which is what gates the welcome
    * screen redirect.
    */
   async getOnboardingProgress(userId: string) {
     // Resolve membership-aware (a user may be a team member, not the owner)
-    // so this matches /vendors/me — querying by userId alone would 404 for
+    // so this matches /vendors/me - querying by userId alone would 404 for
     // non-owner members who can still reach the dashboard + welcome screen.
     const { id: vendorId } = await this.resolveMyVendor(userId, VENDOR_READ_ROLES);
     const vendor = await this.prisma.vendor.findUnique({
@@ -1691,7 +1691,7 @@ export class VendorsService {
 
   /**
    * Authed-vendor list of every configured capacity row from today
-   * forward (no upper bound — a vendor must be able to see and manage
+   * forward (no upper bound - a vendor must be able to see and manage
    * any future row they created, and the per-vendor row count is small).
    * Includes row ids so the portal can edit/delete, unlike the public
    * availability `capacity` array.
@@ -1723,7 +1723,7 @@ export class VendorsService {
    *   - date must be a valid calendar day, today or later
    *   - totalSlots can never be set below slotsTaken already reserved
    *   - preorderCutoffAt (when given) must not be after the service date's
-   *     end of day — a cutoff after the event is meaningless
+   *     end of day - a cutoff after the event is meaningless
    * When repeating weekly, the cutoff is shifted by the same number of
    * days for each following week so "cutoff 6pm the day before" stays
    * true for every repeated date.

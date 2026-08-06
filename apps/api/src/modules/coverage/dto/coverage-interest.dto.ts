@@ -6,7 +6,7 @@ import { IsBoolean, IsEmail, IsOptional, IsString, MaxLength, MinLength } from '
  * the waitlist page after entering an uncovered postcode; we want their
  * email so ops can email them the moment a vendor goes live in their area.
  *
- * Schema intentionally tiny — extra fields can be added once we know what
+ * Schema intentionally tiny - extra fields can be added once we know what
  * the ops team actually needs to action.
  */
 export class CoverageInterestDto {

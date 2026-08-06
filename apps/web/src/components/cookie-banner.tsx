@@ -15,9 +15,9 @@ import { Button } from '@feastpot/ui';
  * unambiguous and future-proof if non-essential cookies are ever added.
  *
  * Stored values in localStorage:
- *   'essential' — user picked essential-only
- *   'all'       — user accepted everything
- *   'accepted'  — legacy value (treated as 'all')
+ *   'essential' - user picked essential-only
+ *   'all'       - user accepted everything
+ *   'accepted'  - legacy value (treated as 'all')
  */
 const STORAGE_KEY = 'feastpot.cookie-consent.v1';
 

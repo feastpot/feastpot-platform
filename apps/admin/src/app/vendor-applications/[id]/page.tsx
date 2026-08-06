@@ -12,7 +12,7 @@ export default async function VendorApplicationDetailPage({
 }) {
   const { id } = await params;
   // Mirror backend AdminController role matrix for GET vendor-applications/:id.
-  // Note: the PATCH / resend-invite actions are admin/compliance only — the
+  // Note: the PATCH / resend-invite actions are admin/compliance only - the
   // backend enforces that, so support sees the page read-only.
   const user = await requireStaff(`/vendor-applications/${id}`, ['admin', 'compliance', 'support']);
   // Mutating actions (PATCH / resend-invite) are admin/compliance only on the

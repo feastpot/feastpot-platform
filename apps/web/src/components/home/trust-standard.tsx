@@ -1,17 +1,17 @@
 import { AlertCircle, BadgeCheck, CreditCard, MapPin, ShieldCheck, Star } from 'lucide-react';
 
 /**
- * "How we help you order with confidence" — six trust credentials, each backed
+ * "How we help you order with confidence" - six trust credentials, each backed
  * by a real schema field or platform integration. Placed after the reviews
  * section so it reinforces confidence before the waitlist / vendor CTA.
  *
  * Schema backing for every claim:
- *   1. Food business registration checked     — VendorApplication.hygiene_reg_number
- *   2. Hygiene information shown where avail  — VendorTrustSignal (hygiene_cert, hygiene_rating)
- *   3. Allergen information on every dish     — MenuItem.allergens[]
- *   4. Verified reviews from real orders      — Review.is_verified (linked to Order)
- *   5. Secure card payment through Stripe     — Payment model / Stripe integration
- *   6. Delivery coverage confirmed by postcode— Coverage endpoint + cookie gate
+ *   1. Food business registration checked     - VendorApplication.hygiene_reg_number
+ *   2. Hygiene information shown where avail  - VendorTrustSignal (hygiene_cert, hygiene_rating)
+ *   3. Allergen information on every dish     - MenuItem.allergens[]
+ *   4. Verified reviews from real orders      - Review.is_verified (linked to Order)
+ *   5. Secure card payment through Stripe     - Payment model / Stripe integration
+ *   6. Delivery coverage confirmed by postcode- Coverage endpoint + cookie gate
  */
 const TRUST_ITEMS = [
   {

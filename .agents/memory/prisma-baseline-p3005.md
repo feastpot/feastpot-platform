@@ -17,18 +17,18 @@ un-baselined", so `migrate deploy` refuses to run.
 to fix dev login silently breaks the prod deploy. Any new feature migration (T001
 style) would also hit P3005 against this DB.
 
-# Recovery — baseline the DB (mark all migrations applied)
+# Recovery - baseline the DB (mark all migrations applied)
 The schema already matches `prisma/schema.prisma`, so record every dir in
 `prisma/migrations/` as applied:
 1. Authoritative + creates the table: `npx prisma migrate resolve --applied <first_migration>`.
-2. Batch the rest in one psql round trip — Prisma's checksum == `sha256sum migration.sql`
+2. Batch the rest in one psql round trip - Prisma's checksum == `sha256sum migration.sql`
    (verified equal), so INSERT into `public._prisma_migrations`
    (id=gen_random_uuid()::text, checksum=<sha256>, finished_at=now(), migration_name,
    started_at=now(), applied_steps_count=1) for each remaining dir.
 3. Verify: `prisma migrate status` → "Database schema is up to date!";
    `prisma migrate deploy` → "No pending migrations to apply."
 
-**Gotcha:** backgrounded shell jobs (nohup &) die when the bash tool call returns —
+**Gotcha:** backgrounded shell jobs (nohup &) die when the bash tool call returns -
 run the baseline loop synchronously, or use the one-shot psql INSERT above.
 
 **Prevention:** never `db push` the shared Supabase DB without baselining afterward.

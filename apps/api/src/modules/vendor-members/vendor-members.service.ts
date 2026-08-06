@@ -127,7 +127,7 @@ export class VendorMembersService {
 
       // Mint a Supabase magic-link. This is the only point where we touch
       // Supabase Auth from this method, and it works the same for new and
-      // existing emails — Supabase auto-creates the auth user if needed.
+      // existing emails - Supabase auto-creates the auth user if needed.
       // If it fails, fall back to the plain sign-in URL so the email is
       // still useful for existing users; new users will need a fresh
       // invite once the upstream issue is fixed.
@@ -141,14 +141,14 @@ export class VendorMembersService {
         const link = data?.properties?.action_link;
         if (error || !link) {
           this.logger.warn(
-            `[vendor-members.invite] magic-link generation failed for ${args.to}: ${error?.message ?? 'no action_link'} — falling back to plain sign-in URL`,
+            `[vendor-members.invite] magic-link generation failed for ${args.to}: ${error?.message ?? 'no action_link'} - falling back to plain sign-in URL`,
           );
         } else {
           cta = link;
         }
       } catch (err) {
         this.logger.warn(
-          `[vendor-members.invite] magic-link generation threw for ${args.to}: ${(err as Error).message} — falling back to plain sign-in URL`,
+          `[vendor-members.invite] magic-link generation threw for ${args.to}: ${(err as Error).message} - falling back to plain sign-in URL`,
         );
       }
 

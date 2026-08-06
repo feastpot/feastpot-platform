@@ -108,6 +108,19 @@ jobs:
         run: npx turbo run lint
       - name: Prettier check
         run: npm run format:check
+      - name: No em-dash guard
+        run: |
+          if grep -rn $'\u2014' . \
+            --include="*.ts" --include="*.tsx" \
+            --include="*.js" --include="*.jsx" \
+            --include="*.json" --include="*.md" \
+            --include="*.html" --include="*.css" \
+            --exclude-dir=node_modules --exclude-dir=.next \
+            --exclude-dir=dist --exclude-dir=.turbo \
+            --exclude-dir=.git --exclude-dir=.local; then
+            echo "ERROR: em dash (U+2014) detected. See CONTRIBUTING.md for approved alternatives."
+            exit 1
+          fi
 
   # ----------------------------------------------------------------------------
   # 4. Prisma schema validation + format check

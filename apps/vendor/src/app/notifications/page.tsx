@@ -19,7 +19,7 @@ interface VendorMe {
  * Standalone Notifications page. Any signed-in vendor user (Owner,
  * Manager, Cook) can see their inbox.
  *
- * Screen 8 of the vendor redesign — migrated to the SideNav shell
+ * Screen 8 of the vendor redesign - migrated to the SideNav shell
  * (with TopNav as a md:hidden mobile fallback).
  */
 export default async function NotificationsPage() {

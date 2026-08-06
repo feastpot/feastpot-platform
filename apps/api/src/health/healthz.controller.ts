@@ -67,7 +67,7 @@ type ComponentState = 'operational' | 'degraded' | 'down';
  *
  * Deliberately narrow (review finding): unlike `/healthz` it exposes NO
  * queue counts, dependency configuration, secret status, Supabase project
- * identity or version info — only coarse per-component states. Anything a
+ * identity or version info - only coarse per-component states. Anything a
  * status page shows is world-readable, so keep this to what a customer
  * legitimately needs to know.
  */

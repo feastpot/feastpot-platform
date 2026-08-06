@@ -1,6 +1,6 @@
 /**
  * Content data for the eight static occasion landing pages
- * (/occasions/[slug]). Copy only — no vendor names, menu items, prices
+ * (/occasions/[slug]). Copy only - no vendor names, menu items, prices
  * or availability may appear here: the postcode form remains the gate.
  */
 
@@ -64,7 +64,7 @@ export const OCCASIONS: Record<OccasionSlug, OccasionContent> = {
           'Yes. Once you have found a cook you love, you can reorder in a couple of taps and schedule the delivery day that suits your family.',
       },
     ],
-    metaTitle: 'Sunday Family Meals — African & Caribbean Food Delivered',
+    metaTitle: 'Sunday Family Meals | African & Caribbean Food Delivered',
     metaDescription:
       'Order African and Caribbean Sunday family meals from trusted local cooks. Family pots that feed 4-6, scheduled delivery, order by Thursday or Friday for Sunday.',
     recommendedCuisines: ['Nigerian', 'Ghanaian', 'Caribbean'],
@@ -93,7 +93,7 @@ export const OCCASIONS: Record<OccasionSlug, OccasionContent> = {
           'Yes. You can build an order with several trays and sides from the same cook and have everything arrive together on your chosen date.',
       },
     ],
-    metaTitle: 'Birthday Party Trays — African & Caribbean Catering',
+    metaTitle: 'Birthday Party Trays | African & Caribbean Catering',
     metaDescription:
       'Order African and Caribbean birthday party trays from local cooks. Trays serve 8-12 guests, 3-5 days notice, delivered ready to serve on your date.',
     recommendedCuisines: ['Nigerian', 'Ghanaian', 'Jamaican', 'Caribbean'],
@@ -122,7 +122,7 @@ export const OCCASIONS: Record<OccasionSlug, OccasionContent> = {
           'Yes. For event orders you can describe your occasion and guest count, and the cook responds with a quote before you pay anything.',
       },
     ],
-    metaTitle: 'Wedding & Event Catering — African & Caribbean',
+    metaTitle: 'Wedding & Event Catering | African & Caribbean',
     metaDescription:
       'African and Caribbean catering for weddings, church programmes and gatherings. Local cooks, per-tray or per-head portions, quotes for large events.',
     recommendedCuisines: ['Nigerian', 'Ghanaian', 'Caribbean'],
@@ -131,7 +131,7 @@ export const OCCASIONS: Record<OccasionSlug, OccasionContent> = {
     slug: 'office-catering',
     h1: 'African and Caribbean office catering for teams',
     intro: [
-      'Give the team a lunch to talk about. Local cooks deliver African and Caribbean spreads to workplaces — jollof and jerk trays, vegetarian options and sides, portioned for your headcount.',
+      'Give the team a lunch to talk about. Local cooks deliver African and Caribbean spreads to workplaces: jollof and jerk trays, vegetarian options and sides, portioned for your headcount.',
       'For office lunches, plan one tray per 8 to 10 colleagues plus a side each. Most cooks ask for at least 2 to 3 working days notice for weekday deliveries, with morning cut-offs for end-of-week orders.',
     ],
     faqs: [
@@ -151,7 +151,7 @@ export const OCCASIONS: Record<OccasionSlug, OccasionContent> = {
           "Many cooks offer vegetarian dishes and halal preparation. Enter your postcode to see which cooks near your office cater for your team's requirements.",
       },
     ],
-    metaTitle: 'Office Catering — African & Caribbean Team Lunches',
+    metaTitle: 'Office Catering | African & Caribbean Team Lunches',
     metaDescription:
       'African and Caribbean office catering from local cooks. Trays for 8-10 colleagues, vegetarian and halal options, 2-3 days notice for weekday delivery.',
     recommendedCuisines: ['Nigerian', 'Ghanaian', 'Jamaican', 'Caribbean'],
@@ -180,7 +180,7 @@ export const OCCASIONS: Record<OccasionSlug, OccasionContent> = {
           'Cooks typically deliver meal prep on a fixed day and close orders 2 to 3 days before. You can reorder your usual selection in a couple of taps.',
       },
     ],
-    metaTitle: 'Weekly Meal Prep — African & Caribbean Portions',
+    metaTitle: 'Weekly Meal Prep | African & Caribbean Portions',
     metaDescription:
       'African and Caribbean weekly meal prep from local cooks. Single portions, fridge- and freezer-friendly, scheduled weekly delivery to your postcode.',
     recommendedCuisines: ['Nigerian', 'Ghanaian'],
@@ -209,7 +209,7 @@ export const OCCASIONS: Record<OccasionSlug, OccasionContent> = {
           'Yes. Trays arrive prepared and presentation-ready, so you can go straight from delivery to the buffet table.',
       },
     ],
-    metaTitle: 'Baby Shower Food — African & Caribbean Trays',
+    metaTitle: 'Baby Shower Food | African & Caribbean Trays',
     metaDescription:
       'Order African and Caribbean baby shower trays from local cooks. One tray per 10 guests, 3-5 days notice, delivered ready to serve.',
     recommendedCuisines: ['Nigerian', 'Ghanaian', 'Caribbean'],
@@ -218,7 +218,7 @@ export const OCCASIONS: Record<OccasionSlug, OccasionContent> = {
     slug: 'small-chops',
     h1: 'Small chops delivery: puff puff, samosa, spring rolls and more',
     intro: [
-      'The platters no Nigerian party is complete without. Local cooks prepare fresh small chops — puff puff, samosa, spring rolls, mini sausages, gizzard and peppered snails — arranged ready for guests.',
+      'The platters no Nigerian party is complete without. Local cooks prepare fresh small chops: puff puff, samosa, spring rolls, mini sausages, gizzard and peppered snails, arranged ready for guests.',
       'A standard small-chops platter serves 6 to 8 as a starter or side; party hosts usually plan one platter per 6 guests. Fresh platters generally need 2 to 4 days notice, with larger party orders closing earlier.',
     ],
     faqs: [
@@ -238,7 +238,7 @@ export const OCCASIONS: Record<OccasionSlug, OccasionContent> = {
           'Classics include puff puff, samosa, spring rolls, mini sausages and gizzard, with each cook offering their own combinations once you have entered your postcode.',
       },
     ],
-    metaTitle: 'Small Chops Delivery — Puff Puff, Samosa & More',
+    metaTitle: 'Small Chops Delivery | Puff Puff, Samosa & More',
     metaDescription:
       'Fresh small chops platters from local cooks: puff puff, samosa, spring rolls and more. Platters serve 6-8, order 2-4 days ahead.',
     recommendedCuisines: ['Nigerian', 'Ghanaian', 'Jamaican', 'Caribbean'],
@@ -247,7 +247,7 @@ export const OCCASIONS: Record<OccasionSlug, OccasionContent> = {
     slug: 'frozen-soup-packs',
     h1: 'Frozen African soup packs: stock the freezer with proper home food',
     intro: [
-      'Egusi, ogbono, okra, afang, pepper soup — cooked properly, frozen fresh and delivered in meal-sized packs so home food is always minutes away.',
+      'Egusi, ogbono, okra, afang, pepper soup: cooked properly, frozen fresh and delivered in meal-sized packs so home food is always minutes away.',
       'Packs typically come in 1-litre portions that serve 2 to 3 with swallow or rice; most customers order 4 to 6 packs at a time. Because packs are made to order, cooks usually ask for 2 to 4 days notice, and the food keeps for up to 3 months frozen.',
     ],
     faqs: [
@@ -267,7 +267,7 @@ export const OCCASIONS: Record<OccasionSlug, OccasionContent> = {
           'Packs are cooked to order, so most cooks ask for 2 to 4 days notice before delivery. Their exact cut-off is shown before checkout.',
       },
     ],
-    metaTitle: 'Frozen Soup Packs — Egusi, Ogbono & Pepper Soup',
+    metaTitle: 'Frozen Soup Packs | Egusi, Ogbono & Pepper Soup',
     metaDescription:
       'Frozen African soup packs from local cooks: egusi, ogbono, okra and pepper soup. 1-litre packs serve 2-3, keep 3 months frozen, made to order.',
     recommendedCuisines: ['Nigerian', 'Ghanaian'],

@@ -129,7 +129,7 @@ export function useDisputeEvidence(id: string | undefined) {
 /**
  * Submit the vendor's response to a dispute. The API advances
  * open → vendor_contacted and REJECTS with DISPUTE_ESCALATED /
- * DISPUTE_CLOSED when responses are locked — those surface as
+ * DISPUTE_CLOSED when responses are locked - those surface as
  * `ApiError` (with `.code`) so the caller can render a friendly notice.
  */
 export function useSubmitVendorResponse(id: string) {

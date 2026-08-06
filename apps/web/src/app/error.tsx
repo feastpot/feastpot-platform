@@ -5,7 +5,7 @@ import { useEffect } from 'react';
 
 /**
  * Route-segment error boundary for the customer PWA. Rendered inside the root
- * layout, so global CSS + brand tokens are available — we use the same Tailwind
+ * layout, so global CSS + brand tokens are available - we use the same Tailwind
  * brand-token conventions as `not-found.tsx` rather than inline styles.
  */
 export default function Error({

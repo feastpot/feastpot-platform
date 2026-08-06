@@ -491,7 +491,7 @@ function EnquiryRowView({ row: e, onOpen }: { row: EnquiryRow; onOpen: () => voi
   const initials =
     `${(e.customer.firstName ?? e.customer.email)[0] ?? '?'}${(e.customer.lastName ?? '')[0] ?? ''}`.toUpperCase();
   const guests = e.finalGuestCount ?? e.guestCount;
-  const cuisineMain = e.cuisines[0] ?? '—';
+  const cuisineMain = e.cuisines[0] ?? '–';
   const cuisineOverflow = e.cuisines.length > 1 ? `+${e.cuisines.length - 1}` : null;
   const vendorInitials = e.selectedVendor
     ? e.selectedVendor.businessName
@@ -578,7 +578,7 @@ function EnquiryRowView({ row: e, onOpen }: { row: EnquiryRow; onOpen: () => voi
         </div>
       </TableCell>
       <TableCell className="text-sm tabular-nums">
-        {e.budgetPence !== null ? formatPence(e.budgetPence) : '—'}
+        {e.budgetPence !== null ? formatPence(e.budgetPence) : '–'}
       </TableCell>
       <TableCell className="text-right text-sm tabular-nums">{e.quotes.length}</TableCell>
       <TableCell className="text-sm">
@@ -591,7 +591,7 @@ function EnquiryRowView({ row: e, onOpen }: { row: EnquiryRow; onOpen: () => voi
             <CheckCircle2 className="h-3.5 w-3.5 text-teal" aria-hidden="true" />
           </div>
         ) : (
-          <span className="text-muted-foreground">—</span>
+          <span className="text-muted-foreground">-</span>
         )}
       </TableCell>
       <TableCell>

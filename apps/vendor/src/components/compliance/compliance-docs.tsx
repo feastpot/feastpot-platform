@@ -75,7 +75,7 @@ export const REQUIRED_DOC_TYPES: ReadonlyArray<VendorDocumentType> = REQUIRED_DO
   (d) => d.type,
 );
 
-/** Decorative icon tile per doc type — matches the Vendor4 mockup. */
+/** Decorative icon tile per doc type - matches the Vendor4 mockup. */
 const DOC_ICON: Record<VendorDocumentType, { Icon: typeof FileText; bg: string; fg: string }> = {
   hygiene_cert: { Icon: FileText, bg: 'bg-red-100', fg: 'text-red-600' },
   insurance: { Icon: ShieldCheck, bg: 'bg-amber-100', fg: 'text-amber-600' },
@@ -132,7 +132,7 @@ export function ComplianceStateBadge({ state }: { state: ComplianceState }) {
 }
 
 /**
- * A single row in the compliance document list. Pure presentation —
+ * A single row in the compliance document list. Pure presentation -
  * takes its current document (if any) and an `onPick` handler so the
  * same component works for onboarding (initial upload) and the
  * standalone `/compliance` page (replace).
@@ -160,7 +160,7 @@ export function DocumentRow({
    */
   anchorId?: string;
   /**
-   * Preferred — the canonical doc type. When omitted, we fall back to
+   * Preferred - the canonical doc type. When omitted, we fall back to
    * label-based inference so existing callers (the onboarding wizard
    * pre-redesign) keep working. New callers should always pass this
    * explicitly so future label tweaks don't silently break the
@@ -184,7 +184,7 @@ export function DocumentRow({
   const { Icon } = iconMeta;
 
   // Per-requirement checklist on the right. Each item shows the state
-  // text ("Not started" / "Submitted" / "Approved" / etc.) — same
+  // text ("Not started" / "Submitted" / "Approved" / etc.) - same
   // overall state as the doc, but split into the three concerns
   // shown in the mockup.
   const checklist = [

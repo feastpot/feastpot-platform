@@ -88,7 +88,7 @@ export interface UpdateVendorApplicationBody {
 /**
  * Application queue. Passing no status hits the backend default, which
  * returns the in-flight triage queue (pending / under_review /
- * information_requested) — mirrors the /admin/vendors "all" convention.
+ * information_requested) - mirrors the /admin/vendors "all" convention.
  */
 export function useVendorApplications(status: VendorApplicationStatus | 'all') {
   const { request, ready } = useApi();

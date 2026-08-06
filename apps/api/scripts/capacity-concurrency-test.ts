@@ -1,6 +1,6 @@
 /**
  * Acceptance check for reserveCapacity (T5/T6): two parallel reservations
- * against a row with total_slots=1, slots_taken=0 — exactly one must win.
+ * against a row with total_slots=1, slots_taken=0 - exactly one must win.
  * Run: CAPACITY_ENFORCEMENT=true npx ts-node apps/api/scripts/capacity-concurrency-test.ts
  */
 import { CapacityType, PrismaClient } from '@prisma/client';

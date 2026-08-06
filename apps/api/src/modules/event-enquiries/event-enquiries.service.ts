@@ -213,7 +213,7 @@ export class EventEnquiriesService {
         { quotes: { some: { vendorId: vendor.id } } },
       ];
     } else if (isAdmin) {
-      // Admin-only filters — applied only on the staff scope so a filter
+      // Admin-only filters - applied only on the staff scope so a filter
       // param can't accidentally widen customer/vendor visibility.
       this.applyAdminEnquiryFilters(where, dto);
     }

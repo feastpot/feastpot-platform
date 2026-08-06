@@ -20,7 +20,7 @@ import { InboxService } from '../inbox/inbox.service';
  * Exactly-once: a CAS on `evidenceWarnedAt IS NULL` marks the row before
  * fan-out, so overlapping cron ticks or multi-instance deploys never
  * double-page. Deadlines already in the past still alert (better late than
- * silent) — the message says OVERDUE in that case.
+ * silent) - the message says OVERDUE in that case.
  */
 @Injectable()
 export class ChargebackDeadlineMonitorService {
@@ -85,7 +85,7 @@ export class ChargebackDeadlineMonitorService {
       const body =
         `Stripe dispute ${cb.stripeDisputeId}` +
         (cb.reason ? ` (${cb.reason})` : '') +
-        (cb.orderId ? ` on order ${cb.orderId}` : ' — no matched order') +
+        (cb.orderId ? ` on order ${cb.orderId}` : ': no matched order') +
         `. Evidence due ${dueBy.toISOString()}. Submit evidence in the Stripe Dashboard before the deadline or the dispute is lost by default.`;
 
       Sentry.captureMessage(

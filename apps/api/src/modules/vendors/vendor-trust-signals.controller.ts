@@ -32,7 +32,7 @@ function requireUser(user: AuthUser | null): AuthUser {
 /**
  * Staff-only review surface for vendor trust signals ("What we have
  * checked" badges). Customers only ever see `verified` signals via the
- * public read layer (getVendorTrustSignals default filter) — these
+ * public read layer (getVendorTrustSignals default filter) - these
  * endpoints are the sole way a signal reaches `verified` / `expired`.
  */
 @ApiTags('Admin')

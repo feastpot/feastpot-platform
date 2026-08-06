@@ -3,7 +3,7 @@ import { ShieldCheck } from 'lucide-react';
 import type { TrustSignalType, VerifiedTrustSignal } from '@/lib/api/vendors';
 
 /**
- * T1 — exact label map from the brief. Only verified signals ever reach
+ * T1 - exact label map from the brief. Only verified signals ever reach
  * this component, and it double-checks by rendering nothing for unknown
  * signal types.
  */
@@ -43,7 +43,7 @@ interface Props {
  * Compact verified-trust pill. Mirrors the shared Badge styling (rounded
  * pill, semibold) at 12px, in the theme green trust tokens already used by
  * the FSA pill. Renders nothing when handed a signal type outside the
- * verified label map — the caller must only pass verified signals, and this
+ * verified label map - the caller must only pass verified signals, and this
  * guard makes an unverified/unknown value fail silent rather than fabricate
  * a claim.
  */

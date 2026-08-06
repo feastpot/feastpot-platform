@@ -12,7 +12,7 @@ directly / via admin). Root causes found and fixed:
 
 - **`lint` → Prettier step:** `format:check` globs `**/*.{ts,tsx,js,jsx,json,md}`
   with **no `.prettierignore`**, so it scanned `.local/` (agent skills/tasks) and
-  `.agents/` (memory) — hundreds of generated files — and always failed. Fix: add
+  `.agents/` (memory) - hundreds of generated files - and always failed. Fix: add
   `.prettierignore` (mirror `.gitignore` + `.local`, `.agents`, `.cache`, etc.),
   then the real source (~350 files, never Prettier-formatted) needs one
   `npm run format`.
@@ -20,7 +20,7 @@ directly / via admin). Root causes found and fixed:
   references `env("SUPABASE_DB_URL")` / `env("SUPABASE_DIRECT_URL")`; the job had
   no `env:`, so P1012 "Environment variable not found". Fix: give the job dummy
   non-connecting URLs. Also `prisma format --check` failed because the schema was
-  unformatted — run `prisma format` once.
+  unformatted - run `prisma format` once.
 - **`test`:** reads `SUPABASE_DB_URL`/`SUPABASE_DIRECT_URL` from repo secrets
   `TEST_DATABASE_URL` / `TEST_DIRECT_URL`, which are **not set** → same P1012 before
   any test runs, then needs ≥70% coverage. This one needs the repo owner to
@@ -36,6 +36,6 @@ main (not PRs) and is NOT one of the required checks.
 
 ## eqeqeq is intentional `== null`
 Every `eqeqeq` violation in the API is the `x == null` / `x != null` idiom
-(matches null AND undefined in one check). Do NOT rewrite to `===` — that changes
+(matches null AND undefined in one check). Do NOT rewrite to `===` - that changes
 behaviour. The shared `packages/config/eslint-base.js` now sets
 `eqeqeq: ['error', 'always', { null: 'ignore' }]` to allow exactly this.

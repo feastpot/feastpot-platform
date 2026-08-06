@@ -5,7 +5,7 @@ description: How Stripe event types map to BullMQ processors, and the refund eve
 
 # Stripe webhook event routing
 
-The webhook controller enqueues each event with `queue.add(event.type, ...)` — the
+The webhook controller enqueues each event with `queue.add(event.type, ...)` - the
 **Bull job name IS the raw Stripe `event.type` string**. The processor dispatches by
 EXACT named `@Process({ name: '<event.type>' })`. There is no catch-all (legacy Bull
 forbids a catch-all alongside named handlers), so any event whose type has no matching

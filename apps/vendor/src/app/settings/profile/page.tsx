@@ -17,7 +17,7 @@ interface VendorMe {
 }
 
 /**
- * Business profile page. Screen 5 of the vendor redesign — migrated
+ * Business profile page. Screen 5 of the vendor redesign - migrated
  * to the SideNav shell (with TopNav as a md:hidden mobile fallback),
  * matching the Dashboard / Orders / Menu / Availability pattern.
  */

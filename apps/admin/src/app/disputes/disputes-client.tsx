@@ -205,7 +205,7 @@ export function DisputesClient() {
         const customerName =
           `${d.order.customer.firstName ?? ''} ${d.order.customer.lastName ?? ''}`.trim() ||
           d.order.customer.email;
-        // Pass every text cell through escapeCsv — order numbers, issue types
+        // Pass every text cell through escapeCsv - order numbers, issue types
         // and statuses are platform-controlled today but cheap to harden.
         return [
           escapeCsv(formatDate(d.createdAt)),

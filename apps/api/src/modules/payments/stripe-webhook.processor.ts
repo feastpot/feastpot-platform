@@ -305,7 +305,7 @@ export class StripeWebhookProcessor {
    * one credit row for the portion Feastpot absorbs (its service-fee +
    * commission share). The weekly payout batch nets these two rows into the
    * vendor clawback, so the vendor is deducted only what they actually earned
-   * on the disputed portion — the platform service fee is never clawed back
+   * on the disputed portion - the platform service fee is never clawed back
    * from them (see computeRefundSplit).
    *
    * Idempotency: a CAS on `Chargeback.reconciledAt IS NULL` inside the same
@@ -319,7 +319,7 @@ export class StripeWebhookProcessor {
     });
     if (!chargeback || chargeback.reconciledAt) return;
     if (!chargeback.orderId) {
-      // No local order matched — nothing to reconcile against. Loudly flag it:
+      // No local order matched - nothing to reconcile against. Loudly flag it:
       // money left the Stripe balance with no ledger counterpart.
       this.logger.error(
         `Chargeback ${stripeDisputeId} LOST but has no matching order - manual reconciliation required`,
@@ -362,7 +362,7 @@ export class StripeWebhookProcessor {
       });
       if (cas.count !== 1) return { outcome: 'already_reconciled' as const };
 
-      // Cap at what is still refundable — computed INSIDE the lock scope so
+      // Cap at what is still refundable - computed INSIDE the lock scope so
       // prior refunds/chargebacks can never push the cumulative amount past
       // the order total, even under concurrency.
       const prior = await tx.payment.aggregate({
@@ -397,7 +397,7 @@ export class StripeWebhookProcessor {
       );
 
       // Refund row (negative = cash out of Feastpot's books). userId is the
-      // customer — the chargeback is customer-initiated via their bank; there
+      // customer - the chargeback is customer-initiated via their bank; there
       // is no internal actor.
       const refundRow = await tx.payment.create({
         data: {

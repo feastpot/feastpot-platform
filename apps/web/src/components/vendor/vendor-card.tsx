@@ -159,7 +159,7 @@ export function VendorCard({ vendor, variant = 'list' }: Props) {
             )}
           </div>
         )}
-        {/* Distance chip on carousel cards — shown whenever the API returns it
+        {/* Distance chip on carousel cards - shown whenever the API returns it
             (requires a postcode in the search query, e.g. from the coverage cookie) */}
         {isCarousel && typeof vendor.distanceKm === 'number' && (
           <p className="mt-1 text-[10px] font-medium text-charcoal-mid">

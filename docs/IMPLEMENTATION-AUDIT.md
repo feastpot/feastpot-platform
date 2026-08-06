@@ -1,4 +1,4 @@
-# Implementation Audit — apps/web
+# Implementation Audit - apps/web
 
 _Generated: 4 August 2026. Read-only survey of routes, shared components,
 design tokens and API endpoints. No code was changed to produce this document._
@@ -29,7 +29,7 @@ design tokens and API endpoints. No code was changed to produce this document._
 | `/events/[id]`                    | Client                 | Event detail / quote status.                                                                                                                                                                                          |
 | `/events/[id]/confirmed`          | Client                 | Confirmed event screen.                                                                                                                                                                                               |
 | `/occasions/[slug]`               | Static (8 slugs)       | Occasion landing pages (birthday, graduation, etc.) with postcode entry.                                                                                                                                              |
-| `/help`                           | Server                 | Help & FAQ accordion — hardcoded copy + support contact fallbacks.                                                                                                                                                    |
+| `/help`                           | Server                 | Help & FAQ accordion - hardcoded copy + support contact fallbacks.                                                                                                                                                    |
 | `/become-a-vendor`                | Server                 | Vendor acquisition page: pitch, commercials, how it works, interest form.                                                                                                                                             |
 | `/(auth)/sign-in`                 | Client                 | Email/OTP sign-in form.                                                                                                                                                                                               |
 | `/(auth)/sign-in/otp`             | Client                 | OTP entry screen.                                                                                                                                                                                                     |
@@ -44,9 +44,9 @@ design tokens and API endpoints. No code was changed to produce this document._
 | `/legal/cookies`                  | Server                 | Cookie Policy.                                                                                                                                                                                                        |
 | `/legal/allergens`                | Server                 | Allergen information.                                                                                                                                                                                                 |
 | `/legal/vendor-terms`             | Server                 | Vendor Terms of Service.                                                                                                                                                                                              |
-| `/nigerian-food-delivery-london`  | Server (ISR 1 hr)      | SEO cuisine landing — Nigerian food. CuisineLanding template.                                                                                                                                                         |
-| `/ghanaian-food-delivery-london`  | Server (ISR 1 hr)      | SEO cuisine landing — Ghanaian food. CuisineLanding template.                                                                                                                                                         |
-| `/caribbean-food-delivery-london` | Server (ISR 1 hr)      | SEO cuisine landing — Caribbean food. CuisineLanding template.                                                                                                                                                        |
+| `/nigerian-food-delivery-london`  | Server (ISR 1 hr)      | SEO cuisine landing - Nigerian food. CuisineLanding template.                                                                                                                                                         |
+| `/ghanaian-food-delivery-london`  | Server (ISR 1 hr)      | SEO cuisine landing - Ghanaian food. CuisineLanding template.                                                                                                                                                         |
+| `/caribbean-food-delivery-london` | Server (ISR 1 hr)      | SEO cuisine landing - Caribbean food. CuisineLanding template.                                                                                                                                                        |
 | `/status`                         | Server                 | Platform status page backed by `/v1/statusz`.                                                                                                                                                                         |
 | `/offline`                        | Static                 | PWA offline fallback.                                                                                                                                                                                                 |
 | `not-found.tsx`                   | Static                 | Global 404 with back-home CTA.                                                                                                                                                                                        |
@@ -54,7 +54,7 @@ design tokens and API endpoints. No code was changed to produce this document._
 | `global-error.tsx`                | Client                 | Root error boundary (wraps layout errors).                                                                                                                                                                            |
 
 **Missing routes (noted but not built):**
-`/catering`, `/trust`, `/vendor-readiness` — linked from nav/footer,
+`/catering`, `/trust`, `/vendor-readiness` - linked from nav/footer,
 return 404. Logged in `docs/DEFECT-LOG.md` (DEF-001 to DEF-003).
 
 ---
@@ -190,14 +190,14 @@ shadow-sticky:  0 -2px 16px rgba(28,28,26,.08)
 
 | Route                                                 | Exists?                                                                  |
 | ----------------------------------------------------- | ------------------------------------------------------------------------ |
-| `/catering`                                           | ❌ No — 404 (linked from nav and footer — DEF-001)                       |
-| `/trust`                                              | ❌ No — 404 (linked from footer — DEF-002)                               |
+| `/catering`                                           | ❌ No - 404 (linked from nav and footer - DEF-001)                       |
+| `/trust`                                              | ❌ No - 404 (linked from footer - DEF-002)                               |
 | `/help`                                               | ✅                                                                       |
 | `/vendors`                                            | ✅                                                                       |
 | `/vendors/[slug]`                                     | ✅                                                                       |
-| Dish detail route                                     | ❌ No — menu items have no dedicated URL; shown inline on vendor profile |
+| Dish detail route                                     | ❌ No - menu items have no dedicated URL; shown inline on vendor profile |
 | Postcode waitlist capture (`/waitlist`)               | ✅                                                                       |
 | Vendor recommendation / interest (`/become-a-vendor`) | ✅                                                                       |
-| Occasion pages (`/occasions/[slug]`)                  | ✅ — 8 slugs statically generated                                        |
-| `/catering` (event enquiry)                           | ❌ No — enquiry form at `/events/new` but no `/catering` route           |
-| `/vendor-readiness`                                   | ❌ No — 404 (linked from footer — DEF-003)                               |
+| Occasion pages (`/occasions/[slug]`)                  | ✅ - 8 slugs statically generated                                        |
+| `/catering` (event enquiry)                           | ❌ No - enquiry form at `/events/new` but no `/catering` route           |
+| `/vendor-readiness`                                   | ❌ No - 404 (linked from footer - DEF-003)                               |

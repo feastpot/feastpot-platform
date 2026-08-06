@@ -38,7 +38,7 @@ function statusLabel(status: string): string {
 /**
  * Compact "orders due today" panel: scheduled-for window in the next
  * 24h, status badge, customer + delivery type at a glance. Empty
- * state matches the dashboard mockup — a soft circle holding a
+ * state matches the dashboard mockup - a soft circle holding a
  * calendar-check icon, with cheerful explanatory copy below.
  */
 export function OrdersDueToday({ orders }: { orders: DashboardOrderDue[] }) {

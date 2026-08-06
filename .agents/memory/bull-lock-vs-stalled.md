@@ -17,13 +17,13 @@ job's lock expires ~4.5min before the sweep meant to protect it. If Upstash drop
 a single `moveToCompleted`/`extendLock` command (normal for a remote,
 quota-limited Redis with `maxRetriesPerRequest:3`), the job is left locked-less in
 active and the next sweep force-fails it with **"job stalled more than allowable
-limit"** — even though the handler already ran (symptom: duplicate success logs
+limit"** - even though the handler already ran (symptom: duplicate success logs
 like `review-trigger: requested=4` right next to the failure, and a steadily
 growing `failed` count across *every* queue, not just one).
 
 **How to apply:** Set `lockDuration` > `stalledInterval` (e.g. 600s vs 300s),
 `lockRenewTime` < `stalledInterval` (e.g. 150s), and bump `maxStalledCount`
-(e.g. 3) so a transient stall is reprocessed, not failed — safe only because the
+(e.g. 3) so a transient stall is reprocessed, not failed - safe only because the
 handlers are idempotent. Trade-off: a genuinely crashed worker's job recovers in
 ~lockDuration+stalledInterval (~15min), acceptable for non-latency-critical
 cron/webhook queues.

@@ -41,7 +41,7 @@ export interface WaitlistFormProps {
 }
 
 /**
- * Waitlist sign-up form — POSTs to POST /v1/waitlist.
+ * Waitlist sign-up form - POSTs to POST /v1/waitlist.
  * Exported so it can be reused in the /vendors empty state.
  */
 export function WaitlistForm({
@@ -83,13 +83,13 @@ export function WaitlistForm({
           ...(fields.whatsapp.trim() && { whatsapp: fields.whatsapp.trim() }),
           ...(fields.cuisine.trim() && { cuisine: fields.cuisine.trim() }),
           source,
-          website: '', // honeypot — bots fill this, humans leave it blank
+          website: '', // honeypot - bots fill this, humans leave it blank
         },
       });
       setSuccess(true);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Something went wrong. Please try again.';
-      // Treat 409 DUPLICATE as success — user is already signed up.
+      // Treat 409 DUPLICATE as success - user is already signed up.
       if (msg.includes('already') || msg.includes('duplicate') || msg.includes('DUPLICATE')) {
         setSuccess(true);
       } else {
@@ -116,7 +116,7 @@ export function WaitlistForm({
 
   return (
     <form onSubmit={handleSubmit} noValidate aria-label="Waitlist sign-up">
-      {/* Honeypot — hidden from real users */}
+      {/* Honeypot - hidden from real users */}
       <input
         type="text"
         name="website"
@@ -270,7 +270,7 @@ export interface RecommendFormProps {
 }
 
 /**
- * Vendor recommendation form — POSTs to POST /v1/vendor-recommendations.
+ * Vendor recommendation form - POSTs to POST /v1/vendor-recommendations.
  * Exported so it can be reused in the /vendors empty state.
  */
 export function RecommendForm({ submitLabel = 'Recommend a cook' }: RecommendFormProps) {
@@ -422,7 +422,7 @@ export function RecommendForm({ submitLabel = 'Recommend a cook' }: RecommendFor
 // ─── Composite block (homepage) ───────────────────────────────────────────────
 
 /**
- * "No cooks in your postcode yet?" — two side-by-side cards on the homepage:
+ * "No cooks in your postcode yet?" - two side-by-side cards on the homepage:
  *   A. Postcode waitlist → POST /v1/waitlist (source: homepage)
  *   B. Vendor recommendation → POST /v1/vendor-recommendations
  */

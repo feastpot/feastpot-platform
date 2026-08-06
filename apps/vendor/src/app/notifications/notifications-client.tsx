@@ -25,7 +25,7 @@ import {
 } from '@/hooks/use-inbox';
 
 /**
- * Inbox screen — redesigned to match the Vendor7 mockup.
+ * Inbox screen - redesigned to match the Vendor7 mockup.
  *
  * Preserved verbatim:
  *   - useInboxList / useMarkInboxRead / useMarkAllInboxRead hooks
@@ -44,7 +44,7 @@ import {
  *   │  • timestamp + unread dot + chevron  │                      │
  *   └──────────────────────────────────────┴──────────────────────┘
  *
- * The aside renders whenever the list isn't empty — when the list IS
+ * The aside renders whenever the list isn't empty - when the list IS
  * empty, the same "all caught up" copy is shown inline as the empty
  * state so it doesn't read as orphaned UI.
  */
@@ -314,7 +314,7 @@ function formatRelative(iso: string): string {
 /**
  * `metadata.ref` is the convention the backend uses for "show this
  * human-readable ID next to the title" (e.g. `#ORD-10245`). We
- * surface it inline when present — the title alone often doesn't
+ * surface it inline when present - the title alone often doesn't
  * carry enough context for a vendor scanning a busy inbox.
  */
 function refOf(notif: InboxNotification): string | null {

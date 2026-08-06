@@ -34,11 +34,11 @@ const TABS: { value: VendorOrderStatus; label: string }[] = [
 ];
 
 /**
- * Vendor orders dashboard — redesigned to match the mockup while
+ * Vendor orders dashboard - redesigned to match the mockup while
  * preserving the previous functional contract.
  *
  * Layout (matches the mockup):
- *   [page header — title + Export/Refresh]
+ *   [page header - title + Export/Refresh]
  *   [search bar]
  *   [live-updates pill]
  *   [tab pills]
@@ -95,7 +95,7 @@ export function OrdersDashboard({ vendorId }: Props) {
 
   useEffect(() => {
     // Vendor switch (e.g. multi-vendor admin user) must not carry per-order
-    // memory across accounts — that would suppress chimes / mis-classify
+    // memory across accounts - that would suppress chimes / mis-classify
     // status transitions on the new vendor's orders.
     knownIds.current.clear();
     prevStatus.current.clear();
@@ -161,7 +161,7 @@ export function OrdersDashboard({ vendorId }: Props) {
             if (oldStatus === 'preparing' || oldStatus === 'accepted') {
               toast({
                 variant: 'destructive',
-                title: `STOP — order ${orderRef} cancelled`,
+                title: `STOP: order ${orderRef} cancelled`,
                 description:
                   'This order was cancelled while you were preparing it. Halt prep and check the order details.',
               });
@@ -297,7 +297,7 @@ export function OrdersDashboard({ vendorId }: Props) {
           aria-hidden
         />
         <span>
-          {realtimeStatus === 'connected' ? 'Live updates' : 'Offline — refresh to update'}
+          {realtimeStatus === 'connected' ? 'Live updates' : 'Offline - refresh to update'}
         </span>
       </div>
 
@@ -455,7 +455,7 @@ function emptyTitleFor(tab: VendorOrderStatus): string {
 function emptyHintFor(tab: VendorOrderStatus): string {
   switch (tab) {
     case 'pending':
-      return 'New orders will appear here automatically — and the kitchen will chime.';
+      return 'New orders will appear here automatically, and the kitchen will chime.';
     case 'preparing':
       return 'Accept a pending order to move it here.';
     case 'dispatched':

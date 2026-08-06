@@ -43,7 +43,7 @@ function VendorSearch() {
   const postcode = params?.get('postcode') ?? undefined;
   const cuisineParam = params?.get('cuisine');
 
-  // Postcode persistence — two-way sync between URL and localStorage.
+  // Postcode persistence - two-way sync between URL and localStorage.
   const [postcodeSyncResolved, setPostcodeSyncResolved] = useState<boolean>(
     () => typeof postcode === 'string' && postcode.length > 0,
   );
@@ -266,7 +266,7 @@ function VendorSearch() {
               </div>
             )}
 
-            {/* No vendors serve this postcode — rich empty state with waitlist/recommend forms */}
+            {/* No vendors serve this postcode - rich empty state with waitlist/recommend forms */}
             {empty && !q && (
               <div className="rounded-3xl border border-cream-deep bg-white p-6 shadow-card sm:p-8">
                 <h2 className="font-display text-xl font-black text-charcoal sm:text-2xl">
@@ -336,7 +336,7 @@ function VendorSearch() {
       </div>
 
       {/*
-        Sticky mobile bar — shows the active postcode above the BottomNav (z-50,
+        Sticky mobile bar - shows the active postcode above the BottomNav (z-50,
         bottom-0, 64px tall). Sits at bottom-16 (64px) so it does not overlap
         the tab bar; hidden on lg+ where the hero already shows the postcode.
       */}

@@ -11,7 +11,7 @@ import { DashboardClient } from './dashboard-client';
 export const dynamic = 'force-dynamic';
 
 /**
- * Vendor /me payload — widened from the orders/menu pages to also
+ * Vendor /me payload - widened from the orders/menu pages to also
  * pull `rating` so the dashboard rating card has a real value on
  * first paint. Both rating fields are typed as optional because the
  * API may omit them for brand-new vendors.
@@ -26,7 +26,7 @@ interface VendorMe {
 
 /**
  * Vendor dashboard home. First screen migrated to the new side-rail
- * shell — the other authed pages still render the legacy `TopNav`
+ * shell - the other authed pages still render the legacy `TopNav`
  * (per the screen-by-screen redesign plan); they'll move over as
  * each one is redesigned. Auth gate mirrors the other authed pages:
  * a `/vendors/me` round-trip because Next 15 segment layouts can't

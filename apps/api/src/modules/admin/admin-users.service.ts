@@ -56,7 +56,7 @@ export class AdminUsersService {
    *   2. Create Supabase auth user (email_confirm: true so the magic link
    *      is itself the confirmation step).
    *   3. Insert Prisma User row pinned to the Supabase uid (same convention
-   *      as users.service.sync) — wrapped in a try/catch that compensates by
+   *      as users.service.sync) - wrapped in a try/catch that compensates by
    *      deleting the orphan Supabase user on failure.
    *   4. Audit-log the creation.
    *   5. Best-effort magic-link invite email (does NOT unwind on failure;
@@ -66,7 +66,7 @@ export class AdminUsersService {
    *
    * SECURITY: the caller's role is checked at the controller layer
    * (`@Roles(UserRole.admin)`). This method assumes the caller IS an
-   * admin — it does not re-verify.
+   * admin - it does not re-verify.
    */
   async createStaffUser(
     dto: {
@@ -101,7 +101,7 @@ export class AdminUsersService {
       email_confirm: true,
       // `app_metadata` is server-managed and is what SupabaseAuthGuard
       // trusts for role (along with the top-level JWT claim). NEVER put
-      // role in `user_metadata` — that field is user-writable in client
+      // role in `user_metadata` - that field is user-writable in client
       // SDKs and would be a privilege-escalation vector.
       app_metadata: { role: dto.role },
       user_metadata: {
@@ -151,12 +151,12 @@ export class AdminUsersService {
         });
       });
     } catch (err) {
-      // Compensate — orphan auth user blocks email re-use forever.
+      // Compensate - orphan auth user blocks email re-use forever.
       try {
         await this.supabase.getClient().auth.admin.deleteUser(supabaseUserId);
       } catch (delErr) {
         this.logger.error(
-          `COMPENSATION FAILED: could not delete orphaned Supabase user ${supabaseUserId} after staff-create tx failure: ${(delErr as Error).message} — manual cleanup required.`,
+          `COMPENSATION FAILED: could not delete orphaned Supabase user ${supabaseUserId} after staff-create tx failure: ${(delErr as Error).message}. Manual cleanup required.`,
         );
       }
       throw err;
@@ -177,7 +177,7 @@ export class AdminUsersService {
         const magicLinkUrl = linkData?.properties?.action_link;
         if (linkErr || !magicLinkUrl) {
           this.logger.error(
-            `Magic link generation failed for staff invite ${supabaseUserId}: ${linkErr?.message ?? 'no action_link'} — user was provisioned but did NOT receive an invite email.`,
+            `Magic link generation failed for staff invite ${supabaseUserId}: ${linkErr?.message ?? 'no action_link'}. User was provisioned but did NOT receive an invite email.`,
           );
         } else {
           const tmpl = staffPortalInviteTemplate({
@@ -217,7 +217,7 @@ export class AdminUsersService {
    *     the admin console entirely).
    *   - Customer/vendor roles can only be REASSIGNED to a staff role here;
    *     promoting a customer to staff is allowed but a vendor cannot be
-   *     converted to staff (their Vendor row would dangle) — block that.
+   *     converted to staff (their Vendor row would dangle) - block that.
    *
    * On success:
    *   - Update Prisma User.role (source of truth read by /users/me).
@@ -256,7 +256,7 @@ export class AdminUsersService {
       throw new ForbiddenException({
         code: 'CANNOT_CONVERT_VENDOR',
         message:
-          'This user is a vendor — converting them to staff would orphan their Vendor record. Suspend the vendor and create a separate staff account instead.',
+          'This user is a vendor. Converting them to staff would orphan their Vendor record. Suspend the vendor and create a separate staff account instead.',
       });
     }
 
@@ -277,7 +277,7 @@ export class AdminUsersService {
               throw new ForbiddenException({
                 code: 'LAST_ADMIN',
                 message:
-                  'Cannot demote the last active admin — promote another user to admin first.',
+                  'Cannot demote the last active admin. Promote another user to admin first.',
               });
             }
           }
@@ -300,12 +300,12 @@ export class AdminUsersService {
       );
     } catch (err) {
       // P2034 = "Transaction failed due to a write conflict or a deadlock"
-      // — the canonical Serializable retry signal. Surface as 409 so the
+      // - the canonical Serializable retry signal. Surface as 409 so the
       // admin retries rather than seeing a generic 500.
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2034') {
         throw new ConflictException({
           code: 'CONCURRENT_ROLE_CHANGE',
-          message: 'Another role change was committed at the same time — please retry.',
+          message: 'Another role change was committed at the same time. Please retry.',
         });
       }
       throw err;
@@ -313,7 +313,7 @@ export class AdminUsersService {
 
     // Propagate the role into Supabase `app_metadata` so freshly-issued
     // JWTs carry the new role. (Existing in-flight access tokens still
-    // expire on their own — Supabase access tokens are not revocable
+    // expire on their own - Supabase access tokens are not revocable
     // individually; global signOut below kills refresh tokens.)
     try {
       await this.supabase.getClient().auth.admin.updateUserById(userId, {
@@ -335,7 +335,7 @@ export class AdminUsersService {
 
   /**
    * Paginated, filterable list of users for the admin Users table view.
-   * Returns lightweight rows (no per-user N+1) — orders count + lifetime
+   * Returns lightweight rows (no per-user N+1) - orders count + lifetime
    * spend are computed in two batched aggregates for the page slice.
    *
    * Cursor uses `(createdAt, id)` so ties are stable (createdAt has ms

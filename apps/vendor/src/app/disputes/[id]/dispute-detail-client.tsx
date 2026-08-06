@@ -134,7 +134,7 @@ function OrderSummary({ dispute }: { dispute: DisputeDetail }) {
       <dl className="mt-3 space-y-2 text-sm">
         <div className="flex justify-between gap-3">
           <dt className="text-mid">Order #</dt>
-          <dd className="font-semibold text-dark">{dispute.order?.orderNumber ?? '—'}</dd>
+          <dd className="font-semibold text-dark">{dispute.order?.orderNumber ?? '–'}</dd>
         </div>
         <div className="flex justify-between gap-3">
           <dt className="text-mid">Order total</dt>

@@ -1,5 +1,5 @@
 /**
- * Feastpot brand palette — the single source of truth for brand hex values.
+ * Feastpot brand palette - the single source of truth for brand hex values.
  *
  * Consumed by each app's `tailwind.config.ts` (configs are JS, so the
  * cross-package @layer CSS limitation that forces globals.css duplication
@@ -10,7 +10,7 @@
  * (cross-package @layer CSS gets dropped in production builds), but they are
  * verified against this module by `packages/ui/scripts/check-brand-tokens.mjs`
  * which runs as part of `@feastpot/ui`'s lint. If you change a hex here,
- * that check will fail until every globals.css is updated to match — no more
+ * that check will fail until every globals.css is updated to match - no more
  * silent drift like the portals staying orange after the green rebrand.
  *
  * Keep values as plain string literals: the check script parses this file

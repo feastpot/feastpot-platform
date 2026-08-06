@@ -96,7 +96,7 @@ function snapshotToForm(s: AvailabilitySnapshot): FormState {
 }
 
 /**
- * Availability screen — redesigned to match the Vendor5 mockup
+ * Availability screen - redesigned to match the Vendor5 mockup
  * while keeping every existing behaviour intact:
  *   - SSR-hydrated snapshot via useQuery initialData
  *   - Background refetch reseeds the form only when key fields
@@ -425,7 +425,7 @@ export function AvailabilityClient({ initial }: { initial: AvailabilitySnapshot 
               the outer availability <form> (HTML forbids form
               nesting). Two consequences this block guards against:
                 1. `required` would trigger native validation on the
-                   outer Save submit, blocking unrelated saves —
+                   outer Save submit, blocking unrelated saves -
                    instead requirement is enforced in submitBlackout.
                 2. Pressing Enter in either input would otherwise
                    submit the outer Save form. onKeyDown intercepts
@@ -519,7 +519,7 @@ export function AvailabilityClient({ initial }: { initial: AvailabilitySnapshot 
 
 /**
  * Per-date order-slot capacity (vendor_capacity rows). Separate from the
- * main availability form because it has its own CRUD lifecycle — each
+ * main availability form because it has its own CRUD lifecycle - each
  * add/remove hits the API immediately rather than waiting for Save.
  */
 function CapacitySection({ token }: { token: string | null }) {

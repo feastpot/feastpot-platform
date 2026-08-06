@@ -64,7 +64,7 @@ export interface EnquiryListFilters {
  * Admin-scoped paginated list. Backed by GET /v1/event-enquiries (admin
  * branch returns {data,total,nextCursor}; customer/vendor still get an
  * array). Filters beyond `status` only apply to admin/support callers
- * — silently ignored elsewhere so we can never widen visibility via a
+ * - silently ignored elsewhere so we can never widen visibility via a
  * stray filter param.
  */
 export function useEventEnquiries(filters: EnquiryListFilters) {
