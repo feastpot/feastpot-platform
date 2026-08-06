@@ -341,6 +341,7 @@ model User {
   reviewedVendorApplications VendorApplication[]      @relation("VendorApplicationReviewer")
   mfaRecoveryCodes           MfaRecoveryCode[]
   verifiedTrustSignals       VendorTrustSignal[]      @relation("TrustSignalVerifier")
+  cateringBookings           CateringBooking[]        @relation("CateringBookingCustomer")
 
   @@index([role])
   @@index([status])
@@ -645,6 +646,7 @@ model Vendor {
   largeOrderTrayThreshold  Int?    @map("large_order_tray_threshold")
   eventCateringManualQuote Boolean @default(false) @map("event_catering_manual_quote")
 
+
   // Business profile additions (T005). All optional/additive so existing
   // vendors keep working untouched.
   // - logoUrl / coverImageUrl: previously implicit; promoted to first-class
@@ -687,6 +689,7 @@ model Vendor {
   capacity             VendorCapacity[]
   termsAcceptances     TermsAcceptance[]
   referralLink         VendorReferralLink?
+  cateringBookings     CateringBooking[]
 
   @@index([status])
   @@index([slug])
@@ -1349,9 +1352,83 @@ model CateringEnquiry {
   adminNotes     String?  @map("admin_notes")
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
 
+  booking CateringBooking?
+
   @@index([status], map: "catering_enquiry_status_idx")
   @@index([eventDate], map: "catering_enquiry_event_date_idx")
   @@map("catering_enquiries")
+}
+
+// ─── Catering booking line ────────────────────────────────────────────────────
+// Converts a CateringEnquiry into a priced, deposit-gated booking. Commission
+// is resolved at creation time via CommissionService (source-aware, never
+// hardcoded). The compliance PDF is generated on CONFIRMED and emailed to the
+// customer; a QR code for guest referrals is included in the same PDF.
+
+enum CateringBookingStatus {
+  QUOTED
+  DEPOSIT_PAID
+  CONFIRMED
+  BALANCE_PAID
+  COMPLETED
+  CANCELLED
+  EXPIRED
+
+  @@map("catering_booking_status")
+}
+
+model CateringBooking {
+  id                 String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  enquiryId          String                @unique @map("enquiry_id") @db.Uuid
+  vendorId           String                @map("vendor_id") @db.Uuid
+  customerId         String?               @map("customer_id") @db.Uuid
+  customerEmail      String                @map("customer_email") @db.VarChar(255)
+  customerName       String                @map("customer_name") @db.VarChar(200)
+  eventDate          DateTime              @map("event_date") @db.Timestamptz
+  guestCount         Int                   @map("guest_count")
+  eventAddress       String?               @map("event_address") @db.VarChar(500)
+  preferredTime      String?               @map("preferred_time") @db.VarChar(64)
+  totalPence         Int                   @map("total_pence")
+  depositPence       Int                   @map("deposit_pence")
+  balancePence       Int                   @map("balance_pence")
+  commissionPercent  Decimal               @map("commission_percent") @db.Decimal(5, 2)
+  commissionPence    Int                   @map("commission_pence")
+  commissionRateId   String?               @map("commission_rate_id")
+  attributionSource  String?               @map("attribution_source") @db.VarChar(32)
+  status             CateringBookingStatus @default(QUOTED)
+  quoteExpiresAt     DateTime              @map("quote_expires_at") @db.Timestamptz
+  depositPiId        String?               @map("deposit_pi_id") @db.VarChar(100)
+  balancePiId        String?               @map("balance_pi_id") @db.VarChar(100)
+  stripeTransferId   String?               @map("stripe_transfer_id") @db.VarChar(100)
+  depositPaidAt      DateTime?             @map("deposit_paid_at") @db.Timestamptz
+  balancePaidAt      DateTime?             @map("balance_paid_at") @db.Timestamptz
+  completedAt        DateTime?             @map("completed_at") @db.Timestamptz
+  cancelledAt        DateTime?             @map("cancelled_at") @db.Timestamptz
+  cancellationReason String?               @map("cancellation_reason")
+  qrScans            Int                   @default(0) @map("qr_scans")
+  createdAt          DateTime              @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime              @updatedAt @map("updated_at") @db.Timestamptz
+
+  enquiry   CateringEnquiry  @relation(fields: [enquiryId], references: [id])
+  vendor    Vendor           @relation(fields: [vendorId], references: [id])
+  customer  User?            @relation("CateringBookingCustomer", fields: [customerId], references: [id])
+  lineItems CateringLineItem[]
+
+  @@index([status, eventDate])
+  @@map("catering_bookings")
+}
+
+model CateringLineItem {
+  id          String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bookingId   String          @map("booking_id") @db.Uuid
+  description String          @db.VarChar(500)
+  quantity    Int
+  unitPence   Int             @map("unit_pence")
+  allergens   String[]        @db.VarChar(64)
+
+  booking CateringBooking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@map("catering_line_items")
 }
 
 // ─── Order source attribution ─────────────────────────────────────────────────

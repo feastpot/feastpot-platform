@@ -1,0 +1,114 @@
+TASK: Build the occasion catering booking line.
+
+DEPENDS ON: RED-101 catering enquiry form must be live.
+
+WHY THIS MATTERS COMMERCIALLY
+At roughly 700 pounds average event value, around 48 events
+a month generates similar revenue to over 2,000 standard
+food orders. This is the highest revenue per unit of effort
+in the entire architecture.
+
+PRISMA SCHEMA
+model CateringBooking {
+  id                 String   @id @default(cuid())
+  enquiryId          String   @unique
+  vendorId           String
+  customerId         String
+  eventDate          DateTime
+  guestCount         Int
+  totalPence         Int
+  depositPence       Int
+  commissionPercent  Decimal  @db.Decimal(5,2)
+  commissionPence    Int
+  status             CateringBookingStatus @default(QUOTED)
+  quoteExpiresAt     DateTime
+  depositPaidAt      DateTime?
+  balancePaidAt      DateTime?
+  completedAt        DateTime?
+  cancelledAt        DateTime?
+  cancellationReason String?
+  lineItems          CateringLineItem[]
+  @@index([status, eventDate])
+}
+
+model CateringLineItem {
+  id          String @id @default(cuid())
+  bookingId   String
+  description String
+  quantity    Int
+  unitPence   Int
+  allergens   String[]
+  booking     CateringBooking @relation(fields: [bookingId], references: [id])
+}
+
+enum CateringBookingStatus {
+  QUOTED
+  DEPOSIT_PAID
+  CONFIRMED
+  BALANCE_PAID
+  COMPLETED
+  CANCELLED
+  EXPIRED
+}
+
+FLOW
+1. Admin or founder reviews a CateringEnquiry and routes it
+   to one or more matched vendors by postcode and cuisine.
+2. Vendor builds a quote in apps/vendor: line items with
+   quantity, unit price and allergens per item. System
+   calculates total and 25% deposit.
+3. Quote sent to customer via Resend with a secure link.
+   Quote expires after 7 days or 48 hours before the event,
+   whichever is sooner.
+4. Customer accepts and pays the 25% deposit via Stripe.
+   Status becomes DEPOSIT_PAID, then CONFIRMED.
+5. Balance charged automatically 48 hours before the event
+   using the saved payment method. BullMQ scheduled job.
+   Retry twice on failure, then alert admin and vendor.
+6. Funds held and released to the vendor via Stripe Connect
+   after the event date plus 24 hours, matching the existing
+   dispute window.
+7. Commission of 10% applies to the event total.
+
+IMPORTANT: source attribution applies here too. If the
+vendor brought the client via their own referral link, the
+referred rate applies instead of 10%. Wire CateringBooking
+into the ORANGE-200 attribution engine. Do not hardcode 10%.
+
+COMPLIANCE PACK
+On CONFIRMED, generate and email a PDF containing:
+  Booking confirmation with date, time, address, guest count
+  Full itemised menu
+  Consolidated allergen matrix across all line items, laid
+  out as a printable table the host can display on the day
+  Vendor verification evidence: registration number, FHRS
+  rating and date checked, insurance validity
+  Cancellation policy
+  Feastpot support contact
+
+This pack is the product. It is what an Instagram DM
+caterer structurally cannot provide, and it is what
+justifies the booking commission.
+
+CANCELLATION TIERS (state before deposit is taken)
+  More than 14 days before event: deposit refunded in full
+  7 to 14 days: 50% of deposit retained
+  Under 7 days: deposit retained in full
+  Under 48 hours after balance charged: case by case,
+  vendor costs already incurred are protected
+
+QR LOOP HOOK
+On COMPLETED, generate a unique QR code for the event that
+links to the vendor profile with a 5 pound first-order
+credit for guests. Include it in the compliance pack as a
+printable table card. Track scans against the booking id.
+
+ACCEPTANCE CRITERIA
+- A test booking flows enquiry to payout with correct
+  deposit, balance and commission arithmetic in integer pence.
+- Balance charge job fires exactly 48 hours before event.
+- A vendor-referred catering client is charged the referred
+  rate, not 10%.
+- Compliance pack PDF generates with a complete allergen
+  matrix and no empty verification fields.
+- Cancellation at each tier produces the correct refund.

@@ -1,0 +1,23 @@
+import { requireStaff } from '@/lib/auth/server-gate';
+
+import { CateringBookingsClient } from './catering-bookings-client';
+
+export const metadata = { title: 'Catering bookings | Feastpot Admin' };
+
+export default async function CateringBookingsPage() {
+  const { session } = await requireStaff();
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? process.env.API_URL ?? 'http://localhost:3001';
+
+  return (
+    <div className="mx-auto max-w-7xl space-y-6 p-6">
+      <div>
+        <h1 className="text-2xl font-bold">Catering bookings</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Monitor all catering bookings across vendors. Commission is source-based (referred = 0%,
+          marketplace repeat = 10%, marketplace first = 12%).
+        </p>
+      </div>
+      <CateringBookingsClient accessToken={session.access_token} apiUrl={apiUrl} />
+    </div>
+  );
+}
