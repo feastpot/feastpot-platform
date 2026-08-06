@@ -18,6 +18,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { forwardRef, useRef, useState } from 'react';
 
+import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
+
 import { apiRequest, ApiError } from '@/lib/api/client';
 
 /**
@@ -146,8 +148,8 @@ const SOCIAL_PROOF = [
 const COMMERCIALS = [
   {
     Icon: PoundSterling,
-    label: '12% commission',
-    sub: 'Charged on the food subtotal of completed orders only.',
+    label: `${PLATFORM_FACTS.commission.marketplaceFirst}% commission`,
+    sub: `Charged on the ${PLATFORM_FACTS.commission.basis} of completed orders only.`,
   },
   {
     Icon: CreditCard,
@@ -156,8 +158,8 @@ const COMMERCIALS = [
   },
   {
     Icon: CalendarClock,
-    label: 'Weekly payouts',
-    sub: 'Your earnings transferred to your account every week.',
+    label: `${PLATFORM_FACTS.payouts.frequency.charAt(0).toUpperCase() + PLATFORM_FACTS.payouts.frequency.slice(1)} payouts`,
+    sub: `Your earnings transferred to your account every ${PLATFORM_FACTS.payouts.frequency === 'weekly' ? 'week' : PLATFORM_FACTS.payouts.frequency}.`,
   },
 ];
 
@@ -417,7 +419,7 @@ export default function BecomeAVendorPage() {
             </a>
           </div>
           <p className="mt-5 text-[12.5px] font-semibold text-charcoal-mid">
-            No upfront fee · No EPOS required · 12% on completed orders · Weekly payouts
+            No upfront fee · No EPOS required · {PLATFORM_FACTS.commission.marketplaceFirst}% on completed orders · Weekly payouts
           </p>
         </div>
 

@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 
+import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
+
 import { LegalTrustStrip } from '@/components/legal/legal-shell';
 
 export const metadata: Metadata = {
@@ -100,38 +102,34 @@ const SECTIONS: FaqSection[] = [
     icon: '🍳',
     items: [
       {
+        // D2 fix: the application form at /become-a-vendor is canonical.
+        // The email address is retained as an accessibility fallback only.
         question: 'How do I sign up as a vendor?',
         answer:
-          'Email partners@feastpot.co.uk with your business name, food hygiene rating and the cuisines you cook. We onboard new vendors weekly.',
+          'Apply using the form at /become-a-vendor (it takes about 2 minutes and we review every application within 1-2 business days). If you need help completing your application, you can also email partners@feastpot.co.uk.',
       },
       {
         question: 'When do I get paid?',
-        answer:
-          'Vendor payouts run weekly, every Monday, via Stripe Connect. Feastpot deducts a 12% commission from each order subtotal.',
+        answer: `Vendor payouts run ${PLATFORM_FACTS.payouts.frequency}, every ${PLATFORM_FACTS.payouts.day}, via Stripe Connect. Feastpot deducts a ${PLATFORM_FACTS.commission.marketplaceFirst}% commission from each order subtotal.`,
       },
       {
+        // D3 fix: list now matches PLATFORM_FACTS.vendorRequirements including FHRS 3+.
         question: 'What documents do I need to submit?',
-        answer:
-          'Food hygiene rating certificate, public liability insurance, proof of identity, allergen training certificate, and a Stripe Connect onboarding completion. The vendor portal walks you through each step.',
+        answer: `To join Feastpot you need: ${PLATFORM_FACTS.vendorRequirements.join('; ')}. The vendor portal walks you through each step.`,
       },
     ],
   },
 ];
 
 export default function HelpPage() {
-  // Surfaced via env so support routing can change (rota handover, new number,
-  // a different inbox per market) without a code deploy.
-  const whatsapp = process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP ?? '+447459774818';
-  const supportEmail = process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? 'support@feastpot.co.uk';
-  // wa.me requires the digits-only form (no +, no spaces).
-  const whatsappDigits = whatsapp.replace(/\D/g, '');
+  const supportEmail = PLATFORM_FACTS.support.email;
 
   return (
     <article className="mx-auto w-full max-w-3xl px-4 py-8 md:py-12">
       {/* HERO */}
       <header className="rounded-3xl border border-cream-deep bg-cream-warm p-6 md:p-8">
         <p className="mb-2 text-[11px] font-black uppercase tracking-[0.18em] text-brand">
-          Support & legal centre
+          Support &amp; legal centre
         </p>
         <h1 className="font-display text-3xl font-black leading-[1.1] tracking-tight text-charcoal md:text-4xl">
           How can we help?
@@ -142,8 +140,8 @@ export default function HelpPage() {
         </p>
       </header>
 
-      {/* CONTACT CARDS */}
-      <section className="mt-6 grid gap-3 md:grid-cols-2">
+      {/* CONTACT CARD: email only; WhatsApp is not currently a public channel */}
+      <section className="mt-6">
         <a
           href={`mailto:${supportEmail}`}
           className="group flex items-start gap-3 rounded-3xl border border-cream-deep bg-white p-5 shadow-card transition hover:border-brand"
@@ -162,31 +160,7 @@ export default function HelpPage() {
               {supportEmail}
             </p>
             <p className="mt-0.5 text-xs font-medium text-charcoal-mid">
-              Reply within 24 hours, Monday to Saturday.
-            </p>
-          </div>
-        </a>
-        <a
-          href={`https://wa.me/${whatsappDigits}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="group flex items-start gap-3 rounded-3xl border border-cream-deep bg-white p-5 shadow-card transition hover:border-brand"
-        >
-          <span
-            aria-hidden
-            className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-brand-light text-xl"
-          >
-            💬
-          </span>
-          <div className="min-w-0">
-            <p className="text-[11px] font-black uppercase tracking-[0.14em] text-charcoal-mid">
-              WhatsApp
-            </p>
-            <p className="mt-0.5 truncate font-display text-base font-black text-charcoal group-hover:text-brand">
-              {whatsapp}
-            </p>
-            <p className="mt-0.5 text-xs font-medium text-charcoal-mid">
-              Faster for live order issues, 9am&ndash;9pm.
+              Reply {PLATFORM_FACTS.support.responseTime}, {PLATFORM_FACTS.support.hours}.
             </p>
           </div>
         </a>

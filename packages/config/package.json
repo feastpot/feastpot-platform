@@ -8,9 +8,14 @@
     "./tsconfig/nestjs": "./tsconfig.nestjs.json",
     "./eslint/base": "./eslint-base.js",
     "./eslint/nextjs": "./eslint-nextjs.js",
-    "./eslint/nestjs": "./eslint-nestjs.js"
+    "./eslint/nestjs": "./eslint-nestjs.js",
+    "./platform-facts": {
+      "types": "./src/platform-facts.ts",
+      "default": "./src/platform-facts.ts"
+    }
   },
   "files": [
+    "src",
     "tsconfig.base.json",
     "tsconfig.nextjs.json",
     "tsconfig.nestjs.json",

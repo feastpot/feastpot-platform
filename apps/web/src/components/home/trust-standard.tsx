@@ -1,3 +1,4 @@
+import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
 import { AlertCircle, BadgeCheck, CreditCard, MapPin, ShieldCheck, Star } from 'lucide-react';
 
 /**
@@ -7,11 +8,14 @@ import { AlertCircle, BadgeCheck, CreditCard, MapPin, ShieldCheck, Star } from '
  *
  * Schema backing for every claim:
  *   1. Food business registration checked     - VendorApplication.hygiene_reg_number
- *   2. Hygiene information shown where avail  - VendorTrustSignal (hygiene_cert, hygiene_rating)
+ *   2. Hygiene rating verified on profiles    - VendorVerification.fhrsRating (min 3/5 enforced)
  *   3. Allergen information on every dish     - MenuItem.allergens[]
  *   4. Verified reviews from real orders      - Review.is_verified (linked to Order)
  *   5. Secure card payment through Stripe     - Payment model / Stripe integration
  *   6. Delivery coverage confirmed by postcode- Coverage endpoint + cookie gate
+ *
+ * Vendor requirements (used in sub-text) sourced from PLATFORM_FACTS so
+ * they stay in sync with the help FAQ and become-a-vendor page.
  */
 const TRUST_ITEMS = [
   {
@@ -23,8 +27,8 @@ const TRUST_ITEMS = [
   {
     Icon: ShieldCheck,
     tone: 'vendor' as const,
-    title: 'Hygiene information shown where available',
-    sub: 'FSA hygiene scores displayed on vendor profiles.',
+    title: 'Hygiene rating verified on every profile',
+    sub: `FSA rating of ${PLATFORM_FACTS.vendorRequirements.find((r) => r.startsWith('FHRS'))?.replace('FHRS rating of at least ', '').replace(' (4 recommended)', '') ?? '3/5'} minimum, checked weekly against the FSA register.`,
   },
   {
     Icon: AlertCircle,

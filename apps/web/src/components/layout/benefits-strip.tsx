@@ -1,3 +1,4 @@
+import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
 import { Heart, HelpCircle, Store, WalletCards } from 'lucide-react';
 
 /**
@@ -6,13 +7,18 @@ import { Heart, HelpCircle, Store, WalletCards } from 'lucide-react';
  * page (mounted in layout via the Footer component) so the brand
  * promises are persistently visible.
  *
- * Compact, single-line on desktop; 2-up on mobile.
+ * Support hours are sourced from PLATFORM_FACTS so they stay in sync
+ * with the help page and legal-shell trust strip automatically.
  */
 const BENEFITS = [
   { Icon: Store, title: 'Local flavours', body: 'Support local kitchens' },
   { Icon: WalletCards, title: 'Great value', body: 'Fair prices, every time' },
   { Icon: Heart, title: 'Made with care', body: 'Real food, real people' },
-  { Icon: HelpCircle, title: 'Support that answers', body: 'Email support, Monday to Saturday' },
+  {
+    Icon: HelpCircle,
+    title: 'Support that answers',
+    body: `Email support, ${PLATFORM_FACTS.support.hours}`,
+  },
 ] as const;
 
 export function BenefitsStrip() {
