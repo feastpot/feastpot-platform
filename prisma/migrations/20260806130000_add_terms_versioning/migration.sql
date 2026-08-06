@@ -17,7 +17,7 @@ CREATE TABLE "terms_versions" (
 -- CreateTable
 CREATE TABLE "terms_acceptances" (
     "id" TEXT NOT NULL,
-    "vendor_id" TEXT NOT NULL,
+    "vendor_id" UUID NOT NULL,
     "terms_version_id" TEXT NOT NULL,
     "accepted_at" TIMESTAMPTZ NOT NULL DEFAULT now(),
     "ip_address" TEXT,
@@ -28,7 +28,7 @@ CREATE TABLE "terms_acceptances" (
 -- CreateTable
 CREATE TABLE "terms_notices" (
     "id" TEXT NOT NULL,
-    "vendor_id" TEXT NOT NULL,
+    "vendor_id" UUID NOT NULL,
     "terms_version_id" TEXT NOT NULL,
     "sent_at" TIMESTAMPTZ NOT NULL DEFAULT now(),
     "channel" TEXT NOT NULL,
