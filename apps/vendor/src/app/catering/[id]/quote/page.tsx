@@ -6,7 +6,7 @@ import { CateringQuoteForm } from './quote-form';
 export const metadata = { title: 'Catering quote | Feastpot Vendor' };
 
 export default async function CateringQuotePage({ params }: { params: { id: string } }) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) redirect('/sign-in?next=/catering');
 

@@ -16,7 +16,7 @@ async function getVendor(accessToken: string) {
 }
 
 export default async function CateringPage() {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) redirect('/sign-in?next=/catering');
 

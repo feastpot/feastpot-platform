@@ -79,3 +79,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 export function useAuthState(): AuthState {
   return useContext(AuthContext);
 }
+
+/**
+ * Convenience hook that exposes the Supabase access token as `accessToken`
+ * rather than `token`, matching the shape expected by API hooks throughout
+ * the catering and referral modules.
+ */
+/**
+ * Convenience hook that exposes the Supabase access token as `accessToken`
+ * rather than `token`, matching the shape expected by API hooks throughout
+ * the catering and referral modules. Returns `undefined` (not `null`) when
+ * unauthenticated so it is assignable to the `string | undefined` parameters
+ * those hooks accept.
+ */
+export function useAuth(): { accessToken: string | undefined; loading: boolean } {
+  const { token, loading } = useContext(AuthContext);
+  return { accessToken: token ?? undefined, loading };
+}

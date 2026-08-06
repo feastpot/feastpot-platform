@@ -135,6 +135,7 @@ export function CateringQuoteForm({
 
   function toggleAllergen(i: number, allergen: string) {
     const item = items[i];
+    if (!item) return;
     const next = item.allergens.includes(allergen)
       ? item.allergens.filter((a) => a !== allergen)
       : [...item.allergens, allergen];
