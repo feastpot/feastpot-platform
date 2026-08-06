@@ -32,3 +32,4 @@
 - [Attribution referral cookie](attribution-referral-cookie.md) - fp_ref cookie format: `referralLinkId|clickId|timestampMs`; fp_sid is the session id (not HttpOnly); both read by /v/[slug] route and threaded to createOrder via headers.
 - [Commission rate engine](commission-rate-engine.md) - DB-driven immutable rate rows; nullable bool needs nested OR not `in`; PDF via pdfkit base64 in job payload; payout_batch_ready special-cased in processor for attachment.
 - [Catering booking line](catering-booking-line.md) - hygieneRegNumber on VendorApplication not Vendor; DocumentType enum is hygiene_cert/kitchen_reg/insurance; resolveRateAndCompute takes 6 args; AuthModule needed for SupabaseAuthGuard.
+- [FeastPass subscription](feastpass-subscription.md) - @Global module; fee waiver in OrdersService via prisma.feastPassSubscription.findUnique; finishCreateOrder returns {order,clientSecret} not the order directly; em dashes blocked by pre-commit hook.
