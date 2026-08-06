@@ -35,6 +35,14 @@ import {
   type TrustSignalStatus,
   type TrustSignalType,
 } from '@/hooks/use-vendor-detail';
+import {
+  useUpsertVerification,
+  useVendorVerification,
+  type FhrsStatus,
+  type UpsertVerificationPayload,
+  type VendorVerificationRecord,
+  type VerificationState,
+} from '@/hooks/use-vendor-verification';
 import { formatDate, formatDateTime } from '@/lib/format';
 
 function DialogFooter({ children }: { children: React.ReactNode }) {
@@ -101,6 +109,9 @@ export function VendorDetailClient({
   // Trigger a re-fetch on the queue list when the user navigates back.
   useAdminVendors('pending');
 
+  const { data: verification, isLoading: verificationLoading } = useVendorVerification(vendorId);
+  const upsertVerification = useUpsertVerification(vendorId);
+
   const [rejecting, setRejecting] = useState<{ id: string; label: string } | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [verifyingSignal, setVerifyingSignal] = useState<{
@@ -108,6 +119,73 @@ export function VendorDetailClient({
     label: string;
   } | null>(null);
   const [signalEvidence, setSignalEvidence] = useState('');
+
+  // Verification form dialog state
+  const [verificationOpen, setVerificationOpen] = useState(false);
+  const [vForm, setVForm] = useState<UpsertVerificationPayload>({
+    registrationNumber: '',
+    registrationAuthority: '',
+    registrationConfirmedAt: '',
+    fhrsInspectionStatus: 'AWAITING_FIRST_INSPECTION',
+    fhrsRating: null,
+    fhrsRatingCheckedAt: null,
+    insuranceProvider: null,
+    insuranceValidUntil: null,
+    allergenTrainingHeld: false,
+    allergenTrainingUntil: null,
+    idVerifiedAt: null,
+    overallState: 'VERIFIED',
+  });
+
+  function openVerificationDialog(existing: VendorVerificationRecord | null | undefined) {
+    if (existing) {
+      setVForm({
+        registrationNumber: existing.registrationNumber,
+        registrationAuthority: existing.registrationAuthority,
+        registrationConfirmedAt: existing.registrationConfirmedAt.slice(0, 10),
+        fhrsInspectionStatus: existing.fhrsInspectionStatus,
+        fhrsRating: existing.fhrsRating,
+        fhrsRatingCheckedAt: existing.fhrsRatingCheckedAt?.slice(0, 10) ?? null,
+        insuranceProvider: existing.insuranceProvider,
+        insuranceValidUntil: existing.insuranceValidUntil?.slice(0, 10) ?? null,
+        allergenTrainingHeld: existing.allergenTrainingHeld,
+        allergenTrainingUntil: existing.allergenTrainingUntil?.slice(0, 10) ?? null,
+        idVerifiedAt: existing.idVerifiedAt?.slice(0, 10) ?? null,
+        overallState: existing.overallState,
+      });
+    } else {
+      setVForm({
+        registrationNumber: '',
+        registrationAuthority: '',
+        registrationConfirmedAt: '',
+        fhrsInspectionStatus: 'AWAITING_FIRST_INSPECTION',
+        fhrsRating: null,
+        fhrsRatingCheckedAt: null,
+        insuranceProvider: null,
+        insuranceValidUntil: null,
+        allergenTrainingHeld: false,
+        allergenTrainingUntil: null,
+        idVerifiedAt: null,
+        overallState: 'VERIFIED',
+      });
+    }
+    setVerificationOpen(true);
+  }
+
+  function submitVerification() {
+    upsertVerification.mutate(vForm, {
+      onSuccess: () => {
+        setVerificationOpen(false);
+        toast({ title: verification ? 'Verification updated' : 'Verification record created' });
+      },
+      onError: (err) =>
+        toast({
+          title: 'Save failed',
+          description: (err as Error).message,
+          variant: 'destructive',
+        }),
+    });
+  }
 
   function confirmVerifySignal() {
     if (!verifyingSignal) return;
@@ -372,6 +450,80 @@ export function VendorDetailClient({
           </CardContent>
         </Card>
 
+        {/* ── Verification record ─────────────────────────────────────── */}
+        <Card className="lg:col-span-3">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="text-base">Verification record</CardTitle>
+            {canReviewSignals && (
+              <Button size="sm" onClick={() => openVerificationDialog(verification)}>
+                {verificationLoading ? '…' : verification ? 'Edit' : 'Set up verification'}
+              </Button>
+            )}
+          </CardHeader>
+          <CardContent>
+            {verificationLoading && (
+              <p className="text-sm text-muted-foreground">Loading…</p>
+            )}
+            {!verificationLoading && !verification && (
+              <p className="text-sm text-muted-foreground">
+                No verification record yet. Once created, a panel showing food business
+                registration, hygiene rating, insurance, allergen training and identity
+                check will appear on the vendor profile.
+              </p>
+            )}
+            {verification && (
+              <div className="grid grid-cols-1 gap-x-8 gap-y-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
+                <Field
+                  label="Overall state"
+                  value={<VerificationStatePill state={verification.overallState} />}
+                />
+                <Field label="Registration number" value={verification.registrationNumber} />
+                <Field label="Authority" value={verification.registrationAuthority} />
+                <Field
+                  label="Registration confirmed"
+                  value={formatDate(verification.registrationConfirmedAt)}
+                />
+                <Field label="FHRS status" value={FHRS_LABELS[verification.fhrsInspectionStatus]} />
+                <Field
+                  label="FHRS rating"
+                  value={
+                    verification.fhrsRating != null
+                      ? `${verification.fhrsRating}/5${verification.fhrsRatingCheckedAt ? ` (checked ${formatDate(verification.fhrsRatingCheckedAt)})` : ''}`
+                      : '-'
+                  }
+                />
+                <Field
+                  label="Insurance"
+                  value={
+                    verification.insuranceValidUntil
+                      ? `${verification.insuranceProvider ? `${verification.insuranceProvider} - ` : ''}valid until ${formatDate(verification.insuranceValidUntil)}`
+                      : '-'
+                  }
+                />
+                <Field
+                  label="Allergen training"
+                  value={
+                    verification.allergenTrainingHeld
+                      ? verification.allergenTrainingUntil
+                        ? `Valid until ${formatDate(verification.allergenTrainingUntil)}`
+                        : 'Held'
+                      : 'Not held'
+                  }
+                />
+                <Field
+                  label="ID verified"
+                  value={verification.idVerifiedAt ? formatDate(verification.idVerifiedAt) : '-'}
+                />
+                <Field
+                  label="Last updated"
+                  value={formatDateTime(verification.updatedAt)}
+                />
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* ── Trust signals ────────────────────────────────────────────── */}
         <Card className="lg:col-span-3">
           <CardHeader>
             <CardTitle className="text-base">Trust signals</CardTitle>
@@ -489,6 +641,188 @@ export function VendorDetailClient({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Verification record form dialog */}
+      <Dialog open={verificationOpen} onOpenChange={(open) => !open && setVerificationOpen(false)}>
+        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {verification ? 'Edit verification record' : 'Set up verification record'}
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Once saved, a structured verification panel appears on the public vendor profile above
+            the menu.
+          </p>
+          <div className="mt-2 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Registration number *</label>
+              <Input
+                value={vForm.registrationNumber}
+                onChange={(e) => setVForm((f) => ({ ...f, registrationNumber: e.target.value }))}
+                placeholder="e.g. FBR/2024/001234"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Registration authority *</label>
+              <Input
+                value={vForm.registrationAuthority}
+                onChange={(e) =>
+                  setVForm((f) => ({ ...f, registrationAuthority: e.target.value }))
+                }
+                placeholder="e.g. London Borough of Hackney"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Registration confirmed date *</label>
+              <Input
+                type="date"
+                value={vForm.registrationConfirmedAt}
+                onChange={(e) =>
+                  setVForm((f) => ({ ...f, registrationConfirmedAt: e.target.value }))
+                }
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Overall state *</label>
+              <select
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm"
+                value={vForm.overallState}
+                onChange={(e) =>
+                  setVForm((f) => ({ ...f, overallState: e.target.value as VerificationState }))
+                }
+              >
+                <option value="VERIFIED">Verified</option>
+                <option value="RENEWAL_DUE">Renewal due</option>
+                <option value="SUSPENDED">Suspended</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">FHRS inspection status *</label>
+              <select
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm"
+                value={vForm.fhrsInspectionStatus}
+                onChange={(e) =>
+                  setVForm((f) => ({
+                    ...f,
+                    fhrsInspectionStatus: e.target.value as FhrsStatus,
+                  }))
+                }
+              >
+                <option value="AWAITING_FIRST_INSPECTION">Awaiting first inspection</option>
+                <option value="RATED">Rated</option>
+                <option value="EXEMPT">Exempt</option>
+                <option value="NOT_FOUND">Not found</option>
+              </select>
+            </div>
+            {vForm.fhrsInspectionStatus === 'RATED' && (
+              <>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">FHRS rating (0-5)</label>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={5}
+                    value={vForm.fhrsRating ?? ''}
+                    onChange={(e) =>
+                      setVForm((f) => ({
+                        ...f,
+                        fhrsRating: e.target.value === '' ? null : Number(e.target.value),
+                      }))
+                    }
+                    placeholder="e.g. 5"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">FHRS rating checked date</label>
+                  <Input
+                    type="date"
+                    value={vForm.fhrsRatingCheckedAt ?? ''}
+                    onChange={(e) =>
+                      setVForm((f) => ({
+                        ...f,
+                        fhrsRatingCheckedAt: e.target.value || null,
+                      }))
+                    }
+                  />
+                </div>
+              </>
+            )}
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Insurance provider</label>
+              <Input
+                value={vForm.insuranceProvider ?? ''}
+                onChange={(e) =>
+                  setVForm((f) => ({ ...f, insuranceProvider: e.target.value || null }))
+                }
+                placeholder="e.g. Hiscox"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Insurance valid until</label>
+              <Input
+                type="date"
+                value={vForm.insuranceValidUntil ?? ''}
+                onChange={(e) =>
+                  setVForm((f) => ({ ...f, insuranceValidUntil: e.target.value || null }))
+                }
+              />
+            </div>
+            <div className="col-span-full flex items-center gap-2">
+              <input
+                id="allergen-held"
+                type="checkbox"
+                className="h-4 w-4 rounded border-input"
+                checked={vForm.allergenTrainingHeld}
+                onChange={(e) =>
+                  setVForm((f) => ({ ...f, allergenTrainingHeld: e.target.checked }))
+                }
+              />
+              <label htmlFor="allergen-held" className="text-sm font-medium">
+                Allergen training held
+              </label>
+            </div>
+            {vForm.allergenTrainingHeld && (
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Allergen training valid until</label>
+                <Input
+                  type="date"
+                  value={vForm.allergenTrainingUntil ?? ''}
+                  onChange={(e) =>
+                    setVForm((f) => ({ ...f, allergenTrainingUntil: e.target.value || null }))
+                  }
+                />
+              </div>
+            )}
+            <div className="space-y-1">
+              <label className="text-sm font-medium">ID verified date</label>
+              <Input
+                type="date"
+                value={vForm.idVerifiedAt ?? ''}
+                onChange={(e) =>
+                  setVForm((f) => ({ ...f, idVerifiedAt: e.target.value || null }))
+                }
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setVerificationOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={submitVerification}
+              disabled={
+                upsertVerification.isPending ||
+                !vForm.registrationNumber.trim() ||
+                !vForm.registrationAuthority.trim() ||
+                !vForm.registrationConfirmedAt
+              }
+            >
+              {upsertVerification.isPending ? 'Saving…' : 'Save'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
@@ -504,4 +838,26 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
 
 function DocStatusPill({ status }: { status: DocumentStatus }) {
   return <StatusPill tone={DOC_STATUS_TONE[status]}>{status}</StatusPill>;
+}
+
+const FHRS_LABELS: Record<FhrsStatus, string> = {
+  AWAITING_FIRST_INSPECTION: 'Awaiting first inspection',
+  RATED: 'Rated',
+  EXEMPT: 'Exempt',
+  NOT_FOUND: 'Not found',
+};
+
+const VERIFICATION_STATE_TONE: Record<VerificationState, StatusTone> = {
+  VERIFIED: 'success',
+  RENEWAL_DUE: 'warning',
+  SUSPENDED: 'danger',
+};
+
+function VerificationStatePill({ state }: { state: VerificationState }) {
+  const labels: Record<VerificationState, string> = {
+    VERIFIED: 'Verified',
+    RENEWAL_DUE: 'Renewal due',
+    SUSPENDED: 'Suspended',
+  };
+  return <StatusPill tone={VERIFICATION_STATE_TONE[state]}>{labels[state]}</StatusPill>;
 }
