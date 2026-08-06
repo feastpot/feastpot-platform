@@ -1,0 +1,98 @@
+TASK: Fix content contradictions found across the live site
+and prevent recurrence with a single source of truth.
+
+DEFECTS FOUND IN CRAWL
+
+D1. The help page states "24/7 customer support" in one
+    block and "Email support, Monday to Saturday" in
+    another block on the same page. The footer partial
+    varies between pages too. Pick one truthful answer and
+    apply it everywhere.
+
+D2. Two competing vendor signup routes. The help FAQ says
+    email partners@feastpot.co.uk. The become-a-vendor page
+    has an application form. This splits the funnel and
+    confuses applicants. Make the form canonical. Keep the
+    email as an accessibility fallback only, mentioned once.
+
+D3. The help FAQ document list (hygiene certificate,
+    insurance, ID, allergen training, Stripe onboarding)
+    omits the FHRS minimum 3/5 that the Vendor Terms make a
+    hard eligibility condition. An applicant could complete
+    every listed step and still be rejected. Align the lists.
+
+D4. Vendor Terms give a 7-day appeal window against a
+    stated 5-business-day response time. An appeal can
+    expire before its acknowledgement arrives. RED-102
+    extends this to 14 days. Verify the fix landed here too.
+
+D5. The Sunday family meal occasion page promises "reorder
+    in a couple of taps and schedule the delivery day".
+    Confirm scheduled reorder actually exists. If it does
+    not, soften the copy until it does. This is also the
+    natural hook for a future meal-prep subscription, so
+    build it rather than removing the promise if feasible.
+
+D6. The help page WhatsApp support link is a bare
+    https://wa.me/ with no number. Either configure the
+    number or remove the channel.
+
+D7. Footer link sets differ between pages. Some pages show
+    Catering, Become a vendor, Vendor readiness and Trust;
+    others omit them. Use one footer component everywhere.
+
+THE FIX: single source of truth
+Create packages/config/src/platform-facts.ts
+
+  export const PLATFORM_FACTS = {
+    commission: {
+      marketplaceFirst: 12.0,
+      marketplaceRepeat: 10.0,
+      vendorReferred: 0.0,
+      basis: "food subtotal only",
+    },
+    serviceFee: { percent: 5, capPence: 299 },
+    feastPass: { monthlyPence: 399, annualPence: 3990 },
+    payouts: { frequency: "weekly", day: "Monday" },
+    support: {
+      email: "support@feastpot.co.uk",
+      hours: "Monday to Saturday",
+      responseTime: "within 24 hours",
+      whatsapp: null,
+    },
+    vendorRequirements: [
+      "UK business or sole trader registration",
+      "Food Business Registration with your local authority",
+      "FHRS rating of at least 3 out of 5, 4 recommended",
+      "Public liability insurance, minimum 1 million pounds",
+      "Level 2 food safety certificate or equivalent",
+      "Valid photo ID",
+      "UK bank account for Stripe Connect",
+    ],
+    appealWindowDays: 14,
+    termsNoticeDays: 15,
+    terminationNoticeDays: 30,
+  } as const;
+
+Every page across all three apps imports from this file.
+No commercial or support fact is ever hardcoded in a
+component again.
+
+CONSISTENCY TEST
+Add a test that renders the become-a-vendor page, the help
+FAQ and the vendor terms page, extracts every percentage and
+every requirement list item, and asserts they match
+PLATFORM_FACTS. Fail the build on mismatch.
+
+SHARED COMPONENTS
+Extract one Footer and one "Order with confidence" component
+into packages/ui. Delete the duplicated variants.
+
+ACCEPTANCE CRITERIA
+- No two pages state a different support hours answer.
+- Requirement lists are identical across help, become-a-vendor
+  and vendor terms.
+- The consistency test fails if any number is changed in one
+  place only.
+- One footer component renders on every page of every app.
+- No dead or placeholder links remain anywhere.
