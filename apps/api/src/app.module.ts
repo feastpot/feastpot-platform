@@ -28,6 +28,7 @@ import { bullBoardBasicAuth } from './modules/admin/bull-board.middleware';
 import { CatalogueModule } from './modules/catalogue/catalogue.module';
 import { CateringBookingsModule } from './modules/catering-bookings/catering-bookings.module';
 import { CateringEnquiriesModule } from './modules/catering-enquiries/catering-enquiries.module';
+import { FeastPassModule } from './feastpass/feastpass.module';
 import { ComplianceModule } from './modules/compliance/compliance.module';
 import { CoverageModule } from './modules/coverage/coverage.module';
 import { DiscountCodesModule } from './modules/discount-codes/discount-codes.module';
@@ -362,6 +363,7 @@ import { RootController } from './root.controller';
     VendorRecommendationsModule,
     CateringEnquiriesModule,
     CateringBookingsModule,
+    FeastPassModule,
     CatalogueModule,
     OrdersModule,
     PaymentsModule,

@@ -5,6 +5,7 @@ import * as Sentry from '@sentry/nestjs';
 import type { Job } from 'bull';
 import type Stripe from 'stripe';
 
+import { FeastPassService } from '../../feastpass/feastpass.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { shouldReportQueueFailure } from '../../queues/queue-failure';
 import { LoyaltyService } from '../loyalty/loyalty.service';
@@ -46,6 +47,8 @@ export class StripeWebhookProcessor {
     // Used to refund any loyalty redemption attached to an order whose
     // payment Stripe ultimately fails (FR-LOY-001 retention requirement).
     private readonly loyalty: LoyaltyService,
+    // FeastPassModule is @Global - available without importing it here.
+    private readonly feastpass: FeastPassService,
   ) {}
 
   // Concurrency=5 on each handler: Stripe bursts during busy periods (peak
@@ -469,6 +472,38 @@ export class StripeWebhookProcessor {
   // handlers. Unhandled event types are detected in the controller (via
   // HANDLED_STRIPE_EVENT_TYPES) and alerted through Sentry + warn log instead
   // of being enqueued; they are still recorded in processed_webhook_events.
+
+  // ── FeastPass subscription lifecycle ───────────────────────────────────────
+
+  @Process({ name: eventName('customer.subscription.created'), concurrency: 5 })
+  async onSubscriptionCreated(job: Job<WebhookJob>): Promise<void> {
+    const sub = job.data.data as Stripe.Subscription;
+    await this.feastpass.handleSubscriptionUpsert(sub);
+  }
+
+  @Process({ name: eventName('customer.subscription.updated'), concurrency: 5 })
+  async onSubscriptionUpdated(job: Job<WebhookJob>): Promise<void> {
+    const sub = job.data.data as Stripe.Subscription;
+    await this.feastpass.handleSubscriptionUpsert(sub);
+  }
+
+  @Process({ name: eventName('customer.subscription.deleted'), concurrency: 5 })
+  async onSubscriptionDeleted(job: Job<WebhookJob>): Promise<void> {
+    const sub = job.data.data as Stripe.Subscription;
+    await this.feastpass.handleSubscriptionDeleted(sub);
+  }
+
+  @Process({ name: eventName('invoice.payment_failed'), concurrency: 5 })
+  async onInvoicePaymentFailed(job: Job<WebhookJob>): Promise<void> {
+    const invoice = job.data.data as Stripe.Invoice;
+    await this.feastpass.handleInvoicePaymentFailed(invoice);
+  }
+
+  @Process({ name: eventName('invoice.payment_succeeded'), concurrency: 5 })
+  async onInvoicePaymentSucceeded(job: Job<WebhookJob>): Promise<void> {
+    const invoice = job.data.data as Stripe.Invoice;
+    await this.feastpass.handleInvoicePaymentSucceeded(invoice);
+  }
 
   @OnQueueFailed()
   onFailed(job: Job<WebhookJob> | undefined, err: Error): void {

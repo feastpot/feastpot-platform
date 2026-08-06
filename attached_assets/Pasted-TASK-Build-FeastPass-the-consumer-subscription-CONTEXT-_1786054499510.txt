@@ -1,0 +1,100 @@
+TASK: Build FeastPass, the consumer subscription.
+
+CONTEXT
+FeastPass exists in business rules (5% service fee capped at
+2.99 pounds, waived for members) but has no surface anywhere
+on the live site. No pricing page, no signup, no badging.
+
+PRICING
+  Monthly: 3.99 pounds
+  Annual: 39.90 pounds (two months free)
+  Cancel any time, self-serve, no retention friction
+
+PRISMA SCHEMA
+model FeastPassSubscription {
+  id                    String   @id @default(cuid())
+  userId                String   @unique
+  stripeSubscriptionId  String   @unique
+  stripeCustomerId      String
+  plan                  FeastPassPlan
+  status                FeastPassStatus
+  currentPeriodStart    DateTime
+  currentPeriodEnd      DateTime
+  cancelAtPeriodEnd     Boolean  @default(false)
+  startedAt             DateTime @default(now())
+  cancelledAt           DateTime?
+  @@index([status, currentPeriodEnd])
+}
+
+model FeastPassSaving {
+  id          String   @id @default(cuid())
+  userId      String
+  orderId     String   @unique
+  savedPence  Int
+  savedAt     DateTime @default(now())
+  @@index([userId, savedAt])
+}
+
+enum FeastPassPlan { MONTHLY ANNUAL }
+enum FeastPassStatus { ACTIVE PAST_DUE CANCELLED EXPIRED }
+
+BENEFITS TO IMPLEMENT
+1. Service fee waived at checkout. Show the saving inline:
+   "FeastPass saved you 2.10 pounds on this order."
+   Record a FeastPassSaving row per order.
+2. Priority booking. Vendors can mark limited Sunday and
+   event slots as member-priority. Those slots open to
+   members 24 hours before general release. This is the
+   hero perk, not the fee waiver, because it is the one a
+   competitor cannot trivially copy.
+3. Member badge on the account page and order confirmations.
+
+BUILD
+apps/customer/app/feastpass/page.tsx
+  Value proposition, pricing, break-even messaging:
+  "Pays for itself from your second order each month."
+  Show a live calculator: enter typical orders per month,
+  see annual saving.
+  FAQ covering cancellation, what is included, whether it
+  affects vendor earnings (it does not, state this plainly).
+
+apps/customer/app/account/feastpass/page.tsx
+  Current plan, renewal date, cumulative savings tracker,
+  self-serve cancel in three taps or fewer with no email
+  required and no dark patterns.
+
+apps/api/src/feastpass/
+  Stripe Billing integration, webhook handlers for
+  subscription.created, updated, deleted, and
+  invoice.payment_failed.
+  On payment failure: 3-day grace period, then status
+  PAST_DUE, then EXPIRED. Email at each stage.
+
+CHECKOUT INTEGRATION
+The service fee calculation must check for an ACTIVE
+subscription before applying the 5% capped fee. Fee waiver
+is a customer-side change only. Vendor commission and payout
+are untouched. Verify this with a test.
+
+INSTRUMENTATION (this is the point of the epic)
+Build a FeastPass health dashboard in apps/admin:
+  Monthly renewal rate, the north-star metric
+  Churn by signup cohort month
+  Orders per member versus non-member
+  Average monthly saving per member
+  Revenue contribution as a share of platform total
+  Alert if monthly renewal falls below 80%
+
+CONVERSION SURFACES
+  Post-checkout: "You would have saved X with FeastPass"
+  Account page banner after a customer's third order
+  Do not interrupt the ordering flow with a modal
+
+ACCEPTANCE CRITERIA
+- A member placing 2 or more orders a month saves more than
+  the subscription costs, verified in test data.
+- Cancellation completes in 3 taps with no email required.
+- Vendor payouts are byte-identical whether the customer is
+  a member or not.
+- Renewal dashboard is live before the first cohort reaches
+  its second billing cycle.

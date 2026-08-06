@@ -342,6 +342,8 @@ model User {
   mfaRecoveryCodes           MfaRecoveryCode[]
   verifiedTrustSignals       VendorTrustSignal[]      @relation("TrustSignalVerifier")
   cateringBookings           CateringBooking[]        @relation("CateringBookingCustomer")
+  feastPassSubscription      FeastPassSubscription?
+  feastPassSavings           FeastPassSaving[]
 
   @@index([role])
   @@index([status])
@@ -877,6 +879,7 @@ model Order {
   adminTags    OrderAdminTag[]
   attribution     OrderAttribution?
   orderCommission OrderCommission?
+  feastPassSaving FeastPassSaving?
 
   @@index([customerId])
   @@index([vendorId])
@@ -1605,4 +1608,59 @@ model CoverageInterest {
   @@unique([email, postcode])
   @@index([postcode])
   @@map("coverage_interests")
+}
+
+// ============================================================
+// FEASTPASS - consumer subscription
+// ============================================================
+
+enum FeastPassPlan {
+  MONTHLY
+  ANNUAL
+}
+
+enum FeastPassStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  EXPIRED
+}
+
+/// One row per subscriber. userId is UNIQUE so a customer can only hold one
+/// active subscription at a time. stripeCustomerId is preserved across
+/// cancellations so the portal session works even after a lapse.
+model FeastPassSubscription {
+  id                   String          @id @default(cuid())
+  userId               String          @unique @map("user_id") @db.Uuid
+  stripeSubscriptionId String          @unique @map("stripe_subscription_id") @db.VarChar(255)
+  stripeCustomerId     String          @map("stripe_customer_id") @db.VarChar(255)
+  plan                 FeastPassPlan
+  status               FeastPassStatus
+  currentPeriodStart   DateTime        @map("current_period_start") @db.Timestamptz
+  currentPeriodEnd     DateTime        @map("current_period_end") @db.Timestamptz
+  cancelAtPeriodEnd    Boolean         @default(false) @map("cancel_at_period_end")
+  startedAt            DateTime        @default(now()) @map("started_at") @db.Timestamptz
+  cancelledAt          DateTime?       @map("cancelled_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status, currentPeriodEnd])
+  @@map("feast_pass_subscriptions")
+}
+
+/// One row per order where the service fee was waived. Used for the cumulative
+/// savings tracker on the account page and the admin health dashboard.
+/// orderId is UNIQUE (upsert-safe): a re-queued job can never double-insert.
+model FeastPassSaving {
+  id         String   @id @default(cuid())
+  userId     String   @map("user_id") @db.Uuid
+  orderId    String   @unique @map("order_id") @db.Uuid
+  savedPence Int      @map("saved_pence")
+  savedAt    DateTime @default(now()) @map("saved_at") @db.Timestamptz
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([userId, savedAt])
+  @@map("feast_pass_savings")
 }

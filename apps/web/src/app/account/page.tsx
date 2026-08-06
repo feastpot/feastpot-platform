@@ -2,6 +2,7 @@
 
 import {
   Bell,
+  Crown,
   Gift,
   HelpCircle,
   LogOut,
@@ -115,6 +116,12 @@ export default function AccountHubPage() {
           title="Notifications"
           subtitle="Email, SMS & push opt-outs"
           Icon={Bell}
+        />
+        <NavCard
+          href="/account/feastpass"
+          title="FeastPass"
+          subtitle="Membership & savings"
+          Icon={Crown}
         />
         <NavCard href="/help" title="Help" subtitle="FAQs and support" Icon={HelpCircle} />
       </ul>

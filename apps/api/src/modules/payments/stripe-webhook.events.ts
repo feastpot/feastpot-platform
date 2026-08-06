@@ -21,6 +21,12 @@ const HANDLED_STRIPE_EVENT_TYPE_LIST = [
   'charge.dispute.created',
   'charge.dispute.updated',
   'charge.dispute.closed',
+  // FeastPass subscription lifecycle
+  'customer.subscription.created',
+  'customer.subscription.updated',
+  'customer.subscription.deleted',
+  'invoice.payment_failed',
+  'invoice.payment_succeeded',
 ] as const;
 
 export type HandledStripeEventType = (typeof HANDLED_STRIPE_EVENT_TYPE_LIST)[number];

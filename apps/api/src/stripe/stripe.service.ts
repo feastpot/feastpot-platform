@@ -169,6 +169,33 @@ export class StripeService {
       type: 'account_onboarding',
     });
   }
+
+  // ── Stripe Billing (FeastPass subscriptions) ─────────────────────────────
+
+  /** Create a Stripe Customer and return its id. */
+  async createBillingCustomer(
+    email: string,
+    metadata: Record<string, string>,
+  ): Promise<string> {
+    const customer = await this.stripe.customers.create({ email, metadata });
+    return customer.id;
+  }
+
+  createCheckoutSession(
+    params: Stripe.Checkout.SessionCreateParams,
+  ): Promise<Stripe.Checkout.Session> {
+    return this.stripe.checkout.sessions.create(params);
+  }
+
+  createBillingPortalSession(
+    params: Stripe.BillingPortal.SessionCreateParams,
+  ): Promise<Stripe.BillingPortal.Session> {
+    return this.stripe.billingPortal.sessions.create(params);
+  }
+
+  retrieveSubscription(subscriptionId: string): Promise<Stripe.Subscription> {
+    return this.stripe.subscriptions.retrieve(subscriptionId);
+  }
 }
 
 export const stripeClientFactory = {

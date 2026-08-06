@@ -14,6 +14,7 @@ import {
 import {
   AmendmentStatus,
   DeliveryType,
+  FeastPassStatus,
   ItemCategory,
   LoyaltyTxType,
   ModerationStatus,
@@ -47,6 +48,7 @@ import {
   reserveCapacity,
 } from '../vendors/vendor-capacity';
 
+import { FeastPassService } from '../../feastpass/feastpass.service';
 import { AttributionService } from '../attribution/attribution.service';
 import { CommissionService } from '../../commission/commission.service';
 
@@ -179,6 +181,9 @@ export class OrdersService {
     private readonly attribution: AttributionService,
     // Commission: source-based rate engine, replaces hardcoded commissionBps.
     private readonly commission: CommissionService,
+    // FeastPassModule is @Global: waives the customer-side service fee for
+    // ACTIVE members. Vendor payouts and commission are entirely unaffected.
+    private readonly feastpass: FeastPassService,
   ) {}
 
   // Best-effort BullMQ wrappers. When REDIS_URL is unset (dev/CI), the
@@ -432,7 +437,19 @@ export class OrdersService {
     // Combine loyalty + promo discounts. Final clamp ensures total never
     // dips below £0 even if the two stack to more than the order value.
     const discountPence = loyaltyToRedeem + promoDiscountPence;
-    const serviceFeePence = getServiceFeePence(subtotalPence);
+
+    // FeastPass: waive the customer-side service fee for ACTIVE members.
+    // Vendor commission and payout are calculated on the same subtotal either
+    // way; vendor earnings are byte-identical whether the customer holds a
+    // membership or not.
+    const feastPassSub = await this.prisma.feastPassSubscription.findUnique({
+      where: { userId: customerId },
+      select: { status: true },
+    });
+    const isFeastPassMember = feastPassSub?.status === FeastPassStatus.ACTIVE;
+    const rawServiceFeePence = getServiceFeePence(subtotalPence);
+    const serviceFeePence = isFeastPassMember ? 0 : rawServiceFeePence;
+
     const totalPence = Math.max(
       0,
       subtotalPence + deliveryFeePence + serviceFeePence - discountPence,
@@ -507,7 +524,7 @@ export class OrdersService {
     }
 
     try {
-      return await this.finishCreateOrder({
+      const result = await this.finishCreateOrder({
         customerId,
         dto,
         orderId,
@@ -531,6 +548,11 @@ export class OrdersService {
         fpRef,
         sessionId,
       });
+      // Best-effort FeastPass saving record. Never blocks order creation.
+      if (isFeastPassMember && rawServiceFeePence > 0) {
+        void this.feastpass.recordSaving(customerId, orderId, rawServiceFeePence);
+      }
+      return result;
     } catch (err) {
       // Any downstream failure (Stripe PI or DB tx) must hand the slot back,
       // otherwise abandoned attempts consume real capacity.

@@ -85,6 +85,7 @@ const MAIN_NAV: ReadonlyArray<NavItem> = [
   { href: '/push/compose', label: 'Push broadcast', icon: Bell, roles: ['admin'] },
   { href: '/notifications', label: 'Dead-letter notifications', icon: Bell, roles: ['admin'] },
   { href: '/attribution', label: 'Attribution', icon: BarChart3, roles: ['admin', 'finance', 'support'] },
+  { href: '/feastpass-health', label: 'FeastPass health', icon: BarChart3, roles: ['admin', 'finance'] },
   { href: '/catering-bookings', label: 'Catering bookings', icon: BarChart3, roles: ['admin', 'finance', 'support'] },
   { href: '/commission-rates', label: 'Commission rates', icon: BarChart3, roles: ['admin', 'finance'] },
   { href: '/compliance', label: 'Compliance', icon: ShieldCheck, roles: ['admin', 'compliance'] },
