@@ -13,10 +13,11 @@ import {
   Repeat2,
   Star,
   UserCircle,
+  X,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@feastpot/ui';
 
@@ -24,6 +25,7 @@ import { Avatar } from '@/components/account/avatar';
 import { LoyaltyCard } from '@/components/account/loyalty-card';
 import { ReferralCard } from '@/components/account/referral-card';
 import { ReferralHistory } from '@/components/account/referral-history';
+import { useSavingsPotential } from '@/hooks/use-feastpass';
 import { useMe } from '@/hooks/use-me';
 import { useAccessToken } from '@/lib/auth/use-access-token';
 import { createClient } from '@/lib/supabase/client';
@@ -38,10 +40,14 @@ import { createClient } from '@/lib/supabase/client';
  * middle, sign-out at the bottom (with a confirm dialog so an accidental
  * tap doesn't kick the customer out).
  */
+const SAVINGS_BANNER_DISMISSED_COOKIE = 'fp_savings_banner_dismissed';
+const MIN_ORDERS_FOR_BANNER = 3;
+
 export default function AccountHubPage() {
   const router = useRouter();
   const { token, loading: authLoading } = useAccessToken();
   const { data: me, isLoading } = useMe();
+  const { data: savingsPotential } = useSavingsPotential();
   const [signingOut, setSigningOut] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
@@ -83,6 +89,15 @@ export default function AccountHubPage() {
           </Link>
         </div>
       </header>
+
+      {/* FeastPass savings banner — shown to non-members with 3+ orders.
+          savingsPotentialPence===0 means the API flagged them as an active
+          member, so we suppress the banner in that case. */}
+      {savingsPotential &&
+        savingsPotential.savingsPotentialPence > 0 &&
+        savingsPotential.orderCount >= MIN_ORDERS_FOR_BANNER && (
+          <FeastPassSavingsBanner savingsPotentialPence={savingsPotential.savingsPotentialPence} />
+        )}
 
       <LoyaltyCard />
       <ReferralCard />
@@ -234,6 +249,72 @@ function GuestAccountWelcome() {
         Continue browsing without signing in →
       </Link>
     </section>
+  );
+}
+
+/**
+ * Persistent savings banner for non-members with 3+ orders.
+ * Dismissed by setting a session cookie (reappears on next visit —
+ * intentional, as the spec says "re-appears if they revisit later").
+ */
+function FeastPassSavingsBanner({ savingsPotentialPence }: { savingsPotentialPence: number }) {
+  const formatPounds = (p: number) => `£${(p / 100).toFixed(2)}`;
+  const [dismissed, setDismissed] = useState(false);
+
+  // Read cookie on mount to respect any prior dismissal within the session
+  useEffect(() => {
+    if (document.cookie.includes(`${SAVINGS_BANNER_DISMISSED_COOKIE}=1`)) {
+      setDismissed(true);
+    }
+  }, []);
+
+  const dismiss = () => {
+    // Session cookie (no max-age) — expires when the browser tab closes,
+    // so it "re-appears if they revisit later" as the spec requires.
+    document.cookie = `${SAVINGS_BANNER_DISMISSED_COOKIE}=1; path=/; SameSite=Lax`;
+    setDismissed(true);
+  };
+
+  if (dismissed) return null;
+
+  return (
+    <div
+      role="banner"
+      className="relative rounded-2xl border border-plantain/40 bg-gradient-to-br from-plantain/10 via-white to-brand-light p-4"
+    >
+      <button
+        type="button"
+        onClick={dismiss}
+        className="absolute right-3 top-3 flex h-6 w-6 items-center justify-center rounded-full text-charcoal-mid hover:bg-cream-deep"
+        aria-label="Dismiss FeastPass banner"
+      >
+        <X className="h-3.5 w-3.5" aria-hidden />
+      </button>
+
+      <div className="flex items-start gap-3 pr-6">
+        <span
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-plantain/20"
+          aria-hidden
+        >
+          <Crown className="h-4 w-4 text-plantain-dark" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="font-display text-sm font-black text-charcoal">
+            You&rsquo;ve paid {formatPounds(savingsPotentialPence)} in service fees across your orders.
+          </p>
+          <p className="mt-0.5 text-xs font-medium text-charcoal-mid">
+            FeastPass would have saved you that.
+          </p>
+          <Link
+            href="/feastpass?plan=monthly"
+            className="mt-2 inline-flex items-center gap-1 rounded-full bg-plantain px-3 py-1.5 text-xs font-bold text-white hover:bg-plantain-dark transition-colors"
+          >
+            <Crown className="h-3 w-3" aria-hidden />
+            Learn about FeastPass →
+          </Link>
+        </div>
+      </div>
+    </div>
   );
 }
 

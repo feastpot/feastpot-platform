@@ -34,6 +34,14 @@ export class FeastPassController {
     return this.feastpass.getMembership(user.id);
   }
 
+  /** How much the customer would have saved with FeastPass (non-member conversion). */
+  @Get('feastpass/savings-potential')
+  @UseGuards(SupabaseAuthGuard, RolesGuard)
+  @Roles('customer', 'admin')
+  async getSavingsPotential(@CurrentUser() user: AuthUser) {
+    return this.feastpass.getSavingsPotential(user.id);
+  }
+
   /** Create a Stripe Checkout Session to start a subscription. */
   @Post('feastpass/checkout')
   @HttpCode(200)

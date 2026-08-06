@@ -253,6 +253,55 @@ export class FeastPassService {
   }
 
   // ---------------------------------------------------------------------------
+  // Savings potential (non-member conversion surface)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Sum of serviceFeePence across all past orders for a user who has never
+   * held an active FeastPass subscription. Returns 0 for existing/past members
+   * (they've already converted or lapsed) and the total order count so the
+   * frontend can gate the 3-order threshold without a second call.
+   */
+  async getSavingsPotential(userId: string): Promise<{ savingsPotentialPence: number; orderCount: number }> {
+    // Don't show savings potential to existing/past members
+    const sub = await this.prisma.feastPassSubscription.findUnique({
+      where: { userId },
+      select: { status: true },
+    });
+    if (sub?.status === FeastPassStatus.ACTIVE) {
+      return { savingsPotentialPence: 0, orderCount: 0 };
+    }
+
+    // Use an allowlist of chargeable statuses so that rejected orders
+    // (Stripe auth voided), cancelled orders, and refunded orders are all
+    // excluded. This prevents overstating savings to the customer.
+    const chargeableStatuses = [
+      'pending',
+      'accepted',
+      'needs_clarification',
+      'preparing',
+      'ready',
+      'dispatched',
+      'delivered',
+    ] as const;
+
+    const result = await this.prisma.order.aggregate({
+      where: {
+        customerId: userId,
+        serviceFeePence: { gt: 0 },
+        status: { in: [...chargeableStatuses] },
+      },
+      _sum: { serviceFeePence: true },
+      _count: { id: true },
+    });
+
+    return {
+      savingsPotentialPence: result._sum.serviceFeePence ?? 0,
+      orderCount: result._count.id,
+    };
+  }
+
+  // ---------------------------------------------------------------------------
   // Admin health stats
   // ---------------------------------------------------------------------------
 

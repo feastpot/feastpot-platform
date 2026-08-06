@@ -1,6 +1,6 @@
 'use client';
 
-import { Bell, Check, Copy, MapPin, Sparkles } from 'lucide-react';
+import { Bell, Check, Copy, Crown, MapPin, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -9,6 +9,8 @@ import { cn } from '@feastpot/ui';
 
 import { useReferrals } from '@/hooks/use-loyalty';
 import { useOrder } from '@/hooks/use-orders';
+import { useSavingsPotential } from '@/hooks/use-feastpass';
+import { shouldShowFeastPassCallout } from '@/lib/feastpass-callout';
 import { getPushSupport } from '@/lib/push';
 
 const formatPounds = (p: number) => `£${(p / 100).toFixed(2)}`;
@@ -33,6 +35,7 @@ export default function OrderConfirmationPage() {
 
   const { data: order, isLoading, error } = useOrder(orderId);
   const { data: referralData } = useReferrals();
+  const { data: savingsPotential } = useSavingsPotential();
 
   if (isLoading) {
     return (
@@ -154,6 +157,14 @@ export default function OrderConfirmationPage() {
         </div>
       </section>
 
+      {/* FeastPass upsell — hidden while savings data is loading/errored and
+          for active members (server returns savingsPotentialPence=0).
+          shouldShowFeastPassCallout() requires a positively-loaded, non-zero
+          response so there is no flash during in-flight or error states. */}
+      {shouldShowFeastPassCallout(order.serviceFeePence, savingsPotential) && (
+        <FeastPassUpsellCallout serviceFeePence={order.serviceFeePence} />
+      )}
+
       {/* Primary CTA */}
       <Link
         href={`/orders/${order.id}/tracking`}
@@ -171,6 +182,42 @@ export default function OrderConfirmationPage() {
           is in-flight, instead of rendering a fake `FP-XXXXXX` placeholder. */}
       {referralData?.referralCode ? <ReferralCard code={referralData.referralCode} /> : null}
     </div>
+  );
+}
+
+/**
+ * Post-checkout FeastPass upsell. Shown only when the order had a non-zero
+ * service fee and the API signals the customer is not already a member
+ * (savingsPotentialPence !== 0). Links to /feastpass with monthly pre-selected.
+ */
+function FeastPassUpsellCallout({ serviceFeePence }: { serviceFeePence: number }) {
+  const formatPounds = (p: number) => `£${(p / 100).toFixed(2)}`;
+  return (
+    <section className="rounded-2xl border border-plantain/40 bg-gradient-to-br from-plantain/10 via-white to-brand-light p-4">
+      <div className="flex items-start gap-3">
+        <span
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-plantain/20"
+          aria-hidden
+        >
+          <Crown className="h-4 w-4 text-plantain-dark" />
+        </span>
+        <div className="min-w-0 flex-1 text-sm">
+          <p className="font-display font-black text-charcoal">
+            You paid {formatPounds(serviceFeePence)} in service fees on this order.
+          </p>
+          <p className="mt-0.5 text-xs font-medium text-charcoal-mid">
+            FeastPass members pay £0. For {formatPounds(399)}/month you&rsquo;d keep that money.
+          </p>
+          <Link
+            href="/feastpass?plan=monthly"
+            className="mt-2 inline-flex items-center gap-1 rounded-full bg-plantain px-3 py-1.5 text-xs font-bold text-white hover:bg-plantain-dark transition-colors"
+          >
+            <Crown className="h-3 w-3" aria-hidden />
+            Try FeastPass →
+          </Link>
+        </div>
+      </div>
+    </section>
   );
 }
 

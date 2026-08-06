@@ -36,6 +36,15 @@ export async function createFeastPassCheckout(
   });
 }
 
+export interface FeastPassSavingsPotential {
+  savingsPotentialPence: number;
+  orderCount: number;
+}
+
+export async function getSavingsPotential(accessToken: string): Promise<FeastPassSavingsPotential> {
+  return apiRequest<FeastPassSavingsPotential>('/feastpass/savings-potential', { accessToken });
+}
+
 export async function createFeastPassPortal(
   accessToken: string,
   returnUrl: string,
