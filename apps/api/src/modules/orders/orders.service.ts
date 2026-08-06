@@ -17,11 +17,13 @@ import {
   ItemCategory,
   LoyaltyTxType,
   ModerationStatus,
+  OrderSource,
   OrderStatus,
   OrderType,
   Prisma,
   UserRole,
 } from '@prisma/client';
+import { Decimal } from '@prisma/client/runtime/library';
 import * as Sentry from '@sentry/nestjs';
 import { Queue } from 'bull';
 
@@ -46,6 +48,7 @@ import {
 } from '../vendors/vendor-capacity';
 
 import { AttributionService } from '../attribution/attribution.service';
+import { CommissionService } from '../../commission/commission.service';
 
 import { ProposeAmendmentDto, RespondAmendmentDto } from './dto/amendment.dto';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -174,6 +177,8 @@ export class OrdersService {
     private readonly members: VendorMembersService,
     // Attribution: source attribution for each order (best-effort, never throws).
     private readonly attribution: AttributionService,
+    // Commission: source-based rate engine, replaces hardcoded commissionBps.
+    private readonly commission: CommissionService,
   ) {}
 
   // Best-effort BullMQ wrappers. When REDIS_URL is unset (dev/CI), the
@@ -433,12 +438,27 @@ export class OrdersService {
       subtotalPence + deliveryFeePence + serviceFeePence - discountPence,
     );
 
-    const { commissionPence, vendorPayoutPence } = computeCommission(
+    // Pre-resolve attribution source so CommissionService can apply the correct
+    // source-based rate BEFORE the order row is created. This mirrors what
+    // resolveAndWriteInTx does inside the tx but without writing anything.
+    // Never throws - defaults to MARKETPLACE/first on any failure.
+    const { source: attrSource, isFirstOrder: attrIsFirstOrder } =
+      await this.attribution.preResolveSource(fpRef, sessionId, customerId, dto.vendorId);
+
+    const {
+      commissionPence,
+      vendorPayoutPence,
+      rateId: commissionRateId,
+      ratePercent: commissionRatePercent,
+    } = await this.commission.resolveRateAndCompute(
+      attrSource,
+      attrIsFirstOrder,
       subtotalPence,
       totalPence,
-      vendor.commissionBps,
       serviceFeePence,
+      new Date(),
     );
+
     const orderNumber = this.generateOrderNumber();
     // Generate the order id client-side so the Stripe PI (created BEFORE the
     // DB transaction, for idempotency) can carry the real orderId in its
@@ -502,6 +522,10 @@ export class OrdersService {
         totalPence,
         commissionPence,
         vendorPayoutPence,
+        commissionRateId,
+        commissionRatePercent,
+        attributionSource: attrSource,
+        attributionIsFirstOrder: attrIsFirstOrder,
         discountCodeId,
         loyaltyToRedeem,
         fpRef,
@@ -566,6 +590,11 @@ export class OrdersService {
     totalPence: number;
     commissionPence: number;
     vendorPayoutPence: number;
+    /** null when the DB rate lookup failed (12% fallback was used). */
+    commissionRateId: string | null;
+    commissionRatePercent: Decimal;
+    attributionSource: OrderSource;
+    attributionIsFirstOrder: boolean;
     discountCodeId: string | null;
     loyaltyToRedeem: number;
     /** fp_ref cookie value forwarded from the web app (X-Fp-Ref header). */
@@ -588,6 +617,10 @@ export class OrdersService {
       totalPence,
       commissionPence,
       vendorPayoutPence,
+      commissionRateId,
+      commissionRatePercent,
+      attributionSource,
+      attributionIsFirstOrder,
       discountCodeId,
       loyaltyToRedeem,
       fpRef,
@@ -717,6 +750,33 @@ export class OrdersService {
           fpRef,
           sessionId,
         );
+
+        // OrderCommission: immutable record of which rate was applied and why.
+        // Written inside the tx so it rolls back atomically with the order.
+        // If the rate lookup failed earlier (rateId=null), we skip writing
+        // and rely on the calculate() backfill method or re-derivation from
+        // the Order.commissionBps column.
+        if (commissionRateId) {
+          try {
+            await tx.orderCommission.create({
+              data: {
+                orderId: created.id,
+                foodSubtotalPence: subtotalPence,
+                ratePercent: commissionRatePercent,
+                commissionPence,
+                commissionRateId,
+                source: attributionSource,
+                isFirstOrder: attributionIsFirstOrder,
+              },
+            });
+          } catch (err) {
+            // Never block order creation on a commission record write - log
+            // loudly but let the order proceed. The backfill job can repair it.
+            this.logger.warn(
+              `[commission] OrderCommission write failed for orderId=${created.id}: ${String(err)}`,
+            );
+          }
+        }
 
         return created;
       });

@@ -15,7 +15,7 @@ import { shouldReportQueueFailure } from '../../queues/queue-failure';
 import { NOTIFICATIONS_QUEUE } from '../../queues/queues.module';
 
 import { findPreferenceDefinition } from './notification-preferences.constants';
-import { EmailProvider } from './providers/email.provider';
+import { EmailProvider, type EmailAttachment } from './providers/email.provider';
 import { PushProvider } from './providers/push.provider';
 import { SmsProvider } from './providers/sms.provider';
 import { WhatsappProvider } from './providers/whatsapp.provider';
@@ -150,6 +150,13 @@ export class NotificationProcessor {
     // Raw email jobs (e.g. vendor-application emails) bypass the user-centric
     // template system. They carry { to, subject, html } directly and are
     // retried by Bull's normal backoff when they fail.
+    // payout_batch_ready: email with optional PDF attachment + WhatsApp.
+    // Handled before the generic template path because the email channel needs
+    // to carry a PDF attachment which the generic dispatch() does not support.
+    if (eventName === 'payout_batch_ready') {
+      return this.handlePayoutBatchReady(job.data);
+    }
+
     if (eventName === 'vendor_application_email_raw') {
       const {
         to,
@@ -274,6 +281,95 @@ export class NotificationProcessor {
    * non-pending row is left alone, so a customer response that lands first
    * always wins.
    */
+  /**
+   * payout_batch_ready: sends email (with PDF statement attachment if present)
+   * + WhatsApp (no attachment). Isolated from the generic template path so we
+   * can pass attachments to EmailProvider without touching every other handler.
+   */
+  private async handlePayoutBatchReady(
+    data: NotificationJobData,
+  ): Promise<{ sent: Channel[]; skipped: Channel[] }> {
+    const userId = this.resolveUserId(data);
+    if (!userId) {
+      this.logger.warn('payout_batch_ready: missing vendorUserId - dropping');
+      return { sent: [], skipped: [] };
+    }
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, email: true, phone: true, firstName: true },
+    });
+    if (!user) {
+      this.logger.warn(`payout_batch_ready: user ${userId} not found - dropping`);
+      return { sent: [], skipped: [] };
+    }
+
+    const template = getTemplate('payout_batch_ready');
+    if (!template) {
+      this.logger.warn('payout_batch_ready: no template registered - dropping');
+      return { sent: [], skipped: [] };
+    }
+    const subject = template.subject(data);
+    const html = template.render(data);
+
+    const sent: Channel[] = [];
+    const skipped: Channel[] = [];
+
+    // ─── Email (with PDF attachment when provided) ────────────────────────
+    const enabledChannels = await this.filterEnabledChannels(user.id, 'payout_batch_ready', template.channels);
+    if (enabledChannels.includes('email')) {
+      try {
+        const attachments: EmailAttachment[] = [];
+        if (typeof data.pdfBase64 === 'string' && typeof data.pdfFilename === 'string') {
+          attachments.push({
+            content: Buffer.from(data.pdfBase64, 'base64'),
+            filename: data.pdfFilename,
+          });
+        }
+        const r = await this.email.send({ to: user.email, subject, html, attachments });
+        if (r.delivered) {
+          sent.push('email');
+          await this.recordNotification(user.id, 'email', 'payout_batch_ready', subject, html, NotificationStatus.sent, data);
+        } else {
+          skipped.push('email');
+        }
+      } catch (e) {
+        await this.recordNotification(user.id, 'email', 'payout_batch_ready', subject, html, NotificationStatus.failed, data);
+        throw e; // BullMQ retries
+      }
+    } else {
+      skipped.push('email');
+    }
+
+    // ─── WhatsApp (no attachment) ────────────────────────────────────────
+    if (enabledChannels.includes('whatsapp')) {
+      try {
+        const ok = await this.dispatch('whatsapp', {
+          eventName: 'payout_batch_ready',
+          user,
+          subject,
+          html,
+          data,
+          template: template.whatsappTemplate,
+          smsBody: template.sms ? template.sms(data) : undefined,
+        });
+        if (ok) {
+          sent.push('whatsapp');
+          await this.recordNotification(user.id, 'whatsapp', 'payout_batch_ready', subject, '', NotificationStatus.sent, data);
+        } else {
+          skipped.push('whatsapp');
+        }
+      } catch (e) {
+        this.logger.warn(`payout_batch_ready WhatsApp failed for ${userId}: ${(e as Error).message}`);
+        skipped.push('whatsapp');
+        // Don't rethrow - email already sent, don't retry the whole job for WA
+      }
+    } else {
+      skipped.push('whatsapp');
+    }
+
+    return { sent, skipped };
+  }
+
   private async handleExpireAmendment(data: { amendmentId?: string }): Promise<void> {
     if (!data.amendmentId) return;
     const result = await this.prisma.orderAmendment.updateMany({

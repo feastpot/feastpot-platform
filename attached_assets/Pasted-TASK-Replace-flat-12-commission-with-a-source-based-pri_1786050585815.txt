@@ -1,0 +1,112 @@
+TASK: Replace flat 12% commission with a source-based
+pricing engine.
+
+DEPENDS ON: ORANGE-200 must be live and verified first.
+
+RATE STRUCTURE
+  MARKETPLACE, first order with this vendor .... 12.0%
+  MARKETPLACE, repeat order with this vendor ... 10.0%
+  VENDOR_REFERRED .............................. 0.0%
+    (configurable 0 to 3%, launch at 0%)
+
+Commission applies to the food subtotal only. It never
+applies to delivery fees, customer service fees or tips.
+This preserves the existing RED-001 payout fix.
+
+DO NOT IMPLEMENT volume GMV tiers. The previously proposed
+10% after 5,000 pounds and 8% after 15,000 pounds structure
+is retired. It is regressive: it discounts the vendors with
+the most leverage to leave while the most platform-dependent
+vendors pay the most. Discounts attach to source, not scale.
+
+PRISMA SCHEMA
+model CommissionRate {
+  id            String      @id @default(cuid())
+  source        OrderSource
+  isFirstOrder  Boolean?
+  ratePercent   Decimal     @db.Decimal(5,2)
+  effectiveFrom DateTime
+  effectiveTo   DateTime?
+  createdBy     String
+  note          String?
+  @@index([source, effectiveFrom])
+}
+
+model OrderCommission {
+  id                String   @id @default(cuid())
+  orderId           String   @unique
+  foodSubtotalPence Int
+  ratePercent       Decimal  @db.Decimal(5,2)
+  commissionPence   Int
+  commissionRateId  String
+  source            OrderSource
+  isFirstOrder      Boolean
+  calculatedAt      DateTime @default(now())
+  order             Order    @relation(fields: [orderId], references: [id])
+}
+
+IMPLEMENTATION
+apps/api/src/commission/commission.service.ts
+
+  resolveRate(source, isFirstOrder, orderCreatedAt)
+    Select the CommissionRate row matching source and
+    isFirstOrder where orderCreatedAt falls between
+    effectiveFrom and effectiveTo. Never read a hardcoded
+    constant.
+
+  calculate(order)
+    Read the immutable OrderAttribution for the order.
+    Resolve the rate as at order creation time.
+    commissionPence = round(foodSubtotalPence * rate / 100)
+    Use integer pence arithmetic throughout. Never floats.
+    Persist an OrderCommission row referencing the exact
+    CommissionRate id used.
+
+RATE CHANGES
+Changing a rate creates a NEW CommissionRate row with a
+future effectiveFrom and closes the previous row's
+effectiveTo. Never update an existing row. Historic orders
+always resolve to the rate that was live when they were
+placed, which is both an audit requirement and a P2B
+fairness requirement.
+
+Any rate increase must trigger the RED-102 terms notice
+flow with 15 days notice before it can take effect. Wire
+this dependency explicitly: the admin rate change form
+calls the terms notice service.
+
+PAYOUT STATEMENTS
+Update the weekly Monday payout job. Each statement must
+itemise per order:
+  order reference, date, food subtotal, source label
+  (Marketplace or Your referral), rate applied, commission
+  deducted, net to vendor.
+Include a summary block showing effective blended rate for
+the week and total saved versus flat 12%. Make the saving
+visible, it is the retention message.
+
+Generate the statement as a downloadable PDF and attach it
+to the existing Resend payout email.
+
+VENDOR PORTAL
+Add an Earnings and fees page:
+  Blended effective rate this month
+  Split of orders and commission by source
+  Savings versus flat 12%, cumulative
+  Link to the rate card explaining all three rates plainly
+
+ADMIN REPORTING
+Platform blended take rate, weekly and monthly. Alert if the
+blended transaction take rises above 10% or falls below 6%.
+
+ACCEPTANCE CRITERIA
+- Blended effective take rate is reportable weekly and sits
+  in the 7 to 10% band at scale.
+- A vendor with 50% referred volume sees their effective rate
+  roughly halve with no manual intervention.
+- Stripe Connect transfer amounts reconcile against
+  OrderCommission rows with zero variance across a full week.
+- An order placed before a rate change keeps the old rate
+  when reprocessed or refunded.
+- Marketing page, help FAQ and legal terms all reflect the
+  new structure in the same release.

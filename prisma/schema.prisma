@@ -872,7 +872,8 @@ model Order {
   reviews      Review[]
   amendments   OrderAmendment[]
   adminTags    OrderAdminTag[]
-  attribution  OrderAttribution?
+  attribution     OrderAttribution?
+  orderCommission OrderCommission?
 
   @@index([customerId])
   @@index([vendorId])
@@ -1410,6 +1411,49 @@ model OrderAttribution {
 
   @@index([source, attributedAt])
   @@map("order_attributions")
+}
+
+// ─── Source-based commission rate engine ─────────────────────────────────────
+// Replaces hardcoded commissionBps (12%) on Vendor with a DB-driven rate table.
+// Rates are IMMUTABLE once active; a change creates a new row with future
+// effectiveFrom and closes the previous row's effectiveTo.
+// Rate increases must go through the 15-day terms-notice flow (P2B / RED-102).
+
+model CommissionRate {
+  id            String      @id @default(cuid())
+  source        OrderSource
+  /// null means "applies regardless of isFirstOrder" (used for VENDOR_REFERRED).
+  isFirstOrder  Boolean?    @map("is_first_order")
+  ratePercent   Decimal     @db.Decimal(5, 2) @map("rate_percent")
+  effectiveFrom DateTime    @map("effective_from") @db.Timestamptz
+  effectiveTo   DateTime?   @map("effective_to") @db.Timestamptz
+  createdBy     String      @map("created_by")
+  note          String?
+
+  orderCommissions OrderCommission[]
+
+  @@index([source, effectiveFrom])
+  @@map("commission_rates")
+}
+
+/// Per-order commission ledger, written in the same DB tx as order creation.
+/// commissionRateId + ratePercent are stored for immutable audit so the correct
+/// rate is always recoverable even after a rate change.
+model OrderCommission {
+  id                String      @id @default(cuid())
+  orderId           String      @unique @map("order_id") @db.Uuid
+  foodSubtotalPence Int         @map("food_subtotal_pence")
+  ratePercent       Decimal     @db.Decimal(5, 2) @map("rate_percent")
+  commissionPence   Int         @map("commission_pence")
+  commissionRateId  String      @map("commission_rate_id")
+  source            OrderSource
+  isFirstOrder      Boolean     @map("is_first_order")
+  calculatedAt      DateTime    @default(now()) @map("calculated_at") @db.Timestamptz
+
+  order          Order          @relation(fields: [orderId], references: [id])
+  commissionRate CommissionRate @relation(fields: [commissionRateId], references: [id])
+
+  @@map("order_commissions")
 }
 
 // ─── Terms Versioning (P2B Regulation compliance) ────────────────────────────

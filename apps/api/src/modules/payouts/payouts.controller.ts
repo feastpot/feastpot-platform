@@ -3,6 +3,7 @@ import {
   Controller,
   ForbiddenException,
   Get,
+  NotFoundException,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -76,6 +77,31 @@ export class PayoutsController {
     // team's aggregate rather than an empty summary.
     const eff = await this.vendorMembers.getEffectiveRole(user);
     return this.payouts.vendorSummary(eff?.vendorId ?? null);
+  }
+
+  /**
+   * Source-based earnings breakdown for the vendor portal /earnings page.
+   * Returns period (current month) + cumulative commission summary including
+   * blended rate, by-source breakdown, and savings vs the old flat 12% rate.
+   */
+  @Get('earnings-summary')
+  @Roles(UserRole.vendor)
+  @ApiOperation({ summary: 'Vendor earnings breakdown with source-based commission detail' })
+  async earningsSummary(
+    @Req() req: AuthedRequest,
+    @Query('year') year?: string,
+    @Query('month') month?: string,
+  ) {
+    const user = requireUser(req);
+    await this.ensureVendorRoleCanReadPayouts(user);
+    const eff = await this.vendorMembers.getEffectiveRole(user);
+    if (!eff?.vendorId) throw new NotFoundException({ code: 'NOT_A_VENDOR' });
+    const now = new Date();
+    const y = year ? parseInt(year) : now.getFullYear();
+    const m = month ? parseInt(month) - 1 : now.getMonth();
+    const from = new Date(Date.UTC(y, m, 1));
+    const to = new Date(Date.UTC(y, m + 1, 1));
+    return this.payouts.getEarningsSummary(eff.vendorId, from, to);
   }
 
   @Get('export.csv')

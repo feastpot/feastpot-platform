@@ -32,6 +32,10 @@ import { WhatsappProvider } from '../notifications/providers/whatsapp.provider';
 import { TEMPLATES } from '../notifications/templates';
 import { PAYOUTS_QUEUE, WEEKLY_BATCH_JOB } from '../payouts/processors/payout-batch.processor';
 
+import { Decimal } from '@prisma/client/runtime/library';
+
+import { CommissionService } from '../../commission/commission.service';
+
 import { AdminUsersService } from './admin-users.service';
 import { AdminService } from './admin.service';
 import {
@@ -94,6 +98,7 @@ export class AdminController {
     // it here lets admins fire the same job out-of-cycle without duplicating
     // the runWeeklyBatch logic.
     @InjectQueue(PAYOUTS_QUEUE) private readonly payoutBatchQueue: Queue,
+    private readonly commissionService: CommissionService,
   ) {}
 
   /**
@@ -816,6 +821,86 @@ export class AdminController {
       take: 100,
     });
     return { data: rows, count: rows.length };
+  }
+
+  // ─── Commission rate management ────────────────────────────────────────────
+
+  @Get('commission-rates')
+  @Roles(UserRole.admin, UserRole.finance)
+  @ApiOperation({ summary: 'List all commission rate rows (history + active)' })
+  listCommissionRates() {
+    return this.commissionService.listRates();
+  }
+
+  @Post('commission-rates')
+  @Roles(UserRole.admin)
+  @ApiOperation({
+    summary: 'Create a new commission rate and close the previous rate for the same slot. Rate increases require effectiveFrom ≥ now+15d.',
+  })
+  async createCommissionRate(
+    @Body()
+    dto: {
+      source: 'MARKETPLACE' | 'VENDOR_REFERRED';
+      isFirstOrder?: boolean | null;
+      ratePercent: number;
+      effectiveFrom: string;
+      note?: string;
+    },
+    @Req() req: AuthedRequest,
+  ) {
+    const user = req.user;
+    if (!user) throw new BadRequestException({ code: 'NO_USER' });
+
+    const effectiveFrom = new Date(dto.effectiveFrom);
+    const now = new Date();
+    const minNoticeMs = 15 * 24 * 60 * 60 * 1000; // 15 days
+
+    // Check if this is a rate increase requiring 15-day notice.
+    const { OrderSource } = await import('@prisma/client');
+    const src = dto.source as typeof OrderSource[keyof typeof OrderSource];
+    const existing = await this.commissionService.listRates();
+    const currentActive = existing.find(
+      (r) =>
+        r.source === src &&
+        r.isFirstOrder === (dto.isFirstOrder ?? null) &&
+        r.effectiveTo === null,
+    );
+    if (
+      currentActive &&
+      parseFloat(dto.ratePercent.toString()) > parseFloat(currentActive.ratePercent.toString()) &&
+      effectiveFrom.getTime() - now.getTime() < minNoticeMs
+    ) {
+      throw new BadRequestException({
+        code: 'RATE_INCREASE_NOTICE_REQUIRED',
+        message:
+          'Rate increases must take effect at least 15 days in the future (P2B / vendor contract notice requirement)',
+      });
+    }
+
+    const { Decimal } = await import('@prisma/client/runtime/library');
+    return this.commissionService.createRate({
+      source: src,
+      isFirstOrder: dto.isFirstOrder ?? null,
+      ratePercent: new Decimal(dto.ratePercent),
+      effectiveFrom,
+      createdBy: user.id,
+      note: dto.note,
+    });
+  }
+
+  @Get('commission-rates/take-rate')
+  @Roles(UserRole.admin, UserRole.finance)
+  @ApiOperation({ summary: 'Blended platform take rate for a period (weekly or monthly)' })
+  async getBlendedTakeRate(@Query('period') period?: string) {
+    const now = new Date();
+    let from: Date;
+    if (period === 'weekly') {
+      from = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    } else {
+      // Default: month-to-date
+      from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+    }
+    return this.commissionService.getBlendedTakeRate(from, now);
   }
 
   @Post('notification-outbox/:rowId/resend')

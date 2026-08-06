@@ -4,10 +4,16 @@ import { Resend } from 'resend';
 
 import { alertIfStubInProduction } from './stub-alert';
 
+export interface EmailAttachment {
+  content: Buffer;
+  filename: string;
+}
+
 export interface EmailMessage {
   to: string;
   subject: string;
   html: string;
+  attachments?: EmailAttachment[];
 }
 
 @Injectable()
@@ -37,6 +43,14 @@ export class EmailProvider {
       to: msg.to,
       subject: msg.subject,
       html: msg.html,
+      ...(msg.attachments?.length
+        ? {
+            attachments: msg.attachments.map((a) => ({
+              filename: a.filename,
+              content: a.content.toString('base64'),
+            })),
+          }
+        : {}),
     });
     if (error) {
       // Surface so BullMQ retry kicks in.

@@ -43,6 +43,7 @@ const NAV_ITEMS: ReadonlyArray<NavItem> = [
   { href: '/availability', label: 'Availability', Icon: Calendar },
   { href: '/analytics', label: 'Analytics', Icon: BarChart3 },
   { href: '/referrals', label: 'Bring your customers', Icon: Link2 },
+  { href: '/earnings', label: 'Earnings & fees', Icon: BarChart3 },
   { href: '/payouts', label: 'Payouts', Icon: PoundSterling },
   { href: '/compliance', label: 'Compliance', Icon: FileCheck2 },
   { href: '/terms', label: 'Terms & Notices', Icon: FileText },

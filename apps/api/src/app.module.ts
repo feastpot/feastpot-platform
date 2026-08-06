@@ -23,6 +23,7 @@ import { HealthzController, StatuszController } from './health/healthz.controlle
 import { AddressesModule } from './modules/addresses/addresses.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { AttributionModule } from './modules/attribution/attribution.module';
+import { CommissionModule } from './commission/commission.module';
 import { bullBoardBasicAuth } from './modules/admin/bull-board.middleware';
 import { CatalogueModule } from './modules/catalogue/catalogue.module';
 import { CateringEnquiriesModule } from './modules/catering-enquiries/catering-enquiries.module';
@@ -378,6 +379,7 @@ import { RootController } from './root.controller';
     WebhooksModule,
     AdminModule,
     TermsModule,
+    CommissionModule,
     AttributionModule,
   ],
   controllers: [RootController, HealthController, HealthzController, StatuszController],

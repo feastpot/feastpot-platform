@@ -165,6 +165,56 @@ export class AttributionService {
     };
   }
 
+  // ─── Source pre-resolution (called BEFORE order tx for commission calc) ──────
+
+  /**
+   * Resolve source + isFirstOrder without writing to the DB.
+   * Called before finishCreateOrder so CommissionService can compute the
+   * correct commission BEFORE the order row is created.
+   * Never throws - defaults to MARKETPLACE / isFirstOrder=true on any error.
+   */
+  async preResolveSource(
+    fpRef: string | null | undefined,
+    sessionId: string | null | undefined,
+    customerId: string,
+    vendorId: string,
+  ): Promise<{ source: OrderSource; isFirstOrder: boolean }> {
+    try {
+      let source: OrderSource = OrderSource.MARKETPLACE;
+
+      const parsed = parseFpRef(fpRef);
+      if (parsed) {
+        const link = await this.prisma.vendorReferralLink.findUnique({
+          where: { id: parsed.referralLinkId },
+          select: { id: true, vendorId: true },
+        });
+        if (link?.vendorId === vendorId) {
+          source = OrderSource.VENDOR_REFERRED;
+        }
+      } else if (sessionId) {
+        const cutoff = new Date(Date.now() - ATTRIBUTION_WINDOW_MS);
+        const click = await this.prisma.referralClick.findFirst({
+          where: { sessionId, clickedAt: { gte: cutoff }, referralLink: { vendorId } },
+          orderBy: { clickedAt: 'desc' },
+          select: { id: true },
+        });
+        if (click) source = OrderSource.VENDOR_REFERRED;
+      }
+
+      const priorOrder = await this.prisma.order.findFirst({
+        where: { customerId, vendorId, status: OrderStatus.delivered },
+        select: { id: true },
+      });
+
+      return { source, isFirstOrder: !priorOrder };
+    } catch (err) {
+      this.logger.warn(
+        `[attribution] preResolveSource failed for customerId=${customerId}: ${String(err)}; defaulting to MARKETPLACE/first`,
+      );
+      return { source: OrderSource.MARKETPLACE, isFirstOrder: true };
+    }
+  }
+
   // ─── Attribution (called inside order transaction) ───────────────────────────
 
   /**

@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import {
   DisputeStatus,
+  OrderSource,
   OrderStatus,
   PaymentType,
   PayoutStatus,
@@ -15,8 +16,23 @@ import {
   UserRole,
 } from '@prisma/client';
 import type { Queue } from 'bull';
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const PDFDocument = require('pdfkit') as new (opts?: object) => NodeJS.EventEmitter & {
+  text: (t: string, x?: number, y?: number, opts?: object) => any;
+  fontSize: (n: number) => any;
+  font: (name: string) => any;
+  moveDown: (n?: number) => any;
+  moveTo: (x: number, y: number) => any;
+  lineTo: (x: number, y: number) => any;
+  stroke: () => any;
+  end: () => void;
+  page: { width: number; margins: { left: number; right: number } };
+  x: number;
+  y: number;
+};
 
 import type { AuthUser } from '../../auth/types';
+import { CommissionService } from '../../commission/commission.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { StripeService } from '../../stripe/stripe.service';
 import { InboxService } from '../inbox/inbox.service';
@@ -187,6 +203,7 @@ export class PayoutsService {
     @InjectQueue(NOTIFICATIONS_QUEUE) private readonly notifications: Queue,
     // T007: in-app vendor inbox when a payout transfers.
     private readonly inbox: InboxService,
+    private readonly commission: CommissionService,
   ) {}
 
   // ---------------- list/get ----------------
@@ -569,16 +586,36 @@ export class PayoutsService {
       `Running weekly payout batch for ${start.toISOString()} → ${end.toISOString()}`,
     );
 
-    // Pull all delivered orders in the window with vendor info.
+    // Pull all delivered orders in the window with vendor info + commission data.
     const orders = await this.prisma.order.findMany({
       where: { status: OrderStatus.delivered, deliveredAt: { gte: start, lt: end } },
       select: {
         id: true,
         vendorId: true,
+        orderNumber: true,
+        subtotalPence: true,
         totalPence: true,
         vendorPayoutPence: true,
         commissionPence: true,
-        vendor: { select: { id: true, userId: true, commissionBps: true, payoutsEnabled: true } },
+        deliveredAt: true,
+        vendor: {
+          select: {
+            id: true,
+            userId: true,
+            businessName: true,
+            commissionBps: true,
+            payoutsEnabled: true,
+          },
+        },
+        orderCommission: {
+          select: {
+            foodSubtotalPence: true,
+            ratePercent: true,
+            commissionPence: true,
+            source: true,
+            isFirstOrder: true,
+          },
+        },
       },
     });
 
@@ -668,6 +705,64 @@ export class PayoutsService {
           },
         });
         created.push({ vendorId, payoutId: payout.id });
+
+        // Per-vendor payout statement notification with per-order data for the
+        // PDF statement. Best-effort -- never blocks payout creation.
+        try {
+          const orderRows = group.orders.map((o) => ({
+            orderNumber: o.orderNumber,
+            deliveredAt: o.deliveredAt?.toISOString() ?? null,
+            // Prefer stored OrderCommission data; fall back to the order row
+            // for orders placed before this feature was deployed.
+            foodSubtotalPence: o.orderCommission?.foodSubtotalPence ?? o.subtotalPence,
+            source: (o.orderCommission?.source ?? OrderSource.MARKETPLACE) as string,
+            ratePercent: o.orderCommission ? o.orderCommission.ratePercent.toString() : '12.00',
+            commissionPence: o.orderCommission?.commissionPence ?? o.commissionPence,
+            vendorPayoutPence: o.vendorPayoutPence,
+          }));
+
+          // Generate PDF statement -- stored as base64 in the job payload so
+          // the notification processor can attach it to the email without
+          // needing to query the DB again. Failure is non-blocking.
+          let pdfBase64: string | undefined;
+          try {
+            const pdfBuf = await this.buildPayoutStatementPdf({
+              businessName: group.vendor.businessName ?? vendorId,
+              periodStart: start,
+              periodEnd: end,
+              grossPence: totals.grossPence,
+              commissionPence: totals.commissionPence,
+              netPence: totals.netPence,
+              orders: orderRows,
+            });
+            pdfBase64 = pdfBuf.toString('base64');
+          } catch (pdfErr) {
+            this.logger.warn(
+              `[payout-pdf] Generation failed for vendor ${vendorId}: ${(pdfErr as Error).message}`,
+            );
+          }
+
+          await this.notifications.add('payout_batch_ready', {
+            vendorUserId: group.vendor.userId,
+            payoutId: payout.id,
+            vendorBusinessName: group.vendor.businessName ?? vendorId,
+            periodStart: start.toISOString(),
+            periodEnd: end.toISOString(),
+            grossPence: totals.grossPence,
+            commissionPence: totals.commissionPence,
+            netPence: totals.netPence,
+            amountPence: totals.netPence,
+            orderCount: totals.orderCount,
+            orders: orderRows,
+            ...(pdfBase64
+              ? { pdfBase64, pdfFilename: `feastpot-statement-${isoDateOnly(end)}.pdf` }
+              : {}),
+          });
+        } catch (notifyErr) {
+          this.logger.warn(
+            `payout_batch_ready notify failed for vendor ${vendorId}: ${(notifyErr as Error).message}`,
+          );
+        }
       } catch (e) {
         // P2002 on (vendor_id, period_end) → another batch run created it first;
         // safe to skip. The unique constraint is the final guarantor.
@@ -680,18 +775,172 @@ export class PayoutsService {
       }
     }
 
-    if (created.length > 0) {
-      try {
-        await this.notifications.add('payout_batch_ready', {
-          periodStart: start.toISOString(),
-          periodEnd: end.toISOString(),
-          createdCount: created.length,
-        });
-      } catch (e) {
-        this.logger.warn(`payout_batch_ready notify failed: ${(e as Error).message}`);
+    // Blended take-rate alert: warn if outside the healthy [6%, 10%] band.
+    // Uses per-order commission data where available; falls back to stored
+    // commissionPence for pre-feature orders.
+    const allOrders = [...byVendor.values()].flatMap((g) => g.orders);
+    const totalSubtPeriod = allOrders.reduce(
+      (s, o) => s + (o.orderCommission?.foodSubtotalPence ?? o.subtotalPence),
+      0,
+    );
+    const totalCommPeriod = allOrders.reduce((s, o) => s + o.commissionPence, 0);
+    if (totalSubtPeriod > 0) {
+      const blendedPct = (totalCommPeriod / totalSubtPeriod) * 100;
+      if (blendedPct > 10 || blendedPct < 6) {
+        this.logger.warn(
+          `[commission-alert] Blended take rate ${blendedPct.toFixed(2)}% outside [6%, 10%] for ${start.toISOString()} - ${end.toISOString()}`,
+        );
       }
     }
+
     return { periodStart: start, periodEnd: end, created, skippedVendorIds: skipped };
+  }
+
+  // ---------------- vendor earnings summary ----------------
+
+  /**
+   * Source-based earnings breakdown for the vendor portal /earnings page.
+   * Delegates to CommissionService and adds vendor-membership guard.
+   */
+  async getEarningsSummary(vendorId: string, from: Date, to: Date) {
+    return this.commission.getVendorEarningsSummary(vendorId, from, to);
+  }
+
+  // ---------------- payout statement PDF ────────────────────────────────────
+
+  /**
+   * Builds a PDF payout statement Buffer from per-order data.
+   * Used by the notification processor when dispatching payout_batch_ready.
+   */
+  async buildPayoutStatementPdf(params: {
+    businessName: string;
+    periodStart: Date;
+    periodEnd: Date;
+    grossPence: number;
+    commissionPence: number;
+    netPence: number;
+    orders: Array<{
+      orderNumber: string;
+      deliveredAt: string | null;
+      foodSubtotalPence: number;
+      source: string;
+      ratePercent: string;
+      commissionPence: number;
+      vendorPayoutPence: number;
+    }>;
+  }): Promise<Buffer> {
+    return new Promise((resolve, reject) => {
+      const doc = new PDFDocument({ margin: 40, size: 'A4' });
+      const chunks: Buffer[] = [];
+      doc.on('data', (c: Buffer) => chunks.push(c));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+
+      const p = (pence: number) => `£${(pence / 100).toFixed(2)}`;
+      const dateStr = (s: string | null) =>
+        s ? new Date(s).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '--';
+      const srcLabel = (src: string) =>
+        src === 'VENDOR_REFERRED' ? 'Your referral' : 'Marketplace';
+
+      const pageWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
+      const ml = doc.page.margins.left;
+
+      // ─── Header ──────────────────────────────────────────────────────────
+      doc.fontSize(20).font('Helvetica-Bold').text('Feastpot', ml, 40);
+      doc.fontSize(10).font('Helvetica').text('Payout Statement', ml, 64);
+      doc.fontSize(10).text(`Vendor: ${params.businessName}`, ml, 76);
+      doc
+        .text(
+          `Period: ${dateStr(params.periodStart.toISOString())} – ${dateStr(params.periodEnd.toISOString())}`,
+          ml,
+          88,
+        )
+        .moveDown(2);
+
+      // ─── Order table ─────────────────────────────────────────────────────
+      const cols = [ml, ml + 70, ml + 130, ml + 210, ml + 265, ml + 310, ml + 380];
+      const headers = ['Order #', 'Date', 'Food subtotal', 'Source', 'Rate', 'Commission', 'Net to you'];
+      const colWidths = [70, 60, 80, 55, 45, 70, 70];
+
+      // Table header row
+      doc.fontSize(8).font('Helvetica-Bold');
+      headers.forEach((h, i) => doc.text(h, cols[i], doc.y, { width: colWidths[i] }));
+      doc.moveDown(0.3);
+      const lineY = doc.y;
+      doc.moveTo(ml, lineY).lineTo(ml + pageWidth, lineY).stroke();
+      doc.moveDown(0.4);
+
+      // Data rows
+      doc.font('Helvetica');
+      for (const o of params.orders) {
+        const rowY = doc.y;
+        const cells = [
+          o.orderNumber,
+          dateStr(o.deliveredAt),
+          p(o.foodSubtotalPence),
+          srcLabel(o.source),
+          `${o.ratePercent}%`,
+          p(o.commissionPence),
+          p(o.vendorPayoutPence),
+        ];
+        cells.forEach((cell, i) => doc.text(cell, cols[i], rowY, { width: colWidths[i] }));
+        doc.moveDown(0.5);
+      }
+
+      // Separator
+      doc.moveDown(0.5);
+      const sepY = doc.y;
+      doc.moveTo(ml, sepY).lineTo(ml + pageWidth, sepY).stroke();
+      doc.moveDown(0.8);
+
+      // ─── Summary ─────────────────────────────────────────────────────────
+      const totalSubtotal = params.orders.reduce((s, o) => s + o.foodSubtotalPence, 0);
+      const flat12Commission = Math.round((totalSubtotal * 12) / 100);
+      const savedPence = Math.max(0, flat12Commission - params.commissionPence);
+      const blendedPct =
+        totalSubtotal > 0
+          ? ((params.commissionPence / totalSubtotal) * 100).toFixed(2)
+          : '0.00';
+
+      const summaryX2 = ml + 200;
+      doc.font('Helvetica-Bold').fontSize(9).text('Summary', ml, doc.y);
+      doc.moveDown(0.4);
+      doc.font('Helvetica').fontSize(9);
+
+      const row = (label: string, value: string) => {
+        const y = doc.y;
+        doc.text(label, ml, y);
+        doc.text(value, summaryX2, y);
+        doc.moveDown(0.5);
+      };
+
+      row('Total orders:', String(params.orders.length));
+      row('Gross sales:', p(params.grossPence));
+      row('Commission deducted:', p(params.commissionPence));
+      row('Blended effective rate:', `${blendedPct}%`);
+      row('Net payout:', p(params.netPence));
+      doc.moveDown(0.5);
+
+      if (savedPence > 0) {
+        doc
+          .font('Helvetica-Bold')
+          .fontSize(10)
+          .text(`💰 You saved ${p(savedPence)} compared to a flat 12% rate this week.`, ml, doc.y);
+        doc
+          .font('Helvetica')
+          .fontSize(8)
+          .fillColor('#555555')
+          .text(
+            'Marketplace repeat-order rate is 10%. Vendor-referred orders are 0%. Bring your own customers to keep more.',
+            ml,
+            doc.y + 4,
+            { width: pageWidth },
+          )
+          .fillColor('#000000');
+      }
+
+      doc.end();
+    });
   }
 
   // ---------------- helpers ----------------
