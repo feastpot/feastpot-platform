@@ -12,43 +12,82 @@ export const metadata: Metadata = {
   },
 };
 
-const TRUST_SECTIONS = [
-  {
-    id: 'hygiene',
-    heading: 'Food hygiene checks',
-    body: `Every vendor on Feastpot must provide a valid food business registration number before their profile goes live. We cross-reference registrations with the Food Standards Agency (FSA) register. Vendors who have been inspected and awarded a rating display their score on their profile. We do not permit vendors who have received a rating of 0 or 1 to accept orders.
+// ── Section 1: what we check ──────────────────────────────────────────────────
 
-Vendors preparing food from a residential kitchen are required to hold a Level 2 Award in Food Safety in Catering (or equivalent). We collect the certificate at application stage and re-verify it annually.`,
+const CHECKS = [
+  {
+    label: 'Food business registration',
+    detail:
+      'Every vendor must hold a valid registration with their local authority before they can sell. We record the registration number and display it publicly on their profile.',
   },
   {
-    id: 'allergens',
-    heading: 'Allergen information',
-    body: `UK law requires food businesses to declare the 14 major allergens in every dish they sell. Every Feastpot vendor must complete an allergen information form for each menu item before it can be listed.
-
-At checkout, customers confirm they have reviewed the allergen information and understand they should contact the vendor directly before ordering if they have a serious allergy. Vendors' allergen declarations are their legal responsibility. If you have a life-threatening allergy, please contact the vendor before placing your order.`,
+    label: 'FHRS hygiene rating, minimum 3 out of 5',
+    detail:
+      'We require a Food Standards Agency hygiene rating of at least 3. A rating of 4 or 5 is recommended. Vendors rated 0 or 1 are not permitted to list. Newly registered businesses that have not yet been inspected may list provisionally, with a note on their profile.',
   },
   {
-    id: 'payments',
-    heading: 'Secure payments',
-    body: `All payments on Feastpot are processed by Stripe, a PCI-DSS Level 1 certified payment processor. Feastpot never stores card details. Your payment is held in a secure Stripe account and only released to the vendor after your order has been confirmed for delivery.
-
-If a vendor cancels your order after payment has been taken, your money is refunded in full within 5 to 10 business days, depending on your bank.`,
+    label: 'Public liability insurance, minimum £1 million',
+    detail:
+      'Vendors accepting event catering orders must provide evidence of public liability insurance covering at least £1 million. We collect the certificate at application stage.',
   },
   {
-    id: 'refunds',
-    heading: 'Refunds and disputes',
-    body: `If something goes wrong with your order (the food does not arrive, it arrives significantly different from what was described, or there is a safety concern), you can raise a dispute from your order page within 48 hours of the scheduled delivery time.
-
-We review every dispute and aim to respond within one business day. Where we uphold a dispute, a full or partial refund is issued to your original payment method. Feastpot covers the cost of refunds for vendor errors; vendors are not paid for orders that are legitimately disputed.`,
+    label: 'Allergen training certificate',
+    detail:
+      'Vendors preparing food from a residential kitchen are required to hold a Level 2 Award in Food Safety in Catering (or equivalent). We verify the certificate at application stage and re-check it annually.',
   },
   {
-    id: 'vendors',
-    heading: 'Vendor accountability',
-    body: `Vendors who receive repeated disputes, cancellations, or hygiene concerns are placed under review. Depending on severity, we may suspend listings, require additional evidence, or remove a vendor permanently.
-
-Vendors are required to carry appropriate public liability insurance for home catering. We collect insurance evidence at application stage for vendors accepting event catering orders. If you have concerns about a specific vendor, please contact us and we will investigate.`,
+    label: 'Photo ID verification',
+    detail:
+      'We verify the identity of every vendor before their profile goes live. This is a one-time check run during the application review.',
   },
 ] as const;
+
+// ── Section 2: what appears on profiles ──────────────────────────────────────
+
+const PROFILE_ITEMS = [
+  {
+    label: 'Registration number',
+    detail: "The vendor's food business registration number is shown on every active profile so you can verify it independently on the Food Standards Agency website.",
+  },
+  {
+    label: 'FSA hygiene score',
+    detail:
+      'Where the FSA has published an inspection result, the rating badge is shown on the vendor profile. Vendors awaiting a first inspection are labelled clearly.',
+  },
+  {
+    label: 'Allergen information per dish',
+    detail:
+      'Vendors must complete an allergen declaration for each menu item before it can be listed. The 14 major allergens regulated by UK law are shown at item level on every menu.',
+  },
+  {
+    label: 'Reviews tied to completed, delivered orders',
+    detail:
+      'Only customers who placed and received a real order can leave a review. Reviews are posted after delivery is confirmed, not before.',
+  },
+] as const;
+
+// ── Section 4 & 5 prose sections ─────────────────────────────────────────────
+
+const PROSE_SECTIONS = [
+  {
+    id: 'payments',
+    heading: 'How payments are protected',
+    body: `All payments are processed by Stripe, a PCI-DSS Level 1 certified payment processor. Card data never touches Feastpot's servers. Your payment is held securely by Stripe and released to the vendor only after your order has been confirmed for delivery.
+
+If a vendor cancels an order after payment, your money is refunded in full within 5 to 10 business days, depending on your bank.`,
+  },
+  {
+    id: 'disputes',
+    heading: 'How to raise a problem',
+    body: `If something goes wrong, go to your order page and open a dispute within 48 hours of the scheduled delivery time. You can describe what happened and attach a photo if relevant.
+
+We aim to respond to every dispute within one business day. Where we uphold a dispute, a full or partial refund is issued to your original payment method. Feastpot covers the cost of refunds for vendor errors.
+
+If your dispute is not resolved to your satisfaction, you can escalate by emailing safety@feastpot.co.uk. We will review the case with a senior member of the team. Vendors with repeated upheld disputes are reviewed and may be suspended or removed.`,
+  },
+] as const;
+
+// ── FAQs ─────────────────────────────────────────────────────────────────────
 
 const FAQS = [
   {
@@ -57,15 +96,15 @@ const FAQS = [
   },
   {
     q: 'How do I know the vendor is registered with the FSA?',
-    a: 'Every active vendor profile shows their food business registration number. You can verify it independently on the FSA website.',
+    a: "Every active vendor profile shows their food business registration number. You can verify it on the FSA website at ratings.food.gov.uk.",
   },
   {
-    q: 'What if I have a serious allergy?',
-    a: 'Contact the vendor directly before placing your order. Their contact details are on their profile page. Do not rely solely on the allergen information displayed on the listing, as ingredients and processes can change.',
+    q: 'What if I have a severe allergy?',
+    a: 'Contact the vendor directly before placing your order. Their contact details are on their profile. Do not rely on the allergen labels alone as ingredients and processes can change. Feastpot records allergen information as provided by the vendor but does not independently test each dish.',
   },
   {
     q: 'Can I get a refund if the food was not what I expected?',
-    a: 'Raise a dispute within 48 hours with a clear description and, where possible, a photo. We review each case on its merits.',
+    a: 'Raise a dispute within 48 hours with a clear description and, where possible, a photo. We review each case on its merits and issue refunds where the description or quality falls significantly short of what was listed.',
   },
   {
     q: 'Who do I contact for urgent safety concerns?',
@@ -101,13 +140,107 @@ export default function TrustPage() {
         </h1>
         <p className="mt-4 max-w-2xl text-[15px] font-medium leading-relaxed text-charcoal-mid">
           Every vendor on Feastpot is verified before they go live. Here is exactly what we check,
-          how your money is protected, and what happens when something goes wrong.
+          what you can see on every profile, and what happens when something goes wrong.
         </p>
       </header>
 
-      {/* Main sections */}
-      <div className="space-y-6 pb-10">
-        {TRUST_SECTIONS.map((s) => (
+      {/* Section 1: What we check */}
+      <section aria-labelledby="checks-heading" className="mb-8">
+        <h2
+          id="checks-heading"
+          className="mb-4 font-display text-[22px] font-black leading-tight text-charcoal"
+        >
+          What we check before a cook can sell
+        </h2>
+        <div className="space-y-3">
+          {CHECKS.map((item) => (
+            <div
+              key={item.label}
+              className="rounded-2xl border border-cream-deep bg-white p-5 shadow-card"
+            >
+              <div className="flex items-start gap-3">
+                <span
+                  aria-hidden
+                  className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand/10"
+                >
+                  <svg
+                    viewBox="0 0 12 12"
+                    fill="none"
+                    className="h-3 w-3"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M2 6l3 3 5-5"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="text-brand"
+                    />
+                  </svg>
+                </span>
+                <div>
+                  <p className="text-[14px] font-bold text-charcoal">{item.label}</p>
+                  <p className="mt-1 text-[13px] font-medium leading-relaxed text-charcoal-mid">
+                    {item.detail}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Section 2: What appears on every profile */}
+      <section aria-labelledby="profile-heading" className="mb-8">
+        <h2
+          id="profile-heading"
+          className="mb-4 font-display text-[22px] font-black leading-tight text-charcoal"
+        >
+          What appears on every vendor profile
+        </h2>
+        <div className="space-y-3">
+          {PROFILE_ITEMS.map((item) => (
+            <div
+              key={item.label}
+              className="rounded-2xl border border-cream-deep bg-white p-5 shadow-card"
+            >
+              <p className="text-[14px] font-bold text-charcoal">{item.label}</p>
+              <p className="mt-1 text-[13px] font-medium leading-relaxed text-charcoal-mid">
+                {item.detail}
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Section 3: What we do NOT verify (honest disclosure) */}
+      <section aria-labelledby="limits-heading" className="mb-8">
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6">
+          <h2
+            id="limits-heading"
+            className="mb-3 font-display text-[18px] font-black text-charcoal"
+          >
+            What Feastpot does not verify
+          </h2>
+          <p className="text-[14px] font-medium leading-relaxed text-charcoal-mid">
+            Allergen labels on individual dishes are provided by the vendor and are not
+            independently tested or verified per dish by Feastpot. Ingredients and preparation
+            methods can change without notice.
+          </p>
+          <p className="mt-3 text-[14px] font-medium leading-relaxed text-charcoal-mid">
+            If you have a severe or life-threatening allergy, please contact the vendor directly
+            before placing your order. Their contact details are shown on their profile page.
+          </p>
+          <p className="mt-3 text-[13px] font-semibold text-charcoal">
+            We are honest about this because customers with serious allergies deserve to know.
+          </p>
+        </div>
+      </section>
+
+      {/* Sections 4 and 5: Payments and disputes */}
+      <div className="mb-8 space-y-6">
+        {PROSE_SECTIONS.map((s) => (
           <section
             key={s.id}
             id={s.id}
@@ -123,13 +256,13 @@ export default function TrustPage() {
         ))}
       </div>
 
-      {/* Trust standard */}
+      {/* Trust standard component */}
       <div className="-mx-4 mb-10 sm:-mx-6 lg:-mx-8">
         <TrustStandard />
       </div>
 
       {/* FAQs */}
-      <section aria-labelledby="faq-heading">
+      <section aria-labelledby="faq-heading" className="mb-10">
         <h2
           id="faq-heading"
           className="mb-5 font-display text-[22px] font-black leading-tight text-charcoal"
@@ -140,16 +273,14 @@ export default function TrustPage() {
           {FAQS.map(({ q, a }) => (
             <div key={q} className="rounded-2xl border border-cream-deep bg-white p-5 shadow-card">
               <dt className="font-display text-[15px] font-black text-charcoal">{q}</dt>
-              <dd className="mt-2 text-[13px] font-medium leading-relaxed text-charcoal-mid">
-                {a}
-              </dd>
+              <dd className="mt-2 text-[13px] font-medium leading-relaxed text-charcoal-mid">{a}</dd>
             </div>
           ))}
         </dl>
       </section>
 
-      {/* Contact / CTA */}
-      <div className="mt-10 rounded-2xl bg-brand-light/50 p-6 text-center">
+      {/* Contact CTA */}
+      <div className="rounded-2xl bg-brand-light/50 p-6 text-center">
         <p className="text-[14px] font-medium text-charcoal-mid">
           Have a safety concern or a question not answered here?
         </p>
