@@ -97,7 +97,7 @@ export default function VendorTermsPage() {
         <LegalSection id="payouts" icon="🏦" title="3. Payouts and commission">
           <p>
             Feastpot charges a platform commission of{' '}
-            <strong>{VENDOR_COMMISSION_RATE_PCT}% of the food subtotal</strong> on every completed
+            <strong>12% of the food subtotal</strong> on every completed
             marketplace order. The commission is deducted from your weekly payout&mdash;it is not
             charged to you separately and is not added to the price the customer pays.
           </p>
