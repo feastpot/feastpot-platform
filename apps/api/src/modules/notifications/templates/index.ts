@@ -446,6 +446,38 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
       ),
     channels: ['email'],
   },
+
+  // ---------- Vendor verification ----------
+  verification_renewal_due: {
+    subject: (d) =>
+      `Action required: Feastpot verification renewal due for ${str(d.vendorName, 'your kitchen')}`,
+    render: (d) =>
+      baseLayout(
+        'Verification renewal due',
+        h2('Document renewal required') +
+          amberCallout(
+            `Your Feastpot verification has one or more documents expiring soon: <strong>${esc(Array.isArray(d.expiringFields) ? (d.expiringFields as string[]).join(', ') : String(d.expiringFields ?? ''))}</strong>.`,
+          ) +
+          p('Please upload renewed documents in the vendor portal within 30 days to avoid a pause to your listing.') +
+          brandButton('Upload renewal', 'https://vendor.feastpot.co.uk/compliance', 'vendorBlue'),
+      ),
+    channels: ['email'],
+  },
+  verification_suspended: {
+    subject: (d) =>
+      `Your Feastpot listing has been paused: ${str(d.vendorName, 'your kitchen')}`,
+    render: (d) =>
+      baseLayout(
+        'Listing paused',
+        h2('Your listing has been paused') +
+          amberCallout(
+            `Your listing has been paused because a verification requirement is no longer met: <strong>${esc(String(d.reason ?? 'expired document'))}</strong>.`,
+          ) +
+          p('Your listing will be restored automatically once the requirement is resolved. Please upload the renewed document in the vendor portal or contact us if you need help.') +
+          brandButton('Resolve in vendor portal', 'https://vendor.feastpot.co.uk/compliance', 'vendorBlue'),
+      ),
+    channels: ['email'],
+  },
   // ---------- Account power tools (FR-ADM-002) ----------
   account_credit_issued: {
     subject: (d) => `You've received ${formatMoney(d.amountPence)} in Feastpot credit`,

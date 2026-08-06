@@ -26,10 +26,13 @@ import {
   getVendorBySlug,
   getVendorCapacity,
   getVendorTrustSignals,
+  getVendorVerification,
   type CapacityDay,
   type VendorMenuItem,
+  type VendorVerificationData,
   type VerifiedTrustSignal,
 } from '@/lib/api/vendors';
+import { VerificationPanel } from '@feastpot/ui';
 import { COVERAGE_COOKIE } from '@/lib/postcode';
 
 interface PageProps {
@@ -186,17 +189,20 @@ export default async function VendorProfilePage({ params }: PageProps) {
       ? vendor.distanceKm * 0.621371
       : null;
 
-  // Trust signals + capacity are additive niceties - a failure on either
-  // must never take down the profile page, so both fall back to empty.
+  // Trust signals, verification + capacity are additive - a failure on any
+  // must never take down the profile page, so all fall back gracefully.
   let trustSignals: VerifiedTrustSignal[] = [];
   let capacity: CapacityDay[] = [];
+  let verification: VendorVerificationData | null = null;
   try {
-    const [signalsRes, capacityRes] = await Promise.all([
+    const [signalsRes, capacityRes, verificationRes] = await Promise.all([
       getVendorTrustSignals(vendor.id, { next: { revalidate: 300 } }),
       getVendorCapacity(vendor.id, { next: { revalidate: 60 } }),
+      getVendorVerification(vendor.id, { next: { revalidate: 300 } }),
     ]);
     trustSignals = signalsRes.signals;
     capacity = capacityRes.capacity;
+    verification = verificationRes;
   } catch {
     // Additive data only - render the profile without it.
   }
@@ -508,6 +514,18 @@ export default async function VendorProfilePage({ params }: PageProps) {
             avgRating={vendor.rating}
             reviewCount={vendor.ratingCount}
             breakdown={vendor.ratingBreakdown}
+          />
+        </section>
+      )}
+
+      {/* VERIFICATION PANEL - above the menu so customers see compliance
+          evidence before adding items to their basket. Only rendered when
+          the vendor has a verification record. Never gated on any paid tier. */}
+      {verification && (
+        <section className="mt-6">
+          <VerificationPanel
+            verification={verification}
+            reviewCount={vendor.ratingCount}
           />
         </section>
       )}

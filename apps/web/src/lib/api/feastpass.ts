@@ -19,30 +19,30 @@ export interface FeastPassMembership {
   };
 }
 
-export async function getFeastPassMembership(token: string): Promise<FeastPassMembership> {
-  return apiRequest<FeastPassMembership>('/v1/feastpass/me', { token });
+export async function getFeastPassMembership(accessToken: string): Promise<FeastPassMembership> {
+  return apiRequest<FeastPassMembership>('/feastpass/me', { accessToken });
 }
 
 export async function createFeastPassCheckout(
-  token: string,
+  accessToken: string,
   plan: FeastPassPlan,
   successUrl: string,
   cancelUrl: string,
 ): Promise<{ url: string }> {
-  return apiRequest<{ url: string }>('/v1/feastpass/checkout', {
+  return apiRequest<{ url: string }>('/feastpass/checkout', {
     method: 'POST',
-    token,
+    accessToken,
     body: { plan, successUrl, cancelUrl },
   });
 }
 
 export async function createFeastPassPortal(
-  token: string,
+  accessToken: string,
   returnUrl: string,
 ): Promise<{ url: string }> {
-  return apiRequest<{ url: string }>('/v1/feastpass/portal', {
+  return apiRequest<{ url: string }>('/feastpass/portal', {
     method: 'POST',
-    token,
+    accessToken,
     body: { returnUrl },
   });
 }

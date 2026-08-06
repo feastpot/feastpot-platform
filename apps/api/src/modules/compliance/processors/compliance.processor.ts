@@ -6,11 +6,14 @@ import type { Job, Queue } from 'bull';
 import { RedisCacheService } from '../../../common/cache/redis-cache.service';
 import { shouldReportQueueFailure } from '../../../queues/queue-failure';
 import { COMPLIANCE_QUEUE } from '../../../queues/queues.module';
+import { VendorVerificationService } from '../../vendor-verification/vendor-verification.service';
 import { ComplianceService } from '../compliance.service';
 
 export const COMPLIANCE_SCAN_JOB = 'compliance-scan';
 export const REVIEW_TRIGGER_JOB = 'review-trigger';
 export const BADGE_RECALC_JOB = 'badge-recalc';
+export const VERIFICATION_SCAN_JOB = 'verification-scan';
+export const FSA_REFRESH_JOB = 'fsa-refresh';
 
 /**
  * Three repeatable BullMQ jobs:
@@ -30,6 +33,8 @@ export class ComplianceProcessor implements OnApplicationBootstrap {
     private readonly compliance: ComplianceService,
     @InjectQueue(COMPLIANCE_QUEUE) private readonly queue: Queue,
     private readonly cache: RedisCacheService,
+    // VendorVerificationModule is @Global - injectable without module import.
+    private readonly verification: VendorVerificationService,
   ) {}
 
   onApplicationBootstrap(): void {
@@ -43,6 +48,10 @@ export class ComplianceProcessor implements OnApplicationBootstrap {
     void this.registerCron(COMPLIANCE_SCAN_JOB, '0 6 * * *');
     void this.registerCron(REVIEW_TRIGGER_JOB, '*/15 * * * *');
     void this.registerCron(BADGE_RECALC_JOB, '0 1 * * *');
+    // Verification: daily at 07:00 UTC (offset from compliance-scan).
+    void this.registerCron(VERIFICATION_SCAN_JOB, '0 7 * * *');
+    // FSA rating refresh: weekly on Monday at 03:00 UTC.
+    void this.registerCron(FSA_REFRESH_JOB, '0 3 * * 1');
   }
 
   private async registerCron(name: string, cron: string): Promise<void> {
@@ -74,6 +83,22 @@ export class ComplianceProcessor implements OnApplicationBootstrap {
   async runBadgeRecalc() {
     const r = await this.compliance.runBadgeRecalc();
     this.logger.log(`badge-recalc: updated=${r.updated}`);
+    return r;
+  }
+
+  @Process({ name: VERIFICATION_SCAN_JOB, concurrency: 1 })
+  async runVerificationScan() {
+    const r = await this.verification.runVerificationScan();
+    this.logger.log(
+      `verification-scan: renewalNotified=${r.renewalNotified} suspended=${r.suspended}`,
+    );
+    return r;
+  }
+
+  @Process({ name: FSA_REFRESH_JOB, concurrency: 1 })
+  async runFsaRefresh() {
+    const r = await this.verification.runFsaRefresh();
+    this.logger.log(`fsa-refresh: updated=${r.updated}`);
     return r;
   }
 

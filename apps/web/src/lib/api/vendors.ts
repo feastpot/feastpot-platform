@@ -158,6 +158,46 @@ export interface CapacityDay {
   preorderCutoffAt: string | null;
 }
 
+// ─── Vendor verification ─────────────────────────────────────────────────────
+
+export type FhrsStatus =
+  | 'AWAITING_FIRST_INSPECTION'
+  | 'RATED'
+  | 'EXEMPT'
+  | 'NOT_FOUND';
+
+export type VerificationOverallState = 'VERIFIED' | 'RENEWAL_DUE' | 'SUSPENDED';
+
+export interface VendorVerificationData {
+  id: string;
+  vendorId: string;
+  registrationNumber: string;
+  registrationAuthority: string;
+  registrationConfirmedAt: string;
+  fhrsRating: number | null;
+  fhrsRatingCheckedAt: string | null;
+  fhrsInspectionStatus: FhrsStatus;
+  insuranceProvider: string | null;
+  insuranceValidUntil: string | null;
+  allergenTrainingHeld: boolean;
+  allergenTrainingUntil: string | null;
+  idVerifiedAt: string | null;
+  overallState: VerificationOverallState;
+  updatedAt: string;
+}
+
+/** Structured verification record for the public vendor profile. Returns null on 404. */
+export async function getVendorVerification(
+  vendorId: string,
+  options: ApiRequestOptions = {},
+): Promise<VendorVerificationData | null> {
+  try {
+    return await apiRequest<VendorVerificationData>(`/vendors/${vendorId}/verification`, options);
+  } catch {
+    return null;
+  }
+}
+
 /** Verified-only trust signals for the public vendor profile. */
 export function getVendorTrustSignals(
   vendorId: string,

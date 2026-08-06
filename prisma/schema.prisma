@@ -692,6 +692,7 @@ model Vendor {
   termsAcceptances     TermsAcceptance[]
   referralLink         VendorReferralLink?
   cateringBookings     CateringBooking[]
+  verification         VendorVerification?
 
   @@index([status])
   @@index([slug])
@@ -1608,6 +1609,48 @@ model CoverageInterest {
   @@unique([email, postcode])
   @@index([postcode])
   @@map("coverage_interests")
+}
+
+// ============================================================
+// VENDOR VERIFICATION -- structured compliance record
+// ============================================================
+
+enum FhrsStatus {
+  AWAITING_FIRST_INSPECTION
+  RATED
+  EXEMPT
+  NOT_FOUND
+}
+
+enum VerificationState {
+  VERIFIED
+  RENEWAL_DUE
+  SUSPENDED
+}
+
+/// One row per vendor once they have been through the verification gate.
+/// Absent row = not yet verified (profile still renders, panel is omitted).
+model VendorVerification {
+  id                      String            @id @default(cuid())
+  vendorId                String            @unique @map("vendor_id") @db.Uuid
+  registrationNumber      String            @map("registration_number")
+  registrationAuthority   String            @map("registration_authority")
+  registrationConfirmedAt DateTime          @map("registration_confirmed_at") @db.Timestamptz
+  fhrsRating              Int?              @map("fhrs_rating")
+  fhrsRatingCheckedAt     DateTime?         @map("fhrs_rating_checked_at") @db.Timestamptz
+  fhrsInspectionStatus    FhrsStatus        @map("fhrs_inspection_status")
+  insuranceProvider       String?           @map("insurance_provider")
+  insuranceValidUntil     DateTime?         @map("insurance_valid_until") @db.Timestamptz
+  allergenTrainingHeld    Boolean           @default(false) @map("allergen_training_held")
+  allergenTrainingUntil   DateTime?         @map("allergen_training_until") @db.Timestamptz
+  idVerifiedAt            DateTime?         @map("id_verified_at") @db.Timestamptz
+  overallState            VerificationState @map("overall_state")
+  updatedAt               DateTime          @updatedAt @map("updated_at") @db.Timestamptz
+
+  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([overallState])
+  @@map("vendor_verifications")
 }
 
 // ============================================================

@@ -22,3 +22,6 @@ export * from './components/empty-state';
 export * from './components/loading-spinner';
 export * from './components/nav-bar';
 export * from './components/page-shell';
+
+// Vendor verification panel
+export * from './VerificationPanel';

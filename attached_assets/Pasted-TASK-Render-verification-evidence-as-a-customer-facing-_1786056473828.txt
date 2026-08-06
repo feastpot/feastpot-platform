@@ -1,0 +1,107 @@
+TASK: Render verification evidence as a customer-facing
+product on every vendor profile.
+
+CONTEXT
+Feastpot already runs a genuinely strong compliance gate:
+FHRS minimum 3/5, public liability insurance minimum 1
+million pounds, allergen training, photo ID, food business
+registration. But the evidence is not yet a visible product.
+The site currently promises hygiene scores "where available",
+which leaves blank states unhandled.
+
+This is the differentiation. In a category where the
+informal alternative offers none of it, verification is the
+marketing.
+
+PRISMA SCHEMA
+model VendorVerification {
+  id                     String   @id @default(cuid())
+  vendorId               String   @unique
+  registrationNumber     String
+  registrationAuthority  String
+  registrationConfirmedAt DateTime
+  fhrsRating             Int?
+  fhrsRatingCheckedAt    DateTime?
+  fhrsInspectionStatus   FhrsStatus
+  insuranceProvider      String?
+  insuranceValidUntil    DateTime?
+  allergenTrainingHeld   Boolean  @default(false)
+  allergenTrainingUntil  DateTime?
+  idVerifiedAt           DateTime?
+  overallState           VerificationState
+  updatedAt              DateTime @updatedAt
+  @@index([overallState])
+}
+
+enum FhrsStatus {
+  AWAITING_FIRST_INSPECTION
+  RATED
+  EXEMPT
+  NOT_FOUND
+}
+
+enum VerificationState {
+  VERIFIED
+  RENEWAL_DUE
+  SUSPENDED
+}
+
+HANDLE THE BLANK STATE PROPERLY
+Replace "where available" with an explicit policy. A vendor
+awaiting their first council inspection displays:
+  "Registered with [authority] on [date]. Awaiting first
+   hygiene inspection."
+Never a blank field, never a hidden section. Transparency
+about what is not yet known builds more trust than silence.
+
+PROFILE COMPONENT
+packages/ui/src/VerificationPanel.tsx
+Render on every vendor profile, above the menu:
+  Food business registration: confirmed, authority, date
+  Hygiene rating: score with date checked, or awaiting
+    inspection state, with a link to the FSA listing
+  Public liability insurance: valid until date
+  Allergen training: held, valid until
+  Reviews: count, all tied to completed orders
+
+Each row has an information tooltip explaining what the
+check means and what it does not guarantee. Link to /trust.
+
+AUTOMATIC STATE TRANSITIONS
+BullMQ scheduled job, daily:
+  Insurance or training expiring within 30 days:
+    state RENEWAL_DUE, email and dashboard reminder
+  Expired and not renewed within 7 days of first reminder:
+    state SUSPENDED, listing hidden
+  This matches the existing Vendor Terms clause exactly.
+  FHRS rating drops below 3: immediate SUSPENDED, alert admin
+
+FSA API
+Where available, poll the FSA ratings API by registration
+number to refresh fhrsRating and fhrsRatingCheckedAt weekly.
+Never display a rating older than 90 days without noting the
+check date.
+
+NON-MONETISATION CONSTRAINT
+Add an explicit constant and a code comment in the pricing
+config:
+
+  // Verification signals are never gated by any paid tier,
+  // placement product or subscription. This is a product
+  // principle, not a configuration option. Monetising the
+  // safety layer would destroy the platform's core
+  // differentiation.
+  export const VERIFICATION_IS_NEVER_MONETISED = true;
+
+Add a test that fails if any verification field is
+conditional on subscription or placement status.
+
+ACCEPTANCE CRITERIA
+- Every live vendor profile shows a complete verification
+  panel with zero empty fields.
+- An expired document flips profile state without manual
+  intervention.
+- A vendor awaiting inspection shows the explicit awaiting
+  state, not a gap.
+- No verification signal can be hidden or enhanced by any
+  paid product.
