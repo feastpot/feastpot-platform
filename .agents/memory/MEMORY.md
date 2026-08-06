@@ -26,3 +26,5 @@
 - [Seed order fixtures](seed-order-fixtures.md) — seeded vendorPayoutPence must follow computeCommission (subtotal + delivery − commission); stale fixtures once made the earnings UI look wrong.
 - [Split apps — no server actions](split-apps-vs-server-actions.md) — Next frontends reach data only via NestJS HTTP endpoints; briefs assuming shared server helpers need an endpoint addendum first.
 - [Branch vs squash merges](branch-squash-merges.md) — long-lived work branch is squash-merged into main; after each merge, merge main back into the branch (MEMORY.md conflicts: keep ours) or the next PR shows "dirty".
+- [Vendor app email queue](vendor-app-email-queue.md) — vendor-application emails + failed-payout alerts use `vendor_application_email_raw` Bull job, not direct sends; payout reset = POST :id/reset → draft.
+- [Slack stuck orders](slack-stuck-orders.md) — QUEUE_ALERT_SLACK_WEBHOOK_URL powers both queue-depth and stuck-order (pending >30 min) alerts in DlqMonitorService; if unset, falls back to log warnings.
