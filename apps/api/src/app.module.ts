@@ -39,6 +39,7 @@ import { PaymentsModule } from './modules/payments/payments.module';
 import { PayoutsModule } from './modules/payouts/payouts.module';
 import { PushModule } from './modules/push/push.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
+import { TermsModule } from './modules/terms/terms.module';
 import { UsersModule } from './modules/users/users.module';
 import { VendorMembersModule } from './modules/vendor-members/vendor-members.module';
 import { VendorRecommendationsModule } from './modules/vendor-recommendations/vendor-recommendations.module';
@@ -53,6 +54,7 @@ import {
   NOTIFICATIONS_QUEUE,
   PAYOUTS_QUEUE,
   STRIPE_WEBHOOK_QUEUE,
+  TERMS_NOTICES_QUEUE,
 } from './queues/queues.module';
 import { RootController } from './root.controller';
 
@@ -345,6 +347,7 @@ import { RootController } from './root.controller';
       { name: STRIPE_WEBHOOK_QUEUE, adapter: BullAdapter },
       { name: PAYOUTS_QUEUE, adapter: BullAdapter },
       { name: COMPLIANCE_QUEUE, adapter: BullAdapter },
+      { name: TERMS_NOTICES_QUEUE, adapter: BullAdapter },
     ),
     AuthModule,
     UsersModule,
@@ -371,6 +374,7 @@ import { RootController } from './root.controller';
     PushModule,
     WebhooksModule,
     AdminModule,
+    TermsModule,
   ],
   controllers: [RootController, HealthController, HealthzController, StatuszController],
   providers: [

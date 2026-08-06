@@ -1,0 +1,140 @@
+TASK: Bring Vendor Terms into P2B compliance and build the
+notice infrastructure that the regulation requires.
+
+CONTEXT
+Feastpot is an online intermediation service under the UK
+retained Platform to Business Regulation. Obligations apply
+regardless of platform size. Small enterprises are exempt
+only from the internal complaint handling system and the
+requirement to name mediators. Terms that do not comply, and
+changes made without proper notice, are void.
+
+Current Vendor Terms gaps found on production:
+  Commission percentage never stated (only on the marketing
+  page), "subtotal" undefined, VAT treatment silent,
+  chargeback liability absent, no notice period for changes,
+  no termination notice period, no ranking disclosure, no
+  data access description, payout holds have no maximum
+  duration, and "Feastpot's decision on disputes is final"
+  with a 7-day appeal window against a 5-business-day
+  response commitment.
+
+PART A: Rewrite the terms content
+apps/customer/app/legal/vendor-terms/page.tsx
+
+Add or amend these clauses:
+
+  Section 3 Payouts, add:
+    Commission is 12% of the food subtotal on marketplace
+    orders. Food subtotal means the total price of food
+    items only. It excludes delivery fees, customer service
+    fees, tips and any promotional discounts.
+    State whether commission is inclusive or exclusive of
+    VAT and who accounts for it.
+    Payout holds have a maximum review period of 14 days,
+    after which funds are released or a written explanation
+    is issued.
+
+  New section: Chargebacks and fraud
+    Define who bears card chargebacks, the evidence the
+    vendor must supply, the response window, and the appeal
+    route.
+
+  New section: Changes to these terms
+    Feastpot gives a minimum of 15 days notice on a durable
+    medium (email and vendor dashboard) before any change to
+    these terms takes effect. Vendors may terminate without
+    penalty within the notice period.
+
+  Section 9 Suspension, amend:
+    Suspension or restriction is accompanied by a written
+    statement of reasons issued at or before the restriction
+    takes effect. Full termination requires 30 days notice
+    plus a written statement of reasons.
+    Replace "Feastpot's decision on disputes is final" with
+    a two-stage internal review. Extend the appeal window to
+    14 days to exceed the stated 5-business-day response time.
+
+  New section: How vendors are ranked
+    Disclose the main parameters determining position in
+    search and browse results, and their relative importance.
+    Disclose whether any paid placement exists and how it is
+    labelled.
+
+  New section: Your data
+    Describe what data vendors can access about their own
+    sales, customers and performance, in what format, and
+    how to export it.
+
+PART B: Terms versioning and notice infrastructure
+
+PRISMA SCHEMA
+model TermsVersion {
+  id            String   @id @default(cuid())
+  documentType  TermsDocumentType
+  version       String
+  contentHash   String
+  summary       String
+  publishedAt   DateTime
+  effectiveAt   DateTime
+  acceptances   TermsAcceptance[]
+  notices       TermsNotice[]
+  @@unique([documentType, version])
+}
+
+model TermsAcceptance {
+  id              String   @id @default(cuid())
+  vendorId        String
+  termsVersionId  String
+  acceptedAt      DateTime @default(now())
+  ipAddress       String?
+  vendor          Vendor       @relation(fields: [vendorId], references: [id])
+  termsVersion    TermsVersion @relation(fields: [termsVersionId], references: [id])
+  @@unique([vendorId, termsVersionId])
+}
+
+model TermsNotice {
+  id              String   @id @default(cuid())
+  vendorId        String
+  termsVersionId  String
+  sentAt          DateTime @default(now())
+  channel         String
+  deliveredAt     DateTime?
+  @@index([vendorId, sentAt])
+}
+
+enum TermsDocumentType {
+  VENDOR_TERMS
+  CUSTOMER_TERMS
+  PRIVACY
+}
+
+PART C: NestJS notice service
+apps/api/src/terms/
+
+When an admin publishes a new TermsVersion:
+  effectiveAt must be at least 15 days after publishedAt.
+  Reject the publish if it is not. This is a hard validation,
+  not a warning.
+  Enqueue a BullMQ job that sends every active vendor a
+  Resend email containing the plain-language summary of what
+  changed, the effective date, and their right to terminate
+  within the notice period.
+  Record a TermsNotice row per vendor per channel.
+  Surface a persistent dashboard banner in apps/vendor until
+  the vendor acknowledges.
+
+PART D: Vendor dashboard
+Add a Terms and notices page showing current version,
+effective date, a change history with summaries, and the
+acceptance record.
+
+ACCEPTANCE CRITERIA
+- A vendor reading only the legal terms can calculate their
+  exact fee on a 100 pound order.
+- Publishing a terms version with under 15 days notice is
+  rejected by the API with a clear error.
+- Every active vendor receives a notice email and sees the
+  dashboard banner.
+- Marketing page, help FAQ and legal terms state identical
+  commercial numbers. Add a test that asserts this.

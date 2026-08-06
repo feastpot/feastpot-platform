@@ -685,6 +685,7 @@ model Vendor {
   members              VendorMember[]
   trustSignals         VendorTrustSignal[]
   capacity             VendorCapacity[]
+  termsAcceptances     TermsAcceptance[]
 
   @@index([status])
   @@index([slug])
@@ -1348,6 +1349,60 @@ model CateringEnquiry {
   @@index([status], map: "catering_enquiry_status_idx")
   @@index([eventDate], map: "catering_enquiry_event_date_idx")
   @@map("catering_enquiries")
+}
+
+// ─── Terms Versioning (P2B Regulation compliance) ────────────────────────────
+// UK retained Platform to Business Regulation requires minimum 15 days notice
+// before terms changes take effect; acceptances provide the audit trail.
+
+enum TermsDocumentType {
+  VENDOR_TERMS
+  CUSTOMER_TERMS
+  PRIVACY
+}
+
+model TermsVersion {
+  id           String            @id @default(cuid())
+  documentType TermsDocumentType @map("document_type")
+  version      String            @db.VarChar(32)
+  contentHash  String            @map("content_hash") @db.VarChar(64)
+  summary      String
+  publishedAt  DateTime          @map("published_at") @db.Timestamptz
+  effectiveAt  DateTime          @map("effective_at") @db.Timestamptz
+
+  acceptances TermsAcceptance[]
+  notices     TermsNotice[]
+
+  @@unique([documentType, version])
+  @@map("terms_versions")
+}
+
+model TermsAcceptance {
+  id             String   @id @default(cuid())
+  vendorId       String   @map("vendor_id") @db.Uuid
+  termsVersionId String   @map("terms_version_id")
+  acceptedAt     DateTime @default(now()) @map("accepted_at") @db.Timestamptz
+  ipAddress      String?  @map("ip_address")
+
+  vendor      Vendor       @relation(fields: [vendorId], references: [id])
+  termsVersion TermsVersion @relation(fields: [termsVersionId], references: [id])
+
+  @@unique([vendorId, termsVersionId])
+  @@map("terms_acceptances")
+}
+
+model TermsNotice {
+  id             String    @id @default(cuid())
+  vendorId       String    @map("vendor_id") @db.Uuid
+  termsVersionId String    @map("terms_version_id")
+  sentAt         DateTime  @default(now()) @map("sent_at") @db.Timestamptz
+  channel        String    @db.VarChar(32)
+  deliveredAt    DateTime? @map("delivered_at") @db.Timestamptz
+
+  termsVersion TermsVersion @relation(fields: [termsVersionId], references: [id])
+
+  @@index([vendorId, sentAt])
+  @@map("terms_notices")
 }
 
 /// Customer waitlist capture for uncovered postcodes. Populated by the public
