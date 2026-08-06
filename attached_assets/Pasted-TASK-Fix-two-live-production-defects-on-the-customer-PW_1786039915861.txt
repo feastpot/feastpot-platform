@@ -1,0 +1,119 @@
+TASK: Fix two live production defects on the customer PWA.
+
+DEFECT 1: /trust returns 404
+The footer on every page links to /trust (Trust and safety).
+The route does not exist. This is a broken link on the single
+page that carries the platform's core differentiation.
+
+BUILD apps/customer/app/trust/page.tsx
+Server component, statically rendered, full SEO metadata.
+Consolidate the trust copy that already exists in fragments
+across the homepage and /vendor-readiness. Sections:
+
+  1. What we check before a cook can sell
+     Food business registration with local authority
+     FHRS rating, minimum 3/5, 4/5 recommended
+     Public liability insurance, minimum 1 million pounds
+     Allergen training certificate
+     Photo ID verification
+  2. What appears on every vendor profile
+     Registration number recorded
+     FSA hygiene score where available
+     Allergen information per dish
+     Reviews tied to completed, delivered orders
+  3. What Feastpot does not verify
+     State plainly: allergen labels are provided by the
+     vendor and are not independently verified per dish.
+     Customers with severe allergies should confirm with
+     the vendor before ordering. This honesty is a feature,
+     not a liability.
+  4. How payments are protected
+     Stripe encrypted, card data never touches our servers
+  5. How to raise a problem
+     Dispute route, response time, escalation
+
+Reuse the existing "Order with confidence" component already
+rendered on the homepage, vendor-readiness and occasion pages
+rather than duplicating markup.
+
+DEFECT 2: /catering renders empty
+The homepage CTA "Planning food for 20 or more people?" and
+the "Full event, 40 or more guests" tile on every occasion
+page both route to /catering, which currently renders a
+heading and footer with no content. This dead-ends the
+highest average order value traffic on the entire site.
+
+BUILD apps/customer/app/catering/page.tsx
+Ship a working request form immediately. Fulfilment behind it
+can be founder-manual for v1. Do not wait for the full quote
+engine in ORANGE-202.
+
+Form fields (all validated, react-hook-form plus zod):
+  occasionType    select, prefilled from ?occasion= query param
+                  (the occasion pages already pass this)
+  eventDate       date picker, minimum 7 days ahead
+  guestCount      number, minimum 20
+  postcode        UK postcode, validated format
+  budgetBand      select: under 500, 500 to 1000,
+                  1000 to 2500, over 2500
+  cuisines        multi-select: Nigerian, Ghanaian,
+                  Jamaican, Caribbean, other
+  dietaryNotes    textarea, optional
+  contactName     required
+  contactEmail    required, validated
+  contactPhone    required, UK format
+  hearAboutUs     select, optional
+
+On submit:
+  POST to /api/catering-enquiries
+  Persist to a new CateringEnquiry table
+  Send Resend confirmation to the customer stating a
+  response within 1 business day
+  Send Resend notification to the founder inbox
+  Fire a WhatsApp notification if the founder number is
+  configured
+  Show a success state, do not redirect away
+
+Above the form, add short reassurance copy covering what
+happens next, the deposit policy, and that vendors are
+verified. Keep it to three short blocks.
+
+PRISMA SCHEMA
+model CateringEnquiry {
+  id            String   @id @default(cuid())
+  occasionType  String
+  eventDate     DateTime
+  guestCount    Int
+  postcode      String
+  budgetBand    String
+  cuisines      String[]
+  dietaryNotes  String?
+  contactName   String
+  contactEmail  String
+  contactPhone  String
+  hearAboutUs   String?
+  status        CateringEnquiryStatus @default(NEW)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  @@index([status, eventDate])
+}
+
+enum CateringEnquiryStatus {
+  NEW
+  CONTACTED
+  QUOTED
+  WON
+  LOST
+}
+
+ADMIN PANEL
+Add a Catering enquiries list view at apps/admin with status
+filter, sortable by event date, and inline status update.
+
+ACCEPTANCE CRITERIA
+- No footer or nav link on any page returns a 404.
+- Every catering CTA across homepage and all 8 occasion pages
+  reaches a submittable form on mobile and desktop.
+- A submitted enquiry appears in the admin panel and triggers
+  both emails.
+- The occasion query param prefills the occasion type.
