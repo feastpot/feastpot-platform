@@ -1341,6 +1341,7 @@ model CateringEnquiry {
   notes          String?
   status         String   @default("NEW") @db.VarChar(32)
   source         String?  @db.VarChar(64)
+  hearAboutUs    String?  @map("hear_about_us") @db.VarChar(100)
   adminNotes     String?  @map("admin_notes")
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
 

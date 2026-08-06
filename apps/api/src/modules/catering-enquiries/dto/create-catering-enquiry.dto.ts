@@ -95,6 +95,12 @@ export class CreateCateringEnquiryDto {
   @MaxLength(64)
   source?: string;
 
+  @ApiPropertyOptional({ example: 'Instagram', description: 'Marketing attribution' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  hearAboutUs?: string;
+
   /** Honeypot - must be empty. */
   @ApiPropertyOptional({ description: 'Leave blank' })
   @IsOptional()

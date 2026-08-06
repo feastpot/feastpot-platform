@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { extractOutwardCode, normalisePostcode } from '../../common/postcode.util';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EmailProvider } from '../notifications/providers/email.provider';
+import { WhatsappProvider } from '../notifications/providers/whatsapp.provider';
 
 import type { CreateCateringEnquiryDto } from './dto/create-catering-enquiry.dto';
 import { cateringEnquiryConfirmationTemplate } from './templates/catering-enquiry-confirmation.template';
@@ -16,6 +17,7 @@ export class CateringEnquiriesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly email: EmailProvider,
+    private readonly whatsapp: WhatsappProvider,
     private readonly config: ConfigService,
   ) {}
 
@@ -45,6 +47,7 @@ export class CateringEnquiriesService {
         email,
         phone: dto.phone?.trim() || null,
         notes: dto.notes?.trim() || null,
+        hearAboutUs: dto.hearAboutUs?.trim() || null,
         source: dto.source?.trim() || 'web',
         status: 'NEW',
       },
@@ -80,6 +83,24 @@ export class CateringEnquiriesService {
       this.logger.warn(
         `[catering-enquiry] confirmation email failed for ${email}: ${(err as Error).message}`,
       );
+    }
+
+    // Optional WhatsApp alert to the founder/ops number.
+    // Requires CATERING_ALERT_WHATSAPP_TO (E.164 number) and
+    // TWILIO_CONTENT_SID_catering_enquiry_alert (approved Content SID).
+    // Silently skipped if either env var is absent.
+    const alertTo = this.config.get<string>('CATERING_ALERT_WHATSAPP_TO');
+    const alertSid = this.config.get<string>('TWILIO_CONTENT_SID_catering_enquiry_alert');
+    if (alertTo && alertSid) {
+      this.whatsapp
+        .send({
+          to: alertTo,
+          template: 'catering_enquiry_alert',
+          params: [contactName, row.occasionType],
+        })
+        .catch((err: Error) =>
+          this.logger.warn(`[catering-enquiry] WhatsApp alert failed: ${err.message}`),
+        );
     }
 
     return { ok: true };

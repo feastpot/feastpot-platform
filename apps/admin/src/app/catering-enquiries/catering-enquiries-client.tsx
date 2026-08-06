@@ -38,6 +38,7 @@ interface CateringEnquiry {
   email: string;
   phone?: string | null;
   notes?: string | null;
+  hearAboutUs?: string | null;
   status: string;
   adminNotes?: string | null;
   source?: string | null;
@@ -253,6 +254,7 @@ export function CateringEnquiriesClient() {
                 ['Preferred time', selected.preferredTime],
                 ['Budget', selected.budgetBand],
                 ['Source', selected.source],
+                ['How heard', selected.hearAboutUs],
                 ['Received', formatDateTime(selected.createdAt)],
               ]
                 .filter(([, v]) => v)
