@@ -33,9 +33,9 @@ const SECTIONS: FaqSection[] = [
     id: 'getting-paid',
     title: 'Getting paid',
     body: [
-      'Payouts run weekly. Every Sunday at midnight we close the books on the previous week and create a single Stripe Transfer for everything you earned.',
-      'Feastpot charges 12% commission on the order subtotal. You keep the remaining 88%. Delivery fees are passed through separately and do not affect your commission.',
-      'Your earnings land in the bank account connected to your Stripe Connect profile. Stripe typically takes 3-5 working days to settle the transfer.',
+      'Payouts run weekly. We close the books at midnight Sunday and create a single Stripe Transfer the following Monday. Stripe typically takes 3-5 working days to settle the transfer into your bank account.',
+      'Commission is charged on the food subtotal only - delivery fees are passed through in full and are not commissioned. New kitchens start at 12% commission. Once you have a track record on the platform the rate reduces to 10%. Your current rate is shown on the Payouts page.',
+      'Your earnings land in the bank account connected to your Stripe Connect profile. If you have not connected Stripe yet, open the Payouts section and follow the onboarding link.',
       'Need to query a payout? Email vendors@feastpot.co.uk with your kitchen name and the week in question. Include any order numbers you think are missing.',
     ],
   },
@@ -69,11 +69,22 @@ const SECTIONS: FaqSection[] = [
   },
   {
     id: 'compliance',
-    title: 'Compliance',
+    title: 'Compliance and verification',
     body: [
-      'Your food hygiene certificate and insurance must be renewed annually. Feastpot will email you 30 days before expiry.',
-      'If a document expires, the Feastpot compliance team is alerted and may suspend your kitchen from search until an updated document is uploaded and verified. Upload renewals early to avoid any interruption.',
-      'You can upload renewed certificates at any time from the Compliance section of your dashboard - we typically verify within 1 working day.',
+      'Your Compliance page shows the status of each required document: Food hygiene certificate (Level 2 or above), Public liability insurance (minimum GBP 5m cover), Photo ID, and Food business registration. Each document has a status: Not started, Submitted, Approved, Needs changes, Expiring soon, or Expired.',
+      'Documents entering the 30-day expiry window are flagged as Expiring soon and you will receive an email reminder. Upload the renewed document before the old one expires. Once expired, new orders may be paused until a valid document is approved.',
+      'Re-uploading any document resets it to Submitted and triggers a new review. We aim to verify within 1-2 business days. If a document is rejected, the reviewer note on the Compliance page explains exactly what to fix.',
+      'If your account shows a red Account suspended banner, new orders are paused. Reply to the compliance email you received or contact vendors@feastpot.co.uk. Once a valid document is approved the suspension is lifted automatically.',
+    ],
+  },
+  {
+    id: 'catering',
+    title: 'Catering enquiries',
+    body: [
+      'Catering enquiries are routed to you by the Feastpot team. You will find them in the Catering section of your portal.',
+      'To respond, create an itemised quote with event details, line items, and allergens. The form calculates the deposit (25%, minimum GBP 50) and balance automatically. Set a quote expiry - the default is seven days - and send it to the customer from the quote detail page.',
+      'Customers pay the deposit and balance through Feastpot. You track bookings through Quoted, Deposit paid, Confirmed, Balance paid, and Completed. Commission applies to catering bookings in the same way as regular orders.',
+      'All 14 statutory allergens must be declared per line item in the quote, the same obligation as your regular menu items.',
     ],
   },
   {

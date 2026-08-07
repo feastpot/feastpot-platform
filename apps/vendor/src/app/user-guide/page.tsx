@@ -144,17 +144,22 @@ const CHAPTERS: GuideChapter[] = [
       {
         title: 'Understand your share',
         detail:
-          'Feastpot keeps 12% commission on the order subtotal. You keep the remaining 88%. Delivery fees are passed through separately and are not commissioned.',
+          'Feastpot charges commission on the food subtotal only - delivery fees are passed through in full and are not commissioned. New kitchens start at 12% commission. Once you have a track record on the platform the rate reduces to 10%. Your current rate is shown on your Payouts page.',
       },
       {
         title: 'Weekly payout schedule',
         detail:
-          'We close the previous week at midnight every Sunday and create a single Stripe Transfer for your earnings. Stripe takes 3-5 working days to land funds in your bank.',
+          'We close the books on the previous week at midnight Sunday and create a single Stripe Transfer for your earnings the following Monday. Stripe takes 3-5 working days to land funds in your bank.',
       },
       {
         title: 'Check Payouts for the breakdown',
         detail:
           'Every payout row links to the orders it covers, including refunds and adjustments. Use this view to reconcile your bookkeeping.',
+      },
+      {
+        title: 'Download a payout statement',
+        detail:
+          'Open any completed payout and use the Download statement button to save a PDF summary. This is useful for your own records and any accountant queries.',
       },
     ],
   },
@@ -181,8 +186,69 @@ const CHAPTERS: GuideChapter[] = [
     ],
   },
   {
+    id: 'verification',
+    title: '8. Compliance and verification',
+    intro:
+      'Keep your documents current so your kitchen stays visible in search without interruption.',
+    steps: [
+      {
+        title: 'Check your verification status',
+        detail:
+          'Open Compliance to see the status of each required document: Food hygiene certificate, Public liability insurance (minimum GBP 5m cover), Photo ID, and Food business registration. Each document shows one of: Not started, Submitted (awaiting review), Approved, Needs changes, Expiring soon, or Expired.',
+      },
+      {
+        title: 'Upload or replace a document',
+        detail:
+          'Click the upload area under any document. Accepted formats are PDF, JPG, and PNG up to 10 MB. If a document has been rejected, a reviewer note explains what to fix. Re-uploading resets the status to Submitted and triggers a new review. We aim to verify within 1-2 business days.',
+      },
+      {
+        title: 'Renew before expiry',
+        detail:
+          'Documents entering the 30-day expiry window are flagged as Expiring soon and you will receive an email reminder. Upload the renewed document before the old one expires to avoid any interruption to your listing. Once expired, new orders may be paused until a valid document is verified.',
+      },
+      {
+        title: 'If your account is suspended',
+        detail:
+          'A red Account suspended banner on the Compliance page means new orders are paused. This is usually triggered by an expired or invalid document. Reply to the compliance email you received or contact vendors@feastpot.co.uk to resolve it. Once a valid document is approved the suspension is lifted without any action needed on your side.',
+      },
+    ],
+  },
+  {
+    id: 'catering',
+    title: '9. Catering enquiries',
+    intro:
+      'Respond to event enquiries with itemised quotes and track bookings through to completion.',
+    steps: [
+      {
+        title: 'Find your catering enquiries',
+        detail:
+          'Open the Catering section in the sidebar. The overview shows upcoming events, total bookings, and confirmed revenue. Each card shows the customer, event date, guest count, venue, status, and your total and commission for that booking.',
+      },
+      {
+        title: 'Create a quote',
+        detail:
+          'Click New catering quote (or use the enquiry link sent by the Feastpot team). Fill in the event date, serving time, guest count, and venue address. Add line items with a description, quantity, and unit price. The form calculates the total, deposit (25%, minimum GBP 50), and balance live. Set a quote expiry - the default is seven days.',
+      },
+      {
+        title: 'Declare allergens on each line item',
+        detail:
+          'Toggle the relevant allergens for each menu item in the quote. All 14 statutory allergens are listed. Catering quotes carry the same allergen obligations as your regular menu items.',
+      },
+      {
+        title: 'Send the quote to the customer',
+        detail:
+          'After saving, open the quote and click Send quote to customer. The customer receives an email with the full breakdown and a link to pay the deposit. You can only send a quote once it is in Quoted status.',
+      },
+      {
+        title: 'Track the booking lifecycle',
+        detail:
+          'Bookings move through Quoted, Deposit paid, Confirmed, Balance paid, and Completed. The customer pays the deposit and balance through the Feastpot platform. You do not need to chase payment separately. If a booking is cancelled, the card shows the cancellation reason.',
+      },
+    ],
+  },
+  {
     id: 'getting-help',
-    title: '7. Getting help',
+    title: '10. Getting help',
     intro: 'Where to look when something goes wrong.',
     steps: [
       {

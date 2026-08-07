@@ -7,6 +7,7 @@ import {
   BarChart3,
   Banknote,
   Bell,
+  BookOpen,
   CalendarHeart,
   ChevronUp,
   ClipboardList,
@@ -92,6 +93,12 @@ const MAIN_NAV: ReadonlyArray<NavItem> = [
   { href: '/coverage', label: 'Coverage waitlist', icon: MapPin, roles: ['admin', 'support'] },
   { href: '/audit-log', label: 'Audit log', icon: Activity, roles: ['admin', 'compliance'] },
   { href: '/settings', label: 'Settings', icon: Settings, roles: ['admin'] },
+  {
+    href: '/user-guide',
+    label: 'User guide',
+    icon: BookOpen,
+    roles: ['admin', 'support', 'finance', 'compliance'],
+  },
 ];
 
 const OPS_NAV: ReadonlyArray<NavItem> = [
