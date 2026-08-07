@@ -29,6 +29,28 @@ env:
 
 jobs:
   # ----------------------------------------------------------------------------
+  # 0. Typecheck all workspaces before touching the database or triggering any
+  #    Vercel deploy. Running this in parallel with deploy-database means we get
+  #    fast type-error feedback without lengthening the critical path.
+  #    Both typecheck and deploy-database must pass before build-api runs.
+  # ----------------------------------------------------------------------------
+  typecheck:
+    name: Typecheck all workspaces
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm install -g npm@10.9.4
+      - run: npm ci
+      - name: Generate Prisma client (required for type-aware compiles)
+        run: npm run db:generate
+      - name: Run tsc --noEmit across every workspace
+        run: npx turbo run typecheck
+
+  # ----------------------------------------------------------------------------
   # 1. Apply pending Prisma migrations to the production Supabase database.
   #    This is the gating step — if migrations fail, nothing else runs.
   # ----------------------------------------------------------------------------
@@ -47,7 +69,13 @@ jobs:
       # fail here with `P1001: Can't reach database server`. Use the Session
       # pooler (port 5432) for PROD_DIRECT_URL — migrations need session mode —
       # and the Transaction pooler (port 6543) for PROD_DATABASE_URL.
-      SUPABASE_DB_URL: ${{ secrets.PROD_DATABASE_URL }}
+      # PROD_DIRECT_URL (session pooler, port 5432) is used for both url and
+      # directUrl here because:
+      #   - migrate deploy only uses directUrl for schema operations
+      #   - PROD_DATABASE_URL currently points to the wrong AWS region (eu-north-1)
+      #     while the actual production project is in eu-west-2/London
+      # The session pooler works fine for migration-only workloads.
+      SUPABASE_DB_URL: ${{ secrets.PROD_DIRECT_URL }}
       SUPABASE_DIRECT_URL: ${{ secrets.PROD_DIRECT_URL }}
     steps:
       - uses: actions/checkout@v5
@@ -76,7 +104,7 @@ jobs:
   # ----------------------------------------------------------------------------
   build-api:
     name: Build API (deployed separately on Replit)
-    needs: [deploy-database]
+    needs: [deploy-database, typecheck]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
