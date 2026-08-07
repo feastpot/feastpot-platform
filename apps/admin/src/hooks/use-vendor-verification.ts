@@ -45,6 +45,36 @@ export interface UpsertVerificationPayload {
   overallState: VerificationState;
 }
 
+export interface VerificationSummaryRow {
+  vendorId: string;
+  vendorName: string;
+}
+
+export interface VerificationSummaryRenewalRow extends VerificationSummaryRow {
+  insuranceValidUntil: string | null;
+  allergenTrainingUntil: string | null;
+}
+
+export interface VerificationSummary {
+  counts: {
+    notSetUp: number;
+    renewalDue: number;
+    suspended: number;
+  };
+  notSetUp: VerificationSummaryRow[];
+  renewalDue: VerificationSummaryRenewalRow[];
+  suspended: VerificationSummaryRow[];
+}
+
+export function useVerificationSummary() {
+  const { request, ready } = useApi();
+  return useQuery({
+    queryKey: ['admin', 'compliance', 'verification-summary'],
+    enabled: ready,
+    queryFn: () => request<VerificationSummary>('/admin/vendors/verification-summary'),
+  });
+}
+
 export function useVendorVerification(vendorId: string) {
   const { request, ready } = useApi();
   return useQuery({

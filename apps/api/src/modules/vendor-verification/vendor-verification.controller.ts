@@ -32,6 +32,18 @@ export class VendorVerificationController {
   }
 
   /**
+   * Admin-only: compliance triage summary.
+   * Returns counts + rows for vendors missing a verification record,
+   * those with RENEWAL_DUE, and those with SUSPENDED state.
+   */
+  @Get('admin/vendors/verification-summary')
+  @UseGuards(SupabaseAuthGuard, RolesGuard)
+  @Roles('admin', 'compliance')
+  async getVerificationSummary() {
+    return this.svc.getVerificationSummary();
+  }
+
+  /**
    * Admin-only: create or update a vendor's verification record.
    * Changing overallState to SUSPENDED here bypasses the scheduled job
    * (useful for immediate manual action).

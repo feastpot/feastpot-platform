@@ -23,6 +23,70 @@ export class VendorVerificationService {
     return this.prisma.vendorVerification.findUnique({ where: { vendorId } });
   }
 
+  /**
+   * Admin summary for the compliance triage page.
+   * Returns counts + rows for:
+   *   - Live/probation vendors with no VendorVerification record
+   *   - Vendors with overallState = RENEWAL_DUE
+   *   - Vendors with overallState = SUSPENDED
+   */
+  async getVerificationSummary() {
+    // All live/probation vendors
+    const liveVendors = await this.prisma.vendor.findMany({
+      where: { status: { in: [VendorStatus.live, VendorStatus.probation] } },
+      select: { id: true, businessName: true },
+    });
+
+    // All verification records for live/probation vendors
+    const verifications = await this.prisma.vendorVerification.findMany({
+      where: { vendorId: { in: liveVendors.map((v) => v.id) } },
+      select: {
+        vendorId: true,
+        overallState: true,
+        insuranceValidUntil: true,
+        allergenTrainingUntil: true,
+      },
+    });
+
+    const verificationByVendorId = new Map(verifications.map((v) => [v.vendorId, v]));
+
+    const notSetUp: Array<{ vendorId: string; vendorName: string }> = [];
+    const renewalDue: Array<{
+      vendorId: string;
+      vendorName: string;
+      insuranceValidUntil: Date | null;
+      allergenTrainingUntil: Date | null;
+    }> = [];
+    const suspended: Array<{ vendorId: string; vendorName: string }> = [];
+
+    for (const vendor of liveVendors) {
+      const v = verificationByVendorId.get(vendor.id);
+      if (!v) {
+        notSetUp.push({ vendorId: vendor.id, vendorName: vendor.businessName });
+      } else if (v.overallState === VerificationState.RENEWAL_DUE) {
+        renewalDue.push({
+          vendorId: vendor.id,
+          vendorName: vendor.businessName,
+          insuranceValidUntil: v.insuranceValidUntil,
+          allergenTrainingUntil: v.allergenTrainingUntil,
+        });
+      } else if (v.overallState === VerificationState.SUSPENDED) {
+        suspended.push({ vendorId: vendor.id, vendorName: vendor.businessName });
+      }
+    }
+
+    return {
+      counts: {
+        notSetUp: notSetUp.length,
+        renewalDue: renewalDue.length,
+        suspended: suspended.length,
+      },
+      notSetUp,
+      renewalDue,
+      suspended,
+    };
+  }
+
   upsertVerification(vendorId: string, dto: UpsertVerificationDto) {
     const data = {
       registrationNumber: dto.registrationNumber,

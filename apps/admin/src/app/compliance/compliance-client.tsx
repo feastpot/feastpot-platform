@@ -3,6 +3,8 @@
 import {
   Card,
   CardContent,
+  CardHeader,
+  CardTitle,
   Table,
   TableBody,
   TableCell,
@@ -10,7 +12,16 @@ import {
   TableHeader,
   TableRow,
 } from '@feastpot/ui';
-import { AlertOctagon, AlertTriangle, CheckCircle2, FileCheck2, ShieldCheck } from 'lucide-react';
+import {
+  AlertOctagon,
+  AlertTriangle,
+  CheckCircle2,
+  FileCheck2,
+  RefreshCcw,
+  ShieldCheck,
+  ShieldOff,
+  ShieldQuestion,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useMemo } from 'react';
 
@@ -19,6 +30,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { StatCard } from '@/components/ui/stat-card';
 import { StatusPill, type StatusTone } from '@/components/ui/status-pill';
 import { useExpiringDocs, type ExpiringDocRow } from '@/hooks/use-expiring-docs';
+import { useVerificationSummary } from '@/hooks/use-vendor-verification';
 import { formatDate } from '@/lib/format';
 
 const TYPE_LABELS: Record<string, string> = {
@@ -44,6 +56,7 @@ function urgencyTone(u: ExpiringDocRow['urgency']): StatusTone {
 
 export function ComplianceClient() {
   const { data, isLoading, error } = useExpiringDocs();
+  const { data: vs, isLoading: vsLoading, error: vsError } = useVerificationSummary();
 
   const stats = useMemo(() => {
     const rows = data ?? [];
@@ -61,6 +74,186 @@ export function ComplianceClient() {
         title="Compliance"
         description="Monitor vendor compliance, documents and expiry dates."
       />
+
+      {/* ── Verification triage ── */}
+      <h2 className="mb-3 text-base font-semibold tracking-tight">Verification status</h2>
+
+      {vsError && (
+        <Card className="mb-4 border-destructive/40 bg-destructive/5">
+          <CardContent className="py-3 text-sm text-destructive">
+            Failed to load verification summary: {(vsError as Error).message}
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <StatCard
+          icon={ShieldQuestion}
+          tone="amber"
+          label="Not yet set up"
+          value={vsLoading ? '…' : (vs?.counts.notSetUp ?? 0).toString()}
+          caption="Live vendors with no verification record"
+        />
+        <StatCard
+          icon={RefreshCcw}
+          tone="amber"
+          label="Renewal due"
+          value={vsLoading ? '…' : (vs?.counts.renewalDue ?? 0).toString()}
+          caption="Insurance or training expiring soon"
+        />
+        <StatCard
+          icon={ShieldOff}
+          tone="red"
+          label="Suspended"
+          value={vsLoading ? '…' : (vs?.counts.suspended ?? 0).toString()}
+          caption="Listing hidden — action required"
+        />
+      </div>
+
+      {/* Not yet set up */}
+      {(vs?.notSetUp.length ?? 0) > 0 && (
+        <Card className="mb-4">
+          <CardHeader className="pb-2 pt-4">
+            <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+              <ShieldQuestion className="h-4 w-4 text-amber-500" />
+              Not yet set up ({vs!.notSetUp.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Vendor</TableHead>
+                  <TableHead className="w-12" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {vs!.notSetUp.map((row) => (
+                  <TableRow key={row.vendorId}>
+                    <TableCell className="font-medium">{row.vendorName}</TableCell>
+                    <TableCell>
+                      <Link
+                        href={`/vendors/${row.vendorId}`}
+                        className="text-sm font-medium text-primary hover:underline"
+                      >
+                        Set up
+                      </Link>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Renewal due */}
+      {(vs?.renewalDue.length ?? 0) > 0 && (
+        <Card className="mb-4">
+          <CardHeader className="pb-2 pt-4">
+            <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+              <RefreshCcw className="h-4 w-4 text-amber-500" />
+              Renewal due ({vs!.renewalDue.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Vendor</TableHead>
+                  <TableHead>Insurance expires</TableHead>
+                  <TableHead>Training expires</TableHead>
+                  <TableHead className="w-12" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {vs!.renewalDue.map((row) => (
+                  <TableRow key={row.vendorId}>
+                    <TableCell className="font-medium">{row.vendorName}</TableCell>
+                    <TableCell className="text-sm">
+                      {row.insuranceValidUntil ? (
+                        <StatusPill tone="warning">{formatDate(row.insuranceValidUntil)}</StatusPill>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {row.allergenTrainingUntil ? (
+                        <StatusPill tone="warning">
+                          {formatDate(row.allergenTrainingUntil)}
+                        </StatusPill>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Link
+                        href={`/vendors/${row.vendorId}`}
+                        className="text-sm font-medium text-primary hover:underline"
+                      >
+                        Open
+                      </Link>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Suspended */}
+      {(vs?.suspended.length ?? 0) > 0 && (
+        <Card className="mb-6">
+          <CardHeader className="pb-2 pt-4">
+            <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+              <ShieldOff className="h-4 w-4 text-destructive" />
+              Suspended ({vs!.suspended.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Vendor</TableHead>
+                  <TableHead className="w-12" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {vs!.suspended.map((row) => (
+                  <TableRow key={row.vendorId}>
+                    <TableCell className="font-medium">{row.vendorName}</TableCell>
+                    <TableCell>
+                      <Link
+                        href={`/vendors/${row.vendorId}`}
+                        className="text-sm font-medium text-primary hover:underline"
+                      >
+                        Open
+                      </Link>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
+      {!vsLoading && vs && vs.counts.notSetUp === 0 && vs.counts.renewalDue === 0 && vs.counts.suspended === 0 && (
+        <Card className="mb-6">
+          <CardContent className="p-0">
+            <EmptyState
+              icon={ShieldCheck}
+              title="All live vendors are verified"
+              description="No verification issues found."
+              bordered={false}
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ── Expiring documents ── */}
+      <h2 className="mb-3 text-base font-semibold tracking-tight">Expiring documents</h2>
 
       {error && (
         <Card className="mb-4 border-destructive/40 bg-destructive/5">
