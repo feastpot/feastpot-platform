@@ -5,7 +5,7 @@ import { TopNav } from '@/components/layout/top-nav';
 import { apiRequest, ApiError } from '@/lib/api/client';
 import { createClient as createServerSupabase } from '@/lib/supabase/server';
 
-import { ComplianceClient } from './compliance-client';
+import { ComplianceClient, type VerificationRecord } from './compliance-client';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,6 +24,10 @@ interface VendorMe {
  *
  * Screen 6 of the vendor redesign - migrated to the SideNav shell
  * (with TopNav as a md:hidden mobile fallback).
+ *
+ * Also fetches the vendor's verification record (GET /vendors/:id/verification)
+ * and passes it down so the page can display the read-only verification status
+ * section above the document upload section.
  */
 export default async function CompliancePage() {
   const supabase = await createServerSupabase();
@@ -49,6 +53,24 @@ export default async function CompliancePage() {
     redirect('/onboarding');
   }
 
+  // Fetch verification record - public endpoint, no auth required.
+  // Returns null if no record has been created yet (admin hasn't
+  // completed the verification intake for this vendor).
+  let verification: VerificationRecord | null = null;
+  try {
+    verification = await apiRequest<VerificationRecord>(
+      `/vendors/${vendor.id}/verification`,
+      { next: { revalidate: 0 } },
+    );
+  } catch (err) {
+    if (!(err instanceof ApiError && err.status === 404)) {
+      // Surface unexpected errors (network failures, 5xx) to the Next
+      // error boundary rather than silently hiding the section.
+      throw err;
+    }
+    // 404 = no record yet; leave verification as null.
+  }
+
   return (
     <>
       <div className="md:hidden">
@@ -57,7 +79,7 @@ export default async function CompliancePage() {
       <div className="flex min-h-screen bg-surface">
         <SideNav businessName={vendor.businessName} />
         <main className="min-w-0 flex-1 px-4 py-6 md:px-6">
-          <ComplianceClient vendor={vendor} />
+          <ComplianceClient vendor={vendor} verification={verification} />
         </main>
       </div>
     </>

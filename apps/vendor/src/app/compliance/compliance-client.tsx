@@ -1,7 +1,15 @@
 'use client';
 
 import { cn } from '@feastpot/ui';
-import { AlertTriangle, Info, ShieldAlert, ShieldCheck } from 'lucide-react';
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Clock,
+  Info,
+  ShieldAlert,
+  ShieldCheck,
+  XCircle,
+} from 'lucide-react';
 
 import {
   DocumentRow,
@@ -16,6 +24,34 @@ import {
   type VendorDocument,
   type VendorDocumentType,
 } from '@/hooks/use-vendor-documents';
+
+// ── Verification types ────────────────────────────────────────────────
+
+export type FhrsInspectionStatus =
+  | 'AWAITING_FIRST_INSPECTION'
+  | 'RATED'
+  | 'EXEMPT'
+  | 'NOT_FOUND';
+
+export type VerificationState = 'VERIFIED' | 'RENEWAL_DUE' | 'SUSPENDED';
+
+export interface VerificationRecord {
+  id: string;
+  vendorId: string;
+  registrationNumber: string;
+  registrationAuthority: string;
+  registrationConfirmedAt: string;
+  fhrsRating: number | null;
+  fhrsRatingCheckedAt: string | null;
+  fhrsInspectionStatus: FhrsInspectionStatus;
+  insuranceProvider: string | null;
+  insuranceValidUntil: string | null;
+  allergenTrainingHeld: boolean;
+  allergenTrainingUntil: string | null;
+  idVerifiedAt: string | null;
+  overallState: VerificationState;
+  updatedAt: string;
+}
 
 interface VendorSummary {
   id: string;
@@ -35,13 +71,20 @@ interface VendorSummary {
  * Layout (top → bottom):
  *   [header - title + subtitle]
  *   [suspension banner (only if status === 'suspended')]
+ *   [verification status section (if record exists) - read-only]
  *   [top status banner - message + counts + approval progress bar +
  *    "View missing" CTA]
  *   [4 doc cards - icon tile + meta + Expires + Upload + state badge +
  *    requirements checklist, left bar tinted by state]
  *   [footer info - review SLA + replace-reset copy]
  */
-export function ComplianceClient({ vendor }: { vendor: VendorSummary }) {
+export function ComplianceClient({
+  vendor,
+  verification,
+}: {
+  vendor: VendorSummary;
+  verification: VerificationRecord | null;
+}) {
   const docs = useVendorDocuments(vendor.id);
   const upload = useUploadDocument(vendor.id);
   const { toast } = useToast();
@@ -110,6 +153,10 @@ export function ComplianceClient({ vendor }: { vendor: VendorSummary }) {
         </div>
       )}
 
+      {/* Verification status - read-only; shown whenever the compliance
+          team has created a verification record for this vendor. */}
+      {verification && <VerificationStatusSection verification={verification} />}
+
       <StatusBanner
         tone={banner.tone}
         title={banner.title}
@@ -160,7 +207,281 @@ export function ComplianceClient({ vendor }: { vendor: VendorSummary }) {
   );
 }
 
-// ── Status banner ────────────────────────────────────────────────────
+// ── Verification status section ───────────────────────────────────────
+
+/** Returns the number of whole days until a date (negative = overdue). */
+function daysUntil(iso: string | null): number | null {
+  if (!iso) return null;
+  const ms = new Date(iso).getTime() - Date.now();
+  return Math.ceil(ms / (1000 * 60 * 60 * 24));
+}
+
+function fmtDate(iso: string | null | undefined): string {
+  if (!iso) return '';
+  return new Date(iso).toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
+function DaysTag({ days, label }: { days: number | null; label: string }) {
+  if (days === null) return null;
+  if (days > 0) {
+    const colour =
+      days <= 30
+        ? 'border-amber-200 bg-amber-50 text-amber-700'
+        : 'border-teal/30 bg-teal-light text-teal-dark';
+    return (
+      <span className={cn('rounded-full border px-2 py-0.5 text-[11px] font-semibold', colour)}>
+        {days}d remaining
+      </span>
+    );
+  }
+  return (
+    <span className="rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-[11px] font-semibold text-red-700">
+      {label} expired {Math.abs(days)}d ago
+    </span>
+  );
+}
+
+interface VRow {
+  icon: 'check' | 'clock' | 'alert';
+  label: string;
+  value: React.ReactNode;
+  deadline?: React.ReactNode;
+}
+
+function VIcon({ kind }: { kind: VRow['icon'] }) {
+  if (kind === 'check')
+    return <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-teal" aria-hidden />;
+  if (kind === 'alert')
+    return <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-600" aria-hidden />;
+  return <Clock className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" aria-hidden />;
+}
+
+function VerificationRow({ icon, label, value, deadline }: VRow) {
+  return (
+    <div className="flex items-start gap-3 py-2.5">
+      <VIcon kind={icon} />
+      <div className="min-w-0 flex-1">
+        <p className="text-[12px] font-bold uppercase tracking-[0.1em] text-mid">{label}</p>
+        <div className="mt-0.5 flex flex-wrap items-center gap-2">
+          <span className="text-[13px] font-medium text-dark">{value}</span>
+          {deadline}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function VerificationStatusSection({ verification: v }: { verification: VerificationRecord }) {
+  const insuranceDays = daysUntil(v.insuranceValidUntil);
+  const allergenDays = daysUntil(v.allergenTrainingUntil);
+
+  // ── overall state banner ─────────────────────────────────────────
+  const isAlert = v.overallState === 'SUSPENDED' || v.overallState === 'RENEWAL_DUE';
+  const bannerProps =
+    v.overallState === 'SUSPENDED'
+      ? {
+          wrap: 'border-red-300 bg-red-50',
+          text: 'text-red-900',
+          Icon: ShieldAlert,
+          iconClass: 'text-red-600',
+          title: 'Your Feastpot verification is suspended',
+          body: 'One or more verification requirements are no longer met. New orders are paused until compliance clears the issue. Contact compliance@feastpot.co.uk to resolve this.',
+        }
+      : v.overallState === 'RENEWAL_DUE'
+        ? {
+            wrap: 'border-amber-300 bg-amber-50',
+            text: 'text-amber-900',
+            Icon: AlertTriangle,
+            iconClass: 'text-amber-600',
+            title: 'Action needed: verification renewal due',
+            body: 'One or more items are expiring soon or have already expired. Contact compliance@feastpot.co.uk to submit updated documentation.',
+          }
+        : null;
+
+  // ── hygiene rating row ───────────────────────────────────────────
+  let hygieneIcon: VRow['icon'];
+  let hygieneValue: React.ReactNode;
+
+  if (v.fhrsInspectionStatus === 'AWAITING_FIRST_INSPECTION') {
+    hygieneIcon = 'clock';
+    hygieneValue = `Registered with ${v.registrationAuthority}. Awaiting first hygiene inspection.`;
+  } else if (v.fhrsInspectionStatus === 'EXEMPT') {
+    hygieneIcon = 'check';
+    hygieneValue = 'Exempt from FHRS rating (low-risk premises).';
+  } else if (v.fhrsInspectionStatus === 'NOT_FOUND') {
+    hygieneIcon = 'clock';
+    hygieneValue = `Rating lookup pending. Last checked: ${fmtDate(v.fhrsRatingCheckedAt) || 'not yet checked'}.`;
+  } else {
+    const score = v.fhrsRating;
+    const checkedStr = v.fhrsRatingCheckedAt ? ` Checked ${fmtDate(v.fhrsRatingCheckedAt)}.` : '';
+    if (score !== null && score >= 3) {
+      hygieneIcon = 'check';
+      hygieneValue = `${score}/5 hygiene rating.${checkedStr}`;
+    } else if (score !== null) {
+      hygieneIcon = 'alert';
+      hygieneValue = `${score}/5 - below minimum required (3).${checkedStr}`;
+    } else {
+      hygieneIcon = 'clock';
+      hygieneValue = `Rating pending.${checkedStr}`;
+    }
+  }
+
+  // ── insurance row ────────────────────────────────────────────────
+  const insuranceExpired = insuranceDays !== null && insuranceDays <= 0;
+  const insuranceIcon: VRow['icon'] = !v.insuranceValidUntil
+    ? 'clock'
+    : insuranceExpired
+      ? 'alert'
+      : 'check';
+  const insuranceValue = v.insuranceValidUntil
+    ? `${v.insuranceProvider ? `${v.insuranceProvider} - ` : ''}Valid until ${fmtDate(v.insuranceValidUntil)}.`
+    : 'Awaiting submission.';
+
+  // ── allergen training row ────────────────────────────────────────
+  const allergenExpired = allergenDays !== null && allergenDays <= 0;
+  const allergenIcon: VRow['icon'] = !v.allergenTrainingHeld
+    ? 'clock'
+    : allergenExpired
+      ? 'alert'
+      : 'check';
+  const allergenValue = v.allergenTrainingHeld
+    ? allergenExpired
+      ? `Expired ${fmtDate(v.allergenTrainingUntil)}. Renewal required.`
+      : `Completed${v.allergenTrainingUntil ? `, valid until ${fmtDate(v.allergenTrainingUntil)}` : ''}.`
+    : 'Training pending.';
+
+  // ── identity row ─────────────────────────────────────────────────
+  const idIcon: VRow['icon'] = v.idVerifiedAt ? 'check' : 'clock';
+  const idValue = v.idVerifiedAt ? `Verified ${fmtDate(v.idVerifiedAt)}.` : 'Pending.';
+
+  const statePill =
+    v.overallState === 'VERIFIED'
+      ? 'border-teal/30 bg-teal-light text-teal-dark'
+      : v.overallState === 'RENEWAL_DUE'
+        ? 'border-amber-200 bg-amber-50 text-amber-700'
+        : 'border-red-200 bg-red-50 text-red-700';
+
+  const stateLabel =
+    v.overallState === 'VERIFIED'
+      ? 'Verified'
+      : v.overallState === 'RENEWAL_DUE'
+        ? 'Renewal due'
+        : 'Suspended';
+
+  return (
+    <section aria-label="Feastpot verification status" className="space-y-3">
+      {/* Prominent alert banner for RENEWAL_DUE / SUSPENDED */}
+      {isAlert && bannerProps && (
+        <div
+          className={cn(
+            'fp-card flex items-start gap-3 border p-4 text-sm',
+            bannerProps.wrap,
+            bannerProps.text,
+          )}
+        >
+          <bannerProps.Icon
+            className={cn('mt-0.5 h-4 w-4 shrink-0', bannerProps.iconClass)}
+            aria-hidden
+          />
+          <div>
+            <p className="font-semibold">{bannerProps.title}</p>
+            <p className="mt-0.5 opacity-90">{bannerProps.body}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Verification record card */}
+      <div className="fp-card border border-border bg-white p-4">
+        {/* Header */}
+        <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="h-4 w-4 text-teal" aria-hidden />
+            <span className="text-[13px] font-extrabold text-dark">Verified by Feastpot</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span
+              className={cn(
+                'rounded-full border px-2 py-0.5 text-[11px] font-bold',
+                statePill,
+              )}
+            >
+              {stateLabel}
+            </span>
+            <span className="text-[11px] text-mid">
+              Updated {fmtDate(v.updatedAt)}
+            </span>
+          </div>
+        </div>
+
+        <div className="divide-y divide-cream-deep">
+          {/* Food business registration */}
+          <VerificationRow
+            icon="check"
+            label="Food business registration"
+            value={`${v.registrationAuthority} (${v.registrationNumber}) - confirmed ${fmtDate(v.registrationConfirmedAt)}.`}
+          />
+
+          {/* Hygiene rating */}
+          <VerificationRow
+            icon={hygieneIcon}
+            label="Hygiene rating (FHRS)"
+            value={hygieneValue}
+          />
+
+          {/* Public liability insurance */}
+          <VerificationRow
+            icon={insuranceIcon}
+            label="Public liability insurance"
+            value={insuranceValue}
+            deadline={
+              v.insuranceValidUntil ? (
+                <DaysTag days={insuranceDays} label="Insurance" />
+              ) : undefined
+            }
+          />
+
+          {/* Allergen training */}
+          <VerificationRow
+            icon={allergenIcon}
+            label="Allergen training"
+            value={allergenValue}
+            deadline={
+              v.allergenTrainingUntil ? (
+                <DaysTag days={allergenDays} label="Allergen training" />
+              ) : undefined
+            }
+          />
+
+          {/* Identity check */}
+          <VerificationRow
+            icon={idIcon}
+            label="Identity check"
+            value={idValue}
+          />
+        </div>
+
+        {/* Read-only note */}
+        <p className="mt-3 text-[11px] text-mid">
+          This record is maintained by the FeastPot compliance team. To update any detail or submit
+          new documentation, email{' '}
+          <a
+            href="mailto:compliance@feastpot.co.uk"
+            className="font-semibold text-teal underline underline-offset-2 hover:text-teal-dark"
+          >
+            compliance@feastpot.co.uk
+          </a>
+          .
+        </p>
+      </div>
+    </section>
+  );
+}
+
+// ── Document status banner ────────────────────────────────────────────
 
 type BannerTone = 'good' | 'attention' | 'warning' | 'neutral';
 
