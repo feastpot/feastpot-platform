@@ -46,3 +46,10 @@ ALTER TABLE "vendor_verifications"
   ON DELETE CASCADE ON UPDATE CASCADE;
 
 ALTER TABLE "vendor_verifications" ENABLE ROW LEVEL SECURITY;
+-- No permissive policies are added intentionally. With RLS enabled and no
+-- policies, the anon and authenticated roles get an implicit deny on all rows.
+-- The postgres superuser used by Prisma and the Supabase service_role both
+-- bypass RLS, so the NestJS API (which connects via the service-role key)
+-- retains full access. FORCE RLS ensures the deny-by-default applies even if
+-- table ownership ever changes away from a superuser role.
+ALTER TABLE "vendor_verifications" FORCE  ROW LEVEL SECURITY;
