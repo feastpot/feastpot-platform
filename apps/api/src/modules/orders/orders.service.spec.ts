@@ -256,13 +256,12 @@ describe('OrdersService.updateStatus authorization', () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
-  it('owner vendor can accept and removes the auto_cancel job', async () => {
+  it('owner vendor can accept and transitions status correctly', async () => {
+    // D3: auto_cancel job removed (dead code - no processor consumed it).
+    // Acceptance now just transitions status and enqueues order_accepted notification.
     repo.findByIdWithItems.mockResolvedValue(order({ status: OrderStatus.pending }));
-    const remove = jest.fn().mockResolvedValue(undefined);
-    queue.getJob.mockResolvedValue({ remove });
     await service.updateStatus('o-1', { status: OrderStatus.accepted }, vendorUser());
-    expect(queue.getJob).toHaveBeenCalledWith('auto_cancel:o-1');
-    expect(remove).toHaveBeenCalled();
+    expect(queue.getJob).not.toHaveBeenCalledWith('auto_cancel:o-1');
     expect(repo.transitionStatus).toHaveBeenCalledWith(
       'o-1',
       OrderStatus.pending,
@@ -416,7 +415,8 @@ describe('OrdersService.confirmOrder', () => {
     expect(queue.add).not.toHaveBeenCalled();
   });
 
-  it('enqueues notify_vendor + auto_cancel(15m) + customer order_confirmation on first successful confirm', async () => {
+  it('enqueues notify_vendor + customer order_confirmation on first successful confirm', async () => {
+    // D3: auto_cancel(15m) job removed (dead code - clause 8 now ties deadline to lead time).
     const { svc, repo, stripe, queue } = make();
     repo.byCustomer.mockResolvedValue({
       status: OrderStatus.pending,
@@ -439,12 +439,6 @@ describe('OrdersService.confirmOrder', () => {
     );
     expect(queue.add).toHaveBeenNthCalledWith(
       2,
-      'auto_cancel',
-      { orderId: 'o-1' },
-      expect.objectContaining({ delay: 15 * 60 * 1000, jobId: 'auto_cancel:o-1' }),
-    );
-    expect(queue.add).toHaveBeenNthCalledWith(
-      3,
       'order_confirmation',
       expect.objectContaining({
         userId: 'cust-1',
@@ -455,6 +449,12 @@ describe('OrdersService.confirmOrder', () => {
         items: [{ name: 'Egusi', qty: 1, pricePence: 4000 }],
       }),
       expect.objectContaining({ jobId: 'order_confirmation:o-1' }),
+    );
+    // Confirm no auto_cancel job is enqueued (clause 8 deadline is ops-enforced).
+    expect(queue.add).not.toHaveBeenCalledWith(
+      'auto_cancel',
+      expect.anything(),
+      expect.anything(),
     );
   });
 });

@@ -47,11 +47,13 @@ module.exports = {
       },
     ],
     'import/no-unresolved': 'off',
-    // Em dash (U+2014) is banned from all Feastpot copy.
-    // Use a pipe for title separators, a comma/colon for prose asides.
+    // Em dash (U+2014) and en dash (U+2013) are banned from all Feastpot copy.
+    // Use a pipe for title separators, a comma/colon for prose asides, "to" for ranges.
+    // HTML entities &mdash; and &ndash; are banned in JSX text for the same reason.
     // See CONTRIBUTING.md § "Typography rules".
     'no-restricted-syntax': [
       'error',
+      // JS string literals / template literals
       {
         selector: 'Literal[value=/\u2014/]',
         message:
@@ -61,6 +63,27 @@ module.exports = {
         selector: 'TemplateElement[value.raw=/\u2014/]',
         message:
           'Em dash (\u2014) is not permitted in Feastpot copy. Use a comma, pipe, or restructure the sentence. See CONTRIBUTING.md.',
+      },
+      {
+        selector: 'Literal[value=/\u2013/]',
+        message:
+          'En dash (\u2013) is not permitted in Feastpot copy. Use "to" for ranges or a comma for asides. See CONTRIBUTING.md.',
+      },
+      {
+        selector: 'TemplateElement[value.raw=/\u2013/]',
+        message:
+          'En dash (\u2013) is not permitted in Feastpot copy. Use "to" for ranges or a comma for asides. See CONTRIBUTING.md.',
+      },
+      // JSX text nodes (catches &mdash; / &ndash; HTML entities in JSX)
+      {
+        selector: 'JSXText[value=/\u2014/]',
+        message:
+          'Em dash or &mdash; entity is not permitted in Feastpot JSX copy. Use a comma, pipe, or restructure the sentence. See CONTRIBUTING.md.',
+      },
+      {
+        selector: 'JSXText[value=/\u2013/]',
+        message:
+          'En dash or &ndash; entity is not permitted in Feastpot JSX copy. Use "to" for ranges or a comma for asides. See CONTRIBUTING.md.',
       },
     ],
   },

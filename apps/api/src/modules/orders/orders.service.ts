@@ -61,7 +61,10 @@ import { OrderSlotsService } from './order-slots.service';
 import { OrdersRepository } from './orders.repository';
 
 export const NOTIFICATIONS_QUEUE = 'notifications';
-const AUTO_CANCEL_DELAY_MS = 15 * 60 * 1000;
+// AUTO_CANCEL_DELAY_MS removed: the 15-minute hard timeout is not enforced by a
+// processor. Vendor terms (clause 8) now tie the acceptance deadline to the
+// vendor's lead time / preparation window, which is a soft deadline enforced
+// by Feastpot ops rather than an automatic job.
 const REVIEW_DELAY_MS = 2 * 60 * 60 * 1000;
 
 /**
@@ -900,11 +903,6 @@ export class OrdersService {
         metadata: { orderId, orderNumber: order.orderNumber },
       });
     }
-    await this.safeEnqueue(
-      'auto_cancel',
-      { orderId },
-      { delay: AUTO_CANCEL_DELAY_MS, jobId: `auto_cancel:${orderId}` },
-    );
     // Customer-facing order_confirmation: registered template, dispatched on
     // email + sms + whatsapp + push by the processor based on the user's
     // contactable channels. `userId` is what the processor uses to look up
@@ -1025,14 +1023,6 @@ export class OrdersService {
 
     // Side-effects only run after the CAS succeeded - guaranteeing exactly-once semantics.
     if (dto.status === OrderStatus.accepted) {
-      try {
-        const job = await this.safeGetJob(`auto_cancel:${orderId}`);
-        if (job) await job.remove();
-      } catch (e) {
-        this.logger.warn(
-          `Could not remove auto_cancel job for ${orderId}: ${(e as Error).message}`,
-        );
-      }
       if (snap) {
         await this.safeEnqueue(
           'order_accepted',
@@ -1274,14 +1264,6 @@ export class OrdersService {
       .catch((e) =>
         this.logger.error(`AuditLog write failed for cancel ${orderId}: ${(e as Error).message}`),
       );
-
-    // Release the auto-cancel job so it doesn't fire after the row is already terminal.
-    try {
-      const job = await this.safeGetJob(`auto_cancel:${orderId}`);
-      if (job) await job.remove();
-    } catch (e) {
-      this.logger.warn(`Could not remove auto_cancel job for ${orderId}: ${(e as Error).message}`);
-    }
 
     // Hand the reserved capacity slot back to the vendor's date.
     await this.releaseOrderCapacity(order);

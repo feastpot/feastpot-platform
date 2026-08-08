@@ -28,4 +28,8 @@ export * from './VerificationPanel';
 
 // Three-layer legal presentation (P2B Regulation)
 export * from './KeyTermsSummary';
+
+// Site-wide layout components (D2: shared Footer)
+export * from './components/benefits-strip';
+export * from './components/footer';
 export * from './RateCard';

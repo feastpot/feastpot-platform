@@ -122,7 +122,7 @@ export default function VendorTermsPage() {
           <p>
             Feastpot charges a platform commission of{' '}
             <strong>{VENDOR_COMMISSION_RATE_PCT}% of the food subtotal</strong> on every completed
-            marketplace order. The commission is deducted from your weekly payout&mdash;it is not
+            marketplace order. The commission is deducted from your weekly payout; it is not
             charged to you separately and is not added to the price the customer pays.
           </p>
           <p>
@@ -143,7 +143,7 @@ export default function VendorTermsPage() {
           </p>
           <p>
             Payouts are processed <strong>weekly, every Monday</strong>, for all orders delivered in
-            the prior Monday&ndash;Sunday window. Payouts are made via Stripe Connect to your
+            the prior Monday-to-Sunday window. Payouts are made via Stripe Connect to your
             registered UK bank account.
           </p>
           <p>A payout will be held if:</p>
@@ -171,11 +171,11 @@ export default function VendorTermsPage() {
           </p>
           <ul style={legalListStyle}>
             <li>
-              <strong>Stage 1 &mdash; Initial review:</strong> A Feastpot support agent reviews the
+              <strong>Stage 1: Initial review.</strong> A Feastpot support agent reviews the
               evidence and makes an initial decision within 5 business days.
             </li>
             <li>
-              <strong>Stage 2 &mdash; Senior review:</strong> If you disagree with the Stage 1
+              <strong>Stage 2: Senior review.</strong> If you disagree with the Stage 1
               outcome, you may appeal within{' '}
               <strong>14 calendar days</strong> of receiving it by emailing{' '}
               <LegalLink href="mailto:compliance@feastpot.co.uk">
@@ -261,10 +261,17 @@ export default function VendorTermsPage() {
         {/* ── 8. Order acceptance ── */}
         <LegalSection id="acceptance" icon="⏱️" title="8. Order acceptance">
           <p>
-            You must accept or reject orders within 15 minutes of receipt. Failure to respond
-            results in automatic order cancellation and a full refund to the customer. Repeated
-            failures to accept orders may result in suspension. You must not accept orders you do
-            not intend to fulfil.
+            You must accept or reject each order before your preparation window begins. For a
+            scheduled order, this means accepting no later than the start of the preparation period
+            implied by your stated lead time (for example, 24 hours before a Sunday lunchtime slot
+            means accepting by Saturday lunchtime). In all cases you must respond within{' '}
+            <strong>2 hours of the order being placed</strong>.
+          </p>
+          <p>
+            Failure to respond before preparation must begin may result in order cancellation and a
+            full refund to the customer at Feastpot&rsquo;s discretion. Repeated failures to
+            respond may result in suspension. You must not accept orders you do not intend to
+            fulfil.
           </p>
         </LegalSection>
 
@@ -316,27 +323,27 @@ export default function VendorTermsPage() {
           </p>
           <ul style={legalListStyle}>
             <li>
-              <strong>Relevance</strong> &mdash; how well your menu, cuisine type, and location
-              match the customer&rsquo;s search query and postcode;
+              <strong>Relevance:</strong> how well your menu, cuisine type, and location match the
+              customer&rsquo;s search query and postcode;
             </li>
             <li>
-              <strong>Fulfilment rate</strong> &mdash; the proportion of orders you accept and
+              <strong>Fulfilment rate:</strong> the proportion of orders you accept and
               successfully deliver;
             </li>
             <li>
-              <strong>Average review score</strong> &mdash; the average of all customer ratings
-              received on the platform;
+              <strong>Average review score:</strong> the average of all customer ratings received
+              on the platform;
             </li>
             <li>
-              <strong>Review volume</strong> &mdash; the total number of verified customer reviews;
+              <strong>Review volume:</strong> the total number of verified customer reviews;
             </li>
             <li>
-              <strong>Compliance status</strong> &mdash; vendors with lapsed or missing compliance
+              <strong>Compliance status:</strong> vendors with lapsed or missing compliance
               documents are ranked lower or suppressed from results;
             </li>
             <li>
-              <strong>Recency of activity</strong> &mdash; newly listed or recently active vendors
-              may receive a short-term visibility boost to help establish their review history.
+              <strong>Recency of activity:</strong> newly listed or recently active vendors may
+              receive a short-term visibility boost to help establish their review history.
             </li>
           </ul>
           <p>
@@ -429,7 +436,17 @@ export default function VendorTermsPage() {
             <li>Late or failed deliveries;</li>
             <li>Loss of income due to platform downtime.</li>
           </ul>
-          <p>Nothing in these terms limits liability for gross negligence or fraud.</p>
+          {/*
+           * D4 fix (solicitor review required): clause updated from the original
+           * "gross negligence or fraud" formulation, which is not a recognised
+           * English-law category. Replacement uses the statutory floor mandated
+           * by the Unfair Contract Terms Act 1977 and the Consumer Rights Act 2015.
+           */}
+          <p>
+            Nothing in these terms limits or excludes our liability for: (a) death or personal
+            injury caused by our negligence; (b) fraud or fraudulent misrepresentation; or (c) any
+            other liability that cannot be excluded or limited by applicable law.
+          </p>
         </LegalSection>
 
         {/* ── 16. Governing law ── */}

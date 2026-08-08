@@ -84,7 +84,9 @@ describe('Vendor terms - policy numbers match PLATFORM_FACTS', () => {
 });
 
 describe('Benefits strip - no hardcoded support hours', () => {
-  const src = read('apps/web/src/components/layout/benefits-strip.tsx');
+  // D2: BenefitsStrip moved to packages/ui; the apps/web file is now a thin re-export.
+  // The substantive test targets the canonical source in packages/ui.
+  const src = read('packages/ui/src/components/benefits-strip.tsx');
 
   it('imports support hours from PLATFORM_FACTS', () => {
     expect(src).toContain('PLATFORM_FACTS');

@@ -97,14 +97,37 @@ export default function LegalLayout({ children }: { children: ReactNode }) {
           {children}
 
           <footer className="mt-12 border-t border-cream-deep pt-6 text-sm text-charcoal-mid">
-            <p>Last updated: May 2026</p>
+            <p>
+              Each document shows its current version number and effective date at the top of the
+              page.
+            </p>
             <p className="mt-1">
-              Questions? Email{' '}
+              Privacy questions?{' '}
               <a
                 href="mailto:privacy@feastpot.co.uk"
                 className="text-brand underline hover:no-underline"
               >
                 privacy@feastpot.co.uk
+              </a>{' '}
+              (response within 5 business days).
+            </p>
+            <p className="mt-1">
+              Appeals?{' '}
+              <a
+                href="mailto:compliance@feastpot.co.uk"
+                className="text-brand underline hover:no-underline"
+              >
+                compliance@feastpot.co.uk
+              </a>{' '}
+              (response within 5 business days).
+            </p>
+            <p className="mt-1">
+              General support?{' '}
+              <a
+                href="mailto:support@feastpot.co.uk"
+                className="text-brand underline hover:no-underline"
+              >
+                support@feastpot.co.uk
               </a>
               .
             </p>

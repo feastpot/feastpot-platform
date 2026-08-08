@@ -1,0 +1,67 @@
+TASK: Fix defects found on the live site during this
+review. Small fixes, disproportionate compliance value.
+
+D1. EM DASH AND EN DASH IN LIVE VENDOR TERMS
+Clause 3 of /legal/vendor-terms currently reads:
+"Commission is deducted from your weekly payout - it is
+not charged separately." with a literal em dash, and
+"Monday-Sunday" with an en dash. These survived the
+earlier sweep because the terms are hardcoded JSX rather
+than shared copy. Fix in the v2.0 content, and confirm the
+RED-100 ESLint rule and CI guard actually cover this file
+path. If they did not catch this, the rule's file glob is
+too narrow. Widen it.
+
+D2. FOOTER INCONSISTENCY
+The homepage footer includes Help and FAQ, Catering,
+Become a vendor, Vendor readiness, Trust and safety plus
+the five legal links. The become-a-vendor page footer
+includes only Help and FAQ plus the legal links. Legal
+links must be reachable from every page. Extract one
+Footer component into packages/ui and use it everywhere.
+
+D3. FIFTEEN-MINUTE ORDER ACCEPTANCE RULE
+Live terms clause 7 requires vendors to accept or reject
+within 15 minutes or the order auto-cancels with a full
+refund. This suits a takeaway with staff on a tablet. It
+does not suit a home cook fulfilling a scheduled Sunday
+pot, which is Feastpot's actual model, and the site's own
+copy emphasises scheduled ordering and lead times.
+Decide and align: either remove the rule, or replace it
+with a response deadline tied to the scheduled slot and
+the vendor's stated lead time. Then make code and contract
+match. A contractual rule the platform does not enforce is
+as much of a problem as an enforced rule the contract does
+not state.
+
+D4. GROSS NEGLIGENCE CARVE-OUT
+Live terms clause 11 ends: "Nothing in these terms limits
+liability for gross negligence or fraud." English law does
+not recognise gross negligence as a distinct category in
+the way this implies, and the clause omits the statutory
+floor that cannot be excluded. v2.0 clause 17.1 uses the
+correct formulation: death or personal injury caused by
+negligence, fraud or fraudulent misrepresentation, and
+anything else that cannot be limited by law. Ensure the
+replacement lands and flag it specifically for the
+solicitor review.
+
+D5. VERSION LABEL
+The terms page shows "Last updated: May 2026" with no
+version number. After LEGAL-500, show both version and
+effective date, and link to version history.
+
+D6. APPEAL EMAIL ROUTING
+Terms route appeals to compliance@feastpot.co.uk while
+general support is support@feastpot.co.uk and privacy
+queries go to privacy@feastpot.co.uk. Confirm all three
+mailboxes exist, are monitored, and meet the stated 5
+business day response. An unmonitored compliance mailbox
+turns a compliant appeal process into a non-compliant one.
+
+ACCEPTANCE CRITERIA
+- Zero em dashes and en dashes across all legal pages,
+  with the CI guard proven to cover them.
+- One footer component on every page of every app.
+- Order acceptance rule identical in code and contract.
+- All three mailboxes verified as monitored.

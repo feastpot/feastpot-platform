@@ -13,6 +13,14 @@
     "./brand": {
       "types": "./src/brand.ts",
       "default": "./src/brand.ts"
+    },
+    "./footer": {
+      "types": "./src/components/footer.tsx",
+      "default": "./src/components/footer.tsx"
+    },
+    "./benefits-strip": {
+      "types": "./src/components/benefits-strip.tsx",
+      "default": "./src/components/benefits-strip.tsx"
     }
   },
   "scripts": {
