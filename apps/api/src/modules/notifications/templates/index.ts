@@ -656,6 +656,108 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
     channels: ['email', 'whatsapp', 'push'],
     whatsappTemplate: 'review_request',
   },
+
+  // ── P2B enforcement notices (clause 14.1) ────────────────────────────────
+
+  enforcement_action: {
+    subject: (d) => {
+      const typeLabel: Record<string, string> = {
+        RESTRICTION: 'restricted',
+        SUSPENSION: 'suspended',
+        TERMINATION: 'terminated',
+      };
+      const verb = typeLabel[str(d.actionType)] ?? 'affected';
+      return `Important notice: your Feastpot listing has been ${verb}`;
+    },
+    render: (d) => {
+      const actionType = str(d.actionType);
+      const heading: Record<string, string> = {
+        RESTRICTION: 'Your listing has been restricted',
+        SUSPENSION: 'Your listing has been suspended',
+        TERMINATION: 'Notice of termination',
+      };
+      const effectiveDate = d.effectiveAt
+        ? new Date(str(d.effectiveAt)).toLocaleDateString('en-GB', {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric',
+          })
+        : 'immediately';
+      const appealDate = d.appealDeadline
+        ? new Date(str(d.appealDeadline)).toLocaleDateString('en-GB', {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric',
+          })
+        : '';
+      const isUrgent = d.isUrgent === true;
+
+      return baseLayout(
+        heading[actionType] ?? 'Enforcement notice',
+        h2(heading[actionType] ?? 'Enforcement notice') +
+          (isUrgent
+            ? amberCallout(
+                `This action has taken effect immediately for reasons of food safety, security, or fraud. ` +
+                  `The reasons are set out below (vendor terms clause ${esc(d.clauseRef, '14.1')}).`,
+              )
+            : amberCallout(
+                `This action takes effect on <strong>${effectiveDate}</strong> under vendor terms clause ${esc(d.clauseRef, '14.1')}.`,
+              )) +
+          `<table width="100%" cellpadding="0" cellspacing="0" style="margin:16px 0;border-collapse:collapse;">` +
+          keyValueRow('Reason code', esc(d.reasonCode)) +
+          `</table>` +
+          `<div style="background:#fafafa;border:1px solid #e5e7eb;border-radius:8px;padding:16px;margin:16px 0;">` +
+          `<p style="margin:0 0 4px 0;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:#6b7280;">Statement of reasons</p>` +
+          `<p style="margin:0;font-size:14px;line-height:1.6;color:#111827;">${esc(d.reasonNarrative)}</p>` +
+          `</div>` +
+          p(`<strong>Effective date:</strong> ${effectiveDate}`) +
+          `<hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0;">` +
+          h2('Your right to appeal') +
+          p(
+            `You may appeal this decision under vendor terms clause ${esc(d.appealClause, '18.1')}. ` +
+              `To submit an appeal, reply to this email or contact <a href="mailto:appeals@feastpot.co.uk">appeals@feastpot.co.uk</a> ` +
+              `with the subject line <strong>"Appeal: ${esc(d.reasonCode)}"</strong> and your grounds of appeal.`,
+          ) +
+          (appealDate
+            ? p(`<strong>Appeal deadline: ${appealDate}</strong> (14 days from the effective date).`)
+            : '') +
+          p(
+            `You may also seek independent legal advice or contact the UK Courts Service ` +
+              `if you believe this decision is unlawful.`,
+          ) +
+          brandButton('Open vendor portal', 'https://vendor.feastpot.co.uk/account-status', 'vendorBlue'),
+      );
+    },
+    channels: ['email'],
+  },
+
+  enforcement_lifted: {
+    subject: (d) => {
+      const typeLabel: Record<string, string> = {
+        RESTRICTION: 'restriction lifted',
+        SUSPENSION: 'listing restored',
+        TERMINATION: 'termination notice withdrawn',
+      };
+      return `Good news: your Feastpot ${typeLabel[str(d.actionType)] ?? 'enforcement action lifted'}`;
+    },
+    render: (d) =>
+      baseLayout(
+        'Enforcement action lifted',
+        h2('Your listing has been restored') +
+          p(
+            `The ${str(d.actionType, 'enforcement action').toLowerCase()} on your Feastpot listing ` +
+              `(<strong>${esc(d.vendorName, 'your kitchen')}</strong>) has been lifted.`,
+          ) +
+          (d.liftNote
+            ? `<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:16px;margin:16px 0;">` +
+              `<p style="margin:0;font-size:14px;line-height:1.6;color:#111827;">${esc(d.liftNote)}</p>` +
+              `</div>`
+            : '') +
+          p('Your listing is now active again. Thank you for resolving the matter.') +
+          brandButton('Open vendor portal', 'https://vendor.feastpot.co.uk/', 'vendorBlue'),
+      ),
+    channels: ['email'],
+  },
 };
 
 export function getTemplate(eventName: string): NotificationTemplate | undefined {

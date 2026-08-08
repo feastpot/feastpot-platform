@@ -43,6 +43,17 @@ import {
   type VendorVerificationRecord,
   type VerificationState,
 } from '@/hooks/use-vendor-verification';
+import {
+  REASON_CODE_LABELS,
+  URGENT_REASON_CODES,
+  useCreateEnforcementAction,
+  useLiftEnforcementAction,
+  useVendorEnforcementActions,
+  type CreateEnforcementActionPayload,
+  type EnforcementAction,
+  type EnforcementActionType,
+  type ReasonCode,
+} from '@/hooks/use-vendor-enforcement';
 import { formatDate, formatDateTime } from '@/lib/format';
 
 function DialogFooter({ children }: { children: React.ReactNode }) {
@@ -119,6 +130,65 @@ export function VendorDetailClient({
     label: string;
   } | null>(null);
   const [signalEvidence, setSignalEvidence] = useState('');
+
+  // Enforcement
+  const { data: enforcementActions = [] } = useVendorEnforcementActions(vendorId);
+  const createEnforcement = useCreateEnforcementAction(vendorId);
+  const liftEnforcement = useLiftEnforcementAction(vendorId);
+
+  const EMPTY_ENFORCEMENT_FORM: CreateEnforcementActionPayload = {
+    actionType: 'RESTRICTION',
+    reasonCode: 'MATERIAL_BREACH',
+    reasonNarrative: '',
+    effectiveAt: new Date(Date.now() + 7 * 86_400_000).toISOString().slice(0, 16),
+  };
+  const [enforcementOpen, setEnforcementOpen] = useState(false);
+  const [eForm, setEForm] = useState<CreateEnforcementActionPayload>(EMPTY_ENFORCEMENT_FORM);
+  const [liftingAction, setLiftingAction] = useState<EnforcementAction | null>(null);
+  const [liftNote, setLiftNote] = useState('');
+
+  function openCreateEnforcement() {
+    setEForm(EMPTY_ENFORCEMENT_FORM);
+    setEnforcementOpen(true);
+  }
+
+  function submitCreateEnforcement() {
+    createEnforcement.mutate(eForm, {
+      onSuccess: () => {
+        setEnforcementOpen(false);
+        toast({ title: 'Enforcement action created' });
+      },
+      onError: (err) =>
+        toast({
+          title: 'Failed to create action',
+          description: (err as Error).message,
+          variant: 'destructive',
+        }),
+    });
+  }
+
+  function confirmLift() {
+    if (!liftingAction) return;
+    liftEnforcement.mutate(
+      { actionId: liftingAction.id, liftNote: liftNote.trim() || undefined },
+      {
+        onSuccess: () => {
+          setLiftingAction(null);
+          setLiftNote('');
+          toast({ title: 'Enforcement action lifted' });
+        },
+        onError: (err) =>
+          toast({
+            title: 'Lift failed',
+            description: (err as Error).message,
+            variant: 'destructive',
+          }),
+      },
+    );
+  }
+
+  const activeActions = enforcementActions.filter((a) => !a.liftedAt);
+  const historicalActions = enforcementActions.filter((a) => a.liftedAt);
 
   // Verification form dialog state
   const [verificationOpen, setVerificationOpen] = useState(false);
@@ -523,6 +593,90 @@ export function VendorDetailClient({
           </CardContent>
         </Card>
 
+        {/* ── Enforcement actions (P2B clause 14.1) ───────────────────── */}
+        <Card className="lg:col-span-3">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle className="text-base">Enforcement actions</CardTitle>
+              {activeActions.length > 0 && (
+                <p className="mt-0.5 text-xs text-destructive font-medium">
+                  {activeActions.length} active
+                </p>
+              )}
+            </div>
+            {canReviewSignals && (
+              <Button size="sm" variant="outline" onClick={openCreateEnforcement}>
+                + New action
+              </Button>
+            )}
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {enforcementActions.length === 0 && (
+              <p className="text-sm text-muted-foreground">No enforcement actions recorded.</p>
+            )}
+            {activeActions.map((a) => (
+              <div
+                key={a.id}
+                className="rounded-md border border-destructive/40 bg-red-50 p-3 text-sm"
+              >
+                <div className="flex items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-bold text-destructive">
+                        {a.actionType}
+                      </span>
+                      <span className="font-medium text-dark">
+                        {REASON_CODE_LABELS[a.reasonCode as ReasonCode] ?? a.reasonCode}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground line-clamp-2">{a.reasonNarrative}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Effective: {formatDateTime(a.effectiveAt)} &middot; Issued by: {a.issuedBy}
+                    </p>
+                  </div>
+                  {canReviewSignals && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setLiftingAction(a);
+                        setLiftNote('');
+                      }}
+                    >
+                      Lift
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ))}
+            {historicalActions.length > 0 && (
+              <details className="text-sm">
+                <summary className="cursor-pointer text-xs text-muted-foreground hover:text-dark">
+                  {historicalActions.length} historical{' '}
+                  {historicalActions.length === 1 ? 'action' : 'actions'}
+                </summary>
+                <div className="mt-2 space-y-2">
+                  {historicalActions.map((a) => (
+                    <div
+                      key={a.id}
+                      className="rounded-md border border-border bg-surface p-3"
+                    >
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                        <span className="rounded-full bg-neutral-100 px-2 py-0.5 font-bold">
+                          {a.actionType}
+                        </span>
+                        <span>{REASON_CODE_LABELS[a.reasonCode as ReasonCode] ?? a.reasonCode}</span>
+                        <span>&middot; effective {formatDate(a.effectiveAt)}</span>
+                        <span>&middot; lifted {a.liftedAt ? formatDate(a.liftedAt) : '-'}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            )}
+          </CardContent>
+        </Card>
+
         {/* ── Trust signals ────────────────────────────────────────────── */}
         <Card className="lg:col-span-3">
           <CardHeader>
@@ -819,6 +973,144 @@ export function VendorDetailClient({
               }
             >
               {upsertVerification.isPending ? 'Saving…' : 'Save'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Create enforcement action dialog ─────────────────────────── */}
+      <Dialog open={enforcementOpen} onOpenChange={(open) => !open && setEnforcementOpen(false)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Create enforcement action</DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground">
+            P2B vendor terms clause 14.1. A notice email is sent automatically. All
+            four P2B business rules are enforced server-side.
+          </p>
+          <div className="mt-2 space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Action type</label>
+                <select
+                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm"
+                  value={eForm.actionType}
+                  onChange={(e) =>
+                    setEForm((f) => ({ ...f, actionType: e.target.value as EnforcementActionType }))
+                  }
+                >
+                  <option value="RESTRICTION">Restriction</option>
+                  <option value="SUSPENSION">Suspension</option>
+                  <option value="TERMINATION">Termination</option>
+                </select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Reason code</label>
+                <select
+                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm"
+                  value={eForm.reasonCode}
+                  onChange={(e) =>
+                    setEForm((f) => ({ ...f, reasonCode: e.target.value as ReasonCode }))
+                  }
+                >
+                  {(Object.entries(REASON_CODE_LABELS) as [ReasonCode, string][]).map(([k, v]) => (
+                    <option key={k} value={k}>
+                      {v}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-sm font-medium">
+                Statement of reasons{' '}
+                <span className="font-normal text-muted-foreground">(min 50 chars)</span>
+              </label>
+              <textarea
+                className="flex min-h-[90px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground"
+                value={eForm.reasonNarrative}
+                onChange={(e) => setEForm((f) => ({ ...f, reasonNarrative: e.target.value }))}
+                placeholder="Describe the specific facts, dates, and evidence that justify this action…"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                {eForm.reasonNarrative.length}/50 min chars
+              </p>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Effective date &amp; time</label>
+              <Input
+                type="datetime-local"
+                value={eForm.effectiveAt}
+                onChange={(e) => setEForm((f) => ({ ...f, effectiveAt: e.target.value }))}
+              />
+            </div>
+
+            {URGENT_REASON_CODES.includes(eForm.reasonCode as ReasonCode) && (
+              <div className="space-y-1 rounded-md border border-amber-200 bg-amber-50 p-3">
+                <label className="text-sm font-medium text-amber-800">
+                  Urgent basis{' '}
+                  <span className="font-normal">(required for urgent reason codes)</span>
+                </label>
+                <Input
+                  value={eForm.urgentBasis ?? ''}
+                  onChange={(e) =>
+                    setEForm((f) => ({ ...f, urgentBasis: e.target.value || undefined }))
+                  }
+                  placeholder="e.g. Immediate food safety risk - FHRS score 0 confirmed…"
+                  className="border-amber-300"
+                />
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEnforcementOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={submitCreateEnforcement}
+              disabled={
+                createEnforcement.isPending || eForm.reasonNarrative.trim().length < 50
+              }
+            >
+              {createEnforcement.isPending ? 'Creating…' : 'Create action'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Lift enforcement action dialog ───────────────────────────── */}
+      <Dialog
+        open={Boolean(liftingAction)}
+        onOpenChange={(open) => !open && setLiftingAction(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Lift enforcement action</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Lifting this action will restore the vendor&#39;s prior status and send a
+            confirmation email.
+          </p>
+          <div className="space-y-1 py-2">
+            <label className="text-sm font-medium">
+              Note to vendor{' '}
+              <span className="font-normal text-muted-foreground">(optional)</span>
+            </label>
+            <textarea
+              className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm"
+              value={liftNote}
+              onChange={(e) => setLiftNote(e.target.value)}
+              placeholder="e.g. Renewed certification received and verified…"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setLiftingAction(null)}>
+              Cancel
+            </Button>
+            <Button onClick={confirmLift} disabled={liftEnforcement.isPending}>
+              {liftEnforcement.isPending ? 'Lifting…' : 'Confirm lift'}
             </Button>
           </DialogFooter>
         </DialogContent>

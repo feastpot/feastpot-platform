@@ -693,6 +693,7 @@ model Vendor {
   referralLink         VendorReferralLink?
   cateringBookings     CateringBooking[]
   verification         VendorVerification?
+  enforcementActions   VendorEnforcementAction[]
 
   @@index([status])
   @@index([slug])
@@ -1745,6 +1746,56 @@ model VendorVerification {
 
   @@index([overallState])
   @@map("vendor_verifications")
+}
+
+// ============================================================
+// ENFORCEMENT - P2B statement of reasons (clause 14.1)
+// ============================================================
+
+enum EnforcementType {
+  RESTRICTION
+  SUSPENSION
+  TERMINATION
+}
+
+/// P2B-compliant audit record for every enforcement action against a vendor.
+/// A row MUST exist - with reasonNarrative >= 50 chars - before any listing
+/// restriction, suspension, or termination takes effect.
+/// See vendor terms clause 14.1 for the canonical reason code definitions.
+/// Automated actions (document expiry, FHRS) flow through this table too.
+model VendorEnforcementAction {
+  id              String          @id @default(cuid())
+  vendorId        String          @map("vendor_id") @db.Uuid
+  actionType      EnforcementType @map("action_type")
+  /// One of: FHRS_BELOW_THRESHOLD | DOCUMENT_EXPIRED | FOOD_SAFETY_CONCERN
+  ///         MATERIAL_BREACH | REPEATED_COMPLAINTS | STRIPE_FLAG
+  ///         PROHIBITED_CONDUCT | FRAUD
+  reasonCode      String          @map("reason_code") @db.VarChar(64)
+  /// Written statement of reasons - minimum 50 characters.
+  reasonNarrative String          @map("reason_narrative") @db.Text
+  /// Structured data: { priorStatus, documentTypes, ... }
+  facts           Json            @default("{}")
+  effectiveAt     DateTime        @map("effective_at") @db.Timestamptz
+  /// Dispatched at or before effectiveAt for non-urgent; immediately after for urgent.
+  noticeSentAt    DateTime?       @map("notice_sent_at") @db.Timestamptz
+  /// Required for urgent reason codes only (FHRS_BELOW_THRESHOLD, FOOD_SAFETY_CONCERN,
+  /// STRIPE_FLAG, FRAUD). Must state the public-safety or fraud basis explicitly.
+  urgentBasis     String?         @map("urgent_basis") @db.Text
+  /// Staff email or 'system' for automated triggers.
+  issuedBy        String          @map("issued_by") @db.VarChar(255)
+  /// Reference to a DisputeAppeal record if the vendor has lodged an appeal.
+  appealId        String?         @map("appeal_id")
+  /// Set when the action is revoked. Null means currently active.
+  liftedAt        DateTime?       @map("lifted_at") @db.Timestamptz
+  liftedBy        String?         @map("lifted_by") @db.VarChar(255)
+  liftNote        String?         @map("lift_note") @db.Text
+  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz
+
+  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId, createdAt])
+  @@index([vendorId, liftedAt])
+  @@map("vendor_enforcement_actions")
 }
 
 // ============================================================

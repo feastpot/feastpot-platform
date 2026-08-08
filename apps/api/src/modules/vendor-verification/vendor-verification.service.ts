@@ -3,6 +3,7 @@ import { FhrsStatus, VerificationState, VendorStatus } from '@prisma/client';
 
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { VendorEnforcementService } from '../vendor-enforcement/vendor-enforcement.service';
 
 import type { UpsertVerificationDto } from './dto/upsert-verification.dto';
 
@@ -17,6 +18,7 @@ export class VendorVerificationService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
+    private readonly enforcement: VendorEnforcementService,
   ) {}
 
   getVerification(vendorId: string) {
@@ -163,7 +165,21 @@ export class VendorVerificationService {
         v.fhrsInspectionStatus === FhrsStatus.RATED && (v.fhrsRating ?? 5) < 3;
 
       if (hardExpiredLabels.length > 0 || lowFhrs) {
-        await this.suspendVendor(v.id, v.vendor, lowFhrs ? 'FHRS hygiene rating below 3/5' : hardExpiredLabels.join(', '));
+        // Route through VendorEnforcementService so every automated suspension
+        // gets a P2B-compliant reasonNarrative, noticeSentAt, and notice email
+        // (vendor terms clause 14.1). The enforcement service updates
+        // Vendor.status and VendorVerification.overallState atomically.
+        const reasonCode = lowFhrs ? 'FHRS_BELOW_THRESHOLD' : 'DOCUMENT_EXPIRED';
+        const humanReason = lowFhrs
+          ? 'FHRS hygiene rating is below the minimum threshold of 3 out of 5'
+          : `compliance document(s) expired: ${hardExpiredLabels.join(', ')}`;
+        try {
+          await this.enforcement.createAutomatedSuspension(v.vendor.id, reasonCode, humanReason);
+        } catch (err) {
+          this.logger.error(
+            `Failed to create enforcement action for vendor ${v.vendor.id}: ${(err as Error).message}`,
+          );
+        }
         suspended++;
       } else if (expiringLabels.length > 0 && v.overallState !== VerificationState.RENEWAL_DUE) {
         await this.prisma.vendorVerification.update({
@@ -183,29 +199,10 @@ export class VendorVerificationService {
     return { renewalNotified, suspended };
   }
 
-  private async suspendVendor(
-    verificationId: string,
-    vendor: { id: string; userId: string; businessName: string; status: VendorStatus },
-    reason: string,
-  ) {
-    await this.prisma.vendorVerification.update({
-      where: { id: verificationId },
-      data: { overallState: VerificationState.SUSPENDED },
-    });
-    // Only change listing status if currently live or probation.
-    if (vendor.status === VendorStatus.live || vendor.status === VendorStatus.probation) {
-      await this.prisma.vendor.update({
-        where: { id: vendor.id },
-        data: { status: VendorStatus.suspended },
-      });
-    }
-    await this.notifications.enqueue('verification_suspended', {
-      userId: vendor.userId,
-      vendorName: vendor.businessName,
-      reason,
-    });
-    this.logger.warn(`Vendor ${vendor.id} suspended: ${reason}`);
-  }
+  // suspendVendor() removed: all automated suspensions now go through
+  // VendorEnforcementService.createAutomatedSuspension() which enforces
+  // P2B notice rules, writes a compliant audit record, and sends the
+  // statement of reasons to the vendor (clause 14.1).
 
   /**
    * Weekly job. Polls the FSA Open Data API for each RATED vendor and
