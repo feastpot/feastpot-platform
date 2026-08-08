@@ -38,3 +38,4 @@
 - [Dispute appeals](dispute-appeals.md) - Two-stage appeal; stage2 reviewer must !== stage1 (SAME_REVIEWER); upheld stage2 auto-reverses payout deduction; "decision is final" grep test must exclude *.spec.ts or it finds itself.
 - [P3009 migration recovery](p3009-migration-recovery.md) - two patterns: objects absent (fix SQL + mark rolled-back); objects exist (mark applied); psql UPDATE is the reliable fallback when prisma migrate resolve targets wrong DB.
 - [Platform facts](platform-facts.md) - PLATFORM_FACTS in packages/config/src/platform-facts.ts is the single source of truth for all commercial/support facts; consistency test at apps/api/src/platform-facts.spec.ts fails CI on drift.
+- [HMRC reporting](hmrc-reporting.md) - SI 2023/817 VendorTaxProfile + PlatformReport models; listing gate in vendors.service updateStatus; crons Jan 3/5/15; isTaxProfileComplete() exported from service.
