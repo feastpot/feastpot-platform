@@ -322,6 +322,386 @@ export class TermsService {
     return pending.filter((v) => !acceptedIds.has(v.id));
   }
 
+  // ─── Admin operations ─────────────────────────────────────────────────────────
+
+  /**
+   * List all terms versions across all document types for the admin console.
+   * Returns status-enriched rows (live/pending/superseded/published) without
+   * the heavy contentMdx field.
+   */
+  async adminListAllVersions() {
+    const now = new Date();
+    const versions = await this.prisma.termsVersion.findMany({
+      orderBy: [{ documentType: 'asc' }, { publishedAt: 'desc' }],
+      select: {
+        id: true,
+        version: true,
+        documentType: true,
+        changeSummary: true,
+        isMaterial: true,
+        publishedAt: true,
+        effectiveAt: true,
+        supersededAt: true,
+        contentHash: true,
+        solicitorSignOff: true,
+        createdBy: true,
+        _count: { select: { acceptances: true, notices: true } },
+      },
+    });
+    return versions.map((v) => ({
+      ...v,
+      status: this.versionStatus(v, now),
+    }));
+  }
+
+  /** Get a single version with full content and diff against current live version. */
+  async adminGetVersion(id: string) {
+    const version = await this.prisma.termsVersion.findUniqueOrThrow({
+      where: { id },
+      include: { _count: { select: { acceptances: true, notices: true } } },
+    });
+
+    // Fetch the currently live version for the same document type (for diff).
+    const now = new Date();
+    const live =
+      version.supersededAt === null && version.effectiveAt <= now
+        ? null // This IS the live version
+        : await this.prisma.termsVersion.findFirst({
+            where: {
+              documentType: version.documentType,
+              effectiveAt: { lte: now },
+              supersededAt: null,
+            },
+            orderBy: { effectiveAt: 'desc' },
+            select: { id: true, version: true, contentMdx: true, contentHash: true },
+          });
+
+    return {
+      ...version,
+      status: this.versionStatus(version, now),
+      liveVersion: live,
+    };
+  }
+
+  /**
+   * Acceptance coverage: all active vendors and whether they are on the
+   * current live version.
+   */
+  async adminCoverage(
+    documentType: TermsDocumentType = TermsDocumentType.VENDOR_TERMS,
+    onlyBehind = false,
+  ) {
+    const now = new Date();
+    const live = await this.prisma.termsVersion.findFirst({
+      where: { documentType, effectiveAt: { lte: now }, supersededAt: null },
+      orderBy: { effectiveAt: 'desc' },
+      select: { id: true, version: true, effectiveAt: true },
+    });
+
+    const vendors = await this.prisma.vendor.findMany({
+      where: { status: { in: ['live', 'probation'] } },
+      select: {
+        id: true,
+        businessName: true,
+        status: true,
+        termsAcceptances: {
+          where: { termsVersion: { documentType } },
+          orderBy: { acceptedAt: 'desc' },
+          take: 1,
+          select: {
+            acceptedAt: true,
+            method: true,
+            contentHash: true,
+            termsVersion: { select: { id: true, version: true } },
+          },
+        },
+      },
+      orderBy: { businessName: 'asc' },
+    });
+
+    const rows = vendors.map((v) => {
+      const latest = v.termsAcceptances[0] ?? null;
+      const onCurrent = live ? latest?.termsVersion.id === live.id : false;
+      return {
+        vendorId: v.id,
+        businessName: v.businessName,
+        vendorStatus: v.status,
+        acceptedVersionId: latest?.termsVersion.id ?? null,
+        acceptedVersion: latest?.termsVersion.version ?? null,
+        acceptedAt: latest?.acceptedAt ?? null,
+        method: latest?.method ?? null,
+        onCurrentVersion: onCurrent,
+      };
+    });
+
+    const filtered = onlyBehind ? rows.filter((r) => !r.onCurrentVersion) : rows;
+    const onCurrentCount = rows.filter((r) => r.onCurrentVersion).length;
+    const pct = rows.length > 0 ? Math.round((onCurrentCount / rows.length) * 100) : 100;
+
+    return {
+      liveVersion: live,
+      totalActive: rows.length,
+      onCurrentCount,
+      coveragePct: pct,
+      vendors: filtered,
+    };
+  }
+
+  /**
+   * List all terms notices across all vendors, optionally filtered by version.
+   * Used by the Notice Delivery admin screen.
+   */
+  async adminListNotices(termsVersionId?: string) {
+    const [notices, versions] = await Promise.all([
+      this.prisma.termsNotice.findMany({
+        where: termsVersionId ? { termsVersionId } : undefined,
+        orderBy: { sentAt: 'desc' },
+        select: {
+          id: true,
+          vendorId: true,
+          termsVersionId: true,
+          sentAt: true,
+          channel: true,
+          deliveredAt: true,
+          openedAt: true,
+          acknowledgedAt: true,
+        },
+      }),
+      this.prisma.termsVersion.findMany({
+        select: { id: true, version: true, documentType: true, effectiveAt: true },
+      }),
+    ]);
+
+    // Build lookup maps.
+    const versionMap = new Map(versions.map((v) => [v.id, v]));
+
+    // Get vendor names for all vendorIds in the notice set.
+    const vendorIds = [...new Set(notices.map((n) => n.vendorId))];
+    const vendorRows =
+      vendorIds.length > 0
+        ? await this.prisma.vendor.findMany({
+            where: { id: { in: vendorIds } },
+            select: { id: true, businessName: true, status: true },
+          })
+        : [];
+    const vendorMap = new Map(vendorRows.map((v) => [v.id, v]));
+
+    const enriched = notices.map((n) => ({
+      ...n,
+      termsVersion: versionMap.get(n.termsVersionId) ?? {
+        version: 'unknown',
+        documentType: 'UNKNOWN',
+        effectiveAt: n.sentAt,
+      },
+      vendor: vendorMap.get(n.vendorId) ?? { businessName: 'Unknown vendor', status: 'unknown' },
+    }));
+
+    // Summarise by version for the overview cards.
+    const byVersion = new Map<
+      string,
+      { version: string; documentType: string; sent: number; delivered: number; opened: number; acknowledged: number; bounced: number }
+    >();
+    for (const n of enriched) {
+      const key = n.termsVersionId;
+      if (!byVersion.has(key)) {
+        byVersion.set(key, {
+          version: n.termsVersion.version,
+          documentType: n.termsVersion.documentType,
+          sent: 0,
+          delivered: 0,
+          opened: 0,
+          acknowledged: 0,
+          bounced: 0,
+        });
+      }
+      const row = byVersion.get(key)!;
+      row.sent++;
+      if (n.deliveredAt) row.delivered++;
+      if (n.openedAt) row.opened++;
+      if (n.acknowledgedAt) row.acknowledged++;
+      // Bounced = sent >24h ago with no deliveredAt
+      if (!n.deliveredAt && n.sentAt < new Date(Date.now() - 24 * 60 * 60 * 1000)) row.bounced++;
+    }
+
+    return {
+      summary: Array.from(byVersion.entries()).map(([id, s]) => ({ termsVersionId: id, ...s })),
+      notices: enriched,
+    };
+  }
+
+  /** Re-enqueue a single notice for re-delivery. */
+  async adminResendNotice(noticeId: string) {
+    const notice = await this.prisma.termsNotice.findUniqueOrThrow({ where: { id: noticeId } });
+    await this.noticesQueue.add(
+      'resend_single_notice',
+      { noticeId, vendorId: notice.vendorId, termsVersionId: notice.termsVersionId },
+      { attempts: 3, backoff: { type: 'exponential', delay: 5_000 } },
+    );
+    return { queued: true, noticeId };
+  }
+
+  /**
+   * Aggregate alerts for the legal ops dashboard.
+   * Each category returns a count and, where meaningful, a sample of items.
+   */
+  async adminAlerts() {
+    const now = new Date();
+
+    // 1. Active vendors not on current live version.
+    const coverageData = await this.adminCoverage(TermsDocumentType.VENDOR_TERMS, true);
+
+    // 2. Bounced notices (sent >24h ago, no deliveredAt).
+    const bouncedNotices = await this.prisma.termsNotice.findMany({
+      where: { deliveredAt: null, sentAt: { lt: new Date(Date.now() - 24 * 60 * 60 * 1000) } },
+      select: { id: true, vendorId: true, termsVersionId: true, sentAt: true, channel: true },
+      take: 10,
+    });
+
+    // 3. Enforcement actions where notice followed effect without urgent basis.
+    const lateNoticeActions = await this.prisma.vendorEnforcementAction.findMany({
+      where: {
+        urgentBasis: null,
+        noticeSentAt: { not: null },
+      },
+      select: {
+        id: true,
+        vendorId: true,
+        actionType: true,
+        reasonCode: true,
+        effectiveAt: true,
+        noticeSentAt: true,
+        createdAt: true,
+        vendor: { select: { businessName: true } },
+      },
+    });
+    const badNoticeActions = lateNoticeActions.filter(
+      (a) => a.noticeSentAt && a.noticeSentAt > a.effectiveAt,
+    );
+
+    // 4. Open appeals approaching deadline (within 2 days).
+    const openAppeals = await this.prisma.disputeAppeal.findMany({
+      where: { stage2Outcome: null },
+      select: {
+        id: true,
+        disputeId: true,
+        submittedAt: true,
+        dispute: { select: { decidedAt: true } },
+      },
+    });
+    const APPEAL_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
+    const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000;
+    const urgentAppeals = openAppeals.filter((a) => {
+      if (!a.dispute.decidedAt) return false;
+      const deadline = new Date(a.dispute.decidedAt.getTime() + APPEAL_WINDOW_MS);
+      return deadline.getTime() - now.getTime() < TWO_DAYS_MS;
+    });
+
+    return {
+      coverageGap: {
+        count: coverageData.totalActive - coverageData.onCurrentCount,
+        coveragePct: coverageData.coveragePct,
+        liveVersion: coverageData.liveVersion,
+      },
+      bouncedNotices: { count: bouncedNotices.length, sample: bouncedNotices },
+      lateEnforcementNotices: { count: badNoticeActions.length, sample: badNoticeActions.slice(0, 5) },
+      urgentAppeals: { count: urgentAppeals.length, sample: urgentAppeals.slice(0, 5) },
+    };
+  }
+
+  /**
+   * Generate a verifiable evidence bundle for a vendor.
+   * Contains all terms acceptances, notice records, and enforcement actions
+   * in a structured format suitable for insurer / regulator / solicitor review.
+   */
+  async adminEvidenceExport(vendorId: string, from?: Date, to?: Date) {
+    const dateFilter = from || to
+      ? { gte: from, lte: to }
+      : undefined;
+
+    const [vendor, acceptances, notices, enforcement] = await Promise.all([
+      this.prisma.vendor.findUniqueOrThrow({
+        where: { id: vendorId },
+        select: { id: true, businessName: true, status: true, createdAt: true, slug: true },
+      }),
+      this.prisma.termsAcceptance.findMany({
+        where: {
+          vendorId,
+          ...(dateFilter ? { acceptedAt: dateFilter } : {}),
+        },
+        include: {
+          termsVersion: {
+            select: {
+              version: true,
+              documentType: true,
+              contentHash: true,
+              publishedAt: true,
+              effectiveAt: true,
+              isMaterial: true,
+              solicitorSignOff: true,
+            },
+          },
+        },
+        orderBy: { acceptedAt: 'asc' },
+      }),
+      this.prisma.termsNotice.findMany({
+        where: {
+          vendorId,
+          ...(dateFilter ? { sentAt: dateFilter } : {}),
+        },
+        include: {
+          termsVersion: { select: { version: true, documentType: true, effectiveAt: true } },
+        },
+        orderBy: { sentAt: 'asc' },
+      }),
+      this.prisma.vendorEnforcementAction.findMany({
+        where: {
+          vendorId,
+          ...(dateFilter ? { createdAt: dateFilter } : {}),
+        },
+        orderBy: { createdAt: 'asc' },
+      }),
+    ]);
+
+    return {
+      exportedAt: new Date().toISOString(),
+      exportPeriod: { from: from?.toISOString() ?? null, to: to?.toISOString() ?? null },
+      vendor,
+      acceptances: acceptances.map((a) => ({
+        id: a.id,
+        acceptedAt: a.acceptedAt,
+        method: a.method,
+        ipAddress: a.ipAddress,
+        contentHash: a.contentHash,
+        scrolledToEnd: a.scrolledToEnd,
+        acceptanceText: a.acceptanceText,
+        termsVersion: a.termsVersion,
+      })),
+      notices: notices.map((n) => ({
+        id: n.id,
+        sentAt: n.sentAt,
+        channel: n.channel,
+        deliveredAt: n.deliveredAt,
+        openedAt: n.openedAt,
+        acknowledgedAt: n.acknowledgedAt,
+        termsVersion: n.termsVersion,
+      })),
+      enforcementActions: enforcement,
+      integrityNote:
+        'Each acceptance record includes a SHA-256 content hash computed at publish time. ' +
+        'To verify an acceptance, hash the document content at termsVersion.contentHash ' +
+        'and compare to the stored hash.',
+    };
+  }
+
+  private versionStatus(
+    v: { effectiveAt: Date; supersededAt: Date | null; publishedAt: Date },
+    now: Date,
+  ): string {
+    if (v.supersededAt !== null) return 'superseded';
+    if (v.effectiveAt > now) return 'pending';
+    return 'live';
+  }
+
   // ─── Rate Schedule (public) ──────────────────────────────────────────────────
 
   /**

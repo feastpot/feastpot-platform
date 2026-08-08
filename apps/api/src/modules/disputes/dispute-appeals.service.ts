@@ -44,6 +44,56 @@ export class DisputeAppealsService {
     private readonly notifications: NotificationsService,
   ) {}
 
+  // ─── Admin: appeals queue ─────────────────────────────────────────────────
+
+  /**
+   * List all open appeals (no stage2Outcome) for the admin appeals queue.
+   * Annotates each appeal with its deadline and SLA adherence.
+   */
+  async adminAppealsQueue() {
+    const now = new Date();
+    const appeals = await this.prisma.disputeAppeal.findMany({
+      where: { stage2Outcome: null },
+      include: {
+        dispute: {
+          select: {
+            id: true,
+            status: true,
+            decision: true,
+            decidedAt: true,
+            isUrgentDispute: true,
+            order: {
+              select: {
+                orderNumber: true,
+                totalPence: true,
+                vendor: { select: { businessName: true } },
+              },
+            },
+          },
+        },
+      },
+      orderBy: { submittedAt: 'asc' },
+    });
+
+    return appeals.map((a) => {
+      const deadline = a.dispute.decidedAt
+        ? appealDeadline(a.dispute.decidedAt)
+        : new Date(a.submittedAt.getTime() + 14 * 24 * 60 * 60 * 1000);
+      const hoursToDeadline = (deadline.getTime() - now.getTime()) / (60 * 60 * 1000);
+      return {
+        ...a,
+        deadline,
+        hoursToDeadline: Math.round(hoursToDeadline),
+        urgent: hoursToDeadline < 48,
+        overdue: hoursToDeadline < 0,
+        stage1Pending: a.stage1Outcome === null,
+        stage2Pending: a.stage1Outcome !== null && a.stage2Outcome === null,
+        // Expose flattened vendor name for convenience.
+        vendorName: a.dispute.order.vendor.businessName,
+      };
+    });
+  }
+
   // ─── Submit appeal (vendor) ────────────────────────────────────────────────
 
   async submit(disputeId: string, dto: SubmitAppealDto, user: AuthUser) {

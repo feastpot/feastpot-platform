@@ -5,6 +5,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 
@@ -31,6 +32,16 @@ export class VendorEnforcementController {
    * Full enforcement history for a vendor.
    * Accessible by admin, compliance, and support roles.
    */
+  @Get('admin/enforcement')
+  @UseGuards(SupabaseAuthGuard, RolesGuard)
+  @Roles('admin', 'compliance', 'support')
+  listAllEnforcementActions(
+    @Query('actionType') actionType?: string,
+    @Query('liftedAt') liftedAt?: 'active' | 'all',
+  ) {
+    return this.enforcement.adminListAll({ actionType, liftedAt });
+  }
+
   @Get('admin/vendors/:id/enforcement')
   @UseGuards(SupabaseAuthGuard, RolesGuard)
   @Roles('admin', 'compliance', 'support')

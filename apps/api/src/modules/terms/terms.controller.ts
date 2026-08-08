@@ -48,6 +48,69 @@ export class TermsController {
     return this.terms.publishVersion(dto);
   }
 
+  // ─── Admin ─── Legal ops console ────────────────────────────────────────────
+
+  @Get('admin/versions')
+  @Roles(UserRole.admin, UserRole.support)
+  @ApiOperation({ summary: 'List all terms versions across all document types (admin)' })
+  adminListAllVersions() {
+    return this.terms.adminListAllVersions();
+  }
+
+  @Get('admin/versions/:id')
+  @Roles(UserRole.admin, UserRole.support)
+  @ApiOperation({ summary: 'Get a single version with full content and diff (admin)' })
+  adminGetVersion(@Param('id') id: string) {
+    return this.terms.adminGetVersion(id);
+  }
+
+  @Get('admin/coverage')
+  @Roles(UserRole.admin, UserRole.support, UserRole.compliance)
+  @ApiOperation({ summary: 'Acceptance coverage across active vendors (admin)' })
+  adminCoverage(
+    @Query('documentType') documentType: TermsDocumentType = TermsDocumentType.VENDOR_TERMS,
+    @Query('onlyBehind') onlyBehind?: string,
+  ) {
+    return this.terms.adminCoverage(documentType, onlyBehind === 'true');
+  }
+
+  @Get('admin/notices')
+  @Roles(UserRole.admin, UserRole.support, UserRole.compliance)
+  @ApiOperation({ summary: 'All terms notices with delivery stats (admin)' })
+  adminListNotices(@Query('termsVersionId') termsVersionId?: string) {
+    return this.terms.adminListNotices(termsVersionId);
+  }
+
+  @Post('admin/notices/:id/resend')
+  @HttpCode(200)
+  @Roles(UserRole.admin, UserRole.support)
+  @ApiOperation({ summary: 'Re-enqueue a single notice for re-delivery (admin)' })
+  adminResendNotice(@Param('id') id: string) {
+    return this.terms.adminResendNotice(id);
+  }
+
+  @Get('admin/alerts')
+  @Roles(UserRole.admin, UserRole.support, UserRole.compliance)
+  @ApiOperation({ summary: 'Aggregate legal ops alerts (admin)' })
+  adminAlerts() {
+    return this.terms.adminAlerts();
+  }
+
+  @Get('admin/evidence/:vendorId')
+  @Roles(UserRole.admin, UserRole.support, UserRole.compliance)
+  @ApiOperation({ summary: 'Generate evidence bundle for a vendor (admin)' })
+  adminEvidenceExport(
+    @Param('vendorId') vendorId: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.terms.adminEvidenceExport(
+      vendorId,
+      from ? new Date(from) : undefined,
+      to ? new Date(to) : undefined,
+    );
+  }
+
   // ─── Public ─────────────────────────────────────────────────────────────────
 
   /**

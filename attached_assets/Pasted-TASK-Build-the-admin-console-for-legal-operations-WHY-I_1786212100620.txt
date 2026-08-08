@@ -1,0 +1,66 @@
+TASK: Build the admin console for legal operations.
+
+WHY IT MATTERS
+Every obligation implemented in this series is only worth
+having if a founder can see, at a glance, whether it is
+actually being met, and can produce evidence when asked.
+
+SCREENS TO BUILD IN apps/admin
+
+1. DOCUMENTS
+   List all legal documents and versions with status
+   (draft, published, live, superseded). Publish flow with
+   the solicitor sign-off gate, changeSummary editor,
+   isMaterial toggle with justification, effective date
+   picker enforcing the 15-day rule, and a rendered diff
+   against the current live version.
+
+2. ACCEPTANCE COVERAGE
+   The single most important view. Table of all vendors
+   with their accepted version, acceptance date, method,
+   and whether they are behind the current live version.
+   Filter to "not on current version". Traffic-light
+   summary at the top: percentage of active vendors on the
+   current terms. This number should be 100 and any drop
+   should be visible immediately.
+
+3. NOTICE DELIVERY
+   Per change notice: how many sent, delivered, opened,
+   acknowledged. Flag bounced emails, since an undelivered
+   notice is arguably not notice at all. Resend action.
+
+4. ENFORCEMENT LOG
+   Every restriction, suspension and termination with
+   reason code, narrative, notice timestamp, whether the
+   notice preceded the effect, and any appeal outcome.
+   Highlight any action where notice followed effect
+   without an urgent basis recorded, since that is the
+   compliance failure mode to catch.
+
+5. APPEALS QUEUE
+   Open appeals with deadlines, reviewer assignment
+   respecting the different-reviewer rule, and platform
+   SLA adherence.
+
+6. EVIDENCE EXPORT
+   Generate a zip for a given vendor and date range
+   containing: every version they accepted with content
+   hash, acceptance audit records, notices sent, and
+   enforcement actions with reasons. This is what you hand
+   an insurer, a regulator or a solicitor if a dispute
+   escalates. Build it before you need it.
+
+ALERTS
+  Any active vendor not on the current live version
+  Any notice with a bounced delivery
+  Any enforcement action with notice after effect and no
+  urgent basis
+  Any appeal approaching its deadline
+  HMRC reporting deadline approaching
+
+ACCEPTANCE CRITERIA
+- Acceptance coverage percentage is accurate and visible
+  on the console landing page.
+- Evidence export produces a complete, verifiable bundle.
+- Publishing without solicitor sign-off is impossible from
+  the UI, not merely discouraged.

@@ -63,6 +63,32 @@ export class VendorEnforcementService {
    *
    * After the transaction, enqueues the durable notice email to the vendor.
    */
+  /**
+   * Admin-only: list all enforcement actions across all vendors.
+   * Annotates each action with whether notice preceded effect (compliance flag).
+   */
+  async adminListAll(filters?: { actionType?: string; liftedAt?: 'active' | 'all' }) {
+    const actions = await this.prisma.vendorEnforcementAction.findMany({
+      where: {
+        ...(filters?.actionType ? { actionType: filters.actionType as never } : {}),
+        ...(filters?.liftedAt === 'active' ? { liftedAt: null } : {}),
+      },
+      include: {
+        vendor: { select: { businessName: true, status: true, slug: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return actions.map((a) => ({
+      ...a,
+      // Compliance flag: notice AFTER effect with no urgent basis = problem.
+      noticeLate:
+        a.noticeSentAt !== null &&
+        a.urgentBasis === null &&
+        a.noticeSentAt > a.effectiveAt,
+    }));
+  }
+
   async createAction(
     vendorId: string,
     dto: CreateEnforcementActionDto,

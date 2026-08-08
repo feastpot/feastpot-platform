@@ -48,6 +48,16 @@ export class DisputesController {
     private readonly appeals: DisputeAppealsService,
   ) {}
 
+  // ─── Admin: appeals queue ─────────────────────────────────────────────────
+
+  @Get('admin/appeals')
+  @Roles(UserRole.admin, UserRole.support)
+  @ApiOperation({ summary: 'All open appeals with deadlines (admin)' })
+  adminAppealsQueue(@CurrentUser() user: AuthUser) {
+    requireUser(user);
+    return this.appeals.adminAppealsQueue();
+  }
+
   @Get()
   // Finance / compliance staff have their own dedicated tools - they don't
   // need raw dispute access. The service still scopes results: customers see
