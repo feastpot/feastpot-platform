@@ -7,9 +7,13 @@ import { useState } from 'react';
 
 import {
   useDispute,
+  useDisputeAppeal,
   useDisputeEvidence,
+  useSubmitAppeal,
   useSubmitVendorResponse,
   useUploadEvidence,
+  type DisputeAppeal,
+  type DisputeDecision,
   type DisputeDetail,
   type DisputeEvidence,
   type EvidenceType,
@@ -73,6 +77,9 @@ export function DisputeDetailClient({ disputeId }: { disputeId: string }) {
 
         <aside className="space-y-5">
           <OrderSummary dispute={dispute} />
+          {dispute.status === 'closed' && dispute.decision && (
+            <DecisionCard dispute={dispute} />
+          )}
           <EvidenceUpload disputeId={disputeId} />
         </aside>
       </div>
@@ -301,6 +308,192 @@ function VendorResponseSection({ dispute }: { dispute: DisputeDetail }) {
         </form>
       )}
     </section>
+  );
+}
+
+const APPEAL_WINDOW_DAYS = 14;
+
+const DECISION_LABELS: Record<DisputeDecision, string> = {
+  UPHELD_CUSTOMER: 'Upheld in customer favour',
+  UPHELD_VENDOR: 'Upheld in your favour',
+  PARTIAL: 'Partial resolution',
+};
+
+const DECISION_TONE: Record<DisputeDecision, string> = {
+  UPHELD_CUSTOMER: 'bg-red-50 border-red-200 text-red-800',
+  UPHELD_VENDOR: 'bg-green-50 border-green-200 text-green-800',
+  PARTIAL: 'bg-amber-50 border-amber-200 text-amber-800',
+};
+
+const OUTCOME_LABELS: Record<string, string> = {
+  UPHELD: 'Upheld',
+  OVERTURNED: 'Overturned',
+  PARTIAL: 'Partial',
+};
+
+function DecisionCard({ dispute }: { dispute: DisputeDetail }) {
+  const decision = dispute.decision as DisputeDecision;
+  const tone = DECISION_TONE[decision] ?? 'bg-surface border-border text-dark';
+  const decidedDate = dispute.decidedAt ? new Date(dispute.decidedAt) : null;
+  const appealDeadline = decidedDate
+    ? new Date(decidedDate.getTime() + APPEAL_WINDOW_DAYS * 86_400_000)
+    : null;
+  const appealOpen = appealDeadline ? new Date() <= appealDeadline : false;
+
+  return (
+    <section className={`fp-card border p-5 ${tone}`}>
+      <h2 className="text-sm font-bold">Decision</h2>
+      <p className="mt-1 text-base font-semibold">{DECISION_LABELS[decision]}</p>
+      {dispute.resolutionNote && (
+        <p className="mt-2 text-sm">{dispute.resolutionNote}</p>
+      )}
+      {appealDeadline && (
+        <p className="mt-2 text-[11px] opacity-75">
+          {appealOpen
+            ? `Appeal by: ${appealDeadline.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`
+            : 'Appeal window closed'}
+        </p>
+      )}
+      {appealOpen && <AppealSection disputeId={dispute.id} decidedAt={dispute.decidedAt!} />}
+    </section>
+  );
+}
+
+function AppealSection({ disputeId, decidedAt }: { disputeId: string; decidedAt: string }) {
+  const { data: appeal, isLoading } = useDisputeAppeal(disputeId);
+  const submit = useSubmitAppeal(disputeId);
+  const [grounds, setGrounds] = useState('');
+  const [open, setOpen] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  if (isLoading) return null;
+
+  // Appeal already submitted - show its status
+  if (appeal) {
+    return <AppealStatus appeal={appeal} />;
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="mt-3 w-full rounded-lg border border-current bg-white/60 px-3 py-2 text-xs font-semibold transition-colors hover:bg-white/80"
+      >
+        Appeal this decision
+      </button>
+    );
+  }
+
+  if (submitted) {
+    return (
+      <div className="mt-3 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-700">
+        <CheckCircle2 className="mb-1 h-4 w-4" aria-hidden />
+        Appeal submitted. You will be notified of the Stage 1 review outcome by email.
+      </div>
+    );
+  }
+
+  const appealDeadline = new Date(new Date(decidedAt).getTime() + APPEAL_WINDOW_DAYS * 86_400_000);
+
+  return (
+    <div className="mt-3 space-y-2 rounded-lg border border-current bg-white/60 p-3">
+      <p className="text-xs font-semibold">Submit appeal (clause 18.1)</p>
+      <p className="text-[11px] opacity-75">
+        Deadline: {appealDeadline.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}.
+        State the specific facts you are challenging (min 50 characters).
+      </p>
+      <textarea
+        value={grounds}
+        onChange={(e) => setGrounds(e.target.value)}
+        rows={4}
+        minLength={50}
+        maxLength={8000}
+        placeholder="State the specific facts you are challenging and what outcome you are seeking..."
+        className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-xs text-dark placeholder:text-mid focus:outline-none focus:ring-1 focus:ring-teal"
+      />
+      <p className="text-[10px] opacity-60">{grounds.length}/50 min chars</p>
+      {submitError && (
+        <p className="text-xs text-red-700">{submitError}</p>
+      )}
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          className="flex-1 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          disabled={submit.isPending || grounds.trim().length < 50}
+          onClick={() => {
+            setSubmitError(null);
+            submit.mutate(grounds.trim(), {
+              onSuccess: () => setSubmitted(true),
+              onError: (err) => setSubmitError(err instanceof Error ? err.message : 'Submit failed'),
+            });
+          }}
+          className="flex-1 rounded-md bg-teal px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+        >
+          {submit.isPending ? 'Submitting…' : 'Submit appeal'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function AppealStatus({ appeal }: { appeal: DisputeAppeal }) {
+  const isFinal = Boolean(appeal.stage2At);
+  const finalOutcome = appeal.stage2Outcome;
+
+  return (
+    <div className="mt-3 rounded-lg border border-gray-200 bg-white/80 p-3 text-xs space-y-2">
+      <p className="font-semibold">Appeal submitted {new Date(appeal.submittedAt).toLocaleDateString('en-GB')}</p>
+
+      {appeal.stage1At ? (
+        <div>
+          <p className="font-medium text-neutral-700">
+            Stage 1: <span className="font-bold">{OUTCOME_LABELS[appeal.stage1Outcome ?? ''] ?? appeal.stage1Outcome}</span>
+          </p>
+          {appeal.stage1Reasons && (
+            <p className="mt-0.5 text-neutral-600 line-clamp-2">{appeal.stage1Reasons}</p>
+          )}
+        </div>
+      ) : (
+        <p className="text-neutral-500">Stage 1 review pending...</p>
+      )}
+
+      {appeal.stage1At && (appeal.stage2At ? (
+        <div>
+          <p className="font-medium text-neutral-700">
+            Stage 2 (final):{' '}
+            <span className={`font-bold ${finalOutcome === 'UPHELD' ? 'text-green-700' : finalOutcome === 'OVERTURNED' ? 'text-red-700' : 'text-amber-700'}`}>
+              {OUTCOME_LABELS[finalOutcome ?? ''] ?? finalOutcome}
+            </span>
+          </p>
+          {appeal.stage2Reasons && (
+            <p className="mt-0.5 text-neutral-600 line-clamp-2">{appeal.stage2Reasons}</p>
+          )}
+          {finalOutcome === 'UPHELD' && (
+            <p className="mt-1 text-green-700 font-medium">
+              Payout credit applied to your next statement.
+            </p>
+          )}
+        </div>
+      ) : (
+        <p className="text-neutral-500">Stage 2 review pending...</p>
+      ))}
+
+      {!isFinal && appeal.stage1At && (
+        <p className="text-[10px] text-neutral-400">
+          If you disagree with the Stage 1 outcome, contact{' '}
+          <a href="mailto:appeals@feastpot.co.uk" className="underline">appeals@feastpot.co.uk</a>{' '}
+          to request Stage 2 review.
+        </p>
+      )}
+    </div>
   );
 }
 

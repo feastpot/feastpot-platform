@@ -154,3 +154,58 @@ export function useCloseDispute(id: string) {
     },
   });
 }
+
+// ── Appeal hooks (clause 18.1-18.3) ──────────────────────────────────────────
+
+export type AppealOutcome = 'UPHELD' | 'OVERTURNED' | 'PARTIAL';
+
+export interface DisputeAppeal {
+  id: string;
+  disputeId: string;
+  submittedAt: string;
+  deadline: string;
+  grounds: string;
+  stage1By: string | null;
+  stage1At: string | null;
+  stage1Outcome: AppealOutcome | null;
+  stage1Reasons: string | null;
+  stage2By: string | null;
+  stage2At: string | null;
+  stage2Outcome: AppealOutcome | null;
+  stage2Reasons: string | null;
+}
+
+export function useDisputeAppeal(disputeId: string) {
+  const { request, ready } = useApi();
+  return useQuery({
+    queryKey: ['admin', 'dispute', disputeId, 'appeal'],
+    enabled: ready && Boolean(disputeId),
+    queryFn: () => request<DisputeAppeal | null>(`/disputes/${disputeId}/appeal`),
+  });
+}
+
+export function useDecideAppealStage1(disputeId: string) {
+  const { request } = useApi();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { outcome: AppealOutcome; reasons: string }) =>
+      request<DisputeAppeal>(`/disputes/${disputeId}/appeal/stage1`, { method: 'POST', body }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'dispute', disputeId, 'appeal'] });
+      qc.invalidateQueries({ queryKey: ['admin', 'dispute', disputeId] });
+    },
+  });
+}
+
+export function useDecideAppealStage2(disputeId: string) {
+  const { request } = useApi();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { outcome: AppealOutcome; reasons: string }) =>
+      request<DisputeAppeal>(`/disputes/${disputeId}/appeal/stage2`, { method: 'POST', body }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'dispute', disputeId, 'appeal'] });
+      qc.invalidateQueries({ queryKey: ['admin', 'dispute', disputeId] });
+    },
+  });
+}

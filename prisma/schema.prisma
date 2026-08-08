@@ -149,6 +149,29 @@ enum ResolutionType {
   escalated
 }
 
+/// Who raised the dispute - governs response obligations on each side.
+enum DisputeParty {
+  CUSTOMER
+  VENDOR
+  PLATFORM
+}
+
+/// The formal platform decision on a closed dispute.
+/// Replacing the old "decision is final" clause - all decisions are
+/// now appealable under vendor terms v2.0 clauses 18.1-18.3.
+enum DisputeDecision {
+  UPHELD_CUSTOMER
+  UPHELD_VENDOR
+  PARTIAL
+}
+
+/// The outcome of each appeal stage review.
+enum AppealOutcome {
+  UPHELD
+  OVERTURNED
+  PARTIAL
+}
+
 enum EnquiryStatus {
   open
   quoted
@@ -1034,9 +1057,27 @@ model Dispute {
   createdAt         DateTime        @default(now()) @map("created_at") @db.Timestamptz
   updatedAt         DateTime        @updatedAt @map("updated_at") @db.Timestamptz
 
+  /// Calculated deadline for the vendor to respond (48h standard, 24h urgent).
+  vendorRespondBy       DateTime?        @map("vendor_respond_by") @db.Timestamptz
+  /// Platform commits to the same response window as the vendor (reciprocity).
+  platformRespondBy     DateTime?        @map("platform_respond_by") @db.Timestamptz
+  /// When the platform actually issued its decision - for SLA adherence reporting.
+  platformRespondedAt   DateTime?        @map("platform_responded_at") @db.Timestamptz
+  /// Who raised this dispute (CUSTOMER is the only value currently accepted via the API).
+  raisedByParty         DisputeParty     @default(CUSTOMER) @map("raised_by_party")
+  /// Formal outcome under v2.0 clause 18.1. All decisions are subject to appeal.
+  decision              DisputeDecision? @map("decision")
+  decidedAt             DateTime?        @map("decided_at") @db.Timestamptz
+  decidedById           String?          @map("decided_by_id") @db.Uuid
+  /// Stored refund/deduction amount for automatic payout reversal on upheld appeal.
+  refundPence           Int?             @map("refund_pence")
+  isUrgentDispute       Boolean          @default(false) @map("is_urgent_dispute")
+  urgentDisputeReason   String?          @map("urgent_dispute_reason")
+
   order    Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
   raisedBy User              @relation(fields: [raisedById], references: [id])
   evidence DisputeEvidence[]
+  appeal   DisputeAppeal?
 
   @@unique([orderId])
   @@index([orderId])
@@ -1046,6 +1087,30 @@ model Dispute {
   @@index([severity])
   @@index([createdAt])
   @@map("disputes")
+}
+
+/// Two-stage appeal record created by the vendor after a dispute is closed.
+/// Stage 2 reviewer must differ from Stage 1 (enforced in DisputeAppealsService).
+/// A UPHELD stage2 outcome automatically reverses the payout deduction.
+model DisputeAppeal {
+  id            String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  disputeId     String         @unique @map("dispute_id") @db.Uuid
+  submittedAt   DateTime       @default(now()) @map("submitted_at") @db.Timestamptz
+  deadline      DateTime       @map("deadline") @db.Timestamptz
+  grounds       String         @db.Text
+  stage1By      String?        @map("stage1_by") @db.Uuid
+  stage1At      DateTime?      @map("stage1_at") @db.Timestamptz
+  stage1Outcome AppealOutcome? @map("stage1_outcome")
+  stage1Reasons String?        @map("stage1_reasons") @db.Text
+  stage2By      String?        @map("stage2_by") @db.Uuid
+  stage2At      DateTime?      @map("stage2_at") @db.Timestamptz
+  stage2Outcome AppealOutcome? @map("stage2_outcome")
+  stage2Reasons String?        @map("stage2_reasons") @db.Text
+
+  dispute Dispute @relation(fields: [disputeId], references: [id], onDelete: Cascade)
+
+  @@index([disputeId])
+  @@map("dispute_appeals")
 }
 
 model DisputeEvidence {

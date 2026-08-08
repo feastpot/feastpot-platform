@@ -1,6 +1,14 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IssueType } from '@prisma/client';
-import { IsEnum, IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
+import {
+  IsBoolean,
+  IsEnum,
+  IsOptional,
+  IsString,
+  IsUUID,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 
 export class CreateDisputeDto {
   @ApiProperty({ format: 'uuid' })
@@ -16,4 +24,20 @@ export class CreateDisputeDto {
   @MinLength(10)
   @MaxLength(4000)
   description!: string;
+
+  /**
+   * Flag for urgent food-safety or immediate-harm cases. When true, the
+   * vendor response window is 24h instead of the standard 48h, and the
+   * platform commits to the same window. Requires urgentReason.
+   */
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  isUrgent?: boolean;
+
+  @ApiPropertyOptional({ maxLength: 500 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  urgentReason?: string;
 }

@@ -17,6 +17,25 @@ import {
   STATUS_LABEL,
 } from './dispute-ui';
 
+/** Show time remaining until the vendor response deadline. */
+function formatRespondDeadline(vendorRespondBy: string | null | undefined, createdAt: string): string {
+  // Use the API-provided deadline when available, otherwise fall back to 48h from creation.
+  const deadline = vendorRespondBy
+    ? new Date(vendorRespondBy)
+    : new Date(new Date(createdAt).getTime() + 48 * 60 * 60 * 1000);
+  const msLeft = deadline.getTime() - Date.now();
+  if (msLeft <= 0) return 'Response overdue';
+  const hoursLeft = Math.floor(msLeft / (60 * 60 * 1000));
+  if (hoursLeft < 1) return 'Less than 1 hour to respond';
+  if (hoursLeft < 24) return `Respond within ${hoursLeft}h`;
+  const daysLeft = Math.floor(hoursLeft / 24);
+  const remainingHours = hoursLeft % 24;
+  return remainingHours > 0
+    ? `Respond within ${daysLeft}d ${remainingHours}h`
+    : `Respond within ${daysLeft}d`;
+}
+
+
 const STATUS_FILTERS: { value: DisputeStatus | 'all'; label: string }[] = [
   { value: 'all', label: 'All' },
   { value: 'open', label: 'Open' },
@@ -135,7 +154,7 @@ export function DisputesClient() {
                   {needsResponse && (
                     <div className="mt-3 flex items-center gap-1.5 rounded-md bg-amber-50 px-2.5 py-1.5 text-[11px] font-semibold text-amber-800">
                       <Clock className="h-3.5 w-3.5" aria-hidden />
-                      Respond within 24h to avoid escalation
+                      {formatRespondDeadline(d.vendorRespondBy, d.createdAt)}
                     </div>
                   )}
                 </Link>

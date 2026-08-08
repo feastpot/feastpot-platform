@@ -7,6 +7,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  DisputeDecision,
+  DisputeParty,
   DisputeStatus,
   EvidenceType,
   InboxNotificationType,
@@ -53,6 +55,26 @@ const STATUS_TRANSITIONS: Record<DisputeStatus, DisputeStatus[]> = {
   [DisputeStatus.resolved]: [DisputeStatus.closed],
   [DisputeStatus.closed]: [], // terminal
 };
+
+/** Standard vendor response window in hours (clause 18.1 reciprocity principle). */
+const VENDOR_RESPOND_HOURS_STANDARD = 48;
+/** Urgent response window in hours - food safety / immediate harm cases only. */
+const VENDOR_RESPOND_HOURS_URGENT = 24;
+
+/** Map from ResolutionType to the formal DisputeDecision value stored for appeal purposes. */
+function resolutionToDecision(resolution: ResolutionType): DisputeDecision | null {
+  switch (resolution) {
+    case ResolutionType.full_refund:
+    case ResolutionType.partial_refund:
+      return DisputeDecision.UPHELD_CUSTOMER;
+    case ResolutionType.rejected:
+      return DisputeDecision.UPHELD_VENDOR;
+    case ResolutionType.credit:
+      return DisputeDecision.PARTIAL;
+    default:
+      return null;
+  }
+}
 
 const SEVERITY_BY_ISSUE: Record<IssueType, Severity> = {
   [IssueType.not_delivered]: Severity.high,
@@ -432,6 +454,14 @@ export class DisputesService {
     const severity = SEVERITY_BY_ISSUE[dto.issueType];
     const assignedToId = await this.pickSupportAgent();
 
+    // Calculate vendor response window. Platform commits to the same window
+    // (reciprocity - clause 18.1). vendorRespondBy is the tracked deadline.
+    const HOUR = 60 * 60 * 1000;
+    const responseHours = dto.isUrgent
+      ? VENDOR_RESPOND_HOURS_URGENT
+      : VENDOR_RESPOND_HOURS_STANDARD;
+    const vendorRespondBy = new Date(Date.now() + responseHours * HOUR);
+
     try {
       const dispute = await this.prisma.dispute.create({
         data: {
@@ -442,6 +472,11 @@ export class DisputesService {
           description: dto.description,
           status: DisputeStatus.open,
           assignedToId,
+          raisedByParty: DisputeParty.CUSTOMER,
+          vendorRespondBy,
+          platformRespondBy: vendorRespondBy,
+          isUrgentDispute: dto.isUrgent ?? false,
+          urgentDisputeReason: dto.urgentReason ?? null,
         },
       });
 
@@ -733,6 +768,12 @@ export class DisputesService {
       });
     }
 
+    const now = new Date();
+    const decision = resolutionToDecision(dto.resolution);
+    // Store the refund/credit amount so that a later upheld appeal can
+    // automatically reverse the deduction from the vendor's payout.
+    const refundPence = dto.refundAmountPence ?? dto.creditAmountPence ?? null;
+
     const closed = await this.prisma.dispute.update({
       where: { id },
       data: {
@@ -740,7 +781,13 @@ export class DisputesService {
         resolution: dto.resolution,
         resolutionNote: dto.resolutionNote,
         resolvedById: user.id,
-        resolvedAt: new Date(),
+        resolvedAt: now,
+        // P2B fields: formal decision, decision timestamp, platform adherence tracking
+        decision: decision ?? undefined,
+        decidedAt: now,
+        decidedById: user.id,
+        platformRespondedAt: now,
+        refundPence,
       },
     });
 

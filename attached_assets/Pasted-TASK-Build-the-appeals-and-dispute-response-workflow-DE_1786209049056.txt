@@ -1,0 +1,98 @@
+TASK: Build the appeals and dispute response workflow.
+
+DEFECTS IN THE LIVE TERMS THIS FIXES
+Clause 4 states "Feastpot's decision on disputes is
+final" and gives vendors 24 hours to respond. Clause 9
+gives a 7-day appeal window while clause 13 commits to a
+5-business-day response, so an appeal can expire before
+its acknowledgement arrives. All three are replaced by
+v2.0 clauses 18.1 to 18.3.
+
+PRISMA SCHEMA
+
+model DisputeCase {
+  id              String   @id @default(cuid())
+  orderId         String
+  vendorId        String
+  customerId      String
+  raisedBy        DisputeParty
+  category        String
+  vendorRespondBy DateTime
+  vendorResponse  String?  @db.Text
+  vendorRespondedAt DateTime?
+  decision        DisputeDecision?
+  decidedAt       DateTime?
+  decidedBy       String?
+  refundPence     Int?
+  appeal          DisputeAppeal?
+  @@index([vendorId, decidedAt])
+}
+
+model DisputeAppeal {
+  id            String   @id @default(cuid())
+  disputeId     String   @unique
+  submittedAt   DateTime @default(now())
+  deadline      DateTime
+  grounds       String   @db.Text
+  stage1By      String?
+  stage1At      DateTime?
+  stage1Outcome AppealOutcome?
+  stage1Reasons String?  @db.Text
+  stage2By      String?
+  stage2At      DateTime?
+  stage2Outcome AppealOutcome?
+  stage2Reasons String?  @db.Text
+  dispute       DisputeCase @relation(fields: [disputeId], references: [id])
+}
+
+enum DisputeParty { CUSTOMER VENDOR PLATFORM }
+enum DisputeDecision { UPHELD_CUSTOMER UPHELD_VENDOR PARTIAL }
+enum AppealOutcome { UPHELD OVERTURNED PARTIAL }
+
+RESPONSE WINDOW RULES
+1. vendorRespondBy is calculated, not fixed at 24 hours.
+   Default 48 hours for standard disputes. For urgent food
+   safety cases, a shorter window is permitted but must be
+   flagged as urgent with a reason.
+2. Whatever window applies to the vendor, the platform
+   commits to the same or better for its own steps. Store
+   both and report on whether the platform met its own
+   commitment. Reciprocity has to be measurable or it is
+   just wording.
+3. Non-response no longer automatically means a full
+   refund at vendor cost. It means the decision proceeds
+   on available evidence, with the non-response recorded.
+
+APPEAL RULES
+1. Appeal window is 14 days from the decision, exceeding
+   the 5-business-day acknowledgement commitment so the
+   earlier trap cannot recur. Validate this relationship
+   in code: appeal window must always exceed the stated
+   acknowledgement time.
+2. Stage 1 review by any authorised reviewer. Written
+   reasons required, minimum 50 characters.
+3. Stage 2 review must be performed by a DIFFERENT user
+   id from stage 1. The service rejects the same reviewer.
+   For a solo founder this means stage 2 waits until a
+   second reviewer exists, or is escalated to an external
+   adviser whose identity is recorded. Do not fake
+   independence by allowing the same person twice.
+4. If an appeal is upheld, reverse the deduction on the
+   next payout automatically and notify the vendor.
+
+VENDOR DASHBOARD
+Disputes page: open cases with countdown, response form,
+decision history with reasons, appeal button while the
+window is open, and appeal status.
+
+ADMIN
+Queue with SLA tracking, reviewer assignment respecting
+the different-reviewer rule, and a report on platform
+adherence to its own response commitments.
+
+ACCEPTANCE CRITERIA
+- The phrase "decision is final" appears nowhere.
+- Stage 2 with the same reviewer as stage 1 is rejected.
+- Appeal window is always longer than the acknowledgement
+  commitment, enforced by a test.
+- An upheld appeal reverses the deduction automatically.

@@ -42,6 +42,25 @@ export interface DisputeOrder {
   [key: string]: unknown;
 }
 
+export type AppealOutcome = 'UPHELD' | 'OVERTURNED' | 'PARTIAL';
+export type DisputeDecision = 'UPHELD_CUSTOMER' | 'UPHELD_VENDOR' | 'PARTIAL';
+
+export interface DisputeAppeal {
+  id: string;
+  disputeId: string;
+  submittedAt: string;
+  deadline: string;
+  grounds: string;
+  stage1By: string | null;
+  stage1At: string | null;
+  stage1Outcome: AppealOutcome | null;
+  stage1Reasons: string | null;
+  stage2By: string | null;
+  stage2At: string | null;
+  stage2Outcome: AppealOutcome | null;
+  stage2Reasons: string | null;
+}
+
 export interface Dispute {
   id: string;
   orderId: string;
@@ -52,8 +71,12 @@ export interface Dispute {
   description: string;
   vendorResponse: string | null;
   vendorRespondedAt: string | null;
+  vendorRespondBy: string | null;
   resolution: string | null;
   resolutionNote: string | null;
+  decision: DisputeDecision | null;
+  decidedAt: string | null;
+  refundPence: number | null;
   createdAt: string;
   order: DisputeOrder;
 }
@@ -61,6 +84,7 @@ export interface Dispute {
 /** Detail response includes evidence + richer order/customer relations. */
 export interface DisputeDetail extends Dispute {
   evidence: DisputeEvidence[];
+  appeal?: DisputeAppeal | null;
   raisedBy?: {
     id: string;
     firstName?: string | null;
@@ -147,6 +171,34 @@ export function useSubmitVendorResponse(id: string) {
       void qc.invalidateQueries({ queryKey: ['vendor', 'disputes', 'detail', id] });
       void qc.invalidateQueries({ queryKey: ['vendor', 'disputes', 'list'] });
     },
+  });
+}
+
+export function useSubmitAppeal(disputeId: string) {
+  const { token } = useAccessToken();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (grounds: string) =>
+      apiRequest<DisputeAppeal>(`/disputes/${disputeId}/appeal`, {
+        method: 'POST',
+        accessToken: token!,
+        body: { grounds },
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['vendor', 'disputes', 'detail', disputeId] });
+    },
+  });
+}
+
+export function useDisputeAppeal(disputeId: string | undefined) {
+  const { token, loading: authLoading } = useAccessToken();
+  return useQuery({
+    queryKey: ['vendor', 'disputes', 'appeal', disputeId],
+    enabled: !!disputeId && !!token && !authLoading,
+    queryFn: () =>
+      apiRequest<DisputeAppeal | null>(`/disputes/${disputeId}/appeal`, {
+        accessToken: token!,
+      }),
   });
 }
 

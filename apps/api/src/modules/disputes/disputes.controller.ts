@@ -20,10 +20,13 @@ import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import type { AuthUser } from '../../auth/types';
 
+import { DisputeAppealsService } from './dispute-appeals.service';
 import { DisputesService } from './disputes.service';
 import { CloseDisputeDto } from './dto/close-dispute.dto';
 import { CreateDisputeDto } from './dto/create-dispute.dto';
+import { DecideAppealStageDto } from './dto/decide-appeal-stage.dto';
 import { ListDisputesDto } from './dto/list-disputes.dto';
+import { SubmitAppealDto } from './dto/submit-appeal.dto';
 import { UpdateDisputeDto } from './dto/update-dispute.dto';
 import { VendorResponseDto } from './dto/vendor-response.dto';
 
@@ -40,7 +43,10 @@ function requireUser(user: AuthUser | null): AuthUser {
 @ApiBearerAuth()
 @Controller({ path: 'disputes', version: '1' })
 export class DisputesController {
-  constructor(private readonly disputes: DisputesService) {}
+  constructor(
+    private readonly disputes: DisputesService,
+    private readonly appeals: DisputeAppealsService,
+  ) {}
 
   @Get()
   // Finance / compliance staff have their own dedicated tools - they don't
@@ -116,6 +122,53 @@ export class DisputesController {
     @Body() dto: CloseDisputeDto,
   ) {
     return this.disputes.close(id, dto, requireUser(user));
+  }
+
+  // ── Appeals (clause 18.1-18.3) ────────────────────────────────────────────
+
+  @Post(':id/appeal')
+  @Roles(UserRole.vendor)
+  @ApiOperation({ summary: 'Vendor submits an appeal on a closed dispute (14-day window)' })
+  submitAppeal(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: AuthUser | null,
+    @Body() dto: SubmitAppealDto,
+  ) {
+    return this.appeals.submit(id, dto, requireUser(user));
+  }
+
+  @Get(':id/appeal')
+  @Roles(UserRole.customer, UserRole.vendor, UserRole.support, UserRole.admin)
+  @ApiOperation({ summary: 'Get the appeal record for a dispute (if one exists)' })
+  getAppeal(@Param('id', new ParseUUIDPipe()) id: string, @CurrentUser() user: AuthUser | null) {
+    return this.appeals.get(id, requireUser(user));
+  }
+
+  @Post(':id/appeal/stage1')
+  @Roles(UserRole.support, UserRole.admin)
+  @ApiOperation({
+    summary: 'Stage 1 appeal review (any authorised reviewer, written reasons required)',
+  })
+  decideAppealStage1(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: AuthUser | null,
+    @Body() dto: DecideAppealStageDto,
+  ) {
+    return this.appeals.decideStage1(id, dto, requireUser(user));
+  }
+
+  @Post(':id/appeal/stage2')
+  @Roles(UserRole.support, UserRole.admin)
+  @ApiOperation({
+    summary:
+      'Stage 2 appeal review (must be a DIFFERENT reviewer from Stage 1; UPHELD auto-reverses payout deduction)',
+  })
+  decideAppealStage2(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: AuthUser | null,
+    @Body() dto: DecideAppealStageDto,
+  ) {
+    return this.appeals.decideStage2(id, dto, requireUser(user));
   }
 
   @Get(':id/evidence')

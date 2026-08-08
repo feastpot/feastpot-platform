@@ -657,6 +657,87 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
     whatsappTemplate: 'review_request',
   },
 
+  // ── Dispute appeals (clause 18.1-18.3) ───────────────────────────────────
+
+  dispute_appeal_submitted: {
+    subject: () => 'New dispute appeal submitted',
+    render: (d) =>
+      baseLayout(
+        'New dispute appeal',
+        h2('New dispute appeal requires review') +
+          p(
+            `A vendor has submitted an appeal on dispute <strong>${esc(d.orderNumber)}</strong> ` +
+              `(${esc(d.vendorName)}).`,
+          ) +
+          `<div style="background:#fafafa;border:1px solid #e5e7eb;border-radius:8px;padding:16px;margin:16px 0;">` +
+          `<p style="margin:0 0 4px 0;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:#6b7280;">Grounds summary</p>` +
+          `<p style="margin:0;font-size:14px;line-height:1.6;color:#111827;">${esc(d.groundsPreview)}${str(d.groundsPreview).length >= 200 ? '...' : ''}</p>` +
+          `</div>` +
+          brandButton('Review appeal', 'https://admin.feastpot.co.uk/disputes/' + str(d.disputeId), 'vendorBlue'),
+      ),
+    channels: ['email'],
+  },
+
+  dispute_appeal_decided: {
+    subject: (d) => {
+      const stage = str(d.stage, '');
+      const outcome = str(d.outcome, '');
+      const isFinal = d.isFinal === true;
+      return isFinal
+        ? `Your dispute appeal outcome: ${outcome}`
+        : `Stage ${stage} appeal review complete: ${outcome}`;
+    },
+    render: (d) => {
+      const outcome = str(d.outcome, '');
+      const stage = str(d.stage, '');
+      const isFinal = d.isFinal === true;
+      const outcomeColour = outcome === 'UPHELD' ? '#16a34a' : outcome === 'OVERTURNED' ? '#dc2626' : '#d97706';
+      const heading = isFinal ? 'Final appeal decision' : `Stage ${stage} review complete`;
+
+      return baseLayout(
+        heading,
+        h2(heading) +
+          `<div style="text-align:center;padding:16px 0;">` +
+          `<span style="display:inline-block;background:${outcomeColour};color:#fff;border-radius:24px;padding:6px 20px;font-size:16px;font-weight:700;">${esc(outcome)}</span>` +
+          `</div>` +
+          `<div style="background:#fafafa;border:1px solid #e5e7eb;border-radius:8px;padding:16px;margin:16px 0;">` +
+          `<p style="margin:0 0 4px 0;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:#6b7280;">Reviewer reasons</p>` +
+          `<p style="margin:0;font-size:14px;line-height:1.6;color:#111827;">${esc(d.reasons)}</p>` +
+          `</div>` +
+          (isFinal && outcome === 'UPHELD'
+            ? p(
+                'Your appeal has been upheld. The deduction has been reversed and will appear in your next payout statement.',
+              )
+            : '') +
+          (!isFinal && d.canEscalate
+            ? p(
+                'You may request Stage 2 review if you believe the Stage 1 decision was incorrect. Please contact <a href="mailto:appeals@feastpot.co.uk">appeals@feastpot.co.uk</a>.',
+              )
+            : '') +
+          brandButton('View dispute', 'https://vendor.feastpot.co.uk/disputes/' + str(d.disputeId), 'vendorBlue'),
+      );
+    },
+    channels: ['email'],
+  },
+
+  dispute_appeal_payout_credit: {
+    subject: () => 'Appeal credit added to your next payout',
+    render: (d) => {
+      const pounds = (Number(d.creditPence) / 100).toFixed(2);
+      return baseLayout(
+        'Appeal payout credit',
+        h2('Your appeal credit has been processed') +
+          p(
+            `A credit of <strong>GBP ${esc(pounds)}</strong> has been added to your next payout ` +
+              `following your successful appeal (dispute ${esc(d.disputeId)}).`,
+          ) +
+          p('You will see this in your earnings statement on the next payout cycle.') +
+          brandButton('View earnings', 'https://vendor.feastpot.co.uk/earnings', 'vendorBlue'),
+      );
+    },
+    channels: ['email'],
+  },
+
   // ── P2B enforcement notices (clause 14.1) ────────────────────────────────
 
   enforcement_action: {
