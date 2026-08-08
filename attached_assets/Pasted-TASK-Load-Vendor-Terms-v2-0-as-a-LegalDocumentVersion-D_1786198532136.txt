@@ -1,0 +1,87 @@
+TASK: Load Vendor Terms v2.0 as a LegalDocumentVersion.
+
+DEPENDS ON: LEGAL-500.
+
+SOURCE CONTENT
+Use the approved Vendor Terms of Agreement v2.0 document
+(19 numbered clauses plus Annex A Rate Schedule, Annex B
+Required Documents, Annex C Key Terms Summary). Store as
+MDX in contentMdx. Do not retype from memory, import the
+approved text.
+
+WHAT v2.0 CHANGES FROM THE LIVE MAY 2026 VERSION
+Record each of these in changeSummary, in plain language,
+because vendors must be told what changed:
+
+  Added: commission stated in the terms themselves (12% of
+    food subtotal, with subtotal defined to exclude
+    delivery, service fee, tips and discounts)
+  Added: VAT treatment of commission stated explicitly
+  Added: chargeback and refund liability allocation
+  Added: 15 days notice before any change to terms or rates
+  Added: 30 days termination notice with a statement of
+    reasons
+  Added: statement of reasons at or before any suspension
+  Added: ranking parameters disclosed
+  Added: vendor data access described
+  Added: maximum 14-day payout hold review period plus
+    escalation route
+  Added: HMRC platform reporting consent
+  Added: catering bookings clause (deposit, balance,
+    cancellation tiers, compliance pack)
+  Changed: appeal window extended from 7 to 14 days
+  Changed: two-stage internal review replaces "Feastpot's
+    decision on disputes is final"
+  Changed: dispute response window made reciprocal and
+    reasonable, replacing the one-sided 24-hour rule
+  Changed: non-solicitation narrowed to 6 months and only
+    for customers first acquired through Feastpot, with
+    the vendor's own site, socials and existing customers
+    expressly protected
+
+THREE DEFECTS IN THE LIVE TERMS TO FIX WHILE HERE
+
+D1. Clause 3 of the live page contains a literal em dash:
+    "Commission is deducted from your weekly payout - it is
+    not charged separately." Also an en dash in
+    "Monday-Sunday". Both must go (see RED-100 rule).
+
+D2. Clause 7 of the live page requires vendors to accept or
+    reject orders within 15 minutes or the order
+    auto-cancels. This is unworkable for home cooks
+    fulfilling scheduled orders and is not in v2.0. Either
+    remove it, or replace with a response window that
+    matches how scheduled ordering actually works (for
+    example, respond by a stated time before the scheduled
+    slot). Confirm which, then align code and terms. Do not
+    leave a contractual rule the platform does not enforce
+    or a platform rule the contract does not state.
+
+D3. Clause 11 of the live page says nothing limits
+    liability for "gross negligence or fraud". English law
+    does not treat gross negligence as a distinct category
+    in the way this implies, and the clause misses the
+    statutory floor. v2.0 clause 17.1 uses the correct
+    carve-out: death or personal injury caused by
+    negligence, fraud or fraudulent misrepresentation, and
+    anything that cannot be limited by law.
+
+PUBLISH GATE
+Add a required admin checkbox and free-text field:
+"Reviewed and approved by [solicitor name] on [date]".
+The publish endpoint rejects a VENDOR_TERMS version
+without it. This is a process control, not legal advice,
+and it stops an unreviewed draft reaching production.
+
+RENDER
+Rewrite apps/customer/app/legal/vendor-terms/page.tsx to
+render the live version from the database rather than
+hardcoded JSX. Show version number, effective date, and a
+link to version history. Keep the existing section anchor
+navigation, extended to the new clause set.
+
+ACCEPTANCE CRITERIA
+- The page renders v2.0 from the database.
+- Version history is publicly viewable.
+- Publish is blocked without the solicitor sign-off field.
+- Zero em dashes and en dashes in the stored content.

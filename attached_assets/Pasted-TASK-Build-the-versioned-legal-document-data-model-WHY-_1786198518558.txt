@@ -1,0 +1,108 @@
+TASK: Build the versioned legal document data model.
+
+WHY THIS IS FIRST
+The Vendor Terms are currently a hardcoded page at
+apps/customer/app/legal/vendor-terms/page.tsx with a
+"Last updated: May 2026" string. There is no version
+record, no acceptance record, and no way to prove what a
+vendor agreed to. Every other prompt in this series
+depends on this model existing.
+
+PRISMA SCHEMA
+
+model LegalDocument {
+  id           String   @id @default(cuid())
+  documentType LegalDocumentType
+  slug         String   @unique
+  currentVersionId String?
+  versions     LegalDocumentVersion[]
+  createdAt    DateTime @default(now())
+}
+
+model LegalDocumentVersion {
+  id             String   @id @default(cuid())
+  documentId     String
+  version        String
+  contentMdx     String   @db.Text
+  contentHash    String
+  changeSummary  String   @db.Text
+  isMaterial     Boolean  @default(true)
+  publishedAt    DateTime?
+  effectiveFrom  DateTime
+  supersededAt   DateTime?
+  createdBy      String
+  document       LegalDocument @relation(fields: [documentId], references: [id])
+  acceptances    LegalAcceptance[]
+  notices        LegalChangeNotice[]
+  @@unique([documentId, version])
+  @@index([effectiveFrom])
+}
+
+model LegalAcceptance {
+  id            String   @id @default(cuid())
+  vendorId      String
+  versionId     String
+  acceptedAt    DateTime @default(now())
+  ipAddress     String
+  userAgent     String
+  acceptanceText String  @db.Text
+  contentHash   String
+  scrolledToEnd Boolean  @default(false)
+  method        AcceptanceMethod @default(CLICKWRAP)
+  vendor        Vendor   @relation(fields: [vendorId], references: [id])
+  version       LegalDocumentVersion @relation(fields: [versionId], references: [id])
+  @@unique([vendorId, versionId])
+  @@index([vendorId, acceptedAt])
+}
+
+enum LegalDocumentType {
+  VENDOR_TERMS
+  CUSTOMER_TERMS
+  PRIVACY
+  COOKIES
+  ALLERGENS
+  RATE_SCHEDULE
+}
+
+enum AcceptanceMethod {
+  CLICKWRAP
+  ESIGNATURE
+  DEEMED_CONTINUED_USE
+}
+
+HARD RULES TO IMPLEMENT IN THE SERVICE LAYER
+
+1. contentHash is SHA-256 of contentMdx, computed on
+   publish, never editable afterwards. If someone edits
+   contentMdx of a published version, reject it. Publishing
+   a correction means creating a new version.
+
+2. A version where isMaterial is true must have
+   effectiveFrom at least 15 days after publishedAt.
+   Reject the publish with a clear error otherwise. This
+   is the P2B notice requirement enforced in code, not in
+   a process document.
+
+3. isMaterial false is reserved for genuinely editorial
+   changes such as typo fixes that do not alter meaning.
+   Require the admin to type a justification. Log it.
+
+4. Only one version per document may be live at a time.
+   Publishing sets supersededAt on the previous version.
+
+5. Acceptances are append-only. No update or delete
+   endpoint may exist for LegalAcceptance. Corrections
+   require a new row with a reason.
+
+SEED
+Migrate the existing May 2026 vendor terms in as version
+1.0 with isMaterial true, publishedAt and effectiveFrom
+backdated, so the version history is honest and existing
+vendors are recorded against what they actually saw.
+
+ACCEPTANCE CRITERIA
+- Attempting to publish a material version with under 15
+  days notice returns a validation error naming the rule.
+- Editing contentMdx on a published version is rejected.
+- The seeded v1.0 appears in version history.
+- No API route can mutate or delete a LegalAcceptance.

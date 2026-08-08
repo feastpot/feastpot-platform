@@ -1,0 +1,83 @@
+TASK: Build the click-wrap acceptance flow.
+
+DEPENDS ON: LEGAL-500, LEGAL-501.
+
+LEGAL BASIS (state in code comments so it is not lost)
+Electronic acceptance is valid in the UK under the
+Electronic Communications Act 2000, the retained eIDAS
+Regulation, and the Law Commission's 2019 statement on
+electronic execution. Click-wrap is enforceable where the
+vendor had reasonable notice of the terms and took a clear
+affirmative action. No wet signature and no external
+e-signature tool are needed for the core terms.
+
+PLACEMENT IN THE JOURNEY
+The live become-a-vendor page shows a four-step journey:
+Apply, Quick review, Menu setup, Start receiving orders.
+Acceptance belongs between step 2 and step 3. A vendor
+cannot reach menu setup without accepting.
+
+UI REQUIREMENTS (apps/vendor)
+
+1. Full terms rendered in a scrollable pane, not a link
+   the vendor is assumed to have read. Height at least
+   400px on desktop, full-viewport sheet on mobile.
+
+2. Track scroll position. Enable the checkbox only once
+   the vendor has reached the end, or provide an explicit
+   "I have read the full terms" affirmation if they use
+   the download instead. Record scrolledToEnd honestly.
+   Do not fake it to true.
+
+3. Checkbox starts UNTICKED. Pre-ticked boxes are not
+   valid consent. Label text exactly:
+   "I have read and agree to the Feastpot Vendor Terms of
+   Agreement version 2.0, including the Rate Schedule."
+
+4. Alongside the checkbox: link to download the terms as
+   PDF, link to the Key Terms Summary, link to the Rate
+   Card.
+
+5. The continue button is disabled until ticked. Keyboard
+   accessible, screen-reader labelled, WCAG 2.2 AA
+   contrast. This is a PWA, so it must work one-handed on
+   a phone.
+
+CAPTURE ON SUBMIT (all fields required)
+  vendorId, versionId
+  acceptedAt as UTC timestamp
+  contentHash of the exact version displayed
+  ipAddress
+  userAgent
+  acceptanceText, the exact label string shown
+  scrolledToEnd
+  method CLICKWRAP
+
+Write the acceptance inside the same transaction that
+activates the vendor account. If the acceptance write
+fails, the account does not activate.
+
+POST-ACCEPTANCE
+Generate a PDF of the accepted version, watermarked with
+the vendor name, version, hash and acceptance timestamp.
+Email it via Resend as a durable record. Store it in
+Supabase Storage and link it from the vendor dashboard.
+
+RETENTION
+Retain acceptance records and PDFs for the life of the
+account plus at least 6 years after termination, aligned
+to contractual limitation periods and HMRC record
+retention. Add this to the data retention schedule in the
+privacy policy.
+
+DO NOT
+Do not use a dark pattern to speed acceptance. Do not
+bundle terms acceptance with marketing consent. Do not
+allow acceptance on behalf of a vendor by an admin.
+
+ACCEPTANCE CRITERIA
+- A vendor cannot reach menu setup without accepting.
+- All nine audit fields are populated on every acceptance.
+- The PDF arrives by email and matches the stored hash.
+- Checkbox is unticked on load and the flow is fully
+  keyboard navigable.
