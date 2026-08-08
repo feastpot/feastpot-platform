@@ -431,13 +431,13 @@ export default function VendorRegisterInterestPage() {
               />
               <span className="text-[13px] leading-snug text-charcoal-mid">
                 I agree to the{' '}
-                <Link href="/legal/terms" className="font-semibold text-brand hover:underline">
+                <a href="https://feastpot.co.uk/legal/terms" target="_blank" rel="noreferrer" className="font-semibold text-brand hover:underline">
                   Terms of Service
-                </Link>{' '}
+                </a>{' '}
                 and{' '}
-                <Link href="/legal/privacy" className="font-semibold text-brand hover:underline">
+                <a href="https://feastpot.co.uk/legal/privacy" target="_blank" rel="noreferrer" className="font-semibold text-brand hover:underline">
                   Privacy Policy
-                </Link>
+                </a>
               </span>
             </label>
             {errors.termsAccepted && (

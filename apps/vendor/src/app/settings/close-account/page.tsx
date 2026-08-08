@@ -174,14 +174,17 @@ export default async function CloseAccountPage() {
           <p className="text-xs text-red-700">
             Closing your account does not delete your data immediately. Feastpot retains
             transaction records for 7 years in line with HMRC requirements. You may request
-            deletion of personal data that is not subject to a legal hold by emailing
-            privacy@feastpot.co.uk after your account is closed.
+            deletion of personal data that is not subject to a legal hold by emailing{' '}
+            <a href="mailto:privacy@feastpot.co.uk" className="underline hover:text-red-600">
+              privacy@feastpot.co.uk
+            </a>{' '}
+            after your account is closed.
           </p>
         </section>
 
         <p className="text-xs text-mid text-center">
           Changed your mind?{' '}
-          <a href="/dashboard" className="underline hover:text-dark">
+          <a href="/" className="underline hover:text-dark">
             Return to your dashboard
           </a>
           {' '}or{' '}

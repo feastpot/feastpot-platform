@@ -1,0 +1,73 @@
+TASK: Make error handling honest, traceable and useful.
+
+OBSERVED INCONSISTENCY
+  /compliance error shows "Ref: 4121942664"
+  /earnings error shows no reference at all
+Same error component, different output. Either the
+reference generation is conditional, or one path fails
+before the reference is created.
+
+CRITICAL QUESTION TO ANSWER FIRST
+Is 4121942664 a real, persisted, searchable identifier
+that maps to a logged exception, or is it a client-side
+random number that looks reassuring and means nothing?
+If it is the latter, that is worse than showing no
+reference, because a vendor will quote it to support and
+support will find nothing. Verify before doing anything
+else, and if it is cosmetic, either make it real or
+remove it.
+
+REQUIRED
+
+1. REAL ERROR REFERENCES
+   Generate the reference server-side as part of logging
+   the exception. Format it distinctly, for example
+   FP-8A3C-2291, so it is obviously an identifier and not
+   a random number. Persist it with the stack trace, the
+   vendor id, the route and the timestamp. Support must
+   be able to paste it into admin and find the incident.
+
+2. CONSISTENT ERROR COMPONENT
+   Every error surface shows: what happened in plain
+   language, the reference, a Try again action, a route
+   back to the dashboard, and a contact support link that
+   pre-fills the reference. Never show a raw stack trace
+   to a vendor.
+
+3. SENTRY, PROPERLY WIRED
+   A previous audit of the TechnicalPiks build found a
+   Sentry scaffold left commented out, making production
+   errors invisible. Verify the same has not happened
+   here. If Sentry or an equivalent is not actively
+   capturing vendor portal exceptions, wire it now,
+   confirm with a deliberate test exception, and check
+   the event arrives in the dashboard. An error page that
+   says "It's been logged and we'll look into it" must be
+   telling the truth.
+
+4. DISTINGUISH ERROR FROM EMPTY
+   Reiterating the VP-600 rule because it is the root
+   cause of most of what was observed: absent data is not
+   an error. Only genuine exceptions reach the boundary.
+
+5. ALERTING
+   Alert the founder when any vendor portal route throws
+   more than a small number of times in an hour. With a
+   solo founder and a small vendor base, three vendors
+   hitting an error is a significant proportion of the
+   user base and should not wait for someone to complain.
+
+A NOTE ON THE ERROR PAGE BUTTON COLOUR
+The "Try again" button on both error screens renders in
+blue, which is the only blue in an otherwise green and
+cream product. Colours are to remain unchanged per your
+instruction, so this prompt does not alter it. Flagging
+it only so the choice is deliberate rather than
+inherited from a default component. Confirm whether you
+want it aligned to brand green before anyone changes it.
+
+ACCEPTANCE CRITERIA
+- Every error surface shows a real, searchable reference.
+- A deliberate test exception appears in Sentry.
+- Support can locate an incident from a vendor-quoted ref.
+- No raw stack traces reach vendors.

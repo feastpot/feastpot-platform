@@ -232,7 +232,7 @@ function MarketingNav() {
             <Bell className="h-5 w-5" />
           </button>
           <Link
-            href="/basket"
+            href="/checkout"
             aria-label="Basket"
             className="hidden text-charcoal hover:text-brand sm:block"
           >

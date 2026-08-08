@@ -173,7 +173,7 @@ export function TermsAcceptanceClient({ accessToken, version, alreadyAccepted }:
           {/* External link to full terms (Layer 3) */}
           <div className="mb-4 flex flex-wrap gap-3 text-sm">
             <a
-              href="/legal/vendor-terms"
+              href="https://feastpot.co.uk/legal/vendor-terms"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-1.5 text-teal-700 underline hover:text-teal-900"
@@ -182,10 +182,10 @@ export function TermsAcceptanceClient({ accessToken, version, alreadyAccepted }:
               Open full terms in a new tab
             </a>
             <a
-              href="/legal/vendor-terms"
+              href="https://feastpot.co.uk/legal/vendor-terms"
               target="_blank"
               rel="noopener noreferrer"
-              onClick={(e) => { e.preventDefault(); window.open('/legal/vendor-terms', '_blank'); }}
+              onClick={(e) => { e.preventDefault(); window.open('https://feastpot.co.uk/legal/vendor-terms', '_blank'); }}
               className="flex items-center gap-1.5 text-teal-700 underline hover:text-teal-900"
             >
               <Download className="h-4 w-4" />
