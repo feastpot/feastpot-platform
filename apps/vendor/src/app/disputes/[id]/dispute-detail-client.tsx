@@ -1,6 +1,7 @@
 'use client';
 
 import { cn } from '@feastpot/ui';
+import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
 import { AlertTriangle, ArrowLeft, CheckCircle2, FileText, Lock, Upload } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
@@ -489,7 +490,7 @@ function AppealStatus({ appeal }: { appeal: DisputeAppeal }) {
       {!isFinal && appeal.stage1At && (
         <p className="text-[10px] text-neutral-400">
           If you disagree with the Stage 1 outcome, contact{' '}
-          <a href="mailto:appeals@feastpot.co.uk" className="underline">appeals@feastpot.co.uk</a>{' '}
+          <a href={`mailto:${PLATFORM_FACTS.contact.appealsEmail}`} className="underline">{PLATFORM_FACTS.contact.appealsEmail}</a>{' '}
           to request Stage 2 review.
         </p>
       )}

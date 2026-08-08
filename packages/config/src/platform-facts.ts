@@ -64,6 +64,18 @@ export const PLATFORM_FACTS = {
     'Valid photo ID',
     'UK bank account for Stripe Connect',
   ] as readonly string[],
+  contact: {
+    /**
+     * Email for document review, verification, account closure, and terms
+     * queries. Use for all compliance and non-appeal vendor enquiries.
+     */
+    complianceEmail: 'compliance@feastpot.co.uk',
+    /**
+     * Email for formal appeals of enforcement actions (vendor terms clause 18.1)
+     * and dispute stage-2 reviews. Do NOT use for general compliance enquiries.
+     */
+    appealsEmail: 'appeals@feastpot.co.uk',
+  },
   /** Calendar days vendors have to appeal a dispute or suspension outcome. */
   appealWindowDays: 14,
   /** Days notice Feastpot must give before changing terms (clause 10). */

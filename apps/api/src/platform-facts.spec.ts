@@ -101,3 +101,44 @@ describe('Become-a-vendor page - commission references PLATFORM_FACTS', () => {
     expect(src).toContain('PLATFORM_FACTS.commission.marketplaceFirst');
   });
 });
+
+describe('Vendor portal - contact email consistency', () => {
+  // All vendor-facing pages that show compliance@ must reference PLATFORM_FACTS
+  // so a single change in platform-facts.ts propagates everywhere.
+  it('terms-client: compliance email from PLATFORM_FACTS, not hardcoded', () => {
+    const src = read('apps/vendor/src/app/terms/terms-client.tsx');
+    expect(src).toContain('PLATFORM_FACTS');
+    expect(src).not.toContain('compliance@feastpot.co.uk');
+  });
+
+  it('compliance-client: compliance email from PLATFORM_FACTS, not hardcoded', () => {
+    const src = read('apps/vendor/src/app/compliance/compliance-client.tsx');
+    expect(src).toContain('PLATFORM_FACTS');
+    expect(src).not.toContain('compliance@feastpot.co.uk');
+  });
+
+  it('close-account page: compliance email from PLATFORM_FACTS, not hardcoded', () => {
+    const src = read('apps/vendor/src/app/settings/close-account/page.tsx');
+    expect(src).toContain('PLATFORM_FACTS');
+    expect(src).not.toContain('compliance@feastpot.co.uk');
+  });
+
+  it('tax-information-client: compliance email from PLATFORM_FACTS, not hardcoded', () => {
+    const src = read('apps/vendor/src/app/tax-information/tax-information-client.tsx');
+    expect(src).toContain('PLATFORM_FACTS');
+    expect(src).not.toContain('compliance@feastpot.co.uk');
+  });
+
+  // Appeals email pages must also go through PLATFORM_FACTS.
+  it('account-status-client: appeals email from PLATFORM_FACTS, not hardcoded', () => {
+    const src = read('apps/vendor/src/app/account-status/account-status-client.tsx');
+    expect(src).toContain('PLATFORM_FACTS');
+    expect(src).not.toContain('appeals@feastpot.co.uk');
+  });
+
+  it('dispute-detail-client: appeals email from PLATFORM_FACTS, not hardcoded', () => {
+    const src = read('apps/vendor/src/app/disputes/[id]/dispute-detail-client.tsx');
+    expect(src).toContain('PLATFORM_FACTS');
+    expect(src).not.toContain('appeals@feastpot.co.uk');
+  });
+});

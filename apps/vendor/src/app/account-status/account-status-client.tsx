@@ -2,6 +2,8 @@
 
 import { AlertTriangle, CheckCircle2, ChevronRight, ExternalLink } from 'lucide-react';
 
+import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
+
 import type { EnforcementAction, ReasonCode } from '@/hooks/use-account-status';
 import { REASON_CODE_LABELS, REASON_CODE_RESOLVE_STEPS, useAccountStatus } from '@/hooks/use-account-status';
 
@@ -19,8 +21,7 @@ const ACTION_TYPE_COLOURS: Record<string, string> = {
 
 const CLAUSE_REF = '14.1';
 const APPEAL_CLAUSE_REF = '18.1';
-const APPEAL_EMAIL = 'appeals@feastpot.co.uk';
-const APPEAL_WINDOW_DAYS = 14;
+const APPEAL_WINDOW_DAYS = PLATFORM_FACTS.appealWindowDays;
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-GB', {
@@ -99,7 +100,7 @@ function ActionCard({ action }: ActionCardProps) {
               of appeal and we will acknowledge receipt within 5 business days.
             </p>
             <a
-              href={`mailto:${APPEAL_EMAIL}?subject=${encodeURIComponent(appealSubject(action))}`}
+              href={`mailto:${PLATFORM_FACTS.contact.appealsEmail}?subject=${encodeURIComponent(appealSubject(action))}`}
               className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-700"
             >
               Appeal this decision

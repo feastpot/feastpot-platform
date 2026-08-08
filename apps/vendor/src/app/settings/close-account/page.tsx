@@ -1,5 +1,7 @@
 import { redirect } from 'next/navigation';
 
+import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
+
 import { apiRequest, ApiError } from '@/lib/api/client';
 import { createClient as createServerSupabase } from '@/lib/supabase/server';
 
@@ -92,10 +94,10 @@ export default async function CloseAccountPage() {
                 Once all open orders are complete (delivered or cancelled by the customer),
                 email{' '}
                 <a
-                  href="mailto:compliance@feastpot.co.uk?subject=Vendor%20account%20closure%20request"
+                  href={`mailto:${PLATFORM_FACTS.contact.complianceEmail}?subject=Vendor%20account%20closure%20request`}
                   className="font-semibold underline underline-offset-2 hover:text-amber-700"
                 >
-                  compliance@feastpot.co.uk
+                  {PLATFORM_FACTS.contact.complianceEmail}
                 </a>{' '}
                 with the subject line <em>&quot;Vendor account closure request&quot;</em> to
                 begin the process.
@@ -156,10 +158,10 @@ export default async function CloseAccountPage() {
           <p className="text-sm text-red-800">
             Email{' '}
             <a
-              href={`mailto:compliance@feastpot.co.uk?subject=Vendor%20account%20closure%20request%20–%20${encodeURIComponent(vendor?.businessName ?? '')}`}
+              href={`mailto:${PLATFORM_FACTS.contact.complianceEmail}?subject=Vendor%20account%20closure%20request%20–%20${encodeURIComponent(vendor?.businessName ?? '')}`}
               className="font-semibold underline underline-offset-2 hover:text-red-700"
             >
-              compliance@feastpot.co.uk
+              {PLATFORM_FACTS.contact.complianceEmail}
             </a>{' '}
             with the subject line{' '}
             <em>

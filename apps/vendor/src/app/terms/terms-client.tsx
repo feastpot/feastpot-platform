@@ -6,6 +6,8 @@ import { useEffect, useState } from 'react';
 import { KeyTermsSummary, RateCard } from '@feastpot/ui';
 import type { RateRow } from '@feastpot/ui';
 
+import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
+
 import { apiRequest } from '@/lib/api/client';
 import { useAccessToken } from '@/lib/auth/use-access-token';
 
@@ -203,10 +205,10 @@ export function TermsClient({ view, history }: TermsClientProps) {
               <p className="mt-4 text-xs text-mid">
                 A PDF copy of your acceptance record is available on request from{' '}
                 <a
-                  href="mailto:compliance@feastpot.co.uk"
+                  href={`mailto:${PLATFORM_FACTS.contact.complianceEmail}`}
                   className="underline underline-offset-2 hover:text-dark"
                 >
-                  compliance@feastpot.co.uk
+                  {PLATFORM_FACTS.contact.complianceEmail}
                 </a>
                 .
               </p>

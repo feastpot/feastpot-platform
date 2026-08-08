@@ -1,6 +1,7 @@
 'use client';
 
 import { cn } from '@feastpot/ui';
+import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
 import {
   AlertTriangle,
   CheckCircle2,
@@ -306,7 +307,7 @@ function VerificationStatusSection({ verification: v }: { verification: Verifica
           Icon: ShieldAlert,
           iconClass: 'text-red-600',
           title: 'Your Feastpot verification is suspended',
-          body: 'One or more verification requirements are no longer met. New orders are paused until compliance clears the issue. Contact compliance@feastpot.co.uk to resolve this.',
+          body: `One or more verification requirements are no longer met. New orders are paused until compliance clears the issue. Contact ${PLATFORM_FACTS.contact.complianceEmail} to resolve this.`,
         }
       : v.overallState === 'RENEWAL_DUE'
         ? {
@@ -315,7 +316,7 @@ function VerificationStatusSection({ verification: v }: { verification: Verifica
             Icon: AlertTriangle,
             iconClass: 'text-amber-600',
             title: 'Action needed: verification renewal due',
-            body: 'One or more items are expiring soon or have already expired. Contact compliance@feastpot.co.uk to submit updated documentation.',
+            body: `One or more items are expiring soon or have already expired. Contact ${PLATFORM_FACTS.contact.complianceEmail} to submit updated documentation.`,
           }
         : null;
 
@@ -486,10 +487,10 @@ function VerificationStatusSection({ verification: v }: { verification: Verifica
           This record is maintained by the FeastPot compliance team. To update any detail or submit
           new documentation, email{' '}
           <a
-            href="mailto:compliance@feastpot.co.uk"
+            href={`mailto:${PLATFORM_FACTS.contact.complianceEmail}`}
             className="font-semibold text-teal underline underline-offset-2 hover:text-teal-dark"
           >
-            compliance@feastpot.co.uk
+            {PLATFORM_FACTS.contact.complianceEmail}
           </a>
           .
         </p>

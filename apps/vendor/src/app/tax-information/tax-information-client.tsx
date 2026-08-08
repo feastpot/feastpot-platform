@@ -10,6 +10,7 @@ import {
   Info,
   RefreshCw,
 } from 'lucide-react';
+import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
 import { useState } from 'react';
 
 import {
@@ -103,8 +104,8 @@ export function TaxInformationClient() {
           <p className="text-mid">
             Your consent to this collection was given when you accepted the FeastPot vendor terms
             (clause 7.2). If you have questions about how we handle your tax data, contact{' '}
-            <a href="mailto:compliance@feastpot.co.uk" className="underline hover:text-teal">
-              compliance@feastpot.co.uk
+            <a href={`mailto:${PLATFORM_FACTS.contact.complianceEmail}`} className="underline hover:text-teal">
+              {PLATFORM_FACTS.contact.complianceEmail}
             </a>
             .
           </p>
@@ -141,8 +142,8 @@ function VerificationBanner({ profile }: { profile: VendorTaxProfile | null | un
           <p className="mt-0.5 text-sm text-red-800">
             Our compliance team could not verify your tax information. Please review and update the
             details below, or contact{' '}
-            <a href="mailto:compliance@feastpot.co.uk" className="underline">
-              compliance@feastpot.co.uk
+            <a href={`mailto:${PLATFORM_FACTS.contact.complianceEmail}`} className="underline">
+              {PLATFORM_FACTS.contact.complianceEmail}
             </a>
             .
           </p>

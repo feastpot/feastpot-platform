@@ -1,0 +1,68 @@
+TASK: Guarantee no broken links anywhere across the
+vendor portal, customer PWA and admin panel.
+
+CONTEXT
+The vendor portal sidebar has 18 destinations. Three of
+them currently fail (see VP-600). A previous review of
+the public site found /trust linked from every footer
+while returning 404. Broken links are recurring here, so
+the deliverable is not a one-off fix, it is an automated
+guard.
+
+STEP 1: FULL CRAWL
+Write a script at scripts/link-audit.ts that:
+  Starts from the root of each app
+  Follows every internal href and Link component target
+  Records status code, redirect chain and final URL
+  Follows links across apps (portal to public site and
+    back, for example the Vendor Terms link on /terms
+    pointing at feastpot.co.uk/legal/vendor-terms)
+  Checks anchor targets exist, since the public terms
+    page uses section anchors
+  Reports external links separately, warning rather than
+    failing on those
+
+STEP 2: VERIFY THE FULL SIDEBAR
+Explicitly assert all 18 vendor portal destinations
+resolve with a 200 for a vendor with no data:
+  Dashboard, Orders, Disputes, Menu, Availability,
+  Analytics, Bring your customers, Catering bookings,
+  Earnings and fees, Payouts, Compliance, Account status,
+  Tax information, Terms and Notices, Profile, Team,
+  Security, User Guide
+Plus nested routes: /catering/new and any order or
+dispute detail routes.
+
+STEP 3: CHECK THE SPECIFIC LINKS SEEN ON SCREEN
+  /terms: "Full Vendor Terms (Layer 3)" external link
+  /terms: "Rate Schedule (Annex A)" external link
+  /terms: inline "Vendor Terms of Agreement" link
+  /tax-information: "Platform Operators Regulations 2023
+    (SI 2023/817)" external link
+  /tax-information: "gov.uk" UTR help link
+  /tax-information: compliance@feastpot.co.uk mailto
+  Sidebar "Contact support" button target
+  "Go to Vendor Portal" button on error pages
+Confirm each resolves and points where a vendor would
+reasonably expect.
+
+STEP 4: CI GUARD
+Add the audit to CI. Fail the build on any internal link
+returning 4xx or 5xx, or any anchor target that does not
+exist. Warn on external link failures rather than failing,
+since third party sites go down for reasons outside your
+control.
+
+STEP 5: MAILBOX VERIFICATION
+Three addresses appear across the product:
+support@, compliance@, privacy@. Confirm each exists, is
+monitored, and can meet the 5 business day response
+commitment stated in the terms. An unmonitored compliance
+mailbox turns a compliant appeal process into a
+non-compliant one.
+
+ACCEPTANCE CRITERIA
+- Audit reports zero broken internal links.
+- All 18 sidebar routes return 200 for an empty vendor.
+- CI fails when a link is deliberately broken in a test.
+- All three mailboxes confirmed monitored.
