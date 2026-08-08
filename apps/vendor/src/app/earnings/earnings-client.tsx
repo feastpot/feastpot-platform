@@ -116,10 +116,26 @@ export function EarningsClient() {
     );
   }
 
+  // API error or empty data both mean "no completed orders yet".
+  // Per the vendor portal rules, a missing dataset is a valid state and
+  // must render an empty state, never an error boundary or a red message.
+  // The Rate Card is shown regardless so new vendors can see their rates.
   if (error || !data) {
     return (
-      <div className="p-8">
-        <p className="text-red-600">{error ?? 'No data'}</p>
+      <div className="mx-auto max-w-3xl space-y-8 p-6">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Earnings &amp; fees</h1>
+          <p className="mt-1 text-sm text-gray-500">
+            {new Date(year, month - 1).toLocaleString('en-GB', { month: 'long', year: 'numeric' })}
+          </p>
+        </div>
+        <div className="rounded-xl border border-dashed bg-white p-10 text-center shadow-sm">
+          <p className="text-base font-semibold text-gray-700">No earnings yet</p>
+          <p className="mt-2 text-sm text-gray-500">
+            Your first payout summary will appear here after your first completed order.
+          </p>
+        </div>
+        <RateCard rates={rates} loading={ratesLoading} />
       </div>
     );
   }

@@ -1,0 +1,84 @@
+TASK: Diagnose and fix the three failing vendor portal
+pages. This is the highest priority item.
+
+OBSERVED FAILURES
+
+  vendor.feastpot.co.uk/earnings
+    Full error boundary. "Something went wrong."
+    No error reference shown.
+
+  vendor.feastpot.co.uk/compliance
+    Full error boundary. "Something went wrong."
+    Ref: 4121942664 shown.
+
+  vendor.feastpot.co.uk/account-status
+    Page shell renders, but inline banner reads
+    "Unable to load account status. Please refresh or
+    contact support."
+
+CORRELATED SYMPTOM, LIKELY THE SAME ROOT CAUSE
+On the failing pages and on /tax-information, the sidebar
+org switcher shows a generic "Vendor / VENDOR" instead of
+"Maman's Kitchen / VENDOR" which renders correctly on
+/referrals and /terms. That points at a shared vendor
+context loader failing or timing out rather than three
+independent page bugs. Investigate the shared loader
+first before treating these as separate issues.
+
+DIAGNOSTIC STEPS, IN ORDER
+1. Retrieve the logged error for Ref 4121942664. If the
+   reference is not actually persisted anywhere and is a
+   cosmetic random number, that is itself a defect. Fix
+   it in VP-606.
+2. Check whether the three routes share a data hook,
+   layout loader, or server component that resolves the
+   current vendor and its related records.
+3. Check for records that exist for Maman's Kitchen but
+   not for the test vendor account, since these pages
+   depend on newer models (VendorTaxProfile,
+   VendorEnforcementAction, OrderCommission,
+   RateScheduleEntry). A missing row should render an
+   empty state, never throw.
+4. Reproduce with a brand new vendor account that has
+   zero orders, zero disputes and no enforcement history.
+   Strong suspicion: these pages assume data exists.
+
+REQUIRED FIX PATTERN
+Every one of these pages must render successfully for a
+vendor with no data at all. Specifically:
+
+  /earnings
+    No orders yet: render the page with a zero state,
+    "No earnings yet. Your first payout summary will
+    appear here after your first completed order."
+    Still show the Rate Card so a new vendor can see
+    their commission terms before trading.
+
+  /compliance
+    No documents uploaded: render the checklist of
+    required documents with each in a "Not started"
+    state. This page is most useful precisely when it is
+    empty, because it tells a new vendor what to do.
+
+  /account-status
+    No enforcement actions: render "No restrictions on
+    your account" as a positive confirmation, not an
+    error. The page already carries good explanatory copy
+    referencing clause 14.1 and 18.1. Keep it.
+
+RULE TO APPLY REPO-WIDE
+A missing or empty dataset is a valid state and must
+render an empty state component. Only a genuine
+exception (network failure, auth failure, malformed
+response) may reach the error boundary. Audit every
+vendor portal route against this rule.
+
+DO NOT CHANGE ANY COLOURS. Use the existing green, cream
+and card styling already present on working pages.
+
+ACCEPTANCE CRITERIA
+- All three pages render for a vendor with zero data.
+- The org switcher shows the real trading name on every
+  page in the portal.
+- A new vendor account can visit all 18 sidebar
+  destinations without seeing an error boundary.

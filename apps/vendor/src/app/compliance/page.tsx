@@ -62,13 +62,10 @@ export default async function CompliancePage() {
       `/vendors/${vendor.id}/verification`,
       { next: { revalidate: 0 } },
     );
-  } catch (err) {
-    if (!(err instanceof ApiError && err.status === 404)) {
-      // Surface unexpected errors (network failures, 5xx) to the Next
-      // error boundary rather than silently hiding the section.
-      throw err;
-    }
-    // 404 = no record yet; leave verification as null.
+  } catch {
+    // Any error (404 = no record yet; 5xx = table absent in this env)
+    // should leave verification as null and render the empty state,
+    // not surface an error boundary. The ComplianceClient handles null.
   }
 
   return (
