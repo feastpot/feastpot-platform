@@ -2,8 +2,7 @@ import { Link2 } from 'lucide-react';
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 
-import { SideNav } from '@/components/layout/side-nav';
-import { TopNav } from '@/components/layout/top-nav';
+import { PortalShell } from '@/components/layout/portal-shell';
 import { apiRequest, ApiError } from '@/lib/api/client';
 import { createClient as createServerSupabase } from '@/lib/supabase/server';
 
@@ -61,13 +60,7 @@ export default async function ReferralsPage() {
   }
 
   return (
-    <>
-      <div className="md:hidden">
-        <TopNav businessName={vendor.businessName} />
-      </div>
-      <div className="flex min-h-screen bg-surface">
-        <SideNav businessName={vendor.businessName} />
-        <main className="min-w-0 flex-1 px-4 py-6 md:px-6">
+    <PortalShell businessName={vendor.businessName}>
           <header className="mb-6 flex items-start gap-4">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-teal/10">
               <Link2 className="h-5 w-5 text-teal" />
@@ -81,8 +74,6 @@ export default async function ReferralsPage() {
             </div>
           </header>
           <ReferralsClient link={link} />
-        </main>
-      </div>
-    </>
+    </PortalShell>
   );
 }

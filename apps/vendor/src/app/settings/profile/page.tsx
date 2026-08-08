@@ -1,7 +1,6 @@
 import { redirect } from 'next/navigation';
 
-import { SideNav } from '@/components/layout/side-nav';
-import { TopNav } from '@/components/layout/top-nav';
+import { PortalShell } from '@/components/layout/portal-shell';
 import { apiRequest, ApiError } from '@/lib/api/client';
 import { createClient as createServerSupabase } from '@/lib/supabase/server';
 
@@ -42,16 +41,8 @@ export default async function ProfileSettingsPage() {
   if (vendor.status === 'pending' || vendor.status === 'removed') redirect('/onboarding');
 
   return (
-    <>
-      <div className="md:hidden">
-        <TopNav businessName={vendor.businessName} />
-      </div>
-      <div className="flex min-h-screen bg-surface">
-        <SideNav businessName={vendor.businessName} />
-        <main className="min-w-0 flex-1 px-4 py-6 md:px-6">
+    <PortalShell businessName={vendor.businessName}>
           <ProfileForm />
-        </main>
-      </div>
-    </>
+    </PortalShell>
   );
 }

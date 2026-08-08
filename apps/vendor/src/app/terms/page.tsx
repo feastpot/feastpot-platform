@@ -1,7 +1,6 @@
 import { redirect } from 'next/navigation';
 
-import { SideNav } from '@/components/layout/side-nav';
-import { TopNav } from '@/components/layout/top-nav';
+import { PortalShell } from '@/components/layout/portal-shell';
 import { apiRequest, ApiError } from '@/lib/api/client';
 import { createClient as createServerSupabase } from '@/lib/supabase/server';
 
@@ -63,13 +62,7 @@ export default async function TermsPage() {
   ]);
 
   return (
-    <>
-      <div className="md:hidden">
-        <TopNav businessName={vendor.businessName} />
-      </div>
-      <div className="flex min-h-screen bg-surface">
-        <SideNav businessName={vendor.businessName} />
-        <main className="min-w-0 flex-1 px-4 py-6 md:px-6">
+    <PortalShell businessName={vendor.businessName}>
           <header className="mb-6">
             <h1 className="text-xl font-bold text-dark">Terms &amp; Notices</h1>
             <p className="mt-1 text-sm text-mid">
@@ -77,8 +70,6 @@ export default async function TermsPage() {
             </p>
           </header>
           <TermsClient view={view} history={history} />
-        </main>
-      </div>
-    </>
+    </PortalShell>
   );
 }

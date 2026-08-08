@@ -1,0 +1,75 @@
+TASK: Apply one consistent layout shell across the
+entire vendor portal.
+
+THREE DISTINCT LAYOUT BUGS OBSERVED
+
+BUG 1, THE SERIOUS ONE: /catering/new HAS NO SIDEBAR
+The New catering quote page renders with no navigation
+whatsoever. No sidebar, no logo, no back link, no
+breadcrumb. A vendor who lands here has no way back to
+the portal except the browser back button. On a PWA
+launched from the home screen there may be no visible
+browser chrome at all, which strands them completely.
+This page is also visually orphaned: content sits in a
+narrow centred column while every other page uses a
+sidebar plus content layout.
+
+FIX: wrap /catering/new in the standard portal layout.
+Add a breadcrumb: Catering bookings > New quote. Add a
+Cancel action returning to /catering.
+
+BUG 2: CONTENT COLUMN POSITION IS INCONSISTENT
+  /referrals      content starts at sidebar edge, cards
+                  stretch the full remaining width
+  /account-status same, banner stretches full width
+  /tax-information content sits far right with a large
+                  empty left gutter
+  /terms          two column layout, reasonably balanced
+  /catering/new   centred, no sidebar
+
+Five pages, four different layout behaviours.
+
+BUG 3: NO MAX-WIDTH CONSTRAINT
+On a wide monitor, cards and banners stretch to the full
+viewport. The /referrals share-text cards and the
+/account-status error banner both run edge to edge, which
+makes line lengths uncomfortable to read and makes the
+page feel unfinished.
+
+REQUIRED SHELL
+
+Create packages/ui/src/VendorPortalLayout.tsx and use it
+for every route under vendor.feastpot.co.uk:
+
+  Persistent sidebar (existing design, unchanged)
+  Content region with:
+    max-width of 1100px for standard pages
+    max-width of 760px for form-first pages such as
+      /catering/new and /tax-information
+    left aligned within the content region, not centred
+      and not right aligned
+    consistent horizontal padding at 24px desktop,
+      16px mobile
+  Page header block: title, description, optional
+    breadcrumb, consistent spacing on every page
+
+MOBILE
+This is a PWA and vendors will use phones. Verify at
+375px width:
+  Sidebar collapses to a bottom bar or hamburger
+  No horizontal scroll on any page
+  The /referrals share-text cards stack rather than
+    sitting side by side
+  The /catering/new menu item fields stack cleanly
+
+DO NOT CHANGE ANY COLOURS. This is purely structural:
+containers, spacing, max-widths and navigation presence.
+Every green, cream, border and chip colour stays exactly
+as it is.
+
+ACCEPTANCE CRITERIA
+- Every portal route renders inside the same shell.
+- /catering/new has full sidebar navigation and a
+  breadcrumb.
+- No page has an empty gutter wider than its content.
+- No horizontal scroll at 375px on any route.
