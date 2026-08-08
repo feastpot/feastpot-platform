@@ -190,6 +190,9 @@ export function AvailabilityClient({ initial }: { initial: AvailabilitySnapshot 
         accessToken: token!,
       }),
     onSuccess: (next) => qc.setQueryData(QUERY_KEY, next),
+    onError: (e) => {
+      setServerError(e instanceof ApiError ? e.message : 'Could not remove that blackout date');
+    },
   });
 
   const toggleDay = (day: number) => {
