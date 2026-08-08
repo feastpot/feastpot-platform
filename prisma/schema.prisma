@@ -1545,35 +1545,74 @@ enum TermsDocumentType {
   VENDOR_TERMS
   CUSTOMER_TERMS
   PRIVACY
+  COOKIES
+  ALLERGENS
+  RATE_SCHEDULE
+}
+
+/// How a vendor accepted a version of the terms.
+/// CLICKWRAP: ticked a checkbox after reading. ESIGNATURE: external tool.
+/// DEEMED_CONTINUED_USE: acceptance inferred from continued platform use (editorial-only changes).
+enum AcceptanceMethod {
+  CLICKWRAP
+  ESIGNATURE
+  DEEMED_CONTINUED_USE
 }
 
 model TermsVersion {
   id           String            @id @default(cuid())
   documentType TermsDocumentType @map("document_type")
   version      String            @db.VarChar(32)
+  /// Full document text in MDX format. SHA-256 of this field == contentHash.
+  /// Immutable once published - corrections require a new version row.
+  contentMdx   String            @map("content_mdx") @db.Text
+  /// SHA-256 of contentMdx, computed on publish and never editable afterwards.
   contentHash  String            @map("content_hash") @db.VarChar(64)
-  summary      String
+  /// Plain-language summary of what changed in this version. Shown to vendors.
+  changeSummary String           @map("change_summary") @db.Text
+  /// true = material change (P2B 15-day notice required).
+  /// false = editorial only (typo / formatting). Requires a written justification in changeSummary.
+  isMaterial   Boolean           @default(true) @map("is_material")
   publishedAt  DateTime          @map("published_at") @db.Timestamptz
+  /// When the terms take effect. Must be >= 15 days after publishedAt for isMaterial=true.
   effectiveAt  DateTime          @map("effective_at") @db.Timestamptz
+  /// Set when a newer version supersedes this one. Exactly one version per documentType
+  /// may have supersededAt IS NULL (the live version).
+  supersededAt DateTime?         @map("superseded_at") @db.Timestamptz
+  /// Staff member who published this version (email or name for audit trail).
+  createdBy    String?           @map("created_by") @db.VarChar(255)
+  /// For VENDOR_TERMS: "Reviewed and approved by [solicitor] on [date]".
+  /// The publish endpoint rejects VENDOR_TERMS versions without this field.
+  solicitorSignOff String?       @map("solicitor_sign_off") @db.Text
 
   acceptances TermsAcceptance[]
   notices     TermsNotice[]
 
   @@unique([documentType, version])
+  @@index([effectiveAt])
   @@map("terms_versions")
 }
 
 model TermsAcceptance {
-  id             String   @id @default(cuid())
-  vendorId       String   @map("vendor_id") @db.Uuid
-  termsVersionId String   @map("terms_version_id")
-  acceptedAt     DateTime @default(now()) @map("accepted_at") @db.Timestamptz
-  ipAddress      String?  @map("ip_address")
+  id             String           @id @default(cuid())
+  vendorId       String           @map("vendor_id") @db.Uuid
+  termsVersionId String           @map("terms_version_id")
+  acceptedAt     DateTime         @default(now()) @map("accepted_at") @db.Timestamptz
+  ipAddress      String?          @map("ip_address")
+  userAgent      String?          @map("user_agent") @db.Text
+  /// Exact label text shown to the vendor at acceptance time.
+  acceptanceText String?          @map("acceptance_text") @db.Text
+  /// SHA-256 of the version's contentMdx at the moment of acceptance.
+  contentHash    String?          @map("content_hash") @db.VarChar(64)
+  /// Whether the vendor scrolled to the end of the terms pane before accepting.
+  scrolledToEnd  Boolean          @default(false) @map("scrolled_to_end")
+  method         AcceptanceMethod @default(CLICKWRAP)
 
-  vendor      Vendor       @relation(fields: [vendorId], references: [id])
+  vendor       Vendor       @relation(fields: [vendorId], references: [id])
   termsVersion TermsVersion @relation(fields: [termsVersionId], references: [id])
 
   @@unique([vendorId, termsVersionId])
+  @@index([vendorId, acceptedAt])
   @@map("terms_acceptances")
 }
 

@@ -10,6 +10,7 @@ import { DocumentRow, REQUIRED_DOCS } from '@/components/compliance/compliance-d
 import { useToast } from '@/components/ui/toaster';
 import { useCreateStripeConnectLink } from '@/hooks/use-stripe-connect';
 import { useOnboardingProgress } from '@/hooks/use-onboarding-progress';
+import { useTermsAcceptanceStatus } from '@/hooks/use-terms-acceptance';
 import { useUploadDocument, useVendorDocuments } from '@/hooks/use-vendor-documents';
 
 interface VendorSummary {
@@ -23,24 +24,26 @@ interface VendorSummary {
 }
 
 /**
- * 4-step wizard indicator. We render all four step cards on the page (the
- * vendor can work on them in parallel - Stripe in one tab, doc upload in
- * another) so `currentStep` is "the first step that isn't done yet"
- * rather than a strict wizard cursor. Once everything's done, the
- * indicator settles on step 4 with all checks lit.
+ * 5-step wizard indicator. Step 3 is Terms acceptance (added between
+ * Documents and Payouts so vendors click-wrap before they can go live).
+ * We render all five step cards on the page (vendor can work on several
+ * in parallel) so `currentStep` is "the first step that isn't done yet".
  */
-const ONBOARDING_STEPS: Array<{ num: 1 | 2 | 3 | 4; label: string }> = [
+const ONBOARDING_STEPS: Array<{ num: 1 | 2 | 3 | 4 | 5; label: string }> = [
   { num: 1, label: 'Business details' },
   { num: 2, label: 'Documents' },
-  { num: 3, label: 'Set up payouts' },
-  { num: 4, label: 'Your first menu' },
+  { num: 3, label: 'Terms' },
+  { num: 4, label: 'Set up payouts' },
+  { num: 5, label: 'Your first menu' },
 ];
 
 export function OnboardingClient({ vendor }: { vendor: VendorSummary }) {
   const search = useSearchParams();
   const stripeReturned = search?.get('stripe') === 'return';
+  const termsJustAccepted = search?.get('terms') === 'accepted';
   const docs = useVendorDocuments(vendor.id);
   const progress = useOnboardingProgress();
+  const termsStatus = useTermsAcceptanceStatus();
   const upload = useUploadDocument(vendor.id);
   const stripe = useCreateStripeConnectLink();
   const { toast } = useToast();
@@ -53,19 +56,19 @@ export function OnboardingClient({ vendor }: { vendor: VendorSummary }) {
   const allDocsUploaded = REQUIRED_DOCS.every((d) => docByType.has(d.type));
   const stripeReady = !!vendor.stripeAccountId && vendor.payoutsEnabled;
   const profileDone = !!vendor.description && vendor.cuisines.length > 0;
+  // Terms acceptance: treat as done if status returns accepted, or while
+  // loading (optimistic -- the gate re-checks server-side at activation).
+  const termsDone = termsStatus.data?.accepted ?? termsJustAccepted;
   // Menu step is driven by the onboarding-progress endpoint (>= 3 available
   // items). While the query is loading we treat it as not-done so the
   // indicator never flashes "complete" and then regresses.
   const menuDone = progress.data?.menuComplete ?? false;
   const menuItemCount = progress.data?.menuItemCount ?? 0;
-  // canGoLive previously ignored profile completion - meaning the "All set!"
-  // banner could appear while the vendor's description/cuisines were still
-  // empty. Include profileDone (and now the menu step, matching the copy's
-  // "3 items live" promise) so compliance never reviews a half-built vendor.
-  const canGoLive = profileDone && allDocsUploaded && stripeReady && menuDone;
-  const stepFlags = [profileDone, allDocsUploaded, stripeReady, menuDone];
+  // canGoLive requires terms acceptance in addition to the original four steps.
+  const canGoLive = profileDone && allDocsUploaded && termsDone && stripeReady && menuDone;
+  const stepFlags = [profileDone, allDocsUploaded, termsDone, stripeReady, menuDone];
   const firstIncomplete = stepFlags.findIndex((f) => !f);
-  const currentStep = (firstIncomplete === -1 ? 4 : firstIncomplete + 1) as 1 | 2 | 3 | 4;
+  const currentStep = (firstIncomplete === -1 ? 5 : firstIncomplete + 1) as 1 | 2 | 3 | 4 | 5;
 
   return (
     <div className="mx-auto max-w-2xl space-y-4">
@@ -151,8 +154,36 @@ export function OnboardingClient({ vendor }: { vendor: VendorSummary }) {
         }
       />
 
+      {/* Step 3: Terms acceptance -- must happen before payouts go live */}
       <Step
         n={3}
+        title="Vendor Terms of Agreement"
+        done={termsDone}
+        body={
+          <>
+            <p className="text-sm text-muted-foreground">
+              {termsDone
+                ? 'You have read and accepted the Feastpot Vendor Terms of Agreement.'
+                : 'Read and accept the Vendor Terms of Agreement (version 2.0) before your account can go live. Takes about 5 minutes.'}
+            </p>
+            {!termsDone && (
+              <Link href="/onboarding/terms" className="mt-2 inline-block">
+                <Button variant="default" size="sm">
+                  Review and accept terms
+                </Button>
+              </Link>
+            )}
+            {!termsDone && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                You must scroll through the full terms and tick the checkbox -- pre-ticked boxes are not valid consent.
+              </p>
+            )}
+          </>
+        }
+      />
+
+      <Step
+        n={4}
         title="Set up payouts (Stripe)"
         done={stripeReady}
         body={
@@ -190,7 +221,7 @@ export function OnboardingClient({ vendor }: { vendor: VendorSummary }) {
       />
 
       <Step
-        n={4}
+        n={5}
         title="Add your first menu items"
         done={menuDone}
         body={
@@ -239,7 +270,7 @@ export function OnboardingClient({ vendor }: { vendor: VendorSummary }) {
  *   cards already announce their done/active state via the existing
  *   `<Step>` heading and badge - so we mark it `aria-hidden`.
  */
-function StepIndicator({ currentStep }: { currentStep: 1 | 2 | 3 | 4 }) {
+function StepIndicator({ currentStep }: { currentStep: 1 | 2 | 3 | 4 | 5 }) {
   return (
     <div
       aria-hidden="true"

@@ -63,7 +63,7 @@ export class TermsNoticeProcessor {
           html: buildNoticeEmail({
             businessName: vendor.businessName,
             version: version.version,
-            summary: version.summary,
+            summary: version.changeSummary,
             effectiveDateStr,
           }),
         });

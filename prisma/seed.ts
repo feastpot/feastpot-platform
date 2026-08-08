@@ -2185,7 +2185,10 @@ async function main() {
   console.info('[seed] done.');
 }
 
+import { seedTerms } from './seed-terms';
+
 main()
+  .then(() => seedTerms())
   .catch((e) => {
     console.error('[seed] failed:', e);
     process.exit(1);

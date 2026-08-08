@@ -13,6 +13,8 @@ import {
 } from '@/components/legal/legal-shell';
 import { LEGAL } from '@/lib/legal-constants';
 
+import { TermsVersionBadge } from './version-badge';
+
 export const metadata: Metadata = {
   title: 'Vendor Terms of Service',
   description:
@@ -57,6 +59,8 @@ export default function VendorTermsPage() {
       <LegalQuickNav ariaLabel="Vendor terms sections" items={QUICK_NAV} />
 
       <LegalContentWrapper>
+        {/* Version badge: fetches version number + effective date from the API */}
+        <TermsVersionBadge />
         {/* ── 1. Relationship ── */}
         <LegalSection id="relationship" icon="🤝" title="1. The vendor relationship">
           <p>

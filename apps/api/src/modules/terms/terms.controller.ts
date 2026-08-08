@@ -16,6 +16,7 @@ import { Roles } from '../../auth/decorators/roles.decorator';
 import type { AuthedRequest, AuthUser } from '../../auth/types';
 import { VendorMembersService } from '../vendor-members/vendor-members.service';
 
+import { AcceptTermsVersionDto } from './dto/accept-terms-version.dto';
 import { PublishTermsVersionDto } from './dto/publish-terms-version.dto';
 import { TermsService } from './terms.service';
 
@@ -37,7 +38,8 @@ export class TermsController {
 
   /**
    * Publish a new terms version.
-   * Requires effectiveAt >= 15 days from now (hard validation).
+   * Hard rules enforced in service: 15-day notice for material changes,
+   * solicitor sign-off required for VENDOR_TERMS, contentHash computed on publish.
    */
   @Post('versions')
   @Roles(UserRole.admin, UserRole.support)
@@ -49,7 +51,20 @@ export class TermsController {
   // ─── Public ─────────────────────────────────────────────────────────────────
 
   /**
-   * List all published terms versions for a document type (public).
+   * Current live version metadata + content for public rendering.
+   * Used by the customer-facing vendor-terms page.
+   */
+  @Get('current')
+  @Public()
+  @ApiOperation({ summary: 'Get the current live terms version (public)' })
+  getCurrent(
+    @Query('documentType') documentType: TermsDocumentType = TermsDocumentType.VENDOR_TERMS,
+  ) {
+    return this.terms.getCurrentVersion(documentType);
+  }
+
+  /**
+   * List all published versions for a document type (public -- version history).
    */
   @Get('versions')
   @Public()
@@ -95,20 +110,54 @@ export class TermsController {
   }
 
   /**
-   * Vendor acknowledges / accepts a specific terms version.
+   * Whether this vendor has accepted the current live version.
+   * Used by the onboarding flow to decide whether to show the terms step.
+   */
+  @Get('acceptance-status')
+  @Roles(UserRole.vendor)
+  @ApiOperation({ summary: 'Check if vendor has accepted the current live version' })
+  async getAcceptanceStatus(
+    @Req() req: AuthedRequest,
+    @Query('documentType') documentType: TermsDocumentType = TermsDocumentType.VENDOR_TERMS,
+  ) {
+    const user = requireUser(req);
+    const eff = await this.vendorMembers.getEffectiveRole(user);
+    if (!eff) return { accepted: false };
+    const accepted = await this.terms.hasAcceptedCurrentVersion(eff.vendorId, documentType);
+    return { accepted };
+  }
+
+  /**
+   * Vendor click-wraps a specific terms version.
+   *
+   * Records all nine audit fields required for enforceable click-wrap:
+   * vendorId, versionId, acceptedAt, contentHash, ipAddress, userAgent,
+   * acceptanceText, scrolledToEnd, method=CLICKWRAP.
+   *
+   * Acceptances are append-only -- no update or delete endpoint exists.
+   * DO NOT allow an admin to call this on behalf of a vendor.
    */
   @Post('versions/:id/accept')
   @HttpCode(200)
   @Roles(UserRole.vendor)
-  @ApiOperation({ summary: 'Accept a terms version' })
-  async acceptVersion(@Param('id') id: string, @Req() req: AuthedRequest) {
+  @ApiOperation({ summary: 'Click-wrap accept a terms version (vendor)' })
+  async acceptVersion(
+    @Param('id') id: string,
+    @Body() dto: AcceptTermsVersionDto,
+    @Req() req: AuthedRequest,
+  ) {
     const user = requireUser(req);
     const eff = await this.vendorMembers.getEffectiveRole(user);
     if (!eff) return { ok: false };
+
     const ip =
       (req.headers['x-forwarded-for'] as string | undefined)?.split(',')[0]?.trim() ??
       (req as unknown as { ip?: string }).ip;
-    return this.terms.acceptVersion(eff.vendorId, id, ip);
+    const uaRaw = req.headers['user-agent'];
+    const ua = Array.isArray(uaRaw) ? uaRaw[0] : uaRaw;
+
+    await this.terms.acceptVersion(eff.vendorId, id, dto, ip, ua);
+    return { ok: true };
   }
 
   /**
