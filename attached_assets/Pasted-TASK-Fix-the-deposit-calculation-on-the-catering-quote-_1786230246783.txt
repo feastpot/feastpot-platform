@@ -1,0 +1,79 @@
+TASK: Fix the deposit calculation on the catering quote
+builder.
+
+OBSERVED ON /catering/new
+  Total            £0.00
+  Deposit (25%)    £50.00
+  Balance          £0.00
+
+Three problems in three lines. 25% of £0.00 is £0.00,
+not £50.00. And £0.00 total minus £50.00 deposit does
+not give a £0.00 balance. The numbers do not reconcile
+with each other under any interpretation.
+
+LIKELY CAUSES TO CHECK
+  A hardcoded £50 default deposit
+  A minimum deposit floor applied before the total is
+    known, rather than after
+  A placeholder value left in from development
+  Deposit computed from a different state variable than
+    the one driving Total
+
+REQUIRED BEHAVIOUR
+1. Deposit is always exactly 25% of the event total, per
+   vendor terms clause 8.1. Compute in integer pence:
+     depositPence = Math.round(totalPence * 0.25)
+   Never floats. Never a hardcoded fallback.
+
+2. Balance is always totalPence minus depositPence. Add
+   an assertion in the component: if
+   deposit + balance !== total, do not render a number,
+   render a validation error. A quote that does not add
+   up must never reach a customer.
+
+3. When total is zero, all three lines show £0.00 and
+   the Save quote button stays disabled. The button
+   already appears disabled in this state, which is
+   correct, so keep that behaviour.
+
+4. If a minimum deposit rule genuinely exists as a
+   business rule, it must be sourced from the Rate
+   Schedule, displayed with an explanatory label such as
+   "Deposit (25%, minimum £50)", and only applied once
+   the total exceeds zero. Confirm whether this rule is
+   intended before implementing it. Do not guess.
+
+WHILE IN THIS FILE, THREE SMALLER ITEMS
+
+A. ALLERGEN CHIP LABELS
+   Two of the 14 chips are ambiguous against the UK
+   regulated allergen list:
+     "cereals" should read "cereals containing gluten"
+     "nuts" should read "tree nuts"
+   Ambiguity here is a food safety issue, not a wording
+   preference. A vendor selecting "nuts" may reasonably
+   believe it covers peanuts, which is a separate
+   regulated allergen and is already its own chip.
+   Keep the existing chip styling and colours exactly.
+
+B. QUOTE EXPIRY VALIDATION
+   The field defaults to 7 days ahead, which matches the
+   terms. But terms clause also requires expiry no later
+   than 48 hours before the event. Add validation: when
+   the event date is set, clamp the expiry to the earlier
+   of 7 days from now and 48 hours before the event, and
+   explain the clamp inline.
+
+C. REQUIRED FIELD MARKERS
+   No field on this form is marked required, yet Save
+   quote is disabled until some condition is met. Mark
+   required fields and state what is missing, so the
+   vendor is not left guessing why the button is grey.
+
+DO NOT CHANGE ANY COLOURS.
+
+ACCEPTANCE CRITERIA
+- Deposit equals exactly 25% of total at every value.
+- Deposit plus balance always equals total, asserted.
+- A zero total shows £0.00 on all three lines.
+- Allergen chips use unambiguous regulated names.
