@@ -157,44 +157,61 @@ export function ComplianceClient({
           team has created a verification record for this vendor. */}
       {verification && <VerificationStatusSection verification={verification} />}
 
-      <StatusBanner
-        tone={banner.tone}
-        title={banner.title}
-        subline={banner.subline}
-        approvedPct={approvedPct}
-        canViewMissing={!!firstMissingType}
-        onViewMissing={handleViewMissing}
-      />
-
-      <div className="space-y-3">
-        {REQUIRED_DOCS.map((d) => (
-          <DocumentRow
-            key={d.type}
-            anchorId={`doc-${d.type}`}
-            type={d.type}
-            label={d.label}
-            why={d.why}
-            mustShow={d.mustShow}
-            acceptedFiles={d.acceptedFiles}
-            doc={docByType.get(d.type) ?? null}
-            uploading={upload.isPending}
-            onPick={(file, expiresAt) => {
-              upload.mutate(
-                { file, type: d.type, expiresAt },
-                {
-                  onSuccess: () => toast({ title: `${d.label} uploaded` }),
-                  onError: (err) =>
-                    toast({
-                      title: 'Upload failed',
-                      description: err instanceof Error ? err.message : '',
-                      variant: 'destructive',
-                    }),
-                },
-              );
-            }}
+      {docs.isLoading ? (
+        /* Loading state: skeleton cards while document list fetches */
+        <div className="space-y-3" aria-busy="true" aria-label="Loading compliance documents">
+          {[1, 2, 3, 4].map((n) => (
+            <div key={n} className="h-24 animate-pulse rounded-xl bg-surface" />
+          ))}
+        </div>
+      ) : docs.isError ? (
+        /* Error state: fetch failed */
+        <div className="rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-red-800">
+          <p className="font-semibold">Could not load your compliance documents.</p>
+          <p className="mt-1 text-red-700">Please refresh the page to try again.</p>
+        </div>
+      ) : (
+        <>
+          <StatusBanner
+            tone={banner.tone}
+            title={banner.title}
+            subline={banner.subline}
+            approvedPct={approvedPct}
+            canViewMissing={!!firstMissingType}
+            onViewMissing={handleViewMissing}
           />
-        ))}
-      </div>
+
+          <div className="space-y-3">
+            {REQUIRED_DOCS.map((d) => (
+              <DocumentRow
+                key={d.type}
+                anchorId={`doc-${d.type}`}
+                type={d.type}
+                label={d.label}
+                why={d.why}
+                mustShow={d.mustShow}
+                acceptedFiles={d.acceptedFiles}
+                doc={docByType.get(d.type) ?? null}
+                uploading={upload.isPending}
+                onPick={(file, expiresAt) => {
+                  upload.mutate(
+                    { file, type: d.type, expiresAt },
+                    {
+                      onSuccess: () => toast({ title: `${d.label} uploaded` }),
+                      onError: (err) =>
+                        toast({
+                          title: 'Upload failed',
+                          description: err instanceof Error ? err.message : '',
+                          variant: 'destructive',
+                        }),
+                    },
+                  );
+                }}
+              />
+            ))}
+          </div>
+        </>
+      )}
 
       <div className="fp-card flex items-start gap-3 border border-border bg-surface px-4 py-3 text-xs text-mid">
         <Info className="mt-0.5 h-4 w-4 shrink-0 text-mid" aria-hidden />

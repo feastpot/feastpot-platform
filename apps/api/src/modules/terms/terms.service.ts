@@ -233,14 +233,18 @@ export class TermsService {
 
     const acceptances = await this.prisma.termsAcceptance.findMany({
       where: { vendorId, termsVersionId: { in: versions.map((v) => v.id) } },
-      select: { termsVersionId: true, acceptedAt: true },
+      select: { termsVersionId: true, acceptedAt: true, method: true },
     });
-    const acceptanceMap = new Map(acceptances.map((a) => [a.termsVersionId, a.acceptedAt]));
+    const acceptanceMap = new Map(acceptances.map((a) => [a.termsVersionId, a]));
 
-    return versions.map((v) => ({
-      ...v,
-      acceptedAt: acceptanceMap.get(v.id) ?? null,
-    }));
+    return versions.map((v) => {
+      const acc = acceptanceMap.get(v.id);
+      return {
+        ...v,
+        acceptedAt: acc?.acceptedAt ?? null,
+        acceptanceMethod: acc?.method ?? null,
+      };
+    });
   }
 
   // ─── Acceptance ─────────────────────────────────────────────────────────────

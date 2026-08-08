@@ -60,11 +60,13 @@ export function OrdersDashboard({ vendorId }: Props) {
     data: active = [],
     isLoading: isLoadingActive,
     isFetching: isFetchingActive,
+    isError: isErrorActive,
   } = useActiveOrders();
   const {
     data: deliveredPage,
     isLoading: isLoadingDelivered,
     isFetching: isFetchingDelivered,
+    isError: isErrorDelivered,
   } = useOrderHistory({
     status: 'delivered',
   });
@@ -246,6 +248,7 @@ export function OrdersDashboard({ vendorId }: Props) {
 
   const isLoading = activeTab === 'delivered' ? isLoadingDelivered : isLoadingActive;
   const isFetching = activeTab === 'delivered' ? isFetchingDelivered : isFetchingActive;
+  const isError = activeTab === 'delivered' ? isErrorDelivered : isErrorActive;
 
   // ── Actions ─────────────────────────────────────────────────────────
   const onRefresh = useCallback(() => {
@@ -361,6 +364,7 @@ export function OrdersDashboard({ vendorId }: Props) {
           <BucketList
             orders={visibleOrders}
             isLoading={isLoading}
+            isError={isError}
             tab={activeTab}
             hasAnyActive={
               activeTab === 'delivered'
@@ -394,6 +398,7 @@ export function OrdersDashboard({ vendorId }: Props) {
 function BucketList({
   orders,
   isLoading,
+  isError,
   tab,
   hasAnyActive,
   search,
@@ -401,6 +406,7 @@ function BucketList({
 }: {
   orders: VendorOrder[];
   isLoading: boolean;
+  isError: boolean;
   tab: VendorOrderStatus;
   hasAnyActive: boolean;
   search: string;
@@ -409,7 +415,15 @@ function BucketList({
   if (isLoading) {
     return (
       <div className="fp-card border border-border bg-white p-6 text-center text-sm text-mid">
-        Loading orders…
+        Loading orders...
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="fp-card border border-red-200 bg-red-50 p-6 text-center text-sm text-red-800">
+        Could not load orders. Please refresh to try again.
       </div>
     );
   }

@@ -62,6 +62,7 @@ export function ReferralsClient({ link: initialLink }: ReferralsClientProps) {
   const { token } = useAccessToken() as { token: string | null; loading: boolean };
   const [link, setLink] = useState<ReferralLink | null>(initialLink);
   const [split, setSplit] = useState<SplitData | null>(null);
+  const [splitStatus, setSplitStatus] = useState<'loading' | 'ok' | 'error'>('loading');
   const [copied, setCopied] = useState<string | null>(null);
   const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -105,8 +106,8 @@ export function ReferralsClient({ link: initialLink }: ReferralsClientProps) {
   useEffect(() => {
     if (!token) return;
     apiRequest<SplitData>('/attribution/vendor-split', { accessToken: token })
-      .then(setSplit)
-      .catch(() => null);
+      .then((d) => { setSplit(d); setSplitStatus('ok'); })
+      .catch(() => setSplitStatus('error'));
   }, [token]);
 
   function copyToClipboard(text: string, key: string) {
@@ -250,7 +251,17 @@ export function ReferralsClient({ link: initialLink }: ReferralsClientProps) {
         <h2 id="split-heading" className="mb-3 text-sm font-semibold uppercase tracking-wide text-mid">
           Order source breakdown
         </h2>
-        {split ? (
+        {splitStatus === 'loading' ? (
+          <div
+            className="h-32 animate-pulse rounded-xl bg-surface"
+            aria-busy="true"
+            aria-label="Loading order source data"
+          />
+        ) : splitStatus === 'error' ? (
+          <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+            Could not load order source data. Please refresh to try again.
+          </div>
+        ) : split && (allTotal > 0 || weekTotal > 0) ? (
           <div className="grid gap-4 sm:grid-cols-2">
             {/* This week */}
             <div className="rounded-xl border border-border bg-white p-5">
@@ -298,7 +309,40 @@ export function ReferralsClient({ link: initialLink }: ReferralsClientProps) {
             </div>
           </div>
         ) : (
-          <div className="h-32 animate-pulse rounded-xl bg-surface" />
+          /* Empty state: no orders yet - explain what this section will contain. */
+          <div className="rounded-xl border border-border bg-white p-5">
+            <p className="mb-4 text-sm text-mid">
+              No orders yet. Once customers order through your link, you will see how many
+              came from your own marketing versus Feastpot discovery here.
+            </p>
+            <table className="w-full text-sm" aria-label="Order source breakdown placeholder">
+              <thead>
+                <tr className="border-b border-border">
+                  <th scope="col" className="py-2 text-left text-xs font-semibold text-mid">
+                    Source
+                  </th>
+                  <th scope="col" className="py-2 text-right text-xs font-semibold text-mid">
+                    Orders
+                  </th>
+                  <th scope="col" className="py-2 text-right text-xs font-semibold text-mid">
+                    Revenue
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-b border-border">
+                  <td className="py-2 text-mid">Feastpot marketplace</td>
+                  <td className="py-2 text-right text-mid">0</td>
+                  <td className="py-2 text-right text-mid">£0.00</td>
+                </tr>
+                <tr>
+                  <td className="py-2 text-mid">Your referral link</td>
+                  <td className="py-2 text-right text-mid">0</td>
+                  <td className="py-2 text-right text-mid">£0.00</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         )}
       </section>
     </div>

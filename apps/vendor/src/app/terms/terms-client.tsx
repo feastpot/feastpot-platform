@@ -21,6 +21,7 @@ interface TermsVersion {
 
 interface HistoryEntry extends Omit<TermsVersion, 'accepted'> {
   acceptedAt: string | null;
+  acceptanceMethod?: string | null;
 }
 
 interface TermsViewData {
@@ -41,10 +42,11 @@ export function TermsClient({ view, history }: TermsClientProps) {
   // Layer 2: commission rates (public endpoint, no token required).
   const [rates, setRates] = useState<RateRow[]>([]);
   const [ratesLoading, setRatesLoading] = useState(true);
+  const [ratesError, setRatesError] = useState<string | null>(null);
   useEffect(() => {
     apiRequest<RateRow[]>('/terms/rate-schedule')
       .then(setRates)
-      .catch(() => null)
+      .catch(() => setRatesError('Could not load the rate schedule. Please refresh.'))
       .finally(() => setRatesLoading(false));
   }, []);
 
@@ -67,6 +69,22 @@ export function TermsClient({ view, history }: TermsClientProps) {
   const isPending = (v: TermsVersion) =>
     !v.accepted && !accepted.has(v.id) && new Date(v.effectiveAt) > new Date();
 
+  // Acceptance record: look up the current version in history to get acceptedAt + method.
+  const currentInHistory = view.current
+    ? history.find((h) => h.id === view.current!.id)
+    : null;
+  const currentIsAccepted = view.current
+    ? view.current.accepted || accepted.has(view.current.id)
+    : false;
+  const currentAcceptedAt = currentInHistory?.acceptedAt ?? null;
+  const currentAcceptanceMethod = currentInHistory?.acceptanceMethod ?? null;
+  const acceptanceMethodLabel =
+    currentAcceptanceMethod === 'CLICKWRAP'
+      ? 'Online (click-wrap)'
+      : currentAcceptanceMethod === 'DEEMED_CONTINUED_USE'
+        ? 'Deemed by continued use'
+        : currentAcceptanceMethod ?? 'Not recorded';
+
   return (
     <div className="space-y-8">
       {/* Layer 1 + Layer 2 -- legal resources always visible on the Legal tab */}
@@ -79,7 +97,7 @@ export function TermsClient({ view, history }: TermsClientProps) {
         </h2>
         <div className="grid gap-4 lg:grid-cols-2">
           <KeyTermsSummary />
-          <RateCard rates={rates} loading={ratesLoading} />
+          <RateCard rates={rates} loading={ratesLoading} error={ratesError ?? undefined} />
         </div>
         <div className="mt-3 flex flex-wrap gap-4 text-sm">
           <a
@@ -144,6 +162,69 @@ export function TermsClient({ view, history }: TermsClientProps) {
         </section>
       )}
 
+      {/* Acknowledgement record */}
+      {view.current && (
+        <section aria-labelledby="acceptance-record-heading">
+          <h2
+            id="acceptance-record-heading"
+            className="mb-4 flex items-center gap-2 text-base font-semibold text-dark"
+          >
+            <CheckCircle2 className="h-5 w-5 text-teal" aria-hidden />
+            Acknowledgement record
+          </h2>
+          {currentIsAccepted ? (
+            <div className="rounded-xl border border-border bg-white p-5">
+              <dl className="grid gap-4 text-sm sm:grid-cols-3">
+                <div>
+                  <dt className="text-xs font-medium text-mid">Version</dt>
+                  <dd className="mt-0.5 font-semibold text-dark">
+                    v{view.current.version}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-medium text-mid">Accepted</dt>
+                  <dd className="mt-0.5 font-semibold text-dark">
+                    {currentAcceptedAt
+                      ? new Date(currentAcceptedAt).toLocaleString('en-GB', {
+                          day: 'numeric',
+                          month: 'long',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })
+                      : 'Date not recorded'}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-medium text-mid">Method</dt>
+                  <dd className="mt-0.5 font-semibold text-dark">{acceptanceMethodLabel}</dd>
+                </div>
+              </dl>
+              <p className="mt-4 text-xs text-mid">
+                A PDF copy of your acceptance record is available on request from{' '}
+                <a
+                  href="mailto:compliance@feastpot.co.uk"
+                  className="underline underline-offset-2 hover:text-dark"
+                >
+                  compliance@feastpot.co.uk
+                </a>
+                .
+              </p>
+            </div>
+          ) : (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-5">
+              <p className="text-sm font-semibold text-amber-900">
+                You have not yet acknowledged the current terms.
+              </p>
+              <p className="mt-1 text-sm text-amber-800">
+                Please acknowledge the terms above to record your acceptance. Continuing to
+                operate on the platform constitutes acceptance by continued use.
+              </p>
+            </div>
+          )}
+        </section>
+      )}
+
       {/* Change history */}
       <section aria-labelledby="terms-history-heading">
         <h2
@@ -154,7 +235,10 @@ export function TermsClient({ view, history }: TermsClientProps) {
           Change history
         </h2>
         {history.length === 0 ? (
-          <p className="text-sm text-mid">No previous versions.</p>
+          <p className="text-sm text-mid">
+            You are on the first version of these terms. When we make a change, you will get
+            at least 15 days notice and the previous version will be archived here.
+          </p>
         ) : (
           <ol className="space-y-3">
             {history.map((entry) => (
