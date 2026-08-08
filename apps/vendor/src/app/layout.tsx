@@ -2,6 +2,7 @@ import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import type { Metadata, Viewport } from 'next';
 
+import { ReAcceptanceGate } from '@/components/layout/re-acceptance-gate';
 import { TermsBanner } from '@/components/layout/terms-banner';
 import { Toaster } from '@/components/ui/toaster';
 import { AuthProvider } from '@/lib/auth/auth-provider';
@@ -27,7 +28,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <QueryProvider>
           <AuthProvider>
             <TermsBanner />
-            <Toaster>{children}</Toaster>
+            <ReAcceptanceGate>
+              <Toaster>{children}</Toaster>
+            </ReAcceptanceGate>
           </AuthProvider>
         </QueryProvider>
         {/* Vercel Analytics + Web Vitals (free on Hobby). No-op outside the

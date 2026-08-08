@@ -35,6 +35,7 @@ import { PAYOUTS_QUEUE, WEEKLY_BATCH_JOB } from '../payouts/processors/payout-ba
 import { Decimal } from '@prisma/client/runtime/library';
 
 import { CommissionService } from '../../commission/commission.service';
+import { TermsService } from '../terms/terms.service';
 
 import { AdminUsersService } from './admin-users.service';
 import { AdminService } from './admin.service';
@@ -99,6 +100,7 @@ export class AdminController {
     // the runWeeklyBatch logic.
     @InjectQueue(PAYOUTS_QUEUE) private readonly payoutBatchQueue: Queue,
     private readonly commissionService: CommissionService,
+    private readonly termsService: TermsService,
   ) {}
 
   /**
@@ -878,7 +880,7 @@ export class AdminController {
     }
 
     const { Decimal } = await import('@prisma/client/runtime/library');
-    return this.commissionService.createRate({
+    const newRate = await this.commissionService.createRate({
       source: src,
       isFirstOrder: dto.isFirstOrder ?? null,
       ratePercent: new Decimal(dto.ratePercent),
@@ -886,6 +888,33 @@ export class AdminController {
       createdBy: user.id,
       note: dto.note,
     });
+
+    // Wire to the legal notice engine (P2B Regulation).
+    // A commission rate change is a change to Annex A (Rate Schedule) of the
+    // Vendor Terms. Publishing a RATE_SCHEDULE version triggers the 15-day
+    // notice flow automatically. We fire-and-forget in a try/catch so a terms
+    // publish failure does not roll back the rate row -- ops can re-trigger
+    // the notice manually if needed.
+    const previousRatePct = currentActive
+      ? parseFloat(currentActive.ratePercent.toString())
+      : 0;
+    this.termsService
+      .publishRateScheduleVersion({
+        source: dto.source,
+        isFirstOrder: dto.isFirstOrder ?? null,
+        newRatePct: dto.ratePercent,
+        previousRatePct,
+        effectiveFrom,
+        createdBy: user.id,
+        note: dto.note,
+      })
+      .catch((err: unknown) =>
+        this.logger.error(
+          `[commission-rates] terms notice failed for rate=${newRate.id}: ${String(err)}`,
+        ),
+      );
+
+    return newRate;
   }
 
   @Get('commission-rates/take-rate')

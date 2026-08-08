@@ -6,8 +6,9 @@ import {
   ForbiddenException,
   Injectable,
   Logger,
+  NotFoundException,
 } from '@nestjs/common';
-import { TermsDocumentType } from '@prisma/client';
+import { AcceptanceMethod, NoticeChannel, TermsDocumentType } from '@prisma/client';
 import type { Queue } from 'bull';
 
 import { PrismaService } from '../../prisma/prisma.service';
@@ -18,6 +19,7 @@ import { PublishTermsVersionDto } from './dto/publish-terms-version.dto';
 
 export const SEND_TERMS_NOTICES_JOB = 'send_terms_notices';
 export const GENERATE_ACCEPTANCE_PDF_JOB = 'generate_acceptance_pdf';
+export const DEEMED_ACCEPTANCE_CRON_JOB = 'deemed_acceptance_sweep';
 
 /** Minimum notice period in days (P2B Regulation, UK retained). */
 const MIN_NOTICE_DAYS = 15;
@@ -319,5 +321,179 @@ export class TermsService {
     });
     const acceptedIds = new Set(accepted.map((a) => a.termsVersionId));
     return pending.filter((v) => !acceptedIds.has(v.id));
+  }
+
+  // ─── Change Notices (Dashboard) ──────────────────────────────────────────────
+
+  /**
+   * Return DASHBOARD notices for this vendor that have not yet been
+   * acknowledged. These are created by the processor when a material version
+   * is published and persist until the vendor explicitly acknowledges.
+   */
+  async getDashboardNotices(vendorId: string) {
+    return this.prisma.termsNotice.findMany({
+      where: { vendorId, channel: NoticeChannel.DASHBOARD, acknowledgedAt: null },
+      include: {
+        termsVersion: {
+          select: {
+            id: true,
+            version: true,
+            effectiveAt: true,
+            changeSummary: true,
+            documentType: true,
+          },
+        },
+      },
+      orderBy: { sentAt: 'desc' },
+    });
+  }
+
+  /**
+   * Mark a DASHBOARD notice as acknowledged. Only the owning vendor may
+   * acknowledge their own notice.
+   */
+  async acknowledgeNotice(noticeId: string, vendorId: string) {
+    const notice = await this.prisma.termsNotice.findUnique({ where: { id: noticeId } });
+    if (!notice || notice.vendorId !== vendorId) {
+      throw new NotFoundException('Notice not found.');
+    }
+    return this.prisma.termsNotice.update({
+      where: { id: noticeId },
+      data: { acknowledgedAt: new Date() },
+    });
+  }
+
+  // ─── Deemed Continued Use ────────────────────────────────────────────────────
+
+  /**
+   * Record a DEEMED_CONTINUED_USE acceptance.
+   *
+   * Called by the nightly cron sweep when a vendor has traded (completed or
+   * accepted at least one order) after the effectiveAt of a terms version
+   * they have not explicitly accepted.
+   *
+   * The specific action relied on (orderId + timestamp) is stored in
+   * acceptanceText so auditors can reconstruct the factual basis.
+   *
+   * Explicit click-wrap is always preferred: this method is an honest audit
+   * record, not a substitute for prompting re-acceptance.
+   */
+  async recordDeemedAcceptance(
+    vendorId: string,
+    termsVersionId: string,
+    reliedOnOrderId: string,
+    reliedOnAt: Date,
+    ipAddress?: string,
+  ) {
+    const version = await this.prisma.termsVersion.findUniqueOrThrow({
+      where: { id: termsVersionId },
+    });
+
+    const acceptanceText =
+      `Deemed acceptance by continued use. ` +
+      `Relied on: orderId=${reliedOnOrderId} at ${reliedOnAt.toISOString()}.`;
+
+    this.logger.log(
+      `[terms] DEEMED_CONTINUED_USE vendorId=${vendorId} ` +
+        `versionId=${termsVersionId} orderId=${reliedOnOrderId}`,
+    );
+
+    return this.prisma.termsAcceptance.upsert({
+      where: { vendorId_termsVersionId: { vendorId, termsVersionId } },
+      create: {
+        vendorId,
+        termsVersionId,
+        ipAddress,
+        userAgent: 'system/deemed-continued-use',
+        acceptanceText,
+        contentHash: version.contentHash,
+        scrolledToEnd: false,
+        method: AcceptanceMethod.DEEMED_CONTINUED_USE,
+      },
+      update: {}, // Never overwrite an existing explicit acceptance.
+    });
+  }
+
+  // ─── Rate Schedule Integration ───────────────────────────────────────────────
+
+  /**
+   * Auto-publish a RATE_SCHEDULE terms version when the admin creates a new
+   * commission rate. This wires the rate change form to the legal notice
+   * engine so that a rate cannot change without triggering the 15-day P2B
+   * notice to vendors.
+   *
+   * The contentMdx is generated from the rate change data. RATE_SCHEDULE
+   * versions do not require solicitorSignOff (they are commercial schedule
+   * changes, not contractual term changes requiring legal review).
+   */
+  async publishRateScheduleVersion(opts: {
+    source: string;
+    isFirstOrder: boolean | null;
+    newRatePct: number;
+    previousRatePct: number;
+    effectiveFrom: Date;
+    createdBy: string;
+    note?: string;
+  }) {
+    const { source, isFirstOrder, newRatePct, previousRatePct, effectiveFrom, createdBy, note } =
+      opts;
+
+    const segmentLabel =
+      source === 'VENDOR_REFERRED'
+        ? 'Vendor-referred orders (all)'
+        : isFirstOrder === true
+          ? 'Marketplace – first order from a customer'
+          : isFirstOrder === false
+            ? 'Marketplace – repeat order from a customer'
+            : `${source} orders`;
+
+    const direction = newRatePct > previousRatePct ? 'increase' : 'decrease';
+    const effectiveDateStr = effectiveFrom.toLocaleDateString('en-GB', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+
+    const contentMdx = [
+      `# Rate Schedule Update: effective ${effectiveDateStr}`,
+      '',
+      `This update amends Annex A (Rate Schedule) of the Feastpot Vendor Terms of Agreement.`,
+      '',
+      `## What is changing`,
+      '',
+      `| Segment | Previous rate | New rate | Effective from |`,
+      `|---------|--------------|----------|---------------|`,
+      `| ${segmentLabel} | ${previousRatePct}% | ${newRatePct}% | ${effectiveDateStr} |`,
+      '',
+      `## Why`,
+      '',
+      note ?? `This rate ${direction} reflects a change to the Feastpot commission schedule.`,
+      '',
+      `## Your rights`,
+      '',
+      `Under the UK P2B Regulation, you may terminate your vendor agreement without penalty ` +
+        `before ${effectiveDateStr} by emailing compliance@feastpot.co.uk with the subject ` +
+        `"Vendor termination". Continuing to trade after that date constitutes acceptance of ` +
+        `the new rate.`,
+    ].join('\n');
+
+    // Use the full publishVersion path so all five hard rules apply (including
+    // the 15-day P2B check, which the admin rate form already validates).
+    const dto: PublishTermsVersionDto = {
+      documentType: TermsDocumentType.RATE_SCHEDULE,
+      version: `RS-${effectiveFrom.toISOString().slice(0, 10)}`,
+      contentMdx,
+      changeSummary:
+        `Commission rate ${direction} for ${segmentLabel}: ` +
+        `${previousRatePct}% → ${newRatePct}%, effective ${effectiveDateStr}.`,
+      isMaterial: true,
+      effectiveAt: effectiveFrom.toISOString(),
+      createdBy,
+      // RATE_SCHEDULE does not require solicitorSignOff (Rule 5 is scoped to
+      // VENDOR_TERMS). We pass undefined deliberately.
+      solicitorSignOff: undefined,
+    };
+
+    return this.publishVersion(dto);
   }
 }

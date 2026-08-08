@@ -176,4 +176,38 @@ export class TermsController {
     if (!eff) return [];
     return this.terms.getPendingForVendor(eff.vendorId, documentType);
   }
+
+  /**
+   * Return DASHBOARD notices for this vendor that have not yet been
+   * acknowledged. Each notice includes the version metadata (version number,
+   * effectiveAt, changeSummary) so the banner can render the countdown and
+   * summary without a second round-trip.
+   */
+  @Get('notices')
+  @Roles(UserRole.vendor)
+  @ApiOperation({ summary: 'Active dashboard change notices for this vendor' })
+  async getDashboardNotices(@Req() req: AuthedRequest) {
+    const user = requireUser(req);
+    const eff = await this.vendorMembers.getEffectiveRole(user);
+    if (!eff) return [];
+    return this.terms.getDashboardNotices(eff.vendorId);
+  }
+
+  /**
+   * Mark a DASHBOARD notice as acknowledged.
+   * Vendors can acknowledge (dim the banner) without accepting the new terms;
+   * the re-acceptance gate will still appear when effectiveAt passes.
+   * Only the owning vendor may acknowledge their own notice.
+   */
+  @Post('notices/:id/acknowledge')
+  @HttpCode(200)
+  @Roles(UserRole.vendor)
+  @ApiOperation({ summary: 'Acknowledge a dashboard change notice' })
+  async acknowledgeNotice(@Param('id') id: string, @Req() req: AuthedRequest) {
+    const user = requireUser(req);
+    const eff = await this.vendorMembers.getEffectiveRole(user);
+    if (!eff) return { ok: false };
+    await this.terms.acknowledgeNotice(id, eff.vendorId);
+    return { ok: true };
+  }
 }

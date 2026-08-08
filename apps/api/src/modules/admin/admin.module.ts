@@ -4,6 +4,7 @@ import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from '../../auth/auth.module';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { StripeModule } from '../../stripe/stripe.module';
+import { TermsModule } from '../terms/terms.module';
 
 import { AdminUsersService } from './admin-users.service';
 import { AdminController } from './admin.controller';
@@ -16,12 +17,16 @@ import { DlqMonitorService } from './dlq-monitor.service';
  * AdminService can use it for auth-user creation in the vendor application
  * approval flow.
  *
+ * TermsModule is imported so the commission rate creation endpoint can wire
+ * into the legal notice engine (P2B Regulation: rate changes must trigger
+ * the 15-day notice flow).
+ *
  * NotificationsModule + LoyaltyModule are both @Global() so they don't
  * appear here - feature modules can inject NotificationsService /
  * EmailProvider / LoyaltyService directly.
  */
 @Module({
-  imports: [PrismaModule, StripeModule, AuthModule, ConfigModule],
+  imports: [PrismaModule, StripeModule, AuthModule, ConfigModule, TermsModule],
   controllers: [AdminController],
   providers: [AdminService, AdminUsersService, DlqMonitorService],
 })

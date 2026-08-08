@@ -1617,17 +1617,25 @@ model TermsAcceptance {
 }
 
 model TermsNotice {
-  id             String    @id @default(cuid())
-  vendorId       String    @map("vendor_id") @db.Uuid
-  termsVersionId String    @map("terms_version_id")
-  sentAt         DateTime  @default(now()) @map("sent_at") @db.Timestamptz
-  channel        String    @db.VarChar(32)
-  deliveredAt    DateTime? @map("delivered_at") @db.Timestamptz
+  id             String        @id @default(cuid())
+  vendorId       String        @map("vendor_id") @db.Uuid
+  termsVersionId String        @map("terms_version_id")
+  sentAt         DateTime      @default(now()) @map("sent_at") @db.Timestamptz
+  channel        NoticeChannel
+  deliveredAt    DateTime?     @map("delivered_at") @db.Timestamptz
+  openedAt       DateTime?     @map("opened_at") @db.Timestamptz
+  acknowledgedAt DateTime?     @map("acknowledged_at") @db.Timestamptz
 
   termsVersion TermsVersion @relation(fields: [termsVersionId], references: [id])
 
   @@index([vendorId, sentAt])
   @@map("terms_notices")
+}
+
+enum NoticeChannel {
+  EMAIL
+  DASHBOARD
+  WHATSAPP
 }
 
 /// Customer waitlist capture for uncovered postcodes. Populated by the public

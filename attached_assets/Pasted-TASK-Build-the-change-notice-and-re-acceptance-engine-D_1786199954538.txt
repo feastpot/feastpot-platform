@@ -1,0 +1,84 @@
+TASK: Build the change notice and re-acceptance engine.
+
+DEPENDS ON: LEGAL-500, LEGAL-502.
+
+PRISMA SCHEMA
+
+model LegalChangeNotice {
+  id           String   @id @default(cuid())
+  vendorId     String
+  versionId    String
+  sentAt       DateTime @default(now())
+  channel      NoticeChannel
+  deliveredAt  DateTime?
+  openedAt     DateTime?
+  acknowledgedAt DateTime?
+  version      LegalDocumentVersion @relation(fields: [versionId], references: [id])
+  @@index([vendorId, sentAt])
+}
+
+enum NoticeChannel { EMAIL DASHBOARD WHATSAPP }
+
+FLOW ON PUBLISH OF A MATERIAL VERSION
+
+1. Validation already enforced in LEGAL-500: effectiveFrom
+   must be at least 15 days after publishedAt.
+
+2. Enqueue a BullMQ job that, for every vendor with an
+   active or suspended account:
+   - Sends a Resend email containing the plain-language
+     changeSummary, the effective date, a link to the new
+     version, a link to a diff against the current version,
+     and a clear statement of the right to terminate before
+     the change takes effect without penalty.
+   - Writes a LegalChangeNotice row with channel EMAIL.
+   - Creates a dashboard notice row with channel DASHBOARD.
+
+3. Dashboard banner appears immediately and persists until
+   the vendor acknowledges or the effective date passes.
+   Banner shows a countdown: "New terms take effect in N
+   days. Review the changes or close your account before
+   then." Do not make the banner dismissible without
+   acknowledgement, but do not block the vendor from
+   trading during the notice period either.
+
+4. On the effective date, the new version becomes live.
+   On the vendor's next login, present a re-acceptance
+   click-wrap for the new version. Reuse the LEGAL-502
+   component.
+
+5. If the vendor continues to trade past the effective
+   date without an explicit re-acceptance, record an
+   acceptance with method DEEMED_CONTINUED_USE, capturing
+   the same audit fields plus the specific action relied
+   on (for example, accepted order ID and timestamp).
+   Explicit re-acceptance is stronger evidence, so prompt
+   for it, but record deemed acceptance honestly rather
+   than leaving a gap.
+
+6. Vendor declines during the notice window: route to a
+   guided account closure that honours outstanding orders
+   and catering bookings, and confirms the final payout
+   date. Do not make declining harder than accepting.
+
+EDITORIAL CHANGES
+isMaterial false skips the 15-day wait and the notice
+email but still creates a version record and appears in
+version history. Require the admin justification from
+LEGAL-500.
+
+RATE SCHEDULE CHANGES
+A change to Annex A is a change to the terms. Wire the
+admin rate change form directly to this notice flow so a
+rate cannot be changed without triggering it. This is the
+dependency that makes source-based pricing (ORANGE-201)
+lawful to introduce.
+
+ACCEPTANCE CRITERIA
+- Publishing a material version sends every active vendor
+  an email and creates both notice rows.
+- The banner countdown is accurate to the effective date.
+- Changing a commission rate in admin cannot bypass the
+  notice flow.
+- Declining is no harder than accepting, verified by
+  clicking through both paths.
