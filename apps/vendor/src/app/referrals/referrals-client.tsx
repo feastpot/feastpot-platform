@@ -1,6 +1,6 @@
 'use client';
 
-import { Check, Copy, Download, ExternalLink, Loader2 } from 'lucide-react';
+import { Check, Copy, Download, ExternalLink } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 import { apiRequest } from '@/lib/api/client';
@@ -65,29 +65,40 @@ export function ReferralsClient({ link: initialLink }: ReferralsClientProps) {
   const [copied, setCopied] = useState<string | null>(null);
   const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // If QR codes haven't generated yet (async after first link creation), poll until ready.
-  // Attempts: 4 s, 8 s, 16 s, 30 s (capped). Stops as soon as qrUrls arrives.
-  const qrPollAttempt = useRef(0);
+  // Client-side QR data URL: generated instantly in the browser when the
+  // stored Supabase URL is not yet available (self-healing fallback).
+  // A QR code for a short URL renders in < 100 ms; no spinner needed.
+  const [clientQrDataUrl, setClientQrDataUrl] = useState<string | null>(null);
+
+  // Generate client-side QR immediately when stored URLs are missing.
   useEffect(() => {
-    if (!token || link?.qrUrls) return;
-    qrPollAttempt.current = 0;
-    const delays = [4_000, 8_000, 16_000, 30_000];
-    let timer: ReturnType<typeof setTimeout>;
-    const poll = async () => {
+    if (link?.qrUrls || !link?.referralUrl) return;
+    let cancelled = false;
+    import('qrcode').then(({ default: QRCode }) =>
+      QRCode.toDataURL(link.referralUrl, {
+        width: 300,
+        margin: 2,
+        color: { dark: '#000000', light: '#ffffff' },
+      }),
+    )
+      .then((dataUrl) => { if (!cancelled) setClientQrDataUrl(dataUrl); })
+      .catch(() => null);
+    return () => { cancelled = true; };
+  }, [link?.qrUrls, link?.referralUrl]);
+
+  // Single background refresh: once the API has finished generating and
+  // storing the QR, replace the client-side render with the stored URL.
+  const bgRefreshFired = useRef(false);
+  useEffect(() => {
+    if (!token || link?.qrUrls || bgRefreshFired.current) return;
+    bgRefreshFired.current = true;
+    const timer = setTimeout(async () => {
       try {
         const fresh = await apiRequest<ReferralLink>('/attribution/links/me', { accessToken: token });
-        setLink(fresh);
-        if (fresh.qrUrls) return; // done
+        if (fresh.qrUrls) setLink(fresh);
       } catch { /* no-op */ }
-      qrPollAttempt.current += 1;
-      const nextDelay = delays[qrPollAttempt.current];
-      if (nextDelay !== undefined) {
-        timer = setTimeout(poll, nextDelay);
-      }
-    };
-    timer = setTimeout(poll, delays[0]!);
+    }, 5_000);
     return () => clearTimeout(timer);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, link?.qrUrls]);
 
   // Fetch source split.
@@ -113,6 +124,12 @@ export function ReferralsClient({ link: initialLink }: ReferralsClientProps) {
   const allTotal = split
     ? (split.cumulative.MARKETPLACE?.orders ?? 0) + (split.cumulative.VENDOR_REFERRED?.orders ?? 0)
     : 0;
+
+  // The QR src to display: prefer stored URL (stable, high-res), fall back
+  // to client-side data URL (instant, valid, black-on-white).
+  const qrSrc = link.qrUrls?.png ?? clientQrDataUrl;
+  // Filename format: {slug}-feastpot-qr.{ext}
+  const qrBasename = `${link.slug}-feastpot-qr`;
 
   return (
     <div className="space-y-8">
@@ -149,44 +166,55 @@ export function ReferralsClient({ link: initialLink }: ReferralsClientProps) {
           QR code
         </h2>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-          {link.qrUrls ? (
+          {qrSrc ? (
             <img
-              src={link.qrUrls.png}
+              src={qrSrc}
               alt={`QR code for ${link.referralUrl}`}
+              width={160}
+              height={160}
               className="h-40 w-40 rounded-xl border border-border bg-white p-2"
             />
           ) : (
-            <div className="flex h-40 w-40 flex-col items-center justify-center gap-2 rounded-xl border border-border bg-surface">
-              <Loader2 className="h-5 w-5 animate-spin text-teal" aria-hidden />
-              <span className="text-center text-xs text-mid">
-                Generating QR code
-                <br />
-                <span className="text-[10px]">This takes a few seconds</span>
-              </span>
-            </div>
+            // This state is visible for < 100 ms while the browser renders
+            // the client-side QR. No copy needed.
+            <div className="h-40 w-40 rounded-xl border border-border bg-surface" aria-hidden />
           )}
           <div className="flex flex-col gap-2">
             <p className="text-sm text-mid">Download and print for menus, packaging, or events.</p>
-            {link.qrUrls && (
-              <div className="flex gap-2">
+            <div className="flex gap-2">
+              {/* Stored high-res assets: offer both PNG and SVG */}
+              {link.qrUrls ? (
+                <>
+                  <a
+                    href={link.qrUrls.png}
+                    download={`${qrBasename}.png`}
+                    className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-dark hover:bg-surface"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    PNG
+                  </a>
+                  <a
+                    href={link.qrUrls.svg}
+                    download={`${qrBasename}.svg`}
+                    className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-dark hover:bg-surface"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    SVG
+                  </a>
+                </>
+              ) : clientQrDataUrl ? (
+                // Fallback: offer the client-rendered PNG as a download while
+                // the stored high-res assets are being generated in the background.
                 <a
-                  href={link.qrUrls.png}
-                  download={`feastpot-qr-${link.slug}.png`}
+                  href={clientQrDataUrl}
+                  download={`${qrBasename}.png`}
                   className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-dark hover:bg-surface"
                 >
                   <Download className="h-3.5 w-3.5" />
                   PNG
                 </a>
-                <a
-                  href={link.qrUrls.svg}
-                  download={`feastpot-qr-${link.slug}.svg`}
-                  className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-dark hover:bg-surface"
-                >
-                  <Download className="h-3.5 w-3.5" />
-                  SVG
-                </a>
-              </div>
-            )}
+              ) : null}
+            </div>
           </div>
         </div>
       </section>

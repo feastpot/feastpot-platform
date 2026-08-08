@@ -89,6 +89,19 @@ export class AttributionController {
 
   // ─── Admin ───────────────────────────────────────────────────────────────────
 
+  /**
+   * One-off backfill: generate and store QR codes for all existing referral
+   * links that were created before synchronous QR generation was introduced.
+   * Idempotent - only processes rows where qrCodeUrl IS NULL.
+   */
+  @Post('admin/backfill-qr')
+  @Roles(UserRole.admin)
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Admin: backfill QR codes for links that lack them' })
+  backfillQr() {
+    return this.attribution.backfillMissingQr();
+  }
+
   @Get('admin/list')
   @Roles(UserRole.admin, UserRole.finance, UserRole.support)
   @ApiOperation({ summary: 'Admin: list attribution records with filters' })

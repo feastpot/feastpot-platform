@@ -82,20 +82,34 @@ export class AttributionService {
       data: { vendorId, slug },
     });
 
-    // Generate QR code asynchronously; don't block the response.
-    this.generateAndStoreQr(link.id, link.slug).catch((err) =>
-      this.logger.error(`QR generation failed for link ${link.id}: ${String(err)}`),
-    );
+    // Generate QR synchronously so the very first response includes qrUrls.
+    // If generation fails (e.g. Supabase Storage unreachable), we return
+    // qrUrls: null and the client self-heals with a browser-side QR render.
+    let qrUrls: { png: string; svg: string } | null = null;
+    try {
+      qrUrls = await this.generateAndStoreQr(link.id, link.slug);
+    } catch (err) {
+      this.logger.error(`QR generation failed for new link ${link.id}: ${String(err)}`);
+    }
 
-    return this.withReferralUrl(link);
+    return { ...this.withReferralUrl(link), qrUrls };
   }
 
-  /** Generate QR code PNG + SVG, upload to Supabase Storage, persist URL. */
-  async generateAndStoreQr(linkId: string, slug: string): Promise<void> {
+  /**
+   * Generate QR code PNG (1024x1024) + SVG, upload to Supabase Storage,
+   * persist the public URLs, and return them.
+   * Pure black on white so scanners never reject tinted codes.
+   */
+  async generateAndStoreQr(linkId: string, slug: string): Promise<{ png: string; svg: string }> {
     const referralUrl = `${this.webBaseUrl}/v/${slug}`;
 
     const [pngBuffer, svgString] = await Promise.all([
-      QRCode.toBuffer(referralUrl, { type: 'png', width: 512, margin: 2 }),
+      QRCode.toBuffer(referralUrl, {
+        type: 'png',
+        width: 1024,
+        margin: 2,
+        color: { dark: '#000000', light: '#ffffff' },
+      }),
       QRCode.toString(referralUrl, { type: 'svg' }),
     ]);
 
@@ -114,15 +128,43 @@ export class AttributionService {
     const { data: pngData } = storage.getPublicUrl(pngPath);
     const { data: svgData } = storage.getPublicUrl(svgPath);
 
+    const urls = { png: pngData.publicUrl, svg: svgData.publicUrl };
+
     await this.prisma.vendorReferralLink.update({
       where: { id: linkId },
-      data: {
-        qrCodeUrl: JSON.stringify({
-          png: pngData.publicUrl,
-          svg: svgData.publicUrl,
-        }),
-      },
+      data: { qrCodeUrl: JSON.stringify(urls) },
     });
+
+    return urls;
+  }
+
+  /**
+   * Backfill QR codes for any existing VendorReferralLink rows that lack them.
+   * Safe to run multiple times; only touches rows where qrCodeUrl IS NULL.
+   */
+  async backfillMissingQr(): Promise<{ processed: number; failed: number }> {
+    const links = await this.prisma.vendorReferralLink.findMany({
+      where: { qrCodeUrl: null },
+      select: { id: true, slug: true },
+    });
+
+    this.logger.log(`QR backfill: ${links.length} link(s) to process`);
+
+    let processed = 0;
+    let failed = 0;
+    for (const link of links) {
+      try {
+        await this.generateAndStoreQr(link.id, link.slug);
+        processed++;
+        this.logger.log(`QR backfill: generated for link ${link.id}`);
+      } catch (err) {
+        this.logger.error(`QR backfill failed for link ${link.id}: ${String(err)}`);
+        failed++;
+      }
+    }
+
+    this.logger.log(`QR backfill complete: ${processed} ok, ${failed} failed`);
+    return { processed, failed };
   }
 
   private withReferralUrl(link: { id: string; vendorId: string; slug: string; qrCodeUrl: string | null; createdAt: Date }) {

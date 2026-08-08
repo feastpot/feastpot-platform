@@ -1,0 +1,78 @@
+TASK: Make the referral QR code render in under 5
+seconds, reliably.
+
+OBSERVED
+On vendor.feastpot.co.uk/referrals the QR panel sits on a
+spinner reading "Generating QR code / This takes a few
+seconds" and does not resolve. The copy itself signals
+the wrong architecture: a QR code for a static URL should
+never need generating at view time.
+
+ROOT CAUSE TO CONFIRM
+The QR is almost certainly being generated on demand per
+page load, probably server-side or via an external
+service call. The referral URL never changes once the
+slug is issued, so this work is being repeated for no
+reason and any latency or failure in that call leaves the
+vendor staring at a spinner forever.
+
+REQUIRED ARCHITECTURE
+
+1. GENERATE ONCE, AT SOURCE
+   When a VendorReferralLink row is created, generate the
+   QR immediately in the same flow using the qrcode npm
+   package. Produce two assets:
+     PNG at 1024x1024 for print and packaging
+     SVG for crisp scaling
+   Upload both to Supabase Storage under a stable path
+   such as qr/vendor/[vendorId]/[slug].png
+   Persist the public URLs on VendorReferralLink as
+   qrCodeUrlPng and qrCodeUrlSvg.
+
+2. SERVE AS A PLAIN IMAGE
+   The page renders a standard img tag pointing at the
+   stored URL. No client-side generation, no API call,
+   no spinner. Add width and height attributes so the
+   layout does not shift while it loads.
+
+3. BACKFILL
+   Write a one-off job that generates and stores QR
+   assets for every existing VendorReferralLink that
+   lacks them. Maman's Kitchen must have a working QR
+   immediately after this ships.
+
+4. SELF-HEALING FALLBACK
+   If qrCodeUrlPng is null when the page renders, fire a
+   background generation job AND render a client-side QR
+   immediately using the qrcode browser build so the
+   vendor is never blocked. The client-side render of a
+   short URL takes milliseconds. There is no scenario
+   where a vendor should wait.
+
+5. HARD BUDGET
+   Add a performance test asserting the QR image is
+   present and painted within 5 seconds on a simulated
+   3G connection. Fail CI if exceeded.
+
+DOWNLOAD ACTIONS
+The panel copy says "Download and print for menus,
+packaging, or events" but offers no download control.
+Add two buttons: Download PNG and Download SVG, using the
+existing button styling on this page. Use the vendor slug
+in the filename, for example
+maman-s-kitchen-wm6qx3-feastpot-qr.png
+
+REMOVE THE MISLEADING COPY
+Delete "This takes a few seconds". After this change it
+does not.
+
+DO NOT CHANGE ANY COLOURS. QR codes must remain pure
+black on white regardless of brand palette, because
+tinted QR codes fail scanning on some readers. This is a
+functional constraint, not a design choice.
+
+ACCEPTANCE CRITERIA
+- QR visible in under 5 seconds on a throttled connection.
+- Backfill completes for all existing vendors.
+- Both download buttons produce valid scannable files.
+- Scanning the printed PNG resolves to the referral URL.
