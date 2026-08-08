@@ -1,0 +1,78 @@
+TASK: Seed the Rate Schedule and give every empty region
+a proper empty state.
+
+PROBLEM 1: RATE SCHEDULE IS EMPTY
+On /terms the Rate Schedule (Annex A) panel reads "No
+rate information available." This is the single most
+important commercial fact in the vendor relationship and
+the panel showing it is blank. Meanwhile the Key Terms
+summary beside it correctly says "The current commission
+rates are listed in the Rate Schedule (Annex A)", so the
+page is pointing at an empty box.
+
+FIX: seed RateScheduleEntry from the approved Annex A and
+attach it to the live LegalDocumentVersion:
+  standard_commission   12%           LIVE
+  catering_commission   10%           LIVE
+  customer_service_fee  5% cap 2.99   CUSTOMER_SIDE
+  repeat_commission     10%           PLANNED
+  referred_commission   0% to 3%      PLANNED
+  founding_cook         0%            INCENTIVE
+  vendor_pro            approx 19/mo  OPTIONAL_ADDON
+
+Render as a table with columns Item, Rate, Basis, VAT.
+Clearly separate LIVE entries from PLANNED ones, since
+the panel footnote already promises "Planned changes
+appear in the table above before they take effect" and
+currently nothing appears at all.
+
+If the schedule genuinely cannot load, that is an error,
+not an empty state. Distinguish the two.
+
+PROBLEM 2: ORDER SOURCE BREAKDOWN IS A HEADING WITH
+NOTHING UNDER IT
+On /referrals the section heading "ORDER SOURCE
+BREAKDOWN" renders with completely empty space beneath
+it. A vendor cannot tell whether this is loading, broken,
+or simply has no data.
+
+FIX: render an empty state:
+  "No orders yet. Once customers order through your link,
+   you will see how many came from your own marketing
+   versus Feastpot discovery here."
+Include a simple two-row placeholder table showing
+Marketplace and Your referral at zero, so the vendor
+understands what the section will contain.
+
+PROBLEM 3: CHANGE HISTORY
+On /terms, "No previous versions." is technically correct
+but unhelpful on a first version. Reword to explain:
+  "You are on the first version of these terms. When we
+   make a change, you will get at least 15 days notice
+   and the previous version will be archived here."
+
+PROBLEM 4: ACCEPTANCE RECORD IS PROMISED BUT ABSENT
+The /terms page description says it shows "your current
+agreement with Feastpot, change history, and
+acknowledgement record" but no acknowledgement record is
+displayed anywhere on the page. Add a panel showing:
+  Version accepted, acceptance date and time, method,
+  and a download link to the PDF copy.
+If the vendor has not yet accepted, show a prominent
+prompt to do so, since that is a blocking state.
+
+REPO-WIDE RULE
+Every list, table and chart region in the portal must
+have three designed states: loading, empty, and error.
+Audit all 18 sidebar routes and add the missing ones.
+
+DO NOT CHANGE ANY COLOURS. Empty states use existing
+muted text and card styling.
+
+ACCEPTANCE CRITERIA
+- Rate Schedule renders all seven entries with LIVE and
+  PLANNED clearly distinguished.
+- No section heading in the portal renders with empty
+  space beneath it.
+- The acceptance record panel appears on /terms.
+- All 18 routes have loading, empty and error states.
