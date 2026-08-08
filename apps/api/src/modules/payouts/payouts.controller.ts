@@ -82,7 +82,7 @@ export class PayoutsController {
   /**
    * Source-based earnings breakdown for the vendor portal /earnings page.
    * Returns period (current month) + cumulative commission summary including
-   * blended rate, by-source breakdown, and savings vs the old flat 12% rate.
+   * blended rate, by-source breakdown, and savings vs the standard marketplace rate.
    */
   @Get('earnings-summary')
   @Roles(UserRole.vendor)

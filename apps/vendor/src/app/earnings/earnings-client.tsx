@@ -144,7 +144,7 @@ export function EarningsClient() {
           highlight={period.blendedRatePct < 10}
         />
         <StatCard
-          label="Saved vs flat 12%"
+          label="Saved vs standard rate"
           value={p(period.savedPence)}
           sub="Thanks to referrals &amp; repeat customers"
           highlight={period.savedPence > 0}

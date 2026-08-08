@@ -1,5 +1,5 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { OrderSource } from '@prisma/client';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { OrderSource, RateStatus, TermsDocumentType } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 
 import { PrismaService } from '../prisma/prisma.service';
@@ -14,8 +14,7 @@ export interface ResolvedRate {
 export interface CommissionResult {
   commissionPence: number;
   vendorPayoutPence: number;
-  /** null when rate lookup failed and a legacy fallback was used. */
-  rateId: string | null;
+  rateId: string;
   ratePercent: Decimal;
 }
 
@@ -31,8 +30,6 @@ export interface EarningsSummary {
   }>;
 }
 
-const FLAT_RATE_PCT = 12; // legacy baseline used for savings calculation
-
 @Injectable()
 export class CommissionService {
   private readonly logger = new Logger(CommissionService.name);
@@ -44,8 +41,12 @@ export class CommissionService {
   /**
    * Look up the active CommissionRate row for the given source + isFirstOrder
    * at the given point in time.
-   * Never returns a hardcoded constant - always reads from the DB.
+   * Always reads from the DB - never returns a hardcoded constant.
    * Throws NotFoundException when no matching rate exists (seed data prevents this).
+   *
+   * PLANNED guard: if the resolved rate has a rateKey linked to a PLANNED
+   * RateScheduleEntry, throws BadRequestException. PLANNED rates are announced
+   * but not yet in force and must never be used in calculations.
    */
   async resolveRate(source: OrderSource, isFirstOrder: boolean, at: Date): Promise<ResolvedRate> {
     // isFirstOrder=null on a CommissionRate means "applies to all isFirstOrder values"
@@ -69,6 +70,28 @@ export class CommissionService {
       });
     }
 
+    // ── PLANNED guard ────────────────────────────────────────────────────────
+    // If this CommissionRate is linked to a RateScheduleEntry, verify that
+    // entry is LIVE. A PLANNED entry is announced but not yet in force;
+    // using it in a calculation is a billing error.
+    if (rate.rateKey) {
+      const scheduleEntry = await this.prisma.rateScheduleEntry.findFirst({
+        where: {
+          key: rate.rateKey,
+          version: {
+            documentType: TermsDocumentType.RATE_SCHEDULE,
+            supersededAt: null,
+          },
+        },
+      });
+      if (scheduleEntry && scheduleEntry.status === RateStatus.PLANNED) {
+        throw new BadRequestException({
+          code: 'PLANNED_RATE_NOT_ACTIVE',
+          message: `Commission rate '${rate.rateKey}' is PLANNED and not yet in force. A live rate entry must exist before this rate can be charged.`,
+        });
+      }
+    }
+
     return { id: rate.id, source: rate.source, isFirstOrder: rate.isFirstOrder, ratePercent: rate.ratePercent };
   }
 
@@ -86,8 +109,9 @@ export class CommissionService {
 
   /**
    * Resolve the active rate and compute commission + vendor payout.
-   * Returns rateId=null when the DB lookup fails (logs error, uses 12% fallback).
-   * A failed lookup must NEVER block order creation.
+   * Throws if no active rate exists or a PLANNED rate is resolved.
+   * There is no silent fallback - a missing rate is a seeding error that
+   * must be fixed explicitly, not papered over with a hardcoded constant.
    */
   async resolveRateAndCompute(
     source: OrderSource,
@@ -97,27 +121,14 @@ export class CommissionService {
     serviceFeePence: number,
     at: Date,
   ): Promise<CommissionResult> {
-    try {
-      const rate = await this.resolveRate(source, isFirstOrder, at);
-      const commissionPence = this.computePence(subtotalPence, rate.ratePercent);
-      return {
-        commissionPence,
-        vendorPayoutPence: totalPence - serviceFeePence - commissionPence,
-        rateId: rate.id,
-        ratePercent: rate.ratePercent,
-      };
-    } catch (err) {
-      this.logger.error(
-        `resolveRateAndCompute failed for source=${source} isFirstOrder=${String(isFirstOrder)}: ${(err as Error).message}; using 12% fallback`,
-      );
-      const commissionPence = Math.round((subtotalPence * 1200) / 10_000);
-      return {
-        commissionPence,
-        vendorPayoutPence: totalPence - serviceFeePence - commissionPence,
-        rateId: null,
-        ratePercent: new Decimal(12),
-      };
-    }
+    const rate = await this.resolveRate(source, isFirstOrder, at);
+    const commissionPence = this.computePence(subtotalPence, rate.ratePercent);
+    return {
+      commissionPence,
+      vendorPayoutPence: totalPence - serviceFeePence - commissionPence,
+      rateId: rate.id,
+      ratePercent: rate.ratePercent,
+    };
   }
 
   /**
@@ -266,11 +277,16 @@ export class CommissionService {
       const totalCommission = bySource.reduce((s, r) => s + r.commissionPence, 0);
       const blendedRatePct =
         totalSubtotal > 0 ? Math.round((totalCommission / totalSubtotal) * 10_000) / 100 : 0;
-      const flat12Commission = Math.round((totalSubtotal * FLAT_RATE_PCT) / 100);
-      const savedPence = Math.max(0, flat12Commission - totalCommission);
+      // Baseline for savings comparison: the standard (first-order marketplace) rate.
+      // Resolved once outside `build()` and closed over here for both calls.
+      const baselineCommission = Math.round((totalSubtotal * baselineRatePct) / 100);
+      const savedPence = Math.max(0, baselineCommission - totalCommission);
 
       return { blendedRatePct, savedPence, bySource };
     };
+
+    // Resolve baseline once; both build() calls share the same value.
+    const baselineRatePct = await this.getBaselineRatePct();
 
     const [period, cumulative] = await Promise.all([
       build({ calculatedAt: { gte: from, lt: to } }),
@@ -278,5 +294,27 @@ export class CommissionService {
     ]);
 
     return { period, cumulative };
+  }
+
+  // ─── Private helpers ─────────────────────────────────────────────────────────
+
+  /**
+   * Returns the numeric rate value of the standard_commission (first-order
+   * marketplace) LIVE RateScheduleEntry. Used as the savings baseline in
+   * earnings summaries.
+   *
+   * Falls back to the PLATFORM_FACTS constant if the DB entry is missing.
+   */
+  private async getBaselineRatePct(): Promise<number> {
+    const entry = await this.prisma.rateScheduleEntry
+      .findFirst({
+        where: {
+          key: 'standard_commission',
+          status: RateStatus.LIVE,
+          version: { documentType: TermsDocumentType.RATE_SCHEDULE, supersededAt: null },
+        },
+      })
+      .catch(() => null);
+    return entry?.rateValue != null ? Number(entry.rateValue) : 12;
   }
 }

@@ -2185,10 +2185,11 @@ async function main() {
   console.info('[seed] done.');
 }
 
-import { seedTerms } from './seed-terms';
+import { seedRateSchedule, seedTerms } from './seed-terms';
 
 main()
   .then(() => seedTerms())
+  .then(() => seedRateSchedule())
   .catch((e) => {
     console.error('[seed] failed:', e);
     process.exit(1);

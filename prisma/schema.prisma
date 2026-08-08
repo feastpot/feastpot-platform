@@ -1510,6 +1510,10 @@ model CommissionRate {
   effectiveTo   DateTime?   @map("effective_to") @db.Timestamptz
   createdBy     String      @map("created_by")
   note          String?
+  /// Foreign key to RateScheduleEntry.key in the current RATE_SCHEDULE version.
+  /// Used by the commission service to validate the entry is LIVE before use.
+  /// Null for legacy rows seeded before RateScheduleEntry was introduced.
+  rateKey       String?     @map("rate_key") @db.VarChar(64)
 
   orderCommissions OrderCommission[]
 
@@ -1585,8 +1589,9 @@ model TermsVersion {
   /// The publish endpoint rejects VENDOR_TERMS versions without this field.
   solicitorSignOff String?       @map("solicitor_sign_off") @db.Text
 
-  acceptances TermsAcceptance[]
-  notices     TermsNotice[]
+  acceptances          TermsAcceptance[]
+  notices              TermsNotice[]
+  rateScheduleEntries  RateScheduleEntry[]
 
   @@unique([documentType, version])
   @@index([effectiveAt])
@@ -1636,6 +1641,48 @@ enum NoticeChannel {
   EMAIL
   DASHBOARD
   WHATSAPP
+}
+
+/// Canonical rate schedule entries linked to a RATE_SCHEDULE TermsVersion.
+/// Every commission rate displayed on any surface must come from here.
+/// LIVE entries are used in calculations. PLANNED, INCENTIVE, CUSTOMER_SIDE,
+/// and OPTIONAL_ADDON entries are shown for transparency but never deducted
+/// from vendor payouts (the commission service throws if a PLANNED entry is
+/// resolved). A new TermsVersion row is required for any change (the
+/// LEGAL-503 notice flow is triggered automatically).
+model RateScheduleEntry {
+  id          String     @id @default(cuid())
+  versionId   String     @map("version_id")
+  key         String     @db.VarChar(64)
+  label       String     @db.VarChar(255)
+  /// Human-readable rate display, e.g. "12%", "0% to 3%", "approx £19/mo".
+  rateDisplay String     @map("rate_display") @db.VarChar(64)
+  /// Numeric rate for calculation context. Null for non-percentage entries.
+  rateValue   Decimal?   @map("rate_value") @db.Decimal(5, 2)
+  /// What the rate is applied to, e.g. "food subtotal only".
+  basis       String     @db.VarChar(255)
+  /// VAT treatment note for transparency.
+  vatNote     String     @map("vat_note") @db.VarChar(255)
+  status      RateStatus
+  sortOrder   Int        @map("sort_order")
+
+  version     TermsVersion @relation(fields: [versionId], references: [id])
+
+  @@unique([versionId, key])
+  @@map("rate_schedule_entries")
+}
+
+enum RateStatus {
+  /// Currently active and used in commission calculations.
+  LIVE
+  /// Announced but not yet in force. Commission service MUST NOT use these.
+  PLANNED
+  /// Time-limited promotional rate (e.g. founding cook programme).
+  INCENTIVE
+  /// Charged to customers, never deducted from vendor payout. Shown for transparency.
+  CUSTOMER_SIDE
+  /// Optional paid add-on (e.g. Vendor Pro subscription).
+  OPTIONAL_ADDON
 }
 
 /// Customer waitlist capture for uncovered postcodes. Populated by the public

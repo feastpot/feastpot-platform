@@ -1,0 +1,93 @@
+TASK: Build the P2B statement of reasons workflow.
+
+CURRENT STATE
+The live terms clause 9 says "We will notify you of any
+suspension and the reason for it", which is the right
+intent, but there is no system enforcing it. P2B requires
+the statement of reasons to be given on a durable medium
+at or before the moment the restriction takes effect, and
+30 days notice plus reasons for full termination.
+
+PRISMA SCHEMA
+
+model VendorEnforcementAction {
+  id             String   @id @default(cuid())
+  vendorId       String
+  actionType     EnforcementType
+  reasonCode     String
+  reasonNarrative String  @db.Text
+  facts          Json
+  effectiveAt    DateTime
+  noticeSentAt   DateTime?
+  urgentBasis    String?
+  issuedBy       String
+  appealId       String?
+  liftedAt       DateTime?
+  createdAt      DateTime @default(now())
+  @@index([vendorId, createdAt])
+}
+
+enum EnforcementType {
+  RESTRICTION
+  SUSPENSION
+  TERMINATION
+}
+
+REASON CODES (map to terms clause 14.1)
+  FHRS_BELOW_THRESHOLD      immediate, urgent basis
+  DOCUMENT_EXPIRED          after 7-day reminder window
+  FOOD_SAFETY_CONCERN       immediate, urgent basis
+  MATERIAL_BREACH           notice required
+  REPEATED_COMPLAINTS       notice required
+  STRIPE_FLAG               immediate, urgent basis
+  PROHIBITED_CONDUCT        notice required
+  FRAUD                     immediate, urgent basis
+
+ENFORCEMENT RULES IN CODE
+
+1. No enforcement action can be written without a
+   reasonCode AND a reasonNarrative of at least 50
+   characters. The admin UI requires both. A dropdown
+   alone is not a statement of reasons.
+
+2. For non-urgent reason codes, noticeSentAt must be at or
+   before effectiveAt. The service rejects the action
+   otherwise.
+
+3. For urgent reason codes (immediate safety, security,
+   fraud, Stripe), the action may take effect immediately,
+   but urgentBasis is mandatory and the notice job must
+   fire within the same transaction so reasons follow as
+   soon as possible. Log the gap between effectiveAt and
+   noticeSentAt for audit.
+
+4. TERMINATION requires effectiveAt to be at least 30 days
+   after noticeSentAt, unless the reason code is in the
+   serious-cause set (fraud, repeated breach after
+   warning, insolvency, serious food safety risk), which
+   must be recorded explicitly.
+
+5. Every action emails the vendor on a durable medium with
+   the narrative, the clause relied on, the appeal route
+   and the appeal deadline, and posts the same to the
+   dashboard.
+
+AUTOMATED TRIGGERS
+Wire the existing document expiry and FHRS monitoring
+jobs into this service rather than letting them suspend
+accounts directly. An automated suspension still needs a
+reason code, a narrative (templated is fine) and a notice.
+
+VENDOR DASHBOARD
+An Account status page showing any active action, the
+reason, the clause, what to do to resolve it, and the
+appeal button. A suspended vendor should never have to
+email to find out why.
+
+ACCEPTANCE CRITERIA
+- No suspension can be created without a narrative.
+- A non-urgent action with noticeSentAt after effectiveAt
+  is rejected.
+- Termination under 30 days notice requires an explicit
+  serious-cause code.
+- The automated FHRS job produces a compliant notice.

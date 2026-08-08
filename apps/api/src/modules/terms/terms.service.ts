@@ -325,40 +325,40 @@ export class TermsService {
   // ─── Rate Schedule (public) ──────────────────────────────────────────────────
 
   /**
-   * Return the current live and planned commission rates in a display-friendly
-   * format for Layer 2 of the three-layer legal presentation.
+   * Return the canonical Rate Schedule from the live RATE_SCHEDULE TermsVersion.
    *
    * This endpoint is intentionally public (no auth required) because UK P2B
    * Regulation requires rate information to be "available at all stages
    * including before contracting", i.e. on the marketing page before a vendor
    * has an account.
+   *
+   * Returns rows sorted by sortOrder. All statuses are included so the client
+   * can render sections (LIVE rates, PLANNED changes, CUSTOMER_SIDE transparency
+   * entries, etc.) without a second API call.
    */
   async getRateSchedule() {
-    const now = new Date();
-    const rates = await this.prisma.commissionRate.findMany({
-      where: {
-        OR: [
-          { effectiveTo: null },
-          { effectiveTo: { gt: now } },
-        ],
-      },
-      orderBy: [{ source: 'asc' }, { isFirstOrder: 'asc' }, { effectiveFrom: 'asc' }],
+    const liveVersion = await this.prisma.termsVersion.findFirst({
+      where: { documentType: TermsDocumentType.RATE_SCHEDULE, supersededAt: null },
+      orderBy: { effectiveAt: 'desc' },
     });
 
-    return rates.map((r) => ({
-      segment: this.formatRateSegment(r.source, r.isFirstOrder),
-      ratePercent: parseFloat(r.ratePercent.toString()),
-      status: r.effectiveFrom > now ? ('planned' as const) : ('live' as const),
-      effectiveFrom: r.effectiveFrom.toISOString(),
-      effectiveTo: r.effectiveTo?.toISOString() ?? null,
-    }));
-  }
+    if (!liveVersion) return [];
 
-  private formatRateSegment(source: string, isFirstOrder: boolean | null): string {
-    if (source === 'VENDOR_REFERRED') return 'Your referrals (via referral link or QR code)';
-    if (isFirstOrder === true) return 'Marketplace – first order from a new customer';
-    if (isFirstOrder === false) return 'Marketplace – returning customer';
-    return source;
+    const entries = await this.prisma.rateScheduleEntry.findMany({
+      where: { versionId: liveVersion.id },
+      orderBy: { sortOrder: 'asc' },
+    });
+
+    return entries.map((e) => ({
+      key: e.key,
+      label: e.label,
+      rateDisplay: e.rateDisplay,
+      rateValue: e.rateValue != null ? parseFloat(e.rateValue.toString()) : null,
+      basis: e.basis,
+      vatNote: e.vatNote,
+      status: e.status,
+      sortOrder: e.sortOrder,
+    }));
   }
 
   // ─── Change Notices (Dashboard) ──────────────────────────────────────────────

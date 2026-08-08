@@ -13,6 +13,8 @@ import {
 } from '@/components/legal/legal-shell';
 import { LEGAL } from '@/lib/legal-constants';
 
+import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
+
 import { LegalLayers } from './legal-layers';
 import { PrintButton } from './print-button';
 import { TermsVersionBadge } from './version-badge';
@@ -27,12 +29,11 @@ export const metadata: Metadata = {
 const ICO_NUMBER = LEGAL.ICO_NUMBER;
 
 /**
- * Example rate used in the payouts section prose only.
+ * Commission rate referenced in the payouts section prose.
  * Authoritative rates are served by GET /v1/terms/rate-schedule and shown
- * in the LegalLayers (Annex A) above the legal text. Keep this in sync with
- * PLATFORM_FACTS.commission.marketplaceFirst; the rate card is the contract.
+ * in the LegalLayers (Annex A) above the legal text.
  */
-const VENDOR_COMMISSION_RATE_PCT = 12;
+const VENDOR_COMMISSION_RATE_PCT = PLATFORM_FACTS.commission.marketplaceFirst;
 
 const QUICK_NAV = [
   { label: 'Relationship', href: '#relationship' },
@@ -120,7 +121,7 @@ export default function VendorTermsPage() {
         <LegalSection id="payouts" icon="🏦" title="3. Payouts and commission">
           <p>
             Feastpot charges a platform commission of{' '}
-            <strong>12% of the food subtotal</strong> on every completed
+            <strong>{VENDOR_COMMISSION_RATE_PCT}% of the food subtotal</strong> on every completed
             marketplace order. The commission is deducted from your weekly payout&mdash;it is not
             charged to you separately and is not added to the price the customer pays.
           </p>

@@ -1,0 +1,81 @@
+TASK: Make the Rate Schedule structured data that
+every surface reads from.
+
+THE PROBLEM THIS SOLVES
+Right now "12%" is a marketing string on
+/become-a-vendor, is absent from the legal terms
+entirely, and is presumably a constant somewhere in the
+payout code. Three sources, no synchronisation. Under
+P2B and the DMCC Act, a divergence between what you
+advertise and what you charge is a compliance problem,
+not just an untidy codebase.
+
+PRISMA SCHEMA
+
+model RateScheduleEntry {
+  id            String   @id @default(cuid())
+  versionId     String
+  key           String
+  label         String
+  rateDisplay   String
+  rateValue     Decimal? @db.Decimal(5,2)
+  basis         String
+  vatNote       String
+  status        RateStatus
+  sortOrder     Int
+  version       LegalDocumentVersion @relation(fields: [versionId], references: [id])
+  @@unique([versionId, key])
+}
+
+enum RateStatus {
+  LIVE
+  PLANNED
+  INCENTIVE
+  CUSTOMER_SIDE
+  OPTIONAL_ADDON
+}
+
+SEED FROM ANNEX A
+  standard_commission    12%          LIVE
+  repeat_commission      10%          PLANNED
+  referred_commission    0% to 3%     PLANNED
+  founding_cook          0%           INCENTIVE
+  catering_commission    10%          LIVE
+  customer_service_fee   5% cap 2.99  CUSTOMER_SIDE
+  vendor_pro             approx 19/mo OPTIONAL_ADDON
+
+CONSUMERS (all read from this table, none hardcode)
+  /become-a-vendor Rate Card
+  Acceptance screen Rate Card
+  Annex A rendered inside the terms page
+  Vendor dashboard Earnings and fees
+  The commission calculation service (LIVE entries only)
+  Payout statement generation
+
+RULES
+1. A rate with status PLANNED is displayed as not yet in
+   force and is never used in a calculation. Add a runtime
+   guard: the commission service throws if it resolves a
+   PLANNED entry.
+2. Changing any entry creates a new LegalDocumentVersion
+   and triggers the LEGAL-503 notice flow. There is no
+   path to edit a rate without notice.
+3. CUSTOMER_SIDE entries are displayed to vendors for
+   transparency but never deducted from vendor payouts.
+   Add a test asserting a FeastPass customer's order
+   produces an identical vendor payout to a non-member's.
+
+CONSISTENCY TEST
+Write a test that renders /become-a-vendor, the terms
+page Annex A, and the vendor dashboard fees page, extracts
+every percentage and money figure, and asserts each
+matches RateScheduleEntry. Fail the build on mismatch.
+This test is the actual deliverable. Without it, drift
+returns within a month.
+
+ACCEPTANCE CRITERIA
+- Grep the repo for "12%" and find zero hardcoded
+  instances outside the seed file.
+- The commission service throws if given a PLANNED rate.
+- The consistency test fails when one surface is edited
+  in isolation.

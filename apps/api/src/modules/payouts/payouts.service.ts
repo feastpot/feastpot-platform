@@ -925,7 +925,7 @@ export class PayoutsService {
         doc
           .font('Helvetica-Bold')
           .fontSize(10)
-          .text(`💰 You saved ${p(savedPence)} compared to a flat 12% rate this week.`, ml, doc.y);
+          .text(`💰 You saved ${p(savedPence)} compared to our standard marketplace rate this week.`, ml, doc.y);
         doc
           .font('Helvetica')
           .fontSize(8)
