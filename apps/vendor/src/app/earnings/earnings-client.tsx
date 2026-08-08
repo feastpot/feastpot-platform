@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from 'react';
 
+import { RateCard } from '@feastpot/ui';
+import type { RateRow } from '@feastpot/ui';
+
 import { createClient } from '@/lib/supabase/client';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? '';
@@ -46,16 +49,15 @@ const SOURCE_LABELS: Record<string, { label: string; colour: string; note: strin
   },
 };
 
-const RATE_CARD = [
-  { label: 'Marketplace – first order with you', rate: '12%' },
-  { label: 'Marketplace – returning customer', rate: '10%' },
-  { label: 'Your referrals (via your link or QR)', rate: '0%' },
-];
-
 export function EarningsClient() {
   const [data, setData] = useState<EarningsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Layer 2: fetch live rates from the public API so this page
+  // always matches the legal Rate Schedule (Annex A).
+  const [rates, setRates] = useState<RateRow[]>([]);
+  const [ratesLoading, setRatesLoading] = useState(true);
 
   const now = new Date();
   const year = now.getFullYear();
@@ -89,6 +91,15 @@ export function EarningsClient() {
       cancelled = true;
     };
   }, [year, month]);
+
+  // Fetch live rates from the public rate-schedule endpoint.
+  useEffect(() => {
+    fetch(`${API}/v1/terms/rate-schedule`)
+      .then((r) => r.json())
+      .then((d) => setRates(d as RateRow[]))
+      .catch(() => null)
+      .finally(() => setRatesLoading(false));
+  }, []);
 
   if (loading) {
     return (
@@ -192,24 +203,8 @@ export function EarningsClient() {
         </div>
       )}
 
-      {/* ─── Rate card ───────────────────────────────────────────────────── */}
-      <div className="rounded-xl border bg-white p-5 shadow-sm">
-        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-500">
-          Your commission rate card
-        </h2>
-        <div className="divide-y rounded-lg border">
-          {RATE_CARD.map((r) => (
-            <div key={r.label} className="flex items-center justify-between px-4 py-3">
-              <span className="text-sm text-gray-700">{r.label}</span>
-              <span className="font-mono text-sm font-semibold text-gray-900">{r.rate}</span>
-            </div>
-          ))}
-        </div>
-        <p className="mt-3 text-xs text-gray-400">
-          Commission is charged on food subtotal only -- never on delivery fees, service fees, or
-          tips. Rates are guaranteed for 15 days&apos; notice before any change.
-        </p>
-      </div>
+      {/* ─── Rate card (Layer 2 – live from the API) ─────────────────────── */}
+      <RateCard rates={rates} loading={ratesLoading} />
 
       {/* ─── CTA ─────────────────────────────────────────────────────────── */}
       <div className="rounded-xl bg-green-50 p-5">

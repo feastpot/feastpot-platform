@@ -16,9 +16,11 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { forwardRef, useRef, useState } from 'react';
+import { forwardRef, useEffect, useRef, useState } from 'react';
 
 import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
+import { KeyTermsSummary, RateCard } from '@feastpot/ui';
+import type { RateRow } from '@feastpot/ui';
 
 import { apiRequest, ApiError } from '@/lib/api/client';
 
@@ -253,6 +255,18 @@ export default function BecomeAVendorPage() {
 
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
+
+  // ── Layer 2: live commission rates fetched from the public API ────────────
+  const [rates, setRates] = useState<RateRow[]>([]);
+  const [ratesLoading, setRatesLoading] = useState(true);
+  const [ratesError, setRatesError] = useState<string | null>(null);
+
+  useEffect(() => {
+    apiRequest<RateRow[]>('/terms/rate-schedule')
+      .then(setRates)
+      .catch(() => setRatesError('Could not load current rates. Please refresh the page.'))
+      .finally(() => setRatesLoading(false));
+  }, []);
 
   const openForm = () => {
     setShowForm(true);
@@ -493,12 +507,13 @@ export default function BecomeAVendorPage() {
       </section>
 
       {/* Transparent commercials */}
-      <section className="mx-auto max-w-6xl px-5 pb-14 sm:px-8 lg:px-12">
+      <section className="mx-auto max-w-6xl px-5 pb-8 sm:px-8 lg:px-12">
         <h2 className="mb-4 font-display text-xl font-black tracking-tight text-charcoal">
           Transparent commercials
         </h2>
-        <div className="grid gap-4 sm:grid-cols-3">
-          {COMMERCIALS.map(({ Icon, label, sub }) => (
+        {/* Non-commission commercial highlights */}
+        <div className="mb-6 grid gap-4 sm:grid-cols-2">
+          {COMMERCIALS.filter(({ label }) => !label.includes('commission')).map(({ Icon, label, sub }) => (
             <div key={label} className="rounded-2xl bg-cream-warm p-5">
               <span
                 className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-brand-light"
@@ -511,6 +526,29 @@ export default function BecomeAVendorPage() {
             </div>
           ))}
         </div>
+
+        {/* Layer 2: Rate Card -- generated from the database so this page
+            and the legal document can never show conflicting percentages. */}
+        <RateCard
+          rates={rates}
+          loading={ratesLoading}
+          error={ratesError ?? undefined}
+          className="mb-6"
+        />
+
+        {/* Layer 1: Key Terms Summary (Annex C) */}
+        <KeyTermsSummary />
+
+        <p className="mt-4 text-[12px] text-charcoal-mid">
+          Read the full{' '}
+          <Link
+            href="/legal/vendor-terms"
+            className="font-semibold text-brand underline-offset-2 hover:underline"
+          >
+            Vendor Terms of Agreement
+          </Link>{' '}
+          before applying.
+        </p>
       </section>
 
       {/* How it works */}
@@ -879,6 +917,9 @@ const InterestForm = forwardRef<HTMLElement, InterestFormProps>(function Interes
             <span>Send me occasional tips and updates by email (optional).</span>
           </label>
 
+          {/* Layer 1 above the submit button (P2B: must appear before contracting). */}
+          <KeyTermsSummary className="mt-2" />
+
           <label className="flex cursor-pointer items-start gap-3 text-[13px] font-medium text-charcoal">
             <input
               type="checkbox"
@@ -887,11 +928,11 @@ const InterestForm = forwardRef<HTMLElement, InterestFormProps>(function Interes
               className="mt-0.5 h-4 w-4 accent-brand"
             />
             <span>
-              I agree to the{' '}
+              I have read and agree to the{' '}
               <Link href="/legal/vendor-terms" className="font-bold text-brand hover:underline">
-                Vendor Terms
+                Vendor Terms of Agreement
               </Link>{' '}
-              and{' '}
+              (including the Rate Schedule) and the{' '}
               <Link href="/legal/privacy" className="font-bold text-brand hover:underline">
                 Privacy Policy
               </Link>

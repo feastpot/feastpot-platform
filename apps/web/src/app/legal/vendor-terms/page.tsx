@@ -13,6 +13,8 @@ import {
 } from '@/components/legal/legal-shell';
 import { LEGAL } from '@/lib/legal-constants';
 
+import { LegalLayers } from './legal-layers';
+import { PrintButton } from './print-button';
 import { TermsVersionBadge } from './version-badge';
 
 export const metadata: Metadata = {
@@ -24,8 +26,13 @@ export const metadata: Metadata = {
 
 const ICO_NUMBER = LEGAL.ICO_NUMBER;
 
-/** Canonical commission rate -- keep in sync with become-a-vendor and help pages. */
-export const VENDOR_COMMISSION_RATE_PCT = 12;
+/**
+ * Example rate used in the payouts section prose only.
+ * Authoritative rates are served by GET /v1/terms/rate-schedule and shown
+ * in the LegalLayers (Annex A) above the legal text. Keep this in sync with
+ * PLATFORM_FACTS.commission.marketplaceFirst; the rate card is the contract.
+ */
+const VENDOR_COMMISSION_RATE_PCT = 12;
 
 const QUICK_NAV = [
   { label: 'Relationship', href: '#relationship' },
@@ -58,9 +65,21 @@ export default function VendorTermsPage() {
 
       <LegalQuickNav ariaLabel="Vendor terms sections" items={QUICK_NAV} />
 
+      {/*
+       * Layer 1 + Layer 2 (P2B Regulation three-layer presentation).
+       * Visible BEFORE the full legal text so vendors see the plain-language
+       * summary and live rate card even if they don't scroll the full document.
+       */}
+      <div className="mx-auto max-w-5xl px-5 sm:px-8 lg:px-12">
+        <LegalLayers />
+      </div>
+
       <LegalContentWrapper>
-        {/* Version badge: fetches version number + effective date from the API */}
-        <TermsVersionBadge />
+        {/* Version badge + PDF download */}
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <TermsVersionBadge />
+          <PrintButton />
+        </div>
         {/* ── 1. Relationship ── */}
         <LegalSection id="relationship" icon="🤝" title="1. The vendor relationship">
           <p>

@@ -25,3 +25,7 @@ export * from './components/page-shell';
 
 // Vendor verification panel
 export * from './VerificationPanel';
+
+// Three-layer legal presentation (P2B Regulation)
+export * from './KeyTermsSummary';
+export * from './RateCard';

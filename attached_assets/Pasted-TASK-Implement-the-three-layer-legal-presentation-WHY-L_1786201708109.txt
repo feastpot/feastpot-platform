@@ -1,0 +1,76 @@
+TASK: Implement the three-layer legal presentation.
+
+WHY LAYERED
+P2B requires terms in plain and intelligible language,
+available at all stages including before contracting. A
+single wall of clauses satisfies neither the regulation's
+spirit nor a home cook's actual reading behaviour. Layer
+the disclosure the way Deliveroo, Uber Eats and Just Eat
+partner portals do, but proportionate to a small
+marketplace.
+
+LAYER 1: KEY TERMS SUMMARY
+Source: Annex C of the terms. Ten plain-language bullets.
+Component: packages/ui/src/KeyTermsSummary.tsx
+
+MUST carry this label, visibly, not in small print:
+"This plain language summary is a signpost only. It is not
+the contract. Where this summary and the numbered terms
+differ, the numbered terms apply."
+
+Appears on:
+  /become-a-vendor, below the commercials section
+  The application form, above the submit button
+  The acceptance screen, beside the full terms pane
+  The vendor dashboard, under a Legal tab
+
+LAYER 2: RATE CARD
+Source: Annex A Rate Schedule, rendered from the same
+data as LEGAL-505. A scannable table, not prose.
+
+Appears on:
+  /become-a-vendor (the page already states "12% on
+  completed orders", so replace that loose claim with the
+  generated Rate Card so the two can never diverge)
+  The acceptance screen
+  Vendor dashboard, Earnings and fees page
+
+Show clearly which rates are live and which are marked
+planned and not yet in force.
+
+LAYER 3: FULL TERMS
+/legal/vendor-terms, rendered from the database, with
+version number, effective date, section anchors, version
+history link, and a PDF download.
+
+JOURNEY PLACEMENT MAP
+  Marketing page      Layer 1 + Layer 2 + link to Layer 3
+  Application form    Layer 1 + link to Layer 3
+  Approval email      Link to Layer 3, PDF attached
+  Acceptance screen   Layer 3 in pane, Layers 1 and 2 beside
+  Onboarding call     Layer 1 as a talking-points sheet
+  Dashboard Legal tab All three layers, always available
+
+ACCESSIBILITY AND READABILITY
+  Plain UK English, short numbered clauses
+  WCAG 2.2 AA: contrast, resizable text, keyboard
+  navigation, screen-reader labels on the acceptance
+  control, never colour alone to convey meaning
+  Mobile-first: this is a PWA and most vendors will read
+  on a phone. Test the acceptance flow one-handed.
+  Downloadable and printable PDF of the accepted version
+
+FOOTER CONSISTENCY DEFECT
+The become-a-vendor page footer currently omits Catering,
+Become a vendor, Vendor readiness and Trust and safety,
+while the homepage footer includes them. Use one shared
+Footer component everywhere so the Legal links are always
+reachable.
+
+ACCEPTANCE CRITERIA
+- The signpost disclaimer is visible on every Layer 1
+  render, not hidden in small print.
+- The 12% figure appears nowhere as a hardcoded string.
+- One footer component renders on every page of every app.
+- The acceptance flow is usable one-handed on a 375px
+  viewport.

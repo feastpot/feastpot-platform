@@ -3,7 +3,6 @@ import { createHash } from 'crypto';
 import { InjectQueue } from '@nestjs/bull';
 import {
   BadRequestException,
-  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
@@ -321,6 +320,45 @@ export class TermsService {
     });
     const acceptedIds = new Set(accepted.map((a) => a.termsVersionId));
     return pending.filter((v) => !acceptedIds.has(v.id));
+  }
+
+  // ─── Rate Schedule (public) ──────────────────────────────────────────────────
+
+  /**
+   * Return the current live and planned commission rates in a display-friendly
+   * format for Layer 2 of the three-layer legal presentation.
+   *
+   * This endpoint is intentionally public (no auth required) because UK P2B
+   * Regulation requires rate information to be "available at all stages
+   * including before contracting", i.e. on the marketing page before a vendor
+   * has an account.
+   */
+  async getRateSchedule() {
+    const now = new Date();
+    const rates = await this.prisma.commissionRate.findMany({
+      where: {
+        OR: [
+          { effectiveTo: null },
+          { effectiveTo: { gt: now } },
+        ],
+      },
+      orderBy: [{ source: 'asc' }, { isFirstOrder: 'asc' }, { effectiveFrom: 'asc' }],
+    });
+
+    return rates.map((r) => ({
+      segment: this.formatRateSegment(r.source, r.isFirstOrder),
+      ratePercent: parseFloat(r.ratePercent.toString()),
+      status: r.effectiveFrom > now ? ('planned' as const) : ('live' as const),
+      effectiveFrom: r.effectiveFrom.toISOString(),
+      effectiveTo: r.effectiveTo?.toISOString() ?? null,
+    }));
+  }
+
+  private formatRateSegment(source: string, isFirstOrder: boolean | null): string {
+    if (source === 'VENDOR_REFERRED') return 'Your referrals (via referral link or QR code)';
+    if (isFirstOrder === true) return 'Marketplace – first order from a new customer';
+    if (isFirstOrder === false) return 'Marketplace – returning customer';
+    return source;
   }
 
   // ─── Change Notices (Dashboard) ──────────────────────────────────────────────

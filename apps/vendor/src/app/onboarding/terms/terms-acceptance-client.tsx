@@ -19,7 +19,8 @@
  *   6. Keyboard accessible, screen-reader labelled, WCAG 2.2 AA.
  */
 
-import { Button } from '@feastpot/ui';
+import { Button, KeyTermsSummary, RateCard } from '@feastpot/ui';
+import type { RateRow } from '@feastpot/ui';
 import { AlertCircle, CheckCircle2, Download, FileText, Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -56,6 +57,16 @@ export function TermsAcceptanceClient({ accessToken, version, alreadyAccepted }:
   const [checked, setChecked] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Layer 2: live commission rates (public endpoint, no auth required).
+  const [rates, setRates] = useState<RateRow[]>([]);
+  const [ratesLoading, setRatesLoading] = useState(true);
+  useEffect(() => {
+    apiRequest<RateRow[]>('/terms/rate-schedule')
+      .then(setRates)
+      .catch(() => null)
+      .finally(() => setRatesLoading(false));
+  }, []);
 
   const ACCEPTANCE_LABEL = buildAcceptanceLabel(version.version);
 
@@ -125,7 +136,7 @@ export function TermsAcceptanceClient({ accessToken, version, alreadyAccepted }:
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-8">
+    <div className="mx-auto max-w-5xl px-4 py-8">
       <header className="mb-6">
         <h1 className="text-2xl font-bold text-foreground">Vendor Terms of Agreement</h1>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -139,43 +150,48 @@ export function TermsAcceptanceClient({ accessToken, version, alreadyAccepted }:
         </p>
       </header>
 
-      {/* What changed in this version */}
-      <section className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm">
-        <p className="mb-2 font-semibold text-amber-900">What changed in v{version.version}</p>
-        <ul className="space-y-1 text-amber-800">
-          {version.changeSummary
-            .split('\n')
-            .filter(Boolean)
-            .map((line, i) => (
-              <li key={i} className="flex gap-2">
-                <span className="shrink-0 text-amber-600">&#8226;</span>
-                {line.replace(/^(Added|Changed|Fixed): /, '')}
-              </li>
-            ))}
-        </ul>
-      </section>
+      {/* Three-layer layout: on desktop, terms pane (left) and Layer 1+2 (right). */}
+      <div className="lg:grid lg:grid-cols-[1fr_360px] lg:gap-6">
+        {/* ── Left column: full terms pane + accept controls ─────────────── */}
+        <div>
+          {/* What changed in this version */}
+          <section className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm">
+            <p className="mb-2 font-semibold text-amber-900">What changed in v{version.version}</p>
+            <ul className="space-y-1 text-amber-800">
+              {version.changeSummary
+                .split('\n')
+                .filter(Boolean)
+                .map((line, i) => (
+                  <li key={i} className="flex gap-2">
+                    <span className="shrink-0 text-amber-600">&#8226;</span>
+                    {line.replace(/^(Added|Changed|Fixed): /, '')}
+                  </li>
+                ))}
+            </ul>
+          </section>
 
-      {/* Download links */}
-      <div className="mb-4 flex flex-wrap gap-3 text-sm">
-        <a
-          href={`/legal/vendor-terms`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-1.5 text-teal-700 underline hover:text-teal-900"
-        >
-          <FileText className="h-4 w-4" />
-          Key Terms Summary (Annex C)
-        </a>
-        <a
-          href={`/legal/vendor-terms#annex-a`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-1.5 text-teal-700 underline hover:text-teal-900"
-        >
-          <Download className="h-4 w-4" />
-          Rate Card (Annex A)
-        </a>
-      </div>
+          {/* External link to full terms (Layer 3) */}
+          <div className="mb-4 flex flex-wrap gap-3 text-sm">
+            <a
+              href="/legal/vendor-terms"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 text-teal-700 underline hover:text-teal-900"
+            >
+              <FileText className="h-4 w-4" />
+              Open full terms in a new tab
+            </a>
+            <a
+              href="/legal/vendor-terms"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => { e.preventDefault(); window.open('/legal/vendor-terms', '_blank'); }}
+              className="flex items-center gap-1.5 text-teal-700 underline hover:text-teal-900"
+            >
+              <Download className="h-4 w-4" />
+              Save as PDF (print &rsaquo; Save as PDF)
+            </a>
+          </div>
 
       {/* Scrollable terms pane -- min 400px desktop, full viewport on mobile */}
       <div
@@ -287,32 +303,44 @@ export function TermsAcceptanceClient({ accessToken, version, alreadyAccepted }:
         </p>
       )}
 
-      {/* Action row */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <Button
-          variant="ghost"
-          onClick={() => router.push('/onboarding')}
-          disabled={submitting}
-          type="button"
+          {/* Action row */}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <Button
+              variant="ghost"
+              onClick={() => router.push('/onboarding')}
+              disabled={submitting}
+              type="button"
+            >
+              Back to setup
+            </Button>
+            <Button
+              onClick={handleAccept}
+              disabled={!checked || submitting}
+              aria-disabled={!checked || submitting}
+              className="min-w-[200px]"
+              type="button"
+            >
+              {submitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Recording acceptance...
+                </>
+              ) : (
+                'Accept and continue'
+              )}
+            </Button>
+          </div>
+        </div>
+
+        {/* ── Right column: Layer 1 (key terms) + Layer 2 (rate card) ────── */}
+        {/* On mobile these appear ABOVE the terms pane via CSS order */}
+        <aside
+          className="order-first mb-6 space-y-4 lg:order-last lg:mb-0"
+          aria-label="Key terms summary and rate card"
         >
-          Back to setup
-        </Button>
-        <Button
-          onClick={handleAccept}
-          disabled={!checked || submitting}
-          aria-disabled={!checked || submitting}
-          className="min-w-[200px]"
-          type="button"
-        >
-          {submitting ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Recording acceptance...
-            </>
-          ) : (
-            'Accept and continue'
-          )}
-        </Button>
+          <KeyTermsSummary />
+          <RateCard rates={rates} loading={ratesLoading} />
+        </aside>
       </div>
     </div>
   );

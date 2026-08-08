@@ -1,7 +1,10 @@
 'use client';
 
-import { CheckCircle2, Clock, FileText, History } from 'lucide-react';
-import { useState } from 'react';
+import { CheckCircle2, Clock, ExternalLink, FileText, History } from 'lucide-react';
+import { useEffect, useState } from 'react';
+
+import { KeyTermsSummary, RateCard } from '@feastpot/ui';
+import type { RateRow } from '@feastpot/ui';
 
 import { apiRequest } from '@/lib/api/client';
 import { useAccessToken } from '@/lib/auth/use-access-token';
@@ -35,6 +38,16 @@ export function TermsClient({ view, history }: TermsClientProps) {
   const [accepting, setAccepting] = useState<string | null>(null);
   const [accepted, setAccepted] = useState<Set<string>>(new Set());
 
+  // Layer 2: commission rates (public endpoint, no token required).
+  const [rates, setRates] = useState<RateRow[]>([]);
+  const [ratesLoading, setRatesLoading] = useState(true);
+  useEffect(() => {
+    apiRequest<RateRow[]>('/terms/rate-schedule')
+      .then(setRates)
+      .catch(() => null)
+      .finally(() => setRatesLoading(false));
+  }, []);
+
   async function handleAccept(versionId: string) {
     if (!token) return;
     setAccepting(versionId);
@@ -56,6 +69,40 @@ export function TermsClient({ view, history }: TermsClientProps) {
 
   return (
     <div className="space-y-8">
+      {/* Layer 1 + Layer 2 -- legal resources always visible on the Legal tab */}
+      <section aria-labelledby="legal-resources-heading">
+        <h2
+          id="legal-resources-heading"
+          className="mb-4 text-base font-semibold text-dark"
+        >
+          Legal resources
+        </h2>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <KeyTermsSummary />
+          <RateCard rates={rates} loading={ratesLoading} />
+        </div>
+        <div className="mt-3 flex flex-wrap gap-4 text-sm">
+          <a
+            href="https://feastpot.co.uk/legal/vendor-terms"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 text-teal underline underline-offset-2 hover:opacity-80"
+          >
+            <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+            Full Vendor Terms (Layer 3)
+          </a>
+          <a
+            href="https://feastpot.co.uk/legal/vendor-terms#annex-a"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 text-teal underline underline-offset-2 hover:opacity-80"
+          >
+            <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+            Rate Schedule (Annex A)
+          </a>
+        </div>
+      </section>
+
       {/* Current version card */}
       {view.current && (
         <section aria-labelledby="current-terms-heading">

@@ -178,6 +178,18 @@ export class TermsController {
   }
 
   /**
+   * Commission rate schedule (public, no auth required).
+   * P2B Regulation requires rate information to be available before contracting.
+   * Returns live rates and any planned (future) rate changes.
+   */
+  @Get('rate-schedule')
+  @Public()
+  @ApiOperation({ summary: 'Current and planned commission rate schedule (public)' })
+  getRateSchedule() {
+    return this.terms.getRateSchedule();
+  }
+
+  /**
    * Return DASHBOARD notices for this vendor that have not yet been
    * acknowledged. Each notice includes the version metadata (version number,
    * effectiveAt, changeSummary) so the banner can render the countdown and
