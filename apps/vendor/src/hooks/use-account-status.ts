@@ -2,6 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 
+import { useAccessToken } from '@/lib/auth/use-access-token';
 import { apiRequest } from '@/lib/api/client';
 
 export type EnforcementActionType = 'RESTRICTION' | 'SUSPENSION' | 'TERMINATION';
@@ -58,14 +59,18 @@ export const REASON_CODE_RESOLVE_STEPS: Record<ReasonCode, string> = {
     'Contact Feastpot support immediately. You may also seek independent legal advice.',
 };
 
-export function useAccountStatus(accessToken?: string) {
+export function useAccountStatus() {
+  const { token, loading: tokenLoading } = useAccessToken();
   return useQuery({
-    queryKey: ['account-status'],
+    queryKey: ['account-status', token],
     queryFn: () =>
       apiRequest<EnforcementAction[]>('/vendors/enforcement', {
-        accessToken,
+        accessToken: token ?? undefined,
         next: { revalidate: 0 },
       }),
+    // Don't attempt the request until we have a token.
+    enabled: !tokenLoading && !!token,
     staleTime: 30_000,
+    retry: 1,
   });
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { Check, Copy, Download, ExternalLink } from 'lucide-react';
+import { Check, Copy, Download, ExternalLink, Loader2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 import { apiRequest } from '@/lib/api/client';
@@ -65,16 +65,29 @@ export function ReferralsClient({ link: initialLink }: ReferralsClientProps) {
   const [copied, setCopied] = useState<string | null>(null);
   const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // If QR codes haven't generated yet (async after first link creation), poll once.
+  // If QR codes haven't generated yet (async after first link creation), poll until ready.
+  // Attempts: 4 s, 8 s, 16 s, 30 s (capped). Stops as soon as qrUrls arrives.
+  const qrPollAttempt = useRef(0);
   useEffect(() => {
     if (!token || link?.qrUrls) return;
-    const timer = setTimeout(async () => {
+    qrPollAttempt.current = 0;
+    const delays = [4_000, 8_000, 16_000, 30_000];
+    let timer: ReturnType<typeof setTimeout>;
+    const poll = async () => {
       try {
         const fresh = await apiRequest<ReferralLink>('/attribution/links/me', { accessToken: token });
         setLink(fresh);
+        if (fresh.qrUrls) return; // done
       } catch { /* no-op */ }
-    }, 4000);
+      qrPollAttempt.current += 1;
+      const nextDelay = delays[qrPollAttempt.current];
+      if (nextDelay !== undefined) {
+        timer = setTimeout(poll, nextDelay);
+      }
+    };
+    timer = setTimeout(poll, delays[0]!);
     return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, link?.qrUrls]);
 
   // Fetch source split.
@@ -143,8 +156,13 @@ export function ReferralsClient({ link: initialLink }: ReferralsClientProps) {
               className="h-40 w-40 rounded-xl border border-border bg-white p-2"
             />
           ) : (
-            <div className="flex h-40 w-40 items-center justify-center rounded-xl border border-border bg-surface">
-              <span className="text-xs text-mid">Generating…</span>
+            <div className="flex h-40 w-40 flex-col items-center justify-center gap-2 rounded-xl border border-border bg-surface">
+              <Loader2 className="h-5 w-5 animate-spin text-teal" aria-hidden />
+              <span className="text-center text-xs text-mid">
+                Generating QR code
+                <br />
+                <span className="text-[10px]">This takes a few seconds</span>
+              </span>
             </div>
           )}
           <div className="flex flex-col gap-2">

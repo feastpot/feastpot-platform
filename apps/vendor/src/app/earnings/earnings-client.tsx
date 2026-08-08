@@ -161,7 +161,7 @@ export function EarningsClient() {
       {period.bySource.length > 0 && (
         <div className="rounded-xl border bg-white p-5 shadow-sm">
           <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-500">
-            This month -- by source
+            This month, by source
           </h2>
           <div className="space-y-3">
             {period.bySource.map((row) => {
