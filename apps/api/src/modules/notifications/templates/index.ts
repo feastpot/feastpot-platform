@@ -839,6 +839,96 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
       ),
     channels: ['email'],
   },
+  // ── HMRC digital platform reporting (SI 2023/817) ───────────────────────
+
+  hmrc_copy_sent: {
+    subject: (d) => `Your ${str(d.reportingYear)} tax information report - FeastPot`,
+    render: (d) => {
+      const qb = d.quarterlyBreakdown as Record<string, { grossPence: number; feesPence: number; orderCount: number }> | null;
+      const quarterRows = ['q1', 'q2', 'q3', 'q4']
+        .map((q) => {
+          const data = qb?.[q];
+          if (!data) return '';
+          const label = q.toUpperCase().replace('Q', 'Q') + ' ' + str(d.reportingYear);
+          return keyValueRow(label, `${formatMoney(data.grossPence)} gross, ${data.orderCount} orders`);
+        })
+        .join('');
+
+      return baseLayout(
+        `${str(d.reportingYear)} Annual Tax Report`,
+        h2(`Your ${str(d.reportingYear)} annual report`) +
+          p(
+            `Under the Platform Operators (Due Diligence and Reporting Requirements) Regulations 2023 ` +
+              `(SI 2023/817), FeastPot is required to report the following information about your activity ` +
+              `on our platform to HMRC. This is your copy of the information reported.`,
+          ) +
+          `<table style="width:100%;border-collapse:collapse;font-size:14px;margin:16px 0;">` +
+          keyValueRow('Legal name', esc(d.businessName)) +
+          keyValueRow('Reporting year', str(d.reportingYear)) +
+          keyValueRow('Gross consideration', `GBP ${esc(d.grossPounds)}`) +
+          keyValueRow('Platform fees deducted', `GBP ${esc(d.feesPounds)}`) +
+          keyValueRow('Total transactions', str(d.orderCount)) +
+          quarterRows +
+          `</table>` +
+          p(
+            'If any of the information above is incorrect, please contact ' +
+              '<a href="mailto:compliance@feastpot.co.uk">compliance@feastpot.co.uk</a> ' +
+              'within 60 days. Keep this email for your tax records.',
+          ) +
+          brandButton('View tax information', 'https://vendor.feastpot.co.uk/tax-information', 'vendorBlue'),
+      );
+    },
+    channels: ['email'],
+  },
+
+  hmrc_deadline_alert: {
+    subject: (d) => `Action required: HMRC reporting deadline ${str(d.deadline)}`,
+    render: (d) =>
+      baseLayout(
+        'HMRC reporting deadline approaching',
+        h2('HMRC submission deadline approaching') +
+          `<div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:16px;margin:16px 0;text-align:center;">` +
+          `<p style="margin:0;font-size:18px;font-weight:700;color:#92400e;">Deadline: ${esc(d.deadline)}</p>` +
+          `</div>` +
+          p(
+            `The annual HMRC digital platform report for ${str(d.reportingYear)} must be submitted on or before <strong>${esc(d.deadline)}</strong> ` +
+              `under the Platform Operators (Due Diligence and Reporting Requirements) Regulations 2023.`,
+          ) +
+          `<table style="width:100%;border-collapse:collapse;font-size:14px;margin:16px 0;">` +
+          keyValueRow('Reporting year', str(d.reportingYear)) +
+          keyValueRow('Vendor reports generated', str(d.reportCount)) +
+          keyValueRow('Copies still to send', str(d.unsentCopies)) +
+          `</table>` +
+          p('Log in to the admin panel to review and submit to HMRC, or trigger the send-copies job if vendor copies have not yet been dispatched.') +
+          brandButton('Open admin panel', 'https://admin.feastpot.co.uk/platform-reports', 'vendorBlue'),
+      ),
+    channels: ['email'],
+  },
+
+  hmrc_verification_failed: {
+    subject: () => 'Action required: tax information needs updating - FeastPot',
+    render: (d) =>
+      baseLayout(
+        'Tax information update required',
+        h2('We could not verify your tax information') +
+          p(
+            `We were unable to verify the tax information you provided for <strong>${esc(d.businessName)}</strong>. ` +
+              `This is required by the Platform Operators (Due Diligence and Reporting Requirements) Regulations 2023 (SI 2023/817).`,
+          ) +
+          (d.note
+            ? `<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:16px;margin:16px 0;">` +
+              `<p style="margin:0 0 4px 0;font-size:12px;font-weight:600;text-transform:uppercase;color:#991b1b;">Note from compliance team</p>` +
+              `<p style="margin:0;font-size:14px;line-height:1.6;color:#111827;">${esc(d.note)}</p>` +
+              `</div>`
+            : '') +
+          p(
+            'Please log in to the vendor portal and update your tax information. ' +
+              'Your listing may be paused until this is resolved.',
+          ) +
+          brandButton('Update tax information', 'https://vendor.feastpot.co.uk/tax-information', 'vendorBlue'),
+      ),
+    channels: ['email'],
+  },
 };
 
 export function getTemplate(eventName: string): NotificationTemplate | undefined {

@@ -6,6 +6,7 @@ export const STRIPE_WEBHOOK_QUEUE = 'stripe-webhooks';
 export const PAYOUTS_QUEUE = 'payouts';
 export const COMPLIANCE_QUEUE = 'compliance';
 export const TERMS_NOTICES_QUEUE = 'terms-notices';
+export const HMRC_QUEUE = 'hmrc';
 
 // Bound every queue's completed/failed retention so Redis (Upstash) usage stays
 // flat. Without removeOnFail the failed ZSET grows forever - the production
@@ -28,6 +29,12 @@ const queues = BullModule.registerQueue(
   {
     name: TERMS_NOTICES_QUEUE,
     defaultJobOptions: { attempts: 3, backoff: { type: 'exponential', delay: 10_000 }, ...RETENTION },
+  },
+  {
+    // HMRC annual reporting job. Low volume (runs once per year) but
+    // important: retry 5× with 1-min back-off before alerting.
+    name: HMRC_QUEUE,
+    defaultJobOptions: { attempts: 5, backoff: { type: 'exponential', delay: 60_000 }, ...RETENTION },
   },
 );
 

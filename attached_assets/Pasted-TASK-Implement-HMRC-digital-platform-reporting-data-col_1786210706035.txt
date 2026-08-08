@@ -1,0 +1,93 @@
+TASK: Implement HMRC digital platform reporting data
+collection and the annual report.
+
+REGULATORY BASIS
+The Platform Operators (Due Diligence and Reporting
+Requirements) Regulations 2023 (SI 2023/817), in force
+from 1 January 2024. Reporting platform operators must
+collect and verify seller information, report annually to
+HMRC on or before 31 January following the reportable
+period, and provide each seller with a copy of the
+information reported about them.
+
+Feastpot is a reporting platform operator. v2.0 clause 7.2
+captures the vendor's consent to this collection, so the
+data capture must not be added as a surprise later.
+
+PRISMA SCHEMA
+
+model VendorTaxProfile {
+  id                 String   @id @default(cuid())
+  vendorId           String   @unique
+  entityType         TaxEntityType
+  legalName          String
+  tradingName        String?
+  addressLine1       String
+  addressLine2       String?
+  city               String
+  postcode           String
+  country            String   @default("GB")
+  dateOfBirth        DateTime?
+  companyNumber      String?
+  taxIdentifier      String?
+  taxIdCountry       String   @default("GB")
+  vatNumber          String?
+  financialAccountId String?
+  accountHolderName  String?
+  verificationStatus VerificationStatus @default(PENDING)
+  verifiedAt         DateTime?
+  lastReviewedAt     DateTime?
+  @@index([verificationStatus])
+}
+
+model PlatformReport {
+  id             String   @id @default(cuid())
+  reportingYear  Int
+  vendorId       String
+  grossPence     Int
+  feesPence      Int
+  orderCount     Int
+  quarterlyBreakdown Json
+  reportedAt     DateTime?
+  copySentAt     DateTime?
+  @@unique([reportingYear, vendorId])
+}
+
+enum TaxEntityType { SOLE_TRADER LIMITED_COMPANY PARTNERSHIP }
+enum VerificationStatus { PENDING VERIFIED FAILED EXEMPT }
+
+COLLECTION POINT
+Fold these fields into Stripe Connect onboarding rather
+than adding a separate form. Stripe already collects most
+of them for KYC. Map what Stripe returns, and only ask the
+vendor for the gaps (typically tax identifier and, for
+sole traders, date of birth). Do not make a vendor type
+their address twice.
+
+VERIFICATION
+Reasonable verification steps: company number checked
+against Companies House where applicable, name and address
+consistency against Stripe KYC output, and a documented
+manual check where automated verification is unavailable.
+Record which method was used.
+
+ANNUAL REPORT JOB
+Scheduled for early January. For each vendor with
+reportable activity in the prior calendar year, compute
+gross consideration, fees deducted, order count and
+quarterly breakdown, generate the HMRC submission, and
+send each vendor their copy. Alert the founder well before
+the 31 January deadline rather than on it.
+
+DASHBOARD
+A Tax information page in apps/vendor showing what is
+held, what is reported, and the annual copy for download.
+Transparency here is a trust asset, not just a duty.
+
+ACCEPTANCE CRITERIA
+- No vendor reaches live listing with an incomplete tax
+  profile.
+- The annual job produces a per-vendor report and sends
+  each copy.
+- Fields already captured by Stripe are not re-requested.
+- The deadline alert fires with time to act.

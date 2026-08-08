@@ -44,6 +44,11 @@ import {
   type VerificationState,
 } from '@/hooks/use-vendor-verification';
 import {
+  useVendorTaxProfile,
+  useVerifyTaxProfile,
+  type VerificationStatus as TaxVerificationStatus,
+} from '@/hooks/use-vendor-tax-profile';
+import {
   REASON_CODE_LABELS,
   URGENT_REASON_CODES,
   useCreateEnforcementAction,
@@ -593,6 +598,9 @@ export function VendorDetailClient({
           </CardContent>
         </Card>
 
+        {/* ── Tax profile (SI 2023/817) ────────────────────────────────── */}
+        <TaxProfilePanel vendorId={vendorId} canReview={canReviewSignals} />
+
         {/* ── Enforcement actions (P2B clause 14.1) ───────────────────── */}
         <Card className="lg:col-span-3">
           <CardHeader className="flex flex-row items-center justify-between">
@@ -1116,6 +1124,211 @@ export function VendorDetailClient({
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+// ─── Tax profile panel (SI 2023/817) ─────────────────────────────────────────
+
+const TAX_STATUS_TONE: Record<TaxVerificationStatus, StatusTone> = {
+  PENDING: 'warning',
+  VERIFIED: 'success',
+  FAILED: 'danger',
+  EXEMPT: 'neutral',
+};
+
+const ENTITY_TYPE_LABELS: Record<string, string> = {
+  SOLE_TRADER: 'Sole trader / individual',
+  LIMITED_COMPANY: 'Limited company',
+  PARTNERSHIP: 'Partnership',
+};
+
+function TaxProfilePanel({
+  vendorId,
+  canReview,
+}: {
+  vendorId: string;
+  canReview: boolean;
+}) {
+  const { data: profile, isLoading } = useVendorTaxProfile(vendorId);
+  const verify = useVerifyTaxProfile(vendorId);
+  const [form, setForm] = useState<{
+    status: TaxVerificationStatus;
+    verificationMethod: string;
+    note: string;
+  }>({ status: 'VERIFIED', verificationMethod: '', note: '' });
+  const [formOpen, setFormOpen] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  return (
+    <Card className="lg:col-span-3">
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div>
+          <CardTitle className="text-base">Tax profile</CardTitle>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Required under SI 2023/817 (Platform Operators Regulations 2023)
+          </p>
+        </div>
+        {canReview && profile && !formOpen && (
+          <Button size="sm" variant="outline" onClick={() => setFormOpen(true)}>
+            Verify / update status
+          </Button>
+        )}
+      </CardHeader>
+      <CardContent>
+        {isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
+        {!isLoading && !profile && (
+          <p className="text-sm text-muted-foreground">
+            No tax profile on file. The vendor must complete this before going live.
+          </p>
+        )}
+        {profile && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 gap-x-8 gap-y-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
+              <Field
+                label="Verification status"
+                value={
+                  <StatusPill tone={TAX_STATUS_TONE[profile.verificationStatus]}>
+                    {profile.verificationStatus}
+                  </StatusPill>
+                }
+              />
+              <Field
+                label="Entity type"
+                value={ENTITY_TYPE_LABELS[profile.entityType] ?? profile.entityType}
+              />
+              <Field label="Legal name" value={profile.legalName} />
+              {profile.tradingName && (
+                <Field label="Trading name" value={profile.tradingName} />
+              )}
+              <Field
+                label="Address"
+                value={[
+                  profile.addressLine1,
+                  profile.addressLine2,
+                  profile.city,
+                  profile.postcode,
+                  profile.country,
+                ]
+                  .filter(Boolean)
+                  .join(', ')}
+              />
+              {profile.dateOfBirth && (
+                <Field
+                  label="Date of birth"
+                  value={new Date(profile.dateOfBirth).toLocaleDateString('en-GB')}
+                />
+              )}
+              {profile.companyNumber && (
+                <Field label="Company number" value={profile.companyNumber} />
+              )}
+              <Field label="Tax identifier (UTR/NI)" value={profile.taxIdentifier ?? '-'} />
+              {profile.vatNumber && <Field label="VAT number" value={profile.vatNumber} />}
+              {profile.verificationMethod && (
+                <Field label="Verification method" value={profile.verificationMethod} />
+              )}
+              {profile.verifiedAt && (
+                <Field
+                  label="Verified at"
+                  value={new Date(profile.verifiedAt).toLocaleDateString('en-GB')}
+                />
+              )}
+              <Field
+                label="Last updated"
+                value={new Date(profile.updatedAt).toLocaleDateString('en-GB')}
+              />
+            </div>
+
+            {canReview && formOpen && (
+              <div className="rounded-md border border-border bg-surface p-4">
+                <p className="mb-3 text-sm font-semibold text-dark">Update verification status</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Status
+                    </label>
+                    <select
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      value={form.status}
+                      onChange={(e) =>
+                        setForm((p) => ({
+                          ...p,
+                          status: e.target.value as TaxVerificationStatus,
+                        }))
+                      }
+                    >
+                      <option value="VERIFIED">Verified</option>
+                      <option value="FAILED">Failed: update required</option>
+                      <option value="EXEMPT">Exempt</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Verification method
+                    </label>
+                    <Input
+                      value={form.verificationMethod}
+                      onChange={(e) =>
+                        setForm((p) => ({ ...p, verificationMethod: e.target.value }))
+                      }
+                      placeholder="e.g. HMRC match, manual review"
+                    />
+                  </div>
+                </div>
+                <div className="mt-3">
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Note to vendor (shown if status is Failed)
+                  </label>
+                  <textarea
+                    className="flex min-h-[64px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm"
+                    value={form.note}
+                    onChange={(e) => setForm((p) => ({ ...p, note: e.target.value }))}
+                    placeholder="Describe what needs correcting"
+                  />
+                </div>
+                {submitError && (
+                  <p className="mt-2 text-xs text-destructive">{submitError}</p>
+                )}
+                <div className="mt-3 flex justify-end gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setFormOpen(false);
+                      setSubmitError(null);
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    disabled={verify.isPending || !form.verificationMethod}
+                    onClick={() => {
+                      setSubmitError(null);
+                      verify.mutate(
+                        {
+                          status: form.status,
+                          verificationMethod: form.verificationMethod,
+                          note: form.note || undefined,
+                        },
+                        {
+                          onSuccess: () => setFormOpen(false),
+                          onError: (err) =>
+                            setSubmitError(
+                              err instanceof Error ? err.message : 'Save failed',
+                            ),
+                        },
+                      );
+                    }}
+                  >
+                    {verify.isPending ? 'Saving…' : 'Save'}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

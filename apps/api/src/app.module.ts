@@ -30,6 +30,7 @@ import { CateringBookingsModule } from './modules/catering-bookings/catering-boo
 import { CateringEnquiriesModule } from './modules/catering-enquiries/catering-enquiries.module';
 import { FeastPassModule } from './feastpass/feastpass.module';
 import { VendorEnforcementModule } from './modules/vendor-enforcement/vendor-enforcement.module';
+import { VendorTaxProfileModule } from './modules/vendor-tax-profile/vendor-tax-profile.module';
 import { VendorVerificationModule } from './modules/vendor-verification/vendor-verification.module';
 import { ComplianceModule } from './modules/compliance/compliance.module';
 import { CoverageModule } from './modules/coverage/coverage.module';
@@ -58,6 +59,7 @@ import { QueueMonitorModule } from './queues/queue-monitor.module';
 import {
   QueuesModule,
   COMPLIANCE_QUEUE,
+  HMRC_QUEUE,
   NOTIFICATIONS_QUEUE,
   PAYOUTS_QUEUE,
   STRIPE_WEBHOOK_QUEUE,
@@ -355,6 +357,7 @@ import { RootController } from './root.controller';
       { name: PAYOUTS_QUEUE, adapter: BullAdapter },
       { name: COMPLIANCE_QUEUE, adapter: BullAdapter },
       { name: TERMS_NOTICES_QUEUE, adapter: BullAdapter },
+      { name: HMRC_QUEUE, adapter: BullAdapter },
     ),
     AuthModule,
     UsersModule,
@@ -389,6 +392,7 @@ import { RootController } from './root.controller';
     TermsModule,
     CommissionModule,
     AttributionModule,
+    VendorTaxProfileModule,
   ],
   controllers: [RootController, HealthController, HealthzController, StatuszController],
   providers: [

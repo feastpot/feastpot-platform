@@ -149,6 +149,86 @@ enum ResolutionType {
   escalated
 }
 
+/// HMRC digital platform reporting tax profile (SI 2023/817).
+/// Collected during vendor onboarding; pre-filled from Stripe where possible.
+/// Fields already in Stripe KYC are never re-requested from the vendor.
+model VendorTaxProfile {
+  id                 String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  vendorId           String             @unique @map("vendor_id") @db.Uuid
+  entityType         TaxEntityType      @map("entity_type")
+  legalName          String             @map("legal_name") @db.VarChar(255)
+  tradingName        String?            @map("trading_name") @db.VarChar(255)
+  addressLine1       String             @map("address_line1") @db.VarChar(255)
+  addressLine2       String?            @map("address_line2") @db.VarChar(255)
+  city               String             @db.VarChar(100)
+  postcode           String             @db.VarChar(20)
+  country            String             @default("GB") @db.VarChar(2)
+  dateOfBirth        DateTime?          @map("date_of_birth") @db.Date
+  companyNumber      String?            @map("company_number") @db.VarChar(20)
+  /// Unique Taxpayer Reference (UTR) or NI number for sole traders.
+  taxIdentifier      String?            @map("tax_identifier") @db.VarChar(50)
+  taxIdCountry       String             @default("GB") @map("tax_id_country") @db.VarChar(2)
+  vatNumber          String?            @map("vat_number") @db.VarChar(30)
+  /// Stripe bank account or financial account ID - sourced from Stripe KYC.
+  financialAccountId String?            @map("financial_account_id") @db.VarChar(100)
+  accountHolderName  String?            @map("account_holder_name") @db.VarChar(255)
+  verificationStatus VerificationStatus @default(PENDING) @map("verification_status")
+  /// Which method was used to verify (companies_house_api / stripe_kyc / manual_document_check).
+  verificationMethod String?            @map("verification_method") @db.VarChar(100)
+  verifiedAt         DateTime?          @map("verified_at") @db.Timestamptz
+  verifiedById       String?            @map("verified_by_id") @db.Uuid
+  lastReviewedAt     DateTime?          @map("last_reviewed_at") @db.Timestamptz
+  createdAt          DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime           @updatedAt @map("updated_at") @db.Timestamptz
+
+  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([verificationStatus])
+  @@map("vendor_tax_profiles")
+}
+
+/// Per-vendor annual HMRC report row (SI 2023/817).
+/// One row per (reportingYear, vendorId). The annual job upserts these rows
+/// then sends each vendor their copy and marks copySentAt.
+model PlatformReport {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  reportingYear      Int       @map("reporting_year")
+  vendorId           String    @map("vendor_id") @db.Uuid
+  grossPence         Int       @map("gross_pence")
+  feesPence          Int       @map("fees_pence")
+  orderCount         Int       @map("order_count")
+  /// {q1:{grossPence,feesPence,orderCount}, q2:…, q3:…, q4:…}
+  quarterlyBreakdown Json      @map("quarterly_breakdown")
+  reportedAt         DateTime? @map("reported_at") @db.Timestamptz
+  copySentAt         DateTime? @map("copy_sent_at") @db.Timestamptz
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@unique([reportingYear, vendorId])
+  @@index([reportingYear])
+  @@map("platform_reports")
+}
+
+// ── HMRC digital platform reporting (SI 2023/817) ────────────────────────────
+
+enum TaxEntityType {
+  SOLE_TRADER
+  LIMITED_COMPANY
+  PARTNERSHIP
+}
+
+/// Verification status for the vendor's tax profile under SI 2023/817.
+enum VerificationStatus {
+  PENDING
+  VERIFIED
+  FAILED
+  EXEMPT
+}
+
+// ── Dispute enums ─────────────────────────────────────────────────────────────
+
 /// Who raised the dispute - governs response obligations on each side.
 enum DisputeParty {
   CUSTOMER
@@ -717,6 +797,8 @@ model Vendor {
   cateringBookings     CateringBooking[]
   verification         VendorVerification?
   enforcementActions   VendorEnforcementAction[]
+  taxProfile           VendorTaxProfile?
+  platformReports      PlatformReport[]
 
   @@index([status])
   @@index([slug])

@@ -31,6 +31,8 @@ import {
   VendorMembersService,
 } from '../vendor-members/vendor-members.service';
 
+import { isTaxProfileComplete } from '../vendor-tax-profile/vendor-tax-profile.service';
+
 import { AddBlackoutDto } from './dto/add-blackout.dto';
 import { CreateVendorDto } from './dto/create-vendor.dto';
 import { CursorPaginationDto } from './dto/pagination.dto';
@@ -1285,6 +1287,32 @@ export class VendorsService {
         code: 'FORBIDDEN_TRANSITION',
         message: `Role ${actor.role} cannot transition vendor from ${vendor.status} to ${dto.status}`,
       });
+    }
+
+    // HMRC SI 2023/817: a vendor cannot go live without a complete tax profile.
+    // This gate applies to both pending→live and approved→live transitions.
+    if (dto.status === VendorStatus.live) {
+      const taxProfile = await this.prisma.vendorTaxProfile.findUnique({
+        where: { vendorId },
+        select: {
+          entityType: true,
+          legalName: true,
+          addressLine1: true,
+          city: true,
+          postcode: true,
+          dateOfBirth: true,
+          companyNumber: true,
+          taxIdentifier: true,
+        },
+      });
+      if (!isTaxProfileComplete(taxProfile)) {
+        throw new BadRequestException({
+          code: 'TAX_PROFILE_INCOMPLETE',
+          message:
+            'This vendor cannot go live until their tax information is complete. ' +
+            'Required by the Platform Operators (Due Diligence and Reporting Requirements) Regulations 2023 (SI 2023/817).',
+        });
+      }
     }
 
     const result = await this.repo.transitionStatus({
