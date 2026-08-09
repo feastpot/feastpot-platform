@@ -25,6 +25,7 @@ import { AdminModule } from './modules/admin/admin.module';
 import { AttributionModule } from './modules/attribution/attribution.module';
 import { CommissionModule } from './commission/commission.module';
 import { bullBoardBasicAuth } from './modules/admin/bull-board.middleware';
+import { ErrorIncidentsModule } from './modules/error-incidents/error-incidents.module';
 import { CatalogueModule } from './modules/catalogue/catalogue.module';
 import { CateringBookingsModule } from './modules/catering-bookings/catering-bookings.module';
 import { CateringEnquiriesModule } from './modules/catering-enquiries/catering-enquiries.module';
@@ -393,6 +394,7 @@ import { RootController } from './root.controller';
     CommissionModule,
     AttributionModule,
     VendorTaxProfileModule,
+    ErrorIncidentsModule,
   ],
   controllers: [RootController, HealthController, HealthzController, StatuszController],
   providers: [

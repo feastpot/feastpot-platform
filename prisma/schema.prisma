@@ -1983,6 +1983,27 @@ model FeastPassSubscription {
   @@map("feast_pass_subscriptions")
 }
 
+/// One row per logged error incident from vendor/web/admin frontends.
+/// ref uses the format FP-XXXX-XXXX so it is obviously an identifier (not a
+/// random number) and vendors can quote it to support unambiguously. Support
+/// can look up any ref in the admin /error-incidents page.
+model ErrorIncident {
+  id        String   @id
+  ref       String   @unique @db.VarChar(15)
+  app       String   @db.VarChar(20)
+  route     String   @db.VarChar(255)
+  message   String   @db.Text
+  digest    String?  @db.VarChar(50)
+  vendorId  String?  @map("vendor_id") @db.Uuid
+  userId    String?  @map("user_id") @db.Uuid
+  userAgent String?  @map("user_agent") @db.VarChar(500)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([createdAt(sort: Desc)])
+  @@index([app, route, createdAt(sort: Desc)])
+  @@map("error_incidents")
+}
+
 /// One row per order where the service fee was waived. Used for the cumulative
 /// savings tracker on the account page and the admin health dashboard.
 /// orderId is UNIQUE (upsert-safe): a re-queued job can never double-insert.

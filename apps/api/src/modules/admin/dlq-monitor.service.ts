@@ -279,6 +279,57 @@ export class DlqMonitorService {
     }
   }
 
+  /**
+   * Every hour: alert when any vendor/web/admin route has logged more than
+   * ERROR_RATE_THRESHOLD incidents in the previous 60 minutes.
+   *
+   * With a small vendor base, 3 errors on one route in an hour means a
+   * significant portion of the user base is impacted and should not wait for
+   * a complaint to surface.
+   */
+  private static readonly ERROR_RATE_THRESHOLD = 3;
+
+  @Cron('0 * * * *')
+  async checkVendorPortalErrorRate(): Promise<void> {
+    const since = new Date(Date.now() - 60 * 60 * 1000);
+    let hot: Array<{ app: string; route: string; count: bigint }>;
+    try {
+      hot = await this.prisma.$queryRaw<Array<{ app: string; route: string; count: bigint }>>`
+        SELECT app, route, COUNT(*) AS count
+        FROM error_incidents
+        WHERE created_at >= ${since}
+        GROUP BY app, route
+        HAVING COUNT(*) >= ${DlqMonitorService.ERROR_RATE_THRESHOLD}
+        ORDER BY count DESC
+      `;
+    } catch (err) {
+      this.logger.error(`Error rate check failed: ${(err as Error).message}`);
+      return;
+    }
+    if (hot.length === 0) return;
+
+    const lines = hot
+      .map((g) => `  [${g.app}] ${g.route}: ${Number(g.count)} errors`)
+      .join('\n');
+    const message = `Portal error rate alert:\n${lines}`;
+
+    this.logger.warn(message);
+
+    if (this.slackWebhookUrl) {
+      const text =
+        `:rotating_light: *Portal error rate alert* :  ${hot.length} route(s) exceeded ` +
+        `${DlqMonitorService.ERROR_RATE_THRESHOLD} errors in the last hour:\n` +
+        hot.map((g) => `  • \`[${g.app}]\` \`${g.route}\` :  *${Number(g.count)} errors*`).join('\n');
+      await fetch(this.slackWebhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      }).catch((e: Error) => {
+        this.logger.error(`Slack delivery failed for error rate alert: ${e.message}`);
+      });
+    }
+  }
+
   private async collectFailures(): Promise<QueueFailureSummary[]> {
     const queues: Array<[string, Queue]> = [
       [NOTIFICATIONS_QUEUE, this.notifications],
