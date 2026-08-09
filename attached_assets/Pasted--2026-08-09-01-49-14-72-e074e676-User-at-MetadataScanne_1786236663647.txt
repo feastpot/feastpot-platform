@@ -1,0 +1,661 @@
+
+
+2026-08-09 01:49:14.72
+e074e676
+User
+at MetadataScanner.scanFromPrototype (/home/runner/workspace/node_modules/@nestjs/core/metadata-scanner.js:34:31)
+
+2026-08-09 01:49:14.72
+e074e676
+User
+at Array.forEach (<anonymous>)
+
+2026-08-09 01:49:14.72
+e074e676
+User
+at BullExplorer.onModuleInit (/home/runner/workspace/apps/api/node_modules/@nestjs/bull/dist/bull.explorer.js:20:14)
+
+2026-08-09 01:49:14.72
+e074e676
+User
+at /home/runner/workspace/apps/api/node_modules/@nestjs/bull/dist/bull.explorer.js:50:34
+
+2026-08-09 01:49:14.72
+e074e676
+User
+at BullExplorer.explore (/home/runner/workspace/apps/api/node_modules/@nestjs/bull/dist/bull.explorer.js:41:19)
+
+2026-08-09 01:49:14.72
+e074e676
+User
+at Queue.setHandler (/home/runner/workspace/node_modules/bull/lib/queue.js:705:11)
+
+2026-08-09 01:49:14.72
+e074e676
+User
+at BullExplorer.handleProcessor (/home/runner/workspace/apps/api/node_modules/@nestjs/bull/dist/bull.explorer.js:91:23)
+
+2026-08-09 01:49:14.72
+e074e676
+User
+at MapIterator.iteratee (/home/runner/workspace/node_modules/@nestjs/core/hooks/on-module-init.hook.js:22:43)
+
+2026-08-09 01:49:14.72
+e074e676
+User
+[feastpot-api] fatal bootstrap error Error: Cannot define the same handler twice payment_intent.succeeded
+
+2026-08-09 01:49:14.72
+e074e676
+User
+at Queue.process (/home/runner/workspace/node_modules/bull/lib/queue.js:686:8)
+
+2026-08-09 01:49:14.75
+e074e676
+System
+command finished with error [bash -c npm run db:deploy && npm run start:api]: exit status 1
+
+2026-08-09 01:49:15.89
+e074e676
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:49:15.94
+e074e676
+User
+> feastpot-platform@0.1.0 db:deploy
+
+2026-08-09 01:49:15.94
+e074e676
+User
+> bash scripts/db-deploy.sh
+
+2026-08-09 01:49:16.17
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:49:16.18
+e074e676
+User
+[db-deploy] Pre-flight: trying $SUPABASE_DIRECT_URL -> host 'aws-1-eu-west-2.pooler.supabase.com'...
+
+2026-08-09 01:49:16.48
+e074e676
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:49:17.75
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:49:18.96
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:49:20.72
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:49:22.19
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:49:23.61
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:49:24.84
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:49:26.10
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:49:26.71
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:49:28.37
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:49:30.06
+e4c3197e
+User
+> feastpot-platform@0.1.0 db:deploy
+
+2026-08-09 01:49:30.06
+e4c3197e
+User
+> bash scripts/db-deploy.sh
+
+2026-08-09 01:49:30.20
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:49:30.64
+e4c3197e
+User
+[db-deploy] Pre-flight: trying $SUPABASE_DIRECT_URL -> host 'aws-1-eu-west-2.pooler.supabase.com'...
+
+2026-08-09 01:49:30.97
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:49:31.18
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:49:31.19
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:49:31.34
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:49:31.81
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:49:33.27
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:49:33.84
+e4c3197e
+User
+[db-deploy] Pre-flight OK: using $SUPABASE_DIRECT_URL (host 'aws-1-eu-west-2.pooler.supabase.com').
+
+2026-08-09 01:49:33.84
+e4c3197e
+User
+[db-deploy] Attempting to mark 20260516120000_add_scale_indexes as rolled-back (no-op if not failed)...
+
+2026-08-09 01:49:33.86
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:49:35.34
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:49:37.28
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:49:38.17
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:49:38.59
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:49:39.28
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:49:39.70
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:49:39.95
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:49:40.59
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:49:41.38
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:49:42.04
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:49:42.74
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:49:42.78
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:49:44.06
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:49:44.76
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:49:46.07
+e4c3197e
+User
+Prisma schema loaded from prisma/schema.prisma
+
+2026-08-09 01:49:46.10
+e4c3197e
+User
+Datasource "db": PostgreSQL database "postgres", schema "public" at "aws-1-eu-west-2.pooler.supabase.com:5432"
+
+2026-08-09 01:49:46.69
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:49:46.79
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:49:47.19
+e4c3197e
+User
+Migration `20260516120000_add_scale_indexes` cannot be rolled back because it is not in a failed state.
+
+2026-08-09 01:49:47.19
+e4c3197e
+User
+Error: P3012
+
+2026-08-09 01:49:47.32
+e4c3197e
+User
+[db-deploy] resolve --rolled-back returned non-zero (expected when migration is not in failed state).
+
+2026-08-09 01:49:47.32
+e4c3197e
+User
+[db-deploy] Running prisma migrate deploy...
+
+2026-08-09 01:49:47.95
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:49:49.80
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:49:49.84
+e4c3197e
+User
+Prisma schema loaded from prisma/schema.prisma
+
+2026-08-09 01:49:49.88
+e4c3197e
+User
+Datasource "db": PostgreSQL database "postgres", schema "public" at "aws-1-eu-west-2.pooler.supabase.com:5432"
+
+2026-08-09 01:49:50.27
+e4c3197e
+User
+54 migrations found in prisma/migrations
+
+2026-08-09 01:49:50.66
+e4c3197e
+User
+No pending migrations to apply.
+
+2026-08-09 01:49:50.77
+e4c3197e
+User
+[db-deploy] Enabling RLS on any public tables that don't have it (via $SUPABASE_DIRECT_URL)...
+
+2026-08-09 01:49:51.09
+e4c3197e
+User
+DO
+
+2026-08-09 01:49:51.50
+e4c3197e
+User
+> feastpot-platform@0.1.0 start:api
+
+2026-08-09 01:49:51.50
+e4c3197e
+User
+> NODE_ENV=production node apps/api/dist/main.js
+
+2026-08-09 01:49:51.70
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:49:53.01
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:49:54.71
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:49:54.88
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:49:55.24
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:49:56.48
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:49:57.72
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:49:58.10
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:49:59.82
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:50:00.02
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:50:01.88
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:50:02.26
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:50:02.89
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:50:03.89
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:50:05.76
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:50:06.69
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:50:08.09
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:50:08.91
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:50:09.91
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:50:11.61
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:50:12.93
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:50:13.17
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:50:13.73
+e4c3197e
+System
+a port configuration was specified but the required port was never opened, expected port 3002
+
+2026-08-09 01:50:14.21
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:50:15.74
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:50:15.74
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:50:21.20
+e4c3197e
+System
+starting up user application
+
+2026-08-09 01:50:21.20
+e4c3197e
+System
+metasidecar: loaded enterprise status from environment is_enterprise=false
+
+2026-08-09 01:50:21.20
+e4c3197e
+System
+forwarding local port 3002 to external port 80 (mapped as 1104)
+
+2026-08-09 01:50:21.21
+e4c3197e
+System
+healthcheck failed error=healthcheck /: Get "http://127.0.0.1:1104/": dial tcp 127.0.0.1:1104: connect: connection refused
+
+2026-08-09 01:50:21.31
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:50:22.77
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:50:22.88
+e4c3197e
+User
+> feastpot-platform@0.1.0 db:deploy
+
+2026-08-09 01:50:22.88
+e4c3197e
+User
+> bash scripts/db-deploy.sh
+
+2026-08-09 01:50:23.01
+e4c3197e
+User
+[db-deploy] Pre-flight: trying $SUPABASE_DIRECT_URL -> host 'aws-1-eu-west-2.pooler.supabase.com'...
+
+2026-08-09 01:50:23.25
+e4c3197e
+User
+[db-deploy] Pre-flight OK: using $SUPABASE_DIRECT_URL (host 'aws-1-eu-west-2.pooler.supabase.com').
+
+2026-08-09 01:50:23.25
+e4c3197e
+User
+[db-deploy] Attempting to mark 20260516120000_add_scale_indexes as rolled-back (no-op if not failed)...
+
+2026-08-09 01:50:23.29
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:50:23.87
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:50:25.48
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:50:26.26
+e4c3197e
+User
+Prisma schema loaded from prisma/schema.prisma
+
+2026-08-09 01:50:26.30
+e4c3197e
+User
+Datasource "db": PostgreSQL database "postgres", schema "public" at "aws-1-eu-west-2.pooler.supabase.com:5432"
+
+2026-08-09 01:50:26.59
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:50:27.15
+e4c3197e
+User
+Migration `20260516120000_add_scale_indexes` cannot be rolled back because it is not in a failed state.
+
+2026-08-09 01:50:27.15
+e4c3197e
+User
+Error: P3012
+
+2026-08-09 01:50:27.29
+e4c3197e
+User
+[db-deploy] Running prisma migrate deploy...
+
+2026-08-09 01:50:27.29
+e4c3197e
+User
+[db-deploy] resolve --rolled-back returned non-zero (expected when migration is not in failed state).
+
+2026-08-09 01:50:27.31
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:50:28.13
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:50:29.34
+e4c3197e
+User
+Prisma schema loaded from prisma/schema.prisma
+
+2026-08-09 01:50:29.38
+e4c3197e
+User
+Datasource "db": PostgreSQL database "postgres", schema "public" at "aws-1-eu-west-2.pooler.supabase.com:5432"
+
+2026-08-09 01:50:29.44
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:50:29.47
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:50:29.79
+e4c3197e
+User
+54 migrations found in prisma/migrations
+
+2026-08-09 01:50:30.20
+e4c3197e
+User
+No pending migrations to apply.
+
+2026-08-09 01:50:30.35
+e4c3197e
+User
+[db-deploy] Enabling RLS on any public tables that don't have it (via $SUPABASE_DIRECT_URL)...
+
+2026-08-09 01:50:30.61
+e4c3197e
+User
+DO
+
+2026-08-09 01:50:30.81
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-08-09 01:50:31.05
+e4c3197e
+User
+> feastpot-platform@0.1.0 start:api
+
+2026-08-09 01:50:31.05
+e4c3197e
+User
+> NODE_ENV=production node apps/api/dist/main.js
+
+2026-08-09 01:50:32.44
+e4c3197e
+System
+healthcheck failed error=healthcheck / returned status 500
