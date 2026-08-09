@@ -11,6 +11,12 @@
  *      must not render a WhatsApp link when this is null.
  */
 export const PLATFORM_FACTS = {
+  /**
+   * Canonical brand name. Always "Feastpot" (capital F, lowercase p).
+   * Import this constant anywhere the brand name appears in copy so a
+   * single change here propagates everywhere.
+   */
+  brandName: 'Feastpot' as const,
   commission: {
     /** First-order commission rate charged on food subtotal (%). */
     marketplaceFirst: 12.0,

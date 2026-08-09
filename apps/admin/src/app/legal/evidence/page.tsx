@@ -4,7 +4,7 @@ import { requireStaff } from '@/lib/auth/server-gate';
 import { EvidenceExportClient } from './evidence-client';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Evidence export | FeastPot Admin' };
+export const metadata = { title: 'Evidence export | Feastpot Admin' };
 
 export default async function EvidencePage() {
   const user = await requireStaff('/legal/evidence', ['admin', 'compliance']);

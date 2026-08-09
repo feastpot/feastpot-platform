@@ -44,7 +44,7 @@ const NAV_ITEMS: ReadonlyArray<NavItem> = [
   { href: '/menu', label: 'Menu', Icon: UtensilsCrossed },
   { href: '/availability', label: 'Availability', Icon: Calendar },
   { href: '/analytics', label: 'Analytics', Icon: BarChart3 },
-  { href: '/referrals', label: 'Bring your customers', Icon: Link2 },
+  { href: '/referrals', label: 'Bring your own customers', Icon: Link2 },
   { href: '/catering', label: 'Catering bookings', Icon: BarChart3 },
   { href: '/earnings', label: 'Earnings & fees', Icon: BarChart3 },
   { href: '/payouts', label: 'Payouts', Icon: PoundSterling },
@@ -90,10 +90,10 @@ export function SideNav({ businessName }: SideNavProps) {
       className="hidden w-60 shrink-0 flex-col border-r border-border bg-white md:flex"
     >
       <div className="flex h-48 items-center border-b border-border px-5">
-        <Link href="/" className="flex items-center" aria-label="FeastPot vendor portal">
+        <Link href="/" className="flex items-center" aria-label="Feastpot vendor portal">
           <Image
             src="/feastpot-logo.png"
-            alt="FeastPot"
+            alt="Feastpot"
             width={560}
             height={160}
             priority

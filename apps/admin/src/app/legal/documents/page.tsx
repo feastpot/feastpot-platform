@@ -4,7 +4,7 @@ import { requireStaff } from '@/lib/auth/server-gate';
 import { DocumentsClient } from './documents-client';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Legal documents | FeastPot Admin' };
+export const metadata = { title: 'Legal documents | Feastpot Admin' };
 
 export default async function DocumentsPage() {
   const user = await requireStaff('/legal/documents', ['admin', 'compliance']);

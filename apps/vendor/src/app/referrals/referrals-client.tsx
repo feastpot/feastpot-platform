@@ -32,7 +32,7 @@ const INSTAGRAM_TEXT = (url: string) =>
   `Order my food directly via Feastpot 🍱\n${url}`;
 
 const WHATSAPP_TEXT = (url: string) =>
-  `Hey! You can now order directly from me on Feastpot 🎉 Use my link: ${url}`;
+  `Hey! You can now order directly from me on Feastpot 🎉\nUse my link:\n${url}`;
 
 function formatGbp(pence: number) {
   return `£${(pence / 100).toFixed(2)}`;

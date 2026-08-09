@@ -4,7 +4,7 @@ import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
 
 /**
  * Shared brand-DNA primitives for the /legal/* pages (2026-05-16
- * trust-pages redesign). Uses FeastPot brand tokens - green #00843D,
+ * trust-pages redesign). Uses Feastpot brand tokens - green #00843D,
  * plantain gold #F6B400, cream + charcoal - and the same eyebrow +
  * font-display headings used across the rest of the customer site
  * (see components/ui/wireframe.tsx). Tailwind first; inline `style`
@@ -235,7 +235,7 @@ const TRUST_ITEMS = [
 export function LegalTrustStrip() {
   return (
     <section
-      aria-label="Why people choose FeastPot"
+      aria-label="Why people choose Feastpot"
       className="mb-6 mt-2 grid grid-cols-2 gap-2 rounded-3xl border border-cream-deep bg-cream-warm p-4 md:grid-cols-4"
     >
       {TRUST_ITEMS.map((t) => (

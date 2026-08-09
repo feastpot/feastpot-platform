@@ -10,8 +10,8 @@ import { TaxInformationClient } from './tax-information-client';
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'Tax information | FeastPot Vendor Portal',
-  description: 'View and manage the tax information FeastPot holds about you for HMRC reporting.',
+  title: 'Tax information | Feastpot Vendor Portal',
+  description: 'View and manage the tax information Feastpot holds about you for HMRC reporting.',
 };
 
 export default async function TaxInformationPage() {

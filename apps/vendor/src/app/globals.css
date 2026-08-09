@@ -8,7 +8,7 @@
  * build - same rationale as apps/web/src/app/globals.css.
  *
  * Vendor portal differs from the customer app in ONE place: the shadcn
- * `--primary` is wired to FeastPot teal-green (#1D9E75 -> 161 70% 37%)
+ * `--primary` is wired to Feastpot teal-green (#1D9E75 -> 161 70% 37%)
  * matching the green-dominant CTA palette in
  * the vendor mockups (Add menu item, Invite, Save, etc.). Brand green
  * (#00843D) is reserved for revenue / accept actions on order rows.

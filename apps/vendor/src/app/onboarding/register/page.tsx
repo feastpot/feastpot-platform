@@ -178,7 +178,7 @@ export default function VendorRegisterInterestPage() {
             Vendor onboarding
           </p>
           <h2 className="font-display text-2xl font-black tracking-tight text-charcoal md:text-3xl">
-            Join FeastPot
+            Join Feastpot
             <br />
             <span className="text-brand">and grow your business</span>
           </h2>

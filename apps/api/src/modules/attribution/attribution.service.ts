@@ -37,6 +37,7 @@ export function buildFpRef(referralLinkId: string, clickId: string): string {
 function generateSlug(businessName: string): string {
   const base = businessName
     .toLowerCase()
+    .replace(/'/g, '') // strip apostrophes: "maman's" → "mamans", not "maman-s"
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, 24);

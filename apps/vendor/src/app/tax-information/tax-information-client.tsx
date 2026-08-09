@@ -72,7 +72,7 @@ export function TaxInformationClient() {
           >
             Platform Operators Regulations 2023 (SI 2023/817)
           </a>
-          , FeastPot is required to collect and verify your tax details and report your activity
+          , Feastpot is required to collect and verify your tax details and report your activity
           annually to HMRC. This page shows what we hold and what we have reported.
         </p>
       </div>
@@ -102,7 +102,7 @@ export function TaxInformationClient() {
         <div className="flex items-start gap-2">
           <Info className="mt-0.5 h-4 w-4 shrink-0 text-teal" aria-hidden />
           <p className="text-mid">
-            Your consent to this collection was given when you accepted the FeastPot vendor terms
+            Your consent to this collection was given when you accepted the Feastpot vendor terms
             (clause 7.2). If you have questions about how we handle your tax data, contact{' '}
             <a href={`mailto:${PLATFORM_FACTS.contact.complianceEmail}`} className="underline hover:text-teal">
               {PLATFORM_FACTS.contact.complianceEmail}

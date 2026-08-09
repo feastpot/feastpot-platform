@@ -4,7 +4,7 @@ import { requireStaff } from '@/lib/auth/server-gate';
 import { CoverageClient } from './coverage-client';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Acceptance coverage | FeastPot Admin' };
+export const metadata = { title: 'Acceptance coverage | Feastpot Admin' };
 
 export default async function CoveragePage() {
   const user = await requireStaff('/legal/coverage', ['admin', 'compliance', 'support']);

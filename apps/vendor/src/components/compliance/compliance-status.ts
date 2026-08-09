@@ -67,7 +67,7 @@ export function deriveComplianceState(
 
 export interface ComplianceStateMeta {
   label: string;
-  /** Tailwind colour family aligned with FeastPot tokens. */
+  /** Tailwind colour family aligned with Feastpot tokens. */
   tone: 'gray' | 'vendor' | 'teal' | 'amber' | 'red';
   /** Short description shown next to the badge. */
   hint: string;

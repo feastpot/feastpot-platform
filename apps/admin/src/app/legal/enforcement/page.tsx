@@ -4,7 +4,7 @@ import { requireStaff } from '@/lib/auth/server-gate';
 import { EnforcementLogClient } from './enforcement-client';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Enforcement log | FeastPot Admin' };
+export const metadata = { title: 'Enforcement log | Feastpot Admin' };
 
 export default async function EnforcementLogPage() {
   const user = await requireStaff('/legal/enforcement', ['admin', 'compliance']);

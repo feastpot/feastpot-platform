@@ -224,7 +224,7 @@ function ExplainerCard() {
     <section className="fp-card relative overflow-hidden border border-teal/30 bg-teal-light p-5">
       <div className="grid items-center gap-4 md:grid-cols-[1fr_auto]">
         <div className="min-w-0">
-          <h2 className="mb-3 text-base font-bold text-dark">How FeastPot payouts work</h2>
+          <h2 className="mb-3 text-base font-bold text-dark">How Feastpot payouts work</h2>
           <ul className="space-y-2.5">
             {EXPLAINER_ITEMS.map(({ Icon, title, detail }) => (
               <li key={title} className="flex items-start gap-3">

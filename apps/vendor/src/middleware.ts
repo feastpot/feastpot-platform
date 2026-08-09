@@ -27,7 +27,7 @@ export async function middleware(request: NextRequest) {
   const isSignIn = pathname === '/sign-in' || pathname.startsWith('/sign-in/');
   // `/onboarding/register` (and the forgot-password flow) are the two
   // prospect-facing forms on the vendor portal: a potential cook lands
-  // there from the customer site's "Join FeastPot" CTAs and must be
+  // there from the customer site's "Join Feastpot" CTAs and must be
   // able to fill them in without a Supabase session. Without this
   // exception they get bounced through `/sign-in?next=/onboarding/register`
   // which is the "multi-step" friction the wireframes call out.

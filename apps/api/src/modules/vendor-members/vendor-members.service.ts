@@ -105,7 +105,7 @@ export class VendorMembersService {
    * `active` (matching on lowercased `invitedEmail`).
    *
    * Using a single code path also means a vendor owner cannot infer
-   * whether an arbitrary email already has a FeastPot account from the
+   * whether an arbitrary email already has a Feastpot account from the
    * shape, timing, or side-effects of this method.
    */
   private async sendInviteEmail(args: {
@@ -121,7 +121,7 @@ export class VendorMembersService {
         where: { id: args.vendorId },
         select: { businessName: true },
       });
-      const teamName = vendor?.businessName || 'a FeastPot vendor';
+      const teamName = vendor?.businessName || 'a Feastpot vendor';
       const roleLabel = formatRole(args.role);
       const inviter = args.inviterName?.trim() || 'The vendor owner';
 
@@ -152,11 +152,11 @@ export class VendorMembersService {
         );
       }
 
-      const subject = `You've been invited to join ${teamName} on FeastPot`;
-      const intro = `${escapeHtml(inviter)} has invited you to join <strong>${escapeHtml(teamName)}</strong> on FeastPot as <strong>${escapeHtml(roleLabel)}</strong>. Click the button below to access the vendor portal. If you don't have a FeastPot account yet, one will be created automatically for this email address.`;
+      const subject = `You've been invited to join ${teamName} on Feastpot`;
+      const intro = `${escapeHtml(inviter)} has invited you to join <strong>${escapeHtml(teamName)}</strong> on Feastpot as <strong>${escapeHtml(roleLabel)}</strong>. Click the button below to access the vendor portal. If you don't have a Feastpot account yet, one will be created automatically for this email address.`;
       const html = `
         <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 560px; margin: 0 auto; color: #111;">
-          <h2 style="color: #E8520A; margin-bottom: 8px;">FeastPot Vendor Invite</h2>
+          <h2 style="color: #E8520A; margin-bottom: 8px;">Feastpot Vendor Invite</h2>
           <p style="font-size: 15px; line-height: 1.5;">${intro}</p>
           <p style="margin: 28px 0;">
             <a href="${cta}" style="background: #185FA5; color: #fff; padding: 12px 20px; border-radius: 6px; text-decoration: none; font-weight: 600; display: inline-block;">Open the vendor portal</a>
@@ -164,7 +164,7 @@ export class VendorMembersService {
           <p style="font-size: 13px; color: #555; line-height: 1.5;">
             If you weren't expecting this invite, you can ignore this email safely.
           </p>
-          <p style="font-size: 12px; color: #888; margin-top: 32px;">FeastPot</p>
+          <p style="font-size: 12px; color: #888; margin-top: 32px;">Feastpot</p>
         </div>
       `;
 
@@ -338,7 +338,7 @@ export class VendorMembersService {
       // Always create as pending with userId=null. The auto-link to an
       // existing User row used to happen here, but that branched the
       // method's shape (status, userId, response, inbox side-effect) on
-      // whether the invited email already had a FeastPot account,
+      // whether the invited email already had a Feastpot account,
       // letting any vendor owner enumerate account existence for
       // arbitrary emails. Now we keep the path identical for every
       // invite and let `UsersService.sync` flip the row to `active`

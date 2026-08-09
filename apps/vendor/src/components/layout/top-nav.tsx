@@ -82,11 +82,11 @@ export function TopNav({ businessName }: { businessName?: string }) {
           <Link
             href="/"
             className="flex items-center gap-3 font-semibold"
-            aria-label="FeastPot vendor portal"
+            aria-label="Feastpot vendor portal"
           >
             <Image
               src="/feastpot-logo.png"
-              alt="FeastPot"
+              alt="Feastpot"
               width={480}
               height={128}
               priority

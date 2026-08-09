@@ -56,7 +56,7 @@ export function InstagramDmsBlock() {
             No more chasing Instagram DMs or uncertain bank transfers.
           </h2>
           <p className="mt-4 max-w-md text-[14px] font-medium leading-relaxed text-charcoal-mid">
-            FeastPot makes cultural food ordering feel safer, faster and clearer. See only cooks
+            Feastpot makes cultural food ordering feel safer, faster and clearer. See only cooks
             that can deliver to your postcode, then order through secure checkout.
           </p>
           <a

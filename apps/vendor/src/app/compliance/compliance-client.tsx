@@ -122,7 +122,7 @@ export function ComplianceClient({
             Compliance & documents
           </h1>
           <p className="mt-1 text-sm text-mid">
-            Keep your certificates current to stay live on FeastPot. We send you a reminder 30 days
+            Keep your certificates current to stay live on Feastpot. We send you a reminder 30 days
             before anything expires.
           </p>
         </div>
@@ -217,7 +217,7 @@ export function ComplianceClient({
       <div className="fp-card flex items-start gap-3 border border-border bg-surface px-4 py-3 text-xs text-mid">
         <Info className="mt-0.5 h-4 w-4 shrink-0 text-mid" aria-hidden />
         <p>
-          Documents are reviewed by the FeastPot compliance team, usually within 1 to 2 business
+          Documents are reviewed by the Feastpot compliance team, usually within 1 to 2 business
           days. Replacing a document resets it to <em>Submitted</em> until it&apos;s reviewed again.
         </p>
       </div>
@@ -484,7 +484,7 @@ function VerificationStatusSection({ verification: v }: { verification: Verifica
 
         {/* Read-only note */}
         <p className="mt-3 text-[11px] text-mid">
-          This record is maintained by the FeastPot compliance team. To update any detail or submit
+          This record is maintained by the Feastpot compliance team. To update any detail or submit
           new documentation, email{' '}
           <a
             href={`mailto:${PLATFORM_FACTS.contact.complianceEmail}`}

@@ -1,5 +1,5 @@
 /**
- * "POPULAR FOOD - African & Caribbean favourites on FeastPot." A
+ * "POPULAR FOOD - African & Caribbean favourites on Feastpot." A
  * tonal pill cloud of cuisine teasers. Tapping a pill navigates to
  * /vendors?cuisine=<slug> so the cuisine filter is pre-applied.
  * /vendors still requires a postcode before surfacing vendor results,

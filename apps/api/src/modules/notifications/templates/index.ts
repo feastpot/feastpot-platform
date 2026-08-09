@@ -842,7 +842,7 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
   // ── HMRC digital platform reporting (SI 2023/817) ───────────────────────
 
   hmrc_copy_sent: {
-    subject: (d) => `Your ${str(d.reportingYear)} tax information report - FeastPot`,
+    subject: (d) => `Your ${str(d.reportingYear)} tax information report - Feastpot`,
     render: (d) => {
       const qb = d.quarterlyBreakdown as Record<string, { grossPence: number; feesPence: number; orderCount: number }> | null;
       const quarterRows = ['q1', 'q2', 'q3', 'q4']
@@ -859,7 +859,7 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
         h2(`Your ${str(d.reportingYear)} annual report`) +
           p(
             `Under the Platform Operators (Due Diligence and Reporting Requirements) Regulations 2023 ` +
-              `(SI 2023/817), FeastPot is required to report the following information about your activity ` +
+              `(SI 2023/817), Feastpot is required to report the following information about your activity ` +
               `on our platform to HMRC. This is your copy of the information reported.`,
           ) +
           `<table style="width:100%;border-collapse:collapse;font-size:14px;margin:16px 0;">` +
@@ -906,7 +906,7 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
   },
 
   hmrc_verification_failed: {
-    subject: () => 'Action required: tax information needs updating - FeastPot',
+    subject: () => 'Action required: tax information needs updating - Feastpot',
     render: (d) =>
       baseLayout(
         'Tax information update required',

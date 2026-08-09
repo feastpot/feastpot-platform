@@ -82,7 +82,7 @@ export function VendorRowCard({ vendor, trustSignals, capacity }: Props) {
               aria-hidden
               className="flex h-full w-full items-center justify-center bg-gradient-to-br from-brand via-plantain to-scotch text-center text-[10px] font-bold leading-tight text-white/90"
             >
-              <span className="px-2">FeastPot</span>
+              <span className="px-2">Feastpot</span>
             </div>
           )}
         </div>

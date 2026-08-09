@@ -1,0 +1,71 @@
+TASK: Fix copy inconsistencies across the vendor portal.
+
+C1. BRAND NAME CAPITALISATION
+Both "Feastpot" and "FeastPot" appear in the product.
+On /tax-information: "FeastPot is required to collect"
+and "you accepted the FeastPot vendor terms".
+On /terms and /referrals: "Feastpot" throughout.
+The public site and the legal terms both use "Feastpot".
+Standardise on Feastpot everywhere, add it to the
+platform-facts single source of truth, and add a lint
+rule catching the FeastPot variant.
+
+C2. REFERRAL SLUG HANDLING
+The generated slug is maman-s-kitchen-wm6qx3. The
+apostrophe in "Maman's" has become a standalone hyphen,
+producing an awkward "maman-s". Improve slug generation
+to strip apostrophes rather than replace them, giving
+mamans-kitchen-wm6qx3.
+
+IMPORTANT: do not change slugs for any vendor whose link
+is already in circulation. A referral URL may be printed
+on packaging or sitting in an Instagram bio. Fix the
+generator for new vendors, and if an existing slug must
+change, keep the old one as a permanent redirect. Never
+break a link a vendor has already shared.
+
+C3. NO COPY CONTROL ON THE REFERRAL LINK
+The referral URL sits in a wide read-only field with no
+visible copy button, while both share-text cards below it
+have "Copy text" actions. The primary artefact on the
+page is the hardest thing to copy. Add a copy button to
+the field, matching the existing "Copy text" styling.
+
+C4. SHARE TEXT REVIEW
+The WhatsApp share text is a single long line that will
+wrap awkwardly. Add a line break before the link, as the
+Instagram version already does. Also consider whether the
+emoji render acceptably across older Android devices,
+since a broken glyph in a vendor's shared message
+reflects on Feastpot.
+
+C5. EM DASH GUARD COVERAGE
+The em dash rule applies to the PWA, vendor and admin
+apps. Confirm the ESLint rule and CI guard from RED-100
+actually cover apps/vendor. A previous check found a live
+em dash surviving in the public legal terms because the
+rule's file glob did not reach hardcoded page files.
+Verify with a deliberate test em dash in a vendor portal
+component and confirm CI blocks it.
+
+C6. SIDEBAR LABEL CONSISTENCY
+"Bring your customers" in the sidebar versus "Bring your
+own customers" as the page title. Minor, but pick one.
+The page title version is clearer.
+
+C7. USER GUIDE
+The sidebar links to a User Guide. Confirm it exists and
+covers the newer surfaces: referral links, catering
+quotes, tax information, terms acceptance, account
+status. A guide that predates half the portal is worse
+than none, because it teaches vendors the product is
+unmaintained.
+
+DO NOT CHANGE ANY COLOURS.
+
+ACCEPTANCE CRITERIA
+- Zero instances of "FeastPot" in any app.
+- New slugs handle apostrophes cleanly, existing slugs
+  redirect rather than break.
+- The referral link field has a working copy button.
+- A test em dash in apps/vendor fails CI.

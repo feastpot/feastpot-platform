@@ -140,10 +140,10 @@ function initialsFor(name: string, email: string): string {
 }
 
 /**
- * Desktop-first shell for the FeastPot admin console.
+ * Desktop-first shell for the Feastpot admin console.
  *
  * Redesign notes (vs previous version):
- *   - Real FeastPot logo + "Admin console" subtitle in the top-left.
+ *   - Real Feastpot logo + "Admin console" subtitle in the top-left.
  *   - Nav split into MAIN / OPERATIONS sections matching the mockups.
  *   - Active item uses the deep-teal --primary token (white text on
  *     hsl(161 76% 18%)) instead of the old vendor-blue tint.
@@ -177,10 +177,10 @@ export function AdminShell({ user, children }: AdminShellProps) {
       >
         {/* Brand */}
         <div className="flex items-center gap-3 px-5 py-5">
-          <Link href="/" className="flex items-center gap-3" aria-label="FeastPot admin console">
+          <Link href="/" className="flex items-center gap-3" aria-label="Feastpot admin console">
             <Image
               src="/feastpot-logo.png"
-              alt="FeastPot"
+              alt="Feastpot"
               width={140}
               height={40}
               priority

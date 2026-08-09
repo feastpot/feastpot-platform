@@ -119,7 +119,7 @@ export function ChargebacksClient() {
     <>
       <PageHeader
         title="Chargebacks"
-        description="Stripe disputes raised against FeastPot payments: track evidence deadlines and reconciliation."
+        description="Stripe disputes raised against Feastpot payments: track evidence deadlines and reconciliation."
       />
 
       <ChargebackStatsTiles stats={stats} />

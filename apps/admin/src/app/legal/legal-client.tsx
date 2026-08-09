@@ -70,7 +70,7 @@ export function LegalDashboardClient() {
       <div>
         <h1 className="text-2xl font-bold text-foreground">Legal operations</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Compliance with P2B Regulation, SI 2023/817, and the FeastPot vendor terms.
+          Compliance with P2B Regulation, SI 2023/817, and the Feastpot vendor terms.
         </p>
       </div>
 

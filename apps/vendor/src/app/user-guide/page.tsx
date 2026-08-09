@@ -185,6 +185,38 @@ const CHAPTERS: GuideChapter[] = [
     ],
   },
   {
+    id: 'referral-links',
+    title: '7. Referral links',
+    intro: 'Grow your customer base by sharing your unique referral link and QR code.',
+    steps: [
+      {
+        title: 'Find your referral link',
+        detail:
+          'Open "Bring your own customers" in the sidebar. Your unique Feastpot referral URL is shown at the top, ready to copy.',
+      },
+      {
+        title: 'Copy and share the link',
+        detail:
+          'Click Copy next to your referral URL to put it on your clipboard. Below that you will find ready-to-use text for Instagram and WhatsApp. Click "Copy text" on either card to grab the full message with your link already embedded.',
+      },
+      {
+        title: 'Download your QR code',
+        detail:
+          'The page generates a QR code for your referral URL. Download a PNG for digital use or an SVG for print-quality output on menus, packaging, and event materials.',
+      },
+      {
+        title: 'Track where your orders come from',
+        detail:
+          'The order source breakdown at the bottom shows how many orders came from your own marketing versus the Feastpot marketplace. This week and all-time totals update daily.',
+      },
+      {
+        title: 'Commission benefit',
+        detail:
+          'Orders placed through your referral link are charged 0% commission. Marketplace orders are charged at your standard rate. Refer enough customers and a significant share of your turnover is commission-free.',
+      },
+    ],
+  },
+  {
     id: 'verification',
     title: '8. Compliance and verification',
     intro:
@@ -246,8 +278,68 @@ const CHAPTERS: GuideChapter[] = [
     ],
   },
   {
+    id: 'terms-acceptance',
+    title: '10. Terms acceptance',
+    intro: 'When Feastpot updates the vendor terms, you must accept the new version before continuing to take orders.',
+    steps: [
+      {
+        title: 'Responding to a terms update',
+        detail:
+          'A banner on your dashboard tells you when a new version of the vendor terms needs your acceptance. You can continue using the portal but new orders are paused until you accept.',
+      },
+      {
+        title: 'Read and accept',
+        detail:
+          'Click the banner or open the Terms section from your account menu. The page shows a summary of what has changed. Read it, then click Accept to record your agreement. Acceptance is timestamped and attached to your account.',
+      },
+      {
+        title: 'Notice period',
+        detail:
+          'Feastpot gives at least 15 days notice before a terms change takes effect. You will receive an email when a new version is published so you are not caught off-guard.',
+      },
+      {
+        title: 'Viewing your acceptance history',
+        detail:
+          'The Terms section shows every version you have accepted, with the date and time. This is useful for your own records and for any queries from your accountant or legal adviser.',
+      },
+    ],
+  },
+  {
+    id: 'tax-information',
+    title: '11. Tax information',
+    intro:
+      'UK law requires Feastpot to collect, verify, and report tax details for all active vendors to HMRC each January.',
+    steps: [
+      {
+        title: 'Why we collect this',
+        detail:
+          'Under SI 2023/817 (HMRC digital platform reporting regulations), Feastpot must collect your legal name, address, Tax Identification Number (UTR or National Insurance number), and date of birth, and report your annual sales activity to HMRC. Your consent to this was given when you accepted the Feastpot vendor terms.',
+      },
+      {
+        title: 'Complete your tax profile',
+        detail:
+          'Open Tax information from the sidebar. Fill in your legal name, permanent address, date of birth, and Tax Identification Number. Save when done. An incomplete profile is flagged with a warning badge.',
+      },
+      {
+        title: 'Pre-fill from Stripe',
+        detail:
+          'If your Stripe Connect account is already verified with legal name and address, click Pre-fill from Stripe to import those details automatically. Review the imported values and save.',
+      },
+      {
+        title: 'Annual HMRC report',
+        detail:
+          'Each January, Feastpot files a report with HMRC covering your activity in the previous calendar year. You will receive a copy of your individual report by email for your own records.',
+      },
+      {
+        title: 'Keeping your details current',
+        detail:
+          'If your address or legal name changes during the year, update your tax profile promptly. HMRC requires the details to be accurate at the time of reporting. You can edit your profile at any time from the Tax information page.',
+      },
+    ],
+  },
+  {
     id: 'getting-help',
-    title: '10. Getting help',
+    title: '12. Getting help',
     intro: 'Where to look when something goes wrong.',
     steps: [
       {

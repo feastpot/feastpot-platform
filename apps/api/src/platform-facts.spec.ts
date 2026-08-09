@@ -21,6 +21,12 @@ function read(rel: string) {
 }
 
 describe('PLATFORM_FACTS - shape and values', () => {
+  it('brandName is "Feastpot" (capital F, lowercase p)', () => {
+    expect(PLATFORM_FACTS.brandName).toBe('Feastpot');
+    // Ensures the wrong capitalisation never slips into the canonical constant
+    expect(PLATFORM_FACTS.brandName).not.toContain('FeastPot');
+  });
+
   it('commission rates are positive and in expected range', () => {
     expect(PLATFORM_FACTS.commission.marketplaceFirst).toBeGreaterThan(0);
     expect(PLATFORM_FACTS.commission.marketplaceFirst).toBeLessThanOrEqual(100);

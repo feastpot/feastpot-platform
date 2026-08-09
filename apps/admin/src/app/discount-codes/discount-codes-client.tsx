@@ -383,7 +383,7 @@ function DiscountRow({
         <div className="flex items-start gap-1.5">
           <Store className="mt-0.5 h-3.5 w-3.5 text-muted-foreground" />
           <div className="leading-tight">
-            <div className="text-sm">{r.vendor?.businessName ?? 'FeastPot'}</div>
+            <div className="text-sm">{r.vendor?.businessName ?? 'Feastpot'}</div>
             <div className="text-xs text-muted-foreground">{r.vendor ? 'Vendor' : 'Platform'}</div>
           </div>
         </div>

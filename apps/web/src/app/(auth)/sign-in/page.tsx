@@ -305,7 +305,7 @@ function SignInPane({ onSwitchToRegister }: { onSwitchToRegister: () => void }) 
         id="signin-heading"
         className="font-display text-2xl font-black tracking-tight text-charcoal"
       >
-        Sign in to FeastPot
+        Sign in to Feastpot
       </h2>
       <p className="mt-1 text-sm text-charcoal-mid">
         Access your orders, saved addresses, FeastPoints and favourites.
@@ -405,7 +405,7 @@ function SignInPane({ onSwitchToRegister }: { onSwitchToRegister: () => void }) 
         </button>
 
         <p className="pt-2 text-center text-sm text-charcoal-mid">
-          New to FeastPot?{' '}
+          New to Feastpot?{' '}
           <button
             type="button"
             onClick={onSwitchToRegister}
@@ -560,7 +560,7 @@ function RegisterPane({ onSwitchToSignIn }: { onSwitchToSignIn: () => void }) {
         id="register-heading"
         className="font-display text-2xl font-black tracking-tight text-charcoal"
       >
-        Create your FeastPot account
+        Create your Feastpot account
       </h2>
       <p className="mt-1 text-sm text-charcoal-mid">
         Save addresses, earn FeastPoints and reorder favourites in one tap.

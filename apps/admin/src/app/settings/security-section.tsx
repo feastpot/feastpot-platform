@@ -438,7 +438,7 @@ function RecoveryCodesModal({ codes, onClose }: { codes: string[]; onClose: () =
   const [acknowledged, setAcknowledged] = useState(false);
 
   const asText =
-    `FeastPot admin 2FA recovery codes\nGenerated: ${new Date().toISOString()}\n\n` +
+    `Feastpot admin 2FA recovery codes\nGenerated: ${new Date().toISOString()}\n\n` +
     codes.map((c, i) => `${String(i + 1).padStart(2, ' ')}. ${c}`).join('\n') +
     '\n\nEach code works once. Keep them somewhere safe.\n';
 
