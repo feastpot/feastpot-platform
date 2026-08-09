@@ -1,5 +1,4 @@
 import { Module } from '@nestjs/common';
-import { BullModule } from '@nestjs/bull';
 
 import { AuthModule } from '../../auth/auth.module';
 import { PrismaModule } from '../../prisma/prisma.module';
@@ -25,10 +24,13 @@ import { VendorTaxProfileService } from './vendor-tax-profile.service';
     PrismaModule,
     AuthModule,
     StripeModule,
-    // The HMRC queue must be registered here for the processor.
-    // The queue itself is defined in QueuesModule (which is @Global),
-    // so we only need the BullModule reference for @InjectQueue binding.
-    BullModule.registerQueue({ name: HMRC_QUEUE }),
+    // Do NOT call BullModule.registerQueue here. HMRC_QUEUE is already
+    // registered in the @Global QueuesModule, which exports all queue
+    // providers. A second BullModule.registerQueue call from any feature
+    // module creates a second BullExplorer instance that re-scans every
+    // @Process handler across the app and throws "Cannot define the same
+    // handler twice" at boot. The global QueuesModule export is sufficient
+    // for @InjectQueue(HMRC_QUEUE) to resolve.
   ],
   controllers: [VendorTaxProfileController],
   providers: [VendorTaxProfileService, HmrcReportService, HmrcReportProcessor],
