@@ -14,6 +14,11 @@
       "default": "./src/platform-facts.ts"
     }
   },
+  "typesVersions": {
+    "*": {
+      "platform-facts": ["./src/platform-facts.ts"]
+    }
+  },
   "files": [
     "src",
     "tsconfig.base.json",
