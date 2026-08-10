@@ -19,7 +19,7 @@ async function fetchRateSchedule(): Promise<RateRow[]> {
       next: { revalidate: 3600 },
     });
     if (!res.ok) return [];
-    return res.json() as Promise<RateRow[]>;
+    return (await res.json()) as RateRow[];
   } catch {
     return [];
   }

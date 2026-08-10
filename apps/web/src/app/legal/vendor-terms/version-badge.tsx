@@ -20,7 +20,7 @@ async function fetchCurrentVersion(): Promise<TermsVersionMeta | null> {
       { next: { revalidate: 3600 } },
     );
     if (!res.ok) return null;
-    return res.json() as Promise<TermsVersionMeta>;
+    return (await res.json()) as TermsVersionMeta;
   } catch {
     return null;
   }
