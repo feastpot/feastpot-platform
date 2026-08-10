@@ -96,7 +96,15 @@ export default function LegalLayout({ children }: { children: ReactNode }) {
         <main className="min-w-0">
           {children}
 
-          <footer className="mt-12 border-t border-cream-deep pt-6 text-sm text-charcoal-mid">
+          {/*
+           * Legal-page contact block: page-specific content, not a site footer.
+           * The shared @feastpot/ui Footer is mounted once in the root layout and
+           * appears below this section for all legal routes automatically.
+           */}
+          <section
+            aria-label="Legal contacts"
+            className="mt-12 border-t border-cream-deep pt-6 text-sm text-charcoal-mid"
+          >
             <p>
               Each document shows its current version number and effective date at the top of the
               page.
@@ -131,7 +139,7 @@ export default function LegalLayout({ children }: { children: ReactNode }) {
               </a>
               .
             </p>
-          </footer>
+          </section>
         </main>
       </div>
     </div>

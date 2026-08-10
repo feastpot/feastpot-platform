@@ -13,6 +13,8 @@ import { Footer as UiFooter } from '@feastpot/ui/footer';
 import { LEGAL } from '@/lib/legal-constants';
 
 const FOOTER_LINKS = [
+  { label: 'Home', href: '/' },
+  { label: 'Vendors', href: '/vendors' },
   { label: 'Help & FAQ', href: '/help' },
   { label: 'Catering', href: '/catering' },
   { label: 'Become a vendor', href: '/become-a-vendor' },
