@@ -8,6 +8,7 @@ import { ChevronDown, Lock, ShieldCheck, Sparkles } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
+import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
 import { cn } from '@feastpot/ui';
 
 import { AddressSelector } from '@/components/address/address-selector';
@@ -629,7 +630,7 @@ function CheckoutInner() {
                     Service fee
                     {platformServiceFeeBps && platformServiceFeeBps > 0 && (
                       <span className="ml-1 text-[11px] font-medium text-charcoal-light">
-                        {Math.round(platformServiceFeeBps / 100)}% capped at £2.99
+                        {Math.round(platformServiceFeeBps / 100)}% capped at £{(PLATFORM_FACTS.serviceFee.capPence / 100).toFixed(2)}
                       </span>
                     )}
                   </span>
@@ -835,7 +836,7 @@ function CheckoutInner() {
         {expressPayReady && (
           <AppleGooglePayButton
             totalPence={expressTotalPence}
-            label={`Feastpot · ${vendor.name}`}
+            label={`${PLATFORM_FACTS.brandName} · ${vendor.name}`}
             disabled={submitting}
             onPaymentMethod={handleExpressPay}
           />

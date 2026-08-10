@@ -46,6 +46,12 @@ describe('PLATFORM_FACTS - shape and values', () => {
     expect(PLATFORM_FACTS.appealWindowDays).toBe(14);
   });
 
+  it('feeChangeNoticeDays is 30 (vendor-facing commission/fee change notice)', () => {
+    // Covers commission.marketplaceFirst/Repeat/vendorReferred and serviceFee.percent/capPence.
+    // Does NOT cover Stripe card-processing rates (pass-through, not set by Feastpot).
+    expect(PLATFORM_FACTS.feeChangeNoticeDays).toBe(30);
+  });
+
   it('support hours are defined and non-empty', () => {
     expect(PLATFORM_FACTS.support.hours.length).toBeGreaterThan(0);
   });

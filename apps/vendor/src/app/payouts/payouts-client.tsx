@@ -1,5 +1,6 @@
 'use client';
 
+import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
 import { cn } from '@feastpot/ui';
 import {
   AlertCircle,
@@ -118,7 +119,7 @@ export function PayoutsClient() {
             </div>
           </div>
           <p className="mt-3 border-t pt-3 text-xs text-muted-foreground">
-            Feastpot charges 12% of the food subtotal on completed orders. Your delivery fee is
+            {PLATFORM_FACTS.brandName} charges {PLATFORM_FACTS.commission.marketplaceFirst}% of the food subtotal on completed orders. Your delivery fee is
             yours in full.
           </p>
         </div>
@@ -157,7 +158,7 @@ export function PayoutsClient() {
           icon={Percent}
           label="Commission deducted"
           value={formatPence(pending.commission)}
-          hint="12% of order subtotal"
+          hint={`${PLATFORM_FACTS.commission.marketplaceFirst}% of order subtotal`}
         />
         <StatCard
           icon={RefreshCw}
@@ -171,7 +172,7 @@ export function PayoutsClient() {
         <div>
           <h2 className="text-lg font-bold text-dark">History</h2>
           <p className="text-xs text-mid">
-            Weekly transfers run every Monday for the previous Mon–Sun window.
+            Weekly transfers run every {PLATFORM_FACTS.payouts.day} for the previous Mon–Sun window.
           </p>
         </div>
         <DownloadCsvButton />
@@ -199,13 +200,13 @@ export function PayoutsClient() {
 const EXPLAINER_ITEMS = [
   {
     Icon: Calendar,
-    title: 'Weekly every Monday.',
-    detail: 'Your payout is calculated at midnight on Sunday and transferred Monday morning.',
+    title: `Weekly every ${PLATFORM_FACTS.payouts.day}.`,
+    detail: `Your payout is calculated at midnight on Sunday and transferred ${PLATFORM_FACTS.payouts.day} morning.`,
   },
   {
     Icon: PoundSterling,
-    title: 'You keep 88%.',
-    detail: 'Feastpot charges 12% commission on the order subtotal. Delivery fees are separate.',
+    title: `You keep ${100 - PLATFORM_FACTS.commission.marketplaceFirst}%.`,
+    detail: `${PLATFORM_FACTS.brandName} charges ${PLATFORM_FACTS.commission.marketplaceFirst}% commission on the order subtotal. Delivery fees are separate.`,
   },
   {
     Icon: Clock,
@@ -224,7 +225,7 @@ function ExplainerCard() {
     <section className="fp-card relative overflow-hidden border border-teal/30 bg-teal-light p-5">
       <div className="grid items-center gap-4 md:grid-cols-[1fr_auto]">
         <div className="min-w-0">
-          <h2 className="mb-3 text-base font-bold text-dark">How Feastpot payouts work</h2>
+          <h2 className="mb-3 text-base font-bold text-dark">How {PLATFORM_FACTS.brandName} payouts work</h2>
           <ul className="space-y-2.5">
             {EXPLAINER_ITEMS.map(({ Icon, title, detail }) => (
               <li key={title} className="flex items-start gap-3">

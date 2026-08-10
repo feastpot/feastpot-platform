@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 
+import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
 import { RateCard } from '@feastpot/ui';
 import type { RateRow } from '@feastpot/ui';
 
@@ -40,12 +41,12 @@ const SOURCE_LABELS: Record<string, { label: string; colour: string; note: strin
   MARKETPLACE: {
     label: 'Marketplace',
     colour: 'bg-blue-100 text-blue-800',
-    note: 'Orders from the Feastpot marketplace (10–12% rate)',
+    note: `Orders from the ${PLATFORM_FACTS.brandName} marketplace (${PLATFORM_FACTS.commission.marketplaceRepeat}–${PLATFORM_FACTS.commission.marketplaceFirst}% rate)`,
   },
   VENDOR_REFERRED: {
     label: 'Your referrals',
     colour: 'bg-green-100 text-green-800',
-    note: 'Customers you brought directly (0% rate)',
+    note: `Customers you brought directly (${PLATFORM_FACTS.commission.vendorReferred}% rate)`,
   },
 };
 

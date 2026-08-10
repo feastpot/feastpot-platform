@@ -88,6 +88,22 @@ export const PLATFORM_FACTS = {
   termsNoticeDays: 15,
   /** Days notice either party must give to terminate (clause 11). */
   terminationNoticeDays: 30,
+  /**
+   * Minimum calendar days' written notice Feastpot must give before raising any
+   * of its own commission or service-fee rates. Covered rates:
+   *   commission.marketplaceFirst, commission.marketplaceRepeat,
+   *   commission.vendorReferred, serviceFee.percent, serviceFee.capPence.
+   * Changes are never applied retrospectively.
+   *
+   * This is DISTINCT from:
+   *   termsNoticeDays   — general terms-document changes (clause 10)
+   *   terminationNoticeDays — account termination (clause 11)
+   *
+   * Stripe's own card-processing rate is a pass-through cost that Feastpot
+   * does not set or mark up. A Stripe rate change is NOT a "fee change"
+   * under this promise and does not trigger this notice requirement.
+   */
+  feeChangeNoticeDays: 30,
 } as const;
 
 /** Helper: formats a pence value as GBP string, e.g. 399 -> "3.99". */

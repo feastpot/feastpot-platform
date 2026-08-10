@@ -1,5 +1,7 @@
 'use client';
 
+import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
+
 /**
  * Read-only earnings breakdown for a single order.
  *
@@ -8,7 +10,7 @@
  * strings, produced by the parent from values the API stored at
  * order-creation time (the output of computeCommission):
  *   - subtotal    → food subtotal
- *   - commission  → Feastpot commission (12% of food subtotal)
+ *   - commission  → platform commission (PLATFORM_FACTS.commission.marketplaceFirst % of food subtotal)
  *   - deliveryFee → vendor delivery fee, retained in full
  *   - netPayable  → net payable to the vendor
  */
@@ -33,7 +35,7 @@ export function EarningsBreakdown({
           <dd className="tabular-nums">{subtotal}</dd>
         </div>
         <div className="flex justify-between">
-          <dt className="text-muted-foreground">Feastpot commission (12% of food subtotal)</dt>
+          <dt className="text-muted-foreground">{PLATFORM_FACTS.brandName} commission ({PLATFORM_FACTS.commission.marketplaceFirst}% of food subtotal)</dt>
           <dd className="tabular-nums">−{commission}</dd>
         </div>
         <div className="flex justify-between">
@@ -46,7 +48,7 @@ export function EarningsBreakdown({
         </div>
       </dl>
       <p className="mt-2 text-xs text-muted-foreground">
-        Feastpot charges 12% of the food subtotal on completed orders. Your delivery fee is yours in
+        {PLATFORM_FACTS.brandName} charges {PLATFORM_FACTS.commission.marketplaceFirst}% of the food subtotal on completed orders. Your delivery fee is yours in
         full.
       </p>
     </div>

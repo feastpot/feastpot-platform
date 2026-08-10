@@ -4,6 +4,7 @@ import type { Metadata, Viewport } from 'next';
 import { Inter, Playfair_Display } from 'next/font/google';
 import type { ReactNode } from 'react';
 
+import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
 import { ToastProvider, ToastViewport } from '@feastpot/ui';
 
 import { CookieBanner } from '@/components/cookie-banner';
@@ -37,16 +38,16 @@ const playfair = Playfair_Display({
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'https://feastpot.co.uk'),
   title: {
-    default: 'Feastpot - African & Caribbean Food Delivered',
-    template: '%s | Feastpot',
+    default: `${PLATFORM_FACTS.brandName} - African & Caribbean Food Delivered`,
+    template: `%s | ${PLATFORM_FACTS.brandName}`,
   },
   description:
     'Family pots, party trays, weekly meals and event catering from trusted African and Caribbean cooks serving your postcode. Order securely and schedule ahead.',
   manifest: '/manifest.json',
-  applicationName: 'Feastpot',
+  applicationName: PLATFORM_FACTS.brandName,
   appleWebApp: {
     capable: true,
-    title: 'Feastpot',
+    title: PLATFORM_FACTS.brandName,
     statusBarStyle: 'default',
   },
   icons: {
@@ -65,7 +66,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     type: 'website',
-    siteName: 'Feastpot',
+    siteName: PLATFORM_FACTS.brandName,
     locale: 'en_GB',
     // OG image is generated dynamically by app/opengraph-image.tsx - Next 15
     // auto-injects the correct <meta og:image> tag for every route. Per-vendor

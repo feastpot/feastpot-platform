@@ -160,7 +160,7 @@ export default function HelpPage() {
               {supportEmail}
             </p>
             <p className="mt-0.5 text-xs font-medium text-charcoal-mid">
-              Reply {PLATFORM_FACTS.support.responseTime}, {PLATFORM_FACTS.support.hours}.
+              {PLATFORM_FACTS.support.hours}. We reply {PLATFORM_FACTS.support.responseTime}.
             </p>
           </div>
         </a>

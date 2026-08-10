@@ -31,6 +31,7 @@ const PDFDocument = require('pdfkit') as new (opts?: object) => NodeJS.EventEmit
   y: number;
 };
 
+import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
 import type { AuthUser } from '../../auth/types';
 import { CommissionService } from '../../commission/commission.service';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -931,7 +932,7 @@ export class PayoutsService {
           .fontSize(8)
           .fillColor('#555555')
           .text(
-            'Marketplace repeat-order rate is 10%. Vendor-referred orders are 0%. Bring your own customers to keep more.',
+            `Marketplace repeat-order rate is ${PLATFORM_FACTS.commission.marketplaceRepeat}%. Vendor-referred orders are ${PLATFORM_FACTS.commission.vendorReferred}%. Bring your own customers to keep more.`,
             ml,
             doc.y + 4,
             { width: pageWidth },

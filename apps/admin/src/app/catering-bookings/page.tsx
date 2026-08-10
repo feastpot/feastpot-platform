@@ -1,3 +1,5 @@
+import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
+
 import { StaffShell } from '@/components/layout/staff-shell-wrapper';
 import { requireStaff } from '@/lib/auth/server-gate';
 
@@ -16,8 +18,8 @@ export default async function CateringBookingsPage() {
         <div>
           <h1 className="text-2xl font-bold">Catering bookings</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Monitor all catering bookings across vendors. Commission is source-based (referred = 0%,
-            marketplace repeat = 10%, marketplace first = 12%).
+            Monitor all catering bookings across vendors. Commission is source-based (referred = {PLATFORM_FACTS.commission.vendorReferred}%,
+            marketplace repeat = {PLATFORM_FACTS.commission.marketplaceRepeat}%, marketplace first = {PLATFORM_FACTS.commission.marketplaceFirst}%).
           </p>
         </div>
         <CateringBookingsClient accessToken={user.accessToken} apiUrl={apiUrl} />

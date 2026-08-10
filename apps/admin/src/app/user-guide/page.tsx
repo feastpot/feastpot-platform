@@ -1,3 +1,5 @@
+import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
+
 import { StaffShell } from '@/components/layout/staff-shell-wrapper';
 import { requireStaff } from '@/lib/auth/server-gate';
 
@@ -202,7 +204,7 @@ const SECTIONS: GuideSection[] = [
       {
         heading: 'Commission rates',
         detail:
-          'Commission rates are configured per vendor tier. The default rates (12% new, 10% repeat) apply unless a vendor has a negotiated rate row. Add a new rate row here when agreeing a custom arrangement with a vendor.',
+          `Commission rates are configured per vendor tier. The default rates (${PLATFORM_FACTS.commission.marketplaceFirst}% new, ${PLATFORM_FACTS.commission.marketplaceRepeat}% repeat) apply unless a vendor has a negotiated rate row. Add a new rate row here when agreeing a custom arrangement with a vendor.`,
       },
       {
         heading: 'FeastPass health',

@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
+import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
+
 import { useAccessToken } from '@/lib/auth/use-access-token';
 import { createFeastPassCheckout } from '@/lib/api/feastpass';
 
@@ -12,7 +14,7 @@ const PERKS = [
   {
     Icon: Wallet,
     title: 'Service fee waived',
-    desc: 'We charge a 5% service fee (max £2.99) on every order. Members pay £0.',
+    desc: `We charge a ${PLATFORM_FACTS.serviceFee.percent}% service fee (max £${(PLATFORM_FACTS.serviceFee.capPence / 100).toFixed(2)}) on every order. Members pay £0.`,
   },
   {
     Icon: Zap,
@@ -37,7 +39,7 @@ const FAQS = [
   },
   {
     q: 'What counts as the service fee?',
-    a: 'It is 5% of your order subtotal, capped at £2.99. On a £30 order that is £1.50 saved. On orders over £60 you always save the full £2.99.',
+    a: `It is ${PLATFORM_FACTS.serviceFee.percent}% of your order subtotal, capped at £${(PLATFORM_FACTS.serviceFee.capPence / 100).toFixed(2)}. On a £30 order that is £1.50 saved. On orders over £60 you always save the full £${(PLATFORM_FACTS.serviceFee.capPence / 100).toFixed(2)}.`,
   },
   {
     q: 'Does Annual renew automatically?',
@@ -60,10 +62,10 @@ export default function FeastPassPage() {
   const [ordersPerMonth, setOrdersPerMonth] = useState(3);
   const [avgOrderPence, setAvgOrderPence] = useState(2500);
 
-  // Saving per order = min(subtotal × 5%, 299)
-  const savingPerOrder = Math.min(Math.round(avgOrderPence * 0.05), 299);
+  // Saving per order = min(subtotal × serviceFee.percent%, serviceFee.capPence)
+  const savingPerOrder = Math.min(Math.round(avgOrderPence * PLATFORM_FACTS.serviceFee.percent / 100), PLATFORM_FACTS.serviceFee.capPence);
   const annualSavingPence = savingPerOrder * ordersPerMonth * 12;
-  const annualCostPence = plan === 'ANNUAL' ? 3990 : 399 * 12;
+  const annualCostPence = plan === 'ANNUAL' ? PLATFORM_FACTS.feastPass.annualPence : PLATFORM_FACTS.feastPass.monthlyPence * 12;
   const netAnnualSavingPence = annualSavingPence - annualCostPence;
   const breakEvenOrders = annualCostPence > 0
     ? Math.ceil(annualCostPence / Math.max(savingPerOrder, 1))

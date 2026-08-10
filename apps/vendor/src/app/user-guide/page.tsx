@@ -1,3 +1,4 @@
+import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
 import { redirect } from 'next/navigation';
 
 import { PortalShell } from '@/components/layout/portal-shell';
@@ -143,12 +144,12 @@ const CHAPTERS: GuideChapter[] = [
       {
         title: 'Understand your share',
         detail:
-          'Feastpot charges commission on the food subtotal only - delivery fees are passed through in full and are not commissioned. New kitchens start at 12% commission. Once you have a track record on the platform the rate reduces to 10%. Your current rate is shown on your Payouts page.',
+          `${PLATFORM_FACTS.brandName} charges commission on the food subtotal only - delivery fees are passed through in full and are not commissioned. New kitchens start at ${PLATFORM_FACTS.commission.marketplaceFirst}% commission. Once you have a track record on the platform the rate reduces to ${PLATFORM_FACTS.commission.marketplaceRepeat}%. Your current rate is shown on your Payouts page.`,
       },
       {
         title: 'Weekly payout schedule',
         detail:
-          'We close the books on the previous week at midnight Sunday and create a single Stripe Transfer for your earnings the following Monday. Stripe takes 3-5 working days to land funds in your bank.',
+          `We close the books on the previous week at midnight Sunday and create a single Stripe Transfer for your earnings the following ${PLATFORM_FACTS.payouts.day}. Stripe takes 3-5 working days to land funds in your bank.`,
       },
       {
         title: 'Check Payouts for the breakdown',
@@ -192,7 +193,7 @@ const CHAPTERS: GuideChapter[] = [
       {
         title: 'Find your referral link',
         detail:
-          'Open "Bring your own customers" in the sidebar. Your unique Feastpot referral URL is shown at the top, ready to copy.',
+          `Open "Bring your own customers" in the sidebar. Your unique ${PLATFORM_FACTS.brandName} referral URL is shown at the top, ready to copy.`,
       },
       {
         title: 'Copy and share the link',
@@ -212,7 +213,7 @@ const CHAPTERS: GuideChapter[] = [
       {
         title: 'Commission benefit',
         detail:
-          'Orders placed through your referral link are charged 0% commission. Marketplace orders are charged at your standard rate. Refer enough customers and a significant share of your turnover is commission-free.',
+          `Orders placed through your referral link are charged ${PLATFORM_FACTS.commission.vendorReferred}% commission. Marketplace orders are charged at your standard rate. Refer enough customers and a significant share of your turnover is commission-free.`,
       },
     ],
   },
@@ -295,7 +296,7 @@ const CHAPTERS: GuideChapter[] = [
       {
         title: 'Notice period',
         detail:
-          'Feastpot gives at least 15 days notice before a terms change takes effect. You will receive an email when a new version is published so you are not caught off-guard.',
+          `${PLATFORM_FACTS.brandName} gives at least ${PLATFORM_FACTS.termsNoticeDays} days notice before a terms change takes effect. You will receive an email when a new version is published so you are not caught off-guard.`,
       },
       {
         title: 'Viewing your acceptance history',
@@ -389,7 +390,7 @@ export default async function UserGuidePage() {
               Vendor user guide
             </h1>
             <p className="mb-6 text-sm text-muted-foreground">
-              A step-by-step walkthrough of the Feastpot vendor portal. For policy questions and
+              A step-by-step walkthrough of the {PLATFORM_FACTS.brandName} vendor portal. For policy questions and
               rules, see the{' '}
               <a href="/help" className="font-medium text-teal-dark underline">
                 Help &amp; FAQ

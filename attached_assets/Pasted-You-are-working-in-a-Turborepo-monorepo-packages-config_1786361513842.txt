@@ -1,0 +1,37 @@
+You are working in a Turborepo monorepo. packages/config/src/platform-facts.ts already exports PLATFORM_FACTS as the single source of truth for commercial and support constants, and apps/api/src/platform-facts.spec.ts already fails CI if code and copy drift from it. This task is a MIGRATION onto existing infrastructure, not a new build.
+
+CONFIRMED PLATFORM_FACTS SHAPE (do not rename existing fields):
+brandName: 'Feastpot'
+commission: { marketplaceFirst: 12.0, marketplaceRepeat: 10.0, vendorReferred: 0.0, basis: 'food subtotal only' }
+serviceFee: { percent: 5, capPence: 299 }
+feastPass: { monthlyPence: 399, annualPence: 3990 }
+payouts: { frequency: 'weekly', day: 'Monday' }
+support: { email: 'support@feastpot.co.uk', hours: 'Monday to Saturday', responseTime: 'within 24 hours', whatsapp: null }
+vendorRequirements: readonly string[] (7 items)
+contact: { complianceEmail: 'compliance@feastpot.co.uk', appealsEmail: 'appeals@feastpot.co.uk' }
+appealWindowDays: 14
+termsNoticeDays: 15
+terminationNoticeDays: 30
+
+STEP 1 — ADD A NEW FIELD. The agreed vendor-facing commercial promise is "at least 30 days' written notice of any commission or fee change, never applied retrospectively". This is a distinct commitment from termsNoticeDays (general terms changes) and terminationNoticeDays (account termination), so it needs its own constant, not a reuse of either. Add feeChangeNoticeDays: 30 to PLATFORM_FACTS in packages/config/src/platform-facts.ts. SCOPE: this field covers only changes Feastpot itself makes to commission.marketplaceFirst, commission.marketplaceRepeat, commission.vendorReferred, or serviceFee.percent/capPence. It does NOT cover Stripe's own card-processing rate, which is a pass-through cost Feastpot does not set or mark up; a Stripe rate change is not a "fee change" under this promise. Note this scope distinction in a code comment next to the field. Update apps/api/src/platform-facts.spec.ts to assert this new field exists and equals 30, following the same pattern the file already uses for the other fields.
+
+STEP 2 — MIGRATE KNOWN OFFENDING FILES. Update these files to import from '@feastpot/config' (via the ./platform-facts export) instead of hard-coding strings, replacing any hard-coded brand name, support hours, response time or fee/commission figures with the PLATFORM_FACTS equivalents:
+- apps/web/src/components/layout/footer.tsx
+- apps/web/src/app/help/page.tsx
+- apps/web/src/app/layout.tsx
+- apps/vendor/src/app/user-guide/page.tsx
+- apps/vendor/src/app/compliance/compliance-client.tsx
+- apps/vendor/src/app/payouts/payouts-client.tsx
+
+STEP 3 — FULL REPO GREP. Search the whole monorepo (excluding node_modules, .next, dist) for the literal strings "9am", "24/7", "support hours", "Monday to Saturday", "within 24 hours", "Feastpot" (as a hard-coded brand string, not the PLATFORM_FACTS import), and any hard-coded percentage figures matching 12%, 10%, 5%, 15%, 30%, £2.99. For every genuine match outside test fixtures and the config package itself, replace with the PLATFORM_FACTS import. List every file changed in your final summary so nothing is silently missed.
+
+STEP 4 — CORRECT SUPPORT HOURS EVERYWHERE. Wherever support hours are displayed, the copy must read as a composition of the real fields only: "Email support, {support.hours}. We reply {support.responseTime}." Do not invent a time-of-day (for example "9am to 9pm") that is not present in PLATFORM_FACTS. Because support.whatsapp is null, remove any WhatsApp support link or affordance entirely; do not attempt to "fix" it with a placeholder or real-looking number. If WhatsApp support is wanted later, that requires adding a real value to PLATFORM_FACTS.support.whatsapp first, which is out of scope here.
+
+ACCEPTANCE CRITERIA:
+- feeChangeNoticeDays: 30 exists in PLATFORM_FACTS and is asserted in platform-facts.spec.ts.
+- All six listed files import from @feastpot/config and contain no hard-coded support/commission/fee strings.
+- A repo-wide grep for "9am to 9pm" and any WhatsApp wa.me link returns zero results.
+- Support-hours copy everywhere resolves to "Email support, Monday to Saturday. We reply within 24 hours."
+- CI (platform-facts.spec.ts) passes.
+
+EDGE CASES: apps/admin references to "footer" are inline table-cell text, not layout copy; leave those alone unless they contain one of the banned/incorrect strings above. Do not touch packages/ui/src/brand.ts (colour tokens are out of scope for this prompt; see the separate brand-token check).

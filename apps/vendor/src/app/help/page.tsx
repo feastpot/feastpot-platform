@@ -1,3 +1,4 @@
+import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
 import { redirect } from 'next/navigation';
 
 import { TopNav } from '@/components/layout/top-nav';
@@ -23,18 +24,17 @@ interface FaqSection {
  * Vendor portal Help & FAQ. Six sections written from the operator-side
  * rules already enforced by the platform (15-minute accept window, 48h
  * dispute SLA, 30-day cert renewal nudge, auto-pause on expiry). The
- * page is intentionally copy-only so we can edit policy here without
- * touching any API behaviour - if a number changes (e.g. commission
- * basis points), update the matching string here AND the corresponding
- * server-side constant.
+ * page is intentionally copy-only. All commercial numbers are sourced
+ * from PLATFORM_FACTS so a single change there propagates to this page
+ * automatically.
  */
 const SECTIONS: FaqSection[] = [
   {
     id: 'getting-paid',
     title: 'Getting paid',
     body: [
-      'Payouts run weekly. We close the books at midnight Sunday and create a single Stripe Transfer the following Monday. Stripe typically takes 3-5 working days to settle the transfer into your bank account.',
-      'Commission is charged on the food subtotal only - delivery fees are passed through in full and are not commissioned. New kitchens start at 12% commission. Once you have a track record on the platform the rate reduces to 10%. Your current rate is shown on the Payouts page.',
+      `Payouts run weekly. We close the books at midnight Sunday and create a single Stripe Transfer the following ${PLATFORM_FACTS.payouts.day}. Stripe typically takes 3-5 working days to settle the transfer into your bank account.`,
+      `Commission is charged on the food subtotal only - delivery fees are passed through in full and are not commissioned. New kitchens start at ${PLATFORM_FACTS.commission.marketplaceFirst}% commission. Once you have a track record on the platform the rate reduces to ${PLATFORM_FACTS.commission.marketplaceRepeat}%. Your current rate is shown on the Payouts page.`,
       'Your earnings land in the bank account connected to your Stripe Connect profile. If you have not connected Stripe yet, open the Payouts section and follow the onboarding link.',
       'Need to query a payout? Email vendors@feastpot.co.uk with your kitchen name and the week in question. Include any order numbers you think are missing.',
     ],
@@ -44,7 +44,7 @@ const SECTIONS: FaqSection[] = [
     title: 'Managing orders',
     body: [
       'You have 15 minutes to accept or reject each new order. If you do not respond within 15 minutes, the order is automatically cancelled and the customer is refunded in full.',
-      'Persistent non-responsiveness or a high rejection rate may trigger an account review by the Feastpot vendor team.',
+      `Persistent non-responsiveness or a high rejection rate may trigger an account review by the ${PLATFORM_FACTS.brandName} vendor team.`,
       'Once accepted, an order is locked in. Use the order amendment flow if a customer asks to change items - never cancel a confirmed order without contacting support first.',
     ],
   },
