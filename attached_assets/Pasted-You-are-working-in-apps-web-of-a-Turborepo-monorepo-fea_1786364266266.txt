@@ -1,0 +1,16 @@
+You are working in apps/web of a Turborepo monorepo. @feastpot/ui already exports a Footer component (via the ./footer export). This is a CONSOLIDATION task: apps/web currently has at least one divergent footer implementation (apps/web/src/components/layout/footer.tsx, confirmed to contain hard-coded strings in Prompt 2) alongside the shared one, and possibly inline footer markup on individual pages.
+
+TASK:
+1. Audit every route under apps/web/src/app for footer markup that does not come from the shared @feastpot/ui Footer component. This includes apps/web/src/components/layout/footer.tsx if it is a local reimplementation rather than a thin wrapper around the shared component.
+2. Replace every local footer with the shared @feastpot/ui Footer, imported from '@feastpot/ui/footer', mounted once in the apps/web root layout so every page inherits it, rather than being re-imported per page.
+3. Delete apps/web/src/components/layout/footer.tsx if, after this change, it is no longer needed. If it is kept as a thin re-export for backward compatibility, it must contain no markup or copy of its own.
+4. Confirm the shared Footer's link set includes Home, Vendors, Catering, Become a vendor, Vendor readiness, Trust and safety, Help, and the legal pages. If any are missing from the shared component, add them there (not in a per-page override), since apps/vendor and apps/admin do not use this component and are unaffected.
+5. Do NOT add a footer to apps/vendor or apps/admin. VendorPortalLayout has no footer slot by design, and apps/admin's root layout is a bare shell with no nav or footer. Leave both as they are.
+
+ACCEPTANCE CRITERIA:
+- Every route under apps/web renders the identical @feastpot/ui Footer with the identical link set.
+- No local footer markup remains in apps/web outside the shared component.
+- apps/vendor and apps/admin are unchanged by this prompt.
+- All footer links resolve to real routes (verified against apps/web's route tree).
+
+EDGE CASES: if any apps/web page currently renders a footer with additional page-specific content (for example a catering-specific CTA above the footer), keep that content as page content above the shared Footer component, not folded into the footer itself.
