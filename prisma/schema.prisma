@@ -772,8 +772,13 @@ model Vendor {
   featuredDishes String[] @default([]) @map("featured_dishes") @db.VarChar(120)
   socialLinks    Json?    @map("social_links")
 
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  /// Set to true on rows created by the seed script. Rows with this flag are
+  /// removed by the purge migration before production go-live. Never set this
+  /// on real vendor rows; the purge migration deletes isSeedData = true vendors
+  /// together with all their menus, orders and reviews, regardless of status.
+  isSeedData Boolean  @default(false) @map("is_seed_data")
 
   user                 User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   menus                Menu[]
@@ -971,6 +976,11 @@ model Order {
   etaAt              DateTime?    @map("eta_at") @db.Timestamptz
   createdAt          DateTime     @default(now()) @map("created_at") @db.Timestamptz
   updatedAt          DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+  /// Set to true on rows created by the seed script. The purge migration deletes
+  /// all isSeedData = true orders (and their reviews, items, disputes etc.) before
+  /// production go-live. Seed status overrides order status: even a delivered
+  /// seed order is deleted, and any review linked to it is also purged.
+  isSeedData         Boolean      @default(false) @map("is_seed_data")
 
   customer     User             @relation(fields: [customerId], references: [id])
   vendor       Vendor           @relation(fields: [vendorId], references: [id])

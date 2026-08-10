@@ -1,0 +1,30 @@
+You are working in a Turborepo monorepo. The database schema is prisma/schema.prisma with a single Prisma schema and migrations under prisma/migrations, applied via the repo's existing turbo tasks (db:generate, db:migrate, db:deploy). Do not write raw ad-hoc SQL files outside this structure and do not delete data through the Prisma Studio UI or a runtime filter.
+
+FIRST, INSPECT: open prisma/schema.prisma and confirm the exact fields on Vendor, Menu, MenuItem, Order and Review, and the VendorStatus and OrderStatus enum values. Do not assume field names beyond what is confirmed below.
+
+CONFIRMED FIELDS (use these, do not rename):
+- Vendor: id, businessName, slug, status (VendorStatus), rating, ratingCount, stripeAccountId, payoutsEnabled, logoUrl, coverImageUrl, suspendedAt, approvedAt.
+- Menu: isActive, sortOrder (plus vendor relation).
+- MenuItem: category (ItemCategory), pricePence, isAvailable, moderationStatus (ModerationStatus), allergens, imageUrls.
+- Order: orderNumber, status (OrderStatus), type (OrderType), deliveryType (DeliveryType), subtotalPence, totalPence, serviceFeePence, deliveryFeePence, discountPence, commissionPence, vendorPayoutPence, scheduledFor, acceptedAt, dispatchedAt, deliveredAt, cancelledAt.
+- Review: rating, title, body, photoUrls, isVerified, isHidden, moderationStatus, moderatedById, moderatedAt. UNIQUE CONSTRAINT: one Review per orderId.
+
+TASK:
+1. Check whether Vendor already has any boolean or enum field that marks seed/test data. If not, create a migration that adds isSeedData Boolean @default(false) to Vendor and to Order (both may have dummy rows independently of each other).
+2. In a SEPARATE, subsequent migration (so the flag exists and can be reviewed/set by a human or a seed script before deletion runs), write the purge:
+   a. Delete Review rows where isVerified = false, OR moderationStatus indicates the review was never approved, OR the linked Order is not in a completed OrderStatus, OR the linked Order has isSeedData = true. This enforces that no review is kept unless it is tied to a real completed order, because under the UK DMCC Act 2024 a review not based on genuine experience is a banned unfair commercial practice.
+   b. Delete MenuItem and Menu rows belonging to any Vendor with isSeedData = true.
+   c. Delete Order rows where isSeedData = true, after first deleting any Review rows that depend on them (respect the FK/unique constraint on Review.orderId).
+   d. Delete Vendor rows where isSeedData = true, after (a) to (c) have cleared dependants.
+3. Wrap the deletion migration in a transaction. Add verification queries at the end of the same migration (or a companion script run immediately after) that COUNT remaining isSeedData = true rows across Vendor and Order, and COUNT Review rows with no linked completed Order, and RAISE an error if either count is greater than 0.
+4. Do not touch rows where isSeedData is false/null unless they independently fail the review-validity check in step 2a.
+
+ROLLBACK SAFETY: the migration file must open with a comment instructing the operator to take a database backup before running the repo's db:deploy task in production. Do not attempt to write a Prisma "down" migration; state in a comment that recovery is via the pre-migration backup only.
+
+ACCEPTANCE CRITERIA:
+- prisma/schema.prisma gains isSeedData on Vendor and Order, with a corresponding migration file.
+- A second migration deletes all isSeedData = true rows and all reviews unlinked to a genuine completed order, cascading correctly through Menu, MenuItem, Order and Review.
+- Post-migration verification counts are both 0, enforced by a raised error if not.
+- No orphaned MenuItem, Menu or Review rows remain (verify with a query, included as a comment, that finds rows whose parent no longer exists).
+
+EDGE CASES: an Order that is isSeedData = true but has a genuinely completed status must still be deleted (seed status overrides completion); a Review whose Order was refunded or cancelled after delivery (not "completed") must be deleted; handle Vendor rows with no Menu at all; if VendorStatus or OrderStatus enum names differ from a guessed "completed"/"active" value, use the actual enum member found during inspection.
