@@ -1,0 +1,97 @@
+13:05:45.618 Running build in Washington, D.C., USA (East) – iad1
+13:05:45.619 Build machine configuration: 2 cores, 8 GB
+13:05:45.753 Cloning github.com/feastpot/feastpot-platform (Branch: dependabot/npm_and_yarn/fast-uri-3.1.5, Commit: 6e4b312)
+13:05:50.735 Cloning completed: 4.982s
+13:05:51.038 Restored build cache from previous deployment (HWpW6Cr8dMDMwnYhvUY2mhowZwSQ)
+13:05:52.578 Running "vercel build"
+13:05:52.597 Vercel CLI 58.1.0
+13:05:52.629 > Detected Turbo. Adjusting default settings...
+13:05:52.945 Running "install" command: `cd ../.. && npm install`...
+13:05:58.662 
+13:05:58.662 > feastpot-platform@0.1.0 prepare
+13:05:58.663 > husky
+13:05:58.663 
+13:05:58.721 
+13:05:58.721 up to date, audited 1508 packages in 6s
+13:05:58.722 
+13:05:58.722 288 packages are looking for funding
+13:05:58.722   run `npm fund` for details
+13:05:58.801 
+13:05:58.801 7 high severity vulnerabilities
+13:05:58.802 
+13:05:58.806 To address issues that do not require attention, run:
+13:05:58.806   npm audit fix
+13:05:58.806 
+13:05:58.806 To address all issues (including breaking changes), run:
+13:05:58.807   npm audit fix --force
+13:05:58.807 
+13:05:58.807 Run `npm audit` for details.
+13:05:58.840 Detected Next.js version: 15.5.19
+13:05:58.841 Running "cd ../.. && npm run build -- --filter=@feastpot/web"
+13:05:58.942 
+13:05:58.943 > feastpot-platform@0.1.0 build
+13:05:58.943 > turbo run build --filter=@feastpot/web
+13:05:58.943 
+13:05:59.335 
+13:05:59.337    • Packages in scope: @feastpot/web
+13:05:59.337    • Running build in 1 packages
+13:05:59.337    • Remote caching enabled
+13:05:59.337 
+13:05:59.477 @feastpot/types:build: cache hit, replaying logs c178f7d39d044cf4
+13:05:59.478 @feastpot/types:build: 
+13:05:59.479 @feastpot/types:build: > @feastpot/types@0.1.0 build
+13:05:59.479 @feastpot/types:build: > tsc --build
+13:05:59.479 @feastpot/types:build: 
+13:05:59.589 @feastpot/web:build: cache miss, executing 361fc3467e9b0c5d
+13:05:59.727 @feastpot/web:build: 
+13:05:59.727 @feastpot/web:build: > @feastpot/web@0.1.0 build
+13:05:59.727 @feastpot/web:build: > next build
+13:05:59.728 @feastpot/web:build: 
+13:06:01.131 @feastpot/web:build:    ▲ Next.js 15.5.19
+13:06:01.131 @feastpot/web:build: 
+13:06:01.309 @feastpot/web:build:    Creating an optimized production build ...
+13:06:01.742 @feastpot/web:build:  ✓ (pwa) Compiling for server...
+13:06:01.762 @feastpot/web:build:  ✓ (pwa) Compiling for server...
+13:06:01.784 @feastpot/web:build:  ✓ (pwa) Compiling for client (static)...
+13:06:01.787 @feastpot/web:build:  ○ (pwa) Service worker: /vercel/path0/apps/web/public/sw.js
+13:06:01.788 @feastpot/web:build:  ○ (pwa)   URL: /sw.js
+13:06:01.789 @feastpot/web:build:  ○ (pwa)   Scope: /
+13:06:01.789 @feastpot/web:build:  ○ (pwa) This app will fallback to these precached routes when fetching from the cache and the network fails:
+13:06:01.790 @feastpot/web:build:  ○ (pwa)   Documents (pages): /offline
+13:06:01.790 @feastpot/web:build:  ○ (pwa) Custom runtimeCaching array found, using it instead of the default one.
+13:06:13.436 @feastpot/web:build: (node:166) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///vercel/path0/packages/ui/src/brand.ts is not specified and it doesn't parse as CommonJS.
+13:06:13.437 @feastpot/web:build: Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+13:06:13.437 @feastpot/web:build: To eliminate this warning, add "type": "module" to /vercel/path0/packages/ui/package.json.
+13:06:13.437 @feastpot/web:build: (Use `node --trace-warnings ...` to show where the warning was created)
+13:06:19.021 @feastpot/web:build:  ✓ Compiled successfully in 17.2s
+13:06:19.023 @feastpot/web:build:    Linting and checking validity of types ...
+13:06:36.999 @feastpot/web:build:    Collecting page data ...
+13:06:37.709 @feastpot/web:build:  ⚠ Using edge runtime on a page currently disables static generation for that page
+13:06:40.524 @feastpot/web:build:    Generating static pages (0/51) ...
+13:06:42.090 @feastpot/web:build:    Generating static pages (12/51) 
+13:06:43.237 @feastpot/web:build:    Generating static pages (25/51) 
+13:06:44.002 @feastpot/web:build:    Generating static pages (38/51) 
+13:06:44.852 @feastpot/web:build: Error occurred prerendering page "/legal/vendor-terms". Read more: https://nextjs.org/docs/messages/prerender-error
+13:06:44.854 @feastpot/web:build: SyntaxError: Unexpected end of JSON input
+13:06:44.855 @feastpot/web:build:     at JSON.parse (<anonymous>) {
+13:06:44.856 @feastpot/web:build:   digest: '3523194659'
+13:06:44.857 @feastpot/web:build: }
+13:06:44.857 @feastpot/web:build: Export encountered an error on /legal/vendor-terms/page: /legal/vendor-terms, exiting the build.
+13:06:44.887 @feastpot/web:build:  ⨯ Next.js build worker exited with code: 1 and signal: null
+13:06:44.953 @feastpot/web:build: npm error Lifecycle script `build` failed with error:
+13:06:44.957 @feastpot/web:build: npm error code 1
+13:06:44.958 @feastpot/web:build: npm error path /vercel/path0/apps/web
+13:06:44.958 @feastpot/web:build: npm error workspace @feastpot/web@0.1.0
+13:06:44.958 @feastpot/web:build: npm error location /vercel/path0/apps/web
+13:06:44.961 @feastpot/web:build: npm error command failed
+13:06:44.961 @feastpot/web:build: npm error command sh -c next build
+13:06:44.968  ERROR  @feastpot/web#build: command (/vercel/path0/apps/web) /node24/bin/npm run build exited (1)
+13:06:44.971 
+13:06:44.971   Tasks:    1 successful, 2 total
+13:06:44.971  Cached:    1 cached, 2 total
+13:06:44.971    Time:    45.914s 
+13:06:44.971 Summary:    /vercel/path0/.turbo/runs/3HivG4hCH9WjiuRT4kJGWrMZq8s.json
+13:06:44.971  Failed:    @feastpot/web#build
+13:06:44.971 
+13:06:44.978  ERROR  run failed: command  exited (1)
+13:06:45.008 Error: Command "cd ../.. && npm run build -- --filter=@feastpot/web" exited with 1
