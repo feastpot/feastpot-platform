@@ -1,0 +1,33 @@
+You are auditing apps/web, apps/vendor, apps/api and apps/admin in a Turborepo monorepo (Next.js 15, NestJS 11, Prisma) to determine, with evidence, whether four specific customer-facing features are actually implemented, partially implemented, or not implemented at all. THIS IS A READ-ONLY AUDIT. Do not write, edit, delete, or refactor any code. Do not add stubs, TODOs, or placeholder implementations. Your only output is a report.
+
+FEATURES TO AUDIT:
+1. Live order tracking (a customer being able to see their order's real-time status or delivery location/progress after placing it).
+2. Push notifications (browser or mobile push notifications to customers and/or vendors about order events).
+3. WhatsApp order updates (order status or confirmation messages sent to a customer or vendor via WhatsApp).
+4. Allergen filter toggle (a customer-facing UI control that filters the menu or vendor list by allergen).
+
+METHOD, for each feature:
+1. Search package.json in every app and package for relevant third-party dependencies, for example: web-push, workbox, firebase or firebase-admin, onesignal, pusher, ably, socket.io, twilio, any WhatsApp Business API or Meta Cloud API client, any mapping/geolocation library such as mapbox-gl or @react-google-maps/api.
+2. Search the codebase for relevant component names, route handlers, service classes, and environment variable references (for example NEXT_PUBLIC_..., WHATSAPP_..., FCM_..., VAPID_...). List every file found, with its exact path.
+3. Read each file found and classify it as: (a) fully wired end-to-end, meaning UI, an API endpoint or service, and a real external integration or database write are all connected and reachable by a real user action; (b) partially built, meaning some layer exists but is not connected to the others, for example a UI toggle with no backend query filter behind it, a service class that is never called, or a hardcoded/mocked response; (c) present only as a comment, TODO, or unused scaffold; or (d) not found anywhere in the codebase.
+4. Check for automated test coverage of the feature (unit, integration, or e2e). Note whether tests exist and, if it can be determined without running a full suite, whether they currently pass. If tests cannot be run in this environment, say so explicitly rather than guessing.
+5. Do not infer a feature is working from its presence in marketing copy, seed data, or a design-only comment. Only trust actual executable code and its real wiring.
+
+OUTPUT FORMAT: a single markdown report, not code changes, with one section per feature:
+
+## [Feature name]
+**Verdict:** SHIPPED | PARTIAL | STUBBED | NOT FOUND
+**Evidence:** every relevant file path found, with a one-line note on what each file actually does
+**What's missing (if not SHIPPED):** the specific gap between what exists and a feature a customer could actually rely on
+**Test coverage:** what exists, and whether it appears to pass
+**Safe to claim publicly right now?** yes or no, one sentence why
+
+Finish with a summary table: Feature | Verdict | Safe to claim on /help?
+
+ACCEPTANCE CRITERIA:
+- No source file is modified, added, or deleted.
+- Every verdict is backed by at least one cited file path; an unsupported verdict is not acceptable.
+- An ambiguous case (for example a UI element exists but the backend cannot be confirmed without running the app) is reported as PARTIAL with the exact manual test needed to resolve it, never guessed as SHIPPED or NOT FOUND.
+- The report clearly separates "code exists" from "code is tested and verified working".
+
+EDGE CASES: a feature may be implemented in one app but not another, for example an allergen filter that exists in apps/vendor's menu editor but not in apps/web's customer-facing browse; report per app if status differs. A feature may depend on a real external credential (for example a live WhatsApp Business API key) not present in this environment; if so, report that the code path exists but cannot be verified end-to-end without live credentials, and mark it PARTIAL with that specific caveat.

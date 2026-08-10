@@ -1,0 +1,16 @@
+You are editing apps/web/src/app/help/page.tsx (and any co-located FAQ data file it reads from) in a Next.js 15 App Router app. Import all support copy from '@feastpot/config' (PLATFORM_FACTS), per Prompt 2, rather than hard-coding it here.
+
+REQUIRED CHANGES:
+1. COVERAGE: replace any claim of "Greater London with selected coverage in Birmingham and Manchester" with the true position, that Feastpot is launching in Southwark and nearby London postcodes first and expanding from there. Do not mention Birmingham or Manchester.
+2. WHATSAPP: find and remove any WhatsApp support link or button (including any href="https://wa.me/" with no number). PLATFORM_FACTS.support.whatsapp is null, so there is no real number to link to; do not invent one. Support is email only for now: PLATFORM_FACTS.support.email, hours PLATFORM_FACTS.support.hours, response time PLATFORM_FACTS.support.responseTime.
+3. VENDOR ONBOARDING ROUTE: remove any instruction to email partners@feastpot.co.uk to become a vendor. Replace with a link/button to the vendor application flow (apps/web's /become-a-vendor apply route).
+4. REMOVE OVERCLAIMED FEATURES: delete any mention of live order tracking, push notifications, WhatsApp order updates, or an allergen filter toggle, unless you can confirm in the codebase that each one is actually implemented and shipped. Only describe what exists today.
+
+ACCEPTANCE CRITERIA:
+- No reference to Birmingham, Manchester, or "Greater London" coverage remains on /help.
+- No WhatsApp link or button remains anywhere on /help.
+- No partners@feastpot.co.uk instruction remains; the vendor CTA points to the application form.
+- No mention of live tracking, push notifications, WhatsApp order updates, or an allergen filter toggle remains unless verified as shipped.
+- Support copy on /help reads "Email support, Monday to Saturday. We reply within 24 hours." sourced from PLATFORM_FACTS.
+
+EDGE CASES: check meta description and any structured data (JSON-LD) on the /help route for the same stale claims; check FAQ accordion content, which may be stored as data rather than JSX and easy to miss in a simple text search.
