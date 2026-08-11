@@ -18,6 +18,7 @@ import { MenuCategoryTabs } from '@/components/menu/menu-category-tabs';
 import { MenuItemCard } from '@/components/menu/menu-item-card';
 import { CapacityBand } from '@/components/vendor/capacity-band';
 import { CoverageBadge } from '@/components/vendor/coverage-badge';
+import { MarketplaceTagger } from '@/components/vendor/marketplace-tagger';
 import { RatingBreakdown } from '@/components/vendor/rating-breakdown';
 import { ReviewsSection } from '@/components/vendor/reviews-section';
 import { TrustSignalPanel } from '@/components/vendor/trust-signal-panel';
@@ -609,6 +610,9 @@ export default async function VendorProfilePage({ params }: PageProps) {
 
       {/* FLOATING BAR - fixed, only renders when basket has items for this vendor */}
       <FloatingBasketBar vendorId={vendor.id} />
+      {/* MARKETPLACE ATTRIBUTION TAGGER - sets fp_mp_{vendorId} cookie on mount so
+          the attribution system knows this customer browsed via marketplace */}
+      <MarketplaceTagger vendorId={vendor.id} />
     </div>
   );
 }

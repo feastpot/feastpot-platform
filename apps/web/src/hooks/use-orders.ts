@@ -19,6 +19,51 @@ import {
 
 const ORDERS_KEY = 'orders';
 
+/**
+ * Read a single cookie value from document.cookie.
+ * Returns undefined in SSR or when the cookie is absent.
+ */
+function readCookie(name: string): string | undefined {
+  if (typeof document === 'undefined') return undefined;
+  const match = document.cookie
+    .split('; ')
+    .find((row) => row.startsWith(`${name}=`));
+  return match ? decodeURIComponent(match.split('=').slice(1).join('=')) : undefined;
+}
+
+/**
+ * Read a localStorage value, falling back gracefully in private/restricted
+ * browsing environments.
+ */
+function readLocalStorage(key: string): string | undefined {
+  try {
+    return localStorage.getItem(key) ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Build attribution headers for an order creation request.
+ * Reads the three marker cookies/localStorage entries that may have been set by
+ * /v/[slug] (vendor referral) or MarketplaceTagger (organic browse).
+ *
+ * Priority is enforced server-side (marketplace 90-day marker beats vendor
+ * 30-day marker), but we send both so the API always has the full picture.
+ */
+function buildAttributionHeaders(vendorId: string): Record<string, string> {
+  const headers: Record<string, string> = {};
+  const fpRef = readCookie('fp_ref');
+  if (fpRef) headers['x-fp-ref'] = fpRef;
+  const fpSid = readCookie('fp_sid');
+  if (fpSid) headers['x-fp-sid'] = fpSid;
+  // Marketplace marker: keyed by vendorId so each vendor's attribution is independent.
+  const mpKey = `fp_mp_${vendorId}`;
+  const fpMktp = readCookie(mpKey) ?? readLocalStorage(mpKey);
+  if (fpMktp) headers['x-fp-mktplace'] = fpMktp;
+  return headers;
+}
+
 /** Single order - used by the tracking page. Polls every 30s as a fallback to
  * Supabase Realtime so we never get stuck on a stale status. */
 export function useOrder(orderId: string | undefined) {
@@ -51,7 +96,14 @@ export function useCreateOrder() {
   return useMutation({
     mutationFn: (input: CreateOrderInput) => {
       if (!token) throw new Error('Not signed in');
-      return createOrder(input, token);
+      // Read attribution marker cookies and pass them as API headers so the
+      // server can apply the correct commission rate and record the attribution.
+      const attributionHeaders = buildAttributionHeaders(input.vendorId);
+      return createOrder(
+        input,
+        token,
+        Object.keys(attributionHeaders).length > 0 ? attributionHeaders : undefined,
+      );
     },
     onSuccess: () => {
       // List view becomes stale the moment a new order exists.

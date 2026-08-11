@@ -1,6 +1,6 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { OrderSource, OrderStatus, Prisma } from '@prisma/client';
+import { AttributionSource, OrderSource, OrderStatus, Prisma } from '@prisma/client';
 import * as QRCode from 'qrcode';
 
 import { SupabaseService } from '../../auth/supabase.service';
@@ -9,12 +9,17 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { RecordClickDto } from './dto/record-click.dto';
 
 const QR_BUCKET = 'feastpot-media';
-/** 30-day expiry in milliseconds for fp_ref cookie attribution. */
-const ATTRIBUTION_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+
+/** 30-day expiry for VENDOR marker (fp_ref cookie). */
+const VENDOR_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+
+/** 90-day expiry for MARKETPLACE marker (fp_mp_{vendorId} cookie). */
+const MARKETPLACE_WINDOW_MS = 90 * 24 * 60 * 60 * 1000;
 
 /**
  * Parse the fp_ref cookie value.
  * Format: `<referralLinkId>|<clickId>|<timestampMs>`
+ * Returns null if malformed or outside the 30-day VENDOR window.
  */
 export function parseFpRef(
   raw: string | null | undefined,
@@ -25,13 +30,32 @@ export function parseFpRef(
   const [referralLinkId, clickId, tsStr] = parts as [string, string, string];
   const ts = parseInt(tsStr, 10);
   if (!referralLinkId || !clickId || Number.isNaN(ts)) return null;
-  if (Date.now() - ts > ATTRIBUTION_WINDOW_MS) return null; // expired
+  if (Date.now() - ts > VENDOR_WINDOW_MS) return null; // expired (30 days)
   return { referralLinkId, clickId, ts };
 }
 
 /** Build a cookie-safe fp_ref value. */
 export function buildFpRef(referralLinkId: string, clickId: string): string {
   return `${referralLinkId}|${clickId}|${Date.now()}`;
+}
+
+/**
+ * Parse the X-Fp-Mktplace header / fp_mp_{vendorId} cookie value.
+ * Format: `<timestampMs>` (plain integer string).
+ * Returns the timestamp or null if malformed or outside the 90-day MARKETPLACE window.
+ */
+export function parseFpMktp(raw: string | null | undefined): number | null {
+  if (!raw) return null;
+  const ts = parseInt(raw, 10);
+  if (Number.isNaN(ts)) return null;
+  if (Date.now() - ts > MARKETPLACE_WINDOW_MS) return null; // expired (90 days)
+  return ts;
+}
+
+/** Derive the three-tier AttributionSource label from source + isFirstOrder. */
+export function toResolvedSource(source: OrderSource, isFirstOrder: boolean): AttributionSource {
+  if (source === OrderSource.VENDOR_REFERRED) return AttributionSource.VENDOR_REFERRED;
+  return isFirstOrder ? AttributionSource.MARKETPLACE_FIRST : AttributionSource.MARKETPLACE_REPEAT;
 }
 
 function generateSlug(businessName: string): string {
@@ -183,11 +207,11 @@ export class AttributionService {
   async recordClick(dto: RecordClickDto) {
     const link = await this.prisma.vendorReferralLink.findUnique({
       where: { slug: dto.slug },
-      select: { id: true, slug: true, vendor: { select: { slug: true } } },
+      select: { id: true, slug: true, vendorId: true, vendor: { select: { slug: true } } },
     });
     if (!link) {
       // Unknown slug - still return a safe redirect target.
-      return { ok: false, vendorSlug: null, referralLinkId: null, clickId: null };
+      return { ok: false, vendorSlug: null, referralLinkId: null, clickId: null, vendorId: null };
     }
 
     const click = await this.prisma.referralClick.create({
@@ -205,6 +229,7 @@ export class AttributionService {
       vendorSlug: link.vendor.slug,
       referralLinkId: link.id,
       clickId: click.id,
+      vendorId: link.vendorId,
     };
   }
 
@@ -214,6 +239,12 @@ export class AttributionService {
    * Resolve source + isFirstOrder without writing to the DB.
    * Called before finishCreateOrder so CommissionService can compute the
    * correct commission BEFORE the order row is created.
+   *
+   * Override rule: a valid MARKETPLACE marker (90-day window) takes precedence
+   * over a VENDOR marker (30-day window) for the same vendor. This implements
+   * the spec rule that platform-sourced discovery is never overwritten by a
+   * later vendor referral click.
+   *
    * Never throws - defaults to MARKETPLACE / isFirstOrder=true on any error.
    */
   async preResolveSource(
@@ -221,27 +252,38 @@ export class AttributionService {
     sessionId: string | null | undefined,
     customerId: string,
     vendorId: string,
+    marketplaceMarker?: string | null,
   ): Promise<{ source: OrderSource; isFirstOrder: boolean }> {
     try {
       let source: OrderSource = OrderSource.MARKETPLACE;
 
-      const parsed = parseFpRef(fpRef);
-      if (parsed) {
-        const link = await this.prisma.vendorReferralLink.findUnique({
-          where: { id: parsed.referralLinkId },
-          select: { id: true, vendorId: true },
-        });
-        if (link?.vendorId === vendorId) {
-          source = OrderSource.VENDOR_REFERRED;
+      // MARKETPLACE marker (90-day) takes precedence over VENDOR marker (30-day).
+      // If the customer browsed via marketplace within the last 90 days, they are
+      // marketplace-attributed regardless of any subsequent referral click.
+      const mktp = parseFpMktp(marketplaceMarker);
+      if (mktp !== null) {
+        // Marketplace marker valid and within 90-day window → force MARKETPLACE.
+        source = OrderSource.MARKETPLACE;
+      } else {
+        // No valid marketplace marker: check VENDOR marker.
+        const parsed = parseFpRef(fpRef);
+        if (parsed) {
+          const link = await this.prisma.vendorReferralLink.findUnique({
+            where: { id: parsed.referralLinkId },
+            select: { id: true, vendorId: true },
+          });
+          if (link?.vendorId === vendorId) {
+            source = OrderSource.VENDOR_REFERRED;
+          }
+        } else if (sessionId) {
+          const cutoff = new Date(Date.now() - VENDOR_WINDOW_MS);
+          const click = await this.prisma.referralClick.findFirst({
+            where: { sessionId, clickedAt: { gte: cutoff }, referralLink: { vendorId } },
+            orderBy: { clickedAt: 'desc' },
+            select: { id: true },
+          });
+          if (click) source = OrderSource.VENDOR_REFERRED;
         }
-      } else if (sessionId) {
-        const cutoff = new Date(Date.now() - ATTRIBUTION_WINDOW_MS);
-        const click = await this.prisma.referralClick.findFirst({
-          where: { sessionId, clickedAt: { gte: cutoff }, referralLink: { vendorId } },
-          orderBy: { clickedAt: 'desc' },
-          select: { id: true },
-        });
-        if (click) source = OrderSource.VENDOR_REFERRED;
       }
 
       const priorOrder = await this.prisma.order.findFirst({
@@ -263,6 +305,10 @@ export class AttributionService {
   /**
    * Resolve source and write an immutable OrderAttribution row.
    * Must be called inside the same Prisma $transaction as order creation.
+   *
+   * Override rule: a valid MARKETPLACE marker (90-day) takes precedence over a
+   * VENDOR marker (30-day). Once written, this row is never updated.
+   *
    * Never throws - a failed attribution falls back to MARKETPLACE with a log.
    */
   async resolveAndWriteInTx(
@@ -272,51 +318,64 @@ export class AttributionService {
     vendorId: string,
     fpRef: string | null | undefined,
     sessionId: string | null | undefined,
+    marketplaceMarker?: string | null,
   ): Promise<void> {
     try {
       let source: OrderSource = OrderSource.MARKETPLACE;
       let referralLinkId: string | null = null;
       let referralClickId: string | null = null;
       let attributionReason = 'organic';
+      let markerSetAt: Date | null = null;
 
-      const parsed = parseFpRef(fpRef);
+      // MARKETPLACE marker (90-day) overrides any VENDOR marker.
+      const mktpTs = parseFpMktp(marketplaceMarker);
+      if (mktpTs !== null) {
+        source = OrderSource.MARKETPLACE;
+        attributionReason = 'marketplace_marker';
+        markerSetAt = new Date(mktpTs);
+      } else {
+        // No valid marketplace marker: check VENDOR marker (fp_ref cookie).
+        const parsed = parseFpRef(fpRef);
 
-      if (parsed) {
-        const link = await tx.vendorReferralLink.findUnique({
-          where: { id: parsed.referralLinkId },
-          select: { id: true, vendorId: true },
-        });
-        if (link) {
-          if (link.vendorId === vendorId) {
-            source = OrderSource.VENDOR_REFERRED;
-            referralLinkId = link.id;
-            referralClickId = parsed.clickId;
-            attributionReason = 'fp_ref_cookie';
+        if (parsed) {
+          const link = await tx.vendorReferralLink.findUnique({
+            where: { id: parsed.referralLinkId },
+            select: { id: true, vendorId: true },
+          });
+          if (link) {
+            if (link.vendorId === vendorId) {
+              source = OrderSource.VENDOR_REFERRED;
+              referralLinkId = link.id;
+              referralClickId = parsed.clickId;
+              attributionReason = 'fp_ref_cookie';
+              markerSetAt = new Date(parsed.ts);
+            } else {
+              // Cross-vendor: cookie exists but belongs to a different vendor.
+              attributionReason = 'cross_vendor_referral';
+            }
           } else {
-            // Cross-vendor: cookie exists but belongs to a different vendor.
-            attributionReason = 'cross_vendor_referral';
+            attributionReason = 'fp_ref_unknown_link';
           }
-        } else {
-          attributionReason = 'fp_ref_unknown_link';
-        }
-      } else if (sessionId) {
-        // Cookie-loss fallback: look up the most recent click for this session
-        // that resolves to the same vendor within the attribution window.
-        const cutoff = new Date(Date.now() - ATTRIBUTION_WINDOW_MS);
-        const click = await tx.referralClick.findFirst({
-          where: {
-            sessionId,
-            clickedAt: { gte: cutoff },
-            referralLink: { vendorId },
-          },
-          orderBy: { clickedAt: 'desc' },
-          select: { id: true, referralLinkId: true },
-        });
-        if (click) {
-          source = OrderSource.VENDOR_REFERRED;
-          referralLinkId = click.referralLinkId;
-          referralClickId = click.id;
-          attributionReason = 'session_fallback';
+        } else if (sessionId) {
+          // Cookie-loss fallback: look up the most recent click for this session
+          // that resolves to the same vendor within the 30-day VENDOR window.
+          const cutoff = new Date(Date.now() - VENDOR_WINDOW_MS);
+          const click = await tx.referralClick.findFirst({
+            where: {
+              sessionId,
+              clickedAt: { gte: cutoff },
+              referralLink: { vendorId },
+            },
+            orderBy: { clickedAt: 'desc' },
+            select: { id: true, referralLinkId: true, clickedAt: true },
+          });
+          if (click) {
+            source = OrderSource.VENDOR_REFERRED;
+            referralLinkId = click.referralLinkId;
+            referralClickId = click.id;
+            attributionReason = 'session_fallback';
+            markerSetAt = click.clickedAt;
+          }
         }
       }
 
@@ -327,6 +386,9 @@ export class AttributionService {
       });
       const isFirstOrder = !priorOrder;
 
+      // Derive the three-tier label for reporting / commission schedule display.
+      const resolvedSource = toResolvedSource(source, isFirstOrder);
+
       await tx.orderAttribution.create({
         data: {
           orderId,
@@ -335,6 +397,8 @@ export class AttributionService {
           referralClickId,
           isFirstOrder,
           attributionReason,
+          resolvedSource,
+          markerSetAt,
         },
       });
     } catch (err) {
@@ -349,8 +413,8 @@ export class AttributionService {
 
   async getVendorSplit(
     vendorId: string,
-    from?: Date,
-    to?: Date,
+    _from?: Date,
+    _to?: Date,
   ): Promise<{
     thisWeek: Record<OrderSource, { orders: number; gmvPence: number }>;
     cumulative: Record<OrderSource, { orders: number; gmvPence: number }>;
@@ -499,8 +563,9 @@ export class AttributionService {
     });
 
     const header =
-      'order_id,order_number,vendor,customer_email,source,is_first_order,attribution_reason,' +
-      'referral_link_id,referral_click_id,attributed_at,order_total_pence,order_created_at\n';
+      'order_id,order_number,vendor,customer_email,source,resolved_source,is_first_order,' +
+      'attribution_reason,referral_link_id,referral_click_id,marker_set_at,' +
+      'attributed_at,order_total_pence,order_created_at\n';
 
     const lines = rows.map((r) =>
       [
@@ -509,10 +574,12 @@ export class AttributionService {
         `"${r.order.vendor.businessName.replace(/"/g, '""')}"`,
         r.order.customer?.email ?? '',
         r.source,
+        r.resolvedSource ?? '',
         r.isFirstOrder ? '1' : '0',
         r.attributionReason,
         r.referralLinkId ?? '',
         r.referralClickId ?? '',
+        r.markerSetAt?.toISOString() ?? '',
         r.attributedAt.toISOString(),
         r.order.totalPence,
         r.order.createdAt.toISOString(),

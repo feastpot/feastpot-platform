@@ -278,18 +278,18 @@ export class OrdersService {
   // CREATE
   // ------------------------------------------------------------------
 
-  async createOrder(customerId: string, dto: CreateOrderDto, fpRef?: string, sessionId?: string) {
+  async createOrder(customerId: string, dto: CreateOrderDto, fpRef?: string, sessionId?: string, marketplaceMarker?: string) {
     // Wrap the entire order creation path in a Sentry transaction so the
     // Performance dashboard breaks down P95 latency by sub-span (Prisma
     // round-trips, Stripe PI creation, BullMQ enqueues). Sentry no-ops
     // gracefully when SENTRY_DSN is unset.
     return Sentry.startSpan(
       { name: 'createOrder', op: 'order.create', attributes: { vendorId: dto.vendorId } },
-      () => this.createOrderInner(customerId, dto, fpRef, sessionId),
+      () => this.createOrderInner(customerId, dto, fpRef, sessionId, marketplaceMarker),
     );
   }
 
-  private async createOrderInner(customerId: string, dto: CreateOrderDto, fpRef?: string, sessionId?: string) {
+  private async createOrderInner(customerId: string, dto: CreateOrderDto, fpRef?: string, sessionId?: string, marketplaceMarker?: string) {
     const vendor = await this.repo.vendorWithDelivery(dto.vendorId);
     if (!vendor)
       throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'Vendor not found' });
@@ -466,7 +466,7 @@ export class OrdersService {
     // resolveAndWriteInTx does inside the tx but without writing anything.
     // Never throws - defaults to MARKETPLACE/first on any failure.
     const { source: attrSource, isFirstOrder: attrIsFirstOrder } =
-      await this.attribution.preResolveSource(fpRef, sessionId, customerId, dto.vendorId);
+      await this.attribution.preResolveSource(fpRef, sessionId, customerId, dto.vendorId, marketplaceMarker);
 
     const {
       commissionPence,
@@ -553,6 +553,7 @@ export class OrdersService {
         loyaltyToRedeem,
         fpRef,
         sessionId,
+        marketplaceMarker,
       });
       // Best-effort FeastPass saving record. Never blocks order creation.
       if (isFeastPassMember && rawServiceFeePence > 0) {
@@ -629,6 +630,8 @@ export class OrdersService {
     fpRef?: string;
     /** fp_sid session-ID forwarded from the web app (X-Fp-Sid header). */
     sessionId?: string;
+    /** X-Fp-Mktplace marketplace marker timestamp forwarded from the web app. */
+    marketplaceMarker?: string;
   }) {
     const {
       customerId,
@@ -653,6 +656,7 @@ export class OrdersService {
       loyaltyToRedeem,
       fpRef,
       sessionId,
+      marketplaceMarker,
     } = args;
 
     // Stripe PI is created BEFORE the DB transaction so we have a single
@@ -777,6 +781,7 @@ export class OrdersService {
           dto.vendorId,
           fpRef,
           sessionId,
+          marketplaceMarker,
         );
 
         // OrderCommission: immutable record of which rate was applied and why.

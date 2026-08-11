@@ -36,6 +36,12 @@ export interface ApiRequestOptions {
   query?: QueryParams;
   body?: unknown;
   accessToken?: string;
+  /**
+   * Optional extra HTTP headers (e.g. X-Fp-Ref, X-Fp-Sid, X-Fp-Mktplace for
+   * attribution). Framework headers (Authorization, Content-Type, Accept)
+   * always take precedence over these.
+   */
+  headers?: Record<string, string>;
   /** Forward to fetch - useful for Next.js cache control on server components. */
   next?: { revalidate?: number; tags?: string[] };
   signal?: AbortSignal;
@@ -59,7 +65,11 @@ function buildQuery(query: QueryParams | undefined): string {
 
 export async function apiRequest<T>(path: string, opts: ApiRequestOptions = {}): Promise<T> {
   const url = `${API_URL}/v1${path}${buildQuery(opts.query)}`;
-  const headers: Record<string, string> = { Accept: 'application/json' };
+  const headers: Record<string, string> = {
+    // Custom headers first (lower priority) - framework headers below overwrite.
+    ...opts.headers,
+    Accept: 'application/json',
+  };
   if (opts.body !== undefined) headers['Content-Type'] = 'application/json';
   if (opts.accessToken) headers.Authorization = `Bearer ${opts.accessToken}`;
 

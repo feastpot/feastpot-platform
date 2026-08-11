@@ -103,11 +103,14 @@ export interface CreateOrderResult {
 export function createOrder(
   input: CreateOrderInput,
   accessToken: string,
+  /** Optional attribution headers (x-fp-ref, x-fp-sid, x-fp-mktplace). */
+  extraHeaders?: Record<string, string>,
 ): Promise<CreateOrderResult> {
   return apiRequest<CreateOrderResult>('/orders', {
     method: 'POST',
     body: input,
     accessToken,
+    headers: extraHeaders,
   });
 }
 

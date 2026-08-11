@@ -51,8 +51,9 @@ export class OrdersController {
     @Body() dto: CreateOrderDto,
     @Headers('x-fp-ref') fpRef?: string,
     @Headers('x-fp-sid') sessionId?: string,
+    @Headers('x-fp-mktplace') marketplaceMarker?: string,
   ) {
-    return this.orders.createOrder(requireUser(req).id, dto, fpRef, sessionId);
+    return this.orders.createOrder(requireUser(req).id, dto, fpRef, sessionId, marketplaceMarker);
   }
 
   @Get(':id')

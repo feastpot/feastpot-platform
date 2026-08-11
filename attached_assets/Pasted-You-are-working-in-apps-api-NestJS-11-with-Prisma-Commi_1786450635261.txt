@@ -1,0 +1,26 @@
+You are working in apps/api (NestJS 11) with Prisma. Commission depends on three tiers from PLATFORM_FACTS.commission: vendorReferred (0%), marketplaceFirst (12%), marketplaceRepeat (10%). This prompt builds the attribution logic that decides which tier an order belongs to; Prompt 8 consumes it.
+
+FIRST, INSPECT: open prisma/schema.prisma and read the Order model's type field and its OrderType enum values in full, along with deliveryType (DeliveryType), which is confirmed to be a separate, unrelated field (fulfilment method, not source). Also find the field that links an Order to the customer/user placing it (name unconfirmed; it may be customerId, userId, or a relation named differently).
+
+DECISION RULE: if OrderType's existing values already distinguish a vendor-referred order from a marketplace-discovered order (for example values resembling VENDOR_DIRECT vs MARKETPLACE, or similar), extend and reuse that enum for attribution; do not create a parallel field that can drift out of sync with it. If OrderType instead represents something unrelated (for example a fulfilment or catering-vs-standard distinction), then add a new field explicitly for this purpose: attributionSource with an enum AttributionSource { VENDOR_REFERRED, MARKETPLACE_FIRST, MARKETPLACE_REPEAT }, plus attributionReason (text, human-readable audit note) and attributionMarkerSetAt (DateTime). State clearly in your summary which path you took and why.
+
+CANONICAL LINK: each vendor gets a canonical share link https://feastpot.co.uk/v/{vendor-slug}?src=vendor. Add a route handler for /v/[slug] in apps/web that calls an apps/api endpoint to record the marker, then redirects to the vendor's public profile.
+
+MARKER RULES:
+1. A visitor arriving via src=vendor for a given vendor gets a VENDOR marker for that vendor, expiring after 30 days (cookie, with localStorage fallback if cookies are unavailable).
+2. A visitor arriving via Feastpot postcode search/browse gets a MARKETPLACE marker for that vendor, expiring after 90 days.
+3. OVERRIDE: if a MARKETPLACE marker for a vendor already exists and is within its 90-day window, a later VENDOR marker for the SAME vendor does not overwrite it; the MARKETPLACE marker persists until it naturally expires. A VENDOR marker may be overwritten by a later MARKETPLACE marker.
+4. At order creation, resolve attribution: if a valid in-window MARKETPLACE marker exists for the ordered vendor, the order is marketplace-sourced; else if a valid in-window VENDOR marker exists, it is VENDOR_REFERRED; else default to marketplace-sourced and record why in attributionReason (fail safe toward the platform, not the vendor, and log the reason).
+5. FIRST VS REPEAT: for a marketplace-sourced order, query prior orders for the same customer and the same vendor where attribution was marketplace-sourced and status is completed. If none exist, this order is MARKETPLACE_FIRST. If at least one exists, this order is MARKETPLACE_REPEAT.
+
+DATA: create an attribution_events table (or Prisma model) recording anonymised visitor id, vendor id, marker type, and timestamp, with RLS/access restricted to server-side service roles only, no client read access. The final attribution value written to the Order record must be immutable after creation (guard against later mutation in the application layer).
+
+ACCEPTANCE CRITERIA:
+- The decision between extending OrderType and adding a new field is made explicitly after inspection, and stated in the summary.
+- A visitor who first arrives via marketplace search then later via the vendor's own QR within 90 days still produces a marketplace-sourced order (override rule holds), proven by a test.
+- A visitor who only ever arrives via src=vendor within 30 days produces VENDOR_REFERRED.
+- A customer's second marketplace-sourced order from the same vendor produces MARKETPLACE_REPEAT; their first produces MARKETPLACE_FIRST.
+- Markers expire correctly (30 days vendor, 90 days marketplace) and expired markers are ignored.
+- Attribution on a created Order cannot be mutated afterward.
+
+EDGE CASES: cookies disabled (fall back to localStorage; if neither available at order time, default to MARKETPLACE_FIRST or REPEAT per the query above, with attributionReason noting no marker was found); multi-vendor baskets resolve attribution per vendor line independently; bots/prefetch requests to /v/[slug] must not create spurious VENDOR markers.

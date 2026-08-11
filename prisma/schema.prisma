@@ -1603,6 +1603,15 @@ enum OrderSource {
   VENDOR_REFERRED
 }
 
+/// Three-tier human-readable attribution label derived from OrderSource + isFirstOrder.
+/// VENDOR_REFERRED = 0% commission; MARKETPLACE_FIRST = 12%; MARKETPLACE_REPEAT = 10%.
+/// Stored on OrderAttribution at creation time; never updated.
+enum AttributionSource {
+  VENDOR_REFERRED
+  MARKETPLACE_FIRST
+  MARKETPLACE_REPEAT
+}
+
 /// A unique share/referral link for a vendor, used to attribute traffic.
 /// One per vendor (@@unique on vendorId). Slug is URL-safe and human-readable.
 model VendorReferralLink {
@@ -1638,14 +1647,20 @@ model ReferralClick {
 /// referralLinkId / referralClickId are stored as plain strings (no FK) to keep the
 /// schema flexible and avoid hard deletes being blocked.
 model OrderAttribution {
-  id               String      @id @default(cuid())
-  orderId          String      @unique @map("order_id") @db.Uuid
+  id               String             @id @default(cuid())
+  orderId          String             @unique @map("order_id") @db.Uuid
   source           OrderSource
-  referralLinkId   String?     @map("referral_link_id")
-  referralClickId  String?     @map("referral_click_id")
-  isFirstOrder     Boolean     @map("is_first_order")
-  attributedAt     DateTime    @default(now()) @map("attributed_at") @db.Timestamptz
-  attributionReason String     @map("attribution_reason") @db.VarChar(64)
+  referralLinkId   String?            @map("referral_link_id")
+  referralClickId  String?            @map("referral_click_id")
+  isFirstOrder     Boolean            @map("is_first_order")
+  attributedAt     DateTime           @default(now()) @map("attributed_at") @db.Timestamptz
+  attributionReason String            @map("attribution_reason") @db.VarChar(64)
+  /// Denormalised three-tier label derived from source + isFirstOrder at write time.
+  /// Null only on rows created before this column was introduced (backfilled by migration).
+  resolvedSource   AttributionSource? @map("resolved_source")
+  /// Timestamp of the attribution marker (fp_ref or fp_mp cookie) as captured at order time.
+  /// Null for organic/session-fallback orders where no marker timestamp is available.
+  markerSetAt      DateTime?          @map("marker_set_at") @db.Timestamptz
 
   order Order @relation(fields: [orderId], references: [id])
 
