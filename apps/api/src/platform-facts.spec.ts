@@ -129,8 +129,62 @@ describe('Help page - consistency with PLATFORM_FACTS', () => {
 describe('Vendor terms - policy numbers match PLATFORM_FACTS', () => {
   const src = read('apps/web/src/app/legal/vendor-terms/page.tsx');
 
-  it('states the correct appeal window in calendar days', () => {
-    expect(src).toContain(`${PLATFORM_FACTS.appealWindowDays} calendar days`);
+  it('uses PLATFORM_FACTS for the appeal window (not a hardcoded literal)', () => {
+    // The source must reference the constant, not repeat the number in prose.
+    expect(src).toContain('PLATFORM_FACTS.appealWindowDays');
+  });
+
+  it('uses PLATFORM_FACTS for the fee-change notice period', () => {
+    expect(src).toContain('PLATFORM_FACTS.feeChangeNoticeDays');
+  });
+
+  it('uses PLATFORM_FACTS for the terms-change notice period', () => {
+    expect(src).toContain('PLATFORM_FACTS.termsNoticeDays');
+  });
+
+  it('uses PLATFORM_FACTS for all three commission tiers', () => {
+    expect(src).toContain('PLATFORM_FACTS.commission.marketplaceFirst');
+    expect(src).toContain('PLATFORM_FACTS.commission.marketplaceRepeat');
+    expect(src).toContain('PLATFORM_FACTS.commission.vendorReferred');
+  });
+
+  it('uses PLATFORM_FACTS for the appeals email', () => {
+    expect(src).toContain('PLATFORM_FACTS.contact.appealsEmail');
+    expect(src).not.toMatch(/"appeals@feastpot\.co\.uk"/);
+  });
+
+  it('uses PLATFORM_FACTS for the compliance email (no bare hardcoded string)', () => {
+    expect(src).toContain('PLATFORM_FACTS.contact.complianceEmail');
+    expect(src).not.toMatch(/"compliance@feastpot\.co\.uk"/);
+  });
+
+  it('uses PLATFORM_FACTS for vendor-link and marketplace-intro attribution windows', () => {
+    expect(src).toContain('PLATFORM_FACTS.attribution.vendorLinkWindowDays');
+    expect(src).toContain('PLATFORM_FACTS.attribution.marketplaceIntroWindowDays');
+  });
+
+  it('contains an attribution section (clause 17)', () => {
+    expect(src).toContain('id="attribution"');
+  });
+
+  it('contains a fee-changes section (clause 18)', () => {
+    expect(src).toContain('id="fee-changes"');
+  });
+
+  it('contains a non-exclusivity section (clause 19)', () => {
+    expect(src).toContain('id="non-exclusivity"');
+  });
+
+  it('contains an appeals section (clause 20)', () => {
+    expect(src).toContain('id="appeals"');
+  });
+
+  it('contains a P2B regulation disclosure in the ranking section', () => {
+    expect(src).toContain('P2B Regulation');
+  });
+
+  it('contains a data export right heading in the your-data section', () => {
+    expect(src).toContain('Data export right');
   });
 });
 

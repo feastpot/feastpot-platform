@@ -26,6 +26,19 @@ export const PLATFORM_FACTS = {
     vendorReferred: 0.0,
     basis: 'food subtotal only',
   },
+  attribution: {
+    /**
+     * Calendar days a vendor's own referral link (fp_ref cookie) marks an
+     * order as VENDOR_REFERRED. Must match VENDOR_WINDOW_MS in attribution.service.ts.
+     */
+    vendorLinkWindowDays: 30,
+    /**
+     * Calendar days the marketplace-introduction marker (fp_mp_{vendorId} cookie)
+     * takes precedence over a vendor referral link. Must match MARKETPLACE_WINDOW_MS
+     * in attribution.service.ts.
+     */
+    marketplaceIntroWindowDays: 90,
+  },
   serviceFee: {
     /** Customer-facing service fee charged on each order (%). */
     percent: 5,

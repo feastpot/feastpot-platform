@@ -1,0 +1,16 @@
+You are editing the vendor terms content in apps/web (the /legal/vendor-terms route or its underlying content source). These are DRAFT clauses for legal review, not legal advice; state that plainly in your PR description. UK English, no em dashes. Import every numeric or contact detail from '@feastpot/config' (PLATFORM_FACTS); do not hard-code any of these figures separately in the legal copy.
+
+ADD OR UPDATE THESE CLAUSES:
+1. ATTRIBUTION RULES: describe the vendor-referred vs marketplace-sourced classification, the 30-day vendor-link marker and the 90-day marketplace-introduction override, matching Prompt 7's logic exactly. State the three commission tiers by name (vendor-referred, first marketplace order, repeat marketplace order) and their rates, read from PLATFORM_FACTS.commission.
+2. FEE-CHANGE NOTICE: commit to at least PLATFORM_FACTS.feeChangeNoticeDays days' written notice of any commission or service-fee change, never applied retrospectively. State explicitly that this commitment covers Feastpot's own commission rates and service fee only, and does not apply to Stripe's own card-processing rates, which Feastpot passes through at cost and does not control.
+3. NON-EXCLUSIVITY: state plainly that vendors may sell through any other channel.
+4. DATA EXPORT RIGHT: state that vendors own their customer relationships and may export their order and customer data at any time.
+5. APPEALS: reference PLATFORM_FACTS.appealWindowDays and PLATFORM_FACTS.contact.appealsEmail for how a vendor disputes a compliance decision, and PLATFORM_FACTS.contact.complianceEmail for compliance queries generally.
+6. P2B REGULATION (the retained UK Platform-to-Business Regulation, requiring disclosure of the main parameters determining ranking and whether payment affects it): add a placeholder section describing the main ranking parameters and an explicit statement on whether payment to Feastpot affects ranking (state "no" if that is true of the current build; otherwise describe how).
+
+ACCEPTANCE CRITERIA:
+- All six clauses appear, clearly headed, on the vendor terms page.
+- Every figure quoted (notice days, appeal window, commission rates, contact emails) is rendered from PLATFORM_FACTS, verified by changing a value in platform-facts.ts and confirming the terms page text updates with no other edit.
+- The PR description states these are draft clauses pending legal review.
+
+EDGE CASES: keep clause numbering stable so other pages can deep-link to specific clauses; ensure this page does not contradict the /become-a-vendor copy (Prompt 11) or the compliance status wording (Prompt 13).

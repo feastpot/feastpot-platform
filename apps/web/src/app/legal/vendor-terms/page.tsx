@@ -28,13 +28,6 @@ export const metadata: Metadata = {
 
 const ICO_NUMBER = LEGAL.ICO_NUMBER;
 
-/**
- * Commission rate referenced in the payouts section prose.
- * Authoritative rates are served by GET /v1/terms/rate-schedule and shown
- * in the LegalLayers (Annex A) above the legal text.
- */
-const VENDOR_COMMISSION_RATE_PCT = PLATFORM_FACTS.commission.marketplaceFirst;
-
 const QUICK_NAV = [
   { label: 'Relationship', href: '#relationship' },
   { label: 'Eligibility', href: '#eligibility' },
@@ -47,6 +40,10 @@ const QUICK_NAV = [
   { label: 'Your data', href: '#your-data' },
   { label: 'Changes', href: '#changes' },
   { label: 'Liability', href: '#liability' },
+  { label: 'Attribution', href: '#attribution' },
+  { label: 'Fee changes', href: '#fee-changes' },
+  { label: 'Non-exclusivity', href: '#non-exclusivity' },
+  { label: 'Appeals', href: '#appeals' },
   { label: 'Contact', href: '#contact' },
 ];
 
@@ -81,6 +78,15 @@ export default function VendorTermsPage() {
           <TermsVersionBadge />
           <PrintButton />
         </div>
+
+        {/*
+         * DRAFT NOTICE: Clauses 17-20 (Attribution, Fee-change notice,
+         * Non-exclusivity, and Appeals) were added in August 2026 and are
+         * pending legal review. They represent Feastpot's current operating
+         * policy and are published here for transparency, but they do not
+         * constitute legal advice.
+         */}
+
         {/* ── 1. Relationship ── */}
         <LegalSection id="relationship" icon="🤝" title="1. The vendor relationship">
           <p>
@@ -117,13 +123,27 @@ export default function VendorTermsPage() {
           </ul>
         </LegalSection>
 
-        {/* ── 3. Payouts ── */}
+        {/* ── 3. Payouts and commission ── */}
         <LegalSection id="payouts" icon="🏦" title="3. Payouts and commission">
           <p>
-            Feastpot charges a platform commission of{' '}
-            <strong>{VENDOR_COMMISSION_RATE_PCT}% of the food subtotal</strong> on every completed
-            marketplace order. The commission is deducted from your weekly payout; it is not
-            charged to you separately and is not added to the price the customer pays.
+            Feastpot charges a platform commission on every completed order. The applicable rate
+            depends on how the order was attributed (see{' '}
+            <a href="#attribution" className="underline">
+              clause 17
+            </a>{' '}
+            for the full rate schedule and attribution rules). The commission is deducted from your
+            weekly payout; it is not charged to you separately and is not added to the price the
+            customer pays.
+          </p>
+          <p>
+            The standard marketplace rate is{' '}
+            <strong>
+              {PLATFORM_FACTS.commission.marketplaceFirst}% of the food subtotal
+            </strong>{' '}
+            on your first marketplace order from a customer, falling to{' '}
+            <strong>{PLATFORM_FACTS.commission.marketplaceRepeat}%</strong> on repeat orders.
+            Orders attributed to your own referral link carry a{' '}
+            <strong>{PLATFORM_FACTS.commission.vendorReferred}% commission</strong>.
           </p>
           <p>
             <strong>Food subtotal</strong> means the total price of food items in the order only. It
@@ -131,9 +151,9 @@ export default function VendorTermsPage() {
             applied by Feastpot.
           </p>
           <p>
-            <strong>Example:</strong> On a &pound;100 food subtotal order you receive{' '}
-            &pound;{100 - VENDOR_COMMISSION_RATE_PCT} before any delivery costs, which remain with
-            you.
+            <strong>Example:</strong> On a &pound;100 food subtotal marketplace order you receive{' '}
+            &pound;{100 - PLATFORM_FACTS.commission.marketplaceFirst} before any delivery costs,
+            which remain with you.
           </p>
           <p>
             <strong>VAT:</strong> Feastpot&rsquo;s commission is inclusive of VAT (where Feastpot is
@@ -166,23 +186,21 @@ export default function VendorTermsPage() {
             events. You must respond within 24 hours. Failure to respond is treated as
             non-engagement and may result in a full refund to the customer at your cost.
           </p>
-          <p>
-            Disputes go through a two-stage internal review:
-          </p>
+          <p>Disputes go through a two-stage internal review:</p>
           <ul style={legalListStyle}>
             <li>
               <strong>Stage 1: Initial review.</strong> A Feastpot support agent reviews the
               evidence and makes an initial decision within 5 business days.
             </li>
             <li>
-              <strong>Stage 2: Senior review.</strong> If you disagree with the Stage 1
-              outcome, you may appeal within{' '}
-              <strong>14 calendar days</strong> of receiving it by emailing{' '}
-              <LegalLink href="mailto:compliance@feastpot.co.uk">
-                compliance@feastpot.co.uk
-              </LegalLink>{' '}
-              with the subject line &ldquo;Dispute appeal&rdquo;. A senior member of the team will
-              review the appeal and respond within 5 business days.
+              <strong>Stage 2: Senior review.</strong> If you disagree with the Stage 1 outcome,
+              you may appeal within{' '}
+              <strong>{PLATFORM_FACTS.appealWindowDays} calendar days</strong> of receiving it.
+              See{' '}
+              <a href="#appeals" className="underline">
+                clause 20
+              </a>{' '}
+              for the full appeals process and contact details.
             </li>
           </ul>
           <p>
@@ -218,12 +236,13 @@ export default function VendorTermsPage() {
             </li>
             <li>
               <strong>Appeal route:</strong> If the chargeback is lost and you believe the decision
-              was incorrect, you may appeal to Feastpot within 14 calendar days of being notified.
-              Email{' '}
-              <LegalLink href="mailto:compliance@feastpot.co.uk">
-                compliance@feastpot.co.uk
-              </LegalLink>{' '}
-              with the subject line &ldquo;Chargeback appeal&rdquo; and your evidence.
+              was incorrect, you may appeal within{' '}
+              <strong>{PLATFORM_FACTS.appealWindowDays} calendar days</strong> of being notified.
+              See{' '}
+              <a href="#appeals" className="underline">
+                clause 20
+              </a>{' '}
+              for the appeals process and contact details.
             </li>
           </ul>
         </LegalSection>
@@ -304,14 +323,19 @@ export default function VendorTermsPage() {
           </p>
           <p>
             <strong>Full termination</strong> of your account requires at least{' '}
-            <strong>30 days written notice</strong> from Feastpot, together with a written statement
-            of reasons, except where immediate termination is required due to fraud, a serious food
-            safety incident, or a legal obligation to act immediately. In those exceptional
-            circumstances, the written statement of reasons is provided without delay.
+            <strong>{PLATFORM_FACTS.terminationNoticeDays} days written notice</strong> from
+            Feastpot, together with a written statement of reasons, except where immediate
+            termination is required due to fraud, a serious food safety incident, or a legal
+            obligation to act immediately. In those exceptional circumstances, the written statement
+            of reasons is provided without delay.
           </p>
           <p>
             If you receive a suspension or restriction notice and disagree with it, you may appeal
-            through the two-stage dispute process described in section 4.
+            through the process described in{' '}
+            <a href="#appeals" className="underline">
+              clause 20
+            </a>
+            .
           </p>
         </LegalSection>
 
@@ -352,6 +376,30 @@ export default function VendorTermsPage() {
             labelled as &ldquo;Sponsored&rdquo; and will not affect the organic ranking of other
             vendors.
           </p>
+
+          {/* ── 11.1 P2B Regulation disclosure ── */}
+          <h4 className="mt-4 font-semibold">
+            11.1 P2B Regulation disclosure
+          </h4>
+          <p>
+            The P2B Regulation (Regulation (EU) 2019/1150, retained in UK law) requires Feastpot to
+            disclose the main parameters determining ranking and whether any payment to Feastpot
+            influences them. The main parameters are those listed above in clause 11.
+          </p>
+          <p>
+            <strong>Does payment to Feastpot affect ranking?</strong> No. Feastpot does not
+            currently offer any mechanism by which a vendor can pay to improve their search
+            position. Commission rates, service fees, and subscription products (if any) have no
+            influence on a vendor&rsquo;s position in organic search or browse results. If this
+            changes, Feastpot will update this clause and give{' '}
+            {PLATFORM_FACTS.termsNoticeDays} days notice in line with clause 13.
+          </p>
+          <p>
+            <strong>Access to data used in ranking:</strong> You can see your review score, review
+            count, and order fulfilment metrics in the vendor dashboard. Feastpot does not publish
+            its full ranking algorithm because doing so would allow gaming that would harm customers
+            and other vendors.
+          </p>
         </LegalSection>
 
         {/* ── 12. Your data ── */}
@@ -378,14 +426,19 @@ export default function VendorTermsPage() {
               your listing.
             </li>
           </ul>
+
+          {/* ── 12.1 Data export right ── */}
+          <h4 className="mt-4 font-semibold">12.1 Data export right</h4>
           <p>
-            <strong>Format and export:</strong> All data is available through the vendor portal in
-            human-readable form. Payout statements can be downloaded as CSV from the Payouts page.
-            To request a machine-readable export of any data Feastpot holds about your business,
-            email{' '}
-            <LegalLink href="mailto:compliance@feastpot.co.uk">compliance@feastpot.co.uk</LegalLink>{' '}
-            with the subject line &ldquo;Data export request&rdquo;; we aim to respond within 30
-            days.
+            You own your customer relationships. You may request a machine-readable export of your
+            order history and associated customer data (name, postcode, order items) at any time,
+            at no charge. To request an export, email{' '}
+            <LegalLink href={`mailto:${PLATFORM_FACTS.contact.complianceEmail}`}>
+              {PLATFORM_FACTS.contact.complianceEmail}
+            </LegalLink>{' '}
+            with the subject line &ldquo;Data export request&rdquo;; Feastpot will respond within
+            30 calendar days. Payout statements are available for immediate self-service download as
+            CSV from the Payouts page in your vendor dashboard.
           </p>
           <p>
             Customer personal data (full name, phone number, delivery address) is visible to you
@@ -398,7 +451,8 @@ export default function VendorTermsPage() {
         <LegalSection id="changes" icon="📝" title="13. Changes to these terms">
           <p>
             Feastpot may update these terms from time to time. Before any change takes effect,
-            Feastpot will give you a <strong>minimum of 15 days notice</strong> via:
+            Feastpot will give you a{' '}
+            <strong>minimum of {PLATFORM_FACTS.termsNoticeDays} days notice</strong> via:
           </p>
           <ul style={legalListStyle}>
             <li>Email to the address registered on your vendor account; and</li>
@@ -408,7 +462,9 @@ export default function VendorTermsPage() {
             The notice will include a plain-language summary of what is changing and the date the
             change takes effect. During the notice period, you may{' '}
             <strong>terminate your agreement without penalty</strong> by notifying us at{' '}
-            <LegalLink href="mailto:compliance@feastpot.co.uk">compliance@feastpot.co.uk</LegalLink>
+            <LegalLink href={`mailto:${PLATFORM_FACTS.contact.complianceEmail}`}>
+              {PLATFORM_FACTS.contact.complianceEmail}
+            </LegalLink>
             . If you continue to use the platform after the effective date, you are taken to have
             accepted the updated terms.
           </p>
@@ -454,10 +510,199 @@ export default function VendorTermsPage() {
           <p>These terms are governed by the laws of England and Wales.</p>
         </LegalSection>
 
+        {/* ── 17. Attribution and commission tiers ── */}
+        {/*
+         * DRAFT clause pending legal review. Describes current platform
+         * operating policy; not legal advice.
+         */}
+        <LegalSection id="attribution" icon="🔗" title="17. Attribution and commission tiers">
+          <p>
+            The commission rate applied to an order depends on how that order was attributed.
+            Feastpot uses two cookie-based markers to determine attribution, evaluated in the
+            following order of precedence.
+          </p>
+
+          <h4 className="mt-3 font-semibold">Commission tiers</h4>
+          <ul style={legalListStyle}>
+            <li>
+              <strong>Vendor-referred ({PLATFORM_FACTS.commission.vendorReferred}%):</strong> A
+              customer who arrived via your own referral link within the last{' '}
+              {PLATFORM_FACTS.attribution.vendorLinkWindowDays} days, and who has not been
+              introduced to your listing through marketplace browsing during that period. Your
+              unique referral link is available from the vendor dashboard.
+            </li>
+            <li>
+              <strong>
+                First marketplace order ({PLATFORM_FACTS.commission.marketplaceFirst}%):
+              </strong>{' '}
+              The first order placed by a customer who discovered your listing through Feastpot
+              search or browse.
+            </li>
+            <li>
+              <strong>
+                Repeat marketplace order ({PLATFORM_FACTS.commission.marketplaceRepeat}%):
+              </strong>{' '}
+              Any subsequent order from a customer who was first introduced to your listing through
+              the marketplace.
+            </li>
+          </ul>
+
+          <h4 className="mt-3 font-semibold">
+            Vendor-link marker ({PLATFORM_FACTS.attribution.vendorLinkWindowDays}-day window)
+          </h4>
+          <p>
+            When a customer clicks your referral link, a vendor-link marker is set in their browser.
+            This marker is valid for{' '}
+            <strong>{PLATFORM_FACTS.attribution.vendorLinkWindowDays} days</strong>. Any order
+            placed within that window, from that browser, is attributed as vendor-referred, subject
+            to the marketplace override rule below.
+          </p>
+
+          <h4 className="mt-3 font-semibold">
+            Marketplace-introduction override ({PLATFORM_FACTS.attribution.marketplaceIntroWindowDays}-day window)
+          </h4>
+          <p>
+            When a customer browses Feastpot and views your listing through search or browse
+            (regardless of whether they arrived via a referral link), a marketplace-introduction
+            marker is set. This marker remains valid for{' '}
+            <strong>{PLATFORM_FACTS.attribution.marketplaceIntroWindowDays} days</strong> and takes
+            precedence over any vendor-link marker for the same vendor during that period.
+          </p>
+          <p>
+            This means: if a customer first discovers your listing on Feastpot, and later clicks
+            your referral link and places an order within{' '}
+            {PLATFORM_FACTS.attribution.marketplaceIntroWindowDays} days of that discovery, the
+            order is attributed as a marketplace order, not a vendor-referred order. The longer
+            marketplace window reflects the platform&rsquo;s role in the introduction.
+          </p>
+
+          <h4 className="mt-3 font-semibold">Attribution transparency</h4>
+          <p>
+            The attribution source recorded for each order is shown in the payout statement for
+            that order. If you believe an attribution is incorrect, contact{' '}
+            <LegalLink href={`mailto:${PLATFORM_FACTS.contact.complianceEmail}`}>
+              {PLATFORM_FACTS.contact.complianceEmail}
+            </LegalLink>{' '}
+            within {PLATFORM_FACTS.appealWindowDays} calendar days of the payout date. All rates
+            quoted in this clause are sourced from the live rate schedule; see{' '}
+            <a href="#fee-changes" className="underline">
+              clause 18
+            </a>{' '}
+            for the notice commitment before any rate changes.
+          </p>
+        </LegalSection>
+
+        {/* ── 18. Fee-change notice ── */}
+        {/*
+         * DRAFT clause pending legal review. Describes current platform
+         * operating policy; not legal advice.
+         */}
+        <LegalSection id="fee-changes" icon="💬" title="18. Fee-change notice">
+          <p>
+            Feastpot commits to giving you at least{' '}
+            <strong>{PLATFORM_FACTS.feeChangeNoticeDays} days written notice</strong> before
+            raising any of the following rates:
+          </p>
+          <ul style={legalListStyle}>
+            <li>The vendor-referred commission rate (clause 17);</li>
+            <li>The first marketplace order commission rate (clause 17);</li>
+            <li>The repeat marketplace order commission rate (clause 17);</li>
+            <li>The customer service fee percentage;</li>
+            <li>The customer service fee cap.</li>
+          </ul>
+          <p>
+            Fee changes are <strong>never applied retrospectively</strong>. Any rate increase
+            applies only to orders placed on or after the effective date stated in the notice.
+            Orders already placed, in preparation, or paid out are not affected.
+          </p>
+          <p>
+            <strong>What this notice commitment does not cover:</strong> This commitment covers only
+            the rates that Feastpot itself sets. It does not apply to Stripe&rsquo;s card-processing
+            fees, which Feastpot passes through at cost and does not control. Stripe may change its
+            rates at any time in accordance with its own terms; Feastpot will inform you of any
+            such changes as soon as it is made aware of them, but cannot guarantee advance notice.
+          </p>
+          <p>
+            Notice of any fee change will be delivered via email to your registered vendor address
+            and a persistent notice in the vendor dashboard, specifying the old rate, the new rate,
+            and the effective date. During the notice period you may terminate your agreement
+            without penalty in accordance with clause 10.
+          </p>
+        </LegalSection>
+
+        {/* ── 19. Non-exclusivity ── */}
+        {/*
+         * DRAFT clause pending legal review. Describes current platform
+         * operating policy; not legal advice.
+         */}
+        <LegalSection id="non-exclusivity" icon="🌐" title="19. Non-exclusivity">
+          <p>
+            Your agreement with Feastpot is non-exclusive. You are free to sell your food through
+            any other channel, platform, or marketplace at the same time as listing on Feastpot. We
+            do not require exclusivity and will not penalise you for operating on other platforms.
+          </p>
+          <p>
+            The only restriction is that you must not use customer contact details obtained through
+            Feastpot orders to solicit off-platform sales (see clause 9: Prohibited conduct).
+          </p>
+        </LegalSection>
+
+        {/* ── 20. Appeals ── */}
+        {/*
+         * DRAFT clause pending legal review. Describes current platform
+         * operating policy; not legal advice.
+         */}
+        <LegalSection id="appeals" icon="📣" title="20. Appeals">
+          <p>
+            If you disagree with a compliance decision, suspension, restriction, chargeback outcome,
+            or dispute resolution, you may appeal within{' '}
+            <strong>{PLATFORM_FACTS.appealWindowDays} calendar days</strong> of receiving the
+            decision.
+          </p>
+
+          <h4 className="mt-3 font-semibold">How to appeal</h4>
+          <ul style={legalListStyle}>
+            <li>
+              Email{' '}
+              <LegalLink href={`mailto:${PLATFORM_FACTS.contact.appealsEmail}`}>
+                {PLATFORM_FACTS.contact.appealsEmail}
+              </LegalLink>{' '}
+              with the subject line &ldquo;Appeal&rdquo; followed by your vendor name and the
+              nature of the decision you are appealing (for example: &ldquo;Appeal &ndash; Vendor
+              Name &ndash; Suspension&rdquo;).
+            </li>
+            <li>
+              Include a clear statement of why you believe the decision was incorrect, and any
+              supporting evidence.
+            </li>
+            <li>
+              A senior member of the Feastpot team, who was not involved in the original decision,
+              will review your appeal and respond within 5 business days.
+            </li>
+          </ul>
+
+          <h4 className="mt-3 font-semibold">After the appeal decision</h4>
+          <p>
+            The outcome of the senior review is final within Feastpot&rsquo;s internal process. If
+            you remain dissatisfied, you may seek resolution through the courts of England and Wales
+            (clause 16) or through an appropriate alternative dispute resolution scheme.
+          </p>
+
+          <h4 className="mt-3 font-semibold">Compliance queries (not appeals)</h4>
+          <p>
+            For general compliance questions, document reviews, account queries, and non-appeal
+            matters, contact{' '}
+            <LegalLink href={`mailto:${PLATFORM_FACTS.contact.complianceEmail}`}>
+              {PLATFORM_FACTS.contact.complianceEmail}
+            </LegalLink>
+            .
+          </p>
+        </LegalSection>
+
         <LegalContact
-          number="17"
+          number="21"
           title="Contact"
-          email="compliance@feastpot.co.uk"
+          email={PLATFORM_FACTS.contact.complianceEmail}
           subject="Vendor enquiry"
           body={
             <>
