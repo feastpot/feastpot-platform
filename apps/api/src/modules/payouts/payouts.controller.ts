@@ -107,7 +107,7 @@ export class PayoutsController {
   @Get('export.csv')
   @Roles(UserRole.vendor, UserRole.finance, UserRole.admin)
   @ApiOperation({
-    summary: 'CSV export of the actor’s payout history (T006). Capped at 5 000 rows.',
+    summary: "CSV export of the actor's payout history (T006). Capped at 5 000 rows.",
   })
   async exportCsv(
     @Req() req: AuthedRequest,
@@ -128,6 +128,32 @@ export class PayoutsController {
     res.end();
   }
 
+  /**
+   * Order-level CSV export: one row per order, not per payout batch.
+   * Columns: order_date, order_number, attribution_source,
+   *          subtotal_gbp, commission_gbp, net_to_vendor_gbp (+ pence variants).
+   * Optionally scoped to a single payout via ?payoutId=<uuid>.
+   * Reflects post-refund commission/payout figures for partial-refund orders.
+   */
+  @Get('orders/export.csv')
+  @Roles(UserRole.vendor, UserRole.finance, UserRole.admin)
+  @ApiOperation({
+    summary: 'Order-level CSV export with attribution source and commission per order.',
+  })
+  async exportOrdersCsv(
+    @Req() req: AuthedRequest,
+    @Res() res: Response,
+    @Query('payoutId') payoutId?: string,
+  ) {
+    const user = requireUser(req);
+    await this.ensureVendorRoleCanReadPayouts(user);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="feastpot-orders.csv"');
+    res.flushHeaders?.();
+    await this.payouts.exportOrdersCsv(user, (chunk) => res.write(chunk), { payoutId });
+    res.end();
+  }
+
   @Get(':id')
   @Roles(UserRole.vendor, UserRole.finance, UserRole.admin)
   @ApiOperation({ summary: 'Get a payout by id' })
@@ -135,6 +161,23 @@ export class PayoutsController {
     const user = requireUser(req);
     await this.ensureVendorRoleCanReadPayouts(user);
     return this.payouts.getById(id, user);
+  }
+
+  /**
+   * Per-order breakdown for a payout batch: one row per delivered order in the
+   * payout's time window, with attribution tier and commission figures.
+   * Vendors see only their own payout; finance/admin see any.
+   */
+  @Get(':id/orders')
+  @Roles(UserRole.vendor, UserRole.finance, UserRole.admin)
+  @ApiOperation({ summary: 'List orders within a payout batch with attribution and commission' })
+  async getPayoutOrders(
+    @Req() req: AuthedRequest,
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ) {
+    const user = requireUser(req);
+    await this.ensureVendorRoleCanReadPayouts(user);
+    return this.payouts.listPayoutOrders(id, user);
   }
 
   @Post(':id/approve')

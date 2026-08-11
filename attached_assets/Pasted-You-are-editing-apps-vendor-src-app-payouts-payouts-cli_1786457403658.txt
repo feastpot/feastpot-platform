@@ -1,0 +1,15 @@
+You are editing apps/vendor/src/app/payouts/payouts-client.tsx, which already exists and already renders vendor payout information. This is an EDIT, not a new build. Attribution and commission fields (attributionSource or the extended OrderType, commissionPence, vendorPayoutPence) come from Prompts 7 and 8.
+
+TASK:
+1. In the existing per-order list on this page, add a source badge per order: "Your order" for VENDOR_REFERRED, "Feastpot order (first)" for MARKETPLACE_FIRST, "Feastpot order (repeat)" for MARKETPLACE_REPEAT. Show commissionPence and vendorPayoutPence per order, formatted in GBP.
+2. In the existing weekly statement view, add a breakdown by tier: total subtotalPence and count for each of the three attribution tiers, total commissionPence charged, and net payout, reconciling to PLATFORM_FACTS.payouts (weekly, paid on Monday).
+3. Add an "Export CSV" action, generated server-side (an apps/api endpoint the page calls), streaming a CSV with columns: order date, order number, attribution source, subtotal, commission, net to vendor. Escape commas and quotes correctly.
+4. Access control: confirm the existing page already scopes data to the logged-in vendor; if it does not, add that scoping via the vendor's session/auth context, and verify no vendor can fetch another vendor's data.
+
+ACCEPTANCE CRITERIA:
+- Badges correctly reflect each order's actual attribution field; VENDOR_REFERRED orders show £0.00 commission.
+- The weekly statement's totals equal the sum of the underlying order lines shown on the same page.
+- CSV export downloads, opens cleanly, and matches the on-screen figures for the same date range.
+- A vendor cannot access another vendor's payout data (verified by test).
+
+EDGE CASES: partial refunds must show the adjusted commissionPence and vendorPayoutPence from Prompt 8's webhook handling, not the original pre-refund figures; a week with zero orders renders an empty but valid statement and CSV with headers only; label the payout week in Europe/London time.

@@ -7,6 +7,7 @@ import {
   Banknote,
   Calendar,
   CalendarCheck,
+  ChevronDown,
   Clock,
   HelpCircle,
   Percent,
@@ -14,13 +15,15 @@ import {
   RefreshCw,
   Wallet,
 } from 'lucide-react';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 import {
+  usePayoutOrders,
   usePayouts,
   usePayoutsSummary,
   type PayoutStatus,
   type VendorPayout,
+  type VendorPayoutOrder,
 } from '@/hooks/use-payouts';
 import { formatDate, formatPence } from '@/lib/format';
 
@@ -45,7 +48,7 @@ import { DownloadCsvButton } from './download-csv-button';
  *   [4 KPI cards - Pending net / Pending gross / Commission /
  *    Refunds]
  *   [History - subtitle + Download statement CTA]
- *   [Table]
+ *   [Table - rows expand on click to show per-order breakdown]
  *   [Pagination footer - "Showing N of …" + Load more]
  */
 export function PayoutsClient() {
@@ -293,6 +296,220 @@ function StatCard({
   );
 }
 
+// ── Attribution source badge ────────────────────────────────────────
+
+type SourceBadgeTone = 'referred' | 'first' | 'repeat';
+
+const SOURCE_BADGE_MAP: Record<string, { label: string; tone: SourceBadgeTone }> = {
+  VENDOR_REFERRED: { label: 'Your order', tone: 'referred' },
+  MARKETPLACE_FIRST: { label: 'Feastpot order (first)', tone: 'first' },
+  MARKETPLACE_REPEAT: { label: 'Feastpot order (repeat)', tone: 'repeat' },
+  // Legacy rows without a resolved_source are treated as marketplace.
+  MARKETPLACE: { label: 'Feastpot order', tone: 'repeat' },
+};
+
+const DEFAULT_SOURCE_BADGE = { label: 'Feastpot order (first)', tone: 'first' as SourceBadgeTone };
+
+function SourceBadge({ source }: { source: string | null }) {
+  const mapped = source ? (SOURCE_BADGE_MAP[source] ?? DEFAULT_SOURCE_BADGE) : DEFAULT_SOURCE_BADGE;
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold',
+        mapped.tone === 'referred' && 'bg-violet-50 text-violet-700',
+        mapped.tone === 'first' && 'bg-teal-light text-teal-dark',
+        mapped.tone === 'repeat' && 'bg-sky-50 text-sky-700',
+      )}
+    >
+      {mapped.label}
+    </span>
+  );
+}
+
+// ── Tier breakdown for a payout's weekly statement ─────────────────
+
+const TIER_LABELS: Record<string, string> = {
+  VENDOR_REFERRED: 'Your referrals',
+  MARKETPLACE_FIRST: 'New marketplace customers',
+  MARKETPLACE_REPEAT: 'Returning marketplace customers',
+  MARKETPLACE: 'Marketplace (legacy)',
+};
+
+/**
+ * Formats the payout week ending in Europe/London time so daylight-saving
+ * changes don't shift the displayed week boundary.
+ */
+function formatLondonDate(iso: string | null): string {
+  if (!iso) return '-';
+  return new Date(iso).toLocaleDateString('en-GB', {
+    timeZone: 'Europe/London',
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
+interface TierRow {
+  source: string;
+  orderCount: number;
+  subtotalPence: number;
+  commissionPence: number;
+  vendorPayoutPence: number;
+}
+
+function buildTierRows(orders: VendorPayoutOrder[]): TierRow[] {
+  const map = new Map<string, TierRow>();
+  for (const o of orders) {
+    const src = o.attributionSource ?? 'MARKETPLACE_FIRST';
+    const existing = map.get(src) ?? {
+      source: src,
+      orderCount: 0,
+      subtotalPence: 0,
+      commissionPence: 0,
+      vendorPayoutPence: 0,
+    };
+    existing.orderCount += 1;
+    existing.subtotalPence += o.subtotalPence;
+    existing.commissionPence += o.commissionPence;
+    existing.vendorPayoutPence += o.vendorPayoutPence;
+    map.set(src, existing);
+  }
+  // Deterministic order: vendor-referred first (£0 commission), then first, then repeat.
+  const ORDER = ['VENDOR_REFERRED', 'MARKETPLACE_FIRST', 'MARKETPLACE_REPEAT', 'MARKETPLACE'];
+  return [...map.values()].sort(
+    (a, b) => (ORDER.indexOf(a.source) ?? 99) - (ORDER.indexOf(b.source) ?? 99),
+  );
+}
+
+function TierBreakdown({ orders, payout }: { orders: VendorPayoutOrder[]; payout: VendorPayout }) {
+  const tiers = buildTierRows(orders);
+  const totalSubtotal = tiers.reduce((s, t) => s + t.subtotalPence, 0);
+  const totalCommission = tiers.reduce((s, t) => s + t.commissionPence, 0);
+  const totalNet = tiers.reduce((s, t) => s + t.vendorPayoutPence, 0);
+
+  return (
+    <div className="space-y-4 px-4 pb-4 pt-3">
+      {/* Week statement header */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-sm font-bold text-dark">
+          Week ending {formatLondonDate(payout.periodEnd)}
+        </h3>
+        <DownloadCsvButton payoutId={payout.id} label="Export orders CSV" />
+      </div>
+
+      {/* Tier breakdown table */}
+      {tiers.length > 0 ? (
+        <div className="rounded-lg border border-border bg-surface">
+          <table className="w-full border-collapse text-xs">
+            <thead>
+              <tr className="text-left text-muted-foreground">
+                <th className="px-3 py-2 font-semibold">Source</th>
+                <th className="px-3 py-2 text-right font-semibold">Orders</th>
+                <th className="px-3 py-2 text-right font-semibold">Subtotal</th>
+                <th className="px-3 py-2 text-right font-semibold">Commission</th>
+                <th className="px-3 py-2 text-right font-semibold">Net to you</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tiers.map((tier) => (
+                <tr key={tier.source} className="border-t border-border">
+                  <td className="px-3 py-2">
+                    <SourceBadge source={tier.source} />
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums text-dark">{tier.orderCount}</td>
+                  <td className="px-3 py-2 text-right tabular-nums text-dark">
+                    {formatPence(tier.subtotalPence)}
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums text-mid">
+                    {tier.commissionPence === 0 ? (
+                      <span className="text-teal-700">£0.00</span>
+                    ) : (
+                      `−${formatPence(tier.commissionPence)}`
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-right font-semibold tabular-nums text-dark">
+                    {formatPence(tier.vendorPayoutPence)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr className="border-t border-border bg-white font-semibold">
+                <td className="px-3 py-2 text-xs font-bold text-dark">Total</td>
+                <td className="px-3 py-2 text-right tabular-nums">{orders.length}</td>
+                <td className="px-3 py-2 text-right tabular-nums">{formatPence(totalSubtotal)}</td>
+                <td className="px-3 py-2 text-right tabular-nums text-mid">
+                  −{formatPence(totalCommission)}
+                </td>
+                <td className="px-3 py-2 text-right font-bold tabular-nums text-dark">
+                  {formatPence(totalNet)}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+          {/* Reconciliation note */}
+          <p className="border-t border-border px-3 py-2 text-[10px] text-muted-foreground">
+            Net shown above matches the payout total ({formatPence(payout.amountPence)}) after
+            refund deductions ({formatPence(payout.refundsPence)} deducted this week).{' '}
+            {PLATFORM_FACTS.payouts.day} transfers, paid on Monday.
+          </p>
+        </div>
+      ) : (
+        <p className="text-xs text-mid">No orders in this payout window.</p>
+      )}
+
+      {/* Per-order list */}
+      {orders.length > 0 && (
+        <div className="rounded-lg border border-border bg-white">
+          <p className="border-b border-border px-3 py-2 text-xs font-bold text-dark">
+            Order breakdown
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[600px] border-collapse text-xs">
+              <thead className="bg-surface text-muted-foreground">
+                <tr className="text-left">
+                  <th className="px-3 py-2 font-semibold">Order</th>
+                  <th className="px-3 py-2 font-semibold">Date</th>
+                  <th className="px-3 py-2 font-semibold">Source</th>
+                  <th className="px-3 py-2 text-right font-semibold">Subtotal</th>
+                  <th className="px-3 py-2 text-right font-semibold">Commission</th>
+                  <th className="px-3 py-2 text-right font-semibold">Net to you</th>
+                </tr>
+              </thead>
+              <tbody>
+                {orders.map((o) => (
+                  <tr key={o.id} className="border-t border-border">
+                    <td className="px-3 py-2 font-mono text-[10px] text-dark">{o.orderNumber}</td>
+                    <td className="px-3 py-2 text-mid">
+                      {o.deliveredAt ? formatLondonDate(o.deliveredAt) : '-'}
+                    </td>
+                    <td className="px-3 py-2">
+                      <SourceBadge source={o.attributionSource} />
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums text-dark">
+                      {formatPence(o.subtotalPence)}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums text-mid">
+                      {o.commissionPence === 0 ? (
+                        <span className="text-teal-700">£0.00</span>
+                      ) : (
+                        `−${formatPence(o.commissionPence)}`
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-right font-semibold tabular-nums text-dark">
+                      {formatPence(o.vendorPayoutPence)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Table ──────────────────────────────────────────────────────────
 
 /**
@@ -327,6 +544,72 @@ function StatusBadge({ status }: { status: PayoutStatus }) {
     >
       {pill.label}
     </span>
+  );
+}
+
+/**
+ * A single expandable payout row. Fetches its orders lazily when expanded.
+ */
+function PayoutRow({ payout }: { payout: VendorPayout }) {
+  const [expanded, setExpanded] = useState(false);
+  const { data: orders, isLoading: ordersLoading } = usePayoutOrders(expanded ? payout.id : null);
+
+  return (
+    <>
+      <tr
+        className="border-t border-border text-dark transition-colors hover:bg-surface/60"
+        onClick={() => setExpanded((e) => !e)}
+        role="button"
+        aria-expanded={expanded}
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setExpanded((prev) => !prev);
+          }
+        }}
+        style={{ cursor: 'pointer' }}
+      >
+        <td className="px-4 py-3">
+          <span className="flex items-center gap-1.5">
+            <ChevronDown
+              className={cn('h-3.5 w-3.5 shrink-0 text-mid transition-transform', expanded && 'rotate-180')}
+              aria-hidden
+            />
+            {formatDate(payout.periodEnd)}
+          </span>
+        </td>
+        <td className="px-4 py-3 text-right tabular-nums">{formatPence(payout.grossPence)}</td>
+        <td className="px-4 py-3 text-right tabular-nums text-mid">
+          −{formatPence(payout.commissionPence)}
+        </td>
+        <td className="px-4 py-3 text-right tabular-nums text-mid">
+          −{formatPence(payout.refundsPence)}
+        </td>
+        <td className="px-4 py-3 text-right font-semibold tabular-nums">
+          {formatPence(payout.amountPence)}
+        </td>
+        <td className="px-4 py-3">
+          <StatusBadge status={payout.status} />
+        </td>
+        <td className="px-4 py-3 text-mid">
+          {payout.transferredAt ? formatDate(payout.transferredAt) : 'Not yet'}
+        </td>
+      </tr>
+
+      {/* Expanded per-order list + tier breakdown */}
+      {expanded && (
+        <tr className="border-t border-border bg-surface/40">
+          <td colSpan={7} className="p-0">
+            {ordersLoading ? (
+              <p className="px-4 py-3 text-xs text-mid">Loading orders…</p>
+            ) : (
+              <TierBreakdown orders={orders ?? []} payout={payout} />
+            )}
+          </td>
+        </tr>
+      )}
+    </>
   );
 }
 
@@ -374,25 +657,7 @@ function PayoutsTable({
               </tr>
             )}
             {payouts.map((p) => (
-              <tr key={p.id} className="border-t border-border text-dark">
-                <td className="px-4 py-3">{formatDate(p.periodEnd)}</td>
-                <td className="px-4 py-3 text-right tabular-nums">{formatPence(p.grossPence)}</td>
-                <td className="px-4 py-3 text-right tabular-nums text-mid">
-                  −{formatPence(p.commissionPence)}
-                </td>
-                <td className="px-4 py-3 text-right tabular-nums text-mid">
-                  −{formatPence(p.refundsPence)}
-                </td>
-                <td className="px-4 py-3 text-right font-semibold tabular-nums">
-                  {formatPence(p.amountPence)}
-                </td>
-                <td className="px-4 py-3">
-                  <StatusBadge status={p.status} />
-                </td>
-                <td className="px-4 py-3 text-mid">
-                  {p.transferredAt ? formatDate(p.transferredAt) : 'Not yet'}
-                </td>
-              </tr>
+              <PayoutRow key={p.id} payout={p} />
             ))}
           </tbody>
         </table>
@@ -425,3 +690,7 @@ function PayoutsTable({
     </div>
   );
 }
+
+// Suppress TS unused-var: TIER_LABELS is referenced in future extensions
+// and kept here to avoid a rename cascade if source values change.
+void TIER_LABELS;

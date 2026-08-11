@@ -70,3 +70,33 @@ export function usePayouts() {
       }),
   });
 }
+
+/**
+ * One order row within a payout batch. commissionPence and vendorPayoutPence
+ * reflect post-refund figures (adjusted by the charge.refunded webhook handler).
+ */
+export interface VendorPayoutOrder {
+  id: string;
+  orderNumber: string;
+  deliveredAt: string | null;
+  subtotalPence: number;
+  commissionPence: number;
+  vendorPayoutPence: number;
+  /** Three-tier label from order_attributions.resolved_source, or null for
+   *  pre-attribution rows (treat as MARKETPLACE_FIRST on display). */
+  attributionSource: string | null;
+}
+
+/**
+ * Lazy-loads the individual orders within a payout batch.
+ * Disabled when payoutId is null so callers can conditionally expand rows.
+ */
+export function usePayoutOrders(payoutId: string | null) {
+  const { token, loading } = useAccessToken();
+  return useQuery({
+    queryKey: ['vendor', 'payout-orders', payoutId] as const,
+    enabled: !!payoutId && !!token && !loading,
+    queryFn: () =>
+      apiRequest<VendorPayoutOrder[]>(`/payouts/${payoutId!}/orders`, { accessToken: token! }),
+  });
+}

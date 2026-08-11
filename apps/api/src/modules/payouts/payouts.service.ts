@@ -797,6 +797,195 @@ export class PayoutsService {
     return { periodStart: start, periodEnd: end, created, skippedVendorIds: skipped };
   }
 
+  // ---------------- payout order detail ----------------
+
+  /**
+   * Lists the individual orders that make up a specific payout batch.
+   *
+   * Vendors may only view orders from their own payout (verified via the
+   * payout's vendor.userId). Finance/admin may view any. Scoping mirrors
+   * runWeeklyBatch exactly: orders delivered in [periodStart, periodEnd)
+   * for the payout's vendor.
+   */
+  async listPayoutOrders(payoutId: string, user: AuthUser) {
+    const payout = await this.prisma.payout.findUnique({
+      where: { id: payoutId },
+      select: {
+        vendorId: true,
+        periodStart: true,
+        periodEnd: true,
+        vendor: { select: { userId: true } },
+      },
+    });
+    if (!payout)
+      throw new NotFoundException({ code: 'PAYOUT_NOT_FOUND', message: 'Payout not found' });
+
+    if (user.role === UserRole.vendor && payout.vendor.userId !== user.id) {
+      throw new ForbiddenException({
+        code: 'PAYOUT_FORBIDDEN',
+        message: 'You may not view this payout',
+      });
+    }
+    if (
+      user.role !== UserRole.vendor &&
+      user.role !== UserRole.finance &&
+      user.role !== UserRole.admin
+    ) {
+      throw new ForbiddenException({
+        code: 'PAYOUT_FORBIDDEN',
+        message: 'You may not view this payout',
+      });
+    }
+
+    const where: Prisma.OrderWhereInput = {
+      vendorId: payout.vendorId,
+      status: OrderStatus.delivered,
+      ...(payout.periodStart && payout.periodEnd
+        ? { deliveredAt: { gte: payout.periodStart, lt: payout.periodEnd } }
+        : {}),
+    };
+
+    const orders = await this.prisma.order.findMany({
+      where,
+      select: {
+        id: true,
+        orderNumber: true,
+        deliveredAt: true,
+        subtotalPence: true,
+        commissionPence: true,
+        vendorPayoutPence: true,
+        attribution: { select: { resolvedSource: true } },
+      },
+      orderBy: { deliveredAt: 'asc' },
+    });
+
+    return orders.map((o) => ({
+      id: o.id,
+      orderNumber: o.orderNumber,
+      deliveredAt: o.deliveredAt?.toISOString() ?? null,
+      subtotalPence: o.subtotalPence,
+      commissionPence: o.commissionPence,
+      vendorPayoutPence: o.vendorPayoutPence,
+      // resolvedSource is null only on pre-attribution rows; treat as MARKETPLACE_FIRST.
+      attributionSource: (o.attribution?.resolvedSource ?? null) as string | null,
+    }));
+  }
+
+  /**
+   * Streams order-level CSV for the logged-in vendor (or, for finance/admin,
+   * optionally scoped to a specific payout).
+   *
+   * Columns: order_date, order_number, attribution_source,
+   *          subtotal_gbp, commission_gbp, net_to_vendor_gbp,
+   *          subtotal_pence, commission_pence, net_to_vendor_pence.
+   *
+   * Partial refunds are reflected in the stored commissionPence /
+   * vendorPayoutPence values, so the CSV always shows post-adjustment figures.
+   * Capped at 5 000 rows to prevent runaway DB connections.
+   */
+  async exportOrdersCsv(
+    user: AuthUser,
+    write: (chunk: string) => void,
+    opts: { payoutId?: string } = {},
+  ): Promise<void> {
+    const HEADER = [
+      'order_date',
+      'order_number',
+      'attribution_source',
+      'subtotal_gbp',
+      'commission_gbp',
+      'net_to_vendor_gbp',
+      'subtotal_pence',
+      'commission_pence',
+      'net_to_vendor_pence',
+    ].join(',');
+    write(HEADER + '\n');
+
+    const where: Prisma.OrderWhereInput = { status: OrderStatus.delivered };
+
+    if (user.role === UserRole.vendor) {
+      const vendor = await this.prisma.vendor.findUnique({
+        where: { userId: user.id },
+        select: { id: true },
+      });
+      if (!vendor) return; // empty CSV with headers only
+      where.vendorId = vendor.id;
+    } else if (user.role !== UserRole.finance && user.role !== UserRole.admin) {
+      throw new ForbiddenException({
+        code: 'PAYOUTS_FORBIDDEN',
+        message: 'You may not export order data',
+      });
+    }
+
+    if (opts.payoutId) {
+      const payout = await this.prisma.payout.findUnique({
+        where: { id: opts.payoutId },
+        select: { vendorId: true, periodStart: true, periodEnd: true },
+      });
+      if (!payout) return;
+      // Vendor must own this payout.
+      if (
+        user.role === UserRole.vendor &&
+        where.vendorId !== undefined &&
+        where.vendorId !== payout.vendorId
+      ) {
+        throw new ForbiddenException({
+          code: 'PAYOUT_FORBIDDEN',
+          message: 'You may not export this payout',
+        });
+      }
+      where.vendorId = payout.vendorId;
+      if (payout.periodStart && payout.periodEnd) {
+        where.deliveredAt = { gte: payout.periodStart, lt: payout.periodEnd };
+      }
+    }
+
+    const PAGE = 500;
+    const MAX = 5_000;
+    let cursorId: string | undefined;
+    let written = 0;
+
+    for (let i = 0; i < Math.ceil(MAX / PAGE); i++) {
+      const rows = await this.prisma.order.findMany({
+        where,
+        select: {
+          id: true,
+          orderNumber: true,
+          deliveredAt: true,
+          subtotalPence: true,
+          commissionPence: true,
+          vendorPayoutPence: true,
+          attribution: { select: { resolvedSource: true } },
+        },
+        orderBy: [{ deliveredAt: 'desc' }, { id: 'desc' }],
+        take: PAGE,
+        ...(cursorId ? { cursor: { id: cursorId }, skip: 1 } : {}),
+      });
+      if (rows.length === 0) break;
+      for (const r of rows) {
+        const src = r.attribution?.resolvedSource ?? 'MARKETPLACE_FIRST';
+        const row = [
+          isoDateOnly(r.deliveredAt),
+          r.orderNumber,
+          src,
+          (r.subtotalPence / 100).toFixed(2),
+          (r.commissionPence / 100).toFixed(2),
+          (r.vendorPayoutPence / 100).toFixed(2),
+          r.subtotalPence,
+          r.commissionPence,
+          r.vendorPayoutPence,
+        ]
+          .map((c) => csvCell(c))
+          .join(',');
+        write(row + '\n');
+        written++;
+        if (written >= MAX) return;
+      }
+      cursorId = rows[rows.length - 1]!.id;
+      if (rows.length < PAGE) break;
+    }
+  }
+
   // ---------------- vendor earnings summary ----------------
 
   /**

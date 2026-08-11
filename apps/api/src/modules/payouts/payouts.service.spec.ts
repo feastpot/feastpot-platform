@@ -370,3 +370,144 @@ describe('PayoutsService.list (vendor scoping)', () => {
     expect(out).toEqual({ data: [], nextCursor: null });
   });
 });
+
+describe('PayoutsService.listPayoutOrders (vendor scoping)', () => {
+  function build() {
+    const prisma = {
+      ...makePrisma(),
+      order: { findMany: jest.fn() as Mock },
+    };
+    const svc = new PayoutsService(prisma as any, makeStripe() as any, makeQueue() as any);
+    return { svc, prisma };
+  }
+
+  it('throws 404 when payout not found', async () => {
+    const { svc, prisma } = build();
+    prisma.payout.findUnique.mockResolvedValueOnce(null);
+    await expect(
+      svc.listPayoutOrders('p1', { id: 'u', role: UserRole.vendor, email: 'x', token: 't' } as any),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it("forbids a vendor from seeing another vendor's payout orders", async () => {
+    const { svc, prisma } = build();
+    // Payout belongs to vendor with userId 'owner-user', but requester is 'other-user'.
+    prisma.payout.findUnique.mockResolvedValueOnce({
+      vendorId: 'v1',
+      periodStart: new Date('2025-11-03T00:00:00Z'),
+      periodEnd: new Date('2025-11-10T00:00:00Z'),
+      vendor: { userId: 'owner-user' },
+    });
+    await expect(
+      svc.listPayoutOrders('p1', {
+        id: 'other-user',
+        role: UserRole.vendor,
+        email: 'x',
+        token: 't',
+      } as any),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    // Crucially, no order query was made (data access never reached).
+    expect((prisma.order as any).findMany).not.toHaveBeenCalled();
+  });
+
+  it('forbids customers entirely', async () => {
+    const { svc, prisma } = build();
+    prisma.payout.findUnique.mockResolvedValueOnce({
+      vendorId: 'v1',
+      periodStart: null,
+      periodEnd: null,
+      vendor: { userId: 'u1' },
+    });
+    await expect(
+      svc.listPayoutOrders('p1', {
+        id: 'u1',
+        role: UserRole.customer,
+        email: 'x',
+        token: 't',
+      } as any),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('returns orders for the payout owner with attribution source', async () => {
+    const { svc, prisma } = build();
+    prisma.payout.findUnique.mockResolvedValueOnce({
+      vendorId: 'v1',
+      periodStart: new Date('2025-11-03T00:00:00Z'),
+      periodEnd: new Date('2025-11-10T00:00:00Z'),
+      vendor: { userId: 'owner-user' },
+    });
+    (prisma.order as any).findMany.mockResolvedValueOnce([
+      {
+        id: 'o1',
+        orderNumber: 'FP-001',
+        deliveredAt: new Date('2025-11-05T12:00:00Z'),
+        subtotalPence: 2000,
+        commissionPence: 240,
+        vendorPayoutPence: 1760,
+        attribution: { resolvedSource: 'MARKETPLACE_FIRST' },
+      },
+      {
+        id: 'o2',
+        orderNumber: 'FP-002',
+        deliveredAt: new Date('2025-11-06T10:00:00Z'),
+        subtotalPence: 1500,
+        commissionPence: 0,
+        vendorPayoutPence: 1500,
+        attribution: { resolvedSource: 'VENDOR_REFERRED' },
+      },
+    ]);
+
+    const out = await svc.listPayoutOrders('p1', {
+      id: 'owner-user',
+      role: UserRole.vendor,
+      email: 'x',
+      token: 't',
+    } as any);
+
+    expect(out).toHaveLength(2);
+    expect(out[0]).toMatchObject({
+      orderNumber: 'FP-001',
+      commissionPence: 240,
+      attributionSource: 'MARKETPLACE_FIRST',
+    });
+    // VENDOR_REFERRED orders must show £0 commission.
+    expect(out[1]).toMatchObject({
+      orderNumber: 'FP-002',
+      commissionPence: 0,
+      attributionSource: 'VENDOR_REFERRED',
+    });
+  });
+
+  it("finance user can view any vendor's payout orders", async () => {
+    const { svc, prisma } = build();
+    prisma.payout.findUnique.mockResolvedValueOnce({
+      vendorId: 'v2',
+      periodStart: new Date('2025-11-03T00:00:00Z'),
+      periodEnd: new Date('2025-11-10T00:00:00Z'),
+      vendor: { userId: 'some-vendor-user' },
+    });
+    (prisma.order as any).findMany.mockResolvedValueOnce([]);
+
+    const out = await svc.listPayoutOrders('p2', finance);
+    expect(out).toEqual([]);
+  });
+
+  it('returns empty list (not an error) for a payout with zero delivered orders', async () => {
+    const { svc, prisma } = build();
+    prisma.payout.findUnique.mockResolvedValueOnce({
+      vendorId: 'v1',
+      periodStart: new Date('2025-11-03T00:00:00Z'),
+      periodEnd: new Date('2025-11-10T00:00:00Z'),
+      vendor: { userId: 'owner-user' },
+    });
+    (prisma.order as any).findMany.mockResolvedValueOnce([]);
+
+    const out = await svc.listPayoutOrders('p1', {
+      id: 'owner-user',
+      role: UserRole.vendor,
+      email: 'x',
+      token: 't',
+    } as any);
+    expect(out).toEqual([]);
+  });
+});

@@ -7,12 +7,24 @@ import { useAccessToken } from '@/lib/auth/use-access-token';
 import { API_URL } from '@/lib/env';
 
 /**
- * CSV download trigger (T006). Bearer-token endpoints can't be opened
- * with a plain anchor, so we fetch the CSV as a blob, then synthesize
- * an object-URL anchor and click it. The object URL is revoked on the
- * next tick to free memory.
+ * Order-level CSV download (T006 extension). Exports one row per order
+ * (order_date, order_number, attribution_source, subtotal, commission,
+ * net_to_vendor) instead of the legacy payout-batch-level CSV.
+ *
+ * When `payoutId` is provided the export is scoped to that single week;
+ * otherwise all of the vendor's delivered orders are included.
+ *
+ * Bearer-token endpoints can't be opened with a plain anchor, so we
+ * fetch the CSV as a blob, synthesize an object-URL anchor, and click it.
+ * The object URL is revoked on the next tick to free memory.
  */
-export function DownloadCsvButton() {
+export function DownloadCsvButton({
+  payoutId,
+  label = 'Download statement',
+}: {
+  payoutId?: string;
+  label?: string;
+}) {
   const { token } = useAccessToken();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -22,7 +34,8 @@ export function DownloadCsvButton() {
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch(`${API_URL}/v1/payouts/export.csv`, {
+      const qs = payoutId ? `?payoutId=${encodeURIComponent(payoutId)}` : '';
+      const res = await fetch(`${API_URL}/v1/payouts/orders/export.csv${qs}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) {
@@ -30,7 +43,10 @@ export function DownloadCsvButton() {
       }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
-      const filename = `feastpot-payouts-${new Date().toISOString().slice(0, 10)}.csv`;
+      const date = new Date().toISOString().slice(0, 10);
+      const filename = payoutId
+        ? `feastpot-orders-${date}.csv`
+        : `feastpot-orders-all-${date}.csv`;
       const a = document.createElement('a');
       a.href = url;
       a.download = filename;
@@ -58,7 +74,7 @@ export function DownloadCsvButton() {
         ) : (
           <Download className="h-3.5 w-3.5" aria-hidden />
         )}
-        {busy ? 'Preparing…' : 'Download statement'}
+        {busy ? 'Preparing…' : label}
       </button>
       {error && <p className="text-xs text-red-600">{error}</p>}
     </div>
