@@ -117,6 +117,7 @@ const ROLE_PERMISSIONS: Record<VendorMemberRole, ReadonlyArray<RegExp>> = {
     /^\/help/,
     /^\/user-guide/,
     /^\/settings\/profile/,
+    /^\/share/,
   ],
   finance: [
     /^\/$/,

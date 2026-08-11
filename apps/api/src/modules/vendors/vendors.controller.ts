@@ -15,6 +15,7 @@ import {
   Post,
   Put,
   Query,
+  Res,
   UnauthorizedException,
   UploadedFile,
   UseInterceptors,
@@ -22,6 +23,8 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
+import type { Response } from 'express';
+import * as QRCode from 'qrcode';
 
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { Public } from '../../auth/decorators/public.decorator';
@@ -111,6 +114,57 @@ export class VendorsController {
   })
   myStats(@CurrentUser() user: AuthUser | null): Promise<VendorStatsResponseDto> {
     return this.vendors.getMyStats(requireUser(user).id);
+  }
+
+  /**
+   * QR code for the vendor's canonical share link:
+   *   https://feastpot.co.uk/v/{slug}?src=vendor
+   *
+   * The slug is resolved from the authenticated user's vendor row, never
+   * from a request parameter, so a vendor can never fetch another vendor's
+   * QR by guessing a slug.
+   *
+   * Error-correction H (30 % redundancy) so the code remains scannable
+   * after printing small or overlaying a logo. Margin 4 modules = standard
+   * quiet zone required by QR spec.
+   */
+  @Get('me/qr')
+  @ApiBearerAuth()
+  @Roles(UserRole.vendor)
+  @ApiOperation({ summary: "PNG or SVG QR code for the vendor's canonical share link" })
+  async myQrCode(
+    @CurrentUser() user: AuthUser | null,
+    @Query('format') format: string | undefined,
+    @Res() res: Response,
+  ) {
+    const u = requireUser(user);
+    const vendor = await this.prisma.vendor.findUnique({
+      where: { userId: u.id },
+      select: { slug: true },
+    });
+    if (!vendor) throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'Vendor not found' });
+
+    const link = `https://feastpot.co.uk/v/${encodeURIComponent(vendor.slug)}?src=vendor`;
+    const qrOpts = { errorCorrectionLevel: 'H' as const, margin: 4 };
+
+    if (format === 'svg') {
+      const svg = await QRCode.toString(link, { ...qrOpts, type: 'svg' });
+      res.setHeader('Content-Type', 'image/svg+xml');
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="${vendor.slug}-feastpot-qr.svg"`,
+      );
+      res.send(svg);
+    } else {
+      // Default: PNG at 1024 px - high enough for print without being huge.
+      const png = await QRCode.toBuffer(link, { ...qrOpts, type: 'png', width: 1024 });
+      res.setHeader('Content-Type', 'image/png');
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="${vendor.slug}-feastpot-qr.png"`,
+      );
+      res.send(png);
+    }
   }
 
   @Get('me/dashboard')
