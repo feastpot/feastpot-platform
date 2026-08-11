@@ -1,0 +1,16 @@
+You are extending existing CI infrastructure in a Turborepo monorepo. apps/api/src/platform-facts.spec.ts already fails CI on drift from PLATFORM_FACTS, and packages/ui/scripts/check-brand-tokens.mjs already runs a lint-time check comparing brand.ts to each app's globals.css. This task extends both patterns rather than inventing new ones.
+
+TASK 1 — EXTEND platform-facts.spec.ts: confirm it already asserts every field used in Prompts 2, 8, 11 and 14, including the new feeChangeNoticeDays. Add any missing assertions so a future change to a commission rate, notice period, or support field is caught automatically wherever it is consumed.
+
+TASK 2 — ADD A CLAIMS-AND-LINKS SCRIPT, following the pattern of check-brand-tokens.mjs (a Node script run in CI, exiting non-zero on violation with a clear file/line report). Create packages/config/scripts/check-claims.mjs (or an equivalent location matching the monorepo's existing script conventions) that:
+a. Fails on any internal link in apps/web, apps/vendor or apps/admin pointing to a route that does not exist.
+b. Fails on any empty href or any WhatsApp wa.me link with no number, given PLATFORM_FACTS.support.whatsapp is null.
+c. Fails if any of these strings appear in first-party source (excluding node_modules, this script's own config, and test fixtures): "24/7", "9am to 9pm" (unless it becomes a real PLATFORM_FACTS value later), "Birmingham", "Manchester", "Growing network of cooks", "500+ cooks", "Fair prices, every time", the em dash character.
+d. Wire this script into the same CI workflow that already runs check-brand-tokens.mjs, so both run on every pull request.
+
+ACCEPTANCE CRITERIA:
+- platform-facts.spec.ts covers every PLATFORM_FACTS field introduced or consumed by this prompt pack.
+- check-claims.mjs runs in CI alongside the existing brand-token check and blocks merge on any violation.
+- Introducing any banned string, an empty href, or a dead internal link fails CI with a precise report.
+
+EDGE CASES: avoid false positives on "Birmingham"/"Manchester" appearing inside node_modules or third-party content; scope the grep to first-party app directories only.
