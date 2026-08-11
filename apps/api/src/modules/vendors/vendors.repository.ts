@@ -20,6 +20,10 @@ export interface SearchedVendorRow {
   distance_km: number | null;
   /** Up to 3 active menu-item names that matched `q` (Postgres array). */
   matched_dishes: string[] | null;
+  /** FSA compliance status: always 'RATED' in search results (WHERE clause enforces it). */
+  compliance_status: string;
+  /** FSA hygiene rating 0-5: always >= 3 in search results (WHERE clause enforces it). */
+  fsa_hygiene_rating: number | null;
 }
 
 export interface DecodedCursor {
@@ -334,23 +338,19 @@ export class VendorRepository {
       SELECT
         v.id, v.business_name, v.slug, v.description, v.cuisines,
         v.status, v.rating, v.rating_count, v.created_at,
+        v.compliance_status, v.fsa_hygiene_rating,
         ${distanceSelect},
         ${matchedDishesSelect}
       FROM vendors v
       WHERE v.status::text = ${dto.status ?? VendorStatus.live}
         AND v.approved_at IS NOT NULL
         AND v.suspended_at IS NULL
-        -- TODO (Prompt 13 / complianceStatus): once the vendor verification gate
-        -- promotes FHRS compliance onto the Vendor model as a complianceStatus field
-        -- (per PLATFORM_FACTS.vendorRequirements - FHRS rating >= 3 required), add:
-        --   AND EXISTS (
-        --     SELECT 1 FROM vendor_verifications vv
-        --     WHERE vv.vendor_id = v.id
-        --       AND vv.fhrs_inspection_status = 'RATED'
-        --       AND vv.fhrs_rating >= 3
-        --   )
-        -- A REGISTERED_AWAITING_INSPECTION vendor must never appear in customer search
-        -- even if their VendorStatus is otherwise live.
+        -- FSA compliance gate (Prompt 13 / PLATFORM_FACTS.vendorRequirements item 3).
+        -- Only RATED vendors with fsa_hygiene_rating >= 3 are visible to customers.
+        -- A REGISTERED_AWAITING_INSPECTION vendor can complete all onboarding steps
+        -- but must never appear in customer search even if VendorStatus is live.
+        AND v.compliance_status::text = 'RATED'
+        AND v.fsa_hygiene_rating >= 3
         ${cursorClause}
         ${cuisineClause}
         ${halalClause}

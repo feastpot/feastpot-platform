@@ -42,6 +42,28 @@ enum VendorStatus {
   removed
 }
 
+/// FSA Food Hygiene Rating Scheme compliance gate.
+///
+/// RATED                        - vendor has a published FHRS rating; combined with
+///                                fsaHygieneRating >= 3, they may appear in customer
+///                                search and accept orders.
+/// REGISTERED_AWAITING_INSPECTION - registered with a local authority and awaiting
+///                                their first inspection. Can complete onboarding
+///                                (menu, pricing, photos) but are NOT visible to
+///                                customers and cannot receive orders until they
+///                                reach RATED with fsaHygieneRating >= 3.
+/// NOT_ELIGIBLE                 - not yet registered with a local authority.
+///                                Cannot proceed past the application stage.
+///
+/// NOTE: fsaHygieneRating of 4 or 5 may warrant priority/featured placement
+/// in future (PLATFORM_FACTS.vendorRequirements item 3: "(4 recommended)"),
+/// but no such tier is implemented yet. See that constant before adding logic.
+enum VendorComplianceStatus {
+  RATED
+  REGISTERED_AWAITING_INSPECTION
+  NOT_ELIGIBLE
+}
+
 enum OrderType {
   standard
   event
@@ -733,6 +755,26 @@ model Vendor {
   payoutsEnabled     Boolean      @default(false) @map("payouts_enabled")
   approvedAt         DateTime?    @map("approved_at") @db.Timestamptz
   suspendedAt        DateTime?    @map("suspended_at") @db.Timestamptz
+
+  // FSA Food Hygiene Rating Scheme compliance (Prompt 13).
+  // These fields are set by the compliance team and are DISTINCT from
+  // `rating` / `ratingCount` above, which are customer star ratings.
+  //
+  // Automated checking is not yet implemented. The optional future job
+  // would hit https://api.ratings.food.gov.uk/ (header x-api-version: 2,
+  // no key required) and read RatingValue ("0"-"5", "AwaitingInspection",
+  // or "Exempt") against fhrsId.  RatingDate values of "1901-01-01" from
+  // the FSA API must be treated as null, not a real date.
+  //
+  // NOTE: rating 4 or 5 may warrant a priority/featured badge in future
+  // (see PLATFORM_FACTS.vendorRequirements item 3 "(4 recommended)"),
+  // but no such tier is implemented yet.
+  complianceStatus      VendorComplianceStatus @default(NOT_ELIGIBLE) @map("compliance_status")
+  fsaHygieneRating      Int?                   @map("fsa_hygiene_rating")
+  fsaRatingDate         DateTime?              @map("fsa_rating_date") @db.Timestamptz
+  fsaRegistrationNumber String?                @map("fsa_registration_number") @db.VarChar(50)
+  fsaLastChecked        DateTime?              @map("fsa_last_checked") @db.Timestamptz
+  fhrsId                String?                @map("fhrs_id") @db.VarChar(20)
 
   // Availability & scheduling (T002).
   // openingDays uses 0=Sun … 6=Sat to match JavaScript Date#getDay(),

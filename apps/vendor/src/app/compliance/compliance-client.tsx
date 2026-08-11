@@ -54,10 +54,16 @@ export interface VerificationRecord {
   updatedAt: string;
 }
 
+export type VendorComplianceStatus = 'RATED' | 'REGISTERED_AWAITING_INSPECTION' | 'NOT_ELIGIBLE';
+
 interface VendorSummary {
   id: string;
   businessName: string;
   status: 'pending' | 'approved' | 'live' | 'suspended' | 'probation' | 'removed';
+  complianceStatus: VendorComplianceStatus;
+  fsaHygieneRating: number | null;
+  fsaRatingDate: string | null;
+  fsaRegistrationNumber: string | null;
 }
 
 /**
@@ -154,6 +160,15 @@ export function ComplianceClient({
         </div>
       )}
 
+      {/* FSA compliance status badge: always shown. Tells the vendor
+          whether they are live, awaiting inspection, or not yet eligible. */}
+      <FsaComplianceBadge
+        complianceStatus={vendor.complianceStatus}
+        fsaHygieneRating={vendor.fsaHygieneRating}
+        fsaRatingDate={vendor.fsaRatingDate}
+        fsaRegistrationNumber={vendor.fsaRegistrationNumber}
+      />
+
       {/* Verification status - read-only; shown whenever the compliance
           team has created a verification record for this vendor. */}
       {verification && <VerificationStatusSection verification={verification} />}
@@ -221,7 +236,125 @@ export function ComplianceClient({
           days. Replacing a document resets it to <em>Submitted</em> until it&apos;s reviewed again.
         </p>
       </div>
+
+      {/* Vendor requirements checklist: 7 items rendered verbatim from
+          PLATFORM_FACTS.vendorRequirements. Item wording must not be altered
+          here; change it in packages/config/src/platform-facts.ts instead. */}
+      <VendorRequirementsChecklist />
     </div>
+  );
+}
+
+// ── FSA compliance status badge ───────────────────────────────────────
+//
+// Sourced from Vendor.complianceStatus (not VendorVerification): this is
+// the definitive gate that controls customer visibility and order acceptance.
+// The three states match VendorComplianceStatus in schema.prisma.
+
+function fmtRatingDate(iso: string | null): string {
+  if (!iso) return '';
+  return new Date(iso).toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+}
+
+function FsaComplianceBadge({
+  complianceStatus,
+  fsaHygieneRating,
+  fsaRatingDate,
+  fsaRegistrationNumber,
+}: {
+  complianceStatus: VendorComplianceStatus;
+  fsaHygieneRating: number | null;
+  fsaRatingDate: string | null;
+  fsaRegistrationNumber: string | null;
+}) {
+  if (complianceStatus === 'RATED') {
+    return (
+      <div className="fp-card flex items-start gap-3 border border-teal/30 bg-teal-light p-4">
+        <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-teal" aria-hidden />
+        <div>
+          <p className="text-sm font-bold text-teal-dark">
+            FSA hygiene rating: {fsaHygieneRating}/5
+          </p>
+          <p className="mt-0.5 text-xs text-teal-dark/80">
+            Your profile is live and visible to customers.
+            {fsaRatingDate ? ` Rating confirmed ${fmtRatingDate(fsaRatingDate)}.` : ''}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (complianceStatus === 'REGISTERED_AWAITING_INSPECTION') {
+    return (
+      <div className="fp-card flex items-start gap-3 border border-amber-200 bg-amber-50 p-4">
+        <Clock className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" aria-hidden />
+        <div>
+          <p className="text-sm font-bold text-amber-900">Registered, awaiting inspection</p>
+          <p className="mt-0.5 text-xs text-amber-800">
+            {fsaRegistrationNumber
+              ? `Registration number: ${fsaRegistrationNumber}. `
+              : ''}
+            {"You are all set up - we will switch you live automatically once your rating of 3 or above comes through."}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // NOT_ELIGIBLE
+  return (
+    <div className="fp-card flex items-start gap-3 border border-red-200 bg-red-50 p-4">
+      <XCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-600" aria-hidden />
+      <div>
+        <p className="text-sm font-bold text-red-900">Food business registration required</p>
+        <p className="mt-0.5 text-xs text-red-800">
+          You must register your food business with your local authority before you can proceed.
+          Registration is free and usually takes 1 to 2 weeks. Once registered, contact{' '}
+          <a
+            href={`mailto:${PLATFORM_FACTS.contact.complianceEmail}`}
+            className="font-semibold underline underline-offset-2"
+          >
+            {PLATFORM_FACTS.contact.complianceEmail}
+          </a>{' '}
+          to update your status.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ── Vendor requirements checklist ─────────────────────────────────────
+//
+// Renders PLATFORM_FACTS.vendorRequirements verbatim (7 items).
+// Do NOT paraphrase or reorder these items. Change the source in
+// packages/config/src/platform-facts.ts; this component renders them
+// as-is so every surface stays in sync automatically.
+
+function VendorRequirementsChecklist() {
+  return (
+    <section aria-label="Vendor requirements" className="space-y-2">
+      <h2 className="text-sm font-extrabold tracking-tight text-dark">
+        Requirements to sell on {PLATFORM_FACTS.brandName}
+      </h2>
+      <p className="text-xs text-mid">
+        All seven items must be met for your profile to go live. Upload the relevant documents
+        above; the compliance team will verify them within 1 to 2 business days.
+      </p>
+      <ol className="space-y-1.5">
+        {PLATFORM_FACTS.vendorRequirements.map((req, i) => (
+          <li key={i} className="flex items-start gap-2.5 text-xs text-dark">
+            <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-teal/40 bg-teal-light text-[10px] font-bold text-teal-dark">
+              {i + 1}
+            </span>
+            <span>{req}</span>
+          </li>
+        ))}
+      </ol>
+    </section>
   );
 }
 

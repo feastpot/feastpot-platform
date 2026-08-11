@@ -1,0 +1,32 @@
+You are editing apps/vendor/src/app/compliance/compliance-client.tsx, which already exists. This is an EDIT, not a new build.
+
+NAMING WARNING: Vendor already has rating (Float) and ratingCount (Int), which are CUSTOMER STAR RATING fields, unrelated to food hygiene. Do not reuse or rename these. Add new, distinctly named fields for FSA data.
+
+CONFIRMED REQUIREMENT (do not soften this): PLATFORM_FACTS.vendorRequirements already states, as item 3 of 7: "FHRS rating of at least 3 out of 5 (4 recommended)". This is a hard floor for public listing, sitting alongside public liability insurance (minimum £1 million) and a Level 2 food safety certificate, and must not be relaxed by this prompt. What CAN be softened is the friction of getting there: a vendor may apply, pass paperwork review, and fully set up their menu and profile before their rating exists, so they lose no time once it lands. They must not appear in customer-facing search or be able to take orders until fsaHygieneRating >= 3.
+
+TASK:
+1. In prisma/schema.prisma, add to Vendor: complianceStatus with a new enum VendorComplianceStatus { RATED, REGISTERED_AWAITING_INSPECTION, NOT_ELIGIBLE }, fsaHygieneRating Int? (the FSA 0 to 5 score, distinct from the customer rating field), fsaRatingDate DateTime?, fsaRegistrationNumber String?, fsaLastChecked DateTime?, fhrsId String?. Write the Prisma migration.
+2. LISTING GATE: only vendors with complianceStatus = RATED and fsaHygieneRating >= 3 may be returned by any customer-facing vendor query (the public /vendors search in apps/web, Prompt 6) or accept orders. REGISTERED_AWAITING_INSPECTION vendors can complete every onboarding step (menu, pricing, delivery zone, photos) inside apps/vendor, but their profile is not visible to customers and their "go live" action is disabled until the rating updates to 3 or above. NOT_ELIGIBLE vendors (unregistered) cannot proceed past the application stage at all.
+3. In compliance-client.tsx, build a status badge: RATED shows the numeric FSA rating and the check date; REGISTERED_AWAITING_INSPECTION shows "Registered, awaiting inspection. You're all set up, we'll switch you live automatically once your rating of 3 or above comes through." with the registration number; NOT_ELIGIBLE explains registration is required before anything else.
+4. Read PLATFORM_FACTS.vendorRequirements and render its 7 items verbatim as the compliance checklist on this page, rather than paraphrasing them:
+   1. UK business or sole trader registration
+   2. Food Business Registration with your local authority
+   3. FHRS rating of at least 3 out of 5 (4 recommended)
+   4. Public liability insurance, minimum GBP 1 million
+   5. Level 2 food safety certificate or equivalent
+   6. Valid photo ID
+   7. UK bank account for Stripe Connect
+   If any item does not yet have a corresponding functional step or document upload on this page, add it, using the wording above as the basis for the UI copy. Do not alter the wording of item 3.
+5. Ensure no other surface (the homepage trust section on apps/web, and /vendor-readiness if it exists) contradicts this. Grep both apps/web and apps/vendor for any claim that a vendor can be found or ordered from before reaching a 3 rating, and correct it. All surfaces must consistently say: you can apply and get set up any time, but you only go live once you reach a 3 rating.
+6. Do not claim an automated weekly FSA check unless a scheduled job actually exists and runs. If none exists yet, state honestly that ratings are checked manually, and leave a clearly commented stub for an optional future automated job against the FSA Food Hygiene Rating Scheme API (base URL https://api.ratings.food.gov.uk/, mandatory header x-api-version: 2, no key required, RatingValue returned as a string "0" to "5" or the literal strings "AwaitingInspection"/"Exempt").
+7. NOTE FOR LATER, DO NOT BUILD NOW: item 3's "(4 recommended)" suggests a possible future distinction, such as a featured or priority-placement badge for vendors rated 4 or 5. Leave a short code comment noting this possibility on the complianceStatus logic, but do not implement any 4-plus tier or badge as part of this prompt.
+
+ACCEPTANCE CRITERIA:
+- The new enum and fields exist on Vendor, distinct from rating/ratingCount, with a committed migration.
+- A vendor with complianceStatus = REGISTERED_AWAITING_INSPECTION never appears in a customer-facing vendor query and cannot receive orders, verified by test.
+- The same vendor, once fsaHygieneRating is set to 3 or above and complianceStatus updates to RATED, does appear in customer-facing queries.
+- compliance-client.tsx renders the 7 vendorRequirements items verbatim, with item 3's wording unchanged.
+- No surface in apps/web or apps/vendor implies a vendor can be found or ordered from before reaching a 3 rating.
+- No surface claims automated weekly checking unless a real scheduled job exists.
+
+EDGE CASES: a vendor whose fsaHygieneRating later drops below 3 must be automatically excluded from customer-facing queries, not just flagged for manual review, since the floor is a hard requirement; RatingDate placeholder values from the FSA API such as "1901-01-01" should be treated as null, not a real date, if the optional job is later implemented.

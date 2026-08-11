@@ -294,6 +294,23 @@ export class OrdersService {
     if (!vendor)
       throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'Vendor not found' });
 
+    // FSA compliance gate (listing gate parity).
+    // Only RATED vendors with fsaHygieneRating >= 3 may accept orders.
+    // This mirrors the SQL WHERE clause in vendors.repository.ts search()
+    // and applies the same hard floor as PLATFORM_FACTS.vendorRequirements
+    // item 3 ("FHRS rating of at least 3 out of 5").
+    // A vendor whose rating later drops below 3 is blocked here even if
+    // their VendorStatus is still live - the floor is non-negotiable.
+    if (
+      vendor.complianceStatus !== 'RATED' ||
+      (vendor.fsaHygieneRating ?? 0) < 3
+    ) {
+      throw new ForbiddenException({
+        code: 'VENDOR_NOT_COMPLIANT',
+        message: 'This vendor is not currently accepting orders',
+      });
+    }
+
     const menuItemIds = dto.items.map((i) => i.menuItemId);
     const items = await this.repo.findMenuItems(menuItemIds);
     const byId = new Map(items.map((i) => [i.id, i]));

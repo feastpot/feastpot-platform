@@ -23,7 +23,7 @@ const CHECKS = [
   {
     label: 'FHRS hygiene rating, minimum 3 out of 5',
     detail:
-      'We require a Food Standards Agency hygiene rating of at least 3. A rating of 4 or 5 is recommended. Vendors rated 0 or 1 are not permitted to list. Newly registered businesses that have not yet been inspected may list provisionally, with a note on their profile.',
+      'We require a Food Standards Agency hygiene rating of at least 3 out of 5. A rating of 4 or 5 is recommended. Vendors can apply and set up their full profile, menu and pricing before their rating exists, so they lose no time. Their profile only goes live once they reach a rating of 3 or above.',
   },
   {
     label: 'Public liability insurance, minimum £1 million',

@@ -12,6 +12,10 @@ interface VendorMe {
   id: string;
   businessName: string;
   status: 'pending' | 'approved' | 'live' | 'suspended' | 'probation' | 'removed';
+  complianceStatus: 'RATED' | 'REGISTERED_AWAITING_INSPECTION' | 'NOT_ELIGIBLE';
+  fsaHygieneRating: number | null;
+  fsaRatingDate: string | null;
+  fsaRegistrationNumber: string | null;
 }
 
 /**
