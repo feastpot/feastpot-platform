@@ -5,6 +5,17 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { DocumentStatus, DocumentType, VendorStatus } from './use-admin-vendors';
 import { useApi } from './use-api';
 
+export type VendorComplianceStatus = 'RATED' | 'REGISTERED_AWAITING_INSPECTION' | 'NOT_ELIGIBLE';
+
+export interface UpdateVendorCompliancePayload {
+  complianceStatus: VendorComplianceStatus;
+  fsaHygieneRating?: number;
+  fsaRatingDate?: string;
+  fsaRegistrationNumber?: string;
+  fhrsId?: string;
+  fsaLastChecked?: string;
+}
+
 export interface VendorDetail {
   id: string;
   businessName: string;
@@ -20,6 +31,13 @@ export interface VendorDetail {
   createdAt: string;
   approvedAt: string | null;
   suspendedAt: string | null;
+  // FSA compliance gate fields (added by migration 20260811020000)
+  complianceStatus: VendorComplianceStatus;
+  fsaHygieneRating: number | null;
+  fsaRatingDate: string | null;
+  fsaRegistrationNumber: string | null;
+  fhrsId: string | null;
+  fsaLastChecked: string | null;
 }
 
 export interface VendorDocument {
@@ -40,6 +58,18 @@ export function useVendorDetail(vendorId: string) {
     queryKey: ['admin', 'vendor', vendorId],
     enabled: ready && Boolean(vendorId),
     queryFn: () => request<VendorDetail>(`/vendors/${vendorId}`),
+  });
+}
+
+export function useUpdateVendorCompliance(vendorId: string) {
+  const { request } = useApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: UpdateVendorCompliancePayload) =>
+      request(`/vendors/${vendorId}/compliance`, { method: 'PATCH', body }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'vendor', vendorId] });
+    },
   });
 }
 

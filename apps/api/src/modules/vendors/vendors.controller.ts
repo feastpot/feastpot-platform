@@ -39,6 +39,7 @@ import { CursorPaginationDto } from './dto/pagination.dto';
 import { RegisterVendorInterestDto } from './dto/register-vendor-interest.dto';
 import { SearchVendorsDto } from './dto/search-vendors.dto';
 import { UpdateAvailabilityDto } from './dto/update-availability.dto';
+import { UpdateVendorComplianceDto } from './dto/update-vendor-compliance.dto';
 import { UpdateVendorStatusDto } from './dto/update-vendor-status.dto';
 import { UpdateVendorDto } from './dto/update-vendor.dto';
 import { UpsertCapacityDto } from './dto/upsert-capacity.dto';
@@ -470,6 +471,23 @@ export class VendorsController {
     @Body() dto: UpdateVendorStatusDto,
   ) {
     return this.vendors.updateStatus(id, dto, requireUser(user));
+  }
+
+  @Patch(':id/compliance')
+  @ApiBearerAuth()
+  @Roles(UserRole.admin, UserRole.compliance)
+  @ApiOperation({
+    summary: 'Update vendor FSA compliance status and rating details (admin / compliance only)',
+    description:
+      'Sets complianceStatus, fsaHygieneRating, fsaRatingDate, fsaRegistrationNumber, fhrsId, ' +
+      'and fsaLastChecked. Immediately invalidates the search cache so the listing gate ' +
+      '(RATED + rating >= 3) reflects the new state on the next customer search.',
+  })
+  updateCompliance(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: UpdateVendorComplianceDto,
+  ) {
+    return this.vendors.updateCompliance(id, dto);
   }
 
   @Public()

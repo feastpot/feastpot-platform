@@ -8,7 +8,13 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { ModerationStatus, OrderStatus, UserRole, VendorStatus } from '@prisma/client';
+import {
+  ModerationStatus,
+  OrderStatus,
+  UserRole,
+  VendorComplianceStatus,
+  VendorStatus,
+} from '@prisma/client';
 import type { VendorMemberRole } from '@prisma/client';
 import type { Queue } from 'bull';
 
@@ -39,6 +45,7 @@ import { CursorPaginationDto } from './dto/pagination.dto';
 import { RegisterVendorInterestDto } from './dto/register-vendor-interest.dto';
 import { SearchVendorsDto } from './dto/search-vendors.dto';
 import { UpdateAvailabilityDto } from './dto/update-availability.dto';
+import { UpdateVendorComplianceDto } from './dto/update-vendor-compliance.dto';
 import { UpdateVendorStatusDto } from './dto/update-vendor-status.dto';
 import { UpdateVendorDto } from './dto/update-vendor.dto';
 import { UpsertCapacityDto } from './dto/upsert-capacity.dto';
@@ -1368,6 +1375,42 @@ export class VendorsService {
     }
 
     return result;
+  }
+
+  /**
+   * Update a vendor's FSA compliance status and rating details.
+   *
+   * Only admin and compliance roles may call this; the controller enforces
+   * that via @Roles before this method is reached.
+   *
+   * Cache invalidation is immediate: a vendor promoted to RATED with a
+   * rating >= 3 must appear in customer search straight away, and a vendor
+   * whose rating has dropped below 3 must vanish immediately.
+   */
+  async updateCompliance(vendorId: string, dto: UpdateVendorComplianceDto): Promise<void> {
+    const vendor = await this.repo.findById(vendorId);
+    if (!vendor)
+      throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'Vendor not found' });
+
+    await this.prisma.vendor.update({
+      where: { id: vendorId },
+      data: {
+        complianceStatus: dto.complianceStatus,
+        // Explicit null-coalescing: omitted fields clear the column rather
+        // than leaving a stale value from a previous inspection round.
+        fsaHygieneRating:
+          dto.fsaHygieneRating !== undefined ? dto.fsaHygieneRating : null,
+        fsaRatingDate: dto.fsaRatingDate ? new Date(dto.fsaRatingDate) : null,
+        fsaRegistrationNumber: dto.fsaRegistrationNumber ?? null,
+        fhrsId: dto.fhrsId ?? null,
+        fsaLastChecked: dto.fsaLastChecked ? new Date(dto.fsaLastChecked) : new Date(),
+      },
+    });
+
+    // Flush search cache so the listing gate (compliance_status = RATED AND
+    // fsa_hygiene_rating >= 3) reflects the new state on the next search.
+    await this.cache.del(`vendors:profile:${vendorId}`);
+    await this.cache.delByPattern('vendors:search:*');
   }
 
   async getVendorReviews(vendorId: string, pagination: CursorPaginationDto) {

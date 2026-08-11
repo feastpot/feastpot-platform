@@ -28,12 +28,15 @@ import {
 } from '@/hooks/use-admin-vendors';
 import {
   useUpdateTrustSignal,
+  useUpdateVendorCompliance,
   useVendorDetail,
   useVendorDocuments,
   useVendorTrustSignals,
   useVerifyDocument,
   type TrustSignalStatus,
   type TrustSignalType,
+  type UpdateVendorCompliancePayload,
+  type VendorComplianceStatus,
 } from '@/hooks/use-vendor-detail';
 import {
   useUpsertVerification,
@@ -127,6 +130,13 @@ export function VendorDetailClient({
 
   const { data: verification, isLoading: verificationLoading } = useVendorVerification(vendorId);
   const upsertVerification = useUpsertVerification(vendorId);
+  const updateCompliance = useUpdateVendorCompliance(vendorId);
+
+  const EMPTY_COMPLIANCE_FORM: UpdateVendorCompliancePayload = {
+    complianceStatus: 'NOT_ELIGIBLE',
+  };
+  const [complianceOpen, setComplianceOpen] = useState(false);
+  const [cForm, setCForm] = useState<UpdateVendorCompliancePayload>(EMPTY_COMPLIANCE_FORM);
 
   const [rejecting, setRejecting] = useState<{ id: string; label: string } | null>(null);
   const [rejectReason, setRejectReason] = useState('');
@@ -524,6 +534,43 @@ export function VendorDetailClient({
             ))}
           </CardContent>
         </Card>
+
+        {/* ── FSA compliance status ───────────────────────────────────── */}
+        {vendor && (
+          <FsaComplianceCard
+            vendor={vendor}
+            canEdit={canReviewSignals}
+            open={complianceOpen}
+            form={cForm}
+            onOpenDialog={() => {
+              setCForm({
+                complianceStatus: vendor.complianceStatus,
+                fsaHygieneRating: vendor.fsaHygieneRating ?? undefined,
+                fsaRatingDate: vendor.fsaRatingDate?.slice(0, 10) ?? undefined,
+                fsaRegistrationNumber: vendor.fsaRegistrationNumber ?? undefined,
+                fhrsId: vendor.fhrsId ?? undefined,
+              });
+              setComplianceOpen(true);
+            }}
+            onCloseDialog={() => setComplianceOpen(false)}
+            onChange={(patch) => setCForm((prev) => ({ ...prev, ...patch }))}
+            onSave={() =>
+              updateCompliance.mutate(cForm, {
+                onSuccess: () => {
+                  setComplianceOpen(false);
+                  toast({ title: 'FSA compliance status updated' });
+                },
+                onError: (err) =>
+                  toast({
+                    title: 'Update failed',
+                    description: (err as Error).message,
+                    variant: 'destructive',
+                  }),
+              })
+            }
+            saving={updateCompliance.isPending}
+          />
+        )}
 
         {/* ── Verification record ─────────────────────────────────────── */}
         <Card className="lg:col-span-3">
@@ -1141,6 +1188,163 @@ const ENTITY_TYPE_LABELS: Record<string, string> = {
   LIMITED_COMPANY: 'Limited company',
   PARTNERSHIP: 'Partnership',
 };
+
+const COMPLIANCE_STATUS_LABELS: Record<VendorComplianceStatus, string> = {
+  RATED: 'Rated',
+  REGISTERED_AWAITING_INSPECTION: 'Registered, awaiting inspection',
+  NOT_ELIGIBLE: 'Not eligible',
+};
+
+const COMPLIANCE_STATUS_TONE: Record<VendorComplianceStatus, StatusTone> = {
+  RATED: 'success',
+  REGISTERED_AWAITING_INSPECTION: 'warning',
+  NOT_ELIGIBLE: 'danger',
+};
+
+function FsaComplianceCard({
+  vendor,
+  canEdit,
+  open,
+  form,
+  onOpenDialog,
+  onCloseDialog,
+  onChange,
+  onSave,
+  saving,
+}: {
+  vendor: import('@/hooks/use-vendor-detail').VendorDetail;
+  canEdit: boolean;
+  open: boolean;
+  form: UpdateVendorCompliancePayload;
+  onOpenDialog: () => void;
+  onCloseDialog: () => void;
+  onChange: (patch: Partial<UpdateVendorCompliancePayload>) => void;
+  onSave: () => void;
+  saving: boolean;
+}) {
+  const status = vendor.complianceStatus;
+  return (
+    <>
+      <Card className="lg:col-span-3">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-base">FSA compliance</CardTitle>
+          {canEdit && (
+            <Button size="sm" onClick={onOpenDialog}>
+              Update
+            </Button>
+          )}
+        </CardHeader>
+        <CardContent className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
+          <Field
+            label="Status"
+            value={
+              <StatusPill tone={COMPLIANCE_STATUS_TONE[status]}>
+                {COMPLIANCE_STATUS_LABELS[status]}
+              </StatusPill>
+            }
+          />
+          <Field
+            label="FSA hygiene rating"
+            value={
+              vendor.fsaHygieneRating !== null
+                ? `${vendor.fsaHygieneRating} / 5`
+                : 'Not recorded'
+            }
+          />
+          <Field
+            label="Rating date"
+            value={vendor.fsaRatingDate ? formatDate(vendor.fsaRatingDate) : 'Not recorded'}
+          />
+          <Field
+            label="Registration number"
+            value={vendor.fsaRegistrationNumber ?? 'Not recorded'}
+          />
+          <Field label="FHRS ID" value={vendor.fhrsId ?? 'Not recorded'} />
+          <Field
+            label="Last checked"
+            value={vendor.fsaLastChecked ? formatDate(vendor.fsaLastChecked) : 'Never'}
+          />
+        </CardContent>
+      </Card>
+
+      {/* Edit dialog */}
+      <Dialog open={open} onOpenChange={(o) => !o && onCloseDialog()}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Update FSA compliance</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2 text-sm">
+            <div className="space-y-1">
+              <label className="font-medium">Compliance status</label>
+              <select
+                className="w-full rounded border px-3 py-2"
+                value={form.complianceStatus}
+                onChange={(e) =>
+                  onChange({ complianceStatus: e.target.value as VendorComplianceStatus })
+                }
+              >
+                <option value="RATED">Rated</option>
+                <option value="REGISTERED_AWAITING_INSPECTION">
+                  Registered, awaiting inspection
+                </option>
+                <option value="NOT_ELIGIBLE">Not eligible</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="font-medium">FSA hygiene rating (0–5)</label>
+              <Input
+                type="number"
+                min={0}
+                max={5}
+                value={form.fsaHygieneRating ?? ''}
+                onChange={(e) =>
+                  onChange({
+                    fsaHygieneRating: e.target.value ? Number(e.target.value) : undefined,
+                  })
+                }
+                placeholder="e.g. 4"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="font-medium">Rating date</label>
+              <Input
+                type="date"
+                value={form.fsaRatingDate ?? ''}
+                onChange={(e) => onChange({ fsaRatingDate: e.target.value || undefined })}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="font-medium">Registration number</label>
+              <Input
+                value={form.fsaRegistrationNumber ?? ''}
+                onChange={(e) =>
+                  onChange({ fsaRegistrationNumber: e.target.value || undefined })
+                }
+                placeholder="Local authority registration number"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="font-medium">FHRS ID</label>
+              <Input
+                value={form.fhrsId ?? ''}
+                onChange={(e) => onChange({ fhrsId: e.target.value || undefined })}
+                placeholder="FHRS establishment ID"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={onCloseDialog}>
+              Cancel
+            </Button>
+            <Button onClick={onSave} disabled={saving}>
+              {saving ? 'Saving…' : 'Save'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
 
 function TaxProfilePanel({
   vendorId,

@@ -25,6 +25,7 @@ import {
   PaymentType,
   PrismaClient,
   UserRole,
+  VendorComplianceStatus,
   VendorStatus,
 } from '@prisma/client';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
@@ -325,7 +326,14 @@ async function main() {
 
   const maman = await prisma.vendor.upsert({
     where: { slug: 'mamans-kitchen-peckham' },
-    update: {},
+    // Idempotent compliance backfill: existing rows keep their status unless
+    // they were NOT_ELIGIBLE (migration default), in which case we promote to
+    // RATED so the vendor remains visible in dev search after the gate lands.
+    update: {
+      complianceStatus: VendorComplianceStatus.RATED,
+      fsaHygieneRating: 5,
+      fsaRatingDate: new Date('2025-01-10T00:00:00Z'),
+    },
     create: {
       userId: mamanUserId,
       businessName: "Maman's Kitchen",
@@ -334,6 +342,9 @@ async function main() {
         'Authentic Nigerian and Caribbean home cooking from Peckham. Family recipes, party trays, and frozen packs for the week.',
       cuisines: ['Nigerian', 'Ghanaian', 'Caribbean'],
       status: VendorStatus.live,
+      complianceStatus: VendorComplianceStatus.RATED,
+      fsaHygieneRating: 5,
+      fsaRatingDate: new Date('2025-01-10T00:00:00Z'),
       rating: 4.8,
       ratingCount: 24,
       commissionBps: 1200,
@@ -344,7 +355,11 @@ async function main() {
 
   const kwame = await prisma.vendor.upsert({
     where: { slug: 'kwames-jollof-brixton' },
-    update: {},
+    update: {
+      complianceStatus: VendorComplianceStatus.RATED,
+      fsaHygieneRating: 4,
+      fsaRatingDate: new Date('2025-01-28T00:00:00Z'),
+    },
     create: {
       userId: kwameUserId,
       businessName: "Kwame's Jollof",
@@ -353,6 +368,9 @@ async function main() {
         'Ghanaian jollof, waakye, and grilled tilapia from a Brixton kitchen. Specialising in office lunches and family parties.',
       cuisines: ['Ghanaian'],
       status: VendorStatus.live,
+      complianceStatus: VendorComplianceStatus.RATED,
+      fsaHygieneRating: 4,
+      fsaRatingDate: new Date('2025-01-28T00:00:00Z'),
       rating: 4.5,
       ratingCount: 11,
       commissionBps: 1200,
@@ -1755,6 +1773,12 @@ async function main() {
         cuisines: spec.cuisines,
         rating: spec.rating,
         ratingCount: spec.ratingCount,
+        // Idempotent compliance backfill: ensures re-runs promote any
+        // NOT_ELIGIBLE row (migration default) so devs see these vendors in
+        // the customer-facing search after the FSA gate is switched on.
+        complianceStatus: VendorComplianceStatus.RATED,
+        fsaHygieneRating: 5,
+        fsaRatingDate: new Date('2026-02-15T00:00:00Z'),
       },
       create: {
         userId: ownerId,
@@ -1763,6 +1787,9 @@ async function main() {
         description: spec.description,
         cuisines: spec.cuisines,
         status: VendorStatus.live,
+        complianceStatus: VendorComplianceStatus.RATED,
+        fsaHygieneRating: 5,
+        fsaRatingDate: new Date('2026-02-15T00:00:00Z'),
         rating: spec.rating,
         ratingCount: spec.ratingCount,
         commissionBps: 1200,
