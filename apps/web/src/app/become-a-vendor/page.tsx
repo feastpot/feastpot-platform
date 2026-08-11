@@ -26,6 +26,8 @@ import type { RateRow } from '@feastpot/ui';
 
 import { apiRequest, ApiError } from '@/lib/api/client';
 
+import { EarningsCalculator } from './earnings-calculator';
+
 /**
  * Vendor acquisition landing - feastpot.co.uk/become-a-vendor.
  *
@@ -539,8 +541,11 @@ export default function BecomeAVendorPage() {
             changing any fee, and changes are never applied retrospectively.
           </p>
 
+          {/* Interactive calculator: see what each model costs at your revenue */}
+          <EarningsCalculator />
+
           {/* Live rate schedule from the database */}
-          <RateCard rates={rates} loading={ratesLoading} error={ratesError ?? undefined} className="mb-6" />
+          <RateCard rates={rates} loading={ratesLoading} error={ratesError ?? undefined} className="mt-8 mb-6" />
 
           {/* Key Terms Summary (Annex C) */}
           <KeyTermsSummary />
