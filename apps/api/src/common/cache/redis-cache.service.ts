@@ -211,6 +211,35 @@ export class RedisCacheService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  /**
+   * Atomic rate-limit counter using INCR + conditional EXPIRE.
+   *
+   * On the first call within a window (`count === 1`) we set the TTL so the
+   * window is fixed rather than sliding. Subsequent INCRs within the window
+   * do NOT reset the TTL. Returns the new count after increment.
+   *
+   * Fail-open: returns 0 (allow) when Redis is unavailable so a cache outage
+   * never locks users out of authenticated actions.
+   *
+   * @param key        Full Redis key (caller is responsible for namespacing)
+   * @param windowSecs Rolling-window length in seconds
+   */
+  async increment(key: string, windowSecs: number): Promise<number> {
+    if (!this.client) return 0;
+    try {
+      const count = await this.client.incr(key);
+      if (count === 1) {
+        // Set TTL only on the first increment so the window doesn't slide
+        // forward on every subsequent call (INCR does not reset the TTL).
+        await this.client.expire(key, windowSecs);
+      }
+      return count;
+    } catch {
+      // Fail-open: allow the caller through on any Redis error.
+      return 0;
+    }
+  }
+
   async ping(): Promise<'PONG'> {
     if (!this.client) throw new Error('redis disabled');
     return (await this.client.ping()) as 'PONG';

@@ -1,15 +1,22 @@
+import { createHash } from 'node:crypto';
+
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 
-const RESET_MIN_MS = 800; // timing-normalization floor (ms)
-const EMAIL_RATE_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+import { RedisCacheService } from '../../common/cache/redis-cache.service';
+
+const RESET_MIN_MS = 800; // timing-normalisation floor (ms)
+const EMAIL_RATE_WINDOW_SECS = 60 * 60; // 1 hour
 const EMAIL_RATE_MAX = 3; // max 3 reset attempts per email per window
 
-interface RateEntry {
-  count: number;
-  windowStart: number;
+/**
+ * SHA-256 hash of the email so we store no PII in Redis.
+ * Key format: auth:reset:email:<sha256hex>
+ */
+function emailRateKey(email: string): string {
+  return `auth:reset:email:${createHash('sha256').update(email.toLowerCase()).digest('hex')}`;
 }
 
 @Injectable()
@@ -21,21 +28,26 @@ export class AuthPublicService {
   private readonly webOrigin: string;
   private readonly vendorOrigin: string;
 
-  /**
-   * In-memory per-email rate-limit store.
-   *
-   * A lightweight alternative to a Redis SET for a single-process API.
-   * NOTE: In a horizontally-scaled deployment this must be replaced with a
-   * Redis-backed store (e.g. via the existing IORedis connection) so the
-   * limit is enforced across all instances.
-   */
-  private readonly emailRateMap = new Map<string, RateEntry>();
-
-  constructor(private readonly config: ConfigService) {
-    // We use the anon key (NEXT_PUBLIC_SUPABASE_ANON_KEY) to call
-    // resetPasswordForEmail, which is an unauthenticated Supabase Auth
-    // operation - it does NOT require the service role.
-    const supabaseUrl = (config.get<string>('SUPABASE_URL') ?? config.get<string>('NEXT_PUBLIC_SUPABASE_URL') ?? '')
+  constructor(
+    private readonly config: ConfigService,
+    /**
+     * RedisCacheService is @Global (via CacheModule) so it is injectable
+     * here without importing CacheModule again. Its `increment()` method is
+     * used for per-email rate limiting across all API instances.
+     *
+     * Fail-open: if Redis is unavailable, `increment()` returns 0 so the
+     * reset request is allowed through. A Redis outage should not lock users
+     * out of their accounts.
+     */
+    private readonly cache: RedisCacheService,
+  ) {
+    // We use the anon key to call resetPasswordForEmail - this is an
+    // unauthenticated Supabase Auth operation, not a service-role call.
+    const supabaseUrl = (
+      config.get<string>('SUPABASE_URL') ??
+      config.get<string>('NEXT_PUBLIC_SUPABASE_URL') ??
+      ''
+    )
       .replace(/\/rest\/v1\/?$/, '')
       .replace(/\/+$/, '');
 
@@ -68,22 +80,23 @@ export class AuthPublicService {
    * Trigger a Supabase password-reset email for `email`.
    *
    * Security properties:
-   *  - Per-IP rate limiting is enforced at the controller level by @Throttle.
-   *  - Per-email rate limiting is enforced here (max EMAIL_RATE_MAX per hour).
-   *  - Timing is normalised to at least RESET_MIN_MS so timing side-channels
-   *    cannot distinguish "email registered" from "email not registered".
-   *  - The method always returns void; callers should always respond 200 OK.
-   *
-   * `redirectTo` is constructed from the `app` field so the reset link
-   * drops the vendor back at the vendor portal or the customer back at
-   * feastpot.co.uk as appropriate. Both land on /auth/callback which
-   * exchanges the Supabase code for a session and routes to /auth/reset/update.
+   *  - Per-IP rate limiting enforced at the controller level via @Throttle.
+   *  - Per-email rate limiting via Redis INCR (max EMAIL_RATE_MAX per hour,
+   *    shared across all API instances). Key is SHA-256(email) so no PII
+   *    lands in Redis. Fail-open: Redis unavailable → allow through.
+   *  - Timing normalised to >= RESET_MIN_MS so timing side-channels cannot
+   *    distinguish "email registered" from "email not registered".
+   *  - Always returns void; callers MUST respond 200 OK regardless.
    */
   async resetRequest(email: string, app: 'customer' | 'vendor'): Promise<void> {
     const start = Date.now();
 
-    if (!this.checkEmailRateLimit(email)) {
-      // Rate-limited: wait out the minimum time then return silently.
+    // Per-email rate limit via Redis INCR+EXPIRE.
+    // Returns 0 when Redis is down (fail-open).
+    const count = await this.cache.increment(emailRateKey(email), EMAIL_RATE_WINDOW_SECS);
+    if (count > EMAIL_RATE_MAX) {
+      // Silently wait out the timing floor and return - same UX as success.
+      this.logger.debug(`[auth-public] Per-email rate limit hit for hash ${emailRateKey(email).slice(-8)}`);
       await this.delay(RESET_MIN_MS);
       return;
     }
@@ -94,14 +107,16 @@ export class AuthPublicService {
     try {
       const { error } = await this.supabase.auth.resetPasswordForEmail(email, { redirectTo });
       if (error) {
-        // Not surfaced to the caller - keeps the response indistinguishable
-        // from a success so attackers cannot enumerate registered emails.
+        // Non-fatal - the response is indistinguishable from success to
+        // prevent email enumeration.
         this.logger.warn(`[auth-public] resetPasswordForEmail non-fatal error: ${error.message}`);
       }
     } catch (err) {
       this.logger.warn(`[auth-public] resetPasswordForEmail threw (non-fatal): ${String(err)}`);
     }
 
+    // Timing normalisation: ensure at least RESET_MIN_MS elapsed so a
+    // fast "email not found" path cannot be timed against a slow "found" path.
     const elapsed = Date.now() - start;
     if (elapsed < RESET_MIN_MS) {
       await this.delay(RESET_MIN_MS - elapsed);
@@ -109,11 +124,9 @@ export class AuthPublicService {
   }
 
   /**
-   * Send a branded "your password was changed" confirmation email.
-   *
+   * Send a branded "your password was changed" advisory email.
    * Called after `supabase.auth.updateUser({ password })` succeeds on the
-   * client. The endpoint is auth-guarded so we know `userEmail` is the
-   * authenticated user's own address. Failure is non-fatal (logged at warn).
+   * client. Failure is non-fatal (logged at warn level).
    */
   async notifyPasswordChanged(userEmail: string): Promise<void> {
     if (!this.resend) {
@@ -136,37 +149,6 @@ export class AuthPublicService {
   // Private helpers
   // ---------------------------------------------------------------------------
 
-  /**
-   * Returns true if the email is within the rate-limit budget, incrementing
-   * the counter. Returns false if the budget is exhausted.
-   */
-  private checkEmailRateLimit(email: string): boolean {
-    const now = Date.now();
-    const entry = this.emailRateMap.get(email);
-    if (!entry || now - entry.windowStart >= EMAIL_RATE_WINDOW_MS) {
-      // Fresh window
-      this.emailRateMap.set(email, { count: 1, windowStart: now });
-      this.evictEmailRateMap();
-      return true;
-    }
-    if (entry.count >= EMAIL_RATE_MAX) {
-      return false;
-    }
-    entry.count++;
-    return true;
-  }
-
-  /** Evict expired entries to prevent unbounded growth. */
-  private evictEmailRateMap(): void {
-    if (this.emailRateMap.size < 500) return;
-    const now = Date.now();
-    for (const [key, entry] of this.emailRateMap) {
-      if (now - entry.windowStart >= EMAIL_RATE_WINDOW_MS) {
-        this.emailRateMap.delete(key);
-      }
-    }
-  }
-
   private delay(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
@@ -174,7 +156,6 @@ export class AuthPublicService {
   /**
    * Minimal branded HTML for the password-changed advisory email.
    * Mirrors supabase/templates/password_changed.html in structure.
-   * Plain-text fallback is provided by the Resend client automatically.
    */
   private buildPasswordChangedHtml(email: string): string {
     const escapedEmail = email.replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -190,13 +171,9 @@ export class AuthPublicService {
     <tr><td align="center">
       <table width="600" cellpadding="0" cellspacing="0" role="presentation"
              style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.07);">
-
-        <!-- Header -->
         <tr><td style="background-color:#0a4a4a;padding:24px 32px;">
           <p style="margin:0;font-size:22px;font-weight:800;color:#ffffff;letter-spacing:-0.5px;">&#x1F372; Feastpot</p>
         </td></tr>
-
-        <!-- Body -->
         <tr><td style="padding:36px 32px 24px;">
           <h1 style="margin:0 0 14px;font-size:22px;font-weight:800;color:#1a1a1a;letter-spacing:-0.4px;">
             Your password was changed
@@ -206,8 +183,6 @@ export class AuthPublicService {
             <strong style="color:#1a1a1a;">${escapedEmail}</strong>
             was just updated. All other active sessions have been signed out as a security precaution.
           </p>
-
-          <!-- Security alert box -->
           <table width="100%" cellpadding="0" cellspacing="0" role="presentation"
                  style="background:#fff8f0;border:1px solid #f0d090;border-radius:8px;margin-bottom:28px;">
             <tr><td style="padding:16px 20px;">
@@ -220,14 +195,11 @@ export class AuthPublicService {
             </td></tr>
           </table>
         </td></tr>
-
-        <!-- Footer -->
         <tr><td style="padding:16px 32px 28px;border-top:1px solid #ede8e3;">
           <p style="margin:0;font-size:12px;color:#999999;line-height:1.5;">
-            Feastpot Ltd &bull; This is a security notification. You cannot unsubscribe from security emails.
+            Feastpot Ltd. This is a security notification; you cannot unsubscribe from it.
           </p>
         </td></tr>
-
       </table>
     </td></tr>
   </table>
