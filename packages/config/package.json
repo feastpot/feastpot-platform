@@ -11,14 +11,17 @@
     "./eslint/nestjs": "./eslint-nestjs.js",
     "./platform-facts": {
       "types": "./src/platform-facts.ts",
+      "require": "./src/platform-facts.cjs.js",
       "default": "./src/platform-facts.ts"
     },
     "./allergens": {
       "types": "./src/allergens.ts",
+      "require": "./src/allergens.cjs.js",
       "default": "./src/allergens.ts"
     },
     "./service-fee": {
       "types": "./src/service-fee.ts",
+      "require": "./src/service-fee.cjs.js",
       "default": "./src/service-fee.ts"
     }
   },
@@ -34,6 +37,7 @@
   },
   "files": [
     "src",
+    "src/*.cjs.js",
     "tsconfig.base.json",
     "tsconfig.nextjs.json",
     "tsconfig.nestjs.json",
