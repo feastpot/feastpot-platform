@@ -6,21 +6,42 @@ import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
 
 import { useTrackEvent } from '@/hooks/use-track-event';
 
-// ── Maths helpers ─────────────────────────────────────────────────────────
+// ── Stripe processing estimate ──────────────────────────────────────────────
+//
+// EXTERNAL ESTIMATE only. 1.5 % + 20p per transaction is the publicly listed
+// UK Stripe card rate. This is NOT a Feastpot fee, rate or commitment.
+// Stripe sets this; Feastpot does not mark it up.
+const STRIPE_VARIABLE_RATE = 0.015;
+const STRIPE_FIXED_PENCE = 20;
 
-/**
- * Round half up to the nearest integer (pence).
- * Standard "schoolbook" rounding: .5 rounds away from zero.
- */
+// ── Commission rates from PLATFORM_FACTS ────────────────────────────────────
+//
+// Read once so they cannot drift from the central source.
+// Changing platform-facts.ts changes every figure on this page with no other edit.
+const VENDOR_REFERRED_PCT = PLATFORM_FACTS.commission.vendorReferred;
+const MARKETPLACE_FIRST_PCT = PLATFORM_FACTS.commission.marketplaceFirst;
+const MARKETPLACE_REPEAT_PCT = PLATFORM_FACTS.commission.marketplaceRepeat;
+
+// ── External market estimate: major aggregator commission band ───────────────
+// NOT a Feastpot figure. Used only in the prose comparison lines.
+const AGGREGATOR_LOW_PCT = 25;
+const AGGREGATOR_HIGH_PCT = 30;
+
+// ── Preset worked examples ───────────────────────────────────────────────────
+
+const EXAMPLES = [
+  { label: 'A £15 plate', valuePence: 1500 },
+  { label: 'A £250 catering tray', valuePence: 25000 },
+] as const;
+
+// ── Maths helpers ────────────────────────────────────────────────────────────
+
+/** Round half up to the nearest integer (schoolbook rounding). */
 function roundHalfUp(x: number): number {
   return Math.floor(x + 0.5);
 }
 
-/**
- * Format an integer pence value as GBP with thousands separators and
- * exactly two decimal places.  All arithmetic is done in integer pence
- * so there are no floating-point artefacts to hide.
- */
+/** Format pence as GBP with thousands separators and exactly two decimals. */
 function formatGBP(pence: number): string {
   return new Intl.NumberFormat('en-GB', {
     style: 'currency',
@@ -30,275 +51,179 @@ function formatGBP(pence: number): string {
   }).format(pence / 100);
 }
 
-/**
- * Estimate Stripe processing cost for a given revenue block.
- *
- * 1.5% of revenue (rounded half-up to the nearest penny) + 20p per
- * transaction.  This is an EXTERNAL ESTIMATE using publicly listed UK
- * Stripe rates; Feastpot does not set or mark up Stripe fees.
- */
-function stripeEstimatePence(revenuePence: number, txCount: number): number {
-  return roundHalfUp(revenuePence * 0.015) + txCount * 20;
+/** Format pence as GBP rounded to whole pounds (for monthly totals). */
+function formatGBPWhole(pence: number): string {
+  return new Intl.NumberFormat('en-GB', {
+    style: 'currency',
+    currency: 'GBP',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(Math.round(pence / 100));
 }
 
-// ── Rate constants from PLATFORM_FACTS ───────────────────────────────────
-//
-// Read once so they cannot drift from the central source.  Changing the
-// value in platform-facts.ts changes every output cell with no other edit.
-
-const MARKETPLACE_FIRST_RATE = PLATFORM_FACTS.commission.marketplaceFirst / 100;
-const MARKETPLACE_REPEAT_RATE = PLATFORM_FACTS.commission.marketplaceRepeat / 100;
-// Commission on vendor-referred orders is 0% - kept as a variable so
-// the calculation path is explicit even when multiplied by zero.
-const VENDOR_REFERRED_RATE = PLATFORM_FACTS.commission.vendorReferred / 100;
-
-// ── Model types ───────────────────────────────────────────────────────────
-
-interface ModelResult {
-  totalRevenuePence: number;
-  platformCostPence: number;
-  stripeCostPence: number;
-  totalCostPence: number;
-  netPence: number;
+/** Format a Stripe fee pence value for the footnote: "43p" below 100p, "£3.95" above. */
+function formatStripeFee(pence: number): string {
+  return pence < 100 ? `${pence}p` : formatGBP(pence);
 }
 
-interface AllModels {
-  feastpot: ModelResult;
-  flat: ModelResult;
-  aggregator: ModelResult;
+/** Format a percentage without trailing decimals (12, not 12.0). */
+function pct(v: number): string {
+  return v % 1 === 0 ? String(Math.trunc(v)) : String(v);
 }
 
-// ── Core calculation ──────────────────────────────────────────────────────
-
-function computeModels(
-  ownRevenuePence: number,
-  avgOrderValuePence: number,
-  /** Total Feastpot-sourced orders per month (first-time + returning combined). */
-  feastpotTotalCount: number,
-  /** Returning subset of feastpotTotalCount; capped at feastpotTotalCount. */
-  feastpotRepeatCount: number,
-  aggregatorRatePct: number,
-): AllModels {
-  // Split total Feastpot orders into first-time and repeat components.
-  // "repeat" is a subset of the total, never additive.
-  const repeat = Math.min(feastpotRepeatCount, feastpotTotalCount);
-  const firstTime = feastpotTotalCount - repeat;
-
-  // Derive Feastpot-order revenue from counts × average order value.
-  const feastpotFirstRevenue = firstTime * avgOrderValuePence;
-  const feastpotRepeatRevenue = repeat * avgOrderValuePence;
-  const totalRevenuePence = ownRevenuePence + feastpotFirstRevenue + feastpotRepeatRevenue;
-
-  // Transaction counts (guard against avgOrderValue = 0).
-  const ownTxCount =
-    avgOrderValuePence > 0 ? Math.round(ownRevenuePence / avgOrderValuePence) : 0;
-  const totalTxCount = ownTxCount + feastpotTotalCount;
-
-  // Stripe estimate is the same real cost in all three models.
-  const stripeCost = stripeEstimatePence(totalRevenuePence, totalTxCount);
-
-  // ── Model 1: Feastpot (real model) ─────────────────────────────────────
-  // Own orders: 0% platform commission (VENDOR_REFERRED_RATE = 0).
-  // Marketplace first: MARKETPLACE_FIRST_RATE.
-  // Marketplace repeat: MARKETPLACE_REPEAT_RATE.
-  const feastpotPlatformCost =
-    roundHalfUp(ownRevenuePence * VENDOR_REFERRED_RATE) +
-    roundHalfUp(feastpotFirstRevenue * MARKETPLACE_FIRST_RATE) +
-    roundHalfUp(feastpotRepeatRevenue * MARKETPLACE_REPEAT_RATE);
-  const feastpotTotalCost = feastpotPlatformCost + stripeCost;
-  const feastpot: ModelResult = {
-    totalRevenuePence,
-    platformCostPence: feastpotPlatformCost,
-    stripeCostPence: stripeCost,
-    totalCostPence: feastpotTotalCost,
-    netPence: totalRevenuePence - feastpotTotalCost,
-  };
-
-  // ── Model 2: Flat at first-order rate ──────────────────────────────────
-  // Same MARKETPLACE_FIRST_RATE applied to all revenue (own + marketplace).
-  const flatPlatformCost = roundHalfUp(totalRevenuePence * MARKETPLACE_FIRST_RATE);
-  const flatTotalCost = flatPlatformCost + stripeCost;
-  const flat: ModelResult = {
-    totalRevenuePence,
-    platformCostPence: flatPlatformCost,
-    stripeCostPence: stripeCost,
-    totalCostPence: flatTotalCost,
-    netPence: totalRevenuePence - flatTotalCost,
-  };
-
-  // ── Model 3: Typical aggregator ────────────────────────────────────────
-  // User-selectable rate (25-30%); treated as the platform's full cut
-  // (some aggregators bundle processing; we show it separately for a like-
-  // for-like comparison, consistent with models 1 and 2).
-  const aggregatorPlatformCost = roundHalfUp(totalRevenuePence * (aggregatorRatePct / 100));
-  const aggregatorTotalCost = aggregatorPlatformCost + stripeCost;
-  const aggregator: ModelResult = {
-    totalRevenuePence,
-    platformCostPence: aggregatorPlatformCost,
-    stripeCostPence: stripeCost,
-    totalCostPence: aggregatorTotalCost,
-    netPence: totalRevenuePence - aggregatorTotalCost,
-  };
-
-  return { feastpot, flat, aggregator };
+/** Stripe processing estimate for one transaction. */
+function stripeSinglePence(orderPence: number): number {
+  return roundHalfUp(orderPence * STRIPE_VARIABLE_RATE) + STRIPE_FIXED_PENCE;
 }
 
-// ── Sub-components ────────────────────────────────────────────────────────
+/** Feastpot commission for one order at the given rate (as a whole percentage). */
+function commissionPence(orderPence: number, ratePct: number): number {
+  return roundHalfUp(orderPence * (ratePct / 100));
+}
 
-interface ResultCardProps {
+// ── Three-card data ──────────────────────────────────────────────────────────
+
+interface CardData {
+  key: string;
   label: string;
-  rateLabel: string;
-  result: ModelResult;
-  highlight?: boolean;
+  figurePence: number;
+  figureCaption: string;
+  body: string;
+  highlight: boolean;
 }
 
-function ResultCard({ label, rateLabel, result, highlight }: ResultCardProps) {
+function buildCards(orderPence: number): CardData[] {
+  const stripe = stripeSinglePence(orderPence);
+
+  const ownFee = commissionPence(orderPence, VENDOR_REFERRED_PCT);
+  const ownNet = orderPence - stripe - ownFee;
+  // If the rate is ever changed away from 0, the body copy renders the real figure.
+  const ownFeeDisplay =
+    ownFee === 0
+      ? '£0.00'
+      : formatGBP(ownFee);
+
+  const firstFee = commissionPence(orderPence, MARKETPLACE_FIRST_PCT);
+  const firstNet = orderPence - stripe - firstFee;
+
+  const repeatFee = commissionPence(orderPence, MARKETPLACE_REPEAT_PCT);
+  const repeatNet = orderPence - stripe - repeatFee;
+
+  return [
+    {
+      key: 'own',
+      label: 'Your own customer',
+      figurePence: ownNet,
+      figureCaption: 'lands in your account',
+      body: `Our fee: ${ownFeeDisplay}. They came through your link, QR code or Instagram, so we take nothing.`,
+      highlight: true,
+    },
+    {
+      key: 'first',
+      label: 'A customer we found you',
+      figurePence: firstNet,
+      figureCaption: 'of business you did not have',
+      body: `Our fee: ${formatGBP(firstFee)}. Someone searched their postcode and picked your kitchen.`,
+      highlight: false,
+    },
+    {
+      key: 'repeat',
+      label: 'When that customer returns',
+      figurePence: repeatNet,
+      figureCaption: 'and it keeps repeating',
+      body: `Our fee: ${formatGBP(repeatFee)}. It drops to ${pct(MARKETPLACE_REPEAT_PCT)}% once they are a regular of yours.`,
+      highlight: false,
+    },
+  ];
+}
+
+// ── Sub-components ───────────────────────────────────────────────────────────
+
+function WorkedCard({ card }: { card: CardData }) {
   return (
     <div
       className={
-        'rounded-2xl p-5 ' +
-        (highlight
-          ? 'border-2 border-brand bg-white'
-          : 'border border-cream-deep bg-white')
+        'flex flex-col rounded-2xl bg-white p-5 ' +
+        (card.highlight
+          ? 'border-2 border-brand'
+          : 'border border-cream-deep')
       }
     >
       <p
         className={
-          'mb-0.5 text-[10px] font-black uppercase tracking-[0.14em] ' +
-          (highlight ? 'text-brand' : 'text-charcoal-mid')
+          'mb-3 text-[10px] font-black uppercase tracking-[0.14em] ' +
+          (card.highlight ? 'text-brand' : 'text-charcoal-mid')
         }
       >
-        {label}
+        {card.label}
       </p>
-      <p className="mb-4 text-[13px] font-semibold text-charcoal">{rateLabel}</p>
-
-      <div className="space-y-2">
-        <Row label="Platform commission" value={result.platformCostPence} negative />
-        <Row label="Stripe processing (est.)" value={result.stripeCostPence} negative faint />
-        <div className="border-t border-cream-deep pt-2">
-          <Row label="Total cost" value={result.totalCostPence} negative bold />
-        </div>
-        <div className="rounded-xl bg-brand-light px-3 py-2.5">
-          <Row label="You keep" value={result.netPence} bold highlight={highlight} />
-        </div>
-      </div>
+      <p className="font-display text-4xl font-black text-charcoal">
+        {formatGBP(card.figurePence)}
+      </p>
+      <p className="mt-1 mb-4 text-[12px] font-semibold text-charcoal-mid">
+        {card.figureCaption}
+      </p>
+      <p className="mt-auto text-[13px] leading-relaxed text-charcoal-mid">{card.body}</p>
     </div>
   );
 }
 
-interface RowProps {
-  label: string;
-  value: number;
-  negative?: boolean;
-  faint?: boolean;
-  bold?: boolean;
-  highlight?: boolean;
-}
-
-function Row({ label, value, negative, faint, bold, highlight }: RowProps) {
-  return (
-    <div className="flex items-center justify-between gap-2">
-      <span
-        className={
-          'text-[12px] ' +
-          (faint ? 'text-charcoal-mid' : bold ? 'font-semibold text-charcoal' : 'text-charcoal-mid')
-        }
-      >
-        {label}
-      </span>
-      <span
-        className={
-          'shrink-0 font-mono text-[13px] ' +
-          (bold && highlight
-            ? 'font-bold text-brand-dark'
-            : bold
-              ? 'font-bold text-charcoal'
-              : negative
-                ? 'text-scotch'
-                : 'text-charcoal')
-        }
-      >
-        {negative && value > 0 ? '-' : ''}
-        {formatGBP(Math.abs(value))}
-      </span>
-    </div>
-  );
-}
-
-// ── NumberInput ───────────────────────────────────────────────────────────
-
-interface NumberInputProps {
+interface SliderProps {
   id: string;
   label: string;
-  hint?: string;
-  value: string;
-  onChange: (v: string) => void;
-  prefix?: string;
-  min?: number;
-  max?: number;
-  step?: number;
-  placeholder?: string;
+  min: number;
+  max: number;
+  step: number;
+  value: number;
+  onChange: (v: number) => void;
+  formatValue: (v: number) => string;
 }
 
-function NumberInput({
-  id,
-  label,
-  hint,
-  value,
-  onChange,
-  prefix,
-  min = 0,
-  max,
-  step = 1,
-  placeholder,
-}: NumberInputProps) {
+function Slider({ id, label, min, max, step, value, onChange, formatValue }: SliderProps) {
   return (
     <div>
-      <label htmlFor={id} className="mb-1 block text-[13px] font-semibold text-charcoal">
-        {label}
-      </label>
-      {hint && <p className="mb-1.5 text-[11px] text-charcoal-mid">{hint}</p>}
-      <div className="relative flex items-center">
-        {prefix && (
-          <span className="absolute left-3 select-none text-sm font-semibold text-charcoal-mid">
-            {prefix}
-          </span>
-        )}
-        <input
-          id={id}
-          type="number"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          min={min}
-          max={max}
-          step={step}
-          placeholder={placeholder}
-          className={
-            'w-full rounded-xl border border-cream-deep bg-white py-2.5 text-sm text-charcoal ' +
-            'focus:outline-none focus:ring-2 focus:ring-brand/40 ' +
-            (prefix ? 'pl-7 pr-3' : 'px-3')
-          }
-        />
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <label htmlFor={id} className="text-[13px] font-semibold text-charcoal">
+          {label}
+        </label>
+        <span
+          aria-live="polite"
+          aria-atomic="true"
+          className="shrink-0 rounded-full bg-charcoal px-2.5 py-0.5 font-mono text-[12px] font-bold text-white"
+        >
+          {formatValue(value)}
+        </span>
+      </div>
+      <input
+        id={id}
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-cream-deep accent-brand"
+        aria-valuetext={formatValue(value)}
+      />
+      <div className="mt-1 flex justify-between text-[11px] text-charcoal-mid">
+        <span>{formatValue(min)}</span>
+        <span>{formatValue(max)}</span>
       </div>
     </div>
   );
 }
 
-// ── Main component ────────────────────────────────────────────────────────
+// ── Main export ──────────────────────────────────────────────────────────────
 
 export function EarningsCalculator() {
-  const [ownRevenue, setOwnRevenue] = useState('1200');
-  const [avgOrderValue, setAvgOrderValue] = useState('35');
-  // Total expected Feastpot orders per month (first-time + returning).
-  const [feastpotTotal, setFeastpotTotal] = useState('5');
-  // Returning subset of feastpotTotal; spec default is 0 ("treat all as first-time").
-  const [feastpotRepeat, setFeastpotRepeat] = useState('0');
-  const [aggregatorRate, setAggregatorRate] = useState(27.5);
+  const [exampleIdx, setExampleIdx] = useState(0);
+  // Calculator sliders
+  const [orderValue, setOrderValue] = useState(15); // whole pounds
+  const [ordersPerWeek, setOrdersPerWeek] = useState(10);
 
-  // calculator_interaction: debounced 800 ms so rapid slider/input moves
-  // collapse into a single event. Fire-and-forget via useTrackEvent.
   const track = useTrackEvent();
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
@@ -307,140 +232,149 @@ export function EarningsCalculator() {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ownRevenue, avgOrderValue, feastpotTotal, feastpotRepeat, aggregatorRate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderValue, ordersPerWeek, exampleIdx]);
 
-  const models = useMemo(() => {
-    // Parse inputs to pence (guard NaN and negatives).
-    const toP = (s: string) => {
-      const v = parseFloat(s);
-      return Number.isFinite(v) && v > 0 ? roundHalfUp(v * 100) : 0;
-    };
-    const toCount = (s: string) => {
-      const v = parseInt(s, 10);
-      return Number.isFinite(v) && v > 0 ? v : 0;
-    };
+  // ── Worked-example derived values ──────────────────────────────────────────
 
-    return computeModels(
-      toP(ownRevenue),
-      toP(avgOrderValue),
-      toCount(feastpotTotal),
-      toCount(feastpotRepeat),
-      aggregatorRate,
-    );
-  }, [ownRevenue, avgOrderValue, feastpotTotal, feastpotRepeat, aggregatorRate]);
+  // exampleIdx is always 0 or 1 (set only by the toggle buttons above).
+  // The nullish fallback satisfies TypeScript's tuple-index narrowing.
+  const selectedExample = EXAMPLES[exampleIdx] ?? EXAMPLES[0];
+  const examplePence = selectedExample.valuePence;
 
-  const pct = (v: number) => (v % 1 === 0 ? String(Math.trunc(v)) : String(v));
+  const cards = useMemo(() => buildCards(examplePence), [examplePence]);
+
+  const stripeFeePence = stripeSinglePence(examplePence);
+  const exampleLabel = formatGBP(examplePence);
+
+  // External market estimate for the aggregator prose line (not a Feastpot figure).
+  const aggLo = formatGBP(roundHalfUp((examplePence * AGGREGATOR_LOW_PCT) / 100));
+  const aggHi = formatGBP(roundHalfUp((examplePence * AGGREGATOR_HIGH_PCT) / 100));
+
+  // ── Calculator derived values ───────────────────────────────────────────────
+
+  const calcOrderPence = orderValue * 100; // whole pounds, no rounding needed
+  // Monthly orders = weekly * 52 / 12, rounded to nearest whole order.
+  const monthlyOrders = Math.round((ordersPerWeek * 52) / 12);
+  const monthlyGrossPence = monthlyOrders * calcOrderPence;
+
+  // External market estimate for the calculator comparison (not a Feastpot figure).
+  const calcAggLoPence = roundHalfUp((monthlyGrossPence * AGGREGATOR_LOW_PCT) / 100);
+  const calcAggHiPence = roundHalfUp((monthlyGrossPence * AGGREGATOR_HIGH_PCT) / 100);
 
   return (
-    <div className="mt-8 rounded-2xl border border-cream-deep bg-cream-warm p-5 sm:p-6">
-      <h3 className="mb-1 font-display text-lg font-black text-charcoal">
-        See how it compares
-      </h3>
-      <p className="mb-5 text-[13px] text-charcoal-mid">
-        Enter your numbers below. All three models update instantly.
-      </p>
-
-      {/* Inputs */}
-      <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <NumberInput
-          id="calc-own-revenue"
-          label="Your monthly own-customer revenue"
-          hint="Revenue from customers you already have (Instagram, WhatsApp, word of mouth)"
-          value={ownRevenue}
-          onChange={setOwnRevenue}
-          prefix="£"
-          placeholder="1200"
-        />
-        <NumberInput
-          id="calc-avg-order"
-          label="Average order value"
-          hint="Used to estimate transaction count for Stripe processing"
-          value={avgOrderValue}
-          onChange={setAvgOrderValue}
-          prefix="£"
-          placeholder="35"
-          min={0.01}
-          step={0.01}
-        />
-        <NumberInput
-          id="calc-fp-total"
-          label="Feastpot orders per month"
-          hint="Total orders from customers who find you through Feastpot postcode search"
-          value={feastpotTotal}
-          onChange={setFeastpotTotal}
-          placeholder="5"
-        />
-        <NumberInput
-          id="calc-fp-repeat"
-          label="Of which, returning orders"
-          hint={`Returning orders pay ${pct(PLATFORM_FACTS.commission.marketplaceRepeat)}% vs ${pct(PLATFORM_FACTS.commission.marketplaceFirst)}% for first-time orders. Leave at 0 to treat all as first-time.`}
-          value={feastpotRepeat}
-          onChange={setFeastpotRepeat}
-          placeholder="0"
-        />
-      </div>
-
-      {/* Aggregator rate slider */}
-      <div className="mb-6">
-        <div className="mb-2 flex items-center justify-between">
-          <label
-            htmlFor="calc-aggregator-rate"
-            className="text-[13px] font-semibold text-charcoal"
-          >
-            Aggregator comparison rate
-          </label>
-          <span className="rounded-full bg-charcoal px-2.5 py-0.5 text-[12px] font-bold text-white">
-            {pct(aggregatorRate)}%
-          </span>
-        </div>
-        <input
-          id="calc-aggregator-rate"
-          type="range"
-          min={25}
-          max={30}
-          step={0.5}
-          value={aggregatorRate}
-          onChange={(e) => setAggregatorRate(parseFloat(e.target.value))}
-          className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-cream-deep accent-charcoal"
-          aria-label={`Aggregator comparison rate: ${pct(aggregatorRate)}%`}
-        />
-        <div className="mt-1 flex justify-between text-[11px] text-charcoal-mid">
-          <span>25%</span>
-          <span>30%</span>
-        </div>
-        <p className="mt-1.5 text-[11px] text-charcoal-mid">
-          Typical major aggregator range. This is a market comparison, not a Feastpot figure.
+    <div className="space-y-8">
+      {/* 1. Heading block */}
+      <div>
+        <h2
+          id="numbers-heading"
+          className="font-display text-3xl font-black tracking-tight text-charcoal"
+        >
+          How the numbers work
+        </h2>
+        <p className="mt-2 text-[15px] leading-relaxed text-charcoal-mid">
+          Two rates. Which one applies depends on one thing: did we bring you the customer, or did
+          you?
         </p>
       </div>
 
-      {/* Results */}
-      <div className="grid gap-3 sm:grid-cols-3">
-        <ResultCard
-          label="Feastpot"
-          rateLabel={`${pct(PLATFORM_FACTS.commission.vendorReferred)}% on own orders / ${pct(PLATFORM_FACTS.commission.marketplaceFirst)}% on new / ${pct(PLATFORM_FACTS.commission.marketplaceRepeat)}% on repeat`}
-          result={models.feastpot}
-          highlight
-        />
-        <ResultCard
-          label={`Flat at ${pct(PLATFORM_FACTS.commission.marketplaceFirst)}%`}
-          rateLabel={`${pct(PLATFORM_FACTS.commission.marketplaceFirst)}% on all revenue (own + marketplace)`}
-          result={models.flat}
-        />
-        <ResultCard
-          label="Typical aggregator"
-          rateLabel={`${pct(aggregatorRate)}% on all revenue (market comparison)`}
-          result={models.aggregator}
-        />
+      {/* 2. Example selector */}
+      <div>
+        <p className="mb-3 text-[11px] font-black uppercase tracking-[0.14em] text-charcoal-mid">
+          Pick an example
+        </p>
+        <div className="inline-flex gap-2">
+          {EXAMPLES.map((ex, i) => (
+            <button
+              key={ex.label}
+              type="button"
+              onClick={() => setExampleIdx(i)}
+              aria-pressed={exampleIdx === i}
+              className={
+                'rounded-lg px-4 py-2 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 ' +
+                (exampleIdx === i
+                  ? 'bg-brand text-white'
+                  : 'border border-cream-deep bg-white text-charcoal hover:border-brand hover:text-brand')
+              }
+            >
+              {ex.label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Small print */}
-      <p className="mt-4 text-[11px] leading-relaxed text-charcoal-mid">
-        * Stripe processing estimate of 1.5% + 20p per transaction is based on publicly listed UK
-        Stripe card rates and is shown as an indicative external cost common to all models. Actual
-        processing fees vary by card type and are set by Stripe, not Feastpot. This is not a
-        commitment by Feastpot.
+      {/* 3. Three cards (stacks on narrow viewports, three columns from sm up) */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        {cards.map((card) => (
+          <WorkedCard key={card.key} card={card} />
+        ))}
+      </div>
+
+      {/* 4. Stripe footnote - updates with selected example */}
+      <p className="text-[12px] leading-relaxed text-charcoal-mid">
+        All three figures are after Stripe&apos;s card processing of about{' '}
+        <strong>{formatStripeFee(stripeFeePence)}</strong> on a{' '}
+        <strong>{exampleLabel}</strong> order. Stripe charges that on every card payment,
+        including your own customers. It is their fee, set by them, and we add nothing on top.
       </p>
+
+      {/* 5. Aggregator comparison - a prose line, no inputs, no table column */}
+      <div className="rounded-2xl bg-white px-5 py-4 ring-1 ring-cream-deep">
+        <p className="text-[13px] leading-relaxed text-charcoal-mid">
+          On Deliveroo or Uber Eats, a {exampleLabel} order costs you roughly{' '}
+          <strong className="text-charcoal">
+            {aggLo} to {aggHi}
+          </strong>{' '}
+          in commission. If that customer is already yours, here it costs you nothing.
+        </p>
+      </div>
+
+      {/* 6. Calculator */}
+      <div>
+        <div className="my-2 border-t border-cream-deep" />
+
+        <h3 className="mt-8 mb-1 font-display text-xl font-black text-charcoal">
+          Your kitchen, your numbers
+        </h3>
+        <p className="mb-6 text-[13px] text-charcoal-mid">
+          Adjust the sliders to see how your book looks across a month.
+        </p>
+
+        <div className="space-y-6">
+          <Slider
+            id="calc-order-value"
+            label="A typical order is"
+            min={10}
+            max={400}
+            step={5}
+            value={orderValue}
+            onChange={setOrderValue}
+            formatValue={(v) => `£${v}`}
+          />
+          <Slider
+            id="calc-orders-week"
+            label="Orders a week"
+            min={1}
+            max={60}
+            step={1}
+            value={ordersPerWeek}
+            onChange={setOrdersPerWeek}
+            formatValue={(v) => String(v)}
+          />
+        </div>
+
+        <div className="mt-6 rounded-2xl bg-white px-5 py-4 ring-1 ring-cream-deep">
+          <p className="text-[14px] leading-relaxed text-charcoal">
+            About <strong>{monthlyOrders}</strong> orders a month, so roughly{' '}
+            <strong>{formatGBPWhole(monthlyGrossPence)}</strong> a month. If those are your own
+            customers, you keep all of it here. The same book on a major aggregator would cost you{' '}
+            <strong>
+              {formatGBPWhole(calcAggLoPence)} to {formatGBPWhole(calcAggHiPence)}
+            </strong>{' '}
+            a month in commission.
+          </p>
+        </div>
+      </div>
     </div>
   );
 }

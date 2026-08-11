@@ -506,60 +506,6 @@ export default function BecomeAVendorPage() {
         aria-labelledby="numbers-heading"
       >
         <div className="mx-auto max-w-6xl px-5 sm:px-8 lg:px-12">
-          <h2
-            id="numbers-heading"
-            className="mb-2 font-display text-3xl font-black tracking-tight text-charcoal"
-          >
-            How the numbers work
-          </h2>
-          <p className="mb-8 text-sm font-medium text-charcoal-mid">
-            Two rates, depending on where the customer came from. No other fees.
-          </p>
-
-          <div className="mb-6 grid gap-4 sm:grid-cols-2">
-            {/* Card 1: Vendor-referred */}
-            <div className="rounded-2xl border-2 border-brand bg-white p-6">
-              <p className="mb-1 text-[11px] font-black uppercase tracking-[0.14em] text-brand">
-                Your orders
-              </p>
-              <p className="mb-3 font-display text-5xl font-black text-charcoal">
-                {pct(PLATFORM_FACTS.commission.vendorReferred)}%
-              </p>
-              <p className="mb-1 text-[13px] font-semibold text-charcoal">commission</p>
-              <p className="text-[13px] leading-relaxed text-charcoal-mid">
-                Customers via your own link, QR code, Instagram or WhatsApp. You pay only Stripe
-                card processing at cost - nothing added by us.
-              </p>
-            </div>
-
-            {/* Card 2: Marketplace */}
-            <div className="rounded-2xl bg-white p-6 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
-              <p className="mb-1 text-[11px] font-black uppercase tracking-[0.14em] text-charcoal-mid">
-                Feastpot orders
-              </p>
-              <p className="mb-3 font-display text-5xl font-black text-charcoal">
-                {pct(PLATFORM_FACTS.commission.marketplaceFirst)}%
-              </p>
-              <p className="mb-1 text-[13px] font-semibold text-charcoal">commission</p>
-              <p className="text-[13px] leading-relaxed text-charcoal-mid">
-                Customers who discover you through postcode search on Feastpot. We take{' '}
-                {pct(PLATFORM_FACTS.commission.marketplaceFirst)}% of the food subtotal on completed
-                orders only.
-              </p>
-              <p className="mt-3 text-[13px] font-semibold text-charcoal-mid">
-                Order again through Feastpot and the rate drops to{' '}
-                {pct(PLATFORM_FACTS.commission.marketplaceRepeat)}%.
-              </p>
-            </div>
-          </div>
-
-          <p className="mb-8 text-[12px] leading-relaxed text-charcoal-mid">
-            You are never tied to us and can sell wherever you like. We give at least{' '}
-            <strong>{PLATFORM_FACTS.feeChangeNoticeDays} days&apos; written notice</strong> before
-            changing any fee, and changes are never applied retrospectively.
-          </p>
-
-          {/* Interactive calculator: see what each model costs at your revenue */}
           <EarningsCalculator />
 
           {/* Live rate schedule from the database */}

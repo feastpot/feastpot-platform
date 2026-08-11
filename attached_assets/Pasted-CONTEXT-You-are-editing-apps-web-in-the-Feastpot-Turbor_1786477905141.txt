@@ -1,0 +1,92 @@
+CONTEXT
+You are editing apps/web in the Feastpot Turborepo monorepo (Next.js 15 App Router, NestJS 11 API, Prisma, Supabase). Commercial constants live in packages/config as PLATFORM_FACTS and are guarded by a consistency test at apps/api/src/platform-facts.spec.ts. UK English throughout. Never use an em dash anywhere in copy or code comments.
+
+TASK
+Replace the existing "How the numbers work" commercials block and the "See how it compares" calculator on /become-a-vendor with a simplified version built around two single-order worked examples. The current version asks for four numeric inputs and renders a nine-cell comparison grid before the vendor learns anything. The replacement must communicate the same commercial facts with no input required to get the core answer.
+
+RATES: read all of these from PLATFORM_FACTS.commission, never hard-code the digits.
+- vendorReferred (currently 0)
+- marketplaceFirst (currently 12)
+- marketplaceRepeat (currently 10)
+Format percentages without trailing decimals for display (12, not 12.0).
+
+STRIPE ESTIMATE: 1.5% + 20p per transaction. This is an external estimate of UK standard card rates, NOT a Feastpot commitment and NOT a PLATFORM_FACTS value. Define it as a clearly named local constant with a comment saying so. Never present it as a platform figure.
+
+STRUCTURE TO BUILD, in this order:
+
+1. HEADING BLOCK
+   H2: How the numbers work
+   Subheading: Two rates. Which one applies depends on one thing: did we bring you the customer, or did you?
+
+2. EXAMPLE SELECTOR
+   Two toggle buttons: "A £15 plate" and "A £250 catering tray". The £15 example is selected by default. Selecting a toggle updates the three cards below and the comparison line. These two values span the real range of this cuisine, from an individual Sunday plate to a party tray, and the catering figure is the more persuasive of the two, so it must be reachable in one click.
+
+3. THREE CARDS (responsive grid, minmax around 200px, stacking on narrow viewports)
+   For an order value V, with stripeFee = V * 0.015 + 0.20:
+
+   Card 1, accented with a 2px success-coloured border to mark it as the headline case:
+     Label: Your own customer
+     Figure: V - stripeFee
+     Caption under figure: lands in your account
+     Body: Our fee: £0.00. They came through your link, QR code or Instagram, so we take nothing.
+
+   Card 2, standard border:
+     Label: A customer we found you
+     Figure: V - stripeFee - (V * marketplaceFirst / 100)
+     Caption under figure: of business you did not have
+     Body: Our fee: [computed]. Someone searched their postcode and picked your kitchen.
+
+   Card 3, standard border:
+     Label: When that customer returns
+     Figure: V - stripeFee - (V * marketplaceRepeat / 100)
+     Caption under figure: and it keeps repeating
+     Body: Our fee: [computed]. It drops to [marketplaceRepeat]% once they are a regular of yours.
+
+   CRITICAL FRAMING RULE: cards 2 and 3 must be captioned as incremental business gained, never as a deduction from card 1. The correct reference point for a marketplace order is zero, because that order would not otherwise exist. Do not use red text, minus signs, or "you lose" framing anywhere in this block.
+
+   CRITICAL ACCURACY RULE: every headline figure is net of the Stripe estimate. Do not display a gross figure such as "you keep £15.00" on the own-customer card. Feastpot is separately fixing drip pricing on the customer side under the DMCC Act; showing a vendor a number larger than what actually reaches their account is the same failure aimed at a different audience, and it breaks trust at the worst possible moment, when their first payout lands short of the headline.
+
+4. STRIPE FOOTNOTE (small, secondary text, directly below the cards)
+   "All three figures are after Stripe's card processing of about [Xp] on a [£V] order. Stripe charges that on every card payment, including your own customers. It is their fee, set by them, and we add nothing on top."
+   The pence figure and order value update with the selected example.
+
+5. AGGREGATOR COMPARISON (a single prose line in a subtle surface panel, NOT an input, NOT a table column)
+   "On Deliveroo or Uber Eats, a [£V] order costs you roughly [25% of V] to [30% of V] in commission. If that customer is already yours, here it costs you nothing."
+   Updates with the selected example. Label the 25 to 30% band in a code comment as an external market estimate, not a Feastpot figure.
+
+6. CALCULATOR (two inputs only, below a divider)
+   Heading: Your kitchen, your numbers
+   Input 1: range slider, "A typical order is", min 10, max 400, step 5, default 15. The 400 ceiling matters so a caterer can find themselves on the scale.
+   Input 2: range slider, "Orders a week", min 1, max 60, step 1, default 10.
+   Output, one sentence in a surface panel:
+   "About [N] orders a month, so roughly [£X a month]. If those are your own customers, you keep all of it here. The same book on a major aggregator would cost you [£lo to £hi a month] in commission."
+   Monthly orders = weekly * 52 / 12. Round displayed monthly figures to whole pounds; round per-order figures to two decimals.
+
+WHAT TO REMOVE from the current page:
+- The four-input form ("Your monthly own-customer revenue", "Average order value", "Feastpot orders per month", "Of which, returning orders"). The returning-orders input in particular explains a small difference at the cost of two sentences of instruction and will be left at its default by nearly everyone.
+- The "Flat at 12%" comparison column. It compares Feastpot to a version of Feastpot that does not exist, and a vendor skimming it can reasonably conclude you charge 12% on everything, which is the exact confusion the column was built to prevent.
+- The aggregator percentage slider. 27.5% precision on a competitor estimate is detail nobody asked for; the prose line in step 5 replaces it.
+- Stripe as a repeated line item in every comparison column. It is identical across all models, so it cancels out while inflating the apparent cost.
+
+IMPLEMENTATION NOTES:
+- This is interactive, so it is a Client Component ("use client"), mounted at id="numbers" so the hero's "See how the numbers work" secondary CTA continues to anchor-scroll to it.
+- Do all money maths in integer pence internally and round half up at the penny for display. Format as GBP with thousands separators.
+- Use the existing brand tokens from packages/ui rather than introducing new colour values.
+- Ensure both sliders are keyboard accessible with visible labels and current values announced.
+
+ACCEPTANCE CRITERIA:
+- Every commission percentage rendered on the page comes from PLATFORM_FACTS at render time. Changing marketplaceFirst in platform-facts.ts changes the page with no other edit, and the consistency test still passes.
+- The own-customer card shows a figure net of the Stripe estimate, never a gross order value.
+- Switching to the catering example updates all three cards, the Stripe footnote, and the aggregator line together.
+- No red text, minus signs, or loss framing appears anywhere in the block.
+- The calculator has exactly two inputs and produces a readable answer at its default values without the vendor touching anything.
+- No "Flat at 12%" column and no aggregator percentage slider remain anywhere on the page.
+- The hero secondary CTA still scrolls to this block.
+
+EDGE CASES:
+- Slider at minimum (£10 order): the Stripe fixed 20p is proportionally large, so verify figures stay sensible and no card shows a negative or nonsensical value.
+- Very high order value (£400) combined with 60 orders a week: monthly figures must still format cleanly with thousands separators.
+- Narrow mobile viewport: the three cards stack, the two toggle buttons remain tappable, and no horizontal scroll appears.
+- If PLATFORM_FACTS.commission.vendorReferred is ever changed away from 0, card 1's "Our fee: £0.00" copy must render the computed value rather than a hard-coded zero.
+
+STYLE: UK English. No em dashes. Do not reintroduce monthly-revenue framing as the primary input. Do not present the Stripe estimate as a Feastpot rate.
