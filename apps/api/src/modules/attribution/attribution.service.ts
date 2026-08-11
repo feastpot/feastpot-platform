@@ -196,6 +196,55 @@ export class AttributionService {
     return { processed, failed };
   }
 
+  /**
+   * Regenerate stored QR codes for all referral links that already have a
+   * qrCodeUrl, so they encode the ?m=qr tracking marker.
+   *
+   * The original backfillMissingQr() only touched IS-NULL rows; this handles
+   * the inverse set: rows that have a QR but generated before the marker was
+   * introduced.  generateAndStoreQr() now produces ?m=qr URLs and overwrites
+   * the existing image in Supabase Storage.
+   *
+   * Use dryRun=true first to confirm scope before committing.
+   */
+  async backfillQrMarkers(
+    dryRun: boolean,
+  ): Promise<{ processed: number; failed: number; dryRun: boolean; slugs?: string[] }> {
+    const links = await this.prisma.vendorReferralLink.findMany({
+      where: { qrCodeUrl: { not: null } },
+      select: { id: true, slug: true },
+    });
+
+    if (dryRun) {
+      this.logger.log(
+        `QR marker backfill (dry-run): ${links.length} link(s) would be regenerated`,
+      );
+      return {
+        dryRun: true,
+        processed: links.length,
+        failed: 0,
+        slugs: links.map((l) => l.slug),
+      };
+    }
+
+    this.logger.log(`QR marker backfill: regenerating ${links.length} QR code(s)`);
+    let processed = 0;
+    let failed = 0;
+
+    for (const link of links) {
+      try {
+        await this.generateAndStoreQr(link.id, link.slug);
+        processed++;
+      } catch (err) {
+        this.logger.error(`QR marker backfill failed for slug=${link.slug}: ${String(err)}`);
+        failed++;
+      }
+    }
+
+    this.logger.log(`QR marker backfill complete: ${processed} ok, ${failed} failed`);
+    return { dryRun: false, processed, failed };
+  }
+
   private withReferralUrl(link: { id: string; vendorId: string; slug: string; qrCodeUrl: string | null; createdAt: Date }) {
     return {
       ...link,

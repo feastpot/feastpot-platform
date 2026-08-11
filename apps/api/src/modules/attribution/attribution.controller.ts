@@ -97,9 +97,24 @@ export class AttributionController {
   @Post('admin/backfill-qr')
   @Roles(UserRole.admin)
   @HttpCode(200)
-  @ApiOperation({ summary: 'Admin: backfill QR codes for links that lack them' })
+  @ApiOperation({ summary: 'Admin: backfill QR codes for links that lack them (IS NULL)' })
   backfillQr() {
     return this.attribution.backfillMissingQr();
+  }
+
+  /**
+   * Regenerate QR codes for links that already have a stored QR but encode
+   * the old URL without the ?m=qr tracking marker.
+   *
+   * Pass ?dryRun=true to preview scope (returns slugs list, no writes).
+   * Pass ?dryRun=false (or omit) to commit the regeneration.
+   */
+  @Post('admin/backfill-qr-markers')
+  @Roles(UserRole.admin)
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Admin: regenerate QR codes to include the ?m=qr tracking marker' })
+  backfillQrMarkers(@Query('dryRun') dryRun?: string) {
+    return this.attribution.backfillQrMarkers(dryRun === 'true');
   }
 
   @Get('admin/list')

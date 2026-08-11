@@ -1,8 +1,10 @@
-import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
+import { UserRole } from '@prisma/client';
 
 import { Public } from '../../auth/decorators/public.decorator';
+import { Roles } from '../../auth/decorators/roles.decorator';
 
 import { AnalyticsService } from './analytics.service';
 import { TrackEventDto } from './dto/track-event.dto';
@@ -50,4 +52,42 @@ export class AnalyticsController {
       vendorId: dto.vendorId,
     });
   }
+
+  // ── Admin read endpoints ────────────────────────────────────────────────────
+  // Staff-gated; all queries run server-side via PrismaService.
+  // Never exposed on the public POST endpoint above.
+
+  /** Funnel step counts (unique sessions + total events) over the given window. */
+  @Get('admin/funnel')
+  @Roles(UserRole.admin, UserRole.finance, UserRole.support)
+  @ApiOperation({ summary: 'Admin: vendor-acquisition funnel step counts' })
+  adminFunnel(@Query('days') days?: string) {
+    const d = clampDays(days);
+    return this.analytics.getFunnelStats(d);
+  }
+
+  /** Top-N vendors by share link + QR activity over the given window. */
+  @Get('admin/shares')
+  @Roles(UserRole.admin, UserRole.finance, UserRole.support)
+  @ApiOperation({ summary: 'Admin: top vendors by share and QR activity' })
+  adminShares(@Query('days') days?: string, @Query('limit') limit?: string) {
+    const d = clampDays(days);
+    const n = Math.min(Math.max(parseInt(limit ?? '20', 10) || 20, 1), 100);
+    return this.analytics.getShareActivity(d, n);
+  }
+
+  /** order_attribution_source breakdown (VENDOR_REFERRED / MARKETPLACE / etc). */
+  @Get('admin/attribution')
+  @Roles(UserRole.admin, UserRole.finance, UserRole.support)
+  @ApiOperation({ summary: 'Admin: order attribution source breakdown' })
+  adminAttribution(@Query('days') days?: string) {
+    const d = clampDays(days);
+    return this.analytics.getAttributionBreakdown(d);
+  }
+}
+
+/** Clamp a query-param "days" value to [1, 365] with a 30-day default. */
+function clampDays(raw: string | undefined): number {
+  const n = parseInt(raw ?? '30', 10);
+  return Number.isFinite(n) ? Math.min(Math.max(n, 1), 365) : 30;
 }

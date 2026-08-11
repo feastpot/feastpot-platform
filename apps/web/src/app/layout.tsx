@@ -7,6 +7,7 @@ import type { ReactNode } from 'react';
 import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
 import { ToastProvider, ToastViewport } from '@feastpot/ui';
 
+import { AnalyticsInitializer } from '@/components/analytics/analytics-initializer';
 import { CookieBanner } from '@/components/cookie-banner';
 import { BottomNav } from '@/components/layout/bottom-nav';
 import { Footer } from '@/components/layout/footer';
@@ -116,6 +117,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             <PushPermissionPrompt />
             <SWUpdatePrompt />
             <CookieBanner />
+            {/* Replays any analytics events that failed to send during a
+                prior visit (e.g. deploy cold-start). Renders nothing. */}
+            <AnalyticsInitializer />
             <ToastViewport />
           </ToastProvider>
         </QueryProvider>
