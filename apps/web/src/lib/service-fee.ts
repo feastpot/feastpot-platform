@@ -16,17 +16,14 @@
  * Import `computeServiceFeePence` and show it wherever an item price or
  * basket subtotal is shown for the first time.
  */
-export { computeServiceFeePence } from '@feastpot/config/service-fee';
+import { computeServiceFeePence } from '@feastpot/config/service-fee';
+export { computeServiceFeePence };
 
 /** @deprecated Pass only subtotalPence; bps is ignored. Use computeServiceFeePence. */
 export function calcServiceFeePence(
   subtotalPence: number,
   _bps?: number | null | undefined,
 ): number {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const { computeServiceFeePence } = require('@feastpot/config/service-fee') as {
-    computeServiceFeePence: (n: number) => number;
-  };
   return computeServiceFeePence(subtotalPence);
 }
 

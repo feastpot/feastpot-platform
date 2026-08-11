@@ -20,6 +20,7 @@ import { SlotPicker } from '@/components/checkout/slot-picker';
 import { PanelTitle } from '@/components/ui/wireframe';
 import { CoverageBadge } from '@/components/vendor/coverage-badge';
 import { useAddresses } from '@/hooks/use-addresses';
+import { useFeastPassMembership } from '@/hooks/use-feastpass';
 import { useLoyalty } from '@/hooks/use-loyalty';
 import { useConfirmOrder, useCreateOrder } from '@/hooks/use-orders';
 import { ApiError, apiRequest } from '@/lib/api/client';
@@ -202,8 +203,14 @@ function CheckoutInner() {
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
 
+  // FeastPass membership. Waives the service fee for ACTIVE subscribers.
+  // The hook short-circuits when no token is present, so it's safe to call
+  // unconditionally here regardless of auth state.
+  const { data: feastPassData } = useFeastPassMembership();
+  const isFeastPassMember = feastPassData?.subscription?.status === 'ACTIVE';
+
   // Loyalty redemption (FR-LOY-001). Cap by balance only - backend caps
-  // the redemption against (subtotal + delivery − promo) and we don't
+  // the redemption against (subtotal + delivery - promo) and we don't
   // know the server-side delivery fee here, so capping by subtotal alone
   // would under-state the true max. Floor to a multiple of 100 so the
   // stepper buttons stay sensible. Actual discount is recomputed server-side.
@@ -254,11 +261,17 @@ function CheckoutInner() {
   // the field, in which case we withhold express pay below rather than guess.
   const platformServiceFeeBps =
     coverageVendor?.platformServiceFeeBps ?? baseVendor?.platformServiceFeeBps;
-  // Service fee depends only on the subtotal (clamped to [min, max]), so it's
-  // knowable as soon as the bps is loaded - independent of delivery/slot. This
-  // same figure drives both the visible summary line and the express-pay total,
-  // and mirrors the server's `calculateServiceFee` so the charge can't drift.
-  const serviceFeePence = calcServiceFeePence(subtotal, platformServiceFeeBps);
+  // Service fee: 5% of the net subtotal (after loyalty discount) capped at
+  // £2.99, per PLATFORM_FACTS. The server now computes the fee on the post-
+  // discount subtotal, so we mirror that here. Express pay is disabled when a
+  // promo code is applied (opaque to the client), so the only discount we need
+  // to subtract is the known loyalty amount.
+  // FeastPass members pay no service fee; the server confirms this on order
+  // creation, but we reflect it immediately in the UI so they see the correct
+  // total before placing the order.
+  const effectiveLoyaltyPence = loyaltyPoints >= 200 ? loyaltyPoints : 0;
+  const rawServiceFeePence = calcServiceFeePence(Math.max(0, subtotal - effectiveLoyaltyPence));
+  const serviceFeePence = isFeastPassMember ? 0 : rawServiceFeePence;
   const expressServiceFeePence = serviceFeePence;
   const expressLoyaltyPence =
     expressDeliveryFeePence == null
@@ -273,11 +286,13 @@ function CheckoutInner() {
         );
   // Only offer express pay once the order is actually placeable and the exact
   // total is knowable (delivery pricing loaded, no opaque discount code).
+  // FeastPass members get a 0 fee so we don't need platformServiceFeeBps to
+  // compute the express total; non-members still need it loaded.
   const expressPayReady =
     !discountCodeApplied &&
     !paidButUnconfirmed &&
     expressDeliveryFeePence != null &&
-    platformServiceFeeBps != null &&
+    (isFeastPassMember || platformServiceFeeBps != null) &&
     expressTotalPence > 0 &&
     Boolean(selectedAddressId) &&
     Boolean(scheduledFor) &&
@@ -624,7 +639,18 @@ function CheckoutInner() {
                   {formatPounds(subtotal)}
                 </span>
               </div>
-              {serviceFeePence > 0 && (
+              {isFeastPassMember ? (
+                <div className="mt-1.5 flex justify-between text-sm">
+                  <span className="flex items-center gap-1 text-charcoal-mid">
+                    Service fee
+                    <span className="inline-flex items-center gap-0.5 rounded-full bg-brand/10 px-1.5 py-0.5 text-[10px] font-bold text-brand">
+                      <Sparkles className="h-2.5 w-2.5" aria-hidden />
+                      FeastPass
+                    </span>
+                  </span>
+                  <span className="font-medium tabular-nums text-brand">Free</span>
+                </div>
+              ) : serviceFeePence > 0 ? (
                 <div className="mt-1.5 flex justify-between text-sm">
                   <span className="text-charcoal-mid">
                     Service fee
@@ -636,7 +662,7 @@ function CheckoutInner() {
                     {formatPounds(serviceFeePence)}
                   </span>
                 </div>
-              )}
+              ) : null}
               <p className="mt-1 text-[11px] font-medium text-charcoal-mid">
                 Delivery and any discounts are calculated at order placement.
               </p>

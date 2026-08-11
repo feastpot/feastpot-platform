@@ -127,6 +127,10 @@ export function VendorRowCard({ vendor, trustSignals, capacity }: Props) {
               </>
             )}
           </p>
+          {/* DMCC Act 2024: disclose service fee at first price display. */}
+          {minOrderLabel && (
+            <p className="text-[10px] text-charcoal-mid/60">+ up to £2.99 service fee</p>
+          )}
 
           {/* Trust signal badges + capacity */}
           {(badgeTypes.length > 0 || capacity) && (

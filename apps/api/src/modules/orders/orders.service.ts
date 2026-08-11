@@ -450,7 +450,10 @@ export class OrdersService {
       select: { status: true },
     });
     const isFeastPassMember = feastPassSub?.status === FeastPassStatus.ACTIVE;
-    const rawServiceFeePence = getServiceFeePence(subtotalPence);
+    // DMCC Act 2024: the service fee is charged on the net amount the customer
+    // pays toward food, after all discounts. Computing it on the gross subtotal
+    // would over-charge members who have a promo code or loyalty redemption.
+    const rawServiceFeePence = getServiceFeePence(Math.max(0, subtotalPence - discountPence));
     const serviceFeePence = isFeastPassMember ? 0 : rawServiceFeePence;
 
     const totalPence = Math.max(
