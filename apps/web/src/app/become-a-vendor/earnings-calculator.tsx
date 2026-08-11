@@ -71,19 +71,26 @@ interface AllModels {
 function computeModels(
   ownRevenuePence: number,
   avgOrderValuePence: number,
-  feastpotFirstCount: number,
+  /** Total Feastpot-sourced orders per month (first-time + returning combined). */
+  feastpotTotalCount: number,
+  /** Returning subset of feastpotTotalCount; capped at feastpotTotalCount. */
   feastpotRepeatCount: number,
   aggregatorRatePct: number,
 ): AllModels {
+  // Split total Feastpot orders into first-time and repeat components.
+  // "repeat" is a subset of the total, never additive.
+  const repeat = Math.min(feastpotRepeatCount, feastpotTotalCount);
+  const firstTime = feastpotTotalCount - repeat;
+
   // Derive Feastpot-order revenue from counts × average order value.
-  const feastpotFirstRevenue = feastpotFirstCount * avgOrderValuePence;
-  const feastpotRepeatRevenue = feastpotRepeatCount * avgOrderValuePence;
+  const feastpotFirstRevenue = firstTime * avgOrderValuePence;
+  const feastpotRepeatRevenue = repeat * avgOrderValuePence;
   const totalRevenuePence = ownRevenuePence + feastpotFirstRevenue + feastpotRepeatRevenue;
 
   // Transaction counts (guard against avgOrderValue = 0).
   const ownTxCount =
     avgOrderValuePence > 0 ? Math.round(ownRevenuePence / avgOrderValuePence) : 0;
-  const totalTxCount = ownTxCount + feastpotFirstCount + feastpotRepeatCount;
+  const totalTxCount = ownTxCount + feastpotTotalCount;
 
   // Stripe estimate is the same real cost in all three models.
   const stripeCost = stripeEstimatePence(totalRevenuePence, totalTxCount);
@@ -280,8 +287,10 @@ function NumberInput({
 export function EarningsCalculator() {
   const [ownRevenue, setOwnRevenue] = useState('1200');
   const [avgOrderValue, setAvgOrderValue] = useState('35');
-  const [feastpotFirstOrders, setFeastpotFirstOrders] = useState('5');
-  const [feastpotRepeatOrders, setFeastpotRepeatOrders] = useState('2');
+  // Total expected Feastpot orders per month (first-time + returning).
+  const [feastpotTotal, setFeastpotTotal] = useState('5');
+  // Returning subset of feastpotTotal; spec default is 0 ("treat all as first-time").
+  const [feastpotRepeat, setFeastpotRepeat] = useState('0');
   const [aggregatorRate, setAggregatorRate] = useState(27.5);
 
   const models = useMemo(() => {
@@ -298,11 +307,11 @@ export function EarningsCalculator() {
     return computeModels(
       toP(ownRevenue),
       toP(avgOrderValue),
-      toCount(feastpotFirstOrders),
-      toCount(feastpotRepeatOrders),
+      toCount(feastpotTotal),
+      toCount(feastpotRepeat),
       aggregatorRate,
     );
-  }, [ownRevenue, avgOrderValue, feastpotFirstOrders, feastpotRepeatOrders, aggregatorRate]);
+  }, [ownRevenue, avgOrderValue, feastpotTotal, feastpotRepeat, aggregatorRate]);
 
   const pct = (v: number) => (v % 1 === 0 ? String(Math.trunc(v)) : String(v));
 
@@ -338,20 +347,20 @@ export function EarningsCalculator() {
           step={0.01}
         />
         <NumberInput
-          id="calc-fp-first"
-          label="New Feastpot customers per month"
-          hint="Customers who find you through postcode search for the first time"
-          value={feastpotFirstOrders}
-          onChange={setFeastpotFirstOrders}
+          id="calc-fp-total"
+          label="Feastpot orders per month"
+          hint="Total orders from customers who find you through Feastpot postcode search"
+          value={feastpotTotal}
+          onChange={setFeastpotTotal}
           placeholder="5"
         />
         <NumberInput
           id="calc-fp-repeat"
-          label="Of which, returning customers"
-          hint={`Returning customers pay ${pct(PLATFORM_FACTS.commission.marketplaceRepeat)}% vs ${pct(PLATFORM_FACTS.commission.marketplaceFirst)}% for first orders`}
-          value={feastpotRepeatOrders}
-          onChange={setFeastpotRepeatOrders}
-          placeholder="2"
+          label="Of which, returning orders"
+          hint={`Returning orders pay ${pct(PLATFORM_FACTS.commission.marketplaceRepeat)}% vs ${pct(PLATFORM_FACTS.commission.marketplaceFirst)}% for first-time orders. Leave at 0 to treat all as first-time.`}
+          value={feastpotRepeat}
+          onChange={setFeastpotRepeat}
+          placeholder="0"
         />
       </div>
 
