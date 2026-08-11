@@ -167,11 +167,12 @@ export default function ResetUpdate() {
 
           {/* Password rules shown upfront, before submission */}
           <div className="mt-3 rounded-lg bg-cream-warm px-4 py-3 text-xs leading-relaxed text-charcoal-mid">
-            <strong className="text-charcoal">Password rules:</strong>
+            <strong className="text-charcoal">Your password must have:</strong>
             <ul className="mt-1 list-disc pl-4 space-y-0.5">
-              <li>At least {MIN_LENGTH} characters</li>
-              <li>Up to {MAX_LENGTH} characters</li>
-              <li>Use a mix of letters, numbers and symbols for a stronger password</li>
+              <li>At least {MIN_LENGTH} characters (up to {MAX_LENGTH})</li>
+              <li>Uppercase and lowercase letters</li>
+              <li>At least one number</li>
+              <li>At least one symbol (e.g. !, @, #, $)</li>
             </ul>
           </div>
 
