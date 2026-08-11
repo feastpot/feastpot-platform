@@ -338,6 +338,19 @@ export class VendorRepository {
         ${matchedDishesSelect}
       FROM vendors v
       WHERE v.status::text = ${dto.status ?? VendorStatus.live}
+        AND v.approved_at IS NOT NULL
+        AND v.suspended_at IS NULL
+        -- TODO (Prompt 13 / complianceStatus): once the vendor verification gate
+        -- promotes FHRS compliance onto the Vendor model as a complianceStatus field
+        -- (per PLATFORM_FACTS.vendorRequirements - FHRS rating >= 3 required), add:
+        --   AND EXISTS (
+        --     SELECT 1 FROM vendor_verifications vv
+        --     WHERE vv.vendor_id = v.id
+        --       AND vv.fhrs_inspection_status = 'RATED'
+        --       AND vv.fhrs_rating >= 3
+        --   )
+        -- A REGISTERED_AWAITING_INSPECTION vendor must never appear in customer search
+        -- even if their VendorStatus is otherwise live.
         ${cursorClause}
         ${cuisineClause}
         ${halalClause}

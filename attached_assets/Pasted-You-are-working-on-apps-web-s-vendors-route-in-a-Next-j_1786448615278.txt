@@ -1,0 +1,21 @@
+You are working on apps/web's /vendors route in a Next.js 15 App Router app backed by apps/api and Prisma. After the data purge (Prompt 1), most postcodes will legitimately show no vendors.
+
+FIRST, INSPECT: open prisma/schema.prisma and confirm the VendorStatus enum values. The vendor list query must only return vendors that are genuinely live: use the correct status enum member for an active/approved vendor, combined with approvedAt IS NOT NULL and suspendedAt IS NULL.
+
+DEPENDENCY ON PROMPT 13: if Vendor has (or will have, per Prompt 13) a complianceStatus field, the query must ALSO require complianceStatus = RATED (fsaHygieneRating >= 3). PLATFORM_FACTS.vendorRequirements hard-requires an FHRS rating of at least 3 out of 5 before a vendor can be found or ordered from; a REGISTERED_AWAITING_INSPECTION vendor must never appear here even if their VendorStatus is otherwise active. If Prompt 13 has not yet been run, add a TODO comment noting this filter must be added once complianceStatus exists, rather than silently omitting it. Do not guess enum member names; use what is actually defined.
+
+TASK:
+1. Keep initial vendor fetching in a Server Component where possible; isolate the postcode input and interactive result handling in a Client Component.
+2. Build three states:
+   a. NO POSTCODE ENTERED: a designed prompt inviting the customer to enter their postcode, not a spinner.
+   b. LOADING: a skeleton shown only while the request is in flight.
+   c. POSTCODE ENTERED, NO LIVE VENDORS COVERING IT: a designed empty state that surfaces the existing notify-me capture (postcode prefilled, email, optional WhatsApp, favourite cuisine) and the existing recommend-a-cook form, both already present on the homepage. Reuse those components; do not duplicate their logic.
+3. On successful submission of either form, show a clear confirmation.
+
+ACCEPTANCE CRITERIA:
+- No postcode entered never shows a bare "Loading vendors" state.
+- A postcode with no live vendors (per the correct VendorStatus/approvedAt/suspendedAt filter) shows the notify-me and recommend-a-cook forms, both functional.
+- A postcode with live vendors shows the vendor list as normal.
+- The loading state only appears during the actual fetch.
+
+EDGE CASES: invalid or partial UK postcode format should be validated inline before firing a search; network/API errors get a distinct error state with retry, not confused with the genuine empty state.
