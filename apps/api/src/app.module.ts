@@ -16,6 +16,7 @@ import { LoggerModule } from 'nestjs-pino';
 // without re-importing it everywhere.
 
 import { AuthModule } from './auth/auth.module';
+import { AuthPublicModule } from './modules/auth-public/auth-public.module';
 import { CacheModule } from './common/cache/cache.module';
 import { RoleThrottlerGuard } from './common/guards/role-throttler.guard';
 import { HealthController } from './health/health.controller';
@@ -396,6 +397,7 @@ import { RootController } from './root.controller';
     // AnalyticsModule is @Global so AnalyticsService is injectable everywhere.
     AnalyticsModule,
     AttributionModule,
+    AuthPublicModule,
     VendorTaxProfileModule,
     ErrorIncidentsModule,
   ],

@@ -70,10 +70,12 @@ export async function GET(request: NextRequest) {
   }
 
   // Success - redirect to `next`, preserving the freshly-set session cookies.
-  // The previous guard only checked `startsWith('/')`, which still let
-  // `//evil.example` (protocol-relative) through. `safeRedirect` blocks
-  // that plus `..` traversal and backslash normalisation tricks.
-  const dest = new URL(safeRedirect(next, '/'), url.origin);
+  // If this is a password-recovery flow (type=recovery), always land on the
+  // new-password form regardless of what `next` says. This prevents a crafted
+  // link from sending a reset-authed session to an arbitrary path.
+  const type = url.searchParams.get('type');
+  const safeNext = type === 'recovery' ? '/auth/reset/update' : safeRedirect(next, '/');
+  const dest = new URL(safeNext, url.origin);
   const redirect = NextResponse.redirect(dest);
   response.headers.getSetCookie().forEach((sc) => redirect.headers.append('set-cookie', sc));
   return redirect;

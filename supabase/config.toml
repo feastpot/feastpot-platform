@@ -1,0 +1,111 @@
+# Supabase project configuration - local CLI development.
+#
+# This file IS the source of truth for auth settings that can drift between
+# environments. Production values MUST match what is set here, applied via the
+# cloud dashboard or `supabase push` after linking:
+#   supabase link --project-ref <ref>
+#   supabase push
+#
+# SMTP / Sending infrastructure (Part 1 of password-reset hardening):
+# ---------------------------------------------------------------------------
+# Configure Resend as the custom SMTP provider in the Supabase cloud dashboard:
+#   Authentication > Settings > SMTP Settings
+#   Host:     smtp.resend.com
+#   Port:     587 (STARTTLS) or 465 (TLS)
+#   Username: resend
+#   Password: [RESEND_API_KEY secret]
+#   Sender:   Feastpot <no-reply@feastpot.co.uk>
+#
+# DNS REQUIREMENTS (must all pass before launch - check in Resend dashboard):
+#   SPF   - TXT record on feastpot.co.uk starting "v=spf1 include:amazonses.com ..."
+#   DKIM  - TXT record at resend._domainkey.feastpot.co.uk
+#   DMARC - TXT record at _dmarc.feastpot.co.uk with p=quarantine or p=reject
+#
+# CURRENT DNS STATUS (verified 2026-08-11): NOT CONFIGURED.
+# dig TXT feastpot.co.uk, dig TXT _dmarc.feastpot.co.uk, and
+# dig TXT resend._domainkey.feastpot.co.uk all returned empty.
+# NO EMAIL WILL DELIVER RELIABLY UNTIL THESE RECORDS EXIST AND PASS.
+# ---------------------------------------------------------------------------
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 15
+
+[studio]
+enabled = true
+port = 54323
+
+[inbucket]
+enabled = true
+port = 54324
+smtp_port = 54325
+pop3_port = 54326
+
+[storage]
+enabled = true
+file_size_limit = "50MiB"
+
+[auth]
+enabled = true
+site_url = "https://feastpot.co.uk"
+
+# Supabase allows any URL in this list as a `redirect_to` target after auth.
+# Add the vendor portal URL here once it is confirmed.
+# NOTE: For cloud Supabase, set the same list in:
+#   Authentication > URL Configuration > Additional Redirect URLs
+additional_redirect_urls = [
+  "https://feastpot.co.uk/auth/callback",
+  "https://feastpot.co.uk/auth/reset/start",
+  # Vendor portal: replace with the actual VENDOR_PORTAL_URL in production.
+  # e.g. "https://vendor.feastpot.co.uk/auth/callback",
+  "http://localhost:3000/auth/callback",
+  "http://localhost:3000/auth/reset/start",
+  "http://localhost:3002/auth/callback",
+  "http://localhost:3002/auth/reset/start",
+]
+
+jwt_expiry = 3600
+enable_refresh_token_rotation = true
+refresh_token_reuse_interval = 10
+enable_signup = true
+enable_anonymous_sign_ins = false
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+enable_confirmations = false
+
+# Reduce the recovery token TTL from the 24-hour default to 60 minutes.
+# This MUST also be set in the cloud dashboard:
+#   Authentication > Email Templates > "OTP Expiry" -> 3600 (seconds)
+mailer_otp_exp = 3600
+
+# ---------------------------------------------------------------------------
+# Branded email templates.
+# Templates are committed here so they are version-controlled, reviewable in
+# diffs, and never pasted into the Supabase dashboard as the source of truth.
+# Cloud Supabase uses these templates when synced via `supabase push`.
+# ---------------------------------------------------------------------------
+
+[auth.email.template.recovery]
+subject = "Reset your Feastpot password"
+content_path = "./supabase/templates/recovery.html"
+
+# NOTE: Supabase does not have a built-in "password changed" template type.
+# The password_changed.html template in this directory is committed for review
+# and used by the NestJS API (POST /v1/auth/notify-password-changed) via Resend.
+# See apps/api/src/modules/auth-public/auth-public.service.ts.
+
+[auth.sms]
+enable_signup = false
+
+[analytics]
+enabled = false

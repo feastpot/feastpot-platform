@@ -1,0 +1,22 @@
+Reset your Feastpot password
+============================
+
+Someone (hopefully you) asked to reset the password for your Feastpot account.
+
+To set a new password, open the link below in your browser:
+
+  https://feastpot.co.uk/auth/reset/start#{{ .ConfirmationURL }}
+
+This link expires in 60 minutes. After that, visit the sign-in page and
+request a new reset link.
+
+If you did not request this, you can safely ignore this email and your
+password will stay the same.
+
+---
+
+Feastpot
+Need help? Email support@feastpot.co.uk
+Monday to Saturday, within 24 hours
+
+This is a security email sent because a password reset was requested.

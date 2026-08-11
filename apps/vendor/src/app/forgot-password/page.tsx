@@ -4,13 +4,19 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useState, type FormEvent } from 'react';
 
-import { createClient } from '@/lib/supabase/client';
+import { API_URL } from '@/lib/env';
 
 /**
- * Vendor forgot-password. Mirrors the customer app's version: always
- * shows a generic "check your email" state so we don't leak whether a
- * given address is a registered vendor. Real errors still log to the
- * console for ops debugging.
+ * Vendor forgot-password.
+ *
+ * Routes through the API (POST /v1/auth/reset-request) instead of calling
+ * Supabase directly so we get:
+ *  - Server-side per-email rate limiting (3/hr)
+ *  - Timing normalisation to prevent email-enumeration timing attacks
+ *  - The correct vendor-portal redirectTo embedded server-side
+ *
+ * Always shows a generic "check your email" state regardless of whether
+ * the address belongs to a registered vendor.
  */
 export default function VendorForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -20,17 +26,16 @@ export default function VendorForgotPasswordPage() {
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setBusy(true);
-    const supabase = createClient();
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      // Vendor portal has its own /auth/callback? Not yet - fall back to
-      // the customer app's callback which sets the session cookie and
-      // bounces to a safe destination. Long-term we should add a vendor
-      // callback route, but a vendor confirming via email link already
-      // gets routed back into the vendor portal by Supabase's redirect
-      // allow-list.
-      redirectTo: `${window.location.origin}/sign-in`,
-    });
-    if (error) console.warn('[vendor-forgot-password]', error.message);
+    try {
+      await fetch(`${API_URL}/v1/auth/reset-request`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email, app: 'vendor' }),
+      });
+    } catch (err) {
+      // Network error: still show the generic success state.
+      console.warn('[vendor-forgot-password] reset-request failed (non-fatal):', err);
+    }
     setBusy(false);
     setSubmitted(true);
   };
@@ -56,8 +61,11 @@ export default function VendorForgotPasswordPage() {
             </h1>
             <p className="mt-2 text-sm text-charcoal-mid">
               If a vendor account exists for{' '}
-              <strong className="break-all text-charcoal">{email}</strong>, we&rsquo;ll send a link
-              to reset your password.
+              <strong className="break-all text-charcoal">{email}</strong>, we&rsquo;ll send a
+              link to reset your password. The link expires after 60&nbsp;minutes.
+            </p>
+            <p className="mt-1 text-xs text-charcoal-mid">
+              Don&rsquo;t see it? Check your spam folder.
             </p>
             <Link
               href="/sign-in"
@@ -99,7 +107,7 @@ export default function VendorForgotPasswordPage() {
                 disabled={busy}
                 className="w-full rounded-xl bg-brand py-3.5 text-sm font-bold text-white shadow-card transition-colors hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {busy ? 'Sending…' : 'Send reset link'}
+                {busy ? 'Sending\u2026' : 'Send reset link'}
               </button>
             </form>
 

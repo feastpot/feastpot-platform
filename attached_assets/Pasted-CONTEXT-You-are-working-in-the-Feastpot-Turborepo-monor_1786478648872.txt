@@ -1,0 +1,166 @@
+CONTEXT
+You are working in the Feastpot Turborepo monorepo: apps/web (Next.js 15 App Router, customer), apps/vendor (Next.js 15, vendor portal), apps/admin (Next.js 15), apps/api (NestJS 11), Prisma against Supabase Postgres, Resend for transactional email, packages/config exports PLATFORM_FACTS, packages/ui exports brand tokens and shared components. UK English throughout. Never use an em dash anywhere, in copy, code, or comments.
+
+PROBLEM
+The password reset email currently sends from "Supabase Auth <noreply@mail.app.supabase.io>" using the stock Supabase template. It carries no Feastpot branding, no logo, no brand colours, and no support signposting. It looks like a phishing email and will damage trust at the exact moment a user is already anxious. Separately, the reset journey has not been tested against real-world mail infrastructure or against user enumeration.
+
+Deliver five things: a branded email, correct sending infrastructure, enumeration hardening, scanner-proof token handling, and a full test suite.
+
+=====================================================================
+PART 1: SENDING INFRASTRUCTURE
+=====================================================================
+
+1. Configure Resend as custom SMTP for Supabase Auth so auth email no longer uses Supabase's built-in sender. The built-in service is rate limited to about 2 emails per hour and is for testing only; it cannot be used at launch.
+2. Sender identity must be a Feastpot address on a verified sending domain, for example "Feastpot <no-reply@feastpot.co.uk>". Do NOT use a bare noreply@ with no display name.
+3. VERIFY DNS BEFORE DECLARING THIS DONE: SPF, DKIM and DMARC records must all be present and passing for the sending domain in the Resend dashboard. An unverified sending domain is a known prior failure mode on this team's projects and silently kills delivery. Report the actual verification status; do not assume.
+4. Set a dedicated reply-to address that a human monitors, sourced from PLATFORM_FACTS.support.email. Never send auth email with an unmonitored reply-to.
+5. Reduce the recovery token expiry. Supabase defaults email links and OTPs to 24 hours, which is far too long for a password reset. Set the recovery token expiry to 60 minutes or less. Configure this in supabase/config.toml, not only in the dashboard.
+
+=====================================================================
+PART 2: THE BRANDED EMAIL
+=====================================================================
+
+STORE THE TEMPLATE IN THE REPO. Do not paste HTML into the Supabase dashboard as the source of truth. Use supabase/config.toml with a content_path pointing at a committed file, for example:
+
+  [auth.email.template.recovery]
+  subject = "Reset your Feastpot password"
+  content_path = "./supabase/templates/recovery.html"
+
+This keeps the template version-controlled, reviewable in a diff, and consistent with how this repo already treats PLATFORM_FACTS and brand tokens as committed sources of truth.
+
+DESIGN REQUIREMENTS (aim for a genuinely professional standard, not a coloured-in default):
+- Table-based layout only. No flexbox, no grid, no CSS variables, no external stylesheets. Outlook's rendering engine will not support them.
+- All CSS inlined on elements. No <style> block reliance for anything load-bearing.
+- Maximum width 600px, centred, with a white or brand-cream content card on a neutral background.
+- Feastpot logo at the top, hosted at a stable absolute HTTPS URL, with meaningful alt text ("Feastpot") so the email still reads correctly with images blocked. Never rely on an image to convey the sender identity.
+- Brand colours pulled from packages/ui brand tokens, hard-coded as hex in the template since email cannot read CSS variables. Add a comment noting the source so the values can be kept in sync.
+- A single, obvious call-to-action button, built as a table cell with a background colour and padding, NOT an <a> with a CSS background, which Outlook may drop. Include a bulletproof VML fallback for Outlook if practical.
+- Below the button, the full destination URL in plain text, so a user whose client strips the button can still complete the reset.
+- Clear statement of expiry: "This link expires in 60 minutes." Match the real configured value.
+- Reassurance line: "If you did not request this, you can safely ignore this email and your password will stay the same."
+- Footer with the Feastpot name, a support contact from PLATFORM_FACTS.support.email, and the support hours from PLATFORM_FACTS.support.hours and PLATFORM_FACTS.support.responseTime.
+- Dark mode: set a sensible colour scheme meta and ensure text remains legible if a client inverts colours. Test explicitly.
+- Provide a plain-text alternative part. An HTML-only auth email hurts deliverability and fails in text-only clients.
+- REMOVE any "Opt out of these emails" or unsubscribe link. This is a transactional security email, not marketing. Offering an opt-out from security email is both wrong and a support burden. The current default template includes one; it must not survive.
+
+SUBJECT LINE: "Reset your Feastpot password". Do not use exclamation marks, do not use the recipient's name, do not use words that trip spam filters such as "urgent" or "verify now".
+
+=====================================================================
+PART 3: ENUMERATION HARDENING
+=====================================================================
+
+Supabase Auth already declines to send an email when no account matches, and returns without an error. That satisfies the "no email for a non-existent account" requirement at the mail layer. The gap is at the application layer.
+
+REQUIRED:
+1. IDENTICAL RESPONSE. The reset-request page must render exactly the same confirmation for every syntactically valid email address, whether or not an account exists: "If an account exists for that address, we have sent a link to reset your password." Never render "no account found", never render a different heading, never render a different icon or colour.
+2. CONSTANT TIMING. Measure the response time for an existing account versus a non-existent one. If they differ measurably, an attacker can enumerate by timing alone. Normalise it: perform the reset call without awaiting it in the request path, or pad the response to a fixed floor (for example, always at least 400ms). Add a test asserting the timing difference stays under a defined threshold.
+3. NO DISTINGUISHING STATUS CODES. Same HTTP status, same headers, same redirect behaviour in both cases.
+4. RATE LIMITING. Apply a per-IP and per-email-address rate limit on the reset endpoint independent of Supabase's own limits, so the endpoint cannot be used to mass-probe addresses or to mail-bomb a real user. Return the same generic response when rate limited; do not say "too many requests for this account", which itself confirms the account exists.
+5. DO NOT send a "you do not have an account" courtesy email to unknown addresses. Some products do this. It is explicitly out of scope here and must not be added.
+6. OAUTH-ONLY ACCOUNTS. Investigate and document the behaviour when the address belongs to an account created via an OAuth provider with no password identity. Supabase can create a usable password on such an account through the recovery flow without creating an email identity. Decide deliberately whether to allow this, and if allowed, ensure the account afterwards can still sign in via both routes. Report the chosen behaviour; do not leave it undefined.
+
+=====================================================================
+PART 4: SCANNER-PROOF TOKEN HANDLING (critical)
+=====================================================================
+
+Corporate mail security tools, including Microsoft Defender Safe Links, fetch URLs inside emails to scan them. Because the Supabase confirmation URL validates the token when accessed, the scanner consumes the single-use token and the real user sees "token expired" on their first click. The submitted screenshot shows this flow arriving in Outlook, so this will affect real users.
+
+IMPLEMENT THE FRAGMENT PATTERN:
+1. In the email template, do NOT place the confirmation URL directly in the href. Instead point the button at an interstitial page on your own domain with the confirmation URL carried in the URL fragment, for example:
+   https://feastpot.co.uk/auth/reset/start#confirm={{ .ConfirmationURL }}
+   URL fragments are never transmitted to the server, so a scanner fetching the link cannot see or consume the token.
+2. Build the interstitial page at that route. It is a Client Component. It reads the fragment, and renders a single clear "Set a new password" button. The token is only redeemed when the human clicks that button. The page must never auto-redirect or auto-submit on load, because that reintroduces the exact problem.
+3. The interstitial must degrade safely: if the fragment is missing or malformed, show a friendly "This link is not valid. Request a new one." with a link back to the reset-request page. Never show a raw error or a stack trace.
+4. Ensure the interstitial route is in the Supabase redirect URL allowlist, along with the equivalent routes for apps/vendor if vendors reset passwords through a separate app.
+
+=====================================================================
+PART 5: RESET COMPLETION BEHAVIOUR
+=====================================================================
+
+1. Enforce password rules on the new password and state them on the form before submission, not only as an error afterwards.
+2. Enable Supabase's leaked-password protection if not already on, so passwords found in known breaches are rejected with a clear explanation.
+3. On successful reset, revoke all other active sessions for that user across all devices. A password reset is frequently a response to suspected compromise; leaving other sessions alive defeats the purpose. Verify this actually happens rather than assuming.
+4. On successful reset, send a confirmation email ("Your Feastpot password was changed"), branded to the same standard, including support contact details so a user who did not make the change can raise it immediately. This template also goes in supabase/templates/ and config.toml.
+5. Redirect correctly by account type. This monorepo has separate customer (apps/web) and vendor (apps/vendor) surfaces. After reset, a vendor must land in the vendor portal and a customer in the customer app. Verify which app the request originated from and route accordingly; do not hard-code a single destination.
+6. Do not automatically sign the user in and drop them somewhere ambiguous. Land them on a clear success state with an explicit next action.
+
+=====================================================================
+PART 6: PERMUTATION TEST SUITE
+=====================================================================
+
+Write automated tests where feasible (Playwright for journeys, unit tests for pure logic) and a documented manual checklist for anything requiring a real mailbox. Produce a results table with PASS/FAIL/BLOCKED and evidence for every case below. Do not mark a case PASS without evidence.
+
+STAGE A: REQUEST
+A1  Valid email, account exists and is verified
+A2  Valid email, no account exists (no email sent, identical response)
+A3  Valid email, account exists but email never verified
+A4  Valid email, OAuth-only account with no password identity
+A5  Same address in different case (User@Example.com vs user@example.com)
+A6  Address with leading and trailing whitespace
+A7  Plus-addressed email (user+tag@example.com)
+A8  Malformed email (no @, no TLD, double @)
+A9  Empty submission
+A10 Address longer than 254 characters
+A11 Internationalised domain or unicode local part
+A12 Rapid repeat requests for the same address (rate limit behaviour)
+A13 Concurrent simultaneous requests for the same address
+A14 Request submitted while already signed in
+A15 Injection payloads in the email field (SQL, XSS, header injection with newlines)
+A16 Response timing: existing vs non-existent account, difference under threshold
+
+STAGE B: DELIVERY
+B17 Sender displays as Feastpot, not Supabase, with correct display name
+B18 SPF, DKIM and DMARC all pass (check raw headers)
+B19 Renders correctly in Gmail web and Gmail mobile
+B20 Renders correctly in Outlook web and Outlook desktop
+B21 Renders correctly in Apple Mail on iOS
+B22 Renders correctly in dark mode in at least two clients
+B23 Renders acceptably with images blocked (logo alt text carries sender identity)
+B24 Plain-text part present and coherent
+B25 Lands in inbox, not spam or promotions, across at least Gmail and Outlook
+B26 Subject line correct and not truncated on mobile
+B27 No unsubscribe or opt-out link present
+B28 Expiry statement in the email matches the actual configured expiry
+
+STAGE C: TOKEN AND LINK
+C29 Valid token, first use, succeeds
+C30 Token reused after a successful reset, rejected cleanly
+C31 Expired token (wait past configured expiry), friendly error and route to request a new one
+C32 Tampered or truncated token, rejected without leaking detail
+C33 Token issued for user A used while signed in as user B
+C34 Two resets requested in succession: confirm intended behaviour of the older token
+C35 Link opened on a different device and browser from the one that requested it
+C36 Link opened inside an in-app browser (Instagram, WhatsApp, Facebook). This audience arrives largely through Instagram and WhatsApp, so this is a primary path, not an edge case.
+C37 SCANNER SIMULATION: issue a reset, then perform a plain GET on the emailed link URL as a scanner would, then click through as the user. The user click must still succeed. This is the single most important case in the suite.
+C38 Interstitial page loaded with a missing or malformed fragment
+
+STAGE D: RESET COMPLETION
+D39 New password identical to the current password
+D40 Password below the minimum strength rules, rejected with a clear reason
+D41 Confirmation field does not match
+D42 Known-breached password rejected if leaked-password protection is enabled
+D43 Very long password (over 72 characters, a common bcrypt boundary)
+D44 Password containing unicode, emoji, and leading or trailing spaces
+D45 Browser back button pressed after a successful reset
+D46 Reset completed while the user has an active basket in apps/web
+
+STAGE E: POST-RESET
+E47 Sign in succeeds with the new password
+E48 Sign in with the old password now fails
+E49 Sessions on other devices are revoked
+E50 Password-changed confirmation email is received and correctly branded
+E51 Vendor account lands in apps/vendor; customer account lands in apps/web
+
+ACCEPTANCE CRITERIA
+- No email anywhere in the journey originates from a supabase.io address.
+- The recovery and password-changed templates both live in supabase/templates/ and are referenced from supabase/config.toml.
+- A2 sends no email and is byte-identical in response to A1, and A16 shows no meaningful timing difference.
+- C37 passes. A simulated scanner fetch does not prevent the subsequent human click from succeeding.
+- All support contact details and hours in both emails come from PLATFORM_FACTS.
+- The results table is complete, with evidence, and every BLOCKED case states exactly what is needed to unblock it.
+
+EDGE CASES AND CAUTIONS
+- Do not weaken enumeration protection to improve the user experience. "We could not find that account" is friendlier and is not acceptable.
+- Do not add an unsubscribe link to satisfy a generic email-compliance lint rule. Transactional security email is out of scope for marketing consent rules.
+- If DNS verification for the sending domain is incomplete, stop and report it. Every other item in this prompt is worthless if the email does not arrive.
+- If any test case cannot be executed in this environment (real mailbox rendering, spam placement), mark it BLOCKED with the specific manual step required, rather than guessing.

@@ -3,12 +3,17 @@
 import { useState, type FormEvent } from 'react';
 
 import { PageShell } from '@/components/layout/page-shell';
-import { createClient } from '@/lib/supabase/client';
 
 /**
- * Forgot-password - sends a Supabase reset-password email. Always shows a
- * generic success state (even on error) so we don't leak whether an email is
- * registered. Real errors still log to the console for ops debugging.
+ * Forgot-password - routes through the API so we can:
+ *  - Apply server-side per-email rate limiting (3/hr)
+ *  - Normalise response timing to prevent email-enumeration timing attacks
+ *  - Embed the correct redirectTo without leaking the Supabase anon key
+ *    into a client-side call
+ *
+ * Always shows a generic "check your email" state regardless of whether
+ * the address is registered. Real errors are logged to the console for
+ * ops debugging but never surfaced to the user.
  */
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -18,11 +23,17 @@ export default function ForgotPasswordPage() {
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setBusy(true);
-    const supabase = createClient();
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/callback?next=/account`,
-    });
-    if (error) console.warn('[forgot-password]', error.message);
+    try {
+      await fetch('/v1/auth/reset-request', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email, app: 'customer' }),
+      });
+    } catch (err) {
+      // Network error: still show the generic success state so the user
+      // knows what to do, and we don't reveal whether the email was found.
+      console.warn('[forgot-password] reset-request failed (non-fatal):', err);
+    }
     setBusy(false);
     setSubmitted(true);
   };
@@ -35,8 +46,12 @@ export default function ForgotPasswordPage() {
             Check your email
           </h1>
           <p className="text-sm text-charcoal-mid">
-            If an account exists for <strong className="break-all">{email}</strong>, you&rsquo;ll
-            get a reset link shortly.
+            If an account exists for{' '}
+            <strong className="break-all">{email}</strong>, you&rsquo;ll get a reset link
+            shortly. The link expires after 60&nbsp;minutes.
+          </p>
+          <p className="text-xs text-charcoal-mid">
+            Don&rsquo;t see it? Check your spam folder.
           </p>
         </section>
       </PageShell>
@@ -71,7 +86,7 @@ export default function ForgotPasswordPage() {
             disabled={busy}
             className="w-full rounded-xl bg-brand py-3 text-sm font-bold text-white hover:bg-brand-dark disabled:opacity-50"
           >
-            {busy ? 'Sending…' : 'Send reset link'}
+            {busy ? 'Sending\u2026' : 'Send reset link'}
           </button>
         </form>
       </section>

@@ -38,8 +38,15 @@ export async function middleware(request: NextRequest) {
     pathname === '/onboarding/register' || pathname.startsWith('/onboarding/register/');
   const isForgotPassword =
     pathname === '/forgot-password' || pathname.startsWith('/forgot-password/');
+  // /auth/callback exchanges the Supabase recovery code for a session, and
+  // /auth/reset/* is the scanner-proof interstitial + new-password form.
+  // Neither is accessible with a session (user is locked out), so both must
+  // be public. Without this, the middleware bounces the user to /sign-in
+  // before the code exchange can set the cookie.
+  const isAuthFlow =
+    pathname === '/auth/callback' || pathname.startsWith('/auth/reset/');
   const isPublic =
-    isSignIn || pathname === '/unauthorized' || isOnboardingRegister || isForgotPassword;
+    isSignIn || pathname === '/unauthorized' || isOnboardingRegister || isForgotPassword || isAuthFlow;
 
   if (!isPublic && !user) {
     const signInUrl = request.nextUrl.clone();
