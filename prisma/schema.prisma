@@ -877,6 +877,7 @@ model MenuItem {
   @@index([category])
   @@index([isAvailable])
   @@index([moderationStatus])
+  @@index([allergens], type: Gin)
   @@map("menu_items")
 }
 

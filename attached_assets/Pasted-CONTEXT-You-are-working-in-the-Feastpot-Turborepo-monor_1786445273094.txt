@@ -1,0 +1,80 @@
+CONTEXT
+You are working in the Feastpot Turborepo monorepo. Stack: apps/web (Next.js 15 App Router), apps/api (NestJS 11), Prisma ORM with a single prisma/schema.prisma against Supabase PostgreSQL. Commercial constants live in packages/config PLATFORM_FACTS; shared Zod schemas in packages/types; brand components in packages/ui. UK English throughout. Never use em dashes. Do not touch working code except where instructed.
+
+WHAT ALREADY EXISTS (do not rebuild):
+- apps/web/src/components/vendor/vendor-filter-sheet.tsx (lines 38-118): customer dietary checkbox UI, writes ?dietary=... to the URL. Works.
+- apps/vendor/src/app/menu/[menuId]/items-grid-client.tsx (lines 560-610): vendor allergen declaration editor. Works.
+- apps/api/src/modules/catalogue/dto/create-menu-item.dto.ts (lines 54-65): accepts allergens and dietaryFlags, persisted. Works.
+- prisma/schema.prisma (lines 850-862): MenuItem.allergens String[] @db.VarChar(64). Works.
+
+WHAT YOU MUST WIRE (the missing middle layer):
+1. apps/web/src/app/vendors/page.tsx (lines 82-89): read the dietary/allergen param from the URL and forward it.
+2. apps/web/src/lib/api/vendors.ts (lines 47-60): add the new field to SearchVendorsParams.
+3. apps/api/src/modules/vendors/dto/search-vendors.dto.ts: add the query param with validation.
+4. apps/api/src/modules/vendors/vendors.repository.ts (lines 43-125): add the SQL predicate against MenuItem.allergens.
+5. apps/web/src/components/vendor/vendor-filters-sidebar.tsx (lines 5-17): restore the dropped filters (remove the "no API backing" note).
+6. Add test coverage (none exists today).
+
+MANDATORY PRODUCT DECISION (implement exactly this, do not deviate):
+
+A. TWO SEPARATE CONCEPTS. Split the single conflated "dietary" filter into two distinct, separately named query concepts:
+   - dietaryPreferences: lifestyle choices. Allowed values ONLY: "vegan", "vegetarian". These are NOT safety claims.
+   - allergenFree: absence-of-allergen filters keyed to the FSA 14. Allowed values ONLY (canonical, lower-case, hyphenated): "celery", "cereals-containing-gluten", "crustaceans", "eggs", "fish", "lupin", "milk", "molluscs", "mustard", "nuts", "peanuts", "sesame", "soya", "sulphur-dioxide". The customer UI labels map to these (for example the existing "gluten-free" checkbox maps to "cereals-containing-gluten"; "nut-free" maps to BOTH "nuts" and "peanuts"; "dairy-free" maps to "milk").
+   Store these canonical values as an exported constant in packages/config so the customer UI, the DTO validation, and the repository all read from one source. Add or extend the platform-facts.spec.ts consistency test so CI fails if the allergen value list drifts.
+
+B. POSITIVE FILTER SEMANTIC (this is a safety decision, implement exactly). "allergenFree=nuts" MUST mean: return vendors that have AT LEAST ONE menu item whose declared allergens do NOT include "nuts" (and "peanuts"). It MUST NOT mean "exclude every vendor whose menu contains any nut dish", and it MUST NOT mean "this vendor is nut-free". A vendor appears if they have one or more matching dishes. Never make an absence-of-allergen claim about a whole vendor or kitchen.
+
+C. NULL/EMPTY HANDLING. A menu item with an empty or NULL allergens array means "allergen information not provided", NOT "free from all allergens". Items with no declared allergen data MUST NOT satisfy an allergenFree filter. Treat missing data as unsafe/unknown, never as safe.
+
+CANONICAL ALLERGEN LIST (FSA 14, Annex II of retained EU Regulation 1169/2011, Food Information Regulations 2014): celery; cereals containing gluten; crustaceans; eggs; fish; lupin; milk; molluscs; mustard; nuts (tree nuts); peanuts; sesame; soya; sulphur dioxide/sulphites. Use exactly the 14 canonical slug values in section A. Do not invent tokens, do not add allergens beyond this list.
+
+IMPLEMENTATION DETAIL
+
+apps/web/src/app/vendors/page.tsx: parse dietaryPreferences and allergenFree from searchParams (comma-separated), validate against the packages/config constant, drop unknown values silently, forward both to the API client.
+
+apps/web/src/lib/api/vendors.ts: extend SearchVendorsParams with dietaryPreferences?: string[] and allergenFree?: string[]. Serialise as repeated/CSV query params consistent with the existing halal param.
+
+apps/api/src/modules/vendors/dto/search-vendors.dto.ts: add both fields. Use class-validator: @IsOptional, @IsArray, @IsIn(ALLOWED_VALUES, { each: true }) sourced from packages/config. Reject unknown values with 400. Transform CSV to array with @Transform.
+
+apps/api/src/modules/vendors/vendors.repository.ts: the search is raw SQL. Add a predicate that keeps a vendor if they have at least one qualifying MenuItem. For allergenFree, a dish qualifies if its allergens array does NOT overlap the requested allergens AND the array is non-empty:
+   EXISTS (
+     SELECT 1 FROM "MenuItem" mi
+     WHERE mi."vendorId" = v.id
+       AND array_length(mi.allergens, 1) IS NOT NULL
+       AND NOT (mi.allergens && $requestedAllergens::varchar[])
+   )
+   Use the && overlap operator negated (NOT overlap = has none of the requested allergens). Parameterise the array; never string-concatenate. For dietaryPreferences, filter on the dish dietaryFlags column with the same EXISTS pattern using the && or @> operator as appropriate. Combine multiple allergenFree values so ALL requested allergens are absent from the same dish (a dish must be free of nuts AND milk to satisfy allergenFree=nuts,milk).
+
+INDEXING: add a Prisma migration creating a GIN index on MenuItem.allergens:
+   CREATE INDEX IF NOT EXISTS "menuitem_allergens_gin" ON "MenuItem" USING GIN (allergens);
+   Add the equivalent to prisma/schema.prisma via @@index([allergens], type: Gin). Run db:generate then db:migrate. The GIN index accelerates the && overlap check. Note that the negated overlap (NOT &&) still benefits from the vendor-scoped EXISTS subquery because the mi."vendorId" = v.id join limits the row set before the array check runs; keep the existing distance and text predicates first so the planner narrows the candidate vendor set before evaluating array predicates.
+
+PRISMA NOTE: if any part uses the Prisma query builder rather than raw SQL, the array operators are has (single value), hasSome (overlap, OR), hasEvery (contains all, AND).  "Free of nuts" is NOT { allergens: { has: "nuts" } }. Be aware of the documented Prisma caveat: array fields with a NULL value are NOT returned by NOT/has conditions,  which is why section C requires an explicit array_length IS NOT NULL guard. Because the audit confirms vendors.repository.ts uses raw SQL, keep the predicate in raw SQL for consistency and control.
+
+REQUIRED DISCLAIMER COPY (must render wherever the allergen filter is presented and in results):
+   "Allergen filters show dishes that vendors have declared free from the selected allergens. This information is provided by vendors and is not verified by Feastpot. It is not a guarantee. If you have a food allergy or intolerance, always confirm directly with the vendor before ordering. Kitchens handle many ingredients and cross-contamination can occur."
+Render a shorter inline variant next to the allergen filter control: "Vendor-declared, not verified by Feastpot. Always confirm with the vendor."
+
+vendor-filters-sidebar.tsx: remove the "Vegan/Gluten-free dietary filters dropped - no API backing" comment and restore the controls, wired to the two new concepts, with the inline disclaimer beneath the allergen group.
+
+ACCEPTANCE CRITERIA:
+- A request to /vendors?allergenFree=nuts returns only vendors with at least one dish that has a non-empty allergens array excluding "nuts" and "peanuts".
+- A request with allergenFree=nuts,milk requires both absent from the same dish.
+- dietaryPreferences=vegan filters on dietary flags, never on allergens, and is visually and semantically separated from allergen filters in the UI.
+- Unknown param values return 400 from the API and are dropped silently in the web layer.
+- Vendors whose only matching dishes have empty/NULL allergens arrays are NOT returned by an allergenFree filter.
+- The disclaimer renders on the filter UI and in results.
+- platform-facts.spec.ts passes and fails on drift of the allergen value list.
+
+EDGE CASES TO HANDLE:
+- Empty allergenFree param: no allergen filtering applied.
+- All 14 allergens requested: valid, returns only fully-declared allergen-free-of-everything dishes' vendors (likely few).
+- Vendor with mixed menu (some dishes declared, some not): included if at least one declared dish qualifies.
+- Combining allergenFree with existing halal, cuisine, distance, text, sort: all predicates must AND together; keep distance/text first for planner efficiency.
+- Case and whitespace in incoming params: normalise to canonical slugs before validation.
+
+TESTS TO ADD:
+- apps/api: a vendors-search spec covering: single allergen exclusion, multi-allergen AND, empty-array-not-safe, unknown-value-400, dietaryPreferences separated from allergens, and combination with distance+halal. Seed vendors with dishes across the allergen matrix.
+- A unit test asserting the canonical allergen list matches packages/config (drift guard).
+
+STYLE: UK English. No em dashes. Do not add allergens beyond the FSA 14. Do not weaken the disclaimer. Do not implement negative/exclusion semantics.

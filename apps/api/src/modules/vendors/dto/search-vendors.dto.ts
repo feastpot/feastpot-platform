@@ -5,6 +5,7 @@ import {
   IsArray,
   IsBoolean,
   IsEnum,
+  IsIn,
   IsInt,
   IsNumber,
   IsOptional,
@@ -14,6 +15,8 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
+
+import { ALLERGEN_FREE_SLUGS, DIETARY_PREFERENCE_SLUGS } from '@feastpot/config/allergens';
 
 export enum VendorSortBy {
   rating = 'rating',
@@ -31,6 +34,17 @@ const toBool = ({ value }: { value: unknown }): unknown => {
 const toArray = ({ value }: { value: unknown }): unknown => {
   if (Array.isArray(value)) return value;
   if (typeof value === 'string' && value.length) return value.split(',').map((s) => s.trim());
+  return value;
+};
+
+const toArrayNormalised = ({ value }: { value: unknown }): unknown => {
+  if (Array.isArray(value))
+    return value.map((s) => (typeof s === 'string' ? s.toLowerCase().trim() : s));
+  if (typeof value === 'string' && value.length)
+    return value
+      .split(',')
+      .map((s) => s.toLowerCase().trim())
+      .filter(Boolean);
   return value;
 };
 
@@ -108,6 +122,34 @@ export class SearchVendorsDto {
   @Min(1)
   @Max(100)
   limit?: number = 20;
+
+  @ApiPropertyOptional({
+    type: [String],
+    enum: [...ALLERGEN_FREE_SLUGS],
+    description:
+      'Allergen-free filter (comma-separated FSA 14 canonical slugs). Returns vendors that have ' +
+      'at least one menu item whose declared allergens array is non-empty AND does not overlap the ' +
+      'requested set. Items with empty or missing allergens are never treated as allergen-free. ' +
+      'Multiple values apply AND semantics: the qualifying dish must be free of ALL listed allergens.',
+  })
+  @IsOptional()
+  @Transform(toArrayNormalised)
+  @IsArray()
+  @IsIn([...ALLERGEN_FREE_SLUGS], { each: true })
+  allergenFree?: string[];
+
+  @ApiPropertyOptional({
+    type: [String],
+    enum: [...DIETARY_PREFERENCE_SLUGS],
+    description:
+      'Dietary-preference filter (comma-separated). Returns vendors with at least one dish ' +
+      'declared with the matching lifestyle flag. This is NOT an allergen-safety claim.',
+  })
+  @IsOptional()
+  @Transform(toArrayNormalised)
+  @IsArray()
+  @IsIn([...DIETARY_PREFERENCE_SLUGS], { each: true })
+  dietaryPreferences?: string[];
 
   @ApiPropertyOptional({ description: 'Opaque cursor returned by previous page' })
   @IsOptional()

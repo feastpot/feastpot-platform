@@ -9,11 +9,11 @@ describe('MenuItemsService allergen + tag helpers', () => {
       expect(MenuItemsService.validateAllergens([])).toEqual([]);
     });
 
-    it('accepts all 14 FSA allergens', () => {
+    it('accepts all 14 FSA allergens (canonical slugs)', () => {
       expect(() =>
         MenuItemsService.validateAllergens([
           'celery',
-          'gluten',
+          'cereals-containing-gluten',
           'crustaceans',
           'eggs',
           'fish',
@@ -21,18 +21,24 @@ describe('MenuItemsService allergen + tag helpers', () => {
           'milk',
           'molluscs',
           'mustard',
+          'nuts',
           'peanuts',
           'sesame',
-          'soybeans',
-          'sulphites',
-          'tree_nuts',
+          'soya',
+          'sulphur-dioxide',
         ]),
       ).not.toThrow();
     });
 
+    it('rejects old non-canonical slugs (gluten, tree_nuts, soybeans, sulphites)', () => {
+      for (const badSlug of ['gluten', 'tree_nuts', 'soybeans', 'sulphites']) {
+        expect(() => MenuItemsService.validateAllergens([badSlug])).toThrow(BadRequestException);
+      }
+    });
+
     it('rejects an unknown allergen with BadRequest containing the bad value', () => {
       try {
-        MenuItemsService.validateAllergens(['gluten', 'unicorn-tears', 'eggs']);
+        MenuItemsService.validateAllergens(['cereals-containing-gluten', 'unicorn-tears', 'eggs']);
         fail('expected throw');
       } catch (err) {
         expect(err).toBeInstanceOf(BadRequestException);

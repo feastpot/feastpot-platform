@@ -16,6 +16,11 @@ import { VendorRowCard } from '@/components/vendors/vendor-row-card';
 import { VendorSearchBar } from '@/components/vendors/vendor-search-bar';
 import { useVendors } from '@/hooks/use-vendors';
 import {
+  ALLERGEN_FREE_SLUG_SET,
+  DIETARY_PREFERENCE_SLUG_SET,
+} from '@feastpot/config/allergens';
+
+import {
   getVendorCardExtras,
   type SearchVendorsParams,
   type VendorSortBy,
@@ -66,6 +71,26 @@ function VendorSearch() {
   }, [postcode]);
 
   const halal = params?.get('halal') === 'true';
+
+  // Parse allergenFree and dietaryPreferences from URL; drop unknown values silently.
+  const allergenFreeRaw = params?.get('allergenFree');
+  const allergenFree =
+    allergenFreeRaw && allergenFreeRaw.length > 0
+      ? allergenFreeRaw
+          .split(',')
+          .map((v) => v.toLowerCase().trim())
+          .filter((v) => ALLERGEN_FREE_SLUG_SET.has(v))
+      : undefined;
+
+  const dietaryPrefsRaw = params?.get('dietaryPreferences');
+  const dietaryPreferences =
+    dietaryPrefsRaw && dietaryPrefsRaw.length > 0
+      ? dietaryPrefsRaw
+          .split(',')
+          .map((v) => v.toLowerCase().trim())
+          .filter((v) => DIETARY_PREFERENCE_SLUG_SET.has(v))
+      : undefined;
+
   const sortParam = (params?.get('sort') as VendorSortBy | null) ?? undefined;
   const sortBy: VendorSortBy | undefined = sortParam ?? (postcode ? 'distance' : undefined);
 
@@ -86,6 +111,9 @@ function VendorSearch() {
     halal: halal || undefined,
     maxDistanceKm,
     sortBy,
+    allergenFree: allergenFree && allergenFree.length > 0 ? allergenFree : undefined,
+    dietaryPreferences:
+      dietaryPreferences && dietaryPreferences.length > 0 ? dietaryPreferences : undefined,
   };
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, error, refetch } =

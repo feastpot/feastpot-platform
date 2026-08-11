@@ -57,6 +57,19 @@ export interface SearchVendorsParams {
   sortBy?: VendorSortBy;
   limit?: number;
   cursor?: string;
+  /**
+   * Allergen-free filter. Canonical FSA 14 slugs (from packages/config/allergens).
+   * A vendor is returned if it has at least one dish with a non-empty allergens
+   * array that contains none of the requested allergens. AND semantics: all slugs
+   * must be absent from the same dish.
+   */
+  allergenFree?: string[];
+  /**
+   * Dietary-preference filter. Accepted values: 'vegan' | 'vegetarian'.
+   * Not an allergen-safety claim. Returns vendors with at least one dish
+   * tagged with a matching lifestyle flag.
+   */
+  dietaryPreferences?: string[];
 }
 
 export function searchVendors(

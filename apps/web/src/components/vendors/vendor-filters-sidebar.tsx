@@ -2,27 +2,59 @@
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 
+import {
+  ALLERGEN_DISCLAIMER_SHORT,
+  ALLERGEN_FREE_SLUG_SET,
+  DIETARY_PREFERENCE_SLUG_SET,
+} from '@feastpot/config/allergens';
+
 /**
  * Filters backed by real API fields in GET /v1/vendors.
  *
- * Cuisine   → `?cuisine=<value>`  → SearchVendorsDto.cuisine[]  ✅ server-side
- * Halal     → `?halal=true`       → SearchVendorsDto.halal       ✅ server-side
- * Distance  → `?radius=<miles>`   → SearchVendorsDto.maxDistanceKm ✅ server-side
- * Sort      → `?sort=<value>`     → SearchVendorsDto.sortBy      ✅ server-side
- *
- * Dropped candidates (no API backing - logged in docs/DEFECT-LOG.md):
- *   Occasion, Delivery timing, Vegan/Gluten-free dietary, Serves band,
- *   Hygiene evidence, Minimum rating, Pre-order available, Min order value,
- *   Delivery vs collection (SearchVendorsDto.orderType is standard/event/subscription,
- *   not delivery vs collection).
+ * Cuisine            → `?cuisine=<value>`            → SearchVendorsDto.cuisine[]  ✅
+ * Halal              → `?halal=true`                 → SearchVendorsDto.halal       ✅
+ * Distance           → `?radius=<miles>`             → SearchVendorsDto.maxDistanceKm ✅
+ * Sort               → `?sort=<value>`               → SearchVendorsDto.sortBy      ✅
+ * Dietary prefs      → `?dietaryPreferences=<slugs>` → SearchVendorsDto.dietaryPreferences ✅
+ * Allergen-free      → `?allergenFree=<slugs>`       → SearchVendorsDto.allergenFree ✅
  */
 
 const CUISINES = ['Nigerian', 'Ghanaian', 'Jamaican', 'Caribbean', 'Somali'];
 
-// Keep in sync with RADIUS_OPTIONS_MI in apps/web/src/app/vendors/page.tsx -
-// the page-level URL parser only accepts these exact values so the sidebar
-// must offer the same set.
+// Keep in sync with RADIUS_OPTIONS_MI in apps/web/src/app/vendors/page.tsx
 const RADIUS_OPTIONS_MI = [1, 3, 5, 10] as const;
+
+/** Lifestyle dietary-preference checkboxes (not allergen-safety claims). */
+const DIETARY_PREFS: { value: string; label: string }[] = [
+  { value: 'vegan', label: 'Vegan' },
+  { value: 'vegetarian', label: 'Vegetarian' },
+];
+
+/**
+ * Allergen-free checkboxes.
+ * "nut-free" maps to both canonical slugs ('nuts' and 'peanuts') per FSA definition.
+ */
+const ALLERGEN_FILTERS: { values: string[]; label: string }[] = [
+  { values: ['cereals-containing-gluten'], label: 'Gluten-free' },
+  { values: ['milk'], label: 'Dairy-free' },
+  { values: ['nuts', 'peanuts'], label: 'Nut-free' },
+  { values: ['eggs'], label: 'Egg-free' },
+  { values: ['fish'], label: 'Fish-free' },
+  { values: ['crustaceans'], label: 'Shellfish-free' },
+  { values: ['soya'], label: 'Soya-free' },
+  { values: ['sesame'], label: 'Sesame-free' },
+];
+
+/** Parse a comma-separated URL param into a validated slug set. */
+function parseSlugParam(raw: string | null, allowed: ReadonlySet<string>): Set<string> {
+  if (!raw) return new Set();
+  return new Set(
+    raw
+      .split(',')
+      .map((s) => s.trim())
+      .filter((s) => allowed.has(s)),
+  );
+}
 
 export function VendorFiltersSidebar() {
   const params = useSearchParams();
@@ -39,7 +71,12 @@ export function VendorFiltersSidebar() {
   const cuisine = params?.get('cuisine') ?? '';
   const halal = params?.get('halal') === 'true';
 
-  // Radius is only meaningful when a postcode is set.
+  const allergenFree = parseSlugParam(params?.get('allergenFree') ?? null, ALLERGEN_FREE_SLUG_SET);
+  const dietaryPrefs = parseSlugParam(
+    params?.get('dietaryPreferences') ?? null,
+    DIETARY_PREFERENCE_SLUG_SET,
+  );
+
   const postcode = params?.get('postcode')?.trim() ?? '';
   const radiusRaw = params?.get('radius');
   const radiusMiles = (() => {
@@ -69,15 +106,45 @@ export function VendorFiltersSidebar() {
     });
   };
 
+  /** Toggle a single dietary-preference slug. */
+  const toggleDietaryPref = (slug: string) => {
+    update((sp) => {
+      const current = parseSlugParam(sp.get('dietaryPreferences'), DIETARY_PREFERENCE_SLUG_SET);
+      if (current.has(slug)) current.delete(slug);
+      else current.add(slug);
+      if (current.size > 0) sp.set('dietaryPreferences', [...current].join(','));
+      else sp.delete('dietaryPreferences');
+    });
+  };
+
+  /**
+   * Toggle an allergen-free option (which may map to multiple canonical slugs,
+   * e.g. nut-free → nuts + peanuts). All slugs are added or removed together.
+   */
+  const toggleAllergenFree = (slugs: string[]) => {
+    update((sp) => {
+      const current = parseSlugParam(sp.get('allergenFree'), ALLERGEN_FREE_SLUG_SET);
+      // If ALL slugs for this option are currently active, remove them; else add all.
+      const allActive = slugs.every((s) => current.has(s));
+      if (allActive) slugs.forEach((s) => current.delete(s));
+      else slugs.forEach((s) => current.add(s));
+      if (current.size > 0) sp.set('allergenFree', [...current].join(','));
+      else sp.delete('allergenFree');
+    });
+  };
+
   const clearAll = () => {
     update((sp) => {
       sp.delete('cuisine');
       sp.delete('halal');
       sp.delete('radius');
+      sp.delete('allergenFree');
+      sp.delete('dietaryPreferences');
     });
   };
 
-  const hasAny = !!cuisine || halal || radiusMiles !== null;
+  const hasAny =
+    !!cuisine || halal || radiusMiles !== null || allergenFree.size > 0 || dietaryPrefs.size > 0;
 
   return (
     <aside
@@ -136,8 +203,30 @@ export function VendorFiltersSidebar() {
         ))}
       </FilterGroup>
 
-      <FilterGroup title="Dietary" last>
-        <CheckboxRow checked={halal} label="Halal" onChange={() => setHalal(!halal)} />
+      <FilterGroup title="Dietary">
+        <CheckboxRow checked={halal} label="Halal-certified" onChange={() => setHalal(!halal)} />
+        {DIETARY_PREFS.map(({ value, label }) => (
+          <CheckboxRow
+            key={value}
+            checked={dietaryPrefs.has(value)}
+            label={label}
+            onChange={() => toggleDietaryPref(value)}
+          />
+        ))}
+      </FilterGroup>
+
+      <FilterGroup title="Allergen-free" last>
+        {ALLERGEN_FILTERS.map(({ values, label }) => (
+          <CheckboxRow
+            key={values.join('+')}
+            checked={values.every((s) => allergenFree.has(s))}
+            label={label}
+            onChange={() => toggleAllergenFree(values)}
+          />
+        ))}
+        <p className="mt-2 text-[10px] leading-tight text-charcoal-mid/70">
+          {ALLERGEN_DISCLAIMER_SHORT}
+        </p>
       </FilterGroup>
     </aside>
   );

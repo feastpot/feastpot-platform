@@ -1,29 +1,20 @@
 import { ItemCategory } from '@prisma/client';
 
+import { ALLERGEN_FREE_SLUGS, ALLERGEN_FREE_SLUG_SET } from '@feastpot/config/allergens';
+
 /**
  * UK Food Standards Agency 14 major allergens.
  * @see https://www.food.gov.uk/safety-hygiene/food-allergy-and-intolerance
+ *
+ * Canonical slugs are defined once in packages/config/src/allergens.ts and
+ * re-exported here so the catalogue DTO, the vendor editor, and the search
+ * filter all share the same source of truth.
  */
-export const FSA_14_ALLERGENS = [
-  'celery',
-  'gluten',
-  'crustaceans',
-  'eggs',
-  'fish',
-  'lupin',
-  'milk',
-  'molluscs',
-  'mustard',
-  'peanuts',
-  'sesame',
-  'soybeans',
-  'sulphites',
-  'tree_nuts',
-] as const;
+export const FSA_14_ALLERGENS = ALLERGEN_FREE_SLUGS;
 
 export type FsaAllergen = (typeof FSA_14_ALLERGENS)[number];
 
-export const FSA_14_ALLERGEN_SET: ReadonlySet<string> = new Set(FSA_14_ALLERGENS);
+export const FSA_14_ALLERGEN_SET: ReadonlySet<string> = ALLERGEN_FREE_SLUG_SET;
 
 export const ITEM_CATEGORIES = Object.values(ItemCategory);
 

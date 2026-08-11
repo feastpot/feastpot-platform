@@ -67,6 +67,9 @@ export class VendorRepository {
     const cuisines = dto.cuisine && dto.cuisine.length ? dto.cuisine : null;
     const halal = dto.halal === true;
     const communityFavourite = dto.communityFavourite === true;
+    const allergenFree = dto.allergenFree && dto.allergenFree.length > 0 ? dto.allergenFree : null;
+    const dietaryPrefs =
+      dto.dietaryPreferences && dto.dietaryPreferences.length > 0 ? dto.dietaryPreferences : null;
     const sortBy = dto.sortBy ?? VendorSortBy.rating;
     const useDistance = sortBy === VendorSortBy.distance && !!postcodePrefix;
 
@@ -127,6 +130,34 @@ export class VendorRepository {
       : Prisma.empty;
     const favouriteClause = communityFavourite
       ? Prisma.sql`AND v.rating >= ${COMMUNITY_FAVOURITE_RATING}`
+      : Prisma.empty;
+
+    // allergenFree: vendor must have at least one dish whose allergens array is
+    // non-empty AND has no overlap with the requested slugs. array_length IS NOT
+    // NULL guards against empty-array rows being mistaken for allergen-free.
+    // Multiple slugs → AND semantics (the same dish must be free of all of them).
+    const allergenFreeClause = allergenFree
+      ? Prisma.sql`AND EXISTS (
+          SELECT 1 FROM menu_items mi
+          WHERE mi.vendor_id = v.id
+            AND mi.is_available = true
+            AND mi.moderation_status IN ('auto_approved', 'approved')
+            AND array_length(mi.allergens, 1) IS NOT NULL
+            AND NOT (mi.allergens && ${allergenFree}::varchar[])
+        )`
+      : Prisma.empty;
+
+    // dietaryPreferences: vendor must have at least one dish tagged with any of
+    // the requested lifestyle flags (stored in MenuItem.tags). Uses || overlap
+    // semantics: selecting vegan+vegetarian returns vendors with either flag.
+    const dietaryPrefsClause = dietaryPrefs
+      ? Prisma.sql`AND EXISTS (
+          SELECT 1 FROM menu_items mi
+          WHERE mi.vendor_id = v.id
+            AND mi.is_available = true
+            AND mi.moderation_status IN ('auto_approved', 'approved')
+            AND mi.tags && ${dietaryPrefs}::varchar[]
+        )`
       : Prisma.empty;
 
     // FR-SRCH-001: q matches vendor fields OR any active menu-item name /
@@ -310,6 +341,8 @@ export class VendorRepository {
         ${cursorClause}
         ${cuisineClause}
         ${halalClause}
+        ${allergenFreeClause}
+        ${dietaryPrefsClause}
         ${favouriteClause}
         ${postcodeFilter}
         ${maxDistanceClause}

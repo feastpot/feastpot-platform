@@ -12,6 +12,7 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
+import { ALLERGEN_FREE_SLUGS, DIETARY_PREFERENCE_SLUGS } from '@feastpot/config/allergens';
 import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
 
 const ROOT = join(__dirname, '../../../');
@@ -58,6 +59,44 @@ describe('PLATFORM_FACTS - shape and values', () => {
 
   it('WhatsApp channel is null (not publicly active)', () => {
     expect(PLATFORM_FACTS.support.whatsapp).toBeNull();
+  });
+});
+
+describe('Allergen constants - drift guard', () => {
+  it('ALLERGEN_FREE_SLUGS has exactly 14 entries (FSA 14 major allergens)', () => {
+    expect(ALLERGEN_FREE_SLUGS).toHaveLength(14);
+  });
+
+  it('ALLERGEN_FREE_SLUGS contains the expected canonical slugs', () => {
+    const slugs = new Set(ALLERGEN_FREE_SLUGS);
+    // Spot-check the slugs that previously diverged from FSA canonical names
+    expect(slugs.has('cereals-containing-gluten')).toBe(true);
+    expect(slugs.has('nuts')).toBe(true);
+    expect(slugs.has('peanuts')).toBe(true);
+    expect(slugs.has('soya')).toBe(true);
+    expect(slugs.has('sulphur-dioxide')).toBe(true);
+    // Confirm old non-canonical slugs are gone
+    expect(slugs.has('gluten')).toBe(false);
+    expect(slugs.has('tree_nuts')).toBe(false);
+    expect(slugs.has('soybeans')).toBe(false);
+    expect(slugs.has('sulphites')).toBe(false);
+  });
+
+  it('ALLERGEN_FREE_SLUGS contains no duplicates', () => {
+    expect(new Set(ALLERGEN_FREE_SLUGS).size).toBe(ALLERGEN_FREE_SLUGS.length);
+  });
+
+  it('DIETARY_PREFERENCE_SLUGS contains exactly vegan and vegetarian', () => {
+    expect(DIETARY_PREFERENCE_SLUGS).toHaveLength(2);
+    expect(DIETARY_PREFERENCE_SLUGS).toContain('vegan');
+    expect(DIETARY_PREFERENCE_SLUGS).toContain('vegetarian');
+  });
+
+  it('DIETARY_PREFERENCE_SLUGS has no overlap with ALLERGEN_FREE_SLUGS', () => {
+    const allergenSet = new Set(ALLERGEN_FREE_SLUGS);
+    for (const slug of DIETARY_PREFERENCE_SLUGS) {
+      expect(allergenSet.has(slug)).toBe(false);
+    }
   });
 });
 
