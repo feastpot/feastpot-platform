@@ -60,6 +60,49 @@ describe('PLATFORM_FACTS - shape and values', () => {
   it('WhatsApp channel is null (not publicly active)', () => {
     expect(PLATFORM_FACTS.support.whatsapp).toBeNull();
   });
+
+  it('commission.vendorReferred is 0 (zero-rate for self-referred vendors)', () => {
+    // The zero-rate applies only to orders placed through the vendor's own
+    // referral link within vendorLinkWindowDays. Changing this value changes
+    // the promise made on become-a-vendor and in vendor-terms clause 17.
+    expect(PLATFORM_FACTS.commission.vendorReferred).toBe(0);
+  });
+
+  it('serviceFee values are positive and reasonable', () => {
+    // serviceFee.percent is rendered verbatim in checkout and feastpass pages.
+    // serviceFee.capPence is rendered as (capPence / 100).toFixed(2) in GBP.
+    expect(PLATFORM_FACTS.serviceFee.percent).toBeGreaterThan(0);
+    expect(PLATFORM_FACTS.serviceFee.percent).toBeLessThanOrEqual(10);
+    expect(PLATFORM_FACTS.serviceFee.capPence).toBeGreaterThan(0);
+  });
+
+  it('feastPass pricing is positive and annual costs less than 12x monthly', () => {
+    // The feastpass page computes break-even from these values. If annual were
+    // more expensive than monthly × 12, the displayed savings would be negative.
+    expect(PLATFORM_FACTS.feastPass.monthlyPence).toBeGreaterThan(0);
+    expect(PLATFORM_FACTS.feastPass.annualPence).toBeGreaterThan(0);
+    expect(PLATFORM_FACTS.feastPass.annualPence).toBeLessThan(
+      PLATFORM_FACTS.feastPass.monthlyPence * 12,
+    );
+  });
+
+  it('payouts.frequency and payouts.day are non-empty strings', () => {
+    // Both fields are rendered verbatim in help, earnings, and payouts pages.
+    expect(typeof PLATFORM_FACTS.payouts.frequency).toBe('string');
+    expect(PLATFORM_FACTS.payouts.frequency.length).toBeGreaterThan(0);
+    expect(typeof PLATFORM_FACTS.payouts.day).toBe('string');
+    expect(PLATFORM_FACTS.payouts.day.length).toBeGreaterThan(0);
+  });
+
+  it('support.email is a non-empty address containing @', () => {
+    expect(PLATFORM_FACTS.support.email).toMatch(/@/);
+  });
+
+  it('support.responseTime is a non-empty string', () => {
+    // Rendered verbatim in help and become-a-vendor pages.
+    expect(typeof PLATFORM_FACTS.support.responseTime).toBe('string');
+    expect(PLATFORM_FACTS.support.responseTime.length).toBeGreaterThan(0);
+  });
 });
 
 describe('Allergen constants - drift guard', () => {
@@ -204,6 +247,103 @@ describe('Become-a-vendor page - commission references PLATFORM_FACTS', () => {
 
   it('uses PLATFORM_FACTS for the commission rate, not a hardcoded string', () => {
     expect(src).toContain('PLATFORM_FACTS.commission.marketplaceFirst');
+  });
+});
+
+describe('Checkout page - service fee from PLATFORM_FACTS', () => {
+  // serviceFee.percent and serviceFee.capPence are rendered in two places:
+  // the checkout basket ("5% service fee, capped at £2.99") and the FeastPass
+  // savings explainer. Both must reference PLATFORM_FACTS so a rate change
+  // propagates without a manual find-and-replace.
+  const src = read('apps/web/src/app/checkout/page.tsx');
+
+  it('references serviceFee.percent from PLATFORM_FACTS, not a hardcoded literal', () => {
+    expect(src).toContain('PLATFORM_FACTS.serviceFee.percent');
+  });
+
+  it('references serviceFee.capPence from PLATFORM_FACTS, not a hardcoded literal', () => {
+    expect(src).toContain('PLATFORM_FACTS.serviceFee.capPence');
+  });
+});
+
+describe('FeastPass page - pricing from PLATFORM_FACTS', () => {
+  // The break-even calculator and FAQ answers use four PLATFORM_FACTS values.
+  // Hardcoding any one of them causes displayed savings to drift from reality
+  // the next time we change subscription pricing or the service-fee cap.
+  const src = read('apps/web/src/app/feastpass/page.tsx');
+
+  it('references feastPass.monthlyPence from PLATFORM_FACTS', () => {
+    expect(src).toContain('PLATFORM_FACTS.feastPass.monthlyPence');
+  });
+
+  it('references feastPass.annualPence from PLATFORM_FACTS', () => {
+    expect(src).toContain('PLATFORM_FACTS.feastPass.annualPence');
+  });
+
+  it('references serviceFee.percent from PLATFORM_FACTS', () => {
+    expect(src).toContain('PLATFORM_FACTS.serviceFee.percent');
+  });
+
+  it('references serviceFee.capPence from PLATFORM_FACTS', () => {
+    expect(src).toContain('PLATFORM_FACTS.serviceFee.capPence');
+  });
+});
+
+describe('Help page - support contact and payouts from PLATFORM_FACTS', () => {
+  // The help FAQ answers vendor questions about payout timing and support
+  // availability. All five fields must reference PLATFORM_FACTS so they stay
+  // in sync if we change payout day, support email, or response-time promise.
+  const src = read('apps/web/src/app/help/page.tsx');
+
+  it('references payouts.frequency from PLATFORM_FACTS', () => {
+    expect(src).toContain('PLATFORM_FACTS.payouts.frequency');
+  });
+
+  it('references payouts.day from PLATFORM_FACTS', () => {
+    expect(src).toContain('PLATFORM_FACTS.payouts.day');
+  });
+
+  it('references support.email from PLATFORM_FACTS, not hardcoded', () => {
+    expect(src).toContain('PLATFORM_FACTS.support.email');
+    expect(src).not.toContain('support@feastpot.co.uk');
+  });
+
+  it('references support.hours from PLATFORM_FACTS', () => {
+    expect(src).toContain('PLATFORM_FACTS.support.hours');
+  });
+
+  it('references support.responseTime from PLATFORM_FACTS', () => {
+    expect(src).toContain('PLATFORM_FACTS.support.responseTime');
+  });
+});
+
+describe('Become-a-vendor page - vendor-referred rate and payouts from PLATFORM_FACTS', () => {
+  // The page promises vendors a specific commission rate on their own orders and
+  // a specific payout day. All three fields must come from PLATFORM_FACTS so a
+  // single change propagates to every section that mentions them.
+  const src = read('apps/web/src/app/become-a-vendor/page.tsx');
+
+  it('references commission.vendorReferred from PLATFORM_FACTS', () => {
+    expect(src).toContain('PLATFORM_FACTS.commission.vendorReferred');
+  });
+
+  it('references payouts.day from PLATFORM_FACTS', () => {
+    expect(src).toContain('PLATFORM_FACTS.payouts.day');
+  });
+
+  it('references support.responseTime from PLATFORM_FACTS', () => {
+    expect(src).toContain('PLATFORM_FACTS.support.responseTime');
+  });
+});
+
+describe('Vendor payouts page - payout day from PLATFORM_FACTS', () => {
+  // payouts-client.tsx renders the payout day in three different UI contexts.
+  // All must reference PLATFORM_FACTS.payouts.day; hardcoding "Monday" here
+  // while the constant says another day would show incorrect information.
+  const src = read('apps/vendor/src/app/payouts/payouts-client.tsx');
+
+  it('references payouts.day from PLATFORM_FACTS', () => {
+    expect(src).toContain('PLATFORM_FACTS.payouts.day');
   });
 });
 

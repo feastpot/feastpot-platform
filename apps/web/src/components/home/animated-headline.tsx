@@ -9,8 +9,8 @@ import { LAUNCH_FOCUS } from '@/config/geography';
 const CITIES = [
   'Croydon',
   LAUNCH_FOCUS.city,
-  'Birmingham',
-  'Manchester',
+  'Sheffield',
+  'Coventry',
   'Leeds',
   'Bristol',
   'Nottingham',
@@ -38,7 +38,7 @@ const FADE_OUT_MS = 280;
  * component" if the timeout fires within 280ms of navigation away.
  *
  * Fixed-height row on the second line prevents the subline from jumping
- * up when a longer city name (e.g. "Birmingham") replaces a shorter
+ * up when a longer city name (e.g. "Nottingham") replaces a shorter
  * one ("Leeds"). The city span carries `aria-live="polite"` so screen
  * readers announce each rotation without interrupting the user.
  *

@@ -223,7 +223,7 @@ export function LegalContact({
 
 const TRUST_ITEMS = [
   { icon: '🏠', title: 'Local flavours', body: 'Support local kitchens' },
-  { icon: '💷', title: 'Great value', body: 'Fair prices, every time' },
+  { icon: '💷', title: 'Great value', body: 'Clear, transparent pricing' },
   { icon: '🧡', title: 'Made with care', body: 'Real food, real people' },
   {
     icon: '💬',

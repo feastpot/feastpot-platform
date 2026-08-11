@@ -29,6 +29,9 @@
       "service-fee": ["./src/service-fee.ts"]
     }
   },
+  "scripts": {
+    "lint": "node scripts/check-claims.mjs"
+  },
   "files": [
     "src",
     "tsconfig.base.json",

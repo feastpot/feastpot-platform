@@ -10,7 +10,7 @@ import { Heart, HelpCircle, Store, WalletCards } from 'lucide-react';
  */
 const BENEFITS = [
   { Icon: Store, title: 'Local flavours', body: 'Support local kitchens' },
-  { Icon: WalletCards, title: 'Great value', body: 'Fair prices, every time' },
+  { Icon: WalletCards, title: 'Great value', body: 'Clear, transparent pricing' },
   { Icon: Heart, title: 'Made with care', body: 'Real food, real people' },
   {
     Icon: HelpCircle,
