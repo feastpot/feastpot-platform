@@ -1,8 +1,10 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
+
+import { useTrackEvent } from '@/hooks/use-track-event';
 
 // ── Maths helpers ─────────────────────────────────────────────────────────
 
@@ -292,6 +294,21 @@ export function EarningsCalculator() {
   // Returning subset of feastpotTotal; spec default is 0 ("treat all as first-time").
   const [feastpotRepeat, setFeastpotRepeat] = useState('0');
   const [aggregatorRate, setAggregatorRate] = useState(27.5);
+
+  // calculator_interaction: debounced 800 ms so rapid slider/input moves
+  // collapse into a single event. Fire-and-forget via useTrackEvent.
+  const track = useTrackEvent();
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      track('calculator_interaction');
+    }, 800);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ownRevenue, avgOrderValue, feastpotTotal, feastpotRepeat, aggregatorRate]);
 
   const models = useMemo(() => {
     // Parse inputs to pence (guard NaN and negatives).

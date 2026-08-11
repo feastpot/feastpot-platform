@@ -2051,6 +2051,36 @@ model FeastPassSubscription {
   @@map("feast_pass_subscriptions")
 }
 
+// ============================================================
+// VENDOR-ACQUISITION ANALYTICS
+// ============================================================
+
+/// Append-only product-analytics event log for the vendor-acquisition funnel.
+///
+/// Write path: only via AnalyticsService.track() (service-role).
+/// Read path: server-side only (admin reporting queries via PrismaService).
+///            RLS denies all direct client queries from anon/authenticated roles.
+///
+/// PII policy: properties must NEVER contain email, phone, name, IP, or any
+///             other personal data. Use the anonymised anonVisitorId for
+///             cross-event correlation on the same anonymous session.
+model AnalyticsEvent {
+  id            String   @id @default(cuid())
+  eventName     String   @map("event_name") @db.VarChar(64)
+  /// Arbitrary non-PII key/value pairs (e.g. attributionSource, method).
+  properties    Json     @default("{}")
+  /// Random UUID persisted in the browser's localStorage (never cookies).
+  /// Correlates events across a session without identifying the user.
+  anonVisitorId String?  @map("anon_visitor_id") @db.VarChar(128)
+  /// Set for authenticated vendor events (share_link_click, order_attribution_source).
+  vendorId      String?  @map("vendor_id") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([eventName, createdAt(sort: Desc)])
+  @@index([vendorId, createdAt(sort: Desc)])
+  @@map("analytics_events")
+}
+
 /// One row per logged error incident from vendor/web/admin frontends.
 /// ref uses the format FP-XXXX-XXXX so it is obviously an identifier (not a
 /// random number) and vendors can quote it to support unambiguously. Support

@@ -126,7 +126,11 @@ export class AttributionService {
    * Pure black on white so scanners never reject tinted codes.
    */
   async generateAndStoreQr(linkId: string, slug: string): Promise<{ png: string; svg: string }> {
-    const referralUrl = `${this.webBaseUrl}/v/${slug}`;
+    // The &m=qr marker distinguishes QR scans from plain link clicks in the
+    // /v/[slug]/route.ts handler, which uses it to fire a qr_scan analytics
+    // event server-side. Any stored QRs without this flag will still work
+    // (they redirect normally) but won't fire the dedicated qr_scan event.
+    const referralUrl = `${this.webBaseUrl}/v/${slug}?m=qr`;
 
     const [pngBuffer, svgString] = await Promise.all([
       QRCode.toBuffer(referralUrl, {

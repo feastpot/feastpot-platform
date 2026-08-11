@@ -49,6 +49,7 @@ import {
 } from '../vendors/vendor-capacity';
 
 import { FeastPassService } from '../../feastpass/feastpass.service';
+import { AnalyticsService } from '../analytics/analytics.service';
 import { AttributionService } from '../attribution/attribution.service';
 import { CommissionService } from '../../commission/commission.service';
 
@@ -187,6 +188,9 @@ export class OrdersService {
     // FeastPassModule is @Global: waives the customer-side service fee for
     // ACTIVE members. Vendor payouts and commission are entirely unaffected.
     private readonly feastpass: FeastPassService,
+    // AnalyticsModule is @Global: fire-and-forget order_attribution_source
+    // events server-side so attribution reporting is never lost to ad-blockers.
+    private readonly analytics: AnalyticsService,
   ) {}
 
   // Best-effort BullMQ wrappers. When REDIS_URL is unset (dev/CI), the
@@ -829,6 +833,21 @@ export class OrdersService {
         }
 
         return created;
+      });
+
+      // Server-side analytics: order_attribution_source.
+      // Fired after the DB transaction commits so the event always matches the
+      // Order row's attributionSource field (both come from the same attrSource
+      // variable). Fire-and-forget: never blocks order creation or the response.
+      // This is the authoritative source for attribution reporting; client events
+      // (which ad-blockers can suppress) are supplementary only.
+      void this.analytics.track({
+        eventName: 'order_attribution_source',
+        properties: {
+          attributionSource: String(attributionSource),
+          isFirstOrder: attributionIsFirstOrder,
+        },
+        vendorId: dto.vendorId,
       });
 
       // createOrder is only ever reached by customer-role routes (POST /v1/orders

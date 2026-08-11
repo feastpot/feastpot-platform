@@ -18,13 +18,14 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { forwardRef, useEffect, useRef, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useRef, useState } from 'react';
 
 import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
 import { KeyTermsSummary, RateCard } from '@feastpot/ui';
 import type { RateRow } from '@feastpot/ui';
 
 import { apiRequest, ApiError } from '@/lib/api/client';
+import { useTrackEvent } from '@/hooks/use-track-event';
 
 import { EarningsCalculator } from './earnings-calculator';
 
@@ -268,6 +269,8 @@ interface RegisterInterestPayload {
 
 export default function BecomeAVendorPage() {
   const formRef = useRef<HTMLElement>(null);
+  // Deduplication guard: application_start fires at most once per page load.
+  const appStartFiredRef = useRef(false);
   const [showForm, setShowForm] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [submittedSnapshot, setSubmittedSnapshot] = useState<FormState | null>(null);
@@ -282,6 +285,14 @@ export default function BecomeAVendorPage() {
   const [ratesLoading, setRatesLoading] = useState(true);
   const [ratesError, setRatesError] = useState<string | null>(null);
 
+  const track = useTrackEvent();
+
+  // vendor_page_view: fires once on mount. Ad-blockers may suppress it;
+  // order_attribution_source (server-side) remains the authoritative funnel signal.
+  useEffect(() => {
+    track('vendor_page_view');
+  }, [track]);
+
   useEffect(() => {
     apiRequest<RateRow[]>('/terms/rate-schedule')
       .then(setRates)
@@ -289,14 +300,19 @@ export default function BecomeAVendorPage() {
       .finally(() => setRatesLoading(false));
   }, []);
 
-  const openForm = () => {
+  const openForm = useCallback(() => {
     setShowForm(true);
     requestAnimationFrame(() => {
       setTimeout(() => {
         formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }, 40);
     });
-  };
+    // application_start: deduplicated so rapid multi-CTA clicks only fire once.
+    if (!appStartFiredRef.current) {
+      appStartFiredRef.current = true;
+      track('application_start');
+    }
+  }, [track]);
 
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -361,6 +377,8 @@ export default function BecomeAVendorPage() {
       await apiRequest('/vendors/register-interest', { method: 'POST', body: payload });
       setSubmittedSnapshot(form);
       setSubmitted(true);
+      // application_complete: fires after the server has persisted the row.
+      track('application_complete');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
       const msg =

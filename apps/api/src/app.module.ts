@@ -22,6 +22,7 @@ import { HealthController } from './health/health.controller';
 import { HealthzController, StatuszController } from './health/healthz.controller';
 import { AddressesModule } from './modules/addresses/addresses.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { AttributionModule } from './modules/attribution/attribution.module';
 import { CommissionModule } from './commission/commission.module';
 import { bullBoardBasicAuth } from './modules/admin/bull-board.middleware';
@@ -392,6 +393,8 @@ import { RootController } from './root.controller';
     AdminModule,
     TermsModule,
     CommissionModule,
+    // AnalyticsModule is @Global so AnalyticsService is injectable everywhere.
+    AnalyticsModule,
     AttributionModule,
     VendorTaxProfileModule,
     ErrorIncidentsModule,

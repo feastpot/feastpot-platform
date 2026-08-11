@@ -42,10 +42,13 @@ interface ClickResult {
  * 7. Redirects to /vendors/[vendorSlug] or /vendors on unknown slug.
  */
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ slug: string }> },
 ) {
   const { slug } = await params;
+  // Detect QR scans: the QR URL is generated with &m=qr so scans are
+  // distinguishable from plain link clicks in analytics.
+  const isQrScan = req.nextUrl.searchParams.get('m') === 'qr';
   const cookieStore = await cookies();
   const headerStore = await headers();
 
@@ -82,6 +85,23 @@ export async function GET(
     }
   } catch {
     // Network error - still redirect; attribution just won't be recorded.
+  }
+
+  // ── qr_scan analytics event ──────────────────────────────────────────────────
+  // Fire after recording the click so vendorId is available from clickResult.
+  // Uses the public analytics endpoint (no auth needed). Fire-and-forget;
+  // never blocks the redirect even if the analytics endpoint is unreachable.
+  if (isQrScan && clickResult.vendorId) {
+    void fetch(`${API_URL}/v1/analytics/events`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        eventName: 'qr_scan',
+        properties: { slug },
+        vendorId: clickResult.vendorId,
+      }),
+      next: { revalidate: 0 },
+    }).catch(() => null);
   }
 
   // ── Override rule ────────────────────────────────────────────────────────────

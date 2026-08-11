@@ -68,6 +68,7 @@ export default async function SharePage() {
         canonicalLink={canonicalLink}
         slug={vendor.slug}
         businessName={vendor.businessName}
+        vendorId={vendor.id}
       />
     </PortalShell>
   );
