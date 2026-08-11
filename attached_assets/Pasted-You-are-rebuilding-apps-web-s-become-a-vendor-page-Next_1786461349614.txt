@@ -1,0 +1,40 @@
+You are rebuilding apps/web's /become-a-vendor page (Next.js 15 App Router). Import all commercial figures from '@feastpot/config' (PLATFORM_FACTS) rather than hard-coding them, so this page cannot drift from the commission engine in Prompt 8. UK English, no em dashes anywhere.
+
+Build these ten blocks in order:
+
+BLOCK 1 HERO:
+- Eyebrow: For cooks who already have customers
+- H1: Keep your customers. Lose the admin.
+- Body: You built your following. Feastpot gives you card payments, deposits, an order book and allergen labels for your own customers at {PLATFORM_FACTS.commission.vendorReferred}% commission. When we send you a new customer, we take {PLATFORM_FACTS.commission.marketplaceFirst}%. That is the only time you pay us. (Render as "0%" and "12%" respectively from the live values, do not hard-code the digits.)
+- Primary CTA: Apply to sell (links to the application route)
+- Secondary CTA: See how the numbers work (anchor to id="numbers", the Prompt 12 calculator)
+- Trust strip: No upfront fee · No monthly fee · {vendorReferred}% on your own orders · Weekly Stripe payouts · No exclusivity
+
+BLOCK 2 COMMERCIALS (two cards):
+- Card 1: YOUR ORDERS, {vendorReferred}% commission. Body: customers via your own link, QR, Instagram or WhatsApp. You pay only Stripe card processing at cost, nothing added by us.
+- Card 2: FEASTPOT ORDERS, {marketplaceFirst}% commission. Body: customers who discover you through postcode search on Feastpot. We take {marketplaceFirst}% of the food subtotal on completed orders only. Add one line beneath: "Order again through Feastpot and the rate drops to {marketplaceRepeat}%." (rendered from PLATFORM_FACTS.commission.marketplaceRepeat, currently 10%.)
+- Footnote: You are never tied to us and can sell wherever you like. We give at least {PLATFORM_FACTS.feeChangeNoticeDays} days' written notice of any fee change, and changes are never applied retrospectively.
+
+BLOCK 3 SIX BENEFITS (in order): stop chasing bank transfers; take a deposit on big catering orders; turn your link in bio into a shop; every order in one place; say no automatically (capacity caps and lead times); allergen labels and records done properly.
+
+BLOCK 4 DISCOVERY: heading "New customers when you want them" with off-switch framing.
+
+BLOCK 5 CONTROL SPLIT: YOU DECIDE (menu, prices, delivery area and fee, lead times, minimum order, your customers stay yours with export any time) vs WE HANDLE (card payments, deposits and scheduled orders, dashboard, allergen labels, weekly payouts on {PLATFORM_FACTS.payouts.day}, discovery when wanted).
+
+BLOCK 6 FOUNDING COHORT: "We are signing our first 20 cooks in Southwark", postcode-by-postcode rationale, benefits: {marketplaceFirst}% dropped to 0% on Feastpot orders for the first 90 days, direct founder line, free listing photography, launch-campaign feature, product input.
+
+BLOCK 7 ONBOARDING (four steps): apply; we review within 1 to 2 business days and help fix gaps for free; set up your menu; share your link and start earning immediately on your own customers without waiting for platform demand.
+
+BLOCK 8 OBJECTION FAQ (six questions): exclusivity (no); will the 0% last (yes, {feeChangeNoticeDays} days' written notice, never retrospective, leave any time); not yet council-registered (apply anyway, free guided help); registered but awaiting inspection (you can apply and set up your full profile and menu now, so you lose no time, but Feastpot only lists vendors once they reach the required FHRS rating of 3 out of 5, because that is a safety standard we hold every cook to); who owns customers (vendor does, export any time); orders they cannot fulfil (capacity caps, lead times, pause kitchen).
+
+BLOCK 9 FINAL CTA: "Nothing to lose by trying it", primary "Apply to sell", secondary "Talk to us first", microcopy "We reply within {PLATFORM_FACTS.support.responseTime}."
+
+BLOCK 10 DELETIONS: remove if present: "Turn your food into more profitable local orders", "No EPOS required", "Growing network of cooks", "Onboarding cooks across London", "London launch", "Proudly launching across London", footer "Great value: Fair prices, every time".
+
+ACCEPTANCE CRITERIA:
+- Every commercial figure on the page (0%, 12%, 10%, notice-day count, response time, payout day) is rendered from PLATFORM_FACTS, not a hard-coded literal; changing a value in platform-facts.ts changes the page with no other edit.
+- All ten blocks render in the specified order with no em dashes.
+- None of the Block 10 strings appear anywhere on the page, including meta tags.
+- Both CTAs work; the secondary hero CTA scrolls to the Prompt 12 calculator.
+
+EDGE CASES: format percentages without unnecessary decimal places (12 not 12.0) even though PLATFORM_FACTS stores them as floats; verify the deletion strings are removed from source, not merely hidden by CSS.

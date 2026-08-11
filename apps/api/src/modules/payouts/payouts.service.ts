@@ -606,6 +606,7 @@ export class PayoutsService {
             businessName: true,
             commissionBps: true,
             payoutsEnabled: true,
+            slug: true,
           },
         },
         orderCommission: {
@@ -747,6 +748,7 @@ export class PayoutsService {
             vendorUserId: group.vendor.userId,
             payoutId: payout.id,
             vendorBusinessName: group.vendor.businessName ?? vendorId,
+            vendorSlug: group.vendor.slug ?? null,
             periodStart: start.toISOString(),
             periodEnd: end.toISOString(),
             grossPence: totals.grossPence,

@@ -323,8 +323,17 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
   // ---------- Payouts ----------
   payout_batch_ready: {
     subject: () => 'Weekly payout statement ready',
-    render: (d) =>
-      baseLayout(
+    render: (d) => {
+      // Build the vendor's canonical share link if their slug was included in
+      // the payload. The link is URL-encoded so special characters in slugs
+      // are handled correctly. We show it only when the slug is present so
+      // older in-flight jobs that pre-date the slug field render cleanly.
+      const shareLink =
+        typeof d.vendorSlug === 'string' && d.vendorSlug
+          ? `https://feastpot.co.uk/v/${encodeURIComponent(str(d.vendorSlug))}?src=vendor`
+          : null;
+
+      return baseLayout(
         'Payout ready',
         h2('Your weekly payout is ready') +
           (d.grossPence !== undefined
@@ -335,8 +344,23 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
             : '') +
           keyValueRow('Net payable', formatMoney(d.amountPence ?? d.netPence), { bold: true }) +
           (d.payoutDate ? keyValueRow('Payout date', str(d.payoutDate)) : '') +
-          brandButton('View statement', 'https://vendor.feastpot.co.uk/payouts', 'vendorBlue'),
-      ),
+          brandButton('View statement', 'https://vendor.feastpot.co.uk/payouts', 'vendorBlue') +
+          // "Grow your earnings" nudge: only rendered when vendorSlug is
+          // present. Placed after the statement button so the primary action
+          // is never buried.
+          (shareLink
+            ? `<div style="margin-top:28px;padding:16px 18px;background:#f0f9f4;border-radius:8px;border-left:4px solid #00843d">` +
+              `<p style="margin:0 0 6px 0;font-size:14px;font-weight:700;color:#005c2b">Grow your earnings</p>` +
+              `<p style="margin:0 0 10px 0;font-size:13px;color:#374151;line-height:1.5">` +
+              `Orders placed via your personal link attract 0% commission. Share it on Instagram, WhatsApp or anywhere you promote your kitchen and you keep more of every order.` +
+              `</p>` +
+              `<p style="margin:0;font-size:13px">` +
+              `<a href="${shareLink}" style="color:#00843d;font-weight:600;word-break:break-all">${esc(str(d.vendorSlug))} on Feastpot</a>` +
+              `</p>` +
+              `</div>`
+            : ''),
+      );
+    },
     channels: ['email', 'whatsapp'],
     whatsappTemplate: 'payout_statement',
   },

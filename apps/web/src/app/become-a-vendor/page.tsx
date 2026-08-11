@@ -6,11 +6,13 @@ import {
   Check,
   ChefHat,
   CreditCard,
+  Link2,
   Loader2,
   MapPin,
   PoundSterling,
   Settings,
   ShieldCheck,
+  Star,
   TriangleAlert,
   Users,
 } from 'lucide-react';
@@ -34,15 +36,137 @@ import { apiRequest, ApiError } from '@/lib/api/client';
  * after admin review.
  *
  * Two states render at the same URL: a marketing landing (default) and an
- * inline interest form (revealed when any "Register interest" CTA is
- * clicked). No client routing - `showForm` is local state and we smooth-
- * scroll the form into view so the marketing copy stays as context above it.
+ * inline interest form (revealed when any "Apply to sell" CTA is clicked).
+ * No client routing - `showForm` is local state and we smooth-scroll the
+ * form into view so the marketing copy stays as context above it.
+ *
+ * All commercial figures (commission rates, notice period, response time,
+ * payout day) come from PLATFORM_FACTS so this page cannot drift from the
+ * commission engine. Changing a value in platform-facts.ts updates the
+ * page with no other edit.
  */
 
-// ── Constants (rendered into the form & marketing sections) ─────────────
+// ── Helpers ──────────────────────────────────────────────────────────────
 
-// Friendly labels paired with the API enum values. Keep the order matching
-// what the form Select offers so the highlighted-default sits first.
+/**
+ * Format a float percentage without unnecessary decimal places.
+ * PLATFORM_FACTS stores rates as floats; this gives "12" not "12.0".
+ */
+const pct = (v: number): string => (v % 1 === 0 ? String(Math.trunc(v)) : String(v));
+
+// ── Marketing content constants ──────────────────────────────────────────
+
+const SIX_BENEFITS = [
+  {
+    Icon: PoundSterling,
+    title: 'Stop chasing bank transfers',
+    body: 'Customers pay by card at checkout. Money arrives in your account every week, not whenever someone remembers to send it.',
+  },
+  {
+    Icon: CreditCard,
+    title: 'Take a deposit on big catering orders',
+    body: 'Set a deposit for catering jobs. Feastpot collects it automatically and holds it until you confirm the booking.',
+  },
+  {
+    Icon: Link2,
+    title: 'Turn your link in bio into a shop',
+    body: `Share your personal Feastpot link on Instagram, WhatsApp or anywhere you promote your kitchen. Orders come in at ${pct(PLATFORM_FACTS.commission.vendorReferred)}% commission while you cook.`,
+  },
+  {
+    Icon: Users,
+    title: 'Every order in one place',
+    body: 'One dashboard for direct orders, marketplace orders and event enquiries. No more juggling WhatsApp messages, DMs and bank pings.',
+  },
+  {
+    Icon: Settings,
+    title: 'Say no automatically',
+    body: 'Capacity caps and lead times mean your kitchen never gets overbooked. You set the rules once and the platform enforces them.',
+  },
+  {
+    Icon: ShieldCheck,
+    title: 'Allergen labels and records done properly',
+    body: 'Generate compliant allergen information for every dish. Records are kept automatically so you are always audit-ready.',
+  },
+];
+
+const YOU_DECIDE = [
+  'Your menu, prices and portion sizes',
+  'Delivery area and delivery fee',
+  'Lead times (how much notice you need)',
+  'Minimum order value',
+  'Your customer list - exportable any time',
+];
+
+const WE_HANDLE = [
+  'Card payments, end to end',
+  'Deposits and scheduled orders',
+  'Vendor dashboard and order book',
+  'Allergen labels for every dish',
+  `Weekly payouts on ${PLATFORM_FACTS.payouts.day}`,
+  'Discovery on Feastpot (when you want it)',
+];
+
+const STEPS = [
+  {
+    n: 1,
+    label: 'Apply',
+    sub: 'Tell us about you and your kitchen. Takes about two minutes.',
+  },
+  {
+    n: 2,
+    label: 'Quick review',
+    sub: 'We review within 1 to 2 business days and help you fix any gaps for free.',
+  },
+  {
+    n: 3,
+    label: 'Set up your menu',
+    sub: 'Add your dishes, set prices and availability. We help with allergen labelling.',
+  },
+  {
+    n: 4,
+    label: 'Start earning immediately',
+    sub: 'Share your personal link and take orders from your own customers straight away, without waiting for platform demand.',
+  },
+];
+
+const FOUNDING_BENEFITS = [
+  `${pct(PLATFORM_FACTS.commission.marketplaceFirst)}% Feastpot commission dropped to 0% on marketplace orders for your first 90 days`,
+  'A direct line to our founding team for questions, feedback and product decisions',
+  'Free listing photography session so your dishes look their best',
+  'Featured in our Southwark launch campaign',
+  'Early input on features before they go live to all vendors',
+];
+
+const FAQ: { q: string; a: string }[] = [
+  {
+    q: 'Are you exclusive? Can I still sell elsewhere?',
+    a: 'No exclusivity, ever. You can sell through other platforms, your own website, at markets or anywhere you like. Feastpot does not require you to be listed only with us.',
+  },
+  {
+    q: `Will the ${pct(PLATFORM_FACTS.commission.vendorReferred)}% rate on my own orders last?`,
+    a: `Yes. We must give at least ${PLATFORM_FACTS.feeChangeNoticeDays} days' written notice before raising any of our rates, and fee changes are never applied retrospectively. You can also leave at any time with ${PLATFORM_FACTS.terminationNoticeDays} days' notice.`,
+  },
+  {
+    q: 'I am not yet council-registered. Can I still apply?',
+    a: 'Yes, apply anyway. We will send you a step-by-step guide and connect you with the right contacts at your local authority. Registration is usually straightforward and we will help you fix any gaps for free.',
+  },
+  {
+    q: 'I am registered but still waiting for my hygiene inspection.',
+    a: 'You can apply and set up your full profile and menu right now, so you lose no time. Feastpot only lists vendors publicly once they reach an FHRS rating of 3 out of 5 or above, because that is a safety standard we hold every cook to. As soon as your rating comes through and meets the threshold, we switch you on.',
+  },
+  {
+    q: 'Who owns my customers?',
+    a: 'You do, without reservation. Your customer list is yours. You can export it from your dashboard at any time and take it with you if you ever decide to leave.',
+  },
+  {
+    q: 'What if I cannot fulfil an order?',
+    a: 'Set capacity caps and lead times so the platform automatically stops accepting orders when you are full. You can also pause your kitchen in one tap from the dashboard. If something unexpected happens, our team is available to help manage the customer.',
+  },
+];
+
+// ── Form types ────────────────────────────────────────────────────────────
+
+// Friendly labels paired with the API enum values.
 const KITCHEN_TYPES: { value: 'home' | 'commercial' | 'pop-up' | 'other'; label: string }[] = [
   { value: 'home', label: 'Home kitchen' },
   { value: 'commercial', label: 'Commercial / restaurant kitchen' },
@@ -61,111 +185,6 @@ const CUISINE_OPTIONS = [
   'West African',
   'Other',
 ];
-
-const YOU_CONTROL = [
-  {
-    Icon: Settings,
-    label: 'Your menu and prices',
-    sub: 'You decide what you sell and what it costs.',
-  },
-  {
-    Icon: MapPin,
-    label: 'Your delivery area and fee',
-    sub: 'Set where you deliver and what you charge for it.',
-  },
-  {
-    Icon: CalendarClock,
-    label: 'Your lead times',
-    sub: 'Choose how much notice you need per dish.',
-  },
-  {
-    Icon: PoundSterling,
-    label: 'Your minimum order',
-    sub: 'Set the smallest order worth your time.',
-  },
-];
-
-const FEASTPOT_DOES = [
-  {
-    Icon: MapPin,
-    label: 'Discovery in your area',
-    sub: 'Customers searching your postcode find you.',
-  },
-  {
-    Icon: ShieldCheck,
-    label: 'Secure checkout',
-    sub: 'Card payments handled end to end.',
-  },
-  {
-    Icon: Settings,
-    label: 'Order management',
-    sub: 'Accept, amend and track orders in one dashboard.',
-  },
-  {
-    Icon: CalendarClock,
-    label: 'Weekly payouts',
-    sub: 'Your earnings paid to your account every week.',
-  },
-];
-
-const STEPS = [
-  { n: 1, label: 'Apply', sub: 'Tell us about you and your kitchen' },
-  {
-    n: 2,
-    label: 'Quick review',
-    sub: "We'll review your details within 1–2 business days",
-  },
-  { n: 3, label: 'Menu setup', sub: 'Add your dishes and set your prices' },
-  {
-    n: 4,
-    label: 'Start receiving orders',
-    sub: 'Go live and get your first orders',
-  },
-];
-
-const TRUST = [
-  {
-    Icon: ShieldCheck,
-    label: 'FSA ready',
-    sub: 'Food safety first. We follow UK standards.',
-  },
-  {
-    Icon: Users,
-    label: 'Growing network of cooks',
-    sub: 'Onboarding cooks across the UK.',
-  },
-  {
-    Icon: BadgeCheck,
-    label: 'UK wide',
-    sub: 'Now onboarding cooks across the UK.',
-  },
-];
-
-const SOCIAL_PROOF = [
-  { Icon: ShieldCheck, value: 'FSA-aligned onboarding', label: 'UK food safety standards' },
-  { Icon: BadgeCheck, value: 'UK wide', label: 'Growing across the UK' },
-  { Icon: CreditCard, value: 'Stripe-backed payouts', label: 'Weekly, to your account' },
-];
-
-const COMMERCIALS = [
-  {
-    Icon: PoundSterling,
-    label: `${PLATFORM_FACTS.commission.marketplaceFirst}% commission`,
-    sub: `Charged on the ${PLATFORM_FACTS.commission.basis} of completed orders only.`,
-  },
-  {
-    Icon: CreditCard,
-    label: 'No upfront or monthly fee',
-    sub: 'Joining and listing your kitchen is free.',
-  },
-  {
-    Icon: CalendarClock,
-    label: `${PLATFORM_FACTS.payouts.frequency.charAt(0).toUpperCase() + PLATFORM_FACTS.payouts.frequency.slice(1)} payouts`,
-    sub: `Your earnings transferred to your account every ${PLATFORM_FACTS.payouts.frequency === 'weekly' ? 'week' : PLATFORM_FACTS.payouts.frequency}.`,
-  },
-];
-
-// ── Form types ──────────────────────────────────────────────────────────
 
 type KitchenType = (typeof KITCHEN_TYPES)[number]['value'];
 
@@ -243,7 +262,7 @@ interface RegisterInterestPayload {
   acceptedTermsVersion: string;
 }
 
-// ── Page ────────────────────────────────────────────────────────────────
+// ── Page ─────────────────────────────────────────────────────────────────
 
 export default function BecomeAVendorPage() {
   const formRef = useRef<HTMLElement>(null);
@@ -256,7 +275,7 @@ export default function BecomeAVendorPage() {
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
 
-  // ── Layer 2: live commission rates fetched from the public API ────────────
+  // Live commission rates fetched from the public API.
   const [rates, setRates] = useState<RateRow[]>([]);
   const [ratesLoading, setRatesLoading] = useState(true);
   const [ratesError, setRatesError] = useState<string | null>(null);
@@ -270,8 +289,6 @@ export default function BecomeAVendorPage() {
 
   const openForm = () => {
     setShowForm(true);
-    // Wait for the form to mount before scrolling - `requestAnimationFrame`
-    // gives React a paint cycle. `setTimeout` fallback covers slow paints.
     requestAnimationFrame(() => {
       setTimeout(() => {
         formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -289,8 +306,6 @@ export default function BecomeAVendorPage() {
     if (form.fullName.trim().length < 2) e.fullName = 'Enter your full name';
     if (form.kitchenName.trim().length < 2) e.kitchenName = 'Enter your kitchen or business name';
     if (!form.email.includes('@')) e.email = 'Enter a valid email';
-    // Phone: backend requires raw length 7–40. We count digits for the
-    // floor (so "07" prefixes pass) but cap the raw string to match.
     if (form.phone.replace(/\D/g, '').length < 7) e.phone = 'Enter a valid phone number';
     else if (form.phone.length > 40) e.phone = 'Phone number is too long';
     if (form.postcode.trim().length < 2) e.postcode = 'Enter your postcode';
@@ -335,9 +350,6 @@ export default function BecomeAVendorPage() {
       foodStory: form.foodStory.trim(),
       ...(form.instagram.trim() ? { instagram: form.instagram.trim() } : {}),
       marketingConsent: form.marketingConsent,
-      // Captured client-side at submission so the audit row records the
-      // exact moment the applicant ticked the box on THIS device (validate()
-      // has already enforced form.terms === true above).
       acceptedTermsAt: new Date().toISOString(),
       acceptedTermsVersion: VENDOR_TERMS_VERSION,
     };
@@ -365,8 +377,7 @@ export default function BecomeAVendorPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Marketing top-nav (lightweight - the customer site's persistent nav
-          is hidden on this route to give the acquisition page its own air). */}
+      {/* Acquisition nav - lightweight, no persistent customer-site nav here */}
       <nav className="sticky top-0 z-40 border-b border-cream-deep bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-3.5 sm:px-8 lg:px-12">
           <Link href="/" aria-label="Feastpot home" className="inline-flex">
@@ -381,13 +392,13 @@ export default function BecomeAVendorPage() {
           </Link>
           <div className="hidden items-center gap-7 lg:flex">
             <a
-              href="#how-it-works"
+              href="#numbers"
               className="text-sm font-semibold text-charcoal hover:text-brand"
             >
-              How it works
+              How the numbers work
             </a>
-            <a href="#benefits" className="text-sm font-semibold text-charcoal hover:text-brand">
-              Benefits
+            <a href="#how-it-works" className="text-sm font-semibold text-charcoal hover:text-brand">
+              How it works
             </a>
           </div>
           <button
@@ -395,27 +406,30 @@ export default function BecomeAVendorPage() {
             onClick={openForm}
             className="rounded-lg bg-brand px-4 py-2 text-sm font-bold text-white hover:bg-brand-dark sm:px-5 sm:py-2.5"
           >
-            Register interest
+            Apply to sell
           </button>
         </div>
       </nav>
 
-      {/* Hero */}
+      {/* BLOCK 1: Hero */}
       <section className="mx-auto grid max-w-6xl items-center gap-10 px-5 py-12 sm:px-8 lg:grid-cols-2 lg:gap-12 lg:px-12 lg:py-16">
         <div>
           <p className="mb-3 text-[11px] font-black uppercase tracking-[0.18em] text-brand">
-            For home cooks and caterers
+            For cooks who already have customers
           </p>
           <h1 className="font-display text-4xl font-black leading-[1.1] tracking-tight text-charcoal sm:text-5xl lg:text-[56px]">
-            Turn your food into
+            Keep your customers.
             <br />
-            <span className="text-brand">more profitable local orders.</span>
+            <span className="text-brand">Lose the admin.</span>
           </h1>
           <div className="mt-4 h-[3px] w-16 rounded-full bg-plantain" aria-hidden />
           <p className="mt-5 max-w-xl text-base leading-relaxed text-charcoal-mid">
-            Reach customers looking for family meals, party trays and event catering in your area.
-            Keep control of your menu, prices, availability and delivery while Feastpot supports
-            discovery, ordering, payment and weekly payouts.
+            You built your following. Feastpot gives you card payments, deposits, an order book and
+            allergen labels for your own customers at{' '}
+            <strong className="text-charcoal">{pct(PLATFORM_FACTS.commission.vendorReferred)}% commission</strong>.
+            When we send you a new customer, we take{' '}
+            <strong className="text-charcoal">{pct(PLATFORM_FACTS.commission.marketplaceFirst)}%</strong>.
+            That is the only time you pay us.
           </p>
           <div className="mt-7 flex flex-col gap-3 sm:flex-row">
             <button
@@ -426,14 +440,15 @@ export default function BecomeAVendorPage() {
               Apply to sell
             </button>
             <a
-              href="#how-it-works"
+              href="#numbers"
               className="inline-flex items-center justify-center rounded-xl border-2 border-charcoal bg-white px-7 py-3.5 text-sm font-bold text-charcoal hover:bg-cream"
             >
-              See how it works
+              See how the numbers work
             </a>
           </div>
           <p className="mt-5 text-[12.5px] font-semibold text-charcoal-mid">
-            No upfront fee · No EPOS required · {PLATFORM_FACTS.commission.marketplaceFirst}% on completed orders · Weekly payouts
+            No upfront fee &middot; No monthly fee &middot;{' '}
+            {pct(PLATFORM_FACTS.commission.vendorReferred)}% on your own orders &middot; Weekly Stripe payouts &middot; No exclusivity
           </p>
         </div>
 
@@ -464,110 +479,240 @@ export default function BecomeAVendorPage() {
         </div>
       </section>
 
-      {/* You stay in control */}
-      <section id="benefits" className="mx-auto max-w-6xl px-5 pb-10 sm:px-8 lg:px-12">
-        <h2 className="mb-4 font-display text-xl font-black tracking-tight text-charcoal">
-          You stay in control
-        </h2>
-        <div className="grid gap-4 lg:grid-cols-4">
-          {YOU_CONTROL.map(({ Icon, label, sub }) => (
-            <div key={label} className="rounded-2xl bg-cream-warm p-5">
-              <span
-                className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-brand-light"
-                aria-hidden
-              >
-                <Icon className="h-5 w-5 text-brand" />
-              </span>
-              <div className="font-display text-[15px] font-black text-charcoal">{label}</div>
-              <p className="mt-1.5 text-[13px] leading-snug text-charcoal-mid">{sub}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* What Feastpot does */}
-      <section className="mx-auto max-w-6xl px-5 pb-14 sm:px-8 lg:px-12">
-        <h2 className="mb-4 font-display text-xl font-black tracking-tight text-charcoal">
-          What Feastpot does
-        </h2>
-        <div className="grid gap-4 lg:grid-cols-4">
-          {FEASTPOT_DOES.map(({ Icon, label, sub }) => (
-            <div key={label} className="rounded-2xl bg-cream-warm p-5">
-              <span
-                className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-brand-light"
-                aria-hidden
-              >
-                <Icon className="h-5 w-5 text-brand" />
-              </span>
-              <div className="font-display text-[15px] font-black text-charcoal">{label}</div>
-              <p className="mt-1.5 text-[13px] leading-snug text-charcoal-mid">{sub}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Transparent commercials */}
-      <section className="mx-auto max-w-6xl px-5 pb-8 sm:px-8 lg:px-12">
-        <h2 className="mb-4 font-display text-xl font-black tracking-tight text-charcoal">
-          Transparent commercials
-        </h2>
-        {/* Non-commission commercial highlights */}
-        <div className="mb-6 grid gap-4 sm:grid-cols-2">
-          {COMMERCIALS.filter(({ label }) => !label.includes('commission')).map(({ Icon, label, sub }) => (
-            <div key={label} className="rounded-2xl bg-cream-warm p-5">
-              <span
-                className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-brand-light"
-                aria-hidden
-              >
-                <Icon className="h-5 w-5 text-brand" />
-              </span>
-              <div className="font-display text-[15px] font-black text-charcoal">{label}</div>
-              <p className="mt-1.5 text-[13px] leading-snug text-charcoal-mid">{sub}</p>
-            </div>
-          ))}
-        </div>
-
-        {/* Layer 2: Rate Card -- generated from the database so this page
-            and the legal document can never show conflicting percentages. */}
-        <RateCard
-          rates={rates}
-          loading={ratesLoading}
-          error={ratesError ?? undefined}
-          className="mb-6"
-        />
-
-        {/* Layer 1: Key Terms Summary (Annex C) */}
-        <KeyTermsSummary />
-
-        <p className="mt-4 text-[12px] text-charcoal-mid">
-          Read the full{' '}
-          <Link
-            href="/legal/vendor-terms"
-            className="font-semibold text-brand underline-offset-2 hover:underline"
+      {/* BLOCK 2: Commercials + Rate calculator */}
+      <section
+        id="numbers"
+        className="border-t border-cream-deep bg-cream-warm py-14"
+        aria-labelledby="numbers-heading"
+      >
+        <div className="mx-auto max-w-6xl px-5 sm:px-8 lg:px-12">
+          <h2
+            id="numbers-heading"
+            className="mb-2 font-display text-3xl font-black tracking-tight text-charcoal"
           >
-            Vendor Terms of Agreement
-          </Link>{' '}
-          before applying.
-        </p>
+            How the numbers work
+          </h2>
+          <p className="mb-8 text-sm font-medium text-charcoal-mid">
+            Two rates, depending on where the customer came from. No other fees.
+          </p>
+
+          <div className="mb-6 grid gap-4 sm:grid-cols-2">
+            {/* Card 1: Vendor-referred */}
+            <div className="rounded-2xl border-2 border-brand bg-white p-6">
+              <p className="mb-1 text-[11px] font-black uppercase tracking-[0.14em] text-brand">
+                Your orders
+              </p>
+              <p className="mb-3 font-display text-5xl font-black text-charcoal">
+                {pct(PLATFORM_FACTS.commission.vendorReferred)}%
+              </p>
+              <p className="mb-1 text-[13px] font-semibold text-charcoal">commission</p>
+              <p className="text-[13px] leading-relaxed text-charcoal-mid">
+                Customers via your own link, QR code, Instagram or WhatsApp. You pay only Stripe
+                card processing at cost - nothing added by us.
+              </p>
+            </div>
+
+            {/* Card 2: Marketplace */}
+            <div className="rounded-2xl bg-white p-6 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
+              <p className="mb-1 text-[11px] font-black uppercase tracking-[0.14em] text-charcoal-mid">
+                Feastpot orders
+              </p>
+              <p className="mb-3 font-display text-5xl font-black text-charcoal">
+                {pct(PLATFORM_FACTS.commission.marketplaceFirst)}%
+              </p>
+              <p className="mb-1 text-[13px] font-semibold text-charcoal">commission</p>
+              <p className="text-[13px] leading-relaxed text-charcoal-mid">
+                Customers who discover you through postcode search on Feastpot. We take{' '}
+                {pct(PLATFORM_FACTS.commission.marketplaceFirst)}% of the food subtotal on completed
+                orders only.
+              </p>
+              <p className="mt-3 text-[13px] font-semibold text-charcoal-mid">
+                Order again through Feastpot and the rate drops to{' '}
+                {pct(PLATFORM_FACTS.commission.marketplaceRepeat)}%.
+              </p>
+            </div>
+          </div>
+
+          <p className="mb-8 text-[12px] leading-relaxed text-charcoal-mid">
+            You are never tied to us and can sell wherever you like. We give at least{' '}
+            <strong>{PLATFORM_FACTS.feeChangeNoticeDays} days&apos; written notice</strong> before
+            changing any fee, and changes are never applied retrospectively.
+          </p>
+
+          {/* Live rate schedule from the database */}
+          <RateCard rates={rates} loading={ratesLoading} error={ratesError ?? undefined} className="mb-6" />
+
+          {/* Key Terms Summary (Annex C) */}
+          <KeyTermsSummary />
+
+          <p className="mt-4 text-[12px] text-charcoal-mid">
+            Read the full{' '}
+            <Link
+              href="/legal/vendor-terms"
+              className="font-semibold text-brand underline-offset-2 hover:underline"
+            >
+              Vendor Terms of Agreement
+            </Link>{' '}
+            before applying.
+          </p>
+        </div>
       </section>
 
-      {/* How it works */}
+      {/* BLOCK 3: Six benefits */}
+      <section
+        id="benefits"
+        className="mx-auto max-w-6xl px-5 py-14 sm:px-8 lg:px-12"
+        aria-labelledby="benefits-heading"
+      >
+        <h2
+          id="benefits-heading"
+          className="mb-2 font-display text-3xl font-black tracking-tight text-charcoal"
+        >
+          Six things that change when you join
+        </h2>
+        <p className="mb-8 text-sm font-medium text-charcoal-mid">
+          Everything you need to run a professional kitchen without the admin overhead.
+        </p>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {SIX_BENEFITS.map(({ Icon, title, body }) => (
+            <div key={title} className="rounded-2xl bg-cream-warm p-5">
+              <span
+                className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-brand-light"
+                aria-hidden
+              >
+                <Icon className="h-5 w-5 text-brand" />
+              </span>
+              <div className="font-display text-[15px] font-black text-charcoal">{title}</div>
+              <p className="mt-1.5 text-[13px] leading-snug text-charcoal-mid">{body}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* BLOCK 4: Discovery */}
+      <section className="border-t border-cream-deep bg-cream-warm py-14">
+        <div className="mx-auto max-w-5xl px-5 text-center sm:px-8 lg:px-12">
+          <h2 className="mb-4 font-display text-3xl font-black tracking-tight text-charcoal">
+            New customers when you want them
+          </h2>
+          <p className="mx-auto max-w-2xl text-[15px] leading-relaxed text-charcoal-mid">
+            Feastpot lists your kitchen in postcode search by default, so customers looking for
+            food in your area can find you straight away. If you are fully booked or want to focus
+            on your own regulars, you can switch discovery off from your dashboard in one tap. It is
+            not all-or-nothing - you can open to marketplace customers during quiet periods and
+            close again when your own orders fill the book.
+          </p>
+          <div className="mt-8 inline-flex items-center gap-2 rounded-full bg-brand-light px-5 py-2.5">
+            <MapPin className="h-4 w-4 text-brand" aria-hidden />
+            <span className="text-sm font-semibold text-brand-dark">
+              Discovery is an on/off switch, not a commitment
+            </span>
+          </div>
+        </div>
+      </section>
+
+      {/* BLOCK 5: Control split */}
+      <section
+        className="mx-auto max-w-6xl px-5 py-14 sm:px-8 lg:px-12"
+        aria-labelledby="control-heading"
+      >
+        <h2
+          id="control-heading"
+          className="mb-8 font-display text-3xl font-black tracking-tight text-charcoal"
+        >
+          What you control and what we handle
+        </h2>
+        <div className="grid gap-6 sm:grid-cols-2">
+          <div className="rounded-2xl border-2 border-brand bg-white p-6">
+            <p className="mb-4 text-[11px] font-black uppercase tracking-[0.14em] text-brand">
+              You decide
+            </p>
+            <ul className="space-y-3">
+              {YOU_DECIDE.map((item) => (
+                <li key={item} className="flex items-start gap-2.5">
+                  <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-brand" aria-hidden />
+                  <span className="text-[14px] text-charcoal">{item}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="rounded-2xl bg-cream-warm p-6">
+            <p className="mb-4 text-[11px] font-black uppercase tracking-[0.14em] text-charcoal-mid">
+              We handle
+            </p>
+            <ul className="space-y-3">
+              {WE_HANDLE.map((item) => (
+                <li key={item} className="flex items-start gap-2.5">
+                  <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-charcoal-mid" aria-hidden />
+                  <span className="text-[14px] text-charcoal">{item}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      {/* BLOCK 6: Founding cohort */}
+      <section className="border-t border-cream-deep bg-brand py-14">
+        <div className="mx-auto max-w-6xl px-5 sm:px-8 lg:px-12">
+          <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-16">
+            <div className="lg:flex-1">
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-1.5">
+                <Star className="h-3.5 w-3.5 text-white" aria-hidden />
+                <span className="text-[11px] font-black uppercase tracking-[0.14em] text-white">
+                  Founding cohort
+                </span>
+              </div>
+              <h2 className="font-display text-3xl font-black leading-tight text-white sm:text-4xl">
+                We are signing our first 20 cooks in Southwark
+              </h2>
+              <p className="mt-4 text-[15px] leading-relaxed text-white/80">
+                We launch postcode by postcode so customers always find a cook nearby. Southwark
+                is our first borough and we are keeping the cohort small so every founding cook
+                gets a real head start before we open to the wider waitlist.
+              </p>
+            </div>
+            <div className="lg:flex-1">
+              <p className="mb-4 text-[11px] font-black uppercase tracking-[0.14em] text-white/60">
+                Founding cook benefits
+              </p>
+              <ul className="space-y-3">
+                {FOUNDING_BENEFITS.map((item) => (
+                  <li key={item} className="flex items-start gap-3">
+                    <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-white" aria-hidden />
+                    <span className="text-[14px] leading-snug text-white">{item}</span>
+                  </li>
+                ))}
+              </ul>
+              <button
+                type="button"
+                onClick={openForm}
+                className="mt-7 inline-flex items-center justify-center rounded-xl bg-white px-6 py-3 text-sm font-bold text-brand shadow-card hover:bg-cream"
+              >
+                Apply for a founding spot
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* BLOCK 7: Onboarding steps */}
       <section id="how-it-works" className="bg-cream-warm py-14">
         <div className="mx-auto max-w-5xl px-5 text-center sm:px-8 lg:px-12">
           <h2 className="font-display text-3xl font-black tracking-tight text-charcoal">
-            Your onboarding journey
+            Four steps to your first order
           </h2>
           <p className="mt-2 text-sm font-medium text-charcoal-mid">
-            Four simple steps to start earning
+            From application to earning on your own customers the same day
           </p>
           <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {STEPS.map((s) => (
               <div
                 key={s.n}
-                className="rounded-2xl bg-white p-6 text-center shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
+                className="rounded-2xl bg-white p-6 text-left shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
               >
                 <div
-                  className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-brand font-display text-base font-black text-white"
+                  className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-brand font-display text-base font-black text-white"
                   aria-hidden
                 >
                   {s.n}
@@ -591,59 +736,61 @@ export default function BecomeAVendorPage() {
         </div>
       </section>
 
-      {/* Trust strips */}
-      <section className="mx-auto grid max-w-6xl gap-4 px-5 pt-12 sm:grid-cols-3 sm:px-8 lg:px-12">
-        {TRUST.map(({ Icon, label, sub }) => (
-          <div key={label} className="flex items-start gap-3.5 rounded-2xl bg-cream-warm p-5">
-            <span
-              className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-brand-light"
-              aria-hidden
-            >
-              <Icon className="h-5 w-5 text-brand" />
-            </span>
-            <div>
-              <div className="font-display text-[15px] font-black text-charcoal">{label}</div>
-              <p className="mt-1 text-[13px] leading-snug text-charcoal-mid">{sub}</p>
+      {/* BLOCK 8: FAQ */}
+      <section
+        className="mx-auto max-w-4xl px-5 py-14 sm:px-8 lg:px-12"
+        aria-labelledby="faq-heading"
+      >
+        <h2
+          id="faq-heading"
+          className="mb-8 font-display text-3xl font-black tracking-tight text-charcoal"
+        >
+          Questions we get asked
+        </h2>
+        <div className="space-y-4">
+          {FAQ.map(({ q, a }) => (
+            <div key={q} className="rounded-2xl border border-cream-deep bg-white p-5">
+              <p className="font-display text-[15px] font-black text-charcoal">{q}</p>
+              <p className="mt-2 text-[13px] leading-relaxed text-charcoal-mid">{a}</p>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </section>
 
-      {/* Social proof */}
-      <section className="mx-auto mt-8 grid max-w-6xl gap-6 border-t border-cream-deep px-5 py-8 sm:grid-cols-3 sm:px-8 lg:px-12">
-        {SOCIAL_PROOF.map(({ Icon, value, label }) => (
-          <div key={label} className="flex items-center gap-3">
-            <span
-              className="flex h-12 w-12 items-center justify-center rounded-xl bg-brand-light"
-              aria-hidden
-            >
-              <Icon className="h-5 w-5 text-brand" />
-            </span>
-            <div>
-              <div className="font-display text-lg font-black text-charcoal">{value}</div>
-              <div className="text-[13px] font-medium text-charcoal-mid">{label}</div>
-            </div>
-          </div>
-        ))}
-      </section>
-
-      {/* Final CTA - opens the form rather than linking out. */}
+      {/* BLOCK 9: Final CTA */}
       {!showForm && (
-        <section className="mx-auto max-w-6xl px-5 pb-16 pt-2 text-center sm:px-8 lg:px-12">
-          <button
-            type="button"
-            onClick={openForm}
-            className="inline-flex items-center justify-center rounded-xl bg-brand px-8 py-4 text-sm font-bold text-white shadow-card hover:bg-brand-dark"
-          >
-            Register your interest
-          </button>
-          <p className="mt-3 text-xs font-medium text-charcoal-mid">
-            We&rsquo;ll get back to you within 1–2 business days.
-          </p>
+        <section className="border-t border-cream-deep bg-cream-warm py-16">
+          <div className="mx-auto max-w-xl px-5 text-center sm:px-8">
+            <h2 className="font-display text-3xl font-black tracking-tight text-charcoal">
+              Nothing to lose by trying it
+            </h2>
+            <p className="mt-3 text-[15px] leading-relaxed text-charcoal-mid">
+              No upfront cost. No monthly fee. You can leave at any time with{' '}
+              {PLATFORM_FACTS.terminationNoticeDays} days&apos; notice.
+            </p>
+            <div className="mt-7 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+              <button
+                type="button"
+                onClick={openForm}
+                className="inline-flex w-full items-center justify-center rounded-xl bg-brand px-8 py-4 text-sm font-bold text-white shadow-card hover:bg-brand-dark sm:w-auto"
+              >
+                Apply to sell
+              </button>
+              <a
+                href="mailto:vendors@feastpot.co.uk"
+                className="inline-flex w-full items-center justify-center rounded-xl border-2 border-charcoal bg-white px-8 py-4 text-sm font-bold text-charcoal hover:bg-cream sm:w-auto"
+              >
+                Talk to us first
+              </a>
+            </div>
+            <p className="mt-4 text-xs font-medium text-charcoal-mid">
+              We reply {PLATFORM_FACTS.support.responseTime}.
+            </p>
+          </div>
         </section>
       )}
 
-      {/* Inline interest form (rendered after click). */}
+      {/* Inline interest form (rendered after click) */}
       {showForm && (
         <InterestForm
           ref={formRef}
@@ -659,7 +806,7 @@ export default function BecomeAVendorPage() {
   );
 }
 
-// ── Inline interest form ────────────────────────────────────────────────
+// ── Inline interest form ─────────────────────────────────────────────────
 
 interface InterestFormProps {
   form: FormState;
@@ -688,7 +835,7 @@ const InterestForm = forwardRef<HTMLElement, InterestFormProps>(function Interes
           Tell us about your kitchen
         </h2>
         <p className="mt-2 text-sm font-medium text-charcoal-mid">
-          Takes about 2 minutes. We&rsquo;ll be in touch within 1–2 business days.
+          Takes about 2 minutes. We&rsquo;ll be in touch within 1 to 2 business days.
         </p>
 
         <form noValidate onSubmit={onSubmit} className="mt-7 grid gap-5">
@@ -917,7 +1064,7 @@ const InterestForm = forwardRef<HTMLElement, InterestFormProps>(function Interes
             <span>Send me occasional tips and updates by email (optional).</span>
           </label>
 
-          {/* Layer 1 above the submit button (P2B: must appear before contracting). */}
+          {/* Key Terms Summary (Annex C) - must appear before contracting */}
           <KeyTermsSummary className="mt-2" />
 
           <label className="flex cursor-pointer items-start gap-3 text-[13px] font-medium text-charcoal">
@@ -954,7 +1101,7 @@ const InterestForm = forwardRef<HTMLElement, InterestFormProps>(function Interes
             className="mt-2 inline-flex items-center justify-center gap-2 rounded-xl bg-brand px-6 py-3.5 text-sm font-bold text-white shadow-card transition-colors hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
           >
             {submitting && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
-            {submitting ? 'Sending…' : 'Submit application'}
+            {submitting ? 'Sending...' : 'Submit application'}
           </button>
         </form>
       </div>
@@ -962,7 +1109,7 @@ const InterestForm = forwardRef<HTMLElement, InterestFormProps>(function Interes
   );
 });
 
-// ── Form helpers ────────────────────────────────────────────────────────
+// ── Form helpers ─────────────────────────────────────────────────────────
 
 function ErrorText({ children, id }: { children: React.ReactNode; id?: string }) {
   return (
@@ -1048,7 +1195,7 @@ function SelectField({ id, label, value, onChange, options, placeholder, err }: 
           (err ? 'border-scotch' : 'border-cream-deep')
         }
       >
-        <option value="">{placeholder ?? 'Select…'}</option>
+        <option value="">{placeholder ?? 'Select...'}</option>
         {options.map((o) => (
           <option key={o.value} value={o.value}>
             {o.label}
@@ -1060,12 +1207,12 @@ function SelectField({ id, label, value, onChange, options, placeholder, err }: 
   );
 }
 
-// ── Success panel (replaces the page after submit) ──────────────────────
+// ── Success panel (replaces the page after submit) ────────────────────────
 
 function SuccessPanel({ snapshot }: { snapshot: FormState }) {
   const firstName = snapshot.fullName.trim().split(/\s+/)[0] || 'there';
   const nextSteps = [
-    'We review your application (1–2 business days)',
+    'We review your application (1 to 2 business days)',
     'You receive an email with the outcome',
     'If approved - we send you a link to set up your menu and payouts',
     'Go live and start receiving orders',
@@ -1088,7 +1235,7 @@ function SuccessPanel({ snapshot }: { snapshot: FormState }) {
         </p>
         <p className="mt-1 text-sm leading-relaxed text-charcoal-mid">
           We&rsquo;ll review your details and be in touch at{' '}
-          <strong className="text-charcoal">{snapshot.email}</strong> within 1–2 business days.
+          <strong className="text-charcoal">{snapshot.email}</strong> within 1 to 2 business days.
         </p>
 
         <div className="mt-7 rounded-2xl bg-cream-warm p-5 text-left">
@@ -1121,7 +1268,7 @@ function SuccessPanel({ snapshot }: { snapshot: FormState }) {
           href="/"
           className="mt-5 inline-block text-[13px] font-semibold text-charcoal-mid hover:text-charcoal"
         >
-          ← Back to Feastpot
+          Back to Feastpot
         </Link>
       </div>
     </div>

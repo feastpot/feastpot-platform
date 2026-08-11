@@ -1,4 +1,10 @@
-import { INestApplication, ValidationPipe, VersioningType } from '@nestjs/common';
+// Hoist: mock qrcode before the controller module imports it.
+jest.mock('qrcode', () => ({
+  toBuffer: jest.fn().mockResolvedValue(Buffer.from('fake-png-data')),
+  toString: jest.fn().mockResolvedValue('<svg>fake-svg</svg>'),
+}));
+
+import { INestApplication, NotFoundException, ValidationPipe, VersioningType } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 
@@ -160,5 +166,116 @@ describe('VendorsController (HTTP) - debug endpoint + route ordering', () => {
     // "not-a-uuid" must hit the UUID-validated `/:id` route, NOT `debug`.
     // If route ordering ever breaks again, this would 404 instead of 400.
     await request(app.getHttpServer()).get('/v1/vendors/not-a-uuid').expect(400);
+  });
+});
+
+/**
+ * Unit tests for VendorsController.myQrCode (GET /v1/vendors/me/qr).
+ *
+ * We call the controller method directly rather than via supertest so we can:
+ *  - inject a mock Response without wiring up the full Nest HTTP adapter
+ *  - skip the auth-guard layer (which is separately exercised by E2E tests)
+ *  - verify the CORE security invariant: vendor is ALWAYS resolved from the
+ *    authenticated user.id, never from a request parameter.
+ *
+ * qrcode is mocked at the top of this file (jest.mock hoisting) so no real
+ * QR generation happens and assertions are deterministic.
+ */
+describe('VendorsController.myQrCode - auth-scoped QR generation', () => {
+  let controller: VendorsController;
+  let vendorFindUnique: jest.Mock;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const makeUser = (id: string) => ({ id, role: 'vendor' }) as any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const makeRes = () => ({ setHeader: jest.fn(), send: jest.fn() }) as any;
+
+  beforeEach(async () => {
+    vendorFindUnique = jest.fn();
+    jest.clearAllMocks();
+
+    const module = await Test.createTestingModule({
+      controllers: [VendorsController],
+      providers: [
+        {
+          provide: VendorsService,
+          useValue: {
+            getDebugInfo: jest.fn(),
+            findById: jest.fn(),
+            search: jest.fn(),
+            findBySlug: jest.fn(),
+          },
+        },
+        { provide: SupabaseStorageService, useValue: {} },
+        {
+          provide: PrismaService,
+          useValue: { vendor: { findUnique: vendorFindUnique } },
+        },
+      ],
+    }).compile();
+
+    controller = module.get(VendorsController);
+  });
+
+  it('resolves the vendor strictly by authenticated user.id and never by a slug param', async () => {
+    vendorFindUnique.mockResolvedValue({ slug: 'mamas-kitchen' });
+
+    await controller.myQrCode(makeUser('user-abc'), undefined, makeRes());
+
+    expect(vendorFindUnique).toHaveBeenCalledTimes(1);
+    expect(vendorFindUnique).toHaveBeenCalledWith({
+      where: { userId: 'user-abc' },
+      select: { slug: true },
+    });
+    // Critically: no slug/id parameter should appear as a `where` key.
+    const whereArg = vendorFindUnique.mock.calls[0][0].where as Record<string, unknown>;
+    expect(Object.keys(whereArg)).toEqual(['userId']);
+  });
+
+  it('throws NotFoundException (VENDOR_NOT_FOUND) when the user has no vendor record', async () => {
+    vendorFindUnique.mockResolvedValue(null);
+
+    await expect(
+      controller.myQrCode(makeUser('user-no-vendor'), undefined, makeRes()),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('sends a PNG buffer with image/png Content-Type by default (no format param)', async () => {
+    vendorFindUnique.mockResolvedValue({ slug: 'mamas-kitchen' });
+    const res = makeRes();
+
+    await controller.myQrCode(makeUser('user-abc'), undefined, res);
+
+    expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'image/png');
+    // The mocked QRCode.toBuffer resolves to Buffer.from('fake-png-data')
+    expect(res.send).toHaveBeenCalledWith(Buffer.from('fake-png-data'));
+  });
+
+  it('sends SVG string with image/svg+xml Content-Type when format=svg', async () => {
+    vendorFindUnique.mockResolvedValue({ slug: 'mamas-kitchen' });
+    const res = makeRes();
+
+    await controller.myQrCode(makeUser('user-abc'), 'svg', res);
+
+    expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'image/svg+xml');
+    expect(res.send).toHaveBeenCalledWith('<svg>fake-svg</svg>');
+  });
+
+  it('URL-encodes special characters in the slug when building the canonical link', async () => {
+    // A slug with spaces and apostrophes is an edge case - encodeURIComponent
+    // must handle it so the QR encodes a valid URL.
+    const slug = "mama's kitchen";
+    vendorFindUnique.mockResolvedValue({ slug });
+    const res = makeRes();
+
+    await controller.myQrCode(makeUser('user-abc'), undefined, res);
+
+    // The mock captures what URL QRCode.toBuffer was called with.
+    const qrcode = await import('qrcode');
+    const toBuffer = qrcode.toBuffer as jest.Mock;
+    const calledUrl = toBuffer.mock.calls[toBuffer.mock.calls.length - 1][0] as string;
+    expect(calledUrl).toBe(
+      `https://feastpot.co.uk/v/${encodeURIComponent(slug)}?src=vendor`,
+    );
   });
 });
