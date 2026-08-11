@@ -1,0 +1,20 @@
+You are adding an interactive calculator to apps/web's /become-a-vendor page at id="numbers" (Client Component, "use client"). Import all platform rates from '@feastpot/config' (PLATFORM_FACTS); do not hard-code 12, 10, or 0 anywhere in this component.
+
+INPUTS: monthly own-order revenue (GBP); average order value (GBP); optional expected Feastpot-sourced orders per month, split into first-time and repeat if the vendor wants that granularity (default: treat all as first-time if not specified).
+
+MODELS TO COMPARE:
+1. FEASTPOT (real model): own-order revenue costs Stripe processing at cost only (estimate 1.5% + 20p per UK card transaction, transaction count = round(own revenue / average order value); this Stripe estimate is NOT in PLATFORM_FACTS and should be clearly labelled as an external estimate, not a platform commitment) at PLATFORM_FACTS.commission.vendorReferred percent platform commission (0%). Feastpot-sourced orders cost PLATFORM_FACTS.commission.marketplaceFirst percent on first orders and PLATFORM_FACTS.commission.marketplaceRepeat percent on repeat orders, plus the same Stripe estimate.
+2. FLAT AT THE FIRST-ORDER RATE: PLATFORM_FACTS.commission.marketplaceFirst percent applied to all revenue, own and Feastpot-sourced, for contrast.
+3. TYPICAL AGGREGATOR: a selectable rate between 25% and 30% (default 27.5%) applied to all revenue, clearly labelled as a market comparison, not a Feastpot figure.
+
+OUTPUT: monthly platform-plus-processing cost and net-to-vendor for each model, side by side.
+
+CALCULATION NOTES: do all money maths in integer pence; round half up to the nearest penny for display; format as GBP with thousands separators and two decimals.
+
+ACCEPTANCE CRITERIA:
+- Changing any input updates all three model outputs live.
+- With Feastpot orders set to 0, the Feastpot model shows only the Stripe processing estimate on own orders (0% commission) and clearly beats both comparison models.
+- Every commission percentage shown comes from PLATFORM_FACTS at render time, verified by changing a value in platform-facts.ts and confirming the calculator output changes with no other edit.
+- Currency formatting never shows floating-point artefacts.
+
+EDGE CASES: average order value of 0 or blank guards against divide-by-zero; aggregator rate selectable 25 to 30%; small print notes the Stripe estimate is external and can vary by card type.
