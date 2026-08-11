@@ -1,0 +1,25 @@
+You are working in apps/api (NestJS 11) with Stripe Connect and Prisma. Order already has commissionPence and vendorPayoutPence fields; this prompt computes and writes them correctly, it does not add new fields for this purpose. Attribution (VENDOR_REFERRED / MARKETPLACE_FIRST / MARKETPLACE_REPEAT) comes from Prompt 7.
+
+COMMISSION RULE (from PLATFORM_FACTS.commission, do not hard-code these numbers, import them):
+- vendorReferred: 0.0 percent
+- marketplaceFirst: 12.0 percent
+- marketplaceRepeat: 10.0 percent
+- basis: 'food subtotal only', meaning the rate applies to Order.subtotalPence, never to deliveryFeePence or serviceFeePence, and never to a cancelled order.
+
+FIRST, INSPECT: find where vendorPayoutPence is currently calculated or read elsewhere in the codebase (for example in apps/vendor's payouts-client.tsx or any existing payout service in apps/api) to confirm whether it currently equals subtotalPence minus commissionPence, or whether it also nets off something else such as delivery fee handling. Preserve that existing formula, only correcting the commissionPence input.
+
+TASK:
+1. Write a pure function computeCommissionPence(attributionSource, subtotalPence): number that looks up the correct percentage from PLATFORM_FACTS.commission by attribution tier, computes commission = round(subtotalPence * rate / 100), rounding half up to the nearest penny.
+2. At order creation (or on completion, matching whatever point the codebase currently finalises commissionPence), call this function using the order's resolved attribution and subtotalPence, and write the result to Order.commissionPence. Recompute vendorPayoutPence using the existing formula you found in the inspection step, with the corrected commissionPence as input.
+3. Configure the Stripe Connect PaymentIntent (or Checkout Session payment_intent_data) for destination charges: transfer_data.destination = vendor's connected account, application_fee_amount = Order.commissionPence.
+4. REFUNDS: when refunding a charge, pass refund_application_fee: true so Stripe reverses the application fee proportionally to the refunded amount for both full and partial refunds. Handle the charge.refunded webhook to update Order.commissionPence and vendorPayoutPence to reflect the reversal, keeping a clear audit trail (do not silently overwrite the original commission figure; store the adjustment).
+
+ACCEPTANCE CRITERIA:
+- computeCommissionPence is unit tested against PLATFORM_FACTS.commission, not hard-coded numbers, so a future change to those percentages automatically changes the test expectation.
+- A test-mode MARKETPLACE_FIRST order on a £20.00 (2000p) subtotal produces commissionPence = 240.
+- A test-mode MARKETPLACE_REPEAT order on the same subtotal produces commissionPence = 200.
+- A test-mode VENDOR_REFERRED order produces commissionPence = 0 and application_fee_amount = 0.
+- Commission is computed on subtotalPence only, never deliveryFeePence or serviceFeePence, and only for completed orders; a cancelled order has commissionPence = 0.
+- A 50% partial refund of a marketplace-sourced order reverses 50% of the application fee, verified against the webhook handling.
+
+EDGE CASES: multi-vendor orders compute commission per vendor's own subtotal and attribution independently; refund larger than the remaining unrefunded fee is handled per Stripe's cap, not treated as an error; all amounts stay in integer pence throughout, no floating point.

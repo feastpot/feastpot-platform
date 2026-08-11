@@ -416,79 +416,65 @@ export class AttributionService {
     _from?: Date,
     _to?: Date,
   ): Promise<{
-    thisWeek: Record<OrderSource, { orders: number; gmvPence: number }>;
-    cumulative: Record<OrderSource, { orders: number; gmvPence: number }>;
+    thisWeek: Record<string, { orders: number; gmvPence: number }>;
+    cumulative: Record<string, { orders: number; gmvPence: number }>;
   }> {
     const now = new Date();
     const weekStart = new Date(now);
     weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // Sunday
     weekStart.setHours(0, 0, 0, 0);
 
-    const [weekRows, totalRows] = await Promise.all([
-      this.prisma.orderAttribution.groupBy({
-        by: ['source'],
-        where: {
-          order: {
-            vendorId,
-            status: OrderStatus.delivered,
-            createdAt: { gte: weekStart },
-          },
-        },
-        _count: { _all: true },
-        _sum: { } as never,
-      }),
-      this.prisma.orderAttribution.groupBy({
-        by: ['source'],
-        where: {
-          order: { vendorId, status: OrderStatus.delivered },
-        },
-        _count: { _all: true },
-        _sum: { } as never,
-      }),
-    ]);
+    // Single combined raw query per period: count + GMV grouped by three-tier tier.
+    // Rows with a null resolved_source (pre-migration) fall back to source + is_first_order.
+    type RawRow = { tier: string; order_count: bigint; gmv: bigint };
 
-    // groupBy doesn't easily cross-join with Order.totalPence; use raw for GMV.
-    const [weekGmv, totalGmv] = await Promise.all([
-      this.prisma.$queryRaw<Array<{ source: string; gmv: bigint }>>`
-        SELECT oa.source, COALESCE(SUM(o.total_pence), 0) AS gmv
+    // Reusable SQL fragment via Prisma.sql so it is embedded safely (not concatenated).
+    const tierExpr = Prisma.sql`COALESCE(
+      oa.resolved_source::text,
+      CASE
+        WHEN oa.source = 'VENDOR_REFERRED' THEN 'VENDOR_REFERRED'
+        WHEN oa.is_first_order = false      THEN 'MARKETPLACE_REPEAT'
+        ELSE                                     'MARKETPLACE_FIRST'
+      END
+    )`;
+
+    const [weekRows, totalRows] = await Promise.all([
+      this.prisma.$queryRaw<RawRow[]>`
+        SELECT
+          ${tierExpr} AS tier,
+          COUNT(*)::bigint                             AS order_count,
+          COALESCE(SUM(o.total_pence), 0)::bigint     AS gmv
         FROM order_attributions oa
         JOIN orders o ON oa.order_id = o.id
         WHERE o.vendor_id = ${vendorId}::uuid
           AND o.status = 'delivered'
           AND o.created_at >= ${weekStart}
-        GROUP BY oa.source
+        GROUP BY tier
       `,
-      this.prisma.$queryRaw<Array<{ source: string; gmv: bigint }>>`
-        SELECT oa.source, COALESCE(SUM(o.total_pence), 0) AS gmv
+      this.prisma.$queryRaw<RawRow[]>`
+        SELECT
+          ${tierExpr} AS tier,
+          COUNT(*)::bigint                             AS order_count,
+          COALESCE(SUM(o.total_pence), 0)::bigint     AS gmv
         FROM order_attributions oa
         JOIN orders o ON oa.order_id = o.id
         WHERE o.vendor_id = ${vendorId}::uuid
           AND o.status = 'delivered'
-        GROUP BY oa.source
+        GROUP BY tier
       `,
     ]);
 
-    function toMap(
-      counts: typeof weekRows,
-      gmvRows: typeof weekGmv,
-    ): Record<OrderSource, { orders: number; gmvPence: number }> {
-      const result: Record<OrderSource, { orders: number; gmvPence: number }> = {
-        MARKETPLACE: { orders: 0, gmvPence: 0 },
-        VENDOR_REFERRED: { orders: 0, gmvPence: 0 },
-      };
-      for (const row of counts) {
-        result[row.source]!.orders = row._count._all;
-      }
-      for (const row of gmvRows) {
-        const src = row.source as OrderSource;
-        result[src]!.gmvPence = Number(row.gmv);
+    function toMap(rows: RawRow[]): Record<string, { orders: number; gmvPence: number }> {
+      const result: Record<string, { orders: number; gmvPence: number }> = {};
+      for (const row of rows) {
+        result[row.tier] = { orders: Number(row.order_count), gmvPence: Number(row.gmv) };
       }
       return result;
     }
 
     return {
-      thisWeek: toMap(weekRows, weekGmv),
-      cumulative: toMap(totalRows, totalGmv),
+      thisWeek: toMap(weekRows),
+      cumulative: toMap(totalRows),
     };
   }
 

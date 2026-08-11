@@ -38,15 +38,26 @@ interface EarningsData {
 }
 
 const SOURCE_LABELS: Record<string, { label: string; colour: string; note: string }> = {
-  MARKETPLACE: {
-    label: 'Marketplace',
+  MARKETPLACE_FIRST: {
+    label: 'New marketplace customers',
     colour: 'bg-blue-100 text-blue-800',
-    note: `Orders from the ${PLATFORM_FACTS.brandName} marketplace (${PLATFORM_FACTS.commission.marketplaceRepeat}–${PLATFORM_FACTS.commission.marketplaceFirst}% rate)`,
+    note: `First-time buyers via ${PLATFORM_FACTS.brandName} (${PLATFORM_FACTS.commission.marketplaceFirst}% rate)`,
+  },
+  MARKETPLACE_REPEAT: {
+    label: 'Returning marketplace customers',
+    colour: 'bg-sky-100 text-sky-800',
+    note: `Repeat buyers via ${PLATFORM_FACTS.brandName} (${PLATFORM_FACTS.commission.marketplaceRepeat}% rate)`,
   },
   VENDOR_REFERRED: {
     label: 'Your referrals',
     colour: 'bg-green-100 text-green-800',
     note: `Customers you brought directly (${PLATFORM_FACTS.commission.vendorReferred}% rate)`,
+  },
+  // Fallback for any legacy rows not yet re-labelled by the migration backfill.
+  MARKETPLACE: {
+    label: 'Marketplace',
+    colour: 'bg-blue-100 text-blue-800',
+    note: `Orders via ${PLATFORM_FACTS.brandName} (${PLATFORM_FACTS.commission.marketplaceRepeat}-${PLATFORM_FACTS.commission.marketplaceFirst}% rate)`,
   },
 };
 

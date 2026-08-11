@@ -20,8 +20,8 @@ interface SourceCount {
 }
 
 interface SplitData {
-  thisWeek: { MARKETPLACE: SourceCount; VENDOR_REFERRED: SourceCount };
-  cumulative: { MARKETPLACE: SourceCount; VENDOR_REFERRED: SourceCount };
+  thisWeek: Record<string, SourceCount | undefined>;
+  cumulative: Record<string, SourceCount | undefined>;
 }
 
 interface ReferralsClientProps {
@@ -120,10 +120,10 @@ export function ReferralsClient({ link: initialLink }: ReferralsClientProps) {
   if (!link) return <p className="text-sm text-mid">No referral link found. Please refresh.</p>;
 
   const weekTotal = split
-    ? (split.thisWeek.MARKETPLACE?.orders ?? 0) + (split.thisWeek.VENDOR_REFERRED?.orders ?? 0)
+    ? Object.values(split.thisWeek).reduce((s, v) => s + (v?.orders ?? 0), 0)
     : 0;
   const allTotal = split
-    ? (split.cumulative.MARKETPLACE?.orders ?? 0) + (split.cumulative.VENDOR_REFERRED?.orders ?? 0)
+    ? Object.values(split.cumulative).reduce((s, v) => s + (v?.orders ?? 0), 0)
     : 0;
 
   // The QR src to display: prefer stored URL (stable, high-res), fall back
@@ -272,14 +272,20 @@ export function ReferralsClient({ link: initialLink }: ReferralsClientProps) {
                 <div className="space-y-4">
                   <SourceBar
                     label="Via your link"
-                    count={split.thisWeek.VENDOR_REFERRED?.orders ?? 0}
-                    gmv={split.thisWeek.VENDOR_REFERRED?.gmvPence ?? 0}
+                    count={split.thisWeek['VENDOR_REFERRED']?.orders ?? 0}
+                    gmv={split.thisWeek['VENDOR_REFERRED']?.gmvPence ?? 0}
                     total={weekTotal}
                   />
                   <SourceBar
-                    label="Feastpot marketplace"
-                    count={split.thisWeek.MARKETPLACE?.orders ?? 0}
-                    gmv={split.thisWeek.MARKETPLACE?.gmvPence ?? 0}
+                    label="New marketplace customers"
+                    count={split.thisWeek['MARKETPLACE_FIRST']?.orders ?? 0}
+                    gmv={split.thisWeek['MARKETPLACE_FIRST']?.gmvPence ?? 0}
+                    total={weekTotal}
+                  />
+                  <SourceBar
+                    label="Returning marketplace customers"
+                    count={split.thisWeek['MARKETPLACE_REPEAT']?.orders ?? 0}
+                    gmv={split.thisWeek['MARKETPLACE_REPEAT']?.gmvPence ?? 0}
                     total={weekTotal}
                   />
                 </div>
@@ -294,14 +300,20 @@ export function ReferralsClient({ link: initialLink }: ReferralsClientProps) {
                 <div className="space-y-4">
                   <SourceBar
                     label="Via your link"
-                    count={split.cumulative.VENDOR_REFERRED?.orders ?? 0}
-                    gmv={split.cumulative.VENDOR_REFERRED?.gmvPence ?? 0}
+                    count={split.cumulative['VENDOR_REFERRED']?.orders ?? 0}
+                    gmv={split.cumulative['VENDOR_REFERRED']?.gmvPence ?? 0}
                     total={allTotal}
                   />
                   <SourceBar
-                    label="Feastpot marketplace"
-                    count={split.cumulative.MARKETPLACE?.orders ?? 0}
-                    gmv={split.cumulative.MARKETPLACE?.gmvPence ?? 0}
+                    label="New marketplace customers"
+                    count={split.cumulative['MARKETPLACE_FIRST']?.orders ?? 0}
+                    gmv={split.cumulative['MARKETPLACE_FIRST']?.gmvPence ?? 0}
+                    total={allTotal}
+                  />
+                  <SourceBar
+                    label="Returning marketplace customers"
+                    count={split.cumulative['MARKETPLACE_REPEAT']?.orders ?? 0}
+                    gmv={split.cumulative['MARKETPLACE_REPEAT']?.gmvPence ?? 0}
                     total={allTotal}
                   />
                 </div>

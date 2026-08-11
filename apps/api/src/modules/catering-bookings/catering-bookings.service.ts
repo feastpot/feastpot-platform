@@ -5,7 +5,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { CateringBookingStatus, OrderSource, UserRole } from '@prisma/client';
+import { AttributionSource, CateringBookingStatus, OrderSource, UserRole } from '@prisma/client';
 import * as Sentry from '@sentry/nestjs';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const PDFDocument = require('pdfkit') as typeof import('pdfkit');
@@ -16,6 +16,7 @@ import type { AuthUser } from '../../auth/types';
 import { CommissionService } from '../../commission/commission.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { StripeService } from '../../stripe/stripe.service';
+import { toResolvedSource } from '../attribution/attribution.service';
 import { EmailProvider } from '../notifications/providers/email.provider';
 import { NotificationsService } from '../notifications/notifications.service';
 
@@ -117,11 +118,13 @@ export class CateringBookingsService {
     const quoteExpiresAt =
       requestedExpiry && requestedExpiry < systemExpiry ? requestedExpiry : systemExpiry;
 
-    // Commission: at quote time there's no session/fp_ref, so we default to
-    // MARKETPLACE/first. The rate is immutable once stored on the booking row.
-    // A vendor-referred customer can be manually corrected by admin before confirmation.
+    // Commission: at quote time there is no session/fp_ref cookie (the vendor
+    // creates the booking, not the customer). We default to MARKETPLACE/first.
+    // The resolved three-tier source is stored for consistent finance reporting.
+    // Admin can correct the attribution before the deposit is confirmed.
     const source = OrderSource.MARKETPLACE;
     const isFirstOrder = true;
+    const resolvedAttributionSource: AttributionSource = toResolvedSource(source, isFirstOrder);
     const now = new Date();
     const { rateId, ratePercent, commissionPence } = await this.commission.resolveRateAndCompute(
       source,
@@ -148,7 +151,7 @@ export class CateringBookingsService {
         commissionPercent: ratePercent as unknown as Decimal,
         commissionPence,
         commissionRateId: rateId ?? null,
-        attributionSource: source,
+        attributionSource: resolvedAttributionSource,
         quoteExpiresAt,
         lineItems: {
           create: dto.lineItems.map((li) => ({

@@ -22,7 +22,8 @@ export interface EarningsSummary {
   blendedRatePct: number;
   savedPence: number;
   bySource: Array<{
-    source: OrderSource;
+    /** Three-tier label: MARKETPLACE_FIRST | MARKETPLACE_REPEAT | VENDOR_REFERRED */
+    source: string;
     orderCount: number;
     foodSubtotalPence: number;
     commissionPence: number;
@@ -253,20 +254,65 @@ export class CommissionService {
     period: EarningsSummary;
     cumulative: EarningsSummary;
   }> {
-    const build = async (where: object): Promise<EarningsSummary> => {
-      const rows = await this.prisma.orderCommission.groupBy({
-        by: ['source'],
-        where: { order: { vendorId }, ...where },
-        _count: { _all: true },
-        _sum: { commissionPence: true, foodSubtotalPence: true },
-      });
+    // Group by three-tier resolved attribution source.
+    // Rows without an order_attributions row (legacy) fall back to deriving
+    // the tier from order_commissions.source + order_commissions.is_first_order.
+    // Rows with an attribution row but null resolved_source (pre-migration) also
+    // fall back to the CASE expression, using order_attributions.source.
+    type RawRow = { tier: string; order_count: bigint; food_subtotal: bigint; commission: bigint };
 
+    const [periodRows, cumulativeRows] = await Promise.all([
+      this.prisma.$queryRaw<RawRow[]>`
+        SELECT
+          COALESCE(
+            oa.resolved_source::text,
+            CASE
+              WHEN oa.source = 'VENDOR_REFERRED' THEN 'VENDOR_REFERRED'
+              WHEN oc.is_first_order = false      THEN 'MARKETPLACE_REPEAT'
+              ELSE                                     'MARKETPLACE_FIRST'
+            END
+          ) AS tier,
+          COUNT(*)::bigint                              AS order_count,
+          COALESCE(SUM(oc.food_subtotal_pence), 0)::bigint AS food_subtotal,
+          COALESCE(SUM(oc.commission_pence), 0)::bigint    AS commission
+        FROM order_commissions oc
+        JOIN orders o ON oc.order_id = o.id
+        LEFT JOIN order_attributions oa ON oa.order_id = o.id
+        WHERE o.vendor_id = ${vendorId}::uuid
+          AND oc.calculated_at >= ${from}
+          AND oc.calculated_at <  ${to}
+        GROUP BY tier
+      `,
+      this.prisma.$queryRaw<RawRow[]>`
+        SELECT
+          COALESCE(
+            oa.resolved_source::text,
+            CASE
+              WHEN oa.source = 'VENDOR_REFERRED' THEN 'VENDOR_REFERRED'
+              WHEN oc.is_first_order = false      THEN 'MARKETPLACE_REPEAT'
+              ELSE                                     'MARKETPLACE_FIRST'
+            END
+          ) AS tier,
+          COUNT(*)::bigint                              AS order_count,
+          COALESCE(SUM(oc.food_subtotal_pence), 0)::bigint AS food_subtotal,
+          COALESCE(SUM(oc.commission_pence), 0)::bigint    AS commission
+        FROM order_commissions oc
+        JOIN orders o ON oc.order_id = o.id
+        LEFT JOIN order_attributions oa ON oa.order_id = o.id
+        WHERE o.vendor_id = ${vendorId}::uuid
+        GROUP BY tier
+      `,
+    ]);
+
+    const baselineRatePct = await this.getBaselineRatePct();
+
+    const buildSummary = (rows: RawRow[]): EarningsSummary => {
       const bySource = rows.map((r) => {
-        const sub = r._sum.foodSubtotalPence ?? 0;
-        const com = r._sum.commissionPence ?? 0;
+        const sub = Number(r.food_subtotal);
+        const com = Number(r.commission);
         return {
-          source: r.source,
-          orderCount: r._count._all,
+          source: r.tier,
+          orderCount: Number(r.order_count),
           foodSubtotalPence: sub,
           commissionPence: com,
           effectiveRatePct: sub > 0 ? Math.round((com / sub) * 10_000) / 100 : 0,
@@ -277,23 +323,16 @@ export class CommissionService {
       const totalCommission = bySource.reduce((s, r) => s + r.commissionPence, 0);
       const blendedRatePct =
         totalSubtotal > 0 ? Math.round((totalCommission / totalSubtotal) * 10_000) / 100 : 0;
-      // Baseline for savings comparison: the standard (first-order marketplace) rate.
-      // Resolved once outside `build()` and closed over here for both calls.
       const baselineCommission = Math.round((totalSubtotal * baselineRatePct) / 100);
       const savedPence = Math.max(0, baselineCommission - totalCommission);
 
       return { blendedRatePct, savedPence, bySource };
     };
 
-    // Resolve baseline once; both build() calls share the same value.
-    const baselineRatePct = await this.getBaselineRatePct();
-
-    const [period, cumulative] = await Promise.all([
-      build({ calculatedAt: { gte: from, lt: to } }),
-      build({}),
-    ]);
-
-    return { period, cumulative };
+    return {
+      period: buildSummary(periodRows),
+      cumulative: buildSummary(cumulativeRows),
+    };
   }
 
   // ─── Private helpers ─────────────────────────────────────────────────────────

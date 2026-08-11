@@ -1557,7 +1557,7 @@ model CateringBooking {
   commissionPercent  Decimal               @map("commission_percent") @db.Decimal(5, 2)
   commissionPence    Int                   @map("commission_pence")
   commissionRateId   String?               @map("commission_rate_id")
-  attributionSource  String?               @map("attribution_source") @db.VarChar(32)
+  attributionSource  AttributionSource?    @map("attribution_source")
   status             CateringBookingStatus @default(QUOTED)
   quoteExpiresAt     DateTime              @map("quote_expires_at") @db.Timestamptz
   depositPiId        String?               @map("deposit_pi_id") @db.VarChar(100)
