@@ -38,6 +38,10 @@ const MAX_LENGTH = 72; // bcrypt boundary
 function validate(password: string, confirm: string): string | null {
   if (password.length < MIN_LENGTH) return `Password must be at least ${MIN_LENGTH} characters.`;
   if (password.length > MAX_LENGTH) return `Password must be ${MAX_LENGTH} characters or fewer.`;
+  if (!/[a-z]/.test(password)) return 'Password must contain at least one lowercase letter.';
+  if (!/[A-Z]/.test(password)) return 'Password must contain at least one uppercase letter.';
+  if (!/[0-9]/.test(password)) return 'Password must contain at least one number.';
+  if (!/[^a-zA-Z0-9]/.test(password)) return 'Password must contain at least one symbol (e.g. !, @, #, $).';
   if (password !== confirm) return 'Passwords do not match. Please check and try again.';
   return null;
 }
