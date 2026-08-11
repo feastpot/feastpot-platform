@@ -4,6 +4,7 @@ import { ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
+import { computeServiceFeePence } from '@/lib/service-fee';
 import { useBasketStore } from '@/store/basket.store';
 
 const formatPounds = (p: number) => `£${(p / 100).toFixed(2)}`;
@@ -34,7 +35,9 @@ export function FloatingBasketBar({ vendorId }: Props) {
   const items = useBasketStore((s) => s.items);
   const basketVendor = useBasketStore((s) => s.vendor);
   const itemCount = items.reduce((acc, i) => acc + i.quantity, 0);
-  const totalPence = items.reduce((acc, i) => acc + i.lineTotalPence, 0);
+  const subtotalPence = items.reduce((acc, i) => acc + i.lineTotalPence, 0);
+  const serviceFeePence = computeServiceFeePence(subtotalPence);
+  const totalPence = subtotalPence + serviceFeePence;
 
   // Don't render on the checkout flow itself - the page already shows
   // the same "View basket / total" affordance, and stacking a floating
@@ -62,7 +65,12 @@ export function FloatingBasketBar({ vendorId }: Props) {
         </div>
 
         <div className="flex items-center gap-1">
-          <span className="text-[15px] font-bold tabular-nums">{formatPounds(totalPence)}</span>
+          <div className="text-right">
+            <span className="text-[15px] font-bold tabular-nums">{formatPounds(totalPence)}</span>
+            {serviceFeePence > 0 && (
+              <p className="text-[9px] text-white/60 leading-none">inc. service fee</p>
+            )}
+          </div>
           <ChevronRight className="h-5 w-5 text-white/80" aria-hidden />
         </div>
       </Link>

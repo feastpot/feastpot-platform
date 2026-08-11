@@ -1,40 +1,44 @@
 /**
- * Platform service fee, read from `SERVICE_FEE_BPS` at call time so the fee can
- * change via env without a code deploy. Single source of truth shared by order
- * pricing (`orders.service`) and the public vendor profile (`vendors.service`),
- * so the customer-facing express-checkout total can never drift from the amount
- * actually charged. Defaults to 0 (failsafe): any unset, unparseable, or
- * negative value yields 0 so a misconfigured env can never charge an unintended
- * fee. The live platform value (500 bps = 5%) is supplied via the env/secret.
+ * Platform service fee - API side.
  *
- * When charged, the fee is clamped to [minPence, maxPence] so tiny baskets are
- * never charged a trivial fee and large baskets are capped. The clamp bounds are
- * product constants; the web checkout mirrors them in `lib/service-fee.ts`.
+ * The canonical formula lives in packages/config/src/service-fee.ts.
+ * This module re-exports it and provides legacy aliases so existing
+ * call-sites (orders.service, vendors.service) keep working unchanged.
+ *
+ * `getServiceFeeBps()` is retained for the vendor profile endpoint which
+ * still attaches `platformServiceFeeBps` as a convenience field. The env
+ * var has no bearing on what the order is charged - only the PLATFORM_FACTS-
+ * backed `computeServiceFeePence` determines that.
  */
-export const SERVICE_FEE_CONFIG = {
-  minPence: 50, // £0.50 floor (only applied when bps > 0)
-  maxPence: 299, // £2.99 ceiling
-} as const;
+import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
+import { computeServiceFeePence as _compute } from '@feastpot/config/service-fee';
 
-export function getServiceFeeBps(): number {
-  const bps = Number.parseInt(process.env.SERVICE_FEE_BPS ?? '0', 10);
-  if (!Number.isFinite(bps) || bps < 0) return 0;
-  return bps;
+export { computeServiceFeePence } from '@feastpot/config/service-fee';
+
+/** @deprecated Use computeServiceFeePence directly. */
+export function calculateServiceFee(subtotalPence: number): number {
+  return _compute(subtotalPence);
+}
+
+/** @deprecated Use computeServiceFeePence directly. */
+export function getServiceFeePence(subtotalPence: number): number {
+  return _compute(subtotalPence);
 }
 
 /**
- * Compute the service fee in pence for a given subtotal. Returns 0 when the fee
- * is disabled (bps <= 0); otherwise applies the bps rate then clamps to the
- * [min, max] window.
+ * Return the service-fee rate as basis points.
+ * Used only to populate `platformServiceFeeBps` on the vendor-profile response
+ * for any client that still reads that field. New code calls `computeServiceFeePence`.
+ * Falls back to PLATFORM_FACTS when SERVICE_FEE_BPS is unset so the field is
+ * never silently 0.
  */
-export function calculateServiceFee(subtotalPence: number): number {
-  const bps = getServiceFeeBps();
-  if (bps <= 0) return 0;
-  const raw = Math.round((subtotalPence * bps) / 10_000);
-  return Math.max(SERVICE_FEE_CONFIG.minPence, Math.min(SERVICE_FEE_CONFIG.maxPence, raw));
+export function getServiceFeeBps(): number {
+  const env = Number.parseInt(process.env.SERVICE_FEE_BPS ?? '', 10);
+  if (Number.isFinite(env) && env >= 0) return env;
+  return PLATFORM_FACTS.serviceFee.percent * 100;
 }
 
-/** Back-compat alias retained for existing call sites (e.g. `orders.service`). */
-export function getServiceFeePence(subtotalPence: number): number {
-  return calculateServiceFee(subtotalPence);
-}
+/** Kept for any caller that reads the config object directly. */
+export const SERVICE_FEE_CONFIG = {
+  maxPence: PLATFORM_FACTS.serviceFee.capPence,
+} as const;

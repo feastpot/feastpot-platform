@@ -1,0 +1,17 @@
+You are working across apps/web (Next.js 15 App Router) and apps/api (NestJS 11) in a Turborepo monorepo with Prisma. Order already has a serviceFeePence field. Under the UK DMCC Act 2024 (in force 6 April 2025), a mandatory charge not shown in the first headline price is drip pricing, a banned practice; the CMA fined a business £4.2 million in April 2026 for exactly this pattern with a much smaller flat fee.
+
+CONFIRMED FEE RULE: PLATFORM_FACTS.serviceFee = { percent: 5, capPence: 299 }. The customer service fee is 5% of the order subtotal, capped at 299 pence (£2.99), whichever is lower.
+
+TASK:
+1. Create or centralise a pure function computeServiceFeePence(subtotalPence: number): number in a shared location (packages/types or a shared apps/api utility reused by apps/web via a server action or API call) that returns Math.min(round(subtotalPence * 0.05), 299), with round-half-up at the penny. Import serviceFee.percent and serviceFee.capPence from PLATFORM_FACTS rather than hard-coding 5 or 299.
+2. Wherever a price is first shown to a customer (vendor card, menu item, item detail), display the all-in figure or, at minimum, disclose "includes up to £2.99 service fee" at that same first point. Prefer showing the all-in total as the headline number.
+3. At basket and checkout, show items, service fee (using computeServiceFeePence), delivery fee if applicable, and the grand total. The grand total must equal the sum shown at first display for the same items; the service fee must never be introduced for the first time at checkout.
+4. In apps/api, when creating the order, compute serviceFeePence server-side using the same function (never trust a client-supplied value) and persist it to Order.serviceFeePence. Ensure totalPence reconciles: totalPence = subtotalPence + serviceFeePence + deliveryFeePence - discountPence.
+
+ACCEPTANCE CRITERIA:
+- computeServiceFeePence is unit tested with: subtotal £10.00 (1000p) -> 50p; subtotal £59.80 (5980p, 5% = 299p exactly) -> 299p; subtotal £70.00 (7000p, 5% = 350p) -> capped to 299p; subtotal £2.00 (200p, 5% = 10p) -> 10p.
+- Walking the customer journey (vendor card, menu item, basket, checkout) the displayed total for identical items never increases.
+- Order.serviceFeePence, once created, matches computeServiceFeePence(Order.subtotalPence) exactly.
+- Order.totalPence reconciles to subtotalPence + serviceFeePence + deliveryFeePence - discountPence.
+
+EDGE CASES: promo/discount codes must be applied to the subtotal before or independently of the fee per the reconciliation formula above, never causing a negative total; zero-item basket; multi-vendor baskets compute the fee per vendor's subtotal, each independently capped at £2.99, then summed.

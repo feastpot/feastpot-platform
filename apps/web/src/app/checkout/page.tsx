@@ -628,11 +628,9 @@ function CheckoutInner() {
                 <div className="mt-1.5 flex justify-between text-sm">
                   <span className="text-charcoal-mid">
                     Service fee
-                    {platformServiceFeeBps && platformServiceFeeBps > 0 && (
-                      <span className="ml-1 text-[11px] font-medium text-charcoal-light">
-                        {Math.round(platformServiceFeeBps / 100)}% capped at £{(PLATFORM_FACTS.serviceFee.capPence / 100).toFixed(2)}
-                      </span>
-                    )}
+                    <span className="ml-1 text-[11px] font-medium text-charcoal-light">
+                      {PLATFORM_FACTS.serviceFee.percent}% capped at £{(PLATFORM_FACTS.serviceFee.capPence / 100).toFixed(2)}
+                    </span>
                   </span>
                   <span className="font-medium tabular-nums text-charcoal">
                     {formatPounds(serviceFeePence)}

@@ -7,6 +7,7 @@ import { useState } from 'react';
 
 import { Sheet, SheetContent, SheetTrigger } from '@feastpot/ui';
 
+import { computeServiceFeePence } from '@/lib/service-fee';
 import { useBasketStore, type BasketItem } from '@/store/basket.store';
 
 const formatPounds = (p: number) => `£${(p / 100).toFixed(2)}`;
@@ -111,6 +112,19 @@ export function BasketDrawer({ children }: Props) {
                   <span className="text-charcoal-mid">Subtotal</span>
                   <span className="font-bold text-charcoal">{formatPounds(subtotal)}</span>
                 </div>
+                {computeServiceFeePence(subtotal) > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-charcoal-mid">
+                      Service fee
+                      <span className="ml-1 text-[10px] font-medium text-charcoal-mid/70">
+                        5% capped at £2.99
+                      </span>
+                    </span>
+                    <span className="font-bold text-charcoal">
+                      {formatPounds(computeServiceFeePence(subtotal))}
+                    </span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-charcoal-mid">Delivery</span>
                   <span className="text-xs italic text-charcoal-mid">Calculated at checkout</span>
@@ -137,7 +151,7 @@ export function BasketDrawer({ children }: Props) {
               <div className="flex items-center justify-between border-t border-cream-deep pt-3 text-base">
                 <span className="font-display font-black text-charcoal">Total</span>
                 <span className="font-display font-black tabular-nums text-charcoal">
-                  {formatPounds(subtotal)}
+                  {formatPounds(subtotal + computeServiceFeePence(subtotal))}
                   <span className="ml-1 text-xs font-medium text-charcoal-mid">+ delivery</span>
                 </span>
               </div>

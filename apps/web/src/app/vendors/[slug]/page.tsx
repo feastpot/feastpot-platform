@@ -487,6 +487,12 @@ export default async function VendorProfilePage({ params }: PageProps) {
               Free delivery over {formatPounds(vendor.delivery.freeDeliveryOverPence)}
             </span>
           )}
+          {/* UK DMCC Act 2024 first-price disclosure: service fee must be
+              visible at the same point the customer first sees item prices. */}
+          <span className="inline-flex items-center gap-1">
+            <span aria-hidden>+</span>
+            Up to £2.99 service fee applies
+          </span>
         </div>
 
         {/* Delivery coverage badge - uses the server-computed distance (set
