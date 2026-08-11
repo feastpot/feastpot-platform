@@ -41,3 +41,4 @@
 - [Platform facts](platform-facts.md) - PLATFORM_FACTS in packages/config/src/platform-facts.ts is the single source of truth for all commercial/support facts; consistency test at apps/api/src/platform-facts.spec.ts fails CI on drift.
 - [HMRC reporting](hmrc-reporting.md) - SI 2023/817 VendorTaxProfile + PlatformReport models; listing gate in vendors.service updateStatus; crons Jan 3/5/15; isTaxProfileComplete() exported from service.
 - [Analytics module](analytics-module.md) - @Global AnalyticsModule; fire-and-forget track(); client events allowlist; QR URLs have &m=qr; fp_anon in localStorage; migration baseline needs SELECT WHERE NOT EXISTS pattern.
+- [Config CJS runtime entries](config-cjs-runtime.md) - packages/config exports .ts by default; Node prod can't load .ts → crash-loop; fix is require condition → .cjs.js files; changes to the 3 .ts files MUST mirror the .cjs.js copies.
