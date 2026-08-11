@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { apiRequest } from '@/lib/api/client';
 import { useAccessToken } from '@/lib/auth/use-access-token';
+import { useTrackEvent } from '@/hooks/use-track-event';
 
 interface ReferralLink {
   id: string;
@@ -26,6 +27,8 @@ interface SplitData {
 
 interface ReferralsClientProps {
   link: ReferralLink | null;
+  /** Vendor UUID threaded from the server page for share_link_click attribution. */
+  vendorId: string;
 }
 
 const INSTAGRAM_TEXT = (url: string) =>
@@ -58,8 +61,9 @@ function SourceBar({ label, count, gmv, total }: { label: string; count: number;
   );
 }
 
-export function ReferralsClient({ link: initialLink }: ReferralsClientProps) {
+export function ReferralsClient({ link: initialLink, vendorId }: ReferralsClientProps) {
   const { token } = useAccessToken() as { token: string | null; loading: boolean };
+  const track = useTrackEvent();
   const [link, setLink] = useState<ReferralLink | null>(initialLink);
   const [split, setSplit] = useState<SplitData | null>(null);
   const [splitStatus, setSplitStatus] = useState<'loading' | 'ok' | 'error'>('loading');
@@ -115,6 +119,8 @@ export function ReferralsClient({ link: initialLink }: ReferralsClientProps) {
     setCopied(key);
     if (copiedTimer.current) clearTimeout(copiedTimer.current);
     copiedTimer.current = setTimeout(() => setCopied(null), 2000);
+    // share_link_click: vendor actively sharing their referral link or social copy text.
+    track('share_link_click', { method: key }, vendorId);
   }
 
   if (!link) return <p className="text-sm text-mid">No referral link found. Please refresh.</p>;

@@ -73,7 +73,7 @@ export default async function ReferralsPage() {
               </p>
             </div>
           </header>
-          <ReferralsClient link={link} />
+          <ReferralsClient link={link} vendorId={vendor.id} />
     </PortalShell>
   );
 }
