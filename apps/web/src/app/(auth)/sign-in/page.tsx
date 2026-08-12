@@ -515,12 +515,15 @@ function RegisterPane({ onSwitchToSignIn }: { onSwitchToSignIn: () => void }) {
           },
         });
       } catch (e) {
-        // Don't fail the signup if the mirror route is missing.
-        if (e instanceof ApiError && e.status === 404) {
-          console.warn('[register] /v1/users/sync not yet implemented - skipping mirror.');
-        } else {
-          throw e;
-        }
+        // Swallow ALL sync errors. The endpoint is idempotent and the
+        // /auth/callback route re-calls it when the user confirms their email,
+        // so the profile will be created then at the latest. Re-throwing here
+        // would leave the user silently stuck: their Supabase account exists
+        // but the form never advances to the success screen.
+        console.warn(
+          '[register] /v1/users/sync failed - profile will sync on email confirmation:',
+          e instanceof ApiError ? `HTTP ${e.status}` : String(e),
+        );
       }
     }
 
