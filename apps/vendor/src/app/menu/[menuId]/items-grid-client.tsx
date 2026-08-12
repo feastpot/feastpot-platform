@@ -21,6 +21,7 @@ import { Badge, Button, Card, CardContent } from '@feastpot/ui';
 import { Copy, ExternalLink, GripVertical, ImageOff, Pencil, Plus, Trash2 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useRef, useState } from 'react';
 
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/components/ui/toaster';
@@ -35,6 +36,8 @@ import {
 } from '@/hooks/use-menu-items';
 import { WEB_URL } from '@/lib/env';
 import { formatPence } from '@/lib/format';
+
+import { ItemEditorClient } from './items/[itemId]/item-editor-client';
 
 const CATEGORY_LABEL: Record<MenuItem['category'], string> = {
   tray: 'Tray',
@@ -63,6 +66,11 @@ export function MenuItemsGridClient({
   const { toast } = useToast();
   const previewHref = `${WEB_URL}/vendors/${vendorSlug}`;
 
+  // Inline create-item form state. When true the ItemEditorClient is rendered
+  // directly on this page instead of navigating to /items/new.
+  const [showCreate, setShowCreate] = useState(false);
+  const createFormRef = useRef<HTMLDivElement>(null);
+
   // Require a small drag before activating so taps on the card's buttons /
   // switch are never swallowed by the sortable. Keyboard users get an
   // accessible alternative via the handle.
@@ -70,6 +78,12 @@ export function MenuItemsGridClient({
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
+
+  function openCreate() {
+    setShowCreate(true);
+    // Scroll the form into view on the next tick so it's visible after render.
+    setTimeout(() => createFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+  }
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -115,11 +129,9 @@ export function MenuItemsGridClient({
               <ExternalLink className="h-4 w-4" /> Preview as customer
             </Button>
           </a>
-          <Link href={`/menu/${menuId}/items/new`}>
-            <Button className="gap-2">
-              <Plus className="h-4 w-4" /> Add item
-            </Button>
-          </Link>
+          <Button className="gap-2" onClick={openCreate} disabled={showCreate}>
+            <Plus className="h-4 w-4" /> Add item
+          </Button>
         </div>
       </div>
 
@@ -132,15 +144,29 @@ export function MenuItemsGridClient({
       )}
       {isLoading && <p className="text-sm text-muted-foreground">Loading items…</p>}
 
-      {!isLoading && items && items.length === 0 && (
+      {/* Inline create form - shown when the vendor clicks "Add item".
+          ItemEditorClient in inline mode renders its own Cancel/Save buttons
+          and calls onCreated when the item is saved (which closes this panel
+          and lets the TanStack Query cache invalidation refresh the grid). */}
+      {showCreate && (
+        <div ref={createFormRef} className="rounded-2xl border border-border bg-white p-4 shadow-sm">
+          <ItemEditorClient
+            vendorId={vendorId}
+            menuId={menuId}
+            itemId="new"
+            onCreated={() => setShowCreate(false)}
+            onCancel={() => setShowCreate(false)}
+          />
+        </div>
+      )}
+
+      {!isLoading && items && items.length === 0 && !showCreate && (
         <Card>
           <CardContent className="flex flex-col items-center gap-3 py-10 text-center">
             <p className="text-muted-foreground">No items yet in this menu.</p>
-            <Link href={`/menu/${menuId}/items/new`}>
-              <Button className="gap-2">
-                <Plus className="h-4 w-4" /> Add your first item
-              </Button>
-            </Link>
+            <Button className="gap-2" onClick={openCreate}>
+              <Plus className="h-4 w-4" /> Add your first item
+            </Button>
           </CardContent>
         </Card>
       )}

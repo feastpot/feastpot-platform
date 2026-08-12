@@ -239,6 +239,7 @@ export class CatalogueController {
     @Param('vendorId', new ParseUUIDPipe()) vendorId: string,
     @Param('menuId', new ParseUUIDPipe()) menuId: string,
     @Param('itemId', new ParseUUIDPipe()) itemId: string,
+    @Req() req: AuthedRequest,
     @UploadedFile(
       new ParseFilePipe({
         validators: [
@@ -255,6 +256,9 @@ export class CatalogueController {
         message: 'multipart field "file" is required',
       });
     }
-    return this.items.uploadImage({ vendorId, menuId, itemId, file });
+    // Pass the authenticated caller so findOne can serve draft items to their
+    // owner.  Without this, uploads to unpublished (draft) items return 404
+    // because findOne treats a null caller as anonymous.
+    return this.items.uploadImage({ vendorId, menuId, itemId, caller: req.user!, file });
   }
 }

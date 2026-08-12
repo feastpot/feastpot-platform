@@ -166,18 +166,35 @@ function fromMenuItem(item: MenuItem): FormState {
   };
 }
 
+/** File queued for upload on a new item – holds a revocable preview URL. */
+interface PendingFile {
+  file: File;
+  previewUrl: string;
+}
+
 export function ItemEditorClient({
   vendorId,
   menuId,
   itemId,
+  onCreated,
+  onCancel,
 }: {
   vendorId: string;
   menuId: string;
   itemId: string;
+  /**
+   * When provided the component operates in "inline" mode (embedded inside
+   * the menu detail page rather than rendered as a standalone route).
+   * Called with the newly-created item id after a successful create.
+   */
+  onCreated?: (id: string) => void;
+  /** Inline mode: called when the user dismisses the form without saving. */
+  onCancel?: () => void;
 }) {
   const router = useRouter();
   const { toast } = useToast();
   const isNew = itemId === 'new';
+  const isInline = onCreated !== undefined || onCancel !== undefined;
 
   const { data: item, isLoading } = useMenuItem(vendorId, menuId, itemId);
   const create = useCreateMenuItem(vendorId, menuId);
@@ -187,6 +204,27 @@ export function ItemEditorClient({
 
   const [form, setForm] = useState<FormState>(EMPTY);
   const [seeded, setSeeded] = useState(false);
+
+  // Files selected before the item has been created. Stored as {file, previewUrl}
+  // pairs so we can show a thumbnail while the item doesn't have a real id yet.
+  // Uploaded sequentially inside onSubmit immediately after creation.
+  const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
+
+  // Keep a stable ref so the unmount cleanup can access the latest list
+  // without needing to add it to the dependency array.
+  const pendingFilesRef = useRef<PendingFile[]>([]);
+  useEffect(() => {
+    pendingFilesRef.current = pendingFiles;
+  }, [pendingFiles]);
+
+  // Revoke all pending object URLs on unmount to avoid memory leaks.
+  useEffect(() => {
+    return () => {
+      for (const { previewUrl } of pendingFilesRef.current) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, []);
 
   // Seed the form once when the item loads. Subsequent invalidations should
   // NOT clobber unsaved edits.
@@ -208,6 +246,9 @@ export function ItemEditorClient({
   }, [form.pricePounds]);
 
   const canSubmit = form.name.trim().length >= 2 && !priceErr;
+
+  // Total photo slots consumed: uploaded images + locally-queued pending files.
+  const totalPhotoCount = form.images.length + (isNew ? pendingFiles.length : 0);
 
   function buildPayload(): MenuItemUpsertInput {
     return {
@@ -237,8 +278,32 @@ export function ItemEditorClient({
     try {
       if (isNew) {
         const created = await create.mutateAsync(payload);
+
+        // Upload any files that were queued before the item existed.
+        // We do this sequentially so slot order is predictable and each
+        // upload can be individually retried if it fails.
+        const queued = [...pendingFiles];
+        setPendingFiles([]);
+        for (const { file, previewUrl } of queued) {
+          try {
+            await upload.mutateAsync({ itemId: created.id, file });
+          } catch {
+            toast({
+              title: `Could not upload "${file.name}"`,
+              description: 'You can add it again from the edit screen.',
+              variant: 'destructive',
+            });
+          }
+          URL.revokeObjectURL(previewUrl);
+        }
+
         toast({ title: 'Item created' });
-        router.replace(`/menu/${menuId}/items/${created.id}`);
+
+        if (onCreated) {
+          onCreated(created.id);
+        } else {
+          router.replace(`/menu/${menuId}/items/${created.id}`);
+        }
       } else {
         await update.mutateAsync({ itemId, ...payload });
         toast({ title: 'Item saved' });
@@ -253,17 +318,19 @@ export function ItemEditorClient({
   }
 
   async function onUpload(file: File) {
-    if (isNew) {
-      toast({
-        title: 'Save the item first',
-        description: 'Photos can be uploaded after the item is created.',
-      });
-      return;
-    }
-    if (form.images.length >= 5) {
+    if (totalPhotoCount >= 5) {
       toast({ title: 'Max 5 photos per item', variant: 'destructive' });
       return;
     }
+
+    if (isNew) {
+      // Queue the file locally with a blob preview; it will be uploaded
+      // right after the item is created inside onSubmit.
+      const previewUrl = URL.createObjectURL(file);
+      setPendingFiles((prev) => [...prev, { file, previewUrl }]);
+      return;
+    }
+
     try {
       const uploaded = await upload.mutateAsync({ itemId, file });
       setForm((s) => ({ ...s, images: [...s.images, uploaded.publicUrl] }));
@@ -275,6 +342,14 @@ export function ItemEditorClient({
         variant: 'destructive',
       });
     }
+  }
+
+  function removePendingFile(index: number) {
+    setPendingFiles((prev) => {
+      const entry = prev[index];
+      if (entry) URL.revokeObjectURL(entry.previewUrl);
+      return prev.filter((_, i) => i !== index);
+    });
   }
 
   async function removeImage(url: string) {
@@ -335,10 +410,56 @@ export function ItemEditorClient({
     void reorderImages(String(active.id), String(over.id));
   };
 
+  function handleCancel() {
+    // Revoke any pending object URLs before dismissing.
+    for (const { previewUrl } of pendingFiles) {
+      URL.revokeObjectURL(previewUrl);
+    }
+    setPendingFiles([]);
+    onCancel?.();
+  }
+
   if (!isNew && isLoading) {
     return <p className="text-sm text-mid">Loading item…</p>;
   }
 
+  const isSaving = create.isPending || update.isPending;
+  const formId = `item-editor-form-${itemId}`;
+
+  // -----------------------------------------------------------------------
+  // INLINE MODE (embedded on the menu detail page)
+  // -----------------------------------------------------------------------
+  if (isInline) {
+    return (
+      <div className="space-y-4">
+        {/* Inline header with title + action buttons */}
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-xl font-bold tracking-tight text-dark">New item</h2>
+          <div className="flex items-center gap-2">
+            <Button type="button" variant="ghost" onClick={handleCancel}>
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              form={formId}
+              disabled={!canSubmit || isSaving}
+              className="bg-teal px-6 font-bold text-white hover:bg-teal-dark"
+            >
+              {isSaving ? 'Saving…' : 'Create item'}
+            </Button>
+          </div>
+        </div>
+
+        <form id={formId} onSubmit={onSubmit} className="space-y-4">
+          {renderFormSections()}
+        </form>
+      </div>
+    );
+  }
+
+  // -----------------------------------------------------------------------
+  // PAGE MODE (standalone route)
+  // -----------------------------------------------------------------------
   return (
     <div className="mx-auto max-w-3xl space-y-4 pb-24">
       {/* TOP STRIP - back link + availability toggle. The bottom save bar is
@@ -356,7 +477,44 @@ export function ItemEditorClient({
         {isNew ? 'New item' : form.name || 'Edit item'}
       </h1>
 
-      <form id="item-editor-form" onSubmit={onSubmit} className="space-y-4">
+      <form id={formId} onSubmit={onSubmit} className="space-y-4">
+        {renderFormSections()}
+      </form>
+
+      {/* STICKY SAVE BAR - always visible above the bottom safe-area so the
+          vendor never has to scroll to commit. */}
+      <div
+        className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-white/95 backdrop-blur"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+      >
+        <div className="container flex items-center justify-end gap-2 py-3">
+          <Link href={`/menu/${menuId}`}>
+            <Button type="button" variant="ghost">
+              Cancel
+            </Button>
+          </Link>
+          <Button
+            // Cross-form submit via the HTML5 `form` attribute - the visible
+            // submit lives in the sticky bottom bar, OUTSIDE the actual
+            // <form> element, so we associate by id rather than DOM nesting.
+            type="submit"
+            form={formId}
+            disabled={!canSubmit || isSaving}
+            className="bg-teal px-6 font-bold text-white hover:bg-teal-dark"
+          >
+            {isSaving ? 'Saving…' : isNew ? 'Create item' : 'Save changes'}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+
+  // -----------------------------------------------------------------------
+  // Shared form body (extracted to avoid duplication between modes)
+  // -----------------------------------------------------------------------
+  function renderFormSections() {
+    return (
+      <>
         {/* CARD 1 - Basic info */}
         <SectionCard title="Basic info">
           <div className="grid gap-3 sm:grid-cols-2">
@@ -452,8 +610,7 @@ export function ItemEditorClient({
             </Field>
           </div>
 
-          {/* Draft banner - shown whenever the item is not yet published, so
-              vendors are unambiguous about whether customers can see it. */}
+          {/* Draft banner - shown whenever the item is not yet published. */}
           {!form.isAvailable && (
             <div className="rounded-xl bg-[#FAEEDA] px-4 py-3">
               <p className="m-0 mb-0.5 text-[13px] font-semibold text-[#633806]">
@@ -465,11 +622,7 @@ export function ItemEditorClient({
             </div>
           )}
 
-          {/* Big availability switch - teal when on, neutral when off. NEW
-              items: toggling only updates local form state; the value is
-              persisted by the create mutation on save. EXISTING items: the
-              toggle still hits the live `toggleAvail` endpoint so the
-              publish state changes immediately, with optimistic-rollback. */}
+          {/* Availability switch */}
           <div className="flex items-center justify-between rounded-2xl bg-surface p-3">
             <div>
               <p className="text-sm font-semibold text-dark">Available to customers</p>
@@ -482,12 +635,9 @@ export function ItemEditorClient({
               disabled={!isNew && toggleAvail.isPending}
               onCheckedChange={(checked) => {
                 if (isNew) {
-                  // Local-only flip; persisted when the vendor hits Save.
                   setForm((s) => ({ ...s, isAvailable: checked }));
                   return;
                 }
-                // Optimistic update with rollback on failure so the toggle
-                // never gets stuck reflecting a state the server rejected.
                 const prev = form.isAvailable;
                 setForm((s) => ({ ...s, isAvailable: checked }));
                 toggleAvail.mutate(
@@ -629,22 +779,22 @@ export function ItemEditorClient({
           </div>
         </SectionCard>
 
-        {/* CARD 6 - Photos. 5 slots; existing slots show the image, empty
-            slots show the upload affordance. Drag a photo by its handle to
-            reorder - array position IS the order, so the first photo is the
-            cover. Reordering persists through the same update endpoint
-            removeImage uses (no separate image-order field needed). */}
+        {/* CARD 6 - Photos. Up to 5 slots. New items: selecting a file queues
+            it locally (shown with a "Queued" badge) and the batch is uploaded
+            immediately after the item is created. Existing items: files are
+            uploaded right away. Drag to reorder - first photo is the cover. */}
         <SectionCard title="Photos">
           <div className="flex items-center justify-between">
             <p className="text-xs text-mid">
-              Up to 5. JPEG / PNG / WebP, 5 MB max each. Drag to reorder; the first photo is the
-              cover.
+              Up to 5. JPEG / PNG / WebP, 5 MB max each.{' '}
+              {!isNew && 'Drag to reorder; the first photo is the cover.'}
+              {isNew && totalPhotoCount > 0 && 'Photos will upload when you create the item.'}
             </p>
             <Button
               type="button"
               variant="outline"
               onClick={() => fileRef.current?.click()}
-              disabled={upload.isPending || form.images.length >= 5 || isNew}
+              disabled={upload.isPending || totalPhotoCount >= 5}
               className="gap-2"
             >
               <Upload className="h-4 w-4" />
@@ -657,78 +807,57 @@ export function ItemEditorClient({
               className="hidden"
               onChange={(e) => {
                 const f = e.target.files?.[0];
-                if (f) onUpload(f);
+                if (f) void onUpload(f);
                 e.target.value = '';
               }}
             />
           </div>
-          {isNew && (
-            <p className="rounded-xl bg-surface p-2 text-xs text-mid">
-              Save the item first, then come back here to upload photos.
-            </p>
-          )}
+
           <DndContext
             sensors={photoSensors}
             collisionDetection={closestCenter}
             onDragEnd={handlePhotoDragEnd}
           >
-            <SortableContext items={form.images} strategy={rectSortingStrategy}>
-              <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+              {/* Uploaded / saved images (sortable via DnD) */}
+              <SortableContext items={form.images} strategy={rectSortingStrategy}>
                 {form.images.map((url, i) => (
                   <SortablePhoto
                     key={url}
                     url={url}
                     isCover={i === 0}
                     canDrag={form.images.length > 1 && !update.isPending}
-                    onRemove={() => removeImage(url)}
+                    onRemove={() => void removeImage(url)}
                   />
                 ))}
-                {Array.from({ length: Math.max(0, 5 - form.images.length) }).map((_, i) => (
-                  <div
-                    key={`empty-${i}`}
-                    className="flex aspect-square items-center justify-center rounded-xl border border-dashed border-border bg-surface text-xs text-mid"
-                    aria-hidden
-                  >
-                    Slot {form.images.length + i + 1}
-                  </div>
+              </SortableContext>
+
+              {/* Locally-queued files (new item only) - shown as previews */}
+              {isNew &&
+                pendingFiles.map(({ previewUrl }, i) => (
+                  <PendingPhoto
+                    key={previewUrl}
+                    previewUrl={previewUrl}
+                    onRemove={() => removePendingFile(i)}
+                  />
                 ))}
-              </div>
-            </SortableContext>
+
+              {/* Empty slots */}
+              {Array.from({ length: Math.max(0, 5 - totalPhotoCount) }).map((_, i) => (
+                <div
+                  key={`empty-${i}`}
+                  className="flex aspect-square items-center justify-center rounded-xl border border-dashed border-border bg-surface text-xs text-mid"
+                  aria-hidden
+                >
+                  Slot {totalPhotoCount + i + 1}
+                </div>
+              ))}
+            </div>
           </DndContext>
         </SectionCard>
-      </form>
-
-      {/* STICKY SAVE BAR - always visible above the bottom safe-area so the
-          vendor never has to scroll to commit. */}
-      <div
-        className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-white/95 backdrop-blur"
-        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
-      >
-        <div className="container flex items-center justify-end gap-2 py-3">
-          <Link href={`/menu/${menuId}`}>
-            <Button type="button" variant="ghost">
-              Cancel
-            </Button>
-          </Link>
-          <Button
-            // Cross-form submit via the HTML5 `form` attribute - the visible
-            // submit lives in the sticky bottom bar, OUTSIDE the actual
-            // <form> element, so we associate by id rather than DOM nesting.
-            type="submit"
-            form="item-editor-form"
-            disabled={!canSubmit || create.isPending || update.isPending}
-            className="bg-teal px-6 font-bold text-white hover:bg-teal-dark"
-          >
-            {create.isPending || update.isPending
-              ? 'Saving…'
-              : isNew
-                ? 'Create item'
-                : 'Save changes'}
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
+      </>
+    );
+  }
 }
 
 function SortablePhoto({
@@ -791,6 +920,27 @@ function SortablePhoto({
         onClick={onRemove}
         className="absolute right-1 top-1 rounded-full bg-black/70 p-1 text-white opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100"
         aria-label="Remove photo"
+      >
+        <Trash2 className="h-3 w-3" />
+      </button>
+    </div>
+  );
+}
+
+/** Preview thumbnail for a locally-queued file (new items only). */
+function PendingPhoto({ previewUrl, onRemove }: { previewUrl: string; onRemove: () => void }) {
+  return (
+    <div className="group relative aspect-square overflow-hidden rounded-xl border border-dashed border-brand/40 bg-surface">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={previewUrl} alt="" className="h-full w-full object-cover opacity-80" />
+      <span className="absolute left-1 top-1 rounded bg-brand/80 px-1.5 py-0.5 text-[10px] font-bold uppercase text-white">
+        Queued
+      </span>
+      <button
+        type="button"
+        onClick={onRemove}
+        className="absolute right-1 top-1 rounded-full bg-black/70 p-1 text-white opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100"
+        aria-label="Remove queued photo"
       >
         <Trash2 className="h-3 w-3" />
       </button>

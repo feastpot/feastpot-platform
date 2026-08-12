@@ -519,9 +519,13 @@ export class MenuItemsService {
     vendorId: string;
     menuId: string;
     itemId: string;
+    /** Authenticated caller from the controller – required to access draft items. */
+    caller: AuthUser;
     file: { originalname: string; mimetype: string; size: number; buffer: Buffer };
   }): Promise<UploadedImage> {
-    const item = await this.findOne(params.vendorId, params.menuId, params.itemId);
+    // Pass the caller so findOne grants the vendor owner access to their own
+    // draft items.  Previously caller defaulted to null → 404 on drafts.
+    const item = await this.findOne(params.vendorId, params.menuId, params.itemId, params.caller);
     const uploaded = await this.storage.uploadMenuItemImage({
       vendorId: params.vendorId,
       itemId: params.itemId,
