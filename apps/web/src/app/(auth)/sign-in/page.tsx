@@ -57,6 +57,16 @@ const RegisterFormSchema = RegisterSchema.omit({
         const { firstName, lastName } = splitName(v);
         return firstName.length <= 100 && lastName.length <= 100;
       }, 'First and last name must each be 100 characters or fewer'),
+    // Override the base schema's plain min(8) with full strength requirements
+    // so weak passwords are caught client-side before they hit Supabase.
+    password: z
+      .string()
+      .min(8, 'Password must be at least 8 characters')
+      .max(128, 'Password is too long')
+      .refine((v) => /[a-z]/.test(v), 'Must include a lowercase letter')
+      .refine((v) => /[A-Z]/.test(v), 'Must include an uppercase letter')
+      .refine((v) => /[0-9]/.test(v), 'Must include a number')
+      .refine((v) => /[^a-zA-Z0-9]/.test(v), 'Must include a special character'),
     confirmPassword: z.string().min(1, 'Please confirm your password'),
     postcode: z.string().min(1, 'Enter your postcode or service area').max(20),
     termsAccepted: z.boolean().refine((v) => v === true, {
@@ -480,7 +490,14 @@ function RegisterPane({ onSwitchToSignIn }: { onSwitchToSignIn: () => void }) {
       },
     });
     if (error) {
-      setServerError(error.message);
+      // Supabase occasionally returns opaque errors (e.g. empty JSON body `{}`)
+      // for weak passwords or transient issues. Provide a useful fallback.
+      const raw = error.message ?? '';
+      const isOpaque = !raw || raw === '{}' || raw.startsWith('{');
+      const msg = isOpaque
+        ? 'Unable to create account. Please ensure your password meets all requirements (8+ chars, uppercase, lowercase, number, special character) and try again.'
+        : raw;
+      setServerError(msg);
       return;
     }
 
@@ -602,16 +619,23 @@ function RegisterPane({ onSwitchToSignIn }: { onSwitchToSignIn: () => void }) {
           error={fieldError('phone')}
           {...form.register('phone')}
         />
-        <PasswordField
-          id="reg-password"
-          label="Password"
-          autoComplete="new-password"
-          placeholder="Create a strong password"
-          show={showPwd}
-          onToggle={() => setShowPwd((v) => !v)}
-          error={fieldError('password')}
-          {...form.register('password')}
-        />
+        <div>
+          <PasswordField
+            id="reg-password"
+            label="Password"
+            autoComplete="new-password"
+            placeholder="Create a strong password"
+            show={showPwd}
+            onToggle={() => setShowPwd((v) => !v)}
+            error={fieldError('password')}
+            {...form.register('password')}
+          />
+          {!fieldError('password') && (
+            <p className="mt-1 text-xs text-charcoal-mid">
+              8+ characters with uppercase, lowercase, number and special character.
+            </p>
+          )}
+        </div>
         <PasswordField
           id="reg-confirmPassword"
           label="Confirm password"
