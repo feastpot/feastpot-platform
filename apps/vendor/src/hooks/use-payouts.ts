@@ -85,6 +85,11 @@ export interface VendorPayoutOrder {
   /** Three-tier label from order_attributions.resolved_source, or null for
    *  pre-attribution rows (treat as MARKETPLACE_FIRST on display). */
   attributionSource: string | null;
+  /** Who funded the customer discount. 'PLATFORM' = Feastpot absorbed it (vendor
+   *  earnings unchanged). 'VENDOR' = deducted from vendor payout. Null when no
+   *  discount was applied. Only present on orders created after Aug 2026. */
+  discountFundedBy: 'PLATFORM' | 'VENDOR' | null;
+  discountPence: number;
 }
 
 /**

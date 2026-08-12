@@ -424,6 +424,17 @@ enum DiscountType {
   percentage
 }
 
+/// Who absorbs a customer-facing discount on an order.
+/// PLATFORM - Feastpot funds the discount; vendor receives their full
+///   subtotal + delivery minus commission as if no discount existed.
+/// VENDOR   - The vendor funds the discount; commission is charged on the
+///   discounted subtotal and the discount is deducted from vendor payout.
+/// NULL is valid ONLY when discountPence = 0 (no discount applied).
+enum DiscountFundedBy {
+  PLATFORM
+  VENDOR
+}
+
 // ============================================================
 // MODELS (21)
 // ============================================================
@@ -1001,6 +1012,7 @@ model Order {
   deliveryFeePence   Int          @default(0) @map("delivery_fee_pence")
   serviceFeePence    Int          @default(0) @map("service_fee_pence")
   discountPence      Int          @default(0) @map("discount_pence")
+  discountFundedBy   DiscountFundedBy? @map("discount_funded_by")
   totalPence         Int          @map("total_pence")
   commissionPence    Int          @default(0) @map("commission_pence")
   vendorPayoutPence  Int          @default(0) @map("vendor_payout_pence")
@@ -1484,8 +1496,9 @@ model DiscountCode {
   expiresAt       DateTime?    @map("expires_at") @db.Timestamptz
   vendorId        String?      @map("vendor_id") @db.Uuid
   isActive        Boolean      @default(true) @map("is_active")
-  createdByUserId String       @map("created_by_user_id") @db.Uuid
-  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  createdByUserId String           @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  fundedBy        DiscountFundedBy @default(PLATFORM) @map("funded_by")
 
   vendor    Vendor? @relation(fields: [vendorId], references: [id])
   createdBy User    @relation("CreatedDiscountCodes", fields: [createdByUserId], references: [id])

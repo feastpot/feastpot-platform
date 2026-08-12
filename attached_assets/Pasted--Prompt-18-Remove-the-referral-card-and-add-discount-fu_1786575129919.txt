@@ -1,0 +1,87 @@
+# Prompt 18 — Remove the referral card and add discount funding source
+
+**Priority:** RED · **App(s):** apps/web, apps/api, prisma · **Depends on:** Prompt 2 (PLATFORM_FACTS)
+
+Covers:
+- Deletes the "Give £5, get £5" referral card, which promises a link nobody can obtain
+- Adds a `fundedBy` field to discounts so platform-funded promotions can never silently reduce a vendor's payout
+- Corrects the payout formula so `PLATFORM`-funded discounts come off Feastpot's commission, not the cook's earnings
+- Reconciles the three conflicting referral claims currently live across the site
+
+**Why the funding-source field is urgent even though no promotions are running.** Feastpot's payout formula subtracts `discountPence` from `vendorPayoutPence`. That is correct for a discount a vendor chose to run, and wrong for one Feastpot ran. Right now no real orders exist, so the field can be added freely. Once real orders and real payouts exist, adding it means reconciling money already paid, and any promotion launched before it exists would quietly bill your cooks for your marketing. This is a cheap fix today and an expensive one later.
+
+---
+
+```
+CONTEXT
+You are working in the Feastpot Turborepo monorepo: apps/web (Next.js 15 App Router, customer), apps/vendor, apps/admin, apps/api (NestJS 11), Prisma against Supabase Postgres. Commercial constants live in packages/config as PLATFORM_FACTS. UK English throughout. Never use an em dash anywhere, in copy, code, or comments.
+
+=====================================================================
+PART 1: REMOVE THE REFERRAL CARD
+=====================================================================
+
+The "Give £5, get £5" card currently renders on the customer homepage and account surfaces. Its "Get your referral link" button sends signed-out users to the sign-in wall, and its own body text says rewards only unlock after a first order and when delivery is available, so no user can currently obtain a referral link by any route. It is an unfulfillable promise and must come out.
+
+1. Remove the referral card component from every customer-facing surface in apps/web where it renders. Search for the strings "Give £5", "get £5", "Get your referral link", and "Referral rewards unlock" and remove each occurrence and its containing card.
+2. Remove the "Refer friends and earn £5 each" benefit line from the signed-out /account page benefits list. It states the reward unconditionally, contradicting the card's own conditions.
+3. Do NOT delete the underlying referral data model, service, or any database table if one exists. Leave the backend intact and unreferenced. This is a removal from the customer surface only, so the work can be restored later without rebuilding it.
+4. If removing the card leaves an empty grid cell, gap, or orphaned section heading, close the layout cleanly rather than leaving whitespace.
+5. Audit the same surfaces for the two other claims flagged in the earlier feature audit, and remove either unless you can confirm in the codebase that it is genuinely implemented and reachable by a real user:
+   - "Earn loyalty points with every order" (is there an actual points ledger, accrual, and redemption path?)
+   - "One-tap reorder your favourites" (is there a working reorder action?)
+   Report your finding for each rather than removing blindly.
+
+=====================================================================
+PART 2: DISCOUNT FUNDING SOURCE
+=====================================================================
+
+FIRST, INSPECT: open prisma/schema.prisma and locate the Order model's discountPence field, and find every place in apps/api where vendorPayoutPence is calculated. Confirm the current formula. It is expected to be:
+
+  vendorPayoutPence = subtotalPence + deliveryFeePence - discountPence - commissionPence
+
+Report the actual formula you find before changing anything.
+
+THE PROBLEM: that formula subtracts every discount from the vendor, regardless of who offered it. If Feastpot runs a promotion and a customer redeems it, the cook's payout falls by the discount amount. Feastpot gets the customer, the cook pays for it. That directly contradicts the commercial promise made on /become-a-vendor, that a vendor only pays Feastpot when Feastpot brings them business.
+
+IMPLEMENT:
+
+1. Add an enum DiscountFundedBy { PLATFORM, VENDOR } and a field on the Order model recording which applies, for example discountFundedBy DiscountFundedBy?. Nullable is acceptable only where discountPence is zero; if a discount exists, the funding source must be set. Enforce this with a check constraint or an application-level guard, and write the Prisma migration.
+
+2. If a Discount, Promotion, or Voucher model already exists, put fundedBy on that model as the source of truth and copy it onto the Order at order creation for an immutable record. If no such model exists, put it on Order only.
+
+3. CORRECT THE PAYOUT FORMULA so the funding source determines who absorbs the discount:
+
+   VENDOR-funded (the cook chose to run "£3 off from my kitchen"):
+     vendorPayoutPence = subtotalPence + deliveryFeePence - discountPence - commissionPence
+     Commission is calculated on the DISCOUNTED subtotal, since that is the real value of the sale.
+
+   PLATFORM-funded (Feastpot ran the promotion):
+     vendorPayoutPence = subtotalPence + deliveryFeePence - commissionPence
+     The vendor is paid in full on the pre-discount subtotal. The discount is absorbed by Feastpot, deducted from its commission and, where the discount exceeds commission on that order, from platform margin. Commission is calculated on the FULL, pre-discount subtotal, because the cook sold that much food.
+
+4. Handle the case where a PLATFORM-funded discount exceeds the commission earned on that order. This is a real possibility on a 0% vendor-referred order, where a platform discount has no commission to come out of at all. Feastpot absorbs the full amount. Ensure this does not produce a negative application fee to Stripe, and never claws the difference back from the vendor. Log these orders so the loss is visible rather than silent.
+
+5. Surface the funding source to the vendor. On the vendor payouts view, any order carrying a discount must show whether it was funded by the vendor or by Feastpot, so a cook can see at a glance that a Feastpot promotion did not come out of her earnings. This transparency is the entire point of the change.
+
+6. Add a code comment at the payout calculation stating the rule plainly: a platform-funded promotion must never reduce vendorPayoutPence. This is a commercial commitment, not an implementation detail, and a future change that breaks it would be a serious trust failure.
+
+ACCEPTANCE CRITERIA:
+- The enum, field, and migration exist, and an order with a non-zero discountPence cannot be created without a funding source.
+- Unit tests prove all four cases: VENDOR-funded with commission, PLATFORM-funded with commission, PLATFORM-funded where the discount exceeds commission, and PLATFORM-funded on a 0% vendor-referred order.
+- A PLATFORM-funded discount produces exactly the same vendorPayoutPence as the identical order with no discount at all.
+- No negative application_fee_amount is ever sent to Stripe.
+- The vendor payouts view distinguishes the two funding sources.
+- No "Give £5", "get £5", "Get your referral link", or "Referral rewards unlock" string remains anywhere in apps/web.
+
+EDGE CASES: an order carrying both a vendor-funded and a platform-funded discount (decide and document the order of application, and prefer disallowing the combination at first); a refund on an order with a platform-funded discount, where commission reversal must be proportional to what was actually charged; multi-vendor baskets where a platform discount must be apportioned across vendors without any vendor absorbing it.
+
+STYLE: UK English. No em dashes. Do not delete the referral backend. Do not add a new customer-facing referral mechanic as part of this prompt.
+```
+
+---
+
+## What is deliberately not being built
+
+The vendor-refers-vendor reward and the "give a month, get a month" FeastPass mechanic are both sound, and neither should be code yet. With fewer than about thirty vendors you can hold every referral in your head or a spreadsheet, and a FeastPass reward requires FeastPass to be live with a measurable repeat rate. Both are promises to make in conversation and honour manually. Build the tracking when remembering becomes the bottleneck, not before.
+
+Note also that the originally proposed vendor referral reward, a commission holiday, is worth nothing to a founding cook who is already on 0% for ninety days. The deal sheet therefore offers an extension of the founding rate by a further ninety days instead, which has real value from day one.

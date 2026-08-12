@@ -32,7 +32,6 @@ const websiteJsonLd = {
 
 import { CateringBand } from '@/components/home/catering-band';
 import { FavouritesPills } from '@/components/home/favourites-pills';
-import { FeastPassStrip } from '@/components/home/feast-pass-strip';
 import { HowFeastpotWorks } from '@/components/home/how-feastpot-works';
 import { InstagramDmsBlock } from '@/components/home/instagram-dms-block';
 import { MarketingNav } from '@/components/home/marketing-nav';
@@ -58,7 +57,7 @@ export const dynamic = 'force-dynamic';
  *   MarketingNav · PostcodeHero · TrustIconStrip · OccasionGrid ·
  *   HowFeastpotWorks · CateringBand · InstagramDmsBlock ·
  *   VerifiedReviews · FavouritesPills · TrustStandard ·
- *   WaitlistBlock · [vendor rails when postcode cookie set] · FeastPassStrip
+ *   WaitlistBlock · [vendor rails when postcode cookie set]
  *
  * The "no vendors before postcode" gate (per the wireframe copy) is
  * preserved: vendor rails only render once the `feastpot.coverage.v1`
@@ -201,7 +200,6 @@ export default async function HomePage() {
         </>
       )}
 
-      <FeastPassStrip />
     </>
   );
 }

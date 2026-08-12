@@ -488,6 +488,23 @@ function TierBreakdown({ orders, payout }: { orders: VendorPayoutOrder[]; payout
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums text-dark">
                       {formatPence(o.subtotalPence)}
+                      {o.discountPence > 0 && (
+                        <span
+                          className={cn(
+                            'ml-1 inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-semibold',
+                            o.discountFundedBy === 'VENDOR'
+                              ? 'bg-amber-50 text-amber-700'
+                              : 'bg-teal-light text-teal-dark',
+                          )}
+                          title={
+                            o.discountFundedBy === 'VENDOR'
+                              ? 'Discount funded by you'
+                              : 'Discount funded by Feastpot'
+                          }
+                        >
+                          {o.discountFundedBy === 'VENDOR' ? 'Your promo' : 'Feastpot promo'}
+                        </span>
+                      )}
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums text-mid">
                       {o.commissionPence === 0 ? (

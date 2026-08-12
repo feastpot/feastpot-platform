@@ -3,7 +3,6 @@
 import {
   Bell,
   Crown,
-  Gift,
   HelpCircle,
   LogOut,
   MapPin,
@@ -23,8 +22,6 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 
 import { Avatar } from '@/components/account/avatar';
 import { LoyaltyCard } from '@/components/account/loyalty-card';
-import { ReferralCard } from '@/components/account/referral-card';
-import { ReferralHistory } from '@/components/account/referral-history';
 import { useSavingsPotential } from '@/hooks/use-feastpass';
 import { useMe } from '@/hooks/use-me';
 import { useAccessToken } from '@/lib/auth/use-access-token';
@@ -100,8 +97,6 @@ export default function AccountHubPage() {
         )}
 
       <LoyaltyCard />
-      <ReferralCard />
-      <ReferralHistory />
 
       {/* 2×2 destination grid */}
       <p className="mt-1 text-[11px] font-black uppercase tracking-[0.18em] text-brand">
@@ -203,7 +198,6 @@ function GuestAccountWelcome() {
     { Icon: PackageOpen, text: 'Track your orders in real time' },
     { Icon: Repeat2, text: 'One-tap reorder your favourites' },
     { Icon: Star, text: 'Earn loyalty points with every order' },
-    { Icon: Gift, text: 'Refer friends and earn £5 each' },
     { Icon: MapPin, text: 'Save your delivery addresses' },
   ];
   return (

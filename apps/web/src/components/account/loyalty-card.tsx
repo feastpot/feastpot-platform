@@ -1,6 +1,6 @@
 'use client';
 
-import { Calendar, Gift, Sparkles, Star } from 'lucide-react';
+import { Gift, Sparkles, Star } from 'lucide-react';
 
 import { useLoyalty } from '@/hooks/use-loyalty';
 
@@ -96,18 +96,11 @@ export function LoyaltyCard() {
       </div>
 
       {/* Perk row - three tonal cells echoing the wireframe. */}
-      <ul className="grid grid-cols-3 gap-2 border-t border-cream-deep bg-cream-warm/40 p-3">
-        {/* Copy reflects the REAL loyalty mechanics only (1pt/£1, redeem from
-            200pts, refer-a-friend) - no aspirational perks we don't run. */}
+      <ul className="grid grid-cols-2 gap-2 border-t border-cream-deep bg-cream-warm/40 p-3">
+        {/* Copy reflects the REAL loyalty mechanics only (1pt/£1, redeem from 200pts). */}
         {[
           { Icon: Star, title: 'Earn points', body: '1 point per £1 spent', tone: 'text-plantain' },
           { Icon: Gift, title: 'Redeem at checkout', body: 'From 200 points', tone: 'text-brand' },
-          {
-            Icon: Calendar,
-            title: 'Refer friends',
-            body: '500 pts per referral',
-            tone: 'text-scotch',
-          },
         ].map(({ Icon, title, body, tone }) => (
           <li key={title} className="rounded-2xl bg-white p-2.5 text-center shadow-card">
             <Icon className={`mx-auto h-4 w-4 ${tone}`} aria-hidden />

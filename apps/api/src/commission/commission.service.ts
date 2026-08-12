@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { OrderSource, RateStatus, TermsDocumentType } from '@prisma/client';
+import { DiscountFundedBy, OrderSource, RateStatus, TermsDocumentType } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 
 import { PrismaService } from '../prisma/prisma.service';
@@ -16,6 +16,9 @@ export interface CommissionResult {
   vendorPayoutPence: number;
   rateId: string;
   ratePercent: Decimal;
+  /** Non-zero on PLATFORM-funded orders where the discount exceeds commission.
+   *  Feastpot absorbs this from margin. Never deducted from vendor payout. */
+  platformSubsidyPence: number;
 }
 
 export interface EarningsSummary {
@@ -118,15 +121,47 @@ export class CommissionService {
     source: OrderSource,
     isFirstOrder: boolean,
     subtotalPence: number,
-    totalPence: number,
+    deliveryFeePence: number,
     serviceFeePence: number,
+    discountPence: number,
+    discountFundedBy: DiscountFundedBy | null,
     at: Date,
   ): Promise<CommissionResult> {
     const rate = await this.resolveRate(source, isFirstOrder, at);
-    const commissionPence = this.computePence(subtotalPence, rate.ratePercent);
+
+    // PAYOUT FORMULA - DO NOT CHANGE WITHOUT FINANCE SIGN-OFF
+    // Commission basis:
+    //   VENDOR-funded discount: commission on the discounted subtotal
+    //     (vendor's real food revenue after their own promotion).
+    //   PLATFORM-funded or no discount: commission on the full subtotal.
+    // Vendor payout:
+    //   PLATFORM-funded: vendor receives full subtotal + delivery minus commission.
+    //     Feastpot absorbs the discount - it must NEVER reduce vendor earnings.
+    //   VENDOR-funded: vendor absorbs the discount from their own payout.
+    //   serviceFeePence is ALWAYS Feastpot revenue and is NEVER paid to the vendor.
+    const commissionBasis =
+      discountFundedBy === DiscountFundedBy.VENDOR && discountPence > 0
+        ? Math.max(0, subtotalPence - discountPence)
+        : subtotalPence;
+
+    const commissionPence = this.computePence(commissionBasis, rate.ratePercent);
+    const vendorDiscountDeduction =
+      discountFundedBy === DiscountFundedBy.VENDOR ? discountPence : 0;
+    const vendorPayoutPence = Math.max(
+      0,
+      subtotalPence + deliveryFeePence - vendorDiscountDeduction - commissionPence,
+    );
+
+    // Track margin cost of platform-funded promos that exceed their commission.
+    const platformSubsidyPence =
+      discountFundedBy === DiscountFundedBy.PLATFORM
+        ? Math.max(0, discountPence - commissionPence)
+        : 0;
+
     return {
       commissionPence,
-      vendorPayoutPence: totalPence - serviceFeePence - commissionPence,
+      vendorPayoutPence,
+      platformSubsidyPence,
       rateId: rate.id,
       ratePercent: rate.ratePercent,
     };

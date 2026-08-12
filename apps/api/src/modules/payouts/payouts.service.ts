@@ -856,6 +856,8 @@ export class PayoutsService {
         subtotalPence: true,
         commissionPence: true,
         vendorPayoutPence: true,
+        discountPence: true,
+        discountFundedBy: true,
         attribution: { select: { resolvedSource: true } },
       },
       orderBy: { deliveredAt: 'asc' },
@@ -868,6 +870,8 @@ export class PayoutsService {
       subtotalPence: o.subtotalPence,
       commissionPence: o.commissionPence,
       vendorPayoutPence: o.vendorPayoutPence,
+      discountPence: o.discountPence,
+      discountFundedBy: o.discountFundedBy,
       // resolvedSource is null only on pre-attribution rows; treat as MARKETPLACE_FIRST.
       attributionSource: (o.attribution?.resolvedSource ?? null) as string | null,
     }));

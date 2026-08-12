@@ -14,6 +14,7 @@ import {
 import {
   AmendmentStatus,
   DeliveryType,
+  DiscountFundedBy,
   FeastPassStatus,
   ItemCategory,
   LoyaltyTxType,
@@ -110,35 +111,52 @@ export interface CommissionBreakdown {
 
 // ─────────────────────────────────────────────────────────────
 // PAYOUT FORMULA - DO NOT CHANGE WITHOUT FINANCE SIGN-OFF
-//   vendorPayout = subtotal + delivery − discount − commission
-//                = total − serviceFee − commission
+//
+// PLATFORM-funded discount (loyalty redemptions, Feastpot promos):
+//   commission = commissionBps * subtotalPence  (full subtotal)
+//   vendorPayout = subtotal + delivery - commission
+//   Feastpot absorbs the discount; vendor earnings are UNCHANGED.
+//   This is a trust commitment to our cooks: a platform promotion
+//   can never reduce what they take home.
+//
+// VENDOR-funded discount (vendor's own promotion):
+//   commission = commissionBps * (subtotal - discount)  (discounted subtotal)
+//   vendorPayout = subtotal + delivery - discount - commission
+//
 // Feastpot RETAINS:  serviceFeePence (platform revenue, 5% / SERVICE_FEE_BPS)
-//                    commissionPence (12% of food subtotal, commissionBps=1200)
-// Vendor RECEIVES:   food subtotal + delivery-fee reimbursement, minus the
-//                    above and any customer discount.
+//                    commissionPence (see above)
+// Vendor RECEIVES:   food subtotal + delivery reimbursement, less the above
+//                    and any vendor-funded discount.
 // The service fee is NEVER part of the vendor payout. The delivery fee IS,
 // because vendors set their own delivery fee and fulfil delivery themselves.
 // ─────────────────────────────────────────────────────────────
 /**
- * Commission is charged on the vendor's food revenue (subtotalPence) only -
- * NOT on delivery fees (which are vendor reimbursement, not vendor income)
- * and NOT on the platform service fee (which is platform revenue, not the
- * vendor's). The vendor's payout is the customer-paid total minus the platform
- * service fee (Feastpot keeps it) minus the platform commission, so the vendor
- * still receives their delivery-fee reimbursement in full but never the
- * service fee.
+ * Pure commission + vendor-payout calculation. Use 'PLATFORM' for loyalty
+ * redemptions and Feastpot promos; 'VENDOR' for vendor-funded codes; null
+ * only when discountPence === 0 (treated identically to 'PLATFORM').
+ *
+ * serviceFeePence is excluded from all vendor calculations - it is Feastpot
+ * revenue and must never appear in the vendor payout.
  */
 export function computeCommission(
   subtotalPence: number,
-  totalPence: number,
+  deliveryFeePence: number,
+  discountPence: number,
+  discountFundedBy: 'PLATFORM' | 'VENDOR' | null,
   commissionBps: number,
-  serviceFeePence: number,
 ): CommissionBreakdown {
-  const commissionPence = Math.round((subtotalPence * commissionBps) / 10_000);
-  return {
-    commissionPence,
-    vendorPayoutPence: totalPence - serviceFeePence - commissionPence,
-  };
+  const commissionBasis =
+    discountFundedBy === 'VENDOR' && discountPence > 0
+      ? Math.max(0, subtotalPence - discountPence)
+      : subtotalPence;
+
+  const commissionPence = Math.round((commissionBasis * commissionBps) / 10_000);
+  const vendorDiscountDeduction = discountFundedBy === 'VENDOR' ? discountPence : 0;
+  const vendorPayoutPence = Math.max(
+    0,
+    subtotalPence + deliveryFeePence - vendorDiscountDeduction - commissionPence,
+  );
+  return { commissionPence, vendorPayoutPence };
 }
 
 /**
@@ -424,6 +442,7 @@ export class OrdersService {
     // so an abandoned checkout doesn't burn one of the code's `maxUses`.
     let promoDiscountPence = 0;
     let discountCodeId: string | null = null;
+    let promoCodeFundedBy: DiscountFundedBy | null = null;
     if (dto.discountCode) {
       const result = await this.discountCodes.validate(
         dto.discountCode,
@@ -432,6 +451,7 @@ export class OrdersService {
       );
       promoDiscountPence = result.discountPence;
       discountCodeId = result.discountCodeId;
+      promoCodeFundedBy = result.fundedBy;
     }
 
     // Loyalty redemption: cap to never exceed (subtotal + delivery) so the
@@ -461,6 +481,27 @@ export class OrdersService {
     // Combine loyalty + promo discounts. Final clamp ensures total never
     // dips below £0 even if the two stack to more than the order value.
     const discountPence = loyaltyToRedeem + promoDiscountPence;
+
+    // Determine who funds the combined discount. Loyalty is always PLATFORM
+    // (Feastpot's reward programme). Promo codes carry their own fundedBy flag.
+    // A VENDOR-funded promo code + loyalty points is disallowed: the two
+    // funding sources cannot be mixed until we support split-funded orders.
+    let discountFundedBy: DiscountFundedBy | null = null;
+    if (discountPence > 0) {
+      if (loyaltyToRedeem > 0 && promoDiscountPence > 0) {
+        if (promoCodeFundedBy === DiscountFundedBy.VENDOR) {
+          throw new Error(
+            'Cannot combine a vendor-funded discount code with loyalty points. Use one at a time.',
+          );
+        }
+        discountFundedBy = DiscountFundedBy.PLATFORM;
+      } else if (loyaltyToRedeem > 0) {
+        discountFundedBy = DiscountFundedBy.PLATFORM;
+      } else {
+        // promoDiscountPence > 0
+        discountFundedBy = promoCodeFundedBy;
+      }
+    }
 
     // FeastPass: waive the customer-side service fee for ACTIVE members.
     // Vendor commission and payout are calculated on the same subtotal either
@@ -492,16 +533,27 @@ export class OrdersService {
     const {
       commissionPence,
       vendorPayoutPence,
+      platformSubsidyPence,
       rateId: commissionRateId,
       ratePercent: commissionRatePercent,
     } = await this.commission.resolveRateAndCompute(
       attrSource,
       attrIsFirstOrder,
       subtotalPence,
-      totalPence,
+      deliveryFeePence,
       serviceFeePence,
+      discountPence,
+      discountFundedBy,
       new Date(),
     );
+
+    if (platformSubsidyPence > 0) {
+      this.logger.warn(
+        `Platform-funded discount exceeds commission on order ${orderId}: ` +
+          `discount=${discountPence}p commission=${commissionPence}p ` +
+          `platform absorbs=${platformSubsidyPence}p vendor=${dto.vendorId}`,
+      );
+    }
 
     const orderNumber = this.generateOrderNumber();
     // Generate the order id client-side so the Stripe PI (created BEFORE the
@@ -646,6 +698,8 @@ export class OrdersService {
     attributionSource: OrderSource;
     attributionIsFirstOrder: boolean;
     discountCodeId: string | null;
+    /** Who funded the discount. Null only when discountPence === 0. */
+    discountFundedBy: DiscountFundedBy | null;
     loyaltyToRedeem: number;
     /** fp_ref cookie value forwarded from the web app (X-Fp-Ref header). */
     fpRef?: string;
@@ -674,6 +728,7 @@ export class OrdersService {
       attributionSource,
       attributionIsFirstOrder,
       discountCodeId,
+      discountFundedBy,
       loyaltyToRedeem,
       fpRef,
       sessionId,
@@ -718,6 +773,7 @@ export class OrdersService {
             deliveryFeePence,
             serviceFeePence,
             discountPence,
+            discountFundedBy,
             totalPence,
             commissionPence,
             vendorPayoutPence,

@@ -163,7 +163,6 @@ function WelcomePanel() {
             'Earn FeastPoints',
             'Reorder favourites',
             'Store allergen notes',
-            'Refer friends',
           ].map((line) => (
             <li key={line} className="flex items-start gap-2">
               <Check className="mt-0.5 h-4 w-4 flex-shrink-0" strokeWidth={3} aria-hidden />

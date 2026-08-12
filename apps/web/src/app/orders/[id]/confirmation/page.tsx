@@ -1,13 +1,10 @@
 'use client';
 
-import { Bell, Check, Copy, Crown, MapPin, Sparkles } from 'lucide-react';
+import { Bell, Check, Crown, MapPin } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
-import { cn } from '@feastpot/ui';
-
-import { useReferrals } from '@/hooks/use-loyalty';
 import { useOrder } from '@/hooks/use-orders';
 import { useSavingsPotential } from '@/hooks/use-feastpass';
 import { shouldShowFeastPassCallout } from '@/lib/feastpass-callout';
@@ -25,16 +22,13 @@ const formatPounds = (p: number) => `£${(p / 100).toFixed(2)}`;
  * Three calls-to-action:
  *   1. "Track your order" → /orders/{id}/tracking (primary)
  *   2. Push notifications  → only if browser supports + permission not yet granted
- *   3. Referral nudge      → real code from GET /v1/loyalty/referrals via
- *                            useReferrals(); only rendered once the code has
- *                            loaded (guests/loading see no placeholder).
+ *   3. FeastPass upsell    → shown to non-members with a non-zero service fee.
  */
 export default function OrderConfirmationPage() {
   const params = useParams<{ id: string }>();
   const orderId = params?.id;
 
   const { data: order, isLoading, error } = useOrder(orderId);
-  const { data: referralData } = useReferrals();
   const { data: savingsPotential } = useSavingsPotential();
 
   if (isLoading) {
@@ -177,10 +171,6 @@ export default function OrderConfirmationPage() {
       {/* Push permission nudge */}
       <PushNudge />
 
-      {/* Referral - only render once the API has returned the user's real
-          share code (D-104). Hides cleanly for guests and while the request
-          is in-flight, instead of rendering a fake `FP-XXXXXX` placeholder. */}
-      {referralData?.referralCode ? <ReferralCard code={referralData.referralCode} /> : null}
     </div>
   );
 }
@@ -299,62 +289,3 @@ function PushNudge() {
   );
 }
 
-/**
- * Referral pill. Receives the user's REAL share code from `/v1/referrals`
- * (D-104 fix - previously rendered a fake `FP-XXXXXX` placeholder derived
- * from the email local-part). The parent gates rendering on the code being
- * present, so we can assume `code` is a non-empty redeemable string here.
- */
-function ReferralCard({ code }: { code: string }) {
-  const [copied, setCopied] = useState(false);
-
-  const onCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(code);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1800);
-    } catch {
-      /* clipboard blocked - fail silently */
-    }
-  };
-
-  return (
-    <section className="rounded-2xl bg-gradient-to-br from-brand-light via-white to-plantain/15 border border-plantain/40 p-4">
-      <div className="flex items-start gap-3">
-        <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-plantain" aria-hidden />
-        <div className="min-w-0 flex-1 text-sm">
-          <p className="font-display font-black text-charcoal">Love Feastpot? Earn £5 credit</p>
-          <p className="mt-0.5 text-xs font-medium text-charcoal-mid">
-            Share your code with friends - when they place their first order you both get £5 off.
-          </p>
-          <div className="mt-2 flex items-center gap-2">
-            <code className="flex-1 truncate rounded-full bg-white px-3 py-1.5 text-center text-xs font-mono font-bold tracking-wider text-brand-dark">
-              {code}
-            </code>
-            <button
-              type="button"
-              onClick={onCopy}
-              className={cn(
-                'inline-flex h-8 items-center gap-1 rounded-full px-3 text-xs font-bold transition-colors',
-                copied
-                  ? 'bg-brand text-white'
-                  : 'border border-cream-deep bg-white text-charcoal hover:border-brand/50',
-              )}
-              aria-label="Copy referral code"
-            >
-              {copied ? (
-                <>
-                  <Check className="h-3 w-3" aria-hidden /> Copied
-                </>
-              ) : (
-                <>
-                  <Copy className="h-3 w-3" aria-hidden /> Copy
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}

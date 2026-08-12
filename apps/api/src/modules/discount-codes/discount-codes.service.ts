@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import { DiscountType, Prisma } from '@prisma/client';
+import { DiscountFundedBy, DiscountType, Prisma } from '@prisma/client';
 
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -8,6 +8,8 @@ import type { CreateDiscountCodeDto } from './dto/create-discount-code.dto';
 export interface ValidatedDiscount {
   discountCodeId: string;
   discountPence: number;
+  /** Who funds this discount: copied from the DiscountCode row. Defaults to PLATFORM. */
+  fundedBy: DiscountFundedBy;
   message: string;
 }
 
@@ -99,6 +101,7 @@ export class DiscountCodesService {
     return {
       discountCodeId: dc.id,
       discountPence,
+      fundedBy: dc.fundedBy,
       message: `£${(discountPence / 100).toFixed(2)} discount applied`,
     };
   }
