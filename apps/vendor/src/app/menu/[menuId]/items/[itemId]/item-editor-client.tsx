@@ -90,9 +90,12 @@ const DIETARY_FLAGS = [
 ];
 
 // FSA 14 statutory allergens - labels and emoji icons for the 2-col grid.
+// Values MUST match the canonical slugs accepted by the API validateAllergens
+// helper (cereals-containing-gluten, soya, sulphur-dioxide, nuts - NOT the
+// old legacy forms gluten / soybeans / sulphites / tree_nuts).
 const FSA_ALLERGENS: Array<{ value: string; label: string; icon: string }> = [
   { value: 'celery', label: 'Celery', icon: '🥬' },
-  { value: 'gluten', label: 'Gluten', icon: '🌾' },
+  { value: 'cereals-containing-gluten', label: 'Gluten (cereals)', icon: '🌾' },
   { value: 'crustaceans', label: 'Crustaceans', icon: '🦐' },
   { value: 'eggs', label: 'Eggs', icon: '🥚' },
   { value: 'fish', label: 'Fish', icon: '🐟' },
@@ -100,11 +103,11 @@ const FSA_ALLERGENS: Array<{ value: string; label: string; icon: string }> = [
   { value: 'milk', label: 'Milk', icon: '🥛' },
   { value: 'molluscs', label: 'Molluscs', icon: '🦪' },
   { value: 'mustard', label: 'Mustard', icon: '🌭' },
+  { value: 'nuts', label: 'Tree nuts', icon: '🌰' },
   { value: 'peanuts', label: 'Peanuts', icon: '🥜' },
   { value: 'sesame', label: 'Sesame', icon: '🫘' },
-  { value: 'soybeans', label: 'Soybeans', icon: '🫛' },
-  { value: 'sulphites', label: 'Sulphites', icon: '🍷' },
-  { value: 'tree_nuts', label: 'Tree nuts', icon: '🌰' },
+  { value: 'soya', label: 'Soybeans (soya)', icon: '🫛' },
+  { value: 'sulphur-dioxide', label: 'Sulphites / SO₂', icon: '🍷' },
 ];
 
 interface FormState {
