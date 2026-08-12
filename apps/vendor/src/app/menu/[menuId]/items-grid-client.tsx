@@ -71,6 +71,11 @@ export function MenuItemsGridClient({
   const [showCreate, setShowCreate] = useState(false);
   const createFormRef = useRef<HTMLDivElement>(null);
 
+  // Inline edit state. Non-null itemId means the edit panel is open.
+  // Only one inline panel (create OR edit) is open at a time.
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const editFormRef = useRef<HTMLDivElement>(null);
+
   // Require a small drag before activating so taps on the card's buttons /
   // switch are never swallowed by the sortable. Keyboard users get an
   // accessible alternative via the handle.
@@ -80,9 +85,19 @@ export function MenuItemsGridClient({
   );
 
   function openCreate() {
+    setEditingItemId(null);
     setShowCreate(true);
-    // Scroll the form into view on the next tick so it's visible after render.
     setTimeout(() => createFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+  }
+
+  function openEdit(itemId: string) {
+    setShowCreate(false);
+    setEditingItemId(itemId);
+    setTimeout(() => editFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+  }
+
+  function closeEdit() {
+    setEditingItemId(null);
   }
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -129,7 +144,7 @@ export function MenuItemsGridClient({
               <ExternalLink className="h-4 w-4" /> Preview as customer
             </Button>
           </a>
-          <Button className="gap-2" onClick={openCreate} disabled={showCreate}>
+          <Button className="gap-2" onClick={openCreate} disabled={showCreate || editingItemId !== null}>
             <Plus className="h-4 w-4" /> Add item
           </Button>
         </div>
@@ -160,6 +175,22 @@ export function MenuItemsGridClient({
         </div>
       )}
 
+      {/* Inline edit panel - opens when the vendor clicks Edit on a card.
+          Only one panel (create or edit) is shown at a time. Saving or
+          cancelling closes the panel; TanStack Query cache invalidation
+          triggered by the update mutation refreshes the card automatically. */}
+      {editingItemId && (
+        <div ref={editFormRef} className="rounded-2xl border border-border bg-white p-4 shadow-sm">
+          <ItemEditorClient
+            vendorId={vendorId}
+            menuId={menuId}
+            itemId={editingItemId}
+            onSaved={closeEdit}
+            onCancel={closeEdit}
+          />
+        </div>
+      )}
+
       {!isLoading && items && items.length === 0 && !showCreate && (
         <Card>
           <CardContent className="flex flex-col items-center gap-3 py-10 text-center">
@@ -176,7 +207,14 @@ export function MenuItemsGridClient({
           <SortableContext items={items.map((it) => it.id)} strategy={rectSortingStrategy}>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {items.map((it) => (
-                <SortableItemCard key={it.id} vendorId={vendorId} menuId={menuId} item={it} />
+                <SortableItemCard
+                  key={it.id}
+                  vendorId={vendorId}
+                  menuId={menuId}
+                  item={it}
+                  onEdit={openEdit}
+                  isEditing={editingItemId === it.id}
+                />
               ))}
             </div>
           </SortableContext>
@@ -230,10 +268,14 @@ function SortableItemCard({
   vendorId,
   menuId,
   item,
+  onEdit,
+  isEditing,
 }: {
   vendorId: string;
   menuId: string;
   item: MenuItem;
+  onEdit: (itemId: string) => void;
+  isEditing: boolean;
 }) {
   const {
     attributes,
@@ -257,6 +299,8 @@ function SortableItemCard({
         vendorId={vendorId}
         menuId={menuId}
         item={item}
+        onEdit={onEdit}
+        isEditing={isEditing}
         handleProps={{ ...attributes, ...listeners, ref: setActivatorNodeRef }}
       />
     </div>
@@ -267,11 +311,15 @@ function ItemCard({
   vendorId,
   menuId,
   item,
+  onEdit,
+  isEditing,
   handleProps,
 }: {
   vendorId: string;
   menuId: string;
   item: MenuItem;
+  onEdit: (itemId: string) => void;
+  isEditing: boolean;
   handleProps: React.HTMLAttributes<HTMLButtonElement> & {
     ref: (node: HTMLElement | null) => void;
   };
@@ -373,11 +421,15 @@ function ItemCard({
             <span className="text-xs text-muted-foreground">Available</span>
           </div>
           <div className="flex items-center gap-1">
-            <Link href={`/menu/${menuId}/items/${item.id}`}>
-              <Button variant="ghost" size="sm" className="gap-1">
-                <Pencil className="h-3.5 w-3.5" /> Edit
-              </Button>
-            </Link>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-1"
+              aria-pressed={isEditing}
+              onClick={() => onEdit(item.id)}
+            >
+              <Pencil className="h-3.5 w-3.5" /> Edit
+            </Button>
             <Button
               variant="ghost"
               size="sm"

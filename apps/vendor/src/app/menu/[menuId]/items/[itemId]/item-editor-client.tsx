@@ -177,6 +177,7 @@ export function ItemEditorClient({
   menuId,
   itemId,
   onCreated,
+  onSaved,
   onCancel,
 }: {
   vendorId: string;
@@ -188,13 +189,18 @@ export function ItemEditorClient({
    * Called with the newly-created item id after a successful create.
    */
   onCreated?: (id: string) => void;
+  /**
+   * Inline mode (edit path): called after a successful update so the parent
+   * can close the inline panel.
+   */
+  onSaved?: () => void;
   /** Inline mode: called when the user dismisses the form without saving. */
   onCancel?: () => void;
 }) {
   const router = useRouter();
   const { toast } = useToast();
   const isNew = itemId === 'new';
-  const isInline = onCreated !== undefined || onCancel !== undefined;
+  const isInline = onCreated !== undefined || onSaved !== undefined || onCancel !== undefined;
 
   const { data: item, isLoading } = useMenuItem(vendorId, menuId, itemId);
   const create = useCreateMenuItem(vendorId, menuId);
@@ -307,6 +313,7 @@ export function ItemEditorClient({
       } else {
         await update.mutateAsync({ itemId, ...payload });
         toast({ title: 'Item saved' });
+        onSaved?.();
       }
     } catch (err) {
       toast({
@@ -434,7 +441,9 @@ export function ItemEditorClient({
       <div className="space-y-4">
         {/* Inline header with title + action buttons */}
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-xl font-bold tracking-tight text-dark">New item</h2>
+          <h2 className="text-xl font-bold tracking-tight text-dark">
+            {isNew ? 'New item' : form.name || 'Edit item'}
+          </h2>
           <div className="flex items-center gap-2">
             <Button type="button" variant="ghost" onClick={handleCancel}>
               Cancel
@@ -445,7 +454,7 @@ export function ItemEditorClient({
               disabled={!canSubmit || isSaving}
               className="bg-teal px-6 font-bold text-white hover:bg-teal-dark"
             >
-              {isSaving ? 'Saving…' : 'Create item'}
+              {isSaving ? 'Saving…' : isNew ? 'Create item' : 'Save changes'}
             </Button>
           </div>
         </div>
