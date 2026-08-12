@@ -64,7 +64,7 @@ export function useAccountStatus() {
   return useQuery({
     queryKey: ['account-status', token],
     queryFn: () =>
-      apiRequest<EnforcementAction[]>('/vendors/enforcement', {
+      apiRequest<EnforcementAction[]>('/vendors/me/enforcement', {
         accessToken: token ?? undefined,
         next: { revalidate: 0 },
       }),

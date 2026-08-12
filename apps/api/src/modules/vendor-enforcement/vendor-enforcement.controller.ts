@@ -91,12 +91,14 @@ export class VendorEnforcementController {
   // ── Vendor endpoints ──────────────────────────────────────────────────────
 
   /**
-   * GET /vendors/enforcement
+   * GET /vendors/me/enforcement
    * Returns active enforcement actions for the requesting vendor.
    * Used by the vendor account-status page.
    * A suspended vendor can always see why.
+   * Path follows the /vendors/me/* convention to avoid conflicting with
+   * the ParseUUIDPipe on GET vendors/:id in VendorsController.
    */
-  @Get('vendors/enforcement')
+  @Get('vendors/me/enforcement')
   @UseGuards(SupabaseAuthGuard)
   async getVendorActiveActions(@CurrentUser() user: AuthUser) {
     const vendor = await this.enforcement['prisma'].vendor.findUnique({
