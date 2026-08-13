@@ -22,27 +22,30 @@ import { createClient } from '@/lib/supabase/client';
  * matching the SideNav item set exactly so mobile and desktop are consistent.
  */
 
+// Keep in sync with NAV_SECTIONS in side-nav.tsx (same routes, shorter labels
+// to fit the horizontally-scrolling mobile strip).
 const NAV_ITEMS = [
-  { href: '/', label: 'Dashboard' },
-  { href: '/orders', label: 'Orders' },
-  { href: '/disputes', label: 'Disputes' },
-  { href: '/menu', label: 'Menu' },
-  { href: '/availability', label: 'Availability' },
-  { href: '/analytics', label: 'Analytics' },
-  { href: '/share', label: 'Share' },
-  { href: '/referrals', label: 'Referrals' },
-  { href: '/catering', label: 'Catering' },
-  { href: '/earnings', label: 'Earnings' },
-  { href: '/payouts', label: 'Payouts' },
-  { href: '/compliance', label: 'Compliance' },
-  { href: '/account-status', label: 'Account' },
-  { href: '/tax-information', label: 'Tax' },
-  { href: '/terms', label: 'Terms' },
-  { href: '/settings/profile', label: 'Profile' },
-  { href: '/settings/team', label: 'Team' },
-  { href: '/settings/security', label: 'Security' },
-  { href: '/user-guide', label: 'Guide' },
-  { href: '/help', label: 'Help' },
+  { href: '/',                    label: 'Dashboard' },
+  { href: '/orders',              label: 'Orders' },
+  { href: '/disputes',            label: 'Disputes' },
+  { href: '/catering',            label: 'Catering' },
+  { href: '/menu',                label: 'Menu' },
+  { href: '/availability',        label: 'Availability' },
+  { href: '/settings/delivery',   label: 'Delivery' },
+  { href: '/settings/profile',    label: 'Profile' },
+  { href: '/share',               label: 'Share' },
+  { href: '/referrals',           label: 'Referrals' },
+  { href: '/analytics',           label: 'Analytics' },
+  { href: '/earnings',            label: 'Earnings' },
+  { href: '/payouts',             label: 'Payouts' },
+  { href: '/tax-information',     label: 'Tax' },
+  { href: '/compliance',          label: 'Compliance' },
+  { href: '/account-status',      label: 'Account' },
+  { href: '/settings/team',       label: 'Team' },
+  { href: '/settings/security',   label: 'Security' },
+  { href: '/terms',               label: 'Terms' },
+  { href: '/user-guide',          label: 'Guide' },
+  { href: '/help',                label: 'Help' },
 ] as const;
 
 function InboxBadge() {

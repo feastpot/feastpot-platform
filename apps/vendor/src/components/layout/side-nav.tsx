@@ -20,6 +20,7 @@ import {
   Receipt,
   ShieldAlert,
   ShieldCheck,
+  TrendingUp,
   Truck,
   UserCircle2,
   UsersRound,
@@ -39,52 +40,92 @@ type NavItem = {
   Icon: typeof LayoutDashboard;
 };
 
-const NAV_ITEMS: ReadonlyArray<NavItem> = [
-  { href: '/', label: 'Dashboard', Icon: LayoutDashboard },
-  { href: '/orders', label: 'Orders', Icon: ClipboardList },
-  { href: '/disputes', label: 'Disputes', Icon: MessageSquareWarning },
-  { href: '/menu', label: 'Menu', Icon: UtensilsCrossed },
-  { href: '/availability', label: 'Availability', Icon: Calendar },
-  { href: '/settings/delivery', label: 'Delivery settings', Icon: Truck },
-  { href: '/analytics', label: 'Analytics', Icon: BarChart3 },
-  { href: '/share', label: 'Share your kitchen', Icon: QrCode },
-  { href: '/referrals', label: 'Your own customers', Icon: Link2 },
-  { href: '/catering', label: 'Catering bookings', Icon: BarChart3 },
-  { href: '/earnings', label: 'Earnings & fees', Icon: BarChart3 },
-  { href: '/payouts', label: 'Payouts', Icon: PoundSterling },
-  { href: '/compliance', label: 'Compliance', Icon: FileCheck2 },
-  { href: '/account-status', label: 'Account status', Icon: ShieldAlert },
-  { href: '/tax-information', label: 'Tax information', Icon: Receipt },
-  { href: '/terms', label: 'Terms & Notices', Icon: FileText },
-  { href: '/settings/profile', label: 'Profile', Icon: UserCircle2 },
-  { href: '/settings/team', label: 'Team', Icon: UsersRound },
-  { href: '/settings/security', label: 'Security', Icon: ShieldCheck },
-  { href: '/user-guide', label: 'User Guide', Icon: BookOpen },
+type NavSection = {
+  label: string;
+  items: ReadonlyArray<NavItem>;
+};
+
+/**
+ * Grouped sidebar navigation.
+ * Sections mirror the brief: Selling / Your kitchen / Growth / Money / Account.
+ * Items within each section are ordered for scanning speed (most-used first).
+ */
+const NAV_SECTIONS: ReadonlyArray<NavSection> = [
+  {
+    label: 'Selling',
+    items: [
+      { href: '/',         label: 'Dashboard',         Icon: LayoutDashboard },
+      { href: '/orders',   label: 'Orders',             Icon: ClipboardList },
+      { href: '/disputes', label: 'Disputes',           Icon: MessageSquareWarning },
+      { href: '/catering', label: 'Catering bookings',  Icon: UtensilsCrossed },
+    ],
+  },
+  {
+    label: 'Your kitchen',
+    items: [
+      { href: '/menu',               label: 'Menu',         Icon: UtensilsCrossed },
+      { href: '/availability',       label: 'Availability', Icon: Calendar },
+      { href: '/settings/delivery',  label: 'Delivery',     Icon: Truck },
+      { href: '/settings/profile',   label: 'Profile',      Icon: UserCircle2 },
+    ],
+  },
+  {
+    label: 'Growth',
+    items: [
+      { href: '/share',     label: 'Share your kitchen',  Icon: QrCode },
+      { href: '/referrals', label: 'Your own customers',  Icon: Link2 },
+      { href: '/analytics', label: 'Analytics',           Icon: BarChart3 },
+    ],
+  },
+  {
+    label: 'Money',
+    items: [
+      { href: '/earnings',         label: 'Earnings & fees',  Icon: TrendingUp },
+      { href: '/payouts',          label: 'Payouts',          Icon: PoundSterling },
+      { href: '/tax-information',  label: 'Tax information',  Icon: Receipt },
+    ],
+  },
+  {
+    label: 'Account',
+    items: [
+      { href: '/compliance',        label: 'Compliance',       Icon: FileCheck2 },
+      { href: '/account-status',    label: 'Account status',   Icon: ShieldAlert },
+      { href: '/settings/team',     label: 'Team',             Icon: UsersRound },
+      { href: '/settings/security', label: 'Security',         Icon: ShieldCheck },
+      { href: '/terms',             label: 'Terms & notices',  Icon: FileText },
+      { href: '/user-guide',        label: 'User guide',       Icon: BookOpen },
+    ],
+  },
 ];
+
+// Flat list used by canVendorRoleAccess (same shape as before).
+const ALL_NAV_ITEMS: ReadonlyArray<NavItem> = NAV_SECTIONS.flatMap((s) => s.items);
 
 interface SideNavProps {
   businessName?: string;
 }
 
 /**
- * Vertical left-rail navigation for the vendor portal. Replaces the
- * earlier horizontal `TopNav`. Renders as a normal flex item (NOT
- * fixed) so the host page can lay it out next to <main> in a flex row
- * without manual padding offsets - see apps/vendor/src/app/page.tsx
- * for the host-side flex wrapper.
+ * Vertical left-rail navigation for the vendor portal.
+ * Renders as a normal flex item (NOT fixed) so the host page can lay it out
+ * next to <main> in a flex row without manual padding offsets.
  *
- * Role gating mirrors the old top-nav: while role data is loading we
- * show everything so the bar doesn't flash empty for owners on first
- * paint, then we filter on first response.
+ * Grouped into five labelled sections so the 19-item list is scannable.
+ * Role gating is applied per-item inside each section; sections with no
+ * visible items are hidden entirely.
  */
 export function SideNav({ businessName }: SideNavProps) {
   const pathname = usePathname();
-  const router = useRouter();
   const { data: roleData } = useMyVendorRole();
   const role = roleData?.role ?? null;
-  const visibleNavItems = role
-    ? NAV_ITEMS.filter((i) => canVendorRoleAccess(role, i.href))
-    : NAV_ITEMS;
+  const router = useRouter();
+
+  const visibleSections = NAV_SECTIONS.map((section) => ({
+    ...section,
+    items: role
+      ? section.items.filter((i) => canVendorRoleAccess(role, i.href))
+      : section.items,
+  })).filter((section) => section.items.length > 0);
 
   const initials = makeInitials(businessName ?? 'Vendor');
 
@@ -93,10 +134,8 @@ export function SideNav({ businessName }: SideNavProps) {
       aria-label="Vendor portal navigation"
       className="hidden w-60 shrink-0 flex-col border-r border-border bg-white md:flex"
     >
-      {/* Logo: explicit h-10 keeps the element within the 240 px sidebar width
-          (at 3.5:1 aspect ratio h-10 → ~140 px wide, well inside the rail).
-          Previously h-[144px] w-auto caused a ~504 px element that overflowed
-          into the main content column and overlapped page headings. */}
+      {/* Logo – h-10 keeps element within the 240 px rail at the 3.5:1 aspect
+          ratio. The previous h-[144px] overflowed into the main content column. */}
       <div className="flex items-center border-b border-border px-4 py-4">
         <Link href="/" className="flex items-center" aria-label="Feastpot vendor portal">
           <Image
@@ -114,40 +153,51 @@ export function SideNav({ businessName }: SideNavProps) {
         <VendorPill initials={initials} businessName={businessName ?? 'Vendor'} />
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-3 pb-4">
-        <ul className="space-y-0.5">
-          {visibleNavItems.map((item) => {
-            const active =
-              item.href === '/'
-                ? pathname === '/'
-                : pathname === item.href || pathname.startsWith(item.href + '/');
-            const Icon = item.Icon;
-            return (
-              <li key={item.href}>
-                <Link
-                  href={item.href}
-                  className={cn(
-                    'group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-1',
-                    active
-                      ? 'bg-teal-light text-teal-dark'
-                      : 'text-mid hover:bg-surface hover:text-dark',
-                  )}
-                  aria-current={active ? 'page' : undefined}
-                >
-                  <Icon
-                    className={cn(
-                      'h-[18px] w-[18px] shrink-0',
-                      active ? 'text-teal' : 'text-mid group-hover:text-dark',
-                    )}
-                    aria-hidden
-                  />
-                  <span className="truncate">{item.label}</span>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+      <nav className="flex-1 overflow-y-auto px-3 pb-4" aria-label="Main">
+        <div className="space-y-5">
+          {visibleSections.map((section) => (
+            <div key={section.label}>
+              {/* Section header – small-caps label, muted */}
+              <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-widest text-mid/60">
+                {section.label}
+              </p>
+              <ul className="space-y-0.5">
+                {section.items.map((item) => {
+                  const active =
+                    item.href === '/'
+                      ? pathname === '/'
+                      : pathname === item.href || pathname.startsWith(item.href + '/');
+                  const Icon = item.Icon;
+                  return (
+                    <li key={item.href}>
+                      <Link
+                        href={item.href}
+                        className={cn(
+                          'group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-1',
+                          active
+                            ? 'bg-teal-light text-teal-dark'
+                            : 'text-mid hover:bg-surface hover:text-dark',
+                        )}
+                        aria-current={active ? 'page' : undefined}
+                      >
+                        <Icon
+                          className={cn(
+                            'h-[18px] w-[18px] shrink-0',
+                            active ? 'text-teal' : 'text-mid group-hover:text-dark',
+                          )}
+                          aria-hidden
+                        />
+                        {/* No truncate: all labels fit within the 240 px rail at 14 px */}
+                        <span>{item.label}</span>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))}
+        </div>
       </nav>
 
       <div className="border-t border-border bg-surface/60 px-3 py-3">
@@ -171,10 +221,11 @@ function VendorPill({ initials, businessName }: { initials: string; businessName
         {initials}
       </span>
       <div className="min-w-0 flex-1">
+        {/* truncate so a 40-char business name stays within the 240 px rail */}
         <p className="truncate text-sm font-semibold text-dark">{businessName}</p>
         <p className="text-[11px] font-medium uppercase tracking-wide text-mid">Vendor</p>
       </div>
-      <ChevronDown className="h-4 w-4 text-mid" aria-hidden />
+      <ChevronDown className="h-4 w-4 shrink-0 text-mid" aria-hidden />
     </div>
   );
 }
@@ -245,7 +296,7 @@ function OwnerProfilePill({ onSignOut }: { onSignOut: () => void }) {
           <p className="text-[11px] font-medium uppercase tracking-wide text-mid">{roleLabel}</p>
         </div>
         <ChevronUp
-          className={cn('h-4 w-4 text-mid transition-transform', !open && 'rotate-180')}
+          className={cn('h-4 w-4 shrink-0 text-mid transition-transform', !open && 'rotate-180')}
           aria-hidden
         />
       </button>
@@ -281,17 +332,15 @@ function makeInitials(name: string): string {
 
 function formatRole(role: string): string {
   switch (role) {
-    case 'owner':
-      return 'Owner';
-    case 'kitchen_manager':
-      return 'Kitchen Manager';
-    case 'finance':
-      return 'Finance';
-    case 'staff':
-      return 'Staff';
-    case 'delivery_coordinator':
-      return 'Delivery';
-    default:
-      return role;
+    case 'owner':              return 'Owner';
+    case 'kitchen_manager':    return 'Kitchen Manager';
+    case 'finance':            return 'Finance';
+    case 'staff':              return 'Staff';
+    case 'delivery_coordinator': return 'Delivery';
+    default:                   return role;
   }
 }
+
+// Re-export the flat list so anything that consumed the old NAV_ITEMS shape
+// can still import it (e.g. tests, role-gate checks).
+export { ALL_NAV_ITEMS as NAV_ITEMS };
