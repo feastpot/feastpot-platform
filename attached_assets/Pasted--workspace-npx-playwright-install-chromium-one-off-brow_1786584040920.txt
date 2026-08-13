@@ -1,0 +1,60 @@
+~/workspace$ npx playwright install chromium   # one-off browser download
+TEST_VENDOR_EMAIL=... TEST_VENDOR_PASSWORD=... npm run test:e2e --workspace=@feastpot/vendor
+Downloading Chrome for Testing 151.0.7922.34 (playwright chromium v1234) from https://cdn.playwright.dev/builds/cft/151.0.7922.34/linux64/chrome-linux64.zip
+184.3 MiB [====================] 100% 0.0s
+Chrome for Testing 151.0.7922.34 (playwright chromium v1234) downloaded to /home/runner/workspace/.cache/ms-playwright/chromium-1234
+Downloading FFmpeg (playwright ffmpeg v1011) from https://cdn.playwright.dev/dbazure/download/playwright/builds/ffmpeg/1011/ffmpeg-linux.zip
+2.3 MiB [====================] 100% 0.0s
+FFmpeg (playwright ffmpeg v1011) downloaded to /home/runner/workspace/.cache/ms-playwright/ffmpeg-1011
+Downloading Chrome Headless Shell 151.0.7922.34 (playwright chromium-headless-shell v1234) from https://cdn.playwright.dev/builds/cft/151.0.7922.34/linux64/chrome-headless-shell-linux64.zip
+114.7 MiB [====================] 100% 0.0s
+Chrome Headless Shell 151.0.7922.34 (playwright chromium-headless-shell v1234) downloaded to /home/runner/workspace/.cache/ms-playwright/chromium_headless_shell-1234
+
+> @feastpot/vendor@0.1.0 test:e2e
+> playwright test
+
+
+Running 11 tests using 1 worker
+
+  ✘   1 [setup] › e2e/auth.setup.ts:25:6 › authenticate as test vendor (2ms)
+
+
+  1) [setup] › e2e/auth.setup.ts:25:6 › authenticate as test vendor ────────────────────────────────
+
+    Error: browserType.launch: Target page, context or browser has been closed
+    Browser logs:
+
+    <launching> /home/runner/workspace/.cache/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-linux64/chrome-headless-shell --disable-field-trial-config --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-back-forward-cache --disable-breakpad --disable-client-side-phishing-detection --disable-component-extensions-with-background-pages --disable-component-update --no-default-browser-check --disable-default-apps --disable-dev-shm-usage --disable-edgeupdater --disable-extensions --disable-features=AvoidUnnecessaryBeforeUnloadCheckSync,BoundaryEventDispatchTracksNodeRemoval,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,PaintHolding,ThirdPartyStoragePartitioning,BlockOriginHeaderModificationOnRedirect,Translate,AutoDeElevate,OptimizationHints,msForceBrowserSignIn,msEdgeUpdateLaunchServicesPreferredVersion --enable-features=CDPScreenshotNewSurface --allow-pre-commit-input --disable-hang-monitor --disable-ipc-flooding-protection --disable-popup-blocking --disable-prompt-on-repost --disable-renderer-backgrounding --disable-updater-scheduler --force-color-profile=srgb --metrics-recording-only --no-first-run --password-store=basic --use-mock-keychain --no-service-autorun --export-tagged-pdf --disable-search-engine-choice-screen --unsafely-disable-devtools-self-xss-warnings --edge-skip-compat-layer-relaunch --disable-infobars --disable-search-engine-choice-screen --disable-sync --enable-unsafe-swiftshader --headless --hide-scrollbars --mute-audio --blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4 --no-sandbox --user-data-dir=/tmp/playwright_chromiumdev_profile-1K3GKa --remote-debugging-pipe --no-startup-window
+    <launched> pid=752
+    [pid=752][err] /home/runner/workspace/.cache/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-linux64/chrome-headless-shell: error while loading shared libraries: libglib-2.0.so.0: cannot open shared object file: No such file or directory
+    Call log:
+      - <launching> /home/runner/workspace/.cache/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-linux64/chrome-headless-shell --disable-field-trial-config --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-back-forward-cache --disable-breakpad --disable-client-side-phishing-detection --disable-component-extensions-with-background-pages --disable-component-update --no-default-browser-check --disable-default-apps --disable-dev-shm-usage --disable-edgeupdater --disable-extensions --disable-features=AvoidUnnecessaryBeforeUnloadCheckSync,BoundaryEventDispatchTracksNodeRemoval,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,PaintHolding,ThirdPartyStoragePartitioning,BlockOriginHeaderModificationOnRedirect,Translate,AutoDeElevate,OptimizationHints,msForceBrowserSignIn,msEdgeUpdateLaunchServicesPreferredVersion --enable-features=CDPScreenshotNewSurface --allow-pre-commit-input --disable-hang-monitor --disable-ipc-flooding-protection --disable-popup-blocking --disable-prompt-on-repost --disable-renderer-backgrounding --disable-updater-scheduler --force-color-profile=srgb --metrics-recording-only --no-first-run --password-store=basic --use-mock-keychain --no-service-autorun --export-tagged-pdf --disable-search-engine-choice-screen --unsafely-disable-devtools-self-xss-warnings --edge-skip-compat-layer-relaunch --disable-infobars --disable-search-engine-choice-screen --disable-sync --enable-unsafe-swiftshader --headless --hide-scrollbars --mute-audio --blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4 --no-sandbox --user-data-dir=/tmp/playwright_chromiumdev_profile-1K3GKa --remote-debugging-pipe --no-startup-window
+      - <launched> pid=752
+      - [pid=752][err] /home/runner/workspace/.cache/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-linux64/chrome-headless-shell: error while loading shared libraries: libglib-2.0.so.0: cannot open shared object file: No such file or directory
+      - [pid=752] <gracefully close start>
+      - [pid=752] <kill>
+      - [pid=752] <will force kill>
+      - [pid=752] exception while trying to kill process: Error: kill ESRCH
+      - [pid=752] <process did exit: exitCode=127, signal=null>
+      - [pid=752] starting temporary directories cleanup
+      - [pid=752] finished temporary directories cleanup
+      - [pid=752] <gracefully close end>
+
+
+    Error Context: test-results/auth.setup.ts-authenticate-as-test-vendor-setup/error-context.md
+
+  1 failed
+    [setup] › e2e/auth.setup.ts:25:6 › authenticate as test vendor ─────────────────────────────────
+  10 did not run
+
+To open last HTML report run:
+
+  npx playwright show-report e2e-report
+
+npm error Lifecycle script `test:e2e` failed with error:
+npm error code 1
+npm error path /home/runner/workspace/apps/vendor
+npm error workspace @feastpot/vendor@0.1.0
+npm error location /home/runner/workspace/apps/vendor
+npm error command failed
+npm error command sh -c playwright test
