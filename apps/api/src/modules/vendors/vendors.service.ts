@@ -173,6 +173,10 @@ interface PostcodeLatLng {
  */
 const GEOCODE_CACHE = new Map<string, PostcodeLatLng>();
 
+// Cache for radius-to-district lookups via postcodes.io /outcodes.
+// Key: `${lat.toFixed(4)},${lng.toFixed(4)},${radiusMiles}`. TTL: 1 hour.
+const DISTRICT_CACHE = new Map<string, { expires: number; districts: string[] }>();
+
 async function fetchPostcodesIo(path: string, logger?: Logger): Promise<PostcodeLatLng> {
   try {
     const res = await fetch(`https://api.postcodes.io${path}`, {
@@ -227,6 +231,28 @@ async function geocodePostcode(raw: string, logger?: Logger): Promise<PostcodeLa
   }
   GEOCODE_CACHE.set(key, out);
   return out;
+}
+
+/**
+ * Build a legacy free-text collectionAddress from the new structured fields
+ * so that existing order-display code (which reads collectionAddress) keeps
+ * working after the UI switches to the structured form.
+ */
+function buildLegacyCollectionAddress(dto: {
+  collectionLine1?: string;
+  collectionLine2?: string;
+  collectionTown?: string;
+  collectionPostcode?: string;
+}): string | null {
+  const parts = [
+    dto.collectionLine1,
+    dto.collectionLine2,
+    dto.collectionTown,
+    dto.collectionPostcode,
+  ]
+    .map((p) => p?.trim())
+    .filter(Boolean);
+  return parts.length > 0 ? parts.join('\n') : null;
 }
 
 /**
@@ -532,21 +558,32 @@ export class VendorsService {
     // config (lat/lng = NULL) - vendors must never be blocked from
     // editing their delivery settings by a flaky third party.
     const existing = vendor.deliveryConfig;
-    const postcodesForGeo = dto.postcodes ?? existing?.postcodes ?? [];
-    const collectionForGeo =
-      dto.collectionAddress !== undefined ? dto.collectionAddress : existing?.collectionAddress;
-    const geocodeTarget = pickGeocodingPostcode({
-      postcodes: postcodesForGeo,
-      collectionAddress: collectionForGeo,
-    });
 
-    // Decide whether the geo-driving fields actually changed in this PATCH.
+    // kitchenPostcode is the preferred geocoding anchor. Fall back to the
+    // legacy pickGeocodingPostcode helper only when it is absent.
+    const kitchenPostcode =
+      dto.kitchenPostcode !== undefined
+        ? dto.kitchenPostcode || null
+        : (existing?.kitchenPostcode ?? null);
+    const geocodeTarget =
+      kitchenPostcode ||
+      pickGeocodingPostcode({
+        postcodes: dto.postcodes ?? existing?.postcodes ?? [],
+        collectionAddress:
+          dto.collectionAddress !== undefined
+            ? dto.collectionAddress
+            : (existing?.collectionAddress ?? null),
+      });
+
+    // Decide whether the geo-driving fields actually changed in this request.
     // If they did, the new coords (even nulls) replace the old ones - the
     // vendor explicitly moved. If they didn't, we treat a geocode miss as a
     // transient postcodes.io failure and KEEP the existing coordinates so a
-    // vendor toggling, say, `nationwideEnabled` during an outage can't
-    // silently wipe their on-map location.
+    // vendor toggling a non-location field during an outage cannot silently
+    // wipe their on-map position.
     const geoInputsChanged =
+      (dto.kitchenPostcode !== undefined &&
+        (dto.kitchenPostcode || null) !== (existing?.kitchenPostcode ?? null)) ||
       (dto.postcodes !== undefined &&
         JSON.stringify(dto.postcodes) !== JSON.stringify(existing?.postcodes ?? [])) ||
       (dto.collectionAddress !== undefined &&
@@ -569,12 +606,18 @@ export class VendorsService {
         types: dto.types,
         localRadiusMiles: dto.localRadiusMiles ?? 5,
         localFeePence: dto.localFeePence ?? 0,
-        collectionAddress: dto.collectionAddress ?? null,
+        collectionAddress:
+          dto.collectionAddress ?? buildLegacyCollectionAddress(dto) ?? null,
         nationwideEnabled: dto.nationwideEnabled ?? false,
         nationwideFeePence: dto.nationwideFeePence ?? 0,
         minOrderPence: dto.minOrderPence ?? 0,
         freeDeliveryOverPence: dto.freeDeliveryOverPence ?? null,
         postcodes: dto.postcodes ?? [],
+        kitchenPostcode: kitchenPostcode,
+        collectionLine1: dto.collectionLine1 ?? null,
+        collectionLine2: dto.collectionLine2 ?? null,
+        collectionTown: dto.collectionTown ?? null,
+        collectionPostcode: dto.collectionPostcode ?? null,
         latitude: coords.latitude,
         longitude: coords.longitude,
       },
@@ -582,8 +625,16 @@ export class VendorsService {
         types: dto.types,
         ...(dto.localRadiusMiles !== undefined ? { localRadiusMiles: dto.localRadiusMiles } : {}),
         ...(dto.localFeePence !== undefined ? { localFeePence: dto.localFeePence } : {}),
-        ...(dto.collectionAddress !== undefined
-          ? { collectionAddress: dto.collectionAddress }
+        // Keep the legacy free-text field in sync so existing order-display
+        // code that reads collectionAddress continues to work.
+        ...(dto.collectionAddress !== undefined || dto.collectionLine1 !== undefined
+          ? {
+              collectionAddress:
+                dto.collectionAddress ??
+                buildLegacyCollectionAddress(dto) ??
+                existing?.collectionAddress ??
+                null,
+            }
           : {}),
         ...(dto.nationwideEnabled !== undefined
           ? { nationwideEnabled: dto.nationwideEnabled }
@@ -596,9 +647,24 @@ export class VendorsService {
           ? { freeDeliveryOverPence: dto.freeDeliveryOverPence }
           : {}),
         ...(dto.postcodes !== undefined ? { postcodes: dto.postcodes } : {}),
-        // Always persist the freshly-computed coords (including nulls) so a
-        // vendor wiping their postcodes/address visibly disables radius
-        // matching instead of leaving a stale point on the map.
+        ...(kitchenPostcode !== (existing?.kitchenPostcode ?? null)
+          ? { kitchenPostcode }
+          : {}),
+        ...(dto.collectionLine1 !== undefined
+          ? { collectionLine1: dto.collectionLine1 ?? null }
+          : {}),
+        ...(dto.collectionLine2 !== undefined
+          ? { collectionLine2: dto.collectionLine2 ?? null }
+          : {}),
+        ...(dto.collectionTown !== undefined
+          ? { collectionTown: dto.collectionTown ?? null }
+          : {}),
+        ...(dto.collectionPostcode !== undefined
+          ? { collectionPostcode: dto.collectionPostcode ?? null }
+          : {}),
+        // Always persist the freshly-computed coords so a vendor wiping their
+        // service area visibly disables radius matching rather than leaving a
+        // stale point on the map.
         latitude: coords.latitude,
         longitude: coords.longitude,
       },
@@ -609,6 +675,40 @@ export class VendorsService {
     await this.cache.delByPattern('vendors:search:*');
 
     return result;
+  }
+
+  /**
+   * Return all UK postcode districts whose centroid falls within
+   * `radiusMiles` of the given point. Uses the postcodes.io /outcodes
+   * radius endpoint (free, no API key, offline-capable after first hit via
+   * the in-process DISTRICT_CACHE).
+   *
+   * On failure (postcodes.io unreachable) returns an empty list with no
+   * exception so the UI can explain the situation rather than show a 500.
+   */
+  async computeDeliveryDistricts(
+    lat: number,
+    lng: number,
+    radiusMiles: number,
+  ): Promise<{ districts: string[] }> {
+    const key = `${lat.toFixed(4)},${lng.toFixed(4)},${radiusMiles}`;
+    const cached = DISTRICT_CACHE.get(key);
+    if (cached && cached.expires > Date.now()) return { districts: cached.districts };
+
+    const radiusMeters = Math.round(radiusMiles * 1609.344);
+    try {
+      const res = await fetch(
+        `https://api.postcodes.io/outcodes?longitude=${lng}&latitude=${lat}&limit=200&radius=${radiusMeters}`,
+        { signal: AbortSignal.timeout(5_000) },
+      );
+      if (!res.ok) return { districts: [] };
+      const json = (await res.json()) as { result?: Array<{ outcode: string }> };
+      const districts = (json.result ?? []).map((r) => r.outcode.toUpperCase()).sort();
+      DISTRICT_CACHE.set(key, { expires: Date.now() + 60 * 60 * 1_000, districts });
+      return { districts };
+    } catch {
+      return { districts: [] };
+    }
   }
 
   /**

@@ -19,6 +19,13 @@ export interface DeliveryConfig {
   minOrderPence: number;
   freeDeliveryOverPence: number | null;
   postcodes: string[];
+  kitchenPostcode: string | null;
+  collectionLine1: string | null;
+  collectionLine2: string | null;
+  collectionTown: string | null;
+  collectionPostcode: string | null;
+  latitude: number | null;
+  longitude: number | null;
 }
 
 export interface UpsertDeliveryConfigInput {
@@ -31,6 +38,11 @@ export interface UpsertDeliveryConfigInput {
   minOrderPence?: number;
   freeDeliveryOverPence?: number | null;
   postcodes?: string[];
+  kitchenPostcode?: string;
+  collectionLine1?: string;
+  collectionLine2?: string;
+  collectionTown?: string;
+  collectionPostcode?: string;
 }
 
 const KEY = ['vendor', 'delivery-config'] as const;

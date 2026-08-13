@@ -971,6 +971,11 @@ model DeliveryConfig {
   minOrderPence         Int            @default(0) @map("min_order_pence")
   freeDeliveryOverPence Int?           @map("free_delivery_over_pence")
   postcodes             String[]       @db.VarChar(16)
+  kitchenPostcode       String?        @map("kitchen_postcode")    @db.VarChar(16)
+  collectionLine1       String?        @map("collection_line1")    @db.VarChar(255)
+  collectionLine2       String?        @map("collection_line2")    @db.VarChar(255)
+  collectionTown        String?        @map("collection_town")     @db.VarChar(100)
+  collectionPostcode    String?        @map("collection_postcode") @db.VarChar(16)
   latitude              Float?
   longitude             Float?
   createdAt             DateTime       @default(now()) @map("created_at") @db.Timestamptz

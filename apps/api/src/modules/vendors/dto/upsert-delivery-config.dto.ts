@@ -89,11 +89,43 @@ export class UpsertDeliveryConfigDto {
   @ApiPropertyOptional({
     type: [String],
     maxItems: 200,
-    description: 'Servicing postcode prefixes (e.g. SW1, M14)',
+    description: 'Servicing postcode districts (e.g. SW9, M14). This list is what customer search uses.',
   })
   @IsOptional()
   @IsArray()
   @ArrayMaxSize(200)
   @IsString({ each: true })
   postcodes?: string[];
+
+  @ApiPropertyOptional({
+    description: 'Kitchen/delivery-centre postcode used to geocode the vendor anchor and compute service-area districts.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(16)
+  kitchenPostcode?: string;
+
+  @ApiPropertyOptional({ description: 'Collection address line 1' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  collectionLine1?: string;
+
+  @ApiPropertyOptional({ description: 'Collection address line 2' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  collectionLine2?: string;
+
+  @ApiPropertyOptional({ description: 'Collection address town or city' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  collectionTown?: string;
+
+  @ApiPropertyOptional({ description: 'Collection address postcode' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(16)
+  collectionPostcode?: string;
 }

@@ -200,10 +200,38 @@ export class VendorsController {
     return this.vendors.getMyAnalytics(requireUser(user).id);
   }
 
+  @Get('me/delivery-config/compute-districts')
+  @ApiBearerAuth()
+  @Roles(UserRole.vendor, UserRole.admin)
+  @ApiOperation({
+    summary:
+      'Return postcode districts whose centroid is within radiusMiles of a kitchen location',
+  })
+  computeDeliveryDistricts(
+    @CurrentUser() user: AuthUser | null,
+    @Query('lat') lat: string,
+    @Query('lng') lng: string,
+    @Query('radiusMiles') radiusMiles: string,
+  ): Promise<{ districts: string[] }> {
+    const latNum = parseFloat(lat);
+    const lngNum = parseFloat(lng);
+    const miles = parseFloat(radiusMiles);
+    if (
+      !Number.isFinite(latNum) ||
+      !Number.isFinite(lngNum) ||
+      !Number.isFinite(miles) ||
+      miles <= 0
+    ) {
+      throw new BadRequestException('lat, lng and radiusMiles must be finite positive numbers');
+    }
+    requireUser(user);
+    return this.vendors.computeDeliveryDistricts(latNum, lngNum, miles);
+  }
+
   @Get('me/delivery-config')
   @ApiBearerAuth()
   @Roles(UserRole.vendor, UserRole.admin)
-  @ApiOperation({ summary: 'Get the authed vendor’s delivery configuration (or null)' })
+  @ApiOperation({ summary: 'Get the authed vendor\'s delivery configuration (or null)' })
   getMyDeliveryConfig(@CurrentUser() user: AuthUser | null) {
     return this.vendors.getMyDeliveryConfig(requireUser(user).id);
   }
