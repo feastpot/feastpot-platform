@@ -129,9 +129,11 @@ export class CateringBookingsService {
     const { rateId, ratePercent, commissionPence } = await this.commission.resolveRateAndCompute(
       source,
       isFirstOrder,
-      total,  // subtotal = total for catering (no separate service fee)
-      total,  // totalPence
+      total,  // subtotalPence = total for catering (no separate service fee)
+      0,      // deliveryFeePence (catering has no delivery fee)
       0,      // serviceFeePence (none for catering)
+      0,      // discountPence (catering quotes carry no discount codes)
+      null,   // discountFundedBy (no discount)
       now,
     );
 

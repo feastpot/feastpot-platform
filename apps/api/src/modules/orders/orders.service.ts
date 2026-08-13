@@ -29,6 +29,7 @@ import { Decimal } from '@prisma/client/runtime/library';
 import * as Sentry from '@sentry/nestjs';
 import { Queue } from 'bull';
 
+import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
 import type { AuthUser } from '../../auth/types';
 import { getServiceFeePence } from '../../common/config/service-fee';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -144,13 +145,24 @@ export function computeCommission(
   discountPence: number,
   discountFundedBy: 'PLATFORM' | 'VENDOR' | null,
   commissionBps: number,
+  /**
+   * Pence of the commission basis already covered by the vendor's founding
+   * allowance. That portion is charged at 0%; the remainder at `commissionBps`.
+   * Callers compute covered = min(commissionBasis, remaining) and pass it here.
+   * Must be 0 for VENDOR_REFERRED orders (they are already 0% and must never
+   * consume allowance).
+   */
+  allowanceCoveredPence = 0,
 ): CommissionBreakdown {
   const commissionBasis =
     discountFundedBy === 'VENDOR' && discountPence > 0
       ? Math.max(0, subtotalPence - discountPence)
       : subtotalPence;
 
-  const commissionPence = Math.round((commissionBasis * commissionBps) / 10_000);
+  // Founding allowance: the covered portion is charged at 0%; only the
+  // chargeable remainder is subject to the normal tier rate.
+  const chargeableBasis = Math.max(0, commissionBasis - allowanceCoveredPence);
+  const commissionPence = Math.round((chargeableBasis * commissionBps) / 10_000);
   const vendorDiscountDeduction = discountFundedBy === 'VENDOR' ? discountPence : 0;
   const vendorPayoutPence = Math.max(
     0,
@@ -530,9 +542,14 @@ export class OrdersService {
     const { source: attrSource, isFirstOrder: attrIsFirstOrder } =
       await this.attribution.preResolveSource(fpRef, sessionId, customerId, dto.vendorId, marketplaceMarker);
 
+    const orderNumber = this.generateOrderNumber();
+    // Generate the order id client-side so the Stripe PI (created BEFORE the
+    // DB transaction, for idempotency) can carry the real orderId in its
+    // metadata - matches the value the order row will be inserted with.
+    const orderId = randomUUID();
+
     const {
-      commissionPence,
-      vendorPayoutPence,
+      commissionPence: previewCommissionPence,
       platformSubsidyPence,
       rateId: commissionRateId,
       ratePercent: commissionRatePercent,
@@ -547,19 +564,16 @@ export class OrdersService {
       new Date(),
     );
 
+    // Log BEFORE the tx: actual commission (post-allowance) is computed inside
+    // the tx after locking the vendor row. previewCommissionPence is the
+    // full-rate estimate (no allowance applied) used only for this warning.
     if (platformSubsidyPence > 0) {
       this.logger.warn(
         `Platform-funded discount exceeds commission on order ${orderId}: ` +
-          `discount=${discountPence}p commission=${commissionPence}p ` +
+          `discount=${discountPence}p commission=${previewCommissionPence}p ` +
           `platform absorbs=${platformSubsidyPence}p vendor=${dto.vendorId}`,
       );
     }
-
-    const orderNumber = this.generateOrderNumber();
-    // Generate the order id client-side so the Stripe PI (created BEFORE the
-    // DB transaction, for idempotency) can carry the real orderId in its
-    // metadata - matches the value the order row will be inserted with.
-    const orderId = randomUUID();
 
     // Per-date capacity reservation (1 slot per order). Runs BEFORE the
     // Stripe PI so a full date fails fast with no side effects. With
@@ -616,13 +630,12 @@ export class OrdersService {
         serviceFeePence,
         discountPence,
         totalPence,
-        commissionPence,
-        vendorPayoutPence,
         commissionRateId,
         commissionRatePercent,
         attributionSource: attrSource,
         attributionIsFirstOrder: attrIsFirstOrder,
         discountCodeId,
+        discountFundedBy,
         loyaltyToRedeem,
         fpRef,
         sessionId,
@@ -690,8 +703,8 @@ export class OrdersService {
     serviceFeePence: number;
     discountPence: number;
     totalPence: number;
-    commissionPence: number;
-    vendorPayoutPence: number;
+    // commissionPence and vendorPayoutPence are computed INSIDE the tx after
+    // acquiring the vendor advisory lock and applying the founding allowance.
     /** null when the DB rate lookup failed (12% fallback was used). */
     commissionRateId: string | null;
     commissionRatePercent: Decimal;
@@ -721,8 +734,6 @@ export class OrdersService {
       serviceFeePence,
       discountPence,
       totalPence,
-      commissionPence,
-      vendorPayoutPence,
       commissionRateId,
       commissionRatePercent,
       attributionSource,
@@ -760,6 +771,57 @@ export class OrdersService {
       // order. The compensating action for the already-created Stripe PI
       // happens in the catch block below.
       const order = await this.prisma.$transaction(async (tx) => {
+        // ── Founding allowance ────────────────────────────────────────────────
+        // Acquire a row-level advisory lock on the vendor before reading/writing
+        // foundingAllowanceUsedPence. Two orders completing simultaneously for
+        // the same vendor will queue here; neither can double-spend the same
+        // allowance pence.
+        const vendorAllowanceLockKey = `vendor:${dto.vendorId}`;
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${vendorAllowanceLockKey}, 0))`;
+
+        const vendorForAllowance = await tx.vendor.findUniqueOrThrow({
+          where: { id: dto.vendorId },
+          select: { foundingAllowanceGrantedPence: true, foundingAllowanceUsedPence: true },
+        });
+
+        // Allowance applies to marketplace orders (MARKETPLACE_FIRST and
+        // MARKETPLACE_REPEAT) only. VENDOR_REFERRED orders are already 0%
+        // commission and must never consume allowance.
+        const isMarketplaceOrder = attributionSource === OrderSource.MARKETPLACE;
+        let allowanceCoveredPence = 0;
+        if (isMarketplaceOrder) {
+          const commissionBasisForAllowance =
+            discountFundedBy === DiscountFundedBy.VENDOR && discountPence > 0
+              ? Math.max(0, subtotalPence - discountPence)
+              : subtotalPence;
+          const remaining = Math.max(
+            0,
+            vendorForAllowance.foundingAllowanceGrantedPence -
+              vendorForAllowance.foundingAllowanceUsedPence,
+          );
+          allowanceCoveredPence = Math.min(commissionBasisForAllowance, remaining);
+        }
+
+        // Recompute commission atomically with the allowance deduction so the
+        // figures stored on the order row are always consistent with used_pence.
+        const commissionBps = Math.round(commissionRatePercent.toNumber() * 100);
+        const { commissionPence, vendorPayoutPence } = computeCommission(
+          subtotalPence,
+          deliveryFeePence,
+          discountPence,
+          discountFundedBy as 'PLATFORM' | 'VENDOR' | null,
+          commissionBps,
+          allowanceCoveredPence,
+        );
+
+        if (allowanceCoveredPence > 0) {
+          await tx.vendor.update({
+            where: { id: dto.vendorId },
+            data: { foundingAllowanceUsedPence: { increment: allowanceCoveredPence } },
+          });
+        }
+        // ── End founding allowance ────────────────────────────────────────────
+
         const created = await tx.order.create({
           data: {
             id: orderId,
@@ -777,6 +839,7 @@ export class OrdersService {
             totalPence,
             commissionPence,
             vendorPayoutPence,
+            foundingAllowanceAppliedPence: allowanceCoveredPence,
             notes: dto.notes ?? null,
             allergenConfirmed: dto.allergenConfirmed ?? false,
             scheduledFor,
@@ -1224,6 +1287,16 @@ export class OrdersService {
         } catch (e) {
           this.logger.error(`rewardReferral failed for ${orderId}: ${(e as Error).message}`);
         }
+        // Founding offer: if this is the referred vendor's first completed order,
+        // grant the referrer a commission-free GMV top-up. Best-effort: a
+        // transient failure here must never roll back the delivered transition.
+        try {
+          await this.grantFoundingReferralBonus(snap.vendorId);
+        } catch (e) {
+          this.logger.error(
+            `grantFoundingReferralBonus failed for vendor=${snap.vendorId} orderId=${orderId}: ${(e as Error).message}`,
+          );
+        }
 
         await this.safeEnqueue(
           'delivery_confirmed',
@@ -1289,6 +1362,79 @@ export class OrdersService {
       }
     }
     return this.repo.findByIdWithItems(orderId);
+  }
+
+  // ------------------------------------------------------------------
+  // FOUNDING OFFER: referral top-up
+
+  /**
+   * Called when a vendor's order transitions to DELIVERED.
+   * If the vendor was referred (referredByVendorId is set) and this is their
+   * first completed order (delivered order count == 1 after this transition),
+   * increase the referrer's foundingAllowanceGrantedPence by
+   * PLATFORM_FACTS.foundingOffer.referralBonusGmvPence, clamped at
+   * maxTotalCommissionFreeGmvPence.
+   *
+   * Idempotent via foundingReferralBonusGrantedAt: a second call for the same
+   * vendor is a no-op. The marker is cleared by reverseFoundingReferralBonusIfNeeded
+   * if the sole order is subsequently fully refunded, allowing the trigger to
+   * fire again on a future delivery.
+   *
+   * Suspension of the referred vendor does NOT reverse the bonus: the referrer
+   * did their part by bringing in the cook.
+   */
+  private async grantFoundingReferralBonus(vendorId: string): Promise<void> {
+    const vendor = await this.prisma.vendor.findUnique({
+      where: { id: vendorId },
+      select: { referredByVendorId: true, foundingReferralBonusGrantedAt: true },
+    });
+    if (!vendor?.referredByVendorId || vendor.foundingReferralBonusGrantedAt) return;
+
+    // Count completed orders for this vendor. The status transition to delivered
+    // has already been committed by the time this method is called.
+    const completedCount = await this.prisma.order.count({
+      where: { vendorId, status: OrderStatus.delivered },
+    });
+    if (completedCount !== 1) return; // not the first, or none (data race)
+
+    const { referredByVendorId } = vendor;
+    const { referralBonusGmvPence, maxTotalCommissionFreeGmvPence } = PLATFORM_FACTS.foundingOffer;
+
+    await this.prisma.$transaction(async (tx) => {
+      // Lock both vendor rows to prevent races with concurrent deliveries or refunds.
+      const lockKeyReferred = `vendor:${vendorId}`;
+      const lockKeyReferrer = `vendor:${referredByVendorId}`;
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${lockKeyReferred}, 0))`;
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${lockKeyReferrer}, 0))`;
+
+      // Re-check inside the lock: another concurrent delivery might have beaten us.
+      const still = await tx.vendor.findUniqueOrThrow({
+        where: { id: vendorId },
+        select: { foundingReferralBonusGrantedAt: true },
+      });
+      if (still.foundingReferralBonusGrantedAt) return; // already granted
+
+      const count = await tx.order.count({ where: { vendorId, status: OrderStatus.delivered } });
+      if (count !== 1) return; // not first after all
+
+      // Mark the referred vendor so the top-up cannot fire twice.
+      await tx.vendor.update({
+        where: { id: vendorId },
+        data: { foundingReferralBonusGrantedAt: new Date() },
+      });
+
+      // Increase the referrer's allowance, clamped at the hard ceiling.
+      // Uses raw SQL because Prisma's update does not support LEAST().
+      await tx.$executeRaw`
+        UPDATE vendors
+        SET founding_allowance_granted_pence =
+          LEAST(
+            founding_allowance_granted_pence + ${referralBonusGmvPence},
+            ${maxTotalCommissionFreeGmvPence}
+          )
+        WHERE id = ${referredByVendorId}::uuid
+      `;
+    });
   }
 
   // ------------------------------------------------------------------

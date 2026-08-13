@@ -118,6 +118,72 @@ describe('OrdersService - pure helpers', () => {
     });
   });
 
+  describe('computeCommission with founding allowance', () => {
+    // The 6th param (allowanceCoveredPence) defaults to 0 so all existing tests
+    // above are unaffected. These tests exercise the allowance branch.
+
+    it('allowance fully covers subtotal: £0 commission, full payout', () => {
+      // £40 subtotal, £4.80 delivery, 12% rate, £40 of allowance remaining.
+      // covered = min(4000, 4000) = 4000; chargeable = 0; commission = £0.
+      // Vendor payout = 4000 + 480 - 0 - 0 = 4480.
+      expect(computeCommission(4000, 480, 0, null, 1200, 4000)).toEqual({
+        commissionPence: 0,
+        vendorPayoutPence: 4480,
+      });
+    });
+
+    it('straddle case: £500 order vs £300 allowance remaining (prompt worked example)', () => {
+      // covered = min(50000, 30000) = 30000; chargeable = 20000; rate = 12%.
+      // commission = round(20000 * 1200 / 10000) = 2400 (£24).
+      // payout = 50000 + 0 - 0 - 2400 = 47600 (£476).
+      expect(computeCommission(50_000, 0, 0, null, 1200, 30_000)).toEqual({
+        commissionPence: 2400,
+        vendorPayoutPence: 47_600,
+      });
+    });
+
+    it('allowance with VENDOR-funded discount: covered applies to discounted basis', () => {
+      // £50 subtotal, £5 VENDOR discount, 10% rate, £30 allowance.
+      // commissionBasis = 50000 - 5000 = 45000.
+      // covered = min(45000, 30000) = 30000; chargeable = 15000.
+      // commission = round(15000 * 1000 / 10000) = 1500.
+      // payout = 50000 + 0 - 5000 - 1500 = 43500.
+      expect(computeCommission(50_000, 0, 5_000, 'VENDOR', 1000, 30_000)).toEqual({
+        commissionPence: 1500,
+        vendorPayoutPence: 43_500,
+      });
+    });
+
+    it('allowance with PLATFORM-funded discount: covered applies to full subtotal', () => {
+      // £50 subtotal, £5 PLATFORM discount, 12% rate, £20 allowance.
+      // commissionBasis = full 50000 (platform discount, vendor unaffected).
+      // covered = min(50000, 20000) = 20000; chargeable = 30000.
+      // commission = round(30000 * 1200 / 10000) = 3600.
+      // payout = 50000 + 0 - 0 - 3600 = 46400.
+      expect(computeCommission(50_000, 0, 5_000, 'PLATFORM', 1200, 20_000)).toEqual({
+        commissionPence: 3600,
+        vendorPayoutPence: 46_400,
+      });
+    });
+
+    it('allowance = 0 (exhausted): normal tier rate applies', () => {
+      // Same as no-allowance path; covered = 0, full rate.
+      expect(computeCommission(10_000, 0, 0, null, 1200, 0)).toEqual({
+        commissionPence: 1200,
+        vendorPayoutPence: 8800,
+      });
+    });
+
+    it('VENDOR_REFERRED with allowance 0: zero commission (caller never passes allowance for VR orders)', () => {
+      // VENDOR_REFERRED rate = 0 bps; allowance arg = 0 (callers must not pass
+      // allowance for VENDOR_REFERRED orders per the domain rule).
+      expect(computeCommission(5000, 300, 0, null, 0, 0)).toEqual({
+        commissionPence: 0,
+        vendorPayoutPence: 5300,
+      });
+    });
+  });
+
   describe('isOutsideLocalDeliveryArea (geofence gate)', () => {
     // The local radius ONLY constrains local delivery. Nationwide/collection
     // vendors serve any distance, so they must never be flagged "outside" -

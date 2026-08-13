@@ -21,6 +21,11 @@ const PLATFORM_FACTS = {
     monthlyPence: 399,
     annualPence: 3990,
   },
+  foundingOffer: {
+    commissionFreeGmvPence: 200000,
+    referralBonusGmvPence: 25000,
+    maxTotalCommissionFreeGmvPence: 500000,
+  },
   payouts: {
     frequency: 'weekly',
     day: 'Monday',

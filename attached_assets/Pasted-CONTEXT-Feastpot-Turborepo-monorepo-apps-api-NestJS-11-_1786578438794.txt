@@ -1,0 +1,63 @@
+CONTEXT
+Feastpot Turborepo monorepo: apps/api (NestJS 11), apps/vendor (Next.js 15), packages/config (PLATFORM_FACTS, guarded by apps/api/src/platform-facts.spec.ts), Prisma against Supabase Postgres. UK English. Never use an em dash anywhere, in copy, code, or comments.
+
+FIRST, INSPECT: read prisma/schema.prisma for the Vendor and Order models, and locate the commission calculation from Prompt 8 in apps/api. Confirm the attribution field name and its values (VENDOR_REFERRED, MARKETPLACE_FIRST, MARKETPLACE_REPEAT) before writing any logic.
+
+PART 1: CONSTANTS
+Add to packages/config/src/platform-facts.ts and assert each in platform-facts.spec.ts:
+
+  foundingOffer: {
+    commissionFreeGmvPence: 200000,         // £2,000 initial allowance
+    referralBonusGmvPence: 25000,           // £250 added per referred cook, on their first completed order
+    maxTotalCommissionFreeGmvPence: 500000  // £5,000 hard ceiling per vendor
+  }
+
+PART 2: DATA MODEL
+Add to Vendor:
+  foundingAllowanceGrantedPence Int @default(200000)
+  foundingAllowanceUsedPence    Int @default(0)
+Write the Prisma migration. Default granted from PLATFORM_FACTS rather than a hard-coded literal where the ORM allows it; if Prisma requires a literal default, add a comment naming the constant it must match and assert the match in the spec.
+
+PART 3: COMMISSION LOGIC
+Modify the Prompt 8 commission calculation. The allowance applies ONLY to marketplace-sourced orders (MARKETPLACE_FIRST and MARKETPLACE_REPEAT). Vendor-referred orders are already 0% and must never consume allowance.
+
+For a marketplace-sourced order with food subtotal S:
+  remaining = granted - used
+  covered   = min(S, max(remaining, 0))
+  chargeable = S - covered
+  commissionPence = round_half_up(chargeable * rate / 100)   // rate from PLATFORM_FACTS.commission by tier
+  then increment used by `covered`
+
+STRADDLE CASE, implement exactly: an £500 order against £300 remaining allowance charges 0% on £300 and the normal tier rate on £200. Do not charge the whole order at 0%, and do not charge the whole order at full rate.
+
+CONCURRENCY: two orders completing simultaneously must not both consume the same remaining allowance. Read and update the vendor row inside a single transaction with a row-level lock (SELECT ... FOR UPDATE or the Prisma equivalent). Add a test that fires concurrent orders and asserts used never exceeds granted.
+
+REFUNDS: when an order is refunded in full or in part, restore the proportion of allowance that order consumed, in the same webhook handler that reverses commission (Prompt 8). A refunded order must not permanently burn allowance the vendor never received value from. Restore proportionally for partial refunds.
+
+PART 4: REFERRAL TOP-UP
+TRIGGER: grant the top-up when the referred vendor's FIRST ORDER COMPLETES and is not refunded. Do NOT grant it merely when the referred vendor goes live. A meaningful share of onboarded cooks never trade, and granting on go-live pays full price for those. The trigger is any completed order regardless of source, so the referrer can predict and trust the reward, since she cannot control whether her referee happens to get marketplace orders.
+
+On that trigger, increase the referrer's foundingAllowanceGrantedPence by PLATFORM_FACTS.foundingOffer.referralBonusGmvPence.
+
+HARD CEILING: granted must never exceed maxTotalCommissionFreeGmvPence under any circumstances, including multiple referrals landing at once. Clamp on write and assert in a test.
+
+Record which vendor referred which, so a top-up cannot be applied twice for the same referred vendor. If no referral relationship exists on the Vendor model, add referredByVendorId String? and set it at application time.
+
+PART 5: VISIBILITY
+In apps/vendor, show remaining allowance (granted minus used) with a short explanation, on the payouts or earnings view built in Prompt 9. A cook must be able to see what is left. On any order where allowance was applied, label the commission line so it is clear why it was zero or reduced.
+
+ACCEPTANCE CRITERIA:
+- A marketplace order fully inside the allowance charges £0 commission and increments used by the full food subtotal.
+- A straddling order charges the tier rate on the excess only, per the worked example above.
+- A vendor-referred order charges £0 commission and does NOT change used.
+- used never exceeds granted, including under concurrent order completion.
+- granted never exceeds maxTotalCommissionFreeGmvPence regardless of referral count.
+- A referred vendor who goes live but never completes an order triggers NO top-up.
+- A referred vendor whose only order is subsequently refunded triggers no top-up, or has it reversed if already granted.
+- A full refund restores the allowance that order consumed; a 50% refund restores half.
+- Once allowance is exhausted, normal marketplaceFirst and marketplaceRepeat rates apply.
+- Remaining allowance is visible in the vendor portal.
+
+EDGE CASES: a vendor onboarded before this migration (backfill granted to the default, used to 0); an order whose subtotal changes after an amendment (recompute against allowance atomically, do not double-count); a referred vendor who goes live then is suspended (decide and document whether the top-up is clawed back, and prefer not clawing back, since the referrer did their part).
+
+STYLE: UK English. No em dashes. Do not implement any time-based expiry on the allowance. It is deliberately measured in GMV, not months, so it cannot lapse before Feastpot has sent the vendor any volume.

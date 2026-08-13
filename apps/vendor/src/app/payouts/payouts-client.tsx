@@ -9,6 +9,7 @@ import {
   CalendarCheck,
   ChevronDown,
   Clock,
+  Gift,
   HelpCircle,
   Percent,
   PoundSterling,
@@ -82,6 +83,14 @@ export function PayoutsClient() {
       </header>
 
       <ExplainerCard />
+
+      {/* Founding offer allowance - visible while any allowance remains. */}
+      {summary && summary.foundingAllowanceGrantedPence > 0 && (
+        <FoundingAllowanceCard
+          grantedPence={summary.foundingAllowanceGrantedPence}
+          usedPence={summary.foundingAllowanceUsedPence}
+        />
+      )}
 
       {/* Payouts summary - read-only rollup from GET /payouts/summary. */}
       {summary && (
@@ -260,6 +269,68 @@ function ExplainerCard() {
               </div>
             </div>
           </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ── Founding allowance card ─────────────────────────────────────────
+
+/**
+ * Shows a cook how much commission-free GMV allowance they have left.
+ * Hidden once the allowance is fully used (remainingPence === 0).
+ */
+function FoundingAllowanceCard({
+  grantedPence,
+  usedPence,
+}: {
+  grantedPence: number;
+  usedPence: number;
+}) {
+  const remainingPence = Math.max(0, grantedPence - usedPence);
+  const usedFraction = grantedPence > 0 ? Math.min(1, usedPence / grantedPence) : 0;
+  const pct = Math.round(usedFraction * 100);
+
+  if (remainingPence === 0) return null;
+
+  return (
+    <section
+      className="fp-card border border-teal/30 bg-teal-light p-4"
+      aria-label="Founding offer allowance"
+    >
+      <div className="flex items-start gap-3">
+        <span
+          aria-hidden
+          className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white"
+        >
+          <Gift className="h-5 w-5 text-teal-dark" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-bold text-dark">Founding offer: commission-free sales</p>
+          <p className="mt-0.5 text-xs text-mid">
+            Your first {formatPence(grantedPence)} of marketplace sales is commission-free.
+            You have{' '}
+            <span className="font-semibold text-dark">{formatPence(remainingPence)}</span> remaining
+            out of {formatPence(grantedPence)}.
+          </p>
+          {/* Progress bar */}
+          <div
+            className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-white"
+            role="progressbar"
+            aria-valuenow={pct}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label={`${pct}% of founding allowance used`}
+          >
+            <div
+              className="h-full rounded-full bg-teal transition-all"
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+          <p className="mt-1 text-[10px] text-mid">
+            {pct}% used ({formatPence(usedPence)} of {formatPence(grantedPence)})
+          </p>
         </div>
       </div>
     </section>
@@ -508,9 +579,29 @@ function TierBreakdown({ orders, payout }: { orders: VendorPayoutOrder[]; payout
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums text-mid">
                       {o.commissionPence === 0 ? (
-                        <span className="text-teal-700">£0.00</span>
+                        <span className="flex items-center justify-end gap-1">
+                          <span className="text-teal-700">£0.00</span>
+                          {o.foundingAllowanceAppliedPence > 0 && (
+                            <span
+                              className="inline-flex items-center rounded-full bg-teal-light px-1.5 py-0.5 text-[9px] font-semibold text-teal-dark"
+                              title={`${formatPence(o.foundingAllowanceAppliedPence)} covered by founding offer`}
+                            >
+                              Founding offer
+                            </span>
+                          )}
+                        </span>
                       ) : (
-                        `−${formatPence(o.commissionPence)}`
+                        <span className="flex items-center justify-end gap-1">
+                          <span>{`−${formatPence(o.commissionPence)}`}</span>
+                          {o.foundingAllowanceAppliedPence > 0 && (
+                            <span
+                              className="inline-flex items-center rounded-full bg-teal-light px-1.5 py-0.5 text-[9px] font-semibold text-teal-dark"
+                              title={`${formatPence(o.foundingAllowanceAppliedPence)} covered at 0% by founding offer`}
+                            >
+                              Founding offer
+                            </span>
+                          )}
+                        </span>
                       )}
                     </td>
                     <td className="px-3 py-2 text-right font-semibold tabular-nums text-dark">

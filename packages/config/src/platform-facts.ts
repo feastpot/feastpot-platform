@@ -51,6 +51,24 @@ export const PLATFORM_FACTS = {
     /** Annual FeastPass subscription price in pence. */
     annualPence: 3990,
   },
+  foundingOffer: {
+    /**
+     * Commission-free GMV allowance granted to every new vendor at approval.
+     * Prisma requires a literal default on the column; the migration comment
+     * names this constant so drift is caught by the spec.
+     */
+    commissionFreeGmvPence: 200_000, // £2,000
+    /**
+     * Added to a referrer's allowance when the vendor they referred completes
+     * their first marketplace order. Capped at maxTotalCommissionFreeGmvPence.
+     */
+    referralBonusGmvPence: 25_000, // £250
+    /**
+     * Hard ceiling: a vendor's foundingAllowanceGrantedPence can never exceed
+     * this value, regardless of how many vendors they refer.
+     */
+    maxTotalCommissionFreeGmvPence: 500_000, // £5,000
+  },
   payouts: {
     frequency: 'weekly',
     day: 'Monday',

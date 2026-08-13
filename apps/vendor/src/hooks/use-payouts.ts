@@ -40,6 +40,10 @@ export interface PayoutsSummary {
   nextPayoutDate: string | null;
   pendingPence: number;
   paidToDatePence: number;
+  /** Founding allowance granted to this vendor (initial £2,000 + any referral top-ups). */
+  foundingAllowanceGrantedPence: number;
+  /** Pence of founding allowance already consumed by completed orders. */
+  foundingAllowanceUsedPence: number;
 }
 
 /**
@@ -90,6 +94,12 @@ export interface VendorPayoutOrder {
    *  discount was applied. Only present on orders created after Aug 2026. */
   discountFundedBy: 'PLATFORM' | 'VENDOR' | null;
   discountPence: number;
+  /**
+   * Pence of food subtotal covered by the vendor's founding allowance on this
+   * order. When > 0, the commission cell shows a "Founding offer" label. Zero
+   * on VENDOR_REFERRED orders and on orders created before the allowance launched.
+   */
+  foundingAllowanceAppliedPence: number;
 }
 
 /**

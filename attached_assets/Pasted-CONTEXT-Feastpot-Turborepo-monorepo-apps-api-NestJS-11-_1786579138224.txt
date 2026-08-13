@@ -1,0 +1,35 @@
+CONTEXT
+Feastpot Turborepo monorepo: apps/api (NestJS 11), apps/web (Next.js 15 App Router), packages/config (PLATFORM_FACTS). UK English. Never use an em dash anywhere.
+
+FIRST, INSPECT: locate the service fee calculation from Prompt 5 (computeServiceFeePence, 5% capped at PLATFORM_FACTS.serviceFee.capPence) and any existing FeastPass subscription check. Confirm the attribution field name and values from Prompt 7.
+
+CHANGE: the FeastPass service fee waiver applies ONLY when the order's attribution is MARKETPLACE_FIRST or MARKETPLACE_REPEAT. On VENDOR_REFERRED orders, a FeastPass subscriber pays the normal service fee.
+
+Implement as a single pure function so the rule cannot diverge between the display and charge paths:
+  shouldWaiveServiceFee(hasActiveFeastPass, attributionSource) =>
+    hasActiveFeastPass && attributionSource !== 'VENDOR_REFERRED'
+
+PRICE DISPLAY, this is the important part. Prompt 5 requires the all-in price to be correct at FIRST display, because under the DMCC Act a mandatory charge revealed later is drip pricing. The waiver must therefore be resolved at browse time, not at checkout.
+
+Attribution is known client-side from the per-vendor marker set in Prompt 7, so the app can determine before checkout whether this vendor is currently vendor-referred or marketplace-sourced for this visitor. Use that marker to decide whether to display the fee.
+
+CRITICAL: the price must never INCREASE between first display and payment. If the marker is missing or ambiguous at display time, display the price INCLUDING the service fee (the less favourable case), then waive it at checkout if the order does in fact qualify. A price that falls at checkout is acceptable; a price that rises is not.
+
+COPY REQUIREMENTS:
+- Wherever FeastPass is described, state the scope plainly and up front: "No service fee on orders you place through Feastpot." Do not write "no service fee" unqualified anywhere, including marketing pages, the account area, and the subscription confirmation.
+- At checkout on a vendor-referred order for a subscriber, show the fee with a short explanation, for example: "You ordered through this kitchen's own link, so the standard service fee applies. FeastPass covers orders you find through Feastpot."
+- Update the FeastPass page, any pricing FAQ, and the subscription purchase flow. A subscriber must not learn this limitation for the first time at checkout.
+
+ACCEPTANCE CRITERIA:
+- A FeastPass subscriber ordering via a vendor's own link is charged the normal service fee (5% capped at PLATFORM_FACTS.serviceFee.capPence).
+- The same subscriber ordering via postcode search is charged £0 service fee.
+- The displayed all-in total never increases between first display and payment, in either case.
+- shouldWaiveServiceFee is unit tested across all four combinations of subscription status and attribution.
+- No surface states an unqualified "no service fee" claim.
+- Order.serviceFeePence persists the amount actually charged, and reconciles to the Stripe charge.
+
+EDGE CASES: subscription expiring mid-basket (resolve at charge time, and if the fee becomes payable, do not exceed the displayed total; absorb the difference on that order rather than surprising the customer); multi-vendor baskets where attribution differs per vendor (resolve the waiver per vendor line, not for the basket as a whole); refunds (refund the service fee proportionally where one was charged).
+
+OUT OF SCOPE, note for later: FeastPass whose only benefit is a fee waiver is a discount scheme rather than a membership. At least one non-fee benefit should be added before launch, such as priority catering slots or early access to new kitchens. Do not build that here; flag it in your summary.
+
+STYLE: UK English. No em dashes. Do not change the service fee percentage or cap. Do not change the FeastPass price.

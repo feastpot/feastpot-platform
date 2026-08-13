@@ -257,29 +257,40 @@ export class PayoutsService {
    */
   async vendorSummary(vendorId: string | null) {
     if (!vendorId) {
-      return { nextPayoutDate: null, pendingPence: 0, paidToDatePence: 0 };
+      return {
+        nextPayoutDate: null,
+        pendingPence: 0,
+        paidToDatePence: 0,
+        foundingAllowanceGrantedPence: 0,
+        foundingAllowanceUsedPence: 0,
+      };
     }
-    const vendor = { id: vendorId };
     const pendingStatuses = [PayoutStatus.draft, PayoutStatus.held, PayoutStatus.approved];
-    const [pending, paid, next] = await Promise.all([
+    const [pending, paid, next, allowance] = await Promise.all([
       this.prisma.payout.aggregate({
-        where: { vendorId: vendor.id, status: { in: pendingStatuses } },
+        where: { vendorId, status: { in: pendingStatuses } },
         _sum: { amountPence: true },
       }),
       this.prisma.payout.aggregate({
-        where: { vendorId: vendor.id, status: PayoutStatus.transferred },
+        where: { vendorId, status: PayoutStatus.transferred },
         _sum: { amountPence: true },
       }),
       this.prisma.payout.findFirst({
-        where: { vendorId: vendor.id, status: { in: pendingStatuses } },
+        where: { vendorId, status: { in: pendingStatuses } },
         orderBy: { createdAt: 'desc' },
         select: { periodEnd: true, amountPence: true },
+      }),
+      this.prisma.vendor.findUnique({
+        where: { id: vendorId },
+        select: { foundingAllowanceGrantedPence: true, foundingAllowanceUsedPence: true },
       }),
     ]);
     return {
       nextPayoutDate: next?.periodEnd ?? null,
       pendingPence: pending._sum.amountPence ?? 0,
       paidToDatePence: paid._sum.amountPence ?? 0,
+      foundingAllowanceGrantedPence: allowance?.foundingAllowanceGrantedPence ?? 200_000,
+      foundingAllowanceUsedPence: allowance?.foundingAllowanceUsedPence ?? 0,
     };
   }
 
@@ -858,6 +869,7 @@ export class PayoutsService {
         vendorPayoutPence: true,
         discountPence: true,
         discountFundedBy: true,
+        foundingAllowanceAppliedPence: true,
         attribution: { select: { resolvedSource: true } },
       },
       orderBy: { deliveredAt: 'asc' },
@@ -872,6 +884,7 @@ export class PayoutsService {
       vendorPayoutPence: o.vendorPayoutPence,
       discountPence: o.discountPence,
       discountFundedBy: o.discountFundedBy,
+      foundingAllowanceAppliedPence: o.foundingAllowanceAppliedPence,
       // resolvedSource is null only on pre-attribution rows; treat as MARKETPLACE_FIRST.
       attributionSource: (o.attribution?.resolvedSource ?? null) as string | null,
     }));

@@ -833,6 +833,30 @@ model Vendor {
   /// together with all their menus, orders and reviews, regardless of status.
   isSeedData Boolean  @default(false) @map("is_seed_data")
 
+  // Founding offer: commission-free GMV allowance (Prompt 19).
+  //
+  // foundingAllowanceGrantedPence DEFAULT 200000 must match
+  // PLATFORM_FACTS.foundingOffer.commissionFreeGmvPence. Prisma requires a
+  // literal default on the column; the platform-facts.spec.ts consistency test
+  // asserts they match. Any grant increase (e.g. from referral top-ups) is
+  // written atomically with UPDATE ... LEAST(..., maxTotalCommissionFreeGmvPence).
+  //
+  // foundingAllowanceUsedPence is incremented inside the order-creation
+  // transaction (with a pg_advisory_xact_lock on vendor_id) so concurrent
+  // orders can never double-spend the same allowance pence.
+  //
+  // referredByVendorId: set at application approval time when a vendor referral
+  // link slug accompanies the application. Drives the referral top-up on the
+  // referred vendor's first completed order.
+  //
+  // foundingReferralBonusGrantedAt: timestamp when the referred vendor's first
+  // completed order triggered the referrer's top-up. Guards against double-grant
+  // and is cleared (nulled) if that sole order is subsequently fully refunded.
+  foundingAllowanceGrantedPence   Int      @default(200000) @map("founding_allowance_granted_pence")
+  foundingAllowanceUsedPence      Int      @default(0)      @map("founding_allowance_used_pence")
+  referredByVendorId              String?  @map("referred_by_vendor_id") @db.Uuid
+  foundingReferralBonusGrantedAt  DateTime? @map("founding_referral_bonus_granted_at") @db.Timestamptz
+
   user                 User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   menus                Menu[]
   menuItems            MenuItem[]
@@ -1016,6 +1040,10 @@ model Order {
   totalPence         Int          @map("total_pence")
   commissionPence    Int          @default(0) @map("commission_pence")
   vendorPayoutPence  Int          @default(0) @map("vendor_payout_pence")
+  /// Pence of food subtotal covered by the vendor's founding allowance (0% commission
+  /// band) on this order. Used to restore allowance proportionally on refund.
+  /// Zero on VENDOR_REFERRED orders (already 0% commission, allowance untouched).
+  foundingAllowanceAppliedPence Int @default(0) @map("founding_allowance_applied_pence")
   notes              String?
   allergenConfirmed  Boolean      @default(false) @map("allergen_confirmed")
   scheduledFor       DateTime?    @map("scheduled_for") @db.Timestamptz

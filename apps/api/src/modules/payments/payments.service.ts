@@ -5,7 +5,8 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { PaymentStatus, PaymentType, Prisma, UserRole } from '@prisma/client';
+import { OrderStatus, PaymentStatus, PaymentType, Prisma, UserRole } from '@prisma/client';
+import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
 
 import { PrismaService } from '../../prisma/prisma.service';
 import { StripeService } from '../../stripe/stripe.service';
@@ -265,6 +266,7 @@ export class PaymentsService {
         discountPence: true,
         commissionPence: true,
         totalPence: true,
+        foundingAllowanceAppliedPence: true,
         vendor: { select: { userId: true } },
       },
     });
@@ -470,7 +472,103 @@ export class PaymentsService {
       }),
     ]);
 
+    // Restore founding allowance proportionally. The order consumed
+    // foundingAllowanceAppliedPence when it was created; returning those pence
+    // lets the vendor re-use the allowance on a future order rather than
+    // permanently burning it on an order that never completed.
+    if (order.foundingAllowanceAppliedPence > 0) {
+      const restorePence = Math.round(
+        split.refundFraction * order.foundingAllowanceAppliedPence,
+      );
+      if (restorePence > 0) {
+        await this.prisma.vendor
+          .update({
+            where: { id: order.vendorId },
+            data: { foundingAllowanceUsedPence: { decrement: restorePence } },
+          })
+          .catch((e: unknown) => {
+            this.logger.error(
+              `founding allowance restore failed for vendor=${order.vendorId} orderId=${dto.orderId}: ${String(e)}`,
+            );
+          });
+      }
+    }
+
+    // If this was a full refund that leaves the vendor with zero completed
+    // orders, reverse any referral top-up that was granted when the order
+    // was first delivered, so the referrer is not rewarded for a vendor who
+    // ultimately never traded.
+    if (!isPartial) {
+      await this.reverseFoundingReferralBonusIfNeeded(order.vendorId).catch((e: unknown) => {
+        this.logger.error(
+          `reverseFoundingReferralBonus failed for vendor=${order.vendorId}: ${String(e)}`,
+        );
+      });
+    }
+
     return { refund: refundRow, split };
+  }
+
+  /**
+   * Called after a full refund. If the vendor was referred and had a referral
+   * top-up granted, and now has no remaining completed orders, the top-up is
+   * reversed so the referrer does not keep a reward for a vendor who never
+   * traded. The reversal is gated at the initial allowance floor (never below
+   * commissionFreeGmvPence) so we never claw back the base grant.
+   *
+   * Suspension does NOT reverse the bonus: the referrer brought the vendor in,
+   * even if Feastpot later removes them. Only a zero-completed-orders state
+   * after a full refund triggers reversal.
+   */
+  private async reverseFoundingReferralBonusIfNeeded(vendorId: string): Promise<void> {
+    const vendor = await this.prisma.vendor.findUnique({
+      where: { id: vendorId },
+      select: { referredByVendorId: true, foundingReferralBonusGrantedAt: true },
+    });
+    if (!vendor?.referredByVendorId || !vendor.foundingReferralBonusGrantedAt) return;
+
+    const deliveredCount = await this.prisma.order.count({
+      where: { vendorId, status: OrderStatus.delivered },
+    });
+    if (deliveredCount > 0) return;
+
+    const { referredByVendorId } = vendor;
+    const { referralBonusGmvPence, commissionFreeGmvPence } = PLATFORM_FACTS.foundingOffer;
+
+    await this.prisma.$transaction(async (tx) => {
+      // Lock both rows to prevent races with concurrent refunds or deliveries.
+      const lockKeyReferred = `vendor:${vendorId}`;
+      const lockKeyReferrer = `vendor:${referredByVendorId}`;
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${lockKeyReferred}, 0))`;
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${lockKeyReferrer}, 0))`;
+
+      // Re-check inside the lock.
+      const still = await tx.vendor.findUniqueOrThrow({
+        where: { id: vendorId },
+        select: { foundingReferralBonusGrantedAt: true },
+      });
+      if (!still.foundingReferralBonusGrantedAt) return; // already reversed
+
+      const count = await tx.order.count({ where: { vendorId, status: OrderStatus.delivered } });
+      if (count > 0) return; // a delivery completed concurrently
+
+      // Clear the marker so a future first delivery can trigger again.
+      await tx.vendor.update({
+        where: { id: vendorId },
+        data: { foundingReferralBonusGrantedAt: null },
+      });
+
+      // Deduct the bonus from the referrer, never below the base grant.
+      await tx.$executeRaw`
+        UPDATE vendors
+        SET founding_allowance_granted_pence =
+          GREATEST(
+            founding_allowance_granted_pence - ${referralBonusGmvPence},
+            ${commissionFreeGmvPence}
+          )
+        WHERE id = ${referredByVendorId}::uuid
+      `;
+    });
   }
 
   // -------------------- helpers --------------------

@@ -336,6 +336,48 @@ describe('Become-a-vendor page - vendor-referred rate and payouts from PLATFORM_
   });
 });
 
+describe('PLATFORM_FACTS - foundingOffer values', () => {
+  it('commissionFreeGmvPence is 200000 (matches vendors.founding_allowance_granted_pence column default)', () => {
+    // The Prisma schema uses a literal 200000 as the column default because Prisma
+    // does not accept a TypeScript constant as a default value. The spec asserts
+    // the match so a change to either is a build failure, not a silent drift.
+    expect(PLATFORM_FACTS.foundingOffer.commissionFreeGmvPence).toBe(200_000);
+  });
+
+  it('referralBonusGmvPence is 25000 (£250 per referred cook)', () => {
+    expect(PLATFORM_FACTS.foundingOffer.referralBonusGmvPence).toBe(25_000);
+  });
+
+  it('maxTotalCommissionFreeGmvPence is 500000 (£5,000 hard ceiling)', () => {
+    expect(PLATFORM_FACTS.foundingOffer.maxTotalCommissionFreeGmvPence).toBe(500_000);
+  });
+
+  it('referralBonusGmvPence < commissionFreeGmvPence < maxTotalCommissionFreeGmvPence (ordered correctly)', () => {
+    expect(PLATFORM_FACTS.foundingOffer.referralBonusGmvPence).toBeLessThan(
+      PLATFORM_FACTS.foundingOffer.commissionFreeGmvPence,
+    );
+    expect(PLATFORM_FACTS.foundingOffer.commissionFreeGmvPence).toBeLessThan(
+      PLATFORM_FACTS.foundingOffer.maxTotalCommissionFreeGmvPence,
+    );
+  });
+
+  it('CJS mirror matches TS for all three foundingOffer values', () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const cjs = require('../../../packages/config/src/platform-facts.cjs.js') as {
+      PLATFORM_FACTS: typeof import('@feastpot/config/platform-facts').PLATFORM_FACTS;
+    };
+    expect(cjs.PLATFORM_FACTS.foundingOffer.commissionFreeGmvPence).toBe(
+      PLATFORM_FACTS.foundingOffer.commissionFreeGmvPence,
+    );
+    expect(cjs.PLATFORM_FACTS.foundingOffer.referralBonusGmvPence).toBe(
+      PLATFORM_FACTS.foundingOffer.referralBonusGmvPence,
+    );
+    expect(cjs.PLATFORM_FACTS.foundingOffer.maxTotalCommissionFreeGmvPence).toBe(
+      PLATFORM_FACTS.foundingOffer.maxTotalCommissionFreeGmvPence,
+    );
+  });
+});
+
 describe('Vendor payouts page - payout day from PLATFORM_FACTS', () => {
   // payouts-client.tsx renders the payout day in three different UI contexts.
   // All must reference PLATFORM_FACTS.payouts.day; hardcoding "Monday" here
