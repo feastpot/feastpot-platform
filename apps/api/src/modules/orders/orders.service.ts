@@ -31,7 +31,7 @@ import { Queue } from 'bull';
 
 import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
 import type { AuthUser } from '../../auth/types';
-import { getServiceFeePence } from '../../common/config/service-fee';
+import { getServiceFeePence, shouldWaiveServiceFee } from '../../common/config/service-fee';
 import { PrismaService } from '../../prisma/prisma.service';
 import { StripeService } from '../../stripe/stripe.service';
 import { DiscountCodesService } from '../discount-codes/discount-codes.service';
@@ -515,32 +515,43 @@ export class OrdersService {
       }
     }
 
-    // FeastPass: waive the customer-side service fee for ACTIVE members.
-    // Vendor commission and payout are calculated on the same subtotal either
-    // way; vendor earnings are byte-identical whether the customer holds a
-    // membership or not.
-    const feastPassSub = await this.prisma.feastPassSubscription.findUnique({
-      where: { userId: customerId },
-      select: { status: true },
-    });
+    // FeastPass + attribution: run in parallel since they are independent and
+    // both are needed before the service fee can be resolved.
+    const [feastPassSub, { source: attrSource, isFirstOrder: attrIsFirstOrder }] =
+      await Promise.all([
+        this.prisma.feastPassSubscription.findUnique({
+          where: { userId: customerId },
+          select: { status: true },
+        }),
+        // Pre-resolve attribution source so CommissionService can apply the
+        // correct source-based rate BEFORE the order row is created. Never
+        // throws - defaults to MARKETPLACE/first on any failure.
+        this.attribution.preResolveSource(
+          fpRef, sessionId, customerId, dto.vendorId, marketplaceMarker,
+        ),
+      ]);
     const isFeastPassMember = feastPassSub?.status === FeastPassStatus.ACTIVE;
-    // DMCC Act 2024: the service fee is charged on the net amount the customer
-    // pays toward food, after all discounts. Computing it on the gross subtotal
-    // would over-charge members who have a promo code or loyalty redemption.
+
+    // FeastPass service fee waiver. Applies on marketplace-sourced orders only
+    // (MARKETPLACE_FIRST or MARKETPLACE_REPEAT). On VENDOR_REFERRED orders the
+    // full service fee applies even for members - the vendor drives the customer
+    // directly, so Feastpot's discovery value is not in play.
+    //
+    // shouldWaiveServiceFee is a pure function shared with the web display path
+    // so the charge and display rules cannot diverge.
+    //
+    // DMCC Act 2024: fee charged on the net post-discount amount. Computing it
+    // on the gross subtotal would over-charge members with a promo or loyalty
+    // redemption.
     const rawServiceFeePence = getServiceFeePence(Math.max(0, subtotalPence - discountPence));
-    const serviceFeePence = isFeastPassMember ? 0 : rawServiceFeePence;
+    const serviceFeePence = shouldWaiveServiceFee(isFeastPassMember, attrSource)
+      ? 0
+      : rawServiceFeePence;
 
     const totalPence = Math.max(
       0,
       subtotalPence + deliveryFeePence + serviceFeePence - discountPence,
     );
-
-    // Pre-resolve attribution source so CommissionService can apply the correct
-    // source-based rate BEFORE the order row is created. This mirrors what
-    // resolveAndWriteInTx does inside the tx but without writing anything.
-    // Never throws - defaults to MARKETPLACE/first on any failure.
-    const { source: attrSource, isFirstOrder: attrIsFirstOrder } =
-      await this.attribution.preResolveSource(fpRef, sessionId, customerId, dto.vendorId, marketplaceMarker);
 
     const orderNumber = this.generateOrderNumber();
     // Generate the order id client-side so the Stripe PI (created BEFORE the

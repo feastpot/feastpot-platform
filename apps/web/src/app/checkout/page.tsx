@@ -27,7 +27,7 @@ import { ApiError, apiRequest } from '@/lib/api/client';
 import { evaluateDeliveryCoverage } from '@/lib/api/coverage';
 import { getVendorBySlug } from '@/lib/api/vendors';
 import { useAccessToken } from '@/lib/auth/use-access-token';
-import { calcServiceFeePence } from '@/lib/service-fee';
+import { calcServiceFeePence, shouldWaiveServiceFee } from '@/lib/service-fee';
 import { STRIPE_CONFIGURED, getStripe } from '@/lib/stripe';
 import { useBasketStore } from '@/store/basket.store';
 
@@ -203,11 +203,31 @@ function CheckoutInner() {
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
 
-  // FeastPass membership. Waives the service fee for ACTIVE subscribers.
+  // FeastPass membership. Waives the service fee for ACTIVE subscribers on
+  // marketplace-sourced orders (MARKETPLACE_FIRST or MARKETPLACE_REPEAT only).
   // The hook short-circuits when no token is present, so it's safe to call
   // unconditionally here regardless of auth state.
   const { data: feastPassData } = useFeastPassMembership();
   const isFeastPassMember = feastPassData?.subscription?.status === 'ACTIVE';
+
+  // Browse-time attribution: read the marketplace marker written by
+  // MarketplaceTagger when this vendor's page was visited. If the marker is
+  // present, the fee waiver applies (MARKETPLACE path). If absent, we treat
+  // attribution as unknown and conservatively show the fee - the DMCC Act
+  // requires prices to never rise between first display and payment, so a
+  // price that falls at checkout (if the waiver is confirmed server-side) is
+  // acceptable, but one that rises is not.
+  const [browseAttribution, setBrowseAttribution] = useState<string | null>(null);
+  useEffect(() => {
+    if (!vendor?.id) return;
+    const key = `fp_mp_${vendor.id}`;
+    const hasCookie = document.cookie.split(';').some((c) => c.trim().startsWith(`${key}=`));
+    const hasLocal = (() => {
+      try { return Boolean(localStorage.getItem(key)); } catch { return false; }
+    })();
+    setBrowseAttribution(hasCookie || hasLocal ? 'MARKETPLACE_FIRST' : null);
+  }, [vendor?.id]);
+  const feeWaived = shouldWaiveServiceFee(isFeastPassMember, browseAttribution);
 
   // Loyalty redemption (FR-LOY-001). Cap by balance only - backend caps
   // the redemption against (subtotal + delivery - promo) and we don't
@@ -271,7 +291,7 @@ function CheckoutInner() {
   // total before placing the order.
   const effectiveLoyaltyPence = loyaltyPoints >= 200 ? loyaltyPoints : 0;
   const rawServiceFeePence = calcServiceFeePence(Math.max(0, subtotal - effectiveLoyaltyPence));
-  const serviceFeePence = isFeastPassMember ? 0 : rawServiceFeePence;
+  const serviceFeePence = feeWaived ? 0 : rawServiceFeePence;
   const expressServiceFeePence = serviceFeePence;
   const expressLoyaltyPence =
     expressDeliveryFeePence == null
@@ -639,7 +659,7 @@ function CheckoutInner() {
                   {formatPounds(subtotal)}
                 </span>
               </div>
-              {isFeastPassMember ? (
+              {feeWaived ? (
                 <div className="mt-1.5 flex justify-between text-sm">
                   <span className="flex items-center gap-1 text-charcoal-mid">
                     Service fee
@@ -651,16 +671,24 @@ function CheckoutInner() {
                   <span className="font-medium tabular-nums text-brand">Free</span>
                 </div>
               ) : serviceFeePence > 0 ? (
-                <div className="mt-1.5 flex justify-between text-sm">
-                  <span className="text-charcoal-mid">
-                    Service fee
-                    <span className="ml-1 text-[11px] font-medium text-charcoal-light">
-                      {PLATFORM_FACTS.serviceFee.percent}% capped at £{(PLATFORM_FACTS.serviceFee.capPence / 100).toFixed(2)}
+                <div className="mt-1.5 space-y-1 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-charcoal-mid">
+                      Service fee
+                      <span className="ml-1 text-[11px] font-medium text-charcoal-light">
+                        {PLATFORM_FACTS.serviceFee.percent}% capped at £{(PLATFORM_FACTS.serviceFee.capPence / 100).toFixed(2)}
+                      </span>
                     </span>
-                  </span>
-                  <span className="font-medium tabular-nums text-charcoal">
-                    {formatPounds(serviceFeePence)}
-                  </span>
+                    <span className="font-medium tabular-nums text-charcoal">
+                      {formatPounds(serviceFeePence)}
+                    </span>
+                  </div>
+                  {isFeastPassMember && (
+                    <p className="text-[11px] leading-snug text-charcoal-mid">
+                      You ordered through this kitchen&rsquo;s own link, so the standard service fee applies.
+                      FeastPass covers orders you find through Feastpot.
+                    </p>
+                  )}
                 </div>
               ) : null}
               <p className="mt-1 text-[11px] font-medium text-charcoal-mid">

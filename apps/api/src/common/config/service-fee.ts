@@ -13,7 +13,7 @@
 import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
 import { computeServiceFeePence as _compute } from '@feastpot/config/service-fee';
 
-export { computeServiceFeePence } from '@feastpot/config/service-fee';
+export { computeServiceFeePence, shouldWaiveServiceFee } from '@feastpot/config/service-fee';
 
 /** @deprecated Use computeServiceFeePence directly. */
 export function calculateServiceFee(subtotalPence: number): number {

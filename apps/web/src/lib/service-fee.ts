@@ -16,8 +16,8 @@
  * Import `computeServiceFeePence` and show it wherever an item price or
  * basket subtotal is shown for the first time.
  */
-import { computeServiceFeePence } from '@feastpot/config/service-fee';
-export { computeServiceFeePence };
+import { computeServiceFeePence, shouldWaiveServiceFee } from '@feastpot/config/service-fee';
+export { computeServiceFeePence, shouldWaiveServiceFee };
 
 /** @deprecated Pass only subtotalPence; bps is ignored. Use computeServiceFeePence. */
 export function calcServiceFeePence(

@@ -3,8 +3,10 @@
 import { ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
 
-import { computeServiceFeePence } from '@/lib/service-fee';
+import { computeServiceFeePence, shouldWaiveServiceFee } from '@/lib/service-fee';
+import { useFeastPassMembership } from '@/hooks/use-feastpass';
 import { useBasketStore } from '@/store/basket.store';
 
 const formatPounds = (p: number) => `£${(p / 100).toFixed(2)}`;
@@ -36,7 +38,29 @@ export function FloatingBasketBar({ vendorId }: Props) {
   const basketVendor = useBasketStore((s) => s.vendor);
   const itemCount = items.reduce((acc, i) => acc + i.quantity, 0);
   const subtotalPence = items.reduce((acc, i) => acc + i.lineTotalPence, 0);
-  const serviceFeePence = computeServiceFeePence(subtotalPence);
+
+  // FeastPass waiver: read the marketplace marker for this vendor and the
+  // customer's membership status so the displayed total matches the charge.
+  // Conservative default (null) shows the fee; after mount, a found marker
+  // may lower the displayed total. A price that falls is fine; one that rises
+  // is not (DMCC Act 2024).
+  const { data: feastPassData } = useFeastPassMembership();
+  const isFeastPassMember = feastPassData?.subscription?.status === 'ACTIVE';
+  const [browseAttribution, setBrowseAttribution] = useState<string | null>(null);
+  useEffect(() => {
+    if (!vendorId) return;
+    const key = `fp_mp_${vendorId}`;
+    const hasCookie = document.cookie.split(';').some((c) => c.trim().startsWith(`${key}=`));
+    const hasLocal = (() => {
+      try { return Boolean(localStorage.getItem(key)); } catch { return false; }
+    })();
+    setBrowseAttribution(hasCookie || hasLocal ? 'MARKETPLACE_FIRST' : null);
+  }, [vendorId]);
+
+  const rawServiceFeePence = computeServiceFeePence(subtotalPence);
+  const serviceFeePence = shouldWaiveServiceFee(isFeastPassMember, browseAttribution)
+    ? 0
+    : rawServiceFeePence;
   const totalPence = subtotalPence + serviceFeePence;
 
   // Don't render on the checkout flow itself - the page already shows

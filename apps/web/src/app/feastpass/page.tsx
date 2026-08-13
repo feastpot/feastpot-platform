@@ -14,7 +14,7 @@ const PERKS = [
   {
     Icon: Wallet,
     title: 'Service fee waived',
-    desc: `We charge a ${PLATFORM_FACTS.serviceFee.percent}% service fee (max £${(PLATFORM_FACTS.serviceFee.capPence / 100).toFixed(2)}) on every order. Members pay £0.`,
+    desc: `We charge a ${PLATFORM_FACTS.serviceFee.percent}% service fee (max £${(PLATFORM_FACTS.serviceFee.capPence / 100).toFixed(2)}) on orders you place through Feastpot. Members pay £0 on those orders.`,
   },
   {
     Icon: Zap,
@@ -35,7 +35,7 @@ const FAQS = [
   },
   {
     q: 'Does FeastPass affect what vendors earn?',
-    a: 'No. Vendor payouts are calculated on the order total before platform fees. FeastPass only waives the customer-side service fee - it is entirely a platform cost.',
+    a: 'No. Vendor payouts are calculated on the order total before platform fees. FeastPass only waives the customer-side service fee on marketplace orders - it is entirely a platform cost.',
   },
   {
     q: 'What counts as the service fee?',
@@ -48,6 +48,10 @@ const FAQS = [
   {
     q: 'What is the priority booking perk exactly?',
     a: 'When a vendor marks a slot as member-priority (limited Sunday tiffins, event caterer slots, and so on) that slot opens to FeastPass members 24 hours before it appears to the general public.',
+  },
+  {
+    q: 'Does FeastPass waive the fee on every order?',
+    a: 'It waives the service fee on orders you place through Feastpot - for example when you find a kitchen through postcode search or browse. If you place an order via a kitchen\'s own referral link, the standard service fee still applies. You will always see the applicable fee before you pay.',
   },
 ];
 
@@ -104,7 +108,7 @@ export default function FeastPassPage() {
           Great food without <br className="hidden sm:inline" /> the extra charges
         </h1>
         <p className="mt-3 text-base font-medium text-charcoal-mid">
-          One membership. No service fees. Priority access to the slots everyone wants.
+          One membership. No service fee on orders you place through Feastpot. Priority access to the slots everyone wants.
         </p>
         <p className="mt-1.5 text-sm font-bold text-brand">
           Pays for itself from your second order each month.

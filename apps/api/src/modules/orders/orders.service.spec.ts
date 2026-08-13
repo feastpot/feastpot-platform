@@ -1,6 +1,8 @@
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { DeliveryType, OrderStatus, UserRole } from '@prisma/client';
 
+import { shouldWaiveServiceFee } from '@feastpot/config/service-fee';
+
 import type { AuthUser } from '../../auth/types';
 
 import {
@@ -115,6 +117,38 @@ describe('OrdersService - pure helpers', () => {
         commissionPence: 5000,
         vendorPayoutPence: 500,
       });
+    });
+  });
+
+  describe('shouldWaiveServiceFee', () => {
+    // The four combinations of (membership status) x (attribution source).
+
+    it('non-member + marketplace: fee is NOT waived', () => {
+      expect(shouldWaiveServiceFee(false, 'MARKETPLACE_FIRST')).toBe(false);
+    });
+
+    it('non-member + vendor-referred: fee is NOT waived', () => {
+      expect(shouldWaiveServiceFee(false, 'VENDOR_REFERRED')).toBe(false);
+    });
+
+    it('member + marketplace first: fee IS waived', () => {
+      expect(shouldWaiveServiceFee(true, 'MARKETPLACE_FIRST')).toBe(true);
+    });
+
+    it('member + marketplace repeat: fee IS waived', () => {
+      expect(shouldWaiveServiceFee(true, 'MARKETPLACE_REPEAT')).toBe(true);
+    });
+
+    it('member + vendor-referred: fee is NOT waived (member pays standard fee via vendor link)', () => {
+      expect(shouldWaiveServiceFee(true, 'VENDOR_REFERRED')).toBe(false);
+    });
+
+    it('member + null attribution (unknown): fee is NOT waived (conservative - price can only fall)', () => {
+      expect(shouldWaiveServiceFee(true, null)).toBe(false);
+    });
+
+    it('non-member + null attribution: fee is NOT waived', () => {
+      expect(shouldWaiveServiceFee(false, null)).toBe(false);
     });
   });
 

@@ -10,3 +10,17 @@ function computeServiceFeePence(subtotalPence) {
 }
 
 exports.computeServiceFeePence = computeServiceFeePence;
+
+/**
+ * CJS mirror of shouldWaiveServiceFee from service-fee.ts.
+ * Keep in sync when the waiver logic changes.
+ * @param {boolean} hasActiveFeastPass
+ * @param {string|null} attributionSource
+ * @returns {boolean}
+ */
+function shouldWaiveServiceFee(hasActiveFeastPass, attributionSource) {
+  if (!hasActiveFeastPass) return false;
+  if (!attributionSource) return false;
+  return attributionSource !== 'VENDOR_REFERRED';
+}
+exports.shouldWaiveServiceFee = shouldWaiveServiceFee;

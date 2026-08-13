@@ -196,7 +196,7 @@ function FeastPassUpsellCallout({ serviceFeePence }: { serviceFeePence: number }
             You paid {formatPounds(serviceFeePence)} in service fees on this order.
           </p>
           <p className="mt-0.5 text-xs font-medium text-charcoal-mid">
-            FeastPass members pay £0. For {formatPounds(399)}/month you&rsquo;d keep that money.
+            FeastPass members pay no service fee on orders found through Feastpot. For {formatPounds(399)}/month you could save on every qualifying order.
           </p>
           <Link
             href="/feastpass?plan=monthly"

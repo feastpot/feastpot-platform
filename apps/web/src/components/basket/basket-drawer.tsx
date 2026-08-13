@@ -3,11 +3,12 @@
 import { Minus, MessageSquarePlus, Plus, ShoppingBasket, Trash2, X } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { Sheet, SheetContent, SheetTrigger } from '@feastpot/ui';
 
-import { computeServiceFeePence } from '@/lib/service-fee';
+import { computeServiceFeePence, shouldWaiveServiceFee } from '@/lib/service-fee';
+import { useFeastPassMembership } from '@/hooks/use-feastpass';
 import { useBasketStore, type BasketItem } from '@/store/basket.store';
 
 const formatPounds = (p: number) => `£${(p / 100).toFixed(2)}`;
@@ -42,6 +43,26 @@ export function BasketDrawer({ children }: Props) {
 
   const [discount, setDiscount] = useState('');
   const [open, setOpen] = useState(false);
+
+  // FeastPass waiver: resolve at browse time so the displayed total can never
+  // rise between here and checkout. Conservative default (null) shows the fee.
+  const { data: feastPassData } = useFeastPassMembership();
+  const isFeastPassMember = feastPassData?.subscription?.status === 'ACTIVE';
+  const [browseAttribution, setBrowseAttribution] = useState<string | null>(null);
+  useEffect(() => {
+    if (!vendor?.id) return;
+    const key = `fp_mp_${vendor.id}`;
+    const hasCookie = document.cookie.split(';').some((c) => c.trim().startsWith(`${key}=`));
+    const hasLocal = (() => {
+      try { return Boolean(localStorage.getItem(key)); } catch { return false; }
+    })();
+    setBrowseAttribution(hasCookie || hasLocal ? 'MARKETPLACE_FIRST' : null);
+  }, [vendor?.id]);
+
+  const rawServiceFeePence = computeServiceFeePence(subtotal);
+  const serviceFeePence = shouldWaiveServiceFee(isFeastPassMember, browseAttribution)
+    ? 0
+    : rawServiceFeePence;
 
   const onCheckout = () => {
     if (discount.trim()) {
@@ -112,7 +133,7 @@ export function BasketDrawer({ children }: Props) {
                   <span className="text-charcoal-mid">Subtotal</span>
                   <span className="font-bold text-charcoal">{formatPounds(subtotal)}</span>
                 </div>
-                {computeServiceFeePence(subtotal) > 0 && (
+                {serviceFeePence > 0 && (
                   <div className="flex justify-between">
                     <span className="text-charcoal-mid">
                       Service fee
@@ -121,8 +142,19 @@ export function BasketDrawer({ children }: Props) {
                       </span>
                     </span>
                     <span className="font-bold text-charcoal">
-                      {formatPounds(computeServiceFeePence(subtotal))}
+                      {formatPounds(serviceFeePence)}
                     </span>
+                  </div>
+                )}
+                {isFeastPassMember && serviceFeePence === 0 && rawServiceFeePence > 0 && (
+                  <div className="flex justify-between">
+                    <span className="flex items-center gap-1 text-charcoal-mid">
+                      Service fee
+                      <span className="rounded-full bg-brand/10 px-1.5 py-0.5 text-[9px] font-bold text-brand">
+                        FeastPass
+                      </span>
+                    </span>
+                    <span className="font-bold text-brand">Free</span>
                   </div>
                 )}
                 <div className="flex justify-between">
@@ -151,7 +183,7 @@ export function BasketDrawer({ children }: Props) {
               <div className="flex items-center justify-between border-t border-cream-deep pt-3 text-base">
                 <span className="font-display font-black text-charcoal">Total</span>
                 <span className="font-display font-black tabular-nums text-charcoal">
-                  {formatPounds(subtotal + computeServiceFeePence(subtotal))}
+                  {formatPounds(subtotal + serviceFeePence)}
                   <span className="ml-1 text-xs font-medium text-charcoal-mid">+ delivery</span>
                 </span>
               </div>
