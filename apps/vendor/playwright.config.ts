@@ -17,6 +17,8 @@ import { defineConfig, devices } from '@playwright/test';
  *   PLAYWRIGHT_BASE_URL   - Vendor portal origin. Defaults to http://localhost:3002.
  *   TEST_VENDOR_EMAIL     - Supabase email for the pre-seeded test vendor account.
  *   TEST_VENDOR_PASSWORD  - Corresponding password.
+ *   TEST_API_URL          - NestJS API origin for D3 integration search assertions.
+ *                           Defaults to http://localhost:3001.
  *
  * Run:
  *   npx playwright install chromium   (first time only - downloads browser package)
@@ -50,6 +52,29 @@ export default defineConfig({
     // ── Menu screen test suite ───────────────────────────────────────────────
     {
       name: 'menu-screen',
+      testMatch: /menu-screen\.spec\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: 'e2e/.auth/vendor.json',
+      },
+      dependencies: ['setup'],
+    },
+
+    // ── Delivery settings test suite ─────────────────────────────────────────
+    {
+      name: 'delivery-screen',
+      testMatch: /delivery-screen\.spec\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: 'e2e/.auth/vendor.json',
+      },
+      dependencies: ['setup'],
+    },
+
+    // ── Profile settings test suite ──────────────────────────────────────────
+    {
+      name: 'profile-screen',
+      testMatch: /profile-screen\.spec\.ts/,
       use: {
         ...devices['Desktop Chrome'],
         storageState: 'e2e/.auth/vendor.json',

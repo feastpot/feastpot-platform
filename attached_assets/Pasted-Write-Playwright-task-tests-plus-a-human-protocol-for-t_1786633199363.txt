@@ -1,0 +1,30 @@
+Write Playwright task tests plus a human protocol for the rebuilt Delivery and Profile pages. Record clicks, page navigations and elapsed time per task.
+
+DELIVERY TASKS
+D1  Set a service area from scratch using the radius control. Assert the postcode chips change when radius changes. Target: under 60 seconds.
+D2  Remove one generated postcode and add one outside the radius. Assert both persist after reload.
+D3  THE CRITICAL TEST: set a service area, then run a customer search from an included postcode and from an excluded one. Assert the vendor appears in the first and not the second. This is the test that would have caught the original no-op; it must fail loudly if radius and search ever diverge again.
+D4  Attempt to set a free delivery threshold below the minimum order. Assert rejection with an inline explanation.
+D5  Remove all postcodes. Assert a clear warning that the vendor will not be discoverable.
+D6  Confirm no control on the page has an effect different from its label. Enumerate every input, change it, and assert an observable, correct consequence. Any control that produces no consequence fails the test and must be named in the report.
+
+PROFILE TASKS
+P1  Complete an empty profile to the point where the completeness list is clear. Target: under 4 minutes, zero page navigations.
+P2  Add three cuisines using the chip input. Assert three separate stored values, not one comma-joined string.
+P3  Select two featured dishes from the menu picker. Then set one of those dishes to draft in Menu and assert it disappears from featured automatically.
+P4  Enter "@mamanskitchen" in the Instagram field. Assert a valid full URL is stored.
+P5  Attempt to change the URL slug. Assert a confirmation appears naming the QR-code consequence. Complete the change, then assert the OLD slug still resolves via redirect.
+P6  Type a business name and assert the live preview updates without a save.
+P7  Exceed the speciality limit. Assert input is blocked with an explanation, and that nothing is silently truncated.
+
+HUMAN PROTOCOL, produce as a markdown file:
+Five goal-phrased tasks, never instruction-phrased. Correct: "Set things up so people in Camberwell can order from you." Incorrect: "Enter SE5 in the postcode field."
+Comprehension questions asked with the screen hidden:
+ - "Which postcodes can order from you right now, and how do you know?"
+ - "What is the difference between your specialities and your featured dishes?"
+ - "If you changed your web address, what would happen to the QR code you printed?"
+Record per task: completed unaided yes or no, time, hesitations, verbatim comments. Pass means unaided with no verbal prompting.
+
+REPORT: table of task, target, actual, pass or fail. List every control found to have no observable effect. Do not mark a task passed on eventual completion; efficiency and comprehension are the criteria.
+
+STYLE: UK English. No em dashes. Do not write task scripts naming the control to use.
