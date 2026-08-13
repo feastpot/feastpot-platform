@@ -1,0 +1,62 @@
+~/workspace$ TEST_VENDOR_EMAIL=real@address.com \
+TEST_VENDOR_PASSWORD=realpassword \
+npm run test:e2e --workspace=@feastpot/vendor
+
+> @feastpot/vendor@0.1.0 test:e2e
+> node e2e/install-chromium.js && playwright test
+
+install-chromium.js: system Chromium -> /nix/store/qa9cnw4v5xkxyip6mb9kxqfq1z4x2dx1-chromium-138.0.7204.100/bin/chromium
+install-chromium.js: already linked -> /home/runner/workspace/.cache/ms-playwright/chromium-1234/chrome-linux64/chrome
+install-chromium.js: already linked -> /home/runner/workspace/.cache/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-linux64/chrome-headless-shell
+install-chromium.js: done (2 binary path(s) linked).
+
+Running 11 tests using 1 worker
+
+  ✘   1 [setup] › e2e/auth.setup.ts:25:6 › authenticate as test vendor (4.7s)
+
+
+  1) [setup] › e2e/auth.setup.ts:25:6 › authenticate as test vendor ────────────────────────────────
+
+    Error: locator.waitFor: Error: strict mode violation: locator('input[type="password"]') resolved to 2 elements:
+        1) <input tabindex="-1" type="password" name="fakepasswordremembered" autocomplete="current-password"/> aka locator('input[name="fakepasswordremembered"]')
+        2) <input readonly value="" id="password" type="password" autocorrect="off" spellcheck="false" name="vendor-password" autocomplete="new-password" class="w-full rounded-xl border bg-white py-3 pl-10 pr-11 text-sm font-medium outline-none"/> aka getByRole('textbox', { name: 'Password' })
+
+    Call log:
+      - waiting for locator('input[type="password"]') to be visible
+
+
+      53 |   await emailInput.fill(email);
+      54 |
+    > 55 |   await passwordInput.waitFor({ state: 'visible' });
+         |                       ^
+      56 |   await passwordInput.evaluate((el) => el.removeAttribute('readonly'));
+      57 |   await passwordInput.fill(password);
+      58 |
+        at /home/runner/workspace/apps/vendor/e2e/auth.setup.ts:55:23
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/auth.setup.ts-authenticate-as-test-vendor-setup/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/auth.setup.ts-authenticate-as-test-vendor-setup/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/auth.setup.ts-authenticate-as-test-vendor-setup/error-context.md
+
+  1 failed
+    [setup] › e2e/auth.setup.ts:25:6 › authenticate as test vendor ─────────────────────────────────
+  10 did not run
+
+To open last HTML report run:
+
+  npx playwright show-report e2e-report
+
+npm error Lifecycle script `test:e2e` failed with error:
+npm error code 1
+npm error path /home/runner/workspace/apps/vendor
+npm error workspace @feastpot/vendor@0.1.0
+npm error location /home/runner/workspace/apps/vendor
+npm error command failed
+npm error command sh -c node e2e/install-chromium.js && playwright test
+~/workspace$ 

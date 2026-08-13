@@ -56,7 +56,7 @@ Call log:
             - generic [ref=e54]: Email
             - textbox "Email" [active] [ref=e56]:
               - /placeholder: you@domain.com
-              - text: you@example.com
+              - text: real@address.com
           - generic [ref=e57]:
             - generic [ref=e58]: Password
             - generic [ref=e59]:
