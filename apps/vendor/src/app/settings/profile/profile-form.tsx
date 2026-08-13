@@ -83,6 +83,28 @@ function validateSocialUrl(key: SocialKey, url: string): string | null {
   return null;
 }
 
+/**
+ * Split a string array that may contain legacy comma-separated values into
+ * individual trimmed chips, deduplicating case-insensitively.
+ * e.g. ["Nigerian, Ghanaian", "Caribbean"] -> ["Nigerian", "Ghanaian", "Caribbean"]
+ */
+function splitChips(raw: string[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const entry of raw) {
+    for (const part of entry.split(',')) {
+      const chip = part.trim();
+      if (!chip) continue;
+      const key = chip.toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        result.push(chip);
+      }
+    }
+  }
+  return result;
+}
+
 function seedSocial(links: Record<string, string> | null): Record<SocialKey, string> {
   const s: Record<SocialKey, string> = {
     website: '', instagram: '', tiktok: '', facebook: '', youtube: '',
@@ -132,23 +154,32 @@ export function ProfileForm() {
   const [originalSlug, setOriginalSlug] = useState('');
   const [slugEditMode, setSlugEditMode] = useState(false);
   const [slugChangedThisSession, setSlugChangedThisSession] = useState(false);
+  // Specialities that were silently dropped during migration (> MAX_SPECIALITIES).
+  // Shown once as a dismissible notice so the vendor can decide what to keep.
+  const [droppedSpecialities, setDroppedSpecialities] = useState<string[]>([]);
 
   // Seed form once on vendor load.
   const seedRef = useRef(false);
   if (vendor && !seedRef.current) {
     seedRef.current = true;
     Promise.resolve().then(() => {
+      // Split any legacy comma-separated strings into individual chips.
+      const allSpecialities = splitChips(vendor.specialities);
+      const kept = allSpecialities.slice(0, MAX_SPECIALITIES);
+      const dropped = allSpecialities.slice(MAX_SPECIALITIES);
+
       setForm({
         businessName: vendor.businessName,
         slug: vendor.slug,
         description: vendor.description ?? '',
-        cuisineChips: vendor.cuisines,
-        specialityChips: vendor.specialities,
+        cuisineChips: splitChips(vendor.cuisines),
+        specialityChips: kept,
         featuredItemIds: vendor.featuredDishes, // stored as menu-item IDs
         vendorStory: vendor.vendorStory ?? '',
         social: seedSocial(vendor.socialLinks),
       });
       setOriginalSlug(vendor.slug);
+      if (dropped.length > 0) setDroppedSpecialities(dropped);
       setSeeded(true);
     });
   }
@@ -513,6 +544,25 @@ export function ProfileForm() {
               maxItems={MAX_SPECIALITIES}
               placeholder="e.g. Jollof rice, Suya..."
             />
+            {droppedSpecialities.length > 0 && (
+              <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" aria-hidden />
+                <p className="flex-1">
+                  Your profile had more than {MAX_SPECIALITIES} specialities. We kept the first{' '}
+                  {MAX_SPECIALITIES} and removed:{' '}
+                  <span className="font-semibold">{droppedSpecialities.join(', ')}</span>. Remove a
+                  chip above to make room if you want to add any of these back.
+                </p>
+                <button
+                  type="button"
+                  aria-label="Dismiss"
+                  onClick={() => setDroppedSpecialities([])}
+                  className="shrink-0 rounded p-0.5 hover:bg-amber-200"
+                >
+                  <X className="h-3 w-3" aria-hidden />
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Featured dishes */}
