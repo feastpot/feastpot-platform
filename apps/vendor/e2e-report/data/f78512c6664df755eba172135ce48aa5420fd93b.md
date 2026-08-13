@@ -12,35 +12,19 @@
 # Error details
 
 ```
-Test timeout of 30000ms exceeded.
-```
+Error: locator.waitFor: Error: strict mode violation: locator('input[type="password"]') resolved to 2 elements:
+    1) <input tabindex="-1" type="password" name="fakepasswordremembered" autocomplete="current-password"/> aka locator('input[name="fakepasswordremembered"]')
+    2) <input readonly value="" id="password" type="password" autocorrect="off" spellcheck="false" name="vendor-password" autocomplete="new-password" class="w-full rounded-xl border bg-white py-3 pl-10 pr-11 text-sm font-medium outline-none"/> aka getByRole('textbox', { name: 'Password' })
 
-```
-Error: locator.fill: Test timeout of 30000ms exceeded.
 Call log:
-  - waiting for locator('input[type="email"]')
-    - locator resolved to <input readonly value="" id="email" type="email" autocorrect="off" autocomplete="off" spellcheck="false" name="vendor-email" placeholder="you@domain.com" class="w-full rounded-xl border bg-white py-3 pl-10 pr-3.5 text-sm font-medium outline-none transition-colors focus:border-[color:var(--fp-green,#00843D)] focus:ring-2"/>
-    - fill("...")
-  - attempting fill action
-    2 × waiting for element to be visible, enabled and editable
-      - element is not editable
-    - retrying fill action
-    - waiting 20ms
-    2 × waiting for element to be visible, enabled and editable
-      - element is not editable
-    - retrying fill action
-      - waiting 100ms
-    42 × waiting for element to be visible, enabled and editable
-       - element is not editable
-     - retrying fill action
-       - waiting 500ms
+  - waiting for locator('input[type="password"]') to be visible
 
 ```
 
 # Page snapshot
 
 ```yaml
-- generic [active] [ref=e1]:
+- generic [ref=e1]:
   - generic [ref=e2]:
     - complementary [ref=e3]:
       - generic [ref=e13]:
@@ -70,8 +54,9 @@ Call log:
           - textbox
           - generic [ref=e53]:
             - generic [ref=e54]: Email
-            - textbox "Email" [ref=e56]:
+            - textbox "Email" [active] [ref=e56]:
               - /placeholder: you@domain.com
+              - text: you@example.com
           - generic [ref=e57]:
             - generic [ref=e58]: Password
             - generic [ref=e59]:
@@ -141,19 +126,32 @@ Call log:
   41 | 
   42 |   await page.goto('/sign-in');
   43 | 
-> 44 |   await page.locator('input[type="email"]').fill(email);
-     |                                             ^ Error: locator.fill: Test timeout of 30000ms exceeded.
-  45 |   await page.locator('input[type="password"]').fill(password);
-  46 |   await page.locator('button[type="submit"]').click();
-  47 | 
-  48 |   // Wait for the portal to settle on an authenticated route.
-  49 |   // Newly-approved vendors land on /onboarding; live vendors land on /.
-  50 |   await page.waitForURL((url) => !url.pathname.startsWith('/sign-in'), {
-  51 |     timeout: 15_000,
-  52 |   });
-  53 | 
-  54 |   fs.mkdirSync(path.dirname(STATE_PATH), { recursive: true });
-  55 |   await page.context().storageState({ path: STATE_PATH });
-  56 | });
-  57 | 
+  44 |   // The sign-in form uses a readonly anti-autofill trick: inputs start with
+  45 |   // readonly="true" to prevent Chrome from pre-filling them, then JS removes
+  46 |   // the attribute. Playwright's fill() waits for editability and times out
+  47 |   // if the attribute is never removed. Strip it manually before filling.
+  48 |   const emailInput = page.locator('input[type="email"]');
+  49 |   const passwordInput = page.locator('input[type="password"]');
+  50 | 
+  51 |   await emailInput.waitFor({ state: 'visible' });
+  52 |   await emailInput.evaluate((el) => el.removeAttribute('readonly'));
+  53 |   await emailInput.fill(email);
+  54 | 
+> 55 |   await passwordInput.waitFor({ state: 'visible' });
+     |                       ^ Error: locator.waitFor: Error: strict mode violation: locator('input[type="password"]') resolved to 2 elements:
+  56 |   await passwordInput.evaluate((el) => el.removeAttribute('readonly'));
+  57 |   await passwordInput.fill(password);
+  58 | 
+  59 |   await page.locator('button[type="submit"]').click();
+  60 | 
+  61 |   // Wait for the portal to settle on an authenticated route.
+  62 |   // Newly-approved vendors land on /onboarding; live vendors land on /.
+  63 |   await page.waitForURL((url) => !url.pathname.startsWith('/sign-in'), {
+  64 |     timeout: 15_000,
+  65 |   });
+  66 | 
+  67 |   fs.mkdirSync(path.dirname(STATE_PATH), { recursive: true });
+  68 |   await page.context().storageState({ path: STATE_PATH });
+  69 | });
+  70 | 
 ```
