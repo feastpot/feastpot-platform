@@ -8,7 +8,10 @@
     "start": "next start --port 3002 --hostname 0.0.0.0",
     "typecheck": "tsc --noEmit",
     "lint": "next lint",
-    "test": "echo \"[vendor] no tests yet\"",
+    "test": "echo \"[vendor] no unit tests - run test:e2e for the Playwright suite\"",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:report": "playwright show-report e2e-report",
     "clean": "rm -rf .next .turbo"
   },
   "dependencies": {
@@ -46,6 +49,7 @@
   },
   "devDependencies": {
     "@feastpot/config": "*",
+    "@playwright/test": "^1.62.1",
     "@types/node": "^22.9.0",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
