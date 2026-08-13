@@ -41,12 +41,16 @@ setup('authenticate as test vendor', async ({ page }) => {
 
   await page.goto('/sign-in');
 
-  // The sign-in form uses a readonly anti-autofill trick: inputs start with
-  // readonly="true" to prevent Chrome from pre-filling them, then JS removes
-  // the attribute. Playwright's fill() waits for editability and times out
-  // if the attribute is never removed. Strip it manually before filling.
-  const emailInput = page.locator('input[type="email"]');
-  const passwordInput = page.locator('input[type="password"]');
+  // The sign-in form has two anti-autofill measures:
+  //   1. A hidden honeypot password input (name="fakepasswordremembered") that
+  //      causes input[type="password"] to resolve to 2 elements, triggering
+  //      Playwright strict-mode violations.
+  //   2. readonly="true" on the real inputs until a user interaction fires.
+  //
+  // Fix: target the real fields by their stable IDs (#email, #password) and
+  // strip readonly before filling.
+  const emailInput = page.locator('#email');
+  const passwordInput = page.locator('#password');
 
   await emailInput.waitFor({ state: 'visible' });
   await emailInput.evaluate((el) => el.removeAttribute('readonly'));
