@@ -41,8 +41,21 @@ setup('authenticate as test vendor', async ({ page }) => {
 
   await page.goto('/sign-in');
 
-  await page.locator('input[type="email"]').fill(email);
-  await page.locator('input[type="password"]').fill(password);
+  // The sign-in form uses a readonly anti-autofill trick: inputs start with
+  // readonly="true" to prevent Chrome from pre-filling them, then JS removes
+  // the attribute. Playwright's fill() waits for editability and times out
+  // if the attribute is never removed. Strip it manually before filling.
+  const emailInput = page.locator('input[type="email"]');
+  const passwordInput = page.locator('input[type="password"]');
+
+  await emailInput.waitFor({ state: 'visible' });
+  await emailInput.evaluate((el) => el.removeAttribute('readonly'));
+  await emailInput.fill(email);
+
+  await passwordInput.waitFor({ state: 'visible' });
+  await passwordInput.evaluate((el) => el.removeAttribute('readonly'));
+  await passwordInput.fill(password);
+
   await page.locator('button[type="submit"]').click();
 
   // Wait for the portal to settle on an authenticated route.
