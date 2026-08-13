@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 
-import { TopNav } from '@/components/layout/top-nav';
+import { PortalShell } from '@/components/layout/portal-shell';
 import { apiRequest, ApiError } from '@/lib/api/client';
 import { createClient as createServerSupabase } from '@/lib/supabase/server';
 
@@ -54,11 +54,8 @@ export default async function OnboardingWelcomePage() {
   if (vendor.status === 'live' || vendor.status === 'probation') redirect('/');
 
   return (
-    <>
-      <TopNav businessName={vendor.businessName} />
-      <main className="container py-6">
-        <WelcomeClient businessName={vendor.businessName} progress={progress} />
-      </main>
-    </>
+    <PortalShell businessName={vendor.businessName}>
+      <WelcomeClient businessName={vendor.businessName} progress={progress} />
+    </PortalShell>
   );
 }

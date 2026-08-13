@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 
-import { TopNav } from '@/components/layout/top-nav';
+import { PortalShell } from '@/components/layout/portal-shell';
 import { apiRequest, ApiError } from '@/lib/api/client';
 import { createClient as createServerSupabase } from '@/lib/supabase/server';
 
@@ -39,11 +39,8 @@ export default async function VendorEventsPage() {
   }
 
   return (
-    <div>
-      <TopNav businessName={vendor.businessName} />
-      <main className="mx-auto max-w-5xl p-4">
-        <EventsDashboard accessToken={session.access_token} />
-      </main>
-    </div>
+    <PortalShell businessName={vendor.businessName}>
+      <EventsDashboard accessToken={session.access_token} />
+    </PortalShell>
   );
 }

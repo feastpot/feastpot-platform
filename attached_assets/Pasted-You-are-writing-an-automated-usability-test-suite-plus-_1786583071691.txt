@@ -1,0 +1,26 @@
+You are writing an automated usability test suite plus a human test protocol for the rebuilt /menu screen in apps/vendor. Use Playwright for the automated portion.
+
+PART 1: AUTOMATED TASK TESTS. Each measures a complete vendor task, asserting both success and efficiency. Record the number of clicks, the number of page navigations, and elapsed time for each.
+
+T1  Empty state to first live dish, with photo and allergens. Target: under 90 seconds, zero page navigations.
+T2  Add a second dish in a different category. Target: under 45 seconds.
+T3  Mark an existing dish sold out. Target: 1 click, no panel opened.
+T4  Change a dish price. Target: under 20 seconds, panel opens and closes without navigation.
+T5  Reorder two dishes within a category and reload. Assert order persists.
+T6  Attempt to publish a dish with no allergen declaration. Assert it is blocked, the allergen section receives focus, and an explanation is shown.
+T7  Publish a dish using the "contains none of the 14" affirmation. Assert it goes live and the stored state differs from an empty array.
+T8  Upload a photo and, mid-upload, edit the name. Assert the name is not lost.
+T9  Vendor with 30 dishes. Assert the grid renders under 2 seconds and search filters correctly.
+T10 Header renders correctly with a 40-character business name. Assert no element overlap via bounding-box comparison.
+
+Assert a hard ceiling in every test: ZERO full page navigations for T1 to T8. If any task navigates, fail with a message naming which action caused it. The single-screen requirement is the point of the rebuild and must be enforced by test, not by inspection.
+
+PART 2: HUMAN PROTOCOL. Produce a markdown file the founder can run with a real vendor, containing:
+- Five task scripts phrased as goals, not instructions. Correct: "Put your Sunday jollof on Feastpot so people can order it." Incorrect: "Click Add a dish, then fill in the name field." The second wording tests nothing.
+- A space to record: task completed unaided yes or no, time taken, points of hesitation, and anything the vendor said aloud.
+- Three comprehension questions asked without the screen visible: "What is the difference between a draft dish and a live one?", "What would you do if you ran out of a dish today?", "Who decides what customers see first?"
+- A single pass or fail line per task, where pass means completed unaided with no verbal prompting.
+
+PART 3: REPORT. Output a results table with task, target, actual, and pass or fail, plus a list of every point where a test needed more clicks than target. Do not mark a task passed on the basis that it eventually completed; efficiency is the criterion being tested.
+
+STYLE: UK English. No em dashes. Do not write task scripts that tell the participant which control to use.

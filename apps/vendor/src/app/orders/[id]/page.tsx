@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 
-import { TopNav } from '@/components/layout/top-nav';
+import { PortalShell } from '@/components/layout/portal-shell';
 import { apiRequest, ApiError } from '@/lib/api/client';
 import { createClient as createServerSupabase } from '@/lib/supabase/server';
 
@@ -51,11 +51,12 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   }
 
   return (
-    <>
-      <TopNav businessName={vendor.businessName} />
-      <main className="container py-6 print:py-0">
+    <PortalShell businessName={vendor.businessName}>
+      {/* print:py-0 is applied to the inner wrapper; the layout shell's
+          px-4 py-6 padding is overridden only for print. */}
+      <div className="print:!py-0">
         <OrderDetailClient orderId={id} />
-      </main>
-    </>
+      </div>
+    </PortalShell>
   );
 }

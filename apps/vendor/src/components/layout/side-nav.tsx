@@ -91,7 +91,11 @@ export function SideNav({ businessName }: SideNavProps) {
       aria-label="Vendor portal navigation"
       className="hidden w-60 shrink-0 flex-col border-r border-border bg-white md:flex"
     >
-      <div className="flex h-48 items-center border-b border-border px-5">
+      {/* Logo: explicit h-10 keeps the element within the 240 px sidebar width
+          (at 3.5:1 aspect ratio h-10 → ~140 px wide, well inside the rail).
+          Previously h-[144px] w-auto caused a ~504 px element that overflowed
+          into the main content column and overlapped page headings. */}
+      <div className="flex items-center border-b border-border px-4 py-4">
         <Link href="/" className="flex items-center" aria-label="Feastpot vendor portal">
           <Image
             src="/feastpot-logo.png"
@@ -99,7 +103,7 @@ export function SideNav({ businessName }: SideNavProps) {
             width={560}
             height={160}
             priority
-            className="h-[144px] w-auto object-contain"
+            className="h-10 w-auto max-w-full object-contain object-left"
           />
         </Link>
       </div>
@@ -122,6 +126,7 @@ export function SideNav({ businessName }: SideNavProps) {
                   href={item.href}
                   className={cn(
                     'group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-1',
                     active
                       ? 'bg-teal-light text-teal-dark'
                       : 'text-mid hover:bg-surface hover:text-dark',

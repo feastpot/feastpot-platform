@@ -1,7 +1,7 @@
 import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
 import { redirect } from 'next/navigation';
 
-import { TopNav } from '@/components/layout/top-nav';
+import { PortalShell } from '@/components/layout/portal-shell';
 import { apiRequest, ApiError } from '@/lib/api/client';
 import { createClient as createServerSupabase } from '@/lib/supabase/server';
 
@@ -123,9 +123,8 @@ export default async function HelpPage() {
   if (vendor.status !== 'live' && vendor.status !== 'probation') redirect('/onboarding');
 
   return (
-    <>
-      <TopNav businessName={vendor.businessName} />
-      <main className="container max-w-3xl py-6">
+    <PortalShell businessName={vendor.businessName}>
+      <div className="max-w-3xl">
         <h1 className="mb-2 text-2xl font-bold text-foreground">Help & FAQ</h1>
         <p className="mb-6 text-sm text-muted-foreground">
           Operational rules and policies for Feastpot vendors. Can&rsquo;t find your answer? Email{' '}
@@ -168,7 +167,7 @@ export default async function HelpPage() {
             </section>
           ))}
         </div>
-      </main>
-    </>
+      </div>
+    </PortalShell>
   );
 }

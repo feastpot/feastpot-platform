@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 
-import { TopNav } from '@/components/layout/top-nav';
+import { PortalShell } from '@/components/layout/portal-shell';
 import { apiRequest, ApiError } from '@/lib/api/client';
 import { createClient as createServerSupabase } from '@/lib/supabase/server';
 
@@ -50,23 +50,20 @@ export default async function OnboardingPage() {
   }
 
   return (
-    <>
-      <TopNav businessName={vendor.businessName} />
-      <main className="container py-6">
-        <OnboardingClient vendor={vendor} />
-        <p className="mt-8 text-center text-xs text-muted-foreground">
-          By completing onboarding you agree to our{' '}
-          <a
-            href="https://feastpot.co.uk/legal/vendor-terms"
-            target="_blank"
-            rel="noreferrer"
-            className="underline hover:no-underline"
-          >
-            Vendor Terms of Service
-          </a>
-          .
-        </p>
-      </main>
-    </>
+    <PortalShell businessName={vendor.businessName}>
+      <OnboardingClient vendor={vendor} />
+      <p className="mt-8 text-center text-xs text-muted-foreground">
+        By completing onboarding you agree to our{' '}
+        <a
+          href="https://feastpot.co.uk/legal/vendor-terms"
+          target="_blank"
+          rel="noreferrer"
+          className="underline hover:no-underline"
+        >
+          Vendor Terms of Service
+        </a>
+        .
+      </p>
+    </PortalShell>
   );
 }
