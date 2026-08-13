@@ -1,0 +1,36 @@
+CONTEXT
+Feastpot Turborepo monorepo: apps/vendor (Next.js 15 App Router), apps/api (NestJS 11), Prisma against Supabase Postgres, packages/ui, packages/config (PLATFORM_FACTS). UK English. Never use an em dash anywhere, in copy, code, or comments.
+
+FIRST, INSPECT: read the DeliveryConfig model in prisma/schema.prisma (it is known to hold vendor base coordinates used for radius eligibility) and the vendor search repository at apps/api/src/modules/vendors/vendors.repository.ts. Establish exactly which field customer search filters on today: the postcode prefix list, the radius, or both. Report your finding before changing anything. Everything below depends on it.
+
+CRITICAL DEFECT: the delivery settings page shows a "Radius: 5 miles" slider AND a free-text "Servicing postcodes" field, with helper text stating "Map preview is on the roadmap - postcode list is what the customer search uses today." The radius control therefore has no effect on discoverability. A vendor who sets a wide radius and lists few postcodes believes she is reachable across an area she is invisible in, receives no orders, and has no way to diagnose it. Fix this by making radius and postcodes ONE mechanism, not two.
+
+BUILD:
+
+1. KITCHEN LOCATION. Add or surface the vendor's kitchen postcode as the anchor for service area. Validate it as a real UK postcode and geocode it to coordinates stored on DeliveryConfig. If coordinates already exist, use them. Show the postcode and its area name read-only on this page, with a link to change it in Profile.
+
+2. RADIUS GENERATES POSTCODES. The radius control computes the set of postcode prefixes ("districts", for example SW9, SE5) whose centroid falls within the chosen distance of the kitchen. Implement server-side, since it needs a postcode district centroid dataset. Use a free, offline-capable source such as the ONS postcode district centroid data rather than a paid per-request API, and cache the result. If no dataset is available in this environment, say so explicitly and implement the interface against a stubbed provider rather than silently degrading to the current broken behaviour.
+
+3. EDITABLE RESULT. Render the generated prefixes as removable chips. Allow adding a prefix outside the radius by typing, with validation that it is a real UK postcode district. The final chip set, not the radius, is what persists and what customer search uses. Radius is a convenience for populating it.
+
+4. STATE THE TRUTH ON SCREEN. Below the chips, state plainly that this list is what customer search uses. Delete the "Map preview is on the roadmap" helper text. Never ship a control whose effect is different from what its label implies.
+
+5. REMOVE NATIONWIDE. Delete the Nationwide delivery type unless you can confirm in the codebase that a real courier integration exists and is wired to order fulfilment. Home-cooked food shipped nationwide with no cold chain is a food safety exposure, and it contradicts the postcode-by-postcode launch strategy. If it is currently selectable and does nothing, that is a second no-op on the same page. Report what you find.
+
+6. COLLECTION ADDRESS. Replace the free textarea with structured fields (line 1, line 2, town, postcode) validated as a real UK address, so it can be shown reliably to customers and used for directions later. Migrate existing free-text values by attempting a parse, and flag any that fail for manual correction rather than discarding them.
+
+7. ORDER RULES. Keep minimum order and free delivery over. Add inline validation: free delivery threshold must exceed minimum order, or the setting is meaningless. Show the effect in plain words beneath, for example "Orders over £35 get free delivery. Below that, delivery is £4.00."
+
+8. NAVIGATION. Move this page into the left sidebar directly below "Availability". Use VendorPortalLayout, not the top nav.
+
+ACCEPTANCE CRITERIA:
+- Changing the radius visibly changes the postcode chip set on screen.
+- The persisted service area equals the chip set exactly, and customer search filters on that same field. Prove it with an integration test: set a service area, then assert a customer search from an included postcode finds the vendor and one from an excluded postcode does not.
+- No control on the page has an effect different from its label.
+- Removing all postcodes shows a clear warning that the vendor will not be discoverable.
+- Free delivery threshold below minimum order is rejected with an inline explanation.
+- The page renders inside the sidebar layout, positioned below Availability.
+
+EDGE CASES: a vendor whose kitchen postcode is near a coast or a large park (few districts within radius, so do not present an empty result as an error); a vendor who removes every generated postcode and adds only distant ones (allow it, warn once); a postcode district that exists but has no residential addresses; migration of existing vendors whose current comma-separated list contains invalid entries (keep the valid ones, surface the invalid ones for correction, never silently drop them).
+
+STYLE: UK English. No em dashes. Sentence case throughout. Do not reintroduce a second, parallel service-area control.
