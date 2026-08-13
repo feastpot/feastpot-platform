@@ -318,6 +318,20 @@ export function EarningsCalculator() {
         including your own customers. It is their fee, set by them, and we add nothing on top.
       </p>
 
+      {/* 4b. Service fee explanation - what keeps the platform running at 0% commission */}
+      <div className="rounded-2xl bg-brand-light px-5 py-4">
+        <p className="text-[13px] font-bold text-charcoal">
+          So how do we make money at 0%?
+        </p>
+        <p className="mt-1.5 text-[13px] leading-relaxed text-charcoal-mid">
+          Your customers pay a small service fee to Feastpot,{' '}
+          {PLATFORM_FACTS.serviceFee.percent}% capped at{' '}
+          £{(PLATFORM_FACTS.serviceFee.capPence / 100).toFixed(2)}. It comes from them, never
+          from your payout, and it is what keeps the platform running while you are paying us no
+          commission.
+        </p>
+      </div>
+
       {/* 5. Aggregator comparison - a prose line, no inputs, no table column */}
       <div className="rounded-2xl bg-white px-5 py-4 ring-1 ring-cream-deep">
         <p className="text-[13px] leading-relaxed text-charcoal-mid">

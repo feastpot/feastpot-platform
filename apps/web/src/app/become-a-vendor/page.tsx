@@ -165,6 +165,10 @@ const FAQ: { q: string; a: string }[] = [
     q: 'What if I cannot fulfil an order?',
     a: 'Set capacity caps and lead times so the platform automatically stops accepting orders when you are full. You can also pause your kitchen in one tap from the dashboard. If something unexpected happens, our team is available to help manage the customer.',
   },
+  {
+    q: 'Do my customers pay anything extra?',
+    a: `Yes, a service fee of ${PLATFORM_FACTS.serviceFee.percent}% capped at £${(PLATFORM_FACTS.serviceFee.capPence / 100).toFixed(2)}, shown in the price before they order. It never comes out of your payout. On orders you bring us yourself, that fee is the only thing Feastpot earns.`,
+  },
 ];
 
 // ── Form types ────────────────────────────────────────────────────────────
