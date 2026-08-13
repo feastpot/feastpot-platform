@@ -1,0 +1,40 @@
+CONTEXT
+Feastpot Turborepo monorepo: apps/vendor (Next.js 15 App Router, vendor portal), apps/api (NestJS 11), Prisma against Supabase Postgres, packages/ui for shared components and brand tokens, packages/config for PLATFORM_FACTS. UK English. Never use an em dash anywhere, in copy, code, or comments.
+
+FIRST, INSPECT: read prisma/schema.prisma for Menu (isActive, sortOrder) and MenuItem (category as ItemCategory, pricePence, isAvailable, moderationStatus, allergens, imageUrls, plus any description, portion label, prep time and dietary flag fields). List the actual ItemCategory enum values before writing any grouping logic. Also read apps/vendor/src/app/menu/[menuId]/items-grid-client.tsx and the existing menus list page.
+
+PROBLEM: vendors are creating one menu per dish (observed: three menus averaging one item each, a menu named "Asu pepper soup" containing an item named "Asu"). The Menu layer is a restaurant concept that home cooks do not have. Menu setup is also spread across three routes, and photos cannot be uploaded until after the item is saved.
+
+BUILD: a single screen at /menu that manages dishes directly.
+
+1. DEFAULT MENU. Every vendor gets exactly one Menu row, created automatically, never named or shown in the UI. All dishes attach to it. Do NOT delete the Menu model; it stays for future collections and catering. Write a migration that, for each vendor with multiple menus, moves all MenuItems onto their oldest menu and deactivates the rest. Do not delete menus that contain items, and log what moved so it can be reversed.
+
+2. GRID. Show all dishes on one screen, grouped by MenuItem.category, with a section heading per category (use the enum's own values, do not invent new labels). Within a category, respect sortOrder and allow drag to reorder. Each dish card shows: cover photo or a clear no-photo placeholder, name, price, portion label, prep time, status, and an edit affordance. End each category with a dashed "Add a dish" tile.
+
+3. SLIDE-OVER EDITOR. Add and edit both open a panel over the grid. No route change. The panel has two parts:
+   ESSENTIALS, always visible: photo upload, name, category, price, portion label, prep time, allergens.
+   ADD MORE DETAIL, collapsed by default: description, servings, dietary preferences, spice level.
+   Save closes the panel and updates the card in place. Escape and a close button both dismiss, prompting if there are unsaved changes.
+
+4. PHOTOS UPLOAD IMMEDIATELY. Remove "Save the item first, then come back here to upload photos" entirely. On opening the editor for a new dish, create a draft MenuItem row server-side so an id exists for upload, or stage files client-side and upload on save. Either is acceptable; the vendor must be able to add a photo in the same pass as the name. If you create draft rows, ensure abandoned drafts are cleaned up and never visible to customers.
+
+5. ONE STATUS. Replace the current combination of menu-level "Visible", item-level "Available to customers", and the Draft banner with a single status per dish: DRAFT, LIVE, or SOLD_OUT. Sold out is a quick toggle on the card for a dish that is live but temporarily unavailable. Draft is anything not yet published. Map these onto the existing isAvailable and moderationStatus fields rather than adding a parallel field, and state in your summary how you mapped them.
+
+6. ALLERGEN PUBLISH GATE. A dish cannot move to LIVE until allergens are declared. Declaration means either at least one of the FSA 14 is ticked, or an explicit affirmative checkbox reading "This dish contains none of the 14 allergens" is ticked. An empty allergens array with no affirmation must never satisfy the gate, because blank means unknown, not safe. Store the affirmation so the distinction survives. If a vendor tries to publish without it, focus the allergen section and explain why.
+
+7. SEPARATE ALLERGENS FROM DIETARY PREFERENCES. The current form shows Halal, Vegan, Vegetarian, Gluten-free and Dairy-free together as "dietary flags", which mixes a lifestyle preference with an allergen-safety claim. Split into two labelled groups: "Dietary" (halal, vegan, vegetarian) in the collapsed detail section, and "Allergens (FSA 14)" in essentials. Do not offer gluten-free or dairy-free as dietary flags; those are derived from the allergen declaration.
+
+8. STATUS STRIP, NOT SIX CARDS. Replace the six metric cards with a single strip that appears only when there is something to act on, for example "2 dishes need allergen info before they can go live" with a button that filters the grid to those dishes. When everything is clean, show nothing. Remove the "Quick tips" panel and the "Menu summary" sidebar; neither helps a vendor with four dishes.
+
+ACCEPTANCE CRITERIA:
+- A vendor can go from an empty state to a live dish with a photo without leaving /menu or reloading.
+- No screen asks the vendor to create or name a menu.
+- Existing vendors' dishes survive the migration, correctly grouped by category.
+- A dish with no allergen declaration cannot be set LIVE by any route, including the API directly.
+- Ticking "contains none of the 14" is stored distinctly from an empty array.
+- Drag reorder persists to sortOrder and survives reload.
+- The status strip is absent when nothing needs attention.
+
+EDGE CASES: a vendor with 30+ dishes (the flat grid must stay usable; add a search field above the grid, and only then consider optional collections); a dish whose photo upload fails midway (do not lose entered field values); two browser tabs editing the same dish (last write wins is acceptable, but do not silently discard the other tab's photo); a category with no dishes (hide the heading entirely rather than showing an empty section).
+
+STYLE: UK English. No em dashes. Sentence case for all labels and buttons. Do not reintroduce a menu-naming step anywhere in the flow.

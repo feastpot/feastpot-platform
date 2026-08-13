@@ -28,7 +28,12 @@ export interface MenuItem {
   preparationHours: number;
   imageUrls: string[];
   allergens: string[];
-  /** Tag-encoded extras: dietary flags + 'spice:N' + 'portion:LABEL' + 'halal' */
+  /**
+   * Affirmative declaration that the dish contains none of the FSA 14 allergens.
+   * Distinct from an empty allergens array (which means "not declared").
+   */
+  allergensFreeFrom: boolean;
+  /** Tag-encoded extras: dietary flags + 'spice:N' + 'portion:LABEL' + 'halal' + 'sold_out' */
   tags: string[];
   /** Manual display order within the menu (1-based); drag-to-reorder writes this. */
   sortOrder: number;
@@ -54,9 +59,13 @@ export interface MenuItemUpsertInput {
   isHalal?: boolean;
   dietaryFlags?: string[];
   allergens?: string[];
+  /** Affirmative: dish contains none of the 14 FSA allergens. */
+  allergensFreeFrom?: boolean;
   images?: string[];
   servingsCount?: number;
   isAvailable?: boolean;
+  /** When true, adds 'sold_out' tag and sets isAvailable=false server-side. */
+  soldOut?: boolean;
 }
 
 const ITEMS_KEY = (vendorId: string, menuId: string) =>

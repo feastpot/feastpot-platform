@@ -2,12 +2,12 @@ import { redirect } from 'next/navigation';
 
 import { RoleGate } from '@/components/auth/role-gate';
 import { PortalShell } from '@/components/layout/portal-shell';
-import { apiRequest, ApiError } from '@/lib/api/client';
+import { ApiError, apiRequest } from '@/lib/api/client';
 import { createClient as createServerSupabase } from '@/lib/supabase/server';
 
-import { MenuListClient } from './menu-list-client';
+import { DishesClient } from './dishes-client';
 
-// Reads cookies via Supabase server client → must be dynamic at runtime.
+// Reads cookies via the Supabase server client -- must be dynamic at runtime.
 export const dynamic = 'force-dynamic';
 
 interface VendorMe {
@@ -16,17 +16,7 @@ interface VendorMe {
   status: string;
 }
 
-/**
- * Server-side gate identical to /orders. Repeated rather than
- * abstracted because Next 15's segment-level layouts can't read the
- * session before rendering, and we want a single round-trip per page
- * load.
- *
- * Screen 3 of the vendor redesign - migrated to the SideNav shell
- * (with TopNav as a md:hidden mobile fallback). The /menu/[menuId]
- * detail page is not part of this turn and still renders TopNav.
- */
-export default async function MenuListPage() {
+export default async function MenuPage() {
   const supabase = await createServerSupabase();
   const {
     data: { session },
@@ -48,9 +38,9 @@ export default async function MenuListPage() {
 
   return (
     <PortalShell businessName={vendor.businessName}>
-          <RoleGate path="/menu">
-            <MenuListClient vendorId={vendor.id} />
-          </RoleGate>
+      <RoleGate path="/menu">
+        <DishesClient vendorId={vendor.id} />
+      </RoleGate>
     </PortalShell>
   );
 }

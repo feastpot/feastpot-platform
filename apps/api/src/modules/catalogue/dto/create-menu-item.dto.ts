@@ -118,4 +118,32 @@ export class CreateMenuItemDto {
   @Transform(({ value }) => (typeof value === 'string' ? value === 'true' : value))
   @IsBoolean()
   isAvailable?: boolean = false;
+
+  /**
+   * Affirmative declaration that the dish contains NONE of the FSA 14 major
+   * allergens. Storing this separately from an empty `allergens` array is
+   * required because an empty array means "not declared" (unknown), not "safe".
+   * A dish cannot go live unless either allergens.length > 0 OR this is true.
+   */
+  @ApiPropertyOptional({
+    default: false,
+    description: 'Affirmative declaration: dish contains none of the 14 FSA allergens.',
+  })
+  @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' ? value === 'true' : value))
+  @IsBoolean()
+  allergensFreeFrom?: boolean;
+
+  /**
+   * When true, the dish is temporarily unavailable (sold out) but remains
+   * approved and ready to reinstate. Stored as a `sold_out` tag in the schema's
+   * `tags` column alongside dietary flags. A sold-out dish reads as
+   * isAvailable=false in the public API; this flag lets the vendor UI
+   * distinguish "sold out" from "draft".
+   */
+  @ApiPropertyOptional({ default: false, description: 'Mark as temporarily sold out.' })
+  @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' ? value === 'true' : value))
+  @IsBoolean()
+  soldOut?: boolean;
 }

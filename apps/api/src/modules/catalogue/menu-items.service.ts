@@ -205,6 +205,22 @@ export class MenuItemsService {
   async create(vendorId: string, menuId: string, dto: CreateMenuItemDto) {
     await this.assertMenuBelongs(vendorId, menuId);
     const allergens = MenuItemsService.validateAllergens(dto.allergens);
+
+    // Allergen publish gate: a dish cannot go live without a declaration.
+    // An empty allergens array means "not declared" (unknown), not "safe".
+    // The vendor must either tick at least one FSA allergen OR explicitly
+    // affirm the dish contains none of the 14 before isAvailable can be true.
+    if (dto.isAvailable) {
+      const allergensFreeFrom = dto.allergensFreeFrom ?? false;
+      if (allergens.length === 0 && !allergensFreeFrom) {
+        throw new BadRequestException({
+          code: 'ALLERGEN_DECLARATION_REQUIRED',
+          message:
+            'Declare allergens or confirm the dish contains none of the 14 allergens before publishing.',
+        });
+      }
+    }
+
     // Apply create-time defaults here rather than on the DTO so PATCH (PartialType)
     // does not silently overwrite stored values with defaults on omitted fields.
     const tags = MenuItemsService.buildTags({
@@ -213,6 +229,11 @@ export class MenuItemsService {
       spiceLevel: dto.spiceLevel ?? 0,
       portionLabel: dto.portionLabel,
     });
+    // sold_out is a status tag distinct from dietary/portion tags. It marks a
+    // previously-approved dish that is temporarily unavailable so the vendor UI
+    // can distinguish it from a draft that has never been published.
+    if (dto.soldOut) tags.push('sold_out');
+
     const preparationHours = Math.max(1, Math.ceil(dto.prepTimeMinutes / 60));
 
     // New items go to the end of the menu's current order so drag-to-reorder
@@ -242,6 +263,7 @@ export class MenuItemsService {
         preparationHours,
         imageUrls: dto.images ?? [],
         allergens,
+        allergensFreeFrom: dto.allergensFreeFrom ?? false,
         tags,
         sortOrder,
         moderationStatus,
@@ -458,6 +480,7 @@ export class MenuItemsService {
     if (dto.images !== undefined) data.imageUrls = dto.images;
     if (dto.allergens !== undefined)
       data.allergens = MenuItemsService.validateAllergens(dto.allergens);
+    if (dto.allergensFreeFrom !== undefined) data.allergensFreeFrom = dto.allergensFreeFrom;
     if (dto.prepTimeMinutes !== undefined) {
       data.preparationHours = Math.max(1, Math.ceil(dto.prepTimeMinutes / 60));
     }
@@ -466,29 +489,60 @@ export class MenuItemsService {
     // for in-place flips, but the full upsert must not silently drop this.)
     if (dto.isAvailable !== undefined) data.isAvailable = dto.isAvailable;
 
-    // Tag-encoded fields: if any of them is supplied, recompute the full tag set
-    // by merging the supplied values with the previously-stored ones.
+    // Allergen publish gate applied on every update that sets isAvailable=true.
+    if (dto.isAvailable === true) {
+      const effectiveAllergens =
+        dto.allergens !== undefined
+          ? MenuItemsService.validateAllergens(dto.allergens)
+          : existing.allergens;
+      const effectiveAllergensFreeFrom = dto.allergensFreeFrom ?? existing.allergensFreeFrom;
+      if (effectiveAllergens.length === 0 && !effectiveAllergensFreeFrom) {
+        throw new BadRequestException({
+          code: 'ALLERGEN_DECLARATION_REQUIRED',
+          message:
+            'Declare allergens or confirm the dish contains none of the 14 allergens before publishing.',
+        });
+      }
+    }
+
+    // Tag-encoded fields: if any of them is supplied (or soldOut), recompute tags.
+    // sold_out is a status marker stored in tags alongside dietary/portion tags.
+    // buildTags never emits it, so we preserve/add/remove it explicitly here.
     const tagFieldsTouched =
       dto.dietaryFlags !== undefined ||
       dto.isHalal !== undefined ||
       dto.spiceLevel !== undefined ||
       dto.portionLabel !== undefined;
-    if (tagFieldsTouched) {
+    const soldOutTouched = dto.soldOut !== undefined;
+
+    if (tagFieldsTouched || soldOutTouched) {
       const prevTags = existing.tags;
-      const prevSpice = prevTags
-        .find((t) => t.startsWith(SPICE_TAG_PREFIX))
-        ?.slice(SPICE_TAG_PREFIX.length);
-      const prevPortion = prevTags
-        .find((t) => t.startsWith(PORTION_TAG_PREFIX))
-        ?.slice(PORTION_TAG_PREFIX.length);
-      const prevDiet = prevTags.filter((t) => DIETARY_FLAG_SET.has(t));
-      const prevHalal = prevTags.includes('halal');
-      data.tags = MenuItemsService.buildTags({
-        dietaryFlags: dto.dietaryFlags ?? prevDiet,
-        isHalal: dto.isHalal ?? prevHalal,
-        spiceLevel: dto.spiceLevel ?? (prevSpice ? Number(prevSpice) : undefined),
-        portionLabel: dto.portionLabel ?? prevPortion,
-      });
+      const prevSoldOut = prevTags.includes('sold_out');
+      const nextSoldOut = soldOutTouched ? (dto.soldOut ?? false) : prevSoldOut;
+
+      let newTags: string[];
+      if (tagFieldsTouched) {
+        const prevSpice = prevTags
+          .find((t) => t.startsWith(SPICE_TAG_PREFIX))
+          ?.slice(SPICE_TAG_PREFIX.length);
+        const prevPortion = prevTags
+          .find((t) => t.startsWith(PORTION_TAG_PREFIX))
+          ?.slice(PORTION_TAG_PREFIX.length);
+        const prevDiet = prevTags.filter((t) => DIETARY_FLAG_SET.has(t));
+        const prevHalal = prevTags.includes('halal');
+        newTags = MenuItemsService.buildTags({
+          dietaryFlags: dto.dietaryFlags ?? prevDiet,
+          isHalal: dto.isHalal ?? prevHalal,
+          spiceLevel: dto.spiceLevel ?? (prevSpice ? Number(prevSpice) : undefined),
+          portionLabel: dto.portionLabel ?? prevPortion,
+        });
+      } else {
+        // Only soldOut changed: preserve all non-sold_out tags from existing.
+        newTags = prevTags.filter((t) => t !== 'sold_out');
+      }
+
+      if (nextSoldOut) newTags = [...newTags, 'sold_out'];
+      data.tags = newTags;
     }
 
     const updated = await this.prisma.menuItem.update({ where: { id: itemId }, data });
@@ -504,7 +558,16 @@ export class MenuItemsService {
   }
 
   async toggleAvailability(vendorId: string, menuId: string, itemId: string, isAvailable: boolean) {
-    await this.findOne(vendorId, menuId, itemId);
+    const existing = await this.findOne(vendorId, menuId, itemId);
+    // Allergen gate: a dish that has never had allergens declared cannot be
+    // switched live via the quick toggle either. This mirrors the full update gate.
+    if (isAvailable && existing.allergens.length === 0 && !existing.allergensFreeFrom) {
+      throw new BadRequestException({
+        code: 'ALLERGEN_DECLARATION_REQUIRED',
+        message:
+          'Open the dish editor to declare allergens before making this dish live.',
+      });
+    }
     const updated = await this.prisma.menuItem.update({
       where: { id: itemId },
       data: { isAvailable },
