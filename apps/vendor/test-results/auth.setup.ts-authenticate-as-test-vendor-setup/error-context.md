@@ -12,19 +12,16 @@
 # Error details
 
 ```
-Error: locator.waitFor: Error: strict mode violation: locator('input[type="password"]') resolved to 2 elements:
-    1) <input tabindex="-1" type="password" name="fakepasswordremembered" autocomplete="current-password"/> aka locator('input[name="fakepasswordremembered"]')
-    2) <input readonly value="" id="password" type="password" autocorrect="off" spellcheck="false" name="vendor-password" autocomplete="new-password" class="w-full rounded-xl border bg-white py-3 pl-10 pr-11 text-sm font-medium outline-none"/> aka getByRole('textbox', { name: 'Password' })
-
-Call log:
-  - waiting for locator('input[type="password"]') to be visible
-
+TimeoutError: page.waitForURL: Timeout 15000ms exceeded.
+=========================== logs ===========================
+waiting for navigation until "load"
+============================================================
 ```
 
 # Page snapshot
 
 ```yaml
-- generic [ref=e1]:
+- generic [active] [ref=e1]:
   - generic [ref=e2]:
     - complementary [ref=e3]:
       - generic [ref=e13]:
@@ -49,35 +46,36 @@ Call log:
     - main [ref=e44]:
       - generic [ref=e45]:
         - heading "Sign in to your vendor account" [level=2] [ref=e51]
-        - generic [ref=e52]:
+        - alert [ref=e52]: Invalid email or password.
+        - generic [ref=e53]:
           - textbox
           - textbox
-          - generic [ref=e53]:
-            - generic [ref=e54]: Email
-            - textbox "Email" [active] [ref=e56]:
+          - generic [ref=e54]:
+            - generic [ref=e55]: Email
+            - textbox "Email" [ref=e57]:
               - /placeholder: you@domain.com
               - text: real@address.com
-          - generic [ref=e57]:
-            - generic [ref=e58]: Password
-            - generic [ref=e59]:
-              - textbox "Password" [ref=e60]
-              - button "Show password" [ref=e61] [cursor=pointer]
-          - generic [ref=e65]:
-            - generic [ref=e66] [cursor=pointer]:
-              - checkbox "Remember me" [checked] [ref=e68]
-              - generic [ref=e69]: Remember me
-            - link "Forgot password?" [ref=e70] [cursor=pointer]:
+          - generic [ref=e58]:
+            - generic [ref=e59]: Password
+            - generic [ref=e60]:
+              - textbox "Password" [ref=e61]: realpassword
+              - button "Show password" [ref=e62] [cursor=pointer]
+          - generic [ref=e66]:
+            - generic [ref=e67] [cursor=pointer]:
+              - checkbox "Remember me" [checked] [ref=e69]
+              - generic [ref=e70]: Remember me
+            - link "Forgot password?" [ref=e71] [cursor=pointer]:
               - /url: /forgot-password
-          - button "Sign in" [ref=e71] [cursor=pointer]
-        - link "Need help? Contact vendor support" [ref=e76] [cursor=pointer]:
+          - button "Sign in" [ref=e72] [cursor=pointer]
+        - link "Need help? Contact vendor support" [ref=e77] [cursor=pointer]:
           - /url: mailto:vendors@feastpot.co.uk
-          - generic [ref=e79]: Need help?
+          - generic [ref=e80]: Need help?
           - text: Contact vendor support
   - region "Notifications (F8)":
     - list
-  - button "Open Tanstack query devtools" [ref=e130] [cursor=pointer]
-  - button "Open Next.js Dev Tools" [ref=e184] [cursor=pointer]
-  - alert [ref=e188]
+  - button "Open Tanstack query devtools" [ref=e131] [cursor=pointer]
+  - button "Open Next.js Dev Tools" [ref=e185] [cursor=pointer]
+  - alert [ref=e189]
 ```
 
 # Test source
@@ -126,32 +124,36 @@ Call log:
   41 | 
   42 |   await page.goto('/sign-in');
   43 | 
-  44 |   // The sign-in form uses a readonly anti-autofill trick: inputs start with
-  45 |   // readonly="true" to prevent Chrome from pre-filling them, then JS removes
-  46 |   // the attribute. Playwright's fill() waits for editability and times out
-  47 |   // if the attribute is never removed. Strip it manually before filling.
-  48 |   const emailInput = page.locator('input[type="email"]');
-  49 |   const passwordInput = page.locator('input[type="password"]');
-  50 | 
-  51 |   await emailInput.waitFor({ state: 'visible' });
-  52 |   await emailInput.evaluate((el) => el.removeAttribute('readonly'));
-  53 |   await emailInput.fill(email);
+  44 |   // The sign-in form has two anti-autofill measures:
+  45 |   //   1. A hidden honeypot password input (name="fakepasswordremembered") that
+  46 |   //      causes input[type="password"] to resolve to 2 elements, triggering
+  47 |   //      Playwright strict-mode violations.
+  48 |   //   2. readonly="true" on the real inputs until a user interaction fires.
+  49 |   //
+  50 |   // Fix: target the real fields by their stable IDs (#email, #password) and
+  51 |   // strip readonly before filling.
+  52 |   const emailInput = page.locator('#email');
+  53 |   const passwordInput = page.locator('#password');
   54 | 
-> 55 |   await passwordInput.waitFor({ state: 'visible' });
-     |                       ^ Error: locator.waitFor: Error: strict mode violation: locator('input[type="password"]') resolved to 2 elements:
-  56 |   await passwordInput.evaluate((el) => el.removeAttribute('readonly'));
-  57 |   await passwordInput.fill(password);
+  55 |   await emailInput.waitFor({ state: 'visible' });
+  56 |   await emailInput.evaluate((el) => el.removeAttribute('readonly'));
+  57 |   await emailInput.fill(email);
   58 | 
-  59 |   await page.locator('button[type="submit"]').click();
-  60 | 
-  61 |   // Wait for the portal to settle on an authenticated route.
-  62 |   // Newly-approved vendors land on /onboarding; live vendors land on /.
-  63 |   await page.waitForURL((url) => !url.pathname.startsWith('/sign-in'), {
-  64 |     timeout: 15_000,
-  65 |   });
-  66 | 
-  67 |   fs.mkdirSync(path.dirname(STATE_PATH), { recursive: true });
-  68 |   await page.context().storageState({ path: STATE_PATH });
-  69 | });
+  59 |   await passwordInput.waitFor({ state: 'visible' });
+  60 |   await passwordInput.evaluate((el) => el.removeAttribute('readonly'));
+  61 |   await passwordInput.fill(password);
+  62 | 
+  63 |   await page.locator('button[type="submit"]').click();
+  64 | 
+  65 |   // Wait for the portal to settle on an authenticated route.
+  66 |   // Newly-approved vendors land on /onboarding; live vendors land on /.
+> 67 |   await page.waitForURL((url) => !url.pathname.startsWith('/sign-in'), {
+     |              ^ TimeoutError: page.waitForURL: Timeout 15000ms exceeded.
+  68 |     timeout: 15_000,
+  69 |   });
   70 | 
+  71 |   fs.mkdirSync(path.dirname(STATE_PATH), { recursive: true });
+  72 |   await page.context().storageState({ path: STATE_PATH });
+  73 | });
+  74 | 
 ```
