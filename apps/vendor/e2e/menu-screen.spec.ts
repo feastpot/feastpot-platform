@@ -34,14 +34,29 @@ import { PageMetrics } from './helpers/page-metrics';
 
 // ── Shared helpers ───────────────────────────────────────────────────────────
 
-/** Wait for the dishes grid OR the empty state to appear. */
+/**
+ * Wait for the /menu screen to be ready.
+ *
+ * The search toolbar input (`aria-label="Search dishes"`) is rendered on
+ * mount regardless of loading/empty/populated state, making it the most
+ * reliable signal that the Next.js page has hydrated and DishesClient is
+ * active. If the middleware redirected to /sign-in we fail immediately with
+ * a clear message instead of timing out for the full 15 s.
+ */
 async function waitForMenuReady(page: import('@playwright/test').Page) {
-  await page.waitForSelector(
-    '[data-testid="dishes-grid"], text="No dishes yet", text="Add your first dish"',
-    { timeout: 10_000 },
-  ).catch(() => {
-    // Fall back to waiting for the Add a dish button which is always rendered.
-    return page.waitForSelector('button:has-text("Add a dish")', { timeout: 10_000 });
+  await page.waitForLoadState('domcontentloaded');
+
+  if (page.url().includes('/sign-in')) {
+    throw new Error(
+      'waitForMenuReady: redirected to /sign-in - the auth session is missing or expired.\n' +
+        'Re-run with real vendor credentials:\n' +
+        '  TEST_VENDOR_EMAIL=<email> TEST_VENDOR_PASSWORD=<password> npm run test:e2e --workspace=@feastpot/vendor',
+    );
+  }
+
+  await page.getByRole('textbox', { name: 'Search dishes' }).waitFor({
+    state: 'visible',
+    timeout: 15_000,
   });
 }
 
@@ -668,6 +683,11 @@ test('T9: 30 dishes - grid renders under 2 s - search filters correctly', async 
   const beforeNav = Date.now();
 
   await page.goto('/menu');
+  await page.waitForLoadState('domcontentloaded');
+
+  if (page.url().includes('/sign-in')) {
+    throw new Error('T9: redirected to /sign-in - auth session missing, check credentials');
+  }
 
   // Wait for all dish names to be visible (30 cards rendered).
   await expect(page.getByText('Dish 30')).toBeVisible({ timeout: 5_000 });
