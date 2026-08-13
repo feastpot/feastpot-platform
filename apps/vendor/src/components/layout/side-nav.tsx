@@ -48,7 +48,7 @@ const NAV_ITEMS: ReadonlyArray<NavItem> = [
   { href: '/settings/delivery', label: 'Delivery settings', Icon: Truck },
   { href: '/analytics', label: 'Analytics', Icon: BarChart3 },
   { href: '/share', label: 'Share your kitchen', Icon: QrCode },
-  { href: '/referrals', label: 'Bring your own customers', Icon: Link2 },
+  { href: '/referrals', label: 'Your own customers', Icon: Link2 },
   { href: '/catering', label: 'Catering bookings', Icon: BarChart3 },
   { href: '/earnings', label: 'Earnings & fees', Icon: BarChart3 },
   { href: '/payouts', label: 'Payouts', Icon: PoundSterling },

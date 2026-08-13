@@ -881,6 +881,7 @@ model Vendor {
   enforcementActions   VendorEnforcementAction[]
   taxProfile           VendorTaxProfile?
   platformReports      PlatformReport[]
+  slugRedirects        VendorSlugRedirect[]
 
   @@index([status])
   @@index([slug])
@@ -2164,4 +2165,19 @@ model FeastPassSaving {
 
   @@index([userId, savedAt])
   @@map("feast_pass_savings")
+}
+
+/// Permanent redirects created when a vendor changes their URL slug.
+/// Ensures old QR codes and shared links keep resolving after a slug change.
+/// Rows are never deleted so redirect chains remain intact.
+model VendorSlugRedirect {
+  id        String   @id @default(uuid()) @db.Uuid
+  vendorId  String   @map("vendor_id") @db.Uuid
+  oldSlug   String   @unique @map("old_slug") @db.VarChar(255)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId])
+  @@map("vendor_slug_redirects")
 }

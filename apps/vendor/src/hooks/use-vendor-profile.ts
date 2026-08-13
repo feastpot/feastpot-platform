@@ -54,6 +54,29 @@ export function useVendorProfile() {
   });
 }
 
+// ---- Live menu items for the featured-dishes picker ----
+
+export interface LiveMenuItem {
+  id: string;
+  name: string;
+  imageUrls: string[];
+}
+
+const LIVE_ITEMS_KEY = (vendorId: string) =>
+  ['vendor', 'live-menu-items', vendorId] as const;
+
+export function useLiveMenuItems(vendorId: string | undefined) {
+  const { token, loading } = useAccessToken();
+  return useQuery({
+    queryKey: LIVE_ITEMS_KEY(vendorId ?? ''),
+    enabled: !!vendorId && !!token && !loading,
+    queryFn: () =>
+      apiRequest<LiveMenuItem[]>(`/vendors/${vendorId}/live-menu-items`, {
+        accessToken: token!,
+      }),
+  });
+}
+
 export function useUpdateVendorProfile(vendorId: string | undefined) {
   const { token } = useAccessToken();
   const qc = useQueryClient();

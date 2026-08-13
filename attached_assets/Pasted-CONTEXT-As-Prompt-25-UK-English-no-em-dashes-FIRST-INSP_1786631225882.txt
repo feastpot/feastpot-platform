@@ -1,0 +1,41 @@
+CONTEXT
+As Prompt 25. UK English, no em dashes.
+
+FIRST, INSPECT: read the Vendor model for businessName, slug, logoUrl, coverImageUrl and any description, story, cuisine, speciality, featured-dish and social-link fields. Note their current types, since several are likely comma-separated strings that should become arrays. Also read apps/vendor's "Share your kitchen" page to confirm the canonical link format that depends on Vendor.slug.
+
+BUILD:
+
+1. PROTECT THE SLUG. This is the highest-priority change on the page. Vendor.slug is used by the canonical share link and the downloadable QR codes in "Share your kitchen", and it drives vendor-referred order attribution. Editing it freely, as the page currently allows, silently kills every printed QR code, flyer and Instagram bio link the vendor has already distributed.
+   - Render the slug read-only by default with a "Change" affordance.
+   - On change, show a confirmation stating exactly what breaks: "Your QR codes and any links you have already shared will stop working. Anyone who scans an old code will see a page-not-found error."
+   - Implement a redirect from the old slug to the new one and keep it permanently. Store previous slugs in a table so old links keep resolving. This is the correct fix and it makes the warning much softer.
+   - Prompt the vendor to download fresh QR codes after changing.
+
+2. CHIP INPUTS, NOT COMMA-SEPARATED TEXT. Replace Cuisines, Specialities and Featured dishes with chip inputs. Typing and pressing Enter or comma creates a chip; backspace on empty input removes the last; each chip has a remove control. Persist as string arrays, migrating existing comma-separated values by splitting and trimming. Enforce the existing limits (12 specialities, 6 featured dishes) by disabling further input and saying why, rather than silently truncating.
+
+3. FEATURED DISHES COME FROM THE MENU. Do not let vendors type dish names that already exist as MenuItems. Replace with a picker over her live menu items, storing references rather than free text. If a referenced dish is later deleted or set to draft, drop it from featured automatically rather than showing a dead name to customers. If she has no live dishes yet, show an empty state pointing to Menu.
+
+4. SOCIAL LINKS ACCEPT HANDLES. Change "Full https:// URLs only" to accept either a handle or a URL, and normalise on save. Entering "@mamanskitchen" or "mamanskitchen" in the Instagram field must store the correct full URL. Validate that the resulting URL is well formed; do not verify the account exists. Keep a website field that requires a full URL, since a bare domain is ambiguous.
+
+5. EXPLAIN THE THREE OVERLAPPING FIELDS. Cuisines, Specialities and Featured dishes are not self-evidently different. Add one line of helper text each, phrased for a cook rather than a taxonomist: Cuisines is "the food traditions you cook in"; Specialities is "what you are known for"; Featured dishes is "the two or three dishes you want at the top of your page".
+
+6. LIVE PREVIEW. Add a preview panel showing how the vendor's public page header will look with the current values: cover image, logo, business name, short description, cuisine chips. It updates as she types. This replaces a page that describes the customer view without ever showing it.
+
+7. IMAGERY GUIDANCE. Beside logo and cover, state plainly why each matters and what happens without one, for example "Kitchens with a cover photo get noticeably more orders. Without one your page shows a plain colour block." Do not fabricate a statistic; if no data exists, phrase it qualitatively. Show the required dimensions as now, and validate on upload with a clear message rather than a silent failure.
+
+8. COMPLETENESS. Add a short completeness indicator listing only what is missing and why it matters, linking to each gap. Do not show a percentage or a progress ring; a list of two remaining items is more actionable than "70%".
+
+9. NAVIGATION LABEL. Fix the truncated "Bring your own custo..." item in the sidebar. Shorten the label so it fits, for example "Your own customers".
+
+ACCEPTANCE CRITERIA:
+- The slug is not editable without an explicit confirmation naming the QR-code consequence.
+- Changing the slug creates a permanent redirect from the old value, and an old link still resolves after the change.
+- No comma-separated free-text field remains on the page.
+- Featured dishes can only be selected from the vendor's live menu items, and self-heal when a dish is removed.
+- Entering "@handle" in a social field stores a valid full URL.
+- The preview updates live and matches what the public vendor page actually renders.
+- Field limits are enforced visibly, never by silent truncation.
+
+EDGE CASES: a vendor with no menu items yet (featured dishes shows an empty state, not a broken picker); an extremely long business name in the preview (truncate with ellipsis, do not overlap, matching the header fix in Prompt 23); a slug collision with an existing vendor (reject with a clear message and suggest an alternative); migrating a vendor whose comma-separated speciality string contains more than 12 entries (keep the first 12, tell them which were dropped, do not discard silently).
+
+STYLE: UK English. No em dashes. Sentence case. Do not add a second place to edit delivery or availability settings; keep the existing cross-reference note.

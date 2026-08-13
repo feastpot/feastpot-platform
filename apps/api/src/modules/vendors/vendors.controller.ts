@@ -385,10 +385,31 @@ export class VendorsController {
   }
 
   @Public()
+  @Get('slug-redirect/:slug')
+  @ApiOperation({ summary: 'Return { newSlug } if a slug has been permanently redirected (public)' })
+  async findSlugRedirect(@Param('slug') slug: string) {
+    const result = await this.vendors.findSlugRedirect(slug);
+    if (!result) throw new NotFoundException({ code: 'REDIRECT_NOT_FOUND', message: 'No redirect for this slug' });
+    return result;
+  }
+
+  @Public()
   @Get('by-slug/:slug')
   @ApiOperation({ summary: 'Get vendor by slug (public) - used by customer PWA' })
   findBySlug(@Param('slug') slug: string, @Query('postcode') postcode?: string) {
     return this.vendors.findBySlug(slug, postcode);
+  }
+
+  @Get(':id/live-menu-items')
+  @ApiBearerAuth()
+  @Roles(UserRole.vendor, UserRole.admin)
+  @ApiOperation({ summary: 'Return live, approved menu items for the featured-dishes picker' })
+  getLiveMenuItems(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthUser | null,
+  ) {
+    requireUser(user);
+    return this.vendors.getLiveMenuItems(id);
   }
 
   @Public()

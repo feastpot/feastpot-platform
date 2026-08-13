@@ -1161,7 +1161,24 @@ export class VendorsService {
     // (not from the profile cache) so a just-published review moves the bars
     // in lockstep with the recalculated headline rating.
     const ratingBreakdown = await this.getRatingBreakdown(lite.id);
-    const base = { ...vendor, platformServiceFeeBps, ratingBreakdown };
+    // Resolve featured dish IDs to names. Items that have since been deleted
+    // or taken offline are excluded automatically (self-heal on every read).
+    const featuredDishDetails =
+      vendor.featuredDishes && vendor.featuredDishes.length > 0
+        ? await this.prisma.menuItem.findMany({
+            where: {
+              id: { in: vendor.featuredDishes },
+              vendorId: lite.id,
+              isAvailable: true,
+              moderationStatus: {
+                in: [ModerationStatus.auto_approved, ModerationStatus.approved],
+              },
+            },
+            select: { id: true, name: true },
+          })
+        : [];
+
+    const base = { ...vendor, platformServiceFeeBps, ratingBreakdown, featuredDishDetails };
     const trimmed = postcode?.trim();
     if (!trimmed) return base;
     const dc = vendor.deliveryConfig;
@@ -1170,6 +1187,28 @@ export class VendorsService {
     if (coords.latitude == null || coords.longitude == null) return base;
     const distanceKm = haversineKm(coords.latitude, coords.longitude, dc.latitude, dc.longitude);
     return { ...base, distanceKm };
+  }
+
+  /** Return the new slug if `slug` is an old address that was redirected. */
+  async findSlugRedirect(slug: string): Promise<{ newSlug: string } | null> {
+    const row = await this.repo.findSlugRedirect(slug);
+    if (!row?.vendor?.slug) return null;
+    return { newSlug: row.vendor.slug };
+  }
+
+  /** All live, approved menu items for a vendor. Used by the featured-dishes picker. */
+  async getLiveMenuItems(
+    vendorId: string,
+  ): Promise<{ id: string; name: string; imageUrls: string[] }[]> {
+    return this.prisma.menuItem.findMany({
+      where: {
+        vendorId,
+        isAvailable: true,
+        moderationStatus: { in: [ModerationStatus.auto_approved, ModerationStatus.approved] },
+      },
+      select: { id: true, name: true, imageUrls: true },
+      orderBy: { name: 'asc' },
+    });
   }
 
   async findMyVendor(userId: string) {
@@ -1271,7 +1310,23 @@ export class VendorsService {
     if (dto.coverImageUrl !== undefined) data.coverImageUrl = dto.coverImageUrl;
     if (dto.specialities !== undefined) data.specialities = dto.specialities;
     if (dto.vendorStory !== undefined) data.vendorStory = dto.vendorStory;
-    if (dto.featuredDishes !== undefined) data.featuredDishes = dto.featuredDishes;
+    if (dto.featuredDishes !== undefined) {
+      if (dto.featuredDishes.length > 0) {
+        const valid = await this.prisma.menuItem.findMany({
+          where: { id: { in: dto.featuredDishes }, vendorId },
+          select: { id: true },
+        });
+        const validIds = new Set(valid.map((m) => m.id));
+        const bad = dto.featuredDishes.filter((id) => !validIds.has(id));
+        if (bad.length > 0) {
+          throw new BadRequestException({
+            code: 'INVALID_FEATURED_DISH',
+            message: `Featured dish IDs not found on this vendor: ${bad.join(', ')}`,
+          });
+        }
+      }
+      data.featuredDishes = dto.featuredDishes;
+    }
     if (dto.socialLinks !== undefined) {
       // Validate every value is an http(s) URL before persisting, so the
       // customer page can render the entries directly without re-checking.
@@ -1323,6 +1378,9 @@ export class VendorsService {
             message: `Slug "${normalisedSlug}" is already in use`,
           });
         }
+        // Write a permanent redirect from the old slug so existing QR codes
+        // and shared links continue to resolve after the change.
+        await this.repo.createSlugRedirect(vendorId, vendor.slug);
         data.slug = normalisedSlug;
       }
     }

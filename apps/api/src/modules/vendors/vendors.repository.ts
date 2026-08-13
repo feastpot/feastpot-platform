@@ -410,6 +410,21 @@ export class VendorRepository {
     return this.prisma.vendor.findUnique({ where: { slug } });
   }
 
+  findSlugRedirect(oldSlug: string) {
+    return this.prisma.vendorSlugRedirect.findUnique({
+      where: { oldSlug },
+      select: { vendor: { select: { slug: true } } },
+    });
+  }
+
+  createSlugRedirect(vendorId: string, oldSlug: string) {
+    return this.prisma.vendorSlugRedirect.upsert({
+      where: { oldSlug },
+      create: { vendorId, oldSlug },
+      update: {},
+    });
+  }
+
   /**
    * T005 review: case-insensitive lookup used by the profile editor when
    * checking slug collisions before write. The unique index on `slug` is

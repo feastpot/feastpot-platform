@@ -11,7 +11,7 @@ import {
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 
 import { FloatingBasketBar } from '@/components/basket/floating-basket-bar';
 import { MenuCategoryTabs } from '@/components/menu/menu-category-tabs';
@@ -26,6 +26,7 @@ import { ApiError } from '@/lib/api/client';
 import {
   getVendorBySlug,
   getVendorCapacity,
+  getVendorSlugRedirect,
   getVendorTrustSignals,
   getVendorVerification,
   type CapacityDay,
@@ -181,7 +182,13 @@ export default async function VendorProfilePage({ params }: PageProps) {
       next: customerPostcode ? { revalidate: 0 } : { revalidate: 60 },
     });
   } catch (e) {
-    if (e instanceof ApiError && e.status === 404) notFound();
+    if (e instanceof ApiError && e.status === 404) {
+      // Check whether this slug was renamed - if so, send a permanent redirect
+      // so old QR codes and shared links keep working.
+      const slugRedirect = await getVendorSlugRedirect(slug).catch(() => null);
+      if (slugRedirect) redirect(`/vendors/${slugRedirect.newSlug}`);
+      notFound();
+    }
     throw e;
   }
 
@@ -417,20 +424,30 @@ export default async function VendorProfilePage({ params }: PageProps) {
           </ul>
         )}
 
-        {/* T005: featured dishes - vendor-curated highlights independent
-            of the menu items below (covers seasonal / off-menu shouts). */}
-        {vendor.featuredDishes && vendor.featuredDishes.length > 0 && (
-          <div className="rounded-2xl bg-cream-warm p-3">
-            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-brand">
-              Featured dishes
-            </p>
-            <ul className="mt-1.5 space-y-1 text-sm font-medium text-charcoal">
-              {vendor.featuredDishes.map((d) => (
-                <li key={d}>· {d}</li>
-              ))}
-            </ul>
-          </div>
-        )}
+        {/* Featured dishes: resolved from menu-item IDs by the API.
+            `featuredDishDetails` carries the canonical names; fall back to
+            the raw `featuredDishes` array for any legacy free-text values. */}
+        {(() => {
+          const details: Array<{ id: string; name: string }> =
+            (vendor as { featuredDishDetails?: Array<{ id: string; name: string }> })
+              .featuredDishDetails ?? [];
+          const names = details.length > 0
+            ? details.map((d) => d.name)
+            : (vendor.featuredDishes ?? []);
+          if (names.length === 0) return null;
+          return (
+            <div className="rounded-2xl bg-cream-warm p-3">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-brand">
+                Featured dishes
+              </p>
+              <ul className="mt-1.5 space-y-1 text-sm font-medium text-charcoal">
+                {names.map((name) => (
+                  <li key={name}>· {name}</li>
+                ))}
+              </ul>
+            </div>
+          );
+        })()}
 
         {/* T005: long-form vendor story. */}
         {vendor.vendorStory && (
