@@ -1,0 +1,21 @@
+CONTEXT
+As above. The founding offer referral top-up grants the referrer £250 of commission-free GMV when a referred vendor completes their first order. It reads vendors.referred_by_vendor_id. That column exists but nothing populates it, so no referrer will ever receive a top-up. The entire referral mechanic is inoperative while appearing to work, which is the same failure class as the allergen filter and the delivery radius slider.
+
+FIRST, INSPECT: read apps/api/src/modules/vendor-applications/vendor-applications.service.ts and apps/api/src/modules/vendors/vendors.service.ts (updateStatus and the approval path), and apps/api/src/modules/orders/orders.service.ts grantFoundingReferralBonus, which is the consumer. Establish where the fp_ref referral cookie or attribution is captured during application and where it is currently discarded.
+
+BUILD
+1. Capture the referring vendor at application time. If an fp_ref value is present on the application, store it on the VendorApplication record so it survives until approval. Do not rely on a cookie still existing at approval, which may be days later and in a different session (an admin's).
+2. On approval, write referred_by_vendor_id on the new Vendor row, pointing at the referring vendor.
+3. Set once, never overwrite. If the field already has a value, leave it. Add a guard, not just a convention.
+4. If no referral was used, leave it null. Never default it to anything.
+5. Validate the referrer exists and is an active vendor at approval time. If the referring vendor has since been suspended or deleted, leave the field null and log why, rather than creating a dangling reference.
+6. Prevent self-referral: a vendor cannot be recorded as their own referrer.
+7. Add tests: application with a referral is approved and sets the field; application without one leaves it null; a second approval attempt does not overwrite; a suspended referrer results in null with a log entry.
+
+ACCEPTANCE CRITERIA
+- Approving a referred application populates referred_by_vendor_id.
+- grantFoundingReferralBonus fires on that vendor's first completed order and increases the referrer's granted allowance by the PLATFORM_FACTS referral bonus, respecting the ceiling.
+- An end-to-end test proves the full chain: referred application, approval, first completed order, referrer allowance increases.
+- No self-referral or dangling reference is possible.
+
+EDGE CASES: referral cookie present but naming a non-existent vendor slug; two applications from the same email; an application approved, rejected, then re-approved.
