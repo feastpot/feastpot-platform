@@ -1,0 +1,80 @@
+00:28:01.746 Running build in Washington, D.C., USA (East) – iad1
+00:28:01.747 Build machine configuration: 2 cores, 8 GB
+00:28:01.883 Cloning github.com/feastpot/feastpot-platform (Branch: main, Commit: b64dbfb)
+00:28:07.728 Cloning completed: 5.845s
+00:28:08.088 Restored build cache from previous deployment (C2vKVVG8uf5yhZBPYtfWZs1oohnQ)
+00:28:09.838 Running "vercel build"
+00:28:09.855 Vercel CLI 58.1.0
+00:28:09.889 > Detected Turbo. Adjusting default settings...
+00:28:10.109 Running "install" command: `cd ../.. && npm install`...
+00:28:15.984 
+00:28:15.984 > feastpot-platform@0.1.0 prepare
+00:28:15.984 > husky
+00:28:15.985 
+00:28:16.047 
+00:28:16.048 up to date, audited 1511 packages in 6s
+00:28:16.048 
+00:28:16.048 288 packages are looking for funding
+00:28:16.048   run `npm fund` for details
+00:28:16.127 
+00:28:16.130 8 high severity vulnerabilities
+00:28:16.131 
+00:28:16.132 To address issues that do not require attention, run:
+00:28:16.133   npm audit fix
+00:28:16.133 
+00:28:16.134 To address all issues (including breaking changes), run:
+00:28:16.134   npm audit fix --force
+00:28:16.135 
+00:28:16.135 Run `npm audit` for details.
+00:28:16.168 Detected Next.js version: 15.5.19
+00:28:16.170 Running "cd ../.. && npm run build -- --filter=@feastpot/vendor"
+00:28:16.277 
+00:28:16.278 > feastpot-platform@0.1.0 build
+00:28:16.278 > turbo run build --filter=@feastpot/vendor
+00:28:16.278 
+00:28:16.548 
+00:28:16.554    • Packages in scope: @feastpot/vendor
+00:28:16.554    • Running build in 1 packages
+00:28:16.554    • Remote caching enabled
+00:28:16.554 
+00:28:16.728 @feastpot/types:build: cache hit, replaying logs 1c841a607f269f36
+00:28:16.729 @feastpot/types:build: 
+00:28:16.729 @feastpot/types:build: > @feastpot/types@0.1.0 build
+00:28:16.729 @feastpot/types:build: > tsc --build
+00:28:16.729 @feastpot/types:build: 
+00:28:16.842 @feastpot/vendor:build: cache miss, executing b19dcafc24511988
+00:28:17.045 @feastpot/vendor:build: 
+00:28:17.045 @feastpot/vendor:build: > @feastpot/vendor@0.1.0 build
+00:28:17.046 @feastpot/vendor:build: > next build
+00:28:17.046 @feastpot/vendor:build: 
+00:28:18.153 @feastpot/vendor:build:    ▲ Next.js 15.5.19
+00:28:18.154 @feastpot/vendor:build:    - Experiments (use with caution):
+00:28:18.155 @feastpot/vendor:build:      ✓ externalDir
+00:28:18.156 @feastpot/vendor:build: 
+00:28:18.215 @feastpot/vendor:build:    Creating an optimized production build ...
+00:28:26.098 @feastpot/vendor:build: Failed to compile.
+00:28:26.098 @feastpot/vendor:build: 
+00:28:26.099 @feastpot/vendor:build: ./src/app/performance/page.tsx
+00:28:26.099 @feastpot/vendor:build: Module not found: Can't resolve './performance-client'
+00:28:26.099 @feastpot/vendor:build: 
+00:28:26.100 @feastpot/vendor:build: https://nextjs.org/docs/messages/module-not-found
+00:28:26.100 @feastpot/vendor:build: 
+00:28:26.121 @feastpot/vendor:build: 
+00:28:26.122 @feastpot/vendor:build: > Build failed because of webpack errors
+00:28:26.143 @feastpot/vendor:build: npm error Lifecycle script `build` failed with error:
+00:28:26.146 @feastpot/vendor:build: npm error code 1
+00:28:26.146 @feastpot/vendor:build: npm error path /vercel/path0/apps/vendor
+00:28:26.147 @feastpot/vendor:build: npm error workspace @feastpot/vendor@0.1.0
+00:28:26.147 @feastpot/vendor:build: npm error location /vercel/path0/apps/vendor
+00:28:26.147 @feastpot/vendor:build: npm error command failed
+00:28:26.148 @feastpot/vendor:build: npm error command sh -c next build
+00:28:26.154  ERROR  @feastpot/vendor#build: command (/vercel/path0/apps/vendor) /node24/bin/npm run build exited (1)
+00:28:26.158 
+00:28:26.158   Tasks:    1 successful, 2 total
+00:28:26.158  Cached:    1 cached, 2 total
+00:28:26.158    Time:    9.758s 
+00:28:26.158 Summary:    /vercel/path0/.turbo/runs/3HvYegsDIzhoalSnQpiFcSP4Ojv.json
+00:28:26.158  Failed:    @feastpot/vendor#build
+00:28:26.158 
+00:28:26.168  ERROR  run failed: command  exited (1)
+00:28:26.204 Error: Command "cd ../.. && npm run build -- --filter=@feastpot/vendor" exited with 1
