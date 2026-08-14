@@ -1,5 +1,5 @@
 import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
-import { FeastPassPlan, FeastPassStatus } from '@prisma/client';
+import { AttributionSource, FeastPassPlan, FeastPassStatus } from '@prisma/client';
 import * as Sentry from '@sentry/nestjs';
 import type Stripe from 'stripe';
 
@@ -44,7 +44,22 @@ export class FeastPassService {
         },
       }),
       this.prisma.feastPassSaving.aggregate({
-        where: { userId },
+        where: {
+          userId,
+          // Only count savings from marketplace-sourced orders. The service fee
+          // waiver does not apply to vendor-referred orders, so no genuine
+          // saving occurred on those. Orders with unknown attribution (null
+          // resolvedSource or no attribution row) are excluded conservatively:
+          // counting an unknown source as marketplace would overstate savings,
+          // which is a misleading commercial practice under the DMCC Act.
+          order: {
+            attribution: {
+              resolvedSource: {
+                in: [AttributionSource.MARKETPLACE_FIRST, AttributionSource.MARKETPLACE_REPEAT],
+              },
+            },
+          },
+        },
         _sum: { savedPence: true },
         _count: { id: true },
       }),
@@ -290,6 +305,17 @@ export class FeastPassService {
         customerId: userId,
         serviceFeePence: { gt: 0 },
         status: { in: [...chargeableStatuses] },
+        // Vendor-referred orders are never eligible for the service fee waiver,
+        // so they cannot represent a genuine savings opportunity. Exclude them
+        // from the potential figure to avoid a misleading claim (DMCC Act).
+        // Orders with no attribution row, or with a null resolvedSource, are
+        // also excluded: treating an unknown source as marketplace would
+        // overstate the benefit. The caller can rely on this being a lower bound.
+        attribution: {
+          resolvedSource: {
+            in: [AttributionSource.MARKETPLACE_FIRST, AttributionSource.MARKETPLACE_REPEAT],
+          },
+        },
       },
       _sum: { serviceFeePence: true },
       _count: { id: true },

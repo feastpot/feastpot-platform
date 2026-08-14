@@ -177,6 +177,9 @@ function FeastPassInner() {
               <p className="mt-0.5 text-sm font-medium text-charcoal-mid">
                 saved across {savings.orderCount} order{savings.orderCount !== 1 ? 's' : ''} as a member
               </p>
+              <p className="mt-2 text-xs text-charcoal-mid">
+                Based on orders placed through Feastpot. Orders through a kitchen&apos;s own link are not included.
+              </p>
             </div>
           )}
 

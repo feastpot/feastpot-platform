@@ -653,7 +653,10 @@ export class OrdersService {
         marketplaceMarker,
       });
       // Best-effort FeastPass saving record. Never blocks order creation.
-      if (isFeastPassMember && rawServiceFeePence > 0) {
+      // Only record for marketplace-sourced orders: the service fee waiver
+      // does not apply to vendor-referred orders, so no saving occurred on
+      // those and recording one would overstate cumulative savings.
+      if (isFeastPassMember && rawServiceFeePence > 0 && attrSource !== OrderSource.VENDOR_REFERRED) {
         void this.feastpass.recordSaving(customerId, orderId, rawServiceFeePence);
       }
       return result;

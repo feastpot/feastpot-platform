@@ -270,6 +270,9 @@ export default function FeastPassPage() {
               {Math.ceil(breakEvenOrders / ordersPerMonth)} month{Math.ceil(breakEvenOrders / ordersPerMonth) !== 1 ? 's' : ''} at your current rate.
             </p>
           )}
+          <p className="mt-3 text-xs text-charcoal-mid border-t border-brand/10 pt-2">
+            Based on orders placed through Feastpot. Orders through a kitchen&apos;s own link are not included.
+          </p>
         </div>
       </section>
 
