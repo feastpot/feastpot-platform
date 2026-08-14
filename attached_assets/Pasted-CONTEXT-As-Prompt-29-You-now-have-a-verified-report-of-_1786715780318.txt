@@ -1,0 +1,29 @@
+CONTEXT
+As Prompt 29. You now have a verified report of which columns exist in production. Use it; do not re-derive.
+
+Apply two migrations to the production Supabase database:
+  20260812140000_add_discount_funded_by
+  20260812150000_founding_allowance
+Follow the existing runbook in .agents/memory/supabase-prod-migration.md and the pattern used for the FeastPass production migration (task 132): run the SQL via psql against PROD_DIRECT_URL, then insert the migration row into _prisma_migrations. Consult .agents/memory/prisma-migrations-dev.md for the P3005 baseline recovery pattern if Prisma objects.
+
+MANDATORY SEQUENCE
+1. BACKUP FIRST. Take a Supabase point-in-time snapshot or a pg_dump of the vendors, orders and discount_codes tables before touching anything. State in your output that this is done and how to restore. Do not proceed without it.
+2. Apply discount-funding first, then founding allowance. Do not reorder; the second assumes the first.
+3. Make each migration idempotent where the Prompt 29 report shows partial application. Use IF NOT EXISTS on columns and a guarded DO block for the enum type, so a partially applied state converges rather than erroring.
+4. BACKFILL. Every existing production order with discount_pence > 0 must be set to discount_funded_by = 'PLATFORM'. This is the correct historical value: those discounts were platform promotions, and PLATFORM funding means the vendor was paid in full, which is the safe direction. Never backfill to VENDOR, which would retroactively imply a cook funded a discount she did not agree to. Report the row count updated and confirm it matches the count from Prompt 29.
+5. Backfill vendors.founding_allowance_granted_pence to the PLATFORM_FACTS default for existing vendors, and used_pence to 0. Do not grant allowance retrospectively for orders already completed.
+6. Insert both migration rows into _prisma_migrations so future prisma migrate deploy runs do not attempt to reapply.
+7. Confirm RLS. No new tables are added, so existing table policies should cover the new columns, but verify explicitly and report rather than assuming.
+8. SMOKE TEST. Create a test order in production against a test vendor and confirm it completes with no Prisma error. Then create one carrying a discount and confirm discount_funded_by is written. Delete the test orders afterwards and confirm deletion.
+
+ACCEPTANCE CRITERIA
+- A backup exists and the restore path is stated.
+- All six columns and the enum exist in production.
+- Every pre-existing order with discount_pence > 0 has discount_funded_by = 'PLATFORM'; zero rows remain null with a non-zero discount.
+- Both migration rows are present in production _prisma_migrations.
+- A real production order completes end to end without error.
+- Test orders are cleaned up.
+
+EDGE CASES: partial prior application (idempotent SQL handles it); an order with discount_pence > 0 created between your backfill and your constraint work (re-run the backfill query immediately before finishing and report if it caught anything); connection timeout mid-migration (state how to determine what applied and resume safely).
+
+STYLE: UK English. No em dashes. Stop and report rather than improvising if production state does not match the Prompt 29 report.
