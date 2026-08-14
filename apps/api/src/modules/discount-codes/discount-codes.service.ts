@@ -130,6 +130,18 @@ export class DiscountCodesService {
   // ----- admin -----
 
   async adminCreate(dto: CreateDiscountCodeDto, adminUserId: string) {
+    const fundedBy = dto.fundedBy ?? DiscountFundedBy.PLATFORM;
+
+    // Cross-field invariant: a VENDOR-funded code must be scoped to a specific
+    // vendor. Billing every cook for one platform-wide promotion is wrong, so
+    // we enforce this both here and in the admin UI.
+    if (fundedBy === DiscountFundedBy.VENDOR && !dto.vendorId) {
+      throw new BadRequestException({
+        code: 'VENDOR_FUNDED_CODE_REQUIRES_VENDOR',
+        message: 'A vendor-funded discount code must be scoped to a specific vendor (vendorId required)',
+      });
+    }
+
     const data: Prisma.DiscountCodeUncheckedCreateInput = {
       code: dto.code.trim().toUpperCase(),
       type: dto.type,
@@ -140,6 +152,7 @@ export class DiscountCodesService {
       vendorId: dto.vendorId ?? null,
       isActive: dto.isActive ?? true,
       createdByUserId: adminUserId,
+      fundedBy,
     };
     try {
       return await this.prisma.discountCode.create({ data });
@@ -152,6 +165,38 @@ export class DiscountCodesService {
       }
       throw e;
     }
+  }
+
+  /**
+   * Update the funding source of an existing discount code.
+   *
+   * Blocked once usedCount > 0 , changing fundedBy retroactively would alter
+   * the effective payout formula for orders already calculated. To correct a
+   * mistake on a redeemed code: deactivate it and create a replacement.
+   */
+  async adminUpdateFundedBy(id: string, fundedBy: DiscountFundedBy) {
+    const existing = await this.prisma.discountCode.findUnique({
+      where: { id },
+      select: { id: true, usedCount: true, vendorId: true, code: true },
+    });
+    if (!existing) {
+      throw new BadRequestException({ code: 'DISCOUNT_CODE_NOT_FOUND', message: 'Discount code not found' });
+    }
+    if (existing.usedCount > 0) {
+      throw new BadRequestException({
+        code: 'DISCOUNT_CODE_HAS_REDEMPTIONS',
+        message:
+          `Cannot change funding source of "${existing.code}" , it has already been redeemed ` +
+          `${existing.usedCount} time(s). Deactivate it and create a replacement with the correct source.`,
+      });
+    }
+    if (fundedBy === DiscountFundedBy.VENDOR && !existing.vendorId) {
+      throw new BadRequestException({
+        code: 'VENDOR_FUNDED_CODE_REQUIRES_VENDOR',
+        message: 'A vendor-funded discount code must be scoped to a specific vendor. Set a vendorId first.',
+      });
+    }
+    return this.prisma.discountCode.update({ where: { id }, data: { fundedBy } });
   }
 
   async adminList(page = 1, limit = 20) {

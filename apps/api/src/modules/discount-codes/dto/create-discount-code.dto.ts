@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { DiscountType } from '@prisma/client';
+import { DiscountFundedBy, DiscountType } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   IsBoolean,
@@ -78,4 +78,16 @@ export class CreateDiscountCodeDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @ApiPropertyOptional({
+    enum: DiscountFundedBy,
+    default: DiscountFundedBy.PLATFORM,
+    description:
+      'PLATFORM (default): Feastpot absorbs the discount; the vendor is paid in full. ' +
+      'VENDOR: the discount comes off the vendor payout; commission is on the discounted subtotal. ' +
+      'A VENDOR-funded code MUST have vendorId set , a platform-wide code cannot bill one cook.',
+  })
+  @IsOptional()
+  @IsEnum(DiscountFundedBy)
+  fundedBy?: DiscountFundedBy;
 }

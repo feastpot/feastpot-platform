@@ -7,6 +7,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Query,
   UnauthorizedException,
   UseGuards,
@@ -24,6 +25,7 @@ import type { AuthUser } from '../../auth/types';
 import { DiscountCodesService } from './discount-codes.service';
 import { CreateDiscountCodeDto } from './dto/create-discount-code.dto';
 import { ToggleDiscountCodeDto } from './dto/toggle-discount-code.dto';
+import { UpdateDiscountCodeFundedByDto } from './dto/update-discount-code-funded-by.dto';
 import { ValidateDiscountCodeDto } from './dto/validate-discount-code.dto';
 
 @ApiTags('Discount codes')
@@ -89,5 +91,18 @@ export class DiscountCodesController {
   @ApiOperation({ summary: 'Activate / deactivate a discount code (admin only).' })
   adminToggle(@Param('id', new ParseUUIDPipe()) id: string, @Body() dto: ToggleDiscountCodeDto) {
     return this.discountCodes.adminToggle(id, dto.isActive);
+  }
+
+  @Put('admin/discount-codes/:id/funded-by')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.admin)
+  @ApiOperation({
+    summary: 'Update the funding source of a discount code (admin only, blocked once redeemed).',
+  })
+  adminUpdateFundedBy(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: UpdateDiscountCodeFundedByDto,
+  ) {
+    return this.discountCodes.adminUpdateFundedBy(id, dto.fundedBy);
   }
 }

@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useApi } from './use-api';
 
 export type DiscountType = 'flat' | 'percentage';
+export type DiscountFundedBy = 'PLATFORM' | 'VENDOR';
 
 export interface DiscountCodeRow {
   id: string;
@@ -18,6 +19,7 @@ export interface DiscountCodeRow {
   vendorId: string | null;
   vendor: { id: string; businessName: string } | null;
   isActive: boolean;
+  fundedBy: DiscountFundedBy;
   createdAt: string;
   _count: { orders: number };
 }
@@ -38,6 +40,7 @@ export interface CreateDiscountCodeInput {
   expiresAt?: string;
   vendorId?: string;
   isActive?: boolean;
+  fundedBy?: DiscountFundedBy;
 }
 
 export function useDiscountCodes(page = 1) {
@@ -67,6 +70,19 @@ export function useToggleDiscountCode() {
       request<DiscountCodeRow>(`/admin/discount-codes/${id}`, {
         method: 'PATCH',
         body: { isActive },
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'discount-codes'] }),
+  });
+}
+
+export function useUpdateDiscountCodeFundedBy() {
+  const { request } = useApi();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, fundedBy }: { id: string; fundedBy: DiscountFundedBy }) =>
+      request<DiscountCodeRow>(`/admin/discount-codes/${id}/funded-by`, {
+        method: 'PUT',
+        body: { fundedBy },
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'discount-codes'] }),
   });
