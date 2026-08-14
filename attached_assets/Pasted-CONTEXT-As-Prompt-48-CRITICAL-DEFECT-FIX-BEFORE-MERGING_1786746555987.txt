@@ -1,0 +1,34 @@
+CONTEXT
+As Prompt 48.
+
+CRITICAL DEFECT, FIX BEFORE MERGING. Two vendor pages issue different share links for the same kitchen:
+  /share      https://feastpot.co.uk/v/mamans-kitchen-peckham?src=vendor
+  /referrals  https://feastpot.co.uk/v/maman-s-kitchen-wm6qx3
+They differ in two ways: a different slug, and the second has no ?src=vendor marker. The attribution engine uses that marker to classify an order as vendor-sourced at 0% commission. A vendor who prints the QR code from /referrals onto her packaging may therefore have her own customers attributed to the marketplace and be charged 12% on business she brought herself.
+
+STEP 1: ESTABLISH THE TRUTH. Determine which slug is canonical (Vendor.slug), where the second form (maman-s-kitchen-wm6qx3) is generated, and whether a link without ?src=vendor actually attributes as vendor-sourced or as marketplace-sourced. Report the answer before changing anything. If it attributes as marketplace-sourced, then any orders already placed through a /referrals link have been overcharged, and you must report how many exist so they can be corrected.
+
+STEP 2: ONE LINK, ONE SOURCE OF TRUTH. Define the canonical share link in one place, derived from Vendor.slug with ?src=vendor always appended, and have every surface read from it: both pages before the merge, the QR generator, all share-text blocks, and anywhere else it appears. Grep for any other hard-coded or separately generated link form and remove it.
+
+STEP 3: MAKE THE QR SAFE. Both pages currently issue a downloadable QR. If a vendor has already printed the wrong one, the old slug must still resolve. Implement a permanent redirect from any previously issued slug form to the canonical one, preserving ?src=vendor on the redirect so attribution is not lost. This is the same mechanism required by the slug-change protection work; reuse it rather than building a second one.
+
+STEP 4: MERGE THE PAGES. "Share your kitchen" and "Bring your own customers" are the same feature. Combine into one screen named "Share and customers" containing:
+  - The canonical link with copy and test actions.
+  - One QR code, offered as PNG and SVG, at high error correction.
+  - Ready-to-use share text for Instagram bio and WhatsApp.
+  - The order source breakdown table (marketplace versus your link, orders and revenue), which currently only exists on /referrals and is the most useful thing on either page.
+  - The "How it works" explainer, corrected per step 5.
+Retire the second route with a redirect.
+
+STEP 5: CORRECT THE COMMISSION COPY. The explainer says orders through the link "attract 0% commission versus the standard 12% marketplace rate". It omits that the marketplace rate drops to PLATFORM_FACTS.commission.marketplaceRepeat on repeat orders. Read all three rates from PLATFORM_FACTS and state them accurately. Do not hard-code any percentage on this page.
+
+ACCEPTANCE CRITERIA
+- Exactly one share link exists in the codebase, derived from Vendor.slug with ?src=vendor.
+- An end-to-end test proves an order placed through the canonical link is attributed VENDOR_REFERRED and charged 0% commission.
+- A previously issued slug form redirects to the canonical link with the marker preserved, and a test proves attribution survives the redirect.
+- One QR code, one page, one set of share text.
+- Commission figures on the page come from PLATFORM_FACTS and include the repeat rate.
+- The retired route redirects.
+- If any historical orders were misattributed, they are reported with counts and order ids, not silently corrected.
+
+EDGE CASES: a vendor whose slug has changed since a QR was printed; a link arriving with a conflicting or malformed src parameter (treat as vendor-sourced only on an exact match, and log anything else); an in-app browser stripping query parameters, which would silently break attribution and must be tested on Instagram and WhatsApp.

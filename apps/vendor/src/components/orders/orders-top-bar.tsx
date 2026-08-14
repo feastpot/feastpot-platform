@@ -5,7 +5,8 @@ import { Download, RefreshCcw, Search } from 'lucide-react';
 interface Props {
   search: string;
   onSearchChange: (v: string) => void;
-  onExport: () => void;
+  /** When omitted the Export button is hidden (e.g. in catering-only view). */
+  onExport?: () => void;
   onRefresh: () => void;
   isRefreshing: boolean;
 }
@@ -40,6 +41,7 @@ export function OrdersTopBar({ search, onSearchChange, onExport, onRefresh, isRe
         />
       </div>
       <div className="flex items-center gap-2">
+        {onExport && (
         <button
           type="button"
           onClick={onExport}
@@ -48,6 +50,7 @@ export function OrdersTopBar({ search, onSearchChange, onExport, onRefresh, isRe
           <Download className="h-4 w-4" aria-hidden />
           Export
         </button>
+        )}
         <button
           type="button"
           onClick={onRefresh}

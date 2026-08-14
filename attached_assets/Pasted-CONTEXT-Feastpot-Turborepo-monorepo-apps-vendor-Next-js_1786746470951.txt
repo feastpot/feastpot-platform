@@ -1,0 +1,27 @@
+CONTEXT
+Feastpot Turborepo monorepo: apps/vendor (Next.js 15 App Router), apps/api (NestJS 11), Prisma against Supabase Postgres, packages/ui, packages/config (PLATFORM_FACTS). UK English. Never use an em dash or a double hyphen used as a dash anywhere, in copy, code, or comments.
+
+FIRST, INSPECT: read the Order model and its OrderType and OrderStatus enums, plus whatever model backs catering bookings. Establish whether catering is a separate model or an OrderType on Order. This determines whether the merge is a UI change or also a data change. Report before proceeding.
+
+PROBLEM: Orders and Catering bookings are separate screens with separate lifecycles (Orders: pending, preparing, dispatched, delivered. Catering: quote sent, confirmed, balance paid, completed, cancelled). A vendor thinks in terms of work coming in, not in terms of which pipeline a job belongs to. Two screens means two places to check before she knows what she is cooking this week.
+
+BUILD one Orders screen covering both.
+
+1. A single list with a type filter: All, Standard, Catering. Default to All. Catering jobs remain visually distinguishable with a clear badge, since a party tray for 40 is a different kind of commitment from a single portion.
+2. Preserve both lifecycles. Do not force catering into the standard status set. Status chips filter within the selected type; when All is selected, show a unified simplified set (Needs action, In progress, Completed, Cancelled) and map both lifecycles onto it. Define the mapping explicitly in code with a comment, and surface the precise underlying status on each row.
+3. Lead with what needs action. The default view should answer "what do I have to do next", ordered by the soonest commitment, whether that is a pending acceptance or a catering balance due.
+4. Keep the existing Orders quick filters (high value, with customer notes, delivery, collection, contains allergens) and add catering-specific ones (quote sent, balance outstanding, event this week) that appear only when catering is in scope.
+5. Move "New catering quote" onto this screen as a primary action, visible when the type filter includes catering.
+6. Merge the two summary panels into one. Do not stack the existing Orders summary and the catering stat cards; produce a single set of counts that reconciles across both types.
+7. FIX THE EMPTY STATE. The catering empty state currently reads "When admin routes a catering enquiry to you, create a quote here", which tells the vendor she is waiting on someone else with no action available. Replace with something she can act on: how catering enquiries reach her, and a link to create a quote directly for a customer who contacted her another way.
+8. Retire the separate Catering bookings nav item and route. Redirect the old route to the merged screen with the catering filter preselected, so existing links and bookmarks continue to work.
+
+ACCEPTANCE CRITERIA
+- One screen shows both standard and catering work, filterable by type.
+- Both lifecycles are preserved and the unified status mapping is explicit in code.
+- Counts reconcile: the sum of type-filtered counts equals the All count.
+- The old catering route redirects with the filter applied.
+- The default view is ordered by soonest required action.
+- No nav item for Catering bookings remains.
+
+EDGE CASES: a catering booking with no scheduled date (sort last, do not crash); an order that is both high value and catering (both filters match, no duplication in counts); a vendor with catering disabled entirely (hide catering filters rather than showing empty ones).

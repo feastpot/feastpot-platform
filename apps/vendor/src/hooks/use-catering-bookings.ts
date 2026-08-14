@@ -9,6 +9,7 @@ import {
   listVendorCateringBookings,
   sendCateringQuote,
 } from '@/lib/api/catering-bookings';
+import { useAccessToken } from '@/lib/auth/use-access-token';
 
 const KEY = 'vendor-catering-bookings';
 
@@ -17,6 +18,20 @@ export function useVendorCateringBookings(accessToken: string | undefined) {
     queryKey: [KEY, 'list'],
     queryFn: () => listVendorCateringBookings(accessToken!),
     enabled: Boolean(accessToken),
+  });
+}
+
+/**
+ * Catering bookings hook for use inside the combined Orders dashboard.
+ * Manages its own access token (no prop required) and polls every 30 s.
+ */
+export function useActiveCateringBookings() {
+  const { token, loading: authLoading } = useAccessToken();
+  return useQuery({
+    queryKey: [KEY, 'list'],
+    enabled: !!token && !authLoading,
+    refetchInterval: 30_000,
+    queryFn: () => listVendorCateringBookings(token!),
   });
 }
 

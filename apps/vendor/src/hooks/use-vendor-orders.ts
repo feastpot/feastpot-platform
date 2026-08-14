@@ -117,3 +117,36 @@ export function useOrderHistory(filters: HistoryFilters) {
       }),
   });
 }
+
+const CANCELLED_STATUSES: VendorOrderStatus[] = ['cancelled', 'rejected', 'refunded'];
+
+/**
+ * Cancelled, rejected, and refunded orders - fetched in the All view only.
+ * Three parallel requests (one per status) are needed because the list
+ * endpoint accepts only a single status value.
+ */
+export function useCancelledOrders(enabled = true) {
+  const { token, loading: authLoading } = useAccessToken();
+
+  return useQuery({
+    queryKey: ['vendor', 'orders', 'cancelled'],
+    enabled: enabled && !!token && !authLoading,
+    refetchInterval: 60_000,
+    queryFn: async (): Promise<VendorOrder[]> => {
+      const responses = await Promise.all(
+        CANCELLED_STATUSES.map((status) =>
+          apiRequest<OrdersResponse>('/orders', {
+            accessToken: token!,
+            query: { status, limit: 50 },
+          }),
+        ),
+      );
+      const merged = responses.flatMap((r) => r.data);
+      merged.sort(
+        (a, b) =>
+          +new Date(b.cancelledAt ?? b.createdAt) - +new Date(a.cancelledAt ?? a.createdAt),
+      );
+      return merged;
+    },
+  });
+}

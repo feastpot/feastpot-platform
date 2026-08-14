@@ -57,7 +57,6 @@ const NAV_SECTIONS: ReadonlyArray<NavSection> = [
       { href: '/',         label: 'Dashboard',         Icon: LayoutDashboard },
       { href: '/orders',   label: 'Orders',             Icon: ClipboardList },
       { href: '/disputes', label: 'Disputes',           Icon: MessageSquareWarning },
-      { href: '/catering', label: 'Catering bookings',  Icon: UtensilsCrossed },
     ],
   },
   {

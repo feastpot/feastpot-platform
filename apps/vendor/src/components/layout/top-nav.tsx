@@ -28,7 +28,6 @@ const NAV_ITEMS = [
   { href: '/',                    label: 'Dashboard' },
   { href: '/orders',              label: 'Orders' },
   { href: '/disputes',            label: 'Disputes' },
-  { href: '/catering',            label: 'Catering' },
   { href: '/menu',                label: 'Menu' },
   { href: '/availability',        label: 'Availability' },
   { href: '/settings/delivery',   label: 'Delivery' },
