@@ -11,12 +11,37 @@ export const PAYOUTS_QUEUE = 'payouts';
 export const WEEKLY_BATCH_JOB = 'payout-batch';
 
 /**
- * Schedules and processes the weekly vendor payout batch.
+ * Job name for individual payout Stripe transfers.
+ * Enqueued by PayoutsService.approvePayout() when finance approves a draft.
+ * Processed here with up to 5 attempts / exponential backoff so transient
+ * Stripe or network failures retry automatically without admin intervention.
+ */
+export const PAYOUT_TRANSFER_JOB = 'payout-transfer';
+
+export interface PayoutTransferJobData {
+  payoutId: string;
+}
+
+/**
+ * Schedules and processes the weekly vendor payout batch and individual
+ * Stripe transfer jobs.
+ *
+ * Weekly batch:
  *   - Cron: Monday 02:00 UTC (`0 2 * * 1`)
  *   - JobId: `weekly-payout` (de-duplicates if multiple instances bootstrap)
+ *   - Concurrency: 1 - race-condition safe for batch idempotency.
  *
- * Bull stores repeatable jobs centrally in Redis, so even with multiple API
- * pods only one execution per cron tick happens.
+ * Individual transfer (`payout-transfer`):
+ *   - Enqueued by approvePayout() with attempts:5 / 30-s exponential backoff.
+ *   - Concurrency: 3 - individual transfers are isolated by Stripe idempotency
+ *     key so parallel execution is safe.
+ *   - Terminal Stripe errors (account_closed, debit_not_authorized, etc.) are
+ *     classified inside executeTransfer() and do NOT throw, so Bull marks the
+ *     job complete and doesn't retry them. Only transient errors (network,
+ *     rate-limit, Stripe 5xx) propagate to Bull for retry.
+ *   - If all 5 transient retries exhaust, @OnQueueFailed fires and delegates
+ *     to PayoutsService.handleExhaustedPayoutTransfer() which marks the payout
+ *     failed and fires Slack + vendor notifications.
  */
 @Processor(PAYOUTS_QUEUE)
 export class PayoutBatchProcessor implements OnApplicationBootstrap {
@@ -62,6 +87,20 @@ export class PayoutBatchProcessor implements OnApplicationBootstrap {
     return { created: result.created.length, skipped: result.skippedVendorIds.length };
   }
 
+  /**
+   * Processes an individual Stripe transfer for a single approved payout.
+   * Concurrency 3: transfers are isolated by Stripe idempotency key so
+   * parallel runs of the same job are safe (the second returns the existing
+   * transfer). The service layer also guards via status checks.
+   */
+  @Process({ name: PAYOUT_TRANSFER_JOB, concurrency: 3 })
+  async processTransfer(job: Job<PayoutTransferJobData>): Promise<void> {
+    this.logger.log(
+      `Processing payout transfer job ${String(job.id)} for payout ${job.data.payoutId}`,
+    );
+    await this.payouts.executeTransfer(job.data.payoutId);
+  }
+
   @OnQueueFailed()
   onFailed(job: Job | undefined, err: Error): void {
     // Only alert on final attempt - see notification.processor for rationale.
@@ -70,9 +109,24 @@ export class PayoutBatchProcessor implements OnApplicationBootstrap {
         tags: { queue: PAYOUTS_QUEUE, jobName: job?.name ?? 'unknown' },
         extra: { jobId: job?.id, attemptsMade: job?.attemptsMade },
       });
+
+      // A payout-transfer job has exhausted all transient-retry attempts.
+      // The terminal handler inside executeTransfer() was not reached because
+      // all failures were transient (network / rate-limit / Stripe 5xx).
+      // Delegate to PayoutsService to mark the payout failed and alert.
+      if (job?.name === PAYOUT_TRANSFER_JOB && job.data) {
+        const data = job.data as PayoutTransferJobData;
+        void this.payouts
+          .handleExhaustedPayoutTransfer(data.payoutId, err)
+          .catch((e: Error) => {
+            this.logger.error(
+              `handleExhaustedPayoutTransfer failed for payout ${data.payoutId}: ${e.message}`,
+            );
+          });
+      }
     }
     this.logger.error(
-      `[${PAYOUTS_QUEUE}] job ${job?.id ?? '?'} failed (attempt ${job?.attemptsMade ?? '?'}): ${err.message}`,
+      `[${PAYOUTS_QUEUE}] job ${job?.id ?? '?'} (${job?.name ?? 'unknown'}) failed (attempt ${job?.attemptsMade ?? '?'}): ${err.message}`,
     );
   }
 }

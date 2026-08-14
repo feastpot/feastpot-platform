@@ -5,6 +5,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import {
   DisputeStatus,
@@ -38,9 +39,17 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { StripeService } from '../../stripe/stripe.service';
 import { InboxService } from '../inbox/inbox.service';
 
+import { classifyStripeError, describeStripeError } from './stripe-error-classifier';
+
 import { ListPayoutsDto } from './dto/list-payouts.dto';
 
 export const NOTIFICATIONS_QUEUE = 'notifications';
+
+// Defined locally to avoid a circular file import with payout-batch.processor.ts
+// (which imports PayoutsService). The string values must stay in sync with the
+// exported constants in that file.
+const PAYOUTS_QUEUE = 'payouts';
+const PAYOUT_TRANSFER_JOB = 'payout-transfer';
 
 const PAYOUT_CSV_HEADER = [
   'payout_id',
@@ -198,6 +207,15 @@ export function lastCompletedWeekUtc(now: Date): { start: Date; end: Date } {
 export class PayoutsService {
   private readonly logger = new Logger(PayoutsService.name);
 
+  /**
+   * Slack coalesce guard: at most one terminal-payout-failure Slack alert per
+   * 30-minute window. Prevents a mass outage (many payouts failing together due
+   * to one upstream issue) from sending hundreds of alerts. Finance still gets
+   * a per-payout email so no individual failure is ever silently dropped.
+   * In-process only - resets if the API pod restarts, which is acceptable.
+   */
+  private lastPayoutSlackAlertAt = 0;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly stripe: StripeService,
@@ -205,6 +223,7 @@ export class PayoutsService {
     // T007: in-app vendor inbox when a payout transfers.
     private readonly inbox: InboxService,
     private readonly commission: CommissionService,
+    @InjectQueue(PAYOUTS_QUEUE) private readonly payoutQueue: Queue,
   ) {}
 
   // ---------------- list/get ----------------
@@ -435,25 +454,122 @@ export class PayoutsService {
       });
     }
 
-    // CRITICAL: only Stripe + the payout-row update belong inside the
-    // STRIPE_TRANSFER_FAILED try/catch. A broader catch here is a latent bug -
-    // if Redis is unavailable, `notifications.add()` throws "Connection is
-    // closed.", we'd flip a SUCCESSFULLY transferred payout to `failed`
-    // (with failureReason='Connection is closed.') AND throw 400 back to
-    // finance - corrupting state and double-paying after manual re-approval.
-    let updated;
+    // Enqueue the transfer job with automatic retry and exponential backoff.
+    // PayoutBatchProcessor.processTransfer() executes the Stripe call and
+    // classifies errors into transient (retried by Bull) vs terminal (handled
+    // immediately by marking the payout failed and alerting).
+    //
+    // Why async? Decouples finance's approve action from the Stripe network
+    // round-trip. Finance can batch-approve many payouts without blocking on
+    // each transfer. The payout list shows live status (approved -> transferred
+    // or failed) so the outcome is still visible.
+    //
+    // Idempotency: Bull does not de-duplicate by jobId for failed jobs, but
+    // the CAS guard above (draft -> approved) prevents double-enqueue from
+    // rapid double-clicks. Stripe's idempotency key in executeTransfer()
+    // prevents double-payment if two concurrent jobs somehow both reach Stripe.
+    try {
+      await this.payoutQueue.add(
+        PAYOUT_TRANSFER_JOB,
+        { payoutId },
+        {
+          // 5 attempts: ~30 s, ~1 min, ~2 min, ~4 min, ~8 min total.
+          // This covers transient Stripe/network issues (rate limits, 5xx,
+          // TCP resets) without tying up the queue for hours.
+          attempts: 5,
+          backoff: { type: 'exponential', delay: 30_000 },
+          removeOnComplete: true,
+          removeOnFail: false,
+        },
+      );
+    } catch (e) {
+      // Bull/Redis unavailable: roll the CAS back to draft so finance can
+      // retry once Redis recovers. Without rollback, the payout stays
+      // `approved` forever with no job to advance it.
+      await this.prisma.payout.updateMany({
+        where: { id: payoutId, status: PayoutStatus.approved },
+        data: { status: PayoutStatus.draft, approvedById: null, approvedAt: null },
+      });
+      throw new ServiceUnavailableException({
+        code: 'PAYOUT_QUEUE_UNAVAILABLE',
+        message: 'Could not queue payout transfer; please retry in a moment.',
+      });
+    }
+
+    return this.prisma.payout.findUnique({ where: { id: payoutId } });
+  }
+
+  // ---------- Transfer execution (called by PayoutBatchProcessor) ----------
+
+  /**
+   * Executes the Stripe transfer for an approved payout. Called by the
+   * `payout-transfer` Bull job processor with up to 5 retry attempts.
+   *
+   * Error handling:
+   *  - Transient (network, rate limit, Stripe 5xx): re-throws so Bull retries.
+   *  - Terminal (account_closed, debit_not_authorized, etc.): marks the payout
+   *    `failed`, alerts via alertPayoutFailure(), then returns without throwing
+   *    so Bull considers the job complete (preventing pointless retries).
+   *
+   * Idempotency:
+   *  - If the payout is already `transferred` (Stripe succeeded but the DB
+   *    update timed out, leaving Bull to retry), the method returns early.
+   *  - Stripe's idempotency key `payout-transfer-${payoutId}` ensures a
+   *    network-timeout retry returns the existing transfer rather than
+   *    creating a second one.
+   */
+  async executeTransfer(payoutId: string): Promise<void> {
+    const payout = await this.prisma.payout.findUnique({
+      where: { id: payoutId },
+      include: {
+        vendor: {
+          select: {
+            stripeAccountId: true,
+            payoutsEnabled: true,
+            userId: true,
+            businessName: true,
+          },
+        },
+      },
+    });
+
+    if (!payout) {
+      throw new Error(`Payout ${payoutId} not found - cannot execute transfer`);
+    }
+
+    // Idempotency: success already committed on a prior attempt.
+    if (payout.status === PayoutStatus.transferred) {
+      this.logger.warn(`Payout ${payoutId} already transferred - skipping duplicate job`);
+      return;
+    }
+    // Terminal: already marked failed by a prior attempt (e.g. the handler
+    // below ran on a previous execution). Do not re-process.
+    if (payout.status === PayoutStatus.failed) {
+      this.logger.warn(`Payout ${payoutId} is already failed - stale job, skipping`);
+      return;
+    }
+
+    if (payout.status !== PayoutStatus.approved) {
+      throw new Error(
+        `Payout ${payoutId} has unexpected status "${payout.status}" - cannot transfer`,
+      );
+    }
+
+    // CRITICAL: only the Stripe call + its matching DB update belong inside
+    // this try/catch. Notifications are best-effort and must NOT mark the
+    // payout failed if they fail (e.g. Redis down after Stripe succeeds).
     try {
       const transfer = await this.stripe.createTransfer({
         amountPence: payout.amountPence,
-        destinationAccountId: payout.vendor.stripeAccountId,
+        destinationAccountId: payout.vendor.stripeAccountId!,
         payoutId: payout.id,
-        // Deterministic key (one per payout): if a prior approval's transfer
-        // actually landed at Stripe but the response timed out (flipping us to
-        // `failed`), a re-approval returns that SAME transfer instead of
-        // creating a second one and double-paying the vendor.
+        // Deterministic idempotency key: a network-timeout retry returns the
+        // existing Stripe transfer instead of creating a second one and
+        // double-paying the vendor.
         idempotencyKey: `payout-transfer-${payout.id}`,
       });
-      updated = await this.prisma.payout.update({
+
+      await this.prisma.payout.update({
         where: { id: payoutId },
         data: {
           status: PayoutStatus.transferred,
@@ -462,34 +578,30 @@ export class PayoutsService {
         },
       });
     } catch (e) {
-      this.logger.error(`Stripe transfer failed for payout ${payoutId}: ${(e as Error).message}`);
+      const classification = classifyStripeError(e);
+
+      if (classification === 'transient') {
+        this.logger.warn(
+          `Transient payout ${payoutId} transfer failure (Bull will retry): ${(e as Error).message}`,
+        );
+        throw e; // Let Bull retry with exponential backoff.
+      }
+
+      // Terminal: retry cannot fix this. Mark failed and alert immediately
+      // rather than consuming all remaining retry attempts.
+      this.logger.error(
+        `Terminal payout ${payoutId} transfer failure: ${(e as Error).message}`,
+      );
       await this.prisma.payout.update({
         where: { id: payoutId },
         data: { status: PayoutStatus.failed, failureReason: (e as Error).message },
       });
-      // Alert finance immediately - a failed transfer means the vendor
-      // hasn't been paid. They must reset and re-approve (POST :id/reset).
-      const financeEmail =
-        process.env.FINANCE_ALERT_EMAIL ??
-        process.env.VENDOR_APPLICATIONS_ADMIN_EMAIL ??
-        'soul@feastpot.co.uk';
-      const adminBase = process.env.ADMIN_URL ?? 'https://admin.feastpot.co.uk';
-      await this.notifications.add('vendor_application_email_raw', {
-        to: financeEmail,
-        subject: `[ACTION REQUIRED] Payout failed for ${payout.vendor?.businessName ?? payoutId}`,
-        html: `<p>A Stripe transfer failed for payout <strong>${payoutId}</strong> (vendor: ${payout.vendor?.businessName ?? 'unknown'}).</p>
-<p><strong>Error:</strong> ${(e as Error).message}</p>
-<p>The payout status has been set to <code>failed</code>. To retry, reset it to draft and re-approve:</p>
-<p><a href="${adminBase}/payouts/${payoutId}">View payout in admin</a></p>
-<p>Or call <code>POST /v1/payouts/${payoutId}/reset</code> then <code>POST /v1/payouts/${payoutId}/approve</code>.</p>`,
-      });
-      throw new BadRequestException({
-        code: 'STRIPE_TRANSFER_FAILED',
-        message: (e as Error).message,
-      });
+      await this.alertPayoutFailure(payout, e as Error);
+      return; // Do not throw - Bull marks the job complete (terminal handled above).
     }
-    // Best-effort side-effects: money has moved + DB committed. Failures
-    // here must NOT mark the payout failed or 500 the controller.
+
+    // Best-effort side effects: money has moved and DB is committed. Failures
+    // here MUST NOT mark the payout failed or undo the transfer.
     try {
       await this.notifications.add('payout_transferred', {
         vendorId: payout.vendorId,
@@ -501,7 +613,6 @@ export class PayoutsService {
       this.logger.warn(`payout_transferred notify failed for ${payoutId}: ${(e as Error).message}`);
     }
     try {
-      // T007: in-app inbox row alongside the outbound email.
       await this.inbox.notify({
         userId: payout.vendor.userId,
         type: 'payout_processed',
@@ -513,7 +624,147 @@ export class PayoutsService {
     } catch (e) {
       this.logger.warn(`payout inbox notify failed for ${payoutId}: ${(e as Error).message}`);
     }
-    return updated;
+  }
+
+  /**
+   * Called by PayoutBatchProcessor.onFailed() when a payout-transfer job
+   * exhausts all 5 transient-retry attempts. At this point all failures were
+   * transient (network, rate-limit, Stripe 5xx) rather than a terminal
+   * Stripe error, but the payout still cannot complete. Marks the payout
+   * `failed` (if not already) and fires the same alerts as a terminal failure.
+   */
+  async handleExhaustedPayoutTransfer(payoutId: string, err: Error): Promise<void> {
+    const payout = await this.prisma.payout.findUnique({
+      where: { id: payoutId },
+      include: {
+        vendor: {
+          select: {
+            stripeAccountId: true,
+            userId: true,
+            businessName: true,
+          },
+        },
+      },
+    });
+
+    if (!payout) {
+      this.logger.error(`handleExhaustedPayoutTransfer: payout ${payoutId} not found`);
+      return;
+    }
+
+    // Guard: terminal handler in executeTransfer() may have already run on the
+    // last attempt before @OnQueueFailed fires for the same execution.
+    if (payout.status === PayoutStatus.failed || payout.status === PayoutStatus.transferred) {
+      return;
+    }
+
+    await this.prisma.payout.update({
+      where: { id: payoutId },
+      data: {
+        status: PayoutStatus.failed,
+        failureReason: `All retry attempts exhausted: ${err.message}`,
+      },
+    });
+    await this.alertPayoutFailure(payout, err);
+  }
+
+  /**
+   * Fires Slack (coalesced), finance email, and vendor email when a payout
+   * transfer fails terminally or exhausts all retries.
+   *
+   * Slack coalescing: at most one alert per 30-minute window (in-process).
+   * Finance email: always sent per payout (no coalescing) so no individual
+   * failure is silently dropped.
+   * Vendor notification: always sent so the vendor knows what to fix.
+   */
+  private async alertPayoutFailure(
+    payout: {
+      id: string;
+      vendorId: string;
+      amountPence: number;
+      vendor: { userId: string; businessName: string | null; stripeAccountId: string | null };
+    },
+    err: Error,
+  ): Promise<void> {
+    const errorSummary = describeStripeError(err);
+    const isLive = (process.env.STRIPE_SECRET_KEY ?? '').startsWith('sk_live_');
+    const stripeDashboardUrl = payout.vendor.stripeAccountId
+      ? `https://dashboard.stripe.com${isLive ? '' : '/test'}/connect/accounts/${payout.vendor.stripeAccountId}`
+      : `https://dashboard.stripe.com${isLive ? '' : '/test'}/connect/accounts`;
+
+    // Slack (coalesced to suppress alert floods during mass outages).
+    const COALESCE_MS = 30 * 60 * 1000;
+    const webhookUrl = process.env.QUEUE_ALERT_SLACK_WEBHOOK_URL;
+    const now = Date.now();
+
+    if (webhookUrl && now - this.lastPayoutSlackAlertAt > COALESCE_MS) {
+      this.lastPayoutSlackAlertAt = now;
+      await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: [
+            ':x: *Feastpot payout transfer failed (terminal)*',
+            `Payout: \`${payout.id}\``,
+            `Vendor: ${payout.vendor.businessName ?? payout.vendorId}`,
+            `Amount: £${(payout.amountPence / 100).toFixed(2)}`,
+            `Error: ${err.message}`,
+            `<${stripeDashboardUrl}|View Stripe account>`,
+            `<${process.env.ADMIN_URL ?? 'https://admin.feastpot.co.uk'}/payouts|Admin payouts>`,
+          ].join('\n'),
+        }),
+        signal: AbortSignal.timeout(10_000),
+      }).catch((e: Error) => {
+        this.logger.error(`Slack payout failure alert delivery failed: ${e.message}`);
+      });
+    } else if (!webhookUrl) {
+      this.logger.warn(
+        `Payout ${payout.id} failed terminally (no Slack webhook set): ${err.message}`,
+      );
+    } else {
+      this.logger.warn(
+        `Slack payout failure alert suppressed (30-min coalesce active) for payout ${payout.id}`,
+      );
+    }
+
+    // Finance email: not coalesced so every individual payout failure is
+    // accounted for in the finance inbox.
+    const financeEmail =
+      process.env.FINANCE_ALERT_EMAIL ??
+      process.env.VENDOR_APPLICATIONS_ADMIN_EMAIL ??
+      'soul@feastpot.co.uk';
+    const adminBase = process.env.ADMIN_URL ?? 'https://admin.feastpot.co.uk';
+    try {
+      await this.notifications.add('vendor_application_email_raw', {
+        to: financeEmail,
+        subject: `[ACTION REQUIRED] Payout transfer failed for ${payout.vendor.businessName ?? payout.id}`,
+        html: `<p>All retry attempts exhausted for payout <strong>${payout.id}</strong> (vendor: ${payout.vendor.businessName ?? 'unknown'}, £${(payout.amountPence / 100).toFixed(2)}).</p>
+<p><strong>Error:</strong> ${err.message}</p>
+<p>The payout status is now <code>failed</code>. To retry after resolving the root cause:</p>
+<p><a href="${adminBase}/payouts/${payout.id}">View payout in admin</a> &rarr; Reset to draft &rarr; Re-approve.</p>`,
+      });
+    } catch (e) {
+      this.logger.error(
+        `Finance email for terminal payout failure ${payout.id} failed: ${(e as Error).message}`,
+      );
+    }
+
+    // Vendor notification: tells the vendor what is wrong and what to fix.
+    try {
+      await this.notifications.add('payout_failed_terminal', {
+        vendorId: payout.vendorId,
+        vendorUserId: payout.vendor.userId,
+        payoutId: payout.id,
+        amountPence: payout.amountPence,
+        errorSummary,
+        stripeDashboardUrl,
+        supportEmail: 'support@feastpot.co.uk',
+      });
+    } catch (e) {
+      this.logger.error(
+        `Vendor payout failure notification for ${payout.id} failed: ${(e as Error).message}`,
+      );
+    }
   }
 
   /**

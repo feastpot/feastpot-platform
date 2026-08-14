@@ -955,6 +955,71 @@ export class AdminController {
     return { ok: true, id: rowId };
   }
 
+  // ---------- Bull dead-letter jobs ----------
+
+  /**
+   * List failed Bull jobs across all queues. Payloads are redacted:
+   * sensitive keys (email, phone, name, address, html, etc.) are replaced
+   * with `[REDACTED]` before leaving the server. UUIDs and amounts are kept
+   * so admins can cross-reference the job with the DB or Stripe.
+   */
+  @Get('dead-letters')
+  @Roles(UserRole.admin)
+  @ApiOperation({ summary: 'List dead-lettered Bull jobs across all queues (admin)' })
+  async listDeadLetters(@Query('queue') queue?: string) {
+    const jobs = await this.dlqMonitor.getDeadLetterJobs(100);
+    const filtered = queue ? jobs.filter((j) => j.queue === queue) : jobs;
+    return { data: filtered, count: filtered.length };
+  }
+
+  /**
+   * Re-enqueue a specific failed Bull job for immediate retry. The action
+   * and acting admin ID are recorded in server logs. A confirmation prompt
+   * is shown in the admin UI before this is called.
+   *
+   * Idempotency: if the job was already successfully processed (e.g. the
+   * payout-transfer Stripe idempotency key hit), retrying is safe because
+   * executeTransfer() checks the payout status before attempting the transfer.
+   */
+  @Post('dead-letters/:queue/:jobId/retry')
+  @Roles(UserRole.admin)
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Retry a dead-lettered Bull job (admin)' })
+  async retryDeadLetterJob(
+    @Param('queue') queue: string,
+    @Param('jobId') jobId: string,
+    @Req() req: AuthedRequest,
+  ) {
+    try {
+      await this.dlqMonitor.retryDeadLetterJob(queue, jobId, req.user?.id ?? 'unknown');
+      return { ok: true, jobId, queue };
+    } catch (e) {
+      throw new BadRequestException({ code: 'RETRY_FAILED', message: (e as Error).message });
+    }
+  }
+
+  /**
+   * Permanently remove a specific failed Bull job. Cannot be undone.
+   * The action and acting admin ID are recorded in server logs. A
+   * confirmation prompt is shown in the admin UI before this is called.
+   */
+  @Post('dead-letters/:queue/:jobId/discard')
+  @Roles(UserRole.admin)
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Discard (permanently delete) a dead-lettered Bull job (admin)' })
+  async discardDeadLetterJob(
+    @Param('queue') queue: string,
+    @Param('jobId') jobId: string,
+    @Req() req: AuthedRequest,
+  ) {
+    try {
+      await this.dlqMonitor.discardDeadLetterJob(queue, jobId, req.user?.id ?? 'unknown');
+      return { ok: true, jobId, queue };
+    } catch (e) {
+      throw new BadRequestException({ code: 'DISCARD_FAILED', message: (e as Error).message });
+    }
+  }
+
   /**
    * Sends a test Slack alert via the configured QUEUE_ALERT_SLACK_WEBHOOK_URL.
    *

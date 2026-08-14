@@ -1,5 +1,5 @@
 import { InjectQueue } from '@nestjs/bull';
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Cron } from '@nestjs/schedule';
 import type { Queue } from 'bull';
@@ -9,10 +9,14 @@ import { RedisCacheService } from '../../common/cache/redis-cache.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
   COMPLIANCE_QUEUE,
+  HMRC_QUEUE,
   NOTIFICATIONS_QUEUE,
   PAYOUTS_QUEUE,
   STRIPE_WEBHOOK_QUEUE,
+  TERMS_NOTICES_QUEUE,
 } from '../../queues/queues.module';
+
+import { redactPayload } from './redact-payload';
 
 interface QueueFailureSummary {
   queue: string;
@@ -46,6 +50,8 @@ export class DlqMonitorService {
     @InjectQueue(STRIPE_WEBHOOK_QUEUE) private readonly stripeWebhooks: Queue,
     @InjectQueue(PAYOUTS_QUEUE) private readonly payouts: Queue,
     @InjectQueue(COMPLIANCE_QUEUE) private readonly compliance: Queue,
+    @InjectQueue(TERMS_NOTICES_QUEUE) private readonly termsNotices: Queue,
+    @InjectQueue(HMRC_QUEUE) private readonly hmrc: Queue,
     config: ConfigService,
     private readonly cache: RedisCacheService,
     private readonly prisma: PrismaService,
@@ -189,12 +195,7 @@ export class DlqMonitorService {
   }
 
   private async collectDepths(): Promise<QueueDepthSnapshot[]> {
-    const queues: Array<[string, Queue]> = [
-      [NOTIFICATIONS_QUEUE, this.notifications],
-      [STRIPE_WEBHOOK_QUEUE, this.stripeWebhooks],
-      [PAYOUTS_QUEUE, this.payouts],
-      [COMPLIANCE_QUEUE, this.compliance],
-    ];
+    const queues = this.allQueues;
     const results: QueueDepthSnapshot[] = [];
     for (const [name, queue] of queues) {
       try {
@@ -343,13 +344,24 @@ export class DlqMonitorService {
     }
   }
 
-  private async collectFailures(): Promise<QueueFailureSummary[]> {
-    const queues: Array<[string, Queue]> = [
+  /**
+   * All Bull queues registered in this application, ordered by priority.
+   * Used by both the monitoring crons (collectDepths/collectFailures) and
+   * the admin dead-letter API so every queue is consistently covered.
+   */
+  private get allQueues(): Array<[string, Queue]> {
+    return [
       [NOTIFICATIONS_QUEUE, this.notifications],
       [STRIPE_WEBHOOK_QUEUE, this.stripeWebhooks],
       [PAYOUTS_QUEUE, this.payouts],
       [COMPLIANCE_QUEUE, this.compliance],
+      [TERMS_NOTICES_QUEUE, this.termsNotices],
+      [HMRC_QUEUE, this.hmrc],
     ];
+  }
+
+  private async collectFailures(): Promise<QueueFailureSummary[]> {
+    const queues = this.allQueues;
 
     const results: QueueFailureSummary[] = [];
     for (const [name, queue] of queues) {
@@ -410,5 +422,118 @@ export class DlqMonitorService {
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;');
+  }
+
+  // ---------- Dead-letter admin API ----------
+
+  /**
+   * Returns the most recently failed Bull jobs across all queues, with
+   * sensitive payload fields redacted, sorted newest-first.
+   */
+  async getDeadLetterJobs(limit = 50): Promise<
+    Array<{
+      id: string;
+      queue: string;
+      name: string;
+      payload: Record<string, unknown>;
+      failedReason: string | null;
+      attemptsMade: number;
+      timestamp: number;
+      processedOn: number | null;
+      finishedOn: number | null;
+    }>
+  > {
+    const results: Array<{
+      id: string;
+      queue: string;
+      name: string;
+      payload: Record<string, unknown>;
+      failedReason: string | null;
+      attemptsMade: number;
+      timestamp: number;
+      processedOn: number | null;
+      finishedOn: number | null;
+    }> = [];
+
+    for (const [queueName, queue] of this.allQueues) {
+      try {
+        // getFailed(start, end) - end is inclusive, 0-indexed.
+        const jobs = await queue.getFailed(0, limit - 1);
+        for (const job of jobs) {
+          results.push({
+            id: String(job.id),
+            queue: queueName,
+            name: job.name,
+            payload: redactPayload(job.data as unknown) as Record<string, unknown>,
+            failedReason: job.failedReason ?? null,
+            attemptsMade: job.attemptsMade,
+            timestamp: job.timestamp,
+            processedOn: job.processedOn ?? null,
+            finishedOn: job.finishedOn ?? null,
+          });
+        }
+      } catch (err) {
+        this.logger.error(
+          `Failed to fetch dead-letter jobs from ${queueName}: ${(err as Error).message}`,
+        );
+      }
+    }
+
+    // Sort most-recently-failed first.
+    results.sort(
+      (a, b) => (b.finishedOn ?? b.timestamp) - (a.finishedOn ?? a.timestamp),
+    );
+    return results.slice(0, limit);
+  }
+
+  /**
+   * Re-enqueues a specific failed job for immediate retry.
+   * The acting admin ID is recorded in server logs for audit purposes.
+   */
+  async retryDeadLetterJob(
+    queueName: string,
+    jobId: string,
+    actorId: string,
+  ): Promise<void> {
+    const queue = this.resolveQueue(queueName);
+    const job = await queue.getJob(jobId);
+    if (!job) {
+      throw new Error(`Job ${jobId} not found in queue "${queueName}"`);
+    }
+    await job.retry();
+    this.logger.log(
+      `[Admin] Dead-letter job ${jobId} in "${queueName}" retried by ${actorId}`,
+    );
+  }
+
+  /**
+   * Permanently removes a specific failed job from the queue.
+   * Cannot be undone. The acting admin ID is recorded for audit.
+   */
+  async discardDeadLetterJob(
+    queueName: string,
+    jobId: string,
+    actorId: string,
+  ): Promise<void> {
+    const queue = this.resolveQueue(queueName);
+    const job = await queue.getJob(jobId);
+    if (!job) {
+      throw new Error(`Job ${jobId} not found in queue "${queueName}"`);
+    }
+    await job.remove();
+    this.logger.log(
+      `[Admin] Dead-letter job ${jobId} in "${queueName}" discarded by ${actorId}`,
+    );
+  }
+
+  private resolveQueue(name: string): Queue {
+    const entry = this.allQueues.find(([n]) => n === name);
+    if (!entry) {
+      throw new BadRequestException({
+        code: 'UNKNOWN_QUEUE',
+        message: `Unknown queue: "${name}"`,
+      });
+    }
+    return entry[1];
   }
 }
