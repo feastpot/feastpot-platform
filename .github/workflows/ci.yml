@@ -470,7 +470,59 @@ jobs:
           retention-days: 14
 
   # ----------------------------------------------------------------------------
-  # 7. Build - only after every quality gate has passed.
+  # 7. RLS coverage check - connects to the real development database and
+  #    confirms every table in the public schema has rowsecurity=true. Fails
+  #    if any new table was added without enabling RLS. Separately, runs the
+  #    denial test script with the anon key to prove the supabase PostgREST
+  #    layer actually blocks reads of sensitive tables.
+  #    Skipped on fork PRs (no secrets available).
+  # ----------------------------------------------------------------------------
+  rls-check:
+    name: RLS coverage + denial tests
+    needs: [setup]
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_DIRECT_URL: ${{ secrets.SUPABASE_DIRECT_URL }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Skip notice for fork PRs (secrets unavailable)
+        id: fork-guard
+        if: env.SUPABASE_DIRECT_URL == ''
+        run: |
+          echo "::notice title=RLS check skipped (fork PR)::Repository secrets are not available to fork-originated workflows. The RLS coverage and denial tests are skipped. A maintainer will trigger the full suite after reviewing the changes."
+          echo "skip=true" >> "$GITHUB_OUTPUT"
+
+      - name: Install psql client
+        if: steps.fork-guard.outputs.skip != 'true'
+        run: sudo apt-get install -y --no-install-recommends postgresql-client
+
+      - name: Check every public table has RLS enabled
+        if: steps.fork-guard.outputs.skip != 'true'
+        # Runs scripts/check-rls-coverage.sql which raises an exception (and
+        # therefore exits non-zero via ON_ERROR_STOP=1) if any table in the
+        # public schema has rowsecurity=false and is not in the allowlist.
+        # A new table reaching the dev database without RLS will fail this job
+        # before the PR can be merged.
+        run: psql "$SUPABASE_DIRECT_URL" -v ON_ERROR_STOP=1 -f scripts/check-rls-coverage.sql
+
+      - uses: actions/setup-node@v5
+        if: steps.fork-guard.outputs.skip != 'true'
+        with:
+          node-version: 22
+
+      - name: RLS denial tests (anon key, never service key)
+        if: steps.fork-guard.outputs.skip != 'true'
+        # Uses the Supabase anon key - the key that is public by design and
+        # shipped in every browser bundle - to assert that sensitive tables
+        # return zero rows through the PostgREST API. A test using service_role
+        # would bypass RLS and prove nothing.
+        run: node scripts/test-rls-denial.mjs
+
+  # ----------------------------------------------------------------------------
+  # 8. Build - only after every quality gate has passed.
   # ----------------------------------------------------------------------------
   build:
     name: Build all apps
