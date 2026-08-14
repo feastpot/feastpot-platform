@@ -228,7 +228,196 @@ jobs:
           fail_ci_if_error: false
 
   # ----------------------------------------------------------------------------
-  # 6. Build — only after every quality gate has passed.
+  # 6. E2E - Playwright suite covering all three vendor portal projects:
+  #    menu-screen, delivery-screen (incl. D3 customer-discovery guard),
+  #    profile-screen. Runs in parallel with other jobs after deps are cached.
+  #
+  #    REGRESSION GUARD: D3 asserts that the saved postcode chip set is what
+  #    governs vendor discoverability (not the radius field alone). The job
+  #    fails loudly if D3 is skipped, ensuring this can never pass silently.
+  #
+  #    BRANCH PROTECTION: after this job appears in the Checks tab for the
+  #    first time, add "e2e-vendor" to the required status checks for `main`
+  #    in GitHub > Settings > Branches > Branch protection rules.
+  # ----------------------------------------------------------------------------
+  e2e-vendor:
+    name: E2E (vendor portal, all projects)
+    needs: [setup]
+    runs-on: ubuntu-latest
+    env:
+      # Vendor dev server origin consumed by Playwright.
+      PLAYWRIGHT_BASE_URL: http://localhost:3002
+      # Auth credentials for the pre-seeded test vendor account.
+      # Empty on fork PRs (GitHub withholds secrets from fork workflows);
+      # the fork-guard step below emits a visible notice and skips the rest.
+      TEST_VENDOR_EMAIL: ${{ secrets.TEST_VENDOR_EMAIL }}
+      TEST_VENDOR_PASSWORD: ${{ secrets.TEST_VENDOR_PASSWORD }}
+      # D3 integration credentials. D3 hits the real dev-environment NestJS
+      # API to confirm the saved chip set appears in live customer search.
+      # The job fails if either is absent and D3 ends up skipped.
+      TEST_API_URL: ${{ secrets.TEST_API_URL }}
+      TEST_VENDOR_ID: ${{ secrets.TEST_VENDOR_ID }}
+      # Vendor Next.js app runtime vars.
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm install -g npm@10.9.4
+
+      - run: npm ci --no-audit --no-fund
+
+      # ---- Fork PR guard ------------------------------------------------------
+      # Repository secrets are not available to fork-originated workflows.
+      # Emit a visible ::notice and set an output flag that all subsequent steps
+      # check, so the job exits cleanly with a clear explanation rather than
+      # producing a false pass with empty credentials.
+      - name: Skip notice for fork PRs (secrets unavailable)
+        id: fork-guard
+        if: env.TEST_VENDOR_EMAIL == ''
+        run: |
+          echo "::notice title=E2E skipped (fork PR)::Repository secrets are not available to fork-originated workflows. The e2e-vendor suite is skipped. A maintainer will trigger the full suite after reviewing the changes."
+          echo "skip=true" >> "$GITHUB_OUTPUT"
+
+      # ---- Prisma client ------------------------------------------------------
+      # The vendor app's shared packages may reference Prisma types at build
+      # time. Generate the client with dummy URLs (no DB connection is made).
+      - name: Generate Prisma client
+        if: steps.fork-guard.outputs.skip != 'true'
+        run: npm run db:generate
+        env:
+          SUPABASE_DB_URL: postgresql://dummy:dummy@localhost:5432/dummy
+          SUPABASE_DIRECT_URL: postgresql://dummy:dummy@localhost:5432/dummy
+
+      # ---- Browser setup ------------------------------------------------------
+      # install-chromium.js replaces Playwright's downloaded binary with a
+      # symlink to the system Chromium on NixOS/Replit where the downloaded
+      # binary crashes due to missing glibc paths. On ubuntu-latest the binary
+      # installed by `playwright install` is already correctly linked, so this
+      # step may be a harmless no-op. continue-on-error prevents a hard stop
+      # if `which chromium` cannot locate a system binary on this runner.
+      - name: Run install-chromium.js (NixOS symlink helper, may be no-op)
+        if: steps.fork-guard.outputs.skip != 'true'
+        run: node apps/vendor/e2e/install-chromium.js
+        continue-on-error: true
+
+      - name: Install Playwright browsers and OS dependencies
+        if: steps.fork-guard.outputs.skip != 'true'
+        run: npx playwright install --with-deps chromium
+        working-directory: apps/vendor
+
+      # ---- Vendor dev server --------------------------------------------------
+      - name: Start vendor dev server on port 3002 (background)
+        if: steps.fork-guard.outputs.skip != 'true'
+        run: npm run dev --workspace=@feastpot/vendor &
+
+      - name: Wait for vendor dev server (timeout 120 s)
+        if: steps.fork-guard.outputs.skip != 'true'
+        run: |
+          echo "Polling http://localhost:3002 ..."
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:3002 > /dev/null 2>&1; then
+              echo "Vendor dev server ready (attempt ${i}/60)."
+              exit 0
+            fi
+            echo "  [${i}/60] not ready - retrying in 2 s"
+            sleep 2
+          done
+          echo "::error title=Dev server timeout::Vendor dev server did not open port 3002 within 120 s. Inspect the Next.js startup output above for compilation errors or missing environment variables."
+          exit 1
+
+      # ---- Playwright (all three projects) ------------------------------------
+      # Projects: setup (auth), menu-screen, delivery-screen, profile-screen.
+      # retries: 1 is already set in playwright.config.ts when CI=true so each
+      # test gets one retry on a browser-level flake before being marked failed.
+      # An assertion that was wrong can never be retried into a pass because
+      # Playwright only retries a test that threw an unexpected error, not one
+      # whose expect() call failed with a deliberate mismatch.
+      # JSON output is written alongside the HTML report for the D3 skip check.
+      - name: Run Playwright e2e suite (menu-screen, delivery-screen, profile-screen)
+        if: steps.fork-guard.outputs.skip != 'true'
+        id: playwright-run
+        run: |
+          npx playwright test \
+            --reporter=list \
+            "--reporter=html:e2e-report" \
+            "--reporter=json:e2e-results.json"
+        working-directory: apps/vendor
+
+      # ---- D3 skip guard ------------------------------------------------------
+      # D3 is the [CRITICAL] test inside delivery-screen.spec.ts that confirms
+      # saved chip-set postcodes appear in real customer search results and that
+      # excluded postcodes do not. It calls `test.skip()` when TEST_API_URL or
+      # TEST_VENDOR_ID is absent. A skipped D3 is a silent regression hole.
+      # This step reads the Playwright JSON report and fails the job if D3 was
+      # not found in the results or was marked skipped.
+      - name: Assert D3 executed and was not skipped
+        # Run even if the playwright step failed: we want the D3 skip error to
+        # be visible alongside any other failures rather than being hidden by them.
+        if: steps.fork-guard.outputs.skip != 'true' && always()
+        run: |
+          node - <<'NODE_SCRIPT'
+          const fs = require('fs');
+          const path = require('path');
+
+          const resultsFile = path.join('apps', 'vendor', 'e2e-results.json');
+          if (!fs.existsSync(resultsFile)) {
+            console.error('::error title=Missing results::e2e-results.json not found. Playwright may have crashed before writing output - check the run log above.');
+            process.exit(1);
+          }
+
+          const data = JSON.parse(fs.readFileSync(resultsFile, 'utf8'));
+          let d3Found = false;
+          let d3Skipped = false;
+
+          function walk(node) {
+            for (const spec of (node.specs ?? [])) {
+              if (spec.title.includes('D3:')) {
+                d3Found = true;
+                for (const test of (spec.tests ?? [])) {
+                  const results = test.results ?? [];
+                  // No results at all = test runner bailed before executing the test.
+                  // All results status === 'skipped' = test.skip() was called.
+                  if (results.length === 0 || results.every(r => r.status === 'skipped')) {
+                    d3Skipped = true;
+                  }
+                }
+              }
+            }
+            for (const suite of (node.suites ?? [])) walk(suite);
+          }
+          walk(data);
+
+          if (!d3Found) {
+            console.error('::error title=D3 absent::D3 test was not present in Playwright results at all. Confirm that delivery-screen.spec.ts is not excluded from the run and that the delivery-screen project is not scoped out.');
+            process.exit(1);
+          }
+          if (d3Skipped) {
+            console.error('::error title=D3 skipped::[CRITICAL] D3 (customer discovery guard) was skipped. Ensure TEST_API_URL and TEST_VENDOR_ID are configured as repository secrets and point at a seeded test vendor in the development Supabase project. Without these D3 is inert and chip-set regressions ship undetected.');
+            process.exit(1);
+          }
+          console.log('D3 executed (not skipped). Customer discovery guard is active.');
+          NODE_SCRIPT
+
+      # ---- Artefact upload ----------------------------------------------------
+      # Upload the HTML report (with traces and screenshots) only on failure so
+      # developers can inspect exactly which assertion failed and replay the
+      # browser trace without re-running locally.
+      - name: Upload Playwright HTML report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ github.run_id }}
+          path: apps/vendor/e2e-report/
+          retention-days: 14
+
+  # ----------------------------------------------------------------------------
+  # 7. Build - only after every quality gate has passed.
   # ----------------------------------------------------------------------------
   build:
     name: Build all apps
