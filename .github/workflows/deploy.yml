@@ -39,6 +39,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+      - name: Guard against Replit-internal registry URLs in lockfile
+        run: |
+          if grep -q "package-firewall.replit.local" package-lock.json; then
+            echo ""
+            echo "ERROR: package-lock.json contains Replit-internal registry URLs which are unreachable from CI."
+            echo "Fix by running:"
+            echo "  sed -i 's|http://package-firewall.replit.local/|https://registry.npmjs.org/|g' package-lock.json"
+            echo "Then commit the corrected lockfile."
+            exit 1
+          fi
       - uses: actions/setup-node@v5
         with:
           node-version: 22

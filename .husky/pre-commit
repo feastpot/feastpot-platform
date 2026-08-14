@@ -7,3 +7,15 @@ if git diff --cached -U0 | grep -P '^\+.*\x{2014}'; then
   echo "See CONTRIBUTING.md for approved alternatives (pipe, comma, colon, etc.)."
   exit 1
 fi
+
+# Guard against Replit-internal registry URLs being committed into package-lock.json.
+if git diff --cached --name-only | grep -q "^package-lock\.json$"; then
+  if git show :package-lock.json 2>/dev/null | grep -q "package-firewall.replit.local"; then
+    echo ""
+    echo "ERROR: package-lock.json contains Replit-internal registry URLs which are unreachable from CI."
+    echo "Fix by running:"
+    echo "  sed -i 's|http://package-firewall.replit.local/|https://registry.npmjs.org/|g' package-lock.json"
+    echo "Then stage the corrected file and retry the commit."
+    exit 1
+  fi
+fi

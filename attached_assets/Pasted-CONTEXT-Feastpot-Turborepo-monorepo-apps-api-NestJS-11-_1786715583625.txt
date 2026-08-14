@@ -1,0 +1,33 @@
+CONTEXT
+Feastpot Turborepo monorepo: apps/api (NestJS 11), apps/web, apps/vendor, apps/admin (Next.js 15), Prisma against Supabase Postgres. Deploys via Vercel and GitHub Actions. UK English. Never use an em dash anywhere.
+
+This prompt CHECKS and PREVENTS. It does not migrate. Do not run any migration here.
+
+PART 1: ESTABLISH THE ACTUAL PRODUCTION STATE
+Two migrations are believed applied to dev but not production:
+  20260812140000_add_discount_funded_by
+  20260812150000_founding_allowance
+Connect to production read-only using PROD_DIRECT_URL and report, without changing anything:
+1. Which of these two migration rows exist in _prisma_migrations on production.
+2. Whether the columns actually exist: orders.discount_funded_by, orders.founding_allowance_applied_pence, vendors.founding_allowance_granted_pence, vendors.founding_allowance_used_pence, vendors.referred_by_vendor_id, discount_codes.funded_by. List each as present or absent. Column presence is the truth; the migrations table can lie.
+3. Whether the DiscountFundedBy enum type exists.
+4. Count of existing production orders where discount_pence > 0, which is the backfill population.
+
+PART 2: ESTABLISH THE BLAST RADIUS
+Read apps/api/src/modules/orders/orders.service.ts and determine precisely when foundingAllowanceUsedPence and foundingAllowanceAppliedPence are written. Report whether that write happens on EVERY order creation or only on marketplace-sourced orders. This determines whether production currently cannot take any order, or only marketplace-sourced ones. State the answer plainly in your summary; it sets the urgency of Prompt 30.
+
+PART 3: LOCKFILE GUARD
+npm install inside the Replit workspace has twice written http://package-firewall.replit.local/ URLs into package-lock.json. Those hosts are unreachable from Vercel and GitHub Actions, so npm ci fails with an opaque "Exit handler never called" error and every deploy dies.
+1. Check package-lock.json now and report whether any such URL is currently present. If present, remove them and state exactly what changed.
+2. Add a guard that catches this automatically. Implement BOTH:
+   a. A CI step at the very top of the typecheck job in .github/workflows/deploy.yml that greps package-lock.json for package-firewall.replit.local and fails immediately with a human-readable message naming the fix, before any build or migration work starts.
+   b. A pre-commit hook that runs the same check and aborts the commit. Use .husky/ if hooks are already configured; otherwise add a standalone shell script and wire it up.
+3. The CI message must state the remedy explicitly, for example: "package-lock.json contains Replit-internal registry URLs which are unreachable from CI. Run: sed -i 's|http://package-firewall.replit.local/|https://registry.npmjs.org/|g' package-lock.json"
+
+ACCEPTANCE CRITERIA
+- A complete, accurate report of production column state, not inferred from _prisma_migrations alone.
+- A clear statement of whether production can currently create orders at all.
+- Introducing a package-firewall.replit.local URL fails CI before any build step, and fails the commit locally.
+- No migration was run by this prompt.
+
+STYLE: UK English. No em dashes. Report findings; do not fix the database here.
