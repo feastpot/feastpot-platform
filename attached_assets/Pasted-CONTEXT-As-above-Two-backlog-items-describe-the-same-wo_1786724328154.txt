@@ -1,0 +1,19 @@
+CONTEXT
+As above. Two backlog items describe the same work: running the Playwright suite on every pull request. The suite has three projects (menu-screen, delivery-screen, profile-screen) plus an auth setup project. They pass locally and run manually only, so any regression to a nav invariant, the allergen gate, or the service-area path ships undetected.
+
+BUILD one CI job covering all projects.
+
+1. Add a job named e2e-vendor to the existing CI workflow in .github/workflows/, after the current test job. Check the actual workflow filename first; do not assume ci.yml.
+2. The job must: run on ubuntu-latest; install dependencies with npm ci; run apps/vendor/e2e/install-chromium.js, which already exists; install Playwright browsers with npx playwright install --with-deps chromium; start the vendor dev server in the background and wait for port 3002; run npm run test:e2e --workspace=@feastpot/vendor.
+3. Provide credentials from repository secrets: TEST_VENDOR_EMAIL, TEST_VENDOR_PASSWORD, and for D3 also TEST_API_URL and TEST_VENDOR_ID pointing at a seeded test vendor in the development Supabase project. D3 currently skips without these, and D3 is the test that guards customer discovery, so it must not skip in CI. Fail the job loudly if D3 skips rather than passing quietly.
+4. Upload the Playwright HTML report as a workflow artifact on failure, so traces and screenshots can be inspected without re-running locally.
+5. Mark the job required in branch protection rules for main.
+6. Run all three projects. Do not scope the job to menu-screen only.
+
+ACCEPTANCE CRITERIA
+- The job runs on every pull request to main and blocks merge on failure.
+- All three Playwright projects execute; none skip silently.
+- D3 executes rather than skipping, and the job fails if it does skip.
+- The HTML report is downloadable from a failed run.
+
+EDGE CASES: dev server slow to boot (wait with a timeout and a clear error, do not fail instantly); flaky first run after browser install (allow one retry at the Playwright level, but never retry a failed assertion into a pass); secrets absent on a fork PR (skip with an explicit, visible notice rather than a false pass).
