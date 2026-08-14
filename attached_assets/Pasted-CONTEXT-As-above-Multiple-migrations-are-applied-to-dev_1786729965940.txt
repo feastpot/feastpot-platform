@@ -1,0 +1,30 @@
+CONTEXT
+As above. Multiple migrations are applied to development but not production:
+  20260806190000_add_feastpass
+  20260812140000_add_discount_funded_by
+  20260812150000_founding_allowance
+plus any others your audit finds. Running these as three separate production windows triples the risk for no benefit. Do them once, together.
+
+STOP CONDITION, CHECK FIRST: a migration of live customer data to a new UK-hosted database is reportedly in progress. Establish which database is the current production target before running anything. If the move is under way or imminent, migrating the old database may be wasted or actively harmful. Report the position and stop rather than guessing. If the new database is the target, apply everything there and confirm the RLS migrations from Prompt 39 are applied to it too, since RLS policies do not reliably survive a data move.
+
+SEQUENCE
+1. Verify actual column and table presence in production by querying information_schema, not by reading _prisma_migrations. The migrations table can disagree with reality.
+2. Back up first. Point-in-time snapshot or pg_dump of every affected table. State the restore path explicitly. Do not proceed without it.
+3. Apply in dependency order: FeastPass tables, then discount funding, then founding allowance. Make each idempotent (IF NOT EXISTS on tables and columns, guarded DO blocks for enum types) so a partially applied state converges rather than erroring.
+4. BACKFILL. Every existing order with discount_pence > 0 gets discount_funded_by = 'PLATFORM'. This is the correct and safe historical value: PLATFORM means the vendor was paid in full. Never backfill to VENDOR, which would retroactively assert a cook funded a discount she never agreed to. Report the row count and confirm it matches your pre-check.
+5. Backfill vendors.founding_allowance_granted_pence to the PLATFORM_FACTS default and used_pence to zero. Do not grant allowance retrospectively against completed orders.
+6. Insert the migration rows into _prisma_migrations so a later prisma migrate deploy does not reapply them. Follow .agents/memory/supabase-prod-migration.md and the P3005 recovery pattern in .agents/memory/prisma-migrations-dev.md.
+7. Confirm RLS on every new FeastPass table, using the classification from Prompt 39. New tables are the most likely to be missing policies.
+8. SMOKE TEST in production: create a test order; create one carrying a discount; confirm both complete with no Prisma error and that discount_funded_by is written. Delete the test orders and confirm deletion.
+
+ACCEPTANCE CRITERIA
+- One backup, one window, all migrations applied.
+- Every expected table and column verified present by direct query.
+- Zero orders with a non-zero discount and a null funding source.
+- FeastPass tables have RLS enabled with correct policies.
+- A real production order completes end to end.
+- Test data removed.
+
+EDGE CASES: partial prior application; an order created between backfill and completion (re-run the backfill immediately before finishing and report if it caught anything); connection loss mid-run (state how to determine what applied and resume safely).
+
+NOTE ON FEASTPASS: applying the tables does not mean launching the product. At current supply almost every order is vendor-referred, which is the case where a FeastPass fee waiver earns Feastpot nothing. Keep the product behind a flag until marketplace-sourced volume exists.
