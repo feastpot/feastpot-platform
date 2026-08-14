@@ -726,3 +726,96 @@ describe('OrdersService.customerCancel financial exclusion', () => {
     expect(response).toHaveProperty('totalPence', 4500);
   });
 });
+
+// ---------------------------------------------------------------------------
+// discount_funded_by application-layer guard
+// ---------------------------------------------------------------------------
+
+describe('OrdersService.finishCreateOrder discount_funded_by guard', () => {
+  // Minimal service instance: all dependencies are stubs because the guard
+  // fires before any I/O (before the Stripe PI call and before any DB write).
+  const makeSvc = () =>
+    new OrdersService(
+      {} as never, // prisma
+      {} as never, // repo
+      {} as never, // commission
+      {} as never, // stripe
+      {} as never, // queue
+      {} as never, // loyalty
+      {} as never, // feastpass
+      {} as never, // notifications
+      {} as never, // attribution
+      {} as never, // config
+      {} as never, // enforcement
+    );
+
+  // Minimal args that reach the guard (discountPence > 0, discountFundedBy null).
+  // Fields after the guard are never read, so any value satisfies the types.
+  const baseArgs = () => ({
+    customerId: 'u-cust',
+    dto: { vendorId: 'v-1', items: [], deliveryAddressId: null } as never,
+    orderId: 'ord-1',
+    orderNumber: 'FP-TEST-001',
+    scheduledFor: new Date(),
+    deliveryType: DeliveryType.collection,
+    byId: null,
+    subtotalPence: 1000,
+    deliveryFeePence: 0,
+    serviceFeePence: 0,
+    discountPence: 100,
+    totalPence: 900,
+    commissionRateId: null,
+    commissionRatePercent: { toNumber: () => 0.12 } as never,
+    attributionSource: 'MARKETPLACE' as never,
+    attributionIsFirstOrder: true,
+    discountCodeId: null,
+    loyaltyToRedeem: 0,
+  });
+
+  it('throws DISCOUNT_FUNDED_BY_REQUIRED when discountPence > 0 and discountFundedBy is null', async () => {
+    const svc = makeSvc();
+    await expect(
+      (svc as never as { finishCreateOrder: (a: unknown) => Promise<unknown> }).finishCreateOrder({
+        ...baseArgs(),
+        discountFundedBy: null,
+      }),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('includes the DISCOUNT_FUNDED_BY_REQUIRED code in the error response', async () => {
+    const svc = makeSvc();
+    const err = await (
+      svc as never as { finishCreateOrder: (a: unknown) => Promise<unknown> }
+    ).finishCreateOrder({ ...baseArgs(), discountFundedBy: null }).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(BadRequestException);
+    expect((err as BadRequestException).getResponse()).toMatchObject({
+      code: 'DISCOUNT_FUNDED_BY_REQUIRED',
+    });
+  });
+
+  it('does not throw when discountPence is zero and discountFundedBy is null', async () => {
+    // Zero discount with null funded-by is valid (no discount applied).
+    // The guard must not fire; the eventual Stripe call will fail (no mock),
+    // so we expect any error that is NOT a BadRequestException.
+    const svc = makeSvc();
+    const result = await (
+      svc as never as { finishCreateOrder: (a: unknown) => Promise<unknown> }
+    ).finishCreateOrder({ ...baseArgs(), discountPence: 0, totalPence: 1000, discountFundedBy: null })
+      .catch((e: unknown) => e);
+    expect(result).not.toBeInstanceOf(BadRequestException);
+  });
+
+  it('does not throw when discountPence is zero and a funded-by source is set (harmless)', async () => {
+    // A zero discount with a funded-by value set is allowed and harmless.
+    const svc = makeSvc();
+    const result = await (
+      svc as never as { finishCreateOrder: (a: unknown) => Promise<unknown> }
+    ).finishCreateOrder({
+      ...baseArgs(),
+      discountPence: 0,
+      totalPence: 1000,
+      discountFundedBy: 'PLATFORM' as never,
+    }).catch((e: unknown) => e);
+    expect(result).not.toBeInstanceOf(BadRequestException);
+  });
+});

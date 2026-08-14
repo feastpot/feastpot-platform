@@ -757,6 +757,18 @@ export class OrdersService {
       marketplaceMarker,
     } = args;
 
+    // Application-layer guard: a non-zero discount must always carry a funding
+    // source so the vendor payout calculation is unambiguous. The database
+    // enforces the same rule via the orders_discount_funded_by_required CHECK
+    // constraint, but this guard fires first and returns a human-readable error.
+    if (discountPence > 0 && discountFundedBy === null) {
+      throw new BadRequestException({
+        code: 'DISCOUNT_FUNDED_BY_REQUIRED',
+        message:
+          'discount_funded_by must be set when discount_pence is greater than zero',
+      });
+    }
+
     // Stripe PI is created BEFORE the DB transaction so we have a single
     // outbound side-effect to compensate for if the DB tx fails (cancel the
     // PI). orderNumber is unique-per-attempt and stable across SDK-level
