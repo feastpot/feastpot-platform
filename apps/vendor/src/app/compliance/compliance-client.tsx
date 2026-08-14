@@ -88,9 +88,16 @@ interface VendorSummary {
 export function ComplianceClient({
   vendor,
   verification,
+  embedded = false,
 }: {
   vendor: VendorSummary;
   verification: VerificationRecord | null;
+  /**
+   * When true the component is rendered inside a parent page that already
+   * provides a section heading. The internal <h1> / <header> block is
+   * suppressed so there is no duplicate heading in the outline.
+   */
+  embedded?: boolean;
 }) {
   const docs = useVendorDocuments(vendor.id);
   const upload = useUploadDocument(vendor.id);
@@ -122,27 +129,29 @@ export function ComplianceClient({
 
   return (
     <div className="space-y-5">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-extrabold tracking-tight text-dark">
-            Compliance & documents
-          </h1>
-          <p className="mt-1 text-sm text-mid">
-            Keep your certificates current to stay live on {PLATFORM_FACTS.brandName}. We send you a reminder 30 days
-            before anything expires.
-          </p>
-        </div>
-        {vendor.status === 'suspended' && (
-          <span className="inline-flex items-center rounded-full border border-red-300 bg-red-50 px-3 py-1 text-xs font-semibold text-red-800">
-            Account suspended
-          </span>
-        )}
-        {vendor.status === 'probation' && (
-          <span className="inline-flex items-center rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800">
-            On probation
-          </span>
-        )}
-      </header>
+      {!embedded && (
+        <header className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-extrabold tracking-tight text-dark">
+              Compliance &amp; documents
+            </h1>
+            <p className="mt-1 text-sm text-mid">
+              Keep your certificates current to stay live on {PLATFORM_FACTS.brandName}. We send you a reminder 30 days
+              before anything expires.
+            </p>
+          </div>
+          {vendor.status === 'suspended' && (
+            <span className="inline-flex items-center rounded-full border border-red-300 bg-red-50 px-3 py-1 text-xs font-semibold text-red-800">
+              Account suspended
+            </span>
+          )}
+          {vendor.status === 'probation' && (
+            <span className="inline-flex items-center rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800">
+              On probation
+            </span>
+          )}
+        </header>
+      )}
 
       {/* Suspension banner - shown when an admin has paused the account.
           Kept separate from the status banner below because suspension

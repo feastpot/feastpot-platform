@@ -1,0 +1,49 @@
+Write Playwright task tests plus a human UAT protocol for the four consolidated screens. Record clicks, page navigations and elapsed time per task. Assert ZERO full page navigations within a task unless the task is explicitly about moving between areas.
+
+MERGED ORDERS
+M1  Find everything needing action this week across standard and catering. Target: under 30 seconds, one screen.
+M2  Filter to catering only, then back to all. Assert counts reconcile: type-filtered counts sum to the All count.
+M3  Create a catering quote from the merged screen without leaving it.
+M4  Visit the retired catering route. Assert redirect with the catering filter preselected.
+
+SHARE AND CUSTOMERS
+S1  THE CRITICAL TEST. Copy the share link, place an order through it, and assert the order is attributed VENDOR_REFERRED with 0% commission. This is the test that would have caught the divergent-link defect and must fail loudly if a second link form ever reappears.
+S2  Assert exactly one share link exists on the page and it carries ?src=vendor.
+S3  Download both QR formats, scan each, and assert both resolve to the canonical link.
+S4  Visit a previously issued slug form. Assert redirect to canonical with the src marker preserved, and that attribution still resolves VENDOR_REFERRED.
+S5  Open the link inside an in-app browser context (Instagram and WhatsApp user agents). Assert the src parameter survives. This audience arrives largely through those apps, so it is a primary path.
+S6  Assert every commission percentage on the page matches PLATFORM_FACTS, including the repeat rate.
+
+PERFORMANCE
+PF1 Assert the rate schedule renders all three tiers and is never the empty state.
+PF2 Assert the notice period matches PLATFORM_FACTS.feeChangeNoticeDays.
+PF3 Assert no copy claims the full food subtotal stays with the vendor, and no double-hyphen dash appears.
+PF4 Assert hourly data is labelled Europe/London and chart axes carry dates.
+PF5 Assert one revenue definition is used across the screen, stated on it.
+
+ACCOUNT AND COMPLIANCE
+A1  Assert standing renders first and a suspended state is visible above the fold.
+A2  Assert the seven vendorRequirements render verbatim from PLATFORM_FACTS.
+A3  Upload a logo and a cover. Assert both persist and render without a reload.
+A4  Force an upload failure. Assert a specific error message, no orphaned file, no broken image icon.
+A5  Assert both retired routes redirect.
+
+CROSS-CUTTING
+X1  Enumerate every control on all four screens, change each, and assert an observable and correct consequence. Any control producing no effect fails and is named in the report. This is the standing guard that would have caught the delivery radius slider, the allergen filter and the Nationwide checkbox.
+X2  Assert no nav item is truncated and no header text overlaps at a 40-character business name, on desktop and at 375px.
+
+HUMAN UAT PROTOCOL, as a markdown file, goal-phrased only, never naming a control:
+ - "Find out what you need to cook this week."
+ - "Get a link you can put in your Instagram bio so your own customers can order."
+ - "Work out what Feastpot charged you last month and why."
+ - "Check whether there is anything wrong with your account."
+Comprehension questions with the screen hidden:
+ - "If a customer orders through your own link, what does Feastpot take?"
+ - "Where would you look to find out why an order was cancelled?"
+ - "How much notice would you get if the commission changed?"
+ - "What is the difference between your page and your account standing?"
+Record per task: completed unaided, time, hesitations, verbatim comments. Pass means unaided with no verbal prompting.
+
+REPORT: task, target, actual, pass or fail, plus every control found to have no observable effect. Do not mark a task passed on eventual completion.
+
+STYLE: UK English. No em dashes or double-hyphen dashes. Do not write instruction-phrased tasks.

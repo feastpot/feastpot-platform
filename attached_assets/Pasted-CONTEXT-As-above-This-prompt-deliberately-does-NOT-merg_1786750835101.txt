@@ -1,0 +1,27 @@
+CONTEXT
+As above. This prompt deliberately does NOT merge Profile with Account status. Profile is outward-facing (what customers see). Account status carries enforcement actions, statements of reasons under vendor terms clause 14.1 and appeal rights under clause 18.1. Burying a suspension notice inside the screen where a vendor edits her cover photo is the wrong place for it, and the enforcement content has P2B obligations that warrant their own surface.
+
+The real duplication is three separate account-standing pages: Compliance, Account status, and Terms & notices.
+
+PART 1: FIX THE PROFILE IMAGE UPLOAD
+Logo and cover upload are not working; broken-image placeholders render. Diagnose and fix. Check in this order and report what you find: the storage bucket exists and its policies allow the authenticated vendor to write; the upload route or server action is reachable and not failing silently; the returned public URL is correct and stored on Vendor.logoUrl and coverImageUrl; the rendering component handles a null URL with a designed placeholder rather than a broken image icon; file type and size validation rejects clearly rather than failing quietly; CORS on the storage bucket permits the vendor origin.
+Add: an upload progress state, a clear error message per failure mode, and a working preview immediately after upload without a page reload. Add a test that uploads a fixture image and asserts the URL persists and renders.
+
+PART 2: MERGE THE THREE ACCOUNT PAGES into one screen named "Account and compliance" with three clearly separated sections in this order:
+  1. STANDING. Any active restriction, suspension or termination notice, with the written statement of reasons and the appeal route. Use PLATFORM_FACTS.appealWindowDays and contact.appealsEmail. If there is nothing active, show the good-standing state as now. This section is first because it is the only one that is ever urgent.
+  2. COMPLIANCE. Verification state, the seven vendorRequirements from PLATFORM_FACTS rendered verbatim, document status and expiry, and what to do about anything missing.
+  3. TERMS AND NOTICES. Current vendor terms, version and date, and any pending changes with their effective date, satisfying the advance-notice obligation.
+Retire the two absorbed routes with redirects.
+
+PART 3: DO NOT WEAKEN THE ENFORCEMENT SURFACE
+Suspension and enforcement content must remain prominent, and the dashboard banner work stays as specified separately. Merging pages must not reduce the number of places a suspended vendor is told she is suspended.
+
+ACCEPTANCE CRITERIA
+- Logo and cover upload successfully, persist, and render without a reload; failures produce a specific message.
+- One Account and compliance screen replaces three, with standing first.
+- Both retired routes redirect.
+- The seven vendorRequirements render verbatim from PLATFORM_FACTS.
+- Appeal window and contact come from PLATFORM_FACTS.
+- Profile remains a separate, purely customer-facing screen.
+
+EDGE CASES: a vendor with an active suspension and expiring documents (show both, standing first); an upload that succeeds to storage but fails to persist the URL (must not leave an orphaned file and a blank profile); a very large image (compress or reject with a clear limit, do not hang).

@@ -310,11 +310,15 @@ export function ProfileForm() {
                 aspect="aspect-square"
                 url={vendor.logoUrl}
                 uploading={upload.isPending && upload.variables?.kind === 'logo'}
+                error={
+                  upload.isError && upload.variables?.kind === 'logo'
+                    ? humanizeUploadError(upload.error)
+                    : null
+                }
                 onPick={(file) =>
                   upload.mutate({ kind: 'logo', file }, {
                     onSuccess: () => toast({ title: 'Logo updated' }),
-                    onError: (err) =>
-                      toast({ title: 'Logo upload failed', description: err instanceof Error ? err.message : '', variant: 'destructive' }),
+                    onError: () => {/* error shown inline via error prop */},
                   })
                 }
               />
@@ -326,11 +330,15 @@ export function ProfileForm() {
                 aspect="aspect-[16/9]"
                 url={vendor.coverImageUrl}
                 uploading={upload.isPending && upload.variables?.kind === 'cover'}
+                error={
+                  upload.isError && upload.variables?.kind === 'cover'
+                    ? humanizeUploadError(upload.error)
+                    : null
+                }
                 onPick={(file) =>
                   upload.mutate({ kind: 'cover', file }, {
                     onSuccess: () => toast({ title: 'Cover photo updated' }),
-                    onError: (err) =>
-                      toast({ title: 'Cover upload failed', description: err instanceof Error ? err.message : '', variant: 'destructive' }),
+                    onError: () => {/* error shown inline via error prop */},
                   })
                 }
               />
@@ -972,6 +980,22 @@ function TextInput({
   );
 }
 
+/** Convert a raw mutation error into a short, vendor-readable sentence. */
+function humanizeUploadError(err: unknown): string {
+  const msg = err instanceof Error ? err.message : '';
+  if (msg.includes('413') || /too.?large/i.test(msg)) {
+    return 'File too large. Please upload an image under 10 MB.';
+  }
+  if (msg.includes('415') || /unsupported|file.?type/i.test(msg)) {
+    return 'Unsupported file type. Use JPEG, PNG, or WebP.';
+  }
+  if (msg.includes('401') || msg.includes('403')) {
+    return 'Upload failed: your session may have expired. Please refresh and try again.';
+  }
+  if (msg) return msg;
+  return 'Upload failed. Please try again.';
+}
+
 function ImageSlot({
   id,
   label,
@@ -981,6 +1005,7 @@ function ImageSlot({
   url,
   uploading,
   onPick,
+  error,
 }: {
   id: string;
   label: string;
@@ -990,28 +1015,69 @@ function ImageSlot({
   url: string | null;
   uploading: boolean;
   onPick: (file: File) => void;
+  /** Inline error message shown below the slot (e.g. upload failure). */
+  error?: string | null;
 }) {
   const ref = useRef<HTMLInputElement | null>(null);
+  // Immediate preview while the server upload is in flight. We use a blob:
+  // URL so the image appears the moment the user picks a file, before the
+  // server has responded. next/image doesn't support blob: URLs so we use
+  // a plain <img> element for the display in this slot.
+  const [localPreview, setLocalPreview] = useState<string | null>(null);
+
+  // Clear the blob URL once uploading finishes (success or failure).
+  useEffect(() => {
+    if (!uploading && localPreview) {
+      URL.revokeObjectURL(localPreview);
+      setLocalPreview(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uploading]);
+
+  // Revoke on unmount to avoid memory leaks.
+  useEffect(() => {
+    return () => {
+      if (localPreview) URL.revokeObjectURL(localPreview);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const displaySrc = localPreview ?? url;
+
   return (
     <div className="space-y-2">
       <p className="text-xs font-semibold text-dark" id={id}>{label}</p>
       <div
         className={cn(
-          'relative flex w-full items-center justify-center overflow-hidden rounded-xl border border-border bg-surface',
+          'relative flex w-full items-center justify-center overflow-hidden rounded-xl border bg-surface',
+          error ? 'border-destructive/60' : 'border-border',
           aspect,
         )}
       >
-        {url ? (
-          <Image src={url} alt={label} fill sizes="(max-width: 640px) 100vw, 33vw" className="object-cover" />
+        {displaySrc ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={displaySrc}
+            alt={label}
+            className="absolute inset-0 h-full w-full object-cover"
+          />
         ) : (
           <ImageOff className="h-8 w-8 text-mid" aria-hidden />
         )}
         {uploading && (
-          <div className="absolute inset-0 grid place-items-center bg-black/40 text-white">
-            <Loader2 className="h-6 w-6 animate-spin" aria-label="Uploading" />
+          <div className="absolute inset-0 grid place-items-center bg-black/50">
+            <div className="flex flex-col items-center gap-2 text-white">
+              <Loader2 className="h-6 w-6 animate-spin" />
+              <span className="text-[11px] font-semibold">Uploading&hellip;</span>
+            </div>
           </div>
         )}
       </div>
+      {error && (
+        <p className="text-[11px] font-medium text-destructive" role="alert">
+          {error}
+        </p>
+      )}
       <p className="text-[11px] text-mid">{guidance}</p>
       <p className="text-[11px] text-mid">{hint}</p>
       <input
@@ -1021,7 +1087,10 @@ function ImageSlot({
         className="hidden"
         onChange={(e) => {
           const f = e.target.files?.[0];
-          if (f) onPick(f);
+          if (f) {
+            setLocalPreview(URL.createObjectURL(f));
+            onPick(f);
+          }
           e.target.value = '';
         }}
       />
@@ -1032,7 +1101,7 @@ function ImageSlot({
         className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-border bg-white px-3 text-xs font-semibold text-dark transition-colors hover:bg-surface disabled:opacity-60"
       >
         <Upload className="h-3.5 w-3.5" aria-hidden />
-        {url ? 'Replace' : 'Upload'}
+        {uploading ? 'Uploading\u2026' : displaySrc ? 'Replace' : 'Upload'}
       </button>
     </div>
   );

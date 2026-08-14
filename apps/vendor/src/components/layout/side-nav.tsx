@@ -9,7 +9,6 @@ import {
   ChevronUp,
   ClipboardList,
   FileCheck2,
-  FileText,
   Headphones,
   LayoutDashboard,
   LogOut,
@@ -17,7 +16,6 @@ import {
   PoundSterling,
   QrCode,
   Receipt,
-  ShieldAlert,
   ShieldCheck,
   Truck,
   UserCircle2,
@@ -83,12 +81,10 @@ const NAV_SECTIONS: ReadonlyArray<NavSection> = [
   {
     label: 'Account',
     items: [
-      { href: '/compliance',        label: 'Compliance',       Icon: FileCheck2 },
-      { href: '/account-status',    label: 'Account status',   Icon: ShieldAlert },
-      { href: '/settings/team',     label: 'Team',             Icon: UsersRound },
-      { href: '/settings/security', label: 'Security',         Icon: ShieldCheck },
-      { href: '/terms',             label: 'Terms & notices',  Icon: FileText },
-      { href: '/user-guide',        label: 'User guide',       Icon: BookOpen },
+      { href: '/account-and-compliance', label: 'Account and compliance', Icon: FileCheck2 },
+      { href: '/settings/team',          label: 'Team',                   Icon: UsersRound },
+      { href: '/settings/security',      label: 'Security',               Icon: ShieldCheck },
+      { href: '/user-guide',             label: 'User guide',             Icon: BookOpen },
     ],
   },
 ];
