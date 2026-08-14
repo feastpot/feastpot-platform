@@ -159,8 +159,11 @@ export function RateCard({ rates, loading, error, className = '' }: RateCardProp
       )}
 
       <p className="mt-4 text-[11px] text-neutral-400">
-        Rates may change with at least 15 days notice (UK P2B Regulation). Planned changes
-        appear in the table above before they take effect.
+        <strong className="font-semibold">Commission and fee changes</strong> require at least 30
+        days written notice and are never applied retrospectively.{' '}
+        <strong className="font-semibold">General terms changes</strong> require at least 15 days
+        notice under the UK P2B Regulation (clause 10). Planned changes appear in the table above
+        before they take effect.
       </p>
     </section>
   );

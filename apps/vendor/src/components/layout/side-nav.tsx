@@ -19,7 +19,6 @@ import {
   Receipt,
   ShieldAlert,
   ShieldCheck,
-  TrendingUp,
   Truck,
   UserCircle2,
   UsersRound,
@@ -71,15 +70,14 @@ const NAV_SECTIONS: ReadonlyArray<NavSection> = [
     label: 'Growth',
     items: [
       { href: '/share',     label: 'Share and customers',  Icon: QrCode },
-      { href: '/analytics', label: 'Analytics',           Icon: BarChart3 },
+      { href: '/performance', label: 'Performance',         Icon: BarChart3 },
     ],
   },
   {
     label: 'Money',
     items: [
-      { href: '/earnings',         label: 'Earnings & fees',  Icon: TrendingUp },
-      { href: '/payouts',          label: 'Payouts',          Icon: PoundSterling },
-      { href: '/tax-information',  label: 'Tax information',  Icon: Receipt },
+      { href: '/payouts',         label: 'Payouts',         Icon: PoundSterling },
+      { href: '/tax-information', label: 'Tax information', Icon: Receipt },
     ],
   },
   {
