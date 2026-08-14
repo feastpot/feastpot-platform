@@ -335,8 +335,48 @@ export class VendorsService {
    * dedupe by email here so an applicant who fat-fingers the kitchen name
    * can re-submit. The admin queue surfaces same-email duplicates naturally.
    */
-  async registerInterest(dto: RegisterVendorInterestDto) {
+  async registerInterest(dto: RegisterVendorInterestDto, fpRef?: string) {
     const normalisedEmail = dto.email.trim().toLowerCase();
+
+    // Resolve the referring vendor from the fp_ref cookie forwarded by the
+    // web app as the X-Fp-Ref header. The cookie format is
+    // "<referralLinkId>|<clickId>|<timestampMs>"; we need only the first
+    // segment. Resolution happens here at submission time so the referral
+    // survives until approval (which may be days later in an admin session).
+    let referrerVendorId: string | null = null;
+    if (fpRef) {
+      const referralLinkId = fpRef.split('|')[0]?.trim();
+      if (referralLinkId) {
+        try {
+          const link = await this.prisma.vendorReferralLink.findUnique({
+            where: { id: referralLinkId },
+            select: {
+              vendorId: true,
+              vendor: { select: { user: { select: { email: true } } } },
+            },
+          });
+          if (link) {
+            // Self-referral guard: reject if the referral link belongs to a
+            // vendor whose owner has the same email as this applicant.
+            if (link.vendor.user.email.toLowerCase() === normalisedEmail) {
+              this.logger.warn(
+                `registerInterest: self-referral detected for email=${normalisedEmail}, referralLinkId=${referralLinkId} - referrerVendorId not stored`,
+              );
+            } else {
+              referrerVendorId = link.vendorId;
+            }
+          }
+          // Unknown slug/link ID: leave referrerVendorId null (not an error -
+          // the link may have been deleted or the cookie value may be stale).
+        } catch (err) {
+          // Never block an application submission over a referral lookup failure.
+          this.logger.error(
+            `registerInterest: referral link lookup failed for referralLinkId=${referralLinkId}: ${(err as Error).message} - proceeding without referrerVendorId`,
+          );
+        }
+      }
+    }
+
     const application = await this.prisma.vendorApplication.create({
       data: {
         fullName: dto.fullName.trim(),
@@ -362,6 +402,8 @@ export class VendorsService {
         // not persist a blank version string - we want the current default
         // so legal can correlate the row against the right T&Cs revision.
         acceptedTermsVersion: dto.acceptedTermsVersion?.trim() || '2026-05',
+        // Referral attribution: written once, never overwritten.
+        referrerVendorId,
       },
       select: { id: true, kitchenName: true, createdAt: true, status: true },
     });

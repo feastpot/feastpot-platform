@@ -5,6 +5,7 @@ import {
   Delete,
   FileTypeValidator,
   Get,
+  Headers,
   HttpCode,
   MaxFileSizeValidator,
   NotFoundException,
@@ -95,8 +96,11 @@ export class VendorsController {
     summary:
       'Public become-a-vendor application capture. Persists a VendorApplication row and emails the admin + the applicant.',
   })
-  registerInterest(@Body() dto: RegisterVendorInterestDto) {
-    return this.vendors.registerInterest(dto);
+  registerInterest(
+    @Body() dto: RegisterVendorInterestDto,
+    @Headers('x-fp-ref') fpRef?: string,
+  ) {
+    return this.vendors.registerInterest(dto, fpRef);
   }
 
   @Get('me')

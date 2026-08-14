@@ -1088,6 +1088,52 @@ export class AdminService {
     const baseSlug = slugifyForVendor(app.kitchenName) || `vendor-${app.id.slice(0, 8)}`;
     const slug = await this.uniqueVendorSlug(baseSlug);
 
+    // STEP 1b: Resolve the referring vendor captured at application time.
+    // Validated here (outside the tx) so slow lookups do not hold locks.
+    // Rules:
+    //  - referrerVendorId must still exist and be in an operational status
+    //    (approved or live); suspended / pending / unknown => null + log.
+    //  - Belt-and-suspenders self-referral guard: skip if the referrer's
+    //    userId matches the incoming supabaseUserId (impossible in normal
+    //    flow because the email-collision guard fires first, but guarded
+    //    anyway so the invariant is machine-enforced).
+    //  - If the column is null the whole block is a no-op.
+    let validatedReferrerVendorId: string | null = null;
+    const storedReferrerId = app.referrerVendorId ?? null;
+    if (storedReferrerId) {
+      const referrer = await this.prisma.vendor.findUnique({
+        where: { id: storedReferrerId },
+        select: { id: true, userId: true, status: true, businessName: true },
+      });
+      if (!referrer) {
+        this.logger.warn(
+          `approveVendorApplication: referrer vendor ${storedReferrerId} not found for application ${app.id} - referred_by_vendor_id will be null`,
+        );
+      } else if (
+        referrer.status !== VendorStatus.approved &&
+        referrer.status !== VendorStatus.live &&
+        referrer.status !== VendorStatus.probation
+      ) {
+        this.logger.warn(
+          `approveVendorApplication: referrer vendor ${storedReferrerId} (${referrer.businessName}) has status ${referrer.status} for application ${app.id} - referred_by_vendor_id will be null`,
+        );
+      } else {
+        // Self-referral guard (belt-and-suspenders; email guard fires first).
+        // We don't yet have supabaseUserId at this point, so check by email.
+        const referrerUser = await this.prisma.user.findUnique({
+          where: { id: referrer.userId },
+          select: { email: true },
+        });
+        if (referrerUser?.email.toLowerCase() === normalisedEmail) {
+          this.logger.warn(
+            `approveVendorApplication: self-referral detected for email=${normalisedEmail}, referrer vendor ${storedReferrerId} - referred_by_vendor_id will be null`,
+          );
+        } else {
+          validatedReferrerVendorId = referrer.id;
+        }
+      }
+    }
+
     // STEP 2: Create Supabase auth user.
     const supabaseAdmin = this.supabase.getClient().auth.admin;
     const { data: created, error: createErr } = await supabaseAdmin.createUser({
@@ -1155,6 +1201,10 @@ export class AdminService {
             status: VendorStatus.approved, // approved (not yet `live`) - vendor still has menu/Stripe setup ahead
             commissionBps: 1200,
             approvedAt: new Date(),
+            // Write once: the referrer stored on the application at submission
+            // time. validatedReferrerVendorId is resolved before the tx (see
+            // below) so it is never null when a valid referrer exists.
+            referredByVendorId: validatedReferrerVendorId,
           },
         });
 

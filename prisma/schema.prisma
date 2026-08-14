@@ -644,6 +644,11 @@ model VendorApplication {
   deliveryRadiusMiles  Int?                    @map("delivery_radius_miles")
   hygieneRegNumber     String?                 @map("hygiene_reg_number") @db.VarChar(64)
   orderTypes           String[]                @default([]) @map("order_types")
+  // Referring vendor captured at application time from the fp_ref referral
+  // cookie. Null when no referral link was used. Written once on submission
+  // and never overwritten; approval reads it to set referred_by_vendor_id on
+  // the created Vendor row.
+  referrerVendorId     String?                 @map("referrer_vendor_id") @db.Uuid
   createdAt            DateTime                @default(now()) @map("created_at") @db.Timestamptz
   updatedAt            DateTime                @updatedAt @map("updated_at") @db.Timestamptz
 
