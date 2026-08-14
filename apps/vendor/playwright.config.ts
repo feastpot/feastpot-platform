@@ -107,5 +107,16 @@ export default defineConfig({
       },
       dependencies: ['setup'],
     },
+
+    // ── Verification state banner (dashboard) test suite ──────────────────────
+    {
+      name: 'verification-state-banner',
+      testMatch: /verification-state-banner\.spec\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: 'e2e/.auth/vendor.json',
+      },
+      dependencies: ['setup'],
+    },
   ],
 });

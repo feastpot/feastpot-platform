@@ -7,6 +7,7 @@ import { OrdersDueToday } from '@/components/dashboard/orders-due-today';
 import { QuickActions } from '@/components/dashboard/quick-actions';
 import { StatCard } from '@/components/dashboard/stat-card';
 import { UpcomingOrders } from '@/components/dashboard/upcoming-orders';
+import { VerificationStateBanner } from '@/components/dashboard/verification-state-banner';
 import { useVendorDashboard } from '@/hooks/use-vendor-dashboard';
 import { useVendorStats } from '@/hooks/use-vendor-stats';
 
@@ -50,6 +51,15 @@ export function DashboardClient({ vendorId, greetingName, businessName, rating }
   return (
     <div className="space-y-6">
       <DashboardTopBar />
+
+      {/*
+       * Verification state banner: renders for SUSPENDED (red, non-dismissible)
+       * and RENEWAL_DUE (amber, session-dismissible). Reads overallState directly
+       * from the VendorVerification record, independently of document upload
+       * status, so a vendor cannot be suspended and unaware. Sits above the
+       * greeting so it is the first thing visible after the navigation bar.
+       */}
+      <VerificationStateBanner vendorId={vendorId} />
 
       <header>
         <h1 className="text-[24px] font-extrabold tracking-tight text-dark">
