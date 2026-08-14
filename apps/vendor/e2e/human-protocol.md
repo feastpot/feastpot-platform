@@ -244,3 +244,154 @@ Record any freeform comments, confusion points, or suggested improvements
 raised by the participant after the tasks.
 
 > \_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_
+
+---
+
+## Task set C -- Availability settings
+
+Hand the participant a device with the vendor portal open on the Availability
+page. Do **not** point to any control or name any feature.
+
+### C1
+
+> "Set things up so that you only cook at weekends and customers need a full
+> day's notice before you will accept their order."
+
+- **Target:** complete, unaided, within 90 seconds
+- **Pass:** Saturday and Sunday marked active and no weekday active, prep lead
+  time set to 24 hours or more, saved without any verbal prompt, within 90
+  seconds
+- **Failure modes to note:** participant activates only one day and does not
+  notice the second; participant sets lead time in minutes rather than hours;
+  participant saves without changing the lead time from the default; participant
+  cannot find where to set the lead time because it is grouped with the slot
+  window rather than the caps
+
+| Observation | Notes |
+|---|---|
+| Completed unaided (yes / no) | |
+| Time (seconds) | |
+| Hesitations (describe each) | |
+| Verbatim comments | |
+| Pass / Fail | |
+
+---
+
+### C2
+
+> "Decide how many orders you can handle in a single day and make sure the
+> system will stop accepting more once you hit that number."
+
+- **Target:** complete, unaided, within 60 seconds
+- **Pass:** max orders per day field set to a positive whole number and saved,
+  without any verbal prompt, within 60 seconds
+- **Failure modes to note:** participant fills in max trays instead of max
+  orders; participant leaves the field blank thinking "no limit" is the right
+  answer; participant confuses the global daily cap with the per-date capacity
+  rows in the lower section; participant saves without noticing the change was
+  accepted
+
+| Observation | Notes |
+|---|---|
+| Completed unaided (yes / no) | |
+| Time (seconds) | |
+| Hesitations (describe each) | |
+| Verbatim comments | |
+| Pass / Fail | |
+
+---
+
+### C3
+
+> "The kitchen will be closed next Monday for a private event. Make sure no
+> customer can book that day."
+
+- **Target:** complete, unaided, within 60 seconds
+- **Pass:** a blackout date corresponding to next Monday entered and added,
+  without any verbal prompt, within 60 seconds
+- **Failure modes to note:** participant removes Monday from the opening days
+  instead of adding a blackout date (this affects all future Mondays, not just
+  one); participant adds a blackout date but forgets to click Add; participant
+  cannot distinguish the blackout-date section from the per-date capacity section
+
+| Observation | Notes |
+|---|---|
+| Completed unaided (yes / no) | |
+| Time (seconds) | |
+| Hesitations (describe each) | |
+| Verbatim comments | |
+| Pass / Fail | |
+
+---
+
+## Comprehension questions -- Availability (screen hidden)
+
+After all Task set C tasks are complete, turn the screen away or close the lid.
+Ask these questions without showing the interface. Record answers verbatim.
+
+### QC1
+
+> "What is the latest time someone could place an order for this Sunday, given
+> the settings you just made?"
+
+**Expected (any form):** participant identifies the slot close hour and works
+back from it using the lead time. A participant who cannot name a time or
+describe the relationship between lead time and slot hours does **not** pass.
+
+| Answer (verbatim) | Pass / Fail |
+|---|---|
+| | |
+
+---
+
+### QC2
+
+> "What happens to customers who try to order from you once you have hit your
+> daily cap?"
+
+**Expected (any form):** they are blocked, they cannot complete the order, or
+they see the date as unavailable. A participant who says "nothing happens" or
+"I would need to cancel manually" does **not** pass.
+
+| Answer (verbatim) | Pass / Fail |
+|---|---|
+| | |
+
+---
+
+### QC3
+
+> "If you did not tick any day at all and tried to save, what would happen?"
+
+**Expected (any form):** an error would appear, the save would be blocked, or
+the system would not let them. A participant who says the save would succeed and
+customers would simply see no availability does **not** pass.
+
+| Answer (verbatim) | Pass / Fail |
+|---|---|
+| | |
+
+---
+
+## Results summary (Availability)
+
+### Task report
+
+| Task | Target | Actual time | Completed unaided | Pass / Fail |
+|------|--------|-------------|-------------------|-------------|
+| C1: Weekend-only + lead time | 90 s | | | |
+| C2: Daily order cap | 60 s | | | |
+| C3: One-off blackout date | 60 s | | | |
+| QC1: Latest order time | -- | -- | -- | |
+| QC2: Cap enforcement | -- | -- | -- | |
+| QC3: No-days save attempt | -- | -- | -- | |
+
+### Controls with no observable effect (Availability)
+
+| Control | Expected effect | Observed effect |
+|---------|----------------|-----------------|
+| | | |
+
+### Debrief notes (Availability)
+
+> \_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_

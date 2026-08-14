@@ -75,6 +75,17 @@ export default defineConfig({
       dependencies: ['setup'],
     },
 
+    // ── Availability settings test suite ─────────────────────────────────────
+    {
+      name: 'availability-screen',
+      testMatch: /availability-screen\.spec\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: 'e2e/.auth/vendor.json',
+      },
+      dependencies: ['setup'],
+    },
+
     // ── Delivery settings test suite ─────────────────────────────────────────
     {
       name: 'delivery-screen',
