@@ -2,6 +2,7 @@ import { InjectQueue } from '@nestjs/bull';
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Cron } from '@nestjs/schedule';
+import { NotificationStatus, PaymentType, PayoutStatus } from '@prisma/client';
 import type { Queue } from 'bull';
 import { Resend } from 'resend';
 
@@ -342,6 +343,154 @@ export class DlqMonitorService {
         this.logger.error(`Slack delivery failed for error rate alert: ${e.message}`);
       });
     }
+  }
+
+  // ---------- Financial & notification reconciliation ----------
+
+  /**
+   * Runs at :30 of every hour (offset from the error-rate check at :00).
+   * Detects three classes of data gaps that can occur if Bull jobs are
+   * cleared before they run, or if a processor crashes mid-job:
+   *
+   *   A) Payouts stuck in `approved` status longer than 30 minutes.
+   *      A transfer job should complete (or exhaust retries in ~15 min) well
+   *      within this window. A stale `approved` row means the job was cleared
+   *      before executing - the cook has not been paid.
+   *
+   *   B) Notifications stuck in `queued` status for more than 1 hour with no
+   *      sent_at. The processor should either send or fail within seconds.
+   *      A long-queued notification means its Bull job never ran (or was
+   *      cleared after the outbox row was deleted) and the customer/vendor
+   *      never received the message.
+   *
+   *   C) Payment rows of type `refund` or `partial_refund` with no
+   *      stripe_refund_id. This indicates a refund ledger row was written
+   *      without a corresponding Stripe call completing - money may not have
+   *      moved at Stripe. These should be extremely rare and require manual
+   *      Stripe dashboard verification.
+   *
+   * Discrepancies are LOGGED and ALERTED - never auto-remediated. A duplicate
+   * refund or double-transfer is worse than a late one.
+   */
+  @Cron('30 * * * *')
+  async checkReconciliation(): Promise<void> {
+    const PAYOUT_STALE_MS      = 30 * 60 * 1000; // 30 min
+    const NOTIFICATION_STALE_MS = 60 * 60 * 1000; // 1 hour
+
+    const [stalePayouts, stuckNotifications, refundsNoStripeId] = await Promise.all([
+      this.prisma.payout
+        .findMany({
+          where: {
+            status: PayoutStatus.approved,
+            approvedAt: { lte: new Date(Date.now() - PAYOUT_STALE_MS) },
+          },
+          select: {
+            id: true,
+            amountPence: true,
+            approvedAt: true,
+            vendor: { select: { businessName: true } },
+          },
+          take: 20,
+        })
+        .catch((e: Error) => {
+          this.logger.error(`Reconciliation: payout query failed: ${e.message}`);
+          return [];
+        }),
+
+      this.prisma.notification
+        .findMany({
+          where: {
+            status: NotificationStatus.queued,
+            sentAt: null,
+            createdAt: { lte: new Date(Date.now() - NOTIFICATION_STALE_MS) },
+          },
+          select: { id: true, channel: true, template: true, createdAt: true, userId: true },
+          take: 50,
+        })
+        .catch((e: Error) => {
+          this.logger.error(`Reconciliation: notification query failed: ${e.message}`);
+          return [];
+        }),
+
+      this.prisma.payment
+        .findMany({
+          where: {
+            type: { in: [PaymentType.refund, PaymentType.partial_refund] },
+            stripeRefundId: null,
+          },
+          select: { id: true, orderId: true, type: true, amountPence: true, createdAt: true },
+          take: 20,
+        })
+        .catch((e: Error) => {
+          this.logger.error(`Reconciliation: refund payment query failed: ${e.message}`);
+          return [];
+        }),
+    ]);
+
+    const hasGap =
+      stalePayouts.length > 0 ||
+      stuckNotifications.length > 0 ||
+      refundsNoStripeId.length > 0;
+
+    if (!hasGap) return;
+
+    const lines: string[] = [':warning: *Feastpot financial reconciliation alert*'];
+
+    if (stalePayouts.length > 0) {
+      lines.push(
+        `\n*Stale approved payouts (>${PAYOUT_STALE_MS / 60_000} min, no transfer):* ${stalePayouts.length}`,
+      );
+      for (const p of stalePayouts) {
+        lines.push(
+          `  - \`${p.id}\` ${p.vendor?.businessName ?? 'unknown'} ` +
+          `£${(p.amountPence / 100).toFixed(2)} approved at ${p.approvedAt?.toISOString() ?? 'unknown'}`,
+        );
+      }
+      this.logger.warn(
+        `Reconciliation: ${stalePayouts.length} payout(s) stuck in approved state`,
+        stalePayouts.map((p) => ({ id: p.id, amountPence: p.amountPence, approvedAt: p.approvedAt })),
+      );
+    }
+
+    if (stuckNotifications.length > 0) {
+      lines.push(
+        `\n*Stuck queued notifications (>1 hour, no sentAt):* ${stuckNotifications.length}`,
+      );
+      // Group by template for readability
+      const byTemplate = stuckNotifications.reduce<Record<string, typeof stuckNotifications>>(
+        (acc, n) => ({ ...acc, [n.template]: [...(acc[n.template] ?? []), n] }),
+        {},
+      );
+      for (const [template, group] of Object.entries(byTemplate)) {
+        lines.push(`  - \`${template}\`: ${group.length} notification(s)`);
+      }
+      this.logger.warn(
+        `Reconciliation: ${stuckNotifications.length} notification(s) stuck in queued state`,
+        stuckNotifications.map((n) => ({ id: n.id, template: n.template, channel: n.channel, createdAt: n.createdAt })),
+      );
+    }
+
+    if (refundsNoStripeId.length > 0) {
+      lines.push(
+        `\n*:rotating_light: Refund payment rows with no Stripe refund ID:* ${refundsNoStripeId.length}`,
+      );
+      for (const r of refundsNoStripeId) {
+        lines.push(
+          `  - \`${r.id}\` order \`${r.orderId}\` ${r.type} ` +
+          `£${(r.amountPence / 100).toFixed(2)} created ${r.createdAt.toISOString()}`,
+        );
+      }
+      this.logger.error(
+        `Reconciliation: ${refundsNoStripeId.length} refund payment(s) missing stripeRefundId - verify Stripe dashboard`,
+        refundsNoStripeId.map((r) => ({ id: r.id, orderId: r.orderId, amountPence: r.amountPence })),
+      );
+    }
+
+    lines.push(
+      `\n_Do not auto-remediate. Review via <${process.env.ADMIN_URL ?? 'https://admin.feastpot.co.uk'}/payouts|admin payouts> and Stripe dashboard._`,
+    );
+
+    await this.sendSlack(lines.join('\n'));
   }
 
   /**
