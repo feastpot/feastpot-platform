@@ -1,0 +1,17 @@
+CONTEXT
+As above. Following Prompt 20, FeastPass waives the service fee only on marketplace-sourced orders. Vendor-referred orders charge the full fee even for members. The savings endpoints still count fees from all past orders as "would have been saved", so the tracker overstates the benefit. A member who mostly uses vendor links will see a promised saving that never materialises, and under the DMCC Act an overstated saving claim is a misleading commercial practice, not merely a UX flaw.
+
+BUILD
+1. GET /feastpass/savings-potential must join order_attributions and exclude orders where resolved_source = 'VENDOR_REFERRED' from the fee-savings sum.
+2. Apply the same filter to the savings total on GET /feastpass/membership.
+3. Update the cumulative savings card in apps/web/src/app/account/feastpass/page.tsx so displayed savings reflect only orders where the waiver actually applied.
+4. Add a brief note wherever a savings figure is shown, on both /feastpass and the account page: "Based on orders placed through Feastpot. Orders through a kitchen's own link are not included."
+5. Check for any other surface showing a savings figure (marketing pages, emails, onboarding) and apply the same filter and note. Report every location found.
+6. Add tests: a member with only vendor-referred orders shows £0 potential savings; a mixed history counts only the marketplace-sourced portion; the note renders wherever a figure does.
+
+ACCEPTANCE CRITERIA
+- No savings figure anywhere includes a vendor-referred order.
+- Every displayed savings figure carries the scope note.
+- Tests cover all-vendor-referred, all-marketplace, and mixed histories.
+
+EDGE CASES: an order whose attribution is null in older data (exclude it from savings and state the assumption, since counting an unknown as marketplace would overstate); a refunded order (exclude); a member who joined partway through their order history (only count orders after membership started for "already saved", all eligible orders for "would have saved").
