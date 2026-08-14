@@ -1,0 +1,24 @@
+CONTEXT
+As above. Delivery and Profile now have task tests. Availability, where vendors set opening days, slot windows, prep lead time and daily order caps, is the third major settings surface and has none. A regression here silently prevents vendors receiving orders, which is the most damaging failure available on this screen.
+
+BUILD apps/vendor/e2e/availability-screen.spec.ts following the pattern in delivery-screen.spec.ts, with mocks following apps/vendor/e2e/helpers/delivery-mocks.ts. Add an availability-screen project to playwright.config.ts and to the CI job.
+
+AV1  Set opening days and a slot window from scratch. Assert the vendor shows as available on a matching date in customer search.
+AV2  Set a daily order cap. Assert orders beyond the cap are rejected. This is an integration test against the real API, equivalent to D3, and must not be mocked, since the cap existing in the UI while not being enforced is exactly the failure pattern found three times already on this product.
+AV3  Set a prep lead time. Assert dates earlier than the lead time are not bookable by a customer.
+AV4  Clear all opening days. Assert a visible warning that the vendor will not receive orders.
+AV5  Enumerate every control on the page, change each, and assert an observable and correct consequence. Any control producing no effect fails and must be named in the report. This is the generalised guard that would have caught the delivery radius slider, the allergen filter, and the Nationwide checkbox.
+
+HUMAN PROTOCOL, appended to apps/vendor/e2e/human-protocol.md:
+Goal-phrased tasks only, never naming a control. Correct: "Set things up so you only cook at weekends and need a day's notice." Incorrect: "Toggle Saturday and set lead time to 24 hours."
+Comprehension questions with the screen hidden:
+ - "What is the latest someone could order for this Sunday?"
+ - "What happens when you hit your daily cap?"
+ - "If you tick no days at all, what do customers see?"
+Record per task: completed unaided, time, hesitations, verbatim comments.
+
+ACCEPTANCE CRITERIA
+- All five tests run in CI as part of the availability-screen project.
+- AV2 and AV3 hit the real API rather than mocks.
+- AV5 produces a named list of any control lacking an observable effect.
+- The human protocol section contains no instruction-phrased tasks.
