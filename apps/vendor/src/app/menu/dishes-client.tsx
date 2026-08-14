@@ -743,6 +743,7 @@ function DishEditor({ open, itemId, initial, vendorId, menuId, onClose }: DishEd
                 <label key={slug} className="flex cursor-pointer items-center gap-2 text-[13px] text-charcoal">
                   <input
                     type="checkbox"
+                    data-testid={`allergen-${slug}`}
                     checked={form.allergens.includes(slug)}
                     onChange={() => toggleAllergen(slug)}
                     className="h-3.5 w-3.5 accent-brand"
@@ -755,6 +756,7 @@ function DishEditor({ open, itemId, initial, vendorId, menuId, onClose }: DishEd
               <label className="flex cursor-pointer items-start gap-2 text-[13px] text-charcoal">
                 <input
                   type="checkbox"
+                  data-testid="allergen-none"
                   checked={form.allergensFreeFrom}
                   disabled={form.allergens.length > 0}
                   onChange={(e) => patch({ allergensFreeFrom: e.target.checked, allergens: [] })}

@@ -228,9 +228,10 @@ jobs:
           fail_ci_if_error: false
 
   # ----------------------------------------------------------------------------
-  # 6. E2E - Playwright suite covering all three vendor portal projects:
-  #    menu-screen, delivery-screen (incl. D3 customer-discovery guard),
-  #    profile-screen. Runs in parallel with other jobs after deps are cached.
+  # 6. E2E - Playwright suite covering all four vendor portal projects:
+  #    menu-screen, menu-screen-mobile (375 px TopNav layout), delivery-screen
+  #    (incl. D3 customer-discovery guard), profile-screen. Runs in parallel
+  #    with other jobs after deps are cached.
   #
   #    REGRESSION GUARD: D3 asserts that the saved postcode chip set is what
   #    governs vendor discoverability (not the radius field alone). The job
@@ -331,15 +332,15 @@ jobs:
           echo "::error title=Dev server timeout::Vendor dev server did not open port 3002 within 120 s. Inspect the Next.js startup output above for compilation errors or missing environment variables."
           exit 1
 
-      # ---- Playwright (all three projects) ------------------------------------
-      # Projects: setup (auth), menu-screen, delivery-screen, profile-screen.
-      # retries: 1 is already set in playwright.config.ts when CI=true so each
-      # test gets one retry on a browser-level flake before being marked failed.
-      # An assertion that was wrong can never be retried into a pass because
-      # Playwright only retries a test that threw an unexpected error, not one
-      # whose expect() call failed with a deliberate mismatch.
+      # ---- Playwright (all four projects) ------------------------------------
+      # Projects: setup (auth), menu-screen, menu-screen-mobile, delivery-screen,
+      # profile-screen. retries: 1 is already set in playwright.config.ts when
+      # CI=true so each test gets one retry on a browser-level flake before being
+      # marked failed. An assertion that was wrong can never be retried into a
+      # pass because Playwright only retries a test that threw an unexpected error,
+      # not one whose expect() call failed with a deliberate mismatch.
       # JSON output is written alongside the HTML report for the D3 skip check.
-      - name: Run Playwright e2e suite (menu-screen, delivery-screen, profile-screen)
+      - name: Run Playwright e2e suite (menu-screen, menu-screen-mobile, delivery-screen, profile-screen)
         if: steps.fork-guard.outputs.skip != 'true'
         id: playwright-run
         run: |

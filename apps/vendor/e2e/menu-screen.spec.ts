@@ -16,6 +16,9 @@
  *   npm run test:e2e --workspace=@feastpot/vendor
  */
 
+import * as fs from 'fs';
+import * as path from 'path';
+
 import { expect, test } from '@playwright/test';
 
 import {
@@ -43,13 +46,25 @@ import { PageMetrics } from './helpers/page-metrics';
  * active. If the middleware redirected to /sign-in we fail immediately with
  * a clear message instead of timing out for the full 15 s.
  */
+const CACHE_PATH = path.join(__dirname, '.auth', 'vendor.json');
+
 async function waitForMenuReady(page: import('@playwright/test').Page) {
   await page.waitForLoadState('domcontentloaded');
 
   if (page.url().includes('/sign-in')) {
+    // The cached session was accepted by auth.setup but Supabase invalidated it
+    // server-side (e.g. password reset, revocation, or token rotation). Delete
+    // the stale cache so the next run forces a full sign-in rather than hitting
+    // the same redirect loop silently.
+    try {
+      fs.rmSync(CACHE_PATH);
+      console.warn(`waitForMenuReady: deleted stale session cache at ${CACHE_PATH}`);
+    } catch {
+      // File already gone - no action needed.
+    }
     throw new Error(
-      'waitForMenuReady: redirected to /sign-in - the auth session is missing or expired.\n' +
-        'Re-run with real vendor credentials:\n' +
+      'waitForMenuReady: redirected to /sign-in - the cached session was invalidated server-side.\n' +
+        'The stale cache has been deleted. Re-run to trigger a fresh sign-in:\n' +
         '  TEST_VENDOR_EMAIL=<email> TEST_VENDOR_PASSWORD=<password> npm run test:e2e --workspace=@feastpot/vendor',
     );
   }
@@ -140,9 +155,14 @@ test('T1: empty state to first live dish - photo and allergens declared - under 
   // Fill essentials.
   await fillEssentials(page, 'Sunday Jollof Rice', '15.00');
 
-  // Tick an allergen (nuts).
-  const nutsCheckbox = page.locator('input[type="checkbox"]').filter({ hasText: '' }).nth(9); // Nuts is index 9 in FSA_14
-  await page.getByText('Nuts').locator('..').locator('input[type="checkbox"]').check();
+  // Assert the FSA 14 list is complete - adding/removing an allergen fails here.
+  await expect(
+    page.locator('[data-testid^="allergen-"]:not([data-testid="allergen-none"])'),
+    'T1: exactly 14 FSA allergen checkboxes must render',
+  ).toHaveCount(14);
+
+  // Tick nuts - stable selector regardless of FSA_14 list order.
+  await page.getByTestId('allergen-nuts').check();
 
   // Set status to LIVE.
   await page.getByRole('button', { name: 'Live' }).click();
@@ -478,6 +498,12 @@ test('T6: publish blocked without allergen declaration - error shown - allergen 
   await openNewDishPanel(page);
   await fillEssentials(page, 'Allergen Gate Test Dish', '10.00');
 
+  // Assert the FSA 14 list is complete - adding/removing an allergen fails here.
+  await expect(
+    page.locator('[data-testid^="allergen-"]:not([data-testid="allergen-none"])'),
+    'T6: exactly 14 FSA allergen checkboxes must render',
+  ).toHaveCount(14);
+
   // Deliberately leave all allergen checkboxes unticked and "contains none" unchecked.
   // Set status to LIVE.
   await page.getByRole('button', { name: 'Live' }).click();
@@ -557,15 +583,13 @@ test('T7: publish via allergen-free affirmation - allergensFreeFrom stored as tr
   await openNewDishPanel(page);
   await fillEssentials(page, 'Plain Rice (no allergens)', '5.00');
 
-  // Tick the "contains none of the 14 allergens" checkbox.
-  const noneCheckbox = page.getByText(/This dish contains.*none.*of the 14 allergens/i)
-    .locator('..')
-    .locator('input[type="checkbox"]');
+  // Tick the "contains none of the 14 allergens" checkbox - stable testId selector.
+  const noneCheckbox = page.getByTestId('allergen-none');
   await noneCheckbox.check();
 
   // Confirm it is checked and the individual allergen boxes are still unticked.
   await expect(noneCheckbox).toBeChecked();
-  const nutsCheckbox = page.getByText('Nuts').locator('..').locator('input[type="checkbox"]');
+  const nutsCheckbox = page.getByTestId('allergen-nuts');
   await expect(nutsCheckbox).not.toBeChecked();
 
   // Set LIVE.
@@ -797,5 +821,94 @@ test('T10: 40-character business name - no overlap between name and nav items', 
   console.log(
     `T10 complete: no overlap detected. Pill box: (${pillBox.x.toFixed(0)}, ${pillBox.y.toFixed(0)}). ` +
       `Dashboard box: (${dashBox.x.toFixed(0)}, ${dashBox.y.toFixed(0)}) - PASS`,
+  );
+});
+
+// ── T10-mobile: business name / nav strip layout at 375 px (TopNav) ──────────
+
+test('T10-mobile: 40-character business name does not overlap TopNav nav strip at 375 px', async ({
+  page,
+}, testInfo) => {
+  // This test only applies to the mobile project (≤768 px viewport) where
+  // TopNav renders instead of SideNav. In the desktop menu-screen project
+  // T10 covers the same invariant on the SideNav.
+  if (!testInfo.project.name.includes('mobile')) {
+    test.skip(true, 'T10-mobile only runs in the menu-screen-mobile project (375 px)');
+  }
+
+  const m = new PageMetrics(page);
+
+  const longName = "Kwame Asante's West African Food Kitchen"; // 40 chars
+  expect(longName.length).toBe(40);
+
+  await installBaseMocks(page, [LIVE_ITEM], { businessName: longName });
+  await m.install();
+
+  await page.goto('/menu');
+  await waitForMenuReady(page);
+
+  // ── Row 1: business name span ───────────────────────────────────────────────
+
+  const businessNameEl = page.getByTestId('topnav-business-name');
+  await expect(businessNameEl).toBeVisible();
+
+  // ── Row 2: first nav link in the scrollable strip ────────────────────────────
+
+  const navStrip = page.getByTestId('topnav-nav-strip');
+  await expect(navStrip).toBeVisible();
+
+  const firstNavLink = navStrip.locator('a').first();
+  await expect(firstNavLink).toBeVisible();
+
+  const nameBox = await businessNameEl.boundingBox();
+  const navStripBox = await navStrip.boundingBox();
+  const firstLinkBox = await firstNavLink.boundingBox();
+
+  if (!nameBox || !navStripBox || !firstLinkBox) {
+    throw new Error('T10-mobile: could not get bounding boxes for overlap check');
+  }
+
+  // ── Assertion 1: Row 1 (business name) does not overlap Row 2 (nav strip) ──
+  // The two-row header places the business name above the nav strip. Their
+  // y-extents must not intersect: name bottom must be at or above strip top.
+  const nameBottom = nameBox.y + nameBox.height;
+  const stripTop = navStripBox.y;
+
+  expect(
+    nameBottom,
+    `T10-mobile: business name bottom edge (${nameBottom.toFixed(0)} px) must be ≤ ` +
+      `nav strip top edge (${stripTop.toFixed(0)} px) - the two rows are overlapping`,
+  ).toBeLessThanOrEqual(stripTop + 1); // +1 px tolerance for sub-pixel rounding
+
+  // ── Assertion 2: first nav link text is not clipped (has visible dimensions) ─
+  expect(
+    firstLinkBox.width,
+    'T10-mobile: first nav link must have visible width (text is not clipped by overflow:hidden)',
+  ).toBeGreaterThan(0);
+
+  expect(
+    firstLinkBox.height,
+    'T10-mobile: first nav link must have visible height',
+  ).toBeGreaterThan(0);
+
+  // ── Assertion 3: business name element has visible width ─────────────────────
+  expect(
+    nameBox.width,
+    'T10-mobile: business name must have visible width (must not be collapsed by overflow:hidden)',
+  ).toBeGreaterThan(0);
+
+  // ── Assertion 4: nav strip has scrollable overflow (all items fit without wrapping) ─
+  // scrollWidth > clientWidth means there is off-screen content the user can
+  // scroll to - confirming items are laid out in a single line, not wrapped.
+  const isScrollable = await navStrip.evaluate((el) => el.scrollWidth > el.clientWidth);
+  expect(
+    isScrollable,
+    'T10-mobile: nav strip must be horizontally scrollable (scrollWidth > clientWidth). ' +
+      'If this fails, items may be wrapping onto multiple lines rather than overflowing.',
+  ).toBe(true);
+
+  console.log(
+    `T10-mobile complete: name bottom=${nameBottom.toFixed(0)} px, strip top=${stripTop.toFixed(0)} px. ` +
+      `No overlap. Nav strip scrollable. - PASS`,
   );
 });

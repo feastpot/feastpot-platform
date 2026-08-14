@@ -60,6 +60,21 @@ export default defineConfig({
       dependencies: ['setup'],
     },
 
+    // ── Menu screen – mobile viewport (375×812, iPhone 12) ───────────────────
+    // Covers the TopNav two-row header that renders on screens narrower than
+    // the md:hidden breakpoint (768 px). T10 (desktop SideNav) and T10-mobile
+    // (mobile TopNav) guard the same layout invariant on their respective surfaces.
+    {
+      name: 'menu-screen-mobile',
+      testMatch: /menu-screen\.spec\.ts/,
+      use: {
+        ...devices['iPhone 12'],
+        viewport: { width: 375, height: 812 },
+        storageState: 'e2e/.auth/vendor.json',
+      },
+      dependencies: ['setup'],
+    },
+
     // ── Delivery settings test suite ─────────────────────────────────────────
     {
       name: 'delivery-screen',

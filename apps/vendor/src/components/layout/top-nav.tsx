@@ -119,6 +119,7 @@ export function TopNav({ businessName }: { businessName?: string }) {
               buttons off screen. max-w-[10rem] gives up to ~20 chars before
               truncation on 375 px; sm:max-w-[14rem] gives more room at 640 px. */}
           <span
+            data-testid="topnav-business-name"
             className="max-w-[10rem] truncate text-sm font-medium text-mid sm:max-w-[14rem]"
             title={displayName}
           >
@@ -144,6 +145,7 @@ export function TopNav({ businessName }: { businessName?: string }) {
           scrollbar-width: none hides the scrollbar on Firefox;
           [&::-webkit-scrollbar]:hidden covers Chrome/Safari. */}
       <div
+        data-testid="topnav-nav-strip"
         className="overflow-x-auto border-t border-border/40 [&::-webkit-scrollbar]:hidden"
         style={{ scrollbarWidth: 'none' }}
       >

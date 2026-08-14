@@ -22,6 +22,12 @@ import { test as setup } from '@playwright/test';
 
 const STATE_PATH = path.join(__dirname, '.auth', 'vendor.json');
 
+/**
+ * How stale a cached session may be before we force a full re-auth.
+ * Supabase access tokens last 60 minutes; 55 minutes leaves a 5-minute margin.
+ */
+const CACHE_TTL_MS = 55 * 60 * 1000;
+
 setup('authenticate as test vendor', async ({ page }) => {
   const email = process.env.TEST_VENDOR_EMAIL;
   const password = process.env.TEST_VENDOR_PASSWORD;
@@ -37,6 +43,26 @@ setup('authenticate as test vendor', async ({ page }) => {
         '  TEST_VENDOR_PASSWORD=hunter2 \\\n' +
         '  npm run test:e2e --workspace=@feastpot/vendor\n\n' +
         `Got: email="${email ?? '(unset)'}", password="${password ? '(set but is a placeholder)' : '(unset)'}".`,
+    );
+  }
+
+  // ── Session reuse: skip full sign-in when a fresh cache exists ─────────────
+  // Supabase access tokens last 60 min. If vendor.json is < 55 min old the
+  // tokens are still valid and we can save the 15–20 s Supabase sign-in round
+  // trip. The 5-minute margin prevents race conditions near the expiry boundary.
+  if (fs.existsSync(STATE_PATH)) {
+    const ageMs = Date.now() - fs.statSync(STATE_PATH).mtimeMs;
+    const remainingMin = Math.floor((CACHE_TTL_MS - ageMs) / 60_000);
+    if (ageMs < CACHE_TTL_MS) {
+      console.log(
+        `auth setup: reusing cached session, expires in ~${remainingMin} min ` +
+          `(${STATE_PATH}). Skipping Supabase sign-in.`,
+      );
+      return;
+    }
+    console.log(
+      `auth setup: cached session is ${Math.floor(ageMs / 60_000)} min old (TTL ${CACHE_TTL_MS / 60_000} min) - ` +
+        'running full sign-in.',
     );
   }
 
