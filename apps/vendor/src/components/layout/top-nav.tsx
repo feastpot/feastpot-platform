@@ -33,7 +33,6 @@ const NAV_ITEMS = [
   { href: '/settings/delivery',   label: 'Delivery' },
   { href: '/settings/profile',    label: 'Profile' },
   { href: '/share',               label: 'Share' },
-  { href: '/referrals',           label: 'Referrals' },
   { href: '/analytics',           label: 'Analytics' },
   { href: '/earnings',            label: 'Earnings' },
   { href: '/payouts',             label: 'Payouts' },

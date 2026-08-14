@@ -1,113 +1,185 @@
 'use client';
 
 import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
-import { Check, Copy, Download, ExternalLink, Loader2 } from 'lucide-react';
+import { Check, Copy, Download, ExternalLink } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
+import { apiRequest } from '@/lib/api/client';
 import { useAccessToken } from '@/lib/auth/use-access-token';
-import { API_URL } from '@/lib/env';
 import { useTrackEvent } from '@/hooks/use-track-event';
 
-interface ShareClientProps {
-  canonicalLink: string;
+interface ReferralLink {
+  id: string;
   slug: string;
+  referralUrl: string;
+  qrUrls: { png: string; svg: string } | null;
+  createdAt: string;
+}
+
+interface SourceCount {
+  orders: number;
+  gmvPence: number;
+}
+
+interface SplitData {
+  thisWeek: Record<string, SourceCount | undefined>;
+  cumulative: Record<string, SourceCount | undefined>;
+}
+
+interface ShareAndCustomersClientProps {
+  link: ReferralLink | null;
   businessName: string;
-  /** Vendor UUID: threaded to analytics so share_link_click events are tied to the vendor. */
+  /** Vendor UUID threaded from the server page for analytics attribution. */
   vendorId: string;
 }
 
-const commissionPct = PLATFORM_FACTS.commission.vendorReferred; // 0.0
+const { vendorReferred, marketplaceFirst, marketplaceRepeat } = PLATFORM_FACTS.commission;
 
-const INSTAGRAM_TEXT = (link: string, name: string) =>
-  `Order directly from ${name} on Feastpot. When you use my personal link I pay ${commissionPct}% commission - more of your money goes to the food, not fees.\nOrder here: ${link}`;
+const INSTAGRAM_TEXT = (url: string, name: string) =>
+  `Order directly from ${name} on Feastpot. When you use my personal link I pay ${vendorReferred}% commission - more of your money goes to the food, not fees.\nOrder here: ${url}`;
 
-const WHATSAPP_TEXT = (link: string, name: string) =>
-  `Hi! You can now order from ${name} directly on Feastpot. Use my link and I keep 100% of your food cost - I pay ${commissionPct}% commission when orders come through here.\nTap to order: ${link}`;
+const WHATSAPP_TEXT = (url: string, name: string) =>
+  `Hi! You can now order from ${name} directly on Feastpot. Use my link and I keep 100% of your food cost - I pay ${vendorReferred}% commission when orders come through here.\nTap to order: ${url}`;
 
-export function ShareClient({ canonicalLink, slug, businessName, vendorId }: ShareClientProps) {
-  const { token } = useAccessToken();
+function formatGbp(pence: number) {
+  return `£${(pence / 100).toFixed(2)}`;
+}
+
+function SourceBar({
+  label,
+  count,
+  gmv,
+  total,
+}: {
+  label: string;
+  count: number;
+  gmv: number;
+  total: number;
+}) {
+  const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between text-sm">
+        <span className="font-medium text-dark">{label}</span>
+        <span className="text-mid">
+          {count} orders · {formatGbp(gmv)}
+        </span>
+      </div>
+      <div className="h-2 w-full overflow-hidden rounded-full bg-surface">
+        <div
+          className="h-full rounded-full bg-teal transition-all"
+          style={{ width: `${pct}%` }}
+          aria-label={`${pct}%`}
+        />
+      </div>
+      <p className="text-right text-xs text-mid">{pct}%</p>
+    </div>
+  );
+}
+
+export function ShareAndCustomersClient({
+  link: initialLink,
+  businessName,
+  vendorId,
+}: ShareAndCustomersClientProps) {
+  const { token } = useAccessToken() as { token: string | null; loading: boolean };
   const track = useTrackEvent();
+  const [link, setLink] = useState<ReferralLink | null>(initialLink);
+  const [split, setSplit] = useState<SplitData | null>(null);
+  const [splitStatus, setSplitStatus] = useState<'loading' | 'ok' | 'error'>('loading');
   const [copied, setCopied] = useState<string | null>(null);
-  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
-  const [pngBusy, setPngBusy] = useState(false);
-  const [svgBusy, setSvgBusy] = useState(false);
-  const [dlError, setDlError] = useState<string | null>(null);
   const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // QR codes encode a distinct URL with &m=qr so that when a customer scans
-  // the code, the /v/[slug]/route.ts handler can detect it and fire a
-  // server-side qr_scan analytics event (distinguishable from a plain link
-  // click which has ?src=vendor but no &m=qr).
-  const qrLink = `${canonicalLink}&m=qr`;
+  // Client-side QR data URL: generated instantly when stored Supabase URL is not
+  // yet available (self-healing fallback). Renders in < 100 ms.
+  const [clientQrDataUrl, setClientQrDataUrl] = useState<string | null>(null);
 
-  // Generate client-side QR for instant preview. Uses qrLink (not canonicalLink)
-  // so the preview matches what is printed/shared. If the vendor's slug ever
-  // changes the server re-renders and passes the new canonicalLink, which
-  // re-triggers this effect and regenerates the preview automatically.
+  // The QR URL embeds &m=qr so the /v/[slug] handler can fire a qr_scan analytics
+  // event distinguishable from a plain link click.
+  const qrLink = link ? `${link.referralUrl}?m=qr` : null;
+
+  // Generate client-side QR immediately when stored URLs are missing.
   useEffect(() => {
+    if (link?.qrUrls || !qrLink) return;
     let cancelled = false;
-    async function gen() {
-      try {
-        // Dynamic import keeps qrcode out of the server bundle (it uses
-        // canvas / Buffer APIs unavailable in the Next.js Edge runtime).
-        const QRCode = await import('qrcode');
-        const dataUrl = await QRCode.toDataURL(qrLink, {
+    import('qrcode')
+      .then(({ default: QRCode }) =>
+        QRCode.toDataURL(qrLink, {
           errorCorrectionLevel: 'H',
           margin: 4,
           width: 400,
           color: { dark: '#000000', light: '#ffffff' },
-        });
-        if (!cancelled) setQrDataUrl(dataUrl);
-      } catch {
-        // Non-fatal - download buttons still work via the API.
-      }
-    }
-    void gen();
+        }),
+      )
+      .then((dataUrl) => {
+        if (!cancelled) setClientQrDataUrl(dataUrl);
+      })
+      .catch(() => null);
     return () => {
       cancelled = true;
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [qrLink]);
+  }, [link?.qrUrls, qrLink]);
+
+  // Single background refresh: once the API has finished generating the stored QR,
+  // replace the client-side render with the stored high-res URL.
+  const bgRefreshFired = useRef(false);
+  useEffect(() => {
+    if (!token || link?.qrUrls || bgRefreshFired.current) return;
+    bgRefreshFired.current = true;
+    const timer = setTimeout(async () => {
+      try {
+        const fresh = await apiRequest<ReferralLink>('/attribution/links/me', {
+          accessToken: token,
+        });
+        if (fresh.qrUrls) setLink(fresh);
+      } catch {
+        /* no-op */
+      }
+    }, 5_000);
+    return () => clearTimeout(timer);
+  }, [token, link?.qrUrls]);
+
+  // Fetch order source split.
+  useEffect(() => {
+    if (!token) return;
+    apiRequest<SplitData>('/attribution/vendor-split', { accessToken: token })
+      .then((d) => {
+        setSplit(d);
+        setSplitStatus('ok');
+      })
+      .catch(() => setSplitStatus('error'));
+  }, [token]);
 
   function copyToClipboard(text: string, key: string, method: string) {
     navigator.clipboard.writeText(text).catch(() => null);
     setCopied(key);
     if (copiedTimer.current) clearTimeout(copiedTimer.current);
     copiedTimer.current = setTimeout(() => setCopied(null), 2000);
-    // share_link_click: vendor actively sharing their link or social copy text.
-    // Fire-and-forget; never blocks the copy action.
     track('share_link_click', { method }, vendorId);
   }
 
-  async function downloadQr(format: 'png' | 'svg') {
-    if (!token) return;
-    const setBusy = format === 'png' ? setPngBusy : setSvgBusy;
-    setBusy(true);
-    setDlError(null);
-    try {
-      const res = await fetch(`${API_URL}/v1/vendors/me/qr?format=${format}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error(`Download failed (${res.status})`);
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${slug}-feastpot-share.${format}`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 0);
-    } catch (e) {
-      setDlError(e instanceof Error ? e.message : 'Download failed');
-    } finally {
-      setBusy(false);
-    }
+  if (!link) {
+    return (
+      <p className="text-sm text-mid">
+        Your referral link is not ready yet. Please refresh the page in a moment.
+      </p>
+    );
   }
+
+  const qrSrc = link.qrUrls?.png ?? clientQrDataUrl;
+  const qrBasename = `${link.slug}-feastpot-qr`;
+
+  const weekTotal = split
+    ? Object.values(split.thisWeek).reduce((s, v) => s + (v?.orders ?? 0), 0)
+    : 0;
+  const allTotal = split
+    ? Object.values(split.cumulative).reduce((s, v) => s + (v?.orders ?? 0), 0)
+    : 0;
 
   return (
     <div className="space-y-8">
-      {/* Canonical link */}
+      {/* ── Canonical link ───────────────────────────────────────────────── */}
       <section aria-labelledby="share-link-heading">
         <h2
           id="share-link-heading"
@@ -117,10 +189,10 @@ export function ShareClient({ canonicalLink, slug, businessName, vendorId }: Sha
         </h2>
         <div className="rounded-xl border border-border bg-white p-3">
           <div className="flex items-center gap-2">
-            <span className="flex-1 truncate font-mono text-sm text-dark">{canonicalLink}</span>
+            <span className="flex-1 truncate font-mono text-sm text-dark">{link.referralUrl}</span>
             <button
               type="button"
-              onClick={() => copyToClipboard(canonicalLink, 'link', 'link_copy')}
+              onClick={() => copyToClipboard(link.referralUrl, 'link', 'link_copy')}
               className="flex shrink-0 items-center gap-1.5 rounded-lg bg-teal px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-teal-dark"
             >
               {copied === 'link' ? (
@@ -131,7 +203,7 @@ export function ShareClient({ canonicalLink, slug, businessName, vendorId }: Sha
               {copied === 'link' ? 'Copied' : 'Copy'}
             </button>
             <a
-              href={canonicalLink}
+              href={link.referralUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="flex shrink-0 items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-mid hover:bg-surface"
@@ -142,13 +214,13 @@ export function ShareClient({ canonicalLink, slug, businessName, vendorId }: Sha
           </div>
           <p className="mt-2 text-[11px] text-mid">
             Orders placed via this link are attributed to you at{' '}
-            <span className="font-semibold text-teal-dark">{commissionPct}% commission</span> -
-            tracked separately so you can see the impact of your marketing.
+            <span className="font-semibold text-teal-dark">{vendorReferred}% commission</span> and
+            tracked separately so you can see the impact of your own marketing.
           </p>
         </div>
       </section>
 
-      {/* QR code */}
+      {/* ── QR code ─────────────────────────────────────────────────────── */}
       <section aria-labelledby="qr-heading">
         <h2
           id="qr-heading"
@@ -159,10 +231,10 @@ export function ShareClient({ canonicalLink, slug, businessName, vendorId }: Sha
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
           {/* Preview */}
           <div className="shrink-0">
-            {qrDataUrl ? (
+            {qrSrc ? (
               <img
-                src={qrDataUrl}
-                alt={`QR code for ${canonicalLink}`}
+                src={qrSrc}
+                alt={`QR code for ${link.referralUrl}`}
                 width={160}
                 height={160}
                 className="h-40 w-40 rounded-xl border border-border bg-white p-2"
@@ -178,43 +250,47 @@ export function ShareClient({ canonicalLink, slug, businessName, vendorId }: Sha
           {/* Downloads */}
           <div className="space-y-3">
             <p className="text-sm text-mid">
-              High error-correction QR (H level) - scans reliably when printed small or
-              placed on packaging. Download and print for menus, flyers, and events.
+              High error-correction QR (H level) - scans reliably when printed small or placed on
+              packaging. Download and print for menus, flyers, and events.
             </p>
             <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => void downloadQr('png')}
-                disabled={pngBusy || !token}
-                className="flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-semibold text-dark transition-colors hover:bg-surface disabled:opacity-60"
-              >
-                {pngBusy ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-                ) : (
+              {link.qrUrls ? (
+                <>
+                  <a
+                    href={link.qrUrls.png}
+                    download={`${qrBasename}.png`}
+                    className="flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-semibold text-dark transition-colors hover:bg-surface"
+                  >
+                    <Download className="h-3.5 w-3.5" aria-hidden />
+                    PNG (high-res)
+                  </a>
+                  <a
+                    href={link.qrUrls.svg}
+                    download={`${qrBasename}.svg`}
+                    className="flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-semibold text-dark transition-colors hover:bg-surface"
+                  >
+                    <Download className="h-3.5 w-3.5" aria-hidden />
+                    SVG (scalable)
+                  </a>
+                </>
+              ) : clientQrDataUrl ? (
+                // Stored high-res assets are being generated; offer the instant
+                // client-rendered PNG as a download in the meantime.
+                <a
+                  href={clientQrDataUrl}
+                  download={`${qrBasename}.png`}
+                  className="flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-semibold text-dark transition-colors hover:bg-surface"
+                >
                   <Download className="h-3.5 w-3.5" aria-hidden />
-                )}
-                {pngBusy ? 'Preparing...' : 'PNG (1024 px)'}
-              </button>
-              <button
-                type="button"
-                onClick={() => void downloadQr('svg')}
-                disabled={svgBusy || !token}
-                className="flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-semibold text-dark transition-colors hover:bg-surface disabled:opacity-60"
-              >
-                {svgBusy ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-                ) : (
-                  <Download className="h-3.5 w-3.5" aria-hidden />
-                )}
-                {svgBusy ? 'Preparing...' : 'SVG (scalable)'}
-              </button>
+                  PNG
+                </a>
+              ) : null}
             </div>
-            {dlError && <p className="text-xs text-red-600">{dlError}</p>}
           </div>
         </div>
       </section>
 
-      {/* Share text */}
+      {/* ── Ready-to-use share text ──────────────────────────────────────── */}
       <section aria-labelledby="share-text-heading">
         <h2
           id="share-text-heading"
@@ -223,20 +299,20 @@ export function ShareClient({ canonicalLink, slug, businessName, vendorId }: Sha
           Ready-to-use share text
         </h2>
         <p className="mb-3 text-sm text-mid">
-          Copy and paste into your socials. Both blocks include your link and make
-          it clear that orders through it are direct, with no commission fee.
+          Copy and paste into your socials. Both blocks include your link and make it clear that
+          orders through it are direct, with no commission fee.
         </p>
         <div className="grid gap-3 sm:grid-cols-2">
           {[
             {
               key: 'ig',
-              label: 'Instagram bio',
-              text: INSTAGRAM_TEXT(canonicalLink, businessName),
+              label: '📸 Instagram bio',
+              text: INSTAGRAM_TEXT(link.referralUrl, businessName),
             },
             {
               key: 'wa',
-              label: 'WhatsApp status',
-              text: WHATSAPP_TEXT(canonicalLink, businessName),
+              label: '💬 WhatsApp status',
+              text: WHATSAPP_TEXT(link.referralUrl, businessName),
             },
           ].map(({ key, label, text }) => (
             <div key={key} className="rounded-xl border border-border bg-white p-4">
@@ -259,7 +335,122 @@ export function ShareClient({ canonicalLink, slug, businessName, vendorId }: Sha
         </div>
       </section>
 
-      {/* How it works explainer */}
+      {/* ── Order source breakdown ───────────────────────────────────────── */}
+      <section aria-labelledby="split-heading">
+        <h2
+          id="split-heading"
+          className="mb-3 text-sm font-semibold uppercase tracking-wide text-mid"
+        >
+          Order source breakdown
+        </h2>
+        {splitStatus === 'loading' ? (
+          <div
+            className="h-32 animate-pulse rounded-xl bg-surface"
+            aria-busy="true"
+            aria-label="Loading order source data"
+          />
+        ) : splitStatus === 'error' ? (
+          <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+            Could not load order source data. Please refresh to try again.
+          </div>
+        ) : split && (allTotal > 0 || weekTotal > 0) ? (
+          <div className="grid gap-4 sm:grid-cols-2">
+            {/* This week */}
+            <div className="rounded-xl border border-border bg-white p-5">
+              <p className="mb-4 text-sm font-semibold text-dark">This week</p>
+              {weekTotal === 0 ? (
+                <p className="text-sm text-mid">No delivered orders this week yet.</p>
+              ) : (
+                <div className="space-y-4">
+                  <SourceBar
+                    label="Via your link"
+                    count={split.thisWeek['VENDOR_REFERRED']?.orders ?? 0}
+                    gmv={split.thisWeek['VENDOR_REFERRED']?.gmvPence ?? 0}
+                    total={weekTotal}
+                  />
+                  <SourceBar
+                    label="New marketplace customers"
+                    count={split.thisWeek['MARKETPLACE_FIRST']?.orders ?? 0}
+                    gmv={split.thisWeek['MARKETPLACE_FIRST']?.gmvPence ?? 0}
+                    total={weekTotal}
+                  />
+                  <SourceBar
+                    label="Returning marketplace customers"
+                    count={split.thisWeek['MARKETPLACE_REPEAT']?.orders ?? 0}
+                    gmv={split.thisWeek['MARKETPLACE_REPEAT']?.gmvPence ?? 0}
+                    total={weekTotal}
+                  />
+                </div>
+              )}
+            </div>
+            {/* All time */}
+            <div className="rounded-xl border border-border bg-white p-5">
+              <p className="mb-4 text-sm font-semibold text-dark">All time</p>
+              {allTotal === 0 ? (
+                <p className="text-sm text-mid">No delivered orders yet.</p>
+              ) : (
+                <div className="space-y-4">
+                  <SourceBar
+                    label="Via your link"
+                    count={split.cumulative['VENDOR_REFERRED']?.orders ?? 0}
+                    gmv={split.cumulative['VENDOR_REFERRED']?.gmvPence ?? 0}
+                    total={allTotal}
+                  />
+                  <SourceBar
+                    label="New marketplace customers"
+                    count={split.cumulative['MARKETPLACE_FIRST']?.orders ?? 0}
+                    gmv={split.cumulative['MARKETPLACE_FIRST']?.gmvPence ?? 0}
+                    total={allTotal}
+                  />
+                  <SourceBar
+                    label="Returning marketplace customers"
+                    count={split.cumulative['MARKETPLACE_REPEAT']?.orders ?? 0}
+                    gmv={split.cumulative['MARKETPLACE_REPEAT']?.gmvPence ?? 0}
+                    total={allTotal}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          /* Empty state */
+          <div className="rounded-xl border border-border bg-white p-5">
+            <p className="mb-4 text-sm text-mid">
+              No orders yet. Once customers order through your link, you will see how many came
+              from your own marketing versus Feastpot discovery here.
+            </p>
+            <table className="w-full text-sm" aria-label="Order source breakdown placeholder">
+              <thead>
+                <tr className="border-b border-border">
+                  <th scope="col" className="py-2 text-left text-xs font-semibold text-mid">
+                    Source
+                  </th>
+                  <th scope="col" className="py-2 text-right text-xs font-semibold text-mid">
+                    Orders
+                  </th>
+                  <th scope="col" className="py-2 text-right text-xs font-semibold text-mid">
+                    Revenue
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-b border-border">
+                  <td className="py-2 text-mid">Feastpot marketplace</td>
+                  <td className="py-2 text-right text-mid">0</td>
+                  <td className="py-2 text-right text-mid">£0.00</td>
+                </tr>
+                <tr>
+                  <td className="py-2 text-mid">Via your link</td>
+                  <td className="py-2 text-right text-mid">0</td>
+                  <td className="py-2 text-right text-mid">£0.00</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      {/* ── How it works ────────────────────────────────────────────────── */}
       <section className="rounded-xl border border-teal/30 bg-teal-light p-5">
         <h2 className="mb-2 text-sm font-bold text-dark">How it works</h2>
         <ul className="space-y-1.5 text-sm text-dark">
@@ -268,18 +459,18 @@ export function ShareClient({ canonicalLink, slug, businessName, vendorId }: Sha
             or anywhere you promote your kitchen.
           </li>
           <li>
-            <span className="font-semibold">Customers order via your link</span> - the{' '}
-            <code className="rounded bg-white px-1 py-0.5 text-[11px]">?src=vendor</code> marker
-            tracks that the order came from you.
+            <span className="font-semibold">Customers order via your link</span> - Feastpot
+            recognises the link and marks the order as coming from you.
           </li>
           <li>
-            <span className="font-semibold">{commissionPct}% commission</span> - orders attributed
-            to your link attract {PLATFORM_FACTS.commission.vendorReferred}% commission versus the
-            standard {PLATFORM_FACTS.commission.marketplaceFirst}% marketplace rate.
+            <span className="font-semibold">{vendorReferred}% commission</span> - orders attributed
+            to your link attract {vendorReferred}% commission. Marketplace orders attract{' '}
+            {marketplaceFirst}% for first-time customers and {marketplaceRepeat}% for repeat
+            customers.
           </li>
           <li>
-            <span className="font-semibold">See the results</span> - the Earnings and Referrals
-            pages show a breakdown of your own-referral orders versus marketplace orders.
+            <span className="font-semibold">See the results</span> - the order source breakdown
+            above shows your own-referral orders versus marketplace orders, with revenue for each.
           </li>
         </ul>
       </section>

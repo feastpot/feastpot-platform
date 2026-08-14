@@ -263,8 +263,32 @@ export class AttributionService {
       select: { id: true, slug: true, vendorId: true, vendor: { select: { slug: true } } },
     });
     if (!link) {
-      // Unknown slug - still return a safe redirect target.
-      return { ok: false, vendorSlug: null, referralLinkId: null, clickId: null, vendorId: null };
+      // The slug is not a VendorReferralLink slug. It may be a Vendor display slug
+      // (Vendor.slug) from the old /share page or a printed QR code issued before
+      // this fix. Look up the vendor and return their canonical referral-link slug
+      // so the /v/[slug] route can 301-redirect the visitor. The redirect causes the
+      // next request to arrive at the canonical slug, which records the click and
+      // sets fp_ref correctly - preserving attribution for printed QR codes.
+      const vendor = await this.prisma.vendor.findUnique({
+        where: { slug: dto.slug },
+        select: { id: true },
+      });
+      const redirectToSlug = vendor
+        ? (
+            await this.prisma.vendorReferralLink.findUnique({
+              where: { vendorId: vendor.id },
+              select: { slug: true },
+            })
+          )?.slug ?? null
+        : null;
+      return {
+        ok: false,
+        vendorSlug: null,
+        referralLinkId: null,
+        clickId: null,
+        vendorId: null,
+        redirectToSlug,
+      };
     }
 
     const click = await this.prisma.referralClick.create({

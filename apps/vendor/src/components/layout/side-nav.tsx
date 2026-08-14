@@ -12,7 +12,6 @@ import {
   FileText,
   Headphones,
   LayoutDashboard,
-  Link2,
   LogOut,
   MessageSquareWarning,
   PoundSterling,
@@ -71,8 +70,7 @@ const NAV_SECTIONS: ReadonlyArray<NavSection> = [
   {
     label: 'Growth',
     items: [
-      { href: '/share',     label: 'Share your kitchen',  Icon: QrCode },
-      { href: '/referrals', label: 'Your own customers',  Icon: Link2 },
+      { href: '/share',     label: 'Share and customers',  Icon: QrCode },
       { href: '/analytics', label: 'Analytics',           Icon: BarChart3 },
     ],
   },

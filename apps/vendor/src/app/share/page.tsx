@@ -6,19 +6,26 @@ import { PortalShell } from '@/components/layout/portal-shell';
 import { apiRequest, ApiError } from '@/lib/api/client';
 import { createClient as createServerSupabase } from '@/lib/supabase/server';
 
-import { ShareClient } from './share-client';
+import { ShareAndCustomersClient } from './share-client';
 
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'Share your kitchen | Feastpot Vendor',
+  title: 'Share and customers | Feastpot Vendor',
 };
 
 interface VendorMe {
   id: string;
   businessName: string;
   status: string;
+}
+
+interface ReferralLink {
+  id: string;
   slug: string;
+  referralUrl: string;
+  qrUrls: { png: string; svg: string } | null;
+  createdAt: string;
 }
 
 export default async function SharePage() {
@@ -45,10 +52,19 @@ export default async function SharePage() {
     redirect('/onboarding/welcome');
   }
 
-  // Canonical link: slug is URL-encoded so special characters are safe.
-  // ?src=vendor is the VENDOR attribution marker (Prompt 7): orders placed
-  // via this link are tracked as vendor-referred and attract 0% commission.
-  const canonicalLink = `https://feastpot.co.uk/v/${encodeURIComponent(vendor.slug)}?src=vendor`;
+  // The canonical share link comes from VendorReferralLink (attribution system),
+  // NOT from Vendor.slug. The /v/[slug] route records a click only when the slug
+  // matches a VendorReferralLink record; if Vendor.slug is used instead and the
+  // two differ, fp_ref is never set and orders are attributed as marketplace.
+  let link: ReferralLink | null = null;
+  try {
+    link = await apiRequest<ReferralLink>('/attribution/links/me', {
+      accessToken: session.access_token,
+      next: { revalidate: 0 },
+    });
+  } catch {
+    // Render with null; client surfaces an error state.
+  }
 
   return (
     <PortalShell businessName={vendor.businessName}>
@@ -57,19 +73,14 @@ export default async function SharePage() {
           <QrCode className="h-5 w-5 text-teal" aria-hidden />
         </div>
         <div>
-          <h1 className="text-xl font-bold text-dark">Share your kitchen</h1>
+          <h1 className="text-xl font-bold text-dark">Share and customers</h1>
           <p className="mt-1 text-sm text-mid">
             Orders through your personal link are tracked as your own referrals at{' '}
-            <strong>0% commission</strong> - share it everywhere.
+            <strong>0% commission</strong>. Share it everywhere and see the impact below.
           </p>
         </div>
       </header>
-      <ShareClient
-        canonicalLink={canonicalLink}
-        slug={vendor.slug}
-        businessName={vendor.businessName}
-        vendorId={vendor.id}
-      />
+      <ShareAndCustomersClient link={link} businessName={vendor.businessName} vendorId={vendor.id} />
     </PortalShell>
   );
 }

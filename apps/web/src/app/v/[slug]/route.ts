@@ -25,6 +25,13 @@ interface ClickResult {
   referralLinkId: string | null;
   clickId: string | null;
   vendorId: string | null;
+  /**
+   * Set when the incoming slug matched a Vendor display slug (Vendor.slug)
+   * rather than a VendorReferralLink slug. The handler should 301-redirect
+   * to /v/{redirectToSlug} so the canonical referral-link URL is hit and
+   * a click is recorded correctly.
+   */
+  redirectToSlug?: string | null;
 }
 
 /**
@@ -85,6 +92,28 @@ export async function GET(
     }
   } catch {
     // Network error - still redirect; attribution just won't be recorded.
+  }
+
+  // ── Vendor-slug redirect ─────────────────────────────────────────────────────
+  // When the incoming slug matched a Vendor display slug (Vendor.slug) rather
+  // than a VendorReferralLink slug, the API returns redirectToSlug. 301-redirect
+  // to the canonical referral URL so the next request records the click and sets
+  // fp_ref correctly. This preserves attribution for printed QR codes and old
+  // share-page links issued before the slug sources were unified.
+  if (!clickResult.ok && clickResult.redirectToSlug) {
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://feastpot.co.uk';
+    const dest = new URL(`/v/${clickResult.redirectToSlug}`, siteUrl);
+    if (isQrScan) dest.searchParams.set('m', 'qr');
+    const canonicalRedirect = NextResponse.redirect(dest, { status: 301 });
+    // Preserve session ID across the redirect so the canonical-slug request can
+    // detect the same visitor (used for dedup in click recording).
+    canonicalRedirect.cookies.set('fp_sid', sessionId, {
+      path: '/',
+      maxAge: FP_REF_MAX_AGE,
+      sameSite: 'lax' as const,
+      secure: process.env.NODE_ENV === 'production',
+    });
+    return canonicalRedirect;
   }
 
   // ── qr_scan analytics event ──────────────────────────────────────────────────
