@@ -1,0 +1,46 @@
+CONTEXT
+Feastpot Turborepo monorepo, Prisma against Supabase Postgres, apps/web, apps/vendor, apps/admin (Next.js 15), apps/api (NestJS 11). UK English. Never use an em dash anywhere.
+
+WHY THIS IS URGENT: Supabase exposes the public schema through PostgREST using an anon key that is shipped in the client bundle and is therefore public by design. Row Level Security is the only thing standing between that key and the data. A table in the public schema with RLS disabled is readable, and often writable, by anyone who opens developer tools. Recent migrations have added tables and columns covering order attribution, discount funding, founding allowance, FeastPass membership, analytics events and vendor verification. Several of those hold vendor payout figures, customer addresses and identity documents. Treat this as a live exposure check, not a code-quality task.
+
+PART 1: ENUMERATE, DO NOT SAMPLE
+Connect to BOTH the development and production databases and produce a complete table:
+1. Every table in the public schema, with its rowsecurity flag.
+2. For each table with RLS enabled, every policy defined on it, with command (SELECT, INSERT, UPDATE, DELETE, ALL) and role.
+3. Explicit grants to the anon and authenticated roles on each table.
+Query pg_tables and pg_policies directly. Do not infer from the Prisma schema, which does not describe RLS.
+
+Classify each table into exactly one of:
+  EXPOSED     RLS disabled and reachable by the anon role. This is the breach case.
+  LOCKED      RLS enabled, no policies. Access denied to everyone but service_role. Safe, but may be silently breaking a feature.
+  GOVERNED    RLS enabled with policies. Review the policies for correctness.
+  INTERNAL    Not exposed through PostgREST at all. Confirm this rather than assuming it.
+
+PART 2: PRIORITISE BY SENSITIVITY
+Rank every EXPOSED table by what it contains. Highest concern, in order: identity documents and verification records; bank or Stripe Connect identifiers; payout and commission figures; customer names, addresses and phone numbers; order contents; analytics events. Report the row count of each EXPOSED table so the scale of any exposure is known.
+
+PART 3: PATCH
+For each EXPOSED table, enable RLS and add the minimum correct policies. Default position is deny, then grant narrowly:
+- Vendor-owned data: a vendor may read and write only rows belonging to their own vendor id.
+- Customer-owned data: a user may read and write only their own rows.
+- Analytics and attribution events: insert permitted for a constrained set of event names, no client read at all. Reporting reads go through service_role server-side.
+- Verification and compliance records: no client access. Service_role only.
+- Reference data that is genuinely public (for example live vendor listings): read-only for anon, no write.
+Write these as a migration, not as dashboard clicks, so they are version-controlled and reproducible on the new UK database.
+
+PART 4: PROVE IT
+For every table you patch, add a test that uses the ANON key, not the service key, and asserts the expected denial. A test that passes with the service role proves nothing, because service_role bypasses RLS entirely. Cover: anon cannot read another vendor's payouts; anon cannot read verification records; a signed-in vendor cannot read another vendor's orders; a signed-in customer cannot read another customer's addresses.
+
+PART 5: CATCH THE NEXT ONE
+Add a CI check that fails if any table exists in the public schema with rowsecurity false. New tables should not be able to reach production without an explicit decision. Allow an explicit allowlist for genuinely public tables, empty by default, each entry requiring a comment.
+
+ACCEPTANCE CRITERIA
+- A complete table-by-table report for dev and production, sourced from pg_tables and pg_policies.
+- Zero EXPOSED tables remain in either database.
+- Every patch is a committed migration, reproducible against a fresh database.
+- Denial tests run with the anon key and pass.
+- CI fails on a new table without RLS.
+
+IF YOU FIND A LIVE EXPOSURE: state it plainly and first in your summary, name the table, the sensitivity of its contents and its row count, before describing any fix. Do not bury it in a list of completed work.
+
+EDGE CASES: tables where RLS is enabled but a policy uses USING (true), which is equivalent to no protection and must be flagged; views over protected tables, which do not inherit RLS and need their own treatment; functions declared SECURITY DEFINER, which bypass RLS by design and should be enumerated and justified.
