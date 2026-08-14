@@ -324,14 +324,16 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
   payout_batch_ready: {
     subject: () => 'Weekly payout statement ready',
     render: (d) => {
-      // Build the vendor's canonical share link if their slug was included in
-      // the payload. The link is URL-encoded so special characters in slugs
-      // are handled correctly. We show it only when the slug is present so
-      // older in-flight jobs that pre-date the slug field render cleanly.
-      const shareLink =
-        typeof d.vendorSlug === 'string' && d.vendorSlug
-          ? `https://feastpot.co.uk/v/${encodeURIComponent(str(d.vendorSlug))}?src=vendor`
-          : null;
+      // The canonical share link comes pre-built from the payout batch job as
+      // `referralUrl` (derived from VendorReferralLink.slug). We never construct
+      // it here from vendorSlug because:
+      //   1. Vendor.slug and VendorReferralLink.slug can differ.
+      //   2. The attribution click recorder looks up VendorReferralLink by slug;
+      //      using Vendor.slug would produce a URL that records no click and sets
+      //      no fp_ref, silently attributing orders as marketplace (12%).
+      //   3. ?src=vendor is inert - the /v/[slug] route handler ignores it.
+      // Older in-flight jobs without referralUrl simply omit the nudge block.
+      const shareLink = typeof d.referralUrl === 'string' && d.referralUrl ? str(d.referralUrl) : null;
 
       return baseLayout(
         'Payout ready',
@@ -355,7 +357,7 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
               `Orders placed via your personal link attract 0% commission. Share it on Instagram, WhatsApp or anywhere you promote your kitchen and you keep more of every order.` +
               `</p>` +
               `<p style="margin:0;font-size:13px">` +
-              `<a href="${shareLink}" style="color:#00843d;font-weight:600;word-break:break-all">${esc(str(d.vendorSlug))} on Feastpot</a>` +
+              `<a href="${shareLink}" style="color:#00843d;font-weight:600;word-break:break-all">${esc(shareLink ?? '')} on Feastpot</a>` +
               `</p>` +
               `</div>`
             : ''),

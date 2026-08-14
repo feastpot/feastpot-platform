@@ -869,6 +869,11 @@ export class PayoutsService {
             commissionBps: true,
             payoutsEnabled: true,
             slug: true,
+            // Required to build the correct attribution URL for the "Grow your
+            // earnings" nudge in the payout email. VendorReferralLink.slug is the
+            // slug the /v/[slug] click recorder actually resolves; Vendor.slug may
+            // differ and would silently break attribution if used instead.
+            referralLink: { select: { slug: true } },
           },
         },
         orderCommission: {
@@ -1010,7 +1015,9 @@ export class PayoutsService {
             vendorUserId: group.vendor.userId,
             payoutId: payout.id,
             vendorBusinessName: group.vendor.businessName ?? vendorId,
-            vendorSlug: group.vendor.slug ?? null,
+            referralUrl: group.vendor.referralLink?.slug
+              ? `https://feastpot.co.uk/v/${encodeURIComponent(group.vendor.referralLink.slug)}`
+              : null,
             periodStart: start.toISOString(),
             periodEnd: end.toISOString(),
             grossPence: totals.grossPence,

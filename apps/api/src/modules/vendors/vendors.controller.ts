@@ -122,8 +122,14 @@ export class VendorsController {
   }
 
   /**
-   * QR code for the vendor's canonical share link:
-   *   https://feastpot.co.uk/v/{slug}?src=vendor
+   * QR code for the vendor's canonical share link.
+   *
+   * The URL embedded in the QR is derived from the vendor's VendorReferralLink
+   * slug (NOT Vendor.slug). The attribution click recorder looks up
+   * VendorReferralLink by slug; if Vendor.slug is used instead and the two
+   * differ, fp_ref is never set and orders are attributed as marketplace.
+   * The ?src=vendor parameter has NO effect on attribution - the route handler
+   * ignores it - so it is intentionally absent.
    *
    * The slug is resolved from the authenticated user's vendor row, never
    * from a request parameter, so a vendor can never fetch another vendor's
@@ -145,11 +151,21 @@ export class VendorsController {
     const u = requireUser(user);
     const vendor = await this.prisma.vendor.findUnique({
       where: { userId: u.id },
-      select: { slug: true },
+      select: { slug: true, id: true },
     });
     if (!vendor) throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'Vendor not found' });
 
-    const link = `https://feastpot.co.uk/v/${encodeURIComponent(vendor.slug)}?src=vendor`;
+    // Use the VendorReferralLink slug, not Vendor.slug, so the QR encodes a URL
+    // that the click recorder can actually resolve to a referral link and set fp_ref.
+    const referralLink = await this.prisma.vendorReferralLink.findUnique({
+      where: { vendorId: vendor.id },
+      select: { slug: true },
+    });
+    if (!referralLink) {
+      throw new NotFoundException({ code: 'REFERRAL_LINK_NOT_FOUND', message: 'Referral link not set up yet. Please contact support.' });
+    }
+
+    const link = `https://feastpot.co.uk/v/${encodeURIComponent(referralLink.slug)}`;
     const qrOpts = { errorCorrectionLevel: 'H' as const, margin: 4 };
 
     if (format === 'svg') {
@@ -166,7 +182,7 @@ export class VendorsController {
       res.setHeader('Content-Type', 'image/png');
       res.setHeader(
         'Content-Disposition',
-        `attachment; filename="${vendor.slug}-feastpot-qr.png"`,
+        `attachment; filename="${referralLink.slug}-feastpot-qr.png"`,
       );
       res.send(png);
     }
