@@ -150,6 +150,19 @@ export class DlqMonitorService {
     return won;
   }
 
+  /**
+   * Sends a test Slack alert to confirm the webhook is configured and
+   * reachable. Called by the admin `POST /admin/slack/test` endpoint so ops
+   * can verify the webhook without waiting for a real incident.
+   */
+  async triggerTestAlert(): Promise<{ delivered: boolean; webhookConfigured: boolean }> {
+    const webhookConfigured = Boolean(this.slackWebhookUrl);
+    const delivered = await this.sendSlack(
+      ':white_check_mark: *Feastpot Slack alert test* -- queue alerts are configured and this webhook is reachable.',
+    );
+    return { delivered, webhookConfigured };
+  }
+
   /** Returns true when the alert was delivered (or intentionally logged). */
   private async sendSlack(text: string): Promise<boolean> {
     if (!this.slackWebhookUrl) {

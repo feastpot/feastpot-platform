@@ -32,6 +32,7 @@ const websiteJsonLd = {
 
 import { CateringBand } from '@/components/home/catering-band';
 import { FavouritesPills } from '@/components/home/favourites-pills';
+import { FeastPassBrowsingBanner } from '@/components/home/feastpass-browsing-banner';
 import { HowFeastpotWorks } from '@/components/home/how-feastpot-works';
 import { InstagramDmsBlock } from '@/components/home/instagram-dms-block';
 import { MarketingNav } from '@/components/home/marketing-nav';
@@ -122,6 +123,7 @@ export default async function HomePage() {
       />
       <MarketingNav />
       <PostcodeHero />
+      <FeastPassBrowsingBanner />
       <TrustIconStrip />
       <OccasionGrid />
       <HowFeastpotWorks />

@@ -39,6 +39,7 @@ import { TermsService } from '../terms/terms.service';
 
 import { AdminUsersService } from './admin-users.service';
 import { AdminService } from './admin.service';
+import { DlqMonitorService } from './dlq-monitor.service';
 import {
   CreateStaffUserDto,
   IssueCreditDto,
@@ -101,6 +102,7 @@ export class AdminController {
     @InjectQueue(PAYOUTS_QUEUE) private readonly payoutBatchQueue: Queue,
     private readonly commissionService: CommissionService,
     private readonly termsService: TermsService,
+    private readonly dlqMonitor: DlqMonitorService,
   ) {}
 
   /**
@@ -951,5 +953,27 @@ export class AdminController {
     });
     this.logger.log(`[Admin] Outbox row ${rowId} reset for resend by ${req.user?.id}`);
     return { ok: true, id: rowId };
+  }
+
+  /**
+   * Sends a test Slack alert via the configured QUEUE_ALERT_SLACK_WEBHOOK_URL.
+   *
+   * Acceptance criterion: the Slack message must arrive in the configured
+   * channel within ~10 seconds. An unverified webhook is operationally the
+   * same as no webhook -- queue failures would page nobody.
+   *
+   * Returns `webhookConfigured: false` when QUEUE_ALERT_SLACK_WEBHOOK_URL is
+   * not set, so the caller can distinguish "webhook not set" from "delivery
+   * failed".
+   */
+  @Post('slack/test')
+  @Roles(UserRole.admin)
+  @HttpCode(200)
+  @ApiOperation({
+    summary:
+      'Send a test Slack alert to verify QUEUE_ALERT_SLACK_WEBHOOK_URL is set and reachable',
+  })
+  async testSlackAlert() {
+    return this.dlqMonitor.triggerTestAlert();
   }
 }

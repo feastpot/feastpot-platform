@@ -1,0 +1,19 @@
+CONTEXT
+As above. Two related gaps: payouts that fail are not automatically retried, and Bull dead-letter jobs have no admin visibility. A failed payout means a cook is not paid, which is the single most damaging operational failure available on this platform, and currently nobody is told.
+
+BUILD
+1. AUTO-RETRY PAYOUTS. Implement retry with exponential backoff for transient payout failures. Distinguish transient from terminal: a Stripe rate limit or network timeout is transient and should retry; a rejected or restricted connected account is terminal and must not retry indefinitely, since retrying a terminal failure hides it. Enumerate which Stripe error codes fall into each class and state your mapping.
+2. Cap retries and, on final failure, move to a dead-letter state, alert Slack, and flag it in the admin UI. A payout must never fail silently.
+3. Notify the vendor when a payout fails terminally, with what to fix, usually a Stripe Connect requirement. Use the email path from Prompt 41.
+4. DEAD-LETTER ADMIN UI. Build a view listing dead-lettered jobs across queues with job type, failure reason, attempt count, payload summary and timestamp. Provide per-job retry and discard, both requiring confirmation and both recorded with the acting admin.
+5. Redact sensitive payload fields in the list view. Dead-letter payloads often carry customer addresses and payment identifiers, and an admin list is not the place to display them in full.
+6. Add tests: a transient failure retries and eventually succeeds; a terminal failure does not retry and lands in dead-letter; a dead-lettered payout alerts Slack and notifies the vendor; a manual retry from the admin UI re-enqueues correctly.
+
+ACCEPTANCE CRITERIA
+- Transient payout failures retry automatically with backoff.
+- Terminal failures do not retry and are visible in admin within one queue cycle.
+- Every terminal payout failure produces both a Slack alert and a vendor notification.
+- Dead-letter jobs are listable, retryable and discardable, with actions recorded.
+- Sensitive fields are redacted in the list view.
+
+EDGE CASES: a payout that succeeds on retry after being alerted (resolve the alert rather than leaving a false open item); duplicate payout risk on manual retry (assert idempotency against Stripe so a retry cannot pay a vendor twice); a queue backlog where many payouts fail at once due to one upstream outage (coalesce alerts rather than sending hundreds).

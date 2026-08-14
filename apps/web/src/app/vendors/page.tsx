@@ -5,6 +5,7 @@ import { MapPin, Search, WifiOff } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { type FormEvent, Suspense, useEffect, useRef, useState } from 'react';
 
+import { FeastPassBrowsingBanner } from '@/components/home/feastpass-browsing-banner';
 import { RecommendForm, WaitlistForm } from '@/components/home/waitlist-block';
 import { PageShell } from '@/components/layout/page-shell';
 import { VendorCardSkeleton } from '@/components/vendor/vendor-card-skeleton';
@@ -499,6 +500,12 @@ function VendorSearch() {
                       </div>
                     </div>
                   </div>
+                )}
+
+                {vendors.length > 0 && (
+                  <>
+                    <FeastPassBrowsingBanner />
+                  </>
                 )}
 
                 {vendors.length > 0 && (

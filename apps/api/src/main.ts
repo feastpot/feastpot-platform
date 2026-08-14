@@ -221,15 +221,10 @@ async function bootstrap(): Promise<void> {
   // dev port is intentionally NOT exposed) - both are fail-closed conditions.
   // A non-TLS (redis://) URL is allowed but warned: some valid setups rely on
   // network-level security instead of rediss:// TLS, so we don't hard-exit.
+  // REDIS_URL presence is now enforced by assertRequiredEnvOrExit() above.
+  // This guard only validates format (localhost + TLS) when the URL is set.
   const redisUrl = process.env.REDIS_URL ?? '';
   if (env === 'production') {
-    if (!redisUrl) {
-      logger.error(
-        '[STARTUP] CRITICAL: REDIS_URL is not set. ' +
-          'BullMQ, throttler, and cache will fail. Refusing to start.',
-      );
-      process.exit(1);
-    }
     if (redisUrl.includes('localhost') || redisUrl.includes('127.0.0.1')) {
       logger.error(
         '[STARTUP] CRITICAL: REDIS_URL points to localhost in production. ' +
@@ -250,35 +245,8 @@ async function bootstrap(): Promise<void> {
       `Host: ${redisUrl.split('@')[1]?.split(':')[0] ?? 'unknown'}`,
   );
 
-  // Notification credentials check. Unlike the Stripe guard above, missing
-  // notification creds are NON-fatal: a degraded platform (orders still flow,
-  // comms get logged-only) beats no platform at all. But warn loudly so ops
-  // knows vendors/customers aren't being alerted. We check the env vars the
-  // providers actually read (EmailProvider → RESEND_API_KEY + EMAIL_FROM;
-  // WhatsappProvider → Twilio OR Meta Cloud backend), not a fixed list, so the
-  // warning can never disagree with what actually delivers.
-  const emailConfigured = !!(process.env.RESEND_API_KEY && process.env.EMAIL_FROM);
-  const whatsappConfigured =
-    !!(
-      process.env.TWILIO_WHATSAPP_FROM &&
-      process.env.TWILIO_ACCOUNT_SID &&
-      process.env.TWILIO_AUTH_TOKEN
-    ) || !!(process.env.WHATSAPP_ACCESS_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID);
-  const missingChannels: string[] = [];
-  if (!emailConfigured) {
-    missingChannels.push('email (needs RESEND_API_KEY + EMAIL_FROM)');
-  }
-  if (!whatsappConfigured) {
-    missingChannels.push(
-      'whatsapp (needs TWILIO_WHATSAPP_FROM + TWILIO_ACCOUNT_SID/AUTH_TOKEN, or WHATSAPP_ACCESS_TOKEN + WHATSAPP_PHONE_NUMBER_ID)',
-    );
-  }
-  if (missingChannels.length > 0) {
-    logger.warn(
-      `[STARTUP] Notification channels not configured: ${missingChannels.join('; ')}. ` +
-        'Those channels will be logged-only (silently dropped) until set.',
-    );
-  }
+  // Optional-env warnings were already emitted by assertRequiredEnvOrExit()
+  // (via warnOptionalEnv) before NestFactory. No repeat check needed here.
 
   // Replit Autoscale (and most cloud platforms) front the container with a
   // reverse proxy. Trusting it lets Express read the real client IP from
