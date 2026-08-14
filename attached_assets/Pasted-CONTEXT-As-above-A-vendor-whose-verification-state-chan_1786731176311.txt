@@ -1,0 +1,22 @@
+CONTEXT
+As above. A vendor whose verification state changes to suspended or renewal-due currently receives no notification when the change is made by a manual state upsert. She discovers it when her orders stop, or not at all. The templates verification_renewal_due and enforcement_action exist but are email-only channels and are not fired on manual upserts.
+
+Fix the notification gap now using email, which works. WhatsApp is Prompt 47 and is blocked on Meta template approval; do not couple the two.
+
+BUILD
+1. Find every path that writes VendorVerification.overallState, including manual admin upserts, automated renewal checks and any script or seed. Enumerate them in your summary. A notification hook attached to only one path leaves the same bug in the others.
+2. Fire a notification on every transition into a state the vendor must act on: renewal due, suspended, and any state that removes them from customer search. Do not notify on transitions the vendor does not need to act on, such as verified to verified.
+3. The notification must state: what changed, what it means for their listing right now (are they still visible to customers, can they still receive orders), exactly what they must do, by when, and how to appeal. Use PLATFORM_FACTS.appealWindowDays and PLATFORM_FACTS.contact.appealsEmail rather than hard-coded values.
+4. Suspension is the most consequential message a vendor will receive from Feastpot. Write it plainly and without euphemism. She needs to know she has stopped earning, not read around it.
+5. Make notification firing idempotent. Re-running an upsert with an unchanged state must not send a duplicate. Key on the transition, not the write.
+6. Record that the notification was sent, with timestamp and channel, on the verification record, so support can answer "was I told?" definitively.
+7. Add tests: each notifying transition sends exactly one email; a no-op upsert sends none; a repeated upsert does not duplicate; the sent record is written.
+
+ACCEPTANCE CRITERIA
+- Every write path to overallState is enumerated and hooked.
+- A manual admin upsert to suspended sends an email within the normal queue latency.
+- No duplicate notifications on repeated identical upserts.
+- The verification record shows what was sent and when.
+- Copy names the appeal route and window from PLATFORM_FACTS.
+
+EDGE CASES: a vendor with no valid email on file (log loudly, surface in the admin UI, never fail silently); rapid successive state changes (send for each distinct transition, but coalesce identical repeats within a short window); a vendor suspended while holding accepted future orders (the message must address those orders explicitly, since this is the first thing she will ask).
