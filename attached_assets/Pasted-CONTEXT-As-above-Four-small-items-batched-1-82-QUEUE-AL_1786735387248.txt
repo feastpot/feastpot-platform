@@ -1,0 +1,18 @@
+CONTEXT
+As above. Four small items batched.
+
+1. #82 QUEUE ALERTS: set QUEUE_ALERT_SLACK_WEBHOOK_URL in production secrets. Then verify it actually works by triggering a test alert and confirming it arrives. An unverified webhook is the same as no webhook, and this is the alerting path for queue failures, so a silent misconfiguration means you learn about a stalled queue from a vendor rather than from Slack.
+
+2. #134 STARTUP GUARD: add a startup check in apps/api that fails fast and loudly if a required environment variable is missing or empty. Enumerate the genuinely required ones (Stripe keys, database URLs, Supabase keys, Twilio credentials if WhatsApp is enabled, the queue alert webhook) and distinguish required from optional. The application must refuse to start rather than run degraded, because the failure modes observed on this project so far have been silent (an email provider stubbing itself, a webhook going nowhere). Print every missing variable at once, not just the first.
+
+3. #133 BROWSING BANNER: add the browsing banner as specified in the original task. Confirm the exact copy and placement against that task before implementing; do not invent wording.
+
+4. CHARGEBACK DEADLINE SLACK: add a Slack alert when a chargeback response deadline approaches. Pick a lead time that leaves room to act (48 hours minimum) and include in the alert: the order, the amount, the deadline timestamp, and a direct link to the dispute. A chargeback alert that arrives without a link is an alert you will act on slowly.
+
+ACCEPTANCE CRITERIA
+- A test alert is confirmed received in Slack, not merely configured.
+- The API refuses to start with a missing required variable and names every one that is missing.
+- The startup guard distinguishes required from optional and does not block on optional.
+- Chargeback alerts fire at least 48 hours before deadline and carry a working link.
+
+EDGE CASES: local development, where some production variables are legitimately absent (the guard must not block local work; scope required-ness by environment and state clearly which variables are required where).
