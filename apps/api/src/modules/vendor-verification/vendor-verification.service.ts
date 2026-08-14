@@ -53,19 +53,44 @@ export class VendorVerificationService {
 
   /**
    * Admin summary for the compliance triage page.
-   * Returns counts + rows for:
-   *   - Live/probation vendors with no VendorVerification record
-   *   - Vendors with overallState = RENEWAL_DUE
-   *   - Vendors with overallState = SUSPENDED
+   *
+   * Returns a flat row per live/probation vendor with their current
+   * overallState (or 'NOT_SET_UP' when no VendorVerification record exists),
+   * plus counts keyed by every VerificationState value and a totalVendors
+   * figure that equals the sum of all counts.
+   *
+   * Invariant guaranteed: counts.notSetUp + counts.VERIFIED +
+   *   counts.RENEWAL_DUE + counts.SUSPENDED === totalVendors.
+   *
+   * The previous three-bucket response (notSetUp[], renewalDue[], suspended[])
+   * silently dropped VERIFIED vendors from the row set, making counts
+   * unreconcilable. This response is the single authoritative view of the
+   * whole live-vendor population.
    */
-  async getVerificationSummary() {
-    // All live/probation vendors
+  async getVerificationSummary(): Promise<{
+    totalVendors: number;
+    counts: {
+      notSetUp: number;
+      VERIFIED: number;
+      RENEWAL_DUE: number;
+      SUSPENDED: number;
+    };
+    rows: Array<{
+      vendorId: string;
+      vendorName: string;
+      overallState: 'NOT_SET_UP' | VerificationState;
+      insuranceValidUntil: Date | null;
+      allergenTrainingUntil: Date | null;
+      lastNotifiedState: VerificationState | null;
+      lastNotifiedAt: Date | null;
+    }>;
+  }> {
     const liveVendors = await this.prisma.vendor.findMany({
       where: { status: { in: [VendorStatus.live, VendorStatus.probation] } },
       select: { id: true, businessName: true },
+      orderBy: { businessName: 'asc' },
     });
 
-    // All verification records for live/probation vendors
     const verifications = await this.prisma.vendorVerification.findMany({
       where: { vendorId: { in: liveVendors.map((v) => v.id) } },
       select: {
@@ -73,46 +98,47 @@ export class VendorVerificationService {
         overallState: true,
         insuranceValidUntil: true,
         allergenTrainingUntil: true,
+        lastNotifiedState: true,
+        lastNotifiedAt: true,
       },
     });
 
-    const verificationByVendorId = new Map(verifications.map((v) => [v.vendorId, v]));
+    const verificationMap = new Map(verifications.map((v) => [v.vendorId, v]));
 
-    const notSetUp: Array<{ vendorId: string; vendorName: string }> = [];
-    const renewalDue: Array<{
-      vendorId: string;
-      vendorName: string;
-      insuranceValidUntil: Date | null;
-      allergenTrainingUntil: Date | null;
-    }> = [];
-    const suspended: Array<{ vendorId: string; vendorName: string }> = [];
+    const counts = {
+      notSetUp: 0,
+      VERIFIED: 0,
+      RENEWAL_DUE: 0,
+      SUSPENDED: 0,
+    };
 
-    for (const vendor of liveVendors) {
-      const v = verificationByVendorId.get(vendor.id);
+    const rows = liveVendors.map((vendor) => {
+      const v = verificationMap.get(vendor.id);
       if (!v) {
-        notSetUp.push({ vendorId: vendor.id, vendorName: vendor.businessName });
-      } else if (v.overallState === VerificationState.RENEWAL_DUE) {
-        renewalDue.push({
+        counts.notSetUp++;
+        return {
           vendorId: vendor.id,
           vendorName: vendor.businessName,
-          insuranceValidUntil: v.insuranceValidUntil,
-          allergenTrainingUntil: v.allergenTrainingUntil,
-        });
-      } else if (v.overallState === VerificationState.SUSPENDED) {
-        suspended.push({ vendorId: vendor.id, vendorName: vendor.businessName });
+          overallState: 'NOT_SET_UP' as const,
+          insuranceValidUntil: null,
+          allergenTrainingUntil: null,
+          lastNotifiedState: null,
+          lastNotifiedAt: null,
+        };
       }
-    }
+      counts[v.overallState]++;
+      return {
+        vendorId: vendor.id,
+        vendorName: vendor.businessName,
+        overallState: v.overallState,
+        insuranceValidUntil: v.insuranceValidUntil,
+        allergenTrainingUntil: v.allergenTrainingUntil,
+        lastNotifiedState: v.lastNotifiedState,
+        lastNotifiedAt: v.lastNotifiedAt,
+      };
+    });
 
-    return {
-      counts: {
-        notSetUp: notSetUp.length,
-        renewalDue: renewalDue.length,
-        suspended: suspended.length,
-      },
-      notSetUp,
-      renewalDue,
-      suspended,
-    };
+    return { totalVendors: liveVendors.length, counts, rows };
   }
 
   /**
