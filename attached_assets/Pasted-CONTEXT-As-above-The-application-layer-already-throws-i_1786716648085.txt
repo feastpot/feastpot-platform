@@ -1,0 +1,17 @@
+CONTEXT
+As above. The application layer already throws in apps/api/src/modules/orders/orders.service.ts when discountPence > 0 and discountFundedBy is null. There is no database-level enforcement, so a future discount flow that does not thread fundedBy through could silently produce orders whose vendor payout is indeterminate. Given that a wrong value here means a cook is billed for a Feastpot promotion, the database should refuse it.
+
+BUILD
+1. Add a CHECK constraint to the orders table: CHECK (discount_pence = 0 OR discount_funded_by IS NOT NULL). Add it via a Prisma migration containing raw SQL, since Prisma's schema-level check support is limited. Name the constraint explicitly so it is greppable, for example orders_discount_funded_by_required.
+2. BEFORE adding the constraint, verify zero existing production rows violate it. The Prompt 30 backfill should have handled this, but a row created in between would make the ALTER fail. Report the count, and if non-zero, fix those rows before adding the constraint rather than weakening it.
+3. Add an integration test in apps/api/src/modules/orders/orders.service.spec.ts asserting that creating an order with discountPence > 0 and a null funding source is rejected at the application layer, with a clear error, before it reaches the database. The database constraint is a backstop, not the primary guard; the application should still fail first with a useful message.
+4. Add a second test asserting the constraint itself rejects a direct database insert that bypasses the service, proving the backstop works.
+5. Apply the constraint to production using the same runbook as Prompt 30.
+
+ACCEPTANCE CRITERIA
+- The named constraint exists on the orders table in both dev and production.
+- An order with a discount and no funding source is rejected by the service with an informative error.
+- A raw insert bypassing the service is rejected by the database.
+- Zero rows violated the constraint at the time it was added.
+
+EDGE CASES: a discount of exactly zero with a funding source set (allowed, harmless); a negative discount value (should be impossible, but assert it cannot be created).
