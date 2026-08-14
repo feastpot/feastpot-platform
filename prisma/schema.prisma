@@ -2007,8 +2007,16 @@ model VendorVerification {
   allergenTrainingHeld    Boolean           @default(false) @map("allergen_training_held")
   allergenTrainingUntil   DateTime?         @map("allergen_training_until") @db.Timestamptz
   idVerifiedAt            DateTime?         @map("id_verified_at") @db.Timestamptz
-  overallState            VerificationState @map("overall_state")
-  updatedAt               DateTime          @updatedAt @map("updated_at") @db.Timestamptz
+  overallState            VerificationState  @map("overall_state")
+  /// State most recently notified to the vendor (null = never notified).
+  /// Updated by VendorVerificationService.maybeNotifyStateChange after every
+  /// outbound email so support can answer "was I told?" definitively.
+  lastNotifiedState       VerificationState? @map("last_notified_state")
+  /// Timestamp of the most recent notification send.
+  lastNotifiedAt          DateTime?          @map("last_notified_at") @db.Timestamptz
+  /// Channel used for the most recent notification ('email'; 'whatsapp' when Prompt 47 lands).
+  lastNotifiedChannel     String?            @map("last_notified_channel")
+  updatedAt               DateTime           @updatedAt @map("updated_at") @db.Timestamptz
 
   vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
 

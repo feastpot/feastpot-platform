@@ -1,5 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { FhrsStatus, VerificationState, VendorStatus } from '@prisma/client';
+import { FhrsStatus, OrderStatus, VerificationState, VendorStatus } from '@prisma/client';
+
+import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
 
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -10,6 +12,30 @@ import type { UpsertVerificationDto } from './dto/upsert-verification.dto';
 const RENEWAL_WARNING_DAYS = 30;
 /** Days after first reminder before we auto-suspend for non-renewal. */
 const SUSPENSION_GRACE_DAYS = 7;
+
+/**
+ * States that require a proactive notification to the vendor.
+ * VERIFIED transitions do not require action from the vendor.
+ */
+const NOTIFY_ON_STATES = new Set<VerificationState>([
+  VerificationState.RENEWAL_DUE,
+  VerificationState.SUSPENDED,
+]);
+
+/**
+ * Deduplication window. A notification for the same state sent within this
+ * window is suppressed. Rapid successive writes (e.g. admin saves twice in
+ * 30 seconds) do not produce duplicate emails.
+ */
+const DEDUP_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+
+/** Active-order statuses a suspended vendor must still fulfil. */
+const ACTIVE_ORDER_STATUSES: OrderStatus[] = [
+  OrderStatus.accepted,
+  OrderStatus.needs_clarification,
+  OrderStatus.preparing,
+  OrderStatus.ready,
+];
 
 @Injectable()
 export class VendorVerificationService {
@@ -89,7 +115,28 @@ export class VendorVerificationService {
     };
   }
 
-  upsertVerification(vendorId: string, dto: UpsertVerificationDto) {
+  /**
+   * Admin upsert of a vendor's verification record.
+   *
+   * Fires a notification on every transition into an actionable state
+   * (RENEWAL_DUE, SUSPENDED). Transitions into VERIFIED are silent --
+   * the enforcement-lifted email covers those when they originate from
+   * an enforcement lift; for a direct upsert to VERIFIED, no email is
+   * appropriate. Repeated upserts with an unchanged state are no-ops
+   * for notifications.
+   */
+  async upsertVerification(vendorId: string, dto: UpsertVerificationDto) {
+    // Fetch current state and notification tracking before the write.
+    const existing = await this.prisma.vendorVerification.findUnique({
+      where: { vendorId },
+      select: {
+        overallState: true,
+        lastNotifiedState: true,
+        lastNotifiedAt: true,
+      },
+    });
+    const previousState = existing?.overallState ?? null;
+
     const data = {
       registrationNumber: dto.registrationNumber,
       registrationAuthority: dto.registrationAuthority,
@@ -106,11 +153,20 @@ export class VendorVerificationService {
       idVerifiedAt: dto.idVerifiedAt ? new Date(dto.idVerifiedAt) : null,
       overallState: dto.overallState,
     };
-    return this.prisma.vendorVerification.upsert({
+    const result = await this.prisma.vendorVerification.upsert({
       where: { vendorId },
       create: { vendorId, ...data },
       update: data,
     });
+
+    // Derive expiring fields from the DTO dates for the renewal email payload.
+    const expiringFields = this.deriveExpiringFields(dto);
+
+    await this.maybeNotifyStateChange(vendorId, previousState, dto.overallState, existing, {
+      expiringFields,
+    });
+
+    return result;
   }
 
   /**
@@ -182,15 +238,20 @@ export class VendorVerificationService {
         }
         suspended++;
       } else if (expiringLabels.length > 0 && v.overallState !== VerificationState.RENEWAL_DUE) {
+        const previousState = v.overallState;
         await this.prisma.vendorVerification.update({
           where: { id: v.id },
           data: { overallState: VerificationState.RENEWAL_DUE },
         });
-        await this.notifications.enqueue('verification_renewal_due', {
-          userId: v.vendor.userId,
-          vendorName: v.vendor.businessName,
-          expiringFields: expiringLabels,
-        });
+        // Use maybeNotifyStateChange so tracking is written alongside the email.
+        // Pass existing tracking fields from the loaded row.
+        await this.maybeNotifyStateChange(
+          v.vendor.id,
+          previousState,
+          VerificationState.RENEWAL_DUE,
+          { lastNotifiedState: v.lastNotifiedState, lastNotifiedAt: v.lastNotifiedAt },
+          { expiringFields: expiringLabels },
+        );
         renewalNotified++;
       }
     }
@@ -254,5 +315,136 @@ export class VendorVerificationService {
 
     this.logger.log(`fsa-refresh: updated=${updated}`);
     return { updated };
+  }
+
+  // ── Private helpers ─────────────────────────────────────────────────────────
+
+  /**
+   * Fire a notification whenever overallState transitions into an actionable
+   * state (RENEWAL_DUE or SUSPENDED). Idempotent: repeated writes to the same
+   * state do not produce duplicate emails.
+   *
+   * Idempotency is two-layered:
+   *   1. previousState === newState (no transition) -> skip.
+   *   2. lastNotifiedState === newState within DEDUP_WINDOW_MS -> skip
+   *      (rapid succession: admin saves twice, cron re-runs within the hour).
+   *
+   * After a send the tracking columns (lastNotifiedState, lastNotifiedAt,
+   * lastNotifiedChannel) are written so support can answer "was she told?"
+   * definitively, and so the next call can apply layer-2 dedup.
+   *
+   * Missing userId: logged at ERROR level and surfaced - never silently ignored.
+   */
+  private async maybeNotifyStateChange(
+    vendorId: string,
+    previousState: VerificationState | null,
+    newState: VerificationState,
+    existing: { lastNotifiedState: VerificationState | null; lastNotifiedAt: Date | null } | null,
+    meta: { expiringFields?: string[] } = {},
+  ): Promise<void> {
+    // Only notify on actionable states.
+    if (!NOTIFY_ON_STATES.has(newState)) return;
+
+    // No transition - upsert left the state unchanged.
+    if (previousState === newState) return;
+
+    // Dedup: same end-state notified very recently (rapid identical upserts).
+    if (
+      existing?.lastNotifiedState === newState &&
+      existing.lastNotifiedAt != null &&
+      Date.now() - existing.lastNotifiedAt.getTime() < DEDUP_WINDOW_MS
+    ) {
+      this.logger.warn(
+        `[verification-notify] dedup: vendor=${vendorId} state=${newState} ` +
+          `already notified ${Date.now() - existing.lastNotifiedAt.getTime()}ms ago -- skipping`,
+      );
+      return;
+    }
+
+    // Load vendor contact details.
+    const vendor = await this.prisma.vendor.findUnique({
+      where: { id: vendorId },
+      select: { userId: true, businessName: true },
+    });
+
+    if (!vendor?.userId) {
+      // Log loudly - the admin UI should surface this so someone follows up.
+      this.logger.error(
+        `[verification-notify] vendor=${vendorId} has no userId -- ` +
+          `cannot send ${newState} notification. Admin must contact vendor directly.`,
+      );
+      return;
+    }
+
+    // Deterministic Bull jobId: at most one notification per vendor per state
+    // per calendar day, preventing duplicates even if the job is re-enqueued
+    // while a prior instance is still queued.
+    const dateSuffix = new Date().toISOString().slice(0, 10);
+    const jobId = `verification_state:${vendorId}:${newState}:${dateSuffix}`;
+
+    if (newState === VerificationState.RENEWAL_DUE) {
+      await this.notifications.enqueue(
+        'verification_renewal_due',
+        {
+          userId: vendor.userId,
+          vendorName: vendor.businessName,
+          expiringFields: meta.expiringFields ?? [],
+          complianceEmail: PLATFORM_FACTS.contact.complianceEmail,
+        },
+        { jobId },
+      );
+    } else if (newState === VerificationState.SUSPENDED) {
+      // Count active orders the vendor must still fulfil -- this is the first
+      // thing a suspended vendor will ask about.
+      const pendingOrderCount = await this.prisma.order.count({
+        where: { vendorId, status: { in: ACTIVE_ORDER_STATUSES } },
+      });
+      await this.notifications.enqueue(
+        'verification_suspended',
+        {
+          userId: vendor.userId,
+          vendorName: vendor.businessName,
+          pendingOrderCount,
+          appealWindowDays: PLATFORM_FACTS.appealWindowDays,
+          appealsEmail: PLATFORM_FACTS.contact.appealsEmail,
+          complianceEmail: PLATFORM_FACTS.contact.complianceEmail,
+        },
+        { jobId },
+      );
+    }
+
+    // Record the send so support can answer "was I told?" and so the next call
+    // can apply dedup.
+    await this.prisma.vendorVerification.update({
+      where: { vendorId },
+      data: {
+        lastNotifiedState: newState,
+        lastNotifiedAt: new Date(),
+        lastNotifiedChannel: 'email',
+      },
+    });
+
+    this.logger.log(
+      `[verification-notify] sent state=${newState} vendor=${vendorId} jobId=${jobId}`,
+    );
+  }
+
+  /**
+   * Derive which verification documents are expiring from the upsert DTO so
+   * the renewal email can name them specifically even on a manual admin upsert.
+   */
+  private deriveExpiringFields(dto: UpsertVerificationDto): string[] {
+    const now = new Date();
+    const in30 = new Date(now.getTime() + RENEWAL_WARNING_DAYS * 86_400_000);
+    const labels: string[] = [];
+    if (dto.insuranceValidUntil) {
+      const d = new Date(dto.insuranceValidUntil);
+      if (d < in30) labels.push('public liability insurance');
+    }
+    if (dto.allergenTrainingUntil) {
+      const d = new Date(dto.allergenTrainingUntil);
+      if (d < in30) labels.push('allergen training');
+    }
+    return labels;
   }
 }

@@ -475,31 +475,68 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
   verification_renewal_due: {
     subject: (d) =>
       `Action required: Feastpot verification renewal due for ${str(d.vendorName, 'your kitchen')}`,
-    render: (d) =>
-      baseLayout(
+    render: (d) => {
+      const fields = Array.isArray(d.expiringFields)
+        ? (d.expiringFields as string[])
+        : [];
+      const fieldList = fields.length > 0 ? fields.join(', ') : 'one or more verification documents';
+      const complianceEmail = str(d.complianceEmail, 'compliance@feastpot.co.uk');
+      return baseLayout(
         'Verification renewal due',
-        h2('Document renewal required') +
+        h2('Your verification documents are expiring soon') +
           amberCallout(
-            `Your Feastpot verification has one or more documents expiring soon: <strong>${esc(Array.isArray(d.expiringFields) ? (d.expiringFields as string[]).join(', ') : String(d.expiringFields ?? ''))}</strong>.`,
+            `<strong>${esc(fieldList)}</strong> will expire within the next 30 days.`,
           ) +
-          p('Please upload renewed documents in the vendor portal within 30 days to avoid a pause to your listing.') +
-          brandButton('Upload renewal', 'https://vendor.feastpot.co.uk/compliance', 'vendorBlue'),
-      ),
+          p('Your listing is still visible to customers right now. If the documents are not renewed before they expire, your listing will be paused and you will stop receiving new orders.') +
+          p('<strong>What to do:</strong> upload renewed documents in the vendor portal by clicking the button below.') +
+          brandButton('Upload renewal documents', 'https://vendor.feastpot.co.uk/compliance', 'vendorBlue') +
+          p(
+            `If you have already renewed and need to let us know, email <a href="mailto:${esc(complianceEmail)}">${esc(complianceEmail)}</a>.`,
+          ),
+      );
+    },
     channels: ['email'],
   },
   verification_suspended: {
     subject: (d) =>
-      `Your Feastpot listing has been paused: ${str(d.vendorName, 'your kitchen')}`,
-    render: (d) =>
-      baseLayout(
-        'Listing paused',
-        h2('Your listing has been paused') +
+      `Your Feastpot listing has been suspended: ${str(d.vendorName, 'your kitchen')}`,
+    render: (d) => {
+      const appealWindowDays = typeof d.appealWindowDays === 'number' ? d.appealWindowDays : 14;
+      const appealsEmail = str(d.appealsEmail, 'appeals@feastpot.co.uk');
+      const complianceEmail = str(d.complianceEmail, 'compliance@feastpot.co.uk');
+      const pendingOrderCount =
+        typeof d.pendingOrderCount === 'number' ? d.pendingOrderCount : 0;
+
+      return baseLayout(
+        'Listing suspended',
+        h2('Your listing has been suspended') +
           amberCallout(
-            `Your listing has been paused because a verification requirement is no longer met: <strong>${esc(String(d.reason ?? 'expired document'))}</strong>.`,
+            'Your listing is suspended. You are not visible to customers and cannot receive new orders.',
           ) +
-          p('Your listing will be restored automatically once the requirement is resolved. Please upload the renewed document in the vendor portal or contact us if you need help.') +
-          brandButton('Resolve in vendor portal', 'https://vendor.feastpot.co.uk/compliance', 'vendorBlue'),
-      ),
+          p(
+            'Your listing was suspended because a verification requirement is no longer met. ' +
+              'This could be an expired insurance certificate, expired allergen training, or a hygiene rating below the minimum.',
+          ) +
+          (pendingOrderCount > 0
+            ? p(
+                `<strong>You have ${pendingOrderCount} accepted order${pendingOrderCount === 1 ? '' : 's'} that you must still fulfil.</strong> ` +
+                  'Customers who have already placed an order with you are expecting delivery as agreed. ' +
+                  'You must complete those orders even though your listing is suspended.',
+              )
+            : '') +
+          p('<strong>What you need to do:</strong>') +
+          p(
+            '1. Upload the required document(s) in the vendor portal. Your listing will be restored once the documents are verified.' +
+              `<br>2. If you believe this suspension is an error, email <a href="mailto:${esc(complianceEmail)}">${esc(complianceEmail)}</a>.`,
+          ) +
+          brandButton('Go to compliance in vendor portal', 'https://vendor.feastpot.co.uk/compliance', 'vendorBlue') +
+          p(
+            `<strong>Appealing this decision:</strong> you have ${appealWindowDays} calendar days from today to submit a formal appeal. ` +
+              `Email <a href="mailto:${esc(appealsEmail)}">${esc(appealsEmail)}</a> with your vendor name and a short explanation. ` +
+              'Appeals are reviewed within 5 business days.',
+          ),
+      );
+    },
     channels: ['email'],
   },
   // ---------- Account power tools (FR-ADM-002) ----------
