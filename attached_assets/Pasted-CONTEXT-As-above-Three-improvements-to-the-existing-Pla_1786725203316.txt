@@ -1,0 +1,29 @@
+CONTEXT
+As above. Three improvements to the existing Playwright suite in apps/vendor/e2e/.
+
+PART 1: STABLE ALLERGEN SELECTORS
+T1, T6 and T7 locate allergen checkboxes by text or positional nth() calls. If an allergen is added, removed or reordered in the FSA 14 list, those selectors silently pick the wrong checkbox and the tests give false passes. Given these tests guard a legally required food-safety gate, a false pass is the worst possible failure mode.
+- Add data-testid="allergen-<name>" to each allergen checkbox in apps/vendor/src/app/menu/dishes-client.tsx (search for FSA_14 or allergensFreeFrom). Use the canonical slug values, for example allergen-nuts, allergen-milk, allergen-cereals-containing-gluten.
+- Add data-testid="allergen-none" to the "contains none of the 14" checkbox.
+- Update T1 (around line 90), T6 (around 210) and T7 (around 265) in apps/vendor/e2e/menu-screen.spec.ts to use page.getByTestId, removing every positional selector.
+- Add an assertion that exactly 14 allergen checkboxes render, so a silent addition or removal fails the suite rather than passing.
+
+PART 2: MOBILE VIEWPORT COVERAGE
+T10 asserts a 40-character business name does not overlap the Dashboard nav link in the desktop SideNav at 1280px. The original defect was reported on mobile, where TopNav renders instead, so the test does not cover the surface where the bug was found.
+- Add a second Chromium project menu-screen-mobile to apps/vendor/playwright.config.ts using devices['iPhone 12'] at 375x812.
+- Add a T10-mobile twin asserting: the business-name span in the TopNav two-row header does not overlap the first scrollable nav item, by bounding-box comparison; and the nav strip scrolls without clipping text.
+- List both projects in the CI job from Prompt 36.
+
+PART 3: SESSION REUSE
+Every run re-authenticates through a full Supabase sign-in, adding 15 to 20 seconds even when the saved session is minutes old. Supabase access tokens last 60 minutes.
+- In apps/vendor/e2e/auth.setup.ts, before page.goto('/sign-in'), check whether e2e/.auth/vendor.json exists and its mtime is under 55 minutes old. The 55-minute threshold leaves a 5-minute margin.
+- If fresh, log "reusing cached session, expires in ~X min" and return without opening a browser.
+- If stale or absent, run the full sign-in as now.
+- Ensure a cached-but-invalid session fails clearly rather than causing confusing downstream failures: if the first test navigation redirects to sign-in, delete the cache and fail with a message telling the developer to re-run.
+
+ACCEPTANCE CRITERIA
+- No positional or text-based allergen selector remains in the suite.
+- Reordering the FSA 14 list does not change any test result; removing one fails the count assertion.
+- The mobile project runs and covers the TopNav header.
+- A second consecutive run skips sign-in and is measurably faster.
+- An expired cached session produces a clear, actionable failure.
