@@ -1,0 +1,23 @@
+CONTEXT
+As above. DiscountCode has fundedBy: DiscountFundedBy defaulting to PLATFORM, and the payout engine branches on it, but no admin interface or API accepts the value. Every code is therefore PLATFORM, and the VENDOR branch of the payout formula is unreachable and untested in practice.
+
+BUILD
+1. Add fundedBy to CreateDiscountCodeDto and UpdateDiscountCodeDto with validation against the enum. Default to PLATFORM when omitted, since that is the safe direction: PLATFORM means the vendor is paid in full.
+2. Persist it in discount-codes.service.ts on create and update.
+3. Add a clear control to the admin create and edit forms in apps/admin/src/app/discount-codes/. Not a bare enum dropdown. Label the two options in plain terms with their consequence stated:
+   "Feastpot funds this. The vendor is paid in full and the discount comes out of Feastpot's commission."
+   "The vendor funds this. The discount comes off the vendor's payout, and commission is calculated on the discounted amount."
+   An admin choosing wrongly here takes money from a cook, so the interface must make the consequence unmissable.
+4. VENDOR-funded codes need a vendor. A vendor-funded code must be scoped to a specific vendor; a platform-wide code cannot be vendor-funded, since that would bill every cook for one promotion. Enforce this in the DTO validation and in the form.
+5. Add a confirmation step when saving a VENDOR-funded code, restating which vendor will bear the cost.
+6. Show fundedBy in the admin discount-code list so an existing code's funding source is visible without opening it.
+7. Add a test proving a vendor-funded code applied at checkout uses the discounted subtotal as the commission basis, and a platform-funded code uses the full pre-discount subtotal, matching Prompt 18's formula.
+
+ACCEPTANCE CRITERIA
+- Both funding sources can be set from the admin UI and persist.
+- A vendor-funded code cannot be created without a specific vendor attached.
+- The two payout formulas are proven by test at checkout.
+- The list view shows funding source.
+- Creating a vendor-funded code requires an explicit confirmation naming the vendor.
+
+EDGE CASES: editing an existing code's funding source after it has been redeemed (decide and document: prefer disallowing the change once redemptions exist, since it would retroactively alter payouts already calculated); a vendor-funded code on an order that also carries a platform-funded code.
