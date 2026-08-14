@@ -1,0 +1,29 @@
+CONTEXT
+As above.
+
+PROBLEM: Analytics and Earnings & fees both answer "how am I doing" and both show revenue, with different definitions and no cross-reference. Several defects are visible on these screens and must be fixed as part of the merge, not deferred.
+
+DEFECTS TO FIX
+1. RATE SCHEDULE IS EMPTY. Earnings shows "RATE SCHEDULE (ANNEX A) ... No rate information available." A vendor cannot see the commission rates she is being charged. Under the UK P2B Regulation the terms on which she is charged must be transparent and available. Populate it from PLATFORM_FACTS.commission with all three tiers named plainly (your own customers, customers we introduce, repeat customers we introduced), plus the basis (food subtotal only, never delivery, service charges or tips) and the current founding allowance remaining if any.
+2. NOTICE PERIOD CONTRADICTION. The page says rates may change with at least 15 days notice. The vendor page and founding cook deal sheet commit to at least 30 days for commission and fee changes, held in PLATFORM_FACTS.feeChangeNoticeDays. Render from that constant. If the 15-day figure refers to general terms changes (termsNoticeDays), say so explicitly and distinguish the two, because as written it reads as a weaker promise than the one she was given.
+3. OVERCLAIM. "Every customer you bring directly pays 0% commission, that's the full food subtotal staying with you" is not accurate: Stripe processing is still deducted, and her customer still pays the service fee. Reword to state the commission is zero and name what is still deducted. Also remove the double-hyphen dash from this copy.
+4. TIMEZONE. Hourly order distribution is labelled UTC. Vendors are in London and on BST for roughly half the year, so peak hour is displayed an hour out. Render in Europe/London and label it so.
+5. CHART AXIS. Weekly revenue x-axis reads "Mon" eight times. Label with dates so the chart can actually be read.
+
+BUILD one screen named Performance with two clear parts:
+  HOW MUCH YOU SOLD: revenue (state gross or net explicitly, and be consistent), orders, average basket, return rate, weekly revenue chart, hourly distribution, top dishes.
+  WHAT IT COST YOU: blended rate, commission by tier, founding allowance remaining, saved versus standard rate, and the full rate schedule.
+Do not simply stack the two existing pages. Reconcile the revenue figures so a single definition is used throughout, and state that definition on screen.
+
+Retire the separate Earnings & fees route with a redirect. Keep Payouts separate, since a payout is a distinct concept from performance and vendors will look for it by name.
+
+ACCEPTANCE CRITERIA
+- The rate schedule renders all three commission tiers from PLATFORM_FACTS and is never empty.
+- The notice period matches feeChangeNoticeDays, and any separate terms-notice period is distinguished.
+- No copy claims the full food subtotal stays with the vendor.
+- Hourly data renders in Europe/London and is labelled.
+- Chart axes carry readable dates.
+- One revenue definition is used across the whole screen and stated on it.
+- The old route redirects.
+
+EDGE CASES: a vendor with no completed orders (every panel needs a designed empty state, not a zero that looks like a bug); a vendor still inside her founding allowance (blended rate of 0.00% is correct but must be explained, not left looking broken); the boundary week when BST changes.
