@@ -1,4 +1,4 @@
-# FeastPot Integration Test Report
+# Feastpot Integration Test Report
 
 _Run date: 22 May 2026 · against locally-running API (3001), Vendor (3002), Admin (3003), Web (3000)_
 

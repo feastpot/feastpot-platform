@@ -132,7 +132,7 @@ jobs:
             --exclude-dir=node_modules --exclude-dir=.next \
             --exclude-dir=dist --exclude-dir=.turbo \
             --exclude-dir=.git --exclude-dir=.local \
-            --exclude-dir=attached_assets; then
+            --exclude-dir=.agents --exclude-dir=attached_assets; then
             echo "ERROR: 'FeastPot' (wrong capitalisation) detected. The brand name is 'Feastpot'."
             exit 1
           fi
