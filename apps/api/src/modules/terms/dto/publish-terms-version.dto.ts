@@ -1,3 +1,4 @@
+import { TermsDocumentType } from '@prisma/client';
 import {
   IsBoolean,
   IsDateString,
@@ -8,7 +9,6 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
-import { TermsDocumentType } from '@prisma/client';
 
 export class PublishTermsVersionDto {
   @IsEnum(TermsDocumentType)

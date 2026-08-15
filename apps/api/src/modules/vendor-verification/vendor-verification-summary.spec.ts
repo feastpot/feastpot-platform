@@ -17,15 +17,16 @@
  * enforcement) -- those have their own specs.
  */
 
-import { VerificationState, VendorStatus } from '@prisma/client';
+import { VerificationState } from '@prisma/client';
 
 import { NotificationsService } from '../notifications/notifications.service';
 import { VendorEnforcementService } from '../vendor-enforcement/vendor-enforcement.service';
+
 import { VendorVerificationService } from './vendor-verification.service';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
-type OverallState = 'NOT_SET_UP' | VerificationState;
+type _OverallState = 'NOT_SET_UP' | VerificationState;
 
 // ── Mock builders ─────────────────────────────────────────────────────────────
 

@@ -864,9 +864,9 @@ export class TermsService {
       source === 'VENDOR_REFERRED'
         ? 'Vendor-referred orders (all)'
         : isFirstOrder === true
-          ? 'Marketplace – first order from a customer'
+          ? 'Marketplace - first order from a customer'
           : isFirstOrder === false
-            ? 'Marketplace – repeat order from a customer'
+            ? 'Marketplace - repeat order from a customer'
             : `${source} orders`;
 
     const direction = newRatePct > previousRatePct ? 'increase' : 'decrease';

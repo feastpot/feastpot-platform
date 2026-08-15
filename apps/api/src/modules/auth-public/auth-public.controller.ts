@@ -4,16 +4,15 @@ import {
   HttpCode,
   HttpStatus,
   Post,
-  Req,
   UseGuards,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
-import type { Request } from 'express';
 
-import { Public } from '../../auth/decorators/public.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
+import { Public } from '../../auth/decorators/public.decorator';
 import { SupabaseAuthGuard } from '../../auth/guards/supabase-auth.guard';
 import type { AuthUser } from '../../auth/types';
+
 import { AuthPublicService } from './auth-public.service';
 import { ResetRequestDto } from './dto/reset-request.dto';
 

@@ -9,7 +9,8 @@
  */
 
 import { execSync } from 'child_process';
-import { AppealOutcome, DisputeStatus, PayoutStatus } from '@prisma/client';
+
+import { AppealOutcome, PayoutStatus } from '@prisma/client';
 
 import { APPEAL_ACK_BUSINESS_DAYS, APPEAL_WINDOW_DAYS, DisputeAppealsService } from './dispute-appeals.service';
 
@@ -38,7 +39,7 @@ function makeNotificationsMock() {
   return { enqueue: jest.fn().mockResolvedValue(undefined) } as unknown as import('../notifications/notifications.service').NotificationsService;
 }
 
-function makeAdmin(id = 'admin-1') {
+function _makeAdmin(id = 'admin-1') {
   return { id, role: 'admin' as const };
 }
 
@@ -61,7 +62,7 @@ function makeAppeal(overrides = {}) {
   };
 }
 
-function makeService(prismaOverrides = {}) {
+function _makeService(prismaOverrides = {}) {
   return new DisputeAppealsService(
     makePrismaMock(prismaOverrides),
     makeNotificationsMock(),

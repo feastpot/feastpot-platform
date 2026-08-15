@@ -1,6 +1,7 @@
+import { randomBytes } from 'crypto';
+
 import { Injectable, Logger } from '@nestjs/common';
 import * as Sentry from '@sentry/nestjs';
-import { randomBytes } from 'crypto';
 
 import { PrismaService } from '../../prisma/prisma.service';
 

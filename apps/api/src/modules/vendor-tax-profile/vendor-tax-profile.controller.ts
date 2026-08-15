@@ -15,10 +15,10 @@ import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import type { AuthUser } from '../../auth/types';
 
-import { HmrcReportService } from './hmrc-report.service';
-import { VendorTaxProfileService } from './vendor-tax-profile.service';
 import { UpsertTaxProfileDto } from './dto/upsert-tax-profile.dto';
 import { VerifyTaxProfileDto } from './dto/verify-tax-profile.dto';
+import { HmrcReportService } from './hmrc-report.service';
+import { VendorTaxProfileService } from './vendor-tax-profile.service';
 
 function requireUser(user: AuthUser | null): AuthUser {
   if (!user) throw new Error('Unauthenticated');

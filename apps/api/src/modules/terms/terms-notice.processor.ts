@@ -1,6 +1,5 @@
-import { OnApplicationBootstrap } from '@nestjs/common';
 import { InjectQueue, Process, Processor } from '@nestjs/bull';
-import { Logger } from '@nestjs/common';
+import { OnApplicationBootstrap , Logger } from '@nestjs/common';
 import { NoticeChannel, OrderStatus } from '@prisma/client';
 import type { Job, Queue } from 'bull';
 

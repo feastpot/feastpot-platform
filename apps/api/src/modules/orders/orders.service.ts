@@ -1,5 +1,6 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 
+import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
 import { InjectQueue } from '@nestjs/bull';
 import {
   BadRequestException,
@@ -28,11 +29,14 @@ import { Decimal } from '@prisma/client/runtime/library';
 import * as Sentry from '@sentry/nestjs';
 import { Queue } from 'bull';
 
-import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
 import type { AuthUser } from '../../auth/types';
+import { CommissionService } from '../../commission/commission.service';
 import { getServiceFeePence, shouldWaiveServiceFee } from '../../common/config/service-fee';
+import { FeastPassService } from '../../feastpass/feastpass.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { StripeService } from '../../stripe/stripe.service';
+import { AnalyticsService } from '../analytics/analytics.service';
+import { AttributionService } from '../attribution/attribution.service';
 import { DiscountCodesService } from '../discount-codes/discount-codes.service';
 import { InboxService } from '../inbox/inbox.service';
 import { LoyaltyService } from '../loyalty/loyalty.service';
@@ -49,10 +53,6 @@ import {
   reserveCapacity,
 } from '../vendors/vendor-capacity';
 
-import { FeastPassService } from '../../feastpass/feastpass.service';
-import { AnalyticsService } from '../analytics/analytics.service';
-import { AttributionService } from '../attribution/attribution.service';
-import { CommissionService } from '../../commission/commission.service';
 
 import { ProposeAmendmentDto, RespondAmendmentDto } from './dto/amendment.dto';
 import { CreateOrderDto } from './dto/create-order.dto';

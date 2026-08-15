@@ -21,7 +21,7 @@
  * orders immediately, not just hidden from search.
  */
 
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import { ForbiddenException } from '@nestjs/common';
 
 // ── Minimal stubs ─────────────────────────────────────────────────────────
 

@@ -5,7 +5,6 @@ import {
   HttpCode,
   Post,
   UseGuards,
-  Version,
 } from '@nestjs/common';
 
 import { CurrentUser } from '../auth/decorators/current-user.decorator';

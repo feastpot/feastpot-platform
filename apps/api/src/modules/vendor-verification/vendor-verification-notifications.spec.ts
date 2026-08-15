@@ -17,12 +17,13 @@
  * notification processor tests.
  */
 
-import { VerificationState, FhrsStatus, OrderStatus } from '@prisma/client';
-
 import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
+import { VerificationState, FhrsStatus } from '@prisma/client';
+
 
 import { NotificationsService } from '../notifications/notifications.service';
 import { VendorEnforcementService } from '../vendor-enforcement/vendor-enforcement.service';
+
 import { VendorVerificationService } from './vendor-verification.service';
 
 // ── Minimal DTO helpers ──────────────────────────────────────────────────────

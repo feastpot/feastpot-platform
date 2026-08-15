@@ -798,7 +798,6 @@ model Vendor {
   largeOrderTrayThreshold  Int?    @map("large_order_tray_threshold")
   eventCateringManualQuote Boolean @default(false) @map("event_catering_manual_quote")
 
-
   // Business profile additions (T005). All optional/additive so existing
   // vendors keep working untouched.
   // - logoUrl / coverImageUrl: previously implicit; promoted to first-class
@@ -846,12 +845,12 @@ model Vendor {
   // foundingReferralBonusGrantedAt: timestamp when the referred vendor's first
   // completed order triggered the referrer's top-up. Guards against double-grant
   // and is cleared (nulled) if that sole order is subsequently fully refunded.
-  foundingAllowanceGrantedPence   Int      @default(200000) @map("founding_allowance_granted_pence")
-  foundingAllowanceUsedPence      Int      @default(0)      @map("founding_allowance_used_pence")
-  referredByVendorId              String?  @map("referred_by_vendor_id") @db.Uuid
-  foundingReferralBonusGrantedAt  DateTime? @map("founding_referral_bonus_granted_at") @db.Timestamptz
+  foundingAllowanceGrantedPence  Int       @default(200000) @map("founding_allowance_granted_pence")
+  foundingAllowanceUsedPence     Int       @default(0) @map("founding_allowance_used_pence")
+  referredByVendorId             String?   @map("referred_by_vendor_id") @db.Uuid
+  foundingReferralBonusGrantedAt DateTime? @map("founding_referral_bonus_granted_at") @db.Timestamptz
 
-  user                 User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user                 User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
   menus                Menu[]
   menuItems            MenuItem[]
   deliveryConfig       DeliveryConfig?
@@ -861,10 +860,10 @@ model Vendor {
   payouts              Payout[]
   reviews              Review[]
   eventQuotes          EventQuote[]
-  selectedForEnquiries EventEnquiry[]      @relation("EventEnquirySelectedVendor")
+  selectedForEnquiries EventEnquiry[]            @relation("EventEnquirySelectedVendor")
   discountCodes        DiscountCode[]
   amendments           OrderAmendment[]
-  application          VendorApplication?  @relation("VendorApplicationVendor")
+  application          VendorApplication?        @relation("VendorApplicationVendor")
   members              VendorMember[]
   trustSignals         VendorTrustSignal[]
   capacity             VendorCapacity[]
@@ -920,25 +919,25 @@ model Menu {
 }
 
 model MenuItem {
-  id               String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  vendorId         String           @map("vendor_id") @db.Uuid
-  menuId           String           @map("menu_id") @db.Uuid
-  name             String           @db.VarChar(255)
-  description      String?
-  category         String           @db.VarChar(64)
-  pricePence       Int              @map("price_pence")
-  servingsCount    Int?             @map("servings_count")
-  preparationHours Int              @default(24) @map("preparation_hours")
-  imageUrls        String[]         @map("image_urls") @db.VarChar(500)
-  allergens           String[]  @db.VarChar(64)
-  allergensFreeFrom   Boolean   @default(false) @map("allergens_free_from")
-  tags                String[]  @db.VarChar(64)
-  sortOrder        Int              @default(0) @map("sort_order")
-  isAvailable      Boolean          @default(false) @map("is_available")
-  stockCount       Int?             @map("stock_count")
-  moderationStatus ModerationStatus @default(auto_approved) @map("moderation_status")
-  createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt        DateTime         @updatedAt @map("updated_at") @db.Timestamptz
+  id                String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  vendorId          String           @map("vendor_id") @db.Uuid
+  menuId            String           @map("menu_id") @db.Uuid
+  name              String           @db.VarChar(255)
+  description       String?
+  category          String           @db.VarChar(64)
+  pricePence        Int              @map("price_pence")
+  servingsCount     Int?             @map("servings_count")
+  preparationHours  Int              @default(24) @map("preparation_hours")
+  imageUrls         String[]         @map("image_urls") @db.VarChar(500)
+  allergens         String[]         @db.VarChar(64)
+  allergensFreeFrom Boolean          @default(false) @map("allergens_free_from")
+  tags              String[]         @db.VarChar(64)
+  sortOrder         Int              @default(0) @map("sort_order")
+  isAvailable       Boolean          @default(false) @map("is_available")
+  stockCount        Int?             @map("stock_count")
+  moderationStatus  ModerationStatus @default(auto_approved) @map("moderation_status")
+  createdAt         DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime         @updatedAt @map("updated_at") @db.Timestamptz
 
   vendor     Vendor      @relation(fields: [vendorId], references: [id], onDelete: Cascade)
   menu       Menu        @relation(fields: [menuId], references: [id], onDelete: Cascade)
@@ -966,10 +965,10 @@ model DeliveryConfig {
   minOrderPence         Int            @default(0) @map("min_order_pence")
   freeDeliveryOverPence Int?           @map("free_delivery_over_pence")
   postcodes             String[]       @db.VarChar(16)
-  kitchenPostcode       String?        @map("kitchen_postcode")    @db.VarChar(16)
-  collectionLine1       String?        @map("collection_line1")    @db.VarChar(255)
-  collectionLine2       String?        @map("collection_line2")    @db.VarChar(255)
-  collectionTown        String?        @map("collection_town")     @db.VarChar(100)
+  kitchenPostcode       String?        @map("kitchen_postcode") @db.VarChar(16)
+  collectionLine1       String?        @map("collection_line1") @db.VarChar(255)
+  collectionLine2       String?        @map("collection_line2") @db.VarChar(255)
+  collectionTown        String?        @map("collection_town") @db.VarChar(100)
   collectionPostcode    String?        @map("collection_postcode") @db.VarChar(16)
   latitude              Float?
   longitude             Float?
@@ -1025,59 +1024,59 @@ model AuditLog {
 }
 
 model Order {
-  id                 String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  orderNumber        String       @unique @map("order_number") @db.VarChar(32)
-  customerId         String       @map("customer_id") @db.Uuid
-  vendorId           String       @map("vendor_id") @db.Uuid
-  addressId          String?      @map("address_id") @db.Uuid
-  type               OrderType    @default(standard)
-  status             OrderStatus  @default(pending)
-  deliveryType       DeliveryType @map("delivery_type")
-  subtotalPence      Int          @map("subtotal_pence")
-  deliveryFeePence   Int          @default(0) @map("delivery_fee_pence")
-  serviceFeePence    Int          @default(0) @map("service_fee_pence")
-  discountPence      Int          @default(0) @map("discount_pence")
-  discountFundedBy   DiscountFundedBy? @map("discount_funded_by")
-  totalPence         Int          @map("total_pence")
-  commissionPence    Int          @default(0) @map("commission_pence")
-  vendorPayoutPence  Int          @default(0) @map("vendor_payout_pence")
+  id                            String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderNumber                   String            @unique @map("order_number") @db.VarChar(32)
+  customerId                    String            @map("customer_id") @db.Uuid
+  vendorId                      String            @map("vendor_id") @db.Uuid
+  addressId                     String?           @map("address_id") @db.Uuid
+  type                          OrderType         @default(standard)
+  status                        OrderStatus       @default(pending)
+  deliveryType                  DeliveryType      @map("delivery_type")
+  subtotalPence                 Int               @map("subtotal_pence")
+  deliveryFeePence              Int               @default(0) @map("delivery_fee_pence")
+  serviceFeePence               Int               @default(0) @map("service_fee_pence")
+  discountPence                 Int               @default(0) @map("discount_pence")
+  discountFundedBy              DiscountFundedBy? @map("discount_funded_by")
+  totalPence                    Int               @map("total_pence")
+  commissionPence               Int               @default(0) @map("commission_pence")
+  vendorPayoutPence             Int               @default(0) @map("vendor_payout_pence")
   /// Pence of food subtotal covered by the vendor's founding allowance (0% commission
   /// band) on this order. Used to restore allowance proportionally on refund.
   /// Zero on VENDOR_REFERRED orders (already 0% commission, allowance untouched).
-  foundingAllowanceAppliedPence Int @default(0) @map("founding_allowance_applied_pence")
-  notes              String?
-  allergenConfirmed  Boolean      @default(false) @map("allergen_confirmed")
-  scheduledFor       DateTime?    @map("scheduled_for") @db.Timestamptz
-  acceptedAt         DateTime?    @map("accepted_at") @db.Timestamptz
-  dispatchedAt       DateTime?    @map("dispatched_at") @db.Timestamptz
-  deliveredAt        DateTime?    @map("delivered_at") @db.Timestamptz
-  cancelledAt        DateTime?    @map("cancelled_at") @db.Timestamptz
-  cancellationReason String?      @map("cancellation_reason")
-  cancelledBy        String?      @map("cancelled_by") @db.VarChar(32)
-  discountCodeId     String?      @map("discount_code_id") @db.Uuid
-  discountAppliedAt  DateTime?    @map("discount_applied_at") @db.Timestamptz(6)
-  etaMinutes         Int?         @map("eta_minutes")
-  etaAt              DateTime?    @map("eta_at") @db.Timestamptz
-  createdAt          DateTime     @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt          DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+  foundingAllowanceAppliedPence Int               @default(0) @map("founding_allowance_applied_pence")
+  notes                         String?
+  allergenConfirmed             Boolean           @default(false) @map("allergen_confirmed")
+  scheduledFor                  DateTime?         @map("scheduled_for") @db.Timestamptz
+  acceptedAt                    DateTime?         @map("accepted_at") @db.Timestamptz
+  dispatchedAt                  DateTime?         @map("dispatched_at") @db.Timestamptz
+  deliveredAt                   DateTime?         @map("delivered_at") @db.Timestamptz
+  cancelledAt                   DateTime?         @map("cancelled_at") @db.Timestamptz
+  cancellationReason            String?           @map("cancellation_reason")
+  cancelledBy                   String?           @map("cancelled_by") @db.VarChar(32)
+  discountCodeId                String?           @map("discount_code_id") @db.Uuid
+  discountAppliedAt             DateTime?         @map("discount_applied_at") @db.Timestamptz(6)
+  etaMinutes                    Int?              @map("eta_minutes")
+  etaAt                         DateTime?         @map("eta_at") @db.Timestamptz
+  createdAt                     DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt                     DateTime          @updatedAt @map("updated_at") @db.Timestamptz
   /// Set to true on rows created by the seed script. The purge migration deletes
   /// all isSeedData = true orders (and their reviews, items, disputes etc.) before
   /// production go-live. Seed status overrides order status: even a delivered
   /// seed order is deleted, and any review linked to it is also purged.
-  isSeedData         Boolean      @default(false) @map("is_seed_data")
+  isSeedData                    Boolean           @default(false) @map("is_seed_data")
 
-  customer     User             @relation(fields: [customerId], references: [id])
-  vendor       Vendor           @relation(fields: [vendorId], references: [id])
-  address      Address?         @relation(fields: [addressId], references: [id])
-  discountCode DiscountCode?    @relation("DiscountCodeOrders", fields: [discountCodeId], references: [id])
-  items        OrderItem[]
-  payments     Payment[]
-  payouts      Payout[]
-  disputes     Dispute[]
-  chargebacks  Chargeback[]
-  reviews      Review[]
-  amendments   OrderAmendment[]
-  adminTags    OrderAdminTag[]
+  customer        User              @relation(fields: [customerId], references: [id])
+  vendor          Vendor            @relation(fields: [vendorId], references: [id])
+  address         Address?          @relation(fields: [addressId], references: [id])
+  discountCode    DiscountCode?     @relation("DiscountCodeOrders", fields: [discountCodeId], references: [id])
+  items           OrderItem[]
+  payments        Payment[]
+  payouts         Payout[]
+  disputes        Dispute[]
+  chargebacks     Chargeback[]
+  reviews         Review[]
+  amendments      OrderAmendment[]
+  adminTags       OrderAdminTag[]
   attribution     OrderAttribution?
   orderCommission OrderCommission?
   feastPassSaving FeastPassSaving?
@@ -1234,21 +1233,21 @@ model Dispute {
   updatedAt         DateTime        @updatedAt @map("updated_at") @db.Timestamptz
 
   /// Calculated deadline for the vendor to respond (48h standard, 24h urgent).
-  vendorRespondBy       DateTime?        @map("vendor_respond_by") @db.Timestamptz
+  vendorRespondBy     DateTime?        @map("vendor_respond_by") @db.Timestamptz
   /// Platform commits to the same response window as the vendor (reciprocity).
-  platformRespondBy     DateTime?        @map("platform_respond_by") @db.Timestamptz
+  platformRespondBy   DateTime?        @map("platform_respond_by") @db.Timestamptz
   /// When the platform actually issued its decision - for SLA adherence reporting.
-  platformRespondedAt   DateTime?        @map("platform_responded_at") @db.Timestamptz
+  platformRespondedAt DateTime?        @map("platform_responded_at") @db.Timestamptz
   /// Who raised this dispute (CUSTOMER is the only value currently accepted via the API).
-  raisedByParty         DisputeParty     @default(CUSTOMER) @map("raised_by_party")
+  raisedByParty       DisputeParty     @default(CUSTOMER) @map("raised_by_party")
   /// Formal outcome under v2.0 clause 18.1. All decisions are subject to appeal.
-  decision              DisputeDecision? @map("decision")
-  decidedAt             DateTime?        @map("decided_at") @db.Timestamptz
-  decidedById           String?          @map("decided_by_id") @db.Uuid
+  decision            DisputeDecision? @map("decision")
+  decidedAt           DateTime?        @map("decided_at") @db.Timestamptz
+  decidedById         String?          @map("decided_by_id") @db.Uuid
   /// Stored refund/deduction amount for automatic payout reversal on upheld appeal.
-  refundPence           Int?             @map("refund_pence")
-  isUrgentDispute       Boolean          @default(false) @map("is_urgent_dispute")
-  urgentDisputeReason   String?          @map("urgent_dispute_reason")
+  refundPence         Int?             @map("refund_pence")
+  isUrgentDispute     Boolean          @default(false) @map("is_urgent_dispute")
+  urgentDisputeReason String?          @map("urgent_dispute_reason")
 
   order    Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
   raisedBy User              @relation(fields: [raisedById], references: [id])
@@ -1515,16 +1514,16 @@ model Referral {
 }
 
 model DiscountCode {
-  id              String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  code            String       @unique @db.VarChar(30)
+  id              String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code            String           @unique @db.VarChar(30)
   type            DiscountType
   value           Int
-  minOrderPence   Int          @default(0) @map("min_order_pence")
-  maxUses         Int?         @map("max_uses")
-  usedCount       Int          @default(0) @map("used_count")
-  expiresAt       DateTime?    @map("expires_at") @db.Timestamptz
-  vendorId        String?      @map("vendor_id") @db.Uuid
-  isActive        Boolean      @default(true) @map("is_active")
+  minOrderPence   Int              @default(0) @map("min_order_pence")
+  maxUses         Int?             @map("max_uses")
+  usedCount       Int              @default(0) @map("used_count")
+  expiresAt       DateTime?        @map("expires_at") @db.Timestamptz
+  vendorId        String?          @map("vendor_id") @db.Uuid
+  isActive        Boolean          @default(true) @map("is_active")
   createdByUserId String           @map("created_by_user_id") @db.Uuid
   createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz
   fundedBy        DiscountFundedBy @default(PLATFORM) @map("funded_by")
@@ -1656,9 +1655,9 @@ model CateringBooking {
   createdAt          DateTime              @default(now()) @map("created_at") @db.Timestamptz
   updatedAt          DateTime              @updatedAt @map("updated_at") @db.Timestamptz
 
-  enquiry   CateringEnquiry  @relation(fields: [enquiryId], references: [id])
-  vendor    Vendor           @relation(fields: [vendorId], references: [id])
-  customer  User?            @relation("CateringBookingCustomer", fields: [customerId], references: [id])
+  enquiry   CateringEnquiry    @relation(fields: [enquiryId], references: [id])
+  vendor    Vendor             @relation(fields: [vendorId], references: [id])
+  customer  User?              @relation("CateringBookingCustomer", fields: [customerId], references: [id])
   lineItems CateringLineItem[]
 
   @@index([status, eventDate])
@@ -1666,12 +1665,12 @@ model CateringBooking {
 }
 
 model CateringLineItem {
-  id          String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  bookingId   String          @map("booking_id") @db.Uuid
-  description String          @db.VarChar(500)
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bookingId   String   @map("booking_id") @db.Uuid
+  description String   @db.VarChar(500)
   quantity    Int
-  unitPence   Int             @map("unit_pence")
-  allergens   String[]        @db.VarChar(64)
+  unitPence   Int      @map("unit_pence")
+  allergens   String[] @db.VarChar(64)
 
   booking CateringBooking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
@@ -1699,13 +1698,13 @@ enum AttributionSource {
 /// A unique share/referral link for a vendor, used to attribute traffic.
 /// One per vendor (@@unique on vendorId). Slug is URL-safe and human-readable.
 model VendorReferralLink {
-  id         String   @id @default(cuid())
-  vendorId   String   @unique @map("vendor_id") @db.Uuid
-  slug       String   @unique @db.VarChar(80)
-  qrCodeUrl  String?  @map("qr_code_url")
-  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+  id        String   @id @default(cuid())
+  vendorId  String   @unique @map("vendor_id") @db.Uuid
+  slug      String   @unique @db.VarChar(80)
+  qrCodeUrl String?  @map("qr_code_url")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-  vendor Vendor         @relation(fields: [vendorId], references: [id])
+  vendor Vendor          @relation(fields: [vendorId], references: [id])
   clicks ReferralClick[]
 
   @@map("vendor_referral_links")
@@ -1731,20 +1730,20 @@ model ReferralClick {
 /// referralLinkId / referralClickId are stored as plain strings (no FK) to keep the
 /// schema flexible and avoid hard deletes being blocked.
 model OrderAttribution {
-  id               String             @id @default(cuid())
-  orderId          String             @unique @map("order_id") @db.Uuid
-  source           OrderSource
-  referralLinkId   String?            @map("referral_link_id")
-  referralClickId  String?            @map("referral_click_id")
-  isFirstOrder     Boolean            @map("is_first_order")
-  attributedAt     DateTime           @default(now()) @map("attributed_at") @db.Timestamptz
-  attributionReason String            @map("attribution_reason") @db.VarChar(64)
+  id                String             @id @default(cuid())
+  orderId           String             @unique @map("order_id") @db.Uuid
+  source            OrderSource
+  referralLinkId    String?            @map("referral_link_id")
+  referralClickId   String?            @map("referral_click_id")
+  isFirstOrder      Boolean            @map("is_first_order")
+  attributedAt      DateTime           @default(now()) @map("attributed_at") @db.Timestamptz
+  attributionReason String             @map("attribution_reason") @db.VarChar(64)
   /// Denormalised three-tier label derived from source + isFirstOrder at write time.
   /// Null only on rows created before this column was introduced (backfilled by migration).
-  resolvedSource   AttributionSource? @map("resolved_source")
+  resolvedSource    AttributionSource? @map("resolved_source")
   /// Timestamp of the attribution marker (fp_ref or fp_mp cookie) as captured at order time.
   /// Null for organic/session-fallback orders where no marker timestamp is available.
-  markerSetAt      DateTime?          @map("marker_set_at") @db.Timestamptz
+  markerSetAt       DateTime?          @map("marker_set_at") @db.Timestamptz
 
   order Order @relation(fields: [orderId], references: [id])
 
@@ -1763,7 +1762,7 @@ model CommissionRate {
   source        OrderSource
   /// null means "applies regardless of isFirstOrder" (used for VENDOR_REFERRED).
   isFirstOrder  Boolean?    @map("is_first_order")
-  ratePercent   Decimal     @db.Decimal(5, 2) @map("rate_percent")
+  ratePercent   Decimal     @map("rate_percent") @db.Decimal(5, 2)
   effectiveFrom DateTime    @map("effective_from") @db.Timestamptz
   effectiveTo   DateTime?   @map("effective_to") @db.Timestamptz
   createdBy     String      @map("created_by")
@@ -1786,7 +1785,7 @@ model OrderCommission {
   id                String      @id @default(cuid())
   orderId           String      @unique @map("order_id") @db.Uuid
   foodSubtotalPence Int         @map("food_subtotal_pence")
-  ratePercent       Decimal     @db.Decimal(5, 2) @map("rate_percent")
+  ratePercent       Decimal     @map("rate_percent") @db.Decimal(5, 2)
   commissionPence   Int         @map("commission_pence")
   commissionRateId  String      @map("commission_rate_id")
   source            OrderSource
@@ -1822,34 +1821,34 @@ enum AcceptanceMethod {
 }
 
 model TermsVersion {
-  id           String            @id @default(cuid())
-  documentType TermsDocumentType @map("document_type")
-  version      String            @db.VarChar(32)
+  id               String            @id @default(cuid())
+  documentType     TermsDocumentType @map("document_type")
+  version          String            @db.VarChar(32)
   /// Full document text in MDX format. SHA-256 of this field == contentHash.
   /// Immutable once published - corrections require a new version row.
-  contentMdx   String            @map("content_mdx") @db.Text
+  contentMdx       String            @map("content_mdx") @db.Text
   /// SHA-256 of contentMdx, computed on publish and never editable afterwards.
-  contentHash  String            @map("content_hash") @db.VarChar(64)
+  contentHash      String            @map("content_hash") @db.VarChar(64)
   /// Plain-language summary of what changed in this version. Shown to vendors.
-  changeSummary String           @map("change_summary") @db.Text
+  changeSummary    String            @map("change_summary") @db.Text
   /// true = material change (P2B 15-day notice required).
   /// false = editorial only (typo / formatting). Requires a written justification in changeSummary.
-  isMaterial   Boolean           @default(true) @map("is_material")
-  publishedAt  DateTime          @map("published_at") @db.Timestamptz
+  isMaterial       Boolean           @default(true) @map("is_material")
+  publishedAt      DateTime          @map("published_at") @db.Timestamptz
   /// When the terms take effect. Must be >= 15 days after publishedAt for isMaterial=true.
-  effectiveAt  DateTime          @map("effective_at") @db.Timestamptz
+  effectiveAt      DateTime          @map("effective_at") @db.Timestamptz
   /// Set when a newer version supersedes this one. Exactly one version per documentType
   /// may have supersededAt IS NULL (the live version).
-  supersededAt DateTime?         @map("superseded_at") @db.Timestamptz
+  supersededAt     DateTime?         @map("superseded_at") @db.Timestamptz
   /// Staff member who published this version (email or name for audit trail).
-  createdBy    String?           @map("created_by") @db.VarChar(255)
+  createdBy        String?           @map("created_by") @db.VarChar(255)
   /// For VENDOR_TERMS: "Reviewed and approved by [solicitor] on [date]".
   /// The publish endpoint rejects VENDOR_TERMS versions without this field.
-  solicitorSignOff String?       @map("solicitor_sign_off") @db.Text
+  solicitorSignOff String?           @map("solicitor_sign_off") @db.Text
 
-  acceptances          TermsAcceptance[]
-  notices              TermsNotice[]
-  rateScheduleEntries  RateScheduleEntry[]
+  acceptances         TermsAcceptance[]
+  notices             TermsNotice[]
+  rateScheduleEntries RateScheduleEntry[]
 
   @@unique([documentType, version])
   @@index([effectiveAt])
@@ -1924,7 +1923,7 @@ model RateScheduleEntry {
   status      RateStatus
   sortOrder   Int        @map("sort_order")
 
-  version     TermsVersion @relation(fields: [versionId], references: [id])
+  version TermsVersion @relation(fields: [versionId], references: [id])
 
   @@unique([versionId, key])
   @@map("rate_schedule_entries")
@@ -1983,19 +1982,19 @@ enum VerificationState {
 /// One row per vendor once they have been through the verification gate.
 /// Absent row = not yet verified (profile still renders, panel is omitted).
 model VendorVerification {
-  id                      String            @id @default(cuid())
-  vendorId                String            @unique @map("vendor_id") @db.Uuid
-  registrationNumber      String            @map("registration_number")
-  registrationAuthority   String            @map("registration_authority")
-  registrationConfirmedAt DateTime          @map("registration_confirmed_at") @db.Timestamptz
-  fhrsRating              Int?              @map("fhrs_rating")
-  fhrsRatingCheckedAt     DateTime?         @map("fhrs_rating_checked_at") @db.Timestamptz
-  fhrsInspectionStatus    FhrsStatus        @map("fhrs_inspection_status")
-  insuranceProvider       String?           @map("insurance_provider")
-  insuranceValidUntil     DateTime?         @map("insurance_valid_until") @db.Timestamptz
-  allergenTrainingHeld    Boolean           @default(false) @map("allergen_training_held")
-  allergenTrainingUntil   DateTime?         @map("allergen_training_until") @db.Timestamptz
-  idVerifiedAt            DateTime?         @map("id_verified_at") @db.Timestamptz
+  id                      String             @id @default(cuid())
+  vendorId                String             @unique @map("vendor_id") @db.Uuid
+  registrationNumber      String             @map("registration_number")
+  registrationAuthority   String             @map("registration_authority")
+  registrationConfirmedAt DateTime           @map("registration_confirmed_at") @db.Timestamptz
+  fhrsRating              Int?               @map("fhrs_rating")
+  fhrsRatingCheckedAt     DateTime?          @map("fhrs_rating_checked_at") @db.Timestamptz
+  fhrsInspectionStatus    FhrsStatus         @map("fhrs_inspection_status")
+  insuranceProvider       String?            @map("insurance_provider")
+  insuranceValidUntil     DateTime?          @map("insurance_valid_until") @db.Timestamptz
+  allergenTrainingHeld    Boolean            @default(false) @map("allergen_training_held")
+  allergenTrainingUntil   DateTime?          @map("allergen_training_until") @db.Timestamptz
+  idVerifiedAt            DateTime?          @map("id_verified_at") @db.Timestamptz
   overallState            VerificationState  @map("overall_state")
   /// State most recently notified to the vendor (null = never notified).
   /// Updated by VendorVerificationService.maybeNotifyStateChange after every

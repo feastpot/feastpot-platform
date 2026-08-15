@@ -363,7 +363,7 @@ export class FeastPassService {
 
     // Monthly revenue from FeastPass
     const monthlyRevenue = activeCount * 399; // £3.99 in pence, approximate
-    const annualRevenue = activeCount * 3990; // adjust for actual mix
+    const _annualRevenue = activeCount * 3990; // adjust for actual mix
 
     // Cohort churn: subs started 30-60 days ago that cancelled
     const [cohortStarted, cohortCancelled] = await Promise.all([

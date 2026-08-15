@@ -44,7 +44,7 @@ describe('registerInterest: referrer resolution from fp_ref header', () => {
     ),
   });
 
-  const makeVendorApplicationMock = () => ({
+  const _makeVendorApplicationMock = () => ({
     create: jest.fn().mockImplementation(({ data }: { data: Record<string, unknown> }) =>
       Promise.resolve({ id: 'app-1', kitchenName: 'Test Kitchen', createdAt: new Date(), status: 'pending', referrerVendorId: data.referrerVendorId }),
     ),

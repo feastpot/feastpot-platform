@@ -18,6 +18,7 @@ import { Test } from '@nestjs/testing';
 
 import { SupabaseService } from '../../auth/supabase.service';
 import { PrismaService } from '../../prisma/prisma.service';
+
 import { AttributionService } from './attribution.service';
 
 describe('AttributionService - QR performance contract', () => {

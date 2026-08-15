@@ -1,3 +1,4 @@
+import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
 import { InjectQueue } from '@nestjs/bull';
 import {
   BadRequestException,
@@ -17,7 +18,7 @@ import {
   UserRole,
 } from '@prisma/client';
 import type { Queue } from 'bull';
-// eslint-disable-next-line @typescript-eslint/no-require-imports
+// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
 const PDFDocument = require('pdfkit') as new (opts?: object) => NodeJS.EventEmitter & {
   text: (t: string, x?: number, y?: number, opts?: object) => any;
   fontSize: (n: number) => any;
@@ -32,16 +33,15 @@ const PDFDocument = require('pdfkit') as new (opts?: object) => NodeJS.EventEmit
   y: number;
 };
 
-import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
 import type { AuthUser } from '../../auth/types';
 import { CommissionService } from '../../commission/commission.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { StripeService } from '../../stripe/stripe.service';
 import { InboxService } from '../inbox/inbox.service';
 
+import { ListPayoutsDto } from './dto/list-payouts.dto';
 import { classifyStripeError, describeStripeError } from './stripe-error-classifier';
 
-import { ListPayoutsDto } from './dto/list-payouts.dto';
 
 export const NOTIFICATIONS_QUEUE = 'notifications';
 
@@ -1318,7 +1318,7 @@ export class PayoutsService {
       doc.fontSize(10).text(`Vendor: ${params.businessName}`, ml, 76);
       doc
         .text(
-          `Period: ${dateStr(params.periodStart.toISOString())} – ${dateStr(params.periodEnd.toISOString())}`,
+          `Period: ${dateStr(params.periodStart.toISOString())} to ${dateStr(params.periodEnd.toISOString())}`,
           ml,
           88,
         )

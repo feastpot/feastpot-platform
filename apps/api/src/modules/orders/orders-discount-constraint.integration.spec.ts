@@ -11,7 +11,7 @@
  * without a database connection.
  */
 
-import { DeliveryType, OrderStatus, PaymentStatus, PaymentType, UserRole, VendorStatus } from '@prisma/client';
+import { DeliveryType, OrderStatus, PaymentStatus, UserRole, VendorStatus } from '@prisma/client';
 
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -97,7 +97,6 @@ d('orders_discount_funded_by_required CHECK constraint (integration, real DB)', 
           deliveryType: DeliveryType.collection,
           status: OrderStatus.pending,
           paymentStatus: PaymentStatus.unpaid,
-          paymentType: PaymentType.capture,
           subtotalPence: 1000,
           deliveryFeePence: 0,
           serviceFeePence: 0,
@@ -123,7 +122,6 @@ d('orders_discount_funded_by_required CHECK constraint (integration, real DB)', 
         deliveryType: DeliveryType.collection,
         status: OrderStatus.pending,
         paymentStatus: PaymentStatus.unpaid,
-        paymentType: PaymentType.capture,
         subtotalPence: 1000,
         deliveryFeePence: 0,
         serviceFeePence: 0,
@@ -152,7 +150,6 @@ d('orders_discount_funded_by_required CHECK constraint (integration, real DB)', 
         deliveryType: DeliveryType.collection,
         status: OrderStatus.pending,
         paymentStatus: PaymentStatus.unpaid,
-        paymentType: PaymentType.capture,
         subtotalPence: 1000,
         deliveryFeePence: 0,
         serviceFeePence: 0,

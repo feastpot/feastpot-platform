@@ -302,7 +302,7 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
         'Refund issued',
         h2('Refund issued') +
           p(
-            `We've issued a refund of <strong>${formatMoney(d.amountPence)}</strong> for order ${esc(d.orderId)}. It should appear within 5–10 working days.`,
+            `We've issued a refund of <strong>${formatMoney(d.amountPence)}</strong> for order ${esc(d.orderId)}. It should appear within 5 to 10 working days.`,
           ),
       ),
     channels: ['email', 'push'],
@@ -342,7 +342,7 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
             ? keyValueRow('Gross sales', formatMoney(d.grossPence))
             : '') +
           (d.commissionPence !== undefined
-            ? keyValueRow('Commission deducted', `– ${formatMoney(d.commissionPence)}`)
+            ? keyValueRow('Commission deducted', `- ${formatMoney(d.commissionPence)}`)
             : '') +
           keyValueRow('Net payable', formatMoney(d.amountPence ?? d.netPence), { bold: true }) +
           (d.payoutDate ? keyValueRow('Payout date', str(d.payoutDate)) : '') +

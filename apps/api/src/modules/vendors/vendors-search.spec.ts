@@ -11,7 +11,7 @@ import { validate } from 'class-validator';
 
 import { SearchVendorsDto } from './dto/search-vendors.dto';
 
-describe('SearchVendorsDto — allergenFree', () => {
+describe('SearchVendorsDto - allergenFree', () => {
   it('accepts a single valid slug', async () => {
     const dto = plainToInstance(SearchVendorsDto, { allergenFree: 'milk' });
     const errors = await validate(dto);
@@ -61,7 +61,7 @@ describe('SearchVendorsDto — allergenFree', () => {
     expect(dto.allergenFree).toHaveLength(14);
   });
 
-  it('is optional — omitting it leaves the field undefined', async () => {
+  it('is optional - omitting it leaves the field undefined', async () => {
     const dto = plainToInstance(SearchVendorsDto, {});
     const errors = await validate(dto);
     expect(errors.filter((e) => e.property === 'allergenFree')).toHaveLength(0);
@@ -69,7 +69,7 @@ describe('SearchVendorsDto — allergenFree', () => {
   });
 });
 
-describe('SearchVendorsDto — dietaryPreferences', () => {
+describe('SearchVendorsDto - dietaryPreferences', () => {
   it('accepts "vegan"', async () => {
     const dto = plainToInstance(SearchVendorsDto, { dietaryPreferences: 'vegan' });
     const errors = await validate(dto);
@@ -102,7 +102,7 @@ describe('SearchVendorsDto — dietaryPreferences', () => {
     expect(errors.some((e) => e.property === 'dietaryPreferences')).toBe(true);
   });
 
-  it('is optional — omitting it leaves the field undefined', async () => {
+  it('is optional - omitting it leaves the field undefined', async () => {
     const dto = plainToInstance(SearchVendorsDto, {});
     const errors = await validate(dto);
     expect(errors.filter((e) => e.property === 'dietaryPreferences')).toHaveLength(0);
@@ -110,7 +110,7 @@ describe('SearchVendorsDto — dietaryPreferences', () => {
   });
 });
 
-describe('SearchVendorsDto — combined allergenFree + dietaryPreferences', () => {
+describe('SearchVendorsDto - combined allergenFree + dietaryPreferences', () => {
   it('accepts both simultaneously', async () => {
     const dto = plainToInstance(SearchVendorsDto, {
       allergenFree: 'milk,eggs',

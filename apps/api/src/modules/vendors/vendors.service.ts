@@ -12,7 +12,6 @@ import {
   ModerationStatus,
   OrderStatus,
   UserRole,
-  VendorComplianceStatus,
   VendorStatus,
 } from '@prisma/client';
 import type { VendorMemberRole } from '@prisma/client';
@@ -36,7 +35,6 @@ import {
   VENDOR_READ_ROLES,
   VendorMembersService,
 } from '../vendor-members/vendor-members.service';
-
 import { isTaxProfileComplete } from '../vendor-tax-profile/vendor-tax-profile.service';
 
 import { AddBlackoutDto } from './dto/add-blackout.dto';

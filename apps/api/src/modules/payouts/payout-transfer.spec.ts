@@ -16,12 +16,12 @@
 import { PayoutStatus } from '@prisma/client';
 import Stripe from 'stripe';
 
-import { classifyStripeError } from './stripe-error-classifier';
 import { PayoutsService } from './payouts.service';
+import { classifyStripeError } from './stripe-error-classifier';
 
 // ---- helpers -----------------------------------------------------------
 
-function makeError(type: string, code?: string): Stripe.errors.StripeError {
+function _makeError(type: string, code?: string): Stripe.errors.StripeError {
   const err = new Stripe.errors.StripeError({
     type: type as Stripe.RawErrorType,
     message: `Stripe ${type}${code ? ` (${code})` : ''}`,

@@ -362,7 +362,7 @@ describe('PLATFORM_FACTS - foundingOffer values', () => {
   });
 
   it('CJS mirror matches TS for all three foundingOffer values', () => {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
     const cjs = require('../../../packages/config/src/platform-facts.cjs.js') as {
       PLATFORM_FACTS: typeof import('@feastpot/config/platform-facts').PLATFORM_FACTS;
     };

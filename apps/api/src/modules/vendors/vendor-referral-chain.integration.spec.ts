@@ -15,16 +15,15 @@
  * Skipped when SUPABASE_DB_URL is not set so plain unit-test runs stay green.
  */
 
+import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
 import {
   DeliveryType,
   OrderStatus,
   PaymentStatus,
-  PaymentType,
   UserRole,
   VendorStatus,
 } from '@prisma/client';
 
-import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
 
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -120,7 +119,6 @@ d('Founding-offer referral chain (integration, real DB)', () => {
         deliveryType: DeliveryType.collection,
         status: OrderStatus.delivered, // already delivered - simulates completion
         paymentStatus: PaymentStatus.captured,
-        paymentType: PaymentType.capture,
         subtotalPence: 5000,
         deliveryFeePence: 0,
         serviceFeePence: 0,

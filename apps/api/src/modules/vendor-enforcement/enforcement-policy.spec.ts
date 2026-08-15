@@ -9,7 +9,7 @@
  */
 
 import { BadRequestException } from '@nestjs/common';
-import { EnforcementType, VendorStatus, VerificationState } from '@prisma/client';
+import { EnforcementType, VendorStatus } from '@prisma/client';
 
 import { NotificationsService } from '../notifications/notifications.service';
 
@@ -270,7 +270,7 @@ describe('Automated FHRS suspension', () => {
   it('produces a narrative of at least 50 characters', async () => {
     const svc = makeSvc();
     const capturedNarratives: string[] = [];
-    const originalCreate = (svc as any).prisma.vendorEnforcementAction.create;
+    const _originalCreate = (svc as any).prisma.vendorEnforcementAction.create;
     (svc as any).prisma.vendorEnforcementAction.create = jest.fn().mockImplementation((args: { data: { reasonNarrative: string } }) => {
       capturedNarratives.push(args.data.reasonNarrative);
       return Promise.resolve({ id: 'action-1', ...args.data });

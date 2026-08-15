@@ -6,10 +6,11 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { AttributionSource, CateringBookingStatus, OrderSource, UserRole } from '@prisma/client';
+import type { Decimal } from '@prisma/client/runtime/library';
 import * as Sentry from '@sentry/nestjs';
-// eslint-disable-next-line @typescript-eslint/no-require-imports
+// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
 const PDFDocument = require('pdfkit') as typeof import('pdfkit');
-// eslint-disable-next-line @typescript-eslint/no-require-imports
+// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
 const QRCode = require('qrcode') as typeof import('qrcode');
 
 import type { AuthUser } from '../../auth/types';
@@ -17,12 +18,11 @@ import { CommissionService } from '../../commission/commission.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { StripeService } from '../../stripe/stripe.service';
 import { toResolvedSource } from '../attribution/attribution.service';
-import { EmailProvider } from '../notifications/providers/email.provider';
 import { NotificationsService } from '../notifications/notifications.service';
+import { EmailProvider } from '../notifications/providers/email.provider';
 
 import type { CancelCateringBookingDto } from './dto/cancel-catering-booking.dto';
 import type { CreateCateringBookingDto } from './dto/create-catering-booking.dto';
-import type { Decimal } from '@prisma/client/runtime/library';
 
 // Guest-count midpoints for each enquiry guestCountBand
 const GUEST_COUNT_MIDPOINTS: Record<string, number> = {
@@ -788,7 +788,7 @@ export class CateringBookingsService {
         'celery', 'cereals', 'crustaceans', 'eggs', 'fish', 'lupin',
         'milk', 'molluscs', 'mustard', 'nuts', 'peanuts', 'sesame', 'soya', 'sulphites',
       ];
-      const allergenSet = new Set(
+      const _allergenSet = new Set(
         booking.lineItems.flatMap((li) => li.allergens.map((a) => a.toLowerCase())),
       );
 

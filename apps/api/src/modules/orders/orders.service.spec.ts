@@ -1,7 +1,7 @@
+import { shouldWaiveServiceFee } from '@feastpot/config/service-fee';
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { DeliveryType, OrderStatus, UserRole } from '@prisma/client';
 
-import { shouldWaiveServiceFee } from '@feastpot/config/service-fee';
 
 import type { AuthUser } from '../../auth/types';
 

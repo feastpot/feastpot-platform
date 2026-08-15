@@ -1,7 +1,7 @@
+import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
 import { Injectable, Logger } from '@nestjs/common';
 import { FhrsStatus, OrderStatus, VerificationState, VendorStatus } from '@prisma/client';
 
-import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
 
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';

@@ -24,6 +24,7 @@ import type { Response } from 'express';
 
 import { Roles } from '../../auth/decorators/roles.decorator';
 import type { AuthedRequest } from '../../auth/types';
+import { CommissionService } from '../../commission/commission.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { EmailProvider } from '../notifications/providers/email.provider';
@@ -31,10 +32,6 @@ import { PushProvider } from '../notifications/providers/push.provider';
 import { WhatsappProvider } from '../notifications/providers/whatsapp.provider';
 import { TEMPLATES } from '../notifications/templates';
 import { PAYOUTS_QUEUE, WEEKLY_BATCH_JOB } from '../payouts/processors/payout-batch.processor';
-
-import { Decimal } from '@prisma/client/runtime/library';
-
-import { CommissionService } from '../../commission/commission.service';
 import { TermsService } from '../terms/terms.service';
 
 import { AdminUsersService } from './admin-users.service';
@@ -631,7 +628,7 @@ export class AdminController {
       grossPence: 5000,
       commissionPence: 600,
       netPence: 4400,
-      scheduledFor: 'Saturday 14:00–15:00',
+      scheduledFor: 'Saturday 14:00-15:00',
       payoutDate: 'Monday',
       etaText: '14:45',
       loyaltyPointsEarned: 40,

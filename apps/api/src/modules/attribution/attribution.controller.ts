@@ -18,8 +18,8 @@ import { Roles } from '../../auth/decorators/roles.decorator';
 import type { AuthedRequest, AuthUser } from '../../auth/types';
 import { VendorMembersService } from '../vendor-members/vendor-members.service';
 
-import { RecordClickDto } from './dto/record-click.dto';
 import { AttributionService } from './attribution.service';
+import { RecordClickDto } from './dto/record-click.dto';
 
 function requireUser(req: AuthedRequest): AuthUser {
   if (!req.user) throw new Error('No authenticated user');
