@@ -489,14 +489,18 @@ function RegisterPane({ onSwitchToSignIn }: { onSwitchToSignIn: () => void }) {
       },
     });
     if (error) {
-      // Supabase occasionally returns opaque errors (e.g. empty JSON body `{}`)
-      // for weak passwords or transient issues. Provide a useful fallback.
-      const raw = error.message ?? '';
-      const isOpaque = !raw || raw === '{}' || raw.startsWith('{');
-      const msg = isOpaque
-        ? 'Unable to create account. Please ensure your password meets all requirements (8+ chars, uppercase, lowercase, number, special character) and try again.'
-        : raw;
-      setServerError(msg);
+      // Supabase occasionally returns opaque errors (empty body or raw `{}`).
+      // For those we show a helpful fallback. For all other errors we show the
+      // real message so the user knows what actually went wrong (e.g. "User
+      // already registered", "Password should contain at least one number",
+      // rate-limit messages, etc.).
+      const raw = (error.message ?? '').trim();
+      const isOpaque = !raw || raw === '{}';
+      setServerError(
+        isOpaque
+          ? 'Unable to create account. Please check your details and try again. Ensure your password is 8+ characters with uppercase, lowercase, a number and a special character.'
+          : raw,
+      );
       return;
     }
 
