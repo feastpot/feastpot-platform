@@ -102,9 +102,7 @@ export function AccountAndComplianceClient({
     <div className="space-y-2">
       {/* Page header */}
       <header className="mb-6">
-        <h1 className="text-2xl font-extrabold tracking-tight text-dark">
-          Account and compliance
-        </h1>
+        <h1 className="text-2xl font-extrabold tracking-tight text-dark">Account and compliance</h1>
         <p className="mt-1 text-sm text-mid">
           Your account standing, compliance certificates, and agreement with Feastpot in one place.
         </p>

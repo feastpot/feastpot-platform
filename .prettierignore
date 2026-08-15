@@ -28,3 +28,10 @@ attached_assets
 # generated
 apps/web/public/sw*.js
 apps/web/public/workbox-*.js
+
+# playwright test-results (machine-generated, not source)
+apps/vendor/test-results
+apps/web/test-results
+
+# file with JSDoc arrow syntax Prettier cannot parse
+apps/vendor/e2e/helpers/verification-banner-mocks.ts

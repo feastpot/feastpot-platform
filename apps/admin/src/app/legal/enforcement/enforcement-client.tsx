@@ -42,7 +42,8 @@ export function EnforcementLogClient() {
           <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" aria-hidden />
           <div>
             <p className="text-sm font-semibold text-destructive">
-              {lateCount} action{lateCount !== 1 ? 's' : ''} with notice after effect - no urgent basis recorded
+              {lateCount} action{lateCount !== 1 ? 's' : ''} with notice after effect - no urgent
+              basis recorded
             </p>
             <p className="mt-0.5 text-xs text-red-700">
               P2B clause 14.1 requires written notice before an enforcement action takes effect.
@@ -106,17 +107,15 @@ export function EnforcementLogClient() {
                 {actions.map((a) => (
                   <tr
                     key={a.id}
-                    className={
-                      a.noticeLate
-                        ? 'bg-red-50 hover:bg-red-100'
-                        : 'hover:bg-muted/30'
-                    }
+                    className={a.noticeLate ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-muted/30'}
                   >
                     <td className="py-2.5 pl-4 font-medium">
                       <Link href={`/vendors/${a.vendorId}`} className="hover:underline">
                         {a.vendor.businessName}
                       </Link>
-                      <div className="text-xs text-muted-foreground capitalize">{a.vendor.status}</div>
+                      <div className="text-xs text-muted-foreground capitalize">
+                        {a.vendor.status}
+                      </div>
                     </td>
                     <td className="py-2.5">
                       <StatusPill tone={ACTION_TONE[a.actionType] ?? 'neutral'}>
@@ -128,7 +127,9 @@ export function EnforcementLogClient() {
                         {REASON_CODE_LABELS[a.reasonCode as keyof typeof REASON_CODE_LABELS] ??
                           a.reasonCode}
                       </div>
-                      <div className="truncate text-xs text-muted-foreground">{a.reasonNarrative}</div>
+                      <div className="truncate text-xs text-muted-foreground">
+                        {a.reasonNarrative}
+                      </div>
                     </td>
                     <td className="py-2.5 text-muted-foreground">
                       {a.noticeSentAt ? formatDate(a.noticeSentAt) : '-'}
@@ -143,7 +144,10 @@ export function EnforcementLogClient() {
                           Late notice
                         </span>
                       ) : (
-                        <CheckCircle2 className="h-4 w-4 text-green-600" aria-label="Notice before effect" />
+                        <CheckCircle2
+                          className="h-4 w-4 text-green-600"
+                          aria-label="Notice before effect"
+                        />
                       )}
                     </td>
                     <td className="py-2.5">

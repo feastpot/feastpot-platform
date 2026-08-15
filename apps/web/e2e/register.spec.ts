@@ -237,7 +237,9 @@ test('7. both password toggles are independent and start masked', async ({ page 
   await expect(cpwdInput).toHaveAttribute('type', 'password');
 
   // Toggle confirm password field.
-  const cpwdToggle = page.locator('#reg-confirmPassword ~ button, #reg-confirmPassword + button').first();
+  const cpwdToggle = page
+    .locator('#reg-confirmPassword ~ button, #reg-confirmPassword + button')
+    .first();
   await cpwdToggle.click();
   await expect(cpwdInput).toHaveAttribute('type', 'text');
   // Password field stays as text (not re-masked by toggling the other).
@@ -331,9 +333,10 @@ test('9. old generic error string does not appear in built output', async () => 
   for (const file of jsFiles) {
     const content = fs.readFileSync(file, 'utf8');
     for (const banned of BANNED) {
-      expect(content, `Found banned string "${banned}" in ${path.relative(nextDir, file)}`).not.toContain(
-        banned,
-      );
+      expect(
+        content,
+        `Found banned string "${banned}" in ${path.relative(nextDir, file)}`,
+      ).not.toContain(banned);
     }
   }
 });

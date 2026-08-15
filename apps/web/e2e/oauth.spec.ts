@@ -197,9 +197,7 @@ test('5. Apple Private Relay email address accepted on register form', async ({ 
 // ---------------------------------------------------------------------------
 test('6. clicking OAuth button never shows the password checklist', async ({ page }) => {
   // Intercept the OAuth redirect so we stay on the page.
-  await page.route('**/auth/v1/authorize*', (route) =>
-    route.fulfill({ status: 200, body: '' }),
-  );
+  await page.route('**/auth/v1/authorize*', (route) => route.fulfill({ status: 200, body: '' }));
 
   // Check register pane - OAuth button is here too.
   await page.goto('/sign-in?mode=register');

@@ -21,11 +21,7 @@ function isoFromNow(days: number): string {
   return d.toISOString();
 }
 
-export function makeOrder(
-  id: string,
-  status: string,
-  overrides: Record<string, unknown> = {},
-) {
+export function makeOrder(id: string, status: string, overrides: Record<string, unknown> = {}) {
   return {
     id,
     orderNumber: `FP-${id.slice(-4).toUpperCase()}`,
@@ -133,10 +129,5 @@ export async function installOrdersMocks(
   await mockAlways(page, /\/v1\/vendors\/[^/]+\/orders\/history(\?.*)?$/, 200, []);
 
   // Catering bookings
-  await mockAlways(
-    page,
-    /\/v1\/vendors\/[^/]+\/catering-bookings(\?.*)?$/,
-    200,
-    cateringBookings,
-  );
+  await mockAlways(page, /\/v1\/vendors\/[^/]+\/catering-bookings(\?.*)?$/, 200, cateringBookings);
 }

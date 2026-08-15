@@ -36,7 +36,7 @@ export default async function SecuritySettingsPage() {
 
   return (
     <PortalShell businessName={vendor.businessName}>
-          <SecurityClient />
+      <SecurityClient />
     </PortalShell>
   );
 }

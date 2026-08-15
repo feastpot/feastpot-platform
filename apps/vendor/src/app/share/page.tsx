@@ -80,7 +80,11 @@ export default async function SharePage() {
           </p>
         </div>
       </header>
-      <ShareAndCustomersClient link={link} businessName={vendor.businessName} vendorId={vendor.id} />
+      <ShareAndCustomersClient
+        link={link}
+        businessName={vendor.businessName}
+        vendorId={vendor.id}
+      />
     </PortalShell>
   );
 }

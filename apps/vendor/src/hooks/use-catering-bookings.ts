@@ -46,8 +46,7 @@ export function useVendorCateringBooking(id: string | undefined, accessToken: st
 export function useCreateCateringBooking(accessToken: string | undefined) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: CreateCateringBookingInput) =>
-      createCateringBooking(input, accessToken!),
+    mutationFn: (input: CreateCateringBookingInput) => createCateringBooking(input, accessToken!),
     onSuccess: () => qc.invalidateQueries({ queryKey: [KEY] }),
   });
 }

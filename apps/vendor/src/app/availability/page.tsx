@@ -57,7 +57,7 @@ export default async function AvailabilityPage() {
 
   return (
     <PortalShell businessName={vendor.businessName}>
-          <AvailabilityClient initial={initial} />
+      <AvailabilityClient initial={initial} />
     </PortalShell>
   );
 }

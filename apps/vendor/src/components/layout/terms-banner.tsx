@@ -99,7 +99,10 @@ export function TermsBanner() {
           <p className="leading-5">
             <strong>
               Vendor Terms update (v{v.version}){' '}
-              {days > 0 ? `(takes effect in ${days} day${days !== 1 ? 's' : ''})` : '(now in effect)'}.
+              {days > 0
+                ? `(takes effect in ${days} day${days !== 1 ? 's' : ''})`
+                : '(now in effect)'}
+              .
             </strong>{' '}
             Effective {effectiveDateStr}. You may terminate without penalty before this date.
           </p>

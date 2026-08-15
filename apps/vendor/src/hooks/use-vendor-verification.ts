@@ -6,11 +6,7 @@ import { apiRequest } from '@/lib/api/client';
 import { useAccessToken } from '@/lib/auth/use-access-token';
 
 export type VerificationOverallState = 'VERIFIED' | 'RENEWAL_DUE' | 'SUSPENDED';
-export type FhrsInspectionStatus =
-  | 'RATED'
-  | 'AWAITING_FIRST_INSPECTION'
-  | 'EXEMPT'
-  | 'NOT_FOUND';
+export type FhrsInspectionStatus = 'RATED' | 'AWAITING_FIRST_INSPECTION' | 'EXEMPT' | 'NOT_FOUND';
 
 export interface VendorVerificationRecord {
   id: string;

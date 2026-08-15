@@ -103,7 +103,9 @@ export function AppealsQueueClient() {
                       <div className="text-xs">{formatMoney(a.dispute.order.totalPence)}</div>
                     </td>
 
-                    <td className="py-2.5 text-muted-foreground">{formatDateTime(a.submittedAt)}</td>
+                    <td className="py-2.5 text-muted-foreground">
+                      {formatDateTime(a.submittedAt)}
+                    </td>
                     <td className="py-2.5">
                       <DeadlinePill hours={a.hoursToDeadline} overdue={a.overdue} />
                     </td>
@@ -151,7 +153,9 @@ export function AppealsQueueClient() {
 
       <Card className="border-amber-200 bg-amber-50">
         <CardContent className="p-4">
-          <p className="text-sm font-semibold text-amber-900">Different-reviewer rule (clause 18.3)</p>
+          <p className="text-sm font-semibold text-amber-900">
+            Different-reviewer rule (clause 18.3)
+          </p>
           <p className="mt-0.5 text-xs text-amber-800">
             The stage-2 reviewer must not be the same person as the stage-1 reviewer. The API
             enforces this with a <code>SAME_REVIEWER</code> error. When assigning, check the stage-1

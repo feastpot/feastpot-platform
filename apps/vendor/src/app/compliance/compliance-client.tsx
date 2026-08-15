@@ -28,11 +28,7 @@ import {
 
 // ── Verification types ────────────────────────────────────────────────
 
-export type FhrsInspectionStatus =
-  | 'AWAITING_FIRST_INSPECTION'
-  | 'RATED'
-  | 'EXEMPT'
-  | 'NOT_FOUND';
+export type FhrsInspectionStatus = 'AWAITING_FIRST_INSPECTION' | 'RATED' | 'EXEMPT' | 'NOT_FOUND';
 
 export type VerificationState = 'VERIFIED' | 'RENEWAL_DUE' | 'SUSPENDED';
 
@@ -136,8 +132,8 @@ export function ComplianceClient({
               Compliance &amp; documents
             </h1>
             <p className="mt-1 text-sm text-mid">
-              Keep your certificates current to stay live on {PLATFORM_FACTS.brandName}. We send you a reminder 30 days
-              before anything expires.
+              Keep your certificates current to stay live on {PLATFORM_FACTS.brandName}. We send you
+              a reminder 30 days before anything expires.
             </p>
           </div>
           {vendor.status === 'suspended' && (
@@ -241,8 +237,9 @@ export function ComplianceClient({
       <div className="fp-card flex items-start gap-3 border border-border bg-surface px-4 py-3 text-xs text-mid">
         <Info className="mt-0.5 h-4 w-4 shrink-0 text-mid" aria-hidden />
         <p>
-          Documents are reviewed by the {PLATFORM_FACTS.brandName} compliance team, usually within 1 to 2 business
-          days. Replacing a document resets it to <em>Submitted</em> until it&apos;s reviewed again.
+          Documents are reviewed by the {PLATFORM_FACTS.brandName} compliance team, usually within 1
+          to 2 business days. Replacing a document resets it to <em>Submitted</em> until it&apos;s
+          reviewed again.
         </p>
       </div>
 
@@ -304,10 +301,10 @@ function FsaComplianceBadge({
         <div>
           <p className="text-sm font-bold text-amber-900">Registered, awaiting inspection</p>
           <p className="mt-0.5 text-xs text-amber-800">
-            {fsaRegistrationNumber
-              ? `Registration number: ${fsaRegistrationNumber}. `
-              : ''}
-            {"You are all set up - we will switch you live automatically once your rating of 3 or above comes through."}
+            {fsaRegistrationNumber ? `Registration number: ${fsaRegistrationNumber}. ` : ''}
+            {
+              'You are all set up - we will switch you live automatically once your rating of 3 or above comes through.'
+            }
           </p>
         </div>
       </div>
@@ -564,16 +561,11 @@ function VerificationStatusSection({ verification: v }: { verification: Verifica
           </div>
           <div className="flex items-center gap-2">
             <span
-              className={cn(
-                'rounded-full border px-2 py-0.5 text-[11px] font-bold',
-                statePill,
-              )}
+              className={cn('rounded-full border px-2 py-0.5 text-[11px] font-bold', statePill)}
             >
               {stateLabel}
             </span>
-            <span className="text-[11px] text-mid">
-              Updated {fmtDate(v.updatedAt)}
-            </span>
+            <span className="text-[11px] text-mid">Updated {fmtDate(v.updatedAt)}</span>
           </div>
         </div>
 
@@ -586,11 +578,7 @@ function VerificationStatusSection({ verification: v }: { verification: Verifica
           />
 
           {/* Hygiene rating */}
-          <VerificationRow
-            icon={hygieneIcon}
-            label="Hygiene rating (FHRS)"
-            value={hygieneValue}
-          />
+          <VerificationRow icon={hygieneIcon} label="Hygiene rating (FHRS)" value={hygieneValue} />
 
           {/* Public liability insurance */}
           <VerificationRow
@@ -598,9 +586,7 @@ function VerificationStatusSection({ verification: v }: { verification: Verifica
             label="Public liability insurance"
             value={insuranceValue}
             deadline={
-              v.insuranceValidUntil ? (
-                <DaysTag days={insuranceDays} label="Insurance" />
-              ) : undefined
+              v.insuranceValidUntil ? <DaysTag days={insuranceDays} label="Insurance" /> : undefined
             }
           />
 
@@ -617,11 +603,7 @@ function VerificationStatusSection({ verification: v }: { verification: Verifica
           />
 
           {/* Identity check */}
-          <VerificationRow
-            icon={idIcon}
-            label="Identity check"
-            value={idValue}
-          />
+          <VerificationRow icon={idIcon} label="Identity check" value={idValue} />
         </div>
 
         {/* Read-only note */}

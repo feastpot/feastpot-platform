@@ -343,7 +343,7 @@ appear in `LAUNCH_CHECKLIST.md` where they’re launch-blocking.
 - **Production Supabase project** in UK/EU region with PITR enabled
   (current deployment runs against `aws-1-eu-north-1.pooler.supabase.com`
   - confirm this is the production project and not the dev one before
-  go-live).
+    go-live).
 
 ### 7.2 Code / product
 

@@ -118,7 +118,7 @@ export function ShareAndCustomersClient({
     return () => {
       cancelled = true;
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [link?.qrUrls, qrLink]);
 
   // Single background refresh: once the API has finished generating the stored QR,
@@ -222,10 +222,7 @@ export function ShareAndCustomersClient({
 
       {/* ── QR code ─────────────────────────────────────────────────────── */}
       <section aria-labelledby="qr-heading">
-        <h2
-          id="qr-heading"
-          className="mb-3 text-sm font-semibold uppercase tracking-wide text-mid"
-        >
+        <h2 id="qr-heading" className="mb-3 text-sm font-semibold uppercase tracking-wide text-mid">
           QR code
         </h2>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
@@ -416,8 +413,8 @@ export function ShareAndCustomersClient({
           /* Empty state */
           <div className="rounded-xl border border-border bg-white p-5">
             <p className="mb-4 text-sm text-mid">
-              No orders yet. Once customers order through your link, you will see how many came
-              from your own marketing versus Feastpot discovery here.
+              No orders yet. Once customers order through your link, you will see how many came from
+              your own marketing versus Feastpot discovery here.
             </p>
             <table className="w-full text-sm" aria-label="Order source breakdown placeholder">
               <thead>

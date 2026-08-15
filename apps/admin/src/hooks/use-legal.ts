@@ -184,7 +184,13 @@ export interface LegalAlerts {
   };
   bouncedNotices: {
     count: number;
-    sample: { id: string; vendorId: string; termsVersionId: string; sentAt: string; channel: string }[];
+    sample: {
+      id: string;
+      vendorId: string;
+      termsVersionId: string;
+      sentAt: string;
+      channel: string;
+    }[];
   };
   lateEnforcementNotices: {
     count: number;
@@ -235,7 +241,10 @@ export interface EnforcementLogRow {
   vendor: { businessName: string; status: string; slug: string };
 }
 
-export function useAdminEnforcementLog(opts?: { actionType?: string; liftedAt?: 'active' | 'all' }) {
+export function useAdminEnforcementLog(opts?: {
+  actionType?: string;
+  liftedAt?: 'active' | 'all';
+}) {
   const { request, ready } = useApi();
   const params = new URLSearchParams();
   if (opts?.actionType) params.set('actionType', opts.actionType);
@@ -297,15 +306,7 @@ export function useAdminAppealsQueue() {
 export function useEvidenceExport() {
   const { request } = useApi();
   return useMutation({
-    mutationFn: ({
-      vendorId,
-      from,
-      to,
-    }: {
-      vendorId: string;
-      from?: string;
-      to?: string;
-    }) => {
+    mutationFn: ({ vendorId, from, to }: { vendorId: string; from?: string; to?: string }) => {
       const params = new URLSearchParams();
       if (from) params.set('from', from);
       if (to) params.set('to', to);

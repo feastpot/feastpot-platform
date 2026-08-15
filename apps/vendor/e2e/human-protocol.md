@@ -1,4 +1,5 @@
 # Vendor portal usability test protocol
+
 ## Delivery settings and profile pages
 
 **Conducted by:** \_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_  
@@ -34,13 +35,13 @@ point to any control or name any feature.
   participant confuses "Delivery fee" with "service area"; participant saves
   without postcodes present and does not notice the warning
 
-| Observation | Notes |
-|---|---|
-| Completed unaided (yes / no) | |
-| Time (seconds) | |
-| Hesitations (describe each) | |
-| Verbatim comments | |
-| Pass / Fail | |
+| Observation                  | Notes |
+| ---------------------------- | ----- |
+| Completed unaided (yes / no) |       |
+| Time (seconds)               |       |
+| Hesitations (describe each)  |       |
+| Verbatim comments            |       |
+| Pass / Fail                  |       |
 
 ---
 
@@ -56,13 +57,13 @@ point to any control or name any feature.
   below the minimum and does not read the inline error; participant saves
   without fixing the conflict
 
-| Observation | Notes |
-|---|---|
-| Completed unaided (yes / no) | |
-| Time (seconds) | |
-| Hesitations (describe each) | |
-| Verbatim comments | |
-| Pass / Fail | |
+| Observation                  | Notes |
+| ---------------------------- | ----- |
+| Completed unaided (yes / no) |       |
+| Time (seconds)               |       |
+| Hesitations (describe each)  |       |
+| Verbatim comments            |       |
+| Pass / Fail                  |       |
 
 ---
 
@@ -78,13 +79,13 @@ point to any control or name any feature.
   participant saves without the address fields; participant mistakes the
   Collection checkbox for a cosmetic toggle
 
-| Observation | Notes |
-|---|---|
-| Completed unaided (yes / no) | |
-| Time (seconds) | |
-| Hesitations (describe each) | |
-| Verbatim comments | |
-| Pass / Fail | |
+| Observation                  | Notes |
+| ---------------------------- | ----- |
+| Completed unaided (yes / no) |       |
+| Time (seconds)               |       |
+| Hesitations (describe each)  |       |
+| Verbatim comments            |       |
+| Pass / Fail                  |       |
 
 ---
 
@@ -103,14 +104,14 @@ point to any control or name any feature.
   have no live menu items yet; participant navigates away to add menu items
   (counts as a navigation, note it)
 
-| Observation | Notes |
-|---|---|
-| Completed unaided (yes / no) | |
-| Time (seconds) | |
-| Number of page navigations (target: 0) | |
-| Hesitations (describe each) | |
-| Verbatim comments | |
-| Pass / Fail | |
+| Observation                            | Notes |
+| -------------------------------------- | ----- |
+| Completed unaided (yes / no)           |       |
+| Time (seconds)                         |       |
+| Number of page navigations (target: 0) |       |
+| Hesitations (describe each)            |       |
+| Verbatim comments                      |       |
+| Pass / Fail                            |       |
 
 ---
 
@@ -126,13 +127,13 @@ point to any control or name any feature.
   comma-separated string; participant puts them in Cuisines instead of
   Specialities; participant does not save
 
-| Observation | Notes |
-|---|---|
-| Completed unaided (yes / no) | |
-| Time (seconds) | |
-| Hesitations (describe each) | |
-| Verbatim comments | |
-| Pass / Fail | |
+| Observation                  | Notes |
+| ---------------------------- | ----- |
+| Completed unaided (yes / no) |       |
+| Time (seconds)               |       |
+| Hesitations (describe each)  |       |
+| Verbatim comments            |       |
+| Pass / Fail                  |       |
 
 ---
 
@@ -149,14 +150,14 @@ point to any control or name any feature.
   understanding that old links still work; participant cannot find the slug
   field because it is read-only by default
 
-| Observation | Notes |
-|---|---|
-| Completed unaided (yes / no) | |
-| Time (seconds) | |
-| Read the warning before saving (yes / no) | |
-| Hesitations (describe each) | |
-| Verbatim comments | |
-| Pass / Fail | |
+| Observation                               | Notes |
+| ----------------------------------------- | ----- |
+| Completed unaided (yes / no)              |       |
+| Time (seconds)                            |       |
+| Read the warning before saving (yes / no) |       |
+| Hesitations (describe each)               |       |
+| Verbatim comments                         |       |
+| Pass / Fail                               |       |
 
 ---
 
@@ -175,8 +176,8 @@ any specific postcode district and cannot describe how they would find out
 does **not** pass.
 
 | Answer (verbatim) | Pass / Fail |
-|---|---|
-| | |
+| ----------------- | ----------- |
+|                   |             |
 
 ---
 
@@ -190,8 +191,8 @@ menu shown at the top of the public page. A participant who conflates the two
 or says they are the same does **not** pass.
 
 | Answer (verbatim) | Pass / Fail |
-|---|---|
-| | |
+| ----------------- | ----------- |
+|                   |             |
 
 ---
 
@@ -207,8 +208,8 @@ break does **not** pass. A participant who says nothing would change also does
 **not** pass.
 
 | Answer (verbatim) | Pass / Fail |
-|---|---|
-| | |
+| ----------------- | ----------- |
+|                   |             |
 
 ---
 
@@ -216,17 +217,17 @@ break does **not** pass. A participant who says nothing would change also does
 
 ### Task report
 
-| Task | Target | Actual time | Completed unaided | Pass / Fail |
-|------|--------|-------------|-------------------|-------------|
-| A1: Camberwell service area | 60 s | | | |
-| A2: Minimum order and free delivery | 90 s | | | |
-| A3: Collection pickup | 2 min | | | |
-| B1: Complete profile (zero navigations) | 4 min | | | |
-| B2: Add specialities | 90 s | | | |
-| B3: Change URL slug | 3 min | | | |
-| Q1: Postcode recall | -- | -- | -- | |
-| Q2: Specialities vs featured dishes | -- | -- | -- | |
-| Q3: QR code consequence | -- | -- | -- | |
+| Task                                    | Target | Actual time | Completed unaided | Pass / Fail |
+| --------------------------------------- | ------ | ----------- | ----------------- | ----------- |
+| A1: Camberwell service area             | 60 s   |             |                   |             |
+| A2: Minimum order and free delivery     | 90 s   |             |                   |             |
+| A3: Collection pickup                   | 2 min  |             |                   |             |
+| B1: Complete profile (zero navigations) | 4 min  |             |                   |             |
+| B2: Add specialities                    | 90 s   |             |                   |             |
+| B3: Change URL slug                     | 3 min  |             |                   |             |
+| Q1: Postcode recall                     | --     | --          | --                |             |
+| Q2: Specialities vs featured dishes     | --     | --          | --                |             |
+| Q3: QR code consequence                 | --     | --          | --                |             |
 
 ### Controls with no observable effect
 
@@ -235,8 +236,8 @@ screen or in the saved state. A blank table means all controls behaved as
 labelled.
 
 | Control | Expected effect | Observed effect |
-|---------|----------------|-----------------|
-| | | |
+| ------- | --------------- | --------------- |
+|         |                 |                 |
 
 ### Debrief notes
 
@@ -267,13 +268,13 @@ page. Do **not** point to any control or name any feature.
   cannot find where to set the lead time because it is grouped with the slot
   window rather than the caps
 
-| Observation | Notes |
-|---|---|
-| Completed unaided (yes / no) | |
-| Time (seconds) | |
-| Hesitations (describe each) | |
-| Verbatim comments | |
-| Pass / Fail | |
+| Observation                  | Notes |
+| ---------------------------- | ----- |
+| Completed unaided (yes / no) |       |
+| Time (seconds)               |       |
+| Hesitations (describe each)  |       |
+| Verbatim comments            |       |
+| Pass / Fail                  |       |
 
 ---
 
@@ -291,13 +292,13 @@ page. Do **not** point to any control or name any feature.
   rows in the lower section; participant saves without noticing the change was
   accepted
 
-| Observation | Notes |
-|---|---|
-| Completed unaided (yes / no) | |
-| Time (seconds) | |
-| Hesitations (describe each) | |
-| Verbatim comments | |
-| Pass / Fail | |
+| Observation                  | Notes |
+| ---------------------------- | ----- |
+| Completed unaided (yes / no) |       |
+| Time (seconds)               |       |
+| Hesitations (describe each)  |       |
+| Verbatim comments            |       |
+| Pass / Fail                  |       |
 
 ---
 
@@ -314,13 +315,13 @@ page. Do **not** point to any control or name any feature.
   one); participant adds a blackout date but forgets to click Add; participant
   cannot distinguish the blackout-date section from the per-date capacity section
 
-| Observation | Notes |
-|---|---|
-| Completed unaided (yes / no) | |
-| Time (seconds) | |
-| Hesitations (describe each) | |
-| Verbatim comments | |
-| Pass / Fail | |
+| Observation                  | Notes |
+| ---------------------------- | ----- |
+| Completed unaided (yes / no) |       |
+| Time (seconds)               |       |
+| Hesitations (describe each)  |       |
+| Verbatim comments            |       |
+| Pass / Fail                  |       |
 
 ---
 
@@ -339,8 +340,8 @@ back from it using the lead time. A participant who cannot name a time or
 describe the relationship between lead time and slot hours does **not** pass.
 
 | Answer (verbatim) | Pass / Fail |
-|---|---|
-| | |
+| ----------------- | ----------- |
+|                   |             |
 
 ---
 
@@ -354,8 +355,8 @@ they see the date as unavailable. A participant who says "nothing happens" or
 "I would need to cancel manually" does **not** pass.
 
 | Answer (verbatim) | Pass / Fail |
-|---|---|
-| | |
+| ----------------- | ----------- |
+|                   |             |
 
 ---
 
@@ -368,8 +369,8 @@ the system would not let them. A participant who says the save would succeed and
 customers would simply see no availability does **not** pass.
 
 | Answer (verbatim) | Pass / Fail |
-|---|---|
-| | |
+| ----------------- | ----------- |
+|                   |             |
 
 ---
 
@@ -377,20 +378,20 @@ customers would simply see no availability does **not** pass.
 
 ### Task report
 
-| Task | Target | Actual time | Completed unaided | Pass / Fail |
-|------|--------|-------------|-------------------|-------------|
-| C1: Weekend-only + lead time | 90 s | | | |
-| C2: Daily order cap | 60 s | | | |
-| C3: One-off blackout date | 60 s | | | |
-| QC1: Latest order time | -- | -- | -- | |
-| QC2: Cap enforcement | -- | -- | -- | |
-| QC3: No-days save attempt | -- | -- | -- | |
+| Task                         | Target | Actual time | Completed unaided | Pass / Fail |
+| ---------------------------- | ------ | ----------- | ----------------- | ----------- |
+| C1: Weekend-only + lead time | 90 s   |             |                   |             |
+| C2: Daily order cap          | 60 s   |             |                   |             |
+| C3: One-off blackout date    | 60 s   |             |                   |             |
+| QC1: Latest order time       | --     | --          | --                |             |
+| QC2: Cap enforcement         | --     | --          | --                |             |
+| QC3: No-days save attempt    | --     | --          | --                |             |
 
 ### Controls with no observable effect (Availability)
 
 | Control | Expected effect | Observed effect |
-|---------|----------------|-----------------|
-| | | |
+| ------- | --------------- | --------------- |
+|         |                 |                 |
 
 ### Debrief notes (Availability)
 

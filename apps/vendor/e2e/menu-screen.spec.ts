@@ -173,12 +173,10 @@ test('T1: empty state to first live dish - photo and allergens declared - under 
   await mockAlways(page, /\/v1\/vendors\/[^/]+\/menus\/[^/]+\/items(\?.*)?$/, 200, itemsResponse);
 
   // Also mock the image upload endpoint.
-  await mockAlways(
-    page,
-    /\/v1\/vendors\/[^/]+\/menus\/[^/]+\/items\/[^/]+\/images$/,
-    200,
-    { path: 'uploads/jollof.jpg', publicUrl: 'https://cdn.example.com/jollof.jpg' },
-  );
+  await mockAlways(page, /\/v1\/vendors\/[^/]+\/menus\/[^/]+\/items\/[^/]+\/images$/, 200, {
+    path: 'uploads/jollof.jpg',
+    publicUrl: 'https://cdn.example.com/jollof.jpg',
+  });
 
   await page.getByRole('button', { name: 'Save dish' }).click();
 
@@ -246,12 +244,10 @@ test('T2: add second dish in a different category - under 45 s - zero navigation
 
   // Update items mock to include both dishes after save.
   await page.unroute(/\/v1\/vendors\/[^/]+\/menus\/[^/]+\/items(\?.*)?$/);
-  await mockAlways(
-    page,
-    /\/v1\/vendors\/[^/]+\/menus\/[^/]+\/items(\?.*)?$/,
-    200,
-    [LIVE_ITEM, secondItem],
-  );
+  await mockAlways(page, /\/v1\/vendors\/[^/]+\/menus\/[^/]+\/items(\?.*)?$/, 200, [
+    LIVE_ITEM,
+    secondItem,
+  ]);
 
   await page.getByRole('button', { name: 'Save dish' }).click();
   await expect(page.getByRole('dialog', { name: 'Add a dish' })).toBeHidden({ timeout: 5_000 });
@@ -300,12 +296,9 @@ test('T3: mark dish sold out - 1 click - no panel opened', async ({ page }) => {
 
   // Update the items response for the refetch.
   await page.unroute(/\/v1\/vendors\/[^/]+\/menus\/[^/]+\/items(\?.*)?$/);
-  await mockAlways(
-    page,
-    /\/v1\/vendors\/[^/]+\/menus\/[^/]+\/items(\?.*)?$/,
-    200,
-    [soldOutVersion],
-  );
+  await mockAlways(page, /\/v1\/vendors\/[^/]+\/menus\/[^/]+\/items(\?.*)?$/, 200, [
+    soldOutVersion,
+  ]);
 
   m.startTask();
   await page.getByRole('button', { name: 'Mark as sold out' }).click();
@@ -313,10 +306,12 @@ test('T3: mark dish sold out - 1 click - no panel opened', async ({ page }) => {
   // ── Assertions ─────────────────────────────────────────────────────────────
 
   // Panel must NOT have opened at any point.
-  await expect(page.getByRole('dialog')).toBeHidden({ timeout: 1_000 }).catch(() => {
-    // Dialog might not exist in DOM at all - either way, it must not be visible.
-    expect(page.getByRole('dialog')).not.toBeVisible();
-  });
+  await expect(page.getByRole('dialog'))
+    .toBeHidden({ timeout: 1_000 })
+    .catch(() => {
+      // Dialog might not exist in DOM at all - either way, it must not be visible.
+      expect(page.getByRole('dialog')).not.toBeVisible();
+    });
 
   m.assertNoNavigation('T3');
 
@@ -334,9 +329,7 @@ test('T3: mark dish sold out - 1 click - no panel opened', async ({ page }) => {
   // Status badge updates to Sold out.
   await expect(page.getByText('Sold out').first()).toBeVisible({ timeout: 5_000 });
 
-  console.log(
-    `T3 complete: ${m.elapsedSec().toFixed(1)} s, ${await m.clicks()} clicks - PASS`,
-  );
+  console.log(`T3 complete: ${m.elapsedSec().toFixed(1)} s, ${await m.clicks()} clicks - PASS`);
 });
 
 // ── T4: Change a dish price - under 20 s - panel opens and closes inline ─────
@@ -361,12 +354,7 @@ test('T4: change a dish price - under 20 s - no navigation - panel closes inline
   await waitForMenuReady(page);
 
   await page.unroute(/\/v1\/vendors\/[^/]+\/menus\/[^/]+\/items(\?.*)?$/);
-  await mockAlways(
-    page,
-    /\/v1\/vendors\/[^/]+\/menus\/[^/]+\/items(\?.*)?$/,
-    200,
-    [updatedItem],
-  );
+  await mockAlways(page, /\/v1\/vendors\/[^/]+\/menus\/[^/]+\/items(\?.*)?$/, 200, [updatedItem]);
 
   m.startTask();
 
@@ -413,7 +401,10 @@ test('T5: drag to reorder two dishes - order persists after page reload', async 
     page,
     /\/v1\/vendors\/[^/]+\/menus\/[^/]+\/items\/reorder$/,
     200,
-    [{ ...itemB, sortOrder: 1 }, { ...itemA, sortOrder: 2 }],
+    [
+      { ...itemB, sortOrder: 1 },
+      { ...itemA, sortOrder: 2 },
+    ],
   ).then((body) => {
     capturedOrder = (body as { itemIds?: string[] }).itemIds ?? [];
     return body;
@@ -430,12 +421,8 @@ test('T5: drag to reorder two dishes - order persists after page reload', async 
   m.startTask();
 
   // Drag Dish A's handle onto Dish B to swap order.
-  const handleA = page
-    .getByRole('button', { name: 'Drag to reorder' })
-    .first();
-  const handleB = page
-    .getByRole('button', { name: 'Drag to reorder' })
-    .nth(1);
+  const handleA = page.getByRole('button', { name: 'Drag to reorder' }).first();
+  const handleB = page.getByRole('button', { name: 'Drag to reorder' }).nth(1);
 
   const boxA = await handleA.boundingBox();
   const boxB = await handleB.boundingBox();
@@ -464,12 +451,10 @@ test('T5: drag to reorder two dishes - order persists after page reload', async 
   // Set up the items mock to return the NEW order so the reload reflects
   // what the backend persisted.
   await page.unroute(/\/v1\/vendors\/[^/]+\/menus\/[^/]+\/items(\?.*)?$/);
-  await mockAlways(
-    page,
-    /\/v1\/vendors\/[^/]+\/menus\/[^/]+\/items(\?.*)?$/,
-    200,
-    [{ ...itemB, sortOrder: 1 }, { ...itemA, sortOrder: 2 }],
-  );
+  await mockAlways(page, /\/v1\/vendors\/[^/]+\/menus\/[^/]+\/items(\?.*)?$/, 200, [
+    { ...itemB, sortOrder: 1 },
+    { ...itemA, sortOrder: 2 },
+  ]);
 
   await page.reload();
   await waitForMenuReady(page);
@@ -532,9 +517,10 @@ test('T6: publish blocked without allergen declaration - error shown - allergen 
     const rect = el.getBoundingClientRect();
     return rect.top >= 0 && rect.bottom <= window.innerHeight + 50;
   });
-  expect(isInViewport, 'T6: allergen fieldset must be scrolled into viewport after failed save').toBe(
-    true,
-  );
+  expect(
+    isInViewport,
+    'T6: allergen fieldset must be scrolled into viewport after failed save',
+  ).toBe(true);
 
   // The toast with the error message must appear.
   await expect(page.getByText(/Allergen info required/i)).toBeVisible({ timeout: 3_000 });
@@ -596,12 +582,7 @@ test('T7: publish via allergen-free affirmation - allergensFreeFrom stored as tr
   await page.getByRole('button', { name: 'Live' }).click();
 
   await page.unroute(/\/v1\/vendors\/[^/]+\/menus\/[^/]+\/items(\?.*)?$/);
-  await mockAlways(
-    page,
-    /\/v1\/vendors\/[^/]+\/menus\/[^/]+\/items(\?.*)?$/,
-    200,
-    [freeFromItem],
-  );
+  await mockAlways(page, /\/v1\/vendors\/[^/]+\/menus\/[^/]+\/items(\?.*)?$/, 200, [freeFromItem]);
 
   await page.getByRole('button', { name: 'Save dish' }).click();
   await expect(page.getByRole('dialog', { name: 'Add a dish' })).toBeHidden({ timeout: 5_000 });
@@ -681,9 +662,9 @@ test('T8: staging a photo does not discard the dish name already typed', async (
   ).toHaveValue('Pepper Soup Special', { timeout: 2_000 });
 
   // The staged photo thumbnail must appear (proves the file was accepted).
-  await expect(
-    page.getByRole('button', { name: 'Remove staged photo' }).first(),
-  ).toBeVisible({ timeout: 2_000 });
+  await expect(page.getByRole('button', { name: 'Remove staged photo' }).first()).toBeVisible({
+    timeout: 2_000,
+  });
 
   // Now type extra text to confirm the field is still interactive.
   await page.locator('#dish-name').fill('Pepper Soup Special (updated)');

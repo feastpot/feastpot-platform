@@ -103,20 +103,10 @@ export async function installComplianceMocks(
   await mockAlways(page, '**/v1/vendor-members/my-role', 200, { role: 'owner' });
 
   // Enforcement actions (useAccountStatus hook)
-  await mockAlways(
-    page,
-    /\/v1\/vendors\/[^/]+\/enforcement(\?.*)?$/,
-    200,
-    enforcementActions,
-  );
+  await mockAlways(page, /\/v1\/vendors\/[^/]+\/enforcement(\?.*)?$/, 200, enforcementActions);
 
   // Compliance documents (useVendorDocuments hook)
-  await mockAlways(
-    page,
-    /\/v1\/vendors\/[^/]+\/documents(\?.*)?$/,
-    200,
-    documents,
-  );
+  await mockAlways(page, /\/v1\/vendors\/[^/]+\/documents(\?.*)?$/, 200, documents);
 
   // Terms rate schedule (loaded by TermsClient)
   await mockAlways(page, '**/v1/terms/rate-schedule', 200, [
@@ -128,7 +118,11 @@ export async function installComplianceMocks(
   // Image uploads
   if (uploadShouldFail) {
     await page.route(/\/v1\/vendors\/[^/]+\/images(\?.*)?$/, (route) =>
-      route.fulfill({ status: 500, contentType: 'application/json', body: '{"message":"Internal server error"}' }),
+      route.fulfill({
+        status: 500,
+        contentType: 'application/json',
+        body: '{"message":"Internal server error"}',
+      }),
     );
   } else {
     if (logoUploadResponse) {

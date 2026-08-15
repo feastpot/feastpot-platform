@@ -126,7 +126,9 @@ for (const versionDirName of fs.readdirSync(cacheDir)) {
 
 if (patchCount === 0) {
   console.warn(
-    'install-chromium.js: no chrome/chrome-headless-shell binaries found in ' + cacheDir + '.\n' +
+    'install-chromium.js: no chrome/chrome-headless-shell binaries found in ' +
+      cacheDir +
+      '.\n' +
       'Run `npx playwright install chromium` to download the browser package first.',
   );
 } else {

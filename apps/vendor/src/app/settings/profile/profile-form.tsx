@@ -1,15 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import {
-  AlertTriangle,
-  Check,
-  ImageOff,
-  Info,
-  Loader2,
-  Upload,
-  X,
-} from 'lucide-react';
+import { AlertTriangle, Check, ImageOff, Info, Loader2, Upload, X } from 'lucide-react';
 import Image from 'next/image';
 import { cn } from '@feastpot/ui';
 
@@ -107,7 +99,11 @@ function splitChips(raw: string[]): string[] {
 
 function seedSocial(links: Record<string, string> | null): Record<SocialKey, string> {
   const s: Record<SocialKey, string> = {
-    website: '', instagram: '', tiktok: '', facebook: '', youtube: '',
+    website: '',
+    instagram: '',
+    tiktok: '',
+    facebook: '',
+    youtube: '',
   };
   for (const k of SOCIAL_KEYS) {
     const v = links?.[k];
@@ -190,9 +186,7 @@ export function ProfileForm() {
     const liveSet = new Set(liveItems.map((i) => i.id));
     setForm((s) => {
       const valid = s.featuredItemIds.filter((id) => liveSet.has(id));
-      return valid.length !== s.featuredItemIds.length
-        ? { ...s, featuredItemIds: valid }
-        : s;
+      return valid.length !== s.featuredItemIds.length ? { ...s, featuredItemIds: valid } : s;
     });
   }, [seeded, liveItems]);
 
@@ -298,7 +292,6 @@ export function ProfileForm() {
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         {/* Left column */}
         <div className="space-y-5">
-
           {/* Imagery */}
           <Section title="Imagery">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -316,10 +309,15 @@ export function ProfileForm() {
                     : null
                 }
                 onPick={(file) =>
-                  upload.mutate({ kind: 'logo', file }, {
-                    onSuccess: () => toast({ title: 'Logo updated' }),
-                    onError: () => {/* error shown inline via error prop */},
-                  })
+                  upload.mutate(
+                    { kind: 'logo', file },
+                    {
+                      onSuccess: () => toast({ title: 'Logo updated' }),
+                      onError: () => {
+                        /* error shown inline via error prop */
+                      },
+                    },
+                  )
                 }
               />
               <ImageSlot
@@ -336,10 +334,15 @@ export function ProfileForm() {
                     : null
                 }
                 onPick={(file) =>
-                  upload.mutate({ kind: 'cover', file }, {
-                    onSuccess: () => toast({ title: 'Cover photo updated' }),
-                    onError: () => {/* error shown inline via error prop */},
-                  })
+                  upload.mutate(
+                    { kind: 'cover', file },
+                    {
+                      onSuccess: () => toast({ title: 'Cover photo updated' }),
+                      onError: () => {
+                        /* error shown inline via error prop */
+                      },
+                    },
+                  )
                 }
               />
             </div>
@@ -480,9 +483,7 @@ export function ProfileForm() {
                   <TextInput
                     id={`social-${k}`}
                     value={form.social[k]}
-                    onChange={(v) =>
-                      setForm((s) => ({ ...s, social: { ...s.social, [k]: v } }))
-                    }
+                    onChange={(v) => setForm((s) => ({ ...s, social: { ...s.social, [k]: v } }))}
                     placeholder={SOCIAL_PLACEHOLDERS[k]}
                     inputMode="url"
                   />
@@ -599,11 +600,17 @@ export function ProfileForm() {
         <Info className="mt-0.5 h-4 w-4 shrink-0 text-teal" aria-hidden />
         <p>
           Service area, delivery radius, fees and minimum order live on the{' '}
-          <a className="font-semibold text-teal underline-offset-2 hover:underline" href="/settings/delivery">
+          <a
+            className="font-semibold text-teal underline-offset-2 hover:underline"
+            href="/settings/delivery"
+          >
             Delivery
           </a>{' '}
           page. Opening days, prep lead time and daily caps live on the{' '}
-          <a className="font-semibold text-teal underline-offset-2 hover:underline" href="/availability">
+          <a
+            className="font-semibold text-teal underline-offset-2 hover:underline"
+            href="/availability"
+          >
             Availability
           </a>{' '}
           page.
@@ -639,7 +646,12 @@ export function ProfileForm() {
 // ---- sub-components ----
 
 function CompletenessCheck({
-  hasLogo, hasCover, hasDescription, hasCuisines, hasFeatured, hasLiveItems,
+  hasLogo,
+  hasCover,
+  hasDescription,
+  hasCuisines,
+  hasFeatured,
+  hasLiveItems,
 }: {
   hasLogo: boolean;
   hasCover: boolean;
@@ -649,12 +661,36 @@ function CompletenessCheck({
   hasLiveItems: boolean;
 }) {
   const gaps: { label: string; href: string; note: string }[] = [];
-  if (!hasLogo)        gaps.push({ label: 'Add a logo',             href: '#logo',           note: 'customers associate your brand with your food' });
-  if (!hasCover)       gaps.push({ label: 'Add a cover photo',      href: '#cover',          note: 'kitchens with a cover photo attract noticeably more orders' });
-  if (!hasDescription) gaps.push({ label: 'Write a short description', href: '#description', note: 'shown on search results and link previews' });
-  if (!hasCuisines)    gaps.push({ label: 'Add your cuisine types', href: '#cuisines',       note: 'customers filter search by cuisine' });
+  if (!hasLogo)
+    gaps.push({
+      label: 'Add a logo',
+      href: '#logo',
+      note: 'customers associate your brand with your food',
+    });
+  if (!hasCover)
+    gaps.push({
+      label: 'Add a cover photo',
+      href: '#cover',
+      note: 'kitchens with a cover photo attract noticeably more orders',
+    });
+  if (!hasDescription)
+    gaps.push({
+      label: 'Write a short description',
+      href: '#description',
+      note: 'shown on search results and link previews',
+    });
+  if (!hasCuisines)
+    gaps.push({
+      label: 'Add your cuisine types',
+      href: '#cuisines',
+      note: 'customers filter search by cuisine',
+    });
   if (!hasFeatured && hasLiveItems)
-                       gaps.push({ label: 'Pick featured dishes',   href: '#featured-dishes',note: 'shown at the top of your public page' });
+    gaps.push({
+      label: 'Pick featured dishes',
+      href: '#featured-dishes',
+      note: 'shown at the top of your public page',
+    });
 
   if (gaps.length === 0) return null;
 
@@ -728,7 +764,10 @@ function ChipInput({
           <button
             type="button"
             aria-label={`Remove ${chip}`}
-            onClick={(e) => { e.stopPropagation(); onRemove(i); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onRemove(i);
+            }}
             className="ml-0.5 rounded-full p-0.5 hover:bg-teal/20"
           >
             <X className="h-3 w-3" aria-hidden />
@@ -802,8 +841,8 @@ function FeaturedDishPicker({
               isSelected
                 ? 'bg-teal/10 text-teal-dark'
                 : disabled
-                ? 'cursor-not-allowed text-mid opacity-50'
-                : 'text-dark hover:bg-surface',
+                  ? 'cursor-not-allowed text-mid opacity-50'
+                  : 'text-dark hover:bg-surface',
             )}
           >
             {item.imageUrls[0] ? (
@@ -867,9 +906,7 @@ function ProfilePreview({
         <p className="truncate text-sm font-bold text-dark">
           {businessName || 'Your kitchen name'}
         </p>
-        {description && (
-          <p className="mt-0.5 line-clamp-2 text-[11px] text-mid">{description}</p>
-        )}
+        {description && <p className="mt-0.5 line-clamp-2 text-[11px] text-mid">{description}</p>}
         {cuisines.length > 0 && (
           <div className="mt-1.5 flex flex-wrap gap-1">
             {cuisines.slice(0, 4).map((c) => (
@@ -889,13 +926,7 @@ function ProfilePreview({
 
 // ---- shared primitives ----
 
-function Section({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="fp-card border border-border bg-white">
       <header className="border-b border-border px-4 py-3">
@@ -1046,7 +1077,9 @@ function ImageSlot({
 
   return (
     <div className="space-y-2">
-      <p className="text-xs font-semibold text-dark" id={id}>{label}</p>
+      <p className="text-xs font-semibold text-dark" id={id}>
+        {label}
+      </p>
       <div
         className={cn(
           'relative flex w-full items-center justify-center overflow-hidden rounded-xl border bg-surface',

@@ -69,7 +69,7 @@ export class PageMetrics {
   /** Total document click events since the last page load. */
   async clicks(): Promise<number> {
     return this.page.evaluate(
-      () => ((window as unknown as Record<string, number>)['__fp_clicks'] ?? 0),
+      () => (window as unknown as Record<string, number>)['__fp_clicks'] ?? 0,
     );
   }
 

@@ -151,7 +151,10 @@ export function CateringBookingsClient({ accessToken, apiUrl }: Props) {
           </select>
         </div>
         <button
-          onClick={() => { setCursor(undefined); load(true); }}
+          onClick={() => {
+            setCursor(undefined);
+            load(true);
+          }}
           disabled={loading}
           className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
         >
@@ -210,7 +213,10 @@ export function CateringBookingsClient({ accessToken, apiUrl }: Props) {
                   </td>
                   <td className="px-4 py-3 text-right">
                     <button
-                      onClick={(e) => { e.stopPropagation(); setSelected(b); }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelected(b);
+                      }}
                       className="text-xs text-primary hover:underline"
                     >
                       View
@@ -224,16 +230,11 @@ export function CateringBookingsClient({ accessToken, apiUrl }: Props) {
       )}
 
       {bookings.length === 0 && !loading && (
-        <p className="text-sm text-muted-foreground">
-          No bookings found. Click Search to load.
-        </p>
+        <p className="text-sm text-muted-foreground">No bookings found. Click Search to load.</p>
       )}
 
       {hasMore && (
-        <button
-          onClick={() => load(false)}
-          className="text-sm text-primary hover:underline"
-        >
+        <button onClick={() => load(false)} className="text-sm text-primary hover:underline">
           Load more
         </button>
       )}
@@ -253,16 +254,8 @@ function KpiCard({ label, value }: { label: string; value: string }) {
   );
 }
 
-function DetailPanel({
-  booking: b,
-  onClose,
-}: {
-  booking: CateringBooking;
-  onClose: () => void;
-}) {
-  const allAllergens = Array.from(
-    new Set((b.lineItems ?? []).flatMap((li) => li.allergens)),
-  );
+function DetailPanel({ booking: b, onClose }: { booking: CateringBooking; onClose: () => void }) {
+  const allAllergens = Array.from(new Set((b.lineItems ?? []).flatMap((li) => li.allergens)));
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-end bg-black/40">
@@ -304,10 +297,7 @@ function DetailPanel({
               label="Commission"
               value={`${formatPounds(b.commissionPence)} (${b.commissionPercent}%)`}
             />
-            <Row
-              label="Vendor net"
-              value={formatPounds(b.totalPence - b.commissionPence)}
-            />
+            <Row label="Vendor net" value={formatPounds(b.totalPence - b.commissionPence)} />
           </div>
 
           {(b.lineItems ?? []).length > 0 && (
@@ -316,13 +306,10 @@ function DetailPanel({
               {(b.lineItems ?? []).map((li) => (
                 <div key={li.id} className="mb-2">
                   <p>
-                    {li.quantity}x {li.description} -{' '}
-                    {formatPounds(li.quantity * li.unitPence)}
+                    {li.quantity}x {li.description} - {formatPounds(li.quantity * li.unitPence)}
                   </p>
                   {li.allergens.length > 0 && (
-                    <p className="text-xs text-destructive">
-                      Allergens: {li.allergens.join(', ')}
-                    </p>
+                    <p className="text-xs text-destructive">Allergens: {li.allergens.join(', ')}</p>
                   )}
                 </div>
               ))}

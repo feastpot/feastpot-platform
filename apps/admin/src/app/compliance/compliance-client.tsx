@@ -52,11 +52,7 @@ const TYPE_LABELS: Record<string, string> = {
  * States considered "needing action" for the default filter view.
  * Suspended is highest severity; VERIFIED is intentionally excluded.
  */
-const NEEDS_ACTION_STATES: VerificationOverallState[] = [
-  'NOT_SET_UP',
-  'RENEWAL_DUE',
-  'SUSPENDED',
-];
+const NEEDS_ACTION_STATES: VerificationOverallState[] = ['NOT_SET_UP', 'RENEWAL_DUE', 'SUSPENDED'];
 
 // ── Filter types ──────────────────────────────────────────────────────────────
 
@@ -243,8 +239,7 @@ function VerificationTriage() {
        */}
       {vs && (
         <p className="mb-4 text-[11px] text-muted-foreground">
-          Not set up{' '}
-          <span className="font-semibold text-foreground">{vs.counts.notSetUp}</span>
+          Not set up <span className="font-semibold text-foreground">{vs.counts.notSetUp}</span>
           {' + '}Verified{' '}
           <span className="font-semibold text-foreground">{vs.counts.VERIFIED}</span>
           {' + '}Renewal due{' '}

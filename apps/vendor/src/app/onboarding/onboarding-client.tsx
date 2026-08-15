@@ -175,7 +175,8 @@ export function OnboardingClient({ vendor }: { vendor: VendorSummary }) {
             )}
             {!termsDone && (
               <p className="mt-2 text-xs text-muted-foreground">
-                You must scroll through the full terms and tick the checkbox -- pre-ticked boxes are not valid consent.
+                You must scroll through the full terms and tick the checkbox -- pre-ticked boxes are
+                not valid consent.
               </p>
             )}
           </>

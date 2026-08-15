@@ -86,10 +86,9 @@ export function EarningsClient() {
           setError('Not authenticated');
           return;
         }
-        const res = await fetch(
-          `${API}/v1/payouts/earnings-summary?year=${year}&month=${month}`,
-          { headers: { Authorization: `Bearer ${token}` } },
-        );
+        const res = await fetch(`${API}/v1/payouts/earnings-summary?year=${year}&month=${month}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         if (!res.ok) throw new Error(`API error ${res.status}`);
         const json = (await res.json()) as EarningsData;
         if (!cancelled) setData(json);
@@ -233,9 +232,7 @@ export function EarningsClient() {
                         Effective rate {pct(row.effectiveRatePct)}
                       </span>
                     </div>
-                    {info.note && (
-                      <p className="mt-0.5 text-xs text-gray-400">{info.note}</p>
-                    )}
+                    {info.note && <p className="mt-0.5 text-xs text-gray-400">{info.note}</p>}
                   </div>
                 </div>
               );

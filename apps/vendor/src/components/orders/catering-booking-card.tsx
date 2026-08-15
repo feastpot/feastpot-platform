@@ -6,10 +6,7 @@ import Link from 'next/link';
 
 import type { CateringBooking, CateringBookingStatus } from '@/lib/api/catering-bookings';
 
-const STATUS_CONFIG: Record<
-  CateringBookingStatus,
-  { label: string; colour: string }
-> = {
+const STATUS_CONFIG: Record<CateringBookingStatus, { label: string; colour: string }> = {
   QUOTED: { label: 'Quote sent', colour: 'bg-yellow-100 text-yellow-800' },
   DEPOSIT_PAID: { label: 'Deposit paid', colour: 'bg-blue-100 text-blue-800' },
   CONFIRMED: { label: 'Confirmed', colour: 'bg-green-100 text-green-800' },
@@ -71,9 +68,7 @@ export function CateringBookingCard({ booking: b }: Props) {
             <span className="flex items-center gap-1">
               <CalendarDays className="h-3.5 w-3.5 shrink-0 text-mid" aria-hidden />
               <span className="font-medium">{formatDate(b.eventDate)}</span>
-              {b.preferredTime && (
-                <span className="text-mid"> at {b.preferredTime}</span>
-              )}
+              {b.preferredTime && <span className="text-mid"> at {b.preferredTime}</span>}
             </span>
             <span className="flex items-center gap-1">
               <Users className="h-3.5 w-3.5 shrink-0 text-mid" aria-hidden />
@@ -81,9 +76,7 @@ export function CateringBookingCard({ booking: b }: Props) {
             </span>
           </div>
 
-          {b.eventAddress && (
-            <p className="mt-1 truncate text-xs text-mid">{b.eventAddress}</p>
-          )}
+          {b.eventAddress && <p className="mt-1 truncate text-xs text-mid">{b.eventAddress}</p>}
         </div>
 
         <div className="flex shrink-0 flex-col items-end gap-1">

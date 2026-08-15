@@ -152,8 +152,8 @@ export function IncidentsClient({ accessToken, apiUrl }: Props) {
       )}
 
       <p className="text-xs text-muted-foreground">
-        Showing {incidents.length} incident{incidents.length !== 1 ? 's' : ''}.
-        Only the most recent 50 are shown without a search filter.
+        Showing {incidents.length} incident{incidents.length !== 1 ? 's' : ''}. Only the most recent
+        50 are shown without a search filter.
       </p>
     </div>
   );

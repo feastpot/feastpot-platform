@@ -435,7 +435,8 @@ deducted from your vendor payout. FeastPass members are exempt from this fee.
   // The terms_versions table has a legacy `summary` column (NOT NULL, no default)
   // that predates the `change_summary` column and is not in the current Prisma schema.
   // We must use a raw upsert to satisfy the constraint.
-  const changeSummaryText = 'Initial structured rate schedule. Supersedes inline rate references in vendor terms v1.0.';
+  const changeSummaryText =
+    'Initial structured rate schedule. Supersedes inline rate references in vendor terms v1.0.';
   const rateScheduleRows = await prisma.$queryRaw<Array<{ id: string }>>`
     INSERT INTO terms_versions
       (id, document_type, version, content_mdx, content_hash, summary, change_summary,
@@ -478,7 +479,8 @@ deducted from your vendor payout. FeastPass members are exempt from this fee.
       rateDisplay: '12%',
       rateValue: 12.0,
       basis: 'Food subtotal only (excluding delivery fees, service charges, and tips)',
-      vatNote: "Commission is inclusive of VAT where Feastpot is registered. Vendors account for VAT on their own food sales.",
+      vatNote:
+        'Commission is inclusive of VAT where Feastpot is registered. Vendors account for VAT on their own food sales.',
       status: RateStatus.LIVE,
       sortOrder: 1,
     },
@@ -488,7 +490,7 @@ deducted from your vendor payout. FeastPass members are exempt from this fee.
       rateDisplay: '10%',
       rateValue: 10.0,
       basis: 'Food subtotal only (excluding delivery fees, service charges, and tips)',
-      vatNote: "Commission is inclusive of VAT where Feastpot is registered.",
+      vatNote: 'Commission is inclusive of VAT where Feastpot is registered.',
       status: RateStatus.LIVE,
       sortOrder: 2,
     },
@@ -508,7 +510,7 @@ deducted from your vendor payout. FeastPass members are exempt from this fee.
       rateDisplay: '10%',
       rateValue: 10.0,
       basis: 'Food subtotal only (excluding deposit handling fees)',
-      vatNote: "Commission is inclusive of VAT where Feastpot is registered.",
+      vatNote: 'Commission is inclusive of VAT where Feastpot is registered.',
       status: RateStatus.LIVE,
       sortOrder: 4,
     },
@@ -528,7 +530,8 @@ deducted from your vendor payout. FeastPass members are exempt from this fee.
       rateDisplay: '5% (max £2.99)',
       rateValue: 5.0,
       basis: 'Order subtotal: charged to customer, retained by Feastpot as platform revenue',
-      vatNote: 'This fee is customer-facing only. It is never deducted from your vendor payout. FeastPass members are exempt.',
+      vatNote:
+        'This fee is customer-facing only. It is never deducted from your vendor payout. FeastPass members are exempt.',
       status: RateStatus.CUSTOMER_SIDE,
       sortOrder: 6,
     },
@@ -548,15 +551,25 @@ deducted from your vendor payout. FeastPass members are exempt from this fee.
     await prisma.rateScheduleEntry.upsert({
       where: { versionId_key: { versionId: rateScheduleVersion.id, key: entry.key } },
       create: { versionId: rateScheduleVersion.id, ...entry },
-      update: { label: entry.label, rateDisplay: entry.rateDisplay, rateValue: entry.rateValue, basis: entry.basis, vatNote: entry.vatNote, status: entry.status, sortOrder: entry.sortOrder },
+      update: {
+        label: entry.label,
+        rateDisplay: entry.rateDisplay,
+        rateValue: entry.rateValue,
+        basis: entry.basis,
+        vatNote: entry.vatNote,
+        status: entry.status,
+        sortOrder: entry.sortOrder,
+      },
     });
-    console.log(`[seed-terms] RateScheduleEntry upserted: ${entry.key} (${entry.rateDisplay} ${entry.status})`);
+    console.log(
+      `[seed-terms] RateScheduleEntry upserted: ${entry.key} (${entry.rateDisplay} ${entry.status})`,
+    );
   }
 
   // ── 3. Backfill rateKey on existing CommissionRate rows ───────────────────
   // These links enable the PLANNED guard in commission.service.ts.
   const rateKeyUpdates: Array<[source: string, isFirstOrder: boolean | null, rateKey: string]> = [
-    ['MARKETPLACE', true,  'standard_commission'],
+    ['MARKETPLACE', true, 'standard_commission'],
     ['MARKETPLACE', false, 'repeat_commission'],
     ['VENDOR_REFERRED', null, 'referred_commission'],
   ];
@@ -567,7 +580,9 @@ deducted from your vendor payout. FeastPass members are exempt from this fee.
       data: { rateKey },
     });
     if (result.count > 0) {
-      console.log(`[seed-terms] Backfilled rateKey=${rateKey} on ${result.count} CommissionRate rows`);
+      console.log(
+        `[seed-terms] Backfilled rateKey=${rateKey} on ${result.count} CommissionRate rows`,
+      );
     }
   }
 

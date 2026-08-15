@@ -51,7 +51,16 @@ import { formatPence } from '@/lib/format';
 // ── Constants ──────────────────────────────────────────────────────────────
 
 // Known categories listed in preferred display order; custom categories appear after.
-const KNOWN_CATEGORY_ORDER = ['tray', 'soup', 'protein', 'swallow', 'snack', 'frozen', 'bundle', 'event'];
+const KNOWN_CATEGORY_ORDER = [
+  'tray',
+  'soup',
+  'protein',
+  'swallow',
+  'snack',
+  'frozen',
+  'bundle',
+  'event',
+];
 
 /** Title-case a free-text category for display. */
 function displayCategory(cat: string): string {
@@ -191,13 +200,24 @@ function DishCard({ item, onEdit, onDelete, onToggleSoldOut, isDragging }: DishC
       {/* Cover photo */}
       <div className="relative h-36 w-full overflow-hidden rounded-t-2xl bg-cream-warm">
         {coverUrl ? (
-          <Image src={coverUrl} alt={item.name} fill className="object-cover" sizes="(max-width:640px) 50vw,25vw" />
+          <Image
+            src={coverUrl}
+            alt={item.name}
+            fill
+            className="object-cover"
+            sizes="(max-width:640px) 50vw,25vw"
+          />
         ) : (
           <div className="flex h-full items-center justify-center">
             <ImageOff className="h-8 w-8 text-charcoal-light" />
           </div>
         )}
-        <span className={cn('absolute left-2 top-2 rounded-full px-2 py-0.5 text-[11px] font-semibold', badge.cls)}>
+        <span
+          className={cn(
+            'absolute left-2 top-2 rounded-full px-2 py-0.5 text-[11px] font-semibold',
+            badge.cls,
+          )}
+        >
           {badge.label}
         </span>
       </div>
@@ -309,7 +329,13 @@ interface CategorySectionProps {
 }
 
 function CategorySection({
-  category, items, onAdd, onEdit, onDelete, onToggleSoldOut, onReorder,
+  category,
+  items,
+  onAdd,
+  onEdit,
+  onDelete,
+  onToggleSoldOut,
+  onReorder,
 }: CategorySectionProps) {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -409,7 +435,11 @@ function DishEditor({ open, itemId, initial, vendorId, menuId, onClose }: DishEd
     const files = Array.from(e.target.files ?? []);
     const total = form.existingImageUrls.length + form.stagedFiles.length + files.length;
     if (total > 5) {
-      toast({ title: 'Too many photos', description: 'A dish can have at most 5 photos.', variant: 'destructive' });
+      toast({
+        title: 'Too many photos',
+        description: 'A dish can have at most 5 photos.',
+        variant: 'destructive',
+      });
       return;
     }
     patch({ stagedFiles: [...form.stagedFiles, ...files] });
@@ -427,7 +457,10 @@ function DishEditor({ open, itemId, initial, vendorId, menuId, onClose }: DishEd
 
   async function handleSave() {
     const name = form.name.trim();
-    if (!name) { toast({ title: 'Name is required', variant: 'destructive' }); return; }
+    if (!name) {
+      toast({ title: 'Name is required', variant: 'destructive' });
+      return;
+    }
 
     const pricePence = Math.round(parseFloat(form.pricePounds) * 100);
     if (isNaN(pricePence) || pricePence < 100) {
@@ -444,7 +477,11 @@ function DishEditor({ open, itemId, initial, vendorId, menuId, onClose }: DishEd
     if (form.status === 'LIVE' && form.allergens.length === 0 && !form.allergensFreeFrom) {
       setAllergenError(true);
       allergenRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      toast({ title: 'Allergen info required', description: 'Declare allergens or tick "contains none" before publishing.', variant: 'destructive' });
+      toast({
+        title: 'Allergen info required',
+        description: 'Declare allergens or tick "contains none" before publishing.',
+        variant: 'destructive',
+      });
       return;
     }
 
@@ -476,8 +513,7 @@ function DishEditor({ open, itemId, initial, vendorId, menuId, onClose }: DishEd
         savedItemId = created.id;
       } else {
         // If existing images were removed, send the updated list
-        const imagesDirty =
-          form.existingImageUrls.length !== initial.existingImageUrls.length;
+        const imagesDirty = form.existingImageUrls.length !== initial.existingImageUrls.length;
         await updateItem.mutateAsync({
           itemId: itemId!,
           ...input,
@@ -569,7 +605,6 @@ function DishEditor({ open, itemId, initial, vendorId, menuId, onClose }: DishEd
 
         {/* Scrollable body */}
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
-
           {/* ESSENTIALS */}
 
           {/* Photos */}
@@ -577,7 +612,10 @@ function DishEditor({ open, itemId, initial, vendorId, menuId, onClose }: DishEd
             <label className="mb-1.5 block text-[13px] font-semibold text-charcoal">Photos</label>
             <div className="flex flex-wrap gap-2">
               {form.existingImageUrls.map((url) => (
-                <div key={url} className="relative h-16 w-16 rounded-lg overflow-hidden ring-1 ring-cream-deep">
+                <div
+                  key={url}
+                  className="relative h-16 w-16 rounded-lg overflow-hidden ring-1 ring-cream-deep"
+                >
                   <Image src={url} alt="" fill className="object-cover" sizes="64px" />
                   <button
                     type="button"
@@ -590,7 +628,10 @@ function DishEditor({ open, itemId, initial, vendorId, menuId, onClose }: DishEd
                 </div>
               ))}
               {form.stagedFiles.map((file, i) => (
-                <div key={i} className="relative h-16 w-16 rounded-lg overflow-hidden ring-1 ring-brand/40">
+                <div
+                  key={i}
+                  className="relative h-16 w-16 rounded-lg overflow-hidden ring-1 ring-brand/40"
+                >
                   <Image
                     src={URL.createObjectURL(file)}
                     alt=""
@@ -629,13 +670,21 @@ function DishEditor({ open, itemId, initial, vendorId, menuId, onClose }: DishEd
                 onChange={handleFileSelect}
               />
             </div>
-            <p className="mt-1 text-[11px] text-charcoal-mid">JPEG, PNG or WebP. Up to 5 photos, 5 MB each. First photo is the cover.</p>
+            <p className="mt-1 text-[11px] text-charcoal-mid">
+              JPEG, PNG or WebP. Up to 5 photos, 5 MB each. First photo is the cover.
+            </p>
           </div>
 
           {/* Name */}
           <div>
-            <label htmlFor="dish-name" className="mb-1 block text-[13px] font-semibold text-charcoal">
-              Dish name <span className="text-red-500" aria-hidden>*</span>
+            <label
+              htmlFor="dish-name"
+              className="mb-1 block text-[13px] font-semibold text-charcoal"
+            >
+              Dish name{' '}
+              <span className="text-red-500" aria-hidden>
+                *
+              </span>
             </label>
             <Input
               id="dish-name"
@@ -648,8 +697,14 @@ function DishEditor({ open, itemId, initial, vendorId, menuId, onClose }: DishEd
 
           {/* Category */}
           <div>
-            <label htmlFor="dish-category" className="mb-1 block text-[13px] font-semibold text-charcoal">
-              Category <span className="text-red-500" aria-hidden>*</span>
+            <label
+              htmlFor="dish-category"
+              className="mb-1 block text-[13px] font-semibold text-charcoal"
+            >
+              Category{' '}
+              <span className="text-red-500" aria-hidden>
+                *
+              </span>
             </label>
             <Input
               id="dish-category"
@@ -662,8 +717,14 @@ function DishEditor({ open, itemId, initial, vendorId, menuId, onClose }: DishEd
 
           {/* Price */}
           <div>
-            <label htmlFor="dish-price" className="mb-1 block text-[13px] font-semibold text-charcoal">
-              Price <span className="text-red-500" aria-hidden>*</span>
+            <label
+              htmlFor="dish-price"
+              className="mb-1 block text-[13px] font-semibold text-charcoal"
+            >
+              Price{' '}
+              <span className="text-red-500" aria-hidden>
+                *
+              </span>
             </label>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-charcoal-mid">£</span>
@@ -683,7 +744,10 @@ function DishEditor({ open, itemId, initial, vendorId, menuId, onClose }: DishEd
           {/* Portion label + Prep time */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label htmlFor="dish-portion" className="mb-1 block text-[13px] font-semibold text-charcoal">
+              <label
+                htmlFor="dish-portion"
+                className="mb-1 block text-[13px] font-semibold text-charcoal"
+              >
                 Portion label
               </label>
               <Input
@@ -695,8 +759,14 @@ function DishEditor({ open, itemId, initial, vendorId, menuId, onClose }: DishEd
               />
             </div>
             <div>
-              <label htmlFor="dish-prep" className="mb-1 block text-[13px] font-semibold text-charcoal">
-                Prep time (min) <span className="text-red-500" aria-hidden>*</span>
+              <label
+                htmlFor="dish-prep"
+                className="mb-1 block text-[13px] font-semibold text-charcoal"
+              >
+                Prep time (min){' '}
+                <span className="text-red-500" aria-hidden>
+                  *
+                </span>
               </label>
               <Input
                 id="dish-prep"
@@ -719,7 +789,10 @@ function DishEditor({ open, itemId, initial, vendorId, menuId, onClose }: DishEd
             )}
           >
             <legend className="px-1 text-[13px] font-semibold text-charcoal">
-              Allergens (FSA 14) <span className="text-red-500" aria-hidden>*</span>
+              Allergens (FSA 14){' '}
+              <span className="text-red-500" aria-hidden>
+                *
+              </span>
             </legend>
             {allergenError && (
               <p className="mb-2 flex items-center gap-1 text-[12px] font-medium text-red-600">
@@ -729,7 +802,10 @@ function DishEditor({ open, itemId, initial, vendorId, menuId, onClose }: DishEd
             )}
             <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
               {FSA_14.map(({ slug, label }) => (
-                <label key={slug} className="flex cursor-pointer items-center gap-2 text-[13px] text-charcoal">
+                <label
+                  key={slug}
+                  className="flex cursor-pointer items-center gap-2 text-[13px] text-charcoal"
+                >
                   <input
                     type="checkbox"
                     data-testid={`allergen-${slug}`}
@@ -754,7 +830,9 @@ function DishEditor({ open, itemId, initial, vendorId, menuId, onClose }: DishEd
                 <span>
                   This dish contains <strong>none</strong> of the 14 allergens
                   {form.allergens.length > 0 && (
-                    <span className="ml-1 text-charcoal-mid">(clear allergens above to use this)</span>
+                    <span className="ml-1 text-charcoal-mid">
+                      (clear allergens above to use this)
+                    </span>
                   )}
                 </span>
               </label>
@@ -765,23 +843,27 @@ function DishEditor({ open, itemId, initial, vendorId, menuId, onClose }: DishEd
           <div>
             <p className="mb-2 text-[13px] font-semibold text-charcoal">Status</p>
             <div className="flex gap-2">
-              {(['DRAFT', 'LIVE', ...(itemId !== 'new' ? ['SOLD_OUT'] : [])] as DishStatus[]).map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => patch({ status: s })}
-                  className={cn(
-                    'rounded-full px-3 py-1 text-[13px] font-medium transition-colors',
-                    form.status === s
-                      ? s === 'LIVE' ? 'bg-green-600 text-white'
-                        : s === 'SOLD_OUT' ? 'bg-amber-500 text-white'
-                          : 'bg-charcoal text-white'
-                      : 'bg-cream-warm text-charcoal-mid hover:bg-cream-deep',
-                  )}
-                >
-                  {s === 'SOLD_OUT' ? 'Sold out' : s.charAt(0) + s.slice(1).toLowerCase()}
-                </button>
-              ))}
+              {(['DRAFT', 'LIVE', ...(itemId !== 'new' ? ['SOLD_OUT'] : [])] as DishStatus[]).map(
+                (s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => patch({ status: s })}
+                    className={cn(
+                      'rounded-full px-3 py-1 text-[13px] font-medium transition-colors',
+                      form.status === s
+                        ? s === 'LIVE'
+                          ? 'bg-green-600 text-white'
+                          : s === 'SOLD_OUT'
+                            ? 'bg-amber-500 text-white'
+                            : 'bg-charcoal text-white'
+                        : 'bg-cream-warm text-charcoal-mid hover:bg-cream-deep',
+                    )}
+                  >
+                    {s === 'SOLD_OUT' ? 'Sold out' : s.charAt(0) + s.slice(1).toLowerCase()}
+                  </button>
+                ),
+              )}
             </div>
             {form.status === 'LIVE' && (
               <p className="mt-1.5 text-[11px] text-charcoal-mid">
@@ -799,15 +881,21 @@ function DishEditor({ open, itemId, initial, vendorId, menuId, onClose }: DishEd
               aria-expanded={form.detailOpen}
             >
               Add more detail
-              {form.detailOpen ? <ChevronUp className="h-4 w-4" aria-hidden /> : <ChevronDown className="h-4 w-4" aria-hidden />}
+              {form.detailOpen ? (
+                <ChevronUp className="h-4 w-4" aria-hidden />
+              ) : (
+                <ChevronDown className="h-4 w-4" aria-hidden />
+              )}
             </button>
 
             {form.detailOpen && (
               <div className="space-y-4 border-t border-cream-deep px-4 pb-4 pt-3">
-
                 {/* Description */}
                 <div>
-                  <label htmlFor="dish-desc" className="mb-1 block text-[13px] font-semibold text-charcoal">
+                  <label
+                    htmlFor="dish-desc"
+                    className="mb-1 block text-[13px] font-semibold text-charcoal"
+                  >
                     Description
                   </label>
                   <textarea
@@ -823,7 +911,10 @@ function DishEditor({ open, itemId, initial, vendorId, menuId, onClose }: DishEd
 
                 {/* Servings */}
                 <div>
-                  <label htmlFor="dish-servings" className="mb-1 block text-[13px] font-semibold text-charcoal">
+                  <label
+                    htmlFor="dish-servings"
+                    className="mb-1 block text-[13px] font-semibold text-charcoal"
+                  >
                     Servings per portion
                   </label>
                   <Input
@@ -841,11 +932,15 @@ function DishEditor({ open, itemId, initial, vendorId, menuId, onClose }: DishEd
                 <fieldset>
                   <legend className="mb-2 text-[13px] font-semibold text-charcoal">Dietary</legend>
                   <p className="mb-2 text-[11px] text-charcoal-mid">
-                    Lifestyle preferences. Gluten-free and dairy-free are expressed via the allergens section above.
+                    Lifestyle preferences. Gluten-free and dairy-free are expressed via the
+                    allergens section above.
                   </p>
                   <div className="flex flex-wrap gap-3">
                     {DIETARY_OPTIONS.map(({ value, label }) => (
-                      <label key={value} className="flex cursor-pointer items-center gap-2 text-[13px] text-charcoal">
+                      <label
+                        key={value}
+                        className="flex cursor-pointer items-center gap-2 text-[13px] text-charcoal"
+                      >
                         <input
                           type="checkbox"
                           checked={form.dietaryFlags.includes(value)}
@@ -928,7 +1023,11 @@ export function DishesClient({ vendorId }: { vendorId: string }) {
         { name: 'Dishes' },
         {
           onSuccess: (menu) => setPrimaryMenuId(menu.id),
-          onError: () => toast({ title: 'Could not create your dish list. Please reload.', variant: 'destructive' }),
+          onError: () =>
+            toast({
+              title: 'Could not create your dish list. Please reload.',
+              variant: 'destructive',
+            }),
         },
       );
     }
@@ -957,9 +1056,7 @@ export function DishesClient({ vendorId }: { vendorId: string }) {
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       list = list.filter(
-        (i) =>
-          i.name.toLowerCase().includes(q) ||
-          i.category.toLowerCase().includes(q),
+        (i) => i.name.toLowerCase().includes(q) || i.category.toLowerCase().includes(q),
       );
     }
     return list;
@@ -1073,7 +1170,10 @@ export function DishesClient({ vendorId }: { vendorId: string }) {
 
       {/* Search */}
       <div className="mb-6 relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-charcoal-light" aria-hidden />
+        <Search
+          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-charcoal-light"
+          aria-hidden
+        />
         <Input
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
@@ -1110,7 +1210,9 @@ export function DishesClient({ vendorId }: { vendorId: string }) {
           </div>
           <div>
             <p className="text-[15px] font-semibold text-charcoal">No dishes yet</p>
-            <p className="mt-1 text-[13px] text-charcoal-mid">Add your first dish to get started.</p>
+            <p className="mt-1 text-[13px] text-charcoal-mid">
+              Add your first dish to get started.
+            </p>
           </div>
           <Button onClick={() => openNew()}>
             <Plus className="mr-1.5 h-4 w-4" aria-hidden />

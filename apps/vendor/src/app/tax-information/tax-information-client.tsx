@@ -104,7 +104,10 @@ export function TaxInformationClient() {
           <p className="text-mid">
             Your consent to this collection was given when you accepted the Feastpot vendor terms
             (clause 7.2). If you have questions about how we handle your tax data, contact{' '}
-            <a href={`mailto:${PLATFORM_FACTS.contact.complianceEmail}`} className="underline hover:text-teal">
+            <a
+              href={`mailto:${PLATFORM_FACTS.contact.complianceEmail}`}
+              className="underline hover:text-teal"
+            >
               {PLATFORM_FACTS.contact.complianceEmail}
             </a>
             .
@@ -169,7 +172,9 @@ function VerificationBanner({ profile }: { profile: VendorTaxProfile | null | un
   return (
     <div className="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
       <div className="h-4 w-4 shrink-0 rounded-full bg-amber-400" aria-hidden />
-      <p className="text-sm text-amber-900">Your tax information is awaiting review by our compliance team.</p>
+      <p className="text-sm text-amber-900">
+        Your tax information is awaiting review by our compliance team.
+      </p>
     </div>
   );
 }
@@ -199,9 +204,10 @@ function TaxProfileSection({ profile }: { profile: VendorTaxProfile | null | und
     vatNumber: profile?.vatNumber ?? '',
   });
 
-  const field = (k: keyof UpsertTaxProfileInput) => (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
-  ) => setForm((prev) => ({ ...prev, [k]: e.target.value }));
+  const field =
+    (k: keyof UpsertTaxProfileInput) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+      setForm((prev) => ({ ...prev, [k]: e.target.value }));
 
   const statusBadge = profile ? STATUS_BADGE[profile.verificationStatus] : null;
 
@@ -212,7 +218,9 @@ function TaxProfileSection({ profile }: { profile: VendorTaxProfile | null | und
           <h2 className="text-sm font-bold text-dark">Your details</h2>
           <div className="flex items-center gap-2">
             {statusBadge && (
-              <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusBadge.cls}`}>
+              <span
+                className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusBadge.cls}`}
+              >
                 {statusBadge.label}
               </span>
             )}
@@ -227,12 +235,22 @@ function TaxProfileSection({ profile }: { profile: VendorTaxProfile | null | und
         </div>
         <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
           {[
-            ['Entity type', ENTITY_TYPES.find((e) => e.value === profile.entityType)?.label ?? profile.entityType],
+            [
+              'Entity type',
+              ENTITY_TYPES.find((e) => e.value === profile.entityType)?.label ?? profile.entityType,
+            ],
             ['Legal name', profile.legalName],
             ['Trading name', profile.tradingName ?? '-'],
-            ['Address', [profile.addressLine1, profile.addressLine2, profile.city, profile.postcode].filter(Boolean).join(', ')],
+            [
+              'Address',
+              [profile.addressLine1, profile.addressLine2, profile.city, profile.postcode]
+                .filter(Boolean)
+                .join(', '),
+            ],
             ['Country', profile.country],
-            profile.dateOfBirth ? ['Date of birth', new Date(profile.dateOfBirth).toLocaleDateString('en-GB')] : null,
+            profile.dateOfBirth
+              ? ['Date of birth', new Date(profile.dateOfBirth).toLocaleDateString('en-GB')]
+              : null,
             profile.companyNumber ? ['Company number', profile.companyNumber] : null,
             ['Tax identifier (UTR/NI)', profile.taxIdentifier ?? 'Not provided'],
             profile.vatNumber ? ['VAT number', profile.vatNumber] : null,
@@ -240,7 +258,9 @@ function TaxProfileSection({ profile }: { profile: VendorTaxProfile | null | und
             .filter((x): x is [string, string] => x !== null)
             .map(([label, value]) => (
               <div key={label as string}>
-                <dt className="text-[11px] font-semibold uppercase tracking-wide text-mid">{label as string}</dt>
+                <dt className="text-[11px] font-semibold uppercase tracking-wide text-mid">
+                  {label as string}
+                </dt>
                 <dd className="mt-0.5 font-medium text-dark">{value as string}</dd>
               </div>
             ))}
@@ -279,13 +299,17 @@ function TaxProfileSection({ profile }: { profile: VendorTaxProfile | null | und
                   vatNumber: p.vatNumber ?? '',
                 });
               },
-              onError: (err) => setError(err instanceof Error ? err.message : 'Could not import from Stripe'),
+              onError: (err) =>
+                setError(err instanceof Error ? err.message : 'Could not import from Stripe'),
             });
           }}
           disabled={prefill.isPending}
           className="flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-xs font-semibold text-dark hover:bg-border disabled:opacity-50"
         >
-          <RefreshCw className={`h-3.5 w-3.5 ${prefill.isPending ? 'animate-spin' : ''}`} aria-hidden />
+          <RefreshCw
+            className={`h-3.5 w-3.5 ${prefill.isPending ? 'animate-spin' : ''}`}
+            aria-hidden
+          />
           Import from Stripe
         </button>
       </div>
@@ -321,9 +345,15 @@ function TaxProfileSection({ profile }: { profile: VendorTaxProfile | null | und
       >
         <div>
           <label className="label-xs">Entity type *</label>
-          <select value={form.entityType} onChange={field('entityType')} className="fp-input mt-1 w-full">
+          <select
+            value={form.entityType}
+            onChange={field('entityType')}
+            className="fp-input mt-1 w-full"
+          >
             {ENTITY_TYPES.map((t) => (
-              <option key={t.value} value={t.value}>{t.label}</option>
+              <option key={t.value} value={t.value}>
+                {t.label}
+              </option>
             ))}
           </select>
         </div>
@@ -331,61 +361,140 @@ function TaxProfileSection({ profile }: { profile: VendorTaxProfile | null | und
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="label-xs">Legal name *</label>
-            <input type="text" value={form.legalName} onChange={field('legalName')} required className="fp-input mt-1 w-full" placeholder="As registered with HMRC" />
+            <input
+              type="text"
+              value={form.legalName}
+              onChange={field('legalName')}
+              required
+              className="fp-input mt-1 w-full"
+              placeholder="As registered with HMRC"
+            />
           </div>
           <div>
             <label className="label-xs">Trading name</label>
-            <input type="text" value={form.tradingName} onChange={field('tradingName')} className="fp-input mt-1 w-full" placeholder="If different from legal name" />
+            <input
+              type="text"
+              value={form.tradingName}
+              onChange={field('tradingName')}
+              className="fp-input mt-1 w-full"
+              placeholder="If different from legal name"
+            />
           </div>
         </div>
 
         <div>
           <label className="label-xs">Address line 1 *</label>
-          <input type="text" value={form.addressLine1} onChange={field('addressLine1')} required className="fp-input mt-1 w-full" />
+          <input
+            type="text"
+            value={form.addressLine1}
+            onChange={field('addressLine1')}
+            required
+            className="fp-input mt-1 w-full"
+          />
         </div>
         <div>
           <label className="label-xs">Address line 2</label>
-          <input type="text" value={form.addressLine2} onChange={field('addressLine2')} className="fp-input mt-1 w-full" />
+          <input
+            type="text"
+            value={form.addressLine2}
+            onChange={field('addressLine2')}
+            className="fp-input mt-1 w-full"
+          />
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="label-xs">City *</label>
-            <input type="text" value={form.city} onChange={field('city')} required className="fp-input mt-1 w-full" />
+            <input
+              type="text"
+              value={form.city}
+              onChange={field('city')}
+              required
+              className="fp-input mt-1 w-full"
+            />
           </div>
           <div>
             <label className="label-xs">Postcode *</label>
-            <input type="text" value={form.postcode} onChange={field('postcode')} required className="fp-input mt-1 w-full" />
+            <input
+              type="text"
+              value={form.postcode}
+              onChange={field('postcode')}
+              required
+              className="fp-input mt-1 w-full"
+            />
           </div>
         </div>
 
         {form.entityType === 'SOLE_TRADER' && (
           <div>
-            <label className="label-xs">Date of birth * <span className="text-mid font-normal">(required for sole traders under SI 2023/817)</span></label>
-            <input type="date" value={form.dateOfBirth} onChange={field('dateOfBirth')} required className="fp-input mt-1 w-full" />
+            <label className="label-xs">
+              Date of birth *{' '}
+              <span className="text-mid font-normal">
+                (required for sole traders under SI 2023/817)
+              </span>
+            </label>
+            <input
+              type="date"
+              value={form.dateOfBirth}
+              onChange={field('dateOfBirth')}
+              required
+              className="fp-input mt-1 w-full"
+            />
           </div>
         )}
 
         {form.entityType === 'LIMITED_COMPANY' && (
           <div>
-            <label className="label-xs">Companies House number * <span className="text-mid font-normal">(required for limited companies)</span></label>
-            <input type="text" value={form.companyNumber} onChange={field('companyNumber')} required className="fp-input mt-1 w-full" placeholder="e.g. 12345678" maxLength={8} />
+            <label className="label-xs">
+              Companies House number *{' '}
+              <span className="text-mid font-normal">(required for limited companies)</span>
+            </label>
+            <input
+              type="text"
+              value={form.companyNumber}
+              onChange={field('companyNumber')}
+              required
+              className="fp-input mt-1 w-full"
+              placeholder="e.g. 12345678"
+              maxLength={8}
+            />
           </div>
         )}
 
         <div>
           <label className="label-xs">Unique Taxpayer Reference (UTR) or NI number</label>
-          <input type="text" value={form.taxIdentifier} onChange={field('taxIdentifier')} className="fp-input mt-1 w-full" placeholder="10-digit UTR or NI number" maxLength={20} />
-          <p className="mt-1 text-[11px] text-mid">Your UTR is on any HMRC correspondence. Find it at{' '}
-            <a href="https://www.gov.uk/find-utr-number" target="_blank" rel="noreferrer" className="underline">
+          <input
+            type="text"
+            value={form.taxIdentifier}
+            onChange={field('taxIdentifier')}
+            className="fp-input mt-1 w-full"
+            placeholder="10-digit UTR or NI number"
+            maxLength={20}
+          />
+          <p className="mt-1 text-[11px] text-mid">
+            Your UTR is on any HMRC correspondence. Find it at{' '}
+            <a
+              href="https://www.gov.uk/find-utr-number"
+              target="_blank"
+              rel="noreferrer"
+              className="underline"
+            >
               gov.uk
               <ExternalLink className="inline h-3 w-3 ml-0.5" aria-hidden />
-            </a>.
+            </a>
+            .
           </p>
         </div>
 
         <div>
           <label className="label-xs">VAT number (if VAT registered)</label>
-          <input type="text" value={form.vatNumber} onChange={field('vatNumber')} className="fp-input mt-1 w-full" placeholder="GB123456789" maxLength={15} />
+          <input
+            type="text"
+            value={form.vatNumber}
+            onChange={field('vatNumber')}
+            className="fp-input mt-1 w-full"
+            placeholder="GB123456789"
+            maxLength={15}
+          />
         </div>
 
         {error && (
@@ -403,11 +512,19 @@ function TaxProfileSection({ profile }: { profile: VendorTaxProfile | null | und
 
         <div className="flex gap-3 pt-1">
           {profile && (
-            <button type="button" onClick={() => setEditing(false)} className="flex-1 rounded-lg border border-border px-4 py-2 text-sm font-semibold text-dark hover:bg-surface">
+            <button
+              type="button"
+              onClick={() => setEditing(false)}
+              className="flex-1 rounded-lg border border-border px-4 py-2 text-sm font-semibold text-dark hover:bg-surface"
+            >
               Cancel
             </button>
           )}
-          <button type="submit" disabled={upsert.isPending} className="flex-1 rounded-lg bg-teal px-4 py-2 text-sm font-semibold text-white hover:bg-teal-dark disabled:opacity-50">
+          <button
+            type="submit"
+            disabled={upsert.isPending}
+            className="flex-1 rounded-lg bg-teal px-4 py-2 text-sm font-semibold text-white hover:bg-teal-dark disabled:opacity-50"
+          >
             {upsert.isPending ? 'Saving...' : 'Save tax information'}
           </button>
         </div>
@@ -441,7 +558,11 @@ function ReportCard({ report }: { report: PlatformReport }) {
           aria-expanded={expanded}
         >
           {expanded ? 'Hide' : 'Details'}
-          {expanded ? <ChevronUp className="h-3.5 w-3.5" aria-hidden /> : <ChevronDown className="h-3.5 w-3.5" aria-hidden />}
+          {expanded ? (
+            <ChevronUp className="h-3.5 w-3.5" aria-hidden />
+          ) : (
+            <ChevronDown className="h-3.5 w-3.5" aria-hidden />
+          )}
         </button>
       </div>
 
@@ -449,19 +570,27 @@ function ReportCard({ report }: { report: PlatformReport }) {
         <div className="mt-4 space-y-3">
           <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
             <div>
-              <dt className="text-[11px] font-semibold uppercase tracking-wide text-mid">Gross consideration</dt>
+              <dt className="text-[11px] font-semibold uppercase tracking-wide text-mid">
+                Gross consideration
+              </dt>
               <dd className="font-medium text-dark">{formatPounds(report.grossPence)}</dd>
             </div>
             <div>
-              <dt className="text-[11px] font-semibold uppercase tracking-wide text-mid">Fees deducted</dt>
+              <dt className="text-[11px] font-semibold uppercase tracking-wide text-mid">
+                Fees deducted
+              </dt>
               <dd className="font-medium text-dark">{formatPounds(report.feesPence)}</dd>
             </div>
             <div>
-              <dt className="text-[11px] font-semibold uppercase tracking-wide text-mid">Transactions</dt>
+              <dt className="text-[11px] font-semibold uppercase tracking-wide text-mid">
+                Transactions
+              </dt>
               <dd className="font-medium text-dark">{report.orderCount}</dd>
             </div>
             <div>
-              <dt className="text-[11px] font-semibold uppercase tracking-wide text-mid">Reported to HMRC</dt>
+              <dt className="text-[11px] font-semibold uppercase tracking-wide text-mid">
+                Reported to HMRC
+              </dt>
               <dd className="font-medium text-dark">
                 {report.reportedAt
                   ? new Date(report.reportedAt).toLocaleDateString('en-GB')
@@ -471,7 +600,9 @@ function ReportCard({ report }: { report: PlatformReport }) {
           </dl>
 
           <div>
-            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-mid">Quarterly breakdown</p>
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-mid">
+              Quarterly breakdown
+            </p>
             <div className="grid grid-cols-4 gap-2">
               {quarters.map((q) => {
                 const data = report.quarterlyBreakdown[q];
@@ -488,8 +619,8 @@ function ReportCard({ report }: { report: PlatformReport }) {
           </div>
 
           <p className="flex items-center gap-1.5 text-xs text-mid">
-            <Download className="h-3.5 w-3.5" aria-hidden />
-            A copy of this report was sent to your registered email address
+            <Download className="h-3.5 w-3.5" aria-hidden />A copy of this report was sent to your
+            registered email address
             {report.copySentAt
               ? ` on ${new Date(report.copySentAt).toLocaleDateString('en-GB')}`
               : ' (pending)'}

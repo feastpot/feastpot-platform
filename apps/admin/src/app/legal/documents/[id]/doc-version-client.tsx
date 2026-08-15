@@ -51,7 +51,9 @@ function computeDiff(
 
 const STATUS_TONE = { live: 'success', pending: 'warning', superseded: 'neutral' } as const;
 
-interface Props { id: string }
+interface Props {
+  id: string;
+}
 
 export function DocVersionClient({ id }: Props) {
   const { data: version, isLoading } = useAdminTermsVersion(id);
@@ -103,15 +105,21 @@ export function DocVersionClient({ id }: Props) {
         <CardContent>
           <dl className="grid grid-cols-2 gap-x-8 gap-y-3 text-sm sm:grid-cols-3">
             <div>
-              <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Version</dt>
+              <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Version
+              </dt>
               <dd className="mt-0.5 font-mono font-medium">v{version.version}</dd>
             </div>
             <div>
-              <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Effective date</dt>
+              <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Effective date
+              </dt>
               <dd className="mt-0.5">{formatDate(version.effectiveAt)}</dd>
             </div>
             <div>
-              <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Material change</dt>
+              <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Material change
+              </dt>
               <dd className="mt-0.5">
                 {version.isMaterial ? (
                   <span className="flex items-center gap-1 text-green-700">
@@ -125,20 +133,30 @@ export function DocVersionClient({ id }: Props) {
               </dd>
             </div>
             <div>
-              <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Content hash (SHA-256)</dt>
-              <dd className="mt-0.5 font-mono text-xs break-all text-muted-foreground">{version.contentHash}</dd>
+              <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Content hash (SHA-256)
+              </dt>
+              <dd className="mt-0.5 font-mono text-xs break-all text-muted-foreground">
+                {version.contentHash}
+              </dd>
             </div>
             <div>
-              <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Acceptances</dt>
+              <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Acceptances
+              </dt>
               <dd className="mt-0.5 tabular-nums">{version._count.acceptances}</dd>
             </div>
             <div>
-              <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Notices sent</dt>
+              <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Notices sent
+              </dt>
               <dd className="mt-0.5 tabular-nums">{version._count.notices}</dd>
             </div>
             {version.solicitorSignOff && (
               <div className="col-span-2 sm:col-span-3">
-                <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Solicitor sign-off</dt>
+                <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Solicitor sign-off
+                </dt>
                 <dd className="mt-0.5 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">
                   <CheckCircle2 className="mr-1.5 inline h-4 w-4 align-text-bottom" aria-hidden />
                   {version.solicitorSignOff}

@@ -36,9 +36,7 @@ export type { TypeFilter };
 
 // ── Work item: the unified list entry for both orders and catering ────────
 
-type WorkItem =
-  | { kind: 'order'; data: VendorOrder }
-  | { kind: 'catering'; data: CateringBooking };
+type WorkItem = { kind: 'order'; data: VendorOrder } | { kind: 'catering'; data: CateringBooking };
 
 type UnifiedStatus = 'needs_action' | 'in_progress' | 'completed' | 'cancelled';
 
@@ -184,7 +182,12 @@ function computeAllBuckets(
   return buckets;
 }
 
-type StandardBuckets = { pending: WorkItem[]; preparing: WorkItem[]; dispatched: WorkItem[]; delivered: WorkItem[] };
+type StandardBuckets = {
+  pending: WorkItem[];
+  preparing: WorkItem[];
+  dispatched: WorkItem[];
+  delivered: WorkItem[];
+};
 
 function computeStandardBuckets(active: VendorOrder[], delivered: VendorOrder[]): StandardBuckets {
   return {
@@ -305,10 +308,9 @@ export function OrdersDashboard({ vendorId, initialType = 'all' }: Props) {
 
   const [typeFilter, setTypeFilter] = useState<TypeFilter>(initialType);
 
-  const {
-    data: cancelledOrders = [],
-    isLoading: isLoadingCancelled,
-  } = useCancelledOrders(typeFilter === 'all');
+  const { data: cancelledOrders = [], isLoading: isLoadingCancelled } = useCancelledOrders(
+    typeFilter === 'all',
+  );
 
   const {
     data: cateringBookings = [],
@@ -507,11 +509,17 @@ export function OrdersDashboard({ vendorId, initialType = 'all' }: Props) {
 
   // Items split by kind for the summary rail's quick-filter count computation.
   const tabOrders = useMemo(
-    () => visibleItems.filter((i): i is { kind: 'order'; data: VendorOrder } => i.kind === 'order').map((i) => i.data),
+    () =>
+      visibleItems
+        .filter((i): i is { kind: 'order'; data: VendorOrder } => i.kind === 'order')
+        .map((i) => i.data),
     [visibleItems],
   );
   const tabCaterings = useMemo(
-    () => visibleItems.filter((i): i is { kind: 'catering'; data: CateringBooking } => i.kind === 'catering').map((i) => i.data),
+    () =>
+      visibleItems
+        .filter((i): i is { kind: 'catering'; data: CateringBooking } => i.kind === 'catering')
+        .map((i) => i.data),
     [visibleItems],
   );
 
@@ -545,8 +553,17 @@ export function OrdersDashboard({ vendorId, initialType = 'all' }: Props) {
       return statusTab === 'delivered' ? isLoadingDelivered : isLoadingActive;
     }
     // all
-    return isLoadingActive || isLoadingCatering || (statusTab === 'cancelled' && isLoadingCancelled);
-  }, [typeFilter, statusTab, isLoadingActive, isLoadingDelivered, isLoadingCatering, isLoadingCancelled]);
+    return (
+      isLoadingActive || isLoadingCatering || (statusTab === 'cancelled' && isLoadingCancelled)
+    );
+  }, [
+    typeFilter,
+    statusTab,
+    isLoadingActive,
+    isLoadingDelivered,
+    isLoadingCatering,
+    isLoadingCancelled,
+  ]);
 
   const isFetching = isFetchingActive || isFetchingCatering || isFetchingDelivered;
 
@@ -587,7 +604,12 @@ export function OrdersDashboard({ vendorId, initialType = 'all' }: Props) {
   }, [visibleItems, statusTab, toast]);
 
   // ── Active tab list ───────────────────────────────────────────────────
-  const tabs = typeFilter === 'standard' ? STANDARD_TABS : typeFilter === 'catering' ? CATERING_TABS : ALL_TABS;
+  const tabs =
+    typeFilter === 'standard'
+      ? STANDARD_TABS
+      : typeFilter === 'catering'
+        ? CATERING_TABS
+        : ALL_TABS;
 
   const showCateringAction = typeFilter !== 'standard';
 
@@ -613,10 +635,7 @@ export function OrdersDashboard({ vendorId, initialType = 'all' }: Props) {
       </header>
 
       {/* ── Type filter ─────────────────────────────────────────────── */}
-      <div
-        aria-label="Work type"
-        className="flex items-center gap-2"
-      >
+      <div aria-label="Work type" className="flex items-center gap-2">
         {(
           [
             { value: 'all', label: 'All work' },
@@ -818,13 +837,7 @@ function WorkItemList({
   );
 }
 
-function EmptyState({
-  typeFilter,
-  statusTab,
-}: {
-  typeFilter: TypeFilter;
-  statusTab: string;
-}) {
+function EmptyState({ typeFilter, statusTab }: { typeFilter: TypeFilter; statusTab: string }) {
   // Catering-specific empty state with actionable copy (replaces the old
   // "When admin routes a catering enquiry to you, create a quote here" message).
   const showCateringEmpty =
@@ -837,8 +850,8 @@ function EmptyState({
       <div className="fp-card border border-dashed border-border bg-white p-10 text-center">
         <p className="text-base font-semibold text-dark">No catering bookings yet</p>
         <p className="mt-2 text-sm text-mid">
-          Feastpot routes catering enquiries to you based on your location and cuisine. You can
-          also create a quote directly for a customer who contacted you outside the platform.
+          Feastpot routes catering enquiries to you based on your location and cuisine. You can also
+          create a quote directly for a customer who contacted you outside the platform.
         </p>
         <Link
           href="/catering/new"

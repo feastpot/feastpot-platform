@@ -169,7 +169,9 @@ export function CommissionRatesClient() {
       {/* ─── New rate form ────────────────────────────────────────────────── */}
       {showForm && (
         <form
-          onSubmit={(e) => { void handleSubmit(e); }}
+          onSubmit={(e) => {
+            void handleSubmit(e);
+          }}
           className="rounded-xl border bg-white p-5 shadow-sm space-y-4"
         >
           <h2 className="font-semibold">Create new rate</h2>
@@ -214,7 +216,9 @@ export function CommissionRatesClient() {
               />
             </label>
             <label className="block">
-              <span className="text-xs text-gray-500">Effective from (UTC, ≥15 days if increase)</span>
+              <span className="text-xs text-gray-500">
+                Effective from (UTC, ≥15 days if increase)
+              </span>
               <input
                 type="datetime-local"
                 required
@@ -297,9 +301,7 @@ export function CommissionRatesClient() {
                     {new Date(r.effectiveFrom).toLocaleDateString('en-GB')}
                   </td>
                   <td className="px-4 py-3">
-                    {r.effectiveTo
-                      ? new Date(r.effectiveTo).toLocaleDateString('en-GB')
-                      : '--'}
+                    {r.effectiveTo ? new Date(r.effectiveTo).toLocaleDateString('en-GB') : '--'}
                   </td>
                 </tr>
               ))}

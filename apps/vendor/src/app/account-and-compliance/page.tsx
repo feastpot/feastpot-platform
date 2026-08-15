@@ -75,7 +75,7 @@ export default async function AccountAndCompliancePage() {
     apiRequest<TermsViewData>('/terms/versions/me?documentType=VENDOR_TERMS', {
       accessToken: session.access_token,
       next: { revalidate: 0 },
-    }).catch(() => ({ current: null, pending: null } satisfies TermsViewData)),
+    }).catch(() => ({ current: null, pending: null }) satisfies TermsViewData),
 
     apiRequest<TermsHistoryEntry[]>('/terms/versions/me/history?documentType=VENDOR_TERMS', {
       accessToken: session.access_token,

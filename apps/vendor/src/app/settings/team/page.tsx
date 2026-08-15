@@ -43,7 +43,7 @@ export default async function TeamSettingsPage() {
 
   return (
     <PortalShell businessName={vendor.businessName}>
-          <TeamClient />
+      <TeamClient />
     </PortalShell>
   );
 }

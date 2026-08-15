@@ -39,9 +39,9 @@ async function auditControls(
   // that would navigate (form submissions), sign-out, and external links.
   const controls = page.locator(
     'button:not([disabled]):not([type="submit"]):not([aria-label*="sign"]):not([aria-label*="Sign"]), ' +
-    'input[type="checkbox"]:not([disabled]), ' +
-    'input[type="radio"]:not([disabled]), ' +
-    'select:not([disabled])',
+      'input[type="checkbox"]:not([disabled]), ' +
+      'input[type="radio"]:not([disabled]), ' +
+      'select:not([disabled])',
   );
 
   const count = await controls.count();
@@ -62,7 +62,10 @@ async function auditControls(
     if (role === 'link' || type === 'submit') continue;
 
     // Snapshot the page content before interaction.
-    const before = await page.locator('body').textContent().catch(() => '');
+    const before = await page
+      .locator('body')
+      .textContent()
+      .catch(() => '');
 
     try {
       await ctrl.click({ timeout: 1_500 });
@@ -74,7 +77,10 @@ async function auditControls(
     await page.waitForTimeout(400);
 
     // Snapshot content after.
-    const after = await page.locator('body').textContent().catch(() => '');
+    const after = await page
+      .locator('body')
+      .textContent()
+      .catch(() => '');
 
     if (before === after) {
       // Check for a visual change (new element visible, style change).
@@ -101,76 +107,72 @@ async function auditControls(
   return noEffectControls;
 }
 
-test(
-  'X1: every interactive control on the merged orders screen has an observable effect',
-  async ({ page }) => {
-    await installOrdersMocks(page);
-    await page.goto('/orders');
-    await expect(page.getByText('Needs action', { exact: false })).toBeVisible({ timeout: 8_000 });
-    await page.waitForLoadState('networkidle');
+test('X1: every interactive control on the merged orders screen has an observable effect', async ({
+  page,
+}) => {
+  await installOrdersMocks(page);
+  await page.goto('/orders');
+  await expect(page.getByText('Needs action', { exact: false })).toBeVisible({ timeout: 8_000 });
+  await page.waitForLoadState('networkidle');
 
-    const noEffect = await auditControls(page, 'Orders');
+  const noEffect = await auditControls(page, 'Orders');
 
-    if (noEffect.length > 0) {
-      console.warn('X1 Orders: controls with no observable effect:\n' + noEffect.join('\n'));
-    }
+  if (noEffect.length > 0) {
+    console.warn('X1 Orders: controls with no observable effect:\n' + noEffect.join('\n'));
+  }
 
-    // The test names the controls but does not hard-fail; the report must include them.
-    // To make this a hard failure, uncomment:
-    // expect(noEffect, 'X1: these controls had no effect').toHaveLength(0);
-    console.log(`X1 Orders: ${noEffect.length} zero-effect controls found (see report)`);
-  },
-);
+  // The test names the controls but does not hard-fail; the report must include them.
+  // To make this a hard failure, uncomment:
+  // expect(noEffect, 'X1: these controls had no effect').toHaveLength(0);
+  console.log(`X1 Orders: ${noEffect.length} zero-effect controls found (see report)`);
+});
 
-test(
-  'X1: every interactive control on the share screen has an observable effect',
-  async ({ page }) => {
-    await installShareMocks(page);
-    await page.goto('/share');
-    await page.waitForLoadState('networkidle', { timeout: 10_000 });
+test('X1: every interactive control on the share screen has an observable effect', async ({
+  page,
+}) => {
+  await installShareMocks(page);
+  await page.goto('/share');
+  await page.waitForLoadState('networkidle', { timeout: 10_000 });
 
-    const noEffect = await auditControls(page, 'Share');
+  const noEffect = await auditControls(page, 'Share');
 
-    if (noEffect.length > 0) {
-      console.warn('X1 Share: controls with no observable effect:\n' + noEffect.join('\n'));
-    }
-    console.log(`X1 Share: ${noEffect.length} zero-effect controls found (see report)`);
-  },
-);
+  if (noEffect.length > 0) {
+    console.warn('X1 Share: controls with no observable effect:\n' + noEffect.join('\n'));
+  }
+  console.log(`X1 Share: ${noEffect.length} zero-effect controls found (see report)`);
+});
 
-test(
-  'X1: every interactive control on the performance screen has an observable effect',
-  async ({ page }) => {
-    await installPerformanceMocks(page);
-    await page.goto('/performance');
-    await page.waitForLoadState('networkidle', { timeout: 10_000 });
+test('X1: every interactive control on the performance screen has an observable effect', async ({
+  page,
+}) => {
+  await installPerformanceMocks(page);
+  await page.goto('/performance');
+  await page.waitForLoadState('networkidle', { timeout: 10_000 });
 
-    const noEffect = await auditControls(page, 'Performance');
+  const noEffect = await auditControls(page, 'Performance');
 
-    if (noEffect.length > 0) {
-      console.warn('X1 Performance: controls with no observable effect:\n' + noEffect.join('\n'));
-    }
-    console.log(`X1 Performance: ${noEffect.length} zero-effect controls found (see report)`);
-  },
-);
+  if (noEffect.length > 0) {
+    console.warn('X1 Performance: controls with no observable effect:\n' + noEffect.join('\n'));
+  }
+  console.log(`X1 Performance: ${noEffect.length} zero-effect controls found (see report)`);
+});
 
-test(
-  'X1: every interactive control on the account-and-compliance screen has an observable effect',
-  async ({ page }) => {
-    await installComplianceMocks(page);
-    await page.goto('/account-and-compliance');
-    await page.waitForLoadState('networkidle', { timeout: 12_000 });
+test('X1: every interactive control on the account-and-compliance screen has an observable effect', async ({
+  page,
+}) => {
+  await installComplianceMocks(page);
+  await page.goto('/account-and-compliance');
+  await page.waitForLoadState('networkidle', { timeout: 12_000 });
 
-    const noEffect = await auditControls(page, 'Account and compliance');
+  const noEffect = await auditControls(page, 'Account and compliance');
 
-    if (noEffect.length > 0) {
-      console.warn(
-        'X1 Account/Compliance: controls with no observable effect:\n' + noEffect.join('\n'),
-      );
-    }
-    console.log(`X1 Account/Compliance: ${noEffect.length} zero-effect controls found`);
-  },
-);
+  if (noEffect.length > 0) {
+    console.warn(
+      'X1 Account/Compliance: controls with no observable effect:\n' + noEffect.join('\n'),
+    );
+  }
+  console.log(`X1 Account/Compliance: ${noEffect.length} zero-effect controls found`);
+});
 
 // ── X2: No nav truncation at 40-char business name ────────────────────────────
 
@@ -243,62 +245,60 @@ async function assertNoHeaderOverlap(
   ).toHaveLength(0);
 }
 
-test(
-  'X2: no nav item truncated and no header text overflows on desktop (1280px) with a 40-character business name',
-  async ({ page }) => {
-    await installOrdersMocks(page, {});
+test('X2: no nav item truncated and no header text overflows on desktop (1280px) with a 40-character business name', async ({
+  page,
+}) => {
+  await installOrdersMocks(page, {});
 
-    // Override the vendor name with a 40-char name.
-    await page.route('**/v1/vendors/me', (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          id: 'vendor-e2e-001',
-          businessName: LONG_BUSINESS_NAME,
-          status: 'live',
-        }),
+  // Override the vendor name with a 40-char name.
+  await page.route('**/v1/vendors/me', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        id: 'vendor-e2e-001',
+        businessName: LONG_BUSINESS_NAME,
+        status: 'live',
       }),
-    );
+    }),
+  );
 
-    await page.setViewportSize({ width: 1280, height: 800 });
-    await page.goto('/orders');
-    await expect(page.getByText('Needs action', { exact: false })).toBeVisible({ timeout: 8_000 });
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto('/orders');
+  await expect(page.getByText('Needs action', { exact: false })).toBeVisible({ timeout: 8_000 });
 
-    await assertNoNavTruncation(page, 'desktop 1280px');
-    await assertNoHeaderOverlap(page, 'desktop 1280px');
+  await assertNoNavTruncation(page, 'desktop 1280px');
+  await assertNoHeaderOverlap(page, 'desktop 1280px');
 
-    console.log('X2 PASS desktop: no truncated nav items, no header overflow');
-  },
-);
+  console.log('X2 PASS desktop: no truncated nav items, no header overflow');
+});
 
-test(
-  'X2: no nav item truncated and no header text overflows at 375px (mobile) with a 40-character business name',
-  async ({ page }) => {
-    await installOrdersMocks(page, {});
+test('X2: no nav item truncated and no header text overflows at 375px (mobile) with a 40-character business name', async ({
+  page,
+}) => {
+  await installOrdersMocks(page, {});
 
-    await page.route('**/v1/vendors/me', (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          id: 'vendor-e2e-001',
-          businessName: LONG_BUSINESS_NAME,
-          status: 'live',
-        }),
+  await page.route('**/v1/vendors/me', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        id: 'vendor-e2e-001',
+        businessName: LONG_BUSINESS_NAME,
+        status: 'live',
       }),
-    );
+    }),
+  );
 
-    await page.setViewportSize({ width: 375, height: 812 });
-    await page.goto('/orders');
-    // On mobile the TopNav renders instead of SideNav.
-    await expect(page.getByTestId('topnav-nav-strip').or(page.locator('nav')).first()).toBeVisible({
-      timeout: 8_000,
-    });
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto('/orders');
+  // On mobile the TopNav renders instead of SideNav.
+  await expect(page.getByTestId('topnav-nav-strip').or(page.locator('nav')).first()).toBeVisible({
+    timeout: 8_000,
+  });
 
-    await assertNoNavTruncation(page, 'mobile 375px');
-    await assertNoHeaderOverlap(page, 'mobile 375px');
+  await assertNoNavTruncation(page, 'mobile 375px');
+  await assertNoHeaderOverlap(page, 'mobile 375px');
 
-    console.log('X2 PASS mobile: no truncated nav items, no header overflow at 375px');
-  },
-);
+  console.log('X2 PASS mobile: no truncated nav items, no header overflow at 375px');
+});

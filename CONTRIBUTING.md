@@ -13,14 +13,14 @@ incorrect page titles in production.
 
 **Approved alternatives**
 
-| Context | Instead of | Use |
-|---|---|---|
-| Page title separator | `Feastpot - African Food` | `Feastpot \| African Food` |
-| Prose aside / parenthetical | `Fresh chops - puff puff and samosa` | `Fresh chops: puff puff and samosa` or `Fresh chops (puff puff and samosa)` |
-| Sentence continuation | `Order placed - we will match you soon` | `Order placed. We will match you soon.` |
-| List of items | `small chops - puff puff, samosa` | `small chops: puff puff, samosa` |
-| Error or status message | `Payout failed - retry` | `Payout failed. Please retry.` |
-| Null / empty display value | `-` in a table cell | `–` (en dash, U+2013) |
+| Context                     | Instead of                              | Use                                                                         |
+| --------------------------- | --------------------------------------- | --------------------------------------------------------------------------- |
+| Page title separator        | `Feastpot - African Food`               | `Feastpot \| African Food`                                                  |
+| Prose aside / parenthetical | `Fresh chops - puff puff and samosa`    | `Fresh chops: puff puff and samosa` or `Fresh chops (puff puff and samosa)` |
+| Sentence continuation       | `Order placed - we will match you soon` | `Order placed. We will match you soon.`                                     |
+| List of items               | `small chops - puff puff, samosa`       | `small chops: puff puff, samosa`                                            |
+| Error or status message     | `Payout failed - retry`                 | `Payout failed. Please retry.`                                              |
+| Null / empty display value  | `-` in a table cell                     | `–` (en dash, U+2013)                                                       |
 
 **Enforcement**
 

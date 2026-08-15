@@ -131,8 +131,8 @@ export function PayoutsClient() {
             </div>
           </div>
           <p className="mt-3 border-t pt-3 text-xs text-muted-foreground">
-            {PLATFORM_FACTS.brandName} charges {PLATFORM_FACTS.commission.marketplaceFirst}% of the food subtotal on completed orders. Your delivery fee is
-            yours in full.
+            {PLATFORM_FACTS.brandName} charges {PLATFORM_FACTS.commission.marketplaceFirst}% of the
+            food subtotal on completed orders. Your delivery fee is yours in full.
           </p>
         </div>
       )}
@@ -237,7 +237,9 @@ function ExplainerCard() {
     <section className="fp-card relative overflow-hidden border border-teal/30 bg-teal-light p-5">
       <div className="grid items-center gap-4 md:grid-cols-[1fr_auto]">
         <div className="min-w-0">
-          <h2 className="mb-3 text-base font-bold text-dark">How {PLATFORM_FACTS.brandName} payouts work</h2>
+          <h2 className="mb-3 text-base font-bold text-dark">
+            How {PLATFORM_FACTS.brandName} payouts work
+          </h2>
           <ul className="space-y-2.5">
             {EXPLAINER_ITEMS.map(({ Icon, title, detail }) => (
               <li key={title} className="flex items-start gap-3">
@@ -300,17 +302,13 @@ function FoundingAllowanceCard({
       aria-label="Founding offer allowance"
     >
       <div className="flex items-start gap-3">
-        <span
-          aria-hidden
-          className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white"
-        >
+        <span aria-hidden className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white">
           <Gift className="h-5 w-5 text-teal-dark" />
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-bold text-dark">Founding offer: commission-free sales</p>
           <p className="mt-0.5 text-xs text-mid">
-            Your first {formatPence(grantedPence)} of marketplace sales is commission-free.
-            You have{' '}
+            Your first {formatPence(grantedPence)} of marketplace sales is commission-free. You have{' '}
             <span className="font-semibold text-dark">{formatPence(remainingPence)}</span> remaining
             out of {formatPence(grantedPence)}.
           </p>
@@ -681,7 +679,10 @@ function PayoutRow({ payout }: { payout: VendorPayout }) {
         <td className="px-4 py-3">
           <span className="flex items-center gap-1.5">
             <ChevronDown
-              className={cn('h-3.5 w-3.5 shrink-0 text-mid transition-transform', expanded && 'rotate-180')}
+              className={cn(
+                'h-3.5 w-3.5 shrink-0 text-mid transition-transform',
+                expanded && 'rotate-180',
+              )}
               aria-hidden
             />
             {formatDate(payout.periodEnd)}

@@ -86,7 +86,9 @@ export function AttributionClient({ role }: AttributionClientProps) {
     }
   }, [request, ready, applied, page]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   function applyFilters() {
     setApplied({ source, from, to });
@@ -193,7 +195,16 @@ export function AttributionClient({ role }: AttributionClientProps) {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-surface">
-                  {['Order #', 'Vendor', 'Customer', 'Source', 'Reason', 'First order', 'Total', 'Attributed at'].map((h) => (
+                  {[
+                    'Order #',
+                    'Vendor',
+                    'Customer',
+                    'Source',
+                    'Reason',
+                    'First order',
+                    'Total',
+                    'Attributed at',
+                  ].map((h) => (
                     <th key={h} className="px-4 py-2.5 text-left text-xs font-semibold text-mid">
                       {h}
                     </th>
@@ -209,19 +220,28 @@ export function AttributionClient({ role }: AttributionClientProps) {
                   </tr>
                 ) : (
                   data.rows.map((row) => (
-                    <tr key={row.id} className="border-b border-border last:border-0 hover:bg-surface/50">
+                    <tr
+                      key={row.id}
+                      className="border-b border-border last:border-0 hover:bg-surface/50"
+                    >
                       <td className="px-4 py-3 font-mono text-xs">{row.order.orderNumber}</td>
                       <td className="px-4 py-3">{row.order.vendor.businessName}</td>
                       <td className="px-4 py-3 text-mid">{row.order.customer?.email ?? '--'}</td>
                       <td className="px-4 py-3">
-                        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${SOURCE_COLORS[row.source] ?? ''}`}>
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-xs font-medium ${SOURCE_COLORS[row.source] ?? ''}`}
+                        >
                           {SOURCE_LABELS[row.source] ?? row.source}
                         </span>
                       </td>
-                      <td className="px-4 py-3 font-mono text-xs text-mid">{row.attributionReason}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-mid">
+                        {row.attributionReason}
+                      </td>
                       <td className="px-4 py-3 text-center">
                         {row.isFirstOrder ? (
-                          <span className="rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">Yes</span>
+                          <span className="rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
+                            Yes
+                          </span>
                         ) : (
                           <span className="text-mid">--</span>
                         )}
@@ -229,7 +249,9 @@ export function AttributionClient({ role }: AttributionClientProps) {
                       <td className="px-4 py-3">{formatGbp(row.order.totalPence)}</td>
                       <td className="px-4 py-3 text-xs text-mid">
                         {new Date(row.attributedAt).toLocaleDateString('en-GB', {
-                          day: 'numeric', month: 'short', year: 'numeric',
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric',
                         })}
                       </td>
                     </tr>

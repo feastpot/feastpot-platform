@@ -33,7 +33,8 @@ function validate(password: string, confirm: string): string | null {
   if (!/[a-z]/.test(password)) return 'Password must contain at least one lowercase letter.';
   if (!/[A-Z]/.test(password)) return 'Password must contain at least one uppercase letter.';
   if (!/[0-9]/.test(password)) return 'Password must contain at least one number.';
-  if (!/[^a-zA-Z0-9]/.test(password)) return 'Password must contain at least one symbol (e.g. !, @, #, $).';
+  if (!/[^a-zA-Z0-9]/.test(password))
+    return 'Password must contain at least one symbol (e.g. !, @, #, $).';
   if (password !== confirm) return 'Passwords do not match. Please check and try again.';
   return null;
 }
@@ -72,15 +73,14 @@ export default function VendorResetUpdate() {
 
     // Fire-and-forget: send branded password-changed confirmation email.
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (session?.access_token) {
-        fetch(
-          `${process.env.NEXT_PUBLIC_API_URL ?? ''}/v1/auth/notify-password-changed`,
-          {
-            method: 'POST',
-            headers: { authorization: `Bearer ${session.access_token}` },
-          },
-        ).catch(() => undefined);
+        fetch(`${process.env.NEXT_PUBLIC_API_URL ?? ''}/v1/auth/notify-password-changed`, {
+          method: 'POST',
+          headers: { authorization: `Bearer ${session.access_token}` },
+        }).catch(() => undefined);
       }
     } catch {
       // Non-fatal; the password is already changed.
@@ -96,19 +96,36 @@ export default function VendorResetUpdate() {
         <div className="w-full max-w-sm">
           <div className="mb-8 flex justify-center">
             <Link href="/sign-in" aria-label="Feastpot vendor portal">
-              <Image src="/images/feastpot-logo.png" alt="Feastpot" width={317} height={100} className="h-10 w-auto" />
+              <Image
+                src="/images/feastpot-logo.png"
+                alt="Feastpot"
+                width={317}
+                height={100}
+                className="h-10 w-auto"
+              />
             </Link>
           </div>
           <div className="fp-card border border-border bg-white p-8 text-center space-y-4">
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-teal-light">
-              <svg className="h-6 w-6 text-teal-dark" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              <svg
+                className="h-6 w-6 text-teal-dark"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                aria-hidden
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M5 13l4 4L19 7"
+                />
               </svg>
             </div>
             <h1 className="text-2xl font-extrabold tracking-tight text-dark">Password updated</h1>
             <p className="text-sm leading-relaxed text-mid">
-              Your password has been changed and any other active sessions have been signed out.
-              You will receive a confirmation email shortly.
+              Your password has been changed and any other active sessions have been signed out. You
+              will receive a confirmation email shortly.
             </p>
             <Link
               href="/sign-in"
@@ -125,10 +142,16 @@ export default function VendorResetUpdate() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-surface px-4 py-10">
       <div className="w-full max-w-sm">
-
         <div className="mb-8 flex justify-center">
           <Link href="/sign-in" aria-label="Feastpot vendor portal">
-            <Image src="/images/feastpot-logo.png" alt="Feastpot" width={317} height={100} className="h-10 w-auto" priority />
+            <Image
+              src="/images/feastpot-logo.png"
+              alt="Feastpot"
+              width={317}
+              height={100}
+              className="h-10 w-auto"
+              priority
+            />
           </Link>
         </div>
 
@@ -141,7 +164,9 @@ export default function VendorResetUpdate() {
           <div className="mt-3 rounded-lg border border-border bg-surface px-4 py-3 text-xs leading-relaxed text-mid">
             <strong className="text-dark">Your password must have:</strong>
             <ul className="mt-1 list-disc pl-4 space-y-0.5">
-              <li>At least {MIN_LENGTH} characters (up to {MAX_LENGTH})</li>
+              <li>
+                At least {MIN_LENGTH} characters (up to {MAX_LENGTH})
+              </li>
               <li>Uppercase and lowercase letters</li>
               <li>At least one number</li>
               <li>At least one symbol (e.g. !, @, #, $)</li>
@@ -150,7 +175,10 @@ export default function VendorResetUpdate() {
 
           <form onSubmit={handleSubmit} className="mt-5 space-y-4" noValidate>
             <div>
-              <label htmlFor="password" className="mb-1.5 block text-[13px] font-semibold text-dark">
+              <label
+                htmlFor="password"
+                className="mb-1.5 block text-[13px] font-semibold text-dark"
+              >
                 New password
               </label>
               <input
@@ -161,7 +189,10 @@ export default function VendorResetUpdate() {
                 minLength={MIN_LENGTH}
                 maxLength={MAX_LENGTH}
                 value={password}
-                onChange={(e) => { setPassword(e.target.value); if (error) setError(null); }}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  if (error) setError(null);
+                }}
                 className="w-full rounded-lg border border-border bg-white px-3.5 py-3 text-sm font-medium text-dark placeholder:text-mid/60 focus:border-teal focus:outline-none focus:ring-2 focus:ring-teal/20"
                 aria-describedby={error ? 'pw-error' : undefined}
               />
@@ -179,13 +210,18 @@ export default function VendorResetUpdate() {
                 minLength={MIN_LENGTH}
                 maxLength={MAX_LENGTH}
                 value={confirm}
-                onChange={(e) => { setConfirm(e.target.value); if (error) setError(null); }}
+                onChange={(e) => {
+                  setConfirm(e.target.value);
+                  if (error) setError(null);
+                }}
                 className="w-full rounded-lg border border-border bg-white px-3.5 py-3 text-sm font-medium text-dark placeholder:text-mid/60 focus:border-teal focus:outline-none focus:ring-2 focus:ring-teal/20"
               />
             </div>
 
             {error && (
-              <p id="pw-error" role="alert" className="text-sm text-red-600">{error}</p>
+              <p id="pw-error" role="alert" className="text-sm text-red-600">
+                {error}
+              </p>
             )}
 
             <button

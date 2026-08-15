@@ -35,7 +35,9 @@ export function EvidenceExportClient() {
           setPreview(data);
           const bundle = data as { vendor?: { businessName?: string }; exportedAt?: string };
           const name = bundle.vendor?.businessName?.replace(/\s+/g, '-') ?? 'vendor';
-          const date = (bundle.exportedAt as string | undefined)?.slice(0, 10) ?? new Date().toISOString().slice(0, 10);
+          const date =
+            (bundle.exportedAt as string | undefined)?.slice(0, 10) ??
+            new Date().toISOString().slice(0, 10);
           downloadJson(data, `evidence-${name}-${date}.json`);
           toast({
             title: 'Evidence bundle downloaded',
@@ -103,10 +105,7 @@ export function EvidenceExportClient() {
           <p className="text-xs text-muted-foreground">
             Leave date fields blank to export the full history.
           </p>
-          <Button
-            onClick={handleExport}
-            disabled={!vendorId.trim() || exportEvidence.isPending}
-          >
+          <Button onClick={handleExport} disabled={!vendorId.trim() || exportEvidence.isPending}>
             <Download className="mr-1.5 h-4 w-4" aria-hidden />
             {exportEvidence.isPending ? 'Generating...' : 'Generate and download bundle'}
           </Button>
@@ -151,47 +150,58 @@ export function EvidenceExportClient() {
       </Card>
 
       {/* Preview summary if just generated */}
-      {preview && (() => {
-        const b = preview as {
-          vendor?: { businessName?: string; status?: string };
-          acceptances?: unknown[];
-          notices?: unknown[];
-          enforcementActions?: unknown[];
-          exportedAt?: string;
-          exportPeriod?: { from?: string; to?: string };
-        };
-        return (
-          <Card className="border-green-200 bg-green-50">
-            <CardHeader>
-              <CardTitle className="text-sm text-green-800">Bundle generated</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <dl className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm sm:grid-cols-4">
-                <div>
-                  <dt className="text-xs font-semibold uppercase tracking-wide text-green-700">Vendor</dt>
-                  <dd className="font-medium text-green-900">{b.vendor?.businessName ?? '-'}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs font-semibold uppercase tracking-wide text-green-700">Acceptances</dt>
-                  <dd className="font-medium text-green-900">{b.acceptances?.length ?? 0}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs font-semibold uppercase tracking-wide text-green-700">Notices</dt>
-                  <dd className="font-medium text-green-900">{b.notices?.length ?? 0}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs font-semibold uppercase tracking-wide text-green-700">Enforcement actions</dt>
-                  <dd className="font-medium text-green-900">{b.enforcementActions?.length ?? 0}</dd>
-                </div>
-              </dl>
-              <p className="mt-3 text-xs text-green-700">
-                Exported at {b.exportedAt ? new Date(b.exportedAt).toLocaleString('en-GB') : '-'}.
-                The file was downloaded automatically.
-              </p>
-            </CardContent>
-          </Card>
-        );
-      })()}
+      {preview &&
+        (() => {
+          const b = preview as {
+            vendor?: { businessName?: string; status?: string };
+            acceptances?: unknown[];
+            notices?: unknown[];
+            enforcementActions?: unknown[];
+            exportedAt?: string;
+            exportPeriod?: { from?: string; to?: string };
+          };
+          return (
+            <Card className="border-green-200 bg-green-50">
+              <CardHeader>
+                <CardTitle className="text-sm text-green-800">Bundle generated</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <dl className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm sm:grid-cols-4">
+                  <div>
+                    <dt className="text-xs font-semibold uppercase tracking-wide text-green-700">
+                      Vendor
+                    </dt>
+                    <dd className="font-medium text-green-900">{b.vendor?.businessName ?? '-'}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs font-semibold uppercase tracking-wide text-green-700">
+                      Acceptances
+                    </dt>
+                    <dd className="font-medium text-green-900">{b.acceptances?.length ?? 0}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs font-semibold uppercase tracking-wide text-green-700">
+                      Notices
+                    </dt>
+                    <dd className="font-medium text-green-900">{b.notices?.length ?? 0}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs font-semibold uppercase tracking-wide text-green-700">
+                      Enforcement actions
+                    </dt>
+                    <dd className="font-medium text-green-900">
+                      {b.enforcementActions?.length ?? 0}
+                    </dd>
+                  </div>
+                </dl>
+                <p className="mt-3 text-xs text-green-700">
+                  Exported at {b.exportedAt ? new Date(b.exportedAt).toLocaleString('en-GB') : '-'}.
+                  The file was downloaded automatically.
+                </p>
+              </CardContent>
+            </Card>
+          );
+        })()}
     </div>
   );
 }

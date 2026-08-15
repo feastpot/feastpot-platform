@@ -203,8 +203,7 @@ const SECTIONS: GuideSection[] = [
       },
       {
         heading: 'Commission rates',
-        detail:
-          `Commission rates are configured per vendor tier. The default rates (${PLATFORM_FACTS.commission.marketplaceFirst}% new, ${PLATFORM_FACTS.commission.marketplaceRepeat}% repeat) apply unless a vendor has a negotiated rate row. Add a new rate row here when agreeing a custom arrangement with a vendor.`,
+        detail: `Commission rates are configured per vendor tier. The default rates (${PLATFORM_FACTS.commission.marketplaceFirst}% new, ${PLATFORM_FACTS.commission.marketplaceRepeat}% repeat) apply unless a vendor has a negotiated rate row. Add a new rate row here when agreeing a custom arrangement with a vendor.`,
       },
       {
         heading: 'FeastPass health',

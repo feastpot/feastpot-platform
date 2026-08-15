@@ -128,18 +128,20 @@ export function FeastPassHealthClient({ accessToken, apiUrl }: Props) {
         <h2 className="font-semibold text-foreground">Revenue contribution</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Estimated monthly subscription revenue:{' '}
-          <strong className="text-foreground">{fmt(stats.estimatedMonthlyRevenuePence)}</strong>
-          {' '}from {stats.activeCount} active members.
+          <strong className="text-foreground">{fmt(stats.estimatedMonthlyRevenuePence)}</strong>{' '}
+          from {stats.activeCount} active members.
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
-          Note: revenue mix (MONTHLY vs ANNUAL) isn't tracked per member yet. This approximates all members at
-          the monthly rate. Check Stripe dashboard for exact MRR.
+          Note: revenue mix (MONTHLY vs ANNUAL) isn't tracked per member yet. This approximates all
+          members at the monthly rate. Check Stripe dashboard for exact MRR.
         </p>
       </div>
 
       {/* Member vs non-member orders */}
       <div className="rounded-lg border bg-card p-5">
-        <h2 className="font-semibold text-foreground">Orders per member vs non-member (last 30 days)</h2>
+        <h2 className="font-semibold text-foreground">
+          Orders per member vs non-member (last 30 days)
+        </h2>
         <div className="mt-4 space-y-3">
           <Metric
             label="Member orders (fee waived)"
@@ -156,14 +158,15 @@ export function FeastPassHealthClient({ accessToken, apiUrl }: Props) {
         </div>
         {stats.memberOrdersLast30d > 0 && stats.nonMemberOrdersLast30d > 0 && (
           <p className="mt-3 text-xs text-muted-foreground">
-            Members placed {(stats.memberOrdersLast30d / stats.activeCount || 0).toFixed(1)} orders/member on
-            average in the last 30 days.
+            Members placed {(stats.memberOrdersLast30d / stats.activeCount || 0).toFixed(1)}{' '}
+            orders/member on average in the last 30 days.
           </p>
         )}
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Cohort data compares members who started 30–60 days ago. Refresh the page for the latest figures.
+        Cohort data compares members who started 30–60 days ago. Refresh the page for the latest
+        figures.
       </p>
     </div>
   );
@@ -183,9 +186,7 @@ function KpiCard({
   alert?: boolean;
 }) {
   return (
-    <div
-      className={`rounded-lg border p-4 ${alert ? 'border-red-200 bg-red-50' : 'bg-card'}`}
-    >
+    <div className={`rounded-lg border p-4 ${alert ? 'border-red-200 bg-red-50' : 'bg-card'}`}>
       <p className="text-xs text-muted-foreground">{label}</p>
       <p
         className={`text-2xl font-bold ${
@@ -218,10 +219,7 @@ function Metric({
         <span className="font-semibold">{value}</span>
       </div>
       <div className="mt-1.5 h-2 w-full rounded-full bg-muted/30">
-        <div
-          className={`h-2 rounded-full ${colour} transition-all`}
-          style={{ width: `${pct}%` }}
-        />
+        <div className={`h-2 rounded-full ${colour} transition-all`} style={{ width: `${pct}%` }} />
       </div>
     </div>
   );

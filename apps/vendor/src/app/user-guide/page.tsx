@@ -143,13 +143,11 @@ const CHAPTERS: GuideChapter[] = [
     steps: [
       {
         title: 'Understand your share',
-        detail:
-          `${PLATFORM_FACTS.brandName} charges commission on the food subtotal only - delivery fees are passed through in full and are not commissioned. New kitchens start at ${PLATFORM_FACTS.commission.marketplaceFirst}% commission. Once you have a track record on the platform the rate reduces to ${PLATFORM_FACTS.commission.marketplaceRepeat}%. Your current rate is shown on your Payouts page.`,
+        detail: `${PLATFORM_FACTS.brandName} charges commission on the food subtotal only - delivery fees are passed through in full and are not commissioned. New kitchens start at ${PLATFORM_FACTS.commission.marketplaceFirst}% commission. Once you have a track record on the platform the rate reduces to ${PLATFORM_FACTS.commission.marketplaceRepeat}%. Your current rate is shown on your Payouts page.`,
       },
       {
         title: 'Weekly payout schedule',
-        detail:
-          `We close the books on the previous week at midnight Sunday and create a single Stripe Transfer for your earnings the following ${PLATFORM_FACTS.payouts.day}. Stripe takes 3-5 working days to land funds in your bank.`,
+        detail: `We close the books on the previous week at midnight Sunday and create a single Stripe Transfer for your earnings the following ${PLATFORM_FACTS.payouts.day}. Stripe takes 3-5 working days to land funds in your bank.`,
       },
       {
         title: 'Check Payouts for the breakdown',
@@ -192,8 +190,7 @@ const CHAPTERS: GuideChapter[] = [
     steps: [
       {
         title: 'Find your referral link',
-        detail:
-          `Open "Bring your own customers" in the sidebar. Your unique ${PLATFORM_FACTS.brandName} referral URL is shown at the top, ready to copy.`,
+        detail: `Open "Bring your own customers" in the sidebar. Your unique ${PLATFORM_FACTS.brandName} referral URL is shown at the top, ready to copy.`,
       },
       {
         title: 'Copy and share the link',
@@ -212,8 +209,7 @@ const CHAPTERS: GuideChapter[] = [
       },
       {
         title: 'Commission benefit',
-        detail:
-          `Orders placed through your referral link are charged ${PLATFORM_FACTS.commission.vendorReferred}% commission. Marketplace orders are charged at your standard rate. Refer enough customers and a significant share of your turnover is commission-free.`,
+        detail: `Orders placed through your referral link are charged ${PLATFORM_FACTS.commission.vendorReferred}% commission. Marketplace orders are charged at your standard rate. Refer enough customers and a significant share of your turnover is commission-free.`,
       },
     ],
   },
@@ -281,7 +277,8 @@ const CHAPTERS: GuideChapter[] = [
   {
     id: 'terms-acceptance',
     title: '10. Terms acceptance',
-    intro: 'When Feastpot updates the vendor terms, you must accept the new version before continuing to take orders.',
+    intro:
+      'When Feastpot updates the vendor terms, you must accept the new version before continuing to take orders.',
     steps: [
       {
         title: 'Responding to a terms update',
@@ -295,8 +292,7 @@ const CHAPTERS: GuideChapter[] = [
       },
       {
         title: 'Notice period',
-        detail:
-          `${PLATFORM_FACTS.brandName} gives at least ${PLATFORM_FACTS.termsNoticeDays} days notice before a terms change takes effect. You will receive an email when a new version is published so you are not caught off-guard.`,
+        detail: `${PLATFORM_FACTS.brandName} gives at least ${PLATFORM_FACTS.termsNoticeDays} days notice before a terms change takes effect. You will receive an email when a new version is published so you are not caught off-guard.`,
       },
       {
         title: 'Viewing your acceptance history',
@@ -385,60 +381,58 @@ export default async function UserGuidePage() {
 
   return (
     <PortalShell businessName={vendor.businessName}>
-          <div className="mx-auto max-w-3xl">
-            <h1 className="mb-2 text-2xl font-extrabold tracking-tight text-dark">
-              Vendor user guide
-            </h1>
-            <p className="mb-6 text-sm text-muted-foreground">
-              A step-by-step walkthrough of the {PLATFORM_FACTS.brandName} vendor portal. For policy questions and
-              rules, see the{' '}
-              <a href="/help" className="font-medium text-teal-dark underline">
-                Help &amp; FAQ
-              </a>
-              .
-            </p>
+      <div className="mx-auto max-w-3xl">
+        <h1 className="mb-2 text-2xl font-extrabold tracking-tight text-dark">Vendor user guide</h1>
+        <p className="mb-6 text-sm text-muted-foreground">
+          A step-by-step walkthrough of the {PLATFORM_FACTS.brandName} vendor portal. For policy
+          questions and rules, see the{' '}
+          <a href="/help" className="font-medium text-teal-dark underline">
+            Help &amp; FAQ
+          </a>
+          .
+        </p>
 
-            <nav aria-label="On this page" className="mb-6 rounded-xl bg-muted/50 p-4">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                On this page
-              </p>
-              <ul className="grid grid-cols-1 gap-1 text-sm sm:grid-cols-2">
-                {CHAPTERS.map((c) => (
-                  <li key={c.id}>
-                    <a href={`#${c.id}`} className="text-teal-dark hover:underline">
-                      {c.title}
-                    </a>
+        <nav aria-label="On this page" className="mb-6 rounded-xl bg-muted/50 p-4">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            On this page
+          </p>
+          <ul className="grid grid-cols-1 gap-1 text-sm sm:grid-cols-2">
+            {CHAPTERS.map((c) => (
+              <li key={c.id}>
+                <a href={`#${c.id}`} className="text-teal-dark hover:underline">
+                  {c.title}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+
+        <div className="flex flex-col gap-6">
+          {CHAPTERS.map((chapter) => (
+            <section
+              key={chapter.id}
+              id={chapter.id}
+              className="scroll-mt-20 rounded-xl border border-border bg-card p-5"
+            >
+              <h2 className="mb-1 text-lg font-bold text-foreground">{chapter.title}</h2>
+              <p className="mb-4 text-sm text-muted-foreground">{chapter.intro}</p>
+              <ol className="flex flex-col gap-3 text-sm leading-relaxed text-foreground/90">
+                {chapter.steps.map((step, i) => (
+                  <li key={i} className="flex gap-3">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-teal-light text-xs font-bold text-teal-dark">
+                      {i + 1}
+                    </span>
+                    <div>
+                      <p className="font-semibold text-foreground">{step.title}</p>
+                      <p className="mt-0.5 text-foreground/80">{step.detail}</p>
+                    </div>
                   </li>
                 ))}
-              </ul>
-            </nav>
-
-            <div className="flex flex-col gap-6">
-              {CHAPTERS.map((chapter) => (
-                <section
-                  key={chapter.id}
-                  id={chapter.id}
-                  className="scroll-mt-20 rounded-xl border border-border bg-card p-5"
-                >
-                  <h2 className="mb-1 text-lg font-bold text-foreground">{chapter.title}</h2>
-                  <p className="mb-4 text-sm text-muted-foreground">{chapter.intro}</p>
-                  <ol className="flex flex-col gap-3 text-sm leading-relaxed text-foreground/90">
-                    {chapter.steps.map((step, i) => (
-                      <li key={i} className="flex gap-3">
-                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-teal-light text-xs font-bold text-teal-dark">
-                          {i + 1}
-                        </span>
-                        <div>
-                          <p className="font-semibold text-foreground">{step.title}</p>
-                          <p className="mt-0.5 text-foreground/80">{step.detail}</p>
-                        </div>
-                      </li>
-                    ))}
-                  </ol>
-                </section>
-              ))}
-            </div>
-          </div>
+              </ol>
+            </section>
+          ))}
+        </div>
+      </div>
     </PortalShell>
   );
 }

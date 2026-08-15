@@ -49,9 +49,9 @@ export default async function PayoutsPage() {
 
   return (
     <PortalShell businessName={vendor.businessName}>
-          <RoleGate path="/payouts">
-            <PayoutsClient />
-          </RoleGate>
+      <RoleGate path="/payouts">
+        <PayoutsClient />
+      </RoleGate>
     </PortalShell>
   );
 }

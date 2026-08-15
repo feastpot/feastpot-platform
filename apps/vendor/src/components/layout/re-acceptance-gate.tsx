@@ -44,9 +44,7 @@ export function ReAcceptanceGate({ children }: { children: React.ReactNode }) {
     async function check() {
       try {
         const [current, status] = await Promise.all([
-          apiRequest<CurrentVersion>('/terms/current?documentType=VENDOR_TERMS').catch(
-            () => null,
-          ),
+          apiRequest<CurrentVersion>('/terms/current?documentType=VENDOR_TERMS').catch(() => null),
           apiRequest<AcceptanceStatus>('/terms/acceptance-status', {
             accessToken: token!,
           }).catch(() => ({ accepted: true })), // fail open -- don't block on API error
@@ -96,22 +94,19 @@ export function ReAcceptanceGate({ children }: { children: React.ReactNode }) {
                 📋
               </span>
               <div>
-                <h1
-                  id="reaccept-title"
-                  className="text-lg font-semibold text-amber-900"
-                >
+                <h1 id="reaccept-title" className="text-lg font-semibold text-amber-900">
                   Updated Vendor Terms now in effect
                 </h1>
                 <p className="mt-1 text-sm text-amber-800">
-                  Version {version.version} took effect on {effectiveDateStr}. You must
-                  review and accept the new terms before continuing to trade on Feastpot.
+                  Version {version.version} took effect on {effectiveDateStr}. You must review and
+                  accept the new terms before continuing to trade on Feastpot.
                 </p>
               </div>
             </div>
 
             <p className="text-sm text-amber-700">
-              By accepting you confirm you have read the updated terms, including the revised
-              Rate Schedule (Annex A). This takes about 5 minutes.
+              By accepting you confirm you have read the updated terms, including the revised Rate
+              Schedule (Annex A). This takes about 5 minutes.
             </p>
 
             <div className="flex flex-col gap-3 sm:flex-row">
@@ -130,8 +125,8 @@ export function ReAcceptanceGate({ children }: { children: React.ReactNode }) {
             </div>
 
             <p className="text-xs text-amber-600">
-              If you close your account, outstanding orders and catering bookings will be
-              honoured and your final payout processed within the standard schedule.
+              If you close your account, outstanding orders and catering bookings will be honoured
+              and your final payout processed within the standard schedule.
             </p>
           </div>
         </div>

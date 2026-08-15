@@ -124,7 +124,9 @@ export function NoticesClient() {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">
-            {showBounced ? `Bounced notices (${filteredNotices.length})` : `All notices (${filteredNotices.length})`}
+            {showBounced
+              ? `Bounced notices (${filteredNotices.length})`
+              : `All notices (${filteredNotices.length})`}
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
@@ -190,7 +192,10 @@ export function NoticesClient() {
                         {n.deliveredAt ? (
                           <CheckCircle2 className="h-4 w-4 text-green-600" aria-label="Delivered" />
                         ) : (
-                          <XCircle className="h-4 w-4 text-muted-foreground" aria-label="Not delivered" />
+                          <XCircle
+                            className="h-4 w-4 text-muted-foreground"
+                            aria-label="Not delivered"
+                          />
                         )}
                       </td>
                       <td className="py-2.5">
@@ -202,7 +207,10 @@ export function NoticesClient() {
                       </td>
                       <td className="py-2.5">
                         {n.acknowledgedAt ? (
-                          <CheckCircle2 className="h-4 w-4 text-green-600" aria-label="Acknowledged" />
+                          <CheckCircle2
+                            className="h-4 w-4 text-green-600"
+                            aria-label="Acknowledged"
+                          />
                         ) : (
                           <span className="text-muted-foreground">-</span>
                         )}
