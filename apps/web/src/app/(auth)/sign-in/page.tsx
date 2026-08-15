@@ -538,8 +538,7 @@ function RegisterPane({ onSwitchToSignIn }: { onSwitchToSignIn: () => void }) {
       if (error) {
         console.info('[register-diag] error', {
           name: error.name,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          code: (error as any).code,
+          code: (error as { code?: string }).code,
           status: error.status,
           message: error.message,
         });
@@ -557,8 +556,7 @@ function RegisterPane({ onSwitchToSignIn }: { onSwitchToSignIn: () => void }) {
       // Log an ops alert for service-level failures.
       if (shouldAlertOps(error as Parameters<typeof shouldAlertOps>[0])) {
         console.error('[register] ops alert: service-level error', {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          code: (error as any).code,
+          code: (error as { code?: string }).code,
           name: error.name,
           status: error.status,
         });
@@ -612,8 +610,7 @@ function RegisterPane({ onSwitchToSignIn }: { onSwitchToSignIn: () => void }) {
       options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
     });
     if (error) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const code = (error as any).code ?? '';
+      const code = (error as { code?: string }).code ?? '';
       if (code === 'over_email_send_rate_limit') {
         setResendCooldown(60);
         setResendError('Too many attempts. Please wait a minute before trying again.');
