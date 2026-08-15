@@ -325,6 +325,19 @@ function SignInPane({ onSwitchToRegister }: { onSwitchToRegister: () => void }) 
       provider: 'google',
       options: {
         redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirect)}`,
+        queryParams: { access_type: 'offline', prompt: 'consent' },
+      },
+    });
+    if (error) setServerError(error.message);
+  };
+
+  const onApple = async () => {
+    setServerError(null);
+    const supabase = createClient();
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'apple',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirect)}`,
       },
     });
     if (error) setServerError(error.message);
@@ -433,6 +446,14 @@ function SignInPane({ onSwitchToRegister }: { onSwitchToRegister: () => void }) 
           className="flex min-h-12 w-full items-center justify-center gap-2.5 rounded-xl border border-cream-deep bg-white py-3 text-sm font-semibold text-charcoal hover:bg-cream"
         >
           <GoogleLogo className="h-4 w-4" /> Continue with Google
+        </button>
+
+        <button
+          type="button"
+          onClick={onApple}
+          className="flex min-h-12 w-full items-center justify-center gap-2.5 rounded-xl border border-cream-deep bg-white py-3 text-sm font-semibold text-charcoal hover:bg-cream"
+        >
+          <AppleLogo className="h-4 w-4" /> Continue with Apple
         </button>
 
         <p className="pt-2 text-center text-sm text-charcoal-mid">
@@ -627,9 +648,19 @@ function RegisterPane({ onSwitchToSignIn }: { onSwitchToSignIn: () => void }) {
   const handleOAuth = async (provider: 'google' | 'apple') => {
     setServerError(null);
     const supabase = createClient();
+    const params = new URLSearchParams(
+      typeof window !== 'undefined' ? window.location.search : '',
+    );
+    const rawNext = params.get('next') ?? params.get('redirect') ?? null;
+    const next = safeRedirect(rawNext, '/');
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
+        ...(provider === 'google'
+          ? { queryParams: { access_type: 'offline', prompt: 'consent' } }
+          : {}),
+      },
     });
     if (error) setServerError(error.message);
   };

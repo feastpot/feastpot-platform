@@ -22,10 +22,16 @@ export async function GET(request: NextRequest) {
   const next = url.searchParams.get('next') ?? '/';
   const errorParam = url.searchParams.get('error');
 
-  // Provider returned an error before the code exchange - bounce to sign-in
-  // with the message so the user knows what happened.
+  // Provider returned an error before the code exchange.
+  // access_denied means the user pressed "Cancel" in the provider dialog -
+  // treat it as a benign cancellation and return to /sign-in with no
+  // scary message. Any other error (e.g. invalid_request) is shown.
   if (errorParam) {
-    const back = new URL(`/sign-in?error=${encodeURIComponent(errorParam)}`, url.origin);
+    if (errorParam === 'access_denied') {
+      return NextResponse.redirect(new URL('/sign-in', url.origin));
+    }
+    const desc = url.searchParams.get('error_description') ?? errorParam;
+    const back = new URL(`/sign-in?error=${encodeURIComponent(desc)}`, url.origin);
     return NextResponse.redirect(back);
   }
 
