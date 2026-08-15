@@ -38,6 +38,7 @@ const LEGAL_INFO = {
 const SOCIAL_LINKS: FooterSocialLink[] = [
   { platform: 'x', href: 'https://x.com/feastpot' },
   { platform: 'instagram', href: 'https://www.instagram.com/feastpot.co.uk' },
+  { platform: 'tiktok', href: 'https://www.tiktok.com/@feastpot.co.uk?lang=en-GB' },
 ];
 
 export function Footer() {
