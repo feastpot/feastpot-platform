@@ -43,6 +43,15 @@ type Mode = 'signin' | 'register';
 // for what the API accepts. UI captures a single `fullName` + adds
 // `confirmPassword`, `postcode`, `termsAccepted`, `referralCode`; we
 // split / strip those before submitting to Supabase Auth + /users/sync.
+// Password rules: used both for Zod validation and the live checklist UI.
+const PWD_RULES = [
+  { key: 'length', label: 'At least 8 characters', test: (v: string) => v.length >= 8 },
+  { key: 'lower', label: 'Lowercase letter', test: (v: string) => /[a-z]/.test(v) },
+  { key: 'upper', label: 'Uppercase letter', test: (v: string) => /[A-Z]/.test(v) },
+  { key: 'digit', label: 'Number', test: (v: string) => /[0-9]/.test(v) },
+  { key: 'special', label: 'Special character', test: (v: string) => /[^a-zA-Z0-9]/.test(v) },
+] as const;
+
 const RegisterFormSchema = RegisterSchema.omit({
   firstName: true,
   lastName: true,
@@ -67,6 +76,18 @@ const RegisterFormSchema = RegisterSchema.omit({
       .refine((v) => /[A-Z]/.test(v), 'Must include an uppercase letter')
       .refine((v) => /[0-9]/.test(v), 'Must include a number')
       .refine((v) => /[^a-zA-Z0-9]/.test(v), 'Must include a special character'),
+    // Override base schema's phone so that leaving it blank is valid.
+    // The base schema uses phone().optional() which accepts `undefined` but
+    // rejects the empty string that a blank form field produces. We convert
+    // blank → undefined here so downstream code still receives undefined.
+    phone: z
+      .string()
+      .optional()
+      .transform((v) => (v?.trim() === '' ? undefined : v?.trim()))
+      .refine(
+        (v) => v === undefined || /^\+?[0-9 ()-]{7,20}$/.test(v),
+        'Invalid phone number',
+      ),
     confirmPassword: z.string().min(1, 'Please confirm your password'),
     postcode: z.string().min(1, 'Enter your postcode or service area').max(20),
     termsAccepted: z.boolean().refine((v) => v === true, {
@@ -619,7 +640,7 @@ function RegisterPane({ onSwitchToSignIn }: { onSwitchToSignIn: () => void }) {
         <TextField
           id="reg-phone"
           type="tel"
-          label="Phone number"
+          label="Phone number (optional)"
           autoComplete="tel"
           placeholder="07XXX XXX XXX"
           error={fieldError('phone')}
@@ -636,11 +657,7 @@ function RegisterPane({ onSwitchToSignIn }: { onSwitchToSignIn: () => void }) {
             error={fieldError('password')}
             {...form.register('password')}
           />
-          {!fieldError('password') && (
-            <p className="mt-1 text-xs text-charcoal-mid">
-              8+ characters with uppercase, lowercase, number and special character.
-            </p>
-          )}
+          <PasswordChecklist password={form.watch('password')} />
         </div>
         <PasswordField
           id="reg-confirmPassword"
@@ -805,6 +822,43 @@ function PasswordField({
       </div>
       {error && <p className="mt-1 text-xs font-medium text-scotch">{error}</p>}
     </div>
+  );
+}
+
+// ── Password requirements live checklist ────────────────────────────────
+function PasswordChecklist({ password }: { password: string }) {
+  const hasInput = password.length > 0;
+  if (!hasInput) {
+    return (
+      <p className="mt-1.5 text-xs text-charcoal-mid">
+        8+ characters · uppercase · lowercase · number · special character
+      </p>
+    );
+  }
+  return (
+    <ul className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1" aria-label="Password requirements">
+      {PWD_RULES.map(({ key, label, test }) => {
+        const met = test(password);
+        return (
+          <li
+            key={key}
+            className={`flex items-center gap-1.5 text-[11.5px] font-medium transition-colors ${
+              met ? 'text-brand' : 'text-charcoal-mid'
+            }`}
+          >
+            <span
+              aria-hidden
+              className={`flex h-3.5 w-3.5 flex-shrink-0 items-center justify-center rounded-full text-[9px] font-bold ${
+                met ? 'bg-brand text-white' : 'border border-charcoal-mid/40 text-transparent'
+              }`}
+            >
+              ✓
+            </span>
+            {label}
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
