@@ -9,6 +9,7 @@
  * it with the web app's LEGAL constants and route list.
  */
 import { Footer as UiFooter } from '@feastpot/ui/footer';
+import type { FooterSocialLink } from '@feastpot/ui/footer';
 
 import { LEGAL } from '@/lib/legal-constants';
 
@@ -34,11 +35,18 @@ const LEGAL_INFO = {
   supportEmail: LEGAL.SUPPORT_EMAIL,
 };
 
+const SOCIAL_LINKS: FooterSocialLink[] = [
+  { platform: 'x', href: 'https://x.com/feastpot' },
+  { platform: 'instagram', href: 'https://www.instagram.com/feastpot.co.uk' },
+  { platform: 'tiktok', href: 'https://www.tiktok.com/@feastpot.co.uk?lang=en-GB' },
+];
+
 export function Footer() {
   return (
     <UiFooter
       legalInfo={LEGAL_INFO}
       links={FOOTER_LINKS}
+      socialLinks={SOCIAL_LINKS}
       hiddenOn={['/checkout']}
     />
   );
