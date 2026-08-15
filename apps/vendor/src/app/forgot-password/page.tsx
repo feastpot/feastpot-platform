@@ -61,8 +61,8 @@ export default function VendorForgotPasswordPage() {
             </h1>
             <p className="mt-2 text-sm text-charcoal-mid">
               If a vendor account exists for{' '}
-              <strong className="break-all text-charcoal">{email}</strong>, we&rsquo;ll send a
-              link to reset your password. The link expires after 60&nbsp;minutes.
+              <strong className="break-all text-charcoal">{email}</strong>, we&rsquo;ll send a link
+              to reset your password. The link expires after 60&nbsp;minutes.
             </p>
             <p className="mt-1 text-xs text-charcoal-mid">
               Don&rsquo;t see it? Check your spam folder.

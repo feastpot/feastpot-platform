@@ -55,7 +55,6 @@ export default function VendorResetStart() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-surface px-4 py-10">
       <div className="w-full max-w-sm">
-
         <div className="mb-8 flex justify-center">
           <Link href="/sign-in" aria-label="Feastpot vendor portal">
             <Image
@@ -70,7 +69,6 @@ export default function VendorResetStart() {
         </div>
 
         <div className="fp-card w-full border border-border bg-white p-8">
-
           {state === 'loading' && (
             <div className="space-y-3 text-center">
               <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-border border-t-teal" />
@@ -81,14 +79,16 @@ export default function VendorResetStart() {
           {state === 'invalid' && (
             <div className="space-y-4 text-center">
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-50">
-                <span className="text-2xl font-bold text-red-600" aria-hidden>!</span>
+                <span className="text-2xl font-bold text-red-600" aria-hidden>
+                  !
+                </span>
               </div>
               <h1 className="text-xl font-extrabold tracking-tight text-dark">
                 This link is not valid
               </h1>
               <p className="text-sm leading-relaxed text-mid">
-                The reset link is missing or has been corrupted. This can happen if your
-                email client altered the link.
+                The reset link is missing or has been corrupted. This can happen if your email
+                client altered the link.
               </p>
               <Link
                 href="/forgot-password"
@@ -106,8 +106,8 @@ export default function VendorResetStart() {
                   Set a new password
                 </h1>
                 <p className="mt-2 text-sm leading-relaxed text-mid">
-                  Click below to choose a new password for your Feastpot vendor account.
-                  The link expires 60 minutes from when it was sent.
+                  Click below to choose a new password for your Feastpot vendor account. The link
+                  expires 60 minutes from when it was sent.
                 </p>
               </div>
               <button
@@ -125,7 +125,6 @@ export default function VendorResetStart() {
               </p>
             </div>
           )}
-
         </div>
       </div>
     </div>

@@ -108,8 +108,7 @@ export function useMyReports() {
   return useQuery({
     queryKey: ['vendor', 'platform-reports'],
     enabled: !!token && !authLoading,
-    queryFn: () =>
-      apiRequest<PlatformReport[]>('/vendors/me/reports', { accessToken: token! }),
+    queryFn: () => apiRequest<PlatformReport[]>('/vendors/me/reports', { accessToken: token! }),
     staleTime: 300_000,
   });
 }

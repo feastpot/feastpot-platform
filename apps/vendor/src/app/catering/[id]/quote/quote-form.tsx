@@ -3,7 +3,11 @@
 import { useRouter } from 'next/navigation';
 import { type FormEvent, useEffect, useState } from 'react';
 
-import { useCreateCateringBooking, useSendCateringQuote, useVendorCateringBooking } from '@/hooks/use-catering-bookings';
+import {
+  useCreateCateringBooking,
+  useSendCateringQuote,
+  useVendorCateringBooking,
+} from '@/hooks/use-catering-bookings';
 import type { CateringLineItemInput } from '@/lib/api/catering-bookings';
 import { useAuth } from '@/lib/auth/auth-provider';
 
@@ -165,7 +169,10 @@ export function CateringQuoteForm({
   async function handleCreate(e: FormEvent) {
     e.preventDefault();
     setServerError(null);
-    if (!enquiryId) { setServerError('No enquiry ID'); return; }
+    if (!enquiryId) {
+      setServerError('No enquiry ID');
+      return;
+    }
 
     const lineItems: CateringLineItemInput[] = items.map((li) => ({
       description: li.description.trim(),
@@ -210,9 +217,7 @@ export function CateringQuoteForm({
   }
 
   function updateItem(i: number, field: keyof LineItemState, value: string | string[]) {
-    setItems((prev) =>
-      prev.map((li, j) => (j === i ? { ...li, [field]: value } : li)),
-    );
+    setItems((prev) => prev.map((li, j) => (j === i ? { ...li, [field]: value } : li)));
   }
 
   function toggleAllergen(i: number, allergen: string) {
@@ -243,7 +248,11 @@ export function CateringQuoteForm({
 
   // ── Styles ─────────────────────────────────────────────────────────────────
   const fieldLabel = 'mb-1 block text-sm font-medium';
-  const requiredMarker = <span className="ml-0.5 text-destructive" aria-hidden>*</span>;
+  const requiredMarker = (
+    <span className="ml-0.5 text-destructive" aria-hidden>
+      *
+    </span>
+  );
   const input =
     'block w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring';
 
@@ -251,8 +260,12 @@ export function CateringQuoteForm({
     <div className="space-y-6">
       {isExisting && (
         <div className="rounded-md border bg-muted/30 p-4 text-sm space-y-1">
-          <p><strong>Customer:</strong> {existing?.customerName} ({existing?.customerEmail})</p>
-          <p><strong>Status:</strong> {existing?.status}</p>
+          <p>
+            <strong>Customer:</strong> {existing?.customerName} ({existing?.customerEmail})
+          </p>
+          <p>
+            <strong>Status:</strong> {existing?.status}
+          </p>
           {sendSuccess && (
             <p className="text-green-600 font-medium">Quote email sent to customer.</p>
           )}
@@ -324,9 +337,7 @@ export function CateringQuoteForm({
         {/* Line items */}
         <section className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-base font-semibold">
-              Menu items {requiredMarker}
-            </h2>
+            <h2 className="text-base font-semibold">Menu items {requiredMarker}</h2>
             <button
               type="button"
               onClick={addItem}
@@ -352,9 +363,7 @@ export function CateringQuoteForm({
               </div>
               <div className="grid gap-3 sm:grid-cols-3">
                 <div className="sm:col-span-1">
-                  <label className={fieldLabel}>
-                    Description {requiredMarker}
-                  </label>
+                  <label className={fieldLabel}>Description {requiredMarker}</label>
                   <input
                     type="text"
                     className={input}
@@ -365,9 +374,7 @@ export function CateringQuoteForm({
                   />
                 </div>
                 <div>
-                  <label className={fieldLabel}>
-                    Quantity {requiredMarker}
-                  </label>
+                  <label className={fieldLabel}>Quantity {requiredMarker}</label>
                   <input
                     type="number"
                     className={input}
@@ -378,9 +385,7 @@ export function CateringQuoteForm({
                   />
                 </div>
                 <div>
-                  <label className={fieldLabel}>
-                    Unit price (£) {requiredMarker}
-                  </label>
+                  <label className={fieldLabel}>Unit price (£) {requiredMarker}</label>
                   <input
                     type="number"
                     className={input}
@@ -438,15 +443,12 @@ export function CateringQuoteForm({
             </>
           ) : (
             <p className="text-destructive text-xs">
-              Deposit and balance do not reconcile with the total. Please
-              refresh and try again.
+              Deposit and balance do not reconcile with the total. Please refresh and try again.
             </p>
           )}
         </div>
 
-        {serverError && (
-          <p className="text-sm text-destructive">{serverError}</p>
-        )}
+        {serverError && <p className="text-sm text-destructive">{serverError}</p>}
 
         <div className="space-y-2">
           <div className="flex gap-3">
@@ -472,7 +474,10 @@ export function CateringQuoteForm({
           </div>
           {/* Required-field legend */}
           <p className="text-xs text-muted-foreground">
-            <span className="text-destructive" aria-hidden>*</span> Required field
+            <span className="text-destructive" aria-hidden>
+              *
+            </span>{' '}
+            Required field
           </p>
           {/* Explain why Save is disabled */}
           {!isExisting && saveBlockReason && (

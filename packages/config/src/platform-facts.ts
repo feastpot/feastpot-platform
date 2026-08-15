@@ -127,8 +127,8 @@ export const PLATFORM_FACTS = {
    * Changes are never applied retrospectively.
    *
    * This is DISTINCT from:
-   *   termsNoticeDays   — general terms-document changes (clause 10)
-   *   terminationNoticeDays — account termination (clause 11)
+   *   termsNoticeDays   - general terms-document changes (clause 10)
+   *   terminationNoticeDays - account termination (clause 11)
    *
    * Stripe's own card-processing rate is a pass-through cost that Feastpot
    * does not set or mark up. A Stripe rate change is NOT a "fee change"

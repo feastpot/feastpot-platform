@@ -80,13 +80,19 @@ export function MenuItemsGridClient({
   function openCreate() {
     setEditingItemId(null);
     setShowCreate(true);
-    setTimeout(() => createFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+    setTimeout(
+      () => createFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+      50,
+    );
   }
 
   function openEdit(itemId: string) {
     setShowCreate(false);
     setEditingItemId(itemId);
-    setTimeout(() => editFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+    setTimeout(
+      () => editFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+      50,
+    );
   }
 
   function closeEdit() {
@@ -137,7 +143,11 @@ export function MenuItemsGridClient({
               <ExternalLink className="h-4 w-4" /> Preview as customer
             </Button>
           </a>
-          <Button className="gap-2" onClick={openCreate} disabled={showCreate || editingItemId !== null}>
+          <Button
+            className="gap-2"
+            onClick={openCreate}
+            disabled={showCreate || editingItemId !== null}
+          >
             <Plus className="h-4 w-4" /> Add item
           </Button>
         </div>
@@ -157,7 +167,10 @@ export function MenuItemsGridClient({
           and calls onCreated when the item is saved (which closes this panel
           and lets the TanStack Query cache invalidation refresh the grid). */}
       {showCreate && (
-        <div ref={createFormRef} className="rounded-2xl border border-border bg-white p-4 shadow-sm">
+        <div
+          ref={createFormRef}
+          className="rounded-2xl border border-border bg-white p-4 shadow-sm"
+        >
           <ItemEditorClient
             vendorId={vendorId}
             menuId={menuId}

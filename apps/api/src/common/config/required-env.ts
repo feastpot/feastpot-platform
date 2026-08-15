@@ -96,9 +96,7 @@ export function incompleteOptionalEnv(): Array<{
   keys: readonly string[];
   consequence: string;
 }> {
-  return OPTIONAL_ENV_CONSEQUENCES.filter(({ keys }) =>
-    keys.some((k) => !process.env[k]),
-  );
+  return OPTIONAL_ENV_CONSEQUENCES.filter(({ keys }) => keys.some((k) => !process.env[k]));
 }
 
 /**
@@ -140,8 +138,6 @@ export function warnOptionalEnv(): void {
   for (const { keys, consequence } of incompleteOptionalEnv()) {
     const missing = keys.filter((k) => !process.env[k]);
     // eslint-disable-next-line no-console
-    console.warn(
-      `[STARTUP] Optional env not fully set (${missing.join(', ')}): ${consequence}.`,
-    );
+    console.warn(`[STARTUP] Optional env not fully set (${missing.join(', ')}): ${consequence}.`);
   }
 }

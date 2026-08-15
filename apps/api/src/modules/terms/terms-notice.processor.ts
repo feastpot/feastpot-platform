@@ -1,6 +1,5 @@
-import { OnApplicationBootstrap } from '@nestjs/common';
 import { InjectQueue, Process, Processor } from '@nestjs/bull';
-import { Logger } from '@nestjs/common';
+import { OnApplicationBootstrap, Logger } from '@nestjs/common';
 import { NoticeChannel, OrderStatus } from '@prisma/client';
 import type { Job, Queue } from 'bull';
 
@@ -8,10 +7,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { TERMS_NOTICES_QUEUE } from '../../queues/queues.module';
 import { EmailProvider } from '../notifications/providers/email.provider';
 
-import {
-  DEEMED_ACCEPTANCE_CRON_JOB,
-  SEND_TERMS_NOTICES_JOB,
-} from './terms.service';
+import { DEEMED_ACCEPTANCE_CRON_JOB, SEND_TERMS_NOTICES_JOB } from './terms.service';
 
 interface TermsNoticesJobData {
   termsVersionId: string;
@@ -120,13 +116,16 @@ export class TermsNoticeProcessor implements OnApplicationBootstrap {
 
         sent++;
       } catch (err) {
-        this.logger.error(
-          `[terms-notices] failed to notify vendorId=${vendor.id}: ${String(err)}`,
-        );
+        this.logger.error(`[terms-notices] failed to notify vendorId=${vendor.id}: ${String(err)}`);
         // Record a failed EMAIL notice so we can identify gaps in compliance audits.
         await this.prisma.termsNotice
           .create({
-            data: { vendorId: vendor.id, termsVersionId, channel: NoticeChannel.EMAIL, deliveredAt: null },
+            data: {
+              vendorId: vendor.id,
+              termsVersionId,
+              channel: NoticeChannel.EMAIL,
+              deliveredAt: null,
+            },
           })
           .catch(() => null);
         failed++;

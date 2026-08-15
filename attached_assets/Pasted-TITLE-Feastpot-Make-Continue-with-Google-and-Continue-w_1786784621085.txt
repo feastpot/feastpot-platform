@@ -1,0 +1,96 @@
+TITLE: Feastpot — Make "Continue with Google" and "Continue with Apple" Fully Work (PRIORITY: ORANGE)
+
+CONTEXT
+apps/web is Next.js 15 App Router at feastpot.co.uk. Supabase Auth. The two buttons already
+render on /sign-in but are not wired up. Supabase project ref is <PROJECT_REF> (read from
+NEXT_PUBLIC_SUPABASE_URL). Use UK English. Never use em dashes. Some steps MUST be done by the
+founder in external consoles (see the separate founder checklist); this prompt does the code
+and flags where it is blocked.
+
+=== GOOGLE (code the agent does) ===
+1. Client-side: on "Continue with Google", call
+     await supabase.auth.signInWithOAuth({
+       provider: 'google',
+       options: {
+         redirectTo: `${location.origin}/auth/callback?next=${encodeURIComponent(currentPath)}`,
+         queryParams: { access_type: 'offline', prompt: 'consent' }
+       }
+     })
+   Supabase uses the PKCE flow for OAuth in the App Router.
+2. Create the callback route handler app/auth/callback/route.ts (Route Handler) that:
+     - reads the `code` query param
+     - calls await supabase.auth.exchangeCodeForSession(code) using the @supabase/ssr
+       server client so the session cookie is written
+     - reads the `next` param and redirects the user back to the page they started from
+       (validate `next` is a same-origin path to prevent open redirect)
+     - on error (including user-cancelled), redirects to /sign-in with a neutral, friendly
+       message.
+3. Populate user metadata: after first sign-in, copy name and avatar from user.user_metadata
+   (Google provides full_name/name and avatar_url/picture) into the public profiles table if
+   not already set.
+
+=== APPLE (code the agent does) ===
+1. Client-side: on "Continue with Apple", call signInWithOAuth with provider: 'apple' and the
+   same redirectTo/callback pattern. The same app/auth/callback route handles the code
+   exchange for both providers.
+2. Handle Apple's first-authorisation-only name: Apple returns the user's name and email ONLY
+   on the very first authorisation; subsequent sign-ins return null for name. Capture and
+   persist name/email to the profiles table on first sign-in; never rely on Apple resending it.
+3. Handle Apple Private Relay: when a user chooses Hide My Email, the email is a random
+   address ending in @privaterelay.appleid.com. Treat it as a first-class email EVERYWHERE it
+   is shown or mailed: store it, display it, and send to it (custom SMTP domain must be
+   registered with Apple's Private Email Relay to avoid bounces). Do not block, hide, or
+   special-case relay addresses in validation.
+
+=== BOTH PROVIDERS ===
+1. Identity linking: Supabase automatically links a new OAuth identity to an existing user
+   when the email matches AND is verified. Security caveat from Supabase docs: it will NOT
+   auto-link to an account with an UNVERIFIED email, because that enables pre-account-takeover
+   attacks; when a new identity can be linked, Supabase removes any other unconfirmed
+   identities. Do not build custom linking that bypasses this.
+2. Enumeration-safe design: OAuth sign-in reveals nothing extra about account existence; keep
+   messaging neutral, consistent with the email path.
+3. Return-to-origin: ensure the user lands back on the page they started from via the `next`
+   param (validated same-origin).
+4. User-cancelled OAuth: Apple/Google return the user to the callback with error=access_denied
+   (Supabase surfaces this). Handle it as a benign cancellation: return to /sign-in quietly,
+   no scary error.
+5. OAuth users skip the password checklist entirely: ensure the password rules/checklist never
+   render or validate for OAuth sign-ups.
+6. Account page: show linked providers by reading the user's identities
+   (supabase.auth.getUserIdentities()); display Google/Apple/email badges accurately.
+
+=== REDIRECT URL ALLOWLIST (agent notes; founder toggles) ===
+- Supabase validates redirectTo against the allowlist; if not matched it falls back to Site
+  URL. Ensure these are added (founder action in dashboard):
+    https://feastpot.co.uk/**
+    http://localhost:3000/**   (dev)
+  URL matching is exact; the /** wildcard covers the /auth/callback path.
+
+=== TEST MATRIX (Playwright, mock provider where needed) ===
+  1. New-user Google signup end to end -> account created, lands back on origin page.
+  2. Existing-email Google sign-in -> identity linked to existing account (no duplicate user).
+  3. User cancels mid-flow -> returned to /sign-in quietly, no error banner.
+  4. Apple happy path -> account created, name persisted on first sign-in.
+  5. Apple Private Relay -> a @privaterelay.appleid.com address is stored and rendered
+     correctly everywhere; no validation rejects it.
+  6. OAuth users skip the password checklist -> assert the checklist never renders in the
+     OAuth path.
+
+ACCEPTANCE CRITERIA
+- Both buttons complete a full sign-in via PKCE with a working app/auth/callback route.
+- Session cookie is written server-side; user lands back on origin page.
+- Name/avatar populated; Apple name captured on first sign-in; relay emails handled.
+- Cancelled OAuth handled gracefully.
+- Account page shows correct linked providers.
+- All six tests pass.
+
+EDGE CASES
+- Apple client secret JWT expires (Apple hard cap ~15,777,000 seconds, about 6 months);
+  founder must rotate it or web/Android Apple sign-in silently breaks (native iOS unaffected).
+- redirectTo not in allowlist -> silent fallback to Site URL; verify allowlist first.
+- Trailing-slash mismatch in allowlist causes failures; use /** wildcard.
+- Relay-address bounces if the sending domain is not registered with Apple's Private Email
+  Relay.
+- Legacy anon key vs new sb_publishable key: either works today, but confirm the key is
+  enabled; Supabase plans to deprecate legacy keys by end of 2026.

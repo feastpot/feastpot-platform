@@ -45,15 +45,24 @@ interface RateCardProps {
   className?: string;
 }
 
-const STATUS_META: Record<
-  RateStatusValue,
-  { label: string; badgeCls: string; dotCls: string }
-> = {
-  LIVE:          { label: 'Live',          badgeCls: 'bg-green-100 text-green-800',   dotCls: 'bg-green-500'  },
-  PLANNED:       { label: 'Planned',       badgeCls: 'bg-amber-100 text-amber-800',   dotCls: 'bg-amber-400'  },
-  INCENTIVE:     { label: 'Promotional',   badgeCls: 'bg-purple-100 text-purple-800', dotCls: 'bg-purple-400' },
-  CUSTOMER_SIDE: { label: 'Customer-side', badgeCls: 'bg-neutral-100 text-neutral-600', dotCls: 'bg-neutral-400' },
-  OPTIONAL_ADDON:{ label: 'Optional',      badgeCls: 'bg-blue-100 text-blue-800',     dotCls: 'bg-blue-400'   },
+const STATUS_META: Record<RateStatusValue, { label: string; badgeCls: string; dotCls: string }> = {
+  LIVE: { label: 'Live', badgeCls: 'bg-green-100 text-green-800', dotCls: 'bg-green-500' },
+  PLANNED: { label: 'Planned', badgeCls: 'bg-amber-100 text-amber-800', dotCls: 'bg-amber-400' },
+  INCENTIVE: {
+    label: 'Promotional',
+    badgeCls: 'bg-purple-100 text-purple-800',
+    dotCls: 'bg-purple-400',
+  },
+  CUSTOMER_SIDE: {
+    label: 'Customer-side',
+    badgeCls: 'bg-neutral-100 text-neutral-600',
+    dotCls: 'bg-neutral-400',
+  },
+  OPTIONAL_ADDON: {
+    label: 'Optional',
+    badgeCls: 'bg-blue-100 text-blue-800',
+    dotCls: 'bg-blue-400',
+  },
 };
 
 const SECTION_ORDER: RateStatusValue[] = [
@@ -65,17 +74,19 @@ const SECTION_ORDER: RateStatusValue[] = [
 ];
 
 const SECTION_HEADINGS: Record<RateStatusValue, string> = {
-  LIVE:           'Current rates',
-  PLANNED:        'Planned changes (not yet in force)',
-  INCENTIVE:      'Promotional rates',
-  CUSTOMER_SIDE:  'Customer-facing charges (not deducted from your payout)',
+  LIVE: 'Current rates',
+  PLANNED: 'Planned changes (not yet in force)',
+  INCENTIVE: 'Promotional rates',
+  CUSTOMER_SIDE: 'Customer-facing charges (not deducted from your payout)',
   OPTIONAL_ADDON: 'Optional add-ons',
 };
 
 function StatusBadge({ status }: { status: RateStatusValue }) {
   const m = STATUS_META[status];
   return (
-    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${m.badgeCls}`}>
+    <span
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${m.badgeCls}`}
+    >
       <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${m.dotCls}`} />
       {m.label}
     </span>
@@ -85,7 +96,9 @@ function StatusBadge({ status }: { status: RateStatusValue }) {
 export function RateCard({ rates, loading, error, className = '' }: RateCardProps) {
   const grouped = SECTION_ORDER.reduce<Record<RateStatusValue, RateRow[]>>(
     (acc, status) => {
-      acc[status] = rates.filter((r) => r.status === status).sort((a, b) => a.sortOrder - b.sortOrder);
+      acc[status] = rates
+        .filter((r) => r.status === status)
+        .sort((a, b) => a.sortOrder - b.sortOrder);
       return acc;
     },
     { LIVE: [], PLANNED: [], INCENTIVE: [], CUSTOMER_SIDE: [], OPTIONAL_ADDON: [] },
@@ -131,16 +144,33 @@ export function RateCard({ rates, loading, error, className = '' }: RateCardProp
                   <caption className="sr-only">{SECTION_HEADINGS[status]}</caption>
                   <thead>
                     <tr className="border-b border-neutral-100">
-                      <th scope="col" className="py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Segment</th>
-                      <th scope="col" className="py-2 text-right text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Rate</th>
-                      <th scope="col" className="py-2 text-right text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Status</th>
+                      <th
+                        scope="col"
+                        className="py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-neutral-500"
+                      >
+                        Segment
+                      </th>
+                      <th
+                        scope="col"
+                        className="py-2 text-right text-[11px] font-semibold uppercase tracking-wide text-neutral-500"
+                      >
+                        Rate
+                      </th>
+                      <th
+                        scope="col"
+                        className="py-2 text-right text-[11px] font-semibold uppercase tracking-wide text-neutral-500"
+                      >
+                        Status
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
                     {rows.map((r) => (
                       <tr key={r.key} className="border-b border-neutral-50 last:border-0">
                         <td className="py-2.5 text-[13px] text-neutral-800">{r.label}</td>
-                        <td className="py-2.5 text-right text-[14px] font-bold text-neutral-900">{r.rateDisplay}</td>
+                        <td className="py-2.5 text-right text-[14px] font-bold text-neutral-900">
+                          {r.rateDisplay}
+                        </td>
                         <td className="py-2.5 text-right">
                           <StatusBadge status={r.status} />
                         </td>

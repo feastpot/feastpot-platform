@@ -1,7 +1,6 @@
+import { shouldWaiveServiceFee } from '@feastpot/config/service-fee';
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { DeliveryType, OrderStatus, UserRole } from '@prisma/client';
-
-import { shouldWaiveServiceFee } from '@feastpot/config/service-fee';
 
 import type { AuthUser } from '../../auth/types';
 
@@ -573,11 +572,7 @@ describe('OrdersService.confirmOrder', () => {
       expect.objectContaining({ jobId: 'order_confirmation:o-1' }),
     );
     // Confirm no auto_cancel job is enqueued (clause 8 deadline is ops-enforced).
-    expect(queue.add).not.toHaveBeenCalledWith(
-      'auto_cancel',
-      expect.anything(),
-      expect.anything(),
-    );
+    expect(queue.add).not.toHaveBeenCalledWith('auto_cancel', expect.anything(), expect.anything());
   });
 });
 
@@ -784,9 +779,9 @@ describe('OrdersService.finishCreateOrder discount_funded_by guard', () => {
 
   it('includes the DISCOUNT_FUNDED_BY_REQUIRED code in the error response', async () => {
     const svc = makeSvc();
-    const err = await (
-      svc as never as { finishCreateOrder: (a: unknown) => Promise<unknown> }
-    ).finishCreateOrder({ ...baseArgs(), discountFundedBy: null }).catch((e: unknown) => e);
+    const err = await (svc as never as { finishCreateOrder: (a: unknown) => Promise<unknown> })
+      .finishCreateOrder({ ...baseArgs(), discountFundedBy: null })
+      .catch((e: unknown) => e);
     expect(err).toBeInstanceOf(BadRequestException);
     expect((err as BadRequestException).getResponse()).toMatchObject({
       code: 'DISCOUNT_FUNDED_BY_REQUIRED',
@@ -798,9 +793,13 @@ describe('OrdersService.finishCreateOrder discount_funded_by guard', () => {
     // The guard must not fire; the eventual Stripe call will fail (no mock),
     // so we expect any error that is NOT a BadRequestException.
     const svc = makeSvc();
-    const result = await (
-      svc as never as { finishCreateOrder: (a: unknown) => Promise<unknown> }
-    ).finishCreateOrder({ ...baseArgs(), discountPence: 0, totalPence: 1000, discountFundedBy: null })
+    const result = await (svc as never as { finishCreateOrder: (a: unknown) => Promise<unknown> })
+      .finishCreateOrder({
+        ...baseArgs(),
+        discountPence: 0,
+        totalPence: 1000,
+        discountFundedBy: null,
+      })
       .catch((e: unknown) => e);
     expect(result).not.toBeInstanceOf(BadRequestException);
   });
@@ -808,14 +807,14 @@ describe('OrdersService.finishCreateOrder discount_funded_by guard', () => {
   it('does not throw when discountPence is zero and a funded-by source is set (harmless)', async () => {
     // A zero discount with a funded-by value set is allowed and harmless.
     const svc = makeSvc();
-    const result = await (
-      svc as never as { finishCreateOrder: (a: unknown) => Promise<unknown> }
-    ).finishCreateOrder({
-      ...baseArgs(),
-      discountPence: 0,
-      totalPence: 1000,
-      discountFundedBy: 'PLATFORM' as never,
-    }).catch((e: unknown) => e);
+    const result = await (svc as never as { finishCreateOrder: (a: unknown) => Promise<unknown> })
+      .finishCreateOrder({
+        ...baseArgs(),
+        discountPence: 0,
+        totalPence: 1000,
+        discountFundedBy: 'PLATFORM' as never,
+      })
+      .catch((e: unknown) => e);
     expect(result).not.toBeInstanceOf(BadRequestException);
   });
 });

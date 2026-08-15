@@ -62,8 +62,7 @@ export interface LiveMenuItem {
   imageUrls: string[];
 }
 
-const LIVE_ITEMS_KEY = (vendorId: string) =>
-  ['vendor', 'live-menu-items', vendorId] as const;
+const LIVE_ITEMS_KEY = (vendorId: string) => ['vendor', 'live-menu-items', vendorId] as const;
 
 export function useLiveMenuItems(vendorId: string | undefined) {
   const { token, loading } = useAccessToken();

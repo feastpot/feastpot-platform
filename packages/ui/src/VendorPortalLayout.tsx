@@ -47,10 +47,7 @@ export function VendorPageHeader({
                   /
                 </span>
               )}
-              <a
-                href={crumb.href}
-                className="hover:text-dark hover:underline"
-              >
+              <a href={crumb.href} className="hover:text-dark hover:underline">
                 {crumb.label}
               </a>
             </span>
@@ -77,9 +74,7 @@ export function VendorPageHeader({
           )}
           <div className="min-w-0">
             <h1 className="text-xl font-bold text-dark">{title}</h1>
-            {description && (
-              <p className="mt-1 text-sm text-mid">{description}</p>
-            )}
+            {description && <p className="mt-1 text-sm text-mid">{description}</p>}
           </div>
         </div>
 
@@ -131,8 +126,7 @@ export function VendorPortalLayout({
   children,
   maxWidth = 'standard',
 }: VendorPortalLayoutProps) {
-  const contentMaxWidth =
-    maxWidth === 'form' ? 'max-w-[760px]' : 'max-w-[1100px]';
+  const contentMaxWidth = maxWidth === 'form' ? 'max-w-[760px]' : 'max-w-[1100px]';
 
   return (
     <>
@@ -147,9 +141,7 @@ export function VendorPortalLayout({
             375 px when any inner element slightly exceeds the viewport. */}
         <main className="min-w-0 flex-1 overflow-x-hidden">
           {/* Content column: left-aligned (no mx-auto), bounded by maxWidth */}
-          <div className={`w-full ${contentMaxWidth} px-4 py-6 md:px-6`}>
-            {children}
-          </div>
+          <div className={`w-full ${contentMaxWidth} px-4 py-6 md:px-6`}>{children}</div>
         </main>
       </div>
     </>

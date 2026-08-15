@@ -138,9 +138,7 @@ export interface VendorMenuItem {
  * Returns { newSlug } if a redirect exists, or null if the slug is unknown.
  * Used by the vendor profile page to send a 301 when someone follows an old link.
  */
-export async function getVendorSlugRedirect(
-  slug: string,
-): Promise<{ newSlug: string } | null> {
+export async function getVendorSlugRedirect(slug: string): Promise<{ newSlug: string } | null> {
   try {
     return await apiRequest<{ newSlug: string }>(
       `/vendors/slug-redirect/${encodeURIComponent(slug)}`,
@@ -190,11 +188,7 @@ export interface CapacityDay {
 
 // ─── Vendor verification ─────────────────────────────────────────────────────
 
-export type FhrsStatus =
-  | 'AWAITING_FIRST_INSPECTION'
-  | 'RATED'
-  | 'EXEMPT'
-  | 'NOT_FOUND';
+export type FhrsStatus = 'AWAITING_FIRST_INSPECTION' | 'RATED' | 'EXEMPT' | 'NOT_FOUND';
 
 export type VerificationOverallState = 'VERIFIED' | 'RENEWAL_DUE' | 'SUSPENDED';
 

@@ -50,8 +50,7 @@ function writeQueue(queue: BufferedEvent[]): void {
  * Drops entries older than TTL and enforces the MAX_EVENTS cap (oldest first).
  */
 export function pushToBuffer(event: Omit<BufferedEvent, 'queuedAt'>): void {
-  const queue = readQueue()
-    .filter((e) => Date.now() - e.queuedAt < TTL_MS); // prune stale
+  const queue = readQueue().filter((e) => Date.now() - e.queuedAt < TTL_MS); // prune stale
 
   while (queue.length >= MAX_EVENTS) queue.shift(); // cap: drop oldest
 

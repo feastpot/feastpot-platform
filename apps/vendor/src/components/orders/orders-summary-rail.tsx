@@ -149,11 +149,7 @@ export function OrdersSummaryRail({
     <div className="space-y-4">
       {/* ── Summary section (mode-specific) ─────────────────────────── */}
       {typeFilter === 'all' && (
-        <WorkSummaryCard
-          counts={allCounts}
-          currentTab={currentTab}
-          onTabChange={onTabChange}
-        />
+        <WorkSummaryCard counts={allCounts} currentTab={currentTab} onTabChange={onTabChange} />
       )}
       {typeFilter === 'standard' && (
         <OrderSummaryCard

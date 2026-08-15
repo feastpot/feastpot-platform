@@ -12,11 +12,7 @@
 
 import React from 'react';
 
-export type FhrsStatus =
-  | 'AWAITING_FIRST_INSPECTION'
-  | 'RATED'
-  | 'EXEMPT'
-  | 'NOT_FOUND';
+export type FhrsStatus = 'AWAITING_FIRST_INSPECTION' | 'RATED' | 'EXEMPT' | 'NOT_FOUND';
 
 export type VerificationState = 'VERIFIED' | 'RENEWAL_DUE' | 'SUSPENDED';
 
@@ -52,14 +48,15 @@ function fmtDate(d: string | Date | null | undefined): string {
 
 function CheckIcon({ className }: { className?: string }) {
   return (
-    <svg
-      viewBox="0 0 16 16"
-      fill="none"
-      aria-hidden
-      className={className ?? 'h-4 w-4'}
-    >
+    <svg viewBox="0 0 16 16" fill="none" aria-hidden className={className ?? 'h-4 w-4'}>
       <circle cx="8" cy="8" r="8" fill="#00843D" />
-      <path d="M4.5 8l2.5 2.5 4.5-5" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path
+        d="M4.5 8l2.5 2.5 4.5-5"
+        stroke="#fff"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
@@ -147,8 +144,8 @@ export function VerificationPanel({
     hygieneIcon = <ClockIcon />;
     hygieneValue = (
       <>
-        Registered with {v.registrationAuthority} on {fmtDate(v.registrationConfirmedAt)}.
-        Awaiting first hygiene inspection.
+        Registered with {v.registrationAuthority} on {fmtDate(v.registrationConfirmedAt)}. Awaiting
+        first hygiene inspection.
       </>
     );
   } else if (v.fhrsInspectionStatus === 'EXEMPT') {
@@ -156,7 +153,11 @@ export function VerificationPanel({
     hygieneValue = <>Exempt from FHRS rating (low-risk premises).</>;
   } else if (v.fhrsInspectionStatus === 'NOT_FOUND') {
     hygieneIcon = <ClockIcon />;
-    hygieneValue = <>Rating lookup pending. Last checked: {fmtDate(v.fhrsRatingCheckedAt) || 'not yet checked'}.</>;
+    hygieneValue = (
+      <>
+        Rating lookup pending. Last checked: {fmtDate(v.fhrsRatingCheckedAt) || 'not yet checked'}.
+      </>
+    );
   } else {
     // RATED
     const score = v.fhrsRating;
@@ -191,13 +192,18 @@ export function VerificationPanel({
   }
 
   // ── insurance row ────────────────────────────────────────────────────────
-  const insuranceValid =
-    v.insuranceValidUntil ? new Date(v.insuranceValidUntil) > new Date() : false;
-  const insuranceIcon = v.insuranceValidUntil
-    ? insuranceValid
-      ? <CheckIcon />
-      : <AlertIcon />
-    : <ClockIcon />;
+  const insuranceValid = v.insuranceValidUntil
+    ? new Date(v.insuranceValidUntil) > new Date()
+    : false;
+  const insuranceIcon = v.insuranceValidUntil ? (
+    insuranceValid ? (
+      <CheckIcon />
+    ) : (
+      <AlertIcon />
+    )
+  ) : (
+    <ClockIcon />
+  );
   const insuranceValue = v.insuranceValidUntil
     ? `${v.insuranceProvider ? `${v.insuranceProvider} - ` : ''}Valid until ${fmtDate(v.insuranceValidUntil)}.`
     : 'Awaiting submission.';
@@ -206,7 +212,13 @@ export function VerificationPanel({
   const allergenCurrent =
     v.allergenTrainingHeld &&
     (v.allergenTrainingUntil ? new Date(v.allergenTrainingUntil) > new Date() : true);
-  const allergenIcon = allergenCurrent ? <CheckIcon /> : v.allergenTrainingHeld ? <AlertIcon /> : <ClockIcon />;
+  const allergenIcon = allergenCurrent ? (
+    <CheckIcon />
+  ) : v.allergenTrainingHeld ? (
+    <AlertIcon />
+  ) : (
+    <ClockIcon />
+  );
   const allergenValue = allergenCurrent
     ? `Completed${v.allergenTrainingUntil ? `, valid until ${fmtDate(v.allergenTrainingUntil)}` : ''}.`
     : v.allergenTrainingHeld
@@ -215,9 +227,7 @@ export function VerificationPanel({
 
   // ── identity row ─────────────────────────────────────────────────────────
   const idIcon = v.idVerifiedAt ? <CheckIcon /> : <ClockIcon />;
-  const idValue = v.idVerifiedAt
-    ? `Verified ${fmtDate(v.idVerifiedAt)}.`
-    : 'Pending.';
+  const idValue = v.idVerifiedAt ? `Verified ${fmtDate(v.idVerifiedAt)}.` : 'Pending.';
 
   return (
     <section
@@ -249,9 +259,7 @@ export function VerificationPanel({
           </svg>
           <span className="text-[13px] font-black text-charcoal">Verified by Feastpot</span>
         </div>
-        <span
-          className={`rounded-full border px-2 py-0.5 text-[11px] font-bold ${stateColour}`}
-        >
+        <span className={`rounded-full border px-2 py-0.5 text-[11px] font-bold ${stateColour}`}>
           {stateLabel}
         </span>
       </div>

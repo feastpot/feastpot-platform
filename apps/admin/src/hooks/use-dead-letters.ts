@@ -40,10 +40,13 @@ export function useRetryDeadLetterJob() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ queue, jobId }: { queue: string; jobId: string }) =>
-      apiRequest(`/admin/dead-letters/${encodeURIComponent(queue)}/${encodeURIComponent(jobId)}/retry`, {
-        method: 'POST',
-        accessToken: token!,
-      }),
+      apiRequest(
+        `/admin/dead-letters/${encodeURIComponent(queue)}/${encodeURIComponent(jobId)}/retry`,
+        {
+          method: 'POST',
+          accessToken: token!,
+        },
+      ),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['admin', 'dead-letters'] }),
   });
 }
@@ -53,10 +56,13 @@ export function useDiscardDeadLetterJob() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ queue, jobId }: { queue: string; jobId: string }) =>
-      apiRequest(`/admin/dead-letters/${encodeURIComponent(queue)}/${encodeURIComponent(jobId)}/discard`, {
-        method: 'POST',
-        accessToken: token!,
-      }),
+      apiRequest(
+        `/admin/dead-letters/${encodeURIComponent(queue)}/${encodeURIComponent(jobId)}/discard`,
+        {
+          method: 'POST',
+          accessToken: token!,
+        },
+      ),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['admin', 'dead-letters'] }),
   });
 }

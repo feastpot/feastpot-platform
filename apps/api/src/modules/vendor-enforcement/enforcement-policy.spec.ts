@@ -9,14 +9,11 @@
  */
 
 import { BadRequestException } from '@nestjs/common';
-import { EnforcementType, VendorStatus, VerificationState } from '@prisma/client';
+import { EnforcementType, VendorStatus } from '@prisma/client';
 
 import { NotificationsService } from '../notifications/notifications.service';
 
-import {
-  SERIOUS_CAUSE_CODES,
-  URGENT_REASON_CODES,
-} from './dto/create-enforcement-action.dto';
+import { SERIOUS_CAUSE_CODES, URGENT_REASON_CODES } from './dto/create-enforcement-action.dto';
 import { VendorEnforcementService } from './vendor-enforcement.service';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -43,9 +40,11 @@ function makePrisma(vendorStatus: VendorStatus = VendorStatus.live) {
       update: jest.fn().mockResolvedValue({}),
     },
     vendorEnforcementAction: {
-      create: jest.fn().mockImplementation((args: { data: object }) =>
-        Promise.resolve({ id: 'action-1', ...args.data }),
-      ),
+      create: jest
+        .fn()
+        .mockImplementation((args: { data: object }) =>
+          Promise.resolve({ id: 'action-1', ...args.data }),
+        ),
       findUnique: jest.fn().mockResolvedValue(null),
       findMany: jest.fn().mockResolvedValue([]),
       update: jest.fn().mockResolvedValue({ id: 'action-1', liftedAt: new Date() }),
@@ -54,22 +53,31 @@ function makePrisma(vendorStatus: VendorStatus = VendorStatus.live) {
       findUnique: jest.fn().mockResolvedValue(null),
       update: jest.fn().mockResolvedValue({}),
     },
-    $transaction: jest.fn().mockImplementation((fn: (tx: object) => Promise<unknown>) => fn({
-      vendor: {
-        findUnique: jest.fn().mockResolvedValue({ id: 'vendor-1', userId: 'user-1', businessName: 'Test Kitchen', status: vendorStatus }),
-        update: jest.fn().mockResolvedValue({}),
-      },
-      vendorEnforcementAction: {
-        create: jest.fn().mockImplementation((args: { data: object }) =>
-          Promise.resolve({ id: 'action-1', ...args.data }),
-        ),
-        update: jest.fn().mockResolvedValue({ id: 'action-1', liftedAt: new Date() }),
-      },
-      vendorVerification: {
-        findUnique: jest.fn().mockResolvedValue(null),
-        update: jest.fn().mockResolvedValue({}),
-      },
-    })),
+    $transaction: jest.fn().mockImplementation((fn: (tx: object) => Promise<unknown>) =>
+      fn({
+        vendor: {
+          findUnique: jest.fn().mockResolvedValue({
+            id: 'vendor-1',
+            userId: 'user-1',
+            businessName: 'Test Kitchen',
+            status: vendorStatus,
+          }),
+          update: jest.fn().mockResolvedValue({}),
+        },
+        vendorEnforcementAction: {
+          create: jest
+            .fn()
+            .mockImplementation((args: { data: object }) =>
+              Promise.resolve({ id: 'action-1', ...args.data }),
+            ),
+          update: jest.fn().mockResolvedValue({ id: 'action-1', liftedAt: new Date() }),
+        },
+        vendorVerification: {
+          findUnique: jest.fn().mockResolvedValue(null),
+          update: jest.fn().mockResolvedValue({}),
+        },
+      }),
+    ),
   };
 }
 
@@ -87,12 +95,16 @@ describe('Narrative length', () => {
   it('rejects a narrative shorter than 50 characters', async () => {
     const svc = makeSvc();
     await expect(
-      svc.createAction('vendor-1', {
-        actionType: EnforcementType.SUSPENSION,
-        reasonCode: 'DOCUMENT_EXPIRED',
-        reasonNarrative: SHORT_NARRATIVE,
-        effectiveAt: isoFuture(0),
-      }, 'staff@feastpot.co.uk'),
+      svc.createAction(
+        'vendor-1',
+        {
+          actionType: EnforcementType.SUSPENSION,
+          reasonCode: 'DOCUMENT_EXPIRED',
+          reasonNarrative: SHORT_NARRATIVE,
+          effectiveAt: isoFuture(0),
+        },
+        'staff@feastpot.co.uk',
+      ),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
@@ -100,12 +112,16 @@ describe('Narrative length', () => {
     const svc = makeSvc();
     const exactlyFifty = 'A'.repeat(50);
     await expect(
-      svc.createAction('vendor-1', {
-        actionType: EnforcementType.SUSPENSION,
-        reasonCode: 'DOCUMENT_EXPIRED',
-        reasonNarrative: exactlyFifty,
-        effectiveAt: isoFuture(0),
-      }, 'staff@feastpot.co.uk'),
+      svc.createAction(
+        'vendor-1',
+        {
+          actionType: EnforcementType.SUSPENSION,
+          reasonCode: 'DOCUMENT_EXPIRED',
+          reasonNarrative: exactlyFifty,
+          effectiveAt: isoFuture(0),
+        },
+        'staff@feastpot.co.uk',
+      ),
     ).resolves.toMatchObject({ id: 'action-1' });
   });
 
@@ -113,12 +129,16 @@ describe('Narrative length', () => {
     const svc = makeSvc();
     const paddedWithSpace = 'x ' + ' '.repeat(60);
     await expect(
-      svc.createAction('vendor-1', {
-        actionType: EnforcementType.SUSPENSION,
-        reasonCode: 'DOCUMENT_EXPIRED',
-        reasonNarrative: paddedWithSpace,
-        effectiveAt: isoFuture(0),
-      }, 'staff@feastpot.co.uk'),
+      svc.createAction(
+        'vendor-1',
+        {
+          actionType: EnforcementType.SUSPENSION,
+          reasonCode: 'DOCUMENT_EXPIRED',
+          reasonNarrative: paddedWithSpace,
+          effectiveAt: isoFuture(0),
+        },
+        'staff@feastpot.co.uk',
+      ),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 });
@@ -129,24 +149,32 @@ describe('Non-urgent notice timing', () => {
   it('rejects when effectiveAt is in the past (notice would be after effective)', async () => {
     const svc = makeSvc();
     await expect(
-      svc.createAction('vendor-1', {
-        actionType: EnforcementType.SUSPENSION,
-        reasonCode: 'MATERIAL_BREACH',
-        reasonNarrative: GOOD_NARRATIVE,
-        effectiveAt: isoFuture(-1), // yesterday
-      }, 'staff@feastpot.co.uk'),
+      svc.createAction(
+        'vendor-1',
+        {
+          actionType: EnforcementType.SUSPENSION,
+          reasonCode: 'MATERIAL_BREACH',
+          reasonNarrative: GOOD_NARRATIVE,
+          effectiveAt: isoFuture(-1), // yesterday
+        },
+        'staff@feastpot.co.uk',
+      ),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('rejects with code NOTICE_BEFORE_EFFECTIVE', async () => {
     const svc = makeSvc();
     try {
-      await svc.createAction('vendor-1', {
-        actionType: EnforcementType.SUSPENSION,
-        reasonCode: 'REPEATED_COMPLAINTS',
-        reasonNarrative: GOOD_NARRATIVE,
-        effectiveAt: isoFuture(-2),
-      }, 'staff@feastpot.co.uk');
+      await svc.createAction(
+        'vendor-1',
+        {
+          actionType: EnforcementType.SUSPENSION,
+          reasonCode: 'REPEATED_COMPLAINTS',
+          reasonNarrative: GOOD_NARRATIVE,
+          effectiveAt: isoFuture(-2),
+        },
+        'staff@feastpot.co.uk',
+      );
       fail('expected BadRequestException');
     } catch (err) {
       expect(err).toBeInstanceOf(BadRequestException);
@@ -159,12 +187,16 @@ describe('Non-urgent notice timing', () => {
   it('accepts when effectiveAt is now or in the future', async () => {
     const svc = makeSvc();
     await expect(
-      svc.createAction('vendor-1', {
-        actionType: EnforcementType.SUSPENSION,
-        reasonCode: 'MATERIAL_BREACH',
-        reasonNarrative: GOOD_NARRATIVE,
-        effectiveAt: isoFuture(7),
-      }, 'staff@feastpot.co.uk'),
+      svc.createAction(
+        'vendor-1',
+        {
+          actionType: EnforcementType.SUSPENSION,
+          reasonCode: 'MATERIAL_BREACH',
+          reasonNarrative: GOOD_NARRATIVE,
+          effectiveAt: isoFuture(7),
+        },
+        'staff@feastpot.co.uk',
+      ),
     ).resolves.toMatchObject({ id: 'action-1' });
   });
 });
@@ -172,32 +204,38 @@ describe('Non-urgent notice timing', () => {
 // ── 3. Urgent actions bypass timing restriction ───────────────────────────────
 
 describe('Urgent actions', () => {
-  it.each(URGENT_REASON_CODES)(
-    '%s requires urgentBasis',
-    async (reasonCode) => {
-      const svc = makeSvc();
-      await expect(
-        svc.createAction('vendor-1', {
+  it.each(URGENT_REASON_CODES)('%s requires urgentBasis', async (reasonCode) => {
+    const svc = makeSvc();
+    await expect(
+      svc.createAction(
+        'vendor-1',
+        {
           actionType: EnforcementType.SUSPENSION,
           reasonCode,
           reasonNarrative: GOOD_NARRATIVE,
           effectiveAt: isoFuture(0), // now
           // urgentBasis missing
-        }, 'system'),
-      ).rejects.toBeInstanceOf(BadRequestException);
-    },
-  );
+        },
+        'system',
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
 
   it('accepts urgent action with effectiveAt = now and urgentBasis provided', async () => {
     const svc = makeSvc();
     await expect(
-      svc.createAction('vendor-1', {
-        actionType: EnforcementType.SUSPENSION,
-        reasonCode: 'FHRS_BELOW_THRESHOLD',
-        reasonNarrative: GOOD_NARRATIVE,
-        effectiveAt: isoFuture(0),
-        urgentBasis: 'FHRS rating of 1/5 received. Immediate suspension required under food safety obligations.',
-      }, 'system'),
+      svc.createAction(
+        'vendor-1',
+        {
+          actionType: EnforcementType.SUSPENSION,
+          reasonCode: 'FHRS_BELOW_THRESHOLD',
+          reasonNarrative: GOOD_NARRATIVE,
+          effectiveAt: isoFuture(0),
+          urgentBasis:
+            'FHRS rating of 1/5 received. Immediate suspension required under food safety obligations.',
+        },
+        'system',
+      ),
     ).resolves.toMatchObject({ id: 'action-1' });
   });
 });
@@ -208,24 +246,32 @@ describe('Termination notice period', () => {
   it('rejects TERMINATION with effectiveAt < 30 days out for non-serious-cause', async () => {
     const svc = makeSvc();
     await expect(
-      svc.createAction('vendor-1', {
-        actionType: EnforcementType.TERMINATION,
-        reasonCode: 'MATERIAL_BREACH',
-        reasonNarrative: GOOD_NARRATIVE,
-        effectiveAt: isoFuture(15), // only 15 days
-      }, 'staff@feastpot.co.uk'),
+      svc.createAction(
+        'vendor-1',
+        {
+          actionType: EnforcementType.TERMINATION,
+          reasonCode: 'MATERIAL_BREACH',
+          reasonNarrative: GOOD_NARRATIVE,
+          effectiveAt: isoFuture(15), // only 15 days
+        },
+        'staff@feastpot.co.uk',
+      ),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('rejects with code TERMINATION_NOTICE_TOO_SHORT', async () => {
     const svc = makeSvc();
     try {
-      await svc.createAction('vendor-1', {
-        actionType: EnforcementType.TERMINATION,
-        reasonCode: 'PROHIBITED_CONDUCT',
-        reasonNarrative: GOOD_NARRATIVE,
-        effectiveAt: isoFuture(10),
-      }, 'staff@feastpot.co.uk');
+      await svc.createAction(
+        'vendor-1',
+        {
+          actionType: EnforcementType.TERMINATION,
+          reasonCode: 'PROHIBITED_CONDUCT',
+          reasonNarrative: GOOD_NARRATIVE,
+          effectiveAt: isoFuture(10),
+        },
+        'staff@feastpot.co.uk',
+      );
       fail('expected BadRequestException');
     } catch (err) {
       expect(err).toBeInstanceOf(BadRequestException);
@@ -238,12 +284,16 @@ describe('Termination notice period', () => {
   it('accepts TERMINATION with effectiveAt >= 30 days out', async () => {
     const svc = makeSvc();
     await expect(
-      svc.createAction('vendor-1', {
-        actionType: EnforcementType.TERMINATION,
-        reasonCode: 'MATERIAL_BREACH',
-        reasonNarrative: GOOD_NARRATIVE,
-        effectiveAt: isoFuture(31),
-      }, 'staff@feastpot.co.uk'),
+      svc.createAction(
+        'vendor-1',
+        {
+          actionType: EnforcementType.TERMINATION,
+          reasonCode: 'MATERIAL_BREACH',
+          reasonNarrative: GOOD_NARRATIVE,
+          effectiveAt: isoFuture(31),
+        },
+        'staff@feastpot.co.uk',
+      ),
     ).resolves.toMatchObject({ id: 'action-1' });
   });
 
@@ -252,13 +302,17 @@ describe('Termination notice period', () => {
     async (reasonCode) => {
       const svc = makeSvc();
       await expect(
-        svc.createAction('vendor-1', {
-          actionType: EnforcementType.TERMINATION,
-          reasonCode,
-          reasonNarrative: GOOD_NARRATIVE,
-          effectiveAt: isoFuture(0),
-          urgentBasis: 'Serious cause: fraud detected. Immediate termination required.',
-        }, 'staff@feastpot.co.uk'),
+        svc.createAction(
+          'vendor-1',
+          {
+            actionType: EnforcementType.TERMINATION,
+            reasonCode,
+            reasonNarrative: GOOD_NARRATIVE,
+            effectiveAt: isoFuture(0),
+            urgentBasis: 'Serious cause: fraud detected. Immediate termination required.',
+          },
+          'staff@feastpot.co.uk',
+        ),
       ).resolves.toMatchObject({ id: 'action-1' });
     },
   );
@@ -270,11 +324,13 @@ describe('Automated FHRS suspension', () => {
   it('produces a narrative of at least 50 characters', async () => {
     const svc = makeSvc();
     const capturedNarratives: string[] = [];
-    const originalCreate = (svc as any).prisma.vendorEnforcementAction.create;
-    (svc as any).prisma.vendorEnforcementAction.create = jest.fn().mockImplementation((args: { data: { reasonNarrative: string } }) => {
-      capturedNarratives.push(args.data.reasonNarrative);
-      return Promise.resolve({ id: 'action-1', ...args.data });
-    });
+    const _originalCreate = (svc as any).prisma.vendorEnforcementAction.create;
+    (svc as any).prisma.vendorEnforcementAction.create = jest
+      .fn()
+      .mockImplementation((args: { data: { reasonNarrative: string } }) => {
+        capturedNarratives.push(args.data.reasonNarrative);
+        return Promise.resolve({ id: 'action-1', ...args.data });
+      });
     // The $transaction mock calls create on the nested tx object, not the top-level one.
     // Verify via the service method directly.
     const createSpy = jest.spyOn(svc, 'createAction');
@@ -305,7 +361,11 @@ describe('Automated FHRS suspension', () => {
   it('uses a non-urgent reason code for DOCUMENT_EXPIRED', async () => {
     const svc = makeSvc();
     const createSpy = jest.spyOn(svc, 'createAction');
-    await svc.createAutomatedSuspension('vendor-1', 'DOCUMENT_EXPIRED', 'Public liability insurance expired');
+    await svc.createAutomatedSuspension(
+      'vendor-1',
+      'DOCUMENT_EXPIRED',
+      'Public liability insurance expired',
+    );
     expect(createSpy).toHaveBeenCalledWith(
       'vendor-1',
       expect.objectContaining({

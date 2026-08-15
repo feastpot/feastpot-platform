@@ -50,31 +50,31 @@ const NAV_SECTIONS: ReadonlyArray<NavSection> = [
   {
     label: 'Selling',
     items: [
-      { href: '/',         label: 'Dashboard',         Icon: LayoutDashboard },
-      { href: '/orders',   label: 'Orders',             Icon: ClipboardList },
-      { href: '/disputes', label: 'Disputes',           Icon: MessageSquareWarning },
+      { href: '/', label: 'Dashboard', Icon: LayoutDashboard },
+      { href: '/orders', label: 'Orders', Icon: ClipboardList },
+      { href: '/disputes', label: 'Disputes', Icon: MessageSquareWarning },
     ],
   },
   {
     label: 'Your kitchen',
     items: [
-      { href: '/menu',               label: 'Menu',         Icon: UtensilsCrossed },
-      { href: '/availability',       label: 'Availability', Icon: Calendar },
-      { href: '/settings/delivery',  label: 'Delivery',     Icon: Truck },
-      { href: '/settings/profile',   label: 'Profile',      Icon: UserCircle2 },
+      { href: '/menu', label: 'Menu', Icon: UtensilsCrossed },
+      { href: '/availability', label: 'Availability', Icon: Calendar },
+      { href: '/settings/delivery', label: 'Delivery', Icon: Truck },
+      { href: '/settings/profile', label: 'Profile', Icon: UserCircle2 },
     ],
   },
   {
     label: 'Growth',
     items: [
-      { href: '/share',     label: 'Share and customers',  Icon: QrCode },
-      { href: '/performance', label: 'Performance',         Icon: BarChart3 },
+      { href: '/share', label: 'Share and customers', Icon: QrCode },
+      { href: '/performance', label: 'Performance', Icon: BarChart3 },
     ],
   },
   {
     label: 'Money',
     items: [
-      { href: '/payouts',         label: 'Payouts',         Icon: PoundSterling },
+      { href: '/payouts', label: 'Payouts', Icon: PoundSterling },
       { href: '/tax-information', label: 'Tax information', Icon: Receipt },
     ],
   },
@@ -82,9 +82,9 @@ const NAV_SECTIONS: ReadonlyArray<NavSection> = [
     label: 'Account',
     items: [
       { href: '/account-and-compliance', label: 'Account and compliance', Icon: FileCheck2 },
-      { href: '/settings/team',          label: 'Team',                   Icon: UsersRound },
-      { href: '/settings/security',      label: 'Security',               Icon: ShieldCheck },
-      { href: '/user-guide',             label: 'User guide',             Icon: BookOpen },
+      { href: '/settings/team', label: 'Team', Icon: UsersRound },
+      { href: '/settings/security', label: 'Security', Icon: ShieldCheck },
+      { href: '/user-guide', label: 'User guide', Icon: BookOpen },
     ],
   },
 ];
@@ -113,9 +113,7 @@ export function SideNav({ businessName }: SideNavProps) {
 
   const visibleSections = NAV_SECTIONS.map((section) => ({
     ...section,
-    items: role
-      ? section.items.filter((i) => canVendorRoleAccess(role, i.href))
-      : section.items,
+    items: role ? section.items.filter((i) => canVendorRoleAccess(role, i.href)) : section.items,
   })).filter((section) => section.items.length > 0);
 
   const initials = makeInitials(businessName ?? 'Vendor');
@@ -323,12 +321,18 @@ function makeInitials(name: string): string {
 
 function formatRole(role: string): string {
   switch (role) {
-    case 'owner':              return 'Owner';
-    case 'kitchen_manager':    return 'Kitchen Manager';
-    case 'finance':            return 'Finance';
-    case 'staff':              return 'Staff';
-    case 'delivery_coordinator': return 'Delivery';
-    default:                   return role;
+    case 'owner':
+      return 'Owner';
+    case 'kitchen_manager':
+      return 'Kitchen Manager';
+    case 'finance':
+      return 'Finance';
+    case 'staff':
+      return 'Staff';
+    case 'delivery_coordinator':
+      return 'Delivery';
+    default:
+      return role;
   }
 }
 

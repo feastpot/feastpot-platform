@@ -16,10 +16,7 @@ import { VendorResultsHero } from '@/components/vendors/vendor-results-hero';
 import { VendorRowCard } from '@/components/vendors/vendor-row-card';
 import { VendorSearchBar } from '@/components/vendors/vendor-search-bar';
 import { useVendors } from '@/hooks/use-vendors';
-import {
-  ALLERGEN_FREE_SLUG_SET,
-  DIETARY_PREFERENCE_SLUG_SET,
-} from '@feastpot/config/allergens';
+import { ALLERGEN_FREE_SLUG_SET, DIETARY_PREFERENCE_SLUG_SET } from '@feastpot/config/allergens';
 
 import {
   getVendorCardExtras,
@@ -448,8 +445,8 @@ function VendorSearch() {
                       No results for &ldquo;{q}&rdquo;
                     </h2>
                     <p className="mb-5 max-w-[300px] text-sm font-medium text-charcoal-mid">
-                      Try a different dish name or browse all kitchens near{' '}
-                      {postcode.toUpperCase()}.
+                      Try a different dish name or browse all kitchens near {postcode.toUpperCase()}
+                      .
                     </p>
                     <button
                       type="button"
@@ -468,8 +465,8 @@ function VendorSearch() {
                       Feastpot isn&rsquo;t serving {postcode.toUpperCase()} yet.
                     </h2>
                     <p className="mt-2 max-w-2xl text-sm font-medium leading-relaxed text-charcoal-mid">
-                      We open postcode by postcode so you only see cooks who can actually deliver
-                      to you. Join the waitlist and tell us who you want to see on Feastpot.
+                      We open postcode by postcode so you only see cooks who can actually deliver to
+                      you. Join the waitlist and tell us who you want to see on Feastpot.
                     </p>
 
                     <div className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-2">

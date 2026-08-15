@@ -93,8 +93,8 @@ export function FeastPassBrowsingBanner() {
             Skip the service fee with FeastPass
           </p>
           <p className="mt-0.5 text-xs font-medium leading-snug text-charcoal-mid">
-            &pound;3.99 a month. Orders you place through Feastpot come with no service fee,
-            which is up to &pound;2.99 an order.
+            &pound;3.99 a month. Orders you place through Feastpot come with no service fee, which
+            is up to &pound;2.99 an order.
           </p>
           <Link
             href="/feastpass"

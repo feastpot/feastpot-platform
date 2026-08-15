@@ -32,8 +32,9 @@
 import { DeliveryType, UserRole, VendorStatus } from '@prisma/client';
 
 import { PrismaService } from '../../prisma/prisma.service';
-import { VendorRepository } from './vendors.repository';
+
 import { VendorSortBy } from './dto/search-vendors.dto';
+import { VendorRepository } from './vendors.repository';
 
 const d = process.env.SUPABASE_DB_URL ? describe : describe.skip;
 if (!process.env.SUPABASE_DB_URL) {

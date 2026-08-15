@@ -143,8 +143,7 @@ export function useCancelledOrders(enabled = true) {
       );
       const merged = responses.flatMap((r) => r.data);
       merged.sort(
-        (a, b) =>
-          +new Date(b.cancelledAt ?? b.createdAt) - +new Date(a.cancelledAt ?? a.createdAt),
+        (a, b) => +new Date(b.cancelledAt ?? b.createdAt) - +new Date(a.cancelledAt ?? a.createdAt),
       );
       return merged;
     },

@@ -33,7 +33,11 @@ const STATUS_COLOUR: Record<Status, string> = {
 
 function formatDate(d: string | null | undefined) {
   if (!d) return '-';
-  return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+  return new Date(d).toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
 }
 
 function formatPounds(p: number) {
@@ -106,7 +110,11 @@ function FeastPassInner() {
   }
 
   if (error) {
-    return <p className="px-4 py-8 text-center text-sm text-destructive">Could not load membership details.</p>;
+    return (
+      <p className="px-4 py-8 text-center text-sm text-destructive">
+        Could not load membership details.
+      </p>
+    );
   }
 
   const sub = data?.subscription;
@@ -123,7 +131,9 @@ function FeastPassInner() {
       {justSucceeded && (
         <div className="flex items-center gap-2 rounded-2xl bg-green-50 border border-green-200 px-4 py-3">
           <Check className="h-4 w-4 text-green-600" aria-hidden />
-          <p className="text-sm font-bold text-green-800">Welcome to FeastPass! Your membership is active.</p>
+          <p className="text-sm font-bold text-green-800">
+            Welcome to FeastPass! Your membership is active.
+          </p>
         </div>
       )}
 
@@ -134,7 +144,9 @@ function FeastPassInner() {
           <div className="rounded-2xl border border-cream-deep bg-white p-5 shadow-card">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-xs font-black uppercase tracking-wider text-charcoal-mid">Current plan</p>
+                <p className="text-xs font-black uppercase tracking-wider text-charcoal-mid">
+                  Current plan
+                </p>
                 <p className="mt-0.5 font-display text-lg font-black text-charcoal">
                   FeastPass {sub.plan === 'ANNUAL' ? 'Annual' : 'Monthly'}
                 </p>
@@ -175,10 +187,12 @@ function FeastPassInner() {
                 {formatPounds(savings.totalSavedPence)}
               </p>
               <p className="mt-0.5 text-sm font-medium text-charcoal-mid">
-                saved across {savings.orderCount} order{savings.orderCount !== 1 ? 's' : ''} as a member
+                saved across {savings.orderCount} order{savings.orderCount !== 1 ? 's' : ''} as a
+                member
               </p>
               <p className="mt-2 text-xs text-charcoal-mid">
-                Based on orders placed through Feastpot. Orders through a kitchen&apos;s own link are not included.
+                Based on orders placed through Feastpot. Orders through a kitchen&apos;s own link
+                are not included.
               </p>
             </div>
           )}
@@ -218,8 +232,14 @@ function FeastPassInner() {
                 disabled={actionLoading}
                 className="flex w-full items-center justify-between rounded-2xl bg-brand px-5 py-4 text-white shadow-card hover:bg-brand-dark disabled:opacity-60"
               >
-                <span className="font-bold">Annual - £39.90 <span className="text-xs opacity-80">(2 months free)</span></span>
-                {actionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
+                <span className="font-bold">
+                  Annual - £39.90 <span className="text-xs opacity-80">(2 months free)</span>
+                </span>
+                {actionLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <ArrowRight className="h-4 w-4" />
+                )}
               </button>
               <button
                 type="button"
@@ -228,7 +248,11 @@ function FeastPassInner() {
                 className="flex w-full items-center justify-between rounded-2xl border border-cream-deep bg-white px-5 py-4 shadow-card hover:border-brand/30 hover:bg-brand-light disabled:opacity-60"
               >
                 <span className="font-bold text-charcoal">Monthly - £3.99/mo</span>
-                {actionLoading ? <Loader2 className="h-4 w-4 animate-spin text-brand" /> : <ArrowRight className="h-4 w-4 text-brand" />}
+                {actionLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-brand" />
+                ) : (
+                  <ArrowRight className="h-4 w-4 text-brand" />
+                )}
               </button>
             </div>
           )}

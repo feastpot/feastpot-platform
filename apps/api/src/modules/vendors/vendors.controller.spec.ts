@@ -4,7 +4,12 @@ jest.mock('qrcode', () => ({
   toString: jest.fn().mockResolvedValue('<svg>fake-svg</svg>'),
 }));
 
-import { INestApplication, NotFoundException, ValidationPipe, VersioningType } from '@nestjs/common';
+import {
+  INestApplication,
+  NotFoundException,
+  ValidationPipe,
+  VersioningType,
+} from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 
@@ -283,7 +288,7 @@ describe('VendorsController.myQrCode - auth-scoped QR generation', () => {
     // resolves it and sets fp_ref. Using Vendor.slug when the two differ produces a
     // URL that records no click, silently attributing the order as marketplace (12%).
     // ?src=vendor must NOT appear: the route handler ignores it, so it is misleading.
-    const vendorSlug = "mama's kitchen";      // display slug - must NOT appear in QR URL
+    const vendorSlug = "mama's kitchen"; // display slug - must NOT appear in QR URL
     const referralSlug = 'mamas-kitchen-ref'; // attribution slug - MUST appear in QR URL
     vendorFindUnique.mockResolvedValue({ slug: vendorSlug, id: 'vendor-1' });
     referralLinkFindUnique.mockResolvedValue({ slug: referralSlug });

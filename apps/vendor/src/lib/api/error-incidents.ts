@@ -28,9 +28,7 @@ interface IncidentResponse {
  * Resolves to null if the request fails :  error logging must never cause a
  * secondary error.
  */
-export async function reportErrorIncident(
-  payload: CreateIncidentPayload,
-): Promise<string | null> {
+export async function reportErrorIncident(payload: CreateIncidentPayload): Promise<string | null> {
   try {
     const res = await fetch(`${API_BASE}/v1/error-incidents`, {
       method: 'POST',

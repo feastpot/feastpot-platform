@@ -1,4 +1,5 @@
 # Vendor portal usability test protocol
+
 ## Consolidated screens: Orders, Share, Performance, Account and compliance
 
 **Conducted by:** \_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_  
@@ -38,14 +39,14 @@ visible on the system. Do **not** explain the screen layout.
   declares done after finding only standard orders; participant cannot read the
   screen layout within 30 seconds and asks for guidance
 
-| Observation | Notes |
-|---|---|
-| Completed unaided (yes / no) | |
-| Time (seconds) | |
-| Number of page navigations (target: 0) | |
-| Hesitations (describe each) | |
-| Verbatim comments | |
-| Pass / Fail | |
+| Observation                            | Notes |
+| -------------------------------------- | ----- |
+| Completed unaided (yes / no)           |       |
+| Time (seconds)                         |       |
+| Number of page navigations (target: 0) |       |
+| Hesitations (describe each)            |       |
+| Verbatim comments                      |       |
+| Pass / Fail                            |       |
 
 ---
 
@@ -61,14 +62,14 @@ visible on the system. Do **not** explain the screen layout.
   confuses the filter with the tab (status row); participant does not notice that
   the counts change when filtering
 
-| Observation | Notes |
-|---|---|
-| Completed unaided (yes / no) | |
-| Time (seconds) | |
-| Described the count change when filtering (yes / no) | |
-| Hesitations (describe each) | |
-| Verbatim comments | |
-| Pass / Fail | |
+| Observation                                          | Notes |
+| ---------------------------------------------------- | ----- |
+| Completed unaided (yes / no)                         |       |
+| Time (seconds)                                       |       |
+| Described the count change when filtering (yes / no) |       |
+| Hesitations (describe each)                          |       |
+| Verbatim comments                                    |       |
+| Pass / Fail                                          |       |
 
 ---
 
@@ -86,14 +87,14 @@ visible on the system. Do **not** explain the screen layout.
   participant cannot find the quote action on the card; participant closes the
   modal without submitting
 
-| Observation | Notes |
-|---|---|
-| Completed unaided (yes / no) | |
-| Time (seconds) | |
-| Number of page navigations (target: 0) | |
-| Hesitations (describe each) | |
-| Verbatim comments | |
-| Pass / Fail | |
+| Observation                            | Notes |
+| -------------------------------------- | ----- |
+| Completed unaided (yes / no)           |       |
+| Time (seconds)                         |       |
+| Number of page navigations (target: 0) |       |
+| Hesitations (describe each)            |       |
+| Verbatim comments                      |       |
+| Pass / Fail                            |       |
 
 ---
 
@@ -111,14 +112,14 @@ visible on the system. Do **not** explain the screen layout.
   unsure which of two links to use (this would indicate the divergent-link
   defect has returned)
 
-| Observation | Notes |
-|---|---|
-| Completed unaided (yes / no) | |
-| Time (seconds) | |
-| URL copied (record verbatim if possible) | |
-| Hesitations (describe each) | |
-| Verbatim comments | |
-| Pass / Fail | |
+| Observation                              | Notes |
+| ---------------------------------------- | ----- |
+| Completed unaided (yes / no)             |       |
+| Time (seconds)                           |       |
+| URL copied (record verbatim if possible) |       |
+| Hesitations (describe each)              |       |
+| Verbatim comments                        |       |
+| Pass / Fail                              |       |
 
 ---
 
@@ -133,14 +134,14 @@ visible on the system. Do **not** explain the screen layout.
   finds the QR image but does not know how to save it; participant saves the SVG
   when they needed PNG (or vice versa -- note which format they chose and why)
 
-| Observation | Notes |
-|---|---|
-| Completed unaided (yes / no) | |
-| Time (seconds) | |
-| Format chosen (PNG / SVG) | |
-| Hesitations (describe each) | |
-| Verbatim comments | |
-| Pass / Fail | |
+| Observation                  | Notes |
+| ---------------------------- | ----- |
+| Completed unaided (yes / no) |       |
+| Time (seconds)               |       |
+| Format chosen (PNG / SVG)    |       |
+| Hesitations (describe each)  |       |
+| Verbatim comments            |       |
+| Pass / Fail                  |       |
 
 ---
 
@@ -156,15 +157,15 @@ visible on the system. Do **not** explain the screen layout.
   names the marketplace rate (12% or 10%) instead; participant says they cannot
   find the information
 
-| Observation | Notes |
-|---|---|
-| Completed unaided (yes / no) | |
-| Time (seconds) | |
-| Answer given (verbatim) | |
-| Correct (yes / no) | |
-| Hesitations (describe each) | |
-| Verbatim comments | |
-| Pass / Fail | |
+| Observation                  | Notes |
+| ---------------------------- | ----- |
+| Completed unaided (yes / no) |       |
+| Time (seconds)               |       |
+| Answer given (verbatim)      |       |
+| Correct (yes / no)           |       |
+| Hesitations (describe each)  |       |
+| Verbatim comments            |       |
+| Pass / Fail                  |       |
 
 ---
 
@@ -182,15 +183,15 @@ visible on the system. Do **not** explain the screen layout.
   participant reads the vendor-referred rate (0%) instead; participant cannot
   find the rate schedule at all
 
-| Observation | Notes |
-|---|---|
-| Completed unaided (yes / no) | |
-| Time (seconds) | |
-| Answer given (verbatim) | |
-| Correct (yes / no) | |
-| Hesitations (describe each) | |
-| Verbatim comments | |
-| Pass / Fail | |
+| Observation                  | Notes |
+| ---------------------------- | ----- |
+| Completed unaided (yes / no) |       |
+| Time (seconds)               |       |
+| Answer given (verbatim)      |       |
+| Correct (yes / no)           |       |
+| Hesitations (describe each)  |       |
+| Verbatim comments            |       |
+| Pass / Fail                  |       |
 
 ---
 
@@ -205,15 +206,15 @@ visible on the system. Do **not** explain the screen layout.
   notice period (15 days) and confuses it with the fee-change notice; participant
   says they cannot find the information
 
-| Observation | Notes |
-|---|---|
-| Completed unaided (yes / no) | |
-| Time (seconds) | |
-| Answer given (verbatim) | |
-| Correct (yes / no) | |
-| Hesitations (describe each) | |
-| Verbatim comments | |
-| Pass / Fail | |
+| Observation                  | Notes |
+| ---------------------------- | ----- |
+| Completed unaided (yes / no) |       |
+| Time (seconds)               |       |
+| Answer given (verbatim)      |       |
+| Correct (yes / no)           |       |
+| Hesitations (describe each)  |       |
+| Verbatim comments            |       |
+| Pass / Fail                  |       |
 
 ---
 
@@ -228,15 +229,15 @@ visible on the system. Do **not** explain the screen layout.
   participant mistakes the weekly chart for the hourly one; participant is
   confused about which timezone the hours refer to
 
-| Observation | Notes |
-|---|---|
-| Completed unaided (yes / no) | |
-| Time (seconds) | |
-| Peak period identified (describe) | |
-| Asked about timezone (yes / no) | |
-| Hesitations (describe each) | |
-| Verbatim comments | |
-| Pass / Fail | |
+| Observation                       | Notes |
+| --------------------------------- | ----- |
+| Completed unaided (yes / no)      |       |
+| Time (seconds)                    |       |
+| Peak period identified (describe) |       |
+| Asked about timezone (yes / no)   |       |
+| Hesitations (describe each)       |       |
+| Verbatim comments                 |       |
+| Pass / Fail                       |       |
 
 ---
 
@@ -254,15 +255,15 @@ visible on the system. Do **not** explain the screen layout.
   section without reading it; participant navigates away to look for status
   information; participant is not sure what "good standing" means in context
 
-| Observation | Notes |
-|---|---|
-| Completed unaided (yes / no) | |
-| Time (seconds) | |
-| Correct status reported (yes / no) | |
-| First section participant looked at | |
-| Hesitations (describe each) | |
-| Verbatim comments | |
-| Pass / Fail | |
+| Observation                         | Notes |
+| ----------------------------------- | ----- |
+| Completed unaided (yes / no)        |       |
+| Time (seconds)                      |       |
+| Correct status reported (yes / no)  |       |
+| First section participant looked at |       |
+| Hesitations (describe each)         |       |
+| Verbatim comments                   |       |
+| Pass / Fail                         |       |
 
 ---
 
@@ -279,14 +280,14 @@ visible on the system. Do **not** explain the screen layout.
   image appeared without one; participant sees an error and does not know how
   to respond to it
 
-| Observation | Notes |
-|---|---|
-| Completed unaided (yes / no) | |
-| Time (seconds) | |
-| Image rendered without reload (yes / no) | |
-| Hesitations (describe each) | |
-| Verbatim comments | |
-| Pass / Fail | |
+| Observation                              | Notes |
+| ---------------------------------------- | ----- |
+| Completed unaided (yes / no)             |       |
+| Time (seconds)                           |       |
+| Image rendered without reload (yes / no) |       |
+| Hesitations (describe each)              |       |
+| Verbatim comments                        |       |
+| Pass / Fail                              |       |
 
 ---
 
@@ -305,8 +306,8 @@ the customer can pay. A participant who says "accept the order", "confirm it
 directly", or "call them" without mentioning a quote does **not** pass.
 
 | Answer (verbatim) | Pass / Fail |
-|---|---|
-| | |
+| ----------------- | ----------- |
+|                   |             |
 
 ---
 
@@ -321,8 +322,8 @@ discount. A participant who says "they are the same thing" or "for analytics
 only" does **not** pass.
 
 | Answer (verbatim) | Pass / Fail |
-|---|---|
-| | |
+| ----------------- | ----------- |
+|                   |             |
 
 ---
 
@@ -336,8 +337,8 @@ only" does **not** pass.
 pass.
 
 | Answer (verbatim) | Pass / Fail |
-|---|---|
-| | |
+| ----------------- | ----------- |
+|                   |             |
 
 ---
 
@@ -350,8 +351,8 @@ A participant who says "the dashboard" or "I would get an email" without naming
 the portal location does **not** pass.
 
 | Answer (verbatim) | Pass / Fail |
-|---|---|
-| | |
+| ----------------- | ----------- |
+|                   |             |
 
 ---
 
@@ -359,23 +360,23 @@ the portal location does **not** pass.
 
 ### Task report
 
-| Task | Target | Actual time | Completed unaided | Pass / Fail |
-|------|--------|-------------|-------------------|-------------|
-| M1: Find everything needing action | 30 s, 0 nav | | | |
-| M2: Filter to catering, standard, all | 60 s | | | |
-| M3: Send catering quote without leaving screen | 2 min, 0 nav | | | |
-| S1: Copy the referral link | 30 s | | | |
-| S2: Download a QR code | 30 s | | | |
-| S3: Commission on a vendor-referred order | 20 s | | | |
-| PF1: First-time marketplace commission rate | 30 s | | | |
-| PF2: Fee-change notice period | 30 s | | | |
-| PF3: Peak order hours | 45 s | | | |
-| A1: Standing check | 20 s | | | |
-| A2: Logo upload | 2 min | | | |
-| QM1: Catering first step | -- | -- | -- | |
-| QS1: Referral link vs profile page | -- | -- | -- | |
-| QPF1: Two commission rates on same day | -- | -- | -- | |
-| QA1: Where to find suspension reason | -- | -- | -- | |
+| Task                                           | Target       | Actual time | Completed unaided | Pass / Fail |
+| ---------------------------------------------- | ------------ | ----------- | ----------------- | ----------- |
+| M1: Find everything needing action             | 30 s, 0 nav  |             |                   |             |
+| M2: Filter to catering, standard, all          | 60 s         |             |                   |             |
+| M3: Send catering quote without leaving screen | 2 min, 0 nav |             |                   |             |
+| S1: Copy the referral link                     | 30 s         |             |                   |             |
+| S2: Download a QR code                         | 30 s         |             |                   |             |
+| S3: Commission on a vendor-referred order      | 20 s         |             |                   |             |
+| PF1: First-time marketplace commission rate    | 30 s         |             |                   |             |
+| PF2: Fee-change notice period                  | 30 s         |             |                   |             |
+| PF3: Peak order hours                          | 45 s         |             |                   |             |
+| A1: Standing check                             | 20 s         |             |                   |             |
+| A2: Logo upload                                | 2 min        |             |                   |             |
+| QM1: Catering first step                       | --           | --          | --                |             |
+| QS1: Referral link vs profile page             | --           | --          | --                |             |
+| QPF1: Two commission rates on same day         | --           | --          | --                |             |
+| QA1: Where to find suspension reason           | --           | --          | --                |             |
 
 ---
 
@@ -386,8 +387,8 @@ screen or in the saved state. A blank table means all controls behaved as
 labelled.
 
 | Screen | Control | Expected effect | Observed effect |
-|--------|---------|----------------|-----------------|
-| | | | |
+| ------ | ------- | --------------- | --------------- |
+|        |         |                 |                 |
 
 ---
 

@@ -4,11 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useApi } from './use-api';
 
-export type FhrsStatus =
-  | 'AWAITING_FIRST_INSPECTION'
-  | 'RATED'
-  | 'EXEMPT'
-  | 'NOT_FOUND';
+export type FhrsStatus = 'AWAITING_FIRST_INSPECTION' | 'RATED' | 'EXEMPT' | 'NOT_FOUND';
 
 /**
  * Every VerificationState value from the Prisma enum, plus NOT_SET_UP which
@@ -16,11 +12,7 @@ export type FhrsStatus =
  * Read from the API response -- not hardcoded here -- so adding a new Prisma
  * enum value automatically flows through to the admin UI.
  */
-export type VerificationOverallState =
-  | 'NOT_SET_UP'
-  | 'VERIFIED'
-  | 'RENEWAL_DUE'
-  | 'SUSPENDED';
+export type VerificationOverallState = 'NOT_SET_UP' | 'VERIFIED' | 'RENEWAL_DUE' | 'SUSPENDED';
 
 /**
  * The Prisma VerificationState enum values only (excludes NOT_SET_UP which is

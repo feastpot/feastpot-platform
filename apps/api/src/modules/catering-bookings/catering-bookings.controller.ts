@@ -10,11 +10,11 @@ import {
 } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
 
-import type { AuthUser } from '../../auth/types';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { SupabaseAuthGuard } from '../../auth/guards/supabase-auth.guard';
+import type { AuthUser } from '../../auth/types';
 
 import { CateringBookingsService } from './catering-bookings.service';
 import { CancelCateringBookingDto } from './dto/cancel-catering-booking.dto';
@@ -71,20 +71,14 @@ export class CateringBookingsController {
   // ── Public: confirm deposit after Stripe redirect ──────────────────────────
 
   @Post(':id/confirm-deposit')
-  confirmDeposit(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: ConfirmDepositDto,
-  ) {
+  confirmDeposit(@Param('id', ParseUUIDPipe) id: string, @Body() dto: ConfirmDepositDto) {
     return this.service.confirmDeposit(id, dto.paymentIntentId);
   }
 
   // ── Public: confirm balance payment ───────────────────────────────────────
 
   @Post(':id/confirm-balance')
-  confirmBalance(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: ConfirmBalanceDto,
-  ) {
+  confirmBalance(@Param('id', ParseUUIDPipe) id: string, @Body() dto: ConfirmBalanceDto) {
     return this.service.confirmBalance(id, dto.paymentIntentId);
   }
 

@@ -135,7 +135,11 @@ const RATE_ROWS: RateRow[] = [
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function PerformanceClient() {
-  const { data: analyticsData, isLoading: analyticsLoading, error: analyticsError } = useAnalytics();
+  const {
+    data: analyticsData,
+    isLoading: analyticsLoading,
+    error: analyticsError,
+  } = useAnalytics();
 
   const [earnings, setEarnings] = useState<EarningsData | null>(null);
   const [earningsLoading, setEarningsLoading] = useState(true);
@@ -207,9 +211,7 @@ export function PerformanceClient() {
           ? undefined
           : ((t.revenuePence - l.revenuePence) / l.revenuePence) * 100,
       ordersDelta:
-        l.ordersCount === 0
-          ? undefined
-          : ((t.ordersCount - l.ordersCount) / l.ordersCount) * 100,
+        l.ordersCount === 0 ? undefined : ((t.ordersCount - l.ordersCount) / l.ordersCount) * 100,
     };
   }, [weekly]);
 
@@ -644,8 +646,8 @@ export function PerformanceClient() {
 
               <div className="mt-4 space-y-1.5 border-t border-border pt-4">
                 <p className="text-[11px] text-mid">
-                  <strong className="font-semibold text-dark">Commission and fee changes</strong>{' '}
-                  : {PLATFORM_FACTS.feeChangeNoticeDays} days written notice before any increase to
+                  <strong className="font-semibold text-dark">Commission and fee changes</strong> :{' '}
+                  {PLATFORM_FACTS.feeChangeNoticeDays} days written notice before any increase to
                   commission rates or service fees. Changes are never applied retrospectively.
                 </p>
                 <p className="text-[11px] text-mid">

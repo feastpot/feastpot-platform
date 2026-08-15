@@ -30,7 +30,10 @@ import { cn } from '@feastpot/ui';
 import { AlertTriangle, ShieldAlert, X } from 'lucide-react';
 import Link from 'next/link';
 
-import { useVendorVerification, type VendorVerificationRecord } from '@/hooks/use-vendor-verification';
+import {
+  useVendorVerification,
+  type VendorVerificationRecord,
+} from '@/hooks/use-vendor-verification';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -98,10 +101,7 @@ function SuspendedBanner({ v }: { v: VendorVerificationRecord }) {
       data-testid="verification-suspended-banner"
       className="fp-card flex items-start gap-3 border border-red-400 bg-red-50 p-4 text-sm text-red-900"
     >
-      <ShieldAlert
-        className="mt-0.5 h-5 w-5 shrink-0 text-red-600"
-        aria-hidden
-      />
+      <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-red-600" aria-hidden />
       <div className="min-w-0 flex-1">
         <p className="font-bold">Your listing is suspended</p>
         <p className="mt-0.5">
@@ -132,7 +132,13 @@ function SuspendedBanner({ v }: { v: VendorVerificationRecord }) {
   );
 }
 
-function RenewalDueBanner({ v, onDismiss }: { v: VendorVerificationRecord; onDismiss: () => void }) {
+function RenewalDueBanner({
+  v,
+  onDismiss,
+}: {
+  v: VendorVerificationRecord;
+  onDismiss: () => void;
+}) {
   const deadline = nearestExpiryDate(v);
 
   return (
@@ -142,10 +148,7 @@ function RenewalDueBanner({ v, onDismiss }: { v: VendorVerificationRecord; onDis
       data-testid="verification-renewal-banner"
       className="fp-card flex items-start gap-3 border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900"
     >
-      <AlertTriangle
-        className="mt-0.5 h-5 w-5 shrink-0 text-amber-600"
-        aria-hidden
-      />
+      <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" aria-hidden />
       <div className="min-w-0 flex-1">
         <p className="font-bold">Renewal required: your listing will stop taking orders soon</p>
         <p className="mt-0.5">
@@ -166,9 +169,7 @@ function RenewalDueBanner({ v, onDismiss }: { v: VendorVerificationRecord; onDis
           onClick={onDismiss}
           aria-label="Dismiss renewal reminder"
           data-testid="renewal-dismiss"
-          className={cn(
-            'rounded-md p-1 text-amber-700 transition-colors hover:bg-amber-200',
-          )}
+          className={cn('rounded-md p-1 text-amber-700 transition-colors hover:bg-amber-200')}
         >
           <X className="h-4 w-4" aria-hidden />
         </button>

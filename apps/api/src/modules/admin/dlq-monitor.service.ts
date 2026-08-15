@@ -323,9 +323,7 @@ export class DlqMonitorService {
     }
     if (hot.length === 0) return;
 
-    const lines = hot
-      .map((g) => `  [${g.app}] ${g.route}: ${Number(g.count)} errors`)
-      .join('\n');
+    const lines = hot.map((g) => `  [${g.app}] ${g.route}: ${Number(g.count)} errors`).join('\n');
     const message = `Portal error rate alert:\n${lines}`;
 
     this.logger.warn(message);
@@ -334,7 +332,9 @@ export class DlqMonitorService {
       const text =
         `:rotating_light: *Portal error rate alert* :  ${hot.length} route(s) exceeded ` +
         `${DlqMonitorService.ERROR_RATE_THRESHOLD} errors in the last hour:\n` +
-        hot.map((g) => `  • \`[${g.app}]\` \`${g.route}\` :  *${Number(g.count)} errors*`).join('\n');
+        hot
+          .map((g) => `  • \`[${g.app}]\` \`${g.route}\` :  *${Number(g.count)} errors*`)
+          .join('\n');
       await fetch(this.slackWebhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -374,7 +374,7 @@ export class DlqMonitorService {
    */
   @Cron('30 * * * *')
   async checkReconciliation(): Promise<void> {
-    const PAYOUT_STALE_MS      = 30 * 60 * 1000; // 30 min
+    const PAYOUT_STALE_MS = 30 * 60 * 1000; // 30 min
     const NOTIFICATION_STALE_MS = 60 * 60 * 1000; // 1 hour
 
     const [stalePayouts, stuckNotifications, refundsNoStripeId] = await Promise.all([
@@ -428,9 +428,7 @@ export class DlqMonitorService {
     ]);
 
     const hasGap =
-      stalePayouts.length > 0 ||
-      stuckNotifications.length > 0 ||
-      refundsNoStripeId.length > 0;
+      stalePayouts.length > 0 || stuckNotifications.length > 0 || refundsNoStripeId.length > 0;
 
     if (!hasGap) return;
 
@@ -443,12 +441,16 @@ export class DlqMonitorService {
       for (const p of stalePayouts) {
         lines.push(
           `  - \`${p.id}\` ${p.vendor?.businessName ?? 'unknown'} ` +
-          `£${(p.amountPence / 100).toFixed(2)} approved at ${p.approvedAt?.toISOString() ?? 'unknown'}`,
+            `£${(p.amountPence / 100).toFixed(2)} approved at ${p.approvedAt?.toISOString() ?? 'unknown'}`,
         );
       }
       this.logger.warn(
         `Reconciliation: ${stalePayouts.length} payout(s) stuck in approved state`,
-        stalePayouts.map((p) => ({ id: p.id, amountPence: p.amountPence, approvedAt: p.approvedAt })),
+        stalePayouts.map((p) => ({
+          id: p.id,
+          amountPence: p.amountPence,
+          approvedAt: p.approvedAt,
+        })),
       );
     }
 
@@ -466,7 +468,12 @@ export class DlqMonitorService {
       }
       this.logger.warn(
         `Reconciliation: ${stuckNotifications.length} notification(s) stuck in queued state`,
-        stuckNotifications.map((n) => ({ id: n.id, template: n.template, channel: n.channel, createdAt: n.createdAt })),
+        stuckNotifications.map((n) => ({
+          id: n.id,
+          template: n.template,
+          channel: n.channel,
+          createdAt: n.createdAt,
+        })),
       );
     }
 
@@ -477,12 +484,16 @@ export class DlqMonitorService {
       for (const r of refundsNoStripeId) {
         lines.push(
           `  - \`${r.id}\` order \`${r.orderId}\` ${r.type} ` +
-          `£${(r.amountPence / 100).toFixed(2)} created ${r.createdAt.toISOString()}`,
+            `£${(r.amountPence / 100).toFixed(2)} created ${r.createdAt.toISOString()}`,
         );
       }
       this.logger.error(
         `Reconciliation: ${refundsNoStripeId.length} refund payment(s) missing stripeRefundId - verify Stripe dashboard`,
-        refundsNoStripeId.map((r) => ({ id: r.id, orderId: r.orderId, amountPence: r.amountPence })),
+        refundsNoStripeId.map((r) => ({
+          id: r.id,
+          orderId: r.orderId,
+          amountPence: r.amountPence,
+        })),
       );
     }
 
@@ -629,9 +640,7 @@ export class DlqMonitorService {
     }
 
     // Sort most-recently-failed first.
-    results.sort(
-      (a, b) => (b.finishedOn ?? b.timestamp) - (a.finishedOn ?? a.timestamp),
-    );
+    results.sort((a, b) => (b.finishedOn ?? b.timestamp) - (a.finishedOn ?? a.timestamp));
     return results.slice(0, limit);
   }
 
@@ -639,40 +648,28 @@ export class DlqMonitorService {
    * Re-enqueues a specific failed job for immediate retry.
    * The acting admin ID is recorded in server logs for audit purposes.
    */
-  async retryDeadLetterJob(
-    queueName: string,
-    jobId: string,
-    actorId: string,
-  ): Promise<void> {
+  async retryDeadLetterJob(queueName: string, jobId: string, actorId: string): Promise<void> {
     const queue = this.resolveQueue(queueName);
     const job = await queue.getJob(jobId);
     if (!job) {
       throw new Error(`Job ${jobId} not found in queue "${queueName}"`);
     }
     await job.retry();
-    this.logger.log(
-      `[Admin] Dead-letter job ${jobId} in "${queueName}" retried by ${actorId}`,
-    );
+    this.logger.log(`[Admin] Dead-letter job ${jobId} in "${queueName}" retried by ${actorId}`);
   }
 
   /**
    * Permanently removes a specific failed job from the queue.
    * Cannot be undone. The acting admin ID is recorded for audit.
    */
-  async discardDeadLetterJob(
-    queueName: string,
-    jobId: string,
-    actorId: string,
-  ): Promise<void> {
+  async discardDeadLetterJob(queueName: string, jobId: string, actorId: string): Promise<void> {
     const queue = this.resolveQueue(queueName);
     const job = await queue.getJob(jobId);
     if (!job) {
       throw new Error(`Job ${jobId} not found in queue "${queueName}"`);
     }
     await job.remove();
-    this.logger.log(
-      `[Admin] Dead-letter job ${jobId} in "${queueName}" discarded by ${actorId}`,
-    );
+    this.logger.log(`[Admin] Dead-letter job ${jobId} in "${queueName}" discarded by ${actorId}`);
   }
 
   private resolveQueue(name: string): Queue {

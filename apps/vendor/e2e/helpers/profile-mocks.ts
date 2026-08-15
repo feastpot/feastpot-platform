@@ -146,7 +146,10 @@ export async function installProfileMocks(
     void route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ path: 'uploads/test.jpg', publicUrl: 'https://cdn.example.com/test.jpg' }),
+      body: JSON.stringify({
+        path: 'uploads/test.jpg',
+        publicUrl: 'https://cdn.example.com/test.jpg',
+      }),
     });
   });
 
@@ -160,7 +163,11 @@ export async function installProfileMocks(
         body: JSON.stringify({ slug: redirectTarget }),
       });
     } else {
-      void route.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ message: 'Not found' }) });
+      void route.fulfill({
+        status: 404,
+        contentType: 'application/json',
+        body: JSON.stringify({ message: 'Not found' }),
+      });
     }
   });
 }

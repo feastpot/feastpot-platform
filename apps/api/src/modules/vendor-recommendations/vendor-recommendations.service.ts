@@ -46,7 +46,7 @@ export class VendorRecommendationsService {
       },
     });
 
-    this.logger.log(`[vendor-rec] saved businessName=${dto.businessName ?? '–'}`);
+    this.logger.log(`[vendor-rec] saved businessName=${dto.businessName ?? '-'}`);
 
     // Internal alert - fire-and-forget.
     try {

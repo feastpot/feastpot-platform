@@ -15,9 +15,9 @@ describe('capacityTypeForItemCategories', () => {
   });
 
   it('maps everything else (soups, proteins, swallow, frozen, snacks) to family_pot', () => {
-    expect(
-      capacityTypeForItemCategories(['soup', 'protein', 'swallow', 'frozen', 'snack']),
-    ).toBe(CapacityType.family_pot);
+    expect(capacityTypeForItemCategories(['soup', 'protein', 'swallow', 'frozen', 'snack'])).toBe(
+      CapacityType.family_pot,
+    );
   });
 
   it('never produces meal_prep (reserved for the future subscription flow)', () => {

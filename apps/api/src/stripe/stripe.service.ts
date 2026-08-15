@@ -173,10 +173,7 @@ export class StripeService {
   // ── Stripe Billing (FeastPass subscriptions) ─────────────────────────────
 
   /** Create a Stripe Customer and return its id. */
-  async createBillingCustomer(
-    email: string,
-    metadata: Record<string, string>,
-  ): Promise<string> {
+  async createBillingCustomer(email: string, metadata: Record<string, string>): Promise<string> {
     const customer = await this.stripe.customers.create({ email, metadata });
     return customer.id;
   }

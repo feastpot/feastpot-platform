@@ -161,9 +161,7 @@ export function VendorCard({ vendor, variant = 'list' }: Props) {
         )}
         {/* DMCC Act 2024: service fee must be disclosed at first price display. */}
         {!isCarousel && typeof vendor.minOrderPence === 'number' && vendor.minOrderPence > 0 && (
-          <p className="mt-0.5 text-[9px] text-charcoal-mid/60">
-            + up to £2.99 service fee
-          </p>
+          <p className="mt-0.5 text-[9px] text-charcoal-mid/60">+ up to £2.99 service fee</p>
         )}
         {/* Distance chip on carousel cards - shown whenever the API returns it
             (requires a postcode in the search query, e.g. from the coverage cookie) */}

@@ -1,13 +1,4 @@
-import {
-  Body,
-  Controller,
-  Get,
-  NotFoundException,
-  Param,
-  Post,
-  Query,
-  Req,
-} from '@nestjs/common';
+import { Body, Controller, Get, NotFoundException, Param, Post, Query, Req } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
 import type { Request } from 'express';
 
@@ -40,10 +31,7 @@ export class ErrorIncidentsController {
    */
   @Public()
   @Post()
-  async create(
-    @Body() dto: CreateErrorIncidentDto,
-    @Req() req: Request,
-  ): Promise<{ ref: string }> {
+  async create(@Body() dto: CreateErrorIncidentDto, @Req() req: Request): Promise<{ ref: string }> {
     const userAgent = (req.headers['user-agent'] as string | undefined) ?? undefined;
     const incident = await this.service.create(dto, userAgent);
     return { ref: incident.ref };
@@ -51,10 +39,7 @@ export class ErrorIncidentsController {
 
   @Roles(UserRole.admin, UserRole.support, UserRole.compliance, UserRole.finance)
   @Get()
-  async list(
-    @Query('ref') ref?: string,
-    @Query('limit') limit?: string,
-  ) {
+  async list(@Query('ref') ref?: string, @Query('limit') limit?: string) {
     if (ref) {
       const incident = await this.service.findByRef(ref.toUpperCase());
       if (!incident) throw new NotFoundException(`No incident found for ref ${ref}`);

@@ -98,10 +98,7 @@ function buildCards(orderPence: number): CardData[] {
   const ownFee = commissionPence(orderPence, VENDOR_REFERRED_PCT);
   const ownNet = orderPence - stripe - ownFee;
   // If the rate is ever changed away from 0, the body copy renders the real figure.
-  const ownFeeDisplay =
-    ownFee === 0
-      ? '£0.00'
-      : formatGBP(ownFee);
+  const ownFeeDisplay = ownFee === 0 ? '£0.00' : formatGBP(ownFee);
 
   const firstFee = commissionPence(orderPence, MARKETPLACE_FIRST_PCT);
   const firstNet = orderPence - stripe - firstFee;
@@ -144,9 +141,7 @@ function WorkedCard({ card }: { card: CardData }) {
     <div
       className={
         'flex flex-col rounded-2xl bg-white p-5 ' +
-        (card.highlight
-          ? 'border-2 border-brand'
-          : 'border border-cream-deep')
+        (card.highlight ? 'border-2 border-brand' : 'border border-cream-deep')
       }
     >
       <p
@@ -160,9 +155,7 @@ function WorkedCard({ card }: { card: CardData }) {
       <p className="font-display text-4xl font-black text-charcoal">
         {formatGBP(card.figurePence)}
       </p>
-      <p className="mt-1 mb-4 text-[12px] font-semibold text-charcoal-mid">
-        {card.figureCaption}
-      </p>
+      <p className="mt-1 mb-4 text-[12px] font-semibold text-charcoal-mid">{card.figureCaption}</p>
       <p className="mt-auto text-[13px] leading-relaxed text-charcoal-mid">{card.body}</p>
     </div>
   );
@@ -313,22 +306,19 @@ export function EarningsCalculator() {
       {/* 4. Stripe footnote - updates with selected example */}
       <p className="text-[12px] leading-relaxed text-charcoal-mid">
         All three figures are after Stripe&apos;s card processing of about{' '}
-        <strong>{formatStripeFee(stripeFeePence)}</strong> on a{' '}
-        <strong>{exampleLabel}</strong> order. Stripe charges that on every card payment,
-        including your own customers. It is their fee, set by them, and we add nothing on top.
+        <strong>{formatStripeFee(stripeFeePence)}</strong> on a <strong>{exampleLabel}</strong>{' '}
+        order. Stripe charges that on every card payment, including your own customers. It is their
+        fee, set by them, and we add nothing on top.
       </p>
 
       {/* 4b. Service fee explanation - what keeps the platform running at 0% commission */}
       <div className="rounded-2xl bg-brand-light px-5 py-4">
-        <p className="text-[13px] font-bold text-charcoal">
-          So how do we make money at 0%?
-        </p>
+        <p className="text-[13px] font-bold text-charcoal">So how do we make money at 0%?</p>
         <p className="mt-1.5 text-[13px] leading-relaxed text-charcoal-mid">
-          Your customers pay a small service fee to Feastpot,{' '}
-          {PLATFORM_FACTS.serviceFee.percent}% capped at{' '}
-          £{(PLATFORM_FACTS.serviceFee.capPence / 100).toFixed(2)}. It comes from them, never
-          from your payout, and it is what keeps the platform running while you are paying us no
-          commission.
+          Your customers pay a small service fee to Feastpot, {PLATFORM_FACTS.serviceFee.percent}%
+          capped at £{(PLATFORM_FACTS.serviceFee.capPence / 100).toFixed(2)}. It comes from them,
+          never from your payout, and it is what keeps the platform running while you are paying us
+          no commission.
         </p>
       </div>
 

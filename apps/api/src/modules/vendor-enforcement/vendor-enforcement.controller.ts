@@ -1,19 +1,10 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  Patch,
-  Post,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 
-import { Roles } from '../../auth/decorators/roles.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
-import type { AuthUser } from '../../auth/types';
-import { SupabaseAuthGuard } from '../../auth/guards/supabase-auth.guard';
+import { Roles } from '../../auth/decorators/roles.decorator';
 import { RolesGuard } from '../../auth/guards/roles.guard';
+import { SupabaseAuthGuard } from '../../auth/guards/supabase-auth.guard';
+import type { AuthUser } from '../../auth/types';
 
 import {
   CreateEnforcementActionDto,

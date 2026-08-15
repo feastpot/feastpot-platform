@@ -20,16 +20,19 @@ import type { VerifyTaxProfileDto } from './dto/verify-tax-profile.dto';
 
 /** Check whether a tax profile has all the fields needed before a vendor can go live. */
 export function isTaxProfileComplete(
-  profile: {
-    entityType: TaxEntityType;
-    legalName: string;
-    addressLine1: string;
-    city: string;
-    postcode: string;
-    dateOfBirth: Date | null;
-    companyNumber: string | null;
-    taxIdentifier: string | null;
-  } | null | undefined,
+  profile:
+    | {
+        entityType: TaxEntityType;
+        legalName: string;
+        addressLine1: string;
+        city: string;
+        postcode: string;
+        dateOfBirth: Date | null;
+        companyNumber: string | null;
+        taxIdentifier: string | null;
+      }
+    | null
+    | undefined,
 ): boolean {
   if (!profile) return false;
   if (!profile.legalName || !profile.addressLine1 || !profile.city || !profile.postcode) {
@@ -291,7 +294,10 @@ export class VendorTaxProfileService {
   async adminVerify(vendorId: string, dto: VerifyTaxProfileDto, admin: AuthUser) {
     const profile = await this.prisma.vendorTaxProfile.findUnique({ where: { vendorId } });
     if (!profile) {
-      throw new NotFoundException({ code: 'TAX_PROFILE_NOT_FOUND', message: 'No tax profile found for this vendor' });
+      throw new NotFoundException({
+        code: 'TAX_PROFILE_NOT_FOUND',
+        message: 'No tax profile found for this vendor',
+      });
     }
 
     const updated = await this.prisma.vendorTaxProfile.update({
@@ -366,7 +372,10 @@ export class VendorTaxProfileService {
       select: { id: true, businessName: true, stripeAccountId: true },
     });
     if (!vendor) {
-      throw new ForbiddenException({ code: 'VENDOR_NOT_FOUND', message: 'No vendor account found' });
+      throw new ForbiddenException({
+        code: 'VENDOR_NOT_FOUND',
+        message: 'No vendor account found',
+      });
     }
     return vendor;
   }

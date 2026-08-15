@@ -27,9 +27,15 @@
   },
   "typesVersions": {
     "*": {
-      "platform-facts": ["./src/platform-facts.ts"],
-      "allergens": ["./src/allergens.ts"],
-      "service-fee": ["./src/service-fee.ts"]
+      "platform-facts": [
+        "./src/platform-facts.ts"
+      ],
+      "allergens": [
+        "./src/allergens.ts"
+      ],
+      "service-fee": [
+        "./src/service-fee.ts"
+      ]
     }
   },
   "scripts": {

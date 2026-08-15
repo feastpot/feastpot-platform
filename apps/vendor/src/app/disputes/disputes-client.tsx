@@ -18,7 +18,10 @@ import {
 } from './dispute-ui';
 
 /** Show time remaining until the vendor response deadline. */
-function formatRespondDeadline(vendorRespondBy: string | null | undefined, createdAt: string): string {
+function formatRespondDeadline(
+  vendorRespondBy: string | null | undefined,
+  createdAt: string,
+): string {
   // Use the API-provided deadline when available, otherwise fall back to 48h from creation.
   const deadline = vendorRespondBy
     ? new Date(vendorRespondBy)
@@ -34,7 +37,6 @@ function formatRespondDeadline(vendorRespondBy: string | null | undefined, creat
     ? `Respond within ${daysLeft}d ${remainingHours}h`
     : `Respond within ${daysLeft}d`;
 }
-
 
 const STATUS_FILTERS: { value: DisputeStatus | 'all'; label: string }[] = [
   { value: 'all', label: 'All' },

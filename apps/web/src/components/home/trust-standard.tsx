@@ -28,7 +28,12 @@ const TRUST_ITEMS = [
     Icon: ShieldCheck,
     tone: 'vendor' as const,
     title: 'Hygiene rating verified on every profile',
-    sub: `FSA rating of ${PLATFORM_FACTS.vendorRequirements.find((r) => r.startsWith('FHRS'))?.replace('FHRS rating of at least ', '').replace(' (4 recommended)', '') ?? '3/5'} minimum required before any vendor goes live.`,
+    sub: `FSA rating of ${
+      PLATFORM_FACTS.vendorRequirements
+        .find((r) => r.startsWith('FHRS'))
+        ?.replace('FHRS rating of at least ', '')
+        .replace(' (4 recommended)', '') ?? '3/5'
+    } minimum required before any vendor goes live.`,
   },
   {
     Icon: AlertCircle,

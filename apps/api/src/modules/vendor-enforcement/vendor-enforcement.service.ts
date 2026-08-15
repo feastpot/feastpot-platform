@@ -83,9 +83,7 @@ export class VendorEnforcementService {
       ...a,
       // Compliance flag: notice AFTER effect with no urgent basis = problem.
       noticeLate:
-        a.noticeSentAt !== null &&
-        a.urgentBasis === null &&
-        a.noticeSentAt > a.effectiveAt,
+        a.noticeSentAt !== null && a.urgentBasis === null && a.noticeSentAt > a.effectiveAt,
     }));
   }
 
@@ -150,7 +148,10 @@ export class VendorEnforcementService {
       include: { verification: { select: { id: true, overallState: true } } },
     });
     if (!vendor) {
-      throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: `Vendor ${vendorId} not found` });
+      throw new NotFoundException({
+        code: 'VENDOR_NOT_FOUND',
+        message: `Vendor ${vendorId} not found`,
+      });
     }
 
     const noticeSentAt = new Date();
@@ -212,11 +213,12 @@ export class VendorEnforcementService {
 
     // ── 8. Enqueue notice email ───────────────────────────────────────────────
     const appealDeadline = new Date(effectiveAt.getTime() + APPEAL_WINDOW_DAYS * 86_400_000);
-    const clauseRef = dto.actionType === EnforcementType.TERMINATION
-      ? (SERIOUS_CAUSE_CODES as readonly string[]).includes(reasonCode)
-        ? TERMS_CLAUSE_TERMINATION_SERIOUS
-        : TERMS_CLAUSE_TERMINATION
-      : TERMS_CLAUSE_REASON_CODES;
+    const clauseRef =
+      dto.actionType === EnforcementType.TERMINATION
+        ? (SERIOUS_CAUSE_CODES as readonly string[]).includes(reasonCode)
+          ? TERMS_CLAUSE_TERMINATION_SERIOUS
+          : TERMS_CLAUSE_TERMINATION
+        : TERMS_CLAUSE_REASON_CODES;
 
     await this.notifications.enqueue(
       'enforcement_action',
@@ -257,7 +259,10 @@ export class VendorEnforcementService {
       include: { vendor: { select: { id: true, userId: true, businessName: true } } },
     });
     if (!action) {
-      throw new NotFoundException({ code: 'ACTION_NOT_FOUND', message: `Enforcement action ${actionId} not found` });
+      throw new NotFoundException({
+        code: 'ACTION_NOT_FOUND',
+        message: `Enforcement action ${actionId} not found`,
+      });
     }
     if (action.liftedAt) {
       throw new BadRequestException({
@@ -266,7 +271,9 @@ export class VendorEnforcementService {
       });
     }
 
-    const priorStatus = (action.facts as Record<string, unknown>).priorStatus as VendorStatus | undefined;
+    const priorStatus = (action.facts as Record<string, unknown>).priorStatus as
+      | VendorStatus
+      | undefined;
 
     const lifted = await this.prisma.$transaction(async (tx) => {
       const updated = await tx.vendorEnforcementAction.update({

@@ -73,9 +73,7 @@ export type CapacityRow = {
   preorderCutoffAt: string | null;
 };
 
-export function makeCapacityRow(
-  overrides: Partial<CapacityRow> = {},
-): CapacityRow {
+export function makeCapacityRow(overrides: Partial<CapacityRow> = {}): CapacityRow {
   return {
     id: AVAIL_IDS.capacity,
     serviceDate: '2026-09-15',
@@ -118,7 +116,11 @@ export async function installAvailabilityMocks(
   // GET /vendors/me
   await page.route(/\/v1\/vendors\/me$/, (route: Route) => {
     if (route.request().method() === 'GET') {
-      void route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(vendor) });
+      void route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(vendor),
+      });
     } else {
       void route.continue();
     }
@@ -128,7 +130,11 @@ export async function installAvailabilityMocks(
   await page.route(/\/v1\/vendors\/me\/availability$/, async (route: Route) => {
     const method = route.request().method();
     if (method === 'GET') {
-      void route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(snapshot) });
+      void route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(snapshot),
+      });
     } else if (method === 'PATCH') {
       if (options.passthroughPatch) {
         void route.continue();
@@ -149,7 +155,10 @@ export async function installAvailabilityMocks(
   await page.route(/\/v1\/vendors\/me\/blackouts/, async (route: Route) => {
     const method = route.request().method();
     if (method === 'POST') {
-      const body = JSON.parse(route.request().postData() ?? '{}') as { date?: string; reason?: string };
+      const body = JSON.parse(route.request().postData() ?? '{}') as {
+        date?: string;
+        reason?: string;
+      };
       const newRow = { id: 'blackout-new-001', date: body.date ?? '', reason: body.reason ?? null };
       void route.fulfill({
         status: 200,
@@ -171,7 +180,11 @@ export async function installAvailabilityMocks(
   await page.route(/\/v1\/vendors\/me\/capacity/, async (route: Route) => {
     const method = route.request().method();
     if (method === 'GET') {
-      void route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(capacityRows) });
+      void route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(capacityRows),
+      });
     } else if (method === 'PUT') {
       if (options.passthroughPatch) {
         void route.continue();
@@ -197,7 +210,11 @@ export async function installAvailabilityMocks(
         });
       }
     } else if (method === 'DELETE') {
-      void route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
+      void route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([]),
+      });
     } else {
       void route.continue();
     }

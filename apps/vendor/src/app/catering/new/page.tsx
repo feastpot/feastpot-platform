@@ -42,7 +42,9 @@ export default async function NewCateringQuotePage({
         <a href="/catering" className="hover:text-dark hover:underline">
           Catering bookings
         </a>
-        <span aria-hidden className="select-none text-mid/50">/</span>
+        <span aria-hidden className="select-none text-mid/50">
+          /
+        </span>
         <span className="font-medium text-dark">New quote</span>
       </nav>
 

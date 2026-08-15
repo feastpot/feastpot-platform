@@ -42,7 +42,7 @@ export default async function ProfileSettingsPage() {
 
   return (
     <PortalShell businessName={vendor.businessName}>
-          <ProfileForm />
+      <ProfileForm />
     </PortalShell>
   );
 }

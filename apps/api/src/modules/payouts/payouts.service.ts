@@ -1,3 +1,4 @@
+import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
 import { InjectQueue } from '@nestjs/bull';
 import {
   BadRequestException,
@@ -17,7 +18,7 @@ import {
   UserRole,
 } from '@prisma/client';
 import type { Queue } from 'bull';
-// eslint-disable-next-line @typescript-eslint/no-require-imports
+// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
 const PDFDocument = require('pdfkit') as new (opts?: object) => NodeJS.EventEmitter & {
   text: (t: string, x?: number, y?: number, opts?: object) => any;
   fontSize: (n: number) => any;
@@ -32,16 +33,14 @@ const PDFDocument = require('pdfkit') as new (opts?: object) => NodeJS.EventEmit
   y: number;
 };
 
-import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
 import type { AuthUser } from '../../auth/types';
 import { CommissionService } from '../../commission/commission.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { StripeService } from '../../stripe/stripe.service';
 import { InboxService } from '../inbox/inbox.service';
 
-import { classifyStripeError, describeStripeError } from './stripe-error-classifier';
-
 import { ListPayoutsDto } from './dto/list-payouts.dto';
+import { classifyStripeError, describeStripeError } from './stripe-error-classifier';
 
 export const NOTIFICATIONS_QUEUE = 'notifications';
 
@@ -589,9 +588,7 @@ export class PayoutsService {
 
       // Terminal: retry cannot fix this. Mark failed and alert immediately
       // rather than consuming all remaining retry attempts.
-      this.logger.error(
-        `Terminal payout ${payoutId} transfer failure: ${(e as Error).message}`,
-      );
+      this.logger.error(`Terminal payout ${payoutId} transfer failure: ${(e as Error).message}`);
       await this.prisma.payout.update({
         where: { id: payoutId },
         data: { status: PayoutStatus.failed, failureReason: (e as Error).message },
@@ -1305,7 +1302,13 @@ export class PayoutsService {
 
       const p = (pence: number) => `£${(pence / 100).toFixed(2)}`;
       const dateStr = (s: string | null) =>
-        s ? new Date(s).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '--';
+        s
+          ? new Date(s).toLocaleDateString('en-GB', {
+              day: '2-digit',
+              month: 'short',
+              year: 'numeric',
+            })
+          : '--';
       const srcLabel = (src: string) =>
         src === 'VENDOR_REFERRED' ? 'Your referral' : 'Marketplace';
 
@@ -1318,7 +1321,7 @@ export class PayoutsService {
       doc.fontSize(10).text(`Vendor: ${params.businessName}`, ml, 76);
       doc
         .text(
-          `Period: ${dateStr(params.periodStart.toISOString())} – ${dateStr(params.periodEnd.toISOString())}`,
+          `Period: ${dateStr(params.periodStart.toISOString())} to ${dateStr(params.periodEnd.toISOString())}`,
           ml,
           88,
         )
@@ -1326,7 +1329,15 @@ export class PayoutsService {
 
       // ─── Order table ─────────────────────────────────────────────────────
       const cols = [ml, ml + 70, ml + 130, ml + 210, ml + 265, ml + 310, ml + 380];
-      const headers = ['Order #', 'Date', 'Food subtotal', 'Source', 'Rate', 'Commission', 'Net to you'];
+      const headers = [
+        'Order #',
+        'Date',
+        'Food subtotal',
+        'Source',
+        'Rate',
+        'Commission',
+        'Net to you',
+      ];
       const colWidths = [70, 60, 80, 55, 45, 70, 70];
 
       // Table header row
@@ -1334,7 +1345,10 @@ export class PayoutsService {
       headers.forEach((h, i) => doc.text(h, cols[i], doc.y, { width: colWidths[i] }));
       doc.moveDown(0.3);
       const lineY = doc.y;
-      doc.moveTo(ml, lineY).lineTo(ml + pageWidth, lineY).stroke();
+      doc
+        .moveTo(ml, lineY)
+        .lineTo(ml + pageWidth, lineY)
+        .stroke();
       doc.moveDown(0.4);
 
       // Data rows
@@ -1357,7 +1371,10 @@ export class PayoutsService {
       // Separator
       doc.moveDown(0.5);
       const sepY = doc.y;
-      doc.moveTo(ml, sepY).lineTo(ml + pageWidth, sepY).stroke();
+      doc
+        .moveTo(ml, sepY)
+        .lineTo(ml + pageWidth, sepY)
+        .stroke();
       doc.moveDown(0.8);
 
       // ─── Summary ─────────────────────────────────────────────────────────
@@ -1365,9 +1382,7 @@ export class PayoutsService {
       const flat12Commission = Math.round((totalSubtotal * 12) / 100);
       const savedPence = Math.max(0, flat12Commission - params.commissionPence);
       const blendedPct =
-        totalSubtotal > 0
-          ? ((params.commissionPence / totalSubtotal) * 100).toFixed(2)
-          : '0.00';
+        totalSubtotal > 0 ? ((params.commissionPence / totalSubtotal) * 100).toFixed(2) : '0.00';
 
       const summaryX2 = ml + 200;
       doc.font('Helvetica-Bold').fontSize(9).text('Summary', ml, doc.y);
@@ -1392,7 +1407,11 @@ export class PayoutsService {
         doc
           .font('Helvetica-Bold')
           .fontSize(10)
-          .text(`💰 You saved ${p(savedPence)} compared to our standard marketplace rate this week.`, ml, doc.y);
+          .text(
+            `💰 You saved ${p(savedPence)} compared to our standard marketplace rate this week.`,
+            ml,
+            doc.y,
+          );
         doc
           .font('Helvetica')
           .fontSize(8)

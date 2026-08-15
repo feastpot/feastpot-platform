@@ -1,14 +1,4 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Header,
-  HttpCode,
-  Post,
-  Query,
-  Req,
-  Res,
-} from '@nestjs/common';
+import { Body, Controller, Get, Header, HttpCode, Post, Query, Req, Res } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { OrderSource, UserRole } from '@prisma/client';
 import type { Response } from 'express';
@@ -18,8 +8,8 @@ import { Roles } from '../../auth/decorators/roles.decorator';
 import type { AuthedRequest, AuthUser } from '../../auth/types';
 import { VendorMembersService } from '../vendor-members/vendor-members.service';
 
-import { RecordClickDto } from './dto/record-click.dto';
 import { AttributionService } from './attribution.service';
+import { RecordClickDto } from './dto/record-click.dto';
 
 function requireUser(req: AuthedRequest): AuthUser {
   if (!req.user) throw new Error('No authenticated user');

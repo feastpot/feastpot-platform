@@ -1,8 +1,8 @@
-# FeastPot - Build Status
+# Feastpot - Build Status
 
 _Last updated: 22 May 2026_
 
-FeastPot is a UK-focused diaspora bulk-food marketplace built as a Turborepo monorepo
+Feastpot is a UK-focused diaspora bulk-food marketplace built as a Turborepo monorepo
 (NestJS API + three Next.js 15 apps + shared packages, with Prisma on Supabase Postgres
 and Stripe Connect for payments). The platform is in a **late-beta, pre-launch** state:
 the core transactional path - discovery, checkout, kitchen acceptance, delivery,
@@ -52,7 +52,7 @@ of half-finished branches.
   uploads.
 - **Operations.** Opening hours, blackout dates, delivery radius and fee config.
 - **Recent polish.** Shared `AuthProvider` (single `onAuthStateChange` listener +
-  `queryClient.clear()` on identity change), real FeastPot brand logo across both
+  `queryClient.clear()` on identity change), real Feastpot brand logo across both
   navs (now 2× size when signed in), shadcn `--primary` swapped from vendor-blue
   to teal-green and bulk-renamed across 32 files (zero `vendor-blue` refs remain).
 

@@ -33,7 +33,13 @@ setup('authenticate as test vendor', async ({ page }) => {
   const password = process.env.TEST_VENDOR_PASSWORD;
 
   // Reject obvious placeholders so the error surfaces before the browser opens.
-  const PLACEHOLDERS = new Set(['...', 'real@address.com', 'you@example.com', 'yourpassword', 'realpassword']);
+  const PLACEHOLDERS = new Set([
+    '...',
+    'real@address.com',
+    'you@example.com',
+    'yourpassword',
+    'realpassword',
+  ]);
   if (!email || !password || PLACEHOLDERS.has(email) || PLACEHOLDERS.has(password)) {
     throw new Error(
       'auth setup: TEST_VENDOR_EMAIL and TEST_VENDOR_PASSWORD must be set to real\n' +

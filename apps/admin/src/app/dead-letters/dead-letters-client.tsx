@@ -32,7 +32,14 @@ import {
 } from '@/hooks/use-dead-letters';
 
 const ALL_QUEUES = 'all';
-const KNOWN_QUEUES = ['notifications', 'stripe-webhooks', 'payouts', 'compliance', 'terms-notices', 'hmrc'];
+const KNOWN_QUEUES = [
+  'notifications',
+  'stripe-webhooks',
+  'payouts',
+  'compliance',
+  'terms-notices',
+  'hmrc',
+];
 
 function payloadSummary(payload: Record<string, unknown>): string {
   const keys = Object.keys(payload);
@@ -51,7 +58,11 @@ function payloadSummary(payload: Record<string, unknown>): string {
   return pairs.length > 0 ? pairs.join(', ') : `{${keys.join(', ')}}`;
 }
 
-function JobRow({ job, onRetry, onDiscard }: {
+function JobRow({
+  job,
+  onRetry,
+  onDiscard,
+}: {
   job: DeadLetterJob;
   onRetry: (job: DeadLetterJob) => void;
   onDiscard: (job: DeadLetterJob) => void;
@@ -90,7 +101,11 @@ function JobRow({ job, onRetry, onDiscard }: {
             className="h-7 px-2"
             title="Re-enqueue this job for immediate retry. Action is recorded in server logs."
             onClick={() => {
-              if (confirm(`Retry job ${job.id} in queue "${job.queue}"?\n\nThis re-enqueues it for immediate execution. The action is recorded.`)) {
+              if (
+                confirm(
+                  `Retry job ${job.id} in queue "${job.queue}"?\n\nThis re-enqueues it for immediate execution. The action is recorded.`,
+                )
+              ) {
                 onRetry(job);
               }
             }}
@@ -104,7 +119,11 @@ function JobRow({ job, onRetry, onDiscard }: {
             className="h-7 px-2 text-destructive hover:bg-destructive/10"
             title="Permanently remove this job. Cannot be undone. Action is recorded."
             onClick={() => {
-              if (confirm(`Discard job ${job.id} in queue "${job.queue}"?\n\nThis permanently removes it. This cannot be undone. The action is recorded.`)) {
+              if (
+                confirm(
+                  `Discard job ${job.id} in queue "${job.queue}"?\n\nThis permanently removes it. This cannot be undone. The action is recorded.`,
+                )
+              ) {
                 onDiscard(job);
               }
             }}
@@ -222,12 +241,8 @@ export function DeadLettersClient() {
                 <JobRow
                   key={`${job.queue}-${job.id}`}
                   job={job}
-                  onRetry={(j) =>
-                    retry.mutate({ queue: j.queue, jobId: j.id })
-                  }
-                  onDiscard={(j) =>
-                    discard.mutate({ queue: j.queue, jobId: j.id })
-                  }
+                  onRetry={(j) => retry.mutate({ queue: j.queue, jobId: j.id })}
+                  onDiscard={(j) => discard.mutate({ queue: j.queue, jobId: j.id })}
                 />
               ))}
             </TableBody>
@@ -235,9 +250,7 @@ export function DeadLettersClient() {
         </CardContent>
       </Card>
 
-      {isPending && (
-        <p className="mt-2 text-xs text-muted-foreground">Processing action…</p>
-      )}
+      {isPending && <p className="mt-2 text-xs text-muted-foreground">Processing action…</p>}
     </>
   );
 }

@@ -171,7 +171,9 @@ describe('FeastPassService.getSavingsPotential', () => {
     const call = prisma.order.aggregate.mock.calls[0][0] as {
       where: { attribution: { resolvedSource: { in: AttributionSource[] } } };
     };
-    expect(call.where.attribution.resolvedSource.in).not.toContain(AttributionSource.VENDOR_REFERRED);
+    expect(call.where.attribution.resolvedSource.in).not.toContain(
+      AttributionSource.VENDOR_REFERRED,
+    );
   });
 
   it('excludes orders with null/unknown attribution (resolvedSource not in allowlist)', async () => {
@@ -195,7 +197,10 @@ describe('FeastPassService.getSavingsPotential', () => {
     const allowed = call.where.attribution.resolvedSource.in;
     expect(allowed).toHaveLength(2);
     expect(allowed).toEqual(
-      expect.arrayContaining([AttributionSource.MARKETPLACE_FIRST, AttributionSource.MARKETPLACE_REPEAT]),
+      expect.arrayContaining([
+        AttributionSource.MARKETPLACE_FIRST,
+        AttributionSource.MARKETPLACE_REPEAT,
+      ]),
     );
   });
 });

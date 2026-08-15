@@ -96,10 +96,7 @@ export class VendorsController {
     summary:
       'Public become-a-vendor application capture. Persists a VendorApplication row and emails the admin + the applicant.',
   })
-  registerInterest(
-    @Body() dto: RegisterVendorInterestDto,
-    @Headers('x-fp-ref') fpRef?: string,
-  ) {
+  registerInterest(@Body() dto: RegisterVendorInterestDto, @Headers('x-fp-ref') fpRef?: string) {
     return this.vendors.registerInterest(dto, fpRef);
   }
 
@@ -153,7 +150,8 @@ export class VendorsController {
       where: { userId: u.id },
       select: { slug: true, id: true },
     });
-    if (!vendor) throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'Vendor not found' });
+    if (!vendor)
+      throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'Vendor not found' });
 
     // Use the VendorReferralLink slug, not Vendor.slug, so the QR encodes a URL
     // that the click recorder can actually resolve to a referral link and set fp_ref.
@@ -162,7 +160,10 @@ export class VendorsController {
       select: { slug: true },
     });
     if (!referralLink) {
-      throw new NotFoundException({ code: 'REFERRAL_LINK_NOT_FOUND', message: 'Referral link not set up yet. Please contact support.' });
+      throw new NotFoundException({
+        code: 'REFERRAL_LINK_NOT_FOUND',
+        message: 'Referral link not set up yet. Please contact support.',
+      });
     }
 
     const link = `https://feastpot.co.uk/v/${encodeURIComponent(referralLink.slug)}`;
@@ -171,10 +172,7 @@ export class VendorsController {
     if (format === 'svg') {
       const svg = await QRCode.toString(link, { ...qrOpts, type: 'svg' });
       res.setHeader('Content-Type', 'image/svg+xml');
-      res.setHeader(
-        'Content-Disposition',
-        `attachment; filename="${vendor.slug}-feastpot-qr.svg"`,
-      );
+      res.setHeader('Content-Disposition', `attachment; filename="${vendor.slug}-feastpot-qr.svg"`);
       res.send(svg);
     } else {
       // Default: PNG at 1024 px - high enough for print without being huge.
@@ -224,8 +222,7 @@ export class VendorsController {
   @ApiBearerAuth()
   @Roles(UserRole.vendor, UserRole.admin)
   @ApiOperation({
-    summary:
-      'Return postcode districts whose centroid is within radiusMiles of a kitchen location',
+    summary: 'Return postcode districts whose centroid is within radiusMiles of a kitchen location',
   })
   computeDeliveryDistricts(
     @CurrentUser() user: AuthUser | null,
@@ -251,7 +248,7 @@ export class VendorsController {
   @Get('me/delivery-config')
   @ApiBearerAuth()
   @Roles(UserRole.vendor, UserRole.admin)
-  @ApiOperation({ summary: 'Get the authed vendor\'s delivery configuration (or null)' })
+  @ApiOperation({ summary: "Get the authed vendor's delivery configuration (or null)" })
   getMyDeliveryConfig(@CurrentUser() user: AuthUser | null) {
     return this.vendors.getMyDeliveryConfig(requireUser(user).id);
   }
@@ -406,10 +403,16 @@ export class VendorsController {
 
   @Public()
   @Get('slug-redirect/:slug')
-  @ApiOperation({ summary: 'Return { newSlug } if a slug has been permanently redirected (public)' })
+  @ApiOperation({
+    summary: 'Return { newSlug } if a slug has been permanently redirected (public)',
+  })
   async findSlugRedirect(@Param('slug') slug: string) {
     const result = await this.vendors.findSlugRedirect(slug);
-    if (!result) throw new NotFoundException({ code: 'REDIRECT_NOT_FOUND', message: 'No redirect for this slug' });
+    if (!result)
+      throw new NotFoundException({
+        code: 'REDIRECT_NOT_FOUND',
+        message: 'No redirect for this slug',
+      });
     return result;
   }
 
@@ -424,10 +427,7 @@ export class VendorsController {
   @ApiBearerAuth()
   @Roles(UserRole.vendor, UserRole.admin)
   @ApiOperation({ summary: 'Return live, approved menu items for the featured-dishes picker' })
-  getLiveMenuItems(
-    @Param('id', ParseUUIDPipe) id: string,
-    @CurrentUser() user: AuthUser | null,
-  ) {
+  getLiveMenuItems(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthUser | null) {
     requireUser(user);
     return this.vendors.getLiveMenuItems(id);
   }

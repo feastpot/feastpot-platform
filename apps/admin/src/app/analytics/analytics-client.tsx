@@ -110,9 +110,8 @@ function QrBackfillCard({ token }: { token: string | null }) {
       <h2 className="mb-1 text-sm font-bold text-dark">QR code backfill</h2>
       <p className="mb-4 text-sm text-mid">
         Regenerate stored QR codes to include the{' '}
-        <code className="rounded bg-surface px-1 text-xs">?m=qr</code> tracking marker. Only
-        affects QRs generated before this feature was added. Run dry-run first to preview the
-        scope.
+        <code className="rounded bg-surface px-1 text-xs">?m=qr</code> tracking marker. Only affects
+        QRs generated before this feature was added. Run dry-run first to preview the scope.
       </p>
       <div className="flex gap-3">
         <button
@@ -130,7 +129,9 @@ function QrBackfillCard({ token }: { token: string | null }) {
             onClick={() => run(false)}
             className="rounded-lg bg-teal px-4 py-2 text-sm font-semibold text-white hover:bg-teal-dark disabled:opacity-50"
           >
-            {busy === 'live' ? 'Regenerating...' : `Regenerate ${result.processed} QR${result.processed === 1 ? '' : 's'}`}
+            {busy === 'live'
+              ? 'Regenerating...'
+              : `Regenerate ${result.processed} QR${result.processed === 1 ? '' : 's'}`}
           </button>
         )}
       </div>
@@ -149,7 +150,9 @@ function QrBackfillCard({ token }: { token: string | null }) {
           )}
           {result.slugs && result.slugs.length > 0 && (
             <ul className="mt-2 max-h-32 overflow-y-auto text-xs text-mid">
-              {result.slugs.map((s) => <li key={s}>{s}</li>)}
+              {result.slugs.map((s) => (
+                <li key={s}>{s}</li>
+              ))}
             </ul>
           )}
         </div>
@@ -164,7 +167,13 @@ function QrBackfillCard({ token }: { token: string | null }) {
 const DAYS_OPTIONS = [7, 30, 90] as const;
 type Days = (typeof DAYS_OPTIONS)[number];
 
-export function AnalyticsClient({ role, accessToken }: { role: string; accessToken: string | null }) {
+export function AnalyticsClient({
+  role,
+  accessToken,
+}: {
+  role: string;
+  accessToken: string | null;
+}) {
   const { request, ready } = useApi();
   const [days, setDays] = useState<Days>(30);
 
@@ -201,7 +210,8 @@ export function AnalyticsClient({ role, accessToken }: { role: string; accessTok
     void load(days);
   }, [load, days]);
 
-  const pageViewSessions = funnel?.find((r) => r.eventName === 'vendor_page_view')?.uniqueSessions ?? 0;
+  const pageViewSessions =
+    funnel?.find((r) => r.eventName === 'vendor_page_view')?.uniqueSessions ?? 0;
   const sortedFunnel = funnel ? sortFunnel(funnel) : [];
 
   return (
@@ -257,10 +267,7 @@ export function AnalyticsClient({ role, accessToken }: { role: string; accessTok
                 </tr>
               )}
               {sortedFunnel.map((row, i) => (
-                <tr
-                  key={row.eventName}
-                  className={i % 2 === 0 ? 'bg-white' : 'bg-surface/50'}
-                >
+                <tr key={row.eventName} className={i % 2 === 0 ? 'bg-white' : 'bg-surface/50'}>
                   <td className="px-4 py-3 font-medium text-dark">
                     {EVENT_LABELS[row.eventName] ?? row.eventName}
                   </td>
@@ -357,10 +364,7 @@ export function AnalyticsClient({ role, accessToken }: { role: string; accessTok
                 </tr>
               )}
               {(shares ?? []).map((row, i) => (
-                <tr
-                  key={row.vendorId}
-                  className={i % 2 === 0 ? 'bg-white' : 'bg-surface/50'}
-                >
+                <tr key={row.vendorId} className={i % 2 === 0 ? 'bg-white' : 'bg-surface/50'}>
                   <td className="px-4 py-3 font-medium text-dark">{row.businessName}</td>
                   <td className="px-4 py-3 text-right tabular-nums text-dark">
                     {row.linkClicks.toLocaleString()}
@@ -383,9 +387,7 @@ export function AnalyticsClient({ role, accessToken }: { role: string; accessTok
       </section>
 
       {/* QR backfill - visible to admin only */}
-      {(role === 'admin') && (
-        <QrBackfillCard token={accessToken} />
-      )}
+      {role === 'admin' && <QrBackfillCard token={accessToken} />}
     </div>
   );
 }

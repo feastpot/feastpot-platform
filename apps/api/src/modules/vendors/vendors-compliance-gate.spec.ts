@@ -21,7 +21,7 @@
  * orders immediately, not just hidden from search.
  */
 
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import { ForbiddenException } from '@nestjs/common';
 
 // ── Minimal stubs ─────────────────────────────────────────────────────────
 
@@ -58,10 +58,7 @@ function makeVendor(
  * the broader E2E order-creation suite.
  */
 function runComplianceGate(vendor: ReturnType<typeof makeVendor>): void {
-  if (
-    vendor.complianceStatus !== 'RATED' ||
-    (vendor.fsaHygieneRating ?? 0) < 3
-  ) {
+  if (vendor.complianceStatus !== 'RATED' || (vendor.fsaHygieneRating ?? 0) < 3) {
     throw new ForbiddenException({
       code: 'VENDOR_NOT_COMPLIANT',
       message: 'This vendor is not currently accepting orders',
@@ -135,22 +132,19 @@ describe('FSA compliance gate: listing-gate contract', () => {
    */
   it('RATED with rating 3 satisfies the listing gate predicate', () => {
     const row = { compliance_status: 'RATED', fsa_hygiene_rating: 3 };
-    const gatePass =
-      row.compliance_status === 'RATED' && (row.fsa_hygiene_rating ?? 0) >= 3;
+    const gatePass = row.compliance_status === 'RATED' && (row.fsa_hygiene_rating ?? 0) >= 3;
     expect(gatePass).toBe(true);
   });
 
   it('REGISTERED_AWAITING_INSPECTION fails the listing gate predicate', () => {
     const row = { compliance_status: 'REGISTERED_AWAITING_INSPECTION', fsa_hygiene_rating: null };
-    const gatePass =
-      row.compliance_status === 'RATED' && (row.fsa_hygiene_rating ?? 0) >= 3;
+    const gatePass = row.compliance_status === 'RATED' && (row.fsa_hygiene_rating ?? 0) >= 3;
     expect(gatePass).toBe(false);
   });
 
   it('RATED with rating 2 fails the listing gate predicate (dropped below floor)', () => {
     const row = { compliance_status: 'RATED', fsa_hygiene_rating: 2 };
-    const gatePass =
-      row.compliance_status === 'RATED' && (row.fsa_hygiene_rating ?? 0) >= 3;
+    const gatePass = row.compliance_status === 'RATED' && (row.fsa_hygiene_rating ?? 0) >= 3;
     expect(gatePass).toBe(false);
   });
 });

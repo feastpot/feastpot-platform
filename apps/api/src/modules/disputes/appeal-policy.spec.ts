@@ -9,9 +9,14 @@
  */
 
 import { execSync } from 'child_process';
-import { AppealOutcome, DisputeStatus, PayoutStatus } from '@prisma/client';
 
-import { APPEAL_ACK_BUSINESS_DAYS, APPEAL_WINDOW_DAYS, DisputeAppealsService } from './dispute-appeals.service';
+import { AppealOutcome, PayoutStatus } from '@prisma/client';
+
+import {
+  APPEAL_ACK_BUSINESS_DAYS,
+  APPEAL_WINDOW_DAYS,
+  DisputeAppealsService,
+} from './dispute-appeals.service';
 
 // ─── Helpers for building minimal mocks ──────────────────────────────────────
 
@@ -35,10 +40,12 @@ function makePrismaMock(overrides: Record<string, unknown> = {}) {
 }
 
 function makeNotificationsMock() {
-  return { enqueue: jest.fn().mockResolvedValue(undefined) } as unknown as import('../notifications/notifications.service').NotificationsService;
+  return {
+    enqueue: jest.fn().mockResolvedValue(undefined),
+  } as unknown as import('../notifications/notifications.service').NotificationsService;
 }
 
-function makeAdmin(id = 'admin-1') {
+function _makeAdmin(id = 'admin-1') {
   return { id, role: 'admin' as const };
 }
 
@@ -61,11 +68,8 @@ function makeAppeal(overrides = {}) {
   };
 }
 
-function makeService(prismaOverrides = {}) {
-  return new DisputeAppealsService(
-    makePrismaMock(prismaOverrides),
-    makeNotificationsMock(),
-  );
+function _makeService(prismaOverrides = {}) {
+  return new DisputeAppealsService(makePrismaMock(prismaOverrides), makeNotificationsMock());
 }
 
 // ─── 1. "Decision is final" exclusion ────────────────────────────────────────
@@ -76,7 +80,10 @@ describe('Acceptance criterion: "decision is final" must not appear in any sourc
     // This test prevents the old language from being reintroduced.
     let output = '';
     try {
-      const rootDir = process.cwd().replace(/\/apps\/api$/, '').replace(/\/src$/, '');
+      const rootDir = process
+        .cwd()
+        .replace(/\/apps\/api$/, '')
+        .replace(/\/src$/, '');
       output = execSync(
         'grep -r "decision is final" apps/ packages/ --include="*.ts" --include="*.tsx" --exclude="*.spec.ts" --exclude="*.test.ts" -l 2>/dev/null || true',
         { encoding: 'utf8', cwd: rootDir },
@@ -134,9 +141,17 @@ describe('Acceptance criterion: Stage 2 reviewer must differ from Stage 1', () =
             stage1Reasons: 'x'.repeat(60),
           }),
         ),
-        update: jest.fn().mockResolvedValue(makeAppeal({ stage2By: 'bob', stage2Outcome: AppealOutcome.OVERTURNED })),
+        update: jest
+          .fn()
+          .mockResolvedValue(
+            makeAppeal({ stage2By: 'bob', stage2Outcome: AppealOutcome.OVERTURNED }),
+          ),
       },
-      payout: { findFirst: jest.fn().mockResolvedValue(null), create: jest.fn(), update: jest.fn() },
+      payout: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        create: jest.fn(),
+        update: jest.fn(),
+      },
     });
     const service = new DisputeAppealsService(prisma, makeNotificationsMock());
 
@@ -155,7 +170,7 @@ describe('Acceptance criterion: appeal window always exceeds acknowledgement com
   it(`${APPEAL_WINDOW_DAYS}-day window exceeds ${APPEAL_ACK_BUSINESS_DAYS}-business-day ack commitment`, () => {
     // 5 business days span at most 7 calendar days (Mon to Fri = 5 days;
     // worst case Mon to the following Fri if holidays intervene = 7 cal days).
-    const ackMaxCalendarDays = Math.ceil(APPEAL_ACK_BUSINESS_DAYS * 7 / 5);
+    const ackMaxCalendarDays = Math.ceil((APPEAL_ACK_BUSINESS_DAYS * 7) / 5);
     expect(APPEAL_WINDOW_DAYS).toBeGreaterThan(ackMaxCalendarDays);
   });
 });
@@ -181,7 +196,9 @@ describe('Acceptance criterion: upheld Stage 2 appeal reverses payout deduction'
             stage1Reasons: 'x'.repeat(60),
           }),
         ),
-        update: jest.fn().mockResolvedValue(makeAppeal({ stage2By: 'bob', stage2Outcome: AppealOutcome.UPHELD })),
+        update: jest
+          .fn()
+          .mockResolvedValue(makeAppeal({ stage2By: 'bob', stage2Outcome: AppealOutcome.UPHELD })),
       },
       payout: {
         findFirst: jest.fn().mockResolvedValue({
@@ -202,10 +219,10 @@ describe('Acceptance criterion: upheld Stage 2 appeal reverses payout deduction'
       { id: 'bob', role: 'admin' as const },
     );
 
-    expect(mockUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: 'payout-1' } }),
-    );
-    const updateArg = mockUpdate.mock.calls[0]?.[0] as { data: { amountPence: { increment: number } } };
+    expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'payout-1' } }));
+    const updateArg = mockUpdate.mock.calls[0]?.[0] as {
+      data: { amountPence: { increment: number } };
+    };
     expect(updateArg.data.amountPence.increment).toBe(1500);
   });
 
@@ -227,7 +244,9 @@ describe('Acceptance criterion: upheld Stage 2 appeal reverses payout deduction'
             stage1Reasons: 'x'.repeat(60),
           }),
         ),
-        update: jest.fn().mockResolvedValue(makeAppeal({ stage2By: 'bob', stage2Outcome: AppealOutcome.UPHELD })),
+        update: jest
+          .fn()
+          .mockResolvedValue(makeAppeal({ stage2By: 'bob', stage2Outcome: AppealOutcome.UPHELD })),
       },
       payout: {
         findFirst: jest.fn().mockResolvedValue(null),
@@ -268,7 +287,11 @@ describe('Acceptance criterion: upheld Stage 2 appeal reverses payout deduction'
             stage1Reasons: 'x'.repeat(60),
           }),
         ),
-        update: jest.fn().mockResolvedValue(makeAppeal({ stage2By: 'bob', stage2Outcome: AppealOutcome.OVERTURNED })),
+        update: jest
+          .fn()
+          .mockResolvedValue(
+            makeAppeal({ stage2By: 'bob', stage2Outcome: AppealOutcome.OVERTURNED }),
+          ),
       },
       payout: { findFirst: mockPayoutUpdate, create: mockPayoutCreate, update: jest.fn() },
     });

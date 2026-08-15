@@ -38,7 +38,9 @@ export default async function CateringQuotePage({ params }: { params: { id: stri
         <a href="/catering" className="hover:text-dark hover:underline">
           Catering bookings
         </a>
-        <span aria-hidden className="select-none text-mid/50">/</span>
+        <span aria-hidden className="select-none text-mid/50">
+          /
+        </span>
         <span className="font-medium text-dark">Edit quote</span>
       </nav>
 

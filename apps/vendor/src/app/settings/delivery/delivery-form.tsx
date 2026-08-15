@@ -179,7 +179,11 @@ export function DeliveryForm() {
       setKitchenError('Postcode not found - check and try again');
       setKitchenCoords({ lat: null, lng: null, area: null });
     } else {
-      setKitchenCoords({ lat: result.latitude, lng: result.longitude, area: result.admin_district });
+      setKitchenCoords({
+        lat: result.latitude,
+        lng: result.longitude,
+        area: result.admin_district,
+      });
     }
   }, []);
 
@@ -250,9 +254,7 @@ export function DeliveryForm() {
       ? `Free delivery threshold (£${(freeDeliveryPence / 100).toFixed(2)}) must be higher than the minimum order (£${(minOrderPence / 100).toFixed(2)}).`
       : null;
 
-  const selectedTypes = (
-    Object.entries(form.types) as [keyof typeof form.types, boolean][]
-  )
+  const selectedTypes = (Object.entries(form.types) as [keyof typeof form.types, boolean][])
     .filter(([, v]) => v)
     .map(([k]) => k as DeliveryType);
 
@@ -413,8 +415,7 @@ export function DeliveryForm() {
             <div>
               <div className="mb-2 flex items-center justify-between">
                 <Label>
-                  Radius: {form.localRadiusMiles}{' '}
-                  {form.localRadiusMiles === 1 ? 'mile' : 'miles'}
+                  Radius: {form.localRadiusMiles} {form.localRadiusMiles === 1 ? 'mile' : 'miles'}
                 </Label>
                 {computingDistricts && (
                   <span className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -597,9 +598,7 @@ export function DeliveryForm() {
               {freeDeliveryError}
             </p>
           )}
-          {orderSummary && (
-            <p className="text-xs text-muted-foreground">{orderSummary}</p>
-          )}
+          {orderSummary && <p className="text-xs text-muted-foreground">{orderSummary}</p>}
           <p className="text-xs text-muted-foreground">
             Opening days, slot windows, prep lead time and daily caps live on the{' '}
             <a

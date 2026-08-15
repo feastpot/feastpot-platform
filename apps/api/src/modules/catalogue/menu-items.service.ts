@@ -564,8 +564,7 @@ export class MenuItemsService {
     if (isAvailable && existing.allergens.length === 0 && !existing.allergensFreeFrom) {
       throw new BadRequestException({
         code: 'ALLERGEN_DECLARATION_REQUIRED',
-        message:
-          'Open the dish editor to declare allergens before making this dish live.',
+        message: 'Open the dish editor to declare allergens before making this dish live.',
       });
     }
     const updated = await this.prisma.menuItem.update({

@@ -1,5 +1,6 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 
+import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
 import { InjectQueue } from '@nestjs/bull';
 import {
   BadRequestException,
@@ -28,11 +29,14 @@ import { Decimal } from '@prisma/client/runtime/library';
 import * as Sentry from '@sentry/nestjs';
 import { Queue } from 'bull';
 
-import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
 import type { AuthUser } from '../../auth/types';
+import { CommissionService } from '../../commission/commission.service';
 import { getServiceFeePence, shouldWaiveServiceFee } from '../../common/config/service-fee';
+import { FeastPassService } from '../../feastpass/feastpass.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { StripeService } from '../../stripe/stripe.service';
+import { AnalyticsService } from '../analytics/analytics.service';
+import { AttributionService } from '../attribution/attribution.service';
 import { DiscountCodesService } from '../discount-codes/discount-codes.service';
 import { InboxService } from '../inbox/inbox.service';
 import { LoyaltyService } from '../loyalty/loyalty.service';
@@ -48,11 +52,6 @@ import {
   releaseCapacity,
   reserveCapacity,
 } from '../vendors/vendor-capacity';
-
-import { FeastPassService } from '../../feastpass/feastpass.service';
-import { AnalyticsService } from '../analytics/analytics.service';
-import { AttributionService } from '../attribution/attribution.service';
-import { CommissionService } from '../../commission/commission.service';
 
 import { ProposeAmendmentDto, RespondAmendmentDto } from './dto/amendment.dto';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -311,7 +310,13 @@ export class OrdersService {
   // CREATE
   // ------------------------------------------------------------------
 
-  async createOrder(customerId: string, dto: CreateOrderDto, fpRef?: string, sessionId?: string, marketplaceMarker?: string) {
+  async createOrder(
+    customerId: string,
+    dto: CreateOrderDto,
+    fpRef?: string,
+    sessionId?: string,
+    marketplaceMarker?: string,
+  ) {
     // Wrap the entire order creation path in a Sentry transaction so the
     // Performance dashboard breaks down P95 latency by sub-span (Prisma
     // round-trips, Stripe PI creation, BullMQ enqueues). Sentry no-ops
@@ -322,7 +327,13 @@ export class OrdersService {
     );
   }
 
-  private async createOrderInner(customerId: string, dto: CreateOrderDto, fpRef?: string, sessionId?: string, marketplaceMarker?: string) {
+  private async createOrderInner(
+    customerId: string,
+    dto: CreateOrderDto,
+    fpRef?: string,
+    sessionId?: string,
+    marketplaceMarker?: string,
+  ) {
     const vendor = await this.repo.vendorWithDelivery(dto.vendorId);
     if (!vendor)
       throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'Vendor not found' });
@@ -334,10 +345,7 @@ export class OrdersService {
     // item 3 ("FHRS rating of at least 3 out of 5").
     // A vendor whose rating later drops below 3 is blocked here even if
     // their VendorStatus is still live - the floor is non-negotiable.
-    if (
-      vendor.complianceStatus !== 'RATED' ||
-      (vendor.fsaHygieneRating ?? 0) < 3
-    ) {
+    if (vendor.complianceStatus !== 'RATED' || (vendor.fsaHygieneRating ?? 0) < 3) {
       throw new ForbiddenException({
         code: 'VENDOR_NOT_COMPLIANT',
         message: 'This vendor is not currently accepting orders',
@@ -526,7 +534,11 @@ export class OrdersService {
         // correct source-based rate BEFORE the order row is created. Never
         // throws - defaults to MARKETPLACE/first on any failure.
         this.attribution.preResolveSource(
-          fpRef, sessionId, customerId, dto.vendorId, marketplaceMarker,
+          fpRef,
+          sessionId,
+          customerId,
+          dto.vendorId,
+          marketplaceMarker,
         ),
       ]);
     const isFeastPassMember = feastPassSub?.status === FeastPassStatus.ACTIVE;
@@ -655,7 +667,11 @@ export class OrdersService {
       // Only record for marketplace-sourced orders: the service fee waiver
       // does not apply to vendor-referred orders, so no saving occurred on
       // those and recording one would overstate cumulative savings.
-      if (isFeastPassMember && rawServiceFeePence > 0 && attrSource !== OrderSource.VENDOR_REFERRED) {
+      if (
+        isFeastPassMember &&
+        rawServiceFeePence > 0 &&
+        attrSource !== OrderSource.VENDOR_REFERRED
+      ) {
         void this.feastpass.recordSaving(customerId, orderId, rawServiceFeePence);
       }
       return result;
@@ -766,8 +782,7 @@ export class OrdersService {
     if (discountPence > 0 && discountFundedBy === null) {
       throw new BadRequestException({
         code: 'DISCOUNT_FUNDED_BY_REQUIRED',
-        message:
-          'discount_funded_by must be set when discount_pence is greater than zero',
+        message: 'discount_funded_by must be set when discount_pence is greater than zero',
       });
     }
 

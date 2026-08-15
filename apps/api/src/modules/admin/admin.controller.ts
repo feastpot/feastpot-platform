@@ -24,6 +24,7 @@ import type { Response } from 'express';
 
 import { Roles } from '../../auth/decorators/roles.decorator';
 import type { AuthedRequest } from '../../auth/types';
+import { CommissionService } from '../../commission/commission.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { EmailProvider } from '../notifications/providers/email.provider';
@@ -31,10 +32,6 @@ import { PushProvider } from '../notifications/providers/push.provider';
 import { WhatsappProvider } from '../notifications/providers/whatsapp.provider';
 import { TEMPLATES } from '../notifications/templates';
 import { PAYOUTS_QUEUE, WEEKLY_BATCH_JOB } from '../payouts/processors/payout-batch.processor';
-
-import { Decimal } from '@prisma/client/runtime/library';
-
-import { CommissionService } from '../../commission/commission.service';
 import { TermsService } from '../terms/terms.service';
 
 import { AdminUsersService } from './admin-users.service';
@@ -631,7 +628,7 @@ export class AdminController {
       grossPence: 5000,
       commissionPence: 600,
       netPence: 4400,
-      scheduledFor: 'Saturday 14:00–15:00',
+      scheduledFor: 'Saturday 14:00-15:00',
       payoutDate: 'Monday',
       etaText: '14:45',
       loyaltyPointsEarned: 40,
@@ -839,7 +836,8 @@ export class AdminController {
   @Post('commission-rates')
   @Roles(UserRole.admin)
   @ApiOperation({
-    summary: 'Create a new commission rate and close the previous rate for the same slot. Rate increases require effectiveFrom ≥ now+15d.',
+    summary:
+      'Create a new commission rate and close the previous rate for the same slot. Rate increases require effectiveFrom ≥ now+15d.',
   })
   async createCommissionRate(
     @Body()
@@ -861,13 +859,11 @@ export class AdminController {
 
     // Check if this is a rate increase requiring 15-day notice.
     const { OrderSource } = await import('@prisma/client');
-    const src = dto.source as typeof OrderSource[keyof typeof OrderSource];
+    const src = dto.source as (typeof OrderSource)[keyof typeof OrderSource];
     const existing = await this.commissionService.listRates();
     const currentActive = existing.find(
       (r) =>
-        r.source === src &&
-        r.isFirstOrder === (dto.isFirstOrder ?? null) &&
-        r.effectiveTo === null,
+        r.source === src && r.isFirstOrder === (dto.isFirstOrder ?? null) && r.effectiveTo === null,
     );
     if (
       currentActive &&
@@ -897,9 +893,7 @@ export class AdminController {
     // notice flow automatically. We fire-and-forget in a try/catch so a terms
     // publish failure does not roll back the rate row -- ops can re-trigger
     // the notice manually if needed.
-    const previousRatePct = currentActive
-      ? parseFloat(currentActive.ratePercent.toString())
-      : 0;
+    const previousRatePct = currentActive ? parseFloat(currentActive.ratePercent.toString()) : 0;
     this.termsService
       .publishRateScheduleVersion({
         source: dto.source,
@@ -1035,8 +1029,7 @@ export class AdminController {
   @Roles(UserRole.admin)
   @HttpCode(200)
   @ApiOperation({
-    summary:
-      'Send a test Slack alert to verify QUEUE_ALERT_SLACK_WEBHOOK_URL is set and reachable',
+    summary: 'Send a test Slack alert to verify QUEUE_ALERT_SLACK_WEBHOOK_URL is set and reachable',
   })
   async testSlackAlert() {
     return this.dlqMonitor.triggerTestAlert();

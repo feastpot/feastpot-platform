@@ -8,13 +8,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import {
-  ModerationStatus,
-  OrderStatus,
-  UserRole,
-  VendorComplianceStatus,
-  VendorStatus,
-} from '@prisma/client';
+import { ModerationStatus, OrderStatus, UserRole, VendorStatus } from '@prisma/client';
 import type { VendorMemberRole } from '@prisma/client';
 import type { Queue } from 'bull';
 
@@ -36,7 +30,6 @@ import {
   VENDOR_READ_ROLES,
   VendorMembersService,
 } from '../vendor-members/vendor-members.service';
-
 import { isTaxProfileComplete } from '../vendor-tax-profile/vendor-tax-profile.service';
 
 import { AddBlackoutDto } from './dto/add-blackout.dto';
@@ -648,8 +641,7 @@ export class VendorsService {
         types: dto.types,
         localRadiusMiles: dto.localRadiusMiles ?? 5,
         localFeePence: dto.localFeePence ?? 0,
-        collectionAddress:
-          dto.collectionAddress ?? buildLegacyCollectionAddress(dto) ?? null,
+        collectionAddress: dto.collectionAddress ?? buildLegacyCollectionAddress(dto) ?? null,
         nationwideEnabled: dto.nationwideEnabled ?? false,
         nationwideFeePence: dto.nationwideFeePence ?? 0,
         minOrderPence: dto.minOrderPence ?? 0,
@@ -689,18 +681,14 @@ export class VendorsService {
           ? { freeDeliveryOverPence: dto.freeDeliveryOverPence }
           : {}),
         ...(dto.postcodes !== undefined ? { postcodes: dto.postcodes } : {}),
-        ...(kitchenPostcode !== (existing?.kitchenPostcode ?? null)
-          ? { kitchenPostcode }
-          : {}),
+        ...(kitchenPostcode !== (existing?.kitchenPostcode ?? null) ? { kitchenPostcode } : {}),
         ...(dto.collectionLine1 !== undefined
           ? { collectionLine1: dto.collectionLine1 ?? null }
           : {}),
         ...(dto.collectionLine2 !== undefined
           ? { collectionLine2: dto.collectionLine2 ?? null }
           : {}),
-        ...(dto.collectionTown !== undefined
-          ? { collectionTown: dto.collectionTown ?? null }
-          : {}),
+        ...(dto.collectionTown !== undefined ? { collectionTown: dto.collectionTown ?? null } : {}),
         ...(dto.collectionPostcode !== undefined
           ? { collectionPostcode: dto.collectionPostcode ?? null }
           : {}),
@@ -1598,8 +1586,7 @@ export class VendorsService {
         complianceStatus: dto.complianceStatus,
         // Explicit null-coalescing: omitted fields clear the column rather
         // than leaving a stale value from a previous inspection round.
-        fsaHygieneRating:
-          dto.fsaHygieneRating !== undefined ? dto.fsaHygieneRating : null,
+        fsaHygieneRating: dto.fsaHygieneRating !== undefined ? dto.fsaHygieneRating : null,
         fsaRatingDate: dto.fsaRatingDate ? new Date(dto.fsaRatingDate) : null,
         fsaRegistrationNumber: dto.fsaRegistrationNumber ?? null,
         fhrsId: dto.fhrsId ?? null,

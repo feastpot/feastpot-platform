@@ -25,22 +25,22 @@ import { createClient } from '@/lib/supabase/client';
 // Keep in sync with NAV_SECTIONS in side-nav.tsx (same routes, shorter labels
 // to fit the horizontally-scrolling mobile strip).
 const NAV_ITEMS = [
-  { href: '/',                    label: 'Dashboard' },
-  { href: '/orders',              label: 'Orders' },
-  { href: '/disputes',            label: 'Disputes' },
-  { href: '/menu',                label: 'Menu' },
-  { href: '/availability',        label: 'Availability' },
-  { href: '/settings/delivery',   label: 'Delivery' },
-  { href: '/settings/profile',    label: 'Profile' },
-  { href: '/share',               label: 'Share' },
-  { href: '/performance',         label: 'Performance' },
-  { href: '/payouts',             label: 'Payouts' },
-  { href: '/tax-information',     label: 'Tax' },
+  { href: '/', label: 'Dashboard' },
+  { href: '/orders', label: 'Orders' },
+  { href: '/disputes', label: 'Disputes' },
+  { href: '/menu', label: 'Menu' },
+  { href: '/availability', label: 'Availability' },
+  { href: '/settings/delivery', label: 'Delivery' },
+  { href: '/settings/profile', label: 'Profile' },
+  { href: '/share', label: 'Share' },
+  { href: '/performance', label: 'Performance' },
+  { href: '/payouts', label: 'Payouts' },
+  { href: '/tax-information', label: 'Tax' },
   { href: '/account-and-compliance', label: 'Account' },
-  { href: '/settings/team',          label: 'Team' },
-  { href: '/settings/security',      label: 'Security' },
-  { href: '/user-guide',          label: 'Guide' },
-  { href: '/help',                label: 'Help' },
+  { href: '/settings/team', label: 'Team' },
+  { href: '/settings/security', label: 'Security' },
+  { href: '/user-guide', label: 'Guide' },
+  { href: '/help', label: 'Help' },
 ] as const;
 
 function InboxBadge() {
@@ -144,10 +144,7 @@ export function TopNav({ businessName }: { businessName?: string }) {
         className="overflow-x-auto border-t border-border/40 [&::-webkit-scrollbar]:hidden"
         style={{ scrollbarWidth: 'none' }}
       >
-        <nav
-          className="flex items-center gap-0.5 px-2 pb-1.5 pt-1"
-          aria-label="Main navigation"
-        >
+        <nav className="flex items-center gap-0.5 px-2 pb-1.5 pt-1" aria-label="Main navigation">
           {visibleNavItems.map((item) => {
             const active =
               item.href === '/'

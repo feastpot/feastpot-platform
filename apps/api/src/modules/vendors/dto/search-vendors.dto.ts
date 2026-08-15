@@ -1,3 +1,4 @@
+import { ALLERGEN_FREE_SLUGS, DIETARY_PREFERENCE_SLUGS } from '@feastpot/config/allergens';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { OrderType, VendorStatus } from '@prisma/client';
 import { Transform, Type } from 'class-transformer';
@@ -15,8 +16,6 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
-
-import { ALLERGEN_FREE_SLUGS, DIETARY_PREFERENCE_SLUGS } from '@feastpot/config/allergens';
 
 export enum VendorSortBy {
   rating = 'rating',

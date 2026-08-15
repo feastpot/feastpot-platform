@@ -28,13 +28,13 @@ Read each task aloud exactly as written. Do not add context, gestures, or hints.
 
 **Start timing when the participant touches the keyboard or trackpad.**
 
-| Observation | Notes |
-|---|---|
-| Completed unaided (circle): **Yes / No** | |
-| Time taken (mm:ss): | |
-| Points of hesitation: | |
-| Words said aloud: | |
-| **Result: Pass / Fail** | Pass = completed unaided, no verbal prompting |
+| Observation                              | Notes                                         |
+| ---------------------------------------- | --------------------------------------------- |
+| Completed unaided (circle): **Yes / No** |                                               |
+| Time taken (mm:ss):                      |                                               |
+| Points of hesitation:                    |                                               |
+| Words said aloud:                        |                                               |
+| **Result: Pass / Fail**                  | Pass = completed unaided, no verbal prompting |
 
 ---
 
@@ -42,13 +42,13 @@ Read each task aloud exactly as written. Do not add context, gestures, or hints.
 
 > "A regular has been asking whether you sell your pepper soup separately. Get it on your menu at a price you are happy with."
 
-| Observation | Notes |
-|---|---|
-| Completed unaided (circle): **Yes / No** | |
-| Time taken (mm:ss): | |
-| Points of hesitation: | |
-| Words said aloud: | |
-| **Result: Pass / Fail** | |
+| Observation                              | Notes |
+| ---------------------------------------- | ----- |
+| Completed unaided (circle): **Yes / No** |       |
+| Time taken (mm:ss):                      |       |
+| Points of hesitation:                    |       |
+| Words said aloud:                        |       |
+| **Result: Pass / Fail**                  |       |
 
 ---
 
@@ -56,13 +56,13 @@ Read each task aloud exactly as written. Do not add context, gestures, or hints.
 
 > "You have just run out of jollof rice for today. Let customers know straightaway so no one places an order you cannot fulfil."
 
-| Observation | Notes |
-|---|---|
-| Completed unaided (circle): **Yes / No** | |
-| Time taken (mm:ss): | |
-| Points of hesitation: | |
-| Words said aloud: | |
-| **Result: Pass / Fail** | |
+| Observation                              | Notes |
+| ---------------------------------------- | ----- |
+| Completed unaided (circle): **Yes / No** |       |
+| Time taken (mm:ss):                      |       |
+| Points of hesitation:                    |       |
+| Words said aloud:                        |       |
+| **Result: Pass / Fail**                  |       |
 
 ---
 
@@ -70,13 +70,13 @@ Read each task aloud exactly as written. Do not add context, gestures, or hints.
 
 > "A customer pointed out that your egusi soup is priced two pounds lower than you intended. Fix that."
 
-| Observation | Notes |
-|---|---|
-| Completed unaided (circle): **Yes / No** | |
-| Time taken (mm:ss): | |
-| Points of hesitation: | |
-| Words said aloud: | |
-| **Result: Pass / Fail** | |
+| Observation                              | Notes |
+| ---------------------------------------- | ----- |
+| Completed unaided (circle): **Yes / No** |       |
+| Time taken (mm:ss):                      |       |
+| Points of hesitation:                    |       |
+| Words said aloud:                        |       |
+| **Result: Pass / Fail**                  |       |
 
 ---
 
@@ -84,13 +84,13 @@ Read each task aloud exactly as written. Do not add context, gestures, or hints.
 
 > "You want your best-selling dish to show up first when customers look at your menu. Make that happen."
 
-| Observation | Notes |
-|---|---|
-| Completed unaided (circle): **Yes / No** | |
-| Time taken (mm:ss): | |
-| Points of hesitation: | |
-| Words said aloud: | |
-| **Result: Pass / Fail** | |
+| Observation                              | Notes |
+| ---------------------------------------- | ----- |
+| Completed unaided (circle): **Yes / No** |       |
+| Time taken (mm:ss):                      |       |
+| Points of hesitation:                    |       |
+| Words said aloud:                        |       |
+| **Result: Pass / Fail**                  |       |
 
 ---
 
@@ -132,16 +132,16 @@ Answer:
 
 ## Scoring summary
 
-| Task | Completed unaided | Time | Result |
-|---|---|---|---|
-| T1 - First dish with photo and allergens | Y / N | | Pass / Fail |
-| T2 - Second dish in different category | Y / N | | Pass / Fail |
-| T3 - Mark dish unavailable | Y / N | | Pass / Fail |
-| T4 - Correct a price | Y / N | | Pass / Fail |
-| T5 - Reorder dishes | Y / N | | Pass / Fail |
+| Task                                     | Completed unaided | Time | Result      |
+| ---------------------------------------- | ----------------- | ---- | ----------- |
+| T1 - First dish with photo and allergens | Y / N             |      | Pass / Fail |
+| T2 - Second dish in different category   | Y / N             |      | Pass / Fail |
+| T3 - Mark dish unavailable               | Y / N             |      | Pass / Fail |
+| T4 - Correct a price                     | Y / N             |      | Pass / Fail |
+| T5 - Reorder dishes                      | Y / N             |      | Pass / Fail |
 
-**Overall pass rate:** __ / 5
+**Overall pass rate:** \_\_ / 5
 
 ---
 
-*Pass means completed unaided with no verbal prompting from the observer. A task that required a hint, a pointer, or a correction is a fail regardless of whether it was eventually completed.*
+_Pass means completed unaided with no verbal prompting from the observer. A task that required a hint, a pointer, or a correction is a fail regardless of whether it was eventually completed._

@@ -27,10 +27,9 @@ function read(rel: string): string {
 
 function buildRouteSet(appDir: string): Set<string> {
   const appRoot = join(ROOT, appDir, 'src', 'app');
-  const raw = execSync(
-    `find "${appRoot}" -name 'page.tsx' -o -name 'page.ts' 2>/dev/null`,
-    { encoding: 'utf8' },
-  );
+  const raw = execSync(`find "${appRoot}" -name 'page.tsx' -o -name 'page.ts' 2>/dev/null`, {
+    encoding: 'utf8',
+  });
   const routes = new Set<string>(['/']);
   for (const file of raw.trim().split('\n').filter(Boolean)) {
     let rel = relative(appRoot, file.trim());
@@ -43,7 +42,7 @@ function buildRouteSet(appDir: string): Set<string> {
 }
 
 function matches(href: string, routes: Set<string>): boolean {
-  const bare = (href.split('?')[0].split('#')[0]) || '/';
+  const bare = href.split('?')[0].split('#')[0] || '/';
   if (routes.has(bare)) return true;
   for (const pattern of routes) {
     if (!pattern.includes('[')) continue;
@@ -60,24 +59,60 @@ const vendorRoutes = buildRouteSet('apps/vendor');
 // ── Sidebar routes ────────────────────────────────────────────────────────────
 
 describe('Vendor portal - all 18 sidebar destinations have a page.tsx', () => {
-  it('Dashboard (/)', () => { expect(matches('/', vendorRoutes)).toBe(true); });
-  it('Orders (/orders)', () => { expect(matches('/orders', vendorRoutes)).toBe(true); });
-  it('Disputes (/disputes)', () => { expect(matches('/disputes', vendorRoutes)).toBe(true); });
-  it('Menu (/menu)', () => { expect(matches('/menu', vendorRoutes)).toBe(true); });
-  it('Availability (/availability)', () => { expect(matches('/availability', vendorRoutes)).toBe(true); });
-  it('Analytics (/analytics)', () => { expect(matches('/analytics', vendorRoutes)).toBe(true); });
-  it('Bring your own customers (/referrals)', () => { expect(matches('/referrals', vendorRoutes)).toBe(true); });
-  it('Catering bookings (/catering)', () => { expect(matches('/catering', vendorRoutes)).toBe(true); });
-  it('Earnings and fees (/earnings)', () => { expect(matches('/earnings', vendorRoutes)).toBe(true); });
-  it('Payouts (/payouts)', () => { expect(matches('/payouts', vendorRoutes)).toBe(true); });
-  it('Compliance (/compliance)', () => { expect(matches('/compliance', vendorRoutes)).toBe(true); });
-  it('Account status (/account-status)', () => { expect(matches('/account-status', vendorRoutes)).toBe(true); });
-  it('Tax information (/tax-information)', () => { expect(matches('/tax-information', vendorRoutes)).toBe(true); });
-  it('Terms and Notices (/terms)', () => { expect(matches('/terms', vendorRoutes)).toBe(true); });
-  it('Profile (/settings/profile)', () => { expect(matches('/settings/profile', vendorRoutes)).toBe(true); });
-  it('Team (/settings/team)', () => { expect(matches('/settings/team', vendorRoutes)).toBe(true); });
-  it('Security (/settings/security)', () => { expect(matches('/settings/security', vendorRoutes)).toBe(true); });
-  it('User Guide (/user-guide)', () => { expect(matches('/user-guide', vendorRoutes)).toBe(true); });
+  it('Dashboard (/)', () => {
+    expect(matches('/', vendorRoutes)).toBe(true);
+  });
+  it('Orders (/orders)', () => {
+    expect(matches('/orders', vendorRoutes)).toBe(true);
+  });
+  it('Disputes (/disputes)', () => {
+    expect(matches('/disputes', vendorRoutes)).toBe(true);
+  });
+  it('Menu (/menu)', () => {
+    expect(matches('/menu', vendorRoutes)).toBe(true);
+  });
+  it('Availability (/availability)', () => {
+    expect(matches('/availability', vendorRoutes)).toBe(true);
+  });
+  it('Analytics (/analytics)', () => {
+    expect(matches('/analytics', vendorRoutes)).toBe(true);
+  });
+  it('Bring your own customers (/referrals)', () => {
+    expect(matches('/referrals', vendorRoutes)).toBe(true);
+  });
+  it('Catering bookings (/catering)', () => {
+    expect(matches('/catering', vendorRoutes)).toBe(true);
+  });
+  it('Earnings and fees (/earnings)', () => {
+    expect(matches('/earnings', vendorRoutes)).toBe(true);
+  });
+  it('Payouts (/payouts)', () => {
+    expect(matches('/payouts', vendorRoutes)).toBe(true);
+  });
+  it('Compliance (/compliance)', () => {
+    expect(matches('/compliance', vendorRoutes)).toBe(true);
+  });
+  it('Account status (/account-status)', () => {
+    expect(matches('/account-status', vendorRoutes)).toBe(true);
+  });
+  it('Tax information (/tax-information)', () => {
+    expect(matches('/tax-information', vendorRoutes)).toBe(true);
+  });
+  it('Terms and Notices (/terms)', () => {
+    expect(matches('/terms', vendorRoutes)).toBe(true);
+  });
+  it('Profile (/settings/profile)', () => {
+    expect(matches('/settings/profile', vendorRoutes)).toBe(true);
+  });
+  it('Team (/settings/team)', () => {
+    expect(matches('/settings/team', vendorRoutes)).toBe(true);
+  });
+  it('Security (/settings/security)', () => {
+    expect(matches('/settings/security', vendorRoutes)).toBe(true);
+  });
+  it('User Guide (/user-guide)', () => {
+    expect(matches('/user-guide', vendorRoutes)).toBe(true);
+  });
 });
 
 describe('Vendor portal - contact support and nested routes', () => {

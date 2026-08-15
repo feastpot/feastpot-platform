@@ -7,7 +7,12 @@ import type { WhatsappProvider } from '../notifications/providers/whatsapp.provi
 import { CateringEnquiriesService } from './catering-enquiries.service';
 
 function makeCreate() {
-  return jest.fn().mockResolvedValue({ id: 'ce-1', postcode: 'SE15 4EE', outwardCode: 'SE15', occasionType: 'birthday-party' });
+  return jest.fn().mockResolvedValue({
+    id: 'ce-1',
+    postcode: 'SE15 4EE',
+    outwardCode: 'SE15',
+    occasionType: 'birthday-party',
+  });
 }
 function makeEmail() {
   return { send: jest.fn().mockResolvedValue({ id: 'e-1', delivered: true }) };

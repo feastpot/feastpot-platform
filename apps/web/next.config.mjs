@@ -1,4 +1,18 @@
+import { execSync } from 'node:child_process';
 import withPWAInit from '@ducanh2912/next-pwa';
+
+// Embed the current git SHA at build time so deployed bundles can be
+// identified without relying on the deployment platform's metadata.
+// Falls back to 'unknown' in environments without git (e.g. some CI containers).
+const BUILD_SHA = (() => {
+  try {
+    return execSync('git rev-parse HEAD', { stdio: ['ignore', 'pipe', 'ignore'] })
+      .toString()
+      .trim();
+  } catch {
+    return 'unknown';
+  }
+})();
 
 /**
  * Next.js 15 config for the Feastpot customer PWA.
@@ -130,6 +144,11 @@ const API_PROXY_TARGET = process.env.API_PROXY_TARGET ?? 'http://localhost:3001'
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  env: {
+    // Exposed to the browser so the deployed bundle can be identified from
+    // the HTML source or the browser console without platform metadata.
+    NEXT_PUBLIC_BUILD_SHA: BUILD_SHA,
+  },
   transpilePackages: ['@feastpot/ui', '@feastpot/types'],
   allowedDevOrigins: ['*.replit.dev', '*.worf.replit.dev'],
   poweredByHeader: false,

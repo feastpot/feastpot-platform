@@ -1,12 +1,4 @@
-import {
-  Body,
-  Controller,
-  Get,
-  HttpCode,
-  Post,
-  UseGuards,
-  Version,
-} from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Post, UseGuards } from '@nestjs/common';
 
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -47,10 +39,7 @@ export class FeastPassController {
   @HttpCode(200)
   @UseGuards(SupabaseAuthGuard, RolesGuard)
   @Roles('customer', 'admin')
-  async createCheckout(
-    @CurrentUser() user: AuthUser,
-    @Body() dto: CreateCheckoutSessionDto,
-  ) {
+  async createCheckout(@CurrentUser() user: AuthUser, @Body() dto: CreateCheckoutSessionDto) {
     return this.feastpass.createCheckoutSession(
       user.id,
       user.email,
@@ -65,10 +54,7 @@ export class FeastPassController {
   @HttpCode(200)
   @UseGuards(SupabaseAuthGuard, RolesGuard)
   @Roles('customer', 'admin')
-  async createPortal(
-    @CurrentUser() user: AuthUser,
-    @Body() dto: CreatePortalSessionDto,
-  ) {
+  async createPortal(@CurrentUser() user: AuthUser, @Body() dto: CreatePortalSessionDto) {
     return this.feastpass.createPortalSession(user.id, dto.returnUrl);
   }
 

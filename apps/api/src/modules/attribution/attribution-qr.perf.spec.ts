@@ -18,7 +18,16 @@ import { Test } from '@nestjs/testing';
 
 import { SupabaseService } from '../../auth/supabase.service';
 import { PrismaService } from '../../prisma/prisma.service';
+
 import { AttributionService } from './attribution.service';
+
+// Mock the qrcode library so tests don't do real CPU-intensive QR rendering.
+// The contract being tested is synchrony and the storage integration, not
+// pixel correctness - a separate staging test covers end-to-end latency.
+jest.mock('qrcode', () => ({
+  toBuffer: jest.fn().mockResolvedValue(Buffer.from('fake-png-data')),
+  toString: jest.fn().mockResolvedValue('<svg>fake-qr</svg>'),
+}));
 
 describe('AttributionService - QR performance contract', () => {
   let service: AttributionService;
@@ -157,17 +166,20 @@ describe('AttributionService - QR performance contract', () => {
   it('backfillMissingQr processes links with null qrCodeUrl', async () => {
     // Spy on generateAndStoreQr so we test backfill orchestration without
     // running actual CPU-intensive QR renders inside the test suite.
-    const spy = jest
-      .spyOn(service, 'generateAndStoreQr')
-      .mockResolvedValue({ png: 'https://cdn.example.com/qr.png', svg: 'https://cdn.example.com/qr.svg' });
+    const spy = jest.spyOn(service, 'generateAndStoreQr').mockResolvedValue({
+      png: 'https://cdn.example.com/qr.png',
+      svg: 'https://cdn.example.com/qr.svg',
+    });
 
     // Inject mock findMany returning 2 links that need QR generation.
     const prismaAny = service['prisma'] as Record<string, unknown>;
     const origFindMany = (prismaAny['vendorReferralLink'] as Record<string, unknown>)['findMany'];
-    (prismaAny['vendorReferralLink'] as Record<string, unknown>)['findMany'] = jest.fn().mockResolvedValue([
-      { id: 'link-a', slug: 'vendor-a-abc' },
-      { id: 'link-b', slug: 'vendor-b-def' },
-    ]);
+    (prismaAny['vendorReferralLink'] as Record<string, unknown>)['findMany'] = jest
+      .fn()
+      .mockResolvedValue([
+        { id: 'link-a', slug: 'vendor-a-abc' },
+        { id: 'link-b', slug: 'vendor-b-def' },
+      ]);
 
     const result = await service.backfillMissingQr();
 

@@ -101,7 +101,7 @@ describe('MenuItemsService allergen + tag helpers', () => {
 // These tests exercise the live service constructor with jest-mocked injected
 // dependencies so we don't need a database, storage bucket, or Redis.
 // ---------------------------------------------------------------------------
-describe('MenuItemsService.uploadImage – draft visibility', () => {
+describe('MenuItemsService.uploadImage - draft visibility', () => {
   const vendorId = 'vendor-uuid-1';
   const menuId = 'menu-uuid-1';
   const itemId = 'item-uuid-1';

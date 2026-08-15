@@ -92,14 +92,11 @@ export function useLiftEnforcementAction(vendorId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ actionId, liftNote }: { actionId: string; liftNote?: string }) =>
-      apiRequest<EnforcementAction>(
-        `/admin/vendors/${vendorId}/enforcement/${actionId}/lift`,
-        {
-          method: 'PATCH',
-          body: JSON.stringify({ liftNote }),
-          headers: { 'Content-Type': 'application/json' },
-        },
-      ),
+      apiRequest<EnforcementAction>(`/admin/vendors/${vendorId}/enforcement/${actionId}/lift`, {
+        method: 'PATCH',
+        body: JSON.stringify({ liftNote }),
+        headers: { 'Content-Type': 'application/json' },
+      }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['vendor-enforcement', vendorId] });
       void qc.invalidateQueries({ queryKey: ['vendor-detail', vendorId] });

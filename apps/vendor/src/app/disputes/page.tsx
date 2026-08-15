@@ -47,9 +47,9 @@ export default async function DisputesPage() {
 
   return (
     <PortalShell businessName={vendor.businessName}>
-          <RoleGate path="/disputes">
-            <DisputesClient />
-          </RoleGate>
+      <RoleGate path="/disputes">
+        <DisputesClient />
+      </RoleGate>
     </PortalShell>
   );
 }

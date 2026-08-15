@@ -48,15 +48,13 @@ export const REASON_CODE_RESOLVE_STEPS: Record<ReasonCode, string> = {
     'Upload your renewed compliance documents in the vendor portal under Compliance and Documents.',
   FOOD_SAFETY_CONCERN:
     'Contact Feastpot support immediately to discuss the concern and the steps required to resume trading.',
-  MATERIAL_BREACH:
-    'Review the notice details and contact support to discuss remediation steps.',
+  MATERIAL_BREACH: 'Review the notice details and contact support to discuss remediation steps.',
   REPEATED_COMPLAINTS:
     'Review the complaint summaries in your disputes history and contact support to discuss remediation.',
   STRIPE_FLAG:
     'Log in to your Stripe dashboard to resolve any outstanding requirements, then contact Feastpot support.',
   PROHIBITED_CONDUCT: 'Contact Feastpot support to discuss this notice.',
-  FRAUD:
-    'Contact Feastpot support immediately. You may also seek independent legal advice.',
+  FRAUD: 'Contact Feastpot support immediately. You may also seek independent legal advice.',
 };
 
 export function useAccountStatus() {

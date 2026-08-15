@@ -18,7 +18,11 @@ const STATUS_LABELS: Record<string, { label: string; colour: string }> = {
 };
 
 function formatDate(d: string | Date) {
-  return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  return new Date(d).toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
 }
 
 function formatPounds(p: number) {
@@ -134,8 +138,10 @@ function BookingCard({ booking: b }: { booking: CateringBooking }) {
           <p className="text-sm text-muted-foreground">{b.customerEmail}</p>
           <p className="mt-1 text-sm">
             <span className="font-medium">{formatDate(b.eventDate)}</span>
-            {b.preferredTime && <span className="text-muted-foreground"> at {b.preferredTime}</span>}
-            {' '}&bull; {b.guestCount} guests
+            {b.preferredTime && (
+              <span className="text-muted-foreground"> at {b.preferredTime}</span>
+            )}{' '}
+            &bull; {b.guestCount} guests
           </p>
           {b.eventAddress && (
             <p className="text-xs text-muted-foreground truncate">{b.eventAddress}</p>

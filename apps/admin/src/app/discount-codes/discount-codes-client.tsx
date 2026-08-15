@@ -151,9 +151,7 @@ export function DiscountCodesClient({ canCreate }: Props) {
   const isVendorFunded = form.fundedBy === 'VENDOR';
 
   const isCreateFormValid =
-    !!form.code.trim() &&
-    !!form.value &&
-    (!isVendorFunded || !!form.vendorId?.trim());
+    !!form.code.trim() && !!form.value && (!isVendorFunded || !!form.vendorId?.trim());
 
   return (
     <div className="space-y-6">
@@ -353,13 +351,19 @@ export function DiscountCodesClient({ canCreate }: Props) {
             </Field>
 
             <Field
-              label={isVendorFunded ? 'Vendor ID (required for vendor-funded codes)' : 'Vendor ID (optional , blank = all vendors)'}
+              label={
+                isVendorFunded
+                  ? 'Vendor ID (required for vendor-funded codes)'
+                  : 'Vendor ID (optional , blank = all vendors)'
+              }
             >
               <Input
                 value={form.vendorId ?? ''}
                 onChange={(e) => update('vendorId', e.target.value || undefined)}
                 placeholder="UUID"
-                className={isVendorFunded && !form.vendorId ? 'border-amber-400 ring-amber-200' : ''}
+                className={
+                  isVendorFunded && !form.vendorId ? 'border-amber-400 ring-amber-200' : ''
+                }
               />
               {isVendorFunded && !form.vendorId ? (
                 <p className="text-xs text-amber-700">
@@ -378,7 +382,11 @@ export function DiscountCodesClient({ canCreate }: Props) {
                 disabled={create.isPending || !isCreateFormValid}
                 className={isVendorFunded ? 'bg-amber-600 hover:bg-amber-700' : ''}
               >
-                {create.isPending ? 'Creating…' : isVendorFunded ? 'Review & confirm…' : 'Create code'}
+                {create.isPending
+                  ? 'Creating…'
+                  : isVendorFunded
+                    ? 'Review & confirm…'
+                    : 'Create code'}
               </Button>
             </div>
           </div>
@@ -397,14 +405,14 @@ export function DiscountCodesClient({ canCreate }: Props) {
             </DialogHeader>
             <div className="space-y-4">
               <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                <strong>{dialog.vendorName}</strong> will bear the cost of this discount.
-                Every time code <strong className="font-mono">{dialog.payload.code}</strong> is
-                redeemed, the discount amount is deducted from their payout , and commission is
-                calculated on the lower, discounted total.
+                <strong>{dialog.vendorName}</strong> will bear the cost of this discount. Every time
+                code <strong className="font-mono">{dialog.payload.code}</strong> is redeemed, the
+                discount amount is deducted from their payout , and commission is calculated on the
+                lower, discounted total.
               </div>
               <p className="text-sm text-muted-foreground">
-                If this vendor has not agreed to fund this promotion, choose{' '}
-                <strong>Cancel</strong> and switch the funding source to Feastpot instead.
+                If this vendor has not agreed to fund this promotion, choose <strong>Cancel</strong>{' '}
+                and switch the funding source to Feastpot instead.
               </p>
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setDialog({ kind: 'create' })}>
@@ -601,11 +609,7 @@ function FundingOption({
       : 'border-emerald-600 bg-emerald-50'
     : 'border-border hover:bg-muted/40';
 
-  const titleColor = selected
-    ? tone === 'warn'
-      ? 'text-amber-800'
-      : 'text-emerald-800'
-    : '';
+  const titleColor = selected ? (tone === 'warn' ? 'text-amber-800' : 'text-emerald-800') : '';
 
   return (
     <button
@@ -641,8 +645,8 @@ function ChangeFundingDialog({
         </DialogHeader>
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Code <strong className="font-mono">{row.code}</strong> has not been redeemed yet, so
-            the funding source can be changed.
+            Code <strong className="font-mono">{row.code}</strong> has not been redeemed yet, so the
+            funding source can be changed.
           </p>
           <div className="space-y-2">
             <FundingOption

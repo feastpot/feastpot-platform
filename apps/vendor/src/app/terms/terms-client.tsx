@@ -72,9 +72,7 @@ export function TermsClient({ view, history }: TermsClientProps) {
     !v.accepted && !accepted.has(v.id) && new Date(v.effectiveAt) > new Date();
 
   // Acceptance record: look up the current version in history to get acceptedAt + method.
-  const currentInHistory = view.current
-    ? history.find((h) => h.id === view.current!.id)
-    : null;
+  const currentInHistory = view.current ? history.find((h) => h.id === view.current!.id) : null;
   const currentIsAccepted = view.current
     ? view.current.accepted || accepted.has(view.current.id)
     : false;
@@ -85,16 +83,13 @@ export function TermsClient({ view, history }: TermsClientProps) {
       ? 'Online (click-wrap)'
       : currentAcceptanceMethod === 'DEEMED_CONTINUED_USE'
         ? 'Deemed by continued use'
-        : currentAcceptanceMethod ?? 'Not recorded';
+        : (currentAcceptanceMethod ?? 'Not recorded');
 
   return (
     <div className="space-y-8">
       {/* Layer 1 + Layer 2 -- legal resources always visible on the Legal tab */}
       <section aria-labelledby="legal-resources-heading">
-        <h2
-          id="legal-resources-heading"
-          className="mb-4 text-base font-semibold text-dark"
-        >
+        <h2 id="legal-resources-heading" className="mb-4 text-base font-semibold text-dark">
           Legal resources
         </h2>
         <div className="grid gap-4 lg:grid-cols-2">
@@ -179,9 +174,7 @@ export function TermsClient({ view, history }: TermsClientProps) {
               <dl className="grid gap-4 text-sm sm:grid-cols-3">
                 <div>
                   <dt className="text-xs font-medium text-mid">Version</dt>
-                  <dd className="mt-0.5 font-semibold text-dark">
-                    v{view.current.version}
-                  </dd>
+                  <dd className="mt-0.5 font-semibold text-dark">v{view.current.version}</dd>
                 </div>
                 <div>
                   <dt className="text-xs font-medium text-mid">Accepted</dt>
@@ -219,8 +212,8 @@ export function TermsClient({ view, history }: TermsClientProps) {
                 You have not yet acknowledged the current terms.
               </p>
               <p className="mt-1 text-sm text-amber-800">
-                Please acknowledge the terms above to record your acceptance. Continuing to
-                operate on the platform constitutes acceptance by continued use.
+                Please acknowledge the terms above to record your acceptance. Continuing to operate
+                on the platform constitutes acceptance by continued use.
               </p>
             </div>
           )}
@@ -238,21 +231,16 @@ export function TermsClient({ view, history }: TermsClientProps) {
         </h2>
         {history.length === 0 ? (
           <p className="text-sm text-mid">
-            You are on the first version of these terms. When we make a change, you will get
-            at least 15 days notice and the previous version will be archived here.
+            You are on the first version of these terms. When we make a change, you will get at
+            least 15 days notice and the previous version will be archived here.
           </p>
         ) : (
           <ol className="space-y-3">
             {history.map((entry) => (
-              <li
-                key={entry.id}
-                className="rounded-xl border border-border bg-white p-4"
-              >
+              <li key={entry.id} className="rounded-xl border border-border bg-white p-4">
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold text-dark">
-                      Version {entry.version}
-                    </p>
+                    <p className="text-sm font-semibold text-dark">Version {entry.version}</p>
                     <p className="mt-0.5 text-xs text-mid">
                       Effective{' '}
                       {new Date(entry.effectiveAt).toLocaleDateString('en-GB', {

@@ -2,7 +2,6 @@ import { Module } from '@nestjs/common';
 
 import { AuthModule } from '../../auth/auth.module';
 import { PrismaModule } from '../../prisma/prisma.module';
-import { HMRC_QUEUE } from '../../queues/queues.module';
 import { StripeModule } from '../../stripe/stripe.module';
 
 import { HmrcReportProcessor } from './hmrc-report.processor';

@@ -68,9 +68,11 @@ export function makeAnalyticsData() {
     hourly: Array.from({ length: 24 }, (_, h) => ({
       hour: h,
       orderCount:
-        h >= 11 && h <= 13 ? 6 + h - 11
-        : h >= 17 && h <= 20 ? 9 + 20 - h
-        : Math.max(0, Math.floor(Math.random() * 2)),
+        h >= 11 && h <= 13
+          ? 6 + h - 11
+          : h >= 17 && h <= 20
+            ? 9 + 20 - h
+            : Math.max(0, Math.floor(Math.random() * 2)),
     })),
     topItems: [
       { name: 'Sunday Jollof Rice', orderCount: 42, revenuePence: 63_000 },

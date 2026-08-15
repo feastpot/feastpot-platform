@@ -51,7 +51,7 @@ const FAQS = [
   },
   {
     q: 'Does FeastPass waive the fee on every order?',
-    a: 'It waives the service fee on orders you place through Feastpot - for example when you find a kitchen through postcode search or browse. If you place an order via a kitchen\'s own referral link, the standard service fee still applies. You will always see the applicable fee before you pay.',
+    a: "It waives the service fee on orders you place through Feastpot - for example when you find a kitchen through postcode search or browse. If you place an order via a kitchen's own referral link, the standard service fee still applies. You will always see the applicable fee before you pay.",
   },
 ];
 
@@ -67,13 +67,18 @@ export default function FeastPassPage() {
   const [avgOrderPence, setAvgOrderPence] = useState(2500);
 
   // Saving per order = min(subtotal × serviceFee.percent%, serviceFee.capPence)
-  const savingPerOrder = Math.min(Math.round(avgOrderPence * PLATFORM_FACTS.serviceFee.percent / 100), PLATFORM_FACTS.serviceFee.capPence);
+  const savingPerOrder = Math.min(
+    Math.round((avgOrderPence * PLATFORM_FACTS.serviceFee.percent) / 100),
+    PLATFORM_FACTS.serviceFee.capPence,
+  );
   const annualSavingPence = savingPerOrder * ordersPerMonth * 12;
-  const annualCostPence = plan === 'ANNUAL' ? PLATFORM_FACTS.feastPass.annualPence : PLATFORM_FACTS.feastPass.monthlyPence * 12;
+  const annualCostPence =
+    plan === 'ANNUAL'
+      ? PLATFORM_FACTS.feastPass.annualPence
+      : PLATFORM_FACTS.feastPass.monthlyPence * 12;
   const netAnnualSavingPence = annualSavingPence - annualCostPence;
-  const breakEvenOrders = annualCostPence > 0
-    ? Math.ceil(annualCostPence / Math.max(savingPerOrder, 1))
-    : 0;
+  const breakEvenOrders =
+    annualCostPence > 0 ? Math.ceil(annualCostPence / Math.max(savingPerOrder, 1)) : 0;
 
   async function handleSubscribe() {
     if (!token) {
@@ -108,7 +113,8 @@ export default function FeastPassPage() {
           Great food without <br className="hidden sm:inline" /> the extra charges
         </h1>
         <p className="mt-3 text-base font-medium text-charcoal-mid">
-          One membership. No service fee on orders you place through Feastpot. Priority access to the slots everyone wants.
+          One membership. No service fee on orders you place through Feastpot. Priority access to
+          the slots everyone wants.
         </p>
         <p className="mt-1.5 text-sm font-bold text-brand">
           Pays for itself from your second order each month.
@@ -145,7 +151,9 @@ export default function FeastPassPage() {
             <span className="text-base font-medium text-charcoal-mid"> /month</span>
           </p>
           {plan === 'ANNUAL' && (
-            <p className="text-xs font-medium text-charcoal-mid">Billed £39.90/year · cancel any time</p>
+            <p className="text-xs font-medium text-charcoal-mid">
+              Billed £39.90/year · cancel any time
+            </p>
           )}
         </div>
 
@@ -184,9 +192,7 @@ export default function FeastPassPage() {
 
       {/* Live calculator */}
       <section className="mx-auto mt-10 max-w-lg rounded-2xl border border-cream-deep bg-white p-5 shadow-card">
-        <h2 className="font-display text-lg font-black text-charcoal">
-          How much will you save?
-        </h2>
+        <h2 className="font-display text-lg font-black text-charcoal">How much will you save?</h2>
         <p className="mt-0.5 text-sm font-medium text-charcoal-mid">
           Adjust the sliders to match your ordering habits.
         </p>
@@ -194,9 +200,7 @@ export default function FeastPassPage() {
         <div className="mt-5 space-y-4">
           <div>
             <div className="flex items-center justify-between">
-              <label className="text-sm font-bold text-charcoal">
-                Orders per month
-              </label>
+              <label className="text-sm font-bold text-charcoal">Orders per month</label>
               <span className="text-sm font-black text-brand">{ordersPerMonth}</span>
             </div>
             <input
@@ -208,15 +212,14 @@ export default function FeastPassPage() {
               className="mt-2 w-full accent-brand"
             />
             <div className="flex justify-between text-[11px] text-charcoal-mid">
-              <span>1 order</span><span>12 orders</span>
+              <span>1 order</span>
+              <span>12 orders</span>
             </div>
           </div>
 
           <div>
             <div className="flex items-center justify-between">
-              <label className="text-sm font-bold text-charcoal">
-                Typical order value
-              </label>
+              <label className="text-sm font-bold text-charcoal">Typical order value</label>
               <span className="text-sm font-black text-brand">
                 £{(avgOrderPence / 100).toFixed(0)}
               </span>
@@ -231,7 +234,8 @@ export default function FeastPassPage() {
               className="mt-2 w-full accent-brand"
             />
             <div className="flex justify-between text-[11px] text-charcoal-mid">
-              <span>£10</span><span>£80</span>
+              <span>£10</span>
+              <span>£80</span>
             </div>
           </div>
         </div>
@@ -243,7 +247,9 @@ export default function FeastPassPage() {
           </div>
           <div className="mt-1 flex items-center justify-between">
             <span className="text-sm font-medium text-charcoal">Annual saving on fees</span>
-            <span className="font-black text-charcoal">£{(annualSavingPence / 100).toFixed(2)}</span>
+            <span className="font-black text-charcoal">
+              £{(annualSavingPence / 100).toFixed(2)}
+            </span>
           </div>
           <div className="mt-1 flex items-center justify-between">
             <span className="text-sm font-medium text-charcoal">
@@ -256,8 +262,8 @@ export default function FeastPassPage() {
             <span
               className={`text-lg font-black ${netAnnualSavingPence >= 0 ? 'text-brand' : 'text-charcoal-mid'}`}
             >
-              {netAnnualSavingPence >= 0 ? '+' : ''}
-              £{(Math.abs(netAnnualSavingPence) / 100).toFixed(2)}
+              {netAnnualSavingPence >= 0 ? '+' : ''}£
+              {(Math.abs(netAnnualSavingPence) / 100).toFixed(2)}
             </span>
           </div>
           {breakEvenOrders <= ordersPerMonth * 12 && (
@@ -266,12 +272,13 @@ export default function FeastPassPage() {
               <strong className="text-charcoal">
                 {breakEvenOrders} order{breakEvenOrders !== 1 ? 's' : ''}
               </strong>{' '}
-              - roughly{' '}
-              {Math.ceil(breakEvenOrders / ordersPerMonth)} month{Math.ceil(breakEvenOrders / ordersPerMonth) !== 1 ? 's' : ''} at your current rate.
+              - roughly {Math.ceil(breakEvenOrders / ordersPerMonth)} month
+              {Math.ceil(breakEvenOrders / ordersPerMonth) !== 1 ? 's' : ''} at your current rate.
             </p>
           )}
           <p className="mt-3 text-xs text-charcoal-mid border-t border-brand/10 pt-2">
-            Based on orders placed through Feastpot. Orders through a kitchen&apos;s own link are not included.
+            Based on orders placed through Feastpot. Orders through a kitchen&apos;s own link are
+            not included.
           </p>
         </div>
       </section>

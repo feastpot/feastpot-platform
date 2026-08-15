@@ -1,6 +1,7 @@
+import { randomBytes } from 'crypto';
+
 import { Injectable, Logger } from '@nestjs/common';
 import * as Sentry from '@sentry/nestjs';
-import { randomBytes } from 'crypto';
 
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -86,7 +87,9 @@ export class ErrorIncidentsService {
    * Returns routes that have logged more than `threshold` incidents in the
    * last hour. Called by the DlqMonitorService cron for alerting.
    */
-  async hotRoutes(thresholdPerHour = 3): Promise<Array<{ app: string; route: string; count: number }>> {
+  async hotRoutes(
+    thresholdPerHour = 3,
+  ): Promise<Array<{ app: string; route: string; count: number }>> {
     const since = new Date(Date.now() - 60 * 60 * 1000);
     const groups = await this.prisma.errorIncident.groupBy({
       by: ['app', 'route'],

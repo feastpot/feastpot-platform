@@ -70,7 +70,6 @@ export default function ResetStart() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-cream px-4 py-10">
       <div className="w-full max-w-sm">
-
         {/* Logo */}
         <div className="mb-8 flex justify-center">
           <Link href="/" aria-label="Feastpot home">
@@ -86,7 +85,6 @@ export default function ResetStart() {
         </div>
 
         <div className="rounded-2xl bg-white p-8 shadow-card">
-
           {state === 'loading' && (
             <div className="space-y-3 text-center">
               <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-cream-deep border-t-brand" />
@@ -97,7 +95,9 @@ export default function ResetStart() {
           {state === 'invalid' && (
             <div className="space-y-4 text-center">
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-50">
-                <span className="text-2xl" aria-hidden>!</span>
+                <span className="text-2xl" aria-hidden>
+                  !
+                </span>
               </div>
               <h1 className="font-display text-xl font-black tracking-tight text-charcoal">
                 This link is not valid
@@ -122,8 +122,8 @@ export default function ResetStart() {
                   Set a new password
                 </h1>
                 <p className="mt-2 text-sm leading-relaxed text-charcoal-mid">
-                  Click below to choose a new password for your Feastpot account.
-                  The link expires 60 minutes from when it was sent.
+                  Click below to choose a new password for your Feastpot account. The link expires
+                  60 minutes from when it was sent.
                 </p>
               </div>
 
@@ -137,16 +137,12 @@ export default function ResetStart() {
 
               <p className="text-center text-xs text-charcoal-mid">
                 Link expired?{' '}
-                <Link
-                  href="/forgot-password"
-                  className="font-semibold text-brand hover:underline"
-                >
+                <Link href="/forgot-password" className="font-semibold text-brand hover:underline">
                   Request a new one
                 </Link>
               </p>
             </div>
           )}
-
         </div>
       </div>
     </div>

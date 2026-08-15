@@ -753,9 +753,7 @@ export function CateringFunnel() {
               <select
                 id="s6-hear-about-us"
                 value={state.step6HearAboutUs ?? ''}
-                onChange={(e) =>
-                  update({ step6HearAboutUs: e.target.value || undefined })
-                }
+                onChange={(e) => update({ step6HearAboutUs: e.target.value || undefined })}
                 className="h-12 w-full rounded-xl border border-cream-deep bg-white px-4 text-[15px] font-medium text-charcoal outline-none focus:ring-2 focus:ring-brand/30"
               >
                 <option value="">Select one</option>

@@ -1,12 +1,7 @@
 import { createHash } from 'crypto';
 
 import { InjectQueue } from '@nestjs/bull';
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { AcceptanceMethod, NoticeChannel, TermsDocumentType } from '@prisma/client';
 import type { Queue } from 'bull';
 
@@ -503,7 +498,15 @@ export class TermsService {
     // Summarise by version for the overview cards.
     const byVersion = new Map<
       string,
-      { version: string; documentType: string; sent: number; delivered: number; opened: number; acknowledged: number; bounced: number }
+      {
+        version: string;
+        documentType: string;
+        sent: number;
+        delivered: number;
+        opened: number;
+        acknowledged: number;
+        bounced: number;
+      }
     >();
     for (const n of enriched) {
       const key = n.termsVersionId;
@@ -607,7 +610,10 @@ export class TermsService {
         liveVersion: coverageData.liveVersion,
       },
       bouncedNotices: { count: bouncedNotices.length, sample: bouncedNotices },
-      lateEnforcementNotices: { count: badNoticeActions.length, sample: badNoticeActions.slice(0, 5) },
+      lateEnforcementNotices: {
+        count: badNoticeActions.length,
+        sample: badNoticeActions.slice(0, 5),
+      },
       urgentAppeals: { count: urgentAppeals.length, sample: urgentAppeals.slice(0, 5) },
     };
   }
@@ -618,9 +624,7 @@ export class TermsService {
    * in a structured format suitable for insurer / regulator / solicitor review.
    */
   async adminEvidenceExport(vendorId: string, from?: Date, to?: Date) {
-    const dateFilter = from || to
-      ? { gte: from, lte: to }
-      : undefined;
+    const dateFilter = from || to ? { gte: from, lte: to } : undefined;
 
     const [vendor, acceptances, notices, enforcement] = await Promise.all([
       this.prisma.vendor.findUniqueOrThrow({
@@ -864,9 +868,9 @@ export class TermsService {
       source === 'VENDOR_REFERRED'
         ? 'Vendor-referred orders (all)'
         : isFirstOrder === true
-          ? 'Marketplace – first order from a customer'
+          ? 'Marketplace - first order from a customer'
           : isFirstOrder === false
-            ? 'Marketplace – repeat order from a customer'
+            ? 'Marketplace - repeat order from a customer'
             : `${source} orders`;
 
     const direction = newRatePct > previousRatePct ? 'increase' : 'decrease';

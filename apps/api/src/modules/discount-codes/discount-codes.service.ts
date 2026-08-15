@@ -138,7 +138,8 @@ export class DiscountCodesService {
     if (fundedBy === DiscountFundedBy.VENDOR && !dto.vendorId) {
       throw new BadRequestException({
         code: 'VENDOR_FUNDED_CODE_REQUIRES_VENDOR',
-        message: 'A vendor-funded discount code must be scoped to a specific vendor (vendorId required)',
+        message:
+          'A vendor-funded discount code must be scoped to a specific vendor (vendorId required)',
       });
     }
 
@@ -180,7 +181,10 @@ export class DiscountCodesService {
       select: { id: true, usedCount: true, vendorId: true, code: true },
     });
     if (!existing) {
-      throw new BadRequestException({ code: 'DISCOUNT_CODE_NOT_FOUND', message: 'Discount code not found' });
+      throw new BadRequestException({
+        code: 'DISCOUNT_CODE_NOT_FOUND',
+        message: 'Discount code not found',
+      });
     }
     if (existing.usedCount > 0) {
       throw new BadRequestException({
@@ -193,7 +197,8 @@ export class DiscountCodesService {
     if (fundedBy === DiscountFundedBy.VENDOR && !existing.vendorId) {
       throw new BadRequestException({
         code: 'VENDOR_FUNDED_CODE_REQUIRES_VENDOR',
-        message: 'A vendor-funded discount code must be scoped to a specific vendor. Set a vendorId first.',
+        message:
+          'A vendor-funded discount code must be scoped to a specific vendor. Set a vendorId first.',
       });
     }
     return this.prisma.discountCode.update({ where: { id }, data: { fundedBy } });

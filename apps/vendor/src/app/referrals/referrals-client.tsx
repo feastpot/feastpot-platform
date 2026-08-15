@@ -31,8 +31,7 @@ interface ReferralsClientProps {
   vendorId: string;
 }
 
-const INSTAGRAM_TEXT = (url: string) =>
-  `Order my food directly via Feastpot 🍱\n${url}`;
+const INSTAGRAM_TEXT = (url: string) => `Order my food directly via Feastpot 🍱\n${url}`;
 
 const WHATSAPP_TEXT = (url: string) =>
   `Hey! You can now order directly from me on Feastpot 🎉\nUse my link:\n${url}`;
@@ -41,13 +40,25 @@ function formatGbp(pence: number) {
   return `£${(pence / 100).toFixed(2)}`;
 }
 
-function SourceBar({ label, count, gmv, total }: { label: string; count: number; gmv: number; total: number }) {
+function SourceBar({
+  label,
+  count,
+  gmv,
+  total,
+}: {
+  label: string;
+  count: number;
+  gmv: number;
+  total: number;
+}) {
   const pct = total > 0 ? Math.round((count / total) * 100) : 0;
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between text-sm">
         <span className="font-medium text-dark">{label}</span>
-        <span className="text-mid">{count} orders · {formatGbp(gmv)}</span>
+        <span className="text-mid">
+          {count} orders · {formatGbp(gmv)}
+        </span>
       </div>
       <div className="h-2 w-full overflow-hidden rounded-full bg-surface">
         <div
@@ -79,16 +90,21 @@ export function ReferralsClient({ link: initialLink, vendorId }: ReferralsClient
   useEffect(() => {
     if (link?.qrUrls || !link?.referralUrl) return;
     let cancelled = false;
-    import('qrcode').then(({ default: QRCode }) =>
-      QRCode.toDataURL(link.referralUrl, {
-        width: 300,
-        margin: 2,
-        color: { dark: '#000000', light: '#ffffff' },
-      }),
-    )
-      .then((dataUrl) => { if (!cancelled) setClientQrDataUrl(dataUrl); })
+    import('qrcode')
+      .then(({ default: QRCode }) =>
+        QRCode.toDataURL(link.referralUrl, {
+          width: 300,
+          margin: 2,
+          color: { dark: '#000000', light: '#ffffff' },
+        }),
+      )
+      .then((dataUrl) => {
+        if (!cancelled) setClientQrDataUrl(dataUrl);
+      })
       .catch(() => null);
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [link?.qrUrls, link?.referralUrl]);
 
   // Single background refresh: once the API has finished generating and
@@ -99,9 +115,13 @@ export function ReferralsClient({ link: initialLink, vendorId }: ReferralsClient
     bgRefreshFired.current = true;
     const timer = setTimeout(async () => {
       try {
-        const fresh = await apiRequest<ReferralLink>('/attribution/links/me', { accessToken: token });
+        const fresh = await apiRequest<ReferralLink>('/attribution/links/me', {
+          accessToken: token,
+        });
         if (fresh.qrUrls) setLink(fresh);
-      } catch { /* no-op */ }
+      } catch {
+        /* no-op */
+      }
     }, 5_000);
     return () => clearTimeout(timer);
   }, [token, link?.qrUrls]);
@@ -110,7 +130,10 @@ export function ReferralsClient({ link: initialLink, vendorId }: ReferralsClient
   useEffect(() => {
     if (!token) return;
     apiRequest<SplitData>('/attribution/vendor-split', { accessToken: token })
-      .then((d) => { setSplit(d); setSplitStatus('ok'); })
+      .then((d) => {
+        setSplit(d);
+        setSplitStatus('ok');
+      })
       .catch(() => setSplitStatus('error'));
   }, [token]);
 
@@ -142,7 +165,10 @@ export function ReferralsClient({ link: initialLink, vendorId }: ReferralsClient
     <div className="space-y-8">
       {/* Referral URL */}
       <section aria-labelledby="ref-url-heading">
-        <h2 id="ref-url-heading" className="mb-3 text-sm font-semibold uppercase tracking-wide text-mid">
+        <h2
+          id="ref-url-heading"
+          className="mb-3 text-sm font-semibold uppercase tracking-wide text-mid"
+        >
           Your referral link
         </h2>
         <div className="flex items-center gap-2 rounded-xl border border-border bg-white p-3">
@@ -152,7 +178,11 @@ export function ReferralsClient({ link: initialLink, vendorId }: ReferralsClient
             onClick={() => copyToClipboard(link.referralUrl, 'url')}
             className="flex shrink-0 items-center gap-1.5 rounded-lg bg-teal px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-teal-dark"
           >
-            {copied === 'url' ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+            {copied === 'url' ? (
+              <Check className="h-3.5 w-3.5" />
+            ) : (
+              <Copy className="h-3.5 w-3.5" />
+            )}
             {copied === 'url' ? 'Copied' : 'Copy'}
           </button>
           <a
@@ -228,7 +258,10 @@ export function ReferralsClient({ link: initialLink, vendorId }: ReferralsClient
 
       {/* Share text */}
       <section aria-labelledby="share-heading">
-        <h2 id="share-heading" className="mb-3 text-sm font-semibold uppercase tracking-wide text-mid">
+        <h2
+          id="share-heading"
+          className="mb-3 text-sm font-semibold uppercase tracking-wide text-mid"
+        >
           Ready-to-use share text
         </h2>
         <div className="grid gap-3 sm:grid-cols-2">
@@ -244,7 +277,11 @@ export function ReferralsClient({ link: initialLink, vendorId }: ReferralsClient
                 onClick={() => copyToClipboard(text, key)}
                 className="mt-3 flex items-center gap-1.5 text-xs font-medium text-teal hover:text-teal-dark"
               >
-                {copied === key ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                {copied === key ? (
+                  <Check className="h-3.5 w-3.5" />
+                ) : (
+                  <Copy className="h-3.5 w-3.5" />
+                )}
                 {copied === key ? 'Copied!' : 'Copy text'}
               </button>
             </div>
@@ -254,7 +291,10 @@ export function ReferralsClient({ link: initialLink, vendorId }: ReferralsClient
 
       {/* Source split */}
       <section aria-labelledby="split-heading">
-        <h2 id="split-heading" className="mb-3 text-sm font-semibold uppercase tracking-wide text-mid">
+        <h2
+          id="split-heading"
+          className="mb-3 text-sm font-semibold uppercase tracking-wide text-mid"
+        >
           Order source breakdown
         </h2>
         {splitStatus === 'loading' ? (
@@ -330,8 +370,8 @@ export function ReferralsClient({ link: initialLink, vendorId }: ReferralsClient
           /* Empty state: no orders yet - explain what this section will contain. */
           <div className="rounded-xl border border-border bg-white p-5">
             <p className="mb-4 text-sm text-mid">
-              No orders yet. Once customers order through your link, you will see how many
-              came from your own marketing versus Feastpot discovery here.
+              No orders yet. Once customers order through your link, you will see how many came from
+              your own marketing versus Feastpot discovery here.
             </p>
             <table className="w-full text-sm" aria-label="Order source breakdown placeholder">
               <thead>

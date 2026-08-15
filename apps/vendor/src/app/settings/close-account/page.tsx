@@ -69,13 +69,11 @@ export default async function CloseAccountPage() {
   return (
     <main className="min-h-screen bg-surface p-6">
       <div className="mx-auto max-w-2xl space-y-8">
-
         <header>
           <h1 className="text-2xl font-bold text-dark">Close your account</h1>
           <p className="mt-1 text-sm text-mid">
-            We&rsquo;re sorry to see you go. This page explains exactly what happens to
-            your outstanding orders, bookings, and pending earnings before your account
-            closes.
+            We&rsquo;re sorry to see you go. This page explains exactly what happens to your
+            outstanding orders, bookings, and pending earnings before your account closes.
           </p>
         </header>
 
@@ -86,27 +84,26 @@ export default async function CloseAccountPage() {
             <>
               <p className="text-sm text-amber-800">
                 You have <strong>{pendingOrderCount}</strong> open{' '}
-                {pendingOrderCount === 1 ? 'order' : 'orders'} that must be fulfilled
-                before your account can close. Feastpot will not cancel customer orders
-                on your behalf; customers have already paid and are expecting delivery.
+                {pendingOrderCount === 1 ? 'order' : 'orders'} that must be fulfilled before your
+                account can close. Feastpot will not cancel customer orders on your behalf;
+                customers have already paid and are expecting delivery.
               </p>
               <p className="text-sm text-amber-800">
-                Once all open orders are complete (delivered or cancelled by the customer),
-                email{' '}
+                Once all open orders are complete (delivered or cancelled by the customer), email{' '}
                 <a
                   href={`mailto:${PLATFORM_FACTS.contact.complianceEmail}?subject=Vendor%20account%20closure%20request`}
                   className="font-semibold underline underline-offset-2 hover:text-amber-700"
                 >
                   {PLATFORM_FACTS.contact.complianceEmail}
                 </a>{' '}
-                with the subject line <em>&quot;Vendor account closure request&quot;</em> to
-                begin the process.
+                with the subject line <em>&quot;Vendor account closure request&quot;</em> to begin
+                the process.
               </p>
             </>
           ) : (
             <p className="text-sm text-amber-800">
-              You have no open orders, so your account can be closed once you have confirmed
-              your final payout.
+              You have no open orders, so your account can be closed once you have confirmed your
+              final payout.
             </p>
           )}
         </section>
@@ -116,25 +113,21 @@ export default async function CloseAccountPage() {
           <h2 className="font-semibold text-dark">Pending earnings</h2>
           {pendingPayoutPounds !== null ? (
             <p className="text-sm text-mid">
-              You have{' '}
-              <strong>
-                £{pendingPayoutPounds.toFixed(2)}
-              </strong>{' '}
-              in pending earnings.{' '}
+              You have <strong>£{pendingPayoutPounds.toFixed(2)}</strong> in pending earnings.{' '}
               {nextPayoutDate
                 ? `Your next payout is scheduled for ${nextPayoutDate}.`
                 : 'Your final payout will be processed on the next Monday after your account closes.'}
             </p>
           ) : (
             <p className="text-sm text-mid">
-              Your final payout will be processed on the next Monday after your account
-              closes. Payouts take 2–5 business days to arrive.
+              Your final payout will be processed on the next Monday after your account closes.
+              Payouts take 2–5 business days to arrive.
             </p>
           )}
           <p className="text-sm text-mid">
-            Feastpot will not withhold earnings owed to you. If there are outstanding
-            chargebacks when your account closes, the amounts will be deducted from the
-            final payout in line with the Vendor Terms.
+            Feastpot will not withhold earnings owed to you. If there are outstanding chargebacks
+            when your account closes, the amounts will be deducted from the final payout in line
+            with the Vendor Terms.
           </p>
         </section>
 
@@ -142,13 +135,13 @@ export default async function CloseAccountPage() {
         <section className="rounded-xl border p-5 space-y-3">
           <h2 className="font-semibold text-dark">Your termination right (P2B Regulation)</h2>
           <p className="text-sm text-mid">
-            Under the UK P2B Regulation, you may terminate your vendor agreement without
-            penalty at any time before new terms take effect. Feastpot will not charge you
-            for early termination.
+            Under the UK P2B Regulation, you may terminate your vendor agreement without penalty at
+            any time before new terms take effect. Feastpot will not charge you for early
+            termination.
           </p>
           <p className="text-sm text-mid">
-            Your listing will be deactivated, and you will no longer appear in search
-            results from the date your closure is confirmed.
+            Your listing will be deactivated, and you will no longer appear in search results from
+            the date your closure is confirmed.
           </p>
         </section>
 
@@ -168,13 +161,13 @@ export default async function CloseAccountPage() {
               &quot;Vendor account closure request &ndash;{' '}
               {vendor?.businessName ?? 'your business name'}&quot;
             </em>
-            . Our team will confirm the closure date, final payout schedule, and data
-            retention timeline within 2 business days.
+            . Our team will confirm the closure date, final payout schedule, and data retention
+            timeline within 2 business days.
           </p>
           <p className="text-xs text-red-700">
-            Closing your account does not delete your data immediately. Feastpot retains
-            transaction records for 7 years in line with HMRC requirements. You may request
-            deletion of personal data that is not subject to a legal hold by emailing{' '}
+            Closing your account does not delete your data immediately. Feastpot retains transaction
+            records for 7 years in line with HMRC requirements. You may request deletion of personal
+            data that is not subject to a legal hold by emailing{' '}
             <a href="mailto:privacy@feastpot.co.uk" className="underline hover:text-red-600">
               privacy@feastpot.co.uk
             </a>{' '}
@@ -186,14 +179,13 @@ export default async function CloseAccountPage() {
           Changed your mind?{' '}
           <a href="/" className="underline hover:text-dark">
             Return to your dashboard
-          </a>
-          {' '}or{' '}
+          </a>{' '}
+          or{' '}
           <a href="/onboarding/terms" className="underline hover:text-dark">
             accept the updated terms
           </a>
           .
         </p>
-
       </div>
     </main>
   );

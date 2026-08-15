@@ -112,10 +112,7 @@ export function TermsAcceptanceClient({ accessToken, version, alreadyAccepted }:
       router.push('/onboarding?terms=accepted');
       router.refresh();
     } catch (err) {
-      const msg =
-        err instanceof ApiError
-          ? err.message
-          : 'Something went wrong. Please try again.';
+      const msg = err instanceof ApiError ? err.message : 'Something went wrong. Please try again.';
       setError(msg);
       setSubmitting(false);
     }
@@ -185,7 +182,10 @@ export function TermsAcceptanceClient({ accessToken, version, alreadyAccepted }:
               href="https://feastpot.co.uk/legal/vendor-terms"
               target="_blank"
               rel="noopener noreferrer"
-              onClick={(e) => { e.preventDefault(); window.open('https://feastpot.co.uk/legal/vendor-terms', '_blank'); }}
+              onClick={(e) => {
+                e.preventDefault();
+                window.open('https://feastpot.co.uk/legal/vendor-terms', '_blank');
+              }}
               className="flex items-center gap-1.5 text-teal-700 underline hover:text-teal-900"
             >
               <Download className="h-4 w-4" />
@@ -193,115 +193,112 @@ export function TermsAcceptanceClient({ accessToken, version, alreadyAccepted }:
             </a>
           </div>
 
-      {/* Scrollable terms pane -- min 400px desktop, full viewport on mobile */}
-      <div
-        ref={scrollRef}
-        role="region"
-        aria-label="Vendor Terms of Agreement -- scroll to read"
-        className="relative mb-4 h-[60vh] min-h-[400px] overflow-y-auto rounded-xl border border-border bg-muted/30 p-5 text-sm leading-relaxed text-foreground/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-teal-600"
-        tabIndex={0}
-      >
-        <div className="prose prose-sm max-w-none">
-          {/* Render contentMdx as preformatted markdown. For production, swap to
+          {/* Scrollable terms pane -- min 400px desktop, full viewport on mobile */}
+          <div
+            ref={scrollRef}
+            role="region"
+            aria-label="Vendor Terms of Agreement -- scroll to read"
+            className="relative mb-4 h-[60vh] min-h-[400px] overflow-y-auto rounded-xl border border-border bg-muted/30 p-5 text-sm leading-relaxed text-foreground/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-teal-600"
+            tabIndex={0}
+          >
+            <div className="prose prose-sm max-w-none">
+              {/* Render contentMdx as preformatted markdown. For production, swap to
               a proper MDX renderer (e.g. next-mdx-remote). The text is already
               well-formatted and readable as plain markdown. */}
-          {version.contentMdx.split('\n').map((line, i) => {
-            if (line.startsWith('# ')) {
-              return (
-                <h1 key={i} className="mb-3 mt-6 text-xl font-bold first:mt-0">
-                  {line.slice(2)}
-                </h1>
-              );
-            }
-            if (line.startsWith('## ')) {
-              return (
-                <h2 key={i} className="mb-2 mt-5 text-base font-bold">
-                  {line.slice(3)}
-                </h2>
-              );
-            }
-            if (line.startsWith('### ')) {
-              return (
-                <h3 key={i} className="mb-1 mt-4 text-sm font-semibold">
-                  {line.slice(4)}
-                </h3>
-              );
-            }
-            if (line.startsWith('- ') || line.startsWith('* ')) {
-              return (
-                <p key={i} className="my-0.5 pl-4">
-                  <span className="mr-2 text-muted-foreground">&bull;</span>
-                  {line.slice(2)}
-                </p>
-              );
-            }
-            if (line.startsWith('---')) {
-              return <hr key={i} className="my-4 border-border" />;
-            }
-            if (line.startsWith('*') && line.endsWith('*')) {
-              return (
-                <p key={i} className="text-xs italic text-muted-foreground">
-                  {line.slice(1, -1)}
-                </p>
-              );
-            }
-            if (line === '') return <div key={i} className="h-2" />;
-            return (
-              <p key={i} className="my-1">
-                {line}
-              </p>
-            );
-          })}
-        </div>
+              {version.contentMdx.split('\n').map((line, i) => {
+                if (line.startsWith('# ')) {
+                  return (
+                    <h1 key={i} className="mb-3 mt-6 text-xl font-bold first:mt-0">
+                      {line.slice(2)}
+                    </h1>
+                  );
+                }
+                if (line.startsWith('## ')) {
+                  return (
+                    <h2 key={i} className="mb-2 mt-5 text-base font-bold">
+                      {line.slice(3)}
+                    </h2>
+                  );
+                }
+                if (line.startsWith('### ')) {
+                  return (
+                    <h3 key={i} className="mb-1 mt-4 text-sm font-semibold">
+                      {line.slice(4)}
+                    </h3>
+                  );
+                }
+                if (line.startsWith('- ') || line.startsWith('* ')) {
+                  return (
+                    <p key={i} className="my-0.5 pl-4">
+                      <span className="mr-2 text-muted-foreground">&bull;</span>
+                      {line.slice(2)}
+                    </p>
+                  );
+                }
+                if (line.startsWith('---')) {
+                  return <hr key={i} className="my-4 border-border" />;
+                }
+                if (line.startsWith('*') && line.endsWith('*')) {
+                  return (
+                    <p key={i} className="text-xs italic text-muted-foreground">
+                      {line.slice(1, -1)}
+                    </p>
+                  );
+                }
+                if (line === '') return <div key={i} className="h-2" />;
+                return (
+                  <p key={i} className="my-1">
+                    {line}
+                  </p>
+                );
+              })}
+            </div>
 
-        {/* Scroll-to-end indicator */}
-        {!scrolledToEnd && (
-          <div className="pointer-events-none sticky bottom-0 left-0 right-0 flex justify-center bg-gradient-to-t from-muted/80 to-transparent pb-2 pt-8 text-xs text-muted-foreground">
-            Scroll down to read the full terms
+            {/* Scroll-to-end indicator */}
+            {!scrolledToEnd && (
+              <div className="pointer-events-none sticky bottom-0 left-0 right-0 flex justify-center bg-gradient-to-t from-muted/80 to-transparent pb-2 pt-8 text-xs text-muted-foreground">
+                Scroll down to read the full terms
+              </div>
+            )}
           </div>
-        )}
-      </div>
 
-      {/* Scroll progress message */}
-      {!scrolledToEnd && (
-        <p
-          aria-live="polite"
-          className="mb-3 flex items-center gap-1.5 text-xs text-amber-700"
-        >
-          <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-          Please scroll to the end of the terms to enable the checkbox.
-        </p>
-      )}
+          {/* Scroll progress message */}
+          {!scrolledToEnd && (
+            <p aria-live="polite" className="mb-3 flex items-center gap-1.5 text-xs text-amber-700">
+              <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+              Please scroll to the end of the terms to enable the checkbox.
+            </p>
+          )}
 
-      {/* Checkbox -- starts UNTICKED, enabled only after scrolling to end */}
-      <div className="mb-6 rounded-lg border border-border bg-card p-4">
-        <label
-          className={`flex cursor-pointer items-start gap-3 text-sm ${!scrolledToEnd ? 'opacity-50' : ''}`}
-          htmlFor="terms-accept-checkbox"
-        >
-          <input
-            id="terms-accept-checkbox"
-            type="checkbox"
-            checked={checked}
-            disabled={!scrolledToEnd}
-            onChange={(e) => setChecked(e.target.checked)}
-            aria-describedby="terms-accept-hint"
-            className="mt-0.5 h-4 w-4 shrink-0 accent-teal-600"
-          />
-          <span className="font-medium leading-snug text-foreground">{ACCEPTANCE_LABEL}</span>
-        </label>
-        {!scrolledToEnd && (
-          <p id="terms-accept-hint" className="mt-2 pl-7 text-xs text-muted-foreground">
-            Scroll to the bottom of the terms above to enable this checkbox.
-          </p>
-        )}
-      </div>
+          {/* Checkbox -- starts UNTICKED, enabled only after scrolling to end */}
+          <div className="mb-6 rounded-lg border border-border bg-card p-4">
+            <label
+              className={`flex cursor-pointer items-start gap-3 text-sm ${!scrolledToEnd ? 'opacity-50' : ''}`}
+              htmlFor="terms-accept-checkbox"
+            >
+              <input
+                id="terms-accept-checkbox"
+                type="checkbox"
+                checked={checked}
+                disabled={!scrolledToEnd}
+                onChange={(e) => setChecked(e.target.checked)}
+                aria-describedby="terms-accept-hint"
+                className="mt-0.5 h-4 w-4 shrink-0 accent-teal-600"
+              />
+              <span className="font-medium leading-snug text-foreground">{ACCEPTANCE_LABEL}</span>
+            </label>
+            {!scrolledToEnd && (
+              <p id="terms-accept-hint" className="mt-2 pl-7 text-xs text-muted-foreground">
+                Scroll to the bottom of the terms above to enable this checkbox.
+              </p>
+            )}
+          </div>
 
-      {error && (
-        <p role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
-          {error}
-        </p>
-      )}
+          {error && (
+            <p role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+              {error}
+            </p>
+          )}
 
           {/* Action row */}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

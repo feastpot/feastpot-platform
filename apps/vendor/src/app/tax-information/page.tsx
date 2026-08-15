@@ -37,7 +37,7 @@ export default async function TaxInformationPage() {
 
   return (
     <PortalShell businessName={vendor.businessName} maxWidth="form">
-          <TaxInformationClient />
+      <TaxInformationClient />
     </PortalShell>
   );
 }

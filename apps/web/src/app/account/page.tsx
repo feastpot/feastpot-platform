@@ -87,7 +87,7 @@ export default function AccountHubPage() {
         </div>
       </header>
 
-      {/* FeastPass savings banner — shown to non-members with 3+ orders.
+      {/* FeastPass savings banner - shown to non-members with 3+ orders.
           savingsPotentialPence===0 means the API flagged them as an active
           member, so we suppress the banner in that case. */}
       {savingsPotential &&
@@ -248,7 +248,7 @@ function GuestAccountWelcome() {
 
 /**
  * Persistent savings banner for non-members with 3+ orders.
- * Dismissed by setting a session cookie (reappears on next visit —
+ * Dismissed by setting a session cookie (reappears on next visit -
  * intentional, as the spec says "re-appears if they revisit later").
  */
 function FeastPassSavingsBanner({ savingsPotentialPence }: { savingsPotentialPence: number }) {
@@ -263,7 +263,7 @@ function FeastPassSavingsBanner({ savingsPotentialPence }: { savingsPotentialPen
   }, []);
 
   const dismiss = () => {
-    // Session cookie (no max-age) — expires when the browser tab closes,
+    // Session cookie (no max-age) - expires when the browser tab closes,
     // so it "re-appears if they revisit later" as the spec requires.
     document.cookie = `${SAVINGS_BANNER_DISMISSED_COOKIE}=1; path=/; SameSite=Lax`;
     setDismissed(true);
@@ -294,7 +294,8 @@ function FeastPassSavingsBanner({ savingsPotentialPence }: { savingsPotentialPen
         </span>
         <div className="min-w-0 flex-1">
           <p className="font-display text-sm font-black text-charcoal">
-            You&rsquo;ve paid {formatPounds(savingsPotentialPence)} in service fees across your orders.
+            You&rsquo;ve paid {formatPounds(savingsPotentialPence)} in service fees across your
+            orders.
           </p>
           <p className="mt-0.5 text-xs font-medium text-charcoal-mid">
             FeastPass would have saved you that.

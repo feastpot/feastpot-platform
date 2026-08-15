@@ -63,10 +63,7 @@ export function DocumentsClient() {
 
   function field(k: keyof PublishVersionInput) {
     return (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-      const val =
-        k === 'isMaterial'
-          ? (e.target as HTMLInputElement).checked
-          : e.target.value;
+      const val = k === 'isMaterial' ? (e.target as HTMLInputElement).checked : e.target.value;
       setForm((p) => ({ ...p, [k]: val }));
     };
   }
@@ -130,7 +127,9 @@ export function DocumentsClient() {
                     className="fp-admin-input mt-1 w-full"
                   >
                     {Object.entries(DOC_TYPE_LABELS).map(([v, l]) => (
-                      <option key={v} value={v}>{l}</option>
+                      <option key={v} value={v}>
+                        {l}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -148,7 +147,10 @@ export function DocumentsClient() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="label-xs">Effective date * {isMaterial ? `(min ${minEffectiveDate()})` : '(any date - non-material)'}</label>
+                  <label className="label-xs">
+                    Effective date *{' '}
+                    {isMaterial ? `(min ${minEffectiveDate()})` : '(any date - non-material)'}
+                  </label>
                   <Input
                     type="date"
                     value={form.effectiveAt}
@@ -187,7 +189,10 @@ export function DocumentsClient() {
                 <div>
                   <label className="label-xs flex items-center gap-1.5">
                     <Lock className="h-3.5 w-3.5 text-destructive" aria-hidden />
-                    Solicitor sign-off * <span className="font-normal text-muted-foreground">(required for VENDOR_TERMS - publishing is impossible without this)</span>
+                    Solicitor sign-off *{' '}
+                    <span className="font-normal text-muted-foreground">
+                      (required for VENDOR_TERMS - publishing is impossible without this)
+                    </span>
                   </label>
                   <Input
                     value={form.solicitorSignOff ?? ''}
@@ -232,8 +237,8 @@ export function DocumentsClient() {
                   className="fp-admin-input mt-1 w-full font-mono text-xs"
                 />
                 <p className="mt-1 text-xs text-muted-foreground">
-                  SHA-256 content hash is computed on publish. Once published, content is
-                  immutable - corrections require a new version.
+                  SHA-256 content hash is computed on publish. Once published, content is immutable
+                  - corrections require a new version.
                 </p>
               </div>
 

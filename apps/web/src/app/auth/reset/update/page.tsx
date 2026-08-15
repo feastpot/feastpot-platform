@@ -41,7 +41,8 @@ function validate(password: string, confirm: string): string | null {
   if (!/[a-z]/.test(password)) return 'Password must contain at least one lowercase letter.';
   if (!/[A-Z]/.test(password)) return 'Password must contain at least one uppercase letter.';
   if (!/[0-9]/.test(password)) return 'Password must contain at least one number.';
-  if (!/[^a-zA-Z0-9]/.test(password)) return 'Password must contain at least one symbol (e.g. !, @, #, $).';
+  if (!/[^a-zA-Z0-9]/.test(password))
+    return 'Password must contain at least one symbol (e.g. !, @, #, $).';
   if (password !== confirm) return 'Passwords do not match. Please check and try again.';
   return null;
 }
@@ -91,7 +92,9 @@ export default function ResetUpdate() {
     // Pass the current session's access token so the auth-guarded endpoint
     // can identify the user without requiring cookie forwarding.
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (session?.access_token) {
         fetch('/v1/auth/notify-password-changed', {
           method: 'POST',
@@ -123,16 +126,27 @@ export default function ResetUpdate() {
           </div>
           <div className="rounded-2xl bg-white p-8 shadow-card text-center space-y-4">
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-brand-light">
-              <svg className="h-6 w-6 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              <svg
+                className="h-6 w-6 text-brand"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                aria-hidden
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M5 13l4 4L19 7"
+                />
               </svg>
             </div>
             <h1 className="font-display text-2xl font-black tracking-tight text-charcoal">
               Password updated
             </h1>
             <p className="text-sm leading-relaxed text-charcoal-mid">
-              Your password has been changed and any other active sessions have been signed out.
-              You will receive a confirmation email shortly.
+              Your password has been changed and any other active sessions have been signed out. You
+              will receive a confirmation email shortly.
             </p>
             <Link
               href="/"
@@ -149,7 +163,6 @@ export default function ResetUpdate() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-cream px-4 py-10">
       <div className="w-full max-w-sm">
-
         {/* Logo */}
         <div className="mb-8 flex justify-center">
           <Link href="/" aria-label="Feastpot home">
@@ -173,7 +186,9 @@ export default function ResetUpdate() {
           <div className="mt-3 rounded-lg bg-cream-warm px-4 py-3 text-xs leading-relaxed text-charcoal-mid">
             <strong className="text-charcoal">Your password must have:</strong>
             <ul className="mt-1 list-disc pl-4 space-y-0.5">
-              <li>At least {MIN_LENGTH} characters (up to {MAX_LENGTH})</li>
+              <li>
+                At least {MIN_LENGTH} characters (up to {MAX_LENGTH})
+              </li>
               <li>Uppercase and lowercase letters</li>
               <li>At least one number</li>
               <li>At least one symbol (e.g. !, @, #, $)</li>
@@ -181,9 +196,11 @@ export default function ResetUpdate() {
           </div>
 
           <form onSubmit={handleSubmit} className="mt-5 space-y-4" noValidate>
-
             <div>
-              <label htmlFor="password" className="mb-1.5 block text-[13px] font-semibold text-charcoal">
+              <label
+                htmlFor="password"
+                className="mb-1.5 block text-[13px] font-semibold text-charcoal"
+              >
                 New password
               </label>
               <input
@@ -204,7 +221,10 @@ export default function ResetUpdate() {
             </div>
 
             <div>
-              <label htmlFor="confirm" className="mb-1.5 block text-[13px] font-semibold text-charcoal">
+              <label
+                htmlFor="confirm"
+                className="mb-1.5 block text-[13px] font-semibold text-charcoal"
+              >
                 Confirm new password
               </label>
               <input
@@ -238,7 +258,6 @@ export default function ResetUpdate() {
             </button>
           </form>
         </div>
-
       </div>
     </div>
   );

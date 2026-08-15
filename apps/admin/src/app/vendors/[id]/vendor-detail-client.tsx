@@ -583,14 +583,12 @@ export function VendorDetailClient({
             )}
           </CardHeader>
           <CardContent>
-            {verificationLoading && (
-              <p className="text-sm text-muted-foreground">Loading…</p>
-            )}
+            {verificationLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
             {!verificationLoading && !verification && (
               <p className="text-sm text-muted-foreground">
                 No verification record yet. Once created, a panel showing food business
-                registration, hygiene rating, insurance, allergen training and identity
-                check will appear on the vendor profile.
+                registration, hygiene rating, insurance, allergen training and identity check will
+                appear on the vendor profile.
               </p>
             )}
             {verification && (
@@ -636,10 +634,7 @@ export function VendorDetailClient({
                   label="ID verified"
                   value={verification.idVerifiedAt ? formatDate(verification.idVerifiedAt) : '-'}
                 />
-                <Field
-                  label="Last updated"
-                  value={formatDateTime(verification.updatedAt)}
-                />
+                <Field label="Last updated" value={formatDateTime(verification.updatedAt)} />
               </div>
             )}
           </CardContent>
@@ -684,7 +679,9 @@ export function VendorDetailClient({
                         {REASON_CODE_LABELS[a.reasonCode as ReasonCode] ?? a.reasonCode}
                       </span>
                     </div>
-                    <p className="text-xs text-muted-foreground line-clamp-2">{a.reasonNarrative}</p>
+                    <p className="text-xs text-muted-foreground line-clamp-2">
+                      {a.reasonNarrative}
+                    </p>
                     <p className="text-xs text-muted-foreground">
                       Effective: {formatDateTime(a.effectiveAt)} &middot; Issued by: {a.issuedBy}
                     </p>
@@ -712,15 +709,14 @@ export function VendorDetailClient({
                 </summary>
                 <div className="mt-2 space-y-2">
                   {historicalActions.map((a) => (
-                    <div
-                      key={a.id}
-                      className="rounded-md border border-border bg-surface p-3"
-                    >
+                    <div key={a.id} className="rounded-md border border-border bg-surface p-3">
                       <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                         <span className="rounded-full bg-neutral-100 px-2 py-0.5 font-bold">
                           {a.actionType}
                         </span>
-                        <span>{REASON_CODE_LABELS[a.reasonCode as ReasonCode] ?? a.reasonCode}</span>
+                        <span>
+                          {REASON_CODE_LABELS[a.reasonCode as ReasonCode] ?? a.reasonCode}
+                        </span>
                         <span>&middot; effective {formatDate(a.effectiveAt)}</span>
                         <span>&middot; lifted {a.liftedAt ? formatDate(a.liftedAt) : '-'}</span>
                       </div>
@@ -876,9 +872,7 @@ export function VendorDetailClient({
               <label className="text-sm font-medium">Registration authority *</label>
               <Input
                 value={vForm.registrationAuthority}
-                onChange={(e) =>
-                  setVForm((f) => ({ ...f, registrationAuthority: e.target.value }))
-                }
+                onChange={(e) => setVForm((f) => ({ ...f, registrationAuthority: e.target.value }))}
                 placeholder="e.g. London Borough of Hackney"
               />
             </div>
@@ -1008,9 +1002,7 @@ export function VendorDetailClient({
               <Input
                 type="date"
                 value={vForm.idVerifiedAt ?? ''}
-                onChange={(e) =>
-                  setVForm((f) => ({ ...f, idVerifiedAt: e.target.value || null }))
-                }
+                onChange={(e) => setVForm((f) => ({ ...f, idVerifiedAt: e.target.value || null }))}
               />
             </div>
           </div>
@@ -1040,8 +1032,8 @@ export function VendorDetailClient({
             <DialogTitle>Create enforcement action</DialogTitle>
           </DialogHeader>
           <p className="text-xs text-muted-foreground">
-            P2B vendor terms clause 14.1. A notice email is sent automatically. All
-            four P2B business rules are enforced server-side.
+            P2B vendor terms clause 14.1. A notice email is sent automatically. All four P2B
+            business rules are enforced server-side.
           </p>
           <div className="mt-2 space-y-4">
             <div className="grid grid-cols-2 gap-3">
@@ -1125,9 +1117,7 @@ export function VendorDetailClient({
             </Button>
             <Button
               onClick={submitCreateEnforcement}
-              disabled={
-                createEnforcement.isPending || eForm.reasonNarrative.trim().length < 50
-              }
+              disabled={createEnforcement.isPending || eForm.reasonNarrative.trim().length < 50}
             >
               {createEnforcement.isPending ? 'Creating…' : 'Create action'}
             </Button>
@@ -1145,13 +1135,12 @@ export function VendorDetailClient({
             <DialogTitle>Lift enforcement action</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            Lifting this action will restore the vendor&#39;s prior status and send a
-            confirmation email.
+            Lifting this action will restore the vendor&#39;s prior status and send a confirmation
+            email.
           </p>
           <div className="space-y-1 py-2">
             <label className="text-sm font-medium">
-              Note to vendor{' '}
-              <span className="font-normal text-muted-foreground">(optional)</span>
+              Note to vendor <span className="font-normal text-muted-foreground">(optional)</span>
             </label>
             <textarea
               className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm"
@@ -1246,9 +1235,7 @@ function FsaComplianceCard({
           <Field
             label="FSA hygiene rating"
             value={
-              vendor.fsaHygieneRating !== null
-                ? `${vendor.fsaHygieneRating} / 5`
-                : 'Not recorded'
+              vendor.fsaHygieneRating !== null ? `${vendor.fsaHygieneRating} / 5` : 'Not recorded'
             }
           />
           <Field
@@ -1317,9 +1304,7 @@ function FsaComplianceCard({
               <label className="font-medium">Registration number</label>
               <Input
                 value={form.fsaRegistrationNumber ?? ''}
-                onChange={(e) =>
-                  onChange({ fsaRegistrationNumber: e.target.value || undefined })
-                }
+                onChange={(e) => onChange({ fsaRegistrationNumber: e.target.value || undefined })}
                 placeholder="Local authority registration number"
               />
             </div>
@@ -1346,13 +1331,7 @@ function FsaComplianceCard({
   );
 }
 
-function TaxProfilePanel({
-  vendorId,
-  canReview,
-}: {
-  vendorId: string;
-  canReview: boolean;
-}) {
+function TaxProfilePanel({ vendorId, canReview }: { vendorId: string; canReview: boolean }) {
   const { data: profile, isLoading } = useVendorTaxProfile(vendorId);
   const verify = useVerifyTaxProfile(vendorId);
   const [form, setForm] = useState<{
@@ -1401,9 +1380,7 @@ function TaxProfilePanel({
                 value={ENTITY_TYPE_LABELS[profile.entityType] ?? profile.entityType}
               />
               <Field label="Legal name" value={profile.legalName} />
-              {profile.tradingName && (
-                <Field label="Trading name" value={profile.tradingName} />
-              )}
+              {profile.tradingName && <Field label="Trading name" value={profile.tradingName} />}
               <Field
                 label="Address"
                 value={[
@@ -1489,9 +1466,7 @@ function TaxProfilePanel({
                     placeholder="Describe what needs correcting"
                   />
                 </div>
-                {submitError && (
-                  <p className="mt-2 text-xs text-destructive">{submitError}</p>
-                )}
+                {submitError && <p className="mt-2 text-xs text-destructive">{submitError}</p>}
                 <div className="mt-3 flex justify-end gap-2">
                   <Button
                     size="sm"
@@ -1517,9 +1492,7 @@ function TaxProfilePanel({
                         {
                           onSuccess: () => setFormOpen(false),
                           onError: (err) =>
-                            setSubmitError(
-                              err instanceof Error ? err.message : 'Save failed',
-                            ),
+                            setSubmitError(err instanceof Error ? err.message : 'Save failed'),
                         },
                       );
                     }}

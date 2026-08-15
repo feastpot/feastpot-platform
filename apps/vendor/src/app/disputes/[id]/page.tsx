@@ -46,9 +46,9 @@ export default async function DisputeDetailPage({ params }: { params: Promise<{ 
 
   return (
     <PortalShell businessName={vendor.businessName}>
-          <RoleGate path="/disputes">
-            <DisputeDetailClient disputeId={id} />
-          </RoleGate>
+      <RoleGate path="/disputes">
+        <DisputeDetailClient disputeId={id} />
+      </RoleGate>
     </PortalShell>
   );
 }

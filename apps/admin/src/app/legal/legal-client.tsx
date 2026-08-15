@@ -1,6 +1,14 @@
 'use client';
 
-import { AlertTriangle, CheckCircle2, Clock, FileText, Gavel, Scale, ShieldAlert } from 'lucide-react';
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Clock,
+  FileText,
+  Gavel,
+  Scale,
+  ShieldAlert,
+} from 'lucide-react';
 import Link from 'next/link';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@feastpot/ui';

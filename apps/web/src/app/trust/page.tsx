@@ -47,7 +47,8 @@ const CHECKS = [
 const PROFILE_ITEMS = [
   {
     label: 'Registration number',
-    detail: "The vendor's food business registration number is shown on every active profile so you can verify it independently on the Food Standards Agency website.",
+    detail:
+      "The vendor's food business registration number is shown on every active profile so you can verify it independently on the Food Standards Agency website.",
   },
   {
     label: 'FSA hygiene score',
@@ -96,7 +97,7 @@ const FAQS = [
   },
   {
     q: 'How do I know the vendor is registered with the FSA?',
-    a: "Every active vendor profile shows their food business registration number. You can verify it on the FSA website at ratings.food.gov.uk.",
+    a: 'Every active vendor profile shows their food business registration number. You can verify it on the FSA website at ratings.food.gov.uk.',
   },
   {
     q: 'What if I have a severe allergy?',
@@ -163,12 +164,7 @@ export default function TrustPage() {
                   aria-hidden
                   className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand/10"
                 >
-                  <svg
-                    viewBox="0 0 12 12"
-                    fill="none"
-                    className="h-3 w-3"
-                    aria-hidden="true"
-                  >
+                  <svg viewBox="0 0 12 12" fill="none" className="h-3 w-3" aria-hidden="true">
                     <path
                       d="M2 6l3 3 5-5"
                       stroke="currentColor"
@@ -273,7 +269,9 @@ export default function TrustPage() {
           {FAQS.map(({ q, a }) => (
             <div key={q} className="rounded-2xl border border-cream-deep bg-white p-5 shadow-card">
               <dt className="font-display text-[15px] font-black text-charcoal">{q}</dt>
-              <dd className="mt-2 text-[13px] font-medium leading-relaxed text-charcoal-mid">{a}</dd>
+              <dd className="mt-2 text-[13px] font-medium leading-relaxed text-charcoal-mid">
+                {a}
+              </dd>
             </div>
           ))}
         </dl>

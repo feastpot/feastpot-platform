@@ -38,17 +38,31 @@ interface AppConfig {
 
 const APPS: AppConfig[] = [
   { name: 'vendor', dir: 'apps/vendor' },
-  { name: 'web',    dir: 'apps/web' },
-  { name: 'admin',  dir: 'apps/admin' },
+  { name: 'web', dir: 'apps/web' },
+  { name: 'admin', dir: 'apps/admin' },
 ].filter((a) => !APP_FILTER || a.name === APP_FILTER);
 
 // ── Vendor sidebar routes (19 = 18 nav items + /help contact-support) ────────
 const VENDOR_SIDEBAR_ROUTES = [
-  '/', '/orders', '/disputes', '/menu', '/availability', '/analytics',
-  '/referrals', '/catering', '/earnings', '/payouts', '/compliance',
-  '/account-status', '/tax-information', '/terms',
-  '/settings/profile', '/settings/team', '/settings/security',
-  '/user-guide', '/help',
+  '/',
+  '/orders',
+  '/disputes',
+  '/menu',
+  '/availability',
+  '/analytics',
+  '/referrals',
+  '/catering',
+  '/earnings',
+  '/payouts',
+  '/compliance',
+  '/account-status',
+  '/tax-information',
+  '/terms',
+  '/settings/profile',
+  '/settings/team',
+  '/settings/security',
+  '/user-guide',
+  '/help',
 ];
 
 // ── Route map ────────────────────────────────────────────────────────────────
@@ -90,11 +104,7 @@ function routeExists(href: string, routes: Set<string>): boolean {
     if (!pattern.includes('[')) continue;
     // Escape regex-special chars, then replace [x] with [^/]+
     const reStr =
-      '^' +
-      pattern
-        .replace(/[.+^${}()|\\]/g, '\\$&')
-        .replace(/\[[^\]]+\]/g, '[^/]+') +
-      '$';
+      '^' + pattern.replace(/[.+^${}()|\\]/g, '\\$&').replace(/\[[^\]]+\]/g, '[^/]+') + '$';
     if (new RegExp(reStr).test(bare)) return true;
   }
   return false;
@@ -146,7 +156,10 @@ function httpHead(url: string): Promise<{ status: number; final: string }> {
         resolve({ status: res.statusCode ?? 0, final: url });
       }
     });
-    req.on('timeout', () => { req.destroy(); reject(new Error('Timeout')); });
+    req.on('timeout', () => {
+      req.destroy();
+      reject(new Error('Timeout'));
+    });
     req.on('error', reject);
     req.end();
   });
@@ -192,11 +205,17 @@ async function auditApp(app: AppConfig): Promise<AuditResult> {
       if (FETCH_EXTERNAL) {
         const base = href.split('#')[0];
         if (!externalSeen.has(base)) {
-          externalSeen.set(base, httpHead(base).catch((e: Error) => ({ status: -1, final: e.message })));
+          externalSeen.set(
+            base,
+            httpHead(base).catch((e: Error) => ({ status: -1, final: e.message })),
+          );
         }
         const { status } = await externalSeen.get(base)!;
         if (status === -1 || status >= 400) {
-          result.externalWarnings.push({ ...ref, reason: status === -1 ? 'fetch error' : `HTTP ${status}` });
+          result.externalWarnings.push({
+            ...ref,
+            reason: status === -1 ? 'fetch error' : `HTTP ${status}`,
+          });
         } else {
           result.externalOk++;
         }
@@ -269,7 +288,9 @@ async function main(): Promise<void> {
       if (result.externalWarnings.length === 0) {
         console.log(`  \u2713 All ${extTotal} external link(s) reachable`);
       } else {
-        console.log(`  \u26a0 ${result.externalWarnings.length} external link warning(s) (not a build failure):`);
+        console.log(
+          `  \u26a0 ${result.externalWarnings.length} external link warning(s) (not a build failure):`,
+        );
         for (const w of result.externalWarnings) {
           console.log(`    ${fmt(w.file)}:${w.line}  \u2192  ${w.href}  (${w.reason})`);
         }

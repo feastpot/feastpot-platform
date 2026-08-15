@@ -20,6 +20,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
 import { apiRequest, ApiError } from '@/lib/api/client';
+import { mapSignUpError, shouldAlertOps } from '@/lib/auth/auth-errors';
 import { safeRedirect } from '@/lib/safe-redirect';
 import { createClient } from '@/lib/supabase/client';
 
@@ -84,10 +85,7 @@ const RegisterFormSchema = RegisterSchema.omit({
       .string()
       .optional()
       .transform((v) => (v?.trim() === '' ? undefined : v?.trim()))
-      .refine(
-        (v) => v === undefined || /^\+?[0-9 ()-]{7,20}$/.test(v),
-        'Invalid phone number',
-      ),
+      .refine((v) => v === undefined || /^\+?[0-9 ()-]{7,20}$/.test(v), 'Invalid phone number'),
     confirmPassword: z.string().min(1, 'Please confirm your password'),
     postcode: z.string().min(1, 'Enter your postcode or service area').max(20),
     termsAccepted: z.boolean().refine((v) => v === true, {
@@ -324,6 +322,19 @@ function SignInPane({ onSwitchToRegister }: { onSwitchToRegister: () => void }) 
       provider: 'google',
       options: {
         redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirect)}`,
+        queryParams: { access_type: 'offline', prompt: 'consent' },
+      },
+    });
+    if (error) setServerError(error.message);
+  };
+
+  const onApple = async () => {
+    setServerError(null);
+    const supabase = createClient();
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'apple',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirect)}`,
       },
     });
     if (error) setServerError(error.message);
@@ -434,6 +445,14 @@ function SignInPane({ onSwitchToRegister }: { onSwitchToRegister: () => void }) 
           <GoogleLogo className="h-4 w-4" /> Continue with Google
         </button>
 
+        <button
+          type="button"
+          onClick={onApple}
+          className="flex min-h-12 w-full items-center justify-center gap-2.5 rounded-xl border border-cream-deep bg-white py-3 text-sm font-semibold text-charcoal hover:bg-cream"
+        >
+          <AppleLogo className="h-4 w-4" /> Continue with Apple
+        </button>
+
         <p className="pt-2 text-center text-sm text-charcoal-mid">
           New to Feastpot?{' '}
           <button
@@ -457,9 +476,14 @@ function SignInPane({ onSwitchToRegister }: { onSwitchToRegister: () => void }) 
 // ── REGISTER pane ───────────────────────────────────────────────────────
 function RegisterPane({ onSwitchToSignIn }: { onSwitchToSignIn: () => void }) {
   const [submitted, setSubmitted] = useState(false);
+  const [confirmedEmail, setConfirmedEmail] = useState('');
   const [serverError, setServerError] = useState<string | null>(null);
   const [showPwd, setShowPwd] = useState(false);
   const [showCpwd, setShowCpwd] = useState(false);
+  // Resend confirmation state
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [resendStatus, setResendStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+  const [resendError, setResendError] = useState<string | null>(null);
 
   const form = useForm<RegisterFormValues>({
     resolver: zodResolver(RegisterFormSchema),
@@ -475,6 +499,14 @@ function RegisterPane({ onSwitchToSignIn }: { onSwitchToSignIn: () => void }) {
     },
   });
 
+  // Log build SHA once on mount so the deployed bundle can be verified from
+  // the browser console. Dev-only diagnostic for the sign-in page.
+  useEffect(() => {
+    if (process.env.NODE_ENV !== 'production') {
+      console.info('[feastpot/register] build:', process.env.NEXT_PUBLIC_BUILD_SHA ?? 'unknown');
+    }
+  }, []);
+
   // Pull a referral code that /join saved into localStorage so it survives
   // the email-confirmation round-trip.
   useEffect(() => {
@@ -487,11 +519,19 @@ function RegisterPane({ onSwitchToSignIn }: { onSwitchToSignIn: () => void }) {
     }
   }, [form]);
 
+  // Count down the resend cooldown timer one second at a time.
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const id = setTimeout(() => setResendCooldown((s) => s - 1), 1_000);
+    return () => clearTimeout(id);
+  }, [resendCooldown]);
+
   const onSubmit = async (values: RegisterFormValues) => {
     setServerError(null);
     const supabase = createClient();
     const { firstName, lastName } = splitName(values.fullName);
-    const phone = values.phone?.trim() || undefined;
+    // Schema already transforms '' -> undefined; keep the guard for safety.
+    const phone = values.phone ?? undefined;
     const postcode = values.postcode.toUpperCase().trim();
 
     const { data, error } = await supabase.auth.signUp({
@@ -509,23 +549,42 @@ function RegisterPane({ onSwitchToSignIn }: { onSwitchToSignIn: () => void }) {
         emailRedirectTo: `${window.location.origin}/auth/callback`,
       },
     });
+
+    // Dev-only diagnostic: log the raw Supabase outcome so issues can be
+    // identified from the browser console without touching production logs.
+    if (process.env.NODE_ENV !== 'production') {
+      if (error) {
+        console.info('[register-diag] error', {
+          name: error.name,
+          code: (error as { code?: string }).code,
+          status: error.status,
+          message: error.message,
+        });
+      } else {
+        console.info('[register-diag] success', {
+          identitiesLength: data?.user?.identities?.length,
+          sessionNull: data?.session === null,
+          emailConfirmedAt: data?.user?.email_confirmed_at ?? null,
+        });
+      }
+    }
+
     if (error) {
-      // Supabase occasionally returns opaque errors (empty body or raw `{}`).
-      // For those we show a helpful fallback. For all other errors we show the
-      // real message so the user knows what actually went wrong (e.g. "User
-      // already registered", "Password should contain at least one number",
-      // rate-limit messages, etc.).
-      const raw = (error.message ?? '').trim();
-      const isOpaque = !raw || raw === '{}';
-      setServerError(
-        isOpaque
-          ? 'Unable to create account. Please check your details and try again. Ensure your password is 8+ characters with uppercase, lowercase, a number and a special character.'
-          : raw,
-      );
+      // Use the error code map; never string-match on error.message.
+      // Log an ops alert for service-level failures.
+      if (shouldAlertOps(error as Parameters<typeof shouldAlertOps>[0])) {
+        console.error('[register] ops alert: service-level error', {
+          code: (error as { code?: string }).code,
+          name: error.name,
+          status: error.status,
+        });
+      }
+      setServerError(mapSignUpError(error as Parameters<typeof mapSignUpError>[0]));
       return;
     }
 
     if (data.session) {
+      // Auto-confirmed (email confirmation off in this Supabase project).
       try {
         await apiRequest('/users/sync', {
           method: 'POST',
@@ -541,9 +600,7 @@ function RegisterPane({ onSwitchToSignIn }: { onSwitchToSignIn: () => void }) {
       } catch (e) {
         // Swallow ALL sync errors. The endpoint is idempotent and the
         // /auth/callback route re-calls it when the user confirms their email,
-        // so the profile will be created then at the latest. Re-throwing here
-        // would leave the user silently stuck: their Supabase account exists
-        // but the form never advances to the success screen.
+        // so the profile will be created then at the latest.
         console.warn(
           '[register] /v1/users/sync failed - profile will sync on email confirmation:',
           e instanceof ApiError ? `HTTP ${e.status}` : String(e),
@@ -551,15 +608,56 @@ function RegisterPane({ onSwitchToSignIn }: { onSwitchToSignIn: () => void }) {
       }
     }
 
+    // Both paths (auto-confirm + awaiting confirmation) advance to the same
+    // neutral "check your email" screen. When identities is empty, the
+    // account already exists and Supabase has notified the owner via email;
+    // we show the SAME screen to prevent account enumeration.
+    setConfirmedEmail(values.email);
+    setResendCooldown(60);
     setSubmitted(true);
+  };
+
+  const handleResend = async () => {
+    if (resendCooldown > 0 || resendStatus === 'sending') return;
+    setResendStatus('sending');
+    setResendError(null);
+    const supabase = createClient();
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email: confirmedEmail,
+      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+    });
+    if (error) {
+      const code = (error as { code?: string }).code ?? '';
+      if (code === 'over_email_send_rate_limit') {
+        setResendCooldown(60);
+        setResendError('Too many attempts. Please wait a minute before trying again.');
+      } else {
+        setResendError(
+          error.message || 'Could not resend the confirmation email. Please try again.',
+        );
+      }
+      setResendStatus('error');
+      return;
+    }
+    setResendStatus('sent');
+    setResendCooldown(60);
   };
 
   const handleOAuth = async (provider: 'google' | 'apple') => {
     setServerError(null);
     const supabase = createClient();
+    const params = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
+    const rawNext = params.get('next') ?? params.get('redirect') ?? null;
+    const next = safeRedirect(rawNext, '/');
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
+        ...(provider === 'google'
+          ? { queryParams: { access_type: 'offline', prompt: 'consent' } }
+          : {}),
+      },
     });
     if (error) setServerError(error.message);
   };
@@ -574,18 +672,47 @@ function RegisterPane({ onSwitchToSignIn }: { onSwitchToSignIn: () => void }) {
         role="tabpanel"
         className="mt-6 rounded-2xl bg-cream-warm p-6 text-center"
       >
-        <h2 className="font-display text-2xl font-black tracking-tight text-charcoal">
+        <CheckCircle2 className="mx-auto h-10 w-10 text-brand" aria-hidden />
+        <h2 className="mt-3 font-display text-2xl font-black tracking-tight text-charcoal">
           Check your email
         </h2>
         <p className="mt-2 text-sm text-charcoal-mid">
           We&rsquo;ve sent a confirmation link to{' '}
-          <strong className="text-charcoal break-all">{form.getValues('email')}</strong>. Open it on
-          this device to finish creating your account.
+          <strong className="break-all text-charcoal">{confirmedEmail}</strong>. Open it on this
+          device to finish creating your account.
         </p>
+
+        {/* Resend confirmation */}
+        <div className="mt-5">
+          {resendStatus === 'sent' && (
+            <p role="status" className="mb-3 text-sm font-medium text-brand">
+              Confirmation email resent.
+            </p>
+          )}
+          {resendError && (
+            <p role="alert" className="mb-3 text-sm font-medium text-scotch">
+              {resendError}
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={handleResend}
+            disabled={resendCooldown > 0 || resendStatus === 'sending'}
+            className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-cream-deep bg-white px-4 text-sm font-semibold text-charcoal hover:bg-cream disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Mail className="h-3.5 w-3.5" aria-hidden />
+            {resendStatus === 'sending'
+              ? 'Sending...'
+              : resendCooldown > 0
+                ? `Resend in ${resendCooldown}s`
+                : 'Resend confirmation email'}
+          </button>
+        </div>
+
         <button
           type="button"
           onClick={onSwitchToSignIn}
-          className="mt-5 inline-flex min-h-11 items-center rounded-xl border border-cream-deep bg-white px-5 text-sm font-bold text-charcoal hover:bg-cream"
+          className="mt-4 inline-flex min-h-11 items-center rounded-xl border border-cream-deep bg-white px-5 text-sm font-bold text-charcoal hover:bg-cream"
         >
           Back to sign in
         </button>
@@ -815,6 +942,7 @@ function PasswordField({
           type="button"
           onClick={onToggle}
           aria-label={show ? 'Hide password' : 'Show password'}
+          aria-pressed={show}
           className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-charcoal-mid hover:text-charcoal"
         >
           {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}

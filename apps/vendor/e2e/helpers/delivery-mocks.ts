@@ -188,31 +188,19 @@ export async function installDeliveryMocks(
   });
 
   // GET /vendors/me/delivery-config/compute-districts
-  await page.route(
-    /\/v1\/vendors\/me\/delivery-config\/compute-districts/,
-    (route: Route) => {
-      const url = new URL(route.request().url());
-      const miles = Number(url.searchParams.get('radiusMiles') ?? '5');
-      const districts =
-        districtsByRadius[miles] ??
-        districtsByRadius[5] ??
-        DISTRICTS_5MI;
-      void route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ districts }),
-      });
-    },
-  );
+  await page.route(/\/v1\/vendors\/me\/delivery-config\/compute-districts/, (route: Route) => {
+    const url = new URL(route.request().url());
+    const miles = Number(url.searchParams.get('radiusMiles') ?? '5');
+    const districts = districtsByRadius[miles] ?? districtsByRadius[5] ?? DISTRICTS_5MI;
+    void route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ districts }),
+    });
+  });
 
   // Default kitchen postcode
-  await mockPostcodesIoLookup(
-    page,
-    KITCHEN_POSTCODE,
-    KITCHEN_LAT,
-    KITCHEN_LNG,
-    KITCHEN_DISTRICT,
-  );
+  await mockPostcodesIoLookup(page, KITCHEN_POSTCODE, KITCHEN_LAT, KITCHEN_LNG, KITCHEN_DISTRICT);
 
   // Extra postcode lookups (e.g. for D3)
   for (const p of options.extraPostcodes ?? []) {

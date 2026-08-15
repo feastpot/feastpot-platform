@@ -21,7 +21,10 @@ export class UpsertTaxProfileDto {
   @MaxLength(255)
   legalName!: string;
 
-  @ApiPropertyOptional({ description: 'Trading name (if different from legal name)', maxLength: 255 })
+  @ApiPropertyOptional({
+    description: 'Trading name (if different from legal name)',
+    maxLength: 255,
+  })
   @IsOptional()
   @IsString()
   @MaxLength(255)

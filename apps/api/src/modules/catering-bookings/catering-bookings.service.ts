@@ -6,10 +6,11 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { AttributionSource, CateringBookingStatus, OrderSource, UserRole } from '@prisma/client';
+import type { Decimal } from '@prisma/client/runtime/library';
 import * as Sentry from '@sentry/nestjs';
-// eslint-disable-next-line @typescript-eslint/no-require-imports
+// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
 const PDFDocument = require('pdfkit') as typeof import('pdfkit');
-// eslint-disable-next-line @typescript-eslint/no-require-imports
+// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
 const QRCode = require('qrcode') as typeof import('qrcode');
 
 import type { AuthUser } from '../../auth/types';
@@ -17,12 +18,11 @@ import { CommissionService } from '../../commission/commission.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { StripeService } from '../../stripe/stripe.service';
 import { toResolvedSource } from '../attribution/attribution.service';
-import { EmailProvider } from '../notifications/providers/email.provider';
 import { NotificationsService } from '../notifications/notifications.service';
+import { EmailProvider } from '../notifications/providers/email.provider';
 
 import type { CancelCateringBookingDto } from './dto/cancel-catering-booking.dto';
 import type { CreateCateringBookingDto } from './dto/create-catering-booking.dto';
-import type { Decimal } from '@prisma/client/runtime/library';
 
 // Guest-count midpoints for each enquiry guestCountBand
 const GUEST_COUNT_MIDPOINTS: Record<string, number> = {
@@ -129,11 +129,11 @@ export class CateringBookingsService {
     const { rateId, ratePercent, commissionPence } = await this.commission.resolveRateAndCompute(
       source,
       isFirstOrder,
-      total,  // subtotalPence = total for catering (no separate service fee)
-      0,      // deliveryFeePence (catering has no delivery fee)
-      0,      // serviceFeePence (none for catering)
-      0,      // discountPence (catering quotes carry no discount codes)
-      null,   // discountFundedBy (no discount)
+      total, // subtotalPence = total for catering (no separate service fee)
+      0, // deliveryFeePence (catering has no delivery fee)
+      0, // serviceFeePence (none for catering)
+      0, // discountPence (catering quotes carry no discount codes)
+      null, // discountFundedBy (no discount)
       now,
     );
 
@@ -205,7 +205,12 @@ export class CateringBookingsService {
         depositPence: booking.depositPence,
         quoteExpiresAt: booking.quoteExpiresAt,
         payLink,
-        lineItems: (booking as typeof booking & { lineItems?: Array<{ description: string; quantity: number; unitPence: number }> }).lineItems ?? [],
+        lineItems:
+          (
+            booking as typeof booking & {
+              lineItems?: Array<{ description: string; quantity: number; unitPence: number }>;
+            }
+          ).lineItems ?? [],
       }),
     });
 
@@ -278,7 +283,10 @@ export class CateringBookingsService {
     });
     if (!booking) throw new NotFoundException('Booking not found');
     if (booking.status === CateringBookingStatus.CONFIRMED) return booking; // idempotent
-    if (booking.status !== CateringBookingStatus.QUOTED && booking.status !== CateringBookingStatus.DEPOSIT_PAID) {
+    if (
+      booking.status !== CateringBookingStatus.QUOTED &&
+      booking.status !== CateringBookingStatus.DEPOSIT_PAID
+    ) {
       throw new BadRequestException(`Cannot confirm deposit: booking is ${booking.status}`);
     }
     if (booking.depositPiId !== paymentIntentId) {
@@ -300,7 +308,11 @@ export class CateringBookingsService {
       },
     });
 
-    const confirmedBooking = { ...booking, status: CateringBookingStatus.CONFIRMED, depositPaidAt: now };
+    const confirmedBooking = {
+      ...booking,
+      status: CateringBookingStatus.CONFIRMED,
+      depositPaidAt: now,
+    };
 
     // Generate compliance PDF
     try {
@@ -321,7 +333,10 @@ export class CateringBookingsService {
 
       const webUrl = process.env.WEB_URL ?? 'https://feastpot.com';
       const qrUrl = `${webUrl}/v/${vendor?.slug ?? booking.vendorId}?booking=${bookingId}&credit=500`;
-      const qrBuffer = await (QRCode.toBuffer as (url: string, opts: object) => Promise<Buffer>)(qrUrl, { type: 'png', width: 200 });
+      const qrBuffer = await (QRCode.toBuffer as (url: string, opts: object) => Promise<Buffer>)(
+        qrUrl,
+        { type: 'png', width: 200 },
+      );
       const qrBase64 = qrBuffer.toString('base64');
 
       const pdfBuf = await this.buildCompliancePdf({
@@ -364,7 +379,13 @@ export class CateringBookingsService {
     await this.notifications
       .enqueue(
         'catering_deposit_received',
-        { userId: (await this.getVendorUserId(booking.vendorId)), bookingId, customerName: booking.customerName, eventDate: booking.eventDate.toISOString(), totalPence: booking.totalPence },
+        {
+          userId: await this.getVendorUserId(booking.vendorId),
+          bookingId,
+          customerName: booking.customerName,
+          eventDate: booking.eventDate.toISOString(),
+          totalPence: booking.totalPence,
+        },
         { jobId: `catering_deposit:${bookingId}` },
       )
       .catch((e) => this.logger.warn(`vendor notify failed: ${String(e)}`));
@@ -404,7 +425,9 @@ export class CateringBookingsService {
     if (claim.count === 0) {
       await this.stripe
         .cancel(pi.id)
-        .catch((e) => this.logger.warn(`failed to cancel orphan balance PI ${pi.id}: ${String(e)}`));
+        .catch((e) =>
+          this.logger.warn(`failed to cancel orphan balance PI ${pi.id}: ${String(e)}`),
+        );
       return;
     }
 
@@ -569,15 +592,31 @@ export class CateringBookingsService {
           );
         }
         refundPence = booking.totalPence; // full refund
-        await this.stripe.refund(booking.balancePiId!, booking.balancePence, `catering_refund_balance:${bookingId}`);
-        await this.stripe.refund(booking.depositPiId!, booking.depositPence, `catering_refund_deposit:${bookingId}`);
+        await this.stripe.refund(
+          booking.balancePiId!,
+          booking.balancePence,
+          `catering_refund_balance:${bookingId}`,
+        );
+        await this.stripe.refund(
+          booking.depositPiId!,
+          booking.depositPence,
+          `catering_refund_deposit:${bookingId}`,
+        );
       } else if (days > 14) {
         refundPence = booking.depositPence;
-        await this.stripe.refund(booking.depositPiId!, booking.depositPence, `catering_refund:${bookingId}`);
+        await this.stripe.refund(
+          booking.depositPiId!,
+          booking.depositPence,
+          `catering_refund:${bookingId}`,
+        );
       } else if (days > 7) {
         refundPence = Math.floor(booking.depositPence * 0.5);
         if (refundPence > 0) {
-          await this.stripe.refund(booking.depositPiId!, refundPence, `catering_refund:${bookingId}`);
+          await this.stripe.refund(
+            booking.depositPiId!,
+            refundPence,
+            `catering_refund:${bookingId}`,
+          );
         }
       }
       // else <7 days: deposit retained, no refund
@@ -709,7 +748,12 @@ export class CateringBookingsService {
       totalPence: number;
       depositPence: number;
       balancePence: number;
-      lineItems: Array<{ description: string; quantity: number; unitPence: number; allergens: string[] }>;
+      lineItems: Array<{
+        description: string;
+        quantity: number;
+        unitPence: number;
+        allergens: string[];
+      }>;
     };
     vendor: {
       businessName: string;
@@ -771,13 +815,13 @@ export class CateringBookingsService {
       doc.fontSize(11).fillColor(fg);
       for (const li of booking.lineItems) {
         const lineTotal = li.quantity * li.unitPence;
-        doc.font('Helvetica-Bold').text(
-          `${li.quantity}x ${li.description}`,
-          { continued: true },
-        );
+        doc.font('Helvetica-Bold').text(`${li.quantity}x ${li.description}`, { continued: true });
         doc.font('Helvetica').text(`  ${formatPounds(lineTotal)}`, { align: 'right' });
         if (li.allergens.length > 0) {
-          doc.font('Helvetica-Oblique').fontSize(9).fillColor('#666')
+          doc
+            .font('Helvetica-Oblique')
+            .fontSize(9)
+            .fillColor('#666')
             .text(`  Allergens: ${li.allergens.join(', ')}`);
           doc.fontSize(11).fillColor(fg);
         }
@@ -785,16 +829,31 @@ export class CateringBookingsService {
 
       // ── Allergen matrix ──────────────────────────────────────────────────
       const allAllergens = [
-        'celery', 'cereals', 'crustaceans', 'eggs', 'fish', 'lupin',
-        'milk', 'molluscs', 'mustard', 'nuts', 'peanuts', 'sesame', 'soya', 'sulphites',
+        'celery',
+        'cereals',
+        'crustaceans',
+        'eggs',
+        'fish',
+        'lupin',
+        'milk',
+        'molluscs',
+        'mustard',
+        'nuts',
+        'peanuts',
+        'sesame',
+        'soya',
+        'sulphites',
       ];
-      const allergenSet = new Set(
+      const _allergenSet = new Set(
         booking.lineItems.flatMap((li) => li.allergens.map((a) => a.toLowerCase())),
       );
 
       doc.moveDown(0.8);
-      doc.fontSize(13).fillColor(accent).text('Allergen matrix (UK Natasha\'s Law compliant)');
-      doc.fontSize(9).fillColor(fg).font('Helvetica-Bold')
+      doc.fontSize(13).fillColor(accent).text("Allergen matrix (UK Natasha's Law compliant)");
+      doc
+        .fontSize(9)
+        .fillColor(fg)
+        .font('Helvetica-Bold')
         .text('Dish', 90, doc.y, { continued: false });
 
       const startY = doc.y;
@@ -806,7 +865,9 @@ export class CateringBookingsService {
 
       for (const li of booking.lineItems) {
         const rowY = doc.y;
-        doc.font('Helvetica').fontSize(9)
+        doc
+          .font('Helvetica')
+          .fontSize(9)
           .text(li.description.slice(0, 20), 90, rowY, { width: 95, continued: false });
         allAllergens.forEach((a, i) => {
           const present = li.allergens.map((x) => x.toLowerCase()).includes(a);
@@ -830,11 +891,25 @@ export class CateringBookingsService {
       doc.font('Helvetica-Bold').text('Hygiene registration number: ', { continued: true });
       doc.font('Helvetica').text(vendor.hygieneRegNumber ?? 'On file');
       doc.font('Helvetica-Bold').text('FHRS hygiene rating: ', { continued: true });
-      doc.font('Helvetica').text(hygieneDoc ? `Verified ${formatDate(hygieneDoc.reviewedAt!)}` : 'On file with Feastpot');
-      doc.font('Helvetica-Bold').text('Kitchen / food business registration: ', { continued: true });
-      doc.font('Helvetica').text(regDoc ? `Verified ${formatDate(regDoc.reviewedAt!)}` : 'On file with Feastpot');
+      doc
+        .font('Helvetica')
+        .text(
+          hygieneDoc ? `Verified ${formatDate(hygieneDoc.reviewedAt!)}` : 'On file with Feastpot',
+        );
+      doc
+        .font('Helvetica-Bold')
+        .text('Kitchen / food business registration: ', { continued: true });
+      doc
+        .font('Helvetica')
+        .text(regDoc ? `Verified ${formatDate(regDoc.reviewedAt!)}` : 'On file with Feastpot');
       doc.font('Helvetica-Bold').text('Public liability insurance: ', { continued: true });
-      doc.font('Helvetica').text(insuranceDoc ? `Valid - verified ${formatDate(insuranceDoc.reviewedAt!)}` : 'On file with Feastpot');
+      doc
+        .font('Helvetica')
+        .text(
+          insuranceDoc
+            ? `Valid - verified ${formatDate(insuranceDoc.reviewedAt!)}`
+            : 'On file with Feastpot',
+        );
 
       // ── Cancellation policy ──────────────────────────────────────────────
       doc.moveDown(0.8);
@@ -850,14 +925,18 @@ export class CateringBookingsService {
 
       // ── Support ─────────────────────────────────────────────────────────
       doc.moveDown(0.8);
-      doc.fontSize(10).fillColor('#555')
+      doc
+        .fontSize(10)
+        .fillColor('#555')
         .text('Need help? Contact Feastpot support: hello@feastpot.com or visit feastpot.com/help');
 
       // ── QR code ─────────────────────────────────────────────────────────
       doc.moveDown(0.8);
       doc.fontSize(13).fillColor(accent).text('Share the love - £5 credit for your guests');
       doc.fontSize(10).fillColor(fg).font('Helvetica');
-      doc.text('Print this QR code as a table card. Guests who scan it get £5 off their first Feastpot order.');
+      doc.text(
+        'Print this QR code as a table card. Guests who scan it get £5 off their first Feastpot order.',
+      );
       doc.moveDown(0.4);
 
       const qrImg = Buffer.from(qrBase64, 'base64');
@@ -917,7 +996,12 @@ export class CateringBookingsService {
 
 function formatDate(d: Date | string): string {
   const date = typeof d === 'string' ? new Date(d) : d;
-  return date.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  return date.toLocaleDateString('en-GB', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
 }
 
 function formatPounds(pence: number): string {

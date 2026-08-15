@@ -62,18 +62,20 @@ export class AuthPublicService {
       );
     }
 
-    this.supabase = createClient(supabaseUrl || 'http://placeholder.local', anonKey || 'placeholder', {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
+    this.supabase = createClient(
+      supabaseUrl || 'http://placeholder.local',
+      anonKey || 'placeholder',
+      {
+        auth: { persistSession: false, autoRefreshToken: false },
+      },
+    );
 
     const resendKey = config.get<string>('RESEND_API_KEY');
     this.resend = resendKey ? new Resend(resendKey) : null;
     this.from = config.get<string>('EMAIL_FROM') ?? 'Feastpot <noreply@feastpot.co.uk>';
 
-    this.webOrigin =
-      config.get<string>('NEXT_PUBLIC_WEB_URL') ?? 'https://feastpot.co.uk';
-    this.vendorOrigin =
-      config.get<string>('VENDOR_PORTAL_URL') ?? 'https://vendors.feastpot.co.uk';
+    this.webOrigin = config.get<string>('NEXT_PUBLIC_WEB_URL') ?? 'https://feastpot.co.uk';
+    this.vendorOrigin = config.get<string>('VENDOR_PORTAL_URL') ?? 'https://vendors.feastpot.co.uk';
   }
 
   /**
@@ -96,7 +98,9 @@ export class AuthPublicService {
     const count = await this.cache.increment(emailRateKey(email), EMAIL_RATE_WINDOW_SECS);
     if (count > EMAIL_RATE_MAX) {
       // Silently wait out the timing floor and return - same UX as success.
-      this.logger.debug(`[auth-public] Per-email rate limit hit for hash ${emailRateKey(email).slice(-8)}`);
+      this.logger.debug(
+        `[auth-public] Per-email rate limit hit for hash ${emailRateKey(email).slice(-8)}`,
+      );
       await this.delay(RESET_MIN_MS);
       return;
     }

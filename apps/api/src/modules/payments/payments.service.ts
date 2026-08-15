@@ -1,3 +1,4 @@
+import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
 import {
   BadRequestException,
   ForbiddenException,
@@ -6,7 +7,6 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { OrderStatus, PaymentStatus, PaymentType, Prisma, UserRole } from '@prisma/client';
-import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
 
 import { PrismaService } from '../../prisma/prisma.service';
 import { StripeService } from '../../stripe/stripe.service';
@@ -477,9 +477,7 @@ export class PaymentsService {
     // lets the vendor re-use the allowance on a future order rather than
     // permanently burning it on an order that never completed.
     if (order.foundingAllowanceAppliedPence > 0) {
-      const restorePence = Math.round(
-        split.refundFraction * order.foundingAllowanceAppliedPence,
-      );
+      const restorePence = Math.round(split.refundFraction * order.foundingAllowanceAppliedPence);
       if (restorePence > 0) {
         await this.prisma.vendor
           .update({

@@ -41,11 +41,13 @@ export default function GlobalError({
       }),
       signal: AbortSignal.timeout(5000),
     })
-      .then((r) => r.ok ? r.json() : null)
+      .then((r) => (r.ok ? r.json() : null))
       .then((data: { ref?: string } | null) => {
         if (data?.ref) setRef(data.ref);
       })
-      .catch(() => {/* suppress - error reporting must never throw */});
+      .catch(() => {
+        /* suppress - error reporting must never throw */
+      });
   }, [error]);
 
   const subject = ref ? `Error ${ref} - vendor portal` : 'Vendor portal error';
@@ -74,7 +76,14 @@ export default function GlobalError({
             We hit an unexpected error. It&rsquo;s been logged and we&rsquo;ll look into it.
           </p>
           {ref ? (
-            <p style={{ fontSize: '12px', fontFamily: 'monospace', color: '#9b9b96', margin: '0 0 24px' }}>
+            <p
+              style={{
+                fontSize: '12px',
+                fontFamily: 'monospace',
+                color: '#9b9b96',
+                margin: '0 0 24px',
+              }}
+            >
               Ref: {ref}
             </p>
           ) : (

@@ -44,9 +44,7 @@ export function DownloadCsvButton({
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const date = new Date().toISOString().slice(0, 10);
-      const filename = payoutId
-        ? `feastpot-orders-${date}.csv`
-        : `feastpot-orders-all-${date}.csv`;
+      const filename = payoutId ? `feastpot-orders-${date}.csv` : `feastpot-orders-all-${date}.csv`;
       const a = document.createElement('a');
       a.href = url;
       a.download = filename;

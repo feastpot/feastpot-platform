@@ -43,7 +43,7 @@ export default async function NotificationsPage() {
 
   return (
     <PortalShell businessName={vendor.businessName}>
-          <NotificationsClient />
+      <NotificationsClient />
     </PortalShell>
   );
 }

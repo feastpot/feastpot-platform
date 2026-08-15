@@ -5,7 +5,11 @@ import { AlertTriangle, CheckCircle2, ChevronRight, ExternalLink } from 'lucide-
 import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
 
 import type { EnforcementAction, ReasonCode } from '@/hooks/use-account-status';
-import { REASON_CODE_LABELS, REASON_CODE_RESOLVE_STEPS, useAccountStatus } from '@/hooks/use-account-status';
+import {
+  REASON_CODE_LABELS,
+  REASON_CODE_RESOLVE_STEPS,
+  useAccountStatus,
+} from '@/hooks/use-account-status';
 
 const ACTION_TYPE_LABELS: Record<string, string> = {
   RESTRICTION: 'Restriction',
@@ -47,14 +51,17 @@ interface ActionCardProps {
 function ActionCard({ action }: ActionCardProps) {
   const resolveStep = REASON_CODE_RESOLVE_STEPS[action.reasonCode as ReasonCode];
   const deadline = appealDeadline(action.effectiveAt);
-  const isExpiredAppeal = new Date() > new Date(new Date(action.effectiveAt).getTime() + APPEAL_WINDOW_DAYS * 86_400_000);
+  const isExpiredAppeal =
+    new Date() > new Date(new Date(action.effectiveAt).getTime() + APPEAL_WINDOW_DAYS * 86_400_000);
 
   return (
     <div className="rounded-2xl border border-red-200 bg-red-50 p-5">
       {/* Header */}
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <AlertTriangle className="h-5 w-5 shrink-0 text-red-500" aria-hidden />
-        <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${ACTION_TYPE_COLOURS[action.actionType] ?? 'bg-neutral-100 text-neutral-700'}`}>
+        <span
+          className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${ACTION_TYPE_COLOURS[action.actionType] ?? 'bg-neutral-100 text-neutral-700'}`}
+        >
           {ACTION_TYPE_LABELS[action.actionType] ?? action.actionType}
         </span>
         <span className="text-sm font-semibold text-red-800">
@@ -64,8 +71,14 @@ function ActionCard({ action }: ActionCardProps) {
 
       {/* Dates */}
       <div className="mb-3 flex flex-wrap gap-4 text-[12px] text-red-700">
-        <span><strong>Effective:</strong> {formatDate(action.effectiveAt)}</span>
-        {!isExpiredAppeal && <span><strong>Appeal deadline:</strong> {deadline}</span>}
+        <span>
+          <strong>Effective:</strong> {formatDate(action.effectiveAt)}
+        </span>
+        {!isExpiredAppeal && (
+          <span>
+            <strong>Appeal deadline:</strong> {deadline}
+          </span>
+        )}
       </div>
 
       {/* Narrative */}
@@ -92,12 +105,14 @@ function ActionCard({ action }: ActionCardProps) {
           Your right to appeal (clause {APPEAL_CLAUSE_REF})
         </p>
         {isExpiredAppeal ? (
-          <p className="text-sm text-neutral-500">The 14-day appeal window for this action has closed.</p>
+          <p className="text-sm text-neutral-500">
+            The 14-day appeal window for this action has closed.
+          </p>
         ) : (
           <>
             <p className="mb-3 text-sm leading-relaxed text-neutral-700">
-              You may appeal this decision within 14 days of the effective date. Email us with your grounds
-              of appeal and we will acknowledge receipt within 5 business days.
+              You may appeal this decision within 14 days of the effective date. Email us with your
+              grounds of appeal and we will acknowledge receipt within 5 business days.
             </p>
             <a
               href={`mailto:${PLATFORM_FACTS.contact.appealsEmail}?subject=${encodeURIComponent(appealSubject(action))}`}
@@ -129,7 +144,10 @@ export function AccountStatusClient() {
 
   if (error) {
     return (
-      <div className="rounded-2xl border border-red-200 bg-red-50 p-5 text-sm text-red-700" role="alert">
+      <div
+        className="rounded-2xl border border-red-200 bg-red-50 p-5 text-sm text-red-700"
+        role="alert"
+      >
         Unable to load account status. Please refresh or contact support.
       </div>
     );
@@ -150,9 +168,11 @@ export function AccountStatusClient() {
   return (
     <div className="space-y-5">
       <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-        <strong>{actions.length} active enforcement {actions.length === 1 ? 'action' : 'actions'}</strong>
-        {' '}on your account. Every action includes a written statement of reasons and a 14-day
-        right of appeal under vendor terms clause 18.1.
+        <strong>
+          {actions.length} active enforcement {actions.length === 1 ? 'action' : 'actions'}
+        </strong>{' '}
+        on your account. Every action includes a written statement of reasons and a 14-day right of
+        appeal under vendor terms clause 18.1.
       </div>
       {actions.map((action) => (
         <ActionCard key={action.id} action={action} />
@@ -161,9 +181,12 @@ export function AccountStatusClient() {
         Questions? Contact{' '}
         <a href="mailto:support@feastpot.co.uk" className="underline hover:text-neutral-700">
           support@feastpot.co.uk
-        </a>
-        {' '}or visit the{' '}
-        <a href="/help" className="inline-flex items-center gap-0.5 underline hover:text-neutral-700">
+        </a>{' '}
+        or visit the{' '}
+        <a
+          href="/help"
+          className="inline-flex items-center gap-0.5 underline hover:text-neutral-700"
+        >
           Help centre <ChevronRight className="h-3 w-3" aria-hidden />
         </a>
       </div>

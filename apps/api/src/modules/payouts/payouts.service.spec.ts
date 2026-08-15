@@ -1,4 +1,9 @@
-import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { PayoutStatus, UserRole } from '@prisma/client';
 
 import type { AuthUser } from '../../auth/types';
@@ -143,7 +148,14 @@ describe('PayoutsService.approvePayout', () => {
     const prisma = makePrisma();
     const stripe = makeStripe();
     const queue = makeQueue();
-    const svc = new PayoutsService(prisma as any, stripe as any, queue as any);
+    const svc = new PayoutsService(
+      prisma as any,
+      stripe as any,
+      undefined as any,
+      undefined as any,
+      undefined as any,
+      queue as any,
+    );
     return { svc, prisma, stripe, queue };
   }
 
@@ -205,40 +217,32 @@ describe('PayoutsService.approvePayout', () => {
     await expect(svc.approvePayout('p1', finance)).rejects.toThrow(/concurrently/i);
   });
 
-  it('happy path: transfers, marks transferred, notifies vendor', async () => {
-    const { svc, prisma, stripe, queue } = build();
-    prisma.payout.findUnique.mockResolvedValueOnce({
+  it('happy path: enqueues payout-transfer job and returns updated payout', async () => {
+    const { svc, prisma, queue } = build();
+    const payoutRow = {
       id: 'p1',
       vendorId: 'v1',
       amountPence: 2450,
       status: PayoutStatus.draft,
       vendor: { stripeAccountId: 'acct_1', payoutsEnabled: true, userId: 'vu1' },
-    });
-    prisma.payout.updateMany.mockResolvedValueOnce({ count: 1 });
-    stripe.createTransfer.mockResolvedValueOnce({ id: 'tr_1' });
-    prisma.payout.update.mockResolvedValueOnce({ id: 'p1', status: PayoutStatus.transferred });
+    };
+    prisma.payout.findUnique
+      .mockResolvedValueOnce(payoutRow) // initial lookup
+      .mockResolvedValueOnce({ id: 'p1', status: PayoutStatus.approved }); // return value
+    prisma.payout.updateMany.mockResolvedValueOnce({ count: 1 }); // CAS draft→approved
 
     const out = await svc.approvePayout('p1', finance);
 
-    expect(stripe.createTransfer).toHaveBeenCalledWith({
-      amountPence: 2450,
-      destinationAccountId: 'acct_1',
-      payoutId: 'p1',
-      idempotencyKey: 'payout-transfer-p1',
-    });
-    expect(prisma.payout.update.mock.calls[0][0].data).toMatchObject({
-      status: PayoutStatus.transferred,
-      stripeTransferId: 'tr_1',
-    });
     expect(queue.add).toHaveBeenCalledWith(
-      'payout_transferred',
-      expect.objectContaining({ payoutId: 'p1' }),
+      'payout-transfer',
+      { payoutId: 'p1' },
+      expect.objectContaining({ attempts: 5 }),
     );
     expect(out).toBeDefined();
   });
 
-  it('marks failed when stripe throws', async () => {
-    const { svc, prisma, stripe } = build();
+  it('rolls back CAS and throws ServiceUnavailableException when queue is unavailable', async () => {
+    const { svc, prisma, queue } = build();
     prisma.payout.findUnique.mockResolvedValueOnce({
       id: 'p1',
       vendorId: 'v1',
@@ -246,14 +250,18 @@ describe('PayoutsService.approvePayout', () => {
       status: PayoutStatus.draft,
       vendor: { stripeAccountId: 'acct', payoutsEnabled: true, userId: 'vu' },
     });
-    prisma.payout.updateMany.mockResolvedValueOnce({ count: 1 });
-    stripe.createTransfer.mockRejectedValueOnce(new Error('bank down'));
-    prisma.payout.update.mockResolvedValueOnce({});
+    prisma.payout.updateMany
+      .mockResolvedValueOnce({ count: 1 }) // CAS draft→approved
+      .mockResolvedValueOnce({ count: 1 }); // rollback approved→draft
+    queue.add.mockRejectedValueOnce(new Error('Redis unavailable'));
 
-    await expect(svc.approvePayout('p1', finance)).rejects.toBeInstanceOf(BadRequestException);
-    expect(prisma.payout.update.mock.calls[0][0].data).toMatchObject({
-      status: PayoutStatus.failed,
-      failureReason: 'bank down',
+    await expect(svc.approvePayout('p1', finance)).rejects.toBeInstanceOf(
+      ServiceUnavailableException,
+    );
+    // Rollback call restores draft status
+    expect(prisma.payout.updateMany.mock.calls[1][0].data).toMatchObject({
+      status: PayoutStatus.draft,
+      approvedById: null,
     });
   });
 });

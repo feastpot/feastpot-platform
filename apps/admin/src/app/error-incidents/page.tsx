@@ -7,7 +7,12 @@ export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Error incidents | Feastpot Admin' };
 
 export default async function ErrorIncidentsPage() {
-  const user = await requireStaff('/error-incidents', ['admin', 'support', 'compliance', 'finance']);
+  const user = await requireStaff('/error-incidents', [
+    'admin',
+    'support',
+    'compliance',
+    'finance',
+  ]);
   const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? process.env.API_URL ?? 'http://localhost:3001';
 
   return (
@@ -16,9 +21,9 @@ export default async function ErrorIncidentsPage() {
         <div>
           <h1 className="text-2xl font-bold">Error incidents</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Each row is a real exception logged from a vendor, customer or admin
-            session. Paste a vendor-quoted ref (e.g. FP-3A9C-F102) into the search
-            box to locate the incident instantly.
+            Each row is a real exception logged from a vendor, customer or admin session. Paste a
+            vendor-quoted ref (e.g. FP-3A9C-F102) into the search box to locate the incident
+            instantly.
           </p>
         </div>
         <IncidentsClient accessToken={user.accessToken} apiUrl={apiUrl} />
