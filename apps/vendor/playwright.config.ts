@@ -118,5 +118,62 @@ export default defineConfig({
       },
       dependencies: ['setup'],
     },
+
+    // ── Merged Orders screen test suite (M1–M4) ───────────────────────────────
+    {
+      name: 'orders-screen',
+      testMatch: /orders-screen\.spec\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: 'e2e/.auth/vendor.json',
+      },
+      dependencies: ['setup'],
+    },
+
+    // ── Share and Customers screen test suite (S1–S6) ─────────────────────────
+    {
+      name: 'share-screen',
+      testMatch: /share-screen\.spec\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: 'e2e/.auth/vendor.json',
+      },
+      dependencies: ['setup'],
+    },
+
+    // ── Performance screen test suite (PF1–PF5) ───────────────────────────────
+    {
+      name: 'performance-screen',
+      testMatch: /performance-screen\.spec\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: 'e2e/.auth/vendor.json',
+      },
+      dependencies: ['setup'],
+    },
+
+    // ── Account and compliance screen test suite (A1–A5) ──────────────────────
+    {
+      name: 'account-compliance-screen',
+      testMatch: /account-compliance-screen\.spec\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: 'e2e/.auth/vendor.json',
+      },
+      dependencies: ['setup'],
+    },
+
+    // ── Cross-cutting tests (X1–X2) ───────────────────────────────────────────
+    // X1 audits every interactive control on all four screens for observable
+    // effects. X2 checks nav and header rendering at a 40-char business name.
+    {
+      name: 'cross-cutting',
+      testMatch: /cross-cutting\.spec\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: 'e2e/.auth/vendor.json',
+      },
+      dependencies: ['setup'],
+    },
   ],
 });
