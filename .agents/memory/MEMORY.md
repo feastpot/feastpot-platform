@@ -48,3 +48,6 @@
 - [Config CJS runtime entries](config-cjs-runtime.md) - packages/config exports .ts by default; Node prod can't load .ts → crash-loop; fix is require condition → .cjs.js files; changes to the 3 .ts files MUST mirror the .cjs.js copies.
 - [Image upload fix](image-upload-fix.md) — next.config.ts remotePatterns for Supabase URLs; ImageSlot uses <img> for blob preview; feastpot-media bucket auto-created in onModuleInit.
 - [Account compliance merge](account-compliance-merge.md) — /compliance + /account-status + /terms merged into /account-and-compliance; old routes redirect; embedded prop on ComplianceClient suppresses h1.
+- [CI guard exclusions](ci-guard-exclusions.md) — em-dash and FeastPot guards must exclude .agents (committed memory files legitimately use both); split test literals to avoid grep matches.
+- [db push missing migrations](db-push-missing-migrations.md) — columns added via db push without a migration file break CI; fix with intermediate-timestamp migration using IF NOT EXISTS.
+- [Prettier full-repo formatting](prettier-full-repo.md) — must cover all workspaces (admin, vendor e2e, web e2e, docs); verification-banner-mocks.ts is in .prettierignore (JSDoc parse error).
