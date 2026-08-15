@@ -57,7 +57,7 @@ export class SupabaseStorageService implements OnModuleInit {
       allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp'],
       fileSizeLimit: 5 * 1024 * 1024,
     });
-    // "already exists" is not an error — any other error is logged but not fatal
+    // "already exists" is not an error - any other error is logged but not fatal
     if (error && !error.message.toLowerCase().includes('already exists')) {
       this.logger.warn(`Could not ensure storage bucket "${STORAGE_BUCKET}": ${error.message}`);
     } else {

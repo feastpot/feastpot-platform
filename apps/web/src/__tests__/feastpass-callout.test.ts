@@ -2,7 +2,7 @@ import { shouldShowFeastPassCallout } from '../lib/feastpass-callout';
 
 describe('shouldShowFeastPassCallout', () => {
   describe('when savings data is still loading / errored (undefined)', () => {
-    it('hides the callout — must not flash while request is in-flight', () => {
+    it('hides the callout - must not flash while request is in-flight', () => {
       expect(shouldShowFeastPassCallout(299, undefined)).toBe(false);
     });
   });

@@ -164,7 +164,7 @@ describe('VendorsService.uploadIdentityImage', () => {
     (storage.uploadVendorImage as jest.Mock).mockResolvedValue({ path: 'x', publicUrl });
     repo.update.mockResolvedValue(baseVendor as never);
 
-    // adminUser.id !== baseVendor.userId — must still succeed.
+    // adminUser.id !== baseVendor.userId - must still succeed.
     await expect(
       service.uploadIdentityImage('v-1', adminUser, 'logo', fixtureFile),
     ).resolves.not.toThrow();

@@ -85,9 +85,9 @@ function SectionHeading({
  * Merged client for the Account and compliance page.
  *
  * Three ordered sections:
- *   1. Standing       — enforcement actions (client-fetched, always first)
- *   2. Compliance     — FSA badge, verification record, document uploads
- *   3. Terms & notices — current/pending terms, history, rate card
+ *   1. Standing       - enforcement actions (client-fetched, always first)
+ *   2. Compliance     - FSA badge, verification record, document uploads
+ *   3. Terms & notices - current/pending terms, history, rate card
  *
  * The ComplianceClient receives `embedded` so it suppresses its own page
  * heading while preserving every other behaviour (hooks, banners, doc cards).

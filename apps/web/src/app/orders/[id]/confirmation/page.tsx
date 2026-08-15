@@ -151,7 +151,7 @@ export default function OrderConfirmationPage() {
         </div>
       </section>
 
-      {/* FeastPass upsell — hidden while savings data is loading/errored and
+      {/* FeastPass upsell - hidden while savings data is loading/errored and
           for active members (server returns savingsPotentialPence=0).
           shouldShowFeastPassCallout() requires a positively-loaded, non-zero
           response so there is no flash during in-flight or error states. */}

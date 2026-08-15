@@ -29,9 +29,9 @@ interface VendorMe {
  * Replaces three separate pages (/compliance, /account-status, /terms) with a
  * single scrollable screen that shows all account-health content in one place:
  *
- *   1. Standing       — active enforcement actions (most urgent, always first)
- *   2. Compliance     — FSA compliance, verification record, document uploads
- *   3. Terms & notices — current/pending terms, acceptance record, change history
+ *   1. Standing       - active enforcement actions (most urgent, always first)
+ *   2. Compliance     - FSA compliance, verification record, document uploads
+ *   3. Terms & notices - current/pending terms, acceptance record, change history
  *
  * Data that is expensive or auth-gated (verification record, terms) is fetched
  * here in the server component so the initial render is fully hydrated.
