@@ -76,6 +76,12 @@ const BANNED_STRINGS = [
   'Growing network of cooks',
   '500+ cooks',
   'Fair prices, every time',
+  // Registration error strings that must never recur in source or built output.
+  // These were generic fallback messages that masked real Supabase errors and
+  // caused sign-up failures to appear as false password-validation problems.
+  'Unable to create account. Please ensure your password',
+  'Ensure your password is 8',
+  'check your details and try again. Ensure your password',
 ];
 
 /** Directories excluded from all file-system walks. */

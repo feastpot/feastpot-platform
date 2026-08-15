@@ -91,6 +91,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en-GB" className={`${inter.variable} ${playfair.variable}`}>
+      {/* build-sha: {process.env.NEXT_PUBLIC_BUILD_SHA ?? 'unknown'} */}
       <body className="min-h-screen bg-surface font-sans text-foreground antialiased">
         {/* WCAG 2.4.1 skip link - first focusable element on every page
             so AT/keyboard users can bypass the persistent top-nav and
