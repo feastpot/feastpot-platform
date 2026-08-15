@@ -91,11 +91,14 @@ export class FeastPassService {
       select: { stripeCustomerId: true, status: true },
     });
     if (existing?.status === FeastPassStatus.ACTIVE) {
-      throw new BadRequestException({ code: 'ALREADY_MEMBER', message: 'Already an active FeastPass member' });
+      throw new BadRequestException({
+        code: 'ALREADY_MEMBER',
+        message: 'Already an active FeastPass member',
+      });
     }
 
-    const stripeCustomerId = existing?.stripeCustomerId
-      ?? await this.stripe.createBillingCustomer(email, { userId });
+    const stripeCustomerId =
+      existing?.stripeCustomerId ?? (await this.stripe.createBillingCustomer(email, { userId }));
 
     const priceId =
       plan === 'ANNUAL'
@@ -103,7 +106,10 @@ export class FeastPassService {
         : (process.env.STRIPE_FEASTPASS_MONTHLY_PRICE_ID ?? '');
 
     if (!priceId) {
-      throw new BadRequestException({ code: 'PRICE_NOT_CONFIGURED', message: 'FeastPass price not configured' });
+      throw new BadRequestException({
+        code: 'PRICE_NOT_CONFIGURED',
+        message: 'FeastPass price not configured',
+      });
     }
 
     const session = await this.stripe.createCheckoutSession({
@@ -126,7 +132,10 @@ export class FeastPassService {
       select: { stripeCustomerId: true },
     });
     if (!sub) {
-      throw new NotFoundException({ code: 'NO_SUBSCRIPTION', message: 'No FeastPass subscription found' });
+      throw new NotFoundException({
+        code: 'NO_SUBSCRIPTION',
+        message: 'No FeastPass subscription found',
+      });
     }
 
     const session = await this.stripe.createBillingPortalSession({
@@ -162,8 +171,9 @@ export class FeastPassService {
 
   /** Upsert subscription state from any subscription.created / .updated event. */
   async handleSubscriptionUpsert(sub: Stripe.Subscription): Promise<void> {
-    const userId: string | undefined = (sub.metadata?.userId as string | undefined)
-      ?? await this.userIdFromCustomer(sub.customer as string);
+    const userId: string | undefined =
+      (sub.metadata?.userId as string | undefined) ??
+      (await this.userIdFromCustomer(sub.customer as string));
 
     if (!userId) {
       this.logger.warn(`FeastPass webhook: no userId for subscription ${sub.id}`);
@@ -181,8 +191,8 @@ export class FeastPassService {
         stripeCustomerId: sub.customer as string,
         plan,
         status,
-        currentPeriodStart: new Date((sub.current_period_start) * 1000),
-        currentPeriodEnd: new Date((sub.current_period_end) * 1000),
+        currentPeriodStart: new Date(sub.current_period_start * 1000),
+        currentPeriodEnd: new Date(sub.current_period_end * 1000),
         cancelAtPeriodEnd: sub.cancel_at_period_end,
       },
       update: {
@@ -190,8 +200,8 @@ export class FeastPassService {
         stripeCustomerId: sub.customer as string,
         plan,
         status,
-        currentPeriodStart: new Date((sub.current_period_start) * 1000),
-        currentPeriodEnd: new Date((sub.current_period_end) * 1000),
+        currentPeriodStart: new Date(sub.current_period_start * 1000),
+        currentPeriodEnd: new Date(sub.current_period_end * 1000),
         cancelAtPeriodEnd: sub.cancel_at_period_end,
         cancelledAt: sub.canceled_at ? new Date(sub.canceled_at * 1000) : undefined,
       },
@@ -201,8 +211,9 @@ export class FeastPassService {
   }
 
   async handleSubscriptionDeleted(sub: Stripe.Subscription): Promise<void> {
-    const userId = (sub.metadata?.userId as string | undefined)
-      ?? await this.userIdFromCustomer(sub.customer as string);
+    const userId =
+      (sub.metadata?.userId as string | undefined) ??
+      (await this.userIdFromCustomer(sub.customer as string));
     if (!userId) return;
 
     await this.prisma.feastPassSubscription.updateMany({
@@ -215,13 +226,18 @@ export class FeastPassService {
     });
 
     // Email: membership cancelled
-    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { email: true, firstName: true } });
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true, firstName: true },
+    });
     if (user) {
-      await this.email.send({
-        to: user.email,
-        subject: 'Your FeastPass has been cancelled',
-        html: cancelledEmail(user.firstName),
-      }).catch((e) => this.logger.error(`FeastPass cancelled email failed: ${String(e)}`));
+      await this.email
+        .send({
+          to: user.email,
+          subject: 'Your FeastPass has been cancelled',
+          html: cancelledEmail(user.firstName),
+        })
+        .catch((e) => this.logger.error(`FeastPass cancelled email failed: ${String(e)}`));
     }
 
     this.logger.log(`FeastPass subscription cancelled userId=${userId}`);
@@ -248,11 +264,13 @@ export class FeastPassService {
       select: { email: true, firstName: true },
     });
     if (user) {
-      await this.email.send({
-        to: user.email,
-        subject: 'FeastPass payment failed: update your card',
-        html: paymentFailedEmail(user.firstName),
-      }).catch((e) => this.logger.error(`FeastPass payment-failed email failed: ${String(e)}`));
+      await this.email
+        .send({
+          to: user.email,
+          subject: 'FeastPass payment failed: update your card',
+          html: paymentFailedEmail(user.firstName),
+        })
+        .catch((e) => this.logger.error(`FeastPass payment-failed email failed: ${String(e)}`));
     }
 
     this.logger.log(`FeastPass payment failed customerId=${customerId}`);
@@ -277,7 +295,9 @@ export class FeastPassService {
    * (they've already converted or lapsed) and the total order count so the
    * frontend can gate the 3-order threshold without a second call.
    */
-  async getSavingsPotential(userId: string): Promise<{ savingsPotentialPence: number; orderCount: number }> {
+  async getSavingsPotential(
+    userId: string,
+  ): Promise<{ savingsPotentialPence: number; orderCount: number }> {
     // Don't show savings potential to existing/past members
     const sub = await this.prisma.feastPassSubscription.findUnique({
       where: { userId },
@@ -358,7 +378,9 @@ export class FeastPassService {
       // Orders by members in last 30 days
       this.prisma.feastPassSaving.count({ where: { savedAt: { gte: thirtyDaysAgo } } }),
       // Proxy for non-member order count: total orders in last 30 days minus member orders
-      this.prisma.order.count({ where: { createdAt: { gte: thirtyDaysAgo }, serviceFeePence: { gt: 0 } } }),
+      this.prisma.order.count({
+        where: { createdAt: { gte: thirtyDaysAgo }, serviceFeePence: { gt: 0 } },
+      }),
     ]);
 
     // Monthly revenue from FeastPass
@@ -393,7 +415,9 @@ export class FeastPassService {
       totalSavedPence: savings._sum.savedPence ?? 0,
       totalSavingsOrders: savings._count.id,
       avgSavingPerMemberPence:
-        activeCount > 0 ? Math.round((savings._sum.savedPence ?? 0) / Math.max(totalMembers, 1)) : 0,
+        activeCount > 0
+          ? Math.round((savings._sum.savedPence ?? 0) / Math.max(totalMembers, 1))
+          : 0,
       memberOrdersLast30d: memberOrders,
       nonMemberOrdersLast30d: nonMemberOrders,
       belowRenewalThreshold: renewalRate < 80,

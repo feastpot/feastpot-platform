@@ -69,9 +69,7 @@ export class AnalyticsService {
       });
     } catch (err) {
       // Never let analytics failures surface. Log for observability only.
-      this.logger.warn(
-        `[analytics] track failed (event=${payload.eventName}): ${String(err)}`,
-      );
+      this.logger.warn(`[analytics] track failed (event=${payload.eventName}): ${String(err)}`);
     }
   }
 

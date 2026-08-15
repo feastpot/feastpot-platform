@@ -52,7 +52,11 @@ export function FloatingBasketBar({ vendorId }: Props) {
     const key = `fp_mp_${vendorId}`;
     const hasCookie = document.cookie.split(';').some((c) => c.trim().startsWith(`${key}=`));
     const hasLocal = (() => {
-      try { return Boolean(localStorage.getItem(key)); } catch { return false; }
+      try {
+        return Boolean(localStorage.getItem(key));
+      } catch {
+        return false;
+      }
     })();
     setBrowseAttribution(hasCookie || hasLocal ? 'MARKETPLACE_FIRST' : null);
   }, [vendorId]);

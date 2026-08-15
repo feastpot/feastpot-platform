@@ -431,9 +431,8 @@ export default async function VendorProfilePage({ params }: PageProps) {
           const details: Array<{ id: string; name: string }> =
             (vendor as { featuredDishDetails?: Array<{ id: string; name: string }> })
               .featuredDishDetails ?? [];
-          const names = details.length > 0
-            ? details.map((d) => d.name)
-            : (vendor.featuredDishes ?? []);
+          const names =
+            details.length > 0 ? details.map((d) => d.name) : (vendor.featuredDishes ?? []);
           if (names.length === 0) return null;
           return (
             <div className="rounded-2xl bg-cream-warm p-3">
@@ -547,10 +546,7 @@ export default async function VendorProfilePage({ params }: PageProps) {
           the vendor has a verification record. Never gated on any paid tier. */}
       {verification && (
         <section className="mt-6">
-          <VerificationPanel
-            verification={verification}
-            reviewCount={vendor.ratingCount}
-          />
+          <VerificationPanel verification={verification} reviewCount={vendor.ratingCount} />
         </section>
       )}
 

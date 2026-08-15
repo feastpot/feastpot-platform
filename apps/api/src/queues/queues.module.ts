@@ -28,13 +28,21 @@ const queues = BullModule.registerQueue(
   { name: COMPLIANCE_QUEUE, defaultJobOptions: { ...RETENTION } },
   {
     name: TERMS_NOTICES_QUEUE,
-    defaultJobOptions: { attempts: 3, backoff: { type: 'exponential', delay: 10_000 }, ...RETENTION },
+    defaultJobOptions: {
+      attempts: 3,
+      backoff: { type: 'exponential', delay: 10_000 },
+      ...RETENTION,
+    },
   },
   {
     // HMRC annual reporting job. Low volume (runs once per year) but
     // important: retry 5× with 1-min back-off before alerting.
     name: HMRC_QUEUE,
-    defaultJobOptions: { attempts: 5, backoff: { type: 'exponential', delay: 60_000 }, ...RETENTION },
+    defaultJobOptions: {
+      attempts: 5,
+      backoff: { type: 'exponential', delay: 60_000 },
+      ...RETENTION,
+    },
   },
 );
 

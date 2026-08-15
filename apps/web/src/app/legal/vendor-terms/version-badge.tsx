@@ -15,10 +15,9 @@ async function fetchCurrentVersion(): Promise<TermsVersionMeta | null> {
   try {
     const apiBase =
       process.env.NEXT_PUBLIC_API_URL ?? process.env.API_URL ?? 'http://localhost:3001';
-    const res = await fetch(
-      `${apiBase}/v1/terms/current?documentType=VENDOR_TERMS`,
-      { next: { revalidate: 3600 } },
-    );
+    const res = await fetch(`${apiBase}/v1/terms/current?documentType=VENDOR_TERMS`, {
+      next: { revalidate: 3600 },
+    });
     if (!res.ok) return null;
     return (await res.json()) as TermsVersionMeta;
   } catch {
@@ -42,10 +41,7 @@ export async function TermsVersionBadge() {
         Version {meta.version}
       </span>
       <span>Effective {effectiveDate}</span>
-      <a
-        href="/legal/vendor-terms/history"
-        className="underline hover:text-foreground"
-      >
+      <a href="/legal/vendor-terms/history" className="underline hover:text-foreground">
         Version history
       </a>
     </div>

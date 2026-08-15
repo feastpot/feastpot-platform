@@ -116,13 +116,11 @@ export class PayoutBatchProcessor implements OnApplicationBootstrap {
       // Delegate to PayoutsService to mark the payout failed and alert.
       if (job?.name === PAYOUT_TRANSFER_JOB && job.data) {
         const data = job.data as PayoutTransferJobData;
-        void this.payouts
-          .handleExhaustedPayoutTransfer(data.payoutId, err)
-          .catch((e: Error) => {
-            this.logger.error(
-              `handleExhaustedPayoutTransfer failed for payout ${data.payoutId}: ${e.message}`,
-            );
-          });
+        void this.payouts.handleExhaustedPayoutTransfer(data.payoutId, err).catch((e: Error) => {
+          this.logger.error(
+            `handleExhaustedPayoutTransfer failed for payout ${data.payoutId}: ${e.message}`,
+          );
+        });
       }
     }
     this.logger.error(

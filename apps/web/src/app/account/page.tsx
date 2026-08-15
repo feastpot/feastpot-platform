@@ -294,7 +294,8 @@ function FeastPassSavingsBanner({ savingsPotentialPence }: { savingsPotentialPen
         </span>
         <div className="min-w-0 flex-1">
           <p className="font-display text-sm font-black text-charcoal">
-            You&rsquo;ve paid {formatPounds(savingsPotentialPence)} in service fees across your orders.
+            You&rsquo;ve paid {formatPounds(savingsPotentialPence)} in service fees across your
+            orders.
           </p>
           <p className="mt-0.5 text-xs font-medium text-charcoal-mid">
             FeastPass would have saved you that.

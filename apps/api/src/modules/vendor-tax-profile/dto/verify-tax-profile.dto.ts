@@ -26,7 +26,10 @@ export class VerifyTaxProfileDto {
   @MaxLength(100)
   verificationMethod!: string;
 
-  @ApiPropertyOptional({ description: 'Internal note on the verification outcome', maxLength: 1000 })
+  @ApiPropertyOptional({
+    description: 'Internal note on the verification outcome',
+    maxLength: 1000,
+  })
   @IsOptional()
   @IsString()
   @MaxLength(1000)

@@ -171,10 +171,7 @@ export class PayoutsController {
   @Get(':id/orders')
   @Roles(UserRole.vendor, UserRole.finance, UserRole.admin)
   @ApiOperation({ summary: 'List orders within a payout batch with attribution and commission' })
-  async getPayoutOrders(
-    @Req() req: AuthedRequest,
-    @Param('id', new ParseUUIDPipe()) id: string,
-  ) {
+  async getPayoutOrders(@Req() req: AuthedRequest, @Param('id', new ParseUUIDPipe()) id: string) {
     const user = requireUser(req);
     await this.ensureVendorRoleCanReadPayouts(user);
     return this.payouts.listPayoutOrders(id, user);

@@ -34,32 +34,50 @@ function _makeError(type: string, code?: string): Stripe.errors.StripeError {
 
 describe('classifyStripeError', () => {
   it('classifies StripeConnectionError as transient', () => {
-    const err = new Stripe.errors.StripeConnectionError({ message: 'Connection reset', type: 'api_connection_error' });
+    const err = new Stripe.errors.StripeConnectionError({
+      message: 'Connection reset',
+      type: 'api_connection_error',
+    });
     expect(classifyStripeError(err)).toBe('transient');
   });
 
   it('classifies StripeRateLimitError as transient', () => {
-    const err = new Stripe.errors.StripeRateLimitError({ message: 'Too many requests', type: 'invalid_request_error' });
+    const err = new Stripe.errors.StripeRateLimitError({
+      message: 'Too many requests',
+      type: 'invalid_request_error',
+    });
     expect(classifyStripeError(err)).toBe('transient');
   });
 
   it('classifies StripeAPIError (internal 5xx) as transient', () => {
-    const err = new Stripe.errors.StripeAPIError({ message: 'Internal server error', type: 'api_error' });
+    const err = new Stripe.errors.StripeAPIError({
+      message: 'Internal server error',
+      type: 'api_error',
+    });
     expect(classifyStripeError(err)).toBe('transient');
   });
 
   it('classifies StripeAuthenticationError as terminal', () => {
-    const err = new Stripe.errors.StripeAuthenticationError({ message: 'No such API key', type: 'invalid_request_error' });
+    const err = new Stripe.errors.StripeAuthenticationError({
+      message: 'No such API key',
+      type: 'invalid_request_error',
+    });
     expect(classifyStripeError(err)).toBe('terminal');
   });
 
   it('classifies StripePermissionError as terminal', () => {
-    const err = new Stripe.errors.StripePermissionError({ message: 'Permission denied', type: 'invalid_request_error' });
+    const err = new Stripe.errors.StripePermissionError({
+      message: 'Permission denied',
+      type: 'invalid_request_error',
+    });
     expect(classifyStripeError(err)).toBe('terminal');
   });
 
   it('classifies StripeIdempotencyError as terminal', () => {
-    const err = new Stripe.errors.StripeIdempotencyError({ message: 'Idempotency conflict', type: 'idempotency_error' });
+    const err = new Stripe.errors.StripeIdempotencyError({
+      message: 'Idempotency conflict',
+      type: 'idempotency_error',
+    });
     expect(classifyStripeError(err)).toBe('terminal');
   });
 
@@ -100,7 +118,7 @@ describe('PayoutsService.executeTransfer', () => {
       stripeAccountId: 'acct_test_xyz',
       payoutsEnabled: true,
       userId: 'user_vendor_1',
-      businessName: "Test Kitchen",
+      businessName: 'Test Kitchen',
     },
   };
 

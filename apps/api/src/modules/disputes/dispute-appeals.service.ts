@@ -240,9 +240,7 @@ export class DisputeAppealsService {
       canEscalate: dto.outcome !== AppealOutcome.UPHELD,
     });
 
-    this.logger.log(
-      `Appeal stage1 decided for dispute ${disputeId}: ${dto.outcome} by ${user.id}`,
-    );
+    this.logger.log(`Appeal stage1 decided for dispute ${disputeId}: ${dto.outcome} by ${user.id}`);
     return updated;
   }
 
@@ -307,9 +305,7 @@ export class DisputeAppealsService {
       isFinal: true,
     });
 
-    this.logger.log(
-      `Appeal stage2 decided for dispute ${disputeId}: ${dto.outcome} by ${user.id}`,
-    );
+    this.logger.log(`Appeal stage2 decided for dispute ${disputeId}: ${dto.outcome} by ${user.id}`);
     return updated;
   }
 
@@ -383,10 +379,7 @@ export class DisputeAppealsService {
         );
       }
     } catch (err) {
-      if (
-        err instanceof Prisma.PrismaClientKnownRequestError &&
-        err.code === 'P2002'
-      ) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
         // Unique constraint: batch ran concurrently, find and update the fresh draft
         const fresh = await this.prisma.payout.findFirst({
           where: { vendorId, status: PayoutStatus.draft },

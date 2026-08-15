@@ -20,7 +20,6 @@
 import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
 import { VerificationState, FhrsStatus } from '@prisma/client';
 
-
 import { NotificationsService } from '../notifications/notifications.service';
 import { VendorEnforcementService } from '../vendor-enforcement/vendor-enforcement.service';
 
@@ -97,7 +96,9 @@ function makePrismaMock({
 }
 
 function makeNotificationsMock() {
-  return { enqueue: jest.fn().mockResolvedValue(undefined) } as unknown as jest.Mocked<NotificationsService>;
+  return {
+    enqueue: jest.fn().mockResolvedValue(undefined),
+  } as unknown as jest.Mocked<NotificationsService>;
 }
 
 function makeEnforcementMock() {
@@ -136,7 +137,11 @@ describe('VendorVerificationService -- notification on state transition', () => 
         VENDOR_ID,
         baseDto(VerificationState.RENEWAL_DUE),
       );
-      const [, payload] = notifications.enqueue.mock.calls[0] as [string, Record<string, unknown>, unknown];
+      const [, payload] = notifications.enqueue.mock.calls[0] as [
+        string,
+        Record<string, unknown>,
+        unknown,
+      ];
       expect(payload.complianceEmail).toBe(PLATFORM_FACTS.contact.complianceEmail);
     });
 
@@ -182,19 +187,30 @@ describe('VendorVerificationService -- notification on state transition', () => 
         VENDOR_ID,
         baseDto(VerificationState.SUSPENDED),
       );
-      const [, payload] = notifications.enqueue.mock.calls[0] as [string, Record<string, unknown>, unknown];
+      const [, payload] = notifications.enqueue.mock.calls[0] as [
+        string,
+        Record<string, unknown>,
+        unknown,
+      ];
       expect(payload.appealWindowDays).toBe(PLATFORM_FACTS.appealWindowDays);
       expect(payload.appealsEmail).toBe(PLATFORM_FACTS.contact.appealsEmail);
     });
 
     it('includes pendingOrderCount in payload when vendor has active orders', async () => {
-      const prisma = makePrismaMock({ existingState: VerificationState.VERIFIED, pendingOrderCount: 3 });
+      const prisma = makePrismaMock({
+        existingState: VerificationState.VERIFIED,
+        pendingOrderCount: 3,
+      });
       const notifications = makeNotificationsMock();
       await makeService(prisma, notifications).upsertVerification(
         VENDOR_ID,
         baseDto(VerificationState.SUSPENDED),
       );
-      const [, payload] = notifications.enqueue.mock.calls[0] as [string, Record<string, unknown>, unknown];
+      const [, payload] = notifications.enqueue.mock.calls[0] as [
+        string,
+        Record<string, unknown>,
+        unknown,
+      ];
       expect(payload.pendingOrderCount).toBe(3);
     });
 
@@ -336,7 +352,11 @@ describe('VendorVerificationService -- notification on state transition', () => 
       );
       // previousState=null, newState=SUSPENDED: a genuine transition
       expect(notifications.enqueue).toHaveBeenCalledTimes(1);
-      expect(notifications.enqueue).toHaveBeenCalledWith('verification_suspended', expect.any(Object), expect.any(Object));
+      expect(notifications.enqueue).toHaveBeenCalledWith(
+        'verification_suspended',
+        expect.any(Object),
+        expect.any(Object),
+      );
     });
 
     it('sends no notification when creating a record as VERIFIED', async () => {

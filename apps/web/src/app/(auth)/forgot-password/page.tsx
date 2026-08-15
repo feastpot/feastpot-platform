@@ -46,13 +46,10 @@ export default function ForgotPasswordPage() {
             Check your email
           </h1>
           <p className="text-sm text-charcoal-mid">
-            If an account exists for{' '}
-            <strong className="break-all">{email}</strong>, you&rsquo;ll get a reset link
-            shortly. The link expires after 60&nbsp;minutes.
+            If an account exists for <strong className="break-all">{email}</strong>, you&rsquo;ll
+            get a reset link shortly. The link expires after 60&nbsp;minutes.
           </p>
-          <p className="text-xs text-charcoal-mid">
-            Don&rsquo;t see it? Check your spam folder.
-          </p>
+          <p className="text-xs text-charcoal-mid">Don&rsquo;t see it? Check your spam folder.</p>
         </section>
       </PageShell>
     );

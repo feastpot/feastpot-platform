@@ -38,14 +38,29 @@ import { NotificationOutboxService } from '../notifications/notification-outbox.
 
 describe('Invariant 1: clearing only targets failed jobs', () => {
   it('does not call remove() on waiting or active jobs', async () => {
-    const failedJob = { id: '1', name: 'payout-transfer', failedReason: 'ECONNRESET', data: { payoutId: 'pay_001' }, timestamp: Date.now(), finishedOn: Date.now(), attemptsMade: 5, stacktrace: [], remove: jest.fn() };
-    const waitingJob = { id: '2', name: 'notification', data: { eventName: 'order_confirmed' }, remove: jest.fn() };
-    const activeJob  = { id: '3', name: 'payout-batch',  data: {},                               remove: jest.fn() };
+    const failedJob = {
+      id: '1',
+      name: 'payout-transfer',
+      failedReason: 'ECONNRESET',
+      data: { payoutId: 'pay_001' },
+      timestamp: Date.now(),
+      finishedOn: Date.now(),
+      attemptsMade: 5,
+      stacktrace: [],
+      remove: jest.fn(),
+    };
+    const waitingJob = {
+      id: '2',
+      name: 'notification',
+      data: { eventName: 'order_confirmed' },
+      remove: jest.fn(),
+    };
+    const activeJob = { id: '3', name: 'payout-batch', data: {}, remove: jest.fn() };
 
     const mockQueue = {
-      getFailed:  jest.fn().mockResolvedValue([failedJob]),
+      getFailed: jest.fn().mockResolvedValue([failedJob]),
       getWaiting: jest.fn().mockResolvedValue([waitingJob]),
-      getActive:  jest.fn().mockResolvedValue([activeJob]),
+      getActive: jest.fn().mockResolvedValue([activeJob]),
     };
 
     // Reproduce the clearing loop from clean-failed-jobs.ts
@@ -75,7 +90,19 @@ describe('Invariant 1: clearing only targets failed jobs', () => {
 // ---------------------------------------------------------------------------
 
 describe('Invariant 2: audit report captures every job before removal', () => {
-  function noteJob(queueName: string, job: { id: string | number; name: string; failedReason?: string; attemptsMade: number; timestamp: number; finishedOn: number; stacktrace: string[]; data: unknown }) {
+  function noteJob(
+    queueName: string,
+    job: {
+      id: string | number;
+      name: string;
+      failedReason?: string;
+      attemptsMade: number;
+      timestamp: number;
+      finishedOn: number;
+      stacktrace: string[];
+      data: unknown;
+    },
+  ) {
     // Mirrors the noteJob() function in scripts/clean-failed-jobs.ts
     const stack = job.stacktrace?.[0];
     return {
@@ -83,9 +110,9 @@ describe('Invariant 2: audit report captures every job before removal', () => {
       id: job.id,
       name: job.name,
       attemptsMade: job.attemptsMade,
-      timestamp:    job.timestamp  ? new Date(job.timestamp).toISOString()  : null,
-      finishedOn:   job.finishedOn ? new Date(job.finishedOn).toISOString() : null,
-      failedReason:    job.failedReason,
+      timestamp: job.timestamp ? new Date(job.timestamp).toISOString() : null,
+      finishedOn: job.finishedOn ? new Date(job.finishedOn).toISOString() : null,
+      failedReason: job.failedReason,
       firstStackLine: typeof stack === 'string' ? stack.split('\n')[0] : undefined,
       data: job.data,
     };
@@ -93,8 +120,28 @@ describe('Invariant 2: audit report captures every job before removal', () => {
 
   it('notes every failed job and then removes it - no job escapes the report', async () => {
     const jobs = [
-      { id: '1', name: 'payout-transfer', failedReason: 'Connection reset', attemptsMade: 5, timestamp: Date.now(), finishedOn: Date.now(), stacktrace: [], data: { payoutId: 'pay_001' }, remove: jest.fn() },
-      { id: '2', name: 'notification',    failedReason: 'SMTP timeout',     attemptsMade: 3, timestamp: Date.now(), finishedOn: Date.now(), stacktrace: [], data: { eventName: 'order_confirmed' }, remove: jest.fn() },
+      {
+        id: '1',
+        name: 'payout-transfer',
+        failedReason: 'Connection reset',
+        attemptsMade: 5,
+        timestamp: Date.now(),
+        finishedOn: Date.now(),
+        stacktrace: [],
+        data: { payoutId: 'pay_001' },
+        remove: jest.fn(),
+      },
+      {
+        id: '2',
+        name: 'notification',
+        failedReason: 'SMTP timeout',
+        attemptsMade: 3,
+        timestamp: Date.now(),
+        finishedOn: Date.now(),
+        stacktrace: [],
+        data: { eventName: 'order_confirmed' },
+        remove: jest.fn(),
+      },
     ];
     const mockQueue = { getFailed: jest.fn().mockResolvedValue(jobs) };
 
@@ -107,7 +154,11 @@ describe('Invariant 2: audit report captures every job before removal', () => {
 
     // Every job is in the report
     expect(notes).toHaveLength(2);
-    expect(notes[0]).toMatchObject({ id: '1', name: 'payout-transfer', failedReason: 'Connection reset' });
+    expect(notes[0]).toMatchObject({
+      id: '1',
+      name: 'payout-transfer',
+      failedReason: 'Connection reset',
+    });
     expect(notes[1]).toMatchObject({ id: '2', name: 'notification', failedReason: 'SMTP timeout' });
 
     // And all were removed
@@ -117,7 +168,17 @@ describe('Invariant 2: audit report captures every job before removal', () => {
 
   it('a dry-run (no --apply) produces the report but calls remove() zero times', async () => {
     const jobs = [
-      { id: '1', name: 'notification', failedReason: 'err', attemptsMade: 1, timestamp: Date.now(), finishedOn: Date.now(), stacktrace: [], data: {}, remove: jest.fn() },
+      {
+        id: '1',
+        name: 'notification',
+        failedReason: 'err',
+        attemptsMade: 1,
+        timestamp: Date.now(),
+        finishedOn: Date.now(),
+        stacktrace: [],
+        data: {},
+        remove: jest.fn(),
+      },
     ];
     const mockQueue = { getFailed: jest.fn().mockResolvedValue(jobs) };
 
@@ -152,8 +213,8 @@ describe('Invariant 3: outbox rows not yet in Bull are safe from clearing', () =
     const mockPrisma = {
       notificationOutbox: {
         findMany: jest.fn().mockResolvedValue([mockRow]),
-        delete:   jest.fn().mockResolvedValue(mockRow),
-        update:   jest.fn(),
+        delete: jest.fn().mockResolvedValue(mockRow),
+        update: jest.fn(),
       },
     };
     const mockQueue = { add: jest.fn().mockResolvedValue({ id: 'bull_job_1' }) };
@@ -188,8 +249,8 @@ describe('Invariant 3: outbox rows not yet in Bull are safe from clearing', () =
     const mockPrisma = {
       notificationOutbox: {
         findMany: jest.fn().mockResolvedValue([mockRow]),
-        delete:   jest.fn(),
-        update:   jest.fn().mockResolvedValue(undefined),
+        delete: jest.fn(),
+        update: jest.fn().mockResolvedValue(undefined),
       },
     };
     const mockQueue = { add: jest.fn().mockRejectedValue(new Error('Redis connection refused')) };
@@ -224,8 +285,8 @@ describe('Invariant 3: outbox rows not yet in Bull are safe from clearing', () =
     const mockPrisma = {
       notificationOutbox: {
         findMany: jest.fn().mockResolvedValue([mockRow]),
-        delete:   jest.fn().mockRejectedValue(new Error('DB connection lost')),
-        update:   jest.fn(),
+        delete: jest.fn().mockRejectedValue(new Error('DB connection lost')),
+        update: jest.fn(),
       },
     };
     // Add succeeds on both attempts
@@ -286,7 +347,7 @@ describe('Invariant 4 (boundary): a job cleared AFTER successful enqueue is unre
     const mockPrisma = {
       notificationOutbox: {
         findMany: jest.fn().mockResolvedValue([mockRow]),
-        delete:   jest.fn().mockImplementation(({ where }) => {
+        delete: jest.fn().mockImplementation(({ where }) => {
           deletedIds.push(where.id as string);
           return Promise.resolve(mockRow);
         }),
@@ -316,7 +377,13 @@ describe('Invariant 5: stale approved payouts are detectable by the reconciliati
 
     // Simulate the payout that was approved, the job was cleared before it ran.
     const stalePayouts = [
-      { id: 'pay_stale_001', amountPence: 7800, status: 'approved', approvedAt: new Date(Date.now() - 60 * 60 * 1000), vendor: { businessName: 'Stale Kitchen' } },
+      {
+        id: 'pay_stale_001',
+        amountPence: 7800,
+        status: 'approved',
+        approvedAt: new Date(Date.now() - 60 * 60 * 1000),
+        vendor: { businessName: 'Stale Kitchen' },
+      },
     ];
 
     const mockPrisma = {

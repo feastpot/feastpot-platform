@@ -32,5 +32,9 @@ const SKELETON = (
 );
 
 export default function CateringPage() {
-  return <Suspense fallback={SKELETON}><CateringFunnel /></Suspense>;
+  return (
+    <Suspense fallback={SKELETON}>
+      <CateringFunnel />
+    </Suspense>
+  );
 }

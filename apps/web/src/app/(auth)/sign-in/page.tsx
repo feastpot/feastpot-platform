@@ -85,10 +85,7 @@ const RegisterFormSchema = RegisterSchema.omit({
       .string()
       .optional()
       .transform((v) => (v?.trim() === '' ? undefined : v?.trim()))
-      .refine(
-        (v) => v === undefined || /^\+?[0-9 ()-]{7,20}$/.test(v),
-        'Invalid phone number',
-      ),
+      .refine((v) => v === undefined || /^\+?[0-9 ()-]{7,20}$/.test(v), 'Invalid phone number'),
     confirmPassword: z.string().min(1, 'Please confirm your password'),
     postcode: z.string().min(1, 'Enter your postcode or service area').max(20),
     termsAccepted: z.boolean().refine((v) => v === true, {
@@ -636,7 +633,9 @@ function RegisterPane({ onSwitchToSignIn }: { onSwitchToSignIn: () => void }) {
         setResendCooldown(60);
         setResendError('Too many attempts. Please wait a minute before trying again.');
       } else {
-        setResendError(error.message || 'Could not resend the confirmation email. Please try again.');
+        setResendError(
+          error.message || 'Could not resend the confirmation email. Please try again.',
+        );
       }
       setResendStatus('error');
       return;
@@ -648,9 +647,7 @@ function RegisterPane({ onSwitchToSignIn }: { onSwitchToSignIn: () => void }) {
   const handleOAuth = async (provider: 'google' | 'apple') => {
     setServerError(null);
     const supabase = createClient();
-    const params = new URLSearchParams(
-      typeof window !== 'undefined' ? window.location.search : '',
-    );
+    const params = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
     const rawNext = params.get('next') ?? params.get('redirect') ?? null;
     const next = safeRedirect(rawNext, '/');
     const { error } = await supabase.auth.signInWithOAuth({

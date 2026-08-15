@@ -49,15 +49,24 @@ export class HmrcReportService {
     vendorsWithActivity: number;
     rowsUpserted: number;
   }> {
-    const start = new Date(Date.UTC(year, 0, 1));          // Jan 1 00:00 UTC
-    const end = new Date(Date.UTC(year + 1, 0, 1));        // Jan 1 next year
+    const start = new Date(Date.UTC(year, 0, 1)); // Jan 1 00:00 UTC
+    const end = new Date(Date.UTC(year + 1, 0, 1)); // Jan 1 next year
 
-    this.logger.log(`Generating HMRC report for year ${year} (${start.toISOString()} - ${end.toISOString()})`);
+    this.logger.log(
+      `Generating HMRC report for year ${year} (${start.toISOString()} - ${end.toISOString()})`,
+    );
 
     // Pull all orders in the reporting period with their payout breakdown
     const orders = await this.prisma.order.findMany({
       where: {
-        status: { in: REPORTABLE_STATUSES as unknown as ('delivered' | 'dispatched' | 'accepted' | 'preparing')[] },
+        status: {
+          in: REPORTABLE_STATUSES as unknown as (
+            | 'delivered'
+            | 'dispatched'
+            | 'accepted'
+            | 'preparing'
+          )[],
+        },
         createdAt: { gte: start, lt: end },
       },
       select: {

@@ -54,7 +54,11 @@ export function BasketDrawer({ children }: Props) {
     const key = `fp_mp_${vendor.id}`;
     const hasCookie = document.cookie.split(';').some((c) => c.trim().startsWith(`${key}=`));
     const hasLocal = (() => {
-      try { return Boolean(localStorage.getItem(key)); } catch { return false; }
+      try {
+        return Boolean(localStorage.getItem(key));
+      } catch {
+        return false;
+      }
     })();
     setBrowseAttribution(hasCookie || hasLocal ? 'MARKETPLACE_FIRST' : null);
   }, [vendor?.id]);
@@ -141,9 +145,7 @@ export function BasketDrawer({ children }: Props) {
                         5% capped at £2.99
                       </span>
                     </span>
-                    <span className="font-bold text-charcoal">
-                      {formatPounds(serviceFeePence)}
-                    </span>
+                    <span className="font-bold text-charcoal">{formatPounds(serviceFeePence)}</span>
                   </div>
                 )}
                 {isFeastPassMember && serviceFeePence === 0 && rawServiceFeePence > 0 && (

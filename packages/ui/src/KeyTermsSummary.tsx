@@ -48,8 +48,8 @@ export function KeyTermsSummary({ className = '' }: KeyTermsSummaryProps) {
           Must be visible, not in small print, on every render.
           Do not move this below the bullets or reduce its visual weight.    */}
       <p className="mb-4 rounded-lg border border-amber-300 bg-white px-4 py-2.5 text-[13px] font-semibold leading-snug text-amber-900">
-        This plain language summary is a signpost only. It is not the contract. Where this
-        summary and the numbered terms differ, the numbered terms apply.
+        This plain language summary is a signpost only. It is not the contract. Where this summary
+        and the numbered terms differ, the numbered terms apply.
       </p>
 
       <h3 className="mb-3 text-[13px] font-black uppercase tracking-[0.1em] text-amber-900">

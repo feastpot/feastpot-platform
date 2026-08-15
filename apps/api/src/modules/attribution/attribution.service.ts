@@ -148,7 +148,10 @@ export class AttributionService {
 
     const [pngUpload, svgUpload] = await Promise.all([
       storage.upload(pngPath, pngBuffer, { contentType: 'image/png', upsert: true }),
-      storage.upload(svgPath, Buffer.from(svgString), { contentType: 'image/svg+xml', upsert: true }),
+      storage.upload(svgPath, Buffer.from(svgString), {
+        contentType: 'image/svg+xml',
+        upsert: true,
+      }),
     ]);
 
     if (pngUpload.error) throw new Error(pngUpload.error.message);
@@ -216,9 +219,7 @@ export class AttributionService {
     });
 
     if (dryRun) {
-      this.logger.log(
-        `QR marker backfill (dry-run): ${links.length} link(s) would be regenerated`,
-      );
+      this.logger.log(`QR marker backfill (dry-run): ${links.length} link(s) would be regenerated`);
       return {
         dryRun: true,
         processed: links.length,
@@ -245,13 +246,17 @@ export class AttributionService {
     return { dryRun: false, processed, failed };
   }
 
-  private withReferralUrl(link: { id: string; vendorId: string; slug: string; qrCodeUrl: string | null; createdAt: Date }) {
+  private withReferralUrl(link: {
+    id: string;
+    vendorId: string;
+    slug: string;
+    qrCodeUrl: string | null;
+    createdAt: Date;
+  }) {
     return {
       ...link,
       referralUrl: `${this.webBaseUrl}/v/${link.slug}`,
-      qrUrls: link.qrCodeUrl
-        ? (JSON.parse(link.qrCodeUrl) as { png: string; svg: string })
-        : null,
+      qrUrls: link.qrCodeUrl ? (JSON.parse(link.qrCodeUrl) as { png: string; svg: string }) : null,
     };
   }
 
@@ -274,12 +279,12 @@ export class AttributionService {
         select: { id: true },
       });
       const redirectToSlug = vendor
-        ? (
+        ? ((
             await this.prisma.vendorReferralLink.findUnique({
               where: { vendorId: vendor.id },
               select: { slug: true },
             })
-          )?.slug ?? null
+          )?.slug ?? null)
         : null;
       return {
         ok: false,
@@ -599,7 +604,11 @@ export class AttributionService {
     return { rows, total, page, pageSize };
   }
 
-  async csvForAdmin(filters: { source?: OrderSource; from?: string; to?: string }): Promise<string> {
+  async csvForAdmin(filters: {
+    source?: OrderSource;
+    from?: string;
+    to?: string;
+  }): Promise<string> {
     const where: Prisma.OrderAttributionWhereInput = {};
     if (filters.source) where.source = filters.source;
     if (filters.from || filters.to) {

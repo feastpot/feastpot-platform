@@ -49,8 +49,8 @@ const fixtureFile = {
   size: 512,
   buffer: Buffer.from(
     '/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0a' +
-    'HBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAARC' +
-    'AABAAEDASIA',
+      'HBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAARC' +
+      'AABAAEDASIA',
     'base64',
   ),
 };
@@ -87,9 +87,7 @@ function makeService() {
     uploadVendorImage: jest.fn(),
   } as unknown as jest.Mocked<SupabaseStorageService>;
 
-  const cache: jest.Mocked<
-    Pick<RedisCacheService, 'get' | 'set' | 'del' | 'delByPattern'>
-  > = {
+  const cache: jest.Mocked<Pick<RedisCacheService, 'get' | 'set' | 'del' | 'delByPattern'>> = {
     get: jest.fn().mockResolvedValue(null),
     set: jest.fn().mockResolvedValue(undefined),
     del: jest.fn().mockResolvedValue(undefined),

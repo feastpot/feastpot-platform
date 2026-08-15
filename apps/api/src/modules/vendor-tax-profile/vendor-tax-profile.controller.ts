@@ -1,13 +1,4 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  ParseUUIDPipe,
-  Post,
-  Put,
-  Query,
-} from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Put, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 
@@ -37,14 +28,14 @@ export class VendorTaxProfileController {
 
   @Get('vendors/me/tax-profile')
   @Roles(UserRole.vendor)
-  @ApiOperation({ summary: "Get my tax profile (HMRC reporting data)" })
+  @ApiOperation({ summary: 'Get my tax profile (HMRC reporting data)' })
   getMyProfile(@CurrentUser() user: AuthUser | null) {
     return this.taxProfile.getMyProfile(requireUser(user));
   }
 
   @Put('vendors/me/tax-profile')
   @Roles(UserRole.vendor)
-  @ApiOperation({ summary: "Create or update my tax profile" })
+  @ApiOperation({ summary: 'Create or update my tax profile' })
   upsertMyProfile(@CurrentUser() user: AuthUser | null, @Body() dto: UpsertTaxProfileDto) {
     return this.taxProfile.upsertMyProfile(requireUser(user), dto);
   }
@@ -52,7 +43,7 @@ export class VendorTaxProfileController {
   @Post('vendors/me/tax-profile/from-stripe')
   @Roles(UserRole.vendor)
   @ApiOperation({
-    summary: "Pre-fill tax profile from Stripe KYC data (only fills missing fields)",
+    summary: 'Pre-fill tax profile from Stripe KYC data (only fills missing fields)',
   })
   prefillFromStripe(@CurrentUser() user: AuthUser | null) {
     return this.taxProfile.prefillFromStripe(requireUser(user));
@@ -60,7 +51,7 @@ export class VendorTaxProfileController {
 
   @Get('vendors/me/reports')
   @Roles(UserRole.vendor)
-  @ApiOperation({ summary: "List my annual HMRC reports" })
+  @ApiOperation({ summary: 'List my annual HMRC reports' })
   listMyReports(@CurrentUser() user: AuthUser | null) {
     return this.taxProfile.getMyProfile(requireUser(user)).then(async (profile) => {
       if (!profile) return [];

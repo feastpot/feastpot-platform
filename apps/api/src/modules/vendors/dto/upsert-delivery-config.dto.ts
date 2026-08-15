@@ -89,7 +89,8 @@ export class UpsertDeliveryConfigDto {
   @ApiPropertyOptional({
     type: [String],
     maxItems: 200,
-    description: 'Servicing postcode districts (e.g. SW9, M14). This list is what customer search uses.',
+    description:
+      'Servicing postcode districts (e.g. SW9, M14). This list is what customer search uses.',
   })
   @IsOptional()
   @IsArray()
@@ -98,7 +99,8 @@ export class UpsertDeliveryConfigDto {
   postcodes?: string[];
 
   @ApiPropertyOptional({
-    description: 'Kitchen/delivery-centre postcode used to geocode the vendor anchor and compute service-area districts.',
+    description:
+      'Kitchen/delivery-centre postcode used to geocode the vendor anchor and compute service-area districts.',
   })
   @IsOptional()
   @IsString()

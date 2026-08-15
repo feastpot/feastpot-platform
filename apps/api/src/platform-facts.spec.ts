@@ -37,9 +37,7 @@ describe('PLATFORM_FACTS - shape and values', () => {
   });
 
   it('vendor requirements include the FHRS minimum', () => {
-    const hasFhrs = PLATFORM_FACTS.vendorRequirements.some((r) =>
-      r.toLowerCase().includes('fhrs'),
-    );
+    const hasFhrs = PLATFORM_FACTS.vendorRequirements.some((r) => r.toLowerCase().includes('fhrs'));
     expect(hasFhrs).toBe(true);
   });
 

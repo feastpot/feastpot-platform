@@ -71,20 +71,14 @@ export class CateringBookingsController {
   // ── Public: confirm deposit after Stripe redirect ──────────────────────────
 
   @Post(':id/confirm-deposit')
-  confirmDeposit(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: ConfirmDepositDto,
-  ) {
+  confirmDeposit(@Param('id', ParseUUIDPipe) id: string, @Body() dto: ConfirmDepositDto) {
     return this.service.confirmDeposit(id, dto.paymentIntentId);
   }
 
   // ── Public: confirm balance payment ───────────────────────────────────────
 
   @Post(':id/confirm-balance')
-  confirmBalance(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: ConfirmBalanceDto,
-  ) {
+  confirmBalance(@Param('id', ParseUUIDPipe) id: string, @Body() dto: ConfirmBalanceDto) {
     return this.service.confirmBalance(id, dto.paymentIntentId);
   }
 

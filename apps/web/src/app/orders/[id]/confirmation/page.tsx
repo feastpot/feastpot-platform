@@ -170,7 +170,6 @@ export default function OrderConfirmationPage() {
 
       {/* Push permission nudge */}
       <PushNudge />
-
     </div>
   );
 }
@@ -196,7 +195,8 @@ function FeastPassUpsellCallout({ serviceFeePence }: { serviceFeePence: number }
             You paid {formatPounds(serviceFeePence)} in service fees on this order.
           </p>
           <p className="mt-0.5 text-xs font-medium text-charcoal-mid">
-            FeastPass members pay no service fee on orders found through Feastpot. For {formatPounds(399)}/month you could save on every qualifying order.
+            FeastPass members pay no service fee on orders found through Feastpot. For{' '}
+            {formatPounds(399)}/month you could save on every qualifying order.
           </p>
           <Link
             href="/feastpass?plan=monthly"
@@ -288,4 +288,3 @@ function PushNudge() {
     </section>
   );
 }
-

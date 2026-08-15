@@ -3,10 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { useAccessToken } from '@/lib/auth/use-access-token';
-import {
-  getFeastPassMembership,
-  getSavingsPotential,
-} from '@/lib/api/feastpass';
+import { getFeastPassMembership, getSavingsPotential } from '@/lib/api/feastpass';
 
 const FEASTPASS_KEY = 'feastpass';
 

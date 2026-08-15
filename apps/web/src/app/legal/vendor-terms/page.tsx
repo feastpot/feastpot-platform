@@ -137,12 +137,10 @@ export default function VendorTermsPage() {
           </p>
           <p>
             The standard marketplace rate is{' '}
-            <strong>
-              {PLATFORM_FACTS.commission.marketplaceFirst}% of the food subtotal
-            </strong>{' '}
-            on your first marketplace order from a customer, falling to{' '}
-            <strong>{PLATFORM_FACTS.commission.marketplaceRepeat}%</strong> on repeat orders.
-            Orders attributed to your own referral link carry a{' '}
+            <strong>{PLATFORM_FACTS.commission.marketplaceFirst}% of the food subtotal</strong> on
+            your first marketplace order from a customer, falling to{' '}
+            <strong>{PLATFORM_FACTS.commission.marketplaceRepeat}%</strong> on repeat orders. Orders
+            attributed to your own referral link carry a{' '}
             <strong>{PLATFORM_FACTS.commission.vendorReferred}% commission</strong>.
           </p>
           <p>
@@ -193,10 +191,9 @@ export default function VendorTermsPage() {
               evidence and makes an initial decision within 5 business days.
             </li>
             <li>
-              <strong>Stage 2: Senior review.</strong> If you disagree with the Stage 1 outcome,
-              you may appeal within{' '}
-              <strong>{PLATFORM_FACTS.appealWindowDays} calendar days</strong> of receiving it.
-              See{' '}
+              <strong>Stage 2: Senior review.</strong> If you disagree with the Stage 1 outcome, you
+              may appeal within <strong>{PLATFORM_FACTS.appealWindowDays} calendar days</strong> of
+              receiving it. See{' '}
               <a href="#appeals" className="underline">
                 clause 20
               </a>{' '}
@@ -224,10 +221,10 @@ export default function VendorTermsPage() {
             </li>
             <li>
               <strong>Evidence you must supply:</strong> Feastpot will contact you within 3 calendar
-              days of receiving the chargeback. You must supply order confirmation, proof of delivery
-              or collection, and any other relevant evidence within{' '}
-              <strong>5 calendar days</strong> of Feastpot&rsquo;s request. Late or missing
-              evidence significantly reduces the chance of a successful defence.
+              days of receiving the chargeback. You must supply order confirmation, proof of
+              delivery or collection, and any other relevant evidence within{' '}
+              <strong>5 calendar days</strong> of Feastpot&rsquo;s request. Late or missing evidence
+              significantly reduces the chance of a successful defence.
             </li>
             <li>
               <strong>Response window:</strong> Card scheme evidence deadlines are typically 20
@@ -288,9 +285,8 @@ export default function VendorTermsPage() {
           </p>
           <p>
             Failure to respond before preparation must begin may result in order cancellation and a
-            full refund to the customer at Feastpot&rsquo;s discretion. Repeated failures to
-            respond may result in suspension. You must not accept orders you do not intend to
-            fulfil.
+            full refund to the customer at Feastpot&rsquo;s discretion. Repeated failures to respond
+            may result in suspension. You must not accept orders you do not intend to fulfil.
           </p>
         </LegalSection>
 
@@ -351,12 +347,12 @@ export default function VendorTermsPage() {
               customer&rsquo;s search query and postcode;
             </li>
             <li>
-              <strong>Fulfilment rate:</strong> the proportion of orders you accept and
-              successfully deliver;
+              <strong>Fulfilment rate:</strong> the proportion of orders you accept and successfully
+              deliver;
             </li>
             <li>
-              <strong>Average review score:</strong> the average of all customer ratings received
-              on the platform;
+              <strong>Average review score:</strong> the average of all customer ratings received on
+              the platform;
             </li>
             <li>
               <strong>Review volume:</strong> the total number of verified customer reviews;
@@ -378,9 +374,7 @@ export default function VendorTermsPage() {
           </p>
 
           {/* ── 11.1 P2B Regulation disclosure ── */}
-          <h4 className="mt-4 font-semibold">
-            11.1 P2B Regulation disclosure
-          </h4>
+          <h4 className="mt-4 font-semibold">11.1 P2B Regulation disclosure</h4>
           <p>
             The P2B Regulation (Regulation (EU) 2019/1150, retained in UK law) requires Feastpot to
             disclose the main parameters determining ranking and whether any payment to Feastpot
@@ -391,8 +385,8 @@ export default function VendorTermsPage() {
             currently offer any mechanism by which a vendor can pay to improve their search
             position. Commission rates, service fees, and subscription products (if any) have no
             influence on a vendor&rsquo;s position in organic search or browse results. If this
-            changes, Feastpot will update this clause and give{' '}
-            {PLATFORM_FACTS.termsNoticeDays} days notice in line with clause 13.
+            changes, Feastpot will update this clause and give {PLATFORM_FACTS.termsNoticeDays} days
+            notice in line with clause 13.
           </p>
           <p>
             <strong>Access to data used in ranking:</strong> You can see your review score, review
@@ -431,13 +425,13 @@ export default function VendorTermsPage() {
           <h4 className="mt-4 font-semibold">12.1 Data export right</h4>
           <p>
             You own your customer relationships. You may request a machine-readable export of your
-            order history and associated customer data (name, postcode, order items) at any time,
-            at no charge. To request an export, email{' '}
+            order history and associated customer data (name, postcode, order items) at any time, at
+            no charge. To request an export, email{' '}
             <LegalLink href={`mailto:${PLATFORM_FACTS.contact.complianceEmail}`}>
               {PLATFORM_FACTS.contact.complianceEmail}
             </LegalLink>{' '}
-            with the subject line &ldquo;Data export request&rdquo;; Feastpot will respond within
-            30 calendar days. Payout statements are available for immediate self-service download as
+            with the subject line &ldquo;Data export request&rdquo;; Feastpot will respond within 30
+            calendar days. Payout statements are available for immediate self-service download as
             CSV from the Payouts page in your vendor dashboard.
           </p>
           <p>
@@ -559,7 +553,8 @@ export default function VendorTermsPage() {
           </p>
 
           <h4 className="mt-3 font-semibold">
-            Marketplace-introduction override ({PLATFORM_FACTS.attribution.marketplaceIntroWindowDays}-day window)
+            Marketplace-introduction override (
+            {PLATFORM_FACTS.attribution.marketplaceIntroWindowDays}-day window)
           </h4>
           <p>
             When a customer browses Feastpot and views your listing through search or browse
@@ -578,8 +573,8 @@ export default function VendorTermsPage() {
 
           <h4 className="mt-3 font-semibold">Attribution transparency</h4>
           <p>
-            The attribution source recorded for each order is shown in the payout statement for
-            that order. If you believe an attribution is incorrect, contact{' '}
+            The attribution source recorded for each order is shown in the payout statement for that
+            order. If you believe an attribution is incorrect, contact{' '}
             <LegalLink href={`mailto:${PLATFORM_FACTS.contact.complianceEmail}`}>
               {PLATFORM_FACTS.contact.complianceEmail}
             </LegalLink>{' '}
@@ -600,8 +595,8 @@ export default function VendorTermsPage() {
         <LegalSection id="fee-changes" icon="💬" title="18. Fee-change notice">
           <p>
             Feastpot commits to giving you at least{' '}
-            <strong>{PLATFORM_FACTS.feeChangeNoticeDays} days written notice</strong> before
-            raising any of the following rates:
+            <strong>{PLATFORM_FACTS.feeChangeNoticeDays} days written notice</strong> before raising
+            any of the following rates:
           </p>
           <ul style={legalListStyle}>
             <li>The vendor-referred commission rate (clause 17);</li>
@@ -619,8 +614,8 @@ export default function VendorTermsPage() {
             <strong>What this notice commitment does not cover:</strong> This commitment covers only
             the rates that Feastpot itself sets. It does not apply to Stripe&rsquo;s card-processing
             fees, which Feastpot passes through at cost and does not control. Stripe may change its
-            rates at any time in accordance with its own terms; Feastpot will inform you of any
-            such changes as soon as it is made aware of them, but cannot guarantee advance notice.
+            rates at any time in accordance with its own terms; Feastpot will inform you of any such
+            changes as soon as it is made aware of them, but cannot guarantee advance notice.
           </p>
           <p>
             Notice of any fee change will be delivered via email to your registered vendor address
@@ -667,9 +662,9 @@ export default function VendorTermsPage() {
               <LegalLink href={`mailto:${PLATFORM_FACTS.contact.appealsEmail}`}>
                 {PLATFORM_FACTS.contact.appealsEmail}
               </LegalLink>{' '}
-              with the subject line &ldquo;Appeal&rdquo; followed by your vendor name and the
-              nature of the decision you are appealing (for example: &ldquo;Appeal &ndash; Vendor
-              Name &ndash; Suspension&rdquo;).
+              with the subject line &ldquo;Appeal&rdquo; followed by your vendor name and the nature
+              of the decision you are appealing (for example: &ldquo;Appeal &ndash; Vendor Name
+              &ndash; Suspension&rdquo;).
             </li>
             <li>
               Include a clear statement of why you believe the decision was incorrect, and any

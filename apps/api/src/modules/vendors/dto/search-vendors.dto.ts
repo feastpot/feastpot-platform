@@ -17,7 +17,6 @@ import {
   Min,
 } from 'class-validator';
 
-
 export enum VendorSortBy {
   rating = 'rating',
   distance = 'distance',

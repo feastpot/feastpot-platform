@@ -96,7 +96,12 @@ export class CommissionService {
       }
     }
 
-    return { id: rate.id, source: rate.source, isFirstOrder: rate.isFirstOrder, ratePercent: rate.ratePercent };
+    return {
+      id: rate.id,
+      source: rate.source,
+      isFirstOrder: rate.isFirstOrder,
+      ratePercent: rate.ratePercent,
+    };
   }
 
   // ─── Pure arithmetic ─────────────────────────────────────────────────────────
@@ -264,7 +269,15 @@ export class CommissionService {
    * Blended platform take rate for a time window.
    * Computed from OrderCommission rows (only orders with a commission record).
    */
-  async getBlendedTakeRate(from: Date, to: Date): Promise<{ blendedPct: number; totalCommissionPence: number; totalSubtotalPence: number; orderCount: number }> {
+  async getBlendedTakeRate(
+    from: Date,
+    to: Date,
+  ): Promise<{
+    blendedPct: number;
+    totalCommissionPence: number;
+    totalSubtotalPence: number;
+    orderCount: number;
+  }> {
     const agg = await this.prisma.orderCommission.aggregate({
       where: { calculatedAt: { gte: from, lt: to } },
       _sum: { commissionPence: true, foodSubtotalPence: true },
@@ -285,7 +298,11 @@ export class CommissionService {
    * Per-vendor earnings summary for the vendor portal earnings page.
    * from/to define the "this month" window; cumulative uses all time.
    */
-  async getVendorEarningsSummary(vendorId: string, from: Date, to: Date): Promise<{
+  async getVendorEarningsSummary(
+    vendorId: string,
+    from: Date,
+    to: Date,
+  ): Promise<{
     period: EarningsSummary;
     cumulative: EarningsSummary;
   }> {

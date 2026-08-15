@@ -3,7 +3,8 @@ import Link from 'next/link';
 
 export const metadata: Metadata = {
   title: 'Vendor Terms Version History',
-  description: 'A record of all published versions of the Feastpot Vendor Terms, with effective dates and change summaries.',
+  description:
+    'A record of all published versions of the Feastpot Vendor Terms, with effective dates and change summaries.',
   alternates: { canonical: '/legal/vendor-terms/history' },
 };
 
@@ -22,10 +23,9 @@ async function fetchVersionHistory(): Promise<TermsVersionRow[]> {
   try {
     const apiBase =
       process.env.NEXT_PUBLIC_API_URL ?? process.env.API_URL ?? 'http://localhost:3001';
-    const res = await fetch(
-      `${apiBase}/v1/terms/versions?documentType=VENDOR_TERMS`,
-      { next: { revalidate: 3600 } },
-    );
+    const res = await fetch(`${apiBase}/v1/terms/versions?documentType=VENDOR_TERMS`, {
+      next: { revalidate: 3600 },
+    });
     if (!res.ok) return [];
     return res.json() as Promise<TermsVersionRow[]>;
   } catch {

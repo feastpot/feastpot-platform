@@ -16,10 +16,7 @@ const mockPrisma = {
 
 async function makeService() {
   const module = await Test.createTestingModule({
-    providers: [
-      AnalyticsService,
-      { provide: PrismaService, useValue: mockPrisma },
-    ],
+    providers: [AnalyticsService, { provide: PrismaService, useValue: mockPrisma }],
   }).compile();
   return module.get(AnalyticsService);
 }
@@ -84,11 +81,7 @@ describe('AnalyticsService.track', () => {
  * no re-derivation.
  */
 describe('order_attribution_source contract', () => {
-  const ATTRIBUTION_SOURCES = [
-    'VENDOR_REFERRED',
-    'MARKETPLACE',
-    'MARKETPLACE_REPEAT',
-  ] as const;
+  const ATTRIBUTION_SOURCES = ['VENDOR_REFERRED', 'MARKETPLACE', 'MARKETPLACE_REPEAT'] as const;
 
   let svc: AnalyticsService;
 
@@ -130,7 +123,9 @@ describe('order_attribution_source contract', () => {
       properties: { attributionSource: attrSource, isFirstOrder: false },
     });
 
-    const callArgs = mockCreate.mock.calls[0][0] as { data: { properties: Record<string, unknown> } };
+    const callArgs = mockCreate.mock.calls[0][0] as {
+      data: { properties: Record<string, unknown> };
+    };
     expect(callArgs.data.properties.attributionSource).toBe(attrSource);
   });
 });

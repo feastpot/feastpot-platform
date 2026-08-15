@@ -16,14 +16,7 @@
  */
 
 import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
-import {
-  DeliveryType,
-  OrderStatus,
-  PaymentStatus,
-  UserRole,
-  VendorStatus,
-} from '@prisma/client';
-
+import { DeliveryType, OrderStatus, PaymentStatus, UserRole, VendorStatus } from '@prisma/client';
 
 import { PrismaService } from '../../prisma/prisma.service';
 

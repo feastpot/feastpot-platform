@@ -78,7 +78,9 @@ function makePrisma(
 
 function makeService(prisma: ReturnType<typeof makePrisma>) {
   const notifications = { enqueue: jest.fn() } as unknown as NotificationsService;
-  const enforcement = { createAutomatedSuspension: jest.fn() } as unknown as VendorEnforcementService;
+  const enforcement = {
+    createAutomatedSuspension: jest.fn(),
+  } as unknown as VendorEnforcementService;
   return new VendorVerificationService(prisma, notifications, enforcement);
 }
 
@@ -120,7 +122,9 @@ describe('getVerificationSummary -- sum invariant', () => {
   it('sum invariant holds with zero vendors', async () => {
     const result = await summarise([], []);
     const { counts, totalVendors } = result;
-    expect(counts.notSetUp + counts.VERIFIED + counts.RENEWAL_DUE + counts.SUSPENDED).toBe(totalVendors);
+    expect(counts.notSetUp + counts.VERIFIED + counts.RENEWAL_DUE + counts.SUSPENDED).toBe(
+      totalVendors,
+    );
     expect(totalVendors).toBe(0);
   });
 
@@ -130,7 +134,9 @@ describe('getVerificationSummary -- sum invariant', () => {
     const result = await summarise(vendors, verifs);
 
     const { counts, totalVendors } = result;
-    expect(counts.notSetUp + counts.VERIFIED + counts.RENEWAL_DUE + counts.SUSPENDED).toBe(totalVendors);
+    expect(counts.notSetUp + counts.VERIFIED + counts.RENEWAL_DUE + counts.SUSPENDED).toBe(
+      totalVendors,
+    );
     expect(counts.VERIFIED).toBe(3);
     expect(totalVendors).toBe(3);
   });
@@ -187,9 +193,7 @@ function buildStateFixture(
   bystanderState: VerificationState,
 ) {
   const allVendors = [vendor(transitionVendorId, 'Transition Vendor'), ...bystanders];
-  const allVerifs: ReturnType<typeof verif>[] = bystanders.map((b) =>
-    verif(b.id, bystanderState),
-  );
+  const allVerifs: ReturnType<typeof verif>[] = bystanders.map((b) => verif(b.id, bystanderState));
   if (state !== 'NOT_SET_UP') {
     allVerifs.push(verif(transitionVendorId, V_STATE[state]));
   }
@@ -230,11 +234,14 @@ describe.each(PERMITTED_TRANSITIONS)(
 
       expect(after.totalVendors).toBe(before.totalVendors); // total unchanged
       expect(after.counts[fromKey]).toBe(before.counts[fromKey] - 1); // from decrements
-      expect(after.counts[toKey]).toBe(before.counts[toKey] + 1);   // to increments
+      expect(after.counts[toKey]).toBe(before.counts[toKey] + 1); // to increments
 
       // Bystander counts must not change.
       const allKeys: (keyof typeof before.counts)[] = [
-        'notSetUp', 'VERIFIED', 'RENEWAL_DUE', 'SUSPENDED',
+        'notSetUp',
+        'VERIFIED',
+        'RENEWAL_DUE',
+        'SUSPENDED',
       ];
       for (const k of allKeys) {
         if (k !== fromKey && k !== toKey) {

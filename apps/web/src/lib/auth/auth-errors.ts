@@ -25,11 +25,9 @@ interface SupabaseAuthError {
 // ---------------------------------------------------------------------------
 
 const WEAK_PASSWORD_REASONS: Record<string, string> = {
-  pwned:
-    'This password has appeared in a known data breach. Please choose a different one.',
+  pwned: 'This password has appeared in a known data breach. Please choose a different one.',
   length: 'Your password must be at least 8 characters long.',
-  characters:
-    'Your password must include uppercase, lowercase, a number and a special character.',
+  characters: 'Your password must include uppercase, lowercase, a number and a special character.',
 };
 
 // ---------------------------------------------------------------------------

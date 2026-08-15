@@ -64,7 +64,11 @@ export async function middleware(request: NextRequest) {
   // that are scoped to customer orders/addresses.
   const role = (user?.app_metadata?.role as string | undefined) ?? null;
   const isNonCustomer =
-    role === 'vendor' || role === 'admin' || role === 'finance' || role === 'support' || role === 'compliance';
+    role === 'vendor' ||
+    role === 'admin' ||
+    role === 'finance' ||
+    role === 'support' ||
+    role === 'compliance';
 
   if (isNonCustomer) {
     const isAccountSubRoute = pathname.startsWith('/account/');

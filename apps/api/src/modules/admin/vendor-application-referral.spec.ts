@@ -46,7 +46,13 @@ describe('registerInterest: referrer resolution from fp_ref header', () => {
 
   const _makeVendorApplicationMock = () => ({
     create: jest.fn().mockImplementation(({ data }: { data: Record<string, unknown> }) =>
-      Promise.resolve({ id: 'app-1', kitchenName: 'Test Kitchen', createdAt: new Date(), status: 'pending', referrerVendorId: data.referrerVendorId }),
+      Promise.resolve({
+        id: 'app-1',
+        kitchenName: 'Test Kitchen',
+        createdAt: new Date(),
+        status: 'pending',
+        referrerVendorId: data.referrerVendorId,
+      }),
     ),
   });
 
@@ -189,9 +195,14 @@ describe('approveVendorApplication: referrer validation before vendor create', (
     return referrer.id;
   };
 
-  const makeVendorMock = (override: Partial<{
-    id: string; userId: string; status: VendorStatus; businessName: string;
-  }> | null) => ({
+  const makeVendorMock = (
+    override: Partial<{
+      id: string;
+      userId: string;
+      status: VendorStatus;
+      businessName: string;
+    }> | null,
+  ) => ({
     findUnique: jest.fn().mockResolvedValue(
       override === null
         ? null
@@ -228,16 +239,9 @@ describe('approveVendorApplication: referrer validation before vendor create', (
 
   it('returns null and warns when the referrer vendor is not found', async () => {
     const prisma = { vendor: makeVendorMock(null), user: makeUserMock() };
-    const result = await validateReferrer(
-      prisma,
-      REFERRER_VENDOR_ID,
-      APPLICANT_EMAIL,
-      mockLogger,
-    );
+    const result = await validateReferrer(prisma, REFERRER_VENDOR_ID, APPLICANT_EMAIL, mockLogger);
     expect(result).toBeNull();
-    expect(mockLogger.warn).toHaveBeenCalledWith(
-      expect.stringContaining('referrer not found'),
-    );
+    expect(mockLogger.warn).toHaveBeenCalledWith(expect.stringContaining('referrer not found'));
   });
 
   it('returns null and warns when the referrer is suspended', async () => {
@@ -245,16 +249,9 @@ describe('approveVendorApplication: referrer validation before vendor create', (
       vendor: makeVendorMock({ status: VendorStatus.suspended }),
       user: makeUserMock(),
     };
-    const result = await validateReferrer(
-      prisma,
-      REFERRER_VENDOR_ID,
-      APPLICANT_EMAIL,
-      mockLogger,
-    );
+    const result = await validateReferrer(prisma, REFERRER_VENDOR_ID, APPLICANT_EMAIL, mockLogger);
     expect(result).toBeNull();
-    expect(mockLogger.warn).toHaveBeenCalledWith(
-      expect.stringContaining('not operational'),
-    );
+    expect(mockLogger.warn).toHaveBeenCalledWith(expect.stringContaining('not operational'));
   });
 
   it('returns null and warns when the referrer is pending (not yet approved)', async () => {
@@ -262,12 +259,7 @@ describe('approveVendorApplication: referrer validation before vendor create', (
       vendor: makeVendorMock({ status: VendorStatus.pending }),
       user: makeUserMock(),
     };
-    const result = await validateReferrer(
-      prisma,
-      REFERRER_VENDOR_ID,
-      APPLICANT_EMAIL,
-      mockLogger,
-    );
+    const result = await validateReferrer(prisma, REFERRER_VENDOR_ID, APPLICANT_EMAIL, mockLogger);
     expect(result).toBeNull();
     expect(mockLogger.warn).toHaveBeenCalled();
   });
@@ -277,12 +269,7 @@ describe('approveVendorApplication: referrer validation before vendor create', (
       vendor: makeVendorMock({ status: VendorStatus.approved }),
       user: makeUserMock(),
     };
-    const result = await validateReferrer(
-      prisma,
-      REFERRER_VENDOR_ID,
-      APPLICANT_EMAIL,
-      mockLogger,
-    );
+    const result = await validateReferrer(prisma, REFERRER_VENDOR_ID, APPLICANT_EMAIL, mockLogger);
     expect(result).toBe(REFERRER_VENDOR_ID);
   });
 
@@ -291,12 +278,7 @@ describe('approveVendorApplication: referrer validation before vendor create', (
       vendor: makeVendorMock({ status: VendorStatus.probation }),
       user: makeUserMock(),
     };
-    const result = await validateReferrer(
-      prisma,
-      REFERRER_VENDOR_ID,
-      APPLICANT_EMAIL,
-      mockLogger,
-    );
+    const result = await validateReferrer(prisma, REFERRER_VENDOR_ID, APPLICANT_EMAIL, mockLogger);
     expect(result).toBe(REFERRER_VENDOR_ID);
   });
 
@@ -305,15 +287,8 @@ describe('approveVendorApplication: referrer validation before vendor create', (
       vendor: makeVendorMock({}),
       user: makeUserMock(APPLICANT_EMAIL), // same email as applicant
     };
-    const result = await validateReferrer(
-      prisma,
-      REFERRER_VENDOR_ID,
-      APPLICANT_EMAIL,
-      mockLogger,
-    );
+    const result = await validateReferrer(prisma, REFERRER_VENDOR_ID, APPLICANT_EMAIL, mockLogger);
     expect(result).toBeNull();
-    expect(mockLogger.warn).toHaveBeenCalledWith(
-      expect.stringContaining('self-referral'),
-    );
+    expect(mockLogger.warn).toHaveBeenCalledWith(expect.stringContaining('self-referral'));
   });
 });

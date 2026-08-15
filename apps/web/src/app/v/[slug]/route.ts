@@ -48,10 +48,7 @@ interface ClickResult {
  * 6. Sets fp_ref cookie only when the marketplace marker is absent or expired.
  * 7. Redirects to /vendors/[vendorSlug] or /vendors on unknown slug.
  */
-export async function GET(
-  req: NextRequest,
-  { params }: { params: Promise<{ slug: string }> },
-) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   // Detect QR scans: the QR URL is generated with &m=qr so scans are
   // distinguishable from plain link clicks in analytics.
@@ -79,7 +76,13 @@ export async function GET(
   const ipHash = createHash('sha256').update(`${salt}:${rawIp}`).digest('hex');
 
   // ── Record click server-side ─────────────────────────────────────────────────
-  let clickResult: ClickResult = { ok: false, vendorSlug: null, referralLinkId: null, clickId: null, vendorId: null };
+  let clickResult: ClickResult = {
+    ok: false,
+    vendorSlug: null,
+    referralLinkId: null,
+    clickId: null,
+    vendorId: null,
+  };
   try {
     const res = await fetch(`${API_URL}/v1/attribution/clicks`, {
       method: 'POST',
@@ -152,7 +155,10 @@ export async function GET(
   // ── Build redirect response ──────────────────────────────────────────────────
   const response = NextResponse.redirect(
     clickResult.vendorSlug
-      ? new URL(`/vendors/${clickResult.vendorSlug}`, process.env.NEXT_PUBLIC_SITE_URL ?? 'https://feastpot.co.uk')
+      ? new URL(
+          `/vendors/${clickResult.vendorSlug}`,
+          process.env.NEXT_PUBLIC_SITE_URL ?? 'https://feastpot.co.uk',
+        )
       : new URL('/vendors', process.env.NEXT_PUBLIC_SITE_URL ?? 'https://feastpot.co.uk'),
   );
 

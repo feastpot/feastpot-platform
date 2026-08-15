@@ -315,7 +315,11 @@ export class NotificationProcessor {
     const skipped: Channel[] = [];
 
     // ─── Email (with PDF attachment when provided) ────────────────────────
-    const enabledChannels = await this.filterEnabledChannels(user.id, 'payout_batch_ready', template.channels);
+    const enabledChannels = await this.filterEnabledChannels(
+      user.id,
+      'payout_batch_ready',
+      template.channels,
+    );
     if (enabledChannels.includes('email')) {
       try {
         const attachments: EmailAttachment[] = [];
@@ -328,12 +332,28 @@ export class NotificationProcessor {
         const r = await this.email.send({ to: user.email, subject, html, attachments });
         if (r.delivered) {
           sent.push('email');
-          await this.recordNotification(user.id, 'email', 'payout_batch_ready', subject, html, NotificationStatus.sent, data);
+          await this.recordNotification(
+            user.id,
+            'email',
+            'payout_batch_ready',
+            subject,
+            html,
+            NotificationStatus.sent,
+            data,
+          );
         } else {
           skipped.push('email');
         }
       } catch (e) {
-        await this.recordNotification(user.id, 'email', 'payout_batch_ready', subject, html, NotificationStatus.failed, data);
+        await this.recordNotification(
+          user.id,
+          'email',
+          'payout_batch_ready',
+          subject,
+          html,
+          NotificationStatus.failed,
+          data,
+        );
         throw e; // BullMQ retries
       }
     } else {
@@ -354,12 +374,22 @@ export class NotificationProcessor {
         });
         if (ok) {
           sent.push('whatsapp');
-          await this.recordNotification(user.id, 'whatsapp', 'payout_batch_ready', subject, '', NotificationStatus.sent, data);
+          await this.recordNotification(
+            user.id,
+            'whatsapp',
+            'payout_batch_ready',
+            subject,
+            '',
+            NotificationStatus.sent,
+            data,
+          );
         } else {
           skipped.push('whatsapp');
         }
       } catch (e) {
-        this.logger.warn(`payout_batch_ready WhatsApp failed for ${userId}: ${(e as Error).message}`);
+        this.logger.warn(
+          `payout_batch_ready WhatsApp failed for ${userId}: ${(e as Error).message}`,
+        );
         skipped.push('whatsapp');
         // Don't rethrow - email already sent, don't retry the whole job for WA
       }

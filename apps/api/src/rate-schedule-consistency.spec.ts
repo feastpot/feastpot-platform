@@ -19,7 +19,6 @@ import { BadRequestException } from '@nestjs/common';
 import { OrderSource, RateStatus } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 
-
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 const REPO_ROOT = join(__dirname, '..', '..', '..');
@@ -50,9 +49,9 @@ describe('No hardcoded commission-rate strings', () => {
       // The exact patterns to ban:
       expect(content).not.toContain(`'${LITERAL}'`);
       expect(content).not.toContain(`"${LITERAL}"`);
-      expect(content).not.toMatch(/>12%</);          // JSX text node
-      expect(content).not.toContain('flat 12%');     // prose reference
-      expect(content).not.toContain('using 12%');    // log/comment
+      expect(content).not.toMatch(/>12%</); // JSX text node
+      expect(content).not.toContain('flat 12%'); // prose reference
+      expect(content).not.toContain('using 12%'); // log/comment
     },
   );
 
@@ -91,11 +90,13 @@ describe('PLANNED rate guard in CommissionService', () => {
         }),
       },
       rateScheduleEntry: {
-        findFirst: jest.fn().mockResolvedValue(
-          scheduleEntryStatus != null
-            ? { id: 'entry-1', key: 'standard_commission', status: scheduleEntryStatus }
-            : null,
-        ),
+        findFirst: jest
+          .fn()
+          .mockResolvedValue(
+            scheduleEntryStatus != null
+              ? { id: 'entry-1', key: 'standard_commission', status: scheduleEntryStatus }
+              : null,
+          ),
       },
     };
   }
@@ -105,9 +106,9 @@ describe('PLANNED rate guard in CommissionService', () => {
     const prisma = makePrisma({ commissionRateRateKey: null, scheduleEntryStatus: null });
     const svc = new CommissionService(prisma as any);
     const at = new Date();
-    await expect(
-      svc.resolveRate(OrderSource.MARKETPLACE, true, at),
-    ).resolves.toMatchObject({ id: 'rate-1' });
+    await expect(svc.resolveRate(OrderSource.MARKETPLACE, true, at)).resolves.toMatchObject({
+      id: 'rate-1',
+    });
   });
 
   it('resolves without error when rateScheduleEntry is LIVE', async () => {
@@ -117,9 +118,9 @@ describe('PLANNED rate guard in CommissionService', () => {
       scheduleEntryStatus: RateStatus.LIVE,
     });
     const svc = new CommissionService(prisma as any);
-    await expect(
-      svc.resolveRate(OrderSource.MARKETPLACE, true, new Date()),
-    ).resolves.toMatchObject({ id: 'rate-1' });
+    await expect(svc.resolveRate(OrderSource.MARKETPLACE, true, new Date())).resolves.toMatchObject(
+      { id: 'rate-1' },
+    );
   });
 
   it('throws BadRequestException when rateScheduleEntry is PLANNED', async () => {
@@ -174,11 +175,11 @@ describe('FeastPass payout equality', () => {
    * This test asserts the algebraic identity holds for concrete numbers.
    */
 
-  const subtotalPence  = 10_000; // £100.00
-  const deliveryPence  =    500; // £5.00
-  const discountPence  =      0;
-  const rawServiceFee  =    299; // £2.99 (5% of £60 example is less, use cap)
-  const commissionPct  =     12; // 12% of food subtotal
+  const subtotalPence = 10_000; // £100.00
+  const deliveryPence = 500; // £5.00
+  const discountPence = 0;
+  const rawServiceFee = 299; // £2.99 (5% of £60 example is less, use cap)
+  const commissionPct = 12; // 12% of food subtotal
   const commissionPence = Math.round((subtotalPence * commissionPct) / 100); // 1200
 
   function calcVendorPayout(serviceFeePence: number): number {
@@ -188,7 +189,7 @@ describe('FeastPass payout equality', () => {
 
   it('non-member vendor payout equals member vendor payout', () => {
     const nonMemberPayout = calcVendorPayout(rawServiceFee);
-    const memberPayout    = calcVendorPayout(0); // FeastPass: fee waived, not collected
+    const memberPayout = calcVendorPayout(0); // FeastPass: fee waived, not collected
 
     expect(memberPayout).toBe(nonMemberPayout);
   });

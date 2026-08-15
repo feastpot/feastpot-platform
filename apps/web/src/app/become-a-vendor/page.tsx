@@ -415,13 +415,13 @@ export default function BecomeAVendorPage() {
             />
           </Link>
           <div className="hidden items-center gap-7 lg:flex">
-            <a
-              href="#numbers"
-              className="text-sm font-semibold text-charcoal hover:text-brand"
-            >
+            <a href="#numbers" className="text-sm font-semibold text-charcoal hover:text-brand">
               How the numbers work
             </a>
-            <a href="#how-it-works" className="text-sm font-semibold text-charcoal hover:text-brand">
+            <a
+              href="#how-it-works"
+              className="text-sm font-semibold text-charcoal hover:text-brand"
+            >
               How it works
             </a>
           </div>
@@ -450,10 +450,14 @@ export default function BecomeAVendorPage() {
           <p className="mt-5 max-w-xl text-base leading-relaxed text-charcoal-mid">
             You built your following. Feastpot gives you card payments, deposits, an order book and
             allergen labels for your own customers at{' '}
-            <strong className="text-charcoal">{pct(PLATFORM_FACTS.commission.vendorReferred)}% commission</strong>.
-            When we send you a new customer, we take{' '}
-            <strong className="text-charcoal">{pct(PLATFORM_FACTS.commission.marketplaceFirst)}%</strong>.
-            That is the only time you pay us.
+            <strong className="text-charcoal">
+              {pct(PLATFORM_FACTS.commission.vendorReferred)}% commission
+            </strong>
+            . When we send you a new customer, we take{' '}
+            <strong className="text-charcoal">
+              {pct(PLATFORM_FACTS.commission.marketplaceFirst)}%
+            </strong>
+            . That is the only time you pay us.
           </p>
           <div className="mt-7 flex flex-col gap-3 sm:flex-row">
             <button
@@ -472,7 +476,8 @@ export default function BecomeAVendorPage() {
           </div>
           <p className="mt-5 text-[12.5px] font-semibold text-charcoal-mid">
             No upfront fee &middot; No monthly fee &middot;{' '}
-            {pct(PLATFORM_FACTS.commission.vendorReferred)}% on your own orders &middot; Weekly Stripe payouts &middot; No exclusivity
+            {pct(PLATFORM_FACTS.commission.vendorReferred)}% on your own orders &middot; Weekly
+            Stripe payouts &middot; No exclusivity
           </p>
         </div>
 
@@ -513,7 +518,12 @@ export default function BecomeAVendorPage() {
           <EarningsCalculator />
 
           {/* Live rate schedule from the database */}
-          <RateCard rates={rates} loading={ratesLoading} error={ratesError ?? undefined} className="mt-8 mb-6" />
+          <RateCard
+            rates={rates}
+            loading={ratesLoading}
+            error={ratesError ?? undefined}
+            className="mt-8 mb-6"
+          />
 
           {/* Key Terms Summary (Annex C) */}
           <KeyTermsSummary />
@@ -569,9 +579,9 @@ export default function BecomeAVendorPage() {
             New customers when you want them
           </h2>
           <p className="mx-auto max-w-2xl text-[15px] leading-relaxed text-charcoal-mid">
-            Feastpot lists your kitchen in postcode search by default, so customers looking for
-            food in your area can find you straight away. If you are fully booked or want to focus
-            on your own regulars, you can switch discovery off from your dashboard in one tap. It is
+            Feastpot lists your kitchen in postcode search by default, so customers looking for food
+            in your area can find you straight away. If you are fully booked or want to focus on
+            your own regulars, you can switch discovery off from your dashboard in one tap. It is
             not all-or-nothing - you can open to marketplace customers during quiet periods and
             close again when your own orders fill the book.
           </p>
@@ -640,9 +650,9 @@ export default function BecomeAVendorPage() {
                 We are signing our first 20 cooks in Southwark
               </h2>
               <p className="mt-4 text-[15px] leading-relaxed text-white/80">
-                We launch postcode by postcode so customers always find a cook nearby. Southwark
-                is our first borough and we are keeping the cohort small so every founding cook
-                gets a real head start before we open to the wider waitlist.
+                We launch postcode by postcode so customers always find a cook nearby. Southwark is
+                our first borough and we are keeping the cohort small so every founding cook gets a
+                real head start before we open to the wider waitlist.
               </p>
             </div>
             <div className="lg:flex-1">

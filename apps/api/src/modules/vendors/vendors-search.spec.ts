@@ -117,7 +117,9 @@ describe('SearchVendorsDto - combined allergenFree + dietaryPreferences', () => 
       dietaryPreferences: 'vegan',
     });
     const errors = await validate(dto);
-    expect(errors.filter((e) => ['allergenFree', 'dietaryPreferences'].includes(e.property))).toHaveLength(0);
+    expect(
+      errors.filter((e) => ['allergenFree', 'dietaryPreferences'].includes(e.property)),
+    ).toHaveLength(0);
     expect(dto.allergenFree).toEqual(['milk', 'eggs']);
     expect(dto.dietaryPreferences).toEqual(['vegan']);
   });

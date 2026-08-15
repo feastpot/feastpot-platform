@@ -223,7 +223,11 @@ function CheckoutInner() {
     const key = `fp_mp_${vendor.id}`;
     const hasCookie = document.cookie.split(';').some((c) => c.trim().startsWith(`${key}=`));
     const hasLocal = (() => {
-      try { return Boolean(localStorage.getItem(key)); } catch { return false; }
+      try {
+        return Boolean(localStorage.getItem(key));
+      } catch {
+        return false;
+      }
     })();
     setBrowseAttribution(hasCookie || hasLocal ? 'MARKETPLACE_FIRST' : null);
   }, [vendor?.id]);
@@ -676,7 +680,8 @@ function CheckoutInner() {
                     <span className="text-charcoal-mid">
                       Service fee
                       <span className="ml-1 text-[11px] font-medium text-charcoal-light">
-                        {PLATFORM_FACTS.serviceFee.percent}% capped at £{(PLATFORM_FACTS.serviceFee.capPence / 100).toFixed(2)}
+                        {PLATFORM_FACTS.serviceFee.percent}% capped at £
+                        {(PLATFORM_FACTS.serviceFee.capPence / 100).toFixed(2)}
                       </span>
                     </span>
                     <span className="font-medium tabular-nums text-charcoal">
@@ -685,8 +690,8 @@ function CheckoutInner() {
                   </div>
                   {isFeastPassMember && (
                     <p className="text-[11px] leading-snug text-charcoal-mid">
-                      You ordered through this kitchen&rsquo;s own link, so the standard service fee applies.
-                      FeastPass covers orders you find through Feastpot.
+                      You ordered through this kitchen&rsquo;s own link, so the standard service fee
+                      applies. FeastPass covers orders you find through Feastpot.
                     </p>
                   )}
                 </div>

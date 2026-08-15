@@ -2,7 +2,6 @@ import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
 import { Injectable, Logger } from '@nestjs/common';
 import { FhrsStatus, OrderStatus, VerificationState, VendorStatus } from '@prisma/client';
 
-
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { VendorEnforcementService } from '../vendor-enforcement/vendor-enforcement.service';
@@ -173,9 +172,7 @@ export class VendorVerificationService {
       insuranceProvider: dto.insuranceProvider ?? null,
       insuranceValidUntil: dto.insuranceValidUntil ? new Date(dto.insuranceValidUntil) : null,
       allergenTrainingHeld: dto.allergenTrainingHeld,
-      allergenTrainingUntil: dto.allergenTrainingUntil
-        ? new Date(dto.allergenTrainingUntil)
-        : null,
+      allergenTrainingUntil: dto.allergenTrainingUntil ? new Date(dto.allergenTrainingUntil) : null,
       idVerifiedAt: dto.idVerifiedAt ? new Date(dto.idVerifiedAt) : null,
       overallState: dto.overallState,
     };
@@ -233,18 +230,19 @@ export class VendorVerificationService {
 
       if (v.insuranceValidUntil) {
         if (v.insuranceValidUntil < minus7) hardExpiredLabels.push('public liability insurance');
-        else if (v.insuranceValidUntil < now) { /* within grace - already RENEWAL_DUE */ }
-        else if (v.insuranceValidUntil < in30) expiringLabels.push('public liability insurance');
+        else if (v.insuranceValidUntil < now) {
+          /* within grace - already RENEWAL_DUE */
+        } else if (v.insuranceValidUntil < in30) expiringLabels.push('public liability insurance');
       }
 
       if (v.allergenTrainingUntil) {
         if (v.allergenTrainingUntil < minus7) hardExpiredLabels.push('allergen training');
-        else if (v.allergenTrainingUntil < now) { /* within grace */ }
-        else if (v.allergenTrainingUntil < in30) expiringLabels.push('allergen training');
+        else if (v.allergenTrainingUntil < now) {
+          /* within grace */
+        } else if (v.allergenTrainingUntil < in30) expiringLabels.push('allergen training');
       }
 
-      const lowFhrs =
-        v.fhrsInspectionStatus === FhrsStatus.RATED && (v.fhrsRating ?? 5) < 3;
+      const lowFhrs = v.fhrsInspectionStatus === FhrsStatus.RATED && (v.fhrsRating ?? 5) < 3;
 
       if (hardExpiredLabels.length > 0 || lowFhrs) {
         // Route through VendorEnforcementService so every automated suspension

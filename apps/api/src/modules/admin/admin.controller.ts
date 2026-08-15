@@ -836,7 +836,8 @@ export class AdminController {
   @Post('commission-rates')
   @Roles(UserRole.admin)
   @ApiOperation({
-    summary: 'Create a new commission rate and close the previous rate for the same slot. Rate increases require effectiveFrom ≥ now+15d.',
+    summary:
+      'Create a new commission rate and close the previous rate for the same slot. Rate increases require effectiveFrom ≥ now+15d.',
   })
   async createCommissionRate(
     @Body()
@@ -858,13 +859,11 @@ export class AdminController {
 
     // Check if this is a rate increase requiring 15-day notice.
     const { OrderSource } = await import('@prisma/client');
-    const src = dto.source as typeof OrderSource[keyof typeof OrderSource];
+    const src = dto.source as (typeof OrderSource)[keyof typeof OrderSource];
     const existing = await this.commissionService.listRates();
     const currentActive = existing.find(
       (r) =>
-        r.source === src &&
-        r.isFirstOrder === (dto.isFirstOrder ?? null) &&
-        r.effectiveTo === null,
+        r.source === src && r.isFirstOrder === (dto.isFirstOrder ?? null) && r.effectiveTo === null,
     );
     if (
       currentActive &&
@@ -894,9 +893,7 @@ export class AdminController {
     // notice flow automatically. We fire-and-forget in a try/catch so a terms
     // publish failure does not roll back the rate row -- ops can re-trigger
     // the notice manually if needed.
-    const previousRatePct = currentActive
-      ? parseFloat(currentActive.ratePercent.toString())
-      : 0;
+    const previousRatePct = currentActive ? parseFloat(currentActive.ratePercent.toString()) : 0;
     this.termsService
       .publishRateScheduleVersion({
         source: dto.source,
@@ -1032,8 +1029,7 @@ export class AdminController {
   @Roles(UserRole.admin)
   @HttpCode(200)
   @ApiOperation({
-    summary:
-      'Send a test Slack alert to verify QUEUE_ALERT_SLACK_WEBHOOK_URL is set and reachable',
+    summary: 'Send a test Slack alert to verify QUEUE_ALERT_SLACK_WEBHOOK_URL is set and reachable',
   })
   async testSlackAlert() {
     return this.dlqMonitor.triggerTestAlert();

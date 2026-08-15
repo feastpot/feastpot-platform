@@ -1,4 +1,9 @@
-import { BadRequestException, ForbiddenException, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { PayoutStatus, UserRole } from '@prisma/client';
 
 import type { AuthUser } from '../../auth/types';
@@ -143,7 +148,14 @@ describe('PayoutsService.approvePayout', () => {
     const prisma = makePrisma();
     const stripe = makeStripe();
     const queue = makeQueue();
-    const svc = new PayoutsService(prisma as any, stripe as any, undefined as any, undefined as any, undefined as any, queue as any);
+    const svc = new PayoutsService(
+      prisma as any,
+      stripe as any,
+      undefined as any,
+      undefined as any,
+      undefined as any,
+      queue as any,
+    );
     return { svc, prisma, stripe, queue };
   }
 
@@ -215,9 +227,9 @@ describe('PayoutsService.approvePayout', () => {
       vendor: { stripeAccountId: 'acct_1', payoutsEnabled: true, userId: 'vu1' },
     };
     prisma.payout.findUnique
-      .mockResolvedValueOnce(payoutRow)   // initial lookup
-      .mockResolvedValueOnce({ id: 'p1', status: PayoutStatus.approved });  // return value
-    prisma.payout.updateMany.mockResolvedValueOnce({ count: 1 });  // CAS draft→approved
+      .mockResolvedValueOnce(payoutRow) // initial lookup
+      .mockResolvedValueOnce({ id: 'p1', status: PayoutStatus.approved }); // return value
+    prisma.payout.updateMany.mockResolvedValueOnce({ count: 1 }); // CAS draft→approved
 
     const out = await svc.approvePayout('p1', finance);
 
@@ -239,11 +251,13 @@ describe('PayoutsService.approvePayout', () => {
       vendor: { stripeAccountId: 'acct', payoutsEnabled: true, userId: 'vu' },
     });
     prisma.payout.updateMany
-      .mockResolvedValueOnce({ count: 1 })   // CAS draft→approved
-      .mockResolvedValueOnce({ count: 1 });  // rollback approved→draft
+      .mockResolvedValueOnce({ count: 1 }) // CAS draft→approved
+      .mockResolvedValueOnce({ count: 1 }); // rollback approved→draft
     queue.add.mockRejectedValueOnce(new Error('Redis unavailable'));
 
-    await expect(svc.approvePayout('p1', finance)).rejects.toBeInstanceOf(ServiceUnavailableException);
+    await expect(svc.approvePayout('p1', finance)).rejects.toBeInstanceOf(
+      ServiceUnavailableException,
+    );
     // Rollback call restores draft status
     expect(prisma.payout.updateMany.mock.calls[1][0].data).toMatchObject({
       status: PayoutStatus.draft,
