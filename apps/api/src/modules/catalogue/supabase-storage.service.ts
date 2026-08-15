@@ -3,6 +3,7 @@ import {
   Injectable,
   InternalServerErrorException,
   Logger,
+  OnModuleInit,
 } from '@nestjs/common';
 
 import { SupabaseService } from '../../auth/supabase.service';
@@ -39,10 +40,30 @@ export interface UploadedImage {
  * Uses the service-role client from SupabaseService.
  */
 @Injectable()
-export class SupabaseStorageService {
+export class SupabaseStorageService implements OnModuleInit {
   private readonly logger = new Logger(SupabaseStorageService.name);
 
   constructor(private readonly supabase: SupabaseService) {}
+
+  /**
+   * Ensure the shared media bucket exists. Supabase Storage returns
+   * "Bucket not found" when the bucket hasn't been created yet in the
+   * project, so we create it on startup with public read access.
+   */
+  async onModuleInit() {
+    const storage = this.supabase.getClient().storage;
+    const { error } = await storage.createBucket(STORAGE_BUCKET, {
+      public: true,
+      allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp'],
+      fileSizeLimit: 5 * 1024 * 1024,
+    });
+    // "already exists" is not an error — any other error is logged but not fatal
+    if (error && !error.message.toLowerCase().includes('already exists')) {
+      this.logger.warn(`Could not ensure storage bucket "${STORAGE_BUCKET}": ${error.message}`);
+    } else {
+      this.logger.log(`Storage bucket "${STORAGE_BUCKET}" is ready`);
+    }
+  }
 
   async uploadMenuItemImage(params: {
     vendorId: string;

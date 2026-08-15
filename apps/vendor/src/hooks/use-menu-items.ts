@@ -6,15 +6,8 @@ import { apiRequest } from '@/lib/api/client';
 import { useAccessToken } from '@/lib/auth/use-access-token';
 import { API_URL } from '@/lib/env';
 
-export type ItemCategory =
-  | 'tray'
-  | 'soup'
-  | 'protein'
-  | 'swallow'
-  | 'snack'
-  | 'frozen'
-  | 'bundle'
-  | 'event';
+/** Free-text category string. Historic values: tray, soup, protein, swallow, snack, frozen, bundle, event. */
+export type ItemCategory = string;
 
 export interface MenuItem {
   id: string;

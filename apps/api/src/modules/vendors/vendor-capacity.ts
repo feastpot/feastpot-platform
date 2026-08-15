@@ -1,7 +1,6 @@
 import { Logger } from '@nestjs/common';
 import {
   CapacityType,
-  ItemCategory,
   Prisma,
   PrismaClient,
   TrustSignalStatus,
@@ -290,9 +289,9 @@ export async function getCapacityForVendors(
  * `meal_prep` is never produced here - it is reserved for the future
  * subscription flow (OrderType.subscription), which does not exist yet.
  */
-export function capacityTypeForItemCategories(categories: ItemCategory[]): CapacityType {
-  if (categories.includes(ItemCategory.event)) return CapacityType.event_catering;
-  if (categories.includes(ItemCategory.tray) || categories.includes(ItemCategory.bundle)) {
+export function capacityTypeForItemCategories(categories: string[]): CapacityType {
+  if (categories.includes('event')) return CapacityType.event_catering;
+  if (categories.includes('tray') || categories.includes('bundle')) {
     return CapacityType.party_tray;
   }
   return CapacityType.family_pot;

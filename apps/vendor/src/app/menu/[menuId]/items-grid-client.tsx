@@ -39,16 +39,9 @@ import { formatPence } from '@/lib/format';
 
 import { ItemEditorClient } from './items/[itemId]/item-editor-client';
 
-const CATEGORY_LABEL: Record<MenuItem['category'], string> = {
-  tray: 'Tray',
-  soup: 'Soup',
-  protein: 'Protein',
-  swallow: 'Swallow',
-  snack: 'Snack',
-  frozen: 'Frozen',
-  bundle: 'Bundle',
-  event: 'Event',
-};
+function displayCategory(cat: string): string {
+  return cat ? cat.charAt(0).toUpperCase() + cat.slice(1) : cat;
+}
 
 export function MenuItemsGridClient({
   vendorId,
@@ -397,7 +390,7 @@ function ItemCard({
             <p className="font-medium leading-tight">{item.name}</p>
             <p className="text-sm text-muted-foreground">{formatPence(item.pricePence)}</p>
           </div>
-          <Badge variant="secondary">{CATEGORY_LABEL[item.category]}</Badge>
+          <Badge variant="secondary">{displayCategory(item.category)}</Badge>
         </div>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">

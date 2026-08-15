@@ -1,5 +1,3 @@
-import { ItemCategory } from '@prisma/client';
-
 import { ALLERGEN_FREE_SLUGS, ALLERGEN_FREE_SLUG_SET } from '@feastpot/config/allergens';
 
 /**
@@ -15,8 +13,6 @@ export const FSA_14_ALLERGENS = ALLERGEN_FREE_SLUGS;
 export type FsaAllergen = (typeof FSA_14_ALLERGENS)[number];
 
 export const FSA_14_ALLERGEN_SET: ReadonlySet<string> = ALLERGEN_FREE_SLUG_SET;
-
-export const ITEM_CATEGORIES = Object.values(ItemCategory);
 
 export const DIETARY_FLAGS = ['halal', 'vegan', 'vegetarian', 'gluten_free', 'dairy_free'] as const;
 

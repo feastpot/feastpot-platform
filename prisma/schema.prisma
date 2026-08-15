@@ -86,17 +86,6 @@ enum OrderStatus {
   refunded
 }
 
-enum ItemCategory {
-  tray
-  soup
-  protein
-  swallow
-  snack
-  frozen
-  bundle
-  event
-}
-
 enum DeliveryType {
   local
   collection
@@ -936,7 +925,7 @@ model MenuItem {
   menuId           String           @map("menu_id") @db.Uuid
   name             String           @db.VarChar(255)
   description      String?
-  category         ItemCategory
+  category         String           @db.VarChar(64)
   pricePence       Int              @map("price_pence")
   servingsCount    Int?             @map("servings_count")
   preparationHours Int              @default(24) @map("preparation_hours")

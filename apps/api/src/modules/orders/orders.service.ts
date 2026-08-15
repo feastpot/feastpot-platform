@@ -16,7 +16,6 @@ import {
   DeliveryType,
   DiscountFundedBy,
   FeastPassStatus,
-  ItemCategory,
   LoyaltyTxType,
   ModerationStatus,
   OrderSource,
@@ -414,7 +413,7 @@ export class OrdersService {
     // validated it).
     const trayCount = dto.items.reduce((sum, input) => {
       const mi = byId.get(input.menuItemId);
-      return mi?.category === ItemCategory.tray ? sum + input.quantity : sum;
+      return mi?.category === 'tray' ? sum + input.quantity : sum;
     }, 0);
     await this.slots.validateSlot(dto.vendorId, scheduledFor, {
       requiredLeadHours,
@@ -686,13 +685,13 @@ export class OrdersService {
   private async releaseOrderCapacity(order: {
     vendorId: string;
     scheduledFor: Date | null;
-    items: { menuItem: { category: ItemCategory } | null }[];
+    items: { menuItem: { category: string } | null }[];
   }): Promise<void> {
     if (!isCapacityEnforcementEnabled()) return;
     if (!order.scheduledFor) return;
     const categories = order.items
       .map((i) => i.menuItem?.category)
-      .filter((c): c is ItemCategory => c != null);
+      .filter((c): c is string => c != null);
     const capacityType = capacityTypeForItemCategories(categories);
     try {
       await releaseCapacity(this.prisma, order.vendorId, order.scheduledFor, capacityType, 1);

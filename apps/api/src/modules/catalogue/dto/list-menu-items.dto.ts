@@ -1,7 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { ItemCategory } from '@prisma/client';
 import { Transform } from 'class-transformer';
-import { IsBoolean, IsEnum, IsOptional, IsString } from 'class-validator';
+import { IsBoolean, IsOptional, IsString, MaxLength } from 'class-validator';
 
 const toBool = ({ value }: { value: unknown }): unknown => {
   if (typeof value === 'boolean') return value;
@@ -11,10 +10,11 @@ const toBool = ({ value }: { value: unknown }): unknown => {
 };
 
 export class ListMenuItemsDto {
-  @ApiPropertyOptional({ enum: ItemCategory })
+  @ApiPropertyOptional({ description: 'Filter by category (free-text)', maxLength: 64 })
   @IsOptional()
-  @IsEnum(ItemCategory)
-  category?: ItemCategory;
+  @IsString()
+  @MaxLength(64)
+  category?: string;
 
   @ApiPropertyOptional({ description: 'Filter by dietary flag (e.g. vegan, gluten_free)' })
   @IsOptional()

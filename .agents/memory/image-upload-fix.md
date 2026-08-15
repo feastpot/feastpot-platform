@@ -27,3 +27,16 @@ local previews. Keeping next/image in ProfilePreview retains CDN optimization fo
 **How to apply:** Any new image slot needing immediate upload preview should use <img> for
 the preview state. The domain fix in next.config.ts is required for any Supabase URL rendered
 via next/image anywhere in the vendor or web apps.
+
+## Dish image upload — bucket not found (Aug 2026)
+The `feastpot-media` Supabase Storage bucket did not exist in the production project, causing
+every `POST …/items/:itemId/images` to return 500 "Bucket not found" from SupabaseStorageService.
+
+**Fix:** Added `onModuleInit()` to `SupabaseStorageService` that calls `storage.createBucket()`
+on startup. Supabase returns a benign error when the bucket already exists; any other error is
+logged as a warning (not fatal). Bucket is created `public: true` with JPEG/PNG/WebP MIME filter
+and 5 MB file-size limit to match the application-layer guards.
+
+**Why:** `createBucket` is idempotent from the app's perspective (ignores "already exists") and
+runs once at startup, so it's safe in all environments. Never assume a Supabase bucket exists
+just because the code references it — Storage buckets must be explicitly created.

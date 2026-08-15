@@ -43,7 +43,6 @@ import {
   useReorderMenuItems,
   useUpdateMenuItem,
   useUploadItemImage,
-  type ItemCategory,
   type MenuItem,
   type MenuItemUpsertInput,
 } from '@/hooks/use-menu-items';
@@ -51,20 +50,13 @@ import { formatPence } from '@/lib/format';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
-const CATEGORY_ORDER: ItemCategory[] = [
-  'tray', 'soup', 'protein', 'swallow', 'snack', 'frozen', 'bundle', 'event',
-];
+// Known categories listed in preferred display order; custom categories appear after.
+const KNOWN_CATEGORY_ORDER = ['tray', 'soup', 'protein', 'swallow', 'snack', 'frozen', 'bundle', 'event'];
 
-const CATEGORY_LABEL: Record<ItemCategory, string> = {
-  tray: 'Tray',
-  soup: 'Soup',
-  protein: 'Protein',
-  swallow: 'Swallow',
-  snack: 'Snack',
-  frozen: 'Frozen',
-  bundle: 'Bundle',
-  event: 'Event',
-};
+/** Title-case a free-text category for display. */
+function displayCategory(cat: string): string {
+  return cat ? cat.charAt(0).toUpperCase() + cat.slice(1) : cat;
+}
 
 const FSA_14 = [
   { slug: 'celery', label: 'Celery' },
@@ -111,7 +103,7 @@ function needsAllergenInfo(item: MenuItem): boolean {
 
 interface EditorState {
   name: string;
-  category: ItemCategory;
+  category: string;
   pricePounds: string;
   portionLabel: string;
   prepMinutes: string;
@@ -127,7 +119,7 @@ interface EditorState {
   detailOpen: boolean;
 }
 
-function blankEditor(category?: ItemCategory): EditorState {
+function blankEditor(category?: string): EditorState {
   return {
     name: '',
     category: category ?? 'tray',
@@ -307,7 +299,7 @@ function AddDishTile({ onClick }: { onClick: () => void }) {
 // ── CategorySection ────────────────────────────────────────────────────────
 
 interface CategorySectionProps {
-  category: ItemCategory;
+  category: string;
   items: MenuItem[];
   onAdd: () => void;
   onEdit: (item: MenuItem) => void;
@@ -336,7 +328,7 @@ function CategorySection({
     <div>
       <div className="mb-3 flex items-center gap-2">
         <h2 className="font-display text-lg font-black text-charcoal">
-          {CATEGORY_LABEL[category]}
+          {displayCategory(category)}
         </h2>
         <span className="rounded-full bg-cream-warm px-2 py-0.5 text-[11px] font-semibold text-charcoal-mid">
           {items.length}
@@ -659,16 +651,13 @@ function DishEditor({ open, itemId, initial, vendorId, menuId, onClose }: DishEd
             <label htmlFor="dish-category" className="mb-1 block text-[13px] font-semibold text-charcoal">
               Category <span className="text-red-500" aria-hidden>*</span>
             </label>
-            <select
+            <Input
               id="dish-category"
               value={form.category}
-              onChange={(e) => patch({ category: e.target.value as ItemCategory })}
-              className="w-full rounded-lg border border-cream-deep bg-white px-3 py-2 text-[14px] text-charcoal focus:outline-none focus:ring-2 focus:ring-brand/40"
-            >
-              {CATEGORY_ORDER.map((cat) => (
-                <option key={cat} value={cat}>{CATEGORY_LABEL[cat]}</option>
-              ))}
-            </select>
+              onChange={(e) => patch({ category: e.target.value })}
+              placeholder="e.g. Tray, Soup, Protein"
+              maxLength={64}
+            />
           </div>
 
           {/* Price */}
@@ -953,7 +942,7 @@ export function DishesClient({ vendorId }: { vendorId: string }) {
   // Editor state
   const [editingItemId, setEditingItemId] = useState<string | 'new' | null>(null);
   const [editorInitial, setEditorInitial] = useState<EditorState>(blankEditor());
-  const [defaultCategory, setDefaultCategory] = useState<ItemCategory>('tray');
+  const [defaultCategory, setDefaultCategory] = useState<string>('tray');
 
   // Search + allergen filter
   const [searchQuery, setSearchQuery] = useState('');
@@ -970,15 +959,21 @@ export function DishesClient({ vendorId }: { vendorId: string }) {
       list = list.filter(
         (i) =>
           i.name.toLowerCase().includes(q) ||
-          CATEGORY_LABEL[i.category].toLowerCase().includes(q),
+          i.category.toLowerCase().includes(q),
       );
     }
     return list;
   }, [allItems, allergenFilter, searchQuery]);
 
   const byCategory = useMemo(() => {
-    const map = new Map<ItemCategory, MenuItem[]>();
-    for (const cat of CATEGORY_ORDER) {
+    const map = new Map<string, MenuItem[]>();
+    // Known categories in predefined display order, then any custom categories alphabetically
+    const allCats = Array.from(new Set(filteredItems.map((i) => i.category)));
+    const ordered = [
+      ...KNOWN_CATEGORY_ORDER.filter((c) => allCats.includes(c)),
+      ...allCats.filter((c) => !KNOWN_CATEGORY_ORDER.includes(c)).sort(),
+    ];
+    for (const cat of ordered) {
       const catItems = filteredItems
         .filter((i) => i.category === cat)
         .sort((a, b) => a.sortOrder - b.sortOrder);
@@ -989,7 +984,7 @@ export function DishesClient({ vendorId }: { vendorId: string }) {
 
   const allergenCount = useMemo(() => allItems.filter(needsAllergenInfo).length, [allItems]);
 
-  function openNew(category?: ItemCategory) {
+  function openNew(category?: string) {
     const cat = category ?? defaultCategory;
     setDefaultCategory(cat);
     setEditorInitial(blankEditor(cat));
@@ -1029,14 +1024,11 @@ export function DishesClient({ vendorId }: { vendorId: string }) {
     }
   }
 
-  function handleCategoryReorder(category: ItemCategory, newCatItems: MenuItem[]) {
-    // Rebuild the full ordered item list, preserving relative order of other categories
-    const newOrder = CATEGORY_ORDER.flatMap((cat) => {
-      if (cat === category) return newCatItems;
-      return allItems
-        .filter((i) => i.category === cat)
-        .sort((a, b) => a.sortOrder - b.sortOrder);
-    });
+  function handleCategoryReorder(category: string, newCatItems: MenuItem[]) {
+    // Rebuild full ordered list preserving relative order of all other categories
+    const newOrder = Array.from(byCategory.entries()).flatMap(([cat, catItems]) =>
+      cat === category ? newCatItems : catItems,
+    );
     reorderItems.mutate(newOrder.map((i) => i.id));
   }
 
@@ -1137,11 +1129,11 @@ export function DishesClient({ vendorId }: { vendorId: string }) {
       {/* Grid grouped by category */}
       {!isLoading && byCategory.size > 0 && (
         <div className="space-y-10">
-          {CATEGORY_ORDER.filter((cat) => byCategory.has(cat)).map((cat) => (
+          {Array.from(byCategory.entries()).map(([cat, catItems]) => (
             <CategorySection
               key={cat}
               category={cat}
-              items={byCategory.get(cat)!}
+              items={catItems}
               onAdd={() => openNew(cat)}
               onEdit={openEdit}
               onDelete={handleDelete}

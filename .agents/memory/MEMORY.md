@@ -46,5 +46,5 @@
 - [Analytics module](analytics-module.md) - @Global AnalyticsModule; fire-and-forget track(); client events allowlist; QR URLs have &m=qr; fp_anon in localStorage; migration baseline needs SELECT WHERE NOT EXISTS pattern.
 - [Delivery config service area](delivery-service-area.md) - radius+postcode both affect search (ORed); postcodes.io /outcodes?lat&lng&radius(meters)&limit=200 returns districts in radius; DISTRICT_CACHE in vendors.service.ts; nationwide removed from UI only (schema enum kept for compat).
 - [Config CJS runtime entries](config-cjs-runtime.md) - packages/config exports .ts by default; Node prod can't load .ts → crash-loop; fix is require condition → .cjs.js files; changes to the 3 .ts files MUST mirror the .cjs.js copies.
-- [Image upload fix](image-upload-fix.md) — next.config.ts remotePatterns required for Supabase URLs; ImageSlot uses <img> not next/image for blob preview.
+- [Image upload fix](image-upload-fix.md) — next.config.ts remotePatterns for Supabase URLs; ImageSlot uses <img> for blob preview; feastpot-media bucket auto-created in onModuleInit.
 - [Account compliance merge](account-compliance-merge.md) — /compliance + /account-status + /terms merged into /account-and-compliance; old routes redirect; embedded prop on ComplianceClient suppresses h1.

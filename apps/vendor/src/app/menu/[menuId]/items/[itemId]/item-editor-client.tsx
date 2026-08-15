@@ -45,22 +45,10 @@ import {
   useToggleItemAvailability,
   useUpdateMenuItem,
   useUploadItemImage,
-  type ItemCategory,
   type MenuItem,
   type MenuItemUpsertInput,
 } from '@/hooks/use-menu-items';
 import { pencePerPound, poundsFromPence } from '@/lib/format';
-
-const CATEGORIES: Array<{ value: ItemCategory; label: string }> = [
-  { value: 'tray', label: 'Tray' },
-  { value: 'soup', label: 'Soup' },
-  { value: 'protein', label: 'Protein' },
-  { value: 'swallow', label: 'Swallow' },
-  { value: 'snack', label: 'Snack' },
-  { value: 'frozen', label: 'Frozen' },
-  { value: 'bundle', label: 'Bundle' },
-  { value: 'event', label: 'Event' },
-];
 
 const PREP_OPTIONS = [
   { value: 30, label: '30 minutes' },
@@ -113,7 +101,7 @@ const FSA_ALLERGENS: Array<{ value: string; label: string; icon: string }> = [
 interface FormState {
   name: string;
   description: string;
-  category: ItemCategory;
+  category: string;
   pricePounds: string;
   portionLabel: string;
   prepTimeMinutes: number;
@@ -540,21 +528,12 @@ export function ItemEditorClient({
               />
             </Field>
             <Field label="Category" required>
-              <Select
+              <Input
                 value={form.category}
-                onValueChange={(v) => setForm((s) => ({ ...s, category: v as ItemCategory }))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {CATEGORIES.map((c) => (
-                    <SelectItem key={c.value} value={c.value}>
-                      {c.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                onChange={(e) => setForm((s) => ({ ...s, category: e.target.value }))}
+                placeholder="e.g. Tray, Soup, Protein"
+                maxLength={64}
+              />
             </Field>
           </div>
 

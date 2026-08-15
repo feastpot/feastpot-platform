@@ -1,12 +1,10 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { ItemCategory } from '@prisma/client';
 import { Transform, Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   ArrayUnique,
   IsArray,
   IsBoolean,
-  IsEnum,
   IsInt,
   IsOptional,
   IsString,
@@ -30,9 +28,10 @@ export class CreateMenuItemDto {
   @MaxLength(2000)
   description?: string;
 
-  @ApiProperty({ enum: ItemCategory })
-  @IsEnum(ItemCategory)
-  category!: ItemCategory;
+  @ApiProperty({ description: 'Free-text category (e.g. Tray, Soup, Protein)', maxLength: 64 })
+  @IsString()
+  @MaxLength(64)
+  category!: string;
 
   @ApiProperty({ minimum: 100, description: 'Base price in pence (min £1.00)' })
   @Type(() => Number)
