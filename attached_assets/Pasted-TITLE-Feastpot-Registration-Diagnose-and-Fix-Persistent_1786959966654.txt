@@ -1,0 +1,145 @@
+TITLE: Feastpot Registration — Diagnose and Fix Persistent Sign-Up Failure (PRIORITY: RED)
+
+CONTEXT
+Monorepo: Turborepo. apps/web is Next.js 15 (App Router), customer site feastpot.co.uk.
+apps/api is NestJS 11. Auth is Supabase Auth (email/password + OAuth). DB is Supabase
+Postgres via Prisma. Registration lives at /sign-in?mode=register. Zod validates the form.
+Recent fixes claimed but unverified in production: (1) phone().optional() now transforms
+"" to undefined; (2) an error-mapping guard raw.startsWith('{') was removed; (3) a live
+password checklist was added.
+
+DEFECT
+A valid registration (all five password rules green, both checkboxes ticked, valid postcode)
+still fails with the OLD generic banner: "Unable to create account. Please check your details
+and try again. Ensure your password is 8+ characters with uppercase, lowercase, a number and
+a special character." Either the fix is not deployed, a second mapping path emits the same
+string, or the failure is upstream in Supabase.
+
+Use UK English throughout. Never use em dashes. Produce concrete, consultancy-grade output.
+Do not print secrets or PII to logs. Work through the steps in order and STOP for review
+after STEP B's findings table.
+
+=== STEP A: VERIFY THE CLAIMED FIXES ARE ACTUALLY DEPLOYED ===
+1. Add a build/version marker so we can confirm what is live. In apps/web, read the current
+   git SHA at build time and expose it as NEXT_PUBLIC_BUILD_SHA. Render it in an HTML comment
+   in the root layout and console.info it once on the sign-in page mount.
+2. Grep the ENTIRE monorepo (all apps and packages, including built output) for the old
+   generic string and any fragment of it:
+     grep -rn "Unable to create account" .
+     grep -rn "Ensure your password is 8" .
+     grep -rn "check your details and try again" .
+   List EVERY file and line that renders it. There may be more than one mapping path (e.g. a
+   catch-all in the form component AND a helper in a shared package). Record all of them.
+3. Confirm the raw.startsWith('{') guard is genuinely gone:
+     grep -rn "startsWith('{')" .
+     grep -rn 'startsWith("{")' .
+   If any remain, flag them.
+4. Report a short table: claimed fix | present in source? | present in deployed bundle?
+
+=== STEP B: INSTRUMENT signUp AND REPRODUCE (dev only, no PII in prod) ===
+1. Wrap the signUp call in a dev-only diagnostic that logs, ONLY when
+   process.env.NODE_ENV !== 'production':
+     - error.name, error.code, error.status, error.message (from AuthError; AuthApiError
+       always carries code and status)
+     - data.user?.identities?.length  (0 => obfuscated existing CONFIRMED user)
+     - data.session === null
+     - data.user?.email_confirmed_at present or not
+   Never log the password. Never log full user objects in production.
+2. Reproduce four scenarios and capture the logged values for each:
+     (a) a BRAND-NEW never-used email on a real domain you control
+     (b) the known previously-used email sandra.osawe@feastpot.co.uk
+     (c) a deliberately breached password: Password123!  (with a fresh email)
+     (d) rapid repeat sign-ups (5 in under a minute) to trip the email rate limit
+3. Produce a FINDINGS TABLE with columns:
+     scenario | error.code | status | identities.length | session null? | interpretation
+   Interpret each against these known Supabase behaviours:
+     - existing CONFIRMED user + confirmations ON => 200, NO error, identities: [], no session
+       (obfuscated to prevent enumeration)
+     - existing user + confirmations OFF => error.code = user_already_exists
+     - breached/weak password => error.code = weak_password, with
+       error.weak_password.reasons (e.g. ["pwned"], ["length"], ["characters"])
+     - email cap exceeded => error.code = over_email_send_rate_limit (HTTP 429)
+     - signups off => error.code = signup_disabled ; email provider off =>
+       email_provider_disabled ; malformed input => validation_failed ;
+       server degraded => unexpected_failure
+   STOP HERE and present the findings table before making fixes.
+
+=== STEP C: IMPLEMENT CORRECT HANDLING FOR EVERY OUTCOME ===
+1. Create ONE module, packages/auth-errors (or apps/web/lib/auth-errors.ts), exporting a
+   single mapping keyed by error.code. NO string matching on error.message anywhere. Follow
+   Supabase's own guidance: "Always use error.code and error.name to identify errors, not
+   string matching on error messages." 
+2. Handle these distinguishable outcomes:
+     - SUCCESS WITH SESSION (auto-confirm on): user is signed in; route to the app.
+     - SUCCESS NEEDING CONFIRMATION (data.user set, identities.length > 0, session null):
+       show a neutral "Check your email to confirm your account" screen, with a resend button.
+     - OBFUSCATED EXISTING USER (no error, identities.length === 0, session null): show the
+       SAME neutral "Check your email" screen. NEVER reveal the account exists. This mirrors
+       the enumeration-safe reset flow already built. Supabase itself notifies the existing
+       user if configured.
+     - user_already_exists (only occurs when confirmations are OFF): show a neutral message
+       with links to Sign in and Reset password. Prefer enabling confirmations so the
+       obfuscated path above is used instead.
+     - weak_password: read error.weak_password.reasons and show a SPECIFIC message
+       ("pwned" => "This password has appeared in a data breach. Choose a different one.";
+       "length"/"characters" => name the missing requirement). Surface ALL reasons present.
+     - over_email_send_rate_limit: honest message: "Too many attempts. Please try again in a
+       few minutes." Do not present as a validation error.
+     - signup_disabled / email_provider_disabled / unexpected_failure: maintenance-style
+       message ("We can't create accounts right now. Please try again shortly.") plus a
+       server-side alert (log to the API/monitoring channel).
+3. DELETE the old generic banner string entirely from all locations found in STEP A.
+4. Implement a resend-confirmation action using the official method:
+     await supabase.auth.resend({ type: 'signup', email,
+       options: { emailRedirectTo: 'https://feastpot.co.uk/auth/callback' } })
+   Make the resend button rate-limit aware: disable it for a 60-second cooldown (Supabase
+   enforces a 60-second resend window per user) and handle over_email_send_rate_limit by
+   extending the cooldown and showing the honest wait message.
+5. CI GUARD: extend the existing check-claims.mjs pattern so CI FAILS if the old generic
+   string (or its fragments) reappears anywhere in source or built output. Add the exact
+   phrases from STEP A step 2 to the banned-strings list.
+
+=== STEP D: FIX THE PASSWORD VISIBILITY TOGGLES ===
+1. The screenshot shows password masked but confirm-password in plaintext with a mismatched
+   eye icon. Make BOTH toggles independent, each with its own state, BOTH defaulting to
+   masked (type="password"), and each eye icon reflecting its own field's state.
+2. Ensure toggling one field never changes the other. Add aria-labels ("Show password" /
+   "Hide password") and aria-pressed for accessibility.
+
+=== STEP E: PLAYWRIGHT TEST MATRIX ===
+Write Playwright tests (apps/web) covering:
+  1. New email happy path -> asserts the neutral "check your email to confirm" screen appears.
+  2. Existing email -> asserts the IDENTICAL neutral screen, NO enumeration signal in copy,
+     DOM, or network response, AND that response timing is within a small delta of the new-
+     email path (no timing side channel).
+  3. Breached password (Password123!) -> asserts the specific breached-password message.
+  4. Empty phone -> asserts the form SUBMITS successfully (regression test for the ""->
+     undefined fix).
+  5. Rate-limit path -> mock a 429 over_email_send_rate_limit response; assert the honest
+     "try again in a few minutes" message, not a validation error.
+  6. Server error path -> mock unexpected_failure; assert the maintenance message and that a
+     server-side alert is emitted.
+  7. Both password toggles -> assert each toggles independently and both start masked.
+  8. Resend confirmation flow -> assert the button triggers resend and enforces the 60s
+     cooldown.
+  9. Built-output assertion -> assert the old generic string appears NOWHERE in the build.
+
+ACCEPTANCE CRITERIA
+- Findings table produced and reviewed before any fix.
+- Zero occurrences of the old generic string in source or built output; CI guard enforces it.
+- Every error.code above maps to a distinct, correct message via the single mapping module.
+- Existing-email and new-email paths are visually and behaviourally identical (no enumeration).
+- Both password toggles independent and default to masked.
+- All nine Playwright tests pass.
+
+EDGE CASES
+- Email confirmations toggle differs between environments: handle BOTH the obfuscated-200 path
+  (confirmations ON) and the user_already_exists path (confirmations OFF).
+- @feastpot.co.uk address may not receive mail via built-in SMTP (built-in only delivers to
+  team addresses); custom SMTP is required for real delivery.
+- weak_password.reasons may contain multiple reasons; surface all.
+- Never send PII to production logs.
+- A previously-used but UNCONFIRMED email returns a NON-EMPTY identities array; do not treat
+  it as the obfuscated case.
+- Confirm the Supabase key in use (anon/publishable) is valid and enabled; a wrong/disabled
+  key makes auth calls fail before any of the above logic runs.
