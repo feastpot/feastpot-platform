@@ -1,0 +1,6 @@
+
+# Playwright test artefacts - never commit these; they contain arbitrary page content
+# that trips lint guards (e.g. the FeastPot capitalisation check)
+test-results/
+e2e-report/
+e2e-results.json
