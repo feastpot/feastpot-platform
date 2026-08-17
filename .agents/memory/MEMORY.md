@@ -4,7 +4,7 @@
 - [Replit deploy env gotchas](replit-deploy-env.md) - NODE_ENV isn't auto-prod (set runtime-only via start:api, NOT a prod env var → breaks npm ci); env-scoped secrets land in plaintext git-tracked .replit.
 - [Supabase prod migration](supabase-prod-migration.md) - DONE 31 Jul 2026: prod on dedicated London project (yeklvh…); old zibmwu… is dev-only; mop-up list inside.
 - [Supabase DB URLs](supabase-db-urls.md) - use SUPABASE_DIRECT_URL (session pooler:5432) for migrations/psql; stale DIRECT_URL direct-host rotation crash-loops deploys; DATABASE_URL = wrong DB (helium).
-- [Prisma migrations (dev)](prisma-migrations-dev.md) - dev DB isn't baselined (migrate dev/deploy fail P3005); hand-write minimal migration.sql + `db execute` + run enable-rls script; RLS is central, not per-migration.
+- [Prisma migrations (dev)](prisma-migrations-dev.md) - dev DB isn't baselined; hand-write minimal migration.sql + `db execute` + enable-rls; db push banned (docs/db-push-ban.md); one migration = one concern.
 - [WhatsApp template slots](whatsapp-template-slots.md) - approved templates have 1-2 slots (no order-total slot); Meta enforces exact counts; builders keyed by whatsappTemplate name.
 - [WhatsApp Content SID naming](whatsapp-content-sid-naming.md) - Twilio env var is `TWILIO_CONTENT_SID_<whatsappTemplate>`, NOT the registry key (they diverge, e.g. payout_batch_ready→payout_statement); enumerate by whatsappTemplate.
 - [Redis / Upstash for BullMQ](redis-upstash.md) - must be paid Upstash (free 500K cmd/mo cap fails); `rediss://` TLS; queues tuned to 5-min polls - don't revert.
@@ -49,5 +49,5 @@
 - [Image upload fix](image-upload-fix.md) — next.config.ts remotePatterns for Supabase URLs; ImageSlot uses <img> for blob preview; feastpot-media bucket auto-created in onModuleInit.
 - [Account compliance merge](account-compliance-merge.md) — /compliance + /account-status + /terms merged into /account-and-compliance; old routes redirect; embedded prop on ComplianceClient suppresses h1.
 - [CI guard exclusions](ci-guard-exclusions.md) — em-dash and FeastPot guards must exclude .agents (committed memory files legitimately use both); split test literals to avoid grep matches.
-- [db push missing migrations](db-push-missing-migrations.md) — columns added via db push without a migration file break CI; fix with intermediate-timestamp migration using IF NOT EXISTS.
+- [db push missing migrations](db-push-missing-migrations.md) — db push banned on shared DBs; CI drift gate (prisma-validate job, migrate diff --exit-code) catches this at PR time; checksum repair pattern inside.
 - [Prettier full-repo formatting](prettier-full-repo.md) — must cover all workspaces (admin, vendor e2e, web e2e, docs); verification-banner-mocks.ts is in .prettierignore (JSDoc parse error).

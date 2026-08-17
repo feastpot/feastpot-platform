@@ -18,7 +18,5 @@ ALTER TABLE vendor_slug_redirects ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "vendor_slug_redirects_public_read"
   ON vendor_slug_redirects FOR SELECT USING (true);
 
--- Featured dishes are now stored as menu-item IDs rather than free text.
--- Existing name strings cannot be auto-mapped to IDs, so we reset the column.
--- Vendors will re-select their featured dishes from their live menu.
-UPDATE vendors SET featured_dishes = '{}';
+-- NOTE: the featured-dishes data reset that originally lived here was moved
+-- to 20260813221000_reset_featured_dishes to keep each migration single-purpose.

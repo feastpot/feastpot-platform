@@ -155,17 +155,35 @@ jobs:
           fi
 
   # ----------------------------------------------------------------------------
-  # 4. Prisma schema validation + format check
+  # 4. Prisma schema validation, format check, and drift gate.
+  #    Runs BEFORE the test job so a drift failure aborts the run before
+  #    migrations are applied to the test database.
   # ----------------------------------------------------------------------------
   prisma-validate:
-    name: Prisma validate
+    name: Prisma validate + drift check
     needs: [setup]
     runs-on: ubuntu-latest
-    # `prisma validate`/`format` parse the schema, which references these env vars
-    # via env(). They never connect, so dummy non-secret values are sufficient.
+    # A real Postgres service is required for the drift check (prisma migrate diff
+    # applies all migrations to the shadow database and diffs the result against
+    # schema.prisma).  validate/format steps do not connect but work fine regardless.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: feastpot
+          POSTGRES_PASSWORD: feastpot
+          POSTGRES_DB: feastpot_validate
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U feastpot"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     env:
-      SUPABASE_DB_URL: postgresql://user:pass@localhost:5432/feastpot?schema=public
-      SUPABASE_DIRECT_URL: postgresql://user:pass@localhost:5432/feastpot?schema=public
+      SUPABASE_DB_URL: postgresql://feastpot:feastpot@localhost:5432/feastpot_validate?schema=public
+      SUPABASE_DIRECT_URL: postgresql://feastpot:feastpot@localhost:5432/feastpot_validate?schema=public
+      SHADOW_DATABASE_URL: postgresql://feastpot:feastpot@localhost:5432/feastpot_shadow?schema=public
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -179,6 +197,33 @@ jobs:
       - name: Schema is correctly formatted
         # `--check` exits non-zero when the file would be reformatted.
         run: npx prisma format --schema=./prisma/schema.prisma --check
+      - name: Create Supabase roles for drift check
+        # Postgres roles are cluster-level — creating them once in any database
+        # makes them available in the shadow DB that Prisma creates and manages.
+        # This is the same set of roles that the test job creates for migrate deploy.
+        run: |
+          PGPASSWORD=feastpot psql -h localhost -U feastpot -d feastpot_validate \
+            -v ON_ERROR_STOP=1 \
+            -c "CREATE ROLE anon NOLOGIN;
+                CREATE ROLE authenticated NOLOGIN;
+                CREATE ROLE service_role NOLOGIN;
+                CREATE ROLE supabase_auth_admin NOLOGIN;"
+      - name: Drift check — migrations must reproduce schema.prisma exactly
+        # Exit 1 means prisma/migrations does not reproduce prisma/schema.prisma.
+        # Root cause: a schema change was applied with `prisma db push` (no migration
+        # file produced) or a migration file was hand-edited after being applied.
+        # To investigate locally:
+        #   npx prisma migrate diff \
+        #     --from-migrations ./prisma/migrations \
+        #     --to-schema-datamodel ./prisma/schema.prisma \
+        #     --shadow-database-url <local-empty-postgres-url> --exit-code
+        # See docs/db-push-ban.md for the approved schema-change workflow.
+        run: |
+          npx prisma migrate diff \
+            --from-migrations ./prisma/migrations \
+            --to-schema-datamodel ./prisma/schema.prisma \
+            --shadow-database-url "$SHADOW_DATABASE_URL" \
+            --exit-code
 
   # ----------------------------------------------------------------------------
   # 5. Test — runs Jest/Vitest with coverage. Uses a Neon test branch URL
@@ -231,7 +276,13 @@ jobs:
         run: |
           PGPASSWORD=feastpot psql -h localhost -U feastpot -d feastpot_test -v ON_ERROR_STOP=1 \
             -c "CREATE ROLE anon NOLOGIN; CREATE ROLE authenticated NOLOGIN; CREATE ROLE service_role NOLOGIN; CREATE ROLE supabase_auth_admin NOLOGIN;"
-      - name: Apply migrations to test DB
+      - name: Apply migrations from scratch (from-scratch validation)
+        # Failure here means either (a) a migration ordering problem — one migration
+        # references an object created by a later one — or (b) schema drift that
+        # slipped past the drift-check job.  To diagnose, run locally:
+        #   npx prisma migrate diff --from-migrations ./prisma/migrations \
+        #     --to-schema-datamodel ./prisma/schema.prisma \
+        #     --shadow-database-url <local-empty-postgres-url> --exit-code
         run: npx prisma migrate deploy --schema=./prisma/schema.prisma
       - name: Run tests with coverage
         # `--` passes flags through Turbo to each workspace's test runner.

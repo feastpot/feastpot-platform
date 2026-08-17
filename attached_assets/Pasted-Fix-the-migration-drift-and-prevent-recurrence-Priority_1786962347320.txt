@@ -1,0 +1,55 @@
+Fix the migration drift and prevent recurrence
+
+**Priority:** RED · **App(s):** prisma, apps/api
+
+```
+CONTEXT
+As Prompt 53. Prisma migrations live in prisma/migrations and are applied by CI to a fresh test database.
+
+FAILURE
+Migration 20260813220000_vendor_slug_redirects fails on a database built from scratch:
+  ERROR: column "featured_dishes" of relation "vendors" does not exist
+  Position: line 24, UPDATE vendors SET featured_dishes = '{}';
+  Error: P3018
+
+DIAGNOSIS TO CONFIRM BEFORE FIXING
+This is schema drift. The featured_dishes column exists in the development database but no migration creates it, so a database built purely from prisma/migrations does not have it. The usual cause is prisma db push having been used during development instead of prisma migrate dev, which changes the database without producing a migration file.
+
+STEP 1: ESTABLISH THE FACTS. Report, do not assume:
+1. Does prisma/schema.prisma declare featuredDishes on the Vendor model? What type?
+2. Search prisma/migrations for any file that adds featured_dishes:
+     grep -rn "featured_dishes" prisma/migrations/
+   Report every hit and which migration each belongs to.
+3. Run a drift check and report the output:
+     npx prisma migrate diff \
+       --from-migrations ./prisma/migrations \
+       --to-schema-datamodel ./prisma/schema.prisma \
+       --shadow-database-url "$SHADOW_DATABASE_URL" \
+       --exit-code
+   A non-zero exit means the migration history does not reproduce the schema. Report the FULL diff, because featured_dishes is unlikely to be the only drifted object.
+
+STEP 2: FIX THE DRIFT
+1. Generate the missing migration(s) so the migration history reproduces schema.prisma exactly. Create a new timestamped migration that adds every drifted object, ordered so it runs BEFORE 20260813220000_vendor_slug_redirects. If that is not possible because of timestamp ordering, instead add the column creation to the top of the vendor_slug_redirects migration itself, guarded with IF NOT EXISTS.
+2. Make the offending UPDATE idempotent and safe regardless of prior state:
+     ALTER TABLE vendors ADD COLUMN IF NOT EXISTS featured_dishes text[] DEFAULT '{}';
+     UPDATE vendors SET featured_dishes = '{}' WHERE featured_dishes IS NOT NULL;
+   Match the real column type from schema.prisma; do not guess text[] if it is something else.
+3. SEPARATE THE CONCERNS. The migration named vendor_slug_redirects is also resetting featured_dishes, which is unrelated to slug redirects. That coupling is why the failure is confusing. Split it: one migration for slug redirects, one for the featured-dishes reset, each named for what it does. A migration should do one thing.
+4. Preserve the intent of the data reset. The comment states featured dishes are now stored as menu-item IDs rather than free text and that name strings cannot be auto-mapped, so the column is reset and vendors re-select from their live menu. That is a reasonable decision, but it is destructive. Before resetting, log the count of vendors whose featured_dishes is non-empty so the scale of what is being cleared is known, and confirm the vendor-facing prompt to re-select exists (the profile rebuild added a menu picker).
+
+STEP 3: PREVENT RECURRENCE, this is the important part
+1. ADD A DRIFT CHECK TO CI. Add a job step that runs the prisma migrate diff command from Step 1 with --exit-code and FAILS the build if it reports drift. This catches the exact failure mode at pull-request time rather than when a fresh database is built. Run it in the same job as Prisma validate, before the test job wastes time applying migrations.
+2. ADD A FROM-SCRATCH MIGRATION TEST. CI already applies migrations to a fresh test database, which is what caught this. Keep it, and make its failure message explicit that a from-scratch failure means either drift or a migration ordering problem, with the diff command to run locally.
+3. BAN db push AGAINST ANYTHING BUT A LOCAL SCRATCH DATABASE. Document in the repo (and in .agents/memory alongside the existing prisma-migrations-dev.md entry) that schema changes must go through prisma migrate dev so a migration file is always produced. If any package script wraps db push, rename it to make its scope obvious, for example db:push:local-scratch-only.
+4. CHECK PRODUCTION. This drift means production may also be missing featured_dishes, or may have it from a manual change with no migration row. Query production information_schema for the column and report whether it exists, and whether the migration rows are present in _prisma_migrations. Do not apply anything to production in this prompt; report only, and hand off to the existing production migration runbook.
+
+ACCEPTANCE CRITERIA
+- prisma migrate diff reports no drift between prisma/migrations and prisma/schema.prisma.
+- A database built from scratch applies every migration cleanly, including 20260813220000_vendor_slug_redirects.
+- The slug-redirects migration no longer contains an unrelated featured-dishes reset.
+- The featured-dishes migration is idempotent (IF NOT EXISTS, safe re-run).
+- CI fails on any future drift, at pull-request time.
+- A report states whether production has the column and the migration rows.
+
+EDGE CASES: a partially applied migration on any environment (make everything idempotent so a re-run converges); featured_dishes existing with a different type than schema.prisma declares (report the mismatch rather than silently altering); other drifted objects revealed by the diff (fix them in the same pass, since a partial drift fix leaves CI red).
+```
