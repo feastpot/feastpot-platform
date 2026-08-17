@@ -52,3 +52,4 @@
 - [CI guard exclusions](ci-guard-exclusions.md) — em-dash and FeastPot guards must exclude .agents (committed memory files legitimately use both); split test literals to avoid grep matches.
 - [db push missing migrations](db-push-missing-migrations.md) — db push banned on shared DBs; CI drift gate (prisma-validate job, migrate diff --exit-code) catches this at PR time; checksum repair pattern inside.
 - [Prettier full-repo formatting](prettier-full-repo.md) — must cover all workspaces (admin, vendor e2e, web e2e, docs); verification-banner-mocks.ts is in .prettierignore (JSDoc parse error).
+- [Admin panel audit](admin-panel-audit.md) — live findings: 2FA not enforced; no debounce on search; commission-rates used wrong API URL (fixed); platform defaults 12%/weekly/GBP; admin client components must import API_URL from @/lib/env.

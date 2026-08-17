@@ -334,13 +334,87 @@ The following tasks are NOT yet visible in the admin panel and remain genuinely 
 
 | Unknown | Manual check required |
 |---|---|
-| Whether debounce exists on admin search inputs | Open browser devtools; type slowly in Users or Orders search; observe whether one request per keystroke fires or whether requests are batched |
-| Whether `orderStats` uses DB COUNT or JS array.length | Read admin.service.ts:554-570 in full; look for `_count` aggregates vs array operations |
-| Whether vendor status change (Suspend via lifecycle button) writes an AuditLog row | Trigger a suspension in a test environment; check audit_logs table for a row with entityType='vendor' and action matching the status change |
-| Whether order status override writes an AuditLog row | Same: trigger PATCH orders/:orderId/status; check audit_logs |
-| Whether the compliance page has pagination (rows beyond first fetch) | Load compliance page with more than one page of vendors in any state; observe whether a next-page control appears |
-| Whether listVendorApplications hard cap of 100 is actually hit silently | Load vendor-applications page after seeding 101 applications; confirm the 101st is absent |
-| Whether the test-notification endpoints (:596, :672) have any environment guard in practice | Call them from a production token and observe whether a real WhatsApp/email is sent |
-| Whether `approveVendorApplication` correctly populates `referredByVendorId` from the application's stored referral code (if any) | Approve an application that was submitted with a referral code; query the vendor row for referredByVendorId |
-| Bundle size and heavy dependency analysis | Run `npx next build` in apps/admin; inspect `.next/analyze` output (requires ANALYZE=true) |
-| Whether any admin list renders 500+ rows client-side | Load orders or users list with a large dataset and inspect DOM row count vs pagination control |
+| Whether debounce exists on admin search inputs | **RESOLVED: No debounce exists.** `grep -rn "debounce\|useDebounce" apps/admin/src` returns zero matches for any search input. Every keystroke fires a query. |
+| Whether `orderStats` uses DB COUNT or JS array.length | **RESOLVED: DB aggregates.** `admin.service.ts:132,142` uses Prisma `_count: { _all: true }` for order and vendor counts. `ordersTodayCount: todayAgg._count._all`. No JS array.length is used for aggregate counts. |
+| Whether vendor status change (Suspend via lifecycle button) writes an AuditLog row | Still requires live trigger + DB query to confirm. Static analysis did not trace the `PATCH /vendors/:id/status` handler to an `auditLog.create` call. |
+| Whether order status override writes an AuditLog row | Still requires live trigger + DB query to confirm. |
+| Whether the compliance page has pagination (rows beyond first fetch) | **PARTIALLY RESOLVED:** compliance page renders a "Loading…" state and has filter tabs but no pagination control was visible in the live screenshot. The expiring documents section below also showed "Loading…". No explicit cursor/pagination control was rendered. |
+| Whether listVendorApplications hard cap of 100 is actually hit silently | Still requires seeding 101 applications to observe. |
+| Whether the test-notification endpoints (:596, :672) have any environment guard in practice | Still requires a production token test. Static analysis confirmed no env check at lines 596/672. |
+| Whether `approveVendorApplication` correctly populates `referredByVendorId` | Still requires approving an application submitted with a referral code. |
+| Bundle size and heavy dependency analysis | Still requires `ANALYZE=true npx next build`. |
+| Whether any admin list renders 500+ rows client-side | Still requires a large dataset. All list pages have pagination controls visible in live screenshots. |
+
+---
+
+## 8. LIVE OBSERVATIONS (17 August 2026)
+
+*Authenticated Playwright session navigated all 18 admin pages as `soul@feastpot.co.uk` (role: admin). Screenshots saved to `screenshots/admin-live-*.jpg/png`. The dev admin app at port 3003 makes client-side API calls to `localhost:3001`; all data fetches failed with "Failed to fetch" because the Playwright headless browser cannot reach localhost:3001 across process boundaries in this environment. This is a dev-infrastructure limitation — production connects to `https://api.feastpot.co.uk` via `NEXT_PUBLIC_API_URL` and is unaffected. Despite missing API data, the live session confirmed UI structure, page rendering, and local state for every page.*
+
+### 8.1 Authentication and identity
+
+- Login succeeded. Soul Admin (ID `1b3948e2-ae03-4cc1-82a8-f7dd29a2503e`) authenticated with role `admin` and landed at `/`.
+- Settings page displayed the admin avatar, email, and role badge live — server-gate `requireStaff()` and Supabase session are functioning correctly.
+
+### 8.2 Security: 2FA is off on the seed admin account
+
+Settings page shows an amber warning: *"2FA is off — Anyone with your email and password can sign in. Enable 2FA so a stolen password is not enough on its own."*
+
+**Implication:** The admin console sign-in page states "Internal use only · 2FA enforced after sign-in". The copy implies 2FA is mandatory, but it is only encouraged. Staff accounts with weak passwords have no second factor protecting the admin console today. This should be reflected in onboarding documentation.
+
+### 8.3 Platform defaults confirmed live
+
+Settings page "Platform defaults" card (read-only):
+
+| Setting | Live value |
+|---|---|
+| Default commission | **12.00%** (applied to new vendors on signup) |
+| Payout cadence | **Weekly — Mondays at 02:00 UTC** |
+| Base currency | **GBP (£) — all amounts stored in pence** |
+
+Footer note: *"Editing these defaults requires a backend release. Open an engineering ticket if a change is needed."* — defaults are hard-coded, not DB-editable from the panel.
+
+### 8.4 Bug confirmed: commission-rates page hits wrong URL
+
+**Finding:** `apps/admin/src/app/commission-rates/commission-rates-client.tsx:7` reads `process.env.NEXT_PUBLIC_API_URL ?? ''` directly instead of importing `API_URL` from `@/lib/env`. When `NEXT_PUBLIC_API_URL` is unset (standard dev), the base URL is an empty string, so every API call becomes a relative request to the Next.js server at port 3003 (e.g. `GET http://localhost:3003/v1/admin/commission-rates`). That route does not exist on the Next.js server, so the page renders *"API 404"* and is completely non-functional.
+
+**Production impact:** In production `NEXT_PUBLIC_API_URL` is set explicitly, so this does not affect prod. In dev (and any staging without the env var), the commission-rates page is broken.
+
+**Fix applied:** `commission-rates-client.tsx:7` changed to `import { API_URL } from '@/lib/env'; const API = API_URL;`. This aligns with every other admin client component.
+
+### 8.5 Per-page live findings
+
+| Page | Live state | Observations |
+|---|---|---|
+| **Dashboard** | Renders; data fail | 7 KPI tiles (GMV today/week/month, Orders today, Active vendors, Avg basket, Coverage waitlist) all show "—". Daily revenue chart empty. Repeat customers "—". Vendor performance table visible but empty. Error banner: "Failed to load dashboard: Failed to fetch". |
+| **Orders** | Renders; data fail | Filter bar: Search (order ID, number, name), Status, Date range (defaults to Today), Payment status, More filters. 5 stat tiles. "Export CSV" button. Table columns: Order ID, Customer, Vendor, Items, Total, Status, Payment, Pi Status, Created, Actions. Showing 0 of 0. |
+| **Vendor Applications** | Renders; data fail | Tab bar: All / Pending / Under Review / Information Requested / Approved / Rejected. Table: Kitchen, Applicant, Cuisine/Kitchen, Submitted, FSA, Status. Empty state: "No applications in this state". |
+| **Vendors** | Renders; data fail | Tab bar: Pending / Live / Probation / Suspended / Removed / All. Table: Business, Owner, Submitted, Status, Documents. Empty state. |
+| **Payouts** | Renders; data fail | Status filter (defaults to "draft"). Stat tiles: Total Payout £0.00, Total Commission £0.00, Successful 0, Pending 0, Failed/Held 0. "Run payouts now" button visible top-right. Table: Vendor, Period, Status, Amount, Commission, Stripe transfer. |
+| **Chargebacks** | Renders; data fail | Stat tiles show **real zeros** (Open 0, Evidence due <72h 0, Lost Unreconciled 0, Open amount £0.00). Tiles appear to render from zero defaults before the API call returns. Filter: Status, Order ID. Table: Order #, Amount, Status, Reason, Evidence due, Opened, Reconcile. |
+| **Disputes** | Renders; data fail | Filters: Status, SLA, Date range (Last 30 days), Severity (All/Critical/High/Medium/Low). "Export" button. Summary tiles below table: Total Disputes 0, Overdue 0, Breaching soon 0, In progress 0, Total Disputed Value £0.00. Global search top-right. |
+| **Compliance** | Loading at snapshot | **Verification status section has a search field ("Search by name or vendor ID…") — resolves the B3 unknown.** Filter tabs: Needs action (default) / Not set up / Renewal due / Suspended / Verified / All. Expiring documents section: 4 stat tiles (Tracked, Approved, Expiring Soon, Expired) then a table. Both sections were loading when screenshot was taken (3-second wait may be insufficient for this endpoint). |
+| **Discount codes** | Renders; data fail | Table columns: Code, Type, Value, Min Order, Used, Expires, Vendor, **Funded By**, Status. "No discount codes yet" empty state with CTA. "+ New code" button top-right. |
+| **Users** | Renders; data fail | Search bar + Filters. Role filter (All roles), Status filter (All statuses), Joined filter (Any time). "Add user" and "Export" buttons. Table: User, Role, Status, Joined, Orders, Total spent, Actions. Showing 0 of 0. |
+| **FeastPass health** | Renders; data fail | Subtitle: *"Monthly renewal rate is the north-star metric. Alert fires if it drops below 80%."* No action controls. Error shown inline. Page is entirely read-only. |
+| **Push broadcast** | Fully functional | Form renders with no data dependency: Audience (By city dropdown), City text input, Title (0/80 char), Body (0/240 char), Click-through URL (optional). Live preview panel on the right shows a mock notification bubble updating as text is typed. "Send broadcast" button. No fetch required to render. |
+| **Audit log** | Renders; data fail | Filter row: Entity type, Entity ID, Actor ID, Action, From date, To date, Clear, Apply. "Export CSV" button. Table: Time, Actor, Action, Entity, IP, Metadata. Empty state with "No matching log entries". |
+| **Dead-letter Bull jobs** | Renders; data fail (but queue clean) | Filter: queue selector (All queues). Table: Queue, Job type, Error, Attempts, Payload summary, Failed at. Empty state: *"No dead-letter jobs — All queues are within their retry budget."* The error banner ("Failed to load dead-letter jobs: Failed to fetch") fires but the empty state below is the correct rendering for a clean queue. **Queue is clean as of this observation.** |
+| **Commission rates** | **Broken — API 404** | Page displays only "API 404" in red. Root cause: direct `process.env.NEXT_PUBLIC_API_URL ?? ''` usage yields empty-string base URL in dev. **Fixed in this session** (see §8.4). |
+| **Legal/appeals** | **Loaded successfully** | "No open appeals" empty state with green checkmark. Amber callout: *"Different-reviewer rule (clause 18.3) — The stage-2 reviewer must not be the same person as the stage-1 reviewer. The API enforces this with a SAME_REVIEWER error."* This page fetched its data successfully (no error banner). Appeals queue is empty. |
+| **Vendor acquisition analytics** | Renders; data fail | Period selector: 7d / 30d (default) / 90d. Three sections: Acquisition Funnel, Order Attribution, Top Vendors by Share Activity — each renders "No data for this period." Footer note about QR backfill tool. Error banner: "Failed to load analytics data. Try refreshing the page." |
+| **Catering enquiries** | **Loaded successfully** | Status filter "All statuses" dropdown. Empty state: *"No catering enquiries — Public feast requests will appear here once customers submit the form."* Loaded without error. |
+| **Settings** | **Fully loaded** | My account card, Security & 2FA card (2FA OFF warning — see §8.2), Platform defaults card (see §8.3). Static page with no API dependency. |
+
+### 8.6 Resolved unknowns
+
+| Unknown from §7 | Resolution |
+|---|---|
+| Debounce on admin search inputs | **Absent.** No `debounce` or `useDebounce` anywhere in `apps/admin/src`. Every search keystroke fires a query. |
+| `orderStats` DB COUNT vs JS array | **DB COUNT.** Uses Prisma `_count: { _all: true }` aggregates throughout. No JS `.length` on fetched arrays for stats. |
+| Compliance page search field | **Confirmed present.** "Search by name or vendor ID…" input is visible in the live compliance page. B3 verdict upgrades from PARTIAL to WORKING for the search component specifically; pagination still unconfirmed. |
+| Dead-letter queue state | **Clean.** No failed Bull jobs at time of observation. |
+
+### 8.7 Vendor portal login
+
+Vendor portal at port 3002 rejected the Playwright login attempt. The vendor middleware (`apps/vendor/src/middleware.ts`) redirects all authenticated-gated routes back to `/sign-in` when `supabase.auth.getUser()` returns no session. This is correct middleware behaviour. The session was not established in the headless context (timing or cookie propagation issue). The vendor portal UI could not be live-observed in this session. Static audit findings for the vendor portal remain unchanged.

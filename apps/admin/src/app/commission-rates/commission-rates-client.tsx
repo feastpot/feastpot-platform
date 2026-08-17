@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
+import { API_URL } from '@/lib/env';
 import { createClient } from '@/lib/supabase/client';
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? '';
+const API = API_URL;
 
 interface CommissionRate {
   id: string;
