@@ -95,9 +95,25 @@ mailer_otp_exp = 3600
 # Cloud Supabase uses these templates when synced via `supabase push`.
 # ---------------------------------------------------------------------------
 
+[auth.email.template.confirmation]
+subject = "Confirm your Feastpot account"
+content_path = "./supabase/templates/confirmation.html"
+
 [auth.email.template.recovery]
 subject = "Reset your Feastpot password"
 content_path = "./supabase/templates/recovery.html"
+
+[auth.email.template.magic_link]
+subject = "Your Feastpot sign-in link"
+content_path = "./supabase/templates/magic_link.html"
+
+[auth.email.template.email_change]
+subject = "Confirm your new Feastpot email"
+content_path = "./supabase/templates/email_change.html"
+
+[auth.email.template.invite]
+subject = "You have been invited to Feastpot"
+content_path = "./supabase/templates/invite.html"
 
 # NOTE: Supabase does not have a built-in "password changed" template type.
 # The password_changed.html template in this directory is committed for review

@@ -75,6 +75,13 @@ export const AUTH_ERROR_MAP: Record<string, AuthErrorMapping> = {
   email_address_invalid: {
     userMessage: 'That email address does not look valid. Please check it and try again.',
   },
+  // Supabase built-in SMTP refuses to deliver to addresses that are not members
+  // of the project organisation (2 msg/hour cap, team-only). Surface this as an
+  // ops alert so misconfigured SMTP is detected before launch.
+  email_address_not_authorized: {
+    userMessage: 'We were unable to send a confirmation email to that address. Please try again shortly or contact support.',
+    alertOps: true,
+  },
 };
 
 // ---------------------------------------------------------------------------

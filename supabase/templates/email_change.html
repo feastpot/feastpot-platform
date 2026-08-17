@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="x-apple-disable-message-reformatting">
+  <!--[if !mso]><!-->
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <!--<![endif]-->
+  <meta name="color-scheme" content="light dark">
+  <meta name="supported-color-schemes" content="light dark">
+  <title>Confirm your new Feastpot email</title>
+  <!--[if mso]>
+  <noscript>
+    <xml>
+      <o:OfficeDocumentSettings>
+        <o:PixelsPerInch>96</o:PixelsPerInch>
+      </o:OfficeDocumentSettings>
+    </xml>
+  </noscript>
+  <![endif]-->
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 0; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+    table { border-collapse: collapse; mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+    img { border: 0; line-height: 100%; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic; }
+    a { color: #00843D; }
+
+    @media (prefers-color-scheme: dark) {
+      .email-bg    { background-color: #111110 !important; }
+      .card-bg     { background-color: #1E1E1C !important; }
+      .heading     { color: #F5F3EE !important; }
+      .body-text   { color: #C8C6C2 !important; }
+      .footer-text { color: #8A8884 !important; }
+      .divider     { border-color: #2E2E2C !important; }
+    }
+
+    @media only screen and (max-width: 620px) {
+      .email-container { width: 100% !important; }
+      .card-padding     { padding: 28px 20px !important; }
+      .btn-width        { width: 100% !important; text-align: center !important; }
+    }
+  </style>
+</head>
+
+<body style="margin: 0; padding: 0; background-color: #F2EAD3;" class="email-bg">
+
+  <div style="display: none; max-height: 0; overflow: hidden; mso-hide: all;">
+    Confirm your new email address for your Feastpot account.
+    &zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;
+    &zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;
+  </div>
+
+  <!--[if mso]>
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+    <tr><td style="background-color: #F2EAD3;">
+  <![endif]-->
+
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"
+    style="background-color: #F2EAD3;" class="email-bg">
+    <tr>
+      <td align="center" style="padding: 40px 16px;">
+        <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0"
+          class="email-container card-bg"
+          style="max-width: 600px; background-color: #FFFDF7; border-radius: 16px;
+                 box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+          <tr>
+            <td style="padding: 40px 48px;" class="card-padding">
+
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td align="left" style="padding-bottom: 32px;">
+                    <img src="https://feastpot.co.uk/images/feastpot-logo.png"
+                      alt="Feastpot" width="140" height="44"
+                      style="display: block; width: 140px; height: auto; max-width: 140px;">
+                  </td>
+                </tr>
+              </table>
+
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td style="padding-bottom: 24px;">
+                    <div style="width: 48px; height: 4px; background-color: #00843D; border-radius: 2px;"></div>
+                  </td>
+                </tr>
+              </table>
+
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td style="padding-bottom: 12px;">
+                    <h1 class="heading"
+                      style="margin: 0; font-family: Georgia, 'Times New Roman', serif;
+                             font-size: 26px; font-weight: 700; line-height: 1.25;
+                             color: #1C1C1A; letter-spacing: -0.3px;">
+                      Confirm your new email
+                    </h1>
+                  </td>
+                </tr>
+              </table>
+
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td style="padding-bottom: 32px;">
+                    <p class="body-text"
+                      style="margin: 0; font-family: Helvetica, Arial, sans-serif;
+                             font-size: 16px; line-height: 1.6; color: #5F5E5A;">
+                      You requested an email change on your Feastpot account. Click the button
+                      below to confirm your new address:
+                      <strong style="color: #1C1C1A;">{{ .NewEmail }}</strong>
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td style="padding-bottom: 24px;" class="btn-width">
+                    <!--[if mso]>
+                    <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml"
+                      xmlns:w="urn:schemas-microsoft-com:office:word"
+                      href="{{ .SiteURL }}/auth/confirm#token_hash={{ .TokenHash }}&type=email_change"
+                      style="height:52px;v-text-anchor:middle;width:240px;"
+                      arcsize="10%" strokecolor="#005C2B" fillcolor="#00843D">
+                      <w:anchorlock/>
+                      <center style="color:#ffffff;font-family:Helvetica,Arial,sans-serif;
+                                     font-size:16px;font-weight:bold;">
+                        Confirm email change
+                      </center>
+                    </v:roundrect>
+                    <![endif]-->
+                    <!--[if !mso]><!-->
+                    <a href="{{ .SiteURL }}/auth/confirm#token_hash={{ .TokenHash }}&type=email_change"
+                      style="display: inline-block; background-color: #00843D;
+                             color: #ffffff; font-family: Helvetica, Arial, sans-serif;
+                             font-size: 16px; font-weight: bold; line-height: 1;
+                             text-decoration: none; padding: 16px 32px;
+                             border-radius: 10px; border: 2px solid #005C2B;
+                             mso-padding-alt: 16px 32px;">
+                      Confirm email change
+                    </a>
+                    <!--<![endif]-->
+                  </td>
+                </tr>
+              </table>
+
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td style="padding: 20px 0; border-top: 1px solid #F2EAD3; border-bottom: 1px solid #F2EAD3;"
+                    class="divider">
+                    <p class="body-text"
+                      style="margin: 0 0 8px; font-family: Helvetica, Arial, sans-serif;
+                             font-size: 14px; line-height: 1.5; color: #5F5E5A;">
+                      <strong style="color: #1C1C1A;">This link expires in 60 minutes.</strong>
+                    </p>
+                    <p class="body-text"
+                      style="margin: 0; font-family: Helvetica, Arial, sans-serif;
+                             font-size: 14px; line-height: 1.5; color: #5F5E5A;">
+                      If you did not request an email change, please contact support immediately
+                      as your account may have been accessed without your permission.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td style="padding-top: 28px;">
+                    <p class="footer-text"
+                      style="margin: 0; font-family: Helvetica, Arial, sans-serif;
+                             font-size: 13px; line-height: 1.6; color: #9B9894;">
+                      Feastpot &bull; Need help?
+                      <a href="mailto:support@feastpot.co.uk"
+                        style="color: #00843D; text-decoration: none;">
+                        support@feastpot.co.uk
+                      </a>
+                      &bull; Monday to Saturday, within 24 hours
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+
+  <!--[if mso]>
+    </td></tr>
+  </table>
+  <![endif]-->
+
+</body>
+</html>

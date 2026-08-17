@@ -1,0 +1,184 @@
+ROLE: You are a senior full-stack engineer working on the Feastpot Turborepo monorepo
+(apps/web = Next.js 15 App Router customer site at feastpot.co.uk;
+apps/vendor = vendor.feastpot.co.uk; apps/admin; apps/api = NestJS 11).
+Auth is Supabase Auth (email/password plus Google and Apple OAuth). Database is
+Supabase Postgres via Prisma. The intended transactional email provider is Resend.
+Use UK English. Never use em dashes. Be concrete and show file paths.
+
+PRIORITY: RED. DEFECT: A user registers at feastpot.co.uk/sign-in?mode=register,
+sees an enumeration-safe "Check your email" screen, but NO confirmation email ever
+arrives for customers. Password reset emails were previously seen arriving from
+"Supabase Auth <noreply@mail.app.supabase.io>", i.e. the Supabase built-in sender.
+
+BACKGROUND YOU MUST TREAT AS FACT (verified against Supabase and Resend docs, 2025-2026):
+- Supabase's built-in email service is capped at 2 messages per hour project-wide and
+  will REFUSE to deliver to any address that is not a member of the project's Supabase
+  organisation, failing with "Email address not authorized" (error code
+  email_address_not_authorized, HTTP 400). It has no delivery SLA. This is the leading
+  hypothesis: real customers are non-team addresses and get nothing.
+- If signUp() shows the "Check your email" screen for a NON-team address, the app is
+  likely swallowing the 400 error. Verify the client error handling explicitly.
+- After enabling custom SMTP, Supabase imposes a default limit of 30 messages/hour,
+  adjustable under Authentication > Rate Limits.
+- Resend SMTP: host smtp.resend.com; username is the literal string "resend"; password
+  is a Resend API key beginning re_. Ports: 465 or 2465 = implicit SSL/TLS; 25, 587 or
+  2587 = STARTTLS. Resend recommends 465. Use 465 unless the host blocks it, then 587.
+- Resend will not send from feastpot.co.uk until the domain is verified. An unverified
+  domain can only send from onboarding@resend.dev, and that sandbox can only deliver to
+  the Resend account owner's own email (403 otherwise). The "from" must be on a verified
+  domain. Free tier: 100 emails/day, 3,000/month.
+- Supabase Auth emails (confirmation, magic link, password reset) are sent by Supabase's
+  configured SMTP. This is SEPARATE from the app's own Resend integration in apps/api
+  that sends order emails. Do not confuse the two. This task fixes the Supabase Auth path.
+
+STEP 0 - VERIFICATION (do this before changing anything, and report findings):
+0a. Search the repo for any Supabase SMTP or email configuration: grep for "smtp",
+    "resend", "RESEND", "smtp_host", "auth.email", "config.toml". Report every file and
+    line found, and whether supabase/config.toml exists and what [auth.email] contains.
+0b. Determine whether custom SMTP is CURRENTLY enabled. You cannot read the hosted
+    dashboard, so instead: (i) inspect supabase/config.toml for an [auth.email.smtp]
+    block; (ii) check for a Supabase Management API access token in env; if present,
+    GET https://api.supabase.com/v1/projects/{PROJECT_REF}/config/auth and report
+    whether external_email_enabled is true and whether smtp_host is set. If neither is
+    available, output a FOUNDER ACTION asking them to confirm in the dashboard at
+    Authentication > Emails > SMTP Settings whether "Enable Custom SMTP" is on.
+0c. Locate the sign-up handler in apps/web (search for supabase.auth.signUp). Show the
+    exact error handling. Confirm whether a 400 with code email_address_not_authorized
+    would be caught and surfaced, or swallowed into the success screen. If swallowed,
+    fix it so that email_address_not_authorized and over_email_send_rate_limit (429) are
+    logged and shown as a real error, NOT the "Check your email" screen.
+0d. Report the site URL and redirect allow-list expectations: the confirmation link
+    redirect target (emailRedirectTo) must be an https://feastpot.co.uk callback route
+    that is present in Supabase Auth > URL Configuration redirect allow-list. Note this
+    as a FOUNDER ACTION to confirm in the dashboard.
+
+STEP 1 - CONFIGURE RESEND AS SUPABASE CUSTOM SMTP:
+The dashboard SMTP fields cannot be set by you; emit them as a FOUNDER ACTION block with
+exact values to paste. Also, if a Management API token is available, offer to apply the
+same config via:
+  PATCH https://api.supabase.com/v1/projects/{PROJECT_REF}/config/auth
+  body: {
+    "external_email_enabled": true,
+    "smtp_admin_email": "no-reply@send.feastpot.co.uk",
+    "smtp_host": "smtp.resend.com",
+    "smtp_port": 465,
+    "smtp_user": "resend",
+    "smtp_pass": "<RESEND_API_KEY>",
+    "smtp_sender_name": "Feastpot",
+    "mailer_autoconfirm": false
+  }
+Sender email must be on the verified sending subdomain (see Step 2). Recommend
+no-reply@send.feastpot.co.uk. Do NOT hardcode the API key; read it from an env var and
+document it in .env.example as RESEND_API_KEY (never commit the real key).
+
+STEP 2 - DNS RECORDS (emit as a FOUNDER ACTION for the DNS registrar):
+Recommend adding the domain in Resend as the SUBDOMAIN send.feastpot.co.uk (Resend's
+default), NOT the apex, because: it keeps the apex SPF clean, isolates auth-sending
+reputation, and gives clean DMARC alignment (Resend does strict DKIM alignment and
+relaxed SPF alignment). Resend will generate the exact records; they follow this pattern
+and MUST be copied verbatim from the Resend dashboard:
+  - MX record on send.feastpot.co.uk (for bounce processing; Resend runs on AWS SES).
+  - SPF: TXT on send.feastpot.co.uk = "v=spf1 include:amazonses.com ~all" (use the exact
+    value Resend shows).
+  - DKIM: TXT named resend._domainkey.send.feastpot.co.uk = the long public key Resend
+    provides.
+  - DMARC: TXT on _dmarc.feastpot.co.uk. Start at "v=DMARC1; p=none; rua=mailto:
+    dmarc@feastpot.co.uk" to monitor, then ramp to p=quarantine and later p=reject once
+    reports are clean. Explain why: DMARC ties SPF and DKIM together and tells receivers
+    what to do on failure; starting at p=none avoids blocking your own legitimate mail
+    while you confirm alignment.
+  - If DNS is on Cloudflare, all these records must be DNS-only (grey cloud), because the
+    orange-cloud proxy breaks DKIM verification.
+Verification usually completes within 5 to 15 minutes but DNS can take up to 72 hours.
+Instruct the founder to click Verify in Resend and confirm the domain shows "Verified".
+
+STEP 3 - BRANDED, VERSION-CONTROLLED EMAIL TEMPLATES:
+Create supabase/templates/ with Feastpot-branded HTML for each Auth template and wire
+them in supabase/config.toml so they are version-controlled rather than pasted into the
+dashboard. Example config.toml block:
+  [auth.email.template.confirmation]
+  subject = "Confirm your Feastpot account"
+  content_path = "./supabase/templates/confirmation.html"
+  [auth.email.template.recovery]
+  subject = "Reset your Feastpot password"
+  content_path = "./supabase/templates/recovery.html"
+  [auth.email.template.magic_link]
+  subject = "Your Feastpot sign-in link"
+  content_path = "./supabase/templates/magic_link.html"
+  [auth.email.template.email_change]
+  subject = "Confirm your new Feastpot email"
+  content_path = "./supabase/templates/email_change.html"
+  [auth.email.template.invite]
+  subject = "You have been invited to Feastpot"
+  content_path = "./supabase/templates/invite.html"
+Available template variables: {{ .ConfirmationURL }}, {{ .Token }}, {{ .TokenHash }},
+{{ .SiteURL }}, {{ .RedirectTo }}, {{ .Email }} (and {{ .NewEmail }} for email change).
+IMPORTANT: config.toml templates apply to local/self-hosted only. For the HOSTED project,
+either copy the same HTML into Authentication > Email Templates in the dashboard
+(FOUNDER ACTION), or apply via the Management API PATCH ...config/auth using
+mailer_templates_confirmation_content etc. Keep the canonical HTML in the repo either way
+so it is version-controlled. Keep templates plain, few links, no marketing copy, short
+subject lines, to maximise deliverability.
+
+STEP 4 - FRAGMENT-INTERSTITIAL WORKAROUND FOR EMAIL SCANNERS:
+Corporate scanners (Outlook Safe Links, Microsoft Defender) prefetch links and consume
+the one-time token, causing "Token has expired or is invalid". Because URL fragments
+(after #) are NOT fetched by scanners, do this:
+4a. In each auth email template, do NOT put {{ .ConfirmationURL }} directly as the href.
+    Instead link to an interstitial page with the confirmation URL in the fragment, e.g.
+    <a href="{{ .SiteURL }}/auth/confirm#confirm={{ .ConfirmationURL }}">Confirm</a>
+4b. Build apps/web/app/auth/confirm/page.tsx as a client component that reads the fragment
+    (window.location.hash), extracts the confirmation URL, and only navigates to it AFTER
+    an explicit user click on a "Confirm my account" button. Show an error if the fragment
+    is missing. This guarantees the token is verified only on a real human click.
+4c. Prefer the token-hash verifyOtp pattern where possible: pass {{ .TokenHash }} and
+    type to supabase.auth.verifyOtp on the callback so the flow does not depend on the
+    scanner-fragile ConfirmationURL redirect.
+
+STEP 5 - TEST-SEND VERIFICATION (must pass against an EXTERNAL inbox):
+5a. Do NOT test with support@feastpot.co.uk or any @feastpot.co.uk address: sending from
+    and to the same domain via an external relay causes Microsoft 365 / Google Workspace
+    to quarantine the message as spoofed internal mail. Use an external Gmail address.
+5b. Trigger a real confirmation email (register a test user, or use the Supabase dashboard
+    Add User which sends an invite/confirmation) to the external Gmail address.
+5c. Open the message in Gmail, choose "Show original", and confirm SPF=PASS, DKIM=PASS,
+    and DMARC=PASS. Alternatively send to a mail-tester.com address and require a score
+    of at least 9/10. Report the raw header result.
+5d. Confirm the email appears in the Resend dashboard Emails log with status "delivered"
+    (not merely "sent"; email.sent only means Resend accepted it, not that it was
+    delivered).
+
+STEP 6 - MONITORING VIA RESEND WEBHOOKS:
+6a. Add an endpoint in apps/api (NestJS) at POST /webhooks/resend that verifies the Svix
+    signature (headers svix-id, svix-timestamp, svix-signature) using the webhook signing
+    secret stored as RESEND_WEBHOOK_SECRET, returns 2xx within 5 seconds, and processes
+    asynchronously and idempotently (dedupe on svix-id).
+6b. Handle event types: email.sent, email.delivered, email.delivery_delayed,
+    email.bounced (record bounce type hard/soft and suppress hard bounces),
+    email.complained (suppress recipient immediately), email.failed, email.suppressed.
+    Persist to a Prisma model EmailEvent for reporting.
+6c. Emit a FOUNDER ACTION to add the webhook in the Resend dashboard pointing to
+    https://api.feastpot.co.uk/webhooks/resend and to copy the signing secret into
+    RESEND_WEBHOOK_SECRET.
+
+ACCEPTANCE CRITERIA (all must be true):
+- Custom SMTP is enabled and points to smtp.resend.com with username "resend".
+- send.feastpot.co.uk is verified in Resend (SPF, DKIM, MX) and DMARC is published.
+- A confirmation email sent to an EXTERNAL Gmail address arrives in the inbox (not spam),
+  from no-reply@send.feastpot.co.uk, branded Feastpot, with SPF/DKIM/DMARC all PASS.
+- The confirmation link works when clicked by a human, and survives an Outlook/Defender
+  scanner because the token lives in a URL fragment behind an explicit click.
+- The sign-up handler surfaces email_address_not_authorized and 429 errors instead of
+  showing the success screen when the send actually failed.
+- Resend webhook endpoint verifies signatures and records delivered/bounced/complained.
+
+EDGE CASES TO HANDLE AND REPORT:
+- Rate limit: after enabling custom SMTP the default is 30/hour; if load testing, raise
+  it under Authentication > Rate Limits (FOUNDER ACTION) or you will see 429
+  over_email_send_rate_limit.
+- Apple Private Relay recipients (@privaterelay.appleid.com) require the sending domain
+  and email source to be registered in the Apple Developer console under Sign in with
+  Apple, or Apple silently drops the forward (FOUNDER ACTION).
+- If the Resend domain is only partially verified, sends from feastpot.co.uk fail with
+  403 while sends to the account owner's own email still work: warn if you detect this.
+- Do not commit RESEND_API_KEY or RESEND_WEBHOOK_SECRET; use env vars and .env.example.

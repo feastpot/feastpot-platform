@@ -1,4 +1,8 @@
 import { Module } from '@nestjs/common';
 
-@Module({})
+import { ResendWebhookModule } from './resend/resend-webhook.module';
+
+@Module({
+  imports: [ResendWebhookModule],
+})
 export class WebhooksModule {}
