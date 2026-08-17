@@ -136,6 +136,23 @@ jobs:
             echo "ERROR: 'FeastPot' (wrong capitalisation) detected. The brand name is 'Feastpot'."
             exit 1
           fi
+      - name: No old generic sign-up error string
+        run: |
+          # Spec/test files may reference the old string as a banned assertion;
+          # exclude them so the guard only fires on production source.
+          if grep -rn "could not create your account" . \
+            --include="*.ts" --include="*.tsx" \
+            --include="*.js" --include="*.jsx" \
+            --exclude="*.spec.ts" --exclude="*.spec.tsx" \
+            --exclude="*.test.ts" --exclude="*.test.tsx" \
+            --exclude-dir=node_modules --exclude-dir=.next \
+            --exclude-dir=dist --exclude-dir=.turbo \
+            --exclude-dir=.git --exclude-dir=.local \
+            --exclude-dir=.agents --exclude-dir=attached_assets; then
+            echo "ERROR: old generic sign-up error string detected in source."
+            echo "Use a specific error code in AUTH_ERROR_MAP (apps/web/src/lib/auth/auth-errors.ts) instead."
+            exit 1
+          fi
 
   # ----------------------------------------------------------------------------
   # 4. Prisma schema validation + format check

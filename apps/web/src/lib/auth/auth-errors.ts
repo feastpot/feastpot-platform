@@ -107,13 +107,17 @@ export function mapSignUpError(error: SupabaseAuthError): string {
   const mapping = AUTH_ERROR_MAP[code];
   if (mapping) return mapping.userMessage;
 
-  // Final safety net: show the raw Supabase message if it is a readable string.
-  // This is acceptable because the SDK now returns human-readable strings in
-  // error.message for all documented error types.
+  // Final safety net: if we reach here the error code is not in AUTH_ERROR_MAP.
+  // The modern Supabase SDK guarantees human-readable strings in error.message
+  // for all documented error types; surface it if it is a non-empty plain string.
+  // The legacy GoTrue JSON-guard (startsWith '{') has been removed -- the modern
+  // SDK no longer wraps messages in JSON objects.
   const raw = (error.message ?? '').trim();
-  if (raw && raw !== '{}' && !raw.startsWith('{')) return raw;
+  if (raw && raw !== '{}') return raw;
 
-  return 'We could not create your account. Please check your details and try again.';
+  // Truly undocumented error with no usable message. The caller will have already
+  // logged a console.error via shouldAlertOps(); show a neutral service notice.
+  return 'Something went wrong. Please try again in a moment.';
 }
 
 /**

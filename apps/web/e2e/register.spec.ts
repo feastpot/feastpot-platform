@@ -313,6 +313,8 @@ test('9. old generic error string does not appear in built output', async () => 
     'Unable to create account. Please ensure your password',
     'Ensure your password is 8',
     'check your details and try again. Ensure your password',
+    // Step-C fallback removed; ensure it stays gone from the built bundle.
+    'We could not create your account. Please check your details',
   ];
 
   const walk = (dir: string): string[] => {
