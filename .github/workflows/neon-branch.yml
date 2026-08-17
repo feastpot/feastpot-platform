@@ -1,14 +1,27 @@
 # Per-PR ephemeral database branches via the Neon API.
 #
-# On opened/reopened: create branch `pr-<number>`, run migrations, comment the
-# (masked) connection string on the PR. On close: delete the branch so we don't
-# accumulate stale environments.
+# On opened/reopened/synchronize: create branch `pr-<number>` if absent, run
+# migrations, comment the (masked) connection string on the PR.
+# On close (merged or not): delete the branch so stale environments don't
+# accumulate and exhaust the plan's branch limit.
+# On schedule / workflow_dispatch: sweep any pr-* branches whose PR is no
+# longer open, as a backstop for any close event that was missed.
+#
+# --fail / -f is NOT used on any curl call in this file. -f discards the
+# response body on HTTP errors, making it impossible to diagnose why a call
+# failed. Instead every call captures the body and the HTTP status separately
+# and exits with a clear, human-readable message on non-2xx.
 
 name: Neon PR branch
 
 on:
   pull_request:
     types: [opened, reopened, synchronize, closed]
+  schedule:
+    # Daily at 03:00 UTC — sweep stale pr-* branches as a backstop.
+    - cron: '0 3 * * *'
+  # Allow manual runs to clear branches when the plan limit is approaching.
+  workflow_dispatch:
 
 env:
   NEON_API_BASE: https://console.neon.tech/api/v2
@@ -19,7 +32,7 @@ jobs:
   # ----------------------------------------------------------------------------
   create:
     name: Create / refresh Neon branch
-    if: github.event.action != 'closed'
+    if: github.event_name == 'pull_request' && github.event.action != 'closed'
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
@@ -39,55 +52,153 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           set -euo pipefail
-          BRANCH_NAME="pr-${PR_NUMBER}"
 
-          # Look for an existing branch first so re-runs don't error.
-          existing=$(curl -fsS \
-            -H "Authorization: Bearer ${NEON_API_KEY}" \
-            "${{ env.NEON_API_BASE }}/projects/${NEON_PROJECT_ID}/branches" \
-            | jq -r --arg name "$BRANCH_NAME" '.branches[] | select(.name == $name) | .id' | head -1)
-
-          if [ -z "$existing" ]; then
-            echo "Creating new branch ${BRANCH_NAME}…"
-            response=$(curl -fsS -X POST \
-              -H "Authorization: Bearer ${NEON_API_KEY}" \
-              -H "Content-Type: application/json" \
-              -d "{\"branch\": {\"name\": \"${BRANCH_NAME}\"}, \"endpoints\": [{\"type\": \"read_write\"}]}" \
-              "${{ env.NEON_API_BASE }}/projects/${NEON_PROJECT_ID}/branches")
-            connection_uri=$(echo "$response" | jq -r '.connection_uris[0].connection_uri')
-          else
-            echo "Branch ${BRANCH_NAME} already exists (${existing}), fetching connection URI…"
-            connection_uri=$(curl -fsS \
-              -H "Authorization: Bearer ${NEON_API_KEY}" \
-              "${{ env.NEON_API_BASE }}/projects/${NEON_PROJECT_ID}/branches/${existing}/connection_uri?role_name=neondb_owner&database_name=neondb" \
-              | jq -r '.uri')
+          # Fork PRs do not receive repository secrets — the variables arrive as
+          # empty strings. Detect this early and skip gracefully rather than
+          # failing with a confusing authentication error.
+          if [ -z "${NEON_API_KEY:-}" ] || [ -z "${NEON_PROJECT_ID:-}" ]; then
+            echo "::notice::NEON_API_KEY or NEON_PROJECT_ID is not set (fork PR or missing secret). Skipping Neon branch creation."
+            exit 0
           fi
 
+          # Branch name is always pr-<integer>, which is safe regardless of PR
+          # title content (parentheses, colons, spaces, etc. are never included).
+          BRANCH_NAME="pr-${PR_NUMBER}"
+
+          # ------------------------------------------------------------------
+          # Helper: call the Neon API without --fail so the response body is
+          # always visible. Returns "<body>\n<http_status>" on stdout.
+          # ------------------------------------------------------------------
+          neon_api() {
+            local method="$1" path="$2" payload="${3:-}"
+            local args=(-sS -w '\n%{http_code}' -X "$method"
+              -H "Authorization: Bearer ${NEON_API_KEY}"
+              -H "Content-Type: application/json")
+            [ -n "$payload" ] && args+=(-d "$payload")
+            curl "${args[@]}" "${NEON_API_BASE}/projects/${NEON_PROJECT_ID}${path}"
+          }
+
+          # Helper: print a clear error and exit. GitHub auto-masks any secret
+          # value that was declared in env:, so the raw body is safe to print.
+          die_neon() {
+            local context="$1" status="$2" body="$3"
+            echo "::error::Neon API error in '${context}': HTTP ${status}"
+            echo "Response body: ${body}"
+            exit 1
+          }
+
+          # ------------------------------------------------------------------
+          # Step 1: List branches to look for an existing pr-N branch.
+          # ------------------------------------------------------------------
+          raw=$(neon_api GET "/branches")
+          status=$(echo "$raw" | tail -n1)
+          body=$(echo "$raw" | sed '$d')
+
+          if [ "$status" -lt 200 ] || [ "$status" -ge 300 ]; then
+            die_neon "list branches" "$status" "$body"
+          fi
+
+          existing_id=$(echo "$body" \
+            | jq -r --arg name "$BRANCH_NAME" \
+                '.branches[] | select(.name == $name) | .id' \
+            | head -1)
+
+          branch_id=""
+
+          if [ -z "$existing_id" ]; then
+            # ------------------------------------------------------------------
+            # Step 2a: No existing branch — create one.
+            # ------------------------------------------------------------------
+            echo "Branch ${BRANCH_NAME} not found — creating…"
+            payload="{\"branch\":{\"name\":\"${BRANCH_NAME}\"},\"endpoints\":[{\"type\":\"read_write\"}]}"
+            raw=$(neon_api POST "/branches" "$payload")
+            status=$(echo "$raw" | tail -n1)
+            body=$(echo "$raw" | sed '$d')
+
+            if [ "$status" -ge 200 ] && [ "$status" -lt 300 ]; then
+              branch_id=$(echo "$body" | jq -r '.branch.id')
+              echo "Created branch ${BRANCH_NAME} (${branch_id})."
+            else
+              # The create may have lost a race with a parallel workflow run on
+              # the same PR. Re-list before treating this as a hard failure.
+              echo "Create returned HTTP ${status} — checking for a race-created branch…"
+              raw2=$(neon_api GET "/branches")
+              status2=$(echo "$raw2" | tail -n1)
+              body2=$(echo "$raw2" | sed '$d')
+
+              if [ "$status2" -ge 200 ] && [ "$status2" -lt 300 ]; then
+                existing_id=$(echo "$body2" \
+                  | jq -r --arg name "$BRANCH_NAME" \
+                      '.branches[] | select(.name == $name) | .id' \
+                  | head -1)
+              fi
+
+              if [ -n "$existing_id" ]; then
+                echo "Another run created ${BRANCH_NAME} first. Reusing ${existing_id}."
+                branch_id="$existing_id"
+              else
+                # Check whether the failure was a branch-limit error so we can
+                # give an actionable message instead of a raw API dump.
+                if echo "$body" | grep -qiE '"code"\s*:\s*"BRANCHES_LIMIT_EXCEEDED"|branch.+limit|exceeded.+branch'; then
+                  echo "::error::Neon branch limit reached. Run the 'Cleanup stale Neon branches' workflow manually (Actions → Neon PR branch → Run workflow) to free space, or close old PRs so their branches are removed automatically."
+                  exit 1
+                fi
+                die_neon "create branch" "$status" "$body"
+              fi
+            fi
+          else
+            # ------------------------------------------------------------------
+            # Step 2b: Branch already exists — reuse it.
+            # ------------------------------------------------------------------
+            echo "Branch ${BRANCH_NAME} already exists (${existing_id}) — reusing."
+            branch_id="$existing_id"
+          fi
+
+          # ------------------------------------------------------------------
+          # Step 3: Fetch the connection URI for the branch.
+          # ------------------------------------------------------------------
+          raw=$(neon_api GET "/branches/${branch_id}/connection_uri?role_name=neondb_owner&database_name=neondb")
+          status=$(echo "$raw" | tail -n1)
+          body=$(echo "$raw" | sed '$d')
+
+          if [ "$status" -lt 200 ] || [ "$status" -ge 300 ]; then
+            die_neon "fetch connection URI for ${branch_id}" "$status" "$body"
+          fi
+
+          connection_uri=$(echo "$body" | jq -r '.uri')
           if [ -z "$connection_uri" ] || [ "$connection_uri" = "null" ]; then
-            echo "::error::Failed to obtain connection URI from Neon"
+            echo "::error::Neon returned HTTP ${status} but the connection URI was empty."
+            echo "Response body: ${body}"
             exit 1
           fi
 
-          # Mask the URL in logs and expose to subsequent steps via env file.
+          # Mask the full URI in logs and expose it for subsequent steps.
           echo "::add-mask::$connection_uri"
           echo "DATABASE_URL=$connection_uri" >> "$GITHUB_ENV"
-          echo "BRANCH_NAME=$BRANCH_NAME" >> "$GITHUB_ENV"
+          echo "BRANCH_NAME=$BRANCH_NAME"      >> "$GITHUB_ENV"
 
-          # Build a masked variant for the PR comment (host + last 4 chars).
+          # Build a password-redacted variant for the PR comment.
           masked=$(echo "$connection_uri" | sed -E 's#(://[^:]+:)[^@]+(@)#\1********\2#')
           echo "::add-mask::$masked"
           echo "MASKED_URI=$masked" >> "$GITHUB_ENV"
 
       - name: Run migrations against PR branch
         env:
-          # Prisma datasource reads SUPABASE_DB_URL / SUPABASE_DIRECT_URL (see
-          # prisma/schema.prisma). The Neon ephemeral-branch URI was stored in
-          # DATABASE_URL above; map it onto both Prisma vars here.
+          # Prisma reads SUPABASE_DB_URL / SUPABASE_DIRECT_URL (schema.prisma).
+          # Map the Neon branch URI onto both Prisma variables.
           SUPABASE_DB_URL: ${{ env.DATABASE_URL }}
           SUPABASE_DIRECT_URL: ${{ env.DATABASE_URL }}
-        run: npx prisma migrate deploy --schema=./prisma/schema.prisma
+        run: |
+          # DATABASE_URL is empty when we skipped above (fork PR / missing secret).
+          if [ -z "${DATABASE_URL:-}" ]; then
+            echo "No DATABASE_URL — skipping migrations."
+            exit 0
+          fi
+          npx prisma migrate deploy --schema=./prisma/schema.prisma
 
       - name: Comment on PR
+        # Only run if BRANCH_NAME was written (skipped on fork PRs).
+        if: env.BRANCH_NAME != ''
         uses: actions/github-script@v7
         env:
           MASKED_URI: ${{ env.MASKED_URI }}
@@ -110,11 +221,11 @@ jobs:
             });
 
   # ----------------------------------------------------------------------------
-  # Delete the branch when the PR is closed (merged or not).
+  # Delete the branch when the PR is closed — merged or not.
   # ----------------------------------------------------------------------------
   destroy:
     name: Delete Neon branch
-    if: github.event.action == 'closed'
+    if: github.event_name == 'pull_request' && github.event.action == 'closed'
     runs-on: ubuntu-latest
     steps:
       - name: Delete branch via Neon API
@@ -124,16 +235,135 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           set -euo pipefail
-          BRANCH_NAME="pr-${PR_NUMBER}"
-          branch_id=$(curl -fsS \
-            -H "Authorization: Bearer ${NEON_API_KEY}" \
-            "${{ env.NEON_API_BASE }}/projects/${NEON_PROJECT_ID}/branches" \
-            | jq -r --arg name "$BRANCH_NAME" '.branches[] | select(.name == $name) | .id' | head -1)
-          if [ -z "$branch_id" ]; then
-            echo "No branch named ${BRANCH_NAME} — nothing to delete."
+
+          if [ -z "${NEON_API_KEY:-}" ] || [ -z "${NEON_PROJECT_ID:-}" ]; then
+            echo "::notice::Secrets unavailable (fork PR). Skipping branch deletion."
             exit 0
           fi
-          curl -fsS -X DELETE \
-            -H "Authorization: Bearer ${NEON_API_KEY}" \
-            "${{ env.NEON_API_BASE }}/projects/${NEON_PROJECT_ID}/branches/${branch_id}"
-          echo "Deleted Neon branch ${BRANCH_NAME} (${branch_id})"
+
+          BRANCH_NAME="pr-${PR_NUMBER}"
+
+          neon_api() {
+            local method="$1" path="$2"
+            curl -sS -w '\n%{http_code}' -X "$method" \
+              -H "Authorization: Bearer ${NEON_API_KEY}" \
+              -H "Content-Type: application/json" \
+              "${NEON_API_BASE}/projects/${NEON_PROJECT_ID}${path}"
+          }
+
+          # Find the branch id.
+          raw=$(neon_api GET "/branches")
+          status=$(echo "$raw" | tail -n1)
+          body=$(echo "$raw" | sed '$d')
+
+          if [ "$status" -lt 200 ] || [ "$status" -ge 300 ]; then
+            echo "::error::Failed to list Neon branches: HTTP ${status}"
+            echo "Response body: ${body}"
+            exit 1
+          fi
+
+          branch_id=$(echo "$body" \
+            | jq -r --arg name "$BRANCH_NAME" \
+                '.branches[] | select(.name == $name) | .id' \
+            | head -1)
+
+          if [ -z "$branch_id" ]; then
+            echo "No branch named ${BRANCH_NAME} found — nothing to delete."
+            exit 0
+          fi
+
+          raw=$(neon_api DELETE "/branches/${branch_id}")
+          status=$(echo "$raw" | tail -n1)
+          body=$(echo "$raw" | sed '$d')
+
+          if [ "$status" -lt 200 ] || [ "$status" -ge 300 ]; then
+            echo "::error::Failed to delete Neon branch ${BRANCH_NAME} (${branch_id}): HTTP ${status}"
+            echo "Response body: ${body}"
+            exit 1
+          fi
+
+          echo "Deleted Neon branch ${BRANCH_NAME} (${branch_id})."
+
+  # ----------------------------------------------------------------------------
+  # Scheduled backstop: delete pr-* branches whose PR is no longer open.
+  # Also available via workflow_dispatch for immediate manual cleanup (e.g.
+  # when the branch limit is hit and the 'create' job has printed the prompt).
+  # ----------------------------------------------------------------------------
+  cleanup:
+    name: Cleanup stale Neon branches
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    steps:
+      - name: Delete branches whose PR is closed
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ secrets.NEON_PROJECT_ID }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${NEON_API_KEY:-}" ] || [ -z "${NEON_PROJECT_ID:-}" ]; then
+            echo "::notice::Secrets unavailable — skipping cleanup."
+            exit 0
+          fi
+
+          neon_api() {
+            local method="$1" path="$2"
+            curl -sS -w '\n%{http_code}' -X "$method" \
+              -H "Authorization: Bearer ${NEON_API_KEY}" \
+              -H "Content-Type: application/json" \
+              "${NEON_API_BASE}/projects/${NEON_PROJECT_ID}${path}"
+          }
+
+          raw=$(neon_api GET "/branches")
+          status=$(echo "$raw" | tail -n1)
+          body=$(echo "$raw" | sed '$d')
+
+          if [ "$status" -lt 200 ] || [ "$status" -ge 300 ]; then
+            echo "::error::Failed to list Neon branches for cleanup: HTTP ${status}"
+            echo "Response body: ${body}"
+            exit 1
+          fi
+
+          # Collect all pr-* branches into a tab-separated list.
+          branch_list=$(echo "$body" \
+            | jq -r '.branches[] | select(.name | test("^pr-[0-9]+$")) | [.id, .name] | @tsv')
+
+          if [ -z "$branch_list" ]; then
+            echo "No pr-* branches found — nothing to clean up."
+            exit 0
+          fi
+
+          deleted=0
+          kept=0
+
+          while IFS=$'\t' read -r bid bname; do
+            pr_num="${bname#pr-}"
+
+            # Check if the PR is still open. 'gh api' exits non-zero for closed/
+            # merged PRs on some versions; use || echo "closed" as a safe default.
+            pr_state=$(gh api "repos/${{ github.repository }}/pulls/${pr_num}" \
+              --jq '.state' 2>/dev/null || echo "closed")
+
+            if [ "$pr_state" = "open" ]; then
+              echo "PR #${pr_num} is open — keeping branch ${bname}."
+              kept=$((kept + 1))
+              continue
+            fi
+
+            echo "PR #${pr_num} is ${pr_state} — deleting branch ${bname} (${bid})…"
+            raw2=$(neon_api DELETE "/branches/${bid}")
+            status2=$(echo "$raw2" | tail -n1)
+            body2=$(echo "$raw2" | sed '$d')
+
+            if [ "$status2" -ge 200 ] && [ "$status2" -lt 300 ]; then
+              echo "  Deleted ${bname}."
+              deleted=$((deleted + 1))
+            else
+              echo "::warning::Failed to delete ${bname} (${bid}): HTTP ${status2} — ${body2}"
+            fi
+          done <<< "$branch_list"
+
+          echo "Cleanup complete: ${deleted} deleted, ${kept} kept."

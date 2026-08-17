@@ -1,0 +1,48 @@
+Fix the Neon branch job and make it genuinely idempotent
+
+**Priority:** ORANGE · **App(s):** .github/workflows
+
+```
+CONTEXT
+As Prompt 53. A GitHub Actions job "Create / refresh Neon branch" fails at the step "Create Neon branch (idempotent)" with:
+  curl: (22) The requested URL returned error: 400
+  Error: Process completed with exit code 22.
+
+TWO PROBLEMS. The second is arguably worse than the first.
+
+PROBLEM 1: THE ERROR BODY IS INVISIBLE
+curl is being run with a flag (most likely -f or --fail) that suppresses the response body on an HTTP error, so the Neon API's actual explanation of the 400 is discarded. Nobody can tell why it failed. Fix the diagnostics FIRST, before guessing at the cause.
+1. Replace the bare curl with a form that captures both the body and the status code, for example:
+     response=$(curl -sS -w '\n%{http_code}' -X POST "$NEON_API_URL" \
+       -H "Authorization: Bearer $NEON_API_KEY" \
+       -H "Content-Type: application/json" \
+       -d "$payload")
+     body=$(echo "$response" | sed '$d')
+     status=$(echo "$response" | tail -n1)
+2. On a non-2xx status, echo the status AND the body to the log before exiting non-zero. Redact any token or key from the output.
+3. Never use --fail in a step whose failure you will need to debug.
+
+PROBLEM 2: THE STEP IS NOT ACTUALLY IDEMPOTENT
+It is named idempotent but a 400 suggests otherwise. Establish which of these applies by reading the captured body, then fix accordingly:
+a. BRANCH ALREADY EXISTS. A create call for an existing branch name returns an error rather than succeeding silently. Fix: list branches first, and if one matching the target name exists, reuse it (and reset it to the parent if the job intends a fresh state) rather than creating.
+b. INVALID BRANCH NAME. The branch name may be derived from the PR title or git ref and contain characters Neon rejects. Note that the PR title here is "fix(register): full sign-up error handling overhaul + Playwright tests", which contains parentheses, a colon, spaces and a plus sign. If the name derives from anything other than a sanitised ref, that is the likely cause. Fix: derive the name from the PR NUMBER, which is always safe, for example pr-182, or sanitise aggressively to lowercase alphanumerics and hyphens with a length cap.
+c. BRANCH LIMIT REACHED. Neon plans cap the number of branches. If old PR branches are not being deleted, the limit is eventually hit and every new PR fails. Fix: confirm the "Delete Neon branch" job actually runs on PR close (including when a PR is closed without merging), and add a scheduled cleanup that removes branches older than a set age whose PR is no longer open.
+d. MISSING OR INVALID PARENT. Confirm the parent branch id or name is correct and that the API key has access to the project.
+
+Report which cause applied, based on the captured response body, and fix that one specifically. Do not implement all four blindly.
+
+PREVENTION
+1. Make the step genuinely idempotent: check-then-create-or-reuse, so re-running the workflow on the same PR never fails.
+2. Add a guard that fails with a clear, human-readable message when the branch limit is reached, naming the cleanup step to run, rather than surfacing a raw 400.
+3. Ensure branch cleanup runs on pull_request closed regardless of merged state, and add a scheduled workflow as a backstop.
+4. Add a short comment in the workflow file explaining why --fail is not used, so a future contributor does not reintroduce it for tidiness.
+
+ACCEPTANCE CRITERIA
+- A failing Neon API call prints the HTTP status and the full response body, with secrets redacted.
+- Re-running the workflow on the same PR succeeds rather than 400ing.
+- Branch names are derived from the PR number or an aggressively sanitised ref, and are valid for any PR title.
+- Closing a PR without merging still deletes its branch.
+- Hitting the branch limit produces an actionable message, not a raw curl error.
+
+EDGE CASES: two workflow runs racing on the same PR (the check-then-create is not atomic; handle a create that fails because another run just created it, by falling through to reuse); a PR reopened after its branch was deleted; a fork PR where secrets are unavailable (skip with a clear notice rather than failing).
+```
