@@ -1,0 +1,134 @@
+CONTEXT
+Feastpot Turborepo monorepo. apps/admin is a Next.js 15 App Router admin panel. apps/api is NestJS 11. Prisma against Supabase Postgres. Stripe Connect for payments. packages/config exports PLATFORM_FACTS, packages/ui exports shared components, packages/types exports Zod schemas and re-exported Prisma types. UK English. Never use an em dash or a double hyphen used as a dash anywhere.
+
+THIS IS A READ-ONLY AUDIT. Do not write, edit, delete or refactor any code. Do not add stubs, TODOs or placeholder implementations. Do not "fix while you are there". Your only output is a report. If you find something alarming, report it prominently rather than repairing it.
+
+EVIDENCE RULE: every verdict must cite at least one file path, and where useful a line range. A verdict with no cited evidence is not acceptable. Where you cannot determine something without running the app, say so explicitly and state the exact manual check required. Never infer that a feature works from its presence in navigation, marketing copy, seed data, a comment, or a type definition.
+
+=====================================================================
+PHASE 0: INVENTORY
+=====================================================================
+1. Enumerate every route under apps/admin/src/app, with its path, whether it is a Server or Client Component, and one line on its apparent purpose.
+2. Enumerate every API endpoint the admin app calls, and separately every endpoint in apps/api that appears admin-only (search for admin guards, role checks, or an admin module). Note any admin endpoint that no admin UI calls, and any admin UI that calls an endpoint that does not exist.
+3. List every component under apps/admin/src/components (or equivalent), noting which are used and which are orphaned.
+4. Report the admin app's dependency list and flag anything unexpected for an internal tool.
+
+=====================================================================
+PHASE 1: ACCESS CONTROL AND SECURITY (do this before anything else)
+=====================================================================
+The admin panel can presumably approve vendors, issue refunds, read customer data, create discount codes and suspend accounts. It is the highest-value target in the product. Audit it as such.
+
+1. AUTHENTICATION. The apps/admin root layout is understood to be a bare shell of roughly 30 lines containing only html, body, QueryProvider, Toaster, Analytics and SpeedInsights, with no nav and no visible auth wrapper. Determine precisely how an unauthenticated visitor is prevented from loading an admin route. Check for middleware.ts, a layout-level guard, per-page server-side checks, or an API-level guard. Report the mechanism, or report plainly that there is none.
+2. AUTHORISATION. Determine how a signed-in but non-admin user (a customer or a vendor) is prevented from using admin functions. Is there a role claim, a database role table, an allowlist? Is it checked on the client, the server, or both? A client-only check is not a control.
+3. API-LEVEL ENFORCEMENT. For every admin endpoint found in Phase 0, state whether it independently verifies the caller is an admin, or whether it trusts the caller because the request came from the admin app. Test the assumption: could the endpoint be called directly with a normal user's token? Report each endpoint as GUARDED or UNGUARDED with the file and line of the guard.
+4. RLS INTERACTION. Determine whether admin reads and writes go through the service_role key (bypassing RLS entirely) or the user's own token. If service_role is used, confirm it is only ever used server-side and never reaches the client bundle. Grep the built output for the service key pattern and report the result.
+5. AUDIT TRAIL. Determine whether consequential admin actions (suspending a vendor, issuing a refund, changing a discount code, approving an application, editing verification state) record who did them and when. Report which actions are logged and which are not. An admin panel without an audit trail is a problem in its own right.
+6. DESTRUCTIVE ACTIONS. List every admin action that moves money, suspends an account, or deletes data, and state for each whether it has a confirmation step and whether it is reversible.
+
+Report Phase 1 findings FIRST in your summary, before any feature verdicts. If you find an unguarded admin endpoint or a service key exposed client-side, say so in the first paragraph.
+
+=====================================================================
+PHASE 2: FEATURE VERDICTS
+=====================================================================
+For each capability below, and any others you discover, assign exactly one verdict:
+
+  SHIPPED     UI, API and data layer are connected, reachable by a real admin action, AND covered by a passing automated test.
+  WORKING     As SHIPPED but with no automated test coverage.
+  PARTIAL     Some layer exists but is not connected end to end, for example a UI control with no backend behind it, a service never called, or a hardcoded or mocked response.
+  STUBBED     Present only as a comment, TODO, or unused scaffold.
+  MISSING     Not found anywhere.
+
+For each, report: verdict, evidence (file paths), what is missing if not SHIPPED, test coverage, and whether an admin could rely on it today.
+
+CAPABILITIES TO ASSESS
+A. Vendor lifecycle
+   A1 Review and approve or reject vendor applications
+   A2 Set referredByVendorId on approval (known to be unwired; confirm and cite)
+   A3 Suspend, restrict, reinstate a vendor
+   A4 Written statement of reasons and appeal handling (vendor terms clauses 14.1 and 18.1)
+   A5 Edit vendor verification state, and whether a change notifies the vendor
+B. Compliance
+   B1 Verification triage list. Known to have three hard-coded sections (not set up, renewal due, suspended) with VERIFIED omitted entirely. Confirm, and state whether the counts reconcile to the total vendor population
+   B2 Document review, expiry tracking, FHRS rating handling
+   B3 Filtering, search, and pagination on the triage list
+C. Orders and money
+   C1 View and search orders across all vendors
+   C2 Intervene in an order: cancel, amend, reassign
+   C3 Issue a full or partial refund, and whether commission reverses proportionally
+   C4 Dispute and chargeback handling, including the response deadline
+   C5 Payout visibility, failed payout handling, manual retry
+   C6 Catering enquiry routing to vendors (the vendor-side empty state says "When admin routes a catering enquiry to you", so this workflow exists somewhere; find it)
+D. Commercial controls
+   D1 Discount code creation and editing
+   D2 Setting fundedBy (PLATFORM or VENDOR) on a discount code (known to be absent; confirm)
+   D3 Founding allowance visibility and adjustment
+   D4 FeastPass membership administration
+E. Communications
+   E1 Push notification broadcast compose
+   E2 Email and WhatsApp test send endpoint (understood to exist around apps/api/src/modules/admin/admin.controller.ts lines 667 to 729; confirm and state whether it is production-safe)
+   E3 Any customer or vendor messaging capability
+F. Operations
+   F1 Bull queue visibility and dead-letter handling
+   F2 System health, error monitoring, alerting surfaces
+   F3 User administration: search a customer, view their orders, handle a data request
+G. Navigation and usability
+   G1 How does an admin move between pages? The root layout reportedly has no nav. Report whether navigation exists, and if not, how routes are reached
+   G2 Whether the admin app shares the design system in packages/ui or has diverged
+
+=====================================================================
+PHASE 3: EVERY CONTROL HAS AN OBSERVABLE EFFECT
+=====================================================================
+Four features in this product have been found that render and do nothing. Apply the generalised check here.
+
+Enumerate every interactive control in apps/admin: every button, toggle, filter, dropdown, form field and bulk action. For each, trace whether changing it produces an observable, correct consequence: a state change, an API call that reaches a real handler, a database write, or a visible UI update driven by real data.
+
+Produce a table: control | location | traced effect | verdict (REAL, NO-OP, UNTRACEABLE WITHOUT RUNNING).
+
+Name every NO-OP explicitly. This list is the most valuable output of the audit.
+
+=====================================================================
+PHASE 4: PERFORMANCE
+=====================================================================
+The database is currently near-empty, so nothing will feel slow today. Assess against realistic future volumes: 500 vendors, 50,000 orders, 200,000 order items, 20,000 customers.
+
+1. PAGINATION. For every admin list view, determine whether it paginates server-side, paginates client-side after fetching everything, or fetches everything with no pagination at all. A list that does findMany with no take will eventually time out. Report each list with its current behaviour.
+2. N+1 QUERIES. Inspect every admin data path for queries inside loops, or Prisma calls lacking include or select where a relation is then accessed per row. Cite each instance.
+3. OVER-FETCHING. Identify queries selecting whole rows where a handful of columns are displayed, particularly on tables with large text or JSON columns.
+4. INDEXES. For every column used in an admin WHERE, ORDER BY or JOIN, check whether prisma/schema.prisma declares an index. List columns that are filtered or sorted but unindexed. Pay attention to status enums, created_at ordering, and any foreign key used for admin filtering.
+5. AGGREGATES. Identify any count or sum computed by fetching rows and counting in JavaScript rather than in the database.
+6. CLIENT BUNDLE. Report the admin app's bundle size, any large dependency, and whether heavy components are dynamically imported. An internal tool can tolerate a larger bundle than a customer app, so weight this finding accordingly rather than treating it as critical.
+7. RENDERING. Identify lists rendered without virtualisation that could exceed a few hundred rows, and any component re-rendering on every keystroke of a search field with no debounce.
+8. REALTIME AND POLLING. Identify any polling interval or realtime subscription, and state its cost at scale.
+
+For each finding, state the volume at which it becomes a real problem, so the list can be prioritised rather than treated as uniformly urgent.
+
+=====================================================================
+PHASE 5: GAP ANALYSIS
+=====================================================================
+1. From the capability list in Phase 2, produce the MISSING and STUBBED items as a prioritised backlog, each with a one-line statement of what an admin currently cannot do because of it.
+2. Separately, think about what a marketplace operator needs day to day that is NOT in the capability list above and NOT in the codebase. Consider at minimum: handling a customer complaint about a specific order; responding to a food safety incident and taking a vendor offline immediately; a GDPR data access or deletion request; reconciling a Stripe payout against platform records; investigating why a vendor is not appearing in search; issuing goodwill credit; and bulk-communicating with vendors in one postcode. Report which of these an admin could accomplish today, and how.
+3. Cross-reference against the known open backlog items where you can identify them in the codebase, and flag any that appear already done or already superseded.
+
+=====================================================================
+OUTPUT FORMAT
+=====================================================================
+A single markdown report:
+1. HEADLINE FINDINGS. Any security or access-control problem first, then any NO-OP controls, then the most consequential gaps. Maximum ten bullets.
+2. Phase 1 security table.
+3. Phase 2 capability table: capability | verdict | evidence | test coverage | can an admin rely on it today.
+4. Phase 3 control table, with NO-OPs listed separately and prominently.
+5. Phase 4 performance table: finding | location | volume at which it bites | severity.
+6. Phase 5 gap backlog, prioritised, each with the operational consequence.
+7. WHAT I COULD NOT DETERMINE: everything requiring a running app, real data, or dashboard access, with the exact manual check needed for each.
+
+ACCEPTANCE CRITERIA
+- No source file is modified, added or deleted.
+- Every verdict cites at least one file path.
+- Phase 1 findings appear before feature verdicts.
+- Every interactive control in apps/admin appears in the Phase 3 table.
+- Ambiguous cases are reported as PARTIAL or UNTRACEABLE with the manual check stated, never guessed into SHIPPED or MISSING.
+- The report distinguishes SHIPPED (tested) from WORKING (untested) throughout; do not collapse them.
+
+EDGE CASES: a capability implemented in apps/api but with no admin UI (report as PARTIAL with the gap named); a capability present in the admin UI but calling an endpoint that does not exist (report as PARTIAL, and flag prominently since it will fail at runtime); a feature behind a feature flag (report the flag and its default); code that appears unused but is called dynamically (say so rather than declaring it dead).
+
+STYLE: UK English. No em dashes. Report findings plainly. If the admin layer is in worse shape than expected, say so directly rather than softening it.
