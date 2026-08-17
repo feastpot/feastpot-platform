@@ -265,19 +265,43 @@ function SignInPane({ onSwitchToRegister }: { onSwitchToRegister: () => void }) 
   const [rememberMe, setRememberMe] = useState(true);
   const [magicSending, setMagicSending] = useState(false);
   const [magicSentTo, setMagicSentTo] = useState<string | null>(null);
+  // D3: unconfirmed account state - shown when Supabase returns email_not_confirmed.
+  const [unconfirmedEmail, setUnconfirmedEmail] = useState<string | null>(null);
+  const [resendingConfirm, setResendingConfirm] = useState(false);
+  const [resendConfirmSent, setResendConfirmSent] = useState(false);
 
   const form = useForm<LoginDto>({
     resolver: zodResolver(LoginSchema),
     defaultValues: { email: '', password: '' },
   });
 
+  const handleResendConfirmation = async () => {
+    if (!unconfirmedEmail) return;
+    setResendingConfirm(true);
+    const supabase = createClient();
+    await supabase.auth.resend({
+      type: 'signup',
+      email: unconfirmedEmail,
+      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+    });
+    setResendingConfirm(false);
+    setResendConfirmSent(true);
+  };
+
   const onSubmit = async (values: LoginDto) => {
     setServerError(null);
+    setUnconfirmedEmail(null);
+    setResendConfirmSent(false);
     setSubmitting(true);
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithPassword(values);
     if (error) {
-      setServerError('Invalid email or password. Please try again.');
+      const code = (error as { code?: string }).code;
+      if (code === 'email_not_confirmed') {
+        setUnconfirmedEmail(values.email);
+      } else {
+        setServerError('Invalid email or password. Please try again.');
+      }
       setSubmitting(false);
       return;
     }
@@ -358,6 +382,31 @@ function SignInPane({ onSwitchToRegister }: { onSwitchToRegister: () => void }) 
           className="mt-4 rounded-lg bg-scotch/10 px-3 py-2.5 text-sm font-medium text-scotch"
         >
           {serverError}
+        </div>
+      )}
+
+      {unconfirmedEmail && (
+        <div
+          role="alert"
+          className="mt-4 space-y-2 rounded-lg bg-amber-50 px-3 py-2.5 text-sm font-medium text-amber-900"
+        >
+          <p>
+            Your email address{' '}
+            <strong className="break-all font-bold">{unconfirmedEmail}</strong> has not been
+            confirmed yet. Check your inbox for the confirmation link.
+          </p>
+          {resendConfirmSent ? (
+            <p className="font-semibold text-brand">Confirmation email resent. Check your inbox.</p>
+          ) : (
+            <button
+              type="button"
+              onClick={handleResendConfirmation}
+              disabled={resendingConfirm}
+              className="font-semibold underline hover:no-underline disabled:opacity-60"
+            >
+              {resendingConfirm ? 'Sending...' : 'Resend confirmation email'}
+            </button>
+          )}
         </div>
       )}
 

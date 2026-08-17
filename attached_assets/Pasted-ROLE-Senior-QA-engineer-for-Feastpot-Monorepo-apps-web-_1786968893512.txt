@@ -1,0 +1,130 @@
+ROLE: Senior QA engineer for Feastpot. Monorepo: apps/web (Next.js 15, feastpot.co.uk),
+apps/vendor (vendor.feastpot.co.uk), apps/api (NestJS 11). Auth: Supabase Auth
+(email/password, Google OAuth, Apple OAuth). UK English. No em dashes.
+
+PRIORITY: RED. GOAL: Build a Playwright end-to-end suite PLUS a documented manual
+protocol that exercises every authentication permutation and asserts explicit pass
+criteria per case. Put Playwright specs in apps/web/e2e/auth/ and a MANUAL-AUTH-TESTS.md
+runbook at the repo root. Use a dedicated Supabase test project or test users; never run
+destructive tests against production data. Read Supabase test credentials from env.
+
+KNOWN SUPABASE BEHAVIOURS TO ASSERT AGAINST (verified 2025-2026):
+- signUp for an EXISTING CONFIRMED user returns an obfuscated user with an EMPTY
+  identities array (data.user.identities.length === 0) and NO session, and sends no
+  email. This is the enumeration-safe path.
+- signUp for an existing UNCONFIRMED user returns a NON-empty identities array and may
+  resend confirmation; note that the password can be overwritten in this state, so treat
+  it as a security-sensitive case.
+- On the DEFAULT email service, signUp to a non-team address throws 400
+  email_address_not_authorized. On custom SMTP this does not apply.
+- PKCE code verifier is stored in the originating browser only; opening the confirmation
+  link on another device/browser fails with a missing-code-verifier error. The auth code
+  is valid 5 minutes and single-use.
+- Confirmation/magic links can be consumed by email scanners (Outlook Safe Links) unless
+  protected by a URL-fragment interstitial.
+
+TEST MATRIX (implement each as a Playwright test where automatable, else as a manual
+step in MANUAL-AUTH-TESTS.md with explicit pass criteria):
+
+A. EMAIL/PASSWORD SIGN-UP
+  A1 New user sign-up: shows "Check your email"; a confirmation email is received at a
+     mailbox you can read via API (use a Mailosaur/Mailpit/Inbucket test inbox, NOT a
+     real @feastpot.co.uk address). PASS: email arrives within 60s with a working link.
+  A2 Existing CONFIRMED user sign-up: assert identical UI response and that
+     data.user.identities.length === 0 and no new email is sent. PASS: response and
+     screen are indistinguishable from A1.
+  A3 Existing UNCONFIRMED user sign-up: assert confirmation is (re)sent and identities is
+     non-empty; assert the app does NOT silently overwrite the password without warning.
+  A4 ENUMERATION SAFETY: measure server response time and body for A1 vs A2 across 20
+     runs each. PASS: no statistically material timing difference (assert median delta
+     under 150ms) and byte-identical user-facing responses. No field reveals existence.
+
+B. CONFIRMATION LINK STATES
+  B1 Valid link, same device/browser: completes account creation, session established.
+  B2 Expired link: assert graceful "link expired" screen with a resend option.
+  B3 Reused link (click twice): second use fails cleanly; no session leak.
+  B4 Tampered link (mutate token/token_hash): fails with generic error, no stack trace.
+  B5 CROSS-DEVICE PKCE: initiate sign-up in browser context 1, extract the link, open it
+     in a fresh browser context 2 with no shared storage. PASS: fails with a
+     code-verifier-missing error AND the UI explains "open on the same device", not a raw
+     error. Document that this is expected PKCE behaviour.
+  B6 SCANNER PREFETCH: simulate a scanner by issuing a GET/HEAD to the raw link URL
+     BEFORE the user click (mimicking Outlook Safe Links), then have the user click.
+     PASS: with the fragment-interstitial in place, the human click still succeeds
+     because the token was in the fragment and was not consumed by the prefetch.
+
+C. RESEND CONFIRMATION AND COOLDOWN
+  C1 Resend confirmation: works and delivers a fresh link.
+  C2 Cooldown: rapid repeated resends hit the rate limit; assert a 429
+     over_email_send_rate_limit is surfaced as a friendly "please wait" message.
+
+D. SIGN-IN
+  D1 Correct password, confirmed account: signs in, session cookie set.
+  D2 Incorrect password: generic "invalid credentials" error, no enumeration.
+  D3 Unconfirmed account sign-in: blocked with a clear "confirm your email" message and
+     a resend option.
+  D4 Non-existent account: identical error and timing to D2 (enumeration safety).
+
+E. PASSWORD RESET
+  E1 Full journey: request reset, receive email, open link (same device), set new
+     password, sign in with new password. PASS end to end.
+  E2 Reset for a non-existent email: identical enumeration-safe response; no email.
+  E3 Reset link scanner prefetch and cross-device: same assertions as B5/B6.
+
+F. RATE LIMITING (assert per endpoint)
+  F1 Sign-up, sign-in, OTP verify, resend, and password-reset endpoints each return 429
+     under sustained load and recover after the window. Document the configured limits
+     (default custom-SMTP email limit is 30/hour; adjust in Authentication > Rate Limits).
+
+G. OAUTH
+  G1 Google new user: completes, user and identity created.
+  G2 Google existing email (identity linking): signing in with Google for an email that
+     already exists as email/password links identities to ONE user (automatic linking
+     requires the existing email to be confirmed). Assert a single user_id results.
+  G3 OAuth cancelled: user cancels at the provider; app returns to sign-in with a
+     friendly message, no partial session.
+  G4 Apple new user.
+  G5 Apple Private Relay (@privaterelay.appleid.com): assert the account is created and
+     note the known Supabase risk that an Apple relay identity plus a standard-email
+     identity for the same human can produce a 500 "Multiple accounts with the same
+     email" during token exchange. Document this and assert your app handles it without a
+     white-screen.
+  G6 Assert Google and Apple buttons that render but are NOT configured fail gracefully
+     with a clear message rather than a provider error page.
+
+H. SESSION LIFECYCLE
+  H1 Session persistence across reload: session survives a full page refresh.
+  H2 Token refresh: expired access token is refreshed via the refresh token without
+     forcing re-login.
+  H3 Sign-out: clears the session everywhere; protected routes redirect to sign-in.
+  H4 Multi-tab: signing out in one tab invalidates other tabs (assert via onAuthStateChange).
+
+I. CROSS-SUBDOMAIN SESSION ISOLATION (critical, apps/web vs apps/vendor)
+  I1 Determine the current cookie scope: inspect the @supabase/ssr client config in both
+     apps/web and apps/vendor for cookieOptions.domain. Report whether it is host-only
+     (default) or set to ".feastpot.co.uk".
+  I2 DESIRED STATE ASSERTION: a customer session created on feastpot.co.uk must NOT grant
+     an authenticated session on vendor.feastpot.co.uk, and vice versa. Sign in on
+     feastpot.co.uk, then load vendor.feastpot.co.uk in the same browser context. PASS:
+     the vendor app treats the user as unauthenticated (no shared auth cookie).
+  I3 If cookieOptions.domain is set to ".feastpot.co.uk" in either app, FLAG IT as a
+     defect: it would cause customer and vendor sessions to collide on the shared parent
+     domain. Recommend host-only cookies (leave domain unset) OR distinct cookie names
+     per app (e.g. sb-feastpot-web vs sb-feastpot-vendor) so the two portals cannot
+     read each other's session.
+  I4 Verify a signed-in vendor visiting feastpot.co.uk and a signed-in customer visiting
+     vendor.feastpot.co.uk each get their own correct, separate session state.
+
+DELIVERABLES:
+- Playwright specs under apps/web/e2e/auth/ with one describe block per matrix section.
+- A helper for reading test inboxes via API (Mailosaur or a local Inbucket/Mailpit).
+- MANUAL-AUTH-TESTS.md documenting every non-automatable case (OAuth provider consent,
+  Apple Private Relay, real scanner behaviour) with explicit PASS/FAIL criteria.
+- A summary table mapping each matrix ID to automated vs manual and current pass state.
+
+ACCEPTANCE CRITERIA:
+- Every matrix row has either a passing Playwright test or a documented manual result.
+- Enumeration-safety cases (A4, D2/D4, E2) assert identical response body and timing.
+- B5 (cross-device PKCE), B6 (scanner prefetch), and I2/I3 (subdomain isolation) each
+  have explicit assertions and pass.
+- No test targets production user data; all use test users/projects.
