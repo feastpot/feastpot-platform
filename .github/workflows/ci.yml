@@ -153,6 +153,12 @@ jobs:
             echo "Use a specific error code in AUTH_ERROR_MAP (apps/web/src/lib/auth/auth-errors.ts) instead."
             exit 1
           fi
+      - name: Refund-path invariant guard
+        # Ensures all Stripe refund SDK calls are inside StripeService, and all
+        # this.stripe.refund() calls are inside PaymentsService only.  Any new
+        # direct refund path bypasses commission reversal, allowance restoration,
+        # the Refund record, and the AuditLog - this guard prevents the regression.
+        run: node scripts/check-refund-paths.mjs
 
   # ----------------------------------------------------------------------------
   # 4. Prisma schema validation, format check, and drift gate.

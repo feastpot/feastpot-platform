@@ -808,6 +808,27 @@ export class PaymentsService {
         }
         // Audit record is atomic with the money rows: a refund can no longer
         // commit without its permanent reconciliation trail.
+        // Restore founding allowance proportionally. The order consumed
+        // foundingAllowanceAppliedPence at creation time; returning those pence
+        // lets the vendor re-use the allowance on a future order rather than
+        // permanently burning it on an order that was refunded.
+        //
+        // This update is inside the same transaction as the refund/credit rows
+        // and the audit log so all three commit together or not at all (D-002).
+        // `decrement` is an atomic SQL expression (x = x - n) so no advisory
+        // lock is needed here - unlike the consumption path, we are not doing a
+        // read-modify-write cycle that could race against another decrement.
+        const allowanceRestoredPence =
+          order.foundingAllowanceAppliedPence > 0
+            ? Math.round(split.refundFraction * order.foundingAllowanceAppliedPence)
+            : 0;
+        if (allowanceRestoredPence > 0) {
+          await tx.vendor.update({
+            where: { id: order.vendorId },
+            data: { foundingAllowanceUsedPence: { decrement: allowanceRestoredPence } },
+          });
+        }
+
         await tx.auditLog.create({
           data: {
             actorId: authorisedBy.id,
@@ -826,10 +847,7 @@ export class PaymentsService {
               // refund's side effects precisely (see compensateFailedRefund).
               refundPaymentId: row.id,
               previousOrderStatus: order.status,
-              allowanceRestoredPence:
-                order.foundingAllowanceAppliedPence > 0
-                  ? Math.round(split.refundFraction * order.foundingAllowanceAppliedPence)
-                  : 0,
+              allowanceRestoredPence,
               reasonCode: opts?.reasonCode ?? null,
               note: opts?.note ?? null,
               // Deterministic request key: lets a retry resolve this attempt
@@ -890,25 +908,8 @@ export class PaymentsService {
       }),
     ]);
 
-    // Restore founding allowance proportionally. The order consumed
-    // foundingAllowanceAppliedPence when it was created; returning those pence
-    // lets the vendor re-use the allowance on a future order rather than
-    // permanently burning it on an order that never completed.
-    if (order.foundingAllowanceAppliedPence > 0) {
-      const restorePence = Math.round(split.refundFraction * order.foundingAllowanceAppliedPence);
-      if (restorePence > 0) {
-        await this.prisma.vendor
-          .update({
-            where: { id: order.vendorId },
-            data: { foundingAllowanceUsedPence: { decrement: restorePence } },
-          })
-          .catch((e: unknown) => {
-            this.logger.error(
-              `founding allowance restore failed for vendor=${order.vendorId} orderId=${dto.orderId}: ${String(e)}`,
-            );
-          });
-      }
-    }
+    // Founding-allowance restoration is now inside runLedgerTx() (D-002 fix).
+    // It commits atomically with the refund row, credit rows, and audit log.
 
     // If this was a full refund that leaves the vendor with zero completed
     // orders, reverse any referral top-up that was granted when the order

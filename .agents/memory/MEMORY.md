@@ -44,6 +44,8 @@
 - [Queue clearing safety](queue-clearing-safety.md) - outbox row deleted on queue.add() success; cleared failed jobs have no outbox safety net; bulk --apply only after individual dead-letter review.
 - [Payout transfer retry](payout-transfer-retry.md) - approvePayout enqueues Bull job (not inline Stripe); executeTransfer classifies transient vs terminal; idempotency key prevents double-pay.
 - [Vendor enforcement](vendor-enforcement.md) - @Global VendorEnforcementModule; suspendVendor() removed from verification service, all suspensions go through createAutomatedSuspension(); CurrentUser from auth/decorators/current-user.decorator; facts field needs `as Prisma.InputJsonValue` cast.
+- [Seed ItemCategory fix](seed-itemcategory-fix.md) - ItemCategory not a Prisma enum (plain varchar); define locally; 2b cleanup must precede 2c/2d/2e; seedTerms references old `summary` column.
+- [Audit defects Aug 2026](audit-defects-2026-08-18.md) - D-001 status-override bypasses refund ledger; D-002 allowance restoration non-atomic; D-003 calculate() ignores discounts.
 - [Dispute appeals](dispute-appeals.md) - Two-stage appeal; stage2 reviewer must !== stage1 (SAME_REVIEWER); upheld stage2 auto-reverses payout deduction; "decision is final" grep test must exclude *.spec.ts or it finds itself.
 - [P3009 migration recovery](p3009-migration-recovery.md) - two patterns: objects absent (fix SQL + mark rolled-back); objects exist (mark applied); psql UPDATE is the reliable fallback when prisma migrate resolve targets wrong DB.
 - [Platform facts](platform-facts.md) - PLATFORM_FACTS in packages/config/src/platform-facts.ts is the single source of truth for all commercial/support facts; consistency test at apps/api/src/platform-facts.spec.ts fails CI on drift.
@@ -58,3 +60,4 @@
 - [Prettier full-repo formatting](prettier-full-repo.md) — must cover all workspaces (admin, vendor e2e, web e2e, docs); verification-banner-mocks.ts is in .prettierignore (JSDoc parse error).
 - [Admin panel audit](admin-panel-audit.md) — live findings: 2FA not enforced; no debounce on search; commission-rates used wrong API URL (fixed); platform defaults 12%/weekly/GBP; admin client components must import API_URL from @/lib/env.
 - [Admin 2FA enforcement](admin-2fa-enforcement.md) — 3-layer gate (middleware/server-gate/AalGuard); two modes on /settings/2fa (enrol vs challenge); factor removal has up to 1h downgrade lag; flag = ADMIN_REQUIRE_AAL2.
+- [AuditLog action names](audit-log-action-names.md) — canonical action strings for vendor-status + order-override paths; actorId=null for automated; same-transaction rule; historical gap not backfilled.

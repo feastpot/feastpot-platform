@@ -57,6 +57,7 @@ import {
   type JoinedRange,
   type StaffRoleValue,
 } from '@/hooks/use-admin-users';
+import { useDebounce } from '@/hooks/use-debounce';
 import { useDownloadCsv } from '@/hooks/use-download-csv';
 import { formatDate, formatPence } from '@/lib/format';
 
@@ -154,7 +155,11 @@ export function UsersClient({ currentUserId, role }: UsersClientProps) {
   const cursor = cursorStack[cursorStack.length - 1] ?? null;
   const pageIndex = cursorStack.length - 1;
 
-  const list = useAdminUsersList({ ...filters, cursor, limit: PAGE_LIMIT });
+  // Debounce the full filter object so per-keystroke changes don't each fire a
+  // fetch. The raw `filters` keeps inputs instantly responsive; only the query
+  // key is held back. Cursor is passed separately so pagination is immediate.
+  const debouncedFilters = useDebounce(filters);
+  const list = useAdminUsersList({ ...debouncedFilters, cursor, limit: PAGE_LIMIT });
   const downloadCsv = useDownloadCsv();
 
   function exportCsv() {

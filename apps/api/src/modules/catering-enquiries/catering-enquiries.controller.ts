@@ -1,12 +1,27 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { UserRole } from '@prisma/client';
 
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { Public } from '../../auth/decorators/public.decorator';
 import { Roles } from '../../auth/decorators/roles.decorator';
+import { RolesGuard } from '../../auth/guards/roles.guard';
+import { SupabaseAuthGuard } from '../../auth/guards/supabase-auth.guard';
+import type { AuthUser } from '../../auth/types';
 
 import { CateringEnquiriesService } from './catering-enquiries.service';
+import { AssignCateringEnquiryDto } from './dto/assign-catering-enquiry.dto';
 import { CreateCateringEnquiryDto } from './dto/create-catering-enquiry.dto';
 
 @ApiTags('CateringEnquiries')
@@ -24,7 +39,7 @@ export class CateringEnquiriesController {
 
   @Get()
   @Roles(UserRole.admin, UserRole.support)
-  @ApiOperation({ summary: 'Admin: list catering enquiries' })
+  @ApiOperation({ summary: 'Admin: list catering enquiries (includes booking if assigned)' })
   list(
     @Query('status') status?: string,
     @Query('cursor') cursor?: string,
@@ -52,5 +67,46 @@ export class CateringEnquiriesController {
     @Body() body: { status: string; adminNotes?: string },
   ) {
     return this.enquiries.updateStatus(id, body.status, body.adminNotes);
+  }
+
+  // ── Admin: assign to a vendor ──────────────────────────────────────────────
+
+  @Post(':id/assign')
+  @UseGuards(SupabaseAuthGuard, RolesGuard)
+  @Roles(UserRole.admin, UserRole.support)
+  @ApiOperation({ summary: 'Admin: assign a NEW/UNASSIGNED enquiry to a vendor' })
+  assign(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: AssignCateringEnquiryDto,
+    @CurrentUser() actor: AuthUser,
+  ) {
+    return this.enquiries.assignEnquiry(id, dto, actor.id);
+  }
+
+  // ── Admin: reassign to a different vendor ──────────────────────────────────
+
+  @Post(':id/reassign')
+  @UseGuards(SupabaseAuthGuard, RolesGuard)
+  @Roles(UserRole.admin, UserRole.support)
+  @ApiOperation({
+    summary:
+      'Admin: reassign an ASSIGNED enquiry to a different vendor (only before vendor quotes)',
+  })
+  reassign(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: AssignCateringEnquiryDto,
+    @CurrentUser() actor: AuthUser,
+  ) {
+    return this.enquiries.reassignEnquiry(id, dto, actor.id);
+  }
+
+  // ── Admin: search eligible vendors for this enquiry ────────────────────────
+
+  @Get(':id/eligible-vendors')
+  @UseGuards(SupabaseAuthGuard, RolesGuard)
+  @Roles(UserRole.admin, UserRole.support)
+  @ApiOperation({ summary: 'Admin: list live catering-capable vendors, with area coverage signal' })
+  eligibleVendors(@Param('id', new ParseUUIDPipe()) id: string, @Query('q') q?: string) {
+    return this.enquiries.eligibleVendors(id, q);
   }
 }

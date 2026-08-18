@@ -21,6 +21,8 @@ import { CancelCateringBookingDto } from './dto/cancel-catering-booking.dto';
 import { ConfirmBalanceDto } from './dto/confirm-balance.dto';
 import { ConfirmDepositDto } from './dto/confirm-deposit.dto';
 import { CreateCateringBookingDto } from './dto/create-catering-booking.dto';
+import { DeclineCateringBookingDto } from './dto/decline-catering-booking.dto';
+import { FillCateringQuoteDto } from './dto/fill-catering-quote.dto';
 
 @Controller({ path: 'catering-bookings', version: '1' })
 export class CateringBookingsController {
@@ -118,6 +120,32 @@ export class CateringBookingsController {
       cursor,
       limit: limit ? parseInt(limit, 10) : undefined,
     });
+  }
+
+  // ── Vendor: decline an assignment (ASSIGNED -> CANCELLED) ─────────────────
+
+  @Post(':id/decline')
+  @UseGuards(SupabaseAuthGuard, RolesGuard)
+  @Roles(UserRole.vendor, UserRole.admin, UserRole.support)
+  declineAssignment(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: DeclineCateringBookingDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.service.declineAssignment(id, user, dto.reason);
+  }
+
+  // ── Vendor: fill in a quote on an ASSIGNED booking (ASSIGNED -> QUOTED) ───
+
+  @Post(':id/fill-quote')
+  @UseGuards(SupabaseAuthGuard, RolesGuard)
+  @Roles(UserRole.vendor)
+  fillQuote(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: FillCateringQuoteDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.service.fillQuote(id, user, dto);
   }
 
   // ── Auth: get by id ────────────────────────────────────────────────────────

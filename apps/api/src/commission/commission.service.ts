@@ -173,16 +173,38 @@ export class CommissionService {
   }
 
   /**
-   * Re-calculate and persist commission for an existing order using its
-   * immutable OrderAttribution. Idempotent (upsert). Used for backfill.
+   * Re-calculate and persist commission for an existing order using its stored
+   * order fields and OrderAttribution. Idempotent (upsert). Used for backfill.
+   *
+   * @param orderId - The order to recompute commission for.
+   * @param dryRun  - Default TRUE. When true, logs what would change without
+   *                  writing. Pass `false` explicitly to actually upsert.
+   *                  A backfill that writes by default is how correct data
+   *                  gets destroyed; always verify with a dry run first.
+   *
+   * @returns A summary object describing the outcome for this order.
    */
-  async calculate(orderId: string): Promise<void> {
+  async calculate(
+    orderId: string,
+    dryRun = true,
+  ): Promise<{
+    orderId: string;
+    action: 'no_change' | 'would_update' | 'updated';
+    currentCommissionPence: number | null;
+    computedCommissionPence: number;
+    dryRun: boolean;
+  }> {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
       select: {
         subtotalPence: true,
+        deliveryFeePence: true,
+        discountPence: true,
+        discountFundedBy: true,
+        foundingAllowanceAppliedPence: true,
         createdAt: true,
         attribution: { select: { source: true, isFirstOrder: true } },
+        commission: { select: { commissionPence: true } },
       },
     });
     if (!order) throw new NotFoundException({ code: 'ORDER_NOT_FOUND' });
@@ -191,7 +213,35 @@ export class CommissionService {
     const isFirstOrder = order.attribution?.isFirstOrder ?? true;
 
     const rate = await this.resolveRate(source, isFirstOrder, order.createdAt);
-    const commissionPence = this.computePence(order.subtotalPence, rate.ratePercent);
+
+    // Replicate the live engine formula exactly (same as computeCommission in
+    // orders.service.ts). Use stored discountFundedBy and
+    // foundingAllowanceAppliedPence so the result is correct for vendor-funded
+    // discount orders and orders that consumed founding allowance.
+    const commissionBasis =
+      order.discountFundedBy === DiscountFundedBy.VENDOR && order.discountPence > 0
+        ? Math.max(0, order.subtotalPence - order.discountPence)
+        : order.subtotalPence;
+    const chargeableBasis = Math.max(
+      0,
+      commissionBasis - (order.foundingAllowanceAppliedPence ?? 0),
+    );
+    const computedCommissionPence = Math.round(
+      (chargeableBasis * rate.ratePercent.toNumber()) / 100,
+    );
+
+    const currentCommissionPence = order.commission?.commissionPence ?? null;
+    const hasChange =
+      currentCommissionPence === null || currentCommissionPence !== computedCommissionPence;
+
+    if (dryRun) {
+      const action = hasChange ? 'would_update' : 'no_change';
+      this.logger.log(
+        `[backfill dry-run] orderId=${orderId} current=${currentCommissionPence ?? 'none'} ` +
+          `computed=${computedCommissionPence} action=${action}`,
+      );
+      return { orderId, action, currentCommissionPence, computedCommissionPence, dryRun: true };
+    }
 
     await this.prisma.orderCommission.upsert({
       where: { orderId },
@@ -199,7 +249,7 @@ export class CommissionService {
         orderId,
         foodSubtotalPence: order.subtotalPence,
         ratePercent: rate.ratePercent,
-        commissionPence,
+        commissionPence: computedCommissionPence,
         commissionRateId: rate.id,
         source,
         isFirstOrder,
@@ -207,12 +257,15 @@ export class CommissionService {
       update: {
         foodSubtotalPence: order.subtotalPence,
         ratePercent: rate.ratePercent,
-        commissionPence,
+        commissionPence: computedCommissionPence,
         commissionRateId: rate.id,
         source,
         isFirstOrder,
       },
     });
+
+    const action = hasChange ? 'updated' : 'no_change';
+    return { orderId, action, currentCommissionPence, computedCommissionPence, dryRun: false };
   }
 
   // ─── Admin rate management ───────────────────────────────────────────────────

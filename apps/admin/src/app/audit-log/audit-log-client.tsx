@@ -127,7 +127,7 @@ export function AuditLogClient() {
             <Input
               value={draft.action ?? ''}
               onChange={(e) => setDraft({ ...draft, action: e.target.value || undefined })}
-              placeholder="vendor.live"
+              placeholder="vendor.status_changed"
             />
           </FilterField>
           <FilterField label="From">

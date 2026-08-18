@@ -485,7 +485,7 @@ export class VendorRepository {
           actorId: params.actorUserId,
           entityType: 'vendors',
           entityId: params.vendorId,
-          action: `vendor.${params.toStatus}`,
+          action: 'vendor.status_changed',
           metadata: {
             previousState: { status: params.fromStatus },
             newState: {

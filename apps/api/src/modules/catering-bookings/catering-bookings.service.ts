@@ -592,19 +592,22 @@ export class CateringBookingsService {
           );
         }
         refundPence = booking.totalPence; // full refund
-        await this.stripe.refund(
+        // refund-path-ok: catering deposits/balances are not regular-order payments;
+        // there is no commission row or founding allowance to reverse. StripeService
+        // is the correct layer here (no PaymentsService ledger required).
+        await this.stripe.refund( // refund-path-ok: catering balance - see comment above
           booking.balancePiId!,
           booking.balancePence,
           `catering_refund_balance:${bookingId}`,
         );
-        await this.stripe.refund(
+        await this.stripe.refund( // refund-path-ok: catering deposit - see comment above
           booking.depositPiId!,
           booking.depositPence,
           `catering_refund_deposit:${bookingId}`,
         );
       } else if (days > 14) {
         refundPence = booking.depositPence;
-        await this.stripe.refund(
+        await this.stripe.refund( // refund-path-ok: catering deposit - see comment above
           booking.depositPiId!,
           booking.depositPence,
           `catering_refund:${bookingId}`,
@@ -612,7 +615,7 @@ export class CateringBookingsService {
       } else if (days > 7) {
         refundPence = Math.floor(booking.depositPence * 0.5);
         if (refundPence > 0) {
-          await this.stripe.refund(
+          await this.stripe.refund( // refund-path-ok: catering deposit partial - see comment above
             booking.depositPiId!,
             refundPence,
             `catering_refund:${bookingId}`,
@@ -989,6 +992,204 @@ export class CateringBookingsService {
       select: { userId: true },
     });
     return v!.userId;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Vendor: decline an assignment (ASSIGNED -> CANCELLED)
+  // ---------------------------------------------------------------------------
+
+  async declineAssignment(
+    bookingId: string,
+    user: AuthUser,
+    reason?: string,
+  ): Promise<{ declined: true }> {
+    const booking = await this.prisma.cateringBooking.findUnique({
+      where: { id: bookingId },
+      select: {
+        id: true,
+        vendorId: true,
+        enquiryId: true,
+        customerEmail: true,
+        customerName: true,
+        eventDate: true,
+        status: true,
+        vendor: { select: { userId: true, businessName: true } },
+      },
+    });
+    if (!booking) throw new NotFoundException('Booking not found');
+
+    if (booking.status !== CateringBookingStatus.ASSIGNED) {
+      throw new BadRequestException(
+        `Cannot decline: booking is ${booking.status}. Only ASSIGNED bookings can be declined.`,
+      );
+    }
+
+    const isStaff = user.role === UserRole.admin || user.role === UserRole.support;
+    const isOwner = await this.isVendorOwner(booking.vendorId, user.id);
+    if (!isStaff && !isOwner) throw new ForbiddenException();
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.cateringBooking.update({
+        where: { id: bookingId },
+        data: {
+          status: CateringBookingStatus.CANCELLED,
+          cancelledAt: new Date(),
+          cancellationReason: reason ?? 'Vendor declined assignment',
+        },
+      });
+      await tx.cateringEnquiry.update({
+        where: { id: booking.enquiryId },
+        data: { status: 'UNASSIGNED' },
+      });
+      await tx.auditLog.create({
+        data: {
+          actorId: user.id,
+          action: 'catering_booking.vendor_declined',
+          entityType: 'catering_bookings',
+          entityId: bookingId,
+          metadata: {
+            enquiryId: booking.enquiryId,
+            vendorId: booking.vendorId,
+            reason: reason ?? null,
+          },
+        },
+      });
+    });
+
+    // Notify admin via email (fire-and-forget)
+    const adminEmail = process.env.VENDOR_APPLICATIONS_ADMIN_EMAIL ?? 'soul@feastpot.co.uk';
+    this.email
+      .send({
+        to: adminEmail,
+        subject: `Catering vendor declined assignment - ${booking.vendor?.businessName ?? booking.vendorId}`,
+        html: `<div style="font-family:sans-serif;max-width:600px">
+<h2 style="color:#e86c1a">Vendor declined catering assignment</h2>
+<p><strong>${booking.vendor?.businessName ?? 'A vendor'}</strong> has declined the catering booking ${bookingId}.</p>
+${reason ? `<p>Reason: ${reason}</p>` : ''}
+<p>The enquiry has been returned to UNASSIGNED and needs a new vendor.</p>
+<p>Event date: ${formatDate(booking.eventDate)}<br>Customer: ${booking.customerName} &lt;${booking.customerEmail}&gt;</p>
+</div>`,
+      })
+      .catch((e) => this.logger.warn(`[catering-decline] admin notify failed: ${String(e)}`));
+
+    this.logger.log(
+      `[catering-decline] booking=${bookingId} vendor=${booking.vendorId} enquiry=${booking.enquiryId}`,
+    );
+    return { declined: true };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Vendor: fill in a quote on an ASSIGNED booking (ASSIGNED -> QUOTED)
+  // ---------------------------------------------------------------------------
+
+  async fillQuote(
+    bookingId: string,
+    user: AuthUser,
+    dto: {
+      lineItems: Array<{
+        description: string;
+        quantity: number;
+        unitPence: number;
+        allergens?: string[];
+      }>;
+      eventDate?: string;
+      guestCount?: number;
+      eventAddress?: string;
+      preferredTime?: string;
+      quoteExpiresAt?: string;
+    },
+  ) {
+    const booking = await this.prisma.cateringBooking.findUnique({
+      where: { id: bookingId },
+      select: {
+        id: true,
+        vendorId: true,
+        enquiryId: true,
+        status: true,
+        eventDate: true,
+        guestCount: true,
+        eventAddress: true,
+        preferredTime: true,
+        customerEmail: true,
+        customerName: true,
+        assignNote: true,
+      },
+    });
+    if (!booking) throw new NotFoundException('Booking not found');
+    if (booking.status !== CateringBookingStatus.ASSIGNED) {
+      throw new BadRequestException(
+        `Cannot fill quote: booking is ${booking.status}. Only ASSIGNED bookings can have their quote filled.`,
+      );
+    }
+
+    const isOwner = await this.isVendorOwner(booking.vendorId, user.id);
+    if (!isOwner) throw new ForbiddenException('Only the assigned vendor can fill this quote');
+
+    const total = dto.lineItems.reduce((s, li) => s + li.quantity * li.unitPence, 0);
+    if (total < 100) throw new BadRequestException('Total must be at least £1');
+
+    const eventDateStr = dto.eventDate ?? booking.eventDate.toISOString();
+    const eventDate = new Date(eventDateStr);
+    if (isNaN(eventDate.getTime())) throw new BadRequestException('Invalid event date');
+
+    const depositPence = Math.max(5000, Math.ceil(total * 0.25));
+    const balancePence = total - depositPence;
+
+    const sevenDays = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const minus48h = new Date(eventDate.getTime() - 48 * 60 * 60 * 1000);
+    const systemExpiry = sevenDays < minus48h ? sevenDays : minus48h;
+    const minExpiry = new Date(Date.now() + 60 * 60 * 1000);
+    const systemQuoteExpiry = systemExpiry > minExpiry ? systemExpiry : minExpiry;
+
+    const requestedExpiry = dto.quoteExpiresAt ? new Date(dto.quoteExpiresAt) : undefined;
+    const quoteExpiresAt =
+      requestedExpiry && requestedExpiry < systemQuoteExpiry ? requestedExpiry : systemQuoteExpiry;
+
+    const now = new Date();
+    const { rateId, ratePercent, commissionPence } = await this.commission.resolveRateAndCompute(
+      'MARKETPLACE' as never,
+      true,
+      total,
+      0,
+      0,
+      0,
+      null,
+      now,
+    );
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      // Remove any existing line items (shouldn't exist on ASSIGNED, but defensive)
+      await tx.cateringLineItem.deleteMany({ where: { bookingId } });
+
+      return tx.cateringBooking.update({
+        where: { id: bookingId },
+        data: {
+          status: CateringBookingStatus.QUOTED,
+          eventDate,
+          guestCount: dto.guestCount ?? booking.guestCount,
+          eventAddress: dto.eventAddress ?? booking.eventAddress ?? null,
+          preferredTime: dto.preferredTime ?? booking.preferredTime ?? null,
+          totalPence: total,
+          depositPence,
+          balancePence,
+          commissionPercent: ratePercent as unknown as never,
+          commissionPence,
+          commissionRateId: rateId ?? null,
+          quoteExpiresAt,
+          lineItems: {
+            create: dto.lineItems.map((li) => ({
+              description: li.description,
+              quantity: li.quantity,
+              unitPence: li.unitPence,
+              allergens: li.allergens ?? [],
+            })),
+          },
+        },
+        include: { lineItems: true },
+      });
+    });
+
+    return updated;
   }
 }
 

@@ -7,6 +7,7 @@ import Link from 'next/link';
 import type { CateringBooking, CateringBookingStatus } from '@/lib/api/catering-bookings';
 
 const STATUS_CONFIG: Record<CateringBookingStatus, { label: string; colour: string }> = {
+  ASSIGNED: { label: 'Quote required', colour: 'bg-orange-100 text-orange-800' },
   QUOTED: { label: 'Quote sent', colour: 'bg-yellow-100 text-yellow-800' },
   DEPOSIT_PAID: { label: 'Deposit paid', colour: 'bg-blue-100 text-blue-800' },
   CONFIRMED: { label: 'Confirmed', colour: 'bg-green-100 text-green-800' },
@@ -38,6 +39,9 @@ interface Props {
 /** Card for a CateringBooking in the unified Orders list. */
 export function CateringBookingCard({ booking: b }: Props) {
   const st = STATUS_CONFIG[b.status] ?? { label: b.status, colour: 'bg-gray-100 text-gray-600' };
+
+  // ASSIGNED = admin has routed this enquiry to us; we need to fill in a quote.
+  const needsQuote = b.status === 'ASSIGNED';
 
   // Balance is outstanding when the booking is active but the balance has not
   // yet been collected (DEPOSIT_PAID or CONFIRMED state).
@@ -77,11 +81,23 @@ export function CateringBookingCard({ booking: b }: Props) {
           </div>
 
           {b.eventAddress && <p className="mt-1 truncate text-xs text-mid">{b.eventAddress}</p>}
+
+          {needsQuote && (
+            <p className="mt-2 text-xs font-semibold text-orange-700">
+              Action required: submit your quote
+            </p>
+          )}
         </div>
 
         <div className="flex shrink-0 flex-col items-end gap-1">
-          <p className="text-base font-bold text-dark">{formatPounds(b.totalPence)}</p>
-          {b.commissionPercent && (
+          {needsQuote ? (
+            <span className="inline-flex items-center rounded-md bg-orange-50 px-2.5 py-1 text-xs font-semibold text-orange-800 ring-1 ring-inset ring-orange-200">
+              Fill quote
+            </span>
+          ) : (
+            <p className="text-base font-bold text-dark">{formatPounds(b.totalPence)}</p>
+          )}
+          {!needsQuote && b.commissionPercent && (
             <p className="text-xs text-mid">{b.commissionPercent}% commission</p>
           )}
           {balanceOutstanding && (

@@ -37,6 +37,7 @@ import {
   type MenuModerationRow,
   type MenuModerationStatus,
 } from '@/hooks/use-menu-moderation';
+import { useDebounce } from '@/hooks/use-debounce';
 import { formatDate, formatPence } from '@/lib/format';
 
 const PAGE_LIMIT = 25;
@@ -86,12 +87,18 @@ export function MenusQueueClient() {
   const cursor = cursorStack[cursorStack.length - 1] ?? null;
   const pageIndex = cursorStack.length - 1;
 
-  const apiFilters = useMemo(() => ({ status: filters.status, q: filters.q }), [filters]);
+  // Debounce the full filter object. Raw `filters` keeps inputs instant; only
+  // the query key and count key are held back.
+  const debouncedFilters = useDebounce(filters);
+  const apiFilters = useMemo(
+    () => ({ status: debouncedFilters.status, q: debouncedFilters.q }),
+    [debouncedFilters],
+  );
 
   const list = useMenuModerationQueue({ ...apiFilters, cursor, limit: PAGE_LIMIT });
   // Counts respect the search filter but ignore status (server strips it), so
   // each chip shows how many items sit in that status under the current search.
-  const counts = useMenuModerationCounts({ q: filters.q });
+  const counts = useMenuModerationCounts({ q: debouncedFilters.q });
 
   const moderate = useModerateMenuItem();
   const [inFlight, setInFlight] = useState<Set<string>>(new Set());

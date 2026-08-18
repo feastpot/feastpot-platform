@@ -437,13 +437,6 @@ export class VendorsController {
     return result;
   }
 
-  @Public()
-  @Get('by-slug/:slug')
-  @ApiOperation({ summary: 'Get vendor by slug (public) - used by customer PWA' })
-  findBySlug(@Param('slug') slug: string, @Query('postcode') postcode?: string) {
-    return this.vendors.findBySlug(slug, postcode);
-  }
-
   @Get(':id/live-menu-items')
   @ApiBearerAuth()
   @Roles(UserRole.vendor, UserRole.admin)

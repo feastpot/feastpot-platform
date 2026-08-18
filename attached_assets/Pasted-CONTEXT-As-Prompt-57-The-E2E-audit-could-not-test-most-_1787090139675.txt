@@ -1,0 +1,61 @@
+CONTEXT
+As Prompt 57. The E2E audit could not test most journeys: vendor and customer JWTs failed
+(seed passwords do not match the dev Supabase auth users), no orders or delivery areas
+were seeded, and two findings need verification rather than blind building.
+
+PART 1: MAKE THE SEED PRODUCE A TESTABLE WORLD
+1. Auth users: the seed must provision users IN the dev Supabase project via the admin
+   API (service role) with known passwords from env, not only rows in the application
+   users table. Cover: admin, support, finance, compliance, two vendor owners, one vendor
+   team member, and six customers matching the fixture spec from the audit prompt.
+   Idempotent: re-running resets passwords rather than erroring on existing users.
+2. Delivery service areas for at least five vendors with overlapping and non-overlapping
+   postcode districts, so search returns real results and the D3 finding (all vendors
+   invisible) can be distinguished from a real defect.
+3. Verification records across states, at least one vendor with founding allowance partly
+   consumed, seeded discount codes (one PLATFORM, one VENDOR funded), and a handful of
+   orders across attribution tiers so read views have data even before journey tests
+   create more.
+4. Document one command that boots the four apps against dev and seeds this world.
+
+PART 2: VERIFY THE PAYOUTS CONTRADICTION BEFORE BUILDING
+The static audit found working payout endpoints (approve, hold, reconcile-stripe,
+run-batch at specific admin.controller.ts lines) and a payouts UI; the runtime probe got
+404 on GET /v1/admin/payouts. These cannot both be fully true. Read admin.controller.ts
+and the payouts UI hooks, list the ACTUAL registered payout routes with exact paths, and
+determine whether the runtime probe guessed a path that never existed. Then: if a list
+endpoint genuinely does not exist, build GET /v1/admin/payouts returning batches and
+items with status and vendor filters and pagination, wired to the existing UI; if it
+exists at a different path, correct the audit's route inventory instead and state so. Do
+not build a duplicate endpoint beside an existing one.
+
+PART 3: CUSTOM AUTH DOMAIN, mostly founder actions
+Goal: Google's consent screen says feastpot.co.uk, not the Supabase project subdomain.
+Agent work: update every reference to NEXT_PUBLIC_SUPABASE_URL so the value is read from
+env in all four apps with no hard-coded project subdomain anywhere (grep and prove it),
+and add the cutover to the deployment runbook.
+FOUNDER CHECKLIST, emit verbatim:
+  1. Supabase dashboard, Project Settings, Custom Domains: enable the add-on (10 USD per
+     month) and set auth.feastpot.co.uk.
+  2. Add the CNAME record Supabase provides at the DNS registrar; wait for verification.
+  3. Update the NEXT_PUBLIC_SUPABASE_URL secret to https://auth.feastpot.co.uk in dev
+     first, test full sign-in including Google OAuth, then prod.
+  4. Google Cloud Console: update the OAuth client redirect URI to
+     https://auth.feastpot.co.uk/auth/v1/callback. Keep the old URI until cutover is
+     verified, then remove it.
+  5. Confirm the Google account chooser now shows feastpot.co.uk.
+Note in the runbook: this URL change affects auth, storage and realtime, so the dev test
+must cover more than sign-in.
+
+ACCEPTANCE CRITERIA
+- All roles from Part 1 can obtain JWTs against dev with the documented credentials.
+- Postcode search returns seeded vendors from an included district and none from an
+  excluded one.
+- The payouts question is answered with the actual route list, and either the missing
+  endpoint is built or the inventory corrected, not both.
+- No hard-coded Supabase project subdomain remains in any app.
+- The founder checklist is complete enough to execute without further questions.
+
+EDGE CASES: seeding against a project that already has conflicting users (reset, do not
+duplicate); the custom domain propagation window (both URLs valid during cutover, which
+is why the old redirect URI stays until verified).

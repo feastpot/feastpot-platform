@@ -1616,6 +1616,7 @@ model CateringEnquiry {
 // customer; a QR code for guest referrals is included in the same PDF.
 
 enum CateringBookingStatus {
+  ASSIGNED
   QUOTED
   DEPOSIT_PAID
   CONFIRMED
@@ -1655,6 +1656,7 @@ model CateringBooking {
   completedAt        DateTime?             @map("completed_at") @db.Timestamptz
   cancelledAt        DateTime?             @map("cancelled_at") @db.Timestamptz
   cancellationReason String?               @map("cancellation_reason")
+  assignNote         String?               @map("assign_note")
   qrScans            Int                   @default(0) @map("qr_scans")
   createdAt          DateTime              @default(now()) @map("created_at") @db.Timestamptz
   updatedAt          DateTime              @updatedAt @map("updated_at") @db.Timestamptz

@@ -59,7 +59,7 @@ export class VendorEnforcementController {
     @Body() dto: CreateEnforcementActionDto,
     @CurrentUser() actor: AuthUser,
   ) {
-    return this.enforcement.createAction(vendorId, dto, actor.email ?? actor.id);
+    return this.enforcement.createAction(vendorId, dto, actor.email ?? actor.id, actor.id);
   }
 
   /**
@@ -76,7 +76,7 @@ export class VendorEnforcementController {
     @Body() dto: LiftEnforcementActionDto,
     @CurrentUser() actor: AuthUser,
   ) {
-    return this.enforcement.liftAction(actionId, actor.email ?? actor.id, dto.liftNote);
+    return this.enforcement.liftAction(actionId, actor.email ?? actor.id, dto.liftNote, actor.id);
   }
 
   // ── Vendor endpoints ──────────────────────────────────────────────────────

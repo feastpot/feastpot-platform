@@ -1,0 +1,134 @@
+CONTEXT
+Feastpot Turborepo monorepo: apps/api (NestJS 11), apps/admin, apps/vendor, apps/web
+(Next.js 15), Prisma against Supabase Postgres, Stripe Connect. UK English. Never use an
+em dash or a double hyphen used as a dash anywhere.
+
+This prompt closes the defects and gaps from the 18 August platform audit rerun
+(docs/audit/platform-audit-2026-08-18.md): D-001, D-002, D-003, the seed-terms drift, the
+missing FeastPass dev migration, and the still-unproven dynamic money chain.
+
+=====================================================================
+PART 1: D-001, MAKE THE WRONG REFUND PATH IMPOSSIBLE
+=====================================================================
+1. INSPECT: locate the admin status-override path that calls Stripe refund directly
+   (found by the audit in the order status-override handling). Report the file, line and
+   exactly which Stripe call it makes.
+2. REMOVE the direct Stripe call from that path entirely. A status override must never
+   move money. If the override flow legitimately needs to offer a refund (for example
+   overriding to cancelled on a paid order), it composes the existing
+   POST /v1/admin/orders/:orderId/refunds service method, so every refund flows through
+   the single implementation with its commission reversal, allowance restoration,
+   Refund record and AuditLog row.
+3. In the admin UI, if the override dialog implied a refund would happen, either wire it
+   to the real refund flow with the standard confirmation, or remove the implication.
+   The UI must not promise money movement the endpoint no longer performs.
+4. GUARD AGAINST REINTRODUCTION: add a lint-style CI check (extend the existing
+   check-claims.mjs pattern) that fails if stripe.refunds.create or equivalent appears
+   anywhere outside the single refunds service module. Allowlist that one module with a
+   comment. This is the same discipline as the banned-strings guard: the invariant is
+   "one refund path", so enforce it mechanically.
+5. TEST: drive a status override to cancelled on a paid seeded order and assert:
+   no Stripe refund occurs unless the refund flow was explicitly invoked; when it is
+   invoked, commissionPence reverses, allowance restores, a Refund row and an AuditLog
+   row exist. Then grep-assert the CI guard catches a deliberately added rogue call.
+
+=====================================================================
+PART 2: D-002, MAKE ALLOWANCE RESTORATION ATOMIC
+=====================================================================
+1. INSPECT: locate the refund handling where commission reversal and founding-allowance
+   restoration are two separate writes. Report the current sequence.
+2. Wrap them in a single Prisma transaction with the same row lock the allowance
+   consumption path already uses (SELECT ... FOR UPDATE on the vendor row), so the
+   reversal and the restoration commit together or not at all. Include the Refund record
+   and AuditLog row in the same transaction where they are not already.
+3. RECONCILIATION BACKSTOP: because past crashes may already have left counters
+   under-restored, write a one-off reconciliation query that recomputes, per vendor,
+   what foundingAllowanceUsedPence should be from the order and refund history, and
+   reports any vendor where the stored counter differs. Report only; do not auto-correct.
+   With only seeded data in dev this should return zero rows, which is itself the proof
+   the query works.
+4. TEST: a refund on an allowance-consuming order restores proportionally inside one
+   transaction (assert by inspecting the transaction boundaries or by fault injection if
+   the test framework allows); the reconciliation query returns zero discrepancies on the
+   seeded world.
+
+=====================================================================
+PART 3: D-003, GUARD THE COMMISSION BACKFILL
+=====================================================================
+The calculate() backfill recomputes commission from the raw subtotal, ignoring vendor-
+funded discounts and founding allowance. Running it on such orders would overwrite correct
+figures with wrong ones.
+1. Make the backfill refuse orders it cannot compute correctly: if the order has a
+   vendor-funded discount or consumed allowance, skip it and count it in the run summary
+   as skipped_unsafe, rather than recomputing. It may only recompute orders whose inputs
+   match its assumptions.
+2. Better, if the stored values needed are present (discountFundedBy, allowance applied
+   pence on the order), teach it to compute correctly from those stored values and remove
+   the restriction. Choose based on what the Order row actually stores; state the choice.
+3. Add a dry-run mode that prints what would change without writing, and make dry-run the
+   default. A backfill that writes by default is how correct data gets destroyed.
+4. TEST: the backfill on the seeded world changes nothing (all orders were computed by
+   the live engine), and a deliberately corrupted copy of a plain marketplace order is
+   corrected while a vendor-discounted order is skipped or correctly recomputed per your
+   choice in step 2.
+
+=====================================================================
+PART 4: SEED AND MIGRATION LOOSE ENDS
+=====================================================================
+1. seed-terms.ts references the removed summary column (renamed change_summary in
+   migration 20260808120000). Fix the reference. Then fix the failure mode: the seed
+   currently SKIPS SILENTLY on this error. Seeds must fail loudly on any error, because a
+   silent skip is how this drift went unnoticed. Wrap the seed's sections so any thrown
+   error aborts with a non-zero exit and names the section.
+2. FeastPass tables are still absent from dev (Phase 1 gap). Apply the FeastPass
+   migration to dev per the Prompt 58 runbook, verify RLS on the new tables, and confirm
+   GET /v1/admin/feastpass/health returns 200 in dev.
+3. Add the volume fixtures Phase 6 needs, behind a flag so the default seed stays fast:
+   SEED_VOLUME=1 additionally creates 5,000 orders, 500 vendors, 101+ applications and
+   2,000 audit rows. Document the flag.
+
+=====================================================================
+PART 5: THE DYNAMIC PROOF, at last
+=====================================================================
+The audit's central assertion has still never executed. Run it now against the seeded
+world, dynamically, not by reading code:
+1. For each of the eight seeded orders FP-1001 to FP-1008, fetch the commission and payout
+   figures from three places: the vendor portal earnings endpoint (as the vendor JWT),
+   the admin order or attribution endpoint (as the admin JWT), and the database directly.
+   Assert all three agree per order. Produce the table.
+2. Place TWO NEW orders end to end with the seeded customer credentials: one through a
+   vendor share link with ?src=vendor, one through postcode search. Assert the first is
+   VENDOR_REFERRED at 0% and the second MARKETPLACE_FIRST at the PLATFORM_FACTS rate,
+   again in all three places.
+3. Refund the marketplace order partially via the single refund endpoint. Assert the
+   proportional commission reversal and allowance behaviour in all three places.
+4. With SEED_VOLUME=1 loaded, execute Phase 6: listExpiringDocuments timing, the
+   101-application visibility check, vendor and order list timings with EXPLAIN, and the
+   admin orders page wall-clock with the Stripe call in the map loop. Numbers, not
+   opinions.
+
+=====================================================================
+REPORT
+=====================================================================
+Append a dated addendum to docs/audit/platform-audit-2026-08-18.md using the three-verdict
+vocabulary ONLY: PROVEN, UNPROVEN, MISSING. The terms "Pass (code)" and "Partial" are not
+verdicts and must not appear. Re-grade every Phase 2 journey accordingly. If Part 5
+completes, J2 and J3 move to PROVEN with the evidence tables; anything that still could
+not execute is UNPROVEN with its named unblocker.
+
+ACCEPTANCE CRITERIA
+- Exactly one code path in the repository can create a Stripe refund, enforced by CI.
+- Status override never moves money.
+- Commission reversal, allowance restoration, Refund record and AuditLog commit in one
+  transaction.
+- The reconciliation query exists and reports zero discrepancies on seeded data.
+- The backfill is dry-run by default and cannot corrupt discounted or allowance orders.
+- Seeds fail loudly; the terms fixtures load.
+- FeastPass health returns 200 in dev.
+- The three-way agreement table exists for all seeded orders plus the two new ones, and
+  the audit addendum uses only the three permitted verdicts.
+
+EDGE CASES: a refund invoked from the override flow racing a direct refund request
+(idempotency key must collapse them); reconciliation on a vendor with zero orders
+(reports nothing, does not divide by zero); volume seed re-run (idempotent or clean-slate,
+never duplicating 5,000 orders on top of 5,000).
