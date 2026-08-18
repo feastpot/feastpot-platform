@@ -133,27 +133,12 @@ export interface VendorMenuItem {
   isAvailable: boolean;
 }
 
-/**
- * Check whether a slug was once used by a vendor and where it now points.
- * Returns { newSlug } if a redirect exists, or null if the slug is unknown.
- * Used by the vendor profile page to send a 301 when someone follows an old link.
- */
-export async function getVendorSlugRedirect(slug: string): Promise<{ newSlug: string } | null> {
-  try {
-    return await apiRequest<{ newSlug: string }>(
-      `/vendors/slug-redirect/${encodeURIComponent(slug)}`,
-    );
-  } catch {
-    return null;
-  }
-}
-
 export function getVendorBySlug(
   slug: string,
   options?: Pick<ApiRequestOptions, 'next' | 'signal'> & { postcode?: string | null },
 ): Promise<VendorProfile> {
   const { postcode, ...rest } = options ?? {};
-  return apiRequest<VendorProfile>(`/vendors/by-slug/${encodeURIComponent(slug)}`, {
+  return apiRequest<VendorProfile>(`/vendors/${encodeURIComponent(slug)}`, {
     ...rest,
     query: postcode ? { postcode } : undefined,
   });

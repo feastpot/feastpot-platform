@@ -11,7 +11,7 @@ import {
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import Link from 'next/link';
-import { notFound, redirect } from 'next/navigation';
+import { notFound } from 'next/navigation';
 
 import { FloatingBasketBar } from '@/components/basket/floating-basket-bar';
 import { MenuCategoryTabs } from '@/components/menu/menu-category-tabs';
@@ -26,7 +26,6 @@ import { ApiError } from '@/lib/api/client';
 import {
   getVendorBySlug,
   getVendorCapacity,
-  getVendorSlugRedirect,
   getVendorTrustSignals,
   getVendorVerification,
   type CapacityDay,
@@ -183,10 +182,6 @@ export default async function VendorProfilePage({ params }: PageProps) {
     });
   } catch (e) {
     if (e instanceof ApiError && e.status === 404) {
-      // Check whether this slug was renamed - if so, send a permanent redirect
-      // so old QR codes and shared links keep working.
-      const slugRedirect = await getVendorSlugRedirect(slug).catch(() => null);
-      if (slugRedirect) redirect(`/vendors/${slugRedirect.newSlug}`);
       notFound();
     }
     throw e;
