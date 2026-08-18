@@ -7,6 +7,8 @@ import { CateringEnquiriesService } from './catering-enquiries.service';
 
 @Module({
   imports: [PrismaModule],
+  // NotificationsModule is @Global() so NotificationsService is available
+  // without re-importing it here.
   controllers: [CateringEnquiriesController],
   providers: [CateringEnquiriesService],
   exports: [CateringEnquiriesService],

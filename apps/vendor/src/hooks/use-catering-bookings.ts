@@ -5,6 +5,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   createCateringBooking,
   type CreateCateringBookingInput,
+  declineCateringBooking,
+  fillCateringQuote,
+  type FillCateringQuoteInput,
   getVendorCateringBooking,
   listVendorCateringBookings,
   sendCateringQuote,
@@ -55,6 +58,22 @@ export function useSendCateringQuote(id: string, accessToken: string | undefined
   const qc = useQueryClient();
   return useMutation({
     mutationFn: () => sendCateringQuote(id, accessToken!),
+    onSuccess: () => qc.invalidateQueries({ queryKey: [KEY] }),
+  });
+}
+
+export function useFillCateringQuote(id: string, accessToken: string | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: FillCateringQuoteInput) => fillCateringQuote(id, input, accessToken!),
+    onSuccess: () => qc.invalidateQueries({ queryKey: [KEY] }),
+  });
+}
+
+export function useDeclineCateringBooking(id: string, accessToken: string | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (reason?: string) => declineCateringBooking(id, reason, accessToken!),
     onSuccess: () => qc.invalidateQueries({ queryKey: [KEY] }),
   });
 }

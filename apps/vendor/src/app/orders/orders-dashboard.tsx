@@ -98,6 +98,7 @@ function orderUnifiedStatus(status: VendorOrderStatus): UnifiedStatus {
 
 function cateringUnifiedStatus(status: CateringBookingStatus): UnifiedStatus {
   switch (status) {
+    case 'ASSIGNED': // Routed to us by admin - fill in a quote
     case 'QUOTED':
       return 'needs_action';
     case 'DEPOSIT_PAID':

@@ -1073,6 +1073,47 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
       ),
     channels: ['email'],
   },
+  // ---------- Catering assignment ----------
+
+  catering_assignment: {
+    subject: (d) =>
+      `New catering enquiry for you: ${str(d.guestCountBand, '?')} guests in ${str(d.postcode, '?')}`,
+    render: (d) =>
+      baseLayout(
+        'Catering enquiry assigned to you',
+        h2('You have a new catering enquiry') +
+          p(
+            `Feastpot has routed a catering enquiry to you. Please log in to the vendor portal and submit your quote within 48 hours.`,
+          ) +
+          keyValueRow('Event type', esc(d.occasionType ?? 'Catering')) +
+          keyValueRow('Guest count', esc(d.guestCountBand, '?')) +
+          keyValueRow('Event date', esc(d.eventDate ?? 'TBC')) +
+          keyValueRow('Location', esc(d.postcode, '?')) +
+          (str(d.cuisineStyle) ? keyValueRow('Cuisine preference', esc(d.cuisineStyle)) : '') +
+          (str(d.note) ? amberCallout(`Admin note: ${esc(d.note)}`) : '') +
+          brandButton(
+            'View enquiry & submit quote',
+            'https://vendor.feastpot.co.uk/orders',
+            'vendorBlue',
+          ),
+      ),
+    channels: ['email'],
+  },
+
+  catering_assignment_cancelled: {
+    subject: () => 'Catering assignment cancelled',
+    render: (d) =>
+      baseLayout(
+        'Catering assignment cancelled',
+        h2('A catering assignment has been cancelled') +
+          p(
+            `A catering booking assigned to you has been cancelled by Feastpot. No action is required.`,
+          ) +
+          (str(d.reason) ? amberCallout(`Reason: ${esc(d.reason)}`) : '') +
+          p('If you have any questions, please contact us at hello@feastpot.co.uk.'),
+      ),
+    channels: ['email'],
+  },
 };
 
 export function getTemplate(eventName: string): NotificationTemplate | undefined {
