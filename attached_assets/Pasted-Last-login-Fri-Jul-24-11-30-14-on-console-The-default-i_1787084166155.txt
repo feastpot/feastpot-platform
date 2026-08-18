@@ -1,0 +1,30 @@
+Last login: Fri Jul 24 11:30:14 on console
+
+The default interactive shell is now zsh.
+To update your account to use zsh, please run `chsh -s /bin/zsh`.
+For more details, please visit https://support.apple.com/kb/HT208050.
+Mac:~ micaho2$ brew install supabase/tap/supabase
+Error: 
+  homebrew-core is a shallow clone.
+  homebrew-cask is a shallow clone.
+To `brew update`, first run:
+  git -C /usr/local/Homebrew/Library/Taps/homebrew/homebrew-core fetch --unshallow
+  git -C /usr/local/Homebrew/Library/Taps/homebrew/homebrew-cask fetch --unshallow
+These commands may take a few minutes to run due to the large size of the repositories.
+This restriction has been made on GitHub's request because updating shallow
+clones is an extremely expensive operation due to the tree layout and traffic of
+Homebrew/homebrew-core and Homebrew/homebrew-cask. We don't do this for you
+automatically to avoid repeatedly performing an expensive unshallow operation in
+CI systems (which should instead be fixed to not use shallow clones). Sorry for
+the inconvenience!
+/usr/local/Homebrew/Library/Homebrew/macos_version.rb:53:in `initialize': unknown or unsupported macOS version: "26.5.2" (MacOSVersion::Error)
+	from /usr/local/Homebrew/Library/Homebrew/os/mac.rb:44:in `new'
+	from /usr/local/Homebrew/Library/Homebrew/os/mac.rb:44:in `full_version'
+	from /usr/local/Homebrew/Library/Homebrew/os/mac.rb:32:in `version'
+	from /usr/local/Homebrew/Library/Homebrew/os.rb:60:in `<module:OS>'
+	from /usr/local/Homebrew/Library/Homebrew/os.rb:7:in `<top (required)>'
+	from <internal:/usr/local/Homebrew/Library/Homebrew/vendor/portable-ruby/3.3.6/lib/ruby/3.3.0/rubygems/core_ext/kernel_require.rb>:37:in `require'
+	from <internal:/usr/local/Homebrew/Library/Homebrew/vendor/portable-ruby/3.3.6/lib/ruby/3.3.0/rubygems/core_ext/kernel_require.rb>:37:in `require'
+	from /usr/local/Homebrew/Library/Homebrew/global.rb:136:in `<top (required)>'
+	from /usr/local/Homebrew/Library/Homebrew/brew.rb:18:in `require_relative'
+	from /usr/local/Homebrew/Library/Homebrew/brew.rb:18:in `<main>'
