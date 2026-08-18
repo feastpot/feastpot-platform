@@ -730,7 +730,7 @@ export class AdminUsersService {
         actorId: adminUserId,
         entityType: 'orders',
         entityId: orderId,
-        action: 'admin.order_status_override',
+        action: 'order.status_overridden',
         metadata: {
           reason,
           previousState: { status: order.status },

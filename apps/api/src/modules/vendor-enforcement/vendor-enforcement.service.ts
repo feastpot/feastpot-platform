@@ -91,6 +91,12 @@ export class VendorEnforcementService {
     vendorId: string,
     dto: CreateEnforcementActionDto,
     issuedBy: string,
+    /**
+     * UUID of the human actor for the AuditLog. Pass null for automated
+     * actions (issuedBy === 'system') - consistent with the existing
+     * convention where automated writes set actorId: null in the audit table.
+     */
+    actorId: string | null = null,
   ): Promise<EnforcementActionRecord> {
     // ── 1. Validate narrative length ──────────────────────────────────────────
     if (dto.reasonNarrative.trim().length < 50) {
@@ -199,6 +205,33 @@ export class VendorEnforcementService {
       // RESTRICTION: does not change vendor.status; leaves listing up but
       // records the action for audit and dashboard display.
 
+      // ── AuditLog (same transaction - commits atomically or rolls back) ──────
+      // Automated actions (issuedBy === 'system') use actorId: null matching
+      // the existing convention for system-driven audit rows. Manual actions
+      // carry the compliance/admin officer's UUID.
+      const auditAction =
+        issuedBy === 'system'
+          ? 'vendor.automated_suspension'
+          : `vendor.enforcement_${dto.actionType.toLowerCase()}`;
+
+      await tx.auditLog.create({
+        data: {
+          actorId,
+          entityType: 'vendors',
+          entityId: vendorId,
+          action: auditAction,
+          metadata: {
+            actionType: dto.actionType,
+            reasonCode,
+            reasonNarrative: dto.reasonNarrative.trim(),
+            priorStatus: vendor.status,
+            issuedBy,
+            effectiveAt: effectiveAt.toISOString(),
+            ...(issuedBy === 'system' ? { system: true } : {}),
+          } as Prisma.InputJsonValue,
+        },
+      });
+
       return created;
     });
 
@@ -253,6 +286,12 @@ export class VendorEnforcementService {
     actionId: string,
     liftedBy: string,
     liftNote?: string,
+    /**
+     * UUID of the human actor for the AuditLog. Pass null if the actor UUID
+     * is unavailable (should not happen in practice - the controller always
+     * supplies it, but the param is optional for test ergonomics).
+     */
+    actorId: string | null = null,
   ): Promise<EnforcementActionRecord> {
     const action = await this.prisma.vendorEnforcementAction.findUnique({
       where: { id: actionId },
@@ -281,16 +320,18 @@ export class VendorEnforcementService {
         data: { liftedAt: new Date(), liftedBy, liftNote: liftNote ?? null },
       });
 
+      let restoredStatus: VendorStatus | null = null;
+
       if (action.actionType === EnforcementType.SUSPENSION) {
         // Restore to prior status or probation as a safe default.
-        const restoreStatus =
+        restoredStatus =
           priorStatus === VendorStatus.live || priorStatus === VendorStatus.probation
             ? priorStatus
             : VendorStatus.probation;
 
         await tx.vendor.update({
           where: { id: action.vendorId },
-          data: { status: restoreStatus },
+          data: { status: restoredStatus },
         });
 
         // Restore verification state.
@@ -304,6 +345,23 @@ export class VendorEnforcementService {
           });
         }
       }
+
+      // ── AuditLog (same transaction - commits atomically or rolls back) ──────
+      await tx.auditLog.create({
+        data: {
+          actorId,
+          entityType: 'vendors',
+          entityId: action.vendorId,
+          action: 'vendor.enforcement_lifted',
+          metadata: {
+            actionType: action.actionType,
+            reasonCode: action.reasonCode,
+            liftedBy,
+            liftNote: liftNote ?? null,
+            ...(restoredStatus !== null ? { restoredStatus } : {}),
+          } as Prisma.InputJsonValue,
+        },
+      });
 
       return updated;
     });

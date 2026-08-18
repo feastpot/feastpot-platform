@@ -76,6 +76,9 @@ function makePrisma(vendorStatus: VendorStatus = VendorStatus.live) {
           findUnique: jest.fn().mockResolvedValue(null),
           update: jest.fn().mockResolvedValue({}),
         },
+        auditLog: {
+          create: jest.fn().mockResolvedValue({}),
+        },
       }),
     ),
   };
