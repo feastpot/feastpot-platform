@@ -12,6 +12,8 @@ export interface StaffUser {
   lastName: string | null;
   role: StaffRole;
   accessToken: string;
+  /** AAL decoded from the validated session JWT. */
+  aal: 'aal1' | 'aal2';
 }
 
 interface ApiUserMe {
@@ -25,18 +27,43 @@ interface ApiUserMe {
 const STAFF_ROLES: ReadonlyArray<StaffRole> = ['admin', 'support', 'finance', 'compliance'];
 
 /**
+ * Decode the `aal` claim from a Supabase JWT (Node runtime -- Buffer available).
+ * Falls back to aal1 for any missing or malformed claim.
+ */
+function decodeAalFromJwt(jwt: string): 'aal1' | 'aal2' {
+  try {
+    const parts = jwt.split('.');
+    const payload = parts[1];
+    if (!payload) return 'aal1';
+    const decoded = JSON.parse(Buffer.from(payload, 'base64url').toString()) as Record<
+      string,
+      unknown
+    >;
+    return decoded.aal === 'aal2' ? 'aal2' : 'aal1';
+  } catch {
+    return 'aal1';
+  }
+}
+
+/**
  * Server-side gate used by every admin page. Returns the current staff user
  * + access token (so server components can pass it to apiRequest), or
  * redirects to /sign-in or /unauthorized as appropriate.
  *
- * `allowedRoles` lets a route narrow further (e.g. payouts → admin/finance only).
+ * When ADMIN_REQUIRE_AAL2=true and `skipAalCheck` is not set, an aal1
+ * session is redirected to /settings/2fa (the TOTP enrolment page). The
+ * /settings/2fa page itself passes `skipAalCheck: true` to avoid a redirect
+ * loop.
+ *
+ * `allowedRoles` lets a route narrow further (e.g. payouts -> admin/finance only).
  */
 export async function requireStaff(
   pathname: string,
   allowedRoles?: ReadonlyArray<StaffRole>,
+  opts?: { skipAalCheck?: boolean },
 ): Promise<StaffUser> {
   const supabase = await createServerSupabase();
-  // Validate the JWT against Supabase Auth (server-side) - getUser() re-checks
+  // Validate the JWT against Supabase Auth (server-side) -- getUser() re-checks
   // the signature and revocation list, getSession() only reads the cookie.
   const {
     data: { user },
@@ -51,6 +78,15 @@ export async function requireStaff(
     data: { session },
   } = await supabase.auth.getSession();
   if (!session) redirect(`/sign-in?next=${encodeURIComponent(pathname)}`);
+
+  // AAL defence-in-depth: even if a request somehow bypasses the middleware
+  // gate (e.g. a server action hit directly), enforce aal2 here.
+  // The /settings/2fa page passes skipAalCheck: true to avoid a redirect loop.
+  const requireAal2 = process.env.ADMIN_REQUIRE_AAL2 === 'true';
+  const aal = decodeAalFromJwt(session.access_token);
+  if (requireAal2 && !opts?.skipAalCheck && aal !== 'aal2') {
+    redirect(`/settings/2fa?next=${encodeURIComponent(pathname)}`);
+  }
 
   let me: ApiUserMe;
   try {
@@ -83,6 +119,7 @@ export async function requireStaff(
     lastName: me.lastName,
     role,
     accessToken: session.access_token,
+    aal,
   };
 }
 
