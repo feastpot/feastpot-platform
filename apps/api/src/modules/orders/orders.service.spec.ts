@@ -288,6 +288,7 @@ describe('OrdersService.updateStatus authorization', () => {
     add: (name: string, data: unknown, opts?: unknown) => Promise<unknown>;
     getJob: (id: string) => Promise<unknown>;
   }>;
+  let payments: { createRefund: jest.Mock };
   let members: { canActOnVendor: jest.Mock };
   let service: OrdersService;
 
@@ -321,6 +322,7 @@ describe('OrdersService.updateStatus authorization', () => {
     };
     const inbox = { notify: jest.fn().mockResolvedValue(undefined) };
     members = { canActOnVendor: jest.fn().mockResolvedValue(true) };
+    payments = { createRefund: jest.fn().mockResolvedValue({ refund: { id: 're_1' }, split: {} }) };
     service = new OrdersService(
       {} as never,
       repo as never,
@@ -330,17 +332,18 @@ describe('OrdersService.updateStatus authorization', () => {
       loyalty as never,
       referrals as never,
       discountCodes as never,
-      {} as never,
+      payments as never,
       inbox as never,
       members as never,
     );
   });
 
-  const order = (overrides: Partial<{ status: OrderStatus; vendorUserId: string }>) => ({
+  const order = (overrides: Partial<{ status: OrderStatus; vendorUserId: string; totalPence?: number }>) => ({
     id: 'o-1',
     status: overrides.status ?? OrderStatus.pending,
     vendorId: 'v-1',
     customerId: 'cust-1',
+    totalPence: overrides.totalPence ?? 11300,
     vendor: { id: 'v-1', userId: overrides.vendorUserId ?? 'u-vend' },
     items: [],
   });
@@ -452,15 +455,52 @@ describe('OrdersService.updateStatus authorization', () => {
     );
   });
 
-  it('admin refund attempts a Stripe refund', async () => {
-    repo.findByIdWithItems.mockResolvedValue(order({ status: OrderStatus.delivered }));
-    repo.findStripePaymentIntent.mockResolvedValue('pi_bbb');
+  // D-001: status override to `refunded` must route through PaymentsService.createRefund,
+  // never call stripe.refund directly from the override path.
+  it('admin override to refunded routes through PaymentsService.createRefund, not stripe.refund', async () => {
+    repo.findByIdWithItems.mockResolvedValue(
+      order({ status: OrderStatus.delivered, totalPence: 11300 }),
+    );
     await service.updateStatus(
       'o-1',
       { status: OrderStatus.refunded, cancellationReason: 'Goodwill' },
       adminUser(),
     );
-    expect(stripe.refund).toHaveBeenCalledWith('pi_bbb');
+    // Full ledger path must be called.
+    expect(payments.createRefund).toHaveBeenCalledWith(
+      { orderId: 'o-1', amountPence: 11300, reason: 'Goodwill' },
+      expect.objectContaining({ id: 'u-admin', role: UserRole.admin }),
+      'admin-override:o-1',
+    );
+    // Direct Stripe call must NOT happen from the override path.
+    expect(stripe.refund).not.toHaveBeenCalled();
+  });
+
+  it('admin override to cancelled does NOT call createRefund or stripe.refund', async () => {
+    repo.findByIdWithItems.mockResolvedValue(order({ status: OrderStatus.preparing }));
+    repo.findStripePaymentIntent.mockResolvedValue('pi_cancel');
+    await service.updateStatus(
+      'o-1',
+      { status: OrderStatus.cancelled, cancellationReason: 'Customer escalation' },
+      adminUser(),
+    );
+    // Pure PI cancel - no money moves, no ledger.
+    expect(stripe.cancel).toHaveBeenCalledWith('pi_cancel');
+    expect(payments.createRefund).not.toHaveBeenCalled();
+    expect(stripe.refund).not.toHaveBeenCalled();
+  });
+
+  it('admin cancel on already-delivered order does NOT void the PI (food was delivered)', async () => {
+    repo.findByIdWithItems.mockResolvedValue(order({ status: OrderStatus.delivered }));
+    repo.findStripePaymentIntent.mockResolvedValue('pi_del');
+    await service.updateStatus(
+      'o-1',
+      { status: OrderStatus.cancelled, cancellationReason: 'Post-delivery admin cancel' },
+      adminUser(),
+    );
+    // from=delivered: Stripe PI was already captured; cancelling it would fail.
+    expect(stripe.cancel).not.toHaveBeenCalled();
+    expect(payments.createRefund).not.toHaveBeenCalled();
   });
 });
 

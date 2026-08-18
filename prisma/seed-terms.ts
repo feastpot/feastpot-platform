@@ -437,9 +437,12 @@ deducted from your vendor payout. FeastPass members are exempt from this fee.
   // We must use a raw upsert to satisfy the constraint.
   const changeSummaryText =
     'Initial structured rate schedule. Supersedes inline rate references in vendor terms v1.0.';
+  // The `summary` column was removed from terms_versions in migration
+  // 20260808120000_extend_terms_tables (renamed to change_summary).
+  // Only change_summary is written here.
   const rateScheduleRows = await prisma.$queryRaw<Array<{ id: string }>>`
     INSERT INTO terms_versions
-      (id, document_type, version, content_mdx, content_hash, summary, change_summary,
+      (id, document_type, version, content_mdx, content_hash, change_summary,
        is_material, published_at, effective_at, created_by)
     VALUES
       (gen_random_uuid(),
@@ -447,7 +450,6 @@ deducted from your vendor payout. FeastPass members are exempt from this fee.
        '2.0',
        ${rateScheduleContent},
        ${rateScheduleHash},
-       ${changeSummaryText},
        ${changeSummaryText},
        true,
        '2026-08-08 09:00:00+00'::timestamptz,
@@ -592,6 +594,12 @@ deducted from your vendor payout. FeastPass members are exempt from this fee.
 // Allow running standalone.
 if (require.main === module) {
   seedTerms()
-    .catch(console.error)
+    .catch((e) => {
+      console.error('[seed-terms] failed:', e);
+      process.exit(1);
+    })
+    .finally(async () => {
+      await prisma.$disconnect();
+    });
     .finally(() => prisma.$disconnect());
 }

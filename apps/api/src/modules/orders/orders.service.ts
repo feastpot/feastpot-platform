@@ -1153,7 +1153,7 @@ export class OrdersService {
     );
 
     if (isAdmin && ADMIN_TRANSITIONS.has(dto.status)) {
-      return this.applyAdminTerminal(order.id, order.status, dto);
+      return this.applyAdminTerminal(order.id, order.status, dto, user);
     }
     if (!canVendorAct) {
       throw new ForbiddenException({
@@ -1355,7 +1355,12 @@ export class OrdersService {
     return this.repo.findByIdWithItems(orderId);
   }
 
-  private async applyAdminTerminal(orderId: string, from: OrderStatus, dto: UpdateOrderStatusDto) {
+  private async applyAdminTerminal(
+    orderId: string,
+    from: OrderStatus,
+    dto: UpdateOrderStatusDto,
+    actor: { id: string; role: UserRole },
+  ) {
     const now = new Date();
     const data: Prisma.OrderUncheckedUpdateInput = { status: dto.status, cancelledAt: now };
     const reason = dto.cancellationReason ?? 'Admin action';
@@ -1385,18 +1390,27 @@ export class OrdersService {
       }
     }
 
-    const pi = await this.repo.findStripePaymentIntent(orderId);
-    if (pi) {
-      if (dto.status === OrderStatus.refunded) {
-        try {
-          await this.stripe.refund(pi);
-          // NB: payment row stays "succeeded" - refunds are tracked separately by Stripe;
-          // a future Refund table would record the negative ledger entry.
-        } catch {
-          await this.stripe.cancel(pi);
-          await this.repo.markPaymentStatus(pi, 'cancelled');
-        }
-      } else if (from !== OrderStatus.delivered) {
+    if (dto.status === OrderStatus.refunded) {
+      // Route through the single refund implementation so the full ledger
+      // (Stripe call, commission reversal, allowance restoration, Refund record,
+      // AuditLog) all commit together. The status was already written above by
+      // transitionStatus, so createRefund's in-tx status update is a no-op.
+      // The deterministic idempotency key collapses any concurrent retry.
+      //
+      // If no payment intent exists (e.g. free/comp order), createRefund throws
+      // NO_PAYMENT_INTENT - the correct loud failure for an admin override on an
+      // order that has no funds to return.
+      if (snap) {
+        await this.payments.createRefund(
+          { orderId, amountPence: snap.totalPence, reason },
+          actor,
+          `admin-override:${orderId}`,
+        );
+      }
+    } else {
+      // Pure cancel - void any open payment intent without moving money.
+      const pi = await this.repo.findStripePaymentIntent(orderId);
+      if (pi && from !== OrderStatus.delivered) {
         await this.stripe.cancel(pi);
         await this.repo.markPaymentStatus(pi, 'cancelled');
       }

@@ -2615,11 +2615,33 @@ async function main() {
 
 import { seedRateSchedule, seedTerms } from './seed-terms';
 
-main()
-  .then(() => seedTerms())
-  .then(() => seedRateSchedule())
+/**
+ * Run a named seeder function and re-throw any error with the section name
+ * prepended, so a failure always tells you which section crashed.
+ */
+async function runSection(name: string, fn: () => Promise<void>): Promise<void> {
+  console.info(`[seed] running section: ${name}`);
+  try {
+    await fn();
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    const wrapped = new Error(`[seed] section "${name}" failed: ${msg}`);
+    if (e instanceof Error) wrapped.stack = e.stack;
+    throw wrapped;
+  }
+}
+
+runSection('main', main)
+  .then(() => runSection('seedTerms', seedTerms))
+  .then(() => runSection('seedRateSchedule', seedRateSchedule))
+  .then(async () => {
+    if (process.env.SEED_VOLUME === '1') {
+      const { seedVolume } = await import('./seed-volume');
+      await runSection('seedVolume', seedVolume);
+    }
+  })
   .catch((e) => {
-    console.error('[seed] failed:', e);
+    console.error('[seed] FATAL:', e instanceof Error ? e.message : e);
     process.exit(1);
   })
   .finally(async () => {

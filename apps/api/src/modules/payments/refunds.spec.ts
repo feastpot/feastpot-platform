@@ -577,6 +577,109 @@ describe('compensateFailedRefund', () => {
   });
 });
 
+// ─── D-002: founding allowance restoration is inside the transaction ─────────
+
+describe('createRefund - allowance restoration atomicity (D-002)', () => {
+  it('calls tx.vendor.update inside the transaction when allowance was applied', async () => {
+    const { service, prisma, tx } = makeMocks();
+    // Order consumed 3000p of founding allowance.
+    (prisma.order.findUnique as jest.Mock).mockResolvedValue({
+      id: 'order-1',
+      customerId: 'cust-1',
+      vendorId: 'vend-1',
+      status: OrderStatus.delivered,
+      subtotalPence: 10000,
+      serviceFeePence: 800,
+      deliveryFeePence: 500,
+      discountPence: 0,
+      commissionPence: 840, // 12% on (10000 - 3000 covered) = 7000
+      totalPence: 11300,
+      foundingAllowanceAppliedPence: 3000,
+      deliveredAt: new Date('2026-08-10T12:00:00Z'),
+      vendor: { userId: 'vuser-1', stripeAccountId: 'acct_v1' },
+    });
+
+    await service.createRefund({ orderId: 'order-1', amountPence: 11300 }, actor, 'key-allow');
+
+    // Full refund: refundFraction = 1; restorePence = 1 * 3000 = 3000.
+    expect(tx.vendor.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'vend-1' },
+        data: { foundingAllowanceUsedPence: { decrement: 3000 } },
+      }),
+    );
+  });
+
+  it('does NOT call tx.vendor.update when no allowance was applied', async () => {
+    const { service, tx } = makeMocks();
+    // Default mock order has foundingAllowanceAppliedPence: 0.
+    await service.createRefund({ orderId: 'order-1', amountPence: 11300 }, actor, 'key-noallow');
+    expect(tx.vendor.update).not.toHaveBeenCalled();
+  });
+
+  it('restores proportionally on a partial refund', async () => {
+    const { service, prisma, tx } = makeMocks();
+    // Order: 10000p subtotal, 3000p allowance applied, 11300p total.
+    (prisma.order.findUnique as jest.Mock).mockResolvedValue({
+      id: 'order-1',
+      customerId: 'cust-1',
+      vendorId: 'vend-1',
+      status: OrderStatus.delivered,
+      subtotalPence: 10000,
+      serviceFeePence: 800,
+      deliveryFeePence: 500,
+      discountPence: 0,
+      commissionPence: 840,
+      totalPence: 11300,
+      foundingAllowanceAppliedPence: 3000,
+      deliveredAt: new Date('2026-08-10T12:00:00Z'),
+      vendor: { userId: 'vuser-1', stripeAccountId: 'acct_v1' },
+    });
+
+    // Partial refund of 5000p = exactly 50% of the SUBTOTAL (refundFraction uses
+    // amount / subtotalPence, not amount / totalPence per computeRefundSplit).
+    // refundFraction = min(5000 / 10000, 1) = 0.5
+    // restorePence = round(0.5 * 3000) = 1500.
+    await service.createRefund({ orderId: 'order-1', amountPence: 5000 }, actor, 'key-partial');
+
+    expect(tx.vendor.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { foundingAllowanceUsedPence: { decrement: 1500 } },
+      }),
+    );
+  });
+
+  it('records allowanceRestoredPence in the audit log (same transaction)', async () => {
+    const { service, prisma, tx } = makeMocks();
+    (prisma.order.findUnique as jest.Mock).mockResolvedValue({
+      id: 'order-1',
+      customerId: 'cust-1',
+      vendorId: 'vend-1',
+      status: OrderStatus.delivered,
+      subtotalPence: 10000,
+      serviceFeePence: 800,
+      deliveryFeePence: 500,
+      discountPence: 0,
+      commissionPence: 840,
+      totalPence: 11300,
+      foundingAllowanceAppliedPence: 3000,
+      deliveredAt: new Date('2026-08-10T12:00:00Z'),
+      vendor: { userId: 'vuser-1', stripeAccountId: 'acct_v1' },
+    });
+
+    await service.createRefund({ orderId: 'order-1', amountPence: 11300 }, actor, 'key-audit');
+
+    const auditCall = tx.auditLog.create.mock.calls.find(
+      (c: unknown[]) =>
+        (c[0] as { data: { action: string } }).data.action === 'refund_issued',
+    );
+    expect(auditCall).toBeDefined();
+    const meta = (auditCall![0] as { data: { metadata: { allowanceRestoredPence: number } } }).data
+      .metadata;
+    expect(meta.allowanceRestoredPence).toBe(3000);
+  });
+});
+
 // Referenced so the enum import stays meaningful if the test grows.
 void PaymentStatus;
 void PaymentType;
