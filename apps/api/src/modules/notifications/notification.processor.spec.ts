@@ -15,6 +15,8 @@ function makePrisma(user: Record<string, unknown> | null) {
     user: { findUnique: jest.fn().mockResolvedValue(user) as Mock },
     notificationPreference: { findMany: jest.fn().mockResolvedValue([]) as Mock },
     notification: { create: jest.fn().mockResolvedValue({ id: 'n-1' }) as Mock },
+    // Suppression check: default to not suppressed.
+    emailEvent: { findFirst: jest.fn().mockResolvedValue(null) as Mock },
   };
 }
 

@@ -228,6 +228,35 @@ export class NotificationProcessor {
         skipped.push(channel);
         continue;
       }
+
+      // Hard-bounce and complaint suppression: check before the provider call
+      // so repeatedly mailing a blocked address does not erode sending reputation
+      // or risk Resend account suspension.  This is a permanent skip (not a
+      // transient failure) so we record the row and return cleanly -- never
+      // rethrow, which would push the job into the dead-letter queue.
+      if (channel === 'email') {
+        const suppressed = await this.suppressedEventFor(user.email);
+        if (suppressed) {
+          const masked = user.email.replace(/(?<=.).(?=[^@]*@)/g, '*');
+          this.logger.warn(
+            `[Notifications] suppressed send to ${masked}: ` +
+              `event=${suppressed.eventType} bounceType=${suppressed.bounceType ?? 'n/a'} ` +
+              `notification=${eventName}`,
+          );
+          await this.recordNotification(
+            user.id,
+            channel,
+            eventName,
+            subject,
+            html,
+            NotificationStatus.skipped_suppressed,
+            data,
+          );
+          skipped.push(channel);
+          continue;
+        }
+      }
+
       try {
         const ok = await this.dispatch(channel, {
           eventName,
@@ -321,41 +350,61 @@ export class NotificationProcessor {
       template.channels,
     );
     if (enabledChannels.includes('email')) {
-      try {
-        const attachments: EmailAttachment[] = [];
-        if (typeof data.pdfBase64 === 'string' && typeof data.pdfFilename === 'string') {
-          attachments.push({
-            content: Buffer.from(data.pdfBase64, 'base64'),
-            filename: data.pdfFilename,
-          });
-        }
-        const r = await this.email.send({ to: user.email, subject, html, attachments });
-        if (r.delivered) {
-          sent.push('email');
-          await this.recordNotification(
-            user.id,
-            'email',
-            'payout_batch_ready',
-            subject,
-            html,
-            NotificationStatus.sent,
-            data,
-          );
-        } else {
-          skipped.push('email');
-        }
-      } catch (e) {
+      // Pre-send suppression check -- same logic as the generic channel loop.
+      const suppressedPayout = await this.suppressedEventFor(user.email);
+      if (suppressedPayout) {
+        const masked = user.email.replace(/(?<=.).(?=[^@]*@)/g, '*');
+        this.logger.warn(
+          `[Notifications] suppressed payout email to ${masked}: ` +
+            `event=${suppressedPayout.eventType} bounceType=${suppressedPayout.bounceType ?? 'n/a'}`,
+        );
         await this.recordNotification(
           user.id,
           'email',
           'payout_batch_ready',
           subject,
           html,
-          NotificationStatus.failed,
+          NotificationStatus.skipped_suppressed,
           data,
         );
-        throw e; // BullMQ retries
-      }
+        skipped.push('email');
+      } else {
+        try {
+          const attachments: EmailAttachment[] = [];
+          if (typeof data.pdfBase64 === 'string' && typeof data.pdfFilename === 'string') {
+            attachments.push({
+              content: Buffer.from(data.pdfBase64, 'base64'),
+              filename: data.pdfFilename,
+            });
+          }
+          const r = await this.email.send({ to: user.email, subject, html, attachments });
+          if (r.delivered) {
+            sent.push('email');
+            await this.recordNotification(
+              user.id,
+              'email',
+              'payout_batch_ready',
+              subject,
+              html,
+              NotificationStatus.sent,
+              data,
+            );
+          } else {
+            skipped.push('email');
+          }
+        } catch (e) {
+          await this.recordNotification(
+            user.id,
+            'email',
+            'payout_batch_ready',
+            subject,
+            html,
+            NotificationStatus.failed,
+            data,
+          );
+          throw e; // BullMQ retries
+        }
+      } // end else (not suppressed)
     } else {
       skipped.push('email');
     }
@@ -504,6 +553,22 @@ export class NotificationProcessor {
       if (!def) return true;
       if (def.transactional) return true;
       return stored.get(channel) ?? def.defaultEnabled;
+    });
+  }
+
+  /**
+   * Check whether the email address has a hard-bounce or complaint record.
+   * Normalises to lowercase+trim to match regardless of how the address was
+   * originally stored.  Returns the first suppressed row found, or null.
+   */
+  private async suppressedEventFor(
+    email: string,
+  ): Promise<{ eventType: string; bounceType: string | null } | null> {
+    const addr = email.toLowerCase().trim();
+    return this.prisma.emailEvent.findFirst({
+      where: { to: addr, suppressed: true },
+      select: { eventType: true, bounceType: true },
+      orderBy: { createdAt: 'desc' },
     });
   }
 

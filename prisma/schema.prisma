@@ -314,6 +314,9 @@ enum NotificationStatus {
   sent
   delivered
   failed
+  /// Address was hard-bounced or complained; send skipped permanently.
+  /// Must never be retried by BullMQ -- record the row and return cleanly.
+  skipped_suppressed
 }
 
 /// T007: in-app notification inbox. Distinct from the existing `Notification`
@@ -2193,6 +2196,9 @@ model EmailEvent {
   @@index([emailId])
   @@index([to, eventType])
   @@index([createdAt(sort: Desc)])
+  /// Partial functional index supporting the pre-send suppression check.
+  /// Only suppressed rows are indexed; LOWER() makes lookups case-insensitive.
+  @@index([to], map: "email_events_suppressed_lower_to_idx")
   @@map("email_events")
 }
 
