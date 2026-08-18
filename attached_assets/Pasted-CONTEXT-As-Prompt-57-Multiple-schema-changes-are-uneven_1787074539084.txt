@@ -1,0 +1,67 @@
+CONTEXT
+As Prompt 57. Multiple schema changes are unevenly applied across environments, and this is
+the third migration-discipline failure on this project. Do everything below in ONE window
+per environment, with one backup each, not as separate runs.
+
+STATE, per the runtime audit:
+- FeastPass tables: missing in BOTH dev and prod. GET /v1/admin/feastpass/health returns a
+  500 whose response body includes the raw Prisma stack trace and the internal file path.
+  The subscription webhook will crash on the first real subscriber.
+- email_events (migration 20260817000000_add_email_events): applied to dev, missing in
+  prod. POST /v1/webhooks/resend will crash on the first event after deploy.
+- Unknown further drift: vendors.featured_dishes reached dev via db push without a
+  migration and broke CI; there may be more columns in the same state.
+
+PART 1: DRIFT SWEEP FIRST
+Run and report the FULL output of:
+  npx prisma migrate diff --from-migrations prisma/migrations \
+    --to-schema-datamodel prisma/schema.prisma \
+    --shadow-database-url "$SHADOW_DATABASE_URL" --exit-code
+For every object present in the schema but absent from the migration history, create an
+idempotent migration (ADD COLUMN IF NOT EXISTS, CREATE TABLE IF NOT EXISTS, guarded DO
+blocks for enums) positioned correctly in the timestamp sequence. The goal is that
+prisma migrate deploy against a fresh database completes cleanly.
+
+PART 2: APPLY TO DEV, THEN PROD
+For each environment in that order:
+1. Back up affected tables first and state the restore path.
+2. Verify actual table and column presence via information_schema, not _prisma_migrations.
+3. Apply: FeastPass tables, email_events (prod only), and any drift migrations from Part 1,
+   using the checksum-register plus migrate deploy pattern from the runbook.
+4. Verify RLS on every newly created table using the classification from the earlier RLS
+   audit. New tables are where policies go missing.
+5. Smoke test: GET /v1/admin/feastpass/health returns 200 in dev; a signed test event to
+   POST /v1/webhooks/resend in prod writes an email_events row and returns 2xx.
+
+PART 3: STOP LEAKING INTERNALS ON 500
+The FeastPass 500 exposed a second, separate defect: unhandled exceptions return raw stack
+traces and file paths in the response body. Fix this globally, not per endpoint.
+1. Add or fix the NestJS global exception filter so production responses to unhandled
+   errors contain a generic message and a correlation id only. Full details go to the
+   server log and Sentry, keyed by that correlation id.
+2. Assert with a test: force an exception in a test-only route and confirm the response
+   body contains no file path, no stack frame, and no Prisma error text.
+3. Grep for any other place that serialises err.stack or the raw error into a response.
+
+PART 4: CI DATABASE REALISM
+The from-scratch migration check failed on vanilla Postgres because the init migration
+references the Supabase auth schema. Decide and implement one of:
+  a. CI replays migrations against supabase start (the local Supabase CLI stack), which is
+     the faithful option, or
+  b. CI keeps vanilla Postgres plus a small bootstrap SQL that creates the auth schema and
+     roles the migrations reference, committed to the repo and documented as a shim.
+State which you chose and why. Either way, CI must actually exercise the same migrations
+that will run in production, or the "applies cleanly from scratch" guarantee is theatre.
+
+ACCEPTANCE CRITERIA
+- migrate diff reports zero drift.
+- FeastPass tables exist in dev and prod with RLS verified; the health endpoint returns 200.
+- email_events exists in prod, confirmed via psql, and a signed webhook event lands.
+- No API response anywhere contains a stack trace or internal path on error.
+- CI replays the real migrations from scratch and passes.
+
+EDGE CASES: partial prior application in either environment (idempotent SQL converges);
+an event arriving at the prod webhook between deploy and migration (the endpoint must
+return a non-2xx so Resend retries, rather than crashing the process); drift objects whose
+type in the database differs from schema.prisma (report the mismatch, do not silently
+alter).
