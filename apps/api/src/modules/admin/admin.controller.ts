@@ -31,6 +31,8 @@ import { EmailProvider } from '../notifications/providers/email.provider';
 import { PushProvider } from '../notifications/providers/push.provider';
 import { WhatsappProvider } from '../notifications/providers/whatsapp.provider';
 import { TEMPLATES } from '../notifications/templates';
+import { AdminRefundDto } from '../payments/dto/admin-refund.dto';
+import { PaymentsService } from '../payments/payments.service';
 import { PAYOUTS_QUEUE, WEEKLY_BATCH_JOB } from '../payouts/processors/payout-batch.processor';
 import { TermsService } from '../terms/terms.service';
 
@@ -100,6 +102,7 @@ export class AdminController {
     private readonly commissionService: CommissionService,
     private readonly termsService: TermsService,
     private readonly dlqMonitor: DlqMonitorService,
+    private readonly payments: PaymentsService,
   ) {}
 
   /**
@@ -509,6 +512,38 @@ export class AdminController {
     @Body() dto: OverrideOrderStatusDto,
   ) {
     return this.adminUsers.overrideOrderStatus(orderId, dto.status, dto.reason, req.user!.id);
+  }
+
+  @Post('orders/:orderId/refunds')
+  @Roles(UserRole.admin, UserRole.finance)
+  @ApiOperation({
+    summary:
+      'Issue a refund on an order (admin/finance only). Omit amountPence for a full refund of ' +
+      'the remaining refundable amount. The vendor is deducted only what they earned ' +
+      '(subtotal + delivery − discount − commission, proportional); the platform service fee is ' +
+      'always Feastpot revenue and is absorbed by Feastpot, never clawed back from the vendor. ' +
+      'Pass requestId for idempotent retries.',
+  })
+  refundOrder(
+    @Req() req: AuthedRequest,
+    @Param('orderId', new ParseUUIDPipe()) orderId: string,
+    @Body() dto: AdminRefundDto,
+  ) {
+    return this.payments.createAdminRefund(orderId, dto, {
+      id: req.user!.id,
+      role: req.user!.role,
+    });
+  }
+
+  @Get('orders/:orderId/payments')
+  @Roles(UserRole.admin, UserRole.finance)
+  @ApiOperation({
+    summary:
+      'Refund state + history for an order: prior refund rows with actor, remaining refundable ' +
+      'amount, and the order economics used to preview the vendor clawback.',
+  })
+  orderRefundInfo(@Param('orderId', new ParseUUIDPipe()) orderId: string) {
+    return this.payments.getOrderRefundInfo(orderId);
   }
 
   @Get('users/:userId/export')

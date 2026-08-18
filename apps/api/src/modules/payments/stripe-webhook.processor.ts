@@ -8,6 +8,7 @@ import type Stripe from 'stripe';
 import { FeastPassService } from '../../feastpass/feastpass.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { shouldReportQueueFailure } from '../../queues/queue-failure';
+import { StripeService } from '../../stripe/stripe.service';
 import { LoyaltyService } from '../loyalty/loyalty.service';
 import {
   capacityTypeForItemCategories,
@@ -15,7 +16,7 @@ import {
   releaseCapacity,
 } from '../vendors/vendor-capacity';
 
-import { computeRefundSplit } from './payments.service';
+import { computeRefundSplit, PaymentsService } from './payments.service';
 import { STRIPE_WEBHOOK_QUEUE } from './stripe-webhook.controller';
 import type { HandledStripeEventType } from './stripe-webhook.events';
 
@@ -49,6 +50,12 @@ export class StripeWebhookProcessor {
     private readonly loyalty: LoyaltyService,
     // FeastPassModule is @Global - available without importing it here.
     private readonly feastpass: FeastPassService,
+    // Provided by PaymentsModule (imported by StripeWebhookProcessorModule).
+    // Used to reconcile dashboard-initiated refunds and compensate failed ones.
+    private readonly payments: PaymentsService,
+    // StripeModule is @Global - used to list a charge's refunds when the
+    // webhook payload arrives without the embedded refunds list.
+    private readonly stripeService: StripeService,
   ) {}
 
   // Concurrency=5 on each handler: Stripe bursts during busy periods (peak
@@ -179,12 +186,25 @@ export class StripeWebhookProcessor {
   private async handleRefundUpdated(job: Job<WebhookJob>): Promise<void> {
     const refund = job.data.data as Stripe.Refund;
     if (!refund.id) return;
-    const status =
-      refund.status === 'succeeded'
-        ? PaymentStatus.succeeded
-        : refund.status === 'failed' || refund.status === 'canceled'
-          ? PaymentStatus.failed
-          : PaymentStatus.pending;
+    if (refund.status === 'failed' || refund.status === 'canceled') {
+      // The customer's money never moved. Compensate the ledger (net out the
+      // credit rows, restore order status + founding allowance) - a CAS inside
+      // makes this exactly-once even when both refund.updated AND
+      // charge.refund.updated fire for the same refund.
+      const result = await this.payments.compensateFailedRefund(refund.id);
+      if (result) {
+        const text =
+          `:rotating_light: Stripe refund ${refund.id} FAILED (${refund.failure_reason ?? 'no reason given'}). ` +
+          `Order ${result.orderId}: ${(result.refundAmountPence / 100).toFixed(2)} GBP was NOT returned to the customer. ` +
+          `Ledger compensated (+${(result.compensationCreditPence / 100).toFixed(2)} GBP credit written, order status restored). ` +
+          `Re-issue the refund from the admin panel once the underlying cause is fixed.`;
+        this.logger.error(text);
+        await this.sendSlack(text);
+        Sentry.captureMessage(`Stripe refund failed: ${refund.id}`, 'error');
+      }
+      return;
+    }
+    const status = refund.status === 'succeeded' ? PaymentStatus.succeeded : PaymentStatus.pending;
     // Match by stripeRefundId (unique on Payment) so each refund row is updated
     // independently. Matching by PI alone would smear the latest refund's status
     // onto every prior partial refund on the same PI.
@@ -192,6 +212,41 @@ export class StripeWebhookProcessor {
       where: { stripeRefundId: refund.id },
       data: { status, processedAt: new Date() },
     });
+  }
+
+  // Fired when a charge is (partially) refunded - including refunds created
+  // directly in the Stripe Dashboard, which never pass through our API. Any
+  // refund we don't already have a Payment row for is reconciled into the
+  // ledger with the same split/credit/audit writes as an internal refund.
+  @Process({ name: eventName('charge.refunded'), concurrency: 5 })
+  async onChargeRefunded(job: Job<WebhookJob>): Promise<void> {
+    const charge = job.data.data as Stripe.Charge;
+    if (!charge.id) return;
+    // The embedded refunds list may be absent depending on API version - fall
+    // back to listing them explicitly.
+    let refunds = charge.refunds?.data ?? [];
+    if (refunds.length === 0 && (charge.amount_refunded ?? 0) > 0) {
+      refunds = (await this.stripeService.listRefunds(charge.id)).data;
+    }
+    for (const refund of refunds) {
+      await this.payments.reconcileExternalRefund(refund);
+    }
+  }
+
+  /** Post to the ops Slack channel (same webhook as queue/stuck-order alerts). Best-effort. */
+  private async sendSlack(text: string): Promise<void> {
+    const url = process.env.QUEUE_ALERT_SLACK_WEBHOOK_URL;
+    if (!url) return;
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+      if (!res.ok) this.logger.error(`Slack refund alert failed: HTTP ${res.status}`);
+    } catch (err) {
+      this.logger.error(`Slack refund alert failed: ${(err as Error).message}`);
+    }
   }
 
   // Bank-initiated card chargebacks. Stripe emits `charge.dispute.created` when

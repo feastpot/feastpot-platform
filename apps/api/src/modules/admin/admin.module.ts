@@ -4,6 +4,7 @@ import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from '../../auth/auth.module';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { StripeModule } from '../../stripe/stripe.module';
+import { PaymentsModule } from '../payments/payments.module';
 import { TermsModule } from '../terms/terms.module';
 
 import { AdminUsersService } from './admin-users.service';
@@ -26,7 +27,8 @@ import { DlqMonitorService } from './dlq-monitor.service';
  * EmailProvider / LoyaltyService directly.
  */
 @Module({
-  imports: [PrismaModule, StripeModule, AuthModule, ConfigModule, TermsModule],
+  // PaymentsModule provides PaymentsService for the admin refund endpoints.
+  imports: [PrismaModule, StripeModule, AuthModule, ConfigModule, TermsModule, PaymentsModule],
   controllers: [AdminController],
   providers: [AdminService, AdminUsersService, DlqMonitorService],
 })

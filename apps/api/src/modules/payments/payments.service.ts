@@ -1,17 +1,27 @@
 import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { OrderStatus, PaymentStatus, PaymentType, Prisma, UserRole } from '@prisma/client';
+import {
+  OrderStatus,
+  PaymentStatus,
+  PaymentType,
+  PayoutStatus,
+  Prisma,
+  UserRole,
+} from '@prisma/client';
+import type Stripe from 'stripe';
 
 import { PrismaService } from '../../prisma/prisma.service';
 import { StripeService } from '../../stripe/stripe.service';
 import { NotificationsService } from '../notifications/notifications.service';
 
+import { AdminRefundDto, RefundReason } from './dto/admin-refund.dto';
 import { CreateRefundDto } from './dto/create-refund.dto';
 import { ListChargebacksDto } from './dto/list-chargebacks.dto';
 import { ListPaymentsDto } from './dto/list-payments.dto';
@@ -54,6 +64,16 @@ export interface RefundSplit {
  * commission share) so the customer is always made whole.
  *
  * Full refund → refundFraction = 1. Partial → min(refundPence / subtotal, 1).
+ *
+ * SERVICE FEE ON REFUND (per Terms): the platform service fee is ALWAYS
+ * Feastpot revenue. On refund, Feastpot absorbs the service-fee share - the
+ * vendor never received it, so it is never clawed back from them. The vendor
+ * clawback is based solely on what they earned (subtotal + delivery − discount
+ * − commission), proportional to the refund fraction.
+ *
+ * VENDOR-REFERRED ORDERS: an order inside a vendor's commission-free GMV
+ * allowance has commissionPence = 0, so commissionRefundedPence = 0 - there is
+ * no commission to reverse, and the customer is still refunded in full.
  */
 export function computeRefundSplit(
   refundPence: number,
@@ -78,6 +98,61 @@ export function computeRefundSplit(
     feastpotAbsorbedPence: refundPence - vendorClawbackPence,
     commissionRefundedPence: Math.round(refundFraction * econ.commissionPence),
     serviceFeeAbsorbedPence: Math.round(refundFraction * econ.serviceFeePence),
+  };
+}
+
+/**
+ * Split for ONE refund in a possibly-multi-refund sequence, derived as the
+ * DIFFERENCE between the cumulative split after and before this refund.
+ *
+ * Computing each partial refund's split independently over-claws the vendor:
+ * refund fractions are amount/subtotal while the refundable ceiling is the
+ * order TOTAL (subtotal + fees), so a series of partials that sums to the
+ * total can produce clawback fractions summing past 100% of vendor earnings.
+ * Cumulative differencing guarantees the clawbacks across all refunds sum to
+ * exactly the single-refund split of the cumulative amount - capped at total
+ * vendor earnings when the order ends fully refunded.
+ */
+export function computeIncrementalRefundSplit(
+  alreadyRefundedPence: number,
+  refundPence: number,
+  econ: RefundOrderEconomics,
+  orderTotalPence: number,
+): RefundSplit {
+  const cumulativePence = alreadyRefundedPence + refundPence;
+  const after = computeRefundSplit(cumulativePence, econ, cumulativePence >= orderTotalPence);
+  const before =
+    alreadyRefundedPence > 0
+      ? computeRefundSplit(alreadyRefundedPence, econ, false)
+      : {
+          refundFraction: 0,
+          vendorClawbackPence: 0,
+          feastpotAbsorbedPence: 0,
+          commissionRefundedPence: 0,
+          serviceFeeAbsorbedPence: 0,
+        };
+  // Clamp the clawback delta into [0, refundPence]; absorbed is the exact
+  // complement so refund(-X) + credits always nets to the intended clawback.
+  const vendorClawbackPence = Math.max(
+    0,
+    Math.min(after.vendorClawbackPence - before.vendorClawbackPence, refundPence),
+  );
+  const feastpotAbsorbedPence = refundPence - vendorClawbackPence;
+  return {
+    refundFraction: Math.max(0, after.refundFraction - before.refundFraction),
+    vendorClawbackPence,
+    feastpotAbsorbedPence,
+    commissionRefundedPence: Math.max(
+      0,
+      after.commissionRefundedPence - before.commissionRefundedPence,
+    ),
+    serviceFeeAbsorbedPence: Math.max(
+      0,
+      Math.min(
+        after.serviceFeeAbsorbedPence - before.serviceFeeAbsorbedPence,
+        feastpotAbsorbedPence,
+      ),
+    ),
   };
 }
 
@@ -242,6 +317,8 @@ export class PaymentsService {
      * cannot double-refund the customer.
      */
     idempotencyKey?: string,
+    /** Structured reason/note detail recorded in the audit trail (admin endpoint). */
+    opts?: { reasonCode?: RefundReason; note?: string },
   ) {
     if (
       dto.amountPence >= LARGE_REFUND_THRESHOLD_PENCE &&
@@ -260,6 +337,7 @@ export class PaymentsService {
         id: true,
         customerId: true,
         vendorId: true,
+        status: true,
         subtotalPence: true,
         serviceFeePence: true,
         deliveryFeePence: true,
@@ -267,7 +345,12 @@ export class PaymentsService {
         commissionPence: true,
         totalPence: true,
         foundingAllowanceAppliedPence: true,
-        vendor: { select: { userId: true } },
+        // deliveredAt: locates the vendor-period batch payout covering this
+        // order (batch payouts have orderId=null and span a delivery window).
+        deliveredAt: true,
+        // stripeAccountId: needed to compensate the vendor if a transfer
+        // reversal succeeds but the subsequent refund/DB step fails.
+        vendor: { select: { userId: true, stripeAccountId: true } },
       },
     });
     if (!order)
@@ -291,11 +374,65 @@ export class PaymentsService {
       });
     }
 
-    // Cumulative-refund guard: total prior refunds + this refund cannot exceed total.
+    // Retry resolution BEFORE the cumulative guard: a successful earlier
+    // attempt with the same deterministic key must return its committed row
+    // as a duplicate - otherwise the guard sees the earlier refund and
+    // rejects the retry, breaking the idempotent-retry guarantee.
+    if (idempotencyKey) {
+      const priorAudit = await this.prisma.auditLog.findFirst({
+        where: {
+          action: 'refund_issued',
+          entityType: 'orders',
+          entityId: dto.orderId,
+          metadata: { path: ['idempotencyKey'], equals: idempotencyKey },
+        },
+        orderBy: { createdAt: 'desc' },
+        select: { metadata: true },
+      });
+      const priorMeta = (priorAudit?.metadata ?? null) as {
+        refundPaymentId?: string;
+        vendorClawbackPence?: number;
+        feastpotAbsorbedPence?: number;
+        commissionRefundedPence?: number;
+        serviceFeePenceAbsorbed?: number;
+      } | null;
+      if (priorMeta?.refundPaymentId) {
+        const priorRow = await this.prisma.payment.findUnique({
+          where: { id: priorMeta.refundPaymentId },
+        });
+        if (priorRow && priorRow.status !== PaymentStatus.failed) {
+          return {
+            refund: priorRow,
+            split: {
+              refundFraction: 0,
+              vendorClawbackPence: priorMeta.vendorClawbackPence ?? 0,
+              feastpotAbsorbedPence: priorMeta.feastpotAbsorbedPence ?? 0,
+              commissionRefundedPence: priorMeta.commissionRefundedPence ?? 0,
+              serviceFeeAbsorbedPence: priorMeta.serviceFeePenceAbsorbed ?? 0,
+            },
+            duplicate: true as const,
+          };
+        }
+        if (priorRow?.status === PaymentStatus.failed) {
+          // Reusing the key would make Stripe replay the FAILED refund object;
+          // a reissue must be a genuinely new business attempt.
+          throw new BadRequestException({
+            code: 'REFUND_PREVIOUSLY_FAILED',
+            message: `A previous refund attempt with this requestId failed at Stripe; reissue with a NEW requestId`,
+          });
+        }
+      }
+    }
+
+    // Cumulative-refund guard: total prior refunds + this refund cannot exceed
+    // total. FAILED rows are excluded - a failed refund never moved customer
+    // money and has been ledger-compensated, so it must not block a reissue.
+    // (Payout netting stays status-agnostic; that is a separate concern.)
     const priorRefunds = await this.prisma.payment.aggregate({
       where: {
         orderId: dto.orderId,
         type: { in: [PaymentType.refund, PaymentType.partial_refund] },
+        status: { not: PaymentStatus.failed },
       },
       _sum: { amountPence: true },
     });
@@ -307,24 +444,18 @@ export class PaymentsService {
       });
     }
 
-    // Pass `amount` so Stripe refunds the requested amount, not the full PI.
-    // Idempotency key (when provided) makes the Stripe call safe to retry.
-    const stripeRefund = await this.stripe.refund(
-      lastPi.stripePaymentIntentId,
-      dto.amountPence,
-      idempotencyKey,
-    );
-
-    // Stripe is now the source of truth. If the DB writes below fail and the
-    // caller retries with the same `idempotencyKey`, Stripe will return this
-    // same refund (no double-debit) and the DB writes will succeed on retry.
-    // If the caller retries WITHOUT a key - e.g. another endpoint - the
-    // cumulative-refund guard above stops a duplicate refund being created.
-
-    const isPartial = dto.amountPence < order.totalPence;
+    // Full vs partial is CUMULATIVE: a final partial that brings total refunds
+    // to the order total is, for every side effect (payment type, audit
+    // metadata, referral cleanup, order status), a full refund. The in-tx
+    // equality guard below aborts if prior refunds change concurrently, so
+    // this pre-tx determination stays consistent with what commits.
+    const isPartial = alreadyRefundedPence + dto.amountPence < order.totalPence;
     // Vendor clawback excludes the platform service fee (Feastpot revenue the
-    // vendor never received). Feastpot absorbs that share of the customer refund.
-    const split = computeRefundSplit(
+    // vendor never received). Feastpot absorbs that share of the customer
+    // refund. Incremental against prior refunds so a SEQUENCE of partials can
+    // never claw back more than the vendor's total earnings.
+    const split = computeIncrementalRefundSplit(
+      alreadyRefundedPence,
       dto.amountPence,
       {
         subtotalPence: order.subtotalPence,
@@ -333,8 +464,186 @@ export class PaymentsService {
         discountPence: order.discountPence,
         commissionPence: order.commissionPence,
       },
-      !isPartial,
+      order.totalPence,
     );
+
+    // If the vendor has ALREADY been paid out for this specific order, the
+    // weekly-batch clawback can't recover their share - the money left our
+    // balance. Reverse the Stripe transfer for the clawback amount FIRST, so
+    // that if the connected account cannot cover it (balance_insufficient) we
+    // fail BEFORE issuing the customer refund and never end up with a split
+    // ledger. Vendor-period batch payouts (orderId=null) are unaffected: the
+    // ledger rows written below are netted by the NEXT batch automatically.
+    // Find the payout that covers this order's earnings. Weekly batch payouts
+    // are created with orderId=null spanning a delivery-date window, so match
+    // EITHER a per-order payout OR the vendor-period payout whose window
+    // contains deliveredAt. Failed payouts don't hold the money; drafts/held/
+    // approved haven't moved it yet and can be adjusted in the DB instead.
+    let reversal: {
+      payoutId: string;
+      keyBase: string | null;
+      attempt: number;
+      clawbackPence: number;
+    } | null = null;
+    let payoutToAdjust: string | null = null;
+    if (split.vendorClawbackPence > 0) {
+      const periodMatch: Prisma.PayoutWhereInput[] = [{ orderId: dto.orderId }];
+      if (order.deliveredAt) {
+        periodMatch.push({
+          vendorId: order.vendorId,
+          orderId: null,
+          periodStart: { lte: order.deliveredAt },
+          periodEnd: { gt: order.deliveredAt },
+        });
+      }
+      const covering = await this.prisma.payout.findFirst({
+        where: {
+          status: {
+            in: [
+              PayoutStatus.draft,
+              PayoutStatus.held,
+              PayoutStatus.approved,
+              PayoutStatus.transferred,
+            ],
+          },
+          OR: periodMatch,
+        },
+        orderBy: { createdAt: 'desc' },
+        select: { id: true, status: true, stripeTransferId: true, amountPence: true },
+      });
+      if (covering?.status === PayoutStatus.transferred) {
+        if (!covering.stripeTransferId) {
+          throw new ConflictException({
+            code: 'TRANSFER_REVERSAL_FAILED',
+            message: `Payout ${covering.id} is transferred but has no Stripe transfer id - manual repair required before refunding.`,
+          });
+        }
+        // The money already left our balance: claw it back via a Stripe
+        // transfer reversal BEFORE issuing the customer refund.
+        //
+        // Attempt counter: if a previous attempt with this requestId was
+        // reversed and then COMPENSATED (refund failed afterwards), reusing
+        // the same idempotency key would return the original reversal without
+        // pulling funds again - the vendor would keep the compensation AND the
+        // customer would be refunded. Each compensation bumps the attempt so
+        // the retry creates a genuinely new reversal.
+        const keyBase = idempotencyKey ? `reversal:${idempotencyKey}` : null;
+        const attempt = keyBase
+          ? await this.prisma.auditLog.count({
+              where: {
+                action: 'transfer_reversal_compensated',
+                metadata: { path: ['reversalKeyBase'], equals: keyBase },
+              },
+            })
+          : 0;
+        const reversalKey = keyBase
+          ? attempt === 0
+            ? keyBase
+            : `${keyBase}:${attempt}`
+          : undefined;
+        let stripeReversalId: string;
+        try {
+          const rev = await this.stripe.createTransferReversal({
+            transferId: covering.stripeTransferId,
+            amountPence: split.vendorClawbackPence,
+            idempotencyKey: reversalKey,
+          });
+          stripeReversalId = rev.id;
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          throw new ConflictException({
+            code: 'TRANSFER_REVERSAL_FAILED',
+            message:
+              `The vendor was already paid out for this order and the Stripe transfer reversal ` +
+              `of ${split.vendorClawbackPence}p failed: ${msg}. No refund was issued. ` +
+              `Ask the vendor to top up their Stripe balance, or reverse the transfer manually ` +
+              `in the Stripe Dashboard, then retry.`,
+          });
+        }
+        reversal = {
+          payoutId: covering.id,
+          keyBase,
+          attempt,
+          clawbackPence: split.vendorClawbackPence,
+        };
+        // Persist the reversal IMMEDIATELY so a crash before the ledger commit
+        // still leaves a recoverable trace, and so the async failed-refund
+        // path knows a reversal exists to pay back. If this persistence write
+        // itself fails, the vendor has been debited with no refund coming -
+        // pay the reversal back before surfacing the failure. (A process
+        // crash instead of a thrown error is covered by the same-key retry:
+        // Stripe replays the original reversal, no second debit.)
+        try {
+          await this.prisma.auditLog.create({
+            data: {
+              actorId: authorisedBy.id,
+              action: 'transfer_reversal_created',
+              entityType: 'orders',
+              entityId: dto.orderId,
+              metadata: {
+                payoutId: covering.id,
+                stripeTransferId: covering.stripeTransferId,
+                stripeReversalId,
+                clawbackPence: split.vendorClawbackPence,
+                reversalKeyBase: keyBase,
+                attempt,
+              } as Prisma.JsonObject,
+            },
+          });
+        } catch (e) {
+          await this.compensateReversalIfNeeded(
+            reversal,
+            order.vendor.stripeAccountId,
+            dto.orderId,
+          );
+          throw e;
+        }
+      } else if (covering) {
+        // Payout exists but hasn't been transferred: deduct the clawback from
+        // its amount atomically inside the ledger transaction below (the batch
+        // computed its amount BEFORE these refund rows existed, and future
+        // batches never revisit this order's window).
+        payoutToAdjust = covering.id;
+      }
+      // No covering payout at all → the order's window hasn't been batched
+      // yet; the refund/credit rows written below are netted by that batch.
+    }
+
+    // Pass `amount` so Stripe refunds the requested amount, not the full PI.
+    // Idempotency key (when provided) makes the Stripe call safe to retry.
+    let stripeRefund: Stripe.Refund;
+    try {
+      stripeRefund = await this.stripe.refund(
+        lastPi.stripePaymentIntentId,
+        dto.amountPence,
+        idempotencyKey,
+      );
+    } catch (e) {
+      // Post-reversal failure path: the vendor's funds were already pulled but
+      // the customer refund could not be created. Pay the clawback back to the
+      // vendor (idempotent) so we never end up with a one-sided reversal, then
+      // surface the original error.
+      await this.compensateReversalIfNeeded(reversal, order.vendor.stripeAccountId, dto.orderId);
+      throw e;
+    }
+
+    // Stripe is now the source of truth. If the DB writes below fail and the
+    // caller retries with the same `idempotencyKey`, Stripe will return this
+    // same refund (no double-debit) and the DB writes will succeed on retry.
+    // If the caller retries WITHOUT a key - e.g. another endpoint - the
+    // cumulative-refund guard above stops a duplicate refund being created.
+
+    // Duplicate-request short-circuit: with an idempotency key, Stripe returns
+    // the SAME refund object for a repeated call. If our ledger row for that
+    // refund already exists (the first request completed), return it instead
+    // of hitting the unique(stripeRefundId) constraint - two rapid identical
+    // requests thus produce exactly one Stripe refund and one DB row.
+    const existingRow = await this.prisma.payment.findUnique({
+      where: { stripeRefundId: stripeRefund.id },
+    });
+    if (existingRow) {
+      return { refund: existingRow, split, duplicate: true as const };
+    }
 
     // The refund row and its companion credit row MUST be written atomically.
     // The weekly payout batch derives the vendor clawback by netting credit rows
@@ -348,111 +657,220 @@ export class PaymentsService {
     //   stripeRefundId is the natural key for webhook reconciliation.
     // - Credit row: the part of the refund the vendor is NOT liable for (its
     //   service-fee share plus the commission Feastpot gives back).
-    const refundRow = await this.prisma.$transaction(async (tx) => {
-      // Per-order advisory lock: serialises against a concurrent lost-chargeback
-      // reconciliation (which takes the same lock) so the cumulative-refund
-      // ceiling cannot be raced past by two writers whose pre-checks both read
-      // stale totals.
-      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${dto.orderId}))`;
-      // Re-check the ceiling INSIDE the lock scope. The pre-check above ran
-      // before the Stripe call; a chargeback ledger write may have landed in
-      // between. Throwing here rolls back cleanly - the Stripe refund already
-      // exists, but the deterministic idempotencyKey means a retry returns the
-      // SAME Stripe refund, and the thrown error surfaces the conflict to the
-      // caller instead of silently over-refunding the ledger.
-      const priorInTx = await tx.payment.aggregate({
-        where: {
-          orderId: dto.orderId,
-          type: { in: [PaymentType.refund, PaymentType.partial_refund] },
-        },
-        _sum: { amountPence: true },
-      });
-      const refundedInTxPence = -(priorInTx._sum.amountPence ?? 0);
-      if (refundedInTxPence + dto.amountPence > order.totalPence) {
-        throw new BadRequestException({
-          code: 'CUMULATIVE_REFUND_EXCEEDS_TOTAL',
-          message: `Refunds total (${refundedInTxPence + dto.amountPence}p) exceeds order total (${order.totalPence}p); a concurrent refund/chargeback landed first`,
+    const runLedgerTx = () =>
+      this.prisma.$transaction(async (tx) => {
+        // Per-order advisory lock: serialises against a concurrent lost-chargeback
+        // reconciliation (which takes the same lock) so the cumulative-refund
+        // ceiling cannot be raced past by two writers whose pre-checks both read
+        // stale totals.
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${dto.orderId}))`;
+        // Re-check the ceiling INSIDE the lock scope. The pre-check above ran
+        // before the Stripe call; a chargeback ledger write may have landed in
+        // between. Throwing here rolls back cleanly - the Stripe refund already
+        // exists, but the deterministic idempotencyKey means a retry returns the
+        // SAME Stripe refund, and the thrown error surfaces the conflict to the
+        // caller instead of silently over-refunding the ledger.
+        const priorInTx = await tx.payment.aggregate({
+          where: {
+            orderId: dto.orderId,
+            type: { in: [PaymentType.refund, PaymentType.partial_refund] },
+            status: { not: PaymentStatus.failed },
+          },
+          _sum: { amountPence: true },
         });
-      }
-      const row = await tx.payment.create({
-        data: {
-          orderId: dto.orderId,
-          userId: authorisedBy.id,
-          type: isPartial ? PaymentType.partial_refund : PaymentType.refund,
-          status: PaymentStatus.succeeded,
-          amountPence: -dto.amountPence,
-          currency: 'GBP',
-          stripePaymentIntentId: lastPi.stripePaymentIntentId,
-          stripeChargeId: typeof stripeRefund.charge === 'string' ? stripeRefund.charge : null,
-          stripeRefundId: stripeRefund.id,
-          failureReason: dto.reason ?? null,
-          processedAt: new Date(),
-        },
-      });
-      // The Feastpot-absorbed portion is written as TWO explicit credit rows so
-      // the ledger itself records that the platform RETAINED the service fee
-      // (previously only visible in a best-effort audit-log blob):
-      //   1. service-fee share - platform revenue Feastpot keeps but absorbs
-      //      against this refund (the vendor never received it),
-      //   2. commission share - commission Feastpot gives back on the refund.
-      // The weekly payout batch nets ALL credit rows against refund rows, so
-      // splitting one credit into two with the same sum leaves the vendor
-      // clawback arithmetic unchanged. Clamp so the rows always sum EXACTLY to
-      // feastpotAbsorbedPence even under rounding on partial refunds.
-      const serviceFeeCreditPence = Math.min(
-        split.serviceFeeAbsorbedPence,
-        split.feastpotAbsorbedPence,
-      );
-      const commissionCreditPence = split.feastpotAbsorbedPence - serviceFeeCreditPence;
-      if (serviceFeeCreditPence > 0) {
-        await tx.payment.create({
+        const refundedInTxPence = -(priorInTx._sum.amountPence ?? 0);
+        if (refundedInTxPence + dto.amountPence > order.totalPence) {
+          throw new BadRequestException({
+            code: 'CUMULATIVE_REFUND_EXCEEDS_TOTAL',
+            message: `Refunds total (${refundedInTxPence + dto.amountPence}p) exceeds order total (${order.totalPence}p); a concurrent refund/chargeback landed first`,
+          });
+        }
+        // The incremental split above was derived from the PRE-transaction
+        // prior-refunds total; if another refund/chargeback landed in between,
+        // that split (and any reversal already taken from it) is stale.
+        if (refundedInTxPence !== alreadyRefundedPence) {
+          throw new ConflictException({
+            code: 'CONCURRENT_REFUND_CONFLICT',
+            message: `Refund ledger changed concurrently (${alreadyRefundedPence}p -> ${refundedInTxPence}p already refunded); retry the request`,
+          });
+        }
+        // Not-yet-transferred covering payout: deduct the clawback from its
+        // amount atomically with the ledger rows. The batch computed the
+        // payout amount BEFORE this refund existed and no future batch
+        // revisits this order's window, so without this the vendor would be
+        // paid their pre-refund share. The status guard makes this a CAS: if
+        // the payout was transferred between our pre-check and here, count=0
+        // and we abort - a retry then takes the transfer-reversal path.
+        if (payoutToAdjust && split.vendorClawbackPence > 0) {
+          const adj = await tx.payout.updateMany({
+            where: {
+              id: payoutToAdjust,
+              status: { in: [PayoutStatus.draft, PayoutStatus.held, PayoutStatus.approved] },
+              amountPence: { gte: split.vendorClawbackPence },
+            },
+            data: {
+              amountPence: { decrement: split.vendorClawbackPence },
+              refundsPence: { increment: split.vendorClawbackPence },
+            },
+          });
+          if (adj.count !== 1) {
+            throw new ConflictException({
+              code: 'PAYOUT_ADJUSTMENT_FAILED',
+              message:
+                `Pending payout ${payoutToAdjust} could not absorb the ${split.vendorClawbackPence}p ` +
+                `clawback (transferred concurrently, or amount too small). No ledger rows were ` +
+                `written; the Stripe refund is idempotent - retry with the same requestId.`,
+            });
+          }
+        }
+        const row = await tx.payment.create({
           data: {
             orderId: dto.orderId,
             userId: authorisedBy.id,
-            type: PaymentType.credit,
+            type: isPartial ? PaymentType.partial_refund : PaymentType.refund,
             status: PaymentStatus.succeeded,
-            amountPence: serviceFeeCreditPence,
+            amountPence: -dto.amountPence,
             currency: 'GBP',
-            failureReason: `service_fee_retained: platform service fee absorbed on refund ${row.id}`,
+            stripePaymentIntentId: lastPi.stripePaymentIntentId,
+            stripeChargeId: typeof stripeRefund.charge === 'string' ? stripeRefund.charge : null,
+            stripeRefundId: stripeRefund.id,
+            failureReason:
+              [opts?.reasonCode, dto.reason ?? opts?.note].filter(Boolean).join(': ') || null,
             processedAt: new Date(),
           },
         });
-      }
-      if (commissionCreditPence > 0) {
-        await tx.payment.create({
+        // Reflect the refund on the order itself, atomically with the ledger.
+        // Full refund → `refunded` (the order is commercially dead). Partial
+        // refund → `partially_refunded`, but ONLY when the order is already in
+        // a terminal state - a partial refund on an in-flight order (e.g.
+        // preparing) must not knock it out of the vendor's operational flow.
+        const TERMINAL: OrderStatus[] = [
+          OrderStatus.delivered,
+          OrderStatus.cancelled,
+          OrderStatus.rejected,
+          OrderStatus.refunded,
+          OrderStatus.partially_refunded,
+        ];
+        // Full/partial for the ORDER is cumulative: a series of partial
+        // refunds whose sum reaches the order total leaves the order fully
+        // refunded, even though each individual amount was partial.
+        const cumulativelyFull = refundedInTxPence + dto.amountPence >= order.totalPence;
+        const newStatus = cumulativelyFull
+          ? OrderStatus.refunded
+          : TERMINAL.includes(order.status)
+            ? OrderStatus.partially_refunded
+            : null;
+        if (newStatus && newStatus !== order.status) {
+          await tx.order.update({ where: { id: order.id }, data: { status: newStatus } });
+        }
+        // The Feastpot-absorbed portion is written as TWO explicit credit rows so
+        // the ledger itself records that the platform RETAINED the service fee
+        // (previously only visible in a best-effort audit-log blob):
+        //   1. service-fee share - platform revenue Feastpot keeps but absorbs
+        //      against this refund (the vendor never received it),
+        //   2. commission share - commission Feastpot gives back on the refund.
+        // The weekly payout batch nets ALL credit rows against refund rows, so
+        // splitting one credit into two with the same sum leaves the vendor
+        // clawback arithmetic unchanged. Clamp so the rows always sum EXACTLY to
+        // feastpotAbsorbedPence even under rounding on partial refunds.
+        const serviceFeeCreditPence = Math.min(
+          split.serviceFeeAbsorbedPence,
+          split.feastpotAbsorbedPence,
+        );
+        const commissionCreditPence = split.feastpotAbsorbedPence - serviceFeeCreditPence;
+        if (serviceFeeCreditPence > 0) {
+          await tx.payment.create({
+            data: {
+              orderId: dto.orderId,
+              userId: authorisedBy.id,
+              type: PaymentType.credit,
+              status: PaymentStatus.succeeded,
+              amountPence: serviceFeeCreditPence,
+              currency: 'GBP',
+              failureReason: `service_fee_retained: platform service fee absorbed on refund ${row.id}`,
+              processedAt: new Date(),
+            },
+          });
+        }
+        if (commissionCreditPence > 0) {
+          await tx.payment.create({
+            data: {
+              orderId: dto.orderId,
+              userId: authorisedBy.id,
+              type: PaymentType.credit,
+              status: PaymentStatus.succeeded,
+              amountPence: commissionCreditPence,
+              currency: 'GBP',
+              failureReason: `commission_refunded: Feastpot commission share absorbed on refund ${row.id}`,
+              processedAt: new Date(),
+            },
+          });
+        }
+        // Audit record is atomic with the money rows: a refund can no longer
+        // commit without its permanent reconciliation trail.
+        await tx.auditLog.create({
           data: {
-            orderId: dto.orderId,
-            userId: authorisedBy.id,
-            type: PaymentType.credit,
-            status: PaymentStatus.succeeded,
-            amountPence: commissionCreditPence,
-            currency: 'GBP',
-            failureReason: `commission_refunded: Feastpot commission share absorbed on refund ${row.id}`,
-            processedAt: new Date(),
+            actorId: authorisedBy.id,
+            action: 'refund_issued',
+            entityType: 'orders',
+            entityId: order.id,
+            metadata: {
+              customerRefundPence: dto.amountPence,
+              vendorClawbackPence: split.vendorClawbackPence,
+              feastpotAbsorbedPence: split.feastpotAbsorbedPence,
+              serviceFeeRetainedPence: serviceFeeCreditPence,
+              serviceFeePenceAbsorbed: split.serviceFeeAbsorbedPence,
+              commissionRefundedPence: split.commissionRefundedPence,
+              partial: isPartial,
+              // Fields below let the refund-failed compensation path undo this
+              // refund's side effects precisely (see compensateFailedRefund).
+              refundPaymentId: row.id,
+              previousOrderStatus: order.status,
+              allowanceRestoredPence:
+                order.foundingAllowanceAppliedPence > 0
+                  ? Math.round(split.refundFraction * order.foundingAllowanceAppliedPence)
+                  : 0,
+              reasonCode: opts?.reasonCode ?? null,
+              note: opts?.note ?? null,
+              // Deterministic request key: lets a retry resolve this attempt
+              // BEFORE the cumulative guard (idempotent-retry guarantee).
+              idempotencyKey: idempotencyKey ?? null,
+              // Reversal context so the ASYNC failed-refund path (webhook)
+              // can pay the clawback back to the vendor's connected account.
+              reversalPence: reversal?.clawbackPence ?? 0,
+              reversalKeyBase: reversal?.keyBase ?? null,
+              reversalAttempt: reversal?.attempt ?? 0,
+              reversalPayoutId: reversal?.payoutId ?? null,
+              adjustedPayoutId: payoutToAdjust,
+            } as Prisma.JsonObject,
           },
         });
-      }
-      // Audit record is atomic with the money rows: a refund can no longer
-      // commit without its permanent reconciliation trail.
-      await tx.auditLog.create({
-        data: {
-          actorId: authorisedBy.id,
-          action: 'refund_issued',
-          entityType: 'orders',
-          entityId: order.id,
-          metadata: {
-            customerRefundPence: dto.amountPence,
-            vendorClawbackPence: split.vendorClawbackPence,
-            feastpotAbsorbedPence: split.feastpotAbsorbedPence,
-            serviceFeeRetainedPence: serviceFeeCreditPence,
-            serviceFeePenceAbsorbed: split.serviceFeeAbsorbedPence,
-            commissionRefundedPence: split.commissionRefundedPence,
-            partial: isPartial,
-          } as Prisma.JsonObject,
-        },
+        return row;
       });
-      return row;
-    });
+    let refundRow: Awaited<ReturnType<typeof runLedgerTx>>;
+    try {
+      refundRow = await runLedgerTx();
+    } catch (e) {
+      // Concurrent same-requestId race: two callers share one Stripe reversal
+      // and one Stripe refund (idempotency keys); both pass the pre-commit
+      // duplicate check, one commits, the loser lands here on the in-tx
+      // cumulative ceiling. If OUR refund's ledger row now exists, the request
+      // as a whole SUCCEEDED - compensating the shared reversal would undo the
+      // committed clawback and leave the vendor whole while the customer is
+      // refunded. Return the committed row as a duplicate instead.
+      const committed = await this.prisma.payment.findUnique({
+        where: { stripeRefundId: stripeRefund.id },
+      });
+      if (committed) {
+        return { refund: committed, split, duplicate: true as const };
+      }
+      // The Stripe refund exists but the ledger writes genuinely failed (e.g.
+      // lost a race with a concurrent chargeback write). If a transfer
+      // reversal happened, pay it back so the vendor is whole; a retry with
+      // the same requestId re-attempts the whole operation.
+      await this.compensateReversalIfNeeded(reversal, order.vendor.stripeAccountId, dto.orderId);
+      throw e;
+    }
 
     // Durable enqueue: NotificationsService never throws AND never drops -
     // if the queue is down the events are persisted to notification_outbox
@@ -505,6 +923,621 @@ export class PaymentsService {
     }
 
     return { refund: refundRow, split };
+  }
+
+  /**
+   * Admin-facing wrapper: resolves an omitted amount to the full remaining
+   * refundable amount, builds a deterministic idempotency key from the
+   * client-supplied requestId, and enforces the note-required-for-other rule.
+   */
+  async createAdminRefund(
+    orderId: string,
+    dto: AdminRefundDto,
+    authorisedBy: { id: string; role: UserRole },
+  ) {
+    if (dto.reason === RefundReason.other && !dto.note?.trim()) {
+      throw new BadRequestException({
+        code: 'NOTE_REQUIRED',
+        message: 'A note is required when reason is "other"',
+      });
+    }
+    let amountPence = dto.amountPence;
+    if (amountPence === undefined) {
+      const info = await this.getOrderRefundInfo(orderId);
+      amountPence = info.refundablePence;
+      if (amountPence <= 0) {
+        throw new BadRequestException({
+          code: 'NOTHING_TO_REFUND',
+          message: 'Order has already been fully refunded',
+        });
+      }
+    }
+    const idempotencyKey = dto.requestId ? `admin-refund:${orderId}:${dto.requestId}` : undefined;
+    return this.createRefund(
+      { orderId, amountPence, reason: dto.note?.trim() || undefined },
+      authorisedBy,
+      idempotencyKey,
+      { reasonCode: dto.reason, note: dto.note?.trim() || undefined },
+    );
+  }
+
+  /**
+   * Refund state + history for the admin order view: prior refund/credit rows
+   * (with actor), the remaining refundable amount, and the order economics the
+   * dialog needs to preview the vendor clawback before confirming.
+   */
+  async getOrderRefundInfo(orderId: string) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: {
+        id: true,
+        status: true,
+        totalPence: true,
+        subtotalPence: true,
+        serviceFeePence: true,
+        deliveryFeePence: true,
+        discountPence: true,
+        commissionPence: true,
+      },
+    });
+    if (!order)
+      throw new NotFoundException({ code: 'ORDER_NOT_FOUND', message: 'Order not found' });
+
+    const payments = await this.prisma.payment.findMany({
+      where: {
+        orderId,
+        type: { in: [PaymentType.refund, PaymentType.partial_refund] },
+      },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        user: { select: { id: true, email: true, firstName: true, lastName: true, role: true } },
+      },
+    });
+    const refundedPence = payments
+      .filter((p) => p.status !== PaymentStatus.failed)
+      .reduce((sum, p) => sum + -p.amountPence, 0);
+    return {
+      order,
+      payments,
+      refundedPence,
+      refundablePence: Math.max(0, order.totalPence - refundedPence),
+    };
+  }
+
+  /**
+   * Reconcile a refund that was created OUTSIDE Feastpot (Stripe Dashboard).
+   * The money has already moved, so this writes ONLY the ledger side - the
+   * same refund/credit/audit rows and order-status change as createRefund,
+   * with the customer as the Payment userId and a null audit actor (system).
+   * Idempotent on the unique stripeRefundId.
+   */
+  async reconcileExternalRefund(refund: Stripe.Refund): Promise<void> {
+    if (!refund.id) return;
+    // A failed/cancelled external refund moved no money - never write ledger
+    // rows for it (the failed-refund compensation path only handles refunds
+    // that were pending/succeeded first, so a directly-failed row would leave
+    // an uncompensated deduction in the payout aggregation).
+    if (refund.status === 'failed' || refund.status === 'canceled') return;
+    const existing = await this.prisma.payment.findUnique({
+      where: { stripeRefundId: refund.id },
+      select: { id: true },
+    });
+    if (existing) return; // ours (or already reconciled)
+
+    const piId =
+      typeof refund.payment_intent === 'string'
+        ? refund.payment_intent
+        : (refund.payment_intent?.id ?? null);
+    const chargeId =
+      typeof refund.charge === 'string' ? refund.charge : (refund.charge?.id ?? null);
+    const matchers: Prisma.PaymentWhereInput[] = [];
+    if (piId) matchers.push({ stripePaymentIntentId: piId });
+    if (chargeId) matchers.push({ stripeChargeId: chargeId });
+    const anchor = matchers.length
+      ? await this.prisma.payment.findFirst({
+          where: { OR: matchers },
+          orderBy: { createdAt: 'asc' },
+          select: { orderId: true },
+        })
+      : null;
+    if (!anchor) {
+      this.logger.error(
+        `External Stripe refund ${refund.id} has no matching order - manual reconciliation required`,
+      );
+      return;
+    }
+
+    const order = await this.prisma.order.findUnique({
+      where: { id: anchor.orderId },
+      select: {
+        id: true,
+        customerId: true,
+        vendorId: true,
+        status: true,
+        totalPence: true,
+        subtotalPence: true,
+        serviceFeePence: true,
+        deliveryFeePence: true,
+        discountPence: true,
+        commissionPence: true,
+        foundingAllowanceAppliedPence: true,
+        deliveredAt: true,
+        vendor: { select: { userId: true } },
+      },
+    });
+    if (!order) return;
+
+    // Locate the payout covering this order's earnings (same model as
+    // createRefund): batch payouts are vendor-period rows with orderId=null.
+    // If one exists, the ledger rows written below will never be netted by a
+    // future batch, so the clawback must be settled against the payout itself.
+    const periodMatch: Prisma.PayoutWhereInput[] = [{ orderId: order.id }];
+    if (order.deliveredAt) {
+      periodMatch.push({
+        vendorId: order.vendorId,
+        orderId: null,
+        periodStart: { lte: order.deliveredAt },
+        periodEnd: { gt: order.deliveredAt },
+      });
+    }
+    const coveringPayout = await this.prisma.payout.findFirst({
+      where: {
+        status: {
+          in: [
+            PayoutStatus.draft,
+            PayoutStatus.held,
+            PayoutStatus.approved,
+            PayoutStatus.transferred,
+          ],
+        },
+        OR: periodMatch,
+      },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, status: true, stripeTransferId: true },
+    });
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${order.id}))`;
+      // Idempotency inside the lock: a concurrent worker may have written it.
+      const dupe = await tx.payment.findUnique({
+        where: { stripeRefundId: refund.id },
+        select: { id: true },
+      });
+      if (dupe) return null;
+
+      // Cap at what is still refundable, mirroring the chargeback path.
+      const prior = await tx.payment.aggregate({
+        where: {
+          orderId: order.id,
+          type: { in: [PaymentType.refund, PaymentType.partial_refund] },
+          status: { not: PaymentStatus.failed },
+        },
+        _sum: { amountPence: true },
+      });
+      const alreadyRefundedPence = -(prior._sum.amountPence ?? 0);
+      const amountPence = Math.min(
+        refund.amount,
+        Math.max(0, order.totalPence - alreadyRefundedPence),
+      );
+      if (amountPence <= 0) return null;
+
+      // Cumulative, matching the admin path: a Dashboard refund that brings
+      // total refunds to the order total is a full refund for all side effects.
+      const isPartial = alreadyRefundedPence + amountPence < order.totalPence;
+      // Incremental against prior refunds - same over-clawback guard as the
+      // admin path: a sequence of partials can never claw more than earnings.
+      const split = computeIncrementalRefundSplit(
+        alreadyRefundedPence,
+        amountPence,
+        {
+          subtotalPence: order.subtotalPence,
+          serviceFeePence: order.serviceFeePence,
+          deliveryFeePence: order.deliveryFeePence,
+          discountPence: order.discountPence,
+          commissionPence: order.commissionPence,
+        },
+        order.totalPence,
+      );
+
+      const row = await tx.payment.create({
+        data: {
+          orderId: order.id,
+          userId: order.customerId,
+          type: isPartial ? PaymentType.partial_refund : PaymentType.refund,
+          status:
+            refund.status === 'failed' || refund.status === 'canceled'
+              ? PaymentStatus.failed
+              : refund.status === 'succeeded'
+                ? PaymentStatus.succeeded
+                : PaymentStatus.pending,
+          amountPence: -amountPence,
+          currency: 'GBP',
+          stripePaymentIntentId: piId,
+          stripeChargeId: chargeId,
+          stripeRefundId: refund.id,
+          failureReason: 'external: refund issued directly in the Stripe Dashboard',
+          processedAt: new Date(),
+        },
+      });
+      if (split.feastpotAbsorbedPence > 0) {
+        await tx.payment.create({
+          data: {
+            orderId: order.id,
+            userId: order.customerId,
+            type: PaymentType.credit,
+            status: PaymentStatus.succeeded,
+            amountPence: split.feastpotAbsorbedPence,
+            currency: 'GBP',
+            failureReason: `external_refund_absorbed: Feastpot service-fee + commission share on refund ${row.id}`,
+            processedAt: new Date(),
+          },
+        });
+      }
+      const TERMINAL: OrderStatus[] = [
+        OrderStatus.delivered,
+        OrderStatus.cancelled,
+        OrderStatus.rejected,
+        OrderStatus.refunded,
+        OrderStatus.partially_refunded,
+      ];
+      // Cumulative: partials summing to the total leave the order refunded.
+      const cumulativelyFull = alreadyRefundedPence + amountPence >= order.totalPence;
+      const newStatus = cumulativelyFull
+        ? OrderStatus.refunded
+        : TERMINAL.includes(order.status)
+          ? OrderStatus.partially_refunded
+          : null;
+      if (newStatus && newStatus !== order.status) {
+        await tx.order.update({ where: { id: order.id }, data: { status: newStatus } });
+      }
+      // Settle the clawback against a NOT-yet-transferred covering payout
+      // atomically with the ledger rows. CAS on status: if the payout was
+      // transferred concurrently, fall through to the debt path below rather
+      // than aborting (the customer's money already left via the Dashboard).
+      let settlement: 'adjusted' | 'reverse' | 'debt' | null = null;
+      if (coveringPayout && split.vendorClawbackPence > 0) {
+        if (coveringPayout.status === PayoutStatus.transferred) {
+          settlement = coveringPayout.stripeTransferId ? 'reverse' : 'debt';
+        } else {
+          const adj = await tx.payout.updateMany({
+            where: {
+              id: coveringPayout.id,
+              status: { in: [PayoutStatus.draft, PayoutStatus.held, PayoutStatus.approved] },
+              amountPence: { gte: split.vendorClawbackPence },
+            },
+            data: {
+              amountPence: { decrement: split.vendorClawbackPence },
+              refundsPence: { increment: split.vendorClawbackPence },
+            },
+          });
+          settlement = adj.count === 1 ? 'adjusted' : 'debt';
+        }
+      }
+      const auditMetadata = {
+        stripeRefundId: refund.id,
+        customerRefundPence: amountPence,
+        vendorClawbackPence: split.vendorClawbackPence,
+        feastpotAbsorbedPence: split.feastpotAbsorbedPence,
+        commissionRefundedPence: split.commissionRefundedPence,
+        partial: isPartial,
+        refundPaymentId: row.id,
+        previousOrderStatus: order.status,
+        allowanceRestoredPence: 0,
+        settlement,
+        settlementPayoutId: coveringPayout?.id ?? null,
+        adjustedPayoutId: settlement === 'adjusted' ? (coveringPayout?.id ?? null) : null,
+        // Filled post-tx if the reversal succeeds (compensateFailedRefund
+        // reads these to pay a reversal back on async failure).
+        reversalPence: 0,
+        reversalKeyBase: null,
+        reversalAttempt: 0,
+        reversalPayoutId: null,
+      } as Prisma.JsonObject;
+      const auditRow = await tx.auditLog.create({
+        data: {
+          actorId: null,
+          action: 'refund_reconciled_external',
+          entityType: 'orders',
+          entityId: order.id,
+          metadata: auditMetadata,
+        },
+      });
+      return { amountPence, split, isPartial, settlement, auditLogId: auditRow.id, auditMetadata };
+    });
+
+    if (!result) return;
+    this.logger.warn(
+      `External Stripe refund ${refund.id} reconciled: order ${order.id}, ` +
+        `${result.amountPence}p, vendor clawback ${result.split.vendorClawbackPence}p`,
+    );
+
+    // Post-commit settlement against an already-transferred payout: claw the
+    // vendor share back via a Stripe transfer reversal. The customer's money
+    // already left via the Dashboard, so a failed reversal must NOT undo the
+    // reconciliation - it becomes explicit operational debt instead.
+    if (result.settlement === 'reverse' && coveringPayout?.stripeTransferId) {
+      const keyBase = `reversal:ext:${refund.id}`;
+      try {
+        const rev = await this.stripe.createTransferReversal({
+          transferId: coveringPayout.stripeTransferId,
+          amountPence: result.split.vendorClawbackPence,
+          idempotencyKey: keyBase,
+        });
+        await Promise.all([
+          this.prisma.auditLog.create({
+            data: {
+              actorId: null,
+              action: 'transfer_reversal_created',
+              entityType: 'orders',
+              entityId: order.id,
+              metadata: {
+                payoutId: coveringPayout.id,
+                stripeTransferId: coveringPayout.stripeTransferId,
+                stripeReversalId: rev.id,
+                clawbackPence: result.split.vendorClawbackPence,
+                reversalKeyBase: keyBase,
+                attempt: 0,
+              } as Prisma.JsonObject,
+            },
+          }),
+          // Backfill the reconciliation audit metadata so the async
+          // failed-refund path can pay this reversal back if needed.
+          this.prisma.auditLog
+            .update({
+              where: { id: result.auditLogId },
+              data: {
+                metadata: {
+                  ...result.auditMetadata,
+                  reversalPence: result.split.vendorClawbackPence,
+                  reversalKeyBase: keyBase,
+                  reversalAttempt: 0,
+                  reversalPayoutId: coveringPayout.id,
+                } as Prisma.JsonObject,
+              },
+            })
+            .catch(() => undefined),
+        ]);
+      } catch (e) {
+        await this.recordClawbackDebt(
+          order.id,
+          coveringPayout.id,
+          result.split.vendorClawbackPence,
+          refund.id,
+          `transfer reversal failed: ${String(e)}`,
+        );
+      }
+    } else if (result.settlement === 'debt') {
+      await this.recordClawbackDebt(
+        order.id,
+        coveringPayout?.id ?? null,
+        result.split.vendorClawbackPence,
+        refund.id,
+        'covering payout could not absorb the clawback',
+      );
+    }
+    await Promise.all([
+      this.notifications.enqueue('refund_issued_customer', {
+        orderId: order.id,
+        customerId: order.customerId,
+        amountPence: result.amountPence,
+      }),
+      this.notifications.enqueue('refund_deducted_vendor', {
+        orderId: order.id,
+        vendorId: order.vendorId,
+        vendorUserId: order.vendor.userId,
+        deductionPence: result.split.vendorClawbackPence,
+      }),
+    ]);
+  }
+
+  /**
+   * Undo a refund's ledger side effects after Stripe reports it FAILED
+   * (`refund.updated` with status=failed): the customer's money never moved,
+   * so the vendor must not stay clawed back and Feastpot must not keep the
+   * commission reversed. Writes one compensating credit row so the refund
+   * group nets to zero in the payout batch's status-agnostic aggregation,
+   * restores the pre-refund order status, and re-burns any founding allowance
+   * that was restored. Idempotent via a CAS on the Payment row's status.
+   *
+   * Returns compensation detail for the caller to alert on, or null when the
+   * refund was already compensated / is not ours.
+   */
+  async compensateFailedRefund(stripeRefundId: string) {
+    const payment = await this.prisma.payment.findUnique({
+      where: { stripeRefundId },
+      select: { id: true, orderId: true, amountPence: true, userId: true },
+    });
+    if (!payment) return null;
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${payment.orderId}))`;
+      // CAS: only the first worker to move the row to failed compensates.
+      const cas = await tx.payment.updateMany({
+        where: { id: payment.id, status: { not: PaymentStatus.failed } },
+        data: { status: PaymentStatus.failed, processedAt: new Date() },
+      });
+      if (cas.count !== 1) return null;
+
+      // The payout batch aggregates refund + credit rows regardless of
+      // PaymentStatus, so simply marking the refund row failed is not enough -
+      // its -X would still be deducted from the vendor. Write ONE compensating
+      // credit of +vendorClawback (= refund amount − Feastpot-absorbed credits)
+      // so the whole group nets to exactly zero:
+      //   refund(-X) + absorbed credits(+A) + compensation(+(X−A)) = 0.
+      const credits = await tx.payment.findMany({
+        where: {
+          orderId: payment.orderId,
+          type: PaymentType.credit,
+          amountPence: { gt: 0 },
+          failureReason: { contains: `refund ${payment.id}` },
+        },
+        select: { id: true, amountPence: true, userId: true },
+      });
+      const absorbedPence = credits.reduce((s, c) => s + c.amountPence, 0);
+      const compensationPence = -payment.amountPence - absorbedPence; // vendor clawback share
+      if (compensationPence > 0) {
+        await tx.payment.create({
+          data: {
+            orderId: payment.orderId,
+            userId: credits[0]?.userId ?? payment.userId,
+            type: PaymentType.credit,
+            status: PaymentStatus.succeeded,
+            amountPence: compensationPence,
+            currency: 'GBP',
+            failureReason: `refund_failed_reversal: compensates vendor clawback for failed refund ${payment.id}`,
+            processedAt: new Date(),
+          },
+        });
+      }
+
+      // Recover the refund-time context from the audit row.
+      const audit = await tx.auditLog.findFirst({
+        where: {
+          entityType: 'orders',
+          entityId: payment.orderId,
+          action: { in: ['refund_issued', 'refund_reconciled_external'] },
+          metadata: { path: ['refundPaymentId'], equals: payment.id },
+        },
+        orderBy: { createdAt: 'desc' },
+        select: { metadata: true },
+      });
+      const meta = (audit?.metadata ?? {}) as {
+        previousOrderStatus?: string;
+        allowanceRestoredPence?: number;
+        reversalPence?: number;
+        reversalKeyBase?: string | null;
+        reversalAttempt?: number;
+        reversalPayoutId?: string | null;
+        adjustedPayoutId?: string | null;
+      };
+
+      // If the refund deducted its clawback from a not-yet-transferred payout,
+      // put the amount back (CAS on status: never touch a transferred payout).
+      if (meta.adjustedPayoutId && compensationPence > 0) {
+        await tx.payout.updateMany({
+          where: {
+            id: meta.adjustedPayoutId,
+            status: { in: [PayoutStatus.draft, PayoutStatus.held, PayoutStatus.approved] },
+          },
+          data: {
+            amountPence: { increment: compensationPence },
+            refundsPence: { decrement: compensationPence },
+          },
+        });
+      }
+
+      // Restore the pre-refund order status - CAS so we only undo OUR change.
+      const prev = meta.previousOrderStatus as OrderStatus | undefined;
+      if (prev) {
+        await tx.order.updateMany({
+          where: {
+            id: payment.orderId,
+            status: { in: [OrderStatus.refunded, OrderStatus.partially_refunded] },
+          },
+          data: { status: prev },
+        });
+      }
+
+      // Re-burn the founding allowance that was restored on refund issue.
+      const allowancePence = meta.allowanceRestoredPence ?? 0;
+      if (allowancePence > 0) {
+        const order = await tx.order.findUnique({
+          where: { id: payment.orderId },
+          select: { vendorId: true },
+        });
+        if (order) {
+          await tx.vendor.update({
+            where: { id: order.vendorId },
+            data: { foundingAllowanceUsedPence: { increment: allowancePence } },
+          });
+        }
+      }
+
+      await tx.auditLog.create({
+        data: {
+          actorId: null,
+          action: 'refund_failed_compensated',
+          entityType: 'orders',
+          entityId: payment.orderId,
+          metadata: {
+            stripeRefundId,
+            refundPaymentId: payment.id,
+            refundAmountPence: -payment.amountPence,
+            absorbedCreditsPence: absorbedPence,
+            compensationCreditPence: Math.max(0, compensationPence),
+            orderStatusRestoredTo: prev ?? null,
+            allowanceReburnedPence: allowancePence,
+          } as Prisma.JsonObject,
+        },
+      });
+
+      return {
+        orderId: payment.orderId,
+        refundAmountPence: -payment.amountPence,
+        compensationCreditPence: Math.max(0, compensationPence),
+        reversalPence: meta.reversalPence ?? 0,
+        reversalKeyBase: meta.reversalKeyBase ?? null,
+        reversalAttempt: meta.reversalAttempt ?? 0,
+        reversalPayoutId: meta.reversalPayoutId ?? null,
+      };
+    });
+
+    // Post-tx: if the refund had clawed the vendor via a Stripe transfer
+    // reversal, that money must go back to the connected account - the ledger
+    // credit above only fixes Feastpot's books, not the vendor's balance.
+    // Idempotent per (keyBase, attempt); recording the compensation also bumps
+    // the attempt counter so a NEW refund retry pulls funds again.
+    if (result) {
+      let reversal =
+        result.reversalPence > 0
+          ? {
+              payoutId: result.reversalPayoutId ?? 'unknown',
+              keyBase: result.reversalKeyBase,
+              attempt: result.reversalAttempt,
+              clawbackPence: result.reversalPence,
+            }
+          : null;
+      // Fallback: the reconciliation metadata backfill for external refunds is
+      // best-effort, so recover reversal context from the standalone
+      // `transfer_reversal_created` record (written at reversal time under a
+      // deterministic key derived from the Stripe refund id).
+      if (!reversal) {
+        const extKeyBase = `reversal:ext:${stripeRefundId}`;
+        const created = await this.prisma.auditLog.findFirst({
+          where: {
+            action: 'transfer_reversal_created',
+            metadata: { path: ['reversalKeyBase'], equals: extKeyBase },
+          },
+          orderBy: { createdAt: 'desc' },
+          select: { metadata: true },
+        });
+        const m = (created?.metadata ?? null) as {
+          payoutId?: string;
+          clawbackPence?: number;
+          attempt?: number;
+        } | null;
+        if (m?.clawbackPence && m.clawbackPence > 0) {
+          reversal = {
+            payoutId: m.payoutId ?? 'unknown',
+            keyBase: extKeyBase,
+            attempt: m.attempt ?? 0,
+            clawbackPence: m.clawbackPence,
+          };
+        }
+      }
+      if (reversal) {
+        const order = await this.prisma.order.findUnique({
+          where: { id: result.orderId },
+          select: { vendor: { select: { stripeAccountId: true } } },
+        });
+        await this.compensateReversalIfNeeded(
+          reversal,
+          order?.vendor.stripeAccountId ?? null,
+          result.orderId,
+        );
+      }
+    }
+    return result;
   }
 
   /**
@@ -567,6 +1600,122 @@ export class PaymentsService {
         WHERE id = ${referredByVendorId}::uuid
       `;
     });
+  }
+
+  /**
+   * Undo a transfer reversal after a post-reversal failure: the vendor's funds
+   * were pulled back but the customer refund could not be completed, so the
+   * clawback must be returned. Idempotent (deterministic key derived from the
+   * refund attempt's key) and best-effort: if the compensating transfer itself
+   * fails, log + Sentry loudly - the original error still propagates and a
+   * retry with the same requestId re-runs the whole operation safely.
+   */
+  /**
+   * Explicit operational-debt trail for a vendor clawback that could not be
+   * collected automatically (transfer reversal failed, or a covering payout
+   * could not absorb it). The reconciliation itself stands - the customer's
+   * money already moved - so finance must recover this amount manually.
+   */
+  private async recordClawbackDebt(
+    orderId: string,
+    payoutId: string | null,
+    clawbackPence: number,
+    stripeRefundId: string,
+    reason: string,
+  ): Promise<void> {
+    this.logger.error(
+      `VENDOR CLAWBACK DEBT: ${clawbackPence}p owed on order ${orderId} ` +
+        `(payout ${payoutId ?? 'unknown'}, refund ${stripeRefundId}) - ${reason}. ` +
+        `Manual recovery required.`,
+    );
+    await this.prisma.auditLog
+      .create({
+        data: {
+          actorId: null,
+          action: 'vendor_clawback_debt',
+          entityType: 'orders',
+          entityId: orderId,
+          metadata: {
+            payoutId,
+            clawbackPence,
+            stripeRefundId,
+            reason,
+          } as Prisma.JsonObject,
+        },
+      })
+      .catch((e: unknown) =>
+        this.logger.error(`failed to write vendor_clawback_debt audit row: ${String(e)}`),
+      );
+  }
+
+  private async compensateReversalIfNeeded(
+    reversal: {
+      payoutId: string;
+      keyBase: string | null;
+      attempt: number;
+      clawbackPence: number;
+    } | null,
+    vendorStripeAccountId: string | null,
+    orderId: string,
+  ): Promise<void> {
+    if (!reversal || reversal.clawbackPence <= 0) return;
+    // Exactly-once per (keyBase, attempt): a compensated audit row already
+    // written for this attempt means the payback happened (e.g. the sync path
+    // ran before an async webhook retried the same failure).
+    if (reversal.keyBase) {
+      const already = await this.prisma.auditLog.findFirst({
+        where: {
+          action: 'transfer_reversal_compensated',
+          metadata: { path: ['reversalKeyBase'], equals: reversal.keyBase },
+          AND: [{ metadata: { path: ['attempt'], equals: reversal.attempt } }],
+        },
+        select: { id: true },
+      });
+      if (already) return;
+    }
+    if (!vendorStripeAccountId) {
+      this.logger.error(
+        `Reversal compensation needed for order ${orderId} but vendor has no Stripe account id - manual repair required (payout ${reversal.payoutId}, ${reversal.clawbackPence}p)`,
+      );
+      return;
+    }
+    try {
+      await this.stripe.createTransfer({
+        amountPence: reversal.clawbackPence,
+        destinationAccountId: vendorStripeAccountId,
+        payoutId: reversal.payoutId,
+        // Attempt-scoped: a NEW attempt's compensation must not be swallowed
+        // by Stripe idempotency from a previous attempt's payback.
+        idempotencyKey: reversal.keyBase
+          ? `comp:${reversal.keyBase}:${reversal.attempt}`
+          : undefined,
+      });
+      // Recording the compensation bumps the attempt counter, so a retry of
+      // the refund creates a genuinely new reversal instead of Stripe
+      // replaying the original one (which would leave the vendor whole while
+      // the customer gets refunded).
+      await this.prisma.auditLog.create({
+        data: {
+          actorId: null,
+          action: 'transfer_reversal_compensated',
+          entityType: 'orders',
+          entityId: orderId,
+          metadata: {
+            payoutId: reversal.payoutId,
+            clawbackPence: reversal.clawbackPence,
+            reversalKeyBase: reversal.keyBase,
+            attempt: reversal.attempt,
+          } as Prisma.JsonObject,
+        },
+      });
+      this.logger.warn(
+        `Compensated ${reversal.clawbackPence}p transfer reversal for order ${orderId} after refund failure`,
+      );
+    } catch (e) {
+      this.logger.error(
+        `FAILED to compensate ${reversal.clawbackPence}p transfer reversal for order ${orderId} (payout ${reversal.payoutId}): ${String(e)} - vendor is owed this amount, manual repair required`,
+      );
+    }
   }
 
   // -------------------- helpers --------------------

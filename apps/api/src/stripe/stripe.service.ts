@@ -113,6 +113,31 @@ export class StripeService {
     );
   }
 
+  /**
+   * Reverse (part of) a previously-created transfer - used to claw back a
+   * vendor's earned share when a refund is issued AFTER the vendor has already
+   * been paid out for the order. Pass a deterministic `idempotencyKey` so
+   * retries cannot double-reverse. Stripe pulls the funds from the connected
+   * account's balance; the call throws (e.g. `balance_insufficient`) when the
+   * account cannot cover it - callers must surface that, not swallow it.
+   */
+  createTransferReversal(args: {
+    transferId: string;
+    amountPence: number;
+    idempotencyKey?: string;
+  }): Promise<Stripe.TransferReversal> {
+    return this.stripe.transfers.createReversal(
+      args.transferId,
+      { amount: args.amountPence },
+      args.idempotencyKey ? { idempotencyKey: args.idempotencyKey } : undefined,
+    );
+  }
+
+  /** List refunds on a charge - used when a `charge.refunded` webhook arrives without the refunds list expanded. */
+  listRefunds(chargeId: string): Promise<Stripe.ApiList<Stripe.Refund>> {
+    return this.stripe.refunds.list({ charge: chargeId, limit: 100 });
+  }
+
   constructEvent(payload: Buffer | string, signature: string, secret: string): Stripe.Event {
     return this.stripe.webhooks.constructEvent(payload, signature, secret);
   }
