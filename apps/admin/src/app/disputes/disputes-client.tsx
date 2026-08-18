@@ -42,6 +42,7 @@ import {
   type Severity,
   type SlaFilter,
 } from '@/hooks/use-disputes';
+import { useDebounce } from '@/hooks/use-debounce';
 import { formatDate, formatPence } from '@/lib/format';
 import { getSLAStatus, SLA_TONE_CLASSES, type SLAStatus } from '@/lib/sla';
 
@@ -129,17 +130,21 @@ export function DisputesClient() {
   const cursor = cursorStack[cursorStack.length - 1];
   const pageIndex = cursorStack.length - 1;
 
+  // Debounce only the free-text search; Select / chip changes are discrete
+  // single-change interactions where 300 ms delay would feel sluggish.
+  const debouncedSearch = useDebounce(search);
+
   const filters: DisputeFilters = useMemo(
     () => ({
       status: status === 'all' ? undefined : status,
       severities: severity === 'all' ? undefined : [severity],
       sla,
-      q: search.trim() || undefined,
+      q: debouncedSearch.trim() || undefined,
       createdFrom: dateRangeToCreatedFrom(dateRange),
       cursor,
       limit: pageSize,
     }),
-    [status, severity, sla, search, dateRange, cursor, pageSize],
+    [status, severity, sla, debouncedSearch, dateRange, cursor, pageSize],
   );
   // Stats share the filter scope minus pagination.
   const statsFilters = useMemo(

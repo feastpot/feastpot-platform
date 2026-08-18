@@ -50,6 +50,7 @@ import {
   type ModerationQueueRow,
   type ModerationStatus,
 } from '@/hooks/use-reviews-queue';
+import { useDebounce } from '@/hooks/use-debounce';
 import { useAdminVendors } from '@/hooks/use-admin-vendors';
 import { useDownloadCsv } from '@/hooks/use-download-csv';
 import { formatDate } from '@/lib/format';
@@ -132,16 +133,19 @@ export function ReviewsQueueClient() {
   const cursor = cursorStack[cursorStack.length - 1] ?? null;
   const pageIndex = cursorStack.length - 1;
 
+  // Debounce the full filter object. Raw `filters` drives all inputs so they
+  // remain instant; only the react-query key is held back by 300 ms.
+  const debouncedFilters = useDebounce(filters);
   const apiFilters = useMemo(
     () => ({
-      status: filters.status,
-      q: filters.q,
-      vendorId: filters.vendorId === 'all' ? undefined : filters.vendorId,
-      rating: filters.rating === 'all' ? undefined : Number(filters.rating),
-      submittedFrom: filters.submittedFrom || undefined,
-      submittedTo: filters.submittedTo || undefined,
+      status: debouncedFilters.status,
+      q: debouncedFilters.q,
+      vendorId: debouncedFilters.vendorId === 'all' ? undefined : debouncedFilters.vendorId,
+      rating: debouncedFilters.rating === 'all' ? undefined : Number(debouncedFilters.rating),
+      submittedFrom: debouncedFilters.submittedFrom || undefined,
+      submittedTo: debouncedFilters.submittedTo || undefined,
     }),
-    [filters],
+    [debouncedFilters],
   );
 
   const list = useReviewsQueue({ ...apiFilters, cursor, limit: PAGE_LIMIT });

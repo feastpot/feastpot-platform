@@ -45,6 +45,7 @@ import {
   type EnquiryRow,
   type EnquiryStatus,
 } from '@/hooks/use-event-enquiries';
+import { useDebounce } from '@/hooks/use-debounce';
 import { useDownloadCsv } from '@/hooks/use-download-csv';
 import { formatDate, formatPence } from '@/lib/format';
 
@@ -123,14 +124,18 @@ export function EventsClient() {
   const cursor = cursorStack[cursorStack.length - 1] ?? null;
   const pageIndex = cursorStack.length - 1;
 
-  const budget = BUDGET_OPTIONS.find((b) => b.value === filters.budget) ?? BUDGET_OPTIONS[0];
+  // Debounce the full filter object. Raw `filters` drives all inputs so they
+  // remain instant; only the react-query key is held back by 300 ms.
+  const debouncedFilters = useDebounce(filters);
+  const budget =
+    BUDGET_OPTIONS.find((b) => b.value === debouncedFilters.budget) ?? BUDGET_OPTIONS[0];
   const list = useEventEnquiries({
-    status: filters.status,
-    q: filters.q,
-    eventFrom: filters.eventFrom || undefined,
-    eventTo: filters.eventTo || undefined,
-    createdFrom: filters.createdFrom || undefined,
-    createdTo: filters.createdTo || undefined,
+    status: debouncedFilters.status,
+    q: debouncedFilters.q,
+    eventFrom: debouncedFilters.eventFrom || undefined,
+    eventTo: debouncedFilters.eventTo || undefined,
+    createdFrom: debouncedFilters.createdFrom || undefined,
+    createdTo: debouncedFilters.createdTo || undefined,
     budgetMin: budget?.min,
     budgetMax: budget?.max,
     cursor,

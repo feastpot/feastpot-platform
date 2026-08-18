@@ -1,0 +1,3 @@
+# Playwright stores saved auth state here (storageState).
+# These files contain session cookies - never commit them.
+*.json

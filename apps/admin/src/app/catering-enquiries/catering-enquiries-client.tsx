@@ -16,13 +16,14 @@ import {
 } from '@feastpot/ui';
 import { CalendarHeart, CheckCircle, XCircle } from 'lucide-react';
 import type { ChangeEvent } from 'react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { PageHeader } from '@/components/layout/page-header';
 import { EmptyState } from '@/components/ui/empty-state';
 import { StatusPill, type StatusTone } from '@/components/ui/status-pill';
 import { useToast } from '@/components/ui/toaster';
 import { useApi } from '@/hooks/use-api';
+import { useDebounce } from '@/hooks/use-debounce';
 import { formatDateTime } from '@/lib/format';
 
 interface CateringEnquiry {
@@ -111,7 +112,8 @@ export function CateringEnquiriesClient() {
   const [selectedVendorId, setSelectedVendorId] = useState('');
   const [assignNote, setAssignNote] = useState('');
   const [assigning, setAssigning] = useState(false);
-  const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Debounce the vendor search so each keystroke doesn't fire an API call.
+  const debouncedVendorSearch = useDebounce(vendorSearch);
 
   const loadPage = useCallback(() => {
     setLoading(true);
@@ -161,25 +163,19 @@ export function CateringEnquiriesClient() {
     }
   }
 
-  // Load eligible vendors when search changes
+  // Load eligible vendors when the debounced search changes (not every keystroke).
   useEffect(() => {
     if (!assignOpen || !selected) return;
-    if (searchTimeout.current) clearTimeout(searchTimeout.current);
-    searchTimeout.current = setTimeout(() => {
-      setVendorLoading(true);
-      const params = new URLSearchParams();
-      if (vendorSearch.trim()) params.set('q', vendorSearch.trim());
-      request<EligibleVendor[]>(
-        `/catering-enquiries/${selected.id}/eligible-vendors?${params.toString()}`,
-      )
-        .then(setEligibleVendors)
-        .catch(() => setEligibleVendors([]))
-        .finally(() => setVendorLoading(false));
-    }, 300);
-    return () => {
-      if (searchTimeout.current) clearTimeout(searchTimeout.current);
-    };
-  }, [assignOpen, vendorSearch, selected, request]);
+    setVendorLoading(true);
+    const params = new URLSearchParams();
+    if (debouncedVendorSearch.trim()) params.set('q', debouncedVendorSearch.trim());
+    request<EligibleVendor[]>(
+      `/catering-enquiries/${selected.id}/eligible-vendors?${params.toString()}`,
+    )
+      .then(setEligibleVendors)
+      .catch(() => setEligibleVendors([]))
+      .finally(() => setVendorLoading(false));
+  }, [assignOpen, debouncedVendorSearch, selected, request]);
 
   function openAssignDialog(mode: 'assign' | 'reassign') {
     setAssignMode(mode);
