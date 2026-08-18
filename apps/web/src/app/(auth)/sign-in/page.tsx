@@ -391,9 +391,8 @@ function SignInPane({ onSwitchToRegister }: { onSwitchToRegister: () => void }) 
           className="mt-4 space-y-2 rounded-lg bg-amber-50 px-3 py-2.5 text-sm font-medium text-amber-900"
         >
           <p>
-            Your email address{' '}
-            <strong className="break-all font-bold">{unconfirmedEmail}</strong> has not been
-            confirmed yet. Check your inbox for the confirmation link.
+            Your email address <strong className="break-all font-bold">{unconfirmedEmail}</strong>{' '}
+            has not been confirmed yet. Check your inbox for the confirmation link.
           </p>
           {resendConfirmSent ? (
             <p className="font-semibold text-brand">Confirmation email resent. Check your inbox.</p>

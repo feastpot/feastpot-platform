@@ -84,6 +84,7 @@ enum OrderStatus {
   cancelled
   rejected
   refunded
+  partially_refunded
 }
 
 enum DeliveryType {
@@ -313,6 +314,9 @@ enum NotificationStatus {
   sent
   delivered
   failed
+  /// Address was hard-bounced or complained; send skipped permanently.
+  /// Must never be retried by BullMQ -- record the row and return cleanly.
+  skipped_suppressed
 }
 
 /// T007: in-app notification inbox. Distinct from the existing `Notification`
@@ -813,9 +817,9 @@ model Vendor {
   //   editor settles on which networks matter.
   logoUrl        String?  @map("logo_url")
   coverImageUrl  String?  @map("cover_image_url")
-  specialities   String[] @default([]) @db.VarChar(64)
+  specialities   String[] @default(dbgenerated("(ARRAY[]::character varying[])::character varying(64)[]")) @db.VarChar(64)
   vendorStory    String?  @map("vendor_story")
-  featuredDishes String[] @default([]) @map("featured_dishes") @db.VarChar(120)
+  featuredDishes String[] @default(dbgenerated("(ARRAY[]::character varying[])::character varying(120)[]")) @map("featured_dishes") @db.VarChar(120)
   socialLinks    Json?    @map("social_links")
 
   createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
@@ -1704,7 +1708,7 @@ model VendorReferralLink {
   qrCodeUrl String?  @map("qr_code_url")
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-  vendor Vendor          @relation(fields: [vendorId], references: [id])
+  vendor Vendor          @relation(fields: [vendorId], references: [id], onDelete: Cascade)
   clicks ReferralClick[]
 
   @@map("vendor_referral_links")
@@ -1720,7 +1724,7 @@ model ReferralClick {
   userAgent      String?  @map("user_agent")
   clickedAt      DateTime @default(now()) @map("clicked_at") @db.Timestamptz
 
-  referralLink VendorReferralLink @relation(fields: [referralLinkId], references: [id])
+  referralLink VendorReferralLink @relation(fields: [referralLinkId], references: [id], onDelete: Cascade)
 
   @@index([sessionId, clickedAt])
   @@map("referral_clicks")
@@ -2172,26 +2176,29 @@ model FeastPassSaving {
 /// suppression, and complaint handling. svix_id is the deduplication key:
 /// the webhook endpoint returns 200 immediately if a row with that id exists.
 model EmailEvent {
-  id          String   @id @default(cuid())
+  id         String   @id @default(cuid())
   /// Svix delivery id, unique per delivery attempt, used for idempotency.
-  svixId      String   @unique @map("svix_id") @db.VarChar(255)
+  svixId     String   @unique @map("svix_id") @db.VarChar(255)
   /// Resend event type, e.g. "email.delivered", "email.bounced".
-  eventType   String   @map("event_type") @db.VarChar(60)
+  eventType  String   @map("event_type") @db.VarChar(60)
   /// Resend email id (stable across retries; one email can have many events).
-  emailId     String   @map("email_id") @db.VarChar(255)
+  emailId    String   @map("email_id") @db.VarChar(255)
   /// Recipient address.
-  to          String   @db.VarChar(320)
-  subject     String?  @db.VarChar(500)
+  to         String   @db.VarChar(320)
+  subject    String?  @db.VarChar(500)
   /// "hard" or "soft": populated for email.bounced events only.
-  bounceType  String?  @map("bounce_type") @db.VarChar(10)
+  bounceType String?  @map("bounce_type") @db.VarChar(10)
   /// True when this event triggered a suppression (hard bounce or complaint).
-  suppressed  Boolean  @default(false)
-  rawPayload  Json     @map("raw_payload")
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  suppressed Boolean  @default(false)
+  rawPayload Json     @map("raw_payload")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   @@index([emailId])
   @@index([to, eventType])
   @@index([createdAt(sort: Desc)])
+  /// Partial functional index supporting the pre-send suppression check.
+  /// Only suppressed rows are indexed; LOWER() makes lookups case-insensitive.
+  @@index([to], map: "email_events_suppressed_lower_to_idx")
   @@map("email_events")
 }
 

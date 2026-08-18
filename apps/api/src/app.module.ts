@@ -18,6 +18,7 @@ import { LoggerModule } from 'nestjs-pino';
 import { AuthModule } from './auth/auth.module';
 import { CommissionModule } from './commission/commission.module';
 import { CacheModule } from './common/cache/cache.module';
+import { AalGuard } from './auth/guards/aal.guard';
 import { RoleThrottlerGuard } from './common/guards/role-throttler.guard';
 import { FeastPassModule } from './feastpass/feastpass.module';
 import { HealthController } from './health/health.controller';
@@ -407,8 +408,12 @@ import { RootController } from './root.controller';
     // to Sentry before delegating to Nest's default error handling.
     { provide: APP_FILTER, useClass: SentryGlobalFilter },
     // Registered AFTER AuthModule's APP_GUARDs (SupabaseAuthGuard, RolesGuard)
-    // so req.user is populated by the time the throttler reads it for the
-    // role-aware limit calculation.
+    // so req.user is populated by the time these guards run.
+    //
+    // AalGuard: rejects aal1 staff tokens when ADMIN_REQUIRE_AAL2=true.
+    // Runs before RoleThrottlerGuard so a forbidden request is never counted
+    // against the rate-limit bucket.
+    { provide: APP_GUARD, useClass: AalGuard },
     { provide: APP_GUARD, useClass: RoleThrottlerGuard },
   ],
 })

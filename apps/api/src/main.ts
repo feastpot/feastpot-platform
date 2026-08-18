@@ -140,6 +140,20 @@ async function bootstrap(): Promise<void> {
   // production project exists); otherwise we log loudly and continue.
   // Runs pre-Nest (before NestFactory connects Prisma), so the pino logger
   // isn't wired up yet - use console.error to match the required-env gate.
+  // AAL2 enforcement guard: warn loudly when ADMIN_REQUIRE_AAL2 is off in
+  // production so the gap is visible in startup logs. Never hard-exit: the
+  // sequencing rule requires enrolment BEFORE enforcement, so the flag starts
+  // off and is flipped on once the seed admin has enrolled.
+  if (process.env.NODE_ENV === 'production' && process.env.ADMIN_REQUIRE_AAL2 !== 'true') {
+    // eslint-disable-next-line no-console
+    console.error(
+      '[STARTUP] WARNING: ADMIN_REQUIRE_AAL2 is not set to "true" in production. ' +
+        'Staff accounts are protected by password only -- a stolen password is full admin access. ' +
+        'Set ADMIN_REQUIRE_AAL2=true (and NEXT_PUBLIC_ADMIN_REQUIRE_AAL2=true on the admin app) ' +
+        'once every staff account has enrolled in TOTP 2FA via /settings/2fa.',
+    );
+  }
+
   if (process.env.NODE_ENV === 'production' && isDevSupabaseRef()) {
     const strict = process.env.REQUIRE_DEDICATED_SUPABASE === 'true';
     // eslint-disable-next-line no-console
@@ -285,14 +299,22 @@ async function bootstrap(): Promise<void> {
 
   // Nest REVERSES global filters during resolution and picks the first whose
   // @Catch() matches (a catch-all matches everything), so the LAST-registered
-  // filter is checked FIRST. ThrottlerException extends HttpException, so the
-  // dedicated ThrottlerExceptionFilter must be registered AFTER the catch-all
-  // HttpExceptionFilter - otherwise the catch-all wins and the 429 never reaches
-  // its own filter. Everything else still falls through to HttpExceptionFilter.
+  // filter is checked FIRST.
+  //
+  // Required order (highest-priority LAST):
+  //   HttpExceptionFilter      - catch-all fallback; must be FIRST (lowest priority)
+  //   PrismaValidationFilter   - handles PrismaClientValidationError
+  //   PrismaExceptionFilter    - handles PrismaClientKnownRequestError
+  //   ThrottlerExceptionFilter - highest priority; must be LAST so it runs before
+  //                              the catch-all would swallow the 429
+  //
+  // Moving HttpExceptionFilter to first position fixes a prior bug where it ran
+  // before the Prisma-specific filters, making them dead code and causing raw
+  // Prisma error messages (table names, file paths) to appear in 500 responses.
   app.useGlobalFilters(
-    new PrismaExceptionFilter(),
-    new PrismaValidationFilter(),
     new HttpExceptionFilter(),
+    new PrismaValidationFilter(),
+    new PrismaExceptionFilter(),
     new ThrottlerExceptionFilter(),
   );
 

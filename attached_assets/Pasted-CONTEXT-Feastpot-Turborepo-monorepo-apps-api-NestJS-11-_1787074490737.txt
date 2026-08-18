@@ -1,0 +1,52 @@
+CONTEXT
+Feastpot Turborepo monorepo: apps/api (NestJS 11), apps/web (Next.js 15, customer site),
+Prisma against Supabase Postgres. UK English. Never use an em dash or a double hyphen used
+as a dash anywhere.
+
+DEFECT, CONFIRMED AT RUNTIME
+GET /v1/vendors/marrakech-tagine-house returns 400 "Validation failed (uuid is expected)".
+A UUID-validated @Get(':id') route in apps/api/src/modules/vendors/vendors.controller.ts
+catches slug-style URLs before the slug handler near line 422 can run. NestJS matches
+routes in declaration order, so the slug handler is unreachable.
+
+WHY THIS IS THE TOP PRIORITY, state this understanding in your summary: the customer-facing
+vendor page at /v/<slug> is the destination of every vendor share link and every printed QR
+code, and those links are the vendor-referred attribution path that carries 0% commission.
+This bug does not merely break SEO; it breaks the core commercial promise for every vendor
+who has shared their link.
+
+FIX
+1. INSPECT FIRST: read vendors.controller.ts in full. List every GET route on the
+   controller, in declaration order, with its pipes. Identify exactly which route shadows
+   the slug handler.
+2. Restructure so both work. Preferred: a single handler on @Get(':idOrSlug') that tests
+   the parameter against a UUID regex; on match, resolve by id; otherwise resolve by slug.
+   Alternative: declare the more specific routes before ':id' and remove the controller-
+   level assumption that the param is a UUID. Do not change the public URL shape; apps/web
+   /v/[slug] must keep working unmodified.
+3. Slug resolution must consult the slug-redirects table (created by the earlier profile
+   and share-page work). A previously issued slug resolves to the canonical vendor with a
+   response the web app can follow, preserving any src query parameter so attribution
+   survives the redirect.
+4. An unknown slug returns 404, not 400. A 400 for a well-formed slug is a validation lie.
+5. Only vendors in a customer-visible state resolve publicly. A suspended or removed
+   vendor's slug returns 404 (or a designed unavailable page in apps/web), never their data.
+
+TESTS, all against the running API, not mocks:
+- GET /v1/vendors/<valid-slug> returns 200 with the vendor payload.
+- GET /v1/vendors/<valid-uuid> returns 200 with the same vendor.
+- GET /v1/vendors/<unknown-slug> returns 404.
+- GET /v1/vendors/<old-slug-after-rename> resolves to the canonical vendor.
+- End-to-end in apps/web: visiting /v/<slug>?src=vendor renders the vendor page and the
+  src marker is preserved into the session for attribution.
+- A suspended vendor's slug does not resolve publicly.
+
+ACCEPTANCE CRITERIA
+- All six tests pass.
+- No route on the controller can shadow another; the declaration-order hazard is commented
+  at the top of the controller so it is not reintroduced.
+
+EDGE CASES: a slug that happens to match the UUID regex (document the collision policy;
+given slugs are generated from business names this should be impossible, but assert it);
+trailing slashes; case sensitivity (slugs are stored lowercase, so lowercase the inbound
+parameter before lookup); a slug containing only digits and hyphens.

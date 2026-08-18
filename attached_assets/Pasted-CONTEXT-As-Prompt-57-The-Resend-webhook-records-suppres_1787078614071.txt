@@ -1,0 +1,51 @@
+CONTEXT
+As Prompt 57. The Resend webhook records suppressed = true on email_events for hard
+bounces and complaints, but nothing checks the flag before sending. Repeatedly mailing a
+hard-bounced address damages the sending domain's reputation and can get the Resend
+account suspended, which would take down every email the platform sends.
+
+PART 1: SUPPRESSION CHECK
+1. In the notification delivery path (apps/api notification processor, immediately before
+   the email provider call), query email_events for the recipient with suppressed = true.
+   If found: skip the send, mark the notification skipped_suppressed rather than failed
+   (a suppressed skip must not land in the dead-letter queue as if it were transient),
+   and log one clear line with the address partially masked, the original bounce type,
+   and the notification type.
+2. Rules: hard bounce, permanent suppression. Complaint, permanent suppression. Soft
+   bounce, never suppressed (transient; the provider retries).
+3. Normalise the address before both write and read: lowercase, trim. A suppression for
+   User@X.com must catch user@x.com.
+4. Add an index supporting the lookup, for example on (recipient, suppressed).
+5. Manual unsuppress: a small admin endpoint and audit-logged action to clear suppression
+   for an address, for the case where a mailbox was full or a complaint was mistaken.
+   Document that unsuppressing a genuine hard bounce will re-bounce.
+6. SCOPE HONESTY, state this in your summary: Supabase Auth emails (confirmation, reset)
+   are sent by Supabase via SMTP and do not pass through this processor, so this check
+   cannot intercept them. The suppression protects the app's transactional mail, which is
+   the volume that matters for reputation.
+
+PART 2: TEMPLATE SYNC TO THE HOSTED PROJECT
+The branded templates and the scanner-proof /auth/confirm interstitial exist in
+supabase/templates/ and config.toml, but the hosted project does not read config.toml, so
+production still sends the default template with the raw confirmation link.
+1. Prepare Option A exactly: the supabase link and push commands for the production
+   project ref, and add a short runbook section to the deployment docs stating that
+   template changes must be pushed this way.
+2. If the push path cannot run from this environment, emit the FOUNDER ACTION as Option B:
+   paste each template into Authentication > Email Templates, listing each template and
+   its subject line explicitly.
+3. Verification either way: a test send to an external Gmail address arrives branded, and
+   its button links to the /auth/confirm interstitial, not directly to the ConfirmationURL.
+
+ACCEPTANCE CRITERIA
+- A seeded hard-bounced address is skipped with the correct log line and status; a soft-
+  bounced address still sends.
+- Suppression lookups are case-insensitive and indexed.
+- Skipped-suppressed notifications never appear in the dead-letter queue.
+- The unsuppress action exists, requires admin, and writes an AuditLog row.
+- The hosted project sends the branded template with the interstitial link, verified to an
+  external inbox.
+
+EDGE CASES: a recipient with both an old soft bounce and a later hard bounce (hard wins);
+multiple email_events rows for one address (any suppressed row suppresses); a notification
+with multiple recipients (evaluate per recipient, not per notification).

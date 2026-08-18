@@ -3,11 +3,13 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   ForbiddenException,
   Get,
   Header,
   HttpCode,
   Logger,
+  NotFoundException,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -31,6 +33,8 @@ import { EmailProvider } from '../notifications/providers/email.provider';
 import { PushProvider } from '../notifications/providers/push.provider';
 import { WhatsappProvider } from '../notifications/providers/whatsapp.provider';
 import { TEMPLATES } from '../notifications/templates';
+import { AdminRefundDto } from '../payments/dto/admin-refund.dto';
+import { PaymentsService } from '../payments/payments.service';
 import { PAYOUTS_QUEUE, WEEKLY_BATCH_JOB } from '../payouts/processors/payout-batch.processor';
 import { TermsService } from '../terms/terms.service';
 
@@ -100,6 +104,7 @@ export class AdminController {
     private readonly commissionService: CommissionService,
     private readonly termsService: TermsService,
     private readonly dlqMonitor: DlqMonitorService,
+    private readonly payments: PaymentsService,
   ) {}
 
   /**
@@ -509,6 +514,38 @@ export class AdminController {
     @Body() dto: OverrideOrderStatusDto,
   ) {
     return this.adminUsers.overrideOrderStatus(orderId, dto.status, dto.reason, req.user!.id);
+  }
+
+  @Post('orders/:orderId/refunds')
+  @Roles(UserRole.admin, UserRole.finance)
+  @ApiOperation({
+    summary:
+      'Issue a refund on an order (admin/finance only). Omit amountPence for a full refund of ' +
+      'the remaining refundable amount. The vendor is deducted only what they earned ' +
+      '(subtotal + delivery − discount − commission, proportional); the platform service fee is ' +
+      'always Feastpot revenue and is absorbed by Feastpot, never clawed back from the vendor. ' +
+      'Pass requestId for idempotent retries.',
+  })
+  refundOrder(
+    @Req() req: AuthedRequest,
+    @Param('orderId', new ParseUUIDPipe()) orderId: string,
+    @Body() dto: AdminRefundDto,
+  ) {
+    return this.payments.createAdminRefund(orderId, dto, {
+      id: req.user!.id,
+      role: req.user!.role,
+    });
+  }
+
+  @Get('orders/:orderId/payments')
+  @Roles(UserRole.admin, UserRole.finance)
+  @ApiOperation({
+    summary:
+      'Refund state + history for an order: prior refund rows with actor, remaining refundable ' +
+      'amount, and the order economics used to preview the vendor clawback.',
+  })
+  orderRefundInfo(@Param('orderId', new ParseUUIDPipe()) orderId: string) {
+    return this.payments.getOrderRefundInfo(orderId);
   }
 
   @Get('users/:userId/export')
@@ -1033,5 +1070,92 @@ export class AdminController {
   })
   async testSlackAlert() {
     return this.dlqMonitor.triggerTestAlert();
+  }
+
+  // ─── Email suppression ───────────────────────────────────────────────────
+
+  /**
+   * Look up the current suppression state for a given email address.
+   *
+   * Returns the most recent suppressed row for the address, or null if the
+   * address is not suppressed.  Lookups are case-insensitive.
+   */
+  @Get('email-suppressions/:address')
+  @Roles(UserRole.admin)
+  @ApiOperation({
+    summary: 'Get email suppression state for an address (admin)',
+  })
+  async getEmailSuppression(@Param('address') rawAddress: string) {
+    const address = rawAddress.toLowerCase().trim();
+    const row = await this.prisma.emailEvent.findFirst({
+      where: { to: address, suppressed: true },
+      select: { id: true, eventType: true, bounceType: true, createdAt: true },
+      orderBy: { createdAt: 'desc' },
+    });
+    return { address, suppressed: !!row, detail: row ?? null };
+  }
+
+  /**
+   * Clear the suppression flag on every email_events row for an address,
+   * allowing the notification processor to send to it again.
+   *
+   * IMPORTANT: Unsuppressing a genuine hard-bounce address will cause Resend
+   * to bounce again and the address will be re-suppressed on the next bounce
+   * webhook.  Use this endpoint only when you are confident the mailbox is
+   * now deliverable (e.g. the bounce was caused by a full inbox, or the
+   * complaint was a mistake).
+   *
+   * Writes an AuditLog row so compliance can see who unsuppressed and when.
+   */
+  @Delete('email-suppressions/:address')
+  @Roles(UserRole.admin)
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Clear email suppression for an address (admin, audit-logged)',
+    description:
+      'Sets suppressed=false on all email_events rows for the address. ' +
+      'A genuine hard-bounce will re-suppress on the next delivery attempt.',
+  })
+  async unsuppressEmail(@Param('address') rawAddress: string, @Req() req: AuthedRequest) {
+    const address = rawAddress.toLowerCase().trim();
+    if (!address || !address.includes('@')) {
+      throw new BadRequestException({ code: 'INVALID_ADDRESS', message: 'Invalid email address' });
+    }
+
+    const existing = await this.prisma.emailEvent.findFirst({
+      where: { to: address, suppressed: true },
+      select: { id: true },
+    });
+    if (!existing) {
+      throw new NotFoundException({
+        code: 'NOT_SUPPRESSED',
+        message: `Address ${address} is not suppressed`,
+      });
+    }
+
+    const { count } = await this.prisma.emailEvent.updateMany({
+      where: { to: address, suppressed: true },
+      data: { suppressed: false },
+    });
+
+    await this.prisma.auditLog.create({
+      data: {
+        actorId: req.user!.id,
+        action: 'admin.email_suppression_cleared',
+        entityType: 'email_events',
+        entityId: null,
+        metadata: {
+          address,
+          rowsCleared: count,
+          warning:
+            'Unsuppressing a genuine hard-bounce will re-suppress on the next bounce webhook.',
+        } as Prisma.JsonObject,
+      },
+    });
+
+    this.logger.log(
+      `[Admin] Email suppression cleared for ${address} by ${req.user!.id} (${count} rows)`,
+    );
+    return { address, rowsCleared: count };
   }
 }

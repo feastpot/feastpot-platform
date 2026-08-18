@@ -31,10 +31,7 @@ import {
 const RESET_URL = '/forgot-password';
 const RESET_START_URL = '/auth/reset/start'; // scanner-safe update-password interstitial
 
-async function submitResetForm(
-  page: Parameters<Parameters<typeof test>[1]>[0],
-  email: string,
-) {
+async function submitResetForm(page: Parameters<Parameters<typeof test>[1]>[0], email: string) {
   await page.goto(RESET_URL);
   await page.fill(FORGOT.email, email);
   await page.click(FORGOT.submit);

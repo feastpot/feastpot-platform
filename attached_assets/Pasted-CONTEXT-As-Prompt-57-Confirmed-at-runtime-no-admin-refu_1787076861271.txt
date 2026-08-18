@@ -1,0 +1,67 @@
+CONTEXT
+As Prompt 57. Confirmed at runtime: no admin refund route exists; all probed paths 404.
+Refunds today happen directly in the Stripe dashboard, which means no Feastpot audit row,
+no commission reversal, no founding-allowance restoration, and no record of who authorised
+the refund. This endpoint touches money; the scope below is deliberately wider than the
+task card, because a refund that reverses Stripe but not Feastpot's own ledgers corrupts
+vendor balances quietly.
+
+INSPECT FIRST, report before building:
+1. How charges are structured: read the checkout and payment code to establish whether
+   orders are destination charges with application_fee_amount on the connected account
+   (the commission engine from the earlier work suggests so). The refund call shape
+   depends on this.
+2. The refund-adjacent logic that already exists: the commission reversal in the Stripe
+   webhook handler, and the founding-allowance restoration written for refunds in the
+   allowance work. Reuse both; do not implement a second reversal path that can disagree
+   with the first.
+3. Whether a Refund model exists in prisma/schema.prisma or needs creating.
+
+BUILD
+1. POST /v1/admin/orders/:orderId/refunds with body { amountPence?, reason, note }.
+   Absent amountPence means full refund of the remaining refundable amount. @Roles admin
+   and finance.
+2. Validate: order exists and was paid; amountPence is positive and does not exceed the
+   remaining refundable amount across prior partial refunds; reason is from a small fixed
+   enum (customer complaint, order not delivered, food safety, goodwill, other) with note
+   required when other.
+3. Call Stripe once, idempotently: refunds.create against the payment intent with an
+   idempotency key derived from a client-supplied request id, refunding the application
+   fee proportionally and reversing the transfer proportionally, matching how the charge
+   was made per your inspection. Money maths in integer pence, round half up.
+4. On success, atomically in Feastpot:
+   - write a Refund record linked to the order, with amount, reason, note, actorId,
+     Stripe refund id;
+   - reverse commissionPence proportionally via the existing reversal logic;
+   - restore consumed founding allowance proportionally via the existing restoration
+     logic;
+   - set order state to REFUNDED or PARTIALLY_REFUNDED;
+   - write an AuditLog row (action order.refunded, metadata: amount, reason, stripe id).
+5. Reconcile asynchronously: handle the charge.refunded and refund.updated webhook events
+   so a refund that Stripe later fails (refunds can fail) flips the Feastpot record to
+   failed, alerts Slack, and does NOT leave commission reversed for money that never moved.
+6. Admin UI: a Refund action on the order detail in apps/admin, opening a dialog showing
+   the refundable amount, amount input (defaulted to full), reason select, note field,
+   and a confirmation that restates the amount and the vendor impact in plain words.
+   Refund state and history render on the order detail afterwards.
+7. Notify the customer by email on success, via the existing notification path.
+
+ACCEPTANCE CRITERIA
+- Full and partial refunds work end to end in Stripe test mode.
+- Two rapid identical requests produce exactly one Stripe refund (idempotency proven).
+- Commission reversal and allowance restoration are proportional and use the existing
+  logic, proven by asserting the same figures the webhook path would produce.
+- Cumulative partial refunds cannot exceed the amount paid.
+- Every refund writes an AuditLog row with the actor.
+- A vendor-referred order refund reverses no commission (there was none) and still
+  refunds the customer correctly, including the service fee treatment: state explicitly
+  what happens to the service fee on refund and make it consistent with the terms.
+- The order detail shows refund state and history.
+
+EDGE CASES: refund after the vendor has already been paid out (the transfer reversal
+pulls funds from the connected account, which can fail on insufficient balance; surface
+that failure to the admin with what to do next rather than swallowing it); an order with
+a platform-funded discount (refund what the customer actually paid, and unwind the
+discount cost from Feastpot's side, not the vendor's); an order refunded in the Stripe
+dashboard directly (the webhook must reconcile it into Feastpot as an externally
+initiated refund with actor system); concurrent partial refunds (row-lock the order).

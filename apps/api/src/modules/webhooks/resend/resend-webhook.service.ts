@@ -81,7 +81,9 @@ export class ResendWebhookService {
     const { type, data } = payload;
 
     const emailId = data.email_id ?? '';
-    const to = (data.to ?? [])[0] ?? '';
+    // Normalise address: lowercase + trim so a suppression for User@X.com
+    // is matched when we later look up user@x.com (and vice-versa).
+    const to = ((data.to ?? [])[0] ?? '').toLowerCase().trim();
     const subject = data.subject ?? null;
 
     if (!HANDLED_EVENT_TYPES.has(type)) {

@@ -90,9 +90,7 @@ test.describe('G6: unconfigured provider fails gracefully', () => {
   test('G6: Apple button renders and is clickable even when provider is unconfigured', async ({
     page,
   }) => {
-    await page.route('**/auth/v1/authorize*', (route) =>
-      route.fulfill({ status: 400, body: '' }),
-    );
+    await page.route('**/auth/v1/authorize*', (route) => route.fulfill({ status: 400, body: '' }));
 
     await page.goto(URLS.signIn);
     const appleBtn = page.getByRole('button', { name: /continue with apple/i });

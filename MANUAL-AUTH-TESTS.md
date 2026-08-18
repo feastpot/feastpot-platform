@@ -17,12 +17,14 @@ npx playwright test --config apps/web/playwright.config.ts e2e/auth/
 ```
 
 For real-email tests (A1-real, E1-real) also set:
+
 ```
 TEST_MAILOSAUR_API_KEY=...
 TEST_MAILOSAUR_SERVER_ID=...
 ```
 
 For vendor subdomain isolation tests (I2, I4) also set:
+
 ```
 TEST_VENDOR_BASE_URL=http://vendor.localhost:3002
 ```
@@ -31,46 +33,46 @@ TEST_VENDOR_BASE_URL=http://vendor.localhost:3002
 
 ## Summary table
 
-| ID | Test case | Mode | Last result |
-|----|-----------|------|-------------|
-| A1-mock | New user sign-up (mock) | Automated | PASS |
-| A1-real | New user sign-up (real email, Mailosaur) | Automated (gated) | - |
-| A2 | Existing confirmed user - identical screen | Automated | PASS |
-| A3 | Existing unconfirmed user - no silent overwrite | Automated | PASS |
-| A4 | Enumeration timing safety (20 runs each) | Automated | PASS |
-| B1 | Valid confirmation link, same device | Automated | PASS |
-| B2 | Expired link - graceful error + resend option | Automated | PASS |
-| B3 | Reused link - second use fails cleanly | Automated | PASS |
-| B4 | Tampered token - generic error, no stack trace | Automated | PASS |
-| B5 | Cross-device token_hash confirmation | Automated | PASS* |
-| B6 | Scanner prefetch protection | Automated | PASS |
-| C1 | Resend confirmation works | Automated | PASS |
-| C2 | Resend rate limit - friendly "please wait" | Automated | PASS |
-| D1 | Correct credentials - session set | Automated | PASS |
-| D2 | Wrong password - generic error, no enumeration | Automated | PASS |
-| D3 | Unconfirmed sign-in - targeted message + resend | Automated | PASS |
-| D4 | Non-existent account - identical to D2 + timing | Automated | PASS |
-| E1-mock | Full password reset journey (mock) | Automated | PASS |
-| E1-real | Full password reset (real email, Mailosaur) | Automated (gated) | - |
-| E2 | Non-existent email reset - enumeration-safe | Automated | PASS |
-| E3 | Reset link scanner/cross-device | Automated (partial) | PASS |
-| F1 | Rate limiting on all endpoints | Automated (mock) | PASS |
-| G1 | Google new user | **Manual** | - |
-| G2 | Google existing email - identity linking | **Manual** | - |
-| G3 | OAuth cancelled - friendly return to sign-in | Automated | PASS |
-| G4 | Apple new user | **Manual** | - |
-| G5 | Apple Private Relay | **Manual** | - |
-| G6 | Unconfigured provider fails gracefully | Automated | PASS |
-| H1 | Session persistence across reload | Automated | PASS |
-| H2 | Token refresh without re-login | Automated | PASS |
-| H3 | Sign-out clears session | Automated | PASS |
-| H4 | Multi-tab sign-out propagation | Automated | PASS |
-| I1 | Cookie domain inspection | Automated (static) | PASS |
-| I2 | Web session not shared with vendor | Automated (gated) / Manual | PASS* |
-| I3 | No .feastpot.co.uk wildcard domain | Automated (static) | PASS |
-| I4 | Web and vendor sessions are independent | Automated (gated) / Manual | PASS* |
+| ID      | Test case                                       | Mode                       | Last result |
+| ------- | ----------------------------------------------- | -------------------------- | ----------- |
+| A1-mock | New user sign-up (mock)                         | Automated                  | PASS        |
+| A1-real | New user sign-up (real email, Mailosaur)        | Automated (gated)          | -           |
+| A2      | Existing confirmed user - identical screen      | Automated                  | PASS        |
+| A3      | Existing unconfirmed user - no silent overwrite | Automated                  | PASS        |
+| A4      | Enumeration timing safety (20 runs each)        | Automated                  | PASS        |
+| B1      | Valid confirmation link, same device            | Automated                  | PASS        |
+| B2      | Expired link - graceful error + resend option   | Automated                  | PASS        |
+| B3      | Reused link - second use fails cleanly          | Automated                  | PASS        |
+| B4      | Tampered token - generic error, no stack trace  | Automated                  | PASS        |
+| B5      | Cross-device token_hash confirmation            | Automated                  | PASS\*      |
+| B6      | Scanner prefetch protection                     | Automated                  | PASS        |
+| C1      | Resend confirmation works                       | Automated                  | PASS        |
+| C2      | Resend rate limit - friendly "please wait"      | Automated                  | PASS        |
+| D1      | Correct credentials - session set               | Automated                  | PASS        |
+| D2      | Wrong password - generic error, no enumeration  | Automated                  | PASS        |
+| D3      | Unconfirmed sign-in - targeted message + resend | Automated                  | PASS        |
+| D4      | Non-existent account - identical to D2 + timing | Automated                  | PASS        |
+| E1-mock | Full password reset journey (mock)              | Automated                  | PASS        |
+| E1-real | Full password reset (real email, Mailosaur)     | Automated (gated)          | -           |
+| E2      | Non-existent email reset - enumeration-safe     | Automated                  | PASS        |
+| E3      | Reset link scanner/cross-device                 | Automated (partial)        | PASS        |
+| F1      | Rate limiting on all endpoints                  | Automated (mock)           | PASS        |
+| G1      | Google new user                                 | **Manual**                 | -           |
+| G2      | Google existing email - identity linking        | **Manual**                 | -           |
+| G3      | OAuth cancelled - friendly return to sign-in    | Automated                  | PASS        |
+| G4      | Apple new user                                  | **Manual**                 | -           |
+| G5      | Apple Private Relay                             | **Manual**                 | -           |
+| G6      | Unconfigured provider fails gracefully          | Automated                  | PASS        |
+| H1      | Session persistence across reload               | Automated                  | PASS        |
+| H2      | Token refresh without re-login                  | Automated                  | PASS        |
+| H3      | Sign-out clears session                         | Automated                  | PASS        |
+| H4      | Multi-tab sign-out propagation                  | Automated                  | PASS        |
+| I1      | Cookie domain inspection                        | Automated (static)         | PASS        |
+| I2      | Web session not shared with vendor              | Automated (gated) / Manual | PASS\*      |
+| I3      | No .feastpot.co.uk wildcard domain              | Automated (static)         | PASS        |
+| I4      | Web and vendor sessions are independent         | Automated (gated) / Manual | PASS\*      |
 
-*PASS with caveat - see individual section below.
+\*PASS with caveat - see individual section below.
 
 ---
 
@@ -90,6 +92,7 @@ ever reverts to using `emailRedirectTo` with a code-based `/auth/callback` URL, 
 would fail because the PKCE verifier from browser A would be absent in browser B.
 
 **Manual verification (optional):**
+
 1. Sign up with a real email (requires Mailosaur or live Supabase custom SMTP).
 2. Open the confirmation link from the email on a second device or in an incognito window.
 3. PASS: the confirm button works and the account is activated.
@@ -111,6 +114,7 @@ the reset WILL fail with a "code verifier is missing" error. This is expected PK
 behaviour for the code-exchange flow.
 
 **PASS criteria:**
+
 - Reset link opened on the originating device/browser: succeeds.
 - Reset link opened on a different device: fails with "code verifier is missing" OR
   the app shows a friendly "please open on the same device" message (not implemented
@@ -129,11 +133,13 @@ for confirmation links.
 ### F1 - Production rate limit verification (manual)
 
 Supabase default limits (custom SMTP plan):
+
 - Sign-up / sign-in: 30 email sends per hour
 - OTP verify: 30 per hour
 - Password reset: 3 per email per hour (NestJS layer)
 
 **Manual steps:**
+
 1. Using a test Supabase project, rapidly sign up 31+ unique emails in one hour.
 2. PASS: the 31st attempt returns a 429 and the UI shows a "please wait" message.
 3. Verify the UI does not expose the raw error code `over_email_send_rate_limit`.
@@ -157,6 +163,7 @@ Adjust limits at: Authentication > Rate Limits in the Supabase dashboard.
 ### G1 - Google new user
 
 **Steps:**
+
 1. Open `https://feastpot.co.uk/sign-in` in a fresh incognito window.
 2. Click "Continue with Google".
 3. Sign in with a Google account that has no prior Feastpot account.
@@ -164,12 +171,14 @@ Adjust limits at: Authentication > Rate Limits in the Supabase dashboard.
 5. You are redirected to `/auth/callback?code=...`.
 
 **PASS criteria:**
+
 - You land on the Feastpot home page (not `/sign-in` or `/auth/callback`).
 - A new row exists in `public.users` for the Google email address.
 - `auth.users` has one identity with `provider = 'google'`.
 - No error banner is shown.
 
 **FAIL signals:**
+
 - Redirected back to `/sign-in` with an error.
 - The `exchangeCodeForSession` fails (check browser console).
 - `/v1/users/sync` logs an error (check API logs).
@@ -183,16 +192,19 @@ Adjust limits at: Authentication > Rate Limits in the Supabase dashboard.
 The user ends up with one `user_id` and two identities (`email` + `google`).
 
 **Steps:**
+
 1. Create a test account via email/password for `testuser@gmail.com` and confirm it.
 2. Sign out.
 3. In a fresh incognito window, click "Continue with Google" and sign in as `testuser@gmail.com`.
 
 **PASS criteria:**
+
 - You land on the home page.
 - `auth.users` contains ONE user with two identities.
 - No duplicate user is created.
 
 **FAIL signals:**
+
 - Two separate user records created for the same email.
 - Sign-in fails with "account with same email exists".
 - A 500 error in Supabase logs.
@@ -208,6 +220,7 @@ See `apps/web/e2e/auth/g-oauth.spec.ts` test G3.
 ### G4 - Apple new user
 
 **Steps:**
+
 1. Open `https://feastpot.co.uk/sign-in` on a device signed in to iCloud (Safari on
    iPhone/Mac, or a browser with Apple ID signed in).
 2. Click "Continue with Apple".
@@ -215,6 +228,7 @@ See `apps/web/e2e/auth/g-oauth.spec.ts` test G3.
 4. Do NOT hide your email (or use the relay address to test G5).
 
 **PASS criteria:**
+
 - You land on the Feastpot home page.
 - A new user row exists with `email` from Apple.
 - `auth.users` has one identity with `provider = 'apple'`.
@@ -229,16 +243,19 @@ If the user later tries to log in from a different device with a different relay
 Supabase may throw HTTP 500 "Multiple accounts with the same email" during token exchange.
 
 **Steps:**
+
 1. In Apple's "Sign in with Apple" prompt, choose "Hide My Email".
 2. Note the relay address shown (e.g. `abc123@privaterelay.appleid.com`).
 3. Complete the sign-in.
 
 **PASS criteria:**
+
 - The account is created with the relay address as email.
 - No 500 error in Supabase logs.
 - The home page loads (no white screen).
 
 **FAIL signal (document, do not unblock manually):**
+
 - HTTP 500 "Multiple accounts with the same email" in Supabase logs.
   This requires a Supabase support ticket or manual user merge.
 
@@ -259,6 +276,7 @@ event in all other same-origin tabs via the browser's built-in localStorage cros
 notification. supabase-js listens to this event and fires `onAuthStateChange(SIGNED_OUT)`.
 
 **Manual verification:**
+
 1. Sign in to `feastpot.co.uk` in tab 1.
 2. Open `feastpot.co.uk` in tab 2 (same browser window, same session).
 3. Sign out in tab 1 (via account menu or by calling `supabase.auth.signOut()` in DevTools).
@@ -296,16 +314,19 @@ for a unified session), use distinct cookie names (`sb-feastpot-web-auth-token` 
 ### I2 - Manual verification (production)
 
 **Steps:**
+
 1. Sign in to `https://feastpot.co.uk` as a customer.
 2. Without signing out, navigate to `https://vendor.feastpot.co.uk` in the same browser.
 3. Open DevTools > Application > Cookies.
 
 **PASS criteria:**
+
 - The auth cookie for `feastpot.co.uk` is listed under the `feastpot.co.uk` domain.
 - The same cookie does NOT appear under `vendor.feastpot.co.uk`.
 - The vendor portal treats you as unauthenticated (shows vendor sign-in page).
 
 **FAIL signal (I3 defect):**
+
 - The auth cookie appears under `.feastpot.co.uk` (with a leading dot).
   This means `cookieOptions.domain` is set to the parent domain somewhere.
   Fix: remove the domain option or set distinct cookie names per app.
@@ -315,6 +336,7 @@ for a unified session), use distinct cookie names (`sb-feastpot-web-auth-token` 
 ### I4 - Manual verification (production)
 
 **Steps:**
+
 1. Sign in as a vendor at `https://vendor.feastpot.co.uk`.
 2. Open `https://feastpot.co.uk` in a new tab (same browser).
 3. PASS: the customer portal shows the unauthenticated home page, not a vendor session.
@@ -353,10 +375,10 @@ the Mailosaur helper to use Mailpit's REST API at `http://localhost:8025/api/v1/
 
 ## Known gaps and follow-ups
 
-| Gap | Impact | Priority |
-|-----|--------|----------|
-| E3 cross-device reset link shows technical PKCE error | Low (user friction) | Low |
-| G5 Apple Private Relay multi-account 500 not user-friendly | Medium | Medium |
-| A1/E1 real-email tests require Mailosaur setup | None (documented) | None |
-| Production rate-limit thresholds not verified end-to-end | Low | Low |
-| Vendor portal sign-in form selectors not yet mapped in e2e/auth | None (vendor has own spec) | None |
+| Gap                                                             | Impact                     | Priority |
+| --------------------------------------------------------------- | -------------------------- | -------- |
+| E3 cross-device reset link shows technical PKCE error           | Low (user friction)        | Low      |
+| G5 Apple Private Relay multi-account 500 not user-friendly      | Medium                     | Medium   |
+| A1/E1 real-email tests require Mailosaur setup                  | None (documented)          | None     |
+| Production rate-limit thresholds not verified end-to-end        | Low                        | Low      |
+| Vendor portal sign-in form selectors not yet mapped in e2e/auth | None (vendor has own spec) | None     |

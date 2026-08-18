@@ -11,14 +11,17 @@ type Mock<T = unknown> = jest.Mock<T>;
 
 function makePrisma() {
   const prisma: Record<string, unknown> = {
-    order: { findUnique: jest.fn() as Mock },
+    order: { findUnique: jest.fn() as Mock, update: jest.fn().mockResolvedValue({}) as Mock },
     payment: {
       findFirst: jest.fn() as Mock,
       create: jest.fn() as Mock,
       findMany: jest.fn() as Mock,
+      findUnique: jest.fn().mockResolvedValue(null) as Mock,
       aggregate: jest.fn().mockResolvedValue({ _sum: { amountPence: 0 } }) as Mock,
     },
     auditLog: { create: jest.fn().mockResolvedValue({}) as Mock },
+    // Transfer-reversal pre-check: no per-order transferred payout by default.
+    payout: { findFirst: jest.fn().mockResolvedValue(null) as Mock },
     // pg_advisory_xact_lock inside the refund transaction.
     $executeRaw: jest.fn().mockResolvedValue(1) as Mock,
   };

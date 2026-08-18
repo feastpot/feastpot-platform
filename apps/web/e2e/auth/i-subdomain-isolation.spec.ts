@@ -44,49 +44,34 @@ test.describe('I1: cookie domain static inspection', () => {
    * This is a static assertion against the source files, not a runtime test.
    */
   test('I1: apps/web Supabase client does not set cookieOptions.domain', () => {
-    const clientFile = path.join(
-      process.cwd(),
-      'apps/web/src/lib/supabase/client.ts',
-    );
+    const clientFile = path.join(process.cwd(), 'apps/web/src/lib/supabase/client.ts');
     const content = fs.readFileSync(clientFile, 'utf-8');
     expect(content).not.toMatch(/cookieOptions/);
     expect(content).not.toMatch(/domain:\s*['"`]/);
   });
 
   test('I1: apps/web Supabase server client does not set cookieOptions.domain', () => {
-    const serverFile = path.join(
-      process.cwd(),
-      'apps/web/src/lib/supabase/server.ts',
-    );
+    const serverFile = path.join(process.cwd(), 'apps/web/src/lib/supabase/server.ts');
     const content = fs.readFileSync(serverFile, 'utf-8');
     expect(content).not.toMatch(/cookieOptions.*domain/);
     expect(content).not.toMatch(/domain:\s*['"`]\.feastpot/);
   });
 
   test('I1: apps/web middleware client does not set cookieOptions.domain', () => {
-    const mwFile = path.join(
-      process.cwd(),
-      'apps/web/src/lib/supabase/middleware.ts',
-    );
+    const mwFile = path.join(process.cwd(), 'apps/web/src/lib/supabase/middleware.ts');
     const content = fs.readFileSync(mwFile, 'utf-8');
     expect(content).not.toMatch(/domain:\s*['"`]\.feastpot/);
   });
 
   test('I1: apps/vendor Supabase client does not set cookieOptions.domain', () => {
-    const vendorClientFile = path.join(
-      process.cwd(),
-      'apps/vendor/src/lib/supabase/client.ts',
-    );
+    const vendorClientFile = path.join(process.cwd(), 'apps/vendor/src/lib/supabase/client.ts');
     const content = fs.readFileSync(vendorClientFile, 'utf-8');
     expect(content).not.toMatch(/cookieOptions/);
     expect(content).not.toMatch(/domain:\s*['"`]/);
   });
 
   test('I1: apps/vendor Supabase server client does not set cookieOptions.domain', () => {
-    const vendorServerFile = path.join(
-      process.cwd(),
-      'apps/vendor/src/lib/supabase/server.ts',
-    );
+    const vendorServerFile = path.join(process.cwd(), 'apps/vendor/src/lib/supabase/server.ts');
     const content = fs.readFileSync(vendorServerFile, 'utf-8');
     expect(content).not.toMatch(/domain:\s*['"`]\.feastpot/);
   });
@@ -147,7 +132,15 @@ test.describe('I2/I4: runtime session isolation', () => {
           refresh_token: 'web-refresh',
           token_type: 'bearer',
           expires_in: 3600,
-          user: { id: 'web-user', email: 'web@example.com', role: 'authenticated', aud: 'authenticated', identities: [], app_metadata: {}, user_metadata: {} },
+          user: {
+            id: 'web-user',
+            email: 'web@example.com',
+            role: 'authenticated',
+            aud: 'authenticated',
+            identities: [],
+            app_metadata: {},
+            user_metadata: {},
+          },
         }),
       }),
     );
@@ -155,7 +148,15 @@ test.describe('I2/I4: runtime session isolation', () => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ id: 'web-user', email: 'web@example.com', role: 'authenticated', aud: 'authenticated', identities: [], app_metadata: {}, user_metadata: {} }),
+        body: JSON.stringify({
+          id: 'web-user',
+          email: 'web@example.com',
+          role: 'authenticated',
+          aud: 'authenticated',
+          identities: [],
+          app_metadata: {},
+          user_metadata: {},
+        }),
       }),
     );
     await webPage.goto('/sign-in');
@@ -173,14 +174,18 @@ test.describe('I2/I4: runtime session isolation', () => {
 
     // The vendor page should not have any auth cookie from web.
     const vendorCookies = await ctx.cookies(VENDOR_BASE_URL);
-    const webCookies = await ctx.cookies(process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3000');
+    const webCookies = await ctx.cookies(
+      process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3000',
+    );
     const webAuthCookies = webCookies.filter((c) => c.name.includes('auth-token'));
     const vendorAuthCookies = vendorCookies.filter((c) => c.name.includes('auth-token'));
 
     // PASS: web auth cookies should not be in the vendor cookie jar.
     // (With host-only cookies on different hostnames, this holds.)
     for (const wc of webAuthCookies) {
-      expect(vendorAuthCookies.some((vc) => vc.name === wc.name && vc.value === wc.value)).toBe(false);
+      expect(vendorAuthCookies.some((vc) => vc.name === wc.name && vc.value === wc.value)).toBe(
+        false,
+      );
     }
 
     await ctx.close();
@@ -198,11 +203,15 @@ test.describe('I2/I4: runtime session isolation', () => {
     await webPage.goto('/sign-in');
     await vendorPage.goto(`${VENDOR_BASE_URL}/sign-in`);
 
-    const webCookies = await ctx.cookies(process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3000');
+    const webCookies = await ctx.cookies(
+      process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3000',
+    );
     const vendorCookies = await ctx.cookies(VENDOR_BASE_URL);
 
     // Verify that auth cookies from web are scoped to the web hostname only.
-    const webAuthCookies = webCookies.filter((c) => c.name.includes('auth') || c.name.startsWith('sb-'));
+    const webAuthCookies = webCookies.filter(
+      (c) => c.name.includes('auth') || c.name.startsWith('sb-'),
+    );
     for (const cookie of webAuthCookies) {
       // Host-only cookies have domain equal to the host, not .feastpot.co.uk.
       if (cookie.domain) {

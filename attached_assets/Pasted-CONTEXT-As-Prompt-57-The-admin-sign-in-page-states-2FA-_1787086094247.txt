@@ -1,0 +1,46 @@
+CONTEXT
+As Prompt 57. The admin sign-in page states "2FA enforced after sign-in". Runtime
+observation: the seed admin has 2FA off and full access. The claim is false, and a stolen
+staff password is currently full admin access. Supabase expresses MFA state as an
+assurance level claim (aal) in the JWT: aal1 is password only, aal2 is password plus a
+verified second factor.
+
+SEQUENCING RULE, this matters more than the code: do NOT switch enforcement on before the
+existing admin account has enrolled, or you lock the founder out of the console. Build
+behind a flag, enrol, then enforce.
+
+BUILD
+1. ENROLMENT PATH. Confirm the settings 2FA UI performs full TOTP enrolment (QR code,
+   verify challenge) and that a signed-in aal1 user can reach it. Fix it if it is display
+   only.
+2. MIDDLEWARE GATE, apps/admin/src/middleware.ts: after getUser, read the aal claim from
+   the session JWT. If the flag ADMIN_REQUIRE_AAL2 is on and aal is not aal2, redirect to
+   /settings/2fa (allowlist: /sign-in, /unauthorized, /settings/2fa and its API routes,
+   static assets). The redirect target must explain why they are there.
+3. SERVER GATE, requireStaff() in server-gate.ts: assert aal2 as well, so a page that
+   somehow bypasses middleware still refuses. Defence in depth, same flag.
+4. API GATE, apps/api: middleware only protects the Next app; a staff JWT hitting the
+   NestJS admin endpoints directly would skip both gates. Add an AAL check to the guard
+   chain for any endpoint whose @Roles includes a staff role: reject aal1 staff tokens
+   with a distinct error. Same flag.
+5. FLAG DEFAULTS: on in production, off allowed in dev. Startup guard warns loudly when
+   off in production.
+6. RECOVERY: document the founder path for a staff member who loses their factor
+   (Supabase dashboard removes the factor for the user; the account then re-enrols).
+   This is a FOUNDER ACTION note, not code.
+7. Fix the sign-in page copy if enforcement is staged, so the page never claims more than
+   is true at any moment.
+
+ACCEPTANCE CRITERIA
+- With the flag on: an aal1 staff session is redirected to enrolment on every admin route,
+  and an aal1 staff JWT is rejected by the admin API endpoints.
+- An aal2 session passes all three gates.
+- With the flag off: behaviour unchanged, and production logs a loud warning.
+- The seed admin has enrolled before the flag is enabled anywhere shared, and this is
+  stated in your summary.
+- Sign-in page copy matches reality.
+
+EDGE CASES: a session that was aal2 but whose factor was since removed (re-challenge on
+next request rather than trusting a stale claim; verify how Supabase reflects factor
+removal in refreshed tokens and state what you found); non-staff roles are untouched by
+all of this; the enrolment page itself must never redirect to itself.

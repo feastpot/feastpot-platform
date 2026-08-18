@@ -18,15 +18,15 @@ npx prisma migrate dev --name describe_your_change --schema=./prisma/schema.pris
 ```
 
 `migrate dev` writes a timestamped SQL file in `prisma/migrations/`, applies it
-to your local database, and regenerates the Prisma client.  The migration file is
+to your local database, and regenerates the Prisma client. The migration file is
 what CI, new developer environments, and production all use — so the schema is
 always reproducible from scratch.
 
 ## Why db push fails in production
 
 `prisma migrate deploy` (used in CI and production) compares each migration's
-stored checksum against the file on disk.  If you edit a migration after it was
-applied, Prisma aborts with P3006.  If you add a column via `db push` without a
+stored checksum against the file on disk. If you edit a migration after it was
+applied, Prisma aborts with P3006. If you add a column via `db push` without a
 migration, the column is invisible to fresh databases and the next migration that
 references it fails with "column does not exist" (P3018).
 
@@ -36,16 +36,16 @@ this rule prevents.
 ## Safe local uses of db push
 
 `db push` is acceptable **only** against a local scratch database that is
-thrown away and rebuilt regularly.  If you use it, rename the npm script to make
+thrown away and rebuilt regularly. If you use it, rename the npm script to make
 the scope explicit so it is never confused with a shared-environment command.
 
 Suggested naming: `db:push:local-scratch-only` (mapped to `prisma db push` in
-`package.json`).  This prevents accidental invocation in CI or against shared URLs.
+`package.json`). This prevents accidental invocation in CI or against shared URLs.
 
 ## The drift gate
 
 CI runs `prisma migrate diff --from-migrations --to-schema-datamodel --exit-code`
-in the **prisma-validate** job before the test job runs.  A non-zero exit means
+in the **prisma-validate** job before the test job runs. A non-zero exit means
 the migration history does not reproduce `schema.prisma` and the PR cannot merge.
 
 To run the drift check locally:
@@ -77,15 +77,15 @@ Compute the sha256 with:
 sha256sum prisma/migrations/<migration_folder>/migration.sql
 ```
 
-Apply this to dev, staging, and production databases.  After updating checksums,
+Apply this to dev, staging, and production databases. After updating checksums,
 run `prisma migrate deploy` to apply any pending migrations.
 
 ## History
 
 The drift that prompted this document:
 
-| Migration | What happened |
-|---|---|
-| `20260813210000_add_featured_dishes_column` | Column `featured_dishes` was originally added via `db push`.  This migration was written retroactively with `ADD COLUMN IF NOT EXISTS` so fresh databases have the column. |
-| `20260813220000_vendor_slug_redirects` | Originally contained an unrelated `UPDATE vendors SET featured_dishes = '{}'` (concern mixing).  The reset was separated into `20260813221000_reset_featured_dishes`. |
-| `20260813221000_reset_featured_dishes` | Idempotent data reset; logs the count of affected vendors before clearing. |
+| Migration                                   | What happened                                                                                                                                                             |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `20260813210000_add_featured_dishes_column` | Column `featured_dishes` was originally added via `db push`. This migration was written retroactively with `ADD COLUMN IF NOT EXISTS` so fresh databases have the column. |
+| `20260813220000_vendor_slug_redirects`      | Originally contained an unrelated `UPDATE vendors SET featured_dishes = '{}'` (concern mixing). The reset was separated into `20260813221000_reset_featured_dishes`.      |
+| `20260813221000_reset_featured_dishes`      | Idempotent data reset; logs the count of affected vendors before clearing.                                                                                                |

@@ -1,4 +1,7 @@
 - [Admin UI conventions](admin-ui-conventions.md) - server page (requireStaff) → client component; gate mutating UI to match backend @Roles, not the broader page-view roles.
+- [Exception filter LIFO ordering](exception-filter-lifo.md) - NestJS resolves global filters in reverse registration order; a catch-all @Catch() filter must be registered FIRST (lowest LIFO priority); also: never let non-HttpException.message reach the response body.
+- [Prisma array defaults drift](prisma-array-defaults-drift.md) - Postgres normalises ARRAY[]::VARCHAR(n)[] to a longer cast expression; @default([]) in schema never matches introspected DbGenerated form; use @default(dbgenerated("(ARRAY[]::character varying[])::character varying(n)[]")) to silence migrate diff.
+- [Prisma enum names without map](prisma-enum-names-no-map.md) - enum names without @@map must match exactly between schema and DB; hand-written snake_case names in migrations vs PascalCase in schema = CI drift; fix with ALTER TYPE RENAME in an idempotent DO block.
 - [Monorepo commands](monorepo-commands.md) - repo is npm workspaces + Turborepo; attached CHECK-FIRST prompts say `--filter=` (turbo) but per-app scripts run via `npm run X --workspace=@feastpot/<app>`.
 - [npm overrides clean reinstall](npm-overrides-clean-reinstall.md) - overrides need EXACT pins + full clean reinstall (rm node_modules+lock); partial removal corrupts tree; verify via require(), not audit alone.
 - [Replit deploy env gotchas](replit-deploy-env.md) - NODE_ENV isn't auto-prod (set runtime-only via start:api, NOT a prod env var → breaks npm ci); env-scoped secrets land in plaintext git-tracked .replit.
@@ -15,6 +18,7 @@
 - [Service fee & payout](service-fee-payout.md) - service fee is platform revenue, never paid out; payout = total − serviceFee − commission (delivery stays w/ vendor); fix BOTH per-order calc AND weekly batch (batch recomputed from total, didn't use stored vendorPayoutPence).
 - [Stripe webhook routing](stripe-webhook-event-routing.md) - controller only enqueues types in HANDLED_STRIPE_EVENT_TYPES (keep in sync with @Process names); others recorded + Sentry-warned, never enqueued.
 - [Notification outbox](notification-outbox.md) - always send events via NotificationsService.enqueue (durable outbox fallback), never the raw queue; drainer dedupes via outbox:<rowId> jobId.
+- [Refund ledger invariants](refund-ledger.md) — refund/clawback accounting rules: status-agnostic payout netting, settle-once vendor earnings, per-attempt idempotency keys.
 - [Chargeback reconciliation](chargeback-reconciliation.md) - lost disputes write the refund+credit ledger pair; ALL refund writers must take the per-order advisory lock and re-check the ceiling in-tx.
 - [Stripe money idempotency](stripe-idempotency.md) - every money-moving Stripe call must pass a deterministic idempotencyKey keyed on the business id; createTransfer lacked one → double-pay on re-approval.
 - [Queue-infra crons](queue-module-crons.md) - host @InjectQueue cron services in a separate module, NOT queues.module (circular import → queue-name const resolves undefined).
@@ -23,7 +27,7 @@
 - [GitHub push workflow scope](github-push-workflow-scope.md) - PUSH_REJECTED when commits touch .github/workflows/: OAuth token lacks `workflow` scope; user must push via PAT (repo+workflow) or SSH.
 - [GitHub PAT and Replit push](github-pat-replit-push.md) - org repos need classic PAT (ghp_); fine-grained tokens rejected; ShellExec caches secrets from session start so user must paste token inline to push mid-session.
 - [CI required checks](ci-required-checks.md) - all green as of Jul 2026: test job uses a throwaway postgres service (+ pre-created Supabase roles anon/authenticated/service_role), not TEST_* secrets; lint fails on import/order errors + prettier.
-- [Lockfile firewall URLs](lockfile-firewall-urls.md) - regenerating package-lock inside Replit leaks package-firewall.replit.local URLs → external CI/Vercel npm ci crashes with "Exit handler never called"; sed them back to registry.npmjs.org.
+- [Lockfile malformed URLs](lockfile-malformed-urls.md) - two patterns: Replit firewall URLs (package-firewall.replit.local) AND spurious /npm/ path segment (svix case); both 404 on npm ci; grep "registry.npmjs.org/npm/" to find the second pattern.
 - [Seed order fixtures](seed-order-fixtures.md) - seeded vendorPayoutPence must follow computeCommission (subtotal + delivery − commission); stale fixtures once made the earnings UI look wrong.
 - [Split apps - no server actions](split-apps-vs-server-actions.md) - Next frontends reach data only via NestJS HTTP endpoints; briefs assuming shared server helpers need an endpoint addendum first.
 - [Branch vs squash merges](branch-squash-merges.md) - long-lived work branch is squash-merged into main; after each merge, merge main back into the branch (MEMORY.md conflicts: keep ours) or the next PR shows "dirty".
@@ -53,3 +57,4 @@
 - [db push missing migrations](db-push-missing-migrations.md) — db push banned on shared DBs; CI drift gate (prisma-validate job, migrate diff --exit-code) catches this at PR time; checksum repair pattern inside.
 - [Prettier full-repo formatting](prettier-full-repo.md) — must cover all workspaces (admin, vendor e2e, web e2e, docs); verification-banner-mocks.ts is in .prettierignore (JSDoc parse error).
 - [Admin panel audit](admin-panel-audit.md) — live findings: 2FA not enforced; no debounce on search; commission-rates used wrong API URL (fixed); platform defaults 12%/weekly/GBP; admin client components must import API_URL from @/lib/env.
+- [Admin 2FA enforcement](admin-2fa-enforcement.md) — 3-layer gate (middleware/server-gate/AalGuard); two modes on /settings/2fa (enrol vs challenge); factor removal has up to 1h downgrade lag; flag = ADMIN_REQUIRE_AAL2.

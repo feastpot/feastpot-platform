@@ -13,10 +13,7 @@ import { URLS, REG, SB, VALID_REG } from './helpers/selectors';
 import { mockSignup, mockResend, signupNewUser, ERRORS } from './helpers/supabase-mock';
 
 /** Navigate to the "Check your email" confirmation screen. */
-async function reachConfirmScreen(
-  page: Parameters<Parameters<typeof test>[1]>[0],
-  email: string,
-) {
+async function reachConfirmScreen(page: Parameters<Parameters<typeof test>[1]>[0], email: string) {
   await mockSignup(page, signupNewUser(email));
   await page.goto(URLS.register);
 
@@ -107,7 +104,9 @@ test.describe('C2: resend rate limit', () => {
     expect(bodyText).not.toMatch(/429/);
   });
 
-  test('C2: cooldown timer appears after successful resend (no rapid re-send)', async ({ page }) => {
+  test('C2: cooldown timer appears after successful resend (no rapid re-send)', async ({
+    page,
+  }) => {
     const email = `resend-c2-cooldown-${Date.now()}@example-feastpot.com`;
     await reachConfirmScreen(page, email);
     await mockResend(page, {});

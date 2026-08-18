@@ -848,7 +848,17 @@ export class PayoutsService {
 
     // Pull all delivered orders in the window with vendor info + commission data.
     const orders = await this.prisma.order.findMany({
-      where: { status: OrderStatus.delivered, deliveredAt: { gte: start, lt: end } },
+      where: {
+        // partially_refunded delivered orders STILL owe the vendor their net
+        // remainder: the refund/credit ledger rows aggregated below deduct the
+        // clawback, so including them pays gross − clawback. Excluding them
+        // would suppress the payout entirely. Fully `refunded` orders are
+        // excluded: gross − clawback nets to zero, so skipping them is
+        // equivalent and avoids zero-line noise. Orders refunded before
+        // delivery never get deliveredAt and can't enter the window.
+        status: { in: [OrderStatus.delivered, OrderStatus.partially_refunded] },
+        deliveredAt: { gte: start, lt: end },
+      },
       select: {
         id: true,
         vendorId: true,

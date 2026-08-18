@@ -49,14 +49,18 @@ import { API_URL } from '@/lib/env';
 import { useAccessToken } from '@/lib/auth/use-access-token';
 import {
   buildOrdersCsvQuery,
+  REFUND_REASONS,
   useAdminOrderStats,
   useAdminOrders,
   useBulkOrderStatus,
   useBulkOrderTags,
+  useOrderRefundInfo,
   useTriggerRefund,
   type AdminOrderRow,
+  type OrderRefundInfo,
   type PaymentStatus,
   type PiStatus,
+  type RefundReason,
 } from '@/hooks/use-admin-orders';
 import { useOverrideOrderStatus, type OrderStatus } from '@/hooks/use-admin-users';
 import { formatDateTime, formatPence } from '@/lib/format';
@@ -70,6 +74,7 @@ const STATUSES: ReadonlyArray<OrderStatus | 'all'> = [
   'delivered',
   'cancelled',
   'refunded',
+  'partially_refunded',
 ];
 
 const PAYMENT_STATUSES: ReadonlyArray<PaymentStatus | 'all'> = [
@@ -1021,6 +1026,7 @@ function orderStatusTone(status: OrderStatus): StatusTone {
       return 'warning';
     case 'cancelled':
     case 'refunded':
+    case 'partially_refunded':
       return 'danger';
     default:
       return 'neutral';
@@ -1045,6 +1051,44 @@ function PiBadge({ status }: { status: PiStatus }) {
   return <Badge variant={variant}>{status}</Badge>;
 }
 
+/**
+ * Cumulative clawback for a given refunded-so-far total, mirroring the API's
+ * computeRefundSplit: vendor clawback = (subtotal + delivery − discount −
+ * commission) × refundFraction, clamped to [0, cumulative refund]. The service
+ * fee is always Feastpot revenue and is never clawed back from the vendor.
+ */
+function cumulativeClawbackPence(
+  info: OrderRefundInfo['order'],
+  cumulativeRefundPence: number,
+): number {
+  if (cumulativeRefundPence <= 0) return 0;
+  const vendorEarned =
+    info.subtotalPence + info.deliveryFeePence - info.discountPence - info.commissionPence;
+  const isFull = cumulativeRefundPence >= info.totalPence;
+  const fraction = isFull
+    ? 1
+    : info.subtotalPence > 0
+      ? Math.min(cumulativeRefundPence / info.subtotalPence, 1)
+      : 0;
+  return Math.max(0, Math.min(Math.round(fraction * vendorEarned), cumulativeRefundPence));
+}
+
+/**
+ * Preview of THIS refund's vendor deduction, mirroring the API's
+ * computeIncrementalRefundSplit: the difference between the cumulative
+ * clawback after and before this refund, so sequential partials preview the
+ * same amounts the ledger will actually deduct.
+ */
+function previewVendorClawbackPence(
+  info: OrderRefundInfo['order'],
+  alreadyRefundedPence: number,
+  refundPence: number,
+): number {
+  const after = cumulativeClawbackPence(info, alreadyRefundedPence + refundPence);
+  const before = cumulativeClawbackPence(info, alreadyRefundedPence);
+  return Math.max(0, Math.min(after - before, refundPence));
+}
+
 function RefundDialog({
   order,
   open,
@@ -1054,18 +1098,49 @@ function RefundDialog({
   open: boolean;
   onOpenChange: (v: boolean) => void;
 }) {
-  const [pounds, setPounds] = useState((order.totalPence / 100).toFixed(2));
-  const [reason, setReason] = useState('');
+  // Remount the body on every open: form state, the mutation (isSuccess would
+  // otherwise permanently disable Confirm after one partial refund), and the
+  // idempotency token must all be fresh per dialog session.
+  if (!open) return null;
+  return <RefundDialogBody order={order} onOpenChange={onOpenChange} />;
+}
+
+function RefundDialogBody({
+  order,
+  onOpenChange,
+}: {
+  order: AdminOrderRow;
+  onOpenChange: (v: boolean) => void;
+}) {
+  const info = useOrderRefundInfo(order.id, true);
+  const refundable = info.data?.refundablePence ?? order.totalPence;
+  const [pounds, setPounds] = useState<string | null>(null);
+  const [reason, setReason] = useState<RefundReason | ''>('');
+  const [note, setNote] = useState('');
+  // One idempotency token per dialog session: double-clicking Confirm (or a
+  // retry after a network blip) produces exactly one refund server-side.
+  const requestId = useMemo(() => crypto.randomUUID(), []);
   const refund = useTriggerRefund();
-  const amountPence = Math.round(Number(pounds) * 100);
+
+  const amountPence = pounds === null ? refundable : Math.round(Number(pounds) * 100);
+  const clawbackPence = info.data
+    ? previewVendorClawbackPence(info.data.order, info.data.refundedPence, amountPence)
+    : null;
+  const noteRequired = reason === 'other' && !note.trim();
+  const invalid =
+    amountPence < 1 || amountPence > refundable || !reason || noteRequired || !info.data;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Trigger refund</DialogTitle>
+          <DialogTitle>Refund order</DialogTitle>
           <DialogDescription>
-            Order {order.orderNumber} - total {formatPence(order.totalPence)}.
+            Order {order.orderNumber} - total {formatPence(order.totalPence)}
+            {info.data && info.data.refundedPence > 0
+              ? ` - already refunded ${formatPence(info.data.refundedPence)}`
+              : ''}
+            . Refundable: {formatPence(refundable)}.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
@@ -1075,36 +1150,114 @@ function RefundDialog({
               type="number"
               min="0.01"
               step="0.01"
-              max={(order.totalPence / 100).toFixed(2)}
-              value={pounds}
+              max={(refundable / 100).toFixed(2)}
+              value={pounds ?? (refundable / 100).toFixed(2)}
               onChange={(e) => setPounds(e.target.value)}
             />
           </label>
           <label className="block text-sm">
             <span className="mb-1 block text-muted-foreground">Reason (audited)</span>
-            <Input value={reason} onChange={(e) => setReason(e.target.value)} />
+            <Select value={reason} onValueChange={(v) => setReason(v as RefundReason)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select a reason" />
+              </SelectTrigger>
+              <SelectContent>
+                {REFUND_REASONS.map((r) => (
+                  <SelectItem key={r.value} value={r.value}>
+                    {r.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </label>
+          <label className="block text-sm">
+            <span className="mb-1 block text-muted-foreground">
+              Note {reason === 'other' ? '(required)' : '(optional)'}
+            </span>
+            <textarea
+              className="min-h-16 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              maxLength={500}
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+            />
+          </label>
+          {clawbackPence !== null && amountPence >= 1 && (
+            <p className="rounded-md bg-muted px-3 py-2 text-xs">
+              The customer will receive <strong>{formatPence(amountPence)}</strong>. The vendor will
+              be deducted <strong>{formatPence(clawbackPence)}</strong>; Feastpot absorbs the
+              remaining {formatPence(Math.max(0, amountPence - clawbackPence))} (its service-fee and
+              commission share).
+            </p>
+          )}
           {refund.error && (
             <p className="text-xs text-destructive">{(refund.error as Error).message}</p>
           )}
-          {refund.isSuccess && (
-            <p className="text-xs text-emerald-600">Refund queued successfully.</p>
-          )}
+          {refund.isSuccess && <p className="text-xs text-emerald-600">Refund issued.</p>}
         </div>
         <div className="mt-4 flex justify-end gap-2">
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             Close
           </Button>
           <Button
-            disabled={amountPence < 1 || amountPence > order.totalPence || refund.isPending}
+            disabled={invalid || refund.isPending || refund.isSuccess}
             onClick={() =>
-              refund.mutate({ orderId: order.id, amountPence, reason: reason.trim() || undefined })
+              reason &&
+              refund.mutate({
+                orderId: order.id,
+                amountPence,
+                reason,
+                note: note.trim() || undefined,
+                requestId,
+              })
             }
           >
-            {refund.isPending ? 'Processing…' : `Refund ${formatPence(amountPence)}`}
+            {refund.isPending ? 'Processing…' : `Refund ${formatPence(Math.max(amountPence, 0))}`}
           </Button>
         </div>
+        {info.data && info.data.payments.length > 0 && (
+          <div className="mt-4 border-t pt-3">
+            <p className="mb-2 text-xs font-medium text-muted-foreground">Refund history</p>
+            <RefundHistoryTable payments={info.data.payments} />
+          </div>
+        )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+function RefundHistoryTable({ payments }: { payments: OrderRefundInfo['payments'] }) {
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead className="text-xs">Date</TableHead>
+          <TableHead className="text-xs">Amount</TableHead>
+          <TableHead className="text-xs">Reason</TableHead>
+          <TableHead className="text-xs">Actor</TableHead>
+          <TableHead className="text-xs">Status</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {payments.map((p) => {
+          const actor = `${p.user.firstName ?? ''} ${p.user.lastName ?? ''}`.trim() || p.user.email;
+          return (
+            <TableRow key={p.id}>
+              <TableCell className="text-xs">{formatDateTime(p.createdAt)}</TableCell>
+              <TableCell className="text-xs">{formatPence(-p.amountPence)}</TableCell>
+              <TableCell className="max-w-48 truncate text-xs" title={p.failureReason ?? ''}>
+                {p.failureReason ?? '-'}
+              </TableCell>
+              <TableCell className="text-xs">
+                {actor}
+                <span className="ml-1 text-muted-foreground">({p.user.role})</span>
+              </TableCell>
+              <TableCell>
+                <PaymentBadge status={p.status} />
+              </TableCell>
+            </TableRow>
+          );
+        })}
+      </TableBody>
+    </Table>
   );
 }

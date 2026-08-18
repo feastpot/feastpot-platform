@@ -12,12 +12,7 @@
  */
 
 import { expect, test } from '@playwright/test';
-import {
-  URLS,
-  REG,
-  SB,
-  VALID_REG,
-} from './helpers/selectors';
+import { URLS, REG, SB, VALID_REG } from './helpers/selectors';
 import {
   mockSignup,
   signupNewUser,
@@ -70,7 +65,9 @@ test.describe('A1: new user sign-up', () => {
   });
 
   // Real-email variant: skipped unless TEST_MAILOSAUR_API_KEY is set.
-  test('A1-real: confirmation email arrives within 60 s and link is reachable', async ({ page }) => {
+  test('A1-real: confirmation email arrives within 60 s and link is reachable', async ({
+    page,
+  }) => {
     skipIfNoMailosaur();
 
     const localPart = `a1-${Date.now()}`;
@@ -190,9 +187,7 @@ test.describe('A4: enumeration timing safety', () => {
     const median = (arr: number[]) => {
       const sorted = [...arr].sort((a, b) => a - b);
       const mid = Math.floor(sorted.length / 2);
-      return sorted.length % 2 !== 0
-        ? sorted[mid]
-        : (sorted[mid - 1] + sorted[mid]) / 2;
+      return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
     };
 
     const newMedian = median(newUserTimes);

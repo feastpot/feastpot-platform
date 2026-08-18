@@ -142,14 +142,83 @@ export function useBulkOrderTags() {
   });
 }
 
+export type RefundReason =
+  | 'customer_complaint'
+  | 'order_not_delivered'
+  | 'food_safety'
+  | 'goodwill'
+  | 'other';
+
+export const REFUND_REASONS: Array<{ value: RefundReason; label: string }> = [
+  { value: 'customer_complaint', label: 'Customer complaint' },
+  { value: 'order_not_delivered', label: 'Order not delivered' },
+  { value: 'food_safety', label: 'Food safety issue' },
+  { value: 'goodwill', label: 'Goodwill gesture' },
+  { value: 'other', label: 'Other (note required)' },
+];
+
+export interface RefundPaymentRow {
+  id: string;
+  type: 'refund' | 'partial_refund';
+  status: 'pending' | 'succeeded' | 'failed' | 'cancelled';
+  amountPence: number;
+  failureReason: string | null;
+  createdAt: string;
+  user: {
+    id: string;
+    email: string;
+    firstName: string | null;
+    lastName: string | null;
+    role: string;
+  };
+}
+
+export interface OrderRefundInfo {
+  order: {
+    id: string;
+    status: OrderStatus;
+    totalPence: number;
+    subtotalPence: number;
+    serviceFeePence: number;
+    deliveryFeePence: number;
+    discountPence: number;
+    commissionPence: number;
+  };
+  payments: RefundPaymentRow[];
+  refundedPence: number;
+  refundablePence: number;
+}
+
+export function useOrderRefundInfo(orderId: string, enabled: boolean) {
+  const { request, ready } = useApi();
+  return useQuery({
+    queryKey: ['admin', 'orders', orderId, 'refund-info'],
+    enabled: ready && enabled,
+    queryFn: () => request<OrderRefundInfo>(`/admin/orders/${orderId}/payments`),
+  });
+}
+
 export function useTriggerRefund() {
   const { request } = useApi();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (body: { orderId: string; amountPence: number; reason?: string }) =>
-      request<{ id: string }>('/payments/refunds', { method: 'POST', body }),
-    onSuccess: () => {
+    mutationFn: ({
+      orderId,
+      ...body
+    }: {
+      orderId: string;
+      amountPence?: number;
+      reason: RefundReason;
+      note?: string;
+      requestId: string;
+    }) =>
+      request<{ refund: { id: string } }>(`/admin/orders/${orderId}/refunds`, {
+        method: 'POST',
+        body,
+      }),
+    onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: ['admin', 'orders'] });
+      qc.invalidateQueries({ queryKey: ['admin', 'orders', vars.orderId, 'refund-info'] });
     },
   });
 }

@@ -96,9 +96,9 @@ test.describe('B2: expired confirmation link', () => {
     await page.goto(CONFIRM_URL());
     await page.getByRole('button', { name: 'Confirm my account' }).click();
 
-    await expect(
-      page.getByRole('heading', { name: 'Link expired or already used' }),
-    ).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByRole('heading', { name: 'Link expired or already used' })).toBeVisible({
+      timeout: 5_000,
+    });
 
     // Must offer a way back; no raw error or stack trace visible.
     await expect(page.getByRole('link', { name: /back to sign.?in/i })).toBeVisible();
@@ -145,9 +145,9 @@ test.describe('B3: reused confirmation link', () => {
     await btn2.click();
 
     // Second use: graceful error, not a blank page or uncaught exception.
-    await expect(
-      page.getByRole('heading', { name: 'Link expired or already used' }),
-    ).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByRole('heading', { name: 'Link expired or already used' })).toBeVisible({
+      timeout: 5_000,
+    });
 
     // No unhandled JS errors.
     const errors: string[] = [];
@@ -169,9 +169,9 @@ test.describe('B4: tampered confirmation link', () => {
     await page.getByRole('button', { name: 'Confirm my account' }).click();
 
     // Generic error heading; no internal detail exposed.
-    await expect(
-      page.getByRole('heading', { name: 'Link expired or already used' }),
-    ).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByRole('heading', { name: 'Link expired or already used' })).toBeVisible({
+      timeout: 5_000,
+    });
 
     const body = await page.textContent('body');
     expect(body).not.toMatch(/token_hash/i);

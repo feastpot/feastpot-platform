@@ -18,6 +18,7 @@ const HANDLED_STRIPE_EVENT_TYPE_LIST = [
   'transfer.created',
   'refund.updated',
   'charge.refund.updated',
+  'charge.refunded',
   'charge.dispute.created',
   'charge.dispute.updated',
   'charge.dispute.closed',

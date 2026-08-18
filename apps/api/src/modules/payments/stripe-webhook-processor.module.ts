@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 
+import { PaymentsModule } from './payments.module';
 import { StripeWebhookProcessor } from './stripe-webhook.processor';
 
 /**
@@ -14,6 +15,10 @@ import { StripeWebhookProcessor } from './stripe-webhook.processor';
  * This module is registered ONLY in AppModule.imports.
  */
 @Module({
+  // PaymentsModule provides PaymentsService (external-refund reconciliation +
+  // failed-refund compensation). Safe: PaymentsModule does not import this
+  // module back, and the processor stays registered exactly once here.
+  imports: [PaymentsModule],
   providers: [StripeWebhookProcessor],
 })
 export class StripeWebhookProcessorModule {}

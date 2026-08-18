@@ -1,0 +1,288 @@
+CONTEXT
+Feastpot Turborepo monorepo. apps/web (Next.js 15, customer, port 3000), apps/vendor
+(port 3002), apps/admin (port 3003), apps/api (NestJS 11, port 3001). Prisma against
+Supabase Postgres. Stripe Connect for payments. Resend for email. Bull queues for
+notifications and payouts. packages/config exports PLATFORM_FACTS.
+
+UK English throughout. Never use an em dash or a double hyphen used as a dash, in code,
+comments or output.
+
+OBJECTIVE
+Produce an evidence-based audit of what is implemented, what works under live data, and
+what is missing, by driving real user journeys end to end across all three front-end apps
+with a working API. A previous audit could not reach the API, so its behavioural verdicts
+are unproven. Treat every prior WORKING and REAL verdict as UNVERIFIED until you observe
+the effect yourself.
+
+=====================================================================
+PHASE 0: FIX THE HARNESS. Nothing else counts until this passes.
+=====================================================================
+The previous attempt failed because the headless browser could not reach localhost:3001.
+Do not proceed to any test until a browser-originated request to the API succeeds.
+
+1. Stand up all four apps together with a single command, using turbo or a compose file.
+   The API must be reachable from the browser context, not merely from the shell. Set
+   NEXT_PUBLIC_API_URL explicitly for all three front ends; do not rely on a default.
+2. Use a dedicated throwaway Postgres database built FROM MIGRATIONS, never a copy of dev
+   and never production. This also re-proves that migrations apply cleanly from scratch.
+3. Add a smoke check that runs first and fails the whole suite loudly if it does not pass:
+   open apps/admin in the browser, perform one authenticated GET that returns data, and
+   assert a 200 with a non-empty body. If this fails, STOP and report; every downstream
+   result would otherwise be a false negative exactly as before.
+4. DO NOT MOCK THE API for any test in this audit. Mocked responses are what made the
+   previous exercise hollow. Mocks are acceptable only for third-party edges you cannot
+   drive (Stripe, Resend, Twilio), and those must use provider test modes or recorded
+   fixtures at the boundary, never an intercepted internal route.
+
+=====================================================================
+PHASE 1: SEED A REALISTIC FIXTURE WORLD
+=====================================================================
+Create a seed script producing a world rich enough to exercise every permutation. Report
+the exact counts created.
+
+USERS: one admin, one support, one finance, one compliance, one vendor owner per vendor,
+one vendor team member, and at least six customers (one FeastPass member, one non-member,
+one with an existing order history, one brand new, one suspended, one with an Apple
+private-relay style email).
+
+VENDORS covering every state and compliance status:
+  - live, FHRS rated 5, inside founding allowance
+  - live, FHRS rated 3, founding allowance exhausted
+  - live, FHRS rated 4, allowance partially consumed (to test the straddle case)
+  - registered awaiting inspection (must NOT appear in customer search)
+  - not eligible / unregistered
+  - probation
+  - suspended
+  - removed
+  - one vendor referred by another vendor (to exercise referredByVendorId and the
+    referral top-up)
+
+MENUS AND DISHES: dishes across every ItemCategory, some with allergens declared, some
+with the explicit "contains none of the 14" affirmation, some with neither (which must be
+unpublishable), a catering tray at a realistic value above 85 pounds, and a single portion.
+
+DELIVERY AND AVAILABILITY: service areas that overlap and do not overlap the customer
+postcodes, capacity caps, lead times, and one vendor with no postcodes at all.
+
+ORDERS spanning: every attribution tier (vendor-referred, marketplace-first, marketplace-
+repeat), standard and catering, delivery and collection, with and without a discount, both
+PLATFORM-funded and VENDOR-funded, refunded and partially refunded, cancelled, and one
+straddling the founding allowance boundary.
+
+VOLUME FOR PERFORMANCE: additionally seed 5,000 orders, 500 vendors, 101+ vendor
+applications, and 2,000 audit log rows so Phase 6 has something real to measure and so the
+100-application cap can actually be observed.
+
+=====================================================================
+PHASE 2: CROSS-APP JOURNEYS. This is the heart of the audit.
+=====================================================================
+Each journey must start in one app and be verified in the others AND in the database. A
+step passes only when the consequence is observed in every place it should appear. Record
+for each step: the app acted in, the API call made, the database change, and the
+observable effect in the other apps.
+
+J1 VENDOR ONBOARDING
+  Vendor applies -> admin sees the application -> admin approves -> vendor account exists
+  -> vendor completes profile, menu, delivery, availability -> vendor becomes discoverable
+  in customer postcode search -> customer can place an order.
+  Branches: reject with reason; request more information; approve a vendor whose FHRS is
+  below 3 (must NOT become discoverable); approve one awaiting inspection (must NOT be
+  discoverable, but must be able to build a full profile).
+  Assert: referredByVendorId is populated when the application carried a referral, and null
+  when it did not.
+
+J2 ORDER LIFECYCLE
+  Customer browses -> the displayed price is all-in including the service fee capped at
+  PLATFORM_FACTS.serviceFee.capPence -> basket -> checkout -> Stripe test payment ->
+  order appears in the vendor portal Orders -> vendor accepts -> preparing -> dispatched ->
+  delivered -> commission computed at the correct tier -> vendor Performance/Earnings shows
+  it -> admin Orders shows it -> it is included in the next payout batch.
+  Assert at every step: the price never increases between first display and payment; the
+  order is visible to the correct vendor and to admin and to no other vendor.
+
+J3 ATTRIBUTION AND COMMISSION, the money-critical chain
+  a. Customer arrives via the vendor's share link carrying ?src=vendor -> orders ->
+     attribution is VENDOR_REFERRED -> commission is 0 -> vendorPayoutPence is full.
+  b. Customer arrives via marketplace postcode search -> orders -> MARKETPLACE_FIRST ->
+     commission at PLATFORM_FACTS.commission.marketplaceFirst.
+  c. Same customer, same vendor, orders again -> MARKETPLACE_REPEAT -> marketplaceRepeat
+     rate.
+  d. OVERRIDE RULE: customer first introduced by marketplace search, then returns within
+     90 days via the vendor's own link -> must remain marketplace-sourced.
+  e. Vendor-link marker older than 30 days -> expired, no longer vendor-sourced.
+  f. FOUNDING ALLOWANCE: an order fully inside the allowance charges 0; an order
+     straddling the boundary charges the tier rate on the excess only; once exhausted the
+     normal rate applies. Assert used never exceeds granted.
+  g. Refund a marketplace-sourced order -> commission reverses proportionally AND the
+     consumed founding allowance is restored.
+  Verify each in the vendor Performance screen, the admin attribution analytics, and the
+  database. All three must agree. Any disagreement is a defect, and state which is wrong.
+
+J4 DISCOUNT FUNDING
+  Admin creates a PLATFORM-funded code -> customer redeems -> the vendor's payout is
+  IDENTICAL to the same order with no discount -> the cost lands on Feastpot's commission.
+  Admin creates a VENDOR-funded code scoped to one vendor -> customer redeems -> the
+  discount comes off that vendor's payout and commission is computed on the discounted
+  subtotal.
+  Assert an order with a discount and no funding source cannot be created by any route,
+  including a direct API call.
+
+J5 COMPLIANCE AND ENFORCEMENT
+  Document approaches expiry -> appears in the admin expiring list -> verification state
+  changes -> vendor is notified -> the vendor dashboard shows the banner (not only the
+  compliance page) -> vendor is suspended -> vendor DISAPPEARS from customer search
+  immediately -> vendor cannot receive new orders -> existing accepted orders are handled
+  per policy -> vendor appeals -> admin resolves the appeal -> vendor reinstated ->
+  reappears in search.
+  Assert: an AuditLog row exists for BOTH the manual lifecycle suspension and the automated
+  enforcement suspension. The prior audit found automated suspensions write no audit row
+  and could not confirm the manual path. Prove or disprove each by querying AuditLog after
+  the action.
+
+J6 DISPUTES AND MONEY BACK
+  Customer raises an issue -> dispute appears in the vendor portal and the admin panel ->
+  admin escalates -> admin closes -> any remedy is applied.
+  Then attempt a full Stripe refund and a partial refund from the admin panel. The prior
+  audit found no refund endpoint exists. Confirm this, and record precisely what an admin
+  must do instead today and what audit trail that leaves.
+  Then drive a chargeback in Stripe test mode -> confirm it appears in the admin
+  chargebacks page -> attempt to submit evidence and to reconcile. Record what is possible
+  and what is not.
+
+J7 CATERING
+  Customer submits a catering enquiry -> it appears in the admin catering enquiries page ->
+  admin attempts to route it to a vendor -> vendor receives it -> vendor builds a quote ->
+  customer accepts -> deposit -> balance -> completion.
+  The prior audit found no routing endpoint or UI exists, which breaks this chain at step
+  three. Confirm, and record exactly where the chain terminates and what the vendor-facing
+  empty state promises that cannot happen.
+
+J8 AUTHENTICATION AND SESSION
+  Register a new customer -> confirmation email is generated -> confirm -> sign in.
+  Assert enumeration safety: registering with an existing confirmed email produces an
+  identical response, screen and timing to a new email.
+  Assert SESSION ISOLATION across subdomains: a customer session on apps/web must NOT
+  authenticate apps/vendor or apps/admin, and a vendor session must not authenticate
+  apps/admin. Inspect the Supabase cookie domain in each app and report whether it is
+  host-only or set to a shared parent domain. A shared parent domain is a defect.
+
+J9 NOTIFICATIONS
+  For each state change that should notify (order accepted, dispatched, delivered,
+  verification state change, payout statement), assert a notification row is enqueued,
+  processed, and marked sent, and that a forced failure lands in the dead-letter queue and
+  is visible and resendable from the admin panel.
+
+=====================================================================
+PHASE 3: PERMUTATION MATRIX
+=====================================================================
+Build a matrix over these dimensions and execute every combination that is logically
+possible. Where the count is large, execute all combinations for the money-affecting
+dimensions (attribution x discount funding x founding allowance x refund state) and a
+representative sample elsewhere, and state explicitly which combinations you sampled rather
+than exhausted.
+
+  Actor role: customer, vendor owner, vendor team member, admin, support, finance,
+              compliance, signed out
+  Vendor state: pending, live, probation, suspended, removed
+  Compliance status: rated 3+, registered awaiting inspection, not eligible
+  Order source: vendor-referred, marketplace-first, marketplace-repeat
+  Order type: standard, catering
+  Fulfilment: delivery, collection
+  Payment outcome: success, declined, 3DS required, refunded full, refunded partial,
+                   charged back
+  Discount: none, platform-funded, vendor-funded
+  FeastPass: member, non-member
+  Founding allowance: within, straddling, exhausted
+
+For each executed combination record: expected outcome, observed outcome, and whether the
+three apps agree with the database.
+
+=====================================================================
+PHASE 4: AUTHORISATION AND ISOLATION, negative tests
+=====================================================================
+Positive tests prove features exist. These prove they cannot be bypassed.
+  - A customer JWT calling every admin endpoint must be rejected. Enumerate the endpoints
+    from admin.controller.ts and test each, do not sample.
+  - A vendor JWT calling admin endpoints must be rejected.
+  - Vendor A must not read, modify, or export vendor B's orders, payouts, customers or
+    documents, by API or by URL manipulation in the portal.
+  - A support role must not reach admin-only endpoints; finance must not reach compliance-
+    only endpoints; verify the actual @Roles declarations hold at runtime.
+  - RLS: using the ANON key, not the service key, assert denial on every table holding
+    vendor payout data, customer PII, verification records and order attribution. A test
+    that passes with service_role proves nothing, because service_role bypasses RLS.
+  - A signed-out user must not reach any authenticated route in any of the three apps.
+
+=====================================================================
+PHASE 5: CONTROL SWEEP WITH A LIVE API
+=====================================================================
+Re-run the "every control has an observable effect" sweep from the previous audit, but this
+time with the API reachable. For every interactive control in apps/admin, and also in
+apps/vendor and apps/web:
+  1. Change it.
+  2. Assert an observable, correct consequence: a database change, a visible state change,
+     or a correct navigation.
+  3. A control that dispatches a request which returns an error, or returns 200 but writes
+     nothing, is a NO-OP and must be named as such. This is the class of defect a
+     code-reading audit cannot find.
+Produce a table of every control with: dispatches a request, request succeeds, database
+changed, UI reflects it. All four must be true for a PASS.
+
+=====================================================================
+PHASE 6: PERFORMANCE UNDER SEEDED VOLUME
+=====================================================================
+With the volumes from Phase 1 loaded, measure and report:
+  - listExpiringDocuments response time (the prior audit found no take or cursor).
+  - The vendor applications list at 101+ records: confirm whether the 101st is silently
+    invisible.
+  - Admin vendor list and order list query times, and whether the missing indexes on
+    Vendor.status, VendorApplication.status and createdAt cause sequential scans. Capture
+    EXPLAIN output.
+  - listAdminOrders page load with the Stripe call inside the map loop, at the default page
+    size. Report wall-clock time.
+  - Admin search inputs: confirm the absence of debounce by counting requests fired while
+    typing a ten-character query.
+  - Any list rendering more than 500 rows client-side.
+Report each with a measured number, not an opinion.
+
+=====================================================================
+PHASE 7: THE REPORT
+=====================================================================
+Produce a single markdown report with these sections.
+
+1. HARNESS STATUS. State plainly whether the API was reachable and data flowed. If not,
+   everything below is void and must say so at the top.
+
+2. CAPABILITY MATRIX, three states only. Do not use "partial" without saying which half
+   works:
+     IMPLEMENTED AND PROVEN  - observed working end to end with live data, with evidence
+     IMPLEMENTED BUT UNPROVEN - code exists, could not be exercised, with the reason
+     MISSING - no implementation, with the operational consequence
+   Every row cites the journey or test that established it.
+
+3. JOURNEY RESULTS. For J1 to J9: completed fully, or the exact step at which the chain
+   broke and why.
+
+4. PERMUTATION COVERAGE. Which combinations were executed, which sampled, which are
+   impossible, and every combination whose observed outcome differed from expected.
+
+5. DEFECTS, ordered by consequence. Money and data-exposure defects first. For each: what
+   happens, who is harmed, how to reproduce.
+
+6. NO-OP CONTROLS. Controls that render and do nothing, now proven at runtime rather than
+   inferred.
+
+7. THE GAP LIST. What remains unimplemented, with the operational consequence of each and
+   a recommended priority.
+
+8. WHAT COULD NOT BE TESTED, and exactly what is needed to test it (a Stripe live key, a
+   real handset, a production token). Be specific. Do not carry an unknown forward without
+   naming its unblocker.
+
+RULES
+- Do not modify application source to make a test pass. Fix the harness, not the subject.
+- Do not mark anything proven on the basis that a page rendered.
+- Where the three apps disagree about the same record, that is a defect: report which is
+  wrong and why.
+- Where you find a money defect (wrong commission, wrong payout, wrong refund), stop and
+  report it immediately at the top of your output rather than in sequence.

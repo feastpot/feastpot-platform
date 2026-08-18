@@ -48,7 +48,15 @@ export class HmrcReportProcessor implements OnApplicationBootstrap {
 
   private async registerCron(name: string, cron: string): Promise<void> {
     try {
-      await this.queue.add(name, {}, { repeat: { cron }, jobId: `cron-${name}` });
+      // Remove stale repeatable-job entries before re-registering to prevent
+      // duplicate accumulation across restarts (same root cause as compliance
+      // cron: every boot appends another entry, causing "not in active state:
+      // finished" failures when all copies fire simultaneously).
+      const existing = await this.queue.getRepeatableJobs();
+      for (const job of existing.filter((j) => j.name === name)) {
+        await this.queue.removeRepeatableByKey(job.key);
+      }
+      await this.queue.add(name, {}, { repeat: { cron }, removeOnComplete: true });
       this.logger.log(`Registered HMRC cron ${name} (${cron})`);
     } catch (e) {
       this.logger.warn(`Failed to register HMRC cron ${name}: ${(e as Error).message}`);

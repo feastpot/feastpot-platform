@@ -16,7 +16,8 @@ export type OrderStatus =
   | 'dispatched'
   | 'delivered'
   | 'cancelled'
-  | 'refunded';
+  | 'refunded'
+  | 'partially_refunded';
 
 export interface AdminUserOrderRow {
   id: string;

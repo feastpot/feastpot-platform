@@ -31,7 +31,10 @@ export function mailosaurAddress(localPart: string): string {
 /** Skip the current test if Mailosaur credentials are not configured. */
 export function skipIfNoMailosaur() {
   if (!API_KEY || !SERVER_ID) {
-    test.skip(true, 'Set TEST_MAILOSAUR_API_KEY and TEST_MAILOSAUR_SERVER_ID to run real-email tests');
+    test.skip(
+      true,
+      'Set TEST_MAILOSAUR_API_KEY and TEST_MAILOSAUR_SERVER_ID to run real-email tests',
+    );
   }
 }
 
@@ -50,7 +53,11 @@ async function mailosaurFetch(path: string, init?: RequestInit): Promise<Respons
   const credentials = Buffer.from(`${API_KEY}:`).toString('base64');
   return fetch(`${BASE_URL}${path}`, {
     ...init,
-    headers: { Authorization: `Basic ${credentials}`, 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
+    headers: {
+      Authorization: `Basic ${credentials}`,
+      'Content-Type': 'application/json',
+      ...(init?.headers ?? {}),
+    },
   });
 }
 
@@ -102,7 +109,9 @@ export function extractLink(message: MailosaurMessage, pattern: RegExp): string 
   const urlMatch = haystack.match(new RegExp(`https?://\\S*${pattern.source}\\S*`, 'i'));
   if (urlMatch?.[0]) return urlMatch[0];
 
-  throw new Error(`No link matching ${pattern} found in email: ${JSON.stringify(message).slice(0, 200)}`);
+  throw new Error(
+    `No link matching ${pattern} found in email: ${JSON.stringify(message).slice(0, 200)}`,
+  );
 }
 
 /**

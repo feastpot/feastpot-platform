@@ -28,7 +28,10 @@ type PageState = 'loading' | 'ready' | 'verifying' | 'success' | 'invalid' | 'er
 
 const VALID_TYPES = new Set<string>(['signup', 'invite', 'magiclink', 'email_change']);
 
-const COPY: Record<OtpType, { heading: string; body: string; button: string; successHeading: string; successBody: string }> = {
+const COPY: Record<
+  OtpType,
+  { heading: string; body: string; button: string; successHeading: string; successBody: string }
+> = {
   signup: {
     heading: 'Confirm your account',
     body: 'Click below to verify your email address and activate your Feastpot account.',
@@ -147,7 +150,9 @@ export default function AuthConfirm() {
           {state === 'invalid' && (
             <div className="space-y-4 text-center">
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-50">
-                <span className="text-2xl" aria-hidden>!</span>
+                <span className="text-2xl" aria-hidden>
+                  !
+                </span>
               </div>
               <h1 className="font-display text-xl font-black tracking-tight text-charcoal">
                 This link is not valid
@@ -169,7 +174,9 @@ export default function AuthConfirm() {
           {state === 'error' && (
             <div className="space-y-4 text-center">
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-50">
-                <span className="text-2xl" aria-hidden>!</span>
+                <span className="text-2xl" aria-hidden>
+                  !
+                </span>
               </div>
               <h1 className="font-display text-xl font-black tracking-tight text-charcoal">
                 Link expired or already used
@@ -221,7 +228,13 @@ export default function AuthConfirm() {
           {state === 'success' && (
             <div className="space-y-4 text-center">
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-50">
-                <svg className="h-6 w-6 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <svg
+                  className="h-6 w-6 text-brand"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
               </div>

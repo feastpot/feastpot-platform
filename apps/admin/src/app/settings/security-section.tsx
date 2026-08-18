@@ -33,7 +33,7 @@ interface FactorRow {
   factor_type: string;
 }
 
-export function SecuritySection() {
+export function SecuritySection({ onEnrolled }: { onEnrolled?: () => void } = {}) {
   const supabase = createClient();
   const { toast } = useToast();
 
@@ -134,6 +134,7 @@ export function SecuritySection() {
     setPending(null);
     setCode('');
     await refresh();
+    onEnrolled?.();
 
     try {
       const result = await regenerate.mutateAsync();

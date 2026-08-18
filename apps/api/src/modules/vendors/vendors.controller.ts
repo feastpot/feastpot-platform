@@ -21,6 +21,11 @@ import {
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
+// UUID v4 regex used by the unified :idOrSlug handler to distinguish a vendor
+// UUID from a human-readable slug. Slugs are generated from business names so
+// a collision with a UUID is impossible in practice, but the regex is the hard
+// gate regardless.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
@@ -67,6 +72,23 @@ function requireUser(user: AuthUser | null): AuthUser {
   return user;
 }
 
+// ─── DECLARATION-ORDER HAZARD ────────────────────────────────────────────────
+// NestJS (Express) matches GET routes in the order they are declared. The rules:
+//
+//   1. Every literal-segment route ('me', 'card-extras', 'coverage', 'debug',
+//      'slug-redirect/:slug', 'by-slug/:slug') MUST be declared above the
+//      catch-all one-segment handler (':idOrSlug').
+//
+//   2. Sub-resource routes (':id/foo') are safe regardless of order because
+//      they have two segments and cannot collide with the one-segment catch-all.
+//
+//   3. Do NOT add a ParseUUIDPipe to the catch-all ':idOrSlug' param. The handler
+//      does its own UUID check via UUID_RE so it can serve both UUID and slug
+//      callers. Adding a pipe would re-introduce the exact bug this comment exists
+//      to prevent (400 for slug-style URLs).
+//
+// If you add a new literal GET route, place it above the ':idOrSlug' handler.
+// ─────────────────────────────────────────────────────────────────────────────
 @ApiTags('Vendors')
 @Controller({ path: 'vendors', version: '1' })
 export class VendorsController {
@@ -347,10 +369,9 @@ export class VendorsController {
     return this.vendors.createStripeConnectLink(requireUser(user).id);
   }
 
-  // Diagnostic-only endpoint. MUST be declared before @Get(':id') so
+  // Diagnostic-only endpoint. MUST be declared before @Get(':idOrSlug') so
   // Nest matches "debug" as a literal segment rather than falling through
-  // to the UUID-validated `/:id` route (which is what produced the
-  // "Validation failed (uuid is expected)" 400s in production logs).
+  // to the catch-all handler.
   // Gated to non-prod so we never accidentally leak internals from a
   // real deploy - returns 404 in production.
   @Public()
@@ -381,7 +402,7 @@ export class VendorsController {
 
   // Batch card data for search/rail cards: verified trust signals + the
   // next-7-days capacity rows for up to 50 vendors in one round trip.
-  // Declared before @Get(':id') so "card-extras" is matched literally.
+  // Declared before @Get(':idOrSlug') so "card-extras" is matched literally.
   @Public()
   @Get('card-extras')
   @ApiOperation({
@@ -432,11 +453,44 @@ export class VendorsController {
     return this.vendors.getLiveMenuItems(id);
   }
 
+  // ⚠ See DECLARATION-ORDER HAZARD comment above the class. Every literal-segment
+  // GET route must be declared above this handler. Do NOT add ParseUUIDPipe here.
   @Public()
-  @Get(':id')
-  @ApiOperation({ summary: 'Get vendor by id (public)' })
-  findOne(@Param('id', new ParseUUIDPipe()) id: string) {
-    return this.vendors.findById(id);
+  @Get(':idOrSlug')
+  @ApiOperation({ summary: 'Get vendor by UUID or slug (public)' })
+  async findOne(
+    @Param('idOrSlug') idOrSlug: string,
+    @Query('postcode') postcode: string | undefined,
+  ) {
+    // UUID path: used by admin/vendor surfaces that address vendors by id.
+    // No visibility gate here - a suspended vendor's UUID still resolves so
+    // admin tooling can inspect any record regardless of status.
+    if (UUID_RE.test(idOrSlug)) {
+      return this.vendors.findById(idOrSlug);
+    }
+
+    // Slug path: customer-facing. Slugs are stored lowercase; normalise on
+    // the way in so 'Marrakech-Tagine-House' and 'marrakech-tagine-house' are
+    // treated identically. findBySlug() gates on status === live, so suspended
+    // or removed vendor slugs return 404 from both the canonical and the
+    // redirect path.
+    const slug = idOrSlug.toLowerCase();
+
+    try {
+      return await this.vendors.findBySlug(slug, postcode);
+    } catch (e) {
+      if (e instanceof NotFoundException) {
+        // The slug might be an old address that was written to the
+        // VendorSlugRedirect table when the vendor renamed their profile.
+        // Resolve transparently so the caller gets the canonical vendor in
+        // a single round-trip rather than a separate redirect-follow request.
+        const redir = await this.vendors.findSlugRedirect(slug);
+        if (redir) {
+          return this.vendors.findBySlug(redir.newSlug, postcode);
+        }
+      }
+      throw e; // NotFoundException becomes HTTP 404; other errors propagate as-is.
+    }
   }
 
   @Public()
