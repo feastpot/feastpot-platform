@@ -79,7 +79,11 @@ export class PayoutBatchProcessor implements OnApplicationBootstrap {
       for (const job of existing.filter((j) => j.name === WEEKLY_BATCH_JOB)) {
         await this.queue.removeRepeatableByKey(job.key);
       }
-      await this.queue.add(WEEKLY_BATCH_JOB, {}, { repeat: { cron: '0 2 * * 1' }, removeOnComplete: true });
+      await this.queue.add(
+        WEEKLY_BATCH_JOB,
+        {},
+        { repeat: { cron: '0 2 * * 1' }, removeOnComplete: true },
+      );
       this.logger.log('Registered weekly payout cron (Mon 02:00 UTC)');
     } catch (e) {
       this.logger.warn(`Failed to register payout cron: ${(e as Error).message}`);

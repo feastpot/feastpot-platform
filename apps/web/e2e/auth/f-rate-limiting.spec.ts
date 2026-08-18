@@ -113,9 +113,9 @@ test.describe('F1: OTP verify rate limit', () => {
     await page.getByRole('button', { name: 'Confirm my account' }).click();
 
     // The confirm page error state handles all verifyOtp errors gracefully.
-    await expect(
-      page.getByRole('heading', { name: 'Link expired or already used' }),
-    ).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByRole('heading', { name: 'Link expired or already used' })).toBeVisible({
+      timeout: 5_000,
+    });
 
     const body = await page.textContent('body');
     expect(body).not.toMatch(/429/);

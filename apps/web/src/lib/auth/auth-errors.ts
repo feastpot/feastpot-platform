@@ -79,7 +79,8 @@ export const AUTH_ERROR_MAP: Record<string, AuthErrorMapping> = {
   // of the project organisation (2 msg/hour cap, team-only). Surface this as an
   // ops alert so misconfigured SMTP is detected before launch.
   email_address_not_authorized: {
-    userMessage: 'We were unable to send a confirmation email to that address. Please try again shortly or contact support.',
+    userMessage:
+      'We were unable to send a confirmation email to that address. Please try again shortly or contact support.',
     alertOps: true,
   },
 };

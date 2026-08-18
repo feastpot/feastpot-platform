@@ -134,12 +134,14 @@ test.describe('H3: sign-out', () => {
     await establishMockSession(page);
 
     // Stub the Supabase sign-out endpoint.
-    await page.route('**/auth/v1/logout*', (route) =>
-      route.fulfill({ status: 204, body: '' }),
-    );
+    await page.route('**/auth/v1/logout*', (route) => route.fulfill({ status: 204, body: '' }));
     // After sign-out, /user returns 401.
     await page.route(SB.user, (route) =>
-      route.fulfill({ status: 401, contentType: 'application/json', body: '{"message":"JWT expired"}' }),
+      route.fulfill({
+        status: 401,
+        contentType: 'application/json',
+        body: '{"message":"JWT expired"}',
+      }),
     );
 
     // Sign out via the Supabase client directly (no UI button assumed).
@@ -187,11 +189,13 @@ test.describe('H4: multi-tab sign-out', () => {
     // Stub auth endpoints for both pages.
     for (const p of [page1, page2]) {
       await p.route(SB.user, (route) =>
-        route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(mockSession().user) }),
+        route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(mockSession().user),
+        }),
       );
-      await p.route('**/auth/v1/logout*', (route) =>
-        route.fulfill({ status: 204, body: '' }),
-      );
+      await p.route('**/auth/v1/logout*', (route) => route.fulfill({ status: 204, body: '' }));
     }
 
     await page1.goto(URLS.signIn);
