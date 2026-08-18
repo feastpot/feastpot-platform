@@ -1,9 +1,18 @@
 /**
  * Feastpot seed
  *
- * Creates 8 users (via Supabase Auth Admin → public.users), 2 vendors, menus,
- * 12 menu items, delivery config, 5 orders, 3 reviews. Idempotent: safe to
- * re-run; existing rows are upserted by deterministic keys (email / slug).
+ * Creates 13 users (via Supabase Auth Admin → public.users), 2 primary vendors,
+ * menus, 12+ menu items, delivery config, 8 orders, 3 reviews, verification
+ * records across all states, 2 discount codes (PLATFORM + VENDOR funded), and
+ * a vendor team member. Idempotent: safe to re-run; existing auth users get
+ * their passwords reset rather than erroring; other rows are upserted by
+ * deterministic keys (email / slug).
+ *
+ * Quick-start (run from repo root):
+ *   npm run db:seed
+ *
+ * Requires: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_DB_URL,
+ *           SUPABASE_DIRECT_URL set in .env (see .env.example).
  *
  * NOTE on field mapping vs the original brief:
  *   The schema uses `cuisines` (not `cuisineTypes`), `commissionBps` (Int basis
@@ -17,6 +26,9 @@
 
 import {
   DeliveryType,
+  DiscountFundedBy,
+  DiscountType,
+  FhrsStatus,
   ItemCategory,
   ModerationStatus,
   OrderStatus,
@@ -26,7 +38,10 @@ import {
   PrismaClient,
   UserRole,
   VendorComplianceStatus,
+  VendorMemberRole,
+  VendorMemberStatus,
   VendorStatus,
+  VerificationState,
 } from '@prisma/client';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
@@ -96,6 +111,46 @@ const USERS: SeedUser[] = [
     firstName: 'David',
     lastName: 'Campbell',
     password: 'Feastpot!Cust2',
+  },
+  // Extra customers (c3–c6): different postcodes cover overlapping and
+  // non-overlapping delivery areas so search tests can distinguish real misses
+  // from a universal D3 defect.
+  {
+    email: 'aisha@example.com',
+    role: UserRole.customer,
+    firstName: 'Aisha',
+    lastName: 'Patel',
+    password: 'Feastpot!Cust3',
+  },
+  {
+    email: 'omar@example.com',
+    role: UserRole.customer,
+    firstName: 'Omar',
+    lastName: 'Hassan',
+    password: 'Feastpot!Cust4',
+  },
+  {
+    email: 'priya@example.com',
+    role: UserRole.customer,
+    firstName: 'Priya',
+    lastName: 'Sharma',
+    password: 'Feastpot!Cust5',
+  },
+  {
+    email: 'james@example.com',
+    role: UserRole.customer,
+    firstName: 'James',
+    lastName: 'Obi',
+    password: 'Feastpot!Cust6',
+  },
+  // Vendor team member: linked to Maman's Kitchen as kitchen_manager via
+  // VendorMember row in section 2c below.
+  {
+    email: 'jasmine@feastpot.co.uk',
+    role: UserRole.vendor,
+    firstName: 'Jasmine',
+    lastName: 'Adeyemi',
+    password: 'Feastpot!Team1',
   },
   // Diaspora vendor pool (18 - brings total live vendors to 20). Each gets
   // a Supabase auth user + a vendor row + 5–7 menu items + delivery config
@@ -266,7 +321,9 @@ async function ensureAuthUser(
 ): Promise<string> {
   const existingId = cache.get(user.email.toLowerCase());
   if (existingId) {
+    // Reset password so re-running the seed always produces working credentials.
     await admin.auth.admin.updateUserById(existingId, {
+      password: user.password,
       app_metadata: { role: user.role, provider: 'email' },
       user_metadata: { first_name: user.firstName, last_name: user.lastName },
     });
@@ -329,10 +386,13 @@ async function main() {
     // Idempotent compliance backfill: existing rows keep their status unless
     // they were NOT_ELIGIBLE (migration default), in which case we promote to
     // RATED so the vendor remains visible in dev search after the gate lands.
+    // foundingAllowanceUsedPence is set to a fixed value so QA can observe
+    // "partly consumed" state without running real orders first.
     update: {
       complianceStatus: VendorComplianceStatus.RATED,
       fsaHygieneRating: 5,
       fsaRatingDate: new Date('2025-01-10T00:00:00Z'),
+      foundingAllowanceUsedPence: 45000,
     },
     create: {
       userId: mamanUserId,
@@ -350,6 +410,7 @@ async function main() {
       commissionBps: 1200,
       payoutsEnabled: true,
       approvedAt: new Date('2025-01-15T10:00:00Z'),
+      foundingAllowanceUsedPence: 45000,
     },
   });
 
@@ -380,16 +441,132 @@ async function main() {
   });
   console.info(`[seed] vendors: ${maman.slug}, ${kwame.slug}`);
 
+  // 2c. Vendor team member – Jasmine linked to Maman's Kitchen as
+  //     kitchen_manager (active). Deleted + re-inserted by the deleteMany in 2b
+  //     so re-running the seed is safe.
+  const jasmineId = userMap.get('jasmine@feastpot.co.uk')!;
+  await prisma.vendorMember.create({
+    data: {
+      vendorId: maman.id,
+      userId: jasmineId,
+      invitedEmail: 'jasmine@feastpot.co.uk',
+      role: VendorMemberRole.kitchen_manager,
+      status: VendorMemberStatus.active,
+      invitedById: mamanUserId,
+      acceptedAt: new Date('2026-01-20T09:00:00Z'),
+    },
+  });
+  console.info('[seed] vendor member: jasmine@feastpot.co.uk (kitchen_manager @ mamans-kitchen)');
+
+  // 2d. Verification records across all states so the compliance triage list
+  //     has real data and the "filter by state" feature (task #140) can be
+  //     tested end-to-end.
+  await prisma.vendorVerification.create({
+    data: {
+      vendorId: maman.id,
+      registrationNumber: 'FBO-2025-001234',
+      registrationAuthority: 'London Borough of Southwark',
+      registrationConfirmedAt: new Date('2025-01-10T00:00:00Z'),
+      fhrsRating: 5,
+      fhrsRatingCheckedAt: new Date('2025-06-01T00:00:00Z'),
+      fhrsInspectionStatus: FhrsStatus.RATED,
+      insuranceProvider: 'Hiscox',
+      insuranceValidUntil: new Date('2027-01-01T00:00:00Z'),
+      allergenTrainingHeld: true,
+      allergenTrainingUntil: new Date('2027-06-01T00:00:00Z'),
+      idVerifiedAt: new Date('2025-01-08T00:00:00Z'),
+      overallState: VerificationState.VERIFIED,
+    },
+  });
+  await prisma.vendorVerification.create({
+    data: {
+      vendorId: kwame.id,
+      registrationNumber: 'FBO-2025-005678',
+      registrationAuthority: 'London Borough of Lambeth',
+      registrationConfirmedAt: new Date('2025-02-01T00:00:00Z'),
+      fhrsRating: 4,
+      fhrsRatingCheckedAt: new Date('2025-06-15T00:00:00Z'),
+      fhrsInspectionStatus: FhrsStatus.RATED,
+      insuranceProvider: 'Aviva',
+      insuranceValidUntil: new Date('2026-09-01T00:00:00Z'), // renewal due soon
+      allergenTrainingHeld: true,
+      allergenTrainingUntil: new Date('2026-09-01T00:00:00Z'),
+      idVerifiedAt: new Date('2025-01-30T00:00:00Z'),
+      overallState: VerificationState.RENEWAL_DUE,
+    },
+  });
+  // One suspended vendor so the SUSPENDED filter has a result to show.
+  // Reuse the first extra vendor (punjab.tandoor).
+  const punjabTandoor = await prisma.vendor.findFirst({
+    where: { slug: { contains: 'punjab' } },
+  });
+  if (punjabTandoor) {
+    await prisma.vendorVerification.create({
+      data: {
+        vendorId: punjabTandoor.id,
+        registrationNumber: 'FBO-2025-009001',
+        registrationAuthority: 'London Borough of Tower Hamlets',
+        registrationConfirmedAt: new Date('2025-03-01T00:00:00Z'),
+        fhrsRating: 3,
+        fhrsRatingCheckedAt: new Date('2026-01-10T00:00:00Z'),
+        fhrsInspectionStatus: FhrsStatus.RATED,
+        allergenTrainingHeld: false,
+        idVerifiedAt: new Date('2025-02-28T00:00:00Z'),
+        overallState: VerificationState.SUSPENDED,
+      },
+    });
+  }
+  console.info(
+    '[seed] vendor verifications: VERIFIED (maman), RENEWAL_DUE (kwame), SUSPENDED (punjab)',
+  );
+
+  // 2e. Discount codes.
+  //   FEAST10 – platform-funded 10% off with no vendor restriction; the
+  //             platform absorbs the discount, vendor receives full commission.
+  //   MAMAN15 – vendor-funded £15 flat off Maman orders; vendor payout is
+  //             reduced by the discount amount.
+  const adminId = userMap.get('soul@feastpot.co.uk')!;
+  const feast10 = await prisma.discountCode.create({
+    data: {
+      code: 'FEAST10',
+      type: DiscountType.percentage,
+      value: 10,
+      minOrderPence: 0,
+      maxUses: 1000,
+      fundedBy: DiscountFundedBy.PLATFORM,
+      isActive: true,
+      createdByUserId: adminId,
+    },
+  });
+  const maman15 = await prisma.discountCode.create({
+    data: {
+      code: 'MAMAN15',
+      type: DiscountType.flat,
+      value: 1500,
+      minOrderPence: 5000,
+      maxUses: 50,
+      fundedBy: DiscountFundedBy.VENDOR,
+      vendorId: maman.id,
+      isActive: true,
+      createdByUserId: mamanUserId,
+    },
+  });
+  console.info('[seed] discount codes: FEAST10 (platform 10%), MAMAN15 (vendor £15 flat)');
+
   // 2b. Wipe order graph FIRST so we can safely delete + recreate menu items
   //     below (OrderItem.menuItemId has a FK that blocks menuItem.deleteMany
   //     on re-runs). Reviews → payments → orderItems → orders, in that order
   //     to respect FKs. Loyalty/referral rows that reference orders are
   //     cleared too so the seed stays idempotent end-to-end.
+  //     Also wipe vendor-scoped fixtures that are re-seeded below.
   await prisma.loyaltyPoint.deleteMany({});
   await prisma.review.deleteMany({});
   await prisma.payment.deleteMany({});
   await prisma.orderItem.deleteMany({});
   await prisma.order.deleteMany({});
+  await prisma.discountCode.deleteMany({});
+  await prisma.vendorMember.deleteMany({});
+  await prisma.vendorVerification.deleteMany({});
 
   // 3. Menus for Maman's Kitchen
   const mainMenu = await prisma.menu.upsert({
@@ -1930,6 +2107,10 @@ async function main() {
   // 6. Customer addresses
   const graceId = userMap.get('grace@example.com')!;
   const davidId = userMap.get('david@example.com')!;
+  const aishaId = userMap.get('aisha@example.com')!;
+  const omarId = userMap.get('omar@example.com')!;
+  const priyaId = userMap.get('priya@example.com')!;
+  const jamesId = userMap.get('james@example.com')!;
   const graceAddr = await prisma.address.upsert({
     where: {
       id:
@@ -1959,6 +2140,78 @@ async function main() {
       line1: '8 Coldharbour Lane',
       city: 'London',
       postcode: 'SW9 8LF',
+      isDefault: true,
+    },
+  });
+  // Extra customer addresses - postcodes chosen to cover different delivery
+  // area scenarios:
+  //   SE15 4DA  - inside Maman 8-mile radius (Peckham, same district as Grace)
+  //   E8 1LD   - inside neither Maman nor Kwame radius (Hackney) -> search miss
+  //   N16 8JQ  - borderline Maman radius (Stoke Newington)
+  //   W2 4PP   - outside both primary vendor radii (Bayswater) -> search miss
+  const aishaAddr = await prisma.address.upsert({
+    where: {
+      id:
+        (await prisma.address.findFirst({ where: { userId: aishaId } }))?.id ??
+        '00000000-0000-0000-0000-000000000012',
+    },
+    update: {},
+    create: {
+      userId: aishaId,
+      label: 'Home',
+      line1: '14 Peckham High Street',
+      city: 'London',
+      postcode: 'SE15 4DA',
+      isDefault: true,
+    },
+  });
+  const omarAddr = await prisma.address.upsert({
+    where: {
+      id:
+        (await prisma.address.findFirst({ where: { userId: omarId } }))?.id ??
+        '00000000-0000-0000-0000-000000000013',
+    },
+    update: {},
+    create: {
+      userId: omarId,
+      label: 'Home',
+      line1: '5 Amhurst Road',
+      city: 'London',
+      postcode: 'E8 1LD',
+      isDefault: true,
+    },
+  });
+  const priyaAddr = await prisma.address.upsert({
+    where: {
+      id:
+        (await prisma.address.findFirst({ where: { userId: priyaId } }))?.id ??
+        '00000000-0000-0000-0000-000000000014',
+    },
+    update: {},
+    create: {
+      userId: priyaId,
+      label: 'Home',
+      line1: '72 Stoke Newington Road',
+      city: 'London',
+      postcode: 'N16 8JQ',
+      isDefault: true,
+    },
+  });
+  // James uses collection so no delivery address is needed for the order, but
+  // we still seed an address for profile completeness.
+  await prisma.address.upsert({
+    where: {
+      id:
+        (await prisma.address.findFirst({ where: { userId: jamesId } }))?.id ??
+        '00000000-0000-0000-0000-000000000015',
+    },
+    update: {},
+    create: {
+      userId: jamesId,
+      label: 'Home',
+      line1: '3 Queensway',
+      city: 'London',
+      postcode: 'W2 4PP',
       isDefault: true,
     },
   });
@@ -2163,6 +2416,142 @@ async function main() {
           status: PaymentStatus.succeeded,
           amountPence: 3300,
           processedAt: new Date('2026-04-18T10:55:00Z'),
+        },
+      },
+    },
+  });
+
+  // Orders 6-8: new customers, covering discount-code and collection paths.
+  // Order 6: Aisha → Maman, delivered, FEAST10 (platform 10% off egusi).
+  //   subtotal £40, discount £4 (10%), total £41 (delivery £5 included).
+  //   Platform absorbs discount: vendorPayout = subtotal + delivery - commission.
+  const aishaDiscount = Math.round(4000 * 0.1); // 400p
+  await prisma.order.create({
+    data: {
+      orderNumber: 'FP-1006',
+      customerId: aishaId,
+      vendorId: maman.id,
+      addressId: aishaAddr.id,
+      type: OrderType.standard,
+      status: OrderStatus.delivered,
+      deliveryType: DeliveryType.local,
+      subtotalPence: 4000,
+      deliveryFeePence: 500,
+      discountPence: aishaDiscount,
+      discountFundedBy: DiscountFundedBy.PLATFORM,
+      totalPence: 4000 + 500 - aishaDiscount,
+      commissionPence: commission(4000, maman.commissionBps),
+      vendorPayoutPence: 4000 + 500 - commission(4000, maman.commissionBps),
+      discountCodeId: feast10.id,
+      discountAppliedAt: new Date('2026-06-10T14:00:00Z'),
+      acceptedAt: new Date('2026-06-10T14:30:00Z'),
+      deliveredAt: new Date('2026-06-11T13:00:00Z'),
+      isSeedData: true,
+      items: {
+        create: [
+          {
+            menuItemId: egusi.id,
+            nameSnapshot: egusi.name,
+            quantity: 1,
+            unitPence: egusi.pricePence,
+            totalPence: egusi.pricePence,
+          },
+        ],
+      },
+      payments: {
+        create: {
+          userId: aishaId,
+          type: PaymentType.capture,
+          status: PaymentStatus.succeeded,
+          amountPence: 4000 + 500 - aishaDiscount,
+          processedAt: new Date('2026-06-10T13:55:00Z'),
+        },
+      },
+    },
+  });
+
+  // Order 7: Omar → Maman, accepted, MAMAN15 (vendor-funded £15 flat off jollof).
+  //   subtotal £45, discount £15, total £35 (delivery £5 included).
+  //   Vendor absorbs discount: commission on discounted subtotal, payout reduced.
+  const omarSubtotal = 4500;
+  const omarDiscount = 1500;
+  const omarDiscountedSubtotal = omarSubtotal - omarDiscount;
+  await prisma.order.create({
+    data: {
+      orderNumber: 'FP-1007',
+      customerId: omarId,
+      vendorId: maman.id,
+      addressId: omarAddr.id,
+      type: OrderType.standard,
+      status: OrderStatus.accepted,
+      deliveryType: DeliveryType.local,
+      subtotalPence: omarSubtotal,
+      deliveryFeePence: 500,
+      discountPence: omarDiscount,
+      discountFundedBy: DiscountFundedBy.VENDOR,
+      totalPence: omarSubtotal + 500 - omarDiscount,
+      commissionPence: commission(omarDiscountedSubtotal, maman.commissionBps),
+      vendorPayoutPence:
+        omarDiscountedSubtotal + 500 - commission(omarDiscountedSubtotal, maman.commissionBps),
+      discountCodeId: maman15.id,
+      discountAppliedAt: new Date('2026-06-15T11:00:00Z'),
+      acceptedAt: new Date('2026-06-15T11:30:00Z'),
+      isSeedData: true,
+      items: {
+        create: [
+          {
+            menuItemId: jollof.id,
+            nameSnapshot: jollof.name,
+            quantity: 1,
+            unitPence: jollof.pricePence,
+            totalPence: jollof.pricePence,
+          },
+        ],
+      },
+      payments: {
+        create: {
+          userId: omarId,
+          type: PaymentType.capture,
+          status: PaymentStatus.succeeded,
+          amountPence: omarSubtotal + 500 - omarDiscount,
+          processedAt: new Date('2026-06-15T10:55:00Z'),
+        },
+      },
+    },
+  });
+
+  // Order 8: Priya → Maman, pending, collection, no discount.
+  //   Covers the collection delivery type for UI tests.
+  await prisma.order.create({
+    data: {
+      orderNumber: 'FP-1008',
+      customerId: priyaId,
+      vendorId: maman.id,
+      status: OrderStatus.pending,
+      deliveryType: DeliveryType.collection,
+      subtotalPence: 3500,
+      deliveryFeePence: 0,
+      totalPence: 3500,
+      commissionPence: commission(3500, maman.commissionBps),
+      vendorPayoutPence: 3500 - commission(3500, maman.commissionBps),
+      isSeedData: true,
+      items: {
+        create: [
+          {
+            menuItemId: jerk.id,
+            nameSnapshot: jerk.name,
+            quantity: 1,
+            unitPence: jerk.pricePence,
+            totalPence: jerk.pricePence,
+          },
+        ],
+      },
+      payments: {
+        create: {
+          userId: priyaId,
+          type: PaymentType.capture,
+          status: PaymentStatus.pending,
+          amountPence: 3500,
         },
       },
     },
