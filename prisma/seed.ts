@@ -29,7 +29,6 @@ import {
   DiscountFundedBy,
   DiscountType,
   FhrsStatus,
-  ItemCategory,
   ModerationStatus,
   OrderStatus,
   OrderType,
@@ -43,6 +42,19 @@ import {
   VendorStatus,
   VerificationState,
 } from '@prisma/client';
+
+// ItemCategory is a plain VARCHAR column in the schema (not a Prisma enum).
+// Define values locally so the seed remains type-safe without requiring
+// the generated client to export this as an enum.
+const ItemCategory = {
+  soup: 'soup',
+  tray: 'tray',
+  swallow: 'swallow',
+  protein: 'protein',
+  snack: 'snack',
+  bundle: 'bundle',
+  frozen: 'frozen',
+} as const;
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 const prisma = new PrismaClient();
@@ -441,9 +453,24 @@ async function main() {
   });
   console.info(`[seed] vendors: ${maman.slug}, ${kwame.slug}`);
 
+  // 2b. Wipe order graph FIRST so we can safely delete + recreate menu items
+  //     below (OrderItem.menuItemId has a FK that blocks menuItem.deleteMany
+  //     on re-runs). Reviews → payments → orderItems → orders, in that order
+  //     to respect FKs. Loyalty/referral rows that reference orders are
+  //     cleared too so the seed stays idempotent end-to-end.
+  //     Also wipe vendor-scoped fixtures that are re-seeded below.
+  await prisma.loyaltyPoint.deleteMany({});
+  await prisma.review.deleteMany({});
+  await prisma.payment.deleteMany({});
+  await prisma.orderItem.deleteMany({});
+  await prisma.order.deleteMany({});
+  await prisma.discountCode.deleteMany({});
+  await prisma.vendorMember.deleteMany({});
+  await prisma.vendorVerification.deleteMany({});
+
   // 2c. Vendor team member – Jasmine linked to Maman's Kitchen as
-  //     kitchen_manager (active). Deleted + re-inserted by the deleteMany in 2b
-  //     so re-running the seed is safe.
+  //     kitchen_manager (active). Cleanup (2b above) deletes first so
+  //     re-running the seed is safe.
   const jasmineId = userMap.get('jasmine@feastpot.co.uk')!;
   await prisma.vendorMember.create({
     data: {
@@ -520,7 +547,7 @@ async function main() {
     '[seed] vendor verifications: VERIFIED (maman), RENEWAL_DUE (kwame), SUSPENDED (punjab)',
   );
 
-  // 2e. Discount codes.
+  // 2e. Discount codes (created after cleanup so they survive the deleteMany).
   //   FEAST10 – platform-funded 10% off with no vendor restriction; the
   //             platform absorbs the discount, vendor receives full commission.
   //   MAMAN15 – vendor-funded £15 flat off Maman orders; vendor payout is
@@ -552,21 +579,6 @@ async function main() {
     },
   });
   console.info('[seed] discount codes: FEAST10 (platform 10%), MAMAN15 (vendor £15 flat)');
-
-  // 2b. Wipe order graph FIRST so we can safely delete + recreate menu items
-  //     below (OrderItem.menuItemId has a FK that blocks menuItem.deleteMany
-  //     on re-runs). Reviews → payments → orderItems → orders, in that order
-  //     to respect FKs. Loyalty/referral rows that reference orders are
-  //     cleared too so the seed stays idempotent end-to-end.
-  //     Also wipe vendor-scoped fixtures that are re-seeded below.
-  await prisma.loyaltyPoint.deleteMany({});
-  await prisma.review.deleteMany({});
-  await prisma.payment.deleteMany({});
-  await prisma.orderItem.deleteMany({});
-  await prisma.order.deleteMany({});
-  await prisma.discountCode.deleteMany({});
-  await prisma.vendorMember.deleteMany({});
-  await prisma.vendorVerification.deleteMany({});
 
   // 3. Menus for Maman's Kitchen
   const mainMenu = await prisma.menu.upsert({
