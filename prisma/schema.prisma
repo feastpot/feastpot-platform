@@ -813,9 +813,9 @@ model Vendor {
   //   editor settles on which networks matter.
   logoUrl        String?  @map("logo_url")
   coverImageUrl  String?  @map("cover_image_url")
-  specialities   String[] @default([]) @db.VarChar(64)
+  specialities   String[] @default(dbgenerated("(ARRAY[]::character varying[])::character varying(64)[]")) @db.VarChar(64)
   vendorStory    String?  @map("vendor_story")
-  featuredDishes String[] @default([]) @map("featured_dishes") @db.VarChar(120)
+  featuredDishes String[] @default(dbgenerated("(ARRAY[]::character varying[])::character varying(120)[]")) @map("featured_dishes") @db.VarChar(120)
   socialLinks    Json?    @map("social_links")
 
   createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
@@ -1704,7 +1704,7 @@ model VendorReferralLink {
   qrCodeUrl String?  @map("qr_code_url")
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-  vendor Vendor          @relation(fields: [vendorId], references: [id])
+  vendor Vendor          @relation(fields: [vendorId], references: [id], onDelete: Cascade)
   clicks ReferralClick[]
 
   @@map("vendor_referral_links")
@@ -1720,7 +1720,7 @@ model ReferralClick {
   userAgent      String?  @map("user_agent")
   clickedAt      DateTime @default(now()) @map("clicked_at") @db.Timestamptz
 
-  referralLink VendorReferralLink @relation(fields: [referralLinkId], references: [id])
+  referralLink VendorReferralLink @relation(fields: [referralLinkId], references: [id], onDelete: Cascade)
 
   @@index([sessionId, clickedAt])
   @@map("referral_clicks")

@@ -285,14 +285,22 @@ async function bootstrap(): Promise<void> {
 
   // Nest REVERSES global filters during resolution and picks the first whose
   // @Catch() matches (a catch-all matches everything), so the LAST-registered
-  // filter is checked FIRST. ThrottlerException extends HttpException, so the
-  // dedicated ThrottlerExceptionFilter must be registered AFTER the catch-all
-  // HttpExceptionFilter - otherwise the catch-all wins and the 429 never reaches
-  // its own filter. Everything else still falls through to HttpExceptionFilter.
+  // filter is checked FIRST.
+  //
+  // Required order (highest-priority LAST):
+  //   HttpExceptionFilter      - catch-all fallback; must be FIRST (lowest priority)
+  //   PrismaValidationFilter   - handles PrismaClientValidationError
+  //   PrismaExceptionFilter    - handles PrismaClientKnownRequestError
+  //   ThrottlerExceptionFilter - highest priority; must be LAST so it runs before
+  //                              the catch-all would swallow the 429
+  //
+  // Moving HttpExceptionFilter to first position fixes a prior bug where it ran
+  // before the Prisma-specific filters, making them dead code and causing raw
+  // Prisma error messages (table names, file paths) to appear in 500 responses.
   app.useGlobalFilters(
-    new PrismaExceptionFilter(),
-    new PrismaValidationFilter(),
     new HttpExceptionFilter(),
+    new PrismaValidationFilter(),
+    new PrismaExceptionFilter(),
     new ThrottlerExceptionFilter(),
   );
 
