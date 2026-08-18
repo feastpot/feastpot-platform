@@ -56,7 +56,15 @@ export class ComplianceProcessor implements OnApplicationBootstrap {
 
   private async registerCron(name: string, cron: string): Promise<void> {
     try {
-      await this.queue.add(name, {}, { repeat: { cron }, jobId: `cron-${name}` });
+      // Remove any existing repeatable-job entries for this name before
+      // re-registering. Without this guard every API restart appends a new
+      // entry; when N copies fire at the same wall-clock second Bull fails
+      // with "not in active state: finished" for the stale instances.
+      const existing = await this.queue.getRepeatableJobs();
+      for (const job of existing.filter((j) => j.name === name)) {
+        await this.queue.removeRepeatableByKey(job.key);
+      }
+      await this.queue.add(name, {}, { repeat: { cron }, removeOnComplete: true });
       this.logger.log(`Registered cron ${name} (${cron})`);
     } catch (e) {
       this.logger.warn(`Failed to register ${name} cron: ${(e as Error).message}`);

@@ -66,10 +66,24 @@ export class PayoutBatchProcessor implements OnApplicationBootstrap {
     // Fire-and-forget: queue.add() blocks until Redis accepts the command, which
     // can hang indefinitely in environments without Redis (local dev, CI). We
     // log success/failure but never block app bootstrap on it.
-    this.queue
-      .add(WEEKLY_BATCH_JOB, {}, { repeat: { cron: '0 2 * * 1' }, jobId: 'weekly-payout' })
-      .then(() => this.logger.log('Registered weekly payout cron (Mon 02:00 UTC)'))
-      .catch((e: Error) => this.logger.warn(`Failed to register payout cron: ${e.message}`));
+    void this.registerPayoutCron();
+  }
+
+  private async registerPayoutCron(): Promise<void> {
+    try {
+      // Remove stale repeatable-job entries before re-registering. Every API
+      // restart that calls queue.add({ repeat }) without this guard appends
+      // another copy; when N copies fire at Mon 02:00 UTC, Bull fails with
+      // "not in active state: finished" for all but the first.
+      const existing = await this.queue.getRepeatableJobs();
+      for (const job of existing.filter((j) => j.name === WEEKLY_BATCH_JOB)) {
+        await this.queue.removeRepeatableByKey(job.key);
+      }
+      await this.queue.add(WEEKLY_BATCH_JOB, {}, { repeat: { cron: '0 2 * * 1' }, removeOnComplete: true });
+      this.logger.log('Registered weekly payout cron (Mon 02:00 UTC)');
+    } catch (e) {
+      this.logger.warn(`Failed to register payout cron: ${(e as Error).message}`);
+    }
   }
 
   /**

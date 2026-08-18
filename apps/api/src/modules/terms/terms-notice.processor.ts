@@ -26,16 +26,30 @@ export class TermsNoticeProcessor implements OnApplicationBootstrap {
   ) {}
 
   onApplicationBootstrap() {
-    void this.noticesQueue.add(
-      DEEMED_ACCEPTANCE_CRON_JOB,
-      {},
-      {
-        repeat: { cron: DEEMED_ACCEPTANCE_CRON },
-        jobId: `${DEEMED_ACCEPTANCE_CRON_JOB}:daily`,
-        removeOnComplete: 50,
-        removeOnFail: 20,
-      },
-    );
+    void this.registerDeemedAcceptanceCron();
+  }
+
+  private async registerDeemedAcceptanceCron(): Promise<void> {
+    try {
+      // Remove stale repeatable-job entries before re-registering to prevent
+      // duplicate accumulation across restarts (same pattern fixed across all
+      // cron processors: each boot without this guard appends another copy).
+      const existing = await this.noticesQueue.getRepeatableJobs();
+      for (const job of existing.filter((j) => j.name === DEEMED_ACCEPTANCE_CRON_JOB)) {
+        await this.noticesQueue.removeRepeatableByKey(job.key);
+      }
+      await this.noticesQueue.add(
+        DEEMED_ACCEPTANCE_CRON_JOB,
+        {},
+        {
+          repeat: { cron: DEEMED_ACCEPTANCE_CRON },
+          removeOnComplete: 50,
+          removeOnFail: 20,
+        },
+      );
+    } catch (e) {
+      this.logger.warn(`Failed to register deemed-acceptance cron: ${(e as Error).message}`);
+    }
   }
 
   // ─── Send notices for a newly published material version ────────────────────
