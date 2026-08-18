@@ -1,0 +1,44 @@
+CONTEXT
+As Prompt 57. The catering booking flow (vendor quote, deposit, balance) is implemented
+server-side and unreachable, because the single step that connects an incoming enquiry to
+a vendor does not exist: GET /v1/admin/catering-enquiries is 404 and there is no assign
+action. One missing link is disabling an entire built product.
+
+BUILD
+1. GET /v1/admin/catering-enquiries: paginated list with filters for status and date,
+   @Roles admin and support. Include the enquiry details a router needs: event date,
+   headcount, budget, postcode, cuisine notes, contact.
+2. POST /v1/admin/catering-enquiries/:id/assign { vendorId, note? }:
+   - validates the vendor is live, catering-capable if such a flag exists (inspect the
+     Vendor model and report), and serves or is willing to travel to the event postcode
+     where that is expressible;
+   - creates the CateringBooking record that the existing flow consumes, linked to the
+     enquiry;
+   - sets the enquiry status to assigned;
+   - notifies the vendor through the existing notification path;
+   - writes an AuditLog row (catering_enquiry.assigned, metadata: vendorId, actor).
+3. Idempotency and reassignment: a second assign on an already-assigned enquiry is
+   rejected with a clear error; a separate explicit reassign action cancels the prior
+   booking if the vendor has not yet quoted, notifies both vendors, and audits the change.
+   After a quote exists, reassignment requires the booking to be declined first.
+4. Admin UI page: enquiries list with status filter, an assign dialog with a vendor
+   picker restricted to eligible vendors (searchable, showing each vendor's area and
+   catering signal), and the enquiry's status history.
+5. Close the loop with the vendor portal: after assignment, the booking appears in the
+   vendor's merged Orders view with a needs-action state, and the vendor-portal empty
+   state that references admin routing is now true. Verify the wording still matches
+   reality and adjust if not.
+6. Decline path: the vendor can decline an assignment with a reason; the enquiry returns
+   to unassigned with its history intact, and admin is notified.
+
+ACCEPTANCE CRITERIA
+- The full chain now runs: enquiry submitted in apps/web, visible in apps/admin, assigned
+  to a vendor, booking visible in apps/vendor, quote sent via the existing endpoint.
+- Assigning to a suspended or ineligible vendor is rejected with the reason.
+- Double-assign is impossible; reassign and decline both work and are audited.
+- Every assignment produces a vendor notification and an AuditLog row.
+
+EDGE CASES: an enquiry cancelled by the customer after assignment (booking cancelled,
+vendor notified); an enquiry whose event date has passed (filter to an expired state,
+exclude from the default view); a vendor suspended after assignment but before quoting
+(booking suspended alongside, admin alerted to reassign).

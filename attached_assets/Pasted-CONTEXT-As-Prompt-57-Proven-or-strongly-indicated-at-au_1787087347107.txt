@@ -1,0 +1,42 @@
+CONTEXT
+As Prompt 57. Proven or strongly indicated at audit: automated enforcement suspensions
+(vendor-enforcement.service.ts, createAutomatedSuspension around lines 343 to 378) write a
+VendorEnforcementAction but no AuditLog row; the manual lifecycle path (PATCH
+/vendors/:id/status) was not confirmed to write one either; order status overrides were
+also unconfirmed. AuditLog is the evidence trail for regulators and disputes. A suspension
+that cannot be evidenced is, for practical purposes, a suspension that cannot be defended.
+
+BUILD
+1. INSPECT AND ENUMERATE first: find every code path that changes vendor status or creates
+   an enforcement action, and every path that overrides order status. List them all in
+   your summary with file and line. A hook on one path leaves the gap open on the others.
+2. Automated suspensions: write an AuditLog row in the same transaction as the
+   VendorEnforcementAction (action vendor.automated_suspension, entityType vendor,
+   metadata including reasonCode and the triggering facts).
+3. Manual status changes: the PATCH /vendors/:id/status handler writes action
+   vendor.status_changed with previous status, new status, reasonCode and narrative where
+   present.
+4. Order status overrides, single and bulk: action order.status_overridden with previous
+   and new status. Bulk writes one row per order, not one for the batch, so each order's
+   history is complete.
+5. ACTOR HANDLING: inspect the AuditLog.actorId column. Automated actions have no human
+   actor; decide between a nullable actorId with a system flag in metadata, or a reserved
+   system actor, based on what the schema and existing rows already do, and state the
+   choice. Do not invent a fake human actor.
+6. Same-transaction rule: the audit row commits with the action or neither commits. An
+   action that succeeds while its audit row fails is the exact evidence gap this prompt
+   exists to close.
+7. Tests: each enumerated path produces exactly one correctly shaped row, asserted by
+   querying AuditLog immediately after driving the action; the automated path is driven
+   via the enforcement service directly.
+
+ACCEPTANCE CRITERIA
+- Every enumerated status-changing path writes an AuditLog row, proven by test.
+- Automated and manual suspensions are distinguishable by action name.
+- Bulk order overrides produce per-order rows.
+- Rows commit atomically with their actions.
+- The admin audit-log viewer displays the new action types legibly.
+
+EDGE CASES: a status change to the same status (no-op, write nothing); enforcement lift
+and reinstate paths (audit those too, they are half of every suspension story); historical
+suspensions cannot be backfilled, state so explicitly rather than fabricating rows.
