@@ -208,6 +208,14 @@ jobs:
                 CREATE ROLE authenticated NOLOGIN;
                 CREATE ROLE service_role NOLOGIN;
                 CREATE ROLE supabase_auth_admin NOLOGIN;"
+      - name: Create shadow database for drift check
+        # Prisma's migrate diff needs an empty database to replay migrations into.
+        # The Postgres service only auto-creates feastpot_validate; create the
+        # shadow database manually so Prisma doesn't get P1003.
+        run: |
+          PGPASSWORD=feastpot psql -h localhost -U feastpot -d feastpot_validate \
+            -v ON_ERROR_STOP=1 \
+            -c "CREATE DATABASE feastpot_shadow;"
       - name: Drift check — migrations must reproduce schema.prisma exactly
         # Exit 1 means prisma/migrations does not reproduce prisma/schema.prisma.
         # Root cause: a schema change was applied with `prisma db push` (no migration
