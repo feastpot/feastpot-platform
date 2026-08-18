@@ -204,7 +204,7 @@ export class CommissionService {
         foundingAllowanceAppliedPence: true,
         createdAt: true,
         attribution: { select: { source: true, isFirstOrder: true } },
-        commission: { select: { commissionPence: true } },
+        orderCommission: { select: { commissionPence: true } },
       },
     });
     if (!order) throw new NotFoundException({ code: 'ORDER_NOT_FOUND' });
@@ -230,7 +230,7 @@ export class CommissionService {
       (chargeableBasis * rate.ratePercent.toNumber()) / 100,
     );
 
-    const currentCommissionPence = order.commission?.commissionPence ?? null;
+    const currentCommissionPence = order.orderCommission?.commissionPence ?? null;
     const hasChange =
       currentCommissionPence === null || currentCommissionPence !== computedCommissionPence;
 

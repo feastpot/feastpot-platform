@@ -36,7 +36,7 @@ function makeService(overrides?: {
     foundingAllowanceAppliedPence: 0,
     createdAt: new Date('2026-01-15T12:00:00Z'),
     attribution: { source: OrderSource.MARKETPLACE, isFirstOrder: true },
-    commission:
+    orderCommission:
       overrides?.commissionPence != null
         ? { commissionPence: overrides.commissionPence }
         : null,
