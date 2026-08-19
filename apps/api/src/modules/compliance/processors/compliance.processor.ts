@@ -56,18 +56,67 @@ export class ComplianceProcessor implements OnApplicationBootstrap {
 
   private async registerCron(name: string, cron: string): Promise<void> {
     try {
-      // Remove any existing repeatable-job entries for this name before
-      // re-registering. Without this guard every API restart appends a new
-      // entry; when N copies fire at the same wall-clock second Bull fails
-      // with "not in active state: finished" for the stale instances.
       const existing = await this.queue.getRepeatableJobs();
-      for (const job of existing.filter((j) => j.name === name)) {
-        await this.queue.removeRepeatableByKey(job.key);
+      const matching = existing.filter((j) => j.name === name);
+
+      // If the schedule is already registered exactly once with the correct
+      // cron expression, skip remove/re-add entirely. Calling
+      // removeRepeatableByKey while an instance is actively running causes
+      // Bull to throw "repeat key is not in active state", which then
+      // prevents the replacement job from being registered.
+      if (matching.length === 1 && matching[0].cron === cron) {
+        this.logger.debug(`Cron ${name} already registered (${cron}) -- skipping`);
+        return;
       }
+
+      // Remove stale or duplicate entries. Swallow per-key errors so a
+      // stuck in-flight instance doesn't block the others from being cleaned.
+      for (const job of matching) {
+        try {
+          await this.queue.removeRepeatableByKey(job.key);
+        } catch (removeErr) {
+          this.logger.warn(
+            `Could not remove stale repeatable ${name} (key=${job.key}): ` +
+              `${(removeErr as Error).message} -- continuing`,
+          );
+        }
+      }
+
       await this.queue.add(name, {}, { repeat: { cron }, removeOnComplete: true });
       this.logger.log(`Registered cron ${name} (${cron})`);
     } catch (e) {
       this.logger.warn(`Failed to register ${name} cron: ${(e as Error).message}`);
+    }
+  }
+
+  /**
+   * Sends a Slack alert when a compliance job dead-letters. Uses the same
+   * QUEUE_ALERT_SLACK_WEBHOOK_URL env var as DlqMonitorService, falling back
+   * to a log warning so the failure is still observable without Slack.
+   */
+  private async sendDeadLetterAlert(job: Job | undefined, err: Error): Promise<void> {
+    const webhookUrl = process.env.QUEUE_ALERT_SLACK_WEBHOOK_URL;
+    const jobName = job?.name ?? 'unknown';
+    const text =
+      `:rotating_light: *Compliance job dead-lettered*: \`${jobName}\`` +
+      ` (id=${job?.id ?? '?'}, attempts=${job?.attemptsMade ?? '?'})\n>${err.message}`;
+
+    if (!webhookUrl) {
+      this.logger.warn(`Compliance dead-letter alert (no QUEUE_ALERT_SLACK_WEBHOOK_URL): ${text}`);
+      return;
+    }
+    try {
+      const res = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (!res.ok) {
+        this.logger.error(`Slack compliance alert failed: HTTP ${res.status}`);
+      }
+    } catch (fetchErr) {
+      this.logger.error(`Slack compliance alert failed: ${(fetchErr as Error).message}`);
     }
   }
 
@@ -117,6 +166,9 @@ export class ComplianceProcessor implements OnApplicationBootstrap {
         tags: { queue: COMPLIANCE_QUEUE, jobName: job?.name ?? 'unknown' },
         extra: { jobId: job?.id, attemptsMade: job?.attemptsMade },
       });
+      // Also page via Slack so compliance failures surface in real time,
+      // not just in the next daily email digest.
+      void this.sendDeadLetterAlert(job, err);
     }
     this.logger.error(
       `[${COMPLIANCE_QUEUE}] job ${job?.id ?? '?'} (${job?.name ?? '?'}) failed (attempt ${job?.attemptsMade ?? '?'}): ${err.message}`,
