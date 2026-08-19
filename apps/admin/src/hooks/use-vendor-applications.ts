@@ -90,6 +90,18 @@ export interface UpdateVendorApplicationBody {
  * returns the in-flight triage queue (pending / under_review /
  * information_requested) - mirrors the /admin/vendors "all" convention.
  */
+export type VendorApplicationCounts = Record<VendorApplicationStatus | 'all', number>;
+
+export function useVendorApplicationCounts() {
+  const { request, ready } = useApi();
+  return useQuery({
+    queryKey: ['admin', 'vendor-applications', 'counts'],
+    enabled: ready,
+    queryFn: () => request<VendorApplicationCounts>('/admin/vendor-applications/counts'),
+    staleTime: 30_000,
+  });
+}
+
 export function useVendorApplications(status: VendorApplicationStatus | 'all') {
   const { request, ready } = useApi();
   return useQuery({

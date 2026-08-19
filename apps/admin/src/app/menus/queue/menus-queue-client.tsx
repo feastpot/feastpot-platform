@@ -79,7 +79,7 @@ interface QueueFiltersState {
   q: string;
 }
 
-const DEFAULT_FILTERS: QueueFiltersState = { status: 'held', q: '' };
+const DEFAULT_FILTERS: QueueFiltersState = { status: 'auto_approved', q: '' };
 
 export function MenusQueueClient() {
   const [filters, setFilters] = useState<QueueFiltersState>(DEFAULT_FILTERS);
@@ -107,7 +107,7 @@ export function MenusQueueClient() {
   const total = list.data?.total ?? 0;
   const nextCursor = list.data?.nextCursor ?? null;
 
-  const hasActiveFilters = filters.status !== 'held' || filters.q.trim().length > 0;
+  const hasActiveFilters = filters.status !== 'auto_approved' || filters.q.trim().length > 0;
 
   function update<K extends keyof QueueFiltersState>(key: K, value: QueueFiltersState[K]) {
     setFilters((f) => ({ ...f, [key]: value }));
@@ -147,7 +147,7 @@ export function MenusQueueClient() {
     <>
       <PageHeader
         title="Menu moderation"
-        description="Approve or reject vendor menu items before they appear to customers."
+        description="Auto-approval is on. Items go live immediately and appear here for retrospective review."
       />
 
       {/* Quick-filter chips with live counts */}
@@ -302,15 +302,20 @@ export function MenusQueueClient() {
         </div>
       </Card>
 
-      {/* Moderation tip footer */}
+      {/* Moderation policy footer */}
       <Card className="mt-4 border-teal/30 bg-teal-light/40">
         <CardContent className="flex items-start gap-3 py-3 text-sm">
           <Info className="mt-0.5 h-4 w-4 shrink-0 text-teal-dark" aria-hidden="true" />
           <div>
-            <div className="font-semibold text-teal-dark">Moderation tip</div>
+            <div className="font-semibold text-teal-dark">Auto-approval is active</div>
             <div className="text-muted-foreground">
-              Items marked &lsquo;Pending&rsquo; are hidden from customers until approved. Approve
-              safe listings and reject anything inaccurate or inappropriate.
+              New menu items go live immediately without a manual review step. Use this queue for
+              retrospective checks: hold or reject anything inaccurate or inappropriate after the
+              fact. To require manual approval before items go live, set{' '}
+              <code className="rounded bg-teal-light px-1 font-mono text-xs">
+                MENU_AUTO_APPROVE=false
+              </code>{' '}
+              in the API environment.
             </div>
           </div>
         </CardContent>

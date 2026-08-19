@@ -20,6 +20,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { StatusPill, type StatusTone } from '@/components/ui/status-pill';
 import { TabPills, type TabPillItem } from '@/components/ui/tab-pills';
 import {
+  useVendorApplicationCounts,
   useVendorApplications,
   type VendorApplicationStatus,
 } from '@/hooks/use-vendor-applications';
@@ -52,18 +53,30 @@ export const STATUS_LABEL: Record<VendorApplicationStatus, string> = {
   rejected: 'Rejected',
 };
 
+const TAB_TONE: Record<TabValue, TabPillItem<TabValue>['countTone']> = {
+  all: 'neutral',
+  pending: 'warning',
+  under_review: 'info',
+  information_requested: 'warning',
+  approved: 'success',
+  rejected: 'danger',
+};
+
 export function VendorApplicationsClient() {
   const router = useRouter();
   // Default to the in-flight triage queue ("all" → no status filter), matching
   // the backend default and the /admin/vendors "all" tab convention.
   const [tab, setTab] = useState<TabValue>('all');
   const { data, isLoading, error } = useVendorApplications(tab);
+  const counts = useVendorApplicationCounts();
 
   const rows = data ?? [];
 
   const tabItems: ReadonlyArray<TabPillItem<TabValue>> = TABS.map((t) => ({
     value: t.value,
     label: t.label,
+    count: counts.data ? counts.data[t.value] : undefined,
+    countTone: TAB_TONE[t.value],
   }));
 
   return (

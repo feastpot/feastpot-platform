@@ -1489,6 +1489,33 @@ export class AdminService {
   }
 
   /**
+   * Per-status counters for the admin Vendor Applications page tab strip.
+   * Returns every VendorApplicationStatus key (even when zero) plus an `all`
+   * total so the UI can render stable count pills without nullish checks.
+   */
+  async getVendorApplicationCounts(): Promise<
+    Record<VendorApplicationStatus | 'all', number>
+  > {
+    const grouped = await this.prisma.vendorApplication.groupBy({
+      by: ['status'],
+      _count: { _all: true },
+    });
+    const out: Record<VendorApplicationStatus | 'all', number> = {
+      pending: 0,
+      under_review: 0,
+      information_requested: 0,
+      approved: 0,
+      rejected: 0,
+      all: 0,
+    };
+    for (const row of grouped) {
+      out[row.status] = row._count._all;
+      out.all += row._count._all;
+    }
+    return out;
+  }
+
+  /**
    * Lifecycle-state counters for the admin Vendors page tab strip.
    * Returns every VendorStatus key (even when zero) so the UI can render a
    * stable set of pills without nullish checks, plus an `all` total.

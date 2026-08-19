@@ -67,7 +67,7 @@ const STATUS_TONE: Record<VendorStatus, StatusTone> = {
 };
 
 export function VendorsClient() {
-  const [tab, setTab] = useState<TabValue>('pending');
+  const [tab, setTab] = useState<TabValue>('all');
   // Public list endpoint is hard-locked to `live`, so the "all" tab still hits
   // /admin/vendors and just doesn't pass a status filter (server falls back).
   const { data, isLoading, error } = useAdminVendors(tab === 'all' ? 'all' : tab);
