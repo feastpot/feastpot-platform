@@ -6,9 +6,13 @@ import { useEffect, useRef, useState } from 'react';
 
 /**
  * Free-text search input for /vendors. URL is the source of truth: `value`
- * is local for snappy typing, but a 300 ms debounced effect mirrors it into
- * `?q=`. We deliberately do NOT push history entries - `replace` keeps the
- * back button useful (it returns to the previous *page*, not the previous
+ * is local for snappy typing, but a 500 ms debounced effect mirrors it into
+ * `?q=`. The debounce fires only when the settled query is at least 3
+ * characters (or empty, to clear the search), preventing single-keystroke
+ * fragments from being logged as search events.
+ *
+ * We deliberately do NOT push history entries - `replace` keeps the back
+ * button useful (it returns to the previous *page*, not the previous
  * keystroke).
  */
 export function VendorSearchInput() {
@@ -38,6 +42,10 @@ export function VendorSearchInput() {
   useEffect(() => {
     const timer = setTimeout(() => {
       const trimmed = value.trim();
+      // Only fire when the settled query is at least 3 characters, or when
+      // clearing the field entirely. Shorter strings are keystroke fragments
+      // ("P", "Pu") that pollute search-trend analytics with junk entries.
+      if (trimmed && trimmed.length < 3) return;
       const sp = searchParamsRef.current;
       const current = sp?.get('q') ?? '';
       if (trimmed === current) return;
@@ -47,7 +55,7 @@ export function VendorSearchInput() {
       const qs = params.toString();
       const path = pathnameRef.current ?? '/vendors';
       routerRef.current.replace(qs ? `${path}?${qs}` : path, { scroll: false });
-    }, 300);
+    }, 500);
     return () => clearTimeout(timer);
   }, [value]);
 

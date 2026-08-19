@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 
+import { formatRatio } from '@/lib/format-ratio';
+
 interface HealthStats {
   activeCount: number;
   pastDueCount: number;
@@ -29,8 +31,14 @@ function fmt(p: number) {
   return `£${(p / 100).toFixed(2)}`;
 }
 
-function pct(n: number) {
-  return `${n.toFixed(1)}%`;
+/**
+ * Formats a pre-computed percentage from the API (already 0-100 scale).
+ * When cohortStartedCount is 0 there is no cohort data yet; the API returns
+ * renewalRate=100 and churnRate=0 by convention, which is misleading.
+ * Pass cohortStarted so we can show "No data yet" instead.
+ */
+function pctOrNoData(value: number, cohortStarted: number): string {
+  return formatRatio(cohortStarted === 0 ? 0 : value, cohortStarted === 0 ? 0 : 100);
 }
 
 export function FeastPassHealthClient({ accessToken, apiUrl }: Props) {
@@ -67,13 +75,14 @@ export function FeastPassHealthClient({ accessToken, apiUrl }: Props) {
   return (
     <div className="space-y-6">
       {/* North-star alert */}
-      {stats.belowRenewalThreshold && (
+      {stats.belowRenewalThreshold && stats.cohortStartedCount > 0 && (
         <div className="flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 p-4">
           <span className="text-2xl">🚨</span>
           <div>
             <p className="font-semibold text-red-800">Monthly renewal rate below 80%</p>
             <p className="text-sm text-red-700">
-              Current: {pct(stats.renewalRate)}. Investigate churn causes immediately.
+              Current: {pctOrNoData(stats.renewalRate, stats.cohortStartedCount)}. Investigate churn
+              causes immediately.
             </p>
           </div>
         </div>
@@ -89,13 +98,17 @@ export function FeastPassHealthClient({ accessToken, apiUrl }: Props) {
         />
         <KpiCard
           label="Monthly renewal rate"
-          value={pct(stats.renewalRate)}
-          sub="north-star metric"
-          alert={stats.belowRenewalThreshold}
+          value={pctOrNoData(stats.renewalRate, stats.cohortStartedCount)}
+          sub={
+            stats.cohortStartedCount === 0
+              ? 'no cohort data yet (30–60d window)'
+              : 'north-star metric'
+          }
+          alert={stats.belowRenewalThreshold && stats.cohortStartedCount > 0}
         />
         <KpiCard
           label="Churn (last 30d cohort)"
-          value={pct(stats.churnRate)}
+          value={pctOrNoData(stats.churnRate, stats.cohortStartedCount)}
           sub={`${stats.cohortCancelledCount} of ${stats.cohortStartedCount} subs`}
         />
         <KpiCard
@@ -158,7 +171,10 @@ export function FeastPassHealthClient({ accessToken, apiUrl }: Props) {
         </div>
         {stats.memberOrdersLast30d > 0 && stats.nonMemberOrdersLast30d > 0 && (
           <p className="mt-3 text-xs text-muted-foreground">
-            Members placed {(stats.memberOrdersLast30d / stats.activeCount || 0).toFixed(1)}{' '}
+            Members placed{' '}
+            {stats.activeCount > 0
+              ? (stats.memberOrdersLast30d / stats.activeCount).toFixed(1)
+              : 'N/A'}{' '}
             orders/member on average in the last 30 days.
           </p>
         )}

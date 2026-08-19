@@ -66,7 +66,7 @@ const EVENT_LABELS: Record<string, string> = {
 };
 
 function pct(n: number, of: number) {
-  if (!of) return '-';
+  if (!of) return 'No data yet';
   return `${((n / of) * 100).toFixed(1)}%`;
 }
 
@@ -255,7 +255,9 @@ export function AnalyticsClient({
                 <th className="px-4 py-3 text-left font-semibold text-mid">Step</th>
                 <th className="px-4 py-3 text-right font-semibold text-mid">Unique sessions</th>
                 <th className="px-4 py-3 text-right font-semibold text-mid">Total events</th>
-                <th className="px-4 py-3 text-right font-semibold text-mid">% of page views</th>
+                <th className="px-4 py-3 text-right font-semibold text-mid">
+                  % of page-view sessions
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -279,7 +281,7 @@ export function AnalyticsClient({
                   </td>
                   <td className="px-4 py-3 text-right tabular-nums text-mid">
                     {row.eventName === 'vendor_page_view'
-                      ? '100%'
+                      ? pct(row.uniqueSessions, pageViewSessions)
                       : pct(row.uniqueSessions, pageViewSessions)}
                   </td>
                 </tr>
@@ -288,8 +290,11 @@ export function AnalyticsClient({
           </table>
         </div>
         <p className="mt-2 text-xs text-mid">
-          "Unique sessions" uses the anonymous visitor ID stored in the user's browser. Visitors
-          without localStorage return as separate sessions.
+          "% of page-view sessions" compares each step&apos;s unique sessions against the
+          vendor_page_view unique session count. Share/QR events can exceed 100% if users interact
+          multiple times across sessions. "No data yet" means no page-view sessions were recorded in
+          this period. "Unique sessions" uses the anonymous visitor ID stored in the user&apos;s
+          browser; visitors without localStorage return as separate sessions.
         </p>
       </section>
 

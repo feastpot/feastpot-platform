@@ -1130,6 +1130,13 @@ export class VendorsService {
   private logSearchAnonymously(dto: SearchVendorsDto, resultsCount: number): void {
     const q = dto.q?.trim();
     if (!q) return;
+    // Skip keystroke fragments. Queries shorter than 3 characters are
+    // incomplete and inflate trend counts with noise ("P", "Pu", etc.).
+    // The matching guard in VendorSearchBar/VendorSearchInput prevents the
+    // debounced URL update for short queries, so the search endpoint is
+    // unlikely to be called with them, but this is a belt-and-suspenders
+    // check that also covers direct API callers.
+    if (q.length < 3) return;
     void this.prisma.searchLog
       .create({
         data: {

@@ -8,9 +8,11 @@ import { useEffect, useRef, useState } from 'react';
  * Pill search bar for /vendors. Visually matches the wireframe - large
  * rounded white field with a prominent green "Search" button glued to the
  * right edge - but functionally identical to the older VendorSearchInput it
- * replaces: keystrokes are debounced (300 ms) into `?q=` so the back button
- * and shareable URLs both keep working. The submit button just flushes the
- * pending value immediately for users who prefer to commit explicitly.
+ * replaces: keystrokes are debounced (500 ms) into `?q=` so the back button
+ * and shareable URLs both keep working. The debounce only fires when the
+ * settled query is at least 3 characters (or empty), preventing single-
+ * keystroke fragments from being logged as search events. The submit button
+ * flushes the pending value immediately for users who prefer to commit.
  */
 export function VendorSearchBar() {
   const router = useRouter();
@@ -32,6 +34,11 @@ export function VendorSearchBar() {
 
   const flush = (next: string) => {
     const trimmed = next.trim();
+    // Only update the URL when the settled query is at least 3 characters,
+    // or when clearing the field entirely. Shorter strings are keystroke
+    // fragments ("P", "Pu") that pollute search-trend analytics and trigger
+    // unnecessary vendor search API calls on partial input.
+    if (trimmed && trimmed.length < 3) return;
     const sp = searchParamsRef.current;
     const current = sp?.get('q') ?? '';
     if (trimmed === current) return;
@@ -51,7 +58,7 @@ export function VendorSearchBar() {
   };
 
   useEffect(() => {
-    const timer = setTimeout(() => flush(value), 300);
+    const timer = setTimeout(() => flush(value), 500);
     return () => clearTimeout(timer);
   }, [value]);
 
