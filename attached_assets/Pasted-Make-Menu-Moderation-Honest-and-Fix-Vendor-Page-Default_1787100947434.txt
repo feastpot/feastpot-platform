@@ -1,0 +1,23 @@
+Make Menu Moderation Honest and Fix Vendor Page Defaults
+What & Why
+The menu moderation page shows 108 items, 108 auto-approved, 0 ever pending -- but its UI defaults to the Pending tab, implying a human review queue that reviews nothing. This misleads admins about the actual policy. Separately, the Vendors page defaults to an empty tab when real data is one click away, and moderation tabs show bare dots instead of counts.
+
+Done looks like
+The menu moderation page clearly states the real policy: if auto-approval is on, the header reads "Auto-approval is on. Items go live immediately and appear here for retrospective review" and the Pending tab is no longer the default; if human review is intended, new items actually land in Pending before going live
+Every tab on moderation pages shows a numeric count badge, not a bare dot
+The Vendors page defaults to the All tab, or to the first tab that has content, never an empty view
+A Playwright test confirms the Vendors page renders with visible vendor rows on first load (no tab click required)
+Out of scope
+Changing the underlying auto-approval logic (unless the finding is that human review is intended but not wired -- in that case wire the gate)
+Adding new moderation rules or workflows
+Steps
+Inspect moderation config -- Read the menu item moderation controller/service to determine the actual policy: is auto-approval intentional, or is human review intended but not wired? Report the finding clearly.
+Fix the page to match reality -- If auto-approval is intentional: update the page header to state the policy, change the default tab to the active/retrospective review tab, keep Pending visible but not default. If human review is intended: add a moderation gate so new items land in Pending status rather than being auto-approved.
+Tab count badges -- Find all moderation tab components that show a bare dot and replace them with numeric count badges; ensure zero shows "0" not a dot.
+Vendors page default -- Change the Vendors page to default to the All tab (or the first tab with content), so real data is visible on first load without a tab click.
+Playwright test -- Add a test asserting the Vendors page renders vendor rows without requiring a tab interaction.
+Relevant files
+apps/admin/src/app/menu-moderation/ (or similar path -- locate via rg)
+apps/admin/src/app/vendors/page.tsx
+apps/api/src/modules/catalogue/catalogue.service.ts (moderation status logic)
+apps/api/src/modules/catalogue/catalogue.controller.ts
