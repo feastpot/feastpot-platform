@@ -1,0 +1,184 @@
+CONTEXT
+Feastpot Turborepo monorepo: apps/web (feastpot.co.uk), apps/vendor (vendor.feastpot.co.uk),
+apps/admin (admin.feastpot.co.uk), apps/api (NestJS 11), Prisma against Supabase Postgres.
+UK English. Never use an em dash or a double hyphen used as a dash anywhere.
+
+SAFETY RULE FOR THIS ENTIRE PROMPT: production may only be READ and, in Part 1, changed
+through the explicit, reported, reversible steps described there. All destructive testing
+and all E2E happens in dev. Every production check in Part 6 is read-only.
+
+=====================================================================
+PART 1: PRODUCTION DATA HYGIENE, the launch blocker
+=====================================================================
+Real customers exist in production (signups dated 11 to 15 August) alongside roughly 20
+seed vendors (Marrakech Tagine House, Rio Feijoada, Warsaw Pierogi, Saigon Pho and
+similar, all with @feastpot.co.uk owner emails). Fake listings reachable by real
+customers are a consumer-protection problem, and every dashboard metric currently counts
+them.
+
+1. IDENTIFY, READ-ONLY FIRST. Connect to production and produce a definitive list of
+   seed entities: vendors whose owner email matches the seed pattern, their menus,
+   dishes, delivery configs, verification records, and any orders referencing them.
+   Distinguish clearly from real records (real customer accounts, the two real vendor
+   applications, real catering enquiries). Report counts per table BEFORE changing
+   anything, and STOP for review if any seed vendor has a real order or real customer
+   interaction attached.
+2. ESTABLISH EXPOSURE. Determine whether any seed vendor is currently reachable on
+   feastpot.co.uk: does it appear in postcode search, does its slug resolve publicly?
+   Report yes or no per vendor with evidence. This determines whether this was a live
+   customer-facing incident or a latent one.
+3. REMOVE. Back up the affected rows (state the restore path), then delete the seed
+   vendors and their dependent records from production, in dependency order, inside a
+   transaction per vendor. Do NOT delete real users, real applications, or real
+   enquiries. If an isSeedData flag exists from the earlier purge work, use it as a
+   cross-check; if the flag and the email pattern disagree on any row, stop and report
+   that row rather than guessing.
+4. KEEP DEV RICH. The seed world remains correct and useful in dev. This purge is
+   production only. Confirm the seed script cannot run against production: add a guard
+   that refuses to execute when the target database URL matches production, with a clear
+   error.
+5. AFTERWARDS: the admin dashboard should show the true state (0 live vendors, the two
+   real pending applications, real customer count). Verify the numbers on the dashboard
+   match direct database counts.
+
+=====================================================================
+PART 2: ONE CATERING SURFACE, WITH THE SLA MADE VISIBLE
+=====================================================================
+Three admin pages cover one product: Events (event enquiries and quotes), Catering
+Enquiries (the two live records, with the assign flow), and Catering bookings (a
+metrics page that loads nothing until a manual Search click). An admin cannot know which
+page is the source of truth, and the two real enquiries sit in only one of them.
+
+1. INSPECT FIRST: read the three pages and their backing endpoints. Establish whether
+   Events and Catering Enquiries are two views over the same tables or two parallel data
+   models. Report what you find; the merge plan depends on it. If they are parallel
+   models, additionally report which one the customer-facing /catering form writes to.
+2. MERGE into a single Catering section with tabs: Enquiries (the triage and assign
+   queue), Bookings (assigned work and its lifecycle), and Performance (the metrics
+   currently on Catering bookings). Retire the two absorbed routes with redirects.
+3. SLA URGENCY. The page states assignment within 48 hours. Make that claim operational:
+   - Each enquiry row shows time since received and a status pill that turns amber at
+     24 hours and red past 48, reading "Overdue by Nh".
+   - Rows with an event date inside 7 days show a separate "Event in N days" flag,
+     red inside 72 hours.
+   - Default sort: most urgent first, by the earlier of SLA breach and event proximity.
+   - The dashboard gains one line in the status strip when any enquiry is overdue or has
+     an event inside 72 hours, linking to the queue. An SLA that only exists as a
+     sentence in a page subtitle is not an SLA.
+4. The assign action must be available directly from the row, not only behind Review.
+5. Bookings and Performance tabs load their data on mount. Remove the click-Search-to-
+   load pattern.
+
+=====================================================================
+PART 3: OPERATIONAL REPAIRS
+=====================================================================
+1. COMPLIANCE CRON. Three dead-lettered review-trigger jobs on the compliance queue:
+   one "Job repeat ... is not in the active state. finished" and two "job stalled more
+   than allowable limit". Diagnose properly:
+   - Inspect how the repeatable job is registered. The repeat-key error usually means
+     the job is being re-registered with a changed key or removed while an instance is
+     mid-flight; make registration idempotent (remove-then-add with a stable key, or
+     upsert semantics).
+   - The stalled errors mean the worker held the job past the stalled interval, usually
+     a long-running handler or an event-loop block. Measure what the handler does,
+     move heavy work into batched steps, and set a stalledInterval and lock duration
+     that fit its real runtime.
+   - After the fix, retry the dead-lettered jobs, confirm they complete, and confirm the
+     next scheduled run executes on time. Report the schedule and the last successful
+     run timestamp.
+   - Add an alert: if the compliance cron misses a scheduled run or dead-letters again,
+     Slack fires. A silent compliance checker is the same defect as a silent seed.
+2. ADMIN SHELL. The Dead-letter Bull jobs page renders without the sidebar and shell.
+   Wrap it in the same layout as every other admin page, and add a Playwright assertion
+   that every route under apps/admin renders the shell (walk the route list, assert the
+   sidebar exists). That guard catches the next page that forgets.
+
+=====================================================================
+PART 4: ANALYTICS AND METRIC INTEGRITY
+=====================================================================
+1. SEARCH TREND FRAGMENTS. The dashboard trends include "P" and "Pu": the customer app
+   logs a search event per keystroke. Fix at the source in apps/web: log a search event
+   only when the query has settled (debounced at least 500ms since last keystroke) AND
+   is at least 3 characters, and log at most one event per settled query per session
+   window. Then clean the stored data: delete or flag existing single- and two-character
+   fragment events, and recompute any recruitment-opportunity counts derived from them.
+   Report how many rows were cleaned.
+2. ZERO-DENOMINATOR HONESTY. FeastPass health shows "Monthly renewal rate 100.0%,
+   north-star metric" with zero members, and churn "0.0%, 0 of 0 subs". Any ratio whose
+   denominator is zero renders as "No data yet", never as 100% or 0%. Apply the same
+   rule everywhere a ratio renders in apps/admin (renewal, churn, repeat rate, success
+   rate, funnel percentages). Grep for toFixed and percentage formatting to find them
+   all, and route them through one shared formatter that takes numerator and
+   denominator.
+3. FUNNEL OVER 100%. Vendor acquisition shows "Calculator used, 36 events, 100.0% of
+   page views" against 26 page views. Do not cap. Show the true ratio with a clarifying
+   label (events per session where events can exceed sessions), or compute the
+   percentage on unique sessions only and label it so. Pick one, label it honestly,
+   state the choice.
+4. DASHBOARD COUNTS. After Part 1, confirm active vendors, GMV and orders derive only
+   from real records. Add a test asserting the dashboard vendor count equals the count
+   of live, non-seed vendors in the database.
+
+=====================================================================
+PART 5: MODERATION POLICY AND SMALL FIXES
+=====================================================================
+1. MENU MODERATION HONESTY. 108 items, 108 auto-approved, 0 pending ever. Inspect the
+   moderation configuration and report the actual policy. Then make the page tell the
+   truth: if auto-approval is intended for now, the header states "Auto-approval is on.
+   Items go live immediately and appear here for retrospective review", and the Pending
+   tab stops being the default. If human review is intended, wire the gate so new items
+   actually land in Pending. Either is acceptable; a review queue that reviews nothing
+   while implying it does is not.
+2. Vendors page: default to the All tab, or to the first tab with content. An empty
+   default view with the real data one click away misleads at a glance.
+3. Consistent tab badges on moderation pages: every tab shows a count, none shows a
+   bare dot.
+
+=====================================================================
+PART 6: VERIFICATION AGAINST THE THREE LIVE DOMAINS
+=====================================================================
+Two tiers. Be explicit in the output about which tier each check ran in.
+
+TIER 1, PRODUCTION, STRICTLY READ-ONLY. Parse the live surfaces and assert:
+  a. feastpot.co.uk: no seed vendor name or slug appears anywhere public. Fetch the
+     postcode search for the launch areas and assert zero seed vendors; fetch a sample
+     of former seed slugs and assert 404.
+  b. feastpot.co.uk: the two real vendor application flows are unaffected; the /catering
+     form still submits (form renders and validates; do not submit a fake enquiry to
+     production).
+  c. admin.feastpot.co.uk (authenticated, read-only): dashboard counts match direct
+     database counts; the catering queue shows the SLA pills with correct overdue
+     states for the two real enquiries; every route renders the admin shell; FeastPass
+     health shows "No data yet" rather than 100%.
+  d. vendor.feastpot.co.uk: sign-in page loads and the portal shell renders for a real
+     session if one is available; otherwise mark UNVERIFIED with the reason.
+  e. Compliance cron: last successful run timestamp is after the fix deployment, and
+     the dead-letter queue is empty.
+TIER 2, DEV, FULL E2E. Run the existing Playwright suites (menu, delivery, profile,
+availability, auth, admin) plus new tests added by this prompt: SLA pill state
+transitions using seeded enquiries at 12h, 36h and 60h ages; the settled-query search
+logging (type ten characters, assert exactly one analytics event); the zero-denominator
+formatter; the admin shell walk; the seed guard refusing a production URL.
+
+REPORT: one table listing every check, its tier, PASS or FAIL or UNVERIFIED with reason.
+Findings that touch money or customer exposure go first.
+
+ACCEPTANCE CRITERIA
+- Zero seed vendors in production, with a backup and restore path stated, and dashboard
+  numbers reflecting only real records.
+- The seed script cannot run against production.
+- One Catering section; both real enquiries show correct overdue SLA states; the
+  dashboard surfaces the breach.
+- Compliance cron running on schedule with an alert on future failure; dead-letter
+  queue empty.
+- No admin route renders without the shell, enforced by test.
+- No keystroke fragments in search analytics going forward; historical fragments
+  cleaned; recruitment counts recomputed.
+- No ratio anywhere in admin renders a value from a zero denominator.
+- Menu moderation states its real policy.
+- The Tier 1 production checks all pass read-only.
+
+EDGE CASES: a seed vendor with a real customer order attached (stop and report, do not
+delete); an enquiry with no event date (SLA pill only, no event flag); the funnel with
+zero sessions (No data yet, not division error); a route legitimately outside the shell
+if any exists, such as a print view (allowlist it explicitly with a comment).
