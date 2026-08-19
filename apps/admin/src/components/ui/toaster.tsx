@@ -1,6 +1,12 @@
 'use client';
 
 import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
   Toast,
   ToastClose,
   ToastDescription,
@@ -9,12 +15,20 @@ import {
   ToastViewport,
   cn,
 } from '@feastpot/ui';
+import { AlertCircle, CheckCircle2 } from 'lucide-react';
 import { createContext, useCallback, useContext, useState, type ReactNode } from 'react';
 
 /**
- * Local toast system mirroring apps/vendor's. We can't use a shared `useToast`
- * from @feastpot/ui because no such hook is exported; a per-app provider
- * keeps state local without coupling all apps to one tree.
+ * Local toast/modal system for the admin panel.
+ *
+ * variant="destructive"  → centred blocking Dialog modal (must be dismissed).
+ *                          Errors are often multi-sentence; a modal gives them
+ *                          the space they need and ensures staff reads them.
+ *
+ * variant="default"      → bottom-right auto-dismiss toast (short confirmations
+ *                          like "Saved", "Dish added", etc.).
+ *
+ * The useToast() API is unchanged so no call-sites need updating.
  */
 export interface ToastInput {
   title?: string;
@@ -53,27 +67,89 @@ export function Toaster({ children }: { children: ReactNode }) {
     setItems((prev) => [...prev, { ...input, id }]);
   }, []);
 
+  // Split queue: errors go to modal, success/info go to toast strip
+  const modals = items.filter((t) => t.variant === 'destructive');
+  const toasts = items.filter((t) => t.variant !== 'destructive');
+
+  // Only show the oldest error modal at a time (FIFO).
+  const activeModal = modals[0] ?? null;
+
   return (
     <ToastCtx.Provider value={{ toast }}>
+      {/* ── Error modal ──────────────────────────────────────────── */}
+      {activeModal && (
+        <Dialog
+          open
+          onOpenChange={(open) => {
+            if (!open) remove(activeModal.id);
+          }}
+        >
+          <DialogContent
+            className="max-w-md"
+            // Prevent closing on overlay click for errors: staff must read them.
+            onInteractOutside={(e) => e.preventDefault()}
+          >
+            <DialogHeader>
+              <div className="flex items-start gap-3">
+                <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
+                <div className="space-y-1">
+                  {activeModal.title && (
+                    <DialogTitle className="text-base font-semibold leading-snug">
+                      {activeModal.title}
+                    </DialogTitle>
+                  )}
+                  {activeModal.description && (
+                    <DialogDescription className="text-sm leading-relaxed text-foreground/80">
+                      {activeModal.description}
+                    </DialogDescription>
+                  )}
+                </div>
+              </div>
+            </DialogHeader>
+
+            <div className="mt-4 flex justify-end">
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => remove(activeModal.id)}
+              >
+                OK, understood
+              </Button>
+            </div>
+
+            {/* If more errors are queued, show a badge */}
+            {modals.length > 1 && (
+              <p className="mt-2 text-center text-xs text-muted-foreground">
+                {modals.length - 1} more error{modals.length > 2 ? 's' : ''} waiting
+              </p>
+            )}
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* ── Success / info toasts (bottom-right strip) ───────────── */}
       <ToastProvider>
         {children}
-        {items.map((t) => (
+        {toasts.map((t) => (
           <Toast
             key={t.id}
             duration={t.durationMs ?? 4000}
             onOpenChange={(open) => {
               if (!open) remove(t.id);
             }}
-            className={cn(
-              t.variant === 'destructive' &&
-                'border-destructive bg-destructive text-destructive-foreground',
-            )}
           >
-            <div className="flex-1">
-              {t.title && <ToastTitle className="text-sm font-semibold">{t.title}</ToastTitle>}
-              {t.description && (
-                <ToastDescription className="text-sm opacity-90">{t.description}</ToastDescription>
-              )}
+            <div className="flex items-start gap-2 flex-1">
+              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-green-600" />
+              <div>
+                {t.title && (
+                  <ToastTitle className="text-sm font-semibold">{t.title}</ToastTitle>
+                )}
+                {t.description && (
+                  <ToastDescription className="text-sm opacity-90">
+                    {t.description}
+                  </ToastDescription>
+                )}
+              </div>
             </div>
             <ToastClose />
           </Toast>
