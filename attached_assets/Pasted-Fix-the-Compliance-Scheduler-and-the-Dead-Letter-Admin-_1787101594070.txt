@@ -1,0 +1,32 @@
+Fix the Compliance Scheduler and the Dead-Letter Admin Page
+What & Why
+Three compliance queue jobs are dead-lettered: one "repeat key is not in active state" error and two "stalled more than allowable limit" errors. A silent compliance checker is equivalent to having no compliance checker. Separately, the Dead-letter Bull jobs admin page renders without the sidebar and shell, making it visually inconsistent and untrusted.
+
+Done looks like
+The root cause of the repeat-key error is identified and fixed: registration is made idempotent (remove-then-add with a stable key, or upsert semantics) so re-registering on restart does not conflict with an in-flight instance
+The stalled-job root cause is identified: handler runtime is measured and either batched into shorter steps, or the stalledInterval and lockDuration are set to values that fit the real runtime
+The three dead-lettered jobs are retried and complete successfully
+The next scheduled compliance scan runs on time and completes without dead-lettering
+If the compliance cron misses a run or dead-letters again, a Slack alert fires (using the existing QUEUE_ALERT_SLACK_WEBHOOK_URL mechanism)
+The Dead-letter page renders inside the standard admin StaffShell with the sidebar, matching every other admin page
+A Playwright test walks every route listed under apps/admin and asserts the sidebar element exists; routes legitimately outside the shell (print views, etc.) are allowlisted with an explicit comment
+Out of scope
+Changes to what the compliance scan checks (logic stays the same)
+Adding new compliance rules
+Steps
+Diagnose repeat-key error -- Read the compliance cron registration code; find where the repeatable job is registered and what key it uses; determine why "not in active state" occurs on restart (likely the job is re-added with a changed key while an instance is mid-flight).
+Make registration idempotent -- Use a stable, deterministic repeat key; remove any existing job with that key before adding it, or use upsert-style registration so re-registration is safe.
+Diagnose stalled jobs -- Measure or estimate how long the compliance handler runs; compare to the configured stalledInterval and lockDuration; determine if the handler blocks the event loop.
+Fix stall margin -- Either break the handler into batched steps that each complete within the lock duration, or set lockDuration and stalledInterval to values that cover the real runtime with margin.
+Retry dead-lettered jobs -- After the fix is deployed to dev, retry the three dead-lettered jobs and confirm they complete. Document the last successful run timestamp.
+Slack alert -- Wire a Slack notification to the compliance cron so a missed run or dead-letter triggers an alert via QUEUE_ALERT_SLACK_WEBHOOK_URL, consistent with the existing queue-depth alert mechanism.
+Admin shell for dead-letter page -- Wrap the Dead-letter Bull jobs page in StaffShell, matching the layout of all other admin pages.
+Playwright shell test -- Add a test that iterates the admin route list and asserts the sidebar renders on each; allowlist any legitimately shell-free routes with a comment.
+Relevant files
+apps/api/src/modules/compliance/compliance.processor.ts
+apps/api/src/modules/compliance/compliance.module.ts
+apps/api/src/queue/queue-monitor.service.ts
+apps/admin/src/app/dead-letters/page.tsx
+apps/admin/src/components/layout/staff-shell-wrapper.tsx
+apps/admin/playwright.config.ts
+apps/admin/e2e/

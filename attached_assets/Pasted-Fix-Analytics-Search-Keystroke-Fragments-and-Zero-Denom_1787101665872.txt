@@ -1,0 +1,31 @@
+Fix Analytics: Search Keystroke Fragments and Zero-Denominator Ratios
+What & Why
+Two categories of metric dishonesty exist. First, search analytics logs one event per keystroke, producing junk fragments ("P", "Pu") that inflate search trend counts and distort recruitment-opportunity analysis. Second, several admin ratios display calculated percentages from zero denominators -- FeastPass health shows "100.0% renewal rate" with zero members, and the vendor acquisition funnel shows "100.0% of page views" against a smaller session count. Neither is honest.
+
+Done looks like
+The customer app (apps/web) only fires a search analytics event when the query has settled (debounced 500 ms since last keystroke), is at least 3 characters, and has not already been logged for that query in the current session window
+Existing single- and two-character fragment events in the analytics table are deleted or flagged; a count of cleaned rows is reported
+Any recruitment-opportunity counts derived from fragment events are recomputed
+A shared ratio formatter is introduced in apps/admin that takes numerator and denominator: returns "No data yet" when denominator is zero, otherwise formats the percentage
+All percentage displays in apps/admin (FeastPass renewal, churn, repeat rate, conversion, funnel steps) route through this formatter; a grep for toFixed and raw percentage divisions confirms coverage
+FeastPass health shows "No data yet" for renewal rate and churn when there are zero members
+The vendor acquisition funnel clarifies its denominator: either shows events-per-session with a label that events can exceed sessions, or shows unique-session percentage with a label stating that; either is acceptable but must be labelled honestly; zero sessions renders "No data yet"
+A Playwright test types 10 characters into the search box and asserts exactly one analytics event was fired
+Out of scope
+Changing what search results are returned
+Changing the FeastPass subscription logic
+Backfilling missing analytics data beyond cleaning fragments
+Steps
+Search debounce -- In the customer app search component, replace the per-keystroke analytics call with a debounced call (500 ms) that only fires when the settled query is at least 3 characters and has not been logged for the same query text in the current session (use sessionStorage or a module-level set).
+Clean historical fragments -- Write and run a migration or admin script that deletes (or soft-flags) analytics rows where the search query is fewer than 3 characters; report the row count.
+Recompute recruitment counts -- Identify any derived counts or views that aggregate search events and recompute them after the cleanup.
+Shared ratio formatter -- Create a utility function (e.g. formatRatio(numerator, denominator, decimals)) in the admin app that returns "No data yet" when denominator is zero. Add a unit test.
+Apply formatter -- Find all percentage calculations in apps/admin (grep toFixed and division patterns); route them through the new formatter.
+Funnel clarification -- Fix the "over 100%" funnel display: add a label clarifying the denominator, or switch to unique-session denominator with a label; ensure zero sessions returns "No data yet".
+Playwright test -- Test that typing 10 characters in the search input results in exactly one analytics event logged.
+Relevant files
+apps/web/src/ (search component -- locate via rg "analytics" or "track")
+apps/admin/src/app/feastpass-health/page.tsx (or similar)
+apps/admin/src/app/analytics/ (funnel page)
+apps/api/src/modules/analytics/analytics.service.ts
+apps/api/src/modules/analytics/analytics.controller.ts
