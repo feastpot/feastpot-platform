@@ -45,9 +45,9 @@ export default async function DashboardPage() {
       next: { revalidate: 0 },
     });
   } catch (err) {
-    if (err instanceof ApiError && (err.status === 403 || err.status === 404)) {
-      redirect('/unauthorized');
-    }
+    if (err instanceof ApiError && err.status === 403) redirect('/unauthorized');
+    // 404 means vendor role but no vendor profile - start onboarding.
+    if (err instanceof ApiError && err.status === 404) redirect('/onboarding/welcome');
     throw err;
   }
 

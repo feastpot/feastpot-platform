@@ -41,11 +41,10 @@ export default async function OnboardingPage() {
       next: { revalidate: 0 },
     });
   } catch (err) {
-    if (err instanceof ApiError && err.status === 404) {
-      // Not a vendor yet - would need /vendors POST. Out of scope here.
-      redirect('/unauthorized');
-    }
     if (err instanceof ApiError && err.status === 403) redirect('/unauthorized');
+    // 404: vendor role but no profile yet. The /onboarding/welcome step
+    // guides new vendors through completing their application.
+    if (err instanceof ApiError && err.status === 404) redirect('/onboarding/welcome');
     throw err;
   }
 

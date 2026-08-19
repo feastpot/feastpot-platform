@@ -45,9 +45,10 @@ export default async function OnboardingWelcomePage() {
       }),
     ]);
   } catch (err) {
-    if (err instanceof ApiError && (err.status === 403 || err.status === 404)) {
-      redirect('/unauthorized');
-    }
+    if (err instanceof ApiError && err.status === 403) redirect('/unauthorized');
+    // 404 here means either no vendor profile yet or no onboarding-progress
+    // record yet (normal for new vendors). Neither is an access error.
+    if (err instanceof ApiError && err.status === 404) redirect('/onboarding');
     throw err;
   }
 

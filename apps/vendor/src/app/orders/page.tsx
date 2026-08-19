@@ -44,9 +44,10 @@ export default async function OrdersPage({
       next: { revalidate: 0 },
     });
   } catch (err) {
-    if (err instanceof ApiError && (err.status === 403 || err.status === 404)) {
-      redirect('/unauthorized');
-    }
+    if (err instanceof ApiError && err.status === 403) redirect('/unauthorized');
+    // 404 means the user has the vendor role but no vendor profile yet.
+    // Send them to onboarding rather than showing a dead-end "unauthorized" page.
+    if (err instanceof ApiError && err.status === 404) redirect('/onboarding');
     throw err;
   }
 
