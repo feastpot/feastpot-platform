@@ -26,6 +26,20 @@ import { PrismaClient, VendorApplicationStatus } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
+// ── Production guard ────────────────────────────────────────────────────────
+// Refuse to run against the production Supabase project.
+const PROD_SUPABASE_REF = 'yeklvhoqanxnogjnhkui';
+if ((process.env.DATABASE_URL ?? '').includes(PROD_SUPABASE_REF)) {
+  console.error(
+    '\n❌  SEED REFUSED: DATABASE_URL points to the production Supabase project ' +
+      `(${PROD_SUPABASE_REF}).\n` +
+      '   Running seed-volume on production would destroy real customer data.\n' +
+      '   Point DATABASE_URL at the development database and try again.\n',
+  );
+  process.exit(1);
+}
+// ────────────────────────────────────────────────────────────────────────────
+
 const VOLUME_TAG = '[volume]';
 
 export async function seedVolume(): Promise<void> {

@@ -59,6 +59,21 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 const prisma = new PrismaClient();
 
+// ── Production guard ────────────────────────────────────────────────────────
+// The production Supabase project ref. If DATABASE_URL points here we refuse
+// to run; seeding production would destroy real customer data.
+const PROD_SUPABASE_REF = 'yeklvhoqanxnogjnhkui';
+if ((process.env.DATABASE_URL ?? '').includes(PROD_SUPABASE_REF)) {
+  console.error(
+    '\n❌  SEED REFUSED: DATABASE_URL points to the production Supabase project ' +
+      `(${PROD_SUPABASE_REF}).\n` +
+      '   Running seed on production would destroy real customer data.\n' +
+      '   Point DATABASE_URL at the development database and try again.\n',
+  );
+  process.exit(1);
+}
+// ────────────────────────────────────────────────────────────────────────────
+
 interface SeedUser {
   email: string;
   role: UserRole;
