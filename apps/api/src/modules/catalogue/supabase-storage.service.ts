@@ -10,6 +10,9 @@ import { SupabaseService } from '../../auth/supabase.service';
 
 import { STORAGE_BUCKET } from './catalogue.constants';
 
+/** Private bucket used by compliance and disputes document uploads. */
+export const DOCUMENTS_BUCKET = 'feastpot-documents';
+
 const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const MAX_BYTES = 5 * 1024 * 1024;
 
@@ -51,17 +54,29 @@ export class SupabaseStorageService implements OnModuleInit {
    * project, so we create it on startup with public read access.
    */
   async onModuleInit() {
-    const storage = this.supabase.getClient().storage;
-    const { error } = await storage.createBucket(STORAGE_BUCKET, {
-      public: true,
-      allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp'],
-      fileSizeLimit: 5 * 1024 * 1024,
-    });
-    // "already exists" is not an error - any other error is logged but not fatal
+    await Promise.all([
+      this.ensureBucket(STORAGE_BUCKET, {
+        public: true,
+        allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp'],
+        fileSizeLimit: 5 * 1024 * 1024,
+      }),
+      this.ensureBucket(DOCUMENTS_BUCKET, {
+        public: false,
+        allowedMimeTypes: ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'],
+        fileSizeLimit: 10 * 1024 * 1024,
+      }),
+    ]);
+  }
+
+  private async ensureBucket(
+    name: string,
+    opts: { public: boolean; allowedMimeTypes: string[]; fileSizeLimit: number },
+  ): Promise<void> {
+    const { error } = await this.supabase.getClient().storage.createBucket(name, opts);
     if (error && !error.message.toLowerCase().includes('already exists')) {
-      this.logger.warn(`Could not ensure storage bucket "${STORAGE_BUCKET}": ${error.message}`);
+      this.logger.warn(`Could not ensure storage bucket "${name}": ${error.message}`);
     } else {
-      this.logger.log(`Storage bucket "${STORAGE_BUCKET}" is ready`);
+      this.logger.log(`Storage bucket "${name}" is ready`);
     }
   }
 

@@ -17,10 +17,10 @@ import {
   VendorMembersService,
 } from '../vendor-members/vendor-members.service';
 
+import { DOCUMENTS_BUCKET } from '../catalogue/supabase-storage.service';
+
 import type { UploadDocumentDto } from './dto/upload-document.dto';
 import type { VerifyDocumentDto } from './dto/verify-document.dto';
-
-const SUPABASE_DOCS_BUCKET = 'feastpot-documents';
 
 /** Days-until-expiry threshold at which we start nagging vendors. */
 const EXPIRY_WARNING_DAYS = 30;
@@ -67,7 +67,7 @@ export class ComplianceService {
 
     const safeName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 100);
     const path = `vendors/${vendorId}/${dto.type}/${Date.now()}-${safeName}`;
-    const storage = this.supabase.getClient().storage.from(SUPABASE_DOCS_BUCKET);
+    const storage = this.supabase.getClient().storage.from(DOCUMENTS_BUCKET);
     const { error } = await storage.upload(path, file.buffer, {
       contentType: file.mimetype,
       upsert: false,

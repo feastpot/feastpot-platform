@@ -30,13 +30,14 @@ import { LoyaltyService } from '../loyalty/loyalty.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PaymentsService } from '../payments/payments.service';
 
+import { DOCUMENTS_BUCKET } from '../catalogue/supabase-storage.service';
+
 import type { CloseDisputeDto } from './dto/close-dispute.dto';
 import type { CreateDisputeDto } from './dto/create-dispute.dto';
 import type { ListDisputesDto } from './dto/list-disputes.dto';
 import type { UpdateDisputeDto } from './dto/update-dispute.dto';
 import type { VendorResponseDto } from './dto/vendor-response.dto';
 
-const SUPABASE_DOCS_BUCKET = 'feastpot-documents';
 
 /** Allowed transitions from each status. open is reachable from itself for idempotent updates. */
 const STATUS_TRANSITIONS: Record<DisputeStatus, DisputeStatus[]> = {
@@ -847,7 +848,7 @@ export class DisputesService {
 
     const safeName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 100);
     const path = `disputes/${id}/${Date.now()}-${safeName}`;
-    const storage = this.supabase.getClient().storage.from(SUPABASE_DOCS_BUCKET);
+    const storage = this.supabase.getClient().storage.from(DOCUMENTS_BUCKET);
 
     const { error } = await storage.upload(path, file.buffer, {
       contentType: file.mimetype,
