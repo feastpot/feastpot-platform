@@ -1,0 +1,33 @@
+Remove Fake Seed Vendors from Production
+What & Why
+Real customers signed up 11-15 August can currently see ~20 fake seed vendors (Marrakech Tagine House, Rio Feijoada, Warsaw Pierogi, Saigon Pho, etc.) alongside real listings. Fake listings reachable by real customers are a consumer-protection problem, and every dashboard metric (GMV, vendor count, order count) currently includes them. The seed script also has no guard preventing it from running against production.
+
+Done looks like
+A definitive inventory of seed entities (counts per table) is logged before any deletion
+Every seed vendor's public reachability on feastpot.co.uk is checked: postcode search, slug resolution
+Any seed vendor with a real customer order causes the task to stop and report; none are deleted blindly
+All seed vendors and their dependent records (menus, items, delivery configs, verification records, slugs, referral links) are removed from production inside per-vendor transactions, in dependency order
+Backup: the deleted rows are dumped to a file and the restore path is documented in the task output
+The seed script (prisma/seed.ts and prisma/seed-volume.ts) refuses to run when the DATABASE_URL matches the production Supabase project (yeklvhoqanxnogjnhkui), with a clear error message
+The isSeedData flag is used as a cross-check; any row where flag and email pattern disagree causes a stop-and-report, not a silent deletion
+After the purge, admin dashboard counts (active vendors, orders, GMV) are verified against direct DB counts and match; 0 live vendors, 2 pending real applications, real customer count only
+A read-only Tier 1 production check confirms no seed vendor name or slug appears in postcode search results or resolves publicly
+Out of scope
+Changing the seed data itself in dev (seed world stays rich and correct)
+Any schema or migration changes
+Purging dev database
+Steps
+Inventory -- Connect to production via PROD_DATABASE_URL/PROD_DIRECT_URL and run read-only queries: count vendors whose owner email matches the seed pattern (@feastpot.co.uk), their menus, items, delivery configs, verification records, orders, and any real customer interactions. Distinguish clearly; report counts before touching anything.
+Exposure check -- For each seed vendor, determine reachability: does it appear in the postcode search API response, does its slug resolve to a non-404 on the public site? Report yes/no per vendor.
+Order safety gate -- If any seed vendor has a real order (placed by a non-seed customer), stop and report that vendor; do not delete it.
+Backup -- Dump the affected rows to a recoverable format; document the restore path in the task output.
+Delete -- Inside a transaction per vendor, delete dependent records in dependency order (items, menus, delivery configs, verification records, slug redirects, referral links, then the vendor itself and its user). Use isSeedData cross-check; stop on any disagreement.
+Production guard -- Add a check at the top of seed.ts and seed-volume.ts that reads the DATABASE_URL, extracts the Supabase project ref, and exits with a clear error if it matches the production project ref (yeklvhoqanxnogjnhkui).
+Dashboard verification -- After deletion, query the admin dashboard endpoint and compare its counts to direct DB counts. Assert they match.
+Tier 1 spot-check -- Fetch the postcode search API for at least one launch-area postcode and assert zero seed vendor names in the response; fetch two former seed slugs and assert 404.
+Relevant files
+prisma/seed.ts
+prisma/seed-volume.ts
+apps/api/src/modules/admin/admin.service.ts:110-164
+apps/api/src/modules/vendors/vendors.service.ts
+apps/api/src/modules/vendors/vendors.repository.ts
