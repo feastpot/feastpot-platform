@@ -13,6 +13,7 @@ import {
   TableRow,
 } from '@feastpot/ui';
 import {
+  AlertTriangle,
   Banknote,
   CalendarRange,
   MapPin,
@@ -32,6 +33,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import { useEffect, useState } from 'react';
 
 import { SearchTrendsCard } from '@/components/dashboard/search-trends-card';
 import { PageHeader } from '@/components/layout/page-header';
@@ -39,7 +41,72 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { StatCard } from '@/components/ui/stat-card';
 import { useAdminDashboard } from '@/hooks/use-admin-dashboard';
 import { useCoverageWaitlist } from '@/hooks/use-coverage-waitlist';
+import { useApi } from '@/hooks/use-api';
 import { formatPence, formatPercent } from '@/lib/format';
+import { getEnquiryUrgency } from '@/lib/catering-urgency';
+
+// ── Catering urgency strip ─────────────────────────────────────────────────
+
+/**
+ * Shows a single dismissible banner when any unassigned catering enquiry is
+ * overdue (> 48 h) or has an event date inside 72 hours. Links directly to
+ * the Enquiries tab so staff can act immediately.
+ *
+ * Fetches silently on mount; any network error is swallowed so dashboard
+ * reliability is never affected by catering data unavailability.
+ */
+function CateringUrgencyStrip() {
+  const { request, ready } = useApi();
+  const [overdueCount, setOverdueCount] = useState(0);
+  const [urgentEventCount, setUrgentEventCount] = useState(0);
+
+  useEffect(() => {
+    if (!ready) return;
+    void request<{ data: Array<{ createdAt: string; eventDate?: string | null; status: string }> }>(
+      '/catering-enquiries?limit=50',
+    )
+      .then((page) => {
+        const unassigned = page.data.filter((e) => ['NEW', 'UNASSIGNED'].includes(e.status));
+        let overdue = 0;
+        let urgentEvent = 0;
+        for (const enq of unassigned) {
+          const { sla, eventFlag } = getEnquiryUrgency(enq.createdAt, enq.eventDate);
+          if (sla.overdue) overdue++;
+          if (eventFlag?.tone === 'red') urgentEvent++;
+        }
+        setOverdueCount(overdue);
+        setUrgentEventCount(urgentEvent);
+      })
+      .catch(() => {
+        /* non-critical - swallow */
+      });
+  }, [ready, request]);
+
+  if (overdueCount === 0 && urgentEventCount === 0) return null;
+
+  const parts: string[] = [];
+  if (overdueCount > 0)
+    parts.push(`${overdueCount} overdue ${overdueCount === 1 ? 'enquiry' : 'enquiries'}`);
+  if (urgentEventCount > 0)
+    parts.push(
+      `${urgentEventCount} ${urgentEventCount === 1 ? 'event' : 'events'} inside 72 hours`,
+    );
+
+  return (
+    <div className="mb-4 flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+      <AlertTriangle className="h-4 w-4 shrink-0 text-red-600" aria-hidden />
+      <p className="text-sm text-red-800">
+        <span className="font-semibold">Catering triage: </span>
+        {parts.join(' and ')}.{' '}
+        <Link href="/catering?tab=enquiries" className="underline hover:no-underline">
+          Review enquiries &rarr;
+        </Link>
+      </p>
+    </div>
+  );
+}
+
+// ── Main dashboard ─────────────────────────────────────────────────────────
 
 export function DashboardClient() {
   const { data, isLoading, error } = useAdminDashboard();
@@ -49,6 +116,8 @@ export function DashboardClient() {
   return (
     <>
       <PageHeader title="Dashboard" description="Operations overview across the marketplace." />
+
+      <CateringUrgencyStrip />
 
       {error && (
         <Card className="mb-4 border-destructive/40 bg-destructive/5">

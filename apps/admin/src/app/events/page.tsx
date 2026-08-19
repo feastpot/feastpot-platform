@@ -1,15 +1,11 @@
-import { StaffShell } from '@/components/layout/staff-shell-wrapper';
-import { requireStaff } from '@/lib/auth/server-gate';
+import { redirect } from 'next/navigation';
 
-import { EventsClient } from './events-client';
-
-export const dynamic = 'force-dynamic';
-
-export default async function AdminEventsPage() {
-  const user = await requireStaff('/events', ['admin', 'support']);
-  return (
-    <StaffShell user={user}>
-      <EventsClient />
-    </StaffShell>
-  );
+/**
+ * /events is a parallel model (EventEnquiry, customer-facing /events/new form).
+ * For admin navigation it has been consolidated into the unified /catering section.
+ * The EventsClient is preserved at apps/admin/src/app/events/events-client.tsx
+ * for reference; the underlying /v1/event-enquiries API is unchanged.
+ */
+export default function EventsRedirect() {
+  redirect('/catering');
 }

@@ -1,0 +1,38 @@
+Merge Catering Admin Into One Section With SLA Urgency
+What & Why
+Three admin pages cover one product (Events, Catering Enquiries, Catering Bookings), the two live real enquiries sit in only one of them, and the 48-hour assignment SLA is stated as a subtitle sentence with no operational force. Staff cannot reliably find the right page, SLA breaches are invisible, and the Bookings/Performance tabs require a manual Search click before showing any data.
+
+Done looks like
+Investigation complete and documented: whether Events and Catering Enquiries are two views of the same table or two parallel models, and which one the customer-facing /catering form writes to
+A single Catering section with three tabs: Enquiries (triage + assign queue), Bookings (assigned work and its lifecycle), Performance (metrics)
+The two absorbed routes (/admin/events and whichever catering page is retired) redirect to the new unified route
+Each enquiry row shows: time since received, a status pill that is neutral under 24 h, amber 24-48 h, and red past 48 h reading "Overdue by Nh"
+Enquiries with an event date inside 7 days show a separate "Event in N days" flag, red inside 72 hours
+Default sort is most urgent first, by the earlier of SLA breach and event proximity
+The admin dashboard status strip gains one line when any enquiry is overdue or has an event inside 72 hours, linking to the Enquiries tab
+The assign action is available directly from the enquiry row (not only from behind a Review modal)
+Bookings and Performance tabs load their data on mount; the click-to-search pattern is removed
+An enquiry with no event date shows only the SLA pill, no event flag
+A Playwright test covers SLA pill state transitions using seeded enquiries at 12 h, 36 h, and 60 h ages
+Out of scope
+Changes to the customer-facing /catering form itself
+Changing the underlying data model (if two models exist, keep both; the UI merges the views)
+Mobile-specific layout changes
+Steps
+Inspect -- Read the three admin pages and their backing API endpoints; determine whether Events and Catering Enquiries share tables or are parallel models; identify which model the /catering form writes to. Document the finding before any changes.
+Unified route -- Create the new Catering section route with three tabs: Enquiries, Bookings, Performance. Retire the absorbed routes with HTTP redirects.
+SLA pills -- Add time-since-received display and the amber/red status pill to each enquiry row using a shared utility that computes overdue state from a timestamp. Implement the "Event in N days" flag for enquiries with an event date, red inside 72 hours.
+Sort order -- Default the enquiry list to most urgent first (earlier of SLA deadline and event proximity).
+Row-level assign -- Move the assign action from behind Review to the enquiry row directly, maintaining the existing assign API call.
+Dashboard strip -- Add a dashboard status strip entry that fires when any enquiry is overdue or has an event inside 72 hours, with a link to the Enquiries tab.
+Remove click-to-search -- Bookings and Performance tabs fetch their data on mount rather than waiting for a Search click.
+Tests -- Add Playwright tests for SLA pill states at 12 h, 36 h, and 60 h using seeded enquiry fixtures.
+Relevant files
+apps/admin/src/app/catering-enquiries/page.tsx
+apps/admin/src/app/catering-bookings/page.tsx
+apps/admin/src/app/events/page.tsx (if it exists)
+apps/admin/src/app/dashboard-client.tsx
+apps/api/src/modules/catering-enquiries/catering-enquiries.controller.ts
+apps/api/src/modules/catering-enquiries/catering-enquiries.service.ts
+apps/api/src/modules/catering-bookings/catering-bookings.controller.ts
+apps/api/src/modules/admin/admin.service.ts
