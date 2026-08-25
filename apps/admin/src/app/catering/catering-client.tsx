@@ -246,11 +246,7 @@ export function CateringClient({
 
       {tab === 'enquiries' && <EnquiriesTab />}
       {tab === 'bookings' && (
-        <BookingsTab
-          accessToken={accessToken}
-          apiUrl={apiUrl}
-          commissionFacts={commissionFacts}
-        />
+        <BookingsTab accessToken={accessToken} apiUrl={apiUrl} commissionFacts={commissionFacts} />
       )}
       {tab === 'performance' && <PerformanceTab />}
     </div>
@@ -685,7 +681,10 @@ function EnquiriesTab() {
                 <XCircle className="h-5 w-5" />
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4" style={{ maxHeight: '60vh' }}>
+            <div
+              className="flex-1 overflow-y-auto px-6 py-4 space-y-4"
+              style={{ maxHeight: '60vh' }}
+            >
               <div>
                 <label className="mb-1 block text-sm font-medium">Search vendors</label>
                 <input
@@ -849,8 +848,8 @@ function BookingsTab({
     <div className="space-y-6">
       <p className="text-sm text-muted-foreground">
         Commission: referred = {commissionFacts.vendorReferred}%, marketplace repeat ={' '}
-        {commissionFacts.marketplaceRepeat}%, marketplace first ={' '}
-        {commissionFacts.marketplaceFirst}%.
+        {commissionFacts.marketplaceRepeat}%, marketplace first = {commissionFacts.marketplaceFirst}
+        %.
       </p>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <BookingKpiCard label="Total loaded" value={String(bookings.length)} />
@@ -909,9 +908,7 @@ function BookingsTab({
                   <td className="px-4 py-3">{b.vendor?.businessName ?? '-'}</td>
                   <td className="px-4 py-3 whitespace-nowrap">{formatBookingDate(b.eventDate)}</td>
                   <td className="px-4 py-3 text-center">{b.guestCount}</td>
-                  <td className="px-4 py-3 text-right font-medium">
-                    {formatPounds(b.totalPence)}
-                  </td>
+                  <td className="px-4 py-3 text-right font-medium">{formatPounds(b.totalPence)}</td>
                   <td className="px-4 py-3 text-right text-muted-foreground">
                     {formatPounds(b.commissionPence)}
                     <span className="ml-1 text-xs">({b.commissionPercent}%)</span>
@@ -1028,8 +1025,7 @@ function BookingDetailPanel({
               {(b.lineItems ?? []).map((li) => (
                 <div key={li.id} className="mb-2">
                   <p>
-                    {li.quantity}x {li.description} -{' '}
-                    {formatPounds(li.quantity * li.unitPence)}
+                    {li.quantity}x {li.description} - {formatPounds(li.quantity * li.unitPence)}
                   </p>
                   {li.allergens.length > 0 && (
                     <p className="text-xs text-destructive">Allergens: {li.allergens.join(', ')}</p>

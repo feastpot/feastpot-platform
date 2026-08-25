@@ -1,0 +1,66 @@
+PHASE 2: TEST SUITE AND CI REALITY CHECK
+
+The two rules from Phase 1 still apply. Audit only, fix nothing.
+Evidence or silence.
+
+The purpose of this phase is to find out what the test suite
+ACTUALLY protects, as opposed to what it appears to protect. A
+green CI badge that gates nothing is worse than no badge,
+because it manufactures false confidence.
+
+2.1 RUN EVERYTHING
+Execute every test command defined in every package.json across
+the monorepo. For each, record verbatim:
+  the exact command
+  pass count, fail count, SKIPPED count, and duration
+Skipped tests matter enormously. A suite reporting "48 passed"
+while silently skipping 30 is a misleading suite. Report skips
+prominently, with the reason each is skipped.
+
+2.2 THE passWithNoTests PROBLEM
+Grep for --passWithNoTests across all workspaces. Any workspace
+using it will report success with zero tests. For each
+occurrence, state plainly: this workspace can pass CI with no
+tests at all. Then check whether it actually has any tests.
+
+2.3 COVERAGE HONESTY
+If CI claims a coverage threshold, verify it. Check:
+  Is the threshold enforced repo-wide or delegated per workspace?
+  Does each workspace define a real threshold, or none?
+  What is the actual measured coverage per workspace?
+If the claimed threshold and the enforced reality differ, that
+is a finding. Quote the CI file and line.
+
+2.4 WHAT CI ACTUALLY GATES
+Read the CI configuration in full (.github/workflows/). Produce
+a table: for each job, what it runs, whether it is required to
+merge to main, and which user journey it protects.
+Then answer directly, with evidence:
+  Is customer checkout gated by any browser test?
+  Is the admin panel gated?
+  Is the vendor portal gated?
+  Are payment paths gated?
+If a critical journey is ungated, say so as a headline finding.
+
+2.5 PLAYWRIGHT PROJECT CONFIGURATION
+For each Playwright config, list the defined projects and then
+list the spec files present in the directory. Any spec file that
+is not covered by a runnable project is a test that never runs
+despite appearing to exist. Report each one.
+
+2.6 SKIP-WHEN-AUTH-ABSENT PATTERNS
+Find any test that silently skips when credentials are missing.
+These pass in CI while testing nothing. List each and state what
+it would have tested.
+
+2.7 CONTRACT TEST COVERAGE
+Check whether contract tests exist for: email templates
+(rendering with a full fixture, non-empty subject and body, no
+unresolved placeholders), WhatsApp templates (slot counts),
+and API response shapes consumed by the web apps. Report which
+exist and which do not.
+
+OUTPUT
+Write to /audit/section-b-tests.md. Report to me the single
+most important gap: name the user journey most likely to break
+in production without CI noticing.

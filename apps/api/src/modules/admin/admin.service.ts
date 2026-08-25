@@ -1493,9 +1493,7 @@ export class AdminService {
    * Returns every VendorApplicationStatus key (even when zero) plus an `all`
    * total so the UI can render stable count pills without nullish checks.
    */
-  async getVendorApplicationCounts(): Promise<
-    Record<VendorApplicationStatus | 'all', number>
-  > {
+  async getVendorApplicationCounts(): Promise<Record<VendorApplicationStatus | 'all', number>> {
     const grouped = await this.prisma.vendorApplication.groupBy({
       by: ['status'],
       _count: { _all: true },

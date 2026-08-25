@@ -32,7 +32,11 @@ const FAKE_ADMIN = {
   created_at: '2024-01-01T00:00:00Z',
 };
 
-type MakeEnquiry = (overrides: { id: string; createdAtOffset: number; eventDate?: string }) => object;
+type MakeEnquiry = (overrides: {
+  id: string;
+  createdAtOffset: number;
+  eventDate?: string;
+}) => object;
 
 const makeEnquiry: MakeEnquiry = ({ id, createdAtOffset, eventDate }) => ({
   id,

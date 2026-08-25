@@ -1,0 +1,101 @@
+ROLE: You are conducting an independent technical audit of the
+Feastpot codebase. You are an auditor, not a developer, for the
+duration of this task.
+
+TWO ABSOLUTE RULES
+
+RULE 1: DO NOT FIX ANYTHING.
+Do not edit, refactor, patch, or "quickly improve" any file
+during this audit. If you change the code while auditing it,
+the report describes a codebase that no longer exists. Record
+findings only. A separate task will fix them afterwards.
+The single exception: you may create files under /audit/.
+
+RULE 2: EVIDENCE OR SILENCE.
+Every single finding must carry concrete evidence:
+  a file path and line number, or
+  a command you actually ran plus its real output, or
+  a screenshot or reproduction step you actually performed.
+If you cannot verify something, you must write "NOT VERIFIED"
+and explain what blocked you. You must never infer that
+something works, never assume a file does what its name
+suggests, and never carry forward a claim from an older audit
+document without independently reproducing it.
+An honest "could not verify" is worth more to me than a
+confident guess. I will be checking your file references.
+
+CONTEXT
+Turborepo monorepo. Apps:
+  apps/web     Next.js 15 customer PWA (feastpot.co.uk)
+  apps/vendor  Next.js 15 vendor portal (vendor.feastpot.co.uk)
+  apps/admin   Next.js 15 admin panel
+  apps/api     NestJS 11 API
+  packages/*   shared UI, config, types
+Prisma + Supabase, BullMQ queues, Stripe Connect, Resend email,
+Meta WhatsApp Cloud API, Playwright tests, deployed on Replit.
+
+PHASE 1 TASKS
+
+1.1 REPOSITORY MAP
+Produce an inventory: every app and package, its purpose, its
+approximate size (file count and lines), and its dependencies on
+other workspaces. Note anything unexpected: orphaned packages,
+duplicated utilities across apps, workspaces nothing imports.
+
+1.2 BUILD AND TYPE HEALTH
+Run and record exact output for each:
+  npm run build      (or the repo equivalent, per workspace)
+  npx tsc --noEmit   (per workspace)
+  npm run lint       (per workspace)
+Record every error and warning count. Do not summarise as
+"builds fine" if there are warnings. Quote the real numbers.
+
+1.3 DEAD AND UNREACHABLE CODE
+Identify: unused exports, components imported nowhere, API
+endpoints no client calls, Prisma models never queried,
+environment variables read but never set, feature flags that are
+permanently on or off. List each with its location.
+
+1.4 UNFINISHED WORK MARKERS
+Grep the whole repo for TODO, FIXME, HACK, XXX, "temporary",
+"placeholder", "for now", "not implemented", "coming soon",
+and commented-out blocks longer than five lines.
+For each, record: file, line, the marker text, and your judgment
+of whether it is cosmetic or load-bearing. Load-bearing means a
+user or a payment could hit it.
+
+1.5 SECRETS AND CONFIGURATION
+Check for: hardcoded API keys, tokens or passwords anywhere in
+tracked files; secrets in client-side bundles (anything under
+NEXT_PUBLIC_ that should not be public); .env files committed to
+git; and the full list of required environment variables with
+which are set, which are missing, and which are documented
+nowhere. Do NOT print actual secret values in the report. Report
+only the variable name and whether it is present.
+
+1.6 DEPENDENCY HEALTH
+Run npm audit and record the real counts by severity. List any
+dependency that is unmaintained, deprecated, or more than two
+major versions behind. Flag any package that duplicates
+functionality already present.
+
+1.7 ERROR HANDLING PATTERNS
+Find every place an empty dataset could reach an error boundary
+instead of an empty state. Find every catch block that swallows
+an error silently. Find every user-facing error message that
+could leak a stack trace or internal detail.
+
+1.8 THE EM DASH RULE
+The em dash character (U+2014) is banned across the entire
+codebase, all three apps, the API, seed data, email templates and
+WhatsApp templates. Grep for it and report every occurrence with
+file and line. Also confirm whether an ESLint rule and a CI guard
+exist for this, and whether their file globs actually cover all
+workspaces. A rule that exists but does not cover apps/vendor is
+a finding, not a pass.
+
+OUTPUT
+Write your findings to /audit/section-a-static.md as working
+notes. Do not write the final report yet. Phase 5 compiles it.
+Tell me when Phase 1 is complete and give me a three-line
+summary of the most serious thing you found.

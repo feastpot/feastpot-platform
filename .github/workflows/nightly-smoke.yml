@@ -2,8 +2,8 @@ name: Nightly smoke test
 
 on:
   schedule:
-    - cron: '0 3 * * *'  # 03:00 UTC every night
-  workflow_dispatch: {}   # allow manual trigger
+    - cron: '0 3 * * *' # 03:00 UTC every night
+  workflow_dispatch: {} # allow manual trigger
 
 jobs:
   smoke:

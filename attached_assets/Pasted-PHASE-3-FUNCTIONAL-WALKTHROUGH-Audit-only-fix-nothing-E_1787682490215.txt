@@ -1,0 +1,85 @@
+PHASE 3: FUNCTIONAL WALKTHROUGH
+
+Audit only, fix nothing. Evidence or silence.
+
+This phase requires you to ACTUALLY EXERCISE the applications,
+not read their source and reason about what they probably do.
+Use Playwright in headed or trace mode, or the dev server, and
+capture real screenshots or traces as evidence. If you cannot
+run an app, say so explicitly and explain why rather than
+describing its behaviour from the code.
+
+3.1 THE EMPTY ACCOUNT TEST
+This is the highest-value test in the whole audit. Create a
+brand new vendor account with zero orders, zero documents, zero
+disputes, zero payouts and no tax profile. Then visit every
+single route in the vendor portal.
+Known suspects from an earlier review, which you must
+independently reproduce or refute:
+  /earnings         reported hitting an error boundary
+  /compliance       reported hitting an error boundary
+  /account-status   reported "Unable to load account status"
+  /referrals        QR code reported stuck on "Generating"
+  /catering/new     reported rendering with no sidebar at all
+  catering quote    reported Total 0.00 with Deposit 50.00
+Do not take these as given. Reproduce each yourself and record
+what you actually observe, with a screenshot. If a reported bug
+no longer occurs, say so.
+Then repeat for a brand new CUSTOMER account, and a brand new
+ADMIN session.
+
+3.2 EVERY ROUTE, EVERY APP
+Enumerate every route in apps/web, apps/vendor and apps/admin.
+Visit each. For each record: renders correctly, renders with an
+error, renders empty with no explanation, or 404.
+No route may be marked "assumed working". Visit it or mark it
+NOT VERIFIED.
+
+3.3 LINK INTEGRITY
+Follow every internal link and every navigation item in all
+three apps, including footers, sidebars, breadcrumbs and
+in-content links. Record any that 404, redirect unexpectedly,
+or point at an anchor that does not exist. Include cross-app
+links between the portal and the public site.
+
+3.4 THE CORE CUSTOMER JOURNEY
+Walk it end to end and record where it breaks:
+  land on homepage, enter a postcode with vendors
+  browse vendors, open a vendor profile
+  check allergen information is present per dish
+  add to basket, proceed to checkout
+  confirm the total shown includes all mandatory fees up front
+  complete a test payment
+  receive confirmation, view the order
+Then repeat entering a postcode with NO vendors and record what
+the customer sees.
+
+3.5 THE CORE VENDOR JOURNEY
+  submit an application
+  accept terms if an acceptance flow exists
+  complete onboarding and Stripe Connect
+  create a dish with allergen data
+  attempt to create a dish WITHOUT allergen data and record
+    whether the system blocks it
+  receive an order, accept it, mark it fulfilled
+  view earnings and the payout statement
+Record every point of friction and every dead end.
+
+3.6 MOBILE AND ACCESSIBILITY
+This is a PWA. Most real users will be on a phone. Test every
+key screen at 375px width and record: horizontal scroll,
+overlapping elements, unreachable buttons, unusable forms.
+Run an accessibility check (axe or Lighthouse) on the main
+customer and vendor screens and record the real scores and the
+specific violations, not a general impression.
+
+3.7 PERFORMANCE SPOT CHECK
+Record actual load times for the homepage, a vendor listing
+page, and the vendor portal dashboard. Specifically time the
+referral QR code from page load to visible. The stated
+requirement is under 5 seconds.
+
+OUTPUT
+Write to /audit/section-c-functional.md with screenshots saved
+under /audit/evidence/. Report to me how many routes you
+actually visited versus how many exist.

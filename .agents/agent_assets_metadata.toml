@@ -47,3 +47,10 @@ id = "bSU6A4jqDnKr5WGGzQfWc"
 uri = "file://docs/CODE_AUDIT.md"
 type = "text"
 title = "Feastpot — Code Audit & Feature Inventory (16 June 2026)"
+
+[[outputs]]
+id = "hJl2_EbiJ1m3xhaYa1cr5"
+uri = "file://docs/IMPLEMENTATION_GAPS_AUDIT_2026-08-25.txt"
+type = "text"
+title = "Feastpot implementation gaps audit"
+description = "A refreshed editorial audit of confirmed remaining implementation gaps, operating gates, evidence, and recommended delivery order."

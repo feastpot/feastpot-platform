@@ -338,7 +338,9 @@ describe('OrdersService.updateStatus authorization', () => {
     );
   });
 
-  const order = (overrides: Partial<{ status: OrderStatus; vendorUserId: string; totalPence?: number }>) => ({
+  const order = (
+    overrides: Partial<{ status: OrderStatus; vendorUserId: string; totalPence?: number }>,
+  ) => ({
     id: 'o-1',
     status: overrides.status ?? OrderStatus.pending,
     vendorId: 'v-1',

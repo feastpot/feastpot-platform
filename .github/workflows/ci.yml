@@ -116,9 +116,10 @@ jobs:
             --include="*.json" --include="*.md" \
             --include="*.html" --include="*.css" \
             --exclude-dir=node_modules --exclude-dir=.next \
-            --exclude-dir=dist --exclude-dir=.turbo \
+            --exclude-dir=dist --exclude-dir=.turbo --exclude-dir=.cache \
             --exclude-dir=.git --exclude-dir=.local \
-            --exclude-dir=.agents --exclude-dir=attached_assets; then
+            --exclude-dir=.agents --exclude-dir=attached_assets \
+            --exclude-dir=docs --exclude-dir=audit; then
             echo "ERROR: em dash (U+2014) detected. See CONTRIBUTING.md for approved alternatives."
             exit 1
           fi

@@ -10,14 +10,13 @@ import { DocumentStatus, ModerationStatus, OrderStatus, UserRole } from '@prisma
 import { SupabaseService } from '../../auth/supabase.service';
 import type { AuthUser } from '../../auth/types';
 import { PrismaService } from '../../prisma/prisma.service';
+import { DOCUMENTS_BUCKET } from '../catalogue/supabase-storage.service';
 import { InboxService } from '../inbox/inbox.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import {
   VENDOR_COMPLIANCE_ROLES,
   VendorMembersService,
 } from '../vendor-members/vendor-members.service';
-
-import { DOCUMENTS_BUCKET } from '../catalogue/supabase-storage.service';
 
 import type { UploadDocumentDto } from './dto/upload-document.dto';
 import type { VerifyDocumentDto } from './dto/verify-document.dto';

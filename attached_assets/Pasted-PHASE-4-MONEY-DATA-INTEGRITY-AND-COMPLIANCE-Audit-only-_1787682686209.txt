@@ -1,0 +1,91 @@
+PHASE 4: MONEY, DATA INTEGRITY AND COMPLIANCE
+
+Audit only, fix nothing. Evidence or silence.
+
+This is the phase where a defect costs real money, breaks a real
+vendor's trust, or creates legal exposure. Be especially precise
+here, and especially willing to say NOT VERIFIED.
+
+4.1 STRIPE WEBHOOK IDEMPOTENCY
+Stripe guarantees at-least-once delivery, so the same event ID
+can arrive twice, concurrently. Trace the webhook handler line
+by line and answer:
+  Is there a unique constraint on the Stripe event ID?
+  Is the claim written BEFORE work is enqueued, or after?
+  Can two concurrent deliveries both pass the "already
+    processed" check and both enqueue a job?
+Then TEST IT: fire the same signed event twice concurrently and
+record how many queue jobs, emails and database writes result.
+Report the actual observed count, not the intended behaviour.
+
+4.2 PAYMENT AND PAYOUT ARITHMETIC
+Verify every money calculation uses integer pence, never floats.
+Grep for any monetary arithmetic using floating point.
+Check specifically:
+  commission calculation on the food subtotal
+  confirmation that commission is NOT charged on delivery fees,
+    service fees, tips or discounts
+  the customer service fee (5% capped at 2.99)
+  catering deposit (25% of event total) and balance
+  refund and chargeback deductions
+For the catering quote, compute a worked example by hand and
+compare against what the UI displays. The reported symptom was
+Total 0.00 with Deposit 50.00 and Balance 0.00, which reconciles
+under no interpretation. Determine the actual cause.
+
+4.3 PAYOUT STATEMENT ACCURACY
+Generate a payout statement and inspect every column. Report any
+column that shows a placeholder value (particularly zero) while
+being presented as a real reconciled figure. A zero fee that
+actually means "not available" is a correctness defect, because
+a vendor may import it into their accounts.
+
+4.4 STRIPE CONNECT STATE
+Check whether account.updated is subscribed and processed. If
+not, describe the failure mode: a vendor whose payout capability
+lapses after onboarding, and how long the platform would take to
+notice.
+
+4.5 AUTHENTICATION AND AUTHORISATION
+  Is staff MFA enforced in production, or merely warned about?
+    Quote the actual code path.
+  Can any public endpoint accept a client-supplied user ID or
+    vendor ID and attribute data to it? Test the error-incident
+    endpoint specifically by posting an arbitrary vendorId.
+  Test every admin endpoint with a vendor-level token and every
+    vendor endpoint with another vendor's token. Record any that
+    return data they should not.
+
+4.6 COMPLIANCE SURFACES
+These are legal exposure, not preference:
+  Can a dish be published with no allergen data? Test it.
+  Is the mandatory customer service fee included in the price
+    shown at the FIRST point pricing is displayed, or added late
+    in checkout? Drip pricing is now actively fined in the UK.
+  Does any page display a traction claim (vendor counts,
+    satisfaction scores, review averages, testimonials) that is
+    not backed by real data in the database? Grep for figures
+    such as "500", "4.8", "cooks joined", "rating". Any
+    hardcoded traction number is a finding.
+  Which version of the vendor terms is live, and does an
+    acceptance record exist per vendor?
+
+4.7 DATA INTEGRITY
+Check for: missing foreign key constraints, nullable columns the
+code assumes are populated, Prisma migrations not applied,
+orphaned records, and any place a failed write leaves related
+records inconsistent because it is not wrapped in a transaction.
+Pay particular attention to order creation, payment capture and
+payout generation.
+
+4.8 OBSERVABILITY
+Is Sentry (or equivalent) actively capturing errors in
+production, or scaffolded and disabled? Prove it by triggering
+a test exception and confirming it arrives. Is queue alerting
+configured, or falling back to logs? Quote the evidence.
+
+OUTPUT
+Write to /audit/section-d-critical.md. Report to me immediately
+if you find anything that could cause a duplicate payment, a
+duplicate payout, or an unallergenned dish reaching a customer.
+Do not wait for Phase 5 to tell me about those.

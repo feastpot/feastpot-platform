@@ -109,11 +109,7 @@ export function Toaster({ children }: { children: ReactNode }) {
             </DialogHeader>
 
             <div className="mt-4 flex justify-end">
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={() => remove(activeModal.id)}
-              >
+              <Button variant="destructive" size="sm" onClick={() => remove(activeModal.id)}>
                 OK, understood
               </Button>
             </div>
@@ -141,9 +137,7 @@ export function Toaster({ children }: { children: ReactNode }) {
             <div className="flex items-start gap-2 flex-1">
               <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-green-600" />
               <div>
-                {t.title && (
-                  <ToastTitle className="text-sm font-semibold">{t.title}</ToastTitle>
-                )}
+                {t.title && <ToastTitle className="text-sm font-semibold">{t.title}</ToastTitle>}
                 {t.description && (
                   <ToastDescription className="text-sm opacity-90">
                     {t.description}

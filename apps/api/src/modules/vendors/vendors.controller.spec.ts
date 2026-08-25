@@ -59,10 +59,14 @@ const mockDebugResult = {
 describe('VendorsController (HTTP) - debug endpoint + route ordering', () => {
   let app: INestApplication;
   let getDebugInfo: jest.Mock;
+  let findBySlug: jest.Mock;
+  let findSlugRedirect: jest.Mock;
   const originalNodeEnv = process.env.NODE_ENV;
 
   beforeAll(async () => {
     getDebugInfo = jest.fn();
+    findBySlug = jest.fn();
+    findSlugRedirect = jest.fn();
     const moduleRef: TestingModule = await Test.createTestingModule({
       controllers: [VendorsController],
       providers: [
@@ -75,7 +79,8 @@ describe('VendorsController (HTTP) - debug endpoint + route ordering', () => {
             getDebugInfo,
             findById: jest.fn(),
             search: jest.fn(),
-            findBySlug: jest.fn(),
+            findBySlug,
+            findSlugRedirect,
           },
         },
         { provide: SupabaseStorageService, useValue: {} },
@@ -107,6 +112,8 @@ describe('VendorsController (HTTP) - debug endpoint + route ordering', () => {
 
   beforeEach(() => {
     getDebugInfo.mockReset();
+    findBySlug.mockReset();
+    findSlugRedirect.mockReset();
     // Ensure NODE_ENV is non-prod for the happy-path tests; the prod
     // test overrides it explicitly.
     process.env.NODE_ENV = 'test';
@@ -167,10 +174,16 @@ describe('VendorsController (HTTP) - debug endpoint + route ordering', () => {
     expect(getDebugInfo).not.toHaveBeenCalled();
   });
 
-  it('GET /v1/vendors/:id with a non-UUID value still returns 400 (UUID guard did not regress)', async () => {
-    // "not-a-uuid" must hit the UUID-validated `/:id` route, NOT `debug`.
-    // If route ordering ever breaks again, this would 404 instead of 400.
-    await request(app.getHttpServer()).get('/v1/vendors/not-a-uuid').expect(400);
+  it('GET /v1/vendors/:idOrSlug treats a non-UUID value as a slug', async () => {
+    // The unified public route intentionally accepts either a UUID or a slug,
+    // so global validation does not reject this string. An unknown slug has
+    // the normal public not-found contract.
+    findBySlug.mockRejectedValueOnce(new NotFoundException());
+    findSlugRedirect.mockResolvedValueOnce(null);
+
+    await request(app.getHttpServer()).get('/v1/vendors/not-a-uuid').expect(404);
+    expect(findBySlug).toHaveBeenCalledWith('not-a-uuid', undefined);
+    expect(findSlugRedirect).toHaveBeenCalledWith('not-a-uuid');
   });
 });
 

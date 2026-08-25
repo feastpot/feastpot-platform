@@ -11,9 +11,9 @@
  *  - founding-allowance orders: chargeable basis = max(0, commissionBasis - allowance)
  *  - allowance covering full commission basis → 0p commission
  */
-import { Decimal } from '@prisma/client/runtime/library';
-import { DiscountFundedBy, OrderSource } from '@prisma/client';
 import { NotFoundException } from '@nestjs/common';
+import { DiscountFundedBy, OrderSource } from '@prisma/client';
+import { Decimal } from '@prisma/client/runtime/library';
 
 import { CommissionService } from './commission.service';
 
@@ -37,9 +37,7 @@ function makeService(overrides?: {
     createdAt: new Date('2026-01-15T12:00:00Z'),
     attribution: { source: OrderSource.MARKETPLACE, isFirstOrder: true },
     orderCommission:
-      overrides?.commissionPence != null
-        ? { commissionPence: overrides.commissionPence }
-        : null,
+      overrides?.commissionPence != null ? { commissionPence: overrides.commissionPence } : null,
     ...(overrides?.orderSelect ?? {}),
   };
 
