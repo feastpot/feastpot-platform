@@ -1,0 +1,307 @@
+FEASTPOT IMPLEMENTATION GAPS AUDIT
+25 August 2026
+
+Purpose
+-------
+This is a fresh editorial review of what still needs work after checking the
+current main branch, current workflows, CI configuration, and production log
+signals available in this workspace. It is not a reprint of earlier audits:
+items that now exist in code have been deliberately removed.
+
+The platform is substantially more complete than several older audit documents
+suggest. The remaining work is concentrated in the reliability boundary between
+payments, operations, and release assurance rather than in missing core
+screens.
+
+
+EXECUTIVE VERDICT
+----------------
+There is no newly evidenced "the product cannot take an order" code blocker.
+There are, however, five high-priority gaps that should be closed before
+unattended scale-up:
+
+1. Staff MFA can still be optional in production.
+2. A concurrent Stripe webhook delivery can enqueue duplicate work.
+3. Public error reports can be attributed to another user or vendor.
+4. Customer discovery cards are missing data the interface is already prepared
+   to show.
+5. CI does not exercise the customer or admin browser journeys that carry
+   money, permissions, and operational actions.
+
+The recommended order is security and webhook safety first, then release
+assurance, then discovery and financial correctness.
+
+
+PRIORITY 1 - CLOSE BEFORE UNATTENDED SCALE-UP
+----------------------------------------------
+
+1. Make production staff MFA enforced, not merely warned about.
+
+Why this matters:
+  A password-only compromise currently provides full staff access, including
+  finance, vendor enforcement, customer data, and operational tooling.
+
+Evidence:
+  apps/api/src/main.ts:143-154 only writes a startup warning when
+  ADMIN_REQUIRE_AAL2 is not true in production; it intentionally continues to
+  boot.
+
+What to implement:
+  - Confirm every staff user has enrolled in TOTP.
+  - Set and validate the server and admin-app enforcement flags at release.
+  - Add a deployment/startup policy that makes an accidental production
+    downgrade visible as a failed release check, not just a log line.
+
+
+2. Claim Stripe webhooks atomically before queueing work.
+
+Why this matters:
+  Two deliveries of the same signed Stripe event can both pass the initial
+  "not processed" lookup and each add a Bull job. Database uniqueness only
+  protects the record written after queueing, not the duplicate queue work.
+  Individual handlers are designed to be idempotent, but duplicated
+  notifications and other non-database side effects remain a realistic risk.
+
+Evidence:
+  apps/api/src/modules/payments/stripe-webhook.controller.ts:92-150 performs
+  findUnique -> queue.add -> create(ProcessedWebhookEvent).
+
+What to implement:
+  - Introduce an event claim state with a unique insert before queueing, plus a
+    recoverable "claim but not enqueued" path; or use a deterministic Bull job
+    ID with a durable outbox/claim pattern.
+  - Cover concurrent duplicate delivery with an integration test that verifies
+    exactly one effective queue job and one effective side-effect sequence.
+
+
+3. Stop public error reports from accepting unverified user and vendor IDs.
+
+Why this matters:
+  Error reporting must be public because an error can occur before sign-in.
+  It should not let a caller attach an incident to any arbitrary account,
+  however. That pollutes the support/audit record and undermines the usefulness
+  of incident correlation.
+
+Evidence:
+  apps/api/src/modules/error-incidents/error-incidents.controller.ts:28-38
+  exposes POST publicly; the DTO accepts vendorId and userId; the service
+  persists those supplied values.
+
+What to implement:
+  - Derive identity from a valid optional session when available.
+  - For anonymous reports, persist no user/vendor relationship.
+  - Do not trust client-provided account IDs; keep them only as sanitized,
+    non-authoritative diagnostic context if they are truly needed.
+
+
+4. Return the fields needed by public vendor cards.
+
+Why this matters:
+  The browse and homepage rails can show food imagery, hygiene trust, minimum
+  order, and delivery information, but the search API omits those fields. The
+  result is generic fallback imagery and less useful information at the exact
+  point where a customer is deciding whom to order from.
+
+Evidence:
+  apps/api/src/modules/vendors/vendors.service.ts:1107-1121 maps only basic
+  identity, cuisine, rating, distance, and matched dishes.
+  apps/web/src/lib/api/vendors.ts:5-37 explicitly documents the missing
+  logoUrl, coverImageUrl, fsaRating, minOrderPence, and delivery ETA fields.
+  apps/web/src/components/vendor/vendor-card.tsx already has graceful display
+  paths for these values.
+
+What to implement:
+  - Extend the repository query and public response contract with the card
+    fields that have a real source of truth.
+  - Keep values nullable rather than inventing defaults.
+  - Add an API contract test and a web card rendering test for present/absent
+    values.
+
+
+5. Make browser-level release checks representative of the real platform.
+
+Why this matters:
+  The customer checkout and admin operational journeys are not protected by
+  the current required E2E gate. A green CI run can therefore miss a broken
+  purchase, finance operation, or staff permission flow.
+
+Evidence:
+  .github/workflows/ci.yml:313 onward runs only the vendor portal Playwright
+  suite.
+  apps/admin/playwright.config.ts:36-53 defines projects only for auth setup
+  and debounce tests, leaving the other admin specs outside a runnable
+  project.
+  apps/web/package.json and apps/admin/package.json define E2E scripts but
+  CI does not invoke them.
+
+What to implement:
+  - Add authenticated web and admin E2E jobs to CI and make them required for
+    main.
+  - Correct admin Playwright project selection so all intended specs run.
+  - Replace "skip when auth is absent" for critical checks with explicit CI
+    credentials and a guard that fails when the test was skipped.
+  - Keep a small, reliable smoke suite for each surface rather than trying to
+    run every browser test on every pull request.
+
+
+PRIORITY 2 - RELIABILITY, FINANCE, AND OPERATOR TRUST
+-----------------------------------------------------
+
+6. Subscribe to and persist Stripe Connect account changes.
+
+Why this matters:
+  A vendor's Stripe Connect eligibility can change after onboarding. The
+  platform should learn promptly when payouts become disabled or requirements
+  change, instead of waiting for that vendor to revisit onboarding.
+
+Evidence:
+  apps/api/src/modules/vendors/vendors.service.ts:793-800 identifies the
+  account.updated webhook as the long-term solution and leaves it out of scope.
+
+What to implement:
+  - Add account.updated to the signed webhook allow-list and processor.
+  - Reconcile the relevant connected-account state to the vendor record.
+  - Surface actionable vendor/admin status with an audit trail.
+
+
+7. Do not present placeholder zeroes as accountancy-ready payout facts.
+
+Why this matters:
+  A zero fee or adjustment looks like a reconciled figure, not "data not
+  available." Finance exports should not silently manufacture certainty.
+
+Evidence:
+  apps/api/src/modules/payouts/payouts.service.ts:315-323 documents fee and
+  adjustment columns as placeholder zero values while describing the output as
+  suitable for accountancy import.
+
+What to implement:
+  - Model real Stripe/platform fees and manual adjustments, or omit those
+    columns until they are available.
+  - Label unavailable values clearly in both CSV and admin UI.
+  - Add a reconciliation fixture that proves statement totals are source-based.
+
+
+8. Give email templates the same render contract protection as WhatsApp.
+
+Why this matters:
+  Broken interpolation or an empty email body can reach customers without a
+  compile-time error. WhatsApp template slot counts have a contract test;
+  email needs an equivalent safeguard.
+
+Evidence:
+  apps/api/src/modules/notifications includes
+  whatsapp-template-contract.spec.ts, but there is no corresponding
+  render-all-email-templates/non-empty contract test.
+
+What to implement:
+  - Render every email template with a complete fixture.
+  - Assert non-empty subject, non-empty text/HTML content, and no unresolved
+    placeholders.
+  - Run the suite in the normal API test command.
+
+
+9. Make coverage reporting honest and enforceable.
+
+Why this matters:
+  CI is labelled "coverage >= 70%" while key workspaces can pass with no unit
+  tests and no repository-wide threshold is evidenced. This creates a false
+  sense of regression protection.
+
+Evidence:
+  .github/workflows/ci.yml:301-305 delegates coverage thresholds to workspace
+  configuration.
+  apps/web/package.json uses --passWithNoTests.
+  apps/vendor/package.json reports that it has no unit tests.
+
+What to implement:
+  - Define coverage scope and thresholds per workspace, or remove the global
+    threshold claim.
+  - Add focused unit tests where browser coverage would be unnecessarily slow.
+  - Preserve E2E tests for cross-application flows rather than counting them
+    as unit coverage.
+
+
+10. Finish the operator alerting path.
+
+Why this matters:
+  Queue-depth and stuck-order alarms falling back to logs are easy to miss
+  during the very incident where prompt response matters most.
+
+Evidence:
+  Production deployment logs on 25 August record:
+  "Queue alert (no QUEUE_ALERT_SLACK_WEBHOOK_URL set)".
+  The API also classifies a missing queue-alert webhook as degraded monitoring.
+
+What to implement:
+  - Configure and test the queue alert destination.
+  - Document an on-call owner and a response runbook.
+  - Verify alerts for failed jobs, stuck orders, and chargeback deadlines.
+
+
+OPERATING GATES - MUST BE VERIFIED, NOT ASSUMED
+------------------------------------------------
+
+These cannot be proven solely from source code. They should be recorded as
+completed only with production evidence:
+
+  - Stripe live webhook endpoint registration and real signing-secret
+    verification for every required event type.
+  - A live-mode payout dry run with settlement and finance reconciliation.
+  - Capacity enforcement readiness: counter reconciliation before enabling the
+    flag, plus a real checkout rehearsal for sold-out/cut-off conditions.
+  - Replit API deployment handoff: the GitHub deployment workflow builds the
+    API but intentionally does not publish the always-on Replit VM, so a
+    documented publish-and-smoke step is required for API releases.
+  - Sentry, Supabase database alerts, and support/on-call ownership.
+
+
+CONFIRMED COMPLETE OR NO LONGER A GAP
+-------------------------------------
+
+The following older findings were checked and intentionally excluded from the
+action list:
+
+  - The public /catering, /trust, and /vendor-readiness pages now exist.
+  - The checkout shows near-sold-out and sold-out capacity guidance.
+  - Customer-facing capacity bands and vendor availability data are present.
+  - Admin catering is consolidated under /catering with SLA urgency handling.
+  - Admin dead-letter and notification-outbox resend surfaces exist.
+  - Vendor profile editing exists in the vendor portal.
+  - Compliance document storage is now auto-created at API startup.
+  - Chargeback reconciliation and two-stage dispute appeal paths are present;
+    do not re-open older audit items without a current reproduction.
+
+
+RECOMMENDED DELIVERY ORDER
+--------------------------
+
+Week 1:
+  1. Enforce staff MFA in production.
+  2. Make Stripe event claiming safe under concurrent delivery.
+  3. Correct public error-incident identity handling.
+  4. Arm the missing operational alert destination.
+
+Week 2:
+  5. Make web/admin E2E jobs real CI gates.
+  6. Complete the vendor-card API payload.
+  7. Add email render contracts.
+
+After that:
+  8. Stripe Connect account.updated reconciliation.
+  9. Payout statement source-of-truth work.
+ 10. Coverage policy cleanup and any broader analytics/reporting work.
+
+
+AUDIT METHOD AND LIMITS
+-----------------------
+
+Reviewed:
+  - apps/api, apps/web, apps/vendor, apps/admin, Prisma, CI, deployment
+    workflow, current workflow logs, and recent commits.
+  - Direct code evidence was preferred over historical audit prose.
+
+Not claimed:
+  - Secrets, live Stripe configuration, legal approval, real bank settlement,
+    and on-call practice were not inspected or inferred. They remain explicit
+    operational verification items, not asserted defects.
