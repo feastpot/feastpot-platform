@@ -1,0 +1,585 @@
+FEASTPOT CODEBASE AND FUNCTIONAL AUDIT
+25 August 2026
+
+Purpose
+-------
+
+This report combines the four working audits covering the Feastpot
+codebase, tests and CI, browser behaviour, and money, data integrity, and
+compliance.
+
+The work used static source tracing, repository commands, the running
+customer, vendor, admin, and API applications, Playwright browser visits,
+read-only development database queries, and selected existing tests. No
+application, dependency, configuration, workflow, migration, or database
+fix was made during the audit. Temporary test accounts and the one
+temporary incident record were removed.
+
+This is an editorial decision report, not another engineering notebook. It
+separates observed failures from things that could not be verified.
+
+The audited commit was:
+
+4e9ebe589ab6ab47d69f929b1c0f275079c1687d
+
+Executive Verdict
+-----------------
+
+No, the platform is not yet safe to operate for real transactions.
+Customers can browse, but checkout is unavailable in the audited
+environment because the public Stripe key is missing.
+More seriously, 45 available approved dishes have no allergen declaration,
+and one was confirmed publicly visible.
+Catering can create a £50 deposit against a quote as low as £1, producing
+a negative balance.
+The Stripe webhook path has both a configuration failure and a
+concurrency race in its event-claiming order.
+Refunds for catering do not enter the normal financial ledger.
+Real transactions should wait until food-safety data is remediated, Stripe
+flows are configured and tested, and the money paths are reconciled.
+
+Priority 1 - Fix Before Any Real Transaction
+--------------------------------------------
+
+1. Forty-five approved available dishes have no allergen declaration.
+
+Why this matters:
+  Customers can be shown a dish with no declared allergens even though the
+  vendor has not confirmed that it is free from all 14 regulated allergens.
+  This is a food-safety and legal exposure, not a cosmetic data problem.
+
+Evidence:
+  A read-only database query found 45 rows with is_available true,
+  moderation_status auto_approved or approved, an empty allergens array,
+  and allergens_free_from false. An anonymous request for one of those
+  rows returned isAvailable true, allergenCount 0,
+  allergensFreeFrom false, and moderationStatus auto_approved.
+  The public filter is in
+  apps/api/src/modules/catalogue/menu-items.service.ts:100-112 and
+  :172-184. The newer creation gate is at :205-220, but it does not
+  repair older rows.
+
+What to implement:
+  Immediately unpublish all affected rows. Require an allergen declaration
+  or an explicit free-from-all-14 confirmation before republishing. Add a
+  migration or remediation job for legacy rows and a public-read regression
+  test.
+
+2. The customer cannot complete checkout in the audited environment.
+
+Why this matters:
+  A customer can add food to a basket but cannot pay, receive a
+  confirmation, or see a completed order. There is no evidence that the
+  real purchase journey is ready.
+
+Evidence:
+  The browser showed:
+  Checkout unavailable. Payments aren't configured for this environment
+  yet (NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY is missing).
+  Evidence: audit/evidence/customer-checkout.png and
+  audit/evidence/web-customer-homecheckout.png.
+
+What to implement:
+  Configure the publishable key in the customer deployment, keep the
+  secret and publishable environments aligned, and run a complete
+  customer checkout test using a test payment method. Verify payment,
+  order creation, confirmation, order history, fulfilment visibility, and
+  refund handling before enabling real traffic.
+
+3. The Stripe webhook endpoint is not processing signed events locally and
+   its duplicate claim happens after queue insertion.
+
+Why this matters:
+  The current API returned 503 WEBHOOK_NOT_CONFIGURED for a correctly
+  signed synthetic event, so payment events would not be processed in that
+  environment. Independently, two concurrent deliveries can both pass the
+  duplicate check and both enter the queue before the unique database row
+  is written. This can repeat downstream work and creates a direct path to
+  duplicate operational side effects.
+
+Evidence:
+  The signed probe returned status 503 with code WEBHOOK_NOT_CONFIGURED.
+  In apps/api/src/modules/payments/stripe-webhook.controller.ts the
+  sequence is an existing-row check, queue insertion, then processed-event
+  insertion. The unique stripeEventId constraint is in
+  prisma/schema.prisma and the payments migration, but it is claimed too
+  late.
+
+What to implement:
+  Resolve and verify the environment-specific webhook secret in every
+  deployment. Atomically claim the event before queueing, treating a
+  unique conflict as an already accepted delivery. Run two concurrent
+  signed deliveries and prove one queue job, one processed-event row, and
+  one business effect. Do not release until the test succeeds.
+
+4. Catering can create a deposit larger than the quote total.
+
+Why this matters:
+  A quote between £1 and £49.99 can demand a £50 deposit and store a
+  negative balance. This can overcharge a customer and corrupt the
+  remaining balance, refund, and payout calculations.
+
+Evidence:
+  apps/api/src/modules/catering-bookings/catering-bookings.service.ts:42-45
+  calculates max(5000, ceil(total * 25 percent)). The two quote paths only
+  reject totals below 100 pence at :100-113 and :1128-1136. A £1 quote
+  therefore produces a £50 deposit and a negative £49 balance.
+
+What to implement:
+  Either enforce a £50 minimum quote total or cap the deposit at the total.
+  Use one shared calculation, reject negative balances, and add tests for
+  £1, £49.99, £50, and ordinary larger quotes.
+
+5. Catering refunds bypass the normal financial ledger.
+
+Why this matters:
+  A catering refund can reduce Stripe money without creating the normal
+  refund and credit records or reducing a later payout. If the database
+  update fails after Stripe succeeds, the booking can also remain marked
+  active after the customer has been refunded.
+
+Evidence:
+  Direct Stripe refunds are in
+  apps/api/src/modules/catering-bookings/catering-bookings.service.ts:578-626.
+  The booking status is updated only afterward at :628-635. The service
+  comments state that catering has no PaymentsService ledger integration.
+
+What to implement:
+  Put catering payments and refunds through the same ledger and payout
+  reconciliation rules as ordinary orders. Make retries idempotent,
+  record every refund split, and add a reconciliation path for a Stripe
+  refund whose local update fails.
+
+6. Stripe Connect account changes are ignored.
+
+Why this matters:
+  A vendor's payout capability or onboarding state can change at Stripe
+  without the local platform learning about it. The next payout can then
+  fail or be attempted against stale local information.
+
+Evidence:
+  account.updated is absent from
+  apps/api/src/modules/payments/stripe-webhook.events.ts:15-31.
+  Unhandled events are warned about and not queued by
+  apps/api/src/modules/payments/stripe-webhook.controller.ts:104-125.
+
+What to implement:
+  Handle account.updated, map the relevant capability and requirement
+  fields to the vendor record, audit the change, and alert when payout
+  capability is lost. Test both capability loss and restoration.
+
+Priority 2 - Fix Within The First Weeks
+---------------------------------------
+
+1. Public error reports accept client-supplied vendor ownership.
+
+Why this matters:
+  Anyone can submit an incident and attach another vendor's ID. This
+  poisons the support record and can mislead staff investigating a
+  customer, vendor, or security issue.
+
+Evidence:
+  POST /v1/error-incidents is public in
+  apps/api/src/modules/error-incidents/error-incidents.controller.ts:14-37.
+  A runtime request supplied a real vendor ID obtained from public search,
+  returned 201, and the database stored that attribution. The temporary
+  row was deleted.
+
+What to implement:
+  Derive vendor and user identity from the authenticated principal. If an
+  anonymous report is needed, store client values only as untrusted
+  diagnostic context and never as authoritative ownership.
+
+2. The eight zero-fee orders are not explained by savings records.
+
+Why this matters:
+  Eight development orders do not match the ordinary 5 percent capped fee.
+  All are zero-fee exceptions, and none has a FeastPass saving record.
+  This may be legitimate, but the evidence needed to prove the waiver is
+  absent.
+
+Evidence:
+  Read-only query results were: eight ordinary fee mismatches, eight
+  zero-fee mismatches, zero nonzero-fee mismatches, zero FeastPass saving
+  rows, and zero zero-fee orders joined to a saving row.
+  FeastPass waiver rules are in
+  apps/api/src/modules/orders/orders.service.ts:543-551.
+
+What to implement:
+  Reconcile each order to active membership, attribution source, payment,
+  and waiver evidence. Make the saving record durable and enforce that a
+  zero fee has a corresponding permitted reason.
+
+3. Payout statements are not consistently reconcilable.
+
+Why this matters:
+  A vendor can receive a PDF or detail view whose figures do not explain
+  the batch total. This is a finance and trust problem even if the Stripe
+  transfer amount is correct.
+
+Evidence:
+  Batch creation includes delivered and partially refunded orders at
+  apps/api/src/modules/payouts/payouts.service.ts:849-860, while
+  listPayoutOrders filters only delivered at :1118-1123. The PDF summary
+  at :1390-1413 omits refunds, fees, and adjustments and compares dynamic
+  commission with a flat 12 percent baseline.
+
+What to implement:
+  Use one shared statement model for batch totals, order detail, CSV, PDF,
+  and notifications. Include refunds, service fees, adjustments, and
+  effective commission rates as separate named lines. Test a partially
+  refunded batch.
+
+4. Staff MFA is not guaranteed in production.
+
+Why this matters:
+  If either production flag is absent or false, a stolen staff password is
+  enough to enter the admin system. The API warns but continues running.
+
+Evidence:
+  apps/api/src/main.ts:143-155 explicitly allows production to continue
+  with password-only access when ADMIN_REQUIRE_AAL2 is not true.
+  The admin middleware and server gate use the corresponding flag at
+  apps/admin/src/middleware.ts:76-93 and
+  apps/admin/src/lib/auth/server-gate.ts:82-89.
+
+What to implement:
+  Enrol every staff account, enable both API and admin enforcement flags,
+  and verify an AAL1 session is rejected in production. Add a deployment
+  check that fails before release if the required setting is absent.
+
+5. Payment capture and external transfers need reconciliation controls.
+
+Why this matters:
+  Stripe cannot share the database transaction. A successful capture or
+  transfer can therefore exist without the matching local record if the
+  following database write fails.
+
+Evidence:
+  capturePayment calls Stripe at
+  apps/api/src/modules/payments/payments.service.ts:291 and creates the
+  local capture at :293-305. Payout transfer state is similarly external
+  to the database, although transfer processing is serialised in
+  apps/api/src/modules/payouts/processors/payout-batch.processor.ts:94-101.
+
+What to implement:
+  Run scheduled reconciliation between Stripe objects and local payments
+  and payouts. Alert on captured payments without capture rows, transfers
+  without matching local IDs or amounts, and local transferred states
+  without a Stripe transfer.
+
+6. Lost chargebacks can calculate a different split from partial refunds.
+
+Why this matters:
+  A vendor may be clawed back or credited inconsistently when a chargeback
+  follows earlier partial refunds. Unmatched disputes remain an exception
+  rather than an automatically repaired ledger item.
+
+Evidence:
+  Manual refunds use incremental logic in
+  apps/api/src/modules/payments/payments.service.ts:54-156.
+  Lost-chargeback processing uses a non-incremental split in
+  apps/api/src/modules/payments/stripe-webhook.processor.ts:423-455.
+  Unmatched disputes are logged and sent to Sentry at :373-387.
+
+What to implement:
+  Reuse one cumulative refund-split function for manual refunds and
+  chargebacks. Add tests covering two partial refunds followed by a lost
+  dispute and an unmatched Stripe dispute.
+
+7. Customer purchase coverage is absent from the merge gate.
+
+Why this matters:
+  CI can be green without proving that a customer can select food, pay,
+  receive an order, and view the result. The existing customer browser
+  suite is not run by CI and currently has many failures.
+
+Evidence:
+  No checkout specification exists under apps/web/e2e. The browser audit
+  selected 77 web tests: 34 passed, 35 failed, and 8 were skipped.
+  The CI test job runs the generic Jest command and vendor E2E is the only
+  browser job described in .github/workflows/ci.yml.
+
+What to implement:
+  Add a customer checkout test with a safe payment provider test mode.
+  Make it a required merge check, fail when required credentials are
+  absent, and cover confirmation, order history, and failure recovery.
+
+8. The advertised 70 percent test coverage threshold is not enforced.
+
+Why this matters:
+  The repository presents a coverage gate that does not exist. API
+  statement coverage measured 41.83 percent, yet the test command was not
+  failed for coverage.
+
+Evidence:
+  .github/workflows/ci.yml:247 and :301-305 name and invoke the claimed
+  coverage job. Neither apps/api/jest.config.js nor
+  apps/web/jest.config.js defines coverageThreshold. The measured API
+  result was 41.83 percent statements and 34.74 percent branches.
+
+What to implement:
+  Define thresholds in each test runner or remove the claim. Include all
+  application workspaces in the gate and ensure a missing test discovery
+  result fails rather than passing through --passWithNoTests.
+
+Priority 3 - Housekeeping And Technical Debt
+--------------------------------------------
+
+1. The lint gate is red.
+
+Evidence:
+  npm run lint reported 126 problems: 8 errors and 118 warnings. The
+  errors are import ordering and grouping violations in the API.
+
+What to implement:
+  Clear the eight errors, then reduce warnings by risk, starting with
+  unsafe any usage and user-facing image and hook warnings.
+
+2. The installed dependency graph has nine reported vulnerabilities.
+
+Evidence:
+  npm audit reported 8 high and 1 moderate vulnerability, with no
+  critical result. The direct affected packages include Next,
+  @nestjs/swagger, postcss, and tailwindcss.
+
+What to implement:
+  Review upgrade paths, apply compatible security updates, and rerun the
+  audit. Do not make major upgrades mechanically without regression tests.
+
+3. The development migration ledger is not clean.
+
+Evidence:
+  A read-only query found 79 migration rows, 5 with finished_at null, and
+  5 with rolled_back_at set. The entries concern vendor trust, allergen
+  confirmation, commission rates, and attribution enums.
+
+What to implement:
+  Reconcile the development ledger and verify production with
+  prisma migrate status and a clean no-op deployment. Do not mark failed
+  migrations applied without confirming their database objects.
+
+4. The payout CSV contract and implementation disagree.
+
+Evidence:
+  apps/api/src/modules/payouts/payouts.service.ts:103-135 derives residual
+  values, while :315-323 still describes fees and adjustments as zero
+  placeholders. docs/OUTSTANDING.md repeats the older description.
+
+What to implement:
+  Define the accounting meaning of every CSV column, update the
+  documentation, and add a fixture containing fees, refunds, and
+  adjustments.
+
+5. Mobile customer home has 16 pixels of horizontal overflow.
+
+Evidence:
+  At a 375 pixel viewport, browser measurement was scrollWidth 391 and
+  clientWidth 375. Evidence: audit/evidence/web-home-mobile.png.
+
+What to implement:
+  Find the overflowing element and add a 375 pixel regression check. This
+  is lower risk than the money and food-safety findings.
+
+6. Error and empty-state handling still needs tightening.
+
+Evidence:
+  apps/web/src/app/page.tsx:73-85 turns every vendor-fetch failure into an
+  empty list. The order-status route, vendor auth callback, and vendor
+  menu grid can expose provider or backend error text at
+  apps/web/src/app/api/orders/[id]/status/route.ts:28-30,
+  apps/vendor/src/app/auth/callback/route.ts:41-46, and
+  apps/vendor/src/app/menu/[menuId]/items-grid-client.tsx:156-162.
+
+What to implement:
+  Distinguish an empty catalogue from a failed request, show a recoverable
+  error state, and replace raw provider messages with safe correlation
+  references.
+
+Confirmed Working
+-----------------
+
+1. npm run build completed with exit code 0 and five successful tasks.
+
+2. npm run typecheck completed with exit code 0 across all seven
+   workspaces.
+
+3. npm run smoke-test printed All smoke tests passed.
+
+4. The browser visited all 136 discovered page routes: 49 customer, 42
+   vendor, and 45 admin routes. Anonymous protected vendor and admin
+   routes redirected to their sign-in or authorisation surfaces.
+
+5. A real customer postcode returned 30 vendor cards. A real vendor
+   profile rendered dish content and allergen controls. A real add-to-
+   basket click changed the basket count from 0 to 1.
+
+6. A postcode with no vendors showed an explanation and a waitlist action
+   rather than a silent blank state.
+
+7. Sixty-one rendered public internal links were followed without a 404,
+   unexpected redirect, or browser navigation error.
+
+8. The targeted menu-item unit suite passed all 12 tests.
+
+9. Read-only development database checks found zero orphan orders,
+   payments, payouts, or non-null chargeback relationships. They also
+   found zero transferred payouts without transfer IDs and zero
+   non-transferred payouts carrying transfer IDs.
+
+10. The customer vendor card and vendor page displayed the service-fee cap
+    before checkout, and checkout displayed the configured percentage and
+    cap when rendered.
+
+Not Verified
+------------
+
+1. A completed customer payment, order confirmation, order history record,
+   fulfilment transition, real refund, or customer-facing chargeback was
+   not verified. The public Stripe key was missing.
+
+2. The signed Stripe webhook concurrency test did not execute because the
+   local API returned 503 WEBHOOK_NOT_CONFIGURED. No duplicate payment,
+   payout, email, notification, or business write was inferred.
+
+3. No live Stripe charge, transfer, bank settlement, or payout was made.
+   No live payout statement was generated because the development
+   database contained zero payout rows.
+
+4. No catering booking existed in the development database, so stored
+   deposits and balances were not observed. The arithmetic defect is
+   proven by source.
+
+5. Authenticated vendor and admin journeys were not verified. Disposable
+   identities could authenticate with the identity provider but could not
+   be safely provisioned with matching platform profiles. Vendor earnings,
+   compliance, account status, referrals, catering, menu creation,
+   onboarding, terms acceptance, payouts, and admin screens therefore
+   remain unverified.
+
+6. Vendor and admin endpoint matrices were not tested with role-specific
+   bearer tokens. Static ownership and role gates were inspected, but
+   source inspection is not an end-to-end authorisation proof.
+
+7. Production values for MFA flags, Stripe webhook configuration, Stripe
+   Connect registration, Sentry DSN, Slack alerting, migration state,
+   terms state, database state, and branch protection were not queried.
+
+8. Real email, WhatsApp, push delivery, retry behaviour, and provider
+   settlement were not exercised.
+
+9. Accessibility was not assessed with Axe or Lighthouse because neither
+   was available. Authenticated mobile dashboards and a complete checkout
+   mobile layout were also not verified.
+
+10. Legal compliance, live vendor terms selection, real vendor terms
+    acceptance, and production customer or vendor data were not claimed.
+
+11. The auditor did not inspect hosted GitHub Actions or change any
+    deployment, database, secret, or workflow setting.
+
+Previous Findings Re-checked
+----------------------------
+
+Earlier gaps audit
+
+1. A-01 lint failure: STILL PRESENT. npm run lint reported 8 errors and
+   118 warnings in the Phase 1 run.
+
+2. A-02 payout CSV endpoint had no checked-in first-party caller:
+   STILL PRESENT as a static result. No caller was found, but an external
+   or administrative consumer cannot be ruled out.
+
+3. A-03 undocumented production switches: STILL PRESENT. The static audit
+   found MFA, capacity, FeastPass price, finance alert, chargeback,
+   queue, hashing, and proxy settings absent from the relevant examples.
+
+4. A-04 payout export placeholders: STILL PRESENT. Phase 4 also found the
+   PDF and payout-detail inconsistencies.
+
+5. A-05 tracked seed and test passwords: STILL PRESENT in source. Their
+   production usability was not tested.
+
+6. A-06 dependency vulnerabilities: STILL PRESENT. npm audit reported
+   nine vulnerabilities, including eight high severity.
+
+7. A-07 silent customer-home degradation: STILL PRESENT in source. Vendor
+   fetch failures are still converted to an empty list.
+
+8. A-08 internal error exposure: STILL PRESENT in source. The order status,
+   vendor callback, and menu grid paths still expose raw error text.
+
+9. A-09 incomplete em-dash policy coverage: STILL PRESENT in the CI
+   definition. Application source passed the direct scan, but YAML, SQL,
+   shell, and text files are not covered by the stated gate.
+
+Vendor portal and functional review
+
+1. Anonymous protection: FIXED AND CONFIRMED. Protected vendor and admin
+   routes redirected during the browser walkthrough.
+
+2. Customer browsing and basket: FIXED AND CONFIRMED. SE15 returned 30
+   vendor cards, a real profile rendered, and adding a dish set the basket
+   count to 1.
+
+3. Customer checkout: STILL PRESENT. The browser still showed the missing
+   NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY message.
+
+4. No-vendor postcode: FIXED AND CONFIRMED. The no-results state explained
+   the situation and offered the waitlist.
+
+5. Mobile customer-home overflow: STILL PRESENT. The measured overflow is
+   16 pixels at a 375 pixel viewport.
+
+6. Existing profile allergen controls: FIXED AND CONFIRMED for the tested
+   profile. This does not clear the separate legacy-data finding: 45
+   other public rows had no allergen declaration.
+
+7. Vendor earnings, compliance, account status, referral QR, catering
+   navigation, vendor application, terms acceptance, dish creation,
+   fulfilment, and payout statement: COULD NOT REPRODUCE. The required
+   authenticated vendor profile could not be provisioned safely.
+
+8. Admin authenticated screens and staff actions: COULD NOT REPRODUCE.
+   Anonymous redirects worked, but no authenticated staff profile was
+   available for the walkthrough.
+
+9. Public internal link integrity: FIXED AND CONFIRMED for the 61 links
+   actually rendered and followed. Protected sidebar and record-specific
+   links remain unverified.
+
+10. Accessibility and referral QR timing: COULD NOT REPRODUCE. The needed
+    tooling or authenticated profile was unavailable.
+
+Audit Method And Limits
+-----------------------
+
+Commands run included npm run build, npm run typecheck, npm run lint,
+npm audit, npm audit --json, npm outdated --json, npm run test,
+npm run test:e2e, npm run smoke-test, workspace-specific test commands,
+static ripgrep searches, read-only psql queries, and a targeted API unit
+test command.
+
+The browser exercised the local customer, vendor, and admin origins and
+visited 136 discovered page routes. It also followed 61 rendered public
+links, tested a real postcode with vendors, a postcode without vendors,
+vendor-profile browsing, allergen controls, basket addition, anonymous
+route protection, and mobile viewport measurements.
+
+The development API was used to retrieve one public menu item and to submit
+one reversible public error incident. The incident was deleted after its
+client-supplied vendor attribution was verified. A synthetic signed Stripe
+webhook was attempted without invoking a matching payment or payout. The
+request was rejected by the API configuration gate, so no webhook data was
+retained.
+
+Database queries were read-only except for cleanup of the temporary
+incident and synthetic event identifiers. They checked migration state,
+orphan relationships, payout state, order money components, terms records,
+menu-item publication state, and catering and payout row counts. No real
+customer, vendor, Stripe, bank, email, WhatsApp, or production data was
+modified.
+
+The audit did not fix code, install dependencies, update secrets, alter
+workflows, apply migrations, publish a deployment, perform live payments,
+or claim that source-only authorisation checks replace authenticated tests.
