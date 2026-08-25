@@ -20,7 +20,8 @@
  * Runs in CI as part of the turbo lint pipeline (see packages/config/package.json).
  *
  * To extend the allowlist legitimately:
- *   - Add an `// refund-path-ok: <reason>` comment on the same line.
+ *   - Add an `// refund-path-ok: <reason>` comment on the same line, or as the
+ *     immediately following comment inside a multi-line call.
  *   - Update this comment block explaining why.
  */
 
@@ -111,8 +112,13 @@ for (const absPath of walkFiles(SCAN_DIR)) {
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       if (!rule.pattern.test(line)) continue;
-      // Inline opt-out: `// refund-path-ok: <reason>` suppresses the violation.
-      if (/\/\/\s*refund-path-ok:/i.test(line)) continue;
+      // Inline opt-out: accept a marker on the matched line, or on the first
+      // argument-comment line. Prettier moves comments inside multi-line calls
+      // into the latter position.
+      const inlineExemption = [line, lines[i + 1] ?? ''].some((candidate) =>
+        /\/\/\s*refund-path-ok:/i.test(candidate),
+      );
+      if (inlineExemption) continue;
       errors.push(`${relPath}:${i + 1}: ${rule.message}`);
     }
   }
