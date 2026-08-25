@@ -1,0 +1,103 @@
+PHASE 5: COMPILE THE EDITORIAL REPORT
+
+Read your four working files under /audit/ and compile them into
+a single editorial findings document.
+
+FILE: /audit/FEASTPOT_AUDIT_<YYYY-MM-DD>.txt
+Plain text. No markdown syntax, no tables, no emoji. Wrap lines
+at 78 characters. UK English. No em dashes anywhere.
+
+STRUCTURE (follow this exactly)
+
+  FEASTPOT CODEBASE AND FUNCTIONAL AUDIT
+  <date>
+
+  Purpose
+  -------
+  What this audit covers, how it was conducted, and what makes
+  it different from previous audits. State the commit SHA you
+  audited.
+
+  Executive Verdict
+  ----------------
+  Six to ten lines maximum. Is the platform safe to operate?
+  Name the small number of things that matter most. Do not
+  hedge. If the answer is "not yet", say so plainly and say
+  what would change it.
+
+  Priority 1 - Fix Before Any Real Transaction
+  --------------------------------------------
+  For each finding, in this format:
+
+    <number>. <One line stating the problem as a fact>
+
+    Why this matters:
+      Plain language consequence. What actually goes wrong, for
+      whom, and how badly.
+
+    Evidence:
+      file/path.ts:120-134 with a short quoted excerpt, or the
+      command run and its real output, or the reproduction steps
+      you performed.
+
+    What to implement:
+      Specific, actionable steps. Not "improve error handling".
+
+  Priority 2 - Fix Within The First Weeks
+  ---------------------------------------
+  Same format.
+
+  Priority 3 - Housekeeping And Technical Debt
+  --------------------------------------------
+  Same format, briefer.
+
+  Confirmed Working
+  -----------------
+  Things you actively tested and found sound. This section is
+  as important as the problems, because it tells me where NOT
+  to spend effort. Only list things you actually exercised.
+
+  Not Verified
+  ------------
+  Everything you could not test, and why. Be exhaustive and
+  honest here. Missing credentials, unavailable services, live
+  Stripe configuration, real bank settlement, anything requiring
+  production access. A reader must be able to tell exactly where
+  the audit's knowledge ends.
+
+  Previous Findings Re-checked
+  ----------------------------
+  For each issue named in the earlier gaps audit and the vendor
+  portal review, state one of: STILL PRESENT (with fresh
+  evidence), FIXED (with evidence it now works), or COULD NOT
+  REPRODUCE. Never carry a finding forward on faith.
+
+  Audit Method And Limits
+  -----------------------
+  Commands run, apps exercised, accounts used, routes visited
+  versus routes existing, tests executed. State what you did
+  NOT do.
+
+RANKING RULE
+Order findings by risk, defined as consequence multiplied by
+likelihood. Money loss, food safety and legal exposure outrank
+everything. A cosmetic issue on a page nobody visits ranks
+last, however easy it is to fix. Do not rank by ease of fixing.
+
+TONE
+Write for a founder who needs to make decisions, not for other
+engineers. Plain language, no jargon where a normal word will
+do, no softening. If something is bad, say it is bad. If you
+are uncertain, say you are uncertain and say why.
+
+FINAL CHECKS BEFORE YOU FINISH
+  Every finding has real evidence with a file path or command
+  output. Remove any finding you cannot evidence.
+  No secret values appear anywhere in the file.
+  No em dash characters anywhere in the file.
+  The Not Verified section is complete and honest.
+  You did not fix anything during the audit.
+
+Then commit the report and the /audit/ evidence directory, and
+give me a five-line summary in chat plus the count of Priority 1
+findings.
