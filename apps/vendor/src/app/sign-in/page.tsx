@@ -99,6 +99,7 @@ function SignInForm() {
   const [pwdReady, setPwdReady] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [needsVendorApplication, setNeedsVendorApplication] = useState(false);
 
   // MFA challenge state. Populated when the signed-in user has a verified
   // TOTP factor and Supabase tells us their next required AAL is `aal2`.
@@ -139,6 +140,7 @@ function SignInForm() {
     }
     setBusy(true);
     setError(null);
+    setNeedsVendorApplication(false);
     const supabase = createClient();
     try {
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
@@ -158,8 +160,30 @@ function SignInForm() {
         | undefined;
       if (role !== 'vendor' && role !== 'admin') {
         await supabase.auth.signOut();
-        setError('This account does not have vendor access. Please use the customer sign-in.');
+        setNeedsVendorApplication(true);
+        setError('This account is not registered as a vendor.');
         return;
+      }
+
+      // A valid Auth account with vendor metadata can still be missing its
+      // matching platform profile (for example after an interrupted
+      // provisioning flow). Catch that before redirecting into the portal,
+      // where it used to bounce through onboarding without an explanation.
+      if (role === 'vendor' && data.session?.access_token) {
+        const profile = await fetch(`${API_URL}/v1/vendors/me`, {
+          headers: { Authorization: `Bearer ${data.session.access_token}` },
+        });
+        if (profile.status === 404) {
+          await supabase.auth.signOut();
+          setNeedsVendorApplication(true);
+          setError('This account is not registered as a vendor.');
+          return;
+        }
+        if (!profile.ok) {
+          await supabase.auth.signOut();
+          setError('We could not confirm your vendor account. Please try again.');
+          return;
+        }
       }
 
       // If 2FA is enrolled, Supabase returns an aal1 session and tells us
@@ -433,7 +457,12 @@ function SignInForm() {
               className="mt-5 rounded-lg px-3 py-2.5 text-sm font-medium"
               style={{ background: '#FDE7E6', color: '#9B1B17' }}
             >
-              {error}
+              {error}{' '}
+              {needsVendorApplication && (
+                <Link href="/onboarding/register" className="font-bold underline">
+                  Apply here.
+                </Link>
+              )}
             </div>
           )}
 
