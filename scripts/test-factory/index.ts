@@ -195,7 +195,10 @@ export class TestDataFactory {
     this.namespace = options.namespace ?? process.env.TEST_FACTORY_NAMESPACE ?? 'local';
     this.password = options.password ?? process.env.TEST_FACTORY_PASSWORD ?? null;
 
-    const supabaseUrl = options.supabaseUrl ?? process.env.SUPABASE_URL;
+    const rawSupabaseUrl = options.supabaseUrl ?? process.env.SUPABASE_URL;
+    const supabaseUrl = rawSupabaseUrl
+      ? rawSupabaseUrl.replace(/\/rest\/v1\/?$/, '').replace(/\/+$/, '')
+      : undefined;
     const serviceRoleKey = options.supabaseServiceRoleKey ?? process.env.SUPABASE_SERVICE_ROLE_KEY;
     const anonKey =
       options.supabaseAnonKey ??
@@ -319,7 +322,7 @@ export class TestDataFactory {
       await tx.termsVersion.deleteMany({
         where: {
           documentType: 'VENDOR_TERMS',
-          version: { in: ['test-factory-v1', 'test-factory-v2'] },
+          version: { in: [this.termsVersionLabel('v1'), this.termsVersionLabel('v2')] },
         },
       });
     });
@@ -484,6 +487,14 @@ export class TestDataFactory {
 
   private async ensureUser(state: FactoryState, role: UserRole): Promise<FactoryUser> {
     const email = stateEmail(this.namespace, state);
+    return this.ensureUserByEmail(email, role, state);
+  }
+
+  private async ensureUserByEmail(
+    email: string,
+    role: UserRole,
+    label: string,
+  ): Promise<FactoryUser> {
     const existing = await this.prisma.user.findUnique({ where: { email } });
     let userId = existing?.id;
 
@@ -530,7 +541,7 @@ export class TestDataFactory {
         id: userId,
         email,
         firstName: 'Test',
-        lastName: `${state} Factory`,
+        lastName: `${label} Factory`,
         role,
         status: 'active',
         emailVerified: true,
@@ -551,7 +562,7 @@ export class TestDataFactory {
     };
   }
 
-  private async ensureVendor(identity: TestIdentity, user: FactoryUser, state: VendorState) {
+  private async ensureVendor(identity: TestIdentity, user: FactoryUser, state: FactoryState) {
     const existing = await this.prisma.vendor.findUnique({ where: { userId: user.id } });
     const vendor =
       existing ??
@@ -597,9 +608,12 @@ export class TestDataFactory {
   ) {
     let vendorId = preferredVendorId;
     if (!vendorId) {
-      const helperState = `V4` as const;
-      const helperUser = await this.ensureUser(helperState, 'vendor');
-      const helperVendor = await this.ensureVendor(identity, helperUser, helperState);
+      const helperUser = await this.ensureUserByEmail(
+        `tf-${safeKey(this.namespace)}-${state.toLowerCase()}-order-vendor@test.feastpot.co.uk`,
+        'vendor',
+        `Order ${state} helper`,
+      );
+      const helperVendor = await this.ensureVendor(identity, helperUser, state);
       vendorId = helperVendor.id;
       if (!identity.relatedUserIds.includes(helperUser.id))
         identity.relatedUserIds.push(helperUser.id);
@@ -778,13 +792,15 @@ export class TestDataFactory {
   private async ensureTerms(vendorId: string): Promise<void> {
     const contentV1 = '# Test Factory Vendor Terms v1';
     const contentV2 = '# Test Factory Vendor Terms v2';
+    const versionV1 = this.termsVersionLabel('v1');
+    const versionV2 = this.termsVersionLabel('v2');
     const now = new Date();
     const v1 = await this.prisma.termsVersion.upsert({
-      where: { documentType_version: { documentType: 'VENDOR_TERMS', version: 'test-factory-v1' } },
+      where: { documentType_version: { documentType: 'VENDOR_TERMS', version: versionV1 } },
       update: {},
       create: {
         documentType: 'VENDOR_TERMS',
-        version: 'test-factory-v1',
+        version: versionV1,
         contentMdx: contentV1,
         contentHash: sha256(contentV1),
         changeSummary: 'Stable test-only vendor terms version.',
@@ -794,11 +810,11 @@ export class TestDataFactory {
       },
     });
     await this.prisma.termsVersion.upsert({
-      where: { documentType_version: { documentType: 'VENDOR_TERMS', version: 'test-factory-v2' } },
+      where: { documentType_version: { documentType: 'VENDOR_TERMS', version: versionV2 } },
       update: {},
       create: {
         documentType: 'VENDOR_TERMS',
-        version: 'test-factory-v2',
+        version: versionV2,
         contentMdx: contentV2,
         contentHash: sha256(contentV2),
         changeSummary: 'Future material test-only vendor terms version.',
@@ -818,6 +834,10 @@ export class TestDataFactory {
         scrolledToEnd: true,
       },
     });
+  }
+
+  private termsVersionLabel(revision: 'v1' | 'v2'): string {
+    return `tf-${sha256(this.namespace).slice(0, 20)}-${revision}`;
   }
 
   private async ensureCateringBooking(

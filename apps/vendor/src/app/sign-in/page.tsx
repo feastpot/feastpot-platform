@@ -173,7 +173,7 @@ function SignInForm() {
         const profile = await fetch(`${API_URL}/v1/vendors/me`, {
           headers: { Authorization: `Bearer ${data.session.access_token}` },
         });
-        if (profile.status === 404) {
+        if (profile.status === 403 || profile.status === 404) {
           await supabase.auth.signOut();
           setNeedsVendorApplication(true);
           setError('This account is not registered as a vendor.');
