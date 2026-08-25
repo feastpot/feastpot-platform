@@ -25,19 +25,17 @@ import * as Sentry from '@sentry/nestjs';
 import { SupabaseService } from '../../auth/supabase.service';
 import type { AuthUser } from '../../auth/types';
 import { PrismaService } from '../../prisma/prisma.service';
+import { DOCUMENTS_BUCKET } from '../catalogue/supabase-storage.service';
 import { InboxService } from '../inbox/inbox.service';
 import { LoyaltyService } from '../loyalty/loyalty.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PaymentsService } from '../payments/payments.service';
-
-import { DOCUMENTS_BUCKET } from '../catalogue/supabase-storage.service';
 
 import type { CloseDisputeDto } from './dto/close-dispute.dto';
 import type { CreateDisputeDto } from './dto/create-dispute.dto';
 import type { ListDisputesDto } from './dto/list-disputes.dto';
 import type { UpdateDisputeDto } from './dto/update-dispute.dto';
 import type { VendorResponseDto } from './dto/vendor-response.dto';
-
 
 /** Allowed transitions from each status. open is reachable from itself for idempotent updates. */
 const STATUS_TRANSITIONS: Record<DisputeStatus, DisputeStatus[]> = {

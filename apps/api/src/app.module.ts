@@ -16,9 +16,9 @@ import { LoggerModule } from 'nestjs-pino';
 // without re-importing it everywhere.
 
 import { AuthModule } from './auth/auth.module';
+import { AalGuard } from './auth/guards/aal.guard';
 import { CommissionModule } from './commission/commission.module';
 import { CacheModule } from './common/cache/cache.module';
-import { AalGuard } from './auth/guards/aal.guard';
 import { RoleThrottlerGuard } from './common/guards/role-throttler.guard';
 import { FeastPassModule } from './feastpass/feastpass.module';
 import { HealthController } from './health/health.controller';
