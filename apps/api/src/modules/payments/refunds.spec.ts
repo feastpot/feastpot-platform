@@ -670,8 +670,7 @@ describe('createRefund - allowance restoration atomicity (D-002)', () => {
     await service.createRefund({ orderId: 'order-1', amountPence: 11300 }, actor, 'key-audit');
 
     const auditCall = tx.auditLog.create.mock.calls.find(
-      (c: unknown[]) =>
-        (c[0] as { data: { action: string } }).data.action === 'refund_issued',
+      (c: unknown[]) => (c[0] as { data: { action: string } }).data.action === 'refund_issued',
     );
     expect(auditCall).toBeDefined();
     const meta = (auditCall![0] as { data: { metadata: { allowanceRestoredPence: number } } }).data

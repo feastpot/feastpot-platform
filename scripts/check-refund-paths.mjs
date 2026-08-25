@@ -34,21 +34,10 @@ const SCAN_DIR = join(repoRoot, 'apps/api/src');
 const SCAN_EXTENSIONS = new Set(['.ts', '.js']);
 
 /** Directories excluded from the walk. */
-const EXCLUDE_DIRS = new Set([
-  'node_modules',
-  '.next',
-  'dist',
-  '.turbo',
-  '.git',
-  '.local',
-]);
+const EXCLUDE_DIRS = new Set(['node_modules', '.next', 'dist', '.turbo', '.git', '.local']);
 
 /** File path patterns excluded from all checks (test fixtures etc.). */
-const EXCLUDE_PATH_PATTERNS = [
-  /\.spec\.[cm]?[tj]sx?$/,
-  /\.test\.[cm]?[tj]sx?$/,
-  /__tests__[\\/]/,
-];
+const EXCLUDE_PATH_PATTERNS = [/\.spec\.[cm]?[tj]sx?$/, /\.test\.[cm]?[tj]sx?$/, /__tests__[\\/]/];
 
 // ─── Rules ───────────────────────────────────────────────────────────────────
 

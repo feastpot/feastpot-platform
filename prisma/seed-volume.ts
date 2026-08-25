@@ -149,7 +149,9 @@ export async function seedVolume(): Promise<void> {
         createdAt,
         deliveredAt: status === 'delivered' ? createdAt : null,
         acceptedAt:
-          status === 'accepted' || status === 'delivered' ? new Date(createdAt.getTime() + 300_000) : null,
+          status === 'accepted' || status === 'delivered'
+            ? new Date(createdAt.getTime() + 300_000)
+            : null,
       };
     });
     await prisma.order.createMany({ data: rows });

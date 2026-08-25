@@ -44,19 +44,42 @@ async function main() {
   ]);
 
   console.log('=== DB STATE AUDIT ===');
-  console.log('USERS BY ROLE:', JSON.stringify(usersByRole.map(r => ({ role: r.role, count: r._count }))));
-  console.log('USERS BY STATUS:', JSON.stringify(usersByStatus.map(r => ({ status: r.status, count: r._count }))));
-  console.log('VENDORS BY STATUS:', JSON.stringify(vendorsByStatus.map(r => ({ status: r.status, count: r._count }))));
-  console.log('VENDORS BY COMPLIANCE:', JSON.stringify(vendorsByCompliance.map(r => ({ compliance: r.complianceStatus, count: r._count }))));
+  console.log(
+    'USERS BY ROLE:',
+    JSON.stringify(usersByRole.map((r) => ({ role: r.role, count: r._count }))),
+  );
+  console.log(
+    'USERS BY STATUS:',
+    JSON.stringify(usersByStatus.map((r) => ({ status: r.status, count: r._count }))),
+  );
+  console.log(
+    'VENDORS BY STATUS:',
+    JSON.stringify(vendorsByStatus.map((r) => ({ status: r.status, count: r._count }))),
+  );
+  console.log(
+    'VENDORS BY COMPLIANCE:',
+    JSON.stringify(
+      vendorsByCompliance.map((r) => ({ compliance: r.complianceStatus, count: r._count })),
+    ),
+  );
   console.log('ORDERS TOTAL:', orderCount);
-  console.log('ORDERS BY TYPE+STATUS:', JSON.stringify(ordersByType.map(r => ({ type: r.type, status: r.status, count: r._count }))));
+  console.log(
+    'ORDERS BY TYPE+STATUS:',
+    JSON.stringify(ordersByType.map((r) => ({ type: r.type, status: r.status, count: r._count }))),
+  );
   console.log('VENDOR APPLICATIONS:', appCount);
   console.log('AUDIT LOGS:', auditCount);
-  console.log('VERIFICATIONS BY STATE:', JSON.stringify(verificationsByState.map(r => ({ state: r.overallState, count: r._count }))));
+  console.log(
+    'VERIFICATIONS BY STATE:',
+    JSON.stringify(verificationsByState.map((r) => ({ state: r.overallState, count: r._count }))),
+  );
   console.log('DISCOUNT CODES:', discountCount);
   console.log('VENDOR MEMBERS:', memberCount);
   console.log('FEASTPASS SUBSCRIPTIONS:', feastpassCount);
-  console.log('ORDER ATTRIBUTION BY SOURCE:', JSON.stringify(attributionBySource.map(r => ({ source: r.resolvedSource, count: r._count }))));
+  console.log(
+    'ORDER ATTRIBUTION BY SOURCE:',
+    JSON.stringify(attributionBySource.map((r) => ({ source: r.resolvedSource, count: r._count }))),
+  );
 
   // Check founding allowance coverage
   const foundingStats = await prisma.vendor.aggregate({

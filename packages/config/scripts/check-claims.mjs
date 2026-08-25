@@ -183,10 +183,7 @@ function isKnownRoute(routeRegexes, href) {
 // Read PLATFORM_FACTS.support.whatsapp from source (without TS compilation)
 // ---------------------------------------------------------------------------
 
-const pfSource = readFileSync(
-  resolve(repoRoot, 'packages/config/src/platform-facts.ts'),
-  'utf8',
-);
+const pfSource = readFileSync(resolve(repoRoot, 'packages/config/src/platform-facts.ts'), 'utf8');
 // Matches `whatsapp: null as string | null` (the current "inactive" state)
 const whatsappIsNull = /whatsapp:\s*null\b/.test(pfSource);
 
@@ -287,9 +284,7 @@ if (errors.length > 0) {
   for (const err of errors) {
     console.error(err);
   }
-  console.error(
-    `\ncheck-claims: ${errors.length} violation(s) found. Fix the files listed above.`,
-  );
+  console.error(`\ncheck-claims: ${errors.length} violation(s) found. Fix the files listed above.`);
   process.exit(1);
 }
 

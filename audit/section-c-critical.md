@@ -6,18 +6,18 @@
 
 ## Executive summary
 
-| Severity | Finding | Evidence |
-|---|---|---|
-| **Critical** | Customer-publishable dishes can have no allergen declaration | 45 matching rows in the development database; one was retrieved anonymously through the public menu-item API with an empty allergen array and `allergensFreeFrom: false`. |
-| **High** | Catering quotes below £50 can charge a deposit larger than the booking total and store a negative balance | Code permits totals from £1, then imposes a £50 minimum deposit without a cap. |
-| **High** | Stripe webhook duplicate protection claims the event only after queueing it | Concurrent deliveries can both enqueue work before the unique event row is inserted. Runtime duplication count is **NOT VERIFIED** because this API returned 503 for signed webhooks. |
-| **High** | Public error reports accept client-supplied vendor attribution | A live reversible request persisted a supplied real vendor ID. The incident was deleted afterward. |
-| **High** | Stripe Connect `account.updated` is intentionally ignored | It is absent from the handled event list; the controller only records a warning for it. |
-| **High** | Catering refunds bypass the refund ledger and payout reconciliation path | Direct Stripe refunds precede a non-transactional booking status update. |
-| **Medium** | Payout PDF cannot reconcile to the payout batch when refunds/adjustments exist | PDF excludes refund, fee, and adjustment lines; it also compares dynamic commission against a flat 12% baseline. |
-| **Medium** | Payout detail rows omit partially refunded orders even though batch totals include them | Static code mismatch between batch aggregation and detail lookup. |
-| **Medium** | The development migration ledger has five rolled-back migrations | Database reads show 79 migration rows, including five with `rolled_back_at`; this is an integrity/deployment evidence gap, not proof that production is broken. |
-| **Medium** | Staff MFA enforcement and operational alerting are opt-in configuration | Code warns but does not fail closed if MFA is off; Sentry and Slack alert configuration were not verified in production. |
+| Severity     | Finding                                                                                                   | Evidence                                                                                                                                                                              |
+| ------------ | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Critical** | Customer-publishable dishes can have no allergen declaration                                              | 45 matching rows in the development database; one was retrieved anonymously through the public menu-item API with an empty allergen array and `allergensFreeFrom: false`.             |
+| **High**     | Catering quotes below £50 can charge a deposit larger than the booking total and store a negative balance | Code permits totals from £1, then imposes a £50 minimum deposit without a cap.                                                                                                        |
+| **High**     | Stripe webhook duplicate protection claims the event only after queueing it                               | Concurrent deliveries can both enqueue work before the unique event row is inserted. Runtime duplication count is **NOT VERIFIED** because this API returned 503 for signed webhooks. |
+| **High**     | Public error reports accept client-supplied vendor attribution                                            | A live reversible request persisted a supplied real vendor ID. The incident was deleted afterward.                                                                                    |
+| **High**     | Stripe Connect `account.updated` is intentionally ignored                                                 | It is absent from the handled event list; the controller only records a warning for it.                                                                                               |
+| **High**     | Catering refunds bypass the refund ledger and payout reconciliation path                                  | Direct Stripe refunds precede a non-transactional booking status update.                                                                                                              |
+| **Medium**   | Payout PDF cannot reconcile to the payout batch when refunds/adjustments exist                            | PDF excludes refund, fee, and adjustment lines; it also compares dynamic commission against a flat 12% baseline.                                                                      |
+| **Medium**   | Payout detail rows omit partially refunded orders even though batch totals include them                   | Static code mismatch between batch aggregation and detail lookup.                                                                                                                     |
+| **Medium**   | The development migration ledger has five rolled-back migrations                                          | Database reads show 79 migration rows, including five with `rolled_back_at`; this is an integrity/deployment evidence gap, not proof that production is broken.                       |
+| **Medium**   | Staff MFA enforcement and operational alerting are opt-in configuration                                   | Code warns but does not fail closed if MFA is off; Sentry and Slack alert configuration were not verified in production.                                                              |
 
 ## 1. Immediate customer-safety finding: allergen-less dishes are publicly visible
 
@@ -166,15 +166,15 @@ The ordinary order path separates customer service fee from vendor payout and ca
 
 The fee is 5% of subtotal, capped at 299 pence. A read-only development-database check found:
 
-| Check | Result |
-|---|---:|
-| Orders with vendor payout greater than total | 0 |
-| Orders with negative financial components | 0 |
-| Orders not matching the ordinary 5%/299p fee formula | 8 |
-| Of those, zero-fee exceptions | 8 |
-| Of those, nonzero incorrect fees | 0 |
-| FeastPass saving records | 0 |
-| Zero-fee exception orders with saving records | 0 |
+| Check                                                | Result |
+| ---------------------------------------------------- | -----: |
+| Orders with vendor payout greater than total         |      0 |
+| Orders with negative financial components            |      0 |
+| Orders not matching the ordinary 5%/299p fee formula |      8 |
+| Of those, zero-fee exceptions                        |      8 |
+| Of those, nonzero incorrect fees                     |      0 |
+| FeastPass saving records                             |      0 |
+| Zero-fee exception orders with saving records        |      0 |
 
 The code permits FeastPass fee waivers for active members on marketplace-sourced orders (`orders.service.ts:543-551`). However, the audited database has no `feast_pass_savings` records, so the eight zero-fee orders cannot be validated from the expected savings evidence. This is **not yet proof of an overcharge or undercharge**, but each must be reconciled to its customer membership, source attribution, and payment record.
 
@@ -207,12 +207,12 @@ The weekly batch correctly uses the stored per-order vendor payout rather than r
 
 Read-only development-database results:
 
-| Check | Result |
-|---|---:|
-| Core orphan orders/payments/payouts/chargebacks | 0 |
-| Transferred payouts without transfer IDs | 0 |
-| Non-transferred payouts with transfer IDs | 0 |
-| Payout rows available to generate/inspect a statement | 0 |
+| Check                                                 | Result |
+| ----------------------------------------------------- | -----: |
+| Core orphan orders/payments/payouts/chargebacks       |      0 |
+| Transferred payouts without transfer IDs              |      0 |
+| Non-transferred payouts with transfer IDs             |      0 |
+| Payout rows available to generate/inspect a statement |      0 |
 
 ### Detail/PDF inconsistency
 
@@ -291,10 +291,10 @@ The searched numeric marketing candidates were fee examples, commission facts, a
 
 The database contains:
 
-| Version | Published | Effective | State | Acceptance records |
-|---|---|---|---|---:|
-| 1.0 | 1 May 2026 | 1 May 2026 | superseded | 0 |
-| 2.0 | 8 Aug 2026 | 23 Sep 2026 | unsuperseded, pending effective date | 0 |
+| Version | Published  | Effective   | State                                | Acceptance records |
+| ------- | ---------- | ----------- | ------------------------------------ | -----------------: |
+| 1.0     | 1 May 2026 | 1 May 2026  | superseded                           |                  0 |
+| 2.0     | 8 Aug 2026 | 23 Sep 2026 | unsuperseded, pending effective date |                  0 |
 
 The version/acceptance model has positive controls: publish-time hash, solicitor sign-off/notice requirements, and append-only acceptance evidence:
 

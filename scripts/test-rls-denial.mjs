@@ -21,12 +21,12 @@
 // regime is in use and adjusts the governed-table assertions accordingly.
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
-const ANON_KEY     = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '';
+const ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '';
 
 if (!SUPABASE_URL || !ANON_KEY || !SUPABASE_URL.startsWith('https://')) {
   console.warn(
     '[rls-denial] NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY not set ' +
-    '(or URL is not a real Supabase project). Skipping RLS denial tests.'
+      '(or URL is not a real Supabase project). Skipping RLS denial tests.',
   );
   process.exit(0);
 }
@@ -49,7 +49,11 @@ async function get(table, params = '') {
   const res = await fetch(url, { headers });
   const text = await res.text();
   let body;
-  try { body = JSON.parse(text); } catch { body = text; }
+  try {
+    body = JSON.parse(text);
+  } catch {
+    body = text;
+  }
   return { status: res.status, body };
 }
 
@@ -86,8 +90,7 @@ function assert(name, condition, detail) {
 // ---------------------------------------------------------------------------
 
 const probe = await get('payouts');
-const schemaUsageExists =
-  probe.status === 200 && Array.isArray(probe.body);
+const schemaUsageExists = probe.status === 200 && Array.isArray(probe.body);
 const noSchemaUsage =
   (probe.status === 401 || probe.status === 403) &&
   (probe.body?.message ?? '').includes('permission denied');
@@ -97,14 +100,14 @@ console.log(
     schemaUsageExists
       ? 'schema USAGE granted to anon - RLS is the only guard (HTTP 200 [])'
       : noSchemaUsage
-      ? 'no schema USAGE for anon - schema-level block (HTTP 401/403), RLS is a defence-in-depth'
-      : `unexpected probe result (status=${probe.status})`
-  }\n`
+        ? 'no schema USAGE for anon - schema-level block (HTTP 401/403), RLS is a defence-in-depth'
+        : `unexpected probe result (status=${probe.status})`
+  }\n`,
 );
 
 if (!schemaUsageExists && !noSchemaUsage) {
   console.error(
-    `[rls-denial] Unexpected probe result from payouts: status=${probe.status} body=${JSON.stringify(probe.body).slice(0, 120)}`
+    `[rls-denial] Unexpected probe result from payouts: status=${probe.status} body=${JSON.stringify(probe.body).slice(0, 120)}`,
   );
   console.error('[rls-denial] Cannot determine denial regime. Aborting.');
   process.exit(1);
@@ -119,30 +122,33 @@ console.log('[rls-denial] Part A: sensitive tables must be inaccessible to anon\
 
 const sensitiveTablesThatMustBeLocked = [
   // Identity / compliance / HMRC
-  { table: 'vendor_tax_profiles',        sensitivity: 'HMRC identity, DOB, tax identifiers, bank account IDs' },
-  { table: 'vendor_verifications',       sensitivity: 'identity verification records' },
+  {
+    table: 'vendor_tax_profiles',
+    sensitivity: 'HMRC identity, DOB, tax identifiers, bank account IDs',
+  },
+  { table: 'vendor_verifications', sensitivity: 'identity verification records' },
   { table: 'vendor_enforcement_actions', sensitivity: 'compliance enforcement records' },
-  { table: 'dispute_appeals',            sensitivity: 'legal appeal records' },
-  { table: 'platform_reports',           sensitivity: 'HMRC annual reports with gross payout figures' },
+  { table: 'dispute_appeals', sensitivity: 'legal appeal records' },
+  { table: 'platform_reports', sensitivity: 'HMRC annual reports with gross payout figures' },
   // Financial
-  { table: 'payouts',                    sensitivity: 'vendor payout amounts' },
-  { table: 'order_commissions',          sensitivity: 'per-order commission figures' },
-  { table: 'commission_rates',           sensitivity: 'platform commission rates' },
-  { table: 'rate_schedule_entries',      sensitivity: 'commission schedule entries' },
-  { table: 'payments',                   sensitivity: 'Stripe payment records' },
-  { table: 'chargebacks',               sensitivity: 'chargeback records' },
+  { table: 'payouts', sensitivity: 'vendor payout amounts' },
+  { table: 'order_commissions', sensitivity: 'per-order commission figures' },
+  { table: 'commission_rates', sensitivity: 'platform commission rates' },
+  { table: 'rate_schedule_entries', sensitivity: 'commission schedule entries' },
+  { table: 'payments', sensitivity: 'Stripe payment records' },
+  { table: 'chargebacks', sensitivity: 'chargeback records' },
   // Customer PII
-  { table: 'addresses',                  sensitivity: 'customer delivery addresses' },
-  { table: 'orders',                     sensitivity: 'order contents and customer details' },
-  { table: 'order_items',               sensitivity: 'order line items' },
-  { table: 'users',                      sensitivity: 'user accounts and roles' },
+  { table: 'addresses', sensitivity: 'customer delivery addresses' },
+  { table: 'orders', sensitivity: 'order contents and customer details' },
+  { table: 'order_items', sensitivity: 'order line items' },
+  { table: 'users', sensitivity: 'user accounts and roles' },
   // Attribution / analytics
-  { table: 'order_attributions',         sensitivity: 'referral attribution records' },
-  { table: 'referral_clicks',            sensitivity: 'click tracking records' },
-  { table: 'analytics_events',           sensitivity: 'event stream with user identifiers' },
+  { table: 'order_attributions', sensitivity: 'referral attribution records' },
+  { table: 'referral_clicks', sensitivity: 'click tracking records' },
+  { table: 'analytics_events', sensitivity: 'event stream with user identifiers' },
   // Vendor application (contains personal contact info)
-  { table: 'vendor_applications',        sensitivity: 'vendor application PII' },
-  { table: 'vendor_documents',           sensitivity: 'hygiene cert and insurance document references' },
+  { table: 'vendor_applications', sensitivity: 'vendor application PII' },
+  { table: 'vendor_documents', sensitivity: 'hygiene cert and insurance document references' },
 ];
 
 for (const { table, sensitivity } of sensitiveTablesThatMustBeLocked) {
@@ -166,14 +172,14 @@ console.log('\n[rls-denial] Part B: governed tables must respond 200 to anon\n')
 if (!schemaUsageExists) {
   console.log(
     '  SKIP  (schema USAGE not granted to anon in this project - ' +
-    'governed-table reachability cannot be tested here; ' +
-    'run against the production Supabase project where USAGE is granted)\n'
+      'governed-table reachability cannot be tested here; ' +
+      'run against the production Supabase project where USAGE is granted)\n',
   );
 } else {
   for (const { table, params } of [
-    { table: 'vendors',               params: 'status=eq.live' },
-    { table: 'menus',                 params: '' },
-    { table: 'menu_items',            params: '' },
+    { table: 'vendors', params: 'status=eq.live' },
+    { table: 'menus', params: '' },
+    { table: 'menu_items', params: '' },
     { table: 'vendor_slug_redirects', params: '' },
   ]) {
     const { status, body } = await get(table, params);

@@ -595,19 +595,22 @@ export class CateringBookingsService {
         // refund-path-ok: catering deposits/balances are not regular-order payments;
         // there is no commission row or founding allowance to reverse. StripeService
         // is the correct layer here (no PaymentsService ledger required).
-        await this.stripe.refund( // refund-path-ok: catering balance - see comment above
+        await this.stripe.refund(
+          // refund-path-ok: catering balance - see comment above
           booking.balancePiId!,
           booking.balancePence,
           `catering_refund_balance:${bookingId}`,
         );
-        await this.stripe.refund( // refund-path-ok: catering deposit - see comment above
+        await this.stripe.refund(
+          // refund-path-ok: catering deposit - see comment above
           booking.depositPiId!,
           booking.depositPence,
           `catering_refund_deposit:${bookingId}`,
         );
       } else if (days > 14) {
         refundPence = booking.depositPence;
-        await this.stripe.refund( // refund-path-ok: catering deposit - see comment above
+        await this.stripe.refund(
+          // refund-path-ok: catering deposit - see comment above
           booking.depositPiId!,
           booking.depositPence,
           `catering_refund:${bookingId}`,
@@ -615,7 +618,8 @@ export class CateringBookingsService {
       } else if (days > 7) {
         refundPence = Math.floor(booking.depositPence * 0.5);
         if (refundPence > 0) {
-          await this.stripe.refund( // refund-path-ok: catering deposit partial - see comment above
+          await this.stripe.refund(
+            // refund-path-ok: catering deposit partial - see comment above
             booking.depositPiId!,
             refundPence,
             `catering_refund:${bookingId}`,

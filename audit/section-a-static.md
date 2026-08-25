@@ -34,15 +34,15 @@ models, error handling, tracked secret-like values, and U+2014
 Source size is a static count of TypeScript, JavaScript, CSS, and JSON files
 and lines. It excludes `node_modules`, `.next`, `dist`, and `.turbo`.
 
-| Workspace | Purpose evidenced by package scripts/source layout | Files | Lines | Declared Feastpot workspace dependencies |
-| --- | --- | ---: | ---: | --- |
-| `apps/web` | Next.js customer PWA | 213 | 32,677 | `@feastpot/types`, `@feastpot/ui`; `@feastpot/config` as a development dependency |
-| `apps/vendor` | Next.js vendor portal | 194 | 36,578 | `@feastpot/types`, `@feastpot/ui`; `@feastpot/config` as a development dependency |
-| `apps/admin` | Next.js staff/admin panel | 155 | 25,238 | `@feastpot/types`, `@feastpot/ui`; `@feastpot/config` as a development dependency |
-| `apps/api` | NestJS API, queues, payments, notifications | 359 | 59,142 | `@feastpot/types`; `@feastpot/config` as a development dependency |
-| `packages/config` | Shared TypeScript, ESLint, and policy configuration | 15 | 715 | No runtime Feastpot dependency |
-| `packages/types` | Shared Prisma-related types and Zod schemas | 4 | 258 | `@feastpot/config` as a development dependency |
-| `packages/ui` | Shared React UI component library | 31 | 2,015 | `@feastpot/config` as a development dependency |
+| Workspace         | Purpose evidenced by package scripts/source layout  | Files |  Lines | Declared Feastpot workspace dependencies                                          |
+| ----------------- | --------------------------------------------------- | ----: | -----: | --------------------------------------------------------------------------------- |
+| `apps/web`        | Next.js customer PWA                                |   213 | 32,677 | `@feastpot/types`, `@feastpot/ui`; `@feastpot/config` as a development dependency |
+| `apps/vendor`     | Next.js vendor portal                               |   194 | 36,578 | `@feastpot/types`, `@feastpot/ui`; `@feastpot/config` as a development dependency |
+| `apps/admin`      | Next.js staff/admin panel                           |   155 | 25,238 | `@feastpot/types`, `@feastpot/ui`; `@feastpot/config` as a development dependency |
+| `apps/api`        | NestJS API, queues, payments, notifications         |   359 | 59,142 | `@feastpot/types`; `@feastpot/config` as a development dependency                 |
+| `packages/config` | Shared TypeScript, ESLint, and policy configuration |    15 |    715 | No runtime Feastpot dependency                                                    |
+| `packages/types`  | Shared Prisma-related types and Zod schemas         |     4 |    258 | `@feastpot/config` as a development dependency                                    |
+| `packages/ui`     | Shared React UI component library                   |    31 |  2,015 | `@feastpot/config` as a development dependency                                    |
 
 **Evidence:** workspace declaration in `package.json`; individual package
 manifests under `apps/*/package.json` and `packages/*/package.json`; static
@@ -88,11 +88,11 @@ packages/ui files=31 lines=2015
 
 ### Exact results
 
-| Command | Result | Errors | Warnings |
-| --- | --- | ---: | ---: |
-| `npm run build` | Exit 0 | 0 | Build emitted warnings |
-| `npm run typecheck` | Exit 0 | 0 | 0 in command output |
-| `npm run lint` | Exit 1 | 8 | 118 |
+| Command             | Result | Errors |               Warnings |
+| ------------------- | ------ | -----: | ---------------------: |
+| `npm run build`     | Exit 0 |      0 | Build emitted warnings |
+| `npm run typecheck` | Exit 0 |      0 |    0 in command output |
+| `npm run lint`      | Exit 1 |      8 |                    118 |
 
 ### Build
 
@@ -110,7 +110,7 @@ The build emitted these verified warning themes:
 2. `@feastpot/vendor`, `@feastpot/admin`, and `@feastpot/web`: Node warns that
    `packages/ui/package.json` should declare `"type": "module"`.
 3. `@feastpot/web`: `Using edge runtime on a page currently disables static
-   generation for that page`.
+generation for that page`.
 
 **Evidence:** `/tmp/feastpot-audit-build.log`, produced by the command above.
 
@@ -140,15 +140,15 @@ No type errors or warnings were emitted.
 
 All eight errors are import-order violations:
 
-| Location | Evidence |
-| --- | --- |
-| `apps/api/src/app.module.ts:21` | `aal.guard` import ordering |
-| `apps/api/src/commission/commission.service.spec.ts:15` | `@prisma/client` import ordering |
-| `apps/api/src/commission/commission.service.spec.ts:16` | `@nestjs/common` import ordering |
-| `apps/api/src/modules/compliance/compliance.service.ts:15` | Empty line within import group |
-| `apps/api/src/modules/compliance/compliance.service.ts:20` | Storage service import ordering |
-| `apps/api/src/modules/disputes/disputes.service.ts:31` | Empty line within import group |
-| `apps/api/src/modules/disputes/disputes.service.ts:33` | Storage service import ordering |
+| Location                                                                      | Evidence                                 |
+| ----------------------------------------------------------------------------- | ---------------------------------------- |
+| `apps/api/src/app.module.ts:21`                                               | `aal.guard` import ordering              |
+| `apps/api/src/commission/commission.service.spec.ts:15`                       | `@prisma/client` import ordering         |
+| `apps/api/src/commission/commission.service.spec.ts:16`                       | `@nestjs/common` import ordering         |
+| `apps/api/src/modules/compliance/compliance.service.ts:15`                    | Empty line within import group           |
+| `apps/api/src/modules/compliance/compliance.service.ts:20`                    | Storage service import ordering          |
+| `apps/api/src/modules/disputes/disputes.service.ts:31`                        | Empty line within import group           |
+| `apps/api/src/modules/disputes/disputes.service.ts:33`                        | Storage service import ordering          |
 | `apps/api/src/modules/vendor-enforcement/vendor-enforcement-audit.spec.ts:36` | Missing empty line between import groups |
 
 The command also reported 113 `@typescript-eslint/no-explicit-any` warnings,
@@ -215,18 +215,18 @@ static result.
 The environment comparison found these production-relevant reads that do not
 appear in any checked-in `.env.example`:
 
-| Variable | Evidence | Static impact |
-| --- | --- | --- |
-| `ADMIN_REQUIRE_AAL2` | `apps/api/src/main.ts:147`, `apps/admin/src/middleware.ts:77`, `apps/admin/src/lib/auth/server-gate.ts:85` | Staff MFA is only enforced when exactly `true` |
-| `CAPACITY_ENFORCEMENT` | `apps/api/src/modules/vendors/vendor-capacity.ts:70` | Capacity rule remains dry-run/off unless exactly `true` |
-| `STRIPE_FEASTPASS_ANNUAL_PRICE_ID` | `apps/api/src/feastpass/feastpass.service.ts:105` | FeastPass annual checkout needs an undeclared setting |
-| `STRIPE_FEASTPASS_MONTHLY_PRICE_ID` | `apps/api/src/feastpass/feastpass.service.ts:106` | FeastPass monthly checkout needs an undeclared setting |
-| `FINANCE_ALERT_EMAIL` | `apps/api/src/modules/payouts/payouts.service.ts:730` | Finance-alert recipient is undocumented |
-| `CHARGEBACK_EVIDENCE_WARN_HOURS` | `apps/api/src/modules/payments/chargeback-deadline-monitor.service.ts:42` | Chargeback warning window is undocumented |
-| `QUEUE_ALERT_SUSTAINED_CHECKS` | `apps/api/src/queues/queue-depth-monitor.service.ts:92` | Queue alert persistence threshold is undocumented |
-| `QUEUE_ALERT_REPEAT_MINUTES` | `apps/api/src/queues/queue-depth-monitor.service.ts:93` | Queue repeat interval is undocumented |
-| `IP_HASH_SALT` | `apps/web/src/app/v/[slug]/route.ts:75` | Referral hashing falls back to a source literal |
-| `API_PROXY_TARGET` | `apps/web/next.config.mjs:142` | Proxy fallback is `http://localhost:3001` |
+| Variable                            | Evidence                                                                                                   | Static impact                                           |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| `ADMIN_REQUIRE_AAL2`                | `apps/api/src/main.ts:147`, `apps/admin/src/middleware.ts:77`, `apps/admin/src/lib/auth/server-gate.ts:85` | Staff MFA is only enforced when exactly `true`          |
+| `CAPACITY_ENFORCEMENT`              | `apps/api/src/modules/vendors/vendor-capacity.ts:70`                                                       | Capacity rule remains dry-run/off unless exactly `true` |
+| `STRIPE_FEASTPASS_ANNUAL_PRICE_ID`  | `apps/api/src/feastpass/feastpass.service.ts:105`                                                          | FeastPass annual checkout needs an undeclared setting   |
+| `STRIPE_FEASTPASS_MONTHLY_PRICE_ID` | `apps/api/src/feastpass/feastpass.service.ts:106`                                                          | FeastPass monthly checkout needs an undeclared setting  |
+| `FINANCE_ALERT_EMAIL`               | `apps/api/src/modules/payouts/payouts.service.ts:730`                                                      | Finance-alert recipient is undocumented                 |
+| `CHARGEBACK_EVIDENCE_WARN_HOURS`    | `apps/api/src/modules/payments/chargeback-deadline-monitor.service.ts:42`                                  | Chargeback warning window is undocumented               |
+| `QUEUE_ALERT_SUSTAINED_CHECKS`      | `apps/api/src/queues/queue-depth-monitor.service.ts:92`                                                    | Queue alert persistence threshold is undocumented       |
+| `QUEUE_ALERT_REPEAT_MINUTES`        | `apps/api/src/queues/queue-depth-monitor.service.ts:93`                                                    | Queue repeat interval is undocumented                   |
+| `IP_HASH_SALT`                      | `apps/web/src/app/v/[slug]/route.ts:75`                                                                    | Referral hashing falls back to a source literal         |
+| `API_PROXY_TARGET`                  | `apps/web/next.config.mjs:142`                                                                             | Proxy fallback is `http://localhost:3001`               |
 
 **Finding A-03, configuration coverage:** Production-impacting switches and
 service settings are read by code but are not discoverable through repository
@@ -244,20 +244,20 @@ historical audit documents were not treated as product gaps.
 
 ### Verified load-bearing markers
 
-| Location | Marker/evidence | Assessment |
-| --- | --- | --- |
-| `apps/api/src/modules/catering-enquiries/catering-enquiries.service.ts:540` | `Placeholder: 30 days from now if the enquiry has no event date` | Load-bearing business-date fallback |
-| `apps/api/src/modules/payouts/payouts.service.ts:321-323` | `fees` and `adjustments` are placeholder zero columns | Load-bearing financial export limitation |
-| `apps/api/src/modules/vendors/vendor-capacity.ts:108-109` | Synthetic `not_provided` placeholders | Load-bearing API fallback semantics |
-| `apps/api/src/app.module.ts:328` | Host/port are placeholders that should never be used | Load-bearing fallback configuration |
-| `apps/api/src/auth/supabase.service.ts:32,34` | Placeholder URL and credential fallback | Load-bearing misconfiguration path |
-| `apps/api/src/modules/auth-public/auth-public.service.ts:66-67` | Placeholder URL and credential fallback | Load-bearing misconfiguration path |
-| `apps/vendor/src/app/onboarding/onboarding-client.tsx:112` | Profile editing is on the roadmap; currently admin-only | Missing vendor capability |
-| `apps/vendor/src/app/menu/menu-list-client.tsx:349` | Thumbnail placeholder because payload omits image data | Visible data/API limitation |
-| `apps/vendor/src/app/referrals/referrals-client.tsx:376` | Order-source breakdown placeholder | Visible analytics limitation |
-| `apps/vendor/src/app/share/share-client.tsx:419` | Order-source breakdown placeholder | Visible analytics limitation |
-| `apps/web/src/app/orders/[id]/review/page.tsx:218` | Review detail not stored separately | Product data limitation |
-| `prisma/migrations/20260814110000_vendor_verification_notification_tracking/migration.sql:8` | Email only for now; WhatsApp deferred | Notification-channel limitation |
+| Location                                                                                     | Marker/evidence                                                  | Assessment                               |
+| -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- | ---------------------------------------- |
+| `apps/api/src/modules/catering-enquiries/catering-enquiries.service.ts:540`                  | `Placeholder: 30 days from now if the enquiry has no event date` | Load-bearing business-date fallback      |
+| `apps/api/src/modules/payouts/payouts.service.ts:321-323`                                    | `fees` and `adjustments` are placeholder zero columns            | Load-bearing financial export limitation |
+| `apps/api/src/modules/vendors/vendor-capacity.ts:108-109`                                    | Synthetic `not_provided` placeholders                            | Load-bearing API fallback semantics      |
+| `apps/api/src/app.module.ts:328`                                                             | Host/port are placeholders that should never be used             | Load-bearing fallback configuration      |
+| `apps/api/src/auth/supabase.service.ts:32,34`                                                | Placeholder URL and credential fallback                          | Load-bearing misconfiguration path       |
+| `apps/api/src/modules/auth-public/auth-public.service.ts:66-67`                              | Placeholder URL and credential fallback                          | Load-bearing misconfiguration path       |
+| `apps/vendor/src/app/onboarding/onboarding-client.tsx:112`                                   | Profile editing is on the roadmap; currently admin-only          | Missing vendor capability                |
+| `apps/vendor/src/app/menu/menu-list-client.tsx:349`                                          | Thumbnail placeholder because payload omits image data           | Visible data/API limitation              |
+| `apps/vendor/src/app/referrals/referrals-client.tsx:376`                                     | Order-source breakdown placeholder                               | Visible analytics limitation             |
+| `apps/vendor/src/app/share/share-client.tsx:419`                                             | Order-source breakdown placeholder                               | Visible analytics limitation             |
+| `apps/web/src/app/orders/[id]/review/page.tsx:218`                                           | Review detail not stored separately                              | Product data limitation                  |
+| `prisma/migrations/20260814110000_vendor_verification_notification_tracking/migration.sql:8` | Email only for now; WhatsApp deferred                            | Notification-channel limitation          |
 
 **Finding A-04, financial exports:** The payout CSV presents accountancy-shaped
 `fees` and `adjustments` columns as zero despite the implementation not holding
@@ -398,7 +398,7 @@ for major upgrades. An upgrade must not be treated as a mechanical security fix.
 
 ### Empty state versus silent failure
 
-**Finding A-07, silent customer-home degradation:** 
+**Finding A-07, silent customer-home degradation:**
 `apps/web/src/app/page.tsx:73-85` catches every vendor-fetch failure and
 returns `[]`. The calling page therefore receives the same result for an empty
 catalogue, a timeout, a network failure, or API failure. Users see an empty
@@ -417,11 +417,11 @@ flow. Only the customer-home case above is asserted.
 
 ### Internal details returned to users
 
-| Location | Evidence |
-| --- | --- |
-| `apps/web/src/app/api/orders/[id]/status/route.ts:28-30` | Returns database/provider `error.message` in a 502 JSON response |
-| `apps/vendor/src/app/auth/callback/route.ts:41-46` | Places Supabase callback `error.message` into a user-facing sign-in query string |
-| `apps/vendor/src/app/menu/[menuId]/items-grid-client.tsx:156-162` | Renders raw item-load `error.message` |
+| Location                                                          | Evidence                                                                         |
+| ----------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `apps/web/src/app/api/orders/[id]/status/route.ts:28-30`          | Returns database/provider `error.message` in a 502 JSON response                 |
+| `apps/vendor/src/app/auth/callback/route.ts:41-46`                | Places Supabase callback `error.message` into a user-facing sign-in query string |
+| `apps/vendor/src/app/menu/[menuId]/items-grid-client.tsx:156-162` | Renders raw item-load `error.message`                                            |
 
 **Finding A-08, internal error exposure:** Multiple customer or vendor paths
 can propagate provider/backend error text to a user-facing response or page.

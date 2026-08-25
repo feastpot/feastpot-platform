@@ -601,5 +601,4 @@ if (require.main === module) {
     .finally(async () => {
       await prisma.$disconnect();
     });
-    .finally(() => prisma.$disconnect());
 }

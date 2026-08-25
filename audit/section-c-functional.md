@@ -16,12 +16,12 @@ Playwright using the system Chromium visited every discovered Next.js `page` rou
 
 ### Route visit total
 
-| App | Discovered page routes | Actually visited |
-| --- | ---: | ---: |
-| Customer web | 49 | 49 |
-| Vendor portal | 42 | 42 |
-| Admin panel | 45 | 45 |
-| **Total** | **136** | **136** |
+| App           | Discovered page routes | Actually visited |
+| ------------- | ---------------------: | ---------------: |
+| Customer web  |                     49 |               49 |
+| Vendor portal |                     42 |               42 |
+| Admin panel   |                     45 |               45 |
+| **Total**     |                **136** |          **136** |
 
 Protected vendor and admin routes were visited anonymously and correctly redirected to their sign-in pages. Authenticated vendor and admin route behavior is separately marked NOT VERIFIED where the required empty platform profiles could not be safely provisioned.
 
@@ -38,11 +38,11 @@ Protected vendor and admin routes were visited anonymously and correctly redirec
 
 A brand-new customer account was created, email-confirmed for the test environment, signed in through the real customer UI, exercised, and deleted after the walkthrough.
 
-| Path | Observation | Evidence |
-| --- | --- | --- |
-| `/account` | Rendered an empty account page with the member and FeastPoints introduction. | `web-customer-homeaccount.png` |
-| `/account/orders` | Rendered `No orders yet` with an explanatory `Browse vendors` action. | `web-customer-homeaccount_orders.png` |
-| `/checkout` | Rendered, but explicitly blocked payment because the Stripe publishable key is missing. | `web-customer-homecheckout.png` |
+| Path              | Observation                                                                             | Evidence                              |
+| ----------------- | --------------------------------------------------------------------------------------- | ------------------------------------- |
+| `/account`        | Rendered an empty account page with the member and FeastPoints introduction.            | `web-customer-homeaccount.png`        |
+| `/account/orders` | Rendered `No orders yet` with an explanatory `Browse vendors` action.                   | `web-customer-homeaccount_orders.png` |
+| `/checkout`       | Rendered, but explicitly blocked payment because the Stripe publishable key is missing. | `web-customer-homecheckout.png`       |
 
 ### New vendor account: blocked before portal entry
 
@@ -55,14 +55,14 @@ Evidence:
 
 The earlier reported suspects were therefore neither accepted nor refuted:
 
-| Reported suspect | Functional result |
-| --- | --- |
-| `/earnings` error boundary | **NOT VERIFIED**: required authenticated empty-vendor session could not be provisioned. |
-| `/compliance` error boundary | **NOT VERIFIED**: same block. |
-| `/account-status` "Unable to load account status" | **NOT VERIFIED**: same block. |
-| `/referrals` QR stuck generating | **NOT VERIFIED**: same block. |
-| `/catering/new` no sidebar | **NOT VERIFIED**: same block. |
-| Catering quote total/deposit calculation | **NOT VERIFIED**: no valid catering enquiry could be created for the temporary vendor. |
+| Reported suspect                                  | Functional result                                                                       |
+| ------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `/earnings` error boundary                        | **NOT VERIFIED**: required authenticated empty-vendor session could not be provisioned. |
+| `/compliance` error boundary                      | **NOT VERIFIED**: same block.                                                           |
+| `/account-status` "Unable to load account status" | **NOT VERIFIED**: same block.                                                           |
+| `/referrals` QR stuck generating                  | **NOT VERIFIED**: same block.                                                           |
+| `/catering/new` no sidebar                        | **NOT VERIFIED**: same block.                                                           |
+| Catering quote total/deposit calculation          | **NOT VERIFIED**: no valid catering enquiry could be created for the temporary vendor.  |
 
 ### New admin session: blocked before panel entry
 
@@ -75,152 +75,155 @@ Evidence: `admin-admin-sign-in-failed.png`.
 `renders` means the route produced visible page content. `redirects to auth/authorization` means the anonymous browser was redirected to the relevant protected sign-in or authorization surface. `NOT VERIFIED` means Playwright navigation timed out before a result could be observed; it is not treated as working.
 
 ### web
-| Route | Browser outcome |
-| --- | --- |
-| `/` | renders |
-| `/account` | renders |
-| `/account/addresses` | redirects to auth/authorization |
-| `/account/addresses/:id/edit` | redirects to auth/authorization |
-| `/account/addresses/new` | redirects to auth/authorization |
-| `/account/feastpass` | redirects to auth/authorization |
-| `/account/notifications` | redirects to auth/authorization |
-| `/account/orders` | redirects to auth/authorization |
-| `/account/profile` | redirects to auth/authorization |
-| `/auth/confirm` | renders |
-| `/auth/reset/start` | renders |
-| `/auth/reset/update` | renders |
-| `/become-a-vendor` | renders |
-| `/caribbean-food-delivery-london` | renders |
-| `/catering` | renders |
-| `/checkout` | renders |
-| `/events` | renders |
-| `/events/:id` | 404 for deliberately non-existent ID |
-| `/events/:id/confirmed` | 404 for deliberately non-existent ID |
-| `/events/new` | renders |
-| `/feastpass` | renders |
-| `/forgot-password` | renders |
-| `/ghanaian-food-delivery-london` | renders |
-| `/help` | renders |
-| `/join` | renders |
-| `/legal` | renders |
-| `/legal/allergens` | renders |
-| `/legal/cookies` | renders |
-| `/legal/privacy` | renders |
-| `/legal/terms` | renders |
-| `/legal/vendor-terms` | renders |
-| `/legal/vendor-terms/history` | renders |
-| `/nigerian-food-delivery-london` | renders |
-| `/occasions/:slug` | NOT VERIFIED: navigation timed out |
-| `/offline` | renders |
-| `/orders` | renders |
-| `/orders/:id/confirmation` | NOT VERIFIED: navigation timed out |
-| `/orders/:id/review` | NOT VERIFIED: navigation timed out |
-| `/orders/:id/tracking` | NOT VERIFIED: navigation timed out |
-| `/register` | NOT VERIFIED: navigation timed out |
-| `/register/create-account` | redirects to registration sign-in surface |
-| `/sign-in` | renders sign-in surface |
-| `/sign-in/otp` | renders OTP sign-in surface |
-| `/status` | renders |
-| `/trust` | renders |
-| `/vendor-readiness` | renders |
-| `/vendors` | renders |
-| `/vendors/:slug` | renders |
-| `/waitlist` | renders |
+
+| Route                             | Browser outcome                           |
+| --------------------------------- | ----------------------------------------- |
+| `/`                               | renders                                   |
+| `/account`                        | renders                                   |
+| `/account/addresses`              | redirects to auth/authorization           |
+| `/account/addresses/:id/edit`     | redirects to auth/authorization           |
+| `/account/addresses/new`          | redirects to auth/authorization           |
+| `/account/feastpass`              | redirects to auth/authorization           |
+| `/account/notifications`          | redirects to auth/authorization           |
+| `/account/orders`                 | redirects to auth/authorization           |
+| `/account/profile`                | redirects to auth/authorization           |
+| `/auth/confirm`                   | renders                                   |
+| `/auth/reset/start`               | renders                                   |
+| `/auth/reset/update`              | renders                                   |
+| `/become-a-vendor`                | renders                                   |
+| `/caribbean-food-delivery-london` | renders                                   |
+| `/catering`                       | renders                                   |
+| `/checkout`                       | renders                                   |
+| `/events`                         | renders                                   |
+| `/events/:id`                     | 404 for deliberately non-existent ID      |
+| `/events/:id/confirmed`           | 404 for deliberately non-existent ID      |
+| `/events/new`                     | renders                                   |
+| `/feastpass`                      | renders                                   |
+| `/forgot-password`                | renders                                   |
+| `/ghanaian-food-delivery-london`  | renders                                   |
+| `/help`                           | renders                                   |
+| `/join`                           | renders                                   |
+| `/legal`                          | renders                                   |
+| `/legal/allergens`                | renders                                   |
+| `/legal/cookies`                  | renders                                   |
+| `/legal/privacy`                  | renders                                   |
+| `/legal/terms`                    | renders                                   |
+| `/legal/vendor-terms`             | renders                                   |
+| `/legal/vendor-terms/history`     | renders                                   |
+| `/nigerian-food-delivery-london`  | renders                                   |
+| `/occasions/:slug`                | NOT VERIFIED: navigation timed out        |
+| `/offline`                        | renders                                   |
+| `/orders`                         | renders                                   |
+| `/orders/:id/confirmation`        | NOT VERIFIED: navigation timed out        |
+| `/orders/:id/review`              | NOT VERIFIED: navigation timed out        |
+| `/orders/:id/tracking`            | NOT VERIFIED: navigation timed out        |
+| `/register`                       | NOT VERIFIED: navigation timed out        |
+| `/register/create-account`        | redirects to registration sign-in surface |
+| `/sign-in`                        | renders sign-in surface                   |
+| `/sign-in/otp`                    | renders OTP sign-in surface               |
+| `/status`                         | renders                                   |
+| `/trust`                          | renders                                   |
+| `/vendor-readiness`               | renders                                   |
+| `/vendors`                        | renders                                   |
+| `/vendors/:slug`                  | renders                                   |
+| `/waitlist`                       | renders                                   |
 
 ### vendor
-| Route | Browser outcome |
-| --- | --- |
-| `/` | redirects to auth/authorization |
-| `/account-and-compliance` | redirects to auth/authorization |
-| `/account-status` | redirects to auth/authorization |
-| `/analytics` | redirects to auth/authorization |
-| `/auth/reset/start` | renders only `Preparing your link...`, little explanation |
-| `/auth/reset/update` | renders |
-| `/availability` | redirects to auth/authorization |
-| `/catering` | redirects to auth/authorization |
-| `/catering/:id/quote` | redirects to auth/authorization |
-| `/catering/new` | redirects to auth/authorization |
-| `/compliance` | redirects to auth/authorization |
-| `/disputes` | redirects to auth/authorization |
-| `/disputes/:id` | redirects to auth/authorization |
-| `/earnings` | redirects to auth/authorization |
-| `/events` | redirects to auth/authorization |
-| `/events/:id/quote` | redirects to auth/authorization |
-| `/forgot-password` | renders |
-| `/help` | redirects to auth/authorization |
-| `/menu` | redirects to auth/authorization |
-| `/menu/:menuId` | redirects to auth/authorization |
-| `/menu/:menuId/items/:itemId` | redirects to auth/authorization |
-| `/notifications` | redirects to auth/authorization |
-| `/onboarding` | redirects to auth/authorization |
-| `/onboarding/register` | renders |
-| `/onboarding/terms` | redirects to auth/authorization |
-| `/onboarding/welcome` | redirects to auth/authorization |
-| `/orders` | redirects to auth/authorization |
-| `/orders/:id` | redirects to auth/authorization |
-| `/payouts` | redirects to auth/authorization |
-| `/performance` | redirects to auth/authorization |
-| `/referrals` | redirects to auth/authorization |
-| `/settings/close-account` | redirects to auth/authorization |
-| `/settings/delivery` | redirects to auth/authorization |
-| `/settings/profile` | redirects to auth/authorization |
-| `/settings/security` | redirects to auth/authorization |
-| `/settings/team` | redirects to auth/authorization |
-| `/share` | redirects to auth/authorization |
-| `/sign-in` | renders sign-in surface |
-| `/tax-information` | redirects to auth/authorization |
-| `/terms` | redirects to auth/authorization |
-| `/unauthorized` | renders authorization surface |
-| `/user-guide` | redirects to auth/authorization |
+
+| Route                         | Browser outcome                                           |
+| ----------------------------- | --------------------------------------------------------- |
+| `/`                           | redirects to auth/authorization                           |
+| `/account-and-compliance`     | redirects to auth/authorization                           |
+| `/account-status`             | redirects to auth/authorization                           |
+| `/analytics`                  | redirects to auth/authorization                           |
+| `/auth/reset/start`           | renders only `Preparing your link...`, little explanation |
+| `/auth/reset/update`          | renders                                                   |
+| `/availability`               | redirects to auth/authorization                           |
+| `/catering`                   | redirects to auth/authorization                           |
+| `/catering/:id/quote`         | redirects to auth/authorization                           |
+| `/catering/new`               | redirects to auth/authorization                           |
+| `/compliance`                 | redirects to auth/authorization                           |
+| `/disputes`                   | redirects to auth/authorization                           |
+| `/disputes/:id`               | redirects to auth/authorization                           |
+| `/earnings`                   | redirects to auth/authorization                           |
+| `/events`                     | redirects to auth/authorization                           |
+| `/events/:id/quote`           | redirects to auth/authorization                           |
+| `/forgot-password`            | renders                                                   |
+| `/help`                       | redirects to auth/authorization                           |
+| `/menu`                       | redirects to auth/authorization                           |
+| `/menu/:menuId`               | redirects to auth/authorization                           |
+| `/menu/:menuId/items/:itemId` | redirects to auth/authorization                           |
+| `/notifications`              | redirects to auth/authorization                           |
+| `/onboarding`                 | redirects to auth/authorization                           |
+| `/onboarding/register`        | renders                                                   |
+| `/onboarding/terms`           | redirects to auth/authorization                           |
+| `/onboarding/welcome`         | redirects to auth/authorization                           |
+| `/orders`                     | redirects to auth/authorization                           |
+| `/orders/:id`                 | redirects to auth/authorization                           |
+| `/payouts`                    | redirects to auth/authorization                           |
+| `/performance`                | redirects to auth/authorization                           |
+| `/referrals`                  | redirects to auth/authorization                           |
+| `/settings/close-account`     | redirects to auth/authorization                           |
+| `/settings/delivery`          | redirects to auth/authorization                           |
+| `/settings/profile`           | redirects to auth/authorization                           |
+| `/settings/security`          | redirects to auth/authorization                           |
+| `/settings/team`              | redirects to auth/authorization                           |
+| `/share`                      | redirects to auth/authorization                           |
+| `/sign-in`                    | renders sign-in surface                                   |
+| `/tax-information`            | redirects to auth/authorization                           |
+| `/terms`                      | redirects to auth/authorization                           |
+| `/unauthorized`               | renders authorization surface                             |
+| `/user-guide`                 | redirects to auth/authorization                           |
 
 ### admin
-| Route | Browser outcome |
-| --- | --- |
-| `/` | redirects to auth/authorization |
-| `/analytics` | redirects to auth/authorization |
-| `/attribution` | redirects to auth/authorization |
-| `/audit-log` | redirects to auth/authorization |
-| `/catering` | redirects to auth/authorization |
-| `/catering-bookings` | redirects to auth/authorization |
-| `/catering-enquiries` | redirects to auth/authorization |
-| `/chargebacks` | redirects to auth/authorization |
-| `/commission-rates` | redirects to auth/authorization |
-| `/compliance` | redirects to auth/authorization |
-| `/coverage` | redirects to auth/authorization |
-| `/dead-letters` | redirects to auth/authorization |
-| `/discount-codes` | redirects to auth/authorization |
-| `/disputes` | redirects to auth/authorization |
-| `/disputes/:id` | redirects to auth/authorization |
-| `/error-incidents` | redirects to auth/authorization |
-| `/events` | redirects to auth/authorization |
-| `/events/:enquiryId` | redirects to auth/authorization |
-| `/feastpass-health` | redirects to auth/authorization |
-| `/legal` | redirects to auth/authorization |
-| `/legal/appeals` | redirects to auth/authorization |
-| `/legal/coverage` | redirects to auth/authorization |
-| `/legal/documents` | redirects to auth/authorization |
-| `/legal/documents/:id` | redirects to auth/authorization |
-| `/legal/enforcement` | redirects to auth/authorization |
-| `/legal/evidence` | redirects to auth/authorization |
-| `/legal/notices` | redirects to auth/authorization |
-| `/menus/queue` | redirects to auth/authorization |
-| `/notifications` | redirects to auth/authorization |
-| `/orders` | redirects to auth/authorization |
-| `/payouts` | redirects to auth/authorization |
-| `/push/compose` | redirects to auth/authorization |
-| `/reviews/queue` | redirects to auth/authorization |
-| `/settings` | redirects to auth/authorization |
-| `/settings/2fa` | redirects to auth/authorization |
-| `/sign-in` | renders sign-in surface |
-| `/unauthorized` | renders authorization surface |
-| `/user-guide` | redirects to auth/authorization |
-| `/users` | redirects to auth/authorization |
-| `/vendor-applications` | redirects to auth/authorization |
+
+| Route                      | Browser outcome                 |
+| -------------------------- | ------------------------------- |
+| `/`                        | redirects to auth/authorization |
+| `/analytics`               | redirects to auth/authorization |
+| `/attribution`             | redirects to auth/authorization |
+| `/audit-log`               | redirects to auth/authorization |
+| `/catering`                | redirects to auth/authorization |
+| `/catering-bookings`       | redirects to auth/authorization |
+| `/catering-enquiries`      | redirects to auth/authorization |
+| `/chargebacks`             | redirects to auth/authorization |
+| `/commission-rates`        | redirects to auth/authorization |
+| `/compliance`              | redirects to auth/authorization |
+| `/coverage`                | redirects to auth/authorization |
+| `/dead-letters`            | redirects to auth/authorization |
+| `/discount-codes`          | redirects to auth/authorization |
+| `/disputes`                | redirects to auth/authorization |
+| `/disputes/:id`            | redirects to auth/authorization |
+| `/error-incidents`         | redirects to auth/authorization |
+| `/events`                  | redirects to auth/authorization |
+| `/events/:enquiryId`       | redirects to auth/authorization |
+| `/feastpass-health`        | redirects to auth/authorization |
+| `/legal`                   | redirects to auth/authorization |
+| `/legal/appeals`           | redirects to auth/authorization |
+| `/legal/coverage`          | redirects to auth/authorization |
+| `/legal/documents`         | redirects to auth/authorization |
+| `/legal/documents/:id`     | redirects to auth/authorization |
+| `/legal/enforcement`       | redirects to auth/authorization |
+| `/legal/evidence`          | redirects to auth/authorization |
+| `/legal/notices`           | redirects to auth/authorization |
+| `/menus/queue`             | redirects to auth/authorization |
+| `/notifications`           | redirects to auth/authorization |
+| `/orders`                  | redirects to auth/authorization |
+| `/payouts`                 | redirects to auth/authorization |
+| `/push/compose`            | redirects to auth/authorization |
+| `/reviews/queue`           | redirects to auth/authorization |
+| `/settings`                | redirects to auth/authorization |
+| `/settings/2fa`            | redirects to auth/authorization |
+| `/sign-in`                 | renders sign-in surface         |
+| `/unauthorized`            | renders authorization surface   |
+| `/user-guide`              | redirects to auth/authorization |
+| `/users`                   | redirects to auth/authorization |
+| `/vendor-applications`     | redirects to auth/authorization |
 | `/vendor-applications/:id` | redirects to auth/authorization |
-| `/vendor-recommendations` | redirects to auth/authorization |
-| `/vendors` | redirects to auth/authorization |
-| `/vendors/:id` | redirects to auth/authorization |
-| `/waitlist` | redirects to auth/authorization |
+| `/vendor-recommendations`  | redirects to auth/authorization |
+| `/vendors`                 | redirects to auth/authorization |
+| `/vendors/:id`             | redirects to auth/authorization |
+| `/waitlist`                | redirects to auth/authorization |
 
 ## 3.3 Link integrity
 
@@ -230,17 +233,17 @@ This is positive but not complete coverage of every authenticated navigation ele
 
 ## 3.4 Core customer journey
 
-| Step | Observed result | Evidence |
-| --- | --- | --- |
-| Home page | Rendered successfully. | `customer-home.png` |
-| Enter postcode with vendors | `SE15` resolved to 30 vendor-card links after 5.532s. | `customer-vendors-SE15-15s.png` |
-| Open vendor profile | Opened Maman's Kitchen. The profile rendered full dish content. | `customer-vendor-profile-live.png` |
-| Allergen information | The profile contained eight allergen mentions and multiple `View allergen information` controls. | `customer-vendor-profile-live.png` |
-| Add a dish to basket | A real add button was clicked. The basket count changed from 0 to 1. | `customer-vendor-after-add-attempt.png` |
-| Mandatory fees up front | The vendor page stated `Up to £2.99 service fee applies`. A fully populated checkout total could not be reached because payment configuration is absent. | `customer-vendor-profile-live.png`, `customer-checkout.png` |
-| Test payment | **NOT VERIFIED.** Checkout explicitly reports missing `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`. | `customer-checkout.png` |
-| Confirmation and order view | **NOT VERIFIED.** No payment could be completed. | n/a |
-| Postcode with no vendors | `ZZ99 9ZZ` reached an explicit postcode-by-postcode explanation and `Join the waitlist`, not a silent blank page. | `customer-vendors-ZZ99-9ZZ-15s.png` |
+| Step                        | Observed result                                                                                                                                          | Evidence                                                    |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| Home page                   | Rendered successfully.                                                                                                                                   | `customer-home.png`                                         |
+| Enter postcode with vendors | `SE15` resolved to 30 vendor-card links after 5.532s.                                                                                                    | `customer-vendors-SE15-15s.png`                             |
+| Open vendor profile         | Opened Maman's Kitchen. The profile rendered full dish content.                                                                                          | `customer-vendor-profile-live.png`                          |
+| Allergen information        | The profile contained eight allergen mentions and multiple `View allergen information` controls.                                                         | `customer-vendor-profile-live.png`                          |
+| Add a dish to basket        | A real add button was clicked. The basket count changed from 0 to 1.                                                                                     | `customer-vendor-after-add-attempt.png`                     |
+| Mandatory fees up front     | The vendor page stated `Up to £2.99 service fee applies`. A fully populated checkout total could not be reached because payment configuration is absent. | `customer-vendor-profile-live.png`, `customer-checkout.png` |
+| Test payment                | **NOT VERIFIED.** Checkout explicitly reports missing `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`.                                                              | `customer-checkout.png`                                     |
+| Confirmation and order view | **NOT VERIFIED.** No payment could be completed.                                                                                                         | n/a                                                         |
+| Postcode with no vendors    | `ZZ99 9ZZ` reached an explicit postcode-by-postcode explanation and `Join the waitlist`, not a silent blank page.                                        | `customer-vendors-ZZ99-9ZZ-15s.png`                         |
 
 The initial listing screenshot at about 1.5s still showed loading skeletons. The later 15s evidence and timing capture are the authoritative observations.
 
@@ -262,14 +265,14 @@ The reason is the empty vendor profile provisioning block documented in section 
 
 ### 375px responsive checks
 
-| Screen | Browser measurement | Result |
-| --- | --- | --- |
-| Customer home | 391px scroll width on a 375px client width | **Horizontal overflow observed: 16px.** |
-| Customer vendor listing | 375px scroll width on a 375px client width | No horizontal overflow observed. |
-| Vendor sign-in | 375px scroll width on a 375px client width | No horizontal overflow observed. |
-| Admin sign-in | 375px scroll width on a 375px client width | No horizontal overflow observed. |
-| Vendor dashboard and forms | n/a | **NOT VERIFIED**: authenticated vendor profile unavailable. |
-| Checkout with a complete payment form | n/a | **NOT VERIFIED**: checkout configuration missing. |
+| Screen                                | Browser measurement                        | Result                                                      |
+| ------------------------------------- | ------------------------------------------ | ----------------------------------------------------------- |
+| Customer home                         | 391px scroll width on a 375px client width | **Horizontal overflow observed: 16px.**                     |
+| Customer vendor listing               | 375px scroll width on a 375px client width | No horizontal overflow observed.                            |
+| Vendor sign-in                        | 375px scroll width on a 375px client width | No horizontal overflow observed.                            |
+| Admin sign-in                         | 375px scroll width on a 375px client width | No horizontal overflow observed.                            |
+| Vendor dashboard and forms            | n/a                                        | **NOT VERIFIED**: authenticated vendor profile unavailable. |
+| Checkout with a complete payment form | n/a                                        | **NOT VERIFIED**: checkout configuration missing.           |
 
 Evidence includes `web-home-mobile.png`, `web-homevendors-postcode-SE15-mobile.png`, `vendor-homesign-in-mobile.png`, and `admin-homesign-in-mobile.png`.
 
@@ -281,14 +284,14 @@ Evidence includes `web-home-mobile.png`, `web-homevendors-postcode-SE15-mobile.p
 
 Timings are browser measurements from navigation start until the named visible content was ready, on the local development origins:
 
-| Screen / criterion | Measured time |
-| --- | ---: |
-| Customer homepage hero visible | 592ms |
-| Customer listing: first `SE15` vendor card visible | 5.532s |
-| Vendor profile: first allergen control visible | 2.540s |
-| No-vendor postcode: explanatory waitlist content visible | 2.910s |
-| Vendor dashboard | **NOT VERIFIED**: authenticated vendor profile unavailable |
-| Referral QR code from dashboard load to visible | **NOT VERIFIED**: authenticated vendor profile unavailable |
+| Screen / criterion                                       |                                              Measured time |
+| -------------------------------------------------------- | ---------------------------------------------------------: |
+| Customer homepage hero visible                           |                                                      592ms |
+| Customer listing: first `SE15` vendor card visible       |                                                     5.532s |
+| Vendor profile: first allergen control visible           |                                                     2.540s |
+| No-vendor postcode: explanatory waitlist content visible |                                                     2.910s |
+| Vendor dashboard                                         | **NOT VERIFIED**: authenticated vendor profile unavailable |
+| Referral QR code from dashboard load to visible          | **NOT VERIFIED**: authenticated vendor profile unavailable |
 
 The referral QR requirement of under five seconds could not be assessed.
 
