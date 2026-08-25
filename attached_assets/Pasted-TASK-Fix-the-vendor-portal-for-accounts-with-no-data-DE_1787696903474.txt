@@ -1,0 +1,75 @@
+TASK: Fix the vendor portal for accounts with no data.
+
+DEPENDS ON: FIX-701. Use a V4 empty vendor to reproduce.
+
+REPRODUCE FIRST, THEN FIX
+Sign in as V4 and visit every route. Screenshot each. The
+screenshots I have show:
+  /earnings         full error boundary
+  /compliance       full error boundary, Ref: 4121942664
+  /account-status   "Unable to load account status"
+  /referrals        QR stuck on "Generating QR code"
+  /catering/new     renders with NO sidebar at all
+Confirm each still occurs before changing code.
+
+ROOT CAUSE HYPOTHESIS TO TEST
+On the failing pages the sidebar org switcher shows a generic
+"Vendor / VENDOR" instead of the real trading name, which
+renders correctly on working pages. That points at one shared
+vendor-context loader failing or timing out, not five separate
+bugs. Investigate that first.
+
+THE GOVERNING RULE
+An empty dataset is a VALID STATE and must render an empty
+state. Only a genuine exception may reach an error boundary.
+Apply repo-wide, then verify every vendor route against it.
+
+REQUIRED EMPTY STATES
+  /earnings      "No earnings yet. Your first payout summary
+                 appears here after your first completed
+                 order." Still show the Rate Card so a new
+                 vendor can see their terms before trading.
+  /compliance    Render the required-document checklist with
+                 each item "Not started". This page is MOST
+                 useful when empty.
+  /account-status "No restrictions on your account" as a
+                 positive confirmation. Keep the existing copy
+                 referencing clause 14.1 and 18.1.
+  /referrals     Order source breakdown showing Marketplace
+                 and Your referral at zero, with an
+                 explanation, rather than a heading over
+                 blank space.
+
+QR CODE: ARCHITECTURAL FIX, NOT A SPINNER FIX
+A QR for a URL that never changes must not be generated per
+page view. Generate PNG (1024px) and SVG once when the
+VendorReferralLink row is created, store in Supabase Storage,
+persist the URLs, and render a plain img tag with width and
+height set. Backfill existing vendors. If the stored URL is
+null at render time, generate client-side immediately AND
+enqueue a background job, so no vendor ever waits. Add Download
+PNG and Download SVG buttons. Assert under 5 seconds on a
+throttled connection. QR must stay pure black on white; tinted
+codes fail some scanners.
+
+/catering/new NAVIGATION
+It renders with no sidebar, no logo, no back link. On an
+installed PWA there may be no browser back button, so the
+vendor is stranded. Wrap it in the standard portal layout, add
+a breadcrumb (Catering bookings > New quote) and a Cancel
+action.
+
+DO NOT CHANGE ANY COLOURS anywhere in this work.
+
+SCENARIO TESTS (Playwright, vendor project)
+For V4 (empty), V5 (with data), V6 (renewal due), V7
+(suspended), V8 (FHRS suspended), assert for every portal
+route: page renders, no error boundary, correct state shown,
+org switcher shows the real trading name.
+Plus: QR visible under 5s; both downloads valid; /catering/new
+has working navigation at 1280px and 375px.
+
+ACCEPTANCE CRITERIA
+- All 42 vendor routes render for V4 without an error boundary.
+- The five reproduced bugs are fixed and covered by tests.
+- No horizontal scroll at 375px on any vendor route.

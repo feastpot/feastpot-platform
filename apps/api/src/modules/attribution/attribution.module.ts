@@ -4,6 +4,7 @@ import { AuthModule } from '../../auth/auth.module';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { VendorMembersModule } from '../vendor-members/vendor-members.module';
 
+import { AttributionQrProcessor } from './attribution-qr.processor';
 import { AttributionController } from './attribution.controller';
 import { AttributionService } from './attribution.service';
 
@@ -16,7 +17,7 @@ import { AttributionService } from './attribution.service';
 @Module({
   imports: [PrismaModule, AuthModule, VendorMembersModule],
   controllers: [AttributionController],
-  providers: [AttributionService],
+  providers: [AttributionService, AttributionQrProcessor],
   exports: [AttributionService],
 })
 export class AttributionModule {}

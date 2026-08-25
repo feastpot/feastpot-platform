@@ -130,7 +130,8 @@ function ActionCard({ action }: ActionCardProps) {
 }
 
 export function AccountStatusClient() {
-  const { data: actions = [], isLoading, error } = useAccountStatus();
+  const { data, isLoading, error } = useAccountStatus();
+  const actions = Array.isArray(data) ? data : [];
 
   if (isLoading) {
     return (
@@ -157,9 +158,10 @@ export function AccountStatusClient() {
     return (
       <div className="rounded-2xl border border-green-200 bg-green-50 p-6 text-center">
         <CheckCircle2 className="mx-auto mb-3 h-10 w-10 text-green-500" aria-hidden />
-        <p className="text-base font-semibold text-green-800">Your account is in good standing</p>
+        <p className="text-base font-semibold text-green-800">No restrictions on your account</p>
         <p className="mt-1 text-sm text-green-700">
-          There are no active enforcement actions against your listing.
+          There are no active enforcement actions against your listing under clause {CLAUSE_REF}. If
+          a decision is ever made, your right to appeal is set out in clause {APPEAL_CLAUSE_REF}.
         </p>
       </div>
     );

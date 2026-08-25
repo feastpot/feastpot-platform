@@ -65,12 +65,17 @@ export default async function AccountAndCompliancePage() {
   }
 
   // Fetch verification record, terms view, and terms history in parallel.
-  // Every fetch has its own catch so a single failure never prevents the
-  // rest of the page from rendering.
+  // A missing verification record is a normal empty state. Other verification
+  // failures must remain visible as real server failures rather than being
+  // misrepresented to the vendor as an unverified account.
   const [verification, termsView, termsHistory] = await Promise.all([
     apiRequest<VerificationRecord>(`/vendors/${vendor.id}/verification`, {
+      accessToken: session.access_token,
       next: { revalidate: 0 },
-    }).catch(() => null),
+    }).catch((err: unknown) => {
+      if (err instanceof ApiError && err.status === 404) return null;
+      throw err;
+    }),
 
     apiRequest<TermsViewData>('/terms/versions/me?documentType=VENDOR_TERMS', {
       accessToken: session.access_token,

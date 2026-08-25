@@ -45,6 +45,16 @@ function formatGbp(pence: number) {
   return `£${(pence / 100).toFixed(2)}`;
 }
 
+function withQrMedium(referralUrl: string) {
+  try {
+    const url = new URL(referralUrl);
+    url.searchParams.set('m', 'qr');
+    return url.toString();
+  } catch {
+    return `${referralUrl}${referralUrl.includes('?') ? '&' : '?'}m=qr`;
+  }
+}
+
 function SourceBar({
   label,
   count,
@@ -89,6 +99,7 @@ export function ShareAndCustomersClient({
   const [splitStatus, setSplitStatus] = useState<'loading' | 'ok' | 'error'>('loading');
   const [copied, setCopied] = useState<string | null>(null);
   const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const initialLinkFetchFired = useRef(false);
 
   // Client-side QR data URL: generated instantly when stored Supabase URL is not
   // yet available (self-healing fallback). Renders in < 100 ms.
@@ -96,12 +107,23 @@ export function ShareAndCustomersClient({
 
   // The QR URL embeds &m=qr so the /v/[slug] handler can fire a qr_scan analytics
   // event distinguishable from a plain link click.
-  const qrLink = link ? `${link.referralUrl}?m=qr` : null;
+  const qrLink = link ? withQrMedium(link.referralUrl) : null;
+
+  // A server render can race referral-link creation. Recover in the browser
+  // rather than leaving this page blank when the initial request returned null.
+  useEffect(() => {
+    if (!token || link || initialLinkFetchFired.current) return;
+    initialLinkFetchFired.current = true;
+    apiRequest<ReferralLink>('/attribution/links/me', { accessToken: token })
+      .then(setLink)
+      .catch(() => null);
+  }, [token, link]);
 
   // Generate client-side QR immediately when stored URLs are missing.
   useEffect(() => {
     if (link?.qrUrls || !qrLink) return;
     let cancelled = false;
+    setClientQrDataUrl(null);
     import('qrcode')
       .then(({ default: QRCode }) =>
         QRCode.toDataURL(qrLink, {
@@ -121,8 +143,8 @@ export function ShareAndCustomersClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [link?.qrUrls, qrLink]);
 
-  // Single background refresh: once the API has finished generating the stored QR,
-  // replace the client-side render with the stored high-res URL.
+  // Once the API has finished generating stored assets, replace the temporary
+  // client QR. The preview remains usable while this request is in flight.
   const bgRefreshFired = useRef(false);
   useEffect(() => {
     if (!token || link?.qrUrls || bgRefreshFired.current) return;
@@ -132,7 +154,7 @@ export function ShareAndCustomersClient({
         const fresh = await apiRequest<ReferralLink>('/attribution/links/me', {
           accessToken: token,
         });
-        if (fresh.qrUrls) setLink(fresh);
+        setLink(fresh);
       } catch {
         /* no-op */
       }
@@ -161,9 +183,12 @@ export function ShareAndCustomersClient({
 
   if (!link) {
     return (
-      <p className="text-sm text-mid">
-        Your referral link is not ready yet. Please refresh the page in a moment.
-      </p>
+      <div className="rounded-xl border border-border bg-white p-5">
+        <p className="text-sm font-medium text-dark">Preparing your referral link</p>
+        <p className="mt-1 text-sm text-mid">
+          We are checking for your personal link now. It will appear here as soon as it is ready.
+        </p>
+      </div>
     );
   }
 
@@ -259,7 +284,7 @@ export function ShareAndCustomersClient({
                     className="flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-semibold text-dark transition-colors hover:bg-surface"
                   >
                     <Download className="h-3.5 w-3.5" aria-hidden />
-                    PNG (high-res)
+                    Download PNG
                   </a>
                   <a
                     href={link.qrUrls.svg}
@@ -267,7 +292,7 @@ export function ShareAndCustomersClient({
                     className="flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-semibold text-dark transition-colors hover:bg-surface"
                   >
                     <Download className="h-3.5 w-3.5" aria-hidden />
-                    SVG (scalable)
+                    Download SVG
                   </a>
                 </>
               ) : clientQrDataUrl ? (
@@ -279,7 +304,7 @@ export function ShareAndCustomersClient({
                   className="flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-semibold text-dark transition-colors hover:bg-surface"
                 >
                   <Download className="h-3.5 w-3.5" aria-hidden />
-                  PNG
+                  Download PNG
                 </a>
               ) : null}
             </div>
@@ -413,8 +438,8 @@ export function ShareAndCustomersClient({
           /* Empty state */
           <div className="rounded-xl border border-border bg-white p-5">
             <p className="mb-4 text-sm text-mid">
-              No orders yet. Once customers order through your link, you will see how many came from
-              your own marketing versus Feastpot discovery here.
+              No orders yet. Marketplace orders come from Feastpot discovery; your referral orders
+              come from customers using your personal link.
             </p>
             <table className="w-full text-sm" aria-label="Order source breakdown placeholder">
               <thead>
@@ -432,12 +457,12 @@ export function ShareAndCustomersClient({
               </thead>
               <tbody>
                 <tr className="border-b border-border">
-                  <td className="py-2 text-mid">Feastpot marketplace</td>
+                  <td className="py-2 text-mid">Marketplace</td>
                   <td className="py-2 text-right text-mid">0</td>
                   <td className="py-2 text-right text-mid">£0.00</td>
                 </tr>
                 <tr>
-                  <td className="py-2 text-mid">Via your link</td>
+                  <td className="py-2 text-mid">Your referral</td>
                   <td className="py-2 text-right text-mid">0</td>
                   <td className="py-2 text-right text-mid">£0.00</td>
                 </tr>

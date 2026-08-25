@@ -98,13 +98,17 @@ export function ComplianceClient({
   const docs = useVendorDocuments(vendor.id);
   const upload = useUploadDocument(vendor.id);
   const { toast } = useToast();
+  // An empty response means no documents have been uploaded yet. Normalise it
+  // before deriving row state so every required document remains visible as
+  // "Not started", rather than relying on an optional query value.
+  const documentList = Array.isArray(docs.data) ? docs.data : [];
 
-  const summary = summarise(REQUIRED_DOC_TYPES, docs.data);
+  const summary = summarise(REQUIRED_DOC_TYPES, documentList);
   // Newest-first per type - API returns docs ordered by createdAt desc,
   // so the first occurrence wins. `new Map(arr)` would silently keep
   // the LAST (oldest) entry after a re-upload, so we iterate manually.
   const docByType = new Map<VendorDocumentType, VendorDocument>();
-  for (const d of docs.data ?? []) if (!docByType.has(d.type)) docByType.set(d.type, d);
+  for (const d of documentList) if (!docByType.has(d.type)) docByType.set(d.type, d);
 
   const approvedPct =
     summary.totalRequired === 0 ? 0 : Math.round((summary.approved / summary.totalRequired) * 100);

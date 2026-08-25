@@ -37,6 +37,41 @@ interface EarningsData {
   cumulative: Summary;
 }
 
+function isSummary(value: unknown): value is Summary {
+  if (!value || typeof value !== 'object') return false;
+  const summary = value as Partial<Summary>;
+  return (
+    typeof summary.blendedRatePct === 'number' &&
+    Number.isFinite(summary.blendedRatePct) &&
+    typeof summary.savedPence === 'number' &&
+    Number.isFinite(summary.savedPence) &&
+    Array.isArray(summary.bySource) &&
+    summary.bySource.every(
+      (row) =>
+        row &&
+        typeof row === 'object' &&
+        typeof (row as BySource).source === 'string' &&
+        typeof (row as BySource).orderCount === 'number' &&
+        typeof (row as BySource).foodSubtotalPence === 'number' &&
+        typeof (row as BySource).commissionPence === 'number' &&
+        typeof (row as BySource).effectiveRatePct === 'number',
+    )
+  );
+}
+
+/**
+ * The payouts API represents a vendor with no completed orders inconsistently
+ * in older deployments (null, an empty object, or partial summaries). Those
+ * are all valid empty states for this screen, not failures to fetch earnings.
+ */
+function asEarningsData(value: unknown): EarningsData | null {
+  if (!value || typeof value !== 'object') return null;
+  const data = value as Partial<EarningsData>;
+  return isSummary(data.period) && isSummary(data.cumulative)
+    ? { period: data.period, cumulative: data.cumulative }
+    : null;
+}
+
 const SOURCE_LABELS: Record<string, { label: string; colour: string; note: string }> = {
   MARKETPLACE_FIRST: {
     label: 'New marketplace customers',
@@ -90,8 +125,10 @@ export function EarningsClient() {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!res.ok) throw new Error(`API error ${res.status}`);
-        const json = (await res.json()) as EarningsData;
-        if (!cancelled) setData(json);
+        // A 2xx response with no usable summary is the API's empty-state
+        // representation. Keep transport/auth failures distinct below.
+        const json: unknown = await res.json().catch(() => null);
+        if (!cancelled) setData(asEarningsData(json));
       } catch (e) {
         if (!cancelled) setError((e as Error).message);
       } finally {
@@ -107,7 +144,7 @@ export function EarningsClient() {
   useEffect(() => {
     fetch(`${API}/v1/terms/rate-schedule`)
       .then((r) => r.json())
-      .then((d) => setRates(d as RateRow[]))
+      .then((d: unknown) => setRates(Array.isArray(d) ? (d as RateRow[]) : []))
       .catch(() => null)
       .finally(() => setRatesLoading(false));
   }, []);

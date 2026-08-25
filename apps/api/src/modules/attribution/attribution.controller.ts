@@ -80,9 +80,8 @@ export class AttributionController {
   // ─── Admin ───────────────────────────────────────────────────────────────────
 
   /**
-   * One-off backfill: generate and store QR codes for all existing referral
-   * links that were created before synchronous QR generation was introduced.
-   * Idempotent - only processes rows where qrCodeUrl IS NULL.
+   * Queue a backfill for referral links that lack QR URLs. Rendering and
+   * storage happen in bounded background batches, never in this request.
    */
   @Post('admin/backfill-qr')
   @Roles(UserRole.admin)

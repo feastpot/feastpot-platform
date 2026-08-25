@@ -1,11 +1,15 @@
+import { InjectQueue } from '@nestjs/bull';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AttributionSource, OrderSource, OrderStatus, Prisma } from '@prisma/client';
+import type { Queue } from 'bull';
 import * as QRCode from 'qrcode';
 
 import { SupabaseService } from '../../auth/supabase.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { ATTRIBUTION_QR_QUEUE } from '../../queues/queues.module';
 
+import { BACKFILL_REFERRAL_QR_JOB, GENERATE_REFERRAL_QR_JOB } from './attribution-qr.jobs';
 import { RecordClickDto } from './dto/record-click.dto';
 
 const QR_BUCKET = 'feastpot-media';
@@ -78,6 +82,7 @@ export class AttributionService {
     private readonly prisma: PrismaService,
     private readonly supabase: SupabaseService,
     private readonly config: ConfigService,
+    @InjectQueue(ATTRIBUTION_QR_QUEUE) private readonly qrQueue: Queue,
   ) {
     this.webBaseUrl = config.get<string>('WEB_BASE_URL') ?? 'https://feastpot.co.uk';
   }
@@ -88,7 +93,10 @@ export class AttributionService {
     const existing = await this.prisma.vendorReferralLink.findUnique({
       where: { vendorId },
     });
-    if (existing) return this.withReferralUrl(existing);
+    if (existing) {
+      if (!existing.qrCodeUrl) void this.enqueueQrGeneration(existing.id);
+      return this.withReferralUrl(existing);
+    }
 
     const vendor = await this.prisma.vendor.findUniqueOrThrow({
       where: { id: vendorId },
@@ -107,17 +115,65 @@ export class AttributionService {
       data: { vendorId, slug },
     });
 
-    // Generate QR synchronously so the very first response includes qrUrls.
-    // If generation fails (e.g. Supabase Storage unreachable), we return
-    // qrUrls: null and the client self-heals with a browser-side QR render.
-    let qrUrls: { png: string; svg: string } | null = null;
-    try {
-      qrUrls = await this.generateAndStoreQr(link.id, link.slug);
-    } catch (err) {
-      this.logger.error(`QR generation failed for new link ${link.id}: ${String(err)}`);
-    }
+    // Rendering/uploading can take seconds; persist first and let the queue do
+    // it. The UI can poll this endpoint and will receive URLs once ready.
+    void this.enqueueQrGeneration(link.id);
+    return this.withReferralUrl(link);
+  }
 
-    return { ...this.withReferralUrl(link), qrUrls };
+  async enqueueQrGeneration(linkId: string): Promise<void> {
+    const jobId = `referral-qr:${linkId}`;
+    try {
+      const existing = await this.qrQueue.getJob(jobId);
+      if (existing) {
+        const state = await existing.getState();
+        if (state === 'waiting' || state === 'active' || state === 'delayed') return;
+        // A completed/failed retained job must not prevent later recovery of a
+        // still-NULL row (for example after Storage was temporarily down).
+        await existing.remove();
+      }
+      await this.qrQueue.add(GENERATE_REFERRAL_QR_JOB, { linkId }, { jobId });
+    } catch (err) {
+      // Never make the link GET fail because Redis is unavailable. A later GET
+      // and bootstrap backfill both retry enqueueing.
+      this.logger.warn(`Could not enqueue QR generation for link ${linkId}: ${String(err)}`);
+    }
+  }
+
+  async enqueueQrBackfill(nextBatch = false): Promise<void> {
+    const jobId = nextBatch ? `referral-qr-backfill:${Date.now()}` : 'referral-qr-backfill';
+    try {
+      if (!nextBatch) {
+        const existing = await this.qrQueue.getJob(jobId);
+        if (existing) {
+          const state = await existing.getState();
+          if (state === 'waiting' || state === 'active' || state === 'delayed') return;
+          await existing.remove();
+        }
+      }
+      await this.qrQueue.add(BACKFILL_REFERRAL_QR_JOB, {}, { jobId });
+    } catch (err) {
+      this.logger.warn(`Could not enqueue QR backfill: ${String(err)}`);
+    }
+  }
+
+  async findMissingQrLinks(take: number): Promise<Array<{ id: string; slug: string }>> {
+    return this.prisma.vendorReferralLink.findMany({
+      where: { qrCodeUrl: null },
+      select: { id: true, slug: true },
+      take,
+    });
+  }
+
+  async generateQrIfMissing(
+    linkId: string,
+  ): Promise<{ skipped: boolean } | { png: string; svg: string }> {
+    const link = await this.prisma.vendorReferralLink.findUnique({
+      where: { id: linkId },
+      select: { id: true, slug: true, qrCodeUrl: true },
+    });
+    if (!link || link.qrCodeUrl) return { skipped: true };
+    return this.generateAndStoreQr(link.id, link.slug);
   }
 
   /**
@@ -139,7 +195,12 @@ export class AttributionService {
         margin: 2,
         color: { dark: '#000000', light: '#ffffff' },
       }),
-      QRCode.toString(referralUrl, { type: 'svg' }),
+      QRCode.toString(referralUrl, {
+        type: 'svg',
+        width: 1024,
+        margin: 2,
+        color: { dark: '#000000', light: '#ffffff' },
+      }),
     ]);
 
     const storage = this.supabase.getClient().storage.from(QR_BUCKET);
@@ -175,28 +236,8 @@ export class AttributionService {
    * Safe to run multiple times; only touches rows where qrCodeUrl IS NULL.
    */
   async backfillMissingQr(): Promise<{ processed: number; failed: number }> {
-    const links = await this.prisma.vendorReferralLink.findMany({
-      where: { qrCodeUrl: null },
-      select: { id: true, slug: true },
-    });
-
-    this.logger.log(`QR backfill: ${links.length} link(s) to process`);
-
-    let processed = 0;
-    let failed = 0;
-    for (const link of links) {
-      try {
-        await this.generateAndStoreQr(link.id, link.slug);
-        processed++;
-        this.logger.log(`QR backfill: generated for link ${link.id}`);
-      } catch (err) {
-        this.logger.error(`QR backfill failed for link ${link.id}: ${String(err)}`);
-        failed++;
-      }
-    }
-
-    this.logger.log(`QR backfill complete: ${processed} ok, ${failed} failed`);
-    return { processed, failed };
+    await this.enqueueQrBackfill();
+    return { processed: 0, failed: 0 };
   }
 
   /**

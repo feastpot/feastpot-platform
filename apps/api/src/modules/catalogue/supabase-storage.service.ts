@@ -57,7 +57,7 @@ export class SupabaseStorageService implements OnModuleInit {
     await Promise.all([
       this.ensureBucket(STORAGE_BUCKET, {
         public: true,
-        allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp'],
+        allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml'],
         fileSizeLimit: 5 * 1024 * 1024,
       }),
       this.ensureBucket(DOCUMENTS_BUCKET, {
@@ -75,7 +75,20 @@ export class SupabaseStorageService implements OnModuleInit {
     const { error } = await this.supabase.getClient().storage.createBucket(name, opts);
     if (error && !error.message.toLowerCase().includes('already exists')) {
       this.logger.warn(`Could not ensure storage bucket "${name}": ${error.message}`);
-    } else {
+      return;
+    }
+    if (error) {
+      // createBucket does not alter an existing bucket. Update it too so
+      // installations created before QR SVG support accept image/svg+xml.
+      const { error: updateError } = await this.supabase
+        .getClient()
+        .storage.updateBucket(name, opts);
+      if (updateError) {
+        this.logger.warn(`Could not update storage bucket "${name}": ${updateError.message}`);
+        return;
+      }
+    }
+    {
       this.logger.log(`Storage bucket "${name}" is ready`);
     }
   }

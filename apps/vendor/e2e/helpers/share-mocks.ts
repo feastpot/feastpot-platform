@@ -45,6 +45,19 @@ export function makeCustomerSplit() {
   };
 }
 
+export function makeEmptyCustomerSplit() {
+  return {
+    thisWeek: {
+      VENDOR_REFERRED: { orders: 0, gmvPence: 0 },
+      MARKETPLACE: { orders: 0, gmvPence: 0 },
+    },
+    cumulative: {
+      VENDOR_REFERRED: { orders: 0, gmvPence: 0 },
+      MARKETPLACE: { orders: 0, gmvPence: 0 },
+    },
+  };
+}
+
 async function mockAlways(
   page: Page,
   pattern: string | RegExp,
@@ -59,6 +72,7 @@ async function mockAlways(
 export async function installShareMocks(
   page: Page,
   linkOverrides: Record<string, unknown> = {},
+  opts: { empty?: boolean } = {},
 ): Promise<void> {
   await mockAlways(page, '**/v1/vendors/me', 200, {
     id: SHARE_IDS.vendor,
@@ -68,17 +82,12 @@ export async function installShareMocks(
   await mockAlways(page, '**/v1/inbox/unread-count', 200, { count: 0 });
   await mockAlways(page, '**/v1/vendor-members/my-role', 200, { role: 'owner' });
 
+  await mockAlways(page, '**/v1/attribution/links/me', 200, makeReferralLink(linkOverrides));
   await mockAlways(
     page,
-    /\/v1\/vendors\/[^/]+\/referral-link(\?.*)?$/,
+    '**/v1/attribution/vendor-split',
     200,
-    makeReferralLink(linkOverrides),
-  );
-  await mockAlways(
-    page,
-    /\/v1\/vendors\/[^/]+\/customers\/split(\?.*)?$/,
-    200,
-    makeCustomerSplit(),
+    opts.empty ? makeEmptyCustomerSplit() : makeCustomerSplit(),
   );
   await mockAlways(page, '**/v1/attribution/clicks', 200, {
     referralLinkId: SHARE_IDS.referralLink,

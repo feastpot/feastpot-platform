@@ -11,12 +11,14 @@
  *         (OrderSource, isFirstOrder) - including MARKETPLACE_REPEAT for second orders.
  */
 
+import { getQueueToken } from '@nestjs/bull';
 import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 import { OrderSource } from '@prisma/client';
 
 import { SupabaseService } from '../../auth/supabase.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { ATTRIBUTION_QR_QUEUE } from '../../queues/queues.module';
 
 import {
   AttributionService,
@@ -159,6 +161,10 @@ describe('AttributionService.preResolveSource', () => {
         {
           provide: ConfigService,
           useValue: { get: jest.fn().mockReturnValue('https://feastpot.co.uk') },
+        },
+        {
+          provide: getQueueToken(ATTRIBUTION_QR_QUEUE),
+          useValue: { add: jest.fn() },
         },
       ],
     }).compile();

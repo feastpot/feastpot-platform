@@ -21,12 +21,7 @@
 import { expect, test } from '@playwright/test';
 
 import { PageMetrics } from './helpers/page-metrics';
-import {
-  CANONICAL_REFERRAL_URL,
-  SHARE_IDS,
-  installShareMocks,
-  makeReferralLink,
-} from './helpers/share-mocks';
+import { CANONICAL_REFERRAL_URL, SHARE_IDS, installShareMocks } from './helpers/share-mocks';
 
 // PLATFORM_FACTS constants (sourced from packages/config/src/platform-facts.ts).
 // Update here if the source-of-truth values change; the consistency test in CI
@@ -323,4 +318,35 @@ test('S6: every commission percentage on the share page matches PLATFORM_FACTS v
   console.log(
     `S6 PASS: vendorReferred=${VENDOR_REFERRED_PCT}%, first=${MARKETPLACE_FIRST_PCT}%, repeat=${MARKETPLACE_REPEAT_PCT}%`,
   );
+});
+
+test('S7: a missing stored QR immediately falls back to a black-on-white client QR', async ({
+  page,
+}) => {
+  await installShareMocks(page, { qrUrls: null });
+
+  await page.goto('/share');
+
+  const qr = page.getByRole('img', { name: `QR code for ${CANONICAL_REFERRAL_URL}` });
+  await expect(qr).toBeVisible({ timeout: 4_500 });
+  await expect(qr).toHaveAttribute('src', /^data:image\/png;base64,/);
+  await expect(page.getByRole('link', { name: 'Download PNG' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Download SVG' })).toHaveCount(0);
+});
+
+test('S8: a zero-order split shows concrete Marketplace and Your referral zero rows', async ({
+  page,
+}) => {
+  await installShareMocks(page, {}, { empty: true });
+
+  await page.goto('/share');
+
+  await expect(page.getByText('Marketplace', { exact: true })).toBeVisible();
+  await expect(page.getByText('Your referral', { exact: true })).toBeVisible();
+  await expect(
+    page.getByText(/Marketplace orders come from Feastpot discovery; your referral orders/i),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('table', { name: 'Order source breakdown placeholder' }),
+  ).toContainText('£0.00');
 });

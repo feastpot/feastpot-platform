@@ -63,6 +63,7 @@ import { QueueMonitorModule } from './queues/queue-monitor.module';
 import {
   QueuesModule,
   COMPLIANCE_QUEUE,
+  ATTRIBUTION_QR_QUEUE,
   HMRC_QUEUE,
   NOTIFICATIONS_QUEUE,
   PAYOUTS_QUEUE,
@@ -362,6 +363,7 @@ import { RootController } from './root.controller';
       { name: COMPLIANCE_QUEUE, adapter: BullAdapter },
       { name: TERMS_NOTICES_QUEUE, adapter: BullAdapter },
       { name: HMRC_QUEUE, adapter: BullAdapter },
+      { name: ATTRIBUTION_QR_QUEUE, adapter: BullAdapter },
     ),
     AuthModule,
     UsersModule,

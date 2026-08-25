@@ -95,6 +95,27 @@ export function makePayoutSummary() {
   };
 }
 
+/** Empty but valid responses for a newly-live vendor with no order history. */
+export function makeEmptyPerformanceData() {
+  return {
+    analytics: {
+      weeklyRevenue: [],
+      topDishes: [],
+      hourlyDistribution: [],
+      averageOrderValuePence: 0,
+      reorderRatePct: 0,
+    },
+    earnings: {
+      period: { blendedRatePct: 0, savedPence: 0, bySource: [] },
+      cumulative: { blendedRatePct: 0, savedPence: 0, bySource: [] },
+    },
+    payoutSummary: {
+      foundingAllowanceGrantedPence: 0,
+      foundingAllowanceUsedPence: 0,
+    },
+  };
+}
+
 async function mockAlways(
   page: Page,
   pattern: string | RegExp,
@@ -106,7 +127,11 @@ async function mockAlways(
   );
 }
 
-export async function installPerformanceMocks(page: Page): Promise<void> {
+export async function installPerformanceMocks(
+  page: Page,
+  opts: { empty?: boolean } = {},
+): Promise<void> {
+  const empty = opts.empty ? makeEmptyPerformanceData() : null;
   await mockAlways(page, '**/v1/vendors/me', 200, {
     id: PERF_IDS.vendor,
     businessName: "Kwame's Jollof Kitchen",
@@ -116,7 +141,21 @@ export async function installPerformanceMocks(page: Page): Promise<void> {
   await mockAlways(page, '**/v1/vendor-members/my-role', 200, { role: 'owner' });
 
   await mockAlways(page, '**/v1/terms/rate-schedule', 200, makeRateSchedule());
-  await mockAlways(page, /\/v1\/vendors\/[^/]+\/analytics(\?.*)?$/, 200, makeAnalyticsData());
+  await mockAlways(
+    page,
+    /\/v1\/vendors\/[^/]+\/analytics(\?.*)?$/,
+    200,
+    empty?.analytics ?? makeAnalyticsData(),
+  );
   await mockAlways(page, /\/v1\/vendors\/[^/]+\/earnings(\?.*)?$/, 200, makeEarningsData());
-  await mockAlways(page, '**/v1/payouts/summary', 200, makePayoutSummary());
+  await mockAlways(
+    page,
+    '**/v1/payouts/earnings-summary**',
+    200,
+    empty?.earnings ?? {
+      period: { blendedRatePct: 8.5, savedPence: 1200, bySource: [] },
+      cumulative: { blendedRatePct: 8.5, savedPence: 1200, bySource: [] },
+    },
+  );
+  await mockAlways(page, '**/v1/payouts/summary', 200, empty?.payoutSummary ?? makePayoutSummary());
 }

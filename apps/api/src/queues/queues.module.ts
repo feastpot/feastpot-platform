@@ -7,6 +7,7 @@ export const PAYOUTS_QUEUE = 'payouts';
 export const COMPLIANCE_QUEUE = 'compliance';
 export const TERMS_NOTICES_QUEUE = 'terms-notices';
 export const HMRC_QUEUE = 'hmrc';
+export const ATTRIBUTION_QR_QUEUE = 'attribution-qr';
 
 // Bound every queue's completed/failed retention so Redis (Upstash) usage stays
 // flat. Without removeOnFail the failed ZSET grows forever - the production
@@ -41,6 +42,16 @@ const queues = BullModule.registerQueue(
     defaultJobOptions: {
       attempts: 5,
       backoff: { type: 'exponential', delay: 60_000 },
+      ...RETENTION,
+    },
+  },
+  {
+    // Referral QR rendering and storage must never sit on the vendor portal
+    // request path. Jobs use deterministic ids in AttributionService.
+    name: ATTRIBUTION_QR_QUEUE,
+    defaultJobOptions: {
+      attempts: 5,
+      backoff: { type: 'exponential', delay: 5_000 },
       ...RETENTION,
     },
   },
