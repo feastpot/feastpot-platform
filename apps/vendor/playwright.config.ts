@@ -187,6 +187,44 @@ export default defineConfig({
       },
       dependencies: ['setup'],
     },
+    // ── State-matrix setup and cleanup ─────────────────────────────────────────
+    // The matrix owns isolated V4–V8 test-factory identities. It does not reuse
+    // the shared test vendor or mutate developer/demo seed data.
+    {
+      name: 'vendor-state-matrix-setup',
+      testMatch: /vendor-state-matrix\.setup\.ts/,
+      teardown: 'vendor-state-matrix-teardown',
+      use: {
+        ...devices['Desktop Chrome'],
+      },
+    },
+    {
+      name: 'vendor-state-matrix',
+      testMatch: /vendor-state-matrix\.spec\.ts/,
+      grep: /V[4-8] routes render/,
+      use: {
+        ...devices['Desktop Chrome'],
+      },
+      dependencies: ['vendor-state-matrix-setup'],
+    },
+    {
+      name: 'vendor-state-matrix-mobile',
+      testMatch: /vendor-state-matrix\.spec\.ts/,
+      grep: /V4 routes do not overflow/,
+      use: {
+        ...devices['iPhone 12'],
+        browserName: 'chromium',
+        viewport: { width: 375, height: 812 },
+      },
+      dependencies: ['vendor-state-matrix-setup'],
+    },
+    {
+      name: 'vendor-state-matrix-teardown',
+      testMatch: /vendor-state-matrix\.teardown\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+      },
+    },
 
     // ── Cross-cutting tests (X1–X2) ───────────────────────────────────────────
     // X1 audits every interactive control on all four screens for observable

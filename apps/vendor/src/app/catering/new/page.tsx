@@ -13,8 +13,9 @@ export const metadata = { title: 'New catering quote | Feastpot Vendor' };
 export default async function NewCateringQuotePage({
   searchParams,
 }: {
-  searchParams: { enquiryId?: string };
+  searchParams: Promise<{ enquiryId?: string }>;
 }) {
+  const { enquiryId } = await searchParams;
   const supabase = await createClient();
   const {
     data: { session },
@@ -64,7 +65,7 @@ export default async function NewCateringQuotePage({
         </a>
       </div>
 
-      <CateringQuoteForm enquiryId={searchParams.enquiryId} />
+      <CateringQuoteForm enquiryId={enquiryId} />
     </PortalShell>
   );
 }

@@ -10,7 +10,8 @@ import { CateringQuoteForm } from './quote-form';
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Catering quote | Feastpot Vendor' };
 
-export default async function CateringQuotePage({ params }: { params: { id: string } }) {
+export default async function CateringQuotePage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const supabase = await createClient();
   const {
     data: { session },
@@ -60,7 +61,7 @@ export default async function CateringQuotePage({ params }: { params: { id: stri
         </a>
       </div>
 
-      <CateringQuoteForm bookingId={params.id} />
+      <CateringQuoteForm bookingId={id} />
     </PortalShell>
   );
 }

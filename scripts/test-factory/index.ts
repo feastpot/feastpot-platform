@@ -195,7 +195,8 @@ export class TestDataFactory {
     this.namespace = options.namespace ?? process.env.TEST_FACTORY_NAMESPACE ?? 'local';
     this.password = options.password ?? process.env.TEST_FACTORY_PASSWORD ?? null;
 
-    const rawSupabaseUrl = options.supabaseUrl ?? process.env.SUPABASE_URL;
+    const rawSupabaseUrl =
+      options.supabaseUrl ?? process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseUrl = rawSupabaseUrl
       ? rawSupabaseUrl.replace(/\/rest\/v1\/?$/, '').replace(/\/+$/, '')
       : undefined;
