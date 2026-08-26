@@ -2,6 +2,9 @@
 # Production migration runner.
 #
 # Order of operations (and why):
+#   0. MIGRATION HYGIENE: remove empty local migration directories, which Git
+#      cannot track but Prisma treats as a broken migration (P3015). Fail
+#      before touching the DB for any non-empty directory without migration.sql.
 #   1. PRE-FLIGHT: pick the DB URL for the RLS step and verify psql can
 #      actually reach the host. We do this BEFORE running migrations so
 #      a stale DIRECT_URL cannot leave us in a half-state where the
@@ -24,6 +27,28 @@
 set -u
 SCHEMA="prisma/schema.prisma"
 STUCK_MIGRATION="20260516120000_add_scale_indexes"
+
+# ---------------------------------------------------------------------------
+# 0. Migration hygiene.
+# ---------------------------------------------------------------------------
+# Empty migration directories are a local-workspace artifact: Git does not
+# preserve them, but Prisma scans the working tree and aborts with P3015 before
+# the API can start. Remove only truly empty directories. A directory containing
+# files but lacking migration.sql is a real malformed migration and must fail
+# clearly rather than being silently ignored.
+while IFS= read -r -d '' migration_dir; do
+  [ -f "$migration_dir/migration.sql" ] && continue
+
+  if [ -z "$(find "$migration_dir" -mindepth 1 -print -quit)" ]; then
+    echo "[db-deploy] Removing empty local migration directory: $migration_dir"
+    rmdir "$migration_dir"
+    continue
+  fi
+
+  echo "[db-deploy] FATAL: migration directory is missing migration.sql: $migration_dir"
+  echo "[db-deploy] Aborting before migrations so the malformed migration can be fixed safely."
+  exit 3
+done < <(find prisma/migrations -mindepth 1 -maxdepth 1 -type d -print0)
 
 # ---------------------------------------------------------------------------
 # 1. Pre-flight: pick + verify the DB URL used for the RLS step.
