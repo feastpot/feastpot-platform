@@ -1,0 +1,76 @@
+TASK: Build a test identity and data factory.
+
+WHY THIS IS SECOND
+The Phase 3 audit could not verify a single authenticated vendor
+or admin screen. Disposable identities authenticated at Supabase
+but had no matching platform profile, and creating one through
+the development database was rejected. Six known bugs came back
+"COULD NOT REPRODUCE" purely because of this.
+
+Read that as a product defect, not a testing inconvenience. A
+brand new cook signing up IS the empty-account case. If an
+auditor with database access cannot produce a working empty
+vendor, a real vendor's first login is unlikely to go better.
+
+BUILD: packages/test-factory (or scripts/test-factory)
+
+Provide programmatic creation and teardown for these states.
+Each must produce a fully working, signed-in-capable account.
+
+CUSTOMER STATES
+  C1  new, zero orders, no addresses, no FeastPass
+  C2  has saved address, zero orders
+  C3  one completed order
+  C4  active FeastPass member
+  C5  lapsed FeastPass member (past_due)
+  C6  customer with an open dispute
+
+VENDOR STATES
+  V1  applied, not yet approved
+  V2  approved, Stripe Connect not started
+  V3  Stripe Connect started, requirements outstanding
+  V4  fully live, ZERO orders, zero documents expiring
+      (this is THE empty-account case, test it hardest)
+  V5  live with completed orders and a generated payout
+  V6  documents expiring within 30 days (renewal due)
+  V7  documents expired more than 7 days (suspended)
+  V8  FHRS rating below 3 (immediately suspended)
+  V9  terms not yet accepted
+  V10 accepted v1.0, v2.0 pending effective date
+  V11 vendor with an active catering booking
+
+ADMIN STATES
+  A1  staff, AAL1 session only (no MFA)
+  A2  staff, AAL2 session
+  A3  staff with restricted role, if roles exist
+
+REQUIREMENTS
+1. Creation is idempotent and each factory returns credentials
+   plus IDs the test can use.
+2. Teardown removes everything created, including Supabase Auth
+   users, platform rows and storage objects. A test run must
+   leave no residue.
+3. Works against a local database and a CI ephemeral database.
+4. Never touches production. Add a hard guard that throws if
+   the target database URL looks like production.
+5. Seeded passwords must be environment-supplied, not
+   hardcoded. Phase 1 found tracked seed passwords at
+   prisma/seed.ts:91-310 and in web e2e helpers; do not extend
+   that pattern.
+
+DIAGNOSE THE UNDERLYING BUG WHILE YOU BUILD THIS
+Determine WHY an Auth user with no platform profile is left
+stranded on the sign-in page with no useful error. Options are
+usually: sign-in succeeds but a profile lookup returns null and
+the redirect logic silently loops, or the middleware rejects
+without a message. Whichever it is, fix it so the user sees a
+clear explanation ("This account is not registered as a vendor.
+Apply here.") rather than an unexplained bounce back to
+sign-in. That is a real user-facing bug.
+
+ACCEPTANCE CRITERIA
+- Every state above can be created and torn down by a script.
+- A V4 empty vendor can sign in and reach the dashboard.
+- An Auth user with no platform profile sees a clear message.
+- Running the factory twice leaves no duplicate records.
+- The production guard throws when pointed at a production URL.
