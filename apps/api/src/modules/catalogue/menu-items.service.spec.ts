@@ -145,6 +145,7 @@ describe('MenuItemsService.uploadImage - draft visibility', () => {
   let prisma: {
     menuItem: { findUnique: jest.Mock; update: jest.Mock };
     vendor: { findUnique: jest.Mock };
+    vendorMember: { findFirst: jest.Mock };
   };
   let storage: { uploadMenuItemImage: jest.Mock };
   let service: MenuItemsService;
@@ -156,6 +157,7 @@ describe('MenuItemsService.uploadImage - draft visibility', () => {
         update: jest.fn().mockResolvedValue({ ...draftItem, imageUrls: [uploadedUrl] }),
       },
       vendor: { findUnique: jest.fn() },
+      vendorMember: { findFirst: jest.fn().mockResolvedValue(null) },
     };
     storage = { uploadMenuItemImage: jest.fn().mockResolvedValue({ publicUrl: uploadedUrl }) };
 

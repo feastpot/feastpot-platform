@@ -32,6 +32,7 @@
     "test:factory": "ts-node scripts/test-factory/cli.ts",
     "db:prod-resolve": "SUPABASE_DB_URL=$PROD_DIRECT_URL SUPABASE_DIRECT_URL=$PROD_DIRECT_URL npx prisma migrate resolve --schema=prisma/schema.prisma",
     "verify:payouts": "ts-node scripts/verify-payout-reconciliation.ts",
+    "remediate:published-allergens": "ts-node scripts/remediate-published-allergens.ts",
     "ci": "turbo run lint typecheck test build",
     "build:api": "turbo run build --filter=@feastpot/api",
     "start:api": "NODE_ENV=production node apps/api/dist/main.js",

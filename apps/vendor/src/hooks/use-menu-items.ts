@@ -90,15 +90,24 @@ export function useAllergenRemediation(vendorId: string | undefined) {
   });
 }
 
-export function useMenuItems(vendorId: string | undefined, menuId: string | undefined) {
+export function useMenuItems(
+  vendorId: string | undefined,
+  menuId: string | undefined,
+  filters?: { allergenStatus?: 'needs_declaration' | 'remediation_required' },
+) {
   const { token, loading } = useAccessToken();
   return useQuery({
-    queryKey: ITEMS_KEY(vendorId ?? '', menuId ?? ''),
+    queryKey: [...ITEMS_KEY(vendorId ?? '', menuId ?? ''), filters] as const,
     enabled: !!vendorId && !!menuId && !!token && !loading,
     queryFn: () =>
-      apiRequest<MenuItem[]>(`/vendors/${vendorId}/menus/${menuId}/items`, {
-        accessToken: token!,
-      }),
+      apiRequest<MenuItem[]>(
+        `/vendors/${vendorId}/menus/${menuId}/items${
+          filters?.allergenStatus ? `?allergenStatus=${filters.allergenStatus}` : ''
+        }`,
+        {
+          accessToken: token!,
+        },
+      ),
   });
 }
 

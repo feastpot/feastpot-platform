@@ -5,7 +5,14 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { InboxNotificationType, ModerationStatus, Prisma, UserRole } from '@prisma/client';
+import {
+  InboxNotificationType,
+  ModerationStatus,
+  Prisma,
+  UserRole,
+  VendorMemberRole,
+  VendorMemberStatus,
+} from '@prisma/client';
 
 import type { AuthUser } from '../../auth/types';
 import { RedisCacheService } from '../../common/cache/redis-cache.service';
@@ -215,7 +222,17 @@ export class MenuItemsService {
       where: { id: vendorId },
       select: { userId: true },
     });
-    return owner?.userId === caller.id;
+    if (owner?.userId === caller.id) return true;
+    const member = await this.prisma.vendorMember.findFirst({
+      where: {
+        userId: caller.id,
+        vendorId,
+        status: VendorMemberStatus.active,
+        role: { in: [VendorMemberRole.owner, VendorMemberRole.kitchen_manager] },
+      },
+      select: { id: true },
+    });
+    return !!member;
   }
 
   async create(vendorId: string, menuId: string, dto: CreateMenuItemDto) {

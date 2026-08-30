@@ -606,6 +606,36 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
     },
     channels: ['email'],
   },
+  vendor_menu_allergen_remediation: {
+    subject: (d) =>
+      `${str(d.affectedItemCount, 'Some')} menu item${Number(d.affectedItemCount) === 1 ? '' : 's'} need allergen information`,
+    render: (d) => {
+      const count =
+        typeof d.affectedItemCount === 'number' && d.affectedItemCount > 0
+          ? d.affectedItemCount
+          : 1;
+      return baseLayout(
+        'Allergen information required',
+        h2('Some dishes are temporarily hidden') +
+          amberCallout(
+            `${count} dish${count === 1 ? '' : 'es'} ${count === 1 ? 'is' : 'are'} hidden from customers until the allergen information is confirmed.`,
+          ) +
+          p(
+            'This is a customer-safety requirement, not a penalty and it does not affect your Feastpot account standing.',
+          ) +
+          p(
+            'Open Dishes in the vendor portal, choose "Show affected dishes", then edit each dish. Select every FSA allergen that applies or explicitly confirm that none of the 14 apply. You can republish immediately after a valid declaration is saved.',
+          ) +
+          brandButton(
+            'Review affected dishes',
+            str(d.portalUrl, 'https://vendor.feastpot.co.uk/menu'),
+            'vendorBlue',
+          ),
+      );
+    },
+    channels: ['email', 'whatsapp'],
+    whatsappTemplate: 'menu_allergen_action_required',
+  },
   // ---------- Account power tools (FR-ADM-002) ----------
   account_credit_issued: {
     subject: (d) => `You've received ${formatMoney(d.amountPence)} in Feastpot credit`,
