@@ -633,8 +633,7 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
           ),
       );
     },
-    channels: ['email', 'whatsapp'],
-    whatsappTemplate: 'menu_allergen_action_required',
+    channels: ['email'],
   },
   // ---------- Account power tools (FR-ADM-002) ----------
   account_credit_issued: {
