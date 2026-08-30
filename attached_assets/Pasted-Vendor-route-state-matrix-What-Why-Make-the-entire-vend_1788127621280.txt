@@ -1,0 +1,27 @@
+Vendor route state matrix
+What & Why
+Make the entire vendor portal resilient across the planned V4–V8 account states. The current suite proves the focused V4 empty-account fixes, but many route entry points and dynamic or redirect paths still rely on one shared live vendor identity or have no deterministic browser coverage.
+
+Done looks like
+Every vendor route entry point has an explicit expected outcome for each applicable V4–V8 state, including redirects and dynamic routes.
+The test harness creates or loads isolated, deterministic state fixtures instead of mutating shared seeded vendors or relying on whichever development data happens to exist.
+Browser checks verify the intended empty, populated, restricted, onboarding, loading, or redirect state and fail if a generic application error or error boundary appears.
+Existing route-specific interaction tests continue to run, while the new matrix smoke coverage fills the untested destinations.
+The matrix runs serially or with isolated worker namespaces using the supported Chromium setup in local development and CI, and fails clearly when required test setup is unavailable.
+Out of scope
+Changing vendor-facing colours, layout, or copy unless a route crash requires a minimal user-visible correction.
+Replacing the developer/demo seed or deleting production data.
+Broadening backend business rules unrelated to a route failing under a documented account state.
+Steps
+Define the route contract -- Inventory all 42 route entry points and record the expected landing route and visible state for each V4–V8 scenario, including unauthenticated pages, legacy redirects, onboarding guards, and dynamic routes.
+Build isolated state fixtures -- Add a single scenario manifest and reusable fixture layer that supplies complete vendor, verification, application, member, order, payout, dispute, event, catering, and menu responses as needed without global database cleanup or shared storage-state reuse.
+Add matrix browser coverage -- Add serial route smoke coverage for every applicable route and dynamic placeholder, asserting the expected destination/state and checking every page for generic error output; retain focused interaction specs for controls and mutations.
+Harden route implementations exposed by the matrix -- Fix any remaining null, missing-record, empty-array, role-guard, or server-fetch paths that render a generic error instead of the documented state, with focused regressions beside the affected route.
+Make CI execution honest -- Configure per-scenario authentication and Chromium projects, remove silent skips from required matrix checks, isolate generated state and reports, and verify local and CI commands, type checks, lint, and builds.
+Relevant files
+apps/vendor/playwright.config.ts
+apps/vendor/e2e/auth.setup.ts
+apps/vendor/e2e/
+apps/vendor/e2e/helpers/
+apps/vendor/src/app/
+prisma/seed.ts

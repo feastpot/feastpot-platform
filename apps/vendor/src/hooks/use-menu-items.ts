@@ -65,16 +65,49 @@ const ITEMS_KEY = (vendorId: string, menuId: string) =>
   ['vendor', 'menu-items', vendorId, menuId] as const;
 const ITEM_KEY = (vendorId: string, menuId: string, itemId: string) =>
   ['vendor', 'menu-item', vendorId, menuId, itemId] as const;
+const ALLERGEN_REMEDIATION_KEY = (vendorId: string) =>
+  ['vendor', 'allergen-remediation', vendorId] as const;
 
-export function useMenuItems(vendorId: string | undefined, menuId: string | undefined) {
+export interface AllergenRemediationResponse {
+  count: number;
+  items: Array<
+    MenuItem & {
+      remediatedAt: string;
+      priorIsAvailable: boolean;
+    }
+  >;
+}
+
+export function useAllergenRemediation(vendorId: string | undefined) {
   const { token, loading } = useAccessToken();
   return useQuery({
-    queryKey: ITEMS_KEY(vendorId ?? '', menuId ?? ''),
-    enabled: !!vendorId && !!menuId && !!token && !loading,
+    queryKey: ALLERGEN_REMEDIATION_KEY(vendorId ?? ''),
+    enabled: !!vendorId && !!token && !loading,
     queryFn: () =>
-      apiRequest<MenuItem[]>(`/vendors/${vendorId}/menus/${menuId}/items`, {
+      apiRequest<AllergenRemediationResponse>(`/vendors/${vendorId}/allergen-remediation`, {
         accessToken: token!,
       }),
+  });
+}
+
+export function useMenuItems(
+  vendorId: string | undefined,
+  menuId: string | undefined,
+  filters?: { allergenStatus?: 'needs_declaration' | 'remediation_required' },
+) {
+  const { token, loading } = useAccessToken();
+  return useQuery({
+    queryKey: [...ITEMS_KEY(vendorId ?? '', menuId ?? ''), filters] as const,
+    enabled: !!vendorId && !!menuId && !!token && !loading,
+    queryFn: () =>
+      apiRequest<MenuItem[]>(
+        `/vendors/${vendorId}/menus/${menuId}/items${
+          filters?.allergenStatus ? `?allergenStatus=${filters.allergenStatus}` : ''
+        }`,
+        {
+          accessToken: token!,
+        },
+      ),
   });
 }
 
@@ -117,6 +150,7 @@ export function useUpdateMenuItem(vendorId: string, menuId: string) {
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: ITEMS_KEY(vendorId, menuId) });
       qc.invalidateQueries({ queryKey: ITEM_KEY(vendorId, menuId, variables.itemId) });
+      qc.invalidateQueries({ queryKey: ALLERGEN_REMEDIATION_KEY(vendorId) });
     },
   });
 }

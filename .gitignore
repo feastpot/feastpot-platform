@@ -22,6 +22,7 @@ out
 /coverage
 /apps/*/coverage
 /packages/*/coverage
+/apps/*/e2e-report
 
 # logs
 *.log

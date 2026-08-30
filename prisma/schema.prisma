@@ -854,31 +854,32 @@ model Vendor {
   referredByVendorId             String?   @map("referred_by_vendor_id") @db.Uuid
   foundingReferralBonusGrantedAt DateTime? @map("founding_referral_bonus_granted_at") @db.Timestamptz
 
-  user                 User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  menus                Menu[]
-  menuItems            MenuItem[]
-  deliveryConfig       DeliveryConfig?
-  documents            VendorDocument[]
-  blackoutDates        BlackoutDate[]
-  orders               Order[]
-  payouts              Payout[]
-  reviews              Review[]
-  eventQuotes          EventQuote[]
-  selectedForEnquiries EventEnquiry[]            @relation("EventEnquirySelectedVendor")
-  discountCodes        DiscountCode[]
-  amendments           OrderAmendment[]
-  application          VendorApplication?        @relation("VendorApplicationVendor")
-  members              VendorMember[]
-  trustSignals         VendorTrustSignal[]
-  capacity             VendorCapacity[]
-  termsAcceptances     TermsAcceptance[]
-  referralLink         VendorReferralLink?
-  cateringBookings     CateringBooking[]
-  verification         VendorVerification?
-  enforcementActions   VendorEnforcementAction[]
-  taxProfile           VendorTaxProfile?
-  platformReports      PlatformReport[]
-  slugRedirects        VendorSlugRedirect[]
+  user                         User                          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  menus                        Menu[]
+  menuItems                    MenuItem[]
+  menuItemAllergenRemediations MenuItemAllergenRemediation[]
+  deliveryConfig               DeliveryConfig?
+  documents                    VendorDocument[]
+  blackoutDates                BlackoutDate[]
+  orders                       Order[]
+  payouts                      Payout[]
+  reviews                      Review[]
+  eventQuotes                  EventQuote[]
+  selectedForEnquiries         EventEnquiry[]                @relation("EventEnquirySelectedVendor")
+  discountCodes                DiscountCode[]
+  amendments                   OrderAmendment[]
+  application                  VendorApplication?            @relation("VendorApplicationVendor")
+  members                      VendorMember[]
+  trustSignals                 VendorTrustSignal[]
+  capacity                     VendorCapacity[]
+  termsAcceptances             TermsAcceptance[]
+  referralLink                 VendorReferralLink?
+  cateringBookings             CateringBooking[]
+  verification                 VendorVerification?
+  enforcementActions           VendorEnforcementAction[]
+  taxProfile                   VendorTaxProfile?
+  platformReports              PlatformReport[]
+  slugRedirects                VendorSlugRedirect[]
 
   @@index([status])
   @@index([slug])
@@ -943,9 +944,10 @@ model MenuItem {
   createdAt         DateTime         @default(now()) @map("created_at") @db.Timestamptz
   updatedAt         DateTime         @updatedAt @map("updated_at") @db.Timestamptz
 
-  vendor     Vendor      @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-  menu       Menu        @relation(fields: [menuId], references: [id], onDelete: Cascade)
-  orderItems OrderItem[]
+  vendor              Vendor                       @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  menu                Menu                         @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  orderItems          OrderItem[]
+  allergenRemediation MenuItemAllergenRemediation?
 
   @@index([vendorId])
   @@index([menuId])
@@ -955,6 +957,22 @@ model MenuItem {
   @@index([moderationStatus])
   @@index([allergens], type: Gin)
   @@map("menu_items")
+}
+
+model MenuItemAllergenRemediation {
+  id                   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  menuItemId           String    @unique @map("menu_item_id") @db.Uuid
+  vendorId             String    @map("vendor_id") @db.Uuid
+  priorIsAvailable     Boolean   @map("prior_is_available")
+  remediatedAt         DateTime  @default(now()) @map("remediated_at") @db.Timestamptz
+  resolvedAt           DateTime? @map("resolved_at") @db.Timestamptz
+  notificationQueuedAt DateTime? @map("notification_queued_at") @db.Timestamptz
+
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  vendor   Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId, resolvedAt])
+  @@map("menu_item_allergen_remediations")
 }
 
 model DeliveryConfig {

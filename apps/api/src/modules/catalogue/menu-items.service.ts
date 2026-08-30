@@ -5,12 +5,20 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { InboxNotificationType, ModerationStatus, Prisma, UserRole } from '@prisma/client';
+import {
+  InboxNotificationType,
+  ModerationStatus,
+  Prisma,
+  UserRole,
+  VendorMemberRole,
+  VendorMemberStatus,
+} from '@prisma/client';
 
 import type { AuthUser } from '../../auth/types';
 import { RedisCacheService } from '../../common/cache/redis-cache.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { InboxService } from '../inbox/inbox.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 import {
   DIETARY_FLAG_SET,
@@ -35,6 +43,17 @@ const PUBLIC_MODERATION_STATUSES: ModerationStatus[] = [
   ModerationStatus.approved,
 ];
 
+const PUBLIC_ALLERGEN_DECLARATION: Prisma.MenuItemWhereInput = {
+  OR: [{ allergens: { isEmpty: false } }, { allergensFreeFrom: true }],
+};
+
+function hasAllergenDeclaration(item: {
+  allergens: string[];
+  allergensFreeFrom: boolean;
+}): boolean {
+  return item.allergens.length > 0 || item.allergensFreeFrom;
+}
+
 /**
  * Schema deviations:
  *   - The schema MenuItem has no columns for `dietaryFlags`, `isHalal`,
@@ -50,6 +69,7 @@ export class MenuItemsService {
     private readonly cache: RedisCacheService,
     private readonly config: ConfigService,
     private readonly inbox: InboxService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   static validateAllergens(allergens: string[] | undefined): string[] {
@@ -109,6 +129,7 @@ export class MenuItemsService {
       // Approval gate: customers never see items still held for moderation or
       // rejected, even if the vendor has flipped them to available.
       where.moderationStatus = { in: PUBLIC_MODERATION_STATUSES };
+      where.AND = [PUBLIC_ALLERGEN_DECLARATION];
     }
 
     const tagFilters: string[] = [];
@@ -174,7 +195,9 @@ export class MenuItemsService {
     // bypass the gate; everyone else gets a 404 (NOT 403 - we refuse to
     // confirm the item exists at all).
     const publiclyVisible =
-      item.isAvailable && PUBLIC_MODERATION_STATUSES.includes(item.moderationStatus);
+      item.isAvailable &&
+      PUBLIC_MODERATION_STATUSES.includes(item.moderationStatus) &&
+      hasAllergenDeclaration(item);
     if (!publiclyVisible) {
       const canSeeDrafts = await this.callerOwnsVendor(vendorId, caller);
       if (!canSeeDrafts) {
@@ -199,7 +222,17 @@ export class MenuItemsService {
       where: { id: vendorId },
       select: { userId: true },
     });
-    return owner?.userId === caller.id;
+    if (owner?.userId === caller.id) return true;
+    const member = await this.prisma.vendorMember.findFirst({
+      where: {
+        userId: caller.id,
+        vendorId,
+        status: VendorMemberStatus.active,
+        role: { in: [VendorMemberRole.owner, VendorMemberRole.kitchen_manager] },
+      },
+      select: { id: true },
+    });
+    return !!member;
   }
 
   async create(vendorId: string, menuId: string, dto: CreateMenuItemDto) {
@@ -470,7 +503,7 @@ export class MenuItemsService {
   }
 
   async update(vendorId: string, menuId: string, itemId: string, dto: UpdateMenuItemDto) {
-    const existing = await this.findOne(vendorId, menuId, itemId);
+    const existing = await this.getOwnedItem(vendorId, menuId, itemId);
     const data: Prisma.MenuItemUpdateInput = {};
     if (dto.name !== undefined) data.name = dto.name;
     if (dto.description !== undefined) data.description = dto.description;
@@ -489,20 +522,25 @@ export class MenuItemsService {
     // for in-place flips, but the full upsert must not silently drop this.)
     if (dto.isAvailable !== undefined) data.isAvailable = dto.isAvailable;
 
-    // Allergen publish gate applied on every update that sets isAvailable=true.
-    if (dto.isAvailable === true) {
-      const effectiveAllergens =
-        dto.allergens !== undefined
-          ? MenuItemsService.validateAllergens(dto.allergens)
-          : existing.allergens;
-      const effectiveAllergensFreeFrom = dto.allergensFreeFrom ?? existing.allergensFreeFrom;
-      if (effectiveAllergens.length === 0 && !effectiveAllergensFreeFrom) {
+    const effectiveAllergens =
+      dto.allergens !== undefined
+        ? MenuItemsService.validateAllergens(dto.allergens)
+        : existing.allergens;
+    const effectiveAllergensFreeFrom = dto.allergensFreeFrom ?? existing.allergensFreeFrom;
+    const declarationValid = effectiveAllergens.length > 0 || effectiveAllergensFreeFrom;
+    const effectiveAvailability = dto.isAvailable ?? existing.isAvailable;
+    let recordRemediation = false;
+
+    if (effectiveAvailability && !declarationValid) {
+      if (dto.isAvailable === true) {
         throw new BadRequestException({
           code: 'ALLERGEN_DECLARATION_REQUIRED',
           message:
             'Declare allergens or confirm the dish contains none of the 14 allergens before publishing.',
         });
       }
+      data.isAvailable = false;
+      recordRemediation = existing.isAvailable;
     }
 
     // Tag-encoded fields: if any of them is supplied (or soldOut), recompute tags.
@@ -545,20 +583,39 @@ export class MenuItemsService {
       data.tags = newTags;
     }
 
-    const updated = await this.prisma.menuItem.update({ where: { id: itemId }, data });
+    const operations: Prisma.PrismaPromise<unknown>[] = [
+      this.prisma.menuItem.update({ where: { id: itemId }, data }),
+    ];
+    if (recordRemediation) {
+      operations.push(
+        this.prisma.menuItemAllergenRemediation.upsert({
+          where: { menuItemId: itemId },
+          create: { menuItemId: itemId, vendorId, priorIsAvailable: true },
+          update: { resolvedAt: null },
+        }),
+      );
+    } else if (effectiveAvailability && declarationValid) {
+      operations.push(
+        this.prisma.menuItemAllergenRemediation.updateMany({
+          where: { menuItemId: itemId, resolvedAt: null },
+          data: { resolvedAt: new Date() },
+        }),
+      );
+    }
+    const [updated] = await this.prisma.$transaction(operations);
     await this.invalidateVendorCache(vendorId);
     return updated;
   }
 
   async delete(vendorId: string, menuId: string, itemId: string) {
-    await this.findOne(vendorId, menuId, itemId);
+    await this.getOwnedItem(vendorId, menuId, itemId);
     await this.prisma.menuItem.delete({ where: { id: itemId } });
     await this.invalidateVendorCache(vendorId);
     return { deleted: true };
   }
 
   async toggleAvailability(vendorId: string, menuId: string, itemId: string, isAvailable: boolean) {
-    const existing = await this.findOne(vendorId, menuId, itemId);
+    const existing = await this.getOwnedItem(vendorId, menuId, itemId);
     // Allergen gate: a dish that has never had allergens declared cannot be
     // switched live via the quick toggle either. This mirrors the full update gate.
     if (isAvailable && existing.allergens.length === 0 && !existing.allergensFreeFrom) {
@@ -567,14 +624,64 @@ export class MenuItemsService {
         message: 'Open the dish editor to declare allergens before making this dish live.',
       });
     }
-    const updated = await this.prisma.menuItem.update({
-      where: { id: itemId },
-      data: { isAvailable },
-    });
+    const operations: Prisma.PrismaPromise<unknown>[] = [
+      this.prisma.menuItem.update({ where: { id: itemId }, data: { isAvailable } }),
+    ];
+    if (isAvailable) {
+      operations.push(
+        this.prisma.menuItemAllergenRemediation.updateMany({
+          where: { menuItemId: itemId, resolvedAt: null },
+          data: { resolvedAt: new Date() },
+        }),
+      );
+    }
+    const [updated] = await this.prisma.$transaction(operations);
     // Real-time correctness: vendor flipping a dish to sold-out must show up
     // in the customer PWA within seconds.
     await this.invalidateVendorCache(vendorId);
     return updated;
+  }
+
+  async listAllergenRemediation(vendorId: string) {
+    const rows = await this.prisma.menuItemAllergenRemediation.findMany({
+      where: { vendorId, resolvedAt: null },
+      orderBy: { remediatedAt: 'asc' },
+      include: {
+        menuItem: true,
+      },
+    });
+    if (
+      this.config.get<string>('NODE_ENV') === 'production' &&
+      rows.some((row) => row.notificationQueuedAt === null)
+    ) {
+      const vendor = await this.prisma.vendor.findUnique({
+        where: { id: vendorId },
+        select: { userId: true, businessName: true },
+      });
+      if (vendor) {
+        await this.notifications.enqueue(
+          'menu_allergen_action_required',
+          {
+            userId: vendor.userId,
+            vendorName: vendor.businessName,
+            affectedCount: rows.length,
+          },
+          { jobId: `menu-allergen-action-required:${vendorId}` },
+        );
+        await this.prisma.menuItemAllergenRemediation.updateMany({
+          where: { vendorId, resolvedAt: null, notificationQueuedAt: null },
+          data: { notificationQueuedAt: new Date() },
+        });
+      }
+    }
+    return {
+      count: rows.length,
+      items: rows.map((row) => ({
+        ...row.menuItem,
+        remediatedAt: row.remediatedAt,
+        priorIsAvailable: row.priorIsAvailable,
+      })),
+    };
   }
 
   async uploadImage(params: {
@@ -613,5 +720,13 @@ export class MenuItemsService {
         message: 'Menu does not belong to this vendor',
       });
     }
+  }
+
+  private async getOwnedItem(vendorId: string, menuId: string, itemId: string) {
+    const item = await this.prisma.menuItem.findUnique({ where: { id: itemId } });
+    if (!item || item.menuId !== menuId || item.vendorId !== vendorId) {
+      throw new NotFoundException({ code: 'MENU_ITEM_NOT_FOUND', message: 'Menu item not found' });
+    }
+    return item;
   }
 }

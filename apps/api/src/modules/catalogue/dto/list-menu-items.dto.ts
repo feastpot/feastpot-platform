@@ -32,4 +32,12 @@ export class ListMenuItemsDto {
   @Transform(toBool)
   @IsBoolean()
   isHalal?: boolean;
+
+  @ApiPropertyOptional({
+    enum: ['needs_declaration', 'remediation_required'],
+    description: 'Vendor-only filter for legacy dishes hidden until allergen information is added',
+  })
+  @IsOptional()
+  @IsString()
+  allergenStatus?: 'needs_declaration' | 'remediation_required';
 }

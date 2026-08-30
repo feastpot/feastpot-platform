@@ -65,6 +65,25 @@ const reviewUrl = (orderId: unknown): string =>
   `https://feastpot.co.uk/orders/${str(orderId, 'unknown')}/review`;
 
 export const TEMPLATES: Record<string, NotificationTemplate> = {
+  menu_allergen_action_required: {
+    subject: (d) => `${str(d.affectedCount, 'Some')} of your dishes need allergen confirmation`,
+    render: (d) =>
+      baseLayout(
+        'Allergen confirmation required',
+        h2('Please confirm your dishes') +
+          amberCallout(
+            `${esc(d.affectedCount, 'Some')} dish${Number(d.affectedCount) === 1 ? '' : 'es'} from ${esc(d.vendorName, 'your kitchen')} are temporarily hidden until their allergen information is confirmed.`,
+          ) +
+          p(
+            'This is a food-safety requirement, not a penalty. We have not deleted your dishes or guessed what they contain.',
+          ) +
+          p(
+            'Open each affected dish, select every allergen it contains or confirm that it is free from all 14 regulated allergens, then publish it again.',
+          ) +
+          brandButton('Review affected dishes', 'https://vendor.feastpot.co.uk/menu', 'vendorBlue'),
+      ),
+    channels: ['email'],
+  },
   // ---------- Events ----------
   event_enquiry_matched: {
     subject: (d) => `New event enquiry: ${str(d.eventType, 'event')} for ${str(d.guestCount, '?')}`,
@@ -582,6 +601,35 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
             `<strong>Appealing this decision:</strong> you have ${appealWindowDays} calendar days from today to submit a formal appeal. ` +
               `Email <a href="mailto:${esc(appealsEmail)}">${esc(appealsEmail)}</a> with your vendor name and a short explanation. ` +
               'Appeals are reviewed within 5 business days.',
+          ),
+      );
+    },
+    channels: ['email'],
+  },
+  vendor_menu_allergen_remediation: {
+    subject: (d) =>
+      `${str(d.affectedItemCount, 'Some')} menu item${Number(d.affectedItemCount) === 1 ? '' : 's'} need allergen information`,
+    render: (d) => {
+      const count =
+        typeof d.affectedItemCount === 'number' && d.affectedItemCount > 0
+          ? d.affectedItemCount
+          : 1;
+      return baseLayout(
+        'Allergen information required',
+        h2('Some dishes are temporarily hidden') +
+          amberCallout(
+            `${count} dish${count === 1 ? '' : 'es'} ${count === 1 ? 'is' : 'are'} hidden from customers until the allergen information is confirmed.`,
+          ) +
+          p(
+            'This is a customer-safety requirement, not a penalty and it does not affect your Feastpot account standing.',
+          ) +
+          p(
+            'Open Dishes in the vendor portal, choose "Show affected dishes", then edit each dish. Select every FSA allergen that applies or explicitly confirm that none of the 14 apply. You can republish immediately after a valid declaration is saved.',
+          ) +
+          brandButton(
+            'Review affected dishes',
+            str(d.portalUrl, 'https://vendor.feastpot.co.uk/menu'),
+            'vendorBlue',
           ),
       );
     },

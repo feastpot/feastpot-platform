@@ -1210,6 +1210,7 @@ export class VendorsService {
               moderationStatus: {
                 in: [ModerationStatus.auto_approved, ModerationStatus.approved],
               },
+              OR: [{ allergens: { isEmpty: false } }, { allergensFreeFrom: true }],
             },
             select: { id: true, name: true },
           })

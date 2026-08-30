@@ -1,0 +1,75 @@
+TASK: Remediate menu items published without allergen data.
+
+THIS IS THE ONLY FINDING THAT CAN HURT A PERSON. Do it first.
+
+CRITICAL SCOPE CORRECTION
+The Phase 4 audit found 45 offending rows, but every query it
+ran was against the DEVELOPMENT database. The production count
+is UNKNOWN. Your first action is to run the same query against
+production and report the real number before changing anything.
+
+STEP 1: MEASURE PRODUCTION
+Run read-only against production:
+
+  SELECT COUNT(*) FROM menu_items
+  WHERE is_available = true
+    AND moderation_status IN ('auto_approved','approved')
+    AND COALESCE(array_length(allergens,1),0) = 0
+    AND allergens_free_from = false;
+
+Then list them grouped by vendor. Report the count and the
+number of affected vendors before proceeding. Do not skip this
+step or assume dev and production match.
+
+STEP 2: UNPUBLISH IMMEDIATELY
+Write a migration or remediation job that sets is_available =
+false for every matching row, and records the previous state so
+it can be restored once declarations are supplied. Do NOT
+delete the items. Do NOT guess allergens on the vendor's
+behalf. Only the cook knows what is in the dish.
+
+STEP 3: CLOSE THE READ PATH
+The creation gate at
+apps/api/src/modules/catalogue/menu-items.service.ts:205-220
+is correct and blocks NEW items. The public read path is not
+defended. Add the same condition to the public queries at
+:100-112 and :172-184 so a legacy row can never be served even
+if it somehow becomes available again. Defence in depth: gate
+on write AND on read.
+
+STEP 4: VENDOR BACKFILL FLOW
+Affected vendors need a route back. In apps/vendor:
+  A banner on the menu screen: "N of your dishes are hidden
+  until you confirm their allergens."
+  A filtered list of affected dishes.
+  For each: the 14-allergen picker, or an explicit
+  "free from all 14 allergens" confirmation checkbox.
+  Republish only when one of those two is satisfied.
+Notify affected vendors by email and WhatsApp. Explain plainly
+that this is a safety requirement, not a penalty.
+
+STEP 5: SCENARIO TESTS
+Write tests covering every permutation:
+  create item, allergens [], freeFrom false, set available
+    -> REJECTED
+  create item, allergens ['milk'], set available -> ALLOWED
+  create item, allergens [], freeFrom true, set available
+    -> ALLOWED
+  existing available item, remove all allergens, freeFrom
+    false -> item becomes unavailable or update rejected
+  legacy row with allergens [] forced available in the
+    database, requested through the PUBLIC endpoint
+    -> NOT RETURNED
+  legacy row, vendor supplies allergens, republished
+    -> returned with correct allergen array
+  vendor A attempts to edit vendor B's dish -> 403
+
+The legacy-row-through-public-endpoint test is the one that
+matters most. It is the exact case the audit proved.
+
+ACCEPTANCE CRITERIA
+- Production count measured and reported before any change.
+- Zero rows can be returned by the public API without either
+  an allergen array or an explicit free-from confirmation.
+- Affected vendors can self-serve the fix.
+- All seven scenario tests pass.

@@ -129,6 +129,7 @@ export class VendorRepository {
           WHERE mi.vendor_id = v.id
             AND mi.is_available = true
             AND mi.moderation_status IN ('auto_approved', 'approved')
+            AND (cardinality(mi.allergens) > 0 OR mi.allergens_free_from = true)
             AND 'halal' = ANY(mi.tags)
         )`
       : Prisma.empty;
@@ -146,8 +147,14 @@ export class VendorRepository {
           WHERE mi.vendor_id = v.id
             AND mi.is_available = true
             AND mi.moderation_status IN ('auto_approved', 'approved')
-            AND array_length(mi.allergens, 1) IS NOT NULL
-            AND NOT (mi.allergens && ${allergenFree}::varchar[])
+            AND (cardinality(mi.allergens) > 0 OR mi.allergens_free_from = true)
+            AND (
+              mi.allergens_free_from = true
+              OR (
+                cardinality(mi.allergens) > 0
+                AND NOT (mi.allergens && ${allergenFree}::varchar[])
+              )
+            )
         )`
       : Prisma.empty;
 
@@ -160,6 +167,7 @@ export class VendorRepository {
           WHERE mi.vendor_id = v.id
             AND mi.is_available = true
             AND mi.moderation_status IN ('auto_approved', 'approved')
+            AND (cardinality(mi.allergens) > 0 OR mi.allergens_free_from = true)
             AND mi.tags && ${dietaryPrefs}::varchar[]
         )`
       : Prisma.empty;
@@ -179,6 +187,7 @@ export class VendorRepository {
             WHERE mi.vendor_id = v.id
               AND mi.is_available = true
               AND mi.moderation_status IN ('auto_approved', 'approved')
+              AND (cardinality(mi.allergens) > 0 OR mi.allergens_free_from = true)
               AND m.is_active = true
               AND (mi.name ILIKE ${qLike} OR mi.description ILIKE ${qLike})
           )
@@ -197,6 +206,7 @@ export class VendorRepository {
             WHERE mi.vendor_id = v.id
               AND mi.is_available = true
               AND mi.moderation_status IN ('auto_approved', 'approved')
+              AND (cardinality(mi.allergens) > 0 OR mi.allergens_free_from = true)
               AND m.is_active = true
               AND (mi.name ILIKE ${qLike} OR mi.description ILIKE ${qLike})
             ORDER BY mi.name
@@ -390,6 +400,7 @@ export class VendorRepository {
                 moderationStatus: {
                   in: [ModerationStatus.auto_approved, ModerationStatus.approved],
                 },
+                OR: [{ allergens: { isEmpty: false } }, { allergensFreeFrom: true }],
               },
               orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
             },
