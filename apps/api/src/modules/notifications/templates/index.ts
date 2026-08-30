@@ -66,8 +66,7 @@ const reviewUrl = (orderId: unknown): string =>
 
 export const TEMPLATES: Record<string, NotificationTemplate> = {
   menu_allergen_action_required: {
-    subject: (d) =>
-      `${str(d.affectedCount, 'Some')} of your dishes need allergen confirmation`,
+    subject: (d) => `${str(d.affectedCount, 'Some')} of your dishes need allergen confirmation`,
     render: (d) =>
       baseLayout(
         'Allergen confirmation required',
@@ -81,11 +80,7 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
           p(
             'Open each affected dish, select every allergen it contains or confirm that it is free from all 14 regulated allergens, then publish it again.',
           ) +
-          brandButton(
-            'Review affected dishes',
-            'https://vendor.feastpot.co.uk/menu',
-            'vendorBlue',
-          ),
+          brandButton('Review affected dishes', 'https://vendor.feastpot.co.uk/menu', 'vendorBlue'),
       ),
     channels: ['email'],
   },

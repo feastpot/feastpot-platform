@@ -9,9 +9,9 @@ CREATE TABLE IF NOT EXISTS "menu_item_allergen_remediations" (
   CONSTRAINT "menu_item_allergen_remediations_pkey" PRIMARY KEY ("id"),
   CONSTRAINT "menu_item_allergen_remediations_menu_item_id_key" UNIQUE ("menu_item_id"),
   CONSTRAINT "menu_item_allergen_remediations_menu_item_id_fkey"
-    FOREIGN KEY ("menu_item_id") REFERENCES "menu_items"("id") ON DELETE CASCADE,
+    FOREIGN KEY ("menu_item_id") REFERENCES "menu_items"("id") ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT "menu_item_allergen_remediations_vendor_id_fkey"
-    FOREIGN KEY ("vendor_id") REFERENCES "vendors"("id") ON DELETE CASCADE
+    FOREIGN KEY ("vendor_id") REFERENCES "vendors"("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS "menu_item_allergen_remediations_vendor_id_resolved_at_idx"

@@ -135,7 +135,6 @@ describe('WhatsApp template contract (WHATSAPP_PARAMS vs Twilio Content Template
       expect(WHATSAPP_PARAMS[name]('Amara', sampleData)).toEqual(['Amara']);
     }
   });
-
 });
 
 /**

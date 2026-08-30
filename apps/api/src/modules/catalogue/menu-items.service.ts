@@ -510,8 +510,7 @@ export class MenuItemsService {
         ? MenuItemsService.validateAllergens(dto.allergens)
         : existing.allergens;
     const effectiveAllergensFreeFrom = dto.allergensFreeFrom ?? existing.allergensFreeFrom;
-    const declarationValid =
-      effectiveAllergens.length > 0 || effectiveAllergensFreeFrom;
+    const declarationValid = effectiveAllergens.length > 0 || effectiveAllergensFreeFrom;
     const effectiveAvailability = dto.isAvailable ?? existing.isAvailable;
     let recordRemediation = false;
 
