@@ -121,6 +121,15 @@ export class CatalogueController {
 
   // ---------- Menu items ----------
 
+  @Get('allergen-remediation')
+  @ApiBearerAuth()
+  @Roles(UserRole.vendor, UserRole.admin)
+  @UseGuards(VendorOwnershipGuard)
+  @ApiOperation({ summary: 'List dishes hidden for missing allergen declarations' })
+  listAllergenRemediation(@Param('vendorId', new ParseUUIDPipe()) vendorId: string) {
+    return this.items.listAllergenRemediation(vendorId);
+  }
+
   @Public()
   @UseGuards(OptionalAuthGuard)
   @Get('menus/:menuId/items')

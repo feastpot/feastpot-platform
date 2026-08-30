@@ -65,6 +65,30 @@ const reviewUrl = (orderId: unknown): string =>
   `https://feastpot.co.uk/orders/${str(orderId, 'unknown')}/review`;
 
 export const TEMPLATES: Record<string, NotificationTemplate> = {
+  menu_allergen_action_required: {
+    subject: (d) =>
+      `${str(d.affectedCount, 'Some')} of your dishes need allergen confirmation`,
+    render: (d) =>
+      baseLayout(
+        'Allergen confirmation required',
+        h2('Please confirm your dishes') +
+          amberCallout(
+            `${esc(d.affectedCount, 'Some')} dish${Number(d.affectedCount) === 1 ? '' : 'es'} from ${esc(d.vendorName, 'your kitchen')} are temporarily hidden until their allergen information is confirmed.`,
+          ) +
+          p(
+            'This is a food-safety requirement, not a penalty. We have not deleted your dishes or guessed what they contain.',
+          ) +
+          p(
+            'Open each affected dish, select every allergen it contains or confirm that it is free from all 14 regulated allergens, then publish it again.',
+          ) +
+          brandButton(
+            'Review affected dishes',
+            'https://vendor.feastpot.co.uk/menu',
+            'vendorBlue',
+          ),
+      ),
+    channels: ['email'],
+  },
   // ---------- Events ----------
   event_enquiry_matched: {
     subject: (d) => `New event enquiry: ${str(d.eventType, 'event')} for ${str(d.guestCount, '?')}`,

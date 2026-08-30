@@ -165,6 +165,7 @@ describe('MenuItemsService.uploadImage - draft visibility', () => {
       {} as never, // RedisCacheService - not called by uploadImage
       {} as never, // ConfigService    - not called by uploadImage
       {} as never, // InboxService     - not called by uploadImage
+      {} as never, // NotificationsService - not called by uploadImage
     );
   });
 
@@ -238,5 +239,128 @@ describe('MenuItemsService.uploadImage - draft visibility', () => {
     expect(storage.uploadMenuItemImage).not.toHaveBeenCalled();
     // callerOwnsVendor returns false without hitting the DB for a null caller
     expect(prisma.vendor.findUnique).not.toHaveBeenCalled();
+  });
+});
+
+describe('MenuItemsService allergen publication scenarios', () => {
+  const vendorId = 'vendor-1';
+  const menuId = 'menu-1';
+  const itemId = 'item-1';
+  const baseDto = {
+    name: 'Jollof rice',
+    category: 'tray',
+    basePricePence: 1200,
+    prepTimeMinutes: 60,
+  };
+
+  function makeService(existing?: Partial<Record<string, unknown>>) {
+    const item = {
+      id: itemId,
+      vendorId,
+      menuId,
+      name: 'Jollof rice',
+      description: null,
+      category: 'tray',
+      pricePence: 1200,
+      servingsCount: null,
+      preparationHours: 1,
+      imageUrls: [],
+      allergens: [],
+      allergensFreeFrom: false,
+      tags: [],
+      sortOrder: 1,
+      isAvailable: true,
+      moderationStatus: 'approved',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      ...existing,
+    };
+    const prisma = {
+      menu: { findUnique: jest.fn().mockResolvedValue({ vendorId }) },
+      vendor: { findUnique: jest.fn() },
+      menuItem: {
+        aggregate: jest.fn().mockResolvedValue({ _max: { sortOrder: 0 } }),
+        create: jest.fn().mockImplementation(({ data }) => Promise.resolve({ ...item, ...data })),
+        findUnique: jest.fn().mockResolvedValue(item),
+        findMany: jest.fn().mockResolvedValue([]),
+        update: jest.fn().mockImplementation(({ data }) => Promise.resolve({ ...item, ...data })),
+      },
+      menuItemAllergenRemediation: {
+        upsert: jest.fn().mockResolvedValue({}),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      $transaction: jest.fn().mockImplementation((ops) => Promise.all(ops)),
+    };
+    const cache = { del: jest.fn(), delByPattern: jest.fn() };
+    const service = new MenuItemsService(
+      prisma as never,
+      {} as never,
+      cache as never,
+      { get: jest.fn().mockReturnValue('true') } as never,
+      {} as never,
+      {} as never,
+    );
+    return { service, prisma };
+  }
+
+  it('rejects publishing a new item with no declaration', async () => {
+    const { service } = makeService();
+    await expect(
+      service.create(vendorId, menuId, {
+        ...baseDto,
+        allergens: [],
+        allergensFreeFrom: false,
+        isAvailable: true,
+      }),
+    ).rejects.toMatchObject({ response: { code: 'ALLERGEN_DECLARATION_REQUIRED' } });
+  });
+
+  it.each([
+    { allergens: ['milk'], allergensFreeFrom: false },
+    { allergens: [], allergensFreeFrom: true },
+  ])('allows a declared new item: %o', async (declaration) => {
+    const { service, prisma } = makeService();
+    await service.create(vendorId, menuId, {
+      ...baseDto,
+      ...declaration,
+      isAvailable: true,
+    });
+    expect(prisma.menuItem.create).toHaveBeenCalled();
+  });
+
+  it('unpublishes and records an available item when its declaration is removed', async () => {
+    const { service, prisma } = makeService({ allergens: ['milk'] });
+    const updated = await service.update(vendorId, menuId, itemId, {
+      allergens: [],
+      allergensFreeFrom: false,
+    });
+    expect(updated).toMatchObject({ isAvailable: false });
+    expect(prisma.menuItemAllergenRemediation.upsert).toHaveBeenCalled();
+  });
+
+  it('excludes a forced legacy row from public list queries', async () => {
+    const { service, prisma } = makeService();
+    await service.findByMenu(vendorId, menuId, {}, null);
+    expect(prisma.menuItem.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          isAvailable: true,
+          AND: [expect.objectContaining({ OR: expect.any(Array) })],
+        }),
+      }),
+    );
+  });
+
+  it('resolves remediation when a legacy item is declared and republished', async () => {
+    const { service, prisma } = makeService({ isAvailable: false });
+    const updated = await service.update(vendorId, menuId, itemId, {
+      allergens: ['milk'],
+      allergensFreeFrom: false,
+      isAvailable: true,
+    });
+    expect(updated).toMatchObject({ isAvailable: true, allergens: ['milk'] });
+    expect(prisma.menuItemAllergenRemediation.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { resolvedAt: expect.any(Date) } }),
+    );
   });
 });

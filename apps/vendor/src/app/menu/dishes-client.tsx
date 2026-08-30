@@ -37,6 +37,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useToast } from '@/components/ui/toaster';
 import { useCreateMenu, useMenus } from '@/hooks/use-menus';
 import {
+  useAllergenRemediation,
   useCreateMenuItem,
   useDeleteMenuItem,
   useMenuItems,
@@ -999,6 +1000,7 @@ export function DishesClient({ vendorId }: { vendorId: string }) {
   const { toast } = useToast();
   const menus = useMenus(vendorId);
   const createMenu = useCreateMenu(vendorId);
+  const allergenRemediation = useAllergenRemediation(vendorId);
 
   // Primary menu: oldest active menu for this vendor.
   // Auto-created on first load if none exists (new vendor).
@@ -1040,6 +1042,7 @@ export function DishesClient({ vendorId }: { vendorId: string }) {
 
   // Editor state
   const [editingItemId, setEditingItemId] = useState<string | 'new' | null>(null);
+  const [editingMenuId, setEditingMenuId] = useState<string | null>(null);
   const [editorInitial, setEditorInitial] = useState<EditorState>(blankEditor());
   const [defaultCategory, setDefaultCategory] = useState<string>('tray');
 
@@ -1052,7 +1055,10 @@ export function DishesClient({ vendorId }: { vendorId: string }) {
 
   const filteredItems = useMemo(() => {
     let list = allItems;
-    if (allergenFilter) list = list.filter(needsAllergenInfo);
+    if (allergenFilter) {
+      const affectedIds = new Set(allergenRemediation.data?.items.map((item) => item.id) ?? []);
+      list = list.filter((item) => affectedIds.has(item.id));
+    }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       list = list.filter(
@@ -1060,7 +1066,7 @@ export function DishesClient({ vendorId }: { vendorId: string }) {
       );
     }
     return list;
-  }, [allItems, allergenFilter, searchQuery]);
+  }, [allItems, allergenFilter, searchQuery, allergenRemediation.data]);
 
   const byCategory = useMemo(() => {
     const map = new Map<string, MenuItem[]>();
@@ -1079,17 +1085,19 @@ export function DishesClient({ vendorId }: { vendorId: string }) {
     return map;
   }, [filteredItems]);
 
-  const allergenCount = useMemo(() => allItems.filter(needsAllergenInfo).length, [allItems]);
+  const allergenCount = allergenRemediation.data?.count ?? 0;
 
   function openNew(category?: string) {
     const cat = category ?? defaultCategory;
     setDefaultCategory(cat);
     setEditorInitial(blankEditor(cat));
+    setEditingMenuId(primaryMenuId);
     setEditingItemId('new');
   }
 
   function openEdit(item: MenuItem) {
     setEditorInitial(editorFromItem(item));
+    setEditingMenuId(item.menuId);
     setEditingItemId(item.id);
   }
 
@@ -1149,8 +1157,8 @@ export function DishesClient({ vendorId }: { vendorId: string }) {
             <AlertCircle className="h-4 w-4 flex-shrink-0" aria-hidden />
             <span>
               {allergenCount === 1
-                ? '1 dish needs allergen info before it can go live'
-                : `${allergenCount} dishes need allergen info before they can go live`}
+                ? '1 of your dishes is hidden until you confirm its allergens.'
+                : `${allergenCount} of your dishes are hidden until you confirm their allergens.`}
             </span>
           </div>
           <button
@@ -1165,6 +1173,34 @@ export function DishesClient({ vendorId }: { vendorId: string }) {
           >
             {allergenFilter ? 'Show all' : 'Show affected'}
           </button>
+        </div>
+      )}
+
+      {allergenFilter && allergenCount > 0 && (
+        <div className="mb-6 rounded-xl border border-amber-200 bg-white p-4">
+          <h2 className="text-[14px] font-semibold text-charcoal">Dishes to update</h2>
+          <p className="mt-1 text-[12px] text-charcoal-mid">
+            This is a food-safety requirement, not a penalty. Confirm each dish and publish it
+            again.
+          </p>
+          <div className="mt-3 divide-y divide-cream-deep">
+            {allergenRemediation.data?.items.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => openEdit(item)}
+                className="flex w-full items-center justify-between gap-3 py-3 text-left"
+              >
+                <span>
+                  <span className="block text-[13px] font-semibold text-charcoal">{item.name}</span>
+                  <span className="block text-[11px] text-charcoal-mid">
+                    Choose any allergens, or confirm it is free from all 14.
+                  </span>
+                </span>
+                <Pencil className="h-4 w-4 flex-shrink-0 text-charcoal-light" aria-hidden />
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
@@ -1247,13 +1283,13 @@ export function DishesClient({ vendorId }: { vendorId: string }) {
       )}
 
       {/* Slide-over editor */}
-      {primaryMenuId && (
+      {editingMenuId && (
         <DishEditor
           open={editingItemId !== null}
           itemId={editingItemId}
           initial={editorInitial}
           vendorId={vendorId}
-          menuId={primaryMenuId}
+          menuId={editingMenuId}
           onClose={closeEditor}
         />
       )}
