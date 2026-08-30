@@ -41,8 +41,6 @@ const EXPECTED_SLOT_COUNTS: Record<string, number> = {
   event_quote_received: 1,
   event_reminder_72h: 1,
   event_balance_link: 1,
-  // {{1}} = firstName, {{2}} = affected dish count
-  menu_allergen_action_required: 2,
 };
 
 /** Every whatsappTemplate name declared in the template registry. */
@@ -138,12 +136,6 @@ describe('WhatsApp template contract (WHATSAPP_PARAMS vs Twilio Content Template
     }
   });
 
-  it('menu allergen builder sends firstName and affected dish count', () => {
-    expect(WHATSAPP_PARAMS.menu_allergen_action_required('Amara', { affectedCount: 2 })).toEqual([
-      'Amara',
-      '2',
-    ]);
-  });
 });
 
 /**
@@ -164,7 +156,6 @@ const EXPECTED_CONTENT_SID_ENV_VARS = [
   'TWILIO_CONTENT_SID_event_balance_link',
   'TWILIO_CONTENT_SID_event_quote_received',
   'TWILIO_CONTENT_SID_event_reminder_72h',
-  'TWILIO_CONTENT_SID_menu_allergen_action_required',
   'TWILIO_CONTENT_SID_order_accepted',
   'TWILIO_CONTENT_SID_order_amendment_proposed',
   'TWILIO_CONTENT_SID_order_confirmation',

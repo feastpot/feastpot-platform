@@ -87,8 +87,7 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
             'vendorBlue',
           ),
       ),
-    channels: ['email', 'whatsapp'],
-    whatsappTemplate: 'menu_allergen_action_required',
+    channels: ['email'],
   },
   // ---------- Events ----------
   event_enquiry_matched: {

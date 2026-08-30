@@ -99,11 +99,6 @@ export const WHATSAPP_PARAMS: Record<
   event_quote_received: nameOnly,
   event_reminder_72h: nameOnly,
   event_balance_link: nameOnly,
-  // 2 slots: {{1}} = firstName, {{2}} = affected dish count
-  menu_allergen_action_required: (firstName, data) => [
-    firstName,
-    String(data.affectedCount ?? 'some'),
-  ],
 };
 
 /**
