@@ -1,0 +1,36 @@
+Remediate Published Allergen Data
+What & Why
+Protect customers from menu items that are available and publicly visible without either declared allergens or an explicit confirmation that the dish is free from all 14 FSA allergens. Measure production first, unpublish affected legacy rows without deleting them, close the public read-path gap, and give vendors a safe self-service backfill flow.
+
+Done looks like
+Production exposure is measured and reported before any write, including affected item count and affected vendor count grouped by vendor
+Every affected production item is unavailable and its prior availability is recoverable
+Public list and detail endpoints never return an available item unless it has allergens or an explicit free-from-all-14 confirmation
+Vendors see a menu warning with the count of hidden dishes and a filtered remediation list
+Vendors can update each affected dish with the 14-allergen picker or the explicit free-from-all-14 confirmation, then republish only after validation
+Affected vendors receive clear safety-not-penalty email and WhatsApp notices
+All seven requested scenario tests pass, including the public legacy-row test and cross-vendor edit denial
+Out of scope
+Guessing or inferring allergens for any dish
+Deleting menu items or rewriting vendor declarations
+Changing unrelated moderation policy or the separate admin moderation-page defaults task
+Sending notifications to unaffected vendors
+Running production writes before the measured count and rollback approach are reviewed in Build mode
+Steps
+Measure production first -- Run the exact read-only exposure query in production, group affected rows by vendor, and record the counts before any data change.
+Add recoverable remediation state -- Add a migration or remediation mechanism that records each affected item's prior availability and makes it unavailable without deleting it. Make the operation idempotent and provide a safe restoration path only after a valid declaration.
+Defend public reads -- Apply the same declaration requirement to public menu list and item-detail queries, while preserving owner and authorised staff access to drafts where existing policy allows it.
+Build the vendor backfill flow -- Add the affected-dish count banner, filtered list, allergen picker, free-from confirmation, validation feedback, and republish action to the vendor menu experience.
+Notify affected vendors -- Reuse the existing notification outbox and approved email/WhatsApp template conventions. Explain that dishes are hidden as a safety requirement, not as a penalty, and make delivery idempotent.
+Add scenario coverage -- Implement the seven acceptance scenarios as service/API tests, including a forced legacy row queried through the public endpoint and a vendor A attempt to edit vendor B's dish.
+Verify and document -- Run typecheck, lint, focused tests, and relevant builds. Re-run the exposure query, verify zero publicly returned offending rows, and record any production operations separately from code changes.
+Relevant files
+apps/api/src/modules/catalogue/menu-items.service.ts:100-220,481-503,562-567
+apps/api/src/modules/catalogue/catalogue.controller.ts
+prisma/schema.prisma:925-952
+apps/vendor/src/app/menu/menu-list-client.tsx
+apps/api/src/modules/notifications/
+apps/api/src/modules/error-incidents/
+apps/api/src/modules/catalogue/menu-items.service.spec.ts
+apps/api/src/modules/catalogue/
+prisma/migrations/
