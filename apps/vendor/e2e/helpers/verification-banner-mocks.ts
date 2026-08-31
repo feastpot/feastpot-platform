@@ -143,7 +143,7 @@ function makeDashboardFixture() {
  * Install all mocks needed for the dashboard to render with a specific
  * verification state.
  *
- * - GET /vendors/:vendorId/verification -> verificationRecord
+ * - GET vendor verification endpoint -> verificationRecord
  * - GET /vendors/:vendorId/documents    -> [] (ComplianceAlerts shows "all good")
  * - GET /vendors/me/stats        -> zeroed stats (page renders without crashing)
  * - GET /vendors/me/dashboard    -> empty dashboard data

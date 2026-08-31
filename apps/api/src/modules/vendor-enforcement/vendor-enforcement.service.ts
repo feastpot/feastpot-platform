@@ -427,7 +427,7 @@ export class VendorEnforcementService {
         actionType: EnforcementType.SUSPENSION,
         reasonCode,
         reasonNarrative: narrative,
-        effectiveAt: new Date().toISOString(),
+        effectiveAt: new Date(Date.now() + (isUrgent ? 0 : 1_000)).toISOString(),
         urgentBasis,
         facts: { source: 'automated_compliance_scan' },
       },
