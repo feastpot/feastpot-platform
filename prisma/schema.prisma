@@ -1350,7 +1350,7 @@ model Payment {
 
   order           Order?           @relation(fields: [orderId], references: [id], onDelete: Cascade)
   cateringBooking CateringBooking? @relation(fields: [cateringBookingId], references: [id], onDelete: Cascade)
-  user            User?            @relation(fields: [userId], references: [id])
+  user            User?            @relation(fields: [userId], references: [id], onDelete: Restrict)
   chargebacks     Chargeback[]
 
   @@index([orderId])
@@ -1387,7 +1387,7 @@ model RefundOperation {
   reversalStatus         String?   @map("reversal_status") @db.VarChar(32)
   completedAt            DateTime? @map("completed_at") @db.Timestamptz
   createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt              DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  updatedAt              DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   order           Order?           @relation(fields: [orderId], references: [id], onDelete: Cascade)
   cateringBooking CateringBooking? @relation(fields: [cateringBookingId], references: [id], onDelete: Cascade)
