@@ -1,0 +1,61 @@
+TASK: Fix the catering deposit calculation.
+
+THE CONFIRMED BUG
+apps/api/src/modules/catering-bookings/catering-bookings.service.ts:42-45
+
+  depositPence = Math.max(5000, Math.ceil(totalPence * 0.25));
+  balancePence = totalPence - depositPence;
+
+A hardcoded £50 floor with no cap. Both quote paths accept
+totals from 100 pence (:100-113 and :1128-1136). Any quote
+between £1.00 and £49.99 produces a deposit larger than the
+total and stores a NEGATIVE balance. A £1 quote yields a £50
+deposit and a minus £49 balance. This also explains the
+Total £0.00 / Deposit £50.00 screen I was shown.
+
+DECIDE THE BUSINESS RULE FIRST, THEN IMPLEMENT
+Two defensible options. Pick one, do not implement both:
+  (a) Enforce a minimum catering quote total of £50 (or
+      whatever floor makes commercial sense) and reject
+      quotes below it with a clear vendor-facing message.
+  (b) Cap the deposit at the total: deposit =
+      min(total, max(floor, ceil(total * 0.25))).
+Option (a) is cleaner commercially, since a £1 catering
+booking is not a real booking. Confirm before implementing.
+
+IMPLEMENTATION REQUIREMENTS
+1. ONE shared calculation function used by both quote paths.
+   The duplication at :100-113 and :1128-1136 is how these
+   drift apart.
+2. Integer pence throughout. No floats anywhere.
+3. Hard invariant, asserted in code: deposit + balance ===
+   total, and balance >= 0. If the invariant fails, throw
+   rather than persist. A quote that does not add up must
+   never reach a customer.
+4. Vendor terms clause 8.1 states 25%. Whatever floor or cap
+   you apply must be reflected in the Rate Schedule and the
+   terms, or the contract and the code disagree.
+5. UI: mark required fields, explain why Save is disabled,
+   and clamp quote expiry to the earlier of 7 days and 48
+   hours before the event.
+6. Allergen chips on this form: "cereals" should read
+   "cereals containing gluten" and "nuts" should read "tree
+   nuts". Ambiguity here is a safety issue, since peanuts is
+   a separate regulated allergen with its own chip.
+
+SCENARIO TESTS, BOUNDARY MATRIX
+Test totals: 0, 1p, 99p, £1.00, £20.00, £49.99, £50.00,
+£50.01, £100.00, £399.99, £1000.00, and a large event total.
+For each assert: deposit correct, balance >= 0, invariant
+holds, and either accepted or rejected per the chosen rule.
+Also test: quote with zero line items; quote where a line
+item quantity is zero; quote expiry clamping when the event
+is 3 days away; both quote paths produce identical figures
+for identical input.
+
+ACCEPTANCE CRITERIA
+- No input produces a negative balance.
+- Both quote paths return identical results for identical
+  input, enforced by a test.
+- The invariant assertion throws rather than persisting.
+- Terms and Rate Schedule match the implemented rule.
