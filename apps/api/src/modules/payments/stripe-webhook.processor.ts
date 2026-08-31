@@ -1,4 +1,6 @@
-import { OnQueueFailed, Process, Processor } from '@nestjs/bull';
+import { randomUUID } from 'node:crypto';
+
+import { OnQueueCompleted, OnQueueFailed, Process, Processor } from '@nestjs/bull';
 import { Logger } from '@nestjs/common';
 import { OrderStatus, PaymentStatus, PaymentType, PayoutStatus, Prisma } from '@prisma/client';
 import * as Sentry from '@sentry/nestjs';
@@ -41,6 +43,7 @@ interface WebhookJob {
 @Processor(STRIPE_WEBHOOK_QUEUE)
 export class StripeWebhookProcessor {
   private readonly logger = new Logger(StripeWebhookProcessor.name);
+  private readonly executionTokens = new WeakMap<Job<WebhookJob>, string>();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -63,6 +66,7 @@ export class StripeWebhookProcessor {
   // PI/refund id) so concurrent processing is safe.
   @Process({ name: eventName('payment_intent.succeeded'), concurrency: 10 })
   async onIntentSucceeded(job: Job<WebhookJob>): Promise<void> {
+    if (!(await this.beginProcessing(job))) return;
     const pi = job.data.data as Stripe.PaymentIntent;
     await this.prisma.payment.updateMany({
       where: { stripePaymentIntentId: pi.id },
@@ -97,6 +101,7 @@ export class StripeWebhookProcessor {
 
   @Process({ name: eventName('payment_intent.payment_failed'), concurrency: 10 })
   async onIntentFailed(job: Job<WebhookJob>): Promise<void> {
+    if (!(await this.beginProcessing(job))) return;
     const pi = job.data.data as Stripe.PaymentIntent;
     const payment = await this.prisma.payment.findFirst({
       where: { stripePaymentIntentId: pi.id },
@@ -173,6 +178,7 @@ export class StripeWebhookProcessor {
 
   @Process({ name: eventName('transfer.created'), concurrency: 10 })
   async onTransferCreated(job: Job<WebhookJob>): Promise<void> {
+    if (!(await this.beginProcessing(job))) return;
     const transfer = job.data.data as Stripe.Transfer;
     // Match by metadata.payoutId if our service set it; otherwise no-op.
     const payoutId = (transfer.metadata as { payoutId?: string } | null)?.payoutId;
@@ -190,6 +196,86 @@ export class StripeWebhookProcessor {
     });
   }
 
+  @Process({ name: eventName('account.updated'), concurrency: 5 })
+  async onAccountUpdated(job: Job<WebhookJob>): Promise<void> {
+    if (!(await this.beginProcessing(job))) return;
+    const eventAccount = job.data.data as Stripe.Account;
+    const account = await this.stripeService.retrieveAccount(eventAccount.id);
+    const eventCreated = new Date(
+      (typeof (job.data as WebhookJob & { created?: number }).created === 'number'
+        ? (job.data as WebhookJob & { created: number }).created
+        : 0) * 1000,
+    );
+    const vendor = await this.prisma.vendor.findFirst({
+      where: { stripeAccountId: account.id },
+      select: {
+        id: true,
+        businessName: true,
+        payoutsEnabled: true,
+        stripePayoutsEnabled: true,
+      },
+    });
+    if (!vendor) {
+      this.logger.warn(`account.updated ${account.id} has no matching vendor`);
+      return;
+    }
+
+    const chargesEnabled = account.charges_enabled ?? false;
+    const stripePayoutsEnabled = account.payouts_enabled ?? false;
+    const payoutsEnabled = chargesEnabled && stripePayoutsEnabled;
+    const requirements = account.requirements;
+    const result = await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.vendor.updateMany({
+        where: {
+          id: vendor.id,
+          OR: [{ stripeAccountUpdatedAt: null }, { stripeAccountUpdatedAt: { lt: eventCreated } }],
+        },
+        data: {
+          payoutsEnabled,
+          stripeChargesEnabled: chargesEnabled,
+          stripePayoutsEnabled,
+          stripeRequirementsCurrentlyDue: requirements?.currently_due ?? [],
+          stripeRequirementsEventuallyDue: requirements?.eventually_due ?? [],
+          stripeRequirementsPastDue: requirements?.past_due ?? [],
+          stripeRequirementsPendingVerification: requirements?.pending_verification ?? [],
+          stripeRequirementsDisabledReason: requirements?.disabled_reason ?? null,
+          stripeAccountUpdatedAt: eventCreated,
+        },
+      });
+      if (updated.count !== 1) return false;
+      await tx.auditLog.create({
+        data: {
+          actorId: null,
+          action: 'vendor.stripe_account_updated',
+          entityType: 'vendors',
+          entityId: vendor.id,
+          metadata: {
+            stripeEventId: job.data.id,
+            stripeAccountId: account.id,
+            previousPayoutsEnabled: vendor.payoutsEnabled,
+            payoutsEnabled,
+            chargesEnabled,
+            stripePayoutsEnabled,
+            disabledReason: requirements?.disabled_reason ?? null,
+          } as Prisma.InputJsonValue,
+        },
+      });
+      return true;
+    });
+    if (!result) {
+      this.logger.debug(`Ignored stale account.updated ${job.data.id} for ${account.id}`);
+      return;
+    }
+    if (vendor.stripePayoutsEnabled && !stripePayoutsEnabled) {
+      const text =
+        `:rotating_light: Stripe payouts capability lost for ${vendor.businessName} ` +
+        `(${account.id}). Disabled reason: ${requirements?.disabled_reason ?? 'not supplied'}.`;
+      this.logger.error(text);
+      await this.sendSlack(text);
+      Sentry.captureMessage(`Stripe payouts capability lost for vendor ${vendor.id}`, 'error');
+    }
+  }
+
   // Stripe emits the refund-status event under one of two type names depending
   // on the endpoint's API version: modern accounts send `refund.updated`, while
   // older API versions send `charge.refund.updated`. Both carry a Refund object
@@ -197,11 +283,13 @@ export class StripeWebhookProcessor {
   // register a named handler for BOTH to avoid silently dropping refund events.
   @Process({ name: eventName('refund.updated'), concurrency: 10 })
   async onRefundUpdated(job: Job<WebhookJob>): Promise<void> {
+    if (!(await this.beginProcessing(job))) return;
     await this.handleRefundUpdated(job);
   }
 
   @Process({ name: eventName('charge.refund.updated'), concurrency: 10 })
   async onChargeRefundUpdated(job: Job<WebhookJob>): Promise<void> {
+    if (!(await this.beginProcessing(job))) return;
     await this.handleRefundUpdated(job);
   }
 
@@ -242,6 +330,7 @@ export class StripeWebhookProcessor {
   // ledger with the same split/credit/audit writes as an internal refund.
   @Process({ name: eventName('charge.refunded'), concurrency: 5 })
   async onChargeRefunded(job: Job<WebhookJob>): Promise<void> {
+    if (!(await this.beginProcessing(job))) return;
     const charge = job.data.data as Stripe.Charge;
     if (!charge.id) return;
     // The embedded refunds list may be absent depending on API version - fall
@@ -281,16 +370,19 @@ export class StripeWebhookProcessor {
   // This is entirely separate from the internal customer-vs-vendor Dispute flow.
   @Process({ name: eventName('charge.dispute.created'), concurrency: 10 })
   async onDisputeCreated(job: Job<WebhookJob>): Promise<void> {
+    if (!(await this.beginProcessing(job))) return;
     await this.handleChargeDispute(job);
   }
 
   @Process({ name: eventName('charge.dispute.updated'), concurrency: 10 })
   async onDisputeUpdated(job: Job<WebhookJob>): Promise<void> {
+    if (!(await this.beginProcessing(job))) return;
     await this.handleChargeDispute(job);
   }
 
   @Process({ name: eventName('charge.dispute.closed'), concurrency: 10 })
   async onDisputeClosed(job: Job<WebhookJob>): Promise<void> {
+    if (!(await this.beginProcessing(job))) return;
     await this.handleChargeDispute(job);
   }
 
@@ -555,36 +647,53 @@ export class StripeWebhookProcessor {
 
   @Process({ name: eventName('customer.subscription.created'), concurrency: 5 })
   async onSubscriptionCreated(job: Job<WebhookJob>): Promise<void> {
+    if (!(await this.beginProcessing(job))) return;
     const sub = job.data.data as Stripe.Subscription;
     await this.feastpass.handleSubscriptionUpsert(sub);
   }
 
   @Process({ name: eventName('customer.subscription.updated'), concurrency: 5 })
   async onSubscriptionUpdated(job: Job<WebhookJob>): Promise<void> {
+    if (!(await this.beginProcessing(job))) return;
     const sub = job.data.data as Stripe.Subscription;
     await this.feastpass.handleSubscriptionUpsert(sub);
   }
 
   @Process({ name: eventName('customer.subscription.deleted'), concurrency: 5 })
   async onSubscriptionDeleted(job: Job<WebhookJob>): Promise<void> {
+    if (!(await this.beginProcessing(job))) return;
     const sub = job.data.data as Stripe.Subscription;
     await this.feastpass.handleSubscriptionDeleted(sub);
   }
 
   @Process({ name: eventName('invoice.payment_failed'), concurrency: 5 })
   async onInvoicePaymentFailed(job: Job<WebhookJob>): Promise<void> {
+    if (!(await this.beginProcessing(job))) return;
     const invoice = job.data.data as Stripe.Invoice;
     await this.feastpass.handleInvoicePaymentFailed(invoice);
   }
 
   @Process({ name: eventName('invoice.payment_succeeded'), concurrency: 5 })
   async onInvoicePaymentSucceeded(job: Job<WebhookJob>): Promise<void> {
+    if (!(await this.beginProcessing(job))) return;
     const invoice = job.data.data as Stripe.Invoice;
     await this.feastpass.handleInvoicePaymentSucceeded(invoice);
   }
 
   @OnQueueFailed()
-  onFailed(job: Job<WebhookJob> | undefined, err: Error): void {
+  async onFailed(job: Job<WebhookJob> | undefined, err: Error): Promise<void> {
+    const token = job ? this.executionTokens.get(job) : undefined;
+    if (job && token) {
+      await this.prisma.processedWebhookEvent.updateMany({
+        where: {
+          stripeEventId: job.data.id,
+          processingJobId: token,
+          status: 'processing',
+        },
+        data: { status: 'queued', processingJobId: null, lastError: err.message },
+      });
+      this.executionTokens.delete(job);
+    }
     if (shouldReportQueueFailure(job, err)) {
       Sentry.captureException(err, {
         tags: { queue: STRIPE_WEBHOOK_QUEUE, jobName: job?.name ?? 'unknown' },
@@ -594,5 +703,43 @@ export class StripeWebhookProcessor {
     this.logger.error(
       `[${STRIPE_WEBHOOK_QUEUE}] job ${job?.id ?? '?'} (${job?.name ?? '?'}) failed (attempt ${job?.attemptsMade ?? '?'}): ${err.message}`,
     );
+  }
+
+  @OnQueueCompleted()
+  async onCompleted(job: Job<WebhookJob>): Promise<void> {
+    const token = this.executionTokens.get(job);
+    if (!token) return;
+    await this.prisma.processedWebhookEvent.updateMany({
+      where: {
+        stripeEventId: job.data.id,
+        processingJobId: token,
+        status: 'processing',
+      },
+      data: {
+        status: 'processed',
+        processedAt: new Date(),
+        processingJobId: null,
+        lastError: null,
+      },
+    });
+    this.executionTokens.delete(job);
+  }
+
+  private async beginProcessing(job: Job<WebhookJob>): Promise<boolean> {
+    const token = randomUUID();
+    const stale = new Date(Date.now() - 10 * 60_000);
+    const claimed = await this.prisma.processedWebhookEvent.updateMany({
+      where: {
+        stripeEventId: job.data.id,
+        status: { not: 'processed' },
+        OR: [{ processingJobId: null }, { status: 'processing', updatedAt: { lte: stale } }],
+      },
+      data: {
+        status: 'processing',
+        processingJobId: token,
+      },
+    });
+    if (claimed.count === 1) this.executionTokens.set(job, token);
+    return claimed.count === 1;
   }
 }

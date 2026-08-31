@@ -8,6 +8,7 @@ function makePrisma() {
   const prisma: any = {
     payment: {
       findFirst: jest.fn() as Mock,
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }) as Mock,
       aggregate: jest.fn().mockResolvedValue({ _sum: { amountPence: null } }) as Mock,
       create: jest.fn().mockResolvedValue({ id: 'pay-x' }) as Mock,
     },
@@ -19,6 +20,9 @@ function makePrisma() {
     },
     order: { findUnique: jest.fn() as Mock },
     auditLog: { create: jest.fn().mockResolvedValue({}) as Mock },
+    processedWebhookEvent: {
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }) as Mock,
+    },
     // pg_advisory_xact_lock inside the reconciliation transaction.
     $executeRaw: jest.fn().mockResolvedValue(1) as Mock,
   };
@@ -258,5 +262,31 @@ describe('StripeWebhookProcessor chargebacks', () => {
       expect(prisma.payment.create).not.toHaveBeenCalled();
       expect(prisma.chargeback.updateMany).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe('StripeWebhookProcessor execution ownership', () => {
+  it('allows only one concurrent execution of the same Bull job to reach side effects', async () => {
+    const { proc, prisma } = build();
+    let owner: string | null = null;
+    prisma.processedWebhookEvent.updateMany.mockImplementation(async ({ data }: any) => {
+      if (data.processingJobId && owner === null) {
+        owner = data.processingJobId;
+        return { count: 1 };
+      }
+      return { count: 0 };
+    });
+    const job = {
+      id: 'same-bull-job',
+      data: {
+        id: 'evt_payment_duplicate',
+        type: 'payment_intent.succeeded',
+        data: { id: 'pi_duplicate', metadata: {} },
+      },
+    } as Job<any>;
+
+    await Promise.all([proc.onIntentSucceeded(job), proc.onIntentSucceeded(job)]);
+
+    expect(prisma.payment.updateMany).toHaveBeenCalledTimes(1);
   });
 });

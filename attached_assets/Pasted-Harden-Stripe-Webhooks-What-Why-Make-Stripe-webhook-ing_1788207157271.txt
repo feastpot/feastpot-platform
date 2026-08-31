@@ -1,0 +1,37 @@
+Harden Stripe Webhooks
+What & Why
+Make Stripe webhook ingestion concurrency-safe, recoverable, and correctly configured in every environment. Add Stripe Connect account capability synchronization so duplicate deliveries cannot create duplicate work, accepted events cannot be silently lost after queue failures, and payout capability changes are reflected and alerted.
+
+Done looks like
+Duplicate deliveries of the same Stripe event, including five simultaneous deliveries, produce exactly one accepted claim, one queued job, and one business side effect
+A successfully claimed event whose queue submission fails remains recoverable and is retried without allowing duplicate processing
+Invalid signatures are rejected without recording or queueing anything, while unknown valid event types are recorded without being queued
+Development/test and production use their matching Stripe webhook secrets, startup fails clearly when the relevant secret is absent, and a signed test event is accepted in the non-production environment
+account.updated events synchronize payout capability and relevant Stripe requirement state to the vendor, audit changes, and raise an alert when payout capability is lost
+Out-of-order Stripe events cannot overwrite newer account state with stale data
+Duplicate payment-success and dispute-created deliveries create exactly one payment or chargeback record
+The required scenario tests execute and assert observed database, queue, and side-effect counts
+Out of scope
+Changes to Stripe checkout, pricing, or customer payment flows unrelated to webhook idempotency
+Redesigning vendor or admin interfaces
+Backfilling historical Stripe account capability data beyond what is needed for safe current-state synchronization
+Steps
+Add durable webhook claims -- Extend webhook event persistence with explicit claim and queue-delivery state, then atomically create the claim before any queue submission. Treat duplicate claims as successful acknowledgements without queueing again.
+Recover failed queue submissions -- Record enqueue success or failure and add a durable retry path for stale or failed claims. Ensure retries use deterministic queue identity and cannot create parallel business processing.
+Preserve event ordering and unknown-event behavior -- Store enough Stripe event metadata to reject stale state updates while continuing to acknowledge and record valid unknown event types without queueing them.
+Configure environment-specific signing secrets -- Validate that non-production resolves the test webhook secret and production resolves the live webhook secret, document the mapping, and verify the running non-production API accepts a correctly signed test event.
+Handle Stripe account updates -- Register and process account.updated, synchronize payout capability and requirement fields to the matching vendor, create an audit record for changes, and send an operational alert when payouts become unavailable.
+Execute scenario coverage -- Add controller, queue-recovery, and processor tests for sequential and concurrent duplicates, enqueue failure recovery, out-of-order delivery, unknown and invalid events, capability loss/restoration, and duplicate payment and dispute events. Assert actual row, job, alert, and side-effect counts.
+Validate migration and application health -- Add the required database migration, run the API quality gates and scenario suite, restart the API workflow, and confirm startup and webhook handling are clean.
+Relevant files
+apps/api/src/modules/payments/stripe-webhook.controller.ts
+apps/api/src/modules/payments/stripe-webhook.events.ts
+apps/api/src/modules/payments/stripe-webhook.processor.ts
+apps/api/src/modules/payments/stripe-webhook.processor.spec.ts
+apps/api/src/modules/payments/stripe-webhook-processor.module.ts
+apps/api/src/modules/payments/payments.module.ts
+apps/api/src/common/config/resolve-stripe-env.ts
+apps/api/src/common/config/required-env.ts
+apps/api/src/modules/vendors/vendors.service.ts
+apps/api/src/modules/vendors/vendors.service.spec.ts
+prisma/schema.prisma

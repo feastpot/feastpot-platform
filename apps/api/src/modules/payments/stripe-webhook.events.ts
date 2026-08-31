@@ -16,6 +16,7 @@ const HANDLED_STRIPE_EVENT_TYPE_LIST = [
   'payment_intent.succeeded',
   'payment_intent.payment_failed',
   'transfer.created',
+  'account.updated',
   'refund.updated',
   'charge.refund.updated',
   'charge.refunded',
