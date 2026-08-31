@@ -25,7 +25,10 @@ SET "claimed_at" = "processed_at";
 
 ALTER TABLE "processed_webhook_events"
   ALTER COLUMN "claimed_at" SET DEFAULT CURRENT_TIMESTAMP,
-  ALTER COLUMN "claimed_at" SET NOT NULL;
+  ALTER COLUMN "claimed_at" SET NOT NULL,
+  ALTER COLUMN "processed_at" DROP NOT NULL,
+  ALTER COLUMN "processed_at" DROP DEFAULT,
+  ALTER COLUMN "status" SET DEFAULT 'claimed';
 
 CREATE INDEX "processed_webhook_events_status_next_attempt_at_idx"
   ON "processed_webhook_events"("status", "next_attempt_at");
