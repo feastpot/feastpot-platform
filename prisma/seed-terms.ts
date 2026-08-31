@@ -525,7 +525,8 @@ deducted from your vendor payout. FeastPass members are exempt from this fee.
       label: 'Catering bookings (event and advance catering orders)',
       rateDisplay: '10%',
       rateValue: 10.0,
-       basis: 'Entire accepted quote total, including delivery, service, setup, and other quoted elements',
+      basis:
+        'Entire accepted quote total, including delivery, service, setup, and other quoted elements',
       vatNote: 'Commission is inclusive of VAT where Feastpot is registered.',
       status: RateStatus.LIVE,
       sortOrder: 4,

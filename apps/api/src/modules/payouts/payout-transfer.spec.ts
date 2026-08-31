@@ -142,8 +142,8 @@ describe('PayoutsService.executeTransfer', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockPrisma.$transaction.mockImplementation(async (callback: (tx: typeof mockPrisma) => unknown) =>
-      callback(mockPrisma),
+    mockPrisma.$transaction.mockImplementation(
+      async (callback: (tx: typeof mockPrisma) => unknown) => callback(mockPrisma),
     );
     service = new PayoutsService(
       mockPrisma as never,

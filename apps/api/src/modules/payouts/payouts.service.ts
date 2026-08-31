@@ -548,10 +548,7 @@ export class PayoutsService {
       return;
     }
 
-    if (
-      payout.status !== PayoutStatus.approved &&
-      payout.status !== PayoutStatus.processing
-    ) {
+    if (payout.status !== PayoutStatus.approved && payout.status !== PayoutStatus.processing) {
       throw new Error(
         `Payout ${payoutId} has unexpected status "${payout.status}" - cannot transfer`,
       );

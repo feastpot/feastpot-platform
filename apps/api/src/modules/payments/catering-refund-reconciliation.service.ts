@@ -48,9 +48,14 @@ export class CateringRefundReconciliationService {
           // original refund if Stripe accepted it, rather than charging twice.
           await this.payments.recoverCateringRefundOperation(operation.id);
         }
-        const refreshed = await this.prisma.refundOperation.findUnique({ where: { id: operation.id } });
+        const refreshed = await this.prisma.refundOperation.findUnique({
+          where: { id: operation.id },
+        });
         if (!refreshed?.stripeRefundId) {
-          await this.incident(operation.id, 'Refund replay completed without a persisted Stripe refund id');
+          await this.incident(
+            operation.id,
+            'Refund replay completed without a persisted Stripe refund id',
+          );
           continue;
         }
         const stripeRefund = await this.stripe.retrieveRefund(refreshed.stripeRefundId);
@@ -103,7 +108,10 @@ export class CateringRefundReconciliationService {
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
           this.logger.error(`Catering Stripe refund sweep ${capture.stripeChargeId}: ${message}`);
-          Sentry.captureMessage(`Catering Stripe refund sweep ${capture.stripeChargeId}: ${message}`, 'error');
+          Sentry.captureMessage(
+            `Catering Stripe refund sweep ${capture.stripeChargeId}: ${message}`,
+            'error',
+          );
         }
       }
       if (captures.length < 100) break;

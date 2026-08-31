@@ -14,7 +14,9 @@ describe('CateringRefundReconciliationService', () => {
     const prisma = {
       refundOperation: {
         findMany: jest.fn().mockResolvedValue([operation]),
-        findUnique: jest.fn().mockResolvedValue({ ...operation, stripeRefundId: 'recovered-refund' }),
+        findUnique: jest
+          .fn()
+          .mockResolvedValue({ ...operation, stripeRefundId: 'recovered-refund' }),
         update: jest.fn(),
       },
       payment: { findMany: jest.fn().mockResolvedValue([]) },
@@ -59,9 +61,11 @@ describe('CateringRefundReconciliationService', () => {
       payment: { findMany: jest.fn().mockResolvedValueOnce(first).mockResolvedValueOnce(last) },
     };
     const stripe = {
-      listRefunds: jest.fn(({ id }: { id: string }) => id).mockResolvedValue({
-        data: [{ id: 're-external', amount: 100, status: 'succeeded' }],
-      }),
+      listRefunds: jest
+        .fn(({ id }: { id: string }) => id)
+        .mockResolvedValue({
+          data: [{ id: 're-external', amount: 100, status: 'succeeded' }],
+        }),
     };
     const payments = { reconcileExternalCateringRefund: jest.fn() };
     const service = new CateringRefundReconciliationService(

@@ -75,7 +75,8 @@ export function calculateCateringCancellationRefund(args: {
   if (args.vendorCancelled) {
     return args.balancePaid ? args.depositPence + args.balancePence : args.depositPence;
   }
-  if (args.balancePaid) return args.staffApprovedAfterBalance ? args.depositPence + args.balancePence : 0;
+  if (args.balancePaid)
+    return args.staffApprovedAfterBalance ? args.depositPence + args.balancePence : 0;
   if (args.daysUntilEvent >= 14) return args.depositPence;
   if (args.daysUntilEvent >= 8) return Math.floor(args.depositPence / 2);
   return 0;
@@ -630,7 +631,9 @@ export class CateringBookingsService {
       });
       if (refundPence > 0) {
         // Refund balance first when the policy requires the full paid total.
-        const balanceRefund = booking.balancePaidAt ? Math.min(booking.balancePence, refundPence) : 0;
+        const balanceRefund = booking.balancePaidAt
+          ? Math.min(booking.balancePence, refundPence)
+          : 0;
         if (balanceRefund > 0 && booking.balancePiId) {
           await this.payments.createCateringRefund({
             bookingId,

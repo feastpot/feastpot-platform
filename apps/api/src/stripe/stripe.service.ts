@@ -139,10 +139,7 @@ export class StripeService {
   }
 
   /** List refunds on a charge - used when a `charge.refunded` webhook arrives without the refunds list expanded. */
-  listRefunds(
-    chargeId: string,
-    startingAfter?: string,
-  ): Promise<Stripe.ApiList<Stripe.Refund>> {
+  listRefunds(chargeId: string, startingAfter?: string): Promise<Stripe.ApiList<Stripe.Refund>> {
     return this.stripe.refunds.list({
       charge: chargeId,
       limit: 100,

@@ -1,12 +1,6 @@
 import { OnQueueFailed, Process, Processor } from '@nestjs/bull';
 import { Logger } from '@nestjs/common';
-import {
-  OrderStatus,
-  PaymentStatus,
-  PaymentType,
-  PayoutStatus,
-  Prisma,
-} from '@prisma/client';
+import { OrderStatus, PaymentStatus, PaymentType, PayoutStatus, Prisma } from '@prisma/client';
 import * as Sentry from '@sentry/nestjs';
 import type { Job } from 'bull';
 import type Stripe from 'stripe';
@@ -85,7 +79,8 @@ export class StripeWebhookProcessor {
         select: { customerId: true, depositPence: true, balancePence: true },
       });
       if (booking) {
-        const amountPence = kind === 'catering_deposit' ? booking.depositPence : booking.balancePence;
+        const amountPence =
+          kind === 'catering_deposit' ? booking.depositPence : booking.balancePence;
         await this.payments.recordCateringCapture({
           bookingId,
           paymentIntentId: pi.id,

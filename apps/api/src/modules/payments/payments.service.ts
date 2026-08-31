@@ -1347,7 +1347,14 @@ export class PaymentsService {
   async compensateFailedRefund(stripeRefundId: string) {
     const payment = await this.prisma.payment.findUnique({
       where: { stripeRefundId },
-      select: { id: true, orderId: true, cateringBookingId: true, amountPence: true, userId: true, stripeRefundId: true },
+      select: {
+        id: true,
+        orderId: true,
+        cateringBookingId: true,
+        amountPence: true,
+        userId: true,
+        stripeRefundId: true,
+      },
     });
     if (!payment) return null;
     if (payment.cateringBookingId) {
@@ -1563,7 +1570,9 @@ export class PaymentsService {
       });
       if (cas.count !== 1) {
         const pendingOperation = payment.stripeRefundId
-          ? await tx.refundOperation.findUnique({ where: { stripeRefundId: payment.stripeRefundId } })
+          ? await tx.refundOperation.findUnique({
+              where: { stripeRefundId: payment.stripeRefundId },
+            })
           : null;
         return pendingOperation?.reversalStatus === 'compensation_pending'
           ? { operation: pendingOperation, compensationPence: 0, retryOnly: true }
@@ -1595,11 +1604,16 @@ export class PaymentsService {
       const operation = payment.stripeRefundId
         ? await tx.refundOperation.findUnique({ where: { stripeRefundId: payment.stripeRefundId } })
         : null;
-      const matchedOperation = operation ?? await tx.refundOperation.findFirst({
-        where: { cateringBookingId: payment.cateringBookingId, stripeRefundId: { not: null } },
-        orderBy: { createdAt: 'desc' },
-      });
-      if (matchedOperation?.reversalStatus === 'payout_adjusted' && matchedOperation.reversalPayoutId) {
+      const matchedOperation =
+        operation ??
+        (await tx.refundOperation.findFirst({
+          where: { cateringBookingId: payment.cateringBookingId, stripeRefundId: { not: null } },
+          orderBy: { createdAt: 'desc' },
+        }));
+      if (
+        matchedOperation?.reversalStatus === 'payout_adjusted' &&
+        matchedOperation.reversalPayoutId
+      ) {
         await tx.payout.updateMany({
           where: {
             id: matchedOperation.reversalPayoutId,
@@ -1913,23 +1927,27 @@ export class PaymentsService {
       if (existing) return { payment: existing, refundCancelledCapture: false };
       const cancelledBeforeCapture = booking.status === CateringBookingStatus.CANCELLED;
       if (!cancelledBeforeCapture) {
-      const transition = await tx.cateringBooking.updateMany({
-        where: {
-          id: args.bookingId,
-          ...(args.kind === 'deposit'
-            ? { status: { in: [CateringBookingStatus.QUOTED, CateringBookingStatus.DEPOSIT_PAID] } }
-            : { status: CateringBookingStatus.CONFIRMED }),
-        },
-        data:
-          args.kind === 'deposit'
-            ? { status: CateringBookingStatus.CONFIRMED, depositPaidAt: now }
-            : { status: CateringBookingStatus.BALANCE_PAID, balancePaidAt: now },
-      });
-      if (transition.count !== 1) {
-        throw new ConflictException(
-          'Catering booking changed before the succeeded payment could be recorded',
-        );
-      }
+        const transition = await tx.cateringBooking.updateMany({
+          where: {
+            id: args.bookingId,
+            ...(args.kind === 'deposit'
+              ? {
+                  status: {
+                    in: [CateringBookingStatus.QUOTED, CateringBookingStatus.DEPOSIT_PAID],
+                  },
+                }
+              : { status: CateringBookingStatus.CONFIRMED }),
+          },
+          data:
+            args.kind === 'deposit'
+              ? { status: CateringBookingStatus.CONFIRMED, depositPaidAt: now }
+              : { status: CateringBookingStatus.BALANCE_PAID, balancePaidAt: now },
+        });
+        if (transition.count !== 1) {
+          throw new ConflictException(
+            'Catering booking changed before the succeeded payment could be recorded',
+          );
+        }
       }
       const payment = await tx.payment.create({
         data: {
@@ -2123,8 +2141,7 @@ export class PaymentsService {
         }
         const key = `catering-reversal:${args.idempotencyKey}:attempt:${operation.attempt}`;
         const reversalAlreadySucceeded =
-          operation.reversalStatus === 'succeeded' &&
-          operation.reversalIdempotencyKey === key;
+          operation.reversalStatus === 'succeeded' && operation.reversalIdempotencyKey === key;
         await tx.refundOperation.update({
           where: { id: operation.id },
           data: {
@@ -2269,7 +2286,8 @@ export class PaymentsService {
           cateringBookingId: args.bookingId,
           userId: booking.customerId,
           type: full ? PaymentType.refund : PaymentType.partial_refund,
-          status: stripeRefund.status === 'succeeded' ? PaymentStatus.succeeded : PaymentStatus.pending,
+          status:
+            stripeRefund.status === 'succeeded' ? PaymentStatus.succeeded : PaymentStatus.pending,
           amountPence: -args.amountPence,
           currency: 'GBP',
           stripePaymentIntentId: args.paymentIntentId,
@@ -2347,9 +2365,7 @@ export class PaymentsService {
    */
   async reconcileExternalCateringRefund(refund: Stripe.Refund): Promise<void> {
     const paymentIntentId =
-      typeof refund.payment_intent === 'string'
-        ? refund.payment_intent
-        : refund.payment_intent?.id;
+      typeof refund.payment_intent === 'string' ? refund.payment_intent : refund.payment_intent?.id;
     if (!paymentIntentId || !refund.id || refund.amount <= 0) return;
     const payment = await this.prisma.payment.findFirst({
       where: { stripePaymentIntentId: paymentIntentId, cateringBookingId: { not: null } },
