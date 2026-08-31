@@ -1,4 +1,3 @@
-import { InjectQueue } from '@nestjs/bull';
 import {
   BadRequestException,
   Controller,
@@ -13,8 +12,8 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ApiExcludeController } from '@nestjs/swagger';
+import { Prisma } from '@prisma/client';
 import * as Sentry from '@sentry/nestjs';
-import type { Queue } from 'bull';
 import type { Request } from 'express';
 import type Stripe from 'stripe';
 
@@ -22,6 +21,7 @@ import { Public } from '../../auth/decorators/public.decorator';
 import { PrismaService } from '../../prisma/prisma.service';
 import { StripeService } from '../../stripe/stripe.service';
 
+import { StripeWebhookDeliveryService } from './stripe-webhook-delivery.service';
 import { HANDLED_STRIPE_EVENT_TYPES } from './stripe-webhook.events';
 
 export const STRIPE_WEBHOOK_QUEUE = 'stripe-webhooks';
@@ -38,7 +38,7 @@ export class StripeWebhookController {
     private readonly stripe: StripeService,
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
-    @InjectQueue(STRIPE_WEBHOOK_QUEUE) private readonly queue: Queue,
+    private readonly delivery: StripeWebhookDeliveryService,
   ) {}
 
   @Post('stripe')
@@ -89,16 +89,30 @@ export class StripeWebhookController {
       });
     }
 
-    // Idempotency: stripeEventId has a unique constraint. Check first to short-
-    // circuit retries, but we ENQUEUE BEFORE we mark processed - otherwise an
-    // enqueue failure would be permanently swallowed by the next retry.
-    const already = await this.prisma.processedWebhookEvent.findUnique({
-      where: { stripeEventId: event.id },
-      select: { id: true },
-    });
-    if (already) {
-      this.logger.debug(`Duplicate webhook ${event.id} (${event.type}) - already processed`);
-      return { received: true };
+    let claim: { id: string };
+    try {
+      claim = await this.prisma.processedWebhookEvent.create({
+        data: {
+          stripeEventId: event.id,
+          eventType: event.type,
+          stripeCreatedAt: new Date(event.created * 1000),
+          payload: {
+            id: event.id,
+            type: event.type,
+            created: event.created,
+            data: event.data.object,
+          } as unknown as Prisma.InputJsonValue,
+          status: HANDLED_STRIPE_EVENT_TYPES.has(event.type) ? 'claimed' : 'ignored',
+          processedAt: HANDLED_STRIPE_EVENT_TYPES.has(event.type) ? null : new Date(),
+        },
+        select: { id: true },
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        this.logger.debug(`Duplicate webhook ${event.id} (${event.type}) - already accepted`);
+        return { received: true };
+      }
+      throw error;
     }
 
     // Unhandled event types: the processor only has named handlers (legacy
@@ -116,39 +130,10 @@ export class StripeWebhookController {
           'warning',
         );
       }
-      try {
-        await this.prisma.processedWebhookEvent.create({
-          data: { stripeEventId: event.id, eventType: event.type },
-        });
-      } catch {
-        // Duplicate delivery race - already recorded.
-      }
       return { received: true };
     }
 
-    // Enqueue first; if Redis is down this throws and Stripe will retry.
-    await this.queue.add(
-      event.type,
-      { id: event.id, type: event.type, data: event.data.object },
-      {
-        attempts: 5,
-        backoff: { type: 'exponential', delay: 10_000 },
-        removeOnComplete: 1000,
-        removeOnFail: 1000,
-      },
-    );
-
-    // Now mark processed. If THIS fails (rare), Stripe retries → we'll try to
-    // enqueue again. The processor handler must remain idempotent (which it is:
-    // updateMany on natural keys, no double-charges).
-    try {
-      await this.prisma.processedWebhookEvent.create({
-        data: { stripeEventId: event.id, eventType: event.type },
-      });
-    } catch (e) {
-      // Race with a parallel delivery: another request already inserted. Safe.
-      this.logger.debug(`Race on processed-event insert for ${event.id}; assumed already recorded`);
-    }
+    await this.delivery.deliver(claim.id);
 
     return { received: true };
   }

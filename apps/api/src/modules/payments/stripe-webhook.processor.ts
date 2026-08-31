@@ -1,4 +1,4 @@
-import { OnQueueFailed, Process, Processor } from '@nestjs/bull';
+import { OnQueueCompleted, OnQueueFailed, Process, Processor } from '@nestjs/bull';
 import { Logger } from '@nestjs/common';
 import { OrderStatus, PaymentStatus, PaymentType, PayoutStatus, Prisma } from '@prisma/client';
 import * as Sentry from '@sentry/nestjs';
@@ -188,6 +188,84 @@ export class StripeWebhookProcessor {
         transferredAt: new Date(),
       },
     });
+  }
+
+  @Process({ name: eventName('account.updated'), concurrency: 5 })
+  async onAccountUpdated(job: Job<WebhookJob>): Promise<void> {
+    const account = job.data.data as Stripe.Account;
+    const eventCreated = new Date(
+      (typeof (job.data as WebhookJob & { created?: number }).created === 'number'
+        ? (job.data as WebhookJob & { created: number }).created
+        : 0) * 1000,
+    );
+    const vendor = await this.prisma.vendor.findFirst({
+      where: { stripeAccountId: account.id },
+      select: {
+        id: true,
+        businessName: true,
+        payoutsEnabled: true,
+        stripePayoutsEnabled: true,
+      },
+    });
+    if (!vendor) {
+      this.logger.warn(`account.updated ${account.id} has no matching vendor`);
+      return;
+    }
+
+    const chargesEnabled = account.charges_enabled ?? false;
+    const stripePayoutsEnabled = account.payouts_enabled ?? false;
+    const payoutsEnabled = chargesEnabled && stripePayoutsEnabled;
+    const requirements = account.requirements;
+    const result = await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.vendor.updateMany({
+        where: {
+          id: vendor.id,
+          OR: [{ stripeAccountUpdatedAt: null }, { stripeAccountUpdatedAt: { lt: eventCreated } }],
+        },
+        data: {
+          payoutsEnabled,
+          stripeChargesEnabled: chargesEnabled,
+          stripePayoutsEnabled,
+          stripeRequirementsCurrentlyDue: requirements?.currently_due ?? [],
+          stripeRequirementsEventuallyDue: requirements?.eventually_due ?? [],
+          stripeRequirementsPastDue: requirements?.past_due ?? [],
+          stripeRequirementsPendingVerification: requirements?.pending_verification ?? [],
+          stripeRequirementsDisabledReason: requirements?.disabled_reason ?? null,
+          stripeAccountUpdatedAt: eventCreated,
+        },
+      });
+      if (updated.count !== 1) return false;
+      await tx.auditLog.create({
+        data: {
+          actorId: null,
+          action: 'vendor.stripe_account_updated',
+          entityType: 'vendors',
+          entityId: vendor.id,
+          metadata: {
+            stripeEventId: job.data.id,
+            stripeAccountId: account.id,
+            previousPayoutsEnabled: vendor.payoutsEnabled,
+            payoutsEnabled,
+            chargesEnabled,
+            stripePayoutsEnabled,
+            disabledReason: requirements?.disabled_reason ?? null,
+          } as Prisma.InputJsonValue,
+        },
+      });
+      return true;
+    });
+    if (!result) {
+      this.logger.debug(`Ignored stale account.updated ${job.data.id} for ${account.id}`);
+      return;
+    }
+    if (vendor.stripePayoutsEnabled && !stripePayoutsEnabled) {
+      const text =
+        `:rotating_light: Stripe payouts capability lost for ${vendor.businessName} ` +
+        `(${account.id}). Disabled reason: ${requirements?.disabled_reason ?? 'not supplied'}.`;
+      this.logger.error(text);
+      await this.sendSlack(text);
+      Sentry.captureMessage(`Stripe payouts capability lost for vendor ${vendor.id}`, 'error');
+    }
   }
 
   // Stripe emits the refund-status event under one of two type names depending
@@ -594,5 +672,13 @@ export class StripeWebhookProcessor {
     this.logger.error(
       `[${STRIPE_WEBHOOK_QUEUE}] job ${job?.id ?? '?'} (${job?.name ?? '?'}) failed (attempt ${job?.attemptsMade ?? '?'}): ${err.message}`,
     );
+  }
+
+  @OnQueueCompleted()
+  async onCompleted(job: Job<WebhookJob>): Promise<void> {
+    await this.prisma.processedWebhookEvent.updateMany({
+      where: { stripeEventId: job.data.id },
+      data: { status: 'processed', processedAt: new Date(), lastError: null },
+    });
   }
 }

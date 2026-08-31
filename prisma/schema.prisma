@@ -749,22 +749,30 @@ model VendorCapacity {
 }
 
 model Vendor {
-  id                 String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId             String       @unique @map("user_id") @db.Uuid
-  businessName       String       @map("business_name") @db.VarChar(255)
-  slug               String       @unique @db.VarChar(255)
-  description        String?
-  cuisines           String[]     @db.VarChar(64)
-  status             VendorStatus @default(pending)
-  rating             Float        @default(0)
-  ratingCount        Int          @default(0) @map("rating_count")
-  reorderRatePct     Float        @default(0) @map("reorder_rate_pct")
-  communityFavourite Boolean      @default(false) @map("community_favourite")
-  commissionBps      Int          @default(1200) @map("commission_bps")
-  stripeAccountId    String?      @map("stripe_account_id") @db.VarChar(100)
-  payoutsEnabled     Boolean      @default(false) @map("payouts_enabled")
-  approvedAt         DateTime?    @map("approved_at") @db.Timestamptz
-  suspendedAt        DateTime?    @map("suspended_at") @db.Timestamptz
+  id                                    String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId                                String       @unique @map("user_id") @db.Uuid
+  businessName                          String       @map("business_name") @db.VarChar(255)
+  slug                                  String       @unique @db.VarChar(255)
+  description                           String?
+  cuisines                              String[]     @db.VarChar(64)
+  status                                VendorStatus @default(pending)
+  rating                                Float        @default(0)
+  ratingCount                           Int          @default(0) @map("rating_count")
+  reorderRatePct                        Float        @default(0) @map("reorder_rate_pct")
+  communityFavourite                    Boolean      @default(false) @map("community_favourite")
+  commissionBps                         Int          @default(1200) @map("commission_bps")
+  stripeAccountId                       String?      @map("stripe_account_id") @db.VarChar(100)
+  payoutsEnabled                        Boolean      @default(false) @map("payouts_enabled")
+  stripeChargesEnabled                  Boolean      @default(false) @map("stripe_charges_enabled")
+  stripePayoutsEnabled                  Boolean      @default(false) @map("stripe_payouts_enabled")
+  stripeRequirementsCurrentlyDue        String[]     @default([]) @map("stripe_requirements_currently_due") @db.VarChar(100)
+  stripeRequirementsEventuallyDue       String[]     @default([]) @map("stripe_requirements_eventually_due") @db.VarChar(100)
+  stripeRequirementsPastDue             String[]     @default([]) @map("stripe_requirements_past_due") @db.VarChar(100)
+  stripeRequirementsPendingVerification String[]     @default([]) @map("stripe_requirements_pending_verification") @db.VarChar(100)
+  stripeRequirementsDisabledReason      String?      @map("stripe_requirements_disabled_reason") @db.VarChar(255)
+  stripeAccountUpdatedAt                DateTime?    @map("stripe_account_updated_at") @db.Timestamptz
+  approvedAt                            DateTime?    @map("approved_at") @db.Timestamptz
+  suspendedAt                           DateTime?    @map("suspended_at") @db.Timestamptz
 
   // FSA Food Hygiene Rating Scheme compliance (Prompt 13).
   // These fields are set by the compliance team and are DISTINCT from
@@ -1494,12 +1502,22 @@ model Payout {
 }
 
 model ProcessedWebhookEvent {
-  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  stripeEventId String   @unique @map("stripe_event_id") @db.VarChar(100)
-  eventType     String   @map("event_type") @db.VarChar(100)
-  processedAt   DateTime @default(now()) @map("processed_at") @db.Timestamptz
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  stripeEventId   String    @unique @map("stripe_event_id") @db.VarChar(100)
+  eventType       String    @map("event_type") @db.VarChar(100)
+  payload         Json?
+  status          String    @default("claimed") @db.VarChar(32)
+  stripeCreatedAt DateTime? @map("stripe_created_at") @db.Timestamptz
+  claimedAt       DateTime  @default(now()) @map("claimed_at") @db.Timestamptz
+  queuedAt        DateTime? @map("queued_at") @db.Timestamptz
+  processedAt     DateTime? @map("processed_at") @db.Timestamptz
+  nextAttemptAt   DateTime  @default(now()) @map("next_attempt_at") @db.Timestamptz
+  enqueueAttempts Int       @default(0) @map("enqueue_attempts")
+  lastError       String?   @map("last_error")
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   @@index([eventType])
+  @@index([status, nextAttemptAt])
   @@map("processed_webhook_events")
 }
 
