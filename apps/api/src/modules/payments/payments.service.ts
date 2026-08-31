@@ -8,6 +8,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  CateringBookingStatus,
   OrderStatus,
   PaymentStatus,
   PaymentType,
@@ -1041,7 +1042,7 @@ export class PaymentsService {
           select: { orderId: true },
         })
       : null;
-    if (!anchor) {
+    if (!anchor?.orderId) {
       this.logger.error(
         `External Stripe refund ${refund.id} has no matching order - manual reconciliation required`,
       );
@@ -1346,9 +1347,22 @@ export class PaymentsService {
   async compensateFailedRefund(stripeRefundId: string) {
     const payment = await this.prisma.payment.findUnique({
       where: { stripeRefundId },
-      select: { id: true, orderId: true, amountPence: true, userId: true },
+      select: {
+        id: true,
+        orderId: true,
+        cateringBookingId: true,
+        amountPence: true,
+        userId: true,
+        stripeRefundId: true,
+      },
     });
     if (!payment) return null;
+    if (payment.cateringBookingId) {
+      return this.compensateFailedCateringRefund({
+        ...payment,
+        cateringBookingId: payment.cateringBookingId,
+      });
+    }
 
     const result = await this.prisma.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${payment.orderId}))`;
@@ -1432,7 +1446,7 @@ export class PaymentsService {
       if (prev) {
         await tx.order.updateMany({
           where: {
-            id: payment.orderId,
+            id: payment.orderId!,
             status: { in: [OrderStatus.refunded, OrderStatus.partially_refunded] },
           },
           data: { status: prev },
@@ -1443,7 +1457,7 @@ export class PaymentsService {
       const allowancePence = meta.allowanceRestoredPence ?? 0;
       if (allowancePence > 0) {
         const order = await tx.order.findUnique({
-          where: { id: payment.orderId },
+          where: { id: payment.orderId! },
           select: { vendorId: true },
         });
         if (order) {
@@ -1528,17 +1542,173 @@ export class PaymentsService {
       }
       if (reversal) {
         const order = await this.prisma.order.findUnique({
-          where: { id: result.orderId },
+          where: { id: result.orderId! },
           select: { vendor: { select: { stripeAccountId: true } } },
         });
         await this.compensateReversalIfNeeded(
           reversal,
           order?.vendor.stripeAccountId ?? null,
-          result.orderId,
+          result.orderId!,
         );
       }
     }
     return result;
+  }
+
+  private async compensateFailedCateringRefund(payment: {
+    id: string;
+    cateringBookingId: string;
+    amountPence: number;
+    userId: string | null;
+    stripeRefundId: string | null;
+  }) {
+    const result = await this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`catering:${payment.cateringBookingId}`}))`;
+      const cas = await tx.payment.updateMany({
+        where: { id: payment.id, status: { not: PaymentStatus.failed } },
+        data: { status: PaymentStatus.failed, processedAt: new Date() },
+      });
+      if (cas.count !== 1) {
+        const pendingOperation = payment.stripeRefundId
+          ? await tx.refundOperation.findUnique({
+              where: { stripeRefundId: payment.stripeRefundId },
+            })
+          : null;
+        return pendingOperation?.reversalStatus === 'compensation_pending'
+          ? { operation: pendingOperation, compensationPence: 0, retryOnly: true }
+          : null;
+      }
+      const credits = await tx.payment.findMany({
+        where: {
+          cateringBookingId: payment.cateringBookingId,
+          type: PaymentType.credit,
+          failureReason: { contains: `refund ${payment.id}` },
+        },
+      });
+      const compensationPence =
+        -payment.amountPence - credits.reduce((sum, credit) => sum + credit.amountPence, 0);
+      if (compensationPence > 0) {
+        await tx.payment.create({
+          data: {
+            cateringBookingId: payment.cateringBookingId,
+            userId: payment.userId,
+            type: PaymentType.credit,
+            status: PaymentStatus.succeeded,
+            amountPence: compensationPence,
+            currency: 'GBP',
+            failureReason: `refund_failed_reversal: compensates vendor clawback for failed refund ${payment.id}`,
+            processedAt: new Date(),
+          },
+        });
+      }
+      const operation = payment.stripeRefundId
+        ? await tx.refundOperation.findUnique({ where: { stripeRefundId: payment.stripeRefundId } })
+        : null;
+      const matchedOperation =
+        operation ??
+        (await tx.refundOperation.findFirst({
+          where: { cateringBookingId: payment.cateringBookingId, stripeRefundId: { not: null } },
+          orderBy: { createdAt: 'desc' },
+        }));
+      if (
+        matchedOperation?.reversalStatus === 'payout_adjusted' &&
+        matchedOperation.reversalPayoutId
+      ) {
+        await tx.payout.updateMany({
+          where: {
+            id: matchedOperation.reversalPayoutId,
+            status: { in: [PayoutStatus.draft, PayoutStatus.held, PayoutStatus.approved] },
+          },
+          data: {
+            amountPence: { increment: matchedOperation.reversalAmountPence ?? compensationPence },
+            refundsPence: { decrement: matchedOperation.reversalAmountPence ?? compensationPence },
+          },
+        });
+      }
+      if (matchedOperation) {
+        if (matchedOperation.cancelBooking) {
+          const booking = await tx.cateringBooking.findUnique({
+            where: { id: payment.cateringBookingId },
+            select: { depositPaidAt: true, balancePaidAt: true },
+          });
+          if (booking) {
+            await tx.cateringBooking.update({
+              where: { id: payment.cateringBookingId },
+              data: {
+                status: booking.balancePaidAt
+                  ? CateringBookingStatus.BALANCE_PAID
+                  : booking.depositPaidAt
+                    ? CateringBookingStatus.CONFIRMED
+                    : CateringBookingStatus.QUOTED,
+                cancelledAt: null,
+                cancellationReason: null,
+              },
+            });
+          }
+        }
+        const needsTransferCompensation =
+          matchedOperation.reversalStatus === 'succeeded' &&
+          (matchedOperation.reversalAmountPence ?? 0) > 0;
+        await tx.refundOperation.update({
+          where: { id: matchedOperation.id },
+          data: {
+            status: needsTransferCompensation ? 'compensation_pending' : 'pending',
+            failureReason: 'Stripe refund failed asynchronously',
+            reversalStatus: needsTransferCompensation ? 'compensation_pending' : null,
+            ...(needsTransferCompensation
+              ? {}
+              : {
+                  stripeRefundId: null,
+                  attempt: { increment: 1 },
+                  reversalPayoutId: null,
+                  reversalTransferId: null,
+                  reversalAmountPence: null,
+                  reversalIdempotencyKey: null,
+                }),
+          },
+        });
+      }
+      return { operation: matchedOperation, compensationPence, retryOnly: false };
+    });
+    if (!result) return null;
+    if (result.operation?.reversalStatus === 'succeeded' && result.operation.reversalAmountPence) {
+      const booking = await this.prisma.cateringBooking.findUnique({
+        where: { id: payment.cateringBookingId },
+        select: { vendor: { select: { stripeAccountId: true } } },
+      });
+      if (booking?.vendor.stripeAccountId) {
+        await this.stripe.createTransfer({
+          amountPence: result.operation.reversalAmountPence,
+          destinationAccountId: booking.vendor.stripeAccountId,
+          payoutId: result.operation.reversalPayoutId ?? result.operation.id,
+          idempotencyKey: `catering-reversal-comp:${result.operation.idempotencyKey}:attempt:${result.operation.attempt}`,
+        });
+        await this.resetFailedCateringOperation(result.operation.id);
+      }
+    }
+    return {
+      orderId: payment.cateringBookingId,
+      refundAmountPence: -payment.amountPence,
+      compensationCreditPence: result.compensationPence,
+    };
+  }
+
+  private async resetFailedCateringOperation(operationId: string): Promise<void> {
+    await this.prisma.refundOperation.update({
+      where: { id: operationId },
+      data: {
+        status: 'pending',
+        failureReason: null,
+        stripeRefundId: null,
+        attempt: { increment: 1 },
+        reversalPayoutId: null,
+        reversalTransferId: null,
+        reversalAmountPence: null,
+        reversalIdempotencyKey: null,
+        reversalStatus: null,
+        completedAt: null,
+      },
+    });
   }
 
   /**
@@ -1717,6 +1887,543 @@ export class PaymentsService {
         `FAILED to compensate ${reversal.clawbackPence}p transfer reversal for order ${orderId} (payout ${reversal.payoutId}): ${String(e)} - vendor is owed this amount, manual repair required`,
       );
     }
+  }
+
+  // -------------------- catering shared ledger --------------------
+
+  /**
+   * Records a succeeded catering collection in the same Payment ledger as
+   * order captures. It is deliberately idempotent because both the return URL
+   * and Stripe webhook may observe the same PaymentIntent.
+   */
+  async recordCateringCapture(args: {
+    bookingId: string;
+    paymentIntentId: string;
+    amountPence: number;
+    customerId: string | null;
+    kind: 'deposit' | 'balance';
+  }) {
+    const pi = await this.stripe.retrieve(args.paymentIntentId);
+    if (pi.status !== 'succeeded' || pi.amount !== args.amountPence) {
+      throw new BadRequestException('Catering payment intent is not the expected succeeded amount');
+    }
+    const outcome = await this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`catering:${args.bookingId}`}))`;
+      const booking = await tx.cateringBooking.findUnique({
+        where: { id: args.bookingId },
+        select: { status: true, cancellationReason: true },
+      });
+      if (!booking) throw new NotFoundException('Catering booking not found');
+      const existing = await tx.payment.findFirst({
+        where: {
+          cateringBookingId: args.bookingId,
+          stripePaymentIntentId: args.paymentIntentId,
+          type: PaymentType.capture,
+        },
+      });
+      const now = new Date();
+      // The booking transition and capture row commit together. A webhook and
+      // return URL race on the same lock and converge on this single result.
+      if (existing) return { payment: existing, refundCancelledCapture: false };
+      const cancelledBeforeCapture = booking.status === CateringBookingStatus.CANCELLED;
+      if (!cancelledBeforeCapture) {
+        const transition = await tx.cateringBooking.updateMany({
+          where: {
+            id: args.bookingId,
+            ...(args.kind === 'deposit'
+              ? {
+                  status: {
+                    in: [CateringBookingStatus.QUOTED, CateringBookingStatus.DEPOSIT_PAID],
+                  },
+                }
+              : { status: CateringBookingStatus.CONFIRMED }),
+          },
+          data:
+            args.kind === 'deposit'
+              ? { status: CateringBookingStatus.CONFIRMED, depositPaidAt: now }
+              : { status: CateringBookingStatus.BALANCE_PAID, balancePaidAt: now },
+        });
+        if (transition.count !== 1) {
+          throw new ConflictException(
+            'Catering booking changed before the succeeded payment could be recorded',
+          );
+        }
+      }
+      const payment = await tx.payment.create({
+        data: {
+          cateringBookingId: args.bookingId,
+          userId: args.customerId,
+          type: PaymentType.capture,
+          status: PaymentStatus.succeeded,
+          amountPence: args.amountPence,
+          currency: 'GBP',
+          stripePaymentIntentId: pi.id,
+          stripeChargeId: typeof pi.latest_charge === 'string' ? pi.latest_charge : null,
+          processedAt: now,
+        },
+      });
+      return {
+        payment,
+        refundCancelledCapture: cancelledBeforeCapture,
+        cancellationReason: booking.cancellationReason,
+      };
+    });
+    if (outcome.refundCancelledCapture) {
+      await this.createCateringRefund({
+        bookingId: args.bookingId,
+        paymentIntentId: args.paymentIntentId,
+        amountPence: args.amountPence,
+        idempotencyKey: `catering_cancelled_capture_refund:${args.paymentIntentId}`,
+        actorId: null,
+        cancelBooking: true,
+        cancellationReason: outcome.cancellationReason ?? null,
+      });
+    }
+    return outcome.payment;
+  }
+
+  async cancelUnpaidCateringBooking(args: {
+    bookingId: string;
+    cancellationReason: string | null;
+  }): Promise<boolean> {
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`catering:${args.bookingId}`}))`;
+      const booking = await tx.cateringBooking.findUnique({
+        where: { id: args.bookingId },
+        select: { status: true, depositPaidAt: true },
+      });
+      if (!booking || booking.depositPaidAt) return false;
+      const cancelled = await tx.cateringBooking.updateMany({
+        where: {
+          id: args.bookingId,
+          status: booking.status,
+          depositPaidAt: null,
+        },
+        data: {
+          status: CateringBookingStatus.CANCELLED,
+          cancelledAt: new Date(),
+          cancellationReason: args.cancellationReason,
+        },
+      });
+      return cancelled.count === 1;
+    });
+  }
+
+  /**
+   * Refund one catering PaymentIntent through the common payment ledger. The
+   * operation row is the durable intent-before-Stripe boundary. A retry with
+   * its deterministic key reuses Stripe's refund and only completes the
+   * missing local transaction.
+   */
+  async createCateringRefund(args: {
+    bookingId: string;
+    paymentIntentId: string;
+    amountPence: number;
+    idempotencyKey: string;
+    actorId: string | null;
+    cancelBooking?: boolean;
+    cancellationReason?: string | null;
+    /** Stripe webhook/reconciliation supplies an already-created refund. */
+    stripeRefund?: Stripe.Refund;
+  }) {
+    if (!Number.isInteger(args.amountPence) || args.amountPence <= 0) {
+      throw new BadRequestException('Refund amount must be a positive integer number of pence');
+    }
+    const booking = await this.prisma.cateringBooking.findUnique({
+      where: { id: args.bookingId },
+      select: {
+        id: true,
+        customerId: true,
+        totalPence: true,
+        commissionPence: true,
+        completedAt: true,
+        vendorId: true,
+        vendor: { select: { stripeAccountId: true } },
+      },
+    });
+    if (!booking) throw new NotFoundException('Catering booking not found');
+
+    let operation = await this.prisma.refundOperation.findUnique({
+      where: { idempotencyKey: args.idempotencyKey },
+    });
+    if (operation && operation.cateringBookingId !== args.bookingId) {
+      throw new ConflictException('Refund idempotency key belongs to another payment subject');
+    }
+    if (!operation) {
+      try {
+        operation = await this.prisma.refundOperation.create({
+          data: {
+            cateringBookingId: args.bookingId,
+            paymentIntentId: args.paymentIntentId,
+            amountPence: args.amountPence,
+            idempotencyKey: args.idempotencyKey,
+            cancelBooking: args.cancelBooking ?? false,
+            cancellationReason: args.cancellationReason ?? null,
+          },
+        });
+      } catch {
+        operation = await this.prisma.refundOperation.findUnique({
+          where: { idempotencyKey: args.idempotencyKey },
+        });
+      }
+    }
+    if (!operation) throw new ConflictException('Could not establish durable refund operation');
+    if (
+      operation.paymentIntentId !== args.paymentIntentId ||
+      operation.amountPence !== args.amountPence
+    ) {
+      throw new ConflictException('Refund idempotency key was reused with different details');
+    }
+    const cancelBooking = args.cancelBooking ?? operation.cancelBooking;
+    const cancellationReason = args.cancellationReason ?? operation.cancellationReason;
+    if (operation.status === 'completed' && operation.stripeRefundId) {
+      const refund = await this.prisma.payment.findUnique({
+        where: { stripeRefundId: operation.stripeRefundId },
+      });
+      if (refund) return { refund, duplicate: true as const };
+    }
+
+    // A completed catering booking may already be in a weekly payout. Mirror
+    // ordinary-order settlement: adjust an untransferred batch in the ledger,
+    // or pull the vendor share back before refunding the customer.
+    const settlement = await this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`catering:${args.bookingId}`}))`;
+      if (booking.completedAt) {
+        const periodEnd = new Date(booking.completedAt);
+        const daysToMonday = (8 - periodEnd.getUTCDay()) % 7 || 7;
+        periodEnd.setUTCDate(periodEnd.getUTCDate() + daysToMonday);
+        periodEnd.setUTCHours(0, 0, 0, 0);
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`payout:${booking.vendorId}:${periodEnd.toISOString()}`}))`;
+      }
+      const prior = await tx.payment.aggregate({
+        where: {
+          cateringBookingId: args.bookingId,
+          type: { in: [PaymentType.refund, PaymentType.partial_refund] },
+          status: { not: PaymentStatus.failed },
+        },
+        _sum: { amountPence: true },
+      });
+      const split = computeIncrementalRefundSplit(
+        -(prior._sum.amountPence ?? 0),
+        args.amountPence,
+        {
+          subtotalPence: booking.totalPence,
+          serviceFeePence: 0,
+          deliveryFeePence: 0,
+          discountPence: 0,
+          commissionPence: booking.commissionPence,
+        },
+        booking.totalPence,
+      );
+      const covering = booking.completedAt
+        ? await tx.payout.findFirst({
+            where: {
+              vendorId: booking.vendorId,
+              orderId: null,
+              periodStart: { lte: booking.completedAt },
+              periodEnd: { gt: booking.completedAt },
+              status: {
+                in: [
+                  PayoutStatus.draft,
+                  PayoutStatus.held,
+                  PayoutStatus.approved,
+                  PayoutStatus.processing,
+                  PayoutStatus.transferred,
+                ],
+              },
+            },
+            orderBy: { createdAt: 'desc' },
+          })
+        : null;
+      if (covering?.status === PayoutStatus.transferred) {
+        if (!covering.stripeTransferId) {
+          throw new ConflictException('Transferred catering payout has no Stripe transfer id');
+        }
+        const key = `catering-reversal:${args.idempotencyKey}:attempt:${operation.attempt}`;
+        const reversalAlreadySucceeded =
+          operation.reversalStatus === 'succeeded' && operation.reversalIdempotencyKey === key;
+        await tx.refundOperation.update({
+          where: { id: operation.id },
+          data: {
+            reversalPayoutId: covering.id,
+            reversalTransferId: covering.stripeTransferId,
+            reversalAmountPence: split.vendorClawbackPence,
+            reversalIdempotencyKey: key,
+            reversalStatus: reversalAlreadySucceeded ? 'succeeded' : 'pending',
+          },
+        });
+        return {
+          payoutToAdjust: null,
+          reversal: {
+            payoutId: covering.id,
+            transferId: covering.stripeTransferId,
+            amountPence: split.vendorClawbackPence,
+            key,
+            alreadySucceeded: reversalAlreadySucceeded,
+          },
+        };
+      }
+      if (covering?.status === PayoutStatus.processing) {
+        throw new ConflictException(
+          'Vendor payout transfer is in progress; retry the refund with the same request key',
+        );
+      }
+      if (covering) {
+        await tx.refundOperation.update({
+          where: { id: operation.id },
+          data: {
+            reversalPayoutId: covering.id,
+            reversalAmountPence: split.vendorClawbackPence,
+            reversalStatus: 'payout_adjustment_pending',
+          },
+        });
+      }
+      return { payoutToAdjust: covering?.id ?? null, reversal: null };
+    });
+    let payoutToAdjust = settlement.payoutToAdjust;
+    const reversal = settlement.reversal;
+    if (reversal && reversal.amountPence > 0 && !reversal.alreadySucceeded) {
+      await this.stripe.createTransferReversal({
+        transferId: reversal.transferId,
+        amountPence: reversal.amountPence,
+        idempotencyKey: reversal.key,
+      });
+      await this.prisma.refundOperation.update({
+        where: { id: operation.id },
+        data: { reversalStatus: 'succeeded' },
+      });
+    }
+    let stripeRefund: Stripe.Refund;
+    try {
+      stripeRefund =
+        args.stripeRefund ??
+        (await this.stripe.refund(
+          args.paymentIntentId,
+          args.amountPence,
+          `${args.idempotencyKey}:attempt:${operation.attempt}`,
+        ));
+    } catch (error) {
+      if (reversal && booking.vendor.stripeAccountId) {
+        await this.prisma.refundOperation.update({
+          where: { id: operation.id },
+          data: { reversalStatus: 'compensation_pending' },
+        });
+        try {
+          await this.stripe.createTransfer({
+            amountPence: reversal.amountPence,
+            destinationAccountId: booking.vendor.stripeAccountId,
+            payoutId: reversal.payoutId,
+            idempotencyKey: `catering-reversal-comp:${args.idempotencyKey}:attempt:${operation.attempt}`,
+          });
+          await this.resetFailedCateringOperation(operation.id);
+        } catch (compensationError) {
+          this.logger.error(
+            `Catering reversal compensation pending for operation ${operation.id}: ${String(compensationError)}`,
+          );
+        }
+      }
+      throw error;
+    }
+    // Persist this immediately, before the multi-row ledger transaction. If
+    // that transaction fails after Stripe success, the pending operation is a
+    // visible/reconcilable repair item rather than a silent discrepancy.
+    await this.prisma.refundOperation.update({
+      where: { id: operation.id },
+      data: { stripeRefundId: stripeRefund.id, status: 'stripe_succeeded' },
+    });
+
+    const outcome = await this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`catering:${args.bookingId}`}))`;
+      if (booking.completedAt) {
+        const periodEnd = new Date(booking.completedAt);
+        const daysToMonday = (8 - periodEnd.getUTCDay()) % 7 || 7;
+        periodEnd.setUTCDate(periodEnd.getUTCDate() + daysToMonday);
+        periodEnd.setUTCHours(0, 0, 0, 0);
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`payout:${booking.vendorId}:${periodEnd.toISOString()}`}))`;
+        if (!payoutToAdjust && !reversal) {
+          const latePayout = await tx.payout.findFirst({
+            where: {
+              vendorId: booking.vendorId,
+              orderId: null,
+              periodStart: { lte: booking.completedAt },
+              periodEnd: { gt: booking.completedAt },
+              status: { in: [PayoutStatus.draft, PayoutStatus.held, PayoutStatus.approved] },
+            },
+            select: { id: true },
+          });
+          payoutToAdjust = latePayout?.id ?? null;
+        }
+      }
+      const already = await tx.payment.aggregate({
+        where: {
+          cateringBookingId: args.bookingId,
+          type: { in: [PaymentType.refund, PaymentType.partial_refund] },
+          status: { not: PaymentStatus.failed },
+        },
+        _sum: { amountPence: true },
+      });
+      const alreadyRefundedPence = -(already._sum.amountPence ?? 0);
+      if (alreadyRefundedPence + args.amountPence > booking.totalPence) {
+        throw new BadRequestException('CUMULATIVE_REFUND_EXCEEDS_TOTAL');
+      }
+      const existing = await tx.payment.findUnique({ where: { stripeRefundId: stripeRefund.id } });
+      if (existing) return { refund: existing, duplicate: true as const };
+      const split = computeIncrementalRefundSplit(
+        alreadyRefundedPence,
+        args.amountPence,
+        {
+          subtotalPence: booking.totalPence,
+          serviceFeePence: 0,
+          deliveryFeePence: 0,
+          discountPence: 0,
+          commissionPence: booking.commissionPence,
+        },
+        booking.totalPence,
+      );
+      const full = alreadyRefundedPence + args.amountPence === booking.totalPence;
+      const refund = await tx.payment.create({
+        data: {
+          cateringBookingId: args.bookingId,
+          userId: booking.customerId,
+          type: full ? PaymentType.refund : PaymentType.partial_refund,
+          status:
+            stripeRefund.status === 'succeeded' ? PaymentStatus.succeeded : PaymentStatus.pending,
+          amountPence: -args.amountPence,
+          currency: 'GBP',
+          stripePaymentIntentId: args.paymentIntentId,
+          stripeRefundId: stripeRefund.id,
+          processedAt: new Date(),
+        },
+      });
+      await tx.payment.create({
+        data: {
+          cateringBookingId: args.bookingId,
+          userId: booking.customerId,
+          type: PaymentType.credit,
+          status: PaymentStatus.succeeded,
+          amountPence: split.feastpotAbsorbedPence,
+          currency: 'GBP',
+          failureReason: `Feastpot-absorbed catering refund portion (refund ${refund.id})`,
+          processedAt: new Date(),
+        },
+      });
+      if (payoutToAdjust && split.vendorClawbackPence > 0) {
+        const adjusted = await tx.payout.updateMany({
+          where: {
+            id: payoutToAdjust,
+            status: { in: [PayoutStatus.draft, PayoutStatus.held, PayoutStatus.approved] },
+            amountPence: { gte: split.vendorClawbackPence },
+          },
+          data: {
+            amountPence: { decrement: split.vendorClawbackPence },
+            refundsPence: { increment: split.vendorClawbackPence },
+          },
+        });
+        if (adjusted.count !== 1) {
+          throw new ConflictException({
+            code: 'PAYOUT_ADJUSTMENT_FAILED',
+            message: `Pending payout ${payoutToAdjust} changed concurrently or cannot absorb the catering refund; retry with the same request key`,
+          });
+        }
+        await tx.refundOperation.update({
+          where: { id: operation.id },
+          data: { reversalStatus: 'payout_adjusted' },
+        });
+      }
+      if (cancelBooking) {
+        await tx.cateringBooking.update({
+          where: { id: args.bookingId },
+          data: {
+            status: CateringBookingStatus.CANCELLED,
+            cancelledAt: new Date(),
+            cancellationReason,
+          },
+        });
+      }
+      await tx.refundOperation.update({
+        where: { id: operation.id },
+        data: { status: 'completed', completedAt: new Date() },
+      });
+      await tx.auditLog.create({
+        data: {
+          actorId: args.actorId,
+          action: 'catering_refund_issued',
+          entityType: 'catering_bookings',
+          entityId: args.bookingId,
+          metadata: { refundPaymentId: refund.id, idempotencyKey: args.idempotencyKey, ...split },
+        },
+      });
+      return { refund, duplicate: false as const };
+    });
+    return outcome;
+  }
+
+  /**
+   * Imports a dashboard-created catering refund. It deliberately enters the
+   * same durable-operation and ledger completion path as a first-party refund;
+   * the supplied Stripe object prevents a second Stripe refund call.
+   */
+  async reconcileExternalCateringRefund(refund: Stripe.Refund): Promise<void> {
+    const paymentIntentId =
+      typeof refund.payment_intent === 'string' ? refund.payment_intent : refund.payment_intent?.id;
+    if (!paymentIntentId || !refund.id || refund.amount <= 0) return;
+    const payment = await this.prisma.payment.findFirst({
+      where: { stripePaymentIntentId: paymentIntentId, cateringBookingId: { not: null } },
+      select: { cateringBookingId: true },
+    });
+    if (!payment?.cateringBookingId) return;
+    const existing = await this.prisma.payment.findUnique({ where: { stripeRefundId: refund.id } });
+    if (existing) return;
+    await this.createCateringRefund({
+      bookingId: payment.cateringBookingId,
+      paymentIntentId,
+      amountPence: refund.amount,
+      idempotencyKey: `stripe_external_catering_refund:${refund.id}`,
+      actorId: null,
+      stripeRefund: refund,
+    });
+  }
+
+  /** Replays the saved Stripe idempotency key for the post-Stripe DB crash window. */
+  async recoverCateringRefundOperation(operationId: string): Promise<void> {
+    const operation = await this.prisma.refundOperation.findUnique({ where: { id: operationId } });
+    if (!operation?.cateringBookingId) {
+      throw new NotFoundException('Catering refund operation not found');
+    }
+    await this.createCateringRefund({
+      bookingId: operation.cateringBookingId,
+      paymentIntentId: operation.paymentIntentId,
+      amountPence: operation.amountPence,
+      idempotencyKey: operation.idempotencyKey,
+      actorId: null,
+    });
+  }
+
+  async recoverCateringRefundCompensation(operationId: string): Promise<void> {
+    const operation = await this.prisma.refundOperation.findUnique({
+      where: { id: operationId },
+    });
+    if (!operation?.cateringBookingId || operation.reversalStatus !== 'compensation_pending') {
+      return;
+    }
+    if (!operation.reversalAmountPence || operation.reversalAmountPence <= 0) {
+      await this.resetFailedCateringOperation(operation.id);
+      return;
+    }
+    const booking = await this.prisma.cateringBooking.findUnique({
+      where: { id: operation.cateringBookingId },
+      select: { vendor: { select: { stripeAccountId: true } } },
+    });
+    if (!booking?.vendor.stripeAccountId) {
+      throw new ConflictException('Cannot compensate catering reversal without a Stripe account');
+    }
+    await this.stripe.createTransfer({
+      amountPence: operation.reversalAmountPence,
+      destinationAccountId: booking.vendor.stripeAccountId,
+      payoutId: operation.reversalPayoutId ?? operation.id,
+      idempotencyKey: `catering-reversal-comp:${operation.idempotencyKey}:attempt:${operation.attempt}`,
+    });
+    await this.resetFailedCateringOperation(operation.id);
   }
 
   // -------------------- helpers --------------------

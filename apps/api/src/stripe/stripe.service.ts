@@ -90,6 +90,11 @@ export class StripeService {
     );
   }
 
+  /** Retrieve a refund while repairing a durable local refund operation. */
+  retrieveRefund(refundId: string): Promise<Stripe.Refund> {
+    return this.stripe.refunds.retrieve(refundId);
+  }
+
   /**
    * Transfer marketplace funds to a vendor's connected account. Pass
    * `idempotencyKey` (keyed on the payout id) so a network/retry storm - or a
@@ -134,8 +139,12 @@ export class StripeService {
   }
 
   /** List refunds on a charge - used when a `charge.refunded` webhook arrives without the refunds list expanded. */
-  listRefunds(chargeId: string): Promise<Stripe.ApiList<Stripe.Refund>> {
-    return this.stripe.refunds.list({ charge: chargeId, limit: 100 });
+  listRefunds(chargeId: string, startingAfter?: string): Promise<Stripe.ApiList<Stripe.Refund>> {
+    return this.stripe.refunds.list({
+      charge: chargeId,
+      limit: 100,
+      ...(startingAfter ? { starting_after: startingAfter } : {}),
+    });
   }
 
   constructEvent(payload: Buffer | string, signature: string, secret: string): Stripe.Event {

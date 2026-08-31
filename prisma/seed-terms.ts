@@ -125,7 +125,7 @@ To operate as a vendor you must:
 
 **Commission rate.** Feastpot charges a platform commission of 12% of the food subtotal on every completed marketplace order. Once you have established a trading history on the platform, the rate reduces to 10%. Your current rate is displayed on your Payouts page. The commission is deducted from your weekly payout -- it is not charged to you separately and is not added to the price the customer pays.
 
-**Food subtotal defined.** Food subtotal means the total price of food items only. It excludes delivery fees, customer service fees, tips, and any promotional discounts applied by Feastpot.
+**Food subtotal defined.** Food subtotal means the total price of food items only. It excludes delivery fees, customer service fees, tips, and any promotional discounts applied by Feastpot. **Catering exception:** catering commission is calculated on the entire accepted quote total, including any delivery, service, setup, and other quoted elements.
 
 **VAT.** Feastpot's commission is inclusive of VAT where Feastpot is registered. If you are VAT-registered, you remain responsible for accounting for and remitting VAT on your own food sales; Feastpot does not collect or remit VAT on your behalf.
 
@@ -240,9 +240,9 @@ When you receive a catering enquiry through the platform:
 - **Quotes.** You create an itemised quote with event details, menu items, and allergen information. Quotes expire after the period stated in the quote (default 7 days).
 - **Deposit.** Catering quotes must total at least GBP 50. On acceptance, the customer pays the greater of 25% of the total (rounded up to the next penny) or the vendor's stated minimum cash deposit through the Feastpot platform. The deposit is capped at the quote total.
 - **Balance.** The remaining balance is due before or on the event date through the platform.
-- **Cancellation.** If the customer cancels more than 14 days before the event, the deposit is refunded in full. Cancellations within 14 days of the event forfeit the deposit.
+- **Cancellation.** A customer cancellation 14 or more full days before the event receives the deposit in full; 8 to 13 full days receives 50% of the deposit; 7 full days or fewer retains the deposit. After the balance is charged, cancellation is handled by staff so documented vendor costs are protected. If the vendor cancels, the customer is refunded in full.
 - **Compliance.** Allergen declarations, food safety standards, and insurance requirements set out in these terms apply equally to catering bookings.
-- **Commission.** Feastpot's standard commission applies to catering bookings in the same way as marketplace orders.
+- **Commission.** Catering commission is calculated on the full accepted quote total, including delivery, service, setup, and other quoted elements, and is deducted through the weekly payout.
 
 ## 16. HMRC platform reporting
 
@@ -395,8 +395,10 @@ export async function seedRateSchedule() {
 
 Effective: 23 September 2026 | England and Wales
 
-This schedule forms part of the Feastpot Vendor Terms of Agreement. All rates apply to
+This schedule forms part of the Feastpot Vendor Terms of Agreement. Marketplace rates apply to
 the food subtotal of completed orders only (excluding delivery fees, service charges, and tips).
+Catering commission is an exception: it applies to the entire accepted quote total, including
+delivery, service, setup, and other quoted elements.
 Any change to a LIVE rate requires a new version of this schedule and at least 15 days notice.
 
 ## Standard Rates (LIVE)
@@ -406,7 +408,13 @@ Any change to a LIVE rate requires a new version of this schedule and at least 1
 | Marketplace – first order | 12% | Food subtotal only |
 | Marketplace – returning customer | 10% | Food subtotal only |
 | Vendor-referred orders | 0% | Food subtotal only |
-| Catering bookings | 10% | Food subtotal only |
+| Catering bookings | 10% | Entire accepted quote total, including delivery/service/setup elements |
+
+## Catering deposits
+
+Catering quotes must total at least GBP 50. The customer deposit is the greater of 25%
+of the quote total (rounded up to the next penny) or the vendor's stated minimum cash
+deposit, capped at the quote total.
 
 ## Catering deposits
 
@@ -517,7 +525,8 @@ deducted from your vendor payout. FeastPass members are exempt from this fee.
       label: 'Catering bookings (event and advance catering orders)',
       rateDisplay: '10%',
       rateValue: 10.0,
-      basis: 'Food subtotal only (excluding deposit handling fees)',
+      basis:
+        'Entire accepted quote total, including delivery, service, setup, and other quoted elements',
       vatNote: 'Commission is inclusive of VAT where Feastpot is registered.',
       status: RateStatus.LIVE,
       sortOrder: 4,

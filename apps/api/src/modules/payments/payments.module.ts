@@ -4,6 +4,7 @@ import { AuthModule } from '../../auth/auth.module';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { StripeModule } from '../../stripe/stripe.module';
 
+import { CateringRefundReconciliationService } from './catering-refund-reconciliation.service';
 import { ChargebackDeadlineMonitorService } from './chargeback-deadline-monitor.service';
 import { PaymentsController } from './payments.controller';
 import { PaymentsService } from './payments.service';
@@ -18,7 +19,11 @@ import { StripeWebhookController } from './stripe-webhook.controller';
   controllers: [PaymentsController, StripeWebhookController],
   // ChargebackDeadlineMonitorService is safe to host here: it injects no Bull
   // queue, so the queues.module circular-import hazard doesn't apply.
-  providers: [PaymentsService, ChargebackDeadlineMonitorService],
+  providers: [
+    PaymentsService,
+    ChargebackDeadlineMonitorService,
+    CateringRefundReconciliationService,
+  ],
   exports: [PaymentsService],
 })
 export class PaymentsModule {}

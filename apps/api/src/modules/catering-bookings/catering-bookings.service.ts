@@ -25,6 +25,7 @@ import { StripeService } from '../../stripe/stripe.service';
 import { toResolvedSource } from '../attribution/attribution.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { EmailProvider } from '../notifications/providers/email.provider';
+import { PaymentsService } from '../payments/payments.service';
 
 import type { CancelCateringBookingDto } from './dto/cancel-catering-booking.dto';
 import type { CreateCateringBookingDto } from './dto/create-catering-booking.dto';
@@ -55,9 +56,30 @@ function calculateDepositOrThrow(totalPence: number, minimumDepositPence: number
   }
 }
 
-/** Days between now and eventDate. Negative if event is in the past. */
-function daysUntilEvent(eventDate: Date): number {
-  return (eventDate.getTime() - Date.now()) / (24 * 60 * 60 * 1000);
+/** Full 24-hour periods until the event. Cancellation boundaries use full days. */
+export function fullDaysUntilEvent(eventDate: Date, now = new Date()): number {
+  return Math.floor((eventDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
+}
+
+/** Authoritative, integer-pence cancellation matrix used by booking cancellation and documents. */
+export function calculateCateringCancellationRefund(args: {
+  daysUntilEvent: number;
+  depositPence: number;
+  balancePence: number;
+  depositPaid: boolean;
+  balancePaid: boolean;
+  vendorCancelled: boolean;
+  staffApprovedAfterBalance: boolean;
+}): number {
+  if (!args.depositPaid) return 0;
+  if (args.vendorCancelled) {
+    return args.balancePaid ? args.depositPence + args.balancePence : args.depositPence;
+  }
+  if (args.balancePaid)
+    return args.staffApprovedAfterBalance ? args.depositPence + args.balancePence : 0;
+  if (args.daysUntilEvent >= 14) return args.depositPence;
+  if (args.daysUntilEvent >= 8) return Math.floor(args.depositPence / 2);
+  return 0;
 }
 
 @Injectable()
@@ -70,6 +92,7 @@ export class CateringBookingsService {
     private readonly notifications: NotificationsService,
     private readonly email: EmailProvider,
     private readonly commission: CommissionService,
+    private readonly payments: PaymentsService,
   ) {}
 
   // ---------------------------------------------------------------------------
@@ -298,14 +321,13 @@ export class CateringBookingsService {
     }
 
     const now = new Date();
-    await this.prisma.cateringBooking.update({
-      where: { id: bookingId },
-      data: {
-        status: CateringBookingStatus.CONFIRMED,
-        depositPaidAt: now,
-      },
+    await this.payments.recordCateringCapture({
+      bookingId,
+      paymentIntentId,
+      amountPence: booking.depositPence,
+      customerId: booking.customerId,
+      kind: 'deposit',
     });
-
     const confirmedBooking = {
       ...booking,
       status: CateringBookingStatus.CONFIRMED,
@@ -482,11 +504,13 @@ export class CateringBookingsService {
       throw new BadRequestException(`Payment not succeeded: ${pi.status}`);
     }
 
-    await this.prisma.cateringBooking.update({
-      where: { id: bookingId },
-      data: { status: CateringBookingStatus.BALANCE_PAID, balancePaidAt: new Date() },
+    await this.payments.recordCateringCapture({
+      bookingId,
+      paymentIntentId,
+      amountPence: booking.balancePence,
+      customerId: booking.customerId,
+      kind: 'balance',
     });
-
     return { ...booking, status: CateringBookingStatus.BALANCE_PAID };
   }
 
@@ -518,25 +542,10 @@ export class CateringBookingsService {
     });
     if (claim.count === 0) return; // race lost
 
-    // Vendor payout
+    // Catering earnings are included in the regular weekly payout batch; do
+    // not create an immediate transfer here. This lets the common refund
+    // ledger net vendor clawbacks before funds leave the platform.
     const vendorPayoutPence = booking.totalPence - booking.commissionPence;
-    if (booking.vendor.stripeAccountId && booking.vendor.payoutsEnabled && vendorPayoutPence > 0) {
-      try {
-        const transfer = await this.stripe.createTransfer({
-          amountPence: vendorPayoutPence,
-          destinationAccountId: booking.vendor.stripeAccountId,
-          payoutId: `catering:${bookingId}`,
-          idempotencyKey: `catering_transfer:${bookingId}`,
-        });
-        await this.prisma.cateringBooking.update({
-          where: { id: bookingId },
-          data: { stripeTransferId: transfer.id },
-        });
-      } catch (err) {
-        this.logger.error(`catering payout transfer failed for ${bookingId}: ${String(err)}`);
-        Sentry.captureException(err, { tags: { bookingId, phase: 'catering_payout' } });
-      }
-    }
 
     // Notify vendor
     await this.notifications
@@ -569,7 +578,11 @@ export class CateringBookingsService {
   // Customer / vendor / admin: cancel booking
   // ---------------------------------------------------------------------------
 
-  async cancelBooking(bookingId: string, dto: CancelCateringBookingDto, user: AuthUser) {
+  async cancelBooking(
+    bookingId: string,
+    dto: CancelCateringBookingDto,
+    user: AuthUser,
+  ): Promise<{ cancelled: boolean; refundPence: number }> {
     const booking = await this.prisma.cateringBooking.findUnique({
       where: { id: bookingId },
     });
@@ -589,68 +602,74 @@ export class CateringBookingsService {
     const isCustomer = booking.customerId === user.id;
     if (!isStaff && !isVendorOwner && !isCustomer) throw new ForbiddenException();
 
-    const days = daysUntilEvent(booking.eventDate);
+    const days = fullDaysUntilEvent(booking.eventDate);
     let refundPence = 0;
 
-    // Determine refund tier based on spec:
-    // >14 days: deposit refunded in full
-    // 7-14 days: 50% of deposit retained (50% refunded)
-    // <7 days: deposit retained in full
-    // <48h after balance charged: case-by-case (admin-only, full balance refund)
+    // Vendor cancellation is always a full customer refund. Customer boundaries
+    // are inclusive full days: >=14 full deposit, 8..13 half deposit, <=7 none.
+    // Once the balance has been paid, staff decide documented vendor-cost
+    // protection; self-service customers are directed to support.
     if (booking.depositPaidAt) {
-      if (booking.balancePaidAt) {
-        // After balance paid - case by case (admin-only full refund)
+      const vendorCancelled = isVendorOwner;
+      if (booking.balancePaidAt && !vendorCancelled) {
         if (!isStaff) {
           throw new BadRequestException(
             'Balance has been paid - please contact support for cancellation',
           );
         }
-        refundPence = booking.totalPence; // full refund
-        // refund-path-ok: catering deposits/balances are not regular-order payments;
-        // there is no commission row or founding allowance to reverse. StripeService
-        // is the correct layer here (no PaymentsService ledger required).
-        await this.stripe.refund(
-          // refund-path-ok: catering balance - see comment above
-          booking.balancePiId!,
-          booking.balancePence,
-          `catering_refund_balance:${bookingId}`,
-        );
-        await this.stripe.refund(
-          // refund-path-ok: catering deposit - see comment above
-          booking.depositPiId!,
-          booking.depositPence,
-          `catering_refund_deposit:${bookingId}`,
-        );
-      } else if (days > 14) {
-        refundPence = booking.depositPence;
-        await this.stripe.refund(
-          // refund-path-ok: catering deposit - see comment above
-          booking.depositPiId!,
-          booking.depositPence,
-          `catering_refund:${bookingId}`,
-        );
-      } else if (days > 7) {
-        refundPence = Math.floor(booking.depositPence * 0.5);
-        if (refundPence > 0) {
-          await this.stripe.refund(
-            // refund-path-ok: catering deposit partial - see comment above
-            booking.depositPiId!,
-            refundPence,
-            `catering_refund:${bookingId}`,
-          );
+      }
+      // No vendor-cost evidence field exists on this booking yet; staff's
+      // explicit cancellation is currently the authoritative full-refund decision.
+      refundPence = calculateCateringCancellationRefund({
+        daysUntilEvent: days,
+        depositPence: booking.depositPence,
+        balancePence: booking.balancePence,
+        depositPaid: !!booking.depositPaidAt,
+        balancePaid: !!booking.balancePaidAt,
+        vendorCancelled,
+        staffApprovedAfterBalance: isStaff,
+      });
+      if (refundPence > 0) {
+        // Refund balance first when the policy requires the full paid total.
+        const balanceRefund = booking.balancePaidAt
+          ? Math.min(booking.balancePence, refundPence)
+          : 0;
+        if (balanceRefund > 0 && booking.balancePiId) {
+          await this.payments.createCateringRefund({
+            bookingId,
+            paymentIntentId: booking.balancePiId,
+            amountPence: balanceRefund,
+            idempotencyKey: `catering_refund_balance:${bookingId}`,
+            actorId: user.id,
+          });
+        }
+        const depositRefund = refundPence - balanceRefund;
+        if (depositRefund > 0 && booking.depositPiId) {
+          await this.payments.createCateringRefund({
+            bookingId,
+            paymentIntentId: booking.depositPiId,
+            amountPence: depositRefund,
+            idempotencyKey: `catering_refund_deposit:${bookingId}`,
+            actorId: user.id,
+            cancelBooking: true,
+            cancellationReason: dto.reason ?? null,
+          });
         }
       }
-      // else <7 days: deposit retained, no refund
     }
 
-    await this.prisma.cateringBooking.update({
-      where: { id: bookingId },
-      data: {
-        status: CateringBookingStatus.CANCELLED,
-        cancelledAt: new Date(),
+    // A refunding cancellation is committed atomically by the final refund
+    // ledger transaction. No-refund cancellations still need a direct state write.
+    if (refundPence === 0) {
+      const cancelled = await this.payments.cancelUnpaidCateringBooking({
+        bookingId,
         cancellationReason: dto.reason ?? null,
-      },
-    });
+      });
+      // A delayed Stripe success may have won the subject lock after our
+      // initial read. Re-enter with fresh state so the paid cancellation policy
+      // creates the required refund instead of leaving a charged booking active.
+      if (!cancelled) return this.cancelBooking(bookingId, dto, user);
+    }
 
     // Notify customer
     await this.email
@@ -937,10 +956,10 @@ export class CateringBookingsService {
       doc.fontSize(13).fillColor(accent).text('Cancellation policy');
       doc.fontSize(10).fillColor(fg).font('Helvetica');
       const policy = [
-        'More than 14 days before event: deposit refunded in full.',
-        '7 to 14 days before event: 50% of deposit retained by caterer.',
-        'Under 7 days before event: deposit retained in full.',
-        'After balance payment (under 48h): case by case - vendor costs already incurred are protected.',
+        '14 or more full days before event: deposit refunded in full.',
+        '8 to 13 full days before event: 50% of deposit refunded.',
+        '7 full days or fewer before event: deposit retained in full.',
+        'After balance payment, staff review protects documented vendor costs; vendor cancellation is refunded in full.',
       ];
       for (const line of policy) doc.text(`• ${line}`);
 

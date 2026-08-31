@@ -68,6 +68,28 @@ export class StripeWebhookProcessor {
       where: { stripePaymentIntentId: pi.id },
       data: { status: PaymentStatus.succeeded, processedAt: new Date() },
     });
+    // Catering PIs do not exist in the order ledger before collection. Stamp
+    // their capture here as well as from the return URL; recordCateringCapture
+    // makes duplicate delivery harmless.
+    const bookingId = pi.metadata?.bookingId;
+    const kind = pi.metadata?.kind;
+    if (bookingId && (kind === 'catering_deposit' || kind === 'catering_balance')) {
+      const booking = await this.prisma.cateringBooking.findUnique({
+        where: { id: bookingId },
+        select: { customerId: true, depositPence: true, balancePence: true },
+      });
+      if (booking) {
+        const amountPence =
+          kind === 'catering_deposit' ? booking.depositPence : booking.balancePence;
+        await this.payments.recordCateringCapture({
+          bookingId,
+          paymentIntentId: pi.id,
+          amountPence,
+          customerId: booking.customerId,
+          kind: kind === 'catering_deposit' ? 'deposit' : 'balance',
+        });
+      }
+    }
     // We do NOT auto-advance the order here - order status is driven by the vendor
     // workflow; the capture call inside that flow already records succeeded.
     this.logger.log(`PI ${pi.id} succeeded`);
@@ -230,6 +252,7 @@ export class StripeWebhookProcessor {
     }
     for (const refund of refunds) {
       await this.payments.reconcileExternalRefund(refund);
+      await this.payments.reconcileExternalCateringRefund(refund);
     }
   }
 

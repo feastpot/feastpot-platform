@@ -126,6 +126,7 @@ enum PayoutStatus {
   draft
   held
   approved
+  processing
   transferred
   failed
 }
@@ -1087,21 +1088,22 @@ model Order {
   /// seed order is deleted, and any review linked to it is also purged.
   isSeedData                    Boolean           @default(false) @map("is_seed_data")
 
-  customer        User              @relation(fields: [customerId], references: [id])
-  vendor          Vendor            @relation(fields: [vendorId], references: [id])
-  address         Address?          @relation(fields: [addressId], references: [id])
-  discountCode    DiscountCode?     @relation("DiscountCodeOrders", fields: [discountCodeId], references: [id])
-  items           OrderItem[]
-  payments        Payment[]
-  payouts         Payout[]
-  disputes        Dispute[]
-  chargebacks     Chargeback[]
-  reviews         Review[]
-  amendments      OrderAmendment[]
-  adminTags       OrderAdminTag[]
-  attribution     OrderAttribution?
-  orderCommission OrderCommission?
-  feastPassSaving FeastPassSaving?
+  customer         User              @relation(fields: [customerId], references: [id])
+  vendor           Vendor            @relation(fields: [vendorId], references: [id])
+  address          Address?          @relation(fields: [addressId], references: [id])
+  discountCode     DiscountCode?     @relation("DiscountCodeOrders", fields: [discountCodeId], references: [id])
+  items            OrderItem[]
+  payments         Payment[]
+  refundOperations RefundOperation[]
+  payouts          Payout[]
+  disputes         Dispute[]
+  chargebacks      Chargeback[]
+  reviews          Review[]
+  amendments       OrderAmendment[]
+  adminTags        OrderAdminTag[]
+  attribution      OrderAttribution?
+  orderCommission  OrderCommission?
+  feastPassSaving  FeastPassSaving?
 
   @@index([customerId])
   @@index([vendorId])
@@ -1329,8 +1331,11 @@ model DisputeEvidence {
 
 model Payment {
   id                    String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  orderId               String        @map("order_id") @db.Uuid
-  userId                String        @map("user_id") @db.Uuid
+  /// Exactly one of orderId and cateringBookingId is required (enforced by the
+  /// payments_exactly_one_subject migration constraint).
+  orderId               String?       @map("order_id") @db.Uuid
+  cateringBookingId     String?       @map("catering_booking_id") @db.Uuid
+  userId                String?       @map("user_id") @db.Uuid
   type                  PaymentType   @default(capture)
   status                PaymentStatus @default(pending)
   amountPence           Int           @map("amount_pence")
@@ -1343,11 +1348,13 @@ model Payment {
   createdAt             DateTime      @default(now()) @map("created_at") @db.Timestamptz
   updatedAt             DateTime      @updatedAt @map("updated_at") @db.Timestamptz
 
-  order       Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  user        User         @relation(fields: [userId], references: [id])
-  chargebacks Chargeback[]
+  order           Order?           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  cateringBooking CateringBooking? @relation(fields: [cateringBookingId], references: [id], onDelete: Cascade)
+  user            User?            @relation(fields: [userId], references: [id], onDelete: Restrict)
+  chargebacks     Chargeback[]
 
   @@index([orderId])
+  @@index([cateringBookingId])
   @@index([userId])
   @@index([status])
   @@index([type])
@@ -1355,6 +1362,39 @@ model Payment {
   @@index([stripePaymentIntentId])
   @@index([stripeChargeId])
   @@map("payments")
+}
+
+/// A recoverable refund intent.  It is committed before Stripe is called, so a
+/// successful Stripe refund cannot be silently lost if the following ledger
+/// transaction fails.  The idempotency key is also used for Stripe.
+model RefundOperation {
+  id                     String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderId                String?   @map("order_id") @db.Uuid
+  cateringBookingId      String?   @map("catering_booking_id") @db.Uuid
+  paymentIntentId        String    @map("payment_intent_id") @db.VarChar(100)
+  amountPence            Int       @map("amount_pence")
+  idempotencyKey         String    @unique @map("idempotency_key") @db.VarChar(255)
+  attempt                Int       @default(0)
+  stripeRefundId         String?   @unique @map("stripe_refund_id") @db.VarChar(100)
+  status                 String    @default("pending") @db.VarChar(32)
+  failureReason          String?   @map("failure_reason")
+  cancelBooking          Boolean   @default(false) @map("cancel_booking")
+  cancellationReason     String?   @map("cancellation_reason")
+  reversalPayoutId       String?   @map("reversal_payout_id") @db.Uuid
+  reversalTransferId     String?   @map("reversal_transfer_id") @db.VarChar(100)
+  reversalAmountPence    Int?      @map("reversal_amount_pence")
+  reversalIdempotencyKey String?   @map("reversal_idempotency_key") @db.VarChar(255)
+  reversalStatus         String?   @map("reversal_status") @db.VarChar(32)
+  completedAt            DateTime? @map("completed_at") @db.Timestamptz
+  createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt              DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  order           Order?           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  cateringBooking CateringBooking? @relation(fields: [cateringBookingId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, status])
+  @@index([cateringBookingId, status])
+  @@map("refund_operations")
 }
 
 /// Bank-initiated card chargebacks (Stripe `charge.dispute.*` events). Distinct
@@ -1681,10 +1721,12 @@ model CateringBooking {
   createdAt           DateTime              @default(now()) @map("created_at") @db.Timestamptz
   updatedAt           DateTime              @updatedAt @map("updated_at") @db.Timestamptz
 
-  enquiry   CateringEnquiry    @relation(fields: [enquiryId], references: [id])
-  vendor    Vendor             @relation(fields: [vendorId], references: [id])
-  customer  User?              @relation("CateringBookingCustomer", fields: [customerId], references: [id])
-  lineItems CateringLineItem[]
+  enquiry          CateringEnquiry    @relation(fields: [enquiryId], references: [id])
+  vendor           Vendor             @relation(fields: [vendorId], references: [id])
+  customer         User?              @relation("CateringBookingCustomer", fields: [customerId], references: [id])
+  lineItems        CateringLineItem[]
+  payments         Payment[]
+  refundOperations RefundOperation[]
 
   @@index([status, eventDate])
   @@map("catering_bookings")
