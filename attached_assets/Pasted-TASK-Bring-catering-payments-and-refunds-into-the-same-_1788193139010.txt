@@ -1,0 +1,61 @@
+TASK: Bring catering payments and refunds into the same
+ledger and payout model as ordinary orders.
+
+THE CONFIRMED GAP
+apps/api/src/modules/catering-bookings/catering-bookings.service.ts:578-626
+calls Stripe refunds directly. The booking status is updated
+afterwards at :628-635, outside a transaction. The service
+comments themselves acknowledge there is no PaymentsService
+ledger integration.
+
+THREE CONSEQUENCES
+1. Catering refunds create no refund/credit ledger pair.
+2. They never net against a payout.
+3. If the database write fails after Stripe has refunded, the
+   customer has their money back and the booking still shows
+   as active. Nothing reconciles this.
+
+REQUIRED
+1. Route catering payments, deposits, balances and refunds
+   through PaymentsService, using the same ledger primitives
+   as ordinary orders.
+2. Use the same incremental refund-split logic as
+   payments.service.ts:54-156. Do not write a second
+   implementation.
+3. Make the Stripe call and the local write recoverable:
+   record intent before calling Stripe, mark completion after,
+   and add a reconciliation job that finds Stripe refunds with
+   no matching local record and vice versa. Stripe cannot join
+   your database transaction, so reconciliation is the only
+   correct answer.
+4. Catering refunds must net against the vendor payout exactly
+   as order refunds do.
+5. Commission basis: quote creation passes the full catering
+   total as subtotalPence (:121-137 and :1148-1157), so
+   commission is charged on the entire total including any
+   delivery or service element. Confirm this is intended and
+   make it explicit in the Rate Schedule, or separate the
+   components. Do not leave it implicit.
+
+SCENARIO TESTS, CANCELLATION MATRIX
+Per vendor terms clause 8.4, test cancellation at:
+  15 days before event   -> deposit refunded in full
+  14 days before event   -> deposit refunded in full (boundary)
+  13 days before event   -> 50% of deposit retained
+  8 days before event    -> 50% retained
+  7 days before event    -> deposit retained (boundary)
+  2 days before event    -> deposit retained
+  after balance charged  -> per policy, vendor costs protected
+  vendor cancels         -> customer refunded in full
+Plus: refund when only the deposit is paid; refund after the
+balance is charged; a second refund attempt on an already
+refunded booking (must be idempotent); Stripe succeeds but the
+local write fails (reconciliation must detect it); and a
+catering refund correctly reducing the next payout.
+
+ACCEPTANCE CRITERIA
+- Every catering refund produces a ledger pair.
+- Every boundary in the cancellation matrix is asserted.
+- A simulated post-Stripe database failure is detected and
+  surfaced by the reconciliation job.
+- No second refund implementation exists in the codebase.
