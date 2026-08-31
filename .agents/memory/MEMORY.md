@@ -64,3 +64,4 @@
 - [Admin 2FA enforcement](admin-2fa-enforcement.md) — 3-layer gate (middleware/server-gate/AalGuard); two modes on /settings/2fa (enrol vs challenge); factor removal has up to 1h downgrade lag; flag = ADMIN_REQUIRE_AAL2.
 - [AuditLog action names](audit-log-action-names.md) — canonical action strings for vendor-status + order-override paths; actorId=null for automated; same-transaction rule; historical gap not backfilled.
 - [Allergen publication boundary](allergen-publication-boundary.md) — declaration checks must cover every customer embed/search path and direct RLS, not only catalogue endpoints.
+- [Payout statement snapshots](payout-statement-snapshots.md) — persist one immutable canonical statement; every vendor-facing format renders it, and legacy unknowns stay unavailable.

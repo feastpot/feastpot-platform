@@ -1476,6 +1476,10 @@ model Payout {
   grossPence       Int          @default(0) @map("gross_pence")
   commissionPence  Int          @default(0) @map("commission_pence")
   refundsPence     Int          @default(0) @map("refunds_pence")
+  chargebacksPence Int?         @map("chargebacks_pence")
+  serviceFeesPence Int?         @map("service_fees_pence")
+  adjustmentsPence Int?         @map("adjustments_pence")
+  statement        Json?
   periodStart      DateTime?    @map("period_start") @db.Timestamptz
   periodEnd        DateTime?    @map("period_end") @db.Timestamptz
   orderCount       Int          @default(0) @map("order_count")

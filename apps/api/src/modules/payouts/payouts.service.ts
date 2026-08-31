@@ -1,4 +1,3 @@
-import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
 import { InjectQueue } from '@nestjs/bull';
 import {
   BadRequestException,
@@ -10,7 +9,6 @@ import {
 } from '@nestjs/common';
 import {
   DisputeStatus,
-  OrderSource,
   OrderStatus,
   PaymentType,
   PayoutStatus,
@@ -38,8 +36,15 @@ import { CommissionService } from '../../commission/commission.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { StripeService } from '../../stripe/stripe.service';
 import { InboxService } from '../inbox/inbox.service';
+import { computeIncrementalRefundSplit } from '../payments/payments.service';
 
 import { ListPayoutsDto } from './dto/list-payouts.dto';
+import {
+  buildPayoutStatement,
+  isPayoutStatement,
+  type PayoutStatement,
+  type PayoutStatementEntryInput,
+} from './payout-statement';
 import { classifyStripeError, describeStripeError } from './stripe-error-classifier';
 
 export const NOTIFICATIONS_QUEUE = 'notifications';
@@ -59,6 +64,7 @@ const PAYOUT_CSV_HEADER = [
   'commission_pence',
   'fees_pence',
   'refunds_pence',
+  'chargebacks_pence',
   'adjustments_pence',
   'net_pence',
   'currency',
@@ -90,6 +96,9 @@ interface PayoutCsvRow {
   grossPence: number;
   commissionPence: number;
   refundsPence: number;
+  chargebacksPence: number | null;
+  serviceFeesPence: number | null;
+  adjustmentsPence: number | null;
   orderCount: number;
   currency: string;
   periodStart: Date | null;
@@ -105,16 +114,6 @@ function payoutCsvRow(p: PayoutCsvRow): string {
   // approval date, otherwise creation date. Keeps the column non-empty for
   // draft/held rows without lying about transfer status.
   const payoutDate = p.transferredAt ?? p.approvedAt ?? p.createdAt;
-  // fees_pence = the platform service fee Feastpot retained on this payout's
-  // orders, derived from the stored components so the row self-reconciles:
-  //   gross − commission − fees − refunds − adjustments = net   (always)
-  // gross (= Σ order totals) includes the service fee; net (= Σ stored
-  // vendorPayoutPence − refunds) excludes it, so the residual IS the retained
-  // service fee. adjustments_pence carries any negative residual - that should
-  // never happen and flags a ledger anomaly for finance instead of hiding it.
-  const residualPence = p.grossPence - p.commissionPence - p.refundsPence - p.amountPence;
-  const feesPence = Math.max(0, residualPence);
-  const adjustmentsPence = Math.min(0, residualPence);
   return [
     p.id,
     isoDateOnly(payoutDate),
@@ -122,9 +121,10 @@ function payoutCsvRow(p: PayoutCsvRow): string {
     isoDateOnly(p.periodEnd),
     p.grossPence,
     p.commissionPence,
-    feesPence,
+    p.serviceFeesPence,
     p.refundsPence,
-    adjustmentsPence,
+    p.chargebacksPence,
+    p.adjustmentsPence,
     p.amountPence,
     p.currency,
     p.status,
@@ -135,56 +135,31 @@ function payoutCsvRow(p: PayoutCsvRow): string {
     .join(',');
 }
 
-export interface VendorBatchInput {
+type WeeklyStatementSource = {
+  id: string;
+  kind: 'order' | 'catering';
   vendorId: string;
-  vendorUserId: string;
-  commissionBps: number;
-  hasOpenDispute: boolean;
-  orders: Array<{
-    id: string;
-    totalPence: number;
-    vendorPayoutPence: number;
-    commissionPence: number;
-  }>;
-  refundDeductionsPence: number;
-}
-
-export interface BatchTotals {
-  vendorId: string;
-  grossPence: number;
+  reference: string;
+  occurredAt: Date | null;
+  subtotalPence: number;
+  deliveryFeePence: number;
+  serviceFeePence: number;
+  discountPence: number;
+  totalPence: number;
+  vendorPayoutPence: number;
   commissionPence: number;
-  refundsPence: number;
-  netPence: number;
-  orderCount: number;
-  status: PayoutStatus;
-  holdReason: string | null;
-}
-
-/**
- * Pure aggregation helper; exported for unit testing.
- */
-export function aggregateVendorBatch(input: VendorBatchInput): BatchTotals {
-  const grossPence = input.orders.reduce((s, o) => s + o.totalPence, 0);
-  const commissionPence = input.orders.reduce((s, o) => s + o.commissionPence, 0);
-  // Vendor net is the sum of each order's STORED vendorPayoutPence
-  // (= subtotal + delivery − discount − commission), which already EXCLUDES the
-  // platform service fee Feastpot retains. Do NOT recompute as
-  // gross − commission: that re-introduces the service-fee leak this batch
-  // exists to prevent (gross/totalPence includes serviceFeePence).
-  const payoutBeforeRefundsPence = input.orders.reduce((s, o) => s + o.vendorPayoutPence, 0);
-  const refundsPence = Math.max(0, input.refundDeductionsPence);
-  const netPence = Math.max(0, payoutBeforeRefundsPence - refundsPence);
-  return {
-    vendorId: input.vendorId,
-    grossPence,
-    commissionPence,
-    refundsPence,
-    netPence,
-    orderCount: input.orders.length,
-    status: input.hasOpenDispute ? PayoutStatus.held : PayoutStatus.draft,
-    holdReason: input.hasOpenDispute ? 'Vendor has open dispute(s); held pending resolution' : null,
+  source: string | null;
+  ratePercent: string | null;
+  vendor: {
+    id: string;
+    userId: string;
+    businessName: string | null;
+    commissionBps: number;
+    payoutsEnabled: boolean;
+    slug: string;
+    referralLink: { slug: string } | null;
   };
-}
+};
 
 /**
  * Returns [start, end) for the most recent completed Mon→Sun (UTC) window
@@ -317,10 +292,9 @@ export class PayoutsService {
    * their own rows; finance/admin see all (optionally narrowed by vendorId).
    * Capped at 5 000 rows to match the audit-log export.
    *
-   * Columns are chosen to match accountancy templates (Xero / QuickBooks
-   * import-ready). `fees` and `adjustments` are placeholder zero columns
-   * for now: Stripe transfer fees aren't broken out in our schema, and
-   * manual adjustments are tracked separately via dispute resolutions.
+   * Columns are chosen to match accountancy templates. Current payouts use
+   * values persisted from the canonical statement; unavailable legacy values
+   * are emitted as blank cells rather than misleading zeroes.
    */
   async exportCsv(
     user: AuthUser,
@@ -869,7 +843,8 @@ export class PayoutsService {
       `Running weekly payout batch for ${start.toISOString()} → ${end.toISOString()}`,
     );
 
-    // Pull all delivered orders in the window with vendor info + commission data.
+    // Pull all qualifying records once, then normalize them into the canonical
+    // statement-source shape used for batch creation and every presentation.
     const orders = await this.prisma.order.findMany({
       where: {
         // partially_refunded delivered orders STILL owe the vendor their net
@@ -887,6 +862,9 @@ export class PayoutsService {
         vendorId: true,
         orderNumber: true,
         subtotalPence: true,
+        deliveryFeePence: true,
+        serviceFeePence: true,
+        discountPence: true,
         totalPence: true,
         vendorPayoutPence: true,
         commissionPence: true,
@@ -915,6 +893,7 @@ export class PayoutsService {
             isFirstOrder: true,
           },
         },
+        attribution: { select: { resolvedSource: true } },
       },
     });
     // Catering has no Order row, but completed bookings participate in exactly
@@ -931,6 +910,8 @@ export class PayoutsService {
         vendorId: true,
         totalPence: true,
         commissionPence: true,
+        commissionPercent: true,
+        attributionSource: true,
         completedAt: true,
         vendor: {
           select: {
@@ -945,28 +926,50 @@ export class PayoutsService {
         },
       },
     });
-    orders.push(
-      ...(cateringBookings.map((booking) => ({
+    const statementSources: WeeklyStatementSource[] = [
+      ...orders.map((order) => ({
+        id: order.id,
+        kind: 'order' as const,
+        vendorId: order.vendorId,
+        reference: order.orderNumber,
+        occurredAt: order.deliveredAt,
+        subtotalPence: order.subtotalPence,
+        deliveryFeePence: order.deliveryFeePence,
+        serviceFeePence: order.serviceFeePence,
+        discountPence: order.discountPence,
+        totalPence: order.totalPence,
+        vendorPayoutPence: order.vendorPayoutPence,
+        commissionPence: order.commissionPence,
+        source: order.orderCommission?.source ?? order.attribution?.resolvedSource ?? null,
+        ratePercent: order.orderCommission?.ratePercent.toString() ?? null,
+        vendor: order.vendor,
+      })),
+      ...cateringBookings.map((booking) => ({
         id: booking.id,
+        kind: 'catering' as const,
         vendorId: booking.vendorId,
-        orderNumber: `CATERING-${booking.id.slice(-8)}`,
+        reference: `CATERING-${booking.id.slice(-8)}`,
+        occurredAt: booking.completedAt,
         subtotalPence: booking.totalPence,
+        deliveryFeePence: 0,
+        serviceFeePence: 0,
+        discountPence: 0,
         totalPence: booking.totalPence,
         vendorPayoutPence: booking.totalPence - booking.commissionPence,
         commissionPence: booking.commissionPence,
-        deliveredAt: booking.completedAt,
+        source: booking.attributionSource,
+        ratePercent: booking.commissionPercent.toString(),
         vendor: booking.vendor,
-        orderCommission: null,
-      })) as unknown as typeof orders),
-    );
+      })),
+    ];
 
     // Group by vendor.
-    type Group = { vendor: (typeof orders)[number]['vendor']; orders: typeof orders };
+    type Group = { vendor: WeeklyStatementSource['vendor']; entries: WeeklyStatementSource[] };
     const byVendor = new Map<string, Group>();
-    for (const o of orders) {
-      const g = byVendor.get(o.vendorId) ?? { vendor: o.vendor, orders: [] };
-      g.orders.push(o);
-      byVendor.set(o.vendorId, g);
+    for (const entry of statementSources) {
+      const group = byVendor.get(entry.vendorId) ?? { vendor: entry.vendor, entries: [] };
+      group.entries.push(entry);
+      byVendor.set(entry.vendorId, group);
     }
 
     const created: Array<{ vendorId: string; payoutId: string }> = [];
@@ -984,29 +987,95 @@ export class PayoutsService {
       }
 
       // Refund deductions for this vendor's orders in the window.
-      const orderIds = group.orders.map((o) => o.id);
-      const refundDeductions = await this.prisma.payment.aggregate({
+      const orderIds = group.entries
+        .filter((entry) => entry.kind === 'order')
+        .map((entry) => entry.id);
+      const cateringBookingIds = group.entries
+        .filter((entry) => entry.kind === 'catering')
+        .map((entry) => entry.id);
+      const ledgerRows = await this.prisma.payment.findMany({
         where: {
-          OR: [{ orderId: { in: orderIds } }, { cateringBookingId: { in: orderIds } }],
-          type: { in: [PaymentType.refund, PaymentType.partial_refund] },
+          OR: [{ orderId: { in: orderIds } }, { cateringBookingId: { in: cateringBookingIds } }],
+          type: { in: [PaymentType.refund, PaymentType.partial_refund, PaymentType.credit] },
         },
-        _sum: { amountPence: true },
+        select: {
+          orderId: true,
+          cateringBookingId: true,
+          type: true,
+          amountPence: true,
+        },
       });
-      // Credit rows hold the portion of each refund Feastpot absorbs (service-fee
-      // + commission share) - that money must NOT be clawed back from the vendor.
-      const refundCredits = await this.prisma.payment.aggregate({
+      const lostChargebacks = await this.prisma.chargeback.findMany({
         where: {
-          OR: [{ orderId: { in: orderIds } }, { cateringBookingId: { in: orderIds } }],
-          type: PaymentType.credit,
+          orderId: { in: orderIds },
+          status: 'lost',
+          reconciledAt: { not: null },
         },
-        _sum: { amountPence: true },
+        select: { orderId: true, amountPence: true },
       });
-      // Refund rows are negative (cash out); credit rows positive (absorbed).
-      // Net vendor deduction = customer refunds − Feastpot-absorbed portion
-      // = vendorClawbackPence, which EXCLUDES the platform service fee.
-      const customerRefundsPence = -(refundDeductions._sum.amountPence ?? 0);
-      const feastpotAbsorbedPence = refundCredits._sum.amountPence ?? 0;
-      const refundsPence = Math.max(0, customerRefundsPence - feastpotAbsorbedPence);
+
+      const canonicalEntries: PayoutStatementEntryInput[] = group.entries.map((entry) => {
+        const subjectLedger = ledgerRows.filter(
+          (payment) =>
+            payment.orderId === (entry.kind === 'order' ? entry.id : null) ||
+            payment.cateringBookingId === (entry.kind === 'catering' ? entry.id : null),
+        );
+        const customerRefundsPence = -subjectLedger
+          .filter(
+            (payment) =>
+              payment.type === PaymentType.refund || payment.type === PaymentType.partial_refund,
+          )
+          .reduce((sum, payment) => sum + payment.amountPence, 0);
+        const absorbedPence = subjectLedger
+          .filter((payment) => payment.type === PaymentType.credit)
+          .reduce((sum, payment) => sum + payment.amountPence, 0);
+        const totalVendorDeductionPence = Math.max(0, customerRefundsPence - absorbedPence);
+        const chargebackCustomerPence =
+          entry.kind === 'order'
+            ? lostChargebacks
+                .filter((chargeback) => chargeback.orderId === entry.id)
+                .reduce((sum, chargeback) => sum + chargeback.amountPence, 0)
+            : 0;
+        const ordinaryCustomerRefundPence = Math.max(
+          0,
+          customerRefundsPence - chargebackCustomerPence,
+        );
+        const chargebackSplit =
+          chargebackCustomerPence > 0
+            ? computeIncrementalRefundSplit(
+                ordinaryCustomerRefundPence,
+                Math.min(chargebackCustomerPence, entry.totalPence - ordinaryCustomerRefundPence),
+                {
+                  subtotalPence: entry.subtotalPence,
+                  serviceFeePence: entry.serviceFeePence,
+                  deliveryFeePence: entry.deliveryFeePence,
+                  discountPence: entry.discountPence,
+                  commissionPence: entry.commissionPence,
+                },
+                entry.totalPence,
+              )
+            : null;
+        const chargebacksPence = Math.min(
+          totalVendorDeductionPence,
+          chargebackSplit?.vendorClawbackPence ?? 0,
+        );
+
+        return {
+          id: entry.id,
+          kind: entry.kind,
+          reference: entry.reference,
+          occurredAt: entry.occurredAt?.toISOString() ?? null,
+          source: entry.source,
+          effectiveCommissionRatePercent: entry.ratePercent,
+          grossPence: entry.totalPence,
+          foodSubtotalPence: entry.subtotalPence,
+          commissionPence: entry.commissionPence,
+          serviceFeesPence: entry.serviceFeePence,
+          refundsPence: totalVendorDeductionPence - chargebacksPence,
+          chargebacksPence,
+          vendorPayoutBeforeDeductionsPence: entry.vendorPayoutPence,
+        };
+      });
 
       // Open-dispute hold check.
       const openDisputes = await this.prisma.dispute.count({
@@ -1018,18 +1087,13 @@ export class PayoutsService {
         },
       });
 
-      const totals = aggregateVendorBatch({
+      const statement = buildPayoutStatement({
         vendorId,
-        vendorUserId: group.vendor.userId,
-        commissionBps: group.vendor.commissionBps,
+        vendorBusinessName: group.vendor.businessName ?? vendorId,
+        periodStart: start,
+        periodEnd: end,
         hasOpenDispute: openDisputes > 0,
-        orders: group.orders.map((o) => ({
-          id: o.id,
-          totalPence: o.totalPence,
-          vendorPayoutPence: o.vendorPayoutPence,
-          commissionPence: o.commissionPence,
-        })),
-        refundDeductionsPence: refundsPence,
+        entries: canonicalEntries,
       });
 
       try {
@@ -1038,45 +1102,25 @@ export class PayoutsService {
           await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${periodLock}))`;
           const duplicate = await tx.payout.findFirst({ where: { vendorId, periodEnd: end } });
           if (duplicate) return duplicate;
-          // Re-read refund rows after taking the same lock used by catering
-          // refund completion. This closes the aggregate→create race.
-          const [latestRefunds, latestCredits] = await Promise.all([
-            tx.payment.aggregate({
-              where: {
-                OR: [{ orderId: { in: orderIds } }, { cateringBookingId: { in: orderIds } }],
-                type: { in: [PaymentType.refund, PaymentType.partial_refund] },
-              },
-              _sum: { amountPence: true },
-            }),
-            tx.payment.aggregate({
-              where: {
-                OR: [{ orderId: { in: orderIds } }, { cateringBookingId: { in: orderIds } }],
-                type: PaymentType.credit,
-              },
-              _sum: { amountPence: true },
-            }),
-          ]);
-          const lockedRefundsPence = Math.max(
-            0,
-            -(latestRefunds._sum.amountPence ?? 0) - (latestCredits._sum.amountPence ?? 0),
-          );
-          const lockedNetPence = Math.max(
-            0,
-            group.orders.reduce((sum, order) => sum + order.vendorPayoutPence, 0) -
-              lockedRefundsPence,
-          );
+          // The immutable statement snapshot is the source of truth for every
+          // persisted total and every downstream representation.
+          const summary = statement.summary;
           return tx.payout.create({
             data: {
               vendorId,
-              status: totals.status,
-              amountPence: lockedNetPence,
-              grossPence: totals.grossPence,
-              commissionPence: totals.commissionPence,
-              refundsPence: lockedRefundsPence,
-              orderCount: totals.orderCount,
+              status: statement.status,
+              amountPence: summary.netPayoutPence,
+              grossPence: summary.grossSalesPence,
+              commissionPence: summary.commissionPence,
+              refundsPence: summary.refundsPence,
+              chargebacksPence: summary.chargebacksPence,
+              serviceFeesPence: summary.serviceFeesPence,
+              adjustmentsPence: summary.adjustmentsPence,
+              statement: statement as unknown as Prisma.InputJsonValue,
+              orderCount: summary.entryCount,
               periodStart: start,
               periodEnd: end,
-              holdReason: totals.holdReason,
+              holdReason: statement.holdReason,
               currency: 'GBP',
             },
           });
@@ -1086,32 +1130,12 @@ export class PayoutsService {
         // Per-vendor payout statement notification with per-order data for the
         // PDF statement. Best-effort -- never blocks payout creation.
         try {
-          const orderRows = group.orders.map((o) => ({
-            orderNumber: o.orderNumber,
-            deliveredAt: o.deliveredAt?.toISOString() ?? null,
-            // Prefer stored OrderCommission data; fall back to the order row
-            // for orders placed before this feature was deployed.
-            foodSubtotalPence: o.orderCommission?.foodSubtotalPence ?? o.subtotalPence,
-            source: (o.orderCommission?.source ?? OrderSource.MARKETPLACE) as string,
-            ratePercent: o.orderCommission ? o.orderCommission.ratePercent.toString() : '12.00',
-            commissionPence: o.orderCommission?.commissionPence ?? o.commissionPence,
-            vendorPayoutPence: o.vendorPayoutPence,
-          }));
-
           // Generate PDF statement -- stored as base64 in the job payload so
           // the notification processor can attach it to the email without
           // needing to query the DB again. Failure is non-blocking.
           let pdfBase64: string | undefined;
           try {
-            const pdfBuf = await this.buildPayoutStatementPdf({
-              businessName: group.vendor.businessName ?? vendorId,
-              periodStart: start,
-              periodEnd: end,
-              grossPence: totals.grossPence,
-              commissionPence: totals.commissionPence,
-              netPence: totals.netPence,
-              orders: orderRows,
-            });
+            const pdfBuf = await this.buildPayoutStatementPdf(statement);
             pdfBase64 = pdfBuf.toString('base64');
           } catch (pdfErr) {
             this.logger.warn(
@@ -1128,12 +1152,13 @@ export class PayoutsService {
               : null,
             periodStart: start.toISOString(),
             periodEnd: end.toISOString(),
-            grossPence: totals.grossPence,
-            commissionPence: totals.commissionPence,
-            netPence: totals.netPence,
-            amountPence: totals.netPence,
-            orderCount: totals.orderCount,
-            orders: orderRows,
+            statement,
+            ...statement.summary,
+            grossPence: statement.summary.grossSalesPence,
+            netPence: statement.summary.netPayoutPence,
+            amountPence: statement.summary.netPayoutPence,
+            orderCount: statement.summary.entryCount,
+            orders: statement.entries,
             ...(pdfBase64
               ? { pdfBase64, pdfFilename: `feastpot-statement-${isoDateOnly(end)}.pdf` }
               : {}),
@@ -1158,11 +1183,8 @@ export class PayoutsService {
     // Blended take-rate alert: warn if outside the healthy [6%, 10%] band.
     // Uses per-order commission data where available; falls back to stored
     // commissionPence for pre-feature orders.
-    const allOrders = [...byVendor.values()].flatMap((g) => g.orders);
-    const totalSubtPeriod = allOrders.reduce(
-      (s, o) => s + (o.orderCommission?.foodSubtotalPence ?? o.subtotalPence),
-      0,
-    );
+    const allOrders = [...byVendor.values()].flatMap((g) => g.entries);
+    const totalSubtPeriod = allOrders.reduce((s, o) => s + o.subtotalPence, 0);
     const totalCommPeriod = allOrders.reduce((s, o) => s + o.commissionPence, 0);
     if (totalSubtPeriod > 0) {
       const blendedPct = (totalCommPeriod / totalSubtPeriod) * 100;
@@ -1193,6 +1215,7 @@ export class PayoutsService {
         vendorId: true,
         periodStart: true,
         periodEnd: true,
+        statement: true,
         vendor: { select: { userId: true } },
       },
     });
@@ -1204,6 +1227,28 @@ export class PayoutsService {
         code: 'PAYOUT_FORBIDDEN',
         message: 'You may not view this payout',
       });
+    }
+
+    if (isPayoutStatement(payout.statement)) {
+      return payout.statement.entries.map((entry) => ({
+        id: entry.id,
+        entryKind: entry.kind,
+        orderNumber: entry.reference,
+        deliveredAt: entry.occurredAt,
+        subtotalPence: entry.foodSubtotalPence,
+        grossPence: entry.grossPence,
+        commissionPence: entry.commissionPence,
+        effectiveCommissionRatePercent: entry.effectiveCommissionRatePercent,
+        serviceFeesPence: entry.serviceFeesPence,
+        refundsPence: entry.refundsPence,
+        chargebacksPence: entry.chargebacksPence,
+        adjustmentsPence: entry.adjustmentsPence,
+        vendorPayoutPence: entry.netPence,
+        attributionSource: entry.source,
+        discountPence: 0,
+        discountFundedBy: null,
+        foundingAllowanceAppliedPence: 0,
+      }));
     }
     if (
       user.role !== UserRole.vendor &&
@@ -1218,7 +1263,7 @@ export class PayoutsService {
 
     const where: Prisma.OrderWhereInput = {
       vendorId: payout.vendorId,
-      status: OrderStatus.delivered,
+      status: { in: [OrderStatus.delivered, OrderStatus.partially_refunded] },
       ...(payout.periodStart && payout.periodEnd
         ? { deliveredAt: { gte: payout.periodStart, lt: payout.periodEnd } }
         : {}),
@@ -1237,6 +1282,7 @@ export class PayoutsService {
         discountFundedBy: true,
         foundingAllowanceAppliedPence: true,
         attribution: { select: { resolvedSource: true } },
+        orderCommission: { select: { ratePercent: true, source: true } },
       },
       orderBy: { deliveredAt: 'asc' },
     });
@@ -1247,12 +1293,15 @@ export class PayoutsService {
       deliveredAt: o.deliveredAt?.toISOString() ?? null,
       subtotalPence: o.subtotalPence,
       commissionPence: o.commissionPence,
+      effectiveCommissionRatePercent: o.orderCommission?.ratePercent.toString() ?? null,
       vendorPayoutPence: o.vendorPayoutPence,
       discountPence: o.discountPence,
       discountFundedBy: o.discountFundedBy,
       foundingAllowanceAppliedPence: o.foundingAllowanceAppliedPence,
       // resolvedSource is null only on pre-attribution rows; treat as MARKETPLACE_FIRST.
-      attributionSource: (o.attribution?.resolvedSource ?? null) as string | null,
+      attributionSource: (o.orderCommission?.source ?? o.attribution?.resolvedSource ?? null) as
+        | string
+        | null,
     }));
   }
 
@@ -1274,9 +1323,16 @@ export class PayoutsService {
     opts: { payoutId?: string } = {},
   ): Promise<void> {
     const HEADER = [
+      'entry_kind',
       'order_date',
       'order_number',
       'attribution_source',
+      'effective_commission_rate_percent',
+      'gross_pence',
+      'service_fees_pence',
+      'refunds_pence',
+      'chargebacks_pence',
+      'adjustments_pence',
       'subtotal_gbp',
       'commission_gbp',
       'net_to_vendor_gbp',
@@ -1286,7 +1342,9 @@ export class PayoutsService {
     ].join(',');
     write(HEADER + '\n');
 
-    const where: Prisma.OrderWhereInput = { status: OrderStatus.delivered };
+    const where: Prisma.OrderWhereInput = {
+      status: { in: [OrderStatus.delivered, OrderStatus.partially_refunded] },
+    };
 
     if (user.role === UserRole.vendor) {
       const vendor = await this.prisma.vendor.findUnique({
@@ -1305,7 +1363,7 @@ export class PayoutsService {
     if (opts.payoutId) {
       const payout = await this.prisma.payout.findUnique({
         where: { id: opts.payoutId },
-        select: { vendorId: true, periodStart: true, periodEnd: true },
+        select: { vendorId: true, periodStart: true, periodEnd: true, statement: true },
       });
       if (!payout) return;
       // Vendor must own this payout.
@@ -1320,6 +1378,33 @@ export class PayoutsService {
         });
       }
       where.vendorId = payout.vendorId;
+      if (isPayoutStatement(payout.statement)) {
+        for (const entry of payout.statement.entries) {
+          write(
+            [
+              entry.kind,
+              isoDateOnly(entry.occurredAt ? new Date(entry.occurredAt) : null),
+              entry.reference,
+              entry.source ?? 'not available',
+              entry.effectiveCommissionRatePercent ?? 'not available',
+              entry.grossPence,
+              entry.serviceFeesPence ?? 'not available',
+              entry.refundsPence,
+              entry.chargebacksPence,
+              entry.adjustmentsPence ?? 'not available',
+              (entry.foodSubtotalPence / 100).toFixed(2),
+              (entry.commissionPence / 100).toFixed(2),
+              (entry.netPence / 100).toFixed(2),
+              entry.foodSubtotalPence,
+              entry.commissionPence,
+              entry.netPence,
+            ]
+              .map((cell) => csvCell(cell))
+              .join(',') + '\n',
+          );
+        }
+        return;
+      }
       if (payout.periodStart && payout.periodEnd) {
         where.deliveredAt = { gte: payout.periodStart, lt: payout.periodEnd };
       }
@@ -1350,9 +1435,16 @@ export class PayoutsService {
       for (const r of rows) {
         const src = r.attribution?.resolvedSource ?? 'MARKETPLACE_FIRST';
         const row = [
+          'order',
           isoDateOnly(r.deliveredAt),
           r.orderNumber,
           src,
+          'not available',
+          'not available',
+          'not available',
+          'not available',
+          'not available',
+          'not available',
           (r.subtotalPence / 100).toFixed(2),
           (r.commissionPence / 100).toFixed(2),
           (r.vendorPayoutPence / 100).toFixed(2),
@@ -1387,23 +1479,7 @@ export class PayoutsService {
    * Builds a PDF payout statement Buffer from per-order data.
    * Used by the notification processor when dispatching payout_batch_ready.
    */
-  async buildPayoutStatementPdf(params: {
-    businessName: string;
-    periodStart: Date;
-    periodEnd: Date;
-    grossPence: number;
-    commissionPence: number;
-    netPence: number;
-    orders: Array<{
-      orderNumber: string;
-      deliveredAt: string | null;
-      foodSubtotalPence: number;
-      source: string;
-      ratePercent: string;
-      commissionPence: number;
-      vendorPayoutPence: number;
-    }>;
-  }): Promise<Buffer> {
+  async buildPayoutStatementPdf(statement: PayoutStatement): Promise<Buffer> {
     return new Promise((resolve, reject) => {
       const doc = new PDFDocument({ margin: 40, size: 'A4' });
       const chunks: Buffer[] = [];
@@ -1411,7 +1487,8 @@ export class PayoutsService {
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
 
-      const p = (pence: number) => `£${(pence / 100).toFixed(2)}`;
+      const p = (pence: number | null) =>
+        pence === null ? 'not available' : `£${(pence / 100).toFixed(2)}`;
       const dateStr = (s: string | null) =>
         s
           ? new Date(s).toLocaleDateString('en-GB', {
@@ -1429,10 +1506,10 @@ export class PayoutsService {
       // ─── Header ──────────────────────────────────────────────────────────
       doc.fontSize(20).font('Helvetica-Bold').text('Feastpot', ml, 40);
       doc.fontSize(10).font('Helvetica').text('Payout Statement', ml, 64);
-      doc.fontSize(10).text(`Vendor: ${params.businessName}`, ml, 76);
+      doc.fontSize(10).text(`Vendor: ${statement.vendorBusinessName}`, ml, 76);
       doc
         .text(
-          `Period: ${dateStr(params.periodStart.toISOString())} to ${dateStr(params.periodEnd.toISOString())}`,
+          `Period: ${dateStr(statement.periodStart)} to ${dateStr(statement.periodEnd)}`,
           ml,
           88,
         )
@@ -1464,16 +1541,18 @@ export class PayoutsService {
 
       // Data rows
       doc.font('Helvetica');
-      for (const o of params.orders) {
+      for (const entry of statement.entries) {
         const rowY = doc.y;
         const cells = [
-          o.orderNumber,
-          dateStr(o.deliveredAt),
-          p(o.foodSubtotalPence),
-          srcLabel(o.source),
-          `${o.ratePercent}%`,
-          p(o.commissionPence),
-          p(o.vendorPayoutPence),
+          entry.reference,
+          dateStr(entry.occurredAt),
+          p(entry.foodSubtotalPence),
+          entry.source ? srcLabel(entry.source) : 'not available',
+          entry.effectiveCommissionRatePercent === null
+            ? 'not available'
+            : `${entry.effectiveCommissionRatePercent}%`,
+          p(entry.commissionPence),
+          p(entry.netPence),
         ];
         cells.forEach((cell, i) => doc.text(cell, cols[i], rowY, { width: colWidths[i] }));
         doc.moveDown(0.5);
@@ -1489,11 +1568,11 @@ export class PayoutsService {
       doc.moveDown(0.8);
 
       // ─── Summary ─────────────────────────────────────────────────────────
-      const totalSubtotal = params.orders.reduce((s, o) => s + o.foodSubtotalPence, 0);
-      const flat12Commission = Math.round((totalSubtotal * 12) / 100);
-      const savedPence = Math.max(0, flat12Commission - params.commissionPence);
+      const totalSubtotal = statement.entries.reduce((s, entry) => s + entry.foodSubtotalPence, 0);
       const blendedPct =
-        totalSubtotal > 0 ? ((params.commissionPence / totalSubtotal) * 100).toFixed(2) : '0.00';
+        totalSubtotal > 0
+          ? ((statement.summary.commissionPence / totalSubtotal) * 100).toFixed(2)
+          : 'not available';
 
       const summaryX2 = ml + 200;
       doc.font('Helvetica-Bold').fontSize(9).text('Summary', ml, doc.y);
@@ -1507,34 +1586,18 @@ export class PayoutsService {
         doc.moveDown(0.5);
       };
 
-      row('Total orders:', String(params.orders.length));
-      row('Gross sales:', p(params.grossPence));
-      row('Commission deducted:', p(params.commissionPence));
-      row('Blended effective rate:', `${blendedPct}%`);
-      row('Net payout:', p(params.netPence));
-      doc.moveDown(0.5);
-
-      if (savedPence > 0) {
-        doc
-          .font('Helvetica-Bold')
-          .fontSize(10)
-          .text(
-            `💰 You saved ${p(savedPence)} compared to our standard marketplace rate this week.`,
-            ml,
-            doc.y,
-          );
-        doc
-          .font('Helvetica')
-          .fontSize(8)
-          .fillColor('#555555')
-          .text(
-            `Marketplace repeat-order rate is ${PLATFORM_FACTS.commission.marketplaceRepeat}%. Vendor-referred orders are ${PLATFORM_FACTS.commission.vendorReferred}%. Bring your own customers to keep more.`,
-            ml,
-            doc.y + 4,
-            { width: pageWidth },
-          )
-          .fillColor('#000000');
-      }
+      row('Total entries:', String(statement.summary.entryCount));
+      row('Gross sales:', p(statement.summary.grossSalesPence));
+      row('Commission deducted:', p(statement.summary.commissionPence));
+      row(
+        'Blended effective rate:',
+        blendedPct === 'not available' ? blendedPct : `${blendedPct}%`,
+      );
+      row('Refunds:', p(statement.summary.refundsPence));
+      row('Chargebacks:', p(statement.summary.chargebacksPence));
+      row('Service fees:', p(statement.summary.serviceFeesPence));
+      row('Adjustments:', p(statement.summary.adjustmentsPence));
+      row('Net payout:', p(statement.summary.netPayoutPence));
 
       doc.end();
     });

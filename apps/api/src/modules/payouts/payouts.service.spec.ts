@@ -8,7 +8,7 @@ import { PayoutStatus, UserRole } from '@prisma/client';
 
 import type { AuthUser } from '../../auth/types';
 
-import { aggregateVendorBatch, lastCompletedWeekUtc, PayoutsService } from './payouts.service';
+import { lastCompletedWeekUtc, PayoutsService } from './payouts.service';
 
 const finance: AuthUser = {
   id: 'finance-1',
@@ -44,7 +44,11 @@ function makePrisma() {
     },
     order: { findMany: jest.fn() as Mock },
     cateringBooking: { findMany: jest.fn().mockResolvedValue([]) as Mock },
-    payment: { aggregate: jest.fn() as Mock },
+    payment: {
+      aggregate: jest.fn() as Mock,
+      findMany: jest.fn().mockResolvedValue([]) as Mock,
+    },
+    chargeback: { findMany: jest.fn().mockResolvedValue([]) as Mock },
     dispute: { count: jest.fn() as Mock },
     $executeRaw: jest.fn() as Mock,
     $transaction: jest.fn() as Mock,
@@ -75,78 +79,6 @@ describe('lastCompletedWeekUtc', () => {
     const { start, end } = lastCompletedWeekUtc(new Date('2025-11-03T02:00:00Z'));
     expect(start.toISOString()).toBe('2025-10-27T00:00:00.000Z');
     expect(end.toISOString()).toBe('2025-11-03T00:00:00.000Z');
-  });
-});
-
-describe('aggregateVendorBatch', () => {
-  const orders = [
-    { id: 'o1', totalPence: 1000, vendorPayoutPence: 850, commissionPence: 150 },
-    { id: 'o2', totalPence: 2000, vendorPayoutPence: 1700, commissionPence: 300 },
-  ];
-
-  it('sums and produces draft when no dispute', () => {
-    const totals = aggregateVendorBatch({
-      vendorId: 'v1',
-      vendorUserId: 'u1',
-      commissionBps: 1500,
-      hasOpenDispute: false,
-      orders,
-      refundDeductionsPence: 100,
-    });
-    expect(totals).toMatchObject({
-      vendorId: 'v1',
-      grossPence: 3000,
-      commissionPence: 450,
-      refundsPence: 100,
-      netPence: 2450,
-      orderCount: 2,
-      status: PayoutStatus.draft,
-      holdReason: null,
-    });
-  });
-
-  it('flags held when vendor has open dispute', () => {
-    const totals = aggregateVendorBatch({
-      vendorId: 'v1',
-      vendorUserId: 'u1',
-      commissionBps: 1500,
-      hasOpenDispute: true,
-      orders,
-      refundDeductionsPence: 0,
-    });
-    expect(totals.status).toBe(PayoutStatus.held);
-    expect(totals.holdReason).toMatch(/dispute/i);
-  });
-
-  it('clamps net at zero when refunds exceed gross-commission', () => {
-    const totals = aggregateVendorBatch({
-      vendorId: 'v1',
-      vendorUserId: 'u1',
-      commissionBps: 1500,
-      hasOpenDispute: false,
-      orders,
-      refundDeductionsPence: 999_999,
-    });
-    expect(totals.netPence).toBe(0);
-  });
-
-  it('nets from stored vendorPayoutPence so the service fee is NEVER paid out (revenue-leak guard)', () => {
-    // £40 food + £2.49 delivery + £2.00 service fee = £44.49 total.
-    // commission = 12% of £40 = £4.80; vendorPayoutPence = 4449 − 200 − 480 = 3769.
-    // The OLD batch formula (gross − commission) would pay 4449 − 480 = 3969,
-    // handing the vendor the £2.00 service fee. Net must use vendorPayoutPence.
-    const totals = aggregateVendorBatch({
-      vendorId: 'v1',
-      vendorUserId: 'u1',
-      commissionBps: 1200,
-      hasOpenDispute: false,
-      orders: [{ id: 'o1', totalPence: 4449, vendorPayoutPence: 3769, commissionPence: 480 }],
-      refundDeductionsPence: 0,
-    });
-    expect(totals.netPence).toBe(3769);
-    expect(totals.netPence).not.toBe(4449 - 480); // 3969 was the leak
-    expect(totals.grossPence).toBe(4449);
-    expect(totals.commissionPence).toBe(480);
   });
 });
 
@@ -290,18 +222,30 @@ describe('PayoutsService.runWeeklyBatch (refund netting)', () => {
         id: 'o1',
         vendorId: 'v1',
         totalPence: 4449,
+        subtotalPence: 4000,
+        deliveryFeePence: 249,
+        serviceFeePence: 200,
+        discountPence: 0,
         vendorPayoutPence: 3769,
         commissionPence: 480,
+        deliveredAt: new Date('2025-10-29T12:00:00Z'),
+        orderNumber: 'FP-001',
+        orderCommission: {
+          foodSubtotalPence: 4000,
+          ratePercent: { toString: () => '12.00' },
+          commissionPence: 480,
+          source: 'MARKETPLACE',
+          isFirstOrder: true,
+        },
+        attribution: null,
         vendor: { id: 'v1', userId: 'u1', commissionBps: 1200, payoutsEnabled: true },
       },
     ]);
     prisma.payout.findFirst.mockResolvedValueOnce(null);
-    // First aggregate = refund rows (negative); second = credit rows (positive).
-    prisma.payment.aggregate
-      .mockResolvedValueOnce({ _sum: { amountPence: -4449 } })
-      .mockResolvedValueOnce({ _sum: { amountPence: 680 } })
-      .mockResolvedValueOnce({ _sum: { amountPence: -4449 } })
-      .mockResolvedValueOnce({ _sum: { amountPence: 680 } });
+    prisma.payment.findMany.mockResolvedValueOnce([
+      { orderId: 'o1', cateringBookingId: null, type: 'refund', amountPence: -4449 },
+      { orderId: 'o1', cateringBookingId: null, type: 'credit', amountPence: 680 },
+    ]);
     prisma.dispute.count.mockResolvedValueOnce(0);
     prisma.payout.create.mockResolvedValueOnce({ id: 'p1' });
 

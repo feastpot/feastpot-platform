@@ -131,8 +131,8 @@ export function PayoutsClient() {
             </div>
           </div>
           <p className="mt-3 border-t pt-3 text-xs text-muted-foreground">
-            {PLATFORM_FACTS.brandName} charges {PLATFORM_FACTS.commission.marketplaceFirst}% of the
-            food subtotal on completed orders. Your delivery fee is yours in full.
+            Commission is calculated per order from its actual source and rate. Your delivery fee is
+            yours in full.
           </p>
         </div>
       )}
@@ -170,7 +170,7 @@ export function PayoutsClient() {
           icon={Percent}
           label="Commission deducted"
           value={formatPence(pending.commission)}
-          hint={`${PLATFORM_FACTS.commission.marketplaceFirst}% of order subtotal`}
+          hint="Actual rates applied per order"
         />
         <StatCard
           icon={RefreshCw}
@@ -217,8 +217,9 @@ const EXPLAINER_ITEMS = [
   },
   {
     Icon: PoundSterling,
-    title: `You keep ${100 - PLATFORM_FACTS.commission.marketplaceFirst}%.`,
-    detail: `${PLATFORM_FACTS.brandName} charges ${PLATFORM_FACTS.commission.marketplaceFirst}% commission on the order subtotal. Delivery fees are separate.`,
+    title: 'Source-based commission.',
+    detail:
+      'Each statement shows the rate actually applied to every order. Delivery fees are separate.',
   },
   {
     Icon: Clock,
@@ -455,6 +456,8 @@ function TierBreakdown({ orders, payout }: { orders: VendorPayoutOrder[]; payout
   const totalSubtotal = tiers.reduce((s, t) => s + t.subtotalPence, 0);
   const totalCommission = tiers.reduce((s, t) => s + t.commissionPence, 0);
   const totalNet = tiers.reduce((s, t) => s + t.vendorPayoutPence, 0);
+  const moneyOrUnavailable = (value: number | null | undefined) =>
+    value === null || value === undefined ? 'not available' : formatPence(value);
 
   return (
     <div className="space-y-4 px-4 pb-4 pt-3">
@@ -465,6 +468,33 @@ function TierBreakdown({ orders, payout }: { orders: VendorPayoutOrder[]; payout
         </h3>
         <DownloadCsvButton payoutId={payout.id} label="Export orders CSV" />
       </div>
+
+      <dl className="grid gap-2 rounded-lg border border-border bg-white p-3 text-xs sm:grid-cols-2 lg:grid-cols-4">
+        {[
+          ['Gross sales', formatPence(payout.grossPence)],
+          ['Commission', `−${formatPence(payout.commissionPence)}`],
+          ['Refunds', `−${formatPence(payout.refundsPence)}`],
+          [
+            'Chargebacks',
+            payout.chargebacksPence === null
+              ? 'not available'
+              : `−${formatPence(payout.chargebacksPence)}`,
+          ],
+          [
+            'Service fees',
+            payout.serviceFeesPence === null
+              ? 'not available'
+              : `−${formatPence(payout.serviceFeesPence)}`,
+          ],
+          ['Adjustments', moneyOrUnavailable(payout.adjustmentsPence)],
+          ['Net payout', formatPence(payout.amountPence)],
+        ].map(([label, value]) => (
+          <div key={label}>
+            <dt className="text-muted-foreground">{label}</dt>
+            <dd className="font-semibold tabular-nums text-dark">{value}</dd>
+          </div>
+        ))}
+      </dl>
 
       {/* Tier breakdown table */}
       {tiers.length > 0 ? (
@@ -534,7 +564,7 @@ function TierBreakdown({ orders, payout }: { orders: VendorPayoutOrder[]; payout
             Order breakdown
           </p>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[600px] border-collapse text-xs">
+            <table className="w-full min-w-[900px] border-collapse text-xs">
               <thead className="bg-surface text-muted-foreground">
                 <tr className="text-left">
                   <th className="px-3 py-2 font-semibold">Order</th>
@@ -542,6 +572,9 @@ function TierBreakdown({ orders, payout }: { orders: VendorPayoutOrder[]; payout
                   <th className="px-3 py-2 font-semibold">Source</th>
                   <th className="px-3 py-2 text-right font-semibold">Subtotal</th>
                   <th className="px-3 py-2 text-right font-semibold">Commission</th>
+                  <th className="px-3 py-2 text-right font-semibold">Rate</th>
+                  <th className="px-3 py-2 text-right font-semibold">Refunds</th>
+                  <th className="px-3 py-2 text-right font-semibold">Chargebacks</th>
                   <th className="px-3 py-2 text-right font-semibold">Net to you</th>
                 </tr>
               </thead>
@@ -601,6 +634,18 @@ function TierBreakdown({ orders, payout }: { orders: VendorPayoutOrder[]; payout
                           )}
                         </span>
                       )}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums text-mid">
+                      {o.effectiveCommissionRatePercent === null ||
+                      o.effectiveCommissionRatePercent === undefined
+                        ? 'not available'
+                        : `${o.effectiveCommissionRatePercent}%`}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums text-mid">
+                      {formatPence(o.refundsPence ?? 0)}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums text-mid">
+                      {formatPence(o.chargebacksPence ?? 0)}
                     </td>
                     <td className="px-3 py-2 text-right font-semibold tabular-nums text-dark">
                       {formatPence(o.vendorPayoutPence)}
