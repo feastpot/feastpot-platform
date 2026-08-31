@@ -1,0 +1,65 @@
+TASK: Make Stripe webhook handling safe and configured.
+
+TWO DEFECTS, ONE OF WHICH BLOCKED THE AUDIT
+
+D1. THE RACE
+apps/api/src/modules/payments/stripe-webhook.controller.ts
+sequence is: check ProcessedWebhookEvent exists, enqueue the
+job, then insert the processed-event row. Stripe guarantees
+at-least-once delivery, so two concurrent deliveries of the
+same event can both pass the check and both enqueue. Only the
+second insert is rejected, by which time the work is queued
+twice.
+
+Fix: claim the event ID atomically BEFORE queueing. Insert
+the ProcessedWebhookEvent row first and treat a unique
+constraint violation as "already accepted, return 200". Then
+enqueue. Add a recoverable path for "claimed but enqueue
+failed" so an event cannot be permanently swallowed, for
+example a claim status column plus a sweeper for stale claims.
+
+D2. THE ENVIRONMENT
+The audit's signed probe returned 503 WEBHOOK_NOT_CONFIGURED,
+so the concurrency test could not run at all. The workspace has
+STRIPE_WEBHOOK_SECRET_LIVE but no test secret, and the app
+correctly fails closed in non-production mode. Resolve the
+environment-specific secret in every deployment, and document
+which secret each environment uses. Then verify a signed test
+event is accepted.
+
+D3. account.updated
+Absent from stripe-webhook.events.ts:15-31. Unhandled events
+are only warned about at controller:104-125. Add it, map
+capability and requirement fields to the vendor record, audit
+the change, and alert when payout capability is lost.
+
+SCENARIO TESTS, THIS TIME THEY MUST EXECUTE
+The previous audit marked all of these NOT VERIFIED. That is
+not acceptable a second time. Provision the test webhook
+secret first, then run:
+
+  same event ID delivered twice sequentially
+    -> one queue job, one processed row, one side effect
+  same event ID delivered twice CONCURRENTLY
+    -> one queue job, one processed row, one side effect
+  same event ID delivered five times concurrently
+    -> still exactly one of each
+  claim succeeds, enqueue throws
+    -> event recoverable, not silently lost
+  out-of-order delivery (later event arrives first)
+    -> handled per Stripe's ordering guidance
+  unknown event type -> recorded, not queued, no error
+  invalid signature -> rejected 400, nothing queued
+  account.updated with capability lost -> vendor updated,
+    alert raised
+  account.updated with capability restored -> vendor updated
+  payment_intent.succeeded duplicate -> one payment record
+  charge.dispute.created duplicate -> one chargeback record
+
+Assert the ACTUAL observed counts, not intended behaviour.
+
+ACCEPTANCE CRITERIA
+- The concurrency test executes and passes. If it cannot
+  execute, say so loudly rather than marking it done.
+- No path enqueues before claiming.
+- account.updated is handled and tested both directions.
