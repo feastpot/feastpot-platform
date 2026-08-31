@@ -82,7 +82,7 @@ const SECTIONS: FaqSection[] = [
     title: 'Catering enquiries',
     body: [
       'Catering enquiries are routed to you by the Feastpot team. You will find them in the Catering section of your portal.',
-      'To respond, create an itemised quote with event details, line items, and allergens. The form calculates the deposit (25%, minimum GBP 50) and balance automatically. Set a quote expiry - the default is seven days - and send it to the customer from the quote detail page.',
+      'To respond, create an itemised quote with event details, line items, and allergens. Quotes must total at least GBP 50. Set your minimum cash deposit; the form charges the greater of 25% or your minimum, capped at the quote total. Set a quote expiry - the default is seven days - and send it to the customer from the quote detail page.',
       'Customers pay the deposit and balance through Feastpot. You track bookings through Quoted, Deposit paid, Confirmed, Balance paid, and Completed. Commission applies to catering bookings in the same way as regular orders.',
       'All 14 statutory allergens must be declared per line item in the quote, the same obligation as your regular menu items.',
     ],

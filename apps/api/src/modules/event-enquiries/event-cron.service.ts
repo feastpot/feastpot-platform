@@ -1,3 +1,7 @@
+import {
+  calculateCateringDeposit,
+  calculateLegacyEventDeposit,
+} from '@feastpot/config/catering-deposit';
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { EnquiryStatus, QuoteStatus } from '@prisma/client';
@@ -141,10 +145,21 @@ export class EventCronService {
       if (!accepted) continue;
       const guestCount = e.finalGuestCount ?? e.guestCount;
       const finalTotal = accepted.perHeadPence * guestCount + accepted.deliveryFeePence;
-      const depositPct = accepted.minDepositPct || 30;
-      const depositPaid = Math.round(
-        ((accepted.perHeadPence * e.guestCount + accepted.deliveryFeePence) * depositPct) / 100,
-      );
+      const originalTotal = accepted.perHeadPence * e.guestCount + accepted.deliveryFeePence;
+      const depositPaid =
+        accepted.legacyDepositPct !== null
+          ? calculateLegacyEventDeposit(originalTotal, accepted.legacyDepositPct)
+          : calculateCateringDeposit(
+              originalTotal,
+              accepted.minimumDepositPence,
+              originalTotal < 5_000 ? { enforceMinimumQuote: false } : undefined,
+            ).depositPence;
+      if (finalTotal < depositPaid) {
+        this.logger.warn(
+          `event-balance-48h: final total is below paid deposit for enquiry ${e.id}; manual review required`,
+        );
+        continue;
+      }
       const balance = Math.max(0, finalTotal - depositPaid);
       if (balance <= 0) continue;
       try {

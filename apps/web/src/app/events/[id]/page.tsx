@@ -1,5 +1,10 @@
 'use client';
 
+import {
+  calculateCateringDeposit,
+  calculateLegacyEventDeposit,
+  MINIMUM_CATERING_QUOTE_PENCE,
+} from '@feastpot/config/catering-deposit';
 import { Button } from '@feastpot/ui';
 import { CardElement, Elements, useElements, useStripe } from '@stripe/react-stripe-js';
 import Link from 'next/link';
@@ -131,7 +136,14 @@ function QuoteCard({
 
   const subtotal = quote.perHeadPence * guestCount;
   const total = subtotal + quote.deliveryFeePence;
-  const deposit = Math.max(50, Math.round((total * (quote.minDepositPct || 30)) / 100));
+  const deposit =
+    quote.legacyDepositPct !== null
+      ? calculateLegacyEventDeposit(total, quote.legacyDepositPct)
+      : calculateCateringDeposit(
+          total,
+          quote.minimumDepositPence,
+          total < MINIMUM_CATERING_QUOTE_PENCE ? { enforceMinimumQuote: false } : undefined,
+        ).depositPence;
 
   async function onChoose() {
     setErr(null);
@@ -217,7 +229,7 @@ function QuoteCard({
           <dd className="inline font-bold">{formatPounds(total)}</dd>
         </div>
         <div className="col-span-2">
-          <dt className="inline text-charcoal-mid">Deposit ({quote.minDepositPct}%): </dt>
+          <dt className="inline text-charcoal-mid">Deposit: </dt>
           <dd className="inline font-bold">{formatPounds(deposit)}</dd>
         </div>
       </dl>

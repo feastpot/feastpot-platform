@@ -33,6 +33,7 @@ export interface CateringBooking {
   eventAddress: string | null;
   preferredTime: string | null;
   totalPence: number;
+  minimumDepositPence: number;
   depositPence: number;
   balancePence: number;
   commissionPercent: string;
@@ -56,6 +57,7 @@ export interface CreateCateringBookingInput {
   eventAddress?: string;
   preferredTime?: string;
   lineItems: CateringLineItemInput[];
+  minimumDepositPence: number;
   quoteExpiresAt?: string;
 }
 
@@ -99,6 +101,7 @@ export interface FillCateringQuoteInput {
   guestCount?: number;
   eventAddress?: string;
   preferredTime?: string;
+  minimumDepositPence: number;
   quoteExpiresAt?: string;
 }
 

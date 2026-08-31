@@ -36,6 +36,11 @@ export class FillCateringQuoteDto {
   @Type(() => LineItemDto)
   lineItems!: LineItemDto[];
 
+  /** Vendor-selected minimum cash deposit in pence. */
+  @IsInt()
+  @Min(0)
+  minimumDepositPence!: number;
+
   /** ISO date string - overrides the event date derived from the enquiry. */
   @IsOptional()
   @IsString()

@@ -1209,22 +1209,23 @@ model EventEnquiry {
 }
 
 model EventQuote {
-  id               String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  enquiryId        String      @map("enquiry_id") @db.Uuid
-  vendorId         String      @map("vendor_id") @db.Uuid
-  pricePence       Int         @map("price_pence")
-  perHeadPence     Int         @default(0) @map("per_head_pence")
-  deliveryFeePence Int         @default(0) @map("delivery_fee_pence")
-  minDepositPct    Int         @default(30) @map("min_deposit_pct")
-  proposedMenu     String?     @map("proposed_menu")
-  terms            String?
-  message          String?
-  menuOutline      Json?       @map("menu_outline")
-  status           QuoteStatus @default(submitted)
-  expiresAt        DateTime?   @map("expires_at") @db.Timestamptz
-  acceptedAt       DateTime?   @map("accepted_at") @db.Timestamptz
-  createdAt        DateTime    @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt        DateTime    @updatedAt @map("updated_at") @db.Timestamptz
+  id                  String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  enquiryId           String      @map("enquiry_id") @db.Uuid
+  vendorId            String      @map("vendor_id") @db.Uuid
+  pricePence          Int         @map("price_pence")
+  perHeadPence        Int         @default(0) @map("per_head_pence")
+  deliveryFeePence    Int         @default(0) @map("delivery_fee_pence")
+  minimumDepositPence Int         @default(0) @map("minimum_deposit_pence")
+  legacyDepositPct    Int?        @map("legacy_deposit_pct")
+  proposedMenu        String?     @map("proposed_menu")
+  terms               String?
+  message             String?
+  menuOutline         Json?       @map("menu_outline")
+  status              QuoteStatus @default(submitted)
+  expiresAt           DateTime?   @map("expires_at") @db.Timestamptz
+  acceptedAt          DateTime?   @map("accepted_at") @db.Timestamptz
+  createdAt           DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime    @updatedAt @map("updated_at") @db.Timestamptz
 
   enquiry EventEnquiry @relation(fields: [enquiryId], references: [id], onDelete: Cascade)
   vendor  Vendor       @relation(fields: [vendorId], references: [id], onDelete: Cascade)
@@ -1647,37 +1648,38 @@ enum CateringBookingStatus {
 }
 
 model CateringBooking {
-  id                 String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  enquiryId          String                @unique @map("enquiry_id") @db.Uuid
-  vendorId           String                @map("vendor_id") @db.Uuid
-  customerId         String?               @map("customer_id") @db.Uuid
-  customerEmail      String                @map("customer_email") @db.VarChar(255)
-  customerName       String                @map("customer_name") @db.VarChar(200)
-  eventDate          DateTime              @map("event_date") @db.Timestamptz
-  guestCount         Int                   @map("guest_count")
-  eventAddress       String?               @map("event_address") @db.VarChar(500)
-  preferredTime      String?               @map("preferred_time") @db.VarChar(64)
-  totalPence         Int                   @map("total_pence")
-  depositPence       Int                   @map("deposit_pence")
-  balancePence       Int                   @map("balance_pence")
-  commissionPercent  Decimal               @map("commission_percent") @db.Decimal(5, 2)
-  commissionPence    Int                   @map("commission_pence")
-  commissionRateId   String?               @map("commission_rate_id")
-  attributionSource  AttributionSource?    @map("attribution_source")
-  status             CateringBookingStatus @default(QUOTED)
-  quoteExpiresAt     DateTime              @map("quote_expires_at") @db.Timestamptz
-  depositPiId        String?               @map("deposit_pi_id") @db.VarChar(100)
-  balancePiId        String?               @map("balance_pi_id") @db.VarChar(100)
-  stripeTransferId   String?               @map("stripe_transfer_id") @db.VarChar(100)
-  depositPaidAt      DateTime?             @map("deposit_paid_at") @db.Timestamptz
-  balancePaidAt      DateTime?             @map("balance_paid_at") @db.Timestamptz
-  completedAt        DateTime?             @map("completed_at") @db.Timestamptz
-  cancelledAt        DateTime?             @map("cancelled_at") @db.Timestamptz
-  cancellationReason String?               @map("cancellation_reason")
-  assignNote         String?               @map("assign_note")
-  qrScans            Int                   @default(0) @map("qr_scans")
-  createdAt          DateTime              @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt          DateTime              @updatedAt @map("updated_at") @db.Timestamptz
+  id                  String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  enquiryId           String                @unique @map("enquiry_id") @db.Uuid
+  vendorId            String                @map("vendor_id") @db.Uuid
+  customerId          String?               @map("customer_id") @db.Uuid
+  customerEmail       String                @map("customer_email") @db.VarChar(255)
+  customerName        String                @map("customer_name") @db.VarChar(200)
+  eventDate           DateTime              @map("event_date") @db.Timestamptz
+  guestCount          Int                   @map("guest_count")
+  eventAddress        String?               @map("event_address") @db.VarChar(500)
+  preferredTime       String?               @map("preferred_time") @db.VarChar(64)
+  totalPence          Int                   @map("total_pence")
+  minimumDepositPence Int                   @default(0) @map("minimum_deposit_pence")
+  depositPence        Int                   @map("deposit_pence")
+  balancePence        Int                   @map("balance_pence")
+  commissionPercent   Decimal               @map("commission_percent") @db.Decimal(5, 2)
+  commissionPence     Int                   @map("commission_pence")
+  commissionRateId    String?               @map("commission_rate_id")
+  attributionSource   AttributionSource?    @map("attribution_source")
+  status              CateringBookingStatus @default(QUOTED)
+  quoteExpiresAt      DateTime              @map("quote_expires_at") @db.Timestamptz
+  depositPiId         String?               @map("deposit_pi_id") @db.VarChar(100)
+  balancePiId         String?               @map("balance_pi_id") @db.VarChar(100)
+  stripeTransferId    String?               @map("stripe_transfer_id") @db.VarChar(100)
+  depositPaidAt       DateTime?             @map("deposit_paid_at") @db.Timestamptz
+  balancePaidAt       DateTime?             @map("balance_paid_at") @db.Timestamptz
+  completedAt         DateTime?             @map("completed_at") @db.Timestamptz
+  cancelledAt         DateTime?             @map("cancelled_at") @db.Timestamptz
+  cancellationReason  String?               @map("cancellation_reason")
+  assignNote          String?               @map("assign_note")
+  qrScans             Int                   @default(0) @map("qr_scans")
+  createdAt           DateTime              @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime              @updatedAt @map("updated_at") @db.Timestamptz
 
   enquiry   CateringEnquiry    @relation(fields: [enquiryId], references: [id])
   vendor    Vendor             @relation(fields: [vendorId], references: [id])

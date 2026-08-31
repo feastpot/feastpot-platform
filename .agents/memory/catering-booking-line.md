@@ -28,6 +28,14 @@ Even though many services are `@Global()`, `AuthModule` exports are not automati
 
 **How to apply:** Whenever creating a new NestJS module with routes protected by `@UseGuards(SupabaseAuthGuard)`, add `AuthModule` to its `imports` array.
 
+## Deposit policy compatibility
+
+Existing event quotes retain their historical percentage as a nullable legacy value; new and updated quotes use the 25% baseline plus a vendor cash minimum. Do not convert old 10–24% percentages into cash minimums because the new baseline would silently raise what customers owe.
+
+**Why:** Preserving only the old percentage's calculated cash amount is insufficient: the new 25% baseline overrides that amount. The legacy path must also cap the deposit at the quote total so historical edge cases cannot overcharge.
+
+**How to apply:** Keep legacy percentage handling in customer display, deposit collection, and final-balance calculation until all old quotes are closed. New quote writes must explicitly clear the legacy value.
+
 ## Migration applied
 `prisma/migrations/20260806170000_add_catering_bookings/migration.sql` — applied to dev DB 2026-08-06.
 Tables: `catering_bookings`, `catering_line_items`. Enum: `catering_booking_status`.

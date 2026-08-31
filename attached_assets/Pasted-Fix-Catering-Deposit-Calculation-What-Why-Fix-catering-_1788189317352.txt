@@ -1,0 +1,43 @@
+Fix Catering Deposit Calculation
+What & Why
+Fix catering quotes so they can never create a negative balance or charge a deposit that does not reconcile with the quoted total. Quotes below £50 will be rejected. For accepted quotes, vendors can set a minimum cash deposit; the customer deposit is the greater of 25% of the total (rounded up to the next penny) or that vendor minimum, capped at the total.
+
+Both catering quote implementations currently calculate deposits differently, and customer-facing previews duplicate part of the logic. The calculation, validation, user guidance, vendor terms, and Rate Schedule must agree.
+
+Done looks like
+Vendors cannot save or submit a catering quote whose total is below £50, and the UI explains the minimum clearly
+Vendors can enter a minimum deposit amount in pounds on both quote forms
+Every accepted quote uses the same rule: greater of 25% rounded up or the vendor minimum, never more than the total
+Deposit and balance always add up exactly to the total, and invalid figures throw before any quote or payment data is persisted
+Required fields are visibly marked and disabled Save/Submit controls explain what is missing or invalid
+Quote expiry cannot be later than the earlier of seven days from now and 48 hours before the event
+Allergen chips use the regulated labels “cereals containing gluten” and “tree nuts”
+Customer quote displays show the same deposit the API will charge
+Vendor Terms clause 8.1 and the public Rate Schedule describe the £50 minimum quote total, 25% baseline, vendor cash minimum, and total cap
+Boundary and integration tests cover zero and invalid line items, totals around £50, ordinary and large totals, expiry clamping, invariant failure, and identical results across both quote paths
+Out of scope
+Changing catering commission, refunds, cancellation tiers, or payout calculations
+Adding percentage-based vendor deposit choices alongside the cash minimum
+Applying database migrations directly to production
+Redesigning the wider catering or events journeys
+Steps
+Create one shared deposit policy — Add a reusable integer-pence calculation and validation module used by both catering quote paths and by payment selection, with explicit minimum-total and reconciliation checks that fail before persistence.
+Persist vendor cash minimums — Add the required quote data and validation so both quote types store a vendor-selected minimum deposit in pence without floating-point arithmetic.
+Align vendor quote forms — Add the minimum-deposit input, required markers, minimum-total validation, disabled-action explanations, expiry ceiling, and regulated allergen wording across the two quote experiences.
+Align customer payment display — Remove duplicated client-side policy drift and ensure quote cards display the same deposit amount returned and charged by the API.
+Update contractual wording — Amend the canonical Vendor Terms and Rate Schedule seed/source so the published rules match the implemented deposit policy.
+Add boundary and parity coverage — Test the supplied total matrix, empty and zero-quantity items, event-near expiry clamping, configured cash minimums, invariant failure before writes, and identical shared-policy output from both quote flows.
+Verify all affected apps — Run focused API tests plus type-check/lint/build checks for API, vendor, and web surfaces, then restart and inspect the relevant workflows.
+Critical constraint: all monetary calculations and persisted values must use integer pence. Parsing pounds is limited to UI boundaries, and the API remains the source of truth.
+
+Relevant files
+apps/api/src/modules/catering-bookings/catering-bookings.service.ts
+apps/api/src/modules/catering-bookings/dto/create-catering-booking.dto.ts
+apps/api/src/modules/event-enquiries/event-enquiries.service.ts
+apps/api/src/modules/event-enquiries/dto/submit-quote.dto.ts
+apps/vendor/src/app/catering/[id]/quote/quote-form.tsx
+apps/vendor/src/app/events/[id]/quote/quote-form.tsx
+apps/web/src/app/events/[id]/page.tsx
+prisma/schema.prisma
+prisma/seed-terms.ts
+apps/api/src/modules/terms/terms.service.ts

@@ -75,6 +75,11 @@ export class CreateCateringBookingDto {
   @Type(() => CateringLineItemDto)
   lineItems!: CateringLineItemDto[];
 
+  /** Vendor-selected minimum cash deposit in pence. */
+  @IsInt()
+  @Min(0)
+  minimumDepositPence!: number;
+
   /**
    * Optional: ISO 8601 datetime for quote expiry.
    * The service enforces the system maximum (min of 7 days / 48h before event)

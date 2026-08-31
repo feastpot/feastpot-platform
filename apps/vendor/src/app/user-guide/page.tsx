@@ -255,7 +255,7 @@ const CHAPTERS: GuideChapter[] = [
       {
         title: 'Create a quote',
         detail:
-          'Click New catering quote (or use the enquiry link sent by the Feastpot team). Fill in the event date, serving time, guest count, and venue address. Add line items with a description, quantity, and unit price. The form calculates the total, deposit (25%, minimum GBP 50), and balance live. Set a quote expiry - the default is seven days.',
+          'Click New catering quote (or use the enquiry link sent by the Feastpot team). Fill in the event date, serving time, guest count, and venue address. Add line items with a description, quantity, and unit price. Quotes must total at least GBP 50. Set your minimum cash deposit; the form charges the greater of 25% or your minimum, capped at the quote total. Set a quote expiry - the default is seven days.',
       },
       {
         title: 'Declare allergens on each line item',
