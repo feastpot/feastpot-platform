@@ -416,6 +416,12 @@ Catering quotes must total at least GBP 50. The customer deposit is the greater 
 of the quote total (rounded up to the next penny) or the vendor's stated minimum cash
 deposit, capped at the quote total.
 
+## Catering deposits
+
+Catering quotes must total at least GBP 50. The customer deposit is the greater of 25%
+of the quote total (rounded up to the next penny) or the vendor's stated minimum cash
+deposit, capped at the quote total.
+
 ## Promotional Rates (INCENTIVE)
 
 | Segment | Rate | Basis |
