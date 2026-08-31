@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 
+import { reportErrorIncident } from '@/lib/api/error-incidents';
+
 /**
  * Last-resort boundary for crashes in the ROOT layout itself. Next.js renders
  * this in place of the root layout, so global CSS / Tailwind is NOT loaded.
@@ -26,28 +28,14 @@ export default function GlobalError({
     if (hasLogged.current) return;
     hasLogged.current = true;
 
-    const apiBase =
-      (typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_API_URL : undefined) ??
-      'https://api.feastpot.co.uk';
-
-    fetch(`${apiBase}/v1/error-incidents`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        app: 'vendor',
-        route: typeof window !== 'undefined' ? window.location.pathname : '/',
-        message: error.message || 'Root layout error',
-        digest: error.digest,
-      }),
-      signal: AbortSignal.timeout(5000),
-    })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data: { ref?: string } | null) => {
-        if (data?.ref) setRef(data.ref);
-      })
-      .catch(() => {
-        /* suppress - error reporting must never throw */
-      });
+    void reportErrorIncident({
+      app: 'vendor',
+      route: typeof window !== 'undefined' ? window.location.pathname : '/',
+      message: error.message || 'Root layout error',
+      digest: error.digest,
+    }).then((incidentRef) => {
+      if (incidentRef) setRef(incidentRef);
+    });
   }, [error]);
 
   const subject = ref ? `Error ${ref} - vendor portal` : 'Vendor portal error';

@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
+
+import { reportErrorIncident } from '@/lib/api/error-incidents';
 
 /**
  * Last-resort boundary for crashes in the ROOT layout itself. Next.js renders
@@ -14,8 +16,19 @@ export default function GlobalError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const [incidentRef, setIncidentRef] = useState<string | null>(null);
+  const hasReported = useRef(false);
+
   useEffect(() => {
     console.error('[Admin Panel] root layout error:', error);
+    if (hasReported.current) return;
+    hasReported.current = true;
+    void reportErrorIncident({
+      app: 'admin',
+      route: window.location.pathname,
+      message: error.message || 'Root layout error',
+      digest: error.digest,
+    }).then(setIncidentRef);
   }, [error]);
 
   return (
@@ -37,8 +50,18 @@ export default function GlobalError({
           <h1 style={{ fontSize: '22px', fontWeight: 800, margin: '0 0 8px' }}>
             Something went wrong
           </h1>
-          <p style={{ fontSize: '14px', color: '#6b6b66', margin: '0 0 24px', lineHeight: 1.6 }}>
-            We hit an unexpected error. Please try again.
+          <p style={{ fontSize: '14px', color: '#6b6b66', margin: '0 0 8px', lineHeight: 1.6 }}>
+            We hit an unexpected error. It&rsquo;s been logged and we&rsquo;ll look into it.
+          </p>
+          <p
+            style={{
+              fontSize: '12px',
+              fontFamily: 'monospace',
+              color: '#9b9b96',
+              margin: '0 0 24px',
+            }}
+          >
+            {incidentRef ? `Ref: ${incidentRef}` : 'Logging error...'}
           </p>
           <button
             type="button"
