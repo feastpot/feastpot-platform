@@ -22,12 +22,16 @@ export class CreateErrorIncidentDto {
   @MaxLength(50)
   digest?: string;
 
-  /** Authenticated vendor's user id, if known at the time of the error */
+  /**
+   * Deprecated diagnostic input retained so older clients are not rejected.
+   * Never persisted as authoritative attribution; the API derives identity
+   * exclusively from a validated bearer session.
+   */
   @IsOptional()
   @IsUUID()
   vendorId?: string;
 
-  /** Authenticated user id, if known */
+  /** @deprecated Ignored. Authenticated user attribution is session-derived. */
   @IsOptional()
   @IsUUID()
   userId?: string;

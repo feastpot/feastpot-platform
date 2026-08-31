@@ -1,9 +1,21 @@
-import { Body, Controller, Get, NotFoundException, Param, Post, Query, Req } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  NotFoundException,
+  Param,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { UserRole } from '@prisma/client';
 import type { Request } from 'express';
 
 import { Public } from '../../auth/decorators/public.decorator';
 import { Roles } from '../../auth/decorators/roles.decorator';
+import { OptionalAuthGuard } from '../../auth/guards/optional-auth.guard';
+import type { AuthedRequest } from '../../auth/types';
 
 import { CreateErrorIncidentDto } from './dto/create-error-incident.dto';
 import { ErrorIncidentsService } from './error-incidents.service';
@@ -30,10 +42,14 @@ export class ErrorIncidentsController {
    * (anonymous cap: 30 req/min). Genuinely harmless spam is the worst case.
    */
   @Public()
+  @UseGuards(OptionalAuthGuard)
   @Post()
-  async create(@Body() dto: CreateErrorIncidentDto, @Req() req: Request): Promise<{ ref: string }> {
+  async create(
+    @Body() dto: CreateErrorIncidentDto,
+    @Req() req: Request & AuthedRequest,
+  ): Promise<{ ref: string }> {
     const userAgent = (req.headers['user-agent'] as string | undefined) ?? undefined;
-    const incident = await this.service.create(dto, userAgent);
+    const incident = await this.service.create(dto, req.user ?? null, userAgent);
     return { ref: incident.ref };
   }
 

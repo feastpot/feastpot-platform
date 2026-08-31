@@ -1,8 +1,10 @@
 import { randomBytes } from 'crypto';
 
 import { Injectable, Logger } from '@nestjs/common';
+import { UserRole } from '@prisma/client';
 import * as Sentry from '@sentry/nestjs';
 
+import type { AuthUser } from '../../auth/types';
 import { PrismaService } from '../../prisma/prisma.service';
 
 import { CreateErrorIncidentDto } from './dto/create-error-incident.dto';
@@ -36,9 +38,20 @@ export class ErrorIncidentsService {
     return `FP-${a}-${b}`;
   }
 
-  async create(dto: CreateErrorIncidentDto, userAgent?: string): Promise<ErrorIncidentRow> {
+  async create(
+    dto: CreateErrorIncidentDto,
+    principal: AuthUser | null,
+    userAgent?: string,
+  ): Promise<ErrorIncidentRow> {
     const id = randomBytes(18).toString('base64url');
     const ref = this.generateRef();
+    const vendor =
+      principal?.role === UserRole.vendor
+        ? await this.prisma.vendor.findUnique({
+            where: { userId: principal.id },
+            select: { id: true },
+          })
+        : null;
 
     const incident = await this.prisma.errorIncident.create({
       data: {
@@ -48,8 +61,8 @@ export class ErrorIncidentsService {
         route: dto.route,
         message: dto.message.slice(0, 2000),
         digest: dto.digest ?? null,
-        vendorId: dto.vendorId ?? null,
-        userId: dto.userId ?? null,
+        vendorId: vendor?.id ?? null,
+        userId: principal?.id ?? null,
         userAgent: userAgent ? userAgent.slice(0, 500) : null,
       },
     });
@@ -65,7 +78,8 @@ export class ErrorIncidentsService {
         app: dto.app,
         route: dto.route,
         digest: dto.digest,
-        vendorId: dto.vendorId,
+        vendorId: vendor?.id ?? null,
+        userId: principal?.id ?? null,
       },
     });
 

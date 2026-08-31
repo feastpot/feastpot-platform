@@ -1,7 +1,9 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
+
+import { reportErrorIncident } from '@/lib/api/error-incidents';
 
 /**
  * Route-segment error boundary for the customer PWA. Rendered inside the root
@@ -16,9 +18,23 @@ export default function Error({
   reset: () => void;
 }) {
   const router = useRouter();
+  const [incidentRef, setIncidentRef] = useState<string | null>(null);
+  const [reporting, setReporting] = useState(true);
+  const hasReported = useRef(false);
 
   useEffect(() => {
     console.error('[Feastpot] route error:', error);
+    if (hasReported.current) return;
+    hasReported.current = true;
+    void reportErrorIncident({
+      app: 'web',
+      route: window.location.pathname,
+      message: error.message || 'Unknown error',
+      digest: error.digest,
+    }).then((ref) => {
+      setIncidentRef(ref);
+      setReporting(false);
+    });
   }, [error]);
 
   return (
@@ -33,9 +49,9 @@ export default function Error({
         <p className="mx-auto mt-2 max-w-sm text-sm font-medium text-muted-foreground">
           We hit an unexpected error. It&rsquo;s been logged and we&rsquo;ll look into it.
         </p>
-        {error.digest ? (
-          <p className="mt-3 font-mono text-xs text-muted-foreground/70">Ref: {error.digest}</p>
-        ) : null}
+        <p className="mt-3 font-mono text-xs text-muted-foreground/70" aria-live="polite">
+          {reporting ? 'Logging\u2026' : incidentRef ? `Ref: ${incidentRef}` : null}
+        </p>
         <div className="mt-6 flex flex-col gap-2">
           <button
             type="button"

@@ -75,7 +75,7 @@ export default function Error({
             : ref
               ? `Ref: ${ref}`
               : error.digest
-                ? `Ref: ${error.digest}`
+                ? `Diagnostic: ${error.digest}`
                 : null}
         </p>
 
