@@ -12,11 +12,11 @@ export const dynamic = 'force-dynamic';
  *
  * This route is in the middleware allowlist so an aal1 staff session can reach
  * it without being redirected again. requireStaff is called with
- * skipAalCheck: true for the same reason.
+ * skipAalCheck: true for the same reason. It remains available while a
+ * deployment is being repaired so staff can enrol safely before release.
  *
  * All staff roles can reach this page (not just admin), because every staff
- * member needs to enrol before they can access any other admin route when
- * ADMIN_REQUIRE_AAL2 is on.
+ * member needs to enrol before they can access any other admin route.
  */
 export default async function TwoFaPage({
   searchParams,

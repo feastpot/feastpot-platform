@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 
 import { apiRequest, ApiError } from '@/lib/api/client';
+import { isAdminMfaEnforced } from '@/lib/auth/mfa-enforcement';
 import { createClient as createServerSupabase } from '@/lib/supabase/server';
 
 export type StaffRole = 'admin' | 'support' | 'finance' | 'compliance';
@@ -50,10 +51,9 @@ function decodeAalFromJwt(jwt: string): 'aal1' | 'aal2' {
  * + access token (so server components can pass it to apiRequest), or
  * redirects to /sign-in or /unauthorized as appropriate.
  *
- * When ADMIN_REQUIRE_AAL2=true and `skipAalCheck` is not set, an aal1
- * session is redirected to /settings/2fa (the TOTP enrolment page). The
- * /settings/2fa page itself passes `skipAalCheck: true` to avoid a redirect
- * loop.
+ * When both admin MFA flags are true, an aal1 session is redirected to
+ * /settings/2fa. If either flag is absent or false, every route except the
+ * enrolment page is blocked until deployment configuration is repaired.
  *
  * `allowedRoles` lets a route narrow further (e.g. payouts -> admin/finance only).
  */
@@ -79,11 +79,14 @@ export async function requireStaff(
   } = await supabase.auth.getSession();
   if (!session) redirect(`/sign-in?next=${encodeURIComponent(pathname)}`);
 
-  // AAL defence-in-depth: even if a request somehow bypasses the middleware
-  // gate (e.g. a server action hit directly), enforce aal2 here.
-  // The /settings/2fa page passes skipAalCheck: true to avoid a redirect loop.
-  const requireAal2 = process.env.ADMIN_REQUIRE_AAL2 === 'true';
+  // Defence-in-depth: even if a request bypasses middleware, never serve a
+  // privileged server component while admin MFA configuration is incomplete.
+  // The /settings/2fa page passes skipAalCheck to keep enrolment reachable.
+  const requireAal2 = isAdminMfaEnforced();
   const aal = decodeAalFromJwt(session.access_token);
+  if (!opts?.skipAalCheck && !requireAal2) {
+    redirect('/unauthorized?reason=mfa-configuration');
+  }
   if (requireAal2 && !opts?.skipAalCheck && aal !== 'aal2') {
     redirect(`/settings/2fa?next=${encodeURIComponent(pathname)}`);
   }

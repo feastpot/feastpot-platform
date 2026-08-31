@@ -9,7 +9,7 @@
 import * as assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { formatRatio } from './format-ratio.js';
+import { formatRatio } from './format-ratio';
 
 describe('formatRatio', () => {
   it('returns "No data yet" when denominator is zero', () => {

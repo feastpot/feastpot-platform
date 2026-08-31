@@ -6,7 +6,11 @@ description: How the AAL-based staff 2FA gate works, where each layer lives, and
 # Admin 2FA enforcement
 
 ## Flag
-`ADMIN_REQUIRE_AAL2=true` in both the API (runtime) and admin Next.js app (`NEXT_PUBLIC_ADMIN_REQUIRE_AAL2=true` for build-time sign-in copy). Default off; turns on only after all staff accounts have enrolled.
+Production requires `ADMIN_REQUIRE_AAL2=true` for the API and both `ADMIN_REQUIRE_AAL2=true` plus `NEXT_PUBLIC_ADMIN_REQUIRE_AAL2=true` for the admin app. Missing, false, or differently cased values fail closed. Enrol every staff account before setting the flags.
+
+**Why:** An optional flag silently reduced privileged access to password-only authentication when a deployment variable was omitted.
+
+**How to apply:** Keep `/settings/2fa` reachable for authenticated enrolment/challenge, but do not let any other privileged route or production release proceed unless the required flags are exactly `true`.
 
 ## Three gate layers (belt-and-suspenders)
 1. **Middleware** (`apps/admin/src/middleware.ts`): after `getUser()`, calls `getSession()` to read the JWT, decodes `aal` with `atob()` (edge-safe). Redirects aal1 to `/settings/2fa?next=<original>`. Allowlist: `/settings/2fa`, `/sign-in`, `/unauthorized`.
@@ -29,5 +33,5 @@ Removing a TOTP factor in the Supabase Dashboard does NOT immediately downgrade 
 ## Recovery docs
 `docs/2fa-recovery.md` — FOUNDER ACTION runbook for factor removal and re-enrolment.
 
-## Startup warning
-`apps/api/src/main.ts` logs a loud console.error when `NODE_ENV=production` and `ADMIN_REQUIRE_AAL2` is not `'true'`. Never hard-exits (sequencing rule: enrol first, flip flag second).
+## Release enforcement
+The API asserts the production flag before Nest creates a listener. The production deployment workflow validates both API and admin flag surfaces before migrations or frontend deploy hooks run.
