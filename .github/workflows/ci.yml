@@ -245,7 +245,7 @@ jobs:
   #    provided via secrets so integration tests can hit a real Postgres.
   # ----------------------------------------------------------------------------
   test:
-    name: Test (coverage ≥ 70%)
+    name: Test (coverage thresholds)
     needs: [setup]
     runs-on: ubuntu-latest
     # Throwaway Postgres service — no external secrets needed. DB-gated
@@ -300,10 +300,10 @@ jobs:
         #     --shadow-database-url <local-empty-postgres-url> --exit-code
         run: npx prisma migrate deploy --schema=./prisma/schema.prisma
       - name: Run tests with coverage
-        # `--` passes flags through Turbo to each workspace's test runner.
-        # Coverage thresholds (≥70 %) should be enforced inside each workspace's
-        # jest.config / vitest.config — failure there fails this job.
-        run: npx turbo run test -- --coverage --ci
+        # Only workspaces with real Jest suites belong in this coverage gate.
+        # The vendor workspace has an e2e-only echo script, so including it
+        # would make test discovery appear healthy without running assertions.
+        run: npx turbo run test --filter=@feastpot/api --filter=@feastpot/web -- --coverage --ci
       - name: Upload coverage to Codecov (optional)
         if: always()
         uses: codecov/codecov-action@v4

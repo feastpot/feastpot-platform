@@ -33,6 +33,8 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 const VENDOR_BASE_URL = process.env.TEST_VENDOR_BASE_URL ?? '';
+const APP_ROOT = path.resolve(__dirname, '../..');
+const REPO_ROOT = path.resolve(APP_ROOT, '../..');
 
 // ---------------------------------------------------------------------------
 // I1: Cookie domain inspection (static code analysis)
@@ -44,34 +46,34 @@ test.describe('I1: cookie domain static inspection', () => {
    * This is a static assertion against the source files, not a runtime test.
    */
   test('I1: apps/web Supabase client does not set cookieOptions.domain', () => {
-    const clientFile = path.join(process.cwd(), 'apps/web/src/lib/supabase/client.ts');
+    const clientFile = path.join(APP_ROOT, 'src/lib/supabase/client.ts');
     const content = fs.readFileSync(clientFile, 'utf-8');
     expect(content).not.toMatch(/cookieOptions/);
     expect(content).not.toMatch(/domain:\s*['"`]/);
   });
 
   test('I1: apps/web Supabase server client does not set cookieOptions.domain', () => {
-    const serverFile = path.join(process.cwd(), 'apps/web/src/lib/supabase/server.ts');
+    const serverFile = path.join(APP_ROOT, 'src/lib/supabase/server.ts');
     const content = fs.readFileSync(serverFile, 'utf-8');
     expect(content).not.toMatch(/cookieOptions.*domain/);
     expect(content).not.toMatch(/domain:\s*['"`]\.feastpot/);
   });
 
   test('I1: apps/web middleware client does not set cookieOptions.domain', () => {
-    const mwFile = path.join(process.cwd(), 'apps/web/src/lib/supabase/middleware.ts');
+    const mwFile = path.join(APP_ROOT, 'src/lib/supabase/middleware.ts');
     const content = fs.readFileSync(mwFile, 'utf-8');
     expect(content).not.toMatch(/domain:\s*['"`]\.feastpot/);
   });
 
   test('I1: apps/vendor Supabase client does not set cookieOptions.domain', () => {
-    const vendorClientFile = path.join(process.cwd(), 'apps/vendor/src/lib/supabase/client.ts');
+    const vendorClientFile = path.join(REPO_ROOT, 'apps/vendor/src/lib/supabase/client.ts');
     const content = fs.readFileSync(vendorClientFile, 'utf-8');
     expect(content).not.toMatch(/cookieOptions/);
     expect(content).not.toMatch(/domain:\s*['"`]/);
   });
 
   test('I1: apps/vendor Supabase server client does not set cookieOptions.domain', () => {
-    const vendorServerFile = path.join(process.cwd(), 'apps/vendor/src/lib/supabase/server.ts');
+    const vendorServerFile = path.join(REPO_ROOT, 'apps/vendor/src/lib/supabase/server.ts');
     const content = fs.readFileSync(vendorServerFile, 'utf-8');
     expect(content).not.toMatch(/domain:\s*['"`]\.feastpot/);
   });
@@ -93,7 +95,7 @@ test.describe('I3: wildcard domain flag check', () => {
     ];
 
     for (const relPath of filesToCheck) {
-      const absPath = path.join(process.cwd(), relPath);
+      const absPath = path.join(REPO_ROOT, relPath);
       if (!fs.existsSync(absPath)) continue;
       const content = fs.readFileSync(absPath, 'utf-8');
       // If this assertion fails, it means session isolation between web and

@@ -8,7 +8,7 @@
     "dev": "nest start --watch",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src --ext .ts",
-    "test": "jest --passWithNoTests",
+    "test": "jest",
     "clean": "rm -rf dist .turbo"
   },
   "dependencies": {

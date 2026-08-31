@@ -1,0 +1,59 @@
+TASK: Make the existing test suites actually run.
+
+FOUR VERIFIED DEFECTS FROM PHASE 2
+
+D1. THE ONE-CHARACTER BUG THAT VOIDS YOUR ONLY BROWSER GATE
+apps/vendor/e2e/helpers/verification-banner-mocks.ts:146
+contains the text /vendors/*/verification inside a JSDoc
+comment. The */ sequence terminates the comment early and
+Playwright collection fails before a single test runs. The
+e2e-vendor CI job is therefore protecting nothing.
+Fix: escape it, restructure the comment, or move the path
+string out of the comment entirely. Then confirm collection
+succeeds and the ten vendor specs actually execute.
+
+D2. ADMIN SPECS ASSIGNED TO NO PROJECT
+apps/admin/playwright.config.ts:36-53 defines only 'setup' and
+'debounce'. These spec files exist but never run:
+  e2e/admin-shell.spec.ts
+  e2e/catering-sla.spec.ts
+  e2e/vendors.spec.ts
+Add projects covering every present spec, each depending on
+setup. Then verify the count of executed tests matches the
+count of defined tests.
+
+D3. COVERAGE THEATRE
+.github/workflows/ci.yml:247 names the job "Test (coverage >=
+70%)". Neither apps/api/jest.config.js nor
+apps/web/jest.config.js defines coverageThreshold. Measured API
+statement coverage is 41.83% and branches 34.74%.
+Choose one and do it honestly:
+  (a) Set a real threshold at the CURRENT measured level, then
+      ratchet it upward as tests are added. Never set 70% today
+      because it will fail immediately and be disabled.
+  (b) Rename the job to remove the false claim.
+Option (a) is preferred. Set API at 40% statements now, with a
+written plan to reach 60%.
+Also add apps/web's real threshold: its 100% is measured over
+a single file (feastpass-callout.ts) and is meaningless as
+stated. Widen testMatch beyond **/__tests__/**/*.test.ts.
+
+D4. passWithNoTests
+Both API and web use --passWithNoTests. Remove it. If test
+discovery ever breaks, CI must go red rather than green. The
+vendor workspace's echo-only test script should either gain
+real unit tests or be excluded explicitly from the coverage
+job rather than silently passing.
+
+ALSO
+Fix the web e2e path construction bug producing
+apps/web/apps/web/... ENOENT failures in test:e2e:auth.
+Remove test:e2e:ui and test:e2e:report from any CI path; they
+start interactive servers and will always time out.
+
+ACCEPTANCE CRITERIA
+- Vendor Playwright collects and runs all ten specs.
+- Admin Playwright executes every present spec file.
+- A deliberately broken test discovery causes CI to fail.
+- Coverage thresholds are real and currently passing.
+- No interactive command is invoked by CI.

@@ -50,5 +50,38 @@ export default defineConfig({
       },
       dependencies: ['setup'],
     },
+
+    // ── Admin shell tests ─────────────────────────────────────────────────────
+    {
+      name: 'admin-shell',
+      testMatch: /admin-shell\.spec\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: 'e2e/.auth/admin.json',
+      },
+      dependencies: ['setup'],
+    },
+
+    // ── Catering SLA tests ────────────────────────────────────────────────────
+    {
+      name: 'catering-sla',
+      testMatch: /catering-sla\.spec\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: 'e2e/.auth/admin.json',
+      },
+      dependencies: ['setup'],
+    },
+
+    // ── Vendors page tests ─────────────────────────────────────────────────────
+    {
+      name: 'vendors',
+      testMatch: /vendors\.spec\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: 'e2e/.auth/admin.json',
+      },
+      dependencies: ['setup'],
+    },
   ],
 });
