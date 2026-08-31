@@ -164,7 +164,7 @@ export function OnboardingClient({ vendor }: { vendor: VendorSummary }) {
             <p className="text-sm text-muted-foreground">
               {termsDone
                 ? 'You have read and accepted the Feastpot Vendor Terms of Agreement.'
-                : 'Read and accept the Vendor Terms of Agreement (version 2.0) before your account can go live. Takes about 5 minutes.'}
+                : 'Read and accept the current Vendor Terms of Agreement before menu setup or go-live. Takes about 5 minutes.'}
             </p>
             {!termsDone && (
               <Link href="/onboarding/terms" className="mt-2 inline-block">
@@ -232,11 +232,19 @@ export function OnboardingClient({ vendor }: { vendor: VendorSummary }) {
                 ? `You have ${menuItemCount} items live - nice work.`
                 : `You need at least 3 items live before compliance can approve you (${menuItemCount} so far). The full editor is in the menu section.`}
             </p>
-            <Link href="/menu" className="mt-2 inline-block">
+            <Link
+              href={termsDone ? '/menu' : '/onboarding/terms'}
+              className="mt-2 inline-block"
+            >
               <Button variant="outline" size="sm" className="gap-2">
                 <Upload className="h-4 w-4" /> Open menu builder
               </Button>
             </Link>
+            {!termsDone && (
+              <p className="mt-2 text-xs font-medium text-amber-700">
+                Accept the Vendor Terms first to unlock menu setup.
+              </p>
+            )}
           </>
         }
       />

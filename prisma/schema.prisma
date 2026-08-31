@@ -772,6 +772,9 @@ model Vendor {
   stripeRequirementsDisabledReason      String?      @map("stripe_requirements_disabled_reason") @db.VarChar(255)
   stripeAccountUpdatedAt                DateTime?    @map("stripe_account_updated_at") @db.Timestamptz
   approvedAt                            DateTime?    @map("approved_at") @db.Timestamptz
+  /// Set atomically with the vendor's first valid current-terms acceptance.
+  /// Post-approval setup remains locked until this timestamp exists.
+  termsActivatedAt                      DateTime?    @map("terms_activated_at") @db.Timestamptz
   suspendedAt                           DateTime?    @map("suspended_at") @db.Timestamptz
 
   // FSA Food Hygiene Rating Scheme compliance (Prompt 13).
@@ -1928,8 +1931,8 @@ model TermsVersion {
   publishedAt      DateTime          @map("published_at") @db.Timestamptz
   /// When the terms take effect. Must be >= 15 days after publishedAt for isMaterial=true.
   effectiveAt      DateTime          @map("effective_at") @db.Timestamptz
-  /// Set when a newer version supersedes this one. Exactly one version per documentType
-  /// may have supersededAt IS NULL (the live version).
+  /// Set only when a replacement is already effective. Future versions coexist
+  /// with the current effective version during their notice period.
   supersededAt     DateTime?         @map("superseded_at") @db.Timestamptz
   /// Staff member who published this version (email or name for audit trail).
   createdBy        String?           @map("created_by") @db.VarChar(255)

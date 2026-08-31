@@ -16,6 +16,10 @@ interface VendorMe {
   status: string;
 }
 
+interface AcceptanceStatus {
+  accepted: boolean;
+}
+
 export default async function MenuPage() {
   const supabase = await createServerSupabase();
   const {
@@ -24,17 +28,27 @@ export default async function MenuPage() {
   if (!session) redirect('/sign-in?next=/menu');
 
   let vendor: VendorMe;
+  let termsAccepted = false;
   try {
-    vendor = await apiRequest<VendorMe>('/vendors/me', {
-      accessToken: session.access_token,
-      next: { revalidate: 0 },
-    });
+    const [vendorResult, acceptance] = await Promise.all([
+      apiRequest<VendorMe>('/vendors/me', {
+        accessToken: session.access_token,
+        next: { revalidate: 0 },
+      }),
+      apiRequest<AcceptanceStatus>('/terms/acceptance-status', {
+        accessToken: session.access_token,
+        next: { revalidate: 0 },
+      }),
+    ]);
+    vendor = vendorResult;
+    termsAccepted = acceptance.accepted;
   } catch (err) {
     if (err instanceof ApiError && (err.status === 403 || err.status === 404))
       redirect('/unauthorized');
     throw err;
   }
-  if (vendor.status !== 'live' && vendor.status !== 'probation') redirect('/onboarding');
+  if (!termsAccepted) redirect('/onboarding/terms');
+  if (!['approved', 'live', 'probation'].includes(vendor.status)) redirect('/onboarding');
 
   return (
     <PortalShell businessName={vendor.businessName}>

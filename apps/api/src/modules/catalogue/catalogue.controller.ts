@@ -36,11 +36,13 @@ import { ReorderMenusDto } from './dto/reorder-menus.dto';
 import { ToggleAvailabilityDto } from './dto/toggle-availability.dto';
 import { UpdateMenuItemDto } from './dto/update-menu-item.dto';
 import { UpdateMenuDto } from './dto/update-menu.dto';
+import { TermsAcceptanceGuard } from './guards/terms-acceptance.guard';
 import { VendorOwnershipGuard } from './guards/vendor-ownership.guard';
 import { MenuItemsService } from './menu-items.service';
 import { MenusService } from './menus.service';
 
 @ApiTags('Catalogue')
+@UseGuards(TermsAcceptanceGuard)
 @Controller({ path: 'vendors/:vendorId', version: '1' })
 export class CatalogueController {
   constructor(

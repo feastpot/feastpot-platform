@@ -11,6 +11,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import {
   AmendmentStatus,
@@ -42,6 +43,7 @@ import { InboxService } from '../inbox/inbox.service';
 import { LoyaltyService } from '../loyalty/loyalty.service';
 import { ReferralService } from '../loyalty/referral.service';
 import { PaymentsService } from '../payments/payments.service';
+import { TermsService } from '../terms/terms.service';
 import { VENDOR_ORDER_ROLES, VendorMembersService } from '../vendor-members/vendor-members.service';
 import {
   CapacityExceededError,
@@ -219,6 +221,7 @@ export class OrdersService {
     // AnalyticsModule is @Global: fire-and-forget order_attribution_source
     // events server-side so attribution reporting is never lost to ad-blockers.
     private readonly analytics: AnalyticsService,
+    @Optional() private readonly terms?: TermsService,
   ) {}
 
   // Best-effort BullMQ wrappers. When REDIS_URL is unset (dev/CI), the
@@ -1161,6 +1164,9 @@ export class OrdersService {
         message: 'Only the owning vendor (or admin) may update this order',
       });
     }
+    if (!isAdmin) {
+      await this.terms?.assertAcceptedCurrentVersion(order.vendorId);
+    }
     if (!isVendorTransitionAllowed(order.status, dto.status)) {
       throw new BadRequestException({
         code: 'ILLEGAL_TRANSITION',
@@ -1762,6 +1768,7 @@ export class OrdersService {
       if (!allowed) {
         throw new ForbiddenException({ code: 'NOT_ORDER_VENDOR', message: 'Not your order' });
       }
+      await this.terms?.assertAcceptedCurrentVersion(order.vendorId);
     }
 
     const PROPOSABLE: OrderStatus[] = [
