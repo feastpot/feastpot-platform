@@ -1,10 +1,15 @@
 'use client';
 
+import {
+  calculateCateringDeposit,
+  MINIMUM_CATERING_QUOTE_PENCE,
+} from '@feastpot/config/catering-deposit';
 import { useRouter } from 'next/navigation';
 import { type FormEvent, useEffect, useState } from 'react';
 
 import {
   useCreateCateringBooking,
+  useFillCateringQuote,
   useSendCateringQuote,
   useVendorCateringBooking,
 } from '@/hooks/use-catering-bookings';
@@ -76,6 +81,7 @@ export function CateringQuoteForm({
   const { data: existing } = useVendorCateringBooking(bookingId, accessToken);
 
   const create = useCreateCateringBooking(accessToken);
+  const fill = useFillCateringQuote(bookingId ?? '', accessToken);
   const send = useSendCateringQuote(bookingId ?? '', accessToken);
 
   const [items, setItems] = useState<LineItemState[]>([emptyItem()]);
@@ -83,6 +89,7 @@ export function CateringQuoteForm({
   const [guestCount, setGuestCount] = useState('');
   const [eventAddress, setEventAddress] = useState('');
   const [preferredTime, setPreferredTime] = useState('');
+  const [minimumDepositPounds, setMinimumDepositPounds] = useState('0.00');
   const [quoteExpiry, setQuoteExpiry] = useState(defaultExpiry());
   const [expiryClamped, setExpiryClamped] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
@@ -94,6 +101,7 @@ export function CateringQuoteForm({
     setGuestCount(String(existing.guestCount));
     setEventAddress(existing.eventAddress ?? '');
     setPreferredTime(existing.preferredTime ?? '');
+    setMinimumDepositPounds((existing.minimumDepositPence / 100).toFixed(2));
     setQuoteExpiry(new Date(existing.quoteExpiresAt).toISOString().slice(0, 16));
     if (existing.lineItems && existing.lineItems.length > 0) {
       setItems(
@@ -108,21 +116,25 @@ export function CateringQuoteForm({
   }, [existing]);
 
   // ── Deposit calculation ────────────────────────────────────────────────────
-  // All arithmetic is in integer pence to avoid floating-point drift.
-  // Deposit = exactly 25% of total, rounded to nearest penny.
-  // Balance = total minus deposit - guarantees deposit + balance === total.
-  // No minimum floor: the hardcoded £50 default was a development placeholder
-  // and does not reflect a business rule (vendor terms clause 8.1).
   const totalPence: number = items.reduce((s, li) => {
     const qty = parseInt(li.quantity || '0', 10) || 0;
     const unit = Math.round(parseFloat(li.unitPounds || '0') * 100) || 0;
     return s + qty * unit;
   }, 0);
-  const depositPence: number = Math.round(totalPence * 0.25);
-  const balancePence: number = totalPence - depositPence;
-  // Arithmetic invariant: deposit + balance must always equal total.
-  // With integer arithmetic this cannot fail, but we assert defensively.
-  const totalsConsistent: boolean = depositPence + balancePence === totalPence;
+  const minimumDepositPence = Math.round(parseFloat(minimumDepositPounds || '0') * 100);
+  let depositPence = 0;
+  let balancePence = totalPence;
+  let totalsConsistent = false;
+  if (
+    totalPence >= MINIMUM_CATERING_QUOTE_PENCE &&
+    Number.isSafeInteger(minimumDepositPence) &&
+    minimumDepositPence >= 0
+  ) {
+    const breakdown = calculateCateringDeposit(totalPence, minimumDepositPence);
+    depositPence = breakdown.depositPence;
+    balancePence = breakdown.balancePence;
+    totalsConsistent = true;
+  }
 
   // ── Expiry clamping ────────────────────────────────────────────────────────
   // Clamp quote expiry to the earlier of: 7 days from now, or 48 h before
@@ -169,7 +181,7 @@ export function CateringQuoteForm({
   async function handleCreate(e: FormEvent) {
     e.preventDefault();
     setServerError(null);
-    if (!enquiryId) {
+    if (!enquiryId && !bookingId) {
       setServerError('No enquiry ID');
       return;
     }
@@ -182,15 +194,20 @@ export function CateringQuoteForm({
     }));
 
     try {
-      await create.mutateAsync({
-        enquiryId,
+      const quoteInput = {
         eventDate: eventDate ? new Date(eventDate).toISOString() : undefined,
         guestCount: guestCount ? parseInt(guestCount, 10) : undefined,
         eventAddress: eventAddress.trim() || undefined,
         preferredTime: preferredTime.trim() || undefined,
         lineItems,
+        minimumDepositPence,
         quoteExpiresAt: new Date(applyExpiryClamp(eventDate, quoteExpiry)).toISOString(),
-      });
+      };
+      if (bookingId) {
+        await fill.mutateAsync(quoteInput);
+      } else {
+        await create.mutateAsync({ ...quoteInput, enquiryId: enquiryId! });
+      }
       router.push('/catering');
     } catch (err) {
       setServerError((err as Error).message);
@@ -231,20 +248,31 @@ export function CateringQuoteForm({
 
   // ── Derived display state ──────────────────────────────────────────────────
   const isExisting = Boolean(bookingId && existing);
+  const canFill = isExisting && existing?.status === 'ASSIGNED';
   const canSend = isExisting && existing?.status === 'QUOTED' && !sendSuccess;
 
   // Required to enable Save: at least one item with description + price > 0.
   const hasValidItem = items.some(
     (li) => li.description.trim() && parseFloat(li.unitPounds || '0') > 0,
   );
-  const canSaveNew = totalPence > 0 && hasValidItem;
+  const hasValidMinimumDeposit =
+    Number.isSafeInteger(minimumDepositPence) && minimumDepositPence >= 0;
+  const canSaveNew =
+    totalPence >= MINIMUM_CATERING_QUOTE_PENCE &&
+    hasValidItem &&
+    hasValidMinimumDeposit &&
+    totalsConsistent;
 
   // Explain why Save is disabled so the vendor is not left guessing.
   const saveBlockReason: string | null = !hasValidItem
     ? 'Add at least one menu item with a description and unit price to save.'
-    : totalPence === 0
-      ? 'Total must be greater than £0.00 to save.'
-      : null;
+    : totalPence < MINIMUM_CATERING_QUOTE_PENCE
+      ? 'Catering quote total must be at least £50.00 to save.'
+      : !hasValidMinimumDeposit
+        ? 'Enter a valid minimum deposit amount.'
+        : !totalsConsistent
+          ? 'Deposit and balance must reconcile with the quote total.'
+          : null;
 
   // ── Styles ─────────────────────────────────────────────────────────────────
   const fieldLabel = 'mb-1 block text-sm font-medium';
@@ -318,7 +346,7 @@ export function CateringQuoteForm({
               />
             </div>
             <div>
-              <label className={fieldLabel}>Quote expires at</label>
+              <label className={fieldLabel}>Quote expires at {requiredMarker}</label>
               <input
                 type="datetime-local"
                 className={input}
@@ -330,6 +358,21 @@ export function CateringQuoteForm({
                   Clamped to 48 hours before the event date (vendor terms).
                 </p>
               )}
+            </div>
+            <div>
+              <label className={fieldLabel}>Minimum deposit (£) {requiredMarker}</label>
+              <input
+                type="number"
+                className={input}
+                min={0}
+                step={0.01}
+                required
+                value={minimumDepositPounds}
+                onChange={(e) => setMinimumDepositPounds(e.target.value)}
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                We charge the greater of 25% or this amount, capped at the quote total.
+              </p>
             </div>
           </div>
         </section>
@@ -433,7 +476,7 @@ export function CateringQuoteForm({
           {totalsConsistent ? (
             <>
               <div className="flex justify-between text-muted-foreground">
-                <span>Deposit (25%)</span>
+                <span>Deposit (greater of 25% or your minimum)</span>
                 <span>{formatPounds(depositPence)}</span>
               </div>
               <div className="flex justify-between text-muted-foreground">
@@ -452,13 +495,13 @@ export function CateringQuoteForm({
 
         <div className="space-y-2">
           <div className="flex gap-3">
-            {!isExisting && (
+            {(!isExisting || canFill) && (
               <button
                 type="submit"
-                disabled={create.isPending || !canSaveNew}
+                disabled={create.isPending || fill.isPending || !canSaveNew}
                 className="rounded-md bg-primary px-6 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
               >
-                {create.isPending ? 'Saving...' : 'Save quote'}
+                {create.isPending || fill.isPending ? 'Saving...' : 'Save quote'}
               </button>
             )}
             {canSend && (
@@ -480,7 +523,7 @@ export function CateringQuoteForm({
             Required field
           </p>
           {/* Explain why Save is disabled */}
-          {!isExisting && saveBlockReason && (
+          {(!isExisting || canFill) && saveBlockReason && (
             <p className="text-xs text-muted-foreground">{saveBlockReason}</p>
           )}
         </div>

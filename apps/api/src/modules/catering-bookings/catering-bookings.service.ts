@@ -1,4 +1,9 @@
 import {
+  calculateCateringDeposit,
+  calculateCateringQuoteExpiry,
+  CateringDepositPolicyError,
+} from '@feastpot/config/catering-deposit';
+import {
   BadRequestException,
   ForbiddenException,
   Injectable,
@@ -39,21 +44,15 @@ function deriveGuestCount(band: string): number {
   return GUEST_COUNT_MIDPOINTS[band] ?? 20;
 }
 
-/** Deposit = 25% of total, minimum £50. */
-function calcDeposit(totalPence: number): number {
-  return Math.max(5000, Math.ceil(totalPence * 0.25));
-}
-
-/**
- * quoteExpiresAt = sooner of (now + 7 days) or (eventDate - 48 hours).
- * Always at least 1 hour from now so the vendor has time to send the email.
- */
-function calcQuoteExpiry(eventDate: Date, now = new Date()): Date {
-  const sevenDays = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-  const minus48h = new Date(eventDate.getTime() - 48 * 60 * 60 * 1000);
-  const candidate = sevenDays < minus48h ? sevenDays : minus48h;
-  const minExpiry = new Date(now.getTime() + 60 * 60 * 1000); // at least 1h
-  return candidate > minExpiry ? candidate : minExpiry;
+function calculateDepositOrThrow(totalPence: number, minimumDepositPence: number) {
+  try {
+    return calculateCateringDeposit(totalPence, minimumDepositPence);
+  } catch (error) {
+    if (error instanceof CateringDepositPolicyError) {
+      throw new BadRequestException(error.message);
+    }
+    throw error;
+  }
 }
 
 /** Days between now and eventDate. Negative if event is in the past. */
@@ -99,7 +98,6 @@ export class CateringBookingsService {
 
     // Compute total from line items
     const total = dto.lineItems.reduce((s, li) => s + li.quantity * li.unitPence, 0);
-    if (total < 100) throw new BadRequestException('Total must be at least £1');
 
     const guestCount = dto.guestCount ?? deriveGuestCount(enquiry.guestCountBand);
 
@@ -109,12 +107,11 @@ export class CateringBookingsService {
     const eventDate = new Date(eventDateStr);
     if (isNaN(eventDate.getTime())) throw new BadRequestException('Invalid event date');
 
-    const depositPence = calcDeposit(total);
-    const balancePence = total - depositPence;
+    const { depositPence, balancePence } = calculateDepositOrThrow(total, dto.minimumDepositPence);
 
     // Quote expiry
     const requestedExpiry = dto.quoteExpiresAt ? new Date(dto.quoteExpiresAt) : undefined;
-    const systemExpiry = calcQuoteExpiry(eventDate);
+    const systemExpiry = calculateCateringQuoteExpiry(eventDate);
     const quoteExpiresAt =
       requestedExpiry && requestedExpiry < systemExpiry ? requestedExpiry : systemExpiry;
 
@@ -148,6 +145,7 @@ export class CateringBookingsService {
         eventAddress: dto.eventAddress ?? enquiry.postcode,
         preferredTime: dto.preferredTime ?? enquiry.preferredTime ?? null,
         totalPence: total,
+        minimumDepositPence: dto.minimumDepositPence,
         depositPence,
         balancePence,
         commissionPercent: ratePercent as unknown as Decimal,
@@ -407,6 +405,22 @@ export class CateringBookingsService {
     eventDate: Date;
     balancePiId: string | null;
   }) {
+    if (booking.balancePence === 0) {
+      await this.prisma.cateringBooking.updateMany({
+        where: {
+          id: booking.id,
+          status: CateringBookingStatus.CONFIRMED,
+          balancePence: 0,
+          balancePiId: null,
+        },
+        data: {
+          status: CateringBookingStatus.BALANCE_PAID,
+          balancePaidAt: new Date(),
+        },
+      });
+      return;
+    }
+
     const pi = await this.stripe.createPaymentIntentGeneric({
       amountPence: booking.balancePence,
       captureMethod: 'automatic',
@@ -1101,6 +1115,7 @@ ${reason ? `<p>Reason: ${reason}</p>` : ''}
       eventAddress?: string;
       preferredTime?: string;
       quoteExpiresAt?: string;
+      minimumDepositPence: number;
     },
   ) {
     const booking = await this.prisma.cateringBooking.findUnique({
@@ -1130,20 +1145,14 @@ ${reason ? `<p>Reason: ${reason}</p>` : ''}
     if (!isOwner) throw new ForbiddenException('Only the assigned vendor can fill this quote');
 
     const total = dto.lineItems.reduce((s, li) => s + li.quantity * li.unitPence, 0);
-    if (total < 100) throw new BadRequestException('Total must be at least £1');
 
     const eventDateStr = dto.eventDate ?? booking.eventDate.toISOString();
     const eventDate = new Date(eventDateStr);
     if (isNaN(eventDate.getTime())) throw new BadRequestException('Invalid event date');
 
-    const depositPence = Math.max(5000, Math.ceil(total * 0.25));
-    const balancePence = total - depositPence;
+    const { depositPence, balancePence } = calculateDepositOrThrow(total, dto.minimumDepositPence);
 
-    const sevenDays = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-    const minus48h = new Date(eventDate.getTime() - 48 * 60 * 60 * 1000);
-    const systemExpiry = sevenDays < minus48h ? sevenDays : minus48h;
-    const minExpiry = new Date(Date.now() + 60 * 60 * 1000);
-    const systemQuoteExpiry = systemExpiry > minExpiry ? systemExpiry : minExpiry;
+    const systemQuoteExpiry = calculateCateringQuoteExpiry(eventDate);
 
     const requestedExpiry = dto.quoteExpiresAt ? new Date(dto.quoteExpiresAt) : undefined;
     const quoteExpiresAt =
@@ -1174,6 +1183,7 @@ ${reason ? `<p>Reason: ${reason}</p>` : ''}
           eventAddress: dto.eventAddress ?? booking.eventAddress ?? null,
           preferredTime: dto.preferredTime ?? booking.preferredTime ?? null,
           totalPence: total,
+          minimumDepositPence: dto.minimumDepositPence,
           depositPence,
           balancePence,
           commissionPercent: ratePercent as unknown as never,

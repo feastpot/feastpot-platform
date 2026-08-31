@@ -1,5 +1,10 @@
 'use client';
 
+import {
+  calculateCateringDeposit,
+  calculateCateringQuoteExpiry,
+  MINIMUM_CATERING_QUOTE_PENCE,
+} from '@feastpot/config/catering-deposit';
 import { Button, Input } from '@feastpot/ui';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -14,10 +19,14 @@ const fieldLabel = 'mb-1 block text-sm font-medium';
 const textareaCls =
   'block w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring';
 
+const toDatetimeLocal = (date: Date) => {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+};
+
 const defaultExpiry = () => {
   const d = new Date(Date.now() + 24 * 60 * 60 * 1000);
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return toDatetimeLocal(d);
 };
 
 export function QuoteForm({ enquiryId, accessToken }: { enquiryId: string; accessToken: string }) {
@@ -28,7 +37,7 @@ export function QuoteForm({ enquiryId, accessToken }: { enquiryId: string; acces
   const [proposedMenu, setProposedMenu] = useState('');
   const [perHeadPounds, setPerHeadPounds] = useState('');
   const [deliveryPounds, setDeliveryPounds] = useState('0');
-  const [minDepositPct, setMinDepositPct] = useState(30);
+  const [minimumDepositPounds, setMinimumDepositPounds] = useState('0.00');
   const [terms, setTerms] = useState('');
   const [expiresAt, setExpiresAt] = useState(defaultExpiry());
   const [serverError, setServerError] = useState<string | null>(null);
@@ -39,7 +48,7 @@ export function QuoteForm({ enquiryId, accessToken }: { enquiryId: string; acces
       setProposedMenu(q.proposedMenu ?? '');
       setPerHeadPounds((q.perHeadPence / 100).toFixed(2));
       setDeliveryPounds((q.deliveryFeePence / 100).toFixed(2));
-      setMinDepositPct(q.minDepositPct);
+      setMinimumDepositPounds((q.minimumDepositPence / 100).toFixed(2));
       setTerms(q.terms ?? '');
       if (q.expiresAt) {
         const d = new Date(q.expiresAt);
@@ -51,6 +60,47 @@ export function QuoteForm({ enquiryId, accessToken }: { enquiryId: string; acces
     }
   }, [enquiry]);
 
+  const perHeadPence = Math.round(parseFloat(perHeadPounds || '0') * 100);
+  const deliveryFeePence = Math.round(parseFloat(deliveryPounds || '0') * 100);
+  const minimumDepositPence = Math.round(parseFloat(minimumDepositPounds || '0') * 100);
+  const totalPence =
+    (Number.isSafeInteger(perHeadPence) ? perHeadPence : 0) * (enquiry?.guestCount ?? 0) +
+    (Number.isSafeInteger(deliveryFeePence) ? deliveryFeePence : 0);
+  const hasValidMinimumDeposit =
+    Number.isSafeInteger(minimumDepositPence) && minimumDepositPence >= 0;
+  const hasValidPrices =
+    Number.isSafeInteger(perHeadPence) &&
+    perHeadPence >= 1 &&
+    Number.isSafeInteger(deliveryFeePence) &&
+    deliveryFeePence >= 0;
+  const canSubmit =
+    proposedMenu.trim().length > 0 &&
+    hasValidPrices &&
+    hasValidMinimumDeposit &&
+    totalPence >= MINIMUM_CATERING_QUOTE_PENCE &&
+    Boolean(expiresAt);
+  const submitBlockReason = !proposedMenu.trim()
+    ? 'Add a proposed menu to submit this quote.'
+    : !hasValidPrices
+      ? 'Enter a valid price per head and delivery fee.'
+      : totalPence < MINIMUM_CATERING_QUOTE_PENCE
+        ? 'Catering quote total must be at least £50.00.'
+        : !hasValidMinimumDeposit
+          ? 'Enter a valid minimum deposit amount.'
+          : !expiresAt
+            ? 'Choose when the quote expires.'
+            : null;
+
+  const depositPence = canSubmit
+    ? calculateCateringDeposit(totalPence, minimumDepositPence).depositPence
+    : 0;
+
+  function clampExpiry(value: string): string {
+    if (!value || !enquiry) return value;
+    const maximum = calculateCateringQuoteExpiry(new Date(enquiry.eventDate));
+    return new Date(value) > maximum ? toDatetimeLocal(maximum) : value;
+  }
+
   if (isLoading) return <p className="text-sm text-muted-foreground">Loading enquiry…</p>;
   if (error || !enquiry)
     return <p className="text-sm text-destructive">Couldn&apos;t load enquiry.</p>;
@@ -61,11 +111,11 @@ export function QuoteForm({ enquiryId, accessToken }: { enquiryId: string; acces
     try {
       await submit.mutateAsync({
         proposedMenu: proposedMenu.trim(),
-        perHeadPence: Math.round(parseFloat(perHeadPounds) * 100),
-        deliveryFeePence: Math.round(parseFloat(deliveryPounds || '0') * 100),
-        minDepositPct,
+        perHeadPence,
+        deliveryFeePence,
+        minimumDepositPence,
         terms: terms || undefined,
-        expiresAt: new Date(expiresAt).toISOString(),
+        expiresAt: new Date(clampExpiry(expiresAt)).toISOString(),
       });
       router.push('/events');
     } catch (err) {
@@ -116,7 +166,9 @@ export function QuoteForm({ enquiryId, accessToken }: { enquiryId: string; acces
 
       <form onSubmit={onSubmit} className="space-y-4 rounded-lg border bg-card p-4">
         <label className="block">
-          <span className={fieldLabel}>Proposed menu</span>
+          <span className={fieldLabel}>
+            Proposed menu <span className="text-destructive">*</span>
+          </span>
           <textarea
             className={textareaCls}
             rows={5}
@@ -128,11 +180,13 @@ export function QuoteForm({ enquiryId, accessToken }: { enquiryId: string; acces
         </label>
         <div className="grid grid-cols-2 gap-3">
           <label className="block">
-            <span className={fieldLabel}>Price per head (£)</span>
+            <span className={fieldLabel}>
+              Price per head (£) <span className="text-destructive">*</span>
+            </span>
             <Input
               type="number"
               step="0.01"
-              min="0"
+              min="0.01"
               value={perHeadPounds}
               onChange={(e) => setPerHeadPounds(e.target.value)}
               required
@@ -150,16 +204,20 @@ export function QuoteForm({ enquiryId, accessToken }: { enquiryId: string; acces
           </label>
         </div>
         <label className="block">
-          <span className={fieldLabel}>Minimum deposit</span>
-          <select
-            value={minDepositPct}
-            onChange={(e) => setMinDepositPct(Number(e.target.value))}
-            className={textareaCls}
-          >
-            <option value={25}>25%</option>
-            <option value={30}>30%</option>
-            <option value={50}>50%</option>
-          </select>
+          <span className={fieldLabel}>
+            Minimum deposit (£) <span className="text-destructive">*</span>
+          </span>
+          <Input
+            type="number"
+            min="0"
+            step="0.01"
+            value={minimumDepositPounds}
+            onChange={(e) => setMinimumDepositPounds(e.target.value)}
+            required
+          />
+          <span className="mt-1 block text-xs text-muted-foreground">
+            We charge the greater of 25% or this amount, capped at the quote total.
+          </span>
         </label>
         <label className="block">
           <span className={fieldLabel}>Terms (cancellation, final-numbers deadline…)</span>
@@ -171,18 +229,39 @@ export function QuoteForm({ enquiryId, accessToken }: { enquiryId: string; acces
           />
         </label>
         <label className="block">
-          <span className={fieldLabel}>Quote valid until</span>
+          <span className={fieldLabel}>
+            Quote valid until <span className="text-destructive">*</span>
+          </span>
           <Input
             type="datetime-local"
             value={expiresAt}
-            onChange={(e) => setExpiresAt(e.target.value)}
+            onChange={(e) => setExpiresAt(clampExpiry(e.target.value))}
             required
           />
+          <span className="mt-1 block text-xs text-muted-foreground">
+            No later than seven days from now or 48 hours before the event, whichever is sooner.
+          </span>
         </label>
+        <div className="rounded-md border bg-muted/30 p-3 text-sm">
+          <div className="flex justify-between">
+            <span>Total</span>
+            <strong>{formatPounds(totalPence)}</strong>
+          </div>
+          {canSubmit && (
+            <div className="flex justify-between text-muted-foreground">
+              <span>Deposit</span>
+              <span>{formatPounds(depositPence)}</span>
+            </div>
+          )}
+        </div>
         {serverError && <p className="text-sm text-destructive">{serverError}</p>}
-        <Button type="submit" className="w-full" disabled={submit.isPending}>
+        <Button type="submit" className="w-full" disabled={submit.isPending || !canSubmit}>
           {submit.isPending ? 'Submitting…' : enquiry.quotes?.[0] ? 'Update quote' : 'Submit quote'}
         </Button>
+        <p className="text-xs text-muted-foreground">
+          <span className="text-destructive">*</span> Required field
+        </p>
+        {submitBlockReason && <p className="text-xs text-muted-foreground">{submitBlockReason}</p>}
       </form>
     </div>
   );

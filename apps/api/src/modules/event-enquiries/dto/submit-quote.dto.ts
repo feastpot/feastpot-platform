@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsDateString, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+import { IsDateString, IsInt, IsOptional, IsString, MaxLength, Min } from 'class-validator';
 
 export class SubmitQuoteDto {
   @ApiProperty()
@@ -20,12 +20,11 @@ export class SubmitQuoteDto {
   @Min(0)
   deliveryFeePence!: number;
 
-  @ApiProperty({ minimum: 10, maximum: 100, description: 'Required deposit % of total' })
+  @ApiProperty({ minimum: 0, description: 'Vendor-selected minimum cash deposit in pence' })
   @Type(() => Number)
   @IsInt()
-  @Min(10)
-  @Max(100)
-  minDepositPct!: number;
+  @Min(0)
+  minimumDepositPence!: number;
 
   @ApiPropertyOptional()
   @IsOptional()

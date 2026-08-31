@@ -31,6 +31,7 @@ interface ShareAndCustomersClientProps {
   businessName: string;
   /** Vendor UUID threaded from the server page for analytics attribution. */
   vendorId: string;
+  initialLinkLoadFailed?: boolean;
 }
 
 const { vendorReferred, marketplaceFirst, marketplaceRepeat } = PLATFORM_FACTS.commission;
@@ -91,10 +92,14 @@ export function ShareAndCustomersClient({
   link: initialLink,
   businessName,
   vendorId,
+  initialLinkLoadFailed = false,
 }: ShareAndCustomersClientProps) {
   const { token } = useAccessToken() as { token: string | null; loading: boolean };
   const track = useTrackEvent();
   const [link, setLink] = useState<ReferralLink | null>(initialLink);
+  const [linkStatus, setLinkStatus] = useState<'loading' | 'ok' | 'error'>(
+    initialLink ? 'ok' : initialLinkLoadFailed ? 'error' : 'loading',
+  );
   const [split, setSplit] = useState<SplitData | null>(null);
   const [splitStatus, setSplitStatus] = useState<'loading' | 'ok' | 'error'>('loading');
   const [copied, setCopied] = useState<string | null>(null);
@@ -115,8 +120,11 @@ export function ShareAndCustomersClient({
     if (!token || link || initialLinkFetchFired.current) return;
     initialLinkFetchFired.current = true;
     apiRequest<ReferralLink>('/attribution/links/me', { accessToken: token })
-      .then(setLink)
-      .catch(() => null);
+      .then((nextLink) => {
+        setLink(nextLink);
+        setLinkStatus('ok');
+      })
+      .catch(() => setLinkStatus('error'));
   }, [token, link]);
 
   // Generate client-side QR immediately when stored URLs are missing.
@@ -184,9 +192,15 @@ export function ShareAndCustomersClient({
   if (!link) {
     return (
       <div className="rounded-xl border border-border bg-white p-5">
-        <p className="text-sm font-medium text-dark">Preparing your referral link</p>
+        <p className="text-sm font-medium text-dark">
+          {linkStatus === 'error'
+            ? 'Could not load your referral link'
+            : 'Preparing your referral link'}
+        </p>
         <p className="mt-1 text-sm text-mid">
-          We are checking for your personal link now. It will appear here as soon as it is ready.
+          {linkStatus === 'error'
+            ? 'Please refresh to try again. Your existing referral link has not changed.'
+            : 'We are checking for your personal link now. It will appear here as soon as it is ready.'}
         </p>
       </div>
     );

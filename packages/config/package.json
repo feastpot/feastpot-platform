@@ -23,6 +23,11 @@
       "types": "./src/service-fee.ts",
       "require": "./src/service-fee.cjs.js",
       "default": "./src/service-fee.ts"
+    },
+    "./catering-deposit": {
+      "types": "./src/catering-deposit.ts",
+      "require": "./src/catering-deposit.cjs.js",
+      "default": "./src/catering-deposit.ts"
     }
   },
   "typesVersions": {
@@ -35,6 +40,9 @@
       ],
       "service-fee": [
         "./src/service-fee.ts"
+      ],
+      "catering-deposit": [
+        "./src/catering-deposit.ts"
       ]
     }
   },

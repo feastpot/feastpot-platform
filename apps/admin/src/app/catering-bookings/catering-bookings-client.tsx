@@ -291,7 +291,7 @@ function DetailPanel({ booking: b, onClose }: { booking: CateringBooking; onClos
           <div className="border-t pt-4">
             <p className="font-semibold mb-2">Financials</p>
             <Row label="Total" value={formatPounds(b.totalPence)} />
-            <Row label="Deposit (25%)" value={formatPounds(b.depositPence)} />
+            <Row label="Deposit" value={formatPounds(b.depositPence)} />
             <Row label="Balance" value={formatPounds(b.balancePence)} />
             <Row
               label="Commission"

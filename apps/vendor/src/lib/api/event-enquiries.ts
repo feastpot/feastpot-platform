@@ -10,7 +10,8 @@ export interface EventQuote {
   pricePence: number;
   perHeadPence: number;
   deliveryFeePence: number;
-  minDepositPct: number;
+  minimumDepositPence: number;
+  legacyDepositPct: number | null;
   proposedMenu: string | null;
   terms: string | null;
   status: QuoteStatus;
@@ -40,7 +41,7 @@ export interface SubmitQuoteInput {
   proposedMenu: string;
   perHeadPence: number;
   deliveryFeePence: number;
-  minDepositPct: number;
+  minimumDepositPence: number;
   terms?: string;
   expiresAt: string;
 }

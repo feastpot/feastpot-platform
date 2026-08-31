@@ -238,7 +238,7 @@ This clause does not restrict you from marketing to your own pre-existing custom
 When you receive a catering enquiry through the platform:
 
 - **Quotes.** You create an itemised quote with event details, menu items, and allergen information. Quotes expire after the period stated in the quote (default 7 days).
-- **Deposit.** On acceptance, the customer pays a deposit of 25% of the total (minimum GBP 50) through the Feastpot platform.
+- **Deposit.** Catering quotes must total at least GBP 50. On acceptance, the customer pays the greater of 25% of the total (rounded up to the next penny) or the vendor's stated minimum cash deposit through the Feastpot platform. The deposit is capped at the quote total.
 - **Balance.** The remaining balance is due before or on the event date through the platform.
 - **Cancellation.** If the customer cancels more than 14 days before the event, the deposit is refunded in full. Cancellations within 14 days of the event forfeit the deposit.
 - **Compliance.** Allergen declarations, food safety standards, and insurance requirements set out in these terms apply equally to catering bookings.
@@ -408,6 +408,12 @@ Any change to a LIVE rate requires a new version of this schedule and at least 1
 | Vendor-referred orders | 0% | Food subtotal only |
 | Catering bookings | 10% | Food subtotal only |
 
+## Catering deposits
+
+Catering quotes must total at least GBP 50. The customer deposit is the greater of 25%
+of the quote total (rounded up to the next penny) or the vendor's stated minimum cash
+deposit, capped at the quote total.
+
 ## Promotional Rates (INCENTIVE)
 
 | Segment | Rate | Basis |
@@ -464,7 +470,7 @@ deducted from your vendor payout. FeastPass members are exempt from this fee.
   const rateScheduleVersion = { id: rateScheduleRows[0].id };
   console.log('[seed-terms] Rate schedule version upserted:', rateScheduleVersion.id);
 
-  // ── 2. Upsert the 7 canonical RateScheduleEntry rows ─────────────────────
+  // ── 2. Upsert the canonical RateScheduleEntry rows ───────────────────────
   const entries: Array<{
     key: string;
     label: string;
@@ -517,6 +523,17 @@ deducted from your vendor payout. FeastPass members are exempt from this fee.
       sortOrder: 4,
     },
     {
+      key: 'catering_deposit',
+      label: 'Catering booking deposit',
+      rateDisplay: '25% minimum',
+      rateValue: 25.0,
+      basis:
+        'Quotes must total at least GBP 50. Deposit is the greater of 25% (rounded up) or the vendor cash minimum, capped at the quote total.',
+      vatNote: 'The deposit is part-payment of the catering quote, not an additional fee.',
+      status: RateStatus.LIVE,
+      sortOrder: 5,
+    },
+    {
       key: 'founding_cook',
       label: 'Founding cook programme (time-limited promotional rate)',
       rateDisplay: '0%',
@@ -524,7 +541,7 @@ deducted from your vendor payout. FeastPass members are exempt from this fee.
       basis: 'Food subtotal only; applies during promotional period only',
       vatNote: 'No commission during the promotional period. Standard rates apply thereafter.',
       status: RateStatus.INCENTIVE,
-      sortOrder: 5,
+      sortOrder: 6,
     },
     {
       key: 'customer_service_fee',
@@ -535,7 +552,7 @@ deducted from your vendor payout. FeastPass members are exempt from this fee.
       vatNote:
         'This fee is customer-facing only. It is never deducted from your vendor payout. FeastPass members are exempt.',
       status: RateStatus.CUSTOMER_SIDE,
-      sortOrder: 6,
+      sortOrder: 7,
     },
     {
       key: 'vendor_pro',
@@ -545,7 +562,7 @@ deducted from your vendor payout. FeastPass members are exempt from this fee.
       basis: 'Monthly recurring subscription (optional)',
       vatNote: 'VAT at the prevailing rate applies to subscription fees.',
       status: RateStatus.OPTIONAL_ADDON,
-      sortOrder: 7,
+      sortOrder: 8,
     },
   ];
 

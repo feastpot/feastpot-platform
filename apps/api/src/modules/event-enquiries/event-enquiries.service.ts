@@ -1,4 +1,11 @@
 import {
+  calculateCateringDeposit,
+  calculateCateringQuoteExpiry,
+  calculateLegacyEventDeposit,
+  CateringDepositPolicyError,
+  MINIMUM_CATERING_QUOTE_PENCE,
+} from '@feastpot/config/catering-deposit';
+import {
   BadRequestException,
   ForbiddenException,
   Injectable,
@@ -35,8 +42,18 @@ function endOfDayUtc(iso: string): Date {
 
 const MIN_LEAD_DAYS = 7;
 const QUOTE_WINDOW_HOURS = 24;
-const DEFAULT_DEPOSIT_PCT = 30;
 const MAX_MATCHED_VENDORS = 5;
+
+function calculateDepositOrThrow(totalPence: number, minimumDepositPence: number) {
+  try {
+    return calculateCateringDeposit(totalPence, minimumDepositPence);
+  } catch (error) {
+    if (error instanceof CateringDepositPolicyError) {
+      throw new BadRequestException(error.message);
+    }
+    throw error;
+  }
+}
 
 interface PostcodeLatLng {
   latitude: number | null;
@@ -483,8 +500,15 @@ export class EventEnquiriesService {
     if (enquiry.status !== EnquiryStatus.open && enquiry.status !== EnquiryStatus.quoted) {
       throw new BadRequestException(`Cannot quote: enquiry is ${enquiry.status}`);
     }
+    if (enquiry.depositPiId) {
+      throw new BadRequestException('Cannot update a quote while its deposit payment is pending');
+    }
 
     const totalPence = dto.perHeadPence * enquiry.guestCount + dto.deliveryFeePence;
+    const { depositPence } = calculateDepositOrThrow(totalPence, dto.minimumDepositPence);
+    const requestedExpiry = new Date(dto.expiresAt);
+    const systemExpiry = calculateCateringQuoteExpiry(enquiry.eventDate);
+    const expiresAt = requestedExpiry < systemExpiry ? requestedExpiry : systemExpiry;
 
     const quote = await this.prisma.eventQuote.upsert({
       where: { enquiryId_vendorId: { enquiryId, vendorId: vendor.id } },
@@ -492,10 +516,11 @@ export class EventEnquiriesService {
         proposedMenu: dto.proposedMenu,
         perHeadPence: dto.perHeadPence,
         deliveryFeePence: dto.deliveryFeePence,
-        minDepositPct: dto.minDepositPct,
+        minimumDepositPence: dto.minimumDepositPence,
+        legacyDepositPct: null,
         terms: dto.terms ?? null,
         pricePence: totalPence,
-        expiresAt: new Date(dto.expiresAt),
+        expiresAt,
         status: QuoteStatus.submitted,
       },
       create: {
@@ -504,10 +529,11 @@ export class EventEnquiriesService {
         proposedMenu: dto.proposedMenu,
         perHeadPence: dto.perHeadPence,
         deliveryFeePence: dto.deliveryFeePence,
-        minDepositPct: dto.minDepositPct,
+        minimumDepositPence: dto.minimumDepositPence,
+        legacyDepositPct: null,
         terms: dto.terms ?? null,
         pricePence: totalPence,
-        expiresAt: new Date(dto.expiresAt),
+        expiresAt,
         status: QuoteStatus.submitted,
       },
     });
@@ -528,7 +554,7 @@ export class EventEnquiriesService {
       { jobId: `event_quote_received:${enquiryId}:${vendor.id}` },
     );
 
-    return quote;
+    return { ...quote, depositPence };
   }
 
   // ---------------------------------------------------------------------------
@@ -560,10 +586,23 @@ export class EventEnquiriesService {
       (q) => q.vendorId === dto.vendorId && q.status === QuoteStatus.submitted,
     );
     if (!quote) throw new BadRequestException('No submitted quote from that vendor');
+    if (quote.expiresAt && quote.expiresAt.getTime() < Date.now()) {
+      await this.prisma.eventQuote.updateMany({
+        where: { id: quote.id, status: QuoteStatus.submitted },
+        data: { status: QuoteStatus.expired },
+      });
+      throw new BadRequestException('Quote has expired');
+    }
 
     const baseTotal = quote.perHeadPence * enquiry.guestCount + quote.deliveryFeePence;
-    const depositPct = quote.minDepositPct || DEFAULT_DEPOSIT_PCT;
-    const depositPence = Math.max(50, Math.round((baseTotal * depositPct) / 100));
+    const depositPence =
+      quote.legacyDepositPct !== null
+        ? calculateLegacyEventDeposit(baseTotal, quote.legacyDepositPct)
+        : baseTotal < MINIMUM_CATERING_QUOTE_PENCE
+          ? calculateCateringDeposit(baseTotal, quote.minimumDepositPence, {
+              enforceMinimumQuote: false,
+            }).depositPence
+          : calculateDepositOrThrow(baseTotal, quote.minimumDepositPence).depositPence;
 
     // Already reserved with same vendor → idempotent retry.
     if (enquiry.depositPiId && enquiry.vendorId === dto.vendorId) {
@@ -684,10 +723,16 @@ export class EventEnquiriesService {
     if (!accepted) throw new BadRequestException('No accepted quote on this enquiry');
 
     const finalTotal = accepted.perHeadPence * dto.guestCount + accepted.deliveryFeePence;
-    const depositPct = accepted.minDepositPct || DEFAULT_DEPOSIT_PCT;
-    const depositPaid = Math.round(
-      ((accepted.perHeadPence * enquiry.guestCount + accepted.deliveryFeePence) * depositPct) / 100,
-    );
+    const originalTotal = accepted.perHeadPence * enquiry.guestCount + accepted.deliveryFeePence;
+    const depositPaid =
+      accepted.legacyDepositPct !== null
+        ? calculateLegacyEventDeposit(originalTotal, accepted.legacyDepositPct)
+        : calculateDepositOrThrow(originalTotal, accepted.minimumDepositPence).depositPence;
+    if (finalTotal < depositPaid) {
+      throw new BadRequestException(
+        'Final guest numbers would reduce the total below the deposit already paid',
+      );
+    }
     const balancePence = Math.max(0, finalTotal - depositPaid);
 
     let balancePiId = enquiry.balancePiId;

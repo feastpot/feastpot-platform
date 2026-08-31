@@ -168,7 +168,7 @@ export default defineConfig({
     {
       name: 'empty-vendor-screen',
       testMatch: /empty-vendor-screen\.spec\.ts/,
-      grep: /EV[1-4]/,
+      grep: /EV[1-4]|EV6/,
       use: {
         ...devices['Desktop Chrome'],
         storageState: 'e2e/.auth/vendor.json',

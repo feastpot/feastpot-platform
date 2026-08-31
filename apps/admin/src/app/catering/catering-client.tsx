@@ -1011,7 +1011,7 @@ function BookingDetailPanel({
           <div className="border-t pt-4">
             <p className="font-semibold mb-2">Financials</p>
             <BRow label="Total" value={formatPounds(b.totalPence)} />
-            <BRow label="Deposit (25%)" value={formatPounds(b.depositPence)} />
+            <BRow label="Deposit" value={formatPounds(b.depositPence)} />
             <BRow label="Balance" value={formatPounds(b.balancePence)} />
             <BRow
               label="Commission"

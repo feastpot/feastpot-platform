@@ -411,6 +411,12 @@ export class TestDataFactory {
     const vendor = await this.ensureVendor(identity, user, state);
     identity.vendorId = vendor.id;
 
+    if (state === 'V4') {
+      // Keep repeated factory runs honest even if this namespace was created by
+      // an older factory version that gave every vendor a default menu.
+      await this.prisma.menuItem.deleteMany({ where: { vendorId: vendor.id } });
+      await this.prisma.menu.deleteMany({ where: { vendorId: vendor.id } });
+    }
     if (state === 'V2') {
       await this.prisma.vendor.update({
         where: { id: vendor.id },
@@ -586,7 +592,9 @@ export class TestDataFactory {
       }));
 
     if (!identity.relatedVendorIds.includes(vendor.id)) identity.relatedVendorIds.push(vendor.id);
-    await this.ensureMenu(vendor.id, state);
+    // V4 is the canonical empty vendor. It must stay free of menus and all
+    // transactional data so route tests exercise genuine zero-row responses.
+    if (state !== 'V4') await this.ensureMenu(vendor.id, state);
     return vendor;
   }
 

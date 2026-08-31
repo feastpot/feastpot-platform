@@ -72,7 +72,7 @@ async function mockAlways(
 export async function installShareMocks(
   page: Page,
   linkOverrides: Record<string, unknown> = {},
-  opts: { empty?: boolean } = {},
+  opts: { empty?: boolean; linkStatus?: number } = {},
 ): Promise<void> {
   await mockAlways(page, '**/v1/vendors/me', 200, {
     id: SHARE_IDS.vendor,
@@ -82,7 +82,14 @@ export async function installShareMocks(
   await mockAlways(page, '**/v1/inbox/unread-count', 200, { count: 0 });
   await mockAlways(page, '**/v1/vendor-members/my-role', 200, { role: 'owner' });
 
-  await mockAlways(page, '**/v1/attribution/links/me', 200, makeReferralLink(linkOverrides));
+  await mockAlways(
+    page,
+    '**/v1/attribution/links/me',
+    opts.linkStatus ?? 200,
+    opts.linkStatus && opts.linkStatus >= 400
+      ? { message: 'Test referral-link failure' }
+      : makeReferralLink(linkOverrides),
+  );
   await mockAlways(
     page,
     '**/v1/attribution/vendor-split',
