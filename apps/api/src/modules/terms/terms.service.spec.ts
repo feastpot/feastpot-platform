@@ -68,10 +68,7 @@ describe('TermsService legal invariants', () => {
       callback(prisma),
     );
     queue = { add: jest.fn().mockResolvedValue(undefined) };
-    service = new TermsService(
-      prisma as unknown as PrismaService,
-      queue as unknown as Queue,
-    );
+    service = new TermsService(prisma as unknown as PrismaService, queue as unknown as Queue);
   });
 
   afterEach(() => jest.useRealTimers());
@@ -239,17 +236,20 @@ describe('TermsService legal invariants', () => {
       ip: undefined,
       ua: undefined,
     },
-  ])('rejects incomplete or mismatched evidence: $name', async ({ id, label, scrolled, ip, ua }) => {
-    prisma.termsVersion.findFirst.mockResolvedValue(version({ supersededAt: null }));
-    await expect(
-      service.acceptVersion(
-        'vendor-1',
-        id,
-        { acceptanceText: label, scrolledToEnd: scrolled },
-        ip,
-        ua,
-      ),
-    ).rejects.toBeInstanceOf(BadRequestException);
-    expect(prisma.termsAcceptance.upsert).not.toHaveBeenCalled();
-  });
+  ])(
+    'rejects incomplete or mismatched evidence: $name',
+    async ({ id, label, scrolled, ip, ua }) => {
+      prisma.termsVersion.findFirst.mockResolvedValue(version({ supersededAt: null }));
+      await expect(
+        service.acceptVersion(
+          'vendor-1',
+          id,
+          { acceptanceText: label, scrolledToEnd: scrolled },
+          ip,
+          ua,
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.termsAcceptance.upsert).not.toHaveBeenCalled();
+    },
+  );
 });

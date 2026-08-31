@@ -322,7 +322,10 @@ export class TermsNoticeProcessor implements OnApplicationBootstrap {
       doc.text(`Content SHA-256: ${acceptance.contentHash ?? 'not available'}`);
       doc.text(`IP address: ${acceptance.ipAddress ?? 'not available'}`);
       doc.text(`User agent: ${acceptance.userAgent ?? 'not available'}`);
-      doc.moveDown().fontSize(11).text(acceptance.acceptanceText ?? '');
+      doc
+        .moveDown()
+        .fontSize(11)
+        .text(acceptance.acceptanceText ?? '');
       doc.moveDown().fontSize(9).fillColor('#374151').text(acceptance.termsVersion.contentMdx, {
         align: 'left',
       });

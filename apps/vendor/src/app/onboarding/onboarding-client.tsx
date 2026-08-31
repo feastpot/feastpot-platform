@@ -232,10 +232,7 @@ export function OnboardingClient({ vendor }: { vendor: VendorSummary }) {
                 ? `You have ${menuItemCount} items live - nice work.`
                 : `You need at least 3 items live before compliance can approve you (${menuItemCount} so far). The full editor is in the menu section.`}
             </p>
-            <Link
-              href={termsDone ? '/menu' : '/onboarding/terms'}
-              className="mt-2 inline-block"
-            >
+            <Link href={termsDone ? '/menu' : '/onboarding/terms'} className="mt-2 inline-block">
               <Button variant="outline" size="sm" className="gap-2">
                 <Upload className="h-4 w-4" /> Open menu builder
               </Button>
