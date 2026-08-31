@@ -114,6 +114,7 @@ describe('PayoutsService.executeTransfer', () => {
     vendorId: VENDOR_ID,
     amountPence: 12345,
     status: PayoutStatus.approved,
+    periodEnd: new Date('2025-11-03T00:00:00.000Z'),
     vendor: {
       stripeAccountId: 'acct_test_xyz',
       payoutsEnabled: true,
@@ -123,6 +124,8 @@ describe('PayoutsService.executeTransfer', () => {
   };
 
   const mockPrisma = {
+    $executeRaw: jest.fn(),
+    $transaction: jest.fn(),
     payout: {
       findUnique: jest.fn(),
       update: jest.fn(),
@@ -139,6 +142,9 @@ describe('PayoutsService.executeTransfer', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockPrisma.$transaction.mockImplementation(async (callback: (tx: typeof mockPrisma) => unknown) =>
+      callback(mockPrisma),
+    );
     service = new PayoutsService(
       mockPrisma as never,
       mockStripe as never,
@@ -167,11 +173,15 @@ describe('PayoutsService.executeTransfer', () => {
 
     // Attempt 1 - should throw (Bull will retry).
     await expect(service.executeTransfer(PAYOUT_ID)).rejects.toThrow();
-    expect(mockPrisma.payout.update).not.toHaveBeenCalled(); // not marked failed
+    expect(mockPrisma.payout.update).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: PayoutStatus.failed }),
+      }),
+    );
 
     // Attempt 2 - should succeed.
     await service.executeTransfer(PAYOUT_ID);
-    expect(mockPrisma.payout.update).toHaveBeenCalledWith(
+    expect(mockPrisma.payout.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ status: PayoutStatus.transferred }),
       }),
@@ -252,7 +262,7 @@ describe('PayoutsService.executeTransfer', () => {
     expect(call.idempotencyKey).toBe(`payout-transfer-${PAYOUT_ID}`);
 
     // If Stripe returns the existing transfer (not a new one), the DB update still runs.
-    expect(mockPrisma.payout.update).toHaveBeenCalledWith(
+    expect(mockPrisma.payout.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ stripeTransferId: 'tr_test_abc' }),
       }),

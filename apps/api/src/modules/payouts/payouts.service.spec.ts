@@ -32,7 +32,7 @@ const adminUser: AuthUser = {
 type Mock<T = unknown> = jest.Mock<T>;
 
 function makePrisma() {
-  return {
+  const prisma = {
     vendor: { findUnique: jest.fn() as Mock },
     payout: {
       findMany: jest.fn() as Mock,
@@ -43,9 +43,16 @@ function makePrisma() {
       create: jest.fn() as Mock,
     },
     order: { findMany: jest.fn() as Mock },
+    cateringBooking: { findMany: jest.fn().mockResolvedValue([]) as Mock },
     payment: { aggregate: jest.fn() as Mock },
     dispute: { count: jest.fn() as Mock },
+    $executeRaw: jest.fn() as Mock,
+    $transaction: jest.fn() as Mock,
   };
+  prisma.$transaction.mockImplementation(async (callback: (tx: typeof prisma) => unknown) =>
+    callback(prisma),
+  );
+  return prisma;
 }
 const makeStripe = () => ({ createTransfer: jest.fn() as Mock });
 const makeQueue = () => ({ add: jest.fn().mockResolvedValue({ id: '1' }) as Mock });
@@ -291,6 +298,8 @@ describe('PayoutsService.runWeeklyBatch (refund netting)', () => {
     prisma.payout.findFirst.mockResolvedValueOnce(null);
     // First aggregate = refund rows (negative); second = credit rows (positive).
     prisma.payment.aggregate
+      .mockResolvedValueOnce({ _sum: { amountPence: -4449 } })
+      .mockResolvedValueOnce({ _sum: { amountPence: 680 } })
       .mockResolvedValueOnce({ _sum: { amountPence: -4449 } })
       .mockResolvedValueOnce({ _sum: { amountPence: 680 } });
     prisma.dispute.count.mockResolvedValueOnce(0);

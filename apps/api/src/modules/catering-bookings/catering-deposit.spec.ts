@@ -9,7 +9,10 @@ import { CateringBookingStatus, EnquiryStatus, QuoteStatus, UserRole } from '@pr
 
 import { EventEnquiriesService } from '../event-enquiries/event-enquiries.service';
 
-import { CateringBookingsService } from './catering-bookings.service';
+import {
+  calculateCateringCancellationRefund,
+  CateringBookingsService,
+} from './catering-bookings.service';
 
 describe('catering deposit policy', () => {
   const rejectedTotals = [0, 1, 99, 100, 2_000, 4_999];
@@ -98,6 +101,58 @@ describe('catering deposit policy', () => {
   });
 });
 
+describe('catering cancellation matrix', () => {
+  const base = {
+    depositPence: 2_501,
+    balancePence: 7_499,
+    depositPaid: true,
+    balancePaid: false,
+    vendorCancelled: false,
+    staffApprovedAfterBalance: false,
+  };
+
+  it.each([
+    [15, 2_501],
+    [14, 2_501],
+    [13, 1_250],
+    [8, 1_250],
+    [7, 0],
+    [2, 0],
+  ])('uses the exact full-day boundary at %i days', (daysUntilEvent, expectedPence) => {
+    expect(calculateCateringCancellationRefund({ ...base, daysUntilEvent })).toBe(expectedPence);
+  });
+
+  it('refunds the full paid amount on vendor cancellation', () => {
+    expect(
+      calculateCateringCancellationRefund({
+        ...base,
+        daysUntilEvent: 2,
+        balancePaid: true,
+        vendorCancelled: true,
+      }),
+    ).toBe(10_000);
+  });
+
+  it('only refunds a balance-paid booking after staff approval', () => {
+    expect(
+      calculateCateringCancellationRefund({
+        ...base,
+        daysUntilEvent: 15,
+        balancePaid: true,
+        staffApprovedAfterBalance: false,
+      }),
+    ).toBe(0);
+    expect(
+      calculateCateringCancellationRefund({
+        ...base,
+        daysUntilEvent: 2,
+        balancePaid: true,
+        staffApprovedAfterBalance: true,
+      }),
+    ).toBe(10_000);
+  });
+});
+
 describe('catering deposit lifecycle guards', () => {
   it('rejects a sub-£50 catering booking before persistence', async () => {
     const prisma = {
@@ -116,6 +171,7 @@ describe('catering deposit lifecycle guards', () => {
     };
     const service = new CateringBookingsService(
       prisma as never,
+      {} as never,
       {} as never,
       {} as never,
       {} as never,
@@ -140,6 +196,7 @@ describe('catering deposit lifecycle guards', () => {
     const service = new CateringBookingsService(
       prisma as never,
       stripe as never,
+      {} as never,
       {} as never,
       {} as never,
       {} as never,

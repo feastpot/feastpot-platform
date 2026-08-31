@@ -548,28 +548,54 @@ export class PayoutsService {
       return;
     }
 
-    if (payout.status !== PayoutStatus.approved) {
+    if (
+      payout.status !== PayoutStatus.approved &&
+      payout.status !== PayoutStatus.processing
+    ) {
       throw new Error(
         `Payout ${payoutId} has unexpected status "${payout.status}" - cannot transfer`,
       );
     }
 
-    // CRITICAL: only the Stripe call + its matching DB update belong inside
-    // this try/catch. Notifications are best-effort and must NOT mark the
-    // payout failed if they fail (e.g. Redis down after Stripe succeeds).
+    // Commit a durable processing claim under the same vendor-period lock used
+    // by refund settlement. Stripe remains outside the DB transaction; a crash
+    // after Stripe success is recovered by replaying the deterministic key
+    // while the payout remains processing.
     try {
-      const transfer = await this.stripe.createTransfer({
-        amountPence: payout.amountPence,
-        destinationAccountId: payout.vendor.stripeAccountId!,
-        payoutId: payout.id,
-        // Deterministic idempotency key: a network-timeout retry returns the
-        // existing Stripe transfer instead of creating a second one and
-        // double-paying the vendor.
-        idempotencyKey: `payout-transfer-${payout.id}`,
+      const claimed = await this.prisma.$transaction(async (tx) => {
+        const lockSubject = payout.periodEnd?.toISOString() ?? payout.id;
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`payout:${payout.vendorId}:${lockSubject}`}))`;
+        const current = await tx.payout.findUnique({
+          where: { id: payoutId },
+          include: { vendor: { select: { stripeAccountId: true } } },
+        });
+        if (!current) throw new Error(`Payout ${payoutId} disappeared before transfer`);
+        if (current.status === PayoutStatus.transferred) return null;
+        if (
+          current.status !== PayoutStatus.approved &&
+          current.status !== PayoutStatus.processing
+        ) {
+          throw new Error(
+            `Payout ${payoutId} has unexpected status "${current.status}" - cannot transfer`,
+          );
+        }
+        if (current.status === PayoutStatus.approved) {
+          await tx.payout.update({
+            where: { id: payoutId },
+            data: { status: PayoutStatus.processing, failureReason: null },
+          });
+        }
+        return current;
       });
-
-      await this.prisma.payout.update({
-        where: { id: payoutId },
+      if (!claimed) return;
+      const transfer = await this.stripe.createTransfer({
+        amountPence: claimed.amountPence,
+        destinationAccountId: claimed.vendor.stripeAccountId!,
+        payoutId: claimed.id,
+        idempotencyKey: `payout-transfer-${claimed.id}`,
+      });
+      await this.prisma.payout.updateMany({
+        where: { id: payoutId, status: PayoutStatus.processing },
         data: {
           status: PayoutStatus.transferred,
           stripeTransferId: transfer.id,
@@ -894,6 +920,48 @@ export class PayoutsService {
         },
       },
     });
+    // Catering has no Order row, but completed bookings participate in exactly
+    // the same weekly vendor batch. Shape them as ledger batch entries so the
+    // established aggregate/refund-credit arithmetic remains the single source
+    // of payout truth (and no immediate catering transfer is needed).
+    const cateringBookings = await this.prisma.cateringBooking.findMany({
+      where: {
+        status: 'COMPLETED',
+        completedAt: { gte: start, lt: end },
+      },
+      select: {
+        id: true,
+        vendorId: true,
+        totalPence: true,
+        commissionPence: true,
+        completedAt: true,
+        vendor: {
+          select: {
+            id: true,
+            userId: true,
+            businessName: true,
+            commissionBps: true,
+            payoutsEnabled: true,
+            slug: true,
+            referralLink: { select: { slug: true } },
+          },
+        },
+      },
+    });
+    orders.push(
+      ...(cateringBookings.map((booking) => ({
+        id: booking.id,
+        vendorId: booking.vendorId,
+        orderNumber: `CATERING-${booking.id.slice(-8)}`,
+        subtotalPence: booking.totalPence,
+        totalPence: booking.totalPence,
+        vendorPayoutPence: booking.totalPence - booking.commissionPence,
+        commissionPence: booking.commissionPence,
+        deliveredAt: booking.completedAt,
+        vendor: booking.vendor,
+        orderCommission: null,
+      })) as unknown as typeof orders),
+    );
 
     // Group by vendor.
     type Group = { vendor: (typeof orders)[number]['vendor']; orders: typeof orders };
@@ -922,7 +990,7 @@ export class PayoutsService {
       const orderIds = group.orders.map((o) => o.id);
       const refundDeductions = await this.prisma.payment.aggregate({
         where: {
-          orderId: { in: orderIds },
+          OR: [{ orderId: { in: orderIds } }, { cateringBookingId: { in: orderIds } }],
           type: { in: [PaymentType.refund, PaymentType.partial_refund] },
         },
         _sum: { amountPence: true },
@@ -930,7 +998,10 @@ export class PayoutsService {
       // Credit rows hold the portion of each refund Feastpot absorbs (service-fee
       // + commission share) - that money must NOT be clawed back from the vendor.
       const refundCredits = await this.prisma.payment.aggregate({
-        where: { orderId: { in: orderIds }, type: PaymentType.credit },
+        where: {
+          OR: [{ orderId: { in: orderIds } }, { cateringBookingId: { in: orderIds } }],
+          type: PaymentType.credit,
+        },
         _sum: { amountPence: true },
       });
       // Refund rows are negative (cash out); credit rows positive (absorbed).
@@ -965,20 +1036,53 @@ export class PayoutsService {
       });
 
       try {
-        const payout = await this.prisma.payout.create({
-          data: {
-            vendorId,
-            status: totals.status,
-            amountPence: totals.netPence,
-            grossPence: totals.grossPence,
-            commissionPence: totals.commissionPence,
-            refundsPence: totals.refundsPence,
-            orderCount: totals.orderCount,
-            periodStart: start,
-            periodEnd: end,
-            holdReason: totals.holdReason,
-            currency: 'GBP',
-          },
+        const payout = await this.prisma.$transaction(async (tx) => {
+          const periodLock = `payout:${vendorId}:${end.toISOString()}`;
+          await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${periodLock}))`;
+          const duplicate = await tx.payout.findFirst({ where: { vendorId, periodEnd: end } });
+          if (duplicate) return duplicate;
+          // Re-read refund rows after taking the same lock used by catering
+          // refund completion. This closes the aggregate→create race.
+          const [latestRefunds, latestCredits] = await Promise.all([
+            tx.payment.aggregate({
+              where: {
+                OR: [{ orderId: { in: orderIds } }, { cateringBookingId: { in: orderIds } }],
+                type: { in: [PaymentType.refund, PaymentType.partial_refund] },
+              },
+              _sum: { amountPence: true },
+            }),
+            tx.payment.aggregate({
+              where: {
+                OR: [{ orderId: { in: orderIds } }, { cateringBookingId: { in: orderIds } }],
+                type: PaymentType.credit,
+              },
+              _sum: { amountPence: true },
+            }),
+          ]);
+          const lockedRefundsPence = Math.max(
+            0,
+            -(latestRefunds._sum.amountPence ?? 0) - (latestCredits._sum.amountPence ?? 0),
+          );
+          const lockedNetPence = Math.max(
+            0,
+            group.orders.reduce((sum, order) => sum + order.vendorPayoutPence, 0) -
+              lockedRefundsPence,
+          );
+          return tx.payout.create({
+            data: {
+              vendorId,
+              status: totals.status,
+              amountPence: lockedNetPence,
+              grossPence: totals.grossPence,
+              commissionPence: totals.commissionPence,
+              refundsPence: lockedRefundsPence,
+              orderCount: totals.orderCount,
+              periodStart: start,
+              periodEnd: end,
+              holdReason: totals.holdReason,
+              currency: 'GBP',
+            },
+          });
         });
         created.push({ vendorId, payoutId: payout.id });
 

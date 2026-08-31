@@ -1,0 +1,56 @@
+Unify Catering Payment Ledger
+What & Why
+Bring catering deposits, balances, refunds, and vendor payouts into the same recoverable ledger model used by ordinary orders. Catering currently calls Stripe refunds directly and updates the booking afterwards, so refunds can be missing from the ledger, omitted from payout netting, or left inconsistent when Stripe succeeds but a database write fails.
+
+The implementation must reuse the ordinary-order refund split and ledger primitives rather than creating a second refund engine. Catering commission remains charged on the full quoted total, including delivery and service elements, and that basis must be explicit in customer/vendor contractual material.
+
+Done looks like
+Successful catering deposit and balance payments are represented in the shared payment ledger and reconcile to the booking total
+Every catering refund creates the same refund and platform-credit ledger pair as an ordinary-order refund
+Catering refunds reduce pending or future vendor payouts using the same split, advisory-lock, and transfer-reversal rules as order refunds
+A durable refund operation is recorded before Stripe is called and marked complete afterwards
+Repeating a catering refund request cannot charge Stripe or write ledger entries twice
+A reconciliation job detects and repairs or clearly surfaces Stripe refunds missing locally and local refund operations missing or incomplete at Stripe
+A database failure after a successful Stripe refund is detected by reconciliation and cannot leave the discrepancy silent
+Customer cancellation follows the exact matrix: 14 or more days means full deposit refund; 8-13 days means 50% retained; 7 days or fewer means deposit retained; after balance payment, documented vendor costs are protected
+Vendor cancellation always refunds the customer in full
+Refunds work when only the deposit is paid and after the balance is paid
+The next vendor payout correctly nets catering refunds and preserves the platform-funded commission/service-fee credit split
+Vendor Terms, generated quote wording, and the public Rate Schedule agree that catering commission applies to the full quote total
+Automated tests cover every cancellation boundary, incremental and duplicate refunds, payout netting, post-Stripe database failure, and both reconciliation mismatch directions
+Out of scope
+Changing the confirmed catering commission basis or commission rates
+Changing ordinary-order cancellation or refund policy
+Adding catering chargebacks beyond the shared refund and payout ledger integration
+Applying the migration directly to production
+Redesigning the catering quote or booking interfaces
+Steps
+Generalise the shared ledger subject -- Extend the existing payment and refund-operation model so one ledger implementation can safely reference either an ordinary order or a catering booking, with database constraints enforcing exactly one subject and migration-safe handling of existing rows.
+Extract reusable refund accounting -- Refactor PaymentsService so incremental refund splitting, cumulative ceilings, platform credits, payout adjustment, transfer reversal, advisory locking, audit logging, and failed-refund compensation operate through one shared primitive for both subject types.
+Ledger catering collections -- Route confirmed catering deposits and balances through PaymentsService so captured amounts, Stripe identifiers, booking status, and payment timestamps are recorded idempotently and atomically after Stripe confirmation or webhook delivery.
+Make catering refunds recoverable -- Replace direct catering Stripe refund calls with durable intent-before-Stripe operations, deterministic idempotency keys, shared ledger completion, and booking status changes that remain retryable after partial failure.
+Reconcile Stripe and local state -- Add a scheduled reconciliation path that compares incomplete local catering refund operations with Stripe and imports unmatched Stripe catering refunds through the same shared ledger primitive, surfacing irreconcilable cases for operations.
+Integrate catering payouts -- Include completed catering earnings and their refund/credit rows in payout preparation, pending-payout adjustments, transfer reversals, statements, and residual checks without duplicating payout arithmetic.
+Make cancellation policy authoritative -- Centralise the day-boundary calculation and vendor-cancellation override, then use it for refund decisions, generated quote wording, Vendor Terms, and customer/vendor explanations.
+Document the commission basis -- State in the Rate Schedule and Vendor Terms that catering commission is calculated on the entire quoted total, including delivery and service elements, matching the stored commission calculation.
+Prove financial and recovery invariants -- Add boundary, integration, concurrency, webhook, reconciliation, and payout tests for deposit-only and fully-paid bookings, repeated requests, Stripe-success/database-failure recovery, and exact ledger reconciliation.
+Verify affected services -- Run focused payment and catering tests, the full API suite, Prisma drift validation, refund-path guards, typecheck/lint/build checks, and restart the API plus affected portals for clean-log inspection.
+Critical constraints: all money remains integer pence; no catering code may call Stripe refunds directly; Stripe calls stay outside database transactions but are protected by durable operation records and deterministic idempotency; every shared-ledger mutation takes the subject advisory lock and rechecks cumulative ceilings inside the transaction.
+
+Relevant files
+apps/api/src/modules/catering-bookings/catering-bookings.service.ts
+apps/api/src/modules/catering-bookings/catering-deposit.spec.ts
+apps/api/src/modules/payments/payments.service.ts
+apps/api/src/modules/payments/payments.service.spec.ts
+apps/api/src/modules/payments/refunds.spec.ts
+apps/api/src/modules/payments/refund-chargeback-concurrency.integration.spec.ts
+apps/api/src/modules/payments/stripe-webhook.processor.ts
+apps/api/src/modules/payments/stripe-webhook.processor.spec.ts
+apps/api/src/modules/payouts/payouts.service.ts
+apps/api/src/modules/payouts/payouts.service.spec.ts
+apps/api/src/modules/stripe/stripe.service.ts
+apps/api/src/modules/stripe/stripe-webhook.controller.ts
+packages/config/src/catering-deposit.ts
+prisma/schema.prisma
+prisma/seed-terms.ts
+scripts/check-refund-paths.mjs

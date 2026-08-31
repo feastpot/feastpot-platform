@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import { AuthModule } from '../../auth/auth.module';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { StripeModule } from '../../stripe/stripe.module';
+import { PaymentsModule } from '../payments/payments.module';
 
 import { CateringBookingsController } from './catering-bookings.controller';
 import { CateringBookingsService } from './catering-bookings.service';
@@ -13,7 +14,7 @@ import { CateringCronService } from './catering-cron.service';
 // CommissionModule (@Global) exports CommissionService - no import needed.
 
 @Module({
-  imports: [PrismaModule, AuthModule, StripeModule],
+  imports: [PrismaModule, AuthModule, StripeModule, PaymentsModule],
   controllers: [CateringBookingsController],
   providers: [CateringBookingsService, CateringCronService],
   exports: [CateringBookingsService],
