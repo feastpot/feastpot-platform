@@ -1002,10 +1002,9 @@ export function DishesClient({ vendorId }: { vendorId: string }) {
   const createMenu = useCreateMenu(vendorId);
   const allergenRemediation = useAllergenRemediation(vendorId);
 
-  // Primary menu: oldest active menu for this vendor.
-  // Auto-created on first load if none exists (new vendor).
+  // Primary menu: oldest active menu for this vendor. A zero-menu vendor is a
+  // valid state; create the first menu only when they choose to add a dish.
   const [primaryMenuId, setPrimaryMenuId] = useState<string | null>(null);
-  const [creatingMenu, setCreatingMenu] = useState(false);
 
   const primaryMenuIdMemo = useMemo(() => {
     if (!menus.data) return null;
@@ -1018,22 +1017,10 @@ export function DishesClient({ vendorId }: { vendorId: string }) {
   useEffect(() => {
     if (primaryMenuIdMemo) {
       setPrimaryMenuId(primaryMenuIdMemo);
-    } else if (menus.data && !menus.isLoading && !creatingMenu) {
-      // Vendor has no active menu yet -- auto-create one
-      setCreatingMenu(true);
-      createMenu.mutate(
-        { name: 'Dishes' },
-        {
-          onSuccess: (menu) => setPrimaryMenuId(menu.id),
-          onError: () =>
-            toast({
-              title: 'Could not create your dish list. Please reload.',
-              variant: 'destructive',
-            }),
-        },
-      );
+    } else if (menus.data && !menus.isLoading) {
+      setPrimaryMenuId(null);
     }
-  }, [primaryMenuIdMemo, menus.data, menus.isLoading, creatingMenu]);
+  }, [primaryMenuIdMemo, menus.data, menus.isLoading]);
 
   const items = useMenuItems(vendorId, primaryMenuId ?? undefined);
   const deleteItem = useDeleteMenuItem(vendorId, primaryMenuId ?? '');
@@ -1087,11 +1074,25 @@ export function DishesClient({ vendorId }: { vendorId: string }) {
 
   const allergenCount = allergenRemediation.data?.count ?? 0;
 
-  function openNew(category?: string) {
+  async function openNew(category?: string) {
     const cat = category ?? defaultCategory;
+    let menuId = primaryMenuId;
+    if (!menuId) {
+      try {
+        const menu = await createMenu.mutateAsync({ name: 'Dishes' });
+        menuId = menu.id;
+        setPrimaryMenuId(menu.id);
+      } catch {
+        toast({
+          title: 'Could not create your dish list. Please reload.',
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
     setDefaultCategory(cat);
     setEditorInitial(blankEditor(cat));
-    setEditingMenuId(primaryMenuId);
+    setEditingMenuId(menuId);
     setEditingItemId('new');
   }
 
@@ -1137,14 +1138,14 @@ export function DishesClient({ vendorId }: { vendorId: string }) {
     reorderItems.mutate(newOrder.map((i) => i.id));
   }
 
-  const isLoading = menus.isLoading || items.isLoading || creatingMenu;
+  const isLoading = menus.isLoading || (primaryMenuId !== null && items.isLoading);
 
   return (
     <div className="mx-auto max-w-6xl px-5 pb-16 pt-6 sm:px-8 lg:px-12">
       {/* Page title */}
       <div className="mb-6 flex items-center justify-between">
         <h1 className="font-display text-2xl font-black text-charcoal">Dishes</h1>
-        <Button onClick={() => openNew()} disabled={!primaryMenuId}>
+        <Button onClick={() => void openNew()} disabled={createMenu.isPending}>
           <Plus className="mr-1.5 h-4 w-4" aria-hidden />
           Add a dish
         </Button>
@@ -1250,7 +1251,7 @@ export function DishesClient({ vendorId }: { vendorId: string }) {
               Add your first dish to get started.
             </p>
           </div>
-          <Button onClick={() => openNew()}>
+          <Button onClick={() => void openNew()} disabled={createMenu.isPending}>
             <Plus className="mr-1.5 h-4 w-4" aria-hidden />
             Add a dish
           </Button>

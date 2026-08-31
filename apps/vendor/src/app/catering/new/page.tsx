@@ -65,7 +65,28 @@ export default async function NewCateringQuotePage({
         </a>
       </div>
 
-      <CateringQuoteForm enquiryId={enquiryId} />
+      {enquiryId ? (
+        <CateringQuoteForm enquiryId={enquiryId} />
+      ) : (
+        <section
+          aria-labelledby="no-enquiry-heading"
+          className="rounded-lg border border-dashed p-6 text-center"
+        >
+          <h2 id="no-enquiry-heading" className="text-base font-semibold text-dark">
+            No catering enquiry selected
+          </h2>
+          <p className="mt-2 text-sm text-mid">
+            Open a routed catering enquiry before creating a quote so the customer and event details
+            stay attached.
+          </p>
+          <a
+            href="/catering"
+            className="mt-4 inline-flex rounded-md border border-border px-4 py-2 text-sm font-medium text-dark hover:bg-surface"
+          >
+            View catering bookings
+          </a>
+        </section>
+      )}
     </PortalShell>
   );
 }

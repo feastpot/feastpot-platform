@@ -57,13 +57,16 @@ export default async function SharePage() {
   // matches a VendorReferralLink record; if Vendor.slug is used instead and the
   // two differ, fp_ref is never set and orders are attributed as marketplace.
   let link: ReferralLink | null = null;
+  let linkLoadFailed = false;
   try {
     link = await apiRequest<ReferralLink>('/attribution/links/me', {
       accessToken: session.access_token,
       next: { revalidate: 0 },
     });
-  } catch {
-    // Render with null; client surfaces an error state.
+  } catch (err) {
+    // A missing row is a recoverable creation race. Transport/auth/server
+    // failures are different and must not masquerade as an endless setup state.
+    if (!(err instanceof ApiError && err.status === 404)) linkLoadFailed = true;
   }
 
   return (
@@ -84,6 +87,7 @@ export default async function SharePage() {
         link={link}
         businessName={vendor.businessName}
         vendorId={vendor.id}
+        initialLinkLoadFailed={linkLoadFailed}
       />
     </PortalShell>
   );

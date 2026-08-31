@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { expect, test, type BrowserContext } from '@playwright/test';
 
 import {
+  configuredMatrixStates,
   matrixBusinessName,
   matrixManifestPath,
   matrixNamespace,
@@ -16,6 +17,27 @@ import {
 const ERROR_BOUNDARY_COPY =
   /something went wrong|we hit an unexpected error|application error|error digest|internal server error/i;
 const ROUTE_CHECK_CONCURRENCY = 4;
+
+const STATE_LANDMARKS: Record<
+  VendorMatrixState,
+  ReadonlyArray<{ href: string; text: string | RegExp }>
+> = {
+  V4: [
+    { href: '/menu', text: 'No dishes yet' },
+    { href: '/performance', text: 'No completed orders yet' },
+    { href: '/account-and-compliance', text: 'No restrictions on your account' },
+    { href: '/account-and-compliance', text: 'Not started' },
+    { href: '/share', text: 'Order source breakdown' },
+    { href: '/catering/new', text: 'No catering enquiry selected' },
+  ],
+  V5: [
+    { href: '/orders', text: /Completed\s*1/ },
+    { href: '/payouts', text: /payout/i },
+  ],
+  V6: [{ href: '/account-and-compliance', text: /expir(?:es|ing)/i }],
+  V7: [{ href: '/account-and-compliance', text: /expired|suspended/i }],
+  V8: [{ href: '/account-and-compliance', text: /FHRS hygiene rating below threshold/i }],
+};
 
 function readManifest(): VendorStateMatrixManifest {
   const manifestPath = matrixManifestPath(matrixNamespace());
@@ -85,17 +107,34 @@ async function visitRoute(
 
 async function visitEveryRoute(context: BrowserContext, state: VendorMatrixState, mobile = false) {
   test.setTimeout(10 * 60_000);
+  const concurrency = mobile ? 1 : ROUTE_CHECK_CONCURRENCY;
 
-  for (let index = 0; index < VENDOR_PORTAL_ROUTES.length; index += ROUTE_CHECK_CONCURRENCY) {
+  for (let index = 0; index < VENDOR_PORTAL_ROUTES.length; index += concurrency) {
     await Promise.all(
-      VENDOR_PORTAL_ROUTES.slice(index, index + ROUTE_CHECK_CONCURRENCY).map((route) =>
+      VENDOR_PORTAL_ROUTES.slice(index, index + concurrency).map((route) =>
         visitRoute(context, state, route, mobile),
       ),
     );
   }
 }
 
-for (const state of VENDOR_MATRIX_STATES) {
+async function assertStateLandmarks(context: BrowserContext, state: VendorMatrixState) {
+  const page = await context.newPage();
+  try {
+    for (const landmark of STATE_LANDMARKS[state]) {
+      await test.step(`${state}: ${landmark.href} shows its expected state`, async () => {
+        await page.goto(landmark.href, { waitUntil: 'domcontentloaded', timeout: 60_000 });
+        await expect(page.locator('main')).toContainText(landmark.text, { timeout: 10_000 });
+        const pageText = (await page.locator('body').textContent()) ?? '';
+        await assertNoErrorBoundary(pageText, landmark.href);
+      });
+    }
+  } finally {
+    await page.close();
+  }
+}
+
+for (const state of configuredMatrixStates()) {
   test.describe(`${state} vendor state`, () => {
     test.use({ storageState: matrixStorageStatePath(state) });
 
@@ -103,6 +142,7 @@ for (const state of VENDOR_MATRIX_STATES) {
       context,
     }) => {
       await visitEveryRoute(context, state);
+      await assertStateLandmarks(context, state);
     });
   });
 }

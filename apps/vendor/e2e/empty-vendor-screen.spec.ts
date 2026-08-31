@@ -88,6 +88,8 @@ test('EV4: new catering quote desktop shell exposes its breadcrumb and Cancel de
     '/catering',
   );
   await expect(page.getByRole('link', { name: 'Cancel' })).toHaveAttribute('href', '/catering');
+  await expect(page.getByRole('heading', { name: 'No catering enquiry selected' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Save quote' })).toHaveCount(0);
 });
 
 test('EV5: new catering quote shell has no horizontal document overflow at 375px', async ({
@@ -108,4 +110,17 @@ test('EV5: new catering quote shell has no horizontal document overflow at 375px
     dimensions.scrollWidth,
     'EV5: the 375px catering shell must not overflow horizontally',
   ).toBeLessThanOrEqual(dimensions.clientWidth);
+});
+
+test('EV6: referral API failure is not presented as an endless preparation state', async ({
+  page,
+}) => {
+  await installShareMocks(page, {}, { linkStatus: 500 });
+
+  await page.goto('/share');
+
+  await expect(page.getByText('Could not load your referral link')).toBeVisible({
+    timeout: 8_000,
+  });
+  await expect(page.getByText('Preparing your referral link')).toHaveCount(0);
 });
