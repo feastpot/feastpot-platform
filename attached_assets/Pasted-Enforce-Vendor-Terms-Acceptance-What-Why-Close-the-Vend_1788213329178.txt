@@ -1,0 +1,51 @@
+Enforce Vendor Terms Acceptance
+What & Why
+Close the Vendor Terms version gap and make enforceable acceptance part of vendor onboarding. The platform must always retain a current effective version, preserve the statutory notice period for material changes, and prevent vendors from entering post-approval setup or going live without a complete acceptance record.
+
+Done looks like
+Vendor Terms v1.0 remains current until v2.0 becomes effective, with no date window where the public current-version endpoint returns nothing
+Publishing a material version with less than 15 days notice is rejected, and a future replacement does not supersede the effective version early
+Vendors must accept the current effective terms after approval and before menu setup or go-live
+A successful acceptance stores the exact displayed version hash and label, UTC acceptance time, vendor identity, request IP and user agent, scroll completion, and acceptance method
+Acceptance and the corresponding post-approval account activation happen atomically; a failed acceptance leaves the account unactivated and creates no partial record
+The checkbox starts unticked and remains disabled until the terms pane reaches the end
+The accepted vendor receives a watermarked PDF copy of the exact accepted version
+Existing live vendors receive a countdown notice before a replacement takes effect, then a non-dismissible re-acceptance gate after it takes effect
+Vendors who decline are guided through account closure while open orders and final payouts remain protected
+Continued trading after a new version takes effect records deemed continued-use evidence with the specific qualifying action
+Staff cannot accept for a vendor, and acceptance records remain append-only with no update or delete API
+Automated scenario tests cover all cases in the supplied brief, including transaction failure and penny-independent audit-field assertions
+Out of scope
+Rewriting vendor commission, payout, refund, chargeback, or order state machines
+Changing the statutory 15-day minimum notice policy
+Letting staff edit or delete historical acceptance evidence
+Replacing the existing vendor closure workflow beyond linking and gating it correctly
+Steps
+Restore the current-version invariant -- Correct version selection and publication lifecycle rules so a future replacement can coexist with the current effective version and supersession only occurs once the replacement is effective.
+Repair existing version state safely -- Add an idempotent data migration that restores the effective Vendor Terms version for the known gap without shortening the pending material version's notice period.
+Make acceptance evidence strict -- Require and validate every click-wrap audit field, bind the submitted version and label to the exact server-side document, and preserve append-only/idempotent behavior.
+Make onboarding activation atomic -- Add a vendor-owned activation operation that records acceptance and unlocks post-approval onboarding in one transaction, while all go-live and menu-entry paths enforce the same server-side acceptance invariant.
+Deliver accepted-document evidence -- Generate a watermarked PDF from the accepted immutable version and send it through the durable notification path after the transaction commits.
+Enforce existing-vendor transitions -- Keep notice-period trading available, show the countdown notice, block portal trading surfaces after effectiveness until explicit acceptance or closure, and retain action-specific deemed continued-use evidence as a safety audit path.
+Verify legal and product scenarios -- Add focused service/controller/processor/UI tests for the eleven supplied scenarios, then run schema validation, migration drift checks, API and vendor typechecks, lint, builds, and relevant full test suites.
+Critical constraint: the public current version, vendor acceptance status, onboarding gate, go-live transition, and deemed-acceptance sweep must use one shared definition of the effective Vendor Terms version. Client-side checks are supplementary; enforcement must remain server-side.
+
+Relevant files
+apps/api/src/modules/terms/terms.service.ts
+apps/api/src/modules/terms/terms.controller.ts
+apps/api/src/modules/terms/terms-notice.processor.ts
+apps/api/src/modules/terms/dto/accept-terms-version.dto.ts
+apps/api/src/modules/vendors/vendors.service.ts:1469-1574
+apps/api/src/modules/vendors/vendors.controller.ts:580-590
+apps/api/src/e2e/vendor-onboarding-smoke.spec.ts
+apps/vendor/src/app/onboarding/page.tsx
+apps/vendor/src/app/onboarding/onboarding-client.tsx
+apps/vendor/src/app/onboarding/terms/page.tsx
+apps/vendor/src/app/onboarding/terms/terms-acceptance-client.tsx
+apps/vendor/src/components/layout/re-acceptance-gate.tsx
+apps/vendor/src/components/layout/terms-banner.tsx
+apps/vendor/src/hooks/use-terms-acceptance.ts
+apps/vendor/src/middleware.ts
+prisma/schema.prisma:1892-1992
+prisma/migrations/20260806130000_add_terms_versioning/migration.sql
+prisma/migrations/20260808140000_terms_notice_enhancements/migration.sql
