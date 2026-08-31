@@ -54,16 +54,16 @@ export class StripeWebhookDeliveryService implements OnModuleInit {
         ...JOB_OPTIONS,
         jobId: row.stripeEventId,
       });
-      await this.prisma.processedWebhookEvent.update({
-        where: { id: claimId },
+      await this.prisma.processedWebhookEvent.updateMany({
+        where: { id: claimId, status: { not: 'processed' } },
         data: { status: 'queued', queuedAt: new Date(), lastError: null },
       });
       return true;
     } catch (error) {
       const message = (error as Error).message;
       const delayMs = Math.min(2 ** row.enqueueAttempts * 60_000, 30 * 60_000);
-      await this.prisma.processedWebhookEvent.update({
-        where: { id: claimId },
+      await this.prisma.processedWebhookEvent.updateMany({
+        where: { id: claimId, status: { not: 'processed' } },
         data: {
           status: 'enqueue_failed',
           lastError: message,

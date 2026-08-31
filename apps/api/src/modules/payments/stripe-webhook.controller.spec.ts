@@ -42,7 +42,9 @@ function build() {
       }),
       updateMany: jest.fn(async ({ where, data }: any) => {
         const row = [...rows.values()].find((candidate) => candidate.id === where.id);
-        if (!row || !where.status.in.includes(row.status)) return { count: 0 };
+        if (!row) return { count: 0 };
+        if (where.status?.in && !where.status.in.includes(row.status)) return { count: 0 };
+        if (where.status?.not && row.status === where.status.not) return { count: 0 };
         Object.assign(row, {
           ...data,
           enqueueAttempts: row.enqueueAttempts + (data.enqueueAttempts?.increment ?? 0),
@@ -142,6 +144,18 @@ describe('StripeWebhookController claim-before-queue', () => {
     await delivery.recover();
     expect(row.status).toBe('queued');
     expect(queue.add).toHaveBeenCalledTimes(2);
+  });
+
+  it('never downgrades processed when the worker finishes before handoff bookkeeping', async () => {
+    const { controller, queue, rows, request } = build();
+    queue.add.mockImplementationOnce(async () => {
+      const row = rows.get('evt_duplicate');
+      row.status = 'processed';
+      row.processedAt = new Date();
+      return { id: 'evt_duplicate' };
+    });
+    await controller.handle(request, 'valid-signature');
+    expect(rows.get('evt_duplicate')?.status).toBe('processed');
   });
 });
 

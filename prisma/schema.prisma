@@ -1513,6 +1513,7 @@ model ProcessedWebhookEvent {
   processedAt     DateTime? @map("processed_at") @db.Timestamptz
   nextAttemptAt   DateTime  @default(now()) @map("next_attempt_at") @db.Timestamptz
   enqueueAttempts Int       @default(0) @map("enqueue_attempts")
+  processingJobId String?   @map("processing_job_id") @db.VarChar(100)
   lastError       String?   @map("last_error")
   updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 

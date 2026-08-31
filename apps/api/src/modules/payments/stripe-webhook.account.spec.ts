@@ -21,16 +21,20 @@ function buildVendor(payoutsEnabled: boolean) {
       updateMany: jest.fn().mockResolvedValue({ count: 1 }),
     },
     auditLog: { create: jest.fn().mockResolvedValue({}) },
+    processedWebhookEvent: {
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+    },
   };
   prisma.$transaction = jest.fn(async (fn: (tx: any) => unknown) => fn(prisma));
+  const stripeService = { retrieveAccount: jest.fn() };
   const proc = new StripeWebhookProcessor(
     prisma,
     { refundRedemption: jest.fn() } as any,
     {} as any,
     {} as any,
-    {} as any,
+    stripeService as any,
   );
-  return { proc, prisma };
+  return { proc, prisma, stripeService };
 }
 
 function accountJob(payoutsEnabled: boolean, created = 1_700_000_000): Job<any> {
@@ -57,7 +61,8 @@ function accountJob(payoutsEnabled: boolean, created = 1_700_000_000): Job<any> 
 
 describe('StripeWebhookProcessor account.updated', () => {
   it('stores capability loss, requirements, audit, and raises an alert', async () => {
-    const { proc, prisma } = buildVendor(true);
+    const { proc, prisma, stripeService } = buildVendor(true);
+    stripeService.retrieveAccount.mockResolvedValue(accountJob(false).data.data);
     const sentry = Sentry.captureMessage as jest.Mock;
     sentry.mockClear();
     await proc.onAccountUpdated(accountJob(false));
@@ -79,7 +84,8 @@ describe('StripeWebhookProcessor account.updated', () => {
   });
 
   it('stores capability restoration without a loss alert', async () => {
-    const { proc, prisma } = buildVendor(false);
+    const { proc, prisma, stripeService } = buildVendor(false);
+    stripeService.retrieveAccount.mockResolvedValue(accountJob(true).data.data);
     const sentry = Sentry.captureMessage as jest.Mock;
     sentry.mockClear();
     await proc.onAccountUpdated(accountJob(true));
@@ -97,7 +103,8 @@ describe('StripeWebhookProcessor account.updated', () => {
   });
 
   it('ignores an out-of-order event when the database compare-and-set loses', async () => {
-    const { proc, prisma } = buildVendor(true);
+    const { proc, prisma, stripeService } = buildVendor(true);
+    stripeService.retrieveAccount.mockResolvedValue(accountJob(true).data.data);
     prisma.vendor.updateMany.mockResolvedValue({ count: 0 });
     await proc.onAccountUpdated(accountJob(false, 1_600_000_000));
     expect(prisma.auditLog.create).not.toHaveBeenCalled();

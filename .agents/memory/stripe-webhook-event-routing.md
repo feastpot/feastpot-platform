@@ -26,3 +26,17 @@ event whose type name varies by API version.
 `curl -s https://api.stripe.com/v1/webhook_endpoints -u "$STRIPE_SECRET_KEY_LIVE:" -G -d limit=20`
 then inspect each `url` / `status` / `enabled_events`. The `secret` is only returned at
 creation, so listing never exposes signing secrets.
+
+## Delivery ownership
+
+Webhook acceptance must insert the unique database claim before any queue handoff.
+Queue recovery may safely re-enqueue only when every worker execution first acquires
+a database lease with a per-execution token; the stable Bull job ID is not sufficient
+because a stalled job can be redelivered concurrently with the same ID.
+
+**Why:** Post-enqueue bookkeeping can race with a fast worker, and Bull stalled-job
+redelivery can create two simultaneous executions of one stable job ID.
+
+**How to apply:** Handoff state changes must never downgrade `processed`. Every
+handler must acquire execution ownership before side effects, release only its exact
+token on failure, and complete only its exact token.
