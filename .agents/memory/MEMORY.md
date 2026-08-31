@@ -17,6 +17,7 @@
 - [Order responses have no DTO](order-response-shaping.md) - orders are raw Prisma rows returned untouched across getById/list/createOrder/customerCancel/reorder; any new Order column leaks to customers; sanitize every customer return path.
 - [Service fee & payout](service-fee-payout.md) - service fee is platform revenue, never paid out; payout = total − serviceFee − commission (delivery stays w/ vendor); fix BOTH per-order calc AND weekly batch (batch recomputed from total, didn't use stored vendorPayoutPence).
 - [Stripe webhook routing](stripe-webhook-event-routing.md) - controller only enqueues types in HANDLED_STRIPE_EVENT_TYPES (keep in sync with @Process names); others recorded + Sentry-warned, never enqueued.
+- [Stripe webhook execution leases](stripe-webhook-execution-leases.md) - worker ownership must use a per-execution token, not stable Bull job IDs, so stalled redeliveries cannot share completion ownership.
 - [Notification outbox](notification-outbox.md) - always send events via NotificationsService.enqueue (durable outbox fallback), never the raw queue; drainer dedupes via outbox:<rowId> jobId.
 - [Refund ledger invariants](refund-ledger.md) — refund/clawback accounting rules: status-agnostic payout netting, settle-once vendor earnings, per-attempt idempotency keys.
 - [Chargeback reconciliation](chargeback-reconciliation.md) - lost disputes write the refund+credit ledger pair; ALL refund writers must take the per-order advisory lock and re-check the ceiling in-tx.
