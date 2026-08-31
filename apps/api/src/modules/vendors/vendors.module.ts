@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 
 import { PrismaModule } from '../../prisma/prisma.module';
 import { CatalogueModule } from '../catalogue/catalogue.module';
+import { TermsModule } from '../terms/terms.module';
 import { VendorMembersModule } from '../vendor-members/vendor-members.module';
 
 import { VendorTrustSignalsController } from './vendor-trust-signals.controller';
@@ -20,7 +21,7 @@ import { VendorsService } from './vendors.service';
   // BullModule.registerCore() instance (different object reference → different
   // random token in ByReferenceModuleOpaqueKeyFactory) → second BullExplorer →
   // "Cannot define the same handler twice" at boot.
-  imports: [PrismaModule, CatalogueModule, VendorMembersModule],
+  imports: [PrismaModule, CatalogueModule, VendorMembersModule, TermsModule],
   controllers: [VendorsController, VendorTrustSignalsController],
   providers: [VendorsService, VendorRepository],
   // PrismaModule is @Global, so VendorsService can inject PrismaService for stats

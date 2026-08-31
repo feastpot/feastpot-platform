@@ -99,10 +99,10 @@ export function TermsAcceptanceClient({ accessToken, version, alreadyAccepted }:
       await apiRequest(`/terms/versions/${version.id}/accept`, {
         method: 'POST',
         accessToken,
-        body: JSON.stringify({
+        body: {
           acceptanceText: ACCEPTANCE_LABEL,
           scrolledToEnd,
-        }),
+        },
       });
 
       toast({

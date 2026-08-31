@@ -23,6 +23,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { EmailProvider } from '../notifications/providers/email.provider';
 import { vendorApplicationAcknowledgedTemplate } from '../notifications/templates/vendor-application-acknowledged.template';
 import { vendorApplicationReceivedTemplate } from '../notifications/templates/vendor-application-received.template';
+import { TermsService } from '../terms/terms.service';
 import {
   VENDOR_AVAILABILITY_ROLES,
   VENDOR_PAYOUT_ROLES,
@@ -296,6 +297,7 @@ export class VendorsService {
     // staff, delivery coordinator) can act on their team's vendor as
     // their role allows, not just the original owner.
     private readonly members: VendorMembersService,
+    private readonly terms: TermsService,
     // Notifications queue for durable retry of vendor-application emails.
     @InjectQueue(NOTIFICATIONS_QUEUE) private readonly queue: Queue,
   ) {}
@@ -1495,6 +1497,7 @@ export class VendorsService {
     // HMRC SI 2023/817: a vendor cannot go live without a complete tax profile.
     // This gate applies to both pending→live and approved→live transitions.
     if (dto.status === VendorStatus.live) {
+      await this.terms.assertAcceptedCurrentVersion(vendorId);
       const taxProfile = await this.prisma.vendorTaxProfile.findUnique({
         where: { vendorId },
         select: {

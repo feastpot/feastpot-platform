@@ -77,10 +77,11 @@ cover launch comms.
 - **Review photos** are accepted in the UI then discarded on submit - no storage
   and no join model.
 
-**Payout statements show £0 fees/adjustments.** The payout CSV hardcodes
-`fees_pence` and `adjustments_pence` to `0` and the schema has no Stripe
-transfer-fee breakout, so statements understate the detail even though the net is
-correct.
+**Legacy payout statements have unavailable fee/adjustment detail.** New payout
+batches persist one canonical statement used by the detail view, CSV, PDF and
+notifications, with separate gross, commission, refund, chargeback, service-fee,
+adjustment and net lines. Payouts created before that snapshot was introduced
+show unavailable fields explicitly rather than inventing £0.00 values.
 
 **Admin "coming soon" stubs.**
 

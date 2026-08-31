@@ -15,6 +15,7 @@ import type { StripeService } from '../../stripe/stripe.service';
 import type { SupabaseStorageService } from '../catalogue/supabase-storage.service';
 import type { NotificationsService } from '../notifications/notifications.service';
 import type { EmailProvider } from '../notifications/providers/email.provider';
+import type { TermsService } from '../terms/terms.service';
 import type { VendorMembersService } from '../vendor-members/vendor-members.service';
 
 import type { VendorRepository } from './vendors.repository';
@@ -104,6 +105,9 @@ describe('VendorsService', () => {
       resolveVendorIdByUserId: jest.fn().mockResolvedValue({ vendorId: 'v-1' }),
     };
     const queue = { add: jest.fn().mockResolvedValue(undefined) } as unknown as Queue;
+    const terms = {
+      assertAcceptedCurrentVersion: jest.fn().mockResolvedValue(undefined),
+    } as unknown as TermsService;
     service = new VendorsService(
       repo as unknown as VendorRepository,
       prisma,
@@ -114,6 +118,7 @@ describe('VendorsService', () => {
       email,
       storage,
       members as unknown as VendorMembersService,
+      terms,
       queue,
     );
   });

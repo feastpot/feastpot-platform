@@ -2,15 +2,24 @@ import { InjectQueue, Process, Processor } from '@nestjs/bull';
 import { OnApplicationBootstrap, Logger } from '@nestjs/common';
 import { NoticeChannel, OrderStatus } from '@prisma/client';
 import type { Job, Queue } from 'bull';
+import PDFDocument from 'pdfkit';
 
 import { PrismaService } from '../../prisma/prisma.service';
 import { TERMS_NOTICES_QUEUE } from '../../queues/queues.module';
 import { EmailProvider } from '../notifications/providers/email.provider';
 
-import { DEEMED_ACCEPTANCE_CRON_JOB, SEND_TERMS_NOTICES_JOB } from './terms.service';
+import {
+  DEEMED_ACCEPTANCE_CRON_JOB,
+  GENERATE_ACCEPTANCE_PDF_JOB,
+  SEND_TERMS_NOTICES_JOB,
+} from './terms.service';
 
 interface TermsNoticesJobData {
   termsVersionId: string;
+}
+
+interface AcceptancePdfJobData {
+  acceptanceId: string;
 }
 
 const DEEMED_ACCEPTANCE_CRON = '0 2 * * *'; // 02:00 UTC every day.
@@ -151,6 +160,40 @@ export class TermsNoticeProcessor implements OnApplicationBootstrap {
     );
   }
 
+  @Process(GENERATE_ACCEPTANCE_PDF_JOB)
+  async handleAcceptancePdf(job: Job<AcceptancePdfJobData>): Promise<void> {
+    const acceptance = await this.prisma.termsAcceptance.findUniqueOrThrow({
+      where: { id: job.data.acceptanceId },
+      include: {
+        termsVersion: true,
+        vendor: {
+          select: {
+            businessName: true,
+            user: { select: { email: true, firstName: true } },
+          },
+        },
+      },
+    });
+
+    const pdf = await this.buildAcceptancePdf(acceptance);
+    await this.email.send({
+      to: acceptance.vendor.user.email,
+      subject: `Your accepted Feastpot Vendor Terms v${acceptance.termsVersion.version}`,
+      html:
+        `<p>Hi ${acceptance.vendor.user.firstName ?? 'there'},</p>` +
+        `<p>Attached is your evidence copy of the Feastpot Vendor Terms accepted for ` +
+        `<strong>${acceptance.vendor.businessName}</strong> on ` +
+        `${acceptance.acceptedAt.toLocaleString('en-GB', { timeZone: 'UTC' })} UTC.</p>` +
+        `<p>This copy includes the accepted document hash and acceptance reference.</p>`,
+      attachments: [
+        {
+          filename: `feastpot-vendor-terms-v${acceptance.termsVersion.version}-accepted.pdf`,
+          content: pdf,
+        },
+      ],
+    });
+  }
+
   // ─── Nightly deemed-acceptance sweep ────────────────────────────────────────
 
   /**
@@ -168,11 +211,16 @@ export class TermsNoticeProcessor implements OnApplicationBootstrap {
   async handleDeemedAcceptanceSweep(): Promise<void> {
     const now = new Date();
 
-    // Versions that are now live (effectiveAt <= now) and not superseded.
-    const liveVersions = await this.prisma.termsVersion.findMany({
-      where: { effectiveAt: { lte: now }, supersededAt: null, isMaterial: true },
-      select: { id: true, contentHash: true, effectiveAt: true },
+    // One current version per document type: latest version already effective.
+    const effectiveVersions = await this.prisma.termsVersion.findMany({
+      where: { effectiveAt: { lte: now }, isMaterial: true },
+      orderBy: [{ documentType: 'asc' }, { effectiveAt: 'desc' }, { publishedAt: 'desc' }],
+      select: { id: true, contentHash: true, effectiveAt: true, documentType: true },
     });
+    const liveVersions = effectiveVersions.filter(
+      (version, index, all) =>
+        all.findIndex((candidate) => candidate.documentType === version.documentType) === index,
+    );
 
     if (liveVersions.length === 0) return;
 
@@ -231,6 +279,58 @@ export class TermsNoticeProcessor implements OnApplicationBootstrap {
     }
 
     this.logger.log(`[terms-notices] deemed-acceptance sweep: recorded=${recorded}`);
+  }
+
+  private buildAcceptancePdf(acceptance: {
+    id: string;
+    acceptedAt: Date;
+    acceptanceText: string | null;
+    contentHash: string | null;
+    ipAddress: string | null;
+    userAgent: string | null;
+    method: string;
+    vendor: { businessName: string };
+    termsVersion: { version: string; contentMdx: string; effectiveAt: Date };
+  }): Promise<Buffer> {
+    return new Promise((resolve, reject) => {
+      const doc = new PDFDocument({ margin: 48, size: 'A4' });
+      const chunks: Buffer[] = [];
+      doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+
+      doc
+        .fontSize(42)
+        .fillColor('#e5e7eb')
+        .opacity(0.35)
+        .rotate(-35, { origin: [300, 420] })
+        .text(`ACCEPTED • ${acceptance.vendor.businessName}`, 60, 360, {
+          width: 500,
+          align: 'center',
+        })
+        .rotate(35, { origin: [300, 420] })
+        .opacity(1);
+
+      doc.fillColor('#111827').fontSize(20).text('Feastpot Vendor Terms - Accepted Copy');
+      doc.moveDown(0.5).fontSize(10);
+      doc.text(`Vendor: ${acceptance.vendor.businessName}`);
+      doc.text(`Version: ${acceptance.termsVersion.version}`);
+      doc.text(`Effective: ${acceptance.termsVersion.effectiveAt.toISOString()}`);
+      doc.text(`Accepted: ${acceptance.acceptedAt.toISOString()}`);
+      doc.text(`Acceptance reference: ${acceptance.id}`);
+      doc.text(`Method: ${acceptance.method}`);
+      doc.text(`Content SHA-256: ${acceptance.contentHash ?? 'not available'}`);
+      doc.text(`IP address: ${acceptance.ipAddress ?? 'not available'}`);
+      doc.text(`User agent: ${acceptance.userAgent ?? 'not available'}`);
+      doc
+        .moveDown()
+        .fontSize(11)
+        .text(acceptance.acceptanceText ?? '');
+      doc.moveDown().fontSize(9).fillColor('#374151').text(acceptance.termsVersion.contentMdx, {
+        align: 'left',
+      });
+      doc.end();
+    });
   }
 }
 

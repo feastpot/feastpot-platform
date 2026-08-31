@@ -364,6 +364,24 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
           (d.commissionPence !== undefined
             ? keyValueRow('Commission deducted', `- ${formatMoney(d.commissionPence)}`)
             : '') +
+          (d.refundsPence !== undefined
+            ? keyValueRow('Refunds', `- ${formatMoney(d.refundsPence)}`)
+            : '') +
+          (d.chargebacksPence !== undefined
+            ? keyValueRow('Chargebacks', `- ${formatMoney(d.chargebacksPence)}`)
+            : '') +
+          keyValueRow(
+            'Service fees',
+            d.serviceFeesPence === null || d.serviceFeesPence === undefined
+              ? 'not available'
+              : `- ${formatMoney(d.serviceFeesPence)}`,
+          ) +
+          keyValueRow(
+            'Adjustments',
+            d.adjustmentsPence === null || d.adjustmentsPence === undefined
+              ? 'not available'
+              : formatMoney(d.adjustmentsPence),
+          ) +
           keyValueRow('Net payable', formatMoney(d.amountPence ?? d.netPence), { bold: true }) +
           (d.payoutDate ? keyValueRow('Payout date', str(d.payoutDate)) : '') +
           brandButton('View statement', 'https://vendor.feastpot.co.uk/payouts', 'vendorBlue') +

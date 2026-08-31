@@ -1,0 +1,72 @@
+TASK: Fix the terms version gap and wire acceptance into
+onboarding.
+
+THE CONFIRMED STATE
+The audit found in the database:
+  v1.0  published 1 May 2026, effective 1 May 2026,
+        SUPERSEDED, acceptance records: 0
+  v2.0  published 8 Aug 2026, effective 23 Sep 2026,
+        not superseded, pending, acceptance records: 0
+
+Read that carefully. The only effective version is marked
+superseded, its replacement is not yet effective, and NOBODY
+HAS ACCEPTED EITHER. All the P2B compliance work is currently
+achieving nothing, because no vendor is bound by anything.
+
+STEP 1: RESOLVE THE VERSION GAP
+Check the "current version" selection logic in
+terms.service.ts. Determine what it returns today given one
+superseded effective version and one pending version. Then
+decide, before 23 September:
+  Either un-supersede v1.0 until v2.0 takes effect,
+  or bring v2.0's effective date forward with proper notice.
+Do NOT leave a window where no version is current. Add a
+validation that refuses to supersede a version unless a
+replacement is already effective.
+
+STEP 2: WIRE ACCEPTANCE INTO ONBOARDING
+Acceptance must be a BLOCKING step, not an optional page. A
+vendor cannot reach menu setup or go live without it. Place it
+between approval and menu setup.
+
+Capture on submit, all required:
+  vendorId, versionId, acceptedAt UTC, contentHash of the
+  exact version displayed, ipAddress, userAgent, the exact
+  acceptance label string shown, scrolledToEnd, method
+Write inside the same transaction that activates the account.
+If the acceptance write fails, the account does not activate.
+
+The checkbox starts UNTICKED. Track scroll and only enable it
+at the end of the terms pane. Email a watermarked PDF of the
+accepted version.
+
+STEP 3: BACKFILL EXISTING VENDORS
+Any vendor currently live without an acceptance record must be
+prompted at next login. Show a blocking modal, not a dismissible
+banner. They may continue trading during a notice period but
+must accept to continue beyond it.
+
+SCENARIO TESTS
+  V9 (terms not accepted) attempts to reach menu setup
+    -> blocked, routed to acceptance
+  V9 accepts -> record written with all nine fields, PDF sent
+  acceptance write fails -> account NOT activated, no orphan
+  V10 (accepted v1.0, v2.0 pending) before effective date
+    -> can trade, sees notice banner with countdown
+  V10 after effective date -> prompted to re-accept
+  V10 declines -> guided closure honouring open orders
+  continued trading past effective date without explicit
+    re-acceptance -> DEEMED_CONTINUED_USE recorded with the
+    specific action relied on
+  publishing a material version with under 15 days notice
+    -> rejected by the API
+  attempting to supersede the only effective version
+    -> rejected
+  admin attempts to accept on a vendor's behalf -> rejected
+  acceptance record is append-only -> no update or delete
+    endpoint exists
+
+ACCEPTANCE CRITERIA
+- A current effective version always exists.
+- No vendor can trade without an acceptance record.
+- All eleven scenarios pass.

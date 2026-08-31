@@ -1,0 +1,37 @@
+Shared Payout Statement
+What & Why
+Build one canonical payout-statement model from the orders, catering bookings, commission records, and refund/chargeback ledger entries that make up a payout batch. Every presentation—batch totals, vendor detail, CSV, PDF, and payout notifications—must consume that same model so effective source-based commission rates, refunds, fees, adjustments, and net payout reconcile to the penny.
+
+This removes the hardcoded 12% comparison, makes partially refunded orders visible, and replaces the current disagreement between batch membership, detail filtering, CSV calculations, PDF content, and documentation.
+
+Done looks like
+A single statement model supplies the batch summary and every order/booking detail row.
+Statements show separately named gross sales, effective commission, refunds, chargebacks, service fees, adjustments, and net payout lines.
+Each order row shows the rate actually applied, including source-based rates and rate changes during the period; unavailable data is labelled not available, never represented as a guessed zero.
+Delivered, partially refunded, fully refunded, disputed, FeastPass, and catering entries are included or excluded consistently with the batch and their ledger effects are visible.
+Vendor payout detail, CSV, PDF, and payout notification totals are identical and reconcile against the batch to the penny, including zero and negative-net cases.
+No statement-generation path contains a hardcoded commission rate.
+The outstanding-work documentation describes the real statement behavior rather than placeholder zero fees or adjustments.
+Automated permutation tests cover all scenarios in the supplied brief and assert observed detail counts plus cross-format totals.
+Out of scope
+Changing the commission-rate policy or rate-source selection rules.
+Replacing the existing refund, chargeback, Stripe transfer, or catering ledger state machines.
+Adding new payment providers or changing vendor payout cadence.
+Redesigning unrelated vendor or admin payout screens beyond exposing the corrected statement data.
+Steps
+Define the canonical statement contract -- Create a typed, money-in-pence statement model with batch lines, effective commission metadata, ledger-derived refunds/chargebacks, service fees, adjustments, net payout, and explicit unavailable values. Make its arithmetic and reconciliation invariants pure and independently testable.
+Build the authoritative statement loader -- Derive membership and all line values from the same qualifying records used to create the payout, covering marketplace orders, partially/fully refunded orders, disputes/chargebacks, FeastPass orders, rate changes, and completed catering bookings. Preserve stored effective rate data and never infer unknown values as zero.
+Use the model for payout creation and detail -- Make batch totals and persisted payout values come from the canonical model, and make the payout detail endpoint return every statement line—including partial refunds—with consistent source, effective rate, ledger amounts, and unavailable markers.
+Replace independent format arithmetic -- Refactor payout-history CSV, order/detail CSV, PDF, and payout notification payload/template data to render the canonical model. Include the seven named statement lines and compute any savings comparison from the actual applied rates only.
+Align documentation and client contracts -- Update the outstanding-work note and any vendor/admin payout data typing or rendering that assumes placeholder zeros, delivered-only detail, or the old summary shape.
+Exercise the permutation matrix -- Add scenario fixtures and assertions for every supplied case, checking actual observed row counts and that detail, CSV, PDF-extracted text, notification data, and batch totals reconcile to the same penny values.
+Verify the full change -- Run focused payout tests, the full API checks, typecheck, lint, build, Prisma validation/drift checks if schema changes are needed, formatting, and the relevant application workflow smoke checks.
+Relevant files
+apps/api/src/modules/payouts/payouts.service.ts:53-186,315-373,859-1176,1179-1541
+apps/api/src/modules/payouts/payouts.service.spec.ts:81-150,391-530
+apps/api/src/modules/payouts/payouts.controller.ts
+apps/api/src/modules/payouts/processors/payout-batch.processor.ts
+apps/api/src/modules/notifications/notification.processor.ts
+apps/vendor/src/app/payouts/payouts-client.tsx
+prisma/schema.prisma:1057-1105,1340-1500,1709-1750,1871-1880
+docs/OUTSTANDING.md:80-83

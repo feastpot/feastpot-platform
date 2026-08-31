@@ -178,7 +178,12 @@ export class TermsController {
     const eff = await this.vendorMembers.getEffectiveRole(user);
     if (!eff) return { accepted: false };
     const accepted = await this.terms.hasAcceptedCurrentVersion(eff.vendorId, documentType);
-    return { accepted };
+    const current = await this.terms.getCurrentVersion(documentType);
+    return {
+      accepted,
+      currentVersionId: current?.id ?? null,
+      currentVersion: current?.version ?? null,
+    };
   }
 
   /**

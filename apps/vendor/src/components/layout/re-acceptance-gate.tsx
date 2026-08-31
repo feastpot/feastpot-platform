@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 import { apiRequest } from '@/lib/api/client';
@@ -35,22 +36,28 @@ interface AcceptanceStatus {
  */
 export function ReAcceptanceGate({ children }: { children: React.ReactNode }) {
   const { token, loading } = useAccessToken();
+  const pathname = usePathname();
   const [needsAcceptance, setNeedsAcceptance] = useState(false);
   const [version, setVersion] = useState<CurrentVersion | null>(null);
+  const [verificationFailed, setVerificationFailed] = useState(false);
 
   useEffect(() => {
     if (loading || !token) return;
+    if (pathname === '/onboarding/terms' || pathname.startsWith('/settings/close-account')) return;
 
     async function check() {
       try {
         const [current, status] = await Promise.all([
-          apiRequest<CurrentVersion>('/terms/current?documentType=VENDOR_TERMS').catch(() => null),
+          apiRequest<CurrentVersion>('/terms/current?documentType=VENDOR_TERMS'),
           apiRequest<AcceptanceStatus>('/terms/acceptance-status', {
             accessToken: token!,
-          }).catch(() => ({ accepted: true })), // fail open -- don't block on API error
+          }),
         ]);
 
-        if (!current) return; // No live version yet -- nothing to gate on.
+        if (!current) {
+          setVerificationFailed(true);
+          return;
+        }
 
         const effectiveAt = new Date(current.effectiveAt);
         const isLive = effectiveAt <= new Date();
@@ -60,12 +67,39 @@ export function ReAcceptanceGate({ children }: { children: React.ReactNode }) {
           setNeedsAcceptance(true);
         }
       } catch {
-        // Fail open: never block a vendor from the dashboard due to an API error.
+        setVerificationFailed(true);
       }
     }
 
     void check();
-  }, [token, loading]);
+  }, [token, loading, pathname]);
+
+  if (pathname === '/onboarding/terms' || pathname.startsWith('/settings/close-account')) {
+    return <>{children}</>;
+  }
+
+  if (verificationFailed) {
+    return (
+      <div
+        role="alert"
+        className="fixed inset-0 z-50 flex items-center justify-center bg-white p-6"
+      >
+        <div className="w-full max-w-lg rounded-2xl border border-red-200 bg-red-50 p-8 shadow-xl">
+          <h1 className="text-lg font-semibold text-red-900">Unable to verify Vendor Terms</h1>
+          <p className="mt-2 text-sm text-red-800">
+            We could not confirm your current acceptance record. Refresh the page to try again, or
+            review and accept the current terms before continuing.
+          </p>
+          <Link
+            href="/onboarding/terms"
+            className="mt-5 inline-block rounded-lg bg-red-700 px-4 py-2.5 text-sm font-semibold text-white"
+          >
+            Review Vendor Terms
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   if (needsAcceptance && version) {
     const effectiveDateStr = new Date(version.effectiveAt).toLocaleDateString('en-GB', {

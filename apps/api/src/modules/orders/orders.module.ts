@@ -4,6 +4,7 @@ import { AuthModule } from '../../auth/auth.module';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { StripeModule } from '../../stripe/stripe.module';
 import { PaymentsModule } from '../payments/payments.module';
+import { TermsModule } from '../terms/terms.module';
 import { VendorMembersModule } from '../vendor-members/vendor-members.module';
 
 import { OrderSlotsService } from './order-slots.service';
@@ -17,6 +18,7 @@ import { OrdersService } from './orders.service';
     PrismaModule,
     AuthModule,
     StripeModule,
+    TermsModule,
     VendorMembersModule,
     forwardRef(() => PaymentsModule),
   ],

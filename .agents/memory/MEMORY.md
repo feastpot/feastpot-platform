@@ -17,6 +17,7 @@
 - [Order responses have no DTO](order-response-shaping.md) - orders are raw Prisma rows returned untouched across getById/list/createOrder/customerCancel/reorder; any new Order column leaks to customers; sanitize every customer return path.
 - [Service fee & payout](service-fee-payout.md) - service fee is platform revenue, never paid out; payout = total − serviceFee − commission (delivery stays w/ vendor); fix BOTH per-order calc AND weekly batch (batch recomputed from total, didn't use stored vendorPayoutPence).
 - [Stripe webhook routing](stripe-webhook-event-routing.md) - controller only enqueues types in HANDLED_STRIPE_EVENT_TYPES (keep in sync with @Process names); others recorded + Sentry-warned, never enqueued.
+- [Stripe webhook execution leases](stripe-webhook-execution-leases.md) - worker ownership must use a per-execution token, not stable Bull job IDs, so stalled redeliveries cannot share completion ownership.
 - [Notification outbox](notification-outbox.md) - always send events via NotificationsService.enqueue (durable outbox fallback), never the raw queue; drainer dedupes via outbox:<rowId> jobId.
 - [Refund ledger invariants](refund-ledger.md) — refund/clawback accounting rules: status-agnostic payout netting, settle-once vendor earnings, per-attempt idempotency keys.
 - [Chargeback reconciliation](chargeback-reconciliation.md) - lost disputes write the refund+credit ledger pair; ALL refund writers must take the per-order advisory lock and re-check the ceiling in-tx.
@@ -41,6 +42,7 @@
 - [FeastPass subscription](feastpass-subscription.md) - @Global module; fee waiver in OrdersService via prisma.feastPassSubscription.findUnique; finishCreateOrder returns {order,clientSecret} not the order directly; em dashes blocked by pre-commit hook.
 - [Vendor profile form](vendor-profile-form.md) - featuredDishes stored as menu-item IDs; resolved to names in findBySlug (featuredDishDetails field); VendorSlugRedirect written on slug change; ChipInput/FeaturedDishPicker in profile-form.tsx.
 - [Vendor verification](vendor-verification.md) - VendorVerificationModule @Global; auth imports live in auth/guards/ and auth/decorators/ (not auth/ root); ApiRequestOptions uses accessToken not token; policy test runs via npm run test --workspace=@feastpot/api.
+- [Vendor Terms acceptance](vendor-terms-acceptance.md) — latest effective version stays current during notice; click-wrap acceptance and setup activation are one transaction.
 - [Supabase auth emails](supabase-auth-emails.md) - confirmation/magic_link/email_change/invite templates use token_hash fragment at /auth/confirm; recovery uses ConfirmationURL at /auth/reset/start; Resend webhook at POST /v1/webhooks/resend (EmailEvent model).
 - [Queue clearing safety](queue-clearing-safety.md) - outbox row deleted on queue.add() success; cleared failed jobs have no outbox safety net; bulk --apply only after individual dead-letter review.
 - [Payout transfer retry](payout-transfer-retry.md) - approvePayout enqueues Bull job (not inline Stripe); executeTransfer classifies transient vs terminal; idempotency key prevents double-pay.
@@ -63,3 +65,4 @@
 - [Admin 2FA enforcement](admin-2fa-enforcement.md) — 3-layer gate (middleware/server-gate/AalGuard); two modes on /settings/2fa (enrol vs challenge); factor removal has up to 1h downgrade lag; flag = ADMIN_REQUIRE_AAL2.
 - [AuditLog action names](audit-log-action-names.md) — canonical action strings for vendor-status + order-override paths; actorId=null for automated; same-transaction rule; historical gap not backfilled.
 - [Allergen publication boundary](allergen-publication-boundary.md) — declaration checks must cover every customer embed/search path and direct RLS, not only catalogue endpoints.
+- [Payout statement snapshots](payout-statement-snapshots.md) — persist one immutable canonical statement; every vendor-facing format renders it, and legacy unknowns stay unavailable.

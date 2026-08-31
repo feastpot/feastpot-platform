@@ -15,6 +15,9 @@ export interface VendorPayout {
   grossPence: number;
   commissionPence: number;
   refundsPence: number;
+  chargebacksPence: number | null;
+  serviceFeesPence: number | null;
+  adjustmentsPence: number | null;
   orderCount: number;
   periodStart: string | null;
   periodEnd: string | null;
@@ -81,10 +84,17 @@ export function usePayouts() {
  */
 export interface VendorPayoutOrder {
   id: string;
+  entryKind?: 'order' | 'catering';
   orderNumber: string;
   deliveredAt: string | null;
   subtotalPence: number;
   commissionPence: number;
+  effectiveCommissionRatePercent?: string | null;
+  grossPence?: number;
+  serviceFeesPence?: number | null;
+  refundsPence?: number;
+  chargebacksPence?: number;
+  adjustmentsPence?: number | null;
   vendorPayoutPence: number;
   /** Three-tier label from order_attributions.resolved_source, or null for
    *  pre-attribution rows (treat as MARKETPLACE_FIRST on display). */

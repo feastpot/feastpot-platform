@@ -1,0 +1,64 @@
+TASK: Build one shared payout statement model.
+
+WHY THIS BLOCKS THE PRICING WORK
+payouts.service.ts:1391-1395 compares commission against a
+HARDCODED FLAT 12%. The moment source-based rates ship
+(12% first order, 10% repeat, 0-3% referred), every vendor
+statement shows a wrong "saved versus" figure. The first
+vendor to notice will reasonably ask what else is wrong with
+their money. Fix the statement before touching rates.
+
+THREE CONFIRMED INCONSISTENCIES
+1. Batch creation includes delivered AND partially refunded
+   orders (:849-860). listPayoutOrders filters to delivered
+   only (:1118-1123). A vendor's detail view therefore omits
+   orders their total includes.
+2. The PDF summary (:1289-1304, :1390-1413) shows only gross
+   sales, commission, blended rate and net. It omits refunds,
+   fees and adjustments, so a refunded batch cannot be
+   reconciled from the document.
+3. CSV derives residual fees and adjustments at :103-135
+   while the comment at :315-323 and docs/OUTSTANDING.md still
+   describe them as placeholder zeros. The contract and the
+   implementation disagree, and a vendor may import this into
+   their accounts.
+
+REQUIRED
+1. ONE statement model consumed by batch totals, order detail,
+   CSV, PDF and notifications. No format may compute its own
+   figures.
+2. Every statement shows, as separately named lines: gross
+   sales, commission with the EFFECTIVE rate actually applied
+   per order, refunds, chargebacks, service fees, adjustments,
+   and net payout.
+3. Remove the hardcoded 12% baseline. If a savings comparison
+   is shown, compute it from the actual rates applied.
+4. Any value genuinely unavailable is labelled "not
+   available", never rendered as 0.00. A zero that means
+   "unknown" is a correctness defect.
+5. Update docs/OUTSTANDING.md so the documentation matches.
+
+SCENARIO TESTS, PAYOUT PERMUTATION MATRIX
+Build a batch for each and assert PDF, CSV and detail view all
+reconcile to the same totals:
+  single delivered order, no refunds
+  multiple orders, mixed marketplace and referred sources
+  one partially refunded order
+  two partial refunds on one order
+  a fully refunded order
+  an order with a chargeback raised
+  a chargeback lost after a partial refund
+  a FeastPass order (zero customer fee, unchanged payout)
+  a catering booking in the same batch
+  a batch spanning a commission rate change
+  an empty batch (vendor with no qualifying orders)
+  a batch where the net payout is zero or negative
+
+For each: totals equal the sum of lines, detail rows match the
+batch, and the effective commission rate shown matches what
+was actually charged.
+
+ACCEPTANCE CRITERIA
+- Every format reconciles to the penny against the batch.
+- No hardcoded rate remains anywhere in statement generation.
+- A partially refunded order appears in the detail view.

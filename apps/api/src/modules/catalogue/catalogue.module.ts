@@ -2,9 +2,11 @@ import { Module } from '@nestjs/common';
 
 import { AuthModule } from '../../auth/auth.module';
 import { PrismaModule } from '../../prisma/prisma.module';
+import { TermsModule } from '../terms/terms.module';
 import { VendorMembersModule } from '../vendor-members/vendor-members.module';
 
 import { CatalogueController } from './catalogue.controller';
+import { TermsAcceptanceGuard } from './guards/terms-acceptance.guard';
 import { VendorOwnershipGuard } from './guards/vendor-ownership.guard';
 import { MenuItemsService } from './menu-items.service';
 import { MenuModerationController } from './menu-moderation.controller';
@@ -12,9 +14,15 @@ import { MenusService } from './menus.service';
 import { SupabaseStorageService } from './supabase-storage.service';
 
 @Module({
-  imports: [PrismaModule, AuthModule, VendorMembersModule],
+  imports: [PrismaModule, AuthModule, VendorMembersModule, TermsModule],
   controllers: [CatalogueController, MenuModerationController],
-  providers: [MenusService, MenuItemsService, SupabaseStorageService, VendorOwnershipGuard],
+  providers: [
+    MenusService,
+    MenuItemsService,
+    SupabaseStorageService,
+    VendorOwnershipGuard,
+    TermsAcceptanceGuard,
+  ],
   exports: [MenusService, MenuItemsService, SupabaseStorageService, VendorOwnershipGuard],
 })
 export class CatalogueModule {}

@@ -18,6 +18,10 @@ export const DEEMED_ACCEPTANCE_CRON_JOB = 'deemed_acceptance_sweep';
 /** Minimum notice period in days (P2B Regulation, UK retained). */
 const MIN_NOTICE_DAYS = 15;
 
+export function buildVendorTermsAcceptanceLabel(version: string): string {
+  return `I have read and agree to the Feastpot Vendor Terms of Agreement version ${version}, including the Rate Schedule.`;
+}
+
 @Injectable()
 export class TermsService {
   private readonly logger = new Logger(TermsService.name);
@@ -89,13 +93,28 @@ export class TermsService {
       );
     }
 
-    // Rule 4: Supersede the previous live version inside a transaction.
+    const effectiveAt = new Date(dto.effectiveAt);
+
+    // Rule 4: a future replacement must coexist with the effective version
+    // throughout its notice period. Only an already-effective replacement may
+    // supersede the current version.
     const termsVersion = await this.prisma.$transaction(async (tx) => {
-      // Mark the current live version as superseded.
-      await tx.termsVersion.updateMany({
-        where: { documentType: dto.documentType, supersededAt: null },
-        data: { supersededAt: now },
-      });
+      if (effectiveAt <= now) {
+        const replacementAlreadyEffective = effectiveAt <= now;
+        if (!replacementAlreadyEffective) {
+          throw new BadRequestException(
+            'Cannot supersede the only effective terms version before its replacement is effective.',
+          );
+        }
+        await tx.termsVersion.updateMany({
+          where: {
+            documentType: dto.documentType,
+            effectiveAt: { lte: now },
+            supersededAt: null,
+          },
+          data: { supersededAt: now },
+        });
+      }
 
       return tx.termsVersion.create({
         data: {
@@ -106,7 +125,7 @@ export class TermsService {
           changeSummary: dto.changeSummary,
           isMaterial: dto.isMaterial,
           publishedAt: now,
-          effectiveAt: new Date(dto.effectiveAt),
+          effectiveAt,
           createdBy: dto.createdBy,
           solicitorSignOff: dto.solicitorSignOff,
         },
@@ -160,7 +179,9 @@ export class TermsService {
 
   /**
    * Get the currently live version for a document type with its full content.
-   * "Live" = effectiveAt <= now AND supersededAt IS NULL.
+   * Current is always the most recently effective published version. We do not
+   * use supersededAt as the selector because a pending replacement must never
+   * create a no-current window.
    */
   async getCurrentVersion(documentType: TermsDocumentType) {
     const now = new Date();
@@ -168,9 +189,8 @@ export class TermsService {
       where: {
         documentType,
         effectiveAt: { lte: now },
-        supersededAt: null,
       },
-      orderBy: { effectiveAt: 'desc' },
+      orderBy: [{ effectiveAt: 'desc' }, { publishedAt: 'desc' }],
     });
   }
 
@@ -182,10 +202,7 @@ export class TermsService {
     const now = new Date();
 
     const [current, pending] = await Promise.all([
-      this.prisma.termsVersion.findFirst({
-        where: { documentType, effectiveAt: { lte: now } },
-        orderBy: { effectiveAt: 'desc' },
-      }),
+      this.getCurrentVersion(documentType),
       this.prisma.termsVersion.findFirst({
         where: { documentType, effectiveAt: { gt: now } },
         orderBy: { effectiveAt: 'asc' },
@@ -261,27 +278,57 @@ export class TermsService {
     dto: AcceptTermsVersionDto,
     ipAddress?: string,
     userAgent?: string,
-    tx?: Parameters<Parameters<PrismaService['$transaction']>[0]>[0],
   ) {
-    const db = tx ?? this.prisma;
+    if (!ipAddress || !userAgent) {
+      throw new BadRequestException('Request IP address and user agent are required.');
+    }
+    if (!dto.scrolledToEnd) {
+      throw new BadRequestException('The terms must be scrolled to the end before acceptance.');
+    }
 
-    // Verify the version exists and get its contentHash.
-    const version = await db.termsVersion.findUniqueOrThrow({ where: { id: termsVersionId } });
+    const current = await this.getCurrentVersion(TermsDocumentType.VENDOR_TERMS);
+    if (!current || current.id !== termsVersionId) {
+      throw new BadRequestException('Only the current effective Vendor Terms may be accepted.');
+    }
+    const expectedLabel = buildVendorTermsAcceptanceLabel(current.version);
+    if (dto.acceptanceText !== expectedLabel) {
+      throw new BadRequestException('Acceptance label does not match the displayed terms version.');
+    }
 
-    return db.termsAcceptance.upsert({
-      where: { vendorId_termsVersionId: { vendorId, termsVersionId } },
-      create: {
-        vendorId,
-        termsVersionId,
-        ipAddress,
-        userAgent,
-        acceptanceText: dto.acceptanceText,
-        contentHash: version.contentHash,
-        scrolledToEnd: dto.scrolledToEnd,
-        method: 'CLICKWRAP',
-      },
-      update: {}, // Append-only: never mutate an existing acceptance record.
+    const acceptance = await this.prisma.$transaction(async (tx) => {
+      const record = await tx.termsAcceptance.upsert({
+        where: { vendorId_termsVersionId: { vendorId, termsVersionId } },
+        create: {
+          vendorId,
+          termsVersionId,
+          ipAddress,
+          userAgent,
+          acceptanceText: expectedLabel,
+          contentHash: current.contentHash,
+          scrolledToEnd: true,
+          method: AcceptanceMethod.CLICKWRAP,
+        },
+        update: {},
+      });
+      await tx.vendor.update({
+        where: { id: vendorId },
+        data: { termsActivatedAt: record.acceptedAt },
+      });
+      return record;
     });
+
+    await this.noticesQueue.add(
+      GENERATE_ACCEPTANCE_PDF_JOB,
+      { acceptanceId: acceptance.id },
+      {
+        jobId: `terms-acceptance-pdf:${acceptance.id}`,
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 10_000 },
+        removeOnComplete: 500,
+        removeOnFail: 200,
+      },
+    );
+    return acceptance;
   }
 
   /**
@@ -293,13 +340,22 @@ export class TermsService {
     documentType: TermsDocumentType = TermsDocumentType.VENDOR_TERMS,
   ): Promise<boolean> {
     const current = await this.getCurrentVersion(documentType);
-    if (!current) return true; // No live version published yet -- nothing to gate on.
+    if (!current) return false;
 
     const acceptance = await this.prisma.termsAcceptance.findUnique({
       where: { vendorId_termsVersionId: { vendorId, termsVersionId: current.id } },
       select: { id: true },
     });
     return !!acceptance;
+  }
+
+  async assertAcceptedCurrentVersion(vendorId: string): Promise<void> {
+    if (!(await this.hasAcceptedCurrentVersion(vendorId))) {
+      throw new BadRequestException({
+        code: 'TERMS_ACCEPTANCE_REQUIRED',
+        message: 'Accept the current Vendor Terms before continuing.',
+      });
+    }
   }
 
   /** Return all pending (future-effective) versions not yet accepted by the vendor. */
@@ -390,12 +446,10 @@ export class TermsService {
     documentType: TermsDocumentType = TermsDocumentType.VENDOR_TERMS,
     onlyBehind = false,
   ) {
-    const now = new Date();
-    const live = await this.prisma.termsVersion.findFirst({
-      where: { documentType, effectiveAt: { lte: now }, supersededAt: null },
-      orderBy: { effectiveAt: 'desc' },
-      select: { id: true, version: true, effectiveAt: true },
-    });
+    const current = await this.getCurrentVersion(documentType);
+    const live = current
+      ? { id: current.id, version: current.version, effectiveAt: current.effectiveAt }
+      : null;
 
     const vendors = await this.prisma.vendor.findMany({
       where: { status: { in: ['live', 'probation'] } },
@@ -725,10 +779,7 @@ export class TermsService {
    * entries, etc.) without a second API call.
    */
   async getRateSchedule() {
-    const liveVersion = await this.prisma.termsVersion.findFirst({
-      where: { documentType: TermsDocumentType.RATE_SCHEDULE, supersededAt: null },
-      orderBy: { effectiveAt: 'desc' },
-    });
+    const liveVersion = await this.getCurrentVersion(TermsDocumentType.RATE_SCHEDULE);
 
     if (!liveVersion) return [];
 
