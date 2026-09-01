@@ -22,7 +22,7 @@ import { CoverageBadge } from '@/components/vendor/coverage-badge';
 import { useAddresses } from '@/hooks/use-addresses';
 import { useFeastPassMembership } from '@/hooks/use-feastpass';
 import { useLoyalty } from '@/hooks/use-loyalty';
-import { useConfirmOrder, useCreateOrder } from '@/hooks/use-orders';
+import { useCancelOrder, useConfirmOrder, useCreateOrder } from '@/hooks/use-orders';
 import { ApiError, apiRequest } from '@/lib/api/client';
 import { evaluateDeliveryCoverage } from '@/lib/api/coverage';
 import { getVendorBySlug } from '@/lib/api/vendors';
@@ -94,6 +94,7 @@ function CheckoutInner() {
 
   const createOrder = useCreateOrder();
   const confirmOrder = useConfirmOrder();
+  const cancelOrder = useCancelOrder();
 
   const stripe = useStripe();
   const elements = useElements();
@@ -201,6 +202,7 @@ function CheckoutInner() {
 
   const [allergenConfirmed, setAllergenConfirmed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
   const [serverError, setServerError] = useState<string | null>(null);
 
   // FeastPass membership. Waives the service fee for ACTIVE subscribers on
@@ -252,7 +254,32 @@ function CheckoutInner() {
   // duplicate charge. Retries only re-run confirmOrder; if even that keeps
   // failing the user is offered a direct link to their tracking page.
   const paidOrderIdRef = useRef<string | null>(null);
+  const checkoutOrderIdRef = useRef<string | null>(null);
+  const paymentAuthorisedRef = useRef(false);
   const [paidButUnconfirmed, setPaidButUnconfirmed] = useState<string | null>(null);
+
+  useEffect(() => {
+    const finishInterruptedCheckout = () => {
+      const orderId = checkoutOrderIdRef.current;
+      if (!orderId || !token) return;
+      const path = paymentAuthorisedRef.current
+        ? `/v1/orders/${orderId}/confirm`
+        : `/v1/orders/${orderId}/cancel`;
+      void fetch(`${process.env.NEXT_PUBLIC_API_URL}${path}`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: paymentAuthorisedRef.current
+          ? undefined
+          : JSON.stringify({ reason: 'Checkout tab closed before payment completed' }),
+        keepalive: true,
+      });
+    };
+    window.addEventListener('pagehide', finishInterruptedCheckout);
+    return () => window.removeEventListener('pagehide', finishInterruptedCheckout);
+  }, [token]);
 
   // A discount code's value is computed server-side and never reaches the
   // client, so we cannot show an exact total for express checkout when one is
@@ -335,6 +362,8 @@ function CheckoutInner() {
   // emptying the basket, and redirecting must happen identically for card and
   // express-pay success - factoring it here keeps the two flows from drifting.
   const finalizeOrderSuccess = (orderId: string) => {
+    checkoutOrderIdRef.current = null;
+    paymentAuthorisedRef.current = false;
     sessionStorage.removeItem('feastpot.discount.v1');
     try {
       localStorage.setItem('feastpot.has-ordered.v1', '1');
@@ -343,6 +372,22 @@ function CheckoutInner() {
     }
     clearBasket();
     router.push(`/orders/${orderId}/confirmation`);
+  };
+
+  const releaseIncompleteOrder = async (orderId: string, reason: string): Promise<boolean> => {
+    try {
+      await cancelOrder.mutateAsync({ orderId, reason });
+      checkoutOrderIdRef.current = null;
+      paymentAuthorisedRef.current = false;
+      return true;
+    } catch {
+      checkoutOrderIdRef.current = orderId;
+      paymentAuthorisedRef.current = false;
+      setServerError(
+        'Your previous order is cancelled, but payment release is still being confirmed. Retry cleanup before placing another order.',
+      );
+      return false;
+    }
   };
 
   // Apple Pay / Google Pay express checkout. Mirrors the card flow's order →
@@ -413,6 +458,7 @@ function CheckoutInner() {
         loyaltyPointsToRedeem: loyaltyPoints >= 200 ? loyaltyPoints : undefined,
         allergenConfirmed,
       });
+      checkoutOrderIdRef.current = order.id;
 
       const { error: stripeErr, paymentIntent } = await stripe.confirmCardPayment(
         clientSecret,
@@ -421,11 +467,13 @@ function CheckoutInner() {
       );
 
       if (stripeErr) {
-        // No money moved - dismiss the sheet and let the customer retry. We do
-        // NOT set paidOrderIdRef so a retry can re-create cleanly.
+        const released = await releaseIncompleteOrder(
+          order.id,
+          'Payment authorisation failed during express checkout',
+        );
         complete('fail');
         paidOrderIdRef.current = null;
-        setServerError(stripeErr.message ?? 'Payment failed.');
+        if (released) setServerError(stripeErr.message ?? 'Payment failed.');
         setSubmitting(false);
         return;
       }
@@ -449,13 +497,18 @@ function CheckoutInner() {
       }
 
       if (!pi || (pi.status !== 'requires_capture' && pi.status !== 'succeeded')) {
-        setServerError(`Unexpected payment status: ${pi?.status ?? 'unknown'}`);
+        const released = await releaseIncompleteOrder(
+          order.id,
+          `Unexpected express payment status: ${pi?.status ?? 'unknown'}`,
+        );
+        if (released) setServerError(`Unexpected payment status: ${pi?.status ?? 'unknown'}`);
         setSubmitting(false);
         return;
       }
 
       // ⚠️ Card authorised - never call createOrder again for this attempt.
       paidOrderIdRef.current = order.id;
+      paymentAuthorisedRef.current = true;
       await confirmOrder.mutateAsync(order.id);
       finalizeOrderSuccess(order.id);
     } catch (err) {
@@ -470,23 +523,43 @@ function CheckoutInner() {
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setServerError(null);
 
     if (!stripe || !elements) {
       setServerError('Payment system not ready. Please refresh and try again.');
+      submittingRef.current = false;
       return;
     }
     if (!scheduledFor) {
       setServerError('Please choose a delivery slot.');
+      submittingRef.current = false;
       return;
     }
     if (!isAfter(scheduledFor, new Date())) {
       setServerError('Delivery slot must be in the future.');
+      submittingRef.current = false;
       return;
     }
 
     setSubmitting(true);
     try {
+      if (checkoutOrderIdRef.current && !paymentAuthorisedRef.current) {
+        const released = await releaseIncompleteOrder(
+          checkoutOrderIdRef.current,
+          'Retrying cleanup of an interrupted checkout',
+        );
+        if (released) {
+          setServerError(
+            'Your previous payment attempt was safely cleared. You can try again now.',
+          );
+        }
+        setSubmitting(false);
+        submittingRef.current = false;
+        return;
+      }
+
       // FAST PATH: Stripe already authorised payment on a previous attempt
       // that failed during confirmOrder. Don't create another order - just
       // retry the confirm step against the existing one. Side effects must
@@ -506,6 +579,7 @@ function CheckoutInner() {
       if (!selectedAddressId) {
         setServerError('Please choose or save a delivery address before placing the order.');
         setSubmitting(false);
+        submittingRef.current = false;
         return;
       }
       const deliveryAddressId: string = selectedAddressId;
@@ -518,6 +592,7 @@ function CheckoutInner() {
           `${vendor.name} delivers within ${coverageRadiusMiles} miles, but this address is ${coverageDistanceMiles?.toFixed(1)} miles away. Please choose a closer address.`,
         );
         setSubmitting(false);
+        submittingRef.current = false;
         return;
       }
 
@@ -542,6 +617,7 @@ function CheckoutInner() {
         loyaltyPointsToRedeem: loyaltyPoints >= 200 ? loyaltyPoints : undefined,
         allergenConfirmed,
       });
+      checkoutOrderIdRef.current = order.id;
 
       // 2. Confirm the card payment with Stripe.
       const card = elements.getElement(CardElement);
@@ -552,13 +628,18 @@ function CheckoutInner() {
       });
 
       if (stripeErr) {
-        // Card declined / user cancelled / 3DS failed - no money moved, the
-        // existing order can be re-confirmed against on a retry (createOrder
-        // is idempotent in spirit because the user hasn't moved on yet).
-        // We DO record the orderId so a follow-up doesn't double-create.
+        // Card declined / insufficient funds / cancelled 3DS: creation already
+        // persisted a pending order and PaymentIntent, so compensate through
+        // the normal customer-cancellation path before allowing another try.
+        // This releases capacity, cancels the PI and marks the payment row.
+        const released = await releaseIncompleteOrder(
+          order.id,
+          'Payment authorisation failed during checkout',
+        );
         paidOrderIdRef.current = null;
-        setServerError(stripeErr.message ?? 'Payment failed.');
+        if (released) setServerError(stripeErr.message ?? 'Payment failed.');
         setSubmitting(false);
+        submittingRef.current = false;
         return;
       }
       if (
@@ -567,14 +648,22 @@ function CheckoutInner() {
       ) {
         // Auth-only (manual capture) PIs land in `requires_capture` after a
         // successful confirm. We accept either to be forward-compatible.
-        setServerError(`Unexpected payment status: ${paymentIntent?.status ?? 'unknown'}`);
+        const released = await releaseIncompleteOrder(
+          order.id,
+          `Unexpected payment status: ${paymentIntent?.status ?? 'unknown'}`,
+        );
+        if (released) {
+          setServerError(`Unexpected payment status: ${paymentIntent?.status ?? 'unknown'}`);
+        }
         setSubmitting(false);
+        submittingRef.current = false;
         return;
       }
 
       // ⚠️ Past this line the customer's card has been authorised. From now on
       // we MUST NOT call createOrder again, even on failure.
       paidOrderIdRef.current = order.id;
+      paymentAuthorisedRef.current = true;
 
       // 3. Tell the API we successfully confirmed.
       await confirmOrder.mutateAsync(order.id);
@@ -598,6 +687,7 @@ function CheckoutInner() {
         setServerError('Checkout failed. Please try again.');
       }
       setSubmitting(false);
+      submittingRef.current = false;
     }
   };
 
@@ -978,7 +1068,7 @@ function CheckoutInner() {
           <div className="mx-auto flex max-w-lg items-center gap-3">
             <div className="min-w-0 flex-1">
               <p className="text-[11px] font-bold uppercase tracking-wide text-charcoal-mid">
-                Total
+                Basket subtotal
               </p>
               <p className="font-display text-lg font-black tabular-nums text-charcoal">
                 {formatPounds(subtotal)}

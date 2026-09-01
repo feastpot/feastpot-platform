@@ -31,6 +31,7 @@ export interface ValidateSlotOptions {
  */
 const ACTIVE_ORDER_STATUSES: OrderStatus[] = [
   OrderStatus.pending,
+  OrderStatus.cancellation_pending,
   OrderStatus.accepted,
   OrderStatus.preparing,
   OrderStatus.dispatched,

@@ -69,6 +69,8 @@ test.describe('real Stripe test-mode customer purchase', () => {
     const vendorSlug = vendorIdentity.vendorSlug!;
     const menuItemId = vendorIdentity.menuItemId!;
     const menuItemPricePence = vendorIdentity.menuItemPricePence!;
+    const discountCode =
+      `SMOKE${customerIdentity.userId.replaceAll('-', '').slice(0, 12)}`.toUpperCase();
     let orderCreates = 0;
     let accessToken: string | null = null;
     let apiCleanupSucceeded = false;
@@ -83,6 +85,25 @@ test.describe('real Stripe test-mode customer purchase', () => {
     });
 
     try {
+      await factory.prisma.deliveryConfig.update({
+        where: { vendorId },
+        data: { minOrderPence: menuItemPricePence },
+      });
+      await factory.prisma.discountCode.create({
+        data: {
+          code: discountCode,
+          type: 'flat',
+          value: 100,
+          minOrderPence: menuItemPricePence,
+          maxUses: 1,
+          usedCount: 0,
+          expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+          vendorId,
+          isActive: true,
+          fundedBy: 'PLATFORM',
+          createdByUserId: customerIdentity.userId,
+        },
+      });
       const apiVendor = await page.request.get(
         `${process.env.TEST_API_URL}/v1/vendors/${vendorSlug}`,
       );
@@ -96,7 +117,7 @@ test.describe('real Stripe test-mode customer purchase', () => {
       await expect(page).toHaveURL(/checkout|vendors/, { timeout: 20_000 });
 
       await page.evaluate(
-        ({ itemId, slug, id, pricePence }) => {
+        ({ itemId, slug, id, pricePence, code }) => {
           localStorage.setItem(
             'feastpot.basket.v1',
             JSON.stringify({
@@ -116,8 +137,15 @@ test.describe('real Stripe test-mode customer purchase', () => {
               version: 0,
             }),
           );
+          sessionStorage.setItem('feastpot.discount.v1', code);
         },
-        { itemId: menuItemId, slug: vendorSlug, id: vendorId, pricePence: menuItemPricePence },
+        {
+          itemId: menuItemId,
+          slug: vendorSlug,
+          id: vendorId,
+          pricePence: menuItemPricePence,
+          code: discountCode,
+        },
       );
 
       await page.goto('/checkout');
@@ -135,9 +163,46 @@ test.describe('real Stripe test-mode customer purchase', () => {
       await page.getByRole('checkbox').check();
 
       const cardFrame = page.frameLocator('iframe[name^="__privateStripeFrame"]');
-      await cardFrame.locator('input[name="cardnumber"]').fill('4242424242424242');
       await cardFrame.locator('input[name="exp-date"]').fill('1230');
       await cardFrame.locator('input[name="cvc"]').fill('123');
+
+      for (const failure of [
+        { card: '4000000000000002', message: /card was declined/i },
+        { card: '4000000000009995', message: /insufficient funds/i },
+      ]) {
+        await cardFrame.locator('input[name="cardnumber"]').fill(failure.card);
+        const failedOrderResponse = page.waitForResponse(
+          (response) =>
+            response.request().method() === 'POST' && /\/v1\/orders(?:\?|$)/.test(response.url()),
+        );
+        const cancellationResponse = page.waitForResponse(
+          (response) =>
+            response.request().method() === 'POST' &&
+            /\/v1\/orders\/[^/]+\/cancel$/.test(response.url()),
+        );
+        await page.getByRole('button', { name: 'Place order securely' }).first().click();
+        expect((await failedOrderResponse).ok()).toBeTruthy();
+        expect((await cancellationResponse).ok()).toBeTruthy();
+        await expect(page.getByText(failure.message)).toBeVisible();
+
+        const failedOrders = await factory.prisma.order.findMany({
+          where: { customerId: customerIdentity.userId, vendorId },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          include: { payments: true },
+        });
+        expect(failedOrders).toHaveLength(1);
+        expect(failedOrders[0]!.status).toBe('cancelled');
+        expect(failedOrders[0]!.payments).toHaveLength(1);
+        expect(failedOrders[0]!.payments[0]!.status).toBe('cancelled');
+        const failedIntent = await stripeRequest<StripePaymentIntent>(
+          `/payment_intents/${failedOrders[0]!.payments[0]!.stripePaymentIntentId}`,
+        );
+        expect(failedIntent.response.ok).toBeTruthy();
+        expect(failedIntent.body.status).toBe('canceled');
+      }
+
+      await cardFrame.locator('input[name="cardnumber"]').fill('4000002500003155');
       const orderResponsePromise = page.waitForResponse(
         (response) =>
           response.request().method() === 'POST' && /\/v1\/orders(?:\?|$)/.test(response.url()),
@@ -151,9 +216,24 @@ test.describe('real Stripe test-mode customer purchase', () => {
       };
       cleanupOrderId = createdOrder.order.id;
       cleanupPaymentIntentId = createdOrder.clientSecret.split('_secret_')[0] ?? null;
+      let authenticationFrame = page
+        .frames()
+        .find((frame) => /three-ds|3ds|authenticate/i.test(frame.url()));
+      await expect
+        .poll(
+          () => {
+            authenticationFrame = page
+              .frames()
+              .find((frame) => /three-ds|3ds|authenticate/i.test(frame.url()));
+            return Boolean(authenticationFrame);
+          },
+          { timeout: 20_000 },
+        )
+        .toBe(true);
+      await authenticationFrame!.getByRole('button', { name: /complete|authenticate/i }).click();
       await expect(page).toHaveURL(/\/orders\/[^/]+\/confirmation$/, { timeout: 30_000 });
       await expect(page.getByText(/order confirmed|thanks/i)).toBeVisible();
-      expect(orderCreates).toBe(1);
+      expect(orderCreates).toBe(3);
 
       const orderId = page.url().match(/\/orders\/([^/]+)\/confirmation$/)?.[1];
       expect(orderId).toBeTruthy();
@@ -176,6 +256,7 @@ test.describe('real Stripe test-mode customer purchase', () => {
       expect(persisted.id).toBe(orderId);
       expect(['pending', 'accepted']).toContain(persisted.status);
       expect(persisted.subtotalPence).toBe(menuItemPricePence);
+      expect(persisted.discountPence).toBe(100);
       expect(persisted.totalPence).toBe(
         persisted.subtotalPence +
           persisted.deliveryFeePence +
@@ -185,7 +266,7 @@ test.describe('real Stripe test-mode customer purchase', () => {
 
       const payments = await factory.prisma.payment.findMany({ where: { orderId } });
       const fixtureOrders = await factory.prisma.order.findMany({
-        where: { customerId: customerIdentity.userId, vendorId },
+        where: { customerId: customerIdentity.userId, vendorId, status: { not: 'cancelled' } },
       });
       expect(fixtureOrders).toHaveLength(1);
       expect(payments).toHaveLength(1);
@@ -206,6 +287,10 @@ test.describe('real Stripe test-mode customer purchase', () => {
       );
       expect(matchingIntents.response.ok).toBeTruthy();
       expect(matchingIntents.body.data).toHaveLength(1);
+      const appliedDiscount = await factory.prisma.discountCode.findUniqueOrThrow({
+        where: { code: discountCode },
+      });
+      expect(appliedDiscount.usedCount).toBe(1);
 
       const cancellation = await page.request.post(
         `${process.env.NEXT_PUBLIC_API_URL}/v1/orders/${orderId}/cancel`,
@@ -257,6 +342,13 @@ test.describe('real Stripe test-mode customer purchase', () => {
           );
         }
       }
+      await factory.prisma.discountCode
+        .deleteMany({ where: { code: discountCode } })
+        .catch((error: unknown) =>
+          cleanupErrors.push(
+            error instanceof Error ? error : new Error('Discount fixture cleanup failed'),
+          ),
+        );
       await factory
         .teardown(customerIdentity)
         .catch((error: unknown) =>

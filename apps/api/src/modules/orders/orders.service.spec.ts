@@ -732,8 +732,26 @@ describe('OrdersService.customerCancel financial exclusion', () => {
       findStripePaymentIntent: jest.fn().mockResolvedValue(null),
       markPaymentStatus: jest.fn().mockResolvedValue({}),
     };
-    const prisma = { auditLog: { create: jest.fn().mockResolvedValue({}) } };
-    const stripe = { cancel: jest.fn().mockResolvedValue({}) };
+    const tx = {
+      $queryRaw: jest
+        .fn()
+        .mockResolvedValue([
+          { status: OrderStatus.pending, customer_id: 'cust-1', cancelled_by: null },
+        ]),
+      payment: { findFirst: jest.fn().mockResolvedValue(null), updateMany: jest.fn() },
+      order: {
+        update: jest.fn().mockResolvedValue({}),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+    };
+    const prisma = {
+      $transaction: jest.fn((callback: (client: typeof tx) => unknown) => callback(tx)),
+      auditLog: { create: jest.fn().mockResolvedValue({}) },
+    };
+    const stripe = {
+      retrieve: jest.fn().mockResolvedValue({ status: 'requires_capture' }),
+      cancel: jest.fn().mockResolvedValue({}),
+    };
     const queue = {
       add: jest.fn().mockResolvedValue({}),
       getJob: jest.fn().mockResolvedValue(null),

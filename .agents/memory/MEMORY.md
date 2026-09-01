@@ -67,3 +67,4 @@
 - [Allergen publication boundary](allergen-publication-boundary.md) — declaration checks must cover every customer embed/search path and direct RLS, not only catalogue endpoints.
 - [Payout statement snapshots](payout-statement-snapshots.md) — persist one immutable canonical statement; every vendor-facing format renders it, and legacy unknowns stay unavailable.
 - [Next build/dev isolation](next-build-dev-isolation.md) — never run next build alongside a live Next dev workflow; both mutate .next and can corrupt manifests, causing misleading browser-test failures.
+- [Checkout cancellation saga](checkout-cancellation-saga.md) — persist cancellation_pending before touching Stripe; finalize payment, order, and capacity atomically after release.

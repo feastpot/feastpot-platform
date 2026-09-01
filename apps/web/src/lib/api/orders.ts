@@ -7,6 +7,7 @@ import { apiRequest, type ApiRequestOptions } from './client';
  */
 export type OrderStatus =
   | 'pending'
+  | 'cancellation_pending'
   | 'accepted'
   | 'preparing'
   | 'dispatched'

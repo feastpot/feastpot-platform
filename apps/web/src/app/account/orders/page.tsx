@@ -17,6 +17,10 @@ const formatPounds = (p: number) => `£${(p / 100).toFixed(2)}`;
 
 const STATUS_BADGE: Record<OrderStatus, { label: string; cls: string }> = {
   pending: { label: 'Pending', cls: 'bg-plantain/20 text-plantain-dark' },
+  cancellation_pending: {
+    label: 'Cancelling',
+    cls: 'bg-plantain/20 text-plantain-dark',
+  },
   accepted: { label: 'Accepted', cls: 'bg-brand-light text-brand-dark' },
   preparing: { label: 'Preparing', cls: 'bg-brand-light text-brand-dark' },
   dispatched: { label: 'Out for delivery', cls: 'bg-plantain/30 text-plantain-dark' },
