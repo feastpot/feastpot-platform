@@ -78,6 +78,33 @@ async function enterKitchenPostcode(
   await expect(page.getByText(expectedDistrict, { exact: false })).toBeVisible({ timeout: 8_000 });
 }
 
+// ── D0: Save only becomes available for persisted changes ────────────────────
+
+test('D0: save is disabled until settings change and disables again after reverting', async ({
+  page,
+}) => {
+  await installDeliveryMocks(page, {
+    kitchenPostcode: KITCHEN_POSTCODE,
+    latitude: KITCHEN_LAT,
+    longitude: KITCHEN_LNG,
+    postcodes: DISTRICTS_5MI,
+  });
+
+  await page.goto('/settings/delivery');
+  await waitForDeliveryReady(page);
+
+  const saveButton = page.getByRole('button', { name: 'Save settings' });
+  const deliveryFee = page.locator('input[type="number"]').first();
+
+  await expect(saveButton).toBeDisabled();
+
+  await deliveryFee.fill('1.00');
+  await expect(saveButton).toBeEnabled();
+
+  await deliveryFee.fill('0.00');
+  await expect(saveButton).toBeDisabled();
+});
+
 // ── D1: Set a service area from scratch using the radius control ──────────────
 
 test('D1: set service area with radius - chips change when radius changes - under 60 s', async ({

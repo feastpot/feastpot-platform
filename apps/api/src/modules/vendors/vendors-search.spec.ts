@@ -10,6 +10,30 @@ import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 
 import { SearchVendorsDto } from './dto/search-vendors.dto';
+import { normalisePostcodePrefix } from './vendors.repository';
+
+describe('normalisePostcodePrefix', () => {
+  it('extracts a three-character outward code from a full postcode', () => {
+    expect(normalisePostcodePrefix('E16 3BZ')).toBe('E16');
+  });
+
+  it('extracts four-character outward codes without truncating them', () => {
+    expect(normalisePostcodePrefix('EC1A 1BB')).toBe('EC1A');
+  });
+
+  it('supports outward-only, mixed-case, and whitespace variants', () => {
+    expect(normalisePostcodePrefix(' sw1x ')).toBe('SW1X');
+    expect(normalisePostcodePrefix('M1')).toBe('M1');
+  });
+
+  it('does not include the inward code in a three-character outward code', () => {
+    expect(normalisePostcodePrefix('E16 3BZ')).not.toBe('E163');
+  });
+
+  it('returns null when no UK outward code can be extracted', () => {
+    expect(normalisePostcodePrefix('not a postcode')).toBeNull();
+  });
+});
 
 describe('SearchVendorsDto - allergenFree', () => {
   it('accepts a single valid slug', async () => {
