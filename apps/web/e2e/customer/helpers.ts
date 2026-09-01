@@ -23,13 +23,18 @@ export const test = base.extend<{ customer: CustomerFixture }>({
 export { expect };
 
 export const CUSTOMER_E2E_REQUIRED_ENV = [
-  'TEST_CUSTOMER_EMAIL',
-  'TEST_CUSTOMER_PASSWORD',
-  'TEST_CUSTOMER_VENDOR_SLUG',
-  'TEST_CUSTOMER_VENDOR_ID',
-  'TEST_CUSTOMER_MENU_ITEM_ID',
-  'TEST_CUSTOMER_ADDRESS_ID',
+  'TEST_API_URL',
+  'NEXT_PUBLIC_API_URL',
+  'SUPABASE_DB_URL',
+  'NEXT_PUBLIC_SUPABASE_URL',
+  'NEXT_PUBLIC_SUPABASE_ANON_KEY',
+  'SUPABASE_SERVICE_ROLE_KEY',
+  'TEST_FACTORY_PASSWORD',
+  'TEST_FACTORY_NAMESPACE',
+  'CUSTOMER_E2E_ALLOWED_API_ORIGIN',
+  'CUSTOMER_E2E_ALLOWED_SUPABASE_REF',
   'NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY',
+  'STRIPE_SECRET_KEY_TEST',
 ] as const;
 
 export function assertCustomerSmokeEnvironment(): void {
@@ -43,6 +48,60 @@ export function assertCustomerSmokeEnvironment(): void {
   if (!process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!.startsWith('pk_test_')) {
     throw new Error(
       'CUSTOMER_E2E_TEST_KEY_REQUIRED: NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY must be a pk_test_ key.',
+    );
+  }
+  if (!process.env.STRIPE_SECRET_KEY_TEST!.startsWith('sk_test_')) {
+    throw new Error(
+      'CUSTOMER_E2E_TEST_KEY_REQUIRED: STRIPE_SECRET_KEY_TEST must be an sk_test_ key.',
+    );
+  }
+  if (
+    process.env.CUSTOMER_E2E_USE_FACTORY !== 'true' ||
+    process.env.CUSTOMER_E2E_ISOLATED_ENVIRONMENT !== 'true'
+  ) {
+    throw new Error(
+      'CUSTOMER_E2E_ISOLATION_REQUIRED: explicitly enable the factory and isolated environment.',
+    );
+  }
+
+  const api = new URL(process.env.TEST_API_URL!);
+  const approvedApiOrigin = new URL(process.env.CUSTOMER_E2E_ALLOWED_API_ORIGIN!);
+  if (
+    api.toString().replace(/\/+$/, '') !==
+    new URL(process.env.NEXT_PUBLIC_API_URL!).toString().replace(/\/+$/, '')
+  ) {
+    throw new Error(
+      'CUSTOMER_E2E_API_MISMATCH: browser checkout and smoke verification must use the same API.',
+    );
+  }
+  if (api.origin !== approvedApiOrigin.origin) {
+    throw new Error(
+      'CUSTOMER_E2E_API_GUARD: TEST_API_URL must exactly match the approved isolated API origin.',
+    );
+  }
+
+  const publicRef = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL!).hostname.split('.')[0];
+  const database = new URL(process.env.SUPABASE_DB_URL!);
+  const databaseHostParts = database.hostname.split('.');
+  const databaseRef =
+    decodeURIComponent(database.username).split('.')[1] ??
+    (database.hostname.endsWith('.supabase.co')
+      ? databaseHostParts[0] === 'db'
+        ? databaseHostParts[1]
+        : databaseHostParts[0]
+      : null);
+  const approvedRef = process.env.CUSTOMER_E2E_ALLOWED_SUPABASE_REF;
+  if (!publicRef || !databaseRef || publicRef !== databaseRef || publicRef !== approvedRef) {
+    throw new Error(
+      'CUSTOMER_E2E_SUPABASE_MISMATCH: browser auth and factory database must use the same isolated Supabase project.',
+    );
+  }
+  if (
+    process.env.TEST_FACTORY_NAMESPACE === 'local' ||
+    process.env.TEST_FACTORY_NAMESPACE!.length < 8
+  ) {
+    throw new Error(
+      'CUSTOMER_E2E_NAMESPACE_REQUIRED: use a unique per-run TEST_FACTORY_NAMESPACE.',
     );
   }
 }
@@ -76,12 +135,17 @@ export class CustomerFixture {
       );
     }
     const factory = TestDataFactory.fromEnvironment();
+    const identities: TestIdentity[] = [];
     try {
+      for (const state of states) identities.push(await factory.create(state));
       return {
         factory,
-        identities: await Promise.all(states.map((state) => factory.create(state))),
+        identities,
       };
     } catch (error) {
+      for (const identity of identities.reverse()) {
+        await factory.teardown(identity).catch(() => undefined);
+      }
       await factory.dispose();
       throw error;
     }

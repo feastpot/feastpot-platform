@@ -573,12 +573,17 @@ jobs:
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
       NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ secrets.TEST_STRIPE_PUBLISHABLE_KEY }}
-      TEST_CUSTOMER_EMAIL: ${{ secrets.TEST_CUSTOMER_EMAIL }}
-      TEST_CUSTOMER_PASSWORD: ${{ secrets.TEST_CUSTOMER_PASSWORD }}
-      TEST_CUSTOMER_VENDOR_ID: ${{ secrets.TEST_CUSTOMER_VENDOR_ID }}
-      TEST_CUSTOMER_VENDOR_SLUG: ${{ secrets.TEST_CUSTOMER_VENDOR_SLUG }}
-      TEST_CUSTOMER_MENU_ITEM_ID: ${{ secrets.TEST_CUSTOMER_MENU_ITEM_ID }}
-      TEST_CUSTOMER_ADDRESS_ID: ${{ secrets.TEST_CUSTOMER_ADDRESS_ID }}
+      STRIPE_SECRET_KEY_TEST: ${{ secrets.STRIPE_SECRET_KEY_TEST }}
+      SUPABASE_DB_URL: ${{ secrets.TEST_SUPABASE_DB_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      TEST_FACTORY_PASSWORD: ${{ secrets.TEST_FACTORY_PASSWORD }}
+      TEST_FACTORY_NAMESPACE: customer-${{ github.run_id }}-${{ github.run_attempt }}
+      CUSTOMER_E2E_USE_FACTORY: 'true'
+      CUSTOMER_E2E_ISOLATED_ENVIRONMENT: 'true'
+      CUSTOMER_E2E_ALLOWED_API_ORIGIN: ${{ vars.CUSTOMER_E2E_ALLOWED_API_ORIGIN }}
+      CUSTOMER_E2E_ALLOWED_SUPABASE_REF: ${{ vars.CUSTOMER_E2E_ALLOWED_SUPABASE_REF }}
+      PROD_DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+      PROD_DIRECT_URL: ${{ secrets.PROD_DIRECT_URL }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -591,9 +596,10 @@ jobs:
         run: |
           required=(
             TEST_API_URL NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY
-            NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY TEST_CUSTOMER_EMAIL
-            TEST_CUSTOMER_PASSWORD TEST_CUSTOMER_VENDOR_ID TEST_CUSTOMER_VENDOR_SLUG
-            TEST_CUSTOMER_MENU_ITEM_ID TEST_CUSTOMER_ADDRESS_ID
+            NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY STRIPE_SECRET_KEY_TEST
+            SUPABASE_DB_URL SUPABASE_SERVICE_ROLE_KEY TEST_FACTORY_PASSWORD
+            TEST_FACTORY_NAMESPACE CUSTOMER_E2E_USE_FACTORY CUSTOMER_E2E_ISOLATED_ENVIRONMENT
+            CUSTOMER_E2E_ALLOWED_API_ORIGIN CUSTOMER_E2E_ALLOWED_SUPABASE_REF
           )
           missing=()
           for key in "${required[@]}"; do
@@ -606,6 +612,10 @@ jobs:
           case "$NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY" in
             pk_test_*) ;;
             *) echo "::error title=Unsafe Stripe key::TEST_STRIPE_PUBLISHABLE_KEY must be a Stripe pk_test_ key."; exit 1 ;;
+          esac
+          case "$STRIPE_SECRET_KEY_TEST" in
+            sk_test_*) ;;
+            *) echo "::error title=Unsafe Stripe key::STRIPE_SECRET_KEY_TEST must be an sk_test_ key."; exit 1 ;;
           esac
       - name: Generate Prisma client
         run: npm run db:generate

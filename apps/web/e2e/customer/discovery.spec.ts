@@ -5,9 +5,6 @@ test.describe('customer discovery permutations', () => {
     page,
     customer,
   }) => {
-    // Warm Next.js before timing so development compilation is not counted as
-    // customer-visible search latency.
-    await page.goto('/');
     await customer.mockVendorSearch([
       ...Array.from({ length: 8 }, (_, index) =>
         vendor({ id: `many-${index}`, slug: `many-${index}`, businessName: `Kitchen ${index}` }),
@@ -20,8 +17,11 @@ test.describe('customer discovery permutations', () => {
       }),
       vendor({ id: 'cutoff', slug: 'cutoff', businessName: 'Capacity Cutoff', availableSlots: 1 }),
     ]);
-    const started = Date.now();
+    // Warm the exact route before timing so development compilation is not
+    // counted as customer-visible search latency.
     await page.goto('/vendors?postcode=SE15');
+    const started = Date.now();
+    await page.reload();
     await expect(page.getByText('Kitchen 0')).toBeVisible();
     await expect(page.getByText('Sold Out Kitchen')).toBeVisible();
     await expect(page.getByText('Capacity Cutoff')).toBeVisible();
