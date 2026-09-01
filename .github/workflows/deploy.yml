@@ -28,6 +28,32 @@ env:
   TURBO_TELEMETRY_DISABLED: 1
 
 jobs:
+  validate-admin-mfa:
+    name: Validate production admin MFA configuration
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      ADMIN_REQUIRE_AAL2: ${{ secrets.ADMIN_REQUIRE_AAL2 }}
+      NEXT_PUBLIC_ADMIN_REQUIRE_AAL2: ${{ secrets.NEXT_PUBLIC_ADMIN_REQUIRE_AAL2 }}
+    steps:
+      - name: Require API and admin AAL2 enforcement
+        shell: bash
+        run: |
+          invalid=0
+          if [[ "${ADMIN_REQUIRE_AAL2}" != "true" ]]; then
+            echo "::error::ADMIN_REQUIRE_AAL2 must be set to true in the production environment."
+            invalid=1
+          fi
+          if [[ "${NEXT_PUBLIC_ADMIN_REQUIRE_AAL2}" != "true" ]]; then
+            echo "::error::NEXT_PUBLIC_ADMIN_REQUIRE_AAL2 must be set to true in the production environment."
+            invalid=1
+          fi
+          if [[ "${invalid}" -ne 0 ]]; then
+            echo "Production deployment blocked: admin MFA enforcement is incomplete."
+            exit 1
+          fi
+          echo "Production admin MFA enforcement flags are configured."
+
   # ----------------------------------------------------------------------------
   # 0. Typecheck all workspaces before touching the database or triggering any
   #    Vercel deploy. Running this in parallel with deploy-database means we get
@@ -66,6 +92,7 @@ jobs:
   # ----------------------------------------------------------------------------
   deploy-database:
     name: Migrate production DB
+    needs: [validate-admin-mfa]
     runs-on: ubuntu-latest
     environment: production
     env:

@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
+import { isAdminMfaEnforced } from '@/lib/auth/mfa-enforcement';
 import { createClient } from '@/lib/supabase/middleware';
 
 /**
@@ -7,10 +8,9 @@ import { createClient } from '@/lib/supabase/middleware';
  * (NOT `getSession()` -- see the Supabase Next 15 SSR docs for why), then:
  *
  * 1. Redirects unauthenticated requests to /sign-in.
- * 2. When ADMIN_REQUIRE_AAL2=true, redirects aal1 staff sessions to
+ * 2. When both admin MFA flags are true, redirects aal1 staff sessions to
  *    /settings/2fa so the user can complete TOTP enrolment before accessing
- *    any protected route. This is the "build behind a flag, enrol, then
- *    enforce" sequencing required by the prompt.
+ *    any protected route.
  *
  * Edge-case: factor removal after a session was aal2. Supabase's getUser()
  * validates the token server-side on every request; the middleware SSR client
@@ -73,12 +73,19 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // AAL2 gate: enforce only when the flag is on and the user is authenticated.
-  const requireAal2 = process.env.ADMIN_REQUIRE_AAL2 === 'true';
-  if (user && requireAal2) {
-    const isAal2Allowed = AAL2_ALLOWLIST.some(
-      (p) => pathname === p || pathname.startsWith(`${p}/`),
-    );
+  const isAal2Allowed = AAL2_ALLOWLIST.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+
+  // Fail closed for a production misconfiguration: only the sign-in and
+  // enrolment/recovery paths remain reachable until both flag surfaces agree.
+  const mfaEnforced = isAdminMfaEnforced();
+  if (user && !mfaEnforced && !isAal2Allowed) {
+    const url = request.nextUrl.clone();
+    url.pathname = '/unauthorized';
+    url.searchParams.set('reason', 'mfa-configuration');
+    return NextResponse.redirect(url);
+  }
+
+  if (user && mfaEnforced) {
     if (!isAal2Allowed) {
       // Read aal from the (possibly just-refreshed) session JWT.
       const { data: sessionData } = await supabase.auth.getSession();

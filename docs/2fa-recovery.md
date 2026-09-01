@@ -7,6 +7,24 @@ reset), they cannot complete the TOTP challenge and are locked out of the admin 
 This is the intended security behaviour. Recovery requires a founder/owner action in the
 Supabase Dashboard.
 
+## Production enforcement rollout
+
+Production releases fail closed unless both `ADMIN_REQUIRE_AAL2=true` and
+`NEXT_PUBLIC_ADMIN_REQUIRE_AAL2=true` are configured.
+
+Before enabling those flags:
+
+1. List every `admin`, `support`, `finance`, and `compliance` account in Supabase Auth.
+2. Have each staff member visit `/settings/2fa`, enrol a TOTP factor, and complete a challenge.
+3. Confirm each account has a verified TOTP factor in the Supabase Dashboard.
+4. Set both production flags to `true`.
+5. Release the API and admin app. The deployment workflow blocks before migrations if either flag
+   is absent or has any value other than the exact lowercase string `true`.
+
+Do not temporarily disable either production flag to recover one account. Use the factor-removal
+procedure below; the authenticated enrolment/challenge route remains reachable while privileged
+routes stay blocked.
+
 ## Removing the lost factor
 
 1. Log in to the Supabase Dashboard: https://supabase.com/dashboard/project/yeklvhpuimgjbrsfcqmq
@@ -39,5 +57,6 @@ ADMIN_REQUIRE_AAL2 requires aal2) and completes fresh enrolment.
   aal2 claim until the next token refresh (up to 1 hour). Step 7 (invalidate sessions) makes
   revocation immediate. For routine re-enrolment after a planned device change, step 7 is not
   needed -- just remove the factor and let the staff member re-enrol.
-- **Flag off.** If ADMIN_REQUIRE_AAL2 is off (dev environment), staff can log in without 2FA
-  and the 2FA page still works for voluntary enrolment.
+- **Local development.** To access privileged admin routes locally, set both admin MFA flags to
+  `true` and use an aal2 session. The enrolment/challenge page remains available when the flags are
+  missing so a developer can enrol safely.

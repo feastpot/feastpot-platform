@@ -89,6 +89,24 @@ export function missingRequiredEnv(): RequiredEnvVar[] {
 }
 
 /**
+ * Production must never serve staff routes with password-only sessions.
+ *
+ * This is deliberately separate from REQUIRED_ENV_VARS: the API can technically
+ * boot without this setting, but doing so would make the security posture
+ * depend on a forgotten deployment variable. Throwing lets main.ts terminate
+ * before Nest creates any listeners.
+ */
+export function assertProductionAdminMfaEnforced(): void {
+  if (process.env.NODE_ENV !== 'production') return;
+  if (process.env.ADMIN_REQUIRE_AAL2 === 'true') return;
+
+  throw new Error(
+    '[STARTUP] Refusing to start in production: ADMIN_REQUIRE_AAL2 must be exactly "true". ' +
+      'Verify every staff account has enrolled in TOTP at /settings/2fa, then set the production flag.',
+  );
+}
+
+/**
  * Returns the optional groups whose vars are not fully set,
  * paired with their consequence description.
  */

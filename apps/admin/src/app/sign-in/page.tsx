@@ -55,9 +55,7 @@ function SignInChrome({ children }: { children: React.ReactNode }) {
           {children}
           <p className="mt-6 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
             <ShieldCheck className="h-3.5 w-3.5 text-emerald-700" />
-            {process.env.NEXT_PUBLIC_ADMIN_REQUIRE_AAL2 === 'true'
-              ? 'Internal use only · 2FA enforced'
-              : 'Internal use only · 2FA available in settings'}
+            Internal use only · 2FA required for staff access
           </p>
         </CardContent>
       </Card>

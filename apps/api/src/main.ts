@@ -90,7 +90,10 @@ import helmet from 'helmet';
 import { Logger } from 'nestjs-pino';
 
 import { AppModule } from './app.module';
-import { assertRequiredEnvOrExit } from './common/config/required-env';
+import {
+  assertProductionAdminMfaEnforced,
+  assertRequiredEnvOrExit,
+} from './common/config/required-env';
 import { resolveStripeEnv } from './common/config/resolve-stripe-env';
 import {
   DEV_SUPABASE_REF,
@@ -140,19 +143,9 @@ async function bootstrap(): Promise<void> {
   // production project exists); otherwise we log loudly and continue.
   // Runs pre-Nest (before NestFactory connects Prisma), so the pino logger
   // isn't wired up yet - use console.error to match the required-env gate.
-  // AAL2 enforcement guard: warn loudly when ADMIN_REQUIRE_AAL2 is off in
-  // production so the gap is visible in startup logs. Never hard-exit: the
-  // sequencing rule requires enrolment BEFORE enforcement, so the flag starts
-  // off and is flipped on once the seed admin has enrolled.
-  if (process.env.NODE_ENV === 'production' && process.env.ADMIN_REQUIRE_AAL2 !== 'true') {
-    // eslint-disable-next-line no-console
-    console.error(
-      '[STARTUP] WARNING: ADMIN_REQUIRE_AAL2 is not set to "true" in production. ' +
-        'Staff accounts are protected by password only -- a stolen password is full admin access. ' +
-        'Set ADMIN_REQUIRE_AAL2=true (and NEXT_PUBLIC_ADMIN_REQUIRE_AAL2=true on the admin app) ' +
-        'once every staff account has enrolled in TOTP 2FA via /settings/2fa.',
-    );
-  }
+  // Production must not expose a password-only staff surface. This runs before
+  // NestFactory.create() so a bad deployment cannot bind an HTTP listener.
+  assertProductionAdminMfaEnforced();
 
   if (process.env.NODE_ENV === 'production' && isDevSupabaseRef()) {
     const strict = process.env.REQUIRE_DEDICATED_SUPABASE === 'true';
