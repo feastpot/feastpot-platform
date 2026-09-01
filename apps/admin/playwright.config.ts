@@ -72,6 +72,15 @@ export default defineConfig({
       },
       dependencies: ['setup'],
     },
+    {
+      name: 'admin-compliance',
+      testMatch: /admin-compliance\.spec\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: 'e2e/.auth/admin.json',
+      },
+      dependencies: ['setup'],
+    },
 
     // ── Vendors page tests ─────────────────────────────────────────────────────
     {

@@ -31,7 +31,7 @@ async function signIn(page: Page, email: string, password: string): Promise<void
   ]);
 }
 
-setup('provision and authenticate V4–V8 vendor states', async ({ browser }) => {
+setup('provision and authenticate V1-V11 vendor states', async ({ browser }) => {
   setup.setTimeout(5 * 60_000);
   const namespace = matrixNamespace();
   const factory = TestDataFactory.fromEnvironment({ namespace });

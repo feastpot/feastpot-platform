@@ -1,0 +1,78 @@
+TASK: Build vendor and admin end-to-end scenario suites.
+
+DEPENDS ON: FIX-701 factory, FIX-702 unblocked suites.
+
+VENDOR LIFECYCLE, FULL PATH
+Walk it end to end and assert at every stage:
+  submit application
+  admin approves
+  terms acceptance (blocking, per FIX-708)
+  Stripe Connect onboarding
+  tax information capture (SI 2023/817 fields)
+  compliance document upload
+  menu creation with allergens
+  go live
+  receive an order
+  accept it
+  mark fulfilled
+  appear in a payout batch
+  receive a payout statement that reconciles
+
+VENDOR STATE PERMUTATIONS
+For each factory state V1 to V11, assert the portal shows the
+correct thing on every route:
+  V1 applied not approved -> pending state, no menu access
+  V2 approved no Stripe -> onboarding prompt, cannot go live
+  V3 Stripe requirements outstanding -> what is missing shown
+  V4 live zero orders -> empty states everywhere, no errors
+  V5 live with data -> real figures
+  V6 renewal due -> warning with the specific document named
+  V7 expired 7+ days -> suspended, statement of reasons shown,
+     appeal route visible
+  V8 FHRS below 3 -> immediately suspended with reasons
+  V9 terms not accepted -> blocked at acceptance
+  V10 v2.0 pending -> notice banner with countdown
+  V11 active catering booking -> booking visible and editable
+
+MENU AND ALLERGEN PERMUTATIONS
+  create dish with allergens -> published
+  create dish with no allergens, freeFrom false -> BLOCKED
+  create dish with freeFrom true -> published
+  edit a published dish to remove all allergens -> blocked or
+    auto-unpublished
+  vendor A edits vendor B's dish -> 403
+  dish image upload, missing image, oversized image
+
+ORDER HANDLING PERMUTATIONS
+  accept, reject with reason, no response within window
+  fulfil, mark delayed, cannot fulfil after accepting
+  order for a slot that has since become unavailable
+
+ADMIN SCENARIO SUITE
+  approve and reject vendor applications, with reasons
+  suspend a vendor -> statement of reasons issued at or
+    before effect (P2B), vendor notified, appeal available
+  terminate a vendor -> 30 days notice with reasons, unless
+    a serious-cause code is recorded
+  attempt suspension with no narrative -> REJECTED
+  attempt a non-urgent action with notice after effect
+    -> REJECTED
+  urgent action (FHRS, fraud) -> allowed immediately, urgent
+    basis mandatory, notice fires in the same transaction
+  two-stage appeal: stage 2 by the SAME reviewer -> REJECTED
+  two-stage appeal: stage 2 by a different reviewer -> allowed
+  upheld appeal -> deduction reversed on next payout
+  publish a terms version with under 15 days notice
+    -> REJECTED
+  publish without solicitor sign-off -> REJECTED
+  change a commission rate -> notice flow triggered, cannot
+    bypass
+  dispute handling: decide, vendor responds, vendor does not
+    respond, vendor appeals within 14 days, appeals after 14
+  catering enquiry triage and SLA urgency
+  evidence export produces a complete verifiable bundle
+
+ACCEPTANCE CRITERIA
+- The full vendor lifecycle passes as one continuous test.
+- All eleven vendor states assert correct portal behaviour.
+- Every P2B guard rejects the non-compliant case.

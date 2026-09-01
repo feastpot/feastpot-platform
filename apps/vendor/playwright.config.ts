@@ -131,6 +131,17 @@ export default defineConfig({
       dependencies: ['setup'],
     },
 
+    // ── End-to-end vendor lifecycle (onboarding → fulfilment → payout) ───────
+    {
+      name: 'vendor-lifecycle',
+      testMatch: /vendor-lifecycle\.spec\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: 'e2e/.auth/vendor.json',
+      },
+      dependencies: ['setup'],
+    },
+
     // ── Share and Customers screen test suite (S1–S6) ─────────────────────────
     {
       name: 'share-screen',
@@ -188,7 +199,7 @@ export default defineConfig({
       dependencies: ['setup'],
     },
     // ── State-matrix setup and cleanup ─────────────────────────────────────────
-    // The matrix owns isolated V4–V8 test-factory identities. It does not reuse
+    // The matrix owns isolated V1-V11 test-factory identities. It does not reuse
     // the shared test vendor or mutate developer/demo seed data.
     {
       name: 'vendor-state-matrix-setup',
@@ -201,7 +212,7 @@ export default defineConfig({
     {
       name: 'vendor-state-matrix',
       testMatch: /vendor-state-matrix\.spec\.ts/,
-      grep: /V[4-8] routes render/,
+      grep: /V(?:[1-9]|10|11) routes render/,
       use: {
         ...devices['Desktop Chrome'],
       },

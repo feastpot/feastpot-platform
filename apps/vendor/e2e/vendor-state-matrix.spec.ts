@@ -22,6 +22,9 @@ const STATE_LANDMARKS: Record<
   VendorMatrixState,
   ReadonlyArray<{ href: string; text: string | RegExp }>
 > = {
+  V1: [{ href: '/onboarding/welcome', text: /application|approval|welcome/i }],
+  V2: [{ href: '/onboarding', text: /stripe|connect.*account/i }],
+  V3: [{ href: '/onboarding', text: /stripe|payout|requirements/i }],
   V4: [
     { href: '/menu', text: 'No dishes yet' },
     { href: '/performance', text: 'No completed orders yet' },
@@ -37,6 +40,9 @@ const STATE_LANDMARKS: Record<
   V6: [{ href: '/account-and-compliance', text: /expir(?:es|ing)/i }],
   V7: [{ href: '/account-and-compliance', text: /expired|suspended/i }],
   V8: [{ href: '/account-and-compliance', text: /FHRS hygiene rating below threshold/i }],
+  V9: [{ href: '/', text: /accept.*terms|review and accept terms/i }],
+  V10: [{ href: '/account-and-compliance', text: /terms|notice|takes effect/i }],
+  V11: [{ href: '/orders?type=catering', text: /confirmed|catering/i }],
 };
 
 function readManifest(): VendorStateMatrixManifest {
@@ -78,7 +84,7 @@ async function visitRoute(
       const pageText = (await page.locator('body').textContent()) ?? '';
       await assertNoErrorBoundary(pageText, route.label);
 
-      if (route.expectsPortalShell && !mobile) {
+      if (route.expectsPortalShell && !mobile && state !== 'V1') {
         const sideNav = page.locator('aside[aria-label="Vendor portal navigation"]');
         await expect(sideNav, `${route.label} must retain portal navigation`).toBeVisible({
           timeout: 10_000,
