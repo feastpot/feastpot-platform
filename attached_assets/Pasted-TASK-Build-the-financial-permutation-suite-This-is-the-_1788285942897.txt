@@ -1,0 +1,83 @@
+TASK: Build the financial permutation suite.
+
+This is the suite that protects real money. Every assertion in
+integer pence. No floating point comparison anywhere.
+
+COMMISSION PERMUTATIONS
+  marketplace first order with a vendor -> 12%
+  marketplace repeat order with same vendor -> 10%
+  vendor-referred order -> 0 to 3% per Rate Schedule
+  same customer, different vendor, first order -> 12%
+  cross-vendor referral (arrived via A's link, ordered from B)
+    -> MARKETPLACE for B
+  Founding Cook incentive active -> 0%
+  Founding Cook after £1,000 GMV -> standard rate resumes
+  order placed before a rate change, refunded after
+    -> ORIGINAL rate applies
+  commission never charged on delivery fee, service fee, tips
+    or discounts (assert each separately)
+  a PLANNED rate cannot be used in a calculation -> throws
+
+REFUND SEQUENCE PERMUTATIONS
+These compound, which is where bugs live:
+  full refund
+  single partial refund
+  two partial refunds summing below the total
+  two partial refunds summing to exactly the total
+  a third refund exceeding the remainder -> REJECTED
+  refund after payout has been transferred
+  refund on a FeastPass order (fee waived) -> correct split
+  concurrent refund requests on the same order
+    -> exactly one succeeds
+  refund on a catering deposit
+  refund on a catering balance
+  refund idempotency: same request twice -> one refund
+
+CHARGEBACK PERMUTATIONS
+  chargeback with no prior refunds
+  chargeback AFTER one partial refund
+  chargeback after two partial refunds (this is the case
+    where stripe-webhook.processor.ts:423-455 uses
+    non-incremental logic and can diverge from
+    payments.service.ts:54-156, assert they now agree)
+  chargeback won -> funds restored correctly
+  chargeback lost -> split matches the manual refund path
+  unmatched Stripe dispute -> surfaced, not silently logged
+  chargeback deadline approaching -> alert fires
+
+PAYOUT PERMUTATIONS
+  batch with only delivered orders
+  batch including partially refunded orders (appears in BOTH
+    totals and detail, per FIX-707)
+  batch spanning a commission rate change
+  batch with a catering booking
+  batch netting to zero
+  batch netting to negative -> carried forward correctly
+  vendor with no qualifying orders -> empty batch handled
+  transfer succeeds, local write fails -> reconciliation
+    detects it
+  transfer fails -> retried, not silently dropped
+
+RECONCILIATION
+Build a scheduled job and test it finds:
+  captured Stripe payments with no local capture row
+    (payments.service.ts:269-305 creates the row after the
+    Stripe call, so this gap is real)
+  Stripe transfers with no matching local payout
+  local payouts marked transferred with no Stripe transfer
+  Stripe refunds with no local ledger entry
+  amount mismatches in either direction
+
+DATA INTEGRITY
+  the eight zero-fee orders the audit could not explain:
+    write a check asserting every zero fee has a corresponding
+    permitted reason (active FeastPass membership plus a
+    saving record). Backfill or correct the existing eight.
+  assert no order can have vendor payout greater than total
+  assert no negative financial component anywhere
+
+ACCEPTANCE CRITERIA
+- Manual refund and chargeback paths use ONE shared function
+  and produce identical splits, asserted.
+- Every refund sequence permutation is covered.
+- The reconciliation job detects all five mismatch types.
