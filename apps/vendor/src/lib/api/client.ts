@@ -57,6 +57,11 @@ export async function apiRequest<T>(path: string, opts: ApiRequestOptions = {}):
     method: opts.method ?? 'GET',
     headers,
     body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
+    // This wrapper does not retain response bodies, so it cannot satisfy a
+    // browser conditional request when the API replies 304 Not Modified.
+    // A 304 has no body and was previously treated as an ApiError, which made
+    // the Vendor Terms gate replace the acceptance page after navigation.
+    cache: 'no-store',
     signal: opts.signal,
     next: opts.next,
   });
