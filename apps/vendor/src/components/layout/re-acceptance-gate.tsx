@@ -48,6 +48,7 @@ export function ReAcceptanceGate({ children }: { children: React.ReactNode }) {
     pathname === '/sign-in' ||
     pathname.startsWith('/auth/') ||
     pathname === '/onboarding/terms' ||
+    pathname.startsWith('/onboarding/terms/') ||
     pathname.startsWith('/settings/close-account');
 
   useEffect(() => {

@@ -111,6 +111,12 @@ test.describe.serial('vendor lifecycle', () => {
     await page.goto('/onboarding/terms');
     const termsPane = page.getByRole('region', { name: /scroll to read/i });
     await expect(termsPane).toBeVisible({ timeout: 8_000 });
+    // The root re-acceptance gate runs after navigation. Keep the page visible
+    // long enough to catch the production regression where a cached 304 from
+    // acceptance-status replaced it with the verification-error overlay.
+    await page.waitForTimeout(1_500);
+    await expect(termsPane).toBeVisible();
+    await expect(page.getByText('Unable to verify Vendor Terms')).toBeHidden();
     const consent = page.locator('#terms-accept-checkbox');
     await expect(consent).not.toBeChecked();
     await expect(consent).toBeDisabled();
