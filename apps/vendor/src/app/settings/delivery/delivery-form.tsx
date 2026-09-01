@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, Loader2, Plus, X } from 'lucide-react';
 import { Button, Card, CardContent } from '@feastpot/ui';
 
@@ -40,6 +40,20 @@ interface FormState {
   freeDeliveryOver: string;
 }
 
+interface FormSnapshot {
+  kitchenPostcode: string;
+  localRadiusMiles: number;
+  postcodes: string[];
+  types: { local: boolean; collection: boolean };
+  localFeePence: number;
+  collectionLine1: string;
+  collectionLine2: string;
+  collectionTown: string;
+  collectionPostcode: string;
+  minOrderPence: number;
+  freeDeliveryOverPence: number | null;
+}
+
 const EMPTY: FormState = {
   kitchenPostcode: '',
   localRadiusMiles: 5,
@@ -54,6 +68,27 @@ const EMPTY: FormState = {
   minOrder: '',
   freeDeliveryOver: '',
 };
+
+function snapshotForm(state: FormState): FormSnapshot {
+  const freeDeliveryPounds = state.freeDeliveryOver.trim();
+  return {
+    kitchenPostcode: state.kitchenPostcode.trim().toUpperCase(),
+    localRadiusMiles: state.localRadiusMiles,
+    postcodes: [...state.postcodes].sort(),
+    types: { ...state.types },
+    localFeePence: pencePerPound(Number(state.localFee || 0)),
+    collectionLine1: state.collectionLine1.trim(),
+    collectionLine2: state.collectionLine2.trim(),
+    collectionTown: state.collectionTown.trim(),
+    collectionPostcode: state.collectionPostcode.trim().toUpperCase(),
+    minOrderPence: pencePerPound(Number(state.minOrder || 0)),
+    freeDeliveryOverPence: freeDeliveryPounds ? pencePerPound(Number(freeDeliveryPounds)) : null,
+  };
+}
+
+function snapshotsEqual(left: FormSnapshot, right: FormSnapshot): boolean {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
 
 // ---- helpers ----
 
@@ -97,6 +132,7 @@ export function DeliveryForm() {
 
   const [form, setForm] = useState<FormState>(EMPTY);
   const [seeded, setSeeded] = useState(false);
+  const [savedSnapshot, setSavedSnapshot] = useState<FormSnapshot | null>(null);
 
   const [kitchenCoords, setKitchenCoords] = useState<KitchenCoords>({
     lat: null,
@@ -139,9 +175,11 @@ export function DeliveryForm() {
           ? poundsFromPence(data.freeDeliveryOverPence).toFixed(2)
           : '',
     };
+    const nextSnapshot = snapshotForm(nextForm);
     // Batch the state update in a microtask so it happens after first render.
     Promise.resolve().then(() => {
       setForm(nextForm);
+      setSavedSnapshot(nextSnapshot);
       setSeeded(true);
       if (data.latitude !== null && data.longitude !== null) {
         setKitchenCoords({ lat: data.latitude, lng: data.longitude, area: null });
@@ -155,7 +193,9 @@ export function DeliveryForm() {
   }
   if (!data && !isLoading && !seedRef.current) {
     seedRef.current = true;
+    const emptySnapshot = snapshotForm(EMPTY);
     Promise.resolve().then(() => setSeeded(true));
+    Promise.resolve().then(() => setSavedSnapshot(emptySnapshot));
   }
 
   // ---- validate kitchen postcode on blur ----
@@ -260,6 +300,9 @@ export function DeliveryForm() {
 
   const canSave =
     selectedTypes.length > 0 && !kitchenError && !freeDeliveryError && !kitchenValidating;
+  const currentSnapshot = useMemo(() => snapshotForm(form), [form]);
+  const hasChanges = savedSnapshot !== null && !snapshotsEqual(currentSnapshot, savedSnapshot);
+  const canSubmit = canSave && hasChanges;
 
   // ---- plain-English order-rules summary ----
 
@@ -289,6 +332,8 @@ export function DeliveryForm() {
       toast({ title: 'Fix the errors above before saving', variant: 'destructive' });
       return;
     }
+    if (!hasChanges) return;
+    const submittedSnapshot = currentSnapshot;
     try {
       await upsert.mutateAsync({
         types: selectedTypes,
@@ -303,6 +348,7 @@ export function DeliveryForm() {
         minOrderPence,
         freeDeliveryOverPence: freeDeliveryPence,
       });
+      setSavedSnapshot(submittedSnapshot);
       toast({ title: 'Delivery settings saved' });
     } catch (err) {
       toast({
@@ -613,7 +659,7 @@ export function DeliveryForm() {
       </Card>
 
       <div className="flex justify-end">
-        <Button type="submit" disabled={upsert.isPending || !canSave}>
+        <Button type="submit" disabled={upsert.isPending || !canSubmit}>
           {upsert.isPending ? 'Saving...' : 'Save settings'}
         </Button>
       </div>

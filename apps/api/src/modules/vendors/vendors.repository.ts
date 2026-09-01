@@ -33,6 +33,17 @@ export interface DecodedCursor {
   id: string;
 }
 
+/**
+ * Extract the UK outward code from either a full postcode or an outward-only
+ * value. A fixed four-character slice is incorrect for three-character codes
+ * such as E16: "E16 3BZ" would become "E163" and never match an E16 chip.
+ */
+export function normalisePostcodePrefix(raw: string | undefined): string | null {
+  if (!raw) return null;
+  const compact = raw.replace(/\s+/g, '').replace(/[%_]/g, '').toUpperCase();
+  return compact.match(/^[A-Z]{1,2}[0-9][A-Z0-9]?/)?.[0] ?? null;
+}
+
 @Injectable()
 export class VendorRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -54,9 +65,7 @@ export class VendorRepository {
   ): Promise<SearchedVendorRow[]> {
     const limit = dto.limit ?? 20;
     // Strip SQL LIKE wildcards so users can't broaden the prefix scan.
-    const postcodePrefix = dto.postcode
-      ? dto.postcode.replace(/\s+/g, '').replace(/[%_]/g, '').slice(0, 4).toUpperCase()
-      : null;
+    const postcodePrefix = normalisePostcodePrefix(dto.postcode);
     const userLat =
       userCoords && typeof userCoords.latitude === 'number' ? userCoords.latitude : null;
     const userLng =
