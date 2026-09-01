@@ -19,6 +19,8 @@ import { execSync } from 'child_process';
 import { readFileSync } from 'fs';
 import { join, relative } from 'path';
 
+import { runLinkAudit } from '../../../scripts/link-audit';
+
 const ROOT = join(__dirname, '../../../');
 
 function read(rel: string): string {
@@ -241,24 +243,9 @@ describe('Vendor portal - no relative /legal/* hrefs (those routes do not exist)
 // introduced after this commit.
 
 describe('Link audit script - zero broken internal links across all apps', () => {
-  it('audit script exits 0 (no broken internal links)', () => {
-    // Runs the static analysis only (no --fetch-external) so it is fast and
-    // deterministic in CI without network access.
-    let output = '';
-    let exitCode = 0;
-    try {
-      output = execSync(
-        `npx ts-node --project "${join(ROOT, 'tsconfig.json')}" "${join(ROOT, 'scripts/link-audit.ts')}" 2>&1`,
-        { encoding: 'utf8', cwd: ROOT },
-      );
-    } catch (e: unknown) {
-      exitCode = (e as NodeJS.ErrnoException & { status?: number }).status ?? 1;
-      output = (e as NodeJS.ErrnoException & { stdout?: string }).stdout ?? '';
-    }
-    if (exitCode !== 0) {
-      // Print audit output to make CI logs actionable
-      console.error('Link audit failed:\n' + output);
-    }
-    expect(exitCode).toBe(0);
+  it('reports zero broken internal links', async () => {
+    // Run in-process so parallel coverage does not need to launch a nested
+    // npx/ts-node process under peak worker load.
+    await expect(runLinkAudit()).resolves.toBe(0);
   }, 60_000); // allow up to 60 s for the full scan
 });

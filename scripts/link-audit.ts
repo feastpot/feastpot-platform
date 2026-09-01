@@ -247,7 +247,7 @@ function fmt(rel: string): string {
   return relative(ROOT, rel);
 }
 
-async function main(): Promise<void> {
+export async function runLinkAudit(): Promise<number> {
   const line = '='.repeat(64);
   console.log('Feastpot link audit');
   console.log(line);
@@ -303,14 +303,19 @@ async function main(): Promise<void> {
   console.log('\n' + line);
   if (totalBroken === 0) {
     console.log('\u2713 PASS: zero broken internal links');
-    process.exit(0);
   } else {
     console.log(`\u2717 FAIL: ${totalBroken} broken internal link(s) found`);
-    process.exit(1);
   }
+  return totalBroken;
 }
 
-main().catch((e: Error) => {
-  console.error(e);
-  process.exit(1);
-});
+if (require.main === module) {
+  runLinkAudit()
+    .then((totalBroken) => {
+      process.exitCode = totalBroken === 0 ? 0 : 1;
+    })
+    .catch((e: Error) => {
+      console.error(e);
+      process.exitCode = 1;
+    });
+}

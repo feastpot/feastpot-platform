@@ -23,6 +23,8 @@ out
 /apps/*/coverage
 /packages/*/coverage
 /apps/*/e2e-report
+/apps/*/test-results
+/apps/*/e2e-results.json
 
 # logs
 *.log

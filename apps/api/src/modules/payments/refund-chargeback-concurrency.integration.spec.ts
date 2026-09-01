@@ -9,7 +9,7 @@ import {
 
 import { PrismaService } from '../../prisma/prisma.service';
 import { AdminService } from '../admin/admin.service';
-import { aggregateVendorBatch } from '../payouts/payouts.service';
+import { buildPayoutStatement } from '../payouts/payout-statement';
 
 import { PaymentsService, computeRefundSplit } from './payments.service';
 import { StripeWebhookProcessor } from './stripe-webhook.processor';
@@ -28,7 +28,7 @@ import { StripeWebhookProcessor } from './stripe-webhook.processor';
  * (chargeback path). Either way, SUM(refund rows) never exceeds totalPence.
  *
  * Also asserts the zero-floored ledger reconcile in AdminService
- * (reconcilePayoutLedger) matches aggregateVendorBatch on the resulting
+ * (reconcilePayoutLedger) matches the canonical payout statement on the resulting
  * high-refund period (net payout floored at 0, never negative).
  *
  * Skip behaviour mirrors the e2e smoke: skipped entirely when SUPABASE_DB_URL
@@ -237,7 +237,7 @@ d('Concurrent refund + lost-chargeback reconciliation (integration, real DB)', (
     expect(-(after._sum.amountPence ?? 0)).toBe(TOTAL);
   }, 60_000);
 
-  it('zero-floored ledger reconcile (reconcilePayoutLedger) matches aggregateVendorBatch on the high-refund period', async () => {
+  it('zero-floored ledger reconcile matches the canonical payout statement on the high-refund period', async () => {
     // The full refund above makes this a high-refund period: the net vendor
     // clawback equals the whole vendorPayout, so netPence floors at 0.
     const [refundRows, creditRows] = await Promise.all([
@@ -271,24 +271,33 @@ d('Concurrent refund + lost-chargeback reconciliation (integration, real DB)', (
     expect(refundDeductionsPence).toBe(split.vendorClawbackPence);
     expect(refundDeductionsPence).toBe(VENDOR_PAYOUT);
 
-    const batch = aggregateVendorBatch({
+    const statement = buildPayoutStatement({
       vendorId,
-      vendorUserId,
-      commissionBps: 1200,
+      vendorBusinessName: 'Concurrency Vendor',
+      periodStart: new Date('2026-07-13T00:00:00Z'),
+      periodEnd: new Date('2026-07-20T00:00:00Z'),
       hasOpenDispute: false,
-      orders: [
+      entries: [
         {
           id: orderId,
-          totalPence: TOTAL,
-          vendorPayoutPence: VENDOR_PAYOUT,
+          kind: 'order',
+          reference: 'Concurrency order',
+          occurredAt: null,
+          source: 'marketplace',
+          effectiveCommissionRatePercent: '12.00',
+          grossPence: TOTAL,
+          foodSubtotalPence: SUBTOTAL,
           commissionPence: COMMISSION,
+          serviceFeesPence: SERVICE_FEE,
+          refundsPence: refundDeductionsPence,
+          chargebacksPence: 0,
+          vendorPayoutBeforeDeductionsPence: VENDOR_PAYOUT,
         },
       ],
-      refundDeductionsPence,
     });
     // Zero floor: refunds consume the whole payout but never go negative.
-    expect(batch.netPence).toBe(0);
-    expect(batch.refundsPence).toBe(VENDOR_PAYOUT);
+    expect(statement.summary.netPayoutPence).toBe(0);
+    expect(statement.summary.refundsPence).toBe(VENDOR_PAYOUT);
 
     // reconcilePayoutLedger recomputes from the same DB rows and must agree
     // with the batch on every component - including the zero-floored net.
@@ -297,17 +306,17 @@ d('Concurrent refund + lost-chargeback reconciliation (integration, real DB)', (
       vendorId,
       periodStart: new Date('2026-07-13T00:00:00Z'),
       periodEnd: new Date('2026-07-20T00:00:00Z'),
-      grossPence: batch.grossPence,
-      commissionPence: batch.commissionPence,
-      refundsPence: batch.refundsPence,
-      amountPence: batch.netPence,
-      orderCount: batch.orderCount,
+      grossPence: statement.summary.grossSalesPence,
+      commissionPence: statement.summary.commissionPence,
+      refundsPence: statement.summary.refundsPence,
+      amountPence: statement.summary.netPayoutPence,
+      orderCount: statement.summary.entryCount,
     });
     expect(result.status).toBe('match');
     expect(result.expected).toEqual({
-      grossPence: batch.grossPence,
-      commissionPence: batch.commissionPence,
-      refundsPence: batch.refundsPence,
+      grossPence: statement.summary.grossSalesPence,
+      commissionPence: statement.summary.commissionPence,
+      refundsPence: statement.summary.refundsPence,
       netPence: 0,
       orderCount: 1,
     });
