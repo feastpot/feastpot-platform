@@ -166,9 +166,28 @@ export class VendorEnforcementService {
       vendorName: vendor.businessName,
       ...dto.facts,
     };
+    const appealDeadline = new Date(effectiveAt.getTime() + APPEAL_WINDOW_DAYS * 86_400_000);
+    const clauseRef =
+      dto.actionType === EnforcementType.TERMINATION
+        ? (SERIOUS_CAUSE_CODES as readonly string[]).includes(reasonCode)
+          ? TERMS_CLAUSE_TERMINATION_SERIOUS
+          : TERMS_CLAUSE_TERMINATION
+        : TERMS_CLAUSE_REASON_CODES;
+    const noticePayload = {
+      userId: vendor.userId,
+      vendorName: vendor.businessName,
+      actionType: dto.actionType,
+      reasonCode,
+      reasonNarrative: dto.reasonNarrative.trim(),
+      effectiveAt: effectiveAt.toISOString(),
+      clauseRef,
+      appealClause: TERMS_CLAUSE_APPEAL,
+      appealDeadline: appealDeadline.toISOString(),
+      isUrgent,
+    };
 
     // ── 6. Transaction: create action + apply status change ───────────────────
-    const action = await this.prisma.$transaction(async (tx) => {
+    const transactionResult = await this.prisma.$transaction(async (tx) => {
       const created = await tx.vendorEnforcementAction.create({
         data: {
           vendorId,
@@ -232,8 +251,16 @@ export class VendorEnforcementService {
         },
       });
 
-      return created;
+      const outbox = await this.notifications.createTransactionalOutbox(
+        tx,
+        'enforcement_action',
+        noticePayload,
+        `enforcement_action:${created.id}`,
+      );
+
+      return { action: created, outboxId: outbox.id };
     });
+    const action = transactionResult.action;
 
     // ── 7. Audit log for urgent gap ───────────────────────────────────────────
     if (isUrgent && effectiveAt < noticeSentAt) {
@@ -244,30 +271,12 @@ export class VendorEnforcementService {
       );
     }
 
-    // ── 8. Enqueue notice email ───────────────────────────────────────────────
-    const appealDeadline = new Date(effectiveAt.getTime() + APPEAL_WINDOW_DAYS * 86_400_000);
-    const clauseRef =
-      dto.actionType === EnforcementType.TERMINATION
-        ? (SERIOUS_CAUSE_CODES as readonly string[]).includes(reasonCode)
-          ? TERMS_CLAUSE_TERMINATION_SERIOUS
-          : TERMS_CLAUSE_TERMINATION
-        : TERMS_CLAUSE_REASON_CODES;
-
-    await this.notifications.enqueue(
+    // ── 8. Dispatch only after the transaction commits ───────────────────────
+    await this.notifications.dispatchTransactionalOutbox(
+      transactionResult.outboxId,
       'enforcement_action',
-      {
-        userId: vendor.userId,
-        vendorName: vendor.businessName,
-        actionType: dto.actionType,
-        reasonCode,
-        reasonNarrative: dto.reasonNarrative.trim(),
-        effectiveAt: effectiveAt.toISOString(),
-        clauseRef,
-        appealClause: TERMS_CLAUSE_APPEAL,
-        appealDeadline: appealDeadline.toISOString(),
-        isUrgent,
-      },
-      { jobId: `enforcement_action:${action.id}` },
+      noticePayload,
+      `enforcement_action:${action.id}`,
     );
 
     this.logger.log(

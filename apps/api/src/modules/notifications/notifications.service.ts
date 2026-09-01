@@ -72,4 +72,46 @@ export class NotificationsService {
       }
     }
   }
+
+  /**
+   * Persist a notification in the caller's transaction.  The caller must
+   * dispatch the returned row after its transaction commits; keeping the row
+   * in the transaction means an action can never commit without a retryable
+   * notice record.
+   */
+  createTransactionalOutbox(
+    tx: Prisma.TransactionClient,
+    eventName: string,
+    data: Record<string, unknown>,
+    jobId?: string,
+  ) {
+    return tx.notificationOutbox.create({
+      data: {
+        eventName,
+        payload: data as Prisma.JsonObject,
+        jobId: jobId ?? null,
+      },
+      select: { id: true },
+    });
+  }
+
+  /**
+   * Dispatch a row created in the same transaction as its business action.
+   * Failure intentionally leaves the row for NotificationOutboxService.
+   */
+  async dispatchTransactionalOutbox(
+    outboxId: string,
+    eventName: string,
+    data: Record<string, unknown>,
+    jobId?: string,
+  ): Promise<void> {
+    try {
+      await this.queue.add(eventName, data, jobId ? { jobId } : undefined);
+      await this.prisma.notificationOutbox.delete({ where: { id: outboxId } });
+    } catch (error) {
+      this.logger.warn(
+        `Transactional notification ${eventName} could not be dispatched: ${(error as Error).message}; outbox will retry`,
+      );
+    }
+  }
 }

@@ -229,6 +229,39 @@ export default defineConfig({
       },
       dependencies: ['vendor-state-matrix-setup'],
     },
+    // ── Factory-backed cross-vendor authorization contract ─────────────────────
+    {
+      name: 'vendor-authorization',
+      testMatch: /vendor-authorization\.spec\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+      },
+      dependencies: ['vendor-state-matrix-setup'],
+    },
+    {
+      name: 'vendor-order-contracts',
+      testMatch: /vendor-order-contracts\.spec\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+      },
+      dependencies: ['vendor-state-matrix-setup'],
+    },
+    {
+      name: 'vendor-menu-contracts',
+      testMatch: /vendor-menu-contracts\.spec\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+      },
+      dependencies: ['vendor-state-matrix-setup'],
+    },
+    {
+      name: 'vendor-lifecycle-evidence',
+      testMatch: /vendor-lifecycle-evidence\.spec\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+      },
+      dependencies: ['vendor-state-matrix-setup'],
+    },
     {
       name: 'vendor-state-matrix-teardown',
       testMatch: /vendor-state-matrix\.teardown\.ts/,

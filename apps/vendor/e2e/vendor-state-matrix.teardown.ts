@@ -11,7 +11,7 @@ import {
   type VendorStateMatrixManifest,
 } from './helpers/vendor-state-matrix';
 
-teardown('remove V4–V8 vendor matrix fixtures', async () => {
+teardown('remove V1-V11 vendor matrix fixtures', async () => {
   const namespace = matrixNamespace();
   const manifestPath = matrixManifestPath(namespace);
   if (!existsSync(manifestPath)) return;

@@ -57,6 +57,7 @@ export interface TestIdentity {
   payoutId?: string;
   disputeId?: string;
   cateringBookingId?: string;
+  menuId?: string;
   addressId?: string;
   menuItemId?: string;
   menuItemPricePence?: number;
@@ -230,6 +231,23 @@ export class TestDataFactory {
 
   async dispose(): Promise<void> {
     if (this.ownsPrisma) await this.prisma.$disconnect();
+  }
+
+  /** Issue a normal Supabase password-session token for a factory identity. */
+  async issueAccessToken(identity: TestIdentity): Promise<string> {
+    if (!this.anon || !identity.credentials.password) {
+      throw new Error(
+        'TEST_FACTORY_AUTH_TOKEN_REQUIRES_SUPABASE: configure Supabase anon key and TEST_FACTORY_PASSWORD.',
+      );
+    }
+    const { data, error } = await this.anon.auth.signInWithPassword({
+      email: identity.credentials.email,
+      password: identity.credentials.password,
+    });
+    if (error || !data.session?.access_token) {
+      throw new Error(`TEST_FACTORY_AUTH_TOKEN_FAILED: ${error?.message ?? 'no session'}`);
+    }
+    return data.session.access_token;
   }
 
   async create(state: FactoryState): Promise<TestIdentity> {
@@ -462,6 +480,18 @@ export class TestDataFactory {
     const vendor = await this.ensureVendor(identity, user, state);
     identity.vendorId = vendor.id;
     identity.vendorSlug = vendor.slug;
+    identity.menuId = (
+      await this.prisma.menu.findFirst({
+        where: { vendorId: vendor.id },
+        select: { id: true },
+      })
+    )?.id;
+
+    // A missing current acceptance is an SSR route gate.  Give every normal
+    // portal state an explicit v1 acceptance so V2–V8/V10/V11 cannot
+    // accidentally exercise V9's terms-blocked experience.
+    if (state !== 'V9') await this.ensureCurrentTerms(vendor.id);
+    else await this.prisma.termsAcceptance.deleteMany({ where: { vendorId: vendor.id } });
 
     if (state === 'V9') {
       const item = await this.ensurePurchaseVendor(vendor.id, state);
@@ -914,11 +944,9 @@ export class TestDataFactory {
     }
   }
 
-  private async ensureTerms(vendorId: string): Promise<void> {
+  private async ensureCurrentTerms(vendorId: string) {
     const contentV1 = '# Test Factory Vendor Terms v1';
-    const contentV2 = '# Test Factory Vendor Terms v2';
     const versionV1 = this.termsVersionLabel('v1');
-    const versionV2 = this.termsVersionLabel('v2');
     const now = new Date();
     const v1 = await this.prisma.termsVersion.upsert({
       where: { documentType_version: { documentType: 'VENDOR_TERMS', version: versionV1 } },
@@ -934,6 +962,25 @@ export class TestDataFactory {
         effectiveAt: now,
       },
     });
+    await this.prisma.termsAcceptance.upsert({
+      where: { vendorId_termsVersionId: { vendorId, termsVersionId: v1.id } },
+      update: {},
+      create: {
+        vendorId,
+        termsVersionId: v1.id,
+        acceptanceText: 'I accept the test factory v1 terms.',
+        contentHash: v1.contentHash,
+        scrolledToEnd: true,
+      },
+    });
+    return v1;
+  }
+
+  private async ensureTerms(vendorId: string): Promise<void> {
+    await this.ensureCurrentTerms(vendorId);
+    const contentV2 = '# Test Factory Vendor Terms v2';
+    const versionV2 = this.termsVersionLabel('v2');
+    const now = new Date();
     await this.prisma.termsVersion.upsert({
       where: { documentType_version: { documentType: 'VENDOR_TERMS', version: versionV2 } },
       update: {},
@@ -946,17 +993,6 @@ export class TestDataFactory {
         isMaterial: true,
         publishedAt: now,
         effectiveAt: new Date(now.getTime() + 16 * 86_400_000),
-      },
-    });
-    await this.prisma.termsAcceptance.upsert({
-      where: { vendorId_termsVersionId: { vendorId, termsVersionId: v1.id } },
-      update: {},
-      create: {
-        vendorId,
-        termsVersionId: v1.id,
-        acceptanceText: 'I accept the test factory v1 terms.',
-        contentHash: v1.contentHash,
-        scrolledToEnd: true,
       },
     });
   }

@@ -16,6 +16,7 @@ function makePrisma() {
   return {
     notificationOutbox: {
       create: jest.fn().mockResolvedValue({ id: 'ob-1' }) as Mock,
+      delete: jest.fn().mockResolvedValue({ id: 'ob-1' }) as Mock,
     },
   };
 }
@@ -85,5 +86,80 @@ describe('NotificationsService.enqueue', () => {
         tags: expect.objectContaining({ area: 'notification-outbox' }),
       }),
     );
+  });
+});
+
+describe('NotificationsService transactional outbox', () => {
+  let queue: ReturnType<typeof makeQueue>;
+  let prisma: ReturnType<typeof makePrisma>;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    queue = makeQueue();
+    prisma = makePrisma();
+  });
+
+  it('writes the notice through the supplied transaction client', async () => {
+    const tx = {
+      notificationOutbox: {
+        create: jest.fn().mockResolvedValue({ id: 'outbox-1' }),
+      },
+    };
+    const svc = new NotificationsService(queue as any, prisma as any);
+
+    await expect(
+      svc.createTransactionalOutbox(
+        tx as any,
+        'enforcement_action',
+        { actionId: 'action-1' },
+        'enforcement_action:action-1',
+      ),
+    ).resolves.toEqual({ id: 'outbox-1' });
+
+    expect(tx.notificationOutbox.create).toHaveBeenCalledWith({
+      data: {
+        eventName: 'enforcement_action',
+        payload: { actionId: 'action-1' },
+        jobId: 'enforcement_action:action-1',
+      },
+      select: { id: true },
+    });
+  });
+
+  it('leaves the transactional row in place when immediate dispatch fails', async () => {
+    queue.add.mockRejectedValueOnce(new Error('redis unavailable'));
+    const svc = new NotificationsService(queue as any, prisma as any);
+
+    await expect(
+      svc.dispatchTransactionalOutbox(
+        'outbox-1',
+        'enforcement_action',
+        { actionId: 'action-1' },
+        'enforcement_action:action-1',
+      ),
+    ).resolves.toBeUndefined();
+
+    expect(prisma.notificationOutbox.delete).not.toHaveBeenCalled();
+    expect(prisma.notificationOutbox.create).not.toHaveBeenCalled();
+  });
+
+  it('deletes the transactional row after the deduplicated queue job is accepted', async () => {
+    const svc = new NotificationsService(queue as any, prisma as any);
+
+    await svc.dispatchTransactionalOutbox(
+      'outbox-1',
+      'enforcement_action',
+      { actionId: 'action-1' },
+      'enforcement_action:action-1',
+    );
+
+    expect(queue.add).toHaveBeenCalledWith(
+      'enforcement_action',
+      { actionId: 'action-1' },
+      { jobId: 'enforcement_action:action-1' },
+    );
+    expect(prisma.notificationOutbox.delete).toHaveBeenCalledWith({
+      where: { id: 'outbox-1' },
+    });
   });
 });

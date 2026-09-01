@@ -45,6 +45,28 @@ const STATE_LANDMARKS: Record<
   V11: [{ href: '/orders?type=catering', text: /confirmed|catering/i }],
 };
 
+/**
+ * These are deliberate authorization/state gates, rather than merely pages
+ * which happen to contain an onboarding message.  Keeping them as URL
+ * assertions catches an SSR regression that renders a menu or order screen
+ * briefly before redirecting a restricted vendor.
+ */
+const STATE_ROUTE_BLOCKS: Partial<
+  Record<VendorMatrixState, ReadonlyArray<{ href: string; destination: RegExp }>>
+> = {
+  V1: [
+    { href: '/menu', destination: /\/unauthorized(?:\?|$)|\/onboarding(?:\?|$)/ },
+    { href: '/orders', destination: /\/unauthorized(?:\?|$)|\/onboarding(?:\?|$)/ },
+    { href: '/payouts', destination: /\/unauthorized(?:\?|$)|\/onboarding(?:\?|$)/ },
+  ],
+  V7: [{ href: '/menu', destination: /\/onboarding(?:\?|$)/ }],
+  V8: [{ href: '/menu', destination: /\/onboarding(?:\?|$)/ }],
+  V9: [
+    { href: '/menu', destination: /\/onboarding\/terms(?:\?|$)/ },
+    { href: '/payouts', destination: /\/onboarding\/terms(?:\?|$)/ },
+  ],
+};
+
 function readManifest(): VendorStateMatrixManifest {
   const manifestPath = matrixManifestPath(matrixNamespace());
   if (!existsSync(manifestPath)) {
@@ -140,6 +162,24 @@ async function assertStateLandmarks(context: BrowserContext, state: VendorMatrix
   }
 }
 
+async function assertStateRouteBlocks(context: BrowserContext, state: VendorMatrixState) {
+  const blocks = STATE_ROUTE_BLOCKS[state] ?? [];
+  const page = await context.newPage();
+  try {
+    for (const block of blocks) {
+      await test.step(`${state}: ${block.href} is state-blocked`, async () => {
+        await page.goto(block.href, { waitUntil: 'domcontentloaded', timeout: 60_000 });
+        await expect(
+          page,
+          `${state} must not expose ${block.href} before its blocking condition is cleared`,
+        ).toHaveURL(block.destination, { timeout: 10_000 });
+      });
+    }
+  } finally {
+    await page.close();
+  }
+}
+
 for (const state of configuredMatrixStates()) {
   test.describe(`${state} vendor state`, () => {
     test.use({ storageState: matrixStorageStatePath(state) });
@@ -149,6 +189,7 @@ for (const state of configuredMatrixStates()) {
     }) => {
       await visitEveryRoute(context, state);
       await assertStateLandmarks(context, state);
+      await assertStateRouteBlocks(context, state);
     });
   });
 }
