@@ -1,11 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 import { apiRequest } from '@/lib/api/client';
 import { useAccessToken } from '@/lib/auth/use-access-token';
+import { createClient } from '@/lib/supabase/client';
 
 interface CurrentVersion {
   id: string;
@@ -37,15 +38,33 @@ interface AcceptanceStatus {
 export function ReAcceptanceGate({ children }: { children: React.ReactNode }) {
   const { token, loading } = useAccessToken();
   const pathname = usePathname();
+  const router = useRouter();
   const [needsAcceptance, setNeedsAcceptance] = useState(false);
   const [version, setVersion] = useState<CurrentVersion | null>(null);
   const [verificationFailed, setVerificationFailed] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+  const [signOutFailed, setSignOutFailed] = useState(false);
+  const bypassGate =
+    pathname === '/sign-in' ||
+    pathname.startsWith('/auth/') ||
+    pathname === '/onboarding/terms' ||
+    pathname.startsWith('/settings/close-account');
 
   useEffect(() => {
-    if (loading || !token) return;
-    if (pathname === '/onboarding/terms' || pathname.startsWith('/settings/close-account')) return;
+    if (loading) return;
+    if (!token || bypassGate) {
+      setNeedsAcceptance(false);
+      setVersion(null);
+      setVerificationFailed(false);
+      return;
+    }
+
+    let active = true;
 
     async function check() {
+      setNeedsAcceptance(false);
+      setVersion(null);
+      setVerificationFailed(false);
       try {
         const [current, status] = await Promise.all([
           apiRequest<CurrentVersion>('/terms/current?documentType=VENDOR_TERMS'),
@@ -54,6 +73,7 @@ export function ReAcceptanceGate({ children }: { children: React.ReactNode }) {
           }),
         ]);
 
+        if (!active) return;
         if (!current) {
           setVerificationFailed(true);
           return;
@@ -67,14 +87,30 @@ export function ReAcceptanceGate({ children }: { children: React.ReactNode }) {
           setNeedsAcceptance(true);
         }
       } catch {
-        setVerificationFailed(true);
+        if (active) setVerificationFailed(true);
       }
     }
 
     void check();
-  }, [token, loading, pathname]);
+    return () => {
+      active = false;
+    };
+  }, [token, loading, bypassGate]);
 
-  if (pathname === '/onboarding/terms' || pathname.startsWith('/settings/close-account')) {
+  async function signOut() {
+    setSigningOut(true);
+    setSignOutFailed(false);
+    const { error } = await createClient().auth.signOut({ scope: 'local' });
+    if (error) {
+      setSignOutFailed(true);
+      setSigningOut(false);
+      return;
+    }
+    router.replace('/sign-in');
+    router.refresh();
+  }
+
+  if (bypassGate || (!loading && !token)) {
     return <>{children}</>;
   }
 
@@ -90,12 +126,27 @@ export function ReAcceptanceGate({ children }: { children: React.ReactNode }) {
             We could not confirm your current acceptance record. Refresh the page to try again, or
             review and accept the current terms before continuing.
           </p>
-          <Link
-            href="/onboarding/terms"
-            className="mt-5 inline-block rounded-lg bg-red-700 px-4 py-2.5 text-sm font-semibold text-white"
-          >
-            Review Vendor Terms
-          </Link>
+          <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+            <Link
+              href="/onboarding/terms"
+              className="rounded-lg bg-red-700 px-4 py-2.5 text-center text-sm font-semibold text-white"
+            >
+              Review Vendor Terms
+            </Link>
+            <button
+              type="button"
+              onClick={() => void signOut()}
+              disabled={signingOut}
+              className="rounded-lg border border-red-300 bg-white px-4 py-2.5 text-sm font-semibold text-red-800 disabled:cursor-wait disabled:opacity-60"
+            >
+              {signingOut ? 'Signing out...' : 'Sign out'}
+            </button>
+          </div>
+          {signOutFailed && (
+            <p className="mt-3 text-sm font-medium text-red-800">
+              We could not sign you out. Please refresh the page and try again.
+            </p>
+          )}
         </div>
       </div>
     );
@@ -157,6 +208,19 @@ export function ReAcceptanceGate({ children }: { children: React.ReactNode }) {
                 Close my account instead
               </Link>
             </div>
+            <button
+              type="button"
+              onClick={() => void signOut()}
+              disabled={signingOut}
+              className="w-full rounded-lg px-4 py-2 text-sm font-medium text-amber-800 underline-offset-4 hover:underline disabled:cursor-wait disabled:opacity-60"
+            >
+              {signingOut ? 'Signing out...' : 'Sign out'}
+            </button>
+            {signOutFailed && (
+              <p className="text-center text-sm font-medium text-red-700">
+                We could not sign you out. Please refresh the page and try again.
+              </p>
+            )}
 
             <p className="text-xs text-amber-600">
               If you close your account, outstanding orders and catering bookings will be honoured
