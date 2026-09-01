@@ -2,9 +2,8 @@
 
 import { UtensilsCrossed } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
 
+import OrderHistoryPage from '@/app/account/orders/page';
 import { useAccessToken } from '@/lib/auth/use-access-token';
 
 /**
@@ -21,14 +20,9 @@ import { useAccessToken } from '@/lib/auth/use-access-token';
  *    is in fact signed in (would feel like a session loss).
  */
 export default function OrdersIndexPage() {
-  const router = useRouter();
   const { token, loading } = useAccessToken();
 
-  useEffect(() => {
-    if (!loading && token) router.replace('/account/orders');
-  }, [loading, token, router]);
-
-  if (loading || token) {
+  if (loading) {
     // Skeleton placeholder for the redirect frame. Kept intentionally
     // bland - three muted cards are enough to communicate "loading"
     // without us having to import the real OrdersList skeleton.
@@ -40,6 +34,7 @@ export default function OrdersIndexPage() {
       </div>
     );
   }
+  if (token) return <OrderHistoryPage />;
 
   return (
     <section className="flex flex-col items-center justify-center px-6 py-12 text-center">

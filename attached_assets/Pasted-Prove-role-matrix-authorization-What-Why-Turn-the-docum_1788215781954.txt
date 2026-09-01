@@ -1,0 +1,35 @@
+Prove role matrix authorization
+What & Why
+Turn the documented ownership and staff-role rules into real-token regression coverage. This protects admin, vendor, customer, and cross-vendor boundaries against future route-level authorization mistakes.
+
+Done looks like
+Vendor and customer tokens receive 403 on every admin endpoint.
+Customer tokens and another vendor’s tokens receive 403 on vendor-only endpoints.
+Vendor A cannot access Vendor B orders, payouts, menus, documents, disputes, or tax profile.
+AAL1 staff is rejected from admin routes and AAL2 staff is allowed where their role permits.
+Anonymous and authenticated incident-attribution scenarios are included.
+Public menu availability, expired-document order blocking, and FHRS-suspended search exclusion are asserted.
+Out of scope
+Redesigning the authorization model or changing legitimate role permissions.
+Adding test-only production endpoints.
+Replacing the existing factory safety protections.
+Steps
+Extend the existing real-token test factory fixtures and isolated test namespace to cover the full staff, customer, vendor, and cross-vendor matrix.
+Exercise representative endpoints in each protected resource family and assert both status codes and absence of cross-tenant data leakage.
+Add the AAL1/AAL2 and public visibility scenarios, using the same verified sessions and database fixtures as production.
+Run the matrix in CI with deterministic teardown and document any endpoints intentionally excluded because they are public or customer-owned.
+Relevant files
+scripts/test-factory/index.ts
+apps/api/src/e2e/vendor-onboarding-smoke.spec.ts
+apps/api/src/auth/guards/supabase-auth.guard.ts
+apps/api/src/auth/guards/aal.guard.ts
+apps/api/src/modules/error-incidents/error-incidents.controller.ts
+apps/api/src/modules/vendors/vendors.controller.ts
+apps/api/src/modules/orders/orders.controller.ts
+apps/api/src/modules/payouts/payouts.controller.ts
+apps/api/src/modules/catalogue/catalogue.controller.ts
+apps/api/src/modules/vendor-documents/vendor-documents.controller.ts
+apps/api/src/modules/disputes/disputes.controller.ts
+Dependencies
+Trust error incident attribution
+Enforce production admin MFA

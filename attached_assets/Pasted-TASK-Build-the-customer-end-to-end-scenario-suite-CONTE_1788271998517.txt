@@ -1,0 +1,82 @@
+TASK: Build the customer end-to-end scenario suite.
+
+CONTEXT
+Phase 2 found NO checkout specification exists under
+apps/web/e2e, and the existing web suite is not run by CI and
+has 35 failures. The customer purchase path, the single most
+important journey in the product, has zero browser coverage.
+
+Also required: configure NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY in
+the test environment. Phase 3 could not test checkout at all
+because it was missing.
+
+DISCOVERY PERMUTATIONS
+  postcode with many vendors -> results within 5s
+  postcode with exactly one vendor
+  postcode with zero vendors -> waitlist explanation, not blank
+  invalid postcode format -> validation message
+  partial postcode (SE15 vs SE15 4TY)
+  vendor sold out -> shown correctly, not hidden silently
+  vendor at capacity cutoff
+  vendor suspended (V7, V8) -> absent from results
+  dish with allergens -> allergen control present
+  dish without allergens -> NOT RETURNED (ties to FIX-700)
+
+BASKET AND CHECKOUT PERMUTATIONS
+Cross customer state against order condition:
+  C1 new customer  x  marketplace order   x  non-member
+  C1 new customer  x  vendor-referred     x  non-member
+  C3 returning     x  repeat with vendor  x  non-member
+  C4 FeastPass     x  marketplace         x  fee waived
+  C5 lapsed pass   x  marketplace         x  fee charged
+For each assert the fee line: 5% capped at £2.99, or waived,
+and that the VENDOR PAYOUT IS IDENTICAL in every case. A
+FeastPass waiver must never reduce vendor earnings.
+
+  basket below vendor minimum -> blocked with explanation
+  basket exactly at minimum -> allowed
+  scheduled slot in the past -> rejected
+  slot becomes unavailable between basket and checkout
+  vendor goes offline mid-checkout
+  quantity exceeds remaining capacity
+  discount code valid / expired / already used / not
+    applicable to this vendor
+  total price INCLUDING all mandatory fees is shown at the
+    first point pricing appears (DMCC drip pricing)
+
+PAYMENT PERMUTATIONS (Stripe test cards)
+  successful payment
+  card declined
+  insufficient funds
+  3D Secure required, completed
+  3D Secure required, abandoned
+  network timeout during confirmation
+  duplicate submit (double-click the pay button)
+  customer closes the tab mid-payment
+For each: assert the resulting order state is correct and no
+orphan order or orphan payment exists.
+
+POST-ORDER PERMUTATIONS
+  confirmation page shows correct totals and allergen summary
+  order appears in history
+  order tracking reflects vendor status changes
+  customer cancels before vendor accepts
+  customer cancels after vendor accepts
+  customer requests a refund -> dispute created
+  review submitted only after delivery confirmed
+  review attempted before delivery -> blocked
+
+MOBILE
+Run the complete happy path at 375px. Assert no horizontal
+scroll. Phase 3 measured 391px scrollWidth on the homepage at
+375px client width: fix that 16px overflow and add a
+regression assertion.
+
+CI
+Add as a required merge gate. Fail loudly if credentials are
+absent rather than skipping silently.
+
+ACCEPTANCE CRITERIA
+- A customer can complete a real test-mode purchase in CI.
+- Every permutation above has an assertion.
+- Vendor payout identical for member and non-member orders.

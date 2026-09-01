@@ -31,7 +31,7 @@ async function signIn(page: Page, email: string, password: string): Promise<void
   ]);
 }
 
-setup('provision and authenticate V4–V8 vendor states', async ({ browser }) => {
+setup('provision and authenticate V1-V11 vendor states', async ({ browser }) => {
   setup.setTimeout(5 * 60_000);
   const namespace = matrixNamespace();
   const factory = TestDataFactory.fromEnvironment({ namespace });
@@ -44,19 +44,26 @@ setup('provision and authenticate V4–V8 vendor states', async ({ browser }) =>
       if (!identity.credentials.password) {
         throw new Error(`Vendor state ${state} has no password; set TEST_FACTORY_PASSWORD.`);
       }
+      identities[state] = identity;
 
       const context = await browser.newContext();
-      const page = await context.newPage();
-      await signIn(page, identity.credentials.email, identity.credentials.password);
+      if (state !== 'V1') {
+        const page = await context.newPage();
+        await signIn(page, identity.credentials.email, identity.credentials.password);
+      }
       await context.storageState({ path: matrixStorageStatePath(state, namespace) });
       await context.close();
-      identities[state] = identity;
     }
 
     const manifest: VendorStateMatrixManifest = { namespace, identities };
     writeFileSync(matrixManifestPath(namespace), JSON.stringify(manifest, null, 2));
     expect(Object.keys(identities)).toHaveLength(states.length);
   } finally {
+    if (Object.keys(identities).length !== states.length) {
+      for (const identity of Object.values(identities)) {
+        await factory.teardown(identity);
+      }
+    }
     await factory.dispose();
   }
 });

@@ -72,9 +72,10 @@ export async function middleware(request: NextRequest) {
 
   if (isNonCustomer) {
     const isAccountSubRoute = pathname.startsWith('/account/');
+    const isCustomerOrderRoute = pathname === '/orders' || pathname.startsWith('/orders/');
     const isSignInRoute = pathname === '/sign-in' || pathname.startsWith('/sign-in/');
 
-    if (isAccountSubRoute || isSignInRoute) {
+    if (isAccountSubRoute || isCustomerOrderRoute || isSignInRoute) {
       // Vendors go to the vendor portal; staff go to the admin portal.
       // Fall back to a safe public URL if the env var is missing.
       const vendorPortalUrl =

@@ -121,6 +121,15 @@ export class OrdersRepository {
         // Same rationale as findByIdWithItems - vendor dashboard needs first name
         // per row to address customers by name.
         customer: { select: { id: true, firstName: true, email: true } },
+        // Customer order history needs the vendor identity for each card.
+        vendor: {
+          select: {
+            id: true,
+            businessName: true,
+            slug: true,
+            logoUrl: true,
+          },
+        },
       },
     });
   }

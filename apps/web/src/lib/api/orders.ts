@@ -7,12 +7,17 @@ import { apiRequest, type ApiRequestOptions } from './client';
  */
 export type OrderStatus =
   | 'pending'
+  | 'cancellation_pending'
   | 'accepted'
+  | 'needs_clarification'
   | 'preparing'
+  | 'ready'
   | 'dispatched'
   | 'delivered'
   | 'cancelled'
-  | 'refunded';
+  | 'rejected'
+  | 'refunded'
+  | 'partially_refunded';
 
 export interface OrderItem {
   id: string;
@@ -38,6 +43,15 @@ export interface OrderAmendment {
   priceDeltaPence: number;
   status: 'pending' | 'accepted' | 'declined' | 'expired';
   expiresAt: string;
+  createdAt: string;
+}
+
+export interface OrderDispute {
+  id: string;
+  status: 'open' | 'vendor_contacted' | 'escalated' | 'resolved';
+  issueType: string;
+  severity: string;
+  description: string;
   createdAt: string;
 }
 
@@ -67,6 +81,8 @@ export interface Order {
   vendor?: OrderVendorSummary;
   /** Server returns only pending amendments. */
   amendments?: OrderAmendment[];
+  /** Server returns unresolved customer disputes for tracking. */
+  disputes?: OrderDispute[];
 }
 
 export function respondToAmendment(
@@ -169,15 +185,6 @@ export function reorder(
   });
 }
 
-/**
- * Customer-initiated cancellation.
- *
- * BACKEND GAP: the API only exposes `PATCH /v1/orders/:id/status` with
- * `vendor`/`admin` roles - there's no customer-callable cancel endpoint
- * today. We attempt the call so cancellation works the moment the API team
- * adds the role; until then the FE surfaces a 403 with a helpful message
- * ("contact the vendor to cancel").
- */
 /**
  * Customer self-cancel (UK Consumer Contracts Regulations 2013).
  * Hits POST /v1/orders/:id/cancel - the legacy PATCH /status route is

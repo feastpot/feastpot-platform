@@ -107,7 +107,10 @@ export default function OrderTrackingPage() {
     );
   }
 
-  const isCancelled = order.status === 'cancelled' || order.status === 'refunded';
+  const isCancelled = ['cancelled', 'rejected', 'refunded', 'partially_refunded'].includes(
+    order.status,
+  );
+  const isCancellationPending = order.status === 'cancellation_pending';
   const isDelivered = order.status === 'delivered';
 
   const onConfirmCancel = async () => {
@@ -115,7 +118,7 @@ export default function OrderTrackingPage() {
     if (cancelReason.trim().length < 5) return;
     try {
       await cancelMut.mutateAsync({ orderId: order.id, reason: cancelReason.trim() });
-      router.push('/account/orders?cancelled=1');
+      router.push('/orders?cancelled=1');
     } catch (e) {
       if (e instanceof ApiError && e.status === 403) {
         setCancelMsg('Please contact the vendor to cancel this order.');
@@ -188,12 +191,34 @@ export default function OrderTrackingPage() {
             </span>
             <div className="text-sm">
               <p className="font-display font-black text-scotch">
-                {order.status === 'refunded' ? 'Order refunded' : 'Order cancelled'}
+                {order.status === 'refunded'
+                  ? 'Order refunded'
+                  : order.status === 'partially_refunded'
+                    ? 'Partial refund issued'
+                    : order.status === 'rejected'
+                      ? 'Order declined by vendor'
+                      : 'Order cancelled'}
               </p>
               <p className="text-xs font-medium text-charcoal-mid">
-                You haven&rsquo;t been charged. Reach out for help if you have questions.
+                {order.status === 'partially_refunded'
+                  ? 'A refund has been issued for part of this order.'
+                  : order.status === 'refunded'
+                    ? 'Your payment has been refunded. Bank processing times may apply.'
+                    : 'You haven&rsquo;t been charged. Reach out for help if you have questions.'}
               </p>
             </div>
+          </div>
+        )}
+        {isCancellationPending && (
+          <div
+            role="status"
+            className="rounded-2xl border border-plantain/60 bg-plantain/10 p-4 text-sm"
+          >
+            <p className="font-display font-black text-charcoal">Cancellation in progress</p>
+            <p className="mt-1 text-xs font-medium text-charcoal-mid">
+              We&rsquo;re releasing your payment now. You can&rsquo;t place another order with this
+              vendor until it&rsquo;s complete.
+            </p>
           </div>
         )}
 
@@ -211,9 +236,24 @@ export default function OrderTrackingPage() {
         {order.status === 'dispatched' && order.etaAt && <EtaCard etaAt={order.etaAt} />}
 
         {/* TIMELINE */}
-        {!isCancelled && (
+        {!isCancelled && !isCancellationPending && (
           <section className="rounded-2xl border border-cream-deep bg-white p-4 shadow-card">
             <StatusTimeline order={order} />
+          </section>
+        )}
+
+        {order.disputes && order.disputes.length > 0 && (
+          <section
+            aria-label="Order dispute"
+            className="rounded-2xl border border-plantain/60 bg-plantain/10 p-4"
+          >
+            <p className="font-display text-sm font-black text-charcoal">
+              We&rsquo;re reviewing this issue
+            </p>
+            <p className="mt-1 text-xs font-medium text-charcoal-mid">
+              Your dispute is {order.disputes[0]!.status.replace('_', ' ')}. We&rsquo;ll contact you
+              when there&rsquo;s an update.
+            </p>
           </section>
         )}
 

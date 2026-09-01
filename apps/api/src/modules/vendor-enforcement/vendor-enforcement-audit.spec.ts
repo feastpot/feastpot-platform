@@ -142,7 +142,11 @@ function makeEnforcementPrisma(
 }
 
 function makeNotifications(): NotificationsService {
-  return { enqueue: jest.fn().mockResolvedValue(undefined) } as unknown as NotificationsService;
+  return {
+    enqueue: jest.fn().mockResolvedValue(undefined),
+    createTransactionalOutbox: jest.fn().mockResolvedValue({ id: 'outbox-1' }),
+    dispatchTransactionalOutbox: jest.fn().mockResolvedValue(undefined),
+  } as unknown as NotificationsService;
 }
 
 // ── 1. createAction() - manual suspension ────────────────────────────────────

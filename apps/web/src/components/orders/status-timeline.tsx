@@ -15,7 +15,10 @@ import { cn } from '@feastpot/ui';
 import type { Order, OrderStatus } from '@/lib/api/orders';
 
 interface Stage {
-  key: Exclude<OrderStatus, 'cancelled' | 'refunded'>;
+  key: Exclude<
+    OrderStatus,
+    'cancelled' | 'rejected' | 'refunded' | 'partially_refunded' | 'cancellation_pending'
+  >;
   label: string;
   Icon: LucideIcon;
 }
@@ -24,11 +27,10 @@ const STAGES: Stage[] = [
   { key: 'pending', label: 'Order placed', Icon: ShoppingBag },
   { key: 'accepted', label: 'Vendor accepted', Icon: ChefHat },
   { key: 'preparing', label: 'Being prepared', Icon: Soup },
+  { key: 'ready', label: 'Ready for collection or dispatch', Icon: PackageCheck },
   { key: 'dispatched', label: 'Out for delivery', Icon: Bike },
   { key: 'delivered', label: 'Delivered', Icon: PackageCheck },
 ];
-
-const STAGE_INDEX = new Map<OrderStatus, number>(STAGES.map((s, i) => [s.key, i]));
 
 /**
  * Vertical status stepper for the order tracking page.
@@ -44,15 +46,28 @@ const STAGE_INDEX = new Map<OrderStatus, number>(STAGES.map((s, i) => [s.key, i]
  */
 export function StatusTimeline({ order }: { order: Order }) {
   const isCancelled = order.status === 'cancelled' || order.status === 'refunded';
-  const currentIdx = isCancelled ? -1 : (STAGE_INDEX.get(order.status) ?? -1);
+  const stages =
+    order.status === 'needs_clarification'
+      ? [
+          STAGES[0]!,
+          {
+            key: 'needs_clarification' as const,
+            label: 'Vendor needs clarification',
+            Icon: ChefHat,
+          },
+          ...STAGES.slice(1),
+        ]
+      : STAGES;
+  const stageIndex = new Map<OrderStatus, number>(stages.map((stage, index) => [stage.key, index]));
+  const currentIdx = isCancelled ? -1 : (stageIndex.get(order.status) ?? -1);
 
   return (
     <ol className="space-y-0">
-      {STAGES.map((stage, idx) => {
+      {stages.map((stage, idx) => {
         const isDone = !isCancelled && idx < currentIdx;
         const isCurrent = !isCancelled && idx === currentIdx;
         const isFuture = isCancelled || idx > currentIdx;
-        const isLast = idx === STAGES.length - 1;
+        const isLast = idx === stages.length - 1;
         const stamp = stageTimestamp(order, stage.key, isCurrent);
 
         return (

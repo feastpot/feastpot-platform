@@ -75,6 +75,7 @@ enum OrderType {
 
 enum OrderStatus {
   pending
+  cancellation_pending
   accepted
   needs_clarification
   preparing

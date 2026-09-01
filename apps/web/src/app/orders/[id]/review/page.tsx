@@ -29,7 +29,7 @@ export default function ReviewPage() {
   const orderId = params?.id ?? '';
 
   const { token } = useAccessToken();
-  const { data: order } = useOrder(orderId);
+  const { data: order, isLoading, error: orderError } = useOrder(orderId);
 
   const [rating, setRating] = useState(0);
   const [foodRating, setFoodRating] = useState(0);
@@ -39,6 +39,13 @@ export default function ReviewPage() {
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [photoWarning, setPhotoWarning] = useState<string | null>(null);
+
+  useEffect(() => {
+    const suggested = Number(new URLSearchParams(window.location.search).get('rating'));
+    if (Number.isInteger(suggested) && suggested >= 1 && suggested <= 5) {
+      setRating(suggested);
+    }
+  }, []);
 
   // Object URLs for thumbnail previews. Memoised against the files array so
   // we only mint new ones when the selection changes; the cleanup effect
@@ -99,6 +106,25 @@ export default function ReviewPage() {
       setSubmitting(false);
     }
   };
+
+  if (isLoading) {
+    return (
+      <p className="px-4 py-12 text-center text-sm text-charcoal-mid">Loading order&hellip;</p>
+    );
+  }
+  if (orderError || !order) {
+    return (
+      <section className="px-6 py-16 text-center">
+        <p className="text-sm text-scotch">Couldn&rsquo;t load this order.</p>
+        <a
+          href="/account/orders"
+          className="mt-3 inline-block text-sm font-semibold text-brand hover:underline"
+        >
+          Back to orders
+        </a>
+      </section>
+    );
+  }
 
   // Status gate: the API rejects pre-delivery reviews with 422, but we also
   // refuse to render the form so the customer never fills in stars and text

@@ -1,3 +1,5 @@
+import { createClient } from '@/lib/supabase/client';
+
 /**
  * Error incident reporting :  called by vendor portal error boundaries to
  * persist an exception and receive a real, searchable FP-XXXX-XXXX reference.
@@ -15,8 +17,6 @@ interface CreateIncidentPayload {
   route: string;
   message: string;
   digest?: string;
-  vendorId?: string;
-  userId?: string;
 }
 
 interface IncidentResponse {
@@ -30,9 +30,15 @@ interface IncidentResponse {
  */
 export async function reportErrorIncident(payload: CreateIncidentPayload): Promise<string | null> {
   try {
+    const {
+      data: { session },
+    } = await createClient().auth.getSession();
     const res = await fetch(`${API_BASE}/v1/error-incidents`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+      },
       body: JSON.stringify(payload),
       signal: AbortSignal.timeout(5000),
     });

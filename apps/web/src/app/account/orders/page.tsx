@@ -17,12 +17,20 @@ const formatPounds = (p: number) => `£${(p / 100).toFixed(2)}`;
 
 const STATUS_BADGE: Record<OrderStatus, { label: string; cls: string }> = {
   pending: { label: 'Pending', cls: 'bg-plantain/20 text-plantain-dark' },
+  cancellation_pending: {
+    label: 'Cancelling',
+    cls: 'bg-plantain/20 text-plantain-dark',
+  },
   accepted: { label: 'Accepted', cls: 'bg-brand-light text-brand-dark' },
+  needs_clarification: { label: 'Needs clarification', cls: 'bg-plantain/20 text-plantain-dark' },
   preparing: { label: 'Preparing', cls: 'bg-brand-light text-brand-dark' },
+  ready: { label: 'Ready', cls: 'bg-brand/15 text-brand-dark' },
   dispatched: { label: 'Out for delivery', cls: 'bg-plantain/30 text-plantain-dark' },
   delivered: { label: 'Delivered', cls: 'bg-brand/15 text-brand-dark' },
   cancelled: { label: 'Cancelled', cls: 'bg-scotch/10 text-scotch' },
+  rejected: { label: 'Declined', cls: 'bg-scotch/10 text-scotch' },
   refunded: { label: 'Refunded', cls: 'bg-cream-deep text-charcoal-mid' },
+  partially_refunded: { label: 'Partially refunded', cls: 'bg-cream-deep text-charcoal-mid' },
 };
 
 /**
@@ -156,9 +164,15 @@ export default function OrderHistoryPage() {
                 .join(', ') + (order.items.length > 2 ? ` +${order.items.length - 2} more` : '')
             : '';
           const isDelivered = order.status === 'delivered';
-          const isActive = ['pending', 'accepted', 'preparing', 'dispatched'].includes(
-            order.status,
-          );
+          const isActive = [
+            'pending',
+            'cancellation_pending',
+            'accepted',
+            'needs_clarification',
+            'preparing',
+            'ready',
+            'dispatched',
+          ].includes(order.status);
           const badge = STATUS_BADGE[order.status];
           return (
             <li

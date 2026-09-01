@@ -12,6 +12,7 @@ import {
   Logger,
   NotFoundException,
   Optional,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import {
   AmendmentStatus,
@@ -25,6 +26,7 @@ import {
   OrderType,
   Prisma,
   UserRole,
+  VendorStatus,
 } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import * as Sentry from '@sentry/nestjs';
@@ -337,9 +339,32 @@ export class OrdersService {
     sessionId?: string,
     marketplaceMarker?: string,
   ) {
+    const interruptedCancellation = await this.prisma.order.findFirst({
+      where: {
+        customerId,
+        vendorId: dto.vendorId,
+        status: OrderStatus.cancellation_pending,
+      },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true },
+    });
+    if (interruptedCancellation) {
+      await this.customerCancel(
+        interruptedCancellation.id,
+        customerId,
+        'Reconciling an interrupted checkout before retry',
+      );
+    }
+
     const vendor = await this.repo.vendorWithDelivery(dto.vendorId);
     if (!vendor)
       throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'Vendor not found' });
+    if (vendor.status !== VendorStatus.live) {
+      throw new ConflictException({
+        code: 'VENDOR_OFFLINE',
+        message: 'This vendor is not currently accepting orders',
+      });
+    }
 
     // FSA compliance gate (listing gate parity).
     // Only RATED vendors with fsaHygieneRating >= 3 may accept orders.
@@ -1523,38 +1548,117 @@ export class OrdersService {
     if (order.customerId !== customerId) {
       throw new ForbiddenException({ code: 'NOT_YOUR_ORDER', message: 'Not your order' });
     }
+    const cancellation = await this.prisma.$transaction(async (tx) => {
+      const rows = await tx.$queryRaw<
+        Array<{ status: OrderStatus; customer_id: string; cancelled_by: string | null }>
+      >`
+        SELECT "status", "customer_id", "cancelled_by"
+          FROM "orders"
+         WHERE "id" = ${orderId}::uuid
+         FOR UPDATE
+      `;
+      const locked = rows[0];
+      if (!locked) {
+        throw new NotFoundException({ code: 'ORDER_NOT_FOUND', message: 'Order not found' });
+      }
+      if (locked.customer_id !== customerId) {
+        throw new ForbiddenException({ code: 'NOT_YOUR_ORDER', message: 'Not your order' });
+      }
 
-    const cancellable: OrderStatus[] = [OrderStatus.pending, OrderStatus.accepted];
-    if (!cancellable.includes(order.status)) {
-      const message =
-        order.status === OrderStatus.preparing
-          ? 'Your order is already being prepared - please contact the vendor'
-          : order.status === OrderStatus.dispatched
-            ? 'Your order is already on the way'
-            : order.status === OrderStatus.delivered
-              ? 'This order has already been delivered'
-              : 'This order cannot be cancelled';
-      throw new BadRequestException({ code: 'ORDER_NOT_CANCELLABLE', message });
+      const alreadyCancelled =
+        locked.status === OrderStatus.cancelled && locked.cancelled_by === 'customer';
+      const cancellationPending = locked.status === OrderStatus.cancellation_pending;
+      const cancellable: OrderStatus[] = [OrderStatus.pending, OrderStatus.accepted];
+      if (!alreadyCancelled && !cancellationPending && !cancellable.includes(locked.status)) {
+        const message =
+          locked.status === OrderStatus.preparing
+            ? 'Your order is already being prepared - please contact the vendor'
+            : locked.status === OrderStatus.dispatched
+              ? 'Your order is already on the way'
+              : locked.status === OrderStatus.delivered
+                ? 'This order has already been delivered'
+                : 'This order cannot be cancelled';
+        throw new BadRequestException({ code: 'ORDER_NOT_CANCELLABLE', message });
+      }
+
+      if (!alreadyCancelled && !cancellationPending) {
+        await tx.order.update({
+          where: { id: orderId },
+          data: {
+            status: OrderStatus.cancellation_pending,
+            cancellationReason: reason,
+            cancelledBy: 'customer',
+          },
+        });
+      }
+      return {
+        alreadyCancelled,
+        previousStatus: cancellationPending ? OrderStatus.pending : locked.status,
+      };
+    });
+
+    if (cancellation.alreadyCancelled) {
+      await this.loyalty.refundRedemption(customerId, orderId);
+      const alreadyCancelled = await this.repo.findByIdWithItems(orderId);
+      return alreadyCancelled ? this.stripInternalFinancials(alreadyCancelled) : alreadyCancelled;
+    }
+
+    const pi = await this.repo.findStripePaymentIntent(orderId);
+    if (pi) {
+      try {
+        const intent = await this.stripe.retrieve(pi);
+        if (intent.status !== 'canceled') await this.stripe.cancel(pi);
+      } catch (error) {
+        this.logger.error(
+          `Stripe cancel failed for order ${orderId} pi=${pi}: ${(error as Error).message}`,
+        );
+        throw new ServiceUnavailableException({
+          code: 'PAYMENT_RELEASE_PENDING',
+          message:
+            'Payment release is still being confirmed. Please retry before placing another order.',
+        });
+      }
     }
 
     const now = new Date();
-
-    // Atomic CAS through the existing repository helper guarantees we only
-    // write if the row is still in the status we read. If a vendor accepted
-    // (pending → accepted) between read and write, the second cancel-from-
-    // pending attempt is rejected and the customer is asked to reload.
-    const ok = await this.repo.transitionStatus(orderId, order.status, {
-      status: OrderStatus.cancelled,
-      cancelledAt: now,
-      cancellationReason: reason,
-      cancelledBy: 'customer',
-    });
-    if (!ok) {
-      throw new BadRequestException({
-        code: 'STATUS_CHANGED_CONCURRENTLY',
-        message: 'Order status changed while you were cancelling - please reload and retry',
+    await this.prisma.$transaction(async (tx) => {
+      if (pi) {
+        await tx.payment.updateMany({
+          where: { stripePaymentIntentId: pi },
+          data: { status: 'cancelled' },
+        });
+      }
+      const finalised = await tx.order.updateMany({
+        where: { id: orderId, status: OrderStatus.cancellation_pending },
+        data: {
+          status: OrderStatus.cancelled,
+          cancelledAt: now,
+          cancellationReason: reason,
+          cancelledBy: 'customer',
+        },
       });
-    }
+      if (finalised.count !== 1) {
+        throw new ServiceUnavailableException({
+          code: 'CANCELLATION_RECONCILIATION_REQUIRED',
+          message: 'Cancellation is still being reconciled. Please retry.',
+        });
+      }
+      if (isCapacityEnforcementEnabled() && order.scheduledFor) {
+        const categories = order.items
+          .map((item) => item.menuItem?.category)
+          .filter((category): category is string => category != null);
+        const capacityType = capacityTypeForItemCategories(categories);
+        const serviceDate = order.scheduledFor.toISOString().slice(0, 10);
+        await tx.$executeRaw`
+          UPDATE "vendor_capacity"
+             SET "slots_taken" = GREATEST(0, "slots_taken" - 1),
+                 "updated_at" = NOW()
+           WHERE "vendor_id" = ${order.vendorId}::uuid
+             AND "service_date" = ${serviceDate}::date
+             AND "capacity_type" = ${capacityType}::"vendor_capacity_type"
+        `;
+      }
+    });
 
     // Audit trail - schema uses actorId + metadata (not actorUserId/newState).
     await this.prisma.auditLog
@@ -1564,31 +1668,12 @@ export class OrdersService {
           entityType: 'orders',
           entityId: orderId,
           action: 'order.cancelled_by_customer',
-          metadata: { status: 'cancelled', reason, previousStatus: order.status },
+          metadata: { status: 'cancelled', reason, previousStatus: cancellation.previousStatus },
         },
       })
       .catch((e) =>
         this.logger.error(`AuditLog write failed for cancel ${orderId}: ${(e as Error).message}`),
       );
-
-    // Hand the reserved capacity slot back to the vendor's date.
-    await this.releaseOrderCapacity(order);
-
-    // Cancel the (still uncaptured) PaymentIntent so the auth is released.
-    const pi = await this.repo.findStripePaymentIntent(orderId);
-    if (pi) {
-      try {
-        await this.stripe.cancel(pi);
-        await this.repo.markPaymentStatus(pi, 'cancelled');
-      } catch (e) {
-        // Stripe failure must not block the cancel - the customer's intent
-        // is already recorded; ops can reconcile from the audit log + Stripe
-        // dashboard. Log loudly so on-call sees it.
-        this.logger.error(
-          `Stripe cancel failed for order ${orderId} pi=${pi}: ${(e as Error).message}`,
-        );
-      }
-    }
 
     // Refund any loyalty redemption attached so the customer doesn't lose
     // points to their own cancellation. Idempotent on the loyalty side.

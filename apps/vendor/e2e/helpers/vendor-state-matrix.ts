@@ -4,7 +4,19 @@ import { join } from 'node:path';
 
 import type { TestIdentity } from '../../../../scripts/test-factory';
 
-export const VENDOR_MATRIX_STATES = ['V4', 'V5', 'V6', 'V7', 'V8'] as const;
+export const VENDOR_MATRIX_STATES = [
+  'V1',
+  'V2',
+  'V3',
+  'V4',
+  'V5',
+  'V6',
+  'V7',
+  'V8',
+  'V9',
+  'V10',
+  'V11',
+] as const;
 
 export type VendorMatrixState = (typeof VENDOR_MATRIX_STATES)[number];
 

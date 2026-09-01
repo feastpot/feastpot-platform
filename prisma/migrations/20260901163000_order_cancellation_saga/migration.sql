@@ -1,0 +1,1 @@
+ALTER TYPE "OrderStatus" ADD VALUE IF NOT EXISTS 'cancellation_pending' AFTER 'pending';

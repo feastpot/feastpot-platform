@@ -22,6 +22,9 @@ const STATE_LANDMARKS: Record<
   VendorMatrixState,
   ReadonlyArray<{ href: string; text: string | RegExp }>
 > = {
+  V1: [{ href: '/onboarding/welcome', text: /application|approval|welcome/i }],
+  V2: [{ href: '/onboarding', text: /stripe|connect.*account/i }],
+  V3: [{ href: '/onboarding', text: /stripe|payout|requirements/i }],
   V4: [
     { href: '/menu', text: 'No dishes yet' },
     { href: '/performance', text: 'No completed orders yet' },
@@ -37,6 +40,31 @@ const STATE_LANDMARKS: Record<
   V6: [{ href: '/account-and-compliance', text: /expir(?:es|ing)/i }],
   V7: [{ href: '/account-and-compliance', text: /expired|suspended/i }],
   V8: [{ href: '/account-and-compliance', text: /FHRS hygiene rating below threshold/i }],
+  V9: [{ href: '/', text: /accept.*terms|review and accept terms/i }],
+  V10: [{ href: '/account-and-compliance', text: /terms|notice|takes effect/i }],
+  V11: [{ href: '/orders?type=catering', text: /confirmed|catering/i }],
+};
+
+/**
+ * These are deliberate authorization/state gates, rather than merely pages
+ * which happen to contain an onboarding message.  Keeping them as URL
+ * assertions catches an SSR regression that renders a menu or order screen
+ * briefly before redirecting a restricted vendor.
+ */
+const STATE_ROUTE_BLOCKS: Partial<
+  Record<VendorMatrixState, ReadonlyArray<{ href: string; destination: RegExp }>>
+> = {
+  V1: [
+    { href: '/menu', destination: /\/unauthorized(?:\?|$)|\/onboarding(?:\?|$)/ },
+    { href: '/orders', destination: /\/unauthorized(?:\?|$)|\/onboarding(?:\?|$)/ },
+    { href: '/payouts', destination: /\/unauthorized(?:\?|$)|\/onboarding(?:\?|$)/ },
+  ],
+  V7: [{ href: '/menu', destination: /\/onboarding(?:\?|$)/ }],
+  V8: [{ href: '/menu', destination: /\/onboarding(?:\?|$)/ }],
+  V9: [
+    { href: '/menu', destination: /\/onboarding\/terms(?:\?|$)/ },
+    { href: '/payouts', destination: /\/onboarding\/terms(?:\?|$)/ },
+  ],
 };
 
 function readManifest(): VendorStateMatrixManifest {
@@ -78,7 +106,7 @@ async function visitRoute(
       const pageText = (await page.locator('body').textContent()) ?? '';
       await assertNoErrorBoundary(pageText, route.label);
 
-      if (route.expectsPortalShell && !mobile) {
+      if (route.expectsPortalShell && !mobile && state !== 'V1') {
         const sideNav = page.locator('aside[aria-label="Vendor portal navigation"]');
         await expect(sideNav, `${route.label} must retain portal navigation`).toBeVisible({
           timeout: 10_000,
@@ -134,6 +162,24 @@ async function assertStateLandmarks(context: BrowserContext, state: VendorMatrix
   }
 }
 
+async function assertStateRouteBlocks(context: BrowserContext, state: VendorMatrixState) {
+  const blocks = STATE_ROUTE_BLOCKS[state] ?? [];
+  const page = await context.newPage();
+  try {
+    for (const block of blocks) {
+      await test.step(`${state}: ${block.href} is state-blocked`, async () => {
+        await page.goto(block.href, { waitUntil: 'domcontentloaded', timeout: 60_000 });
+        await expect(
+          page,
+          `${state} must not expose ${block.href} before its blocking condition is cleared`,
+        ).toHaveURL(block.destination, { timeout: 10_000 });
+      });
+    }
+  } finally {
+    await page.close();
+  }
+}
+
 for (const state of configuredMatrixStates()) {
   test.describe(`${state} vendor state`, () => {
     test.use({ storageState: matrixStorageStatePath(state) });
@@ -143,6 +189,7 @@ for (const state of configuredMatrixStates()) {
     }) => {
       await visitEveryRoute(context, state);
       await assertStateLandmarks(context, state);
+      await assertStateRouteBlocks(context, state);
     });
   });
 }

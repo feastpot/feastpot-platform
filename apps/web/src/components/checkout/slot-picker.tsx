@@ -112,6 +112,7 @@ export function SlotPicker({
                 type="button"
                 onClick={() => setSelectedDate(d)}
                 aria-pressed={active}
+                aria-label={`Select ${format(d, 'd MMMM')}`}
                 className={cn(
                   'flex shrink-0 flex-col items-center rounded-xl border px-3 py-2 text-sm font-medium transition-colors',
                   active
@@ -145,6 +146,7 @@ export function SlotPicker({
                     type="button"
                     onClick={() => onChange(s.date)}
                     aria-pressed={active}
+                    aria-label={`Select ${s.label}`}
                     className={cn(
                       'rounded-xl border px-3 py-2 text-sm font-medium transition-colors',
                       active

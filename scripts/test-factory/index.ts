@@ -57,6 +57,11 @@ export interface TestIdentity {
   payoutId?: string;
   disputeId?: string;
   cateringBookingId?: string;
+  menuId?: string;
+  addressId?: string;
+  menuItemId?: string;
+  menuItemPricePence?: number;
+  vendorSlug?: string;
   /** A current AAL2 token when the A2 state was provisioned with Supabase. */
   accessToken?: string;
   relatedUserIds: string[];
@@ -228,14 +233,43 @@ export class TestDataFactory {
     if (this.ownsPrisma) await this.prisma.$disconnect();
   }
 
+  /** Issue a normal Supabase password-session token for a factory identity. */
+  async issueAccessToken(identity: TestIdentity): Promise<string> {
+    if (!this.anon || !identity.credentials.password) {
+      throw new Error(
+        'TEST_FACTORY_AUTH_TOKEN_REQUIRES_SUPABASE: configure Supabase anon key and TEST_FACTORY_PASSWORD.',
+      );
+    }
+    const { data, error } = await this.anon.auth.signInWithPassword({
+      email: identity.credentials.email,
+      password: identity.credentials.password,
+    });
+    if (error || !data.session?.access_token) {
+      throw new Error(`TEST_FACTORY_AUTH_TOKEN_FAILED: ${error?.message ?? 'no session'}`);
+    }
+    return data.session.access_token;
+  }
+
   async create(state: FactoryState): Promise<TestIdentity> {
     if (!FACTORY_STATES.includes(state)) {
       throw new Error(`TEST_FACTORY_UNKNOWN_STATE: ${state}`);
     }
 
-    if (isCustomerState(state)) return this.createCustomerState(state);
-    if (isVendorState(state)) return this.createVendorState(state);
-    return this.createAdminState(state as AdminState);
+    try {
+      if (isCustomerState(state)) return await this.createCustomerState(state);
+      if (isVendorState(state)) return await this.createVendorState(state);
+      return await this.createAdminState(state as AdminState);
+    } catch (error) {
+      try {
+        await this.teardownState(state);
+      } catch (cleanupError) {
+        throw new AggregateError(
+          [error, cleanupError],
+          `TEST_FACTORY_PARTIAL_CREATE_CLEANUP_FAILED: ${state}`,
+        );
+      }
+      throw error;
+    }
   }
 
   async createAll(): Promise<TestIdentity[]> {
@@ -346,11 +380,46 @@ export class TestDataFactory {
     }
   }
 
+  async teardownState(state: FactoryState): Promise<void> {
+    const email = stateEmail(this.namespace, state);
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    if (user) {
+      const vendor = await this.prisma.vendor.findUnique({ where: { userId: user.id } });
+      await this.teardown({
+        state,
+        credentials: { email, password: this.password, role: user.role },
+        userId: user.id,
+        vendorId: vendor?.id,
+        relatedUserIds: [],
+        relatedVendorIds: vendor ? [vendor.id] : [],
+        storageObjects: [],
+      });
+      return;
+    }
+
+    if (this.admin) {
+      const perPage = 1000;
+      for (let page = 1; ; page += 1) {
+        const { data, error } = await this.admin.auth.admin.listUsers({ page, perPage });
+        if (error) throw new Error(`TEST_FACTORY_AUTH_LOOKUP_FAILED: ${error.message}`);
+        const authUser = data.users.find((candidate) => candidate.email === email);
+        if (authUser) {
+          const { error: deleteError } = await this.admin.auth.admin.deleteUser(authUser.id);
+          if (deleteError) {
+            throw new Error(`TEST_FACTORY_AUTH_DELETE_FAILED: ${deleteError.message}`);
+          }
+          return;
+        }
+        if (data.users.length < perPage) return;
+      }
+    }
+  }
+
   private async createCustomerState(state: CustomerState): Promise<TestIdentity> {
     const user = await this.ensureUser(state, 'customer');
     const identity = this.identity(state, user);
 
-    if (state === 'C2') await this.ensureAddress(user.id, state);
+    if (state === 'C2') identity.addressId = (await this.ensureAddress(user.id, state)).id;
     if (state === 'C3' || state === 'C6') {
       const order = await this.ensureCompletedOrder(identity, user.id, state);
       identity.orderId = order.id;
@@ -410,6 +479,25 @@ export class TestDataFactory {
     const identity = this.identity(state, user);
     const vendor = await this.ensureVendor(identity, user, state);
     identity.vendorId = vendor.id;
+    identity.vendorSlug = vendor.slug;
+    identity.menuId = (
+      await this.prisma.menu.findFirst({
+        where: { vendorId: vendor.id },
+        select: { id: true },
+      })
+    )?.id;
+
+    // A missing current acceptance is an SSR route gate.  Give every normal
+    // portal state an explicit v1 acceptance so V2–V8/V10/V11 cannot
+    // accidentally exercise V9's terms-blocked experience.
+    if (state !== 'V9') await this.ensureCurrentTerms(vendor.id);
+    else await this.prisma.termsAcceptance.deleteMany({ where: { vendorId: vendor.id } });
+
+    if (state === 'V9') {
+      const item = await this.ensurePurchaseVendor(vendor.id, state);
+      identity.menuItemId = item.id;
+      identity.menuItemPricePence = item.pricePence;
+    }
 
     if (state === 'V4') {
       // Keep repeated factory runs honest even if this namespace was created by
@@ -690,22 +778,80 @@ export class TestDataFactory {
     });
   }
 
-  private async ensureAddress(userId: string, state: FactoryState): Promise<void> {
+  private async ensureAddress(userId: string, state: FactoryState) {
     const label = `Test Factory ${state}`;
     const existing = await this.prisma.address.findFirst({ where: { userId, label } });
-    if (!existing) {
-      await this.prisma.address.create({
-        data: {
-          userId,
-          label,
-          line1: '1 Test Factory Way',
-          city: 'London',
-          postcode: 'SE15 4ST',
-          country: 'GB',
-          isDefault: true,
-        },
-      });
-    }
+    const data = {
+      line1: '1 Test Factory Way',
+      city: 'London',
+      postcode: 'SE15 4ST',
+      country: 'GB',
+      latitude: 51.474,
+      longitude: -0.069,
+      isDefault: true,
+    };
+    return existing
+      ? this.prisma.address.update({ where: { id: existing.id }, data })
+      : this.prisma.address.create({ data: { userId, label, ...data } });
+  }
+
+  private async ensurePurchaseVendor(vendorId: string, state: Extract<VendorState, 'V9'>) {
+    await this.prisma.vendor.update({
+      where: { id: vendorId },
+      data: {
+        status: 'live',
+        openingDays: [0, 1, 2, 3, 4, 5, 6],
+        slotOpenHour: 9,
+        slotCloseHour: 21,
+        prepLeadHours: 1,
+        sameDayOrders: true,
+        maxOrdersPerDay: 100,
+      },
+    });
+    await this.prisma.deliveryConfig.upsert({
+      where: { vendorId },
+      update: {
+        types: ['local'],
+        localRadiusMiles: 10,
+        localFeePence: 250,
+        minOrderPence: 1000,
+        postcodes: ['SE15'],
+        kitchenPostcode: 'SE15 4ST',
+        latitude: 51.474,
+        longitude: -0.069,
+      },
+      create: {
+        vendorId,
+        types: ['local'],
+        localRadiusMiles: 10,
+        localFeePence: 250,
+        minOrderPence: 1000,
+        postcodes: ['SE15'],
+        kitchenPostcode: 'SE15 4ST',
+        latitude: 51.474,
+        longitude: -0.069,
+      },
+    });
+    const menu = await this.ensureMenu(vendorId, state);
+    const name = 'Customer checkout smoke dish';
+    const existing = await this.prisma.menuItem.findFirst({
+      where: { vendorId, menuId: menu.id, name },
+    });
+    const data = {
+      description: 'Isolated Stripe test-mode checkout fixture.',
+      category: 'mains',
+      pricePence: 2000,
+      preparationHours: 1,
+      imageUrls: [] as string[],
+      allergens: ['milk'],
+      tags: ['test-fixture'],
+      isAvailable: true,
+      stockCount: 100,
+      moderationStatus: 'approved' as const,
+    };
+    return existing
+      ? this.prisma.menuItem.update({ where: { id: existing.id }, data })
+      : this.prisma.menuItem.create({ data: { vendorId, menuId: menu.id, name, ...data } });
   }
 
   private async ensureFeastPass(
@@ -798,11 +944,9 @@ export class TestDataFactory {
     }
   }
 
-  private async ensureTerms(vendorId: string): Promise<void> {
+  private async ensureCurrentTerms(vendorId: string) {
     const contentV1 = '# Test Factory Vendor Terms v1';
-    const contentV2 = '# Test Factory Vendor Terms v2';
     const versionV1 = this.termsVersionLabel('v1');
-    const versionV2 = this.termsVersionLabel('v2');
     const now = new Date();
     const v1 = await this.prisma.termsVersion.upsert({
       where: { documentType_version: { documentType: 'VENDOR_TERMS', version: versionV1 } },
@@ -818,6 +962,25 @@ export class TestDataFactory {
         effectiveAt: now,
       },
     });
+    await this.prisma.termsAcceptance.upsert({
+      where: { vendorId_termsVersionId: { vendorId, termsVersionId: v1.id } },
+      update: {},
+      create: {
+        vendorId,
+        termsVersionId: v1.id,
+        acceptanceText: 'I accept the test factory v1 terms.',
+        contentHash: v1.contentHash,
+        scrolledToEnd: true,
+      },
+    });
+    return v1;
+  }
+
+  private async ensureTerms(vendorId: string): Promise<void> {
+    await this.ensureCurrentTerms(vendorId);
+    const contentV2 = '# Test Factory Vendor Terms v2';
+    const versionV2 = this.termsVersionLabel('v2');
+    const now = new Date();
     await this.prisma.termsVersion.upsert({
       where: { documentType_version: { documentType: 'VENDOR_TERMS', version: versionV2 } },
       update: {},
@@ -830,17 +993,6 @@ export class TestDataFactory {
         isMaterial: true,
         publishedAt: now,
         effectiveAt: new Date(now.getTime() + 16 * 86_400_000),
-      },
-    });
-    await this.prisma.termsAcceptance.upsert({
-      where: { vendorId_termsVersionId: { vendorId, termsVersionId: v1.id } },
-      update: {},
-      create: {
-        vendorId,
-        termsVersionId: v1.id,
-        acceptanceText: 'I accept the test factory v1 terms.',
-        contentHash: v1.contentHash,
-        scrolledToEnd: true,
       },
     });
   }
