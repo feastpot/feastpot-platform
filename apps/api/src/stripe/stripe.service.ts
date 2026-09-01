@@ -22,6 +22,14 @@ export class StripeService {
     return this.stripe.paymentIntents.retrieve(paymentIntentId);
   }
 
+  /** Lists PaymentIntents for the finance reconciliation sweep. */
+  listPaymentIntents(startingAfter?: string): Promise<Stripe.ApiList<Stripe.PaymentIntent>> {
+    return this.stripe.paymentIntents.list({
+      limit: 100,
+      ...(startingAfter ? { starting_after: startingAfter } : {}),
+    });
+  }
+
   async createPaymentIntent(params: CreatePaymentIntentParams): Promise<Stripe.PaymentIntent> {
     return this.stripe.paymentIntents.create(
       {
@@ -118,6 +126,14 @@ export class StripeService {
     );
   }
 
+  /** Lists transfers for the finance reconciliation sweep. */
+  listTransfers(startingAfter?: string): Promise<Stripe.ApiList<Stripe.Transfer>> {
+    return this.stripe.transfers.list({
+      limit: 100,
+      ...(startingAfter ? { starting_after: startingAfter } : {}),
+    });
+  }
+
   /**
    * Reverse (part of) a previously-created transfer - used to claw back a
    * vendor's earned share when a refund is issued AFTER the vendor has already
@@ -142,6 +158,14 @@ export class StripeService {
   listRefunds(chargeId: string, startingAfter?: string): Promise<Stripe.ApiList<Stripe.Refund>> {
     return this.stripe.refunds.list({
       charge: chargeId,
+      limit: 100,
+      ...(startingAfter ? { starting_after: startingAfter } : {}),
+    });
+  }
+
+  /** Lists all refunds, including Dashboard/API refunds not initiated locally. */
+  listAllRefunds(startingAfter?: string): Promise<Stripe.ApiList<Stripe.Refund>> {
+    return this.stripe.refunds.list({
       limit: 100,
       ...(startingAfter ? { starting_after: startingAfter } : {}),
     });

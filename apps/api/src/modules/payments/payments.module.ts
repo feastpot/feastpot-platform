@@ -6,6 +6,7 @@ import { StripeModule } from '../../stripe/stripe.module';
 
 import { CateringRefundReconciliationService } from './catering-refund-reconciliation.service';
 import { ChargebackDeadlineMonitorService } from './chargeback-deadline-monitor.service';
+import { FinancialReconciliationService } from './financial-reconciliation.service';
 import { PaymentsController } from './payments.controller';
 import { PaymentsService } from './payments.service';
 import { StripeWebhookDeliveryService } from './stripe-webhook-delivery.service';
@@ -24,6 +25,7 @@ import { StripeWebhookController } from './stripe-webhook.controller';
     PaymentsService,
     ChargebackDeadlineMonitorService,
     CateringRefundReconciliationService,
+    FinancialReconciliationService,
     StripeWebhookDeliveryService,
   ],
   exports: [PaymentsService],

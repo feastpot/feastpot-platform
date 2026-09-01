@@ -226,8 +226,43 @@ describe('StripeWebhookProcessor chargebacks', () => {
       );
 
       expect(prisma.payment.create.mock.calls[0]![0].data).toMatchObject({
-        type: 'partial_refund',
+        type: 'refund',
         amountPence: -1449,
+      });
+      expect(prisma.payment.create.mock.calls[1]![0].data).toMatchObject({
+        type: 'credit',
+        amountPence: 507,
+      });
+      expect(prisma.auditLog.create.mock.calls[0]![0].data.metadata).toMatchObject({
+        vendorClawbackPence: 942,
+        feastpotAbsorbedPence: 507,
+      });
+    });
+
+    it('uses the same incremental split as manual refunds after two partial refunds', async () => {
+      const { proc, prisma } = buildLost();
+      // Two earlier refunds total £20.00. The final £24.49 chargeback completes
+      // the order refund and must absorb only the platform share not already
+      // absorbed by those earlier refunds.
+      prisma.payment.aggregate.mockResolvedValue({ _sum: { amountPence: -2000 } });
+
+      await proc.onDisputeClosed(
+        disputeJob('charge.dispute.closed', { ...baseDispute, status: 'lost', amount: 4449 }),
+      );
+
+      expect(prisma.payment.create.mock.calls[0]![0].data).toMatchObject({
+        type: 'refund',
+        amountPence: -2449,
+      });
+      expect(prisma.payment.create.mock.calls[1]![0].data).toMatchObject({
+        type: 'credit',
+        amountPence: 565,
+      });
+      expect(prisma.auditLog.create.mock.calls[0]![0].data.metadata).toMatchObject({
+        vendorClawbackPence: 1884,
+        feastpotAbsorbedPence: 565,
+        commissionRefundedPence: 240,
+        serviceFeeAbsorbedPence: 100,
       });
     });
 

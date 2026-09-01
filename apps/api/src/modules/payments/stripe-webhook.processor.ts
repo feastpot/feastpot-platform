@@ -18,7 +18,7 @@ import {
   releaseCapacity,
 } from '../vendors/vendor-capacity';
 
-import { computeRefundSplit, PaymentsService } from './payments.service';
+import { computeIncrementalRefundSplit, PaymentsService } from './payments.service';
 import { STRIPE_WEBHOOK_QUEUE } from './stripe-webhook.controller';
 import type { HandledStripeEventType } from './stripe-webhook.events';
 
@@ -479,7 +479,7 @@ export class StripeWebhookProcessor {
    * commission share). The weekly payout batch nets these two rows into the
    * vendor clawback, so the vendor is deducted only what they actually earned
    * on the disputed portion - the platform service fee is never clawed back
-   * from them (see computeRefundSplit).
+   * from them (see computeIncrementalRefundSplit).
    *
    * Idempotency: a CAS on `Chargeback.reconciledAt IS NULL` inside the same
    * transaction as the ledger writes guarantees exactly-once reconciliation
@@ -556,8 +556,9 @@ export class StripeWebhookProcessor {
         return { outcome: 'fully_refunded' as const };
       }
 
-      const isFull = amountPence >= order.totalPence;
-      const split = computeRefundSplit(
+      const isFull = alreadyRefundedPence + amountPence >= order.totalPence;
+      const split = computeIncrementalRefundSplit(
+        alreadyRefundedPence,
         amountPence,
         {
           subtotalPence: order.subtotalPence,
@@ -566,7 +567,7 @@ export class StripeWebhookProcessor {
           discountPence: order.discountPence,
           commissionPence: order.commissionPence,
         },
-        isFull,
+        order.totalPence,
       );
 
       // Refund row (negative = cash out of Feastpot's books). userId is the
