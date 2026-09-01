@@ -56,6 +56,7 @@ export function AddressSelector({ value, onChange, onCreateError }: AddressSelec
                 <input
                   type="radio"
                   name="address"
+                  value={a.id}
                   checked={!showForm && value === a.id}
                   onChange={() => {
                     setShowForm(false);
@@ -84,6 +85,7 @@ export function AddressSelector({ value, onChange, onCreateError }: AddressSelec
         <input
           type="radio"
           name="address"
+          value="new"
           checked={showForm}
           onChange={() => {
             setShowForm(true);

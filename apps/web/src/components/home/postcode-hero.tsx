@@ -141,7 +141,7 @@ export function PostcodeHero() {
     >
       <div className="mx-auto grid max-w-6xl items-center gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-14">
         {/* LEFT - copy + form */}
-        <div>
+        <div className="min-w-0">
           <h1
             id="hero-headline"
             className="mt-6 font-display text-[40px] font-black leading-[1.04] tracking-tight text-charcoal sm:text-[48px] lg:text-[60px]"

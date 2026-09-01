@@ -553,8 +553,91 @@ jobs:
           path: apps/vendor/e2e-report/
           retention-days: 14
 
+  # --------------------------------------------------------------------------
+  # Customer checkout is intentionally a separate required check. Unlike
+  # vendor e2e, this job must never turn missing payment credentials into a
+  # green "skipped" result: it creates one real Stripe test-mode order.
+  # Configure the listed values as repository secrets for the isolated test
+  # environment only; no secret is written to the repository or artefacts.
+  # Add "e2e-customer" to the branch-protection required checks for main.
+  # --------------------------------------------------------------------------
+  e2e-customer:
+    name: E2E (customer checkout)
+    needs: [setup]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PLAYWRIGHT_BASE_URL: http://localhost:3000
+      TEST_API_URL: ${{ secrets.TEST_API_URL }}
+      NEXT_PUBLIC_API_URL: ${{ secrets.TEST_API_URL }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ secrets.TEST_STRIPE_PUBLISHABLE_KEY }}
+      TEST_CUSTOMER_EMAIL: ${{ secrets.TEST_CUSTOMER_EMAIL }}
+      TEST_CUSTOMER_PASSWORD: ${{ secrets.TEST_CUSTOMER_PASSWORD }}
+      TEST_CUSTOMER_VENDOR_ID: ${{ secrets.TEST_CUSTOMER_VENDOR_ID }}
+      TEST_CUSTOMER_VENDOR_SLUG: ${{ secrets.TEST_CUSTOMER_VENDOR_SLUG }}
+      TEST_CUSTOMER_MENU_ITEM_ID: ${{ secrets.TEST_CUSTOMER_MENU_ITEM_ID }}
+      TEST_CUSTOMER_ADDRESS_ID: ${{ secrets.TEST_CUSTOMER_ADDRESS_ID }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm install -g npm@10.9.4
+      - run: npm ci --no-audit --no-fund
+      - name: Require isolated customer and Stripe test credentials
+        run: |
+          required=(
+            TEST_API_URL NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY
+            NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY TEST_CUSTOMER_EMAIL
+            TEST_CUSTOMER_PASSWORD TEST_CUSTOMER_VENDOR_ID TEST_CUSTOMER_VENDOR_SLUG
+            TEST_CUSTOMER_MENU_ITEM_ID TEST_CUSTOMER_ADDRESS_ID
+          )
+          missing=()
+          for key in "${required[@]}"; do
+            [ -n "${!key}" ] || missing+=("$key")
+          done
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "::error title=Customer E2E credentials missing::Required credentials are absent: ${missing[*]}. This check intentionally fails instead of skipping."
+            exit 1
+          fi
+          case "$NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY" in
+            pk_test_*) ;;
+            *) echo "::error title=Unsafe Stripe key::TEST_STRIPE_PUBLISHABLE_KEY must be a Stripe pk_test_ key."; exit 1 ;;
+          esac
+      - name: Generate Prisma client
+        run: npm run db:generate
+        env:
+          SUPABASE_DB_URL: postgresql://dummy:dummy@localhost:5432/dummy
+          SUPABASE_DIRECT_URL: postgresql://dummy:dummy@localhost:5432/dummy
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+        working-directory: apps/web
+      - name: Start customer web server
+        run: npm run dev --workspace=@feastpot/web &
+      - name: Wait for customer web server
+        run: |
+          for i in $(seq 1 60); do
+            curl -sf http://localhost:3000 > /dev/null && exit 0
+            sleep 2
+          done
+          echo "::error title=Customer server timeout::The customer app did not open port 3000."
+          exit 1
+      - name: Run deterministic customer suite and real Stripe smoke
+        run: npx playwright test --config playwright.config.ts e2e/customer
+        working-directory: apps/web
+      - name: Upload customer Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: customer-playwright-report-${{ github.run_id }}
+          path: apps/web/playwright-report/
+          retention-days: 14
+
   # ----------------------------------------------------------------------------
-  # 7. RLS coverage check - connects to the real development database and
+  # 8. RLS coverage check - connects to the real development database and
   #    confirms every table in the public schema has rowsecurity=true. Fails
   #    if any new table was added without enabling RLS. Separately, runs the
   #    denial test script with the anon key to prove the supabase PostgREST
