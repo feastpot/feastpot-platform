@@ -105,6 +105,8 @@ NEXT_PUBLIC_VAPID_PUBLIC_KEY = "BIJ-jbBNoPraRvpDNcvfbY3R6sP3gno66-FkUOeWcaIKqXNF
 VAPID_PRIVATE_KEY = "YoYlUPIGqS-6hQA0AgAp7oGoTUy0CzhzaUz26qZ7AEA"
 
 [userenv.production]
+ADMIN_REQUIRE_AAL2 = "true"
+NEXT_PUBLIC_ADMIN_REQUIRE_AAL2 = "true"
 
 [userenv.development]
 
