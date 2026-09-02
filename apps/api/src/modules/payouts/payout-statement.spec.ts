@@ -1,4 +1,8 @@
-import { buildPayoutStatement, type PayoutStatementEntryInput } from './payout-statement';
+import {
+  applyPayoutCarryForward,
+  buildPayoutStatement,
+  type PayoutStatementEntryInput,
+} from './payout-statement';
 
 const baseEntry = (
   overrides: Partial<PayoutStatementEntryInput> = {},
@@ -17,6 +21,33 @@ const baseEntry = (
   chargebacksPence: 0,
   vendorPayoutBeforeDeductionsPence: 3_769,
   ...overrides,
+});
+
+describe('payout carry-forward', () => {
+  it.each([
+    ['new debt', 0, -231, 0, -231],
+    ['debt grows', -231, -100, 0, -331],
+    ['earnings partly repay debt', -500, 300, 0, -200],
+    ['earnings clear debt exactly', -500, 500, 0, 0],
+    ['earnings clear debt and transfer remainder', -500, 800, 300, 0],
+  ])(
+    '%s keeps Stripe amount non-negative and preserves the balance equation',
+    (_name, opening, rawNet, transferable, closing) => {
+      const base = statement([
+        baseEntry({
+          vendorPayoutBeforeDeductionsPence: rawNet,
+          refundsPence: 0,
+          chargebacksPence: 0,
+        }),
+      ]);
+      const result = applyPayoutCarryForward(base, opening);
+      expect(result.summary.openingBalancePence).toBe(opening);
+      expect(result.summary.rawNetPayoutPence).toBe(rawNet);
+      expect(result.summary.netPayoutPence).toBe(transferable);
+      expect(result.summary.closingBalancePence).toBe(closing);
+      expect(opening + rawNet).toBe(transferable + closing);
+    },
+  );
 });
 
 const statement = (entries: PayoutStatementEntryInput[]) =>

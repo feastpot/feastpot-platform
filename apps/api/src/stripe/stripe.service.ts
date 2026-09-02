@@ -107,6 +107,9 @@ export class StripeService {
     payoutId: string;
     idempotencyKey?: string;
   }): Promise<Stripe.Transfer> {
+    if (!Number.isInteger(args.amountPence) || args.amountPence <= 0) {
+      throw new Error('Stripe transfer amount must be a positive integer number of pence');
+    }
     return this.stripe.transfers.create(
       {
         amount: args.amountPence,
@@ -145,6 +148,18 @@ export class StripeService {
       limit: 100,
       ...(startingAfter ? { starting_after: startingAfter } : {}),
     });
+  }
+
+  listRecentPaymentIntents(createdGte: number): Promise<Stripe.ApiList<Stripe.PaymentIntent>> {
+    return this.stripe.paymentIntents.list({ created: { gte: createdGte }, limit: 100 });
+  }
+
+  listRecentTransfers(createdGte: number): Promise<Stripe.ApiList<Stripe.Transfer>> {
+    return this.stripe.transfers.list({ created: { gte: createdGte }, limit: 100 });
+  }
+
+  listRecentRefunds(createdGte: number): Promise<Stripe.ApiList<Stripe.Refund>> {
+    return this.stripe.refunds.list({ created: { gte: createdGte }, limit: 100 });
   }
 
   constructEvent(payload: Buffer | string, signature: string, secret: string): Stripe.Event {

@@ -1472,30 +1472,33 @@ model NotificationPreference {
 }
 
 model Payout {
-  id               String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  vendorId         String       @map("vendor_id") @db.Uuid
-  orderId          String?      @map("order_id") @db.Uuid
-  status           PayoutStatus @default(draft)
-  amountPence      Int          @map("amount_pence")
-  grossPence       Int          @default(0) @map("gross_pence")
-  commissionPence  Int          @default(0) @map("commission_pence")
-  refundsPence     Int          @default(0) @map("refunds_pence")
-  chargebacksPence Int?         @map("chargebacks_pence")
-  serviceFeesPence Int?         @map("service_fees_pence")
-  adjustmentsPence Int?         @map("adjustments_pence")
-  statement        Json?
-  periodStart      DateTime?    @map("period_start") @db.Timestamptz
-  periodEnd        DateTime?    @map("period_end") @db.Timestamptz
-  orderCount       Int          @default(0) @map("order_count")
-  holdReason       String?      @map("hold_reason")
-  currency         String       @default("GBP") @db.VarChar(3)
-  stripeTransferId String?      @map("stripe_transfer_id") @db.VarChar(100)
-  approvedById     String?      @map("approved_by_id") @db.Uuid
-  approvedAt       DateTime?    @map("approved_at") @db.Timestamptz
-  transferredAt    DateTime?    @map("transferred_at") @db.Timestamptz
-  failureReason    String?      @map("failure_reason")
-  createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt        DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+  id                  String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  vendorId            String       @map("vendor_id") @db.Uuid
+  orderId             String?      @map("order_id") @db.Uuid
+  status              PayoutStatus @default(draft)
+  amountPence         Int          @map("amount_pence")
+  openingBalancePence Int          @default(0) @map("opening_balance_pence")
+  rawNetPence         Int          @default(0) @map("raw_net_pence")
+  closingBalancePence Int          @default(0) @map("closing_balance_pence")
+  grossPence          Int          @default(0) @map("gross_pence")
+  commissionPence     Int          @default(0) @map("commission_pence")
+  refundsPence        Int          @default(0) @map("refunds_pence")
+  chargebacksPence    Int?         @map("chargebacks_pence")
+  serviceFeesPence    Int?         @map("service_fees_pence")
+  adjustmentsPence    Int?         @map("adjustments_pence")
+  statement           Json?
+  periodStart         DateTime?    @map("period_start") @db.Timestamptz
+  periodEnd           DateTime?    @map("period_end") @db.Timestamptz
+  orderCount          Int          @default(0) @map("order_count")
+  holdReason          String?      @map("hold_reason")
+  currency            String       @default("GBP") @db.VarChar(3)
+  stripeTransferId    String?      @map("stripe_transfer_id") @db.VarChar(100)
+  approvedById        String?      @map("approved_by_id") @db.Uuid
+  approvedAt          DateTime?    @map("approved_at") @db.Timestamptz
+  transferredAt       DateTime?    @map("transferred_at") @db.Timestamptz
+  failureReason       String?      @map("failure_reason")
+  createdAt           DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime     @updatedAt @map("updated_at") @db.Timestamptz
 
   vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
   order  Order? @relation(fields: [orderId], references: [id])
@@ -1528,6 +1531,26 @@ model ProcessedWebhookEvent {
   @@index([eventType])
   @@index([status, nextAttemptAt])
   @@map("processed_webhook_events")
+}
+
+/// Durable, de-duplicated discrepancies found by the scheduled Stripe/local
+/// reconciliation scan. Financial rows are never auto-mutated by the scanner.
+model FinancialReconciliationFinding {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fingerprint       String    @unique @db.VarChar(255)
+  kind              String    @db.VarChar(80)
+  stripeObjectId    String?   @map("stripe_object_id") @db.VarChar(100)
+  localEntityId     String?   @map("local_entity_id") @db.VarChar(100)
+  stripeAmountPence Int?      @map("stripe_amount_pence")
+  localAmountPence  Int?      @map("local_amount_pence")
+  detail            Json?
+  firstSeenAt       DateTime  @default(now()) @map("first_seen_at") @db.Timestamptz
+  lastSeenAt        DateTime  @default(now()) @map("last_seen_at") @db.Timestamptz
+  resolvedAt        DateTime? @map("resolved_at") @db.Timestamptz
+
+  @@index([kind, resolvedAt])
+  @@index([lastSeenAt])
+  @@map("financial_reconciliation_findings")
 }
 
 model Review {

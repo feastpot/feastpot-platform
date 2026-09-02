@@ -18,7 +18,8 @@ function makePrisma() {
       findUnique: jest.fn().mockResolvedValue(null) as Mock,
       updateMany: jest.fn().mockResolvedValue({ count: 1 }) as Mock,
     },
-    order: { findUnique: jest.fn() as Mock },
+    order: { findUnique: jest.fn() as Mock, update: jest.fn() as Mock },
+    vendor: { update: jest.fn() as Mock },
     auditLog: { create: jest.fn().mockResolvedValue({}) as Mock },
     processedWebhookEvent: {
       updateMany: jest.fn().mockResolvedValue({ count: 1 }) as Mock,
@@ -144,12 +145,15 @@ describe('StripeWebhookProcessor chargebacks', () => {
     const order = {
       id: 'order-1',
       customerId: 'cust-1',
+      vendorId: 'vendor-1',
+      status: 'delivered',
       totalPence: 4449,
       subtotalPence: 4000,
       serviceFeePence: 200,
       deliveryFeePence: 249,
       discountPence: 0,
       commissionPence: 480,
+      foundingAllowanceAppliedPence: 0,
     };
 
     function buildLost() {
@@ -165,7 +169,7 @@ describe('StripeWebhookProcessor chargebacks', () => {
       return { proc, prisma };
     }
 
-    it('writes refund + credit + audit rows when a dispute is lost', async () => {
+    it('writes refund + provenance credits + audit rows when a dispute is lost', async () => {
       const { proc, prisma } = buildLost();
 
       await proc.onDisputeClosed(
@@ -182,10 +186,16 @@ describe('StripeWebhookProcessor chargebacks', () => {
         type: 'refund',
         amountPence: -4449,
       });
-      // Credit row: Feastpot-absorbed share (service fee 200 + commission 480).
+      // Explicit provenance credits: service fee 200 and commission 480.
       expect(prisma.payment.create.mock.calls[1]![0].data).toMatchObject({
         type: 'credit',
-        amountPence: 680,
+        amountPence: 200,
+        failureReason: expect.stringContaining('service_fee_retained'),
+      });
+      expect(prisma.payment.create.mock.calls[2]![0].data).toMatchObject({
+        type: 'credit',
+        amountPence: 480,
+        failureReason: expect.stringContaining('commission_refunded'),
       });
       expect(prisma.auditLog.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -226,7 +236,7 @@ describe('StripeWebhookProcessor chargebacks', () => {
       );
 
       expect(prisma.payment.create.mock.calls[0]![0].data).toMatchObject({
-        type: 'partial_refund',
+        type: 'refund',
         amountPence: -1449,
       });
     });

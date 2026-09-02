@@ -31,6 +31,9 @@ export interface PayoutStatementSummary {
   serviceFeesPence: number | null;
   adjustmentsPence: number | null;
   netPayoutPence: number;
+  openingBalancePence: number;
+  rawNetPayoutPence: number;
+  closingBalancePence: number;
   entryCount: number;
 }
 
@@ -93,6 +96,9 @@ export function buildPayoutStatement(input: BuildPayoutStatementInput): PayoutSt
       ? entries.reduce((sum, entry) => sum + (entry.adjustmentsPence ?? 0), 0)
       : null,
     netPayoutPence: entries.reduce((sum, entry) => sum + entry.netPence, 0),
+    openingBalancePence: 0,
+    rawNetPayoutPence: entries.reduce((sum, entry) => sum + entry.netPence, 0),
+    closingBalancePence: 0,
     entryCount: entries.length,
   };
 
@@ -122,6 +128,32 @@ export function buildPayoutStatement(input: BuildPayoutStatementInput): PayoutSt
     holdReason: input.hasOpenDispute ? 'Vendor has open dispute(s); held pending resolution' : null,
     entries,
     summary,
+  };
+}
+
+export function applyPayoutCarryForward(
+  statement: PayoutStatement,
+  openingBalancePence: number,
+): PayoutStatement {
+  const opening = Math.min(0, openingBalancePence);
+  const rawNet = statement.entries.reduce((sum, entry) => sum + entry.netPence, 0);
+  const combined = opening + rawNet;
+  const transferable = Math.max(0, combined);
+  const closing = Math.min(0, combined);
+  const heldForDebt = transferable === 0 && closing < 0;
+  return {
+    ...statement,
+    status: heldForDebt ? PayoutStatus.held : statement.status,
+    holdReason: heldForDebt
+      ? `Negative vendor balance of ${Math.abs(closing)}p carried forward`
+      : statement.holdReason,
+    summary: {
+      ...statement.summary,
+      openingBalancePence: opening,
+      rawNetPayoutPence: rawNet,
+      netPayoutPence: transferable,
+      closingBalancePence: closing,
+    },
   };
 }
 
