@@ -68,3 +68,6 @@
 - [Payout statement snapshots](payout-statement-snapshots.md) — persist one immutable canonical statement; every vendor-facing format renders it, and legacy unknowns stay unavailable.
 - [Next build/dev isolation](next-build-dev-isolation.md) — never run next build alongside a live Next dev workflow; both mutate .next and can corrupt manifests, causing misleading browser-test failures.
 - [Checkout cancellation saga](checkout-cancellation-saga.md) — persist cancellation_pending before touching Stripe; finalize payment, order, and capacity atomically after release.
+- [Shared order refund ledger](shared-order-refund-ledger.md) — manual refunds and lost chargebacks must use one cumulative, locked ledger writer with explicit fee provenance.
+- [Payout debt carry-forward](payout-debt-carry-forward.md) — preserve signed vendor debt separately; Stripe-facing payout amounts must always be non-negative.
+- [Stripe financial reconciliation](stripe-financial-reconciliation.md) — hourly scans create durable de-duplicated findings; never auto-repair money discrepancies.

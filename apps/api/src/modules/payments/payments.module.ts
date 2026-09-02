@@ -8,6 +8,7 @@ import { CateringRefundReconciliationService } from './catering-refund-reconcili
 import { ChargebackDeadlineMonitorService } from './chargeback-deadline-monitor.service';
 import { PaymentsController } from './payments.controller';
 import { PaymentsService } from './payments.service';
+import { StripeFinancialReconciliationService } from './stripe-financial-reconciliation.service';
 import { StripeWebhookDeliveryService } from './stripe-webhook-delivery.service';
 import { StripeWebhookController } from './stripe-webhook.controller';
 // StripeWebhookProcessor is intentionally NOT here - it lives in
@@ -25,6 +26,7 @@ import { StripeWebhookController } from './stripe-webhook.controller';
     ChargebackDeadlineMonitorService,
     CateringRefundReconciliationService,
     StripeWebhookDeliveryService,
+    StripeFinancialReconciliationService,
   ],
   exports: [PaymentsService],
 })

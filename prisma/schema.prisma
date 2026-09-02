@@ -1477,6 +1477,9 @@ model Payout {
   orderId          String?      @map("order_id") @db.Uuid
   status           PayoutStatus @default(draft)
   amountPence      Int          @map("amount_pence")
+  openingBalancePence Int       @default(0) @map("opening_balance_pence")
+  rawNetPence      Int          @default(0) @map("raw_net_pence")
+  closingBalancePence Int       @default(0) @map("closing_balance_pence")
   grossPence       Int          @default(0) @map("gross_pence")
   commissionPence  Int          @default(0) @map("commission_pence")
   refundsPence     Int          @default(0) @map("refunds_pence")
@@ -1528,6 +1531,26 @@ model ProcessedWebhookEvent {
   @@index([eventType])
   @@index([status, nextAttemptAt])
   @@map("processed_webhook_events")
+}
+
+/// Durable, de-duplicated discrepancies found by the scheduled Stripe/local
+/// reconciliation scan. Financial rows are never auto-mutated by the scanner.
+model FinancialReconciliationFinding {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fingerprint       String    @unique @db.VarChar(255)
+  kind              String    @db.VarChar(80)
+  stripeObjectId    String?   @map("stripe_object_id") @db.VarChar(100)
+  localEntityId     String?   @map("local_entity_id") @db.VarChar(100)
+  stripeAmountPence Int?      @map("stripe_amount_pence")
+  localAmountPence  Int?      @map("local_amount_pence")
+  detail            Json?
+  firstSeenAt       DateTime  @default(now()) @map("first_seen_at") @db.Timestamptz
+  lastSeenAt        DateTime  @default(now()) @map("last_seen_at") @db.Timestamptz
+  resolvedAt        DateTime? @map("resolved_at") @db.Timestamptz
+
+  @@index([kind, resolvedAt])
+  @@index([lastSeenAt])
+  @@map("financial_reconciliation_findings")
 }
 
 model Review {

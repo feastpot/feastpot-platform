@@ -18,7 +18,8 @@ import {
   releaseCapacity,
 } from '../vendors/vendor-capacity';
 
-import { computeRefundSplit, PaymentsService } from './payments.service';
+import { writeOrderRefundLedger } from './order-refund-ledger';
+import { PaymentsService } from './payments.service';
 import { STRIPE_WEBHOOK_QUEUE } from './stripe-webhook.controller';
 import type { HandledStripeEventType } from './stripe-webhook.events';
 
@@ -512,6 +513,9 @@ export class StripeWebhookProcessor {
         deliveryFeePence: true,
         discountPence: true,
         commissionPence: true,
+        vendorId: true,
+        status: true,
+        foundingAllowanceAppliedPence: true,
       },
     });
     if (!order) {
@@ -556,68 +560,22 @@ export class StripeWebhookProcessor {
         return { outcome: 'fully_refunded' as const };
       }
 
-      const isFull = amountPence >= order.totalPence;
-      const split = computeRefundSplit(
+      const written = await writeOrderRefundLedger(tx, {
+        order,
+        alreadyRefundedPence,
         amountPence,
-        {
-          subtotalPence: order.subtotalPence,
-          serviceFeePence: order.serviceFeePence,
-          deliveryFeePence: order.deliveryFeePence,
-          discountPence: order.discountPence,
-          commissionPence: order.commissionPence,
-        },
-        isFull,
-      );
-
-      // Refund row (negative = cash out of Feastpot's books). userId is the
-      // customer - the chargeback is customer-initiated via their bank; there
-      // is no internal actor.
-      const refundRow = await tx.payment.create({
-        data: {
-          orderId: order.id,
-          userId: order.customerId,
-          type: isFull ? PaymentType.refund : PaymentType.partial_refund,
-          status: PaymentStatus.succeeded,
-          amountPence: -amountPence,
-          currency: 'GBP',
-          failureReason: `Chargeback lost (Stripe dispute ${stripeDisputeId})`,
-          processedAt: new Date(),
+        userId: order.customerId,
+        failureReason: `Chargeback lost (Stripe dispute ${stripeDisputeId})`,
+        auditAction: 'chargeback_lost_reconciled',
+        auditActorId: null,
+        auditMetadata: {
+          stripeDisputeId,
+          chargebackId: chargeback.id,
+          disputedAmountPence: chargeback.amountPence,
+          reconciledAmountPence: amountPence,
         },
       });
-      // Credit row: the share Feastpot absorbs (service fee + commission) so
-      // the batch nets the vendor clawback correctly. MUST be atomic with the
-      // refund row (see service-fee/payout invariant).
-      await tx.payment.create({
-        data: {
-          orderId: order.id,
-          userId: order.customerId,
-          type: PaymentType.credit,
-          status: PaymentStatus.succeeded,
-          amountPence: split.feastpotAbsorbedPence,
-          currency: 'GBP',
-          failureReason: `Feastpot-absorbed portion of chargeback ${stripeDisputeId} (refund ${refundRow.id})`,
-          processedAt: new Date(),
-        },
-      });
-      // Permanent audit record, atomic with the money rows.
-      await tx.auditLog.create({
-        data: {
-          actorId: null,
-          action: 'chargeback_lost_reconciled',
-          entityType: 'orders',
-          entityId: order.id,
-          metadata: {
-            stripeDisputeId,
-            chargebackId: chargeback.id,
-            disputedAmountPence: chargeback.amountPence,
-            reconciledAmountPence: amountPence,
-            vendorClawbackPence: split.vendorClawbackPence,
-            feastpotAbsorbedPence: split.feastpotAbsorbedPence,
-            serviceFeeAbsorbedPence: split.serviceFeeAbsorbedPence,
-            commissionRefundedPence: split.commissionRefundedPence,
-          } as Prisma.JsonObject,
-        },
-      });
+      const split = written.split;
       return { outcome: 'reconciled' as const, amountPence, split };
     });
 

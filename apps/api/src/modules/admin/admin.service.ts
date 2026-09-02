@@ -1647,7 +1647,9 @@ export class AdminService {
     const orders = await this.prisma.order.findMany({
       where: {
         vendorId: payout.vendorId,
-        status: OrderStatus.delivered,
+        status: {
+          in: [OrderStatus.delivered, OrderStatus.partially_refunded, OrderStatus.refunded],
+        },
         deliveredAt: { gte: payout.periodStart, lt: payout.periodEnd },
       },
       select: { id: true, totalPence: true, vendorPayoutPence: true, commissionPence: true },

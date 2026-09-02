@@ -40,6 +40,7 @@ import { computeIncrementalRefundSplit } from '../payments/payments.service';
 
 import { ListPayoutsDto } from './dto/list-payouts.dto';
 import {
+  applyPayoutCarryForward,
   buildPayoutStatement,
   isPayoutStatement,
   type PayoutStatement,
@@ -1087,7 +1088,7 @@ export class PayoutsService {
         },
       });
 
-      const statement = buildPayoutStatement({
+      const baseStatement = buildPayoutStatement({
         vendorId,
         vendorBusinessName: group.vendor.businessName ?? vendorId,
         periodStart: start,
@@ -1095,6 +1096,7 @@ export class PayoutsService {
         hasOpenDispute: openDisputes > 0,
         entries: canonicalEntries,
       });
+      let statement = baseStatement;
 
       try {
         const payout = await this.prisma.$transaction(async (tx) => {
@@ -1102,6 +1104,12 @@ export class PayoutsService {
           await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${periodLock}))`;
           const duplicate = await tx.payout.findFirst({ where: { vendorId, periodEnd: end } });
           if (duplicate) return duplicate;
+          const prior = await tx.payout.findFirst({
+            where: { vendorId, periodEnd: { lt: end } },
+            orderBy: { periodEnd: 'desc' },
+            select: { closingBalancePence: true },
+          });
+          statement = applyPayoutCarryForward(baseStatement, prior?.closingBalancePence ?? 0);
           // The immutable statement snapshot is the source of truth for every
           // persisted total and every downstream representation.
           const summary = statement.summary;
@@ -1110,6 +1118,9 @@ export class PayoutsService {
               vendorId,
               status: statement.status,
               amountPence: summary.netPayoutPence,
+              openingBalancePence: summary.openingBalancePence,
+              rawNetPence: summary.rawNetPayoutPence,
+              closingBalancePence: summary.closingBalancePence,
               grossPence: summary.grossSalesPence,
               commissionPence: summary.commissionPence,
               refundsPence: summary.refundsPence,

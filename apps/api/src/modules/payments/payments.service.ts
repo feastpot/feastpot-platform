@@ -26,136 +26,16 @@ import { AdminRefundDto, RefundReason } from './dto/admin-refund.dto';
 import { CreateRefundDto } from './dto/create-refund.dto';
 import { ListChargebacksDto } from './dto/list-chargebacks.dto';
 import { ListPaymentsDto } from './dto/list-payments.dto';
+import {
+  computeIncrementalRefundSplit,
+  writeOrderRefundLedger,
+} from './order-refund-ledger';
 
 export const NOTIFICATIONS_QUEUE = 'notifications';
 /** Refunds at or above this threshold require role=finance or role=admin. */
 export const LARGE_REFUND_THRESHOLD_PENCE = 5000_00;
 
-export interface RefundOrderEconomics {
-  subtotalPence: number;
-  serviceFeePence: number;
-  deliveryFeePence: number;
-  discountPence: number;
-  commissionPence: number;
-}
-
-export interface RefundSplit {
-  /** Refund size relative to the food subtotal; 1 for a full refund. */
-  refundFraction: number;
-  /** Clawed back from the vendor's payout - what they actually EARNED on the refunded portion. */
-  vendorClawbackPence: number;
-  /** Refund money Feastpot absorbs (its service-fee + commission share); netted against payouts via a credit row. */
-  feastpotAbsorbedPence: number;
-  /** Commission Feastpot gives back on this refund (audit/breakdown only). */
-  commissionRefundedPence: number;
-  /** Service fee Feastpot absorbs on this refund (audit/breakdown only). */
-  serviceFeeAbsorbedPence: number;
-}
-
-/**
- * Split a customer refund into the vendor clawback vs. the portion Feastpot absorbs.
- *
- * REFUND CLAWBACK FORMULA - DO NOT CHANGE WITHOUT FINANCE SIGN-OFF
- *   vendorClawback = (subtotal + delivery − discount − commission) × refundFraction
- *
- * The base is what the vendor was PAID (== Order.vendorPayoutPence for a full
- * refund). It deliberately EXCLUDES serviceFee - that is Feastpot platform
- * revenue the vendor never received, so clawing it back would over-deduct them.
- * Feastpot absorbs the remainder of the customer refund (its service-fee +
- * commission share) so the customer is always made whole.
- *
- * Full refund → refundFraction = 1. Partial → min(refundPence / subtotal, 1).
- *
- * SERVICE FEE ON REFUND (per Terms): the platform service fee is ALWAYS
- * Feastpot revenue. On refund, Feastpot absorbs the service-fee share - the
- * vendor never received it, so it is never clawed back from them. The vendor
- * clawback is based solely on what they earned (subtotal + delivery − discount
- * − commission), proportional to the refund fraction.
- *
- * VENDOR-REFERRED ORDERS: an order inside a vendor's commission-free GMV
- * allowance has commissionPence = 0, so commissionRefundedPence = 0 - there is
- * no commission to reverse, and the customer is still refunded in full.
- */
-export function computeRefundSplit(
-  refundPence: number,
-  econ: RefundOrderEconomics,
-  isFull: boolean,
-): RefundSplit {
-  const vendorEarnedPence =
-    econ.subtotalPence + econ.deliveryFeePence - econ.discountPence - econ.commissionPence;
-  const refundFraction = isFull
-    ? 1
-    : econ.subtotalPence > 0
-      ? Math.min(refundPence / econ.subtotalPence, 1)
-      : 0;
-  // Clamp: never claw back more than the customer was refunded, never negative.
-  const vendorClawbackPence = Math.max(
-    0,
-    Math.min(Math.round(refundFraction * vendorEarnedPence), refundPence),
-  );
-  return {
-    refundFraction,
-    vendorClawbackPence,
-    feastpotAbsorbedPence: refundPence - vendorClawbackPence,
-    commissionRefundedPence: Math.round(refundFraction * econ.commissionPence),
-    serviceFeeAbsorbedPence: Math.round(refundFraction * econ.serviceFeePence),
-  };
-}
-
-/**
- * Split for ONE refund in a possibly-multi-refund sequence, derived as the
- * DIFFERENCE between the cumulative split after and before this refund.
- *
- * Computing each partial refund's split independently over-claws the vendor:
- * refund fractions are amount/subtotal while the refundable ceiling is the
- * order TOTAL (subtotal + fees), so a series of partials that sums to the
- * total can produce clawback fractions summing past 100% of vendor earnings.
- * Cumulative differencing guarantees the clawbacks across all refunds sum to
- * exactly the single-refund split of the cumulative amount - capped at total
- * vendor earnings when the order ends fully refunded.
- */
-export function computeIncrementalRefundSplit(
-  alreadyRefundedPence: number,
-  refundPence: number,
-  econ: RefundOrderEconomics,
-  orderTotalPence: number,
-): RefundSplit {
-  const cumulativePence = alreadyRefundedPence + refundPence;
-  const after = computeRefundSplit(cumulativePence, econ, cumulativePence >= orderTotalPence);
-  const before =
-    alreadyRefundedPence > 0
-      ? computeRefundSplit(alreadyRefundedPence, econ, false)
-      : {
-          refundFraction: 0,
-          vendorClawbackPence: 0,
-          feastpotAbsorbedPence: 0,
-          commissionRefundedPence: 0,
-          serviceFeeAbsorbedPence: 0,
-        };
-  // Clamp the clawback delta into [0, refundPence]; absorbed is the exact
-  // complement so refund(-X) + credits always nets to the intended clawback.
-  const vendorClawbackPence = Math.max(
-    0,
-    Math.min(after.vendorClawbackPence - before.vendorClawbackPence, refundPence),
-  );
-  const feastpotAbsorbedPence = refundPence - vendorClawbackPence;
-  return {
-    refundFraction: Math.max(0, after.refundFraction - before.refundFraction),
-    vendorClawbackPence,
-    feastpotAbsorbedPence,
-    commissionRefundedPence: Math.max(
-      0,
-      after.commissionRefundedPence - before.commissionRefundedPence,
-    ),
-    serviceFeeAbsorbedPence: Math.max(
-      0,
-      Math.min(
-        after.serviceFeeAbsorbedPence - before.serviceFeeAbsorbedPence,
-        feastpotAbsorbedPence,
-      ),
-    ),
-  };
-}
+export { computeIncrementalRefundSplit, computeRefundSplit } from './order-refund-ledger';
 
 @Injectable()
 export class PaymentsService {
@@ -724,147 +604,30 @@ export class PaymentsService {
             });
           }
         }
-        const row = await tx.payment.create({
-          data: {
-            orderId: dto.orderId,
-            userId: authorisedBy.id,
-            type: isPartial ? PaymentType.partial_refund : PaymentType.refund,
-            status: PaymentStatus.succeeded,
-            amountPence: -dto.amountPence,
-            currency: 'GBP',
-            stripePaymentIntentId: lastPi.stripePaymentIntentId,
-            stripeChargeId: typeof stripeRefund.charge === 'string' ? stripeRefund.charge : null,
-            stripeRefundId: stripeRefund.id,
-            failureReason:
-              [opts?.reasonCode, dto.reason ?? opts?.note].filter(Boolean).join(': ') || null,
-            processedAt: new Date(),
-          },
+        const written = await writeOrderRefundLedger(tx, {
+          order,
+          alreadyRefundedPence: refundedInTxPence,
+          amountPence: dto.amountPence,
+          userId: authorisedBy.id,
+          stripePaymentIntentId: lastPi.stripePaymentIntentId,
+          stripeChargeId: typeof stripeRefund.charge === 'string' ? stripeRefund.charge : null,
+          stripeRefundId: stripeRefund.id,
+          failureReason:
+            [opts?.reasonCode, dto.reason ?? opts?.note].filter(Boolean).join(': ') || null,
+          auditAction: 'refund_issued',
+          auditActorId: authorisedBy.id,
+          auditMetadata: {
+            reasonCode: opts?.reasonCode ?? null,
+            note: opts?.note ?? null,
+            idempotencyKey: idempotencyKey ?? null,
+            reversalPence: reversal?.clawbackPence ?? 0,
+            reversalKeyBase: reversal?.keyBase ?? null,
+            reversalAttempt: reversal?.attempt ?? 0,
+            reversalPayoutId: reversal?.payoutId ?? null,
+            adjustedPayoutId: payoutToAdjust,
+          } as Prisma.JsonObject,
         });
-        // Reflect the refund on the order itself, atomically with the ledger.
-        // Full refund → `refunded` (the order is commercially dead). Partial
-        // refund → `partially_refunded`, but ONLY when the order is already in
-        // a terminal state - a partial refund on an in-flight order (e.g.
-        // preparing) must not knock it out of the vendor's operational flow.
-        const TERMINAL: OrderStatus[] = [
-          OrderStatus.delivered,
-          OrderStatus.cancelled,
-          OrderStatus.rejected,
-          OrderStatus.refunded,
-          OrderStatus.partially_refunded,
-        ];
-        // Full/partial for the ORDER is cumulative: a series of partial
-        // refunds whose sum reaches the order total leaves the order fully
-        // refunded, even though each individual amount was partial.
-        const cumulativelyFull = refundedInTxPence + dto.amountPence >= order.totalPence;
-        const newStatus = cumulativelyFull
-          ? OrderStatus.refunded
-          : TERMINAL.includes(order.status)
-            ? OrderStatus.partially_refunded
-            : null;
-        if (newStatus && newStatus !== order.status) {
-          await tx.order.update({ where: { id: order.id }, data: { status: newStatus } });
-        }
-        // The Feastpot-absorbed portion is written as TWO explicit credit rows so
-        // the ledger itself records that the platform RETAINED the service fee
-        // (previously only visible in a best-effort audit-log blob):
-        //   1. service-fee share - platform revenue Feastpot keeps but absorbs
-        //      against this refund (the vendor never received it),
-        //   2. commission share - commission Feastpot gives back on the refund.
-        // The weekly payout batch nets ALL credit rows against refund rows, so
-        // splitting one credit into two with the same sum leaves the vendor
-        // clawback arithmetic unchanged. Clamp so the rows always sum EXACTLY to
-        // feastpotAbsorbedPence even under rounding on partial refunds.
-        const serviceFeeCreditPence = Math.min(
-          split.serviceFeeAbsorbedPence,
-          split.feastpotAbsorbedPence,
-        );
-        const commissionCreditPence = split.feastpotAbsorbedPence - serviceFeeCreditPence;
-        if (serviceFeeCreditPence > 0) {
-          await tx.payment.create({
-            data: {
-              orderId: dto.orderId,
-              userId: authorisedBy.id,
-              type: PaymentType.credit,
-              status: PaymentStatus.succeeded,
-              amountPence: serviceFeeCreditPence,
-              currency: 'GBP',
-              failureReason: `service_fee_retained: platform service fee absorbed on refund ${row.id}`,
-              processedAt: new Date(),
-            },
-          });
-        }
-        if (commissionCreditPence > 0) {
-          await tx.payment.create({
-            data: {
-              orderId: dto.orderId,
-              userId: authorisedBy.id,
-              type: PaymentType.credit,
-              status: PaymentStatus.succeeded,
-              amountPence: commissionCreditPence,
-              currency: 'GBP',
-              failureReason: `commission_refunded: Feastpot commission share absorbed on refund ${row.id}`,
-              processedAt: new Date(),
-            },
-          });
-        }
-        // Audit record is atomic with the money rows: a refund can no longer
-        // commit without its permanent reconciliation trail.
-        // Restore founding allowance proportionally. The order consumed
-        // foundingAllowanceAppliedPence at creation time; returning those pence
-        // lets the vendor re-use the allowance on a future order rather than
-        // permanently burning it on an order that was refunded.
-        //
-        // This update is inside the same transaction as the refund/credit rows
-        // and the audit log so all three commit together or not at all (D-002).
-        // `decrement` is an atomic SQL expression (x = x - n) so no advisory
-        // lock is needed here - unlike the consumption path, we are not doing a
-        // read-modify-write cycle that could race against another decrement.
-        const allowanceRestoredPence =
-          order.foundingAllowanceAppliedPence > 0
-            ? Math.round(split.refundFraction * order.foundingAllowanceAppliedPence)
-            : 0;
-        if (allowanceRestoredPence > 0) {
-          await tx.vendor.update({
-            where: { id: order.vendorId },
-            data: { foundingAllowanceUsedPence: { decrement: allowanceRestoredPence } },
-          });
-        }
-
-        await tx.auditLog.create({
-          data: {
-            actorId: authorisedBy.id,
-            action: 'refund_issued',
-            entityType: 'orders',
-            entityId: order.id,
-            metadata: {
-              customerRefundPence: dto.amountPence,
-              vendorClawbackPence: split.vendorClawbackPence,
-              feastpotAbsorbedPence: split.feastpotAbsorbedPence,
-              serviceFeeRetainedPence: serviceFeeCreditPence,
-              serviceFeePenceAbsorbed: split.serviceFeeAbsorbedPence,
-              commissionRefundedPence: split.commissionRefundedPence,
-              partial: isPartial,
-              // Fields below let the refund-failed compensation path undo this
-              // refund's side effects precisely (see compensateFailedRefund).
-              refundPaymentId: row.id,
-              previousOrderStatus: order.status,
-              allowanceRestoredPence,
-              reasonCode: opts?.reasonCode ?? null,
-              note: opts?.note ?? null,
-              // Deterministic request key: lets a retry resolve this attempt
-              // BEFORE the cumulative guard (idempotent-retry guarantee).
-              idempotencyKey: idempotencyKey ?? null,
-              // Reversal context so the ASYNC failed-refund path (webhook)
-              // can pay the clawback back to the vendor's connected account.
-              reversalPence: reversal?.clawbackPence ?? 0,
-              reversalKeyBase: reversal?.keyBase ?? null,
-              reversalAttempt: reversal?.attempt ?? 0,
-              reversalPayoutId: reversal?.payoutId ?? null,
-              adjustedPayoutId: payoutToAdjust,
-            } as Prisma.JsonObject,
-          },
-        });
-        return row;
+        return written.refund;
       });
     let refundRow: Awaited<ReturnType<typeof runLedgerTx>>;
     try {
