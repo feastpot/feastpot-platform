@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint src --ext .ts",
     "test": "jest",
+    "test:financial": "jest --runInBand --runTestsByPath src/commission/commission.service.spec.ts src/modules/payments/refunds.spec.ts src/modules/payments/stripe-webhook.processor.spec.ts src/modules/payments/stripe-financial-reconciliation.service.spec.ts src/modules/payments/catering-refund-reconciliation.service.spec.ts src/modules/payments/refund-chargeback-concurrency.integration.spec.ts src/modules/payouts/payouts.service.spec.ts src/modules/payouts/payout-statement.spec.ts",
     "clean": "rm -rf dist .turbo"
   },
   "dependencies": {

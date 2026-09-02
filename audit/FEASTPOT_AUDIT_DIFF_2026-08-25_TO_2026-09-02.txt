@@ -1,0 +1,72 @@
+FEASTPOT AUDIT DIFF
+25 August 2026 to 2 September 2026
+
+Required labels are used as follows:
+
+- FIXED: fresh runtime, database, configuration, or test evidence exists.
+- STILL PRESENT: fresh evidence shows the problem remains.
+- NEWLY INTRODUCED: first identified in this audit.
+
+Priority 1 findings
+-------------------
+
+1. Public allergen-less dishes: FIXED.
+   Production query now returns zero offending rows.
+
+2. Customer checkout unavailable: STILL PRESENT.
+   The production customer publishable key is absent and no complete
+   checkout was performed.
+
+3. Webhook configuration and duplicate claim race: FIXED for source,
+   tests, endpoint availability, and subscriptions. Live signed delivery
+   remains not verified.
+
+4. Catering deposit can exceed quote: FIXED.
+   Shared invariant implementation and boundary tests are present.
+
+5. Catering refunds bypass ledger: FIXED.
+   Shared ledger and reconciliation test coverage is present.
+
+6. account.updated ignored: FIXED.
+   Handler exists and the live endpoint subscription now includes it.
+
+Previously not verified
+-----------------------
+
+1. Full customer payment/refund journey: STILL PRESENT as not verified.
+2. Signed webhook concurrency delivery: STILL PRESENT as not verified in
+   production; deterministic concurrency tests pass locally.
+3. Live payout and bank settlement: STILL PRESENT as not verified.
+4. Stored catering payment journey: STILL PRESENT as not verified live.
+5. Authenticated vendor/admin journeys: STILL PRESENT as not verified in
+   CI because GitHub credentials are absent.
+6. Role-specific bearer-token matrix: STILL PRESENT as not verified.
+7. Production configuration: PARTIALLY FIXED. Stripe endpoint,
+   subscriptions, migration state, terms, allergens, and branch protection
+   were queried. MFA, Sentry, Slack, and customer public Stripe key are
+   absent.
+8. Real notification delivery: STILL PRESENT as not verified.
+9. Accessibility/mobile authenticated review: STILL PRESENT as not
+   verified.
+10. Live terms selection and acceptance: FIXED for database existence;
+    legal review remains outside this technical audit.
+11. Hosted CI/protection inspection: FIXED. GitHub configuration was
+    queried; missing credentials and missing new contexts are documented.
+
+New findings
+------------
+
+1. NEWLY INTRODUCED: GitHub Actions has no repository secrets or
+   variables, so required credential-dependent checks cannot execute.
+2. NEWLY INTRODUCED: Production monitoring and admin enforcement settings
+   are absent: ADMIN_REQUIRE_AAL2, SENTRY_DSN, and
+   QUEUE_ALERT_SLACK_WEBHOOK_URL.
+3. NEWLY INTRODUCED: One historical rolled-back production migration
+   record remains even though there are no unfinished migrations.
+
+Release conclusion
+------------------
+
+Zero unresolved Priority 1 findings has not been achieved because customer
+checkout and the required real payout proof remain outstanding. Release
+acceptance is therefore not met.
