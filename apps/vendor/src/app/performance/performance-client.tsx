@@ -500,7 +500,7 @@ export function PerformanceClient() {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div
                 className={`fp-card border p-5 ${
-                  (period?.blendedRatePct ?? 0) < 10
+                  (period?.savedPence ?? 0) > 0
                     ? 'border-green-200 bg-green-50'
                     : 'border-border bg-white'
                 }`}
@@ -510,7 +510,7 @@ export function PerformanceClient() {
                 </p>
                 <p
                   className={`mt-2 text-3xl font-bold tabular-nums ${
-                    (period?.blendedRatePct ?? 0) < 10 ? 'text-green-700' : 'text-dark'
+                    (period?.savedPence ?? 0) > 0 ? 'text-green-700' : 'text-dark'
                   }`}
                 >
                   {pct(period?.blendedRatePct ?? 0)}

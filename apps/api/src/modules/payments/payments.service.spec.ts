@@ -57,7 +57,8 @@ function makeQueue() {
 
 describe('computeRefundSplit', () => {
   // £40 food + £2.49 delivery + £2.00 service fee = £44.49 total.
-  // commission = 12% of £40 = £4.80; vendorPayoutPence = 4000 + 249 − 480 = 3769.
+  // Historical pre-cutover order: commission = 12% of £40 = £4.80.
+  // Refunds must preserve its stored economics: vendorPayoutPence = 4000 + 249 − 480 = 3769.
   const econ = {
     subtotalPence: 4000,
     serviceFeePence: 200,

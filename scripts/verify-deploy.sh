@@ -63,7 +63,7 @@ probe_endpoint() {
 }
 
 probe_endpoint "/legal/vendor-terms" "vendor-terms" \
-  "12% of the order subtotal" "weekly, every Monday" "FHRS"
+  "8% of the food subtotal" "weekly, every Monday" "FHRS"
 probe_endpoint "/legal/cookies" "cookies" \
   "feastpot.basket.v1" "sb-access-token"
 probe_endpoint "/legal/privacy" "privacy" \

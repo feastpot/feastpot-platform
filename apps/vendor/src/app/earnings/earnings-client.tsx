@@ -74,9 +74,7 @@ function asEarningsData(value: unknown): EarningsData | null {
 }
 
 function currentRateValue(rates: RateRow[], key: string, fallback: number): number {
-  return (
-    rates.find((rate) => rate.key === key && rate.status === 'LIVE')?.rateValue ?? fallback
-  );
+  return rates.find((rate) => rate.key === key && rate.status === 'LIVE')?.rateValue ?? fallback;
 }
 
 function sourceLabels(
@@ -132,6 +130,11 @@ export function EarningsClient() {
   const [rates, setRates] = useState<RateRow[]>([]);
   const [ratesLoading, setRatesLoading] = useState(true);
   const labels = sourceLabels(rates);
+  const referredRate = currentRateValue(
+    rates,
+    'referred_commission',
+    COMMISSION_RATES.vendorReferred.percent,
+  );
 
   const now = new Date();
   const year = now.getFullYear();
@@ -251,7 +254,7 @@ export function EarningsClient() {
           label="Blended rate this month"
           value={pct(period.blendedRatePct)}
           sub="Weighted average across all orders"
-          highlight={period.blendedRatePct < 10}
+          highlight={period.savedPence > 0}
         />
         <StatCard
           label="Saved vs standard rate"
@@ -320,8 +323,10 @@ export function EarningsClient() {
           Grow your referrals to keep more of every order
         </p>
         <p className="mt-1 text-sm text-green-700">
-          Every customer you bring directly pays 0% commission -- that&apos;s the full food subtotal
-          staying with you. Share your link or QR code to turn one-time customers into regulars.
+          Orders attributed to your link use the live vendor-referred rate of {referredRate}%
+          Feastpot commission on the food subtotal. Stripe card processing still applies, and the
+          customer service fee remains separate platform revenue. Share your link or QR code to turn
+          one-time customers into regulars.
         </p>
         <a
           href="/referrals"

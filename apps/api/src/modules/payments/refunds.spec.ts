@@ -592,7 +592,7 @@ describe('createRefund - allowance restoration atomicity (D-002)', () => {
       serviceFeePence: 800,
       deliveryFeePence: 500,
       discountPence: 0,
-      commissionPence: 840, // 12% on (10000 - 3000 covered) = 7000
+      commissionPence: 840, // Historical 12% order: (10000 - 3000 covered) = 7000
       totalPence: 11300,
       foundingAllowanceAppliedPence: 3000,
       deliveredAt: new Date('2026-08-10T12:00:00Z'),

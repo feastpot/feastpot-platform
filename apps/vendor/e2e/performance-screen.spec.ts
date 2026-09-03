@@ -22,8 +22,8 @@ import { installPerformanceMocks, makeRateSchedule } from './helpers/performance
 // PLATFORM_FACTS constants (source: packages/config/src/platform-facts.ts).
 const FEE_CHANGE_NOTICE_DAYS = 30; // feeChangeNoticeDays
 const VENDOR_REFERRED_PCT = 0; // commission.vendorReferred
-const MARKETPLACE_FIRST_PCT = 12; // commission.marketplaceFirst
-const MARKETPLACE_REPEAT_PCT = 10; // commission.marketplaceRepeat
+const MARKETPLACE_FIRST_PCT = 8; // commission.marketplaceFirst
+const MARKETPLACE_REPEAT_PCT = 5; // commission.marketplaceRepeat
 
 // ── PF1: Rate schedule renders all three tiers, never empty state ────────────
 
@@ -45,7 +45,7 @@ test('PF1: rate schedule renders all three commission tiers and is never the emp
   // All three tiers must be rendered (matched by their percentage values).
   const tiers = makeRateSchedule();
   for (const tier of tiers) {
-    // The commission % may appear as "0%", "10%", "12%".
+    // Each configured commission percentage must be visible.
     await expect(page.getByText(new RegExp(`${tier.commissionPercent}%`)).first()).toBeVisible({
       timeout: 5_000,
     });

@@ -1,3 +1,4 @@
+import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { DiscountFundedBy, OrderSource, RateStatus, TermsDocumentType } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
@@ -512,6 +513,8 @@ export class CommissionService {
         },
       })
       .catch(() => null);
-    return entry?.rateValue != null ? Number(entry.rateValue) : 12;
+    return entry?.rateValue != null
+      ? Number(entry.rateValue)
+      : PLATFORM_FACTS.commission.marketplaceFirst;
   }
 }

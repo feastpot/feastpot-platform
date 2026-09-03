@@ -40,7 +40,7 @@ if (!process.env.SUPABASE_DB_URL) {
   console.warn('[refund-chargeback-concurrency] skipping: SUPABASE_DB_URL not set');
 }
 
-// Order economics: total 10000p. Commission 12% of subtotal (1080p).
+// Historical pre-cutover order economics: total 10000p. Commission 12% of subtotal (1080p).
 // vendorPayout = subtotal + delivery − discount − commission = 8420p.
 const SUBTOTAL = 9000;
 const SERVICE_FEE = 500;

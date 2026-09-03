@@ -2,8 +2,7 @@
  * Rate Schedule consistency tests (LEGAL-505).
  *
  * Acceptance criteria:
- *   1. Grep the repo for "12%" and find zero hardcoded instances outside
- *      the seed file and this test file.
+ *   1. Current commercial surfaces do not hardcode commission percentages.
  *   2. The commission service throws BadRequestException if it resolves a
  *      PLANNED RateScheduleEntry.
  *   3. A FeastPass customer's order produces an identical vendorPayoutPence
@@ -179,8 +178,8 @@ describe('FeastPass payout equality', () => {
   const deliveryPence = 500; // £5.00
   const discountPence = 0;
   const rawServiceFee = 299; // £2.99 (5% of £60 example is less, use cap)
-  const commissionPct = 12; // 12% of food subtotal
-  const commissionPence = Math.round((subtotalPence * commissionPct) / 100); // 1200
+  const commissionPct = PLATFORM_FACTS.commission.marketplaceFirst;
+  const commissionPence = Math.round((subtotalPence * commissionPct) / 100);
 
   function calcVendorPayout(serviceFeePence: number): number {
     const totalPence = subtotalPence + deliveryPence + serviceFeePence - discountPence;

@@ -27,8 +27,8 @@ import { CANONICAL_REFERRAL_URL, SHARE_IDS, installShareMocks } from './helpers/
 // Update here if the source-of-truth values change; the consistency test in CI
 // will catch any drift between this file and platform-facts.ts.
 const VENDOR_REFERRED_PCT = 0; // commission.vendorReferred
-const MARKETPLACE_FIRST_PCT = 12; // commission.marketplaceFirst
-const MARKETPLACE_REPEAT_PCT = 10; // commission.marketplaceRepeat
+const MARKETPLACE_FIRST_PCT = 8; // commission.marketplaceFirst
+const MARKETPLACE_REPEAT_PCT = 5; // commission.marketplaceRepeat
 
 // ── S1: THE CRITICAL TEST ─────────────────────────────────────────────────────
 
@@ -292,7 +292,7 @@ test('S6: every commission percentage on the share page matches PLATFORM_FACTS v
     `S6: page must state ${VENDOR_REFERRED_PCT}% commission for vendor-referred orders`,
   ).toBe(true);
 
-  // The page should also name the marketplace rate (12% or 10%).
+  // The page should also name the first-order and repeat marketplace rates.
   // It must not claim a HIGHER vendor-referred rate than VENDOR_REFERRED_PCT.
   // Check that no false "higher rate" appears directly adjacent to "your link":
   const vendorLinkRate = pageText.match(/your.*?link.*?(\d+)%/i)?.[1];
@@ -303,7 +303,7 @@ test('S6: every commission percentage on the share page matches PLATFORM_FACTS v
     ).toBe(VENDOR_REFERRED_PCT);
   }
 
-  // The first-time marketplace rate (12%) and repeat rate (10%) must appear.
+  // The first-time and repeat marketplace rates must appear.
   expect(
     pageText.includes(`${MARKETPLACE_FIRST_PCT}%`),
     `S6: page must state ${MARKETPLACE_FIRST_PCT}% for first-time marketplace orders`,
