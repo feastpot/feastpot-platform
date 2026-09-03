@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 
 import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
+import { COMMISSION_RATES } from '@feastpot/config/commission-rates';
 import { RateCard } from '@feastpot/ui';
 import type { RateRow } from '@feastpot/ui';
 
@@ -76,23 +77,23 @@ const SOURCE_LABELS: Record<string, { label: string; colour: string; note: strin
   MARKETPLACE_FIRST: {
     label: 'New marketplace customers',
     colour: 'bg-blue-100 text-blue-800',
-    note: `First-time buyers via ${PLATFORM_FACTS.brandName} (${PLATFORM_FACTS.commission.marketplaceFirst}% rate)`,
+    note: `First-time buyers via ${PLATFORM_FACTS.brandName} (${COMMISSION_RATES.marketplaceFirst.percent}% first-order marketplace commission)`,
   },
   MARKETPLACE_REPEAT: {
     label: 'Returning marketplace customers',
     colour: 'bg-sky-100 text-sky-800',
-    note: `Repeat buyers via ${PLATFORM_FACTS.brandName} (${PLATFORM_FACTS.commission.marketplaceRepeat}% rate)`,
+    note: `Repeat buyers via ${PLATFORM_FACTS.brandName} (${COMMISSION_RATES.marketplaceRepeat.percent}% repeat-order commission)`,
   },
   VENDOR_REFERRED: {
     label: 'Your referrals',
     colour: 'bg-green-100 text-green-800',
-    note: `Customers you brought directly (${PLATFORM_FACTS.commission.vendorReferred}% rate)`,
+    note: `Customers you brought directly (${COMMISSION_RATES.vendorReferred.percent}% commission)`,
   },
   // Fallback for any legacy rows not yet re-labelled by the migration backfill.
   MARKETPLACE: {
     label: 'Marketplace',
     colour: 'bg-blue-100 text-blue-800',
-    note: `Orders via ${PLATFORM_FACTS.brandName} (${PLATFORM_FACTS.commission.marketplaceRepeat}-${PLATFORM_FACTS.commission.marketplaceFirst}% rate)`,
+    note: `Orders via ${PLATFORM_FACTS.brandName} (${COMMISSION_RATES.marketplaceRepeat.percent}% repeat-order commission to ${COMMISSION_RATES.marketplaceFirst.percent}% first-order marketplace commission)`,
   },
 };
 

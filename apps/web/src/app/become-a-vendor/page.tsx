@@ -21,6 +21,7 @@ import Link from 'next/link';
 import { forwardRef, useCallback, useEffect, useRef, useState } from 'react';
 
 import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
+import { COMMISSION_RATES } from '@feastpot/config/commission-rates';
 import { KeyTermsSummary, RateCard } from '@feastpot/ui';
 import type { RateRow } from '@feastpot/ui';
 
@@ -53,7 +54,7 @@ import { EarningsCalculator } from './earnings-calculator';
 
 /**
  * Format a float percentage without unnecessary decimal places.
- * PLATFORM_FACTS stores rates as floats; this gives "12" not "12.0".
+ * Rate values are formatted without unnecessary decimal places.
  */
 const pct = (v: number): string => (v % 1 === 0 ? String(Math.trunc(v)) : String(v));
 
@@ -73,7 +74,7 @@ const SIX_BENEFITS = [
   {
     Icon: Link2,
     title: 'Turn your link in bio into a shop',
-    body: `Share your personal Feastpot link on Instagram, WhatsApp or anywhere you promote your kitchen. Orders come in at ${pct(PLATFORM_FACTS.commission.vendorReferred)}% commission while you cook.`,
+    body: `Share your personal Feastpot link on Instagram, WhatsApp or anywhere you promote your kitchen. Orders come in at ${pct(COMMISSION_RATES.vendorReferred.percent)}% commission while you cook.`,
   },
   {
     Icon: Users,
@@ -133,7 +134,7 @@ const STEPS = [
 ];
 
 const FOUNDING_BENEFITS = [
-  `${pct(PLATFORM_FACTS.commission.marketplaceFirst)}% Feastpot commission dropped to 0% on marketplace orders for your first 90 days`,
+  `${pct(COMMISSION_RATES.marketplaceFirst.percent)}% first-order marketplace commission dropped to 0% on marketplace orders for your first 90 days`,
   'A direct line to our founding team for questions, feedback and product decisions',
   'Free listing photography session so your dishes look their best',
   'Featured in our Southwark launch campaign',
@@ -146,7 +147,7 @@ const FAQ: { q: string; a: string }[] = [
     a: 'No exclusivity, ever. You can sell through other platforms, your own website, at markets or anywhere you like. Feastpot does not require you to be listed only with us.',
   },
   {
-    q: `Will the ${pct(PLATFORM_FACTS.commission.vendorReferred)}% rate on my own orders last?`,
+    q: `Will the ${pct(COMMISSION_RATES.vendorReferred.percent)}% rate on my own orders last?`,
     a: `Yes. We must give at least ${PLATFORM_FACTS.feeChangeNoticeDays} days' written notice before raising any of our rates, and fee changes are never applied retrospectively. You can also leave at any time with ${PLATFORM_FACTS.terminationNoticeDays} days' notice.`,
   },
   {
@@ -451,11 +452,11 @@ export default function BecomeAVendorPage() {
             You built your following. Feastpot gives you card payments, deposits, an order book and
             allergen labels for your own customers at{' '}
             <strong className="text-charcoal">
-              {pct(PLATFORM_FACTS.commission.vendorReferred)}% commission
+              {pct(COMMISSION_RATES.vendorReferred.percent)}% commission
             </strong>
             . When we send you a new customer, we take{' '}
             <strong className="text-charcoal">
-              {pct(PLATFORM_FACTS.commission.marketplaceFirst)}%
+              {pct(COMMISSION_RATES.marketplaceFirst.percent)}%
             </strong>
             . That is the only time you pay us.
           </p>
@@ -476,7 +477,7 @@ export default function BecomeAVendorPage() {
           </div>
           <p className="mt-5 text-[12.5px] font-semibold text-charcoal-mid">
             No upfront fee &middot; No monthly fee &middot;{' '}
-            {pct(PLATFORM_FACTS.commission.vendorReferred)}% on your own orders &middot; Weekly
+            {pct(COMMISSION_RATES.vendorReferred.percent)}% on your own orders &middot; Weekly
             Stripe payouts &middot; No exclusivity
           </p>
         </div>

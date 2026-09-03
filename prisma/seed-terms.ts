@@ -13,6 +13,7 @@
 import { createHash } from 'crypto';
 
 import { PrismaClient, RateStatus, TermsDocumentType } from '@prisma/client';
+import { COMMISSION_RATES } from '../packages/config/src/commission-rates';
 
 const prisma = new PrismaClient();
 
@@ -386,35 +387,31 @@ export async function seedTerms() {
  * Also backfills rateKey on CommissionRate rows so the PLANNED guard in the
  * commission service can validate each rate before use.
  *
- * Idempotent: upserts on [documentType, version] for the TermsVersion and
- * [versionId, key] for each RateScheduleEntry.
+ * Idempotent and immutable: reruns reuse the published version and skip its
+ * existing entries rather than rewriting legal content or rate rows.
  */
 export async function seedRateSchedule() {
+  const publishedAt = new Date();
   // ── 1. Create the RATE_SCHEDULE TermsVersion ──────────────────────────────
-  const rateScheduleContent = `# Rate Schedule (Annex A) : Feastpot Vendor Terms v2.0
+  const rateScheduleContent = `# Rate Schedule (Annex A) : Feastpot Vendor Terms v2.1
 
-Effective: 23 September 2026 | England and Wales
+Effective immediately | England and Wales
 
 This schedule forms part of the Feastpot Vendor Terms of Agreement. Marketplace rates apply to
 the food subtotal of completed orders only (excluding delivery fees, service charges, and tips).
 Catering commission is an exception: it applies to the entire accepted quote total, including
 delivery, service, setup, and other quoted elements.
-Any change to a LIVE rate requires a new version of this schedule and at least 15 days notice.
+Any increase to a LIVE rate requires a new version of this schedule and at least 30 days notice.
+Rate reductions may take effect immediately.
 
 ## Standard Rates (LIVE)
 
 | Segment | Rate | Basis |
 |---------|------|-------|
-| Marketplace – first order | 12% | Food subtotal only |
-| Marketplace – returning customer | 10% | Food subtotal only |
-| Vendor-referred orders | 0% | Food subtotal only |
-| Catering bookings | 10% | Entire accepted quote total, including delivery/service/setup elements |
-
-## Catering deposits
-
-Catering quotes must total at least GBP 50. The customer deposit is the greater of 25%
-of the quote total (rounded up to the next penny) or the vendor's stated minimum cash
-deposit, capped at the quote total.
+| ${COMMISSION_RATES.marketplaceFirst.label} | ${COMMISSION_RATES.marketplaceFirst.percent}% | ${COMMISSION_RATES.marketplaceFirst.basis} |
+| ${COMMISSION_RATES.marketplaceRepeat.label} | ${COMMISSION_RATES.marketplaceRepeat.percent}% | ${COMMISSION_RATES.marketplaceRepeat.basis} |
+| ${COMMISSION_RATES.vendorReferred.label} | ${COMMISSION_RATES.vendorReferred.percent}% | ${COMMISSION_RATES.vendorReferred.basis} |
+| ${COMMISSION_RATES.catering.label} | ${COMMISSION_RATES.catering.percent}% | ${COMMISSION_RATES.catering.basis} |
 
 ## Catering deposits
 
@@ -432,7 +429,7 @@ deposit, capped at the quote total.
 
 | Charge | Rate | Cap |
 |--------|------|-----|
-| Customer service fee | 5% | Capped at £2.99 per order |
+| ${COMMISSION_RATES.customerServiceFee.label} | ${COMMISSION_RATES.customerServiceFee.percent}% | Capped at £2.99 per order |
 
 Note: The customer service fee is retained by Feastpot as platform revenue. It is never
 deducted from your vendor payout. FeastPass members are exempt from this fee.
@@ -450,33 +447,52 @@ deducted from your vendor payout. FeastPass members are exempt from this fee.
   // that predates the `change_summary` column and is not in the current Prisma schema.
   // We must use a raw upsert to satisfy the constraint.
   const changeSummaryText =
-    'Initial structured rate schedule. Supersedes inline rate references in vendor terms v1.0.';
+    'Rates decreased immediately: first-order marketplace commission from 12% to 8%, ' +
+    'repeat-order commission from 10% to 5%; vendor-referred commission remains 0% and ' +
+    'catering commission remains 10%. The customer service fee remains separate at 5%, capped at £2.99.';
   // The `summary` column was removed from terms_versions in migration
   // 20260808120000_extend_terms_tables (renamed to change_summary).
   // Only change_summary is written here.
-  const rateScheduleRows = await prisma.$queryRaw<Array<{ id: string }>>`
+  const insertedRateScheduleRows = await prisma.$queryRaw<Array<{ id: string }>>`
     INSERT INTO terms_versions
       (id, document_type, version, content_mdx, content_hash, change_summary,
        is_material, published_at, effective_at, created_by)
     VALUES
       (gen_random_uuid(),
        'RATE_SCHEDULE'::"TermsDocumentType",
-       '2.0',
+     '2.1',
        ${rateScheduleContent},
        ${rateScheduleHash},
        ${changeSummaryText},
        true,
-       '2026-08-08 09:00:00+00'::timestamptz,
-       '2026-09-23 00:00:00+00'::timestamptz,
+       ${publishedAt},
+       ${publishedAt},
        'seed')
-    ON CONFLICT (document_type, version) DO UPDATE
-      SET content_mdx    = EXCLUDED.content_mdx,
-          content_hash   = EXCLUDED.content_hash,
-          change_summary = EXCLUDED.change_summary
+    ON CONFLICT (document_type, version) DO NOTHING
     RETURNING id
   `;
-  const rateScheduleVersion = { id: rateScheduleRows[0].id };
-  console.log('[seed-terms] Rate schedule version upserted:', rateScheduleVersion.id);
+  const existingRateScheduleVersion =
+    insertedRateScheduleRows[0] ??
+    (await prisma.termsVersion.findUniqueOrThrow({
+      where: {
+        documentType_version: {
+          documentType: TermsDocumentType.RATE_SCHEDULE,
+          version: '2.1',
+        },
+      },
+      select: { id: true },
+    }));
+  const rateScheduleVersion = { id: existingRateScheduleVersion.id };
+  await prisma.termsVersion.updateMany({
+    where: {
+      documentType: TermsDocumentType.RATE_SCHEDULE,
+      id: { not: rateScheduleVersion.id },
+      effectiveAt: { lte: publishedAt },
+      supersededAt: null,
+    },
+    data: { supersededAt: publishedAt },
+  });
+  console.log('[seed-terms] Rate schedule version ready:', rateScheduleVersion.id);
 
   // ── 2. Upsert the canonical RateScheduleEntry rows ───────────────────────
   const entries: Array<{
@@ -491,10 +507,10 @@ deducted from your vendor payout. FeastPass members are exempt from this fee.
   }> = [
     {
       key: 'standard_commission',
-      label: 'Marketplace – first order from a new customer',
-      rateDisplay: '12%',
-      rateValue: 12.0,
-      basis: 'Food subtotal only (excluding delivery fees, service charges, and tips)',
+      label: COMMISSION_RATES.marketplaceFirst.label,
+      rateDisplay: `${COMMISSION_RATES.marketplaceFirst.percent}%`,
+      rateValue: COMMISSION_RATES.marketplaceFirst.percent,
+      basis: COMMISSION_RATES.marketplaceFirst.basis,
       vatNote:
         'Commission is inclusive of VAT where Feastpot is registered. Vendors account for VAT on their own food sales.',
       status: RateStatus.LIVE,
@@ -502,31 +518,30 @@ deducted from your vendor payout. FeastPass members are exempt from this fee.
     },
     {
       key: 'repeat_commission',
-      label: 'Marketplace – returning customer (second order onwards)',
-      rateDisplay: '10%',
-      rateValue: 10.0,
-      basis: 'Food subtotal only (excluding delivery fees, service charges, and tips)',
+      label: COMMISSION_RATES.marketplaceRepeat.label,
+      rateDisplay: `${COMMISSION_RATES.marketplaceRepeat.percent}%`,
+      rateValue: COMMISSION_RATES.marketplaceRepeat.percent,
+      basis: COMMISSION_RATES.marketplaceRepeat.basis,
       vatNote: 'Commission is inclusive of VAT where Feastpot is registered.',
       status: RateStatus.LIVE,
       sortOrder: 2,
     },
     {
       key: 'referred_commission',
-      label: 'Vendor-referred orders (customer brought via referral link or QR code)',
-      rateDisplay: '0%',
-      rateValue: 0.0,
-      basis: 'Food subtotal only',
+      label: COMMISSION_RATES.vendorReferred.label,
+      rateDisplay: `${COMMISSION_RATES.vendorReferred.percent}%`,
+      rateValue: COMMISSION_RATES.vendorReferred.percent,
+      basis: COMMISSION_RATES.vendorReferred.basis,
       vatNote: 'No commission charged on vendor-referred orders.',
       status: RateStatus.LIVE,
       sortOrder: 3,
     },
     {
       key: 'catering_commission',
-      label: 'Catering bookings (event and advance catering orders)',
-      rateDisplay: '10%',
-      rateValue: 10.0,
-      basis:
-        'Entire accepted quote total, including delivery, service, setup, and other quoted elements',
+      label: COMMISSION_RATES.catering.label,
+      rateDisplay: `${COMMISSION_RATES.catering.percent}%`,
+      rateValue: COMMISSION_RATES.catering.percent,
+      basis: COMMISSION_RATES.catering.basis,
       vatNote: 'Commission is inclusive of VAT where Feastpot is registered.',
       status: RateStatus.LIVE,
       sortOrder: 4,
@@ -554,10 +569,10 @@ deducted from your vendor payout. FeastPass members are exempt from this fee.
     },
     {
       key: 'customer_service_fee',
-      label: 'Customer service fee (charged to customers, not deducted from vendor payout)',
-      rateDisplay: '5% (max £2.99)',
-      rateValue: 5.0,
-      basis: 'Order subtotal: charged to customer, retained by Feastpot as platform revenue',
+      label: COMMISSION_RATES.customerServiceFee.label,
+      rateDisplay: `${COMMISSION_RATES.customerServiceFee.percent}% (max £2.99)`,
+      rateValue: COMMISSION_RATES.customerServiceFee.percent,
+      basis: `${COMMISSION_RATES.customerServiceFee.basis}, retained by Feastpot as platform revenue`,
       vatNote:
         'This fee is customer-facing only. It is never deducted from your vendor payout. FeastPass members are exempt.',
       status: RateStatus.CUSTOMER_SIDE,
@@ -575,44 +590,11 @@ deducted from your vendor payout. FeastPass members are exempt from this fee.
     },
   ];
 
-  for (const entry of entries) {
-    await prisma.rateScheduleEntry.upsert({
-      where: { versionId_key: { versionId: rateScheduleVersion.id, key: entry.key } },
-      create: { versionId: rateScheduleVersion.id, ...entry },
-      update: {
-        label: entry.label,
-        rateDisplay: entry.rateDisplay,
-        rateValue: entry.rateValue,
-        basis: entry.basis,
-        vatNote: entry.vatNote,
-        status: entry.status,
-        sortOrder: entry.sortOrder,
-      },
-    });
-    console.log(
-      `[seed-terms] RateScheduleEntry upserted: ${entry.key} (${entry.rateDisplay} ${entry.status})`,
-    );
-  }
-
-  // ── 3. Backfill rateKey on existing CommissionRate rows ───────────────────
-  // These links enable the PLANNED guard in commission.service.ts.
-  const rateKeyUpdates: Array<[source: string, isFirstOrder: boolean | null, rateKey: string]> = [
-    ['MARKETPLACE', true, 'standard_commission'],
-    ['MARKETPLACE', false, 'repeat_commission'],
-    ['VENDOR_REFERRED', null, 'referred_commission'],
-  ];
-
-  for (const [source, isFirstOrder, rateKey] of rateKeyUpdates) {
-    const result = await prisma.commissionRate.updateMany({
-      where: { source: source as any, isFirstOrder, rateKey: null },
-      data: { rateKey },
-    });
-    if (result.count > 0) {
-      console.log(
-        `[seed-terms] Backfilled rateKey=${rateKey} on ${result.count} CommissionRate rows`,
-      );
-    }
-  }
+  const insertedEntries = await prisma.rateScheduleEntry.createMany({
+    data: entries.map((entry) => ({ versionId: rateScheduleVersion.id, ...entry })),
+    skipDuplicates: true,
+  });
+  console.log(`[seed-terms] Inserted ${insertedEntries.count} new immutable schedule entries`);
 
   console.log('[seed-terms] Rate schedule seed done.');
 }

@@ -1,13 +1,26 @@
 ---
 name: Commission rate engine
-description: Source-based commission rate system replacing hardcoded 12% commissionBps; key patterns and gotchas
+description: Source-based, effective-dated commission rates and the legal/display boundary
 ---
 
 ## Architecture
 - `CommissionRate` table: immutable rows, changes create a new row + close previous row's `effectiveTo`. Never mutate existing rows.
 - `OrderCommission` table: written inside the same DB tx as the order row (inside `finishCreateOrder`), unique per order. Used for immutable audit + payout PDF generation.
 - `CommissionModule` is `@Global()` — imported once in `AppModule`, injectable everywhere.
-- Seed rates effective from 2020-01-01: MARKETPLACE first=12%, repeat=10%, VENDOR_REFERRED=0%.
+- Rate changes append a new half-open effective window; existing scheduled future rows remain intact and an immediate row may bridge only to the next future start.
+
+**Why:** Historical order calculations must keep resolving against the rate that was effective when the order was created, while announced future rows must not be overwritten.
+
+**How to apply:** Reject equal start instants, enforce `effectiveTo > effectiveFrom`, close only overlapping prior rows, and resolve with `effectiveFrom <= at < effectiveTo`.
+
+## Legal and display boundary
+
+- Commission percentages belong in the canonical Rate Schedule, not in the numbered Vendor Terms clauses. Contract body copy points to Annex A.
+- Repeat-order commission and the customer service fee must always be named explicitly because they can share the same percentage but affect different parties.
+
+**Why:** Duplicated figures caused the contract, marketing copy, admin defaults, and billing engine to drift. A bare percentage is also ambiguous between a vendor deduction and a customer charge.
+
+**How to apply:** Billing reads `CommissionRate`; public/legal UI reads `RateScheduleEntry`; shared copy may use the canonical config definition, never a new literal. Publishing substantive Vendor Terms wording still requires fresh solicitor sign-off.
 
 ## Prisma nullable boolean filter
 Prisma's `BoolNullableFilter` does NOT support `{ in: [value, null] }`. Use nested OR:

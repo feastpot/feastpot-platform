@@ -1,5 +1,7 @@
 import * as React from 'react';
 
+import type { RateRow } from './RateCard';
+
 /**
  * Layer 1 of the three-layer legal presentation (P2B Regulation).
  *
@@ -20,25 +22,35 @@ import * as React from 'react';
  *   - Add a "by continuing you agree" wrapper around this component alone.
  */
 
-const KEY_TERMS: string[] = [
-  'You are an independent business, not an employee of Feastpot. You set your own menu, prices, delivery area, and minimum order.',
-  'Commission is charged on the food subtotal of completed orders only. It is never charged on delivery fees, service charges, or tips.',
-  'The current commission rates are listed in the Rate Schedule (Annex A). Rates may change with at least 15 days notice under UK P2B Regulation.',
-  'When you accept an order it becomes a binding contract between you and the customer. Only accept orders you can fulfil.',
-  'Feastpot holds customer payments and pays your earnings every Monday after delivery is confirmed.',
-  'You are responsible for food safety, hygiene registration, allergen labelling, and compliance with food law.',
-  'You can end this agreement with 30 days written notice at any time. If Feastpot makes a material change to the terms, you can leave without penalty before the change takes effect.',
-  'Feastpot may suspend or deactivate your account for safety concerns, fraud, or a serious breach of these terms. We will give reasons and offer a right to appeal.',
-  'Disputes are handled through a two-stage review. Chargebacks from customers are deducted from your next payout, after the outcome of any investigation.',
-  'Feastpot may promote, rank, or restrict your listing based on customer ratings, order acceptance rate, compliance status, and platform policies. The ranking factors are disclosed in the full terms.',
-];
-
 interface KeyTermsSummaryProps {
   /** Tailwind class(es) to add to the outer wrapper. Useful for margin overrides. */
   className?: string;
+  /** Canonical rows returned by GET /v1/terms/rate-schedule. */
+  rates?: RateRow[];
 }
 
-export function KeyTermsSummary({ className = '' }: KeyTermsSummaryProps) {
+export function KeyTermsSummary({ className = '', rates = [] }: KeyTermsSummaryProps) {
+  const rateByKey = new Map(rates.map((rate) => [rate.key, rate]));
+  const first = rateByKey.get('standard_commission');
+  const repeat = rateByKey.get('repeat_commission');
+  const referred = rateByKey.get('referred_commission');
+  const commissionSummary =
+    first && repeat && referred
+      ? `${first.label}: ${first.rateDisplay}; ${repeat.label}: ${repeat.rateDisplay}; ${referred.label}: ${referred.rateDisplay}.`
+      : 'The current rates for first-order marketplace, repeat-order, and vendor-referred orders are listed in the Rate Schedule (Annex A).';
+  const keyTerms: string[] = [
+    'You are an independent business, not an employee of Feastpot. You set your own menu, prices, delivery area, and minimum order.',
+    'Commission is charged on the food subtotal of completed orders only. It is never charged on delivery fees, customer service fees, tips, or discounts.',
+    commissionSummary,
+    'When you accept an order it becomes a binding contract between you and the customer. Only accept orders you can fulfil.',
+    'Feastpot holds customer payments and pays your earnings every Monday after delivery is confirmed.',
+    'You are responsible for food safety, hygiene registration, allergen labelling, and compliance with food law.',
+    'You can end this agreement with 30 days written notice at any time. If Feastpot makes a material change to the terms, you can leave without penalty before the change takes effect.',
+    'Feastpot may suspend or deactivate your account for safety concerns, fraud, or a serious breach of these terms. We will give reasons and offer a right to appeal.',
+    'Disputes are handled through a two-stage review. Chargebacks from customers are deducted from your next payout, after the outcome of any investigation.',
+    'Feastpot may promote, rank, or restrict your listing based on customer ratings, order acceptance rate, compliance status, and platform policies. The ranking factors are disclosed in the full terms.',
+  ];
+
   return (
     <section
       aria-label="Key Terms Summary (plain language)"
@@ -57,7 +69,7 @@ export function KeyTermsSummary({ className = '' }: KeyTermsSummaryProps) {
       </h3>
 
       <ol className="space-y-2.5">
-        {KEY_TERMS.map((term, i) => (
+        {keyTerms.map((term, i) => (
           <li key={i} className="flex items-start gap-3">
             <span
               aria-hidden

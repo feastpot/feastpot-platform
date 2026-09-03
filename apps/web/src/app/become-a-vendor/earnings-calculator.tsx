@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
+import { COMMISSION_RATES } from '@feastpot/config/commission-rates';
 
 import { useTrackEvent } from '@/hooks/use-track-event';
 
@@ -18,9 +19,9 @@ const STRIPE_FIXED_PENCE = 20;
 //
 // Read once so they cannot drift from the central source.
 // Changing platform-facts.ts changes every figure on this page with no other edit.
-const VENDOR_REFERRED_PCT = PLATFORM_FACTS.commission.vendorReferred;
-const MARKETPLACE_FIRST_PCT = PLATFORM_FACTS.commission.marketplaceFirst;
-const MARKETPLACE_REPEAT_PCT = PLATFORM_FACTS.commission.marketplaceRepeat;
+const VENDOR_REFERRED_PCT = COMMISSION_RATES.vendorReferred.percent;
+const MARKETPLACE_FIRST_PCT = COMMISSION_RATES.marketplaceFirst.percent;
+const MARKETPLACE_REPEAT_PCT = COMMISSION_RATES.marketplaceRepeat.percent;
 
 // ── External market estimate: major aggregator commission band ───────────────
 // NOT a Feastpot figure. Used only in the prose comparison lines.
@@ -66,7 +67,7 @@ function formatStripeFee(pence: number): string {
   return pence < 100 ? `${pence}p` : formatGBP(pence);
 }
 
-/** Format a percentage without trailing decimals (12, not 12.0). */
+/** Format a percentage without trailing decimals. */
 function pct(v: number): string {
   return v % 1 === 0 ? String(Math.trunc(v)) : String(v);
 }

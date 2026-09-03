@@ -1,4 +1,5 @@
 import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
+import { COMMISSION_RATES } from '@feastpot/config/commission-rates';
 import { redirect } from 'next/navigation';
 
 import { PortalShell } from '@/components/layout/portal-shell';
@@ -143,7 +144,7 @@ const CHAPTERS: GuideChapter[] = [
     steps: [
       {
         title: 'Understand your share',
-        detail: `${PLATFORM_FACTS.brandName} charges commission on the food subtotal only - delivery fees are passed through in full and are not commissioned. New kitchens start at ${PLATFORM_FACTS.commission.marketplaceFirst}% commission. Once you have a track record on the platform the rate reduces to ${PLATFORM_FACTS.commission.marketplaceRepeat}%. Your current rate is shown on your Payouts page.`,
+        detail: `${PLATFORM_FACTS.brandName} charges commission on the food subtotal only - delivery fees are passed through in full and are not commissioned. New kitchens start at ${COMMISSION_RATES.marketplaceFirst.percent}% first-order marketplace commission. Once you have a track record on the platform the rate reduces to ${COMMISSION_RATES.marketplaceRepeat.percent}% repeat-order commission. Your current rate is shown on your Payouts page.`,
       },
       {
         title: 'Weekly payout schedule',
@@ -209,7 +210,7 @@ const CHAPTERS: GuideChapter[] = [
       },
       {
         title: 'Commission benefit',
-        detail: `Orders placed through your referral link are charged ${PLATFORM_FACTS.commission.vendorReferred}% commission. Marketplace orders are charged at your standard rate. Refer enough customers and a significant share of your turnover is commission-free.`,
+        detail: `Orders placed through your referral link are charged ${COMMISSION_RATES.vendorReferred.percent}% commission. Marketplace orders are charged at your standard rate. Refer enough customers and a significant share of your turnover is commission-free.`,
       },
     ],
   },

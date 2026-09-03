@@ -312,7 +312,7 @@ function CheckoutInner() {
   // the field, in which case we withhold express pay below rather than guess.
   const platformServiceFeeBps =
     coverageVendor?.platformServiceFeeBps ?? baseVendor?.platformServiceFeeBps;
-  // Service fee: 5% of the net subtotal (after loyalty discount) capped at
+  // Service fee: canonical rate of the net subtotal (after loyalty discount), capped at
   // £2.99, per PLATFORM_FACTS. The server now computes the fee on the post-
   // discount subtotal, so we mirror that here. Express pay is disabled when a
   // promo code is applied (opaque to the client), so the only discount we need

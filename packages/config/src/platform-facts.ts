@@ -10,6 +10,8 @@
  *   3. whatsapp: null means the channel is not publicly active. Components
  *      must not render a WhatsApp link when this is null.
  */
+import { COMMISSION_RATES } from './commission-rates';
+
 export const PLATFORM_FACTS = {
   /**
    * Canonical brand name. Always "Feastpot" (capital F, lowercase p).
@@ -19,12 +21,13 @@ export const PLATFORM_FACTS = {
   brandName: 'Feastpot' as const,
   commission: {
     /** First-order commission rate charged on food subtotal (%). */
-    marketplaceFirst: 12.0,
+    marketplaceFirst: COMMISSION_RATES.marketplaceFirst.percent,
     /** Repeat-order commission rate once a vendor has a track record (%). */
-    marketplaceRepeat: 10.0,
+    marketplaceRepeat: COMMISSION_RATES.marketplaceRepeat.percent,
     /** Commission rate for vendors who referred themselves (%). */
-    vendorReferred: 0.0,
-    basis: 'food subtotal only',
+    vendorReferred: COMMISSION_RATES.vendorReferred.percent,
+    catering: COMMISSION_RATES.catering.percent,
+    basis: COMMISSION_RATES.marketplaceFirst.basis,
   },
   attribution: {
     /**
@@ -41,7 +44,7 @@ export const PLATFORM_FACTS = {
   },
   serviceFee: {
     /** Customer-facing service fee charged on each order (%). */
-    percent: 5,
+    percent: COMMISSION_RATES.customerServiceFee.percent,
     /** Maximum service fee in pence (299p = GBP 2.99). */
     capPence: 299,
   },

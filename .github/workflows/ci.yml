@@ -106,6 +106,8 @@ jobs:
           restore-keys: turbo-${{ runner.os }}-
       - name: ESLint (turbo)
         run: npx turbo run lint
+      - name: Commission rate literal guard
+        run: node scripts/check-commission-rate-literals.mjs
       - name: Prettier check
         run: npm run format:check
       - name: No em-dash guard

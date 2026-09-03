@@ -14,7 +14,6 @@ import {
 import { LEGAL } from '@/lib/legal-constants';
 
 import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
-
 import { LegalLayers } from './legal-layers';
 import { PrintButton } from './print-button';
 import { TermsVersionBadge } from './version-badge';
@@ -126,32 +125,16 @@ export default function VendorTermsPage() {
         {/* ── 3. Payouts and commission ── */}
         <LegalSection id="payouts" icon="🏦" title="3. Payouts and commission">
           <p>
-            Feastpot charges a platform commission on every completed order. The applicable rate
-            depends on how the order was attributed (see{' '}
-            <a href="#attribution" className="underline">
-              clause 17
-            </a>{' '}
-            for the full rate schedule and attribution rules). The commission is deducted from your
-            weekly payout; it is not charged to you separately and is not added to the price the
-            customer pays.
-          </p>
-          <p>
-            The standard marketplace rate is{' '}
-            <strong>{PLATFORM_FACTS.commission.marketplaceFirst}% of the food subtotal</strong> on
-            your first marketplace order from a customer, falling to{' '}
-            <strong>{PLATFORM_FACTS.commission.marketplaceRepeat}%</strong> on repeat orders. Orders
-            attributed to your own referral link carry a{' '}
-            <strong>{PLATFORM_FACTS.commission.vendorReferred}% commission</strong>.
+            The current Commission rates are set out in the Rate Schedule at Annex A. Feastpot may
+            operate different rates by order source, and may change them only in accordance with the
+            changes and fee-notice clauses below. The commission is deducted from your weekly
+            payout; it is not charged to you separately and is not added to the price the customer
+            pays.
           </p>
           <p>
             <strong>Food subtotal</strong> means the total price of food items in the order only. It
             excludes delivery fees, customer service fees, tips, and any promotional discounts
             applied by Feastpot.
-          </p>
-          <p>
-            <strong>Example:</strong> On a &pound;100 food subtotal marketplace order you receive{' '}
-            &pound;{100 - PLATFORM_FACTS.commission.marketplaceFirst} before any delivery costs,
-            which remain with you.
           </p>
           <p>
             <strong>VAT:</strong> Feastpot&rsquo;s commission is inclusive of VAT (where Feastpot is
@@ -519,27 +502,21 @@ export default function VendorTermsPage() {
           <h4 className="mt-3 font-semibold">Commission tiers</h4>
           <ul style={legalListStyle}>
             <li>
-              <strong>Vendor-referred ({PLATFORM_FACTS.commission.vendorReferred}%):</strong> A
-              customer who arrived via your own referral link within the last{' '}
-              {PLATFORM_FACTS.attribution.vendorLinkWindowDays} days, and who has not been
-              introduced to your listing through marketplace browsing during that period. Your
-              unique referral link is available from the vendor dashboard.
+              <strong>Vendor-referred:</strong> A customer who arrived via your own referral link
+              within the last {PLATFORM_FACTS.attribution.vendorLinkWindowDays} days, and who has
+              not been introduced to your listing through marketplace browsing during that period.
+              Your unique referral link is available from the vendor dashboard.
             </li>
             <li>
-              <strong>
-                First marketplace order ({PLATFORM_FACTS.commission.marketplaceFirst}%):
-              </strong>{' '}
-              The first order placed by a customer who discovered your listing through Feastpot
-              search or browse.
+              <strong>First marketplace order:</strong> The first order placed by a customer who
+              discovered your listing through Feastpot search or browse.
             </li>
             <li>
-              <strong>
-                Repeat marketplace order ({PLATFORM_FACTS.commission.marketplaceRepeat}%):
-              </strong>{' '}
-              Any subsequent order from a customer who was first introduced to your listing through
-              the marketplace.
+              <strong>Repeat-order commission:</strong> Any subsequent order from a customer who was
+              first introduced to your listing through the marketplace.
             </li>
           </ul>
+          <p>The current rate for each tier appears only in the Rate Schedule at Annex A.</p>
 
           <h4 className="mt-3 font-semibold">
             Vendor-link marker ({PLATFORM_FACTS.attribution.vendorLinkWindowDays}-day window)

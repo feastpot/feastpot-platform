@@ -13,6 +13,7 @@ import {
   PrismaClient,
   VendorStatus,
 } from '@prisma/client';
+import { COMMISSION_RATES } from '../packages/config/src/commission-rates';
 
 const prisma = new PrismaClient();
 
@@ -1255,7 +1256,7 @@ async function main() {
         status: VendorStatus.live,
         rating: spec.rating,
         ratingCount: spec.ratingCount,
-        commissionBps: 1200,
+        commissionBps: Math.round(COMMISSION_RATES.marketplaceFirst.percent * 100),
         payoutsEnabled: true,
         approvedAt: new Date('2026-03-01T10:00:00Z'),
       },

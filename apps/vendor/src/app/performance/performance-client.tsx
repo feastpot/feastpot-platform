@@ -14,6 +14,7 @@ import {
 } from 'recharts';
 
 import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
+import { COMMISSION_RATES } from '@feastpot/config/commission-rates';
 
 import { StatCard } from '@/components/dashboard/stat-card';
 import { useAnalytics } from '@/hooks/use-analytics';
@@ -106,7 +107,7 @@ const SOURCE_LABELS: Record<string, { label: string; colour: string }> = {
   },
 };
 
-// ─── Rate schedule rows built from PLATFORM_FACTS (never empty) ──────────────
+// ─── Rate schedule rows built from COMMISSION_RATES (never empty) ────────────
 
 interface RateRow {
   tier: string;
@@ -117,17 +118,17 @@ interface RateRow {
 const RATE_ROWS: RateRow[] = [
   {
     tier: 'Your own customers',
-    rateDisplay: `${PLATFORM_FACTS.commission.vendorReferred}%`,
+    rateDisplay: `${COMMISSION_RATES.vendorReferred.percent}%`,
     note: `Customers who place an order within ${PLATFORM_FACTS.attribution.vendorLinkWindowDays} days of clicking your personal share link.`,
   },
   {
     tier: 'New marketplace customers',
-    rateDisplay: `${PLATFORM_FACTS.commission.marketplaceFirst}%`,
+    rateDisplay: `${COMMISSION_RATES.marketplaceFirst.percent}%`,
     note: `First order from a customer ${PLATFORM_FACTS.brandName} introduced to your kitchen.`,
   },
   {
-    tier: 'Returning marketplace customers',
-    rateDisplay: `${PLATFORM_FACTS.commission.marketplaceRepeat}%`,
+    tier: COMMISSION_RATES.marketplaceRepeat.label,
+    rateDisplay: `${COMMISSION_RATES.marketplaceRepeat.percent}%`,
     note: `Repeat orders from customers ${PLATFORM_FACTS.brandName} introduced, once you have a trading track record.`,
   },
 ];
@@ -599,7 +600,7 @@ export function PerformanceClient() {
               </div>
             )}
 
-            {/* Rate schedule: built from PLATFORM_FACTS, never empty */}
+            {/* Rate schedule: built from COMMISSION_RATES, never empty */}
             <div className="fp-card border border-border bg-white p-5">
               <h3 className="mb-1 text-[13px] font-black uppercase tracking-[0.1em] text-mid">
                 Rate Schedule (Annex A)
@@ -607,7 +608,7 @@ export function PerformanceClient() {
               <p className="mb-4 text-xs text-mid">
                 Commission applies to the{' '}
                 <strong className="font-semibold text-dark">
-                  {PLATFORM_FACTS.commission.basis}
+                  {COMMISSION_RATES.marketplaceFirst.basis}
                 </strong>
                 . Delivery fees, service charges, and tips are never included in the commission
                 calculation.

@@ -1,3 +1,4 @@
+import { COMMISSION_RATES } from '@feastpot/config/commission-rates';
 import {
   BadRequestException,
   ConflictException,
@@ -1199,7 +1200,7 @@ export class AdminService {
             description: app.foodStory,
             cuisines: [app.cuisineType],
             status: VendorStatus.approved, // approved (not yet `live`) - vendor still has menu/Stripe setup ahead
-            commissionBps: 1200,
+            commissionBps: Math.round(COMMISSION_RATES.marketplaceFirst.percent * 100),
             approvedAt: new Date(),
             // Write once: the referrer stored on the application at submission
             // time. validatedReferrerVendorId is resolved before the tx (see

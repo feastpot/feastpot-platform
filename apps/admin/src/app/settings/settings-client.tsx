@@ -25,6 +25,8 @@ import { apiRequest } from '@/lib/api/client';
 import type { StaffRole, StaffUser } from '@/lib/auth/server-gate';
 import { API_URL } from '@/lib/env';
 
+import { COMMISSION_RATES } from '@feastpot/config/commission-rates';
+
 import { SecuritySection } from './security-section';
 
 interface SettingsClientProps {
@@ -156,15 +158,15 @@ export function SettingsClient({ user }: SettingsClientProps) {
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              These values are baked into the platform. Per-vendor overrides for commission live on
-              each vendor's profile page.
+              Rates are resolved by the rate engine. Manage effective dates and the full schedule in
+              Commission rates; historical rows are retained for audit.
             </p>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <StatCard
                 tone="teal"
-                label="Default commission"
-                value="12.00%"
-                caption="Applied to new vendors on signup"
+                label={COMMISSION_RATES.marketplaceFirst.label}
+                value={`${COMMISSION_RATES.marketplaceFirst.percent.toFixed(2)}%`}
+                caption="Current rate-engine rate for first marketplace orders"
               />
               <StatCard
                 tone="blue"

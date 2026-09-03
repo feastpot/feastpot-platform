@@ -31,7 +31,7 @@ export async function LegalLayers() {
   return (
     <div className="mb-10 grid gap-4 lg:grid-cols-2">
       {/* Layer 1: key terms in plain language (Annex C) */}
-      <KeyTermsSummary />
+      <KeyTermsSummary rates={rates} />
       {/* Layer 2: live commission rate schedule (Annex A) */}
       <RateCard rates={rates} />
     </div>
