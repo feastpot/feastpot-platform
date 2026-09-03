@@ -1,0 +1,71 @@
+TASK: Make the rate engine the only place commission rates
+exist, and set the new values.
+
+CONFIRMED RATES
+  Marketplace, first order with a vendor .......  8%
+  Marketplace, repeat order, same vendor .......  5%
+  Vendor-referred, all orders ..................  0%
+  Catering booking ............................. 10%  (unchanged)
+  Customer service fee ......................... 5% capped
+                                    £2.99, CUSTOMER-side (unchanged)
+
+NAMING COLLISION, FIX THROUGHOUT
+The customer service fee is 5% and the repeat commission is
+now also 5%. They are unrelated. Everywhere either appears
+in code, copy, statements or templates, name it explicitly:
+"repeat-order commission" or "customer service fee". Never
+render a bare 5% without saying which.
+
+STEP 1: AUDIT FIRST, REPORT BEFORE EDITING
+  rg -n '\b12(\.0+)?\s*%' apps packages prisma scripts docs
+  rg -n '\b0?\.12\b' apps packages prisma scripts
+  rg -n '\b10(\.0+)?\s*%' apps packages prisma scripts docs
+  rg -n 'commission' apps packages prisma scripts docs -i
+Classify each hit: rate engine, display, calculation, legal
+text, fixture, documentation, unrelated. Show me the list
+before changing anything.
+
+STEP 2: SEED NEW RATE ROWS
+Create new RateScheduleEntry rows. NEVER mutate existing
+rows; the engine is append-only so historic orders resolve
+to the rate live when they were placed. Close previous rows
+with effectiveTo.
+
+EFFECTIVE DATE
+The admin console shows the new rates with effectiveFrom
+09/09/2026 while labelling them "Active". Two fixes:
+  (a) A future-dated rate must render as "Scheduled", not
+      "Active". Only active when effectiveFrom has passed.
+  (b) Confirm the intended date with me before changing it.
+      With zero live vendors and zero orders it could take
+      effect immediately, and a DECREASE is beneficial so it
+      needs no protective notice, but the terms change in
+      FP-03 must still publish.
+
+Also investigate the duplicate history row showing an 8%
+first-order rate with identical effective and closed dates.
+Add validation rejecting effectiveFrom equal to effectiveTo.
+
+STEP 3: DELETE EVERY HARDCODED RATE
+Known offenders:
+  apps/api/src/modules/payouts/payouts.service.ts:1391-1395
+    hardcodes a flat 12% baseline
+  admin /settings hardcodes "DEFAULT COMMISSION 12.00%"
+Find the rest from Step 1.
+
+STEP 4: REGRESSION GUARD
+Add an ESLint rule or CI grep failing the build if a
+commission percentage literal appears outside the rate
+engine module and its migrations.
+
+STEP 5: SCHEDULED-RATE GUARD
+The commission service must throw if asked to resolve a rate
+whose effectiveFrom has not passed. Assert it.
+
+ACCEPTANCE CRITERIA
+- Audit list produced before any edit.
+- New rows added, old rows closed not mutated.
+- Zero hardcoded commission literals outside the engine.
+- CI fails if one is reintroduced.
+- Orders before and after the effective date resolve to the
+  correct respective rates.
