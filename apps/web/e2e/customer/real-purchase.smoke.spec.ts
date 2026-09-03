@@ -83,6 +83,7 @@ test.describe('real Stripe test-mode customer purchase', () => {
     page,
     customer,
   }) => {
+    test.setTimeout(120_000);
     assertCustomerSmokeEnvironment();
     const { factory, identities } = await customer.provision(['C2', 'V9']);
     const customerIdentity = identities.find((identity) => identity.state === 'C2')!;
