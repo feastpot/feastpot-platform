@@ -187,12 +187,14 @@ test.describe('real Stripe test-mode customer purchase', () => {
       );
 
       await page.goto('/checkout');
-      await expect(page.getByRole('heading', { name: 'Checkout' })).toBeVisible();
+      await expect(
+        page.locator('#main-content').getByRole('heading', { name: 'Checkout', exact: true }),
+      ).toBeVisible();
       await page.locator(`input[name="address"][value="${addressId}"]`).check();
       const slotSection = page.locator('section').filter({ hasText: 'When do you need the food?' });
       await slotSection
         .getByRole('button', { name: /^Select \d{1,2} \w+$/ })
-        .first()
+        .last()
         .click();
       await slotSection
         .getByRole('button', { name: /^Select \d{2}:00/ })
