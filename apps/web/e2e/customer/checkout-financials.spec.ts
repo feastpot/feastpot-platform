@@ -186,7 +186,7 @@ async function prepareCheckout(
   });
 
   await page.goto('/checkout');
-  await expect(page.getByRole('heading', { name: 'Checkout', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Checkout', exact: true }).first()).toBeVisible();
   await expect(page.getByText('£20.00').first()).toBeVisible();
   await page.locator(`input[name="address"][value="${addressId}"]`).check();
   const slotSection = page.locator('section').filter({ hasText: 'When do you need the food?' });
