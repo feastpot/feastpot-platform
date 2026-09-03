@@ -18,7 +18,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-import { test as setup, type Response } from '@playwright/test';
+import { expect, test as setup, type Response } from '@playwright/test';
 import { createClient } from '@supabase/supabase-js';
 
 const STATE_PATH = path.join(__dirname, '.auth', 'vendor.json');
@@ -176,17 +176,21 @@ setup('authenticate as test vendor', async ({ page }) => {
   //      Playwright strict-mode violations.
   //   2. readonly="true" on the real inputs until a user interaction fires.
   //
-  // Fix: target the real fields by their stable IDs (#email, #password) and
-  // strip readonly before filling.
+  // Target the real fields by their stable IDs (#email, #password). Focus each
+  // field and wait for React's onFocus handler to remove readonly; mutating the
+  // attribute directly can let Playwright submit before hydration has attached
+  // the form handler.
   const emailInput = page.locator('#email');
   const passwordInput = page.locator('#password');
 
   await emailInput.waitFor({ state: 'visible' });
-  await emailInput.evaluate((el) => el.removeAttribute('readonly'));
+  await emailInput.click();
+  await expect(emailInput).toBeEditable();
   await emailInput.fill(email);
 
   await passwordInput.waitFor({ state: 'visible' });
-  await passwordInput.evaluate((el) => el.removeAttribute('readonly'));
+  await passwordInput.click();
+  await expect(passwordInput).toBeEditable();
   await passwordInput.fill(password);
 
   const profileResponse = page

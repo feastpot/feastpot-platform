@@ -43,10 +43,12 @@ async function signIn(page: Page, email: string, password: string): Promise<void
   const passwordInput = page.locator('#password');
 
   await emailInput.waitFor({ state: 'visible' });
-  await emailInput.evaluate((element) => element.removeAttribute('readonly'));
+  await emailInput.click();
+  await expect(emailInput).toBeEditable();
   await emailInput.fill(email);
   await passwordInput.waitFor({ state: 'visible' });
-  await passwordInput.evaluate((element) => element.removeAttribute('readonly'));
+  await passwordInput.click();
+  await expect(passwordInput).toBeEditable();
   await passwordInput.fill(password);
   const profileResponse = page
     .waitForResponse((response) => new URL(response.url()).pathname === '/v1/vendors/me', {
