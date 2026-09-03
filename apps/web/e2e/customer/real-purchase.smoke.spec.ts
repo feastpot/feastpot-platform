@@ -202,7 +202,7 @@ test.describe('real Stripe test-mode customer purchase', () => {
         .click();
       await page.getByRole('checkbox').check();
 
-      const cardFrame = page.frameLocator('iframe[name^="__privateStripeFrame"]');
+      const cardFrame = page.frameLocator('iframe[title="Secure card payment input frame"]');
       await cardFrame.locator('input[name="exp-date"]').fill('1230');
       await cardFrame.locator('input[name="cvc"]').fill('123');
 
