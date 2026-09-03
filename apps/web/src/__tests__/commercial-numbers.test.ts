@@ -84,7 +84,7 @@ describe('Commercial-numbers consistency', () => {
       const becomePage = readSrc('become-a-vendor/page.tsx');
       const calculator = readSrc('become-a-vendor/earnings-calculator.tsx');
       expect(becomePage).toContain('<EarningsCalculator rates={rates} />');
-      expect(calculator).toContain("RATE_KEYS.marketplaceFirst");
+      expect(calculator).toContain('RATE_KEYS.marketplaceFirst');
       expect(calculator).toContain("rate.status === 'LIVE'");
     });
 
@@ -100,9 +100,7 @@ describe('Commercial-numbers consistency', () => {
         expect(source).toContain('rate-schedule');
       }
 
-      expect(readRepo('apps/vendor/src/app/share/page.tsx')).toContain(
-        "'referred_commission'",
-      );
+      expect(readRepo('apps/vendor/src/app/share/page.tsx')).toContain("'referred_commission'");
       expect(readRepo('apps/admin/src/app/settings/settings-client.tsx')).toContain(
         'Manage commission rates',
       );

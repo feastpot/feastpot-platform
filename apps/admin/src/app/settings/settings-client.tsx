@@ -196,7 +196,9 @@ export function SettingsClient({ user }: SettingsClientProps) {
               />
             </div>
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-dashed border-border bg-muted/30 p-3 text-xs text-muted-foreground">
-              <span>Rate changes append effective-dated rows; existing history is never edited.</span>
+              <span>
+                Rate changes append effective-dated rows; existing history is never edited.
+              </span>
               <Link
                 href="/commission-rates"
                 className="inline-flex items-center gap-1 font-medium text-primary hover:underline"

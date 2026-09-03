@@ -94,9 +94,7 @@ interface CardData {
 }
 
 function currentRateValue(rates: RateRow[], key: string, fallback: number): number {
-  return (
-    rates.find((rate) => rate.key === key && rate.status === 'LIVE')?.rateValue ?? fallback
-  );
+  return rates.find((rate) => rate.key === key && rate.status === 'LIVE')?.rateValue ?? fallback;
 }
 
 function buildCards(

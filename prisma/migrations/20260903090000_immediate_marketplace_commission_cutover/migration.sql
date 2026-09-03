@@ -1,6 +1,8 @@
 -- Immediate marketplace commission cutover.
 -- transaction_timestamp() deliberately captures the migration-application time:
 -- historic orders continue to resolve against the rows closed below.
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 DO $$
 DECLARE
   cutover_at timestamptz := transaction_timestamp();

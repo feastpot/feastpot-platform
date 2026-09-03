@@ -59,9 +59,7 @@ import { EarningsCalculator } from './earnings-calculator';
 const pct = (v: number): string => (v % 1 === 0 ? String(Math.trunc(v)) : String(v));
 
 function currentRateValue(rates: RateRow[], key: string, fallback: number): number {
-  return (
-    rates.find((rate) => rate.key === key && rate.status === 'LIVE')?.rateValue ?? fallback
-  );
+  return rates.find((rate) => rate.key === key && rate.status === 'LIVE')?.rateValue ?? fallback;
 }
 
 // ── Marketing content constants ──────────────────────────────────────────
@@ -467,14 +465,10 @@ export default function BecomeAVendorPage() {
           <p className="mt-5 max-w-xl text-base leading-relaxed text-charcoal-mid">
             You built your following. Feastpot gives you card payments, deposits, an order book and
             allergen labels for your own customers at{' '}
-            <strong className="text-charcoal">
-              {pct(vendorReferredRate)}% commission
-            </strong>
-            . When we send you a new customer, we take{' '}
-            <strong className="text-charcoal">
-              {pct(marketplaceFirstRate)}%
-            </strong>
-            . That is the only time you pay us.
+            <strong className="text-charcoal">{pct(vendorReferredRate)}% commission</strong>. When
+            we send you a new customer, we take{' '}
+            <strong className="text-charcoal">{pct(marketplaceFirstRate)}%</strong>. That is the
+            only time you pay us.
           </p>
           <div className="mt-7 flex flex-col gap-3 sm:flex-row">
             <button
@@ -492,9 +486,8 @@ export default function BecomeAVendorPage() {
             </a>
           </div>
           <p className="mt-5 text-[12.5px] font-semibold text-charcoal-mid">
-            No upfront fee &middot; No monthly fee &middot;{' '}
-            {pct(vendorReferredRate)}% on your own orders &middot; Weekly
-            Stripe payouts &middot; No exclusivity
+            No upfront fee &middot; No monthly fee &middot; {pct(vendorReferredRate)}% on your own
+            orders &middot; Weekly Stripe payouts &middot; No exclusivity
           </p>
         </div>
 
