@@ -206,9 +206,13 @@ test.describe('real Stripe test-mode customer purchase', () => {
       const cardFrame = page.frameLocator('iframe[title="Secure card payment input frame"]');
       await cardFrame.locator('input[name="exp-date"]').fill('1230');
       await cardFrame.locator('input[name="cvc"]').fill('123');
+      await cardFrame.locator('input[name="postal"]').fill('SE15 4ST');
 
-      for (const cardNumber of ['4000000000000002', '4000000000009995']) {
-        await cardFrame.locator('input[name="cardnumber"]').fill(cardNumber);
+      for (const failure of [
+        { card: '4000000000000002', message: /card.*declined/i },
+        { card: '4000000000009995', message: /insufficient funds/i },
+      ]) {
+        await cardFrame.locator('input[name="cardnumber"]').fill(failure.card);
         const failedOrderResponse = page.waitForResponse(
           (response) =>
             response.request().method() === 'POST' && /\/v1\/orders(?:\?|$)/.test(response.url()),
@@ -240,7 +244,7 @@ test.describe('real Stripe test-mode customer purchase', () => {
           );
         }
         expect((await cancellationResponse).ok()).toBeTruthy();
-        await expect(page.getByRole('alert')).toContainText(/\S/);
+        await expect(page.locator('form p[role="alert"]')).toContainText(failure.message);
 
         const failedOrders = await factory.prisma.order.findMany({
           where: { customerId: customerIdentity.userId, vendorId },
