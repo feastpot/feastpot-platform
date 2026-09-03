@@ -57,7 +57,7 @@ export default function VendorTermsPage() {
             weekly payouts, plain rules.
           </>
         }
-        footnote={<>Last updated: August 2026 &middot; England &amp; Wales</>}
+        footnote={<>Last updated: September 2026 &middot; England &amp; Wales</>}
       />
 
       <LegalQuickNav ariaLabel="Vendor terms sections" items={QUICK_NAV} />

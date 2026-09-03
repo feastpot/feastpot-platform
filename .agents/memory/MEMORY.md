@@ -72,3 +72,4 @@
 - [Shared order refund ledger](shared-order-refund-ledger.md) — manual refunds and lost chargebacks must use one cumulative, locked ledger writer with explicit fee provenance.
 - [Payout debt carry-forward](payout-debt-carry-forward.md) — preserve signed vendor debt separately; Stripe-facing payout amounts must always be non-negative.
 - [Stripe financial reconciliation](stripe-financial-reconciliation.md) — hourly scans create durable de-duplicated findings; never auto-repair money discrepancies.
+- [Transactional SQL from shell](transactional-sql-shell.md) — quote heredocs containing PostgreSQL dollar blocks; bind large document bodies via psql variables.
