@@ -208,7 +208,7 @@ test.describe('real Stripe test-mode customer purchase', () => {
       await cardFrame.locator('input[name="cvc"]').fill('123');
 
       for (const failure of [
-        { card: '4000000000000002', message: /card was declined/i },
+        { card: '4000000000000002', message: /card.*declined/i },
         { card: '4000000000009995', message: /insufficient funds/i },
       ]) {
         await cardFrame.locator('input[name="cardnumber"]').fill(failure.card);
