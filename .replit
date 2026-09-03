@@ -92,6 +92,7 @@ localPort = 3003
 externalPort = 3003
 
 
+
 [deployment]
 deploymentTarget = "vm"
 run = ["bash", "-c", "npm run db:deploy && npm run start:api"]

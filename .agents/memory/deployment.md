@@ -32,7 +32,7 @@ migrate deploy`, then RLS lockdown. It runs on every VM start.
 **A failing `db:deploy` crash-loops the VM and surfaces as a 502, not a build error.**
 **Why:** the VM run command is `db:deploy && start:api`, so if `db:deploy` exits
 non-zero (e.g. P3005 before the prod DB was baselined) `start:api` never runs, the
-required port (3002) never opens, healthchecks fail, and Replit suspends the
+required port (3001) never opens, healthchecks fail, and Replit suspends the
 deployment. `getDeploymentInfo()` still shows `isDeployed:true, hasSuccessfulBuild:true`
 because the *build* was fine - the failure is purely runtime. **How to apply:** if
 `api.feastpot.co.uk` returns 502 "deployment could not be reached", read deployment
@@ -68,3 +68,12 @@ behavior and publish-time schema application cannot be verified beforehand.
 resource or its stable production URL.
 **How to apply:** keep production configuration and behavioral verification
 blocked until the user explicitly approves publishing.
+
+**Keep pre-listener deployment work within the VM health-check budget.**
+**Why:** Replit health checking starts before the synchronous `db:deploy` step
+finishes. The API itself takes about 21 seconds to become ready; an obsolete
+migration-repair probe once added 30-35 seconds and caused healthy code to be
+killed before port 3001 opened.
+**How to apply:** keep `db:deploy` limited to connectivity preflight, `prisma
+migrate deploy`, and RLS lockdown. Run exceptional migration-history repairs
+separately instead of adding them to every VM start.
