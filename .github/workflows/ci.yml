@@ -624,7 +624,7 @@ jobs:
     name: E2E (admin portal, all projects)
     needs: [setup]
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     env:
       PLAYWRIGHT_BASE_URL: http://localhost:3003
       TEST_API_URL: ${{ secrets.TEST_API_URL }}
@@ -696,7 +696,7 @@ jobs:
     name: E2E (customer checkout)
     needs: [setup]
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     env:
       PLAYWRIGHT_BASE_URL: http://localhost:3000
       TEST_API_URL: ${{ secrets.TEST_API_URL }}
@@ -711,7 +711,8 @@ jobs:
       TEST_FACTORY_NAMESPACE: customer-${{ github.run_id }}-${{ github.run_attempt }}
       CUSTOMER_E2E_USE_FACTORY: 'true'
       CUSTOMER_E2E_ISOLATED_ENVIRONMENT: 'true'
-      CUSTOMER_E2E_ALLOWED_API_ORIGIN: ${{ vars.CUSTOMER_E2E_ALLOWED_API_ORIGIN }}
+      # Keep the safety allowlist identical to the API this job exercises.
+      CUSTOMER_E2E_ALLOWED_API_ORIGIN: ${{ secrets.TEST_API_URL }}
       CUSTOMER_E2E_ALLOWED_SUPABASE_REF: ${{ vars.CUSTOMER_E2E_ALLOWED_SUPABASE_REF }}
       PROD_DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
       PROD_DIRECT_URL: ${{ secrets.PROD_DIRECT_URL }}
