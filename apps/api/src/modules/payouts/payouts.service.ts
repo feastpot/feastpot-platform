@@ -16,6 +16,7 @@ import {
   UserRole,
 } from '@prisma/client';
 import type { Queue } from 'bull';
+import Stripe from 'stripe';
 // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
 const PDFDocument = require('pdfkit') as new (opts?: object) => NodeJS.EventEmitter & {
   text: (t: string, x?: number, y?: number, opts?: object) => any;
@@ -539,7 +540,14 @@ export class PayoutsService {
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`payout:${payout.vendorId}:${lockSubject}`}))`;
         const current = await tx.payout.findUnique({
           where: { id: payoutId },
-          include: { vendor: { select: { stripeAccountId: true } } },
+          include: {
+            vendor: {
+              select: {
+                stripeAccountId: true,
+                payoutsEnabled: true,
+              },
+            },
+          },
         });
         if (!current) throw new Error(`Payout ${payoutId} disappeared before transfer`);
         if (current.status === PayoutStatus.transferred) return null;
@@ -551,18 +559,33 @@ export class PayoutsService {
             `Payout ${payoutId} has unexpected status "${current.status}" - cannot transfer`,
           );
         }
+        const destinationAccountId = current.vendor.stripeAccountId;
+        if (!destinationAccountId) {
+          throw new Stripe.errors.StripeInvalidRequestError({
+            message: 'Vendor has no Stripe Connect account immediately before transfer',
+            type: 'invalid_request_error',
+            code: 'no_account',
+          });
+        }
+        if (!current.vendor.payoutsEnabled) {
+          throw new Stripe.errors.StripeInvalidRequestError({
+            message: 'Vendor Stripe payouts are disabled immediately before transfer',
+            type: 'invalid_request_error',
+            code: 'transfers_not_allowed',
+          });
+        }
         if (current.status === PayoutStatus.approved) {
           await tx.payout.update({
             where: { id: payoutId },
             data: { status: PayoutStatus.processing, failureReason: null },
           });
         }
-        return current;
+        return { ...current, destinationAccountId };
       });
       if (!claimed) return;
       const transfer = await this.stripe.createTransfer({
         amountPence: claimed.amountPence,
-        destinationAccountId: claimed.vendor.stripeAccountId!,
+        destinationAccountId: claimed.destinationAccountId,
         payoutId: claimed.id,
         idempotencyKey: `payout-transfer-${claimed.id}`,
       });
