@@ -59,3 +59,12 @@ trigger a deployment from external CI. Replit deploys are user-initiated (Publis
 via `suggestDeploy()`. **How to apply:** the real API deploy happens on Replit, not in
 the pipeline. To make deploy.yml green, the `deploy-api` job must be reworked (build-
 check only, or removed) and the Vercel front-end jobs re-gated off `deploy-database`.
+
+**Production verification prerequisite:** Replit's production database is not
+available to this repl until the API is published. A configured external
+production database can still be queried read-only, but live Replit deployment
+behavior and publish-time schema application cannot be verified beforehand.
+**Why:** Preview and workspace environments do not create the Replit production
+resource or its stable production URL.
+**How to apply:** keep production configuration and behavioral verification
+blocked until the user explicitly approves publishing.
