@@ -11,8 +11,8 @@
  *  - founding-allowance orders: chargeable basis = max(0, commissionBasis - allowance)
  *  - allowance covering full commission basis → 0p commission
  */
-import { NotFoundException } from '@nestjs/common';
-import { DiscountFundedBy, OrderSource } from '@prisma/client';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { DiscountFundedBy, OrderSource, RateStatus } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 
 import { CommissionService } from './commission.service';
@@ -223,5 +223,128 @@ describe('CommissionService.calculate() formula variants', () => {
     });
     const result = await service.calculate('order-1');
     expect(result.computedCommissionPence).toBe(600);
+  });
+});
+
+// --- immediate marketplace cutover / rate timeline ---
+
+describe('CommissionService rate cutover resolution', () => {
+  const cutover = new Date('2026-09-03T10:00:00.000Z');
+  const oldFirst = {
+    id: 'first-old',
+    source: OrderSource.MARKETPLACE,
+    isFirstOrder: true,
+    ratePercent: new Decimal('12'),
+    rateKey: null,
+  };
+  const oldRepeat = {
+    id: 'repeat-old',
+    source: OrderSource.MARKETPLACE,
+    isFirstOrder: false,
+    ratePercent: new Decimal('10'),
+    rateKey: null,
+  };
+  const newFirst = { ...oldFirst, id: 'first-new', ratePercent: new Decimal('8') };
+  const newRepeat = { ...oldRepeat, id: 'repeat-new', ratePercent: new Decimal('5') };
+
+  it('resolves the old marketplace rates before the cutover', async () => {
+    const prisma = {
+      commissionRate: {
+        findFirst: jest.fn().mockResolvedValueOnce(oldFirst).mockResolvedValueOnce(oldRepeat),
+      },
+      rateScheduleEntry: { findFirst: jest.fn() },
+    };
+    const service = new CommissionService(prisma as never);
+
+    await expect(
+      service.resolveRate(OrderSource.MARKETPLACE, true, new Date(cutover.getTime() - 1)),
+    ).resolves.toMatchObject({ id: 'first-old', ratePercent: new Decimal('12') });
+    await expect(
+      service.resolveRate(OrderSource.MARKETPLACE, false, new Date(cutover.getTime() - 1)),
+    ).resolves.toMatchObject({ id: 'repeat-old', ratePercent: new Decimal('10') });
+  });
+
+  it('resolves the 8% first-order and 5% repeat rates after the cutover', async () => {
+    const prisma = {
+      commissionRate: {
+        findFirst: jest.fn().mockResolvedValueOnce(newFirst).mockResolvedValueOnce(newRepeat),
+      },
+      rateScheduleEntry: { findFirst: jest.fn() },
+    };
+    const service = new CommissionService(prisma as never);
+
+    await expect(
+      service.resolveRate(OrderSource.MARKETPLACE, true, cutover),
+    ).resolves.toMatchObject({ id: 'first-new', ratePercent: new Decimal('8') });
+    await expect(
+      service.resolveRate(OrderSource.MARKETPLACE, false, cutover),
+    ).resolves.toMatchObject({ id: 'repeat-new', ratePercent: new Decimal('5') });
+  });
+
+  it('rejects a rate linked to terms not yet effective at the resolution instant', async () => {
+    const prisma = {
+      commissionRate: {
+        findFirst: jest.fn().mockResolvedValue({ ...newFirst, rateKey: 'standard_commission' }),
+      },
+      rateScheduleEntry: {
+        findFirst: jest.fn().mockResolvedValue({
+          status: RateStatus.LIVE,
+          version: { effectiveAt: new Date(cutover.getTime() + 1) },
+        }),
+      },
+    };
+    const service = new CommissionService(prisma as never);
+
+    await expect(service.resolveRate(OrderSource.MARKETPLACE, true, cutover)).rejects.toMatchObject(
+      {
+        response: expect.objectContaining({ code: 'RATE_SCHEDULE_NOT_EFFECTIVE' }),
+      },
+    );
+  });
+});
+
+describe('CommissionService.createRate()', () => {
+  function makeRateTransaction(overrides?: { collision?: boolean }) {
+    const tx = {
+      $executeRaw: jest.fn().mockResolvedValue(1),
+      commissionRate: {
+        findFirst: jest
+          .fn()
+          .mockResolvedValueOnce(overrides?.collision ? { id: 'same-start' } : null)
+          .mockResolvedValueOnce(null)
+          .mockResolvedValueOnce(null),
+        update: jest.fn(),
+        create: jest.fn(),
+      },
+    };
+    const prisma = { $transaction: jest.fn((fn) => fn(tx)) };
+    return { prisma, tx };
+  }
+
+  const dto = {
+    source: OrderSource.MARKETPLACE,
+    isFirstOrder: true,
+    ratePercent: new Decimal('8'),
+    effectiveFrom: new Date('2026-09-03T10:00:00.000Z'),
+    createdBy: 'admin-1',
+  };
+
+  it('rejects an invalid effectiveFrom date before opening a transaction', async () => {
+    const { prisma } = makeRateTransaction();
+    const service = new CommissionService(prisma as never);
+    await expect(
+      service.createRate({ ...dto, effectiveFrom: new Date('not a date') }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('rejects an equal effectiveFrom instead of creating a zero-length rate', async () => {
+    const { prisma, tx } = makeRateTransaction({ collision: true });
+    const service = new CommissionService(prisma as never);
+    await expect(service.createRate(dto)).rejects.toMatchObject({
+      response: expect.objectContaining({ code: 'EFFECTIVE_FROM_COLLISION' }),
+    });
+    expect(tx.commissionRate.update).not.toHaveBeenCalled();
+    expect(tx.commissionRate.create).not.toHaveBeenCalled();
   });
 });

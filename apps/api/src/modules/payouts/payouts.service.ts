@@ -16,6 +16,7 @@ import {
   UserRole,
 } from '@prisma/client';
 import type { Queue } from 'bull';
+import Stripe from 'stripe';
 // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
 const PDFDocument = require('pdfkit') as new (opts?: object) => NodeJS.EventEmitter & {
   text: (t: string, x?: number, y?: number, opts?: object) => any;
@@ -539,7 +540,14 @@ export class PayoutsService {
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`payout:${payout.vendorId}:${lockSubject}`}))`;
         const current = await tx.payout.findUnique({
           where: { id: payoutId },
-          include: { vendor: { select: { stripeAccountId: true } } },
+          include: {
+            vendor: {
+              select: {
+                stripeAccountId: true,
+                payoutsEnabled: true,
+              },
+            },
+          },
         });
         if (!current) throw new Error(`Payout ${payoutId} disappeared before transfer`);
         if (current.status === PayoutStatus.transferred) return null;
@@ -551,18 +559,33 @@ export class PayoutsService {
             `Payout ${payoutId} has unexpected status "${current.status}" - cannot transfer`,
           );
         }
+        const destinationAccountId = current.vendor.stripeAccountId;
+        if (!destinationAccountId) {
+          throw new Stripe.errors.StripeInvalidRequestError({
+            message: 'Vendor has no Stripe Connect account immediately before transfer',
+            type: 'invalid_request_error',
+            code: 'no_account',
+          });
+        }
+        if (!current.vendor.payoutsEnabled) {
+          throw new Stripe.errors.StripeInvalidRequestError({
+            message: 'Vendor Stripe payouts are disabled immediately before transfer',
+            type: 'invalid_request_error',
+            code: 'transfers_not_allowed',
+          });
+        }
         if (current.status === PayoutStatus.approved) {
           await tx.payout.update({
             where: { id: payoutId },
             data: { status: PayoutStatus.processing, failureReason: null },
           });
         }
-        return current;
+        return { ...current, destinationAccountId };
       });
       if (!claimed) return;
       const transfer = await this.stripe.createTransfer({
         amountPence: claimed.amountPence,
-        destinationAccountId: claimed.vendor.stripeAccountId!,
+        destinationAccountId: claimed.destinationAccountId,
         payoutId: claimed.id,
         idempotencyKey: `payout-transfer-${claimed.id}`,
       });
@@ -1320,12 +1343,9 @@ export class PayoutsService {
    * Streams order-level CSV for the logged-in vendor (or, for finance/admin,
    * optionally scoped to a specific payout).
    *
-   * Columns: order_date, order_number, attribution_source,
-   *          subtotal_gbp, commission_gbp, net_to_vendor_gbp,
-   *          subtotal_pence, commission_pence, net_to_vendor_pence.
-   *
-   * Partial refunds are reflected in the stored commissionPence /
-   * vendorPayoutPence values, so the CSV always shows post-adjustment figures.
+   * Snapshot-backed exports use the same canonical entries as payout detail,
+   * PDF, batch totals and email. Nullable accounting fields are emitted as
+   * "not available"; they are never represented as zero.
    * Capped at 5 000 rows to prevent runaway DB connections.
    */
   async exportOrdersCsv(
@@ -1508,8 +1528,15 @@ export class PayoutsService {
               year: 'numeric',
             })
           : '--';
-      const srcLabel = (src: string) =>
-        src === 'VENDOR_REFERRED' ? 'Your referral' : 'Marketplace';
+      const srcLabel = (src: string) => {
+        const labels: Record<string, string> = {
+          MARKETPLACE_FIRST: 'Marketplace first',
+          MARKETPLACE_REPEAT: 'Marketplace repeat',
+          VENDOR_REFERRED: 'Vendor referred',
+          CATERING: 'Catering',
+        };
+        return labels[src] ?? src.replaceAll('_', ' ').toLowerCase();
+      };
 
       const pageWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
       const ml = doc.page.margins.left;
@@ -1579,11 +1606,7 @@ export class PayoutsService {
       doc.moveDown(0.8);
 
       // ─── Summary ─────────────────────────────────────────────────────────
-      const totalSubtotal = statement.entries.reduce((s, entry) => s + entry.foodSubtotalPence, 0);
-      const blendedPct =
-        totalSubtotal > 0
-          ? ((statement.summary.commissionPence / totalSubtotal) * 100).toFixed(2)
-          : 'not available';
+      const blendedPct = statement.summary.effectiveBlendedRatePercent ?? 'not available';
 
       const summaryX2 = ml + 200;
       doc.font('Helvetica-Bold').fontSize(9).text('Summary', ml, doc.y);

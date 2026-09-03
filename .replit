@@ -81,15 +81,17 @@ externalPort = 3000
 
 [[ports]]
 localPort = 3001
-externalPort = 3001
+externalPort = 80
 
 [[ports]]
 localPort = 3002
-externalPort = 80
+externalPort = 3002
 
 [[ports]]
 localPort = 3003
 externalPort = 3003
+
+
 
 [deployment]
 deploymentTarget = "vm"
@@ -105,6 +107,7 @@ NEXT_PUBLIC_VAPID_PUBLIC_KEY = "BIJ-jbBNoPraRvpDNcvfbY3R6sP3gno66-FkUOeWcaIKqXNF
 VAPID_PRIVATE_KEY = "YoYlUPIGqS-6hQA0AgAp7oGoTUy0CzhzaUz26qZ7AEA"
 
 [userenv.production]
+ADMIN_REQUIRE_AAL2 = "true"
 
 [userenv.development]
 

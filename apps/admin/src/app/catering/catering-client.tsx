@@ -848,7 +848,8 @@ function BookingsTab({
     <div className="space-y-6">
       <p className="text-sm text-muted-foreground">
         Commission: referred = {commissionFacts.vendorReferred}%, marketplace repeat ={' '}
-        {commissionFacts.marketplaceRepeat}%, marketplace first = {commissionFacts.marketplaceFirst}
+        {commissionFacts.marketplaceRepeat}% repeat-order commission, marketplace first ={' '}
+        {commissionFacts.marketplaceFirst}
         %.
       </p>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

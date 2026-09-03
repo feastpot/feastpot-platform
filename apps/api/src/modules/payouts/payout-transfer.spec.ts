@@ -290,4 +290,42 @@ describe('PayoutsService.executeTransfer', () => {
 
     expect(mockStripe.createTransfer).not.toHaveBeenCalled();
   });
+
+  it('re-checks payoutsEnabled under the transfer lock and blocks a newly disabled vendor', async () => {
+    mockPrisma.payout.findUnique.mockResolvedValueOnce(mockPayout).mockResolvedValueOnce({
+      ...mockPayout,
+      vendor: { ...mockPayout.vendor, payoutsEnabled: false },
+    });
+
+    await expect(service.executeTransfer(PAYOUT_ID)).resolves.toBeUndefined();
+
+    expect(mockStripe.createTransfer).not.toHaveBeenCalled();
+    expect(mockPrisma.payout.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: PayoutStatus.failed,
+          failureReason: expect.stringContaining('payouts are disabled'),
+        }),
+      }),
+    );
+  });
+
+  it('re-checks the Stripe account under the transfer lock and blocks a removed account', async () => {
+    mockPrisma.payout.findUnique.mockResolvedValueOnce(mockPayout).mockResolvedValueOnce({
+      ...mockPayout,
+      vendor: { ...mockPayout.vendor, stripeAccountId: null },
+    });
+
+    await expect(service.executeTransfer(PAYOUT_ID)).resolves.toBeUndefined();
+
+    expect(mockStripe.createTransfer).not.toHaveBeenCalled();
+    expect(mockPrisma.payout.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: PayoutStatus.failed,
+          failureReason: expect.stringContaining('no Stripe Connect account'),
+        }),
+      }),
+    );
+  });
 });

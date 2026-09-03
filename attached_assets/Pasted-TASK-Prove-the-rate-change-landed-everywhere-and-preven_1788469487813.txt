@@ -1,0 +1,69 @@
+TASK: Prove the rate change landed everywhere and prevent
+it drifting apart again.
+
+PART A: ONE RATE, EVERY SURFACE
+Read each rate from all of these and assert agreement:
+  rate engine (source of truth)
+  API commission calculation
+  public /become-a-vendor
+  the earnings projection calculator
+  /help FAQ
+  vendor terms Annex A
+  vendor terms Annex C summary
+  vendor portal /earnings
+  vendor portal /terms Rate Schedule panel
+  vendor portal onboarding acceptance screen
+  admin /settings
+  admin /commission-rates
+  payout statement PDF
+  payout statement CSV
+  payout email template
+Any disagreement fails the build and NAMES BOTH SOURCES.
+This is the test that would have caught the Settings versus
+engine contradiction.
+
+PART B: ORDER LIFECYCLE PER SOURCE
+End to end, checkout to payout:
+  MARKETPLACE FIRST: 8%, not charged on delivery, service
+    fee, tips or discounts; Stripe amount matches; statement
+    shows 8%
+  MARKETPLACE REPEAT: 5%; a first order with a DIFFERENT
+    vendor is still 8%
+  VENDOR REFERRED: 0%, vendor receives full food subtotal,
+    Stripe handles zero fee without error, statement shows 0%
+    without rendering broken, cross-vendor case (arrived via
+    A's link, ordered from B) is MARKETPLACE for B
+  CATERING: 10%; a vendor-referred catering client uses the
+    referred rate
+
+PART C: EFFECTIVE DATING
+  order before the date, delivered after -> old rate
+  order after -> new rate
+  refund on a pre-change order -> old rate
+  chargeback on a pre-change order -> old rate
+  batch spanning the boundary -> both rates, correctly
+    attributed per order
+  a scheduled not-yet-effective rate cannot be used -> throws
+
+PART D: THE TWO FIVE PERCENTS
+  repeat order (5% commission) for a non-member (5% service
+    fee capped £2.99): vendor payout reduced by commission
+    only, customer pays service fee only
+  FeastPass member on a repeat order: service fee waived,
+    commission unchanged, VENDOR PAYOUT IDENTICAL to the
+    non-member case
+This last assertion matters most: a customer-side waiver must
+never touch vendor earnings.
+
+PART E: REGRESSION GUARD
+  the CI grep for rate literals passes
+  a deliberately reintroduced literal fails the build
+  a deliberately changed rate on ONE surface fails Part A and
+    names the offending surface
+
+ACCEPTANCE CRITERIA
+- All fifteen surfaces agree.
+- All four source types complete end to end.
+- The effective-date boundary behaves correctly both ways.
+- FeastPass never alters vendor payout.
+- Deliberate drift fails the build.

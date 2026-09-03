@@ -1,4 +1,5 @@
 import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
+import { COMMISSION_RATES } from '@feastpot/config/commission-rates';
 import { redirect } from 'next/navigation';
 
 import { PortalShell } from '@/components/layout/portal-shell';
@@ -34,7 +35,7 @@ const SECTIONS: FaqSection[] = [
     title: 'Getting paid',
     body: [
       `Payouts run weekly. We close the books at midnight Sunday and create a single Stripe Transfer the following ${PLATFORM_FACTS.payouts.day}. Stripe typically takes 3-5 working days to settle the transfer into your bank account.`,
-      `Commission is charged on the food subtotal only - delivery fees are passed through in full and are not commissioned. New kitchens start at ${PLATFORM_FACTS.commission.marketplaceFirst}% commission. Once you have a track record on the platform the rate reduces to ${PLATFORM_FACTS.commission.marketplaceRepeat}%. Your current rate is shown on the Payouts page.`,
+      `Commission is charged on the food subtotal only - delivery fees are passed through in full and are not commissioned. New kitchens start at ${COMMISSION_RATES.marketplaceFirst.percent}% first-order marketplace commission. Once you have a track record on the platform the rate reduces to ${COMMISSION_RATES.marketplaceRepeat.percent}% repeat-order commission. Your current rate is shown on the Payouts page.`,
       'Your earnings land in the bank account connected to your Stripe Connect profile. If you have not connected Stripe yet, open the Payouts section and follow the onboarding link.',
       'Need to query a payout? Email vendors@feastpot.co.uk with your kitchen name and the week in question. Include any order numbers you think are missing.',
     ],

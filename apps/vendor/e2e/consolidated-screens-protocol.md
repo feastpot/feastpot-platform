@@ -154,7 +154,7 @@ visible on the system. Do **not** explain the screen layout.
 - **Pass:** participant correctly says 0% commission (or "no commission") and
   can point to where they read it, within 20 seconds
 - **Failure modes to note:** participant guesses rather than reading; participant
-  names the marketplace rate (12% or 10%) instead; participant says they cannot
+  names the marketplace rate (8% or 5%) instead; participant says they cannot
   find the information
 
 | Observation                  | Notes |
@@ -177,9 +177,9 @@ visible on the system. Do **not** explain the screen layout.
 > found you on the marketplace."
 
 - **Target:** under 30 seconds
-- **Pass:** participant correctly identifies 12% as the first-time marketplace
+- **Pass:** participant correctly identifies 8% as the first-time marketplace
   commission rate, unaided, within 30 seconds
-- **Failure modes to note:** participant reads the repeat rate (10%) instead;
+- **Failure modes to note:** participant reads the repeat rate (5%) instead;
   participant reads the vendor-referred rate (0%) instead; participant cannot
   find the rate schedule at all
 
@@ -332,8 +332,8 @@ only" does **not** pass.
 > "If you get a repeat marketplace order and a first-time marketplace order on
 > the same day, will they both cost you the same commission rate?"
 
-**Expected (any form):** no -- repeat orders cost 10%, first-time orders cost
-12%. A participant who says "yes, the same" or cannot name both rates does **not**
+**Expected (any form):** no -- repeat orders cost 5%, first-time orders cost
+8%. A participant who says "yes, the same" or cannot name both rates does **not**
 pass.
 
 | Answer (verbatim) | Pass / Fail |

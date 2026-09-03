@@ -11,7 +11,7 @@
 
 import { computeCommission } from '../orders/orders.service';
 
-const BPS = 1200; // 12% , the default commission rate
+const BPS = 800; // Current first-order marketplace rate.
 
 describe('computeCommission , discount funding source', () => {
   const SUBTOTAL = 10_000; // £100
@@ -22,8 +22,8 @@ describe('computeCommission , discount funding source', () => {
     it('uses the FULL pre-discount subtotal as the commission basis', () => {
       const { commissionPence } = computeCommission(SUBTOTAL, DELIVERY, DISCOUNT, 'PLATFORM', BPS);
       // Basis = 10_000 (full subtotal, vendor not penalised)
-      // Commission = round(10_000 * 1200 / 10_000) = 1_200
-      expect(commissionPence).toBe(1_200);
+      // Commission = round(10_000 * 800 / 10_000) = 800
+      expect(commissionPence).toBe(800);
     });
 
     it('pays the vendor the full subtotal + delivery minus commission only (Feastpot absorbs the discount)', () => {
@@ -35,9 +35,9 @@ describe('computeCommission , discount funding source', () => {
         BPS,
       );
       // Payout = subtotal + delivery − vendorDeduction − commission
-      //        = 10_000 + 0 − 0 − 1_200 = 8_800
+      //        = 10_000 + 0 − 0 − 800 = 9_200
       // The £20 discount is NOT deducted from the vendor , Feastpot eats it.
-      expect(vendorPayoutPence).toBe(8_800);
+      expect(vendorPayoutPence).toBe(9_200);
     });
 
     it('produces the same result whether discount is 0 or set to PLATFORM', () => {
@@ -58,15 +58,15 @@ describe('computeCommission , discount funding source', () => {
     it('uses the DISCOUNTED subtotal as the commission basis', () => {
       const { commissionPence } = computeCommission(SUBTOTAL, DELIVERY, DISCOUNT, 'VENDOR', BPS);
       // Basis = 10_000 − 2_000 = 8_000 (vendor's real food revenue after their promo)
-      // Commission = round(8_000 * 1200 / 10_000) = 960
-      expect(commissionPence).toBe(960);
+      // Commission = round(8_000 * 800 / 10_000) = 640
+      expect(commissionPence).toBe(640);
     });
 
     it('deducts the discount from the vendor payout (vendor bears the cost)', () => {
       const { vendorPayoutPence } = computeCommission(SUBTOTAL, DELIVERY, DISCOUNT, 'VENDOR', BPS);
       // Payout = subtotal + delivery − discount (vendor deduction) − commission
-      //        = 10_000 + 0 − 2_000 − 960 = 7_040
-      expect(vendorPayoutPence).toBe(7_040);
+      //        = 10_000 + 0 − 2_000 − 640 = 7_360
+      expect(vendorPayoutPence).toBe(7_360);
     });
 
     it('vendor pays more commission on a platform-funded code (smaller basis reduces their fee)', () => {
@@ -117,8 +117,8 @@ describe('computeCommission , discount funding source', () => {
       const delivery = 500; // £5
       const { vendorPayoutPence } = computeCommission(SUBTOTAL, delivery, 0, 'PLATFORM', BPS);
       // No discount: payout = subtotal + delivery − commission
-      // commission = round(10_000 * 1200 / 10_000) = 1_200
-      expect(vendorPayoutPence).toBe(SUBTOTAL + delivery - 1_200);
+      // commission = round(10_000 * 800 / 10_000) = 800
+      expect(vendorPayoutPence).toBe(SUBTOTAL + delivery - 800);
     });
   });
 });

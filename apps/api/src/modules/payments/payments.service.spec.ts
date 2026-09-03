@@ -57,7 +57,8 @@ function makeQueue() {
 
 describe('computeRefundSplit', () => {
   // £40 food + £2.49 delivery + £2.00 service fee = £44.49 total.
-  // commission = 12% of £40 = £4.80; vendorPayoutPence = 4000 + 249 − 480 = 3769.
+  // Historical pre-cutover order: commission = 12% of £40 = £4.80.
+  // Refunds must preserve its stored economics: vendorPayoutPence = 4000 + 249 − 480 = 3769.
   const econ = {
     subtotalPence: 4000,
     serviceFeePence: 200,
@@ -84,6 +85,22 @@ describe('computeRefundSplit', () => {
     expect(split.refundFraction).toBeCloseTo(0.5);
     expect(split.vendorClawbackPence).toBe(1885);
     expect(split.feastpotAbsorbedPence).toBe(2000 - 1885);
+  });
+
+  it('uses the original stored commission when refunding an order from an older rate window', () => {
+    const historicalEconomics = {
+      ...econ,
+      // This is the immutable commission recorded when the order was placed.
+      // Current rate configuration must never be consulted during a refund.
+      commissionPence: 320,
+    };
+
+    const split = computeRefundSplit(2000, historicalEconomics, false);
+
+    expect(split.refundFraction).toBeCloseTo(0.5);
+    expect(split.commissionRefundedPence).toBe(160);
+    expect(split.vendorClawbackPence).toBe(1965);
+    expect(split.feastpotAbsorbedPence).toBe(35);
   });
 
   it('caps the refund fraction at 100% of subtotal', () => {

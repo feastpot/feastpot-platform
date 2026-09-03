@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
+import { COMMISSION_RATES } from '@feastpot/config/commission-rates';
 
 import { LegalTrustStrip } from '@/components/legal/legal-shell';
 
@@ -110,7 +111,7 @@ const SECTIONS: FaqSection[] = [
       },
       {
         question: 'When do I get paid?',
-        answer: `Vendor payouts run ${PLATFORM_FACTS.payouts.frequency}, every ${PLATFORM_FACTS.payouts.day}, via Stripe Connect. Feastpot deducts a ${PLATFORM_FACTS.commission.marketplaceFirst}% commission from each order subtotal.`,
+        answer: `Vendor payouts run ${PLATFORM_FACTS.payouts.frequency}, every ${PLATFORM_FACTS.payouts.day}, via Stripe Connect. Feastpot deducts a ${COMMISSION_RATES.marketplaceFirst.percent}% first-order marketplace commission from each order subtotal.`,
       },
       {
         // D3 fix: list now matches PLATFORM_FACTS.vendorRequirements including FHRS 3+.

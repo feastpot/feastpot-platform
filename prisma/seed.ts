@@ -42,6 +42,7 @@ import {
   VendorStatus,
   VerificationState,
 } from '@prisma/client';
+import { COMMISSION_RATES } from '../packages/config/src/commission-rates';
 
 // ItemCategory is a plain VARCHAR column in the schema (not a Prisma enum).
 // Define values locally so the seed remains type-safe without requiring
@@ -434,7 +435,7 @@ async function main() {
       fsaRatingDate: new Date('2025-01-10T00:00:00Z'),
       rating: 4.8,
       ratingCount: 24,
-      commissionBps: 1200,
+      commissionBps: Math.round(COMMISSION_RATES.marketplaceFirst.percent * 100),
       payoutsEnabled: true,
       approvedAt: new Date('2025-01-15T10:00:00Z'),
       foundingAllowanceUsedPence: 45000,
@@ -461,7 +462,7 @@ async function main() {
       fsaRatingDate: new Date('2025-01-28T00:00:00Z'),
       rating: 4.5,
       ratingCount: 11,
-      commissionBps: 1200,
+      commissionBps: Math.round(COMMISSION_RATES.marketplaceFirst.percent * 100),
       payoutsEnabled: true,
       approvedAt: new Date('2025-02-01T10:00:00Z'),
     },
@@ -1996,7 +1997,7 @@ async function main() {
         fsaRatingDate: new Date('2026-02-15T00:00:00Z'),
         rating: spec.rating,
         ratingCount: spec.ratingCount,
-        commissionBps: 1200,
+        commissionBps: Math.round(COMMISSION_RATES.marketplaceFirst.percent * 100),
         payoutsEnabled: true,
         approvedAt: new Date('2026-03-01T10:00:00Z'),
       },

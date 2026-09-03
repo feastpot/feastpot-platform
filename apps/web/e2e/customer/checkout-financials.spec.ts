@@ -1,6 +1,8 @@
 import type { Page, Route } from '@playwright/test';
 
 import { expect, test } from './helpers';
+import { mockSession, mockSignin } from '../auth/helpers/supabase-mock';
+import { SB } from '../auth/helpers/selectors';
 
 test.skip(
   !process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
@@ -73,27 +75,17 @@ async function prepareCheckout(
   orderHandler: (route: Route) => Promise<void>,
   discountCode?: string,
 ): Promise<void> {
-  const supabaseRef = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL!).hostname.split('.')[0]!;
-  await page.addInitScript(
-    ({ ref, discount, vendorId, menuItemId, firstVisiblePricePence }) => {
-      localStorage.setItem(
-        `sb-${ref}-auth-token`,
-        JSON.stringify({
-          access_token: 'customer-e2e-access-token',
-          refresh_token: 'customer-e2e-refresh-token',
-          expires_at: Math.floor(Date.now() / 1000) + 3600,
-          expires_in: 3600,
-          token_type: 'bearer',
-          user: {
-            id: '44444444-4444-4444-8444-444444444444',
-            aud: 'authenticated',
-            role: 'authenticated',
-            email: 'checkout@example.test',
-            app_metadata: { role: 'customer' },
-            user_metadata: {},
-          },
-        }),
-      );
+  const session = mockSession('checkout@example.test');
+  await mockSignin(page, session);
+  await page.route(SB.user, (route) => route.fulfill({ json: session.user }));
+  await page.goto('/sign-in?next=/checkout');
+  await page.locator('#signin-email').fill('checkout@example.test');
+  await page.locator('#signin-password').fill('Password1!');
+  await page.getByRole('button', { name: /sign in/i }).click();
+  await page.waitForURL(/\/vendors(?:[/?#]|$)/, { timeout: 20_000 });
+
+  await page.evaluate(
+    ({ discount, vendorId, menuItemId, firstVisiblePricePence }) => {
       localStorage.setItem(
         'feastpot.basket.v1',
         JSON.stringify({
@@ -116,7 +108,6 @@ async function prepareCheckout(
       if (discount) sessionStorage.setItem('feastpot.discount.v1', discount);
     },
     {
-      ref: supabaseRef,
       discount: discountCode,
       vendorId,
       menuItemId,
@@ -195,7 +186,7 @@ async function prepareCheckout(
   });
 
   await page.goto('/checkout');
-  await expect(page.getByRole('heading', { name: 'Checkout', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Checkout', exact: true }).first()).toBeVisible();
   await expect(page.getByText('£20.00').first()).toBeVisible();
   await page.locator(`input[name="address"][value="${addressId}"]`).check();
   const slotSection = page.locator('section').filter({ hasText: 'When do you need the food?' });

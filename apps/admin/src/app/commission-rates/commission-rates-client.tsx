@@ -135,9 +135,13 @@ export function CommissionRatesClient() {
     return <div className="p-8 text-red-600">{error}</div>;
   }
 
-  // Active rates are those without effectiveTo.
-  const active = rates.filter((r) => !r.effectiveTo);
-  const history = rates.filter((r) => r.effectiveTo);
+  const now = new Date();
+  // A row is scheduled only while its open effective window has not started.
+  const scheduled = rates.filter((r) => !r.effectiveTo && new Date(r.effectiveFrom) > now);
+  const active = rates.filter(
+    (r) => new Date(r.effectiveFrom) <= now && (!r.effectiveTo || new Date(r.effectiveTo) > now),
+  );
+  const history = rates.filter((r) => r.effectiveTo && new Date(r.effectiveTo) <= now);
 
   return (
     <div className="mx-auto max-w-4xl space-y-8 p-6">
@@ -249,33 +253,22 @@ export function CommissionRatesClient() {
         </form>
       )}
 
+      {/* ─── Scheduled rates ──────────────────────────────────────────────── */}
+      {scheduled.length > 0 && (
+        <div className="rounded-xl border bg-white shadow-sm">
+          <div className="border-b px-5 py-3">
+            <h2 className="text-sm font-semibold text-blue-700">Scheduled rates</h2>
+          </div>
+          <RateTable rates={scheduled} />
+        </div>
+      )}
+
       {/* ─── Active rates ─────────────────────────────────────────────────── */}
       <div className="rounded-xl border bg-white shadow-sm">
         <div className="border-b px-5 py-3">
           <h2 className="text-sm font-semibold">Active rates</h2>
         </div>
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 text-xs uppercase text-gray-500">
-            <tr>
-              <th className="px-4 py-2 text-left">Segment</th>
-              <th className="px-4 py-2 text-right">Rate</th>
-              <th className="px-4 py-2 text-left">Effective from</th>
-              <th className="px-4 py-2 text-left">Note</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {active.map((r) => (
-              <tr key={r.id} className="hover:bg-gray-50">
-                <td className="px-4 py-3 font-medium">{srcLabel(r.source, r.isFirstOrder)}</td>
-                <td className="px-4 py-3 text-right font-mono">{r.ratePercent}%</td>
-                <td className="px-4 py-3 text-gray-500">
-                  {new Date(r.effectiveFrom).toLocaleDateString('en-GB')}
-                </td>
-                <td className="px-4 py-3 text-gray-400">{r.note ?? '--'}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <RateTable rates={active} />
       </div>
 
       {/* ─── History ────────────────────────────────────────────────────────── */}
@@ -320,5 +313,32 @@ function KpiCard({ label, value }: { label: string; value: string }) {
       <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">{label}</p>
       <p className="mt-2 text-2xl font-bold text-gray-900">{value}</p>
     </div>
+  );
+}
+
+function RateTable({ rates }: { rates: CommissionRate[] }) {
+  return (
+    <table className="w-full text-sm">
+      <thead className="bg-gray-50 text-xs uppercase text-gray-500">
+        <tr>
+          <th className="px-4 py-2 text-left">Segment</th>
+          <th className="px-4 py-2 text-right">Rate</th>
+          <th className="px-4 py-2 text-left">Effective from</th>
+          <th className="px-4 py-2 text-left">Note</th>
+        </tr>
+      </thead>
+      <tbody className="divide-y">
+        {rates.map((r) => (
+          <tr key={r.id} className="hover:bg-gray-50">
+            <td className="px-4 py-3 font-medium">{srcLabel(r.source, r.isFirstOrder)}</td>
+            <td className="px-4 py-3 text-right font-mono">{r.ratePercent}%</td>
+            <td className="px-4 py-3 text-gray-500">
+              {new Date(r.effectiveFrom).toLocaleDateString('en-GB')}
+            </td>
+            <td className="px-4 py-3 text-gray-400">{r.note ?? '--'}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }

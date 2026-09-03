@@ -25,15 +25,6 @@ the draft, and confirm the funds settle penny-for-penny in Stripe before you
 trust the Monday 02:00 cron. The runbook is at `docs/runbooks/payout-dry-run.md`.
 This is hands-on-keyboard work that can't be done from the dev environment.
 
-**The service fee is being paid to vendors, not kept.** Today the 5% customer
-service fee flows straight into the vendor payout: commission is charged on food
-subtotal only, and `vendorPayout = total − commission` where `total` already
-includes the service fee (`orders.service.ts:90-104`). So every order quietly
-hands the platform's own fee back to the vendor. If the intent is for the service
-fee to be platform revenue, the payout math needs to subtract it - and either way
-the live `SERVICE_FEE_BPS` value (currently 500 = 5%) should be confirmed before
-launch. This is a revenue leak, not cosmetics.
-
 ---
 
 ## 🟠 Do before opening to volume
@@ -146,3 +137,21 @@ surgically editing a single order or user in an emergency.
 One revenue decision (the service fee), one hands-on payout dry-run, and a
 finance surface for the chargebacks feature stand between you and a confident
 launch. Everything after that is polish you can ship while the lights are on.
+
+## Payout export accounting definitions
+
+Payout detail, payout-scoped CSV, PDF, email and persisted batch totals consume
+the same immutable statement snapshot. Columns have these meanings:
+
+- `gross_pence`: the customer-facing order or accepted catering total.
+- `subtotal_pence`: the food subtotal, or the accepted event total for catering.
+- `commission_pence`: commission actually stored when the order or booking was created.
+- `effective_commission_rate_percent`: the persisted rate applied to that entry.
+- `service_fees_pence`: the customer service fee; it is not deducted from vendor payout.
+- `refunds_pence`: vendor-funded refund deductions excluding reconciled lost chargebacks.
+- `chargebacks_pence`: vendor deduction from reconciled lost chargebacks.
+- `adjustments_pence`: the reconciliation difference required to bridge gross and net.
+- `net_to_vendor_pence`: the statement entry amount after deductions.
+
+For historical data that cannot provide a value reliably, exports say
+`not available`. An unavailable accounting value must never be represented as zero.

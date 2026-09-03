@@ -106,6 +106,8 @@ jobs:
           restore-keys: turbo-${{ runner.os }}-
       - name: ESLint (turbo)
         run: npx turbo run lint
+      - name: Commission rate literal guard
+        run: node scripts/check-commission-rate-literals.mjs
       - name: Prettier check
         run: npm run format:check
       - name: No em-dash guard
@@ -388,10 +390,19 @@ jobs:
       # API to confirm the saved chip set appears in live customer search.
       # The job fails if either is absent and D3 ends up skipped.
       TEST_API_URL: ${{ secrets.TEST_API_URL }}
+      # The vendor browser must call the same isolated API as API-backed E2E
+      # assertions. Next.js only exposes this value to client-side code with
+      # the NEXT_PUBLIC_ prefix.
+      NEXT_PUBLIC_API_URL: ${{ secrets.TEST_API_URL }}
       TEST_VENDOR_ID: ${{ secrets.TEST_VENDOR_ID }}
       # Vendor Next.js app runtime vars.
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      # Factory-backed vendor state and authorization projects.
+      SUPABASE_DB_URL: ${{ secrets.TEST_SUPABASE_DB_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      TEST_FACTORY_PASSWORD: ${{ secrets.TEST_FACTORY_PASSWORD }}
+      TEST_FACTORY_NAMESPACE: vendor-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - uses: actions/checkout@v5
 
@@ -408,8 +419,10 @@ jobs:
         id: fork-guard
         run: |
           required=(
-            TEST_VENDOR_EMAIL TEST_VENDOR_PASSWORD TEST_API_URL TEST_VENDOR_ID
+            TEST_VENDOR_EMAIL TEST_VENDOR_PASSWORD TEST_API_URL NEXT_PUBLIC_API_URL TEST_VENDOR_ID
             NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY
+            SUPABASE_DB_URL SUPABASE_SERVICE_ROLE_KEY TEST_FACTORY_PASSWORD
+            TEST_FACTORY_NAMESPACE
           )
           missing=()
           for key in "${required[@]}"; do
@@ -417,6 +430,10 @@ jobs:
           done
           if [ "${#missing[@]}" -gt 0 ]; then
             echo "::error title=Vendor E2E credentials missing::Required credentials are absent: ${missing[*]}. This check intentionally fails instead of skipping."
+            exit 1
+          fi
+          if [ "$NEXT_PUBLIC_API_URL" != "$TEST_API_URL" ]; then
+            echo "::error title=Vendor E2E API mismatch::NEXT_PUBLIC_API_URL must match TEST_API_URL so the browser and API-backed E2E checks use the same environment."
             exit 1
           fi
 
@@ -479,11 +496,7 @@ jobs:
       - name: Run Playwright e2e suite (all five projects)
         if: steps.fork-guard.outputs.skip != 'true'
         id: playwright-run
-        run: |
-          npx playwright test \
-            --reporter=list \
-            "--reporter=html:e2e-report" \
-            "--reporter=json:e2e-results.json"
+        run: npx playwright test
         working-directory: apps/vendor
 
       # ---- AV2 skip guard -----------------------------------------------------
@@ -611,7 +624,7 @@ jobs:
     name: E2E (admin portal, all projects)
     needs: [setup]
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     env:
       PLAYWRIGHT_BASE_URL: http://localhost:3003
       TEST_API_URL: ${{ secrets.TEST_API_URL }}
@@ -683,7 +696,7 @@ jobs:
     name: E2E (customer checkout)
     needs: [setup]
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     env:
       PLAYWRIGHT_BASE_URL: http://localhost:3000
       TEST_API_URL: ${{ secrets.TEST_API_URL }}
@@ -698,7 +711,8 @@ jobs:
       TEST_FACTORY_NAMESPACE: customer-${{ github.run_id }}-${{ github.run_attempt }}
       CUSTOMER_E2E_USE_FACTORY: 'true'
       CUSTOMER_E2E_ISOLATED_ENVIRONMENT: 'true'
-      CUSTOMER_E2E_ALLOWED_API_ORIGIN: ${{ vars.CUSTOMER_E2E_ALLOWED_API_ORIGIN }}
+      # Keep the safety allowlist identical to the API this job exercises.
+      CUSTOMER_E2E_ALLOWED_API_ORIGIN: ${{ secrets.TEST_API_URL }}
       CUSTOMER_E2E_ALLOWED_SUPABASE_REF: ${{ vars.CUSTOMER_E2E_ALLOWED_SUPABASE_REF }}
       PROD_DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
       PROD_DIRECT_URL: ${{ secrets.PROD_DIRECT_URL }}

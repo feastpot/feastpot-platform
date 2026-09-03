@@ -1,0 +1,58 @@
+TASK: Remove hardcoded rates from payout statements and
+unify the statement model.
+
+THE DEFECT
+payouts.service.ts:1391-1395 computes a "saved versus"
+comparison against a hardcoded flat 12%. With the new rates
+this is actively wrong on a document a vendor uses for their
+accounts.
+
+REQUIRED
+
+1. Remove the 12% literal. If a savings comparison is kept at
+   all, compute it from the rates actually applied. Consider
+   dropping it: with source-based rates, "saved versus a flat
+   rate" is a marketing frame on a financial document. A
+   statement showing the effective rate paid is cleaner.
+
+2. ONE STATEMENT MODEL consumed by batch totals, order detail,
+   CSV, PDF and the payout email. No format computes its own
+   figures.
+
+3. Every statement shows, per order: source (marketplace
+   first, marketplace repeat, vendor referred), the rate
+   applied, commission in pence. And in summary: gross sales,
+   total commission, effective blended rate computed from the
+   batch, refunds, chargebacks, adjustments, net payout.
+
+4. Fix the detail inconsistency: batch creation includes
+   delivered AND partially refunded orders (:849-860) while
+   listPayoutOrders filters delivered only (:1118-1123).
+
+5. Resolve the CSV contradiction: the comment at :315-323 and
+   docs/OUTSTANDING.md describe fees and adjustments as
+   placeholder zeros while :103-135 derives real values.
+   Define the accounting meaning of every column and update
+   the documentation.
+
+6. Any genuinely unavailable value renders "not available",
+   never 0.00.
+
+WHAT VENDORS WILL SEE
+Rates have fallen, so the first statements after the change
+show higher net payouts. Say so plainly in the payout email:
+name the new rates and what they mean for earnings.
+
+TESTS
+Build a batch for each and assert PDF, CSV and detail
+reconcile: all-first-order (8%), all-repeat (5%),
+all-referred (0%), mixed source with correct blended rate,
+a batch spanning the effective date where earlier orders keep
+old rates, a batch with a partial refund, a batch with a
+catering booking at 10%, a batch netting to zero.
+
+ACCEPTANCE CRITERIA
+- No hardcoded rate in statement generation.
+- Effective rate per order shown and correct.
+- All formats reconcile to the penny.
+- A batch spanning the effective date shows both rates.

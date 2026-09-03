@@ -2,8 +2,7 @@
  * Rate Schedule consistency tests (LEGAL-505).
  *
  * Acceptance criteria:
- *   1. Grep the repo for "12%" and find zero hardcoded instances outside
- *      the seed file and this test file.
+ *   1. Current commercial surfaces do not hardcode commission percentages.
  *   2. The commission service throws BadRequestException if it resolves a
  *      PLANNED RateScheduleEntry.
  *   3. A FeastPass customer's order produces an identical vendorPayoutPence
@@ -11,8 +10,10 @@
  *      vendor payouts).
  */
 
-import { readFileSync } from 'fs';
-import { join } from 'path';
+import { execFileSync } from 'child_process';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
+import { tmpdir } from 'os';
+import { dirname, join } from 'path';
 
 import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
 import { BadRequestException } from '@nestjs/common';
@@ -26,6 +27,170 @@ const REPO_ROOT = join(__dirname, '..', '..', '..');
 function readFile(relPath: string): string {
   return readFileSync(join(REPO_ROOT, relPath), 'utf-8');
 }
+
+type RateSurface = {
+  name: string;
+  file: string;
+  // These are wiring contracts, not displayed-text snapshots. Each points to
+  // the canonical config or the endpoint/model that supplies the live schedule.
+  required: string[];
+};
+
+const RATE_SURFACES: RateSurface[] = [
+  {
+    name: 'rate engine (source of truth)',
+    file: 'packages/config/src/commission-rates.ts',
+    required: [
+      'marketplaceFirst:',
+      'percent: 8',
+      'marketplaceRepeat:',
+      'percent: 5',
+      'vendorReferred:',
+      'percent: 0',
+      'catering:',
+      'percent: 10',
+    ],
+  },
+  {
+    name: 'API commission calculation',
+    file: 'apps/api/src/commission/commission.service.ts',
+    required: ['commissionRate.findFirst', 'rateScheduleEntry.findFirst', 'RateStatus.LIVE'],
+  },
+  {
+    name: 'public /become-a-vendor',
+    file: 'apps/web/src/app/become-a-vendor/page.tsx',
+    required: ["apiRequest<RateRow[]>('/terms/rate-schedule')", 'COMMISSION_RATES'],
+  },
+  {
+    name: 'earnings projection calculator',
+    file: 'apps/web/src/app/become-a-vendor/earnings-calculator.tsx',
+    required: ['RATE_KEYS.marketplaceFirst', "rate.status === 'LIVE'", 'COMMISSION_RATES'],
+  },
+  { name: '/help FAQ', file: 'apps/web/src/app/help/page.tsx', required: ['COMMISSION_RATES'] },
+  {
+    name: 'vendor terms Annex A',
+    file: 'apps/web/src/app/legal/vendor-terms/legal-layers.tsx',
+    required: ['/v1/terms/rate-schedule', '<RateCard rates={rates} />'],
+  },
+  {
+    name: 'vendor terms Annex C summary',
+    file: 'apps/web/src/app/legal/vendor-terms/legal-layers.tsx',
+    required: ['/v1/terms/rate-schedule', '<KeyTermsSummary rates={rates} />'],
+  },
+  {
+    name: 'vendor portal /earnings',
+    file: 'apps/vendor/src/app/earnings/earnings-client.tsx',
+    required: ['/v1/terms/rate-schedule', 'COMMISSION_RATES'],
+  },
+  {
+    name: 'vendor portal /terms Rate Schedule panel',
+    file: 'apps/vendor/src/app/terms/terms-client.tsx',
+    required: ["apiRequest<RateRow[]>('/terms/rate-schedule')", '<RateCard rates={rates}'],
+  },
+  {
+    name: 'vendor portal onboarding acceptance screen',
+    file: 'apps/vendor/src/app/onboarding/terms/terms-acceptance-client.tsx',
+    required: ["apiRequest<RateRow[]>('/terms/rate-schedule')", '<RateCard rates={rates}'],
+  },
+  {
+    name: 'admin /settings',
+    file: 'apps/admin/src/app/settings/settings-client.tsx',
+    required: ['/v1/terms/rate-schedule', '<RateCard rates={rates}'],
+  },
+  {
+    name: 'admin /commission-rates',
+    file: 'apps/admin/src/app/commission-rates/commission-rates-client.tsx',
+    required: ['/v1/admin/commission-rates'],
+  },
+  {
+    name: 'payout statement PDF',
+    file: 'apps/api/src/modules/payouts/payouts.service.ts',
+    required: ['buildPayoutStatementPdf(statement)', 'effectiveCommissionRatePercent'],
+  },
+  {
+    name: 'payout statement CSV',
+    file: 'apps/api/src/modules/payouts/payouts.service.ts',
+    required: ["'effective_commission_rate_percent'", 'effectiveCommissionRatePercent ??'],
+  },
+  {
+    name: 'payout email template',
+    file: 'apps/api/src/modules/notifications/templates/index.ts',
+    required: ['appliedCommissionRates', 'effectiveCommissionRatePercent'],
+  },
+];
+
+function assertRateSurfaceWiring(root: string, surfaces = RATE_SURFACES): void {
+  for (const surface of surfaces) {
+    const content = readFileSync(join(root, surface.file), 'utf8');
+    for (const required of surface.required) {
+      if (!content.includes(required)) {
+        throw new Error(
+          `Rate surface drift: ${surface.name} (${surface.file}) is missing "${required}".`,
+        );
+      }
+    }
+  }
+}
+
+describe('rate-surface manifest wiring', () => {
+  it.each(RATE_SURFACES)(
+    '$name is wired to the canonical configuration or live schedule',
+    (surface) => {
+      // A failure reports both the human-facing surface and its offending source file.
+      expect(() => assertRateSurfaceWiring(REPO_ROOT, [surface])).not.toThrow();
+    },
+  );
+
+  it('reports the deliberately drifted surface and source file without editing the repository', () => {
+    const tempRoot = mkdtempSync(join(tmpdir(), 'feastpot-rate-surface-'));
+    const offender = 'apps/admin/src/app/settings/settings-client.tsx';
+    try {
+      for (const file of new Set(RATE_SURFACES.map((surface) => surface.file))) {
+        const target = join(tempRoot, file);
+        mkdirSync(dirname(target), { recursive: true });
+        writeFileSync(target, readFile(file));
+      }
+      writeFileSync(
+        join(tempRoot, offender),
+        readFile(offender).replace('/v1/terms/rate-schedule', '/v1/terms/not-the-rate-schedule'),
+      );
+
+      expect(() => assertRateSurfaceWiring(tempRoot)).toThrow(
+        `admin /settings (${offender}) is missing "/v1/terms/rate-schedule"`,
+      );
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('fails the literal-rate guard and identifies a deliberately introduced temporary source file', () => {
+    const tempRoot = mkdtempSync(join(tmpdir(), 'feastpot-rate-literal-'));
+    const offendingFile = 'apps/web/src/introduced-commission-literal.ts';
+    try {
+      const target = join(tempRoot, offendingFile);
+      mkdirSync(dirname(target), { recursive: true });
+      writeFileSync(target, 'const label = "commission 8%";\n');
+
+      let stderr = '';
+      try {
+        execFileSync(
+          process.execPath,
+          [join(REPO_ROOT, 'scripts/check-commission-rate-literals.mjs'), `--root=${tempRoot}`],
+          {
+            encoding: 'utf8',
+            stdio: ['ignore', 'pipe', 'pipe'],
+          },
+        );
+        fail('Expected the commission-rate literal guard to fail');
+      } catch (error) {
+        stderr = (error as { stderr?: string }).stderr ?? '';
+      }
+      expect(stderr).toContain(`${offendingFile}:1: const label = "commission 8%";`);
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+});
 
 // ── 1. No hardcoded "12%" outside seed and test files ────────────────────────
 
@@ -179,8 +344,8 @@ describe('FeastPass payout equality', () => {
   const deliveryPence = 500; // £5.00
   const discountPence = 0;
   const rawServiceFee = 299; // £2.99 (5% of £60 example is less, use cap)
-  const commissionPct = 12; // 12% of food subtotal
-  const commissionPence = Math.round((subtotalPence * commissionPct) / 100); // 1200
+  const commissionPct = PLATFORM_FACTS.commission.marketplaceFirst;
+  const commissionPence = Math.round((subtotalPence * commissionPct) / 100);
 
   function calcVendorPayout(serviceFeePence: number): number {
     const totalPence = subtotalPence + deliveryPence + serviceFeePence - discountPence;

@@ -14,6 +14,11 @@
       "require": "./src/platform-facts.cjs.js",
       "default": "./src/platform-facts.ts"
     },
+    "./commission-rates": {
+      "types": "./src/commission-rates.ts",
+      "require": "./src/commission-rates.cjs.js",
+      "default": "./src/commission-rates.ts"
+    },
     "./allergens": {
       "types": "./src/allergens.ts",
       "require": "./src/allergens.cjs.js",
@@ -34,6 +39,9 @@
     "*": {
       "platform-facts": [
         "./src/platform-facts.ts"
+      ],
+      "commission-rates": [
+        "./src/commission-rates.ts"
       ],
       "allergens": [
         "./src/allergens.ts"

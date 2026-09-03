@@ -1,3 +1,4 @@
+import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { DiscountFundedBy, OrderSource, RateStatus, TermsDocumentType } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
@@ -48,9 +49,8 @@ export class CommissionService {
    * Always reads from the DB - never returns a hardcoded constant.
    * Throws NotFoundException when no matching rate exists (seed data prevents this).
    *
-   * PLANNED guard: if the resolved rate has a rateKey linked to a PLANNED
-   * RateScheduleEntry, throws BadRequestException. PLANNED rates are announced
-   * but not yet in force and must never be used in calculations.
+   * Schedule guard: a linked RateScheduleEntry must be LIVE and its TermsVersion
+   * must already be effective. Announced rates must never be used in calculations.
    */
   async resolveRate(source: OrderSource, isFirstOrder: boolean, at: Date): Promise<ResolvedRate> {
     // isFirstOrder=null on a CommissionRate means "applies to all isFirstOrder values"
@@ -74,7 +74,7 @@ export class CommissionService {
       });
     }
 
-    // ── PLANNED guard ────────────────────────────────────────────────────────
+    // ── Rate schedule guard ──────────────────────────────────────────────────
     // If this CommissionRate is linked to a RateScheduleEntry, verify that
     // entry is LIVE. A PLANNED entry is announced but not yet in force;
     // using it in a calculation is a billing error.
@@ -87,11 +87,18 @@ export class CommissionService {
             supersededAt: null,
           },
         },
+        include: { version: { select: { effectiveAt: true } } },
       });
       if (scheduleEntry && scheduleEntry.status === RateStatus.PLANNED) {
         throw new BadRequestException({
           code: 'PLANNED_RATE_NOT_ACTIVE',
           message: `Commission rate '${rate.rateKey}' is PLANNED and not yet in force. A live rate entry must exist before this rate can be charged.`,
+        });
+      }
+      if (scheduleEntry?.version?.effectiveAt && scheduleEntry.version.effectiveAt > at) {
+        throw new BadRequestException({
+          code: 'RATE_SCHEDULE_NOT_EFFECTIVE',
+          message: `Commission rate '${rate.rateKey}' is linked to terms that do not take effect until ${scheduleEntry.version.effectiveAt.toISOString()}.`,
         });
       }
     }
@@ -293,26 +300,73 @@ export class CommissionService {
     createdBy: string;
     note?: string;
   }) {
-    // Close the current open-ended rate for the same slot.
-    await this.prisma.commissionRate.updateMany({
-      where: {
-        source: dto.source,
-        isFirstOrder: dto.isFirstOrder,
-        effectiveTo: null,
-        effectiveFrom: { lt: dto.effectiveFrom },
-      },
-      data: { effectiveTo: dto.effectiveFrom },
-    });
+    if (!(dto.effectiveFrom instanceof Date) || Number.isNaN(dto.effectiveFrom.getTime())) {
+      throw new BadRequestException({
+        code: 'INVALID_EFFECTIVE_FROM',
+        message: 'effectiveFrom must be a valid date.',
+      });
+    }
 
-    return this.prisma.commissionRate.create({
-      data: {
-        source: dto.source,
-        isFirstOrder: dto.isFirstOrder,
-        ratePercent: dto.ratePercent,
-        effectiveFrom: dto.effectiveFrom,
-        createdBy: dto.createdBy,
-        note: dto.note ?? null,
-      },
+    return this.prisma.$transaction(async (tx) => {
+      // Serialize edits to this logical slot. There is intentionally no mutable
+      // "current rate" record: rates are an audit history and only effectiveTo
+      // may be closed as part of adding the next row.
+      const slot = `${dto.source}:${dto.isFirstOrder === null ? 'all' : String(dto.isFirstOrder)}`;
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${slot}))`;
+
+      const [collision, next] = await Promise.all([
+        tx.commissionRate.findFirst({
+          where: {
+            source: dto.source,
+            isFirstOrder: dto.isFirstOrder,
+            effectiveFrom: dto.effectiveFrom,
+          },
+          select: { id: true },
+        }),
+        tx.commissionRate.findFirst({
+          where: {
+            source: dto.source,
+            isFirstOrder: dto.isFirstOrder,
+            effectiveFrom: { gt: dto.effectiveFrom },
+          },
+          orderBy: { effectiveFrom: 'asc' },
+          select: { effectiveFrom: true },
+        }),
+      ]);
+
+      if (collision) {
+        throw new BadRequestException({
+          code: 'EFFECTIVE_FROM_COLLISION',
+          message: 'A commission rate already begins at this effectiveFrom instant.',
+        });
+      }
+
+      // This includes an anomalous overlapping prior row if one exists, but
+      // never a same-instant row (rejected above) or an already-ended row.
+      // Therefore no closure can make effectiveFrom equal effectiveTo.
+      await tx.commissionRate.updateMany({
+        where: {
+          source: dto.source,
+          isFirstOrder: dto.isFirstOrder,
+          effectiveFrom: { lt: dto.effectiveFrom },
+          OR: [{ effectiveTo: null }, { effectiveTo: { gt: dto.effectiveFrom } }],
+        },
+        data: { effectiveTo: dto.effectiveFrom },
+      });
+
+      // A pre-existing future rate remains authoritative. The inserted row fills
+      // only the gap up to that future start rather than overwriting its history.
+      return tx.commissionRate.create({
+        data: {
+          source: dto.source,
+          isFirstOrder: dto.isFirstOrder,
+          ratePercent: dto.ratePercent,
+          effectiveFrom: dto.effectiveFrom,
+          effectiveTo: next?.effectiveFrom ?? null,
+          createdBy: dto.createdBy,
+          note: dto.note ?? null,
+        },
+      });
     });
   }
 
@@ -459,6 +513,8 @@ export class CommissionService {
         },
       })
       .catch(() => null);
-    return entry?.rateValue != null ? Number(entry.rateValue) : 12;
+    return entry?.rateValue != null
+      ? Number(entry.rateValue)
+      : PLATFORM_FACTS.commission.marketplaceFirst;
   }
 }

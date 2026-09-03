@@ -1,20 +1,23 @@
 'use strict';
 // CJS runtime entry for @feastpot/config/platform-facts.
 // Generated from platform-facts.ts - keep in sync when values change.
+const { COMMISSION_RATES } = require('./commission-rates.cjs.js');
+
 const PLATFORM_FACTS = {
   brandName: 'Feastpot',
   commission: {
-    marketplaceFirst: 12.0,
-    marketplaceRepeat: 10.0,
-    vendorReferred: 0.0,
-    basis: 'food subtotal only',
+    marketplaceFirst: COMMISSION_RATES.marketplaceFirst.percent,
+    marketplaceRepeat: COMMISSION_RATES.marketplaceRepeat.percent,
+    vendorReferred: COMMISSION_RATES.vendorReferred.percent,
+    catering: COMMISSION_RATES.catering.percent,
+    basis: COMMISSION_RATES.marketplaceFirst.basis,
   },
   attribution: {
     vendorLinkWindowDays: 30,
     marketplaceIntroWindowDays: 90,
   },
   serviceFee: {
-    percent: 5,
+    percent: COMMISSION_RATES.customerServiceFee.percent,
     capPence: 299,
   },
   feastPass: {

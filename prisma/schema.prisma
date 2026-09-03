@@ -761,7 +761,7 @@ model Vendor {
   ratingCount                           Int          @default(0) @map("rating_count")
   reorderRatePct                        Float        @default(0) @map("reorder_rate_pct")
   communityFavourite                    Boolean      @default(false) @map("community_favourite")
-  commissionBps                         Int          @default(1200) @map("commission_bps")
+  commissionBps                         Int          @default(800) @map("commission_bps")
   stripeAccountId                       String?      @map("stripe_account_id") @db.VarChar(100)
   payoutsEnabled                        Boolean      @default(false) @map("payouts_enabled")
   stripeChargesEnabled                  Boolean      @default(false) @map("stripe_charges_enabled")
@@ -1805,7 +1805,7 @@ enum OrderSource {
 }
 
 /// Three-tier human-readable attribution label derived from OrderSource + isFirstOrder.
-/// VENDOR_REFERRED = 0% commission; MARKETPLACE_FIRST = 12%; MARKETPLACE_REPEAT = 10%.
+/// VENDOR_REFERRED = 0% commission; MARKETPLACE_FIRST = 8%; MARKETPLACE_REPEAT = 5%.
 /// Stored on OrderAttribution at creation time; never updated.
 enum AttributionSource {
   VENDOR_REFERRED
@@ -2030,7 +2030,7 @@ model RateScheduleEntry {
   versionId   String     @map("version_id")
   key         String     @db.VarChar(64)
   label       String     @db.VarChar(255)
-  /// Human-readable rate display, e.g. "12%", "0% to 3%", "approx £19/mo".
+  /// Human-readable rate display, e.g. "8%", "0% to 3%", "approx £19/mo".
   rateDisplay String     @map("rate_display") @db.VarChar(64)
   /// Numeric rate for calculation context. Null for non-percentage entries.
   rateValue   Decimal?   @map("rate_value") @db.Decimal(5, 2)

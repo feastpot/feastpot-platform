@@ -184,10 +184,12 @@ describe('Vendor terms - policy numbers match PLATFORM_FACTS', () => {
     expect(src).toContain('PLATFORM_FACTS.termsNoticeDays');
   });
 
-  it('uses PLATFORM_FACTS for all three commission tiers', () => {
-    expect(src).toContain('PLATFORM_FACTS.commission.marketplaceFirst');
-    expect(src).toContain('PLATFORM_FACTS.commission.marketplaceRepeat');
-    expect(src).toContain('PLATFORM_FACTS.commission.vendorReferred');
+  it('renders all commission tiers from the live rate schedule layer', () => {
+    const layers = read('apps/web/src/app/legal/vendor-terms/legal-layers.tsx');
+    expect(src).toContain('<LegalLayers />');
+    expect(layers).toContain('fetchRateSchedule');
+    expect(layers).toContain('<KeyTermsSummary rates={rates} />');
+    expect(layers).toContain('<RateCard rates={rates} />');
   });
 
   it('uses PLATFORM_FACTS for the appeals email', () => {
@@ -241,11 +243,13 @@ describe('Benefits strip - no hardcoded support hours', () => {
   });
 });
 
-describe('Become-a-vendor page - commission references PLATFORM_FACTS', () => {
+describe('Become-a-vendor page - commission references canonical rates', () => {
   const src = read('apps/web/src/app/become-a-vendor/page.tsx');
 
-  it('uses PLATFORM_FACTS for the commission rate, not a hardcoded string', () => {
-    expect(src).toContain('PLATFORM_FACTS.commission.marketplaceFirst');
+  it('uses the canonical fallback and live schedule for marketplace commission', () => {
+    expect(src).toContain('COMMISSION_RATES.marketplaceFirst');
+    expect(src).toContain("'standard_commission'");
+    expect(src).toContain("apiRequest<RateRow[]>('/terms/rate-schedule')");
   });
 });
 
@@ -316,14 +320,15 @@ describe('Help page - support contact and payouts from PLATFORM_FACTS', () => {
   });
 });
 
-describe('Become-a-vendor page - vendor-referred rate and payouts from PLATFORM_FACTS', () => {
+describe('Become-a-vendor page - vendor-referred rate and platform facts', () => {
   // The page promises vendors a specific commission rate on their own orders and
   // a specific payout day. All three fields must come from PLATFORM_FACTS so a
   // single change propagates to every section that mentions them.
   const src = read('apps/web/src/app/become-a-vendor/page.tsx');
 
-  it('references commission.vendorReferred from PLATFORM_FACTS', () => {
-    expect(src).toContain('PLATFORM_FACTS.commission.vendorReferred');
+  it('uses the canonical fallback and live schedule for vendor-referred commission', () => {
+    expect(src).toContain('COMMISSION_RATES.vendorReferred');
+    expect(src).toContain("'referred_commission'");
   });
 
   it('references payouts.day from PLATFORM_FACTS', () => {

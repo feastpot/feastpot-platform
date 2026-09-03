@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
+import { COMMISSION_RATES } from '@feastpot/config/commission-rates';
+import type { RateRow } from '@feastpot/ui';
 
 import { useTrackEvent } from '@/hooks/use-track-event';
 
@@ -14,13 +16,12 @@ import { useTrackEvent } from '@/hooks/use-track-event';
 const STRIPE_VARIABLE_RATE = 0.015;
 const STRIPE_FIXED_PENCE = 20;
 
-// ── Commission rates from PLATFORM_FACTS ────────────────────────────────────
-//
-// Read once so they cannot drift from the central source.
-// Changing platform-facts.ts changes every figure on this page with no other edit.
-const VENDOR_REFERRED_PCT = PLATFORM_FACTS.commission.vendorReferred;
-const MARKETPLACE_FIRST_PCT = PLATFORM_FACTS.commission.marketplaceFirst;
-const MARKETPLACE_REPEAT_PCT = PLATFORM_FACTS.commission.marketplaceRepeat;
+const RATE_KEYS = {
+  vendorReferred: 'referred_commission',
+  marketplaceFirst: 'standard_commission',
+  marketplaceRepeat: 'repeat_commission',
+  customerServiceFee: 'customer_service_fee',
+} as const;
 
 // ── External market estimate: major aggregator commission band ───────────────
 // NOT a Feastpot figure. Used only in the prose comparison lines.
@@ -66,7 +67,7 @@ function formatStripeFee(pence: number): string {
   return pence < 100 ? `${pence}p` : formatGBP(pence);
 }
 
-/** Format a percentage without trailing decimals (12, not 12.0). */
+/** Format a percentage without trailing decimals. */
 function pct(v: number): string {
   return v % 1 === 0 ? String(Math.trunc(v)) : String(v);
 }
@@ -92,18 +93,28 @@ interface CardData {
   highlight: boolean;
 }
 
-function buildCards(orderPence: number): CardData[] {
+function currentRateValue(rates: RateRow[], key: string, fallback: number): number {
+  return rates.find((rate) => rate.key === key && rate.status === 'LIVE')?.rateValue ?? fallback;
+}
+
+function buildCards(
+  orderPence: number,
+  rates: {
+    vendorReferred: number;
+    marketplaceFirst: number;
+    marketplaceRepeat: number;
+  },
+): CardData[] {
   const stripe = stripeSinglePence(orderPence);
 
-  const ownFee = commissionPence(orderPence, VENDOR_REFERRED_PCT);
+  const ownFee = commissionPence(orderPence, rates.vendorReferred);
   const ownNet = orderPence - stripe - ownFee;
-  // If the rate is ever changed away from 0, the body copy renders the real figure.
   const ownFeeDisplay = ownFee === 0 ? '£0.00' : formatGBP(ownFee);
 
-  const firstFee = commissionPence(orderPence, MARKETPLACE_FIRST_PCT);
+  const firstFee = commissionPence(orderPence, rates.marketplaceFirst);
   const firstNet = orderPence - stripe - firstFee;
 
-  const repeatFee = commissionPence(orderPence, MARKETPLACE_REPEAT_PCT);
+  const repeatFee = commissionPence(orderPence, rates.marketplaceRepeat);
   const repeatNet = orderPence - stripe - repeatFee;
 
   return [
@@ -112,7 +123,10 @@ function buildCards(orderPence: number): CardData[] {
       label: 'Your own customer',
       figurePence: ownNet,
       figureCaption: 'lands in your account',
-      body: `Our fee: ${ownFeeDisplay}. They came through your link, QR code or Instagram, so we take nothing.`,
+      body:
+        ownFee === 0
+          ? `Our fee: ${ownFeeDisplay}. They came through your link, QR code or Instagram, so we take nothing.`
+          : `Our fee: ${ownFeeDisplay}. They came through your link, QR code or Instagram.`,
       highlight: true,
     },
     {
@@ -128,7 +142,7 @@ function buildCards(orderPence: number): CardData[] {
       label: 'When that customer returns',
       figurePence: repeatNet,
       figureCaption: 'and it keeps repeating',
-      body: `Our fee: ${formatGBP(repeatFee)}. It drops to ${pct(MARKETPLACE_REPEAT_PCT)}% once they are a regular of yours.`,
+      body: `Our fee: ${formatGBP(repeatFee)}. It drops to ${pct(rates.marketplaceRepeat)}% once they are a regular of yours.`,
       highlight: false,
     },
   ];
@@ -208,7 +222,7 @@ function Slider({ id, label, min, max, step, value, onChange, formatValue }: Sli
 
 // ── Main export ──────────────────────────────────────────────────────────────
 
-export function EarningsCalculator() {
+export function EarningsCalculator({ rates = [] }: { rates?: RateRow[] }) {
   const [exampleIdx, setExampleIdx] = useState(0);
   // Calculator sliders
   const [orderValue, setOrderValue] = useState(15); // whole pounds
@@ -235,7 +249,33 @@ export function EarningsCalculator() {
   const selectedExample = EXAMPLES[exampleIdx] ?? EXAMPLES[0];
   const examplePence = selectedExample.valuePence;
 
-  const cards = useMemo(() => buildCards(examplePence), [examplePence]);
+  const liveRates = useMemo(
+    () => ({
+      vendorReferred: currentRateValue(
+        rates,
+        RATE_KEYS.vendorReferred,
+        COMMISSION_RATES.vendorReferred.percent,
+      ),
+      marketplaceFirst: currentRateValue(
+        rates,
+        RATE_KEYS.marketplaceFirst,
+        COMMISSION_RATES.marketplaceFirst.percent,
+      ),
+      marketplaceRepeat: currentRateValue(
+        rates,
+        RATE_KEYS.marketplaceRepeat,
+        COMMISSION_RATES.marketplaceRepeat.percent,
+      ),
+      customerServiceFee: currentRateValue(
+        rates,
+        RATE_KEYS.customerServiceFee,
+        COMMISSION_RATES.customerServiceFee.percent,
+      ),
+    }),
+    [rates],
+  );
+
+  const cards = useMemo(() => buildCards(examplePence, liveRates), [examplePence, liveRates]);
 
   const stripeFeePence = stripeSinglePence(examplePence);
   const exampleLabel = formatGBP(examplePence);
@@ -313,9 +353,11 @@ export function EarningsCalculator() {
 
       {/* 4b. Service fee explanation - what keeps the platform running at 0% commission */}
       <div className="rounded-2xl bg-brand-light px-5 py-4">
-        <p className="text-[13px] font-bold text-charcoal">So how do we make money at 0%?</p>
+        <p className="text-[13px] font-bold text-charcoal">
+          So how do we make money at {pct(liveRates.vendorReferred)}%?
+        </p>
         <p className="mt-1.5 text-[13px] leading-relaxed text-charcoal-mid">
-          Your customers pay a small service fee to Feastpot, {PLATFORM_FACTS.serviceFee.percent}%
+          Your customers pay a small service fee to Feastpot, {pct(liveRates.customerServiceFee)}%
           capped at £{(PLATFORM_FACTS.serviceFee.capPence / 100).toFixed(2)}. It comes from them,
           never from your payout, and it is what keeps the platform running while you are paying us
           no commission.

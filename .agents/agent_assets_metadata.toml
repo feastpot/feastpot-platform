@@ -11,42 +11,49 @@ id = "JjdU8nCg_2Anc8NSdVBt9"
 uri = "file://docs/PROJECT_STATUS.md"
 type = "text"
 title = "Feastpot — Editorial Status Report"
+logical_id = "94659e23-df1e-4299-bbc3-77ec2c7a5ad0"
 
 [[outputs]]
 id = "RV22FpBzAijGIdOG4YTLv"
 uri = "file://docs/QA_DEFECT_REPORT_2026-05-15.md"
 type = "text"
 title = "Feastpot UAT Defect Report — 2026-05-15"
+logical_id = "ade23006-e584-4278-ae45-7ce61e8ae60f"
 
 [[outputs]]
 id = "e1lRkPJ63MTirPVjXul7H"
 uri = "file://STATUS.md"
 type = "text"
 title = "FeastPot — Build Status"
+logical_id = "ae69d667-a616-47ab-afe3-d7fd243e6a0e"
 
 [[outputs]]
 id = "ydIJZFc3V6-YllAIbmvtX"
 uri = "file://INTEGRATION_TEST_REPORT.md"
 type = "text"
 title = "FeastPot Integration Test Report"
+logical_id = "2d3b72b2-ebf3-47e0-a9bd-8dcd818c1e06"
 
 [[outputs]]
 id = "W3tRw0E62AC5JrL60NNLY"
 uri = "file://docs/GO_LIVE_GAPS.md"
 type = "text"
 title = "Go-Live Gaps — Onboarding Vendors & Taking Orders"
+logical_id = "1cdf0a21-651a-4d33-a4ed-6bd4939b8874"
 
 [[outputs]]
 id = "z1qGw4rY24YRDQBpBcUa_"
 uri = "file://docs/OUTSTANDING.md"
 type = "text"
 title = "Feastpot — What's Left to Build (03 Jun 2026)"
+logical_id = "2e1d71ac-ba2f-4079-a9a1-aaf79c57fdbb"
 
 [[outputs]]
 id = "bSU6A4jqDnKr5WGGzQfWc"
 uri = "file://docs/CODE_AUDIT.md"
 type = "text"
 title = "Feastpot — Code Audit & Feature Inventory (16 June 2026)"
+logical_id = "10330fbd-b9ef-4393-bd2a-9de64b2975f3"
 
 [[outputs]]
 id = "hJl2_EbiJ1m3xhaYa1cr5"
@@ -54,3 +61,18 @@ uri = "file://docs/IMPLEMENTATION_GAPS_AUDIT_2026-08-25.txt"
 type = "text"
 title = "Feastpot implementation gaps audit"
 description = "A refreshed editorial audit of confirmed remaining implementation gaps, operating gates, evidence, and recommended delivery order."
+logical_id = "2d87c8ec-994d-4a5a-a69d-e7e2e52d8532"
+
+[[outputs]]
+id = "cAWAsZMP45eudKzD1ccXC"
+uri = "file://screenshots/commission-calculator-live-rates.jpg"
+type = "image"
+title = "Live-rate earnings calculator"
+description = "Verified Feastpot earnings calculator using the current public commission schedule without layout or colour changes."
+logical_id = "38a9a7b6-4113-455d-aa1a-0e4b0999ef80"
+content_hash = "sha256:e6324f8f6ce17d916bcf4cd4e2b5cd5fafa07a96889803e7382af30d5a4674e7"
+size = 72566
+mtime_ms = 1788464727568
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:467550d6-cf1f-45bf-b36c-58a8f6d79f33/38a9a7b6-4113-455d-aa1a-0e4b0999ef80/b75c58c4-99e8-444a-9197-17d381d6b53a"
+storage_version_token = "1788464760073689"
+content_type = "image/jpeg"

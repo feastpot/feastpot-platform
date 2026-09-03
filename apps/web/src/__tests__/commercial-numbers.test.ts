@@ -2,9 +2,8 @@
  * Commercial-numbers consistency test.
  *
  * Verifies that the three customer-facing surfaces which state the commission
- * rate do NOT hardcode a literal "12%" string in their source (they must
- * reference PLATFORM_FACTS or an API-fetched value instead), and that
- * PLATFORM_FACTS itself is the canonical constant they are allowed to use.
+ * rate do NOT hardcode a commission percentage string in their source (they
+ * must reference COMMISSION_RATES or an API-fetched value instead).
  *
  * Acceptance criterion from LEGAL-505:
  *   "Grep the repo for '12%' and find zero hardcoded instances outside the
@@ -14,6 +13,7 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
+import { COMMISSION_RATES } from '@feastpot/config/commission-rates';
 import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
 
 const SRC_ROOT = join(__dirname, '..', 'app');
@@ -28,7 +28,7 @@ function readRepo(relPath: string): string {
 }
 
 // The literal string that must NOT appear hardcoded in source files.
-const LITERAL_RATE = `${PLATFORM_FACTS.commission.marketplaceFirst}%`;
+const LITERAL_RATE = `${COMMISSION_RATES.marketplaceFirst.percent}%`;
 
 const SURFACES: Array<[label: string, path: string]> = [
   ['marketing page (become-a-vendor)', 'become-a-vendor/page.tsx'],
@@ -41,21 +41,21 @@ describe('Commercial-numbers consistency', () => {
     it.each(SURFACES)('%s does not contain a hardcoded "%s" literal', (_, path) => {
       const content = readSrc(path);
       // The rate must be referenced via PLATFORM_FACTS or a fetched/computed value,
-      // not as a bare literal string like `12%`.
+      // not as a bare literal string like `8%`.
       expect(content).not.toContain(`'${LITERAL_RATE}'`);
       expect(content).not.toContain(`"${LITERAL_RATE}"`);
       // Template literals or JSX text with the literal are also forbidden:
       // e.g. <strong>12% of the food subtotal</strong>
       // Detect by checking for the string surrounded by markup-safe delimiters.
-      expect(content).not.toMatch(/>12%</);
+      expect(content).not.toMatch(/>8%</);
     });
 
     it('commission.service.ts has no hardcoded fallback rate', () => {
       const content = readRepo('apps/api/src/commission/commission.service.ts');
-      // The 12% fallback (1200/10_000 or Decimal(12)) was removed.
+      // A hardcoded fallback is not allowed.
       expect(content).not.toContain('1200');
-      expect(content).not.toContain('new Decimal(12)');
-      expect(content).not.toContain('using 12% fallback');
+      expect(content).not.toContain('new Decimal(8)');
+      expect(content).not.toContain('using 8% fallback');
     });
 
     it('payouts.service.ts has no hardcoded "flat 12%" string', () => {
@@ -80,9 +80,30 @@ describe('Commercial-numbers consistency', () => {
       expect(PLATFORM_FACTS.commission.vendorReferred).toBe(0);
     });
 
-    it('surfaces reference PLATFORM_FACTS for the commission rate', () => {
+    it('public calculator consumes the live Rate Schedule', () => {
       const becomePage = readSrc('become-a-vendor/page.tsx');
-      expect(becomePage).toContain('PLATFORM_FACTS');
+      const calculator = readSrc('become-a-vendor/earnings-calculator.tsx');
+      expect(becomePage).toContain('<EarningsCalculator rates={rates} />');
+      expect(calculator).toContain('RATE_KEYS.marketplaceFirst');
+      expect(calculator).toContain("rate.status === 'LIVE'");
+    });
+
+    it('web, vendor, admin, and Annex A read the public Rate Schedule', () => {
+      const sources = [
+        readSrc('become-a-vendor/page.tsx'),
+        readRepo('apps/vendor/src/app/earnings/earnings-client.tsx'),
+        readRepo('apps/admin/src/app/settings/settings-client.tsx'),
+        readSrc('legal/vendor-terms/legal-layers.tsx'),
+      ];
+
+      for (const source of sources) {
+        expect(source).toContain('rate-schedule');
+      }
+
+      expect(readRepo('apps/vendor/src/app/share/page.tsx')).toContain("'referred_commission'");
+      expect(readRepo('apps/admin/src/app/settings/settings-client.tsx')).toContain(
+        'Manage commission rates',
+      );
     });
   });
 });

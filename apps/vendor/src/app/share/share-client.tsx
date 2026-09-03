@@ -1,6 +1,7 @@
 'use client';
 
 import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
+import { COMMISSION_RATES } from '@feastpot/config/commission-rates';
 import { Check, Copy, Download, ExternalLink } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
@@ -34,7 +35,11 @@ interface ShareAndCustomersClientProps {
   initialLinkLoadFailed?: boolean;
 }
 
-const { vendorReferred, marketplaceFirst, marketplaceRepeat } = PLATFORM_FACTS.commission;
+const {
+  vendorReferred: { percent: vendorReferred },
+  marketplaceFirst: { percent: marketplaceFirst },
+  marketplaceRepeat: { percent: marketplaceRepeat },
+} = COMMISSION_RATES;
 
 const INSTAGRAM_TEXT = (url: string, name: string) =>
   `Order directly from ${name} on Feastpot. When you use my personal link I pay ${vendorReferred}% commission - more of your money goes to the food, not fees.\nOrder here: ${url}`;
@@ -501,8 +506,8 @@ export function ShareAndCustomersClient({
           <li>
             <span className="font-semibold">{vendorReferred}% commission</span> - orders attributed
             to your link attract {vendorReferred}% commission. Marketplace orders attract{' '}
-            {marketplaceFirst}% for first-time customers and {marketplaceRepeat}% for repeat
-            customers.
+            {marketplaceFirst}% first-order marketplace commission for first-time customers and{' '}
+            {marketplaceRepeat}% repeat-order commission for repeat customers.
           </li>
           <li>
             <span className="font-semibold">See the results</span> - the order source breakdown

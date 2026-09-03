@@ -2,6 +2,9 @@ import { QrCode } from 'lucide-react';
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 
+import { COMMISSION_RATES } from '@feastpot/config/commission-rates';
+import type { RateRow } from '@feastpot/ui';
+
 import { PortalShell } from '@/components/layout/portal-shell';
 import { apiRequest, ApiError } from '@/lib/api/client';
 import { createClient as createServerSupabase } from '@/lib/supabase/server';
@@ -52,6 +55,13 @@ export default async function SharePage() {
     redirect('/onboarding/welcome');
   }
 
+  const rates = await apiRequest<RateRow[]>('/terms/rate-schedule', {
+    next: { revalidate: 3600 },
+  }).catch(() => []);
+  const vendorReferredRate =
+    rates.find((rate) => rate.key === 'referred_commission' && rate.status === 'LIVE')?.rateValue ??
+    COMMISSION_RATES.vendorReferred.percent;
+
   // The canonical share link comes from VendorReferralLink (attribution system),
   // NOT from Vendor.slug. The /v/[slug] route records a click only when the slug
   // matches a VendorReferralLink record; if Vendor.slug is used instead and the
@@ -79,7 +89,8 @@ export default async function SharePage() {
           <h1 className="text-xl font-bold text-dark">Share and customers</h1>
           <p className="mt-1 text-sm text-mid">
             Orders through your personal link are tracked as your own referrals at{' '}
-            <strong>0% commission</strong>. Share it everywhere and see the impact below.
+            <strong>{vendorReferredRate}% commission</strong>. Share it everywhere and see the
+            impact below.
           </p>
         </div>
       </header>

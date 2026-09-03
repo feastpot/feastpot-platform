@@ -24,7 +24,7 @@ export type RateStatusValue = 'LIVE' | 'PLANNED' | 'INCENTIVE' | 'CUSTOMER_SIDE'
 export interface RateRow {
   key: string;
   label: string;
-  /** Human-readable display string, e.g. "12%", "0% to 3%", "approx £19/mo". */
+  /** Human-readable display string supplied by the canonical schedule endpoint. */
   rateDisplay: string;
   /** Numeric rate for calculation context, or null for non-percentage entries. */
   rateValue: number | null;

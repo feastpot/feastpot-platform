@@ -354,11 +354,18 @@ export class TestDataFactory {
       });
       await tx.vendor.deleteMany({ where: { id: { in: vendorIds } } });
       await tx.user.deleteMany({ where: { id: { in: userIds } } });
-      await tx.termsVersion.deleteMany({
+      const termsVersions = await tx.termsVersion.findMany({
         where: {
           documentType: 'VENDOR_TERMS',
           version: { in: [this.termsVersionLabel('v1'), this.termsVersionLabel('v2')] },
         },
+        select: { id: true },
+      });
+      await tx.termsAcceptance.deleteMany({
+        where: { termsVersionId: { in: termsVersions.map((version) => version.id) } },
+      });
+      await tx.termsVersion.deleteMany({
+        where: { id: { in: termsVersions.map((version) => version.id) } },
       });
     });
 
@@ -601,6 +608,7 @@ export class TestDataFactory {
       }
       if (userId) {
         const { error } = await this.admin.auth.admin.updateUserById(userId, {
+          password: this.password,
           email_confirm: true,
           app_metadata: { role },
           user_metadata: { role, testFactory: true },
@@ -968,6 +976,8 @@ export class TestDataFactory {
       create: {
         vendorId,
         termsVersionId: v1.id,
+        ipAddress: '127.0.0.1',
+        userAgent: 'Feastpot TestDataFactory',
         acceptanceText: 'I accept the test factory v1 terms.',
         contentHash: v1.contentHash,
         scrolledToEnd: true,

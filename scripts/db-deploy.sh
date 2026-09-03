@@ -10,23 +10,14 @@
 #      a stale DIRECT_URL cannot leave us in a half-state where the
 #      schema is migrated but `npm run start:api` never runs because the
 #      RLS lockdown step aborts the deploy.
-#   2. SELF-HEAL: mark the legacy `20260516120000_add_scale_indexes`
-#      migration rolled-back if it is stuck in a `failed` state in
-#      `_prisma_migrations`. That migration first shipped with
-#      `CREATE INDEX CONCURRENTLY` inside Prisma's wrapping transaction
-#      (Postgres SQLSTATE 25001); the replacement drops CONCURRENTLY and
-#      prepends `DROP INDEX IF EXISTS`. The resolve call is a no-op
-#      (and exits non-zero) when the migration is not failed, so we
-#      tolerate failure on that specific call.
-#   3. `prisma migrate deploy` (must succeed).
-#   4. RLS lockdown via psql. Prisma creates tables with RLS disabled by
+#   2. `prisma migrate deploy` (must succeed).
+#   3. RLS lockdown via psql. Prisma creates tables with RLS disabled by
 #      default which exposes them through Supabase's auto-generated
 #      PostgREST API to anyone holding the anon key. Our backend uses a
 #      role that bypasses RLS, so enabling RLS with no policies =
 #      deny-by-default for anon/authenticated, safely.
 set -u
 SCHEMA="prisma/schema.prisma"
-STUCK_MIGRATION="20260516120000_add_scale_indexes"
 
 # ---------------------------------------------------------------------------
 # 0. Migration hygiene.
@@ -97,14 +88,7 @@ if [ -z "$DB_URL" ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# 2. Self-heal the legacy stuck migration (no-op when not failed).
-# ---------------------------------------------------------------------------
-echo "[db-deploy] Attempting to mark $STUCK_MIGRATION as rolled-back (no-op if not failed)..."
-npx prisma migrate resolve --rolled-back "$STUCK_MIGRATION" --schema="$SCHEMA" || \
-  echo "[db-deploy] resolve --rolled-back returned non-zero (expected when migration is not in failed state)."
-
-# ---------------------------------------------------------------------------
-# 3. Apply migrations.
+# 2. Apply migrations.
 # ---------------------------------------------------------------------------
 echo "[db-deploy] Running prisma migrate deploy..."
 npx prisma migrate deploy --schema="$SCHEMA"
@@ -115,7 +99,7 @@ if [ $MIGRATE_EXIT -ne 0 ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# 4. RLS lockdown (skipped if no DB_URL was resolved above).
+# 3. RLS lockdown (skipped if no DB_URL was resolved above).
 # ---------------------------------------------------------------------------
 if [ -n "$DB_URL" ]; then
   echo "[db-deploy] Enabling RLS on any public tables that don't have it (via \$$DB_URL_SOURCE)..."

@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 import { Sheet, SheetContent, SheetTrigger } from '@feastpot/ui';
+import { COMMISSION_RATES } from '@feastpot/config/commission-rates';
 
 import { computeServiceFeePence, shouldWaiveServiceFee } from '@/lib/service-fee';
 import { useFeastPassMembership } from '@/hooks/use-feastpass';
@@ -142,7 +143,8 @@ export function BasketDrawer({ children }: Props) {
                     <span className="text-charcoal-mid">
                       Service fee
                       <span className="ml-1 text-[10px] font-medium text-charcoal-mid/70">
-                        5% capped at £2.99
+                        {COMMISSION_RATES.customerServiceFee.label}:{' '}
+                        {COMMISSION_RATES.customerServiceFee.percent}% capped at £2.99
                       </span>
                     </span>
                     <span className="font-bold text-charcoal">{formatPounds(serviceFeePence)}</span>

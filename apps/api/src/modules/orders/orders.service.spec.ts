@@ -1,4 +1,4 @@
-import { shouldWaiveServiceFee } from '@feastpot/config/service-fee';
+import { computeServiceFeePence, shouldWaiveServiceFee } from '@feastpot/config/service-fee';
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { DeliveryType, OrderStatus, UserRole } from '@prisma/client';
 
@@ -30,64 +30,64 @@ describe('OrdersService - pure helpers', () => {
     //
     // serviceFeePence is Feastpot revenue and never appears in these calculations.
 
-    it('12% (1200 bps) on £100.00 subtotal, no discount, no delivery → £12 commission, £88 payout', () => {
-      expect(computeCommission(10_000, 0, 0, null, 1200)).toEqual({
-        commissionPence: 1200,
-        vendorPayoutPence: 8800,
+    it('8% (800 bps) on £100.00 subtotal, no discount, no delivery gives £8 commission', () => {
+      expect(computeCommission(10_000, 0, 0, null, 800)).toEqual({
+        commissionPence: 800,
+        vendorPayoutPence: 9200,
       });
     });
-    it('12% (1200 bps) on £37.50 subtotal → £4.50 commission, £33 payout', () => {
-      expect(computeCommission(3750, 0, 0, null, 1200)).toEqual({
-        commissionPence: 450,
-        vendorPayoutPence: 3300,
+    it('8% (800 bps) on £37.50 subtotal gives £3 commission', () => {
+      expect(computeCommission(3750, 0, 0, null, 800)).toEqual({
+        commissionPence: 300,
+        vendorPayoutPence: 3450,
       });
     });
     it('does NOT charge commission on delivery fee - vendor keeps the £3 reimbursement', () => {
-      // £20 food + £3 delivery, no discount. 12% of £20 = £2.40.
-      // Vendor payout = 2000 + 300 - 240 = 2060 (£20.60).
-      expect(computeCommission(2000, 300, 0, null, 1200)).toEqual({
-        commissionPence: 240,
-        vendorPayoutPence: 2060,
+      // £20 food + £3 delivery, no discount. 8% of £20 = £1.60.
+      // Vendor payout = 2000 + 300 - 160 = 2140 (£21.40).
+      expect(computeCommission(2000, 300, 0, null, 800)).toEqual({
+        commissionPence: 160,
+        vendorPayoutPence: 2140,
       });
     });
     it('EXCLUDES service fee from vendor payout - only subtotal + delivery in formula', () => {
-      // £40 food + £2.49 delivery, no discount. 12% of £40 = £4.80.
-      // Vendor payout = 4000 + 249 - 480 = 3769 (£37.69).
+      // £40 food + £2.49 delivery, no discount. 8% of £40 = £3.20.
+      // Vendor payout = 4000 + 249 - 320 = 3929 (£39.29).
       // serviceFeePence is not a param: the function never touches it.
       const subtotal = 4000;
       const delivery = 249;
-      const result = computeCommission(subtotal, delivery, 0, null, 1200);
-      expect(result).toEqual({ commissionPence: 480, vendorPayoutPence: 3769 });
-      expect(result.vendorPayoutPence).toBe(subtotal + delivery - 480);
+      const result = computeCommission(subtotal, delivery, 0, null, 800);
+      expect(result).toEqual({ commissionPence: 320, vendorPayoutPence: 3929 });
+      expect(result.vendorPayoutPence).toBe(subtotal + delivery - 320);
     });
     it('VENDOR-funded discount: commission on discounted subtotal, discount deducted from payout', () => {
       // £40 food + £2.49 delivery, £5 VENDOR-funded discount.
-      // commissionBasis = 4000 - 500 = 3500; 12% = 420.
-      // payout = 4000 + 249 - 500 - 420 = 3329 (£33.29).
+      // commissionBasis = 4000 - 500 = 3500; 8% = 280.
+      // payout = 4000 + 249 - 500 - 280 = 3469 (£34.69).
       const subtotal = 4000;
       const delivery = 249;
       const discount = 500;
-      const result = computeCommission(subtotal, delivery, discount, 'VENDOR', 1200);
-      expect(result).toEqual({ commissionPence: 420, vendorPayoutPence: 3329 });
-      expect(result.vendorPayoutPence).toBe(subtotal + delivery - discount - 420);
+      const result = computeCommission(subtotal, delivery, discount, 'VENDOR', 800);
+      expect(result).toEqual({ commissionPence: 280, vendorPayoutPence: 3469 });
+      expect(result.vendorPayoutPence).toBe(subtotal + delivery - discount - 280);
     });
     it('PLATFORM-funded discount: commission on FULL subtotal, vendor payout UNCHANGED by discount', () => {
       // £40 food + £2.49 delivery, £5 PLATFORM-funded discount (Feastpot absorbs it).
-      // commissionBasis = full 4000; 12% = 480.
-      // payout = 4000 + 249 - 480 = 3769 - identical to the no-discount case.
+      // commissionBasis = full 4000; 8% = 320.
+      // payout = 4000 + 249 - 320 = 3929 - identical to the no-discount case.
       const subtotal = 4000;
       const delivery = 249;
-      const noDiscountResult = computeCommission(subtotal, delivery, 0, null, 1200);
-      const platformResult = computeCommission(subtotal, delivery, 500, 'PLATFORM', 1200);
+      const noDiscountResult = computeCommission(subtotal, delivery, 0, null, 800);
+      const platformResult = computeCommission(subtotal, delivery, 500, 'PLATFORM', 800);
       expect(platformResult).toEqual(noDiscountResult);
-      expect(platformResult.vendorPayoutPence).toBe(3769);
+      expect(platformResult.vendorPayoutPence).toBe(3929);
     });
     it('PLATFORM-funded discount exceeds commission: vendor still paid in full (Feastpot absorbs excess)', () => {
-      // £20 food, £15 PLATFORM promo, 12% commission = £2.40.
-      // Feastpot subsidises £15 - £2.40 = £12.60 beyond its commission.
-      // Vendor payout = 2000 + 0 - 0 - 240 = 1760 (unchanged by the platform promo).
-      const result = computeCommission(2000, 0, 1500, 'PLATFORM', 1200);
-      expect(result).toEqual({ commissionPence: 240, vendorPayoutPence: 1760 });
+      // £20 food, £15 PLATFORM promo, 8% commission = £1.60.
+      // Feastpot subsidises £15 - £1.60 = £13.40 beyond its commission.
+      // Vendor payout = 2000 + 0 - 0 - 160 = 1840 (unchanged by the platform promo).
+      const result = computeCommission(2000, 0, 1500, 'PLATFORM', 800);
+      expect(result).toEqual({ commissionPence: 160, vendorPayoutPence: 1840 });
     });
     it('PLATFORM-funded discount on 0%-commission order: vendor paid full subtotal + delivery', () => {
       // VENDOR_REFERRED order: 0% commission. £50 food + £3 delivery, £10 platform promo.
@@ -151,27 +151,51 @@ describe('OrdersService - pure helpers', () => {
     });
   });
 
+  describe('repeat-order commission is independent of FeastPass', () => {
+    it('keeps the £100.00 repeat-order vendor payout identical when the capped 5% service fee is waived', () => {
+      // These are deliberately the two different 5%s: repeat commission is a
+      // vendor deduction; the £2.99-capped service fee is customer-side only.
+      const subtotalPence = 10_000;
+      const deliveryPence = 500;
+      const repeatCommissionBps = 500;
+      const nonMemberServiceFeePence = computeServiceFeePence(subtotalPence);
+      const repeat = computeCommission(subtotalPence, deliveryPence, 0, null, repeatCommissionBps);
+
+      expect(nonMemberServiceFeePence).toBe(299);
+      expect(shouldWaiveServiceFee(false, 'MARKETPLACE_REPEAT')).toBe(false);
+      expect(shouldWaiveServiceFee(true, 'MARKETPLACE_REPEAT')).toBe(true);
+      expect(repeat).toEqual({ commissionPence: 500, vendorPayoutPence: 10_000 });
+
+      const nonMemberTotal = subtotalPence + deliveryPence + nonMemberServiceFeePence;
+      const feastPassTotal = subtotalPence + deliveryPence;
+      // The customer-side waiver changes only what the customer pays.
+      expect(nonMemberTotal - feastPassTotal).toBe(299);
+      // Neither total, nor the service-fee waiver, is an input to vendor payout.
+      expect(repeat.vendorPayoutPence).toBe(subtotalPence + deliveryPence - repeat.commissionPence);
+    });
+  });
+
   describe('computeCommission with founding allowance', () => {
     // The 6th param (allowanceCoveredPence) defaults to 0 so all existing tests
     // above are unaffected. These tests exercise the allowance branch.
 
     it('allowance fully covers subtotal: £0 commission, full payout', () => {
-      // £40 subtotal, £4.80 delivery, 12% rate, £40 of allowance remaining.
+      // £40 subtotal, £4.80 delivery, 8% rate, £40 of allowance remaining.
       // covered = min(4000, 4000) = 4000; chargeable = 0; commission = £0.
       // Vendor payout = 4000 + 480 - 0 - 0 = 4480.
-      expect(computeCommission(4000, 480, 0, null, 1200, 4000)).toEqual({
+      expect(computeCommission(4000, 480, 0, null, 800, 4000)).toEqual({
         commissionPence: 0,
         vendorPayoutPence: 4480,
       });
     });
 
     it('straddle case: £500 order vs £300 allowance remaining (prompt worked example)', () => {
-      // covered = min(50000, 30000) = 30000; chargeable = 20000; rate = 12%.
-      // commission = round(20000 * 1200 / 10000) = 2400 (£24).
-      // payout = 50000 + 0 - 0 - 2400 = 47600 (£476).
-      expect(computeCommission(50_000, 0, 0, null, 1200, 30_000)).toEqual({
-        commissionPence: 2400,
-        vendorPayoutPence: 47_600,
+      // covered = min(50000, 30000) = 30000; chargeable = 20000; rate = 8%.
+      // commission = round(20000 * 800 / 10000) = 1600 (£16).
+      // payout = 50000 + 0 - 0 - 1600 = 48400 (£484).
+      expect(computeCommission(50_000, 0, 0, null, 800, 30_000)).toEqual({
+        commissionPence: 1600,
+        vendorPayoutPence: 48_400,
       });
     });
 
@@ -188,22 +212,22 @@ describe('OrdersService - pure helpers', () => {
     });
 
     it('allowance with PLATFORM-funded discount: covered applies to full subtotal', () => {
-      // £50 subtotal, £5 PLATFORM discount, 12% rate, £20 allowance.
+      // £50 subtotal, £5 PLATFORM discount, 8% rate, £20 allowance.
       // commissionBasis = full 50000 (platform discount, vendor unaffected).
       // covered = min(50000, 20000) = 20000; chargeable = 30000.
-      // commission = round(30000 * 1200 / 10000) = 3600.
-      // payout = 50000 + 0 - 0 - 3600 = 46400.
-      expect(computeCommission(50_000, 0, 5_000, 'PLATFORM', 1200, 20_000)).toEqual({
-        commissionPence: 3600,
-        vendorPayoutPence: 46_400,
+      // commission = round(30000 * 800 / 10000) = 2400.
+      // payout = 50000 + 0 - 0 - 2400 = 47600.
+      expect(computeCommission(50_000, 0, 5_000, 'PLATFORM', 800, 20_000)).toEqual({
+        commissionPence: 2400,
+        vendorPayoutPence: 47_600,
       });
     });
 
     it('allowance = 0 (exhausted): normal tier rate applies', () => {
       // Same as no-allowance path; covered = 0, full rate.
-      expect(computeCommission(10_000, 0, 0, null, 1200, 0)).toEqual({
-        commissionPence: 1200,
-        vendorPayoutPence: 8800,
+      expect(computeCommission(10_000, 0, 0, null, 800, 0)).toEqual({
+        commissionPence: 800,
+        vendorPayoutPence: 9200,
       });
     });
 
@@ -820,7 +844,7 @@ describe('OrdersService.finishCreateOrder discount_funded_by guard', () => {
     discountPence: 100,
     totalPence: 900,
     commissionRateId: null,
-    commissionRatePercent: { toNumber: () => 0.12 } as never,
+    commissionRatePercent: { toNumber: () => 8 } as never,
     attributionSource: 'MARKETPLACE' as never,
     attributionIsFirstOrder: true,
     discountCodeId: null,

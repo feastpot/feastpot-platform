@@ -1,0 +1,57 @@
+TASK: Find and update every remaining place the old rates
+appear.
+
+NOTIFICATION TEMPLATES
+Grep every Resend email template and WhatsApp Cloud API
+template for a commission figure or fee explanation: vendor
+application received, vendor approved, onboarding reminders,
+weekly payout statement, terms change notice, any vendor
+digest. Templates are the classic miss because they are not
+rendered in normal development.
+Then run the all-template render contract test with a full
+fixture, asserting non-empty subject and body and no
+unresolved placeholders. A prior audit found no such test
+exists; write it if still missing.
+
+SEED AND FIXTURES
+prisma/seed.ts, any factory creating commission rows,
+Playwright fixtures, API fixtures, mock responses, and the
+test identity factory if it creates orders.
+
+TESTS ASSERTING OLD RATES
+These will now fail, which is useful. Do NOT blanket-update.
+For each, decide and report which category it falls into:
+  asserting the engine resolves correctly -> update
+  asserting an order keeps its historic rate -> keep 12%, it
+    is testing effective dating and must still pass
+  a snapshot that captured whatever the number was ->
+    replace with an assertion against the rate engine
+
+DOCUMENTATION
+docs/OUTSTANDING.md, READMEs, runbooks, the admin /user-guide
+page which documents commission rate configuration, the
+vendor /user-guide, CONTRIBUTING.md.
+
+ANALYTICS AND REPORTING
+Any dashboard, chart or report computing commission or
+blended take from a constant rather than from data. Likely:
+the admin dashboard, FeastPass health revenue contribution,
+vendor acquisition analytics.
+
+FLAG TO THE FOUNDER, OUT OF CODE SCOPE
+The revenue architecture model, go-live assessment, growth
+playbook and pitch materials all assume 12/10/0-3 and now
+overstate revenue. They need revising separately.
+
+FINAL VERIFICATION GREP
+  rg -n '\b12(\.0+)?\s*%' apps packages prisma scripts docs
+  rg -n '\b0?\.12\b' apps packages prisma scripts
+Must return only historic rate rows, migrations and
+effective-dating tests. Report every remaining hit with a
+justification.
+
+ACCEPTANCE CRITERIA
+- No template, fixture, doc or chart states an old rate as
+  current.
+- Every updated test categorised and justified.
+- Final grep returns only legitimate historic references.

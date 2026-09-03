@@ -18,7 +18,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-import { test as setup } from '@playwright/test';
+import { expect, test as setup, type Response } from '@playwright/test';
+import { createClient } from '@supabase/supabase-js';
 
 const STATE_PATH = path.join(__dirname, '.auth', 'vendor.json');
 
@@ -27,6 +28,98 @@ const STATE_PATH = path.join(__dirname, '.auth', 'vendor.json');
  * Supabase access tokens last 60 minutes; 55 minutes leaves a 5-minute margin.
  */
 const CACHE_TTL_MS = 55 * 60 * 1000;
+
+function safeProfileResponseBody(body: string): string {
+  const maxLength = 2_000;
+  try {
+    const redact = (value: unknown): unknown => {
+      if (Array.isArray(value)) return value.map(redact);
+      if (!value || typeof value !== 'object') return value;
+      return Object.fromEntries(
+        Object.entries(value).map(([key, child]) => [
+          key,
+          /password|secret|token|authorization|cookie|email|phone|address|bank/i.test(key)
+            ? '[REDACTED]'
+            : redact(child),
+        ]),
+      );
+    };
+    return JSON.stringify(redact(JSON.parse(body))).slice(0, maxLength);
+  } catch {
+    return body
+      .slice(0, maxLength)
+      .replace(/(bearer\s+|token[=:]\s*|password[=:]\s*)[^\s,"]+/gi, '$1[REDACTED]');
+  }
+}
+
+async function profileDiagnostic(response: Response | null): Promise<string> {
+  if (!response) return 'Profile API: no /v1/vendors/me response was observed.';
+  const origin = new URL(response.url()).origin;
+  if (response.ok()) {
+    return `Profile API: ${response.status()} from ${origin} (successful response body omitted).`;
+  }
+  const body = safeProfileResponseBody(await response.text().catch(() => 'Unable to read body.'));
+  return `Profile API: ${response.status()} from ${origin}; response body: ${body}`;
+}
+
+async function resetCiVendorPassword(email: string, password: string): Promise<void> {
+  if (!process.env.CI) return;
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceRoleKey) {
+    throw new Error(
+      'auth setup: CI password reset requires NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.',
+    );
+  }
+
+  const admin = createClient(supabaseUrl, serviceRoleKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+  const perPage = 1000;
+  let authUserId: string | undefined;
+  for (let page = 1; !authUserId; page += 1) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage });
+    if (error) throw new Error(`auth setup: Supabase user lookup failed: ${error.message}`);
+    authUserId = data.users.find((user) => user.email === email)?.id;
+    if (data.users.length < perPage) break;
+  }
+  if (!authUserId) {
+    throw new Error('auth setup: the configured vendor has no matching Supabase Auth user.');
+  }
+
+  const { error } = await admin.auth.admin.updateUserById(authUserId, {
+    password,
+    email_confirm: true,
+    app_metadata: { role: 'vendor' },
+    user_metadata: { role: 'vendor', e2e: true },
+  });
+  if (error) throw new Error(`auth setup: Supabase password reset failed: ${error.message}`);
+}
+
+async function verifyCiVendorPassword(email: string, password: string): Promise<void> {
+  if (!process.env.CI) return;
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!supabaseUrl || !anonKey) {
+    throw new Error(
+      'auth setup: CI auth preflight requires NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.',
+    );
+  }
+
+  const client = createClient(supabaseUrl, anonKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+  const { data, error } = await client.auth.signInWithPassword({ email, password });
+  if (error || !data.session?.access_token) {
+    throw new Error(
+      `auth setup: Supabase password preflight failed before browser sign-in: ` +
+        `${error?.message ?? 'no session returned'}${error?.status ? ` (status ${error.status})` : ''}.`,
+    );
+  }
+  await client.auth.signOut();
+}
 
 setup('authenticate as test vendor', async ({ page }) => {
   const email = process.env.TEST_VENDOR_EMAIL;
@@ -52,11 +145,14 @@ setup('authenticate as test vendor', async ({ page }) => {
     );
   }
 
+  await resetCiVendorPassword(email, password);
+  await verifyCiVendorPassword(email, password);
+
   // ── Session reuse: skip full sign-in when a fresh cache exists ─────────────
   // Supabase access tokens last 60 min. If vendor.json is < 55 min old the
   // tokens are still valid and we can save the 15–20 s Supabase sign-in round
   // trip. The 5-minute margin prevents race conditions near the expiry boundary.
-  if (fs.existsSync(STATE_PATH)) {
+  if (!process.env.CI && fs.existsSync(STATE_PATH)) {
     const ageMs = Date.now() - fs.statSync(STATE_PATH).mtimeMs;
     const remainingMin = Math.floor((CACHE_TTL_MS - ageMs) / 60_000);
     if (ageMs < CACHE_TTL_MS) {
@@ -80,19 +176,28 @@ setup('authenticate as test vendor', async ({ page }) => {
   //      Playwright strict-mode violations.
   //   2. readonly="true" on the real inputs until a user interaction fires.
   //
-  // Fix: target the real fields by their stable IDs (#email, #password) and
-  // strip readonly before filling.
+  // Target the real fields by their stable IDs (#email, #password). Focus each
+  // field and wait for React's onFocus handler to remove readonly; mutating the
+  // attribute directly can let Playwright submit before hydration has attached
+  // the form handler.
   const emailInput = page.locator('#email');
   const passwordInput = page.locator('#password');
 
   await emailInput.waitFor({ state: 'visible' });
-  await emailInput.evaluate((el) => el.removeAttribute('readonly'));
+  await emailInput.click();
+  await expect(emailInput).toBeEditable();
   await emailInput.fill(email);
 
   await passwordInput.waitFor({ state: 'visible' });
-  await passwordInput.evaluate((el) => el.removeAttribute('readonly'));
+  await passwordInput.click();
+  await expect(passwordInput).toBeEditable();
   await passwordInput.fill(password);
 
+  const profileResponse = page
+    .waitForResponse((response) => new URL(response.url()).pathname === '/v1/vendors/me', {
+      timeout: 15_000,
+    })
+    .catch(() => null);
   await page.locator('button[type="submit"]').click();
 
   // Wait for the portal to settle on an authenticated route.
@@ -110,10 +215,12 @@ setup('authenticate as test vendor', async ({ page }) => {
       .first()
       .textContent({ timeout: 1_000 })
       .catch(() => null);
+    const profile = await profileDiagnostic(await profileResponse);
 
     throw new Error(
       `auth setup: sign-in did not redirect away from /sign-in within 15 s.\n` +
         `Current URL: ${page.url()}\n` +
+        `${profile}\n` +
         (pageError ? `Page shows: "${pageError.trim()}"\n\n` : '\n') +
         `Likely causes:\n` +
         `  - Wrong email or password for the test vendor account\n` +

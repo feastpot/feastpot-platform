@@ -1,6 +1,7 @@
 'use client';
 
 import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
+import { COMMISSION_RATES } from '@feastpot/config/commission-rates';
 
 /**
  * Read-only earnings breakdown for a single order.
@@ -10,7 +11,7 @@ import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
  * strings, produced by the parent from values the API stored at
  * order-creation time (the output of computeCommission):
  *   - subtotal    → food subtotal
- *   - commission  → platform commission (PLATFORM_FACTS.commission.marketplaceFirst % of food subtotal)
+ *   - commission  → first-order marketplace commission of food subtotal
  *   - deliveryFee → vendor delivery fee, retained in full
  *   - netPayable  → net payable to the vendor
  */
@@ -36,8 +37,8 @@ export function EarningsBreakdown({
         </div>
         <div className="flex justify-between">
           <dt className="text-muted-foreground">
-            {PLATFORM_FACTS.brandName} commission ({PLATFORM_FACTS.commission.marketplaceFirst}% of
-            food subtotal)
+            {PLATFORM_FACTS.brandName} {COMMISSION_RATES.marketplaceFirst.label.toLowerCase()} (
+            {COMMISSION_RATES.marketplaceFirst.percent}% of food subtotal)
           </dt>
           <dd className="tabular-nums">−{commission}</dd>
         </div>
@@ -51,8 +52,9 @@ export function EarningsBreakdown({
         </div>
       </dl>
       <p className="mt-2 text-xs text-muted-foreground">
-        {PLATFORM_FACTS.brandName} charges {PLATFORM_FACTS.commission.marketplaceFirst}% of the food
-        subtotal on completed orders. Your delivery fee is yours in full.
+        {PLATFORM_FACTS.brandName} charges a {COMMISSION_RATES.marketplaceFirst.percent}%{' '}
+        {COMMISSION_RATES.marketplaceFirst.label.toLowerCase()} on completed orders. Your delivery
+        fee is yours in full.
       </p>
     </div>
   );

@@ -1,0 +1,65 @@
+TASK: Publish Vendor Terms v2.1 carrying the new rates.
+
+WHY A NEW VERSION IS REQUIRED
+Clause 5.2 states in the contract body: "The current standard
+Commission is 12% of the Food Subtotal of each completed
+Order." Changing the engine without changing this leaves the
+contract and the platform disagreeing.
+
+CHANGES
+
+Clause 5.2: remove the number entirely. Replace with wording
+that points to the annex:
+  "The current Commission rates are set out in the Rate
+   Schedule at Annex A. Feastpot may operate different rates
+   by order source, and may change them only in accordance
+   with clause 16."
+Putting the figure only in the changeable annex is the whole
+point of the annex mechanism. Do not reintroduce a number
+into the body.
+
+Annex A Rate Schedule, replace with:
+  Marketplace, first order    8%    Food Subtotal
+  Marketplace, repeat order   5%    Food Subtotal
+  Vendor-referred, all        0%    Food Subtotal
+  Catering booking           10%    Event total
+  Customer service fee        5% capped £2.99, charged to the
+                                    Customer, not to you
+  Vendor Pro (optional)       unchanged
+Remove the "(planned)" markers from repeat and referred rows;
+they are live rates now. Ask me before removing the Founding
+Cook row.
+
+Annex C Key Terms Summary: the commission bullet currently
+reads "Commission is 12% of your food subtotal only."
+Replace with plain wording covering all three source rates.
+Keep the "never on delivery, service fee, tips or discounts"
+clause, which remains true.
+
+PUBLISH FLOW
+Use the existing LegalDocumentVersion machinery so the
+version gets a content hash. Write a plain-language
+changeSummary leading with the fact that rates have gone
+DOWN and by how much per segment. Pass the solicitor sign-off
+gate: the rate cut is benign but the clause 5.2 rewording is
+substantive drafting and should be seen.
+
+NOTICE AND RE-ACCEPTANCE
+A decrease is beneficial so the 15-day notice is not
+protecting against detriment, but the terms text is changing
+and there is exactly one acceptance on file with zero live
+vendors and zero orders. Publish with notice and re-collect
+acceptance. Do not build a beneficial-change exception path;
+not worth the complexity at this scale.
+
+REGENERATE THE DOWNLOADABLE DOCUMENT
+The Word and PDF copies carry the old Annex A and clause 5.2.
+Regenerate from v2.1. Verify no em dashes are introduced.
+
+ACCEPTANCE CRITERIA
+- v2.1 published with hash, summary and sign-off recorded.
+- No commission percentage appears in the clause body.
+- Annex A matches the rate engine exactly, asserted by test.
+- The existing acceptance is re-collected after the effective
+  date.
+- The downloadable document matches the published version.

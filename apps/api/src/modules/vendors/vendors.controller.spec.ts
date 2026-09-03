@@ -299,7 +299,7 @@ describe('VendorsController.myQrCode - auth-scoped QR generation', () => {
   it('embeds the referral-link slug (not Vendor.slug) in the QR so attribution is preserved', async () => {
     // The QR must encode VendorReferralLink.slug so the /v/[slug] click recorder
     // resolves it and sets fp_ref. Using Vendor.slug when the two differ produces a
-    // URL that records no click, silently attributing the order as marketplace (12%).
+    // URL that records no click, silently attributing the order as marketplace.
     // ?src=vendor must NOT appear: the route handler ignores it, so it is misleading.
     const vendorSlug = "mama's kitchen"; // display slug - must NOT appear in QR URL
     const referralSlug = 'mamas-kitchen-ref'; // attribution slug - MUST appear in QR URL

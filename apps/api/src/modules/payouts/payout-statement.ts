@@ -26,6 +26,7 @@ export interface PayoutStatementEntry extends PayoutStatementEntryInput {
 export interface PayoutStatementSummary {
   grossSalesPence: number;
   commissionPence: number;
+  effectiveBlendedRatePercent: string | null;
   refundsPence: number;
   chargebacksPence: number;
   serviceFeesPence: number | null;
@@ -47,6 +48,10 @@ export interface PayoutStatement {
   status: PayoutStatus;
   holdReason: string | null;
   entries: PayoutStatementEntry[];
+  appliedCommissionRates?: Array<{
+    source: string;
+    effectiveCommissionRatePercent: string;
+  }>;
   summary: PayoutStatementSummary;
 }
 
@@ -84,9 +89,35 @@ export function buildPayoutStatement(input: BuildPayoutStatementInput): PayoutSt
 
   const serviceFeesAvailable = entries.every((entry) => entry.serviceFeesPence !== null);
   const adjustmentsAvailable = entries.every((entry) => entry.adjustmentsPence !== null);
+  const totalFoodSubtotalPence = entries.reduce((sum, entry) => sum + entry.foodSubtotalPence, 0);
+  const totalCommissionPence = entries.reduce((sum, entry) => sum + entry.commissionPence, 0);
+  const appliedCommissionRates = Array.from(
+    new Map(
+      entries
+        .filter(
+          (
+            entry,
+          ): entry is PayoutStatementEntry & {
+            source: string;
+            effectiveCommissionRatePercent: string;
+          } => entry.source !== null && entry.effectiveCommissionRatePercent !== null,
+        )
+        .map((entry) => [
+          `${entry.source}:${entry.effectiveCommissionRatePercent}`,
+          {
+            source: entry.source,
+            effectiveCommissionRatePercent: entry.effectiveCommissionRatePercent,
+          },
+        ]),
+    ).values(),
+  );
   const summary: PayoutStatementSummary = {
     grossSalesPence: entries.reduce((sum, entry) => sum + entry.grossPence, 0),
-    commissionPence: entries.reduce((sum, entry) => sum + entry.commissionPence, 0),
+    commissionPence: totalCommissionPence,
+    effectiveBlendedRatePercent:
+      totalFoodSubtotalPence > 0
+        ? ((totalCommissionPence / totalFoodSubtotalPence) * 100).toFixed(2)
+        : null,
     refundsPence: entries.reduce((sum, entry) => sum + entry.refundsPence, 0),
     chargebacksPence: entries.reduce((sum, entry) => sum + entry.chargebacksPence, 0),
     serviceFeesPence: serviceFeesAvailable
@@ -127,6 +158,7 @@ export function buildPayoutStatement(input: BuildPayoutStatementInput): PayoutSt
     status: input.hasOpenDispute ? PayoutStatus.held : PayoutStatus.draft,
     holdReason: input.hasOpenDispute ? 'Vendor has open dispute(s); held pending resolution' : null,
     entries,
+    appliedCommissionRates,
     summary,
   };
 }
