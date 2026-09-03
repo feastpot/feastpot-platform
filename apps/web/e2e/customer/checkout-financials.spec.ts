@@ -76,12 +76,27 @@ async function prepareCheckout(
   const supabaseRef = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL!).hostname.split('.')[0]!;
   await page.addInitScript(
     ({ ref, discount, vendorId, menuItemId, firstVisiblePricePence }) => {
+      const nowSeconds = Math.floor(Date.now() / 1000);
+      const encodeJwtPart = (value: object): string =>
+        btoa(JSON.stringify(value)).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
+      const accessToken = [
+        encodeJwtPart({ alg: 'HS256', typ: 'JWT' }),
+        encodeJwtPart({
+          aud: 'authenticated',
+          email: 'checkout@example.test',
+          exp: nowSeconds + 3600,
+          role: 'authenticated',
+          sub: '44444444-4444-4444-8444-444444444444',
+        }),
+        'c2lnbmF0dXJl',
+      ].join('.');
+
       localStorage.setItem(
         `sb-${ref}-auth-token`,
         JSON.stringify({
-          access_token: 'customer-e2e-access-token',
+          access_token: accessToken,
           refresh_token: 'customer-e2e-refresh-token',
-          expires_at: Math.floor(Date.now() / 1000) + 3600,
+          expires_at: nowSeconds + 3600,
           expires_in: 3600,
           token_type: 'bearer',
           user: {

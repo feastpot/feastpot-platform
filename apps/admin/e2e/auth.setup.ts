@@ -32,8 +32,19 @@ setup('authenticate as admin', async ({ page }) => {
   const base = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3003';
   await page.goto(`${base}/sign-in`);
 
-  await page.getByLabel(/email/i).fill(email);
-  await page.getByLabel(/password/i).fill(password);
+  // The production form starts both real fields as readonly to prevent
+  // browsers from silently autofilling credentials on shared workstations.
+  // Target the stable IDs and unlock them before Playwright fills them.
+  const emailInput = page.locator('#email');
+  const passwordInput = page.locator('#password');
+
+  await emailInput.waitFor({ state: 'visible' });
+  await emailInput.evaluate((element) => element.removeAttribute('readonly'));
+  await emailInput.fill(email);
+
+  await passwordInput.waitFor({ state: 'visible' });
+  await passwordInput.evaluate((element) => element.removeAttribute('readonly'));
+  await passwordInput.fill(password);
   await page.getByRole('button', { name: /sign in/i }).click();
 
   // Wait until we land on an authenticated page (not /sign-in).

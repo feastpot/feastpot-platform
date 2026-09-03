@@ -111,8 +111,8 @@ test.describe('real Stripe test-mode customer purchase', () => {
       expect(((await apiVendor.json()) as { id: string }).id).toBe(vendorId);
 
       await page.goto('/sign-in?next=/checkout');
-      await page.getByLabel(/email/i).fill(email);
-      await page.getByLabel(/password/i).fill(password);
+      await page.locator('#signin-email').fill(email);
+      await page.locator('#signin-password').fill(password);
       await page.getByRole('button', { name: /sign in/i }).click();
       await expect(page).toHaveURL(/checkout|vendors/, { timeout: 20_000 });
 
