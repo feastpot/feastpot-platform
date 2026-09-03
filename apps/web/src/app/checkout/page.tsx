@@ -1008,7 +1008,10 @@ function CheckoutInner() {
       </section>
 
       {serverError && (
-        <p className="rounded-2xl border border-scotch/30 bg-scotch/10 p-3 text-sm font-medium text-scotch">
+        <p
+          role="alert"
+          className="rounded-2xl border border-scotch/30 bg-scotch/10 p-3 text-sm font-medium text-scotch"
+        >
           {serverError}
         </p>
       )}
