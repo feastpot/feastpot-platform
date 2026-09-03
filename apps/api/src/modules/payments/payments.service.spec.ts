@@ -86,6 +86,22 @@ describe('computeRefundSplit', () => {
     expect(split.feastpotAbsorbedPence).toBe(2000 - 1885);
   });
 
+  it('uses the original stored commission when refunding an order from an older rate window', () => {
+    const historicalEconomics = {
+      ...econ,
+      // This is the immutable commission recorded when the order was placed.
+      // Current rate configuration must never be consulted during a refund.
+      commissionPence: 320,
+    };
+
+    const split = computeRefundSplit(2000, historicalEconomics, false);
+
+    expect(split.refundFraction).toBeCloseTo(0.5);
+    expect(split.commissionRefundedPence).toBe(160);
+    expect(split.vendorClawbackPence).toBe(1965);
+    expect(split.feastpotAbsorbedPence).toBe(35);
+  });
+
   it('caps the refund fraction at 100% of subtotal', () => {
     const split = computeRefundSplit(4449, econ, false);
     expect(split.refundFraction).toBe(1);

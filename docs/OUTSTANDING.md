@@ -25,15 +25,6 @@ the draft, and confirm the funds settle penny-for-penny in Stripe before you
 trust the Monday 02:00 cron. The runbook is at `docs/runbooks/payout-dry-run.md`.
 This is hands-on-keyboard work that can't be done from the dev environment.
 
-**The service fee is being paid to vendors, not kept.** Today the 5% customer
-service fee flows straight into the vendor payout: commission is charged on food
-subtotal only, and `vendorPayout = total − commission` where `total` already
-includes the service fee (`orders.service.ts:90-104`). So every order quietly
-hands the platform's own fee back to the vendor. If the intent is for the service
-fee to be platform revenue, the payout math needs to subtract it - and either way
-the live `SERVICE_FEE_BPS` value (currently 500 = 5%) should be confirmed before
-launch. This is a revenue leak, not cosmetics.
-
 ---
 
 ## 🟠 Do before opening to volume
