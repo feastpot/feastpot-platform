@@ -222,7 +222,26 @@ test.describe('real Stripe test-mode customer purchase', () => {
             /\/v1\/orders\/[^/]+\/cancel$/.test(response.url()),
         );
         await page.getByRole('button', { name: 'Place order securely' }).first().click();
-        expect((await failedOrderResponse).ok()).toBeTruthy();
+        const orderResponse = await failedOrderResponse;
+        if (!orderResponse.ok()) {
+          void cancellationResponse.catch(() => undefined);
+          const body = (await orderResponse.json().catch(() => null)) as {
+            code?: unknown;
+            message?: unknown;
+            error?: unknown;
+            statusCode?: unknown;
+          } | null;
+          throw new Error(
+            `Customer smoke order create failed: status=${orderResponse.status()} body=${JSON.stringify(
+              {
+                statusCode: body?.statusCode,
+                code: body?.code,
+                message: body?.message,
+                error: body?.error,
+              },
+            ).slice(0, 500)}`,
+          );
+        }
         expect((await cancellationResponse).ok()).toBeTruthy();
         await expect(page.getByText(failure.message)).toBeVisible();
 
