@@ -1,0 +1,2 @@
+NEXT_PUBLIC_SUPABASE_URL	Test Supabase project URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY	Test Supabase anonymous key
