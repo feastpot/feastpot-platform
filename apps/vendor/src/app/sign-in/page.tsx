@@ -342,16 +342,15 @@ function SignInForm() {
         />
 
         <div className="relative z-10 flex h-full flex-col p-10 text-white xl:p-12">
-          {/* Logo cluster - the pot mark from /images/feastpot-logo.png
-              and the wordmark are baked into the same PNG, so we render
-              the asset as-is rather than recompositing it. */}
-          <Link href="/sign-in" aria-label="Feastpot vendor home" className="inline-block">
+          {/* Keep the vendor mark consistent with the admin sign-in logo:
+              square asset, circular crop, and the same rendered size. */}
+          <Link href="/sign-in" aria-label="Feastpot vendor home" className="inline-flex">
             <Image
-              src="/images/feastpot-logo.png"
+              src="/feastpot-logo.png"
               alt="Feastpot"
-              width={317}
-              height={100}
-              className="h-10 w-auto"
+              width={504}
+              height={504}
+              className="h-[7.875rem] w-[7.875rem] rounded-full object-contain"
               priority
             />
           </Link>
@@ -416,14 +415,14 @@ function SignInForm() {
 
         <div className="relative z-10 w-full max-w-[440px] rounded-3xl bg-white p-8 shadow-[0_8px_40px_rgba(0,0,0,0.08)] sm:p-10">
           {/* Mobile logo - shown only when the left rail is collapsed. */}
-          <div className="mb-5 lg:hidden">
-            <Link href="/sign-in" aria-label="Feastpot vendor home" className="inline-block">
+          <div className="mb-5 flex justify-center lg:hidden">
+            <Link href="/sign-in" aria-label="Feastpot vendor home" className="inline-flex">
               <Image
-                src="/images/feastpot-logo.png"
+                src="/feastpot-logo.png"
                 alt="Feastpot"
-                width={317}
-                height={100}
-                className="h-9 w-auto"
+                width={504}
+                height={504}
+                className="h-[7.875rem] w-[7.875rem] rounded-full object-contain"
                 priority
               />
             </Link>
