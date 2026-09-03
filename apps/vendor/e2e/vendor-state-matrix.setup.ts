@@ -98,6 +98,14 @@ setup('provision and authenticate V1-V11 vendor states', async ({ browser }) => 
 
       const context = await browser.newContext();
       if (state !== 'V1') {
+        try {
+          await factory.issueAccessToken(identity);
+        } catch (error) {
+          throw new Error(
+            `vendor state matrix: Supabase password preflight failed for ${state} before browser sign-in: ` +
+              `${error instanceof Error ? error.message : String(error)}`,
+          );
+        }
         const page = await context.newPage();
         await signIn(page, identity.credentials.email, identity.credentials.password);
       }

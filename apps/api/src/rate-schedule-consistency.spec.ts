@@ -10,10 +10,10 @@
  *      vendor payouts).
  */
 
+import { execFileSync } from 'child_process';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { dirname, join } from 'path';
-import { execFileSync } from 'child_process';
 
 import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
 import { BadRequestException } from '@nestjs/common';

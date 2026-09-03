@@ -97,6 +97,30 @@ async function resetCiVendorPassword(email: string, password: string): Promise<v
   if (error) throw new Error(`auth setup: Supabase password reset failed: ${error.message}`);
 }
 
+async function verifyCiVendorPassword(email: string, password: string): Promise<void> {
+  if (!process.env.CI) return;
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!supabaseUrl || !anonKey) {
+    throw new Error(
+      'auth setup: CI auth preflight requires NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.',
+    );
+  }
+
+  const client = createClient(supabaseUrl, anonKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+  const { data, error } = await client.auth.signInWithPassword({ email, password });
+  if (error || !data.session?.access_token) {
+    throw new Error(
+      `auth setup: Supabase password preflight failed before browser sign-in: ` +
+        `${error?.message ?? 'no session returned'}${error?.status ? ` (status ${error.status})` : ''}.`,
+    );
+  }
+  await client.auth.signOut();
+}
+
 setup('authenticate as test vendor', async ({ page }) => {
   const email = process.env.TEST_VENDOR_EMAIL;
   const password = process.env.TEST_VENDOR_PASSWORD;
@@ -122,6 +146,7 @@ setup('authenticate as test vendor', async ({ page }) => {
   }
 
   await resetCiVendorPassword(email, password);
+  await verifyCiVendorPassword(email, password);
 
   // ── Session reuse: skip full sign-in when a fresh cache exists ─────────────
   // Supabase access tokens last 60 min. If vendor.json is < 55 min old the
