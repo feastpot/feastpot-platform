@@ -56,7 +56,7 @@ setup('authenticate as test vendor', async ({ page }) => {
   // Supabase access tokens last 60 min. If vendor.json is < 55 min old the
   // tokens are still valid and we can save the 15–20 s Supabase sign-in round
   // trip. The 5-minute margin prevents race conditions near the expiry boundary.
-  if (fs.existsSync(STATE_PATH)) {
+  if (!process.env.CI && fs.existsSync(STATE_PATH)) {
     const ageMs = Date.now() - fs.statSync(STATE_PATH).mtimeMs;
     const remainingMin = Math.floor((CACHE_TTL_MS - ageMs) / 60_000);
     if (ageMs < CACHE_TTL_MS) {

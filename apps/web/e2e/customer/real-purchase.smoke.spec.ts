@@ -114,7 +114,7 @@ test.describe('real Stripe test-mode customer purchase', () => {
       await page.locator('#signin-email').fill(email);
       await page.locator('#signin-password').fill(password);
       await page.getByRole('button', { name: /sign in/i }).click();
-      await expect(page).toHaveURL(/checkout|vendors/, { timeout: 20_000 });
+      await expect(page).toHaveURL(/\/vendors(?:[/?#]|$)/, { timeout: 20_000 });
 
       await page.evaluate(
         ({ itemId, slug, id, pricePence, code }) => {

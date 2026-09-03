@@ -392,6 +392,11 @@ jobs:
       # Vendor Next.js app runtime vars.
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      # Factory-backed vendor state and authorization projects.
+      SUPABASE_DB_URL: ${{ secrets.TEST_SUPABASE_DB_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      TEST_FACTORY_PASSWORD: ${{ secrets.TEST_FACTORY_PASSWORD }}
+      TEST_FACTORY_NAMESPACE: vendor-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - uses: actions/checkout@v5
 
@@ -410,6 +415,8 @@ jobs:
           required=(
             TEST_VENDOR_EMAIL TEST_VENDOR_PASSWORD TEST_API_URL TEST_VENDOR_ID
             NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY
+            SUPABASE_DB_URL SUPABASE_SERVICE_ROLE_KEY TEST_FACTORY_PASSWORD
+            TEST_FACTORY_NAMESPACE
           )
           missing=()
           for key in "${required[@]}"; do
