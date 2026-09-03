@@ -22,7 +22,10 @@ Idempotent - safe to re-run after every change to the JSON.
 `required_status_checks.contexts` lists only PR-time checks from
 `.github/workflows/ci.yml`:
 
-- `Typecheck`, `Lint`, `Prisma validate`, `Test (coverage ≥ 70%)`,
+- `Typecheck`, `Lint`, `Prisma validate + drift check`,
+  `Test (coverage thresholds)`, `E2E (customer checkout)`,
+  `E2E (vendor portal, all projects)`,
+  `E2E (admin portal, all projects)`, `Financial suite`,
   `Build all apps`
 
 GitHub branch protection only honors contexts that can actually
@@ -42,6 +45,10 @@ So that even repo admins (i.e. anyone with the PAT in
 The only path to `main` is now: feature branch → PR → green CI →
 1 review → squash/rebase merge. `scripts/git-sync.sh` adds the
 matching client-side guard.
+
+The coverage check enforces statements, branches, functions, and
+lines at the measured repository baseline. It does not advertise an
+untrue 70% threshold; each threshold must be raised as tests are added.
 
 See `docs/git-workflow.md` and `docs/git-workflow-verification.md`
 for the full rationale and the verification log.

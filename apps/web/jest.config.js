@@ -17,10 +17,12 @@ module.exports = {
   },
   coverageThreshold: {
     global: {
-      // This threshold is measured across the complete discovered web unit
-      // suite and all web TypeScript source, not just the original
-      // feastpass-callout test. The measured baseline is currently 0.87%.
+      // Measured full-suite baseline on 2 September 2026:
+      // 0.86 statements / 1.37 branches / 0.43 functions / 0.59 lines.
       statements: 0.8,
+      branches: 1.3,
+      functions: 0.4,
+      lines: 0.5,
     },
   },
 };

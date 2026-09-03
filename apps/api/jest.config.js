@@ -8,10 +8,14 @@ module.exports = {
   coverageDirectory: '<rootDir>/../coverage',
   transform: { '^.+\\.ts$': ['ts-jest', { tsconfig: '<rootDir>/../tsconfig.json' }] },
   coverageThreshold: {
-    // The current API baseline is approximately 41.83% statements. Keep this
-    // gate honest now and raise it to 60% as the service-level suite grows.
+    // Measured full-suite baseline on 2 September 2026:
+    // 44.10 statements / 36.09 branches / 20.61 functions / 44.21 lines.
+    // Keep all four dimensions from regressing; raise them as coverage grows.
     global: {
-      statements: 40,
+      statements: 44,
+      branches: 36,
+      functions: 20,
+      lines: 44,
     },
   },
 };

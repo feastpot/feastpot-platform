@@ -3,6 +3,7 @@
 - [Prisma array defaults drift](prisma-array-defaults-drift.md) - Postgres normalises ARRAY[]::VARCHAR(n)[] to a longer cast expression; @default([]) in schema never matches introspected DbGenerated form; use @default(dbgenerated("(ARRAY[]::character varying[])::character varying(n)[]")) to silence migrate diff.
 - [Prisma enum names without map](prisma-enum-names-no-map.md) - enum names without @@map must match exactly between schema and DB; hand-written snake_case names in migrations vs PascalCase in schema = CI drift; fix with ALTER TYPE RENAME in an idempotent DO block.
 - [Monorepo commands](monorepo-commands.md) - repo is npm workspaces + Turborepo; attached CHECK-FIRST prompts say `--filter=` (turbo) but per-app scripts run via `npm run X --workspace=@feastpot/<app>`.
+- [Turbo CI environment filtering](turbo-ci-env-filtering.md) - strict-mode Turbo tests must allowlist DB variables or integration suites silently skip and distort coverage.
 - [npm overrides clean reinstall](npm-overrides-clean-reinstall.md) - overrides need EXACT pins + full clean reinstall (rm node_modules+lock); partial removal corrupts tree; verify via require(), not audit alone.
 - [Replit deploy env gotchas](replit-deploy-env.md) - NODE_ENV isn't auto-prod (set runtime-only via start:api, NOT a prod env var → breaks npm ci); env-scoped secrets land in plaintext git-tracked .replit.
 - [Supabase prod migration](supabase-prod-migration.md) - DONE 31 Jul 2026: prod on dedicated London project (yeklvh…); old zibmwu… is dev-only; mop-up list inside.

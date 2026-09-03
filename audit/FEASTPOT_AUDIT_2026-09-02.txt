@@ -1,0 +1,149 @@
+FEASTPOT RELEASE READINESS AUDIT
+2 September 2026
+
+Scope
+-----
+
+This report re-checks the 25 August 2026 audit against the release-gate
+brief. Evidence came from the current source tree, local tests, GitHub's
+API, Stripe's live API, Replit deployment metadata, production secret
+existence checks, the public API endpoint, and read-only production SQL.
+
+Executive Verdict
+-----------------
+
+NOT READY FOR REAL TRANSACTIONS.
+
+The six original Priority 1 source defects now have implementations and
+targeted tests. Production allergen data is clean and the live Stripe
+endpoint now subscribes to all 15 handled event types. However, release
+acceptance is not met because:
+
+1. The production customer Stripe publishable key is not configured in
+   this deployment environment.
+2. Production ADMIN_REQUIRE_AAL2, SENTRY_DSN, and
+   QUEUE_ALERT_SLACK_WEBHOOK_URL are absent.
+3. GitHub Actions has zero repository secrets and zero repository
+   variables, so credential-dependent customer, vendor, and admin checks
+   cannot run.
+4. No real vendor order, Stripe charge, payout, transfer, statement, or
+   bank settlement was performed. Production contains zero payout rows.
+5. The deliberately broken-PR branch-protection proof has not been run.
+
+Release Gate
+------------
+
+Repository changes on branch chore/release-readiness-gate:
+
+- Added separate required checks for customer, vendor, admin, and financial
+  suites.
+- Vendor, customer, and admin E2E checks fail when credentials are absent.
+- Added a financial suite backed by fresh Postgres in CI.
+- Coverage now enforces statements, branches, functions, and lines at the
+  measured API and web baselines.
+- Branch-protection context names now exactly match CI display names.
+
+Local proof:
+
+- Financial suite: 8 suites, 107 tests, all passed.
+- API coverage baseline: 44.10 statements, 36.09 branches,
+  20.61 functions, 44.21 lines.
+- Web coverage: 3 suites, 16 tests, all passed; 0.86 statements,
+  1.37 branches, 0.43 functions, 0.59 lines.
+- Workflow YAML parses successfully; branch-protection JSON parses
+  successfully; formatting and git diff checks pass.
+
+GitHub live configuration:
+
+- Current main protection requires Typecheck, Lint, Build all apps,
+  Prisma validate + drift check, and Test (coverage thresholds).
+- Admin enforcement and linear history are enabled.
+- Force pushes and branch deletion are disabled.
+- Required approving reviews are currently zero.
+- No GitHub Actions secrets or variables are configured.
+- The new E2E and financial contexts cannot be safely added to live branch
+  protection until a PR causes them to report at least once.
+
+Production Evidence
+-------------------
+
+Deployment:
+
+- Public VM deployment at https://api.feastpot.co.uk.
+- Current deployment build reports success.
+- Unsigned POST /v1/webhooks/stripe returns 400 MISSING_SIGNATURE,
+  proving the public route is live and signature-gated.
+
+Stripe:
+
+- One enabled live endpoint exists at
+  https://api.feastpot.co.uk/v1/webhooks/stripe.
+- It now subscribes to all 15 event types handled by the application,
+  including account.updated, refund, dispute, and subscription events.
+- The live server key and webhook signing secret exist in production.
+- A signed test delivery was not fabricated. Stripe does not expose an
+  existing endpoint secret for comparison, and rotating it merely to test
+  would create avoidable production risk.
+
+Production configuration:
+
+- Present: STRIPE_SECRET_KEY_LIVE, STRIPE_WEBHOOK_SECRET_LIVE,
+  SUPABASE_DB_URL, SUPABASE_DIRECT_URL.
+- Absent: NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY, ADMIN_REQUIRE_AAL2,
+  SENTRY_DSN, QUEUE_ALERT_SLACK_WEBHOOK_URL.
+- Sentry exception delivery and Slack queue-alert delivery are therefore
+  NOT VERIFIED.
+
+Production database (read-only):
+
+- 93 migration records.
+- Zero unfinished, non-rolled-back migrations.
+- One historical rolled-back migration record remains.
+- Both 2 September financial migrations are applied.
+- Zero available approved menu items lack an allergen declaration.
+- One currently effective Vendor Terms version exists.
+- One Vendor Terms acceptance exists.
+- Zero payout rows and zero unresolved reconciliation findings.
+
+Priority 1 Re-check
+-------------------
+
+1. Legacy public allergen-less dishes: FIXED.
+   Production aggregate query returns zero offenders and the public service
+   now filters undeclared items.
+
+2. Checkout unavailable: STILL PRESENT / NOT VERIFIED.
+   The production publishable key is absent and no completed checkout was
+   performed.
+
+3. Webhook claim race/configuration: FIXED IN CODE; PRODUCTION DELIVERY
+   NOT VERIFIED.
+   Atomic claim tests exist and the live endpoint is signature-gated with
+   all required subscriptions. A signed production delivery was not sent.
+
+4. Catering deposit arithmetic: FIXED.
+   Shared calculation and boundary tests cover the minimum/cap invariants.
+
+5. Catering refunds bypass ledger: FIXED IN CODE.
+   Shared ledger and reconciliation tests pass. No real catering refund was
+   performed.
+
+6. Stripe Connect account changes ignored: FIXED IN CODE AND CONFIG.
+   account.updated is handled and is now subscribed on the live endpoint.
+   No live capability-loss/restoration event was induced.
+
+Remaining Release Blockers
+--------------------------
+
+- Configure the customer live Stripe publishable key in its actual hosting
+  environment and complete a test-mode checkout journey.
+- Configure and verify production admin AAL2, Sentry, and Slack alerting.
+- Add isolated GitHub Actions credentials/variables for all three E2E jobs.
+- Open a PR, observe every new context, apply the committed protection
+  payload, and prove a broken required check blocks merging.
+- Perform one real vendor order through payout and reconcile the statement,
+  local ledger, Stripe transfer, and bank settlement.
+- Resolve or formally document the one historical rolled-back migration.
+
+No statement in this report treats source code alone as proof of a live
+provider delivery or real-money settlement.

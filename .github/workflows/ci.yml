@@ -312,7 +312,53 @@ jobs:
           fail_ci_if_error: false
 
   # ----------------------------------------------------------------------------
-  # 6. E2E - Playwright suite covering all five vendor portal projects:
+  # 6. Financial suite - a named release gate for money-moving invariants.
+  #    Uses a fresh Postgres database so concurrency and ledger tests execute
+  #    rather than silently skipping.
+  # ----------------------------------------------------------------------------
+  financial-suite:
+    name: Financial suite
+    needs: [setup]
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: feastpot
+          POSTGRES_PASSWORD: feastpot
+          POSTGRES_DB: feastpot_financial
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U feastpot"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      NODE_ENV: test
+      SUPABASE_DB_URL: postgresql://feastpot:feastpot@localhost:5432/feastpot_financial
+      SUPABASE_DIRECT_URL: postgresql://feastpot:feastpot@localhost:5432/feastpot_financial
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm install -g npm@10.9.4
+      - run: npm ci --no-audit --no-fund
+      - name: Generate Prisma client
+        run: npm run db:generate
+      - name: Create Supabase roles
+        run: |
+          PGPASSWORD=feastpot psql -h localhost -U feastpot -d feastpot_financial -v ON_ERROR_STOP=1 \
+            -c "CREATE ROLE anon NOLOGIN; CREATE ROLE authenticated NOLOGIN; CREATE ROLE service_role NOLOGIN; CREATE ROLE supabase_auth_admin NOLOGIN;"
+      - name: Apply migrations from scratch
+        run: npx prisma migrate deploy --schema=./prisma/schema.prisma
+      - name: Run financial permutation and concurrency suite
+        run: npm run test:financial --workspace=@feastpot/api
+
+  # ----------------------------------------------------------------------------
+  # 7. E2E - Playwright suite covering all five vendor portal projects:
   #    menu-screen, menu-screen-mobile (375 px TopNav layout), delivery-screen
   #    (incl. D3 customer-discovery guard), profile-screen, availability-screen
   #    (incl. AV2/AV3 real-API integration guards). Runs in parallel with other
@@ -358,17 +404,21 @@ jobs:
 
       - run: npm ci --no-audit --no-fund
 
-      # ---- Fork PR guard ------------------------------------------------------
-      # Repository secrets are not available to fork-originated workflows.
-      # Emit a visible ::notice and set an output flag that all subsequent steps
-      # check, so the job exits cleanly with a clear explanation rather than
-      # producing a false pass with empty credentials.
-      - name: Skip notice for fork PRs (secrets unavailable)
+      - name: Require vendor E2E credentials
         id: fork-guard
-        if: env.TEST_VENDOR_EMAIL == ''
         run: |
-          echo "::notice title=E2E skipped (fork PR)::Repository secrets are not available to fork-originated workflows. The e2e-vendor suite is skipped. A maintainer will trigger the full suite after reviewing the changes."
-          echo "skip=true" >> "$GITHUB_OUTPUT"
+          required=(
+            TEST_VENDOR_EMAIL TEST_VENDOR_PASSWORD TEST_API_URL TEST_VENDOR_ID
+            NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY
+          )
+          missing=()
+          for key in "${required[@]}"; do
+            [ -n "${!key}" ] || missing+=("$key")
+          done
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "::error title=Vendor E2E credentials missing::Required credentials are absent: ${missing[*]}. This check intentionally fails instead of skipping."
+            exit 1
+          fi
 
       # ---- Prisma client ------------------------------------------------------
       # The vendor app's shared packages may reference Prisma types at build
@@ -551,6 +601,74 @@ jobs:
         with:
           name: playwright-report-${{ github.run_id }}
           path: apps/vendor/e2e-report/
+          retention-days: 14
+
+  # --------------------------------------------------------------------------
+  # Admin portal E2E is a separate required check. Missing credentials fail
+  # loudly so branch protection can never treat an unexecuted suite as green.
+  # --------------------------------------------------------------------------
+  e2e-admin:
+    name: E2E (admin portal, all projects)
+    needs: [setup]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PLAYWRIGHT_BASE_URL: http://localhost:3003
+      TEST_API_URL: ${{ secrets.TEST_API_URL }}
+      NEXT_PUBLIC_API_URL: ${{ secrets.TEST_API_URL }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      TEST_ADMIN_EMAIL: ${{ secrets.TEST_ADMIN_EMAIL }}
+      TEST_ADMIN_PASSWORD: ${{ secrets.TEST_ADMIN_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm install -g npm@10.9.4
+      - run: npm ci --no-audit --no-fund
+      - name: Require admin E2E credentials
+        run: |
+          required=(
+            TEST_API_URL NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY
+            TEST_ADMIN_EMAIL TEST_ADMIN_PASSWORD
+          )
+          missing=()
+          for key in "${required[@]}"; do
+            [ -n "${!key}" ] || missing+=("$key")
+          done
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "::error title=Admin E2E credentials missing::Required credentials are absent: ${missing[*]}. This check intentionally fails instead of skipping."
+            exit 1
+          fi
+      - name: Generate Prisma client
+        run: npm run db:generate
+        env:
+          SUPABASE_DB_URL: postgresql://dummy:dummy@localhost:5432/dummy
+          SUPABASE_DIRECT_URL: postgresql://dummy:dummy@localhost:5432/dummy
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+        working-directory: apps/admin
+      - name: Start admin server
+        run: npm run dev --workspace=@feastpot/admin &
+      - name: Wait for admin server
+        run: |
+          for i in $(seq 1 60); do
+            curl -sf http://localhost:3003 > /dev/null && exit 0
+            sleep 2
+          done
+          echo "::error title=Admin server timeout::The admin app did not open port 3003."
+          exit 1
+      - name: Run every admin Playwright project
+        run: npx playwright test
+        working-directory: apps/admin
+      - name: Upload admin Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-playwright-report-${{ github.run_id }}
+          path: apps/admin/e2e-report/
           retention-days: 14
 
   # --------------------------------------------------------------------------

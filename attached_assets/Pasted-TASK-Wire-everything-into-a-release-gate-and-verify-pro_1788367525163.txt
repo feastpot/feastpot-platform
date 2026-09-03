@@ -1,0 +1,78 @@
+TASK: Wire everything into a release gate and verify
+production readiness.
+
+PART A: CI GATES
+Make these required to merge to main:
+  typecheck, lint (now green after FIX-702), prisma-validate
+  unit tests with REAL coverage thresholds
+  customer E2E (TEST-710)
+  vendor E2E (TEST-711, now collectable after FIX-702)
+  admin E2E (TEST-711, now with projects after FIX-702)
+  financial suite (TEST-712)
+Branch protection is not stored in the repo, so the audit
+could not verify what is actually required. Configure it, then
+prove it by opening a PR that deliberately breaks a test and
+confirming it cannot merge.
+
+Fail loudly on missing credentials. A suite that skips because
+secrets are absent must FAIL the job, not pass with a notice.
+ci.yml:365-370 currently exits successfully in that case.
+
+PART B: PRODUCTION VERIFICATION
+These cannot be proven from source. Verify each in production
+and record evidence:
+  1. Stripe live webhook endpoint registered, correct signing
+     secret, every required event type subscribed including
+     account.updated. Send a test event and confirm receipt.
+  2. NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY present in the
+     customer deployment and matching the secret key
+     environment.
+  3. ADMIN_REQUIRE_AAL2 true in both API and admin. Confirm an
+     AAL1 session is rejected.
+  4. SENTRY_DSN set. Trigger a test exception and confirm it
+     arrives.
+  5. QUEUE_ALERT_SLACK_WEBHOOK_URL set. Trigger a queue alert
+     and confirm delivery.
+  6. prisma migrate status clean. Resolve the five rolled-back
+     entries the audit found in dev before assuming production
+     is clean.
+  7. The allergen query run against PRODUCTION returns zero
+     offending rows (FIX-700).
+  8. A current effective terms version exists and vendors have
+     acceptance records (FIX-708).
+  9. All required environment variables documented in
+     .env.example, including the ten undocumented ones Phase 1
+     listed.
+
+PART C: THE LIVE PAYOUT DRY RUN
+Before the second real order is ever taken:
+  Take one real order with a real vendor.
+  Let it complete a full weekly cycle.
+  Generate the payout.
+  Reconcile the statement BY HAND against Stripe, to the penny.
+  Confirm the vendor receives the money and the statement
+  makes sense to them.
+Do not proceed to wider traffic until this is done. One
+reconciled real payout is worth more than any test suite.
+
+PART D: RE-AUDIT AND DIFF
+Re-run the five-phase audit against the fixed codebase. Produce
+/audit/FEASTPOT_AUDIT_<date>.txt in the same editorial format.
+Then produce a DIFF against the 25 August audit showing, for
+every previous finding: FIXED with evidence, STILL PRESENT
+with fresh evidence, or NEWLY INTRODUCED.
+
+The re-audit must apply the same evidence standard. Any finding
+that moves from STILL PRESENT to FIXED needs proof it now
+works, not merely proof that code changed.
+
+Specifically re-verify every item the first audit marked NOT
+VERIFIED, since the FIX-701 factory should now make most of
+them testable. If something is STILL not verifiable, say so
+and explain what remains blocked.
+
+ACCEPTANCE CRITERIA
+- A deliberately broken test cannot be merged to main.
+- All nine production items verified with recorded evidence.
+- One real payout reconciled by hand.
+- The re-audit diff shows zero remaining P0 findings.
