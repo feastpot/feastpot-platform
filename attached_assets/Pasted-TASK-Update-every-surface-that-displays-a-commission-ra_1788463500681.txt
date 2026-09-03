@@ -1,0 +1,69 @@
+TASK: Update every surface that displays a commission rate.
+Every one must READ from the rate engine, never restate a
+number.
+
+CUSTOMER SITE (apps/web)
+
+  /become-a-vendor
+    Currently states "12% on completed orders". Replace the
+    figure with values read from the rate engine.
+
+  THE EARNINGS PROJECTION CALCULATOR
+    IMPORTANT: change the RATES ONLY. Do NOT change the
+    design, layout, look and feel, inputs, outputs, wording
+    or interaction of this calculator. No new toggles, no
+    restructuring, no visual changes of any kind. It is
+    working and is used by every prospective vendor
+    (analytics show 24 unique sessions at 100% of page views
+    in 30 days). The single required change is that it
+    computes on the live rates from the rate engine instead
+    of a hardcoded figure. If it currently assumes one blended
+    rate, keep that presentation and feed it the correct
+    rate; do not redesign it to expose per-source rates.
+
+  /help FAQ
+    Regenerate any commission answer from the rate engine.
+
+  /legal/vendor-terms
+    Renders from the database so v2.1 flows through. Verify.
+
+  Occasion pages, SEO landing pages, /trust, /vendor-readiness
+    Grep each for a commission figure; several were written at
+    different times.
+
+VENDOR PORTAL (apps/vendor)
+
+  /earnings
+    Effective blended rate, per-source split, Rate Card.
+    Remove any comparison against a hardcoded baseline.
+  /terms
+    The Rate Schedule panel currently renders "No rate
+    information available". Seed it from the rate engine so
+    it shows all segments, distinguishing live from scheduled.
+  Onboarding acceptance screen
+    Rate Card beside the terms pane must match.
+  /referrals
+    State plainly that orders through the vendor's own link
+    carry 0% commission.
+
+ADMIN (apps/admin)
+
+  /settings
+    Remove the hardcoded "DEFAULT COMMISSION 12.00%". Read
+    from the rate engine, show all segments, link to
+    /commission-rates.
+  /commission-rates
+    Fix the "Active rates" label so future-dated rows show as
+    Scheduled.
+
+DO NOT CHANGE ANY COLOURS, LAYOUTS OR DESIGNS ANYWHERE IN
+THIS PROMPT. This is a data-source change, not a redesign.
+
+ACCEPTANCE CRITERIA
+- No commission figure is hardcoded on any page.
+- The projection calculator computes on live rates with its
+  design completely unchanged, verified by screenshot
+  comparison before and after.
+- The vendor portal Rate Schedule panel renders rates.
+- A test asserts public page, vendor portal, admin and Annex A
+  all agree.
