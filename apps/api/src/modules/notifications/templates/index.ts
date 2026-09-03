@@ -354,16 +354,51 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
       // Older in-flight jobs without referralUrl simply omit the nudge block.
       const shareLink =
         typeof d.referralUrl === 'string' && d.referralUrl ? str(d.referralUrl) : null;
+      const statement =
+        d.statement && typeof d.statement === 'object'
+          ? (d.statement as {
+              appliedCommissionRates?: Array<{
+                source: string;
+                effectiveCommissionRatePercent: string;
+              }>;
+              summary?: { effectiveBlendedRatePercent?: string | null };
+            })
+          : null;
+      const sourceLabels: Record<string, string> = {
+        MARKETPLACE_FIRST: 'first-order marketplace',
+        MARKETPLACE_REPEAT: 'repeat-order marketplace',
+        VENDOR_REFERRED: 'vendor-referred',
+        CATERING: 'catering',
+      };
+      const appliedRates = statement?.appliedCommissionRates ?? [];
+      const appliedRatesCopy =
+        appliedRates.length > 0
+          ? p(
+              `Feastpot's marketplace rates have fallen, so more of each sale is included in your net payout. The rates applied in this statement are ${appliedRates
+                .map(
+                  (rate) =>
+                    `${esc(sourceLabels[rate.source] ?? rate.source.toLowerCase())} at ${esc(rate.effectiveCommissionRatePercent)}%`,
+                )
+                .join(', ')}.`,
+            )
+          : '';
 
       return baseLayout(
         'Payout ready',
         h2('Your weekly payout is ready') +
+          appliedRatesCopy +
           (d.grossPence !== undefined
             ? keyValueRow('Gross sales', formatMoney(d.grossPence))
             : '') +
           (d.commissionPence !== undefined
             ? keyValueRow('Commission deducted', `- ${formatMoney(d.commissionPence)}`)
             : '') +
+          keyValueRow(
+            'Effective blended rate',
+            statement?.summary?.effectiveBlendedRatePercent
+              ? `${esc(statement.summary.effectiveBlendedRatePercent)}%`
+              : 'not available',
+          ) +
           (d.refundsPence !== undefined
             ? keyValueRow('Refunds', `- ${formatMoney(d.refundsPence)}`)
             : '') +
@@ -392,7 +427,7 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
             ? `<div style="margin-top:28px;padding:16px 18px;background:#f0f9f4;border-radius:8px;border-left:4px solid #00843d">` +
               `<p style="margin:0 0 6px 0;font-size:14px;font-weight:700;color:#005c2b">Grow your earnings</p>` +
               `<p style="margin:0 0 10px 0;font-size:13px;color:#374151;line-height:1.5">` +
-              `Orders placed via your personal link attract 0% commission. Share it on Instagram, WhatsApp or anywhere you promote your kitchen and you keep more of every order.` +
+              `Orders placed via your personal link use the vendor-referred rate shown in your statement. Share it on Instagram, WhatsApp or anywhere you promote your kitchen and you keep more of every order.` +
               `</p>` +
               `<p style="margin:0;font-size:13px">` +
               `<a href="${shareLink}" style="color:#00843d;font-weight:600;word-break:break-all">${esc(shareLink ?? '')} on Feastpot</a>` +

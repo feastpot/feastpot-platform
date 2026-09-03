@@ -160,9 +160,90 @@ describe('canonical payout statement permutation matrix', () => {
     ]);
   });
 
+  it.each([
+    [
+      'all first-order',
+      [baseEntry({ effectiveCommissionRatePercent: '8.00', commissionPence: 320 })],
+      '8.00',
+    ],
+    [
+      'all repeat',
+      [
+        baseEntry({
+          source: 'MARKETPLACE_REPEAT',
+          effectiveCommissionRatePercent: '5.00',
+          commissionPence: 200,
+        }),
+      ],
+      '5.00',
+    ],
+    [
+      'all referred',
+      [
+        baseEntry({
+          source: 'VENDOR_REFERRED',
+          effectiveCommissionRatePercent: '0.00',
+          commissionPence: 0,
+        }),
+      ],
+      '0.00',
+    ],
+    [
+      'mixed source',
+      [
+        baseEntry({ effectiveCommissionRatePercent: '8.00', commissionPence: 320 }),
+        baseEntry({
+          id: 'order-2',
+          source: 'MARKETPLACE_REPEAT',
+          effectiveCommissionRatePercent: '5.00',
+          commissionPence: 200,
+        }),
+        baseEntry({
+          id: 'order-3',
+          source: 'VENDOR_REFERRED',
+          effectiveCommissionRatePercent: '0.00',
+          commissionPence: 0,
+        }),
+      ],
+      '4.33',
+    ],
+  ])('%s batch stores its effective blended rate', (_label, entries, expected) => {
+    expect(statement(entries).summary.effectiveBlendedRatePercent).toBe(expected);
+  });
+
+  it('stores every distinct applied source and rate for downstream formats', () => {
+    const result = statement([
+      baseEntry({ effectiveCommissionRatePercent: '8.00', commissionPence: 320 }),
+      baseEntry({
+        id: 'order-2',
+        source: 'MARKETPLACE_REPEAT',
+        effectiveCommissionRatePercent: '5.00',
+        commissionPence: 200,
+      }),
+      baseEntry({
+        id: 'booking-1',
+        kind: 'catering',
+        source: 'CATERING',
+        effectiveCommissionRatePercent: '10.00',
+        commissionPence: 400,
+      }),
+    ]);
+
+    expect(result.appliedCommissionRates).toEqual([
+      { source: 'MARKETPLACE_FIRST', effectiveCommissionRatePercent: '8.00' },
+      { source: 'MARKETPLACE_REPEAT', effectiveCommissionRatePercent: '5.00' },
+      { source: 'CATERING', effectiveCommissionRatePercent: '10.00' },
+    ]);
+  });
+
   it('marks unavailable amounts as unavailable rather than zero', () => {
     const result = statement([baseEntry({ serviceFeesPence: null })]);
     expect(result.summary.serviceFeesPence).toBeNull();
     expect(result.summary.adjustmentsPence).toBeNull();
+  });
+
+  it('marks the blended rate unavailable when there is no commission basis', () => {
+    const result = statement([]);
+    expect(result.summary.effectiveBlendedRatePercent).toBeNull();
   });
 });

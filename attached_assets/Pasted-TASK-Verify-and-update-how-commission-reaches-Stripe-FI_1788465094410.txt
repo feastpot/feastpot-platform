@@ -1,0 +1,57 @@
+TASK: Verify and update how commission reaches Stripe.
+
+FIRST, ESTABLISH THE MODEL. DO NOT ASSUME.
+Determine and report which Stripe Connect charge model is in
+use before changing anything: destination charges with
+application_fee_amount, separate charges and transfers, or
+direct charges.
+
+This matters because in some models the commission is
+literally encoded in the Stripe API call. Changing the rate
+engine alone would leave Stripe deducting the old amount
+while the ledger records the new one, invisible until
+reconciliation.
+
+IF application_fee_amount IS USED
+  Compute from the rate engine per order using the resolved
+  source rate, in integer pence. Never a constant.
+  A vendor-referred order at 0% means a zero application fee.
+  Confirm Stripe accepts zero in your model, or that the code
+  omits the parameter rather than sending 0. TEST THIS CASE
+  SPECIFICALLY; it is the most likely to error.
+  Assert the application fee always matches the locally
+  recorded OrderCommission, and add a reconciliation check
+  flagging divergence.
+
+IF SEPARATE CHARGES AND TRANSFERS
+  Transfer amount is total minus commission, resolved from
+  the engine. A 0% referred order transfers the full food
+  subtotal.
+
+REFUNDS AND CHARGEBACKS
+  Partial refunds reverse the application fee proportionally
+  at the rate that applied to the ORIGINAL order.
+  A refund on a pre-change order uses the OLD rate. Test it.
+  Lost chargebacks must use the same cumulative split function
+  as manual refunds (divergence previously found between
+  stripe-webhook.processor.ts:423-455 and
+  payments.service.ts:54-156).
+
+CONFIRM UNAFFECTED, THEN MOVE ON
+FeastPass pricing and its Stripe price IDs, the customer
+service fee, Stripe processing fees, Connect account config
+and payout schedules. State each was checked so nobody
+re-investigates.
+
+VERIFY IN THE STRIPE DASHBOARD
+After the effective date, run a test-mode order of each
+source type and confirm in the dashboard that the application
+fee or transfer matches expectation to the penny. Code review
+is not sufficient for money leaving the platform.
+
+ACCEPTANCE CRITERIA
+- Charge model documented in the repo.
+- Commission reaching Stripe resolves from the rate engine.
+- A 0% referred order completes end to end.
+- A refund on a pre-change order uses the old rate.
+- All three source types verified in the Stripe dashboard.

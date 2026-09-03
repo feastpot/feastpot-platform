@@ -146,3 +146,21 @@ surgically editing a single order or user in an emergency.
 One revenue decision (the service fee), one hands-on payout dry-run, and a
 finance surface for the chargebacks feature stand between you and a confident
 launch. Everything after that is polish you can ship while the lights are on.
+
+## Payout export accounting definitions
+
+Payout detail, payout-scoped CSV, PDF, email and persisted batch totals consume
+the same immutable statement snapshot. Columns have these meanings:
+
+- `gross_pence`: the customer-facing order or accepted catering total.
+- `subtotal_pence`: the food subtotal, or the accepted event total for catering.
+- `commission_pence`: commission actually stored when the order or booking was created.
+- `effective_commission_rate_percent`: the persisted rate applied to that entry.
+- `service_fees_pence`: the customer service fee; it is not deducted from vendor payout.
+- `refunds_pence`: vendor-funded refund deductions excluding reconciled lost chargebacks.
+- `chargebacks_pence`: vendor deduction from reconciled lost chargebacks.
+- `adjustments_pence`: the reconciliation difference required to bridge gross and net.
+- `net_to_vendor_pence`: the statement entry amount after deductions.
+
+For historical data that cannot provide a value reliably, exports say
+`not available`. An unavailable accounting value must never be represented as zero.

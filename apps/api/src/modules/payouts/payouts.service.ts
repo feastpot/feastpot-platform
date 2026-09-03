@@ -1320,12 +1320,9 @@ export class PayoutsService {
    * Streams order-level CSV for the logged-in vendor (or, for finance/admin,
    * optionally scoped to a specific payout).
    *
-   * Columns: order_date, order_number, attribution_source,
-   *          subtotal_gbp, commission_gbp, net_to_vendor_gbp,
-   *          subtotal_pence, commission_pence, net_to_vendor_pence.
-   *
-   * Partial refunds are reflected in the stored commissionPence /
-   * vendorPayoutPence values, so the CSV always shows post-adjustment figures.
+   * Snapshot-backed exports use the same canonical entries as payout detail,
+   * PDF, batch totals and email. Nullable accounting fields are emitted as
+   * "not available"; they are never represented as zero.
    * Capped at 5 000 rows to prevent runaway DB connections.
    */
   async exportOrdersCsv(
@@ -1508,8 +1505,15 @@ export class PayoutsService {
               year: 'numeric',
             })
           : '--';
-      const srcLabel = (src: string) =>
-        src === 'VENDOR_REFERRED' ? 'Your referral' : 'Marketplace';
+      const srcLabel = (src: string) => {
+        const labels: Record<string, string> = {
+          MARKETPLACE_FIRST: 'Marketplace first',
+          MARKETPLACE_REPEAT: 'Marketplace repeat',
+          VENDOR_REFERRED: 'Vendor referred',
+          CATERING: 'Catering',
+        };
+        return labels[src] ?? src.replaceAll('_', ' ').toLowerCase();
+      };
 
       const pageWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
       const ml = doc.page.margins.left;
@@ -1579,11 +1583,7 @@ export class PayoutsService {
       doc.moveDown(0.8);
 
       // ─── Summary ─────────────────────────────────────────────────────────
-      const totalSubtotal = statement.entries.reduce((s, entry) => s + entry.foodSubtotalPence, 0);
-      const blendedPct =
-        totalSubtotal > 0
-          ? ((statement.summary.commissionPence / totalSubtotal) * 100).toFixed(2)
-          : 'not available';
+      const blendedPct = statement.summary.effectiveBlendedRatePercent ?? 'not available';
 
       const summaryX2 = ml + 200;
       doc.font('Helvetica-Bold').fontSize(9).text('Summary', ml, doc.y);
