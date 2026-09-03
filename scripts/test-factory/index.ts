@@ -354,11 +354,18 @@ export class TestDataFactory {
       });
       await tx.vendor.deleteMany({ where: { id: { in: vendorIds } } });
       await tx.user.deleteMany({ where: { id: { in: userIds } } });
-      await tx.termsVersion.deleteMany({
+      const termsVersions = await tx.termsVersion.findMany({
         where: {
           documentType: 'VENDOR_TERMS',
           version: { in: [this.termsVersionLabel('v1'), this.termsVersionLabel('v2')] },
         },
+        select: { id: true },
+      });
+      await tx.termsAcceptance.deleteMany({
+        where: { termsVersionId: { in: termsVersions.map((version) => version.id) } },
+      });
+      await tx.termsVersion.deleteMany({
+        where: { id: { in: termsVersions.map((version) => version.id) } },
       });
     });
 

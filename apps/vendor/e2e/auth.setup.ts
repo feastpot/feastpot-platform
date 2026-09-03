@@ -58,6 +58,8 @@ async function resetCiVendorPassword(email: string, password: string): Promise<v
   const { error } = await admin.auth.admin.updateUserById(authUserId, {
     password,
     email_confirm: true,
+    app_metadata: { role: 'vendor' },
+    user_metadata: { role: 'vendor', e2e: true },
   });
   if (error) throw new Error(`auth setup: Supabase password reset failed: ${error.message}`);
 }
