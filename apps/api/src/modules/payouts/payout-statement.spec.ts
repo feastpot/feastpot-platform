@@ -236,6 +236,44 @@ describe('canonical payout statement permutation matrix', () => {
     ]);
   });
 
+  it('serializes the current 8/5/0/10 schedule per entry, preserving a clean zero rate', () => {
+    const result = statement([
+      baseEntry({ source: 'MARKETPLACE_FIRST', effectiveCommissionRatePercent: '8.00' }),
+      baseEntry({
+        id: 'repeat',
+        source: 'MARKETPLACE_REPEAT',
+        effectiveCommissionRatePercent: '5.00',
+        commissionPence: 200,
+      }),
+      baseEntry({
+        id: 'referred',
+        source: 'VENDOR_REFERRED',
+        effectiveCommissionRatePercent: '0.00',
+        commissionPence: 0,
+      }),
+      baseEntry({
+        id: 'catering',
+        kind: 'catering',
+        source: 'CATERING',
+        effectiveCommissionRatePercent: '10.00',
+        commissionPence: 400,
+      }),
+    ]);
+
+    expect(result.entries.map((entry) => entry.effectiveCommissionRatePercent)).toEqual([
+      '8.00',
+      '5.00',
+      '0.00',
+      '10.00',
+    ]);
+    expect(result.appliedCommissionRates).toEqual([
+      { source: 'MARKETPLACE_FIRST', effectiveCommissionRatePercent: '8.00' },
+      { source: 'MARKETPLACE_REPEAT', effectiveCommissionRatePercent: '5.00' },
+      { source: 'VENDOR_REFERRED', effectiveCommissionRatePercent: '0.00' },
+      { source: 'CATERING', effectiveCommissionRatePercent: '10.00' },
+    ]);
+  });
+
   it('marks unavailable amounts as unavailable rather than zero', () => {
     const result = statement([baseEntry({ serviceFeesPence: null })]);
     expect(result.summary.serviceFeesPence).toBeNull();

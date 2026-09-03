@@ -390,6 +390,10 @@ jobs:
       # API to confirm the saved chip set appears in live customer search.
       # The job fails if either is absent and D3 ends up skipped.
       TEST_API_URL: ${{ secrets.TEST_API_URL }}
+      # The vendor browser must call the same isolated API as API-backed E2E
+      # assertions. Next.js only exposes this value to client-side code with
+      # the NEXT_PUBLIC_ prefix.
+      NEXT_PUBLIC_API_URL: ${{ secrets.TEST_API_URL }}
       TEST_VENDOR_ID: ${{ secrets.TEST_VENDOR_ID }}
       # Vendor Next.js app runtime vars.
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
@@ -415,7 +419,7 @@ jobs:
         id: fork-guard
         run: |
           required=(
-            TEST_VENDOR_EMAIL TEST_VENDOR_PASSWORD TEST_API_URL TEST_VENDOR_ID
+            TEST_VENDOR_EMAIL TEST_VENDOR_PASSWORD TEST_API_URL NEXT_PUBLIC_API_URL TEST_VENDOR_ID
             NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY
             SUPABASE_DB_URL SUPABASE_SERVICE_ROLE_KEY TEST_FACTORY_PASSWORD
             TEST_FACTORY_NAMESPACE
@@ -426,6 +430,10 @@ jobs:
           done
           if [ "${#missing[@]}" -gt 0 ]; then
             echo "::error title=Vendor E2E credentials missing::Required credentials are absent: ${missing[*]}. This check intentionally fails instead of skipping."
+            exit 1
+          fi
+          if [ "$NEXT_PUBLIC_API_URL" != "$TEST_API_URL" ]; then
+            echo "::error title=Vendor E2E API mismatch::NEXT_PUBLIC_API_URL must match TEST_API_URL so the browser and API-backed E2E checks use the same environment."
             exit 1
           fi
 

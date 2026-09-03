@@ -18,7 +18,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-import { test as setup } from '@playwright/test';
+import { test as setup, type Response } from '@playwright/test';
 import { createClient } from '@supabase/supabase-js';
 
 const STATE_PATH = path.join(__dirname, '.auth', 'vendor.json');
@@ -28,6 +28,39 @@ const STATE_PATH = path.join(__dirname, '.auth', 'vendor.json');
  * Supabase access tokens last 60 minutes; 55 minutes leaves a 5-minute margin.
  */
 const CACHE_TTL_MS = 55 * 60 * 1000;
+
+function safeProfileResponseBody(body: string): string {
+  const maxLength = 2_000;
+  try {
+    const redact = (value: unknown): unknown => {
+      if (Array.isArray(value)) return value.map(redact);
+      if (!value || typeof value !== 'object') return value;
+      return Object.fromEntries(
+        Object.entries(value).map(([key, child]) => [
+          key,
+          /password|secret|token|authorization|cookie|email|phone|address|bank/i.test(key)
+            ? '[REDACTED]'
+            : redact(child),
+        ]),
+      );
+    };
+    return JSON.stringify(redact(JSON.parse(body))).slice(0, maxLength);
+  } catch {
+    return body
+      .slice(0, maxLength)
+      .replace(/(bearer\s+|token[=:]\s*|password[=:]\s*)[^\s,"]+/gi, '$1[REDACTED]');
+  }
+}
+
+async function profileDiagnostic(response: Response | null): Promise<string> {
+  if (!response) return 'Profile API: no /v1/vendors/me response was observed.';
+  const origin = new URL(response.url()).origin;
+  if (response.ok()) {
+    return `Profile API: ${response.status()} from ${origin} (successful response body omitted).`;
+  }
+  const body = safeProfileResponseBody(await response.text().catch(() => 'Unable to read body.'));
+  return `Profile API: ${response.status()} from ${origin}; response body: ${body}`;
+}
 
 async function resetCiVendorPassword(email: string, password: string): Promise<void> {
   if (!process.env.CI) return;
@@ -131,6 +164,11 @@ setup('authenticate as test vendor', async ({ page }) => {
   await passwordInput.evaluate((el) => el.removeAttribute('readonly'));
   await passwordInput.fill(password);
 
+  const profileResponse = page
+    .waitForResponse((response) => new URL(response.url()).pathname === '/v1/vendors/me', {
+      timeout: 15_000,
+    })
+    .catch(() => null);
   await page.locator('button[type="submit"]').click();
 
   // Wait for the portal to settle on an authenticated route.
@@ -148,10 +186,12 @@ setup('authenticate as test vendor', async ({ page }) => {
       .first()
       .textContent({ timeout: 1_000 })
       .catch(() => null);
+    const profile = await profileDiagnostic(await profileResponse);
 
     throw new Error(
       `auth setup: sign-in did not redirect away from /sign-in within 15 s.\n` +
         `Current URL: ${page.url()}\n` +
+        `${profile}\n` +
         (pageError ? `Page shows: "${pageError.trim()}"\n\n` : '\n') +
         `Likely causes:\n` +
         `  - Wrong email or password for the test vendor account\n` +

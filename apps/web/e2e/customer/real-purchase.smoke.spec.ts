@@ -1,3 +1,5 @@
+import type { APIResponse } from '@playwright/test';
+
 import { assertCustomerSmokeEnvironment, expect, test } from './helpers';
 
 interface StripePaymentIntent {
@@ -6,6 +8,29 @@ interface StripePaymentIntent {
   currency: string;
   status: string;
   metadata: Record<string, string>;
+}
+
+function safeApiResponseBody(body: string): string {
+  const maxLength = 2_000;
+  try {
+    const redact = (value: unknown): unknown => {
+      if (Array.isArray(value)) return value.map(redact);
+      if (!value || typeof value !== 'object') return value;
+      return Object.fromEntries(
+        Object.entries(value).map(([key, child]) => [
+          key,
+          /password|secret|token|authorization|cookie|email|phone|address|bank/i.test(key)
+            ? '[REDACTED]'
+            : redact(child),
+        ]),
+      );
+    };
+    return JSON.stringify(redact(JSON.parse(body))).slice(0, maxLength);
+  } catch {
+    return body
+      .slice(0, maxLength)
+      .replace(/(bearer\s+|token[=:]\s*|password[=:]\s*)[^\s,"]+/gi, '$1[REDACTED]');
+  }
 }
 
 async function stripeRequest<T>(
@@ -104,10 +129,23 @@ test.describe('real Stripe test-mode customer purchase', () => {
           createdByUserId: customerIdentity.userId,
         },
       });
-      const apiVendor = await page.request.get(
-        `${process.env.TEST_API_URL}/v1/vendors/${vendorSlug}`,
-      );
-      expect(apiVendor.ok()).toBeTruthy();
+      const apiOrigin = new URL(process.env.TEST_API_URL!).origin;
+      const vendorPreflightUrl = `${process.env.TEST_API_URL}/v1/vendors/${vendorSlug}`;
+      let apiVendor: APIResponse;
+      try {
+        apiVendor = await page.request.get(vendorPreflightUrl);
+      } catch (error) {
+        throw new Error(
+          `CUSTOMER_E2E_VENDOR_PREFLIGHT_FAILED: API origin=${apiOrigin}; namespace=${process.env.TEST_FACTORY_NAMESPACE}; ` +
+            `vendorSlug=${vendorSlug}; request failed: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+      if (!apiVendor.ok()) {
+        throw new Error(
+          `CUSTOMER_E2E_VENDOR_PREFLIGHT_FAILED: API origin=${apiOrigin}; namespace=${process.env.TEST_FACTORY_NAMESPACE}; ` +
+            `vendorSlug=${vendorSlug}; status=${apiVendor.status()}; response body=${safeApiResponseBody(await apiVendor.text())}`,
+        );
+      }
       expect(((await apiVendor.json()) as { id: string }).id).toBe(vendorId);
 
       await page.goto('/sign-in?next=/checkout');

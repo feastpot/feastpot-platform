@@ -6,9 +6,10 @@
  * historical terms versions and is therefore not executable rate policy.
  */
 import { readdirSync, readFileSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { join, relative, resolve } from 'node:path';
 
-const root = process.cwd();
+const rootArg = process.argv.slice(2).find((arg) => arg.startsWith('--root='));
+const root = rootArg ? resolve(rootArg.slice('--root='.length)) : process.cwd();
 const sourceExtensions = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs']);
 const excludedDirectories = new Set([
   '.git',

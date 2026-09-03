@@ -1,4 +1,4 @@
-import { shouldWaiveServiceFee } from '@feastpot/config/service-fee';
+import { computeServiceFeePence, shouldWaiveServiceFee } from '@feastpot/config/service-fee';
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { DeliveryType, OrderStatus, UserRole } from '@prisma/client';
 
@@ -148,6 +148,30 @@ describe('OrdersService - pure helpers', () => {
 
     it('non-member + null attribution: fee is NOT waived', () => {
       expect(shouldWaiveServiceFee(false, null)).toBe(false);
+    });
+  });
+
+  describe('repeat-order commission is independent of FeastPass', () => {
+    it('keeps the £100.00 repeat-order vendor payout identical when the capped 5% service fee is waived', () => {
+      // These are deliberately the two different 5%s: repeat commission is a
+      // vendor deduction; the £2.99-capped service fee is customer-side only.
+      const subtotalPence = 10_000;
+      const deliveryPence = 500;
+      const repeatCommissionBps = 500;
+      const nonMemberServiceFeePence = computeServiceFeePence(subtotalPence);
+      const repeat = computeCommission(subtotalPence, deliveryPence, 0, null, repeatCommissionBps);
+
+      expect(nonMemberServiceFeePence).toBe(299);
+      expect(shouldWaiveServiceFee(false, 'MARKETPLACE_REPEAT')).toBe(false);
+      expect(shouldWaiveServiceFee(true, 'MARKETPLACE_REPEAT')).toBe(true);
+      expect(repeat).toEqual({ commissionPence: 500, vendorPayoutPence: 10_000 });
+
+      const nonMemberTotal = subtotalPence + deliveryPence + nonMemberServiceFeePence;
+      const feastPassTotal = subtotalPence + deliveryPence;
+      // The customer-side waiver changes only what the customer pays.
+      expect(nonMemberTotal - feastPassTotal).toBe(299);
+      // Neither total, nor the service-fee waiver, is an input to vendor payout.
+      expect(repeat.vendorPayoutPence).toBe(subtotalPence + deliveryPence - repeat.commissionPence);
     });
   });
 

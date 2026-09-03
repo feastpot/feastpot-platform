@@ -18,6 +18,7 @@ describe('payout_batch_ready template', () => {
           { source: 'MARKETPLACE_FIRST', effectiveCommissionRatePercent: '8.00' },
           { source: 'MARKETPLACE_REPEAT', effectiveCommissionRatePercent: '5.00' },
           { source: 'VENDOR_REFERRED', effectiveCommissionRatePercent: '0.00' },
+          { source: 'CATERING', effectiveCommissionRatePercent: '10.00' },
         ],
         summary: { effectiveBlendedRatePercent: '4.33' },
       },
@@ -27,6 +28,7 @@ describe('payout_batch_ready template', () => {
     expect(html).toContain('first-order marketplace at 8.00%');
     expect(html).toContain('repeat-order marketplace at 5.00%');
     expect(html).toContain('vendor-referred at 0.00%');
+    expect(html).toContain('catering at 10.00%');
     expect(html).toContain('4.33%');
     expect(html).not.toContain('attract 0% commission');
   });
