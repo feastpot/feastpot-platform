@@ -19,6 +19,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 import { test as setup } from '@playwright/test';
+import { createClient } from '@supabase/supabase-js';
 
 const STATE_PATH = path.join(__dirname, '.auth', 'vendor.json');
 
@@ -27,6 +28,39 @@ const STATE_PATH = path.join(__dirname, '.auth', 'vendor.json');
  * Supabase access tokens last 60 minutes; 55 minutes leaves a 5-minute margin.
  */
 const CACHE_TTL_MS = 55 * 60 * 1000;
+
+async function resetCiVendorPassword(email: string, password: string): Promise<void> {
+  if (!process.env.CI) return;
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceRoleKey) {
+    throw new Error(
+      'auth setup: CI password reset requires NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.',
+    );
+  }
+
+  const admin = createClient(supabaseUrl, serviceRoleKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+  const perPage = 1000;
+  let authUserId: string | undefined;
+  for (let page = 1; !authUserId; page += 1) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage });
+    if (error) throw new Error(`auth setup: Supabase user lookup failed: ${error.message}`);
+    authUserId = data.users.find((user) => user.email === email)?.id;
+    if (data.users.length < perPage) break;
+  }
+  if (!authUserId) {
+    throw new Error('auth setup: the configured vendor has no matching Supabase Auth user.');
+  }
+
+  const { error } = await admin.auth.admin.updateUserById(authUserId, {
+    password,
+    email_confirm: true,
+  });
+  if (error) throw new Error(`auth setup: Supabase password reset failed: ${error.message}`);
+}
 
 setup('authenticate as test vendor', async ({ page }) => {
   const email = process.env.TEST_VENDOR_EMAIL;
@@ -51,6 +85,8 @@ setup('authenticate as test vendor', async ({ page }) => {
         `Got: email="${email ?? '(unset)'}", password="${password ? '(set but is a placeholder)' : '(unset)'}".`,
     );
   }
+
+  await resetCiVendorPassword(email, password);
 
   // ── Session reuse: skip full sign-in when a fresh cache exists ─────────────
   // Supabase access tokens last 60 min. If vendor.json is < 55 min old the

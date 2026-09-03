@@ -601,6 +601,7 @@ export class TestDataFactory {
       }
       if (userId) {
         const { error } = await this.admin.auth.admin.updateUserById(userId, {
+          password: this.password,
           email_confirm: true,
           app_metadata: { role },
           user_metadata: { role, testFactory: true },
@@ -968,6 +969,8 @@ export class TestDataFactory {
       create: {
         vendorId,
         termsVersionId: v1.id,
+        ipAddress: '127.0.0.1',
+        userAgent: 'Feastpot TestDataFactory',
         acceptanceText: 'I accept the test factory v1 terms.',
         contentHash: v1.contentHash,
         scrolledToEnd: true,
