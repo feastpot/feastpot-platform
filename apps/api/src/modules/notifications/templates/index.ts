@@ -349,7 +349,7 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
       //   1. Vendor.slug and VendorReferralLink.slug can differ.
       //   2. The attribution click recorder looks up VendorReferralLink by slug;
       //      using Vendor.slug would produce a URL that records no click and sets
-      //      no fp_ref, silently attributing orders as marketplace (12%).
+      //      no fp_ref, silently attributing orders at the marketplace rate.
       //   3. ?src=vendor is inert - the /v/[slug] route handler ignores it.
       // Older in-flight jobs without referralUrl simply omit the nudge block.
       const shareLink =

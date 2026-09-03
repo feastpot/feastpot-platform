@@ -762,7 +762,7 @@ export class OrdersService {
     totalPence: number;
     // commissionPence and vendorPayoutPence are computed INSIDE the tx after
     // acquiring the vendor advisory lock and applying the founding allowance.
-    /** null when the DB rate lookup failed (12% fallback was used). */
+    /** null only when no persisted commission-rate row was available. */
     commissionRateId: string | null;
     commissionRatePercent: Decimal;
     attributionSource: OrderSource;

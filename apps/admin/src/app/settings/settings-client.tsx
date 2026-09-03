@@ -1,6 +1,7 @@
 'use client';
 
-import { Button, Card, CardContent, CardHeader, CardTitle } from '@feastpot/ui';
+import { Button, Card, CardContent, CardHeader, CardTitle, RateCard } from '@feastpot/ui';
+import type { RateRow } from '@feastpot/ui';
 import {
   Bell,
   ClipboardList,
@@ -15,7 +16,7 @@ import {
   Users,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { PageHeader } from '@/components/layout/page-header';
 import { StatCard } from '@/components/ui/stat-card';
@@ -24,8 +25,6 @@ import { useToast } from '@/components/ui/toaster';
 import { apiRequest } from '@/lib/api/client';
 import type { StaffRole, StaffUser } from '@/lib/auth/server-gate';
 import { API_URL } from '@/lib/env';
-
-import { COMMISSION_RATES } from '@feastpot/config/commission-rates';
 
 import { SecuritySection } from './security-section';
 
@@ -79,6 +78,26 @@ const ROLE_DESCRIPTIONS: Record<StaffRole, { summary: string; canDo: string[] }>
 export function SettingsClient({ user }: SettingsClientProps) {
   const { toast } = useToast();
   const [isRunningBatch, setIsRunningBatch] = useState(false);
+  const [rates, setRates] = useState<RateRow[]>([]);
+  const [ratesLoading, setRatesLoading] = useState(true);
+  const [ratesError, setRatesError] = useState<string>();
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch(`${API_URL}/v1/terms/rate-schedule`, { signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`Rate schedule request failed (${response.status})`);
+        const body: unknown = await response.json();
+        setRates(Array.isArray(body) ? (body as RateRow[]) : []);
+      })
+      .catch((error: unknown) => {
+        if ((error as Error).name !== 'AbortError') {
+          setRatesError('The current rate schedule could not be loaded.');
+        }
+      })
+      .finally(() => setRatesLoading(false));
+    return () => controller.abort();
+  }, []);
 
   const fullName = `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.email;
   const initials =
@@ -161,13 +180,8 @@ export function SettingsClient({ user }: SettingsClientProps) {
               Rates are resolved by the rate engine. Manage effective dates and the full schedule in
               Commission rates; historical rows are retained for audit.
             </p>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <StatCard
-                tone="teal"
-                label={COMMISSION_RATES.marketplaceFirst.label}
-                value={`${COMMISSION_RATES.marketplaceFirst.percent.toFixed(2)}%`}
-                caption="Current rate-engine rate for first marketplace orders"
-              />
+            <RateCard rates={rates} loading={ratesLoading} error={ratesError} />
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <StatCard
                 tone="blue"
                 label="Payout cadence"
@@ -181,9 +195,15 @@ export function SettingsClient({ user }: SettingsClientProps) {
                 caption="All amounts stored in pence"
               />
             </div>
-            <div className="rounded-md border border-dashed border-border bg-muted/30 p-3 text-xs text-muted-foreground">
-              Editing these defaults requires a backend release. Open an engineering ticket if a
-              change is needed.
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-dashed border-border bg-muted/30 p-3 text-xs text-muted-foreground">
+              <span>Rate changes append effective-dated rows; existing history is never edited.</span>
+              <Link
+                href="/commission-rates"
+                className="inline-flex items-center gap-1 font-medium text-primary hover:underline"
+              >
+                Manage commission rates
+                <ExternalLink className="h-3.5 w-3.5" />
+              </Link>
             </div>
           </CardContent>
         </Card>

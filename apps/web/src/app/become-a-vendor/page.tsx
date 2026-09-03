@@ -58,6 +58,12 @@ import { EarningsCalculator } from './earnings-calculator';
  */
 const pct = (v: number): string => (v % 1 === 0 ? String(Math.trunc(v)) : String(v));
 
+function currentRateValue(rates: RateRow[], key: string, fallback: number): number {
+  return (
+    rates.find((rate) => rate.key === key && rate.status === 'LIVE')?.rateValue ?? fallback
+  );
+}
+
 // ── Marketing content constants ──────────────────────────────────────────
 
 const SIX_BENEFITS = [
@@ -289,6 +295,16 @@ export default function BecomeAVendorPage() {
   const [rates, setRates] = useState<RateRow[]>([]);
   const [ratesLoading, setRatesLoading] = useState(true);
   const [ratesError, setRatesError] = useState<string | null>(null);
+  const marketplaceFirstRate = currentRateValue(
+    rates,
+    'standard_commission',
+    COMMISSION_RATES.marketplaceFirst.percent,
+  );
+  const vendorReferredRate = currentRateValue(
+    rates,
+    'referred_commission',
+    COMMISSION_RATES.vendorReferred.percent,
+  );
 
   const track = useTrackEvent();
 
@@ -452,11 +468,11 @@ export default function BecomeAVendorPage() {
             You built your following. Feastpot gives you card payments, deposits, an order book and
             allergen labels for your own customers at{' '}
             <strong className="text-charcoal">
-              {pct(COMMISSION_RATES.vendorReferred.percent)}% commission
+              {pct(vendorReferredRate)}% commission
             </strong>
             . When we send you a new customer, we take{' '}
             <strong className="text-charcoal">
-              {pct(COMMISSION_RATES.marketplaceFirst.percent)}%
+              {pct(marketplaceFirstRate)}%
             </strong>
             . That is the only time you pay us.
           </p>
@@ -477,7 +493,7 @@ export default function BecomeAVendorPage() {
           </div>
           <p className="mt-5 text-[12.5px] font-semibold text-charcoal-mid">
             No upfront fee &middot; No monthly fee &middot;{' '}
-            {pct(COMMISSION_RATES.vendorReferred.percent)}% on your own orders &middot; Weekly
+            {pct(vendorReferredRate)}% on your own orders &middot; Weekly
             Stripe payouts &middot; No exclusivity
           </p>
         </div>
@@ -516,7 +532,7 @@ export default function BecomeAVendorPage() {
         aria-labelledby="numbers-heading"
       >
         <div className="mx-auto max-w-6xl px-5 sm:px-8 lg:px-12">
-          <EarningsCalculator />
+          <EarningsCalculator rates={rates} />
 
           {/* Live rate schedule from the database */}
           <RateCard
@@ -527,7 +543,7 @@ export default function BecomeAVendorPage() {
           />
 
           {/* Key Terms Summary (Annex C) */}
-          <KeyTermsSummary />
+          <KeyTermsSummary rates={rates} />
 
           <p className="mt-4 text-[12px] text-charcoal-mid">
             Read the full{' '}

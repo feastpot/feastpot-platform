@@ -80,9 +80,32 @@ describe('Commercial-numbers consistency', () => {
       expect(PLATFORM_FACTS.commission.vendorReferred).toBe(0);
     });
 
-    it('surfaces reference the canonical commission rate definition', () => {
+    it('public calculator consumes the live Rate Schedule', () => {
       const becomePage = readSrc('become-a-vendor/page.tsx');
-      expect(becomePage).toContain('COMMISSION_RATES');
+      const calculator = readSrc('become-a-vendor/earnings-calculator.tsx');
+      expect(becomePage).toContain('<EarningsCalculator rates={rates} />');
+      expect(calculator).toContain("RATE_KEYS.marketplaceFirst");
+      expect(calculator).toContain("rate.status === 'LIVE'");
+    });
+
+    it('web, vendor, admin, and Annex A read the public Rate Schedule', () => {
+      const sources = [
+        readSrc('become-a-vendor/page.tsx'),
+        readRepo('apps/vendor/src/app/earnings/earnings-client.tsx'),
+        readRepo('apps/admin/src/app/settings/settings-client.tsx'),
+        readSrc('legal/vendor-terms/legal-layers.tsx'),
+      ];
+
+      for (const source of sources) {
+        expect(source).toContain('rate-schedule');
+      }
+
+      expect(readRepo('apps/vendor/src/app/share/page.tsx')).toContain(
+        "'referred_commission'",
+      );
+      expect(readRepo('apps/admin/src/app/settings/settings-client.tsx')).toContain(
+        'Manage commission rates',
+      );
     });
   });
 });

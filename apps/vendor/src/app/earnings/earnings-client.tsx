@@ -73,29 +73,54 @@ function asEarningsData(value: unknown): EarningsData | null {
     : null;
 }
 
-const SOURCE_LABELS: Record<string, { label: string; colour: string; note: string }> = {
-  MARKETPLACE_FIRST: {
-    label: 'New marketplace customers',
-    colour: 'bg-blue-100 text-blue-800',
-    note: `First-time buyers via ${PLATFORM_FACTS.brandName} (${COMMISSION_RATES.marketplaceFirst.percent}% first-order marketplace commission)`,
-  },
-  MARKETPLACE_REPEAT: {
-    label: 'Returning marketplace customers',
-    colour: 'bg-sky-100 text-sky-800',
-    note: `Repeat buyers via ${PLATFORM_FACTS.brandName} (${COMMISSION_RATES.marketplaceRepeat.percent}% repeat-order commission)`,
-  },
-  VENDOR_REFERRED: {
-    label: 'Your referrals',
-    colour: 'bg-green-100 text-green-800',
-    note: `Customers you brought directly (${COMMISSION_RATES.vendorReferred.percent}% commission)`,
-  },
-  // Fallback for any legacy rows not yet re-labelled by the migration backfill.
-  MARKETPLACE: {
-    label: 'Marketplace',
-    colour: 'bg-blue-100 text-blue-800',
-    note: `Orders via ${PLATFORM_FACTS.brandName} (${COMMISSION_RATES.marketplaceRepeat.percent}% repeat-order commission to ${COMMISSION_RATES.marketplaceFirst.percent}% first-order marketplace commission)`,
-  },
-};
+function currentRateValue(rates: RateRow[], key: string, fallback: number): number {
+  return (
+    rates.find((rate) => rate.key === key && rate.status === 'LIVE')?.rateValue ?? fallback
+  );
+}
+
+function sourceLabels(
+  rates: RateRow[],
+): Record<string, { label: string; colour: string; note: string }> {
+  const first = currentRateValue(
+    rates,
+    'standard_commission',
+    COMMISSION_RATES.marketplaceFirst.percent,
+  );
+  const repeat = currentRateValue(
+    rates,
+    'repeat_commission',
+    COMMISSION_RATES.marketplaceRepeat.percent,
+  );
+  const referred = currentRateValue(
+    rates,
+    'referred_commission',
+    COMMISSION_RATES.vendorReferred.percent,
+  );
+
+  return {
+    MARKETPLACE_FIRST: {
+      label: 'New marketplace customers',
+      colour: 'bg-blue-100 text-blue-800',
+      note: `First-time buyers via ${PLATFORM_FACTS.brandName} (${first}% first-order marketplace commission)`,
+    },
+    MARKETPLACE_REPEAT: {
+      label: 'Returning marketplace customers',
+      colour: 'bg-sky-100 text-sky-800',
+      note: `Repeat buyers via ${PLATFORM_FACTS.brandName} (${repeat}% repeat-order commission)`,
+    },
+    VENDOR_REFERRED: {
+      label: 'Your referrals',
+      colour: 'bg-green-100 text-green-800',
+      note: `Customers you brought directly (${referred}% commission)`,
+    },
+    MARKETPLACE: {
+      label: 'Marketplace',
+      colour: 'bg-blue-100 text-blue-800',
+      note: `Orders via ${PLATFORM_FACTS.brandName} (${repeat}% repeat-order commission to ${first}% first-order marketplace commission)`,
+    },
+  };
+}
 
 export function EarningsClient() {
   const [data, setData] = useState<EarningsData | null>(null);
@@ -106,6 +131,7 @@ export function EarningsClient() {
   // always matches the legal Rate Schedule (Annex A).
   const [rates, setRates] = useState<RateRow[]>([]);
   const [ratesLoading, setRatesLoading] = useState(true);
+  const labels = sourceLabels(rates);
 
   const now = new Date();
   const year = now.getFullYear();
@@ -249,7 +275,7 @@ export function EarningsClient() {
           </h2>
           <div className="space-y-3">
             {period.bySource.map((row) => {
-              const info = SOURCE_LABELS[row.source] ?? {
+              const info = labels[row.source] ?? {
                 label: row.source,
                 colour: 'bg-gray-100 text-gray-700',
                 note: '',
