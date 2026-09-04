@@ -259,6 +259,7 @@ function SignInPane({ onSwitchToRegister }: { onSwitchToRegister: () => void }) 
   const redirect = safeRedirect(rawRedirect, '/');
   const errorParam = params?.get('error') ?? null;
 
+  const [hydrated, setHydrated] = useState(false);
   const [serverError, setServerError] = useState<string | null>(errorParam);
   const [submitting, setSubmitting] = useState(false);
   const [showPwd, setShowPwd] = useState(false);
@@ -274,6 +275,8 @@ function SignInPane({ onSwitchToRegister }: { onSwitchToRegister: () => void }) 
     resolver: zodResolver(LoginSchema),
     defaultValues: { email: '', password: '' },
   });
+
+  useEffect(() => setHydrated(true), []);
 
   const handleResendConfirmation = async () => {
     if (!unconfirmedEmail) return;
@@ -463,7 +466,7 @@ function SignInPane({ onSwitchToRegister }: { onSwitchToRegister: () => void }) 
 
         <button
           type="submit"
-          disabled={submitting}
+          disabled={!hydrated || submitting}
           className="mt-2 flex min-h-12 w-full items-center justify-center rounded-xl bg-brand px-4 py-3.5 text-sm font-bold text-white shadow-card transition-colors hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
         >
           {submitting ? 'Signing in…' : 'Sign in'}
@@ -523,6 +526,7 @@ function SignInPane({ onSwitchToRegister }: { onSwitchToRegister: () => void }) 
 
 // ── REGISTER pane ───────────────────────────────────────────────────────
 function RegisterPane({ onSwitchToSignIn }: { onSwitchToSignIn: () => void }) {
+  const [hydrated, setHydrated] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [confirmedEmail, setConfirmedEmail] = useState('');
   const [serverError, setServerError] = useState<string | null>(null);
@@ -546,6 +550,8 @@ function RegisterPane({ onSwitchToSignIn }: { onSwitchToSignIn: () => void }) {
       termsAccepted: false,
     },
   });
+
+  useEffect(() => setHydrated(true), []);
 
   // Log build SHA once on mount so the deployed bundle can be verified from
   // the browser console. Dev-only diagnostic for the sign-in page.
@@ -887,7 +893,7 @@ function RegisterPane({ onSwitchToSignIn }: { onSwitchToSignIn: () => void }) {
 
         <button
           type="submit"
-          disabled={form.formState.isSubmitting}
+          disabled={!hydrated || form.formState.isSubmitting}
           className="mt-2 flex min-h-12 w-full items-center justify-center rounded-xl bg-brand px-4 py-3.5 text-sm font-bold text-white shadow-card transition-colors hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
         >
           {form.formState.isSubmitting ? 'Creating account…' : 'Create account'}

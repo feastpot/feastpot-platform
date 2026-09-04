@@ -173,7 +173,9 @@ test.describe('real Stripe test-mode customer purchase', () => {
       console.info('[customer-smoke] sign-in page ready');
       await page.locator('#signin-email').fill(email);
       await page.locator('#signin-password').fill(password);
-      await page.getByRole('button', { name: /sign in/i }).click();
+      const signInButton = page.getByRole('button', { name: /sign in/i });
+      await expect(signInButton).toBeEnabled();
+      await signInButton.click();
       await expect(page).toHaveURL(/\/vendors(?:[/?#]|$)/, { timeout: 20_000 });
       console.info('[customer-smoke] sign-in completed');
 
