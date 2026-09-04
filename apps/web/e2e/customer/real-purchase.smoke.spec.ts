@@ -175,7 +175,30 @@ test.describe('real Stripe test-mode customer purchase', () => {
       await page.locator('#signin-password').fill(password);
       const signInButton = page.getByRole('button', { name: /sign in/i });
       await expect(signInButton).toBeEnabled();
+      const authResponsePromise = page.waitForResponse(
+        (response) =>
+          response.request().method() === 'POST' &&
+          /\/auth\/v1\/token(?:\?|$)/.test(response.url()),
+        { timeout: 30_000 },
+      );
       await signInButton.click();
+      const authResponse = await authResponsePromise;
+      if (!authResponse.ok()) {
+        let errorCode = 'unknown';
+        try {
+          const body = (await authResponse.json()) as { error_code?: unknown; code?: unknown };
+          const candidate = body.error_code ?? body.code;
+          if (typeof candidate === 'string') {
+            errorCode = candidate.replace(/[^a-z0-9_-]/gi, '').slice(0, 80) || 'unknown';
+          }
+        } catch {
+          // Deliberately do not expose the raw authentication response.
+        }
+        throw new Error(
+          `CUSTOMER_E2E_AUTH_FAILED: status=${authResponse.status()}; code=${errorCode}`,
+        );
+      }
+      console.info('[customer-smoke] password authentication passed');
       await expect(page).toHaveURL(/\/vendors(?:[/?#]|$)/, { timeout: 20_000 });
       console.info('[customer-smoke] sign-in completed');
 
