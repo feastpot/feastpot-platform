@@ -303,11 +303,13 @@ test.describe('real Stripe test-mode customer purchase', () => {
       const cardFrame = page.frameLocator(
         'iframe[name^="__privateStripeFrame"][title$="input frame" i]',
       );
+      const postalInput = cardFrame.locator('input[autocomplete="postal-code"]');
       const expiryInput = cardFrame.locator('input[name="exp-date"]');
+      await expect(postalInput).toBeVisible({ timeout: 30_000 });
       await expect(expiryInput).toBeVisible({ timeout: 30_000 });
+      await postalInput.fill('SE15 4ST');
       await expiryInput.fill('1230');
       await cardFrame.locator('input[name="cvc"]').fill('123');
-      await cardFrame.locator('input[name="postal"]').fill('SE15 4ST');
       console.info('[customer-smoke] Stripe fields ready');
 
       for (const [failureIndex, failure] of [
