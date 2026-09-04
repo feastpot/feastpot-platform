@@ -39,6 +39,7 @@ async function stripeRequest<T>(
 ): Promise<{ response: Response; body: T }> {
   const response = await fetch(`https://api.stripe.com/v1${path}`, {
     ...init,
+    signal: init.signal ?? AbortSignal.timeout(30_000),
     headers: {
       Authorization: `Bearer ${process.env.STRIPE_SECRET_KEY_TEST}`,
       ...init.headers,
@@ -86,6 +87,7 @@ test.describe('real Stripe test-mode customer purchase', () => {
     test.setTimeout(240_000);
     assertCustomerSmokeEnvironment();
     const { factory, identities } = await customer.provision(['C2', 'V9']);
+    console.info('[customer-smoke] fixtures provisioned');
     const customerIdentity = identities.find((identity) => identity.state === 'C2')!;
     const vendorIdentity = identities.find((identity) => identity.state === 'V9')!;
     const email = customerIdentity.credentials.email;
@@ -208,10 +210,11 @@ test.describe('real Stripe test-mode customer purchase', () => {
       await cardFrame.locator('input[name="cvc"]').fill('123');
       await cardFrame.locator('input[name="postal"]').fill('SE15 4ST');
 
-      for (const failure of [
+      for (const [failureIndex, failure] of [
         { card: '4000000000000002', message: /card.*declined/i },
         { card: '4000000000009995', message: /insufficient funds/i },
-      ]) {
+      ].entries()) {
+        console.info(`[customer-smoke] decline ${failureIndex + 1} started`);
         await cardFrame.locator('input[name="cardnumber"]').fill(failure.card);
         const failedOrderResponse = page.waitForResponse(
           (response) =>
@@ -243,7 +246,9 @@ test.describe('real Stripe test-mode customer purchase', () => {
             ).slice(0, 500)}`,
           );
         }
+        console.info(`[customer-smoke] decline ${failureIndex + 1} order created`);
         expect((await cancellationResponse).ok()).toBeTruthy();
+        console.info(`[customer-smoke] decline ${failureIndex + 1} cancellation completed`);
         await expect(page.locator('form p[role="alert"]')).toContainText(failure.message);
 
         const failedOrders = await factory.prisma.order.findMany({
@@ -256,13 +261,16 @@ test.describe('real Stripe test-mode customer purchase', () => {
         expect(failedOrders[0]!.status).toBe('cancelled');
         expect(failedOrders[0]!.payments).toHaveLength(1);
         expect(failedOrders[0]!.payments[0]!.status).toBe('cancelled');
+        console.info(`[customer-smoke] decline ${failureIndex + 1} database state verified`);
         const failedIntent = await stripeRequest<StripePaymentIntent>(
           `/payment_intents/${failedOrders[0]!.payments[0]!.stripePaymentIntentId}`,
         );
         expect(failedIntent.response.ok).toBeTruthy();
         expect(failedIntent.body.status).toBe('canceled');
+        console.info(`[customer-smoke] decline ${failureIndex + 1} Stripe state verified`);
       }
 
+      console.info('[customer-smoke] 3DS success started');
       await cardFrame.locator('input[name="cardnumber"]').fill('4000002500003155');
       const orderResponsePromise = page.waitForResponse(
         (response) =>
@@ -271,6 +279,7 @@ test.describe('real Stripe test-mode customer purchase', () => {
       await page.getByRole('button', { name: 'Place order securely' }).first().click();
       const orderResponse = await orderResponsePromise;
       expect(orderResponse.ok()).toBeTruthy();
+      console.info('[customer-smoke] 3DS order created');
       const createdOrder = (await orderResponse.json()) as {
         order: { id: string };
         clientSecret: string;
@@ -291,8 +300,10 @@ test.describe('real Stripe test-mode customer purchase', () => {
           { timeout: 20_000 },
         )
         .toBe(true);
+      console.info('[customer-smoke] 3DS frame ready');
       await authenticationFrame!.getByRole('button', { name: /complete|authenticate/i }).click();
       await expect(page).toHaveURL(/\/orders\/[^/]+\/confirmation$/, { timeout: 30_000 });
+      console.info('[customer-smoke] 3DS order confirmed');
       await expect(page.getByText(/order confirmed|thanks/i)).toBeVisible();
       expect(orderCreates).toBe(3);
 
