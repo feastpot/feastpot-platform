@@ -305,9 +305,7 @@ test.describe('real Stripe test-mode customer purchase', () => {
       );
       const postalInput = cardFrame.locator('input[autocomplete="postal-code"]');
       const expiryInput = cardFrame.locator('input[name="exp-date"]');
-      await expect(postalInput).toBeVisible({ timeout: 30_000 });
       await expect(expiryInput).toBeVisible({ timeout: 30_000 });
-      await postalInput.fill('SE15 4ST');
       await expiryInput.fill('1230');
       await cardFrame.locator('input[name="cvc"]').fill('123');
       console.info('[customer-smoke] Stripe fields ready');
@@ -318,6 +316,8 @@ test.describe('real Stripe test-mode customer purchase', () => {
       ].entries()) {
         console.info(`[customer-smoke] decline ${failureIndex + 1} started`);
         await cardFrame.locator('input[name="cardnumber"]').fill(failure.card);
+        await expect(postalInput).toBeVisible({ timeout: 10_000 });
+        await postalInput.fill('SE15 4ST');
         const failedOrderResponse = page.waitForResponse(
           (response) =>
             response.request().method() === 'POST' && /\/v1\/orders(?:\?|$)/.test(response.url()),
@@ -374,6 +374,8 @@ test.describe('real Stripe test-mode customer purchase', () => {
 
       console.info('[customer-smoke] 3DS success started');
       await cardFrame.locator('input[name="cardnumber"]').fill('4000002500003155');
+      await expect(postalInput).toBeVisible({ timeout: 10_000 });
+      await postalInput.fill('SE15 4ST');
       const orderResponsePromise = page.waitForResponse(
         (response) =>
           response.request().method() === 'POST' && /\/v1\/orders(?:\?|$)/.test(response.url()),
