@@ -390,22 +390,29 @@ test.describe('real Stripe test-mode customer purchase', () => {
       };
       cleanupOrderId = createdOrder.order.id;
       cleanupPaymentIntentId = createdOrder.clientSecret.split('_secret_')[0] ?? null;
-      let authenticationFrame = page
-        .frames()
-        .find((frame) => /three-ds|3ds|authenticate/i.test(frame.url()));
+      let authenticationButton = page.getByRole('button', {
+        name: /complete|authenticate|success/i,
+      });
       await expect
         .poll(
-          () => {
-            authenticationFrame = page
-              .frames()
-              .find((frame) => /three-ds|3ds|authenticate/i.test(frame.url()));
-            return Boolean(authenticationFrame);
+          async () => {
+            for (const frame of page.frames()) {
+              const candidate = frame
+                .locator('#test-source-authorize-3ds')
+                .or(frame.getByRole('button', { name: /complete|authenticate|success/i }))
+                .first();
+              if (await candidate.isVisible().catch(() => false)) {
+                authenticationButton = candidate;
+                return true;
+              }
+            }
+            return false;
           },
           { timeout: 20_000 },
         )
         .toBe(true);
-      console.info('[customer-smoke] 3DS frame ready');
-      await authenticationFrame!.getByRole('button', { name: /complete|authenticate/i }).click();
+      console.info('[customer-smoke] 3DS challenge ready');
+      await authenticationButton.click({ timeout: 10_000 });
       await expect(page).toHaveURL(/\/orders\/[^/]+\/confirmation$/, { timeout: 30_000 });
       console.info('[customer-smoke] 3DS order confirmed');
       await expect(page.getByText(/order confirmed|thanks/i)).toBeVisible();
