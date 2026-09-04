@@ -165,11 +165,17 @@ test.describe('real Stripe test-mode customer purchase', () => {
       expect(((await apiVendor.json()) as { id: string }).id).toBe(vendorId);
       console.info('[customer-smoke] vendor preflight passed');
 
-      await page.goto('/sign-in?next=/checkout');
+      console.info('[customer-smoke] sign-in navigation started');
+      await page.goto('/sign-in?next=/checkout', {
+        waitUntil: 'domcontentloaded',
+        timeout: 30_000,
+      });
+      console.info('[customer-smoke] sign-in page ready');
       await page.locator('#signin-email').fill(email);
       await page.locator('#signin-password').fill(password);
       await page.getByRole('button', { name: /sign in/i }).click();
       await expect(page).toHaveURL(/\/vendors(?:[/?#]|$)/, { timeout: 20_000 });
+      console.info('[customer-smoke] sign-in completed');
 
       await page.evaluate(
         ({ itemId, slug, id, pricePence, code }) => {
@@ -202,11 +208,16 @@ test.describe('real Stripe test-mode customer purchase', () => {
           code: discountCode,
         },
       );
+      console.info('[customer-smoke] basket prepared');
 
-      await page.goto('/checkout');
+      await page.goto('/checkout', {
+        waitUntil: 'domcontentloaded',
+        timeout: 30_000,
+      });
       await expect(
         page.locator('#main-content').getByRole('heading', { name: 'Checkout', exact: true }),
       ).toBeVisible();
+      console.info('[customer-smoke] checkout page ready');
       await page.locator(`input[name="address"][value="${addressId}"]`).check();
       const slotSection = page.locator('section').filter({ hasText: 'When do you need the food?' });
       await slotSection
@@ -218,11 +229,13 @@ test.describe('real Stripe test-mode customer purchase', () => {
         .first()
         .click();
       await page.getByRole('checkbox').check();
+      console.info('[customer-smoke] checkout selections completed');
 
       const cardFrame = page.frameLocator('iframe[title="Secure card payment input frame"]');
       await cardFrame.locator('input[name="exp-date"]').fill('1230');
       await cardFrame.locator('input[name="cvc"]').fill('123');
       await cardFrame.locator('input[name="postal"]').fill('SE15 4ST');
+      console.info('[customer-smoke] Stripe fields ready');
 
       for (const [failureIndex, failure] of [
         { card: '4000000000000002', message: /card.*declined/i },
