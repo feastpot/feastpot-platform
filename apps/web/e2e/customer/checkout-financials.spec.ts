@@ -192,7 +192,7 @@ async function prepareCheckout(
   const slotSection = page.locator('section').filter({ hasText: 'When do you need the food?' });
   await slotSection
     .getByRole('button', { name: /^Select \d{1,2} \w+$/ })
-    .first()
+    .last()
     .click();
   await slotSection
     .getByRole('button', { name: /^Select \d{2}:00/ })

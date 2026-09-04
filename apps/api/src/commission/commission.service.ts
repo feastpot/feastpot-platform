@@ -79,16 +79,32 @@ export class CommissionService {
     // entry is LIVE. A PLANNED entry is announced but not yet in force;
     // using it in a calculation is a billing error.
     if (rate.rateKey) {
-      const scheduleEntry = await this.prisma.rateScheduleEntry.findFirst({
+      const effectiveScheduleEntry = await this.prisma.rateScheduleEntry.findFirst({
         where: {
           key: rate.rateKey,
           version: {
             documentType: TermsDocumentType.RATE_SCHEDULE,
             supersededAt: null,
+            effectiveAt: { lte: at },
           },
         },
+        orderBy: { version: { effectiveAt: 'desc' } },
         include: { version: { select: { effectiveAt: true } } },
       });
+      const scheduleEntry =
+        effectiveScheduleEntry ??
+        (await this.prisma.rateScheduleEntry.findFirst({
+          where: {
+            key: rate.rateKey,
+            version: {
+              documentType: TermsDocumentType.RATE_SCHEDULE,
+              supersededAt: null,
+              effectiveAt: { gt: at },
+            },
+          },
+          orderBy: { version: { effectiveAt: 'asc' } },
+          include: { version: { select: { effectiveAt: true } } },
+        }));
       if (scheduleEntry && scheduleEntry.status === RateStatus.PLANNED) {
         throw new BadRequestException({
           code: 'PLANNED_RATE_NOT_ACTIVE',

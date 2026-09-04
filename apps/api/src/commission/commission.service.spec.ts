@@ -287,10 +287,13 @@ describe('CommissionService rate cutover resolution', () => {
         findFirst: jest.fn().mockResolvedValue({ ...newFirst, rateKey: 'standard_commission' }),
       },
       rateScheduleEntry: {
-        findFirst: jest.fn().mockResolvedValue({
-          status: RateStatus.LIVE,
-          version: { effectiveAt: new Date(cutover.getTime() + 1) },
-        }),
+        findFirst: jest
+          .fn()
+          .mockResolvedValueOnce(null)
+          .mockResolvedValueOnce({
+            status: RateStatus.LIVE,
+            version: { effectiveAt: new Date(cutover.getTime() + 1) },
+          }),
       },
     };
     const service = new CommissionService(prisma as never);
@@ -299,6 +302,36 @@ describe('CommissionService rate cutover resolution', () => {
       {
         response: expect.objectContaining({ code: 'RATE_SCHEDULE_NOT_EFFECTIVE' }),
       },
+    );
+  });
+
+  it('prefers the effective schedule while a future unsuperseded version coexists', async () => {
+    const prisma = {
+      commissionRate: {
+        findFirst: jest.fn().mockResolvedValue({ ...newFirst, rateKey: 'standard_commission' }),
+      },
+      rateScheduleEntry: {
+        findFirst: jest.fn().mockResolvedValue({
+          status: RateStatus.LIVE,
+          version: { effectiveAt: new Date(cutover.getTime() - 1) },
+        }),
+      },
+    };
+    const service = new CommissionService(prisma as never);
+
+    await expect(
+      service.resolveRate(OrderSource.MARKETPLACE, true, cutover),
+    ).resolves.toMatchObject({
+      id: 'first-new',
+      ratePercent: new Decimal('8'),
+    });
+    expect(prisma.rateScheduleEntry.findFirst).toHaveBeenCalledTimes(1);
+    expect(prisma.rateScheduleEntry.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          version: expect.objectContaining({ effectiveAt: { lte: cutover } }),
+        }),
+      }),
     );
   });
 });

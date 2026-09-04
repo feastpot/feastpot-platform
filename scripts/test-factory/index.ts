@@ -284,90 +284,98 @@ export class TestDataFactory {
       ...new Set([...(identity.vendorId ? [identity.vendorId] : []), ...identity.relatedVendorIds]),
     ];
 
-    await this.prisma.$transaction(async (tx) => {
-      const orders = await tx.order.findMany({
-        where: { OR: [{ customerId: { in: userIds } }, { vendorId: { in: vendorIds } }] },
-        select: { id: true },
-      });
-      const orderIds = orders.map((order) => order.id);
-      const payments = orderIds.length
-        ? await tx.payment.findMany({ where: { orderId: { in: orderIds } }, select: { id: true } })
-        : [];
-      const paymentIds = payments.map((payment) => payment.id);
-      const bookings = await tx.cateringBooking.findMany({
-        where: {
-          OR: [
-            { customerId: { in: userIds } },
-            { vendorId: { in: vendorIds } },
-            ...(identity.cateringBookingId ? [{ id: identity.cateringBookingId }] : []),
-          ],
-        },
-        select: { id: true, enquiryId: true },
-      });
-
-      if (bookings.length) {
-        await tx.cateringBooking.deleteMany({
-          where: { id: { in: bookings.map((booking) => booking.id) } },
+    await this.prisma.$transaction(
+      async (tx) => {
+        const orders = await tx.order.findMany({
+          where: { OR: [{ customerId: { in: userIds } }, { vendorId: { in: vendorIds } }] },
+          select: { id: true },
         });
-        await tx.cateringEnquiry.deleteMany({
-          where: { id: { in: bookings.map((booking) => booking.enquiryId) } },
-        });
-      }
-      if (orderIds.length) {
-        await tx.dispute.deleteMany({ where: { orderId: { in: orderIds } } });
-        await tx.chargeback.deleteMany({
+        const orderIds = orders.map((order) => order.id);
+        const payments = orderIds.length
+          ? await tx.payment.findMany({
+              where: { orderId: { in: orderIds } },
+              select: { id: true },
+            })
+          : [];
+        const paymentIds = payments.map((payment) => payment.id);
+        const bookings = await tx.cateringBooking.findMany({
           where: {
             OR: [
-              { orderId: { in: orderIds } },
-              ...(paymentIds.length ? [{ paymentId: { in: paymentIds } }] : []),
+              { customerId: { in: userIds } },
+              { vendorId: { in: vendorIds } },
+              ...(identity.cateringBookingId ? [{ id: identity.cateringBookingId }] : []),
+            ],
+          },
+          select: { id: true, enquiryId: true },
+        });
+
+        if (bookings.length) {
+          await tx.cateringBooking.deleteMany({
+            where: { id: { in: bookings.map((booking) => booking.id) } },
+          });
+          await tx.cateringEnquiry.deleteMany({
+            where: { id: { in: bookings.map((booking) => booking.enquiryId) } },
+          });
+        }
+        if (orderIds.length) {
+          await tx.dispute.deleteMany({ where: { orderId: { in: orderIds } } });
+          await tx.chargeback.deleteMany({
+            where: {
+              OR: [
+                { orderId: { in: orderIds } },
+                ...(paymentIds.length ? [{ paymentId: { in: paymentIds } }] : []),
+              ],
+            },
+          });
+          await tx.payout.deleteMany({
+            where: { OR: [{ orderId: { in: orderIds } }, { vendorId: { in: vendorIds } }] },
+          });
+          await tx.payment.deleteMany({ where: { orderId: { in: orderIds } } });
+          await tx.orderItem.deleteMany({ where: { orderId: { in: orderIds } } });
+          await tx.orderAttribution.deleteMany({ where: { orderId: { in: orderIds } } });
+          await tx.orderCommission.deleteMany({ where: { orderId: { in: orderIds } } });
+          await tx.order.deleteMany({ where: { id: { in: orderIds } } });
+        }
+
+        await tx.dispute.deleteMany({ where: { raisedById: { in: userIds } } });
+        await tx.feastPassSubscription.deleteMany({ where: { userId: { in: userIds } } });
+        await tx.termsAcceptance.deleteMany({ where: { vendorId: { in: vendorIds } } });
+        await tx.vendorEnforcementAction.deleteMany({ where: { vendorId: { in: vendorIds } } });
+        await tx.vendorApplication.deleteMany({
+          where: {
+            OR: [
+              ...(identity.vendorApplicationId ? [{ id: identity.vendorApplicationId }] : []),
+              {
+                email: {
+                  in: (
+                    await tx.user.findMany({
+                      where: { id: { in: userIds } },
+                      select: { email: true },
+                    })
+                  ).map((user) => user.email),
+                },
+              },
             ],
           },
         });
-        await tx.payout.deleteMany({
-          where: { OR: [{ orderId: { in: orderIds } }, { vendorId: { in: vendorIds } }] },
+        await tx.vendor.deleteMany({ where: { id: { in: vendorIds } } });
+        await tx.user.deleteMany({ where: { id: { in: userIds } } });
+        const termsVersions = await tx.termsVersion.findMany({
+          where: {
+            documentType: 'VENDOR_TERMS',
+            version: { in: [this.termsVersionLabel('v1'), this.termsVersionLabel('v2')] },
+          },
+          select: { id: true },
         });
-        await tx.payment.deleteMany({ where: { orderId: { in: orderIds } } });
-        await tx.orderItem.deleteMany({ where: { orderId: { in: orderIds } } });
-        await tx.order.deleteMany({ where: { id: { in: orderIds } } });
-      }
-
-      await tx.dispute.deleteMany({ where: { raisedById: { in: userIds } } });
-      await tx.feastPassSubscription.deleteMany({ where: { userId: { in: userIds } } });
-      await tx.termsAcceptance.deleteMany({ where: { vendorId: { in: vendorIds } } });
-      await tx.vendorEnforcementAction.deleteMany({ where: { vendorId: { in: vendorIds } } });
-      await tx.vendorApplication.deleteMany({
-        where: {
-          OR: [
-            ...(identity.vendorApplicationId ? [{ id: identity.vendorApplicationId }] : []),
-            {
-              email: {
-                in: (
-                  await tx.user.findMany({
-                    where: { id: { in: userIds } },
-                    select: { email: true },
-                  })
-                ).map((user) => user.email),
-              },
-            },
-          ],
-        },
-      });
-      await tx.vendor.deleteMany({ where: { id: { in: vendorIds } } });
-      await tx.user.deleteMany({ where: { id: { in: userIds } } });
-      const termsVersions = await tx.termsVersion.findMany({
-        where: {
-          documentType: 'VENDOR_TERMS',
-          version: { in: [this.termsVersionLabel('v1'), this.termsVersionLabel('v2')] },
-        },
-        select: { id: true },
-      });
-      await tx.termsAcceptance.deleteMany({
-        where: { termsVersionId: { in: termsVersions.map((version) => version.id) } },
-      });
-      await tx.termsVersion.deleteMany({
-        where: { id: { in: termsVersions.map((version) => version.id) } },
-      });
-    });
+        await tx.termsAcceptance.deleteMany({
+          where: { termsVersionId: { in: termsVersions.map((version) => version.id) } },
+        });
+        await tx.termsVersion.deleteMany({
+          where: { id: { in: termsVersions.map((version) => version.id) } },
+        });
+      },
+      { maxWait: 10_000, timeout: 30_000 },
+    );
 
     if (this.admin && identity.storageObjects.length > 0) {
       const grouped = new Map<string, Array<{ bucket: string; path: string }>>();

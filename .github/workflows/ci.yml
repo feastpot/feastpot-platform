@@ -762,7 +762,11 @@ jobs:
       - name: Wait for customer web server
         run: |
           for i in $(seq 1 60); do
-            curl -sf http://localhost:3000 > /dev/null && exit 0
+            if curl -sf http://localhost:3000 > /dev/null; then
+              echo "Prewarming customer sign-in route..."
+              curl -sf --max-time 240 'http://localhost:3000/sign-in?next=/checkout' > /dev/null
+              exit 0
+            fi
             sleep 2
           done
           echo "::error title=Customer server timeout::The customer app did not open port 3000."

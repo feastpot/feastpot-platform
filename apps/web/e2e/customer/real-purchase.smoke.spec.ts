@@ -33,12 +33,21 @@ function safeApiResponseBody(body: string): string {
   }
 }
 
+function safeBrowserDiagnostic(message: string): string {
+  return message
+    .replace(/\bpk_(?:test|live)_[a-z0-9_-]+/gi, '[REDACTED_STRIPE_KEY]')
+    .replace(/\b(?:pi|seti)_[a-z0-9]+_secret_[a-z0-9_-]+/gi, '[REDACTED_CLIENT_SECRET]')
+    .replace(/https?:\/\/[^\s]+/gi, '[URL]')
+    .slice(0, 500);
+}
+
 async function stripeRequest<T>(
   path: string,
   init: RequestInit = {},
 ): Promise<{ response: Response; body: T }> {
   const response = await fetch(`https://api.stripe.com/v1${path}`, {
     ...init,
+    signal: init.signal ?? AbortSignal.timeout(30_000),
     headers: {
       Authorization: `Bearer ${process.env.STRIPE_SECRET_KEY_TEST}`,
       ...init.headers,
@@ -83,8 +92,10 @@ test.describe('real Stripe test-mode customer purchase', () => {
     page,
     customer,
   }) => {
+    test.setTimeout(240_000);
     assertCustomerSmokeEnvironment();
     const { factory, identities } = await customer.provision(['C2', 'V9']);
+    console.info('[customer-smoke] fixtures provisioned');
     const customerIdentity = identities.find((identity) => identity.state === 'C2')!;
     const vendorIdentity = identities.find((identity) => identity.state === 'V9')!;
     const email = customerIdentity.credentials.email;
@@ -102,6 +113,42 @@ test.describe('real Stripe test-mode customer purchase', () => {
     let cleanupOrderId: string | null = null;
     let cleanupPaymentIntentId: string | null = null;
 
+    page.on('response', (response) => {
+      const url = new URL(response.url());
+      if (url.hostname === 'js.stripe.com' && url.pathname === '/v3/') {
+        console.info(`[customer-smoke] Stripe.js response ${response.status()}`);
+      }
+      if (url.hostname.endsWith('stripe.com') && response.status() >= 400) {
+        console.info(
+          `[customer-smoke] Stripe browser response ${response.status()} ${url.hostname}${url.pathname}`,
+        );
+      }
+    });
+    page.on('console', (message) => {
+      if (
+        ['error', 'warning'].includes(message.type()) &&
+        /stripe|content security|refused to load/i.test(message.text())
+      ) {
+        console.info(
+          `[customer-smoke] browser ${message.type()} ${safeBrowserDiagnostic(message.text())}`,
+        );
+      }
+    });
+    page.on('pageerror', (error) => {
+      console.info(`[customer-smoke] browser page error ${safeBrowserDiagnostic(error.message)}`);
+    });
+    page.on('requestfailed', (request) => {
+      const url = new URL(request.url());
+      if (url.hostname.endsWith('stripe.com')) {
+        const reason = request
+          .failure()
+          ?.errorText.replace(/[^a-z0-9 _-]/gi, '')
+          .slice(0, 100);
+        console.info(
+          `[customer-smoke] Stripe browser request failed ${url.hostname}${url.pathname} ${reason ?? 'unknown'}`,
+        );
+      }
+    });
     page.on('request', (request) => {
       if (request.method() === 'POST' && /\/v1\/orders(?:\?|$)/.test(request.url())) {
         orderCreates += 1;
@@ -131,13 +178,26 @@ test.describe('real Stripe test-mode customer purchase', () => {
       });
       const apiOrigin = new URL(process.env.TEST_API_URL!).origin;
       const vendorPreflightUrl = `${process.env.TEST_API_URL}/v1/vendors/${vendorSlug}`;
-      let apiVendor: APIResponse;
-      try {
-        apiVendor = await page.request.get(vendorPreflightUrl);
-      } catch (error) {
+      let apiVendor: APIResponse | undefined;
+      let apiVendorRequestError: unknown;
+      for (let attempt = 1; attempt <= 4; attempt += 1) {
+        try {
+          apiVendor = await page.request.get(vendorPreflightUrl, { timeout: 15_000 });
+          apiVendorRequestError = undefined;
+          if (apiVendor.ok() || apiVendor.status() < 500) break;
+        } catch (error) {
+          apiVendorRequestError = error;
+        }
+        if (attempt < 4) await page.waitForTimeout(2_000);
+      }
+      if (!apiVendor) {
         throw new Error(
           `CUSTOMER_E2E_VENDOR_PREFLIGHT_FAILED: API origin=${apiOrigin}; namespace=${process.env.TEST_FACTORY_NAMESPACE}; ` +
-            `vendorSlug=${vendorSlug}; request failed: ${error instanceof Error ? error.message : String(error)}`,
+            `vendorSlug=${vendorSlug}; request failed: ${
+              apiVendorRequestError instanceof Error
+                ? apiVendorRequestError.message
+                : String(apiVendorRequestError)
+            }`,
         );
       }
       if (!apiVendor.ok()) {
@@ -147,12 +207,44 @@ test.describe('real Stripe test-mode customer purchase', () => {
         );
       }
       expect(((await apiVendor.json()) as { id: string }).id).toBe(vendorId);
+      console.info('[customer-smoke] vendor preflight passed');
 
-      await page.goto('/sign-in?next=/checkout');
+      console.info('[customer-smoke] sign-in navigation started');
+      await page.goto('/sign-in?next=/checkout', {
+        waitUntil: 'domcontentloaded',
+        timeout: 30_000,
+      });
+      console.info('[customer-smoke] sign-in page ready');
+      const signInButton = page.getByRole('button', { name: /sign in/i });
+      await expect(signInButton).toBeEnabled();
       await page.locator('#signin-email').fill(email);
       await page.locator('#signin-password').fill(password);
-      await page.getByRole('button', { name: /sign in/i }).click();
+      const authResponsePromise = page.waitForResponse(
+        (response) =>
+          response.request().method() === 'POST' &&
+          /\/auth\/v1\/token(?:\?|$)/.test(response.url()),
+        { timeout: 30_000 },
+      );
+      await signInButton.click();
+      const authResponse = await authResponsePromise;
+      if (!authResponse.ok()) {
+        let errorCode = 'unknown';
+        try {
+          const body = (await authResponse.json()) as { error_code?: unknown; code?: unknown };
+          const candidate = body.error_code ?? body.code;
+          if (typeof candidate === 'string') {
+            errorCode = candidate.replace(/[^a-z0-9_-]/gi, '').slice(0, 80) || 'unknown';
+          }
+        } catch {
+          // Deliberately do not expose the raw authentication response.
+        }
+        throw new Error(
+          `CUSTOMER_E2E_AUTH_FAILED: status=${authResponse.status()}; code=${errorCode}`,
+        );
+      }
+      console.info('[customer-smoke] password authentication passed');
       await expect(page).toHaveURL(/\/vendors(?:[/?#]|$)/, { timeout: 20_000 });
+      console.info('[customer-smoke] sign-in completed');
 
       await page.evaluate(
         ({ itemId, slug, id, pricePence, code }) => {
@@ -185,30 +277,47 @@ test.describe('real Stripe test-mode customer purchase', () => {
           code: discountCode,
         },
       );
+      console.info('[customer-smoke] basket prepared');
 
-      await page.goto('/checkout');
-      await expect(page.getByRole('heading', { name: 'Checkout' })).toBeVisible();
+      await page.goto('/checkout', {
+        waitUntil: 'domcontentloaded',
+        timeout: 30_000,
+      });
+      await expect(
+        page.locator('#main-content').getByRole('heading', { name: 'Checkout', exact: true }),
+      ).toBeVisible();
+      console.info('[customer-smoke] checkout page ready');
       await page.locator(`input[name="address"][value="${addressId}"]`).check();
       const slotSection = page.locator('section').filter({ hasText: 'When do you need the food?' });
       await slotSection
         .getByRole('button', { name: /^Select \d{1,2} \w+$/ })
-        .first()
+        .last()
         .click();
       await slotSection
         .getByRole('button', { name: /^Select \d{2}:00/ })
         .first()
         .click();
       await page.getByRole('checkbox').check();
+      console.info('[customer-smoke] checkout selections completed');
 
-      const cardFrame = page.frameLocator('iframe[name^="__privateStripeFrame"]');
-      await cardFrame.locator('input[name="exp-date"]').fill('1230');
+      const cardFrame = page.frameLocator(
+        'iframe[name^="__privateStripeFrame"][title$="input frame" i]',
+      );
+      const postalInput = cardFrame.locator('input[autocomplete="postal-code"]');
+      const expiryInput = cardFrame.locator('input[name="exp-date"]');
+      await expect(expiryInput).toBeVisible({ timeout: 30_000 });
+      await expiryInput.fill('1230');
       await cardFrame.locator('input[name="cvc"]').fill('123');
+      console.info('[customer-smoke] Stripe fields ready');
 
-      for (const failure of [
-        { card: '4000000000000002', message: /card was declined/i },
+      for (const [failureIndex, failure] of [
+        { card: '4000000000000002', message: /card.*declined/i },
         { card: '4000000000009995', message: /insufficient funds/i },
-      ]) {
+      ].entries()) {
+        console.info(`[customer-smoke] decline ${failureIndex + 1} started`);
         await cardFrame.locator('input[name="cardnumber"]').fill(failure.card);
+        await expect(postalInput).toBeVisible({ timeout: 10_000 });
+        await postalInput.fill('90210');
         const failedOrderResponse = page.waitForResponse(
           (response) =>
             response.request().method() === 'POST' && /\/v1\/orders(?:\?|$)/.test(response.url()),
@@ -219,9 +328,30 @@ test.describe('real Stripe test-mode customer purchase', () => {
             /\/v1\/orders\/[^/]+\/cancel$/.test(response.url()),
         );
         await page.getByRole('button', { name: 'Place order securely' }).first().click();
-        expect((await failedOrderResponse).ok()).toBeTruthy();
+        const orderResponse = await failedOrderResponse;
+        if (!orderResponse.ok()) {
+          void cancellationResponse.catch(() => undefined);
+          const body = (await orderResponse.json().catch(() => null)) as {
+            code?: unknown;
+            message?: unknown;
+            error?: unknown;
+            statusCode?: unknown;
+          } | null;
+          throw new Error(
+            `Customer smoke order create failed: status=${orderResponse.status()} body=${JSON.stringify(
+              {
+                statusCode: body?.statusCode,
+                code: body?.code,
+                message: body?.message,
+                error: body?.error,
+              },
+            ).slice(0, 500)}`,
+          );
+        }
+        console.info(`[customer-smoke] decline ${failureIndex + 1} order created`);
         expect((await cancellationResponse).ok()).toBeTruthy();
-        await expect(page.getByText(failure.message)).toBeVisible();
+        console.info(`[customer-smoke] decline ${failureIndex + 1} cancellation completed`);
+        await expect(page.locator('form p[role="alert"]')).toContainText(failure.message);
 
         const failedOrders = await factory.prisma.order.findMany({
           where: { customerId: customerIdentity.userId, vendorId },
@@ -233,14 +363,19 @@ test.describe('real Stripe test-mode customer purchase', () => {
         expect(failedOrders[0]!.status).toBe('cancelled');
         expect(failedOrders[0]!.payments).toHaveLength(1);
         expect(failedOrders[0]!.payments[0]!.status).toBe('cancelled');
+        console.info(`[customer-smoke] decline ${failureIndex + 1} database state verified`);
         const failedIntent = await stripeRequest<StripePaymentIntent>(
           `/payment_intents/${failedOrders[0]!.payments[0]!.stripePaymentIntentId}`,
         );
         expect(failedIntent.response.ok).toBeTruthy();
         expect(failedIntent.body.status).toBe('canceled');
+        console.info(`[customer-smoke] decline ${failureIndex + 1} Stripe state verified`);
       }
 
+      console.info('[customer-smoke] 3DS success started');
       await cardFrame.locator('input[name="cardnumber"]').fill('4000002500003155');
+      await expect(postalInput).toBeVisible({ timeout: 10_000 });
+      await postalInput.fill('90210');
       const orderResponsePromise = page.waitForResponse(
         (response) =>
           response.request().method() === 'POST' && /\/v1\/orders(?:\?|$)/.test(response.url()),
@@ -248,28 +383,38 @@ test.describe('real Stripe test-mode customer purchase', () => {
       await page.getByRole('button', { name: 'Place order securely' }).first().click();
       const orderResponse = await orderResponsePromise;
       expect(orderResponse.ok()).toBeTruthy();
+      console.info('[customer-smoke] 3DS order created');
       const createdOrder = (await orderResponse.json()) as {
         order: { id: string };
         clientSecret: string;
       };
       cleanupOrderId = createdOrder.order.id;
       cleanupPaymentIntentId = createdOrder.clientSecret.split('_secret_')[0] ?? null;
-      let authenticationFrame = page
-        .frames()
-        .find((frame) => /three-ds|3ds|authenticate/i.test(frame.url()));
+      let authenticationButton = page.getByRole('button', {
+        name: /complete|authenticate|success/i,
+      });
       await expect
         .poll(
-          () => {
-            authenticationFrame = page
-              .frames()
-              .find((frame) => /three-ds|3ds|authenticate/i.test(frame.url()));
-            return Boolean(authenticationFrame);
+          async () => {
+            for (const frame of page.frames()) {
+              const candidate = frame
+                .locator('#test-source-authorize-3ds')
+                .or(frame.getByRole('button', { name: /complete|authenticate|success/i }))
+                .first();
+              if (await candidate.isVisible().catch(() => false)) {
+                authenticationButton = candidate;
+                return true;
+              }
+            }
+            return false;
           },
           { timeout: 20_000 },
         )
         .toBe(true);
-      await authenticationFrame!.getByRole('button', { name: /complete|authenticate/i }).click();
+      console.info('[customer-smoke] 3DS challenge ready');
+      await authenticationButton.click({ timeout: 10_000 });
       await expect(page).toHaveURL(/\/orders\/[^/]+\/confirmation$/, { timeout: 30_000 });
+      console.info('[customer-smoke] 3DS order confirmed');
       await expect(page.getByText(/order confirmed|thanks/i)).toBeVisible();
       expect(orderCreates).toBe(3);
 
@@ -344,7 +489,12 @@ test.describe('real Stripe test-mode customer purchase', () => {
       expect(cancelledIntent.response.ok).toBeTruthy();
       expect(cancelledIntent.body.status).toBe('canceled');
       apiCleanupSucceeded = true;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown customer smoke failure';
+      console.info(`[customer-smoke] primary failure ${safeBrowserDiagnostic(message)}`);
+      throw error;
     } finally {
+      console.info('[customer-smoke] cleanup started');
       const cleanupErrors: Error[] = [];
       let orders: Array<{
         id: string;
@@ -406,6 +556,7 @@ test.describe('real Stripe test-mode customer purchase', () => {
         .catch((error: unknown) =>
           cleanupErrors.push(error instanceof Error ? error : new Error('Factory disposal failed')),
         );
+      console.info('[customer-smoke] cleanup completed');
       if (cleanupErrors.length) {
         throw new AggregateError(cleanupErrors, 'Customer E2E cleanup failed');
       }
