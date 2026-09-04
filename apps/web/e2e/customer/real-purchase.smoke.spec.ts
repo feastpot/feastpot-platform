@@ -171,10 +171,10 @@ test.describe('real Stripe test-mode customer purchase', () => {
         timeout: 30_000,
       });
       console.info('[customer-smoke] sign-in page ready');
-      await page.locator('#signin-email').fill(email);
-      await page.locator('#signin-password').fill(password);
       const signInButton = page.getByRole('button', { name: /sign in/i });
       await expect(signInButton).toBeEnabled();
+      await page.locator('#signin-email').fill(email);
+      await page.locator('#signin-password').fill(password);
       const authResponsePromise = page.waitForResponse(
         (response) =>
           response.request().method() === 'POST' &&
