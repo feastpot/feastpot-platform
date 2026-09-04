@@ -33,6 +33,14 @@ function safeApiResponseBody(body: string): string {
   }
 }
 
+function safeBrowserDiagnostic(message: string): string {
+  return message
+    .replace(/\bpk_(?:test|live)_[a-z0-9_-]+/gi, '[REDACTED_STRIPE_KEY]')
+    .replace(/\b(?:pi|seti)_[a-z0-9]+_secret_[a-z0-9_-]+/gi, '[REDACTED_CLIENT_SECRET]')
+    .replace(/https?:\/\/[^\s]+/gi, '[URL]')
+    .slice(0, 500);
+}
+
 async function stripeRequest<T>(
   path: string,
   init: RequestInit = {},
@@ -107,11 +115,27 @@ test.describe('real Stripe test-mode customer purchase', () => {
 
     page.on('response', (response) => {
       const url = new URL(response.url());
+      if (url.hostname === 'js.stripe.com' && url.pathname === '/v3/') {
+        console.info(`[customer-smoke] Stripe.js response ${response.status()}`);
+      }
       if (url.hostname.endsWith('stripe.com') && response.status() >= 400) {
         console.info(
           `[customer-smoke] Stripe browser response ${response.status()} ${url.hostname}${url.pathname}`,
         );
       }
+    });
+    page.on('console', (message) => {
+      if (
+        ['error', 'warning'].includes(message.type()) &&
+        /stripe|content security|refused to load/i.test(message.text())
+      ) {
+        console.info(
+          `[customer-smoke] browser ${message.type()} ${safeBrowserDiagnostic(message.text())}`,
+        );
+      }
+    });
+    page.on('pageerror', (error) => {
+      console.info(`[customer-smoke] browser page error ${safeBrowserDiagnostic(error.message)}`);
     });
     page.on('requestfailed', (request) => {
       const url = new URL(request.url());
@@ -454,7 +478,12 @@ test.describe('real Stripe test-mode customer purchase', () => {
       expect(cancelledIntent.response.ok).toBeTruthy();
       expect(cancelledIntent.body.status).toBe('canceled');
       apiCleanupSucceeded = true;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown customer smoke failure';
+      console.info(`[customer-smoke] primary failure ${safeBrowserDiagnostic(message)}`);
+      throw error;
     } finally {
+      console.info('[customer-smoke] cleanup started');
       const cleanupErrors: Error[] = [];
       let orders: Array<{
         id: string;
@@ -516,6 +545,7 @@ test.describe('real Stripe test-mode customer purchase', () => {
         .catch((error: unknown) =>
           cleanupErrors.push(error instanceof Error ? error : new Error('Factory disposal failed')),
         );
+      console.info('[customer-smoke] cleanup completed');
       if (cleanupErrors.length) {
         throw new AggregateError(cleanupErrors, 'Customer E2E cleanup failed');
       }
