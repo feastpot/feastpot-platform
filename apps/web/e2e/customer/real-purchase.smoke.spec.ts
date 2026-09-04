@@ -105,6 +105,26 @@ test.describe('real Stripe test-mode customer purchase', () => {
     let cleanupOrderId: string | null = null;
     let cleanupPaymentIntentId: string | null = null;
 
+    page.on('response', (response) => {
+      const url = new URL(response.url());
+      if (url.hostname.endsWith('stripe.com') && response.status() >= 400) {
+        console.info(
+          `[customer-smoke] Stripe browser response ${response.status()} ${url.hostname}${url.pathname}`,
+        );
+      }
+    });
+    page.on('requestfailed', (request) => {
+      const url = new URL(request.url());
+      if (url.hostname.endsWith('stripe.com')) {
+        const reason = request
+          .failure()
+          ?.errorText.replace(/[^a-z0-9 _-]/gi, '')
+          .slice(0, 100);
+        console.info(
+          `[customer-smoke] Stripe browser request failed ${url.hostname}${url.pathname} ${reason ?? 'unknown'}`,
+        );
+      }
+    });
     page.on('request', (request) => {
       if (request.method() === 'POST' && /\/v1\/orders(?:\?|$)/.test(request.url())) {
         orderCreates += 1;
@@ -256,8 +276,12 @@ test.describe('real Stripe test-mode customer purchase', () => {
       await page.getByRole('checkbox').check();
       console.info('[customer-smoke] checkout selections completed');
 
-      const cardFrame = page.frameLocator('iframe[title="Secure card payment input frame"]');
-      await cardFrame.locator('input[name="exp-date"]').fill('1230');
+      const cardFrame = page.frameLocator(
+        'iframe[name^="__privateStripeFrame"][title$="input frame" i]',
+      );
+      const expiryInput = cardFrame.locator('input[name="exp-date"]');
+      await expect(expiryInput).toBeVisible({ timeout: 30_000 });
+      await expiryInput.fill('1230');
       await cardFrame.locator('input[name="cvc"]').fill('123');
       await cardFrame.locator('input[name="postal"]').fill('SE15 4ST');
       console.info('[customer-smoke] Stripe fields ready');
