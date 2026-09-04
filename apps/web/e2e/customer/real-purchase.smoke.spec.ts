@@ -134,13 +134,26 @@ test.describe('real Stripe test-mode customer purchase', () => {
       });
       const apiOrigin = new URL(process.env.TEST_API_URL!).origin;
       const vendorPreflightUrl = `${process.env.TEST_API_URL}/v1/vendors/${vendorSlug}`;
-      let apiVendor: APIResponse;
-      try {
-        apiVendor = await page.request.get(vendorPreflightUrl);
-      } catch (error) {
+      let apiVendor: APIResponse | undefined;
+      let apiVendorRequestError: unknown;
+      for (let attempt = 1; attempt <= 4; attempt += 1) {
+        try {
+          apiVendor = await page.request.get(vendorPreflightUrl, { timeout: 15_000 });
+          apiVendorRequestError = undefined;
+          if (apiVendor.ok() || apiVendor.status() < 500) break;
+        } catch (error) {
+          apiVendorRequestError = error;
+        }
+        if (attempt < 4) await page.waitForTimeout(2_000);
+      }
+      if (!apiVendor) {
         throw new Error(
           `CUSTOMER_E2E_VENDOR_PREFLIGHT_FAILED: API origin=${apiOrigin}; namespace=${process.env.TEST_FACTORY_NAMESPACE}; ` +
-            `vendorSlug=${vendorSlug}; request failed: ${error instanceof Error ? error.message : String(error)}`,
+            `vendorSlug=${vendorSlug}; request failed: ${
+              apiVendorRequestError instanceof Error
+                ? apiVendorRequestError.message
+                : String(apiVendorRequestError)
+            }`,
         );
       }
       if (!apiVendor.ok()) {
@@ -150,6 +163,7 @@ test.describe('real Stripe test-mode customer purchase', () => {
         );
       }
       expect(((await apiVendor.json()) as { id: string }).id).toBe(vendorId);
+      console.info('[customer-smoke] vendor preflight passed');
 
       await page.goto('/sign-in?next=/checkout');
       await page.locator('#signin-email').fill(email);
