@@ -1,6 +1,7 @@
 import { QrCode } from 'lucide-react';
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
+import QRCode from 'qrcode';
 
 import { COMMISSION_RATES } from '@feastpot/config/commission-rates';
 import type { RateRow } from '@feastpot/ui';
@@ -31,6 +32,25 @@ interface ReferralLink {
   createdAt: string;
 }
 
+async function createInitialQrUrls(referralUrl: string) {
+  const url = new URL(referralUrl);
+  url.searchParams.set('m', 'qr');
+  const options = {
+    errorCorrectionLevel: 'H' as const,
+    margin: 4,
+    width: 1024,
+    color: { dark: '#000000', light: '#ffffff' },
+  };
+  const [png, svgMarkup] = await Promise.all([
+    QRCode.toDataURL(url.toString(), options),
+    QRCode.toString(url.toString(), { ...options, type: 'svg' }),
+  ]);
+  return {
+    png,
+    svg: `data:image/svg+xml;base64,${Buffer.from(svgMarkup).toString('base64')}`,
+  };
+}
+
 export default async function SharePage() {
   const supabase = await createServerSupabase();
   const {
@@ -38,26 +58,34 @@ export default async function SharePage() {
   } = await supabase.auth.getSession();
   if (!session) redirect('/sign-in?next=/share');
 
-  let vendor: VendorMe;
-  try {
-    vendor = await apiRequest<VendorMe>('/vendors/me', {
-      accessToken: session.access_token,
-      next: { revalidate: 0 },
-    });
-  } catch (err) {
+  const vendorPromise = apiRequest<VendorMe>('/vendors/me', {
+    accessToken: session.access_token,
+    next: { revalidate: 0 },
+  }).catch((err: unknown) => {
     if (err instanceof ApiError && (err.status === 403 || err.status === 404)) {
       redirect('/unauthorized');
     }
     throw err;
-  }
+  });
+  const ratesPromise = apiRequest<RateRow[]>('/terms/rate-schedule', {
+    next: { revalidate: 3600 },
+  }).catch(() => []);
+  const linkPromise = apiRequest<ReferralLink>('/attribution/links/me', {
+    accessToken: session.access_token,
+    next: { revalidate: 0 },
+  })
+    .then((link) => ({ link, linkLoadFailed: false }))
+    .catch((err: unknown) => ({
+      link: null,
+      // A missing row is a recoverable creation race. Transport/auth/server
+      // failures must not masquerade as an endless setup state.
+      linkLoadFailed: !(err instanceof ApiError && err.status === 404),
+    }));
 
+  const [vendor, rates, linkResult] = await Promise.all([vendorPromise, ratesPromise, linkPromise]);
   if (vendor.status !== 'live' && vendor.status !== 'probation') {
     redirect('/onboarding/welcome');
   }
-
-  const rates = await apiRequest<RateRow[]>('/terms/rate-schedule', {
-    next: { revalidate: 3600 },
-  }).catch(() => []);
   const vendorReferredRate =
     rates.find((rate) => rate.key === 'referred_commission' && rate.status === 'LIVE')?.rateValue ??
     COMMISSION_RATES.vendorReferred.percent;
@@ -66,18 +94,8 @@ export default async function SharePage() {
   // NOT from Vendor.slug. The /v/[slug] route records a click only when the slug
   // matches a VendorReferralLink record; if Vendor.slug is used instead and the
   // two differ, fp_ref is never set and orders are attributed as marketplace.
-  let link: ReferralLink | null = null;
-  let linkLoadFailed = false;
-  try {
-    link = await apiRequest<ReferralLink>('/attribution/links/me', {
-      accessToken: session.access_token,
-      next: { revalidate: 0 },
-    });
-  } catch (err) {
-    // A missing row is a recoverable creation race. Transport/auth/server
-    // failures are different and must not masquerade as an endless setup state.
-    if (!(err instanceof ApiError && err.status === 404)) linkLoadFailed = true;
-  }
+  const { link, linkLoadFailed } = linkResult;
+  const initialQrUrls = link && !link.qrUrls ? await createInitialQrUrls(link.referralUrl) : null;
 
   return (
     <PortalShell businessName={vendor.businessName}>
@@ -96,6 +114,7 @@ export default async function SharePage() {
       </header>
       <ShareAndCustomersClient
         link={link}
+        initialQrUrls={initialQrUrls}
         businessName={vendor.businessName}
         vendorId={vendor.id}
         initialLinkLoadFailed={linkLoadFailed}

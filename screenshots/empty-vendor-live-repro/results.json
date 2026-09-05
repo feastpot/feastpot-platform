@@ -1,0 +1,200 @@
+[
+  {
+    "route": "/",
+    "finalUrl": "http://localhost:3002/",
+    "durationMs": 10551,
+    "navigationError": null,
+    "hasBoundary": false,
+    "hasTradingName": true
+  },
+  {
+    "route": "/orders",
+    "finalUrl": "http://localhost:3002/orders",
+    "durationMs": 4342,
+    "navigationError": null,
+    "hasBoundary": false,
+    "hasTradingName": true
+  },
+  {
+    "route": "/disputes",
+    "finalUrl": "http://localhost:3002/disputes",
+    "durationMs": 5809,
+    "navigationError": null,
+    "hasBoundary": false,
+    "hasTradingName": true
+  },
+  {
+    "route": "/menu",
+    "finalUrl": "http://localhost:3002/menu",
+    "durationMs": 4957,
+    "navigationError": null,
+    "hasBoundary": false,
+    "hasTradingName": true
+  },
+  {
+    "route": "/availability",
+    "finalUrl": "http://localhost:3002/availability",
+    "durationMs": 8917,
+    "navigationError": null,
+    "hasBoundary": false,
+    "hasTradingName": true
+  },
+  {
+    "route": "/settings/delivery",
+    "finalUrl": "http://localhost:3002/settings/delivery",
+    "durationMs": 10006,
+    "navigationError": null,
+    "hasBoundary": false,
+    "hasTradingName": true
+  },
+  {
+    "route": "/settings/profile",
+    "finalUrl": "http://localhost:3002/settings/profile",
+    "durationMs": 7822,
+    "navigationError": null,
+    "hasBoundary": false,
+    "hasTradingName": true
+  },
+  {
+    "route": "/share",
+    "finalUrl": "http://localhost:3002/share",
+    "durationMs": 10049,
+    "navigationError": null,
+    "hasBoundary": false,
+    "hasTradingName": true,
+    "qrVisible": true,
+    "pngDownload": true,
+    "svgDownload": false
+  },
+  {
+    "route": "/performance",
+    "finalUrl": "http://localhost:3002/performance",
+    "durationMs": 6816,
+    "navigationError": null,
+    "hasBoundary": false,
+    "hasTradingName": true
+  },
+  {
+    "route": "/payouts",
+    "finalUrl": "http://localhost:3002/payouts",
+    "durationMs": 6827,
+    "navigationError": null,
+    "hasBoundary": false,
+    "hasTradingName": true
+  },
+  {
+    "route": "/tax-information",
+    "finalUrl": "http://localhost:3002/tax-information",
+    "durationMs": 6927,
+    "navigationError": null,
+    "hasBoundary": false,
+    "hasTradingName": true
+  },
+  {
+    "route": "/account-and-compliance",
+    "finalUrl": "http://localhost:3002/account-and-compliance",
+    "durationMs": 8471,
+    "navigationError": null,
+    "hasBoundary": false,
+    "hasTradingName": true
+  },
+  {
+    "route": "/settings/team",
+    "finalUrl": "http://localhost:3002/settings/team",
+    "durationMs": 5472,
+    "navigationError": null,
+    "hasBoundary": false,
+    "hasTradingName": true
+  },
+  {
+    "route": "/settings/security",
+    "finalUrl": "http://localhost:3002/settings/security",
+    "durationMs": 5842,
+    "navigationError": null,
+    "hasBoundary": false,
+    "hasTradingName": true
+  },
+  {
+    "route": "/user-guide",
+    "finalUrl": "http://localhost:3002/user-guide",
+    "durationMs": 9288,
+    "navigationError": null,
+    "hasBoundary": false,
+    "hasTradingName": true
+  },
+  {
+    "route": "/help",
+    "finalUrl": "http://localhost:3002/help",
+    "durationMs": 5756,
+    "navigationError": null,
+    "hasBoundary": false,
+    "hasTradingName": true
+  },
+  {
+    "route": "/earnings",
+    "finalUrl": "http://localhost:3002/performance",
+    "durationMs": 5868,
+    "navigationError": null,
+    "hasBoundary": false,
+    "hasTradingName": true
+  },
+  {
+    "route": "/compliance",
+    "finalUrl": "http://localhost:3002/account-and-compliance",
+    "durationMs": 8427,
+    "navigationError": null,
+    "hasBoundary": false,
+    "hasTradingName": true
+  },
+  {
+    "route": "/account-status",
+    "finalUrl": "http://localhost:3002/account-and-compliance",
+    "durationMs": 9223,
+    "navigationError": null,
+    "hasBoundary": false,
+    "hasTradingName": true
+  },
+  {
+    "route": "/referrals",
+    "finalUrl": "http://localhost:3002/share",
+    "durationMs": 11055,
+    "navigationError": null,
+    "hasBoundary": false,
+    "hasTradingName": true
+  },
+  {
+    "route": "/terms",
+    "finalUrl": "http://localhost:3002/account-and-compliance",
+    "durationMs": 8953,
+    "navigationError": null,
+    "hasBoundary": false,
+    "hasTradingName": true
+  },
+  {
+    "route": "/catering",
+    "finalUrl": "http://localhost:3002/orders?type=catering",
+    "durationMs": 8984,
+    "navigationError": null,
+    "hasBoundary": false,
+    "hasTradingName": true
+  },
+  {
+    "route": "/catering/new",
+    "finalUrl": "http://localhost:3002/catering/new",
+    "durationMs": 6010,
+    "navigationError": null,
+    "hasBoundary": false,
+    "hasTradingName": true
+  },
+  {
+    "route": "/share (throttled after fix)",
+    "qrAssertion": "visible within 5 seconds after DOM load",
+    "navigationMs": 8584,
+    "pngWidth": 1024,
+    "pngHeight": 1024,
+    "svgValid": true,
+    "blackOnWhite": true,
+    "pngSource": "fallback",
+    "svgSource": "fallback"
+  }
+]

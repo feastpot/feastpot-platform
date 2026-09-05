@@ -29,6 +29,7 @@ interface SplitData {
 
 interface ShareAndCustomersClientProps {
   link: ReferralLink | null;
+  initialQrUrls?: { png: string; svg: string } | null;
   businessName: string;
   /** Vendor UUID threaded from the server page for analytics attribution. */
   vendorId: string;
@@ -95,6 +96,7 @@ function SourceBar({
 
 export function ShareAndCustomersClient({
   link: initialLink,
+  initialQrUrls = null,
   businessName,
   vendorId,
   initialLinkLoadFailed = false,
@@ -111,9 +113,13 @@ export function ShareAndCustomersClient({
   const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const initialLinkFetchFired = useRef(false);
 
-  // Client-side QR data URL: generated instantly when stored Supabase URL is not
-  // yet available (self-healing fallback). Renders in < 100 ms.
-  const [clientQrDataUrl, setClientQrDataUrl] = useState<string | null>(null);
+  // Client-side QR assets: generated instantly when stored Supabase URLs are not
+  // yet available (self-healing fallback). Both downloads remain available
+  // while the background worker persists the canonical Storage copies.
+  const [clientQrUrls, setClientQrUrls] = useState<{
+    png: string;
+    svg: string;
+  } | null>(initialQrUrls);
 
   // The QR URL embeds &m=qr so the /v/[slug] handler can fire a qr_scan analytics
   // event distinguishable from a plain link click.
@@ -134,27 +140,35 @@ export function ShareAndCustomersClient({
 
   // Generate client-side QR immediately when stored URLs are missing.
   useEffect(() => {
-    if (link?.qrUrls || !qrLink) return;
+    if (link?.qrUrls || !qrLink || clientQrUrls) return;
     let cancelled = false;
-    setClientQrDataUrl(null);
+    setClientQrUrls(null);
     import('qrcode')
-      .then(({ default: QRCode }) =>
-        QRCode.toDataURL(qrLink, {
-          errorCorrectionLevel: 'H',
+      .then(async ({ default: QRCode }) => {
+        const options = {
+          errorCorrectionLevel: 'H' as const,
           margin: 4,
-          width: 400,
+          width: 1024,
           color: { dark: '#000000', light: '#ffffff' },
-        }),
-      )
-      .then((dataUrl) => {
-        if (!cancelled) setClientQrDataUrl(dataUrl);
+        };
+        const [png, svgMarkup] = await Promise.all([
+          QRCode.toDataURL(qrLink, options),
+          QRCode.toString(qrLink, { ...options, type: 'svg' }),
+        ]);
+        return {
+          png,
+          svg: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgMarkup)}`,
+        };
+      })
+      .then((urls) => {
+        if (!cancelled) setClientQrUrls(urls);
       })
       .catch(() => null);
     return () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [link?.qrUrls, qrLink]);
+  }, [clientQrUrls, link?.qrUrls, qrLink]);
 
   // Once the API has finished generating stored assets, replace the temporary
   // client QR. The preview remains usable while this request is in flight.
@@ -211,7 +225,7 @@ export function ShareAndCustomersClient({
     );
   }
 
-  const qrSrc = link.qrUrls?.png ?? clientQrDataUrl;
+  const qrSrc = link.qrUrls?.png ?? clientQrUrls?.png;
   const qrBasename = `${link.slug}-feastpot-qr`;
 
   const weekTotal = split
@@ -314,17 +328,25 @@ export function ShareAndCustomersClient({
                     Download SVG
                   </a>
                 </>
-              ) : clientQrDataUrl ? (
-                // Stored high-res assets are being generated; offer the instant
-                // client-rendered PNG as a download in the meantime.
-                <a
-                  href={clientQrDataUrl}
-                  download={`${qrBasename}.png`}
-                  className="flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-semibold text-dark transition-colors hover:bg-surface"
-                >
-                  <Download className="h-3.5 w-3.5" aria-hidden />
-                  Download PNG
-                </a>
+              ) : clientQrUrls ? (
+                <>
+                  <a
+                    href={clientQrUrls.png}
+                    download={`${qrBasename}.png`}
+                    className="flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-semibold text-dark transition-colors hover:bg-surface"
+                  >
+                    <Download className="h-3.5 w-3.5" aria-hidden />
+                    Download PNG
+                  </a>
+                  <a
+                    href={clientQrUrls.svg}
+                    download={`${qrBasename}.svg`}
+                    className="flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-semibold text-dark transition-colors hover:bg-surface"
+                  >
+                    <Download className="h-3.5 w-3.5" aria-hidden />
+                    Download SVG
+                  </a>
+                </>
               ) : null}
             </div>
           </div>

@@ -76,3 +76,17 @@ mtime_ms = 1788464727568
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:467550d6-cf1f-45bf-b36c-58a8f6d79f33/38a9a7b6-4113-455d-aa1a-0e4b0999ef80/b75c58c4-99e8-444a-9197-17d381d6b53a"
 storage_version_token = "1788464760073689"
 content_type = "image/jpeg"
+
+[[outputs]]
+id = "ZAkSfIOJHHyJmTsbAVSHe"
+uri = "file://screenshots/empty-vendor-live-repro.zip"
+type = "unspecified"
+title = "Empty vendor live-route evidence"
+description = "Screenshots for 23 vendor and legacy routes, the final throttled share-page QR check, and structured validation results."
+logical_id = "49bf50f6-002c-44db-8e5c-3ca7c2065c91"
+content_hash = "sha256:6e8a36291587fc60a6c2b2265ff9495cc7e47b28efa1595e27a95369f43d7b34"
+size = 6747907
+mtime_ms = 1788642611896
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:467550d6-cf1f-45bf-b36c-58a8f6d79f33/49bf50f6-002c-44db-8e5c-3ca7c2065c91/636e3092-722a-4487-8734-45c9081aaafd"
+storage_version_token = "1788642633692628"
+content_type = "application/octet-stream"
