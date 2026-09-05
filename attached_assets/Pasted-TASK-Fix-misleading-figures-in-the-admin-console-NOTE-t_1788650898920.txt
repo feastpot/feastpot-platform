@@ -1,0 +1,75 @@
+TASK: Fix misleading figures in the admin console.
+
+NOTE: the commission contradiction between /settings and
+/commission-rates is handled in FP-02 and FP-04. This prompt
+covers the rest.
+
+D1. ZERO DENOMINATORS PRESENTED AS ASSURANCE
+/legal-ops shows "Terms acceptance coverage 100%" in large
+green type. /compliance shows "All live vendors are
+verified". /vendors shows Live = 0. A green 100% of nothing
+reads as assurance and is worse than an empty state.
+
+FIX: always render the denominator, e.g. "100% (1 of 1 live
+vendors)". When the denominator is zero, render a NEUTRAL
+empty state, never a green success metric: "No live vendors
+yet. Coverage appears once a vendor goes live."
+Audit all admin pages for this pattern and apply the rule
+consistently.
+
+D2. RAW UUID IN VENDOR ACQUISITION
+"Top vendors by share activity" renders
+fd77aa4b-77e1-4e0d-b19e-29cf9ca973d4 instead of the trading
+name. Join to the vendor record and render the name, with the
+ID on hover or in a detail view.
+
+D3. TEST DATA IN PRODUCTION SURFACES
+The audit log contains many chargeback_lost_reconciled
+entries with stripeDisputeId values prefixed
+dp_test_concurrency_. The Users list mixes seed accounts
+(david@example.com, grace@example.com) with real users.
+Catering enquiries include founder-owned addresses.
+
+FIX: add an isTestData flag or provenance marker and a
+default filter hiding test records from operational views
+while keeping them retrievable. DO NOT DELETE AUDIT ROWS.
+Then purge or clearly label seed users. An operator must tell
+at a glance what is real.
+
+D4. DUPLICATE RATE HISTORY ROW
+/commission-rates history shows a first-order 8% row with
+identical effective and closed dates alongside an active 8%
+row from the same date. Investigate whether the engine
+created a duplicate on save. (The validation is added in
+FP-02; clean up the existing row here.)
+
+D5. DASHBOARD SEARCH TRENDS CHART
+Bars render red, green and amber with no legend. The colours
+appear to encode "searched, no vendor found" but nothing says
+so. Add a legend explaining each colour, using the EXISTING
+colours; introduce none. Labels are truncated to "p-" and
+"Pu-": render the full search term or truncate with a tooltip
+showing the whole string. Link each term in the "Recruitment
+opportunity" panel to a filtered vendor-recruitment view.
+
+D6. VENDOR LIST PRESENTATION
+The Documents column renders five identical unlabelled grey
+circles per row, conveying nothing. Replace with a labelled
+compliance summary naming which documents are present,
+missing or expired, using the document set already defined in
+the compliance module. Add accessible tooltips.
+Vendor rows also render a "-" under the business name and
+owner name; omit the line when there is no value.
+The status badge reads "approved" but the tab set is
+Pending/Live/Probation/Suspended/Removed. Align the
+vocabulary so no status exists that is absent from the
+filters.
+
+DO NOT CHANGE ANY COLOURS.
+
+ACCEPTANCE CRITERIA
+- No percentage renders without its denominator.
+- No zero-denominator metric renders as green success.
+- No raw UUID where a name exists.
+- Test records visually distinguishable from real ones.
+- The documents column names what it shows.
