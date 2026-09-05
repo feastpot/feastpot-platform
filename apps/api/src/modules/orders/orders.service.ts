@@ -46,6 +46,11 @@ import { LoyaltyService } from '../loyalty/loyalty.service';
 import { ReferralService } from '../loyalty/referral.service';
 import { PaymentsService } from '../payments/payments.service';
 import { TermsService } from '../terms/terms.service';
+import {
+  assertNotificationEventName,
+  NotificationEvent,
+  type NotificationEventName,
+} from '../notifications/notification-events';
 import { VENDOR_ORDER_ROLES, VendorMembersService } from '../vendor-members/vendor-members.service';
 import {
   CapacityExceededError,
@@ -233,10 +238,11 @@ export class OrdersService {
   // block the synchronous user-facing flow - jobs are observability/comms,
   // not source-of-truth. We log and swallow.
   private async safeEnqueue(
-    name: string,
+    name: NotificationEventName | string,
     data: Record<string, unknown>,
     opts?: Parameters<Queue['add']>[2],
   ): Promise<void> {
+    assertNotificationEventName(name);
     try {
       await this.notifications.add(name, data, opts);
     } catch (e) {
@@ -1113,7 +1119,7 @@ export class OrdersService {
     // Vendor-facing "new paid order" notification. `vendorUserId` is what the
     // processor resolves as the recipient; without it (or a registered
     // template) the job is silently dropped.
-    await this.safeEnqueue('notify_vendor', {
+    await this.safeEnqueue(NotificationEvent.notify_vendor, {
       vendorId: order.vendorId,
       vendorUserId: order.vendor?.userId,
       orderId,
@@ -1139,7 +1145,7 @@ export class OrdersService {
     // contactable channels. `userId` is what the processor uses to look up
     // the recipient's email/phone - passing customerId fills that role.
     await this.safeEnqueue(
-      'order_confirmation',
+      NotificationEvent.order_confirmation,
       {
         userId: order.customerId,
         orderId,
@@ -1259,7 +1265,7 @@ export class OrdersService {
     if (dto.status === OrderStatus.accepted) {
       if (snap) {
         await this.safeEnqueue(
-          'order_accepted',
+          NotificationEvent.order_accepted,
           {
             userId: snap.customerId,
             orderId,
@@ -1281,7 +1287,7 @@ export class OrdersService {
           ? snap.scheduledFor.toISOString()
           : undefined;
       await this.safeEnqueue(
-        'order_dispatched',
+        NotificationEvent.order_dispatched,
         {
           userId: snap.customerId,
           orderId,
@@ -1296,7 +1302,7 @@ export class OrdersService {
       if (etaAt) {
         const delay = etaAt.getTime() - now.getTime() + OrdersService.ETA_OVERDUE_GRACE_MS;
         await this.safeEnqueue(
-          'eta_overdue',
+          NotificationEvent.eta_overdue,
           { orderId, customerId: snap.customerId },
           { jobId: `eta_overdue:${orderId}`, delay: Math.max(delay, 60_000) },
         );
@@ -1338,7 +1344,7 @@ export class OrdersService {
         await this.repo.markPaymentStatus(pi, 'succeeded');
       }
       await this.safeEnqueue(
-        'review_trigger',
+        NotificationEvent.review_trigger,
         { orderId },
         { delay: REVIEW_DELAY_MS, jobId: `review_trigger:${orderId}` },
       );
@@ -1370,7 +1376,7 @@ export class OrdersService {
         }
 
         await this.safeEnqueue(
-          'delivery_confirmed',
+          NotificationEvent.delivery_confirmed,
           {
             userId: snap.customerId,
             orderId,
@@ -1693,7 +1699,7 @@ export class OrdersService {
     // matching template - so nobody was ever notified on a customer cancel.)
     // jobIds keep both enqueues idempotent if customerCancel is retried.
     await this.safeEnqueue(
-      'order_cancelled_by_customer',
+      NotificationEvent.order_cancelled_by_customer,
       {
         customerId: order.customerId,
         customerFirstName: order.customer?.firstName ?? undefined,
@@ -1706,7 +1712,7 @@ export class OrdersService {
       { jobId: `cancelled_by_customer:${orderId}` },
     );
     await this.safeEnqueue(
-      'order_cancelled_vendor_alert',
+      NotificationEvent.order_cancelled_vendor_alert,
       {
         vendorUserId: order.vendor?.userId,
         orderId,
@@ -1905,7 +1911,7 @@ export class OrdersService {
     }
 
     await this.safeEnqueue(
-      'order_amendment_proposed',
+      NotificationEvent.order_amendment_proposed,
       {
         userId: order.customerId,
         orderId,
@@ -1921,7 +1927,7 @@ export class OrdersService {
     // Auto-expire poke. Job name routes to the special-case branch in
     // NotificationProcessor.
     await this.safeEnqueue(
-      'expire_amendment',
+      NotificationEvent.expire_amendment,
       { amendmentId: amendment.id },
       {
         jobId: `expire_amendment:${amendment.id}`,
@@ -2011,7 +2017,7 @@ export class OrdersService {
     }
 
     await this.safeEnqueue(
-      'order_amendment_resolved',
+      NotificationEvent.order_amendment_resolved,
       {
         userId: order.customerId,
         orderId,

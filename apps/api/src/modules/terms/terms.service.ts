@@ -10,10 +10,11 @@ import { TERMS_NOTICES_QUEUE } from '../../queues/queues.module';
 
 import { AcceptTermsVersionDto } from './dto/accept-terms-version.dto';
 import { PublishTermsVersionDto } from './dto/publish-terms-version.dto';
+import { TERMS_NOTICE_JOBS } from './terms-jobs';
 
-export const SEND_TERMS_NOTICES_JOB = 'send_terms_notices';
-export const GENERATE_ACCEPTANCE_PDF_JOB = 'generate_acceptance_pdf';
-export const DEEMED_ACCEPTANCE_CRON_JOB = 'deemed_acceptance_sweep';
+export const SEND_TERMS_NOTICES_JOB = TERMS_NOTICE_JOBS.send_terms_notices;
+export const GENERATE_ACCEPTANCE_PDF_JOB = TERMS_NOTICE_JOBS.generate_acceptance_pdf;
+export const DEEMED_ACCEPTANCE_CRON_JOB = TERMS_NOTICE_JOBS.deemed_acceptance_sweep;
 
 /** Minimum notice period in days (P2B Regulation, UK retained). */
 const MIN_NOTICE_DAYS = 15;
@@ -594,7 +595,7 @@ export class TermsService {
   async adminResendNotice(noticeId: string) {
     const notice = await this.prisma.termsNotice.findUniqueOrThrow({ where: { id: noticeId } });
     await this.noticesQueue.add(
-      'resend_single_notice',
+      TERMS_NOTICE_JOBS.resend_single_notice,
       { noticeId, vendorId: notice.vendorId, termsVersionId: notice.termsVersionId },
       { attempts: 3, backoff: { type: 'exponential', delay: 5_000 } },
     );

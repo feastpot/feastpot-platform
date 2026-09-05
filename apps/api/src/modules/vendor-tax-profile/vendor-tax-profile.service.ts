@@ -12,6 +12,7 @@ import type { AuthUser } from '../../auth/types';
 import { PrismaService } from '../../prisma/prisma.service';
 import { StripeService } from '../../stripe/stripe.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationEvent } from '../notifications/notification-events';
 
 import type { UpsertTaxProfileDto } from './dto/upsert-tax-profile.dto';
 import type { VerifyTaxProfileDto } from './dto/verify-tax-profile.dto';
@@ -318,7 +319,7 @@ export class VendorTaxProfileService {
         select: { userId: true, businessName: true },
       });
       if (vendor) {
-        await this.notifications.enqueue('hmrc_verification_failed', {
+        await this.notifications.enqueue(NotificationEvent.hmrc_verification_failed, {
           userId: vendor.userId,
           businessName: vendor.businessName,
           note: dto.note ?? '',

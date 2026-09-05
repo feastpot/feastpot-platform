@@ -19,6 +19,7 @@ import { RedisCacheService } from '../../common/cache/redis-cache.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { InboxService } from '../inbox/inbox.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationEvent } from '../notifications/notification-events';
 
 import {
   DIETARY_FLAG_SET,
@@ -660,7 +661,7 @@ export class MenuItemsService {
       });
       if (vendor) {
         await this.notifications.enqueue(
-          'menu_allergen_action_required',
+          NotificationEvent.menu_allergen_action_required,
           {
             userId: vendor.userId,
             vendorName: vendor.businessName,

@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationEvent } from '../notifications/notification-events';
 
 interface QuarterBucket {
   grossPence: number;
@@ -170,7 +171,7 @@ export class HmrcReportService {
 
     for (const report of reports) {
       try {
-        await this.notifications.enqueue('hmrc_copy_sent', {
+        await this.notifications.enqueue(NotificationEvent.hmrc_copy_sent, {
           userId: report.vendor.userId,
           businessName: report.vendor.businessName,
           reportingYear: report.reportingYear,
@@ -211,7 +212,7 @@ export class HmrcReportService {
       where: { reportingYear: year - 1, copySentAt: null },
     });
 
-    await this.notifications.enqueue('hmrc_deadline_alert', {
+    await this.notifications.enqueue(NotificationEvent.hmrc_deadline_alert, {
       deadline,
       reportingYear: year - 1,
       reportCount,

@@ -36,6 +36,7 @@ import {
   p,
   tealPill,
 } from './base-layout';
+import type { TemplateNotificationEventName } from '../notification-events';
 
 export type Channel = 'email' | 'whatsapp' | 'sms' | 'push';
 
@@ -64,7 +65,7 @@ const trackingUrl = (orderId: unknown): string =>
 const reviewUrl = (orderId: unknown): string =>
   `https://feastpot.co.uk/orders/${str(orderId, 'unknown')}/review`;
 
-export const TEMPLATES: Record<string, NotificationTemplate> = {
+export const TEMPLATES: Record<TemplateNotificationEventName, NotificationTemplate> = {
   menu_allergen_action_required: {
     subject: (d) => `${str(d.affectedCount, 'Some')} of your dishes need allergen confirmation`,
     render: (d) =>
@@ -1218,5 +1219,5 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
 };
 
 export function getTemplate(eventName: string): NotificationTemplate | undefined {
-  return TEMPLATES[eventName];
+  return TEMPLATES[eventName as TemplateNotificationEventName];
 }

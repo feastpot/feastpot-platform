@@ -4,6 +4,7 @@ import { FhrsStatus, OrderStatus, VerificationState, VendorStatus } from '@prism
 
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationEvent } from '../notifications/notification-events';
 import { VendorEnforcementService } from '../vendor-enforcement/vendor-enforcement.service';
 
 import type { UpsertVerificationDto } from './dto/upsert-verification.dto';
@@ -408,7 +409,7 @@ export class VendorVerificationService {
 
     if (newState === VerificationState.RENEWAL_DUE) {
       await this.notifications.enqueue(
-        'verification_renewal_due',
+        NotificationEvent.verification_renewal_due,
         {
           userId: vendor.userId,
           vendorName: vendor.businessName,
@@ -424,7 +425,7 @@ export class VendorVerificationService {
         where: { vendorId, status: { in: ACTIVE_ORDER_STATUSES } },
       });
       await this.notifications.enqueue(
-        'verification_suspended',
+        NotificationEvent.verification_suspended,
         {
           userId: vendor.userId,
           vendorName: vendor.businessName,

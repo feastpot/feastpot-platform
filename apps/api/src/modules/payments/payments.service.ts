@@ -21,6 +21,7 @@ import type Stripe from 'stripe';
 import { PrismaService } from '../../prisma/prisma.service';
 import { StripeService } from '../../stripe/stripe.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationEvent } from '../notifications/notification-events';
 
 import { AdminRefundDto, RefundReason } from './dto/admin-refund.dto';
 import { CreateRefundDto } from './dto/create-refund.dto';
@@ -656,12 +657,12 @@ export class PaymentsService {
     // and retried by the outbox drainer until they reach the queue. Money
     // moved above; both parties WILL be told, eventually.
     await Promise.all([
-      this.notifications.enqueue('refund_issued_customer', {
+      this.notifications.enqueue(NotificationEvent.refund_issued_customer, {
         orderId: dto.orderId,
         customerId: order.customerId,
         amountPence: dto.amountPence,
       }),
-      this.notifications.enqueue('refund_deducted_vendor', {
+      this.notifications.enqueue(NotificationEvent.refund_deducted_vendor, {
         orderId: dto.orderId,
         vendorId: order.vendorId,
         vendorUserId: order.vendor.userId,
@@ -1078,12 +1079,12 @@ export class PaymentsService {
       );
     }
     await Promise.all([
-      this.notifications.enqueue('refund_issued_customer', {
+      this.notifications.enqueue(NotificationEvent.refund_issued_customer, {
         orderId: order.id,
         customerId: order.customerId,
         amountPence: result.amountPence,
       }),
-      this.notifications.enqueue('refund_deducted_vendor', {
+      this.notifications.enqueue(NotificationEvent.refund_deducted_vendor, {
         orderId: order.id,
         vendorId: order.vendorId,
         vendorUserId: order.vendor.userId,

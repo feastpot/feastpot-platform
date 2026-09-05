@@ -3,6 +3,7 @@ import { LoyaltyTxType, Prisma } from '@prisma/client';
 
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationEvent } from '../notifications/notification-events';
 
 const POINTS_PER_PENCE = 100;
 const MIN_REDEMPTION = 200;
@@ -258,7 +259,7 @@ export class LoyaltyService {
         if (!didProcess) continue;
         processed++;
         await this.notifications.enqueue(
-          'points_expired',
+          NotificationEvent.points_expired,
           { userId: row.userId, points: row.points },
           { jobId: `points_expired:${row.id}` },
         );

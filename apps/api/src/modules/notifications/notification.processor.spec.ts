@@ -158,6 +158,25 @@ describe('NotificationProcessor - WhatsApp order_confirmation params', () => {
       expect(String(p)).not.toMatch(/undefined|null|NaN/);
     }
   });
+
+  it('registers and executes the explicit order_confirmation Bull callback', async () => {
+    const prisma = makePrisma(customer);
+    const { processor, providers } = makeProcessor(prisma);
+    const registered = (processor as any).handle_order_confirmation;
+    expect(registered).toEqual(expect.any(Function));
+
+    const result = await registered.call(processor, {
+      name: 'order_confirmation',
+      data: { userId: customer.id, orderNumber: 'FP-9', vendorName: 'Kitchen', totalPence: 500 },
+    });
+    expect(result.sent).toContain('email');
+    expect(providers.email.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        subject: expect.stringContaining('Kitchen'),
+        html: expect.any(String),
+      }),
+    );
+  });
 });
 
 describe('alertIfStubInProduction', () => {

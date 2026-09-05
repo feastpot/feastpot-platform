@@ -37,6 +37,7 @@ import { CommissionService } from '../../commission/commission.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { StripeService } from '../../stripe/stripe.service';
 import { InboxService } from '../inbox/inbox.service';
+import { NotificationEvent } from '../notifications/notification-events';
 import { computeIncrementalRefundSplit } from '../payments/payments.service';
 
 import { ListPayoutsDto } from './dto/list-payouts.dto';
@@ -621,7 +622,7 @@ export class PayoutsService {
     // Best-effort side effects: money has moved and DB is committed. Failures
     // here MUST NOT mark the payout failed or undo the transfer.
     try {
-      await this.notifications.add('payout_transferred', {
+      await this.notifications.add(NotificationEvent.payout_transferred, {
         vendorId: payout.vendorId,
         vendorUserId: payout.vendor.userId,
         payoutId: payout.id,
@@ -753,7 +754,7 @@ export class PayoutsService {
       'soul@feastpot.co.uk';
     const adminBase = process.env.ADMIN_URL ?? 'https://admin.feastpot.co.uk';
     try {
-      await this.notifications.add('vendor_application_email_raw', {
+      await this.notifications.add(NotificationEvent.vendor_application_email_raw, {
         to: financeEmail,
         subject: `[ACTION REQUIRED] Payout transfer failed for ${payout.vendor.businessName ?? payout.id}`,
         html: `<p>All retry attempts exhausted for payout <strong>${payout.id}</strong> (vendor: ${payout.vendor.businessName ?? 'unknown'}, £${(payout.amountPence / 100).toFixed(2)}).</p>
@@ -769,7 +770,7 @@ export class PayoutsService {
 
     // Vendor notification: tells the vendor what is wrong and what to fix.
     try {
-      await this.notifications.add('payout_failed_terminal', {
+      await this.notifications.add(NotificationEvent.payout_failed_terminal, {
         vendorId: payout.vendorId,
         vendorUserId: payout.vendor.userId,
         payoutId: payout.id,
@@ -841,7 +842,7 @@ export class PayoutsService {
       });
     }
     try {
-      await this.notifications.add('payout_held', {
+      await this.notifications.add(NotificationEvent.payout_held, {
         vendorId: payout.vendorId,
         vendorUserId: payout.vendor.userId,
         payoutId,
@@ -1177,7 +1178,7 @@ export class PayoutsService {
             );
           }
 
-          await this.notifications.add('payout_batch_ready', {
+          await this.notifications.add(NotificationEvent.payout_batch_ready, {
             vendorUserId: group.vendor.userId,
             payoutId: payout.id,
             vendorBusinessName: group.vendor.businessName ?? vendorId,

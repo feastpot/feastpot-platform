@@ -24,6 +24,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { StripeService } from '../../stripe/stripe.service';
 import { toResolvedSource } from '../attribution/attribution.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationEvent } from '../notifications/notification-events';
 import { EmailProvider } from '../notifications/providers/email.provider';
 import { PaymentsService } from '../payments/payments.service';
 
@@ -398,7 +399,7 @@ export class CateringBookingsService {
     // Notify vendor
     await this.notifications
       .enqueue(
-        'catering_deposit_received',
+        NotificationEvent.catering_deposit_received,
         {
           userId: await this.getVendorUserId(booking.vendorId),
           bookingId,
@@ -550,7 +551,7 @@ export class CateringBookingsService {
     // Notify vendor
     await this.notifications
       .enqueue(
-        'catering_completed',
+        NotificationEvent.catering_completed,
         {
           userId: booking.vendor.userId,
           bookingId,

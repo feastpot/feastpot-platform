@@ -5,6 +5,7 @@ import type { Queue } from 'bull';
 
 import { PrismaService } from '../../prisma/prisma.service';
 import { NOTIFICATIONS_QUEUE } from '../../queues/queues.module';
+import { assertNotificationEventName } from './notification-events';
 
 /**
  * Drains notification_outbox: rows land here when a notification enqueue
@@ -58,6 +59,16 @@ export class NotificationOutboxService implements OnModuleInit {
         this.backlogAlerted = false;
       }
       for (const row of due) {
+        // Database rows are dynamic input too: never reintroduce a name that
+        // no registered worker can consume.
+        try {
+          assertNotificationEventName(row.eventName);
+        } catch (error) {
+          this.logger.error(
+            `Outbox row ${row.id} has an unknown notification event: ${row.eventName}`,
+          );
+          throw error;
+        }
         // ALWAYS enqueue with a deterministic jobId: rows without a caller-
         // provided one get outbox:<rowId>. If the delete below fails after a
         // successful enqueue, the next drain's re-add is deduped by Bull on

@@ -10,6 +10,7 @@ import { RedisCacheService } from '../../common/cache/redis-cache.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { StripeService } from '../../stripe/stripe.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationEvent } from '../notifications/notification-events';
 
 const HOUR_MS = 60 * 60 * 1000;
 
@@ -51,7 +52,7 @@ export class EventCronService {
     await Promise.all(
       enquiries.map((e) =>
         this.notifications.enqueue(
-          'event_reminder_72h',
+          NotificationEvent.event_reminder_72h,
           {
             userId: e.customerId,
             enquiryId: e.id,
@@ -106,7 +107,7 @@ export class EventCronService {
       // so the email/push channel resolution is consistent with the rest
       // of the app (resolves recipient via userId; bypasses raw queue).
       await this.notifications.enqueue(
-        'enquiry_expired',
+        NotificationEvent.enquiry_expired,
         {
           userId: e.customerId,
           enquiryId: e.id,
@@ -189,7 +190,7 @@ export class EventCronService {
           continue;
         }
         await this.notifications.enqueue(
-          'event_balance_link',
+          NotificationEvent.event_balance_link,
           {
             userId: e.customerId,
             enquiryId: e.id,

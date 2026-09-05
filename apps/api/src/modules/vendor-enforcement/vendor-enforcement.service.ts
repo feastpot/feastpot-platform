@@ -3,6 +3,7 @@ import { EnforcementType, Prisma, VendorStatus, VerificationState } from '@prism
 
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationEvent } from '../notifications/notification-events';
 
 import {
   CreateEnforcementActionDto,
@@ -253,7 +254,7 @@ export class VendorEnforcementService {
 
       const outbox = await this.notifications.createTransactionalOutbox(
         tx,
-        'enforcement_action',
+        NotificationEvent.enforcement_action,
         noticePayload,
         `enforcement_action:${created.id}`,
       );
@@ -274,7 +275,7 @@ export class VendorEnforcementService {
     // ── 8. Dispatch only after the transaction commits ───────────────────────
     await this.notifications.dispatchTransactionalOutbox(
       transactionResult.outboxId,
-      'enforcement_action',
+      NotificationEvent.enforcement_action,
       noticePayload,
       `enforcement_action:${action.id}`,
     );
@@ -375,7 +376,7 @@ export class VendorEnforcementService {
       return updated;
     });
 
-    await this.notifications.enqueue('enforcement_lifted', {
+    await this.notifications.enqueue(NotificationEvent.enforcement_lifted, {
       userId: action.vendor.userId,
       vendorName: action.vendor.businessName,
       actionType: action.actionType,

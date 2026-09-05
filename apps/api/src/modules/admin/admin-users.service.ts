@@ -15,6 +15,7 @@ import { CSV_EXPORT_HARD_CAP, CSV_EXPORT_PAGE, csvRow } from '../../common/csv';
 import { PrismaService } from '../../prisma/prisma.service';
 import { LoyaltyService } from '../loyalty/loyalty.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationEvent } from '../notifications/notification-events';
 import { EmailProvider } from '../notifications/providers/email.provider';
 import { staffPortalInviteTemplate } from '../notifications/templates/staff-portal-invite.template';
 
@@ -616,7 +617,7 @@ export class AdminUsersService {
     if (!user) throw new NotFoundException({ code: 'USER_NOT_FOUND', message: 'User not found' });
 
     await this.loyalty.adjustPoints(userId, amountPence, reason, adminUserId);
-    await this.notifications.enqueue('account_credit_issued', {
+    await this.notifications.enqueue(NotificationEvent.account_credit_issued, {
       userId,
       amountPence,
       reason,
@@ -678,7 +679,7 @@ export class AdminUsersService {
       },
     });
 
-    await this.notifications.enqueue('account_suspended', { userId, reason });
+    await this.notifications.enqueue(NotificationEvent.account_suspended, { userId, reason });
   }
 
   async reinstateUser(userId: string, reason: string, adminUserId: string): Promise<void> {

@@ -6,6 +6,7 @@ import type { Queue } from 'bull';
 
 import { PrismaService } from '../../prisma/prisma.service';
 import { NOTIFICATIONS_QUEUE } from '../../queues/queues.module';
+import { assertNotificationEventName, type NotificationEventName } from './notification-events';
 
 /**
  * Lightweight wrapper that other modules can inject instead of `@InjectQueue`
@@ -30,10 +31,11 @@ export class NotificationsService {
    * cron ticks within the BullMQ job-retention window can't double-send.
    */
   async enqueue(
-    eventName: string,
+    eventName: NotificationEventName | string,
     data: Record<string, unknown>,
     opts?: { jobId?: string },
   ): Promise<void> {
+    assertNotificationEventName(eventName);
     // When REDIS_URL is unset/down the injected BullMQ Queue is configured
     // with lazyConnect+enableOfflineQueue:false (see app.module.ts), so the
     // very first add() throws "Connection is closed." and would 500 the
@@ -81,10 +83,11 @@ export class NotificationsService {
    */
   createTransactionalOutbox(
     tx: Prisma.TransactionClient,
-    eventName: string,
+    eventName: NotificationEventName | string,
     data: Record<string, unknown>,
     jobId?: string,
   ) {
+    assertNotificationEventName(eventName);
     return tx.notificationOutbox.create({
       data: {
         eventName,
@@ -101,10 +104,11 @@ export class NotificationsService {
    */
   async dispatchTransactionalOutbox(
     outboxId: string,
-    eventName: string,
+    eventName: NotificationEventName | string,
     data: Record<string, unknown>,
     jobId?: string,
   ): Promise<void> {
+    assertNotificationEventName(eventName);
     try {
       await this.queue.add(eventName, data, jobId ? { jobId } : undefined);
       await this.prisma.notificationOutbox.delete({ where: { id: outboxId } });
