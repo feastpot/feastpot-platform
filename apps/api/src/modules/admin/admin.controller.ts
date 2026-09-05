@@ -658,11 +658,7 @@ export class AdminController {
         message: 'Test endpoint disabled in production',
       });
     }
-    if (
-      !dto?.event ||
-      !isTemplateNotificationEventName(dto.event) ||
-      !TEMPLATES[dto.event]
-    ) {
+    if (!dto?.event || !isTemplateNotificationEventName(dto.event) || !TEMPLATES[dto.event]) {
       throw new BadRequestException({
         code: 'UNKNOWN_TEMPLATE',
         message: `Unknown event template "${dto?.event}". Known: ${Object.keys(TEMPLATES).join(', ')}`,
