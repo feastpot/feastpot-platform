@@ -1,5 +1,6 @@
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
+
 import ts from 'typescript';
 
 import { TERMS_NOTICE_JOB_NAMES } from './terms-jobs';

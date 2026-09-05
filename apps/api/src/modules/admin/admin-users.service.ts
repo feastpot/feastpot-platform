@@ -14,8 +14,8 @@ import { SupabaseService } from '../../auth/supabase.service';
 import { CSV_EXPORT_HARD_CAP, CSV_EXPORT_PAGE, csvRow } from '../../common/csv';
 import { PrismaService } from '../../prisma/prisma.service';
 import { LoyaltyService } from '../loyalty/loyalty.service';
-import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationEvent } from '../notifications/notification-events';
+import { NotificationsService } from '../notifications/notifications.service';
 import { EmailProvider } from '../notifications/providers/email.provider';
 import { staffPortalInviteTemplate } from '../notifications/templates/staff-portal-invite.template';
 

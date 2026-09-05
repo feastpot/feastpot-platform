@@ -9,8 +9,8 @@ import { AppealOutcome, DisputeStatus, PayoutStatus, Prisma, UserRole } from '@p
 
 import type { AuthUser } from '../../auth/types';
 import { PrismaService } from '../../prisma/prisma.service';
-import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationEvent } from '../notifications/notification-events';
+import { NotificationsService } from '../notifications/notifications.service';
 
 import type { DecideAppealStageDto } from './dto/decide-appeal-stage.dto';
 import type { SubmitAppealDto } from './dto/submit-appeal.dto';

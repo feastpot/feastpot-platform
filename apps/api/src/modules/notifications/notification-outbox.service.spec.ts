@@ -1,6 +1,6 @@
+import { NotificationEvent } from './notification-events';
 import { NotificationOutboxService } from './notification-outbox.service';
 import { NotificationsService } from './notifications.service';
-import { NotificationEvent } from './notification-events';
 
 type Mock = jest.Mock;
 

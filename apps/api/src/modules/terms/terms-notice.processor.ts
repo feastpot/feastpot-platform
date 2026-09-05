@@ -8,12 +8,12 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { TERMS_NOTICES_QUEUE } from '../../queues/queues.module';
 import { EmailProvider } from '../notifications/providers/email.provider';
 
+import { TERMS_NOTICE_JOBS } from './terms-jobs';
 import {
   DEEMED_ACCEPTANCE_CRON_JOB,
   GENERATE_ACCEPTANCE_PDF_JOB,
   SEND_TERMS_NOTICES_JOB,
 } from './terms.service';
-import { TERMS_NOTICE_JOBS } from './terms-jobs';
 
 interface TermsNoticesJobData {
   termsVersionId: string;

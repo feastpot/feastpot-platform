@@ -3,8 +3,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { FhrsStatus, OrderStatus, VerificationState, VendorStatus } from '@prisma/client';
 
 import { PrismaService } from '../../prisma/prisma.service';
-import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationEvent } from '../notifications/notification-events';
+import { NotificationsService } from '../notifications/notifications.service';
 import { VendorEnforcementService } from '../vendor-enforcement/vendor-enforcement.service';
 
 import type { UpsertVerificationDto } from './dto/upsert-verification.dto';

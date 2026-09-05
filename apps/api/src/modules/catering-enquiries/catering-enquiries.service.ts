@@ -4,8 +4,8 @@ import { CateringBookingStatus, VendorStatus } from '@prisma/client';
 
 import { extractOutwardCode, normalisePostcode } from '../../common/postcode.util';
 import { PrismaService } from '../../prisma/prisma.service';
-import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationEvent } from '../notifications/notification-events';
+import { NotificationsService } from '../notifications/notifications.service';
 import { EmailProvider } from '../notifications/providers/email.provider';
 import { WhatsappProvider } from '../notifications/providers/whatsapp.provider';
 

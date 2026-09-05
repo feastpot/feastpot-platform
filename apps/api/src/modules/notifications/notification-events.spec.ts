@@ -1,14 +1,15 @@
 import { readdirSync, readFileSync } from 'fs';
 import { resolve } from 'path';
+
 import ts from 'typescript';
 
-import { TEMPLATES } from './templates';
-import { NotificationProcessor } from './notification.processor';
 import {
   NOTIFICATION_EVENT_NAMES,
   NOTIFICATION_EVENTS,
   TEMPLATE_NOTIFICATION_EVENT_NAMES,
 } from './notification-events';
+import { NotificationProcessor } from './notification.processor';
+import { TEMPLATES } from './templates';
 
 describe('notification event registry contract', () => {
   it('has one explicit registered handler for every accepted name', () => {

@@ -44,13 +44,13 @@ import { DiscountCodesService } from '../discount-codes/discount-codes.service';
 import { InboxService } from '../inbox/inbox.service';
 import { LoyaltyService } from '../loyalty/loyalty.service';
 import { ReferralService } from '../loyalty/referral.service';
-import { PaymentsService } from '../payments/payments.service';
-import { TermsService } from '../terms/terms.service';
 import {
   assertNotificationEventName,
   NotificationEvent,
   type NotificationEventName,
 } from '../notifications/notification-events';
+import { PaymentsService } from '../payments/payments.service';
+import { TermsService } from '../terms/terms.service';
 import { VENDOR_ORDER_ROLES, VendorMembersService } from '../vendor-members/vendor-members.service';
 import {
   CapacityExceededError,

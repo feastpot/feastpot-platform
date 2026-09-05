@@ -11,8 +11,8 @@ import type Stripe from 'stripe';
 import type { AuthUser } from '../../auth/types';
 import { PrismaService } from '../../prisma/prisma.service';
 import { StripeService } from '../../stripe/stripe.service';
-import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationEvent } from '../notifications/notification-events';
+import { NotificationsService } from '../notifications/notifications.service';
 
 import type { UpsertTaxProfileDto } from './dto/upsert-tax-profile.dto';
 import type { VerifyTaxProfileDto } from './dto/verify-tax-profile.dto';

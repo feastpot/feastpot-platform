@@ -14,17 +14,17 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { shouldReportQueueFailure } from '../../queues/queue-failure';
 import { NOTIFICATIONS_QUEUE } from '../../queues/queues.module';
 
+import {
+  NOTIFICATION_EVENT_NAMES,
+  NotificationEvent,
+  type NotificationEventName,
+} from './notification-events';
 import { findPreferenceDefinition } from './notification-preferences.constants';
 import { EmailProvider, type EmailAttachment } from './providers/email.provider';
 import { PushProvider } from './providers/push.provider';
 import { SmsProvider } from './providers/sms.provider';
 import { WhatsappProvider } from './providers/whatsapp.provider';
 import { getTemplate, type Channel } from './templates';
-import {
-  NOTIFICATION_EVENT_NAMES,
-  NotificationEvent,
-  type NotificationEventName,
-} from './notification-events';
 
 /**
  * The job payload other modules enqueue. The job NAME is the event name

@@ -9,8 +9,8 @@ import { EnquiryStatus, QuoteStatus } from '@prisma/client';
 import { RedisCacheService } from '../../common/cache/redis-cache.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { StripeService } from '../../stripe/stripe.service';
-import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationEvent } from '../notifications/notification-events';
+import { NotificationsService } from '../notifications/notifications.service';
 
 const HOUR_MS = 60 * 60 * 1000;
 

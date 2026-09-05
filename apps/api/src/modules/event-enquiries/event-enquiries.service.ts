@@ -19,8 +19,8 @@ import type { AuthUser } from '../../auth/types';
 import { CSV_EXPORT_HARD_CAP, CSV_EXPORT_PAGE, csvRow } from '../../common/csv';
 import { PrismaService } from '../../prisma/prisma.service';
 import { StripeService } from '../../stripe/stripe.service';
-import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationEvent } from '../notifications/notification-events';
+import { NotificationsService } from '../notifications/notifications.service';
 
 import { ConfirmNumbersDto } from './dto/confirm-numbers.dto';
 import { CreateEventEnquiryDto } from './dto/create-enquiry.dto';

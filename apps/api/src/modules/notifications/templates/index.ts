@@ -24,6 +24,8 @@
  * baseLayout's `title` argument already escape internally.
  */
 
+import type { TemplateNotificationEventName } from '../notification-events';
+
 import {
   amberCallout,
   baseLayout,
@@ -36,7 +38,6 @@ import {
   p,
   tealPill,
 } from './base-layout';
-import type { TemplateNotificationEventName } from '../notification-events';
 
 export type Channel = 'email' | 'whatsapp' | 'sms' | 'push';
 

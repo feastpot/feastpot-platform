@@ -5,6 +5,7 @@ import type { Queue } from 'bull';
 
 import { PrismaService } from '../../prisma/prisma.service';
 import { NOTIFICATIONS_QUEUE } from '../../queues/queues.module';
+
 import { assertNotificationEventName } from './notification-events';
 
 /**

@@ -20,8 +20,8 @@ import type Stripe from 'stripe';
 
 import { PrismaService } from '../../prisma/prisma.service';
 import { StripeService } from '../../stripe/stripe.service';
-import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationEvent } from '../notifications/notification-events';
+import { NotificationsService } from '../notifications/notifications.service';
 
 import { AdminRefundDto, RefundReason } from './dto/admin-refund.dto';
 import { CreateRefundDto } from './dto/create-refund.dto';

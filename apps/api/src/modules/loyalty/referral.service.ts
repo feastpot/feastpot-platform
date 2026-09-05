@@ -4,8 +4,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ReferralStatus } from '@prisma/client';
 
 import { PrismaService } from '../../prisma/prisma.service';
-import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationEvent } from '../notifications/notification-events';
+import { NotificationsService } from '../notifications/notifications.service';
 
 import { LoyaltyService } from './loyalty.service';
 

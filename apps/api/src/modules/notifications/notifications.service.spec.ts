@@ -1,7 +1,7 @@
 import * as Sentry from '@sentry/nestjs';
 
-import { NotificationsService } from './notifications.service';
 import { NotificationEvent } from './notification-events';
+import { NotificationsService } from './notifications.service';
 
 jest.mock('@sentry/nestjs', () => ({
   captureException: jest.fn(),
