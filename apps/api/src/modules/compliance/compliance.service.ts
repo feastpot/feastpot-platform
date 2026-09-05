@@ -12,6 +12,7 @@ import type { AuthUser } from '../../auth/types';
 import { PrismaService } from '../../prisma/prisma.service';
 import { DOCUMENTS_BUCKET } from '../catalogue/supabase-storage.service';
 import { InboxService } from '../inbox/inbox.service';
+import { NotificationEvent } from '../notifications/notification-events';
 import { NotificationsService } from '../notifications/notifications.service';
 import {
   VENDOR_COMPLIANCE_ROLES,
@@ -143,7 +144,7 @@ export class ComplianceService {
         0,
         Math.ceil((d.expiresAt!.getTime() - now.getTime()) / (24 * 60 * 60 * 1000)),
       );
-      await this.notifications.enqueue('document_expiring', {
+      await this.notifications.enqueue(NotificationEvent.document_expiring, {
         userId: d.vendor.userId,
         documentType: d.type,
         expiresAt: d.expiresAt,
@@ -179,7 +180,7 @@ export class ComplianceService {
       });
       for (const d of expired) {
         for (const a of admins) {
-          await this.notifications.enqueue('document_expired', {
+          await this.notifications.enqueue(NotificationEvent.document_expired, {
             userId: a.id,
             documentType: d.type,
             vendorId: d.vendorId,
@@ -253,7 +254,7 @@ export class ComplianceService {
         continue;
       }
       await this.notifications.enqueue(
-        'review_request',
+        NotificationEvent.review_request,
         {
           userId: o.customerId,
           orderId: o.id,

@@ -28,6 +28,10 @@ import { Roles } from '../../auth/decorators/roles.decorator';
 import type { AuthedRequest } from '../../auth/types';
 import { CommissionService } from '../../commission/commission.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import {
+  isTemplateNotificationEventName,
+  NotificationEvent,
+} from '../notifications/notification-events';
 import { NotificationsService } from '../notifications/notifications.service';
 import { EmailProvider } from '../notifications/providers/email.provider';
 import { PushProvider } from '../notifications/providers/push.provider';
@@ -654,7 +658,7 @@ export class AdminController {
         message: 'Test endpoint disabled in production',
       });
     }
-    if (!dto?.event || !TEMPLATES[dto.event]) {
+    if (!dto?.event || !isTemplateNotificationEventName(dto.event) || !TEMPLATES[dto.event]) {
       throw new BadRequestException({
         code: 'UNKNOWN_TEMPLATE',
         message: `Unknown event template "${dto?.event}". Known: ${Object.keys(TEMPLATES).join(', ')}`,
@@ -761,7 +765,7 @@ export class AdminController {
       try {
         const { delivered, id } = await this.whatsapp.send({
           to: dto.phone,
-          template: dto.whatsappTemplate ?? 'order_confirmation',
+          template: dto.whatsappTemplate ?? NotificationEvent.order_confirmation,
           params: dto.whatsappParams ?? [],
         });
         results.whatsapp = delivered

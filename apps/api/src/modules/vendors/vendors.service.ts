@@ -19,6 +19,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { NOTIFICATIONS_QUEUE } from '../../queues/queues.module';
 import { StripeService } from '../../stripe/stripe.service';
 import { SupabaseStorageService } from '../catalogue/supabase-storage.service';
+import { NotificationEvent } from '../notifications/notification-events';
 import { NotificationsService } from '../notifications/notifications.service';
 import { EmailProvider } from '../notifications/providers/email.provider';
 import { vendorApplicationAcknowledgedTemplate } from '../notifications/templates/vendor-application-acknowledged.template';
@@ -441,12 +442,12 @@ export class VendorsService {
     };
     await Promise.allSettled([
       this.queue.add(
-        'vendor_application_email_raw',
+        NotificationEvent.vendor_application_email_raw,
         { to: adminEmail, subject: adminMsg.subject, html: adminMsg.html },
         { ...jobOpts, jobId: `vendor-app-admin-${application.id}` },
       ),
       this.queue.add(
-        'vendor_application_email_raw',
+        NotificationEvent.vendor_application_email_raw,
         { to: normalisedEmail, subject: applicantMsg.subject, html: applicantMsg.html },
         { ...jobOpts, jobId: `vendor-app-applicant-${application.id}` },
       ),
@@ -1554,7 +1555,7 @@ export class VendorsService {
       });
       if (detail?.user) {
         await this.notifications.enqueue(
-          'vendor_approved',
+          NotificationEvent.vendor_approved,
           {
             // Routes the email/push to the vendor's user via the resolver
             // in NotificationProcessor (resolveUserId reads userId first).

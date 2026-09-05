@@ -14,6 +14,11 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { shouldReportQueueFailure } from '../../queues/queue-failure';
 import { NOTIFICATIONS_QUEUE } from '../../queues/queues.module';
 
+import {
+  NOTIFICATION_EVENT_NAMES,
+  NotificationEvent,
+  type NotificationEventName,
+} from './notification-events';
 import { findPreferenceDefinition } from './notification-preferences.constants';
 import { EmailProvider, type EmailAttachment } from './providers/email.provider';
 import { PushProvider } from './providers/push.provider';
@@ -104,11 +109,9 @@ export const WHATSAPP_PARAMS: Record<
 /**
  * Notifications queue processor.
  *
- * Concurrency=10 set via `@Process({ concurrency: 10 })` per channel handler.
- * Bull's catch-all (no name) is used here so any event the rest of the app
- * enqueues by name (e.g. `notifications.add('order_confirmation', ...)`) is
- * routed through the template registry. Unknown events are logged and dropped
- * - never re-tried indefinitely (would block the queue).
+ * Every accepted registry name has an explicit Bull handler, installed below
+ * from the canonical event registry. There is intentionally no catch-all:
+ * unknown names must be rejected by a producer rather than silently dropped.
  */
 @Injectable()
 @Processor(NOTIFICATIONS_QUEUE)
@@ -132,9 +135,8 @@ export class NotificationProcessor {
    * headroom for the delivery-notification wave that follows ~45 min
    * later.
    */
-  @Process({ concurrency: 30 })
   async handle(job: Job<NotificationJobData>): Promise<{ sent: Channel[]; skipped: Channel[] }> {
-    const eventName = job.name;
+    const eventName = job.name as NotificationEventName;
 
     // System jobs that don't render a notification themselves - they mutate
     // state (and may enqueue follow-up template-backed notifications).
@@ -144,6 +146,26 @@ export class NotificationProcessor {
     }
     if (eventName === 'eta_overdue') {
       await this.handleEtaOverdue(job.data as { orderId?: string });
+      return { sent: [], skipped: [] };
+    }
+
+    /*
+     * Declared no-ops: these jobs remain registered so their producers are
+     * explicit, but they deliberately send no notification.
+     *
+     * - referral_rewarded / points_expired: the loyalty ledger is authoritative.
+     * - catering_completed: completion is recorded and the customer already gets
+     *   the dedicated completion email from CateringBookingsService.
+     * - review_trigger: legacy delayed marker only. The compliance cron separately
+     *   finds eligible delivered orders and enqueues the real review_request event.
+     */
+    if (
+      eventName === 'referral_rewarded' ||
+      eventName === 'points_expired' ||
+      eventName === 'catering_completed' ||
+      eventName === 'review_trigger'
+    ) {
+      this.logger.debug(`Declared no-op notification event "${eventName}" completed.`);
       return { sent: [], skipped: [] };
     }
 
@@ -486,7 +508,7 @@ export class NotificationProcessor {
       return;
     }
     await this.notifications.add(
-      'order_eta_overdue',
+      NotificationEvent.order_eta_overdue,
       {
         userId: order.customerId,
         orderId: order.id,
@@ -575,7 +597,7 @@ export class NotificationProcessor {
   private async dispatch(
     channel: Channel,
     ctx: {
-      eventName: string;
+      eventName: NotificationEventName;
       user: { id: string; email: string; phone: string | null; firstName: string | null };
       subject: string;
       html: string;
@@ -657,4 +679,23 @@ export class NotificationProcessor {
         this.logger.warn(`Failed to persist notification row: ${e.message}`);
       });
   }
+}
+
+// Nest/Bull requires a distinct named registration for each job name. Keep
+// those registrations mechanically tied to the registry so additions cannot
+// create a producer-without-handler gap (or a wildcard handler).
+for (const eventName of NOTIFICATION_EVENT_NAMES) {
+  const methodName = `handle_${eventName}`;
+  Object.defineProperty(NotificationProcessor.prototype, methodName, {
+    configurable: true,
+    value: function (this: NotificationProcessor, job: Job<NotificationJobData>) {
+      return this.handle(job);
+    },
+  });
+  const descriptor = Object.getOwnPropertyDescriptor(NotificationProcessor.prototype, methodName)!;
+  Process({ name: eventName, concurrency: 30 })(
+    NotificationProcessor.prototype,
+    methodName,
+    descriptor,
+  );
 }

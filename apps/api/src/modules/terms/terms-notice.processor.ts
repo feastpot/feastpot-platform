@@ -8,6 +8,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { TERMS_NOTICES_QUEUE } from '../../queues/queues.module';
 import { EmailProvider } from '../notifications/providers/email.provider';
 
+import { TERMS_NOTICE_JOBS } from './terms-jobs';
 import {
   DEEMED_ACCEPTANCE_CRON_JOB,
   GENERATE_ACCEPTANCE_PDF_JOB,
@@ -20,6 +21,12 @@ interface TermsNoticesJobData {
 
 interface AcceptancePdfJobData {
   acceptanceId: string;
+}
+
+interface ResendSingleNoticeJobData {
+  noticeId: string;
+  vendorId: string;
+  termsVersionId: string;
 }
 
 const DEEMED_ACCEPTANCE_CRON = '0 2 * * *'; // 02:00 UTC every day.
@@ -192,6 +199,58 @@ export class TermsNoticeProcessor implements OnApplicationBootstrap {
         },
       ],
     });
+  }
+
+  /** Resend the email represented by one operator-selected notice row. */
+  @Process(TERMS_NOTICE_JOBS.resend_single_notice)
+  async handleResendSingleNotice(job: Job<ResendSingleNoticeJobData>): Promise<void> {
+    const notice = await this.prisma.termsNotice.findUniqueOrThrow({
+      where: { id: job.data.noticeId },
+    });
+    if (
+      notice.vendorId !== job.data.vendorId ||
+      notice.termsVersionId !== job.data.termsVersionId
+    ) {
+      throw new Error(`Terms notice ${notice.id} does not match the queued vendor/version.`);
+    }
+    const [version, vendor] = await Promise.all([
+      this.prisma.termsVersion.findUniqueOrThrow({ where: { id: notice.termsVersionId } }),
+      this.prisma.vendor.findUniqueOrThrow({
+        where: { id: notice.vendorId },
+        select: {
+          businessName: true,
+          members: {
+            where: { role: 'owner' },
+            select: { user: { select: { email: true } } },
+            take: 1,
+          },
+        },
+      }),
+    ]);
+    const email = vendor?.members[0]?.user?.email;
+    if (!vendor || !email) {
+      throw new Error(`Terms notice ${notice.id} has no owner email to resend.`);
+    }
+    const effectiveDateStr = version.effectiveAt.toLocaleDateString('en-GB', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+    const result = await this.email.send({
+      to: email,
+      subject: `Important: Feastpot Vendor Terms update (effective ${effectiveDateStr})`,
+      html: buildNoticeEmail({
+        businessName: vendor.businessName,
+        version: version.version,
+        summary: version.changeSummary,
+        effectiveDateStr,
+      }),
+    });
+    await this.prisma.termsNotice.update({
+      where: { id: notice.id },
+      data: { deliveredAt: result.delivered ? new Date() : null },
+    });
+    if (!result.delivered) throw new Error(`Terms notice ${notice.id} resend was not delivered.`);
   }
 
   // ─── Nightly deemed-acceptance sweep ────────────────────────────────────────

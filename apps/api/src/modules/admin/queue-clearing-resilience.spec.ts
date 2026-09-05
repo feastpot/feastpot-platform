@@ -30,6 +30,7 @@
  *      detectable by the reconciliation query.
  */
 
+import { NotificationEvent } from '../notifications/notification-events';
 import { NotificationOutboxService } from '../notifications/notification-outbox.service';
 
 // ---------------------------------------------------------------------------
@@ -52,7 +53,7 @@ describe('Invariant 1: clearing only targets failed jobs', () => {
     const waitingJob = {
       id: '2',
       name: 'notification',
-      data: { eventName: 'order_confirmed' },
+      data: { eventName: NotificationEvent.order_confirmation },
       remove: jest.fn(),
     };
     const activeJob = { id: '3', name: 'payout-batch', data: {}, remove: jest.fn() };
@@ -139,7 +140,7 @@ describe('Invariant 2: audit report captures every job before removal', () => {
         timestamp: Date.now(),
         finishedOn: Date.now(),
         stacktrace: [],
-        data: { eventName: 'order_confirmed' },
+        data: { eventName: NotificationEvent.order_confirmation },
         remove: jest.fn(),
       },
     ];
@@ -203,7 +204,7 @@ describe('Invariant 3: outbox rows not yet in Bull are safe from clearing', () =
   it('drain() picks up an undelivered outbox row and re-enqueues it', async () => {
     const mockRow = {
       id: 'outbox_row_1',
-      eventName: 'order_confirmed',
+      eventName: NotificationEvent.order_confirmation,
       payload: { orderId: 'ord_001' },
       attempts: 0,
       jobId: null,
@@ -224,7 +225,7 @@ describe('Invariant 3: outbox rows not yet in Bull are safe from clearing', () =
 
     // Job was enqueued with the deterministic outbox:<rowId> jobId
     expect(mockQueue.add).toHaveBeenCalledWith(
-      'order_confirmed',
+      NotificationEvent.order_confirmation,
       { orderId: 'ord_001' },
       { jobId: 'outbox:outbox_row_1' },
     );

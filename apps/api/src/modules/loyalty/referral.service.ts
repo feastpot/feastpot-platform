@@ -4,6 +4,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ReferralStatus } from '@prisma/client';
 
 import { PrismaService } from '../../prisma/prisma.service';
+import { NotificationEvent } from '../notifications/notification-events';
 import { NotificationsService } from '../notifications/notifications.service';
 
 import { LoyaltyService } from './loyalty.service';
@@ -198,7 +199,7 @@ export class ReferralService {
     if (!claimed) return;
 
     await this.notifications.enqueue(
-      'referral_rewarded',
+      NotificationEvent.referral_rewarded,
       {
         userId: referral.referrerId,
         referredName: 'your friend',

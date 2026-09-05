@@ -24,6 +24,8 @@
  * baseLayout's `title` argument already escape internally.
  */
 
+import type { TemplateNotificationEventName } from '../notification-events';
+
 import {
   amberCallout,
   baseLayout,
@@ -64,7 +66,7 @@ const trackingUrl = (orderId: unknown): string =>
 const reviewUrl = (orderId: unknown): string =>
   `https://feastpot.co.uk/orders/${str(orderId, 'unknown')}/review`;
 
-export const TEMPLATES: Record<string, NotificationTemplate> = {
+export const TEMPLATES: Record<TemplateNotificationEventName, NotificationTemplate> = {
   menu_allergen_action_required: {
     subject: (d) => `${str(d.affectedCount, 'Some')} of your dishes need allergen confirmation`,
     render: (d) =>
@@ -438,6 +440,25 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
     },
     channels: ['email', 'whatsapp'],
     whatsappTemplate: 'payout_statement',
+  },
+  payout_transferred: {
+    subject: (d) => `Payout sent: ${formatMoney(d.amountPence)}`,
+    render: (d) =>
+      baseLayout(
+        'Payout transferred',
+        h2('Your payout has been sent') +
+          p(
+            `<strong>${formatMoney(d.amountPence)}</strong> has been transferred to your linked bank account.`,
+          ) +
+          keyValueRow('Statement period', `${esc(d.periodStart)} to ${esc(d.periodEnd)}`) +
+          p('Bank processing times may affect when the funds appear in your account.') +
+          brandButton(
+            'View payout statement',
+            str(d.statementUrl, 'https://vendor.feastpot.co.uk/payouts'),
+            'vendorBlue',
+          ),
+      ),
+    channels: ['email', 'push'],
   },
   payout_held: {
     subject: () => 'Payout on hold',
@@ -1215,8 +1236,35 @@ export const TEMPLATES: Record<string, NotificationTemplate> = {
       ),
     channels: ['email'],
   },
+
+  catering_deposit_received: {
+    subject: (d) => `Catering deposit received: ${formatMoney(d.depositPence)}`,
+    render: (d) =>
+      baseLayout(
+        'Catering deposit received',
+        h2('The catering deposit has been paid') +
+          p(
+            `The customer has paid a deposit of <strong>${formatMoney(d.depositPence)}</strong> for their catering booking.`,
+          ) +
+          keyValueRow('Deposit received', formatMoney(d.depositPence), { bold: true }) +
+          keyValueRow('Balance due', formatMoney(d.balancePence)) +
+          keyValueRow(
+            'Balance charge date',
+            esc(d.balanceChargeDate, '48 hours before the event'),
+          ) +
+          p(
+            'Feastpot will charge the remaining balance 48 hours before the event using the customer payment method on file.',
+          ) +
+          brandButton(
+            'View catering booking',
+            'https://vendor.feastpot.co.uk/orders',
+            'vendorBlue',
+          ),
+      ),
+    channels: ['email', 'push'],
+  },
 };
 
 export function getTemplate(eventName: string): NotificationTemplate | undefined {
-  return TEMPLATES[eventName];
+  return TEMPLATES[eventName as TemplateNotificationEventName];
 }

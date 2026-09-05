@@ -125,7 +125,7 @@ describe('Narrative length', () => {
           actionType: EnforcementType.SUSPENSION,
           reasonCode: 'DOCUMENT_EXPIRED',
           reasonNarrative: exactlyFifty,
-          effectiveAt: isoFuture(0),
+          effectiveAt: isoFuture(1),
         },
         'staff@feastpot.co.uk',
       ),

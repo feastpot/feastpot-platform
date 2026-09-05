@@ -4,6 +4,7 @@ import { CateringBookingStatus, VendorStatus } from '@prisma/client';
 
 import { extractOutwardCode, normalisePostcode } from '../../common/postcode.util';
 import { PrismaService } from '../../prisma/prisma.service';
+import { NotificationEvent } from '../notifications/notification-events';
 import { NotificationsService } from '../notifications/notifications.service';
 import { EmailProvider } from '../notifications/providers/email.provider';
 import { WhatsappProvider } from '../notifications/providers/whatsapp.provider';
@@ -252,7 +253,7 @@ export class CateringEnquiriesService {
     // Notify vendor (fire-and-forget)
     this.notifications
       .enqueue(
-        'catering_assignment',
+        NotificationEvent.catering_assignment,
         {
           userId: vendor.userId,
           bookingId: booking.id,
@@ -374,7 +375,7 @@ export class CateringEnquiriesService {
     if (oldVendor?.userId) {
       this.notifications
         .enqueue(
-          'catering_assignment_cancelled',
+          NotificationEvent.catering_assignment_cancelled,
           {
             userId: oldVendor.userId,
             bookingId: existing.id,
@@ -390,7 +391,7 @@ export class CateringEnquiriesService {
     // Notify new vendor
     this.notifications
       .enqueue(
-        'catering_assignment',
+        NotificationEvent.catering_assignment,
         {
           userId: newVendor.userId,
           bookingId: newBooking.id,

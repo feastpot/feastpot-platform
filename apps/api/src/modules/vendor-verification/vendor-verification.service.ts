@@ -3,6 +3,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { FhrsStatus, OrderStatus, VerificationState, VendorStatus } from '@prisma/client';
 
 import { PrismaService } from '../../prisma/prisma.service';
+import { NotificationEvent } from '../notifications/notification-events';
 import { NotificationsService } from '../notifications/notifications.service';
 import { VendorEnforcementService } from '../vendor-enforcement/vendor-enforcement.service';
 
@@ -408,7 +409,7 @@ export class VendorVerificationService {
 
     if (newState === VerificationState.RENEWAL_DUE) {
       await this.notifications.enqueue(
-        'verification_renewal_due',
+        NotificationEvent.verification_renewal_due,
         {
           userId: vendor.userId,
           vendorName: vendor.businessName,
@@ -424,7 +425,7 @@ export class VendorVerificationService {
         where: { vendorId, status: { in: ACTIVE_ORDER_STATUSES } },
       });
       await this.notifications.enqueue(
-        'verification_suspended',
+        NotificationEvent.verification_suspended,
         {
           userId: vendor.userId,
           vendorName: vendor.businessName,

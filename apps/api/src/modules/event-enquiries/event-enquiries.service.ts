@@ -19,6 +19,7 @@ import type { AuthUser } from '../../auth/types';
 import { CSV_EXPORT_HARD_CAP, CSV_EXPORT_PAGE, csvRow } from '../../common/csv';
 import { PrismaService } from '../../prisma/prisma.service';
 import { StripeService } from '../../stripe/stripe.service';
+import { NotificationEvent } from '../notifications/notification-events';
 import { NotificationsService } from '../notifications/notifications.service';
 
 import { ConfirmNumbersDto } from './dto/confirm-numbers.dto';
@@ -462,7 +463,7 @@ export class EventEnquiriesService {
     await Promise.all(
       matched.map((m) =>
         this.notifications.enqueue(
-          'event_enquiry_matched',
+          NotificationEvent.event_enquiry_matched,
           {
             userId: m.userId,
             enquiryId: enquiry.id,
@@ -544,7 +545,7 @@ export class EventEnquiriesService {
     });
 
     await this.notifications.enqueue(
-      'event_quote_received',
+      NotificationEvent.event_quote_received,
       {
         userId: enquiry.customerId,
         enquiryId,

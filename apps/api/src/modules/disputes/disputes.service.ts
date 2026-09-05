@@ -28,6 +28,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { DOCUMENTS_BUCKET } from '../catalogue/supabase-storage.service';
 import { InboxService } from '../inbox/inbox.service';
 import { LoyaltyService } from '../loyalty/loyalty.service';
+import { NotificationEvent } from '../notifications/notification-events';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PaymentsService } from '../payments/payments.service';
 
@@ -486,7 +487,7 @@ export class DisputesService {
 
       // Notify the assigned support agent so they pick it up promptly.
       if (assignedToId) {
-        await this.notifications.enqueue('dispute_raised', {
+        await this.notifications.enqueue(NotificationEvent.dispute_raised, {
           userId: assignedToId,
           disputeId: dispute.id,
           orderNumber: order.orderNumber,
@@ -587,7 +588,7 @@ export class DisputesService {
     await this.audit(user.id, 'dispute.vendor_responded', id, { length: dto.response.length });
 
     // Tell the customer who raised it.
-    await this.notifications.enqueue('dispute_vendor_responded', {
+    await this.notifications.enqueue(NotificationEvent.dispute_vendor_responded, {
       userId: dispute.raisedById,
       disputeId: id,
       vendorResponse: dto.response,
@@ -638,7 +639,7 @@ export class DisputesService {
       ),
     );
     // 3. The customer is told their case moved up.
-    await this.notifications.enqueue('dispute_escalated', {
+    await this.notifications.enqueue(NotificationEvent.dispute_escalated, {
       userId: dispute.order.customerId,
       disputeId: id,
       orderNumber: dispute.order.orderNumber,
@@ -796,7 +797,7 @@ export class DisputesService {
       creditAmountPence: dto.creditAmountPence,
     });
 
-    await this.notifications.enqueue('dispute_resolved', {
+    await this.notifications.enqueue(NotificationEvent.dispute_resolved, {
       userId: dispute.order.customerId,
       disputeId: id,
       resolution: dto.resolution,

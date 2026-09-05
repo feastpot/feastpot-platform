@@ -9,6 +9,7 @@ import { AppealOutcome, DisputeStatus, PayoutStatus, Prisma, UserRole } from '@p
 
 import type { AuthUser } from '../../auth/types';
 import { PrismaService } from '../../prisma/prisma.service';
+import { NotificationEvent } from '../notifications/notification-events';
 import { NotificationsService } from '../notifications/notifications.service';
 
 import type { DecideAppealStageDto } from './dto/decide-appeal-stage.dto';
@@ -163,7 +164,7 @@ export class DisputeAppealsService {
     });
 
     // Notify admins of new appeal
-    await this.notifications.enqueue('dispute_appeal_submitted', {
+    await this.notifications.enqueue(NotificationEvent.dispute_appeal_submitted, {
       disputeId,
       orderNumber: dispute.order.orderNumber,
       vendorName: dispute.order.vendor.businessName,
@@ -232,7 +233,7 @@ export class DisputeAppealsService {
     });
 
     // Notify vendor of stage1 outcome
-    await this.notifications.enqueue('dispute_appeal_decided', {
+    await this.notifications.enqueue(NotificationEvent.dispute_appeal_decided, {
       disputeId,
       stage: 1,
       outcome: dto.outcome,
@@ -297,7 +298,7 @@ export class DisputeAppealsService {
     }
 
     // Notify vendor of final outcome
-    await this.notifications.enqueue('dispute_appeal_decided', {
+    await this.notifications.enqueue(NotificationEvent.dispute_appeal_decided, {
       disputeId,
       stage: 2,
       outcome: dto.outcome,
@@ -402,7 +403,7 @@ export class DisputeAppealsService {
     }
 
     // Notify vendor of the credit
-    await this.notifications.enqueue('dispute_appeal_payout_credit', {
+    await this.notifications.enqueue(NotificationEvent.dispute_appeal_payout_credit, {
       userId: dispute.order.vendor.userId,
       vendorName: dispute.order.vendor.businessName,
       creditPence,

@@ -1,3 +1,4 @@
+import { NotificationEvent } from './notification-events';
 import { NotificationOutboxService } from './notification-outbox.service';
 import { NotificationsService } from './notifications.service';
 
@@ -20,9 +21,13 @@ describe('NotificationsService durable enqueue', () => {
     const prisma = makePrisma();
     const svc = new NotificationsService(queue as any, prisma as any);
 
-    await svc.enqueue('order_confirmed', { orderId: 'o-1' });
+    await svc.enqueue(NotificationEvent.order_confirmation, { orderId: 'o-1' });
 
-    expect(queue.add).toHaveBeenCalledWith('order_confirmed', { orderId: 'o-1' }, undefined);
+    expect(queue.add).toHaveBeenCalledWith(
+      NotificationEvent.order_confirmation,
+      { orderId: 'o-1' },
+      undefined,
+    );
     expect(prisma.notificationOutbox.create).not.toHaveBeenCalled();
   });
 
@@ -31,11 +36,13 @@ describe('NotificationsService durable enqueue', () => {
     const prisma = makePrisma();
     const svc = new NotificationsService(queue as any, prisma as any);
 
-    await expect(svc.enqueue('refund_issued_customer', { orderId: 'o-1' })).resolves.not.toThrow();
+    await expect(
+      svc.enqueue(NotificationEvent.refund_issued_customer, { orderId: 'o-1' }),
+    ).resolves.not.toThrow();
 
     expect(prisma.notificationOutbox.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
-        eventName: 'refund_issued_customer',
+        eventName: NotificationEvent.refund_issued_customer,
         payload: { orderId: 'o-1' },
         lastError: 'Connection is closed.',
       }),
@@ -48,14 +55,16 @@ describe('NotificationsService durable enqueue', () => {
     prisma.notificationOutbox.create.mockRejectedValue(new Error('db down'));
     const svc = new NotificationsService(queue as any, prisma as any);
 
-    await expect(svc.enqueue('refund_issued_customer', { orderId: 'o-1' })).resolves.not.toThrow();
+    await expect(
+      svc.enqueue(NotificationEvent.refund_issued_customer, { orderId: 'o-1' }),
+    ).resolves.not.toThrow();
   });
 });
 
 describe('NotificationOutboxService.drain', () => {
   const row = {
     id: 'ob-1',
-    eventName: 'refund_issued_customer',
+    eventName: NotificationEvent.refund_issued_customer,
     payload: { orderId: 'o-1' },
     jobId: null,
     attempts: 0,

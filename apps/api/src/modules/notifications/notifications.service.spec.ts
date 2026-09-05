@@ -1,5 +1,6 @@
 import * as Sentry from '@sentry/nestjs';
 
+import { NotificationEvent } from './notification-events';
 import { NotificationsService } from './notifications.service';
 
 jest.mock('@sentry/nestjs', () => ({
@@ -29,9 +30,21 @@ describe('NotificationsService.enqueue', () => {
     const prisma = makePrisma();
     const svc = new NotificationsService(queue as any, prisma as any);
 
-    await svc.enqueue('refund_issued_customer', { orderId: 'o-1' });
+    await svc.enqueue(NotificationEvent.refund_issued_customer, { orderId: 'o-1' });
 
     expect(queue.add).toHaveBeenCalledWith('refund_issued_customer', { orderId: 'o-1' }, undefined);
+    expect(prisma.notificationOutbox.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects an unknown dynamic event before queue or outbox access', async () => {
+    const queue = makeQueue();
+    const prisma = makePrisma();
+    const svc = new NotificationsService(queue as any, prisma as any);
+
+    await expect(svc.enqueue('not_a_notification', {})).rejects.toThrow(
+      'Unknown notification event "not_a_notification"',
+    );
+    expect(queue.add).not.toHaveBeenCalled();
     expect(prisma.notificationOutbox.create).not.toHaveBeenCalled();
   });
 
@@ -42,7 +55,10 @@ describe('NotificationsService.enqueue', () => {
     const svc = new NotificationsService(queue as any, prisma as any);
 
     await expect(
-      svc.enqueue('refund_deducted_vendor', { orderId: 'o-1', deductionPence: 100 }),
+      svc.enqueue(NotificationEvent.refund_deducted_vendor, {
+        orderId: 'o-1',
+        deductionPence: 100,
+      }),
     ).resolves.toBeUndefined();
 
     expect(prisma.notificationOutbox.create).toHaveBeenCalledWith({
@@ -62,7 +78,11 @@ describe('NotificationsService.enqueue', () => {
     const prisma = makePrisma();
     const svc = new NotificationsService(queue as any, prisma as any);
 
-    await svc.enqueue('review_request', { orderId: 'o-1' }, { jobId: 'review_request:o-1' });
+    await svc.enqueue(
+      NotificationEvent.review_request,
+      { orderId: 'o-1' },
+      { jobId: 'review_request:o-1' },
+    );
 
     expect(prisma.notificationOutbox.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ jobId: 'review_request:o-1' }) }),
@@ -77,7 +97,7 @@ describe('NotificationsService.enqueue', () => {
     const svc = new NotificationsService(queue as any, prisma as any);
 
     await expect(
-      svc.enqueue('refund_issued_customer', { orderId: 'o-1' }),
+      svc.enqueue(NotificationEvent.refund_issued_customer, { orderId: 'o-1' }),
     ).resolves.toBeUndefined();
 
     expect(Sentry.captureException).toHaveBeenCalledWith(
