@@ -62,7 +62,7 @@ export function VendorPageHeader({
         </nav>
       )}
 
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex min-w-0 items-start gap-4">
           {icon && (
             <div
@@ -78,7 +78,7 @@ export function VendorPageHeader({
           </div>
         </div>
 
-        {action && <div className="shrink-0">{action}</div>}
+        {action && <div className="w-full shrink-0 sm:w-auto">{action}</div>}
       </div>
     </div>
   );

@@ -67,7 +67,7 @@ const NAV_SECTIONS: ReadonlyArray<NavSection> = [
   {
     label: 'Growth',
     items: [
-      { href: '/share', label: 'Share and customers', Icon: QrCode },
+      { href: '/share', label: 'Bring your own customers', Icon: QrCode },
       { href: '/performance', label: 'Performance', Icon: BarChart3 },
     ],
   },

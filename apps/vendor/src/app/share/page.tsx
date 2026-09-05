@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 import QRCode from 'qrcode';
 
 import { COMMISSION_RATES } from '@feastpot/config/commission-rates';
-import type { RateRow } from '@feastpot/ui';
+import { VendorPageHeader, type RateRow } from '@feastpot/ui';
 
 import { PortalShell } from '@/components/layout/portal-shell';
 import { apiRequest, ApiError } from '@/lib/api/client';
@@ -15,7 +15,7 @@ import { ShareAndCustomersClient } from './share-client';
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'Share and customers | Feastpot Vendor',
+  title: 'Bring your own customers | Feastpot Vendor',
 };
 
 interface VendorMe {
@@ -99,19 +99,11 @@ export default async function SharePage() {
 
   return (
     <PortalShell businessName={vendor.businessName}>
-      <header className="mb-6 flex items-start gap-4">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-teal/10">
-          <QrCode className="h-5 w-5 text-teal" aria-hidden />
-        </div>
-        <div>
-          <h1 className="text-xl font-bold text-dark">Share and customers</h1>
-          <p className="mt-1 text-sm text-mid">
-            Orders through your personal link are tracked as your own referrals at{' '}
-            <strong>{vendorReferredRate}% commission</strong>. Share it everywhere and see the
-            impact below.
-          </p>
-        </div>
-      </header>
+      <VendorPageHeader
+        title="Bring your own customers"
+        description={`Orders through your personal link are tracked as your own referrals at ${vendorReferredRate}% commission. Share it everywhere and see the impact below.`}
+        icon={<QrCode className="h-5 w-5 text-teal" aria-hidden />}
+      />
       <ShareAndCustomersClient
         link={link}
         initialQrUrls={initialQrUrls}

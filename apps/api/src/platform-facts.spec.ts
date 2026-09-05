@@ -29,6 +29,21 @@ describe('PLATFORM_FACTS - shape and values', () => {
     expect(PLATFORM_FACTS.brandName).not.toContain('Feast' + 'Pot');
   });
 
+  it('vendor user guide covers referrals, catering, tax, terms, and account status', () => {
+    const guide = read('apps/vendor/src/app/user-guide/page.tsx');
+
+    for (const chapterId of [
+      'referral-links',
+      'catering',
+      'tax-information',
+      'terms-acceptance',
+      'verification',
+    ]) {
+      expect(guide).toContain(`id: '${chapterId}'`);
+    }
+    expect(guide).toContain('Check your verification status');
+  });
+
   it('commission rates are positive and in expected range', () => {
     expect(PLATFORM_FACTS.commission.marketplaceFirst).toBeGreaterThan(0);
     expect(PLATFORM_FACTS.commission.marketplaceFirst).toBeLessThanOrEqual(100);

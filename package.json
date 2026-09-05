@@ -39,6 +39,8 @@
     "build:api": "turbo run build --filter=@feastpot/api",
     "start:api": "NODE_ENV=production node apps/api/dist/main.js",
     "smoke-test": "ts-node --project tsconfig.json scripts/smoke-test.ts",
+    "audit:links": "ts-node --project tsconfig.json scripts/link-audit.ts",
+    "audit:links:live": "ts-node --project tsconfig.json scripts/link-audit.ts --live",
     "prepare": "husky"
   },
   "prisma": {

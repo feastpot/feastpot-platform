@@ -191,7 +191,7 @@ const CHAPTERS: GuideChapter[] = [
     steps: [
       {
         title: 'Find your referral link',
-        detail: `Open "Bring your own customers" in the sidebar. Your unique ${PLATFORM_FACTS.brandName} referral URL is shown at the top, ready to copy.`,
+        detail: `Open "Bring your own customers" in the Growth section of the sidebar. Your unique ${PLATFORM_FACTS.brandName} referral URL is shown at the top, ready to copy.`,
       },
       {
         title: 'Copy and share the link',
