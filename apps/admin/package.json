@@ -9,7 +9,8 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test:unit": "TS_NODE_PROJECT=tsconfig.test.json node --require ts-node/register --test src/lib/format-ratio.test.ts src/lib/auth/mfa-enforcement.test.ts",
-    "test:e2e": "node e2e/install-chromium.js && playwright test"
+    "test:e2e": "npm run test:e2e:discovery && node e2e/install-chromium.js && playwright test",
+    "test:e2e:discovery": "node ../../scripts/check-playwright-discovery.mjs --app ."
   },
   "dependencies": {
     "@feastpot/types": "*",

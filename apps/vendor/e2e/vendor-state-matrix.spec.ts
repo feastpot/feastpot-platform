@@ -162,6 +162,19 @@ async function assertStateLandmarks(context: BrowserContext, state: VendorMatrix
   }
 }
 
+async function assertLiveEmptyVendorOrders(context: BrowserContext) {
+  const page = await context.newPage();
+  try {
+    await page.goto('/orders', { waitUntil: 'domcontentloaded', timeout: 60_000 });
+    await expect(page).toHaveURL(/\/orders(?:\?|$)/, { timeout: 10_000 });
+    await expect(page.getByRole('heading', { name: 'Orders' })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('No catering bookings yet')).toBeVisible();
+    await expect(page.getByText('Nothing needs your attention right now')).toBeVisible();
+  } finally {
+    await page.close();
+  }
+}
+
 async function assertStateRouteBlocks(context: BrowserContext, state: VendorMatrixState) {
   const blocks = STATE_ROUTE_BLOCKS[state] ?? [];
   const page = await context.newPage();
@@ -189,6 +202,7 @@ for (const state of configuredMatrixStates()) {
     }) => {
       await visitEveryRoute(context, state);
       await assertStateLandmarks(context, state);
+      if (state === 'V4') await assertLiveEmptyVendorOrders(context);
       await assertStateRouteBlocks(context, state);
     });
   });

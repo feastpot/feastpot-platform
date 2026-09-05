@@ -12,6 +12,7 @@ import {
 } from './helpers/vendor-state-matrix';
 
 teardown('remove V1-V11 vendor matrix fixtures', async () => {
+  teardown.setTimeout(2 * 60_000);
   const namespace = matrixNamespace();
   const manifestPath = matrixManifestPath(namespace);
   if (!existsSync(manifestPath)) return;

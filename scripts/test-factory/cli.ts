@@ -1,4 +1,4 @@
-import { FACTORY_STATES, TestDataFactory, type FactoryState } from './index';
+import { FACTORY_STATES, factoryManifest, TestDataFactory, type FactoryState } from './index';
 
 function requestedStates(argv: string[]): FactoryState[] {
   const stateIndex = argv.indexOf('--state');
@@ -21,15 +21,12 @@ async function main(): Promise<void> {
     const teardown = process.argv.includes('--teardown');
     const results = [];
     for (const state of states) {
-      const identity = await factory.create(state);
-      if (teardown) await factory.teardown(identity);
-      results.push({
-        state,
-        userId: identity.userId,
-        vendorId: identity.vendorId,
-        vendorApplicationId: identity.vendorApplicationId,
-        cleanedUp: teardown,
-      });
+      if (teardown) {
+        await factory.teardownState(state);
+        results.push({ state, cleanedUp: true });
+        continue;
+      }
+      results.push(factoryManifest(await factory.create(state), false));
     }
     // eslint-disable-next-line no-console
     console.log(JSON.stringify(results, null, 2));

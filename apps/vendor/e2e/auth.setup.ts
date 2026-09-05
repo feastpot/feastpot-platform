@@ -23,12 +23,6 @@ import { createClient } from '@supabase/supabase-js';
 
 const STATE_PATH = path.join(__dirname, '.auth', 'vendor.json');
 
-/**
- * How stale a cached session may be before we force a full re-auth.
- * Supabase access tokens last 60 minutes; 55 minutes leaves a 5-minute margin.
- */
-const CACHE_TTL_MS = 55 * 60 * 1000;
-
 function safeProfileResponseBody(body: string): string {
   const maxLength = 2_000;
   try {
@@ -148,25 +142,9 @@ setup('authenticate as test vendor', async ({ page }) => {
   await resetCiVendorPassword(email, password);
   await verifyCiVendorPassword(email, password);
 
-  // ── Session reuse: skip full sign-in when a fresh cache exists ─────────────
-  // Supabase access tokens last 60 min. If vendor.json is < 55 min old the
-  // tokens are still valid and we can save the 15–20 s Supabase sign-in round
-  // trip. The 5-minute margin prevents race conditions near the expiry boundary.
-  if (!process.env.CI && fs.existsSync(STATE_PATH)) {
-    const ageMs = Date.now() - fs.statSync(STATE_PATH).mtimeMs;
-    const remainingMin = Math.floor((CACHE_TTL_MS - ageMs) / 60_000);
-    if (ageMs < CACHE_TTL_MS) {
-      console.log(
-        `auth setup: reusing cached session, expires in ~${remainingMin} min ` +
-          `(${STATE_PATH}). Skipping Supabase sign-in.`,
-      );
-      return;
-    }
-    console.log(
-      `auth setup: cached session is ${Math.floor(ageMs / 60_000)} min old (TTL ${CACHE_TTL_MS / 60_000} min) - ` +
-        'running full sign-in.',
-    );
-  }
+  // Always authenticate the credentials supplied for this run. Reusing a
+  // storage-state file by age alone can silently select a different or already
+  // torn-down factory identity.
 
   await page.goto('/sign-in');
 

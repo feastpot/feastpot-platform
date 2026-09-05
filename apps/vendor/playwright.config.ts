@@ -202,6 +202,15 @@ export default defineConfig({
       },
       dependencies: ['setup'],
     },
+    // ── Auth identity/profile mismatch regression ─────────────────────────────
+    {
+      name: 'vendor-missing-profile',
+      testMatch: /vendor-missing-profile\.spec\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+      },
+      dependencies: ['setup'],
+    },
     // ── State-matrix setup and cleanup ─────────────────────────────────────────
     // The matrix owns isolated V1-V11 test-factory identities. It does not reuse
     // the shared test vendor or mutate developer/demo seed data.

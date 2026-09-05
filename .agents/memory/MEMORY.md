@@ -73,3 +73,4 @@
 - [Payout debt carry-forward](payout-debt-carry-forward.md) — preserve signed vendor debt separately; Stripe-facing payout amounts must always be non-negative.
 - [Stripe financial reconciliation](stripe-financial-reconciliation.md) — hourly scans create durable de-duplicated findings; never auto-repair money discrepancies.
 - [Transactional SQL from shell](transactional-sql-shell.md) — quote heredocs containing PostgreSQL dollar blocks; bind large document bodies via psql variables.
+- [Test-factory global fixtures](test-factory-global-fixtures.md) — namespaced factories must reuse globally current records; creating a newer global “current” row contaminates concurrent test identities.

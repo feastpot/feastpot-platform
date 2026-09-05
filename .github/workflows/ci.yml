@@ -360,11 +360,9 @@ jobs:
         run: npm run test:financial --workspace=@feastpot/api
 
   # ----------------------------------------------------------------------------
-  # 7. E2E - Playwright suite covering all five vendor portal projects:
-  #    menu-screen, menu-screen-mobile (375 px TopNav layout), delivery-screen
-  #    (incl. D3 customer-discovery guard), profile-screen, availability-screen
-  #    (incl. AV2/AV3 real-API integration guards). Runs in parallel with other
-  #    jobs after deps are cached.
+  # 7. E2E - Playwright suite covering every configured vendor project. The
+  #    discovery guard machine-checks every checked-in spec and all configured
+  #    projects before a server or browser is started.
   #
   #    REGRESSION GUARD: D3 asserts that the saved postcode chip set is what
   #    governs vendor discoverability (not the radius field alone). The job
@@ -414,6 +412,9 @@ jobs:
       - run: npm install -g npm@10.9.4
 
       - run: npm ci --no-audit --no-fund
+
+      - name: Verify vendor Playwright discovery (noninteractive)
+        run: npm run test:e2e:discovery --workspace=@feastpot/vendor
 
       - name: Require vendor E2E credentials
         id: fork-guard
@@ -484,16 +485,15 @@ jobs:
           echo "::error title=Dev server timeout::Vendor dev server did not open port 3002 within 120 s. Inspect the Next.js startup output above for compilation errors or missing environment variables."
           exit 1
 
-      # ---- Playwright (all five projects) ------------------------------------
-      # Projects: setup (auth), menu-screen, menu-screen-mobile, delivery-screen,
-      # profile-screen, availability-screen. retries: 1 is already set in
-      # playwright.config.ts when CI=true so each test gets one retry on a
-      # browser-level flake before being marked failed. An assertion that was
-      # wrong can never be retried into a pass because Playwright only retries a
-      # test that threw an unexpected error, not one whose expect() call failed
-      # with a deliberate mismatch.
+      # ---- Playwright (all configured projects) ------------------------------
+      # Discovery above proves every configured project is non-empty before this
+      # execution step. retries: 1 is already set in playwright.config.ts when
+      # CI=true so each test gets one retry on a browser-level flake before being
+      # marked failed. An assertion that was wrong can never be retried into a
+      # pass because Playwright only retries a test that threw an unexpected
+      # error, not one whose expect() call failed with a deliberate mismatch.
       # JSON output is written alongside the HTML report for the D3/AV2 guards.
-      - name: Run Playwright e2e suite (all five projects)
+      - name: Run Playwright e2e suite (all configured projects)
         if: steps.fork-guard.outputs.skip != 'true'
         id: playwright-run
         run: npx playwright test
@@ -641,6 +641,8 @@ jobs:
           cache: npm
       - run: npm install -g npm@10.9.4
       - run: npm ci --no-audit --no-fund
+      - name: Verify admin Playwright discovery (noninteractive)
+        run: npm run test:e2e:discovery --workspace=@feastpot/admin
       - name: Require admin E2E credentials
         run: |
           required=(

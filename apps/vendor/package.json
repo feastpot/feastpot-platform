@@ -9,7 +9,8 @@
     "typecheck": "tsc --noEmit",
     "lint": "next lint",
     "test": "echo \"[vendor] no unit tests - run test:e2e for the Playwright suite\"",
-    "test:e2e": "node e2e/install-chromium.js && playwright test",
+    "test:e2e": "npm run test:e2e:discovery && node e2e/install-chromium.js && playwright test",
+    "test:e2e:discovery": "node ../../scripts/check-playwright-discovery.mjs --app .",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:report": "playwright show-report e2e-report",
     "clean": "rm -rf .next .turbo"

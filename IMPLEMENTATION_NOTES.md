@@ -406,10 +406,11 @@ appear in `LAUNCH_CHECKLIST.md` where they’re launch-blocking.
   (see `event-cron.service.ts` for the canonical pattern).
 - **Money** is always stored as integer pence in the DB; format only
   at the edge.
-- **Test users** (from `prisma/seed.ts`):
-  - Customer - `grace@example.com` / `Feastpot!Cust1`
-  - Vendor - `maman@feastpot.co.uk` / `Feastpot!Vendor1`
-  - Admin - `soul@feastpot.co.uk` / `Feastpot!Admin1`
+- **Test users** (from `prisma/seed.ts`) all use the environment-supplied
+  `SEED_TEST_PASSWORD`:
+  - Customer - `grace@example.com`
+  - Vendor - `maman@feastpot.co.uk`
+  - Admin - `soul@feastpot.co.uk`
 
 ---
 

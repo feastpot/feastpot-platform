@@ -27,48 +27,49 @@ seeded database.
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase service-role key (admin user creation) |
 | `SUPABASE_DB_URL` | Prisma connection pool URL |
 | `SUPABASE_DIRECT_URL` | Prisma direct URL (migrations) |
+| `SEED_TEST_PASSWORD` | Password assigned to every disposable seeded identity; keep it in environment secrets |
 
 ---
 
 ## Seeded accounts
 
-All passwords follow the `Feastpot!<Role><N>` pattern and are reset on every
-seed run.
+Every seeded identity uses the environment-supplied `SEED_TEST_PASSWORD`, which
+is reset on every seed run. No seed password is stored in the repository.
 
 ### Staff (sign in via `/admin`)
 
-| Email                       | Role       | Password            |
-| --------------------------- | ---------- | ------------------- |
-| `soul@feastpot.co.uk`       | admin      | `Feastpot!Admin1`   |
-| `support@feastpot.co.uk`    | support    | `Feastpot!Support1` |
-| `finance@feastpot.co.uk`    | finance    | `Feastpot!Finance1` |
-| `compliance@feastpot.co.uk` | compliance | `Feastpot!Comp1`    |
+| Email                       | Role       |
+| --------------------------- | ---------- |
+| `soul@feastpot.co.uk`       | admin      |
+| `support@feastpot.co.uk`    | support    |
+| `finance@feastpot.co.uk`    | finance    |
+| `compliance@feastpot.co.uk` | compliance |
 
 ### Vendor owners (sign in via `/vendor`)
 
-| Email                              | Vendor                    | Password           |
-| ---------------------------------- | ------------------------- | ------------------ |
-| `maman@feastpot.co.uk`             | Maman's Kitchen (Peckham) | `Feastpot!Vendor1` |
-| `chef.kwame@feastpot.co.uk`        | Kwame's Jollof (Brixton)  | `Feastpot!Vendor2` |
-| `punjab.tandoor@feastpot.co.uk`    | Punjab Tandoor            | `Feastpot!Vendor3` |
-| … (Vendor4–Vendor20, same pattern) | 17 more diaspora vendors  | `Feastpot!VendorN` |
+| Email                           | Vendor                    |
+| ------------------------------- | ------------------------- |
+| `maman@feastpot.co.uk`          | Maman's Kitchen (Peckham) |
+| `chef.kwame@feastpot.co.uk`     | Kwame's Jollof (Brixton)  |
+| `punjab.tandoor@feastpot.co.uk` | Punjab Tandoor            |
+| … (Vendor4–Vendor20)            | 17 more diaspora vendors  |
 
 ### Vendor team member
 
-| Email                    | Vendor          | Role            | Password         |
-| ------------------------ | --------------- | --------------- | ---------------- |
-| `jasmine@feastpot.co.uk` | Maman's Kitchen | kitchen_manager | `Feastpot!Team1` |
+| Email                    | Vendor          | Role            |
+| ------------------------ | --------------- | --------------- |
+| `jasmine@feastpot.co.uk` | Maman's Kitchen | kitchen_manager |
 
 ### Customers (sign in via `/`)
 
-| Email               | Password         | Postcode | Notes                          |
-| ------------------- | ---------------- | -------- | ------------------------------ |
-| `grace@example.com` | `Feastpot!Cust1` | SE15 4QY | Inside Maman radius            |
-| `david@example.com` | `Feastpot!Cust2` | SW9 8LF  | Inside Kwame radius            |
-| `aisha@example.com` | `Feastpot!Cust3` | SE15 4DA | Inside Maman radius            |
-| `omar@example.com`  | `Feastpot!Cust4` | E8 1LD   | Outside both radii (Hackney)   |
-| `priya@example.com` | `Feastpot!Cust5` | N16 8JQ  | Borderline Maman radius        |
-| `james@example.com` | `Feastpot!Cust6` | W2 4PP   | Outside both radii (Bayswater) |
+| Email               | Postcode | Notes                          |
+| ------------------- | -------- | ------------------------------ |
+| `grace@example.com` | SE15 4QY | Inside Maman radius            |
+| `david@example.com` | SW9 8LF  | Inside Kwame radius            |
+| `aisha@example.com` | SE15 4DA | Inside Maman radius            |
+| `omar@example.com`  | E8 1LD   | Outside both radii (Hackney)   |
+| `priya@example.com` | N16 8JQ  | Borderline Maman radius        |
+| `james@example.com` | W2 4PP   | Outside both radii (Bayswater) |
 
 ---
 
