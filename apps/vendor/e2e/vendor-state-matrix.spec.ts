@@ -126,6 +126,17 @@ async function visitRoute(
           dimensions.scrollWidth,
           `${route.label} must not overflow horizontally at 375px`,
         ).toBeLessThanOrEqual(dimensions.clientWidth);
+
+        if (route.expectsPortalShell && state !== 'V1') {
+          const mobileNav = page.getByRole('navigation', { name: 'Main navigation' });
+          await expect(mobileNav, `${route.label} must retain mobile navigation`).toBeVisible({
+            timeout: 10_000,
+          });
+          await expect(
+            mobileNav.getByRole('link', { name: 'Dashboard' }),
+            `${route.label} mobile navigation must expose a usable Dashboard destination`,
+          ).toHaveAttribute('href', '/');
+        }
       }
     });
   } finally {

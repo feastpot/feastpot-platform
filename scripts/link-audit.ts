@@ -25,6 +25,7 @@ export interface RouteInfo {
   route: string;
   file: string;
   ids: Set<string>;
+  files?: Set<string>;
 }
 
 export interface AuditResult {
@@ -102,9 +103,50 @@ function collectLiteralIds(source: ts.SourceFile): Set<string> {
   return ids;
 }
 
+function resolveSourceImport(
+  fromFile: string,
+  specifier: string,
+  appSrc: string,
+): string | undefined {
+  const base = specifier.startsWith('@/')
+    ? join(appSrc, specifier.slice(2))
+    : specifier.startsWith('.')
+      ? join(dirname(fromFile), specifier)
+      : undefined;
+  if (!base) return undefined;
+  for (const candidate of [
+    base,
+    `${base}.ts`,
+    `${base}.tsx`,
+    join(base, 'index.ts'),
+    join(base, 'index.tsx'),
+  ]) {
+    if (existsSync(candidate)) return candidate;
+  }
+  return undefined;
+}
+
+function collectSourceGraph(
+  startFile: string,
+  appSrc: string,
+  seen = new Set<string>(),
+): Set<string> {
+  if (seen.has(startFile)) return seen;
+  seen.add(startFile);
+  const source = sourceFile(startFile);
+  for (const statement of source.statements) {
+    if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier))
+      continue;
+    const dependency = resolveSourceImport(startFile, statement.moduleSpecifier.text, appSrc);
+    if (dependency) collectSourceGraph(dependency, appSrc, seen);
+  }
+  return seen;
+}
+
 /** Discover App Router pages and the literal HTML ids declared in each page source. */
 export function buildRouteMap(appDir: string, root = ROOT): Map<string, RouteInfo> {
   const appRoot = join(root, appDir, 'src', 'app');
+  const appSrc = join(root, appDir, 'src');
   const routes = new Map<string, RouteInfo>();
   for (const file of walk(appRoot, (path) => /[/\\]page\.tsx?$/.test(path))) {
     let path = relative(appRoot, file)
@@ -116,14 +158,17 @@ export function buildRouteMap(appDir: string, root = ROOT): Map<string, RouteInf
       .join('/');
     const route = path ? `/${path}` : '/';
     const ids = new Set<string>();
+    const files = new Set<string>();
     // Pages commonly render a sibling *-client component. Read literal ids
     // from that route directory without letting nested child routes leak in.
     for (const candidate of readdirSync(dirname(file), { withFileTypes: true })) {
       if (!candidate.isFile() || !/\.(?:ts|tsx)$/.test(candidate.name)) continue;
-      const source = sourceFile(join(dirname(file), candidate.name));
-      for (const id of collectLiteralIds(source)) ids.add(id);
+      for (const routeFile of collectSourceGraph(join(dirname(file), candidate.name), appSrc)) {
+        files.add(routeFile);
+        for (const id of collectLiteralIds(sourceFile(routeFile))) ids.add(id);
+      }
     }
-    routes.set(route, { route, file, ids });
+    routes.set(route, { route, file, ids, files });
   }
   return routes;
 }
@@ -387,18 +432,21 @@ export function auditApp(
     mailboxes: [],
     internalOk: 0,
   };
-  const appWideIds = new Set<string>();
-  for (const file of walk(join(root, app.dir, 'src'), (path) => /\.(?:ts|tsx)$/.test(path))) {
-    for (const id of collectLiteralIds(sourceFile(file))) appWideIds.add(id);
-  }
   for (const ref of extractLinkRefs(app.dir, root)) {
     if (!ref.href) continue;
     if (ref.href.startsWith('#')) {
       const hash = decodeURIComponent(ref.href.slice(1));
-      if (!hash || appWideIds.has(hash)) {
+      const owners = [...result.routes.values()].filter((route) => route.files?.has(ref.file));
+      if (!hash || (owners.length > 0 && owners.every((route) => route.ids.has(hash)))) {
         result.internalOk++;
       } else {
-        result.broken.push({ ...ref, reason: `no literal id="${hash}" in ${app.name} source` });
+        result.broken.push({
+          ...ref,
+          reason:
+            owners.length === 0
+              ? `could not associate fragment with a ${app.name} route`
+              : `no literal id="${hash}" on every owning route`,
+        });
       }
       continue;
     }
