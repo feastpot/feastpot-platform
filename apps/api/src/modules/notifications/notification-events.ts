@@ -20,6 +20,7 @@ export const NOTIFICATION_EVENTS = {
   refund_issued_customer: { templateBacked: true },
   refund_deducted_vendor: { templateBacked: true },
   payout_batch_ready: { templateBacked: true },
+  payout_transferred: { templateBacked: true },
   payout_held: { templateBacked: true },
   payout_failed_terminal: { templateBacked: true },
   dispute_raised: { templateBacked: true },
@@ -48,15 +49,14 @@ export const NOTIFICATION_EVENTS = {
   hmrc_verification_failed: { templateBacked: true },
   catering_assignment: { templateBacked: true },
   catering_assignment_cancelled: { templateBacked: true },
+  catering_deposit_received: { templateBacked: true },
   referral_rewarded: { templateBacked: false },
   points_expired: { templateBacked: false },
-  catering_deposit_received: { templateBacked: false },
   catering_completed: { templateBacked: false },
   review_trigger: { templateBacked: false },
   expire_amendment: { templateBacked: false },
   eta_overdue: { templateBacked: false },
   vendor_application_email_raw: { templateBacked: false },
-  payout_transferred: { templateBacked: false },
 } as const;
 
 export type NotificationEventName = keyof typeof NOTIFICATION_EVENTS;

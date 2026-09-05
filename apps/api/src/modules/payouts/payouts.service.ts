@@ -627,6 +627,9 @@ export class PayoutsService {
         vendorUserId: payout.vendor.userId,
         payoutId: payout.id,
         amountPence: payout.amountPence,
+        periodStart: payout.periodStart?.toLocaleDateString('en-GB') ?? 'Not available',
+        periodEnd: payout.periodEnd?.toLocaleDateString('en-GB') ?? 'Not available',
+        statementUrl: `${process.env.VENDOR_PORTAL_URL ?? 'https://vendor.feastpot.co.uk'}/payouts`,
       });
     } catch (e) {
       this.logger.warn(`payout_transferred notify failed for ${payoutId}: ${(e as Error).message}`);

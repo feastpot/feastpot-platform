@@ -149,6 +149,26 @@ export class NotificationProcessor {
       return { sent: [], skipped: [] };
     }
 
+    /*
+     * Declared no-ops: these jobs remain registered so their producers are
+     * explicit, but they deliberately send no notification.
+     *
+     * - referral_rewarded / points_expired: the loyalty ledger is authoritative.
+     * - catering_completed: completion is recorded and the customer already gets
+     *   the dedicated completion email from CateringBookingsService.
+     * - review_trigger: legacy delayed marker only. The compliance cron separately
+     *   finds eligible delivered orders and enqueues the real review_request event.
+     */
+    if (
+      eventName === 'referral_rewarded' ||
+      eventName === 'points_expired' ||
+      eventName === 'catering_completed' ||
+      eventName === 'review_trigger'
+    ) {
+      this.logger.debug(`Declared no-op notification event "${eventName}" completed.`);
+      return { sent: [], skipped: [] };
+    }
+
     // Raw email jobs (e.g. vendor-application emails) bypass the user-centric
     // template system. They carry { to, subject, html } directly and are
     // retried by Bull's normal backoff when they fail.

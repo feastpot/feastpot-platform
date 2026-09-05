@@ -405,6 +405,15 @@ export class CateringBookingsService {
           bookingId,
           customerName: booking.customerName,
           eventDate: booking.eventDate.toISOString(),
+          depositPence: booking.depositPence,
+          balancePence: booking.balancePence,
+          balanceChargeDate: new Date(
+            booking.eventDate.getTime() - 48 * 60 * 60 * 1000,
+          ).toLocaleDateString('en-GB', {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric',
+          }),
           totalPence: booking.totalPence,
         },
         { jobId: `catering_deposit:${bookingId}` },
