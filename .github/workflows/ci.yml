@@ -108,6 +108,9 @@ jobs:
         run: npx turbo run lint
       - name: Commission rate literal guard
         run: node scripts/check-commission-rate-literals.mjs
+      - name: Static link audit
+        # Source/AST audit only: no app server or network access is required.
+        run: npm run audit:links
       - name: Prettier check
         run: npm run format:check
       - name: No em-dash guard
@@ -162,6 +165,53 @@ jobs:
         # direct refund path bypasses commission reversal, allowance restoration,
         # the Refund record, and the AuditLog - this guard prevents the regression.
         run: node scripts/check-refund-paths.mjs
+
+  # --------------------------------------------------------------------------
+  # Static discovery catches source mistakes; this companion check proves each
+  # discovered internal target is served by the three local Next applications.
+  # It intentionally uses only loopback URLs and does not need auth or network.
+  # --------------------------------------------------------------------------
+  link-audit-live:
+    name: Link audit (live internal routes)
+    needs: [setup]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      LINK_AUDIT_WEB_BASE_URL: http://127.0.0.1:3000
+      LINK_AUDIT_VENDOR_BASE_URL: http://127.0.0.1:3002
+      LINK_AUDIT_ADMIN_BASE_URL: http://127.0.0.1:3003
+      NEXT_PUBLIC_API_URL: http://127.0.0.1:3001
+      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: local-link-audit-key
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm install -g npm@10.9.4
+      - run: npm ci --no-audit --no-fund
+      - name: Serve applications and audit every internal target
+        shell: bash
+        run: |
+          set -euo pipefail
+          pids=()
+          cleanup() {
+            kill "${pids[@]}" 2>/dev/null || true
+            wait "${pids[@]}" 2>/dev/null || true
+          }
+          trap cleanup EXIT INT TERM
+          npm run dev --workspace=@feastpot/web >/tmp/link-audit-web.log 2>&1 & pids+=($!)
+          npm run dev --workspace=@feastpot/vendor >/tmp/link-audit-vendor.log 2>&1 & pids+=($!)
+          npm run dev --workspace=@feastpot/admin >/tmp/link-audit-admin.log 2>&1 & pids+=($!)
+          for url in "$LINK_AUDIT_WEB_BASE_URL" "$LINK_AUDIT_VENDOR_BASE_URL" "$LINK_AUDIT_ADMIN_BASE_URL"; do
+            for attempt in $(seq 1 90); do
+              curl --fail --silent --output /dev/null "$url" && break
+              [ "$attempt" -eq 90 ] && { echo "Timed out waiting for $url"; exit 1; }
+              sleep 2
+            done
+          done
+          npm run audit:links:live
 
   # ----------------------------------------------------------------------------
   # 4. Prisma schema validation, format check, and drift gate.
@@ -360,11 +410,9 @@ jobs:
         run: npm run test:financial --workspace=@feastpot/api
 
   # ----------------------------------------------------------------------------
-  # 7. E2E - Playwright suite covering all five vendor portal projects:
-  #    menu-screen, menu-screen-mobile (375 px TopNav layout), delivery-screen
-  #    (incl. D3 customer-discovery guard), profile-screen, availability-screen
-  #    (incl. AV2/AV3 real-API integration guards). Runs in parallel with other
-  #    jobs after deps are cached.
+  # 7. E2E - Playwright suite covering every configured vendor project. The
+  #    discovery guard machine-checks every checked-in spec and all configured
+  #    projects before a server or browser is started.
   #
   #    REGRESSION GUARD: D3 asserts that the saved postcode chip set is what
   #    governs vendor discoverability (not the radius field alone). The job
@@ -414,6 +462,9 @@ jobs:
       - run: npm install -g npm@10.9.4
 
       - run: npm ci --no-audit --no-fund
+
+      - name: Verify vendor Playwright discovery (noninteractive)
+        run: npm run test:e2e:discovery --workspace=@feastpot/vendor
 
       - name: Require vendor E2E credentials
         id: fork-guard
@@ -484,16 +535,15 @@ jobs:
           echo "::error title=Dev server timeout::Vendor dev server did not open port 3002 within 120 s. Inspect the Next.js startup output above for compilation errors or missing environment variables."
           exit 1
 
-      # ---- Playwright (all five projects) ------------------------------------
-      # Projects: setup (auth), menu-screen, menu-screen-mobile, delivery-screen,
-      # profile-screen, availability-screen. retries: 1 is already set in
-      # playwright.config.ts when CI=true so each test gets one retry on a
-      # browser-level flake before being marked failed. An assertion that was
-      # wrong can never be retried into a pass because Playwright only retries a
-      # test that threw an unexpected error, not one whose expect() call failed
-      # with a deliberate mismatch.
+      # ---- Playwright (all configured projects) ------------------------------
+      # Discovery above proves every configured project is non-empty before this
+      # execution step. retries: 1 is already set in playwright.config.ts when
+      # CI=true so each test gets one retry on a browser-level flake before being
+      # marked failed. An assertion that was wrong can never be retried into a
+      # pass because Playwright only retries a test that threw an unexpected
+      # error, not one whose expect() call failed with a deliberate mismatch.
       # JSON output is written alongside the HTML report for the D3/AV2 guards.
-      - name: Run Playwright e2e suite (all five projects)
+      - name: Run Playwright e2e suite (all configured projects)
         if: steps.fork-guard.outputs.skip != 'true'
         id: playwright-run
         run: npx playwright test
@@ -641,6 +691,8 @@ jobs:
           cache: npm
       - run: npm install -g npm@10.9.4
       - run: npm ci --no-audit --no-fund
+      - name: Verify admin Playwright discovery (noninteractive)
+        run: npm run test:e2e:discovery --workspace=@feastpot/admin
       - name: Require admin E2E credentials
         run: |
           required=(

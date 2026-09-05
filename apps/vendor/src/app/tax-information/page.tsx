@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation';
 import { type Metadata } from 'next';
 
+import { VendorPageHeader } from '@feastpot/ui';
+
 import { PortalShell } from '@/components/layout/portal-shell';
 import { apiRequest, ApiError } from '@/lib/api/client';
 import { createClient as createServerSupabase } from '@/lib/supabase/server';
@@ -37,6 +39,10 @@ export default async function TaxInformationPage() {
 
   return (
     <PortalShell businessName={vendor.businessName} maxWidth="form">
+      <VendorPageHeader
+        title="Tax information"
+        description="View the tax details Feastpot holds for HMRC reporting."
+      />
       <TaxInformationClient />
     </PortalShell>
   );

@@ -30,6 +30,8 @@
     "db:reset": "prisma migrate reset --schema=prisma/schema.prisma --force",
     "db:backfill-coords": "ts-node scripts/backfill-delivery-coords.ts",
     "test:factory": "ts-node scripts/test-factory/cli.ts",
+    "test:factory:create": "ts-node scripts/test-factory/cli.ts",
+    "test:factory:teardown": "ts-node scripts/test-factory/cli.ts --teardown",
     "db:prod-resolve": "SUPABASE_DB_URL=$PROD_DIRECT_URL SUPABASE_DIRECT_URL=$PROD_DIRECT_URL npx prisma migrate resolve --schema=prisma/schema.prisma",
     "verify:payouts": "ts-node scripts/verify-payout-reconciliation.ts",
     "remediate:published-allergens": "ts-node scripts/remediate-published-allergens.ts",
@@ -37,6 +39,8 @@
     "build:api": "turbo run build --filter=@feastpot/api",
     "start:api": "NODE_ENV=production node apps/api/dist/main.js",
     "smoke-test": "ts-node --project tsconfig.json scripts/smoke-test.ts",
+    "audit:links": "ts-node --project tsconfig.json scripts/link-audit.ts",
+    "audit:links:live": "ts-node --project tsconfig.json scripts/link-audit.ts --live",
     "prepare": "husky"
   },
   "prisma": {

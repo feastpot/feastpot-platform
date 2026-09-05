@@ -46,8 +46,9 @@ export default async function DashboardPage() {
     });
   } catch (err) {
     if (err instanceof ApiError && err.status === 403) redirect('/unauthorized');
-    // 404 means vendor role but no vendor profile - start onboarding.
-    if (err instanceof ApiError && err.status === 404) redirect('/onboarding/welcome');
+    // A vendor Auth role alone is not a platform vendor profile. Keep a direct
+    // session visit on the same clear recovery route as the sign-in flow.
+    if (err instanceof ApiError && err.status === 404) redirect('/not-registered');
     throw err;
   }
 

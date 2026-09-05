@@ -1,0 +1,66 @@
+TASK: Make the platform testable. Nothing downstream can be
+verified until this lands.
+
+PART 1: THE IDENTITY FACTORY
+The 25 August audit could not verify a single authenticated
+vendor or admin screen. Disposable identities authenticated
+at Supabase but had no matching platform profile, and one
+could not be created. Six known bugs came back "COULD NOT
+REPRODUCE" for this reason alone.
+
+Treat that as a PRODUCT DEFECT, not a testing inconvenience.
+A brand new cook signing up IS the empty-account case.
+
+Build programmatic creation and teardown for:
+  CUSTOMERS: new/zero orders; with saved address; one
+    completed order; active FeastPass; lapsed FeastPass;
+    with an open dispute
+  VENDORS: applied not approved; approved no Stripe; Stripe
+    requirements outstanding; LIVE WITH ZERO ORDERS (test
+    this hardest); live with orders and a payout; documents
+    expiring within 30 days; documents expired 7+ days;
+    FHRS below 3; terms not accepted; accepted old version
+    with new version pending; with an active catering booking
+  ADMIN: AAL1 only; AAL2; restricted role if roles exist
+
+Requirements: idempotent; returns credentials and IDs;
+teardown removes everything including Supabase Auth users and
+storage objects; works locally and in CI; a hard guard that
+throws if the target database URL looks like production;
+passwords environment-supplied, never hardcoded (a prior
+audit found tracked seed passwords at prisma/seed.ts:91-310).
+
+DIAGNOSE THE UNDERLYING BUG
+Determine WHY an Auth user with no platform profile is
+stranded on the sign-in page with no useful error. Fix it so
+they see a clear message ("This account is not registered as
+a vendor. Apply here.") rather than an unexplained bounce.
+
+PART 2: UNBLOCK THE SUITES
+  apps/vendor/e2e/helpers/verification-banner-mocks.ts:146
+    contains /vendors/*/verification inside a JSDoc comment.
+    The */ terminates the comment early and Playwright
+    collection fails before any test runs. The e2e-vendor CI
+    job protects nothing. Fix, then confirm all ten vendor
+    specs execute.
+  apps/admin/playwright.config.ts:36-53 defines only setup
+    and debounce projects. These specs never run:
+    admin-shell.spec.ts, catering-sla.spec.ts,
+    vendors.spec.ts. Add projects covering every spec.
+  Coverage: the job is named "Test (coverage >= 70%)" but no
+    workspace defines coverageThreshold and measured API
+    coverage is 41.83%. Set REAL thresholds at current
+    measured levels and ratchet upward. Do not set 70% today;
+    it will fail immediately and be disabled. Widen the web
+    testMatch beyond **/__tests__/**/*.test.ts.
+  Remove --passWithNoTests everywhere.
+  Fix the web e2e path bug producing apps/web/apps/web/...
+  Remove interactive commands (test:e2e:ui, test:e2e:report)
+    from any CI path.
+
+ACCEPTANCE CRITERIA
+- Every account state can be created and torn down.
+- An empty vendor can sign in and reach the dashboard.
+- Vendor Playwright collects and runs all ten specs.
+- Admin Playwright executes every present spec.
+- A broken test discovery causes CI to fail.

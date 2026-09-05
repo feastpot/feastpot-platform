@@ -9,11 +9,13 @@
  *   STRIPE_SECRET_KEY            Stripe test secret (sk_test_...)
  *   NEXT_PUBLIC_SUPABASE_URL     Supabase project URL (already in this repl)
  *   NEXT_PUBLIC_SUPABASE_ANON_KEY  Supabase anon key (already in this repl)
+ *   CUSTOMER_PASSWORD            Seeded customer password
+ *   VENDOR_PASSWORD              Seeded vendor password
  *
  * Optional env:
  *   API_URL                      Defaults to http://localhost:3001
- *   CUSTOMER_EMAIL / CUSTOMER_PASSWORD   Defaults to seeded grace@example.com
- *   VENDOR_EMAIL   / VENDOR_PASSWORD     Defaults to seeded maman@feastpot.co.uk
+ *   CUSTOMER_EMAIL               Defaults to seeded grace@example.com
+ *   VENDOR_EMAIL                 Defaults to seeded maman@feastpot.co.uk
  *
  * Run:    npm run smoke-test
  */
@@ -34,9 +36,9 @@ const SUPABASE_ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const STRIPE_KEY = process.env.STRIPE_SECRET_KEY;
 
 const CUSTOMER_EMAIL = process.env.CUSTOMER_EMAIL ?? 'grace@example.com';
-const CUSTOMER_PASSWORD = process.env.CUSTOMER_PASSWORD ?? 'Feastpot!Cust1';
+const CUSTOMER_PASSWORD = requireEnv('CUSTOMER_PASSWORD', process.env.CUSTOMER_PASSWORD);
 const VENDOR_EMAIL = process.env.VENDOR_EMAIL ?? 'maman@feastpot.co.uk';
-const VENDOR_PASSWORD = process.env.VENDOR_PASSWORD ?? 'Feastpot!Vendor1';
+const VENDOR_PASSWORD = requireEnv('VENDOR_PASSWORD', process.env.VENDOR_PASSWORD);
 
 function requireEnv(name: string, value: string | undefined): string {
   if (!value) {

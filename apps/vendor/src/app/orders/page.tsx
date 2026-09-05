@@ -45,9 +45,11 @@ export default async function OrdersPage({
     });
   } catch (err) {
     if (err instanceof ApiError && err.status === 403) redirect('/unauthorized');
-    // 404 means the user has the vendor role but no vendor profile yet.
-    // Send them to onboarding rather than showing a dead-end "unauthorized" page.
-    if (err instanceof ApiError && err.status === 404) redirect('/onboarding');
+    // An Auth user may retain vendor metadata after an interrupted provisioning
+    // flow, while having no corresponding platform profile. This is not an
+    // onboarding state: show the explicit recovery route rather than bouncing
+    // them into an authenticated onboarding page with no explanation.
+    if (err instanceof ApiError && err.status === 404) redirect('/not-registered');
     throw err;
   }
 

@@ -15,11 +15,19 @@
  * the broken-links test to fail, satisfying the CI guard requirement.
  */
 
-import { execSync } from 'child_process';
 import { readFileSync } from 'fs';
-import { join, relative } from 'path';
+import { join } from 'path';
 
-import { runLinkAudit } from '../../../scripts/link-audit';
+import {
+  auditLiveTargets,
+  buildRouteMap,
+  checkLiveUrl,
+  extractLinkRefs,
+  resolveLiveUrl,
+  routeForPath,
+  type FetchLike,
+  type LiveBaseUrls,
+} from '../../../scripts/link-audit';
 
 const ROOT = join(__dirname, '../../../');
 
@@ -28,32 +36,14 @@ function read(rel: string): string {
 }
 
 function buildRouteSet(appDir: string): Set<string> {
-  const appRoot = join(ROOT, appDir, 'src', 'app');
-  const raw = execSync(`find "${appRoot}" -name 'page.tsx' -o -name 'page.ts' 2>/dev/null`, {
-    encoding: 'utf8',
-  });
-  const routes = new Set<string>(['/']);
-  for (const file of raw.trim().split('\n').filter(Boolean)) {
-    let rel = relative(appRoot, file.trim());
-    rel = rel.replace(/[/\\]page\.tsx?$/, '').replace(/^page\.tsx?$/, '');
-    rel = rel.replace(/\([^)]+\)[/\\]/g, '');
-    rel = rel.replace(/\\/g, '/');
-    routes.add(rel ? `/${rel}` : '/');
-  }
-  return routes;
+  return new Set(buildRouteMap(appDir).keys());
 }
 
 function matches(href: string, routes: Set<string>): boolean {
-  const bare = href.split('?')[0].split('#')[0] || '/';
-  if (routes.has(bare)) return true;
-  for (const pattern of routes) {
-    if (!pattern.includes('[')) continue;
-    const re = new RegExp(
-      '^' + pattern.replace(/[.+^${}()|\\]/g, '\\$&').replace(/\[[^\]]+\]/g, '[^/]+') + '$',
-    );
-    if (re.test(bare)) return true;
-  }
-  return false;
+  const routeMap = new Map(
+    [...routes].map((route) => [route, { route, file: '', ids: new Set<string>() }]),
+  );
+  return Boolean(routeForPath(href, routeMap));
 }
 
 const vendorRoutes = buildRouteSet('apps/vendor');
@@ -225,27 +215,79 @@ describe('Step 3 - specific links present and well-formed', () => {
 
 describe('Vendor portal - no relative /legal/* hrefs (those routes do not exist)', () => {
   it('vendor app source contains no href="/legal/..." string literals', () => {
-    const raw = execSync(
-      `grep -r 'href="/legal/' "${join(ROOT, 'apps/vendor/src')}" --include='*.tsx' --include='*.ts' 2>/dev/null || true`,
-      { encoding: 'utf8' },
-    );
-    // Filter comment lines
-    const hits = raw
-      .split('\n')
-      .filter((l) => l.trim() && !l.trim().startsWith('//') && !l.trim().startsWith('*'));
+    const hits = extractLinkRefs('apps/vendor').filter((ref) => ref.href.startsWith('/legal/'));
     expect(hits).toHaveLength(0);
   });
 });
 
-// ── Broken link regression guard ─────────────────────────────────────────────
-// This describe block intentionally documents how to trigger a CI failure.
-// It runs the full audit script in static mode to catch any NEW broken links
-// introduced after this commit.
+describe('Link audit AST extraction', () => {
+  it('finds multiline JSX and router navigation targets without grep', () => {
+    const refs = extractLinkRefs('apps/vendor');
+    expect(refs.some((ref) => ref.href === '/help' && ref.kind === 'jsx')).toBe(true);
+    expect(refs.some((ref) => ref.href === '/sign-in' && ref.kind === 'navigation')).toBe(true);
+  });
+});
 
-describe('Link audit script - zero broken internal links across all apps', () => {
-  it('reports zero broken internal links', async () => {
-    // Run in-process so parallel coverage does not need to launch a nested
-    // npx/ts-node process under peak worker load.
-    await expect(runLinkAudit()).resolves.toBe(0);
-  }, 60_000); // allow up to 60 s for the full scan
+describe('Link audit live HTTP helpers', () => {
+  const bases: LiveBaseUrls = {
+    web: 'http://127.0.0.1:3000',
+    vendor: 'http://127.0.0.1:3002',
+    admin: 'http://127.0.0.1:3003',
+  };
+  const response = (status: number, location?: string) => ({
+    status,
+    headers: {
+      get: (name: string) => (name.toLowerCase() === 'location' ? (location ?? null) : null),
+    },
+  });
+  const mockRequest = (...responses: ReturnType<typeof response>[]): FetchLike => {
+    let index = 0;
+    return jest.fn(async () => responses[index++]!);
+  };
+
+  it('passes a successful internal response', async () => {
+    await expect(
+      checkLiveUrl('http://127.0.0.1:3000/menu', bases, mockRequest(response(200))),
+    ).resolves.toMatchObject({ status: 200 });
+  });
+
+  it('follows an internal redirect and checks its final response', async () => {
+    const request = mockRequest(response(307, '/sign-in'), response(200));
+    const check = await checkLiveUrl('http://127.0.0.1:3002/orders', bases, request);
+    expect(check).toMatchObject({ status: 200, finalUrl: 'http://127.0.0.1:3002/sign-in' });
+    expect(request).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([404, 500])('fails an HTTP %i response', async (status) => {
+    await expect(
+      checkLiveUrl('http://127.0.0.1:3000/missing', bases, mockRequest(response(status))),
+    ).resolves.toMatchObject({
+      status,
+      error: `HTTP ${status}`,
+    });
+  });
+
+  it('fails a request error', async () => {
+    const request: FetchLike = jest.fn(async () => {
+      throw new Error('connection refused');
+    });
+    await expect(
+      checkLiveUrl('http://127.0.0.1:3003/admin', bases, request),
+    ).resolves.toMatchObject({
+      status: 0,
+      error: 'connection refused',
+    });
+  });
+
+  it('maps a production Feastpot cross-app URL to its configured local base', async () => {
+    expect(
+      resolveLiveUrl('https://vendor.feastpot.co.uk/orders?day=today#details', 'web', bases),
+    ).toBe('http://127.0.0.1:3002/orders?day=today');
+    const checks = await auditLiveTargets(
+      ['http://127.0.0.1:3002/orders'],
+      bases,
+      mockRequest(response(200)),
+    );
+    expect(checks[0]).toMatchObject({ status: 200 });
+  });
 });

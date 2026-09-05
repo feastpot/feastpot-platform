@@ -133,6 +133,70 @@ describe('buildFpRef', () => {
 
 // ── AttributionService.preResolveSource ───────────────────────────────────────
 
+describe('AttributionService.getOrCreateLink', () => {
+  const VENDOR_ID = 'vendor-uuid-001';
+  const existingLink = {
+    id: 'existing-link-id',
+    vendorId: VENDOR_ID,
+    slug: 'maman-s-kitchen-legacy',
+    qrCodeUrl: JSON.stringify({
+      png: 'https://cdn.example.test/legacy.png',
+      svg: 'https://cdn.example.test/legacy.svg',
+    }),
+  };
+  let service: AttributionService;
+  let prisma: {
+    vendorReferralLink: { findUnique: jest.Mock; create: jest.Mock };
+    vendor: { findUniqueOrThrow: jest.Mock };
+  };
+
+  beforeEach(() => {
+    prisma = {
+      vendorReferralLink: {
+        findUnique: jest.fn(),
+        create: jest.fn(),
+      },
+      vendor: { findUniqueOrThrow: jest.fn() },
+    };
+    service = new AttributionService(
+      prisma as unknown as PrismaService,
+      {} as SupabaseService,
+      { get: jest.fn().mockReturnValue('https://feastpot.co.uk') } as unknown as ConfigService,
+      { add: jest.fn(), getJob: jest.fn().mockResolvedValue(null) } as unknown as never,
+    );
+  });
+
+  it('strips apostrophes when generating a new referral slug', async () => {
+    prisma.vendorReferralLink.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
+    prisma.vendor.findUniqueOrThrow.mockResolvedValue({ businessName: "Maman's Kitchen" });
+    prisma.vendorReferralLink.create.mockImplementation(({ data }) =>
+      Promise.resolve({ id: 'new-link-id', ...data, qrCodeUrl: null }),
+    );
+    jest.spyOn(Math, 'random').mockReturnValue(0.123456789);
+
+    const link = await service.getOrCreateLink(VENDOR_ID);
+
+    expect(prisma.vendorReferralLink.create).toHaveBeenCalledWith({
+      data: { vendorId: VENDOR_ID, slug: 'mamans-kitchen-4fzzzx' },
+    });
+    expect(link.slug).toBe('mamans-kitchen-4fzzzx');
+
+    jest.restoreAllMocks();
+  });
+
+  it('returns an existing referral slug unchanged', async () => {
+    prisma.vendorReferralLink.findUnique.mockResolvedValue(existingLink);
+
+    const link = await service.getOrCreateLink(VENDOR_ID);
+
+    expect(link.slug).toBe(existingLink.slug);
+    expect(prisma.vendor.findUniqueOrThrow).not.toHaveBeenCalled();
+    expect(prisma.vendorReferralLink.create).not.toHaveBeenCalled();
+  });
+});
+
+// ── AttributionService.preResolveSource ───────────────────────────────────────
+
 describe('AttributionService.preResolveSource', () => {
   let service: AttributionService;
   let prisma: jest.Mocked<PrismaService>;

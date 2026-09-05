@@ -12,7 +12,7 @@
  *   npm run db:seed
  *
  * Requires: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_DB_URL,
- *           SUPABASE_DIRECT_URL set in .env (see .env.example).
+ *           SUPABASE_DIRECT_URL, SEED_TEST_PASSWORD set in .env (see .env.example).
  *
  * NOTE on field mapping vs the original brief:
  *   The schema uses `cuisines` (not `cuisineTypes`), `commissionBps` (Int basis
@@ -80,7 +80,6 @@ interface SeedUser {
   role: UserRole;
   firstName: string;
   lastName: string;
-  password: string;
 }
 
 const USERS: SeedUser[] = [
@@ -89,56 +88,48 @@ const USERS: SeedUser[] = [
     role: UserRole.admin,
     firstName: 'Soul',
     lastName: 'Admin',
-    password: 'Feastpot!Admin1',
   },
   {
     email: 'support@feastpot.co.uk',
     role: UserRole.support,
     firstName: 'Sara',
     lastName: 'Support',
-    password: 'Feastpot!Support1',
   },
   {
     email: 'finance@feastpot.co.uk',
     role: UserRole.finance,
     firstName: 'Felix',
     lastName: 'Finance',
-    password: 'Feastpot!Finance1',
   },
   {
     email: 'compliance@feastpot.co.uk',
     role: UserRole.compliance,
     firstName: 'Cara',
     lastName: 'Compliance',
-    password: 'Feastpot!Comp1',
   },
   {
     email: 'maman@feastpot.co.uk',
     role: UserRole.vendor,
     firstName: 'Adunni',
     lastName: 'Maman',
-    password: 'Feastpot!Vendor1',
   },
   {
     email: 'chef.kwame@feastpot.co.uk',
     role: UserRole.vendor,
     firstName: 'Kwame',
     lastName: 'Asante',
-    password: 'Feastpot!Vendor2',
   },
   {
     email: 'grace@example.com',
     role: UserRole.customer,
     firstName: 'Grace',
     lastName: 'Okafor',
-    password: 'Feastpot!Cust1',
   },
   {
     email: 'david@example.com',
     role: UserRole.customer,
     firstName: 'David',
     lastName: 'Campbell',
-    password: 'Feastpot!Cust2',
   },
   // Extra customers (c3–c6): different postcodes cover overlapping and
   // non-overlapping delivery areas so search tests can distinguish real misses
@@ -148,28 +139,24 @@ const USERS: SeedUser[] = [
     role: UserRole.customer,
     firstName: 'Aisha',
     lastName: 'Patel',
-    password: 'Feastpot!Cust3',
   },
   {
     email: 'omar@example.com',
     role: UserRole.customer,
     firstName: 'Omar',
     lastName: 'Hassan',
-    password: 'Feastpot!Cust4',
   },
   {
     email: 'priya@example.com',
     role: UserRole.customer,
     firstName: 'Priya',
     lastName: 'Sharma',
-    password: 'Feastpot!Cust5',
   },
   {
     email: 'james@example.com',
     role: UserRole.customer,
     firstName: 'James',
     lastName: 'Obi',
-    password: 'Feastpot!Cust6',
   },
   // Vendor team member: linked to Maman's Kitchen as kitchen_manager via
   // VendorMember row in section 2c below.
@@ -178,137 +165,118 @@ const USERS: SeedUser[] = [
     role: UserRole.vendor,
     firstName: 'Jasmine',
     lastName: 'Adeyemi',
-    password: 'Feastpot!Team1',
   },
   // Diaspora vendor pool (18 - brings total live vendors to 20). Each gets
   // a Supabase auth user + a vendor row + 5–7 menu items + delivery config
-  // via the EXTRA_VENDORS spec block further down. Passwords follow the
-  // same Feastpot!VendorN pattern so QA can sign in as any of them.
+  // via the EXTRA_VENDORS spec block further down. All seeded credentials use
+  // the environment-supplied SEED_TEST_PASSWORD.
   {
     email: 'punjab.tandoor@feastpot.co.uk',
     role: UserRole.vendor,
     firstName: 'Harjit',
     lastName: 'Singh',
-    password: 'Feastpot!Vendor3',
   },
   {
     email: 'karachi.biryani@feastpot.co.uk',
     role: UserRole.vendor,
     firstName: 'Imran',
     lastName: 'Qureshi',
-    password: 'Feastpot!Vendor4',
   },
   {
     email: 'sylhet.kitchen@feastpot.co.uk',
     role: UserRole.vendor,
     firstName: 'Rashida',
     lastName: 'Begum',
-    password: 'Feastpot!Vendor5',
   },
   {
     email: 'jaffna.amma@feastpot.co.uk',
     role: UserRole.vendor,
     firstName: 'Nirmala',
     lastName: 'Selvaraj',
-    password: 'Feastpot!Vendor6',
   },
   {
     email: 'mama.j.jerk@feastpot.co.uk',
     role: UserRole.vendor,
     firstName: 'Janet',
     lastName: 'Bennett',
-    password: 'Feastpot!Vendor7',
   },
   {
     email: 'trini.doubles@feastpot.co.uk',
     role: UserRole.vendor,
     firstName: 'Anand',
     lastName: 'Maharaj',
-    password: 'Feastpot!Vendor8',
   },
   {
     email: 'addis.injera@feastpot.co.uk',
     role: UserRole.vendor,
     firstName: 'Tigist',
     lastName: 'Bekele',
-    password: 'Feastpot!Vendor9',
   },
   {
     email: 'xawaash.somali@feastpot.co.uk',
     role: UserRole.vendor,
     firstName: 'Hodan',
     lastName: 'Farah',
-    password: 'Feastpot!Vendor10',
   },
   {
     email: 'ubuntu.braai@feastpot.co.uk',
     role: UserRole.vendor,
     firstName: 'Thandi',
     lastName: 'Nkosi',
-    password: 'Feastpot!Vendor11',
   },
   {
     email: 'beirut.mezze@feastpot.co.uk',
     role: UserRole.vendor,
     firstName: 'Layla',
     lastName: 'Khoury',
-    password: 'Feastpot!Vendor12',
   },
   {
     email: 'istanbul.ocakbasi@feastpot.co.uk',
     role: UserRole.vendor,
     firstName: 'Mustafa',
     lastName: 'Yılmaz',
-    password: 'Feastpot!Vendor13',
   },
   {
     email: 'tehran.sofreh@feastpot.co.uk',
     role: UserRole.vendor,
     firstName: 'Yasmin',
     lastName: 'Hosseini',
-    password: 'Feastpot!Vendor14',
   },
   {
     email: 'manila.lutong@feastpot.co.uk',
     role: UserRole.vendor,
     firstName: 'Maria',
     lastName: 'Reyes',
-    password: 'Feastpot!Vendor15',
   },
   {
     email: 'saigon.pho@feastpot.co.uk',
     role: UserRole.vendor,
     firstName: 'Linh',
     lastName: 'Nguyen',
-    password: 'Feastpot!Vendor16',
   },
   {
     email: 'bangkok.kruakhao@feastpot.co.uk',
     role: UserRole.vendor,
     firstName: 'Pim',
     lastName: 'Boonmee',
-    password: 'Feastpot!Vendor17',
   },
   {
     email: 'warsaw.pierogi@feastpot.co.uk',
     role: UserRole.vendor,
     firstName: 'Agnieszka',
     lastName: 'Kowalski',
-    password: 'Feastpot!Vendor18',
   },
   {
     email: 'rio.feijoada@feastpot.co.uk',
     role: UserRole.vendor,
     firstName: 'Beatriz',
     lastName: 'Almeida',
-    password: 'Feastpot!Vendor19',
   },
   {
     email: 'marrakech.tagine@feastpot.co.uk',
     role: UserRole.vendor,
     firstName: 'Fatima',
     lastName: 'El Amrani',
-    password: 'Feastpot!Vendor20',
   },
 ];
 
@@ -346,12 +314,13 @@ async function ensureAuthUser(
   admin: SupabaseClient,
   user: SeedUser,
   cache: Map<string, string>,
+  password: string,
 ): Promise<string> {
   const existingId = cache.get(user.email.toLowerCase());
   if (existingId) {
     // Reset password so re-running the seed always produces working credentials.
     await admin.auth.admin.updateUserById(existingId, {
-      password: user.password,
+      password,
       app_metadata: { role: user.role, provider: 'email' },
       user_metadata: { first_name: user.firstName, last_name: user.lastName },
     });
@@ -359,7 +328,7 @@ async function ensureAuthUser(
   }
   const { data, error } = await admin.auth.admin.createUser({
     email: user.email,
-    password: user.password,
+    password,
     email_confirm: true,
     app_metadata: { role: user.role, provider: 'email' },
     user_metadata: { first_name: user.firstName, last_name: user.lastName },
@@ -390,6 +359,12 @@ async function main() {
       '[seed] refusing to run: NODE_ENV=production. This seed creates predictable admin/finance/compliance credentials and must never run against a live database. Set ALLOW_SEED_IN_PROD=1 to override (not recommended).',
     );
   }
+  const password = process.env.SEED_TEST_PASSWORD;
+  if (!password) {
+    throw new Error(
+      '[seed] SEED_TEST_PASSWORD is required; tracked development credentials are intentionally unsupported.',
+    );
+  }
   console.info('[seed] starting…');
 
   // 1. Auth users + public.users
@@ -399,7 +374,7 @@ async function main() {
   console.info(`[seed] cached ${authCache.size} existing auth users`);
   const userMap = new Map<string, string>(); // email → id
   for (const u of USERS) {
-    const id = await ensureAuthUser(admin, u, authCache);
+    const id = await ensureAuthUser(admin, u, authCache, password);
     const row = await upsertPublicUser(id, u);
     userMap.set(u.email, row.id);
     console.info(`[seed] user ${u.email} (${u.role}) → ${row.id}`);

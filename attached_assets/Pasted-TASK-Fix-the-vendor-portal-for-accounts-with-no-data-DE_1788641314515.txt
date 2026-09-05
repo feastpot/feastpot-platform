@@ -1,0 +1,61 @@
+TASK: Fix the vendor portal for accounts with no data.
+
+DEPENDS ON: FP-09. Use an empty live vendor to reproduce.
+
+REPRODUCE FIRST
+Sign in as the empty vendor and visit every route. Screenshot
+each. Previously observed:
+  /earnings         full error boundary
+  /compliance       full error boundary, Ref: 4121942664
+  /account-status   "Unable to load account status"
+  /referrals        QR stuck on "Generating QR code"
+Confirm each still occurs before changing code.
+
+ROOT CAUSE HYPOTHESIS
+On failing pages the sidebar org switcher shows a generic
+"Vendor / VENDOR" instead of the real trading name, which
+renders correctly on working pages. That suggests one shared
+vendor-context loader failing, not four separate bugs.
+Investigate that first.
+
+THE GOVERNING RULE
+An empty dataset is a VALID STATE and must render an empty
+state. Only a genuine exception may reach an error boundary.
+Apply repo-wide, then verify every vendor route.
+
+REQUIRED EMPTY STATES
+  /earnings     "No earnings yet. Your first payout summary
+                appears here after your first completed
+                order." Still show the Rate Card so a new
+                vendor sees their terms before trading.
+  /compliance   The required-document checklist with each item
+                "Not started". This page is MOST useful empty.
+  /account-status "No restrictions on your account" as a
+                positive confirmation. Keep the existing copy
+                referencing clause 14.1 and 18.1.
+  /referrals    Order source breakdown showing Marketplace and
+                Your referral at zero with an explanation,
+                rather than a heading over blank space.
+  /terms        The Rate Schedule panel currently reads "No
+                rate information available" (fixed in FP-04;
+                verify here).
+
+QR CODE: ARCHITECTURAL FIX
+A QR for a URL that never changes must not be generated per
+page view. Generate PNG (1024px) and SVG once when the
+referral link row is created, store in Supabase Storage,
+persist the URLs, render a plain img with width and height
+set. Backfill existing vendors. If the stored URL is null at
+render, generate client-side immediately AND enqueue a
+background job so no vendor ever waits. Add Download PNG and
+Download SVG buttons. Assert visible under 5 seconds on a
+throttled connection. QR must stay pure black on white;
+tinted codes fail some scanners.
+
+DO NOT CHANGE ANY COLOURS OR DESIGNS.
+
+ACCEPTANCE CRITERIA
+- All vendor routes render for an empty vendor with no error
+  boundary.
+- The org switcher shows the real trading name everywhere.
+- QR visible under 5 seconds; both downloads scannable.

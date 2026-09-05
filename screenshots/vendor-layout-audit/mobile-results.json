@@ -1,0 +1,222 @@
+[
+  {
+    "route": "/",
+    "finalPath": "/",
+    "status": 200,
+    "viewport": 375,
+    "scrollWidth": 375,
+    "bodyScrollWidth": 375,
+    "title": "Good evening, Test 👋",
+    "topNavVisible": true
+  },
+  {
+    "route": "/orders",
+    "finalPath": "/orders",
+    "status": 200,
+    "viewport": 375,
+    "scrollWidth": 375,
+    "bodyScrollWidth": 375,
+    "title": "Orders",
+    "topNavVisible": true
+  },
+  {
+    "route": "/disputes",
+    "finalPath": "/disputes",
+    "status": 200,
+    "viewport": 375,
+    "scrollWidth": 375,
+    "bodyScrollWidth": 375,
+    "title": "",
+    "topNavVisible": true
+  },
+  {
+    "route": "/menu",
+    "finalPath": "/menu",
+    "status": 200,
+    "viewport": 375,
+    "scrollWidth": 375,
+    "bodyScrollWidth": 375,
+    "title": "",
+    "topNavVisible": true
+  },
+  {
+    "route": "/availability",
+    "finalPath": "/availability",
+    "status": 200,
+    "viewport": 375,
+    "scrollWidth": 375,
+    "bodyScrollWidth": 375,
+    "title": "Availability",
+    "topNavVisible": true
+  },
+  {
+    "route": "/settings/delivery",
+    "finalPath": "/settings/delivery",
+    "status": 200,
+    "viewport": 375,
+    "scrollWidth": 375,
+    "bodyScrollWidth": 375,
+    "title": "Delivery settings",
+    "topNavVisible": true
+  },
+  {
+    "route": "/settings/profile",
+    "finalPath": "/settings/profile",
+    "status": 200,
+    "viewport": 375,
+    "scrollWidth": 375,
+    "bodyScrollWidth": 375,
+    "title": "",
+    "topNavVisible": true
+  },
+  {
+    "route": "/share",
+    "finalPath": "/share",
+    "status": 200,
+    "viewport": 375,
+    "scrollWidth": 375,
+    "bodyScrollWidth": 375,
+    "title": "Bring your own customers",
+    "topNavVisible": true
+  },
+  {
+    "route": "/performance",
+    "finalPath": "/performance",
+    "status": 200,
+    "viewport": 375,
+    "scrollWidth": 375,
+    "bodyScrollWidth": 375,
+    "title": "Performance",
+    "topNavVisible": true
+  },
+  {
+    "route": "/payouts",
+    "finalPath": "/payouts",
+    "status": 200,
+    "viewport": 375,
+    "scrollWidth": 375,
+    "bodyScrollWidth": 375,
+    "title": "",
+    "topNavVisible": true
+  },
+  {
+    "route": "/tax-information",
+    "finalPath": "/tax-information",
+    "status": 200,
+    "viewport": 375,
+    "scrollWidth": 375,
+    "bodyScrollWidth": 375,
+    "title": "Tax information",
+    "topNavVisible": true
+  },
+  {
+    "route": "/account-and-compliance",
+    "finalPath": "/account-and-compliance",
+    "status": 200,
+    "viewport": 375,
+    "scrollWidth": 375,
+    "bodyScrollWidth": 375,
+    "title": "Account and compliance",
+    "topNavVisible": true
+  },
+  {
+    "route": "/settings/team",
+    "finalPath": "/settings/team",
+    "status": 200,
+    "viewport": 375,
+    "scrollWidth": 375,
+    "bodyScrollWidth": 375,
+    "title": "Team",
+    "topNavVisible": true
+  },
+  {
+    "route": "/settings/security",
+    "finalPath": "/settings/security",
+    "status": 200,
+    "viewport": 375,
+    "scrollWidth": 375,
+    "bodyScrollWidth": 375,
+    "title": "Security",
+    "topNavVisible": true
+  },
+  {
+    "route": "/user-guide",
+    "finalPath": "/user-guide",
+    "status": 200,
+    "viewport": 375,
+    "scrollWidth": 375,
+    "bodyScrollWidth": 375,
+    "title": "Vendor user guide",
+    "topNavVisible": true
+  },
+  {
+    "route": "/help",
+    "finalPath": "/help",
+    "status": 200,
+    "viewport": 375,
+    "scrollWidth": 375,
+    "bodyScrollWidth": 375,
+    "title": "Help & FAQ",
+    "topNavVisible": true
+  },
+  {
+    "route": "/catering/new",
+    "finalPath": "/catering/new",
+    "status": 200,
+    "viewport": 375,
+    "scrollWidth": 375,
+    "bodyScrollWidth": 375,
+    "title": "New catering quote",
+    "topNavVisible": true
+  },
+  {
+    "route": "/referrals",
+    "finalPath": "/share",
+    "status": 200,
+    "viewport": 375,
+    "scrollWidth": 375,
+    "bodyScrollWidth": 375,
+    "title": "Bring your own customers",
+    "topNavVisible": true
+  },
+  {
+    "route": "/earnings",
+    "finalPath": "/performance",
+    "status": 200,
+    "viewport": 375,
+    "scrollWidth": 375,
+    "bodyScrollWidth": 375,
+    "title": "Performance",
+    "topNavVisible": true
+  },
+  {
+    "route": "/compliance",
+    "finalPath": "/account-and-compliance",
+    "status": 200,
+    "viewport": 375,
+    "scrollWidth": 375,
+    "bodyScrollWidth": 375,
+    "title": "Account and compliance",
+    "topNavVisible": true
+  },
+  {
+    "route": "/account-status",
+    "finalPath": "/account-and-compliance",
+    "status": 200,
+    "viewport": 375,
+    "scrollWidth": 375,
+    "bodyScrollWidth": 375,
+    "title": "Account and compliance",
+    "topNavVisible": true
+  },
+  {
+    "route": "/terms",
+    "finalPath": "/account-and-compliance",
+    "status": 200,
+    "viewport": 375,
+    "scrollWidth": 375,
+    "bodyScrollWidth": 375,
+    "title": "Account and compliance",
+    "topNavVisible": true
+  }
+]

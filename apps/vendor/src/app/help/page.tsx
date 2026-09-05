@@ -89,6 +89,15 @@ const SECTIONS: FaqSection[] = [
     ],
   },
   {
+    id: 'roles',
+    title: 'Team roles',
+    body: [
+      'Owners have full access to every portal feature and setting, including inviting team members and changing their roles.',
+      'Kitchen Managers can manage the menu, availability, and orders. Finance members can view payouts, earnings, and compliance. Staff can view and update orders. Delivery Coordinators can manage orders and availability for dispatch.',
+      'Only give each person the access they need. Owners can update or remove a team member from Settings, then Team.',
+    ],
+  },
+  {
     id: 'disputes',
     title: 'Disputes',
     body: [

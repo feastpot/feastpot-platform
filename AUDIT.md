@@ -13,13 +13,13 @@
 
 ### What worked
 
-| Item                                              | Result                                                 |
-| ------------------------------------------------- | ------------------------------------------------------ |
-| `GET /healthz`                                    | 200 `{status:"ok", db:"ok"}`                           |
-| Admin JWT (soul@feastpot.co.uk / Feastpot!Admin1) | Obtained, accepted by all admin routes                 |
-| Vendor app API resolution                         | Falls back to `http://localhost:3001` in dev - correct |
-| Admin app API resolution                          | Falls back to `http://localhost:3001` in dev - correct |
-| All four apps running                             | Confirmed (ports 3000/3001/3002/3003)                  |
+| Item                                           | Result                                                 |
+| ---------------------------------------------- | ------------------------------------------------------ |
+| `GET /healthz`                                 | 200 `{status:"ok", db:"ok"}`                           |
+| Admin JWT (environment-supplied seed password) | Obtained, accepted by all admin routes                 |
+| Vendor app API resolution                      | Falls back to `http://localhost:3001` in dev - correct |
+| Admin app API resolution                       | Falls back to `http://localhost:3001` in dev - correct |
+| All four apps running                          | Confirmed (ports 3000/3001/3002/3003)                  |
 
 ### What did not work
 

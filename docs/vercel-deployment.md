@@ -161,11 +161,11 @@ add it to `ALLOWED_ORIGINS` and re-deploy the API.
    first visit.
 2. `https://vendor.feastpot.co.uk/sign-in` - sign-in page renders.
 3. `https://admin.feastpot.co.uk/sign-in` - sign-in page renders.
-4. Sign in on each with the seeded users
-   (`prisma/seed.ts`):
-   - customer `grace@example.com` / `Feastpot!Cust1`
-   - vendor `maman@feastpot.co.uk` / `Feastpot!Vendor1`
-   - admin `soul@feastpot.co.uk` / `Feastpot!Admin1`
+4. Sign in on each with the seeded users (`prisma/seed.ts`) and the
+   environment-supplied `SEED_TEST_PASSWORD`:
+   - customer `grace@example.com`
+   - vendor `maman@feastpot.co.uk`
+   - admin `soul@feastpot.co.uk`
 5. Place a test order on `feastpot.co.uk` end-to-end and confirm the
    request reaches the production API (Replit deployment logs).
 6. Check **Vercel → Project → Deployments → … → Functions / Build

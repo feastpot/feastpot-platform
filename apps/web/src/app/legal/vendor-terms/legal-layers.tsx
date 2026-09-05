@@ -29,7 +29,7 @@ export async function LegalLayers() {
   const rates = await fetchRateSchedule();
 
   return (
-    <div className="mb-10 grid gap-4 lg:grid-cols-2">
+    <div id="annex-a" className="mb-10 grid scroll-mt-20 gap-4 lg:grid-cols-2">
       {/* Layer 1: key terms in plain language (Annex C) */}
       <KeyTermsSummary rates={rates} />
       {/* Layer 2: live commission rate schedule (Annex A) */}

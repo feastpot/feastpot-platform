@@ -69,6 +69,80 @@ export interface TestIdentity {
   storageObjects: Array<{ bucket: string; path: string }>;
 }
 
+/** JSON-safe CLI result; intentionally excludes all Supabase configuration. */
+export function factoryManifest(identity: TestIdentity, cleanedUp: boolean) {
+  return {
+    state: identity.state,
+    credentials: identity.credentials,
+    ids: {
+      userId: identity.userId,
+      vendorId: identity.vendorId,
+      vendorApplicationId: identity.vendorApplicationId,
+      orderId: identity.orderId,
+      payoutId: identity.payoutId,
+      disputeId: identity.disputeId,
+      cateringBookingId: identity.cateringBookingId,
+      menuId: identity.menuId,
+      addressId: identity.addressId,
+      menuItemId: identity.menuItemId,
+      relatedUserIds: identity.relatedUserIds,
+      relatedVendorIds: identity.relatedVendorIds,
+    },
+    vendorSlug: identity.vendorSlug,
+    menuItemPricePence: identity.menuItemPricePence,
+    cleanedUp,
+  };
+}
+
+export function groupUniqueStorageObjects(
+  storageObjects: Array<{ bucket: string; path: string }>,
+): Map<string, string[]> {
+  const grouped = new Map<string, Set<string>>();
+  for (const { bucket, path } of storageObjects) {
+    const paths = grouped.get(bucket) ?? new Set<string>();
+    paths.add(path);
+    grouped.set(bucket, paths);
+  }
+  return new Map([...grouped].map(([bucket, paths]) => [bucket, [...paths]]));
+}
+
+export function currentVendorTermsQuery(now: Date) {
+  return {
+    where: {
+      documentType: 'VENDOR_TERMS' as const,
+      effectiveAt: { lte: now },
+    },
+    orderBy: [{ effectiveAt: 'desc' as const }, { publishedAt: 'desc' as const }],
+  };
+}
+
+/**
+ * Stable fixture contracts. Consumers should depend on these facts rather than
+ * incidental implementation details such as fixture copy or timestamps.
+ */
+export const FACTORY_STATE_CONTRACTS: Record<FactoryState, readonly string[]> = {
+  C1: ['active customer', 'no orders'],
+  C2: ['active customer', 'saved default address', 'no orders'],
+  C3: ['active customer', 'one delivered order'],
+  C4: ['active customer', 'active FeastPass subscription'],
+  C5: ['active customer', 'past-due FeastPass subscription'],
+  C6: ['active customer', 'one delivered order', 'open dispute'],
+  V1: ['customer-role applicant', 'pending vendor application', 'no vendor profile'],
+  V2: ['approved vendor', 'no Stripe account', 'payouts disabled'],
+  V3: ['approved vendor', 'Stripe account', 'payouts disabled'],
+  V4: ['live vendor', 'current terms accepted', 'no menus', 'no orders'],
+  V5: ['live vendor', 'current terms accepted', 'one delivered order', 'transferred payout'],
+  V6: ['live vendor', 'current terms accepted', 'verified document expiring within 30 days'],
+  V7: ['suspended vendor', 'expired document older than seven days', 'active document enforcement'],
+  V8: ['suspended vendor', 'FHRS rating below 3', 'active FHRS enforcement'],
+  V9: ['live purchasable vendor', 'terms not accepted'],
+  V10: ['live vendor', 'accepted current terms', 'new material terms version pending'],
+  V11: ['live vendor', 'current terms accepted', 'confirmed catering booking'],
+  A1: ['active admin', 'AAL1 password identity'],
+  A2: ['active admin', 'AAL2 TOTP identity'],
+  A3: ['active restricted support role'],
+};
+
 interface FactoryUser {
   id: string;
   email: string;
@@ -95,12 +169,49 @@ export function assertSafeDatabaseUrl(
 
   if (
     configuredProduction.includes(normalised) ||
+    normalised.includes('yeklvhoqanxnogjnhkui') ||
     /(^|[._-])(prod|production)([._-]|$)/i.test(normalised)
   ) {
     throw new Error(
       'TEST_FACTORY_PRODUCTION_GUARD: refusing to create test data against a production database.',
     );
   }
+}
+
+/** Refuse known/configured production Supabase API endpoints as well. */
+export function assertSafeSupabaseUrl(supabaseUrl: string | undefined): void {
+  if (!supabaseUrl) return;
+  const normalised = supabaseUrl.trim().replace(/\/+$/, '');
+  const configuredProduction = [process.env.PROD_SUPABASE_URL, process.env.PRODUCTION_SUPABASE_URL]
+    .filter((url): url is string => Boolean(url))
+    .map((url) => url.trim().replace(/\/+$/, ''));
+  let hostname = '';
+  try {
+    hostname = new URL(normalised).hostname;
+  } catch {
+    hostname = normalised;
+  }
+  if (
+    configuredProduction.includes(normalised) ||
+    /(^|[._-])(prod|production)([._-]|$)/i.test(hostname) ||
+    hostname.includes('yeklvhoqanxnogjnhkui')
+  ) {
+    throw new Error(
+      'TEST_FACTORY_PRODUCTION_GUARD: refusing to create test data against a production Supabase target.',
+    );
+  }
+}
+
+/**
+ * The browser's public URL is authoritative when no target is explicitly
+ * supplied. This keeps issued sessions in the same Supabase project as UI
+ * sign-in when server-side and public variables differ.
+ */
+export function resolveSupabaseUrl(
+  explicitUrl: string | undefined,
+  environment: NodeJS.ProcessEnv = process.env,
+): string | undefined {
+  return explicitUrl ?? environment.NEXT_PUBLIC_SUPABASE_URL ?? environment.SUPABASE_URL;
 }
 
 function safeKey(value: string): string {
@@ -189,7 +300,9 @@ export class TestDataFactory {
 
   constructor(options: TestFactoryOptions = {}) {
     const databaseUrl = options.databaseUrl ?? process.env.SUPABASE_DB_URL;
-    if (!options.prisma) assertSafeDatabaseUrl(databaseUrl);
+    // This is deliberately unconditional. An injected Prisma client must not
+    // be a route around the destructive-operation guard.
+    assertSafeDatabaseUrl(databaseUrl);
 
     this.prisma =
       options.prisma ??
@@ -200,11 +313,11 @@ export class TestDataFactory {
     this.namespace = options.namespace ?? process.env.TEST_FACTORY_NAMESPACE ?? 'local';
     this.password = options.password ?? process.env.TEST_FACTORY_PASSWORD ?? null;
 
-    const rawSupabaseUrl =
-      options.supabaseUrl ?? process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const rawSupabaseUrl = resolveSupabaseUrl(options.supabaseUrl);
     const supabaseUrl = rawSupabaseUrl
       ? rawSupabaseUrl.replace(/\/rest\/v1\/?$/, '').replace(/\/+$/, '')
       : undefined;
+    assertSafeSupabaseUrl(supabaseUrl);
     const serviceRoleKey = options.supabaseServiceRoleKey ?? process.env.SUPABASE_SERVICE_ROLE_KEY;
     const anonKey =
       options.supabaseAnonKey ??
@@ -279,9 +392,16 @@ export class TestDataFactory {
   }
 
   async teardown(identity: TestIdentity): Promise<void> {
-    const userIds = [...new Set([identity.userId, ...identity.relatedUserIds])];
+    const discovered = await this.discoverTeardownTargets(identity);
+    const userIds = [
+      ...new Set([...discovered.userIds, identity.userId, ...identity.relatedUserIds]),
+    ].filter(Boolean);
     const vendorIds = [
-      ...new Set([...(identity.vendorId ? [identity.vendorId] : []), ...identity.relatedVendorIds]),
+      ...new Set([
+        ...discovered.vendorIds,
+        ...(identity.vendorId ? [identity.vendorId] : []),
+        ...identity.relatedVendorIds,
+      ]),
     ];
 
     await this.prisma.$transaction(
@@ -339,6 +459,7 @@ export class TestDataFactory {
 
         await tx.dispute.deleteMany({ where: { raisedById: { in: userIds } } });
         await tx.feastPassSubscription.deleteMany({ where: { userId: { in: userIds } } });
+        await tx.address.deleteMany({ where: { userId: { in: userIds } } });
         await tx.termsAcceptance.deleteMany({ where: { vendorId: { in: vendorIds } } });
         await tx.vendorEnforcementAction.deleteMany({ where: { vendorId: { in: vendorIds } } });
         await tx.vendorApplication.deleteMany({
@@ -358,6 +479,10 @@ export class TestDataFactory {
             ],
           },
         });
+        await tx.vendorDocument.deleteMany({ where: { vendorId: { in: vendorIds } } });
+        await tx.deliveryConfig.deleteMany({ where: { vendorId: { in: vendorIds } } });
+        await tx.menuItem.deleteMany({ where: { vendorId: { in: vendorIds } } });
+        await tx.menu.deleteMany({ where: { vendorId: { in: vendorIds } } });
         await tx.vendor.deleteMany({ where: { id: { in: vendorIds } } });
         await tx.user.deleteMany({ where: { id: { in: userIds } } });
         const termsVersions = await tx.termsVersion.findMany({
@@ -368,65 +493,134 @@ export class TestDataFactory {
           select: { id: true },
         });
         await tx.termsAcceptance.deleteMany({
-          where: { termsVersionId: { in: termsVersions.map((version) => version.id) } },
+          // Only this teardown's vendors may have their acceptance removed.
+          // A fallback version can be shared by an interrupted/concurrent
+          // namespace run, so never blanket-delete its acceptance history.
+          where: {
+            vendorId: { in: vendorIds },
+            termsVersionId: { in: termsVersions.map((version) => version.id) },
+          },
+        });
+        const removableTermsVersions = await tx.termsVersion.findMany({
+          where: {
+            id: { in: termsVersions.map((version) => version.id) },
+            acceptances: { none: {} },
+          },
+          select: { id: true },
         });
         await tx.termsVersion.deleteMany({
-          where: { id: { in: termsVersions.map((version) => version.id) } },
+          where: { id: { in: removableTermsVersions.map((version) => version.id) } },
         });
       },
       { maxWait: 10_000, timeout: 30_000 },
     );
 
-    if (this.admin && identity.storageObjects.length > 0) {
-      const grouped = new Map<string, Array<{ bucket: string; path: string }>>();
-      for (const object of identity.storageObjects) {
-        const objects = grouped.get(object.bucket) ?? [];
-        objects.push(object);
-        grouped.set(object.bucket, objects);
-      }
+    const storageObjects = [...identity.storageObjects, ...discovered.storageObjects];
+    if (this.admin && storageObjects.length > 0) {
+      const grouped = groupUniqueStorageObjects(storageObjects);
       await Promise.all(
-        [...grouped.entries()].map(async ([bucket, objects]) => {
-          await this.admin!.storage.from(bucket).remove(objects.map((object) => object.path));
+        [...grouped.entries()].map(async ([bucket, paths]) => {
+          const { error } = await this.admin!.storage.from(bucket).remove(paths);
+          if (error) throw new Error(`TEST_FACTORY_STORAGE_DELETE_FAILED: ${error.message}`);
         }),
       );
     }
     if (this.admin) {
-      await Promise.all(userIds.map((userId) => this.admin!.auth.admin.deleteUser(userId)));
+      const authUserIds = await this.findAuthUserIds([
+        stateEmail(this.namespace, identity.state),
+        `tf-${safeKey(this.namespace)}-${identity.state.toLowerCase()}-order-vendor@test.feastpot.co.uk`,
+      ]);
+      await Promise.all(
+        [...new Set([...userIds, ...authUserIds])].map(async (userId) => {
+          const { error } = await this.admin!.auth.admin.deleteUser(userId);
+          if (error) throw new Error(`TEST_FACTORY_AUTH_DELETE_FAILED: ${error.message}`);
+        }),
+      );
     }
   }
 
   async teardownState(state: FactoryState): Promise<void> {
     const email = stateEmail(this.namespace, state);
     const user = await this.prisma.user.findUnique({ where: { email } });
-    if (user) {
-      const vendor = await this.prisma.vendor.findUnique({ where: { userId: user.id } });
-      await this.teardown({
-        state,
-        credentials: { email, password: this.password, role: user.role },
-        userId: user.id,
-        vendorId: vendor?.id,
-        relatedUserIds: [],
-        relatedVendorIds: vendor ? [vendor.id] : [],
-        storageObjects: [],
-      });
-      return;
-    }
+    await this.teardown({
+      state,
+      credentials: { email, password: this.password, role: user?.role ?? 'customer' },
+      userId: user?.id ?? '',
+      relatedUserIds: [],
+      relatedVendorIds: [],
+      storageObjects: [],
+    });
+  }
 
-    if (this.admin) {
-      const perPage = 1000;
-      for (let page = 1; ; page += 1) {
-        const { data, error } = await this.admin.auth.admin.listUsers({ page, perPage });
-        if (error) throw new Error(`TEST_FACTORY_AUTH_LOOKUP_FAILED: ${error.message}`);
-        const authUser = data.users.find((candidate) => candidate.email === email);
-        if (authUser) {
-          const { error: deleteError } = await this.admin.auth.admin.deleteUser(authUser.id);
-          if (deleteError) {
-            throw new Error(`TEST_FACTORY_AUTH_DELETE_FAILED: ${deleteError.message}`);
-          }
-          return;
-        }
-        if (data.users.length < perPage) return;
-      }
+  private async discoverTeardownTargets(identity: TestIdentity): Promise<{
+    userIds: string[];
+    vendorIds: string[];
+    storageObjects: Array<{ bucket: string; path: string }>;
+  }> {
+    const emails = [
+      stateEmail(this.namespace, identity.state),
+      `tf-${safeKey(this.namespace)}-${identity.state.toLowerCase()}-order-vendor@test.feastpot.co.uk`,
+    ];
+    const users = await this.prisma.user.findMany({
+      where: { email: { in: emails } },
+      select: { id: true },
+    });
+    const userIds = users.map((user) => user.id);
+    const vendors = await this.prisma.vendor.findMany({
+      where: {
+        OR: [{ userId: { in: userIds } }, { slug: slug(this.namespace, identity.state) }],
+      },
+      select: { id: true },
+    });
+    return {
+      userIds,
+      vendorIds: vendors.map((vendor) => vendor.id),
+      storageObjects: await this.discoverStorageObjects(identity.state),
+    };
+  }
+
+  private async discoverStorageObjects(
+    state: FactoryState,
+  ): Promise<Array<{ bucket: string; path: string }>> {
+    if (!this.admin) return [];
+    const prefix = `test-factory/${safeKey(this.namespace)}/${state.toLowerCase()}`;
+    const objects: Array<{ bucket: string; path: string }> = [];
+    for (const bucket of ['feastpot-documents', 'feastpot-media']) {
+      await this.collectStorageObjects(bucket, prefix, objects);
+    }
+    return objects;
+  }
+
+  private async collectStorageObjects(
+    bucket: string,
+    prefix: string,
+    results: Array<{ bucket: string; path: string }>,
+  ): Promise<void> {
+    const { data, error } = await this.admin!.storage.from(bucket).list(prefix, { limit: 1000 });
+    if (error) throw new Error(`TEST_FACTORY_STORAGE_LOOKUP_FAILED: ${error.message}`);
+    for (const object of data ?? []) {
+      if (!object.name) continue;
+      const path = `${prefix}/${object.name}`;
+      // Supabase represents folders as entries without a file id. Recurse so
+      // namespace cleanup does not depend on the creator's in-memory list.
+      if (object.id) results.push({ bucket, path });
+      else await this.collectStorageObjects(bucket, path, results);
+    }
+  }
+
+  private async findAuthUserIds(emails: string[]): Promise<string[]> {
+    if (!this.admin) return [];
+    const wanted = new Set(emails.map((email) => email.toLowerCase()));
+    const ids: string[] = [];
+    for (let page = 1; ; page += 1) {
+      const { data, error } = await this.admin.auth.admin.listUsers({ page, perPage: 1000 });
+      if (error) throw new Error(`TEST_FACTORY_AUTH_LOOKUP_FAILED: ${error.message}`);
+      ids.push(
+        ...data.users
+          .filter((user) => user.email && wanted.has(user.email.toLowerCase()))
+          .map((user) => user.id),
+      );
+      if (data.users.length < 1000) return ids;
     }
   }
 
@@ -961,9 +1155,30 @@ export class TestDataFactory {
   }
 
   private async ensureCurrentTerms(vendorId: string) {
+    const now = new Date();
+    // Match TermsService.getCurrentVersion exactly. In particular, do not
+    // filter on supersededAt: a pending replacement must not leave a
+    // no-current window, and the newest effective version is the route gate.
+    const existingCurrent = await this.prisma.termsVersion.findFirst(currentVendorTermsQuery(now));
+    if (existingCurrent) {
+      await this.prisma.termsAcceptance.upsert({
+        where: { vendorId_termsVersionId: { vendorId, termsVersionId: existingCurrent.id } },
+        update: {},
+        create: {
+          vendorId,
+          termsVersionId: existingCurrent.id,
+          ipAddress: '127.0.0.1',
+          userAgent: 'Feastpot TestDataFactory',
+          acceptanceText: 'I accept the currently effective vendor terms.',
+          contentHash: existingCurrent.contentHash,
+          scrolledToEnd: true,
+        },
+      });
+      return existingCurrent;
+    }
+
     const contentV1 = '# Test Factory Vendor Terms v1';
     const versionV1 = this.termsVersionLabel('v1');
-    const now = new Date();
     const v1 = await this.prisma.termsVersion.upsert({
       where: { documentType_version: { documentType: 'VENDOR_TERMS', version: versionV1 } },
       update: {},
@@ -1078,10 +1293,13 @@ export class TestDataFactory {
     const factors = await this.anon.auth.mfa.listFactors();
     if (factors.error)
       throw new Error(`TEST_FACTORY_AAL2_FACTORS_FAILED: ${factors.error.message}`);
-    if ((factors.data?.totp?.length ?? 0) > 0) {
-      throw new Error(
-        'TEST_FACTORY_AAL2_ALREADY_ENROLLED: remove the existing test factor with teardown before recreating A2.',
-      );
+    // MFA enrollment secrets are intentionally not persisted. Remove a prior
+    // factory factor and enrol a fresh one so create('A2') remains idempotent.
+    for (const factor of factors.data?.totp ?? []) {
+      const removed = await this.anon.auth.mfa.unenroll({ factorId: factor.id });
+      if (removed.error) {
+        throw new Error(`TEST_FACTORY_AAL2_UNENROLL_FAILED: ${removed.error.message}`);
+      }
     }
 
     const enrolled = await this.anon.auth.mfa.enroll({

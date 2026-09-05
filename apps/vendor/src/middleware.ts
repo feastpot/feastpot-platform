@@ -7,7 +7,8 @@ import { createClient } from './lib/supabase/middleware';
  *
  *  1. Refresh the Supabase session cookie on every request via `getUser()`
  *     (NOT `getSession()` - see apps/web/src/middleware.ts for why).
- *  2. Gate every route except `/sign-in` and `/unauthorized`: unauthed users
+ *  2. Gate every route except `/sign-in`, `/unauthorized`, and the missing
+ *     vendor-profile explanation: unauthed users
  *     get bounced to `/sign-in?next=<path>`.
  *
  * We deliberately do NOT check `user.role === 'vendor'` or vendor `status`
@@ -25,6 +26,10 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
   const isSignIn = pathname === '/sign-in' || pathname.startsWith('/sign-in/');
+  // `/onboarding/register`, `/not-registered`, and the forgot-password flow are
+  // prospect-facing routes. The missing-profile route must remain public so an
+  // already-authenticated, but unprovisioned, Auth user can reach its explanation
+  // instead of middleware immediately redirecting them back to `/orders`.
   // `/onboarding/register` (and the forgot-password flow) are the two
   // prospect-facing forms on the vendor portal: a potential cook lands
   // there from the customer site's "Join Feastpot" CTAs and must be
@@ -38,6 +43,7 @@ export async function middleware(request: NextRequest) {
     pathname === '/onboarding/register' || pathname.startsWith('/onboarding/register/');
   const isForgotPassword =
     pathname === '/forgot-password' || pathname.startsWith('/forgot-password/');
+  const isNotRegistered = pathname === '/not-registered' || pathname.startsWith('/not-registered/');
   // /auth/callback exchanges the Supabase recovery code for a session, and
   // /auth/reset/* is the scanner-proof interstitial + new-password form.
   // Neither is accessible with a session (user is locked out), so both must
@@ -49,6 +55,7 @@ export async function middleware(request: NextRequest) {
     pathname === '/unauthorized' ||
     isOnboardingRegister ||
     isForgotPassword ||
+    isNotRegistered ||
     isAuthFlow;
 
   if (!isPublic && !user) {

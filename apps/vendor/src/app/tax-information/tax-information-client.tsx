@@ -59,23 +59,20 @@ export function TaxInformationClient() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6 px-4 py-6">
-      <div>
-        <h1 className="text-xl font-bold text-dark">Tax information</h1>
-        <p className="mt-1 text-sm text-mid">
-          Under the{' '}
-          <a
-            href="https://www.legislation.gov.uk/uksi/2023/817/contents"
-            target="_blank"
-            rel="noreferrer"
-            className="underline hover:text-teal"
-          >
-            Platform Operators Regulations 2023 (SI 2023/817)
-          </a>
-          , Feastpot is required to collect and verify your tax details and report your activity
-          annually to HMRC. This page shows what we hold and what we have reported.
-        </p>
-      </div>
+    <div className="space-y-6">
+      <p className="text-sm text-mid">
+        Under the{' '}
+        <a
+          href="https://www.legislation.gov.uk/uksi/2023/817/contents"
+          target="_blank"
+          rel="noreferrer"
+          className="underline hover:text-teal"
+        >
+          Platform Operators Regulations 2023 (SI 2023/817)
+        </a>
+        , Feastpot is required to collect and verify your tax details and report your activity
+        annually to HMRC. This page shows what we hold and what we have reported.
+      </p>
 
       <VerificationBanner profile={profile} />
       <TaxProfileSection profile={profile} />
