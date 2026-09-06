@@ -1,0 +1,69 @@
+TASK: Fix layout inconsistency, link integrity and copy in
+the vendor portal.
+
+L1. /catering/new HAS NO NAVIGATION
+It renders with no sidebar, no logo, no back link and no
+breadcrumb. On an installed PWA there may be no browser back
+button, so the vendor is stranded. Wrap it in the standard
+portal layout, add a breadcrumb (Catering bookings > New
+quote) and a Cancel action.
+
+L2. CONTENT COLUMN INCONSISTENCY
+Observed: /referrals content starts at the sidebar edge and
+stretches full width; /tax-information sits far right with a
+large empty left gutter; /terms is two-column; /catering/new
+is centred with no sidebar. Four behaviours across five
+pages.
+Create one VendorPortalLayout used by every route:
+  persistent sidebar (existing design, unchanged)
+  max-width 1100px standard pages, 760px form-first pages
+  left aligned within the content region
+  consistent padding 24px desktop, 16px mobile
+  a page header block with consistent spacing
+
+L3. MOBILE
+Verify at 375px: sidebar collapses sensibly, no horizontal
+scroll on any route, /referrals share-text cards stack rather
+than sitting side by side, /catering/new fields stack.
+
+L4. LINK INTEGRITY, ALL THREE APPS
+Write scripts/link-audit.ts crawling every internal href and
+Link target across apps/web, apps/vendor and apps/admin,
+following cross-app links, checking anchor targets exist,
+reporting external links as warnings not failures. Add to CI
+failing on any internal 4xx or 5xx.
+Explicitly verify all vendor sidebar destinations resolve for
+an empty vendor, plus nested routes.
+Confirm support@, compliance@ and privacy@ mailboxes exist and
+are monitored; an unmonitored compliance mailbox turns a
+compliant appeal process into a non-compliant one.
+
+L5. COPY
+  Both "Feastpot" and "FeastPot" appear in the product
+    (/tax-information uses FeastPot; elsewhere Feastpot).
+    Standardise on Feastpot; add a lint rule.
+  Referral slug renders maman-s-kitchen from an apostrophe.
+    Fix the generator to strip apostrophes, but NEVER change a
+    slug already in circulation; keep the old one as a
+    permanent redirect.
+  The referral link field has no copy button while the share
+    cards below do. Add one matching existing styling.
+  Sidebar says "Bring your customers", page title says "Bring
+    your own customers". Pick the page title version.
+  Confirm the User guide covers referrals, catering quotes,
+    tax information, terms acceptance and account status.
+
+L6. EM DASH GUARD COVERAGE
+Confirm the ESLint rule and CI guard cover apps/vendor. A
+prior audit found a live em dash surviving in hardcoded legal
+pages because the glob was too narrow. Verify with a
+deliberate test em dash and confirm CI blocks it.
+
+DO NOT CHANGE ANY COLOURS.
+
+ACCEPTANCE CRITERIA
+- Every portal route uses the same shell.
+- /catering/new has full navigation.
+- No horizontal scroll at 375px anywhere.
+- Link audit reports zero broken internal links and runs in CI.
+- Zero instances of "FeastPot".

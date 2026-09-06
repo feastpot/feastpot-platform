@@ -26,6 +26,8 @@ export interface AdminVendorRow {
   createdAt: string;
   approvedAt: string | null;
   owner: { firstName: string | null; lastName: string | null; email: string };
+  isTestData: boolean;
+  testDataProvenance: string[];
   documentStatusByType: Partial<Record<DocumentType, DocumentStatus>>;
 }
 
@@ -34,14 +36,15 @@ export interface AdminVendorsPage {
   nextCursor: string | null;
 }
 
-export function useAdminVendors(status: VendorStatus | 'all') {
+export function useAdminVendors(status: VendorStatus | 'all', includeTestData = false) {
   const { request, ready } = useApi();
   return useQuery({
-    queryKey: ['admin', 'vendors', status],
+    queryKey: ['admin', 'vendors', status, includeTestData],
     enabled: ready,
     queryFn: () => {
       const params = new URLSearchParams();
       if (status !== 'all') params.set('status', status);
+      if (includeTestData) params.set('includeTestData', 'true');
       params.set('limit', '50');
       return request<AdminVendorsPage>(`/admin/vendors?${params.toString()}`);
     },
@@ -50,12 +53,15 @@ export function useAdminVendors(status: VendorStatus | 'all') {
 
 export type AdminVendorCounts = Record<VendorStatus | 'all', number>;
 
-export function useAdminVendorCounts() {
+export function useAdminVendorCounts(includeTestData = false) {
   const { request, ready } = useApi();
   return useQuery({
-    queryKey: ['admin', 'vendors', 'counts'],
+    queryKey: ['admin', 'vendors', 'counts', includeTestData],
     enabled: ready,
-    queryFn: () => request<AdminVendorCounts>(`/admin/vendors/counts`),
+    queryFn: () =>
+      request<AdminVendorCounts>(
+        `/admin/vendors/counts${includeTestData ? '?includeTestData=true' : ''}`,
+      ),
   });
 }
 

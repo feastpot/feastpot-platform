@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  Badge,
   Card,
   CardContent,
   Table,
@@ -10,7 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from '@feastpot/ui';
-import { Check, Circle, Minus, Store, X } from 'lucide-react';
+import { Store } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 
@@ -35,6 +36,7 @@ const TABS: ReadonlyArray<{
   tone: TabPillItem<TabValue>['countTone'];
 }> = [
   { value: 'pending', label: 'Pending', tone: 'warning' },
+  { value: 'approved', label: 'Approved', tone: 'info' },
   { value: 'live', label: 'Live', tone: 'success' },
   { value: 'probation', label: 'Probation', tone: 'warning' },
   { value: 'suspended', label: 'Suspended', tone: 'danger' },
@@ -66,12 +68,22 @@ const STATUS_TONE: Record<VendorStatus, StatusTone> = {
   removed: 'neutral',
 };
 
-export function VendorsClient() {
+const STATUS_LABEL: Record<VendorStatus, string> = {
+  pending: 'Pending',
+  approved: 'Approved',
+  live: 'Live',
+  probation: 'Probation',
+  suspended: 'Suspended',
+  removed: 'Removed',
+};
+
+export function VendorsClient({ canIncludeTestData }: { canIncludeTestData: boolean }) {
   const [tab, setTab] = useState<TabValue>('all');
+  const [includeTestData, setIncludeTestData] = useState(false);
   // Public list endpoint is hard-locked to `live`, so the "all" tab still hits
   // /admin/vendors and just doesn't pass a status filter (server falls back).
-  const { data, isLoading, error } = useAdminVendors(tab === 'all' ? 'all' : tab);
-  const counts = useAdminVendorCounts();
+  const { data, isLoading, error } = useAdminVendors(tab === 'all' ? 'all' : tab, includeTestData);
+  const counts = useAdminVendorCounts(includeTestData);
 
   const rows = data?.data ?? [];
 
@@ -95,6 +107,16 @@ export function VendorsClient() {
           onChange={setTab}
           ariaLabel="Vendor status filter"
         />
+        {canIncludeTestData && (
+          <label className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+            <input
+              type="checkbox"
+              checked={includeTestData}
+              onChange={(e) => setIncludeTestData(e.target.checked)}
+            />
+            Include persisted test data
+          </label>
+        )}
       </div>
 
       {error && (
@@ -142,22 +164,35 @@ export function VendorsClient() {
                 <TableRow key={v.id}>
                   <TableCell>
                     <div className="font-medium">{v.businessName}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {v.cuisines.join(', ') || '-'}
-                    </div>
+                    {v.isTestData && (
+                      <Badge
+                        variant="outline"
+                        className="mt-1"
+                        aria-label={`Test data: ${v.testDataProvenance.join('; ')}`}
+                      >
+                        Test data
+                      </Badge>
+                    )}
+                    {v.cuisines.length > 0 && (
+                      <div className="text-xs text-muted-foreground">{v.cuisines.join(', ')}</div>
+                    )}
                   </TableCell>
                   <TableCell>
-                    <div className="text-sm">
-                      {`${v.owner.firstName ?? ''} ${v.owner.lastName ?? ''}`.trim() || '-'}
-                    </div>
-                    <div className="text-xs text-muted-foreground">{v.owner.email}</div>
+                    {`${v.owner.firstName ?? ''} ${v.owner.lastName ?? ''}`.trim() && (
+                      <div className="text-sm">
+                        {`${v.owner.firstName ?? ''} ${v.owner.lastName ?? ''}`.trim()}
+                      </div>
+                    )}
+                    {v.owner.email && (
+                      <div className="text-xs text-muted-foreground">{v.owner.email}</div>
+                    )}
                   </TableCell>
                   <TableCell className="text-sm">{formatDate(v.createdAt)}</TableCell>
                   <TableCell>
-                    <StatusPill tone={STATUS_TONE[v.status]}>{v.status}</StatusPill>
+                    <StatusPill tone={STATUS_TONE[v.status]}>{STATUS_LABEL[v.status]}</StatusPill>
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap gap-x-2 gap-y-1">
                       {DOC_TYPES.map((t) => (
                         <DocIcon key={t} type={t} status={v.documentStatusByType[t]} />
                       ))}
@@ -183,38 +218,57 @@ export function VendorsClient() {
 
 function DocIcon({ type, status }: { type: DocumentType; status: DocumentStatus | undefined }) {
   const label = DOC_LABELS[type];
-  const common = 'flex h-6 w-6 items-center justify-center rounded-full text-white';
   if (!status) {
     return (
-      <span title={`${label}: missing`} className={`${common} bg-muted text-muted-foreground`}>
-        <Minus className="h-3 w-3" />
+      <span
+        title={`${label}: missing`}
+        aria-label={`${label}: missing`}
+        className="text-xs text-muted-foreground"
+      >
+        {label}: Missing
       </span>
     );
   }
   if (status === 'verified') {
     return (
-      <span title={`${label}: verified`} className={`${common} bg-teal-dark`}>
-        <Check className="h-3 w-3" />
+      <span
+        title={`${label}: present`}
+        aria-label={`${label}: present`}
+        className="text-xs text-teal-dark"
+      >
+        {label}: Present
       </span>
     );
   }
   if (status === 'rejected') {
     return (
-      <span title={`${label}: rejected`} className={`${common} bg-destructive`}>
-        <X className="h-3 w-3" />
+      <span
+        title={`${label}: rejected`}
+        aria-label={`${label}: rejected`}
+        className="text-xs text-destructive"
+      >
+        {label}: Rejected
       </span>
     );
   }
   if (status === 'expired') {
     return (
-      <span title={`${label}: expired`} className={`${common} bg-orange-500`}>
-        <Circle className="h-3 w-3 fill-current" />
+      <span
+        title={`${label}: expired`}
+        aria-label={`${label}: expired`}
+        className="text-xs text-orange-500"
+      >
+        {label}: Expired
       </span>
     );
   }
   return (
-    <span title={`${label}: pending`} className={`${common} bg-amber-500`}>
-      <Circle className="h-3 w-3 fill-current" />
+    <span
+      title={`${label}: pending review`}
+      aria-label={`${label}: pending review`}
+      className="text-xs text-amber-500"
+    >
+      {label}: Pending
     </span>
   );
 }

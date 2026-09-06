@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { VendorStatus } from '@prisma/client';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { IsEnum, IsInt, IsOptional, IsString, Matches, Max, MaxLength, Min } from 'class-validator';
 
 export class ListAdminVendorsDto {
@@ -32,4 +32,11 @@ export class ListAdminVendorsDto {
   @MaxLength(512)
   @Matches(/^[A-Za-z0-9_\-=]+$/)
   cursor?: string;
+
+  @ApiPropertyOptional({
+    description: 'Include explicitly persisted vendor or owner test-data records.',
+  })
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true')
+  includeTestData?: boolean;
 }

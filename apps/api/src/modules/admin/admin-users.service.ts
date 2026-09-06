@@ -344,7 +344,7 @@ export class AdminUsersService {
    */
   /** Filter builder shared by the paginated list and the CSV export. */
   private buildUsersWhere(dto: ListAdminUsersDto): Prisma.UserWhereInput {
-    const where: Prisma.UserWhereInput = {};
+    const where: Prisma.UserWhereInput = dto.includeTestData ? {} : { isTestData: false };
     if (dto.role) where.role = dto.role;
     if (dto.status) where.status = dto.status;
     if (dto.joined) where.createdAt = { gte: this.joinedRangeStart(dto.joined) };
@@ -369,7 +369,19 @@ export class AdminUsersService {
    */
   async exportUsersCsv(dto: ListAdminUsersDto, write: (chunk: string) => void): Promise<void> {
     const where = this.buildUsersWhere(dto);
-    write(csvRow(['created_at', 'email', 'first_name', 'last_name', 'role', 'status', 'orders']));
+    write(
+      csvRow([
+        'created_at',
+        'email',
+        'first_name',
+        'last_name',
+        'role',
+        'status',
+        'orders',
+        'is_test_data',
+        'provenance',
+      ]),
+    );
     let cursor: string | null = null;
     let emitted = 0;
     while (emitted < CSV_EXPORT_HARD_CAP) {
@@ -382,6 +394,8 @@ export class AdminUsersService {
         lastName: string | null;
         role: UserRole;
         status: UserStatus;
+        isTestData: boolean;
+        provenance: string | null;
         createdAt: Date;
         _count: { orders: number };
       }> = await this.prisma.user.findMany({
@@ -396,6 +410,8 @@ export class AdminUsersService {
           lastName: true,
           role: true,
           status: true,
+          isTestData: true,
+          provenance: true,
           createdAt: true,
           _count: { select: { orders: true } },
         },
@@ -411,6 +427,8 @@ export class AdminUsersService {
             r.role,
             r.status,
             r._count.orders,
+            r.isTestData,
+            r.provenance ?? '',
           ]),
         );
       }
@@ -447,6 +465,8 @@ export class AdminUsersService {
           role: true,
           status: true,
           avatarUrl: true,
+          isTestData: true,
+          provenance: true,
           createdAt: true,
           _count: { select: { orders: true } },
         },
@@ -480,6 +500,8 @@ export class AdminUsersService {
       role: u.role,
       status: u.status,
       avatarUrl: u.avatarUrl,
+      isTestData: u.isTestData,
+      provenance: u.provenance,
       createdAt: u.createdAt,
       orderCount: u._count.orders,
       lifetimeSpendPence: spendByUser.get(u.id) ?? 0,

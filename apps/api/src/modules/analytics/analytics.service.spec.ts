@@ -10,6 +10,8 @@ const mockCreate = jest.fn().mockResolvedValue({ id: 'evt_1' });
 
 const mockPrisma = {
   analyticsEvent: { create: mockCreate },
+  $queryRawUnsafe: jest.fn(),
+  vendor: { findMany: jest.fn() },
 } as unknown as PrismaService;
 
 // ── Helpers ───────────────────────────────────────────────────────────────
@@ -127,5 +129,26 @@ describe('order_attribution_source contract', () => {
       data: { properties: Record<string, unknown> };
     };
     expect(callArgs.data.properties.attributionSource).toBe(attrSource);
+  });
+});
+
+describe('AnalyticsService.getShareActivity', () => {
+  it('returns the joined vendor trading name rather than its UUID', async () => {
+    const vendorId = '00000000-0000-0000-0000-000000000003';
+    const prisma = {
+      $queryRawUnsafe: jest.fn().mockResolvedValue([{ vendorId, linkClicks: '3', qrScans: '2' }]),
+      vendor: {
+        findMany: jest.fn().mockResolvedValue([{ id: vendorId, businessName: 'Ada Kitchen' }]),
+      },
+    };
+    const service = new AnalyticsService(prisma as never);
+
+    await expect(service.getShareActivity(30, 20)).resolves.toEqual([
+      { vendorId, businessName: 'Ada Kitchen', linkClicks: 3, qrScans: 2 },
+    ]);
+    expect(prisma.vendor.findMany).toHaveBeenCalledWith({
+      where: { id: { in: [vendorId] } },
+      select: { id: true, businessName: true },
+    });
   });
 });

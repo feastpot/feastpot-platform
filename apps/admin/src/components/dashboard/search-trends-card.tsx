@@ -2,6 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@feastpot/ui';
 import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import Link from 'next/link';
 
 import { useSearchAnalytics, type SearchAnalyticsRow } from '@/hooks/use-search-analytics';
 
@@ -15,6 +16,10 @@ function barColour(avgResults: number): string {
   if (avgResults >= 3) return '#1D9E75'; // teal (brand)
   if (avgResults >= 1) return '#E59E1B'; // amber
   return '#D93B3B'; // red
+}
+
+function truncateSearchTerm(term: string, maxLength = 18): string {
+  return term.length > maxLength ? `${term.slice(0, maxLength - 1)}…` : term;
 }
 
 /**
@@ -50,33 +55,62 @@ export function SearchTrendsCard() {
         )}
 
         {top10.length > 0 && (
-          <div className="h-[320px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={top10}
-                layout="vertical"
-                margin={{ top: 8, right: 24, left: 8, bottom: 8 }}
-              >
-                <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} />
-                <YAxis type="category" dataKey="query" width={120} tick={{ fontSize: 11 }} />
-                <Tooltip
-                  formatter={(
-                    value: number,
-                    name: string,
-                    item: { payload?: SearchAnalyticsRow },
-                  ) => {
-                    const row = item.payload;
-                    return [`${value} searches · avg ${row?.avgResults ?? 0} results`, 'Searches'];
-                  }}
-                />
-                <Bar dataKey="searchCount" radius={[0, 4, 4, 0]}>
-                  {top10.map((row) => (
-                    <Cell key={row.query} fill={barColour(row.avgResults)} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          <>
+            <ul
+              className="mb-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground"
+              aria-label="Search result supply legend"
+            >
+              <li className="flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-sm bg-[#1D9E75]" aria-hidden /> Healthy supply
+                (3+ average results)
+              </li>
+              <li className="flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-sm bg-[#E59E1B]" aria-hidden /> Thin supply
+                (1–2 average results)
+              </li>
+              <li className="flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-sm bg-[#D93B3B]" aria-hidden /> No vendors
+                found (0 average results)
+              </li>
+            </ul>
+            <div className="h-[320px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={top10}
+                  layout="vertical"
+                  margin={{ top: 8, right: 24, left: 8, bottom: 8 }}
+                >
+                  <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} />
+                  <YAxis
+                    type="category"
+                    dataKey="query"
+                    width={120}
+                    tick={{ fontSize: 11 }}
+                    tickFormatter={truncateSearchTerm}
+                  />
+                  <Tooltip
+                    labelFormatter={(label) => `Search term: ${label}`}
+                    formatter={(
+                      value: number,
+                      name: string,
+                      item: { payload?: SearchAnalyticsRow },
+                    ) => {
+                      const row = item.payload;
+                      return [
+                        `${value} searches · avg ${row?.avgResults ?? 0} results`,
+                        'Searches',
+                      ];
+                    }}
+                  />
+                  <Bar dataKey="searchCount" radius={[0, 4, 4, 0]}>
+                    {top10.map((row) => (
+                      <Cell key={row.query} fill={barColour(row.avgResults)} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </>
         )}
 
         {opportunities.length > 0 && (
@@ -91,7 +125,13 @@ export function SearchTrendsCard() {
                   key={o.query}
                   className="inline-flex items-center gap-1 rounded-full bg-white px-2 py-0.5 text-xs font-medium text-amber-900 shadow-sm"
                 >
-                  {o.query}
+                  <Link
+                    href={`/vendor-recommendations?search=${encodeURIComponent(o.query)}`}
+                    className="hover:underline"
+                    title={`View vendor recommendations matching ${o.query}`}
+                  >
+                    {o.query}
+                  </Link>
                   <span className="text-[10px] font-normal text-amber-700">({o.searchCount})</span>
                 </li>
               ))}

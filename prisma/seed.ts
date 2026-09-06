@@ -341,7 +341,14 @@ async function ensureAuthUser(
 async function upsertPublicUser(id: string, u: SeedUser) {
   return prisma.user.upsert({
     where: { email: u.email },
-    update: { role: u.role, firstName: u.firstName, lastName: u.lastName, emailVerified: true },
+    update: {
+      role: u.role,
+      firstName: u.firstName,
+      lastName: u.lastName,
+      emailVerified: true,
+      isTestData: true,
+      provenance: 'seed',
+    },
     create: {
       id,
       email: u.email,
@@ -349,6 +356,8 @@ async function upsertPublicUser(id: string, u: SeedUser) {
       firstName: u.firstName,
       lastName: u.lastName,
       emailVerified: true,
+      isTestData: true,
+      provenance: 'seed',
     },
   });
 }
@@ -396,6 +405,7 @@ async function main() {
       fsaHygieneRating: 5,
       fsaRatingDate: new Date('2025-01-10T00:00:00Z'),
       foundingAllowanceUsedPence: 45000,
+      isSeedData: true,
     },
     create: {
       userId: mamanUserId,
@@ -414,6 +424,7 @@ async function main() {
       payoutsEnabled: true,
       approvedAt: new Date('2025-01-15T10:00:00Z'),
       foundingAllowanceUsedPence: 45000,
+      isSeedData: true,
     },
   });
 
@@ -423,6 +434,7 @@ async function main() {
       complianceStatus: VendorComplianceStatus.RATED,
       fsaHygieneRating: 4,
       fsaRatingDate: new Date('2025-01-28T00:00:00Z'),
+      isSeedData: true,
     },
     create: {
       userId: kwameUserId,
@@ -440,6 +452,7 @@ async function main() {
       commissionBps: Math.round(COMMISSION_RATES.marketplaceFirst.percent * 100),
       payoutsEnabled: true,
       approvedAt: new Date('2025-02-01T10:00:00Z'),
+      isSeedData: true,
     },
   });
   console.info(`[seed] vendors: ${maman.slug}, ${kwame.slug}`);
@@ -1959,6 +1972,7 @@ async function main() {
         complianceStatus: VendorComplianceStatus.RATED,
         fsaHygieneRating: 5,
         fsaRatingDate: new Date('2026-02-15T00:00:00Z'),
+        isSeedData: true,
       },
       create: {
         userId: ownerId,
@@ -1975,6 +1989,7 @@ async function main() {
         commissionBps: Math.round(COMMISSION_RATES.marketplaceFirst.percent * 100),
         payoutsEnabled: true,
         approvedAt: new Date('2026-03-01T10:00:00Z'),
+        isSeedData: true,
       },
     });
 

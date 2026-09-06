@@ -54,7 +54,7 @@ const STATUS_TONE: Record<string, StatusTone> = {
 
 const STATUSES = ['NEW', 'REVIEWING', 'CONTACTED', 'APPLIED', 'REJECTED', 'ARCHIVED'];
 
-export function VendorRecommendationsClient() {
+export function VendorRecommendationsClient({ searchTerm = '' }: { searchTerm?: string }) {
   const { request } = useApi();
   const { toast } = useToast();
 
@@ -74,13 +74,14 @@ export function VendorRecommendationsClient() {
     setLoading(true);
     const params = new URLSearchParams();
     if (status !== 'ALL') params.set('status', status);
+    if (searchTerm) params.set('search', searchTerm);
     if (cursor) params.set('cursor', cursor);
     params.set('limit', '50');
     request<ListPage>(`/vendor-recommendations?${params.toString()}`)
       .then(setPage)
       .catch(() => setPage(null))
       .finally(() => setLoading(false));
-  }, [request, status, cursor]);
+  }, [request, status, searchTerm, cursor]);
 
   useEffect(() => {
     loadPage();
@@ -140,6 +141,15 @@ export function VendorRecommendationsClient() {
             ))}
           </SelectContent>
         </Select>
+        {searchTerm && (
+          <p className="text-sm text-muted-foreground">
+            Filtered by search term:{' '}
+            <span className="font-medium text-foreground">{searchTerm}</span>{' '}
+            <a href="/vendor-recommendations" className="text-primary hover:underline">
+              Clear
+            </a>
+          </p>
+        )}
       </div>
 
       {loading ? (

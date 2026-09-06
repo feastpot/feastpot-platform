@@ -44,19 +44,24 @@ export class CateringEnquiriesController {
     @Query('status') status?: string,
     @Query('cursor') cursor?: string,
     @Query('limit') limit?: string,
+    @Query('includeTestData') includeTestData?: string,
   ) {
     return this.enquiries.list({
       status,
       cursor,
       limit: limit ? parseInt(limit, 10) : undefined,
+      includeTestData: includeTestData === 'true',
     });
   }
 
   @Get(':id')
   @Roles(UserRole.admin, UserRole.support)
   @ApiOperation({ summary: 'Admin: get catering enquiry detail' })
-  getById(@Param('id', new ParseUUIDPipe()) id: string) {
-    return this.enquiries.getById(id);
+  getById(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Query('includeTestData') includeTestData?: string,
+  ) {
+    return this.enquiries.getById(id, includeTestData === 'true');
   }
 
   @Patch(':id')

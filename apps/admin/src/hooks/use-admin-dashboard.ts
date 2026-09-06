@@ -17,7 +17,10 @@ export interface TopVendorRow {
   ordersCount: number;
   rating: number;
   reorderRatePct: number;
+  reorderCustomers: number;
+  deliveredCustomers: number;
   disputeRatePct: number;
+  disputesCount: number;
 }
 
 export interface AdminDashboard {
@@ -29,6 +32,8 @@ export interface AdminDashboard {
   ordersTodayCount: number;
   avgBasketPence: number;
   repeatOrderRatePct: number;
+  repeatCustomers: number;
+  totalCustomers: number;
   dailyRevenue: DailyRevenueBucket[];
   topVendors: TopVendorRow[];
 }

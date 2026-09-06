@@ -841,7 +841,13 @@ export class TestDataFactory {
 
     const platformUser = await this.prisma.user.upsert({
       where: { email },
-      update: { role, status: 'active', emailVerified: true },
+      update: {
+        role,
+        status: 'active',
+        emailVerified: true,
+        isTestData: true,
+        provenance: 'test-factory',
+      },
       create: {
         id: userId,
         email,
@@ -850,6 +856,8 @@ export class TestDataFactory {
         role,
         status: 'active',
         emailVerified: true,
+        isTestData: true,
+        provenance: 'test-factory',
       },
     });
 
@@ -868,26 +876,37 @@ export class TestDataFactory {
   }
 
   private async ensureVendor(identity: TestIdentity, user: FactoryUser, state: FactoryState) {
-    const existing = await this.prisma.vendor.findUnique({ where: { userId: user.id } });
-    const vendor =
-      existing ??
-      (await this.prisma.vendor.create({
-        data: {
-          userId: user.id,
-          businessName: `Test Factory ${state} Kitchen`,
-          slug: slug(this.namespace, state),
-          description: 'Safe, isolated test vendor created by the Feastpot test data factory.',
-          cuisines: ['Test cuisine'],
-          status: state === 'V2' || state === 'V3' ? 'approved' : 'live',
-          approvedAt: new Date(),
-          stripeAccountId:
-            state === 'V2' ? null : deterministicExternalId('acct', this.namespace, state),
-          payoutsEnabled: state === 'V2' || state === 'V3' ? false : true,
-          complianceStatus: 'RATED',
-          fsaHygieneRating: 5,
-          fsaRatingDate: new Date(),
-        },
-      }));
+    // Both values are factory-owned durable keys. Looking up by either repairs
+    // interrupted older runs without relying on a business name or contact data.
+    const existing = await this.prisma.vendor.findFirst({
+      where: { OR: [{ userId: user.id }, { slug: slug(this.namespace, state) }] },
+    });
+    const vendor = existing
+      ? await this.prisma.vendor.update({
+          where: { id: existing.id },
+          data: {
+            userId: user.id,
+            isSeedData: true,
+          },
+        })
+      : await this.prisma.vendor.create({
+          data: {
+            userId: user.id,
+            businessName: `Test Factory ${state} Kitchen`,
+            slug: slug(this.namespace, state),
+            description: 'Safe, isolated test vendor created by the Feastpot test data factory.',
+            cuisines: ['Test cuisine'],
+            status: state === 'V2' || state === 'V3' ? 'approved' : 'live',
+            approvedAt: new Date(),
+            stripeAccountId:
+              state === 'V2' ? null : deterministicExternalId('acct', this.namespace, state),
+            payoutsEnabled: state === 'V2' || state === 'V3' ? false : true,
+            complianceStatus: 'RATED',
+            fsaHygieneRating: 5,
+            fsaRatingDate: new Date(),
+            isSeedData: true,
+          },
+        });
 
     if (!identity.relatedVendorIds.includes(vendor.id)) identity.relatedVendorIds.push(vendor.id);
     // V4 is the canonical empty vendor. It must stay free of menus and all
@@ -1240,19 +1259,30 @@ export class TestDataFactory {
     state: Extract<VendorState, 'V11'>,
   ): Promise<string> {
     const email = stateEmail(this.namespace, state);
-    const enquiry =
-      (await this.prisma.cateringEnquiry.findFirst({ where: { email, source: 'test-factory' } })) ??
-      (await this.prisma.cateringEnquiry.create({
-        data: {
-          occasionType: 'Birthday',
-          guestCountBand: '20-30',
-          postcode: 'SE15 4ST',
-          outwardCode: 'SE15',
-          contactName: 'Test Factory Customer',
-          email,
-          source: 'test-factory',
-        },
-      }));
+    const existingEnquiry = await this.prisma.cateringEnquiry.findFirst({
+      // `source` is the explicit durable provenance marker. The deterministic
+      // factory email scopes the fixture without inferring anything about a
+      // non-factory contact.
+      where: { email, source: 'test-factory' },
+    });
+    const enquiry = existingEnquiry
+      ? await this.prisma.cateringEnquiry.update({
+          where: { id: existingEnquiry.id },
+          data: { isTestData: true, provenance: 'test-factory' },
+        })
+      : await this.prisma.cateringEnquiry.create({
+          data: {
+            occasionType: 'Birthday',
+            guestCountBand: '20-30',
+            postcode: 'SE15 4ST',
+            outwardCode: 'SE15',
+            contactName: 'Test Factory Customer',
+            email,
+            source: 'test-factory',
+            isTestData: true,
+            provenance: 'test-factory',
+          },
+        });
     const booking = await this.prisma.cateringBooking.upsert({
       where: { enquiryId: enquiry.id },
       update: { status: 'CONFIRMED' },

@@ -362,6 +362,7 @@ export class VendorRepository {
         ${matchedDishesSelect}
       FROM vendors v
       WHERE v.status::text = ${dto.status ?? VendorStatus.live}
+        AND v.is_seed_data = false
         AND v.approved_at IS NOT NULL
         AND v.suspended_at IS NULL
         -- FSA compliance gate (Prompt 13 / PLATFORM_FACTS.vendorRequirements item 3).

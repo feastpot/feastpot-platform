@@ -27,11 +27,13 @@ export class VendorRecommendationsController {
   @ApiOperation({ summary: 'Admin: list vendor recommendations' })
   list(
     @Query('status') status?: string,
+    @Query('search') search?: string,
     @Query('cursor') cursor?: string,
     @Query('limit') limit?: string,
   ) {
     return this.recs.list({
       status,
+      search,
       cursor,
       limit: limit ? parseInt(limit, 10) : undefined,
     });

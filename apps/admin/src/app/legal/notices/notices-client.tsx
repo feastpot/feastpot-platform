@@ -9,11 +9,7 @@ import { StatusPill } from '@/components/ui/status-pill';
 import { useToast } from '@/components/ui/toaster';
 import { useAdminNotices, useResendNotice, type NoticeRow } from '@/hooks/use-legal';
 import { formatDateTime } from '@/lib/format';
-
-function pct(n: number, total: number) {
-  if (total === 0) return '-';
-  return `${Math.round((n / total) * 100)}%`;
-}
+import { formatRatio } from '@/lib/format-ratio';
 
 function isBounced(n: NoticeRow) {
   return !n.deliveredAt && new Date(n.sentAt) < new Date(Date.now() - 24 * 60 * 60 * 1000);
@@ -93,7 +89,9 @@ export function NoticesClient() {
                   <div key={stat.label}>
                     <div className="text-sm font-bold tabular-nums">{stat.val}</div>
                     <div className="text-[10px] text-muted-foreground">{stat.label}</div>
-                    <div className="text-[10px] text-muted-foreground">{pct(stat.val, s.sent)}</div>
+                    <div className="text-[10px] text-muted-foreground">
+                      {formatRatio(stat.val, s.sent, 0)} ({stat.val} of {s.sent})
+                    </div>
                   </div>
                 ))}
               </div>
