@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -28,6 +29,8 @@ import {
   PORTION_TAG_PREFIX,
   SPICE_TAG_PREFIX,
 } from './catalogue.constants';
+import { ApproveMenuItemWithEditDto } from './dto/approve-menu-item-with-edit.dto';
+import { BulkApproveMenuItemDto } from './dto/bulk-approve-menu-items.dto';
 import { CreateMenuItemDto } from './dto/create-menu-item.dto';
 import { ListMenuItemsDto } from './dto/list-menu-items.dto';
 import { ListMenuModerationDto } from './dto/list-menu-moderation.dto';
@@ -64,6 +67,15 @@ function hasAllergenDeclaration(item: {
  */
 @Injectable()
 export class MenuItemsService {
+  moderationPolicy() {
+    const automatic = this.config.get<string>('MENU_AUTO_APPROVE') === 'true';
+    return {
+      mode: automatic ? 'automatic' : 'manual_pilot',
+      turnaroundHours: 72,
+      label: automatic ? 'Immediate publication' : 'Manual pilot approval',
+    };
+  }
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: SupabaseStorageService,
@@ -278,12 +290,13 @@ export class MenuItemsService {
     });
     const sortOrder = (maxOrder._max.sortOrder ?? 0) + 1;
 
-    // Approval gate. Default (MENU_AUTO_APPROVE unset or anything but the
-    // literal string 'false') auto-approves uploads - safe for a vetted
-    // founding cohort. Set MENU_AUTO_APPROVE=false before opening self-serve
-    // signup so new items land as `held` and require admin approval first.
-    const autoApprove = this.config.get<string>('MENU_AUTO_APPROVE') !== 'false';
-    const moderationStatus = autoApprove ? ModerationStatus.auto_approved : ModerationStatus.held;
+    // Fail closed: manual approval is the pilot default. Auto approval is an
+    // explicit, exact opt-in for a vetted cohort, never a truthy-value check.
+    // Missing allergen declarations always hold, including in that opt-in mode.
+    const declared = allergens.length > 0 || (dto.allergensFreeFrom ?? false);
+    const autoApprove = this.config.get<string>('MENU_AUTO_APPROVE') === 'true';
+    const moderationStatus =
+      autoApprove && declared ? ModerationStatus.auto_approved : ModerationStatus.held;
 
     const created = await this.prisma.menuItem.create({
       data: {
@@ -301,6 +314,7 @@ export class MenuItemsService {
         tags,
         sortOrder,
         moderationStatus,
+        submittedAt: moderationStatus === ModerationStatus.held ? new Date() : null,
         // Honour the explicit publish state from the DTO so vendors can save
         // drafts. Falls back to the schema default (false) when omitted.
         ...(dto.isAvailable !== undefined ? { isAvailable: dto.isAvailable } : {}),
@@ -347,8 +361,23 @@ export class MenuItemsService {
     const hasMore = rows.length > limit;
     const page = hasMore ? rows.slice(0, limit) : rows;
     const last = page[page.length - 1];
+    const now = Date.now();
     return {
-      data: page,
+      data: page.map((item) => {
+        const submittedAt = item.submittedAt ?? item.createdAt;
+        const ageHours = Math.max(0, Math.floor((now - submittedAt.getTime()) / (60 * 60 * 1000)));
+        const slaDueAt = new Date(submittedAt.getTime() + 72 * 60 * 60 * 1000);
+        return {
+          ...item,
+          moderationSla: {
+            targetHours: 72,
+            submittedAt,
+            ageHours,
+            slaDueAt,
+            overdue: now > slaDueAt.getTime(),
+          },
+        };
+      }),
       total,
       nextCursor: hasMore && last ? this.encodeCursor(last) : null,
     };
@@ -412,40 +441,307 @@ export class MenuItemsService {
         message: 'status must be approved, rejected, or held',
       });
     }
-    const item = await this.prisma.menuItem.findUnique({
-      where: { id: itemId },
-      select: { id: true, vendorId: true, name: true },
-    });
-    if (!item) {
-      throw new NotFoundException({ code: 'MENU_ITEM_NOT_FOUND', message: 'Menu item not found' });
+    if (dto.status === ModerationStatus.rejected && !dto.reason?.trim()) {
+      throw new BadRequestException({
+        code: 'REJECTION_REASON_REQUIRED',
+        message: 'A vendor-visible rejection reason is required.',
+      });
     }
+    const decidedAt = dto.status === ModerationStatus.held ? null : new Date();
+    const reason = dto.reason?.trim() || null;
+    const transactionResult = await this.prisma.$transaction(async (tx) => {
+      const item = await tx.menuItem.findUnique({
+        where: { id: itemId },
+        select: {
+          id: true,
+          vendorId: true,
+          name: true,
+          allergens: true,
+          allergensFreeFrom: true,
+          moderationStatus: true,
+          submissionVersion: true,
+        },
+      });
+      if (!item) {
+        throw new NotFoundException({
+          code: 'MENU_ITEM_NOT_FOUND',
+          message: 'Menu item not found',
+        });
+      }
+      if (
+        item.submissionVersion !== dto.expectedSubmissionVersion ||
+        item.moderationStatus !== dto.expectedStatus
+      ) {
+        this.throwStaleSubmission();
+      }
+      const allowedTransitions: Partial<Record<ModerationStatus, ModerationStatus[]>> = {
+        [ModerationStatus.held]: [ModerationStatus.approved, ModerationStatus.rejected],
+        [ModerationStatus.approved]: [ModerationStatus.held, ModerationStatus.rejected],
+        [ModerationStatus.auto_approved]: [ModerationStatus.held, ModerationStatus.rejected],
+        [ModerationStatus.rejected]: [ModerationStatus.held],
+      };
+      if (!allowedTransitions[item.moderationStatus]?.includes(dto.status)) {
+        throw new BadRequestException({
+          code: 'INVALID_MODERATION_TRANSITION',
+          message: `Cannot move a menu item from ${item.moderationStatus} to ${dto.status}.`,
+        });
+      }
+      if (dto.status === ModerationStatus.approved && !hasAllergenDeclaration(item)) {
+        throw new BadRequestException({
+          code: 'ALLERGEN_DECLARATION_REQUIRED',
+          message: 'The item cannot be approved until its allergen declaration is complete.',
+        });
+      }
+      const result = await tx.menuItem.updateMany({
+        where: {
+          id: itemId,
+          submissionVersion: dto.expectedSubmissionVersion,
+          moderationStatus: dto.expectedStatus,
+        },
+        data: {
+          moderationStatus: dto.status,
+          submittedAt: dto.status === ModerationStatus.held ? new Date() : undefined,
+          decidedAt,
+          decisionReason: reason,
+          moderatedById: user.id,
+          submissionVersion: { increment: 1 },
+        },
+      });
+      if (result.count !== 1) this.throwStaleSubmission();
+      const updated = await tx.menuItem.findUnique({ where: { id: itemId } });
+      if (!updated) {
+        throw new NotFoundException({
+          code: 'MENU_ITEM_NOT_FOUND',
+          message: 'Menu item not found',
+        });
+      }
+      if (dto.status === ModerationStatus.held) {
+        return { updated, outbox: null, vendorId: item.vendorId };
+      }
 
-    const updated = await this.prisma.menuItem.update({
-      where: { id: itemId },
-      data: { moderationStatus: dto.status },
-    });
-    await this.invalidateVendorCache(item.vendorId);
-
-    // Tell the vendor when their item is rejected so they can fix and resubmit.
-    if (dto.status === ModerationStatus.rejected) {
-      const vendor = await this.prisma.vendor.findUnique({
+      const vendor = await tx.vendor.findUnique({
         where: { id: item.vendorId },
         select: { userId: true },
       });
-      if (vendor) {
-        await this.inbox.notify({
-          userId: vendor.userId,
-          type: InboxNotificationType.menu_item_rejected,
-          title: 'Menu item rejected',
-          body: dto.reason
-            ? `"${item.name}" was not approved: ${dto.reason}`
-            : `"${item.name}" was not approved by moderation.`,
-          link: '/menu',
-          metadata: { menuItemId: item.id, moderatedById: user.id },
+      if (!vendor) return { updated, outbox: null, vendorId: item.vendorId };
+      await this.inbox.createTransactional(
+        tx,
+        this.decisionInboxInput(item, vendor.userId, dto.status, reason, user.id),
+      );
+      const payload = { userId: vendor.userId, itemName: item.name, status: dto.status, reason };
+      const jobId = `menu-item-decision:${item.id}:${dto.status}:${decidedAt!.toISOString()}`;
+      const outbox = await this.notifications.createTransactionalOutbox(
+        tx,
+        NotificationEvent.menu_item_moderation_decision,
+        payload,
+        jobId,
+      );
+      return { updated, outbox: { ...outbox, payload, jobId }, vendorId: item.vendorId };
+    });
+    await this.invalidateVendorCache(transactionResult.vendorId);
+    if (transactionResult.outbox) {
+      await this.notifications.dispatchTransactionalOutbox(
+        transactionResult.outbox.id,
+        NotificationEvent.menu_item_moderation_decision,
+        transactionResult.outbox.payload,
+        transactionResult.outbox.jobId,
+      );
+    }
+    return transactionResult.updated;
+  }
+
+  async approveWithEdit(itemId: string, dto: ApproveMenuItemWithEditDto, user: AuthUser) {
+    const { edit } = dto;
+    const decidedAt = new Date();
+    const transactionResult = await this.prisma.$transaction(async (tx) => {
+      const item = await tx.menuItem.findUnique({ where: { id: itemId } });
+      if (!item) {
+        throw new NotFoundException({
+          code: 'MENU_ITEM_NOT_FOUND',
+          message: 'Menu item not found',
         });
       }
+      if (!hasAllergenDeclaration(item)) {
+        throw new BadRequestException({
+          code: 'ALLERGEN_DECLARATION_REQUIRED',
+          message: 'The item cannot be approved until its allergen declaration is complete.',
+        });
+      }
+      // The admin UI deliberately permits only these small, reviewed corrections.
+      const data: Prisma.MenuItemUncheckedUpdateManyInput = {
+        moderationStatus: ModerationStatus.approved,
+        decidedAt,
+        decisionReason: null,
+        moderatedById: user.id,
+        submissionVersion: { increment: 1 },
+      };
+      if (edit.name !== undefined) data.name = edit.name;
+      if (edit.description !== undefined) data.description = edit.description;
+      if (edit.basePricePence !== undefined) data.pricePence = edit.basePricePence;
+      const result = await tx.menuItem.updateMany({
+        where: {
+          id: itemId,
+          submissionVersion: dto.expectedSubmissionVersion,
+          moderationStatus: ModerationStatus.held,
+        },
+        data,
+      });
+      if (result.count !== 1) this.throwStaleSubmission();
+      const updated = await tx.menuItem.findUnique({ where: { id: itemId } });
+      if (!updated) {
+        throw new NotFoundException({
+          code: 'MENU_ITEM_NOT_FOUND',
+          message: 'Menu item not found',
+        });
+      }
+      const vendor = await tx.vendor.findUnique({
+        where: { id: item.vendorId },
+        select: { userId: true },
+      });
+      if (!vendor) return { updated, outbox: null, vendorId: item.vendorId };
+      await this.inbox.createTransactional(
+        tx,
+        this.decisionInboxInput(updated, vendor.userId, ModerationStatus.approved, null, user.id),
+      );
+      const payload = {
+        userId: vendor.userId,
+        itemName: updated.name,
+        status: ModerationStatus.approved,
+        reason: null,
+      };
+      const jobId = `menu-item-decision:${item.id}:approved:${decidedAt.toISOString()}`;
+      const outbox = await this.notifications.createTransactionalOutbox(
+        tx,
+        NotificationEvent.menu_item_moderation_decision,
+        payload,
+        jobId,
+      );
+      return { updated, outbox: { ...outbox, payload, jobId }, vendorId: item.vendorId };
+    });
+    await this.invalidateVendorCache(transactionResult.vendorId);
+    if (transactionResult.outbox) {
+      await this.notifications.dispatchTransactionalOutbox(
+        transactionResult.outbox.id,
+        NotificationEvent.menu_item_moderation_decision,
+        transactionResult.outbox.payload,
+        transactionResult.outbox.jobId,
+      );
     }
-    return updated;
+    return transactionResult.updated;
+  }
+
+  async bulkApprove(vendorId: string, items: BulkApproveMenuItemDto[], user: AuthUser) {
+    if (items.length === 0 || new Set(items.map((item) => item.id)).size !== items.length) {
+      throw new BadRequestException({
+        code: 'INVALID_BULK_ITEMS',
+        message: 'items must be a non-empty list with unique IDs.',
+      });
+    }
+    const decidedAt = new Date();
+    const transactionResult = await this.prisma.$transaction(async (tx) => {
+      // A vendor-scoped xact lock serialises competing bulk decisions. The
+      // conditional update below still protects us from a single-item decision.
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`menu-bulk-approve:${vendorId}`}))`;
+      const rows = await tx.menuItem.findMany({
+        where: { id: { in: items.map((item) => item.id) }, vendorId },
+        select: {
+          id: true,
+          vendorId: true,
+          name: true,
+          allergens: true,
+          allergensFreeFrom: true,
+          moderationStatus: true,
+        },
+      });
+      if (rows.length !== items.length) {
+        throw new BadRequestException({
+          code: 'BULK_VENDOR_SCOPE_MISMATCH',
+          message: 'Every item must belong to the specified vendor.',
+        });
+      }
+      if (rows.some((row) => !hasAllergenDeclaration(row))) {
+        throw new BadRequestException({
+          code: 'ALLERGEN_DECLARATION_REQUIRED',
+          message: 'Every approved item must declare allergens or confirm it is free from all 14.',
+        });
+      }
+      for (const requested of items) {
+        const result = await tx.menuItem.updateMany({
+          where: {
+            id: requested.id,
+            vendorId,
+            moderationStatus: ModerationStatus.held,
+            submissionVersion: requested.expectedSubmissionVersion,
+          },
+          data: {
+            moderationStatus: ModerationStatus.approved,
+            decidedAt,
+            decisionReason: null,
+            moderatedById: user.id,
+            submissionVersion: { increment: 1 },
+          },
+        });
+        if (result.count !== 1) this.throwStaleSubmission();
+      }
+      const vendor = await tx.vendor.findUnique({
+        where: { id: vendorId },
+        select: { userId: true },
+      });
+      const outboxes: Array<{ id: string; payload: Record<string, unknown>; jobId: string }> = [];
+      if (vendor) {
+        for (const row of rows) {
+          await this.inbox.createTransactional(
+            tx,
+            this.decisionInboxInput(row, vendor.userId, ModerationStatus.approved, null, user.id),
+          );
+          const payload = {
+            userId: vendor.userId,
+            itemName: row.name,
+            status: ModerationStatus.approved,
+            reason: null,
+          };
+          const jobId = `menu-item-decision:${row.id}:approved:${decidedAt.toISOString()}`;
+          const outbox = await this.notifications.createTransactionalOutbox(
+            tx,
+            NotificationEvent.menu_item_moderation_decision,
+            payload,
+            jobId,
+          );
+          outboxes.push({ ...outbox, payload, jobId });
+        }
+      }
+      return { count: items.length, outboxes };
+    });
+    await this.invalidateVendorCache(vendorId);
+    for (const outbox of transactionResult.outboxes) {
+      await this.notifications.dispatchTransactionalOutbox(
+        outbox.id,
+        NotificationEvent.menu_item_moderation_decision,
+        outbox.payload,
+        outbox.jobId,
+      );
+    }
+    return { approvedCount: transactionResult.count, decidedAt };
+  }
+
+  private decisionInboxInput(
+    item: { id: string; name: string },
+    userId: string,
+    status: ModerationStatus,
+    reason: string | null,
+    moderatedById: string,
+  ) {
+    return {
+      userId,
+      type:
+        status === ModerationStatus.rejected
+          ? InboxNotificationType.menu_item_rejected
+          : InboxNotificationType.generic,
+      title: status === ModerationStatus.approved ? 'Menu item approved' : 'Menu item rejected',
+      body: reason ? `"${item.name}": ${reason}` : `"${item.name}" was ${status}.`,
+      link: '/menu',
+      metadata: { menuItemId: item.id, moderatedById, status, reason },
+    };
   }
 
   /** Notify every admin that a freshly-uploaded item is waiting for review. */
@@ -553,6 +849,28 @@ export class MenuItemsService {
       dto.spiceLevel !== undefined ||
       dto.portionLabel !== undefined;
     const soldOutTouched = dto.soldOut !== undefined;
+    // Availability/sold-out state is operational and does not alter the dish
+    // declaration. Any content, price, allergen, preparation, image or dietary
+    // edit to an approved item is a new submission and must be reviewed again.
+    const substantiveEdit =
+      dto.name !== undefined ||
+      dto.description !== undefined ||
+      dto.category !== undefined ||
+      dto.basePricePence !== undefined ||
+      dto.servingsCount !== undefined ||
+      dto.images !== undefined ||
+      dto.allergens !== undefined ||
+      dto.allergensFreeFrom !== undefined ||
+      dto.prepTimeMinutes !== undefined ||
+      tagFieldsTouched;
+    if (substantiveEdit) {
+      data.moderationStatus = ModerationStatus.held;
+      data.submissionVersion = { increment: 1 };
+      data.submittedAt = new Date();
+      data.decidedAt = null;
+      data.decisionReason = null;
+      data.moderatedBy = { disconnect: true };
+    }
 
     if (tagFieldsTouched || soldOutTouched) {
       const prevTags = existing.tags;
@@ -702,10 +1020,25 @@ export class MenuItemsService {
       file: params.file,
     });
     const next = [...item.imageUrls, uploaded.publicUrl].slice(0, 5);
+    const newlyPending = item.moderationStatus !== ModerationStatus.held;
     await this.prisma.menuItem.update({
       where: { id: params.itemId },
-      data: { imageUrls: next },
+      // Every image change is a new submission. One write ensures no previous
+      // approval or rejection survives after the public image set changes.
+      data: {
+        imageUrls: next,
+        submissionVersion: { increment: 1 },
+        moderationStatus: ModerationStatus.held,
+        submittedAt: new Date(),
+        decidedAt: null,
+        decisionReason: null,
+        moderatedBy: { disconnect: true },
+      },
     });
+    await this.invalidateVendorCache(params.vendorId);
+    if (newlyPending) {
+      await this.notifyAdminsOfPendingItem(params.itemId, item.name, params.vendorId);
+    }
     return uploaded;
   }
 
@@ -721,6 +1054,14 @@ export class MenuItemsService {
         message: 'Menu does not belong to this vendor',
       });
     }
+  }
+
+  private throwStaleSubmission(): never {
+    throw new ConflictException({
+      code: 'MENU_ITEM_STALE_SUBMISSION',
+      message:
+        'This menu item changed or was already decided. Refresh the moderation queue and try again.',
+    });
   }
 
   private async getOwnedItem(vendorId: string, menuId: string, itemId: string) {

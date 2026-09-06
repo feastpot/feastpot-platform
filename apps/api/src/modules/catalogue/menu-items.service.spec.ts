@@ -1,5 +1,5 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { UserRole } from '@prisma/client';
+import { ModerationStatus, UserRole } from '@prisma/client';
 
 import type { AuthUser } from '../../auth/types';
 
@@ -146,6 +146,7 @@ describe('MenuItemsService.uploadImage - draft visibility', () => {
     menuItem: { findUnique: jest.Mock; update: jest.Mock };
     vendor: { findUnique: jest.Mock };
     vendorMember: { findFirst: jest.Mock };
+    user: { findMany: jest.Mock };
   };
   let storage: { uploadMenuItemImage: jest.Mock };
   let service: MenuItemsService;
@@ -158,18 +159,54 @@ describe('MenuItemsService.uploadImage - draft visibility', () => {
       },
       vendor: { findUnique: jest.fn() },
       vendorMember: { findFirst: jest.fn().mockResolvedValue(null) },
+      user: { findMany: jest.fn().mockResolvedValue([]) },
     };
     storage = { uploadMenuItemImage: jest.fn().mockResolvedValue({ publicUrl: uploadedUrl }) };
 
     service = new MenuItemsService(
       prisma as never,
       storage as never,
-      {} as never, // RedisCacheService - not called by uploadImage
+      { del: jest.fn(), delByPattern: jest.fn() } as never,
       {} as never, // ConfigService    - not called by uploadImage
-      {} as never, // InboxService     - not called by uploadImage
+      { notify: jest.fn() } as never,
       {} as never, // NotificationsService - not called by uploadImage
     );
   });
+
+  it.each(['approved', 'auto_approved'])(
+    're-holds a %s item when an image is uploaded',
+    async (moderationStatus) => {
+      prisma.menuItem.findUnique.mockResolvedValueOnce({
+        ...draftItem,
+        isAvailable: true,
+        moderationStatus,
+      });
+      prisma.vendor.findUnique.mockResolvedValueOnce({ userId: ownerUserId });
+
+      await service.uploadImage({
+        vendorId,
+        menuId,
+        itemId,
+        caller: makeVendorCaller(ownerUserId),
+        file: fakeFile,
+      });
+
+      expect(prisma.menuItem.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: itemId },
+          data: expect.objectContaining({
+            imageUrls: [uploadedUrl],
+            submissionVersion: { increment: 1 },
+            moderationStatus: 'held',
+            submittedAt: expect.any(Date),
+            decidedAt: null,
+            decisionReason: null,
+            moderatedBy: { disconnect: true },
+          }),
+        }),
+      );
+    },
+  );
 
   it('succeeds when the owning vendor uploads to a draft item', async () => {
     // findOne: item lookup
@@ -193,7 +230,10 @@ describe('MenuItemsService.uploadImage - draft visibility', () => {
     expect(prisma.menuItem.update).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: itemId },
-        data: expect.objectContaining({ imageUrls: [uploadedUrl] }),
+        data: expect.objectContaining({
+          imageUrls: [uploadedUrl],
+          submissionVersion: { increment: 1 },
+        }),
       }),
     );
   });
@@ -255,7 +295,10 @@ describe('MenuItemsService allergen publication scenarios', () => {
     prepTimeMinutes: 60,
   };
 
-  function makeService(existing?: Partial<Record<string, unknown>>) {
+  function makeService(
+    existing?: Partial<Record<string, unknown>>,
+    menuAutoApprove: string | undefined = 'true',
+  ) {
     const item = {
       id: itemId,
       vendorId,
@@ -280,6 +323,7 @@ describe('MenuItemsService allergen publication scenarios', () => {
     const prisma = {
       menu: { findUnique: jest.fn().mockResolvedValue({ vendorId }) },
       vendor: { findUnique: jest.fn() },
+      user: { findMany: jest.fn().mockResolvedValue([]) },
       menuItem: {
         aggregate: jest.fn().mockResolvedValue({ _max: { sortOrder: 0 } }),
         create: jest.fn().mockImplementation(({ data }) => Promise.resolve({ ...item, ...data })),
@@ -298,9 +342,9 @@ describe('MenuItemsService allergen publication scenarios', () => {
       prisma as never,
       {} as never,
       cache as never,
-      { get: jest.fn().mockReturnValue('true') } as never,
-      {} as never,
-      {} as never,
+      { get: jest.fn().mockReturnValue(menuAutoApprove) } as never,
+      { notify: jest.fn() } as never,
+      { enqueue: jest.fn() } as never,
     );
     return { service, prisma };
   }
@@ -328,6 +372,58 @@ describe('MenuItemsService allergen publication scenarios', () => {
       isAvailable: true,
     });
     expect(prisma.menuItem.create).toHaveBeenCalled();
+  });
+
+  it('fails closed to held unless MENU_AUTO_APPROVE is exactly "true"', async () => {
+    const dto = { ...baseDto, allergens: ['milk'], isAvailable: true };
+    const { service: defaultService, prisma: defaultPrisma } = makeService(
+      undefined,
+      null as never,
+    );
+    await defaultService.create(vendorId, menuId, dto);
+    expect(defaultPrisma.menuItem.create.mock.calls[0][0].data).toMatchObject({
+      moderationStatus: 'held',
+      submittedAt: expect.any(Date),
+    });
+
+    const { service: optInService, prisma: optInPrisma } = makeService(undefined, 'TRUE');
+    await optInService.create(vendorId, menuId, dto);
+    expect(optInPrisma.menuItem.create.mock.calls[0][0].data.moderationStatus).toBe('held');
+
+    const { service: automaticService, prisma: automaticPrisma } = makeService(undefined, 'true');
+    await automaticService.create(vendorId, menuId, dto);
+    expect(automaticPrisma.menuItem.create.mock.calls[0][0].data.moderationStatus).toBe(
+      'auto_approved',
+    );
+  });
+
+  it('re-holds substantive approved edits but not availability-only changes', async () => {
+    const { service, prisma } = makeService({ allergens: ['milk'], moderationStatus: 'approved' });
+    await service.update(vendorId, menuId, itemId, { name: 'Updated jollof' });
+    expect(prisma.menuItem.update.mock.calls[0][0].data).toMatchObject({
+      moderationStatus: 'held',
+      submittedAt: expect.any(Date),
+      decidedAt: null,
+    });
+
+    prisma.menuItem.update.mockClear();
+    await service.update(vendorId, menuId, itemId, { isAvailable: false });
+    expect(prisma.menuItem.update.mock.calls[0][0].data.moderationStatus).toBeUndefined();
+  });
+
+  it('submits a rejected item for review again when the vendor corrects it', async () => {
+    const { service, prisma } = makeService({
+      allergens: ['milk'],
+      moderationStatus: 'rejected',
+      decisionReason: 'Clarify the description',
+    });
+    await service.update(vendorId, menuId, itemId, { description: 'Clarified ingredients' });
+    expect(prisma.menuItem.update.mock.calls[0][0].data).toMatchObject({
+      moderationStatus: 'held',
+      submittedAt: expect.any(Date),
+      decidedAt: null,
+      decisionReason: null,
+    });
   });
 
   it('unpublishes and records an available item when its declaration is removed', async () => {
@@ -364,5 +460,247 @@ describe('MenuItemsService allergen publication scenarios', () => {
     expect(prisma.menuItemAllergenRemediation.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({ data: { resolvedAt: expect.any(Date) } }),
     );
+  });
+});
+
+describe('MenuItemsService moderation decisions', () => {
+  const vendorId = 'vendor-1';
+  const item = {
+    id: 'item-1',
+    vendorId,
+    menuId: 'menu-1',
+    name: 'Stew',
+    allergens: ['milk'],
+    allergensFreeFrom: false,
+    moderationStatus: 'held',
+    submissionVersion: 1,
+  };
+  const admin = { id: 'admin-1', role: UserRole.admin } as AuthUser;
+
+  function setup() {
+    const prisma = {
+      menuItem: {
+        findUnique: jest.fn().mockResolvedValue(item),
+        findMany: jest.fn().mockResolvedValue([item]),
+        update: jest.fn().mockResolvedValue(item),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      vendor: { findUnique: jest.fn().mockResolvedValue({ userId: 'vendor-user-1' }) },
+      inboxNotification: { create: jest.fn().mockResolvedValue({}) },
+      $executeRaw: jest.fn().mockResolvedValue(1),
+    };
+    (prisma as any).$transaction = jest.fn().mockImplementation((callback) => callback(prisma));
+    const inbox = {
+      notify: jest.fn().mockResolvedValue(undefined),
+      createTransactional: jest.fn().mockResolvedValue({}),
+    };
+    const notifications = {
+      enqueue: jest.fn().mockResolvedValue(undefined),
+      createTransactionalOutbox: jest.fn().mockResolvedValue({ id: 'outbox-1' }),
+      dispatchTransactionalOutbox: jest.fn().mockResolvedValue(undefined),
+    };
+    const service = new MenuItemsService(
+      prisma as never,
+      {} as never,
+      { del: jest.fn(), delByPattern: jest.fn() } as never,
+      {} as never,
+      inbox as never,
+      notifications as never,
+    );
+    return { service, prisma, inbox, notifications };
+  }
+
+  it('commits decision, vendor inbox and durable outbox before dispatching notification', async () => {
+    const { service, prisma, inbox, notifications } = setup();
+    await service.moderate(
+      item.id,
+      {
+        status: ModerationStatus.rejected,
+        expectedStatus: ModerationStatus.held,
+        reason: 'Please clarify ingredients',
+        expectedSubmissionVersion: 1,
+      },
+      admin,
+    );
+    expect(prisma.menuItem.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          moderationStatus: 'held',
+          submissionVersion: 1,
+        }),
+        data: expect.objectContaining({
+          moderationStatus: 'rejected',
+          decisionReason: 'Please clarify ingredients',
+          decidedAt: expect.any(Date),
+          moderatedById: admin.id,
+        }),
+      }),
+    );
+    expect(inbox.createTransactional).toHaveBeenCalledWith(
+      prisma,
+      expect.objectContaining({ userId: 'vendor-user-1', title: 'Menu item rejected' }),
+    );
+    expect(notifications.createTransactionalOutbox).toHaveBeenCalledWith(
+      prisma,
+      'menu_item_moderation_decision',
+      expect.objectContaining({ userId: 'vendor-user-1', status: 'rejected' }),
+      expect.any(String),
+    );
+    expect(notifications.dispatchTransactionalOutbox).toHaveBeenCalledWith(
+      'outbox-1',
+      'menu_item_moderation_decision',
+      expect.any(Object),
+      expect.any(String),
+    );
+  });
+
+  it('rejects a stale single-item decision without writing notifications', async () => {
+    const { service, prisma, inbox, notifications } = setup();
+    prisma.menuItem.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      service.moderate(
+        item.id,
+        {
+          status: ModerationStatus.approved,
+          expectedStatus: ModerationStatus.held,
+          expectedSubmissionVersion: 1,
+        },
+        admin,
+      ),
+    ).rejects.toMatchObject({ response: { code: 'MENU_ITEM_STALE_SUBMISSION' } });
+
+    expect(inbox.createTransactional).not.toHaveBeenCalled();
+    expect(notifications.createTransactionalOutbox).not.toHaveBeenCalled();
+  });
+
+  it.each([ModerationStatus.approved, ModerationStatus.auto_approved])(
+    'allows staff to withdraw a %s item into held',
+    async (sourceStatus) => {
+      const { service, prisma } = setup();
+      prisma.menuItem.findUnique.mockResolvedValue({
+        ...item,
+        moderationStatus: sourceStatus,
+      });
+
+      await service.moderate(
+        item.id,
+        {
+          status: ModerationStatus.held,
+          expectedStatus: sourceStatus,
+          expectedSubmissionVersion: 1,
+        },
+        admin,
+      );
+
+      expect(prisma.menuItem.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            moderationStatus: sourceStatus,
+            submissionVersion: 1,
+          }),
+          data: expect.objectContaining({ moderationStatus: ModerationStatus.held }),
+        }),
+      );
+    },
+  );
+
+  it('rejects a stale approve-with-edit without changing content', async () => {
+    const { service, prisma, inbox, notifications } = setup();
+    prisma.menuItem.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      service.approveWithEdit(
+        item.id,
+        {
+          expectedSubmissionVersion: 1,
+          edit: { name: 'Corrected stew', description: 'Updated', basePricePence: 1500 },
+        },
+        admin,
+      ),
+    ).rejects.toMatchObject({ response: { code: 'MENU_ITEM_STALE_SUBMISSION' } });
+
+    expect(prisma.menuItem.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ submissionVersion: 1 }) }),
+    );
+    expect(inbox.createTransactional).not.toHaveBeenCalled();
+    expect(notifications.createTransactionalOutbox).not.toHaveBeenCalled();
+  });
+
+  it('rejects bulk approval when an ID is outside the specified vendor scope', async () => {
+    const { service, prisma } = setup();
+    prisma.menuItem.findMany.mockResolvedValue([]);
+    await expect(
+      service.bulkApprove(vendorId, [{ id: item.id, expectedSubmissionVersion: 1 }], admin),
+    ).rejects.toMatchObject({
+      response: { code: 'BULK_VENDOR_SCOPE_MISMATCH' },
+    });
+    expect(prisma.menuItem.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('rolls back a bulk decision and creates no notifications when its conditional count mismatches', async () => {
+    const { service, prisma, inbox, notifications } = setup();
+    prisma.menuItem.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      service.bulkApprove(vendorId, [{ id: item.id, expectedSubmissionVersion: 1 }], admin),
+    ).rejects.toMatchObject({
+      response: { code: 'MENU_ITEM_STALE_SUBMISSION' },
+    });
+
+    expect(inbox.createTransactional).not.toHaveBeenCalled();
+    expect(notifications.createTransactionalOutbox).not.toHaveBeenCalled();
+    expect(notifications.dispatchTransactionalOutbox).not.toHaveBeenCalled();
+  });
+
+  it('writes every bulk outbox row in the transaction, then dispatches them in item order', async () => {
+    const { service, prisma, notifications } = setup();
+    const second = { ...item, id: 'item-2', name: 'Soup' };
+    prisma.menuItem.findMany.mockResolvedValue([item, second]);
+    prisma.menuItem.updateMany.mockResolvedValue({ count: 1 });
+    notifications.createTransactionalOutbox
+      .mockResolvedValueOnce({ id: 'outbox-1' })
+      .mockResolvedValueOnce({ id: 'outbox-2' });
+
+    await service.bulkApprove(
+      vendorId,
+      [
+        { id: item.id, expectedSubmissionVersion: 1 },
+        { id: second.id, expectedSubmissionVersion: 1 },
+      ],
+      admin,
+    );
+
+    expect(notifications.createTransactionalOutbox).toHaveBeenCalledTimes(2);
+    expect(
+      notifications.dispatchTransactionalOutbox.mock.calls.map((call: unknown[]) => call[0]),
+    ).toEqual(['outbox-1', 'outbox-2']);
+    expect(notifications.createTransactionalOutbox.mock.invocationCallOrder[1]).toBeLessThan(
+      notifications.dispatchTransactionalOutbox.mock.invocationCallOrder[0],
+    );
+  });
+
+  it('rejects manual approval when the allergen declaration is missing', async () => {
+    const { service, prisma } = setup();
+    prisma.menuItem.findUnique.mockResolvedValue({
+      ...item,
+      allergens: [],
+      allergensFreeFrom: false,
+    });
+
+    await expect(
+      service.moderate(
+        item.id,
+        {
+          status: ModerationStatus.approved,
+          expectedStatus: ModerationStatus.held,
+          expectedSubmissionVersion: 1,
+        },
+        admin,
+      ),
+    ).rejects.toMatchObject({
+      response: { code: 'ALLERGEN_DECLARATION_REQUIRED' },
+    });
+    expect(prisma.menuItem.updateMany).not.toHaveBeenCalled();
   });
 });

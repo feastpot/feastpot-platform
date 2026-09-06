@@ -77,3 +77,4 @@
 - [Referral QR fallback timing](referral-qr-fallback-timing.md) — a dynamically imported QR fallback is too late on throttled links; initial HTML must include usable PNG and SVG assets.
 - [Live link-audit concurrency](live-link-audit-concurrency.md) - cold Next route compilation needs capped crawl concurrency and generous per-request timeouts; unbounded parallel requests self-abort.
 - [Test-data provenance](test-data-provenance.md) — use explicit persisted markers; hide fixtures from operational/public surfaces by default, with labelled admin-only retrieval.
+- [Menu moderation pilot](menu-moderation-pilot.md) — manual approval is the launch posture; bind decisions to submission revisions and keep allergen gates at publication and checkout.

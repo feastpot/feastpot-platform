@@ -1,6 +1,12 @@
 import { computeServiceFeePence, shouldWaiveServiceFee } from '@feastpot/config/service-fee';
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
-import { DeliveryType, OrderStatus, UserRole } from '@prisma/client';
+import {
+  DeliveryType,
+  ModerationStatus,
+  OrderStatus,
+  UserRole,
+  VendorStatus,
+} from '@prisma/client';
 
 import type { AuthUser } from '../../auth/types';
 
@@ -527,6 +533,92 @@ describe('OrdersService.updateStatus authorization', () => {
     // from=delivered: Stripe PI was already captured; cancelling it would fail.
     expect(stripe.cancel).not.toHaveBeenCalled();
     expect(payments.createRefund).not.toHaveBeenCalled();
+  });
+});
+
+describe('OrdersService.createOrder allergen declaration gate', () => {
+  const slotReached = new Error('slot validation reached');
+
+  const make = (allergenDeclaration: { allergens: string[]; allergensFreeFrom: boolean }) => {
+    const prisma = {
+      order: { findFirst: jest.fn().mockResolvedValue(null) },
+    };
+    const repo = {
+      vendorWithDelivery: jest.fn().mockResolvedValue({
+        id: 'v-1',
+        status: VendorStatus.live,
+        complianceStatus: 'RATED',
+        fsaHygieneRating: 5,
+        deliveryConfig: null,
+      }),
+      findMenuItems: jest.fn().mockResolvedValue([
+        {
+          id: 'mi-1',
+          vendorId: 'v-1',
+          name: 'Jollof rice',
+          category: 'main',
+          pricePence: 1200,
+          isAvailable: true,
+          moderationStatus: ModerationStatus.approved,
+          preparationHours: 24,
+          ...allergenDeclaration,
+        },
+      ]),
+    };
+    const slots = { validateSlot: jest.fn().mockRejectedValue(slotReached) };
+    const service = new OrdersService(
+      prisma as never,
+      repo as never,
+      slots as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+    );
+    const dto = {
+      vendorId: 'v-1',
+      items: [{ menuItemId: 'mi-1', quantity: 1 }],
+      scheduledFor: '2030-01-01T12:00:00.000Z',
+    };
+    return { service, slots, dto };
+  };
+
+  const createOrderInner = (
+    service: OrdersService,
+    dto: {
+      vendorId: string;
+      items: Array<{ menuItemId: string; quantity: number }>;
+      scheduledFor: string;
+    },
+  ) =>
+    (
+      service as unknown as {
+        createOrderInner: (customerId: string, input: typeof dto) => Promise<unknown>;
+      }
+    ).createOrderInner('cust-1', dto);
+
+  it('rejects an approved, available item with no allergen declaration', async () => {
+    const { service, slots, dto } = make({ allergens: [], allergensFreeFrom: false });
+
+    await expect(createOrderInner(service, dto)).rejects.toMatchObject({
+      response: { code: 'MENU_ITEM_UNAVAILABLE' },
+    });
+    expect(slots.validateSlot).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['a non-empty allergens list', { allergens: ['celery'], allergensFreeFrom: false }],
+    ['an affirmative allergens-free declaration', { allergens: [], allergensFreeFrom: true }],
+  ])('allows an approved, available item with %s', async (_description, declaration) => {
+    const { service, slots, dto } = make(declaration);
+
+    await expect(createOrderInner(service, dto)).rejects.toBe(slotReached);
+    expect(slots.validateSlot).toHaveBeenCalledTimes(1);
   });
 });
 

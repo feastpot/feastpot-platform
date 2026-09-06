@@ -20,14 +20,31 @@ export interface MenuModerationRow {
   pricePence: number;
   imageUrls: string[];
   moderationStatus: MenuModerationStatus;
+  submissionVersion: number;
   isAvailable: boolean;
   createdAt: string;
   updatedAt: string;
+  moderationReason?: string | null;
+  moderationSubmittedAt?: string | null;
+  moderatedAt?: string | null;
+  slaDueAt?: string | null;
+  isOverdue?: boolean;
   vendor: {
     id: string;
     businessName: string;
     slug?: string;
     logoUrl?: string | null;
+  };
+}
+
+interface MenuModerationApiRow extends MenuModerationRow {
+  decisionReason?: string | null;
+  submittedAt?: string | null;
+  decidedAt?: string | null;
+  moderationSla?: {
+    submittedAt: string;
+    slaDueAt: string;
+    overdue: boolean;
   };
 }
 
@@ -72,7 +89,19 @@ export function useMenuModerationQueue(filters: MenuModerationFilters) {
     placeholderData: (prev) => prev,
     queryFn: () => {
       const qs = toQueryString({ status: 'all', limit: 25, ...filters });
-      return request<MenuModerationPage>(`/admin/menu-items/moderation-queue${qs ? `?${qs}` : ''}`);
+      return request<Omit<MenuModerationPage, 'data'> & { data: MenuModerationApiRow[] }>(
+        `/admin/menu-items/moderation-queue${qs ? `?${qs}` : ''}`,
+      ).then((page) => ({
+        ...page,
+        data: page.data.map((row) => ({
+          ...row,
+          moderationReason: row.decisionReason ?? null,
+          moderationSubmittedAt: row.moderationSla?.submittedAt ?? row.submittedAt ?? null,
+          moderatedAt: row.decidedAt ?? null,
+          slaDueAt: row.moderationSla?.slaDueAt ?? null,
+          isOverdue: row.moderationSla?.overdue ?? false,
+        })),
+      }));
     },
   });
 }
@@ -101,13 +130,47 @@ export function useModerateMenuItem() {
   return useMutation({
     mutationFn: (input: {
       id: string;
+      expectedSubmissionVersion: number;
+      expectedStatus: MenuModerationStatus;
       status: 'approved' | 'rejected' | 'held';
       reason?: string;
-    }) =>
-      request<MenuModerationRow>(`/admin/menu-items/${input.id}/moderation`, {
+      edits?: { name?: string; description?: string; category?: string; basePricePence?: number };
+    }) => {
+      if (input.status === 'approved' && input.edits && Object.keys(input.edits).length > 0) {
+        return request<MenuModerationRow>(`/admin/menu-items/${input.id}/approve-with-edit`, {
+          method: 'PATCH',
+          body: { edit: input.edits, expectedSubmissionVersion: input.expectedSubmissionVersion },
+        });
+      }
+      return request<MenuModerationRow>(`/admin/menu-items/${input.id}/moderation`, {
         method: 'PATCH',
-        body: { status: input.status, reason: input.reason },
-      }),
+        body: {
+          status: input.status,
+          reason: input.reason,
+          expectedSubmissionVersion: input.expectedSubmissionVersion,
+          expectedStatus: input.expectedStatus,
+        },
+      });
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'menu-items', 'queue'] }),
+  });
+}
+
+export function useBulkApproveMenuItems() {
+  const { request } = useApi();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: {
+      vendorId: string;
+      items: Array<{ id: string; expectedSubmissionVersion: number }>;
+    }) =>
+      request<{ approvedCount: number }>(
+        `/admin/menu-items/moderation-queue/vendors/${input.vendorId}/approve`,
+        {
+          method: 'PATCH',
+          body: { items: input.items },
+        },
+      ),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'menu-items', 'queue'] }),
   });
 }

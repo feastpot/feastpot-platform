@@ -37,8 +37,45 @@ export interface MenuItem {
    * isAvailable. `auto_approved` / `approved` are live.
    */
   moderationStatus: 'auto_approved' | 'held' | 'approved' | 'rejected';
+  /** Manual-pilot review context, supplied when the API has moderation metadata. */
+  moderationReason?: string | null;
+  moderationSubmittedAt?: string | null;
+  moderatedAt?: string | null;
+  slaDueAt?: string | null;
+  isModerationOverdue?: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface MenuModerationPolicy {
+  mode: 'manual_pilot' | 'automatic' | 'manual' | string;
+  turnaroundHours: number;
+  label?: string;
+}
+
+interface MenuItemApiResponse extends MenuItem {
+  decisionReason?: string | null;
+  submittedAt?: string | null;
+  decidedAt?: string | null;
+}
+
+function normalizeMenuItem(item: MenuItemApiResponse): MenuItem {
+  const submittedAt = item.moderationSubmittedAt ?? item.submittedAt ?? null;
+  const dueAt =
+    item.slaDueAt ??
+    (submittedAt
+      ? new Date(new Date(submittedAt).getTime() + 72 * 60 * 60 * 1000).toISOString()
+      : null);
+  return {
+    ...item,
+    moderationReason: item.moderationReason ?? item.decisionReason ?? null,
+    moderationSubmittedAt: submittedAt,
+    moderatedAt: item.moderatedAt ?? item.decidedAt ?? null,
+    slaDueAt: dueAt,
+    isModerationOverdue:
+      item.isModerationOverdue ??
+      (item.moderationStatus === 'held' && !!dueAt && new Date(dueAt).getTime() < Date.now()),
+  };
 }
 
 export interface MenuItemUpsertInput {
@@ -67,6 +104,21 @@ const ITEM_KEY = (vendorId: string, menuId: string, itemId: string) =>
   ['vendor', 'menu-item', vendorId, menuId, itemId] as const;
 const ALLERGEN_REMEDIATION_KEY = (vendorId: string) =>
   ['vendor', 'allergen-remediation', vendorId] as const;
+export const MODERATION_POLICY_KEY = (vendorId: string) =>
+  ['vendor', 'menu-moderation-policy', vendorId] as const;
+
+export function useMenuModerationPolicy(vendorId: string | undefined) {
+  const { token, loading } = useAccessToken();
+  return useQuery({
+    queryKey: MODERATION_POLICY_KEY(vendorId ?? ''),
+    enabled: !!vendorId && !!token && !loading,
+    retry: false,
+    queryFn: () =>
+      apiRequest<MenuModerationPolicy>(`/vendors/${vendorId}/menu-moderation-policy`, {
+        accessToken: token!,
+      }),
+  });
+}
 
 export interface AllergenRemediationResponse {
   count: number;
@@ -100,14 +152,14 @@ export function useMenuItems(
     queryKey: [...ITEMS_KEY(vendorId ?? '', menuId ?? ''), filters] as const,
     enabled: !!vendorId && !!menuId && !!token && !loading,
     queryFn: () =>
-      apiRequest<MenuItem[]>(
+      apiRequest<MenuItemApiResponse[]>(
         `/vendors/${vendorId}/menus/${menuId}/items${
           filters?.allergenStatus ? `?allergenStatus=${filters.allergenStatus}` : ''
         }`,
         {
           accessToken: token!,
         },
-      ),
+      ).then((items) => items.map(normalizeMenuItem)),
   });
 }
 
@@ -117,9 +169,9 @@ export function useMenuItem(vendorId: string, menuId: string, itemId: string | u
     queryKey: ITEM_KEY(vendorId, menuId, itemId ?? ''),
     enabled: !!itemId && itemId !== 'new' && !!token && !loading,
     queryFn: () =>
-      apiRequest<MenuItem>(`/vendors/${vendorId}/menus/${menuId}/items/${itemId}`, {
+      apiRequest<MenuItemApiResponse>(`/vendors/${vendorId}/menus/${menuId}/items/${itemId}`, {
         accessToken: token!,
-      }),
+      }).then(normalizeMenuItem),
   });
 }
 
@@ -128,11 +180,11 @@ export function useCreateMenuItem(vendorId: string, menuId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: MenuItemUpsertInput) =>
-      apiRequest<MenuItem>(`/vendors/${vendorId}/menus/${menuId}/items`, {
+      apiRequest<MenuItemApiResponse>(`/vendors/${vendorId}/menus/${menuId}/items`, {
         method: 'POST',
         accessToken: token!,
         body: input,
-      }),
+      }).then(normalizeMenuItem),
     onSuccess: () => qc.invalidateQueries({ queryKey: ITEMS_KEY(vendorId, menuId) }),
   });
 }
@@ -142,11 +194,11 @@ export function useUpdateMenuItem(vendorId: string, menuId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ itemId, ...input }: { itemId: string } & Partial<MenuItemUpsertInput>) =>
-      apiRequest<MenuItem>(`/vendors/${vendorId}/menus/${menuId}/items/${itemId}`, {
+      apiRequest<MenuItemApiResponse>(`/vendors/${vendorId}/menus/${menuId}/items/${itemId}`, {
         method: 'PATCH',
         accessToken: token!,
         body: input,
-      }),
+      }).then(normalizeMenuItem),
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: ITEMS_KEY(vendorId, menuId) });
       qc.invalidateQueries({ queryKey: ITEM_KEY(vendorId, menuId, variables.itemId) });
@@ -213,11 +265,14 @@ export function useToggleItemAvailability(vendorId: string, menuId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ itemId, isAvailable }: { itemId: string; isAvailable: boolean }) =>
-      apiRequest<MenuItem>(`/vendors/${vendorId}/menus/${menuId}/items/${itemId}/availability`, {
-        method: 'PATCH',
-        accessToken: token!,
-        body: { isAvailable },
-      }),
+      apiRequest<MenuItemApiResponse>(
+        `/vendors/${vendorId}/menus/${menuId}/items/${itemId}/availability`,
+        {
+          method: 'PATCH',
+          accessToken: token!,
+          body: { isAvailable },
+        },
+      ).then(normalizeMenuItem),
     onSuccess: () => qc.invalidateQueries({ queryKey: ITEMS_KEY(vendorId, menuId) }),
   });
 }
