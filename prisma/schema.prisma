@@ -446,8 +446,8 @@ model User {
   emailVerified Boolean    @default(false) @map("email_verified")
   phoneVerified Boolean    @default(false) @map("phone_verified")
   /// Explicit operational-data provenance. Never derived from an email/name.
-  isTestData   Boolean    @default(false) @map("is_test_data")
-  provenance   String?    @db.VarChar(64)
+  isTestData    Boolean    @default(false) @map("is_test_data")
+  provenance    String?    @db.VarChar(64)
   avatarUrl     String?    @map("avatar_url") @db.VarChar(500)
   lastLoginAt   DateTime?  @map("last_login_at") @db.Timestamptz
   createdAt     DateTime   @default(now()) @map("created_at") @db.Timestamptz

@@ -46,7 +46,10 @@ describe('AdminService operational dashboard provenance', () => {
       1,
       expect.objectContaining({ where: { isSeedData: false, user: { isTestData: false } } }),
     );
-    expect(prisma.vendor.groupBy).toHaveBeenNthCalledWith(2, expect.objectContaining({ where: {} }));
+    expect(prisma.vendor.groupBy).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ where: {} }),
+    );
     expect(prisma.order.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
