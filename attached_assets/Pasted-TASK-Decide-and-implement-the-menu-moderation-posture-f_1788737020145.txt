@@ -1,0 +1,59 @@
+TASK: Decide and implement the menu moderation posture for
+launch.
+
+CURRENT STATE
+/menu-moderation states: "Auto-approval is on. Items go live
+immediately and appear here for retrospective review", with
+the toggle MENU_AUTO_APPROVE in the API environment.
+
+WHY IT MATTERS
+Auto-approval is the mechanism by which 45 dishes reached the
+public without allergen declarations. The write-gate now
+blocks new items and the production data is clean, so that
+specific hole is closed. But auto-approval means anything
+else wrong with a listing, inaccurate descriptions,
+misleading imagery, incorrect pricing, also goes live
+unreviewed.
+
+THE DECISION IS THE FOUNDER'S, NOT YOURS
+At pilot scale (a handful of vendors, low item volume),
+manual approval costs minutes a week and buys real safety. At
+scale it becomes a bottleneck.
+RECOMMENDED for the pilot: MENU_AUTO_APPROVE=false, with a
+stated intention to revisit once volume makes review
+impractical. CONFIRM BEFORE IMPLEMENTING. Do not flip it
+unilaterally.
+
+IF MANUAL APPROVAL IS CHOSEN
+  Vendors see clearly that an item is pending review, with an
+  expected turnaround, in the vendor portal.
+  Admin queue supports fast triage: approve, approve with
+  edit, reject with a reason the vendor sees.
+  Bulk approve for a trusted vendor's batch upload.
+  An SLA badge (see FP-16), since a slow queue directly blocks
+  a vendor from trading.
+  Notify the vendor on decision by email and WhatsApp.
+
+IF AUTO-APPROVAL IS KEPT
+  The retrospective queue must be genuinely used. Add a
+  dashboard attention row for items auto-approved and not yet
+  reviewed after N days.
+  Prioritise by risk: items declaring no allergens, unusually
+  low or high prices, vendors with no completed orders.
+
+EITHER WAY
+  Make the current mode visible to vendors. A cook should know
+  whether their item goes live instantly or waits. Right now
+  only admin can see it.
+  Add a test asserting no item can become publicly visible
+  without either an allergen declaration or an explicit
+  free-from-all-14 confirmation, REGARDLESS of the
+  auto-approve setting.
+  Defence in depth: the public read path must filter
+  undeclared items even if one somehow becomes available.
+
+ACCEPTANCE CRITERIA
+- Chosen posture implemented and documented.
+- Vendors can see which mode applies to them.
+- The allergen gate holds in both modes, asserted by test.
+- The queue has an SLA badge and a decision notification.
