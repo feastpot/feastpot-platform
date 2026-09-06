@@ -45,7 +45,9 @@ export function AuditLogClient() {
       return;
     }
     const params = new URLSearchParams();
-    Object.entries(filters).forEach(([k, v]) => v && params.set(k, v));
+    Object.entries(filters).forEach(
+      ([k, v]) => v && params.set(k, v === true ? 'true' : String(v)),
+    );
     const url = apiUrl(`/admin/audit-log.csv${params.toString() ? `?${params.toString()}` : ''}`);
     try {
       const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
@@ -144,6 +146,19 @@ export function AuditLogClient() {
               onChange={(e) => setDraft({ ...draft, dateTo: e.target.value || undefined })}
             />
           </FilterField>
+          <FilterField label="Data">
+            <label className="flex h-10 items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={filters.includeTestData ?? false}
+                onChange={(e) => {
+                  setDraft((current) => ({ ...current, includeTestData: e.target.checked }));
+                  setFilters((current) => ({ ...current, includeTestData: e.target.checked }));
+                }}
+              />
+              Include test data
+            </label>
+          </FilterField>
         </div>
       </FilterCard>
 
@@ -208,6 +223,19 @@ export function AuditLogClient() {
                   </TableCell>
                   <TableCell className="font-mono text-xs">{row.ipAddress ?? '-'}</TableCell>
                   <TableCell>
+                    {row.isTestData && (
+                      <span
+                        className="mr-2 inline-block rounded-full border border-border px-2 py-0.5 text-xs font-medium text-muted-foreground"
+                        aria-label={
+                          row.provenance
+                            ? `Test data. Provenance: ${row.provenance}.`
+                            : 'Test data.'
+                        }
+                        title={row.provenance ? `Test data — ${row.provenance}` : 'Test data'}
+                      >
+                        Test data
+                      </span>
+                    )}
                     {row.metadata ? (
                       <pre className="max-w-md overflow-x-auto rounded bg-muted p-2 text-xs">
                         {JSON.stringify(row.metadata, null, 2)}

@@ -179,6 +179,14 @@ export class BulkOrderTagsDto {
 export class ListAdminOrdersDto {
   @ApiPropertyOptional({
     description:
+      'Include explicitly persisted seed/test orders, customers, vendors, or vendor owners.',
+  })
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true')
+  includeTestData?: boolean;
+
+  @ApiPropertyOptional({
+    description:
       'CSV of order IDs (max 100): restricts the list/CSV export to exactly these orders',
   })
   @IsOptional()

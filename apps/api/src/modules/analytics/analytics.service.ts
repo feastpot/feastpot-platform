@@ -144,7 +144,9 @@ export class AnalyticsService {
 
     return rows.map((r) => ({
       vendorId: r.vendorId,
-      businessName: nameMap.get(r.vendorId) ?? r.vendorId,
+      // Do not display a UUID as a business name: an event whose vendor was
+      // deleted/unavailable has no safe trading-name label.
+      businessName: nameMap.get(r.vendorId) ?? 'Unknown vendor',
       linkClicks: parseInt(r.linkClicks, 10),
       qrScans: parseInt(r.qrScans, 10),
     }));

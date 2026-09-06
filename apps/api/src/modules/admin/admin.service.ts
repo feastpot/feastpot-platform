@@ -91,7 +91,10 @@ interface TopVendorRow {
   ordersCount: number;
   rating: number;
   reorderRatePct: number;
+  reorderCustomers: number;
+  deliveredCustomers: number;
   disputeRatePct: number;
+  disputesCount: number;
 }
 
 @Injectable()
@@ -107,6 +110,24 @@ export class AdminService {
   ) {}
 
   // ---------------------------------------------------------------- dashboard
+
+  /**
+   * Operational metrics exclude data whose provenance is explicitly marked as
+   * fixture data. This deliberately uses only persisted flags/relations, never
+   * user identity attributes such as contact details or ownership names.
+   */
+  private operationalOrderWhere(where: Prisma.OrderWhereInput = {}): Prisma.OrderWhereInput {
+    return {
+      ...where,
+      isSeedData: false,
+      customer: { isTestData: false },
+      vendor: { isSeedData: false, user: { isTestData: false } },
+    };
+  }
+
+  private operationalVendorWhere(where: Prisma.VendorWhereInput = {}): Prisma.VendorWhereInput {
+    return { ...where, isSeedData: false, user: { isTestData: false } };
+  }
 
   async getDashboard() {
     const now = new Date();
@@ -126,41 +147,65 @@ export class AdminService {
       monthOrders,
       repeatStats,
       last30,
+      deliveredOrders,
     ] = await Promise.all([
       this.prisma.order.aggregate({
-        where: { status: { in: REVENUE_STATUSES }, createdAt: { gte: todayStart } },
+        where: this.operationalOrderWhere({
+          status: { in: REVENUE_STATUSES },
+          createdAt: { gte: todayStart },
+        }),
         _sum: { totalPence: true },
         _count: { _all: true },
       }),
       this.prisma.order.aggregate({
-        where: { status: { in: REVENUE_STATUSES }, createdAt: { gte: weekStart } },
+        where: this.operationalOrderWhere({
+          status: { in: REVENUE_STATUSES },
+          createdAt: { gte: weekStart },
+        }),
         _sum: { totalPence: true },
       }),
       this.prisma.order.aggregate({
-        where: { status: { in: REVENUE_STATUSES }, createdAt: { gte: monthStart } },
+        where: this.operationalOrderWhere({
+          status: { in: REVENUE_STATUSES },
+          createdAt: { gte: monthStart },
+        }),
         _sum: { totalPence: true, subtotalPence: true },
         _avg: { totalPence: true },
         _count: { _all: true },
       }),
       this.prisma.vendor.count({
-        where: { status: { in: [VendorStatus.live, VendorStatus.probation] } },
+        where: this.operationalVendorWhere({
+          status: { in: [VendorStatus.live, VendorStatus.probation] },
+        }),
       }),
-      this.prisma.order.count({ where: { createdAt: { gte: todayStart } } }),
+      this.prisma.order.count({
+        where: this.operationalOrderWhere({ createdAt: { gte: todayStart } }),
+      }),
       this.prisma.order.findMany({
-        where: { status: { in: REVENUE_STATUSES }, createdAt: { gte: monthStart } },
+        where: this.operationalOrderWhere({
+          status: { in: REVENUE_STATUSES },
+          createdAt: { gte: monthStart },
+        }),
         select: { vendorId: true, totalPence: true },
       }),
       // Repeat-order rate over the last 90 days: % of customers with ≥2 delivered orders.
       this.prisma.order.findMany({
-        where: {
+        where: this.operationalOrderWhere({
           status: OrderStatus.delivered,
           createdAt: { gte: new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000) },
-        },
+        }),
         select: { customerId: true },
       }),
       this.prisma.order.findMany({
-        where: { status: { in: REVENUE_STATUSES }, createdAt: { gte: thirtyDaysAgo } },
+        where: this.operationalOrderWhere({
+          status: { in: REVENUE_STATUSES },
+          createdAt: { gte: thirtyDaysAgo },
+        }),
         select: { totalPence: true, createdAt: true },
+      }),
+      this.prisma.order.findMany({
+        where: this.operationalOrderWhere({ status: OrderStatus.delivered }),
+        select: { vendorId: true, customerId: true },
       }),
     ]);
 
@@ -197,14 +242,14 @@ export class AdminService {
     if (topVendorIds.length > 0) {
       const [vendorRows, disputeRows] = await Promise.all([
         this.prisma.vendor.findMany({
-          where: { id: { in: topVendorIds } },
-          select: { id: true, businessName: true, rating: true, reorderRatePct: true },
+          where: this.operationalVendorWhere({ id: { in: topVendorIds } }),
+          select: { id: true, businessName: true, rating: true },
         }),
         // Open/escalated disputes per vendor in the same month.
         this.prisma.dispute.findMany({
           where: {
             createdAt: { gte: monthStart },
-            order: { vendorId: { in: topVendorIds } },
+            order: this.operationalOrderWhere({ vendorId: { in: topVendorIds } }),
           },
           select: { order: { select: { vendorId: true } } },
         }),
@@ -214,20 +259,38 @@ export class AdminService {
         const vid = d.order.vendorId;
         disputeCount.set(vid, (disputeCount.get(vid) ?? 0) + 1);
       }
+      const deliveredCustomerCounts = new Map<string, Map<string, number>>();
+      for (const order of deliveredOrders) {
+        if (!topVendorIds.includes(order.vendorId)) continue;
+        const customers = deliveredCustomerCounts.get(order.vendorId) ?? new Map<string, number>();
+        customers.set(order.customerId, (customers.get(order.customerId) ?? 0) + 1);
+        deliveredCustomerCounts.set(order.vendorId, customers);
+      }
       const byId = new Map(vendorRows.map((v) => [v.id, v]));
       topVendors = topVendorIds.map((id) => {
         const totals = vendorTotals.get(id)!;
         const v = byId.get(id);
         const disputes = disputeCount.get(id) ?? 0;
+        const customerCounts = deliveredCustomerCounts.get(id) ?? new Map<string, number>();
+        const deliveredCustomers = customerCounts.size;
+        const reorderCustomers = Array.from(customerCounts.values()).filter(
+          (count) => count >= 2,
+        ).length;
         return {
           vendorId: id,
           businessName: v?.businessName ?? 'Unknown',
           gmvPence: totals.gmv,
           ordersCount: totals.orders,
           rating: v?.rating ?? 0,
-          reorderRatePct: v?.reorderRatePct ?? 0,
+          reorderRatePct:
+            deliveredCustomers === 0
+              ? 0
+              : Number(((reorderCustomers / deliveredCustomers) * 100).toFixed(2)),
+          reorderCustomers,
+          deliveredCustomers,
           disputeRatePct:
             totals.orders === 0 ? 0 : Number(((disputes / totals.orders) * 100).toFixed(2)),
+          disputesCount: disputes,
         };
       });
     }
@@ -251,6 +314,8 @@ export class AdminService {
       ordersTodayCount: todayAgg._count._all,
       avgBasketPence: Math.round(monthAgg._avg.totalPence ?? 0),
       repeatOrderRatePct,
+      repeatCustomers,
+      totalCustomers,
       dailyRevenue,
       topVendors,
     };
@@ -277,6 +342,7 @@ export class AdminService {
     paymentStatus?: 'pending' | 'succeeded' | 'failed' | 'cancelled';
     ids?: string;
     withPiStatus?: boolean;
+    includeTestData?: boolean;
     limit?: number;
     page?: number;
   }) {
@@ -306,8 +372,18 @@ export class AdminService {
             select: { stripePaymentIntentId: true, status: true },
           },
           items: { select: { nameSnapshot: true, quantity: true } },
-          customer: { select: { id: true, email: true, firstName: true, lastName: true } },
-          vendor: { select: { id: true, businessName: true } },
+          isSeedData: true,
+          customer: {
+            select: { id: true, email: true, firstName: true, lastName: true, isTestData: true },
+          },
+          vendor: {
+            select: {
+              id: true,
+              businessName: true,
+              isSeedData: true,
+              user: { select: { isTestData: true } },
+            },
+          },
           adminTags: { select: { tag: true }, orderBy: { tag: 'asc' } },
         },
       }),
@@ -319,6 +395,14 @@ export class AdminService {
       return {
         ...rest,
         adminTags: adminTags.map((t) => t.tag),
+        isTestData:
+          r.isSeedData || r.customer.isTestData || r.vendor.isSeedData || r.vendor.user.isTestData,
+        testDataProvenance: [
+          ...(r.isSeedData ? ['Order seed data'] : []),
+          ...(r.customer.isTestData ? ['Customer test data'] : []),
+          ...(r.vendor.isSeedData ? ['Vendor seed data'] : []),
+          ...(r.vendor.user.isTestData ? ['Vendor owner test data'] : []),
+        ],
         stripePaymentIntentId: payments[0]?.stripePaymentIntentId ?? null,
         paymentStatus: payments[0]?.status ?? null,
       };
@@ -379,8 +463,14 @@ export class AdminService {
     createdTo?: string;
     paymentStatus?: 'pending' | 'succeeded' | 'failed' | 'cancelled';
     ids?: string;
+    includeTestData?: boolean;
   }): Promise<Prisma.OrderWhereInput> {
     const where: Prisma.OrderWhereInput = {};
+    if (!opts.includeTestData) {
+      where.isSeedData = false;
+      where.customer = { isTestData: false };
+      where.vendor = { isSeedData: false, user: { isTestData: false } };
+    }
     if (opts.status) where.status = opts.status;
 
     // Explicit ID list (bulk "export selected"). Applied via AND so it can't
@@ -466,6 +556,7 @@ export class AdminService {
     createdFrom?: string;
     createdTo?: string;
     paymentStatus?: 'pending' | 'succeeded' | 'failed' | 'cancelled';
+    includeTestData?: boolean;
   }) {
     const scope = await this.buildAdminOrdersWhere(opts);
     const startOfToday = startOfUtcDay(new Date());
@@ -490,7 +581,15 @@ export class AdminService {
       }),
     ]);
     const successRatePct = finalised === 0 ? null : Math.round((completed / finalised) * 100);
-    return { total, today, completed, exceptions, successRatePct };
+    return {
+      total,
+      today,
+      completed,
+      exceptions,
+      successRatePct,
+      successfulCount: completed,
+      finalisedCount: finalised,
+    };
   }
 
   /**
@@ -507,6 +606,7 @@ export class AdminService {
     createdTo?: string;
     paymentStatus?: 'pending' | 'succeeded' | 'failed' | 'cancelled';
     ids?: string;
+    includeTestData?: boolean;
   }): Promise<string> {
     const where = await this.buildAdminOrdersWhere(opts);
     const rows = await this.prisma.order.findMany({
@@ -519,8 +619,17 @@ export class AdminService {
         status: true,
         totalPence: true,
         createdAt: true,
-        customer: { select: { email: true, firstName: true, lastName: true } },
-        vendor: { select: { businessName: true } },
+        isSeedData: true,
+        customer: {
+          select: { email: true, firstName: true, lastName: true, isTestData: true },
+        },
+        vendor: {
+          select: {
+            businessName: true,
+            isSeedData: true,
+            user: { select: { isTestData: true } },
+          },
+        },
         payments: { orderBy: { createdAt: 'desc' }, take: 1, select: { status: true } },
         items: { select: { nameSnapshot: true, quantity: true } },
         adminTags: { select: { tag: true } },
@@ -538,6 +647,8 @@ export class AdminService {
       'Status',
       'Payment',
       'Tags',
+      'is_test_data',
+      'provenance',
     ];
     const esc = (s: string): string => {
       // Defuse spreadsheet formula injection on user-controlled text.
@@ -564,6 +675,20 @@ export class AdminService {
           esc(r.status),
           esc(r.payments[0]?.status ?? ''),
           esc(r.adminTags.map((t) => t.tag).join('; ')),
+          String(
+            r.isSeedData ||
+              r.customer.isTestData ||
+              r.vendor.isSeedData ||
+              r.vendor.user.isTestData,
+          ),
+          esc(
+            [
+              ...(r.isSeedData ? ['Order seed data'] : []),
+              ...(r.customer.isTestData ? ['Customer test data'] : []),
+              ...(r.vendor.isSeedData ? ['Vendor seed data'] : []),
+              ...(r.vendor.user.isTestData ? ['Vendor owner test data'] : []),
+            ].join('; '),
+          ),
         ].join(','),
       );
     }
@@ -626,6 +751,8 @@ export class AdminService {
         'entity_id',
         'ip_address',
         'metadata',
+        'is_test_data',
+        'provenance',
       ].join(',') + '\n',
     );
 
@@ -663,6 +790,8 @@ export class AdminService {
           r.entityId ?? '',
           r.ipAddress ?? '',
           r.metadata ? JSON.stringify(r.metadata) : '',
+          String(r.isTestData),
+          r.provenance ?? '',
         ];
         write(fields.map((f) => csvCell(f)).join(',') + '\n');
       }
@@ -761,7 +890,7 @@ export class AdminService {
   }
 
   private buildAuditWhere(dto: ListAuditLogDto): Prisma.AuditLogWhereInput {
-    const where: Prisma.AuditLogWhereInput = {};
+    const where: Prisma.AuditLogWhereInput = dto.includeTestData ? {} : { isTestData: false };
     if (dto.entityType) where.entityType = dto.entityType;
     if (dto.entityId) where.entityId = dto.entityId;
     if (dto.actorId) where.actorId = dto.actorId;
@@ -1431,7 +1560,9 @@ export class AdminService {
     // No status filter ⇒ "All" tab in the admin UI returns vendors of every
     // status. The client decides the default tab (currently "Pending"); the
     // service must not silently override that with its own default.
-    const where: Prisma.VendorWhereInput = {};
+    const where: Prisma.VendorWhereInput = dto.includeTestData
+      ? {}
+      : { isSeedData: false, user: { isTestData: false } };
     if (dto.status) where.status = dto.status;
     if (dto.search) {
       where.businessName = { contains: dto.search, mode: 'insensitive' };
@@ -1450,7 +1581,7 @@ export class AdminService {
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: limit,
       include: {
-        user: { select: { firstName: true, lastName: true, email: true } },
+        user: { select: { firstName: true, lastName: true, email: true, isTestData: true } },
         documents: { select: { type: true, status: true, expiresAt: true } },
       },
     });
@@ -1476,6 +1607,11 @@ export class AdminService {
         createdAt: v.createdAt,
         approvedAt: v.approvedAt,
         owner: v.user,
+        isTestData: v.isSeedData || v.user.isTestData,
+        testDataProvenance: [
+          ...(v.isSeedData ? ['Vendor seed data'] : []),
+          ...(v.user.isTestData ? ['Vendor owner test data'] : []),
+        ],
         documentStatusByType,
       };
     });
@@ -1519,9 +1655,12 @@ export class AdminService {
    * Returns every VendorStatus key (even when zero) so the UI can render a
    * stable set of pills without nullish checks, plus an `all` total.
    */
-  async getVendorStatusCounts(): Promise<Record<VendorStatus | 'all', number>> {
+  async getVendorStatusCounts(
+    includeTestData = false,
+  ): Promise<Record<VendorStatus | 'all', number>> {
     const grouped = await this.prisma.vendor.groupBy({
       by: ['status'],
+      where: includeTestData ? {} : { isSeedData: false, user: { isTestData: false } },
       _count: { _all: true },
     });
     const out: Record<VendorStatus | 'all', number> = {

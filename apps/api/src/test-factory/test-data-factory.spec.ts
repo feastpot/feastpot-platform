@@ -157,4 +157,72 @@ describe('test data factory contracts', () => {
       ['feastpot-media', ['test-factory/local/v1/photo.jpg']],
     ]);
   });
+
+  it('repairs an existing factory vendor with its explicit seed marker', async () => {
+    const prisma = {
+      vendor: {
+        findFirst: jest.fn().mockResolvedValue({ id: 'vendor-id' }),
+        update: jest.fn().mockResolvedValue({ id: 'vendor-id' }),
+      },
+      menu: { findFirst: jest.fn().mockResolvedValue({ id: 'menu-id' }) },
+    };
+    const factory = new TestDataFactory({
+      databaseUrl: 'postgresql://postgres:postgres@127.0.0.1:5432/feastpot_test',
+      prisma: prisma as never,
+      namespace: 'provenance',
+    });
+    const identity = {
+      state: 'V2' as const,
+      credentials: { email: 'vendor@example.test', password: null, role: 'vendor' as const },
+      userId: 'user-id',
+      relatedUserIds: [],
+      relatedVendorIds: [],
+      storageObjects: [],
+    };
+
+    await (
+      factory as unknown as {
+        ensureVendor(
+          identity: typeof identity,
+          user: { id: string; email: string; password: null; role: 'vendor' },
+          state: 'V2',
+        ): Promise<unknown>;
+      }
+    ).ensureVendor(
+      identity,
+      { id: 'user-id', email: 'vendor@example.test', password: null, role: 'vendor' },
+      'V2',
+    );
+
+    expect(prisma.vendor.update).toHaveBeenCalledWith({
+      where: { id: 'vendor-id' },
+      data: { userId: 'user-id', isSeedData: true },
+    });
+  });
+
+  it('repairs an existing factory catering enquiry provenance before booking it', async () => {
+    const prisma = {
+      cateringEnquiry: {
+        findFirst: jest.fn().mockResolvedValue({ id: 'enquiry-id' }),
+        update: jest.fn().mockResolvedValue({ id: 'enquiry-id' }),
+      },
+      cateringBooking: { upsert: jest.fn().mockResolvedValue({ id: 'booking-id' }) },
+    };
+    const factory = new TestDataFactory({
+      databaseUrl: 'postgresql://postgres:postgres@127.0.0.1:5432/feastpot_test',
+      prisma: prisma as never,
+      namespace: 'provenance',
+    });
+
+    await (
+      factory as unknown as {
+        ensureCateringBooking(vendorId: string, customerId: string, state: 'V11'): Promise<string>;
+      }
+    ).ensureCateringBooking('vendor-id', 'customer-id', 'V11');
+
+    expect(prisma.cateringEnquiry.update).toHaveBeenCalledWith({
+      where: { id: 'enquiry-id' },
+      data: { isTestData: true, provenance: 'test-factory' },
+    });
+  });
 });

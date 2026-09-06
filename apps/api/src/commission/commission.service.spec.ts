@@ -346,7 +346,7 @@ describe('CommissionService.createRate()', () => {
           .mockResolvedValueOnce(overrides?.collision ? { id: 'same-start' } : null)
           .mockResolvedValueOnce(null)
           .mockResolvedValueOnce(null),
-        update: jest.fn(),
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
         create: jest.fn(),
       },
     };
@@ -377,7 +377,22 @@ describe('CommissionService.createRate()', () => {
     await expect(service.createRate(dto)).rejects.toMatchObject({
       response: expect.objectContaining({ code: 'EFFECTIVE_FROM_COLLISION' }),
     });
-    expect(tx.commissionRate.update).not.toHaveBeenCalled();
+    expect(tx.commissionRate.updateMany).not.toHaveBeenCalled();
     expect(tx.commissionRate.create).not.toHaveBeenCalled();
+  });
+
+  it('does not consider a labelled legacy anomaly when closing or scheduling a rate', async () => {
+    const { prisma, tx } = makeRateTransaction();
+    tx.commissionRate.create.mockResolvedValue({ id: 'new-rate' });
+    const service = new CommissionService(prisma as never);
+
+    await service.createRate(dto);
+
+    expect(tx.commissionRate.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ isAnomalous: false }) }),
+    );
+    expect(tx.commissionRate.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ isAnomalous: false }) }),
+    );
   });
 });

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { useApi } from '@/hooks/use-api';
+import { formatRatio } from '@/lib/format-ratio';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.feastpot.co.uk';
 
@@ -64,11 +65,6 @@ const EVENT_LABELS: Record<string, string> = {
   share_link_click: 'Share link copied',
   qr_scan: 'QR scanned',
 };
-
-function pct(n: number, of: number) {
-  if (!of) return 'No data yet';
-  return `${((n / of) * 100).toFixed(1)}%`;
-}
 
 // ── QR backfill card ──────────────────────────────────────────────────────────
 
@@ -280,9 +276,8 @@ export function AnalyticsClient({
                     {row.totalEvents.toLocaleString()}
                   </td>
                   <td className="px-4 py-3 text-right tabular-nums text-mid">
-                    {row.eventName === 'vendor_page_view'
-                      ? pct(row.uniqueSessions, pageViewSessions)
-                      : pct(row.uniqueSessions, pageViewSessions)}
+                    {formatRatio(row.uniqueSessions, pageViewSessions)} ({row.uniqueSessions} of{' '}
+                    {pageViewSessions} sessions)
                   </td>
                 </tr>
               ))}

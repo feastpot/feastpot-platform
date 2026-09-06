@@ -42,8 +42,9 @@ import { StatCard } from '@/components/ui/stat-card';
 import { useAdminDashboard } from '@/hooks/use-admin-dashboard';
 import { useCoverageWaitlist } from '@/hooks/use-coverage-waitlist';
 import { useApi } from '@/hooks/use-api';
-import { formatPence, formatPercent } from '@/lib/format';
+import { formatPence } from '@/lib/format';
 import { getEnquiryUrgency } from '@/lib/catering-urgency';
+import { formatRatio } from '@/lib/format-ratio';
 
 // ── Catering urgency strip ─────────────────────────────────────────────────
 
@@ -231,10 +232,12 @@ export function DashboardClient() {
           </CardHeader>
           <CardContent>
             <div className="text-4xl font-extrabold tracking-tight text-foreground">
-              {formatPercent(data?.repeatOrderRatePct)}
+              {data ? formatRatio(data.repeatCustomers, data.totalCustomers) : '…'}
             </div>
             <p className="mt-2 text-xs text-muted-foreground">
-              Share of customers in the last 90 days with ≥2 delivered orders.
+              {data
+                ? `${data.repeatCustomers} of ${data.totalCustomers} customers with ≥2 delivered orders in the last 90 days.`
+                : 'Share of customers in the last 90 days with ≥2 delivered orders.'}
             </p>
           </CardContent>
         </Card>
@@ -268,9 +271,21 @@ export function DashboardClient() {
                   <TableCell className="text-right">{formatPence(v.gmvPence)}</TableCell>
                   <TableCell className="text-right">{v.ordersCount}</TableCell>
                   <TableCell className="text-right">{v.rating.toFixed(2)}</TableCell>
-                  <TableCell className="text-right">{formatPercent(v.reorderRatePct)}</TableCell>
-                  <TableCell className={`text-right ${disputeColor(v.disputeRatePct)}`}>
-                    {formatPercent(v.disputeRatePct)}
+                  <TableCell className="text-right">
+                    {formatRatio(v.reorderCustomers, v.deliveredCustomers)}
+                    <span className="block text-xs text-muted-foreground">
+                      {v.reorderCustomers} of {v.deliveredCustomers} customers
+                    </span>
+                  </TableCell>
+                  <TableCell
+                    className={`text-right ${
+                      v.ordersCount === 0 ? 'text-muted-foreground' : disputeColor(v.disputeRatePct)
+                    }`}
+                  >
+                    {formatRatio(v.disputesCount, v.ordersCount)}
+                    <span className="block text-xs text-muted-foreground">
+                      {v.disputesCount} of {v.ordersCount} orders
+                    </span>
                   </TableCell>
                   <TableCell className="text-right">
                     <Link

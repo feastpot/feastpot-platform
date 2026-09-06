@@ -26,6 +26,7 @@ import { useToast } from '@/components/ui/toaster';
 import { useApi } from '@/hooks/use-api';
 import { useDebounce } from '@/hooks/use-debounce';
 import { formatDateTime } from '@/lib/format';
+import { formatRatio } from '@/lib/format-ratio';
 import { getEnquiryUrgency } from '@/lib/catering-urgency';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -48,6 +49,8 @@ interface CateringEnquiry {
   status: string;
   adminNotes?: string | null;
   source?: string | null;
+  isTestData: boolean;
+  provenance: string | null;
   createdAt: string;
   booking?: {
     id: string;
@@ -260,6 +263,7 @@ function EnquiriesTab() {
   const { toast } = useToast();
 
   const [status, setStatus] = useState('ALL');
+  const [includeTestData, setIncludeTestData] = useState(false);
   const [cursorStack, setCursorStack] = useState<Array<string | undefined>>([undefined]);
   const cursor = cursorStack[cursorStack.length - 1];
   const [page, setPage] = useState<ListPage | null>(null);
@@ -287,12 +291,13 @@ function EnquiriesTab() {
     const params = new URLSearchParams();
     if (status !== 'ALL') params.set('status', status);
     if (cursor) params.set('cursor', cursor);
+    if (includeTestData) params.set('includeTestData', 'true');
     params.set('limit', '50');
     request<ListPage>(`/catering-enquiries?${params.toString()}`)
       .then(setPage)
       .catch(() => setPage(null))
       .finally(() => setLoading(false));
-  }, [request, status, cursor]);
+  }, [request, status, cursor, includeTestData]);
 
   useEffect(() => {
     loadPage();
@@ -414,6 +419,17 @@ function EnquiriesTab() {
             ))}
           </SelectContent>
         </Select>
+        <label className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+          <input
+            type="checkbox"
+            checked={includeTestData}
+            onChange={(e) => {
+              setIncludeTestData(e.target.checked);
+              setCursorStack([undefined]);
+            }}
+          />
+          Include test data
+        </label>
       </div>
 
       {loading ? (
@@ -448,7 +464,10 @@ function EnquiriesTab() {
                     <TableRow key={enq.id}>
                       <TableCell>
                         <div>
-                          <div className="text-sm font-medium">{enq.contactName}</div>
+                          <div className="flex items-center gap-2 text-sm font-medium">
+                            <span>{enq.contactName}</span>
+                            {enq.isTestData && <TestDataLabel provenance={enq.provenance} />}
+                          </div>
                           <div className="text-xs text-muted-foreground">{enq.email}</div>
                         </div>
                       </TableCell>
@@ -588,6 +607,7 @@ function EnquiriesTab() {
                   </div>
                 ))}
             </dl>
+            {reviewed.isTestData && <TestDataDetail provenance={reviewed.provenance} />}
             {reviewed.notes && (
               <div>
                 <p className="mb-1 text-sm font-medium">Customer notes</p>
@@ -782,6 +802,32 @@ function EnquiriesTab() {
             </div>
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+function TestDataLabel({ provenance }: { provenance: string | null }) {
+  const detail = provenance ? ` Test data provenance: ${provenance}.` : '';
+  return (
+    <span
+      className="rounded-full border border-border px-2 py-0.5 text-xs font-medium text-muted-foreground"
+      aria-label={`Test data.${detail}`}
+      title={provenance ? `Test data — ${provenance}` : 'Test data'}
+    >
+      Test data
+    </span>
+  );
+}
+
+function TestDataDetail({ provenance }: { provenance: string | null }) {
+  return (
+    <div className="rounded-lg border border-border p-3 text-sm" role="note">
+      <p className="font-medium">Test data</p>
+      {provenance && (
+        <p className="mt-1 text-muted-foreground">
+          Provenance: <span className="font-medium">{provenance}</span>
+        </p>
       )}
     </div>
   );
@@ -1091,7 +1137,6 @@ function PerformanceTab() {
   const won = byCounts['WON'] ?? 0;
   const lost = byCounts['LOST'] ?? 0;
   const closedTotal = won + lost;
-  const winRate = closedTotal > 0 ? ((won / closedTotal) * 100).toFixed(1) : '-';
   const unassignedOpen = (byCounts['NEW'] ?? 0) + (byCounts['UNASSIGNED'] ?? 0);
 
   return (
@@ -1101,7 +1146,8 @@ function PerformanceTab() {
         <PerfKpiCard label="Unassigned" value={String(unassignedOpen)} />
         <PerfKpiCard
           label="Win rate (closed)"
-          value={winRate === '-' ? 'No data' : `${winRate}%`}
+          value={formatRatio(won, closedTotal)}
+          sub={`${won} of ${closedTotal} closed enquiries won`}
         />
         <PerfKpiCard label="Won" value={String(won)} />
       </div>
@@ -1134,11 +1180,12 @@ function PerformanceTab() {
   );
 }
 
-function PerfKpiCard({ label, value }: { label: string; value: string }) {
+function PerfKpiCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
     <div className="rounded-lg border bg-card p-4">
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className="text-2xl font-bold">{value}</p>
+      {sub && <p className="mt-1 text-xs text-muted-foreground">{sub}</p>}
     </div>
   );
 }

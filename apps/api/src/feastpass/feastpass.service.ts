@@ -410,6 +410,7 @@ export class FeastPassService {
       totalMembers,
       renewalRate: Math.round(renewalRate * 10) / 10,
       churnRate: Math.round(churnRate * 10) / 10,
+      cohortRenewedCount: cohortStarted - cohortCancelled,
       cohortCancelledCount: cohortCancelled,
       cohortStartedCount: cohortStarted,
       totalSavedPence: savings._sum.savedPence ?? 0,

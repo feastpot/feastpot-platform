@@ -64,6 +64,7 @@ import {
 } from '@/hooks/use-admin-orders';
 import { useOverrideOrderStatus, type OrderStatus } from '@/hooks/use-admin-users';
 import { formatDateTime, formatPence } from '@/lib/format';
+import { formatRatio } from '@/lib/format-ratio';
 
 const STATUSES: ReadonlyArray<OrderStatus | 'all'> = [
   'all',
@@ -100,6 +101,7 @@ interface FilterState {
   createdFrom: string;
   createdTo: string;
   withPi: boolean;
+  includeTestData: boolean;
 }
 
 function todayIso(): string {
@@ -115,6 +117,7 @@ function emptyFilters(): FilterState {
     createdFrom: t,
     createdTo: t,
     withPi: false,
+    includeTestData: false,
   };
 }
 
@@ -135,6 +138,7 @@ export function OrdersClient({ role }: OrdersClientProps) {
     q: applied.q || undefined,
     createdFrom: applied.createdFrom || undefined,
     createdTo: applied.createdTo || undefined,
+    includeTestData: applied.includeTestData,
   };
 
   const { data, isLoading, error } = useAdminOrders({
@@ -310,6 +314,16 @@ export function OrdersClient({ role }: OrdersClientProps) {
               />
               Enrich first 50 rows with Stripe PaymentIntent status
             </label>
+            {role === 'admin' && (
+              <label className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={draft.includeTestData}
+                  onChange={(e) => setDraft({ ...draft, includeTestData: e.target.checked })}
+                />
+                Include persisted test data
+              </label>
+            )}
           </div>
         )}
       </FilterCard>
@@ -343,11 +357,12 @@ export function OrdersClient({ role }: OrdersClientProps) {
           icon={TrendingUp}
           label="Success rate"
           value={
+            stats.data ? formatRatio(stats.data.successfulCount, stats.data.finalisedCount) : '–'
+          }
+          caption={
             stats.data
-              ? stats.data.successRatePct === null
-                ? '–'
-                : `${stats.data.successRatePct}%`
-              : '–'
+              ? `${stats.data.successfulCount} of ${stats.data.finalisedCount} finalised orders delivered`
+              : undefined
           }
           tone="neutral"
         />
@@ -357,6 +372,7 @@ export function OrdersClient({ role }: OrdersClientProps) {
         <BulkActionsBar
           selectedIds={[...selected]}
           canBulk={canBulk}
+          includeTestData={applied.includeTestData}
           onClear={() => setSelected(new Set())}
         />
       )}
@@ -644,11 +660,13 @@ function KpiTile({
   icon: Icon,
   label,
   value,
+  caption,
   tone,
 }: {
   icon: typeof Package;
   label: string;
   value: string;
+  caption?: string;
   tone: 'brand' | 'info' | 'success' | 'danger' | 'neutral';
 }) {
   const toneClass: Record<typeof tone, string> = {
@@ -669,6 +687,7 @@ function KpiTile({
         <div className="min-w-0">
           <div className="text-xs text-muted-foreground">{label}</div>
           <div className="text-xl font-semibold leading-tight">{value}</div>
+          {caption && <div className="mt-0.5 text-xs text-muted-foreground">{caption}</div>}
         </div>
       </CardContent>
     </Card>
@@ -678,10 +697,12 @@ function KpiTile({
 function BulkActionsBar({
   selectedIds,
   canBulk,
+  includeTestData,
   onClear,
 }: {
   selectedIds: string[];
   canBulk: boolean;
+  includeTestData: boolean;
   onClear: () => void;
 }) {
   const token = useAccessToken();
@@ -706,7 +727,10 @@ function BulkActionsBar({
     setBusy(true);
     try {
       const res = await fetch(
-        `${API_URL}/v1/admin/orders.csv?ids=${encodeURIComponent(selectedIds.join(','))}`,
+        `${API_URL}/v1/admin/orders.csv?${new URLSearchParams({
+          ids: selectedIds.join(','),
+          ...(includeTestData ? { includeTestData: 'true' } : {}),
+        }).toString()}`,
         { headers: { Authorization: `Bearer ${token}` } },
       );
       if (!res.ok) throw new Error(`Export failed (${res.status})`);
@@ -914,6 +938,15 @@ function OrdersTableRow({
         </TableCell>
         <TableCell className="font-mono text-xs">
           {order.orderNumber}
+          {order.isTestData && (
+            <Badge
+              variant="outline"
+              className="ml-1.5"
+              aria-label={`Test data: ${order.testDataProvenance.join('; ')}`}
+            >
+              Test data
+            </Badge>
+          )}
           {order.adminTags.length > 0 && (
             <div className="mt-1 flex flex-wrap gap-1">
               {order.adminTags.map((t) => (

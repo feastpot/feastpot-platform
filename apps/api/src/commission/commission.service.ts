@@ -58,6 +58,7 @@ export class CommissionService {
     const rate = await this.prisma.commissionRate.findFirst({
       where: {
         source,
+        isAnomalous: false,
         AND: [
           { OR: [{ isFirstOrder: isFirstOrder }, { isFirstOrder: null }] },
           { OR: [{ effectiveTo: null }, { effectiveTo: { gt: at } }] },
@@ -298,6 +299,7 @@ export class CommissionService {
    */
   async listRates() {
     return this.prisma.commissionRate.findMany({
+      where: { isAnomalous: false },
       orderBy: [{ source: 'asc' }, { isFirstOrder: 'asc' }, { effectiveFrom: 'desc' }],
     });
   }
@@ -335,6 +337,7 @@ export class CommissionService {
           where: {
             source: dto.source,
             isFirstOrder: dto.isFirstOrder,
+            isAnomalous: false,
             effectiveFrom: dto.effectiveFrom,
           },
           select: { id: true },
@@ -343,6 +346,7 @@ export class CommissionService {
           where: {
             source: dto.source,
             isFirstOrder: dto.isFirstOrder,
+            isAnomalous: false,
             effectiveFrom: { gt: dto.effectiveFrom },
           },
           orderBy: { effectiveFrom: 'asc' },
@@ -364,6 +368,7 @@ export class CommissionService {
         where: {
           source: dto.source,
           isFirstOrder: dto.isFirstOrder,
+          isAnomalous: false,
           effectiveFrom: { lt: dto.effectiveFrom },
           OR: [{ effectiveTo: null }, { effectiveTo: { gt: dto.effectiveFrom } }],
         },
@@ -377,6 +382,7 @@ export class CommissionService {
           source: dto.source,
           isFirstOrder: dto.isFirstOrder,
           ratePercent: dto.ratePercent,
+          isAnomalous: false,
           effectiveFrom: dto.effectiveFrom,
           effectiveTo: next?.effectiveFrom ?? null,
           createdBy: dto.createdBy,

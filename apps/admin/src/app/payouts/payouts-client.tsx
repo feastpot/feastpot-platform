@@ -40,6 +40,7 @@ import {
 } from '@/hooks/use-payouts';
 import { apiRequest } from '@/lib/api/client';
 import { formatDate, formatPence } from '@/lib/format';
+import { formatRatio } from '@/lib/format-ratio';
 import { createClient } from '@/lib/supabase/client';
 
 function DialogFooter({ children }: { children: React.ReactNode }) {
@@ -134,11 +135,9 @@ export function PayoutsClient({ role }: PayoutsClientProps) {
       else if (r.status === 'draft' || r.status === 'approved') pending += 1;
       else if (r.status === 'failed' || r.status === 'held') failedOrHeld += 1;
     }
-    const commissionPct = amount > 0 ? (commission / amount) * 100 : 0;
     return {
       amount,
       commission,
-      commissionPct,
       successful,
       pending,
       failedOrHeld,
@@ -276,7 +275,7 @@ export function PayoutsClient({ role }: PayoutsClientProps) {
           tone="brand"
           label="Total commission"
           value={formatPence(summary.commission)}
-          caption={`${summary.commissionPct.toFixed(1)}% of payout amount`}
+          caption={`${formatRatio(summary.commission, summary.amount)} (${formatPence(summary.commission)} of ${formatPence(summary.amount)} payout amount)`}
         />
         <StatCard
           icon={CheckCircle2}
