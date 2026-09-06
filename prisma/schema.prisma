@@ -1726,7 +1726,7 @@ model CateringEnquiry {
 
   @@index([status], map: "catering_enquiry_status_idx")
   @@index([eventDate], map: "catering_enquiry_event_date_idx")
-  @@index([isTestData], map: "catering_enquiry_is_test_data_idx")
+  @@index([isTestData], map: "catering_enquiries_is_test_data_idx")
   @@map("catering_enquiries")
 }
 
