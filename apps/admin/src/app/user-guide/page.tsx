@@ -30,17 +30,17 @@ const SECTIONS: GuideSection[] = [
       {
         heading: 'Support',
         detail:
-          'Can view orders, users, vendors, applications, disputes, events, catering enquiries, coverage waitlist, and attribution. Cannot access financial tools (payouts, chargebacks, FeastPass health, commission rates) or admin-only moderation tools.',
+          'Can access orders, users, vendors, applications, disputes, catering, vendor acquisition, attribution and the coverage waitlist. Cannot access payouts, chargebacks, FeastPass health, commission rates, compliance, the audit log, settings, or moderation tools.',
       },
       {
         heading: 'Finance',
         detail:
-          'Can view orders, users, payouts, chargebacks, discount codes, FeastPass health, commission rates, catering bookings, and attribution. Does not have access to compliance, disputes, or vendor applications.',
+          'Can access orders, users, payouts, chargebacks, discount codes, catering, vendor acquisition, attribution, FeastPass health and commission rates. Does not have access to vendors, applications, disputes, compliance, the audit log, settings, or moderation tools.',
       },
       {
         heading: 'Compliance',
         detail:
-          'Can view users, vendors, vendor applications, and the compliance dashboard. Has access to the audit log. Does not have access to financial tools or order management.',
+          'Can access users, vendors, vendor applications, compliance, legal operations and the audit log. Does not have access to orders, financial tools, disputes, catering, settings, or moderation tools.',
       },
     ],
   },
@@ -281,7 +281,7 @@ const SECTIONS: GuideSection[] = [
       {
         heading: 'Accessing Bull Board',
         detail:
-          'Click Job queues in the sidebar to open Bull Board in a new tab. You will be prompted for the Bull Board password (stored in secrets). This view is separate from the admin panel and runs against the live Redis queue.',
+          'Click Job queues in the sidebar to open the in-console queue health and controls. Bull Board is embedded behind your authenticated AAL2 admin session; access is recorded in the audit log and no separate password is used.',
       },
       {
         heading: 'Dead-letter queue (DLQ)',
@@ -291,7 +291,7 @@ const SECTIONS: GuideSection[] = [
       {
         heading: 'Monitoring queue depth',
         detail:
-          'If any queue shows a large and growing backlog of waiting jobs, the worker may have stalled or a dependency (Stripe, Twilio, Redis) may be degraded. Check the API workflow logs and the Slack #alerts channel before retrying jobs in bulk.',
+          'If any queue shows a large and growing backlog of waiting jobs, the worker may have stalled or a dependency (Stripe, Twilio, Redis) may be degraded. Compare the in-console health panel with the queue alerts before retrying jobs in bulk.',
       },
     ],
   },

@@ -17,6 +17,18 @@ Production requires `ADMIN_REQUIRE_AAL2=true` for the API and both `ADMIN_REQUIR
 2. **Server gate** (`apps/admin/src/lib/auth/server-gate.ts`): `requireStaff()` decodes aal via `Buffer.from(payload, 'base64url')`. Redirects to `/settings/2fa?next=<original>`. The `/settings/2fa` page itself passes `{ skipAalCheck: true }` to avoid a loop.
 3. **API NestJS** (`apps/api/src/auth/guards/aal.guard.ts`): global APP_GUARD; reads `request.user.aal` (already populated by SupabaseAuthGuard); only applies when the endpoint has a `@Roles(admin|support|finance|compliance)` decorator. Throws `ForbiddenException({ code: 'AAL2_REQUIRED' })`.
 
+All global authentication/authorization guards must be registered together in one root module in the explicit order authenticate → role check → AAL2 check → throttle. Do not split APP_GUARD registrations between imported and root modules.
+
+**Why:** Nest can instantiate imported-module and root-module global guards in an order that lets the AAL guard run before authentication; its defensive “no user yet” path then silently allows AAL1 staff.
+
+**How to apply:** Any new global guard must preserve the explicit root ordering, and real-token acceptance tests must prove an AAL1 staff request is rejected.
+
+For privileged API authorization, the current database role is authoritative over JWT/app_metadata. Staff-token requests bypass the short account cache so demotion revokes access even if Supabase metadata synchronization or global sign-out fails.
+
+**Why:** External identity synchronization is not transactional with the role-change database transaction; stale admin metadata must never preserve API privileges.
+
+**How to apply:** Keep Supabase metadata synchronized for client routing, but never rely on it as the final authority for staff API access.
+
 ## Two modes on /settings/2fa
 - **No enrolled factor (aal1, no factor)**: show `SecuritySection` (full enrolment flow — QR, verify, recovery codes).
 - **Factor exists but aal1 (fresh sign-in after enrolment)**: show `ChallengeCard` — `mfa.challenge()` + `mfa.verify()` upgrades session to aal2, then `router.push(next)`.

@@ -17,6 +17,8 @@ import { LoggerModule } from 'nestjs-pino';
 
 import { AuthModule } from './auth/auth.module';
 import { AalGuard } from './auth/guards/aal.guard';
+import { RolesGuard } from './auth/guards/roles.guard';
+import { SupabaseAuthGuard } from './auth/guards/supabase-auth.guard';
 import { CommissionModule } from './commission/commission.module';
 import { CacheModule } from './common/cache/cache.module';
 import { RoleThrottlerGuard } from './common/guards/role-throttler.guard';
@@ -25,7 +27,7 @@ import { HealthController } from './health/health.controller';
 import { HealthzController, StatuszController } from './health/healthz.controller';
 import { AddressesModule } from './modules/addresses/addresses.module';
 import { AdminModule } from './modules/admin/admin.module';
-import { bullBoardBasicAuth } from './modules/admin/bull-board.middleware';
+import { bullBoardSessionAuth } from './modules/admin/bull-board.middleware';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { AttributionModule } from './modules/attribution/attribution.module';
 import { AuthPublicModule } from './modules/auth-public/auth-public.module';
@@ -96,7 +98,7 @@ import { RootController } from './root.controller';
         serializers: {
           req: (req: { method: string; url: string; id: unknown }) => ({
             method: req.method,
-            url: req.url,
+            url: req.url.replace(/([?&]access=)[^&]*/u, '$1[REDACTED]'),
             id: req.id,
           }),
           res: (res: { statusCode: number }) => ({ statusCode: res.statusCode }),
@@ -353,17 +355,17 @@ import { RootController } from './root.controller';
       useFactory: (cfg: ConfigService) => ({
         route: '/admin/queues',
         adapter: ExpressAdapter,
-        middleware: bullBoardBasicAuth(cfg),
+        middleware: bullBoardSessionAuth(cfg),
       }),
     }),
     BullBoardModule.forFeature(
-      { name: NOTIFICATIONS_QUEUE, adapter: BullAdapter },
-      { name: STRIPE_WEBHOOK_QUEUE, adapter: BullAdapter },
-      { name: PAYOUTS_QUEUE, adapter: BullAdapter },
-      { name: COMPLIANCE_QUEUE, adapter: BullAdapter },
-      { name: TERMS_NOTICES_QUEUE, adapter: BullAdapter },
-      { name: HMRC_QUEUE, adapter: BullAdapter },
-      { name: ATTRIBUTION_QR_QUEUE, adapter: BullAdapter },
+      { name: NOTIFICATIONS_QUEUE, adapter: BullAdapter, options: { readOnlyMode: true } },
+      { name: STRIPE_WEBHOOK_QUEUE, adapter: BullAdapter, options: { readOnlyMode: true } },
+      { name: PAYOUTS_QUEUE, adapter: BullAdapter, options: { readOnlyMode: true } },
+      { name: COMPLIANCE_QUEUE, adapter: BullAdapter, options: { readOnlyMode: true } },
+      { name: TERMS_NOTICES_QUEUE, adapter: BullAdapter, options: { readOnlyMode: true } },
+      { name: HMRC_QUEUE, adapter: BullAdapter, options: { readOnlyMode: true } },
+      { name: ATTRIBUTION_QR_QUEUE, adapter: BullAdapter, options: { readOnlyMode: true } },
     ),
     AuthModule,
     UsersModule,
@@ -409,12 +411,11 @@ import { RootController } from './root.controller';
     // Captures unhandled exceptions in HTTP/RPC/WS contexts and forwards them
     // to Sentry before delegating to Nest's default error handling.
     { provide: APP_FILTER, useClass: SentryGlobalFilter },
-    // Registered AFTER AuthModule's APP_GUARDs (SupabaseAuthGuard, RolesGuard)
-    // so req.user is populated by the time these guards run.
-    //
-    // AalGuard: rejects aal1 staff tokens when ADMIN_REQUIRE_AAL2=true.
-    // Runs before RoleThrottlerGuard so a forbidden request is never counted
-    // against the rate-limit bucket.
+    // Keep every global guard in one module so Nest's execution order is
+    // deterministic: authenticate, authorize the role, enforce staff AAL2,
+    // then apply role-aware throttling.
+    { provide: APP_GUARD, useClass: SupabaseAuthGuard },
+    { provide: APP_GUARD, useClass: RolesGuard },
     { provide: APP_GUARD, useClass: AalGuard },
     { provide: APP_GUARD, useClass: RoleThrottlerGuard },
   ],

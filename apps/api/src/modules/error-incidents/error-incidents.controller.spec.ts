@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { UserRole } from '@prisma/client';
 
@@ -75,6 +75,8 @@ describe('ErrorIncidentsController', () => {
       digest: 'digest-123',
       vendorId: null,
       userId: null,
+      clientVendorId: null,
+      clientUserId: null,
       createdAt: new Date('2026-08-31T10:15:00.000Z'),
     };
     service.findByRef.mockResolvedValue(incident);
@@ -87,5 +89,13 @@ describe('ErrorIncidentsController', () => {
     service.findByRef.mockResolvedValue(null);
 
     await expect(controller.findOne('FP-FFFF-FFFF')).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('rejects malformed limits and caps valid limits safely', async () => {
+    await expect(controller.list(undefined, '10junk')).rejects.toBeInstanceOf(BadRequestException);
+    await expect(controller.list(undefined, '0')).rejects.toBeInstanceOf(BadRequestException);
+
+    await controller.list(undefined, '999');
+    expect(service.listRecent).toHaveBeenCalledWith(200);
   });
 });

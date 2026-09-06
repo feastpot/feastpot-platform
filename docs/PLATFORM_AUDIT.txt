@@ -31,7 +31,7 @@ SECTION 1 — INFRASTRUCTURE AND DEPLOYMENT
   1.09  BullMQ job queues                             IMPLEMENTED
         apps/api/src/app.module.ts (notifications, payouts, webhooks).
   1.10  Bull Board queue monitor                      IMPLEMENTED
-        Mounted at /admin/queues with basic auth (app.module.ts).
+        Mounted at /admin/queues with short-lived AAL2 admin session access.
   1.11  Stripe payments integration                   IMPLEMENTED
         apps/api/src/stripe/stripe.service.ts.
   1.12  Stripe Connect vendor payouts                 IMPLEMENTED
@@ -866,10 +866,6 @@ No .env.example exists, so none are documented there.
     USED_IN: api          PRESENT_IN_SECRETS: NO    REQUIRED: NO (defaults 0)
   NAME: MENU_AUTO_APPROVE
     USED_IN: api          PRESENT_IN_SECRETS: NO    REQUIRED: NO (defaults auto-approve)
-  NAME: BULL_BOARD_USERNAME
-    USED_IN: api          PRESENT_IN_SECRETS: UNKNOWN REQUIRED: NO
-  NAME: BULL_BOARD_PASSWORD
-    USED_IN: api          PRESENT_IN_SECRETS: UNKNOWN REQUIRED: NO
   NAME: MFA_RECOVERY_PEPPER
     USED_IN: api          PRESENT_IN_SECRETS: UNKNOWN REQUIRED: YES (MFA codes)
   NAME: DLQ_ALERT_EMAIL

@@ -124,7 +124,7 @@ Unchanged from `LAUNCH_CHECKLIST.md`, still the real launch blockers:
 - **Vendor readiness**: 5+ verified vendors per launch borough with FHRS ≥ 4,
   insurance, Stripe Connect complete, photographed menus.
 - **Monitoring**: Sentry DSNs confirmed on the three Vercel frontends;
-  Supabase DB alerts; on-call rota; rotate the Bull Board password.
+  Supabase DB alerts; on-call rota; verify AAL2-gated queue dashboard access.
 - **Misc**: submit sitemap to Search Console/Bing; device passes (PWA install,
   cookie banner persistence, OG share cards); confirm the Twilio number is a
   production-grade UK number.

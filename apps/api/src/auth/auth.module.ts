@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { APP_GUARD } from '@nestjs/core';
 
 import { PrismaModule } from '../prisma/prisma.module';
 
@@ -14,14 +13,7 @@ import { SupabaseService } from './supabase.service';
   // public.users.status === 'active' on every authenticated request, so a
   // suspended/deleted user can't keep using a still-valid JWT.
   imports: [ConfigModule, PrismaModule],
-  providers: [
-    SupabaseService,
-    SupabaseAuthGuard,
-    OptionalAuthGuard,
-    RolesGuard,
-    { provide: APP_GUARD, useClass: SupabaseAuthGuard },
-    { provide: APP_GUARD, useClass: RolesGuard },
-  ],
+  providers: [SupabaseService, SupabaseAuthGuard, OptionalAuthGuard, RolesGuard],
   exports: [SupabaseService, SupabaseAuthGuard, OptionalAuthGuard, RolesGuard],
 })
 export class AuthModule {}
