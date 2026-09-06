@@ -19,7 +19,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { EmailProvider } from '../notifications/providers/email.provider';
 import { staffPortalInviteTemplate } from '../notifications/templates/staff-portal-invite.template';
 
-import type { StaffRoleValue } from './dto/admin-user-actions.dto';
+import type { AssignableUserRoleValue, StaffRoleValue } from './dto/admin-user-actions.dto';
 import type { JoinedRange, ListAdminUsersDto } from './dto/list-admin-users.dto';
 
 const STAFF_ROLE_LABELS: Record<StaffRoleValue, string> = {
@@ -230,7 +230,7 @@ export class AdminUsersService {
    */
   async updateUserRole(
     userId: string,
-    newRole: StaffRoleValue,
+    newRole: AssignableUserRoleValue,
     reason: string,
     actorId: string,
   ): Promise<void> {
@@ -492,7 +492,28 @@ export class AdminUsersService {
       }
     }
 
-    const data = page.map((u) => ({
+    // MFA factors live in Supabase Auth rather than the application database.
+    // A failure is represented explicitly as null (rather than "not enrolled")
+    // so a transient Auth outage cannot mislead an operator.
+    const mfaEnrollment = await Promise.all(
+      page.map(async (u) => {
+        try {
+          const result = await this.supabase
+            .getClient()
+            .auth.admin.mfa.listFactors({ userId: u.id });
+          if (result.error) {
+            this.logger.warn(`Could not load MFA factors for ${u.id}: ${result.error.message}`);
+            return null;
+          }
+          return (result.data?.factors ?? []).some((factor) => factor.status === 'verified');
+        } catch (err) {
+          this.logger.warn(`Could not load MFA factors for ${u.id}: ${(err as Error).message}`);
+          return null;
+        }
+      }),
+    );
+
+    const data = page.map((u, index) => ({
       id: u.id,
       email: u.email,
       firstName: u.firstName,
@@ -505,6 +526,7 @@ export class AdminUsersService {
       createdAt: u.createdAt,
       orderCount: u._count.orders,
       lifetimeSpendPence: spendByUser.get(u.id) ?? 0,
+      mfaEnrolled: mfaEnrollment[index] ?? null,
     }));
 
     const last = page[page.length - 1];

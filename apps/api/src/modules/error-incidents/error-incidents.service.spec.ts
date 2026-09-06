@@ -51,9 +51,29 @@ describe('ErrorIncidentsService', () => {
         route: '/checkout',
         vendorId: null,
         userId: null,
+        clientVendorId: '11111111-1111-4111-8111-111111111111',
+        clientUserId: '22222222-2222-4222-8222-222222222222',
         userAgent: 'test-agent',
       }),
     });
+  });
+
+  it('retries a colliding support reference before persisting the incident', async () => {
+    jest
+      .spyOn(service as unknown as { generateRef: () => string }, 'generateRef')
+      .mockReturnValueOnce('FP-AAAA-AAAA')
+      .mockReturnValueOnce('FP-BBBB-BBBB');
+    prisma.errorIncident.create
+      .mockRejectedValueOnce({ code: 'P2002', meta: { target: ['ref'] } })
+      .mockImplementationOnce(({ data }) => ({ ...data, createdAt: persistedAt }));
+
+    const incident = await service.create(
+      { app: 'web', route: '/checkout', message: 'Checkout failed' },
+      null,
+    );
+
+    expect(prisma.errorIncident.create).toHaveBeenCalledTimes(2);
+    expect(incident.ref).toBe('FP-BBBB-BBBB');
   });
 
   it('uses the validated vendor principal and ignores conflicting client IDs', async () => {

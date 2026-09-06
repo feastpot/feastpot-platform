@@ -16,10 +16,17 @@ import type { AuthUser } from '../types';
 
 interface StatusCacheEntry {
   status: UserStatus;
+  role: UserRole | null;
   expiresAt: number;
 }
 
 const STATUS_CACHE_TTL_MS = 60_000;
+const STAFF_ROLES = new Set<UserRole>([
+  UserRole.admin,
+  UserRole.support,
+  UserRole.finance,
+  UserRole.compliance,
+]);
 
 const VALID_ROLES = new Set<UserRole>([
   UserRole.customer,
@@ -69,16 +76,20 @@ export class SupabaseAuthGuard implements CanActivate {
     // soft-deleted or suspended in our own DB. Without this check, a
     // 60-minute Supabase access token survives a Supabase deleteUser failure
     // (or an admin's status flip) until it naturally expires.
-    const status = await this.getUserStatus(mapped.id);
-    if (status === UserStatus.deleted) {
+    // Staff-role tokens bypass the short cache so a demotion in Postgres
+    // revokes API privileges immediately even if Supabase metadata/sign-out
+    // synchronization fails. The database role is authoritative.
+    const account = await this.getUserAccount(mapped.id, STAFF_ROLES.has(mapped.role));
+    if (account.status === UserStatus.deleted) {
       throw new UnauthorizedException({
         code: 'ACCOUNT_DELETED',
         message: 'Account has been deleted',
       });
     }
-    if (status === UserStatus.suspended) {
+    if (account.status === UserStatus.suspended) {
       throw new ForbiddenException({ code: 'ACCOUNT_SUSPENDED', message: 'Account is suspended' });
     }
+    if (account.role) mapped.role = account.role;
 
     request.user = mapped;
     return true;
@@ -90,18 +101,25 @@ export class SupabaseAuthGuard implements CanActivate {
    * onboarding flows that create the local row on first call continue to
    * work - they'll be re-checked on the next request anyway.
    */
-  private async getUserStatus(userId: string): Promise<UserStatus> {
+  private async getUserAccount(
+    userId: string,
+    forceFresh: boolean,
+  ): Promise<Pick<StatusCacheEntry, 'status' | 'role'>> {
     const cached = this.statusCache.get(userId);
-    if (cached && cached.expiresAt > Date.now()) return cached.status;
+    if (!forceFresh && cached && cached.expiresAt > Date.now()) return cached;
 
     const row = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { status: true },
+      select: { status: true, role: true },
     });
-    const status = row?.status ?? UserStatus.active;
-    this.statusCache.set(userId, { status, expiresAt: Date.now() + STATUS_CACHE_TTL_MS });
+    const account = {
+      status: row?.status ?? UserStatus.active,
+      role: row?.role ?? null,
+      expiresAt: Date.now() + STATUS_CACHE_TTL_MS,
+    };
+    this.statusCache.set(userId, account);
     if (this.statusCache.size > 1000) this.evictExpiredStatus();
-    return status;
+    return account;
   }
 
   private evictExpiredStatus(): void {

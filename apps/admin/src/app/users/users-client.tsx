@@ -54,6 +54,7 @@ import {
   type AdminUserRole,
   type AdminUserRow,
   type AdminUserStatus,
+  type AssignableUserRoleValue,
   type JoinedRange,
   type StaffRoleValue,
 } from '@/hooks/use-admin-users';
@@ -73,14 +74,18 @@ const ROLE_OPTIONS: ReadonlyArray<{ value: AdminUserRole | 'all'; label: string 
   { value: 'compliance', label: 'Compliance' },
 ];
 
-// Staff-only roles the admin Users page can create or assign. Customer/
-// vendor accounts are provisioned by other flows and intentionally
-// excluded so we don't fabricate a dangling Vendor row.
+// Roles which can be assigned to an existing non-vendor account. Vendor is
+// intentionally excluded because its Vendor row must remain attached.
 const STAFF_ROLE_OPTIONS: ReadonlyArray<{
-  value: StaffRoleValue;
+  value: AssignableUserRoleValue;
   label: string;
   description: string;
 }> = [
+  {
+    value: 'customer',
+    label: 'Customer',
+    description: 'No staff-console access.',
+  },
   {
     value: 'admin',
     label: 'Admin',
@@ -375,6 +380,7 @@ export function UsersClient({ currentUserId, role }: UsersClientProps) {
               <TableRow>
                 <TableHead>User</TableHead>
                 <TableHead>Role</TableHead>
+                <TableHead>MFA</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Joined</TableHead>
                 <TableHead className="text-right">Orders</TableHead>
@@ -385,14 +391,14 @@ export function UsersClient({ currentUserId, role }: UsersClientProps) {
             <TableBody>
               {list.isLoading && (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-6 text-center text-sm text-muted-foreground">
+                  <TableCell colSpan={8} className="py-6 text-center text-sm text-muted-foreground">
                     Loading…
                   </TableCell>
                 </TableRow>
               )}
               {!list.isLoading && rows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="p-0">
+                  <TableCell colSpan={8} className="p-0">
                     <EmptyState
                       icon={UserSearch}
                       title="No users found"
@@ -513,6 +519,15 @@ function UserRow({
           <StatusPill tone={ROLE_TONE[user.role]} withDot={false}>
             {user.role}
           </StatusPill>
+        </TableCell>
+        <TableCell>
+          <span className="text-sm text-muted-foreground">
+            {user.mfaEnrolled === true
+              ? 'Enrolled'
+              : user.mfaEnrolled === false
+                ? 'Not enrolled'
+                : 'Unavailable'}
+          </span>
         </TableCell>
         <TableCell>
           <StatusPill tone={STATUS_TONE[user.status]}>{user.status}</StatusPill>
@@ -690,7 +705,7 @@ function CreateUserDialog({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {STAFF_ROLE_OPTIONS.map((o) => (
+                {STAFF_ROLE_OPTIONS.filter((o) => o.value !== 'customer').map((o) => (
                   <SelectItem key={o.value} value={o.value}>
                     {o.label}
                   </SelectItem>
@@ -761,16 +776,18 @@ function ChangeRoleDialog({
   onOpenChange: (v: boolean) => void;
   onSuccess: () => void;
 }) {
-  // Default to current role only if it's a staff role; otherwise default
-  // to 'support' so the Select doesn't show "customer" (not in the list).
-  const initialRole: StaffRoleValue =
+  // Preserve the current assignable role in the selector. Vendors never
+  // reach this dialog; fall back defensively if a stale row somehow does.
+  const initialRole: AssignableUserRoleValue =
     currentRole === 'admin' ||
     currentRole === 'support' ||
     currentRole === 'finance' ||
     currentRole === 'compliance'
       ? currentRole
-      : 'support';
-  const [newRole, setNewRole] = useState<StaffRoleValue>(initialRole);
+      : currentRole === 'customer'
+        ? 'customer'
+        : 'support';
+  const [newRole, setNewRole] = useState<AssignableUserRoleValue>(initialRole);
   const [reason, setReason] = useState('');
 
   const mutation = useUpdateUserRole(userId, {
@@ -802,7 +819,7 @@ function ChangeRoleDialog({
           </div>
           <label className="block text-sm">
             <span className="mb-1 block text-muted-foreground">New role</span>
-            <Select value={newRole} onValueChange={(v) => setNewRole(v as StaffRoleValue)}>
+            <Select value={newRole} onValueChange={(v) => setNewRole(v as AssignableUserRoleValue)}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>

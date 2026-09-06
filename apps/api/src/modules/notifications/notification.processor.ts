@@ -104,6 +104,12 @@ export const WHATSAPP_PARAMS: Record<
   event_quote_received: nameOnly,
   event_reminder_72h: nameOnly,
   event_balance_link: nameOnly,
+  // 3 slots: {{1}} = firstName, {{2}} = dish name, {{3}} = decision.
+  menu_item_moderation_decision: (firstName, data) => [
+    firstName,
+    String(data.itemName ?? 'your dish'),
+    String(data.status ?? 'reviewed'),
+  ],
 };
 
 /**

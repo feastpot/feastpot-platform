@@ -445,6 +445,17 @@ export class OrdersService {
           message: `Menu item "${mi.name}" is not available`,
         });
       }
+      // Defence in depth for a stale/known item id: catalogue discovery only
+      // exposes dishes with an allergen declaration, but checkout must enforce
+      // the same rule from the current database row. An empty array means
+      // undeclared/unknown; it is only an affirmative no-allergen declaration
+      // when allergensFreeFrom is true.
+      if (mi.allergens.length === 0 && !mi.allergensFreeFrom) {
+        throw new BadRequestException({
+          code: 'MENU_ITEM_UNAVAILABLE',
+          message: `Menu item "${mi.name}" is not available`,
+        });
+      }
     }
 
     const scheduledFor = new Date(dto.scheduledFor);

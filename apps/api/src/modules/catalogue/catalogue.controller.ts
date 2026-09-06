@@ -123,6 +123,15 @@ export class CatalogueController {
 
   // ---------- Menu items ----------
 
+  @Get('menu-moderation-policy')
+  @ApiBearerAuth()
+  @Roles(UserRole.vendor, UserRole.admin)
+  @UseGuards(VendorOwnershipGuard)
+  @ApiOperation({ summary: 'Get the menu moderation mode and pilot review SLA' })
+  menuModerationPolicy() {
+    return this.items.moderationPolicy();
+  }
+
   @Get('allergen-remediation')
   @ApiBearerAuth()
   @Roles(UserRole.vendor, UserRole.admin)

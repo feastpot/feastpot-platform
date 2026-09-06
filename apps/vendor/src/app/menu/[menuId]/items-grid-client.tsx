@@ -36,6 +36,7 @@ import {
 } from '@/hooks/use-menu-items';
 import { WEB_URL } from '@/lib/env';
 import { formatPence } from '@/lib/format';
+import { ModerationPolicyBanner, ModerationStatus } from '../moderation-visibility';
 
 import { ItemEditorClient } from './items/[itemId]/item-editor-client';
 
@@ -152,6 +153,8 @@ export function MenuItemsGridClient({
           </Button>
         </div>
       </div>
+
+      <ModerationPolicyBanner vendorId={vendorId} />
 
       {error && (
         <Card>
@@ -388,12 +391,12 @@ function ItemCard({
         )}
         {item.moderationStatus === 'held' && (
           <span className="absolute right-2 top-2 rounded-full bg-amber-500 px-2 py-0.5 text-xs font-medium text-white shadow-sm">
-            Pending approval
+            Pending review
           </span>
         )}
         {item.moderationStatus === 'rejected' && (
           <span className="absolute right-2 top-2 rounded-full bg-destructive px-2 py-0.5 text-xs font-medium text-destructive-foreground shadow-sm">
-            Rejected
+            Needs correction
           </span>
         )}
       </div>
@@ -468,6 +471,7 @@ function ItemCard({
             </Button>
           </div>
         </div>
+        <ModerationStatus item={item} />
       </CardContent>
     </Card>
   );

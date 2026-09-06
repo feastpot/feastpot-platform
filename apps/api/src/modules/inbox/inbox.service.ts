@@ -46,6 +46,24 @@ export class InboxService {
     }
   }
 
+  /**
+   * Writes an inbox row as part of a caller-owned transaction. Unlike notify(),
+   * errors deliberately propagate so the business action and its inbox notice
+   * either commit together or both roll back.
+   */
+  createTransactional(tx: Prisma.TransactionClient, input: NotifyInput) {
+    return tx.inboxNotification.create({
+      data: {
+        userId: input.userId,
+        type: input.type,
+        title: input.title.slice(0, 255),
+        body: input.body,
+        link: input.link ?? null,
+        metadata: input.metadata ?? Prisma.JsonNull,
+      },
+    });
+  }
+
   async list(userId: string, dto: ListInboxDto) {
     const limit = dto.limit ?? 25;
     const cursor = dto.cursor ? this.decodeCursor(dto.cursor) : undefined;

@@ -48,6 +48,11 @@ import {
   type MenuItemUpsertInput,
 } from '@/hooks/use-menu-items';
 import { formatPence } from '@/lib/format';
+import {
+  ModerationPolicyBanner,
+  ModerationStatus,
+  ModerationSummary,
+} from './moderation-visibility';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -95,11 +100,13 @@ const SPICE_LABELS = ['None', 'Mild', 'Medium', 'Hot'] as const;
 
 // ── Status helpers ─────────────────────────────────────────────────────────
 
-type DishStatus = 'LIVE' | 'SOLD_OUT' | 'DRAFT';
+type DishStatus = 'LIVE' | 'SOLD_OUT' | 'DRAFT' | 'PENDING' | 'CORRECTION';
 
 const LIVE_MODERATION = new Set(['auto_approved', 'approved']);
 
 function getDishStatus(item: MenuItem): DishStatus {
+  if (item.moderationStatus === 'held') return 'PENDING';
+  if (item.moderationStatus === 'rejected') return 'CORRECTION';
   if (item.isAvailable && LIVE_MODERATION.has(item.moderationStatus)) return 'LIVE';
   if (!item.isAvailable && item.tags.includes('sold_out')) return 'SOLD_OUT';
   return 'DRAFT';
@@ -175,6 +182,8 @@ const STATUS_BADGE: Record<DishStatus, { label: string; cls: string }> = {
   LIVE: { label: 'Live', cls: 'bg-green-100 text-green-700' },
   SOLD_OUT: { label: 'Sold out', cls: 'bg-amber-100 text-amber-700' },
   DRAFT: { label: 'Draft', cls: 'bg-charcoal-light/10 text-charcoal-mid' },
+  PENDING: { label: 'Pending review', cls: 'bg-amber-100 text-amber-800' },
+  CORRECTION: { label: 'Needs correction', cls: 'bg-red-100 text-red-700' },
 };
 
 interface DishCardProps {
@@ -231,6 +240,7 @@ function DishCard({ item, onEdit, onDelete, onToggleSoldOut, isDragging }: DishC
           {portionLabel && <span>{portionLabel}</span>}
           <span>{item.preparationHours * 60} min</span>
         </div>
+        <ModerationStatus item={item} />
       </div>
 
       {/* Actions */}
@@ -246,7 +256,7 @@ function DishCard({ item, onEdit, onDelete, onToggleSoldOut, isDragging }: DishC
         </button>
         <div className="flex items-center gap-2">
           {/* Quick sold-out toggle - only shown when LIVE or SOLD_OUT */}
-          {status !== 'DRAFT' && (
+          {(status === 'LIVE' || status === 'SOLD_OUT') && (
             <button
               type="button"
               onClick={onToggleSoldOut}
@@ -606,6 +616,13 @@ function DishEditor({ open, itemId, initial, vendorId, menuId, onClose }: DishEd
 
         {/* Scrollable body */}
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+          <div className="rounded-xl border border-brand/20 bg-brand-light/20 px-3 py-2.5 text-[12px] text-charcoal-mid">
+            <p className="font-semibold text-charcoal">Manual pilot approval</p>
+            <p className="mt-0.5">
+              New dishes and substantive edits return to safety review. We aim to review them within
+              72 hours.
+            </p>
+          </div>
           {/* ESSENTIALS */}
 
           {/* Photos */}
@@ -1150,6 +1167,9 @@ export function DishesClient({ vendorId }: { vendorId: string }) {
           Add a dish
         </Button>
       </div>
+
+      <ModerationPolicyBanner vendorId={vendorId} />
+      <ModerationSummary items={allItems} />
 
       {/* Status strip - only when there are issues */}
       {allergenCount > 0 && (

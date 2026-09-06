@@ -19,6 +19,7 @@ import {
   Res,
   ServiceUnavailableException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Prisma, UserRole } from '@prisma/client';
 import type { Queue } from 'bull';
@@ -29,6 +30,7 @@ import { Roles } from '../../auth/decorators/roles.decorator';
 import type { AuthUser, AuthedRequest } from '../../auth/types';
 import { CommissionService } from '../../commission/commission.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { QueueSnapshotService } from '../../queues/queue-snapshot.service';
 import {
   isTemplateNotificationEventName,
   NotificationEvent,
@@ -45,6 +47,7 @@ import { TermsService } from '../terms/terms.service';
 
 import { AdminUsersService } from './admin-users.service';
 import { AdminService } from './admin.service';
+import { setBullBoardSessionCookie } from './bull-board.middleware';
 import { DlqMonitorService } from './dlq-monitor.service';
 import {
   CreateStaffUserDto,
@@ -110,6 +113,8 @@ export class AdminController {
     private readonly termsService: TermsService,
     private readonly dlqMonitor: DlqMonitorService,
     private readonly payments: PaymentsService,
+    private readonly queueSnapshots: QueueSnapshotService,
+    private readonly config: ConfigService,
   ) {}
 
   /**
@@ -425,7 +430,7 @@ export class AdminController {
   @Roles(UserRole.admin)
   @ApiOperation({
     summary:
-      "Change a user's role (staff roles only). Blocks self-demote and demoting the last active admin. Audited.",
+      "Change an existing non-vendor user's role. Blocks self-demote and demoting the last active admin. Audited.",
   })
   async updateUserRole(
     @Req() req: AuthedRequest,
@@ -1019,6 +1024,33 @@ export class AdminController {
   }
 
   // ---------- Bull dead-letter jobs ----------
+
+  @Get('queues/health')
+  @Roles(UserRole.admin)
+  @ApiOperation({
+    summary: 'Compact health snapshot for every registered Bull queue (admin, AAL2)',
+  })
+  async queueHealth() {
+    return { data: await this.queueSnapshots.snapshots(), observedAt: new Date().toISOString() };
+  }
+
+  @Post('queues/access')
+  @Roles(UserRole.admin)
+  @ApiOperation({ summary: 'Issue a five-minute embedded Bull Board access token (admin, AAL2)' })
+  async queueBoardAccess(@Req() req: AuthedRequest, @Res({ passthrough: true }) res: Response) {
+    const actorId = req.user!.id;
+    await this.prisma.auditLog.create({
+      data: {
+        actorId,
+        entityType: 'system',
+        entityId: null,
+        action: 'admin.queue_dashboard_access',
+        metadata: { issuedAt: new Date().toISOString(), assurance: req.user!.aal },
+      },
+    });
+    setBullBoardSessionCookie(this.config, res, actorId);
+    return { expiresInSeconds: 300 };
+  }
 
   /**
    * List failed Bull jobs across all queues. Payloads are redacted:

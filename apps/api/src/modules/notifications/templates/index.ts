@@ -86,6 +86,26 @@ export const TEMPLATES: Record<TemplateNotificationEventName, NotificationTempla
       ),
     channels: ['email'],
   },
+  menu_item_moderation_decision: {
+    subject: (d) =>
+      `Menu item ${str(d.status) === 'approved' ? 'approved' : 'needs changes'}: ${str(d.itemName, 'your dish')}`,
+    render: (d) =>
+      baseLayout(
+        'Menu moderation decision',
+        h2(
+          str(d.status) === 'approved'
+            ? 'Your menu item is approved'
+            : 'Your menu item needs changes',
+        ) +
+          p(`"${esc(d.itemName, 'Your dish')}" has been ${esc(d.status, 'reviewed')}.`) +
+          (d.reason ? amberCallout(esc(d.reason)) : '') +
+          brandButton('Open your menu', 'https://vendor.feastpot.co.uk/menu', 'vendorBlue'),
+      ),
+    // This must have an approved WhatsApp template in the configured provider;
+    // the processor records a failed delivery rather than fabricating a send.
+    channels: ['email', 'whatsapp'],
+    whatsappTemplate: 'menu_item_moderation_decision',
+  },
   // ---------- Events ----------
   event_enquiry_matched: {
     subject: (d) => `New event enquiry: ${str(d.eventType, 'event')} for ${str(d.guestCount, '?')}`,

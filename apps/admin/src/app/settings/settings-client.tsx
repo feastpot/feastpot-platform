@@ -30,6 +30,7 @@ import { SecuritySection } from './security-section';
 
 interface SettingsClientProps {
   user: StaffUser;
+  mfaEnforced: boolean;
 }
 
 const ROLE_TONE: Record<StaffRole, StatusTone> = {
@@ -75,7 +76,7 @@ const ROLE_DESCRIPTIONS: Record<StaffRole, { summary: string; canDo: string[] }>
   },
 };
 
-export function SettingsClient({ user }: SettingsClientProps) {
+export function SettingsClient({ user, mfaEnforced }: SettingsClientProps) {
   const { toast } = useToast();
   const [isRunningBatch, setIsRunningBatch] = useState(false);
   const [rates, setRates] = useState<RateRow[]>([]);
@@ -165,7 +166,7 @@ export function SettingsClient({ user }: SettingsClientProps) {
         </Card>
 
         {/* ─── Security & 2FA ─────────────────────────────────────────── */}
-        <SecuritySection />
+        <SecuritySection mfaEnforced={mfaEnforced} />
 
         {/* ─── Platform defaults (read-only) ──────────────────────────── */}
         <Card>
@@ -177,8 +178,10 @@ export function SettingsClient({ user }: SettingsClientProps) {
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Rates are resolved by the rate engine. Manage effective dates and the full schedule in
-              Commission rates; historical rows are retained for audit.
+              Commission rates are resolved by the rate engine and can be managed with effective
+              dates in Commission rates; historical rows are retained for audit. Payout cadence and
+              the GBP base currency are code-level operating defaults because they govern scheduled
+              processing and money representation across integrations.
             </p>
             <RateCard rates={rates} loading={ratesLoading} error={ratesError} />
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -296,16 +299,13 @@ export function SettingsClient({ user }: SettingsClientProps) {
                     BullMQ dashboard for background workers (push, payouts, notifications).
                   </div>
                 </div>
-                <a
-                  href={`${API_URL}/admin/queues`}
-                  target="_blank"
-                  rel="noreferrer"
+                <Link
+                  href="/queues"
                   className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
                 >
                   <ListTree className="h-4 w-4" />
                   Open
-                  <ExternalLink className="h-3 w-3" />
-                </a>
+                </Link>
               </li>
             </ul>
           </CardContent>
@@ -321,9 +321,8 @@ export function SettingsClient({ user }: SettingsClientProps) {
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Staff are regular users promoted to one of four roles. Promoting a customer to a staff
-              role is currently a database operation. Contact engineering with the user's email to
-              request a role change.
+              Staff are regular users promoted to one of four roles. Administrators can change roles
+              from the Users page; every change requires a written reason and is audited.
             </p>
 
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">

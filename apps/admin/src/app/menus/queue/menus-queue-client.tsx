@@ -4,6 +4,11 @@ import {
   Button,
   Card,
   CardContent,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
   Input,
   Table,
   TableBody,
@@ -17,6 +22,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Info,
+  Loader2,
   Pause,
   RefreshCw,
   Search,
@@ -33,6 +39,7 @@ import {
   useMenuModerationCounts,
   useMenuModerationQueue,
   useModerateMenuItem,
+  useBulkApproveMenuItems,
   type MenuModerationFilter,
   type MenuModerationRow,
   type MenuModerationStatus,
@@ -79,7 +86,7 @@ interface QueueFiltersState {
   q: string;
 }
 
-const DEFAULT_FILTERS: QueueFiltersState = { status: 'auto_approved', q: '' };
+const DEFAULT_FILTERS: QueueFiltersState = { status: 'held', q: '' };
 
 export function MenusQueueClient() {
   const [filters, setFilters] = useState<QueueFiltersState>(DEFAULT_FILTERS);
@@ -101,7 +108,15 @@ export function MenusQueueClient() {
   const counts = useMenuModerationCounts({ q: debouncedFilters.q });
 
   const moderate = useModerateMenuItem();
+  const bulkApprove = useBulkApproveMenuItems();
   const [inFlight, setInFlight] = useState<Set<string>>(new Set());
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [dialog, setDialog] = useState<{ type: 'reject' | 'edit'; row: MenuModerationRow } | null>(
+    null,
+  );
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [reason, setReason] = useState('');
+  const [editForm, setEditForm] = useState({ name: '', description: '', price: '' });
 
   const rows = list.data?.data ?? [];
   const total = list.data?.total ?? 0;
@@ -123,13 +138,97 @@ export function MenusQueueClient() {
     if (inFlight.has(row.id)) return;
     setInFlight((prev) => new Set(prev).add(row.id));
     try {
-      await moderate.mutateAsync({ id: row.id, status });
+      await moderate.mutateAsync({
+        id: row.id,
+        status,
+        expectedSubmissionVersion: row.submissionVersion,
+        expectedStatus: row.moderationStatus,
+      });
+      setActionError(null);
+    } catch (error) {
+      setActionError(
+        error instanceof Error ? error.message : 'The moderation action failed. Try again.',
+      );
     } finally {
       setInFlight((prev) => {
         const next = new Set(prev);
         next.delete(row.id);
         return next;
       });
+    }
+  }
+
+  function openEdit(row: MenuModerationRow) {
+    setEditForm({
+      name: row.name,
+      description: row.description ?? '',
+      price: String(row.pricePence / 100),
+    });
+    setDialog({ type: 'edit', row });
+  }
+
+  async function submitDialog() {
+    if (!dialog) return;
+    if (dialog.type === 'reject' && !reason.trim()) return;
+    setInFlight((prev) => new Set(prev).add(dialog.row.id));
+    try {
+      if (dialog.type === 'reject') {
+        await moderate.mutateAsync({
+          id: dialog.row.id,
+          status: 'rejected',
+          reason: reason.trim(),
+          expectedSubmissionVersion: dialog.row.submissionVersion,
+          expectedStatus: dialog.row.moderationStatus,
+        });
+      } else {
+        await moderate.mutateAsync({
+          id: dialog.row.id,
+          status: 'approved',
+          expectedSubmissionVersion: dialog.row.submissionVersion,
+          expectedStatus: dialog.row.moderationStatus,
+          edits: {
+            name: editForm.name.trim(),
+            description: editForm.description.trim(),
+            basePricePence: Math.round(Number(editForm.price) * 100),
+          },
+        });
+      }
+      setDialog(null);
+      setReason('');
+      setActionError(null);
+    } catch (error) {
+      setActionError(
+        error instanceof Error ? error.message : 'The moderation action failed. Try again.',
+      );
+    } finally {
+      setInFlight((prev) => {
+        const next = new Set(prev);
+        next.delete(dialog.row.id);
+        return next;
+      });
+    }
+  }
+
+  const selectedRows = rows.filter((row) => selected.has(row.id));
+  const selectedVendor = selectedRows[0]?.vendorId;
+  const canBulkApprove =
+    selectedRows.length > 0 &&
+    selectedRows.every((row) => row.vendorId === selectedVendor && row.moderationStatus === 'held');
+
+  async function bulkApproveSelected() {
+    if (!selectedVendor || !canBulkApprove) return;
+    try {
+      await bulkApprove.mutateAsync({
+        vendorId: selectedVendor,
+        items: selectedRows.map((row) => ({
+          id: row.id,
+          expectedSubmissionVersion: row.submissionVersion,
+        })),
+      });
+      setSelected(new Set());
+      setActionError(null);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Bulk approval failed. Try again.');
     }
   }
 
@@ -147,8 +246,35 @@ export function MenusQueueClient() {
     <>
       <PageHeader
         title="Menu moderation"
-        description="Auto-approval is on. Items go live immediately and appear here for retrospective review."
+        description="A focused safety queue for items waiting on a fast, accountable decision."
       />
+
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-brand/20 bg-brand-light/30 px-4 py-3">
+        <div>
+          <div className="text-sm font-semibold">Launch watch</div>
+          <div className="text-xs text-muted-foreground">
+            Prioritise overdue submissions. Bulk approval is limited to one vendor at a time.
+          </div>
+        </div>
+        <Button
+          size="sm"
+          onClick={bulkApproveSelected}
+          disabled={!canBulkApprove || bulkApprove.isPending}
+        >
+          {bulkApprove.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          Approve {selectedRows.length || ''} selected
+        </Button>
+      </div>
+      {actionError && (
+        <Card className="mb-4 border-destructive/40 bg-destructive/5">
+          <CardContent className="flex items-center justify-between gap-3 py-3 text-sm text-destructive">
+            <span>{actionError}</span>
+            <Button variant="ghost" size="sm" onClick={() => setActionError(null)}>
+              Dismiss
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Quick-filter chips with live counts */}
       <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -215,18 +341,21 @@ export function MenusQueueClient() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Submitted</TableHead>
+                <TableHead>
+                  <span className="sr-only">Select</span>
+                </TableHead>
+                <TableHead>Submitted / SLA</TableHead>
                 <TableHead>Item</TableHead>
                 <TableHead>Vendor</TableHead>
                 <TableHead className="text-right">Price</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead className="w-32 text-right">Actions</TableHead>
+                <TableHead className="w-44 text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {list.isLoading && (
                 <TableRow>
-                  <TableCell colSpan={6} className="py-6 text-center text-sm text-muted-foreground">
+                  <TableCell colSpan={7} className="py-6 text-center text-sm text-muted-foreground">
                     Loading…
                   </TableCell>
                 </TableRow>
@@ -250,9 +379,22 @@ export function MenusQueueClient() {
                 <MenuItemRowView
                   key={r.id}
                   row={r}
+                  selected={selected.has(r.id)}
+                  onSelect={() =>
+                    setSelected((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(r.id)) next.delete(r.id);
+                      else next.add(r.id);
+                      return next;
+                    })
+                  }
                   busy={inFlight.has(r.id)}
                   onApprove={() => moderateOnce(r, 'approved')}
-                  onReject={() => moderateOnce(r, 'rejected')}
+                  onReject={() => {
+                    setReason(r.moderationReason ?? '');
+                    setDialog({ type: 'reject', row: r });
+                  }}
+                  onEdit={() => openEdit(r)}
                   onHold={() => moderateOnce(r, 'held')}
                 />
               ))}
@@ -302,20 +444,91 @@ export function MenusQueueClient() {
         </div>
       </Card>
 
+      <Dialog open={dialog !== null} onOpenChange={(open) => !open && setDialog(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {dialog?.type === 'reject' ? 'Reject menu item' : 'Approve with edits'}
+            </DialogTitle>
+            <DialogDescription>
+              {dialog?.type === 'reject'
+                ? 'This reason is shown to the vendor. Keep it specific and actionable.'
+                : 'Make the small correction, then approve the item for launch.'}
+            </DialogDescription>
+          </DialogHeader>
+          {dialog?.type === 'reject' ? (
+            <div className="mt-5 space-y-2">
+              <label className="text-sm font-medium" htmlFor="moderation-reason">
+                Vendor-visible reason
+              </label>
+              <textarea
+                id="moderation-reason"
+                value={reason}
+                onChange={(event) => setReason(event.target.value)}
+                className="min-h-28 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand"
+                placeholder="Explain what needs to change…"
+              />
+            </div>
+          ) : (
+            <div className="mt-5 space-y-4">
+              <label className="block text-sm font-medium">
+                Item name
+                <Input
+                  value={editForm.name}
+                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                />
+              </label>
+              <label className="block text-sm font-medium">
+                Description
+                <textarea
+                  value={editForm.description}
+                  onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                  className="mt-1 min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                />
+              </label>
+              <label className="block text-sm font-medium">
+                Price (£)
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={editForm.price}
+                  onChange={(e) => setEditForm({ ...editForm, price: e.target.value })}
+                />
+              </label>
+            </div>
+          )}
+          <div className="mt-6 flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setDialog(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant={dialog?.type === 'reject' ? 'destructive' : 'default'}
+              onClick={submitDialog}
+              disabled={
+                (!!dialog && inFlight.has(dialog.row.id)) ||
+                (dialog?.type === 'reject' && !reason.trim())
+              }
+            >
+              {dialog && inFlight.has(dialog.row.id) && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              {dialog?.type === 'reject' ? 'Reject item' : 'Approve with edits'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Moderation policy footer */}
       <Card className="mt-4 border-teal/30 bg-teal-light/40">
         <CardContent className="flex items-start gap-3 py-3 text-sm">
           <Info className="mt-0.5 h-4 w-4 shrink-0 text-teal-dark" aria-hidden="true" />
           <div>
-            <div className="font-semibold text-teal-dark">Auto-approval is active</div>
+            <div className="font-semibold text-teal-dark">Manual pilot approval is active</div>
             <div className="text-muted-foreground">
-              New menu items go live immediately without a manual review step. Use this queue for
-              retrospective checks: hold or reject anything inaccurate or inappropriate after the
-              fact. To require manual approval before items go live, set{' '}
-              <code className="rounded bg-teal-light px-1 font-mono text-xs">
-                MENU_AUTO_APPROVE=false
-              </code>{' '}
-              in the API environment.
+              New menu items and substantive edits remain hidden until an admin approves them.
+              Prioritise held items approaching the 72-hour target and give rejected items a clear,
+              vendor-visible reason.
             </div>
           </div>
         </CardContent>
@@ -327,14 +540,20 @@ export function MenusQueueClient() {
 function MenuItemRowView({
   row: r,
   busy,
+  selected,
+  onSelect,
   onApprove,
   onReject,
+  onEdit,
   onHold,
 }: {
   row: MenuModerationRow;
   busy: boolean;
+  selected: boolean;
+  onSelect: () => void;
   onApprove: () => void;
   onReject: () => void;
+  onEdit: () => void;
   onHold: () => void;
 }) {
   const thumb = r.imageUrls?.[0] ?? null;
@@ -344,17 +563,33 @@ function MenuItemRowView({
     .slice(0, 2)
     .join('')
     .toUpperCase();
-  const submitted = new Date(r.createdAt);
+  const submitted = new Date(r.moderationSubmittedAt ?? r.createdAt);
   const isHeld = r.moderationStatus === 'held';
   const isApproved = r.moderationStatus === 'approved' || r.moderationStatus === 'auto_approved';
   const isRejected = r.moderationStatus === 'rejected';
+  const overdue = r.isOverdue || (r.slaDueAt ? new Date(r.slaDueAt).getTime() < Date.now() : false);
 
   return (
     <TableRow>
+      <TableCell>
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={onSelect}
+          aria-label={`Select ${r.name}`}
+          disabled={!isHeld || busy}
+          className="h-4 w-4 rounded border-border accent-brand"
+        />
+      </TableCell>
       <TableCell className="text-sm">
-        <div>{formatDate(r.createdAt)}</div>
+        <div>{formatDate(r.moderationSubmittedAt ?? r.createdAt)}</div>
         <div className="text-xs text-muted-foreground">
           {submitted.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+        </div>
+        <div
+          className={`mt-1 text-xs font-medium ${overdue ? 'text-destructive' : 'text-muted-foreground'}`}
+        >
+          {overdue ? 'Overdue' : r.slaDueAt ? `Due ${formatDate(r.slaDueAt)}` : 'SLA pending'}
         </div>
       </TableCell>
       <TableCell className="max-w-sm">
@@ -404,6 +639,16 @@ function MenuItemRowView({
       </TableCell>
       <TableCell className="text-right">
         <div className="flex justify-end gap-1">
+          {!isApproved && !isRejected && (
+            <button
+              type="button"
+              onClick={onEdit}
+              disabled={busy}
+              className="rounded-md border border-brand/40 px-2 text-xs font-medium text-brand-dark hover:bg-brand-light disabled:opacity-50"
+            >
+              Edit
+            </button>
+          )}
           {!isApproved && (
             <button
               type="button"

@@ -71,6 +71,11 @@ export class OrdersRepository {
         pricePence: true,
         isAvailable: true,
         moderationStatus: true,
+        // Checkout re-checks the public allergen declaration gate. This must
+        // be selected here rather than trusting a menu item id from a stale
+        // client listing.
+        allergens: true,
+        allergensFreeFrom: true,
         preparationHours: true,
       },
     });
