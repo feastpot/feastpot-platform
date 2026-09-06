@@ -231,7 +231,7 @@ export function AuditLogClient() {
                             ? `Test data. Provenance: ${row.provenance}.`
                             : 'Test data.'
                         }
-                        title={row.provenance ? `Test data — ${row.provenance}` : 'Test data'}
+                        title={row.provenance ? `Test data - ${row.provenance}` : 'Test data'}
                       >
                         Test data
                       </span>

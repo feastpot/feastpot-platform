@@ -604,7 +604,7 @@ function TestDataLabel({ provenance }: { provenance: string | null }) {
     <span
       className="rounded-full border border-border px-2 py-0.5 text-xs font-medium text-muted-foreground"
       aria-label={`Test data.${detail}`}
-      title={provenance ? `Test data — ${provenance}` : 'Test data'}
+      title={provenance ? `Test data - ${provenance}` : 'Test data'}
     >
       Test data
     </span>
