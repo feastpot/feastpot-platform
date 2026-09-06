@@ -13,8 +13,9 @@ import Link from 'next/link';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@feastpot/ui';
 
-import { useAdminLegalAlerts } from '@/hooks/use-legal';
+import { useAdminCoverage, useAdminLegalAlerts } from '@/hooks/use-legal';
 import { formatDateTime } from '@/lib/format';
+import { formatRatio } from '@/lib/format-ratio';
 
 function AlertBadge({ count, label, href }: { count: number; label: string; href: string }) {
   if (count === 0) return null;
@@ -69,9 +70,14 @@ const NAV_SECTIONS = [
 
 export function LegalDashboardClient() {
   const { data: alerts, isLoading } = useAdminLegalAlerts();
+  const { data: coverage, isLoading: isCoverageLoading } = useAdminCoverage();
 
-  const coverageOk = !alerts || alerts.coverageGap.count === 0;
-  const coveragePct = alerts?.coverageGap.coveragePct ?? 100;
+  const totalActive = coverage?.totalActive ?? 0;
+  const onCurrentCount = coverage?.onCurrentCount ?? 0;
+  const hasCoverageData = totalActive > 0;
+  const coverageOk = hasCoverageData && onCurrentCount === totalActive;
+  const coveragePct = coverage?.coveragePct ?? 0;
+  const isCoveragePending = isLoading || isCoverageLoading;
 
   return (
     <div className="space-y-6">
@@ -91,47 +97,57 @@ export function LegalDashboardClient() {
           <div className="flex items-end gap-4">
             <div
               className={`text-5xl font-bold tabular-nums ${
-                coveragePct === 100
-                  ? 'text-green-600'
-                  : coveragePct >= 95
-                    ? 'text-amber-500'
-                    : 'text-destructive'
+                !hasCoverageData
+                  ? 'text-muted-foreground'
+                  : coveragePct === 100
+                    ? 'text-green-600'
+                    : coveragePct >= 95
+                      ? 'text-amber-500'
+                      : 'text-destructive'
               }`}
             >
-              {isLoading ? '-' : `${coveragePct}%`}
+              {isCoveragePending ? '-' : formatRatio(onCurrentCount, totalActive, 0)}
             </div>
             <div className="mb-1 text-sm text-muted-foreground">
-              {isLoading
+              {isCoveragePending
                 ? 'Loading...'
-                : alerts
-                  ? `${alerts.coverageGap.count === 0 ? 'All' : `${alerts.coverageGap.count} vendor${alerts.coverageGap.count === 1 ? '' : 's'} not on`} the current live version${alerts.coverageGap.liveVersion ? ` (v${alerts.coverageGap.liveVersion.version})` : ''}`
-                  : ''}
+                : !hasCoverageData
+                  ? 'No live vendors yet. Coverage appears once a vendor goes live.'
+                  : `${onCurrentCount} of ${totalActive} live vendor${totalActive === 1 ? '' : 's'} accepted the current live version${alerts?.coverageGap.liveVersion ? ` (v${alerts.coverageGap.liveVersion.version})` : ''}`}
             </div>
           </div>
-          <div className="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-muted">
-            <div
-              className={`h-full rounded-full transition-all ${
-                coveragePct === 100
-                  ? 'bg-green-500'
-                  : coveragePct >= 95
-                    ? 'bg-amber-400'
-                    : 'bg-destructive'
-              }`}
-              style={{ width: `${coveragePct}%` }}
-            />
-          </div>
-          <p className="mt-2 text-xs text-muted-foreground">
-            This number should be 100. Any drop should be visible immediately.
-          </p>
+          {hasCoverageData && (
+            <>
+              <div className="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-muted">
+                <div
+                  className={`h-full rounded-full transition-all ${
+                    coveragePct === 100
+                      ? 'bg-green-500'
+                      : coveragePct >= 95
+                        ? 'bg-amber-400'
+                        : 'bg-destructive'
+                  }`}
+                  style={{ width: `${coveragePct}%` }}
+                />
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                This number should be 100. Any drop should be visible immediately.
+              </p>
+            </>
+          )}
         </CardContent>
       </Card>
 
       {/* Active alerts */}
-      {!isLoading && alerts && (
+      {!isCoveragePending && alerts && (
         <div>
           <h2 className="mb-2 text-sm font-semibold text-foreground">Active alerts</h2>
           <div className="flex flex-wrap gap-2">
-            {coverageOk ? (
+            {!hasCoverageData ? (
+              <div className="text-sm text-muted-foreground">
+                Coverage will be assessed when vendors go live
+              </div>
+            ) : coverageOk ? (
               <div className="flex items-center gap-1.5 text-sm text-green-600">
                 <CheckCircle2 className="h-4 w-4" aria-hidden /> All vendors on current terms
               </div>

@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsDateString,
   IsInt,
@@ -61,4 +61,9 @@ export class ListAuditLogDto {
   @MaxLength(512)
   @Matches(/^[A-Za-z0-9_\-=]+$/)
   cursor?: string;
+
+  @ApiPropertyOptional({ description: 'Include explicitly marked seed/test audit rows.' })
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true')
+  includeTestData?: boolean;
 }

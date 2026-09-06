@@ -445,6 +445,9 @@ model User {
   status        UserStatus @default(active)
   emailVerified Boolean    @default(false) @map("email_verified")
   phoneVerified Boolean    @default(false) @map("phone_verified")
+  /// Explicit operational-data provenance. Never derived from an email/name.
+  isTestData    Boolean    @default(false) @map("is_test_data")
+  provenance    String?    @db.VarChar(64)
   avatarUrl     String?    @map("avatar_url") @db.VarChar(500)
   lastLoginAt   DateTime?  @map("last_login_at") @db.Timestamptz
   createdAt     DateTime   @default(now()) @map("created_at") @db.Timestamptz
@@ -479,6 +482,7 @@ model User {
   @@index([role])
   @@index([status])
   @@index([createdAt])
+  @@index([isTestData])
   @@map("users")
 }
 
@@ -1046,6 +1050,9 @@ model AuditLog {
   entityType String   @map("entity_type") @db.VarChar(64)
   entityId   String?  @map("entity_id") @db.Uuid
   metadata   Json?
+  /// Test/seed marker is explicit so production audit history is never guessed.
+  isTestData Boolean  @default(false) @map("is_test_data")
+  provenance String?  @db.VarChar(64)
   ipAddress  String?  @map("ip_address") @db.VarChar(64)
   createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
 
@@ -1055,6 +1062,7 @@ model AuditLog {
   @@index([entityType, entityId])
   @@index([action])
   @@index([createdAt])
+  @@index([isTestData])
   @@map("audit_logs")
 }
 
@@ -1709,12 +1717,16 @@ model CateringEnquiry {
   source         String?  @db.VarChar(64)
   hearAboutUs    String?  @map("hear_about_us") @db.VarChar(100)
   adminNotes     String?  @map("admin_notes")
+  /// Explicit source-of-record marker; never infer this from contact details.
+  isTestData     Boolean  @default(false) @map("is_test_data")
+  provenance     String?  @db.VarChar(64)
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   booking CateringBooking?
 
   @@index([status], map: "catering_enquiry_status_idx")
   @@index([eventDate], map: "catering_enquiry_event_date_idx")
+  @@index([isTestData], map: "catering_enquiries_is_test_data_idx")
   @@map("catering_enquiries")
 }
 
@@ -1889,6 +1901,8 @@ model CommissionRate {
   /// Used by the commission service to validate the entry is LIVE before use.
   /// Null for legacy rows seeded before RateScheduleEntry was introduced.
   rateKey       String?     @map("rate_key") @db.VarChar(64)
+  /// Preserved legacy invalid rows are labelled rather than silently used.
+  isAnomalous   Boolean     @default(false) @map("is_anomalous")
 
   orderCommissions OrderCommission[]
 

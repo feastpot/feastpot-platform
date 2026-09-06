@@ -51,6 +51,28 @@ const VALID_DTO = {
 };
 
 describe('CateringEnquiriesService', () => {
+  describe('list', () => {
+    it('hides explicitly marked test enquiries unless includeTestData is requested', async () => {
+      const findMany = jest.fn().mockResolvedValue([]);
+      const prisma = { cateringEnquiry: { findMany } };
+      const service = new CateringEnquiriesService(
+        prisma as never,
+        makeEmail() as never,
+        makeWhatsapp() as never,
+        { get: jest.fn() } as never,
+        {} as never,
+      );
+
+      await service.list({});
+      expect(findMany).toHaveBeenLastCalledWith(
+        expect.objectContaining({ where: { isTestData: false } }),
+      );
+
+      await service.list({ includeTestData: true });
+      expect(findMany).toHaveBeenLastCalledWith(expect.objectContaining({ where: {} }));
+    });
+  });
+
   describe('create', () => {
     it('persists the enquiry and returns ok:true', async () => {
       const { service, prismaMock } = makeService();

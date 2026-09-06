@@ -11,6 +11,7 @@ export interface AuditFilters {
   action?: string;
   dateFrom?: string;
   dateTo?: string;
+  includeTestData?: boolean;
 }
 
 export interface AuditLogRow {
@@ -22,6 +23,8 @@ export interface AuditLogRow {
   metadata: unknown;
   ipAddress: string | null;
   createdAt: string;
+  isTestData: boolean;
+  provenance: string | null;
   actor: {
     id: string;
     firstName: string | null;
@@ -44,7 +47,7 @@ export function useAuditLog(filters: AuditFilters) {
     queryFn: () => {
       const params = new URLSearchParams();
       Object.entries(filters).forEach(([k, v]) => {
-        if (v) params.set(k, v);
+        if (v) params.set(k, v === true ? 'true' : String(v));
       });
       params.set('limit', '100');
       return request<AuditLogPage>(`/admin/audit-log?${params.toString()}`);

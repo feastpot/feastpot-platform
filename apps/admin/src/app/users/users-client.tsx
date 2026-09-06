@@ -138,6 +138,7 @@ const DEFAULT_FILTERS = {
   role: 'all' as AdminUserRole | 'all',
   status: 'all' as AdminUserStatus | 'all',
   joined: 'all' as JoinedRange | 'all',
+  includeTestData: false,
 };
 
 interface UsersClientProps {
@@ -168,6 +169,7 @@ export function UsersClient({ currentUserId, role }: UsersClientProps) {
     if (filters.role !== 'all') params.set('role', filters.role);
     if (filters.status !== 'all') params.set('status', filters.status);
     if (filters.joined !== 'all') params.set('joined', filters.joined);
+    if (filters.includeTestData) params.set('includeTestData', 'true');
     const qs = params.toString();
     void downloadCsv(`/admin/users.csv${qs ? `?${qs}` : ''}`, 'users');
   }
@@ -184,7 +186,8 @@ export function UsersClient({ currentUserId, role }: UsersClientProps) {
       filters.q.trim().length > 0 ||
       filters.role !== 'all' ||
       filters.status !== 'all' ||
-      filters.joined !== 'all',
+      filters.joined !== 'all' ||
+      filters.includeTestData,
     [filters],
   );
 
@@ -322,6 +325,14 @@ export function UsersClient({ currentUserId, role }: UsersClientProps) {
               </SelectContent>
             </Select>
           </FilterControl>
+          <label className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+            <input
+              type="checkbox"
+              checked={filters.includeTestData}
+              onChange={(e) => updateFilter('includeTestData', e.target.checked)}
+            />
+            Include test data
+          </label>
 
           <div className="ml-auto flex items-center gap-2">
             <Button
@@ -490,7 +501,10 @@ function UserRow({
               {initials}
             </div>
             <div className="min-w-0">
-              <div className="font-medium leading-tight">{fullName}</div>
+              <div className="flex items-center gap-2 font-medium leading-tight">
+                <span>{fullName}</span>
+                {user.isTestData && <TestDataLabel provenance={user.provenance} />}
+              </div>
               <div className="text-xs text-muted-foreground">{user.email}</div>
             </div>
           </div>
@@ -581,6 +595,19 @@ function UserRow({
         />
       )}
     </>
+  );
+}
+
+function TestDataLabel({ provenance }: { provenance: string | null }) {
+  const detail = provenance ? ` Test data provenance: ${provenance}.` : '';
+  return (
+    <span
+      className="rounded-full border border-border px-2 py-0.5 text-xs font-medium text-muted-foreground"
+      aria-label={`Test data.${detail}`}
+      title={provenance ? `Test data - ${provenance}` : 'Test data'}
+    >
+      Test data
+    </span>
   );
 }
 

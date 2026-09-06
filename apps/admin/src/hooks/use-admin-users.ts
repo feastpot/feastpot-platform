@@ -58,6 +58,8 @@ export interface AdminUserRow {
   createdAt: string;
   orderCount: number;
   lifetimeSpendPence: number;
+  isTestData: boolean;
+  provenance: string | null;
 }
 
 export interface AdminUserListResponse {
@@ -73,6 +75,7 @@ export interface AdminUserListFilters {
   joined?: JoinedRange | 'all';
   cursor?: string | null;
   limit?: number;
+  includeTestData?: boolean;
 }
 
 /**
@@ -92,6 +95,7 @@ export function useAdminUsersList(filters: AdminUserListFilters) {
       if (filters.status && filters.status !== 'all') params.set('status', filters.status);
       if (filters.joined && filters.joined !== 'all') params.set('joined', filters.joined);
       if (filters.cursor) params.set('cursor', filters.cursor);
+      if (filters.includeTestData) params.set('includeTestData', 'true');
       params.set('limit', String(filters.limit ?? 25));
       return request<AdminUserListResponse>(`/admin/users?${params.toString()}`);
     },

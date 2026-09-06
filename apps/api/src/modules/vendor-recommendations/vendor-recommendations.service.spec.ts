@@ -14,7 +14,10 @@ function makeEmail() {
 }
 function makeService(createImpl?: jest.Mock, emailMock?: ReturnType<typeof makeEmail>) {
   const prismaMock = {
-    vendorRecommendation: { create: createImpl ?? makeCreate() },
+    vendorRecommendation: {
+      create: createImpl ?? makeCreate(),
+      findMany: jest.fn().mockResolvedValue([]),
+    },
   } as unknown as PrismaService;
   const emailProvider = (emailMock ?? makeEmail()) as unknown as EmailProvider;
   const config = {
@@ -68,6 +71,25 @@ describe('VendorRecommendationsService', () => {
         emailMock as unknown as ReturnType<typeof makeEmail>,
       );
       await expect(service.create({ businessName: 'Test Kitchen' })).resolves.toEqual({ ok: true });
+    });
+  });
+
+  describe('list', () => {
+    it('filters recruitment recommendations by the supplied search term', async () => {
+      const { service, prismaMock } = makeService();
+
+      await service.list({ search: 'pasta' });
+
+      expect(prismaMock.vendorRecommendation.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            businessName: {
+              contains: 'pasta',
+              mode: 'insensitive',
+            },
+          },
+        }),
+      );
     });
   });
 });

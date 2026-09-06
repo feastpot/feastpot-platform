@@ -272,20 +272,24 @@ function VerificationTriage() {
           )}
           {!isLoading && filteredRows.length === 0 && !error && (
             <EmptyState
-              icon={ShieldCheck}
+              icon={vs?.totalVendors === 0 ? ShieldQuestion : ShieldCheck}
               title={
                 search.length > 0
                   ? 'No vendors match your search'
-                  : activeFilter === 'NEEDS_ACTION'
-                    ? 'All live vendors are verified'
-                    : 'No vendors in this state'
+                  : vs?.totalVendors === 0
+                    ? 'No live vendors yet'
+                    : activeFilter === 'NEEDS_ACTION'
+                      ? 'All live vendors are verified'
+                      : 'No vendors in this state'
               }
               description={
                 search.length > 0
                   ? 'Try a different name or vendor ID.'
-                  : activeFilter === 'NEEDS_ACTION'
-                    ? 'No verification issues found.'
-                    : ''
+                  : vs?.totalVendors === 0
+                    ? 'Verification coverage appears once a vendor goes live.'
+                    : activeFilter === 'NEEDS_ACTION'
+                      ? 'No verification issues found.'
+                      : ''
               }
               bordered={false}
             />

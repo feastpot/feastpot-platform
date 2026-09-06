@@ -30,6 +30,8 @@ export interface AdminOrderRow {
   vendor: { id: string; businessName: string };
   items: Array<{ nameSnapshot: string; quantity: number }>;
   adminTags: string[];
+  isTestData: boolean;
+  testDataProvenance: string[];
 }
 
 export interface AdminOrdersPage {
@@ -45,6 +47,8 @@ export interface AdminOrderStats {
   completed: number;
   exceptions: number;
   successRatePct: number | null;
+  successfulCount: number;
+  finalisedCount: number;
 }
 
 export interface AdminOrdersFilters {
@@ -54,6 +58,7 @@ export interface AdminOrdersFilters {
   createdFrom?: string;
   createdTo?: string;
   paymentStatus?: PaymentStatus | 'all';
+  includeTestData?: boolean;
   withPi: boolean;
   page?: number;
   limit?: number;
@@ -69,6 +74,7 @@ function buildOrderParams(filters: AdminOrdersFilters): URLSearchParams {
     params.set('paymentStatus', filters.paymentStatus);
   }
   if (filters.q) params.set('q', filters.q);
+  if (filters.includeTestData) params.set('includeTestData', 'true');
   return params;
 }
 

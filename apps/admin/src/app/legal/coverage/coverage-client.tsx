@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { StatusPill } from '@/components/ui/status-pill';
 import { useAdminCoverage, type DocType } from '@/hooks/use-legal';
 import { formatDate } from '@/lib/format';
+import { formatRatio } from '@/lib/format-ratio';
 
 const DOC_TYPES: { value: DocType; label: string }[] = [
   { value: 'VENDOR_TERMS', label: 'Vendor terms' },
@@ -21,7 +22,8 @@ export function CoverageClient() {
   const [onlyBehind, setOnlyBehind] = useState(false);
   const { data, isLoading, refetch } = useAdminCoverage(docType, onlyBehind);
 
-  const pct = data?.coveragePct ?? 100;
+  const pct = data?.coveragePct ?? 0;
+  const hasLiveVendors = (data?.totalActive ?? 0) > 0;
 
   return (
     <div className="space-y-6">
@@ -62,18 +64,26 @@ export function CoverageClient() {
             <CardContent className="pt-5">
               <div
                 className={`text-4xl font-bold tabular-nums ${
-                  pct === 100 ? 'text-green-600' : pct >= 95 ? 'text-amber-500' : 'text-destructive'
+                  !hasLiveVendors
+                    ? 'text-muted-foreground'
+                    : pct === 100 ? 'text-green-600' : pct >= 95 ? 'text-amber-500' : 'text-destructive'
                 }`}
               >
-                {pct}%
+                {formatRatio(data.onCurrentCount, data.totalActive, 0)}
               </div>
-              <p className="mt-1 text-xs text-muted-foreground">Coverage</p>
-              <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted">
-                <div
-                  className={`h-full rounded-full ${pct === 100 ? 'bg-green-500' : pct >= 95 ? 'bg-amber-400' : 'bg-destructive'}`}
-                  style={{ width: `${pct}%` }}
-                />
-              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {hasLiveVendors
+                  ? `Coverage (${data.onCurrentCount} of ${data.totalActive} live vendors)`
+                  : 'No live vendors yet. Coverage appears once a vendor goes live.'}
+              </p>
+              {hasLiveVendors && (
+                <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted">
+                  <div
+                    className={`h-full rounded-full ${pct === 100 ? 'bg-green-500' : pct >= 95 ? 'bg-amber-400' : 'bg-destructive'}`}
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+              )}
             </CardContent>
           </Card>
           <Card>
@@ -84,7 +94,7 @@ export function CoverageClient() {
           </Card>
           <Card>
             <CardContent className="pt-5">
-              <div className="text-3xl font-bold tabular-nums text-green-600">{data.onCurrentCount}</div>
+              <div className={`text-3xl font-bold tabular-nums ${hasLiveVendors ? 'text-green-600' : 'text-muted-foreground'}`}>{data.onCurrentCount}</div>
               <p className="mt-1 text-xs text-muted-foreground">On current version</p>
             </CardContent>
           </Card>
@@ -117,10 +127,18 @@ export function CoverageClient() {
             <p className="p-4 text-sm text-muted-foreground">Loading...</p>
           ) : data?.vendors.length === 0 ? (
             <div className="flex flex-col items-center gap-2 py-10 text-center">
-              <CheckCircle2 className="h-8 w-8 text-green-500" aria-hidden />
-              <p className="text-sm font-semibold text-green-700">
-                All active vendors are on the current version
-              </p>
+              {hasLiveVendors ? (
+                <>
+                  <CheckCircle2 className="h-8 w-8 text-green-500" aria-hidden />
+                  <p className="text-sm font-semibold text-green-700">
+                    All active vendors are on the current version
+                  </p>
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No live vendors yet. Coverage appears once a vendor goes live.
+                </p>
+              )}
             </div>
           ) : (
             <table className="w-full text-sm">

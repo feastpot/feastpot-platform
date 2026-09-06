@@ -10,7 +10,7 @@ export default async function VendorsPage() {
   const user = await requireStaff('/vendors', ['admin', 'compliance', 'support']);
   return (
     <StaffShell user={user}>
-      <VendorsClient />
+      <VendorsClient canIncludeTestData={user.role === 'admin'} />
     </StaffShell>
   );
 }

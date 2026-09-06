@@ -36,6 +36,10 @@ describe('formatRatio', () => {
     assert.notStrictEqual(result, 'NaN%');
   });
 
+  it('returns "No data yet" for a negative denominator', () => {
+    assert.strictEqual(formatRatio(1, -1), 'No data yet');
+  });
+
   it('handles 0 numerator with positive denominator', () => {
     assert.strictEqual(formatRatio(0, 100), '0.0%');
   });

@@ -124,9 +124,17 @@ export class CateringEnquiriesService {
   }
 
   /** Admin: paginated list, newest first. */
-  async list(opts: { status?: string; cursor?: string; limit?: number }) {
+  async list(opts: {
+    status?: string;
+    cursor?: string;
+    limit?: number;
+    includeTestData?: boolean;
+  }) {
     const limit = opts.limit ?? 50;
-    const where = opts.status && opts.status !== 'ALL' ? { status: opts.status } : {};
+    const where = {
+      ...(opts.status && opts.status !== 'ALL' ? { status: opts.status } : {}),
+      ...(opts.includeTestData ? {} : { isTestData: false }),
+    };
     const rows = await this.prisma.cateringEnquiry.findMany({
       where,
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
@@ -151,9 +159,9 @@ export class CateringEnquiriesService {
   }
 
   /** Admin: get single row with booking. */
-  async getById(id: string) {
+  async getById(id: string, includeTestData = false) {
     return this.prisma.cateringEnquiry.findUniqueOrThrow({
-      where: { id },
+      where: includeTestData ? { id } : { id, isTestData: false },
       include: {
         booking: {
           select: {
@@ -245,6 +253,8 @@ export class CateringEnquiriesService {
             bookingId: b.id,
             note: dto.note ?? null,
           },
+          isTestData: enquiry.isTestData,
+          provenance: enquiry.provenance,
         },
       });
       return b;
@@ -366,6 +376,8 @@ export class CateringEnquiriesService {
             oldBookingId: existing.id,
             note: dto.note ?? null,
           },
+          isTestData: enquiry.isTestData,
+          provenance: enquiry.provenance,
         },
       });
       return b;

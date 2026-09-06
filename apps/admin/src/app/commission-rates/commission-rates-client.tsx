@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { API_URL } from '@/lib/env';
+import { formatRatio } from '@/lib/format-ratio';
 import { createClient } from '@/lib/supabase/client';
 
 const API = API_URL;
@@ -164,7 +165,11 @@ export function CommissionRatesClient() {
       {/* ─── Take-rate KPIs ───────────────────────────────────────────────── */}
       {takeRate && (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <KpiCard label="Blended rate (MTD)" value={`${takeRate.blendedPct.toFixed(2)}%`} />
+          <KpiCard
+            label="Blended rate (MTD)"
+            value={formatRatio(takeRate.totalCommissionPence, takeRate.totalSubtotalPence, 2)}
+            sub={`${p(takeRate.totalCommissionPence)} of ${p(takeRate.totalSubtotalPence)} food GMV`}
+          />
           <KpiCard label="Total commission (MTD)" value={p(takeRate.totalCommissionPence)} />
           <KpiCard label="Food GMV (MTD)" value={p(takeRate.totalSubtotalPence)} />
           <KpiCard label="Orders (MTD)" value={String(takeRate.orderCount)} />
@@ -307,11 +312,12 @@ export function CommissionRatesClient() {
   );
 }
 
-function KpiCard({ label, value }: { label: string; value: string }) {
+function KpiCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
     <div className="rounded-xl border bg-white p-4 shadow-sm">
       <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">{label}</p>
       <p className="mt-2 text-2xl font-bold text-gray-900">{value}</p>
+      {sub && <p className="mt-1 text-xs text-gray-500">{sub}</p>}
     </div>
   );
 }

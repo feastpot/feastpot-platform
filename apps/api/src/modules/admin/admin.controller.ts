@@ -24,8 +24,9 @@ import { Prisma, UserRole } from '@prisma/client';
 import type { Queue } from 'bull';
 import type { Response } from 'express';
 
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { Roles } from '../../auth/decorators/roles.decorator';
-import type { AuthedRequest } from '../../auth/types';
+import type { AuthUser, AuthedRequest } from '../../auth/types';
 import { CommissionService } from '../../commission/commission.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
@@ -255,7 +256,8 @@ export class AdminController {
   @ApiOperation({
     summary: 'Vendor approval queue (filter by status, doc-status icon map per vendor)',
   })
-  listVendors(@Query() dto: ListAdminVendorsDto) {
+  listVendors(@Query() dto: ListAdminVendorsDto, @CurrentUser() user: AuthUser) {
+    this.assertTestDataAccess(dto.includeTestData, user);
     return this.admin.listAdminVendors(dto);
   }
 
@@ -264,8 +266,9 @@ export class AdminController {
   @ApiOperation({
     summary: 'Vendor lifecycle counts grouped by status (drives admin tab pill counters)',
   })
-  vendorCounts() {
-    return this.admin.getVendorStatusCounts();
+  vendorCounts(@Query() dto: ListAdminVendorsDto, @CurrentUser() user: AuthUser) {
+    this.assertTestDataAccess(dto.includeTestData, user);
+    return this.admin.getVendorStatusCounts(dto.includeTestData);
   }
 
   @Get('vendor-applications/counts')
@@ -585,7 +588,8 @@ export class AdminController {
     summary:
       'Admin order browser: filter by status / date range / payment status / search. Pass withPiStatus=1 to enrich first 50 rows with live Stripe PaymentIntent status.',
   })
-  listOrders(@Query() dto: ListAdminOrdersDto) {
+  listOrders(@Query() dto: ListAdminOrdersDto, @CurrentUser() user: AuthUser) {
+    this.assertTestDataAccess(dto.includeTestData, user);
     return this.admin.listAdminOrders({
       status: dto.status,
       q: dto.q,
@@ -597,6 +601,7 @@ export class AdminController {
       withPiStatus: dto.withPiStatus === '1' || dto.withPiStatus === 'true',
       limit: dto.limit,
       page: dto.page,
+      includeTestData: dto.includeTestData,
     });
   }
 
@@ -606,7 +611,8 @@ export class AdminController {
     summary:
       'KPI tiles for the admin Orders page (total / today / completed / exceptions / success rate). Honours the same filters as the list.',
   })
-  orderStats(@Query() dto: ListAdminOrdersDto) {
+  orderStats(@Query() dto: ListAdminOrdersDto, @CurrentUser() user: AuthUser) {
+    this.assertTestDataAccess(dto.includeTestData, user);
     return this.admin.adminOrdersStats({
       status: dto.status,
       q: dto.q,
@@ -614,6 +620,7 @@ export class AdminController {
       createdFrom: dto.createdFrom,
       createdTo: dto.createdTo,
       paymentStatus: dto.paymentStatus,
+      includeTestData: dto.includeTestData,
     });
   }
 
@@ -622,7 +629,12 @@ export class AdminController {
   @ApiOperation({
     summary: 'CSV export of the admin order browser using the same filters as /admin/orders.',
   })
-  async ordersCsv(@Query() dto: ListAdminOrdersDto, @Res() res: Response) {
+  async ordersCsv(
+    @Query() dto: ListAdminOrdersDto,
+    @Res() res: Response,
+    @CurrentUser() user: AuthUser,
+  ) {
+    this.assertTestDataAccess(dto.includeTestData, user);
     const csv = await this.admin.adminOrdersCsv({
       status: dto.status,
       q: dto.q,
@@ -631,11 +643,18 @@ export class AdminController {
       createdTo: dto.createdTo,
       paymentStatus: dto.paymentStatus,
       ids: dto.ids,
+      includeTestData: dto.includeTestData,
     });
     const stamp = new Date().toISOString().slice(0, 10);
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="feastpot-orders-${stamp}.csv"`);
     res.send(csv);
+  }
+
+  private assertTestDataAccess(includeTestData: boolean | undefined, user: AuthUser): void {
+    if (includeTestData && user.role !== UserRole.admin) {
+      throw new ForbiddenException('Only administrators may include persisted test data');
+    }
   }
 
   // ============================================================

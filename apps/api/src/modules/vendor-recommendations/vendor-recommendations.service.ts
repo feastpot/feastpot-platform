@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Prisma } from '@prisma/client';
 
 import { extractOutwardCode, normalisePostcode } from '../../common/postcode.util';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -68,9 +69,19 @@ export class VendorRecommendationsService {
   }
 
   /** Admin: paginated list, newest first. */
-  async list(opts: { status?: string; cursor?: string; limit?: number }) {
+  async list(opts: { status?: string; search?: string; cursor?: string; limit?: number }) {
     const limit = opts.limit ?? 50;
-    const where = opts.status && opts.status !== 'ALL' ? { status: opts.status } : {};
+    const where: Prisma.VendorRecommendationWhereInput = {
+      ...(opts.status && opts.status !== 'ALL' ? { status: opts.status } : {}),
+      ...(opts.search?.trim()
+        ? {
+            businessName: {
+              contains: opts.search.trim(),
+              mode: 'insensitive',
+            },
+          }
+        : {}),
+    };
     const rows = await this.prisma.vendorRecommendation.findMany({
       where,
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
