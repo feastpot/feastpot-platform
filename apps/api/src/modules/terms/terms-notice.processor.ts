@@ -1,6 +1,6 @@
 import { InjectQueue, Process, Processor } from '@nestjs/bull';
 import { OnApplicationBootstrap, Logger } from '@nestjs/common';
-import { NoticeChannel, OrderStatus } from '@prisma/client';
+import { NoticeChannel, OrderStatus, Prisma, VendorStatus } from '@prisma/client';
 import type { Job, Queue } from 'bull';
 import PDFDocument from 'pdfkit';
 
@@ -17,6 +17,12 @@ import {
 
 interface TermsNoticesJobData {
   termsVersionId: string;
+  /**
+   * Acceptance-only isolation seam. Production jobs omit these fields and
+   * retain the global fan-out required for contractual notices.
+   */
+  targetVendorId?: string;
+  testFactoryNamespace?: string;
 }
 
 interface AcceptancePdfJobData {
@@ -72,15 +78,40 @@ export class TermsNoticeProcessor implements OnApplicationBootstrap {
 
   @Process(SEND_TERMS_NOTICES_JOB)
   async handleSendNotices(job: Job<TermsNoticesJobData>): Promise<void> {
-    const { termsVersionId } = job.data;
+    const { termsVersionId, targetVendorId, testFactoryNamespace } = job.data;
+
+    if (targetVendorId) {
+      const configuredNamespace = process.env.TEST_FACTORY_NAMESPACE;
+      if (
+        process.env.NODE_ENV !== 'test' ||
+        !configuredNamespace ||
+        !testFactoryNamespace ||
+        testFactoryNamespace !== configuredNamespace
+      ) {
+        throw new Error('TERMS_NOTICE_TEST_TARGET_FORBIDDEN');
+      }
+    }
 
     const version = await this.prisma.termsVersion.findUniqueOrThrow({
       where: { id: termsVersionId },
     });
 
     // All active (live + probation) and suspended vendors with a confirmed owner email.
+    const activeStatuses = [VendorStatus.live, VendorStatus.probation, VendorStatus.suspended];
+    const vendorWhere: Prisma.VendorWhereInput = targetVendorId
+      ? {
+          id: targetVendorId,
+          slug: {
+            startsWith: `test-factory-${testFactoryNamespace!
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, '-')
+              .replace(/^-+|-+$/g, '')}-`,
+          },
+          status: { in: activeStatuses },
+        }
+      : { status: { in: activeStatuses } };
     const vendors = await this.prisma.vendor.findMany({
-      where: { status: { in: ['live', 'probation', 'suspended'] } },
+      where: vendorWhere,
       select: {
         id: true,
         businessName: true,

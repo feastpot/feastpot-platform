@@ -91,6 +91,14 @@ externalPort = 3002
 localPort = 3003
 externalPort = 3003
 
+[[ports]]
+localPort = 3013
+externalPort = 3001
+
+[[ports]]
+localPort = 6389
+externalPort = 4200
+
 
 
 [deployment]

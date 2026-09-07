@@ -877,6 +877,159 @@ jobs:
           path: apps/web/playwright-report/
           retention-days: 14
 
+  # --------------------------------------------------------------------------
+  # Parts A-D are required inventories. Part A reads four real local HTTP
+  # surfaces; Parts B/C remain API integration contracts; Part D remains the
+  # bounded admin truthfulness check.
+  # --------------------------------------------------------------------------
+  cross-surface-consistency:
+    name: Cross-surface consistency (Parts A-D)
+    needs: [setup]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: feastpot
+          POSTGRES_PASSWORD: feastpot
+          POSTGRES_DB: feastpot_part_a
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U feastpot"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      TEST_API_URL: http://127.0.0.1:3001
+      NEXT_PUBLIC_API_URL: http://127.0.0.1:3001
+      API_URL: http://127.0.0.1:3001
+      PART_A_WEB_URL: http://127.0.0.1:3000
+      PART_A_API_URL: http://127.0.0.1:3001
+      PART_A_VENDOR_URL: http://127.0.0.1:3002
+      PART_A_ADMIN_URL: http://127.0.0.1:3003
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      SUPABASE_DB_URL: ${{ secrets.TEST_SUPABASE_DB_URL }}
+      SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      TEST_FACTORY_PASSWORD: ${{ secrets.TEST_FACTORY_PASSWORD }}
+      TEST_FACTORY_NAMESPACE: cross-surface-${{ github.run_id }}-${{ github.run_attempt }}
+      REDIS_URL: redis://localhost:6379
+      STRIPE_SECRET_KEY_TEST: ${{ secrets.STRIPE_SECRET_KEY_TEST }}
+      SESSION_SECRET: cross-surface-test-only-session-secret-34125348434
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm install -g npm@10.9.4
+      - run: npm ci --no-audit --no-fund
+      - name: Require cross-surface integration credentials
+        run: |
+          required=(
+            NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY SUPABASE_DB_URL
+            SUPABASE_URL SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY
+            TEST_FACTORY_PASSWORD TEST_FACTORY_NAMESPACE REDIS_URL STRIPE_SECRET_KEY_TEST
+          )
+          missing=()
+          for key in "${required[@]}"; do
+            [ -n "${!key}" ] || missing+=("$key")
+          done
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "::error title=Cross-surface credentials missing::Required credentials are absent: ${missing[*]}. This check intentionally fails instead of skipping."
+            exit 1
+          fi
+      - name: Generate Prisma client
+        run: npm run db:generate
+        env:
+          SUPABASE_DB_URL: postgresql://dummy:dummy@localhost:5432/dummy
+          SUPABASE_DIRECT_URL: postgresql://dummy:dummy@localhost:5432/dummy
+      - name: Run Part B and C API consistency inventories
+        id: jest-run
+        continue-on-error: true
+        run: >-
+          npm run test --workspace=@feastpot/api -- --runInBand --forceExit --json
+          --outputFile cross-surface-jest-results.json
+          src/e2e/admin-action-propagation.spec.ts
+          src/e2e/cross-surface-reverse-propagation.spec.ts
+      - name: Require every Part B and C assertion to execute
+        if: always()
+        run: >-
+          node scripts/validate-playwright-results.mjs
+          --jest-results apps/api/cross-surface-jest-results.json
+          --manifest scripts/cross-surface-consistency.manifest.json
+      - name: Install Chromium for the Part A browser inventory
+        run: npx playwright install --with-deps chromium
+        working-directory: apps/admin
+      - name: Run actual four-surface Part A inventory
+        id: part-a-run
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          pids=()
+          cleanup() {
+            kill "${pids[@]}" 2>/dev/null || true
+            wait "${pids[@]}" 2>/dev/null || true
+          }
+          trap cleanup EXIT INT TERM
+          npm run dev --workspace=@feastpot/api >/tmp/part-a-api.log 2>&1 & pids+=($!)
+          npm run dev --workspace=@feastpot/web >/tmp/part-a-web.log 2>&1 & pids+=($!)
+          npm run dev --workspace=@feastpot/vendor >/tmp/part-a-vendor.log 2>&1 & pids+=($!)
+          npm run dev --workspace=@feastpot/admin >/tmp/part-a-admin.log 2>&1 & pids+=($!)
+          for url in \
+            "$PART_A_API_URL/v1/platform-facts" \
+            "$PART_A_WEB_URL/platform-facts" \
+            "$PART_A_VENDOR_URL/platform-facts" \
+            "$PART_A_ADMIN_URL/platform-facts"; do
+            ready=0
+            for attempt in $(seq 1 90); do
+              if curl --fail --silent --output /dev/null "$url"; then ready=1; break; fi
+              sleep 2
+            done
+            if [ "$ready" -ne 1 ]; then
+              echo "::error title=Part A server timeout::$url did not become ready."
+              cat /tmp/part-a-*.log
+              exit 1
+            fi
+          done
+          npx playwright test --config playwright.part-a.config.ts
+        working-directory: apps/admin
+      - name: Require every Part A assertion to execute
+        if: always()
+        run: >-
+          node scripts/validate-playwright-results.mjs
+          --results apps/admin/part-a-results.json
+          --manifest scripts/cross-surface-consistency.manifest.json
+          --manifest-section partA
+      - name: Run bounded Part D truthfulness inventory
+        id: part-d-run
+        continue-on-error: true
+        run: npx playwright test --config playwright.cross-surface.config.ts
+        working-directory: apps/admin
+      - name: Require every Part D assertion to execute
+        if: always()
+        run: >-
+          node scripts/validate-playwright-results.mjs
+          --results apps/admin/cross-surface-results.json
+          --manifest scripts/cross-surface-consistency.manifest.json
+      - name: Preserve cross-surface suite failure status
+        if: always() && (steps.jest-run.outcome == 'failure' || steps.part-a-run.outcome == 'failure' || steps.part-d-run.outcome == 'failure')
+        run: exit 1
+
   # ----------------------------------------------------------------------------
   # 8. RLS coverage check - connects to the real development database and
   #    confirms every table in the public schema has rowsecurity=true. Fails
@@ -934,7 +1087,7 @@ jobs:
   # ----------------------------------------------------------------------------
   build:
     name: Build all apps
-    needs: [typecheck, lint, prisma-validate, test]
+    needs: [typecheck, lint, prisma-validate, test, cross-surface-consistency]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5

@@ -1,8 +1,8 @@
 import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
-import { COMMISSION_RATES } from '@feastpot/config/commission-rates';
 import { redirect } from 'next/navigation';
 
 import { PortalShell } from '@/components/layout/portal-shell';
+import { PlatformFacts } from '@/components/platform-facts';
 import { apiRequest, ApiError } from '@/lib/api/client';
 import { createClient as createServerSupabase } from '@/lib/supabase/server';
 
@@ -34,8 +34,7 @@ const SECTIONS: FaqSection[] = [
     id: 'getting-paid',
     title: 'Getting paid',
     body: [
-      `Payouts run weekly. We close the books at midnight Sunday and create a single Stripe Transfer the following ${PLATFORM_FACTS.payouts.day}. Stripe typically takes 3-5 working days to settle the transfer into your bank account.`,
-      `Commission is charged on the food subtotal only - delivery fees are passed through in full and are not commissioned. New kitchens start at ${COMMISSION_RATES.marketplaceFirst.percent}% first-order marketplace commission. Once you have a track record on the platform the rate reduces to ${COMMISSION_RATES.marketplaceRepeat.percent}% repeat-order commission. Your current rate is shown on the Payouts page.`,
+      'The current payout schedule and commission rates are in the platform facts below. Your own current rate is also shown on the Payouts page.',
       'Your earnings land in the bank account connected to your Stripe Connect profile. If you have not connected Stripe yet, open the Payouts section and follow the onboarding link.',
       'Need to query a payout? Email vendors@feastpot.co.uk with your kitchen name and the week in question. Include any order numbers you think are missing.',
     ],
@@ -72,7 +71,7 @@ const SECTIONS: FaqSection[] = [
     id: 'compliance',
     title: 'Compliance and verification',
     body: [
-      'Your Compliance page shows the status of each required document: Food hygiene certificate (Level 2 or above), Public liability insurance (minimum GBP 5m cover), Photo ID, and Food business registration. Each document has a status: Not started, Submitted, Approved, Needs changes, Expiring soon, or Expired.',
+      'Your Compliance page shows each required document and its status: Not started, Submitted, Approved, Needs changes, Expiring soon, or Expired. The canonical eligibility list is in the platform facts below.',
       'Documents entering the 30-day expiry window are flagged as Expiring soon and you will receive an email reminder. Upload the renewed document before the old one expires. Once expired, new orders may be paused until a valid document is approved.',
       'Re-uploading any document resets it to Submitted and triggers a new review. We aim to verify within 1-2 business days. If a document is rejected, the reviewer note on the Compliance page explains exactly what to fix.',
       'If your account shows a red Account suspended banner, new orders are paused. Reply to the compliance email you received or contact vendors@feastpot.co.uk. Once a valid document is approved the suspension is lifted automatically.',
@@ -83,7 +82,7 @@ const SECTIONS: FaqSection[] = [
     title: 'Catering enquiries',
     body: [
       'Catering enquiries are routed to you by the Feastpot team. You will find them in the Catering section of your portal.',
-      'To respond, create an itemised quote with event details, line items, and allergens. Quotes must total at least GBP 50. Set your minimum cash deposit; the form charges the greater of 25% or your minimum, capped at the quote total. Set a quote expiry - the default is seven days - and send it to the customer from the quote detail page.',
+      'To respond, create an itemised quote with event details, line items, and allergens. Set your minimum cash deposit; the canonical deposit and cancellation policy is in the platform facts below. Set a quote expiry and send it to the customer from the quote detail page.',
       'Customers pay the deposit and balance through Feastpot. You track bookings through Quoted, Deposit paid, Confirmed, Balance paid, and Completed. Commission applies to catering bookings in the same way as regular orders.',
       'All 14 statutory allergens must be declared per line item in the quote, the same obligation as your regular menu items.',
     ],
@@ -160,6 +159,8 @@ export default async function HelpPage() {
             ))}
           </ul>
         </nav>
+
+        <PlatformFacts />
 
         <div className="flex flex-col gap-6">
           {SECTIONS.map((s) => (

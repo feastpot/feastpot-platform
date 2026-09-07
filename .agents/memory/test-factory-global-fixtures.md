@@ -26,3 +26,15 @@ Factory-backed browser tests must budget enough time for provisioning and cleanu
 **Why:** A test that serially provisioned several checkout scenarios hit the default 30-second timeout. Playwright interrupted its local cleanup and left namespaced users and a vendor behind even though the test had a `finally` block.
 
 **How to apply:** Give multi-scenario provisioning tests an explicit timeout based on measured setup/teardown time, and retain a namespace-scoped teardown command that can run independently after cancellation or runner timeout.
+
+Derived fixture keys must retain namespace uniqueness even when database length limits require truncation. Include a stable hash of the full namespace rather than relying on a readable prefix alone.
+
+**Why:** Truncating the leading characters of similarly prefixed namespaces made separate reverse-propagation runs reuse one order number, so a new customer inherited an older customer's order and correctly failed ownership checks.
+
+**How to apply:** Build compact external IDs from a short readable prefix plus a deterministic hash of the complete namespace. Add the state only after the hash.
+
+Auth teardown must be idempotent across database-only, already-deleted, and fully linked identities. Treat only provider-confirmed not-found responses as already clean.
+
+**Why:** Cleanup legitimately encountered a database user ID with no remaining Auth user and failed after every test assertion had passed.
+
+**How to apply:** Ignore Auth deletion 404/user-not-found responses, but surface every other provider error so cleanup cannot silently mask permission or service failures.

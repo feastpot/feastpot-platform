@@ -1,6 +1,5 @@
-import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
-
 import { StaffShell } from '@/components/layout/staff-shell-wrapper';
+import { PlatformFacts } from '@/components/platform-facts';
 import type { UserGuideSectionId } from '@/lib/admin-destinations';
 import { requireStaff } from '@/lib/auth/server-gate';
 
@@ -204,7 +203,8 @@ const SECTIONS: GuideSection[] = [
       },
       {
         heading: 'Commission rates',
-        detail: `Commission rates are configured per vendor tier. The default rates (${PLATFORM_FACTS.commission.marketplaceFirst}% first-order marketplace commission, ${PLATFORM_FACTS.commission.marketplaceRepeat}% repeat-order commission) apply unless a vendor has a negotiated rate row. Add a new rate row here when agreeing a custom arrangement with a vendor.`,
+        detail:
+          'Commission rates are configured per vendor tier. The current defaults are in the platform facts below. Add a new rate row here when agreeing a custom arrangement with a vendor.',
       },
       {
         heading: 'FeastPass health',
@@ -347,6 +347,8 @@ export default async function AdminUserGuidePage() {
             ))}
           </ul>
         </nav>
+
+        <PlatformFacts />
 
         <div className="flex flex-col gap-6">
           {SECTIONS.map((section) => (

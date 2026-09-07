@@ -211,6 +211,50 @@ describe('test data factory contracts', () => {
     });
   });
 
+  it('discovers a state application by its exact marked email without a platform user', async () => {
+    const prisma = {
+      user: { findMany: jest.fn().mockResolvedValue([]) },
+      vendorApplication: {
+        findMany: jest.fn().mockResolvedValue([{ id: 'application-id' }]),
+      },
+      vendor: { findMany: jest.fn().mockResolvedValue([]) },
+    };
+    const factory = new TestDataFactory({
+      databaseUrl: 'postgresql://postgres:postgres@127.0.0.1:5432/feastpot_test',
+      prisma: prisma as never,
+      namespace: 'Interrupted V4',
+    });
+    const identity = {
+      state: 'V4' as const,
+      credentials: {
+        email: 'tf-interrupted-v4-v4@test.feastpot.co.uk',
+        password: null,
+        role: 'vendor' as const,
+      },
+      userId: '',
+      relatedUserIds: [],
+      relatedVendorIds: [],
+      storageObjects: [],
+    };
+
+    const discovered = await (
+      factory as unknown as {
+        discoverTeardownTargets(
+          candidate: typeof identity,
+        ): Promise<{ vendorApplicationIds: string[] }>;
+      }
+    ).discoverTeardownTargets(identity);
+
+    expect(prisma.vendorApplication.findMany).toHaveBeenCalledWith({
+      where: {
+        email: 'tf-interrupted-v4-v4@test.feastpot.co.uk',
+        isTestData: true,
+      },
+      select: { id: true },
+    });
+    expect(discovered.vendorApplicationIds).toEqual(['application-id']);
+  });
+
   it('repairs an existing factory catering enquiry provenance before booking it', async () => {
     const prisma = {
       cateringEnquiry: {

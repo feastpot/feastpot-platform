@@ -1,4 +1,6 @@
 import {
+  CATERING_CANCELLATION_TIERS,
+  CATERING_DEPOSIT_PERCENT,
   calculateCateringDeposit,
   calculateCateringQuoteExpiry,
   CateringDepositPolicyError,
@@ -42,6 +44,8 @@ const GUEST_COUNT_MIDPOINTS: Record<string, number> = {
   '200+': 250,
 };
 
+export const API_CATERING_DEPOSIT_PERCENT = CATERING_DEPOSIT_PERCENT;
+
 function deriveGuestCount(band: string): number {
   return GUEST_COUNT_MIDPOINTS[band] ?? 20;
 }
@@ -78,9 +82,11 @@ export function calculateCateringCancellationRefund(args: {
   }
   if (args.balancePaid)
     return args.staffApprovedAfterBalance ? args.depositPence + args.balancePence : 0;
-  if (args.daysUntilEvent >= 14) return args.depositPence;
-  if (args.daysUntilEvent >= 8) return Math.floor(args.depositPence / 2);
-  return 0;
+  const tier =
+    CATERING_CANCELLATION_TIERS.find(
+      ({ minimumDaysBeforeEvent }) => args.daysUntilEvent >= minimumDaysBeforeEvent,
+    ) ?? CATERING_CANCELLATION_TIERS[CATERING_CANCELLATION_TIERS.length - 1];
+  return Math.floor((args.depositPence * tier.refundPercent) / 100);
 }
 
 @Injectable()

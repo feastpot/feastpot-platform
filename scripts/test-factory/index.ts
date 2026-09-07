@@ -265,7 +265,10 @@ function slug(namespace: string, state: FactoryState): string {
 }
 
 function orderNumber(namespace: string, state: FactoryState): string {
-  return `TF-${safeKey(namespace).replace(/-/g, '').slice(0, 12).toUpperCase()}-${state}`;
+  const key = safeKey(namespace);
+  const readablePrefix = key.replace(/-/g, '').slice(0, 8).toUpperCase();
+  const namespaceHash = createHash('sha256').update(key).digest('hex').slice(0, 8).toUpperCase();
+  return `TF-${readablePrefix}-${namespaceHash}-${state}`;
 }
 
 function deterministicExternalId(kind: string, namespace: string, state: FactoryState): string {
@@ -509,6 +512,12 @@ export class TestDataFactory {
         ...identity.relatedVendorIds,
       ]),
     ];
+    const vendorApplicationIds = [
+      ...new Set([
+        ...discovered.vendorApplicationIds,
+        ...(identity.vendorApplicationId ? [identity.vendorApplicationId] : []),
+      ]),
+    ];
 
     await this.prisma.$transaction(
       async (tx) => {
@@ -517,12 +526,18 @@ export class TestDataFactory {
           select: { id: true },
         });
         const orderIds = orders.map((order) => order.id);
-        const payments = orderIds.length
-          ? await tx.payment.findMany({
-              where: { orderId: { in: orderIds } },
-              select: { id: true },
-            })
-          : [];
+        const payments =
+          orderIds.length || userIds.length
+            ? await tx.payment.findMany({
+                where: {
+                  OR: [
+                    ...(orderIds.length ? [{ orderId: { in: orderIds } }] : []),
+                    ...(userIds.length ? [{ userId: { in: userIds } }] : []),
+                  ],
+                },
+                select: { id: true },
+              })
+            : [];
         const paymentIds = payments.map((payment) => payment.id);
         const bookings = await tx.cateringBooking.findMany({
           where: {
@@ -543,20 +558,31 @@ export class TestDataFactory {
             where: { id: { in: bookings.map((booking) => booking.enquiryId) } },
           });
         }
-        if (orderIds.length) {
-          await tx.dispute.deleteMany({ where: { orderId: { in: orderIds } } });
+        if (orderIds.length || paymentIds.length) {
           await tx.chargeback.deleteMany({
             where: {
               OR: [
-                { orderId: { in: orderIds } },
+                ...(orderIds.length ? [{ orderId: { in: orderIds } }] : []),
                 ...(paymentIds.length ? [{ paymentId: { in: paymentIds } }] : []),
               ],
             },
           });
+        }
+        if (orderIds.length || vendorIds.length) {
           await tx.payout.deleteMany({
-            where: { OR: [{ orderId: { in: orderIds } }, { vendorId: { in: vendorIds } }] },
+            where: {
+              OR: [
+                ...(orderIds.length ? [{ orderId: { in: orderIds } }] : []),
+                ...(vendorIds.length ? [{ vendorId: { in: vendorIds } }] : []),
+              ],
+            },
           });
-          await tx.payment.deleteMany({ where: { orderId: { in: orderIds } } });
+        }
+        if (paymentIds.length) {
+          await tx.payment.deleteMany({ where: { id: { in: paymentIds } } });
+        }
+        if (orderIds.length) {
+          await tx.dispute.deleteMany({ where: { orderId: { in: orderIds } } });
           await tx.orderItem.deleteMany({ where: { orderId: { in: orderIds } } });
           await tx.orderAttribution.deleteMany({ where: { orderId: { in: orderIds } } });
           await tx.orderCommission.deleteMany({ where: { orderId: { in: orderIds } } });
@@ -569,21 +595,7 @@ export class TestDataFactory {
         await tx.termsAcceptance.deleteMany({ where: { vendorId: { in: vendorIds } } });
         await tx.vendorEnforcementAction.deleteMany({ where: { vendorId: { in: vendorIds } } });
         await tx.vendorApplication.deleteMany({
-          where: {
-            OR: [
-              ...(identity.vendorApplicationId ? [{ id: identity.vendorApplicationId }] : []),
-              {
-                email: {
-                  in: (
-                    await tx.user.findMany({
-                      where: { id: { in: userIds } },
-                      select: { email: true },
-                    })
-                  ).map((user) => user.email),
-                },
-              },
-            ],
-          },
+          where: { id: { in: vendorApplicationIds } },
         });
         await tx.vendorDocument.deleteMany({ where: { vendorId: { in: vendorIds } } });
         await tx.deliveryConfig.deleteMany({ where: { vendorId: { in: vendorIds } } });
@@ -639,7 +651,13 @@ export class TestDataFactory {
       await Promise.all(
         [...new Set([...userIds, ...authUserIds])].map(async (userId) => {
           const { error } = await this.admin!.auth.admin.deleteUser(userId);
-          if (error) throw new Error(`TEST_FACTORY_AUTH_DELETE_FAILED: ${error.message}`);
+          const alreadyDeleted =
+            error?.status === 404 ||
+            error?.code === 'user_not_found' ||
+            /user not found/i.test(error?.message ?? '');
+          if (error && !alreadyDeleted) {
+            throw new Error(`TEST_FACTORY_AUTH_DELETE_FAILED: ${error.message}`);
+          }
         }),
       );
     }
@@ -661,16 +679,27 @@ export class TestDataFactory {
   private async discoverTeardownTargets(identity: TestIdentity): Promise<{
     userIds: string[];
     vendorIds: string[];
+    vendorApplicationIds: string[];
     storageObjects: Array<{ bucket: string; path: string }>;
   }> {
-    const emails = [
-      stateEmail(this.namespace, identity.state),
+    const email = stateEmail(this.namespace, identity.state);
+    const userEmails = [
+      email,
       `tf-${safeKey(this.namespace)}-${identity.state.toLowerCase()}-order-vendor@test.feastpot.co.uk`,
     ];
-    const users = await this.prisma.user.findMany({
-      where: { email: { in: emails } },
-      select: { id: true },
-    });
+    const [users, vendorApplications] = await Promise.all([
+      this.prisma.user.findMany({
+        where: { email: { in: userEmails } },
+        select: { id: true },
+      }),
+      // Applications are not owned by a User relation. Discover them from the
+      // exact state key plus explicit fixture provenance so interrupted setup
+      // and an already-removed platform user remain safe to clean up.
+      this.prisma.vendorApplication.findMany({
+        where: { email, isTestData: true },
+        select: { id: true },
+      }),
+    ]);
     const userIds = users.map((user) => user.id);
     const vendors = await this.prisma.vendor.findMany({
       where: {
@@ -681,6 +710,7 @@ export class TestDataFactory {
     return {
       userIds,
       vendorIds: vendors.map((vendor) => vendor.id),
+      vendorApplicationIds: vendorApplications.map((application) => application.id),
       storageObjects: await this.discoverStorageObjects(identity.state),
     };
   }
@@ -768,7 +798,9 @@ export class TestDataFactory {
       const user = await this.ensureUser(state, 'customer');
       const identity = this.identity(state, user);
       const application =
-        (await this.prisma.vendorApplication.findFirst({ where: { email: user.email } })) ??
+        (await this.prisma.vendorApplication.findFirst({
+          where: { email: user.email, isTestData: true },
+        })) ??
         (await this.prisma.vendorApplication.create({
           data: {
             fullName: 'Test Factory Applicant',
@@ -784,6 +816,7 @@ export class TestDataFactory {
             status: 'pending',
             acceptedTermsAt: new Date(),
             acceptedTermsVersion: 'test-factory-v1',
+            isTestData: true,
           },
         }));
       identity.vendorApplicationId = application.id;

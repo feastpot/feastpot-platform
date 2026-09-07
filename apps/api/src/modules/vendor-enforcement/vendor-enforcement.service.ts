@@ -37,6 +37,15 @@ export interface EnforcementActionRecord {
   createdAt: Date;
 }
 
+export interface VendorEnforcementActionRecord extends EnforcementActionRecord {
+  appealClause: string;
+  appealDeadline: Date;
+  appealRoute: {
+    method: 'email';
+    address: string;
+  };
+}
+
 @Injectable()
 export class VendorEnforcementService {
   private readonly logger = new Logger(VendorEnforcementService.name);
@@ -401,6 +410,20 @@ export class VendorEnforcementService {
       where: { vendorId, liftedAt: null },
       orderBy: { effectiveAt: 'asc' },
     }) as unknown as Promise<EnforcementActionRecord[]>;
+  }
+
+  /** Vendor receiver contract, including the formal clause, deadline, and route to appeal. */
+  async getVendorActiveActions(vendorId: string): Promise<VendorEnforcementActionRecord[]> {
+    const actions = await this.getActiveActions(vendorId);
+    return actions.map((action) => ({
+      ...action,
+      appealClause: TERMS_CLAUSE_APPEAL,
+      appealDeadline: new Date(action.effectiveAt.getTime() + APPEAL_WINDOW_DAYS * 86_400_000),
+      appealRoute: {
+        method: 'email',
+        address: 'appeals@feastpot.co.uk',
+      },
+    }));
   }
 
   /**

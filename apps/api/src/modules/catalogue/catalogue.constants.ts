@@ -1,4 +1,8 @@
-import { ALLERGEN_FREE_SLUGS, ALLERGEN_FREE_SLUG_SET } from '@feastpot/config/allergens';
+import {
+  ALLERGEN_FREE_SLUGS,
+  ALLERGEN_FREE_SLUG_SET,
+  ALLERGEN_LABELS,
+} from '@feastpot/config/allergens';
 
 /**
  * UK Food Standards Agency 14 major allergens.
@@ -9,6 +13,7 @@ import { ALLERGEN_FREE_SLUGS, ALLERGEN_FREE_SLUG_SET } from '@feastpot/config/al
  * filter all share the same source of truth.
  */
 export const FSA_14_ALLERGENS = ALLERGEN_FREE_SLUGS;
+export const FSA_14_ALLERGEN_LABELS = ALLERGEN_LABELS;
 
 export type FsaAllergen = (typeof FSA_14_ALLERGENS)[number];
 

@@ -8,7 +8,7 @@ import { useState } from 'react';
 import { StatusPill } from '@/components/ui/status-pill';
 import { useAdminCoverage, type DocType } from '@/hooks/use-legal';
 import { formatDate } from '@/lib/format';
-import { formatRatio } from '@/lib/format-ratio';
+import { formatRatio, ratioStatusClass } from '@/lib/format-ratio';
 
 const DOC_TYPES: { value: DocType; label: string }[] = [
   { value: 'VENDOR_TERMS', label: 'Vendor terms' },
@@ -63,11 +63,14 @@ export function CoverageClient() {
           <Card>
             <CardContent className="pt-5">
               <div
-                className={`text-4xl font-bold tabular-nums ${
-                  !hasLiveVendors
-                    ? 'text-muted-foreground'
-                    : pct === 100 ? 'text-green-600' : pct >= 95 ? 'text-amber-500' : 'text-destructive'
-                }`}
+                className={`text-4xl font-bold tabular-nums ${ratioStatusClass(
+                  data.totalActive,
+                  pct === 100
+                    ? 'text-green-600'
+                    : pct >= 95
+                      ? 'text-amber-500'
+                      : 'text-destructive',
+                )}`}
               >
                 {formatRatio(data.onCurrentCount, data.totalActive, 0)}
               </div>
@@ -79,7 +82,15 @@ export function CoverageClient() {
               {hasLiveVendors && (
                 <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted">
                   <div
-                    className={`h-full rounded-full ${pct === 100 ? 'bg-green-500' : pct >= 95 ? 'bg-amber-400' : 'bg-destructive'}`}
+                    className={`h-full rounded-full ${ratioStatusClass(
+                      data.totalActive,
+                      pct === 100
+                        ? 'bg-green-500'
+                        : pct >= 95
+                          ? 'bg-amber-400'
+                          : 'bg-destructive',
+                      'bg-muted',
+                    )}`}
                     style={{ width: `${pct}%` }}
                   />
                 </div>

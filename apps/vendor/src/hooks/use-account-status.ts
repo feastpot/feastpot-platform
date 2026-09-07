@@ -26,6 +26,12 @@ export interface EnforcementAction {
   facts: Record<string, unknown>;
   effectiveAt: string;
   noticeSentAt: string | null;
+  appealClause: string;
+  appealDeadline: string;
+  appealRoute: {
+    method: 'email';
+    address: string;
+  };
   liftedAt: string | null;
   createdAt: string;
 }

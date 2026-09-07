@@ -50,13 +50,15 @@ export async function middleware(request: NextRequest) {
   // be public. Without this, the middleware bounces the user to /sign-in
   // before the code exchange can set the cookie.
   const isAuthFlow = pathname === '/auth/callback' || pathname.startsWith('/auth/reset/');
+  const isPlatformFacts = pathname === '/platform-facts' || pathname.startsWith('/platform-facts/');
   const isPublic =
     isSignIn ||
     pathname === '/unauthorized' ||
     isOnboardingRegister ||
     isForgotPassword ||
     isNotRegistered ||
-    isAuthFlow;
+    isAuthFlow ||
+    isPlatformFacts;
 
   if (!isPublic && !user) {
     const signInUrl = request.nextUrl.clone();

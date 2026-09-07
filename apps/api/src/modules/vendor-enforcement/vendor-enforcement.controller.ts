@@ -97,6 +97,6 @@ export class VendorEnforcementController {
       select: { id: true },
     });
     if (!vendor) return [];
-    return this.enforcement.getActiveActions(vendor.id);
+    return this.enforcement.getVendorActiveActions(vendor.id);
   }
 }

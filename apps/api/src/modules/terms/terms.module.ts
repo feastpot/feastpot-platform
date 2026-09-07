@@ -5,12 +5,13 @@ import { PrismaModule } from '../../prisma/prisma.module';
 import { VendorMembersModule } from '../vendor-members/vendor-members.module';
 
 import { TermsNoticeProcessor } from './terms-notice.processor';
+import { PlatformFactsController } from './platform-facts.controller';
 import { TermsController } from './terms.controller';
 import { TermsService } from './terms.service';
 
 @Module({
   imports: [PrismaModule, AuthModule, VendorMembersModule],
-  controllers: [TermsController],
+  controllers: [TermsController, PlatformFactsController],
   providers: [TermsService, TermsNoticeProcessor],
   exports: [TermsService],
 })
