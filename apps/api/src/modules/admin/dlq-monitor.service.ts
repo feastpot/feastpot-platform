@@ -658,6 +658,9 @@ export class DlqMonitorService {
     if (!job) {
       throw new Error(`Job ${jobId} not found in queue "${queueName}"`);
     }
+    if ((await job.getState()) !== 'failed') {
+      throw new Error(`Job ${jobId} is not in the failed state and cannot be retried`);
+    }
     const audit = await this.prisma.auditLog.create({
       data: {
         actorId,
@@ -711,6 +714,9 @@ export class DlqMonitorService {
     if (!job) {
       throw new Error(`Job ${jobId} not found in queue "${queueName}"`);
     }
+    if ((await job.getState()) !== 'failed') {
+      throw new Error(`Job ${jobId} is not in the failed state and cannot be discarded`);
+    }
     const audit = await this.prisma.auditLog.create({
       data: {
         actorId,
@@ -752,6 +758,33 @@ export class DlqMonitorService {
         this.reportQueueAuditCompletionFailure('discard', queueName, jobId, audit.id, err);
       });
     this.logger.log(`[Admin] Dead-letter job ${jobId} in "${queueName}" discarded by ${actorId}`);
+  }
+
+  /**
+   * Performs a deliberately small, explicitly selected batch. This never
+   * scans or clears a queue: callers must supply each queue/job pair they
+   * reviewed in the UI.
+   */
+  async bulkDeadLetterJobs(
+    action: 'retry' | 'discard',
+    jobs: Array<{ queue: string; jobId: string }>,
+    actorId: string,
+  ): Promise<{ succeeded: string[]; failed: Array<{ jobId: string; message: string }> }> {
+    const succeeded: string[] = [];
+    const failed: Array<{ jobId: string; message: string }> = [];
+    for (const job of jobs) {
+      try {
+        if (action === 'retry') {
+          await this.retryDeadLetterJob(job.queue, job.jobId, actorId);
+        } else {
+          await this.discardDeadLetterJob(job.queue, job.jobId, actorId);
+        }
+        succeeded.push(job.jobId);
+      } catch (error) {
+        failed.push({ jobId: job.jobId, message: (error as Error).message });
+      }
+    }
+    return { succeeded, failed };
   }
 
   private reportQueueAuditCompletionFailure(

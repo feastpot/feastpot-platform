@@ -65,6 +65,10 @@ import { ListAdminUsersDto } from './dto/list-admin-users.dto';
 import { ListAdminVendorsDto } from './dto/list-admin-vendors.dto';
 import { ListAuditLogDto } from './dto/list-audit-log.dto';
 import { ListCoverageInterestDto } from './dto/list-coverage-interest.dto';
+import {
+  BulkRequestVendorApplicationInformationDto,
+  RequestVendorApplicationInformationDto,
+} from './dto/request-vendor-application-information.dto';
 import { UpdateVendorApplicationDto } from './dto/update-vendor-application.dto';
 
 interface SearchAnalyticsRow {
@@ -299,8 +303,13 @@ export class AdminController {
   @ApiOperation({
     summary: 'Application counts grouped by status (drives admin tab pill counters)',
   })
-  vendorApplicationCounts() {
-    return this.admin.getVendorApplicationCounts();
+  vendorApplicationCounts(
+    @Query('includeTestData') includeTestData: string | undefined,
+    @CurrentUser() user: AuthUser,
+  ) {
+    const include = includeTestData === 'true' || includeTestData === '1';
+    this.assertTestDataAccess(include, user);
+    return this.admin.getVendorApplicationCounts(include);
   }
 
   @Get('vendor-applications')
@@ -310,9 +319,55 @@ export class AdminController {
   })
   listVendorApplications(
     @Query('status')
-    status?: 'pending' | 'under_review' | 'information_requested' | 'approved' | 'rejected',
+    status:
+      | 'pending'
+      | 'under_review'
+      | 'information_requested'
+      | 'approved'
+      | 'rejected'
+      | undefined,
+    @Query('includeTestData') includeTestData: string | undefined,
+    @CurrentUser() user: AuthUser,
   ) {
-    return this.admin.listVendorApplications(status);
+    const include = includeTestData === 'true' || includeTestData === '1';
+    this.assertTestDataAccess(include, user);
+    return this.admin.listVendorApplications(status, include);
+  }
+
+  @Get('supply-pipeline')
+  @Roles(UserRole.admin, UserRole.compliance, UserRole.support)
+  @ApiOperation({ summary: 'Unified vendor-application and vendor lifecycle queue' })
+  supplyPipeline(
+    @Query('status') status: string | undefined,
+    @Query('includeTestData') includeTestData: string | undefined,
+    @CurrentUser() user: AuthUser,
+  ) {
+    const include = includeTestData === 'true' || includeTestData === '1';
+    this.assertTestDataAccess(include, user);
+    return this.admin.listSupplyPipeline(status, include);
+  }
+
+  @Post('vendor-applications/:id/request-information')
+  @Roles(UserRole.admin, UserRole.compliance)
+  @ApiOperation({
+    summary: 'Request missing information from a vendor applicant (once every 7 days)',
+  })
+  requestVendorApplicationInformation(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Req() req: AuthedRequest,
+    @Body() dto: RequestVendorApplicationInformationDto,
+  ) {
+    return this.admin.requestVendorApplicationInformation(id, req.user!.id, dto);
+  }
+
+  @Post('vendor-applications/bulk/request-information')
+  @Roles(UserRole.admin, UserRole.compliance)
+  @ApiOperation({ summary: 'Bulk request applicant information (maximum 100; per-row results)' })
+  bulkRequestVendorApplicationInformation(
+    @Req() req: AuthedRequest,
+    @Body() dto: BulkRequestVendorApplicationInformationDto,
+  ) {
+    return this.admin.bulkRequestVendorApplicationInformation(dto, req.user!.id);
   }
 
   @Get('vendor-applications/:id')
@@ -906,10 +961,10 @@ export class AdminController {
   @Get('notification-outbox/dead-letters')
   @Roles(UserRole.admin)
   @ApiOperation({ summary: 'List notification outbox rows that exhausted all retries (admin)' })
-  async listDeadLetterOutbox() {
+  async listDeadLetterOutbox(@Query('event') event?: string) {
     const MAX_ALERT_ATTEMPTS = 5;
     const rows = await this.prisma.notificationOutbox.findMany({
-      where: { attempts: { gte: MAX_ALERT_ATTEMPTS } },
+      where: { attempts: { gte: MAX_ALERT_ATTEMPTS }, ...(event ? { eventName: event } : {}) },
       orderBy: { createdAt: 'desc' },
       take: 100,
     });
@@ -1033,12 +1088,105 @@ export class AdminController {
         code: 'OUTBOX_ROW_NOT_FOUND',
         message: 'Outbox row not found',
       });
-    await this.prisma.notificationOutbox.update({
-      where: { id: rowId },
-      data: { attempts: 0, nextAttemptAt: new Date(), lastError: null },
-    });
-    this.logger.log(`[Admin] Outbox row ${rowId} reset for resend by ${req.user?.id}`);
+    await this.prisma.$transaction([
+      this.prisma.notificationOutbox.update({
+        where: { id: rowId },
+        data: { attempts: 0, nextAttemptAt: new Date(), lastError: null },
+      }),
+      this.prisma.auditLog.create({
+        data: {
+          actorId: req.user!.id,
+          entityType: 'notification_outbox',
+          entityId: rowId,
+          action: 'admin.notification_outbox_resent',
+          metadata: { eventName: row.eventName },
+        },
+      }),
+    ]);
+    this.logger.log(`[Admin] Outbox row ${rowId} reset for resend by ${req.user!.id}`);
     return { ok: true, id: rowId };
+  }
+
+  @Post('notification-outbox/:rowId/discard')
+  @Roles(UserRole.admin)
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Permanently discard an exhausted notification outbox row (admin)' })
+  async discardOutboxRow(
+    @Param('rowId', new ParseUUIDPipe()) rowId: string,
+    @Req() req: AuthedRequest,
+  ) {
+    const row = await this.prisma.notificationOutbox.findUnique({ where: { id: rowId } });
+    if (!row) throw new NotFoundException('Outbox row not found');
+    await this.prisma.$transaction([
+      this.prisma.notificationOutbox.delete({ where: { id: rowId } }),
+      this.prisma.auditLog.create({
+        data: {
+          actorId: req.user!.id,
+          entityType: 'notification_outbox',
+          entityId: rowId,
+          action: 'admin.notification_outbox_discarded',
+          metadata: { eventName: row.eventName },
+        },
+      }),
+    ]);
+    return { ok: true, id: rowId };
+  }
+
+  @Post('notification-outbox/bulk/:action')
+  @Roles(UserRole.admin)
+  @HttpCode(200)
+  async bulkOutboxAction(
+    @Param('action') action: string,
+    @Body() body: { ids?: unknown; confirmed?: unknown },
+    @Req() req: AuthedRequest,
+  ) {
+    const ids = this.boundedIds(body.ids);
+    this.requireBulkConfirmation(body.confirmed);
+    if (action !== 'resend' && action !== 'discard')
+      throw new BadRequestException('Unknown bulk action');
+    const rows = await this.prisma.notificationOutbox.findMany({
+      where: { id: { in: ids }, attempts: { gte: 5 } },
+      select: { id: true, eventName: true },
+    });
+    const found = new Set(rows.map((row) => row.id));
+    const missing = ids.filter((id) => !found.has(id));
+    if (action === 'resend') {
+      await this.prisma.$transaction([
+        this.prisma.notificationOutbox.updateMany({
+          where: { id: { in: rows.map((row) => row.id) } },
+          data: { attempts: 0, nextAttemptAt: new Date(), lastError: null },
+        }),
+        ...rows.map((row) =>
+          this.prisma.auditLog.create({
+            data: {
+              actorId: req.user!.id,
+              entityType: 'notification_outbox',
+              entityId: row.id,
+              action: 'admin.notification_outbox_resent',
+              metadata: { eventName: row.eventName, bulk: true },
+            },
+          }),
+        ),
+      ]);
+    } else {
+      await this.prisma.$transaction([
+        this.prisma.notificationOutbox.deleteMany({
+          where: { id: { in: rows.map((row) => row.id) } },
+        }),
+        ...rows.map((row) =>
+          this.prisma.auditLog.create({
+            data: {
+              actorId: req.user!.id,
+              entityType: 'notification_outbox',
+              entityId: row.id,
+              action: 'admin.notification_outbox_discarded',
+              metadata: { eventName: row.eventName, bulk: true },
+            },
+          }),
+        ),
+      ]);
+    }
+    return { ok: true, succeeded: rows.map((row) => row.id), missing };
   }
 
   // ---------- Bull dead-letter jobs ----------
@@ -1104,7 +1252,7 @@ export class AdminController {
     @Req() req: AuthedRequest,
   ) {
     try {
-      await this.dlqMonitor.retryDeadLetterJob(queue, jobId, req.user?.id ?? 'unknown');
+      await this.dlqMonitor.retryDeadLetterJob(queue, jobId, req.user!.id);
       return { ok: true, jobId, queue };
     } catch (e) {
       throw new BadRequestException({ code: 'RETRY_FAILED', message: (e as Error).message });
@@ -1126,11 +1274,58 @@ export class AdminController {
     @Req() req: AuthedRequest,
   ) {
     try {
-      await this.dlqMonitor.discardDeadLetterJob(queue, jobId, req.user?.id ?? 'unknown');
+      await this.dlqMonitor.discardDeadLetterJob(queue, jobId, req.user!.id);
       return { ok: true, jobId, queue };
     } catch (e) {
       throw new BadRequestException({ code: 'DISCARD_FAILED', message: (e as Error).message });
     }
+  }
+
+  @Post('dead-letters/bulk/:action')
+  @Roles(UserRole.admin)
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Retry or discard explicitly selected failed Bull jobs (max 50, admin)',
+  })
+  async bulkDeadLetterJobs(
+    @Param('action') action: string,
+    @Body() body: { jobs?: unknown; confirmed?: unknown },
+    @Req() req: AuthedRequest,
+  ) {
+    this.requireBulkConfirmation(body.confirmed);
+    if (action !== 'retry' && action !== 'discard')
+      throw new BadRequestException('Unknown bulk action');
+    if (!Array.isArray(body.jobs) || body.jobs.length < 1 || body.jobs.length > 50)
+      throw new BadRequestException('Select between 1 and 50 jobs');
+    const jobs = body.jobs.map((job) => {
+      if (
+        !job ||
+        typeof job !== 'object' ||
+        typeof (job as { queue?: unknown }).queue !== 'string' ||
+        typeof (job as { jobId?: unknown }).jobId !== 'string'
+      )
+        throw new BadRequestException('Each selected job requires queue and jobId');
+      return { queue: (job as { queue: string }).queue, jobId: (job as { jobId: string }).jobId };
+    });
+    if (new Set(jobs.map((job) => `${job.queue}:${job.jobId}`)).size !== jobs.length)
+      throw new BadRequestException('Selected jobs must be unique');
+    return this.dlqMonitor.bulkDeadLetterJobs(action, jobs, req.user!.id);
+  }
+
+  private boundedIds(value: unknown): string[] {
+    if (!Array.isArray(value) || value.length < 1 || value.length > 50)
+      throw new BadRequestException('Select between 1 and 50 rows');
+    if (!value.every((id) => typeof id === 'string' && /^[0-9a-f-]{36}$/i.test(id)))
+      throw new BadRequestException('Each selected row must have a valid ID');
+    const ids = value as string[];
+    if (new Set(ids).size !== ids.length)
+      throw new BadRequestException('Selected rows must be unique');
+    return ids;
+  }
+
+  private requireBulkConfirmation(confirmed: unknown): void {
+    if (confirmed !== true)
+      throw new BadRequestException('Bulk action requires explicit confirmation');
   }
 
   /**

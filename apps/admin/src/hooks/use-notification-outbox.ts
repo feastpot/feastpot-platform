@@ -15,15 +15,18 @@ export interface OutboxRow {
   jobId: string | null;
 }
 
-export function useDeadLetterOutbox() {
+export function useDeadLetterOutbox(event?: string) {
   const token = useAccessToken();
   return useQuery<{ data: OutboxRow[]; count: number }>({
-    queryKey: ['admin', 'outbox', 'dead-letters'],
+    queryKey: ['admin', 'outbox', 'dead-letters', event ?? 'all'],
     enabled: !!token,
     queryFn: () =>
-      apiRequest('/admin/notification-outbox/dead-letters', {
-        accessToken: token!,
-      }),
+      apiRequest(
+        `/admin/notification-outbox/dead-letters${event ? `?event=${encodeURIComponent(event)}` : ''}`,
+        {
+          accessToken: token!,
+        },
+      ),
     refetchInterval: 30_000,
   });
 }
@@ -36,6 +39,33 @@ export function useResendOutboxRow() {
       apiRequest(`/admin/notification-outbox/${id}/resend`, {
         method: 'POST',
         accessToken: token!,
+      }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['admin', 'outbox'] }),
+  });
+}
+
+export function useDiscardOutboxRow() {
+  const token = useAccessToken();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiRequest(`/admin/notification-outbox/${id}/discard`, {
+        method: 'POST',
+        accessToken: token!,
+      }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['admin', 'outbox'] }),
+  });
+}
+
+export function useBulkOutboxRows() {
+  const token = useAccessToken();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ action, ids }: { action: 'resend' | 'discard'; ids: string[] }) =>
+      apiRequest(`/admin/notification-outbox/bulk/${action}`, {
+        method: 'POST',
+        accessToken: token!,
+        body: { ids, confirmed: true },
       }),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['admin', 'outbox'] }),
   });

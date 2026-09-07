@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 import {
   Badge,
@@ -28,8 +29,10 @@ import {
   useDeadLetterJobs,
   useRetryDeadLetterJob,
   useDiscardDeadLetterJob,
+  useBulkDeadLetterJobs,
   type DeadLetterJob,
 } from '@/hooks/use-dead-letters';
+import { NotificationsClient } from '../notifications/notifications-client';
 
 const ALL_QUEUES = 'all';
 const KNOWN_QUEUES = [
@@ -63,15 +66,27 @@ function JobRow({
   job,
   onRetry,
   onDiscard,
+  selected,
+  onToggle,
 }: {
   job: DeadLetterJob;
   onRetry: (job: DeadLetterJob) => void;
   onDiscard: (job: DeadLetterJob) => void;
+  selected: boolean;
+  onToggle: () => void;
 }) {
   const failedAt = job.finishedOn ? new Date(job.finishedOn) : null;
 
   return (
     <TableRow>
+      <TableCell>
+        <input
+          aria-label={`Select job ${job.id}`}
+          type="checkbox"
+          checked={selected}
+          onChange={onToggle}
+        />
+      </TableCell>
       <TableCell>
         <Badge variant="outline" className="font-mono text-xs">
           {job.queue}
@@ -138,22 +153,45 @@ function JobRow({
   );
 }
 
-export function DeadLettersClient() {
+export function BullJobsPanel() {
   const [queueFilter, setQueueFilter] = useState<string>(ALL_QUEUES);
+  const [selected, setSelected] = useState<string[]>([]);
   const { data, isLoading, error, refetch } = useDeadLetterJobs(
     queueFilter === ALL_QUEUES ? undefined : queueFilter,
   );
   const retry = useRetryDeadLetterJob();
   const discard = useDiscardDeadLetterJob();
+  const bulk = useBulkDeadLetterJobs();
 
   const jobs = data?.data ?? [];
-  const isPending = retry.isPending || discard.isPending;
+  const isPending = retry.isPending || discard.isPending || bulk.isPending;
+  const selectedJobs = jobs.filter((job) => selected.includes(`${job.queue}:${job.id}`));
+  const toggle = (job: DeadLetterJob) => {
+    const key = `${job.queue}:${job.id}`;
+    setSelected((current) =>
+      current.includes(key) ? current.filter((id) => id !== key) : [...current, key],
+    );
+  };
+  const runBulk = (action: 'retry' | 'discard') => {
+    if (!selectedJobs.length) return;
+    const verb = action === 'retry' ? 'retry' : 'permanently discard';
+    if (
+      confirm(
+        `${verb.charAt(0).toUpperCase()}${verb.slice(1)} ${selectedJobs.length} selected failed job(s)?\n\nOnly the selected jobs will be changed. This action is audited.`,
+      )
+    ) {
+      bulk.mutate(
+        { action, jobs: selectedJobs.map(({ queue, id }) => ({ queue, jobId: id })) },
+        { onSuccess: () => setSelected([]) },
+      );
+    }
+  };
 
   return (
     <>
       <PageHeader
-        title="Dead-letter Bull jobs"
-        description="Failed jobs across all queues that have exhausted their retry budget. Retry to re-enqueue or discard to remove permanently. All actions are logged with your user ID."
+        title="Bull jobs"
+        description="Failed jobs that exhausted their retry budget. Retrying re-enqueues the original job immediately; discard is permanent. Every action is audited."
         actions={
           <Button variant="outline" size="sm" onClick={() => void refetch()}>
             <RefreshCcw className="mr-1.5 h-4 w-4" />
@@ -199,12 +237,45 @@ export function DeadLettersClient() {
           </span>
         )}
       </div>
+      <div className="mb-4 flex items-center gap-2" aria-label="Bulk Bull job actions">
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={!selectedJobs.length || isPending}
+          onClick={() => runBulk('retry')}
+        >
+          <RotateCcw className="mr-1.5 h-4 w-4" /> Retry selected ({selectedJobs.length})
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          className="text-destructive hover:bg-destructive/10"
+          disabled={!selectedJobs.length || isPending}
+          onClick={() => runBulk('discard')}
+        >
+          <Trash2 className="mr-1.5 h-4 w-4" /> Discard selected
+        </Button>
+      </div>
 
       <Card>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10">
+                  <input
+                    aria-label="Select all Bull jobs"
+                    type="checkbox"
+                    checked={jobs.length > 0 && selectedJobs.length === jobs.length}
+                    onChange={() =>
+                      setSelected(
+                        selectedJobs.length === jobs.length
+                          ? []
+                          : jobs.map((job) => `${job.queue}:${job.id}`),
+                      )
+                    }
+                  />
+                </TableHead>
                 <TableHead>Queue</TableHead>
                 <TableHead>Job type</TableHead>
                 <TableHead>Error</TableHead>
@@ -217,14 +288,14 @@ export function DeadLettersClient() {
             <TableBody>
               {isLoading && (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-6 text-center text-sm text-muted-foreground">
+                  <TableCell colSpan={8} className="py-6 text-center text-sm text-muted-foreground">
                     Loading…
                   </TableCell>
                 </TableRow>
               )}
               {!isLoading && jobs.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="p-0">
+                  <TableCell colSpan={8} className="p-0">
                     <EmptyState
                       icon={AlertTriangle}
                       title="No dead-letter jobs"
@@ -242,6 +313,8 @@ export function DeadLettersClient() {
                 <JobRow
                   key={`${job.queue}-${job.id}`}
                   job={job}
+                  selected={selected.includes(`${job.queue}:${job.id}`)}
+                  onToggle={() => toggle(job)}
                   onRetry={(j) => retry.mutate({ queue: j.queue, jobId: j.id })}
                   onDiscard={(j) => discard.mutate({ queue: j.queue, jobId: j.id })}
                 />
@@ -252,6 +325,45 @@ export function DeadLettersClient() {
       </Card>
 
       {isPending && <p className="mt-2 text-xs text-muted-foreground">Processing action…</p>}
+    </>
+  );
+}
+
+export function DeadLettersClient() {
+  const router = useRouter();
+  const params = useSearchParams();
+  const tab = params.get('tab') === 'notifications' ? 'notifications' : 'jobs';
+  const selectTab = (next: 'jobs' | 'notifications') => {
+    const nextParams = new URLSearchParams(params.toString());
+    if (next === 'jobs') nextParams.delete('tab');
+    else nextParams.set('tab', 'notifications');
+    router.replace(`/dead-letters${nextParams.size ? `?${nextParams}` : ''}`);
+  };
+  return (
+    <>
+      <div className="mb-6 border-b border-border" role="tablist" aria-label="Dead-letter sources">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === 'jobs'}
+          onClick={() => selectTab('jobs')}
+          className={`px-4 py-3 text-sm font-medium ${tab === 'jobs' ? 'border-b-2 border-primary text-foreground' : 'text-muted-foreground'}`}
+        >
+          Bull jobs
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === 'notifications'}
+          onClick={() => selectTab('notifications')}
+          className={`px-4 py-3 text-sm font-medium ${tab === 'notifications' ? 'border-b-2 border-primary text-foreground' : 'text-muted-foreground'}`}
+        >
+          Notification outbox
+        </button>
+      </div>
+      <div role="tabpanel">
+        {tab === 'jobs' ? <BullJobsPanel /> : <NotificationsClient embedded />}
+      </div>
     </>
   );
 }

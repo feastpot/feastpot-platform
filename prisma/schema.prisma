@@ -474,6 +474,7 @@ model User {
   pushSubscriptions          PushSubscription[]
   createdDiscountCodes       DiscountCode[]           @relation("CreatedDiscountCodes")
   reviewedVendorApplications VendorApplication[]      @relation("VendorApplicationReviewer")
+  vendorApplicationInfoRequests VendorApplicationInfoRequest[]
   mfaRecoveryCodes           MfaRecoveryCode[]
   verifiedTrustSignals       VendorTrustSignal[]      @relation("TrustSignalVerifier")
   cateringBookings           CateringBooking[]        @relation("CateringBookingCustomer")
@@ -650,15 +651,39 @@ model VendorApplication {
   // and never overwritten; approval reads it to set referred_by_vendor_id on
   // the created Vendor row.
   referrerVendorId     String?                 @map("referrer_vendor_id") @db.Uuid
+  /// Explicit fixture provenance. Operations lists exclude these rows unless an
+  /// administrator deliberately asks to include them.
+  isTestData           Boolean                 @default(false) @map("is_test_data")
   createdAt            DateTime                @default(now()) @map("created_at") @db.Timestamptz
   updatedAt            DateTime                @updatedAt @map("updated_at") @db.Timestamptz
 
   reviewedBy User?   @relation("VendorApplicationReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
   vendor     Vendor? @relation("VendorApplicationVendor", fields: [vendorId], references: [id], onDelete: SetNull)
+  informationRequests VendorApplicationInfoRequest[]
 
   @@index([status, createdAt])
+  @@index([isTestData, status, createdAt])
   @@index([email])
   @@map("vendor_applications")
+}
+
+/// Immutable, per-chase record for an applicant who has not yet been provisioned
+/// as a User. This makes compliance requests auditable without overloading
+/// admin_notes (which remains the current review note).
+model VendorApplicationInfoRequest {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  applicationId String   @map("application_id") @db.Uuid
+  actorId       String   @map("actor_id") @db.Uuid
+  requestedItems String[] @map("requested_items")
+  message       String
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  application VendorApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  actor       User              @relation(fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([applicationId, createdAt(sort: Desc)])
+  @@index([actorId])
+  @@map("vendor_application_info_requests")
 }
 
 enum VendorApplicationStatus {
@@ -1733,6 +1758,9 @@ model CateringEnquiry {
   source         String?  @db.VarChar(64)
   hearAboutUs    String?  @map("hear_about_us") @db.VarChar(100)
   adminNotes     String?  @map("admin_notes")
+  /// Set only by the past-event expiry job; preserves expired intake for analysis.
+  expiredAt      DateTime? @map("expired_at") @db.Timestamptz
+  expiryReason   String?  @map("expiry_reason") @db.VarChar(100)
   /// Explicit source-of-record marker; never infer this from contact details.
   isTestData     Boolean  @default(false) @map("is_test_data")
   provenance     String?  @db.VarChar(64)

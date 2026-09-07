@@ -66,3 +66,23 @@ export function useDiscardDeadLetterJob() {
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['admin', 'dead-letters'] }),
   });
 }
+
+export function useBulkDeadLetterJobs() {
+  const token = useAccessToken();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      action,
+      jobs,
+    }: {
+      action: 'retry' | 'discard';
+      jobs: Array<{ queue: string; jobId: string }>;
+    }) =>
+      apiRequest(`/admin/dead-letters/bulk/${action}`, {
+        method: 'POST',
+        accessToken: token!,
+        body: { jobs, confirmed: true },
+      }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['admin', 'dead-letters'] }),
+  });
+}

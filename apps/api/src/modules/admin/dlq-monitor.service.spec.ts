@@ -8,13 +8,18 @@ import { DlqMonitorService } from './dlq-monitor.service';
 
 describe('DlqMonitorService queue mutation audit', () => {
   const actorId = '00000000-0000-4000-8000-000000000001';
-  let job: { name: string; retry: jest.Mock; remove: jest.Mock };
+  let job: { name: string; retry: jest.Mock; remove: jest.Mock; getState: jest.Mock };
   let queue: Queue;
   let prisma: PrismaService;
   let service: DlqMonitorService;
 
   beforeEach(() => {
-    job = { name: 'send-message', retry: jest.fn(), remove: jest.fn() };
+    job = {
+      name: 'send-message',
+      retry: jest.fn(),
+      remove: jest.fn(),
+      getState: jest.fn().mockResolvedValue('failed'),
+    };
     queue = { getJob: jest.fn().mockResolvedValue(job) } as unknown as Queue;
     prisma = {
       auditLog: {
@@ -94,5 +99,30 @@ describe('DlqMonitorService queue mutation audit', () => {
     ).resolves.toBeUndefined();
 
     expect(job.retry).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not mutate a job that is no longer failed', async () => {
+    job.getState.mockResolvedValue('active');
+
+    await expect(service.discardDeadLetterJob('notifications', 'job-4', actorId)).rejects.toThrow(
+      'not in the failed state',
+    );
+
+    expect(job.remove).not.toHaveBeenCalled();
+    expect(prisma.auditLog.create).not.toHaveBeenCalled();
+  });
+
+  it('processes only explicitly supplied bulk jobs and retains individual audit records', async () => {
+    const result = await service.bulkDeadLetterJobs(
+      'retry',
+      [{ queue: 'notifications', jobId: 'job-5' }],
+      actorId,
+    );
+
+    expect(result).toEqual({ succeeded: ['job-5'], failed: [] });
+    expect(job.retry).toHaveBeenCalledTimes(1);
+    expect(prisma.auditLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ actorId }) }),
+    );
   });
 });

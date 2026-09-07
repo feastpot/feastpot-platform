@@ -54,6 +54,8 @@ import { useDebounce } from '@/hooks/use-debounce';
 import { useAdminVendors } from '@/hooks/use-admin-vendors';
 import { useDownloadCsv } from '@/hooks/use-download-csv';
 import { formatDate } from '@/lib/format';
+import { AdminAgeingBadge } from '@/components/ui/admin-ageing-badge';
+import { getAdminAgeing } from '@/lib/admin-ageing';
 
 const PAGE_LIMIT = 25;
 
@@ -592,6 +594,15 @@ function ReviewRowView({
         <div>{formatDate(r.createdAt)}</div>
         <div className="text-xs text-muted-foreground">
           {submitted.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+        </div>
+        <div className="mt-1">
+          <AdminAgeingBadge
+            state={getAdminAgeing({
+              createdAt: r.createdAt,
+              hours: 72,
+              terminal: isApproved || isRejected,
+            })}
+          />
         </div>
       </TableCell>
       <TableCell>

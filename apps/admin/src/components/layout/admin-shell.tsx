@@ -18,7 +18,6 @@ import {
   CalendarHeart,
   ChevronDown,
   ChevronUp,
-  ClipboardList,
   Command,
   CreditCard,
   Download,
@@ -87,11 +86,10 @@ const NAV_GROUPS = [
     },
   ]),
   G('Supply', [
-    { href: '/vendors', label: 'Vendors', icon: Store, roles: ['admin', 'compliance', 'support'] },
     {
-      href: '/vendor-applications',
-      label: 'Applications',
-      icon: ClipboardList,
+      href: '/supply-pipeline',
+      label: 'Supply pipeline',
+      icon: Store,
       roles: ['admin', 'compliance', 'support'],
     },
     { href: '/compliance', label: 'Compliance', icon: ShieldCheck, roles: ['admin', 'compliance'] },
@@ -144,7 +142,6 @@ const NAV_GROUPS = [
       icon: Users,
       roles: ['admin', 'support', 'finance', 'compliance'],
     },
-    { href: '/notifications', label: 'Dead-letter notifications', icon: Bell, roles: ['admin'] },
     {
       href: '/user-guide',
       label: 'User guide',
@@ -338,7 +335,7 @@ export function AdminShell({
   const badgeFor = (href: string) => {
     const keys: Record<string, string[]> = {
       '/catering': ['catering'],
-      '/vendor-applications': ['applications'],
+      '/supply-pipeline': ['applications', 'terms'],
       '/disputes': ['disputes'],
       '/chargebacks': ['chargebacks'],
       '/queues': ['jobs'],
@@ -346,7 +343,6 @@ export function AdminShell({
       '/payouts': ['payouts'],
       '/compliance': ['compliance'],
       '/menus/queue': ['menuModeration'],
-      '/vendors': ['terms'],
     };
     const count = (keys[href] || []).reduce((sum, key) => sum + (queue?.counts?.[key] || 0), 0);
     return count > 0 ? count : null;

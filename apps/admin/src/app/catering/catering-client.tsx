@@ -28,6 +28,7 @@ import { useDebounce } from '@/hooks/use-debounce';
 import { formatDateTime } from '@/lib/format';
 import { formatRatio } from '@/lib/format-ratio';
 import { getEnquiryUrgency } from '@/lib/catering-urgency';
+import { AdminAgeingBadge } from '@/components/ui/admin-ageing-badge';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -136,9 +137,19 @@ const STATUS_TONE: Record<string, StatusTone> = {
   UNASSIGNED: 'neutral',
   WON: 'success',
   LOST: 'danger',
+  EXPIRED: 'neutral',
 };
 
-const STATUSES = ['NEW', 'UNASSIGNED', 'ASSIGNED', 'QUALIFIED', 'MATCHED', 'WON', 'LOST'];
+const STATUSES = [
+  'NEW',
+  'UNASSIGNED',
+  'ASSIGNED',
+  'QUALIFIED',
+  'MATCHED',
+  'WON',
+  'LOST',
+  'EXPIRED',
+];
 const ASSIGNABLE_STATUSES = new Set(['NEW', 'UNASSIGNED']);
 
 const BOOKING_STATUS_COLOURS: Record<BookingStatus, string> = {
@@ -159,12 +170,6 @@ const BOOKING_STATUS_LABELS: Record<BookingStatus, string> = {
   COMPLETED: 'Completed',
   CANCELLED: 'Cancelled',
   EXPIRED: 'Expired',
-};
-
-const SLA_PILL_COLOURS: Record<'neutral' | 'amber' | 'red', string> = {
-  neutral: 'bg-gray-100 text-gray-700',
-  amber: 'bg-amber-100 text-amber-800',
-  red: 'bg-red-100 text-red-800 font-semibold',
 };
 
 const EVENT_FLAG_COLOURS: Record<'amber' | 'red', string> = {
@@ -471,7 +476,12 @@ function EnquiriesTab({ role }: { role: string }) {
               </TableHeader>
               <TableBody>
                 {sorted.map((enq) => {
-                  const { sla, eventFlag } = getEnquiryUrgency(enq.createdAt, enq.eventDate);
+                  const { sla, eventFlag } = getEnquiryUrgency(
+                    enq.createdAt,
+                    enq.eventDate,
+                    undefined,
+                    enq.status === 'EXPIRED',
+                  );
                   return (
                     <TableRow key={enq.id}>
                       <TableCell>
@@ -502,12 +512,19 @@ function EnquiriesTab({ role }: { role: string }) {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <span
-                          data-testid="sla-pill"
-                          data-tone={sla.tone}
-                          className={`inline-block rounded-full px-2 py-0.5 text-xs ${SLA_PILL_COLOURS[sla.tone]}`}
-                        >
-                          {sla.label}
+                        <span data-testid="sla-pill" data-tone={sla.tone}>
+                          <AdminAgeingBadge
+                            state={
+                              enq.status === 'EXPIRED'
+                                ? null
+                                : {
+                                    tone: sla.tone,
+                                    label: sla.label,
+                                    deadline: enq.createdAt,
+                                    breached: sla.overdue,
+                                  }
+                            }
+                          />
                         </span>
                       </TableCell>
                       <TableCell className="text-sm">
@@ -664,7 +681,11 @@ function EnquiriesTab({ role }: { role: string }) {
               )}
             <div>
               <label className="mb-1 block text-sm font-medium">Status</label>
-              <Select value={panelStatus} onValueChange={setPanelStatus} disabled={financeReadOnly}>
+              <Select
+                value={panelStatus}
+                onValueChange={setPanelStatus}
+                disabled={financeReadOnly || reviewed.status === 'EXPIRED'}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>

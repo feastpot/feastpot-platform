@@ -213,6 +213,13 @@ export class NotificationProcessor {
     }
 
     const data = job.data ?? {};
+    // Public catering enquiries are deliberately unauthenticated. This one
+    // transactional event has no User row to resolve, but remains on the
+    // standard template/outbox pipeline. Do not generalise this into an
+    // arbitrary email override for other events.
+    if (eventName === 'catering_enquiry_expired') {
+      return this.handleCateringEnquiryExpired(data);
+    }
     const userId = this.resolveUserId(data);
     if (!userId) {
       this.logger.warn(`Event "${eventName}" missing userId/recipient - dropping.`);
@@ -553,6 +560,34 @@ export class NotificationProcessor {
     return (data.userId ?? data.customerId ?? data.vendorUserId ?? data.recipientUserId) as
       | string
       | undefined;
+  }
+
+  private async handleCateringEnquiryExpired(
+    data: NotificationJobData,
+  ): Promise<{ sent: Channel[]; skipped: Channel[] }> {
+    const recipientEmail =
+      typeof data.recipientEmail === 'string' ? data.recipientEmail.trim() : '';
+    if (!recipientEmail) {
+      this.logger.warn('catering_enquiry_expired: missing recipientEmail - dropping');
+      return { sent: [], skipped: [] };
+    }
+    const template = getTemplate('catering_enquiry_expired');
+    if (!template) {
+      this.logger.warn('catering_enquiry_expired: no template registered - dropping');
+      return { sent: [], skipped: [] };
+    }
+    const subject = template.subject(data);
+    const html = template.render(data);
+    if (!subject.trim() || !html.trim()) {
+      this.logger.warn('catering_enquiry_expired: template rendered empty content - dropping');
+      return { sent: [], skipped: [] };
+    }
+    if (await this.suppressedEventFor(recipientEmail)) {
+      this.logger.warn('catering_enquiry_expired: recipient email is suppressed');
+      return { sent: [], skipped: ['email'] };
+    }
+    const result = await this.email.send({ to: recipientEmail, subject, html });
+    return result.delivered ? { sent: ['email'], skipped: [] } : { sent: [], skipped: ['email'] };
   }
 
   /**

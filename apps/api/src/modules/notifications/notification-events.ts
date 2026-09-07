@@ -50,6 +50,7 @@ export const NOTIFICATION_EVENTS = {
   hmrc_verification_failed: { templateBacked: true },
   catering_assignment: { templateBacked: true },
   catering_assignment_cancelled: { templateBacked: true },
+  catering_enquiry_expired: { templateBacked: true },
   catering_deposit_received: { templateBacked: true },
   referral_rewarded: { templateBacked: false },
   points_expired: { templateBacked: false },

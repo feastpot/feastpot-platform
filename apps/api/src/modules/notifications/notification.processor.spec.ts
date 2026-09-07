@@ -102,6 +102,34 @@ describe('NotificationProcessor - notify_vendor', () => {
   });
 });
 
+describe('NotificationProcessor - catering enquiry expiry', () => {
+  it('renders the public-intake expiry template to its explicit email recipient only', async () => {
+    const prisma = makePrisma(null);
+    const { processor, providers } = makeProcessor(prisma);
+
+    const result = await processor.handle({
+      name: 'catering_enquiry_expired',
+      data: {
+        recipientEmail: 'caterer@example.com',
+        contactName: 'Ada',
+        enquiryId: 'ce-1',
+        eventDate: '2020-01-01',
+      },
+    } as any);
+
+    expect(result).toEqual({ sent: ['email'], skipped: [] });
+    expect(providers.email.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: 'caterer@example.com',
+        subject: 'Your catering enquiry has expired',
+        html: expect.stringContaining('2020-01-01'),
+      }),
+    );
+    expect(prisma.user.findUnique).not.toHaveBeenCalled();
+    expect(providers.whatsapp.send).not.toHaveBeenCalled();
+  });
+});
+
 describe('NotificationProcessor - WhatsApp order_confirmation params', () => {
   beforeEach(() => jest.clearAllMocks());
 

@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useApi } from './use-api';
 
-export type PayoutStatus = 'draft' | 'held' | 'approved' | 'transferred' | 'failed';
+export type PayoutStatus = 'draft' | 'held' | 'approved' | 'processing' | 'transferred' | 'failed';
 
 export interface PayoutRow {
   id: string;
