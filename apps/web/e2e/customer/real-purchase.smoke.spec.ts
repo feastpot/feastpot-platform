@@ -310,68 +310,6 @@ test.describe('real Stripe test-mode customer purchase', () => {
       await cardFrame.locator('input[name="cvc"]').fill('123');
       console.info('[customer-smoke] Stripe fields ready');
 
-      for (const [failureIndex, failure] of [
-        { card: '4000000000000002', message: /card.*declined/i },
-        { card: '4000000000009995', message: /insufficient funds/i },
-      ].entries()) {
-        console.info(`[customer-smoke] decline ${failureIndex + 1} started`);
-        await cardFrame.locator('input[name="cardnumber"]').fill(failure.card);
-        await expect(postalInput).toBeVisible({ timeout: 10_000 });
-        await postalInput.fill('90210');
-        const failedOrderResponse = page.waitForResponse(
-          (response) =>
-            response.request().method() === 'POST' && /\/v1\/orders(?:\?|$)/.test(response.url()),
-        );
-        const cancellationResponse = page.waitForResponse(
-          (response) =>
-            response.request().method() === 'POST' &&
-            /\/v1\/orders\/[^/]+\/cancel$/.test(response.url()),
-        );
-        await page.getByRole('button', { name: 'Place order securely' }).first().click();
-        const orderResponse = await failedOrderResponse;
-        if (!orderResponse.ok()) {
-          void cancellationResponse.catch(() => undefined);
-          const body = (await orderResponse.json().catch(() => null)) as {
-            code?: unknown;
-            message?: unknown;
-            error?: unknown;
-            statusCode?: unknown;
-          } | null;
-          throw new Error(
-            `Customer smoke order create failed: status=${orderResponse.status()} body=${JSON.stringify(
-              {
-                statusCode: body?.statusCode,
-                code: body?.code,
-                message: body?.message,
-                error: body?.error,
-              },
-            ).slice(0, 500)}`,
-          );
-        }
-        console.info(`[customer-smoke] decline ${failureIndex + 1} order created`);
-        expect((await cancellationResponse).ok()).toBeTruthy();
-        console.info(`[customer-smoke] decline ${failureIndex + 1} cancellation completed`);
-        await expect(page.locator('form p[role="alert"]')).toContainText(failure.message);
-
-        const failedOrders = await factory.prisma.order.findMany({
-          where: { customerId: customerIdentity.userId, vendorId },
-          orderBy: { createdAt: 'desc' },
-          take: 1,
-          include: { payments: true },
-        });
-        expect(failedOrders).toHaveLength(1);
-        expect(failedOrders[0]!.status).toBe('cancelled');
-        expect(failedOrders[0]!.payments).toHaveLength(1);
-        expect(failedOrders[0]!.payments[0]!.status).toBe('cancelled');
-        console.info(`[customer-smoke] decline ${failureIndex + 1} database state verified`);
-        const failedIntent = await stripeRequest<StripePaymentIntent>(
-          `/payment_intents/${failedOrders[0]!.payments[0]!.stripePaymentIntentId}`,
-        );
-        expect(failedIntent.response.ok).toBeTruthy();
-        expect(failedIntent.body.status).toBe('canceled');
-        console.info(`[customer-smoke] decline ${failureIndex + 1} Stripe state verified`);
-      }
-
       console.info('[customer-smoke] 3DS success started');
       await cardFrame.locator('input[name="cardnumber"]').fill('4000002500003155');
       await expect(postalInput).toBeVisible({ timeout: 10_000 });
@@ -416,7 +354,10 @@ test.describe('real Stripe test-mode customer purchase', () => {
       await expect(page).toHaveURL(/\/orders\/[^/]+\/confirmation$/, { timeout: 30_000 });
       console.info('[customer-smoke] 3DS order confirmed');
       await expect(page.getByText(/order confirmed|thanks/i)).toBeVisible();
-      expect(orderCreates).toBe(3);
+      // CP-1 is deliberately the sole live Stripe purchase.  Failure-state
+      // permutations live in payment-states.spec.ts and use browser routing,
+      // so this smoke cannot accidentally create additional PaymentIntents.
+      expect(orderCreates).toBe(1);
 
       const orderId = page.url().match(/\/orders\/([^/]+)\/confirmation$/)?.[1];
       expect(orderId).toBeTruthy();

@@ -1545,12 +1545,12 @@ export class OrdersService {
 
   /**
    * Customer self-cancellation. Permitted only while the order is still in a
-   * pre-prep state (pending or accepted) - once the vendor moves to
-   * `preparing`, ingredients are committed and refunds become a dispute
-   * (handled separately).
+   * pre-acceptance state (`pending`). Once the vendor accepts an order it is
+   * operationally committed; customers must use the dispute/refund route
+   * rather than racing vendor preparation.
    *
    * NB on Stripe: this codebase uses MANUAL CAPTURE (capture happens on
-   * `delivered`). For BOTH `pending` and `accepted` the PaymentIntent is
+   * `delivered`). For a pending order the PaymentIntent is
    * still in `requires_capture` - `refunds.create` would 400 with
    * "charge has not been captured yet". So we always `paymentIntents.cancel`
    * here regardless of status; the customer is never charged in the first
@@ -1585,10 +1585,10 @@ export class OrdersService {
       const alreadyCancelled =
         locked.status === OrderStatus.cancelled && locked.cancelled_by === 'customer';
       const cancellationPending = locked.status === OrderStatus.cancellation_pending;
-      const cancellable: OrderStatus[] = [OrderStatus.pending, OrderStatus.accepted];
+      const cancellable: OrderStatus[] = [OrderStatus.pending];
       if (!alreadyCancelled && !cancellationPending && !cancellable.includes(locked.status)) {
         const message =
-          locked.status === OrderStatus.preparing
+          locked.status === OrderStatus.accepted || locked.status === OrderStatus.preparing
             ? 'Your order is already being prepared - please contact the vendor'
             : locked.status === OrderStatus.dispatched
               ? 'Your order is already on the way'

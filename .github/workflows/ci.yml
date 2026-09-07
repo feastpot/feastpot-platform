@@ -776,10 +776,12 @@ jobs:
           cache: npm
       - run: npm install -g npm@10.9.4
       - run: npm ci --no-audit --no-fund
+      - name: Verify customer Playwright discovery (noninteractive)
+        run: npm run test:e2e:discovery --workspace=@feastpot/web
       - name: Require isolated customer and Stripe test credentials
         run: |
           required=(
-            TEST_API_URL NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY
+            TEST_API_URL NEXT_PUBLIC_API_URL NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY
             NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY STRIPE_SECRET_KEY_TEST
             SUPABASE_DB_URL SUPABASE_SERVICE_ROLE_KEY TEST_FACTORY_PASSWORD
             TEST_FACTORY_NAMESPACE CUSTOMER_E2E_USE_FACTORY CUSTOMER_E2E_ISOLATED_ENVIRONMENT
@@ -801,6 +803,20 @@ jobs:
             sk_test_*) ;;
             *) echo "::error title=Unsafe Stripe key::STRIPE_SECRET_KEY_TEST must be an sk_test_ key."; exit 1 ;;
           esac
+      - name: Verify isolated customer API health
+        shell: bash
+        run: |
+          set -euo pipefail
+          api_health_url="${TEST_API_URL%/}/healthz"
+          echo "Checking configured customer E2E API health endpoint..."
+          curl --fail --silent --show-error --max-time 15 --retry 2 --retry-all-errors \
+            "$api_health_url" > /tmp/customer-e2e-api-health.json
+          node -e "
+            const health = JSON.parse(require('node:fs').readFileSync('/tmp/customer-e2e-api-health.json', 'utf8'));
+            if (!['ok', 'degraded'].includes(health.status)) {
+              throw new Error('Customer E2E API health response was unavailable.');
+            }
+          "
       - name: Generate Prisma client
         run: npm run db:generate
         env:
@@ -824,10 +840,68 @@ jobs:
           echo "::error title=Customer server timeout::The customer app did not open port 3000."
           exit 1
       - name: Run deterministic customer suite and real Stripe smoke
-        run: npx playwright test --config playwright.config.ts e2e/customer
+        id: playwright-run
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          npx playwright test --config playwright.config.ts e2e/customer
+          status=$?
+          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+          exit 0
         working-directory: apps/web
+      - name: Assert CP-1 real purchase was discovered and executed
+        if: always()
+        shell: bash
+        run: |
+          node - <<'NODE_SCRIPT'
+          const fs = require('fs');
+          const path = require('path');
+
+          const resultsFile = path.join('apps', 'web', 'e2e-results.json');
+          if (!fs.existsSync(resultsFile)) {
+            console.error('::error title=Missing customer results::e2e-results.json not found; CP-1 execution cannot be verified.');
+            process.exit(1);
+          }
+
+          const report = JSON.parse(fs.readFileSync(resultsFile, 'utf8'));
+          let cp1Found = false;
+          let cp1Executed = false;
+          let cp1Skipped = false;
+
+          function walk(suite) {
+            for (const spec of suite.specs ?? []) {
+              if (!spec.title.includes('CP-1:')) continue;
+              cp1Found = true;
+              for (const test of spec.tests ?? []) {
+                const results = test.results ?? [];
+                if (results.length === 0 || results.every((result) => result.status === 'skipped')) {
+                  cp1Skipped = true;
+                }
+                if (results.some((result) => result.status !== 'skipped')) {
+                  cp1Executed = true;
+                }
+              }
+            }
+            for (const child of suite.suites ?? []) walk(child);
+          }
+          walk(report);
+
+          if (!cp1Found) {
+            console.error('::error title=CP-1 absent::CP-1 real purchase was not discovered in the customer Playwright result.');
+            process.exit(1);
+          }
+          if (!cp1Executed || cp1Skipped) {
+            console.error('::error title=CP-1 not executed::CP-1 real purchase was skipped or had no execution result.');
+            process.exit(1);
+          }
+          console.log('CP-1 real purchase was discovered, executed, and not skipped.');
+          NODE_SCRIPT
+      - name: Preserve customer Playwright failure status
+        if: always() && steps.playwright-run.outputs.exit_code != '0'
+        run: exit "${{ steps.playwright-run.outputs.exit_code }}"
       - name: Upload customer Playwright report
-        if: failure()
+        if: always() && steps.playwright-run.outputs.exit_code != '0'
         uses: actions/upload-artifact@v4
         with:
           name: customer-playwright-report-${{ github.run_id }}

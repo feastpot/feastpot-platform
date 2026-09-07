@@ -87,7 +87,7 @@ export class OrdersController {
   @ApiOperation({
     summary:
       'Customer cancels their own order (UK Consumer Contracts Regulations 2013). ' +
-      'Allowed only while status is pending or accepted.',
+      'Allowed only while the order is pending, before the vendor accepts it.',
   })
   cancel(
     @Req() req: AuthedRequest,

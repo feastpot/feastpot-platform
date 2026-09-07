@@ -9,7 +9,7 @@ import { cn } from '@feastpot/ui';
 
 import { StatusTimeline } from '@/components/orders/status-timeline';
 import { useCancelOrder, useOrder, useRespondAmendment } from '@/hooks/use-orders';
-import { ApiError } from '@/lib/api/client';
+import { apiRequest, ApiError } from '@/lib/api/client';
 import { createClient } from '@/lib/supabase/client';
 
 const STATUS_SOUND_URL = '/sounds/status-update.mp3';
@@ -401,6 +401,7 @@ export default function OrderTrackingPage() {
 
         {/* Always-visible escape hatch to support / dispute flow. */}
         <NeedHelpLink orderId={order.id} orderNumber={order.orderNumber} />
+        {isDelivered && <RefundRequest orderId={order.id} />}
       </div>
     </div>
   );
@@ -608,5 +609,103 @@ function NeedHelpLink({ orderId, orderNumber }: { orderId: string; orderNumber: 
       <LifeBuoy className="h-4 w-4" aria-hidden />
       Need help with this order?
     </Link>
+  );
+}
+
+/**
+ * A refund request is recorded as a dispute, rather than promising an
+ * immediate payment reversal. That keeps the customer-visible action aligned
+ * with the platform's reviewed-refund process.
+ */
+function RefundRequest({ orderId }: { orderId: string }) {
+  const [open, setOpen] = useState(false);
+  const [description, setDescription] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const submit = async () => {
+    setError(null);
+    if (description.trim().length < 10) {
+      setError('Please tell us a little more (at least 10 characters).');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const {
+        data: { session },
+      } = await createClient().auth.getSession();
+      if (!session?.access_token)
+        throw new Error('Please sign in again before requesting a refund.');
+      await apiRequest('/disputes', {
+        method: 'POST',
+        accessToken: session.access_token,
+        body: { orderId, issueType: 'quality', description: description.trim() },
+      });
+      setSubmitted(true);
+    } catch (caught) {
+      setError(
+        caught instanceof Error ? caught.message : 'We could not submit your refund request.',
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (submitted) {
+    return (
+      <p role="status" className="rounded-xl bg-cream p-3 text-sm font-medium text-charcoal">
+        Your refund request has been submitted for review.
+      </p>
+    );
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="text-left text-sm font-bold text-brand hover:underline"
+      >
+        Request a refund
+      </button>
+    );
+  }
+
+  return (
+    <section
+      aria-label="Refund request"
+      className="rounded-2xl border border-cream-deep bg-white p-4"
+    >
+      <h2 className="font-display font-black text-charcoal">Request a refund</h2>
+      <p className="mt-1 text-sm text-charcoal-mid">
+        Tell us what went wrong. We will record this as a dispute and review it with the vendor.
+      </p>
+      <label
+        className="mt-3 block text-sm font-bold text-charcoal"
+        htmlFor="refund-request-description"
+      >
+        What happened?
+      </label>
+      <textarea
+        id="refund-request-description"
+        value={description}
+        onChange={(event) => setDescription(event.target.value)}
+        className="mt-1 min-h-24 w-full rounded-xl border border-cream-deep p-3 text-sm text-charcoal"
+      />
+      {error && (
+        <p role="alert" className="mt-2 text-sm text-scotch">
+          {error}
+        </p>
+      )}
+      <button
+        type="button"
+        disabled={submitting}
+        onClick={() => void submit()}
+        className="mt-3 rounded-xl bg-brand px-4 py-2 text-sm font-bold text-white disabled:opacity-60"
+      >
+        {submitting ? 'Submitting…' : 'Submit refund request'}
+      </button>
+    </section>
   );
 }

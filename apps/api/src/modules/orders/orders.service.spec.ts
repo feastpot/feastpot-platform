@@ -886,7 +886,7 @@ describe('OrdersService.customerCancel financial exclusion', () => {
       {} as never,
       {} as never,
     );
-    return { svc };
+    return { svc, repo, tx };
   };
 
   it('customer cancel response omits vendorPayoutPence and commissionPence', async () => {
@@ -895,6 +895,25 @@ describe('OrdersService.customerCancel financial exclusion', () => {
     expect(response).not.toHaveProperty('vendorPayoutPence');
     expect(response).not.toHaveProperty('commissionPence');
     expect(response).toHaveProperty('totalPence', 4500);
+  });
+
+  it('rejects cancellation after the vendor has accepted and leaves the authoritative state intact', async () => {
+    const { svc, repo, tx } = make();
+    repo.findByIdWithItems.mockResolvedValue({ ...cancelOrder(), status: OrderStatus.accepted });
+    tx.$queryRaw.mockResolvedValue([
+      { status: OrderStatus.accepted, customer_id: 'cust-1', cancelled_by: null },
+    ]);
+
+    const error = await svc
+      .customerCancel('order-123', 'cust-1', 'Changed my mind')
+      .catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(BadRequestException);
+    expect((error as BadRequestException).getResponse()).toMatchObject({
+      code: 'ORDER_NOT_CANCELLABLE',
+      message: 'Your order is already being prepared - please contact the vendor',
+    });
+    expect(tx.order.update).not.toHaveBeenCalled();
   });
 });
 

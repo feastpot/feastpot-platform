@@ -1,6 +1,7 @@
 import {
   assertSafeDatabaseUrl,
   assertSafeSupabaseUrl,
+  CHECKOUT_SCENARIOS,
   currentVendorTermsQuery,
   factoryManifest,
   FACTORY_STATE_CONTRACTS,
@@ -105,6 +106,16 @@ describe('test data factory safety guard', () => {
 });
 
 describe('test data factory contracts', () => {
+  it('exposes the five persisted checkout financial customer combinations', () => {
+    expect(CHECKOUT_SCENARIOS).toEqual([
+      'MARKETPLACE_NEW_NON_MEMBER',
+      'VENDOR_REFERRED_NEW_NON_MEMBER',
+      'REPEAT_VENDOR_NON_MEMBER',
+      'MARKETPLACE_ACTIVE_FEASTPASS',
+      'MARKETPLACE_LAPSED_FEASTPASS',
+    ]);
+  });
+
   it('documents exactly one stable contract for every creatable state', () => {
     expect(Object.keys(FACTORY_STATE_CONTRACTS).sort()).toEqual([...FACTORY_STATES].sort());
     for (const state of FACTORY_STATES) {

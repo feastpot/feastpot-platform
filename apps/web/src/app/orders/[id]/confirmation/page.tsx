@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 
 import { useOrder } from '@/hooks/use-orders';
 import { useSavingsPotential } from '@/hooks/use-feastpass';
+import type { OrderItem } from '@/lib/api/orders';
 import { shouldShowFeastPassCallout } from '@/lib/feastpass-callout';
 import { getPushSupport } from '@/lib/push';
 
@@ -133,22 +134,29 @@ export default function OrderConfirmationPage() {
             ))}
           </ul>
         )}
-        <div className="space-y-1 border-t border-cream-deep pt-3 text-xs">
+        <div
+          aria-label="Order totals"
+          className="space-y-1 border-t border-cream-deep pt-3 text-xs"
+        >
           <Row label="Subtotal" value={formatPounds(order.subtotalPence)} />
-          <Row label="Delivery" value={formatPounds(order.deliveryFeePence)} />
+          <Row label="Delivery fee" value={formatPounds(order.deliveryFeePence)} />
           {order.serviceFeePence > 0 && (
-            <Row label="Service" value={formatPounds(order.serviceFeePence)} />
+            <Row label="Service fee" value={formatPounds(order.serviceFeePence)} />
           )}
           {order.discountPence > 0 && (
             <Row label="Discount" value={`−${formatPounds(order.discountPence)}`} />
           )}
         </div>
-        <div className="flex justify-between border-t border-cream-deep pt-3 text-base">
+        <div
+          aria-label="Total paid"
+          className="flex justify-between border-t border-cream-deep pt-3 text-base"
+        >
           <span className="font-display font-black text-charcoal">Total paid</span>
           <span className="font-display font-black tabular-nums text-charcoal">
             {formatPounds(order.totalPence)}
           </span>
         </div>
+        <AllergenSummary items={order.items} />
       </section>
 
       {/* FeastPass upsell - hidden while savings data is loading/errored and
@@ -217,6 +225,28 @@ function Row({ label, value }: { label: string; value: string }) {
       <span>{label}</span>
       <span className="tabular-nums font-medium text-charcoal">{value}</span>
     </div>
+  );
+}
+
+function AllergenSummary({ items }: { items: OrderItem[] | undefined }) {
+  const allergens = [
+    ...new Set(items?.flatMap((item) => item.menuItem?.allergens ?? []) ?? []),
+  ].sort((left, right) => left.localeCompare(right));
+
+  if (allergens.length === 0) return null;
+
+  return (
+    <aside
+      aria-label="Allergen summary"
+      className="border-t border-cream-deep pt-3 text-xs text-charcoal-mid"
+    >
+      <p className="font-bold text-charcoal">Allergen summary</p>
+      <p className="mt-1">
+        Contains or may contain:{' '}
+        <span className="font-medium text-charcoal">{allergens.join(', ')}</span>. Please check with
+        the vendor if you have an allergy.
+      </p>
+    </aside>
   );
 }
 

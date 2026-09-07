@@ -335,6 +335,22 @@ function CheckoutInner() {
           0,
           subtotal + expressDeliveryFeePence + expressServiceFeePence - expressLoyaltyPence,
         );
+  // The order summary is the first checkout price disclosure.  It cannot wait
+  // for an address selection: local delivery pricing is already part of the
+  // public vendor profile.  A promo remains server-calculated, so its presence
+  // is made explicit rather than displaying a deceptively final total.
+  const summaryDelivery = baseVendor?.delivery ?? null;
+  const summaryDeliveryFeePence =
+    !summaryDelivery || summaryDelivery.types?.[0] !== 'local'
+      ? null
+      : summaryDelivery.freeDeliveryOverPence != null &&
+          subtotal >= summaryDelivery.freeDeliveryOverPence
+        ? 0
+        : summaryDelivery.localFeePence;
+  const summaryTotalPence =
+    summaryDeliveryFeePence == null
+      ? null
+      : Math.max(0, subtotal + summaryDeliveryFeePence + serviceFeePence - effectiveLoyaltyPence);
   // Only offer express pay once the order is actually placeable and the exact
   // total is knowable (delivery pricing loaded, no opaque discount code).
   // FeastPass members get a 0 fee so we don't need platformServiceFeeBps to
@@ -786,8 +802,28 @@ function CheckoutInner() {
                   )}
                 </div>
               ) : null}
+              {summaryDeliveryFeePence != null && (
+                <>
+                  <div className="mt-1.5 flex justify-between text-sm">
+                    <span className="text-charcoal-mid">Delivery</span>
+                    <span className="font-medium tabular-nums text-charcoal">
+                      {formatPounds(summaryDeliveryFeePence)}
+                    </span>
+                  </div>
+                  <div className="mt-2 flex justify-between border-t border-cream-deep pt-2 text-sm">
+                    <span className="font-bold text-charcoal">
+                      {discountCodeApplied ? 'Total before promo' : 'Total'}
+                    </span>
+                    <span className="font-bold tabular-nums text-charcoal">
+                      {formatPounds(summaryTotalPence!)}
+                    </span>
+                  </div>
+                </>
+              )}
               <p className="mt-1 text-[11px] font-medium text-charcoal-mid">
-                Delivery and any discounts are calculated at order placement.
+                {discountCodeApplied
+                  ? 'Your promo discount is calculated securely at order placement.'
+                  : 'Delivery is based on the vendor’s local-delivery price and is confirmed at order placement.'}
               </p>
             </div>
           )}
