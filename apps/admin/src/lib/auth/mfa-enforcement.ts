@@ -9,3 +9,11 @@ export function isAdminMfaEnforced(): boolean {
     process.env.NEXT_PUBLIC_ADMIN_REQUIRE_AAL2 === 'true'
   );
 }
+
+export function isAdminMfaE2eBypassed(): boolean {
+  return (
+    process.env.CI === 'true' &&
+    process.env.ADMIN_E2E_ALLOW_AAL1 === 'true' &&
+    /^admin-\d+-\d+$/.test(process.env.TEST_FACTORY_NAMESPACE ?? '')
+  );
+}

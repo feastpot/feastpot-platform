@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
-import { isAdminMfaEnforced } from '@/lib/auth/mfa-enforcement';
+import { isAdminMfaE2eBypassed, isAdminMfaEnforced } from '@/lib/auth/mfa-enforcement';
 import { createClient } from '@/lib/supabase/middleware';
 
 /**
@@ -78,14 +78,15 @@ export async function middleware(request: NextRequest) {
   // Fail closed for a production misconfiguration: only the sign-in and
   // enrolment/recovery paths remain reachable until both flag surfaces agree.
   const mfaEnforced = isAdminMfaEnforced();
-  if (user && !mfaEnforced && !isAal2Allowed) {
+  const mfaE2eBypassed = isAdminMfaE2eBypassed();
+  if (user && !mfaEnforced && !mfaE2eBypassed && !isAal2Allowed) {
     const url = request.nextUrl.clone();
     url.pathname = '/unauthorized';
     url.searchParams.set('reason', 'mfa-configuration');
     return NextResponse.redirect(url);
   }
 
-  if (user && mfaEnforced) {
+  if (user && mfaEnforced && !mfaE2eBypassed) {
     if (!isAal2Allowed) {
       // Read aal from the (possibly just-refreshed) session JWT.
       const { data: sessionData } = await supabase.auth.getSession();
