@@ -1,0 +1,70 @@
+TASK: Wire everything into a release gate and verify
+readiness.
+
+PART A: CI GATES
+Required to merge to main:
+  typecheck, lint, prisma-validate
+  unit tests with REAL coverage thresholds
+  customer E2E (FP-17)
+  vendor E2E (FP-18)
+  admin E2E (FP-18)
+  financial suite (FP-19)
+  rate propagation suite (FP-08)
+  cross-surface suite (FP-20)
+Prove it by opening a PR that deliberately breaks a test and
+confirming it cannot merge.
+A suite that skips because secrets are absent must FAIL the
+job, not pass with a notice.
+
+PART B: PRODUCTION VERIFICATION
+Confirm with recorded evidence (most configured in FP-01;
+verify here as a checklist):
+  Stripe live webhook endpoint registered, correct signing
+    secret, all handled event types subscribed including
+    account.updated
+  publishable key present in the customer deployment and
+    matching the secret key environment
+  ADMIN_REQUIRE_AAL2 true in API and admin; AAL1 rejected
+  SENTRY_DSN set; test exception arrives
+  QUEUE_ALERT_SLACK_WEBHOOK_URL set; test alert delivered
+  prisma migrate status clean; the historical rolled-back
+    entry resolved or documented
+  the production allergen query returns zero offending rows
+  a current effective terms version exists with acceptance
+    records covering every live vendor
+  all required environment variables in .env.example
+
+PART C: THE LIVE PAYOUT DRY RUN
+Before the SECOND real order is ever taken:
+  take one real order with a real vendor
+  watch the webhook land
+  let it complete a full weekly cycle
+  generate the payout
+  reconcile the statement BY HAND against Stripe and the bank,
+    to the penny
+  confirm the vendor receives the money and the statement
+    makes sense to them
+Note this single transaction verifies three previously
+unverified items at once: checkout, live signed webhook
+delivery, and payout. Do not treat them as three tasks.
+Do not proceed to wider traffic until this is done.
+
+PART D: RE-AUDIT AND DIFF
+Re-run the full audit against the fixed codebase and produce
+/audit/FEASTPOT_AUDIT_<date>.txt in the established editorial
+format. Then produce a DIFF against the 2 September audit
+showing, for every previous finding: FIXED with evidence,
+STILL PRESENT with fresh evidence, or NEWLY INTRODUCED.
+
+Apply the same evidence standard: a finding moving to FIXED
+needs proof it now works, not proof that code changed.
+Re-verify every item previously marked NOT VERIFIED, since
+the FP-09 factory should now make most of them testable. If
+something remains unverifiable, say so and explain what is
+blocked.
+
+ACCEPTANCE CRITERIA
+- A deliberately broken test cannot merge to main.
+- All production items verified with recorded evidence.
+- One real payout reconciled by hand.
+- The re-audit diff shows zero remaining P0 findings.
