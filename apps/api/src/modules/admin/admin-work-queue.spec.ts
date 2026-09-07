@@ -19,15 +19,30 @@ const serviceFor = (prisma: object) =>
 
 describe('AdminService work queue', () => {
   const emptyPrisma = () => ({
-    cateringEnquiry: { findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0) },
-    cateringBooking: { findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0) },
+    cateringEnquiry: {
+      findMany: jest.fn().mockResolvedValue([]),
+      count: jest.fn().mockResolvedValue(0),
+    },
+    cateringBooking: {
+      findMany: jest.fn().mockResolvedValue([]),
+      count: jest.fn().mockResolvedValue(0),
+    },
     dispute: { findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0) },
-    vendorApplication: { findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0) },
-    vendorDocument: { findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0) },
+    vendorApplication: {
+      findMany: jest.fn().mockResolvedValue([]),
+      count: jest.fn().mockResolvedValue(0),
+    },
+    vendorDocument: {
+      findMany: jest.fn().mockResolvedValue([]),
+      count: jest.fn().mockResolvedValue(0),
+    },
     menuItem: { findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0) },
     termsVersion: { findFirst: jest.fn().mockResolvedValue(null) },
     vendor: { findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0) },
-    chargeback: { findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0) },
+    chargeback: {
+      findMany: jest.fn().mockResolvedValue([]),
+      count: jest.fn().mockResolvedValue(0),
+    },
     payout: { findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0) },
     order: { findMany: jest.fn().mockResolvedValue([]) },
     user: { findMany: jest.fn().mockResolvedValue([]) },
@@ -36,7 +51,12 @@ describe('AdminService work queue', () => {
   it('ranks money and food-safety items ahead of operational deadlines', async () => {
     const prisma = emptyPrisma();
     prisma.vendorApplication.findMany.mockResolvedValue([
-      { id: 'application', kitchenName: 'Unsafe Kitchen', createdAt: new Date('2025-01-01'), hygieneRegNumber: null },
+      {
+        id: 'application',
+        kitchenName: 'Unsafe Kitchen',
+        createdAt: new Date('2025-01-01'),
+        hygieneRegNumber: null,
+      },
     ]);
     prisma.chargeback.findMany.mockResolvedValue([
       { id: 'chargeback', amountPence: 1000, evidenceDueBy: new Date('2025-01-02') },
@@ -48,10 +68,16 @@ describe('AdminService work queue', () => {
     const result = await serviceFor(prisma).getWorkQueue(UserRole.admin, []);
 
     expect(result.items.map((item) => item.type)).toEqual(
-      expect.arrayContaining(['chargeback_evidence_due', 'vendor_application_missing_fsa', 'overdue_catering_enquiry']),
+      expect.arrayContaining([
+        'chargeback_evidence_due',
+        'vendor_application_missing_fsa',
+        'overdue_catering_enquiry',
+      ]),
     );
     expect(result.items[0].severity).toBe('critical');
-    expect(result.items.findIndex((item) => item.type === 'overdue_catering_enquiry')).toBeGreaterThan(
+    expect(
+      result.items.findIndex((item) => item.type === 'overdue_catering_enquiry'),
+    ).toBeGreaterThan(
       result.items.findIndex((item) => item.type === 'vendor_application_missing_fsa'),
     );
   });
@@ -62,7 +88,9 @@ describe('AdminService work queue', () => {
 
     expect(prisma.chargeback.findMany).not.toHaveBeenCalled();
     expect(prisma.payout.findMany).not.toHaveBeenCalled();
-    expect(result.items.some((item) => item.type.includes('payout') || item.type.includes('chargeback'))).toBe(false);
+    expect(
+      result.items.some((item) => item.type.includes('payout') || item.type.includes('chargeback')),
+    ).toBe(false);
   });
 
   it('returns explicit zero action counts and no items when nothing needs action', async () => {
@@ -70,9 +98,17 @@ describe('AdminService work queue', () => {
 
     expect(result.items).toEqual([]);
     expect(Object.values(result.counts).every((count) => count === 0)).toBe(true);
-    expect(Object.keys(result.counts).sort()).toEqual(
-      ['applications', 'catering', 'chargebacks', 'compliance', 'disputes', 'jobs', 'menuModeration', 'payouts', 'terms'],
-    );
+    expect(Object.keys(result.counts).sort()).toEqual([
+      'applications',
+      'catering',
+      'chargebacks',
+      'compliance',
+      'disputes',
+      'jobs',
+      'menuModeration',
+      'payouts',
+      'terms',
+    ]);
     expect(result.observedAt).toEqual(expect.any(String));
   });
 
@@ -90,7 +126,11 @@ describe('AdminService work queue', () => {
     );
     expect(result.results).toHaveLength(4);
     expect(result.results[0]).toEqual(
-      expect.objectContaining({ id: expect.any(String), title: expect.any(String), href: expect.any(String) }),
+      expect.objectContaining({
+        id: expect.any(String),
+        title: expect.any(String),
+        href: expect.any(String),
+      }),
     );
     expect(prisma.order.findMany.mock.calls[0][0].take).toBe(10);
     expect(prisma.order.findMany.mock.calls[0][0].orderBy).toBeDefined();
@@ -130,9 +170,7 @@ describe('AdminService work queue', () => {
     const queue = await serviceFor(prisma).getWorkQueue(UserRole.compliance, []);
 
     expect(queue.counts.terms).toBe(73);
-    expect(queue.items).toEqual([
-      expect.objectContaining({ type: 'vendor_terms_outdated' }),
-    ]);
+    expect(queue.items).toEqual([expect.objectContaining({ type: 'vendor_terms_outdated' })]);
     expect(prisma.vendor.findMany.mock.calls[0][0].where).toEqual(
       prisma.vendor.count.mock.calls[0][0].where,
     );

@@ -353,15 +353,28 @@ export class AdminService {
     };
     const items: Item[] = [];
     const counts: Record<string, number> = {
-      catering: 0, applications: 0, disputes: 0, chargebacks: 0,
-      payouts: 0, compliance: 0, menuModeration: 0, terms: 0, jobs: 0,
+      catering: 0,
+      applications: 0,
+      disputes: 0,
+      chargebacks: 0,
+      payouts: 0,
+      compliance: 0,
+      menuModeration: 0,
+      terms: 0,
+      jobs: 0,
     };
 
     if (caps.operations) {
       const [enquiries, bookings, disputes] = await Promise.all([
         this.prisma.cateringEnquiry.findMany({
-          where: { status: { in: ['NEW', 'UNASSIGNED'] }, createdAt: { lt: sla }, isTestData: false },
-          select: { id: true, contactName: true, createdAt: true }, orderBy: { createdAt: 'asc' }, take: 50,
+          where: {
+            status: { in: ['NEW', 'UNASSIGNED'] },
+            createdAt: { lt: sla },
+            isTestData: false,
+          },
+          select: { id: true, contactName: true, createdAt: true },
+          orderBy: { createdAt: 'asc' },
+          take: 50,
         }),
         this.prisma.cateringBooking.findMany({
           where: {
@@ -371,32 +384,90 @@ export class AdminService {
             customer: { is: { isTestData: false } },
             vendor: { isSeedData: false, user: { isTestData: false } },
           },
-          select: { id: true, customerName: true, eventDate: true }, orderBy: { eventDate: 'asc' }, take: 50,
+          select: { id: true, customerName: true, eventDate: true },
+          orderBy: { eventDate: 'asc' },
+          take: 50,
         }),
         this.prisma.dispute.findMany({
           where: {
-            status: { in: [DisputeStatus.open, DisputeStatus.vendor_contacted, DisputeStatus.escalated] },
+            status: {
+              in: [DisputeStatus.open, DisputeStatus.vendor_contacted, DisputeStatus.escalated],
+            },
             order: this.operationalOrderWhere(),
-            OR: [{ vendorRespondBy: { lte: inSeventyTwoHours } }, { platformRespondBy: { lte: inSeventyTwoHours } }],
+            OR: [
+              { vendorRespondBy: { lte: inSeventyTwoHours } },
+              { platformRespondBy: { lte: inSeventyTwoHours } },
+            ],
           },
-          select: { id: true, vendorRespondBy: true, platformRespondBy: true }, orderBy: { createdAt: 'asc' }, take: 50,
+          select: { id: true, vendorRespondBy: true, platformRespondBy: true },
+          orderBy: { createdAt: 'asc' },
+          take: 50,
         }),
       ]);
       for (const row of enquiries) {
-        items.push({ kind: 'overdue_catering_enquiry', title: `Catering enquiry from ${row.contactName} is overdue`, href: `/catering-enquiries?status=NEW`, deadline: new Date(row.createdAt.getTime() + 48 * 3_600_000).toISOString(), consequence: 70 });
+        items.push({
+          kind: 'overdue_catering_enquiry',
+          title: `Catering enquiry from ${row.contactName} is overdue`,
+          href: `/catering-enquiries?status=NEW`,
+          deadline: new Date(row.createdAt.getTime() + 48 * 3_600_000).toISOString(),
+          consequence: 70,
+        });
       }
       for (const row of bookings) {
-        items.push({ kind: 'unresolved_catering_event', title: `Catering event for ${row.customerName} is unresolved`, href: `/catering-bookings`, deadline: row.eventDate.toISOString(), consequence: 75 });
+        items.push({
+          kind: 'unresolved_catering_event',
+          title: `Catering event for ${row.customerName} is unresolved`,
+          href: `/catering-bookings`,
+          deadline: row.eventDate.toISOString(),
+          consequence: 75,
+        });
       }
       for (const row of disputes) {
-        const deadline = row.vendorRespondBy && (!row.platformRespondBy || row.vendorRespondBy < row.platformRespondBy) ? row.vendorRespondBy : row.platformRespondBy;
+        const deadline =
+          row.vendorRespondBy &&
+          (!row.platformRespondBy || row.vendorRespondBy < row.platformRespondBy)
+            ? row.vendorRespondBy
+            : row.platformRespondBy;
         const overdue = !!deadline && deadline < now;
-        items.push({ kind: overdue ? 'dispute_response_overdue' : 'dispute_response_due', title: overdue ? 'Dispute response deadline is overdue' : 'Dispute response deadline is near', href: `/disputes/${row.id}`, deadline: deadline?.toISOString() ?? null, consequence: overdue ? 90 : 80 });
+        items.push({
+          kind: overdue ? 'dispute_response_overdue' : 'dispute_response_due',
+          title: overdue
+            ? 'Dispute response deadline is overdue'
+            : 'Dispute response deadline is near',
+          href: `/disputes/${row.id}`,
+          deadline: deadline?.toISOString() ?? null,
+          consequence: overdue ? 90 : 80,
+        });
       }
       const [enquiryCount, bookingCount, disputeCount] = await Promise.all([
-        this.prisma.cateringEnquiry.count({ where: { status: { in: ['NEW', 'UNASSIGNED'] }, createdAt: { lt: sla }, isTestData: false } }),
-        this.prisma.cateringBooking.count({ where: { eventDate: { lt: now }, status: { notIn: ['COMPLETED', 'CANCELLED', 'EXPIRED'] }, enquiry: { isTestData: false }, customer: { is: { isTestData: false } }, vendor: { isSeedData: false, user: { isTestData: false } } } }),
-        this.prisma.dispute.count({ where: { status: { in: [DisputeStatus.open, DisputeStatus.vendor_contacted, DisputeStatus.escalated] }, order: this.operationalOrderWhere(), OR: [{ vendorRespondBy: { lte: inSeventyTwoHours } }, { platformRespondBy: { lte: inSeventyTwoHours } }] } }),
+        this.prisma.cateringEnquiry.count({
+          where: {
+            status: { in: ['NEW', 'UNASSIGNED'] },
+            createdAt: { lt: sla },
+            isTestData: false,
+          },
+        }),
+        this.prisma.cateringBooking.count({
+          where: {
+            eventDate: { lt: now },
+            status: { notIn: ['COMPLETED', 'CANCELLED', 'EXPIRED'] },
+            enquiry: { isTestData: false },
+            customer: { is: { isTestData: false } },
+            vendor: { isSeedData: false, user: { isTestData: false } },
+          },
+        }),
+        this.prisma.dispute.count({
+          where: {
+            status: {
+              in: [DisputeStatus.open, DisputeStatus.vendor_contacted, DisputeStatus.escalated],
+            },
+            order: this.operationalOrderWhere(),
+            OR: [
+              { vendorRespondBy: { lte: inSeventyTwoHours } },
+              { platformRespondBy: { lte: inSeventyTwoHours } },
+            ],
+          },
+        }),
       ]);
       counts.catering = enquiryCount + bookingCount;
       counts.disputes = disputeCount;
@@ -405,31 +476,70 @@ export class AdminService {
     if (caps.compliance) {
       const [applications, documents, menuItems, currentTerms] = await Promise.all([
         this.prisma.vendorApplication.findMany({
-          where: { status: { in: IN_FLIGHT_APPLICATION_STATUSES }, OR: [{ createdAt: { lt: sla } }, { hygieneRegNumber: null }] },
-          select: { id: true, kitchenName: true, createdAt: true, hygieneRegNumber: true }, orderBy: { createdAt: 'asc' }, take: 50,
+          where: {
+            status: { in: IN_FLIGHT_APPLICATION_STATUSES },
+            OR: [{ createdAt: { lt: sla } }, { hygieneRegNumber: null }],
+          },
+          select: { id: true, kitchenName: true, createdAt: true, hygieneRegNumber: true },
+          orderBy: { createdAt: 'asc' },
+          take: 50,
         }),
         this.prisma.vendorDocument.findMany({
-          where: { expiresAt: { lte: inThirtyDays }, vendor: { isSeedData: false, user: { isTestData: false } } },
-          select: { id: true, vendorId: true, type: true, expiresAt: true }, orderBy: { expiresAt: 'asc' }, take: 50,
+          where: {
+            expiresAt: { lte: inThirtyDays },
+            vendor: { isSeedData: false, user: { isTestData: false } },
+          },
+          select: { id: true, vendorId: true, type: true, expiresAt: true },
+          orderBy: { expiresAt: 'asc' },
+          take: 50,
         }),
         this.prisma.menuItem.findMany({
-          where: { moderationStatus: 'auto_approved', moderatedById: null, vendor: { isSeedData: false, user: { isTestData: false } } },
-          select: { id: true, name: true, createdAt: true }, orderBy: { createdAt: 'asc' }, take: 50,
+          where: {
+            moderationStatus: 'auto_approved',
+            moderatedById: null,
+            vendor: { isSeedData: false, user: { isTestData: false } },
+          },
+          select: { id: true, name: true, createdAt: true },
+          orderBy: { createdAt: 'asc' },
+          take: 50,
         }),
         this.prisma.termsVersion.findFirst({
           where: { documentType: 'VENDOR_TERMS', effectiveAt: { lte: now }, supersededAt: null },
-          orderBy: { effectiveAt: 'desc' }, select: { id: true },
+          orderBy: { effectiveAt: 'desc' },
+          select: { id: true },
         }),
       ]);
       for (const row of applications) {
         const missing = !row.hygieneRegNumber;
-        items.push({ kind: missing ? 'vendor_application_missing_fsa' : 'vendor_application_past_sla', title: missing ? `${row.kitchenName} is missing an FSA number` : `${row.kitchenName} application is past SLA`, href: `/vendor-applications/${row.id}`, deadline: missing ? null : new Date(row.createdAt.getTime() + 48 * 3_600_000).toISOString(), consequence: missing ? 100 : 85 });
+        items.push({
+          kind: missing ? 'vendor_application_missing_fsa' : 'vendor_application_past_sla',
+          title: missing
+            ? `${row.kitchenName} is missing an FSA number`
+            : `${row.kitchenName} application is past SLA`,
+          href: `/vendor-applications/${row.id}`,
+          deadline: missing
+            ? null
+            : new Date(row.createdAt.getTime() + 48 * 3_600_000).toISOString(),
+          consequence: missing ? 100 : 85,
+        });
       }
       for (const row of documents) {
-        items.push({ kind: 'document_expiring', title: `${row.type} document requires review`, href: `/compliance?vendorId=${row.vendorId}`, deadline: row.expiresAt?.toISOString() ?? null, consequence: 95 });
+        items.push({
+          kind: 'document_expiring',
+          title: `${row.type} document requires review`,
+          href: `/compliance?vendorId=${row.vendorId}`,
+          deadline: row.expiresAt?.toISOString() ?? null,
+          consequence: 95,
+        });
       }
       for (const row of menuItems) {
-        items.push({ kind: 'auto_approved_menu_item', title: `${row.name} was auto-approved and needs review`, href: `/menus/queue?itemId=${row.id}`, deadline: row.createdAt.toISOString(), consequence: 90 });
+        items.push({
+          kind: 'auto_approved_menu_item',
+          title: `${row.name} was auto-approved and needs review`,
+          href: `/menus/queue?itemId=${row.id}`,
+          deadline: row.createdAt.toISOString(),
+          consequence: 90,
+        });
       }
       if (currentTerms) {
         const outdatedTermsWhere = this.operationalVendorWhere({
@@ -445,14 +555,36 @@ export class AdminService {
           this.prisma.vendor.count({ where: outdatedTermsWhere }),
         ]);
         for (const row of vendors) {
-          items.push({ kind: 'vendor_terms_outdated', title: `${row.businessName} has not accepted current terms`, href: `/vendors/${row.id}`, deadline: null, consequence: 65 });
+          items.push({
+            kind: 'vendor_terms_outdated',
+            title: `${row.businessName} has not accepted current terms`,
+            href: `/vendors/${row.id}`,
+            deadline: null,
+            consequence: 65,
+          });
         }
         counts.terms = termsCount;
       }
       const [applicationCount, documentCount, menuCount] = await Promise.all([
-        this.prisma.vendorApplication.count({ where: { status: { in: IN_FLIGHT_APPLICATION_STATUSES }, OR: [{ createdAt: { lt: sla } }, { hygieneRegNumber: null }] } }),
-        this.prisma.vendorDocument.count({ where: { expiresAt: { lte: inThirtyDays }, vendor: { isSeedData: false, user: { isTestData: false } } } }),
-        this.prisma.menuItem.count({ where: { moderationStatus: 'auto_approved', moderatedById: null, vendor: { isSeedData: false, user: { isTestData: false } } } }),
+        this.prisma.vendorApplication.count({
+          where: {
+            status: { in: IN_FLIGHT_APPLICATION_STATUSES },
+            OR: [{ createdAt: { lt: sla } }, { hygieneRegNumber: null }],
+          },
+        }),
+        this.prisma.vendorDocument.count({
+          where: {
+            expiresAt: { lte: inThirtyDays },
+            vendor: { isSeedData: false, user: { isTestData: false } },
+          },
+        }),
+        this.prisma.menuItem.count({
+          where: {
+            moderationStatus: 'auto_approved',
+            moderatedById: null,
+            vendor: { isSeedData: false, user: { isTestData: false } },
+          },
+        }),
       ]);
       counts.applications = applicationCount;
       // Compliance navigation deliberately badges document action only.
@@ -463,23 +595,57 @@ export class AdminService {
     if (caps.finance) {
       const [chargebacks, payouts] = await Promise.all([
         this.prisma.chargeback.findMany({
-          where: { evidenceDueBy: { gte: now, lte: inSeventyTwoHours }, closedAt: null, OR: [{ order: null }, { order: this.operationalOrderWhere() }] },
-          select: { id: true, amountPence: true, evidenceDueBy: true }, orderBy: { evidenceDueBy: 'asc' }, take: 50,
+          where: {
+            evidenceDueBy: { gte: now, lte: inSeventyTwoHours },
+            closedAt: null,
+            OR: [{ order: null }, { order: this.operationalOrderWhere() }],
+          },
+          select: { id: true, amountPence: true, evidenceDueBy: true },
+          orderBy: { evidenceDueBy: 'asc' },
+          take: 50,
         }),
         this.prisma.payout.findMany({
-          where: { status: { in: ['held', 'failed'] }, vendor: { isSeedData: false, user: { isTestData: false } } },
-          select: { id: true, status: true, amountPence: true, createdAt: true }, orderBy: { createdAt: 'asc' }, take: 50,
+          where: {
+            status: { in: ['held', 'failed'] },
+            vendor: { isSeedData: false, user: { isTestData: false } },
+          },
+          select: { id: true, status: true, amountPence: true, createdAt: true },
+          orderBy: { createdAt: 'asc' },
+          take: 50,
         }),
       ]);
       for (const row of chargebacks) {
-        items.push({ kind: 'chargeback_evidence_due', title: `Chargeback evidence due (£${(row.amountPence / 100).toFixed(2)})`, href: `/chargebacks?status=needs_response`, deadline: row.evidenceDueBy!.toISOString(), consequence: 100 });
+        items.push({
+          kind: 'chargeback_evidence_due',
+          title: `Chargeback evidence due (£${(row.amountPence / 100).toFixed(2)})`,
+          href: `/chargebacks?status=needs_response`,
+          deadline: row.evidenceDueBy!.toISOString(),
+          consequence: 100,
+        });
       }
       for (const row of payouts) {
-        items.push({ kind: `payout_${row.status}`, title: `${row.status === 'held' ? 'Held' : 'Failed'} payout (£${(row.amountPence / 100).toFixed(2)})`, href: `/payouts?id=${row.id}`, deadline: row.createdAt.toISOString(), consequence: 100 });
+        items.push({
+          kind: `payout_${row.status}`,
+          title: `${row.status === 'held' ? 'Held' : 'Failed'} payout (£${(row.amountPence / 100).toFixed(2)})`,
+          href: `/payouts?id=${row.id}`,
+          deadline: row.createdAt.toISOString(),
+          consequence: 100,
+        });
       }
       const [chargebackCount, payoutCount] = await Promise.all([
-        this.prisma.chargeback.count({ where: { evidenceDueBy: { gte: now, lte: inSeventyTwoHours }, closedAt: null, OR: [{ order: null }, { order: this.operationalOrderWhere() }] } }),
-        this.prisma.payout.count({ where: { status: { in: ['held', 'failed'] }, vendor: { isSeedData: false, user: { isTestData: false } } } }),
+        this.prisma.chargeback.count({
+          where: {
+            evidenceDueBy: { gte: now, lte: inSeventyTwoHours },
+            closedAt: null,
+            OR: [{ order: null }, { order: this.operationalOrderWhere() }],
+          },
+        }),
+        this.prisma.payout.count({
+          where: {
+            status: { in: ['held', 'failed'] },
+            vendor: { isSeedData: false, user: { isTestData: false } },
+          },
+        }),
       ]);
       counts.chargebacks = chargebackCount;
       counts.payouts = payoutCount;
@@ -487,12 +653,29 @@ export class AdminService {
 
     if (caps.system) {
       for (const queue of snapshots) {
-        if (queue.failed === 0 && !(queue.oldestWaitingAgeMs && queue.oldestWaitingAgeMs > 30 * 60_000)) continue;
+        if (
+          queue.failed === 0 &&
+          !(queue.oldestWaitingAgeMs && queue.oldestWaitingAgeMs > 30 * 60_000)
+        )
+          continue;
         counts.jobs += queue.failed || 1;
-        items.push({ kind: queue.failed ? 'failed_jobs' : 'stalled_jobs', title: queue.failed ? `${queue.failed} failed job(s) in ${queue.queue}` : `Stalled job in ${queue.queue}`, href: `/dead-letters?queue=${encodeURIComponent(queue.queue)}`, deadline: null, consequence: 85 });
+        items.push({
+          kind: queue.failed ? 'failed_jobs' : 'stalled_jobs',
+          title: queue.failed
+            ? `${queue.failed} failed job(s) in ${queue.queue}`
+            : `Stalled job in ${queue.queue}`,
+          href: `/dead-letters?queue=${encodeURIComponent(queue.queue)}`,
+          deadline: null,
+          consequence: 85,
+        });
       }
     }
-    items.sort((a, b) => b.consequence - a.consequence || (a.deadline ?? '9999').localeCompare(b.deadline ?? '9999') || a.title.localeCompare(b.title));
+    items.sort(
+      (a, b) =>
+        b.consequence - a.consequence ||
+        (a.deadline ?? '9999').localeCompare(b.deadline ?? '9999') ||
+        a.title.localeCompare(b.title),
+    );
     return {
       observedAt: now.toISOString(),
       counts,
@@ -501,10 +684,22 @@ export class AdminService {
         type: item.kind,
         title: item.title,
         detail: item.deadline ? `Action due ${item.deadline}` : undefined,
-        severity: item.consequence >= 100 ? 'critical' : item.consequence >= 85 ? 'high' : item.consequence >= 70 ? 'medium' : 'low',
+        severity:
+          item.consequence >= 100
+            ? 'critical'
+            : item.consequence >= 85
+              ? 'high'
+              : item.consequence >= 70
+                ? 'medium'
+                : 'low',
         href: item.href,
         deadline: item.deadline ?? undefined,
-        ageDays: item.deadline ? Math.max(0, Math.floor((now.getTime() - new Date(item.deadline).getTime()) / 86_400_000)) : undefined,
+        ageDays: item.deadline
+          ? Math.max(
+              0,
+              Math.floor((now.getTime() - new Date(item.deadline).getTime()) / 86_400_000),
+            )
+          : undefined,
       })),
     };
   }
@@ -512,21 +707,105 @@ export class AdminService {
   async commandSearch(q: string | undefined, role: UserRole) {
     const query = q?.trim();
     if (!query) throw new BadRequestException('Query parameter "q" is required');
-    if (query.length < 2) throw new BadRequestException('Query parameter "q" must be at least 2 characters');
-    if (query.length > 100) throw new BadRequestException('Query parameter "q" must be at most 100 characters');
+    if (query.length < 2)
+      throw new BadRequestException('Query parameter "q" must be at least 2 characters');
+    if (query.length > 100)
+      throw new BadRequestException('Query parameter "q" must be at most 100 characters');
     const caps = this.workQueueCapabilities(role);
     const uuidLike = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(query);
-    const results: Array<{ type: string; id: string; title: string; subtitle?: string; href: string }> = [];
+    const results: Array<{
+      type: string;
+      id: string;
+      title: string;
+      subtitle?: string;
+      href: string;
+    }> = [];
     const [orders, vendors, users, catering] = await Promise.all([
-      caps.operations || caps.finance ? this.prisma.order.findMany({ where: this.operationalOrderWhere({ OR: [{ orderNumber: { startsWith: query, mode: 'insensitive' } }, ...(uuidLike ? [{ id: query }] : [])] }), select: { id: true, orderNumber: true }, orderBy: [{ createdAt: 'desc' }, { id: 'asc' }], take: 10 }) : [],
-      (caps.operations || caps.compliance) ? this.prisma.vendor.findMany({ where: this.operationalVendorWhere({ OR: [{ businessName: { startsWith: query, mode: 'insensitive' } }, ...(uuidLike ? [{ id: query }] : [])] }), select: { id: true, businessName: true }, orderBy: [{ businessName: 'asc' }, { id: 'asc' }], take: 10 }) : [],
-      (role === UserRole.admin || role === UserRole.support) ? this.prisma.user.findMany({ where: { email: { startsWith: query, mode: 'insensitive' }, isTestData: false }, select: { id: true, email: true }, orderBy: { email: 'asc' }, take: 10 }) : [],
-      caps.operations ? this.prisma.cateringEnquiry.findMany({ where: { isTestData: false, OR: [{ contactName: { startsWith: query, mode: 'insensitive' } }, ...(uuidLike ? [{ id: query }] : [])] }, select: { id: true, contactName: true }, orderBy: [{ createdAt: 'desc' }, { id: 'asc' }], take: 10 }) : [],
+      caps.operations || caps.finance
+        ? this.prisma.order.findMany({
+            where: this.operationalOrderWhere({
+              OR: [
+                { orderNumber: { startsWith: query, mode: 'insensitive' } },
+                ...(uuidLike ? [{ id: query }] : []),
+              ],
+            }),
+            select: { id: true, orderNumber: true },
+            orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
+            take: 10,
+          })
+        : [],
+      caps.operations || caps.compliance
+        ? this.prisma.vendor.findMany({
+            where: this.operationalVendorWhere({
+              OR: [
+                { businessName: { startsWith: query, mode: 'insensitive' } },
+                ...(uuidLike ? [{ id: query }] : []),
+              ],
+            }),
+            select: { id: true, businessName: true },
+            orderBy: [{ businessName: 'asc' }, { id: 'asc' }],
+            take: 10,
+          })
+        : [],
+      role === UserRole.admin || role === UserRole.support
+        ? this.prisma.user.findMany({
+            where: { email: { startsWith: query, mode: 'insensitive' }, isTestData: false },
+            select: { id: true, email: true },
+            orderBy: { email: 'asc' },
+            take: 10,
+          })
+        : [],
+      caps.operations
+        ? this.prisma.cateringEnquiry.findMany({
+            where: {
+              isTestData: false,
+              OR: [
+                { contactName: { startsWith: query, mode: 'insensitive' } },
+                ...(uuidLike ? [{ id: query }] : []),
+              ],
+            },
+            select: { id: true, contactName: true },
+            orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
+            take: 10,
+          })
+        : [],
     ]);
-    results.push(...orders.map((r) => ({ type: 'order', id: r.id, title: r.orderNumber, subtitle: `Order ID: ${r.id}`, href: `/orders?ids=${r.id}` })));
-    results.push(...vendors.map((r) => ({ type: 'vendor', id: r.id, title: r.businessName, subtitle: `Vendor ID: ${r.id}`, href: `/vendors/${r.id}` })));
-    results.push(...users.map((r) => ({ type: 'user', id: r.id, title: r.email, subtitle: `User ID: ${r.id}`, href: `/users?q=${encodeURIComponent(r.email)}` })));
-    results.push(...catering.map((r) => ({ type: 'catering_enquiry', id: r.id, title: r.contactName, subtitle: `Enquiry ID: ${r.id}`, href: `/catering-enquiries` })));
+    results.push(
+      ...orders.map((r) => ({
+        type: 'order',
+        id: r.id,
+        title: r.orderNumber,
+        subtitle: `Order ID: ${r.id}`,
+        href: `/orders?ids=${r.id}`,
+      })),
+    );
+    results.push(
+      ...vendors.map((r) => ({
+        type: 'vendor',
+        id: r.id,
+        title: r.businessName,
+        subtitle: `Vendor ID: ${r.id}`,
+        href: `/vendors/${r.id}`,
+      })),
+    );
+    results.push(
+      ...users.map((r) => ({
+        type: 'user',
+        id: r.id,
+        title: r.email,
+        subtitle: `User ID: ${r.id}`,
+        href: `/users?q=${encodeURIComponent(r.email)}`,
+      })),
+    );
+    results.push(
+      ...catering.map((r) => ({
+        type: 'catering_enquiry',
+        id: r.id,
+        title: r.contactName,
+        subtitle: `Enquiry ID: ${r.id}`,
+        href: `/catering-enquiries`,
+      })),
+    );
     return { results: results.slice(0, 25) };
   }
 

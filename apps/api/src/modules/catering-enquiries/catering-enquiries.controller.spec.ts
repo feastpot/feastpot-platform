@@ -25,7 +25,10 @@ describe('CateringEnquiriesController read access', () => {
 
   it('rejects fixture access for non-admin readers', () => {
     expect(() =>
-      controller.list(undefined, undefined, undefined, 'true', { id: 'support', role: UserRole.support }),
+      controller.list(undefined, undefined, undefined, 'true', {
+        id: 'support',
+        role: UserRole.support,
+      }),
     ).toThrow(ForbiddenException);
     expect(() =>
       controller.getById('00000000-0000-0000-0000-000000000000', 'true', {
