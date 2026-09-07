@@ -202,6 +202,8 @@ export function CateringClient({
   apiUrl: string;
   commissionFacts: { vendorReferred: number; marketplaceRepeat: number; marketplaceFirst: number };
 }) {
+  const financeReadOnly = role === 'finance';
+  const canIncludeTestData = role === 'admin';
   const searchParams = useSearchParams();
   const router = useRouter();
   const rawTab = searchParams?.get('tab') ?? 'enquiries';
@@ -247,7 +249,7 @@ export function CateringClient({
         ))}
       </div>
 
-      {tab === 'enquiries' && <EnquiriesTab />}
+      {tab === 'enquiries' && <EnquiriesTab role={role} />}
       {tab === 'bookings' && (
         <BookingsTab accessToken={accessToken} apiUrl={apiUrl} commissionFacts={commissionFacts} />
       )}
@@ -258,9 +260,11 @@ export function CateringClient({
 
 // ── Enquiries tab ──────────────────────────────────────────────────────────
 
-function EnquiriesTab() {
+function EnquiriesTab({ role }: { role: string }) {
   const { request } = useApi();
   const { toast } = useToast();
+  const financeReadOnly = role === 'finance';
+  const canIncludeTestData = role === 'admin';
 
   const [status, setStatus] = useState('ALL');
   const [includeTestData, setIncludeTestData] = useState(false);
@@ -332,6 +336,7 @@ function EnquiriesTab() {
   }
 
   function openAssignDialog(enq: CateringEnquiry, mode: 'assign' | 'reassign') {
+    if (financeReadOnly) return;
     setAssignTarget(enq);
     setAssignMode(mode);
     setVendorSearch('');
@@ -419,17 +424,24 @@ function EnquiriesTab() {
             ))}
           </SelectContent>
         </Select>
-        <label className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-          <input
-            type="checkbox"
-            checked={includeTestData}
-            onChange={(e) => {
-              setIncludeTestData(e.target.checked);
-              setCursorStack([undefined]);
-            }}
-          />
-          Include test data
-        </label>
+        {canIncludeTestData && (
+          <label className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+            <input
+              type="checkbox"
+              checked={includeTestData}
+              onChange={(e) => {
+                setIncludeTestData(e.target.checked);
+                setCursorStack([undefined]);
+              }}
+            />
+            Include test data
+          </label>
+        )}
+        {financeReadOnly && (
+          <p className="text-sm text-muted-foreground" role="note">
+            Finance access is read-only on catering enquiries.
+          </p>
+        )}
       </div>
 
       {loading ? (
@@ -519,6 +531,7 @@ function EnquiriesTab() {
                               size="sm"
                               variant="outline"
                               onClick={() => openAssignDialog(enq, 'assign')}
+                              disabled={financeReadOnly}
                             >
                               Assign
                             </Button>
@@ -616,7 +629,7 @@ function EnquiriesTab() {
                 </p>
               </div>
             )}
-            {ASSIGNABLE_STATUSES.has(reviewed.status) && (
+            {ASSIGNABLE_STATUSES.has(reviewed.status) && !financeReadOnly && (
               <div className="rounded-lg border border-orange-200 bg-orange-50 p-4">
                 <p className="mb-3 text-sm font-semibold text-orange-900">
                   Ready to assign to a vendor
@@ -630,25 +643,28 @@ function EnquiriesTab() {
                 </Button>
               </div>
             )}
-            {reviewed.status === 'ASSIGNED' && reviewed.booking?.status === 'ASSIGNED' && (
-              <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
-                <p className="mb-1 text-sm font-semibold text-blue-900">Assigned</p>
-                <p className="mb-3 text-xs text-blue-700">
-                  The vendor has not yet submitted a quote. You can reassign to a different vendor.
-                </p>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => openAssignDialog(reviewed, 'reassign')}
-                >
-                  Reassign to different vendor
-                </Button>
-              </div>
-            )}
+            {reviewed.status === 'ASSIGNED' &&
+              reviewed.booking?.status === 'ASSIGNED' &&
+              !financeReadOnly && (
+                <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
+                  <p className="mb-1 text-sm font-semibold text-blue-900">Assigned</p>
+                  <p className="mb-3 text-xs text-blue-700">
+                    The vendor has not yet submitted a quote. You can reassign to a different
+                    vendor.
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => openAssignDialog(reviewed, 'reassign')}
+                  >
+                    Reassign to different vendor
+                  </Button>
+                </div>
+              )}
             <div>
               <label className="mb-1 block text-sm font-medium">Status</label>
-              <Select value={panelStatus} onValueChange={setPanelStatus}>
+              <Select value={panelStatus} onValueChange={setPanelStatus} disabled={financeReadOnly}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -667,13 +683,14 @@ function EnquiriesTab() {
                 className="w-full rounded-md border border-hairline bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 value={panelNotes}
                 onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setPanelNotes(e.target.value)}
+                readOnly={financeReadOnly}
                 placeholder="Internal notes visible only to staff..."
                 rows={5}
               />
             </div>
           </div>
           <div className="border-t border-hairline px-6 py-4">
-            <Button className="w-full" onClick={savePanel} disabled={saving}>
+            <Button className="w-full" onClick={savePanel} disabled={saving || financeReadOnly}>
               {saving ? 'Saving...' : 'Save changes'}
             </Button>
           </div>

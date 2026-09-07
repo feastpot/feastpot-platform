@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  ForbiddenException,
   Get,
   Param,
   ParseUUIDPipe,
@@ -38,14 +39,16 @@ export class CateringEnquiriesController {
   }
 
   @Get()
-  @Roles(UserRole.admin, UserRole.support)
+  @Roles(UserRole.admin, UserRole.support, UserRole.finance)
   @ApiOperation({ summary: 'Admin: list catering enquiries (includes booking if assigned)' })
   list(
     @Query('status') status?: string,
     @Query('cursor') cursor?: string,
     @Query('limit') limit?: string,
     @Query('includeTestData') includeTestData?: string,
+    @CurrentUser() user?: AuthUser,
   ) {
+    this.assertTestDataAccess(includeTestData === 'true', user);
     return this.enquiries.list({
       status,
       cursor,
@@ -55,13 +58,21 @@ export class CateringEnquiriesController {
   }
 
   @Get(':id')
-  @Roles(UserRole.admin, UserRole.support)
+  @Roles(UserRole.admin, UserRole.support, UserRole.finance)
   @ApiOperation({ summary: 'Admin: get catering enquiry detail' })
   getById(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Query('includeTestData') includeTestData?: string,
+    @CurrentUser() user?: AuthUser,
   ) {
+    this.assertTestDataAccess(includeTestData === 'true', user);
     return this.enquiries.getById(id, includeTestData === 'true');
+  }
+
+  private assertTestDataAccess(includeTestData: boolean, user?: AuthUser): void {
+    if (includeTestData && user?.role !== UserRole.admin) {
+      throw new ForbiddenException('Only administrators may include persisted test data');
+    }
   }
 
   @Patch(':id')
