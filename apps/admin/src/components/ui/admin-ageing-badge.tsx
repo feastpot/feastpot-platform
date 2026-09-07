@@ -9,7 +9,7 @@ const classes: Record<AgeingState['tone'], string> = {
 
 /** The only SLA presentation primitive used by admin queue rows. */
 export function AdminAgeingBadge({ state }: { state: AgeingState | null }) {
-  if (!state) return <span className="text-muted-foreground">—</span>;
+  if (!state) return <span className="text-muted-foreground">Not ageing</span>;
   return (
     <Badge className={classes[state.tone]} data-tone={state.tone}>
       {state.label}

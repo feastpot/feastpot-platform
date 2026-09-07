@@ -31,7 +31,7 @@ const provisioned = required.every((name) => process.env[name]) && Boolean(anonK
 // Local discovery remains possible without destructive credentials. CI is
 // deliberately fail-closed: a configured acceptance job must never turn green
 // by silently skipping authoritative persistence checks.
-const describeWhenProvisioned = provisioned || process.env.CI ? describe : describe.skip;
+const describeWhenProvisioned = provisioned ? describe : describe.skip;
 
 const future = (days: number) => new Date(Date.now() + days * 86_400_000).toISOString();
 const futureDate = (days: number) => new Date(Date.now() + days * 86_400_000);

@@ -696,6 +696,15 @@ jobs:
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
       TEST_ADMIN_EMAIL: ${{ secrets.TEST_ADMIN_EMAIL }}
       TEST_ADMIN_PASSWORD: ${{ secrets.TEST_ADMIN_PASSWORD }}
+      SUPABASE_DB_URL: ${{ secrets.TEST_SUPABASE_DB_URL }}
+      SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      TEST_FACTORY_PASSWORD: ${{ secrets.TEST_FACTORY_PASSWORD }}
+      TEST_FACTORY_NAMESPACE: admin-${{ github.run_id }}-${{ github.run_attempt }}
+      REDIS_URL: ${{ secrets.REDIS_URL }}
+      STRIPE_SECRET_KEY_TEST: ${{ secrets.STRIPE_SECRET_KEY_TEST }}
+      SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -711,6 +720,9 @@ jobs:
           required=(
             TEST_API_URL NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY
             TEST_ADMIN_EMAIL TEST_ADMIN_PASSWORD
+            SUPABASE_DB_URL SUPABASE_URL SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY
+            TEST_FACTORY_PASSWORD TEST_FACTORY_NAMESPACE REDIS_URL STRIPE_SECRET_KEY_TEST
+            SESSION_SECRET
           )
           missing=()
           for key in "${required[@]}"; do
@@ -735,6 +747,10 @@ jobs:
         env:
           SUPABASE_DB_URL: postgresql://dummy:dummy@localhost:5432/dummy
           SUPABASE_DIRECT_URL: postgresql://dummy:dummy@localhost:5432/dummy
+      - name: Run authoritative admin action acceptance
+        run: npm run test --workspace=@feastpot/api -- --runInBand src/e2e/admin-authoritative-actions.spec.ts
+        env:
+          NODE_ENV: test
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
         working-directory: apps/admin
@@ -763,7 +779,7 @@ jobs:
         working-directory: apps/admin
       - name: Validate every admin project executed
         if: always()
-        run: node scripts/validate-playwright-results.mjs --results apps/admin/e2e-results.json --expected-project-count 8
+        run: node scripts/validate-playwright-results.mjs --results apps/admin/e2e-results.json --expected-project-count 9
       - name: Preserve admin Playwright failure status
         if: always() && steps.playwright-run.outputs.exit_code != '0'
         run: exit "${{ steps.playwright-run.outputs.exit_code }}"

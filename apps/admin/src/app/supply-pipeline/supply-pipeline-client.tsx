@@ -238,7 +238,9 @@ export function SupplyPipelineClient({ canIncludeTestData }: { canIncludeTestDat
                       })}
                     />
                   </TableCell>
-                  <TableCell>{row.lastChasedAt ? formatDate(row.lastChasedAt) : '—'}</TableCell>
+                  <TableCell>
+                    {row.lastChasedAt ? formatDate(row.lastChasedAt) : 'Not chased'}
+                  </TableCell>
                   <TableCell className="space-x-2">
                     {row.recordType === 'application' &&
                       !['Approved', 'Rejected'].includes(row.lifecycle) && (
