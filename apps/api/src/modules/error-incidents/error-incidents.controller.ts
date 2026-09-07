@@ -1,5 +1,6 @@
 import {
   Body,
+  BadRequestException,
   Controller,
   Get,
   NotFoundException,
@@ -61,7 +62,20 @@ export class ErrorIncidentsController {
       if (!incident) throw new NotFoundException(`No incident found for ref ${ref}`);
       return incident;
     }
-    return this.service.listRecent(limit ? Math.min(parseInt(limit, 10), 200) : 50);
+    let safeLimit = 50;
+    if (limit !== undefined) {
+      // parseInt("10junk") and NaN would otherwise reach Prisma's `take`.
+      // Require a complete positive integer before applying the upper bound.
+      if (!/^\d+$/.test(limit)) {
+        throw new BadRequestException('limit must be a positive integer');
+      }
+      const parsed = Number(limit);
+      if (!Number.isSafeInteger(parsed) || parsed < 1) {
+        throw new BadRequestException('limit must be a positive integer');
+      }
+      safeLimit = Math.min(parsed, 200);
+    }
+    return this.service.listRecent(safeLimit);
   }
 
   @Roles(UserRole.admin, UserRole.support, UserRole.compliance, UserRole.finance)

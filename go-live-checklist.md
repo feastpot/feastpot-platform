@@ -96,7 +96,7 @@ Full gate list in `LAUNCH_CHECKLIST.md`; most-forgotten items:
 - **Vendor readiness:** 5+ verified vendors per launch borough (FHRS ≥ 4,
   insurance, allergen training, Stripe Connect, 5+ photographed items).
 - **Monitoring:** Sentry DSNs on the three Vercel frontends; Supabase DB
-  alerts; on-call rota; rotate the Bull Board password.
+  alerts; on-call rota; verify AAL2-gated queue dashboard access.
 - **Search:** submit the sitemap to Search Console + Bing.
 - **Device passes:** PWA install (iOS/Android), cookie-banner persistence,
   OG share cards, Lighthouse ≥ 90 mobile.

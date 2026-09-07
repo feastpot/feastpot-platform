@@ -4,6 +4,7 @@
  */
 export const NOTIFICATION_EVENTS = {
   menu_allergen_action_required: { templateBacked: true },
+  menu_item_moderation_decision: { templateBacked: true },
   event_enquiry_matched: { templateBacked: true },
   event_quote_received: { templateBacked: true },
   event_reminder_72h: { templateBacked: true },

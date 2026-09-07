@@ -49,6 +49,7 @@ import {
   type MenuItemUpsertInput,
 } from '@/hooks/use-menu-items';
 import { pencePerPound, poundsFromPence } from '@/lib/format';
+import { ModerationStatus } from '../../../moderation-visibility';
 
 const PREP_OPTIONS = [
   { value: 30, label: '30 minutes' },
@@ -451,6 +452,7 @@ export function ItemEditorClient({
         </div>
 
         <form id={formId} onSubmit={onSubmit} className="space-y-4">
+          {!isNew && item && <ModerationStatus item={item} />}
           {renderFormSections()}
         </form>
       </div>
@@ -478,6 +480,7 @@ export function ItemEditorClient({
       </h1>
 
       <form id={formId} onSubmit={onSubmit} className="space-y-4">
+        {!isNew && item && <ModerationStatus item={item} />}
         {renderFormSections()}
       </form>
 

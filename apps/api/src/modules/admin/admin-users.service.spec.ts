@@ -7,6 +7,98 @@ import type { NotificationsService } from '../notifications/notifications.servic
 import type { EmailProvider } from '../notifications/providers/email.provider';
 
 import { AdminUsersService } from './admin-users.service';
+import { ASSIGNABLE_USER_ROLES } from './dto/admin-user-actions.dto';
+
+describe('role assignment DTO values', () => {
+  it('allows returning an existing staff account to the customer role', () => {
+    expect(ASSIGNABLE_USER_ROLES).toContain('customer');
+    expect(ASSIGNABLE_USER_ROLES).not.toContain('vendor');
+  });
+});
+
+describe('AdminUsersService.updateUserRole', () => {
+  it('keeps the self-demotion safeguard when customer is assignable', async () => {
+    const service = new AdminUsersService(
+      {} as PrismaService,
+      {} as SupabaseService,
+      {} as LoyaltyService,
+      {} as NotificationsService,
+      {} as ConfigService,
+      {} as EmailProvider,
+    );
+
+    await expect(
+      service.updateUserRole(
+        'admin-user',
+        'customer',
+        'Attempted self-demotion to customer role',
+        'admin-user',
+      ),
+    ).rejects.toMatchObject({ response: { code: 'CANNOT_CHANGE_OWN_ROLE' } });
+  });
+
+  it('returns an existing staff account to customer and writes the audited transition', async () => {
+    const tx = {
+      user: { update: jest.fn().mockResolvedValue({}) },
+      auditLog: { create: jest.fn().mockResolvedValue({}) },
+    };
+    const prisma = {
+      user: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'target-user',
+          role: 'support',
+          status: 'active',
+          email: 'staff@example.test',
+          vendor: null,
+        }),
+      },
+      $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)),
+    };
+    const updateUserById = jest.fn().mockResolvedValue({});
+    const signOut = jest.fn().mockResolvedValue({});
+    const supabase = {
+      getClient: jest.fn().mockReturnValue({
+        auth: { admin: { updateUserById, signOut } },
+      }),
+    };
+    const service = new AdminUsersService(
+      prisma as unknown as PrismaService,
+      supabase as unknown as SupabaseService,
+      {} as LoyaltyService,
+      {} as NotificationsService,
+      {} as ConfigService,
+      {} as EmailProvider,
+    );
+
+    await service.updateUserRole(
+      'target-user',
+      'customer',
+      'Role no longer requires staff-console access',
+      'admin-user',
+    );
+
+    expect(tx.user.update).toHaveBeenCalledWith({
+      where: { id: 'target-user' },
+      data: { role: 'customer' },
+    });
+    expect(tx.auditLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          actorId: 'admin-user',
+          entityId: 'target-user',
+          action: 'admin.user_role_changed',
+          metadata: expect.objectContaining({
+            previousState: { role: 'support' },
+            newState: { role: 'customer' },
+          }),
+        }),
+      }),
+    );
+    expect(updateUserById).toHaveBeenCalledWith('target-user', {
+      app_metadata: { role: 'customer' },
+    });
+  });
+});
 
 /**
  * Bulk order status override is an emergency-repair tool: it must write the

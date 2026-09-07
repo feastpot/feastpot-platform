@@ -42,6 +42,8 @@ export interface AdminUserDetail {
   orderCount: number;
   loyaltyBalance: number;
   lifetimeSpendPence: number;
+  /** null means Supabase MFA status could not be read. */
+  mfaEnrolled: boolean | null;
   orders: AdminUserOrderRow[];
 }
 
@@ -58,6 +60,8 @@ export interface AdminUserRow {
   createdAt: string;
   orderCount: number;
   lifetimeSpendPence: number;
+  /** null means Supabase MFA status could not be read. */
+  mfaEnrolled: boolean | null;
   isTestData: boolean;
   provenance: string | null;
 }
@@ -156,6 +160,7 @@ export function useSuspendUser(userId: string, opts: MutateOpts = {}) {
 }
 
 export type StaffRoleValue = 'admin' | 'support' | 'finance' | 'compliance';
+export type AssignableUserRoleValue = StaffRoleValue | 'customer';
 
 export interface CreateStaffUserInput {
   email: string;
@@ -198,7 +203,7 @@ export function useUpdateUserRole(userId: string, opts: MutateOpts = {}) {
   const { request } = useApi();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (body: { role: StaffRoleValue; reason: string }) =>
+    mutationFn: (body: { role: AssignableUserRoleValue; reason: string }) =>
       request<{ success: true }>(`/admin/users/${userId}/role`, {
         method: 'PATCH',
         body,

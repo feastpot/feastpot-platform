@@ -12,7 +12,6 @@ import {
   ChevronUp,
   ClipboardList,
   CreditCard,
-  ExternalLink,
   Layers,
   LayoutDashboard,
   LogOut,
@@ -32,7 +31,6 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import type { ReactNode } from 'react';
 
-import { API_URL } from '@/lib/env';
 import { createClient } from '@/lib/supabase/client';
 
 type StaffRole = 'admin' | 'support' | 'finance' | 'compliance';
@@ -43,8 +41,6 @@ interface NavItem {
   icon: typeof LayoutDashboard;
   /** Roles that should see this item. Empty array = visible to all staff roles. */
   roles?: ReadonlyArray<StaffRole>;
-  /** When true, render as an <a target="_blank"> instead of a <Link>. */
-  external?: boolean;
   /** Optional tooltip / description, currently surfaced via the title attribute. */
   description?: string;
 }
@@ -131,11 +127,10 @@ const MAIN_NAV: ReadonlyArray<NavItem> = [
 
 const OPS_NAV: ReadonlyArray<NavItem> = [
   {
-    href: `${API_URL}/admin/queues`,
+    href: '/queues',
     label: 'Job queues',
     icon: Layers,
-    external: true,
-    description: 'Bull Board - inspect failed jobs and DLQ',
+    description: 'Queue health and Bull Board controls',
     roles: ['admin'],
   },
 ];
@@ -170,9 +165,8 @@ function initialsFor(name: string, email: string): string {
  *   - User pill at the bottom shows initials avatar + name + role, with
  *     a chevron affordance and a divided Sign out row.
  *
- * Functionality preserved verbatim: role-filtered nav, external Bull
- * Board link with rel="noopener noreferrer", sign-out via Supabase
- * client + router.refresh().
+ * Functionality preserved verbatim: role-filtered navigation and Supabase
+ * sign-out via client + router.refresh().
  */
 export function AdminShell({ user, children }: AdminShellProps) {
   const pathname = usePathname();
@@ -252,17 +246,14 @@ export function AdminShell({ user, children }: AdminShellProps) {
                   const Icon = item.icon;
                   return (
                     <li key={item.href}>
-                      <a
+                      <Link
                         href={item.href}
-                        target="_blank"
-                        rel="noopener noreferrer"
                         title={item.description}
                         className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                       >
                         <Icon className="h-4 w-4 shrink-0" />
                         <span className="flex-1 truncate">{item.label}</span>
-                        <ExternalLink className="h-3 w-3 opacity-50" aria-hidden="true" />
-                      </a>
+                      </Link>
                     </li>
                   );
                 })}

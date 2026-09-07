@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 
 import { QueueDepthMonitorService } from './queue-depth-monitor.service';
+import { QueueSnapshotService } from './queue-snapshot.service';
 
 /**
  * Hosts the proactive queue-depth alarm. Kept separate from QueuesModule to
@@ -10,6 +11,7 @@ import { QueueDepthMonitorService } from './queue-depth-monitor.service';
  * RedisCacheService (also @Global) are injectable here without extra imports.
  */
 @Module({
-  providers: [QueueDepthMonitorService],
+  providers: [QueueSnapshotService, QueueDepthMonitorService],
+  exports: [QueueSnapshotService],
 })
 export class QueueMonitorModule {}

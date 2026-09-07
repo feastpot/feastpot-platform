@@ -24,12 +24,7 @@ import {
 // silently persisting as whitespace.
 const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
 
-/**
- * Staff-only role set the admin Users page can assign. Customer/vendor
- * roles are intentionally excluded - those are provisioned by other flows
- * (vendor-application approval, customer self-signup) which create the
- * matching Vendor / order-history rows we'd otherwise have to fabricate.
- */
+/** Staff roles available when creating a new account. */
 export const STAFF_ROLES = [
   UserRole.admin,
   UserRole.support,
@@ -37,6 +32,14 @@ export const STAFF_ROLES = [
   UserRole.compliance,
 ] as const;
 export type StaffRoleValue = (typeof STAFF_ROLES)[number];
+
+/**
+ * Existing non-vendor accounts may be returned to the customer role as well
+ * as assigned a staff role. Vendors remain deliberately excluded: changing
+ * their role would leave their Vendor record without an owner.
+ */
+export const ASSIGNABLE_USER_ROLES = [...STAFF_ROLES, UserRole.customer] as const;
+export type AssignableUserRoleValue = (typeof ASSIGNABLE_USER_ROLES)[number];
 
 export class CreateStaffUserDto {
   @ApiProperty({ format: 'email' })
@@ -73,9 +76,12 @@ export class CreateStaffUserDto {
 }
 
 export class UpdateUserRoleDto {
-  @ApiProperty({ enum: STAFF_ROLES, description: 'New staff role' })
-  @IsIn(STAFF_ROLES as readonly UserRole[])
-  role!: StaffRoleValue;
+  @ApiProperty({
+    enum: ASSIGNABLE_USER_ROLES,
+    description: 'New role. Existing staff may be returned to customer.',
+  })
+  @IsIn(ASSIGNABLE_USER_ROLES as readonly UserRole[])
+  role!: AssignableUserRoleValue;
 
   @ApiProperty({
     minLength: 10,

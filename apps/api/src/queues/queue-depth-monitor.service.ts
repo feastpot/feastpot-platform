@@ -1,17 +1,10 @@
-import { InjectQueue } from '@nestjs/bull';
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import * as Sentry from '@sentry/nestjs';
-import type { Queue } from 'bull';
 
 import { RedisCacheService } from '../common/cache/redis-cache.service';
 
-import {
-  COMPLIANCE_QUEUE,
-  NOTIFICATIONS_QUEUE,
-  PAYOUTS_QUEUE,
-  STRIPE_WEBHOOK_QUEUE,
-} from './queues.module';
+import { QueueSnapshotService, type QueueSnapshot } from './queue-snapshot.service';
 
 interface MonitorThresholds {
   failed: number;
@@ -29,14 +22,6 @@ interface QueueBreachState {
   // Epoch ms of the last Sentry alert raised for the current episode. null
   // once the queue recovers, so the next episode pages immediately.
   lastAlertAt: number | null;
-}
-
-interface QueueSnapshot {
-  queue: string;
-  waiting: number;
-  failed: number;
-  breached: boolean;
-  reasons: string[];
 }
 
 // Read a positive-integer env var, falling back to `fallback` when unset,
@@ -78,10 +63,7 @@ export class QueueDepthMonitorService {
   private readonly state = new Map<string, QueueBreachState>();
 
   constructor(
-    @InjectQueue(NOTIFICATIONS_QUEUE) private readonly notifications: Queue,
-    @InjectQueue(STRIPE_WEBHOOK_QUEUE) private readonly stripeWebhooks: Queue,
-    @InjectQueue(PAYOUTS_QUEUE) private readonly payouts: Queue,
-    @InjectQueue(COMPLIANCE_QUEUE) private readonly compliance: Queue,
+    private readonly queueSnapshots: QueueSnapshotService,
     private readonly cache: RedisCacheService,
   ) {}
 
@@ -146,40 +128,24 @@ export class QueueDepthMonitorService {
     }
   }
 
-  private async collectSnapshots(thresholds: MonitorThresholds): Promise<QueueSnapshot[]> {
-    const queues: Array<[string, Queue]> = [
-      [NOTIFICATIONS_QUEUE, this.notifications],
-      [STRIPE_WEBHOOK_QUEUE, this.stripeWebhooks],
-      [PAYOUTS_QUEUE, this.payouts],
-      [COMPLIANCE_QUEUE, this.compliance],
-    ];
-
-    const snapshots = await Promise.all(
-      queues.map(async ([name, q]): Promise<QueueSnapshot | null> => {
-        try {
-          const [waiting, failed] = await Promise.all([q.getWaitingCount(), q.getFailedCount()]);
-          const reasons: string[] = [];
-          if (failed >= thresholds.failed) {
-            reasons.push(`failed=${failed} >= ${thresholds.failed}`);
-          }
-          if (waiting >= thresholds.waiting) {
-            reasons.push(`waiting=${waiting} >= ${thresholds.waiting}`);
-          }
-          return { queue: name, waiting, failed, breached: reasons.length > 0, reasons };
-        } catch (err) {
-          // A single queue read failing shouldn't blind the others. Log and
-          // skip - the broader Redis outage path handles total unavailability.
-          this.logger.error(`Failed to inspect queue ${name}: ${(err as Error).message}`);
-          return null;
-        }
-      }),
-    );
-
-    return snapshots.filter((s): s is QueueSnapshot => s !== null);
+  private async collectSnapshots(
+    thresholds: MonitorThresholds,
+  ): Promise<Array<QueueSnapshot & { breached: boolean; reasons: string[] }>> {
+    const snapshots = await this.queueSnapshots.snapshots();
+    return snapshots.map((snap) => {
+      const reasons: string[] = [];
+      if (!snap.available)
+        reasons.push(`telemetry unavailable${snap.error ? `: ${snap.error}` : ''}`);
+      if (snap.failed >= thresholds.failed)
+        reasons.push(`failed=${snap.failed} >= ${thresholds.failed}`);
+      if (snap.waiting >= thresholds.waiting)
+        reasons.push(`waiting=${snap.waiting} >= ${thresholds.waiting}`);
+      return { ...snap, breached: reasons.length > 0, reasons };
+    });
   }
 
   private raiseAlert(
-    snap: QueueSnapshot,
+    snap: QueueSnapshot & { reasons: string[] },
     thresholds: MonitorThresholds,
     consecutiveBreaches: number,
   ): void {

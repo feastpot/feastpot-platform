@@ -1,6 +1,6 @@
 import { randomBytes } from 'crypto';
 
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
 import * as Sentry from '@sentry/nestjs';
 
@@ -18,8 +18,12 @@ export interface ErrorIncidentRow {
   digest: string | null;
   vendorId: string | null;
   userId: string | null;
+  clientVendorId: string | null;
+  clientUserId: string | null;
   createdAt: Date;
 }
+
+const MAX_REF_INSERT_ATTEMPTS = 5;
 
 @Injectable()
 export class ErrorIncidentsService {
@@ -38,13 +42,47 @@ export class ErrorIncidentsService {
     return `FP-${a}-${b}`;
   }
 
+  private isRefCollision(error: unknown): boolean {
+    const prismaError = error as { code?: unknown; meta?: { target?: unknown } };
+    const target = prismaError?.meta?.target;
+    return (
+      prismaError?.code === 'P2002' &&
+      (target === 'ref' ||
+        (Array.isArray(target) && target.includes('ref')) ||
+        (typeof target === 'string' && target.includes('ref')))
+    );
+  }
+
+  /**
+   * Store a safe diagnostic message, never a raw exception stack or credential.
+   * The endpoint is public, so clients must not be relied upon to sanitize it.
+   */
+  private sanitizeMessage(message: string): string {
+    return this.redactSensitiveValues(message.replace(/\r/g, '').split('\n')[0] ?? '', 2000);
+  }
+
+  private redactSensitiveValues(value: string, maxLength: number): string {
+    return (
+      value
+        .replace(/\bBearer\s+[A-Za-z0-9\-._~+/]+=*/gi, 'Bearer [REDACTED]')
+        .replace(/\b(?:eyJ[a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9_-]+){2})\b/g, '[REDACTED_JWT]')
+        .replace(
+          /\b(password|passwd|secret|token|authorization|cookie|api[_-]?key)\s*([:=])\s*[^\s,;]+/gi,
+          '$1$2[REDACTED]',
+        )
+        // Diagnostic text must not persist terminal/control characters.
+        // eslint-disable-next-line no-control-regex
+        .replace(/[\u0000-\u001F\u007F]/g, ' ')
+        .trim()
+        .slice(0, maxLength)
+    );
+  }
+
   async create(
     dto: CreateErrorIncidentDto,
     principal: AuthUser | null,
     userAgent?: string,
   ): Promise<ErrorIncidentRow> {
-    const id = randomBytes(18).toString('base64url');
-    const ref = this.generateRef();
     const vendor =
       principal?.role === UserRole.vendor
         ? await this.prisma.vendor.findUnique({
@@ -53,28 +91,44 @@ export class ErrorIncidentsService {
           })
         : null;
 
-    const incident = await this.prisma.errorIncident.create({
-      data: {
-        id,
-        ref,
-        app: dto.app,
-        route: dto.route,
-        message: dto.message.slice(0, 2000),
-        digest: dto.digest ?? null,
-        vendorId: vendor?.id ?? null,
-        userId: principal?.id ?? null,
-        userAgent: userAgent ? userAgent.slice(0, 500) : null,
-      },
-    });
+    const data = {
+      app: dto.app,
+      route: dto.route,
+      message: this.sanitizeMessage(dto.message),
+      digest: dto.digest ?? null,
+      vendorId: vendor?.id ?? null,
+      userId: principal?.id ?? null,
+      // These deliberately have no relations and are only a sanitized UUID
+      // supplied by the client. They cannot influence ownership.
+      clientVendorId: dto.vendorId ?? null,
+      clientUserId: dto.userId ?? null,
+      userAgent: userAgent ? this.redactSensitiveValues(userAgent, 500) : null,
+    };
+
+    let incident: ErrorIncidentRow | null = null;
+    for (let attempt = 0; attempt < MAX_REF_INSERT_ATTEMPTS; attempt += 1) {
+      const ref = this.generateRef();
+      try {
+        incident = await this.prisma.errorIncident.create({
+          data: { id: randomBytes(18).toString('base64url'), ref, ...data },
+        });
+        break;
+      } catch (error) {
+        if (!this.isRefCollision(error) || attempt === MAX_REF_INSERT_ATTEMPTS - 1) throw error;
+      }
+    }
+    if (!incident) {
+      throw new InternalServerErrorException('Could not allocate incident reference');
+    }
 
     this.logger.warn(
-      `Error incident ${ref}: [${dto.app}] ${dto.route} :  ${dto.message.slice(0, 120)}`,
+      `Error incident ${incident.ref}: [${dto.app}] ${dto.route} : ${data.message.slice(0, 120)}`,
     );
 
-    Sentry.captureMessage(`Error incident ${ref}`, {
+    Sentry.captureMessage(`Error incident ${incident.ref}`, {
       level: 'error',
       extra: {
-        ref,
+        ref: incident.ref,
         app: dto.app,
         route: dto.route,
         digest: dto.digest,

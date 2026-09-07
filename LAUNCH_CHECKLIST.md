@@ -24,7 +24,7 @@ not yet checked. See `go-live-checklist.md` for the prioritised narrative._
 - [x] DNS + HTTPS working on all four domains (implicitly verified - all serve over HTTPS).
 - [ ] Cloudflare proxy disabled (DNS-only) for `api.feastpot.co.uk`. **HUMAN - check the Cloudflare dashboard.**
 - [x] Production secrets present: healthz `secrets: ok`, Stripe `live`, email + WhatsApp configured, all 10 Twilio Content SIDs set (verified 30 Jul).
-- [x] Redis provisioned (TLS, non-local - healthz `redisSecurity` green); Bull Board gated by basic auth (`admin` / `BULL_BOARD_PASSWORD`). **HUMAN - rotate the password if it predates launch.**
+- [x] Redis provisioned (TLS, non-local - healthz `redisSecurity` green); queue controls are embedded behind the Supabase AAL2 admin session and audited.
 
 ### Codebase quality
 

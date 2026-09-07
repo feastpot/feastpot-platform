@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 
 import { AuthModule } from '../../auth/auth.module';
 import { PrismaModule } from '../../prisma/prisma.module';
+import { QueueMonitorModule } from '../../queues/queue-monitor.module';
 import { StripeModule } from '../../stripe/stripe.module';
 import { PaymentsModule } from '../payments/payments.module';
 import { TermsModule } from '../terms/terms.module';
@@ -28,7 +29,15 @@ import { DlqMonitorService } from './dlq-monitor.service';
  */
 @Module({
   // PaymentsModule provides PaymentsService for the admin refund endpoints.
-  imports: [PrismaModule, StripeModule, AuthModule, ConfigModule, TermsModule, PaymentsModule],
+  imports: [
+    PrismaModule,
+    StripeModule,
+    AuthModule,
+    ConfigModule,
+    TermsModule,
+    PaymentsModule,
+    QueueMonitorModule,
+  ],
   controllers: [AdminController],
   providers: [AdminService, AdminUsersService, DlqMonitorService],
 })

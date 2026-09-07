@@ -15,6 +15,8 @@ import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import type { AuthUser } from '../../auth/types';
 
+import { ApproveMenuItemWithEditDto } from './dto/approve-menu-item-with-edit.dto';
+import { BulkApproveMenuItemsDto } from './dto/bulk-approve-menu-items.dto';
 import { ListMenuModerationDto } from './dto/list-menu-moderation.dto';
 import { ModerateMenuItemDto } from './dto/moderate-menu-item.dto';
 import { MenuItemsService } from './menu-items.service';
@@ -65,5 +67,27 @@ export class MenuModerationController {
     @Body() dto: ModerateMenuItemDto,
   ) {
     return this.items.moderate(id, dto, requireUser(user));
+  }
+
+  @Patch(':id/approve-with-edit')
+  @Roles(UserRole.admin)
+  @ApiOperation({ summary: 'Apply moderator edits and approve a menu item (admin)' })
+  approveWithEdit(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: AuthUser | null,
+    @Body() dto: ApproveMenuItemWithEditDto,
+  ) {
+    return this.items.approveWithEdit(id, dto, requireUser(user));
+  }
+
+  @Patch('moderation-queue/vendors/:vendorId/approve')
+  @Roles(UserRole.admin)
+  @ApiOperation({ summary: 'Bulk approve held items for exactly one vendor (admin)' })
+  bulkApprove(
+    @Param('vendorId', new ParseUUIDPipe()) vendorId: string,
+    @CurrentUser() user: AuthUser | null,
+    @Body() dto: BulkApproveMenuItemsDto,
+  ) {
+    return this.items.bulkApprove(vendorId, dto.items, requireUser(user));
   }
 }

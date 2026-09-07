@@ -3,12 +3,14 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Cron } from '@nestjs/schedule';
 import { NotificationStatus, PaymentType, PayoutStatus } from '@prisma/client';
+import * as Sentry from '@sentry/nestjs';
 import type { Queue } from 'bull';
 import { Resend } from 'resend';
 
 import { RedisCacheService } from '../../common/cache/redis-cache.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
+  ATTRIBUTION_QR_QUEUE,
   COMPLIANCE_QUEUE,
   HMRC_QUEUE,
   NOTIFICATIONS_QUEUE,
@@ -53,6 +55,7 @@ export class DlqMonitorService {
     @InjectQueue(COMPLIANCE_QUEUE) private readonly compliance: Queue,
     @InjectQueue(TERMS_NOTICES_QUEUE) private readonly termsNotices: Queue,
     @InjectQueue(HMRC_QUEUE) private readonly hmrc: Queue,
+    @InjectQueue(ATTRIBUTION_QR_QUEUE) private readonly attributionQr: Queue,
     config: ConfigService,
     private readonly cache: RedisCacheService,
     private readonly prisma: PrismaService,
@@ -137,7 +140,7 @@ export class DlqMonitorService {
 
     const text =
       `:rotating_light: *Feastpot queue alert*\n${breaches.join('\n')}\n` +
-      `Inspect via Bull Board: https://api.feastpot.co.uk/admin/queues`;
+      `Inspect via the authenticated admin Job queues page.`;
     const delivered = await this.sendSlack(text);
     if (!delivered) {
       // Release reminder leases so the next run retries instead of waiting
@@ -517,6 +520,7 @@ export class DlqMonitorService {
       [COMPLIANCE_QUEUE, this.compliance],
       [TERMS_NOTICES_QUEUE, this.termsNotices],
       [HMRC_QUEUE, this.hmrc],
+      [ATTRIBUTION_QR_QUEUE, this.attributionQr],
     ];
   }
 
@@ -558,7 +562,7 @@ export class DlqMonitorService {
     return `<!doctype html><html><body style="font-family:system-ui,sans-serif;max-width:720px;margin:0 auto;padding:20px;">
       <h2>Feastpot - BullMQ failed jobs</h2>
       <p>The daily DLQ scan found queues with failed jobs. Inspect and replay or discard via Bull Board:
-        <a href="https://feastpot-platform.replit.app/admin/queues">Bull Board</a>
+        the authenticated admin Job queues page
       </p>
       <table style="border-collapse:collapse;width:100%;">
         <thead>
@@ -654,7 +658,46 @@ export class DlqMonitorService {
     if (!job) {
       throw new Error(`Job ${jobId} not found in queue "${queueName}"`);
     }
-    await job.retry();
+    const audit = await this.prisma.auditLog.create({
+      data: {
+        actorId,
+        entityType: 'queue_job',
+        entityId: null,
+        action: 'admin.queue_job_retry_requested',
+        metadata: { queue: queueName, jobId, jobName: job.name, status: 'requested' },
+      },
+    });
+    try {
+      await job.retry();
+    } catch (err) {
+      await this.prisma.auditLog
+        .update({
+          where: { id: audit.id },
+          data: {
+            action: 'admin.queue_job_retry_failed',
+            metadata: {
+              queue: queueName,
+              jobId,
+              jobName: job.name,
+              status: 'failed',
+              error: (err as Error).message.slice(0, 500),
+            },
+          },
+        })
+        .catch(() => undefined);
+      throw err;
+    }
+    await this.prisma.auditLog
+      .update({
+        where: { id: audit.id },
+        data: {
+          action: 'admin.queue_job_retried',
+          metadata: { queue: queueName, jobId, jobName: job.name, status: 'completed' },
+        },
+      })
+      .catch((err: unknown) => {
+        this.reportQueueAuditCompletionFailure('retry', queueName, jobId, audit.id, err);
+      });
     this.logger.log(`[Admin] Dead-letter job ${jobId} in "${queueName}" retried by ${actorId}`);
   }
 
@@ -668,8 +711,64 @@ export class DlqMonitorService {
     if (!job) {
       throw new Error(`Job ${jobId} not found in queue "${queueName}"`);
     }
-    await job.remove();
+    const audit = await this.prisma.auditLog.create({
+      data: {
+        actorId,
+        entityType: 'queue_job',
+        entityId: null,
+        action: 'admin.queue_job_discard_requested',
+        metadata: { queue: queueName, jobId, jobName: job.name, status: 'requested' },
+      },
+    });
+    try {
+      await job.remove();
+    } catch (err) {
+      await this.prisma.auditLog
+        .update({
+          where: { id: audit.id },
+          data: {
+            action: 'admin.queue_job_discard_failed',
+            metadata: {
+              queue: queueName,
+              jobId,
+              jobName: job.name,
+              status: 'failed',
+              error: (err as Error).message.slice(0, 500),
+            },
+          },
+        })
+        .catch(() => undefined);
+      throw err;
+    }
+    await this.prisma.auditLog
+      .update({
+        where: { id: audit.id },
+        data: {
+          action: 'admin.queue_job_discarded',
+          metadata: { queue: queueName, jobId, jobName: job.name, status: 'completed' },
+        },
+      })
+      .catch((err: unknown) => {
+        this.reportQueueAuditCompletionFailure('discard', queueName, jobId, audit.id, err);
+      });
     this.logger.log(`[Admin] Dead-letter job ${jobId} in "${queueName}" discarded by ${actorId}`);
+  }
+
+  private reportQueueAuditCompletionFailure(
+    operation: 'retry' | 'discard',
+    queueName: string,
+    jobId: string,
+    auditId: string,
+    error: unknown,
+  ): void {
+    const message =
+      `Queue ${operation} succeeded for ${queueName}/${jobId}, but audit ${auditId} ` +
+      `could not be marked completed: ${(error as Error).message}`;
+    this.logger.error(message);
+    Sentry.captureException(error, {
+      tags: { operation, queue: queueName, alert: 'queue-audit-completion' },
+      extra: { jobId, auditId },
+    });
   }
 
   private resolveQueue(name: string): Queue {

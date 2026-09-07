@@ -33,7 +33,14 @@ interface FactorRow {
   factor_type: string;
 }
 
-export function SecuritySection({ onEnrolled }: { onEnrolled?: () => void } = {}) {
+export function SecuritySection({
+  onEnrolled,
+  mfaEnforced = true,
+}: {
+  onEnrolled?: () => void;
+  /** Server-derived platform setting; never infer this from a user's factor. */
+  mfaEnforced?: boolean;
+} = {}) {
   const supabase = createClient();
   const { toast } = useToast();
 
@@ -218,6 +225,12 @@ export function SecuritySection({ onEnrolled }: { onEnrolled?: () => void } = {}
             Two-factor authentication adds a one-time code (TOTP) on top of your password. Use
             Google Authenticator, 1Password, Authy or any compatible app.
           </p>
+          <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-sm">
+            <span className="font-medium">Platform enforcement: </span>
+            {mfaEnforced
+              ? 'Required for every staff session (AAL2).'
+              : 'Configuration incomplete: staff access is blocked until MFA enforcement is enabled.'}
+          </div>
 
           {loading ? (
             <div className="rounded-md border border-dashed border-border bg-muted/30 p-4 text-sm text-muted-foreground">

@@ -39,6 +39,7 @@ const KNOWN_QUEUES = [
   'compliance',
   'terms-notices',
   'hmrc',
+  'attribution-qr',
 ];
 
 function payloadSummary(payload: Record<string, unknown>): string {
