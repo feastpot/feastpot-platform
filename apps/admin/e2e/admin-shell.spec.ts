@@ -17,6 +17,7 @@ import { expect, test } from '@playwright/test';
  * ALLOWLIST -- routes intentionally rendered WITHOUT StaffShell:
  *   /sign-in     -- unauthenticated landing page
  *   /unauthorized -- error page shown before auth is established
+ *   /settings/2fa -- dedicated MFA enrolment/recovery surface
  */
 
 const BASE = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3003';
@@ -49,7 +50,6 @@ const SHELL_ROUTES = [
   '/queues',
   '/reviews/queue',
   '/settings',
-  '/settings/2fa',
   '/user-guide',
   '/users',
   '/vendor-applications',
@@ -83,3 +83,13 @@ for (const route of SHELL_ROUTES) {
     console.log(`[S1] ${route}: sidebar present`);
   });
 }
+
+test('S2 - /settings/2fa renders the dedicated MFA surface without StaffShell', async ({
+  page,
+}) => {
+  await skipIfUnauthenticated(page, '/settings/2fa');
+  await page.waitForLoadState('domcontentloaded');
+
+  await expect(page.getByText('2FA setup required before you continue')).toBeVisible();
+  await expect(page.locator('aside[aria-label="Admin console navigation"]')).toHaveCount(0);
+});

@@ -22,7 +22,7 @@ const STATE_LANDMARKS: Record<
   VendorMatrixState,
   ReadonlyArray<{ href: string; text: string | RegExp }>
 > = {
-  V1: [{ href: '/onboarding/welcome', text: /application|approval|welcome/i }],
+  V1: [{ href: '/onboarding/welcome', text: 'Sign in to your vendor account' }],
   V2: [
     { href: '/onboarding', text: 'Set up payouts (Stripe)' },
     { href: '/onboarding', text: 'Connect with Stripe' },
@@ -85,9 +85,9 @@ const STATE_ROUTE_BLOCKS: Partial<
   Record<VendorMatrixState, ReadonlyArray<{ href: string; destination: RegExp }>>
 > = {
   V1: [
-    { href: '/menu', destination: /\/unauthorized(?:\?|$)|\/onboarding(?:\?|$)/ },
-    { href: '/orders', destination: /\/unauthorized(?:\?|$)|\/onboarding(?:\?|$)/ },
-    { href: '/payouts', destination: /\/unauthorized(?:\?|$)|\/onboarding(?:\?|$)/ },
+    { href: '/menu', destination: /\/sign-in(?:\?|$)/ },
+    { href: '/orders', destination: /\/sign-in(?:\?|$)/ },
+    { href: '/payouts', destination: /\/sign-in(?:\?|$)/ },
   ],
   V7: [{ href: '/menu', destination: /\/onboarding(?:\?|$)/ }],
   V8: [{ href: '/menu', destination: /\/onboarding(?:\?|$)/ }],
@@ -212,8 +212,6 @@ async function assertLiveEmptyVendorOrders(context: BrowserContext) {
     const emptyStates = [
       { href: '/', text: 'No sales yet today' },
       { href: '/menu', text: 'No dishes yet' },
-      { href: '/orders', text: 'Nothing needs your attention right now' },
-      { href: '/orders', text: 'No catering bookings yet' },
       { href: '/payouts', text: 'No payouts yet. Your first will land next Monday.' },
       { href: '/performance', text: 'No completed orders yet' },
       { href: '/disputes', text: 'No disputes' },
@@ -222,9 +220,17 @@ async function assertLiveEmptyVendorOrders(context: BrowserContext) {
     ] as const;
     for (const empty of emptyStates) {
       await page.goto(empty.href, { waitUntil: 'domcontentloaded', timeout: 60_000 });
-      await expect(page.getByText(empty.text)).toBeVisible({ timeout: 10_000 });
+      await expect(page.getByText(empty.text, { exact: true })).toBeVisible({ timeout: 10_000 });
       await assertNoErrorBoundary((await page.locator('body').textContent()) ?? '', empty.href);
     }
+
+    await page.goto('/orders', { waitUntil: 'domcontentloaded', timeout: 60_000 });
+    await page.getByRole('button', { name: 'Standard orders' }).click();
+    await expect(page.getByText('Nothing needs your attention right now')).toBeVisible({
+      timeout: 10_000,
+    });
+    await page.getByRole('button', { name: 'Catering' }).click();
+    await expect(page.getByText('No catering bookings yet')).toBeVisible({ timeout: 10_000 });
   } finally {
     await page.close();
   }
