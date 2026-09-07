@@ -21,6 +21,9 @@ export interface DisputeRow {
   createdAt: string;
   closedAt: string | null;
   vendorRespondedAt: string | null;
+  /** Contractual response deadlines supplied by the disputes API. */
+  vendorRespondBy?: string | null;
+  platformRespondBy?: string | null;
   resolvedAt: string | null;
   order: {
     id: string;

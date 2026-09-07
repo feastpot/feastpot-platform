@@ -37,6 +37,7 @@ export interface VendorApplicationRow {
   adminNotes: string | null;
   rejectionReason: string | null;
   vendor: { id: string; slug: string; status: string } | null;
+  lastChasedAt: string | null;
   createdAt: string;
 }
 

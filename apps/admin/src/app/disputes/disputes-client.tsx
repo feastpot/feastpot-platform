@@ -45,6 +45,8 @@ import {
 import { useDebounce } from '@/hooks/use-debounce';
 import { formatDate, formatPence } from '@/lib/format';
 import { getSLAStatus, SLA_TONE_CLASSES, type SLAStatus } from '@/lib/sla';
+import { AdminAgeingBadge } from '@/components/ui/admin-ageing-badge';
+import { getAdminAgeing } from '@/lib/admin-ageing';
 
 // -- enums + label maps ------------------------------------------------------
 //
@@ -485,7 +487,7 @@ function DisputeTableRow({ d, sla }: { d: DisputeRow; sla: SLAStatus }) {
     <TableRow>
       <TableCell className="text-sm">{formatDate(d.createdAt)}</TableCell>
       <TableCell>
-        <SLAPill sla={sla} />
+        <DisputeAgeingBadge dispute={d} fallback={sla} />
       </TableCell>
       <TableCell className="font-mono text-sm">{d.order.orderNumber}</TableCell>
       <TableCell>
@@ -513,6 +515,21 @@ function DisputeTableRow({ d, sla }: { d: DisputeRow; sla: SLAStatus }) {
       </TableCell>
     </TableRow>
   );
+}
+
+function DisputeAgeingBadge({ dispute, fallback }: { dispute: DisputeRow; fallback: SLAStatus }) {
+  const deadline =
+    dispute.vendorRespondBy && dispute.platformRespondBy
+      ? new Date(dispute.vendorRespondBy) < new Date(dispute.platformRespondBy)
+        ? dispute.vendorRespondBy
+        : dispute.platformRespondBy
+      : (dispute.vendorRespondBy ?? dispute.platformRespondBy);
+  const state = getAdminAgeing({
+    createdAt: dispute.createdAt,
+    deadlineAt: deadline,
+    terminal: ['resolved', 'closed'].includes(dispute.status),
+  });
+  return state ? <AdminAgeingBadge state={state} /> : <SLAPill sla={fallback} />;
 }
 
 function SLAPill({ sla }: { sla: SLAStatus }) {

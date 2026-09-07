@@ -1,7 +1,9 @@
-import { expect, test as base, type Page } from '@playwright/test';
+import { expect, test as base, type APIRequestContext, type Page } from '@playwright/test';
 
 import {
   TestDataFactory,
+  type CheckoutScenario,
+  type CheckoutScenarioFixture,
   type FactoryState,
   type TestIdentity,
 } from '../../../../scripts/test-factory';
@@ -15,8 +17,8 @@ import { calcServiceFeePence } from '../../src/lib/service-fee';
  * has a production URL guard).
  */
 export const test = base.extend<{ customer: CustomerFixture }>({
-  customer: async ({ page }, use) => {
-    await use(new CustomerFixture(page));
+  customer: async ({ page }, provide) => {
+    await provide(new CustomerFixture(page));
   },
 });
 
@@ -109,12 +111,15 @@ export function assertCustomerSmokeEnvironment(): void {
 export class CustomerFixture {
   constructor(readonly page: Page) {}
 
-  async mockVendorSearch(vendors: VendorFixture[]): Promise<void> {
+  async mockVendorSearch(
+    vendors: VendorFixture[],
+    cardExtras: VendorCardExtrasFixture = { trustSignals: {}, capacity: {} },
+  ): Promise<void> {
     await this.page.route('**/v1/vendors**', async (route) => {
       const url = new URL(route.request().url());
       // Card extras has a distinct response contract.
       if (url.pathname.endsWith('/card-extras')) {
-        await route.fulfill({ json: { trustSignals: {}, capacity: {} } });
+        await route.fulfill({ json: cardExtras });
         return;
       }
       await route.fulfill({ json: { data: vendors, nextCursor: null } });
@@ -150,6 +155,24 @@ export class CustomerFixture {
       throw error;
     }
   }
+
+  /** Provision one DB-backed checkout pricing permutation and its vendor. */
+  async provisionCheckoutScenario(
+    scenario: CheckoutScenario,
+  ): Promise<{ factory: TestDataFactory; fixture: CheckoutScenarioFixture }> {
+    if (process.env.CUSTOMER_E2E_USE_FACTORY !== 'true') {
+      throw new Error(
+        'CUSTOMER_E2E_FACTORY_DISABLED: set CUSTOMER_E2E_USE_FACTORY=true with a safe SUPABASE_DB_URL.',
+      );
+    }
+    const factory = TestDataFactory.fromEnvironment();
+    try {
+      return { factory, fixture: await factory.createCheckoutScenario(scenario) };
+    } catch (error) {
+      await factory.dispose();
+      throw error;
+    }
+  }
 }
 
 export interface VendorFixture {
@@ -163,6 +186,26 @@ export interface VendorFixture {
   createdAt: string;
   minOrderPence?: number;
   availableSlots?: number;
+}
+
+/**
+ * Search cards make a second, batch request for capacity and verified signals.
+ * Keeping it alongside the browser search fixture lets discovery scenarios use
+ * the same public API contract as a real results page.
+ */
+export interface VendorCardExtrasFixture {
+  trustSignals: Record<string, Array<{ signalType: string; verifiedAt: string | null }>>;
+  capacity: Record<
+    string,
+    Array<{
+      serviceDate: string;
+      capacityType: 'family_pot' | 'party_tray' | 'event_catering' | 'meal_prep';
+      totalSlots: number;
+      slotsTaken: number;
+      remainingSlots: number;
+      preorderCutoffAt: string | null;
+    }>
+  >;
 }
 
 export function vendor(overrides: Partial<VendorFixture> = {}): VendorFixture {
@@ -187,4 +230,47 @@ export function serviceFee(subtotalPence: number, waived: boolean): number {
 /** The service fee is platform revenue and must never affect vendor payout. */
 export function vendorPayout(subtotalPence: number, commissionPence: number): number {
   return subtotalPence - commissionPence;
+}
+
+export interface InspectedPaymentState {
+  namespace: string;
+  orders: Array<{
+    id: string;
+    status: string;
+    subtotalPence: number;
+    deliveryFeePence: number;
+    serviceFeePence: number;
+    discountPence: number;
+    totalPence: number;
+    payments: Array<{ id: string; orderId: string; status: string }>;
+    disputes: Array<{ id: string; orderId: string; status: string }>;
+  }>;
+}
+
+/**
+ * Read the API-owned state for an isolated factory customer. This is not a
+ * general inspection API: the server fails closed unless test mode, namespace
+ * and factory-customer bearer token all match.
+ */
+export async function inspectFactoryPaymentState(
+  request: APIRequestContext,
+  accessToken: string,
+): Promise<InspectedPaymentState> {
+  const namespace = process.env.TEST_FACTORY_NAMESPACE;
+  if (!namespace) throw new Error('CUSTOMER_E2E_NAMESPACE_REQUIRED');
+  const response = await request.get(`${process.env.TEST_API_URL}/v1/test/payment-state`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'x-test-factory-namespace': namespace,
+    },
+  });
+  if (!response.ok()) {
+    throw new Error(`CUSTOMER_E2E_STATE_INSPECTION_FAILED: ${response.status()}`);
+  }
+  const state = (await response.json()) as InspectedPaymentState;
+  expect(state.namespace).toBe(namespace);
+  for (const order of state.orders) {
+    for (const payment of order.payments) expect(payment.orderId).toBe(order.id);
+  }
+  return state;
 }

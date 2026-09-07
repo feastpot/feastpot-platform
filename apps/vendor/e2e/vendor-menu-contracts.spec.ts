@@ -38,6 +38,8 @@ test.describe.serial('factory-backed vendor menu contracts', () => {
   let vendorId: string;
   let menuId: string;
   let itemId: string;
+  let otherVendor: TestIdentity | undefined;
+  const createdItemIds: string[] = [];
 
   test.beforeAll(async () => {
     const v5 = manifest().identities.V5;
@@ -66,7 +68,10 @@ test.describe.serial('factory-backed vendor menu contracts', () => {
 
   test.afterAll(async () => {
     try {
+      if (createdItemIds.length)
+        await factory.prisma.menuItem.deleteMany({ where: { id: { in: createdItemIds } } });
       if (itemId) await factory.prisma.menuItem.delete({ where: { id: itemId } });
+      if (otherVendor) await factory.teardown(otherVendor);
     } finally {
       await factory.dispose();
     }
@@ -128,5 +133,143 @@ test.describe.serial('factory-backed vendor menu contracts', () => {
         }),
       )
       .toMatchObject({ allergens: ['milk'], allergensFreeFrom: false, isAvailable: true });
+  });
+
+  test('an explicit free-from declaration is publishable, but another vendor cannot edit it', async ({
+    page,
+  }) => {
+    await page.goto('/menu', { waitUntil: 'domcontentloaded' });
+    const bearer = await token(page);
+    const apiUrl = process.env.TEST_API_URL ?? 'http://localhost:3001';
+
+    const freeFrom = await page.evaluate(
+      async ({ url, accessToken, vendor, menu, item }) => {
+        const response = await fetch(`${url}/v1/vendors/${vendor}/menus/${menu}/items/${item}`, {
+          method: 'PATCH',
+          headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ allergens: [], allergensFreeFrom: true, isAvailable: true }),
+        });
+        return { status: response.status, body: await response.json().catch(() => null) };
+      },
+      { url: apiUrl, accessToken: bearer, vendor: vendorId, menu: menuId, item: itemId },
+    );
+    expect(freeFrom.status).toBe(200);
+    await expect
+      .poll(async () =>
+        factory.prisma.menuItem.findUniqueOrThrow({
+          where: { id: itemId },
+          select: { allergens: true, allergensFreeFrom: true, isAvailable: true },
+        }),
+      )
+      .toMatchObject({ allergens: [], allergensFreeFrom: true, isAvailable: true });
+
+    // Use a separately provisioned namespace identity rather than a fabricated
+    // bearer. The API must enforce the item/vendor ownership boundary itself.
+    otherVendor ??= await factory.create('V4');
+    const otherBearer = await factory.issueAccessToken(otherVendor);
+    const crossVendor = await page.evaluate(
+      async ({ url, accessToken, vendor, menu, item }) => {
+        const response = await fetch(`${url}/v1/vendors/${vendor}/menus/${menu}/items/${item}`, {
+          method: 'PATCH',
+          headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: 'Unauthorised edit' }),
+        });
+        return { status: response.status, body: await response.json().catch(() => null) };
+      },
+      {
+        url: apiUrl,
+        accessToken: otherBearer,
+        vendor: vendorId,
+        menu: menuId,
+        item: itemId,
+      },
+    );
+    expect(crossVendor.status).toBe(403);
+    await expect
+      .poll(async () =>
+        factory.prisma.menuItem.findUniqueOrThrow({
+          where: { id: itemId },
+          select: { name: true, allergens: true, allergensFreeFrom: true, isAvailable: true },
+        }),
+      )
+      .toMatchObject({
+        name: 'Factory menu contract dish',
+        allergens: [],
+        allergensFreeFrom: true,
+        isAvailable: true,
+      });
+  });
+
+  test('creation requires either declared allergens or an affirmative free-from declaration', async ({
+    page,
+  }) => {
+    await page.goto('/menu', { waitUntil: 'domcontentloaded' });
+    const bearer = await token(page);
+    const apiUrl = process.env.TEST_API_URL ?? 'http://localhost:3001';
+    const create = async (name: string, allergens: string[], allergensFreeFrom: boolean) =>
+      page.evaluate(
+        async ({ url, accessToken, vendor, menu, body }) => {
+          const response = await fetch(`${url}/v1/vendors/${vendor}/menus/${menu}/items`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          });
+          return { status: response.status, body: await response.json().catch(() => null) };
+        },
+        {
+          url: apiUrl,
+          accessToken: bearer,
+          vendor: vendorId,
+          menu: menuId,
+          body: {
+            name,
+            description: 'Created through the vendor menu API contract.',
+            category: 'mains',
+            basePricePence: 1500,
+            prepTimeMinutes: 30,
+            allergens,
+            allergensFreeFrom,
+            isAvailable: true,
+          },
+        },
+      );
+
+    const undeclared = await create('Undeclared allergen contract dish', [], false);
+    expect(undeclared.status).toBe(400);
+
+    const declared = await create('Declared allergen contract dish', ['milk'], false);
+    expect(declared.status).toBe(201);
+    const declaredId = (declared.body as { id?: string } | null)?.id;
+    expect(declaredId).toBeTruthy();
+    if (declaredId) createdItemIds.push(declaredId);
+
+    const freeFrom = await create('Free from allergen contract dish', [], true);
+    expect(freeFrom.status).toBe(201);
+    const freeFromId = (freeFrom.body as { id?: string } | null)?.id;
+    expect(freeFromId).toBeTruthy();
+    if (freeFromId) createdItemIds.push(freeFromId);
+
+    await expect
+      .poll(async () =>
+        factory.prisma.menuItem.findMany({
+          where: { id: { in: createdItemIds } },
+          select: { name: true, allergens: true, allergensFreeFrom: true, isAvailable: true },
+          orderBy: { name: 'asc' },
+        }),
+      )
+      .toEqual([
+        {
+          name: 'Declared allergen contract dish',
+          allergens: ['milk'],
+          allergensFreeFrom: false,
+          isAvailable: true,
+        },
+        {
+          name: 'Free from allergen contract dish',
+          allergens: [],
+          allergensFreeFrom: true,
+          isAvailable: true,
+        },
+      ]);
   });
 });

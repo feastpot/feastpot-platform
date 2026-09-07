@@ -275,6 +275,61 @@ describe('StripeWebhookProcessor chargebacks', () => {
   });
 });
 
+describe('StripeWebhookProcessor account.updated ordering', () => {
+  it('ignores an event older than the vendor account snapshot', async () => {
+    const prisma: any = {
+      processedWebhookEvent: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
+      vendor: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'vendor-1',
+          businessName: 'Factory Kitchen',
+          payoutsEnabled: true,
+          stripePayoutsEnabled: true,
+        }),
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
+      auditLog: { create: jest.fn() },
+    };
+    prisma.$transaction = jest.fn(async (fn: (tx: unknown) => Promise<unknown>) => fn(prisma));
+    const stripe = {
+      retrieveAccount: jest.fn().mockResolvedValue({
+        id: 'acct_1',
+        charges_enabled: false,
+        payouts_enabled: false,
+        requirements: { currently_due: ['external_account'] },
+      }),
+    };
+    const processor = new StripeWebhookProcessor(
+      prisma,
+      {} as never,
+      {} as never,
+      {} as never,
+      stripe as never,
+    );
+
+    await processor.onAccountUpdated({
+      data: {
+        id: 'evt_stale',
+        type: 'account.updated',
+        created: 1_700_000_000,
+        data: { id: 'acct_1' },
+      },
+    } as Job<any>);
+
+    expect(prisma.vendor.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: [
+            { stripeAccountUpdatedAt: null },
+            { stripeAccountUpdatedAt: { lt: new Date(1_700_000_000 * 1000) } },
+          ],
+        }),
+      }),
+    );
+    expect(prisma.auditLog.create).not.toHaveBeenCalled();
+  });
+});
+
 describe('StripeWebhookProcessor execution ownership', () => {
   it('allows only one concurrent execution of the same Bull job to reach side effects', async () => {
     const { proc, prisma } = build();

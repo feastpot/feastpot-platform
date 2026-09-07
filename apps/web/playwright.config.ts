@@ -14,7 +14,11 @@ export default defineConfig({
   timeout: 30_000,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
-  reporter: process.env.CI ? [['github'], ['list']] : [['list']],
+  // CI keeps a JSON result so the required customer-purchase guard can prove
+  // CP-1 was discovered and actually ran rather than being silently skipped.
+  reporter: process.env.CI
+    ? [['github'], ['list'], ['json', { outputFile: 'e2e-results.json' }]]
+    : [['list']],
 
   use: {
     baseURL: process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3000',

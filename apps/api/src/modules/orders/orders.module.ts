@@ -11,6 +11,7 @@ import { OrderSlotsService } from './order-slots.service';
 import { OrdersController } from './orders.controller';
 import { OrdersRepository } from './orders.repository';
 import { OrdersService } from './orders.service';
+import { TestPaymentStateController } from './test-payment-state.controller';
 
 @Module({
   // forwardRef on Payments because future webhook flows may inject OrdersService.
@@ -22,7 +23,7 @@ import { OrdersService } from './orders.service';
     VendorMembersModule,
     forwardRef(() => PaymentsModule),
   ],
-  controllers: [OrdersController],
+  controllers: [OrdersController, TestPaymentStateController],
   providers: [OrdersService, OrdersRepository, OrderSlotsService],
   exports: [OrdersService],
 })

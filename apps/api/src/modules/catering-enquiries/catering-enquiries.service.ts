@@ -9,6 +9,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { EmailProvider } from '../notifications/providers/email.provider';
 import { WhatsappProvider } from '../notifications/providers/whatsapp.provider';
 
+import { isCateringEnquiryStatus } from './catering-enquiry-status';
 import type { AssignCateringEnquiryDto } from './dto/assign-catering-enquiry.dto';
 import type { CreateCateringEnquiryDto } from './dto/create-catering-enquiry.dto';
 import { cateringEnquiryConfirmationTemplate } from './templates/catering-enquiry-confirmation.template';
@@ -178,6 +179,22 @@ export class CateringEnquiriesService {
 
   /** Admin: update status and/or notes. */
   async updateStatus(id: string, status: string, adminNotes?: string) {
+    if (!isCateringEnquiryStatus(status)) {
+      throw new BadRequestException(`Unknown catering enquiry status: ${status}`);
+    }
+    const existing = await this.prisma.cateringEnquiry.findUnique({
+      where: { id },
+      select: { status: true },
+    });
+    if (!existing) throw new NotFoundException('Catering enquiry not found');
+    // Expiry is terminal for fulfilment. Notes can still be corrected, but an
+    // expired event must never be reopened into an assignable state.
+    if (existing.status === 'EXPIRED' && status !== 'EXPIRED') {
+      throw new BadRequestException({
+        code: 'EXPIRED_ENQUIRY_TERMINAL',
+        message: 'Expired catering enquiries cannot be reopened or assigned.',
+      });
+    }
     return this.prisma.cateringEnquiry.update({
       where: { id },
       data: { status, ...(adminNotes !== undefined ? { adminNotes } : {}) },
@@ -220,6 +237,23 @@ export class CateringEnquiriesService {
     const quoteExpiresAt = new Date(Date.now() + 7 * 86_400_000);
 
     const booking = await this.prisma.$transaction(async (tx) => {
+      // Claim the unassigned intake row first. This mirrors the expiry cron's
+      // conditional claim, so an event-date expiry and an admin assignment
+      // cannot both succeed between the initial read above and this transaction.
+      const claim = await tx.cateringEnquiry.updateMany({
+        where: {
+          id: enquiryId,
+          status: { in: [...CateringEnquiriesService.ASSIGNABLE_STATUSES] },
+          booking: { is: null },
+        },
+        data: { status: 'ASSIGNED' },
+      });
+      if (claim.count === 0) {
+        throw new BadRequestException({
+          code: 'ENQUIRY_NOT_ASSIGNABLE',
+          message: 'This enquiry was updated and can no longer be assigned. Refresh and try again.',
+        });
+      }
       const b = await tx.cateringBooking.create({
         data: {
           enquiryId,
@@ -240,7 +274,6 @@ export class CateringEnquiriesService {
           assignNote: dto.note ?? null,
         },
       });
-      await tx.cateringEnquiry.update({ where: { id: enquiryId }, data: { status: 'ASSIGNED' } });
       await tx.auditLog.create({
         data: {
           actorId,

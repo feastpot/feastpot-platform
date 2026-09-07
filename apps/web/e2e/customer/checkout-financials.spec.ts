@@ -1,13 +1,8 @@
 import type { Page, Route } from '@playwright/test';
 
-import { expect, test } from './helpers';
+import { assertCustomerSmokeEnvironment, expect, test } from './helpers';
 import { mockSession, mockSignin } from '../auth/helpers/supabase-mock';
 import { SB } from '../auth/helpers/selectors';
-
-test.skip(
-  !process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
-  'Checkout pre-payment browser contracts require Stripe Elements to be configured.',
-);
 
 const vendorId = '11111111-1111-4111-8111-111111111111';
 const menuItemId = '22222222-2222-4222-8222-222222222222';
@@ -74,6 +69,7 @@ async function prepareCheckout(
   page: Page,
   orderHandler: (route: Route) => Promise<void>,
   discountCode?: string,
+  activeFeastPass = false,
 ): Promise<void> {
   const session = mockSession('checkout@example.test');
   await mockSignin(page, session);
@@ -85,7 +81,7 @@ async function prepareCheckout(
   await page.waitForURL(/\/vendors(?:[/?#]|$)/, { timeout: 20_000 });
 
   await page.evaluate(
-    ({ discount, vendorId, menuItemId, firstVisiblePricePence }) => {
+    ({ discount, activeFeastPass, vendorId, menuItemId, firstVisiblePricePence }) => {
       localStorage.setItem(
         'feastpot.basket.v1',
         JSON.stringify({
@@ -106,9 +102,11 @@ async function prepareCheckout(
         }),
       );
       if (discount) sessionStorage.setItem('feastpot.discount.v1', discount);
+      if (activeFeastPass) localStorage.setItem(`fp_mp_${vendorId}`, 'MARKETPLACE_FIRST');
     },
     {
       discount: discountCode,
+      activeFeastPass,
       vendorId,
       menuItemId,
       firstVisiblePricePence,
@@ -172,7 +170,13 @@ async function prepareCheckout(
       return;
     }
     if (url.pathname.endsWith('/v1/feastpass/me')) {
-      await route.fulfill({ json: { subscription: null } });
+      await route.fulfill({
+        json: {
+          subscription: activeFeastPass
+            ? { status: 'ACTIVE', currentPeriodEnd: '2030-01-01T00:00:00.000Z' }
+            : null,
+        },
+      });
       return;
     }
     if (url.pathname.includes('/loyalty')) {
@@ -188,6 +192,17 @@ async function prepareCheckout(
   await page.goto('/checkout');
   await expect(page.getByRole('heading', { name: 'Checkout', exact: true }).first()).toBeVisible();
   await expect(page.getByText('£20.00').first()).toBeVisible();
+  // The summary is the first pricing display, so it must disclose the
+  // platform's canonical 5% fee (or an active FeastPass waiver) and the
+  // payable total before a customer can proceed.
+  await expect(page.getByText('Service fee', { exact: false }).first()).toBeVisible();
+  await expect(
+    page.getByText(activeFeastPass ? 'Free' : '£1.00', { exact: true }).first(),
+  ).toBeVisible();
+  await expect(page.getByText('Total', { exact: true })).toBeVisible();
+  await expect(
+    page.getByText(activeFeastPass ? '£22.50' : '£23.50', { exact: true }),
+  ).toBeVisible();
   await page.locator(`input[name="address"][value="${addressId}"]`).check();
   const slotSection = page.locator('section').filter({ hasText: 'When do you need the food?' });
   await slotSection
@@ -202,6 +217,26 @@ async function prepareCheckout(
 }
 
 test.describe('browser checkout failure contracts', () => {
+  test.beforeAll(() => {
+    assertCustomerSmokeEnvironment();
+  });
+
+  test('active FeastPass marketplace checkout discloses a zero service fee in its first total', async ({
+    page,
+  }) => {
+    await prepareCheckout(
+      page,
+      async (route) => {
+        await route.fulfill({
+          status: 500,
+          json: { message: 'Not submitted by this disclosure test' },
+        });
+      },
+      undefined,
+      true,
+    );
+  });
+
   for (const scenario of failures) {
     test(`${scenario.name} shows the API error without retrying`, async ({ page }) => {
       let creates = 0;

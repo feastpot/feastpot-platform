@@ -98,6 +98,48 @@ describe('AdminUsersService.updateUserRole', () => {
       app_metadata: { role: 'customer' },
     });
   });
+
+  it('rejects a last active admin demotion inside the serializable transaction', async () => {
+    const tx = {
+      user: {
+        count: jest.fn().mockResolvedValue(1),
+        update: jest.fn(),
+      },
+      auditLog: { create: jest.fn() },
+    };
+    const prisma = {
+      user: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'target-admin',
+          role: 'admin',
+          status: 'active',
+          email: 'admin@example.test',
+          vendor: null,
+        }),
+      },
+      $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)),
+    };
+    const service = new AdminUsersService(
+      prisma as unknown as PrismaService,
+      {} as SupabaseService,
+      {} as LoyaltyService,
+      {} as NotificationsService,
+      {} as ConfigService,
+      {} as EmailProvider,
+    );
+
+    await expect(
+      service.updateUserRole(
+        'target-admin',
+        'support',
+        'Coverage handover; a second admin has not yet been promoted.',
+        'different-admin',
+      ),
+    ).rejects.toMatchObject({ response: { code: 'LAST_ADMIN' } });
+    expect(tx.user.count).toHaveBeenCalledWith({ where: { role: 'admin', status: 'active' } });
+    expect(tx.user.update).not.toHaveBeenCalled();
+    expect(tx.auditLog.create).not.toHaveBeenCalled();
+  });
 });
 
 /**

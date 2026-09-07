@@ -42,6 +42,8 @@ import { apiRequest } from '@/lib/api/client';
 import { formatDate, formatPence } from '@/lib/format';
 import { formatRatio } from '@/lib/format-ratio';
 import { createClient } from '@/lib/supabase/client';
+import { AdminAgeingBadge } from '@/components/ui/admin-ageing-badge';
+import { getAdminAgeing } from '@/lib/admin-ageing';
 
 function DialogFooter({ children }: { children: React.ReactNode }) {
   return <div className="mt-4 flex justify-end gap-2">{children}</div>;
@@ -50,6 +52,7 @@ function DialogFooter({ children }: { children: React.ReactNode }) {
 const STATUSES: ReadonlyArray<PayoutStatus | 'all'> = [
   'draft',
   'approved',
+  'processing',
   'held',
   'transferred',
   'failed',
@@ -328,6 +331,7 @@ export function PayoutsClient({ role }: PayoutsClientProps) {
                 <TableHead>Vendor</TableHead>
                 <TableHead>Period</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Hold review</TableHead>
                 <TableHead className="text-right">Amount</TableHead>
                 <TableHead className="text-right">Commission</TableHead>
                 <TableHead className="text-right">Stripe transfer</TableHead>
@@ -337,14 +341,14 @@ export function PayoutsClient({ role }: PayoutsClientProps) {
             <TableBody>
               {isLoading && (
                 <TableRow>
-                  <TableCell colSpan={8} className="py-6 text-center text-sm text-muted-foreground">
+                  <TableCell colSpan={9} className="py-6 text-center text-sm text-muted-foreground">
                     Loading…
                   </TableCell>
                 </TableRow>
               )}
               {!isLoading && draftRows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="p-0">
+                  <TableCell colSpan={9} className="p-0">
                     <EmptyState
                       icon={Banknote}
                       title="No payouts in this state"
@@ -375,6 +379,15 @@ export function PayoutsClient({ role }: PayoutsClientProps) {
                   </TableCell>
                   <TableCell>
                     <PayoutStatusPill status={p.status} />
+                  </TableCell>
+                  <TableCell>
+                    <AdminAgeingBadge
+                      state={getAdminAgeing({
+                        createdAt: p.createdAt,
+                        hours: 14 * 24,
+                        terminal: p.status !== 'held',
+                      })}
+                    />
                   </TableCell>
                   <TableCell className="text-right">{formatPence(p.amountPence)}</TableCell>
                   <TableCell className="text-right text-muted-foreground">
@@ -551,6 +564,7 @@ function PayoutStatusPill({ status }: { status: PayoutStatus }) {
   const tone: Record<PayoutStatus, StatusTone> = {
     draft: 'neutral',
     approved: 'info',
+    processing: 'info',
     held: 'warning',
     transferred: 'success',
     failed: 'danger',

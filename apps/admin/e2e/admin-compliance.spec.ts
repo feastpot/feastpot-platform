@@ -834,4 +834,54 @@ test.describe('admin compliance controls', () => {
     await expect(page.getByText('1', { exact: true }).first()).toBeVisible();
     await expect(page.getByText(/SHA-256 content hash/)).toBeVisible();
   });
+
+  test('dead-letter retry re-enqueues and discard sends the selected job for audited removal', async ({
+    page,
+  }) => {
+    const job = {
+      id: 'failed-notification-1',
+      queue: 'notifications',
+      name: 'send-order-update',
+      payload: { orderId: 'order-1' },
+      failedReason: 'Provider timed out',
+      attemptsMade: 3,
+      timestamp: Date.now() - 60_000,
+      processedOn: Date.now() - 30_000,
+      finishedOn: Date.now() - 1_000,
+    };
+    const requests: Array<{ method: string; url: string }> = [];
+    await page.route('**/v1/admin/dead-letters**', async (route) => {
+      const request = route.request();
+      if (request.method() === 'GET') {
+        await route.fulfill({
+          contentType: 'application/json',
+          body: JSON.stringify({ data: [job], count: 1 }),
+        });
+        return;
+      }
+      requests.push({ method: request.method(), url: new URL(request.url()).pathname });
+      await route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({ ok: true, jobId: job.id, queue: job.queue }),
+      });
+    });
+    page.on('dialog', (dialog) => void dialog.accept());
+
+    await page.goto(`${BASE}/dead-letters`);
+    await requireAdminSession(page);
+    await expect(page.getByText('send-order-update')).toBeVisible();
+    await page.getByRole('button', { name: 'Retry' }).click();
+    await expect.poll(() => requests.length).toBe(1);
+    expect(requests[0]).toEqual({
+      method: 'POST',
+      url: '/v1/admin/dead-letters/notifications/failed-notification-1/retry',
+    });
+
+    await page.getByRole('button', { name: 'Discard' }).click();
+    await expect.poll(() => requests.length).toBe(2);
+    expect(requests[1]).toEqual({
+      method: 'POST',
+      url: '/v1/admin/dead-letters/notifications/failed-notification-1/discard',
+    });
+  });
 });

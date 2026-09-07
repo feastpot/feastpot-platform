@@ -27,6 +27,11 @@ export interface OrderItem {
   unitPence: number;
   totalPence: number;
   notes: string | null;
+  /**
+   * The API joins the menu item so customers can re-check the allergen
+   * declaration that applied to the dish in their order.
+   */
+  menuItem?: { allergens: string[] } | null;
 }
 
 export interface OrderVendorSummary {

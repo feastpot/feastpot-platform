@@ -34,6 +34,9 @@ interface WebhookJob {
   id: string;
   type: string;
   data: unknown;
+  created?: number;
+  /** Supplied only by the guarded lifecycle seam in a NODE_ENV=test process. */
+  testAccount?: Stripe.Account;
 }
 
 /**
@@ -201,7 +204,10 @@ export class StripeWebhookProcessor {
   async onAccountUpdated(job: Job<WebhookJob>): Promise<void> {
     if (!(await this.beginProcessing(job))) return;
     const eventAccount = job.data.data as Stripe.Account;
-    const account = await this.stripeService.retrieveAccount(eventAccount.id);
+    const account =
+      process.env.NODE_ENV === 'test' && job.data.testAccount
+        ? job.data.testAccount
+        : await this.stripeService.retrieveAccount(eventAccount.id);
     const eventCreated = new Date(
       (typeof (job.data as WebhookJob & { created?: number }).created === 'number'
         ? (job.data as WebhookJob & { created: number }).created

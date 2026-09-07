@@ -257,6 +257,42 @@ describe('PayoutsService.runWeeklyBatch (refund netting)', () => {
     // net = vendorPayout 3769 − clawback 3769 = 0 (vendor neither paid nor over-charged).
     expect(data.amountPence).toBe(0);
   });
+
+  it('is idempotent for an already-persisted vendor/week statement', async () => {
+    const { svc, prisma } = build();
+    prisma.order.findMany.mockResolvedValueOnce([
+      {
+        id: 'o1',
+        vendorId: 'v1',
+        orderNumber: 'FP-001',
+        subtotalPence: 2000,
+        deliveryFeePence: 0,
+        serviceFeePence: 100,
+        discountPence: 0,
+        totalPence: 2100,
+        vendorPayoutPence: 1760,
+        commissionPence: 240,
+        deliveredAt: new Date('2025-10-29T12:00:00Z'),
+        orderCommission: null,
+        attribution: null,
+        vendor: {
+          id: 'v1',
+          userId: 'u1',
+          businessName: 'Factory Kitchen',
+          commissionBps: 1200,
+          payoutsEnabled: true,
+          slug: 'factory-kitchen',
+          referralLink: null,
+        },
+      },
+    ]);
+    prisma.payout.findFirst.mockResolvedValueOnce({ id: 'p-existing' });
+
+    await expect(svc.runWeeklyBatch(new Date('2025-11-04T12:00:00Z'))).resolves.toEqual(
+      expect.objectContaining({ created: [], skippedVendorIds: ['v1'] }),
+    );
+    expect(prisma.payout.create).not.toHaveBeenCalled();
+  });
 });
 
 describe('PayoutsService.holdPayout', () => {

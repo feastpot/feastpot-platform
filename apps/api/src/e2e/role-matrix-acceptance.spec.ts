@@ -5,6 +5,7 @@ import { Test } from '@nestjs/testing';
 import request, { type Response } from 'supertest';
 
 import { TestDataFactory, type TestIdentity } from '../../../../scripts/test-factory';
+import { ROLES_KEY } from '../auth/decorators/roles.decorator';
 import { RoleThrottlerGuard } from '../common/guards/role-throttler.guard';
 import { AdminController } from '../modules/admin/admin.controller';
 import { STRIPE_CLIENT } from '../stripe/stripe.service';
@@ -22,7 +23,7 @@ const missing = [
 ];
 const d = missing.length ? describe.skip : describe;
 
-type AdminRoute = { method: RequestMethod; path: string };
+type AdminRoute = { method: RequestMethod; path: string; roles: string[] };
 
 /**
  * Keep the endpoint inventory coupled to the controller decorators, but make
@@ -40,7 +41,11 @@ function adminRoutes(): AdminRoute[] {
       const method = Reflect.getMetadata(METHOD_METADATA, handler) as RequestMethod | undefined;
       const path = Reflect.getMetadata(PATH_METADATA, handler) as string | undefined;
       if (method === undefined || path === undefined) return [];
-      return [{ method, path: `/v1/${prefix}/${path}`.replace(/\/+/g, '/') }];
+      const roles =
+        (Reflect.getMetadata(ROLES_KEY, handler) as string[] | undefined) ??
+        (Reflect.getMetadata(ROLES_KEY, AdminController) as string[] | undefined) ??
+        [];
+      return [{ method, path: `/v1/${prefix}/${path}`.replace(/\/+/g, '/'), roles }];
     });
 }
 
@@ -78,9 +83,15 @@ d('S6 role-matrix acceptance (real factory JWTs)', () => {
   let customerWithDispute: TestIdentity;
   let aal1Admin: TestIdentity;
   let aal2Admin: TestIdentity;
+  let support: TestIdentity;
+  let finance: TestIdentity;
+  let compliance: TestIdentity;
   let customerToken: string;
   let vendorAToken: string;
   let aal1Token: string;
+  let supportToken: string;
+  let financeToken: string;
+  let complianceToken: string;
   let previousAalRequirement: string | undefined;
 
   beforeAll(async () => {
@@ -98,8 +109,14 @@ d('S6 role-matrix acceptance (real factory JWTs)', () => {
     // Capture the AAL1 session before A2 enrols that account in MFA.
     aal1Token = await factory.issueAccessToken(aal1Admin);
     aal2Admin = await factory.create('A2');
+    support = await factory.create('A3');
+    finance = await factory.create('A4');
+    compliance = await factory.create('A5');
     customerToken = await factory.issueAccessToken(customer);
     vendorAToken = await factory.issueAccessToken(vendorA);
+    supportToken = await factory.issueAccessToken(support);
+    financeToken = await factory.issueAccessToken(finance);
+    complianceToken = await factory.issueAccessToken(compliance);
     expect(aal2Admin.accessToken).toBeDefined();
 
     // Force the acceptance condition in-process rather than relying on a
@@ -142,6 +159,9 @@ d('S6 role-matrix acceptance (real factory JWTs)', () => {
           customerWithDispute,
           aal1Admin,
           aal2Admin,
+          support,
+          finance,
+          compliance,
         ]
           .filter(Boolean)
           .map((identity) => factory.teardown(identity)),
@@ -160,6 +180,26 @@ d('S6 role-matrix acceptance (real factory JWTs)', () => {
       const response = await call(app, method, concretePath(path), vendorAToken);
       expect(response.status).toBe(403);
       expect(response.body.code).toBe('FORBIDDEN');
+    },
+  );
+
+  it.each(
+    adminRoutes().flatMap((route) =>
+      (['support', 'finance', 'compliance'] as const).flatMap((role) =>
+        route.roles.includes(role) ? [] : [[route, role] as const],
+      ),
+    ),
+  )(
+    'rejects forbidden $1 staff role at admin $0.method $0.path',
+    async ([{ method, path }, role]) => {
+      const token =
+        role === 'support' ? supportToken : role === 'finance' ? financeToken : complianceToken;
+      const response = await call(app, method, concretePath(path), token);
+      expect({ role, status: response.status, code: response.body.code }).toEqual({
+        role,
+        status: 403,
+        code: 'FORBIDDEN',
+      });
     },
   );
 

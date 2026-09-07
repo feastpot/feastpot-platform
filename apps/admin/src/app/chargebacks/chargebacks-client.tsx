@@ -32,6 +32,8 @@ import {
   type ChargebackStatus,
 } from '@/hooks/use-chargebacks';
 import { formatDateTime, formatPence } from '@/lib/format';
+import { AdminAgeingBadge } from '@/components/ui/admin-ageing-badge';
+import { getAdminAgeing } from '@/lib/admin-ageing';
 
 // -- status enums + label/tone maps ------------------------------------------
 //
@@ -62,18 +64,6 @@ const STATUS_TONE: Record<string, StatusTone> = {
 function statusLabel(status: ChargebackStatus): string {
   const known = STATUS_OPTIONS.find((o) => o.value === status);
   return known ? known.label : status.replace(/_/g, ' ');
-}
-
-// -- evidence-deadline helpers -----------------------------------------------
-
-const SEVENTY_TWO_HOURS_MS = 72 * 60 * 60 * 1000;
-
-/** Whether an evidence deadline is within 72h or already past. */
-function isEvidenceUrgent(evidenceDueBy: string | null): boolean {
-  if (!evidenceDueBy) return false;
-  const due = new Date(evidenceDueBy).getTime();
-  if (Number.isNaN(due)) return false;
-  return due - Date.now() <= SEVENTY_TWO_HOURS_MS;
 }
 
 // -- component ---------------------------------------------------------------
@@ -278,7 +268,11 @@ export function ChargebacksClient() {
 // -- helpers -----------------------------------------------------------------
 
 function ChargebackTableRow({ cb }: { cb: ChargebackRow }) {
-  const urgent = isEvidenceUrgent(cb.evidenceDueBy);
+  const evidenceSla = getAdminAgeing({
+    createdAt: cb.openedAt ?? cb.createdAt,
+    deadlineAt: cb.evidenceDueBy,
+    terminal: ['won', 'lost', 'charge_refunded'].includes(cb.status),
+  });
   return (
     <TableRow>
       <TableCell className="font-mono text-sm">
@@ -294,9 +288,10 @@ function ChargebackTableRow({ cb }: { cb: ChargebackRow }) {
       </TableCell>
       <TableCell className="text-sm">
         {cb.evidenceDueBy ? (
-          <span className={urgent ? 'font-semibold text-red-700' : undefined}>
-            {formatDateTime(cb.evidenceDueBy)}
-          </span>
+          <div className="space-y-1">
+            <div>{formatDateTime(cb.evidenceDueBy)}</div>
+            <AdminAgeingBadge state={evidenceSla} />
+          </div>
         ) : (
           '-'
         )}

@@ -1,6 +1,11 @@
 import type { Page, Route } from '@playwright/test';
 
-import { expect, test } from './helpers';
+import {
+  assertCustomerSmokeEnvironment,
+  expect,
+  inspectFactoryPaymentState,
+  test,
+} from './helpers';
 import { mockSession, mockSignin } from '../auth/helpers/supabase-mock';
 import { SB } from '../auth/helpers/selectors';
 
@@ -81,7 +86,117 @@ async function expectNoHorizontalOverflow(page: Page): Promise<void> {
   expect(widths.scrollWidth).toBe(widths.clientWidth);
 }
 
+async function expectMobilePageWidth(page: Page): Promise<void> {
+  const widths = await page.evaluate(() => ({
+    clientWidth: document.documentElement.clientWidth,
+    scrollWidth: document.documentElement.scrollWidth,
+  }));
+  expect(widths.scrollWidth).toBeLessThanOrEqual(widths.clientWidth);
+}
+
+async function enterDeterministicSuccessCard(page: Page): Promise<void> {
+  const card = page.frameLocator('iframe[name^="__privateStripeFrame"][title$="input frame" i]');
+  await expect(card.locator('input[name="exp-date"]')).toBeVisible({ timeout: 30_000 });
+  // This is the same test-mode success card used by payment-states.spec.ts;
+  // no alternate Stripe adapter or live-mode payment path is introduced here.
+  await card.locator('input[name="cardnumber"]').fill('4242424242424242');
+  await card.locator('input[name="exp-date"]').fill('1230');
+  await card.locator('input[name="cvc"]').fill('123');
+  await card.locator('input[autocomplete="postal-code"]').fill('SE15 4ST');
+}
+
+async function signInFactoryCustomer(
+  page: Page,
+  credentials: { email: string; password: string | null },
+  next: string,
+): Promise<void> {
+  if (!credentials.password) throw new Error('CUSTOMER_E2E_FACTORY_PASSWORD_REQUIRED');
+  await page.goto(`/sign-in?next=${encodeURIComponent(next)}`);
+  await page.locator('#signin-email').fill(credentials.email);
+  await page.locator('#signin-password').fill(credentials.password);
+  await page.getByRole('button', { name: /sign in/i }).click();
+  await expect(page).toHaveURL(new RegExp(next.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+}
+
 test.describe('post-order customer journeys', () => {
+  test('375px homepage discovery through payment, confirmation, and order history', async ({
+    page,
+    request,
+    customer,
+  }) => {
+    test.setTimeout(120_000);
+    assertCustomerSmokeEnvironment();
+    await page.setViewportSize({ width: 375, height: 812 });
+    const { factory, fixture } = await customer.provisionCheckoutScenario(
+      'MARKETPLACE_NEW_NON_MEMBER',
+    );
+    try {
+      const accessToken = await factory.issueAccessToken(fixture.customer);
+
+      await page.goto('/');
+      await expect(page.locator('#hero-postcode')).toBeVisible();
+      await expectMobilePageWidth(page);
+      await page.locator('#hero-postcode').fill('SE15 4ST');
+      await page.getByRole('button', { name: /find food near me/i }).click();
+      await expect(page).toHaveURL(/\/vendors\?postcode=SE15(?:%20|\+)4ST/);
+      await expectMobilePageWidth(page);
+
+      await page.locator(`a[href="/vendors/${fixture.vendor.vendorSlug}#menu"]`).click();
+      await expect(page).toHaveURL(new RegExp(`/vendors/${fixture.vendor.vendorSlug}`));
+      await expect(page.getByRole('heading')).toBeVisible();
+      await expectMobilePageWidth(page);
+      await page
+        .getByRole('button', { name: /add .* to basket/i })
+        .first()
+        .click();
+      await page.getByText('View basket', { exact: true }).click();
+      await expect(page.getByText('Your basket', { exact: true })).toBeVisible();
+      await expectMobilePageWidth(page);
+      await page.getByRole('button', { name: /checkout/i }).click();
+
+      await expect(page).toHaveURL(/\/sign-in\?next=%2Fcheckout/);
+      await expectMobilePageWidth(page);
+      await page.locator('#signin-email').fill(fixture.customer.credentials.email);
+      await page.locator('#signin-password').fill(fixture.customer.credentials.password!);
+      await page.getByRole('button', { name: /sign in/i }).click();
+      await expect(page).toHaveURL(/\/checkout$/);
+      await expect(page.getByRole('heading', { name: 'Checkout', exact: true })).toBeVisible();
+      await expectMobilePageWidth(page);
+      await page.locator(`input[name="address"][value="${fixture.customer.addressId!}"]`).check();
+      const slots = page.locator('section').filter({ hasText: 'When do you need the food?' });
+      await slots
+        .getByRole('button', { name: /^Select \d{1,2} \w+$/ })
+        .last()
+        .click();
+      await slots
+        .getByRole('button', { name: /^Select \d{2}:00/ })
+        .first()
+        .click();
+      await page.getByRole('checkbox').check();
+      await enterDeterministicSuccessCard(page);
+      await page.getByRole('button', { name: 'Place order securely' }).first().click();
+
+      await expect(page).toHaveURL(/\/orders\/[^/]+\/confirmation$/, { timeout: 30_000 });
+      await expect(page.getByText(/order confirmed|thanks/i)).toBeVisible();
+      await expectMobilePageWidth(page);
+      const state = await inspectFactoryPaymentState(request, accessToken);
+      expect(state.orders).toHaveLength(1);
+      expect(state.orders[0]!.payments).toHaveLength(1);
+      expect(state.orders[0]!.payments[0]!.orderId).toBe(state.orders[0]!.id);
+      expect(state.orders[0]!.status).toMatch(/^(pending|accepted)$/);
+      expect(state.orders[0]!.payments[0]!.status).toBe('succeeded');
+
+      await page.goto('/orders');
+      await expect(page.getByRole('heading', { name: 'Your orders' })).toBeVisible();
+      await expect(page.getByText(/pending|order placed/i)).toBeVisible();
+      await expectMobilePageWidth(page);
+    } finally {
+      await factory.teardown(fixture.customer);
+      await factory.teardown(fixture.vendor);
+      await factory.dispose();
+    }
+  });
+
   test('order history displays financial states and reorder rebuilds the basket', async ({
     page,
   }) => {
@@ -130,6 +245,55 @@ test.describe('post-order customer journeys', () => {
     const basket = await page.evaluate(() => localStorage.getItem('feastpot.basket.v1'));
     expect(basket).toContain('Peanut stew');
     expect(basket).toContain('menu-1');
+  });
+
+  test('confirmation names each authoritative charge and the ordered-item allergen summary', async ({
+    page,
+  }) => {
+    await signIn(page);
+    await page.route('**/v1/orders/order-confirmation', (route) =>
+      fulfillOrder(
+        route,
+        baseOrder({
+          id: 'order-confirmation',
+          subtotalPence: 1_000,
+          deliveryFeePence: 200,
+          serviceFeePence: 50,
+          discountPence: 100,
+          totalPence: 1_150,
+          items: [
+            {
+              id: 'item-confirmation',
+              menuItemId: 'menu-confirmation',
+              nameSnapshot: 'Peanut stew',
+              quantity: 1,
+              unitPence: 1_000,
+              totalPence: 1_000,
+              notes: null,
+              menuItem: { allergens: ['peanuts', 'soy'] },
+            },
+          ],
+        }),
+      ),
+    );
+    await page.route('**/v1/feastpass/savings-potential', (route) =>
+      route.fulfill({ json: { savingsPotentialPence: 0 } }),
+    );
+
+    await page.goto('/orders/order-confirmation/confirmation');
+    const totals = page.getByLabel('Order totals');
+    await expect(totals).toContainText('Subtotal');
+    await expect(totals).toContainText('£10.00');
+    await expect(totals).toContainText('Delivery fee');
+    await expect(totals).toContainText('£2.00');
+    await expect(totals).toContainText('Service fee');
+    await expect(totals).toContainText('£0.50');
+    await expect(totals).toContainText('Discount');
+    await expect(totals).toContainText('−£1.00');
+    await expect(page.getByLabel('Total paid')).toContainText('£11.50');
+    await expect(page.getByLabel('Allergen summary')).toContainText(
+      'Contains or may contain: peanuts, soy.',
+    );
   });
 
   test('tracking refreshes from placed to accepted and renders each stage', async ({ page }) => {
@@ -303,6 +467,40 @@ test.describe('post-order customer journeys', () => {
       'vendor contacted',
     );
     await expect(page.getByText('Need help with this order?')).toBeVisible();
+  });
+
+  test('refund request creates an authoritative dispute record for the factory customer', async ({
+    page,
+    request,
+    customer,
+  }) => {
+    test.setTimeout(90_000);
+    assertCustomerSmokeEnvironment();
+    const { factory, identities } = await customer.provision(['C3']);
+    const identity = identities[0]!;
+    const accessToken = await factory.issueAccessToken(identity);
+    try {
+      await signInFactoryCustomer(
+        page,
+        identity.credentials,
+        `/orders/${identity.orderId}/tracking`,
+      );
+      await page.getByRole('button', { name: 'Request a refund' }).click();
+      await page
+        .getByLabel('What happened?')
+        .fill('The meal arrived cold and was not safe to eat.');
+      await page.getByRole('button', { name: 'Submit refund request' }).click();
+      await expect(page.getByRole('status')).toContainText('submitted for review');
+
+      const state = await inspectFactoryPaymentState(request, accessToken);
+      const order = state.orders.find((candidate) => candidate.id === identity.orderId);
+      expect(order).toBeDefined();
+      expect(order!.disputes).toHaveLength(1);
+      expect(order!.disputes[0]).toMatchObject({ orderId: identity.orderId, status: 'open' });
+    } finally {
+      await factory.teardown(identity);
+      await factory.dispose();
+    }
   });
 
   test('review is blocked before delivery, then accepts the tracking-page rating after delivery', async ({

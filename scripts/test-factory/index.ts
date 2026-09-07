@@ -24,12 +24,45 @@ export const FACTORY_STATES = [
   'A1',
   'A2',
   'A3',
+  'A4',
+  'A5',
 ] as const;
 
 export type FactoryState = (typeof FACTORY_STATES)[number];
 type CustomerState = Extract<FactoryState, `C${number}`>;
 type VendorState = Extract<FactoryState, `V${number}`>;
 type AdminState = Extract<FactoryState, `A${number}`>;
+
+/**
+ * Customer/order combinations used by checkout financial tests.  These are
+ * deliberately expressed as business facts, not as route-fixture labels: the
+ * factory writes the customer, address, vendor and (where applicable) prior
+ * order/referral rows that the API uses to calculate an order.
+ */
+export const CHECKOUT_SCENARIOS = [
+  'MARKETPLACE_NEW_NON_MEMBER',
+  'VENDOR_REFERRED_NEW_NON_MEMBER',
+  'REPEAT_VENDOR_NON_MEMBER',
+  'MARKETPLACE_ACTIVE_FEASTPASS',
+  'MARKETPLACE_LAPSED_FEASTPASS',
+] as const;
+
+export type CheckoutScenario = (typeof CHECKOUT_SCENARIOS)[number];
+
+export interface CheckoutScenarioFixture {
+  scenario: CheckoutScenario;
+  customer: TestIdentity;
+  vendor: TestIdentity;
+  /**
+   * A cancelled, explicitly seeded financial snapshot for the checkout basket.
+   * It is never eligible to become customer history or operational work, but
+   * lets browser acceptance tests compare the fee-isolated vendor payout using
+   * persisted finance columns rather than a UI-side formula.
+   */
+  financialSnapshotOrderId: string;
+  /** Present only for the vendor-referred scenario. */
+  referral?: { linkId: string; linkSlug: string; clickId: string };
+}
 
 export interface TestFactoryOptions {
   databaseUrl?: string;
@@ -141,6 +174,8 @@ export const FACTORY_STATE_CONTRACTS: Record<FactoryState, readonly string[]> = 
   A1: ['active admin', 'AAL1 password identity'],
   A2: ['active admin', 'AAL2 TOTP identity'],
   A3: ['active restricted support role'],
+  A4: ['active restricted finance role'],
+  A5: ['active restricted compliance role'],
 };
 
 interface FactoryUser {
@@ -363,6 +398,31 @@ export class TestDataFactory {
     return data.session.access_token;
   }
 
+  /**
+   * Give a Supabase user created by the real application-approval flow the
+   * test factory password. This is deliberately unavailable without both the
+   * service-role client and an explicitly configured test password; production
+   * callers cannot turn an approval into a password login through this helper.
+   */
+  async setTestPassword(userId: string): Promise<string> {
+    if (!this.admin || !this.password) {
+      throw new Error(
+        'TEST_FACTORY_PASSWORD_REQUIRES_SUPABASE: configure service role and TEST_FACTORY_PASSWORD.',
+      );
+    }
+    const { error } = await this.admin.auth.admin.updateUserById(userId, {
+      password: this.password,
+      email_confirm: true,
+    });
+    if (error) throw new Error(`TEST_FACTORY_PASSWORD_UPDATE_FAILED: ${error.message}`);
+    return this.password;
+  }
+
+  /** @deprecated Use setTestPassword; kept for the vendor lifecycle callers. */
+  async setApprovedVendorTestPassword(userId: string): Promise<string> {
+    return this.setTestPassword(userId);
+  }
+
   async create(state: FactoryState): Promise<TestIdentity> {
     if (!FACTORY_STATES.includes(state)) {
       throw new Error(`TEST_FACTORY_UNKNOWN_STATE: ${state}`);
@@ -389,6 +449,52 @@ export class TestDataFactory {
     const identities: TestIdentity[] = [];
     for (const state of FACTORY_STATES) identities.push(await this.create(state));
     return identities;
+  }
+
+  /**
+   * Provision a checkout pricing fixture backed by real database rows.
+   *
+   * The caller still owns both returned identities and must tear them down.
+   * This method intentionally does not create an order awaiting payment: doing
+   * so would put fixture data into operational order/payment queues.  The sole
+   * historical order is delivered and exists only for the repeat-vendor rate
+   * branch.
+   */
+  async createCheckoutScenario(scenario: CheckoutScenario): Promise<CheckoutScenarioFixture> {
+    const customerState: Record<CheckoutScenario, CustomerState> = {
+      MARKETPLACE_NEW_NON_MEMBER: 'C1',
+      VENDOR_REFERRED_NEW_NON_MEMBER: 'C2',
+      REPEAT_VENDOR_NON_MEMBER: 'C3',
+      MARKETPLACE_ACTIVE_FEASTPASS: 'C4',
+      MARKETPLACE_LAPSED_FEASTPASS: 'C5',
+    };
+    const vendor = await this.create('V9');
+    let customer: TestIdentity | undefined;
+    try {
+      customer = await this.create(customerState[scenario]);
+      // Every checkout permutation needs a persisted, default delivery address;
+      // C1/C4/C5 otherwise intentionally model a customer with no address.
+      customer.addressId = (await this.ensureAddress(customer.userId, customer.state)).id;
+
+      if (scenario === 'REPEAT_VENDOR_NON_MEMBER') {
+        await this.ensureCheckoutVendorHistory(customer, vendor);
+      }
+
+      const financialSnapshotOrderId = await this.ensureCheckoutFinancialSnapshot(
+        customer,
+        vendor,
+        scenario,
+      );
+      if (scenario === 'VENDOR_REFERRED_NEW_NON_MEMBER') {
+        const referral = await this.ensureCheckoutReferral(customer, vendor);
+        return { scenario, customer, vendor, financialSnapshotOrderId, referral };
+      }
+      return { scenario, customer, vendor, financialSnapshotOrderId };
+    } catch (error) {
+      if (customer) await this.teardown(customer).catch(() => undefined);
+      await this.teardown(vendor).catch(() => undefined);
+      throw error;
+    }
   }
 
   async teardown(identity: TestIdentity): Promise<void> {
@@ -782,7 +888,14 @@ export class TestDataFactory {
   }
 
   private async createAdminState(state: AdminState): Promise<TestIdentity> {
-    const role: UserRole = state === 'A3' ? 'support' : 'admin';
+    const role: UserRole =
+      state === 'A3'
+        ? 'support'
+        : state === 'A4'
+          ? 'finance'
+          : state === 'A5'
+            ? 'compliance'
+            : 'admin';
     const user = await this.ensureUser(state, role);
     const identity = this.identity(state, user);
     if (state === 'A2') identity.accessToken = await this.enrolAal2(user);
@@ -810,7 +923,6 @@ export class TestDataFactory {
       }
       if (userId) {
         const { error } = await this.admin.auth.admin.updateUserById(userId, {
-          password: this.password,
           email_confirm: true,
           app_metadata: { role },
           user_metadata: { role, testFactory: true },
@@ -835,6 +947,9 @@ export class TestDataFactory {
         }
         userId = data.user.id;
       }
+      // Use the same guarded password path used by approved-vendor lifecycle
+      // tests, so every browser-sign-in fixture has identical safeguards.
+      await this.setTestPassword(userId);
     } else {
       userId ??= randomUUID();
     }
@@ -984,6 +1099,9 @@ export class TestDataFactory {
         allergenConfirmed: true,
         acceptedAt: new Date(),
         deliveredAt: new Date(),
+        // Historical fixture orders are explicitly marked and terminal, so
+        // they cannot be mistaken for an operational order by downstream jobs.
+        isSeedData: true,
         items: {
           create: {
             menuItemId: item.id,
@@ -1005,6 +1123,165 @@ export class TestDataFactory {
         },
       },
     });
+  }
+
+  /**
+   * A delivered order against the checkout vendor, rather than an unrelated
+   * historical order, is required for the marketplace-repeat commission
+   * branch.  Its stable number makes retries idempotent and its delivered
+   * state ensures it is never picked up as an operational order.
+   */
+  private async ensureCheckoutVendorHistory(
+    customer: TestIdentity,
+    vendor: TestIdentity,
+  ): Promise<void> {
+    if (!vendor.vendorId || !vendor.menuItemId) {
+      throw new Error('TEST_FACTORY_CHECKOUT_VENDOR_INCOMPLETE');
+    }
+    const number = `TF-${sha256(`${this.namespace}:${customer.state}:repeat`)
+      .slice(0, 20)
+      .toUpperCase()}`;
+    const existing = await this.prisma.order.findUnique({ where: { orderNumber: number } });
+    if (existing) return;
+    const item = await this.prisma.menuItem.findUniqueOrThrow({ where: { id: vendor.menuItemId } });
+    await this.prisma.order.create({
+      data: {
+        orderNumber: number,
+        customerId: customer.userId,
+        vendorId: vendor.vendorId,
+        type: 'standard',
+        status: 'delivered',
+        deliveryType: 'collection',
+        subtotalPence: item.pricePence,
+        totalPence: item.pricePence,
+        commissionPence: 0,
+        vendorPayoutPence: item.pricePence,
+        allergenConfirmed: true,
+        acceptedAt: new Date(),
+        deliveredAt: new Date(),
+        isSeedData: true,
+        items: {
+          create: {
+            menuItemId: item.id,
+            nameSnapshot: item.name,
+            quantity: 1,
+            unitPence: item.pricePence,
+            totalPence: item.pricePence,
+          },
+        },
+        payments: {
+          create: {
+            userId: customer.userId,
+            type: 'capture',
+            status: 'succeeded',
+            amountPence: item.pricePence,
+            stripePaymentIntentId: deterministicExternalId(
+              'pi_repeat',
+              this.namespace,
+              customer.state,
+            ),
+            processedAt: new Date(),
+          },
+        },
+      },
+    });
+  }
+
+  /**
+   * Persist a non-operational snapshot of the exact single-item checkout
+   * basket.  It intentionally has a cancelled status, so it cannot change
+   * first/repeat attribution for new-customer scenarios.  The only varying
+   * customer-facing amount is the service fee; the stored payout is identical
+   * in every scenario because service fees are platform revenue, not vendor
+   * earnings.
+   */
+  private async ensureCheckoutFinancialSnapshot(
+    customer: TestIdentity,
+    vendor: TestIdentity,
+    scenario: CheckoutScenario,
+  ): Promise<string> {
+    if (!vendor.vendorId || !vendor.menuItemId || !vendor.menuItemPricePence) {
+      throw new Error('TEST_FACTORY_CHECKOUT_VENDOR_INCOMPLETE');
+    }
+    const number = `TF-${sha256(`${this.namespace}:${customer.state}:${scenario}:finance`)
+      .slice(0, 20)
+      .toUpperCase()}`;
+    const existing = await this.prisma.order.findUnique({ where: { orderNumber: number } });
+    if (existing) return existing.id;
+
+    const subtotalPence = vendor.menuItemPricePence;
+    const deliveryFeePence = 250;
+    const serviceFeePence = scenario === 'MARKETPLACE_ACTIVE_FEASTPASS' ? 0 : 100;
+    const commissionPence = 0;
+    const vendorPayoutPence = subtotalPence + deliveryFeePence - commissionPence;
+    const snapshot = await this.prisma.order.create({
+      data: {
+        orderNumber: number,
+        customerId: customer.userId,
+        vendorId: vendor.vendorId,
+        addressId: customer.addressId,
+        type: 'standard',
+        // Cancelled + isSeedData makes this a finance fixture only: it is not
+        // customer order history and cannot be collected, fulfilled, or paid.
+        status: 'cancelled',
+        deliveryType: 'local',
+        subtotalPence,
+        deliveryFeePence,
+        serviceFeePence,
+        totalPence: subtotalPence + deliveryFeePence + serviceFeePence,
+        commissionPence,
+        vendorPayoutPence,
+        allergenConfirmed: true,
+        cancelledAt: new Date(),
+        cancellationReason: 'Test factory checkout financial snapshot',
+        cancelledBy: 'test-factory',
+        isSeedData: true,
+        items: {
+          create: {
+            menuItemId: vendor.menuItemId,
+            nameSnapshot: 'Customer checkout smoke dish',
+            quantity: 1,
+            unitPence: subtotalPence,
+            totalPence: subtotalPence,
+          },
+        },
+      },
+    });
+    return snapshot.id;
+  }
+
+  /**
+   * Creates the durable referral link/click pair used by the attribution
+   * service.  Browser tests can put linkSlug/clickId into their normal
+   * attribution cookie; no route mock needs to invent referral provenance.
+   */
+  private async ensureCheckoutReferral(
+    customer: TestIdentity,
+    vendor: TestIdentity,
+  ): Promise<{ linkId: string; linkSlug: string; clickId: string }> {
+    if (!vendor.vendorId) throw new Error('TEST_FACTORY_CHECKOUT_VENDOR_INCOMPLETE');
+    const linkSlug = `tf-${safeKey(this.namespace)}-checkout-ref`;
+    const link = await this.prisma.vendorReferralLink.upsert({
+      where: { vendorId: vendor.vendorId },
+      update: { slug: linkSlug },
+      create: { vendorId: vendor.vendorId, slug: linkSlug },
+    });
+    const sessionId = `tf-${sha256(`${this.namespace}:${customer.userId}:ref`).slice(0, 32)}`;
+    const existing = await this.prisma.referralClick.findFirst({
+      where: { referralLinkId: link.id, sessionId },
+    });
+    const click =
+      existing ??
+      (await this.prisma.referralClick.create({
+        data: {
+          referralLinkId: link.id,
+          sessionId,
+          userId: customer.userId,
+          ipHash: sha256(`test-factory:${this.namespace}:${customer.userId}`),
+          userAgent: 'Feastpot TestDataFactory checkout fixture',
+        },
+      }));
+    return { linkId: link.id, linkSlug: link.slug, clickId: click.id };
   }
 
   private async ensureAddress(userId: string, state: FactoryState) {

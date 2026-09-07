@@ -70,6 +70,14 @@ import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { OrderSlotsService } from './order-slots.service';
 import { OrdersRepository } from './orders.repository';
 
+type OrderPaymentProvider = {
+  createPaymentIntent(
+    input: Parameters<StripeService['createPaymentIntent']>[0],
+  ): Promise<{ id: string; client_secret: string | null }>;
+  cancel(id: string): Promise<unknown>;
+  retrieve(id: string): Promise<{ status: string }>;
+};
+
 export const NOTIFICATIONS_QUEUE = 'notifications';
 // AUTO_CANCEL_DELAY_MS removed: the 15-minute hard timeout is not enforced by a
 // processor. Vendor terms (clause 8) now tie the acceptance deadline to the
@@ -338,12 +346,45 @@ export class OrdersService {
     );
   }
 
+  /**
+   * Test-only orchestration path used by the guarded lifecycle controller.
+   * Business validation, pricing, attribution and persistence still run through
+   * the normal create/confirm methods; only the external payment provider is
+   * replaced.
+   */
+  async createAndConfirmTestOrder(customerId: string, dto: CreateOrderDto) {
+    if (process.env.NODE_ENV !== 'test') {
+      throw new Error('TEST_PAYMENT_PROVIDER_UNAVAILABLE');
+    }
+    const paymentIntentId = `pi_test_factory_${randomUUID().replaceAll('-', '')}`;
+    const provider = {
+      createPaymentIntent: async () => ({
+        id: paymentIntentId,
+        client_secret: `${paymentIntentId}_secret`,
+      }),
+      cancel: async () => undefined,
+      retrieve: async () => ({ status: 'requires_capture' }),
+    };
+    const created = await this.createOrderInner(
+      customerId,
+      dto,
+      undefined,
+      undefined,
+      undefined,
+      provider,
+    );
+    const orderId = created.order.id;
+    await this.confirmOrder(orderId, customerId, provider);
+    return { ...created, orderId, paymentIntentId, confirmed: true };
+  }
+
   private async createOrderInner(
     customerId: string,
     dto: CreateOrderDto,
     fpRef?: string,
     sessionId?: string,
     marketplaceMarker?: string,
+    paymentProvider: OrderPaymentProvider = this.stripe,
   ) {
     const interruptedCancellation = await this.prisma.order.findFirst({
       where: {
@@ -707,6 +748,7 @@ export class OrdersService {
         fpRef,
         sessionId,
         marketplaceMarker,
+        paymentProvider,
       });
       // Best-effort FeastPass saving record. Never blocks order creation.
       // Only record for marketplace-sourced orders: the service fee waiver
@@ -794,6 +836,7 @@ export class OrdersService {
     sessionId?: string;
     /** X-Fp-Mktplace marketplace marker timestamp forwarded from the web app. */
     marketplaceMarker?: string;
+    paymentProvider: OrderPaymentProvider;
   }) {
     const {
       customerId,
@@ -818,6 +861,7 @@ export class OrdersService {
       fpRef,
       sessionId,
       marketplaceMarker,
+      paymentProvider,
     } = args;
 
     // Application-layer guard: a non-zero discount must always carry a funding
@@ -839,7 +883,7 @@ export class OrdersService {
     const intent = await Sentry.startSpan(
       { name: 'stripe.paymentIntents.create', op: 'http.client', attributes: { orderId } },
       () =>
-        this.stripe.createPaymentIntent({
+        paymentProvider.createPaymentIntent({
           amountPence: totalPence,
           orderId,
           customerId,
@@ -1062,7 +1106,7 @@ export class OrdersService {
       // customer's card isn't held against an order that doesn't exist.
       // Swallow the cancel failure (log only) so the original DB error
       // surfaces to the caller; PI cleanup is best-effort.
-      await this.stripe.cancel(intent.id).catch((cancelErr) => {
+      await paymentProvider.cancel(intent.id).catch((cancelErr) => {
         this.logger.error(
           `Failed to cancel orphaned Stripe PI ${intent.id} after order tx rollback: ${(cancelErr as Error).message}`,
         );
@@ -1075,7 +1119,11 @@ export class OrdersService {
   // CONFIRM (after Stripe client-side confirmation)
   // ------------------------------------------------------------------
 
-  async confirmOrder(orderId: string, customerId: string) {
+  async confirmOrder(
+    orderId: string,
+    customerId: string,
+    paymentProvider: Pick<OrderPaymentProvider, 'retrieve'> = this.stripe,
+  ) {
     const order = await this.repo.byCustomer(orderId, customerId);
     if (!order)
       throw new NotFoundException({ code: 'ORDER_NOT_FOUND', message: 'Order not found' });
@@ -1092,7 +1140,7 @@ export class OrdersService {
         message: 'Order has no Stripe payment intent on record',
       });
     }
-    const intent = await this.stripe.retrieve(pi);
+    const intent = await paymentProvider.retrieve(pi);
     // Manual-capture flow: must be authorised (`requires_capture`) before vendor work begins.
     // We also accept `processing` as a transient post-confirmation state.
     if (!['requires_capture', 'processing'].includes(intent.status)) {
@@ -1545,12 +1593,12 @@ export class OrdersService {
 
   /**
    * Customer self-cancellation. Permitted only while the order is still in a
-   * pre-prep state (pending or accepted) - once the vendor moves to
-   * `preparing`, ingredients are committed and refunds become a dispute
-   * (handled separately).
+   * pre-acceptance state (`pending`). Once the vendor accepts an order it is
+   * operationally committed; customers must use the dispute/refund route
+   * rather than racing vendor preparation.
    *
    * NB on Stripe: this codebase uses MANUAL CAPTURE (capture happens on
-   * `delivered`). For BOTH `pending` and `accepted` the PaymentIntent is
+   * `delivered`). For a pending order the PaymentIntent is
    * still in `requires_capture` - `refunds.create` would 400 with
    * "charge has not been captured yet". So we always `paymentIntents.cancel`
    * here regardless of status; the customer is never charged in the first
@@ -1585,10 +1633,10 @@ export class OrdersService {
       const alreadyCancelled =
         locked.status === OrderStatus.cancelled && locked.cancelled_by === 'customer';
       const cancellationPending = locked.status === OrderStatus.cancellation_pending;
-      const cancellable: OrderStatus[] = [OrderStatus.pending, OrderStatus.accepted];
+      const cancellable: OrderStatus[] = [OrderStatus.pending];
       if (!alreadyCancelled && !cancellationPending && !cancellable.includes(locked.status)) {
         const message =
-          locked.status === OrderStatus.preparing
+          locked.status === OrderStatus.accepted || locked.status === OrderStatus.preparing
             ? 'Your order is already being prepared - please contact the vendor'
             : locked.status === OrderStatus.dispatched
               ? 'Your order is already on the way'

@@ -198,7 +198,7 @@ export function PostcodeHero() {
               <label htmlFor="hero-postcode" className="sr-only">
                 UK postcode
               </label>
-              <div className="flex flex-1 items-center gap-2 px-3">
+              <div className="flex min-w-0 flex-1 items-center gap-2 px-3">
                 <MapPin className="h-4 w-4 shrink-0 text-charcoal-light" aria-hidden />
                 <input
                   ref={inputRef}
@@ -214,7 +214,7 @@ export function PostcodeHero() {
                   }}
                   maxLength={8}
                   disabled={submitting}
-                  className="flex-1 bg-transparent py-2.5 text-[15px] font-medium text-charcoal placeholder:text-charcoal-light focus:outline-none disabled:opacity-60"
+                  className="min-w-0 flex-1 bg-transparent py-2.5 text-[15px] font-medium text-charcoal placeholder:text-charcoal-light focus:outline-none disabled:opacity-60"
                 />
               </div>
               <button

@@ -1,12 +1,13 @@
 import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
 
 import { StaffShell } from '@/components/layout/staff-shell-wrapper';
+import type { UserGuideSectionId } from '@/lib/admin-destinations';
 import { requireStaff } from '@/lib/auth/server-gate';
 
 export const dynamic = 'force-dynamic';
 
 interface GuideSection {
-  id: string;
+  id: UserGuideSectionId;
   title: string;
   roleNote?: string;
   items: { heading: string; detail: string }[];

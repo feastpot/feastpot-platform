@@ -53,6 +53,7 @@ import { ReviewsModule } from './modules/reviews/reviews.module';
 import { TermsModule } from './modules/terms/terms.module';
 import { UsersModule } from './modules/users/users.module';
 import { VendorEnforcementModule } from './modules/vendor-enforcement/vendor-enforcement.module';
+import { VendorLifecycleTestModule } from './modules/vendor-lifecycle-test/vendor-lifecycle-test.module';
 import { VendorMembersModule } from './modules/vendor-members/vendor-members.module';
 import { VendorRecommendationsModule } from './modules/vendor-recommendations/vendor-recommendations.module';
 import { VendorTaxProfileModule } from './modules/vendor-tax-profile/vendor-tax-profile.module';
@@ -379,6 +380,7 @@ import { RootController } from './root.controller';
     FeastPassModule,
     VendorEnforcementModule,
     VendorVerificationModule,
+    ...(process.env.NODE_ENV === 'test' ? [VendorLifecycleTestModule] : []),
     CatalogueModule,
     OrdersModule,
     PaymentsModule,

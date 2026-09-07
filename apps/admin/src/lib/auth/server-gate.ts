@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 
 import { apiRequest, ApiError } from '@/lib/api/client';
-import { isAdminMfaEnforced } from '@/lib/auth/mfa-enforcement';
+import { isAdminMfaE2eBypassed, isAdminMfaEnforced } from '@/lib/auth/mfa-enforcement';
 import { createClient as createServerSupabase } from '@/lib/supabase/server';
 
 export type StaffRole = 'admin' | 'support' | 'finance' | 'compliance';
@@ -83,11 +83,12 @@ export async function requireStaff(
   // privileged server component while admin MFA configuration is incomplete.
   // The /settings/2fa page passes skipAalCheck to keep enrolment reachable.
   const requireAal2 = isAdminMfaEnforced();
+  const bypassAal2ForE2e = isAdminMfaE2eBypassed();
   const aal = decodeAalFromJwt(session.access_token);
-  if (!opts?.skipAalCheck && !requireAal2) {
+  if (!opts?.skipAalCheck && !requireAal2 && !bypassAal2ForE2e) {
     redirect('/unauthorized?reason=mfa-configuration');
   }
-  if (requireAal2 && !opts?.skipAalCheck && aal !== 'aal2') {
+  if (requireAal2 && !bypassAal2ForE2e && !opts?.skipAalCheck && aal !== 'aal2') {
     redirect(`/settings/2fa?next=${encodeURIComponent(pathname)}`);
   }
 

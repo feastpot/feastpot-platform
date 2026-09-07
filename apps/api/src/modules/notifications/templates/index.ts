@@ -892,6 +892,33 @@ export const TEMPLATES: Record<TemplateNotificationEventName, NotificationTempla
       ),
     channels: ['email'],
   },
+  catering_enquiry_expired: {
+    subject: () => 'Your catering enquiry has expired',
+    render: (d) =>
+      baseLayout(
+        'Catering enquiry expired',
+        h2(`Hi${d.contactName ? ` ${str(d.contactName)}` : ''},`) +
+          p(
+            `Your catering enquiry for ${esc(d.eventDate, 'the requested date')} has now passed without being assigned, so we have closed it.`,
+          ) +
+          p(
+            'We have kept the enquiry on record, but it can no longer be fulfilled. If you are planning a future event, please submit a new catering enquiry.',
+          ) +
+          brandButton(
+            'Submit a new catering enquiry',
+            'https://feastpot.co.uk/catering',
+            'orange',
+          ) +
+          p(
+            `Questions? Contact <a href="mailto:support@feastpot.co.uk" style="color:#E8520A">support@feastpot.co.uk</a> and quote reference ${esc(d.enquiryId)}.`,
+            '#5F5E5A',
+          ),
+        'Catering enquiry closed because the event date passed',
+      ),
+    // This public intake has an email address but no authenticated user or
+    // WhatsApp consent/preference record, so email is the only permitted path.
+    channels: ['email'],
+  },
 
   review_request: {
     subject: (d) => `How was your food from ${str(d.vendorName, 'your vendor')}? ⭐`,

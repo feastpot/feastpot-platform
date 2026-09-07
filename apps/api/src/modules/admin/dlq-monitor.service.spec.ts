@@ -8,13 +8,18 @@ import { DlqMonitorService } from './dlq-monitor.service';
 
 describe('DlqMonitorService queue mutation audit', () => {
   const actorId = '00000000-0000-4000-8000-000000000001';
-  let job: { name: string; retry: jest.Mock; remove: jest.Mock };
+  let job: { name: string; retry: jest.Mock; remove: jest.Mock; getState: jest.Mock };
   let queue: Queue;
   let prisma: PrismaService;
   let service: DlqMonitorService;
 
   beforeEach(() => {
-    job = { name: 'send-message', retry: jest.fn(), remove: jest.fn() };
+    job = {
+      name: 'send-message',
+      retry: jest.fn(),
+      remove: jest.fn(),
+      getState: jest.fn().mockResolvedValue('failed'),
+    };
     queue = { getJob: jest.fn().mockResolvedValue(job) } as unknown as Queue;
     prisma = {
       auditLog: {
@@ -41,6 +46,11 @@ describe('DlqMonitorService queue mutation audit', () => {
   it('persists retry intent before mutating Redis and marks completion', async () => {
     await service.retryDeadLetterJob('notifications', 'job-1', actorId);
 
+    // Bull's retry moves a failed job back to the waiting queue; do not
+    // substitute a second job creation here, which would lose its payload,
+    // attempts and idempotency key.
+    expect(job.getState).toHaveBeenCalledTimes(1);
+    expect(job.retry).toHaveBeenCalledTimes(1);
     expect(prisma.auditLog.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         actorId,
@@ -55,6 +65,29 @@ describe('DlqMonitorService queue mutation audit', () => {
       where: { id: 'audit-1' },
       data: {
         action: 'admin.queue_job_retried',
+        metadata: expect.objectContaining({ status: 'completed' }),
+      },
+    });
+  });
+
+  it('discards a failed job and records the acting admin in its durable audit row', async () => {
+    await service.discardDeadLetterJob('notifications', 'job-discarded', actorId);
+
+    expect(job.remove).toHaveBeenCalledTimes(1);
+    expect(prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        actorId,
+        action: 'admin.queue_job_discard_requested',
+        metadata: expect.objectContaining({
+          jobId: 'job-discarded',
+          status: 'requested',
+        }),
+      }),
+    });
+    expect(prisma.auditLog.update).toHaveBeenCalledWith({
+      where: { id: 'audit-1' },
+      data: {
+        action: 'admin.queue_job_discarded',
         metadata: expect.objectContaining({ status: 'completed' }),
       },
     });
@@ -94,5 +127,30 @@ describe('DlqMonitorService queue mutation audit', () => {
     ).resolves.toBeUndefined();
 
     expect(job.retry).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not mutate a job that is no longer failed', async () => {
+    job.getState.mockResolvedValue('active');
+
+    await expect(service.discardDeadLetterJob('notifications', 'job-4', actorId)).rejects.toThrow(
+      'not in the failed state',
+    );
+
+    expect(job.remove).not.toHaveBeenCalled();
+    expect(prisma.auditLog.create).not.toHaveBeenCalled();
+  });
+
+  it('processes only explicitly supplied bulk jobs and retains individual audit records', async () => {
+    const result = await service.bulkDeadLetterJobs(
+      'retry',
+      [{ queue: 'notifications', jobId: 'job-5' }],
+      actorId,
+    );
+
+    expect(result).toEqual({ succeeded: ['job-5'], failed: [] });
+    expect(job.retry).toHaveBeenCalledTimes(1);
+    expect(prisma.auditLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ actorId }) }),
+    );
   });
 });

@@ -46,6 +46,8 @@ import {
 } from '@/hooks/use-menu-moderation';
 import { useDebounce } from '@/hooks/use-debounce';
 import { formatDate, formatPence } from '@/lib/format';
+import { AdminAgeingBadge } from '@/components/ui/admin-ageing-badge';
+import { getAdminAgeing } from '@/lib/admin-ageing';
 
 const PAGE_LIMIT = 25;
 
@@ -567,7 +569,6 @@ function MenuItemRowView({
   const isHeld = r.moderationStatus === 'held';
   const isApproved = r.moderationStatus === 'approved' || r.moderationStatus === 'auto_approved';
   const isRejected = r.moderationStatus === 'rejected';
-  const overdue = r.isOverdue || (r.slaDueAt ? new Date(r.slaDueAt).getTime() < Date.now() : false);
 
   return (
     <TableRow>
@@ -586,10 +587,15 @@ function MenuItemRowView({
         <div className="text-xs text-muted-foreground">
           {submitted.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
         </div>
-        <div
-          className={`mt-1 text-xs font-medium ${overdue ? 'text-destructive' : 'text-muted-foreground'}`}
-        >
-          {overdue ? 'Overdue' : r.slaDueAt ? `Due ${formatDate(r.slaDueAt)}` : 'SLA pending'}
+        <div className="mt-1">
+          <AdminAgeingBadge
+            state={getAdminAgeing({
+              createdAt: r.moderationSubmittedAt ?? r.createdAt,
+              deadlineAt: r.slaDueAt,
+              hours: 72,
+              terminal: isApproved || isRejected,
+            })}
+          />
         </div>
       </TableCell>
       <TableCell className="max-w-sm">

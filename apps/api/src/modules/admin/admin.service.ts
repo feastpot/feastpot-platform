@@ -33,6 +33,10 @@ import { vendorPortalInviteTemplate } from '../notifications/templates/vendor-po
 import { ListAdminVendorsDto } from './dto/list-admin-vendors.dto';
 import { ListAuditLogDto } from './dto/list-audit-log.dto';
 import { ListCoverageInterestDto } from './dto/list-coverage-interest.dto';
+import {
+  BulkRequestVendorApplicationInformationDto,
+  RequestVendorApplicationInformationDto,
+} from './dto/request-vendor-application-information.dto';
 import { UpdateVendorApplicationDto } from './dto/update-vendor-application.dto';
 
 /**
@@ -1464,14 +1468,22 @@ export class AdminService {
    * "what's new" tab is one click away. Limited to 100 rows - applications
    * are low-volume (handful per week) so cursor pagination is overkill.
    */
-  async listVendorApplications(status?: VendorApplicationStatus) {
+  async listVendorApplications(status?: VendorApplicationStatus, includeTestData = false) {
     const rows = await this.prisma.vendorApplication.findMany({
-      where: status ? { status } : { status: { in: IN_FLIGHT_APPLICATION_STATUSES } },
+      where: {
+        ...(status ? { status } : { status: { in: IN_FLIGHT_APPLICATION_STATUSES } }),
+        ...(includeTestData ? {} : { isTestData: false }),
+      },
       orderBy: { createdAt: 'desc' },
       take: 100,
       include: {
         reviewedBy: { select: { id: true, firstName: true, lastName: true, email: true } },
         vendor: { select: { id: true, slug: true, status: true } },
+        informationRequests: {
+          select: { createdAt: true },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
       },
     });
     return rows.map((r) => ({
@@ -1484,6 +1496,7 @@ export class AdminService {
       cuisineType: r.cuisineType,
       kitchenType: r.kitchenType,
       hasFsaRegistration: r.hasFsaRegistration,
+      hygieneRegNumber: r.hygieneRegNumber,
       instagram: r.instagram,
       status: r.status,
       reviewedAt: r.reviewedAt,
@@ -1491,6 +1504,7 @@ export class AdminService {
       adminNotes: r.adminNotes,
       rejectionReason: r.rejectionReason,
       vendor: r.vendor,
+      lastChasedAt: r.informationRequests[0]?.createdAt ?? null,
       createdAt: r.createdAt,
     }));
   }
@@ -1501,6 +1515,12 @@ export class AdminService {
       include: {
         reviewedBy: { select: { id: true, firstName: true, lastName: true, email: true } },
         vendor: { select: { id: true, slug: true, status: true, businessName: true } },
+        informationRequests: {
+          include: {
+            actor: { select: { id: true, firstName: true, lastName: true, email: true } },
+          },
+          orderBy: { createdAt: 'desc' },
+        },
       },
     });
     if (!row) {
@@ -1510,6 +1530,297 @@ export class AdminService {
       });
     }
     return row;
+  }
+
+  private missingApplicationInformation(app: {
+    hygieneRegNumber: string | null;
+    hasFsaRegistration: boolean;
+    fullName: string;
+    kitchenName: string;
+    email: string;
+    phone: string;
+    postcode: string;
+    cuisineType: string;
+    kitchenType: string;
+    foodStory: string;
+  }): string[] {
+    const items: string[] = [];
+    if (!app.hasFsaRegistration || !app.hygieneRegNumber?.trim()) {
+      items.push('your FSA / food hygiene registration number');
+    }
+    const required: Array<[string, string]> = [
+      ['full name', app.fullName],
+      ['kitchen name', app.kitchenName],
+      ['email address', app.email],
+      ['phone number', app.phone],
+      ['postcode', app.postcode],
+      ['cuisine type', app.cuisineType],
+      ['kitchen type', app.kitchenType],
+      ['food story', app.foodStory],
+    ];
+    for (const [label, value] of required) if (!value?.trim()) items.push(label);
+    return items;
+  }
+
+  async requestVendorApplicationInformation(
+    id: string,
+    actorId: string,
+    dto: RequestVendorApplicationInformationDto,
+  ) {
+    const result = await this.prisma.$transaction(async (tx) => {
+      const app = await tx.vendorApplication.findUnique({ where: { id } });
+      if (!app)
+        throw new NotFoundException({
+          code: 'VENDOR_APPLICATION_NOT_FOUND',
+          message: 'Vendor application not found',
+        });
+      if (!IN_FLIGHT_APPLICATION_STATUSES.includes(app.status)) {
+        throw new ForbiddenException({
+          code: 'VENDOR_APPLICATION_NOT_ACTIONABLE',
+          message: `Application is ${app.status} and cannot be chased`,
+        });
+      }
+      const last = await tx.vendorApplicationInfoRequest.findFirst({
+        where: { applicationId: id },
+        orderBy: { createdAt: 'desc' },
+      });
+      const nextAllowedAt = last && new Date(last.createdAt.getTime() + 7 * 86_400_000);
+      if (nextAllowedAt && nextAllowedAt > new Date()) {
+        throw new ConflictException({
+          code: 'VENDOR_APPLICATION_CHASE_COOLDOWN',
+          message: `Information was last requested on ${last.createdAt.toISOString()}; another request is allowed after ${nextAllowedAt.toISOString()}`,
+          nextAllowedAt: nextAllowedAt.toISOString(),
+        });
+      }
+      const requestedItems = [
+        ...new Set([...(dto.requestedItems ?? []), ...this.missingApplicationInformation(app)]),
+      ]
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .slice(0, 20);
+      const message =
+        dto.message?.trim() ||
+        (requestedItems.length
+          ? `Please provide ${requestedItems.join(', ')} so we can continue reviewing your application.`
+          : 'Please send the remaining information needed to continue reviewing your application.');
+      const now = new Date();
+      const request = await tx.vendorApplicationInfoRequest.create({
+        data: { applicationId: id, actorId, requestedItems, message, createdAt: now },
+      });
+      await tx.vendorApplication.update({
+        where: { id },
+        data: {
+          status: VendorApplicationStatus.information_requested,
+          adminNotes: message,
+          reviewedAt: now,
+          reviewedById: actorId,
+        },
+      });
+      await tx.auditLog.create({
+        data: {
+          actorId,
+          action: 'vendor_application.information_requested',
+          entityType: 'vendor_applications',
+          entityId: id,
+          metadata: {
+            requestId: request.id,
+            requestedItems,
+            message,
+            previousStatus: app.status,
+          } as Prisma.JsonObject,
+        },
+      });
+      return { app, request, requestedItems, message };
+    });
+    const firstName = (result.app.fullName.trim().split(/\s+/)[0] || result.app.fullName).trim();
+    const template = vendorApplicationInfoRequestedTemplate({
+      firstName,
+      kitchenName: result.app.kitchenName,
+      question: result.message,
+    });
+    await this.sendAdminEmail(
+      template,
+      result.app.email,
+      `info-requested email for application ${id}`,
+    );
+    return {
+      applicationId: id,
+      requestId: result.request.id,
+      requestedItems: result.requestedItems,
+      message: result.message,
+      requestedAt: result.request.createdAt,
+    };
+  }
+
+  async bulkRequestVendorApplicationInformation(
+    dto: BulkRequestVendorApplicationInformationDto,
+    actorId: string,
+  ) {
+    const ids = [...new Set(dto.applicationIds)];
+    const results = await Promise.all(
+      ids.map(async (id) => {
+        try {
+          const requested = await this.requestVendorApplicationInformation(id, actorId, dto);
+          return { ok: true, outcome: 'success' as const, ...requested };
+        } catch (error) {
+          const response = error instanceof Error ? error.message : 'Unable to request information';
+          const code =
+            error instanceof ConflictException
+              ? (error.getResponse() as { code?: string }).code
+              : undefined;
+          return {
+            applicationId: id,
+            ok: false,
+            outcome:
+              code === 'VENDOR_APPLICATION_CHASE_COOLDOWN'
+                ? ('skipped' as const)
+                : ('error' as const),
+            error: response,
+          };
+        }
+      }),
+    );
+    return {
+      results,
+      succeeded: results.filter((r) => r.ok).length,
+      failed: results.filter((r) => !r.ok).length,
+    };
+  }
+
+  async listSupplyPipeline(status: string | undefined, includeTestData = false) {
+    const lifecycle = new Set([
+      'Applied',
+      'Under review',
+      'Info requested',
+      'Approved',
+      'Onboarding',
+      'Live',
+      'Probation',
+      'Suspended',
+      'Removed',
+      'Rejected',
+    ]);
+    if (status && !lifecycle.has(status))
+      throw new BadRequestException('Invalid supply pipeline status');
+    const applicationStatus: Record<VendorApplicationStatus, string> = {
+      pending: 'Applied',
+      under_review: 'Under review',
+      information_requested: 'Info requested',
+      approved: 'Approved',
+      rejected: 'Rejected',
+    };
+    const vendorStatus: Record<VendorStatus, string> = {
+      pending: 'Onboarding',
+      approved: 'Approved',
+      live: 'Live',
+      probation: 'Probation',
+      suspended: 'Suspended',
+      removed: 'Removed',
+    };
+    const [applications, vendors, applicationGroups, vendorGroups] = await Promise.all([
+      this.prisma.vendorApplication.findMany({
+        where: {
+          ...(includeTestData ? {} : { isTestData: false }),
+          ...(status
+            ? {
+                status: {
+                  in: Object.entries(applicationStatus)
+                    .filter(([, value]) => value === status)
+                    .map(([key]) => key as VendorApplicationStatus),
+                },
+              }
+            : {}),
+        },
+        include: {
+          vendor: { select: { id: true } },
+          informationRequests: {
+            select: { createdAt: true },
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 500,
+      }),
+      this.prisma.vendor.findMany({
+        where: includeTestData
+          ? status
+            ? {
+                status: {
+                  in: Object.entries(vendorStatus)
+                    .filter(([, value]) => value === status)
+                    .map(([key]) => key as VendorStatus),
+                },
+              }
+            : {}
+          : this.operationalVendorWhere(
+              status
+                ? {
+                    status: {
+                      in: Object.entries(vendorStatus)
+                        .filter(([, value]) => value === status)
+                        .map(([key]) => key as VendorStatus),
+                    },
+                  }
+                : {},
+            ),
+        select: {
+          id: true,
+          businessName: true,
+          status: true,
+          createdAt: true,
+          user: { select: { email: true, firstName: true, lastName: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 500,
+      }),
+      this.prisma.vendorApplication.groupBy({
+        by: ['status'],
+        where: { ...(includeTestData ? {} : { isTestData: false }), vendorId: null },
+        _count: { _all: true },
+      }),
+      this.prisma.vendor.groupBy({
+        by: ['status'],
+        where: includeTestData ? {} : this.operationalVendorWhere(),
+        _count: { _all: true },
+      }),
+    ]);
+    const rows = [
+      ...applications
+        .filter((app) => !app.vendorId)
+        .map((app) => ({
+          id: `application:${app.id}`,
+          recordType: 'application',
+          recordId: app.id,
+          lifecycle: applicationStatus[app.status],
+          name: app.kitchenName,
+          contact: app.email,
+          submittedAt: app.createdAt,
+          lastChasedAt: app.informationRequests[0]?.createdAt ?? null,
+          href: `/vendor-applications/${app.id}`,
+        })),
+      ...vendors.map((vendor) => ({
+        id: `vendor:${vendor.id}`,
+        recordType: 'vendor',
+        recordId: vendor.id,
+        lifecycle: vendorStatus[vendor.status],
+        name: vendor.businessName,
+        contact: vendor.user.email,
+        submittedAt: vendor.createdAt,
+        lastChasedAt: null,
+        href: `/vendors/${vendor.id}`,
+      })),
+    ].sort((a, b) => b.submittedAt.getTime() - a.submittedAt.getTime());
+    const counts = Object.fromEntries([...lifecycle].map((state) => [state, 0])) as Record<
+      string,
+      number
+    >;
+    for (const group of applicationGroups)
+      counts[applicationStatus[group.status]] += group._count._all;
+    for (const group of vendorGroups) counts[vendorStatus[group.status]] += group._count._all;
+    // Counts are aggregated without the display cap, so tab pills and total
+    // remain exact even if a lifecycle has more than 500 records.
+    return { rows, counts, total: Object.values(counts).reduce((sum, count) => sum + count, 0) };
   }
 
   /**
@@ -1567,6 +1878,15 @@ export class AdminService {
       });
     }
 
+    // Preserve the legacy PATCH contract while routing its request-information
+    // side effect through the durable chase record and server-enforced cooldown.
+    if (dto.status === 'information_requested') {
+      await this.requestVendorApplicationInformation(id, reviewerId, {
+        message: dto.adminNotes,
+      });
+      return this.getVendorApplication(id);
+    }
+
     if (dto.status === 'approved') {
       return this.approveVendorApplication(app, reviewerId, dto);
     }
@@ -1616,13 +1936,6 @@ export class AdminService {
         reason: dto.rejectionReason!.trim(),
       });
       await this.sendAdminEmail(tmpl, app.email, `rejection email for application ${id}`);
-    } else if (dto.status === 'information_requested') {
-      const tmpl = vendorApplicationInfoRequestedTemplate({
-        firstName,
-        kitchenName: app.kitchenName,
-        question: dto.adminNotes!.trim(),
-      });
-      await this.sendAdminEmail(tmpl, app.email, `info-requested email for application ${id}`);
     }
     // under_review: no email - purely internal signal.
 
@@ -2027,15 +2340,20 @@ export class AdminService {
     to: string,
     contextLabel: string,
   ): Promise<void> {
-    const withTimeout = <T>(p: Promise<T>): Promise<T> =>
-      Promise.race([
-        p,
-        new Promise<T>((_, reject) =>
-          setTimeout(() => reject(new Error(`email timed out after 10s`)), 10_000),
-        ),
-      ]);
     try {
-      await withTimeout(this.email.send({ to, subject: tmpl.subject, html: tmpl.html }));
+      await new Promise<void>((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error(`email timed out after 10s`)), 10_000);
+        this.email
+          .send({ to, subject: tmpl.subject, html: tmpl.html })
+          .then(() => {
+            clearTimeout(timer);
+            resolve();
+          })
+          .catch((error: unknown) => {
+            clearTimeout(timer);
+            reject(error);
+          });
+      });
     } catch (err) {
       this.logger.error(`[AdminService] ${contextLabel} failed: ${(err as Error).message}`);
     }
@@ -2118,8 +2436,11 @@ export class AdminService {
    * Returns every VendorApplicationStatus key (even when zero) plus an `all`
    * total so the UI can render stable count pills without nullish checks.
    */
-  async getVendorApplicationCounts(): Promise<Record<VendorApplicationStatus | 'all', number>> {
+  async getVendorApplicationCounts(
+    includeTestData = false,
+  ): Promise<Record<VendorApplicationStatus | 'all', number>> {
     const grouped = await this.prisma.vendorApplication.groupBy({
+      where: includeTestData ? {} : { isTestData: false },
       by: ['status'],
       _count: { _all: true },
     });
