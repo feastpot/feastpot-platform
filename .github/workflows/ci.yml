@@ -688,6 +688,16 @@ jobs:
     needs: [setup]
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     env:
       PLAYWRIGHT_BASE_URL: http://localhost:3003
       TEST_API_URL: ${{ secrets.TEST_API_URL }}
@@ -702,9 +712,9 @@ jobs:
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       TEST_FACTORY_PASSWORD: ${{ secrets.TEST_FACTORY_PASSWORD }}
       TEST_FACTORY_NAMESPACE: admin-${{ github.run_id }}-${{ github.run_attempt }}
-      REDIS_URL: ${{ secrets.REDIS_URL }}
+      REDIS_URL: redis://localhost:6379
       STRIPE_SECRET_KEY_TEST: ${{ secrets.STRIPE_SECRET_KEY_TEST }}
-      SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
+      SESSION_SECRET: admin-e2e-test-only-session-secret-34125348434
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5

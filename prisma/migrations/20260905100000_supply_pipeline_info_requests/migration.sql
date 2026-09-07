@@ -6,8 +6,8 @@ CREATE INDEX IF NOT EXISTS "vendor_applications_is_test_data_status_created_at_i
 
 CREATE TABLE IF NOT EXISTS "vendor_application_info_requests" (
   "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  "application_id" UUID NOT NULL REFERENCES "vendor_applications"("id") ON DELETE CASCADE,
-  "actor_id" UUID NOT NULL REFERENCES "users"("id") ON DELETE RESTRICT,
+  "application_id" UUID NOT NULL REFERENCES "vendor_applications"("id") ON DELETE CASCADE ON UPDATE CASCADE,
+  "actor_id" UUID NOT NULL REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE,
   "requested_items" TEXT[] NOT NULL,
   "message" TEXT NOT NULL,
   "created_at" TIMESTAMPTZ NOT NULL DEFAULT now()
