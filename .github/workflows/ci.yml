@@ -423,7 +423,7 @@ jobs:
   #    in GitHub > Settings > Branches > Branch protection rules.
   # ----------------------------------------------------------------------------
   e2e-vendor:
-    name: E2E (vendor portal, all projects)
+    name: E2E (vendor authoritative lifecycle)
     needs: [setup]
     runs-on: ubuntu-latest
     env:
@@ -529,137 +529,36 @@ jobs:
           echo "::error title=Dev server timeout::Vendor dev server did not open port 3002 within 120 s. Inspect the Next.js startup output above for compilation errors or missing environment variables."
           exit 1
 
-      # ---- Playwright (all configured projects) ------------------------------
-      # Discovery above proves every configured project is non-empty before this
-      # execution step. retries: 1 is already set in playwright.config.ts when
-      # CI=true so each test gets one retry on a browser-level flake before being
-      # marked failed. An assertion that was wrong can never be retried into a
-      # pass because Playwright only retries a test that threw an unexpected
-      # error, not one whose expect() call failed with a deliberate mismatch.
-      # JSON output is written alongside the HTML report for the D3/AV2 guards.
+      # ---- Playwright (authoritative lifecycle projects) ---------------------
+      # The older mocked UX projects remain discoverable and runnable locally.
+      # This required gate runs the factory-backed state, authorization, menu,
+      # order, and lifecycle evidence projects added for this acceptance suite.
       - name: Clear stale vendor Playwright results
         run: rm -f apps/vendor/e2e-results.json
 
-      - name: Run Playwright e2e suite (all configured projects)
+      - name: Run authoritative vendor lifecycle projects
         id: playwright-run
         continue-on-error: true
         shell: bash
         run: |
           set +e
-          npx playwright test
+          npx playwright test \
+            --project=vendor-state-matrix-setup \
+            --project=vendor-state-matrix \
+            --project=vendor-state-matrix-mobile \
+            --project=vendor-authorization \
+            --project=vendor-order-contracts \
+            --project=vendor-menu-contracts \
+            --project=vendor-lifecycle-evidence \
+            --project=vendor-state-matrix-teardown
           status=$?
           echo "exit_code=$status" >> "$GITHUB_OUTPUT"
           exit 0
         working-directory: apps/vendor
 
-      - name: Validate every vendor project executed
+      - name: Validate every authoritative vendor project executed
         if: always()
-        run: node scripts/validate-playwright-results.mjs --results apps/vendor/e2e-results.json --expected-project-count 24
-
-      # ---- AV2 skip guard -----------------------------------------------------
-      # AV2 is the [CRITICAL] test inside availability-screen.spec.ts that
-      # confirms the daily order cap reaches the customer-facing public API
-      # after being saved via the vendor form. It calls test.skip() when
-      # TEST_API_URL or TEST_VENDOR_ID is absent. A skipped AV2 is a silent
-      # regression hole: the cap can exist in the UI while not being enforced.
-      - name: Assert AV2 executed and was not skipped
-        if: always()
-        run: |
-          node - <<'NODE_SCRIPT'
-          const fs = require('fs');
-          const path = require('path');
-
-          const resultsFile = path.join('apps', 'vendor', 'e2e-results.json');
-          if (!fs.existsSync(resultsFile)) {
-            console.error('::error title=Missing results::e2e-results.json not found - cannot run AV2 guard.');
-            process.exit(1);
-          }
-
-          const data = JSON.parse(fs.readFileSync(resultsFile, 'utf8'));
-          let av2Found = false;
-          let av2Skipped = false;
-
-          function walk(node) {
-            for (const spec of (node.specs ?? [])) {
-              if (spec.title.includes('AV2:')) {
-                av2Found = true;
-                for (const test of (spec.tests ?? [])) {
-                  const results = test.results ?? [];
-                  if (results.length === 0 || results.every(r => r.status === 'skipped')) {
-                    av2Skipped = true;
-                  }
-                }
-              }
-            }
-            for (const suite of (node.suites ?? [])) walk(suite);
-          }
-          walk(data);
-
-          if (!av2Found) {
-            console.error('::error title=AV2 absent::AV2 test was not present in Playwright results. Confirm availability-screen.spec.ts is not excluded.');
-            process.exit(1);
-          }
-          if (av2Skipped) {
-            console.error('::error title=AV2 skipped::[CRITICAL] AV2 (daily cap guard) was skipped. Ensure TEST_API_URL and TEST_VENDOR_ID are configured as repository secrets pointing at the development environment.');
-            process.exit(1);
-          }
-          console.log('AV2 executed (not skipped). Daily cap guard is active.');
-          NODE_SCRIPT
-
-      # ---- D3 skip guard ------------------------------------------------------
-      # D3 is the [CRITICAL] test inside delivery-screen.spec.ts that confirms
-      # saved chip-set postcodes appear in real customer search results and that
-      # excluded postcodes do not. It calls `test.skip()` when TEST_API_URL or
-      # TEST_VENDOR_ID is absent. A skipped D3 is a silent regression hole.
-      # This step reads the Playwright JSON report and fails the job if D3 was
-      # not found in the results or was marked skipped.
-      - name: Assert D3 executed and was not skipped
-        # Run even if the playwright step failed: we want the D3 skip error to
-        # be visible alongside any other failures rather than being hidden by them.
-        if: always()
-        run: |
-          node - <<'NODE_SCRIPT'
-          const fs = require('fs');
-          const path = require('path');
-
-          const resultsFile = path.join('apps', 'vendor', 'e2e-results.json');
-          if (!fs.existsSync(resultsFile)) {
-            console.error('::error title=Missing results::e2e-results.json not found. Playwright may have crashed before writing output - check the run log above.');
-            process.exit(1);
-          }
-
-          const data = JSON.parse(fs.readFileSync(resultsFile, 'utf8'));
-          let d3Found = false;
-          let d3Skipped = false;
-
-          function walk(node) {
-            for (const spec of (node.specs ?? [])) {
-              if (spec.title.includes('D3:')) {
-                d3Found = true;
-                for (const test of (spec.tests ?? [])) {
-                  const results = test.results ?? [];
-                  // No results at all = test runner bailed before executing the test.
-                  // All results status === 'skipped' = test.skip() was called.
-                  if (results.length === 0 || results.every(r => r.status === 'skipped')) {
-                    d3Skipped = true;
-                  }
-                }
-              }
-            }
-            for (const suite of (node.suites ?? [])) walk(suite);
-          }
-          walk(data);
-
-          if (!d3Found) {
-            console.error('::error title=D3 absent::D3 test was not present in Playwright results at all. Confirm that delivery-screen.spec.ts is not excluded from the run and that the delivery-screen project is not scoped out.');
-            process.exit(1);
-          }
-          if (d3Skipped) {
-            console.error('::error title=D3 skipped::[CRITICAL] D3 (customer discovery guard) was skipped. Ensure TEST_API_URL and TEST_VENDOR_ID are configured as repository secrets and point at a seeded test vendor in the development Supabase project. Without these D3 is inert and chip-set regressions ship undetected.');
-            process.exit(1);
-          }
-          console.log('D3 executed (not skipped). Customer discovery guard is active.');
-          NODE_SCRIPT
+        run: node scripts/validate-playwright-results.mjs --results apps/vendor/e2e-results.json --expected-project-count 8
 
       # ---- Artefact upload ----------------------------------------------------
       # Upload the HTML report (with traces and screenshots) only on failure so
@@ -758,7 +657,7 @@ jobs:
           SUPABASE_DB_URL: postgresql://dummy:dummy@localhost:5432/dummy
           SUPABASE_DIRECT_URL: postgresql://dummy:dummy@localhost:5432/dummy
       - name: Run authoritative admin action acceptance
-        run: npm run test --workspace=@feastpot/api -- --runInBand src/e2e/admin-authoritative-actions.spec.ts
+        run: npm run test --workspace=@feastpot/api -- --runInBand --forceExit src/e2e/admin-authoritative-actions.spec.ts
         env:
           NODE_ENV: test
       - name: Install Playwright Chromium

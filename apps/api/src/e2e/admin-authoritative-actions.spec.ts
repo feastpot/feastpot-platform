@@ -42,12 +42,19 @@ async function seedFailedQueueJob(queue: Queue, id: string): Promise<Job> {
   if (process.env.NODE_ENV !== 'test' || !id.startsWith('test-factory:admin-actions:')) {
     throw new Error('ADMIN_ACTIONS_QUEUE_SEED_FORBIDDEN');
   }
-  const job = await queue.add('authority_seam', { provenance: 'test-factory' }, { jobId: id });
+  await queue.pause(false);
+  const job = await queue.add(
+    'authority_seam',
+    { provenance: 'test-factory' },
+    { jobId: id, attempts: 1, removeOnFail: false },
+  );
   // Claim exactly the namespaced job in Redis, then use Bull's real failure
   // transition script. This avoids waiting for an external worker while still
   // exercising the actual queue state used by the admin API.
   const redis = queue.client;
-  const removed = await redis.lrem(queue.toKey('wait'), 0, String(job.id));
+  const removed =
+    (await redis.lrem(queue.toKey('paused'), 0, String(job.id))) +
+    (await redis.lrem(queue.toKey('wait'), 0, String(job.id)));
   if (removed !== 1) {
     throw new Error('ADMIN_ACTIONS_QUEUE_SEED_NOT_ISOLATED');
   }
@@ -454,7 +461,11 @@ describeWhenProvisioned('admin authoritative actions (factory JWTs and persisted
     expect(disputeVendor.vendorId).toBeDefined();
     const order = await factory.prisma.order.findUniqueOrThrow({
       where: { id: disputeVendor.orderId! },
-      select: { customerId: true },
+      select: { customerId: true, vendorId: true },
+    });
+    await factory.prisma.order.update({
+      where: { id: disputeVendor.orderId! },
+      data: { vendorId: disputeVendor.vendorId! },
     });
     const seeded = await factory.prisma.dispute.create({
       data: {
@@ -536,6 +547,7 @@ describeWhenProvisioned('admin authoritative actions (factory JWTs and persisted
           periodEnd: futureDate(7),
           orderCount: 0,
           holdReason: `authority-appeal:${seeded.id}`,
+          createdAt: futureDate(1),
         },
       });
       await factory.prisma.dispute.update({
@@ -569,6 +581,10 @@ describeWhenProvisioned('admin authoritative actions (factory JWTs and persisted
     } finally {
       await factory.prisma.disputeAppeal.deleteMany({ where: { disputeId: seeded.id } });
       await factory.prisma.dispute.deleteMany({ where: { id: seeded.id } });
+      await factory.prisma.order.update({
+        where: { id: disputeVendor.orderId! },
+        data: { vendorId: order.vendorId },
+      });
     }
   }, 60_000);
 
@@ -627,19 +643,19 @@ describeWhenProvisioned('admin authoritative actions (factory JWTs and persisted
     let discardJob: Job | undefined;
     try {
       retryJob = await seedFailedQueueJob(queue, `${stem}:retry`);
-      await queue.pause(true);
+      await queue.pause(false);
       await request(app.getHttpServer())
         .post(
           `/v1/admin/dead-letters/${NOTIFICATIONS_QUEUE}/${encodeURIComponent(String(retryJob.id))}/retry`,
         )
         .set(auth(aal2Admin.accessToken!))
         .expect(200);
-      expect(await retryJob.getState()).toBe('waiting');
+      expect(await retryJob.getState()).toBe('paused');
       await retryJob.remove();
 
-      await queue.resume(true);
+      await queue.resume(false);
       discardJob = await seedFailedQueueJob(queue, `${stem}:discard`);
-      await queue.pause(true);
+      await queue.pause(false);
       await request(app.getHttpServer())
         .post(
           `/v1/admin/dead-letters/${NOTIFICATIONS_QUEUE}/${encodeURIComponent(String(discardJob.id))}/discard`,
