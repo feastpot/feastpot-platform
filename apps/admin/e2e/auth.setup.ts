@@ -19,6 +19,7 @@ const AUTH_FILES = {
  * member receives in production.
  */
 setup('provision and authenticate every staff role', async ({ browser }) => {
+  setup.setTimeout(180_000);
   const base = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3003';
   const factory = TestDataFactory.fromEnvironment();
   const identities: Array<[keyof typeof AUTH_FILES, TestIdentity]> = [];

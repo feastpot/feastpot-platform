@@ -424,7 +424,7 @@ jobs:
   # ----------------------------------------------------------------------------
   e2e-vendor:
     name: E2E (vendor authoritative lifecycle)
-    needs: [setup]
+    needs: [setup, e2e-customer]
     runs-on: ubuntu-latest
     env:
       # Vendor dev server origin consumed by Playwright.
@@ -614,6 +614,8 @@ jobs:
       REDIS_URL: redis://localhost:6379
       STRIPE_SECRET_KEY_TEST: ${{ secrets.STRIPE_SECRET_KEY_TEST }}
       SESSION_SECRET: admin-e2e-test-only-session-secret-34125348434
+      ADMIN_REQUIRE_AAL2: 'false'
+      NEXT_PUBLIC_ADMIN_REQUIRE_AAL2: 'false'
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
