@@ -40,6 +40,7 @@ import { PageHeader } from '@/components/layout/page-header';
 import { EmptyState } from '@/components/ui/empty-state';
 import { StatCard } from '@/components/ui/stat-card';
 import { useAdminDashboard } from '@/hooks/use-admin-dashboard';
+import { useAdminWorkQueue } from '@/hooks/use-admin-work-queue';
 import { useCoverageWaitlist } from '@/hooks/use-coverage-waitlist';
 import { useApi } from '@/hooks/use-api';
 import { formatPence } from '@/lib/format';
@@ -109,10 +110,50 @@ function CateringUrgencyStrip() {
 
 // ── Main dashboard ─────────────────────────────────────────────────────────
 
-export function DashboardClient() {
+export function sumVisibleWorkQueueCounts(
+  counts: Record<string, number>,
+  role: 'admin' | 'support' | 'finance' | 'compliance',
+): number {
+  const keysByRole = {
+    admin: [
+      'catering',
+      'applications',
+      'disputes',
+      'chargebacks',
+      'payouts',
+      'compliance',
+      'jobs',
+      'menuModeration',
+      'terms',
+    ],
+    support: ['catering', 'applications', 'disputes'],
+    finance: ['catering', 'chargebacks', 'payouts'],
+    compliance: ['applications', 'compliance', 'terms'],
+  } as const;
+  return keysByRole[role].reduce((total, key) => total + (counts[key] ?? 0), 0);
+}
+
+export function DashboardClient({
+  role = 'admin',
+}: {
+  role?: 'admin' | 'support' | 'finance' | 'compliance';
+}) {
   const { data, isLoading, error } = useAdminDashboard();
+  const { data: workQueue, isLoading: queueLoading, error: queueError } = useAdminWorkQueue();
   const { data: coverage, isLoading: coverageLoading } = useCoverageWaitlist();
   const topWaitlistPostcode = coverage?.topPostcodes?.[0];
+  const metricsLoaded = !isLoading && !coverageLoading && data !== undefined;
+  const allMetricsZero =
+    metricsLoaded &&
+    [
+      data.gmvTodayPence,
+      data.gmvWeekPence,
+      data.gmvMonthPence,
+      data.ordersToday,
+      data.activeVendors,
+      data.avgBasketPence,
+      coverage?.total ?? 0,
+    ].every((value) => value === 0);
 
   return (
     <>
@@ -120,6 +161,154 @@ export function DashboardClient() {
 
       <CateringUrgencyStrip />
 
+      <Card className="mb-6 border-primary/20">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 border-b border-border/70 pb-3">
+          <div>
+            <CardTitle className="text-base">Needs attention</CardTitle>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {workQueue?.observedAt
+                ? `Updated ${new Date(workQueue.observedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                : 'Prioritized operational work'}
+            </p>
+          </div>
+          {workQueue && sumVisibleWorkQueueCounts(workQueue.counts, role) > 0 ? (
+            <span className="rounded-full bg-destructive/10 px-2 py-1 text-xs font-semibold text-destructive">
+              {sumVisibleWorkQueueCounts(workQueue.counts, role)} open
+            </span>
+          ) : null}
+        </CardHeader>
+        <CardContent className="p-0">
+          {queueLoading && (
+            <div className="space-y-3 p-4">
+              <div className="h-10 animate-pulse rounded bg-muted" />
+              <div className="h-10 animate-pulse rounded bg-muted" />
+            </div>
+          )}
+          {queueError && (
+            <p className="p-4 text-sm text-destructive">
+              Unable to load the work queue. Refresh to retry.
+            </p>
+          )}
+          {!queueLoading && !queueError && !workQueue?.items?.length && (
+            <p className="p-8 text-center text-sm text-muted-foreground">
+              Nothing needs your attention right now.
+            </p>
+          )}
+          {!queueLoading && workQueue?.items?.length ? (
+            <ul className="divide-y divide-border/70">
+              {workQueue.items.map((item, index) => (
+                <li key={item.id}>
+                  {isSafeInternalHref(item.href) ? (
+                    <Link
+                      href={item.href}
+                      className="flex items-center gap-4 px-4 py-3 transition-colors hover:bg-muted/60"
+                    >
+                      <span
+                        className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs font-bold ${item.severity === 'critical' ? 'bg-destructive text-destructive-foreground' : item.severity === 'high' ? 'bg-amber-100 text-amber-800' : 'bg-muted text-muted-foreground'}`}
+                      >
+                        {index + 1}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium">{item.title}</span>
+                        <span className="block truncate text-xs text-muted-foreground">
+                          {item.detail || item.type}
+                        </span>
+                      </span>
+                      <span className="hidden text-right text-xs text-muted-foreground sm:block">
+                        {item.ageDays != null
+                          ? `${item.ageDays}d waiting`
+                          : item.deadline
+                            ? `Due ${new Date(item.deadline).toLocaleDateString()}`
+                            : ''}
+                      </span>
+                      <span className="text-xs font-semibold text-primary">Open</span>
+                    </Link>
+                  ) : (
+                    <div className="flex items-center gap-4 px-4 py-3">
+                      <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-muted text-xs font-bold">
+                        {index + 1}
+                      </span>
+                      <span className="text-sm">{item.title}</span>
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </CardContent>
+      </Card>
+
+      <div className="mb-2 flex items-center justify-between">
+        <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+          Today at a glance
+        </h2>
+        {allMetricsZero && (
+          <span className="text-xs text-muted-foreground">No activity recorded yet</span>
+        )}
+      </div>
+      {allMetricsZero ? (
+        <Card className="border-dashed">
+          <CardContent className="py-3 text-sm text-muted-foreground">
+            No activity recorded yet. Trends will appear as orders and vendors become active.
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3 lg:grid-cols-7">
+          <StatCard
+            icon={PoundSterling}
+            tone="brand"
+            label="GMV today"
+            value={isLoading ? '…' : formatPence(data?.gmvTodayPence)}
+            caption="vs yesterday"
+          />
+          <StatCard
+            icon={CalendarRange}
+            tone="brand"
+            label="GMV this week"
+            value={isLoading ? '…' : formatPence(data?.gmvWeekPence)}
+            caption="vs last week"
+          />
+          <StatCard
+            icon={Banknote}
+            tone="brand"
+            label="GMV this month"
+            value={isLoading ? '…' : formatPence(data?.gmvMonthPence)}
+            caption="vs last month"
+          />
+          <StatCard
+            icon={Receipt}
+            tone="amber"
+            label="Orders today"
+            value={isLoading ? '…' : (data?.ordersToday?.toString() ?? '-')}
+            caption="vs yesterday"
+          />
+          <StatCard
+            icon={Store}
+            tone="teal"
+            label="Active vendors"
+            value={isLoading ? '…' : (data?.activeVendors?.toString() ?? '-')}
+            caption="vs last month"
+          />
+          <StatCard
+            icon={TrendingUp}
+            tone="teal"
+            label="Avg basket (30 d)"
+            value={isLoading ? '…' : formatPence(data?.avgBasketPence)}
+            caption="vs last 30 days"
+          />
+          <StatCard
+            icon={MapPin}
+            tone="blue"
+            label="Coverage waitlist"
+            value={coverageLoading ? '…' : (coverage?.total?.toString() ?? '-')}
+            caption={
+              topWaitlistPostcode
+                ? `Top: ${topWaitlistPostcode.postcode} (${topWaitlistPostcode.count})`
+                : 'Uncovered-postcode sign-ups'
+            }
+          />
+        </div>
+      )}
       {error && (
         <Card className="mb-4 border-destructive/40 bg-destructive/5">
           <CardContent className="py-3 text-sm text-destructive">
@@ -127,62 +316,6 @@ export function DashboardClient() {
           </CardContent>
         </Card>
       )}
-
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3 lg:grid-cols-7">
-        <StatCard
-          icon={PoundSterling}
-          tone="brand"
-          label="GMV today"
-          value={isLoading ? '…' : formatPence(data?.gmvTodayPence)}
-          caption="vs yesterday"
-        />
-        <StatCard
-          icon={CalendarRange}
-          tone="brand"
-          label="GMV this week"
-          value={isLoading ? '…' : formatPence(data?.gmvWeekPence)}
-          caption="vs last week"
-        />
-        <StatCard
-          icon={Banknote}
-          tone="brand"
-          label="GMV this month"
-          value={isLoading ? '…' : formatPence(data?.gmvMonthPence)}
-          caption="vs last month"
-        />
-        <StatCard
-          icon={Receipt}
-          tone="amber"
-          label="Orders today"
-          value={isLoading ? '…' : (data?.ordersToday?.toString() ?? '-')}
-          caption="vs yesterday"
-        />
-        <StatCard
-          icon={Store}
-          tone="teal"
-          label="Active vendors"
-          value={isLoading ? '…' : (data?.activeVendors?.toString() ?? '-')}
-          caption="vs last month"
-        />
-        <StatCard
-          icon={TrendingUp}
-          tone="teal"
-          label="Avg basket (30 d)"
-          value={isLoading ? '…' : formatPence(data?.avgBasketPence)}
-          caption="vs last 30 days"
-        />
-        <StatCard
-          icon={MapPin}
-          tone="blue"
-          label="Coverage waitlist"
-          value={coverageLoading ? '…' : (coverage?.total?.toString() ?? '-')}
-          caption={
-            topWaitlistPostcode
-              ? `Top: ${topWaitlistPostcode.postcode} (${topWaitlistPostcode.count})`
-              : 'Uncovered-postcode sign-ups'
-          }
-        />
-      </div>
 
       <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
@@ -317,6 +450,10 @@ export function DashboardClient() {
       <SearchTrendsCard />
     </>
   );
+}
+
+function isSafeInternalHref(href: string): boolean {
+  return href.startsWith('/') && !href.startsWith('//');
 }
 
 /** FR-ADM-002 traffic-light: green <2 %, amber 2–5 %, red >5 % dispute rate. */

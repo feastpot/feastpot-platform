@@ -208,6 +208,24 @@ export class AdminController {
     return this.admin.getDashboard();
   }
 
+  @Get('work-queue')
+  @Roles(UserRole.admin, UserRole.finance, UserRole.support, UserRole.compliance)
+  @ApiOperation({
+    summary: 'Role-filtered, ranked operational work requiring an admin action',
+  })
+  async workQueue(@CurrentUser() user: AuthUser) {
+    return this.admin.getWorkQueue(user.role, await this.queueSnapshots.snapshots());
+  }
+
+  @Get('command-search')
+  @Roles(UserRole.admin, UserRole.finance, UserRole.support, UserRole.compliance)
+  @ApiOperation({
+    summary: 'Bounded command-palette entity search, filtered for the current admin role',
+  })
+  commandSearch(@Query('q') q: string | undefined, @CurrentUser() user: AuthUser) {
+    return this.admin.commandSearch(q, user.role);
+  }
+
   @Get('coverage-interest/count')
   @Roles(UserRole.admin, UserRole.support)
   @ApiOperation({

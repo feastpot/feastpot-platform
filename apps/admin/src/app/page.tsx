@@ -9,7 +9,7 @@ export default async function DashboardPage() {
   const user = await requireStaff('/');
   return (
     <StaffShell user={user}>
-      <DashboardClient />
+      <DashboardClient role={user.role} />
     </StaffShell>
   );
 }

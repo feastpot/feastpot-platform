@@ -41,14 +41,21 @@ The migration ran inside a transaction that rolled back. Objects are NOT in the 
 
 Objects were created outside Prisma (direct SQL, manual task). Migration was attempted later and failed because types/tables already exist.
 
-1. Do NOT roll back - re-running the SQL would still fail.
-2. Mark as applied so Prisma skips it:
+1. Audit the **entire migration**, not only the first object named by PostgreSQL. Verify every column, default, index, constraint, and data transformation. Existing objects do not prove that later `UPDATE`/`DELETE` statements or final `ALTER` defaults ran.
+2. If schema objects exist but data/default semantics are missing, apply only those missing semantics transactionally. Make backfills idempotent before rerunning them.
+3. Do NOT roll back - re-running the original non-idempotent SQL would still fail.
+4. Mark as applied so Prisma skips it:
    ```sql
    UPDATE _prisma_migrations
    SET finished_at = now(), applied_steps_count = 1, rolled_back_at = NULL
    WHERE migration_name = '<name>' AND finished_at IS NULL;
    ```
-3. Push an empty commit (`git commit --allow-empty`) to trigger CI.
+5. Run `migrate deploy` again. A database created through direct schema application can expose several consecutive untracked migrations; reconcile each independently rather than assuming the first repair fixes all history.
+6. Push an empty commit (`git commit --allow-empty`) to trigger CI.
+
+**Why:** Marking a migration applied based only on its first pre-existing column can silently skip later backfills or leave defaults with the wrong final value.
+
+**How to apply:** Use this expanded audit whenever P3018 reports “already exists” and `_prisma_migrations.applied_steps_count` is zero, in development or production.
 
 ## Why `prisma migrate resolve` often fails here
 
